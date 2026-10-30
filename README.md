@@ -7,7 +7,7 @@ Bozza giocabile di FPS in prima persona. Modelli, audio ed effetti procedurali; 
 Gli ES Modules richiedono HTTP (non `file://`):
 
 ```powershell
-cd C:\Users\danie\Desktop\prying-eyes
+cd C:\Users\danie\Desktop\pryingEyes
 python -m http.server 8000
 # apri http://localhost:8000
 ```
