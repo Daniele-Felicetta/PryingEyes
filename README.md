@@ -82,3 +82,11 @@ Poi clicca **ENTRA NELLA SIMULAZIONE** (il click serve per Pointer Lock + AudioC
   - `ui.js` — HUD, banner, toast, minimap, FPS
   - `input.js` — tastiera/mouse, pointer lock, menu
   - `main.js` — bootstrap + game loop
+
+## Versione Unreal Engine 5 (progetto `PryingEyes 5.8`, mappa `/Game/Maps/HotelPryingEyes`)
+
+Stessa hall dell'hotel ricostruita in UE5 e guidata via MCP (`http://127.0.0.1:8001/mcp`, script in `hotel_build/`):
+- guscio completo: pavimento, muri, colonne, soppalco con ringhiera, scalone a 12 gradini, reception, ascensori, lampadari, vetrate est
+- **gabbia di vetro per coccodrilli nell'angolo NW**: vetro traslucido reale, vasca, isolotto, lampada riscaldante, transenne con corda, 2 coccodrilli modellati da primitive
+- Lumen GI + hardware ray tracing (attivi nel progetto), volumetric fog, PostProcess cinematografico (bloom/vignetta/grana), lama di luna dal lucernario, RectLight alle vetrate, PlayerStart all'ingresso — premi Play per camminarci (First Person template di default)
+- verificata con screenshot in-viewport durante la build
