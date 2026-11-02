@@ -1,0 +1,4 @@
+# BP_Impact — flash d'impatto (sfera emissiva MI_WarmBulb r=12cm, vita 0.12s poi autodistruzione).
+# Spawnato dal Director in TryFire a ogni hit su ImpactPoint (muri e nemici).
+# Componenti: Spark (StaticMeshComponent, Sphere, MI_WarmBulb, scala 0.12). Variabili: Life (float, default 0.12).
+# Grafo: gameplay/impact_EventGraph.lisp

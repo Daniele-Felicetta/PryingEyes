@@ -89,7 +89,7 @@ Stessa hall dell'hotel ricostruita in UE5 e guidata via MCP (`http://127.0.0.1:8
 - guscio completo: pavimento, muri, colonne, soppalco con ringhiera, scalone a 12 gradini, reception, ascensori, lampadari, vetrate est
 - **gabbia di vetro per coccodrilli nell'angolo NW**: vetro traslucido reale, vasca, isolotto, lampada riscaldante, transenne con corda, 2 coccodrilli modellati da primitive
 - Lumen GI + hardware ray tracing (attivi nel progetto), volumetric fog, PostProcess cinematografico (bloom/vignetta/grana), lama di luna dal lucernario, RectLight alle vetrate, PlayerStart all'ingresso — premi Play per camminarci (First Person template di default)
-- verificata con screenshot in-viewport durante la build
+- verificata a screenshot in editor: pavimento a scacchiera in marmo (`M_MarbleFloor` procedurale worldspace), carta da parati a strisce (`M_Wallpaper`), arma e WASP con sagoma leggibile
 
 ## Gameplay UE5 (FPS giocabile, `hotel_build/gameplay/` + `phaseG1.ps1`)
 
@@ -99,5 +99,6 @@ Loop completo verificato in PIE con log (`LogBlueprintUserMessages`):
 - **BP_Gun**: viewmodel (fusto/canna/mirino/punto rosso/fiammata) che segue la camera con kick di rinculo; trace parte oltre l'arma
 - **WBP_HotelHUD**: 4 valori + label + mirino, aggiornati ogni tick dal Director
 - **BP_CrocAnim** (2 istanze sui coccodrilli A/B): oscillazione mascelle sinusoidale sfasata
+- **BP_Impact**: flash emissivo 0.12s su ogni punto d'impatto (muri e nemici)
 - bilanciamento/test: `TestAutoFire` sul Director per smoke test senza input; nemici con sweep disattivato (niente incastri nei muri)
 - verificato: spawn, chase, attacco, fuoco, kill, punteggio, respawn, avanzamento ONDATA 1→2, nessun errore runtime; sorgenti DSL versionati in `hotel_build/gameplay/*.lisp`, replay con `phaseG1.ps1`

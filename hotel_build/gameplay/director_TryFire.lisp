@@ -14,11 +14,16 @@
       (:then
         (if _return_value
           (bind (bh bo tm ds lc ip no inn pm ha hc hbn bn hi ei fi ts te) (Collision|BreakHitResult :Hit _outhit))
-          (bind e (Utilities|Casting|CastToBP_Enemy :Object ha)
-            (:then
-              (bind hp (Class|BPEnemy|GetHP :self e))
-              (Game|Damage|ApplyDamage :DamagedActor ha :BaseDamage 34.0)
-              (if (<= hp 34.0)
-                (Variables|Default|SetGameScore (+ (Variables|Default|GetGameScore) (Class|BPEnemy|GetScoreValue :self e)))
-                (Variables|Default|SetKills (+ (Variables|Default|GetKills) 1))
-                (Development|PrintString :InString "UCCISO" :Duration 2.0)))))))))
+          (Variables|Default|SetHitTimer 0.25)
+          (Game|SpawnActorfromClass :Class "/Game/Hotel/Gameplay/BP_Impact.BP_Impact_C" :SpawnTransform (Math|Transform|MakeTransform :Location ip) :CollisionHandlingOverride "AlwaysSpawn")
+          (Utilities|IsValid ha
+            (:"Is Valid"
+              (bind e (Utilities|Casting|CastToBP_Enemy :Object ha)
+                (:then
+                  (bind hp (Class|BPEnemy|GetHP :self e))
+                  (Game|Damage|ApplyDamage :DamagedActor ha :BaseDamage 34.0)
+                  (if (<= hp 34.0)
+                    (Variables|Default|SetGameScore (+ (Variables|Default|GetGameScore) (Class|BPEnemy|GetScoreValue :self e)))
+                    (Variables|Default|SetKills (+ (Variables|Default|GetKills) 1))
+                    (Development|PrintString :InString "UCCISO" :Duration 2.0)))))
+            (:"Is Not Valid")))))))

@@ -3,7 +3,8 @@
   (if (> (Utilities|Array|Length arr) 0)
     (bind d (Utilities|Casting|CastToBP_GameDirector :Object (Utilities|Array|Get(acopy) arr 0))
       (:then
-        (Widget|SetText(Text) :self (Variables|WBP_HotelHUD|GetTxtHP) :InText (Utilities|Text|ToText(Float) :Value (Class|BPGameDirector|GetPlayerHP :self d)))
+        (Widget|SetText(Text) :self (Variables|WBP_HotelHUD|GetTxtHP) :InText (Utilities|Text|ToText(Float) :Value (Class|BPGameDirector|GetPlayerHP :self d) :MinimumFractionalDigits 0 :MaximumFractionalDigits 0))
+        (Widget|SetText(Text) :self (Variables|WBP_HotelHUD|GetTxtShield) :InText (Utilities|Text|ToText(Float) :Value (Class|BPGameDirector|GetShield :self d) :MinimumFractionalDigits 0 :MaximumFractionalDigits 0))
         (Widget|SetText(Text) :self (Variables|WBP_HotelHUD|GetTxtAmmo) :InText (Utilities|Text|ToText(Integer) :Value (Class|BPGameDirector|GetAmmo :self d)))
         (Widget|SetText(Text) :self (Variables|WBP_HotelHUD|GetTxtScore) :InText (Utilities|Text|ToText(Integer) :Value (Class|BPGameDirector|GetGameScore :self d)))
         (Widget|SetText(Text) :self (Variables|WBP_HotelHUD|GetTxtWave) :InText (Utilities|Text|ToText(Integer) :Value (Class|BPGameDirector|GetWave :self d)))))))
