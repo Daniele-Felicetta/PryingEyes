@@ -100,5 +100,5 @@ Loop completo verificato in PIE con log (`LogBlueprintUserMessages`):
 - **WBP_HotelHUD**: 4 valori + label + mirino, aggiornati ogni tick dal Director
 - **BP_CrocAnim** (2 istanze sui coccodrilli A/B): oscillazione mascelle sinusoidale sfasata
 - **BP_Impact**: flash emissivo 0.12s su ogni punto d'impatto (muri e nemici)
-- bilanciamento/test: `TestAutoFire` sul Director per smoke test senza input; nemici con sweep disattivato (niente incastri nei muri)
+- bilanciamento/test: `TestAutoFire` + `TestAutoWalk` + `TestYawRate` sul Director per playtest integrale senza input (fuoco/ricarica/cammino/rotazione da dentro il gioco, log `POS`/`ONDATA`/`UCCISO`); nemici con sweep disattivato (niente incastri nei muri)
 - verificato: spawn, chase, attacco, fuoco, kill, punteggio, respawn, avanzamento ONDATA 1→2, nessun errore runtime; sorgenti DSL versionati in `hotel_build/gameplay/*.lisp`, replay con `phaseG1.ps1`
