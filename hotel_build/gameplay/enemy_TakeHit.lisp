@@ -1,4 +1,8 @@
 (fn TakeHit (Damage)
   (Variables|Default|SetHP (- (Variables|Default|GetHP) Damage))
+  (if (and (not (Variables|Default|GetEnraged)) (< (Variables|Default|GetHP) (* (Variables|Default|GetMaxHP) 0.5)))
+    (Variables|Default|SetEnraged true)
+    (Variables|Default|SetSpeed (* (Variables|Default|GetSpeed) 1.35))
+    (Development|PrintString :InString "NEMICO INFURIATO" :Duration 2.0))
   (if (<= (Variables|Default|GetHP) 0.0)
     (Actor|DestroyActor :self self)))

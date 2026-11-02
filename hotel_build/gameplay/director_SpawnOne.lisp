@@ -10,6 +10,7 @@
   (bind e (Utilities|Casting|CastToBP_Enemy :Object spawned)
     (:then
       (Class|BPEnemy|SetHP :self e :HP (+ 60.0 (* 20.0 (Variables|Default|GetWave))))
+      (Class|BPEnemy|SetMaxHP :self e :MaxHP (Class|BPEnemy|GetHP :self e))
       (Class|BPEnemy|SetSpeed :self e :Speed (select isFly 380.0 240.0))
       (Class|BPEnemy|SetAttackDamage :self e :AttackDamage (Variables|Default|GetEnemyDamage))
       (Class|BPEnemy|SetScoreValue :self e :ScoreValue (select isFly 100 150))

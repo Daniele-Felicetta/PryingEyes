@@ -1,4 +1,6 @@
-# Fase G1 — gameplay Hotel: replay dei grafi DSL + smoke test PIE.
+# Fase G1 — replay grafi DSL + smoke test PIE (NOTA: ricrea solo i grafi;
+# componenti mesh/materiali, variabili, istanze e default sono setup una-tantum,
+# vedi hotel_build/gameplay/actors_setup.txt + impact_setup.txt).
 # Eseguire con l'editor aperto sul progetto PryingEyes 5.8.
 # Ricostruisce i Blueprint gameplay dai sorgenti versionati in hotel_build/gameplay/,
 # ricompila, piazza le istanze se mancano e verifica spawn/kill in PIE.
@@ -35,6 +37,8 @@ WriteGraph $bpD "$D:StartWave" "director_StartWave.lisp"
 WriteGraph $bpD "$D:SpawnOne" "director_SpawnOne.lisp"
 WriteGraph $bpD "$D:TryFire" "director_TryFire.lisp"
 WriteGraph $bpD "$D:Reload" "director_Reload.lisp"
+WriteGraph $bpD "$D:TickMove" "director_TickMove.lisp"
+WriteGraph $bpD "$D:TickGun" "director_TickGun.lisp"
 WriteGraph $bpD "$D:EventGraph" "director_EventGraph.lisp"
 WriteGraph $bpC "$C:EventGraph" "croc_EventGraph.lisp"
 WriteGraph $wbp "$W:EventGraph" "hud_EventGraph.lisp"

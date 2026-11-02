@@ -94,8 +94,8 @@ Stessa hall dell'hotel ricostruita in UE5 e guidata via MCP (`http://127.0.0.1:8
 ## Gameplay UE5 (FPS giocabile, `hotel_build/gameplay/` + `phaseG1.ps1`)
 
 Loop completo verificato in PIE con log (`LogBlueprintUserMessages`):
-- **BP_GameDirector** (istanza `GameDirector` nel livello): ondate crescenti (3+2×ondata nemici), spawn casuale da 3 punti, HP giocatore 100, munizioni 30/120 con ricarica (LMB fuoco, R ricarica), respawn al PlayerStart con 2s di protezione, punteggio/uccisioni, HUD UMG (HP/munizioni/punti/ondata + mirino), banner `ONDATA N` / `UCCISO` / `SEI MORTO - RESPAWN`
-- **BP_Enemy** (WASP volante / RAVAGER corazzato): inseguimento steering, attacco melee, `TakeHit` + punteggio (100/150); WASP con rotori animati + bob, RAVAGER con spallacci e occhi rossi (parti visibili per tipo)
+- **BP_GameDirector**: ondate, spawn, HP/scudo rigenerativo, munizioni 30/120 (LMB fuoco, R ricarica), respawn protetto, punteggio/uccisioni, HUD (HP/scudo/munizioni/riserva/punti/ondata/mirino/hitmarker), banner; movimento: sprint Shift, lean Q/E, crouch C, slide sprint+C, head-bob e kick sull'arma; logica movimento in TickMove, arma in TickGun
+- **BP_Enemy**: WASP volante (rotori animati + bob) / RAVAGER corazzato (spallacci, occhi rossi, enrage <50% HP con +35% velocità), inseguimento, attacco melee, `TakeHit` + punteggio (100/150)
 - **BP_Gun**: viewmodel (fusto/canna/mirino/punto rosso/fiammata) che segue la camera con kick di rinculo; trace parte oltre l'arma
 - **WBP_HotelHUD**: 4 valori + label + mirino, aggiornati ogni tick dal Director
 - **BP_CrocAnim** (2 istanze sui coccodrilli A/B): oscillazione mascelle sinusoidale sfasata
