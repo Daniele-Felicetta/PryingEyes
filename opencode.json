@@ -5,6 +5,10 @@
       "type": "remote",
       "url": "http://127.0.0.1:8001/mcp",
       "enabled": true
+    },
+    "hotel-desk": {
+      "type": "local",
+      "command": ["python", "hotel_build/desk_mcp.py"]
     }
   }
 }
