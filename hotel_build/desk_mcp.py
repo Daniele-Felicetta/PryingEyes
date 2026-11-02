@@ -126,24 +126,28 @@ def tool_fetch_texture(name, url):
     return entry
 
 
-def tool_focus_window(title):
+def tool_focus_window(title, maximize=False):
     import subprocess
+    verb = "Write-Output 'FOCUSED: NONE'"
     ps = ("Add-Type -AssemblyName UIAutomationClient; "
           "$ws=[System.Windows.Automation.AutomationElement]::RootElement.FindAll("
           "[System.Windows.Automation.TreeScope]::Children,"
           "[System.Windows.Automation.Condition]::TrueCondition); "
           "foreach($w in $ws){try{$t=$w.Current.Name; if($t -like '*%s*'){"
           "$h=$w.Current.NativeWindowHandle; "
-          "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")]public static extern bool SetForegroundWindow(IntPtr h);' -Name W -Namespace X; "
-          "[X.W]::SetForegroundWindow($h); Write-Output \"FOCUSED: $t\"; exit 0}}catch{}}; "
+          "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")]public static extern bool ShowWindow(IntPtr h, int n);[DllImport(\"user32.dll\")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport(\"user32.dll\")]public static extern bool IsIconic(IntPtr h);' -Name W2 -Namespace X2; "
+          "if ([X2.W2]::IsIconic($h)) { [X2.W2]::ShowWindow($h, 9) | Out-Null }; "
+          "Start-Sleep -Milliseconds 300; [X2.W2]::SetForegroundWindow($h) | Out-Null; "
+          "Write-Output \"FOCUSED: $t\"; exit 0}}catch{}}; "
           "Write-Output 'NOT-FOUND'; exit 1" % title.replace("'", ""))
     r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
                        capture_output=True, text=True, timeout=30)
-    out = (r.stdout or "") + (r.stderr or "")
-    if "FOCUSED:" not in out:
-        raise RuntimeError("finestra non trovata: %s" % title)
-    time.sleep(0.5)
-    return out.strip().splitlines()[-1]
+    out = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+    hits = [l for l in out if l.startswith("FOCUSED:") and "NONE" not in l]
+    if not hits:
+        raise RuntimeError("finestra non trovata o non attivata: %s" % title)
+    time.sleep(0.8)
+    return {"focused": hits[0]})
 
 
 def tool_key_hold(key, seconds):
