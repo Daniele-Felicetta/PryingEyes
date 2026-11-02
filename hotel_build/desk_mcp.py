@@ -227,7 +227,7 @@ def tool_post_key(title, key, down=True):
           "[System.Windows.Automation.Condition]::TrueCondition); "
           "foreach($w in $ws){try{$t=$w.Current.Name; if($t -like '*%s*'){"
           "$h=$w.Current.NativeWindowHandle; "
-          "$r=[X.PW]::PostMessage($h,%d,%d,0); Write-Output \"POST:$r:$t\"; exit 0}}catch{}}; "
+          "$r=[X.PW]::PostMessage($h,%d,%d,0); Write-Output \"POST:${r}:${t}\"; exit 0}}catch{}}; "
           "Write-Output 'NOT-FOUND'; exit 1" % (title.replace("'", ""), msg, vk))
     r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
                        capture_output=True, text=True, timeout=30)
