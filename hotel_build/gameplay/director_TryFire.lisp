@@ -2,10 +2,14 @@
   (if (and (not (Variables|Default|GetGameOver)) (and (> (Variables|Default|GetAmmo) 0) (<= (Variables|Default|GetFireTimer) 0.0)))
     (Variables|Default|SetAmmo (- (Variables|Default|GetAmmo) 1))
     (Variables|Default|SetFireTimer 0.13)
+    (Variables|Default|SetFlashTimer 0.06)
+    (Variables|Default|SetKickPitch (+ (Variables|Default|GetKickPitch) 2.0))
     (bind cam (Game|GetPlayerCameraManager :PlayerIndex 0))
-    (bind start (Camera|GetCameraLocation :self cam))
-    (bind fwd (Math|Vector|GetForwardVector :InRot (Camera|GetCameraRotation :self cam)))
-    (bind end (+ start (Utilities|Operators|Multiply :A fwd :B 6000.0)))
+    (bind crot2 (Camera|GetCameraRotation :self cam))
+    (bind start0 (Camera|GetCameraLocation :self cam))
+    (bind fwd (Math|Vector|GetForwardVector :InRot crot2))
+    (bind start (Math|Vector|MakeVector :X (+ (.x start0) (* (.x fwd) 60.0)) :Y (+ (.y start0) (* (.y fwd) 60.0)) :Z (+ (.z start0) (* (.z fwd) 60.0))))
+    (bind end (+ start0 (Utilities|Operators|Multiply :A fwd :B 6000.0)))
     (Collision|LineTraceByChannel :Start start :End end :DrawDebugType "ForOneFrame"
       (:then
         (if _return_value

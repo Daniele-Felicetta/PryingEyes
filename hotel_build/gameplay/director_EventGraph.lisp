@@ -12,9 +12,13 @@
   (Variables|Default|SetSpawnTimer 0.0)
   (Variables|Default|SetFireTimer 0.0)
   (Variables|Default|SetRespawnTimer 2.0)
+  (Variables|Default|SetKickPitch 0.0)
+  (Variables|Default|SetFlashTimer 0.0)
   (Variables|Default|SetGameOver false)
   (bind hud (UserInterface|CreateWidget :Class "/Game/Hotel/UI/WBP_HotelHUD.WBP_HotelHUD_C" :OwningPlayer (Game|GetPlayerController :PlayerIndex 0)))
   (UserInterface|Viewport|AddtoViewport :self hud :ZOrder 10)
+  (bind g (Game|SpawnActorfromClass :Class "/Game/Hotel/Gameplay/BP_Gun.BP_Gun_C" :SpawnTransform (Math|Transform|MakeTransform :Location (Math|Vector|MakeVector :X 0.0 :Y 0.0 :Z 300.0)) :CollisionHandlingOverride "AlwaysSpawn"))
+  (Variables|Default|SetGun g)
   (CallFunction|StartWave))
 
 (event EventTick (DeltaSeconds)
@@ -35,7 +39,27 @@
     (CallFunction|SpawnOne)
     (else
       (if (and (== (Variables|Default|GetSpawnQueue) 0) (and (== alive 0) (not (Variables|Default|GetGameOver))))
-        (CallFunction|StartWave)))))
+        (CallFunction|StartWave))))
+  (bind gun (Variables|Default|GetGun))
+  (Utilities|IsValid gun
+    (:"Is Valid"
+      (bind bg (Utilities|Casting|CastToBP_Gun :Object gun)
+        (:then
+          (bind cam (Game|GetPlayerCameraManager :PlayerIndex 0))
+          (bind crot (Camera|GetCameraRotation :self cam))
+          (bind cloc (Camera|GetCameraLocation :self cam))
+          (bind fwd (Math|Vector|GetForwardVector :InRot crot))
+          (bind rgt (Math|Vector|GetRightVector :InRot crot))
+          (bind upv (Math|Vector|GetUpVector :InRot crot))
+          (bind ox (+ (+ (.x cloc) (+ (* (.x fwd) 45.0) (* (.x rgt) 16.0))) (* (.x upv) -10.0)))
+          (bind oy (+ (+ (.y cloc) (+ (* (.y fwd) 45.0) (* (.y rgt) 16.0))) (* (.y upv) -10.0)))
+          (bind oz (+ (+ (.z cloc) (+ (* (.z fwd) 45.0) (* (.z rgt) 16.0))) (* (.z upv) -10.0)))
+          (bind grot (Math|Rotator|MakeRotator :Roll 0.0 :Pitch (+ (.pitch crot) (Variables|Default|GetKickPitch)) :Yaw (.yaw crot)))
+          (Transformation|SetActorLocationAndRotation :self gun :NewLocation (Math|Vector|MakeVector :X ox :Y oy :Z oz) :NewRotation grot :bSweep false :bTeleport true)
+          (Variables|Default|SetKickPitch (select (> (Variables|Default|GetKickPitch) 0.0) (- (Variables|Default|GetKickPitch) (* 12.0 DeltaSeconds)) 0.0))
+          (Variables|Default|SetFlashTimer (- (Variables|Default|GetFlashTimer) DeltaSeconds))
+          (Rendering|SetVisibility :self (Class|BPGun|GetFlash :self bg) :bNewVisibility (> (Variables|Default|GetFlashTimer) 0.0) :bPropagateToChildren false))))
+    (:"Is Not Valid")))
 
 (event Game|Damage|EventAnyDamage (Damage DamageType InstigatedBy DamageCauser)
   (if (<= (Variables|Default|GetRespawnTimer) 0.0)

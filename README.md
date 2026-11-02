@@ -95,7 +95,8 @@ Stessa hall dell'hotel ricostruita in UE5 e guidata via MCP (`http://127.0.0.1:8
 
 Loop completo verificato in PIE con log (`LogBlueprintUserMessages`):
 - **BP_GameDirector** (istanza `GameDirector` nel livello): ondate crescenti (3+2×ondata nemici), spawn casuale da 3 punti, HP giocatore 100, munizioni 30/120 con ricarica (LMB fuoco, R ricarica), respawn al PlayerStart con 2s di protezione, punteggio/uccisioni, HUD UMG (HP/munizioni/punti/ondata + mirino), banner `ONDATA N` / `UCCISO` / `SEI MORTO - RESPAWN`
-- **BP_Enemy** (WASP volante / RAVAGER terrestre, casuali per spawn): HP 60+20×ondata, inseguimento steering con arresto a 140cm, attacco melee 8 danni ogni 1.6s entro 170cm, `TakeHit` + distruzione con punteggio (100/150)
+- **BP_Enemy** (WASP volante / RAVAGER corazzato): inseguimento steering, attacco melee, `TakeHit` + punteggio (100/150); WASP con rotori animati + bob, RAVAGER con spallacci e occhi rossi (parti visibili per tipo)
+- **BP_Gun**: viewmodel (fusto/canna/mirino/punto rosso/fiammata) che segue la camera con kick di rinculo; trace parte oltre l'arma
 - **WBP_HotelHUD**: 4 valori + label + mirino, aggiornati ogni tick dal Director
 - **BP_CrocAnim** (2 istanze sui coccodrilli A/B): oscillazione mascelle sinusoidale sfasata
 - bilanciamento/test: `TestAutoFire` sul Director per smoke test senza input; nemici con sweep disattivato (niente incastri nei muri)

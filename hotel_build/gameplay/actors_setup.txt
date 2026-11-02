@@ -1,0 +1,15 @@
+# BP_Gun — viewmodel arma (actor follower, guidato dal Director ogni tick)
+# Componenti (StaticMeshComponent su BP_Gun, creati via ActorTools.add_component):
+#  nome     | mesh engine (scala -> cm)            | materiale      | offset (x,y,z cm) | scala
+#  GunBody  | Cube  -> 50 x 9 x 12                 | MI_Steel       | (25, 0, 0)        | (0.50, 0.09, 0.12)
+#  Barrel   | Cube  -> 28 x 4.5 x 4.5              | MI_Steel       | (62, 0, 2)        | (0.28, 0.045, 0.045)
+#  Sight    | Cube  -> 10 x 5 x 7                   | MI_Steel       | (18, 0, 9)        | (0.10, 0.05, 0.07)
+#  Dot      | Sphere -> r 3 (mirino)                | MI_RedGlow     | (23, 0, 9)        | (0.03, 0.03, 0.03)
+#  Flash    | Sphere -> r 10 (fiammata, hidden)     | MI_WarmBulb    | (80, 0, 2)        | (0.10, 0.10, 0.10)
+# Asse arma = +X. Nessun grafo (attore stupido). Il Director lo posiziona a
+# camera + fwd*45 + right*16 - up*10 con kick di pitch, e mostra Flash 0.06s per colpo.
+
+# BP_Enemy — parti per tipo (visibilita' impostata da SpawnOne, default Ravager):
+#  WASP (isFly):  RotorL/RotorR (Cylinder disco 55cm, MI_Steel, z+55) + Sensor (sfera rossa fronte) — scala 0.9, bob + rotori in Tick
+#  RAVAGER:       Body cubo + PlateL/R (spallacci) + EyeL/R (occhi rossi) — scala 1.7/1.5/1.5, camminata a terra
+# Mesh body: Cube engine + MI_Steel (overrideMaterials). Default CDO: HP 80, Speed 250, AttackDamage 8, ScoreValue 100.
