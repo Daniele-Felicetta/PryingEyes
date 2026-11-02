@@ -201,6 +201,42 @@ def tool_screenshot(path):
     return {"path": dest, "bytes": os.path.getsize(dest)}
 
 
+def tool_list_windows():
+    import subprocess
+    ps = ("Add-Type -AssemblyName UIAutomationClient; "
+          "$ws=[System.Windows.Automation.AutomationElement]::RootElement.FindAll("
+          "[System.Windows.Automation.TreeScope]::Children,"
+          "[System.Windows.Automation.Condition]::TrueCondition); "
+          "foreach($w in $ws){try{$t=$w.Current.Name; if($t.Length -gt 0){"
+          "$h=$w.Current.NativeWindowHandle; Write-Output \"$h :: $t\"}}catch{}}")
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                       capture_output=True, text=True, timeout=30)
+    return {"windows": (r.stdout or "").strip().splitlines()[:60]}
+
+
+def tool_post_key(title, key, down=True):
+    import subprocess
+    vk = VK.get(str(key).lower())
+    if vk is None:
+        raise ValueError("tasto non supportato: %s" % key)
+    msg = 0x0100 if down else 0x0101  # WM_KEYDOWN / WM_KEYUP
+    ps = ("Add-Type -MemberDefinition '[DllImport(\"user32.dll\")]public static extern bool PostMessage(IntPtr h,int m,int w,int l);' -Name PW -Namespace X; "
+          "Add-Type -AssemblyName UIAutomationClient; "
+          "$ws=[System.Windows.Automation.AutomationElement]::RootElement.FindAll("
+          "[System.Windows.Automation.TreeScope]::Children,"
+          "[System.Windows.Automation.Condition]::TrueCondition); "
+          "foreach($w in $ws){try{$t=$w.Current.Name; if($t -like '*%s*'){"
+          "$h=$w.Current.NativeWindowHandle; "
+          "$r=[X.PW]::PostMessage($h,%d,%d,0); Write-Output \"POST:$r:$t\"; exit 0}}catch{}}; "
+          "Write-Output 'NOT-FOUND'; exit 1" % (title.replace("'", ""), msg, vk))
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                       capture_output=True, text=True, timeout=30)
+    out = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+    if not any(l.startswith("POST:True") for l in out):
+        raise RuntimeError("invio fallito: %s" % out[-1:] )
+    return {"posted": out[0]}
+
+
 TOOLS = {
     "fetch_texture": (tool_fetch_texture,
         {"type": "object", "properties": {
@@ -234,6 +270,17 @@ TOOLS = {
             "path": {"type": "string", "description": "Percorso PNG di uscita"}},
          "required": ["path"]},
         "Cattura lo schermo intero in PNG."),
+    "list_windows": (tool_list_windows,
+        {"type": "object", "properties": {},
+         "required": []},
+        "Elenca le finestre visibili (titolo + handle)."),
+    "post_key": (tool_post_key,
+        {"type": "object", "properties": {
+            "title": {"type": "string", "description": "Sottostringa del titolo finestra"},
+            "key": {"type": "string", "description": "w/a/s/d/r/space/shift/escape/..."},
+            "down": {"type": "boolean", "description": "true=pressione, false=rilascio"}},
+         "required": ["title", "key", "down"]},
+        "Invia WM_KEYDOWN/WM_KEYUP a una finestra SENZA darle il focus (PostMessage)."),
 }
 
 
