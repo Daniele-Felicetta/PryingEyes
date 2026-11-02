@@ -1,0 +1,5 @@
+(fn StartWave ()
+  (Variables|Default|SetWave (+ (Variables|Default|GetWave) 1))
+  (Variables|Default|SetSpawnQueue (+ 3 (* (Variables|Default|GetWave) 2)))
+  (Variables|Default|SetSpawnTimer 1.0)
+  (Development|PrintString :InString (+ (+ "ONDATA " (Utilities|String|ToString(Integer) (Variables|Default|GetWave))) " - NEMICI IN ARRIVO") :Duration 4.0))

@@ -90,3 +90,13 @@ Stessa hall dell'hotel ricostruita in UE5 e guidata via MCP (`http://127.0.0.1:8
 - **gabbia di vetro per coccodrilli nell'angolo NW**: vetro traslucido reale, vasca, isolotto, lampada riscaldante, transenne con corda, 2 coccodrilli modellati da primitive
 - Lumen GI + hardware ray tracing (attivi nel progetto), volumetric fog, PostProcess cinematografico (bloom/vignetta/grana), lama di luna dal lucernario, RectLight alle vetrate, PlayerStart all'ingresso — premi Play per camminarci (First Person template di default)
 - verificata con screenshot in-viewport durante la build
+
+## Gameplay UE5 (FPS giocabile, `hotel_build/gameplay/` + `phaseG1.ps1`)
+
+Loop completo verificato in PIE con log (`LogBlueprintUserMessages`):
+- **BP_GameDirector** (istanza `GameDirector` nel livello): ondate crescenti (3+2×ondata nemici), spawn casuale da 3 punti, HP giocatore 100, munizioni 30/120 con ricarica (LMB fuoco, R ricarica), respawn al PlayerStart con 2s di protezione, punteggio/uccisioni, HUD UMG (HP/munizioni/punti/ondata + mirino), banner `ONDATA N` / `UCCISO` / `SEI MORTO - RESPAWN`
+- **BP_Enemy** (WASP volante / RAVAGER terrestre, casuali per spawn): HP 60+20×ondata, inseguimento steering con arresto a 140cm, attacco melee 8 danni ogni 1.6s entro 170cm, `TakeHit` + distruzione con punteggio (100/150)
+- **WBP_HotelHUD**: 4 valori + label + mirino, aggiornati ogni tick dal Director
+- **BP_CrocAnim** (2 istanze sui coccodrilli A/B): oscillazione mascelle sinusoidale sfasata
+- bilanciamento/test: `TestAutoFire` sul Director per smoke test senza input; nemici con sweep disattivato (niente incastri nei muri)
+- verificato: spawn, chase, attacco, fuoco, kill, punteggio, respawn, avanzamento ONDATA 1→2, nessun errore runtime; sorgenti DSL versionati in `hotel_build/gameplay/*.lisp`, replay con `phaseG1.ps1`

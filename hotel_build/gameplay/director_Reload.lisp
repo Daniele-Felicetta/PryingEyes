@@ -1,0 +1,6 @@
+(fn Reload ()
+  (bind need (- (Variables|Default|GetMagSize) (Variables|Default|GetAmmo)))
+  (bind take (select (> (Variables|Default|GetReserve) need) need (Variables|Default|GetReserve)))
+  (if (> take 0)
+    (Variables|Default|SetAmmo (+ (Variables|Default|GetAmmo) take))
+    (Variables|Default|SetReserve (- (Variables|Default|GetReserve) take))))
