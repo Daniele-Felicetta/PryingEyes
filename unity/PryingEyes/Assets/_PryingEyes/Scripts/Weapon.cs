@@ -61,7 +61,7 @@ namespace PryingEyes
 
             flashQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
             flashQuad.name = "Flash";
-            Destroy(flashQuad.GetComponent<Collider>());
+            NoPhys(flashQuad);
             flashQuad.transform.SetParent(root.transform, false);
             flashQuad.transform.localPosition = new Vector3(0, 0.02f, 0.56f);
             flashQuad.transform.localScale = new Vector3(0.13f, 0.13f, 1f);
@@ -76,11 +76,19 @@ namespace PryingEyes
             transform.GetChild(0).localPosition = new Vector3(0.28f, -0.26f, 0.55f);
         }
 
+        static void NoPhys(GameObject go)
+        {
+            var c = go.GetComponent<Collider>();
+            if (c == null) return;
+            if (Application.isPlaying) Destroy(c);
+            else DestroyImmediate(c);
+        }
+
         static void AddBox(GameObject parent, string name, Vector3 size, Vector3 pos, Material m)
         {
             var b = GameObject.CreatePrimitive(PrimitiveType.Cube);
             b.name = name;
-            Destroy(b.GetComponent<Collider>());
+            NoPhys(b);
             b.transform.SetParent(parent.transform, false);
             b.transform.localPosition = pos;
             b.transform.localScale = size;

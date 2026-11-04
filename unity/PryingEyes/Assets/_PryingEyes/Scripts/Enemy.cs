@@ -16,6 +16,7 @@ namespace PryingEyes
         Renderer[] renderers;
         public List<Material> flashMats = new List<Material>();
         public Material glowMat;
+        List<Transform> rotors = new List<Transform>();
 
         static readonly List<Enemy> all = new List<Enemy>();
 
@@ -47,6 +48,8 @@ namespace PryingEyes
             e.flashMats = flashes;
             e.glowMat = glow;
             foreach (var m in flashes) m.EnableKeyword("_EMISSION");
+            foreach (var tr in go.GetComponentsInChildren<Transform>())
+                if (tr.name == "Rotor") e.rotors.Add(tr);
             all.Add(e);
             GameManager.I.SetAlive(all.Count);
             return e;
@@ -88,6 +91,7 @@ namespace PryingEyes
                 gp.y += (targetY - gp.y) * Mathf.Min(1f, 3f * dt);
                 transform.position = gp;
                 transform.LookAt(new Vector3(pp.x, gp.y, pp.z));
+                foreach (var r in rotors) r.Rotate(Vector3.up, 1200f * dt, Space.Self);
                 if (dist < 3.0f && atkCd <= 0f && GameManager.I.player.alive)
                 {
                     atkCd = 1.1f;
