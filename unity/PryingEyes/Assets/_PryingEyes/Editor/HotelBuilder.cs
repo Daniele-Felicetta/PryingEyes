@@ -71,7 +71,9 @@ namespace PryingEyes.EditorTools
         static Material SaveMat(string name, Material m)
         {
             if (!AssetDatabase.IsValidFolder("Assets/_PryingEyes/Materials")) AssetDatabase.CreateFolder("Assets/_PryingEyes", "Materials");
-            AssetDatabase.CreateAsset(m, "Assets/_PryingEyes/Materials/" + name + ".mat");
+            string path = "Assets/_PryingEyes/Materials/" + name + ".mat";
+            AssetDatabase.DeleteAsset(path);
+            AssetDatabase.CreateAsset(m, path);
             return m;
         }
 
@@ -422,8 +424,19 @@ namespace PryingEyes.EditorTools
             cam.tag = "MainCamera";
             ctrl.cam = camGo.transform;
 
-            // weapon
+            // weapon + materials
             var w = p.AddComponent<PryingEyes.Weapon>();
+            w.bodyMat = LitMat("GunBody", new Color(0.08f, 0.09f, 0.11f), 0.85f, 0.4f);
+            w.gripMat = LitMat("GunGrip", new Color(0.16f, 0.12f, 0.09f), 0.1f, 0.2f);
+            var fm = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/_PryingEyes/Materials/GunFlash.mat");
+            if (fm == null)
+            {
+                fm = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+                fm.color = new Color(1f, 0.6f, 0.15f);
+                if (!UnityEditor.AssetDatabase.IsValidFolder("Assets/_PryingEyes/Materials")) UnityEditor.AssetDatabase.CreateFolder("Assets/_PryingEyes", "Materials");
+                UnityEditor.AssetDatabase.CreateAsset(fm, "Assets/_PryingEyes/Materials/GunFlash.mat");
+            }
+            w.flashMat = fm;
 
             // hud
             var hudGo = new GameObject("HUD");

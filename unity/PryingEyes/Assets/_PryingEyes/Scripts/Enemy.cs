@@ -24,7 +24,7 @@ namespace PryingEyes
             Enemy e = go.AddComponent<Enemy>();
             e.type = t;
             e.hp = e.maxHp = t == EnemyType.Drone ? 60f : 130f;
-            e.speed = t == EnemyType.Drone ? 4.2f + Random.value * 1.5f : 2.6f + Random.value;
+            e.speed = t == EnemyType.Drone ? 5.0f + Random.value * 1.5f : 3.4f + Random.value;
             e.playerT = GameManager.I.player.transform;
             e.renderers = go.GetComponentsInChildren<Renderer>();
             all.Add(e);
@@ -69,7 +69,7 @@ namespace PryingEyes
                 gp.y += (targetY - gp.y) * Mathf.Min(1f, 3f * dt);
                 transform.position = gp;
                 transform.LookAt(new Vector3(pp.x, gp.y, pp.z));
-                if (dist < 2.6f && atkCd <= 0f && GameManager.I.player.alive)
+                if (dist < 3.0f && atkCd <= 0f && GameManager.I.player.alive)
                 {
                     atkCd = 1.1f;
                     GameManager.I.player.Hurt(8f + Random.value * 6f);
@@ -84,10 +84,13 @@ namespace PryingEyes
                 gp.y = 0f;
                 transform.position = gp;
                 transform.LookAt(new Vector3(pp.x, gp.y, pp.z));
-                if (dist < 2.2f && atkCd <= 0f && GameManager.I.player.alive)
+                if (dist < 2.6f && atkCd <= 0f && GameManager.I.player.alive)
                 {
                     atkCd = 1.3f;
                     GameManager.I.player.Hurt((enraged ? 18f : 14f) + Random.value * 8f);
+                    // lunge verso il giocatore
+                    gp += toP * 0.3f;
+                    transform.position = gp;
                 }
             }
         }

@@ -11,7 +11,7 @@ namespace PryingEyes
         public float accelGround = 10f, accelAir = 2f, friction = 8f;
         public float jumpVel = 7f, gravity = 22f;
         public float heightStand = 1.8f, heightCrouch = 1.1f, eyeStand = 1.65f, eyeCrouch = 1.0f;
-        public float sens = 2.2f;
+        public float sens = 1.2f;
 
         [Header("Life")]
         public float hp = 100f, shield = 50f;

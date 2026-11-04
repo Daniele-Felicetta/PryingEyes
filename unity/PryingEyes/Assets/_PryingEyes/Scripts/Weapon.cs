@@ -19,6 +19,11 @@ namespace PryingEyes
         public float recoil = 0f;
         float lastShot = -99f, reloadT = 0f;
 
+        [Header("Viewmodel materials (assigned by HotelBuilder)")]
+        public Material bodyMat;
+        public Material gripMat;
+        public Material flashMat;
+
         Transform cam;
         GameObject flashQuad;
         Light flashLight;
@@ -34,11 +39,13 @@ namespace PryingEyes
 
         void BuildViewmodel()
         {
-            // viewmodel procedurale: corpo + canna + mirino + flash
-            var dark = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = new Color(0.08f, 0.09f, 0.11f) };
-            dark.SetFloat("_Metallic", 0.85f);
-            dark.SetFloat("_Smoothness", 0.4f);
-            var grip = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = new Color(0.16f, 0.12f, 0.09f) };
+            if (bodyMat == null || gripMat == null || flashMat == null)
+            {
+                Debug.LogError("[PryingEyes] Weapon materials missing - viewmodel skipped");
+                return;
+            }
+            var dark = bodyMat;
+            var grip = gripMat;
 
             GameObject root = new GameObject("Viewmodel");
             root.transform.SetParent(cam, false);
@@ -57,9 +64,7 @@ namespace PryingEyes
             flashQuad.transform.SetParent(root.transform, false);
             flashQuad.transform.localPosition = new Vector3(0, 0.02f, 0.56f);
             flashQuad.transform.localScale = new Vector3(0.22f, 0.22f, 1f);
-            var fm = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            fm.color = new Color(1f, 0.6f, 0.15f);
-            flashQuad.GetComponent<MeshRenderer>().material = fm;
+            flashQuad.GetComponent<MeshRenderer>().material = flashMat;
             flashQuad.SetActive(false);
 
             flashLight = root.AddComponent<Light>();

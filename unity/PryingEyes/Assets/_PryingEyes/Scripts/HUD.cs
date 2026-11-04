@@ -3,20 +3,16 @@ using UnityEngine.UI;
 
 namespace PryingEyes
 {
-    /// <summary>HUD built in code: HP/shield bars, ammo, wave, score, kills, enemies, crosshair, hitmarker, banner, toast, vignette.</summary>
+    /// <summary>HUD with proper corner anchors (works at any aspect). Built in code.</summary>
     public class HUD : MonoBehaviour
     {
         Slider hpBar, shieldBar;
-        Text ammoText, waveText, scoreText, killsText, enemiesText, bannerText, bannerSub, toastText;
+        Text ammoText, waveText, scoreText, killsText, enemiesText, bannerText, bannerSub, toastText, killConfirm, cross;
         Image hitmarker, vignette;
-        Text killConfirm;
         float hitT, killT, bannerT, toastT;
         bool built = false;
 
-        void Awake()
-        {
-            EnsureBuilt();
-        }
+        void Awake() { EnsureBuilt(); }
 
         void EnsureBuilt()
         {
@@ -25,45 +21,39 @@ namespace PryingEyes
             var canvas = gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             gameObject.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            gameObject.GetComponent<CanvasScaler>().referenceResolution = new Vector2(1280, 720);
             gameObject.AddComponent<GraphicRaycaster>();
-            var root = new GameObject("Root");
-            root.transform.SetParent(transform, false);
 
-            // bars bottom-left
-            hpBar = MakeBar(root.transform, new Vector2(20, 40), new Vector2(260, 22), new Color(0.8f, 0.15f, 0.15f));
-            shieldBar = MakeBar(root.transform, new Vector2(20, 68), new Vector2(260, 14), new Color(0.2f, 0.7f, 1f));
-
-            // ammo bottom-right
-            ammoText = MakeText(root.transform, new Vector2(-220, 40), new Vector2(200, 40), 32, TextAnchor.MiddleRight, "30 / 120");
-            // top-left: wave/score/kills/enemies
-            waveText = MakeText(root.transform, new Vector2(20, -20), new Vector2(300, 30), 22, TextAnchor.UpperLeft, "ONDATA 1");
-            scoreText = MakeText(root.transform, new Vector2(20, -50), new Vector2(300, 26), 20, TextAnchor.UpperLeft, "SCORE 0");
-            killsText = MakeText(root.transform, new Vector2(20, -76), new Vector2(300, 26), 20, TextAnchor.UpperLeft, "KILLS 0");
-            enemiesText = MakeText(root.transform, new Vector2(20, -102), new Vector2(300, 26), 20, TextAnchor.UpperLeft, "NEMICI 0");
-
-            // crosshair center
-            var ch = MakeText(root.transform, new Vector2(-15, -20), new Vector2(30, 40), 28, TextAnchor.MiddleCenter, "+");
-            // hitmarker
-            hitmarker = MakeImage(root.transform, new Vector2(-25, -25), new Vector2(50, 50), Color.white);
+            hpBar = MakeBar(new Vector2(0, 0), new Vector2(20, 20), new Vector2(240, 20), new Color(0.8f, 0.15f, 0.15f));
+            shieldBar = MakeBar(new Vector2(0, 0), new Vector2(20, 46), new Vector2(240, 12), new Color(0.2f, 0.7f, 1f));
+            ammoText = MakeText(new Vector2(1, 0), new Vector2(-20, 24), new Vector2(200, 36), 26, TextAnchor.LowerRight, "30 / 120");
+            waveText = MakeText(new Vector2(0, 1), new Vector2(20, -16), new Vector2(300, 30), 22, TextAnchor.UpperLeft, "ONDATA 1");
+            scoreText = MakeText(new Vector2(0, 1), new Vector2(20, -46), new Vector2(300, 26), 18, TextAnchor.UpperLeft, "SCORE 0");
+            killsText = MakeText(new Vector2(0, 1), new Vector2(20, -70), new Vector2(300, 26), 18, TextAnchor.UpperLeft, "KILLS 0");
+            enemiesText = MakeText(new Vector2(0, 1), new Vector2(20, -94), new Vector2(300, 26), 18, TextAnchor.UpperLeft, "NEMICI 0");
+            cross = MakeText(new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(30, 30), 24, TextAnchor.MiddleCenter, "+");
+            hitmarker = MakeImage(new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(44, 44), Color.white);
             hitmarker.enabled = false;
-            killConfirm = MakeText(root.transform, new Vector2(-150, 40), new Vector2(300, 30), 22, TextAnchor.MiddleCenter, "");
-            // banner center-top
-            bannerText = MakeText(root.transform, new Vector2(-300, -140), new Vector2(600, 50), 42, TextAnchor.MiddleCenter, "");
-            bannerSub = MakeText(root.transform, new Vector2(-300, -190), new Vector2(600, 30), 20, TextAnchor.MiddleCenter, "");
-            // toast bottom-center
-            toastText = MakeText(root.transform, new Vector2(-400, 110), new Vector2(800, 30), 18, TextAnchor.MiddleCenter, "");
-            // damage vignette
-            vignette = MakeImage(root.transform, new Vector2(0, 0), new Vector2(4000, 4000), new Color(0.8f, 0, 0, 0.35f));
+            killConfirm = MakeText(new Vector2(0.5f, 0.5f), new Vector2(0, 52), new Vector2(300, 28), 20, TextAnchor.MiddleCenter, "");
+            bannerText = MakeText(new Vector2(0.5f, 1), new Vector2(0, -110), new Vector2(700, 48), 38, TextAnchor.MiddleCenter, "");
+            bannerSub = MakeText(new Vector2(0.5f, 1), new Vector2(0, -152), new Vector2(700, 28), 18, TextAnchor.MiddleCenter, "");
+            toastText = MakeText(new Vector2(0.5f, 0), new Vector2(0, 96), new Vector2(800, 26), 16, TextAnchor.MiddleCenter, "");
+            vignette = MakeImage(new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), new Color(0.8f, 0, 0, 0.35f));
+            var vr = vignette.GetComponent<RectTransform>();
+            vr.anchorMin = Vector2.zero; vr.anchorMax = Vector2.one;
+            vr.offsetMin = Vector2.zero; vr.offsetMax = Vector2.zero;
             vignette.enabled = false;
         }
 
-        Slider MakeBar(Transform p, Vector2 pos, Vector2 size, Color c)
+        Slider MakeBar(Vector2 anchor, Vector2 pos, Vector2 size, Color c)
         {
             var go = new GameObject("Bar");
-            go.transform.SetParent(p, false);
+            go.transform.SetParent(transform, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0, 0); rt.anchorMax = new Vector2(0, 0);
-            rt.anchoredPosition = pos + size / 2; rt.sizeDelta = size;
+            rt.anchorMin = anchor; rt.anchorMax = anchor;
+            rt.pivot = new Vector2(anchor.x == 1 ? 1 : 0, anchor.y == 1 ? 1 : 0);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
             var img = go.AddComponent<Image>(); img.color = new Color(0.1f, 0.1f, 0.1f, 0.7f);
             var fill = new GameObject("Fill");
             fill.transform.SetParent(go.transform, false);
@@ -76,12 +66,13 @@ namespace PryingEyes
             return sl;
         }
 
-        Text MakeText(Transform p, Vector2 pos, Vector2 size, int fs, TextAnchor a, string s)
+        Text MakeText(Vector2 anchor, Vector2 pos, Vector2 size, int fs, TextAnchor a, string s)
         {
             var go = new GameObject("Txt");
-            go.transform.SetParent(p, false);
+            go.transform.SetParent(transform, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f); rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchorMin = anchor; rt.anchorMax = anchor;
+            rt.pivot = new Vector2(anchor.x == 1 ? 1 : (anchor.x == 0 ? 0 : 0.5f), anchor.y == 1 ? 1 : (anchor.y == 0 ? 0 : 0.5f));
             rt.anchoredPosition = pos; rt.sizeDelta = size;
             var t = go.AddComponent<Text>();
             t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -90,12 +81,12 @@ namespace PryingEyes
             return t;
         }
 
-        Image MakeImage(Transform p, Vector2 pos, Vector2 size, Color c)
+        Image MakeImage(Vector2 anchor, Vector2 pos, Vector2 size, Color c)
         {
             var go = new GameObject("Img");
-            go.transform.SetParent(p, false);
+            go.transform.SetParent(transform, false);
             var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f); rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchorMin = anchor; rt.anchorMax = anchor;
             rt.anchoredPosition = pos; rt.sizeDelta = size;
             var i = go.AddComponent<Image>(); i.color = c;
             return i;
@@ -112,20 +103,21 @@ namespace PryingEyes
 
         public void SetBars(float hp, float shield) { EnsureBuilt(); hpBar.value = hp / 100f; shieldBar.value = shield / 50f; }
         public void SetAmmo(int m, int r) { EnsureBuilt(); ammoText.text = m + " / " + r; }
-        public void SetWave(int w) { waveText.text = "ONDATA " + w; }
-        public void SetScore(int s) { scoreText.text = "SCORE " + s; }
-        public void SetKills(int k) { killsText.text = "KILLS " + k; }
-        public void SetEnemiesLeft(int n) { enemiesText.text = "NEMICI " + n; }
+        public void SetWave(int w) { EnsureBuilt(); waveText.text = "ONDATA " + w; }
+        public void SetScore(int s) { EnsureBuilt(); scoreText.text = "SCORE " + s; }
+        public void SetKills(int k) { EnsureBuilt(); killsText.text = "KILLS " + k; }
+        public void SetEnemiesLeft(int n) { EnsureBuilt(); enemiesText.text = "NEMICI " + n; }
         public void Hitmarker(bool kill)
         {
+            EnsureBuilt();
             hitmarker.enabled = true;
             hitmarker.color = kill ? Color.red : Color.white;
             hitT = 0.12f;
         }
-        public void KillConfirm(string s) { killConfirm.text = s; killT = 1.5f; }
-        public void Banner(string t, string sub) { bannerText.text = t; bannerSub.text = sub; bannerT = 3f; }
-        public void Toast(string s) { toastText.text = s; toastT = 4f; }
-        public void DamageFlash() { vignette.enabled = true; CancelInvoke(nameof(HideVignette)); Invoke(nameof(HideVignette), 0.18f); }
+        public void KillConfirm(string s) { EnsureBuilt(); killConfirm.text = s; killT = 1.5f; }
+        public void Banner(string t, string sub) { EnsureBuilt(); bannerText.text = t; bannerSub.text = sub; bannerT = 3f; }
+        public void Toast(string s) { EnsureBuilt(); toastText.text = s; toastT = 4f; }
+        public void DamageFlash() { EnsureBuilt(); vignette.enabled = true; CancelInvoke(nameof(HideVignette)); Invoke(nameof(HideVignette), 0.18f); }
         void HideVignette() { vignette.enabled = false; }
     }
 }
