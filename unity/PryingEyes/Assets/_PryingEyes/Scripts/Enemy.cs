@@ -14,12 +14,16 @@ namespace PryingEyes
         Vector3 vel;
         Transform playerT;
         Renderer[] renderers;
+        public List<Material> flashMats = new List<Material>();
+        public Material glowMat;
 
         static readonly List<Enemy> all = new List<Enemy>();
 
         public static Enemy Spawn(EnemyType t, Vector3 pos)
         {
-            GameObject go = t == EnemyType.Drone ? BuildDrone() : BuildBrute();
+            GameObject go = t == EnemyType.Drone
+                ? BuildDrone(out Material glow, out List<Material> flashes)
+                : BuildBrute(out glow, out flashes);
             go.transform.position = pos;
             Enemy e = go.AddComponent<Enemy>();
             e.type = t;
@@ -27,6 +31,9 @@ namespace PryingEyes
             e.speed = t == EnemyType.Drone ? 5.0f + Random.value * 1.5f : 3.4f + Random.value;
             e.playerT = GameManager.I.player.transform;
             e.renderers = go.GetComponentsInChildren<Renderer>();
+            e.flashMats = flashes;
+            e.glowMat = glow;
+            foreach (var m in flashes) m.EnableKeyword("_EMISSION");
             all.Add(e);
             GameManager.I.SetAlive(all.Count);
             return e;
@@ -36,11 +43,10 @@ namespace PryingEyes
         {
             float dt = Time.deltaTime;
             flash = Mathf.Max(0f, flash - dt * 5f);
-            foreach (var r in renderers)
+            if (flash > 0f)
             {
-                foreach (var m in r.materials)
-                    if (m.HasProperty("_EmissiveIntensity"))
-                        m.SetFloat("_EmissiveIntensity", m.GetFloat("_EmissiveIntensity") + 0f); // keep
+                var ec = Color.white * flash;
+                foreach (var m in flashMats) m.SetColor("_EmissionColor", ec);
             }
             atkCd -= dt;
 
@@ -99,7 +105,10 @@ namespace PryingEyes
         {
             hp -= dmg;
             flash = 1f;
+            foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
             GameManager.I.hud?.Hitmarker(headshot);
+            GameManager.shotsHit++;
+            Synth.Hit();
             vel += (transform.position - playerT.position).normalized * (type == EnemyType.Drone ? 2.2f : 0.9f);
             if (hp <= 0f) Die(headshot);
         }
@@ -109,11 +118,29 @@ namespace PryingEyes
             all.Remove(this);
             GameManager.I.OnEnemyKilled(this, headshot);
             GameManager.I.SetAlive(all.Count);
+            Synth.Kill();
+            Vector3 center = transform.position + Vector3.up * (type == EnemyType.Drone ? 0.5f : 1.2f);
+            if (flashMats.Count > 0)
+            {
+                var dm = flashMats[0];
+                for (int i = 0; i < 6; i++)
+                {
+                    var d = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    d.transform.position = center + Random.insideUnitSphere * 0.5f;
+                    d.transform.localScale = Vector3.one * Random.Range(0.1f, 0.28f);
+                    d.GetComponent<MeshRenderer>().material = dm;
+                    var rb = d.AddComponent<Rigidbody>();
+                    rb.linearVelocity = new Vector3(Random.Range(-4f, 4f), Random.Range(3f, 7f), Random.Range(-4f, 4f));
+                    rb.angularVelocity = Random.insideUnitSphere * 8f;
+                    Destroy(d, 2.5f);
+                }
+            }
+            if (glowMat != null) Shockwave.Spawn(transform.position, glowMat);
             Destroy(gameObject);
         }
 
         // --- procedural bodies ---
-        static GameObject BuildDrone()
+        static GameObject BuildDrone(out Material glow, out List<Material> flashes)
         {
             var g = new GameObject("Drone");
             var armor = Lit(new Color(0.22f, 0.25f, 0.31f), 0.9f, 0.3f);
@@ -123,7 +150,7 @@ namespace PryingEyes
             eye.SetColor("_EmissionColor", new Color(1f, 0.18f, 0.47f));
             eye.SetFloat("_EmissiveIntensity", 5f);
 
-            AddPrim(g, PrimitiveType.Sphere, new Vector3(0.72f, 0.5f, 0.72f), Vector3.zero, armor);
+            AddPrim(g, PrimitiveType.Sphere, new Vector3(0.72f, 0.5f, 0.72f), Vector3.zero, armor, null, false, true);
             AddPrim(g, PrimitiveType.Sphere, new Vector3(0.22f, 0.22f, 0.22f), new Vector3(0, 0.02f, 0.32f), dark, "Head", true);
             AddPrim(g, PrimitiveType.Sphere, new Vector3(0.12f, 0.12f, 0.12f), new Vector3(0, 0.02f, 0.42f), eye, "Head", true);
             // 4 rotors
@@ -136,10 +163,12 @@ namespace PryingEyes
             AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.02f, 0.3f, 0.14f), new Vector3(0, -0.42f, 0), dark).transform.Rotate(Mathf.PI, 0, 0);
             var rb = g.AddComponent<Rigidbody>();
             rb.useGravity = false; rb.isKinematic = true;
+            glow = eye;
+            flashes = new List<Material> { armor, dark };
             return g;
         }
 
-        static GameObject BuildBrute()
+        static GameObject BuildBrute(out Material glow, out List<Material> flashes)
         {
             var g = new GameObject("Brute");
             var armor = Lit(new Color(0.30f, 0.27f, 0.22f), 0.78f, 0.52f);
@@ -162,6 +191,8 @@ namespace PryingEyes
             AddPrim(g, PrimitiveType.Cube, new Vector3(0.32f, 0.07f, 0.05f), new Vector3(0, 2.12f, 0.21f), visor, "Head", true);
             var cc = g.AddComponent<CapsuleCollider>();
             cc.height = 2.2f; cc.center = new Vector3(0, 1.1f, 0);
+            glow = visor;
+            flashes = new List<Material> { armor, dark };
             return g;
         }
 
@@ -174,10 +205,10 @@ namespace PryingEyes
             return m;
         }
 
-        static GameObject AddPrim(GameObject parent, PrimitiveType p, Vector3 scale, Vector3 pos, Material m, string tag = null, bool head = false)
+        static GameObject AddPrim(GameObject parent, PrimitiveType p, Vector3 scale, Vector3 pos, Material m, string tag = null, bool head = false, bool solid = false)
         {
             var go = GameObject.CreatePrimitive(p);
-            Destroy(go.GetComponent<Collider>());
+            if (!solid) Destroy(go.GetComponent<Collider>());
             go.transform.SetParent(parent.transform, false);
             go.transform.localPosition = pos;
             go.transform.localScale = scale;

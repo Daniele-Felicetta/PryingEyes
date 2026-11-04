@@ -21,9 +21,26 @@ namespace PryingEyes
 
         int alive = 0;
 
+        // --- autotest bot (built with -autotest flag; off for players) ---
+        public static bool autoTest = false;
+        public static int shotsFired = 0, shotsHit = 0;
+        float autoT = 0f, reportT = 0f;
+        bool shot1done = false, shot2done = false;
+        const string REPORT = "C:/Users/danie/Desktop/prying-eyes/hotel_build/autotest.txt";
+
         void Awake()
         {
             I = this;
+            autoTest = HasArg("-autotest");
+            if (autoTest)
+                System.IO.File.WriteAllText(REPORT, "t wave kills score hp shield mag reserve enemies shots hits\n");
+        }
+
+        static bool HasArg(string a)
+        {
+            foreach (var s in System.Environment.GetCommandLineArgs())
+                if (s == a) return true;
+            return false;
         }
 
         void Start()
@@ -37,6 +54,25 @@ namespace PryingEyes
             {
                 waveBreak -= Time.deltaTime;
                 if (waveBreak <= 0f) StartWave(wave + 1);
+            }
+            if (autoTest)
+            {
+                autoT += Time.deltaTime;
+                reportT += Time.deltaTime;
+                if (reportT >= 5f)
+                {
+                    reportT = 0f;
+                    var list = new System.Collections.Generic.List<Enemy>(FindObjectsByType<Enemy>(FindObjectsSortMode.None));
+                    string epos = "";
+                    for (int i = 0; i < Mathf.Min(3, list.Count); i++)
+                        epos += $" e{i}({list[i].transform.position.x:F0},{list[i].transform.position.y:F0},{list[i].transform.position.z:F0})";
+                    System.IO.File.AppendAllText(REPORT,
+                        $"{autoT:F0} {wave} {kills} {score} {player.hp:F0} {player.shield:F0} {player.weapon.mag} {player.weapon.reserve} {list.Count} {shotsFired} {shotsHit}" +
+                        $" p({player.transform.position.x:F0},{player.transform.position.z:F0}){epos}\n");
+                }
+                if (autoT >= 15f && !shot1done) { shot1done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot1.png"); }
+                if (autoT >= 45f && !shot2done) { shot2done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot2.png"); }
+                if (autoT >= 75f) Application.Quit();
             }
         }
 
@@ -56,6 +92,7 @@ namespace PryingEyes
             }
             hud?.Banner("ONDATA " + n, count + " ostili in arrivo");
             hud?.SetWave(n);
+            Synth.Wave();
         }
 
         Vector3 PickSpawn(Enemy.EnemyType type)

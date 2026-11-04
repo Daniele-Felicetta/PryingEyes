@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using System.Collections.Generic;
 using System.IO;
 
@@ -365,7 +367,7 @@ namespace PryingEyes.EditorTools
 
         static void Lights()
         {
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.62f, 0.64f, 0.68f);
             var moon = new GameObject("Moon").AddComponent<Light>();
             moon.type = LightType.Directional;
@@ -376,6 +378,20 @@ namespace PryingEyes.EditorTools
             WarmPoint(26, 3, 2, 25f, 12f);    // reception
             WarmPoint(-12, 3, 9, 20f, 14f);   // lounge
             WarmPoint(0, 7, -17, 18f, 16f);   // mezzanine
+            // post: bloom + vignette globali
+            var prof = ScriptableObject.CreateInstance<VolumeProfile>();
+            var bloom = prof.Add<Bloom>();
+            bloom.intensity.value = 0.55f;
+            bloom.threshold.value = 1.0f;
+            var vig = prof.Add<Vignette>();
+            vig.intensity.value = 0.3f;
+            if (!AssetDatabase.IsValidFolder("Assets/_PryingEyes/Settings")) AssetDatabase.CreateFolder("Assets/_PryingEyes", "Settings");
+            AssetDatabase.DeleteAsset("Assets/_PryingEyes/Settings/HotelVolume.asset");
+            AssetDatabase.CreateAsset(prof, "Assets/_PryingEyes/Settings/HotelVolume.asset");
+            var volGo = new GameObject("Volume");
+            var vol = volGo.AddComponent<Volume>();
+            vol.isGlobal = true;
+            vol.profile = prof;
         }
 
         static void WarmPoint(float x, float y, float z, float intensity, float range)
@@ -412,16 +428,19 @@ namespace PryingEyes.EditorTools
         {
             // player
             var p = new GameObject("Player");
+            p.layer = 2; // Ignore Raycast: la propria capsula non blocca mai l'hitscan
             p.transform.position = new Vector3(0, 0.1f, 19f);
             var cc = p.AddComponent<CharacterController>();
             cc.height = 1.8f; cc.radius = 0.4f; cc.center = new Vector3(0, 0.9f, 0);
             var ctrl = p.AddComponent<PryingEyes.PlayerController>();
             var camGo = new GameObject("MainCamera");
+            camGo.layer = 2;
             camGo.transform.SetParent(p.transform, false);
             camGo.transform.localPosition = new Vector3(0, 1.65f, 0);
             var cam = camGo.AddComponent<Camera>();
             cam.nearClipPlane = 0.05f;
             cam.tag = "MainCamera";
+            camGo.AddComponent<AudioListener>();
             ctrl.cam = camGo.transform;
 
             // weapon + materials

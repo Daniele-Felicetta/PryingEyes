@@ -48,6 +48,7 @@ namespace PryingEyes
             var grip = gripMat;
 
             GameObject root = new GameObject("Viewmodel");
+            root.layer = 2;
             root.transform.SetParent(cam, false);
             root.transform.localPosition = new Vector3(0.28f, -0.26f, 0.55f);
             root.transform.localRotation = Quaternion.identity;
@@ -63,7 +64,7 @@ namespace PryingEyes
             Destroy(flashQuad.GetComponent<Collider>());
             flashQuad.transform.SetParent(root.transform, false);
             flashQuad.transform.localPosition = new Vector3(0, 0.02f, 0.56f);
-            flashQuad.transform.localScale = new Vector3(0.22f, 0.22f, 1f);
+            flashQuad.transform.localScale = new Vector3(0.13f, 0.13f, 1f);
             flashQuad.GetComponent<MeshRenderer>().material = flashMat;
             flashQuad.SetActive(false);
 
@@ -84,10 +85,30 @@ namespace PryingEyes
             b.transform.localPosition = pos;
             b.transform.localScale = size;
             b.GetComponent<MeshRenderer>().material = m;
-            b.layer = 8; // Weapon layer (camera culling: main cam sees it, no clipping)
+            b.layer = 2; // Ignore Raycast: il viewmodel non blocca mai l'hitscan
         }
 
         public bool IsBound { get { return cam != null && flashQuad != null; } }
+
+        void Awake()
+        {
+            // runtime rebind: refs set by the editor builder don't survive serialization
+            if (cam == null)
+            {
+                var t = transform.Find("MainCamera");
+                if (t != null) cam = t;
+            }
+            if (flashQuad == null && cam != null)
+            {
+                var vm = cam.Find("Viewmodel");
+                if (vm != null)
+                {
+                    var f = vm.Find("Flash");
+                    if (f != null) flashQuad = f.gameObject;
+                    flashLight = vm.GetComponent<Light>();
+                }
+            }
+        }
 
         public void Tick(float dt, bool sprinting)
         {
@@ -111,7 +132,8 @@ namespace PryingEyes
             if (Input.GetKeyDown(KeyCode.R)) Reload();
 
             float interval = 60f / rpm;
-            if (Input.GetMouseButton(0) && !reloading && Time.time - lastShot >= interval)
+            bool wantFire = Input.GetMouseButton(0) || GameManager.autoTest;
+            if (wantFire && !reloading && Time.time - lastShot >= interval)
                 Shoot();
 
             if (flashQuad.activeSelf && Time.time - lastShot > 0.055f)
@@ -127,6 +149,7 @@ namespace PryingEyes
             reloading = true;
             reloadT = 1.4f;
             hud?.Toast("Ricarica...");
+            Synth.Reload();
         }
 
         void Shoot()
@@ -134,10 +157,12 @@ namespace PryingEyes
             if (mag <= 0) { Reload(); return; }
             mag--;
             lastShot = Time.time;
+            GameManager.shotsFired++;
             recoil += 0.06f;
             flashQuad.SetActive(true);
             flashLight.intensity = 3f;
             hud?.SetAmmo(mag, reserve);
+            Synth.Shot();
 
             // hitscan dal centro camera, spread leggero
             Vector3 dir = cam.forward;

@@ -36,6 +36,7 @@ namespace PryingEyes
             eyeH = eyeStand;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
+            if (GameManager.autoTest) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
         }
 
         void Start()
@@ -63,6 +64,7 @@ namespace PryingEyes
             // --- input ---
             float f = (Input.GetKey(KeyCode.W) ? 1 : 0) - (Input.GetKey(KeyCode.S) ? 1 : 0);
             float s = (Input.GetKey(KeyCode.D) ? 1 : 0) - (Input.GetKey(KeyCode.A) ? 1 : 0);
+            if (GameManager.autoTest) { yaw += 0.8f * dt; }
             bool wantCrouch = Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl);
             bool wantSprint = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && f > 0 && !wantCrouch;
             if (Input.GetKeyDown(KeyCode.Space)) jumpBuf = 0.15f; else jumpBuf -= dt;
@@ -191,6 +193,7 @@ namespace PryingEyes
             hp -= dmg - absorbed;
             hud?.DamageFlash();
             hud?.SetBars(hp, shield);
+            Synth.Hurt();
             if (hp <= 0f)
             {
                 hp = 0f; alive = false; respawnT = 2.5f;
@@ -210,6 +213,7 @@ namespace PryingEyes
             hud?.Toast("Respawnato");
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
+            if (GameManager.autoTest) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
         }
     }
 }
