@@ -19,6 +19,19 @@ namespace PryingEyes
 
         static readonly List<Enemy> all = new List<Enemy>();
 
+        public static Enemy Nearest(Vector3 p)
+        {
+            Enemy best = null;
+            float bd = float.MaxValue;
+            foreach (var e in all)
+            {
+                if (e == null) continue;
+                float d = (e.transform.position - p).sqrMagnitude;
+                if (d < bd) { bd = d; best = e; }
+            }
+            return best;
+        }
+
         public static Enemy Spawn(EnemyType t, Vector3 pos)
         {
             GameObject go = t == EnemyType.Drone

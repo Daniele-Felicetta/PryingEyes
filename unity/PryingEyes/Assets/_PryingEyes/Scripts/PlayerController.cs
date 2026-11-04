@@ -64,7 +64,17 @@ namespace PryingEyes
             // --- input ---
             float f = (Input.GetKey(KeyCode.W) ? 1 : 0) - (Input.GetKey(KeyCode.S) ? 1 : 0);
             float s = (Input.GetKey(KeyCode.D) ? 1 : 0) - (Input.GetKey(KeyCode.A) ? 1 : 0);
-            if (GameManager.autoTest) { yaw += 0.8f * dt; }
+            if (GameManager.autoTest)
+            {
+                var e = Enemy.Nearest(transform.position);
+                if (e != null)
+                {
+                    Vector3 aim = (e.transform.position + Vector3.up * 0.8f - cam.position).normalized;
+                    yaw = Mathf.Atan2(aim.x, aim.z);
+                    pitch = -Mathf.Asin(Mathf.Clamp(aim.y, -1f, 1f));
+                }
+                else { yaw += 0.8f * dt; }
+            }
             bool wantCrouch = Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl);
             bool wantSprint = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && f > 0 && !wantCrouch;
             if (Input.GetKeyDown(KeyCode.Space)) jumpBuf = 0.15f; else jumpBuf -= dt;

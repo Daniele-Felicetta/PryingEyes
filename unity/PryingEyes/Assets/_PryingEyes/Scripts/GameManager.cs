@@ -71,8 +71,8 @@ namespace PryingEyes
                         $" p({player.transform.position.x:F0},{player.transform.position.z:F0}){epos}\n");
                 }
                 if (autoT >= 15f && !shot1done) { shot1done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot1.png"); }
-                if (autoT >= 45f && !shot2done) { shot2done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot2.png"); }
-                if (autoT >= 75f) Application.Quit();
+                if (autoT >= 75f && !shot2done) { shot2done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot2.png"); }
+                if (autoT >= 100f) Application.Quit();
             }
         }
 
