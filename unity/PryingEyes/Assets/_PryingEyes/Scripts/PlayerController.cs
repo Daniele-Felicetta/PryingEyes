@@ -38,8 +38,15 @@ namespace PryingEyes
             Cursor.visible = false;
         }
 
+        void Start()
+        {
+            Debug.Log("[PryingEyes] player boot: cam=" + (cam != null) + " weapon=" + (weapon != null)
+                + " hud=" + (hud != null) + " gunBound=" + (weapon != null && weapon.IsBound));
+        }
+
         void Update()
         {
+            if (cam == null || weapon == null) return;
             float dt = Time.deltaTime;
             if (!alive)
             {
@@ -49,8 +56,8 @@ namespace PryingEyes
             }
 
             // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
-            yaw -= Input.GetAxis("Mouse X") * sens;
-            pitch += Input.GetAxis("Mouse Y") * sens;
+            yaw += Input.GetAxis("Mouse X") * sens;
+            pitch -= Input.GetAxis("Mouse Y") * sens;
             pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
 
             // --- input ---

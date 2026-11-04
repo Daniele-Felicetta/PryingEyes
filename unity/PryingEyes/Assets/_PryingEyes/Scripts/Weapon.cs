@@ -82,8 +82,11 @@ namespace PryingEyes
             b.layer = 8; // Weapon layer (camera culling: main cam sees it, no clipping)
         }
 
+        public bool IsBound { get { return cam != null && flashQuad != null; } }
+
         public void Tick(float dt, bool sprinting)
         {
+            if (cam == null || flashQuad == null) return;
             adsHeld = Input.GetMouseButton(1);
             ads += ((adsHeld ? 1 : 0) - ads) * Mathf.Min(1f, 13f * dt);
             recoil *= Mathf.Max(0f, 1f - 11f * dt);
