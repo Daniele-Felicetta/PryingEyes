@@ -1,2 +1,14 @@
-PryingEyes/
-PryingEyes 5.8/
+/PryingEyes/
+/PryingEyes 5.8/
+/My project/
+unity_logs/
+
+# Unity generati (progetto unity/ tracciato senza cartelle di build)
+unity/PryingEyes/Library/
+unity/PryingEyes/Temp/
+unity/PryingEyes/Logs/
+unity/PryingEyes/UserSettings/
+unity/PryingEyes/Builds/
+*.csproj
+*.slnx
+.vsconfig

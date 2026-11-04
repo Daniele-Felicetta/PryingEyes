@@ -1,0 +1,148 @@
+using UnityEngine;
+
+namespace PryingEyes
+{
+    /// <summary>Hitscan weapon: RPM fire, mag/reserve, reload, recoil, muzzle flash, procedural viewmodel.</summary>
+    public class Weapon : MonoBehaviour
+    {
+        [Header("Tuning")]
+        public int magSize = 30;
+        public int mag = 30;
+        public int reserve = 120;
+        public float rpm = 600f;
+        public float damage = 34f;
+        public float range = 120f;
+
+        [Header("State")]
+        public bool reloading = false;
+        public float ads = 0f;
+        public float recoil = 0f;
+        float lastShot = -99f, reloadT = 0f;
+
+        Transform cam;
+        GameObject flashQuad;
+        Light flashLight;
+        HUD hud;
+        bool adsHeld;
+
+        public void Bind(Transform camera, HUD h)
+        {
+            cam = camera;
+            hud = h;
+            BuildViewmodel();
+        }
+
+        void BuildViewmodel()
+        {
+            // viewmodel procedurale: corpo + canna + mirino + flash
+            var dark = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = new Color(0.08f, 0.09f, 0.11f) };
+            dark.SetFloat("_Metallic", 0.85f);
+            dark.SetFloat("_Smoothness", 0.4f);
+            var grip = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = new Color(0.16f, 0.12f, 0.09f) };
+
+            GameObject root = new GameObject("Viewmodel");
+            root.transform.SetParent(cam, false);
+            root.transform.localPosition = new Vector3(0.28f, -0.26f, 0.55f);
+            root.transform.localRotation = Quaternion.identity;
+
+            AddBox(root, "Body", new Vector3(0.09f, 0.11f, 0.42f), new Vector3(0, 0, 0), dark);
+            AddBox(root, "Barrel", new Vector3(0.05f, 0.05f, 0.35f), new Vector3(0, 0.02f, 0.36f), dark);
+            AddBox(root, "Grip", new Vector3(0.07f, 0.16f, 0.09f), new Vector3(0, -0.12f, 0.05f), grip);
+            AddBox(root, "SightR", new Vector3(0.02f, 0.06f, 0.02f), new Vector3(-0.035f, 0.085f, 0.05f), dark);
+            AddBox(root, "SightL", new Vector3(0.02f, 0.06f, 0.02f), new Vector3(0.035f, 0.085f, 0.05f), dark);
+
+            flashQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            flashQuad.name = "Flash";
+            Destroy(flashQuad.GetComponent<Collider>());
+            flashQuad.transform.SetParent(root.transform, false);
+            flashQuad.transform.localPosition = new Vector3(0, 0.02f, 0.56f);
+            flashQuad.transform.localScale = new Vector3(0.22f, 0.22f, 1f);
+            var fm = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            fm.color = new Color(1f, 0.6f, 0.15f);
+            flashQuad.GetComponent<MeshRenderer>().material = fm;
+            flashQuad.SetActive(false);
+
+            flashLight = root.AddComponent<Light>();
+            flashLight.type = LightType.Point;
+            flashLight.color = new Color(1f, 0.6f, 0.25f);
+            flashLight.intensity = 0f;
+            flashLight.range = 6f;
+            transform.GetChild(0).localPosition = new Vector3(0.28f, -0.26f, 0.55f);
+        }
+
+        static void AddBox(GameObject parent, string name, Vector3 size, Vector3 pos, Material m)
+        {
+            var b = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            b.name = name;
+            Destroy(b.GetComponent<Collider>());
+            b.transform.SetParent(parent.transform, false);
+            b.transform.localPosition = pos;
+            b.transform.localScale = size;
+            b.GetComponent<MeshRenderer>().material = m;
+            b.layer = 8; // Weapon layer (camera culling: main cam sees it, no clipping)
+        }
+
+        public void Tick(float dt, bool sprinting)
+        {
+            adsHeld = Input.GetMouseButton(1);
+            ads += ((adsHeld ? 1 : 0) - ads) * Mathf.Min(1f, 13f * dt);
+            recoil *= Mathf.Max(0f, 1f - 11f * dt);
+
+            if (reloading)
+            {
+                reloadT -= dt;
+                if (reloadT <= 0f)
+                {
+                    int need = magSize - mag;
+                    int take = Mathf.Min(need, reserve);
+                    mag += take; reserve -= take;
+                    reloading = false;
+                    hud?.SetAmmo(mag, reserve);
+                }
+            }
+            if (Input.GetKeyDown(KeyCode.R)) Reload();
+
+            float interval = 60f / rpm;
+            if (Input.GetMouseButton(0) && !reloading && Time.time - lastShot >= interval)
+                Shoot();
+
+            if (flashQuad.activeSelf && Time.time - lastShot > 0.055f)
+            {
+                flashQuad.SetActive(false);
+                flashLight.intensity = 0f;
+            }
+        }
+
+        public void Reload()
+        {
+            if (reloading || mag >= magSize || reserve <= 0) return;
+            reloading = true;
+            reloadT = 1.4f;
+            hud?.Toast("Ricarica...");
+        }
+
+        void Shoot()
+        {
+            if (mag <= 0) { Reload(); return; }
+            mag--;
+            lastShot = Time.time;
+            recoil += 0.06f;
+            flashQuad.SetActive(true);
+            flashLight.intensity = 3f;
+            hud?.SetAmmo(mag, reserve);
+
+            // hitscan dal centro camera, spread leggero
+            Vector3 dir = cam.forward;
+            dir += cam.right * Random.Range(-0.006f, 0.006f) + cam.up * Random.Range(-0.006f, 0.006f);
+            if (Physics.Raycast(cam.position, dir.normalized, out RaycastHit hit, range))
+            {
+                Enemy e = hit.collider.GetComponentInParent<Enemy>();
+                if (e != null)
+                {
+                    bool head = hit.collider.CompareTag("Head");
+                    e.Damage(damage * (head ? 2f : 1f), hit.point, head);
+                }
+            }
+        }
+    }
+}
