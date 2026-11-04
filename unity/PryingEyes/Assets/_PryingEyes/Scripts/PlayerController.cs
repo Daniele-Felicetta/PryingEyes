@@ -25,7 +25,7 @@ namespace PryingEyes
 
         CharacterController cc;
         Vector3 vel;
-        public float yaw, pitch, lean, bobPhase;
+        public float yaw = Mathf.PI, pitch, lean, bobPhase;
         float coyote, jumpBuf, slideT, eyeH, fovKick;
         bool crouch, slide;
         Vector3 slideDir;
@@ -48,9 +48,9 @@ namespace PryingEyes
                 return;
             }
 
-            // --- mouse look ---
-            yaw += Input.GetAxis("Mouse X") * sens;
-            pitch -= Input.GetAxis("Mouse Y") * sens;
+            // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
+            yaw -= Input.GetAxis("Mouse X") * sens;
+            pitch += Input.GetAxis("Mouse Y") * sens;
             pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
 
             // --- input ---
@@ -78,9 +78,9 @@ namespace PryingEyes
             float maxSpeed = (crouch && !slide) ? crouchSpeed : (wantSprint && !slide ? sprint : walk);
             if (weapon != null && weapon.ads > 0.5f) maxSpeed *= 0.55f;
 
-            // wish dir (yaw plane)
+            // wish dir (yaw plane): forward = (sin yaw, 0, cos yaw) to match camera
             float sin = Mathf.Sin(yaw), cos = Mathf.Cos(yaw);
-            Vector3 wish = new Vector3(-sin * f + cos * s, 0, -cos * f - sin * s);
+            Vector3 wish = new Vector3(sin * f + cos * s, 0, cos * f - sin * s);
             if (wish.sqrMagnitude > 1f) wish.Normalize();
 
             Vector3 hv = new Vector3(vel.x, 0, vel.z);
@@ -164,7 +164,7 @@ namespace PryingEyes
                 transform.position.x + bobX * cos + lean * cos,
                 transform.position.y + eyeH + bobY,
                 transform.position.z - bobX * sin + lean * -sin);
-            cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg + (weapon != null ? weapon.recoil * 20f : 0f),
+            cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - (weapon != null ? weapon.recoil * 20f : 0f),
                 yaw * Mathf.Rad2Deg, (strafeLean + lean * 0.9f + (slide ? 0.09f : 0f)) * Mathf.Rad2Deg);
 
             // --- regen ---
@@ -197,7 +197,7 @@ namespace PryingEyes
         {
             alive = true; hp = 100f; shield = 50f;
             transform.position = new Vector3(0, 0.1f, 19f);
-            vel = Vector3.zero; yaw = 0f; pitch = 0f;
+            vel = Vector3.zero; yaw = Mathf.PI; pitch = 0f;
             weapon.mag = weapon.magSize; weapon.reserve = 120; weapon.reloading = false;
             hud?.SetBars(hp, shield);
             hud?.Toast("Respawnato");

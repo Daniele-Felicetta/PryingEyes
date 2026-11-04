@@ -11,6 +11,7 @@ namespace PryingEyes
             var cB = b ?? new Color(0.05f, 0.05f, 0.07f);
             var t = new Texture2D(size, size, TextureFormat.RGBA32, true);
             t.filterMode = FilterMode.Trilinear;
+            t.anisoLevel = 8;
             t.wrapMode = TextureWrapMode.Repeat;
             int cell = size / cells;
             var px = new Color[size * size];
@@ -33,6 +34,7 @@ namespace PryingEyes
             var cB = b ?? new Color(0.42f, 0.28f, 0.20f);
             var t = new Texture2D(size, size, TextureFormat.RGBA32, true);
             t.filterMode = FilterMode.Trilinear;
+            t.anisoLevel = 8;
             t.wrapMode = TextureWrapMode.Repeat;
             var px = new Color[size * size];
             for (int y = 0; y < size; y++)
@@ -53,6 +55,7 @@ namespace PryingEyes
             var bc = baseC ?? new Color(0.78f, 0.74f, 0.68f);
             var t = new Texture2D(size, size, TextureFormat.RGBA32, true);
             t.wrapMode = TextureWrapMode.Repeat;
+            t.anisoLevel = 8;
             var px = new Color[size * size];
             var rnd = new System.Random(1234);
             for (int i = 0; i < px.Length; i++)

@@ -81,7 +81,11 @@ namespace PryingEyes.EditorTools
             m.color = c;
             m.SetFloat("_Metallic", metallic);
             m.SetFloat("_Smoothness", smooth);
-            if (map != null) { m.mainTexture = map; }
+            if (map != null)
+            {
+                m.SetTexture("_BaseMap", map);
+                m.SetTextureScale("_BaseMap", m.GetTextureScale("_MainTex"));
+            }
             return SaveMat(name, m);
         }
 
@@ -130,12 +134,7 @@ namespace PryingEyes.EditorTools
         // ---------- geometry ----------
         static void Floor()
         {
-            var f = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            f.name = "Floor";
-            f.transform.position = Vector3.zero;
-            f.transform.localScale = new Vector3(HX * 2 / 10f, 1, HZ * 2 / 10f);
-            f.GetComponent<MeshRenderer>().material = floorMat;
-            f.isStatic = true;
+            Box("Floor", HX * 2, 0.1f, HZ * 2, 0, -0.05f, 0, floorMat);
             Box("Carpet1", 16, 0.02f, 30, -10, 0.01f, 4, carpetMat, false);
             Box("Carpet2", 6, 0.02f, 20, 24, 0.01f, -4, carpetMat, false);
         }
@@ -258,7 +257,7 @@ namespace PryingEyes.EditorTools
                 pane.name = "Pane" + i;
                 pane.transform.position = new Vector3(34.42f, 3.5f, z);
                 pane.transform.rotation = Quaternion.Euler(0, -90, 0);
-                pane.transform.localScale = new Vector3(2.6f, 1, 4.7f);
+                pane.transform.localScale = new Vector3(2.6f, 4.7f, 1f);
                 pane.GetComponent<MeshRenderer>().material = glow;
                 pane.isStatic = true;
             }
@@ -279,7 +278,7 @@ namespace PryingEyes.EditorTools
             bulbMat = LitMat("Bulb", new Color(0.07f, 0.07f, 0.07f), 0f, 0.3f);
             bulbMat.EnableKeyword("_EMISSION");
             bulbMat.SetColor("_EmissionColor", new Color(1f, 0.79f, 0.54f));
-            bulbMat.SetFloat("_EmissiveIntensity", 3.2f);
+            bulbMat.SetFloat("_EmissiveIntensity", 1.5f);
             Chandelier(0, 4); Chandelier(-22, 4);
             var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             c.name = "ChandOff"; c.transform.position = new Vector3(22, 6.6f, 4);
@@ -320,7 +319,7 @@ namespace PryingEyes.EditorTools
             var pl = g.AddComponent<Light>();
             pl.type = LightType.Point;
             pl.color = new Color(1f, 0.79f, 0.54f);
-            pl.intensity = 60f; pl.range = 32f;
+            pl.intensity = 25f; pl.range = 30f;
             g.isStatic = true;
         }
 
@@ -365,13 +364,27 @@ namespace PryingEyes.EditorTools
         static void Lights()
         {
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.29f, 0.35f, 0.47f);
+            RenderSettings.ambientLight = new Color(0.62f, 0.64f, 0.68f);
             var moon = new GameObject("Moon").AddComponent<Light>();
             moon.type = LightType.Directional;
             moon.color = new Color(0.66f, 0.77f, 0.91f);
-            moon.intensity = 1.1f;
+            moon.intensity = 1.6f;
             moon.transform.rotation = Quaternion.Euler(50, -20, 0);
             moon.shadowBias = -0.0004f;
+            WarmPoint(26, 3, 2, 25f, 12f);    // reception
+            WarmPoint(-12, 3, 9, 20f, 14f);   // lounge
+            WarmPoint(0, 7, -17, 18f, 16f);   // mezzanine
+        }
+
+        static void WarmPoint(float x, float y, float z, float intensity, float range)
+        {
+            var g = new GameObject("WarmLight");
+            g.transform.position = new Vector3(x, y, z);
+            var pl = g.AddComponent<Light>();
+            pl.type = LightType.Point;
+            pl.color = new Color(1f, 0.79f, 0.54f);
+            pl.intensity = intensity;
+            pl.range = range;
         }
 
         static void SpawnPoints()

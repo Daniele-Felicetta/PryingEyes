@@ -6,6 +6,18 @@ namespace PryingEyes.EditorTools
 {
     public static class BuildPlayer
     {
+        public static void All()
+        {
+            HotelBuilder.Build();
+            Windows();
+        }
+
+        public static void Verify()
+        {
+            HotelBuilder.Build();
+            ShotScene.Shots();
+        }
+
         public static void Windows()
         {
             EditorBuildSettings.scenes = new[]
