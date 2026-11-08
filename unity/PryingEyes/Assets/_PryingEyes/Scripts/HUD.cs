@@ -8,8 +8,11 @@ namespace PryingEyes
     {
         Slider hpBar, shieldBar;
         Text ammoText, waveText, scoreText, killsText, enemiesText, bannerText, bannerSub, toastText, killConfirm, cross;
-        Image hitmarker, vignette;
-        float hitT, killT, bannerT, toastT, vigT;
+        Image vignette;
+        RectTransform hitRoot;      // hit marker: X di 4 tacche attorno al mirino
+        Image[] hitTicks;
+        Color hitCol = Color.white;
+        float hitT, hitDur, hitPop, hitSize, killT, bannerT, toastT, vigT;
 
         void Awake() { EnsureBuilt(); }
 
@@ -54,8 +57,7 @@ namespace PryingEyes
             killsText = MakeText("Kills", new Vector2(0, 1), new Vector2(20, -70), new Vector2(300, 26), 18, TextAnchor.UpperLeft, "KILLS 0");
             enemiesText = MakeText("Enemies", new Vector2(0, 1), new Vector2(20, -94), new Vector2(300, 26), 18, TextAnchor.UpperLeft, "NEMICI 0");
             cross = MakeText("Cross", new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(30, 30), 24, TextAnchor.MiddleCenter, "+");
-            hitmarker = MakeImage("Hitmarker", new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(44, 44), Color.white);
-            hitmarker.enabled = false;
+            MakeHitmarker();
             killConfirm = MakeText("KillConfirm", new Vector2(0.5f, 0.5f), new Vector2(0, 52), new Vector2(300, 28), 20, TextAnchor.MiddleCenter, "");
             bannerText = MakeText("Banner", new Vector2(0.5f, 1), new Vector2(0, -110), new Vector2(700, 48), 38, TextAnchor.MiddleCenter, "");
             bannerSub = MakeText("BannerSub", new Vector2(0.5f, 1), new Vector2(0, -152), new Vector2(700, 28), 18, TextAnchor.MiddleCenter, "");
@@ -111,10 +113,83 @@ namespace PryingEyes
             return i;
         }
 
+        const int TexelsPerUnit = 8;       // risoluzione dello sprite della tacca
+        const float TickCenter = 13f;      // distanza (unita UI) del centro di ogni tacca dal mirino, in diagonale
+        static Sprite tickSprite;
+
+        /// <summary>Tacca del hit marker: barra bianca con spigoli arrotondati, bordo antialias e alone scuro
+        /// (resta leggibile su sfondi chiari). Il colore si cambia con Image.color; l'alone resta nero.</summary>
+        static Sprite TickSprite()
+        {
+            if (tickSprite != null) return tickSprite;
+            const int W = 48, H = 128;
+            var tex = new Texture2D(W, H, TextureFormat.RGBA32, true)
+            { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear };
+            var px = new Color32[W * H];
+            float cx = (W - 1) * 0.5f, cy = (H - 1) * 0.5f;
+            const float hx = 10.5f, hy = 48f, r = 3f;      // mezzo nucleo e raggio degli spigoli, in texel
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    float qx = Mathf.Abs(x - cx) - (hx - r), qy = Mathf.Abs(y - cy) - (hy - r);
+                    float d = new Vector2(Mathf.Max(qx, 0f), Mathf.Max(qy, 0f)).magnitude
+                              + Mathf.Min(Mathf.Max(qx, qy), 0f) - r;             // distanza con segno dal bordo
+                    float core = Mathf.Clamp01(0.5f - d);                          // nucleo bianco, bordo di 1 texel
+                    float halo = 0.55f * Mathf.Pow(Mathf.Clamp01(1f - d / 12f), 2f); // alone nero che sfuma
+                    float a = core + halo * (1f - core);
+                    byte v = a > 0f ? (byte)Mathf.RoundToInt(255f * core / a) : (byte)0;
+                    px[y * W + x] = new Color32(v, v, v, (byte)Mathf.RoundToInt(255f * a));
+                }
+            tex.SetPixels32(px);
+            tex.Apply(true);
+            tickSprite = Sprite.Create(tex, new Rect(0, 0, W, H), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            return tickSprite;
+        }
+
+        void MakeHitmarker()
+        {
+            var root = Child("Hitmarker");
+            hitRoot = Comp<RectTransform>(root);
+            hitRoot.anchorMin = hitRoot.anchorMax = new Vector2(0.5f, 0.5f);
+            hitRoot.pivot = new Vector2(0.5f, 0.5f);
+            hitRoot.anchoredPosition = Vector2.zero; hitRoot.sizeDelta = Vector2.zero;
+            var spr = TickSprite();
+            hitTicks = new Image[4];
+            for (int i = 0; i < 4; i++)
+            {
+                float sx = (i & 1) == 0 ? 1f : -1f, sy = (i & 2) == 0 ? 1f : -1f;
+                var go = SubChild(root, "Tick" + i);
+                var rt = Comp<RectTransform>(go);
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(spr.rect.width, spr.rect.height) / TexelsPerUnit;
+                rt.anchoredPosition = new Vector2(sx, sy) * (TickCenter * 0.7071f);
+                rt.localRotation = Quaternion.Euler(0f, 0f, sx * sy > 0f ? -45f : 45f);   // asse lungo la diagonale
+                var img = Comp<Image>(go);
+                img.sprite = spr; img.raycastTarget = false;
+                hitTicks[i] = img;
+            }
+            root.SetActive(false);
+        }
+
+        // Pop veloce (le tacce partono piu larghe e rientrano in 0,08 s), poi restano piene e sfumano.
+        void UpdateHitmarker(float dt)
+        {
+            if (hitT <= 0f || hitRoot == null) return;
+            hitT -= dt;
+            if (hitT <= 0f) { hitRoot.gameObject.SetActive(false); return; }
+            float p = Mathf.Clamp01((hitDur - hitT) / 0.08f);
+            float s = Mathf.Lerp(hitPop, 1f, 1f - (1f - p) * (1f - p)) * hitSize;
+            hitRoot.localScale = new Vector3(s, s, 1f);
+            var c = hitCol;
+            c.a = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(hitT / (hitDur * 0.55f)));
+            foreach (var t in hitTicks) t.color = c;
+        }
+
         void Update()
         {
             float dt = Time.deltaTime;
-            if (hitT > 0f) { hitT -= dt; if (hitT <= 0f && hitmarker != null) hitmarker.enabled = false; }
+            UpdateHitmarker(dt);
             if (killT > 0f) { killT -= dt; if (killT <= 0f && killConfirm != null) killConfirm.text = ""; }
             if (bannerT > 0f) { bannerT -= dt; if (bannerT <= 0f) { if (bannerText != null) bannerText.text = ""; if (bannerSub != null) bannerSub.text = ""; } }
             if (toastT > 0f) { toastT -= dt; if (toastT <= 0f && toastText != null) toastText.text = ""; }
@@ -132,12 +207,17 @@ namespace PryingEyes
         public void SetScore(int s) { if (scoreText == null) return; scoreText.text = "SCORE " + s; }
         public void SetKills(int k) { if (killsText == null) return; killsText.text = "KILLS " + k; }
         public void SetEnemiesLeft(int n) { if (enemiesText == null) return; enemiesText.text = "NEMICI " + n; }
-        public void Hitmarker(bool kill)
+        /// <summary>Hit marker stile CoD: bianco al colpo; rosso, piu grande e piu lungo all'uccisione; la testa lo ingrandisce.</summary>
+        public void Hitmarker(bool kill, bool headshot = false)
         {
-            if (hitmarker == null) return;
-            hitmarker.enabled = true;
-            hitmarker.color = kill ? Color.red : Color.white;
-            hitT = 0.12f;
+            if (hitRoot == null) return;
+            hitCol = kill ? new Color(1f, 0.18f, 0.14f) : Color.white;
+            hitSize = (kill ? 1.2f : 1f) * (headshot ? 1.2f : 1f);
+            hitPop = kill ? 1.6f : 1.4f;
+            hitDur = kill ? 0.5f : 0.25f;
+            hitT = hitDur;
+            hitRoot.gameObject.SetActive(true);
+            UpdateHitmarker(0f);
         }
         public void KillConfirm(string s) { if (killConfirm == null) return; killConfirm.text = s; killT = 1.5f; }
         public void Banner(string t, string sub) { if (bannerText == null) return; bannerText.text = t; bannerSub.text = sub; bannerT = 3f; }

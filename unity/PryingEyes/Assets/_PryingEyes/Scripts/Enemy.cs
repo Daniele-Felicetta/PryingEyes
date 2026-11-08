@@ -183,7 +183,7 @@ namespace PryingEyes
             hp -= dmg;
             flash = 1f;
             foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
-            GameManager.I.hud?.Hitmarker(headshot);
+            GameManager.I.hud?.Hitmarker(hp <= 0f, headshot);
             GameManager.shotsHit++;
             Synth.Hit();
             vel += (transform.position - playerT.position).normalized *
