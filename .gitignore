@@ -12,3 +12,7 @@ unity/PryingEyes/Builds/
 *.csproj
 *.slnx
 .vsconfig
+# Blender: file intermedi della pipeline, li rigenera modelli/monaco/genera_monaco.py (fasi geo ed export)
+modelli/monaco/monaco_geo.blend
+modelli/monaco/export/monaco_export.blend
+__pycache__/

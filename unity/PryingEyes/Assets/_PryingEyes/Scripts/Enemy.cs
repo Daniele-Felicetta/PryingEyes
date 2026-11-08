@@ -3,14 +3,20 @@ using System.Collections.Generic;
 
 namespace PryingEyes
 {
-    /// <summary>Drone (flying) / Brute (walker): chase, attack, enrage <50%, separation, hit flash.</summary>
+    /// <summary>Drone (flying) / Brute (walker) / Monaco (walker animato, modello da Blender):
+    /// chase, attack, enrage <50%, separation, hit flash.</summary>
     public class Enemy : MonoBehaviour
     {
-        public enum EnemyType { Drone, Brute }
+        public enum EnemyType { Drone, Brute, Monaco }
         public EnemyType type;
 
         public float hp, maxHp, speed;
         float atkCd = 0f, flash = 0f;
+        // monaco: animazioni guidate da qui (Velocita, PassoVel, Attacca, Colpito, Morto)
+        Animator anim;
+        bool dead;
+        float strikeAt = -1f, atkLock = 0f;
+        const float MonacoWalkSpeed = 1.0f;   // m/s della camminata in Blender a velocita' 1
         Vector3 vel;
         Transform playerT;
         Renderer[] renderers;
@@ -35,14 +41,19 @@ namespace PryingEyes
 
         public static Enemy Spawn(EnemyType t, Vector3 pos)
         {
-            GameObject go = t == EnemyType.Drone
-                ? BuildDrone(out Material glow, out List<Material> flashes)
-                : BuildBrute(out glow, out flashes);
+            Material glow;
+            List<Material> flashes;
+            GameObject go = t == EnemyType.Drone ? BuildDrone(out glow, out flashes)
+                : t == EnemyType.Brute ? BuildBrute(out glow, out flashes)
+                : BuildMonaco(out glow, out flashes);
             go.transform.position = pos;
             Enemy e = go.AddComponent<Enemy>();
             e.type = t;
-            e.hp = e.maxHp = t == EnemyType.Drone ? 60f : 130f;
-            e.speed = t == EnemyType.Drone ? 5.0f + Random.value * 1.5f : 3.4f + Random.value;
+            e.hp = e.maxHp = t == EnemyType.Drone ? 60f : t == EnemyType.Brute ? 130f : 170f;
+            e.speed = t == EnemyType.Drone ? 5.0f + Random.value * 1.5f
+                : t == EnemyType.Brute ? 3.4f + Random.value
+                : 1.35f + Random.value * 0.35f;      // lento e ostinato
+            e.anim = go.GetComponentInChildren<Animator>();
             e.playerT = GameManager.I.player.transform;
             e.renderers = go.GetComponentsInChildren<Renderer>();
             e.flashMats = flashes;
@@ -52,11 +63,13 @@ namespace PryingEyes
                 if (tr.name == "Rotor") e.rotors.Add(tr);
             all.Add(e);
             GameManager.I.SetAlive(all.Count);
+            if (GameManager.autoTest) Debug.Log($"[PryingEyes] spawn {t} hp={e.hp} vel={e.speed:F2} pos={pos}");
             return e;
         }
 
         void Update()
         {
+            if (dead) return;
             float dt = Time.deltaTime;
             flash = Mathf.Max(0f, flash - dt * 5f);
             if (flash > 0f)
@@ -98,6 +111,10 @@ namespace PryingEyes
                     GameManager.I.player.Hurt(8f + Random.value * 6f);
                 }
             }
+            else if (type == EnemyType.Monaco)
+            {
+                UpdateMonaco(dt, gp, pp, toP, dist, sep, enraged);
+            }
             else
             {
                 float spd = speed * (enraged ? 1.25f : 1f);
@@ -118,24 +135,81 @@ namespace PryingEyes
             }
         }
 
+        /// <summary>Monaco: si avvicina camminando, si ferma e pianta il bastone a terra; il danno e l'onda d'urto
+        /// arrivano quando il bastone tocca terra (fotogramma 16 della clip, 0.53 s), solo se il giocatore e' a tiro.</summary>
+        void UpdateMonaco(float dt, Vector3 gp, Vector3 pp, Vector3 toP, float dist, Vector3 sep, bool enraged)
+        {
+            atkLock -= dt;
+            bool attacking = atkLock > 0f;
+            float spd = speed * (enraged ? 1.25f : 1f);
+            Vector3 desired = (!attacking && dist > 1.9f ? toP * spd : Vector3.zero) + sep * 0.5f;
+            vel = Vector3.Lerp(vel, desired, Mathf.Min(1f, 3f * dt));
+            gp += vel * dt;
+            gp.y = 0f;
+            transform.position = gp;
+            Vector3 look = new Vector3(pp.x, gp.y, pp.z) - gp;
+            if (look.sqrMagnitude > 0.01f)
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(look), Mathf.Min(1f, 5f * dt));
+            if (anim != null)
+            {
+                float v = new Vector3(vel.x, 0f, vel.z).magnitude;
+                anim.SetFloat("Velocita", v);
+                anim.SetFloat("PassoVel", Mathf.Clamp(v / MonacoWalkSpeed, 0.6f, 2.2f));
+            }
+            if (strikeAt >= 0f)
+            {
+                strikeAt -= dt;
+                if (strikeAt < 0f)
+                {
+                    // punta del bastone nel riferimento del monaco (Blender 0.31, -0.37, 0 -> Unity -0.31, 0, 0.37)
+                    if (glowMat != null) Shockwave.Spawn(transform.TransformPoint(new Vector3(-0.31f, 0f, 0.37f)), glowMat);
+                    if (dist < 2.4f && GameManager.I.player.alive)
+                        GameManager.I.player.Hurt((enraged ? 22f : 16f) + Random.value * 8f);
+                    if (GameManager.autoTest) Debug.Log($"[PryingEyes] monaco: colpo a terra, giocatore a {dist:F1} m");
+                }
+            }
+            else if (dist < 2.1f && atkCd <= 0f && GameManager.I.player.alive)
+            {
+                atkCd = 2.2f;
+                strikeAt = 16f / 30f;
+                atkLock = 1.25f;
+                if (anim != null) anim.SetTrigger("Attacca");
+            }
+        }
+
         public void Damage(float dmg, Vector3 point, bool headshot)
         {
+            if (dead) return;
             hp -= dmg;
             flash = 1f;
             foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
             GameManager.I.hud?.Hitmarker(headshot);
             GameManager.shotsHit++;
             Synth.Hit();
-            vel += (transform.position - playerT.position).normalized * (type == EnemyType.Drone ? 2.2f : 0.9f);
+            vel += (transform.position - playerT.position).normalized *
+                   (type == EnemyType.Drone ? 2.2f : type == EnemyType.Monaco ? 0.5f : 0.9f);
+            // durante il colpo di bastone niente reazione: l'animazione dell'attacco non si interrompe
+            if (type == EnemyType.Monaco && hp > 0f && atkLock <= 0f && anim != null) anim.SetTrigger("Colpito");
             if (hp <= 0f) Die(headshot);
         }
 
         void Die(bool headshot)
         {
+            if (GameManager.autoTest) Debug.Log($"[PryingEyes] morto {type} headshot={headshot}");
             all.Remove(this);
             GameManager.I.OnEnemyKilled(this, headshot);
             GameManager.I.SetAlive(all.Count);
             Synth.Kill();
+            if (type == EnemyType.Monaco)
+            {
+                // niente detriti: crolla con l'animazione e sparisce dopo qualche secondo
+                dead = true;
+                foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
+                if (anim != null) anim.SetBool("Morto", true);
+                foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
+                Destroy(gameObject, 5f);
+                return;
+            }
             Vector3 center = transform.position + Vector3.up * (type == EnemyType.Drone ? 0.5f : 1.2f);
             if (flashMats.Count > 0)
             {
@@ -210,6 +284,24 @@ namespace PryingEyes
             cc.height = 2.2f; cc.center = new Vector3(0, 1.1f, 0);
             glow = visor;
             flashes = new List<Material> { armor, dark };
+            return g;
+        }
+
+        /// <summary>Prefab fatto da Editor/MonacoImport.cs (Resources/Monaco). I materiali del lampo sono copie
+        /// per istanza, cosi' un monaco colpito non fa lampeggiare gli altri; occhio e occhietto restano fuori.</summary>
+        static GameObject BuildMonaco(out Material glow, out List<Material> flashes)
+        {
+            var prefab = Resources.Load<GameObject>("Monaco");
+            var g = Object.Instantiate(prefab);
+            g.name = "Monaco";
+            flashes = new List<Material>();
+            foreach (var r in g.GetComponentsInChildren<Renderer>())
+                foreach (var m in r.materials)
+                    if (!m.name.StartsWith("Monaco_Occhi")) flashes.Add(m);
+            // onda d'urto del colpo a terra: blu come l'occhietto
+            glow = Lit(new Color(0.05f, 0.15f, 0.35f), 0f, 0.4f);
+            glow.EnableKeyword("_EMISSION");
+            glow.SetColor("_EmissionColor", new Color(0.22f, 0.58f, 1f) * 3f);
             return g;
         }
 

@@ -84,8 +84,14 @@ namespace PryingEyes
             int count = 3 + n * 2;
             for (int k = 0; k < count; k++)
             {
-                bool drone = Random.value < Mathf.Min(0.65f, 0.35f + n * 0.06f);
-                Enemy.EnemyType type = drone ? Enemy.EnemyType.Drone : Enemy.EnemyType.Brute;
+                Enemy.EnemyType type;
+                if (k == 0) type = Enemy.EnemyType.Monaco;            // almeno un monaco per ondata
+                else
+                {
+                    bool drone = Random.value < Mathf.Min(0.65f, 0.35f + n * 0.06f);
+                    type = drone ? Enemy.EnemyType.Drone
+                        : Random.value < 0.35f ? Enemy.EnemyType.Monaco : Enemy.EnemyType.Brute;
+                }
                 Vector3 sp = PickSpawn(type);
                 Enemy.Spawn(type, sp);
                 alive++;
@@ -100,7 +106,7 @@ namespace PryingEyes
             for (int j = 0; j < spawnPoints.Length; j++)
             {
                 Vector3 p = spawnPoints[(Random.Range(0, 1000) + j) % spawnPoints.Length].position;
-                if (type == Enemy.EnemyType.Brute && p.y > 1f) continue;
+                if (type != Enemy.EnemyType.Drone && p.y > 1f) continue;   // chi cammina nasce a terra
                 if (player != null && Vector2.Distance(new Vector2(p.x, p.z),
                     new Vector2(player.transform.position.x, player.transform.position.z)) < 10f) continue;
                 p.x += Random.Range(-1.5f, 1.5f);
@@ -117,7 +123,8 @@ namespace PryingEyes
         {
             alive--;
             kills++;
-            int pts = (e.type == Enemy.EnemyType.Drone ? 100 : 150) + (headshot ? 50 : 0) + wave * 10;
+            int pts = (e.type == Enemy.EnemyType.Drone ? 100 : e.type == Enemy.EnemyType.Brute ? 150 : 200)
+                      + (headshot ? 50 : 0) + wave * 10;
             score += pts;
             hud?.SetScore(score);
             hud?.SetKills(kills);
