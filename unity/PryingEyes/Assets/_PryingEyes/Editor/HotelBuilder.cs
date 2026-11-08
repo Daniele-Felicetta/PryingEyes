@@ -12,12 +12,13 @@ namespace PryingEyes.EditorTools
     public static class HotelBuilder
     {
         const float HX = 35f, HZ = 23f;
-        static Material floorMat, wallMat, ceilMat, woodMat, goldMat, darkMat, steelMat;
+        static Material floorMat, wallMat, ceilMat, woodMat, goldMat, darkMat, steelMat, marbleMat;
         static Material carpetMat, velvetR, velvetG, glassMat, sandMat, rockMat;
         static readonly List<Vector3> spawnPts = new List<Vector3>();
 
         public static void Build()
         {
+            SetupURP.Configure();
             EnsureTagsLayers();
             MakeMaterials();
 
@@ -37,6 +38,7 @@ namespace PryingEyes.EditorTools
             Chandeliers();
             CrocCage();
             Lights();
+            Probe();
             SpawnPoints();
             PlayerAndGame();
 
@@ -108,6 +110,8 @@ namespace PryingEyes.EditorTools
             goldMat = LitMat("Gold", new Color(0.54f, 0.42f, 0.18f), 1f, 0.65f);
             darkMat = LitMat("Dark", new Color(0.09f, 0.11f, 0.15f), 0.8f, 0.5f);
             steelMat = LitMat("Steel", new Color(0.42f, 0.44f, 0.47f), 0.9f, 0.6f);
+            // marmo liscio per colonne/scale/banco (prima usavano la scacchiera del pavimento: effetto codice a barre)
+            marbleMat = LitMat("Marble", new Color(0.86f, 0.84f, 0.79f), 0f, 0.72f);
             carpetMat = LitMat("Carpet", new Color(0.37f, 0.07f, 0.13f), 0f, 0.02f);
             velvetR = LitMat("VelvetR", new Color(0.35f, 0.12f, 0.16f), 0f, 0.05f);
             velvetG = LitMat("VelvetG", new Color(0.16f, 0.29f, 0.27f), 0f, 0.05f);
@@ -132,6 +136,13 @@ namespace PryingEyes.EditorTools
             go.GetComponent<MeshRenderer>().material = m;
             if (!collide) Object.DestroyImmediate(go.GetComponent<BoxCollider>());
             go.isStatic = true;
+            return go;
+        }
+
+        static GameObject NoShadow(GameObject go)
+        {
+            foreach (var r in go.GetComponentsInChildren<Renderer>())
+                r.shadowCastingMode = ShadowCastingMode.Off;
             return go;
         }
 
@@ -166,7 +177,7 @@ namespace PryingEyes.EditorTools
                 c.name = "Column";
                 c.transform.position = new Vector3(p.x, 5, p.y);
                 c.transform.localScale = new Vector3(1.4f, 10, 1.4f);
-                c.GetComponent<MeshRenderer>().material = floorMat;
+                c.GetComponent<MeshRenderer>().material = marbleMat;
                 c.isStatic = true;
                 Box("Cap", 1.7f, 0.3f, 1.7f, p.x, 8.4f, p.y, goldMat, false);
             }
@@ -180,7 +191,7 @@ namespace PryingEyes.EditorTools
             for (float x = -34; x <= 34; x += 4)
                 Box("Bal", 0.12f, 1.1f, 0.12f, x, 4.75f, -11, woodMat, false);
             foreach (float x in new[] { -12f, 12f })
-                Box("MezzPillar", 0.8f, 4, 0.8f, x, 2, -11, floorMat);
+                Box("MezzPillar", 0.8f, 4, 0.8f, x, 2, -11, marbleMat);
             Box("DoorW", 2.4f, 3.2f, 0.3f, -20, 5.8f, -22.8f, woodMat);
             Box("DoorE", 2.4f, 3.2f, 0.3f, 20, 5.8f, -22.8f, woodMat);
         }
@@ -188,14 +199,14 @@ namespace PryingEyes.EditorTools
         static void Stairs()
         {
             for (int i = 0; i < 12; i++)
-                Box("Step" + i, 8, 0.35f * (i + 1), 0.75f, 0, 0.35f * (i + 1) / 2f, -2.375f - i * 0.75f, floorMat);
+                Box("Step" + i, 8, 0.35f * (i + 1), 0.75f, 0, 0.35f * (i + 1) / 2f, -2.375f - i * 0.75f, marbleMat);
             foreach (float sx in new[] { -4.2f, 4.2f })
                 Box("StairRail", 0.25f, 0.25f, 10.4f, sx, 2.9f, -6.5f, woodMat, false);
         }
 
         static void Reception()
         {
-            Box("DeskTop", 8.4f, 0.08f, 1.5f, 26, 1.14f, 2, floorMat);
+            Box("DeskTop", 8.4f, 0.08f, 1.5f, 26, 1.14f, 2, marbleMat);
             Box("DeskFront", 8, 1.1f, 1.2f, 26, 0.55f, 2, woodMat);
             Box("DeskSide", 1.2f, 1.1f, 4, 21.5f, 0.55f, 0, woodMat);
             var bell = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -251,18 +262,20 @@ namespace PryingEyes.EditorTools
         {
             var glow = LitMat("WinGlow", new Color(0.04f, 0.07f, 0.13f), 0f, 0.2f);
             glow.EnableKeyword("_EMISSION");
-            glow.SetColor("_EmissionColor", new Color(0.62f, 0.75f, 0.88f));
-            glow.SetFloat("_EmissiveIntensity", 1.1f);
+            glow.SetColor("_EmissionColor", new Color(0.62f, 0.75f, 0.88f) * 1.6f); // HDR: entra nel bloom
             for (int i = 0; i < 5; i++)
             {
                 float z = -8 + i * 4;
                 Box("WinFrame" + i, 0.5f, 5.4f, 3.2f, 34.7f, 3.5f, z, woodMat);
-                var pane = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                // vetro luminoso verticale rivolto verso la hall (prima: Plane orizzontale, invisibile da terra)
+                var pane = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 pane.name = "Pane" + i;
+                Object.DestroyImmediate(pane.GetComponent<Collider>());
                 pane.transform.position = new Vector3(34.42f, 3.5f, z);
-                pane.transform.rotation = Quaternion.Euler(0, -90, 0);
+                pane.transform.rotation = Quaternion.Euler(0, 90, 0);
                 pane.transform.localScale = new Vector3(2.6f, 4.7f, 1f);
                 pane.GetComponent<MeshRenderer>().material = glow;
+                NoShadow(pane);
                 pane.isStatic = true;
             }
         }
@@ -281,8 +294,7 @@ namespace PryingEyes.EditorTools
         {
             bulbMat = LitMat("Bulb", new Color(0.07f, 0.07f, 0.07f), 0f, 0.3f);
             bulbMat.EnableKeyword("_EMISSION");
-            bulbMat.SetColor("_EmissionColor", new Color(1f, 0.79f, 0.54f));
-            bulbMat.SetFloat("_EmissiveIntensity", 1.5f);
+            bulbMat.SetColor("_EmissionColor", new Color(1f, 0.79f, 0.54f) * 4f); // HDR: le lampadine brillano col bloom
             Chandelier(0, 4); Chandelier(-22, 4);
             var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             c.name = "ChandOff"; c.transform.position = new Vector3(22, 6.6f, 4);
@@ -320,10 +332,12 @@ namespace PryingEyes.EditorTools
                 b.transform.localScale = Vector3.one * 0.14f;
                 b.GetComponent<MeshRenderer>().material = bulbMat;
             }
+            NoShadow(g); // il lampadario non oscura la sua stessa luce
             var pl = g.AddComponent<Light>();
             pl.type = LightType.Point;
             pl.color = new Color(1f, 0.79f, 0.54f);
-            pl.intensity = 25f; pl.range = 30f;
+            pl.intensity = 40f; pl.range = 30f;
+            pl.shadows = LightShadows.Soft;
             g.isStatic = true;
         }
 
@@ -337,10 +351,17 @@ namespace PryingEyes.EditorTools
             Box("Pool", 9.4f, 0.1f, 6.4f, CX, 0.56f, CZ, darkMat, false);
             Box("Island", 4.4f, 0.5f, 3.2f, CX - 1, 0.55f, CZ - 0.5f, sandMat, false);
             float glassH = 2.2f, glassY = 0.5f + glassH / 2f;
-            Box("GlassN", 10, glassH, 0.06f, CX, glassY, CZ - 3.5f, glassMat);
-            Box("GlassS", 10, glassH, 0.06f, CX, glassY, CZ + 3.5f, glassMat);
-            Box("GlassW", 0.06f, glassH, 7, CX - 5, glassY, CZ, glassMat);
-            Box("GlassE", 0.06f, glassH, 7, CX + 5, glassY, CZ, glassMat);
+            NoShadow(Box("GlassN", 10, glassH, 0.06f, CX, glassY, CZ - 3.5f, glassMat)); // il vetro non fa ombra
+            NoShadow(Box("GlassS", 10, glassH, 0.06f, CX, glassY, CZ + 3.5f, glassMat));
+            NoShadow(Box("GlassW", 0.06f, glassH, 7, CX - 5, glassY, CZ, glassMat));
+            NoShadow(Box("GlassE", 0.06f, glassH, 7, CX + 5, glassY, CZ, glassMat));
+            // lampada riscaldante rossa sopra l'isolotto, come nel web
+            var heat = new GameObject("HeatLamp").AddComponent<Light>();
+            heat.type = LightType.Point;
+            heat.transform.position = new Vector3(CX - 1f, 2.9f, CZ - 0.5f);
+            heat.color = new Color(1f, 0.36f, 0.16f);
+            heat.intensity = 9f; heat.range = 10f;
+            heat.shadows = LightShadows.Soft;
             Croc(CX + 1.5f, 0.42f, CZ + 0.5f, 0.7f, 1f);
             Croc(CX - 1.2f, 0.95f, CZ - 0.6f, -2.2f, 0.75f);
             Box("Plaque", 1.6f, 0.8f, 0.05f, CX, 1.05f, CZ + 3.56f, woodMat, false);
@@ -367,31 +388,84 @@ namespace PryingEyes.EditorTools
 
         static void Lights()
         {
-            RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.62f, 0.64f, 0.68f);
+            // ambiente notturno a gradiente (prima: Flat grigio chiaro, tutto illuminato uguale e niente profondità)
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.36f, 0.40f, 0.50f);
+            RenderSettings.ambientEquatorColor = new Color(0.26f, 0.24f, 0.22f);
+            RenderSettings.ambientGroundColor = new Color(0.14f, 0.12f, 0.11f);
+
+            // cielo notturno (prima: skybox diurno di default) + nebbia come nel web (FogExp2 0x0a0f1c, 0.016)
+            var sky = new Material(Shader.Find("Skybox/Procedural"));
+            sky.EnableKeyword("_SUNDISK_SIMPLE");
+            sky.SetFloat("_SunDisk", 1f);
+            sky.SetFloat("_SunSize", 0.025f);
+            sky.SetFloat("_AtmosphereThickness", 0.45f);
+            sky.SetColor("_SkyTint", new Color(0.22f, 0.28f, 0.45f));
+            sky.SetColor("_GroundColor", new Color(0.02f, 0.02f, 0.03f));
+            sky.SetFloat("_Exposure", 0.22f);
+            RenderSettings.skybox = SaveMat("NightSky", sky);
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = new Color(0.07f, 0.09f, 0.14f);
+            RenderSettings.fogDensity = 0.016f;
+
+            // luna con ombre: entra solo dal lucernario (prima, senza ombre, attraversava il soffitto)
             var moon = new GameObject("Moon").AddComponent<Light>();
             moon.type = LightType.Directional;
             moon.color = new Color(0.66f, 0.77f, 0.91f);
             moon.intensity = 1.6f;
             moon.transform.rotation = Quaternion.Euler(50, -20, 0);
-            moon.shadowBias = -0.0004f;
+            moon.shadows = LightShadows.Soft;
+            RenderSettings.sun = moon;
+
             WarmPoint(26, 3, 2, 25f, 12f);    // reception
-            WarmPoint(-12, 3, 9, 20f, 14f);   // lounge
+            WarmPoint(-14, 3.4f, 11, 14f, 14f); // lounge (spostata: attaccata alla colonna la bruciava)
             WarmPoint(0, 7, -17, 18f, 16f);   // mezzanine
-            // post: bloom + vignette globali
+            Emergency(-33.5f, 3.6f, 0f);      // luci d'emergenza rosse, come nel web
+            Emergency(0f, 3.4f, 21.5f);
+
+            // chiaro di luna che entra dalle vetrate est
+            var win = new GameObject("WindowMoon").AddComponent<Light>();
+            win.type = LightType.Spot;
+            win.transform.position = new Vector3(33.5f, 5.5f, 0f);
+            win.transform.rotation = Quaternion.LookRotation(new Vector3(-1f, -0.55f, 0f));
+            win.color = new Color(0.56f, 0.70f, 0.91f);
+            win.intensity = 30f; win.range = 30f; win.spotAngle = 110f;
+            win.shadows = LightShadows.Soft;
+
+            // post: ACES + grading + bloom + vignetta + grana come nel web.
+            // Add<T>(true) attiva i parametri: prima i valori erano impostati senza override, quindi ignorati.
             var prof = ScriptableObject.CreateInstance<VolumeProfile>();
-            var bloom = prof.Add<Bloom>();
-            bloom.intensity.value = 0.55f;
-            bloom.threshold.value = 1.0f;
-            var vig = prof.Add<Vignette>();
-            vig.intensity.value = 0.3f;
+            prof.Add<Tonemapping>(true).mode.value = TonemappingMode.ACES;
+            var ca = prof.Add<ColorAdjustments>(true);
+            ca.postExposure.value = 0.7f;
+            ca.contrast.value = 8f;
+            ca.saturation.value = 12f;
+            var bloom = prof.Add<Bloom>(true);
+            bloom.intensity.value = 0.6f;
+            bloom.threshold.value = 0.9f;
+            bloom.scatter.value = 0.7f;
+            var vig = prof.Add<Vignette>(true);
+            vig.intensity.value = 0.32f;
+            vig.smoothness.value = 0.45f;
+            var grain = prof.Add<FilmGrain>(true);
+            grain.type.value = FilmGrainLookup.Thin1;
+            grain.intensity.value = 0.15f;
+            const string volPath = "Assets/_PryingEyes/Settings/HotelVolume.asset";
             if (!AssetDatabase.IsValidFolder("Assets/_PryingEyes/Settings")) AssetDatabase.CreateFolder("Assets/_PryingEyes", "Settings");
-            AssetDatabase.DeleteAsset("Assets/_PryingEyes/Settings/HotelVolume.asset");
-            AssetDatabase.CreateAsset(prof, "Assets/_PryingEyes/Settings/HotelVolume.asset");
+            AssetDatabase.DeleteAsset(volPath);
+            AssetDatabase.CreateAsset(prof, volPath);
+            // i componenti vanno salvati dentro l'asset (prima andavano persi: components = {fileID: 0})
+            foreach (var comp in prof.components)
+            {
+                comp.hideFlags = HideFlags.HideInInspector | HideFlags.HideInHierarchy;
+                AssetDatabase.AddObjectToAsset(comp, prof);
+            }
+            AssetDatabase.SaveAssets();
             var volGo = new GameObject("Volume");
             var vol = volGo.AddComponent<Volume>();
             vol.isGlobal = true;
-            vol.profile = prof;
+            vol.sharedProfile = prof; // "profile" non viene salvato nella scena: serve sharedProfile
         }
 
         static void WarmPoint(float x, float y, float z, float intensity, float range)
@@ -403,6 +477,46 @@ namespace PryingEyes.EditorTools
             pl.color = new Color(1f, 0.79f, 0.54f);
             pl.intensity = intensity;
             pl.range = range;
+            pl.shadows = LightShadows.Soft;
+        }
+
+        static void Emergency(float x, float y, float z)
+        {
+            var pl = new GameObject("EmergencyLight").AddComponent<Light>();
+            pl.transform.position = new Vector3(x, y, z);
+            pl.type = LightType.Point;
+            pl.color = new Color(1f, 0.13f, 0.13f);
+            pl.intensity = 4f;
+            pl.range = 11f;
+        }
+
+        // riflessi: probe della hall con box projection, cotta in editor; vale anche come riflesso di default
+        static void Probe()
+        {
+            var go = new GameObject("HallProbe");
+            go.transform.position = new Vector3(0f, 3f, 2f);
+            var p = go.AddComponent<ReflectionProbe>();
+            p.mode = ReflectionProbeMode.Custom;
+            p.center = new Vector3(0f, 2f, -2f);
+            p.size = new Vector3(72f, 10f, 48f);
+            p.boxProjection = true;
+            p.resolution = 256;
+            p.hdr = true;
+            const string path = "Assets/_PryingEyes/Settings/HallProbe.exr";
+            try
+            {
+                if (!Lightmapping.BakeReflectionProbe(p, path)) { Debug.LogWarning("[PryingEyes] reflection probe bake failed"); return; }
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                var cube = AssetDatabase.LoadAssetAtPath<Cubemap>(path);
+                p.customBakedTexture = cube != null ? (Texture)cube : AssetDatabase.LoadAssetAtPath<Texture>(path);
+                if (cube != null)
+                {
+                    RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
+                    RenderSettings.customReflectionTexture = cube;
+                }
+                Debug.Log("[PryingEyes] reflection probe baked: cubemap=" + (cube != null));
+            }
+            catch (System.Exception e) { Debug.LogWarning("[PryingEyes] reflection probe error: " + e.Message); }
         }
 
         static void SpawnPoints()
@@ -431,15 +545,20 @@ namespace PryingEyes.EditorTools
             p.layer = 2; // Ignore Raycast: la propria capsula non blocca mai l'hitscan
             p.transform.position = new Vector3(0, 0.1f, 19f);
             var cc = p.AddComponent<CharacterController>();
-            cc.height = 1.8f; cc.radius = 0.4f; cc.center = new Vector3(0, 0.9f, 0);
+            cc.height = 1.75f; cc.radius = 0.38f; cc.center = new Vector3(0, 0.875f, 0); // misure del web
             var ctrl = p.AddComponent<PryingEyes.PlayerController>();
             var camGo = new GameObject("MainCamera");
             camGo.layer = 2;
             camGo.transform.SetParent(p.transform, false);
-            camGo.transform.localPosition = new Vector3(0, 1.65f, 0);
+            camGo.transform.localPosition = new Vector3(0, 1.62f, 0);
             var cam = camGo.AddComponent<Camera>();
             cam.nearClipPlane = 0.05f;
             cam.tag = "MainCamera";
+            // in URP post-processing e anti-aliasing vanno accesi per camera (di default sono spenti)
+            var camData = cam.GetUniversalAdditionalCameraData();
+            camData.renderPostProcessing = true;
+            camData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+            camData.antialiasingQuality = AntialiasingQuality.High;
             camGo.AddComponent<AudioListener>();
             ctrl.cam = camGo.transform;
 

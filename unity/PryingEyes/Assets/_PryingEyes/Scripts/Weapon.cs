@@ -66,6 +66,7 @@ namespace PryingEyes
             flashQuad.transform.localPosition = new Vector3(0, 0.02f, 0.56f);
             flashQuad.transform.localScale = new Vector3(0.13f, 0.13f, 1f);
             flashQuad.GetComponent<MeshRenderer>().material = flashMat;
+            flashQuad.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             flashQuad.SetActive(false);
 
             flashLight = root.AddComponent<Light>();
@@ -92,7 +93,9 @@ namespace PryingEyes
             b.transform.SetParent(parent.transform, false);
             b.transform.localPosition = pos;
             b.transform.localScale = size;
-            b.GetComponent<MeshRenderer>().material = m;
+            var r = b.GetComponent<MeshRenderer>();
+            r.material = m;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; // l'arma non proietta ombre sul mondo
             b.layer = 2; // Ignore Raycast: il viewmodel non blocca mai l'hitscan
         }
 

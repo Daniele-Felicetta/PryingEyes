@@ -43,5 +43,55 @@ namespace PryingEyes.EditorTools
             AssetDatabase.SaveAssets();
             Debug.Log("[PryingEyes] URP setup OK: " + dir + "/HotelURP.asset");
         }
+
+        /// <summary>Idempotent quality pass on the existing URP assets (called by HotelBuilder.Build).</summary>
+        public static void Configure()
+        {
+            const string dir = "Assets/_PryingEyes/Settings";
+            var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(dir + "/HotelURP.asset");
+            var renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(dir + "/HotelRenderer.asset");
+            if (pipeline == null || renderer == null)
+            {
+                Debug.LogError("[PryingEyes] URP assets missing: run SetupURP.Setup first");
+                return;
+            }
+
+            var so = new SerializedObject(pipeline);
+            SetInt(so, "m_MSAA", 4);                                 // anti-aliasing 4x (prima: spento)
+            SetBool(so, "m_SoftShadowsSupported", true);
+            SetInt(so, "m_SoftShadowQuality", 3);                    // High
+            SetInt(so, "m_MainLightShadowmapResolution", 4096);
+            SetFloat(so, "m_ShadowDistance", 70f);                   // tutta la hall (70 m)
+            SetInt(so, "m_ShadowCascadeCount", 4);
+            SetBool(so, "m_AdditionalLightShadowsSupported", true);  // ombre di lampadari e lampade
+            SetInt(so, "m_AdditionalLightsShadowmapResolution", 4096);
+            SetBool(so, "m_ReflectionProbeBoxProjection", true);
+            SetBool(so, "m_ReflectionProbeBlending", true);
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            var ro = new SerializedObject(renderer);
+            var ppData = AssetDatabase.LoadAssetAtPath<PostProcessData>(
+                "Packages/com.unity.render-pipelines.universal/Runtime/Data/PostProcessData.asset");
+            ro.FindProperty("postProcessData").objectReferenceValue = ppData; // null = post-processing spento
+            SetInt(ro, "m_RenderingMode", 2);                        // Forward+: niente limite di 4 luci per oggetto
+            ro.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorUtility.SetDirty(pipeline);
+            EditorUtility.SetDirty(renderer);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[PryingEyes] URP configured: msaa=" + pipeline.msaaSampleCount + " postData=" + (ppData != null)
+                + " shadowDist=" + pipeline.shadowDistance + " cascades=" + pipeline.shadowCascadeCount);
+        }
+
+        static SerializedProperty Prop(SerializedObject so, string name)
+        {
+            var p = so.FindProperty(name);
+            if (p == null) Debug.LogWarning("[PryingEyes] URP property not found: " + name);
+            return p;
+        }
+
+        static void SetInt(SerializedObject so, string name, int v) { var p = Prop(so, name); if (p != null) p.intValue = v; }
+        static void SetBool(SerializedObject so, string name, bool v) { var p = Prop(so, name); if (p != null) p.boolValue = v; }
+        static void SetFloat(SerializedObject so, string name, float v) { var p = Prop(so, name); if (p != null) p.floatValue = v; }
     }
 }

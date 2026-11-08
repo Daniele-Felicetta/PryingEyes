@@ -7,11 +7,14 @@ namespace PryingEyes
     public class PlayerController : MonoBehaviour
     {
         [Header("Move")]
-        public float walk = 6f, sprint = 9f, crouchSpeed = 3f;
-        public float accelGround = 10f, accelAir = 2f, friction = 8f;
-        public float jumpVel = 7f, gravity = 22f;
-        public float heightStand = 1.8f, heightCrouch = 1.1f, eyeStand = 1.65f, eyeCrouch = 1.0f;
-        public float sens = 1.2f;
+        // valori tarati nella versione web (js/core.js, CFG)
+        public float walk = 5.6f, sprint = 8.2f, crouchSpeed = 3.1f;
+        public float accelGround = 34f, accelAir = 9f, friction = 9.5f;
+        public float jumpVel = 5.4f, gravity = 17.5f;
+        public float heightStand = 1.75f, heightCrouch = 1.15f, eyeStand = 1.62f, eyeCrouch = 1.02f;
+        // radianti per unità di "Mouse X" (= pixel x 0.1 nell'Input Manager): 0.021 = 0.0021 rad/pixel come nel web.
+        // Prima era 1.2, cioè circa 57 volte più sensibile del web.
+        public float sens = 0.021f;
 
         [Header("Life")]
         public float hp = 100f, shield = 50f;
@@ -57,8 +60,9 @@ namespace PryingEyes
             }
 
             // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
-            yaw += Input.GetAxis("Mouse X") * sens;
-            pitch -= Input.GetAxis("Mouse Y") * sens;
+            float ms = sens * (weapon.ads > 0.5f ? 0.6f : 1f); // mira più fine in ADS, come nel web
+            yaw += Input.GetAxis("Mouse X") * ms;
+            pitch -= Input.GetAxis("Mouse Y") * ms;
             pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
 
             // --- input ---
