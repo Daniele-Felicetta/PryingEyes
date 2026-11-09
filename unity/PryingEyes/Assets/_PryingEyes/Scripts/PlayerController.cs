@@ -19,6 +19,10 @@ namespace PryingEyes
         [Header("Life")]
         public float hp = 100f, shield = 50f;
         public bool alive = true;
+        /// <summary>Durante i cambi di piano: nessun danno.</summary>
+        public bool invulnerable;
+        /// <summary>Solo per il bot di prova: direzione del mondo in cui camminare (zero = fermo).</summary>
+        public static Vector3 botDir;
         float lastDamage = -99f, respawnT = 0f;
 
         [Header("Refs")]
@@ -36,10 +40,26 @@ namespace PryingEyes
         int Surface()
         {
             Vector3 p = transform.position;
+            if (GameManager.proc)
+            {
+                var fd = Proc.FloorDirector.I;
+                var room = fd != null && fd.cur != null ? fd.cur.RoomAt(p) : null;
+                return room != null ? Proc.FloorBuilder.Surface(room) : 0;
+            }
             if (p.y > 3.5f) return 2;
             bool In(float x0, float x1, float z0, float z1) => p.x > x0 && p.x < x1 && p.z > z0 && p.z < z1;
             if (In(-18f, -2f, -11f, 19f) || In(21f, 27f, -14f, 6f)) return 1;
             return 0;
+        }
+
+        /// <summary>Sposta il giocatore senza cambiare il punto di rinascita.</summary>
+        public void Teleport(Vector3 p)
+        {
+            if (cc == null) cc = GetComponent<CharacterController>();
+            cc.enabled = false;
+            transform.position = p;
+            cc.enabled = true;
+            vel = Vector3.zero;
         }
 
         /// <summary>Sposta il punto di (ri)nascita e ci porta subito il giocatore (usato dal bot per il soppalco).</summary>
@@ -64,6 +84,7 @@ namespace PryingEyes
             accelGround = 20f; accelAir = 6f; friction = 8.5f;
             jumpVel = 4.6f; gravity = 17.5f;
             cc = GetComponent<CharacterController>();
+            cc.minMoveDistance = 0f;       // con 10.000 fps (batchmode) 4 m/s sono 0,4 mm a fotogramma: sotto il minimo di default (1 mm) non ci si muoveva
             eyeH = eyeStand;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -105,7 +126,14 @@ namespace PryingEyes
                     yaw = Mathf.Atan2(aim.x, aim.z);
                     pitch = -Mathf.Asin(Mathf.Clamp(aim.y, -1f, 1f));
                 }
+                else if (botDir.sqrMagnitude > 0.01f)
+                    yaw = Mathf.MoveTowardsAngle(yaw * Mathf.Rad2Deg, Mathf.Atan2(botDir.x, botDir.z) * Mathf.Rad2Deg, 220f * dt) * Mathf.Deg2Rad;
                 else { yaw += 0.8f * dt; }
+                if (botDir.sqrMagnitude > 0.01f)
+                {
+                    f = Vector3.Dot(botDir, new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw)));
+                    s = Vector3.Dot(botDir, new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)));
+                }
             }
             bool wantCrouch = Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl);
             bool wantSprint = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && f > 0 && !wantCrouch;
@@ -236,14 +264,15 @@ namespace PryingEyes
             // --- armi sui muri: prompt + acquisto con F ---
             if (!GameManager.autoTest && cam != null)
             {
-                WallBuy.Tick(cam);
-                if (Input.GetKeyDown(KeyCode.F)) WallBuy.TryBuy();
+                bool onWall = WallBuy.Tick(cam);
+                bool onThing = !onWall && Proc.Interact.Tick(cam);
+                if (Input.GetKeyDown(KeyCode.F)) { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
             }
         }
 
         public void Hurt(float dmg)
         {
-            if (!alive || GameMenu.Blocked) return;
+            if (!alive || GameMenu.Blocked || invulnerable) return;
             lastDamage = Time.time;
             float absorbed = Mathf.Min(shield, dmg * 0.6f);
             shield -= absorbed;
@@ -265,7 +294,8 @@ namespace PryingEyes
         {
             alive = true; hp = 100f; shield = 50f;
             SetSpawn(spawnPos);
-            yaw = Mathf.PI; pitch = 0f;
+            if (GameManager.proc) Proc.FloorDirector.I?.OnRespawn(); else yaw = Mathf.PI;
+            pitch = 0f;
             // mantieni l'arma comprata al muro, con riserva piena dell'arma
             weapon.mag = weapon.magSize;
             weapon.reserve = Mathf.Min(weapon.reserveMax, Mathf.Max(weapon.reserve, weapon.Def.reserve));

@@ -12,7 +12,8 @@ namespace PryingEyes
     {
         Slider hpBar, shieldBar;
         Text ammoText, reserveText, reloadText, waveLabel, waveText, enemiesText, scoreText, bannerText, bannerSub, toastText;
-        Text promptText, weaponNameText;
+        Text promptText, weaponNameText, objectiveText;
+        Image fadeImg;
         Image vignette;
         RectTransform hitRoot;      // hit marker: X di 4 tacche attorno al mirino
         Image[] hitTicks;
@@ -109,6 +110,10 @@ namespace PryingEyes
             bannerText = MakeText("Banner", new Vector2(0.5f, 1), new Vector2(0, -118), new Vector2(1000, 66), 54, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
             bannerSub = MakeText("BannerSub", new Vector2(0.5f, 1), new Vector2(0, -170), new Vector2(1000, 30), 20, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
             toastText = MakeText("Toast", new Vector2(0.5f, 0), new Vector2(0, 108), new Vector2(1000, 26), 17, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+            objectiveText = MakeText("Objective", new Vector2(0, 1), new Vector2(26, -138), new Vector2(560, 24), 16, TextAnchor.UpperLeft, "", Dim, FontStyle.Italic);
+            fadeImg = MakeImage("Fade", Color.clear);
+            var fr = fadeImg.GetComponent<RectTransform>();
+            fr.anchorMin = Vector2.zero; fr.anchorMax = Vector2.one; fr.offsetMin = Vector2.zero; fr.offsetMax = Vector2.zero;
             // scritte della versione precedente rimaste nella scena: spente
             foreach (var old in new[] { "Kills", "Cross", "KillConfirm" })
             {
@@ -383,6 +388,9 @@ namespace PryingEyes
         }
 
         public void SetReloading(bool on) { if (reloadText != null) reloadText.text = on ? "ricarica…" : ""; }
+        public void SetObjective(string s) { if (objectiveText != null) objectiveText.text = s ?? ""; }
+        public void SetWaveLabel(string s) { if (waveLabel != null) waveLabel.text = s ?? ""; }
+        public void SetFade(float a) { if (fadeImg != null) { fadeImg.color = new Color(0f, 0f, 0f, Mathf.Clamp01(a)); fadeImg.transform.SetAsLastSibling(); } }
         public void SetWave(int w) { if (waveText != null) waveText.text = Roman(w); }
         public void SetPrompt(string s) { if (promptText != null) promptText.text = s ?? ""; }
         public string CurrentPrompt => promptText != null ? promptText.text : "";

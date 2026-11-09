@@ -6,6 +6,6 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/_PryingEyes/Scenes/Hotel.unity
-    guid: f5e9d83137002774db75c6e71072c015
+    path: Assets/_PryingEyes/Scenes/Torre.unity
+    guid: bd489f42e06a05e4eaab953185f17045
   m_configObjects: {}

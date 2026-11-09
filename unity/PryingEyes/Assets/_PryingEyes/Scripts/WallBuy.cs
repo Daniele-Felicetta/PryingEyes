@@ -35,7 +35,21 @@ namespace PryingEyes
             Create(3, 1800, new Vector3(34.42f, 1.55f, 14f), Quaternion.Euler(0f, -90f, 0f), violet);
         }
 
-        static void Create(int index, int cost, Vector3 pos, Quaternion rot, Color tint)
+        /// <summary>Piazza un espositore (usato dai piani procedurali): indice dell'arma, prezzo, posizione e rotazione (il davanti guarda la stanza).</summary>
+        public static WallBuy Place(int index, int cost, Vector3 pos, Quaternion rot, Color tint)
+        {
+            all.RemoveAll(w => w == null);
+            return Create(index, cost, pos, rot, tint);
+        }
+
+        public static void ClearAll()
+        {
+            foreach (var w in all) if (w != null) Destroy(w.gameObject);
+            all.Clear();
+            near = null;
+        }
+
+        static WallBuy Create(int index, int cost, Vector3 pos, Quaternion rot, Color tint)
         {
             var def = Weapon.Defs[index];
             var go = new GameObject("Muro_" + def.name);
@@ -99,6 +113,7 @@ namespace PryingEyes
             wb.tint = tint;
             wb.glow = light;
             all.Add(wb);
+            return wb;
         }
 
         static void MakeText(Transform parent, string s, Color c, float y, float z, float size)
@@ -258,16 +273,17 @@ namespace PryingEyes
             return best;
         }
 
-        public static void Tick(Transform cam)
+        /// <summary>Vero se si guarda un espositore da vicino (e il prompt e' il suo).</summary>
+        public static bool Tick(Transform cam)
         {
             var gm = GameManager.I;
-            if (gm == null || gm.player == null || gm.hud == null) return;
+            if (gm == null || gm.player == null || gm.hud == null) return false;
             near = Find(cam);
             if (near == null)
             {
                 gm.hud.SetPrompt("");
                 foreach (var w in all) if (w != null && w.glow != null) w.glow.intensity = 1.1f;
-                return;
+                return false;
             }
             var weapon = gm.player.weapon;
             bool same = weapon.CurrentIndex == near.weaponIndex;
@@ -280,6 +296,7 @@ namespace PryingEyes
                     + " — " + cost + " PUNTI   [F]");
             foreach (var w in all)
                 if (w != null && w.glow != null) w.glow.intensity = w == near ? 2.4f + Mathf.Sin(Time.time * 3.2f) * 0.5f : 1.0f;
+            return true;
         }
 
         public static void TryBuy()

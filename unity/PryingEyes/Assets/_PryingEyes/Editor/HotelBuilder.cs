@@ -88,7 +88,7 @@ namespace PryingEyes.EditorTools
         }
 
         // ---------- setup ----------
-        static void EnsureTagsLayers()
+        internal static void EnsureTagsLayers()
         {
             var tm = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
             var tags = tm.FindProperty("tags");
@@ -121,7 +121,7 @@ namespace PryingEyes.EditorTools
             return m;
         }
 
-        static Material LitMat(string name, Color c, float metallic, float smooth, Texture2D map = null)
+        internal static Material LitMat(string name, Color c, float metallic, float smooth, Texture2D map = null)
         {
             var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             m.color = c;
@@ -140,7 +140,7 @@ namespace PryingEyes.EditorTools
         /// <summary>Impostazioni d'import delle texture della hall (come il monaco): normal map come NormalMap,
         /// maschere lineari con l'alfa (lucidita'), colori sRGB, forme con l'alfa e bordo bloccato. Reimporta solo
         /// quelle da cambiare. Falso se le texture non ci sono (genera_texture.py non lanciato).</summary>
-        static bool ImportHotelTextures()
+        internal static bool ImportHotelTextures()
         {
             if (!AssetDatabase.IsValidFolder(HotelTex.TrimEnd('/')))
             {
@@ -1603,7 +1603,7 @@ namespace PryingEyes.EditorTools
             spawnPts.AddRange(defs);
         }
 
-        static void PlayerAndGame()
+        internal static void PlayerAndGame()
         {
             // player
             var p = new GameObject("Player");
@@ -1640,6 +1640,15 @@ namespace PryingEyes.EditorTools
                 if (!UnityEditor.AssetDatabase.IsValidFolder("Assets/_PryingEyes/Materials")) UnityEditor.AssetDatabase.CreateFolder("Assets/_PryingEyes", "Materials");
                 UnityEditor.AssetDatabase.CreateAsset(fm, "Assets/_PryingEyes/Materials/GunFlash.mat");
             }
+            // fiammata: stella additiva salvata nell'asset (vedi Weapon.ConfigureFlash)
+            var star = Weapon.BuildFlashStar();
+            star.name = "GunFlashStar";
+            var starPath = "Assets/_PryingEyes/Textures/GunFlashStar.asset";
+            AssetDatabase.DeleteAsset(starPath);
+            AssetDatabase.CreateAsset(star, starPath);
+            Weapon.ConfigureFlash(fm, star);
+            EditorUtility.SetDirty(fm);
+            AssetDatabase.SaveAssets();
             w.flashMat = fm;
 
             // hud
@@ -1659,7 +1668,7 @@ namespace PryingEyes.EditorTools
             gm.hud = hud;
             var sps = new List<Transform>();
             var holder = GameObject.Find("SpawnPoints");
-            foreach (Transform t in holder.transform) sps.Add(t);
+            if (holder != null) foreach (Transform t in holder.transform) sps.Add(t);
             gm.spawnPoints = sps.ToArray();
         }
     }

@@ -92,9 +92,8 @@ namespace PryingEyes
         }
 
         /// <summary>Fiammata procedurale a stella (niente quadrato arancione).</summary>
-        static Material FlashRuntimeMat()
+        public static Texture2D BuildFlashStar()
         {
-            if (flashRuntime != null) return flashRuntime;
             const int S = 64;
             var tex = new Texture2D(S, S, TextureFormat.RGBA32, false)
             { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
@@ -114,7 +113,29 @@ namespace PryingEyes
                 }
             tex.SetPixels32(px);
             tex.Apply(false);
+            return tex;
+        }
 
+        /// <summary>Configura un materiale Unlit URP come fiammata additiva (stella con alfa). Salvato come asset dal builder: cosi' la
+        /// variante trasparente resta nella build (creato solo a runtime veniva tolta e la fiammata usciva come un quadrato arancione opaco).</summary>
+        public static void ConfigureFlash(Material m, Texture2D tex)
+        {
+            m.SetTexture("_BaseMap", tex);
+            m.SetTexture("_MainTex", tex);
+            m.SetColor("_BaseColor", Color.white);
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_Blend", 2f);
+            m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)BlendMode.One);
+            m.SetFloat("_ZWrite", 0f);
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = (int)RenderQueue.Transparent;
+        }
+
+        static Material FlashRuntimeMat()
+        {
+            if (flashRuntime != null) return flashRuntime;
+            var tex = BuildFlashStar();
             flashRuntime = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
             flashRuntime.SetTexture("_BaseMap", tex);
             flashRuntime.SetTexture("_MainTex", tex);
@@ -199,7 +220,7 @@ namespace PryingEyes
             flashQuad.transform.localPosition = muzzle;
             flashQuad.transform.localScale = new Vector3(0.13f, 0.13f, 1f);
             flashQuad.GetComponent<MeshRenderer>().material =
-                Application.isPlaying ? FlashRuntimeMat() : flashMat;
+                (flashMat.mainTexture != null || !Application.isPlaying) ? flashMat : FlashRuntimeMat();
             flashQuad.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             flashQuad.SetActive(false);
 

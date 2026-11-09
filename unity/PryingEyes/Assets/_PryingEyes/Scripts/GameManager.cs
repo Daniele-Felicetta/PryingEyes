@@ -7,6 +7,8 @@ namespace PryingEyes
     public class GameManager : MonoBehaviour
     {
         public static GameManager I;
+        /// <summary>True nella scena Torre (piani procedurali): niente ondate della hall.</summary>
+        public static bool proc;
 
         [Header("Waves")]
         public int wave = 0;
@@ -43,18 +45,25 @@ namespace PryingEyes
             // qui riallineo la valuta di partenza al ritmo COD Zombies
             score = 500;
             autoTest = HasArg("-autotest");
+            if (autoTest && HasArg("-procbot")) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
             camShots = HasArg("-camshots");
             if (autoTest)
                 System.IO.File.WriteAllText(REPORT, "t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n");
-            HotelNav.Build();   // prima di qualunque nemico: i collider della scena ci sono gia'
-            WallBuy.BuildAll(); // armi sui muri (VESPER-9, BREACHER-12, LANCE-7)
-            Ambience.Create();  // eco, vento, scricchiolii, grammofono; genera anche tutti i suoni
+            proc = FindFirstObjectByType<Proc.FloorDirector>() != null;
+            if (!proc)
+            {
+                HotelNav.Build();   // prima di qualunque nemico: i collider della scena ci sono gia'
+                WallBuy.BuildAll(); // armi sui muri (VESPER-9, BREACHER-12, LANCE-7)
+                Ambience.Create();  // eco, vento, scricchiolii, grammofono; genera anche tutti i suoni
+            }
+            else Proc.ProcAmbience.Create();
             if (!autoTest && !camShots) GameMenu.Create();   // menu principale: la prima ondata parte da "Gioca"
         }
 
         /// <summary>Avvia la partita: prima ondata. Lo chiama il menu su "Gioca".</summary>
         public void BeginRun()
         {
+            if (proc) { if (Proc.FloorDirector.I != null && Proc.FloorDirector.I.floor == 0) Proc.FloorDirector.I.StartRun(); return; }
             if (wave == 0 && !waveActive) StartWave(1);
         }
 
@@ -88,7 +97,7 @@ namespace PryingEyes
 
         void Update()
         {
-            if (!waveActive && wave > 0)
+            if (!proc && !waveActive && wave > 0)
             {
                 waveBreak -= Time.deltaTime;
                 if (waveBreak <= 0f) StartWave(wave + 1);
@@ -136,7 +145,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
-                if (autoT >= 100f)
+                if (autoT >= (proc ? (HasArg("-procbot") ? 1e9f : 70f) : 100f))
                 {
                     System.IO.File.AppendAllText(REPORT, $"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
                     Application.Quit();
@@ -146,7 +155,7 @@ namespace PryingEyes
 
         /// <summary>Foto su RenderTexture. Con l'HUD: il canvas passa per un attimo in ScreenSpaceCamera, cosi' entra
         /// nella foto (in Overlay non si vede dentro una RenderTexture).</summary>
-        static void CamShot(string path, Camera cam = null, bool withHud = true)
+        public static void CamShot(string path, Camera cam = null, bool withHud = true)
         {
             if (cam == null) cam = Camera.main;
             if (cam == null) { Debug.LogWarning("[PryingEyes] camshot: nessuna camera"); return; }
@@ -368,6 +377,7 @@ namespace PryingEyes
 
         public void OnEnemyKilled(Enemy e, bool headshot)
         {
+            if (proc) { kills++; AddPoints(50 + (headshot ? 50 : 0)); return; }
             alive--;
             kills++;
             // COD Zombies: 50 punti per uccisione, 100 se letale alla testa (i +10 dei colpi arrivano da Damage)
@@ -390,6 +400,7 @@ namespace PryingEyes
         /// <summary>Presenze ancora da affrontare nell'ondata (comprese quelle non ancora entrate).</summary>
         public void SetAlive(int existing)
         {
+            if (proc) { hud?.SetEnemiesLeft(Enemy.All.Count); return; }
             hud?.SetEnemiesLeft(alive);
         }
     }

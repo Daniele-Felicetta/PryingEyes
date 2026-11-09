@@ -38,6 +38,12 @@ namespace PryingEyes.EditorTools
             Save("litania_monaco_loop", chant, cr);
             var waltz = SoundGen.Waltz(out int wr);
             Save("valzer_grammofono_loop", waltz, wr);
+            // piani procedurali
+            Save("candela_accesa", SoundGen.Ignite(), r);
+            var organ = SoundGen.OrganDrone(out int orr);
+            Save("organo_loop", organ, orr);
+            Save("rintocco", SoundGen.BellToll(), r);
+            Save("ascensore_discesa_loop", SoundGen.LiftRide(), r);
         }
 
         static void Save(string name, float[] s, int rate)

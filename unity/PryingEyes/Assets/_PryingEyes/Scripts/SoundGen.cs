@@ -634,5 +634,98 @@ namespace PryingEyes
             Normalize(s, 0.9f);
             return s;
         }
+
+        // ---------- chiesa e piani procedurali ----------
+        /// <summary>Accensione di una candela: grattata di fiammifero, soffio della fiamma che prende, qualche scoppiettio.</summary>
+        public static float[] Ignite()
+        {
+            var r = new System.Random(21);
+            var s = Buf(1.1f);
+            Burst(s, 0f, 3500f, 1.2f, 0.035f, 1.6f, r);                     // grattata
+            var bp = Biquad.BandPass(600f, 0.7f);
+            var lp = Biquad.LowPass(2400f, 0.7f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate - 0.09f;
+                if (t < 0f) continue;
+                float f = Mathf.Lerp(200f, 1500f, Mathf.Clamp01(t / 0.25f));
+                if ((i & 31) == 0) bp.SetBandPass(f, 0.7f, Rate);
+                float env = Mathf.Clamp01(t / 0.06f) * Mathf.Exp(-t / 0.28f);
+                s[i] += lp.Run(bp.Run(N(r))) * env * 1.4f;
+            }
+            for (int k = 0; k < 9; k++) Burst(s, 0.25f + (float)r.NextDouble() * 0.7f, U(r, 1800f, 4500f), 3f, 0.004f, U(r, 0.2f, 0.7f), r);
+            Normalize(s, 0.7f);
+            return s;
+        }
+
+        /// <summary>Accordo d'organo basso e sospeso (re minore senza terza, con una seconda stonata che respira): loop di circa 14 s.</summary>
+        public static float[] OrganDrone(out int rate)
+        {
+            rate = Rate;
+            var r = new System.Random(22);
+            float dur = 14f;
+            var s = Buf(dur);
+            float[] notes = { 73.42f, 110.0f, 146.83f, 220.0f, 164.81f * 0.5f, 233.1f };
+            float[] amps = { 1.0f, 0.7f, 0.5f, 0.28f, 0.22f, 0.10f };
+            var lp = Biquad.LowPass(900f, 0.6f);
+            var br = Biquad.BandPass(1300f, 1.2f);
+            double[] ph = new double[notes.Length * 3];
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float v = 0f;
+                for (int n = 0; n < notes.Length; n++)
+                {
+                    // ogni canna: fondamentale, ottava e dodicesima, con una coppia leggermente scordata
+                    float det = 1f + (n % 2 == 0 ? 0.0018f : -0.0023f);
+                    float swell = 0.65f + 0.35f * Mathf.Sin(TwoPi * t / (9f + n * 1.7f) + n);
+                    for (int h = 0; h < 3; h++)
+                    {
+                        float f = notes[n] * (h == 0 ? 1f : h == 1 ? 2f : 3f) * det;
+                        ph[n * 3 + h] += TwoPi * f / Rate;
+                        v += (float)Math.Sin(ph[n * 3 + h]) * amps[n] * swell / (1f + h * 1.6f);
+                    }
+                }
+                float breath = br.Run(N(r)) * 0.03f * (0.5f + 0.5f * Mathf.Sin(TwoPi * t / 6.1f));
+                float trem = 1f + 0.06f * Mathf.Sin(TwoPi * 5.3f * t);
+                s[i] = lp.Run(v * trem + breath);
+            }
+            s = LoopSeamless(s, Rate * 2);
+            Normalize(s, 0.5f);
+            return s;
+        }
+
+        /// <summary>Rintocco di campana grande e lontana: parziali inarmoniche di bronzo, coda di diversi secondi.</summary>
+        public static float[] BellToll()
+        {
+            var r = new System.Random(23);
+            var s = Buf(9f);
+            Chime(s, 0f, 196f, 4.0f, new[] { 0.5f, 1f, 1.19f, 1.5f, 2f, 2.51f, 3.0f, 4.07f }, new[] { 0.6f, 1f, 0.7f, 0.5f, 0.4f, 0.25f, 0.18f, 0.1f }, 1f);
+            Thump(s, 0f, 196f, 96f, 0.02f, 0.5f, 0.35f);
+            var hp = Biquad.HighPass(2500f);
+            for (int i = 0; i < 400; i++) s[i] += hp.Run(N(r)) * Mathf.Exp(-i / 130f) * 0.5f;
+            Normalize(s, 0.8f);
+            return s;
+        }
+
+        /// <summary>Discesa dell'ascensore: rombo di motore, ronzio di rete e qualche clangore dei cavi. Loop di 6 s.</summary>
+        public static float[] LiftRide()
+        {
+            var r = new System.Random(24);
+            var s = Buf(7f);
+            var lp = Biquad.LowPass(120f, 0.8f);
+            var lp2 = Biquad.LowPass(500f, 0.7f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float n = N(r);
+                s[i] = lp.Run(n) * 3.2f + lp2.Run(n) * 0.12f + Mathf.Sin(TwoPi * 47f * t) * 0.10f + Mathf.Sin(TwoPi * 94f * t) * 0.05f
+                       + Mathf.Sin(TwoPi * 31f * t) * 0.07f * (1f + 0.4f * Mathf.Sin(TwoPi * 0.4f * t));
+            }
+            for (int k = 0; k < 5; k++) Thump(s, 0.5f + k * 1.3f, U(r, 70f, 120f), 45f, 0.04f, 0.09f, U(r, 0.12f, 0.3f));
+            s = LoopSeamless(s, Rate);
+            Normalize(s, 0.5f);
+            return s;
+        }
     }
 }

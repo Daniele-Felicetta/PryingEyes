@@ -38,7 +38,12 @@ namespace PryingEyes
             Refresh();
         }
 
-        void Start() => Refresh();
+        void Start()
+        {
+            Refresh();
+            // prova senza mouse: -autoplay preme "Gioca" da solo (per far girare tutto il percorso del giocatore vero, non solo quello del bot)
+            foreach (var a in System.Environment.GetCommandLineArgs()) if (a == "-autoplay") { Play(); break; }
+        }
 
         void Update()
         {

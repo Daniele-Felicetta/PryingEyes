@@ -50,6 +50,13 @@ namespace PryingEyes
             ? transform.position
             : transform.position + Vector3.up * (type == EnemyType.Abate ? 1.1f : 0.8f);
 
+        /// <summary>Toglie tutti i nemici (cambio piano).</summary>
+        public static void ClearAll()
+        {
+            foreach (var e in all) if (e != null) Destroy(e.gameObject);
+            all.Clear();
+        }
+
         public static Enemy Nearest(Vector3 p)
         {
             Enemy best = null;
@@ -409,7 +416,8 @@ namespace PryingEyes
                     step = step / len * Mathf.Max(0f, hit.distance - 0.02f);
             }
             gp += step;
-            gp.y = Mathf.Clamp(gp.y, 0.95f, 8.3f);
+            float ceil = FloorDirectorCeiling(gp);
+            gp.y = Mathf.Clamp(gp.y, 0.95f, ceil);
             transform.position = gp;
             // la direzione dello sguardo e' l'asse Z: verso la testa del giocatore, in 3D, con un po' di ritardo
             Vector3 look = playerT.position + Vector3.up * 1.6f - gp;
@@ -431,6 +439,14 @@ namespace PryingEyes
                 if (eye != null) eye.Stare(0.9f);
                 Sfx.At(SoundBank.EyeStare, gp, 0.55f, Random.Range(0.92f, 1.08f), 2f, 22f);
             }
+        }
+
+        /// <summary>Quota massima di un occhio sopra il punto: nei piani procedurali il soffitto della stanza, altrimenti quello della hall.</summary>
+        static float FloorDirectorCeiling(Vector3 p)
+        {
+            var d = Proc.FloorDirector.I;
+            if (d == null || d.cur == null) return 8.3f;
+            return Mathf.Max(1.3f, d.cur.CeilingAt(p) - 0.7f);
         }
 
         void RePath(Vector3 gp)

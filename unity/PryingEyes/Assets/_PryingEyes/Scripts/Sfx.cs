@@ -130,6 +130,11 @@ namespace PryingEyes
         public static AudioClip EyeHum => One(ref eyeHum, "ronzioOcchio", SoundGen.EyeHum);
         public static AudioClip EyeStare => One(ref eyeStare, "occhioFissa", SoundGen.EyeStare);
         public static AudioClip EyeBurst => One(ref eyeBurst, "occhioMuore", SoundGen.EyeBurst);
+        static AudioClip ignite, toll, liftRide, organ;
+        public static AudioClip Ignite => One(ref ignite, "accendiCandela", SoundGen.Ignite);
+        public static AudioClip Toll => One(ref toll, "rintocco", SoundGen.BellToll);
+        public static AudioClip LiftRide => One(ref liftRide, "discesaAscensore", SoundGen.LiftRide);
+        public static AudioClip Organ => organ != null ? organ : (organ = Clip("organo", SoundGen.OrganDrone(out int rt), rt));
 
         static Task<float[]>[] chantTasks;
         static int chantRate;

@@ -12,6 +12,13 @@ namespace PryingEyes.EditorTools
             Windows();
         }
 
+        /// <summary>Scena Torre (piani procedurali) + build Windows: niente bake, e' veloce.</summary>
+        public static void Torre()
+        {
+            TorreBuilder.Build();
+            Windows();
+        }
+
         public static void Verify()
         {
             HotelBuilder.Build();
@@ -29,16 +36,17 @@ namespace PryingEyes.EditorTools
 
         public static void Windows()
         {
+            // la Torre (piani procedurali) e' la scena principale; la hall classica resta nel progetto ma fuori dalla build
             EditorBuildSettings.scenes = new[]
             {
-                new EditorBuildSettingsScene("Assets/_PryingEyes/Scenes/Hotel.unity", true)
+                new EditorBuildSettingsScene("Assets/_PryingEyes/Scenes/Torre.unity", true)
             };
             var outPath = System.IO.Path.GetFullPath(
                 System.IO.Path.Combine(Application.dataPath, "../Builds/PryingEyes.exe"));
             Debug.Log("[PryingEyes] Building to: " + outPath);
             var opts = new BuildPlayerOptions
             {
-                scenes = new[] { "Assets/_PryingEyes/Scenes/Hotel.unity" },
+                scenes = new[] { "Assets/_PryingEyes/Scenes/Torre.unity" },
                 locationPathName = outPath,
                 target = BuildTarget.StandaloneWindows64,
                 options = BuildOptions.None

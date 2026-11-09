@@ -6,7 +6,8 @@ namespace PryingEyes
 {
     /// <summary>NavMesh costruita all'avvio dai collider della scena (modulo AI di Unity, niente pacchetti): i nemici
     /// a piedi aggirano scale, banco, colonne e divani e salgono lo scalone fino al soppalco; i droni seguono lo stesso
-    /// percorso in volo. Qui anche il test di vista usato per colpire: niente danni attraverso muri e pavimenti.</summary>
+    /// percorso in volo. Qui anche il test di vista usato per colpire: niente danni attraverso muri e pavimenti.
+    /// Nei piani procedurali la navmesh si ricostruisce a ogni piano (Rebuild).</summary>
     public static class HotelNav
     {
         public const int EnemyLayer = 9, DoorLayer = 10;
@@ -19,18 +20,42 @@ namespace PryingEyes
         public static void Build()
         {
             if (Ready) return;
+            Build(new Bounds(new Vector3(0f, 5f, 0f), new Vector3(84f, 14f, 60f)), null);
+        }
+
+        /// <summary>Toglie la navmesh attuale e ne costruisce una nuova nei limiti dati. 'blockers' sono radici di arredi
+        /// da trattare come ostacoli non camminabili.</summary>
+        public static void Rebuild(Bounds bounds, List<Transform> blockers)
+        {
+            Clear();
+            Build(bounds, blockers);
+        }
+
+        public static void Clear()
+        {
+            if (instance.valid) NavMesh.RemoveNavMeshData(instance);
+            instance = default;
+            Ready = false;
+        }
+
+        static void Build(Bounds bounds, List<Transform> blockers)
+        {
             float t0 = Time.realtimeSinceStartup;
-            var bounds = new Bounds(new Vector3(0f, 5f, 0f), new Vector3(84f, 14f, 60f));
             var sources = new List<NavMeshBuildSource>();
             // porte escluse: si aprono e si chiudono, il percorso deve passarci
             int mask = ~((1 << 2) | (1 << EnemyLayer) | (1 << DoorLayer));
-            NavMeshBuilder.CollectSources(bounds, mask, NavMeshCollectGeometry.PhysicsColliders, 0,
-                new List<NavMeshBuildMarkup>(), sources);
+            var markups = new List<NavMeshBuildMarkup>();
+            if (blockers != null)
+                foreach (var b in blockers)
+                    if (b != null) markups.Add(new NavMeshBuildMarkup { root = b, area = 1, overrideArea = true, applyToChildren = true });
+            NavMeshBuilder.CollectSources(bounds, mask, NavMeshCollectGeometry.PhysicsColliders, 0, markups, sources);
             var s = NavMesh.GetSettingsByID(0);
             s.agentRadius = 0.4f;
             s.agentHeight = 1.9f;
             s.agentClimb = 0.4f;      // gradini da 0.35; tavolino (0.56) e base della gabbia (0.5) restano ostacoli
             s.agentSlope = 45f;
+            s.overrideTileSize = true;     // una tessera sola per tutto il piano: i bordi tra tessere lasciavano fasce non camminabili
+            s.tileSize = 1024;
             var data = NavMeshBuilder.BuildNavMeshData(s, sources, bounds, Vector3.zero, Quaternion.identity);
             if (data == null) { Debug.LogWarning("[PryingEyes] navmesh: costruzione fallita, nemici in linea retta"); return; }
             instance = NavMesh.AddNavMeshData(data);
