@@ -58,6 +58,8 @@ namespace PryingEyes.EditorTools
             CrocCage();
             Lights();
             MoonShafts();
+            Puddles();
+            Grime();
             SpawnPoints();
             PlayerAndGame();
             PrepareGI();
@@ -131,6 +133,72 @@ namespace PryingEyes.EditorTools
             return SaveMat(name, m);
         }
 
+        const string HotelTex = "Assets/_PryingEyes/Textures/Hotel/";
+
+        /// <summary>Impostazioni d'import delle texture della hall (come il monaco): normal map come NormalMap,
+        /// maschere lineari con l'alfa (lucidita'), colori sRGB, forme con l'alfa e bordo bloccato. Reimporta solo
+        /// quelle da cambiare. Falso se le texture non ci sono (genera_texture.py non lanciato).</summary>
+        static bool ImportHotelTextures()
+        {
+            if (!AssetDatabase.IsValidFolder(HotelTex.TrimEnd('/')))
+            {
+                Debug.LogWarning("[PryingEyes] texture dell'hotel mancanti: lanciare modelli/hotel/genera_texture.py");
+                return false;
+            }
+            AssetDatabase.Refresh();
+            int changed = 0;
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { HotelTex.TrimEnd('/') }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!(AssetImporter.GetAtPath(path) is TextureImporter ti)) continue;
+                bool normal = path.EndsWith("_normal.png"), mask = path.EndsWith("_mask.png");
+                bool shape = !normal && !mask && !path.EndsWith("_base.png");
+                var type = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+                bool srgb = !normal && !mask;
+                var alpha = mask || shape ? TextureImporterAlphaSource.FromInput : TextureImporterAlphaSource.None;
+                var wrap = shape ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
+                if (ti.textureType == type && ti.sRGBTexture == srgb && ti.alphaSource == alpha && ti.wrapMode == wrap
+                    && ti.anisoLevel == 8 && ti.textureCompression == TextureImporterCompression.CompressedHQ) continue;
+                ti.textureType = type;
+                ti.sRGBTexture = srgb;
+                ti.alphaSource = alpha;
+                ti.alphaIsTransparency = shape;
+                ti.wrapMode = wrap;
+                ti.mipmapEnabled = true;
+                ti.anisoLevel = 8;
+                ti.maxTextureSize = 2048;
+                ti.textureCompression = TextureImporterCompression.CompressedHQ;
+                ti.SaveAndReimport();
+                changed++;
+            }
+            Debug.Log($"[PryingEyes] texture dell'hotel: {changed} reimportate");
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(HotelTex + "marmo_pavimento_base.png") != null;
+        }
+
+        /// <summary>Materiale PBR da un set di texture: colore, normal map, maschera (metallicita' in R, occlusione
+        /// in G, lucidita' nell'alfa). tile = metri coperti da una ripetizione (le UV sono in metri).</summary>
+        static Material PbrMat(string name, string set, Color tint, float tile)
+        {
+            var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            m.color = tint;
+            m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(HotelTex + set + "_base.png"));
+            m.SetTextureScale("_BaseMap", Vector2.one / tile);   // tutte le mappe di Lit usano _BaseMap_ST
+            var nm = AssetDatabase.LoadAssetAtPath<Texture2D>(HotelTex + set + "_normal.png");
+            if (nm != null) { m.SetTexture("_BumpMap", nm); m.SetFloat("_BumpScale", 1f); m.EnableKeyword("_NORMALMAP"); }
+            var mk = AssetDatabase.LoadAssetAtPath<Texture2D>(HotelTex + set + "_mask.png");
+            if (mk != null)
+            {
+                m.SetTexture("_MetallicGlossMap", mk);
+                m.EnableKeyword("_METALLICSPECGLOSSMAP");
+                m.SetTexture("_OcclusionMap", mk);                  // l'occlusione e' nel canale verde
+                m.EnableKeyword("_OCCLUSIONMAP");
+                m.SetFloat("_OcclusionStrength", 1f);
+                m.SetFloat("_Smoothness", 1f);                      // con la mappa: moltiplica l'alfa
+                m.SetFloat("_SmoothnessTextureChannel", 0f);        // alfa della mappa metallica
+            }
+            return SaveMat(name, m);
+        }
+
         /// <summary>Emissione che sopravvive al salvataggio. URP rimette _EMISSION a posto in base ai flag GI del
         /// materiale, e da codice partono a EmissiveIsBlack: cosi' lampadine e finestre restavano spente.</summary>
         static void Emissive(Material m, Color hdr, bool bakeIntoGI)
@@ -149,21 +217,27 @@ namespace PryingEyes.EditorTools
             var stripes = SaveTex(ProcTextures.Stripes(512, 24), "Wallpaper");
             var plaster = SaveTex(ProcTextures.Plaster(256), "Plaster");
 
-            floorMat = LitMat("Floor", Color.white, 0.08f, 0.68f, checker);
-            floorMat.mainTextureScale = new Vector2(10, 7);
-            wallMat = LitMat("Wall", Color.white, 0f, 0.1f, stripes);
-            wallMat.mainTextureScale = new Vector2(14, 2);
+            // fase 3: materiali PBR con texture ripetibili (modelli/hotel/genera_texture.py), tiling in metri:
+            // le UV in metri le scrive PrepareGI. Se le texture mancano si torna ai vecchi materiali generati qui.
+            bool pbr = ImportHotelTextures();
+            floorMat = pbr ? PbrMat("Floor", "marmo_pavimento", Color.white, 1.2f)
+                           : LitMat("Floor", Color.white, 0.08f, 0.68f, checker);
+            if (!pbr) floorMat.mainTextureScale = new Vector2(10, 7);
+            wallMat = pbr ? PbrMat("Wall", "damasco", Color.white, 0.64f) : LitMat("Wall", Color.white, 0f, 0.1f, stripes);
+            if (!pbr) wallMat.mainTextureScale = new Vector2(14, 2);
             // intonaco color crema invecchiato (prima quasi nero: il soffitto sembrava un buco)
-            ceilMat = LitMat("Ceil", new Color(0.50f, 0.47f, 0.43f), 0f, 0.08f, plaster);
-            woodMat = LitMat("Wood", new Color(0.18f, 0.13f, 0.09f), 0.15f, 0.3f);
-            goldMat = LitMat("Gold", new Color(0.54f, 0.42f, 0.18f), 1f, 0.65f);
+            ceilMat = pbr ? PbrMat("Ceil", "intonaco", new Color(0.74f, 0.73f, 0.72f), 2f)
+                          : LitMat("Ceil", new Color(0.50f, 0.47f, 0.43f), 0f, 0.08f, plaster);
+            woodMat = pbr ? PbrMat("Wood", "noce", Color.white, 1f) : LitMat("Wood", new Color(0.18f, 0.13f, 0.09f), 0.15f, 0.3f);
+            goldMat = pbr ? PbrMat("Gold", "ottone", Color.white, 0.5f) : LitMat("Gold", new Color(0.54f, 0.42f, 0.18f), 1f, 0.65f);
             darkMat = LitMat("Dark", new Color(0.09f, 0.11f, 0.15f), 0.8f, 0.5f);
-            steelMat = LitMat("Steel", new Color(0.42f, 0.44f, 0.47f), 0.9f, 0.6f);
+            steelMat = pbr ? PbrMat("Steel", "acciaio", Color.white, 1f) : LitMat("Steel", new Color(0.42f, 0.44f, 0.47f), 0.9f, 0.6f);
             // marmo liscio per colonne/scale/banco (prima usavano la scacchiera del pavimento: effetto codice a barre)
-            marbleMat = LitMat("Marble", new Color(0.78f, 0.76f, 0.71f), 0f, 0.72f);
-            carpetMat = LitMat("Carpet", new Color(0.37f, 0.07f, 0.13f), 0f, 0.02f);
-            velvetR = LitMat("VelvetR", new Color(0.35f, 0.12f, 0.16f), 0f, 0.05f);
-            velvetG = LitMat("VelvetG", new Color(0.16f, 0.29f, 0.27f), 0f, 0.05f);
+            marbleMat = pbr ? PbrMat("Marble", "marmo_bianco", Color.white, 1f) : LitMat("Marble", new Color(0.78f, 0.76f, 0.71f), 0f, 0.72f);
+            carpetMat = pbr ? PbrMat("Carpet", "moquette", Color.white, 1f) : LitMat("Carpet", new Color(0.37f, 0.07f, 0.13f), 0f, 0.02f);
+            // velluto: la texture e' grigia, il colore lo da' la tinta
+            velvetR = pbr ? PbrMat("VelvetR", "velluto", new Color(0.46f, 0.15f, 0.20f), 0.3f) : LitMat("VelvetR", new Color(0.35f, 0.12f, 0.16f), 0f, 0.05f);
+            velvetG = pbr ? PbrMat("VelvetG", "velluto", new Color(0.20f, 0.37f, 0.34f), 0.3f) : LitMat("VelvetG", new Color(0.16f, 0.29f, 0.27f), 0f, 0.05f);
             sandMat = LitMat("Sand", new Color(0.6f, 0.54f, 0.37f), 0f, 0.05f);
             rockMat = LitMat("Rock", new Color(0.33f, 0.34f, 0.35f), 0.05f, 0.05f);
             glassMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
@@ -514,7 +588,7 @@ namespace PryingEyes.EditorTools
                 l.transform.localPosition = new Vector3(0f, 0.12f, 0.3f);
                 l.type = LightType.Point;
                 l.color = new Color(1f, 0.74f, 0.48f);
-                l.intensity = 2.6f;
+                l.intensity = 2.1f;   // 2.6 sul damasco faceva una macchia rosso fuoco
                 l.range = 7f;
                 l.shadows = LightShadows.Soft;          // nel bake: ombre morbide cotte
                 l.lightmapBakeType = LightmapBakeType.Baked;
@@ -884,6 +958,142 @@ namespace PryingEyes.EditorTools
             pr.sortMode = ParticleSystemSortMode.None;
         }
 
+        // ---------- acqua e sporco (fase 3) ----------
+        /// <summary>Quad decorativo: niente collider, niente ombre, niente luce cotta (non statico).</summary>
+        static GameObject Decal(string name, Material m, Vector3 pos, Vector3 euler, Vector2 size)
+        {
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            q.name = name;
+            Object.DestroyImmediate(q.GetComponent<Collider>());
+            q.transform.position = pos;
+            q.transform.rotation = Quaternion.Euler(euler);
+            q.transform.localScale = new Vector3(size.x, size.y, 1f);
+            var r = q.GetComponent<MeshRenderer>();
+            r.sharedMaterial = m;
+            r.shadowCastingMode = ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            r.lightProbeUsage = LightProbeUsage.Off;
+            r.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            return q;
+        }
+
+        /// <summary>Pozzanghere sotto i vetri rotti del lucernario (e due davanti allo scalone, dove cade la luna):
+        /// acqua scura e quasi a specchio, riflette la hall dalla sonda. Sotto ognuna un alone di sporco bagnato.</summary>
+        static void Puddles()
+        {
+            var shape = AssetDatabase.LoadAssetAtPath<Texture2D>(HotelTex + "pozzanghera.png");
+            var stainTex = AssetDatabase.LoadAssetAtPath<Texture2D>(HotelTex + "macchia.png");
+            var grime = Shader.Find("PryingEyes/Grime");
+            if (shape == null || stainTex == null || grime == null) return;
+            var water = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            water.SetTexture("_BaseMap", shape);
+            // acqua vera: si vede il marmo sotto (alfa bassa), il riflesso resta pieno (URP "preserve specular")
+            water.color = new Color(0.03f, 0.035f, 0.04f, 0.38f);
+            water.SetFloat("_Surface", 1f);
+            water.SetFloat("_Blend", 0f);
+            water.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            water.SetFloat("_Metallic", 0f);
+            water.SetFloat("_Smoothness", 0.97f);
+            water.renderQueue = 3000;
+            SaveMat("Pozzanghera", water);
+            var wet = new Material(grime);
+            wet.SetTexture("_MainTex", stainTex);
+            wet.SetColor("_Color", new Color(0.60f, 0.58f, 0.56f));   // bagnato: piu' scuro, non marrone
+            wet.SetFloat("_Strength", 0.7f);
+            SaveMat("SporcoBagnato", wet);
+            // sul marmo (meta' est del lucernario, davanti allo scalone, due gradini): acqua che specchia
+            var spots = new (float x, float y, float z, float size, float rot)[]
+            {
+                (7.6f, 0f, -6.8f, 2.4f, -15f), (9.6f, 0f, -4.2f, 1.6f, 40f), (5.4f, 0f, -8.6f, 1.3f, 10f),
+                (10.2f, 0f, -8.2f, 1.1f, 65f), (5.8f, 0f, -4.4f, 1.0f, -50f),
+                (-1.2f, 0f, -0.9f, 1.2f, 15f), (2.8f, 0f, -0.6f, 0.9f, -40f),
+                (-1.5f, 0.35f * 6f, -2.375f - 5f * 0.75f, 0.55f, 0f), (2.0f, 0.35f * 9f, -2.375f - 8f * 0.75f, 0.5f, 30f),
+            };
+            foreach (var s in spots)
+            {
+                Decal("AloneBagnato", wet, new Vector3(s.x, s.y + 0.002f, s.z), new Vector3(90f, s.rot + 37f, 0f), Vector2.one * s.size * 1.6f);
+                Decal("Pozzanghera", water, new Vector3(s.x, s.y + 0.004f, s.z), new Vector3(90f, s.rot, 0f), new Vector2(s.size, s.size * 0.8f));
+            }
+            // meta' ovest del lucernario: c'e' la moquette (2 cm sopra il pavimento), l'acqua l'ha impregnata
+            var soaked = new (float x, float z, float size, float rot)[]
+            {
+                (-8.0f, -6.2f, 3.0f, 20f), (-5.6f, -3.8f, 1.8f, 70f), (-10.0f, -8.3f, 2.2f, -30f), (-6.5f, -8.5f, 1.6f, 5f),
+            };
+            foreach (var s in soaked)
+                Decal("MoquetteBagnata", wet, new Vector3(s.x, 0.022f, s.z), new Vector3(90f, s.rot, 0f), new Vector2(s.size, s.size * 0.8f));
+        }
+
+        /// <summary>Sporco che non si ripete: fascia scura alla base dei muri, aloni d'acqua sulle pareti alte e sul
+        /// soffitto attorno al lucernario, chiazze negli angoli. Posizioni con seme fisso.</summary>
+        static void Grime()
+        {
+            var sh = Shader.Find("PryingEyes/Grime");
+            var baseTex = AssetDatabase.LoadAssetAtPath<Texture2D>(HotelTex + "sporco_base.png");
+            var stainTex = AssetDatabase.LoadAssetAtPath<Texture2D>(HotelTex + "macchia.png");
+            if (sh == null || baseTex == null || stainTex == null) return;
+            Material Mk(string name, Texture2D tex, Color c, float k)
+            {
+                var m = new Material(sh);
+                m.SetTexture("_MainTex", tex);
+                m.SetColor("_Color", c);
+                m.SetFloat("_Strength", k);
+                return SaveMat(name, m);
+            }
+            var foot = Mk("SporcoBase", baseTex, new Color(0.34f, 0.29f, 0.24f), 0.8f);
+            var stain = Mk("AloneAcqua", stainTex, new Color(0.50f, 0.40f, 0.30f), 0.7f);
+            var dirt = Mk("SporcoAngoli", stainTex, new Color(0.45f, 0.40f, 0.34f), 0.6f);
+            var rnd = new System.Random(77);
+            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+            const float off = 0.003f, wains = 0.12f;
+
+            // fascia alla base: segmenti da 4 m, a filo della boiserie (nord/sud) o del muro (est/ovest)
+            for (float x = -32f; x <= 32.1f; x += 4f)
+            {
+                Decal("SporcoBase", foot, new Vector3(x, 0.7f, -HZ + wains + off), new Vector3(0f, 180f, 0f), new Vector2(4.1f, 1.4f));
+                if (Mathf.Abs(x) > 3.5f)   // non davanti all'ingresso
+                    Decal("SporcoBase", foot, new Vector3(x, 0.7f, HZ - wains - off), Vector3.zero, new Vector2(4.1f, 1.4f));
+            }
+            for (float z = -20f; z <= 20.1f; z += 4f)
+            {
+                if (Mathf.Abs(z) > 6.5f)   // non sugli ascensori
+                    Decal("SporcoBase", foot, new Vector3(-HX + off, 0.7f, z), new Vector3(0f, -90f, 0f), new Vector2(4.1f, 1.4f));
+                Decal("SporcoBase", foot, new Vector3(HX - off, 0.7f, z), new Vector3(0f, 90f, 0f), new Vector2(4.1f, 1.4f));
+            }
+
+            // aloni d'acqua sulle pareti alte (lontano da finestre e ascensori)
+            for (int i = 0; i < 18; i++)
+            {
+                int wall = rnd.Next(4);
+                float along = R(-30f, 30f), h = R(2.6f, 8.6f), size = R(1.2f, 3.2f);
+                if (wall == 3 && Mathf.Abs(along) < 11f && h < 6.8f) h = R(6.8f, 8.6f);   // sopra le finestre
+                if (wall == 2 && Mathf.Abs(along) < 6.5f && h < 3.8f) h = R(3.8f, 8.6f);  // sopra gli ascensori
+                Vector3 p, e;
+                if (wall == 0) { p = new Vector3(along, h, -HZ + off); e = new Vector3(0f, 180f, R(0f, 360f)); }
+                else if (wall == 1) { p = new Vector3(along, h, HZ - off); e = new Vector3(0f, 0f, R(0f, 360f)); }
+                else if (wall == 2) { p = new Vector3(-HX + off, h, along * 0.7f); e = new Vector3(0f, -90f, R(0f, 360f)); }
+                else { p = new Vector3(HX - off, h, along * 0.7f); e = new Vector3(0f, 90f, R(0f, 360f)); }
+                Decal("AloneAcqua", stain, p, e, new Vector2(size, size * R(0.7f, 1.3f)));
+            }
+            // soffitto: infiltrazioni attorno al lucernario e qualche alone sparso
+            for (int i = 0; i < 14; i++)
+            {
+                bool nearSky = i < 9;
+                float x = nearSky ? R(-15f, 15f) : R(-32f, 32f);
+                float z = nearSky ? (rnd.NextDouble() < 0.5 ? R(-12.5f, -9.2f) : R(-2.8f, 0.5f)) : R(-21f, 21f);
+                if (!nearSky && z > -9.5f && z < -2.5f) z += 8f;    // non dentro l'apertura
+                float size = R(1.5f, 4f);
+                Decal("AloneSoffitto", stain, new Vector3(x, CeilY - off, z), new Vector3(-90f, R(0f, 360f), 0f), new Vector2(size, size * R(0.7f, 1.3f)));
+            }
+            // chiazze di sporco a terra negli angoli e lungo i muri
+            var corners = new[] { new Vector2(-33.5f, -21.5f), new Vector2(33.5f, -21.5f), new Vector2(-33.5f, 21.5f), new Vector2(33.5f, 21.5f),
+                                  new Vector2(-20f, -21.8f), new Vector2(15f, 21.7f), new Vector2(33.8f, 12f), new Vector2(-33.8f, 12f) };
+            foreach (var c in corners)
+            {
+                float size = R(2f, 3.5f);
+                Decal("SporcoAngolo", dirt, new Vector3(c.x, 0.002f, c.y), new Vector3(90f, R(0f, 360f), 0f), new Vector2(size, size * R(0.6f, 1f)));
+            }
+        }
+
         static Material ShaftMaterial()
         {
             const string path = "Assets/_PryingEyes/Materials/MoonShafts.mat";
@@ -980,7 +1190,7 @@ namespace PryingEyes.EditorTools
         /// (diretta e ombre in tempo reale, rimbalzi cotti), griglia di sonde per chi si muove, impostazioni.</summary>
         static void PrepareGI()
         {
-            var cache = new Dictionary<string, Mesh>();
+            var meshes = new HashSet<Mesh>();
             int count = 0;
             foreach (var mf in Object.FindObjectsByType<MeshFilter>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
@@ -989,21 +1199,21 @@ namespace PryingEyes.EditorTools
                 var t = go.transform;
                 bool unitParent = t.parent == null || (t.parent.lossyScale - Vector3.one).sqrMagnitude < 1e-6f;
                 Vector3 s = unitParent ? t.localScale : Vector3.one;
-                string key = mf.sharedMesh.name + "|" + s.x.ToString("F3") + "," + s.y.ToString("F3") + "," + s.z.ToString("F3");
-                if (!cache.TryGetValue(key, out var m))
-                {
-                    m = ScaledCopy(mf.sharedMesh, s);
-                    Unwrapping.GenerateSecondaryUVSet(m);
-                    cache[key] = m;
-                }
-                mf.sharedMesh = m;
+                var src = mf.sharedMesh;
+                // una mesh per oggetto: con le UV in metri dipende anche da dove sta l'oggetto
+                var m = ScaledCopy(src, s);
                 if (s != Vector3.one)
                 {
                     t.localScale = Vector3.one;
                     foreach (var c in go.GetComponents<Collider>()) ScaleCollider(c, s);
                 }
+                MetricUV(m, src.name, t);
+                Unwrapping.GenerateSecondaryUVSet(m);
+                mf.sharedMesh = m;
+                meshes.Add(m);
                 count++;
             }
+            var cache = meshes;   // per il log qui sotto
 
             int mixed = 0;
             foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
@@ -1060,6 +1270,49 @@ namespace PryingEyes.EditorTools
             AssetDatabase.SaveAssets();
             Lightmapping.lightingSettings = ls;
             Debug.Log($"[PryingEyes] GI prep: {count} renderer in lightmap ({cache.Count} mesh), {mixed} luci Mixed, {pts.Count} sonde");
+        }
+
+        /// <summary>UV in metri, cosi' una ripetizione di texture ha sempre la stessa misura vera (prima ogni faccia
+        /// di ogni cubo andava da 0 a 1: la scacchiera di 70 m e il gradino di 8 m avevano texel diversissimi).
+        /// Cubi e quad: proiezione a scatola in coordinate del mondo (le venature continuano tra gradini vicini),
+        /// orientata come la vede chi guarda la faccia. Cilindri: arco e altezza sul fianco, pianta sui tappi.
+        /// Sfere e capsule (cuscini): le UV originali scalate alla circonferenza. Va dopo che la scala e' nella mesh.</summary>
+        static void MetricUV(Mesh m, string kind, Transform t)
+        {
+            var v = m.vertices;
+            var n = m.normals;
+            var uv = m.uv;
+            if (n == null || n.Length != v.Length) return;
+            var o = new Vector2[v.Length];
+            var b = m.bounds;
+            if (kind == "Cylinder")
+            {
+                float r = Mathf.Max(b.extents.x, b.extents.z), h = b.size.y;
+                for (int i = 0; i < v.Length; i++)
+                {
+                    if (Mathf.Abs(n[i].y) > 0.5f) { var w = t.TransformPoint(v[i]); o[i] = new Vector2(w.x, w.z); }
+                    else o[i] = new Vector2(uv[i].x * 2f * Mathf.PI * r, uv[i].y * h);
+                }
+            }
+            else if (kind == "Sphere" || kind == "Capsule")
+            {
+                float c = Mathf.PI * (b.size.x + b.size.z) * 0.5f;
+                for (int i = 0; i < v.Length; i++) o[i] = new Vector2(uv[i].x * c, uv[i].y * b.size.y * 1.6f);
+            }
+            else
+            {
+                for (int i = 0; i < v.Length; i++)
+                {
+                    var w = t.TransformPoint(v[i]);
+                    var wn = t.TransformDirection(n[i]);
+                    float ax = Mathf.Abs(wn.x), ay = Mathf.Abs(wn.y), az = Mathf.Abs(wn.z);
+                    if (ay >= ax && ay >= az) o[i] = new Vector2(w.x, w.z);
+                    else if (ax >= az) o[i] = new Vector2(wn.x > 0f ? w.z : -w.z, w.y);
+                    else o[i] = new Vector2(wn.z > 0f ? -w.x : w.x, w.y);
+                }
+            }
+            m.uv = o;
+            m.RecalculateTangents();   // le normal map seguono le UV: tangenti da rifare
         }
 
         static Mesh ScaledCopy(Mesh src, Vector3 s)

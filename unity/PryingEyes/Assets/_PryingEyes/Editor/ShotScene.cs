@@ -59,7 +59,7 @@ namespace PryingEyes.EditorTools
                 // ascensore centrale della parete ovest (cornice, freccia, porte)
                 new Pose { pos = new Vector3(-27.5f, 1.7f, 3.5f), rot = new Vector3(3f, 246f, 0), name = "ascensore" },
                 // materiali da vicino: pavimento sotto il lucernario (pozzanghere), parete sud con boiserie e applique
-                new Pose { pos = new Vector3(-9f, 1.1f, 3.5f), rot = new Vector3(14f, 160f, 0), name = "pavimento" },
+                new Pose { pos = new Vector3(8.6f, 1.6f, -2.2f), rot = new Vector3(21f, 190f, 0), name = "pavimento" },
                 new Pose { pos = new Vector3(-12f, 1.6f, 18.5f), rot = new Vector3(-6f, 35f, 0), name = "parete" },
                 // occhi nel buio sotto il soppalco, da 11 m (distanza da gioco)
                 new Pose { pos = new Vector3(-6f, 1.7f, -8f), rot = new Vector3(0.5f, 211f, 0), name = "occhi" },
