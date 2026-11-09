@@ -18,6 +18,15 @@ namespace PryingEyes.EditorTools
             ShotScene.Shots();
         }
 
+        /// <summary>Tutto in una sessione: scena + bake, screenshot, suoni in WAV, build Windows.</summary>
+        public static void Everything()
+        {
+            HotelBuilder.Build();
+            ShotScene.Shots();
+            AudioExport.Run();
+            Windows();
+        }
+
         public static void Windows()
         {
             EditorBuildSettings.scenes = new[]

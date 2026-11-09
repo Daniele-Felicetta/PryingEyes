@@ -1,30 +1,42 @@
 using UnityEngine;
+using UnityEngine.AI;
 using System.Collections.Generic;
 
 namespace PryingEyes
 {
     /// <summary>Drone (flying) / Brute (walker) / Monaco (walker animato, modello da Blender):
-    /// chase, attack, enrage <50%, separation, hit flash.</summary>
+    /// chase, attack, enrage <50%, separation, hit flash.
+    /// Chi cammina usa la navmesh (aggira gli ostacoli, sale lo scalone); il drone segue lo stesso percorso in volo e
+    /// non attraversa muri e soffitti. Si colpisce solo da vicino in 3D e con la linea libera: prima bastava la
+    /// distanza orizzontale, e dal piano terra si colpiva chi stava sul soppalco.</summary>
     public class Enemy : MonoBehaviour
     {
         public enum EnemyType { Drone, Brute, Monaco }
         public EnemyType type;
 
         public float hp, maxHp, speed;
-        float atkCd = 0f, flash = 0f;
+        float atkCd = 0f, flash = 0f, repathT = 0f, phase;
         // monaco: animazioni guidate da qui (Velocita, PassoVel, Attacca, Colpito, Morto)
         Animator anim;
         bool dead;
         float strikeAt = -1f, atkLock = 0f;
         const float MonacoWalkSpeed = 1.0f;   // m/s della camminata in Blender a velocita' 1
+        const float MaxStepUp = 1.4f;         // dislivello massimo tra i piedi per colpire in mischia
         Vector3 vel;
         Transform playerT;
+        NavMeshAgent agent;
+        NavMeshPath path;
+        readonly Vector3[] corners = new Vector3[32];
+        int cornerCount;
         Renderer[] renderers;
+        AudioSource loop;                     // litania del monaco / ronzio del drone
+        float stepT, basePitch = 1f;
         public List<Material> flashMats = new List<Material>();
         public Material glowMat;
         List<Transform> rotors = new List<Transform>();
 
         static readonly List<Enemy> all = new List<Enemy>();
+        public static IReadOnlyList<Enemy> All => all;
 
         public static Enemy Nearest(Vector3 p)
         {
@@ -46,13 +58,18 @@ namespace PryingEyes
             GameObject go = t == EnemyType.Drone ? BuildDrone(out glow, out flashes)
                 : t == EnemyType.Brute ? BuildBrute(out glow, out flashes)
                 : BuildMonaco(out glow, out flashes);
+            // chi cammina nasce sulla navmesh (lo spawn sullo scalone finiva dentro i gradini)
+            if (t != EnemyType.Drone && HotelNav.Ready && NavMesh.SamplePosition(pos, out NavMeshHit nh, 4f, NavMesh.AllAreas))
+                pos = nh.position;
             go.transform.position = pos;
+            foreach (var tr in go.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = HotelNav.EnemyLayer;
             Enemy e = go.AddComponent<Enemy>();
             e.type = t;
             e.hp = e.maxHp = t == EnemyType.Drone ? 60f : t == EnemyType.Brute ? 130f : 170f;
             e.speed = t == EnemyType.Drone ? 5.0f + Random.value * 1.5f
                 : t == EnemyType.Brute ? 3.4f + Random.value
                 : 1.35f + Random.value * 0.35f;      // lento e ostinato
+            e.phase = Random.value * 10f;
             e.anim = go.GetComponentInChildren<Animator>();
             e.playerT = GameManager.I.player.transform;
             e.renderers = go.GetComponentsInChildren<Renderer>();
@@ -61,11 +78,36 @@ namespace PryingEyes
             foreach (var m in flashes) m.EnableKeyword("_EMISSION");
             foreach (var tr in go.GetComponentsInChildren<Transform>())
                 if (tr.name == "Rotor") e.rotors.Add(tr);
+            if (t != EnemyType.Drone && HotelNav.Ready) e.AddAgent();
+            // suoni attaccati: il monaco lo senti prima di vederlo, il drone ronza (con effetto Doppler)
+            e.basePitch = t == EnemyType.Monaco ? Random.Range(0.92f, 1.06f) : Random.Range(0.9f, 1.1f);
+            if (t == EnemyType.Monaco) e.loop = Sfx.Loop(go, SoundBank.Chant, 0.55f, 1.5f, 22f, e.basePitch);
+            else if (t == EnemyType.Drone) e.loop = Sfx.Loop(go, SoundBank.Buzz, 0.32f, 1.5f, 24f, e.basePitch, 1f, 1f);
+            e.stepT = Random.value;
             all.Add(e);
             GameManager.I.SetAlive(all.Count);
-            if (GameManager.autoTest) Debug.Log($"[PryingEyes] spawn {t} hp={e.hp} vel={e.speed:F2} pos={pos}");
+            if (GameManager.autoTest) Debug.Log($"[PryingEyes] spawn {t} hp={e.hp} vel={e.speed:F2} pos={pos} nav={(e.agent != null && e.agent.isOnNavMesh)}");
             return e;
         }
+
+        void AddAgent()
+        {
+            agent = gameObject.AddComponent<NavMeshAgent>();
+            agent.radius = type == EnemyType.Brute ? 0.45f : 0.35f;
+            agent.height = 2f;
+            agent.baseOffset = 0f;
+            agent.speed = speed;
+            agent.acceleration = type == EnemyType.Brute ? 14f : 6f;
+            agent.angularSpeed = 0f;
+            agent.updateRotation = false;           // la rotazione la decide Face(): verso il giocatore da vicino
+            agent.autoBraking = true;
+            agent.stoppingDistance = type == EnemyType.Brute ? 1.5f : 1.3f;
+            agent.obstacleAvoidanceType = ObstacleAvoidanceType.MedQualityObstacleAvoidance;
+            agent.avoidancePriority = Random.Range(30, 70);
+            if (!agent.isOnNavMesh) { Destroy(agent); agent = null; }
+        }
+
+        bool OnNav => agent != null && agent.enabled && agent.isOnNavMesh;
 
         void Update()
         {
@@ -78,12 +120,21 @@ namespace PryingEyes
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", ec);
             }
             atkCd -= dt;
+            repathT -= dt;
+            // la litania si calcola in un thread: il monaco nato prima che fosse pronta la attacca adesso
+            if (loop == null && type == EnemyType.Monaco)
+            {
+                var chant = SoundBank.Chant;
+                if (chant != null) loop = Sfx.Loop(gameObject, chant, 0.55f, 1.5f, 22f, basePitch);
+            }
 
             Vector3 gp = transform.position;
-            Vector3 pp = playerT.position + Vector3.up * 1.5f;
-            Vector3 toP = pp - gp; toP.y = 0f;
-            float dist = toP.magnitude;
-            if (dist > 0.01f) toP /= dist;
+            Vector3 feet = playerT.position;
+            Vector3 chest = feet + Vector3.up * 1.3f;
+            Vector3 toP = feet - gp; toP.y = 0f;
+            float hd = toP.magnitude;                       // distanza orizzontale
+            if (hd > 0.01f) toP /= hd;
+            float dy = Mathf.Abs(feet.y - gp.y);            // dislivello tra i piedi (soppalco: 4.2 m)
 
             Vector3 sep = Vector3.zero;
             foreach (var o in all)
@@ -95,66 +146,97 @@ namespace PryingEyes
             }
 
             bool enraged = hp < maxHp * 0.5f;
-            if (type == EnemyType.Drone)
+            if (type == EnemyType.Drone) UpdateDrone(dt, gp, chest, sep, enraged);
+            else if (type == EnemyType.Monaco) UpdateMonaco(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
+            else UpdateBrute(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
+        }
+
+        // ---------- chi cammina ----------
+        /// <summary>Insegue il giocatore sulla navmesh; senza navmesh torna al vecchio inseguimento in linea retta.</summary>
+        void Walk(float dt, Vector3 gp, Vector3 feet, Vector3 toP, float hd, Vector3 sep, float spd, bool hold)
+        {
+            if (OnNav)
             {
-                float targetY = 2.4f + Mathf.Sin(Time.time * 2f) * 0.5f;
-                Vector3 desired = toP * speed * (enraged ? 0.8f : 1f) + sep;
-                vel = Vector3.Lerp(vel, desired, Mathf.Min(1f, 3f * dt));
-                gp += vel * dt;
-                gp.y += (targetY - gp.y) * Mathf.Min(1f, 3f * dt);
-                transform.position = gp;
-                transform.LookAt(new Vector3(pp.x, gp.y, pp.z));
-                foreach (var r in rotors) r.Rotate(Vector3.up, 1200f * dt, Space.Self);
-                if (dist < 3.0f && atkCd <= 0f && GameManager.I.player.alive)
+                agent.speed = spd;
+                agent.isStopped = hold;
+                if (hold) agent.velocity = Vector3.zero;
+                else if (repathT <= 0f) { agent.SetDestination(feet); repathT = 0.25f; }
+                vel = agent.velocity;
+                return;
+            }
+            float stopAt = type == EnemyType.Brute ? 1.7f : 1.9f;
+            Vector3 desired = (!hold && hd > stopAt ? toP * spd : Vector3.zero) + sep * (type == EnemyType.Monaco ? 0.5f : 1f);
+            vel = Vector3.Lerp(vel, desired, Mathf.Min(1f, (type == EnemyType.Brute ? 4f : 3f) * dt));
+            gp += vel * dt;
+            gp.y = 0f;
+            transform.position = gp;
+        }
+
+        /// <summary>Da vicino e con la vista libera guarda il giocatore, altrimenti guarda dove cammina.</summary>
+        void Face(float dt, Vector3 gp, Vector3 feet, float hd, bool see, float turn)
+        {
+            Vector3 hv = new Vector3(vel.x, 0f, vel.z);
+            Vector3 look = (see && hd < 4.5f) || hv.sqrMagnitude < 0.05f ? new Vector3(feet.x - gp.x, 0f, feet.z - gp.z) : hv;
+            if (look.sqrMagnitude > 0.001f)
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(look), Mathf.Min(1f, turn * dt));
+        }
+
+        /// <summary>Mischia valida: abbastanza vicino in orizzontale, quasi alla stessa quota e niente in mezzo.</summary>
+        bool InReach(Vector3 from, Vector3 chest, float hd, float dy, float range) =>
+            hd < range && dy < MaxStepUp && HotelNav.ClearLine(from, chest);
+
+        void UpdateBrute(float dt, Vector3 gp, Vector3 feet, Vector3 chest, Vector3 toP, float hd, float dy, Vector3 sep, bool enraged)
+        {
+            Vector3 eye = gp + Vector3.up * 1.6f;
+            bool see = hd < 6f && HotelNav.ClearLine(eye, chest);
+            Walk(dt, gp, feet, toP, hd, sep, speed * (enraged ? 1.25f : 1f), false);
+            Face(dt, transform.position, feet, hd, see, 10f);
+            float v = new Vector3(vel.x, 0f, vel.z).magnitude;
+            if (v > 0.5f)
+            {
+                stepT -= dt * v / 2f;
+                if (stepT <= 0f)
                 {
-                    atkCd = 1.1f;
-                    GameManager.I.player.Hurt(8f + Random.value * 6f);
+                    stepT = 0.5f;
+                    Sfx.At(SoundBank.BruteStep, transform.position, 0.6f, Random.Range(0.9f, 1.1f), 2f, 26f);
                 }
             }
-            else if (type == EnemyType.Monaco)
+            if (atkCd <= 0f && GameManager.I.player.alive && InReach(eye, chest, hd, dy, 2.4f))
             {
-                UpdateMonaco(dt, gp, pp, toP, dist, sep, enraged);
-            }
-            else
-            {
-                float spd = speed * (enraged ? 1.25f : 1f);
-                Vector3 desired = (dist > 1.7f ? toP * spd : Vector3.zero) + sep;
-                vel = Vector3.Lerp(vel, desired, Mathf.Min(1f, 4f * dt));
-                gp += vel * dt;
-                gp.y = 0f;
-                transform.position = gp;
-                transform.LookAt(new Vector3(pp.x, gp.y, pp.z));
-                if (dist < 2.6f && atkCd <= 0f && GameManager.I.player.alive)
-                {
-                    atkCd = 1.3f;
-                    GameManager.I.player.Hurt((enraged ? 18f : 14f) + Random.value * 8f);
-                    // lunge verso il giocatore
-                    gp += toP * 0.3f;
-                    transform.position = gp;
-                }
+                atkCd = 1.3f;
+                HitPlayer((enraged ? 18f : 14f) + Random.value * 8f, hd, dy);
+                // lunge verso il giocatore
+                if (OnNav) agent.Move(toP * 0.3f);
+                else transform.position += toP * 0.3f;
             }
         }
 
         /// <summary>Monaco: si avvicina camminando, si ferma e pianta il bastone a terra; il danno e l'onda d'urto
         /// arrivano quando il bastone tocca terra (fotogramma 16 della clip, 0.53 s), solo se il giocatore e' a tiro.</summary>
-        void UpdateMonaco(float dt, Vector3 gp, Vector3 pp, Vector3 toP, float dist, Vector3 sep, bool enraged)
+        void UpdateMonaco(float dt, Vector3 gp, Vector3 feet, Vector3 chest, Vector3 toP, float hd, float dy, Vector3 sep, bool enraged)
         {
             atkLock -= dt;
             bool attacking = atkLock > 0f;
-            float spd = speed * (enraged ? 1.25f : 1f);
-            Vector3 desired = (!attacking && dist > 1.9f ? toP * spd : Vector3.zero) + sep * 0.5f;
-            vel = Vector3.Lerp(vel, desired, Mathf.Min(1f, 3f * dt));
-            gp += vel * dt;
-            gp.y = 0f;
-            transform.position = gp;
-            Vector3 look = new Vector3(pp.x, gp.y, pp.z) - gp;
-            if (look.sqrMagnitude > 0.01f)
-                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(look), Mathf.Min(1f, 5f * dt));
+            Vector3 eye = gp + Vector3.up * 1.5f;
+            bool see = hd < 6f && HotelNav.ClearLine(eye, chest);
+            Walk(dt, gp, feet, toP, hd, sep, speed * (enraged ? 1.25f : 1f), attacking);
+            Face(dt, transform.position, feet, hd, see, 5f);
+            float v = new Vector3(vel.x, 0f, vel.z).magnitude;
             if (anim != null)
             {
-                float v = new Vector3(vel.x, 0f, vel.z).magnitude;
                 anim.SetFloat("Velocita", v);
                 anim.SetFloat("PassoVel", Mathf.Clamp(v / MonacoWalkSpeed, 0.6f, 2.2f));
+            }
+            // il bastone batte a terra mentre cammina: tok... tok...
+            if (v > 0.25f)
+            {
+                stepT -= dt * Mathf.Clamp(v / MonacoWalkSpeed, 0.6f, 2.2f);
+                if (stepT <= 0f)
+                {
+                    stepT = 1.05f;
+                    Sfx.At(SoundBank.Tap, transform.TransformPoint(new Vector3(-0.31f, 0f, 0.37f)), 0.55f,
+                           Random.Range(0.92f, 1.08f), 1.5f, 24f);
+                }
             }
             if (strikeAt >= 0f)
             {
@@ -162,19 +244,100 @@ namespace PryingEyes
                 if (strikeAt < 0f)
                 {
                     // punta del bastone nel riferimento del monaco (Blender 0.31, -0.37, 0 -> Unity -0.31, 0, 0.37)
-                    if (glowMat != null) Shockwave.Spawn(transform.TransformPoint(new Vector3(-0.31f, 0f, 0.37f)), glowMat);
-                    if (dist < 2.4f && GameManager.I.player.alive)
-                        GameManager.I.player.Hurt((enraged ? 22f : 16f) + Random.value * 8f);
-                    if (GameManager.autoTest) Debug.Log($"[PryingEyes] monaco: colpo a terra, giocatore a {dist:F1} m");
+                    Vector3 tip = transform.TransformPoint(new Vector3(-0.31f, 0f, 0.37f));
+                    if (glowMat != null) Shockwave.Spawn(tip, glowMat);
+                    Sfx.At(SoundBank.Strike, tip, 0.85f, Random.Range(0.95f, 1.05f), 3f, 35f);
+                    Vector3 p = playerT.position;
+                    float hd2 = new Vector2(p.x - tip.x, p.z - tip.z).magnitude;
+                    float dy2 = Mathf.Abs(p.y - tip.y);
+                    if (GameManager.I.player.alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, 2.4f))
+                        HitPlayer((enraged ? 22f : 16f) + Random.value * 8f, hd2, dy2);
+                    else if (GameManager.autoTest) Debug.Log($"[PryingEyes] monaco: colpo a vuoto, giocatore a {hd2:F1} m, dislivello {dy2:F1} m");
                 }
             }
-            else if (dist < 2.1f && atkCd <= 0f && GameManager.I.player.alive)
+            else if (atkCd <= 0f && GameManager.I.player.alive && InReach(eye, chest, hd, dy, 2.1f))
             {
                 atkCd = 2.2f;
                 strikeAt = 16f / 30f;
                 atkLock = 1.25f;
                 if (anim != null) anim.SetTrigger("Attacca");
             }
+        }
+
+        // ---------- drone ----------
+        /// <summary>Con la vista libera vola dritto verso il giocatore, poco sopra la testa; altrimenti segue il percorso
+        /// della navmesh 2 m sopra terra (sale lungo lo scalone invece di restare sotto il soppalco). Scivola sui muri
+        /// invece di attraversarli.</summary>
+        void UpdateDrone(float dt, Vector3 gp, Vector3 chest, Vector3 sep, bool enraged)
+        {
+            bool see = HotelNav.ClearLine(gp, chest);
+            float bob = Mathf.Sin(Time.time * 2f + phase) * 0.35f;
+            Vector3 target;
+            if (see || !HotelNav.Ready) target = chest + Vector3.up * (0.9f + bob);
+            else
+            {
+                if (repathT <= 0f) { RePath(gp); repathT = 0.5f; }
+                target = NextCorner(gp) + Vector3.up * (2.2f + bob);
+            }
+            Vector3 to = target - gp;
+            float d = to.magnitude;
+            float spd = speed * (enraged ? 0.8f : 1f);
+            Vector3 desired = (d > 0.01f ? to / d * spd * Mathf.Clamp01(d / 1.2f) : Vector3.zero) + sep;
+            vel = Vector3.Lerp(vel, desired, Mathf.Min(1f, 3f * dt));
+
+            Vector3 step = vel * dt;
+            float len = step.magnitude;
+            const float R = 0.45f;
+            if (len > 1e-4f && Physics.SphereCast(gp, R, step / len, out RaycastHit hit, len + 0.05f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+            {
+                vel = Vector3.ProjectOnPlane(vel, hit.normal);
+                step = vel * dt;
+                len = step.magnitude;
+                if (len > 1e-4f && Physics.SphereCast(gp, R, step / len, out hit, len + 0.05f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                    step = step / len * Mathf.Max(0f, hit.distance - 0.02f);
+            }
+            gp += step;
+            gp.y = Mathf.Clamp(gp.y, 0.9f, 8.3f);
+            transform.position = gp;
+            Vector3 look = new Vector3(chest.x - gp.x, 0f, chest.z - gp.z);
+            if (look.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(look);
+            foreach (var r in rotors) r.Rotate(Vector3.up, 1200f * dt, Space.Self);
+            if (loop != null) loop.pitch = basePitch * (0.85f + vel.magnitude / 14f);   // accelera: il ronzio sale
+
+            float dist3 = (chest - gp).magnitude;
+            if (see && dist3 < 2.6f && atkCd <= 0f && GameManager.I.player.alive)
+            {
+                atkCd = 1.1f;
+                HitPlayer(8f + Random.value * 6f, dist3, Mathf.Abs(chest.y - gp.y));
+            }
+        }
+
+        void RePath(Vector3 gp)
+        {
+            cornerCount = 0;
+            if (!HotelNav.Ground(gp, out Vector3 from)) return;
+            if (!NavMesh.SamplePosition(playerT.position, out NavMeshHit th, 2.5f, NavMesh.AllAreas)) return;
+            if (path == null) path = new NavMeshPath();
+            if (NavMesh.CalculatePath(from, th.position, NavMesh.AllAreas, path))
+                cornerCount = path.GetCornersNonAlloc(corners);
+        }
+
+        Vector3 NextCorner(Vector3 gp)
+        {
+            for (int i = 0; i < cornerCount; i++)
+            {
+                Vector3 c = corners[i];
+                if (new Vector2(c.x - gp.x, c.z - gp.z).sqrMagnitude > 1.5f * 1.5f) return c;
+            }
+            return cornerCount > 0 ? corners[cornerCount - 1] : playerT.position;
+        }
+
+        void HitPlayer(float dmg, float dist, float dy)
+        {
+            GameManager.I.player.Hurt(dmg);
+            GameManager.damageTaken++;
+            if (GameManager.autoTest)
+                Debug.Log($"[PryingEyes] danno {type} {dmg:F0} a {dist:F1} m, dislivello {dy:F1} m, nemico y={transform.position.y:F1}");
         }
 
         public void Damage(float dmg, Vector3 point, bool headshot)
@@ -186,8 +349,11 @@ namespace PryingEyes
             GameManager.I.hud?.Hitmarker(hp <= 0f, headshot);
             GameManager.shotsHit++;
             Synth.Hit();
-            vel += (transform.position - playerT.position).normalized *
-                   (type == EnemyType.Drone ? 2.2f : type == EnemyType.Monaco ? 0.5f : 0.9f);
+            Vector3 push = (transform.position - playerT.position);
+            push.y = 0f;
+            push = push.normalized * (type == EnemyType.Drone ? 2.2f : type == EnemyType.Monaco ? 0.5f : 0.9f);
+            if (OnNav) agent.velocity += push;
+            else vel += push;
             // durante il colpo di bastone niente reazione: l'animazione dell'attacco non si interrompe
             if (type == EnemyType.Monaco && hp > 0f && atkLock <= 0f && anim != null) anim.SetTrigger("Colpito");
             if (hp <= 0f) Die(headshot);
@@ -200,10 +366,13 @@ namespace PryingEyes
             GameManager.I.OnEnemyKilled(this, headshot);
             GameManager.I.SetAlive(all.Count);
             Synth.Kill();
+            if (agent != null) agent.enabled = false;
+            if (loop != null) loop.Stop();
             if (type == EnemyType.Monaco)
             {
                 // niente detriti: crolla con l'animazione e sparisce dopo qualche secondo
                 dead = true;
+                Sfx.At(SoundBank.MonkDeath, transform.position + Vector3.up, 0.8f, basePitch, 2f, 30f);
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
                 if (anim != null) anim.SetBool("Morto", true);
                 foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
@@ -220,6 +389,7 @@ namespace PryingEyes
                 for (int i = 0; i < 6; i++)
                 {
                     var d = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    d.layer = HotelNav.EnemyLayer;    // i detriti non bloccano la vista degli altri nemici
                     d.transform.position = center + Random.insideUnitSphere * 0.5f;
                     d.transform.localScale = Vector3.one * Random.Range(0.1f, 0.28f);
                     d.GetComponent<MeshRenderer>().material = dm;

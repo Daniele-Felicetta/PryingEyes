@@ -18,6 +18,10 @@ namespace PryingEyes.EditorTools
         // luna alta a nord, oltre lo scalone: le lame scendono verso l'ingresso e cadono sui gradini bassi,
         // e chi entra dall'ingresso le vede venirgli incontro
         static readonly Vector3 MoonDir = new Vector3(-0.097f, -0.927f, 0.362f);
+        // ascensore centrale sulla parete ovest: vano 2.3 x 2.9 m, cabina profonda 2.3 m dietro il muro
+        const float ElevZ = 0f, ElevHalfW = 1.15f, ElevH = 2.9f, CabDepth = 2.3f;
+        // luci che devono restare in tempo reale (non Mixed): accese e spente durante il gioco
+        static readonly HashSet<Light> keepRealtime = new HashSet<Light>();
         const string ScenePath = "Assets/_PryingEyes/Scenes/Hotel.unity";
         const string VolPath = "Assets/_PryingEyes/Settings/HotelVolume.asset";
         const StaticEditorFlags AllStatic = StaticEditorFlags.ContributeGI | StaticEditorFlags.OccluderStatic
@@ -29,6 +33,7 @@ namespace PryingEyes.EditorTools
 
         public static void Build()
         {
+            keepRealtime.Clear();
             SetupURP.Configure();
             EnsureTagsLayers();
             MakeMaterials();
@@ -61,6 +66,7 @@ namespace PryingEyes.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);   // il bake vuole la scena salvata
             BakeLighting();
             Probe();                                           // dopo il bake: i riflessi vedono la luce che rimbalza
+            Eyes();                                            // dopo il bake: si mettono dove la luce non arriva
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log("[PryingEyes] Hotel scene built OK");
         }
@@ -228,7 +234,11 @@ namespace PryingEyes.EditorTools
             // hall) e boiserie appoggiata al muro (prima galleggiava a un metro)
             Box("WallN", HX * 2 + 4, H, T, 0, H / 2, -HZ - T / 2, wallMat);
             Box("WallS", HX * 2 + 4, H, T, 0, H / 2, HZ + T / 2, wallMat);
-            Box("WallW", T, H, HZ * 2 + 4, -HX - T / 2, H / 2, 0, wallMat);
+            // muro ovest con il vano dell'ascensore centrale (z -1.15..1.15, alto 2.9 m)
+            float wz = HZ + 2f, zs = ElevHalfW + ElevZ;
+            Box("WallW_S", T, H, wz - zs, -HX - T / 2, H / 2, -(wz + zs) / 2f, wallMat);
+            Box("WallW_N", T, H, wz - zs, -HX - T / 2, H / 2, (wz + zs) / 2f, wallMat);
+            Box("WallW_Top", T, H - ElevH, ElevHalfW * 2f, -HX - T / 2, ElevH + (H - ElevH) / 2f, ElevZ, wallMat);
             Box("WallE", T, H, HZ * 2 + 4, HX + T / 2, H / 2, 0, wallMat);
             Box("WainsN", HX * 2, 1.3f, 0.12f, 0, 0.65f, -HZ + 0.06f, woodMat, false);
             Box("WainsS", HX * 2, 1.3f, 0.12f, 0, 0.65f, HZ - 0.06f, woodMat, false);
@@ -311,7 +321,7 @@ namespace PryingEyes.EditorTools
             bell.name = "Bell"; bell.transform.position = new Vector3(24, 1.28f, 2);
             bell.transform.localScale = Vector3.one * 0.18f;
             bell.GetComponent<MeshRenderer>().material = goldMat;
-            MarkStatic(bell, gi: false);
+            MarkStatic(bell, gi: false, batch: false);   // non in batch: quando suona da solo sobbalza
             Box("Sign", 7, 1.4f, 0.1f, 0, 6.8f, -22.3f, woodMat, false);
         }
 
@@ -350,11 +360,77 @@ namespace PryingEyes.EditorTools
 
         static void Elevators()
         {
-            foreach (float z in new[] { -4f, 0f, 4f })
+            // i due laterali restano finti, appoggiati al muro
+            foreach (float z in new[] { -4f, 4f })
             {
                 Box("ElevFrame", 0.4f, 3.4f, 3.0f, -34.8f, 1.7f, z, woodMat);
                 Box("ElevDoor", 0.25f, 2.9f, 2.3f, -34.85f, 1.45f, z, steelMat, false);
             }
+            WorkingElevator();
+        }
+
+        /// <summary>L'ascensore centrale funziona: cabina scavata dietro il muro, ante che scorrono dentro il muro,
+        /// luce interna e freccia. Ad ogni ondata ne esce un monaco (Elevator.cs, GameManager).</summary>
+        static void WorkingElevator()
+        {
+            float wallIn = -HX, wallOut = -HX - 1.2f, back = wallOut - CabDepth;
+            float cx = (back + wallIn) / 2f, cw = ElevHalfW * 2f + 0.2f;
+            var root = new GameObject("Ascensore");
+            root.transform.position = new Vector3(wallIn, 0f, ElevZ);
+            // cabina: pavimento (anche sotto lo spessore del muro), soffitto, fondo, fianchi, corrimano
+            Box("CabFloor", wallIn - back, 0.1f, cw, cx, -0.05f, ElevZ, darkMat);
+            Box("CabCeil", wallIn - back, 0.1f, cw, cx, ElevH + 0.05f, ElevZ, darkMat, false);
+            Box("CabBack", 0.1f, ElevH, cw, back - 0.05f, ElevH / 2f, ElevZ, woodMat);
+            Box("CabSideN", CabDepth, ElevH, 0.1f, (back + wallOut) / 2f, ElevH / 2f, ElevZ + ElevHalfW + 0.05f, woodMat);
+            Box("CabSideS", CabDepth, ElevH, 0.1f, (back + wallOut) / 2f, ElevH / 2f, ElevZ - ElevHalfW - 0.05f, woodMat);
+            Box("CabRail", 0.05f, 0.05f, cw - 0.4f, back + 0.08f, 0.95f, ElevZ, goldMat, false);
+            var panelMat = LitMat("CabLamp", new Color(0.2f, 0.2f, 0.18f), 0f, 0.3f);
+            Emissive(panelMat, new Color(1f, 0.94f, 0.8f) * 1.5f, bakeIntoGI: false);
+            Box("CabLampPanel", 0.7f, 0.02f, 0.7f, (back + wallOut) / 2f, ElevH - 0.01f, ElevZ, panelMat, false);
+            // cornice d'ottone sul lato hall
+            Box("ElevPostN", 0.12f, 3.05f, 0.15f, wallIn + 0.06f, 1.525f, ElevZ + ElevHalfW + 0.08f, goldMat, false);
+            Box("ElevPostS", 0.12f, 3.05f, 0.15f, wallIn + 0.06f, 1.525f, ElevZ - ElevHalfW - 0.08f, goldMat, false);
+            Box("ElevLintel", 0.12f, 0.15f, ElevHalfW * 2f + 0.46f, wallIn + 0.06f, ElevH + 0.075f, ElevZ, goldMat, false);
+            // freccia che si accende all'arrivo
+            var arrowMat = LitMat("ElevArrow", new Color(0.12f, 0.08f, 0.05f), 0f, 0.5f);
+            Emissive(arrowMat, Color.black, bakeIntoGI: false);
+            var arrow = Box("ElevArrow", 0.03f, 0.14f, 0.3f, wallIn + 0.04f, ElevH + 0.35f, ElevZ, arrowMat, false);
+            MarkStatic(arrow, gi: false, batch: false);
+            // ante: non statiche (si muovono), layer porte (fuori dalla navmesh), collider per il giocatore
+            Transform Door(string n, float z)
+            {
+                var d = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                d.name = n;
+                d.layer = PryingEyes.HotelNav.DoorLayer;
+                d.transform.SetParent(root.transform, true);
+                d.transform.position = new Vector3(wallIn - 0.06f, (ElevH - 0.05f) / 2f, z);
+                d.transform.localScale = new Vector3(0.06f, ElevH - 0.05f, ElevHalfW);
+                d.GetComponent<MeshRenderer>().sharedMaterial = steelMat;
+                return d.transform;
+            }
+            var dl = Door("AntaNord", ElevZ + ElevHalfW / 2f);
+            var dr = Door("AntaSud", ElevZ - ElevHalfW / 2f);
+            // luce della cabina: in tempo reale (accesa solo con le porte aperte), con ombre: il monaco che esce
+            // allunga la sua ombra nella hall
+            var lg = new GameObject("LuceCabina");
+            lg.transform.SetParent(root.transform, true);
+            lg.transform.position = new Vector3((back + wallOut) / 2f, ElevH - 0.3f, ElevZ);
+            var cl = lg.AddComponent<Light>();
+            cl.type = LightType.Point;
+            cl.color = new Color(1f, 0.93f, 0.78f);
+            cl.intensity = 2.2f;
+            cl.range = 5f;
+            cl.shadows = LightShadows.Soft;
+            keepRealtime.Add(cl);
+            var sp = new GameObject("SpawnCabina").transform;
+            sp.SetParent(root.transform, true);
+            sp.position = new Vector3((back + wallOut) / 2f, 0.05f, ElevZ);
+            var el = root.AddComponent<PryingEyes.Elevator>();
+            el.doorL = dl;
+            el.doorR = dr;
+            el.spawn = sp;
+            el.cabinLight = cl;
+            el.indicator = arrow.GetComponent<MeshRenderer>();
         }
 
         static void Windows()
@@ -916,12 +992,14 @@ namespace PryingEyes.EditorTools
             {
                 if (l.GetComponentInParent<PryingEyes.PlayerController>() != null) continue; // fiammata dell'arma: realtime
                 if (l.lightmapBakeType == LightmapBakeType.Baked) continue;                  // applique: tutte cotte
+                if (keepRealtime.Contains(l)) { l.lightmapBakeType = LightmapBakeType.Realtime; continue; }
                 l.lightmapBakeType = LightmapBakeType.Mixed;
                 mixed++;
             }
 
             Physics.SyncTransforms();
-            var pts = new List<Vector3>();
+            // due sonde dentro la cabina dell'ascensore: il monaco che ne esce non resta nero
+            var pts = new List<Vector3> { new Vector3(-HX - 2.3f, 1.0f, ElevZ), new Vector3(-HX - 2.3f, 2.2f, ElevZ) };
             foreach (float y in new[] { 0.5f, 1.8f, 3.4f, 5.2f, 7.2f })
                 for (float x = -33.25f; x <= 33.3f; x += 3.5f)
                     for (float z = -21.5f; z <= 21.6f; z += 3.5f)
@@ -1040,6 +1118,98 @@ namespace PryingEyes.EditorTools
             catch (System.Exception e) { Debug.LogWarning("[PryingEyes] reflection probe error: " + e.Message); }
             finally { if (player != null) player.SetActive(true); }
         }
+
+        /// <summary>Occhi nel buio: tra punti candidati lungo le pareti, sotto e sopra il soppalco, sceglie i piu' bui
+        /// (rimbalzi letti dalle sonde + stima della luce diretta di lampade e luna, con test di visibilita') e li
+        /// tiene distanti tra loro. Va chiamato dopo il bake.</summary>
+        static void Eyes()
+        {
+            const string mp = "Assets/_PryingEyes/Materials/EyeGlow.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (mat == null) { mat = new Material(Shader.Find("PryingEyes/EyeGlow")); AssetDatabase.CreateAsset(mat, mp); }
+            // abbastanza grandi e luminosi da accendere il bloom: a 9 cm, da 20 m, erano due pixel
+            mat.SetColor("_Color", new Color(3.6f, 2.5f, 0.8f));
+            mat.SetFloat("_Open", 1f);
+            EditorUtility.SetDirty(mat);
+
+            var cands = new List<Vector3>();
+            for (float x = -32f; x <= 32.1f; x += 4f)
+            {
+                cands.Add(new Vector3(x, 1.7f, -21.6f));
+                cands.Add(new Vector3(x, 1.7f, 21.6f));
+                cands.Add(new Vector3(x, 5.9f, -21.8f));
+            }
+            for (float z = -20f; z <= 20.1f; z += 4f)
+            {
+                cands.Add(new Vector3(-33.6f, 1.7f, z));
+                cands.Add(new Vector3(33.6f, 1.7f, z));
+            }
+            for (float x = -30f; x <= 30.1f; x += 6f) cands.Add(new Vector3(x, 1.6f, -18f));
+
+            Physics.SyncTransforms();
+            var lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            var dirs = new[] { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
+            var shOut = new Color[dirs.Length];
+            var scored = new List<(Vector3 p, float lum)>();
+            foreach (var c in cands)
+            {
+                if (Physics.CheckSphere(c, 0.25f)) continue;
+                float lum = 0f;
+                LightProbes.GetInterpolatedProbe(c, null, out SphericalHarmonicsL2 sh);
+                sh.Evaluate(dirs, shOut);
+                foreach (var col in shOut) lum += col.grayscale / dirs.Length;
+                foreach (var l in lights)
+                {
+                    if (!l.enabled || l.type == LightType.Directional || keepRealtime.Contains(l)) continue;
+                    if (l.GetComponentInParent<PryingEyes.PlayerController>() != null) continue;
+                    if (l.lightmapBakeType == LightmapBakeType.Baked) continue;      // gia' dentro le sonde
+                    float d = Vector3.Distance(c, l.transform.position);
+                    if (d > l.range || !FreeLine(c, l.transform.position)) continue;
+                    float att = Mathf.Clamp01(1f - (d / l.range) * (d / l.range));
+                    lum += l.intensity / Mathf.Max(d * d, 0.5f) * att * att * l.color.grayscale;
+                }
+                var sun = RenderSettings.sun;
+                if (sun != null && FreeLine(c, c - sun.transform.forward * 40f)) lum += sun.intensity;
+                scored.Add((c, lum));
+            }
+            scored.Sort((a, b) => a.lum.CompareTo(b.lum));
+            var rnd = new System.Random(21);
+            var chosen = new List<Vector3>();
+            foreach (var s in scored)
+            {
+                if (chosen.Count >= 9) break;
+                bool far = true;
+                foreach (var q in chosen) if (Vector3.Distance(q, s.p) < 8f) { far = false; break; }
+                if (!far) continue;
+                chosen.Add(s.p);
+                var g = new GameObject("Occhi");
+                g.transform.position = s.p + new Vector3(0f, (float)rnd.NextDouble() * 0.4f - 0.2f, 0f);
+                // in edit-mode (screenshot) guardano verso il centro della hall; in gioco seguono il giocatore
+                g.transform.rotation = Quaternion.LookRotation(g.transform.position - new Vector3(0f, 1.7f, 0f));
+                Renderer Eye(float x)
+                {
+                    var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    Object.DestroyImmediate(q.GetComponent<Collider>());
+                    q.name = "Occhio";
+                    q.transform.SetParent(g.transform, false);
+                    q.transform.localPosition = new Vector3(x, 0f, 0f);
+                    q.transform.localScale = Vector3.one * 0.16f;
+                    var mr = q.GetComponent<MeshRenderer>();
+                    mr.sharedMaterial = mat;
+                    mr.shadowCastingMode = ShadowCastingMode.Off;
+                    mr.receiveShadows = false;
+                    mr.lightProbeUsage = LightProbeUsage.Off;
+                    mr.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                    return mr;
+                }
+                var we = g.AddComponent<PryingEyes.WatchingEyes>();
+                we.left = Eye(-0.1f);
+                we.right = Eye(0.1f);
+                Debug.Log($"[PryingEyes] occhi a {s.p} (luce stimata {s.lum:F3})");
+            }
+        }
+
+        static bool FreeLine(Vector3 a, Vector3 b) => !Physics.Linecast(a, b, ~(1 << 2), QueryTriggerInteraction.Ignore);
 
         static void SpawnPoints()
         {

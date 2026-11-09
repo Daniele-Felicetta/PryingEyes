@@ -28,6 +28,30 @@ namespace PryingEyes
 
         CharacterController cc;
         Vector3 vel;
+        Vector3 spawnPos = new Vector3(0, 0.1f, 19f);
+        int lastStep;
+
+        /// <summary>Superficie sotto i piedi per il suono dei passi: 0 marmo, 1 moquette, 2 legno del soppalco.
+        /// Le moquette non hanno collider (sono solo disegnate): si riconoscono dai rettangoli di HotelBuilder.</summary>
+        int Surface()
+        {
+            Vector3 p = transform.position;
+            if (p.y > 3.5f) return 2;
+            bool In(float x0, float x1, float z0, float z1) => p.x > x0 && p.x < x1 && p.z > z0 && p.z < z1;
+            if (In(-18f, -2f, -11f, 19f) || In(21f, 27f, -14f, 6f)) return 1;
+            return 0;
+        }
+
+        /// <summary>Sposta il punto di (ri)nascita e ci porta subito il giocatore (usato dal bot per il soppalco).</summary>
+        public void SetSpawn(Vector3 p)
+        {
+            spawnPos = p;
+            if (cc == null) cc = GetComponent<CharacterController>();
+            cc.enabled = false;              // con il controller acceso la posizione impostata a mano non vale
+            transform.position = p;
+            cc.enabled = true;
+            vel = Vector3.zero;
+        }
         public float yaw = Mathf.PI, pitch, lean, bobPhase;
         float coyote, jumpBuf, slideT, eyeH, fovKick;
         bool crouch, slide;
@@ -171,6 +195,14 @@ namespace PryingEyes
             float hs = new Vector2(vel.x, vel.z).magnitude;
             float bobAmp = (crouch ? 0.45f : 1f) * (weapon != null ? 1f - weapon.ads * 0.8f : 1f) * Mathf.Min(1f, hs / 6f);
             bobPhase += dt * (4f + hs * 1.35f) * (cc.isGrounded ? 1f : 0.15f);
+            // un passo per ogni ciclo del dondolio (bobY = sin(2*fase): un ciclo ogni pi greco di fase)
+            int stepIdx = Mathf.FloorToInt(bobPhase / Mathf.PI);
+            if (stepIdx != lastStep)
+            {
+                lastStep = stepIdx;
+                if (cc.isGrounded && hs > 1.2f)
+                    Synth.Step(Surface(), Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f));
+            }
             float bobY = Mathf.Sin(bobPhase * 2f) * 0.032f * bobAmp;
             float bobX = Mathf.Cos(bobPhase) * 0.026f * bobAmp;
             float targetEye = (crouch || slide ? eyeCrouch : eyeStand) + (slide ? -0.12f : 0f);
@@ -211,7 +243,7 @@ namespace PryingEyes
             if (hp <= 0f)
             {
                 hp = 0f; alive = false; respawnT = 2.5f;
-                hud?.Banner("SEI MORTO", "Respawn in corso...");
+                hud?.Banner("Sei morto", "L'hotel ti riporta all'ingresso.");
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
             }
@@ -220,11 +252,11 @@ namespace PryingEyes
         void Respawn()
         {
             alive = true; hp = 100f; shield = 50f;
-            transform.position = new Vector3(0, 0.1f, 19f);
-            vel = Vector3.zero; yaw = Mathf.PI; pitch = 0f;
+            SetSpawn(spawnPos);
+            yaw = Mathf.PI; pitch = 0f;
             weapon.mag = weapon.magSize; weapon.reserve = 120; weapon.reloading = false;
             hud?.SetBars(hp, shield);
-            hud?.Toast("Respawnato");
+            hud?.SetAmmo(weapon.mag, weapon.reserve);
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             if (GameManager.autoTest) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }

@@ -149,6 +149,7 @@ namespace PryingEyes
                     mag += take; reserve -= take;
                     reloading = false;
                     hud?.SetAmmo(mag, reserve);
+                    hud?.SetReloading(false);
                 }
             }
             if (Input.GetKeyDown(KeyCode.R)) Reload();
@@ -170,7 +171,7 @@ namespace PryingEyes
             if (reloading || mag >= magSize || reserve <= 0) return;
             reloading = true;
             reloadT = 1.4f;
-            hud?.Toast("Ricarica...");
+            hud?.SetReloading(true);   // piccolo, vicino ai colpi: prima era una scritta al centro dello schermo
             Synth.Reload();
         }
 

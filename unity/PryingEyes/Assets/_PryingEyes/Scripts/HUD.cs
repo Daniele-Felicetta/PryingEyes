@@ -1,20 +1,47 @@
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace PryingEyes
 {
-    /// <summary>HUD with proper corner anchors. Idempotent build: reuses scene children (editor-built) at runtime.</summary>
+    /// <summary>HUD con ancore agli angoli, costruito a runtime (riusa i figli se esistono gia').
+    /// Tono "grand hotel": Georgia di sistema (niente font da scaricare), avorio su nero, tutto in italiano,
+    /// niente scritte da sala giochi. L'ondata e' un numero romano, i nemici sono "presenze"; l'hit marker resta
+    /// quello stile CoD.</summary>
     public class HUD : MonoBehaviour
     {
         Slider hpBar, shieldBar;
-        Text ammoText, waveText, scoreText, killsText, enemiesText, bannerText, bannerSub, toastText, killConfirm, cross;
+        Text ammoText, reserveText, reloadText, waveLabel, waveText, enemiesText, scoreText, bannerText, bannerSub, toastText;
         Image vignette;
         RectTransform hitRoot;      // hit marker: X di 4 tacche attorno al mirino
         Image[] hitTicks;
         Color hitCol = Color.white;
-        float hitT, hitDur, hitPop, hitSize, killT, bannerT, toastT, vigT;
+        float hitT, hitDur, hitPop, hitSize, bannerT, toastT, vigT, hpNow = 100f;
+        static Font serif;
+        static readonly Color Ink = new Color(0.93f, 0.89f, 0.80f);
+        static readonly Color Dim = new Color(0.74f, 0.67f, 0.56f, 0.92f);
+        static readonly CultureInfo It = CultureInfo.GetCultureInfo("it-IT");
+        const float BannerTime = 4.5f, ToastTime = 4.5f;
 
         void Awake() { EnsureBuilt(); }
+
+        static Font Serif()
+        {
+            if (serif == null)
+                serif = Font.CreateDynamicFontFromOSFont(new[] { "Georgia", "Palatino Linotype", "Book Antiqua", "Times New Roman" }, 32);
+            return serif;
+        }
+
+        /// <summary>Numero romano (ondata III).</summary>
+        public static string Roman(int n)
+        {
+            if (n <= 0) return n.ToString();
+            int[] v = { 1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1 };
+            string[] s = { "M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I" };
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < v.Length; i++) while (n >= v[i]) { sb.Append(s[i]); n -= v[i]; }
+            return sb.ToString();
+        }
 
         GameObject Child(string name)
         {
@@ -49,24 +76,36 @@ namespace PryingEyes
             scaler.referenceResolution = new Vector2(1280, 720);
             Comp<GraphicRaycaster>(gameObject);
 
-            hpBar = MakeBar("HpBar", new Vector2(0, 0), new Vector2(20, 20), new Vector2(240, 20), new Color(0.8f, 0.15f, 0.15f));
-            shieldBar = MakeBar("ShieldBar", new Vector2(0, 0), new Vector2(20, 46), new Vector2(240, 12), new Color(0.2f, 0.7f, 1f));
-            ammoText = MakeText("Ammo", new Vector2(1, 0), new Vector2(-28, 24), new Vector2(200, 36), 24, TextAnchor.LowerRight, "30 / 120");
-            waveText = MakeText("Wave", new Vector2(0, 1), new Vector2(20, -16), new Vector2(300, 30), 22, TextAnchor.UpperLeft, "ONDATA 1");
-            scoreText = MakeText("Score", new Vector2(0, 1), new Vector2(20, -46), new Vector2(300, 26), 18, TextAnchor.UpperLeft, "SCORE 0");
-            killsText = MakeText("Kills", new Vector2(0, 1), new Vector2(20, -70), new Vector2(300, 26), 18, TextAnchor.UpperLeft, "KILLS 0");
-            enemiesText = MakeText("Enemies", new Vector2(0, 1), new Vector2(20, -94), new Vector2(300, 26), 18, TextAnchor.UpperLeft, "NEMICI 0");
-            cross = MakeText("Cross", new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(30, 30), 24, TextAnchor.MiddleCenter, "+");
-            MakeHitmarker();
-            killConfirm = MakeText("KillConfirm", new Vector2(0.5f, 0.5f), new Vector2(0, 52), new Vector2(300, 28), 20, TextAnchor.MiddleCenter, "");
-            bannerText = MakeText("Banner", new Vector2(0.5f, 1), new Vector2(0, -110), new Vector2(700, 48), 38, TextAnchor.MiddleCenter, "");
-            bannerSub = MakeText("BannerSub", new Vector2(0.5f, 1), new Vector2(0, -152), new Vector2(700, 28), 18, TextAnchor.MiddleCenter, "");
-            toastText = MakeText("Toast", new Vector2(0.5f, 0), new Vector2(0, 96), new Vector2(800, 26), 16, TextAnchor.MiddleCenter, "");
-            vignette = MakeImage("Vignette", new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), new Color(0.8f, 0, 0, 0.35f));
+            // vignetta per primo: sta sotto a tutto il resto
+            vignette = MakeImage("Vignette", Color.clear);
+            vignette.sprite = VignetteSprite();
             var vr = vignette.GetComponent<RectTransform>();
             vr.anchorMin = Vector2.zero; vr.anchorMax = Vector2.one;
             vr.offsetMin = Vector2.zero; vr.offsetMax = Vector2.zero;
-            vignette.enabled = false;
+
+            // in alto a sinistra: ondata in numeri romani, presenze, punti
+            waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(26, -16), new Vector2(300, 22), 15, TextAnchor.UpperLeft, "ondata", Dim, FontStyle.Italic);
+            waveText = MakeText("Wave", new Vector2(0, 1), new Vector2(24, -34), new Vector2(300, 56), 46, TextAnchor.UpperLeft, "I", Ink, FontStyle.Normal);
+            enemiesText = MakeText("Enemies", new Vector2(0, 1), new Vector2(26, -92), new Vector2(320, 24), 17, TextAnchor.UpperLeft, "", Dim, FontStyle.Italic);
+            scoreText = MakeText("Score", new Vector2(0, 1), new Vector2(26, -114), new Vector2(320, 22), 15, TextAnchor.UpperLeft, "", Dim, FontStyle.Normal);
+            // in basso a sinistra: vita e scudo, sottili e senza etichette
+            hpBar = MakeBar("HpBar", new Vector2(0, 0), new Vector2(28, 30), new Vector2(220, 6), new Color(0.62f, 0.10f, 0.09f));
+            shieldBar = MakeBar("ShieldBar", new Vector2(0, 0), new Vector2(28, 42), new Vector2(220, 4), new Color(0.56f, 0.68f, 0.80f));
+            // in basso a destra: colpi nel caricatore grandi, riserva piccola
+            ammoText = MakeText("Ammo", new Vector2(1, 0), new Vector2(-92, 16), new Vector2(160, 58), 48, TextAnchor.LowerRight, "30", Ink, FontStyle.Normal);
+            reserveText = MakeText("Reserve", new Vector2(1, 0), new Vector2(-26, 24), new Vector2(70, 30), 20, TextAnchor.LowerRight, "/ 120", Dim, FontStyle.Normal);
+            reloadText = MakeText("Reload", new Vector2(1, 0), new Vector2(-28, 76), new Vector2(220, 22), 15, TextAnchor.LowerRight, "", Dim, FontStyle.Italic);
+            MakeCrosshair();
+            MakeHitmarker();
+            bannerText = MakeText("Banner", new Vector2(0.5f, 1), new Vector2(0, -118), new Vector2(1000, 66), 54, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
+            bannerSub = MakeText("BannerSub", new Vector2(0.5f, 1), new Vector2(0, -170), new Vector2(1000, 30), 20, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+            toastText = MakeText("Toast", new Vector2(0.5f, 0), new Vector2(0, 108), new Vector2(1000, 26), 17, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+            // scritte della versione precedente rimaste nella scena: spente
+            foreach (var old in new[] { "Kills", "Cross", "KillConfirm" })
+            {
+                var t = transform.Find(old);
+                if (t != null) t.gameObject.SetActive(false);
+            }
         }
 
         Slider MakeBar(string name, Vector2 anchor, Vector2 pos, Vector2 size, Color c)
@@ -77,40 +116,90 @@ namespace PryingEyes
             rt.pivot = new Vector2(anchor.x == 1 ? 1 : 0, anchor.y == 1 ? 1 : 0);
             rt.anchoredPosition = pos;
             rt.sizeDelta = size;
-            var img = Comp<Image>(go); img.color = new Color(0.1f, 0.1f, 0.1f, 0.7f);
+            var img = Comp<Image>(go); img.color = new Color(0f, 0f, 0f, 0.45f); img.raycastTarget = false;
             var fill = SubChild(go, "Fill");
             var frt = Comp<RectTransform>(fill);
             frt.anchorMin = Vector2.zero; frt.anchorMax = Vector2.one;
             frt.offsetMin = Vector2.zero; frt.offsetMax = Vector2.zero;
-            var fimg = Comp<Image>(fill); fimg.color = c;
+            var fimg = Comp<Image>(fill); fimg.color = c; fimg.raycastTarget = false;
             var sl = Comp<Slider>(go);
             sl.fillRect = frt; sl.minValue = 0; sl.maxValue = 1; sl.value = 1;
+            sl.interactable = false;
             return sl;
         }
 
-        Text MakeText(string name, Vector2 anchor, Vector2 pos, Vector2 size, int fs, TextAnchor a, string s)
+        Text MakeText(string name, Vector2 anchor, Vector2 pos, Vector2 size, int fs, TextAnchor a, string s, Color col, FontStyle style)
         {
             var go = Child(name);
+            go.SetActive(true);
             var rt = Comp<RectTransform>(go);
             rt.anchorMin = anchor; rt.anchorMax = anchor;
             rt.pivot = new Vector2(anchor.x == 1 ? 1 : (anchor.x == 0 ? 0 : 0.5f), anchor.y == 1 ? 1 : (anchor.y == 0 ? 0 : 0.5f));
             rt.anchoredPosition = pos; rt.sizeDelta = size;
             var t = Comp<Text>(go);
-            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            t.font = Serif();
             t.fontSize = fs; t.alignment = a; t.text = s;
-            t.color = Color.white;
+            t.fontStyle = style;
+            t.color = col;
+            t.raycastTarget = false;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            var sh = Comp<Shadow>(go);
+            sh.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            sh.effectDistance = new Vector2(1.5f, -1.5f);
             return t;
         }
 
-        Image MakeImage(string name, Vector2 anchor, Vector2 pos, Vector2 size, Color c)
+        Image MakeImage(string name, Color c)
         {
             var go = Child(name);
             var rt = Comp<RectTransform>(go);
-            rt.anchorMin = anchor; rt.anchorMax = anchor;
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = pos; rt.sizeDelta = size;
-            var i = Comp<Image>(go); i.color = c;
+            var i = Comp<Image>(go); i.color = c; i.raycastTarget = false;
             return i;
+        }
+
+        /// <summary>Bordi rossi che sfumano al centro (colpi subiti, vita bassa): prima era un velo rosso piatto.</summary>
+        static Sprite VignetteSprite()
+        {
+            const int S = 128;
+            var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color32[S * S];
+            for (int y = 0; y < S; y++)
+                for (int x = 0; x < S; x++)
+                {
+                    float u = (x + 0.5f) / S * 2f - 1f, v = (y + 0.5f) / S * 2f - 1f;
+                    float r = Mathf.Sqrt(u * u + v * v) / 1.414f;
+                    float a = Mathf.SmoothStep(0.25f, 1f, r);
+                    px[y * S + x] = new Color32(140, 8, 6, (byte)Mathf.RoundToInt(255f * a));
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false);
+            return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+        }
+
+        /// <summary>Mirino: quattro trattini sottili con un vuoto al centro.</summary>
+        void MakeCrosshair()
+        {
+            var root = Child("Crosshair");
+            var rt = Comp<RectTransform>(root);
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero; rt.sizeDelta = Vector2.zero;
+            for (int i = 0; i < 4; i++)
+            {
+                var go = SubChild(root, "Trattino" + i);
+                var r = Comp<RectTransform>(go);
+                r.anchorMin = r.anchorMax = new Vector2(0.5f, 0.5f);
+                bool vert = i < 2;
+                r.sizeDelta = vert ? new Vector2(2f, 7f) : new Vector2(7f, 2f);
+                float d = 9f;
+                r.anchoredPosition = i == 0 ? new Vector2(0, d) : i == 1 ? new Vector2(0, -d) : i == 2 ? new Vector2(d, 0) : new Vector2(-d, 0);
+                var img = Comp<Image>(go);
+                img.color = new Color(1f, 0.97f, 0.9f, 0.85f);
+                img.raycastTarget = false;
+                var sh = Comp<Shadow>(go);
+                sh.effectColor = new Color(0f, 0f, 0f, 0.6f);
+                sh.effectDistance = new Vector2(1f, -1f);
+            }
         }
 
         const int TexelsPerUnit = 8;       // risoluzione dello sprite della tacca
@@ -186,27 +275,69 @@ namespace PryingEyes
             foreach (var t in hitTicks) t.color = c;
         }
 
+        /// <summary>Alfa di una scritta che compare e svanisce: entra in 0,4 s, esce nell'ultimo secondo.</summary>
+        static float FadeAlpha(float left, float total) =>
+            Mathf.Clamp01((total - left) / 0.4f) * Mathf.Clamp01(left / 1f);
+
+        static void SetAlpha(Text t, Color baseCol, float a)
+        {
+            if (t == null) return;
+            var c = baseCol; c.a *= a; t.color = c;
+        }
+
         void Update()
         {
             float dt = Time.deltaTime;
             UpdateHitmarker(dt);
-            if (killT > 0f) { killT -= dt; if (killT <= 0f && killConfirm != null) killConfirm.text = ""; }
-            if (bannerT > 0f) { bannerT -= dt; if (bannerT <= 0f) { if (bannerText != null) bannerText.text = ""; if (bannerSub != null) bannerSub.text = ""; } }
-            if (toastT > 0f) { toastT -= dt; if (toastT <= 0f && toastText != null) toastText.text = ""; }
-            if (vigT > 0f && vignette != null)
+            if (bannerT > 0f)
             {
-                vigT -= dt;
-                if (vigT <= 0f) vignette.enabled = false;
-                else { var c = vignette.color; c.a = 0.35f * (vigT / 0.5f); vignette.color = c; }
+                bannerT -= dt;
+                float a = FadeAlpha(bannerT, BannerTime);
+                SetAlpha(bannerText, Ink, a);
+                SetAlpha(bannerSub, Dim, a);
+                if (bannerT <= 0f) { bannerText.text = ""; bannerSub.text = ""; }
+            }
+            if (toastT > 0f)
+            {
+                toastT -= dt;
+                SetAlpha(toastText, Dim, FadeAlpha(toastT, ToastTime));
+                if (toastT <= 0f) toastText.text = "";
+            }
+            if (vignette != null)
+            {
+                // colpo appena preso + bordo fisso quando la vita e' bassa
+                vigT = Mathf.Max(0f, vigT - dt);
+                float low = hpNow < 35f ? (35f - hpNow) / 35f * 0.55f : 0f;
+                float a = Mathf.Max(low, vigT / 0.6f * 0.85f);
+                vignette.color = new Color(1f, 1f, 1f, a);
             }
         }
 
-        public void SetBars(float hp, float shield) { if (hpBar == null) return; hpBar.value = hp / 100f; shieldBar.value = shield / 50f; }
-        public void SetAmmo(int m, int r) { if (ammoText == null) return; ammoText.text = m + " / " + r; }
-        public void SetWave(int w) { if (waveText == null) return; waveText.text = "ONDATA " + w; }
-        public void SetScore(int s) { if (scoreText == null) return; scoreText.text = "SCORE " + s; }
-        public void SetKills(int k) { if (killsText == null) return; killsText.text = "KILLS " + k; }
-        public void SetEnemiesLeft(int n) { if (enemiesText == null) return; enemiesText.text = "NEMICI " + n; }
+        public void SetBars(float hp, float shield)
+        {
+            if (hpBar == null) return;
+            hpNow = hp;
+            hpBar.value = hp / 100f;
+            shieldBar.value = shield / 50f;
+        }
+
+        public void SetAmmo(int m, int r)
+        {
+            if (ammoText == null) return;
+            ammoText.text = m.ToString();
+            ammoText.color = m <= 5 ? new Color(0.85f, 0.25f, 0.2f) : Ink;
+            reserveText.text = "/ " + r;
+        }
+
+        public void SetReloading(bool on) { if (reloadText != null) reloadText.text = on ? "ricarica…" : ""; }
+        public void SetWave(int w) { if (waveText != null) waveText.text = Roman(w); }
+        public void SetScore(int s) { if (scoreText != null) scoreText.text = s > 0 ? string.Format(It, "{0:N0} punti", s) : ""; }
+        public void SetEnemiesLeft(int n)
+        {
+            if (enemiesText == null) return;
+            enemiesText.text = n <= 0 ? "" : n == 1 ? "una presenza" : n + " presenze";
+        }
+
         /// <summary>Hit marker stile CoD: bianco al colpo; rosso, piu grande e piu lungo all'uccisione; la testa lo ingrandisce.</summary>
         public void Hitmarker(bool kill, bool headshot = false)
         {
@@ -219,16 +350,23 @@ namespace PryingEyes
             hitRoot.gameObject.SetActive(true);
             UpdateHitmarker(0f);
         }
-        public void KillConfirm(string s) { if (killConfirm == null) return; killConfirm.text = s; killT = 1.5f; }
-        public void Banner(string t, string sub) { if (bannerText == null) return; bannerText.text = t; bannerSub.text = sub; bannerT = 3f; }
-        public void Toast(string s) { if (toastText == null) return; toastText.text = s; toastT = 4f; }
-        public void DamageFlash()
+
+        public void Banner(string t, string sub)
         {
-            if (vignette == null) return;
-            var c = vignette.color; c.a = 0.35f; vignette.color = c;
-            vignette.enabled = true;
-            vigT = 0.5f;
+            if (bannerText == null) return;
+            bannerText.text = t; bannerSub.text = sub;
+            bannerT = BannerTime;
+            SetAlpha(bannerText, Ink, 0f); SetAlpha(bannerSub, Dim, 0f);
         }
-        void HideVignette() { if (vignette != null) vignette.enabled = false; }
+
+        public void Toast(string s)
+        {
+            if (toastText == null) return;
+            toastText.text = s;
+            toastT = ToastTime;
+            SetAlpha(toastText, Dim, 0f);
+        }
+
+        public void DamageFlash() { vigT = 0.6f; }
     }
 }
