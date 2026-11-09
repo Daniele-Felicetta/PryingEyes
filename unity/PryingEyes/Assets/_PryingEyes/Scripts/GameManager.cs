@@ -49,6 +49,13 @@ namespace PryingEyes
             HotelNav.Build();   // prima di qualunque nemico: i collider della scena ci sono gia'
             WallBuy.BuildAll(); // armi sui muri (VESPER-9, BREACHER-12, LANCE-7)
             Ambience.Create();  // eco, vento, scricchiolii, grammofono; genera anche tutti i suoni
+            if (!autoTest && !camShots) GameMenu.Create();   // menu principale: la prima ondata parte da "Gioca"
+        }
+
+        /// <summary>Avvia la partita: prima ondata. Lo chiama il menu su "Gioca".</summary>
+        public void BeginRun()
+        {
+            if (wave == 0 && !waveActive) StartWave(1);
         }
 
         /// <summary>Punti: +10 per colpo a segno, +50 per uccisione, +100 se letale alla testa.
@@ -76,12 +83,12 @@ namespace PryingEyes
                 hud?.SetAmmo(player.weapon.mag, player.weapon.reserve);
                 hud?.SetWeaponName(d.name + " · " + d.modeLabel);
             }
-            StartWave(1);
+            if (GameMenu.I == null) BeginRun();
         }
 
         void Update()
         {
-            if (!waveActive)
+            if (!waveActive && wave > 0)
             {
                 waveBreak -= Time.deltaTime;
                 if (waveBreak <= 0f) StartWave(wave + 1);
@@ -103,16 +110,16 @@ namespace PryingEyes
                 if (!enemyShotDone && HasArg("-enemyshot") && autoT > 1f)
                 {
                     enemyShotDone = true;
-                    var brute = Enemy.Spawn(Enemy.EnemyType.Brute, new Vector3(-1.6f, 0.05f, 8f));
-                    if (brute != null) brute.hp = brute.maxHp = 5000f;
-                    var drone = Enemy.Spawn(Enemy.EnemyType.Drone, new Vector3(1.6f, 2.4f, 8f));
-                    if (drone != null) drone.hp = drone.maxHp = 5000f;
+                    var abate = Enemy.Spawn(Enemy.EnemyType.Abate, new Vector3(-1.6f, 0.05f, 8f));
+                    if (abate != null) abate.hp = abate.maxHp = 5000f;
+                    var occhio = Enemy.Spawn(Enemy.EnemyType.Occhio, new Vector3(1.6f, 2.4f, 8f));
+                    if (occhio != null) occhio.hp = occhio.maxHp = 5000f;
                     StartCoroutine(EnemyShot());
                 }
                 autoT += Time.deltaTime;
                 reportT += Time.deltaTime;
                 foreach (var e in Enemy.All)
-                    if (e != null && e.type != Enemy.EnemyType.Drone) walkerMaxY = Mathf.Max(walkerMaxY, e.transform.position.y);
+                    if (e != null && e.type != Enemy.EnemyType.Occhio) walkerMaxY = Mathf.Max(walkerMaxY, e.transform.position.y);
                 if (reportT >= 5f)
                 {
                     reportT = 0f;
@@ -320,9 +327,9 @@ namespace PryingEyes
             {
                 // ritmo lento da orda: i nemici entrano scaglionati, i camminatori sono la maggioranza
                 yield return new WaitForSeconds(Random.Range(0.6f, 1.4f));
-                bool drone = Random.value < Mathf.Min(0.5f, 0.22f + n * 0.03f);
-                var type = drone ? Enemy.EnemyType.Drone
-                    : Random.value < 0.30f ? Enemy.EnemyType.Monaco : Enemy.EnemyType.Brute;
+                bool flying = Random.value < Mathf.Min(0.5f, 0.22f + n * 0.03f);
+                var type = flying ? Enemy.EnemyType.Occhio
+                    : Random.value < 0.68f ? Enemy.EnemyType.Monaco : Enemy.EnemyType.Abate;   // l'abate e' raro: un bersaglio da 280 colpi di vita
                 Enemy.Spawn(type, PickSpawn(type));
             }
         }
@@ -346,16 +353,16 @@ namespace PryingEyes
             for (int j = 0; j < spawnPoints.Length; j++)
             {
                 Vector3 p = spawnPoints[(Random.Range(0, 1000) + j) % spawnPoints.Length].position;
-                if (type != Enemy.EnemyType.Drone && p.y > 1f) continue;   // chi cammina nasce a terra
+                if (type != Enemy.EnemyType.Occhio && p.y > 1f) continue;   // chi cammina nasce a terra
                 if (player != null && Vector2.Distance(new Vector2(p.x, p.z),
                     new Vector2(player.transform.position.x, player.transform.position.z)) < 10f) continue;
                 p.x += Random.Range(-1.5f, 1.5f);
                 p.z += Random.Range(-1.5f, 1.5f);
-                if (type == Enemy.EnemyType.Drone) p.y = Mathf.Max(3f, p.y + 1f);
+                if (type == Enemy.EnemyType.Occhio) p.y = Mathf.Max(3f, p.y + 1f);
                 return p;
             }
             Vector3 fallback = spawnPoints[0].position;
-            if (type == Enemy.EnemyType.Drone) fallback.y = 3f;
+            if (type == Enemy.EnemyType.Occhio) fallback.y = 3f;
             return fallback;
         }
 

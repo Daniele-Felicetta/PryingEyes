@@ -63,6 +63,10 @@ namespace PryingEyes.EditorTools
                 new Pose { pos = new Vector3(-12f, 1.6f, 18.5f), rot = new Vector3(-6f, 35f, 0), name = "parete" },
                 // occhi nel buio sotto il soppalco, da 11 m (distanza da gioco)
                 new Pose { pos = new Vector3(-6f, 1.7f, -8f), rot = new Vector3(0.5f, 211f, 0), name = "occhi" },
+                // arredi (fase 4): salotto da vicino, banco e mobile delle chiavi, ingresso con palme e carrello
+                new Pose { pos = new Vector3(-4f, 1.7f, 4.5f), rot = new Vector3(8f, 296f, 0), name = "salotto" },
+                new Pose { pos = new Vector3(21f, 1.7f, 9f), rot = new Vector3(5f, 160f, 0), name = "banco" },
+                new Pose { pos = new Vector3(0f, 1.7f, 13f), rot = new Vector3(3f, 12f, 0), name = "ingresso" },
             };
             // le particelle in edit-mode non girano da sole: avanzarle di qualche secondo prima di scattare
             foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))

@@ -10,7 +10,7 @@ namespace PryingEyes
     {
         public string name;
         public int magSize, reserve, reserveMax;
-        public float rpm, damage, range, spread, reloadTime, shotRecoil;
+        public float rpm, damage, range, spread, reloadTime, shotRecoil, bloomPerShot;
         public int pellets;
         public bool auto;
         public float headMult;
@@ -26,16 +26,16 @@ namespace PryingEyes
         public static readonly WeaponDef[] Defs =
         {
             new WeaponDef { name = "AR-9 MALLEUS", magSize = 30, reserve = 120, reserveMax = 240, rpm = 700f,
-                damage = 30f, range = 120f, spread = 0.006f, reloadTime = 1.7f, shotRecoil = 0.06f, pellets = 1,
+                damage = 30f, range = 120f, spread = 0.006f, reloadTime = 1.7f, shotRecoil = 0.06f, bloomPerShot = 0.10f, pellets = 1,
                 auto = true, headMult = 2f, model = "rifle", modeLabel = "AUTO" },
             new WeaponDef { name = "VESPER-9", magSize = 40, reserve = 200, reserveMax = 320, rpm = 850f,
-                damage = 19f, range = 90f, spread = 0.012f, reloadTime = 1.5f, shotRecoil = 0.045f, pellets = 1,
+                damage = 19f, range = 90f, spread = 0.012f, reloadTime = 1.5f, shotRecoil = 0.045f, bloomPerShot = 0.06f, pellets = 1,
                 auto = true, headMult = 2f, model = "smg", modeLabel = "AUTO" },
             new WeaponDef { name = "BREACHER-12", magSize = 8, reserve = 48, reserveMax = 80, rpm = 75f,
-                damage = 14f, range = 45f, spread = 0.035f, reloadTime = 2.4f, shotRecoil = 0.14f, pellets = 8,
+                damage = 14f, range = 45f, spread = 0.035f, reloadTime = 2.4f, shotRecoil = 0.14f, bloomPerShot = 0.22f, pellets = 8,
                 auto = true, headMult = 1.6f, model = "shotgun", modeLabel = "PUMP" },
             new WeaponDef { name = "LANCE-7", magSize = 12, reserve = 72, reserveMax = 120, rpm = 260f,
-                damage = 70f, range = 140f, spread = 0.002f, reloadTime = 2.0f, shotRecoil = 0.10f, pellets = 1,
+                damage = 70f, range = 140f, spread = 0.002f, reloadTime = 2.0f, shotRecoil = 0.10f, bloomPerShot = 0.30f, pellets = 1,
                 auto = false, headMult = 2.5f, model = "dmr", modeLabel = "SEMI" },
         };
 
@@ -53,6 +53,7 @@ namespace PryingEyes
         public bool reloading = false;
         public float ads = 0f;
         public float recoil = 0f;
+        public float bloom = 0f;   // dispersione: 0 = colpo preciso, 1 = massima (colpi, passi, aria)
         float lastShot = -99f, reloadT = 0f;
         float adsSightY = 0.10f;   // altezza del mirino: in ADS la arma si alza fino a centrarlo
         float equipT;              // animazione di entrata dell'arma
@@ -188,6 +189,7 @@ namespace PryingEyes
             if (magPart != null) magRest = magPart.localPosition;
             if (chargePart != null) chargeRest = chargePart.localPosition;
             if (pumpPart != null) pumpRest = pumpPart.localPosition;
+            AddHands(root, d.model);
             equipT = 0.30f;
 
             flashQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -216,6 +218,53 @@ namespace PryingEyes
             fill.intensity = 1.15f;
             fill.range = 1.5f;
             fill.shadows = LightShadows.None;
+        }
+
+        // ---------- mani del giocatore (Resources/Mani, da modelli/hotel/genera_mani.py) ----------
+        Transform handL;
+        Vector3 handLRest;          // posizione della mano sinistra nel riferimento dell'arma
+        bool handLOnMag;            // ricarica: la mano sinistra va al caricatore (sul fucile a pompa resta sulla pompa)
+
+        /// <summary>Guanti e maniche, posati sull'impugnatura (destra) e sull'astina (sinistra) del fucile d'assalto;
+        /// per le altre armi si spostano della differenza tra le loro impugnature e astine. Sul fucile a pompa la mano
+        /// sinistra e' figlia della pompa e la segue.</summary>
+        void AddHands(GameObject root, string model)
+        {
+            handL = null;
+            var prefab = Resources.Load<GameObject>("Mani");
+            if (prefab == null) return;
+            var g = Instantiate(prefab, root.transform);
+            g.name = "Mani";
+            g.transform.localPosition = Vector3.zero;
+            g.transform.localRotation = Quaternion.identity;
+            Vector3 offR, offL;
+            switch (model)
+            {
+                case "smg": offR = new Vector3(0f, 0.03f, 0f); offL = new Vector3(0f, -0.005f, -0.11f); break;
+                case "shotgun": offR = new Vector3(0f, 0.02f, -0.04f); offL = new Vector3(0f, -0.055f, 0.05f); break;
+                case "dmr": offR = new Vector3(0f, 0.02f, 0.01f); offL = new Vector3(0f, 0f, -0.01f); break;
+                default: offR = offL = Vector3.zero; break;
+            }
+            Transform handR = null;
+            foreach (var t in g.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "mano_d") handR = t;
+                else if (t.name == "mano_s") handL = t;
+                t.gameObject.layer = 2;                       // come l'arma: non blocca mai l'hitscan
+            }
+            foreach (var r in g.GetComponentsInChildren<Renderer>(true))
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            if (handR != null) handR.position += root.transform.TransformVector(offR);
+            if (handL != null)
+            {
+                handL.position += root.transform.TransformVector(offL);
+                if (model == "shotgun" && pumpPart != null) handL.SetParent(pumpPart, true);
+                else
+                {
+                    handLRest = root.transform.InverseTransformPoint(handL.position);
+                    handLOnMag = magPart != null;
+                }
+            }
         }
 
         /// <summary>Modello dettagliato per l'esposizione sul muro (stessa geometria del viewmodel,
@@ -295,6 +344,8 @@ namespace PryingEyes
             AddBox(root, "DotR", new Vector3(0.012f, 0.06f, 0.08f), new Vector3(0.026f, 0.147f, 0.05f), dark);
             AddBox(root, "DotTop", new Vector3(0.064f, 0.012f, 0.08f), new Vector3(0, 0.177f, 0.05f), dark);
             AddBox(root, "DotLens", new Vector3(0.052f, 0.055f, 0.006f), new Vector3(0, 0.147f, 0.093f), WeaponRef.Lens);
+            AddRing(root, "DotBezel", new Vector3(0, 0.147f, 0.092f), 0.034f, 16, 0.009f, 0.010f, dark);
+            AddRing(root, "DotReticle", new Vector3(0, 0.147f, 0.0985f), 0.0085f, 14, 0.0014f, 0.0012f, WeaponRef.Dot);
             AddSphere(root, "Dot", 0.0042f, new Vector3(0, 0.147f, 0.099f), WeaponRef.Dot);
             sightY = 0.147f;
             muzzle = new Vector3(0, 0.015f, 0.72f);
@@ -340,6 +391,8 @@ namespace PryingEyes
             AddBox(root, "RefR", new Vector3(0.011f, 0.055f, 0.075f), new Vector3(0.024f, 0.134f, 0.04f), dark);
             AddBox(root, "RefTop", new Vector3(0.058f, 0.011f, 0.075f), new Vector3(0, 0.162f, 0.04f), dark);
             AddBox(root, "RefLens", new Vector3(0.05f, 0.052f, 0.006f), new Vector3(0, 0.134f, 0.08f), WeaponRef.Lens);
+            AddRing(root, "RefBezel", new Vector3(0, 0.134f, 0.079f), 0.032f, 16, 0.008f, 0.010f, dark);
+            AddRing(root, "RefReticle", new Vector3(0, 0.134f, 0.0865f), 0.0078f, 14, 0.0013f, 0.0012f, WeaponRef.Dot);
             AddSphere(root, "Dot", 0.0046f, new Vector3(0, 0.134f, 0.086f), WeaponRef.Dot);
             sightY = 0.134f;
             muzzle = new Vector3(0, 0.012f, 0.48f);
@@ -369,13 +422,11 @@ namespace PryingEyes
             AddBox(root, "TriggerGuard", new Vector3(0.04f, 0.008f, 0.08f), new Vector3(0, -0.15f, -0.02f), dark);
 
             // tacca fantasma posteriore + mirino a sfera frontale
-            AddBox(root, "GhostBase", new Vector3(0.022f, 0.05f, 0.02f), new Vector3(0, 0.072f, 0.02f), dark);
-            AddBox(root, "GhostL", new Vector3(0.008f, 0.05f, 0.008f), new Vector3(-0.024f, 0.105f, 0.02f), dark);
-            AddBox(root, "GhostR", new Vector3(0.008f, 0.05f, 0.008f), new Vector3(0.024f, 0.105f, 0.02f), dark);
-            AddBox(root, "GhostTop", new Vector3(0.056f, 0.008f, 0.008f), new Vector3(0, 0.13f, 0.02f), dark);
-            AddBox(root, "GhostBot", new Vector3(0.056f, 0.008f, 0.008f), new Vector3(0, 0.08f, 0.02f), dark);
+            AddBox(root, "GhostBase", new Vector3(0.022f, 0.04f, 0.02f), new Vector3(0, 0.068f, 0.02f), dark);
+            AddRing(root, "GhostAperture", new Vector3(0, 0.094f, 0.02f), 0.022f, 14, 0.006f, 0.012f, dark);
             AddBox(root, "FrontPost", new Vector3(0.012f, 0.055f, 0.012f), new Vector3(0, 0.075f, 0.70f), dark);
-            AddSphere(root, "Bead", 0.006f, new Vector3(0, 0.105f, 0.70f), WeaponRef.Dot);
+            AddRing(root, "BeadHood", new Vector3(0, 0.105f, 0.698f), 0.0105f, 10, 0.0035f, 0.010f, dark);
+            AddSphere(root, "Bead", 0.0065f, new Vector3(0, 0.105f, 0.70f), WeaponRef.Dot);
             sightY = 0.105f;
             muzzle = new Vector3(0, 0.025f, 0.73f);
         }
@@ -411,6 +462,10 @@ namespace PryingEyes
             AddCyl(root, "Scope", 0.035f, 0.32f, new Vector3(0, 0.12f, 0.06f), dark);
             AddCyl(root, "ScopeFront", 0.031f, 0.006f, new Vector3(0, 0.12f, 0.222f), WeaponRef.Lens);
             AddCyl(root, "ScopeRear", 0.031f, 0.006f, new Vector3(0, 0.12f, -0.102f), WeaponRef.Lens);
+            AddRing(root, "ScopeHood", new Vector3(0, 0.12f, 0.238f), 0.036f, 16, 0.008f, 0.03f, dark);
+            AddBox(root, "ReticleH", new Vector3(0.05f, 0.0012f, 0.001f), new Vector3(0, 0.12f, 0.2268f), steel);
+            AddBox(root, "ReticleV", new Vector3(0.0012f, 0.05f, 0.001f), new Vector3(0, 0.12f, 0.2268f), steel);
+            AddSphere(root, "ReticleDot", 0.0016f, new Vector3(0, 0.12f, 0.2272f), WeaponRef.Dot);
             AddCyl(root, "TurretTop", 0.014f, 0.03f, new Vector3(0, 0.158f, 0.06f), dark);
             sightY = 0.12f;
             muzzle = new Vector3(0, 0.015f, 0.85f);
@@ -463,7 +518,7 @@ namespace PryingEyes
             range = d.range;
             mag = full ? d.magSize : Mathf.Clamp(mag, 0, d.magSize);
             reserve = full ? d.reserve : Mathf.Clamp(reserve, 0, d.reserveMax);
-            reloading = false; reloadT = 0f; triggerHeld = false; recoil = 0f;
+            reloading = false; reloadT = 0f; triggerHeld = false; recoil = 0f; bloom = 0f;
             BuildViewmodel();
             hud?.SetReloading(false);
             hud?.SetAmmo(mag, reserve);
@@ -478,7 +533,7 @@ namespace PryingEyes
             else DestroyImmediate(c);
         }
 
-        static void AddBox(GameObject parent, string name, Vector3 size, Vector3 pos, Material m)
+        static GameObject AddBox(GameObject parent, string name, Vector3 size, Vector3 pos, Material m)
         {
             var b = GameObject.CreatePrimitive(PrimitiveType.Cube);
             b.name = name;
@@ -490,6 +545,21 @@ namespace PryingEyes
             r.material = m;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             b.layer = 2; // Ignore Raycast: il viewmodel non blocca mai l'hitscan
+            return b;
+        }
+
+        /// <summary>Anello sul piano XY (asse di mira = Z), fatto di segmenti corti: bezel, reticolo, apertura.
+        /// Lascia vedere attraverso il centro, a differenza di un disco.</summary>
+        static void AddRing(GameObject parent, string name, Vector3 center, float radius, int n, float tube, float depth, Material m)
+        {
+            float seg = 2f * Mathf.PI * radius / n * 1.25f;
+            for (int i = 0; i < n; i++)
+            {
+                float a = i / (float)n * 360f;
+                Vector3 dir = new Vector3(Mathf.Cos(a * Mathf.Deg2Rad), Mathf.Sin(a * Mathf.Deg2Rad), 0f);
+                var b = AddBox(parent, name, new Vector3(seg, tube, depth), center + dir * radius, m);
+                b.transform.localRotation = Quaternion.Euler(0f, 0f, a + 90f);
+            }
         }
 
         static void AddEllipsoid(GameObject parent, string name, Vector3 size, Vector3 pos, Material m, float tiltX = 0f)
@@ -555,13 +625,18 @@ namespace PryingEyes
 
         public bool IsBound { get { return cam != null && flashQuad != null; } }
 
-        public void Tick(float dt, bool sprinting, float speed = 0f)
+        public void Tick(float dt, bool sprinting, float speed = 0f, bool grounded = true)
         {
             if (cam == null || flashQuad == null) return;
             var d = Def;
             adsHeld = Input.GetMouseButton(1);
             ads += ((adsHeld ? 1 : 0) - ads) * Mathf.Min(1f, 13f * dt);
             recoil *= Mathf.Max(0f, 1f - 11f * dt);
+
+            // la dispersione non scende sotto il livello di movimento: si ricalcola ogni tick
+            float floor = Mathf.Clamp01(speed / 6f) * 0.25f + (grounded ? 0f : 0.4f);
+            bloom = bloom > floor ? Mathf.Max(floor, bloom - dt * 2.6f) : Mathf.Min(floor, bloom + dt * 4f);
+            hud?.SetCrosshair(d.model, bloom, ads);
 
             if (reloading)
             {
@@ -667,6 +742,13 @@ namespace PryingEyes
                     magPart.localPosition = magRest;
                     magPart.localRotation = Quaternion.identity;
                 }
+                // la mano sinistra lascia l'astina, va al caricatore, lo accompagna fuori e dentro e torna
+                if (handL != null && handLOnMag)
+                {
+                    float k = rp >= 0f ? Band(rp, 0.04f, 0.14f) - Band(rp, 0.56f, 0.72f) : 0f;
+                    Vector3 grab = magPart.localPosition + new Vector3(0f, -0.07f, 0.02f);
+                    handL.position = viewRoot.TransformPoint(Vector3.Lerp(handLRest, grab, Mathf.Clamp01(k)));
+                }
             }
             if (chargePart != null)
             {
@@ -698,6 +780,7 @@ namespace PryingEyes
             lastShot = Time.time;
             GameManager.shotsFired++;
             recoil += d.shotRecoil;
+            bloom = Mathf.Min(1f, bloom + d.bloomPerShot);
             flashQuad.SetActive(true);
             flashQuad.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
             flashQuad.transform.localScale = Vector3.one * Random.Range(0.11f, 0.16f);
@@ -707,11 +790,13 @@ namespace PryingEyes
 
             // più pallini per il fucile a pompa, uno solo per le altre armi
             var hitSet = new HashSet<Enemy>();
+            // in mira la dispersione si stringe; la dispersione accumulata la allarga (fino a triplicarla)
+            float cone = d.spread * Mathf.Lerp(1f, 0.45f, ads) * (1f + bloom * 2f);
             for (int p = 0; p < d.pellets; p++)
             {
                 Vector3 dir = cam.forward
-                    + cam.right * Random.Range(-d.spread, d.spread)
-                    + cam.up * Random.Range(-d.spread, d.spread);
+                    + cam.right * Random.Range(-cone, cone)
+                    + cam.up * Random.Range(-cone, cone);
                 if (Physics.Raycast(cam.position, dir.normalized, out RaycastHit hit, d.range))
                 {
                     Enemy e = hit.collider.GetComponentInParent<Enemy>();

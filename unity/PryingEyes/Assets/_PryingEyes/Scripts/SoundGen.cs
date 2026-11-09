@@ -567,38 +567,71 @@ namespace PryingEyes
             return s;
         }
 
-        /// <summary>Ronzio del drone: rotore a 118 Hz modulato a 23 Hz e un fruscio d'aria. Loop esatto di 2 s.</summary>
-        public static float[] DroneBuzz()
+        /// <summary>Ronzio dell'occhio volante: un tono basso e viscido che respira (vibrato lento, tremolo a 3 Hz),
+        /// sotto un fruscio umido a banda stretta che sale e scende e un sibilo acuto lontano. Loop di 2 s.</summary>
+        public static float[] EyeHum()
         {
             var r = new System.Random(15);
-            int n = Rate * 2;
-            var s = new float[n];
-            var lp = Biquad.LowPass(3000f, 0.7f);
-            var bp = Biquad.BandPass(600f, 1.5f);
-            var air = Biquad.BandPass(2500f, 0.8f);
-            for (int pass = 0; pass < 2; pass++)
-                for (int i = 0; i < n; i++)
-                {
-                    float t = (float)i / Rate;
-                    float saw = 2f * ((118f * t) % 1f) - 1f;
-                    float am = 0.7f + 0.3f * Mathf.Sin(TwoPi * 23f * t);
-                    float x = lp.Run(saw);
-                    float v = (x * 0.5f + bp.Run(x) * 1.2f) * am + air.Run(N(r)) * 0.25f;
-                    if (pass == 1) s[i] = v;
-                }
-            Normalize(s, 0.6f);
+            int n = Rate * 2, ext = Rate / 4;
+            var s = new float[n + ext];
+            var wet = Biquad.BandPass(900f, 2.2f);
+            var hiss = Biquad.BandPass(3400f, 6f);
+            var lp = Biquad.LowPass(420f, 0.8f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float vib = 1f + 0.035f * Mathf.Sin(TwoPi * 1.5f * t);
+                float tone = Mathf.Sin(TwoPi * 52f * t * vib) + 0.5f * Mathf.Sin(TwoPi * 104.5f * t * vib) + 0.25f * Mathf.Sin(TwoPi * 157f * t);
+                float trem = 0.65f + 0.35f * Mathf.Sin(TwoPi * 3f * t);
+                float nz = N(r);
+                float sweep = 0.5f + 0.5f * Mathf.Sin(TwoPi * 1f * t + 0.8f);
+                s[i] = lp.Run(tone) * 0.30f * trem + wet.Run(nz) * (0.45f + 0.55f * sweep) + hiss.Run(nz) * 0.16f * (0.4f + 0.6f * Mathf.Sin(TwoPi * 0.5f * t + 2f));
+            }
+            var o = LoopSeamless(s, ext);
+            Normalize(o, 0.55f);
+            return o;
+        }
+
+        /// <summary>Sguardo fisso prima del colpo: un lamento acuto che sale (380 -> 920 Hz in mezzo secondo) con vibrato
+        /// e un clic umido di apertura delle palpebre.</summary>
+        public static float[] EyeStare()
+        {
+            var r = new System.Random(16);
+            var s = Buf(0.7f);
+            var bp = Biquad.BandPass(1200f, 1.5f);
+            double ph = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float k = Mathf.Clamp01(t / 0.5f);
+                float f = Mathf.Lerp(380f, 920f, k * k) * (1f + 0.02f * Mathf.Sin(TwoPi * 9f * t));
+                ph += TwoPi * f / Rate;
+                float env = Mathf.Clamp01(t / 0.06f) * Mathf.Exp(-Mathf.Max(0f, t - 0.5f) / 0.06f);
+                s[i] = ((float)Math.Sin(ph) * 0.6f + bp.Run(N(r)) * 0.4f) * env;
+            }
+            Burst(s, 0f, 700f, 3f, 0.012f, 0.9f, r);
+            Normalize(s, 0.7f);
             return s;
         }
 
-        /// <summary>Passo del bruto corazzato: tonfo basso e un clangore di piastre.</summary>
-        public static float[] BruteStep(int seed)
+        /// <summary>L'occhio muore: scoppio umido (fango che schizza), tonfo basso e un gorgoglio che cala.</summary>
+        public static float[] EyeBurst()
         {
-            var r = new System.Random(seed);
-            var s = Buf(0.35f);
-            Thump(s, 0f, 65f, 45f, 0.06f, 0.08f, 1f);
-            Burst(s, 0f, 300f, 0.8f, 0.05f, 1f, r);
-            Burst(s, 0.005f, U(r, 1100f, 1400f), 6f, 0.03f, 0.35f, r);
-            Normalize(s, 0.85f);
+            var r = new System.Random(17);
+            var s = Buf(1.3f);
+            Thump(s, 0f, 90f, 40f, 0.12f, 0.16f, 0.45f);
+            Burst(s, 0f, 500f, 0.9f, 0.05f, 2.6f, r);
+            Burst(s, 0.01f, 1800f, 2f, 0.02f, 1.4f, r);
+            Burst(s, 0.04f, 900f, 1.2f, 0.03f, 1.2f, r);
+            var gl = Biquad.BandPass(320f, 3f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                if ((i & 63) == 0) gl.SetBandPass(Mathf.Lerp(700f, 150f, Mathf.Clamp01(t / 0.9f)), 3f, Rate);
+                float env = Mathf.Clamp01((t - 0.03f) / 0.05f) * Mathf.Exp(-t / 0.35f);
+                s[i] += gl.Run(N(r)) * env * (0.5f + 0.5f * Mathf.Sin(TwoPi * 17f * t));
+            }
+            Normalize(s, 0.9f);
             return s;
         }
     }

@@ -78,7 +78,7 @@ namespace PryingEyes
 
         void Update()
         {
-            if (cam == null || weapon == null) return;
+            if (cam == null || weapon == null || GameMenu.Blocked) return;
             float dt = Time.deltaTime;
             if (!alive)
             {
@@ -101,7 +101,7 @@ namespace PryingEyes
                 var e = Enemy.Nearest(transform.position);
                 if (e != null)
                 {
-                    Vector3 aim = (e.transform.position + Vector3.up * 0.8f - cam.position).normalized;
+                    Vector3 aim = (e.AimPoint - cam.position).normalized;
                     yaw = Mathf.Atan2(aim.x, aim.z);
                     pitch = -Mathf.Asin(Mathf.Clamp(aim.y, -1f, 1f));
                 }
@@ -230,7 +230,7 @@ namespace PryingEyes
             if (Time.time - lastDamage > 6f && shield < 50f) shield = Mathf.Min(50f, shield + 8f * dt);
             if (Time.time - lastDamage > 10f && hp < 100f) hp = Mathf.Min(100f, hp + 3f * dt);
 
-            weapon?.Tick(dt, f > 0 && wantSprint, hs);
+            weapon?.Tick(dt, f > 0 && wantSprint, hs, cc.isGrounded);
             hud?.SetBars(hp, shield);
 
             // --- armi sui muri: prompt + acquisto con F ---
@@ -243,7 +243,7 @@ namespace PryingEyes
 
         public void Hurt(float dmg)
         {
-            if (!alive) return;
+            if (!alive || GameMenu.Blocked) return;
             lastDamage = Time.time;
             float absorbed = Mathf.Min(shield, dmg * 0.6f);
             shield -= absorbed;

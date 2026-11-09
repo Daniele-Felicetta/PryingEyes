@@ -42,7 +42,7 @@ namespace PryingEyes
             if (src == null) { src = pool[next]; next = (next + 1) % pool.Length; }
             src.transform.position = pos;
             src.clip = clip;
-            src.volume = vol;
+            src.volume = vol * GameSettings.Effects;
             src.pitch = pitch;
             src.spatialBlend = spatial;
             src.minDistance = minDist;
@@ -60,13 +60,13 @@ namespace PryingEyes
 
         /// <summary>Loop attaccato a un oggetto, partenza da un punto a caso (piu' monaci non cantano all'unisono).</summary>
         public static AudioSource Loop(GameObject owner, AudioClip clip, float vol, float minDist, float maxDist,
-                                       float pitch = 1f, float spatial = 1f, float doppler = 0f)
+                                       float pitch = 1f, float spatial = 1f, float doppler = 0f, bool music = false)
         {
             if (clip == null) return null;
             var src = owner.AddComponent<AudioSource>();
             src.clip = clip;
             src.loop = true;
-            src.volume = vol;
+            src.volume = GameSettings.Track(src, vol, music);
             src.pitch = pitch;
             src.spatialBlend = spatial;
             src.minDistance = minDist;
@@ -84,8 +84,8 @@ namespace PryingEyes
     /// parte in un thread all'avvio e si usa quando e' pronto.</summary>
     public static class SoundBank
     {
-        static AudioClip[] shots, steps0, steps1, steps2, taps, creaks, bruteSteps, chants, whispers;
-        static AudioClip hit, kill, hurt, reload, bell, ding, doors, strike, monkDeath, buzz, wind, room, waltz;
+        static AudioClip[] shots, steps0, steps1, steps2, taps, creaks, chants, whispers;
+        static AudioClip hit, kill, hurt, reload, bell, ding, doors, strike, monkDeath, eyeHum, eyeStare, eyeBurst, wind, room, waltz;
         static Task<float[]> waltzTask;
         static int waltzRate;
 
@@ -127,8 +127,9 @@ namespace PryingEyes
         public static AudioClip Tap => Pick(ref taps, 3, "bastone", i => SoundGen.StaffTap(400 + i));
         public static AudioClip Strike => One(ref strike, "bastoneATerra", SoundGen.StaffStrike);
         public static AudioClip MonkDeath => One(ref monkDeath, "monacoCade", SoundGen.MonkDeath);
-        public static AudioClip Buzz => One(ref buzz, "ronzioDrone", SoundGen.DroneBuzz);
-        public static AudioClip BruteStep => Pick(ref bruteSteps, 3, "passoBruto", i => SoundGen.BruteStep(500 + i));
+        public static AudioClip EyeHum => One(ref eyeHum, "ronzioOcchio", SoundGen.EyeHum);
+        public static AudioClip EyeStare => One(ref eyeStare, "occhioFissa", SoundGen.EyeStare);
+        public static AudioClip EyeBurst => One(ref eyeBurst, "occhioMuore", SoundGen.EyeBurst);
 
         static Task<float[]>[] chantTasks;
         static int chantRate;
@@ -155,7 +156,7 @@ namespace PryingEyes
         {
             _ = Shot; _ = HitTick; _ = Kill; _ = Hurt; _ = Reload; _ = Step(0); _ = Step(1); _ = Step(2);
             _ = Bell; _ = Ding; _ = Doors; _ = Creak; _ = Whisper; _ = Wind; _ = RoomTone;
-            _ = Tap; _ = Strike; _ = MonkDeath; _ = Buzz; _ = BruteStep;
+            _ = Tap; _ = Strike; _ = MonkDeath; _ = EyeHum; _ = EyeStare; _ = EyeBurst;
             if (chantTasks == null)
                 chantTasks = new[]
                 {

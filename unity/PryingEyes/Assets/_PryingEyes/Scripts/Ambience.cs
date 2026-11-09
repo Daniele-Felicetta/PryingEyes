@@ -52,7 +52,7 @@ namespace PryingEyes
             {
                 var g = new GameObject("Grammofono");
                 g.transform.position = GramophoneRoom;
-                gramophone = Sfx.Loop(g, SoundBank.Waltz, 0.4f, 3f, 55f);
+                gramophone = Sfx.Loop(g, SoundBank.Waltz, 0.4f, 3f, 55f, music: true);
                 if (GameManager.autoTest) Debug.Log($"[PryingEyes] grammofono: valzer di {SoundBank.Waltz.length:F1} s");
             }
             creakT -= Time.deltaTime;

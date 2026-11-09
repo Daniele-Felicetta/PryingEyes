@@ -29,6 +29,7 @@ namespace PryingEyes.EditorTools
 
         static Material floorMat, wallMat, ceilMat, woodMat, goldMat, darkMat, steelMat, marbleMat;
         static Material carpetMat, velvetR, velvetG, glassMat, sandMat, rockMat;
+        static Material leatherMat, potMat, soilMat, leafMat, shadeMat, feltMat, faceMat;
         static readonly List<Vector3> spawnPts = new List<Vector3>();
 
         public static void Build()
@@ -49,6 +50,7 @@ namespace PryingEyes.EditorTools
             Stairs();
             Reception();
             Lounge();
+            Furniture();
             Elevators();
             Windows();
             Entrance();
@@ -247,6 +249,16 @@ namespace PryingEyes.EditorTools
             glassMat.SetFloat("_Metallic", 0f);
             glassMat.SetFloat("_Smoothness", 0.94f);
             SaveMat("Glass", glassMat);
+            // arredi (modelli/hotel/genera_arredi.py)
+            ImportFurniture();
+            leatherMat = pbr ? PbrMat("Leather", "cuoio", Color.white, 0.4f) : LitMat("Leather", new Color(0.30f, 0.16f, 0.08f), 0f, 0.4f);
+            potMat = pbr ? PbrMat("Pot", "intonaco", new Color(0.62f, 0.34f, 0.22f), 0.7f) : LitMat("Pot", new Color(0.45f, 0.25f, 0.16f), 0f, 0.1f);
+            soilMat = LitMat("Soil", new Color(0.05f, 0.04f, 0.03f), 0f, 0.05f);
+            leafMat = LitMat("Leaf", new Color(0.24f, 0.21f, 0.07f), 0f, 0.15f);
+            feltMat = LitMat("Felt", new Color(0.035f, 0.075f, 0.05f), 0f, 0.03f);
+            faceMat = LitMat("ClockFace", new Color(0.78f, 0.74f, 0.62f), 0f, 0.4f);
+            shadeMat = LitMat("LampShade", new Color(0.30f, 0.22f, 0.14f), 0f, 0.1f);
+            Emissive(shadeMat, new Color(1f, 0.70f, 0.38f) * 1.4f, bakeIntoGI: false);
         }
 
         // ---------- helpers ----------
@@ -388,9 +400,13 @@ namespace PryingEyes.EditorTools
 
         static void Reception()
         {
-            Box("DeskTop", 8.4f, 0.08f, 1.5f, 26, 1.14f, 2, marbleMat);
-            Box("DeskFront", 8, 1.1f, 1.2f, 26, 0.55f, 2, woodMat);
-            Box("DeskSide", 1.2f, 1.1f, 4, 21.5f, 0.55f, 0, woodMat);
+            // banco a L (due tratti da 4 m lungo X + uno lungo Z), marmo e noce; dietro, il mobile delle chiavi
+            var cs = new Vector3(4.04f, 1.2f, 1.48f);
+            var cc = new Vector3(0f, 0.6f, 0.08f);
+            Place("arr_banco", new Vector3(24.1f, 0f, 2f), 0f, null, cs, cc);
+            Place("arr_banco", new Vector3(28.1f, 0f, 2f), 0f, null, cs, cc);
+            Place("arr_banco", new Vector3(21.5f, 0f, 0.6f), -90f, null, cs, cc);
+            Place("arr_chiavi", new Vector3(26f, 0f, -1.0f), 0f, null, new Vector3(5.1f, 2.8f, 0.5f));
             var bell = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             bell.name = "Bell"; bell.transform.position = new Vector3(24, 1.28f, 2);
             bell.transform.localScale = Vector3.one * 0.18f;
@@ -401,42 +417,131 @@ namespace PryingEyes.EditorTools
 
         static void Lounge()
         {
-            Sofa(-12, 6, 0, velvetR); Sofa(-12, 12, Mathf.PI, velvetG);
-            Sofa(-18, 9, Mathf.PI / 2, velvetR); Sofa(-6, 9, -Mathf.PI / 2, velvetG);
-            Box("CoffeeTable", 2.4f, 0.12f, 1.2f, -12, 0.5f, 9, woodMat);
+            // quattro chesterfield attorno al tavolino, due poltrone sugli angoli del tappeto
+            var sofa = new Vector3(2.48f, 0.9f, 1.02f);
+            Place("arr_divano", new Vector3(-12, 0, 6), 0f, velvetR, sofa);
+            Place("arr_divano", new Vector3(-12, 0, 12), 180f, velvetG, sofa);
+            Place("arr_divano", new Vector3(-18, 0, 9), 90f, velvetR, sofa);
+            Place("arr_divano", new Vector3(-6, 0, 9), -90f, velvetG, sofa);
+            var chair = new Vector3(1.08f, 0.88f, 0.95f);
+            Place("arr_poltrona", new Vector3(-15.8f, 0, 5.4f), 46f, velvetG, chair);
+            Place("arr_poltrona", new Vector3(-8.2f, 0, 12.6f), -134f, velvetR, chair);
+            Place("arr_tavolino", new Vector3(-12, 0, 9), 0f, null, new Vector3(1.4f, 0.48f, 0.72f));
             Box("Rug", 9, 0.02f, 7, -12, 0.012f, 9, carpetMat, false);
         }
 
-        static void Sofa(float x, float z, float ry, Material m)
+        // ---------- arredi (fase 4): modelli di modelli/hotel/genera_arredi.py ----------
+        const string ArrDir = "Assets/_PryingEyes/Models/Arredi/";
+
+        /// <summary>Impostazioni d'import degli FBX degli arredi: nessuna animazione, normali dal file, materiali per
+        /// nome (A_velluto, A_noce...) che Place sostituisce con quelli PBR della hall.</summary>
+        static void ImportFurniture()
         {
-            var g = new GameObject("Sofa");
-            g.transform.position = new Vector3(x, 0, z);
-            g.transform.rotation = Quaternion.Euler(0, ry * Mathf.Rad2Deg, 0);
+            AssetDatabase.Refresh();
+            foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { ArrDir.TrimEnd('/') }))
+            {
+                var mi = AssetImporter.GetAtPath(AssetDatabase.GUIDToAssetPath(guid)) as ModelImporter;
+                if (mi == null) continue;
+                if (mi.materialImportMode == ModelImporterMaterialImportMode.ImportViaMaterialDescription
+                    && mi.animationType == ModelImporterAnimationType.None && !mi.importCameras) continue;
+                mi.globalScale = 1f;
+                mi.useFileScale = true;
+                mi.bakeAxisConversion = true;
+                mi.importCameras = false;
+                mi.importLights = false;
+                mi.isReadable = false;
+                mi.importNormals = ModelImporterNormals.Import;
+                mi.importTangents = ModelImporterTangents.CalculateMikk;
+                mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+                mi.importAnimation = false;
+                mi.animationType = ModelImporterAnimationType.None;
+                mi.SaveAndReimport();
+            }
+        }
 
-            // imbottitura morbida: ellissoidi e capsule al posto delle scatole
-            Part(g, PrimitiveType.Sphere, new Vector3(3.0f, 0.50f, 1.05f), new Vector3(0, 0.45f, 0), Vector3.zero, m);
-            for (int i = -1; i <= 1; i++)
-                Part(g, PrimitiveType.Sphere, new Vector3(0.88f, 0.22f, 0.88f),
-                    new Vector3(i * 0.95f, 0.78f, 0.02f), Vector3.zero, m);
-            // schienale e cuscini schienale leggermente inclinati
-            Part(g, PrimitiveType.Sphere, new Vector3(2.90f, 0.90f, 0.30f), new Vector3(0, 0.96f, -0.42f), Vector3.zero, m);
-            for (int i = -1; i <= 1; i++)
-                Part(g, PrimitiveType.Sphere, new Vector3(0.86f, 0.52f, 0.20f),
-                    new Vector3(i * 0.95f, 1.08f, -0.30f), new Vector3(-8, 0, 0), m);
-            // braccioli a rullo
-            Part(g, PrimitiveType.Capsule, new Vector3(0.30f, 0.525f, 0.30f), new Vector3(-1.50f, 0.75f, 0), new Vector3(90, 0, 0), m);
-            Part(g, PrimitiveType.Capsule, new Vector3(0.30f, 0.525f, 0.30f), new Vector3(1.50f, 0.75f, 0), new Vector3(90, 0, 0), m);
-            // cuscino decorativo
-            Part(g, PrimitiveType.Sphere, new Vector3(0.46f, 0.40f, 0.16f), new Vector3(0.65f, 1.02f, -0.14f), new Vector3(10, 0, -12), m);
-            // gambe in legno scuro
-            for (int sx = -1; sx <= 1; sx += 2)
-                for (int sz = -1; sz <= 1; sz += 2)
-                    Part(g, PrimitiveType.Cylinder, new Vector3(0.07f, 0.10f, 0.07f),
-                        new Vector3(sx * 1.2f, 0.10f, sz * 0.40f), Vector3.zero, woodMat);
+        static Material ArrMat(string n, Material velvet)
+        {
+            if (n.StartsWith("A_velluto")) return velvet != null ? velvet : velvetR;
+            if (n.StartsWith("A_noce")) return woodMat;
+            if (n.StartsWith("A_ottone")) return goldMat;
+            if (n.StartsWith("A_marmo")) return marbleMat;
+            if (n.StartsWith("A_cuoio")) return leatherMat;
+            if (n.StartsWith("A_vaso")) return potMat;
+            if (n.StartsWith("A_terra")) return soilMat;
+            if (n.StartsWith("A_foglia")) return leafMat;
+            if (n.StartsWith("A_paralume")) return shadeMat;
+            if (n.StartsWith("A_vetro")) return glassMat;
+            if (n.StartsWith("A_scuro")) return darkMat;
+            if (n.StartsWith("A_fondo")) return feltMat;
+            if (n.StartsWith("A_quadrante")) return faceMat;
+            return null;
+        }
 
-            var cc = g.AddComponent<BoxCollider>();
-            cc.center = new Vector3(0, 0.7f, 0); cc.size = new Vector3(3.2f, 1.45f, 1.2f);
-            MarkStatic(g);   // prima solo il padre: i cuscini restavano fuori dalla luce cotta
+        /// <summary>Mette un arredo (FBX di Blender, davanti = +Z) nella scena, ruotato di 'yaw' gradi: materiali della hall
+        /// al posto di quelli del ruolo, statico, con un collider a scatola (centro e misure nel suo riferimento).
+        /// Vetri, foglie, paralumi e altre cose sottili restano fuori dalla lightmap: prendono la luce dalle sonde.</summary>
+        static GameObject Place(string name, Vector3 pos, float yaw, Material velvet = null, Vector3? colSize = null, Vector3? colCenter = null)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ArrDir + name + ".fbx");
+            if (prefab == null) { Debug.LogError("[PryingEyes] arredo mancante: " + name); return null; }
+            // radice pulita con posizione e rotazione; l'istanza dell'FBX ci sta dentro senza essere toccata, perche' la sua
+            // radice porta la conversione degli assi di Blender (azzerarla sdraia il modello)
+            var g = new GameObject(name);
+            g.transform.position = pos;
+            g.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            PrefabUtility.UnpackPrefabInstance(inst, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
+            inst.transform.SetParent(g.transform, false);
+            var thin = new List<GameObject>();
+            foreach (var r in g.GetComponentsInChildren<MeshRenderer>())
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    string n = mats[i] != null ? mats[i].name : "";
+                    var m = ArrMat(n, velvet);
+                    if (m != null) mats[i] = m;
+                    if (n.StartsWith("A_vetro") || n.StartsWith("A_foglia") || n.StartsWith("A_paralume")) thin.Add(r.gameObject);
+                }
+                r.sharedMaterials = mats;
+            }
+            if (colSize.HasValue)
+            {
+                var bc = g.AddComponent<BoxCollider>();
+                bc.center = colCenter ?? new Vector3(0f, colSize.Value.y / 2f, 0f);
+                bc.size = colSize.Value;
+            }
+            MarkStatic(g);
+            foreach (var t in thin) MarkStatic(t, gi: false);
+            return g;
+        }
+
+        /// <summary>Lampada da terra: il paralume brilla e, se accesa, una luce calda cotta nella lightmap.</summary>
+        static void FloorLamp(Vector3 pos, bool on)
+        {
+            var g = Place("arr_lampada", pos, 0f, null, new Vector3(0.42f, 1.45f, 0.42f));
+            if (g == null || !on) return;
+            var l = new GameObject("LampLight").AddComponent<Light>();
+            l.transform.SetParent(g.transform, false);
+            l.transform.localPosition = new Vector3(0f, 1.25f, 0f);
+            l.type = LightType.Point;
+            l.color = new Color(1f, 0.72f, 0.42f);
+            l.intensity = 3.4f;       // a 1.6 il salotto restava nero: sotto il paralume le imbottiture non si leggevano
+            l.range = 7.5f;
+            l.shadows = LightShadows.Soft;
+            l.lightmapBakeType = LightmapBakeType.Baked;
+        }
+
+        /// <summary>Il resto della hall: lampade, carrello dei bagagli, orologio a pendolo, palme secche.</summary>
+        static void Furniture()
+        {
+            FloorLamp(new Vector3(-15.7f, 0f, 12.5f), true);
+            FloorLamp(new Vector3(-8.3f, 0f, 5.5f), true);
+            Place("arr_carrello", new Vector3(6.5f, 0f, 20.7f), 160f, null, new Vector3(1.1f, 1.6f, 0.7f));
+            Place("arr_orologio", new Vector3(34.75f, 0f, -12.5f), -90f, null, new Vector3(0.6f, 2.6f, 0.38f));
+            var pots = new[] { new Vector3(-4.6f, 0f, 21.9f), new Vector3(4.6f, 0f, 21.9f), new Vector3(-33.9f, 0f, 21.8f), new Vector3(33.9f, 0f, 21.8f) };
+            for (int i = 0; i < pots.Length; i++)
+                Place("arr_palma", pots[i], 77f * i, null, new Vector3(0.66f, 0.55f, 0.66f));
         }
 
         static void AddPart(GameObject g, Vector3 size, Vector3 pos, Material m)
@@ -1207,7 +1312,7 @@ namespace PryingEyes.EditorTools
                     t.localScale = Vector3.one;
                     foreach (var c in go.GetComponents<Collider>()) ScaleCollider(c, s);
                 }
-                MetricUV(m, src.name, t);
+                if (!src.name.StartsWith("arr_")) MetricUV(m, src.name, t);   // gli arredi hanno gia' le loro UV in metri
                 Unwrapping.GenerateSecondaryUVSet(m);
                 mf.sharedMesh = m;
                 meshes.Add(m);

@@ -31,8 +31,9 @@ namespace PryingEyes.EditorTools
             Save("bastone_passo", SoundGen.StaffTap(400), r);
             Save("bastone_a_terra", SoundGen.StaffStrike(), r);
             Save("monaco_cade", SoundGen.MonkDeath(), r);
-            Save("drone_loop", SoundGen.DroneBuzz(), r);
-            Save("bruto_passo", SoundGen.BruteStep(500), r);
+            Save("occhio_loop", SoundGen.EyeHum(), r);
+            Save("occhio_fissa", SoundGen.EyeStare(), r);
+            Save("occhio_muore", SoundGen.EyeBurst(), r);
             var chant = SoundGen.MonkChant(600, out int cr);
             Save("litania_monaco_loop", chant, cr);
             var waltz = SoundGen.Waltz(out int wr);

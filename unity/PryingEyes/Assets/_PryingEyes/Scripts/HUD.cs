@@ -16,6 +16,11 @@ namespace PryingEyes
         Image vignette;
         RectTransform hitRoot;      // hit marker: X di 4 tacche attorno al mirino
         Image[] hitTicks;
+        RectTransform[] xDash;      // mirino: quattro trattini attorno al centro
+        Image[] xDashImg;
+        Image xDot;                 // punto centrale (solo DMR, in mira)
+        float xGap = 8f, xBloom, xAds;
+        string xModel = "rifle";
         Color hitCol = Color.white;
         float hitT, hitDur, hitPop, hitSize, bannerT, toastT, vigT, hpNow = 100f;
         static Font serif;
@@ -26,7 +31,7 @@ namespace PryingEyes
 
         void Awake() { EnsureBuilt(); }
 
-        static Font Serif()
+        public static Font Serif()
         {
             if (serif == null)
                 serif = Font.CreateDynamicFontFromOSFont(new[] { "Georgia", "Palatino Linotype", "Book Antiqua", "Times New Roman" }, 32);
@@ -181,29 +186,72 @@ namespace PryingEyes
             return Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
         }
 
-        /// <summary>Mirino: quattro trattini sottili con un vuoto al centro.</summary>
+        /// <summary>Mirino: quattro trattini sottili attorno al centro. Forma per arma, si apre con la dispersione
+        /// (passi, salto, colpi) e in mira si spegne, perche' il mirino fisico sull'arma e' gia' al centro.</summary>
         void MakeCrosshair()
         {
             var root = Child("Crosshair");
             var rt = Comp<RectTransform>(root);
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = Vector2.zero; rt.sizeDelta = Vector2.zero;
+            xDash = new RectTransform[4]; xDashImg = new Image[4];
             for (int i = 0; i < 4; i++)
             {
                 var go = SubChild(root, "Trattino" + i);
                 var r = Comp<RectTransform>(go);
                 r.anchorMin = r.anchorMax = new Vector2(0.5f, 0.5f);
-                bool vert = i < 2;
-                r.sizeDelta = vert ? new Vector2(2f, 7f) : new Vector2(7f, 2f);
-                float d = 9f;
-                r.anchoredPosition = i == 0 ? new Vector2(0, d) : i == 1 ? new Vector2(0, -d) : i == 2 ? new Vector2(d, 0) : new Vector2(-d, 0);
+                xDash[i] = r;
                 var img = Comp<Image>(go);
                 img.color = new Color(1f, 0.97f, 0.9f, 0.85f);
                 img.raycastTarget = false;
+                xDashImg[i] = img;
                 var sh = Comp<Shadow>(go);
                 sh.effectColor = new Color(0f, 0f, 0f, 0.6f);
                 sh.effectDistance = new Vector2(1f, -1f);
             }
+            var dotGo = SubChild(root, "Punto");
+            var dr = Comp<RectTransform>(dotGo);
+            dr.anchorMin = dr.anchorMax = new Vector2(0.5f, 0.5f);
+            xDot = Comp<Image>(dotGo);
+            xDot.color = new Color(1f, 0.97f, 0.9f, 0f);
+            xDot.raycastTarget = false;
+        }
+
+        struct XStyle { public float gap, len, dot, adsAlpha; }
+
+        static XStyle CrosshairStyle(string model)
+        {
+            switch (model)
+            {
+                case "smg": return new XStyle { gap = 6f, len = 6f, dot = 0f, adsAlpha = 0f };
+                case "shotgun": return new XStyle { gap = 11f, len = 8f, dot = 0f, adsAlpha = 0.35f };
+                case "dmr": return new XStyle { gap = 5f, len = 4f, dot = 3f, adsAlpha = 0f };
+                default: return new XStyle { gap = 8f, len = 7f, dot = 0f, adsAlpha = 0f };
+            }
+        }
+
+        /// <summary>Mirino dell'arma equipaggiata: forma per modello, apertura dalla dispersione (0..1), dissolvenza in mira (0..1).</summary>
+        public void SetCrosshair(string model, float bloom, float ads)
+        {
+            xModel = model; xBloom = bloom; xAds = ads;
+        }
+
+        void UpdateCrosshair(float dt)
+        {
+            if (xDash == null) return;
+            var st = CrosshairStyle(xModel);
+            xGap += (st.gap + xBloom * 9f - xGap) * Mathf.Min(1f, 18f * dt);
+            float a = Mathf.Lerp(0.85f, st.adsAlpha * 0.85f, xAds);
+            for (int i = 0; i < 4; i++)
+            {
+                bool vert = i < 2;
+                xDash[i].sizeDelta = vert ? new Vector2(2f, st.len) : new Vector2(st.len, 2f);
+                float d = xGap;
+                xDash[i].anchoredPosition = i == 0 ? new Vector2(0, d) : i == 1 ? new Vector2(0, -d) : i == 2 ? new Vector2(d, 0) : new Vector2(-d, 0);
+                var c = xDashImg[i].color; c.a = a; xDashImg[i].color = c;
+            }
+            xDot.rectTransform.sizeDelta = Vector2.one * st.dot;
+            var dc = xDot.color; dc.a = st.dot > 0f ? 0.9f * xAds : 0f; xDot.color = dc;
         }
 
         const int TexelsPerUnit = 8;       // risoluzione dello sprite della tacca
@@ -293,6 +341,7 @@ namespace PryingEyes
         {
             float dt = Time.deltaTime;
             UpdateHitmarker(dt);
+            UpdateCrosshair(dt);
             if (bannerT > 0f)
             {
                 bannerT -= dt;

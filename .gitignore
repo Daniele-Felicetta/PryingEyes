@@ -16,3 +16,11 @@ unity/PryingEyes/Builds/
 modelli/monaco/monaco_geo.blend
 modelli/monaco/export/monaco_export.blend
 __pycache__/
+# Blender fase 4 (occhio, abate, arredi, mani): intermedi e copie degli FBX; quella che conta e' in unity/.../Models, si rigenerano con gli script
+modelli/abate/abate_animato.blend
+modelli/abate/stoffa_tris.npz
+modelli/abate/export/
+modelli/occhio/occhio.blend
+modelli/occhio/export/
+modelli/hotel/arredi/*.fbx
+modelli/hotel/mani/*.fbx

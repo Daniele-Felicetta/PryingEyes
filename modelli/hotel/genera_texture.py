@@ -412,6 +412,21 @@ def velluto(n=512):
     save("velluto", base, normals(h, 2.0), np.zeros((n, n), F), np.ones((n, n), F), 0.12 + crush * 0.12)
 
 
+def cuoio(n=512):
+    """Cuoio di valigie e rivestimenti: grana a cellette, pieghe lunghe e usura; marrone."""
+    rng = np.random.default_rng(73)
+    d1, d2, _ = voronoi(n, 44, rng)
+    grain = smooth(0.0, 0.16, d2 - d1)                      # i bordi delle cellette sono solchi
+    wear = smooth(0.55, 0.85, fbm(n, 3, 5, rng))
+    creases = 1 - smooth(0.0, 0.03, np.abs(perlin(n, 5, rng)))
+    base = lerp(col((0.28, 0.15, 0.075), n), col((0.46, 0.30, 0.17), n), wear * 0.7)
+    base = base * (0.8 + 0.2 * grain[..., None])
+    base = lerp(base, col((0.14, 0.07, 0.04), n), creases * 0.5)
+    h = grain * 0.25 - creases * 0.15 + (fbm(n, 24, 3, rng) - 0.5) * 0.1
+    smooth_ = 0.34 + wear * 0.28 - creases * 0.12 + (grain - 0.5) * 0.1
+    save("cuoio", base, normals(h, 2.8), np.zeros((n, n), F), 1 - (1 - grain) * 0.3, smooth_)
+
+
 def forme(n=512):
     """Forme in scala di grigi (alfa) per pozzanghere e macchie: bordo irregolare e sfumato."""
     rng = np.random.default_rng(71)
@@ -472,7 +487,7 @@ if __name__ == "__main__":
         rest = rest[:k] + rest[k + 2:]
     if rest:
         OUT = Path(rest[0])
-    for fn in (marmo_scacchiera, marmo_bianco, damasco, noce, intonaco, moquette, ottone, acciaio, velluto, forme):
+    for fn in (marmo_scacchiera, marmo_bianco, damasco, noce, intonaco, moquette, ottone, acciaio, velluto, cuoio, forme):
         if only is None or fn.__name__ in only:
             fn()
     if preview:
