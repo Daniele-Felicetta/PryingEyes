@@ -7,10 +7,10 @@ namespace PryingEyes
     public class PlayerController : MonoBehaviour
     {
         [Header("Move")]
-        // valori tarati nella versione web (js/core.js, CFG)
-        public float walk = 5.6f, sprint = 8.2f, crouchSpeed = 3.1f;
-        public float accelGround = 34f, accelAir = 9f, friction = 9.5f;
-        public float jumpVel = 5.4f, gravity = 17.5f;
+        // ritmo da COD Zombies: camminata lenta, sprint breve, poca inerzia
+        public float walk = 3.9f, sprint = 5.9f, crouchSpeed = 2.2f;
+        public float accelGround = 20f, accelAir = 6f, friction = 8.5f;
+        public float jumpVel = 4.6f, gravity = 17.5f;
         public float heightStand = 1.75f, heightCrouch = 1.15f, eyeStand = 1.62f, eyeCrouch = 1.02f;
         // radianti per unità di "Mouse X" (= pixel x 0.1 nell'Input Manager): 0.021 = 0.0021 rad/pixel come nel web.
         // Prima era 1.2, cioè circa 57 volte più sensibile del web.
@@ -59,6 +59,10 @@ namespace PryingEyes
 
         void Awake()
         {
+            // riallinea i valori serializzati nella scena al ritmo lento da orda
+            walk = 3.9f; sprint = 5.9f; crouchSpeed = 2.2f;
+            accelGround = 20f; accelAir = 6f; friction = 8.5f;
+            jumpVel = 4.6f; gravity = 17.5f;
             cc = GetComponent<CharacterController>();
             eyeH = eyeStand;
             Cursor.lockState = CursorLockMode.Locked;
@@ -108,7 +112,7 @@ namespace PryingEyes
             if (Input.GetKeyDown(KeyCode.Space)) jumpBuf = 0.15f; else jumpBuf -= dt;
 
             float hSpeed = new Vector2(vel.x, vel.z).magnitude;
-            if (!slide && wantSprint && wantCrouch && hSpeed > 6f && cc.isGrounded)
+            if (!slide && wantSprint && wantCrouch && hSpeed > 4.4f && cc.isGrounded)
             {
                 slide = true; slideT = 0.85f; crouch = true;
                 slideDir = new Vector3(vel.x, 0, vel.z).normalized;
@@ -136,7 +140,7 @@ namespace PryingEyes
                 float sp = Mathf.Max(0f, hv.magnitude - hv.magnitude * 1.6f * dt * 0.4f);
                 Vector3 dir = hv.magnitude > 0.01f ? hv.normalized : slideDir;
                 dir = (dir + wish * (0.12f * dt * 10f)).normalized;
-                float keep = Mathf.Max(sp, 4.5f * (slideT / 0.85f));
+                float keep = Mathf.Max(sp, 3.2f * (slideT / 0.85f));
                 vel.x = dir.x * keep; vel.z = dir.z * keep;
             }
             else if (cc.isGrounded)
@@ -222,12 +226,19 @@ namespace PryingEyes
             cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - (weapon != null ? weapon.recoil * 20f : 0f),
                 yaw * Mathf.Rad2Deg, (strafeLean + lean * 0.9f + (slide ? 0.09f : 0f)) * Mathf.Rad2Deg);
 
-            // --- regen ---
-            if (Time.time - lastDamage > 4f && shield < 50f) shield = Mathf.Min(50f, shield + 14f * dt);
-            if (Time.time - lastDamage > 7f && hp < 100f) hp = Mathf.Min(100f, hp + 6f * dt);
+            // --- regen lenta, tensione da survival ---
+            if (Time.time - lastDamage > 6f && shield < 50f) shield = Mathf.Min(50f, shield + 8f * dt);
+            if (Time.time - lastDamage > 10f && hp < 100f) hp = Mathf.Min(100f, hp + 3f * dt);
 
-            weapon?.Tick(dt, f > 0 && wantSprint);
+            weapon?.Tick(dt, f > 0 && wantSprint, hs);
             hud?.SetBars(hp, shield);
+
+            // --- armi sui muri: prompt + acquisto con F ---
+            if (!GameManager.autoTest && cam != null)
+            {
+                WallBuy.Tick(cam);
+                if (Input.GetKeyDown(KeyCode.F)) WallBuy.TryBuy();
+            }
         }
 
         public void Hurt(float dmg)
@@ -244,6 +255,7 @@ namespace PryingEyes
             {
                 hp = 0f; alive = false; respawnT = 2.5f;
                 hud?.Banner("Sei morto", "L'hotel ti riporta all'ingresso.");
+                hud?.SetPrompt("");
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
             }
@@ -254,7 +266,10 @@ namespace PryingEyes
             alive = true; hp = 100f; shield = 50f;
             SetSpawn(spawnPos);
             yaw = Mathf.PI; pitch = 0f;
-            weapon.mag = weapon.magSize; weapon.reserve = 120; weapon.reloading = false;
+            // mantieni l'arma comprata al muro, con riserva piena dell'arma
+            weapon.mag = weapon.magSize;
+            weapon.reserve = Mathf.Min(weapon.reserveMax, Mathf.Max(weapon.reserve, weapon.Def.reserve));
+            weapon.reloading = false;
             hud?.SetBars(hp, shield);
             hud?.SetAmmo(weapon.mag, weapon.reserve);
             Cursor.lockState = CursorLockMode.Locked;

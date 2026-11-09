@@ -20,6 +20,10 @@ namespace PryingEyes
         Animator anim;
         bool dead;
         float strikeAt = -1f, atkLock = 0f;
+        // monaco: magia a distanza (carica nell'orbita del bastone, poi dardo)
+        float castAt = -1f;
+        GameObject castOrb;
+        Light castLight;
         const float MonacoWalkSpeed = 1.0f;   // m/s della camminata in Blender a velocita' 1
         const float MaxStepUp = 1.4f;         // dislivello massimo tra i piedi per colpire in mischia
         Vector3 vel;
@@ -53,6 +57,7 @@ namespace PryingEyes
 
         public static Enemy Spawn(EnemyType t, Vector3 pos)
         {
+            EnemyMats.Ensure();
             Material glow;
             List<Material> flashes;
             GameObject go = t == EnemyType.Drone ? BuildDrone(out glow, out flashes)
@@ -66,9 +71,10 @@ namespace PryingEyes
             Enemy e = go.AddComponent<Enemy>();
             e.type = t;
             e.hp = e.maxHp = t == EnemyType.Drone ? 60f : t == EnemyType.Brute ? 130f : 170f;
-            e.speed = t == EnemyType.Drone ? 5.0f + Random.value * 1.5f
-                : t == EnemyType.Brute ? 3.4f + Random.value
-                : 1.35f + Random.value * 0.35f;      // lento e ostinato
+            // passo da orda: nessuno corre, il giocatore ha il tempo di mirare e comprare
+            e.speed = t == EnemyType.Drone ? 2.7f + Random.value * 0.8f
+                : t == EnemyType.Brute ? 1.6f + Random.value * 0.45f
+                : 1.20f + Random.value * 0.30f;      // lento e ostinato
             e.phase = Random.value * 10f;
             e.anim = go.GetComponentInChildren<Animator>();
             e.playerT = GameManager.I.player.transform;
@@ -116,7 +122,8 @@ namespace PryingEyes
             flash = Mathf.Max(0f, flash - dt * 5f);
             if (flash > 0f)
             {
-                var ec = Color.white * flash;
+                // mantiene la debole autoilluminazione di base sotto il lampo bianco del colpo
+                var ec = new Color(0.035f, 0.035f, 0.04f) + Color.white * (flash * 0.95f);
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", ec);
             }
             atkCd -= dt;
@@ -203,8 +210,8 @@ namespace PryingEyes
             }
             if (atkCd <= 0f && GameManager.I.player.alive && InReach(eye, chest, hd, dy, 2.4f))
             {
-                atkCd = 1.3f;
-                HitPlayer((enraged ? 18f : 14f) + Random.value * 8f, hd, dy);
+                atkCd = 2.1f;
+                HitPlayer((enraged ? 14f : 10f) + Random.value * 5f, hd, dy);
                 // lunge verso il giocatore
                 if (OnNav) agent.Move(toP * 0.3f);
                 else transform.position += toP * 0.3f;
@@ -213,13 +220,35 @@ namespace PryingEyes
 
         /// <summary>Monaco: si avvicina camminando, si ferma e pianta il bastone a terra; il danno e l'onda d'urto
         /// arrivano quando il bastone tocca terra (fotogramma 16 della clip, 0.53 s), solo se il giocatore e' a tiro.</summary>
+        /// <summary>Sfera di carica sulla punta del bastone, creata alla prima magia.</summary>
+        void EnsureCastOrb()
+        {
+            if (castOrb != null) return;
+            var mat = EnemyMats.Glow(new Color(0.30f, 0.75f, 1f), 2.2f);
+            castOrb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Destroy(castOrb.GetComponent<Collider>());
+            castOrb.name = "SferaMagica";
+            castOrb.transform.SetParent(transform, false);
+            castOrb.transform.localPosition = new Vector3(-0.30f, 1.35f, 0.40f);
+            castOrb.transform.localScale = Vector3.one * 0.001f;
+            castOrb.GetComponent<MeshRenderer>().material = mat;
+            castLight = castOrb.AddComponent<Light>();
+            castLight.type = LightType.Point;
+            castLight.color = new Color(0.35f, 0.8f, 1f);
+            castLight.intensity = 0f;
+            castLight.range = 5f;
+            castLight.shadows = LightShadows.None;
+            castOrb.SetActive(false);
+        }
+
         void UpdateMonaco(float dt, Vector3 gp, Vector3 feet, Vector3 chest, Vector3 toP, float hd, float dy, Vector3 sep, bool enraged)
         {
             atkLock -= dt;
+            bool casting = castAt >= 0f;
             bool attacking = atkLock > 0f;
             Vector3 eye = gp + Vector3.up * 1.5f;
-            bool see = hd < 6f && HotelNav.ClearLine(eye, chest);
-            Walk(dt, gp, feet, toP, hd, sep, speed * (enraged ? 1.25f : 1f), attacking);
+            bool see = HotelNav.ClearLine(eye, chest);
+            Walk(dt, gp, feet, toP, hd, sep, speed * (enraged ? 1.25f : 1f), attacking || casting);
             Face(dt, transform.position, feet, hd, see, 5f);
             float v = new Vector3(vel.x, 0f, vel.z).magnitude;
             if (anim != null)
@@ -238,7 +267,29 @@ namespace PryingEyes
                            Random.Range(0.92f, 1.08f), 1.5f, 24f);
                 }
             }
-            if (strikeAt >= 0f)
+            if (castAt >= 0f)
+            {
+                // carica la sfera sul bastone, poi lancia il dardo verso il petto del giocatore
+                castAt -= dt;
+                float p = 1f - Mathf.Clamp01(castAt / 0.9f);
+                if (castOrb != null)
+                {
+                    castOrb.SetActive(true);
+                    castOrb.transform.localScale = Vector3.one * Mathf.Lerp(0.04f, 0.20f, p);
+                    if (castLight != null) castLight.intensity = Mathf.Lerp(0.4f, 3.0f, p);
+                }
+                if (castAt <= 0f)
+                {
+                    Vector3 tip = castOrb != null
+                        ? castOrb.transform.position
+                        : transform.TransformPoint(new Vector3(-0.30f, 1.35f, 0.40f));
+                    MagicBolt.Launch(tip, chest, 8f + Random.value * 4f);
+                    if (castOrb != null) castOrb.SetActive(false);
+                    if (castLight != null) castLight.intensity = 0f;
+                    if (GameManager.autoTest) Debug.Log($"[PryingEyes] mago lancia magia da {hd:F1} m");
+                }
+            }
+            else if (strikeAt >= 0f)
             {
                 strikeAt -= dt;
                 if (strikeAt < 0f)
@@ -251,7 +302,7 @@ namespace PryingEyes
                     float hd2 = new Vector2(p.x - tip.x, p.z - tip.z).magnitude;
                     float dy2 = Mathf.Abs(p.y - tip.y);
                     if (GameManager.I.player.alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, 2.4f))
-                        HitPlayer((enraged ? 22f : 16f) + Random.value * 8f, hd2, dy2);
+                        HitPlayer((enraged ? 18f : 13f) + Random.value * 6f, hd2, dy2);
                     else if (GameManager.autoTest) Debug.Log($"[PryingEyes] monaco: colpo a vuoto, giocatore a {hd2:F1} m, dislivello {dy2:F1} m");
                 }
             }
@@ -261,6 +312,19 @@ namespace PryingEyes
                 strikeAt = 16f / 30f;
                 atkLock = 1.25f;
                 if (anim != null) anim.SetTrigger("Attacca");
+            }
+            else if (atkCd <= 0f && GameManager.I.player.alive && see && hd > 3.0f && hd < 26f)
+            {
+                // a distanza il monaco diventa un mago: telegrafa la carica e lancia
+                atkCd = 3.2f + Random.value * 0.8f;
+                castAt = 0.9f;
+                atkLock = 1.4f;
+                EnsureCastOrb();
+                castOrb.SetActive(true);
+                if (castLight != null) castLight.intensity = 0.2f;
+                if (anim != null) anim.SetTrigger("Attacca");
+                Sfx.At(SoundBank.Whisper, castOrb.transform.position, 0.5f,
+                       Random.Range(0.85f, 1.05f), 2f, 24f);
             }
         }
 
@@ -307,8 +371,8 @@ namespace PryingEyes
             float dist3 = (chest - gp).magnitude;
             if (see && dist3 < 2.6f && atkCd <= 0f && GameManager.I.player.alive)
             {
-                atkCd = 1.1f;
-                HitPlayer(8f + Random.value * 6f, dist3, Mathf.Abs(chest.y - gp.y));
+                atkCd = 1.9f;
+                HitPlayer(5f + Random.value * 4f, dist3, Mathf.Abs(chest.y - gp.y));
             }
         }
 
@@ -340,9 +404,10 @@ namespace PryingEyes
                 Debug.Log($"[PryingEyes] danno {type} {dmg:F0} a {dist:F1} m, dislivello {dy:F1} m, nemico y={transform.position.y:F1}");
         }
 
-        public void Damage(float dmg, Vector3 point, bool headshot)
+        public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true)
         {
             if (dead) return;
+            if (awardPoints) GameManager.I.AddPoints(10);   // +10 per colpo a segno
             hp -= dmg;
             flash = 1f;
             foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
@@ -407,24 +472,75 @@ namespace PryingEyes
         static GameObject BuildDrone(out Material glow, out List<Material> flashes)
         {
             var g = new GameObject("Drone");
-            var armor = Lit(new Color(0.22f, 0.25f, 0.31f), 0.9f, 0.3f);
-            var dark = Lit(new Color(0.08f, 0.09f, 0.12f), 0.8f, 0.6f);
-            var eye = Lit(new Color(0.05f, 0.05f, 0.08f), 0.6f, 0.4f);
-            eye.EnableKeyword("_EMISSION");
-            eye.SetColor("_EmissionColor", new Color(1f, 0.18f, 0.47f));
-            eye.SetFloat("_EmissiveIntensity", 5f);
+            // composito quasi nero, pannelli più chiari, emissioni smorzate
+            var armor = EnemyMats.Drone(new Color(0.95f, 0.98f, 1.05f));
+            var dark = EnemyMats.Drone(new Color(0.42f, 0.45f, 0.52f));
+            var eye = EnemyMats.Glow(new Color(1f, 0.12f, 0.30f), 1.0f);
+            var belly = EnemyMats.Glow(new Color(1f, 0.38f, 0.10f), 0.5f);
 
-            AddPrim(g, PrimitiveType.Sphere, new Vector3(0.72f, 0.5f, 0.72f), Vector3.zero, armor, null, false, true);
-            AddPrim(g, PrimitiveType.Sphere, new Vector3(0.22f, 0.22f, 0.22f), new Vector3(0, 0.02f, 0.32f), dark, "Head", true);
-            AddPrim(g, PrimitiveType.Sphere, new Vector3(0.12f, 0.12f, 0.12f), new Vector3(0, 0.02f, 0.42f), eye, "Head", true);
-            // 4 rotors
+            // scafo corazzato e piastre
+            AddPrim(g, PrimitiveType.Sphere, new Vector3(0.78f, 0.52f, 0.78f), Vector3.zero, armor, null, false, true);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.58f, 0.12f, 0.72f), new Vector3(0, 0.21f, 0), armor);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.50f, 0.08f, 0.62f), new Vector3(0, -0.23f, 0), dark);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.10f, 0.30f, 0.50f), new Vector3(-0.43f, 0.02f, 0), dark);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.10f, 0.30f, 0.50f), new Vector3(0.43f, 0.02f, 0), dark);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.44f, 0.14f, 0.16f), new Vector3(0, 0.11f, 0.33f), armor);
+
+            // gimbal e sensore
+            AddPrim(g, PrimitiveType.Sphere, new Vector3(0.24f, 0.24f, 0.24f), new Vector3(0, 0.01f, 0.35f), dark);
+            AddPrim(g, PrimitiveType.Sphere, new Vector3(0.11f, 0.11f, 0.11f), new Vector3(0, 0.01f, 0.47f), eye, "Head", true);
+            var iris = AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.30f, 0.015f, 0.30f), new Vector3(0, 0.01f, 0.45f), armor);
+            iris.transform.Rotate(90f, 0f, 0f);
+
+            // antenna
+            AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.014f, 0.34f, 0.014f), new Vector3(0.18f, 0.45f, 0.02f), dark);
+            AddPrim(g, PrimitiveType.Sphere, new Vector3(0.032f, 0.032f, 0.032f), new Vector3(0.18f, 0.62f, 0.02f), eye);
+
+            // bracci, motori, rotori e gabbie di protezione
             foreach (var sx in new[] { -1f, 1f }) foreach (var sz in new[] { -1f, 1f })
                 {
-                    AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.07f, 0.1f, 0.07f), new Vector3(sx * 0.55f, 0.32f, sz * 0.55f), dark);
-                    var disc = AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.6f, 0.02f, 0.6f), new Vector3(sx * 0.55f, 0.42f, sz * 0.55f), dark);
+                    var arm = AddPrim(g, PrimitiveType.Cube, new Vector3(0.07f, 0.05f, 0.62f),
+                        new Vector3(sx * 0.30f, 0.17f, sz * 0.30f), armor);
+                    arm.transform.Rotate(0f, Mathf.Atan2(sx, sz) * Mathf.Rad2Deg, 0f);
+
+                    AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.075f, 0.11f, 0.075f),
+                        new Vector3(sx * 0.58f, 0.31f, sz * 0.58f), dark);
+                    var disc = AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.60f, 0.016f, 0.60f),
+                        new Vector3(sx * 0.58f, 0.42f, sz * 0.58f), dark);
                     disc.name = "Rotor";
+
+                    AddPrim(g, PrimitiveType.Cube, new Vector3(0.76f, 0.014f, 0.03f),
+                        new Vector3(sx * 0.58f, 0.38f, sz * 0.58f), armor);
+                    AddPrim(g, PrimitiveType.Cube, new Vector3(0.03f, 0.014f, 0.76f),
+                        new Vector3(sx * 0.58f, 0.38f, sz * 0.58f), armor);
                 }
-            AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.02f, 0.3f, 0.14f), new Vector3(0, -0.42f, 0), dark).transform.Rotate(Mathf.PI, 0, 0);
+
+            // pattini di atterraggio
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.07f, 0.03f, 0.72f), new Vector3(-0.24f, -0.45f, 0), dark);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.07f, 0.03f, 0.72f), new Vector3(0.24f, -0.45f, 0), dark);
+            for (int i = -1; i <= 1; i += 2)
+            {
+                AddPrim(g, PrimitiveType.Cube, new Vector3(0.10f, 0.10f, 0.05f), new Vector3(-0.24f, -0.39f, i * 0.28f), dark);
+                AddPrim(g, PrimitiveType.Cube, new Vector3(0.10f, 0.10f, 0.05f), new Vector3(0.24f, -0.39f, i * 0.28f), dark);
+            }
+
+            // pungiglione e luce ventrale
+            AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.02f, 0.30f, 0.14f), new Vector3(0, -0.42f, 0), dark).transform.Rotate(Mathf.PI, 0f, 0f);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.22f, 0.03f, 0.12f), new Vector3(0, -0.29f, 0.13f), belly);
+
+            // strisce di stato e luce del sensore: definiscono lo scafo nel buio
+            var strip = EnemyMats.Glow(new Color(1f, 0.10f, 0.22f), 0.55f);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.018f, 0.018f, 0.30f), new Vector3(-0.445f, 0.10f, 0), strip);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.018f, 0.018f, 0.30f), new Vector3(0.445f, 0.10f, 0), strip);
+            var droneEyeLight = new GameObject("LuceSensore").AddComponent<Light>();
+            droneEyeLight.transform.SetParent(g.transform, false);
+            droneEyeLight.transform.localPosition = new Vector3(0, 0.01f, 0.52f);
+            droneEyeLight.type = LightType.Point;
+            droneEyeLight.color = new Color(1f, 0.15f, 0.35f);
+            droneEyeLight.intensity = 0.55f;
+            droneEyeLight.range = 2.2f;
+            droneEyeLight.shadows = LightShadows.None;
+
             var rb = g.AddComponent<Rigidbody>();
             rb.useGravity = false; rb.isKinematic = true;
             glow = eye;
@@ -435,12 +551,10 @@ namespace PryingEyes
         static GameObject BuildBrute(out Material glow, out List<Material> flashes)
         {
             var g = new GameObject("Brute");
-            var armor = Lit(new Color(0.30f, 0.27f, 0.22f), 0.78f, 0.52f);
-            var dark = Lit(new Color(0.11f, 0.12f, 0.15f), 0.85f, 0.55f);
-            var visor = Lit(new Color(0.05f, 0.05f, 0.08f), 0.6f, 0.4f);
-            visor.EnableKeyword("_EMISSION");
-            visor.SetColor("_EmissionColor", new Color(1f, 0.18f, 0.47f));
-            visor.SetFloat("_EmissiveIntensity", 4f);
+            // ferro scuro arrugginito, visore ambra smorzato: più tetro, meno "giocattolo"
+            var armor = EnemyMats.Armor(new Color(1.0f, 0.95f, 0.88f));
+            var dark = EnemyMats.Armor(new Color(0.46f, 0.46f, 0.44f));
+            var visor = EnemyMats.Glow(new Color(1f, 0.28f, 0.06f), 0.9f);
 
             AddPrim(g, PrimitiveType.Cube, new Vector3(0.3f, 0.14f, 0.5f), new Vector3(-0.26f, 0.07f, -0.05f), dark);
             AddPrim(g, PrimitiveType.Cube, new Vector3(0.3f, 0.14f, 0.5f), new Vector3(0.26f, 0.07f, -0.05f), dark);
@@ -452,7 +566,62 @@ namespace PryingEyes
             AddPrim(g, PrimitiveType.Cube, new Vector3(0.22f, 0.45f, 0.24f), new Vector3(-0.55f, 1.65f, 0), armor);
             AddPrim(g, PrimitiveType.Cube, new Vector3(0.22f, 0.45f, 0.24f), new Vector3(0.55f, 1.65f, 0), armor);
             AddPrim(g, PrimitiveType.Cube, new Vector3(0.4f, 0.32f, 0.4f), new Vector3(0, 2.1f, 0), dark, "Head", true);
-            AddPrim(g, PrimitiveType.Cube, new Vector3(0.32f, 0.07f, 0.05f), new Vector3(0, 2.12f, 0.21f), visor, "Head", true);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.27f, 0.052f, 0.05f), new Vector3(0, 2.12f, 0.21f), visor, "Head", true);
+
+            // piastra pettorale, addome e schiena
+            var chest = AddPrim(g, PrimitiveType.Cube, new Vector3(0.62f, 0.48f, 0.10f), new Vector3(0, 1.68f, 0.33f), armor);
+            chest.transform.Rotate(7f, 0f, 0f);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.46f, 0.12f, 0.34f), new Vector3(0, 1.37f, 0.10f), dark);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.42f, 0.10f, 0.34f), new Vector3(0, 1.24f, 0.10f), dark);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.56f, 0.48f, 0.10f), new Vector3(0, 1.62f, -0.30f), armor);
+            for (int i = -1; i <= 1; i += 2)
+                AddPrim(g, PrimitiveType.Cube, new Vector3(0.16f, 0.06f, 0.04f), new Vector3(i * 0.20f, 1.70f, -0.36f), dark);
+
+            // spallacci a strati
+            var pauldronL = AddPrim(g, PrimitiveType.Cube, new Vector3(0.34f, 0.12f, 0.44f), new Vector3(-0.58f, 1.92f, 0), armor);
+            pauldronL.transform.Rotate(0f, 0f, 10f);
+            var pauldronR = AddPrim(g, PrimitiveType.Cube, new Vector3(0.34f, 0.12f, 0.44f), new Vector3(0.58f, 1.92f, 0), armor);
+            pauldronR.transform.Rotate(0f, 0f, -10f);
+
+            // pistoni alle ginocchia e ai gomiti
+            for (int i = -1; i <= 1; i += 2)
+            {
+                AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.055f, 0.30f, 0.055f), new Vector3(i * 0.26f, 0.56f, 0.20f), dark);
+                AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.035f, 0.24f, 0.035f), new Vector3(i * 0.58f, 1.36f, 0.12f), dark);
+            }
+
+            // cavi dorsali e cresta dell'elmetto
+            for (int i = -1; i <= 1; i += 2)
+            {
+                var cable = AddPrim(g, PrimitiveType.Cylinder, new Vector3(0.018f, 0.42f, 0.018f),
+                    new Vector3(i * 0.16f, 1.72f, -0.22f), dark);
+                cable.transform.Rotate(0f, 0f, i * 12f);
+            }
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.06f, 0.10f, 0.42f), new Vector3(0, 2.30f, -0.02f), armor);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.06f, 0.035f, 0.035f), new Vector3(-0.12f, 2.14f, 0.215f), visor, "Head", true);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.06f, 0.035f, 0.035f), new Vector3(0.12f, 2.14f, 0.215f), visor, "Head", true);
+
+            // fessura luminosa sul petto e luce del visore
+            var seam = EnemyMats.Glow(new Color(1f, 0.30f, 0.07f), 0.5f);
+            AddPrim(g, PrimitiveType.Cube, new Vector3(0.20f, 0.018f, 0.02f), new Vector3(0, 1.52f, 0.40f), seam);
+            var visorLight = new GameObject("LuceVisore").AddComponent<Light>();
+            visorLight.transform.SetParent(g.transform, false);
+            visorLight.transform.localPosition = new Vector3(0, 2.06f, 0.36f);
+            visorLight.type = LightType.Point;
+            visorLight.color = new Color(1f, 0.35f, 0.10f);
+            visorLight.intensity = 0.50f;
+            visorLight.range = 2.5f;
+            visorLight.shadows = LightShadows.None;
+            // debole bagliore del reattore: fa leggere le piastre nel buio
+            var coreLight = new GameObject("LuceNucleo").AddComponent<Light>();
+            coreLight.transform.SetParent(g.transform, false);
+            coreLight.transform.localPosition = new Vector3(0, 1.55f, 0.52f);
+            coreLight.type = LightType.Point;
+            coreLight.color = new Color(1f, 0.38f, 0.12f);
+            coreLight.intensity = 0.32f;
+            coreLight.range = 2.6f;
+            coreLight.shadows = LightShadows.None;
+
             var cc = g.AddComponent<CapsuleCollider>();
             cc.height = 2.2f; cc.center = new Vector3(0, 1.1f, 0);
             glow = visor;

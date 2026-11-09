@@ -12,6 +12,7 @@ namespace PryingEyes
     {
         Slider hpBar, shieldBar;
         Text ammoText, reserveText, reloadText, waveLabel, waveText, enemiesText, scoreText, bannerText, bannerSub, toastText;
+        Text promptText, weaponNameText;
         Image vignette;
         RectTransform hitRoot;      // hit marker: X di 4 tacche attorno al mirino
         Image[] hitTicks;
@@ -95,6 +96,9 @@ namespace PryingEyes
             ammoText = MakeText("Ammo", new Vector2(1, 0), new Vector2(-92, 16), new Vector2(160, 58), 48, TextAnchor.LowerRight, "30", Ink, FontStyle.Normal);
             reserveText = MakeText("Reserve", new Vector2(1, 0), new Vector2(-26, 24), new Vector2(70, 30), 20, TextAnchor.LowerRight, "/ 120", Dim, FontStyle.Normal);
             reloadText = MakeText("Reload", new Vector2(1, 0), new Vector2(-28, 76), new Vector2(220, 22), 15, TextAnchor.LowerRight, "", Dim, FontStyle.Italic);
+            weaponNameText = MakeText("WeaponName", new Vector2(1, 0), new Vector2(-26, 98), new Vector2(300, 22), 15, TextAnchor.LowerRight, "", Dim, FontStyle.Normal);
+            // prompt delle armi sul muro (acquisto con F)
+            promptText = MakeText("Prompt", new Vector2(0.5f, 0.5f), new Vector2(0, -118), new Vector2(1000, 28), 18, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
             MakeCrosshair();
             MakeHitmarker();
             bannerText = MakeText("Banner", new Vector2(0.5f, 1), new Vector2(0, -118), new Vector2(1000, 66), 54, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
@@ -331,6 +335,11 @@ namespace PryingEyes
 
         public void SetReloading(bool on) { if (reloadText != null) reloadText.text = on ? "ricarica…" : ""; }
         public void SetWave(int w) { if (waveText != null) waveText.text = Roman(w); }
+        public void SetPrompt(string s) { if (promptText != null) promptText.text = s ?? ""; }
+        public string CurrentPrompt => promptText != null ? promptText.text : "";
+        public string CurrentAmmo => ammoText != null ? ammoText.text : "";
+        public string CurrentReserve => reserveText != null ? reserveText.text : "";
+        public void SetWeaponName(string s) { if (weaponNameText != null) weaponNameText.text = s ?? ""; }
         public void SetScore(int s) { if (scoreText != null) scoreText.text = s > 0 ? string.Format(It, "{0:N0} punti", s) : ""; }
         public void SetEnemiesLeft(int n)
         {

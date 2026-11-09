@@ -338,12 +338,30 @@ namespace PryingEyes.EditorTools
             var g = new GameObject("Sofa");
             g.transform.position = new Vector3(x, 0, z);
             g.transform.rotation = Quaternion.Euler(0, ry * Mathf.Rad2Deg, 0);
-            AddPart(g, new Vector3(3, 0.5f, 1.05f), new Vector3(0, 0.45f, 0), m);
-            AddPart(g, new Vector3(3, 0.85f, 0.28f), new Vector3(0, 0.9f, -0.42f), m);
-            AddPart(g, new Vector3(0.28f, 0.75f, 1.05f), new Vector3(-1.5f, 0.75f, 0), m);
-            AddPart(g, new Vector3(0.28f, 0.75f, 1.05f), new Vector3(1.5f, 0.75f, 0), m);
+
+            // imbottitura morbida: ellissoidi e capsule al posto delle scatole
+            Part(g, PrimitiveType.Sphere, new Vector3(3.0f, 0.50f, 1.05f), new Vector3(0, 0.45f, 0), Vector3.zero, m);
+            for (int i = -1; i <= 1; i++)
+                Part(g, PrimitiveType.Sphere, new Vector3(0.88f, 0.22f, 0.88f),
+                    new Vector3(i * 0.95f, 0.78f, 0.02f), Vector3.zero, m);
+            // schienale e cuscini schienale leggermente inclinati
+            Part(g, PrimitiveType.Sphere, new Vector3(2.90f, 0.90f, 0.30f), new Vector3(0, 0.96f, -0.42f), Vector3.zero, m);
+            for (int i = -1; i <= 1; i++)
+                Part(g, PrimitiveType.Sphere, new Vector3(0.86f, 0.52f, 0.20f),
+                    new Vector3(i * 0.95f, 1.08f, -0.30f), new Vector3(-8, 0, 0), m);
+            // braccioli a rullo
+            Part(g, PrimitiveType.Capsule, new Vector3(0.30f, 0.525f, 0.30f), new Vector3(-1.50f, 0.75f, 0), new Vector3(90, 0, 0), m);
+            Part(g, PrimitiveType.Capsule, new Vector3(0.30f, 0.525f, 0.30f), new Vector3(1.50f, 0.75f, 0), new Vector3(90, 0, 0), m);
+            // cuscino decorativo
+            Part(g, PrimitiveType.Sphere, new Vector3(0.46f, 0.40f, 0.16f), new Vector3(0.65f, 1.02f, -0.14f), new Vector3(10, 0, -12), m);
+            // gambe in legno scuro
+            for (int sx = -1; sx <= 1; sx += 2)
+                for (int sz = -1; sz <= 1; sz += 2)
+                    Part(g, PrimitiveType.Cylinder, new Vector3(0.07f, 0.10f, 0.07f),
+                        new Vector3(sx * 1.2f, 0.10f, sz * 0.40f), Vector3.zero, woodMat);
+
             var cc = g.AddComponent<BoxCollider>();
-            cc.center = new Vector3(0, 0.7f, 0); cc.size = new Vector3(3.2f, 1.4f, 1.2f);
+            cc.center = new Vector3(0, 0.7f, 0); cc.size = new Vector3(3.2f, 1.45f, 1.2f);
             MarkStatic(g);   // prima solo il padre: i cuscini restavano fuori dalla luce cotta
         }
 

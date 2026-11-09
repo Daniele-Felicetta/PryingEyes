@@ -10,7 +10,8 @@ namespace PryingEyes
 
         [Header("Waves")]
         public int wave = 0;
-        public int score = 0;
+        // I punti sono la valuta: si parte da 500 come in COD Zombies.
+        public int score = 500;
         public int kills = 0;
         public bool waveActive = false;
         float waveBreak = 0f;
@@ -31,18 +32,31 @@ namespace PryingEyes
         bool shot1done = false, shot2done = false;
         // -camshots: foto dalla camera del giocatore su RenderTexture, funziona anche con -batchmode senza finestra
         // (ScreenCapture li' non ha uno schermo da copiare). Niente HUD: serve a controllare luce e materiali.
-        bool camShots, cam1done, cam2done;
+        bool camShots, cam1done, cam2done, wallShotDone;
+        bool wallTestDone, magicTestDone, enemyShotDone;
         const string REPORT = "C:/Users/danie/Desktop/prying-eyes/hotel_build/autotest.txt";
 
         void Awake()
         {
             I = this;
+            // i valori serializzati nella scena costruita dall'editor hanno la precedenza sui default:
+            // qui riallineo la valuta di partenza al ritmo COD Zombies
+            score = 500;
             autoTest = HasArg("-autotest");
             camShots = HasArg("-camshots");
             if (autoTest)
                 System.IO.File.WriteAllText(REPORT, "t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n");
             HotelNav.Build();   // prima di qualunque nemico: i collider della scena ci sono gia'
+            WallBuy.BuildAll(); // armi sui muri (VESPER-9, BREACHER-12, LANCE-7)
             Ambience.Create();  // eco, vento, scricchiolii, grammofono; genera anche tutti i suoni
+        }
+
+        /// <summary>Punti: +10 per colpo a segno, +50 per uccisione, +100 se letale alla testa.
+        /// Spenderli al muro sottrae (n negativo).</summary>
+        public void AddPoints(int n)
+        {
+            score = Mathf.Max(0, score + n);
+            hud?.SetScore(score);
         }
 
         static bool HasArg(string a)
@@ -55,6 +69,13 @@ namespace PryingEyes
         void Start()
         {
             if (autoTest && HasArg("-botmezz") && player != null) player.SetSpawn(MezzSpot);
+            hud?.SetScore(score);
+            if (player != null && player.weapon != null)
+            {
+                var d = player.weapon.Def;
+                hud?.SetAmmo(player.weapon.mag, player.weapon.reserve);
+                hud?.SetWeaponName(d.name + " · " + d.modeLabel);
+            }
             StartWave(1);
         }
 
@@ -67,6 +88,27 @@ namespace PryingEyes
             }
             if (autoTest)
             {
+                if (!wallTestDone && HasArg("-walltest") && autoT > 3f)
+                {
+                    wallTestDone = true;
+                    StartCoroutine(WallTest());
+                }
+                if (!magicTestDone && HasArg("-magictest") && autoT > 1f)
+                {
+                    magicTestDone = true;
+                    var monaco = Enemy.Spawn(Enemy.EnemyType.Monaco, new Vector3(0f, 0.05f, 6f));
+                    if (monaco != null) monaco.hp = monaco.maxHp = 3000f;   // non muore prima di lanciare
+                    Debug.Log("[PryingEyes] magictest: monaco piazzato a 13 m");
+                }
+                if (!enemyShotDone && HasArg("-enemyshot") && autoT > 1f)
+                {
+                    enemyShotDone = true;
+                    var brute = Enemy.Spawn(Enemy.EnemyType.Brute, new Vector3(-1.6f, 0.05f, 8f));
+                    if (brute != null) brute.hp = brute.maxHp = 5000f;
+                    var drone = Enemy.Spawn(Enemy.EnemyType.Drone, new Vector3(1.6f, 2.4f, 8f));
+                    if (drone != null) drone.hp = drone.maxHp = 5000f;
+                    StartCoroutine(EnemyShot());
+                }
                 autoT += Time.deltaTime;
                 reportT += Time.deltaTime;
                 foreach (var e in Enemy.All)
@@ -84,6 +126,7 @@ namespace PryingEyes
                 }
                 if (autoT >= 15f && !shot1done) { shot1done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot1.png"); }
                 if (autoT >= 75f && !shot2done) { shot2done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot2.png"); }
+                if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
                 if (autoT >= 100f)
@@ -131,6 +174,82 @@ namespace PryingEyes
             Debug.Log("[PryingEyes] camshot " + path);
         }
 
+        /// <summary>Foto di verifica dell'espositore VESPER-9 sul muro sud (usata con -camshots).</summary>
+        void WallShot()
+        {
+            var main = Camera.main;
+            if (main == null) return;
+            var go = new GameObject("FotoArmiMuro");
+            var cam = go.AddComponent<Camera>();
+            cam.CopyFrom(main);
+            var src = main.GetComponent<UniversalAdditionalCameraData>();
+            var dst = cam.GetUniversalAdditionalCameraData();
+            if (src != null) { dst.renderPostProcessing = src.renderPostProcessing; dst.antialiasing = src.antialiasing; }
+            cam.enabled = false;
+            cam.transform.position = new Vector3(-10f, 1.55f, 20.15f);
+            cam.transform.rotation = Quaternion.LookRotation(new Vector3(-10f, 1.45f, 22.42f) - cam.transform.position);
+            CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/wallbuy.png", cam, true);
+            Destroy(go);
+        }
+
+        /// <summary>Foto di controllo dei nemici meccanici (usata con -enemyshot).</summary>
+        System.Collections.IEnumerator EnemyShot()
+        {
+            yield return new WaitForSeconds(0.5f);
+            var main = Camera.main;
+            if (main == null) yield break;
+            var go = new GameObject("FotoNemici");
+            var cam = go.AddComponent<Camera>();
+            cam.CopyFrom(main);
+            var src = main.GetComponent<UniversalAdditionalCameraData>();
+            var dst = cam.GetUniversalAdditionalCameraData();
+            if (src != null) { dst.renderPostProcessing = src.renderPostProcessing; dst.antialiasing = src.antialiasing; }
+            cam.enabled = false;
+            cam.transform.position = new Vector3(0f, 1.65f, 13f);
+            cam.transform.rotation = Quaternion.LookRotation(new Vector3(0f, 1.25f, 8f) - cam.transform.position);
+            CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/enemies.png", cam, false);
+            Destroy(go);
+        }
+
+        /// <summary>Test automatico (-walltest): si mette davanti alla VESPER-9 e verifica prompt,
+        /// acquisto con F, spesa dei punti e ricarica della riserva.</summary>
+        System.Collections.IEnumerator WallTest()
+        {
+            if (player == null || player.weapon == null) yield break;
+            // in autotest la camera del giocatore punta ai nemici: uso una sonda fissa davanti alla VESPER
+            var probe = new GameObject("WallTestProbe");
+            probe.transform.position = new Vector3(-10f, 1.55f, 20.2f);
+            probe.transform.rotation = Quaternion.LookRotation(new Vector3(-10f, 1.55f, 22.42f) - probe.transform.position);
+            yield return null;
+            WallBuy.Tick(probe.transform);
+            Debug.Log("[PryingEyes] walltest prompt=\"" + (hud != null ? hud.CurrentPrompt : "") + "\" score=" + score);
+            WallBuy.TryBuy();
+            Debug.Log("[PryingEyes] walltest dopo acquisto: score=" + score + " arma=" + player.weapon.Def.name
+                + " mag=" + player.weapon.mag + " riserva=" + player.weapon.reserve
+                + " hud=" + (hud != null ? hud.CurrentAmmo + " " + hud.CurrentReserve : ""));
+            yield return null;
+            AddPoints(300);
+            player.weapon.reserve = 5;
+            WallBuy.Tick(probe.transform);
+            Debug.Log("[PryingEyes] walltest prompt munizioni=\"" + (hud != null ? hud.CurrentPrompt : "") + "\"");
+            WallBuy.TryBuy();
+            Debug.Log("[PryingEyes] walltest dopo munizioni: score=" + score
+                + " riserva=" + player.weapon.reserve + "/" + player.weapon.reserveMax
+                + " hud=" + (hud != null ? hud.CurrentAmmo + " " + hud.CurrentReserve : ""));
+
+            // animazione di ricarica: foto a metà e controllo che il contatore si aggiorni
+            yield return new WaitForSeconds(0.25f);
+            player.weapon.mag = 3;
+            player.weapon.Reload();
+            yield return new WaitForSeconds(0.70f);
+            CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/reload.png", Camera.main, true);
+            Debug.Log("[PryingEyes] walltest hud durante ricarica=" + hud.CurrentAmmo + " " + hud.CurrentReserve);
+            yield return new WaitForSeconds(1.20f);
+            Debug.Log("[PryingEyes] walltest hud dopo ricarica=" + hud.CurrentAmmo + " " + hud.CurrentReserve);
+            Destroy(probe);
+            Application.Quit();
+        }
+
         bool liftShotDone;
 
         /// <summary>Chiamato dall'ascensore quando le porte sono aperte: con -camshots, la prima volta, una foto da
@@ -164,7 +283,7 @@ namespace PryingEyes
             if (waveActive) return;
             wave = n;
             waveActive = true;
-            int count = 3 + n * 2;
+            int count = Mathf.Min(28, 4 + n * 2);
             // chi deve ancora arrivare conta gia': l'ondata non finisce prima che siano entrati tutti
             alive = count;
             hud?.Banner("Ondata " + HUD.Roman(n), WaveLines[(n - 1) % WaveLines.Length]);
@@ -199,10 +318,11 @@ namespace PryingEyes
             if (!byLift) Enemy.Spawn(Enemy.EnemyType.Monaco, PickSpawn(Enemy.EnemyType.Monaco));
             for (int k = 1; k < count; k++)
             {
-                yield return new WaitForSeconds(Random.Range(0.35f, 0.9f));
-                bool drone = Random.value < Mathf.Min(0.65f, 0.35f + n * 0.06f);
+                // ritmo lento da orda: i nemici entrano scaglionati, i camminatori sono la maggioranza
+                yield return new WaitForSeconds(Random.Range(0.6f, 1.4f));
+                bool drone = Random.value < Mathf.Min(0.5f, 0.22f + n * 0.03f);
                 var type = drone ? Enemy.EnemyType.Drone
-                    : Random.value < 0.35f ? Enemy.EnemyType.Monaco : Enemy.EnemyType.Brute;
+                    : Random.value < 0.30f ? Enemy.EnemyType.Monaco : Enemy.EnemyType.Brute;
                 Enemy.Spawn(type, PickSpawn(type));
             }
         }
@@ -243,21 +363,20 @@ namespace PryingEyes
         {
             alive--;
             kills++;
-            int pts = (e.type == Enemy.EnemyType.Drone ? 100 : e.type == Enemy.EnemyType.Brute ? 150 : 200)
-                      + (headshot ? 50 : 0) + wave * 10;
-            score += pts;
-            hud?.SetScore(score);
+            // COD Zombies: 50 punti per uccisione, 100 se letale alla testa (i +10 dei colpi arrivano da Damage)
+            AddPoints(50 + (headshot ? 50 : 0));
             if (alive <= 0 && waveActive)
             {
                 waveActive = false;
-                waveBreak = 6f;
+                waveBreak = 8f;
                 if (player != null)
                 {
                     player.shield = 50f;
-                    player.weapon.reserve = Mathf.Min(240, player.weapon.reserve + 60);
+                    player.weapon.reserve = Mathf.Min(player.weapon.reserveMax,
+                        player.weapon.reserve + Mathf.CeilToInt(player.weapon.reserveMax * 0.25f));
                     hud?.SetAmmo(player.weapon.mag, player.weapon.reserve);
                 }
-                hud?.Toast("Silenzio, per ora. Munizioni e scudo ricaricati.");
+                hud?.Toast("Silenzio, per ora. Scudo e riserva parzialmente ricaricati.");
             }
         }
 
