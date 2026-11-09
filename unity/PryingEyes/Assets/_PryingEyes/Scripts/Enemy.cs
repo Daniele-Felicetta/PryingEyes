@@ -211,6 +211,9 @@ namespace PryingEyes
                 return;
             }
             Vector3 center = transform.position + Vector3.up * (type == EnemyType.Drone ? 0.5f : 1.2f);
+            // i detriti usano il materiale dell'armatura: spegnere il lampo del colpo, sennò restano bianchi
+            // incandescenti per tutta la loro vita (nessuno lo fa piu' sfumare, il nemico e' distrutto)
+            foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
             if (flashMats.Count > 0)
             {
                 var dm = flashMats[0];

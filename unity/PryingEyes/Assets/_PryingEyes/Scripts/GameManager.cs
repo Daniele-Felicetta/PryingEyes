@@ -26,12 +26,16 @@ namespace PryingEyes
         public static int shotsFired = 0, shotsHit = 0;
         float autoT = 0f, reportT = 0f;
         bool shot1done = false, shot2done = false;
+        // -camshots: foto dalla camera del giocatore su RenderTexture, funziona anche con -batchmode senza finestra
+        // (ScreenCapture li' non ha uno schermo da copiare). Niente HUD: serve a controllare luce e materiali.
+        bool camShots, cam1done, cam2done;
         const string REPORT = "C:/Users/danie/Desktop/prying-eyes/hotel_build/autotest.txt";
 
         void Awake()
         {
             I = this;
             autoTest = HasArg("-autotest");
+            camShots = HasArg("-camshots");
             if (autoTest)
                 System.IO.File.WriteAllText(REPORT, "t wave kills score hp shield mag reserve enemies shots hits\n");
         }
@@ -72,8 +76,36 @@ namespace PryingEyes
                 }
                 if (autoT >= 15f && !shot1done) { shot1done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot1.png"); }
                 if (autoT >= 75f && !shot2done) { shot2done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot2.png"); }
-                if (autoT >= 100f) Application.Quit();
+                if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
+                if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
+                if (autoT >= 100f)
+                {
+                    System.IO.File.AppendAllText(REPORT, $"flicker spegnimenti={Flicker.dropouts}\n");
+                    Application.Quit();
+                }
             }
+        }
+
+        static void CamShot(string path)
+        {
+            var cam = Camera.main;
+            if (cam == null) { Debug.LogWarning("[PryingEyes] camshot: nessuna camera"); return; }
+            const int W = 1280, H = 720;
+            var rt = RenderTexture.GetTemporary(W, H, 24);
+            var prev = cam.targetTexture;
+            cam.targetTexture = rt;
+            cam.Render();
+            cam.targetTexture = prev;
+            var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+            var old = RenderTexture.active;
+            RenderTexture.active = rt;
+            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+            tex.Apply();
+            RenderTexture.active = old;
+            RenderTexture.ReleaseTemporary(rt);
+            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+            Destroy(tex);
+            Debug.Log("[PryingEyes] camshot " + path);
         }
 
         public void StartWave(int n)

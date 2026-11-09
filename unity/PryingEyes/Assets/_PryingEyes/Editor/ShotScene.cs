@@ -12,16 +12,22 @@ namespace PryingEyes.EditorTools
     {
         struct Pose { public Vector3 pos; public Vector3 rot; public string name; }
 
-        static string Tag()
+        static string Tag() { var v = Arg("-shotTag"); return v != null ? "_" + v : ""; }
+
+        static string Arg(string name)
         {
             var args = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++)
-                if (args[i] == "-shotTag") return "_" + args[i + 1];
-            return "";
+                if (args[i] == name) return args[i + 1];
+            return null;
         }
 
         public static void Shots()
         {
+            // shader compilati subito: con la compilazione asincrona dell'editor, il primo fotogramma che usa una
+            // variante nuova la disegna col segnaposto (le finestre viste dal salotto uscivano fucsia). Il gioco
+            // compilato non ha il problema: le varianti sono gia' pronte.
+            ShaderUtil.allowAsyncCompilation = false;
             EditorSceneManager.OpenScene("Assets/_PryingEyes/Scenes/Hotel.unity");
             var camGo = new GameObject("ShotCam");
             var cam = camGo.AddComponent<Camera>();
@@ -46,8 +52,17 @@ namespace PryingEyes.EditorTools
                 new Pose { pos = new Vector3(0, 1.75f, 0f), rot = new Vector3(0, 180f, 0), name = "mid_stairs" },
                 new Pose { pos = new Vector3(-20, 1.75f, 9f), rot = new Vector3(0, 90f, 0), name = "lounge" },
                 new Pose { pos = new Vector3(-20, 2f, -14f), rot = new Vector3(0, 243f, 0), name = "crocage" },
+                // reception e terzo lampadario (quello spento, poi caduto)
+                new Pose { pos = new Vector3(12, 1.75f, 13f), rot = new Vector3(6.4f, 128.7f, 0), name = "reception" },
+                // scalone e lucernario da vicino, guardando un po' in alto
+                new Pose { pos = new Vector3(6, 1.75f, 9f), rot = new Vector3(-4.4f, 201.8f, 0), name = "scalone" },
             };
+            // le particelle in edit-mode non girano da sole: avanzarle di qualche secondo prima di scattare
+            foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+                ps.Simulate(12f, true, true);
             string tag = Tag();
+            var only = Arg("-onlyPose");   // "-onlyPose lounge": una sola inquadratura
+            if (only != null) poses = System.Array.FindAll(poses, p => p.name == only);
             var rt = new RenderTexture(1280, 720, 24);
             cam.targetTexture = rt;
             // fotogramma di riscaldamento: dopo OpenScene il primo render può uscire senza texture
@@ -58,6 +73,9 @@ namespace PryingEyes.EditorTools
             {
                 camGo.transform.position = p.pos;
                 camGo.transform.rotation = Quaternion.Euler(p.rot);
+                // riscaldamento per ogni posa: oggetti che compaiono per la prima volta a meta' sessione uscivano
+                // sbagliati nel primo fotogramma (finestre fucsia dal salotto); il secondo e' giusto
+                cam.Render();
                 cam.Render();
                 var tex = new Texture2D(1280, 720, TextureFormat.RGB24, false);
                 RenderTexture.active = rt;

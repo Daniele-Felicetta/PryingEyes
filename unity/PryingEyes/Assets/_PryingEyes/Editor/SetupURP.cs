@@ -67,6 +67,7 @@ namespace PryingEyes.EditorTools
             SetInt(so, "m_AdditionalLightsShadowmapResolution", 4096);
             SetBool(so, "m_ReflectionProbeBoxProjection", true);
             SetBool(so, "m_ReflectionProbeBlending", true);
+            SetBool(so, "m_RequireDepthTexture", true);              // le lame di luna si fermano sulle superfici
             so.ApplyModifiedPropertiesWithoutUndo();
 
             var ro = new SerializedObject(renderer);
@@ -76,11 +77,54 @@ namespace PryingEyes.EditorTools
             SetInt(ro, "m_RenderingMode", 2);                        // Forward+: niente limite di 4 luci per oggetto
             ro.ApplyModifiedPropertiesWithoutUndo();
 
+            var ssao = AddSSAO(renderer);
+
             EditorUtility.SetDirty(pipeline);
             EditorUtility.SetDirty(renderer);
             AssetDatabase.SaveAssets();
             Debug.Log("[PryingEyes] URP configured: msaa=" + pipeline.msaaSampleCount + " postData=" + (ppData != null)
-                + " shadowDist=" + pipeline.shadowDistance + " cascades=" + pipeline.shadowCascadeCount);
+                + " shadowDist=" + pipeline.shadowDistance + " cascades=" + pipeline.shadowCascadeCount
+                + " ssao=" + (ssao != null && ssao.isActive) + " features=" + renderer.rendererFeatures.Count);
+        }
+
+        /// <summary>Occlusione ambientale in screen space (prima il renderer non aveva nessun effetto): ombre di
+        /// contatto negli angoli, sotto i divani, tra i gradini. Idempotente; si registra come fa l'inspector di URP
+        /// (lista dei feature + mappa degli id locali).</summary>
+        static ScreenSpaceAmbientOcclusion AddSSAO(UniversalRendererData renderer)
+        {
+            var ssao = renderer.rendererFeatures.Find(f => f is ScreenSpaceAmbientOcclusion) as ScreenSpaceAmbientOcclusion;
+            if (ssao == null)
+            {
+                ssao = ScriptableObject.CreateInstance<ScreenSpaceAmbientOcclusion>();
+                ssao.name = "SSAO";
+                AssetDatabase.AddObjectToAsset(ssao, renderer);
+                AssetDatabase.TryGetGUIDAndLocalFileIdentifier(ssao, out string _, out long localId);
+                var ro = new SerializedObject(renderer);
+                var list = ro.FindProperty("m_RendererFeatures");
+                var map = ro.FindProperty("m_RendererFeatureMap");
+                list.arraySize++;
+                list.GetArrayElementAtIndex(list.arraySize - 1).objectReferenceValue = ssao;
+                map.arraySize++;
+                map.GetArrayElementAtIndex(map.arraySize - 1).longValue = localId;
+                ro.ApplyModifiedPropertiesWithoutUndo();
+            }
+            var so = new SerializedObject(ssao);
+            SetInt(so, "m_Settings.AOMethod", 0);                // blue noise
+            SetBool(so, "m_Settings.Downsample", false);
+            SetBool(so, "m_Settings.AfterOpaque", false);
+            SetInt(so, "m_Settings.Source", 1);                  // depth + normali
+            SetInt(so, "m_Settings.NormalSamples", 1);
+            SetFloat(so, "m_Settings.Intensity", 1.1f);
+            SetFloat(so, "m_Settings.DirectLightingStrength", 0.1f);
+            SetFloat(so, "m_Settings.Radius", 0.2f);
+            SetInt(so, "m_Settings.Samples", 0);                 // 12 campioni
+            SetInt(so, "m_Settings.BlurQuality", 0);             // bilaterale
+            SetFloat(so, "m_Settings.Falloff", 60f);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            ssao.SetActive(true);
+            EditorUtility.SetDirty(ssao);
+            renderer.SetDirty();
+            return ssao;
         }
 
         static SerializedProperty Prop(SerializedObject so, string name)

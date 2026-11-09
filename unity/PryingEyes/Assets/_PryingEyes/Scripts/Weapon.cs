@@ -74,6 +74,17 @@ namespace PryingEyes
             flashLight.color = new Color(1f, 0.6f, 0.25f);
             flashLight.intensity = 0f;
             flashLight.range = 6f;
+
+            // luce dedicata all'arma, come nella versione web: con la hall al buio l'arma (quasi tutta metallo,
+            // riflette l'ambiente) era una sagoma nera. Raggio di un metro: non illumina la stanza.
+            var fill = new GameObject("ViewmodelFill").AddComponent<Light>();
+            fill.transform.SetParent(root.transform, false);
+            fill.transform.localPosition = new Vector3(-0.25f, 0.3f, -0.2f);
+            fill.type = LightType.Point;
+            fill.color = new Color(1f, 0.95f, 0.88f);
+            fill.intensity = 0.6f;
+            fill.range = 1.1f;
+            fill.shadows = LightShadows.None;
             transform.GetChild(0).localPosition = new Vector3(0.28f, -0.26f, 0.55f);
         }
 
