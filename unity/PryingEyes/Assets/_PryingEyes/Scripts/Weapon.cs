@@ -344,8 +344,8 @@ namespace PryingEyes
             AddBox(root, "DotR", new Vector3(0.012f, 0.06f, 0.08f), new Vector3(0.026f, 0.147f, 0.05f), dark);
             AddBox(root, "DotTop", new Vector3(0.064f, 0.012f, 0.08f), new Vector3(0, 0.177f, 0.05f), dark);
             AddBox(root, "DotLens", new Vector3(0.052f, 0.055f, 0.006f), new Vector3(0, 0.147f, 0.093f), WeaponRef.Lens);
-            AddRing(root, "DotBezel", new Vector3(0, 0.147f, 0.092f), 0.034f, 16, 0.009f, 0.010f, dark);
-            AddRing(root, "DotReticle", new Vector3(0, 0.147f, 0.0985f), 0.0085f, 14, 0.0014f, 0.0012f, WeaponRef.Dot);
+            AddRing(root, "DotBezel", new Vector3(0, 0.147f, 0.092f), 0.034f, 16, 0.011f, 0.010f, steel);
+            AddRing(root, "DotReticle", new Vector3(0, 0.147f, 0.0985f), 0.0085f, 14, 0.0024f, 0.0014f, WeaponRef.Dot);
             AddSphere(root, "Dot", 0.0042f, new Vector3(0, 0.147f, 0.099f), WeaponRef.Dot);
             sightY = 0.147f;
             muzzle = new Vector3(0, 0.015f, 0.72f);
@@ -391,8 +391,8 @@ namespace PryingEyes
             AddBox(root, "RefR", new Vector3(0.011f, 0.055f, 0.075f), new Vector3(0.024f, 0.134f, 0.04f), dark);
             AddBox(root, "RefTop", new Vector3(0.058f, 0.011f, 0.075f), new Vector3(0, 0.162f, 0.04f), dark);
             AddBox(root, "RefLens", new Vector3(0.05f, 0.052f, 0.006f), new Vector3(0, 0.134f, 0.08f), WeaponRef.Lens);
-            AddRing(root, "RefBezel", new Vector3(0, 0.134f, 0.079f), 0.032f, 16, 0.008f, 0.010f, dark);
-            AddRing(root, "RefReticle", new Vector3(0, 0.134f, 0.0865f), 0.0078f, 14, 0.0013f, 0.0012f, WeaponRef.Dot);
+            AddRing(root, "RefBezel", new Vector3(0, 0.134f, 0.079f), 0.032f, 16, 0.010f, 0.010f, steel);
+            AddRing(root, "RefReticle", new Vector3(0, 0.134f, 0.0865f), 0.0078f, 14, 0.0022f, 0.0014f, WeaponRef.Dot);
             AddSphere(root, "Dot", 0.0046f, new Vector3(0, 0.134f, 0.086f), WeaponRef.Dot);
             sightY = 0.134f;
             muzzle = new Vector3(0, 0.012f, 0.48f);
@@ -423,10 +423,10 @@ namespace PryingEyes
 
             // tacca fantasma posteriore + mirino a sfera frontale
             AddBox(root, "GhostBase", new Vector3(0.022f, 0.04f, 0.02f), new Vector3(0, 0.068f, 0.02f), dark);
-            AddRing(root, "GhostAperture", new Vector3(0, 0.094f, 0.02f), 0.022f, 14, 0.006f, 0.012f, dark);
+            AddRing(root, "GhostAperture", new Vector3(0, 0.094f, 0.02f), 0.022f, 14, 0.008f, 0.012f, steel);
             AddBox(root, "FrontPost", new Vector3(0.012f, 0.055f, 0.012f), new Vector3(0, 0.075f, 0.70f), dark);
-            AddRing(root, "BeadHood", new Vector3(0, 0.105f, 0.698f), 0.0105f, 10, 0.0035f, 0.010f, dark);
-            AddSphere(root, "Bead", 0.0065f, new Vector3(0, 0.105f, 0.70f), WeaponRef.Dot);
+            AddRing(root, "BeadHood", new Vector3(0, 0.105f, 0.698f), 0.0105f, 10, 0.0045f, 0.010f, steel);
+            AddSphere(root, "Bead", 0.0075f, new Vector3(0, 0.105f, 0.70f), WeaponRef.Dot);
             sightY = 0.105f;
             muzzle = new Vector3(0, 0.025f, 0.73f);
         }
@@ -462,10 +462,10 @@ namespace PryingEyes
             AddCyl(root, "Scope", 0.035f, 0.32f, new Vector3(0, 0.12f, 0.06f), dark);
             AddCyl(root, "ScopeFront", 0.031f, 0.006f, new Vector3(0, 0.12f, 0.222f), WeaponRef.Lens);
             AddCyl(root, "ScopeRear", 0.031f, 0.006f, new Vector3(0, 0.12f, -0.102f), WeaponRef.Lens);
-            AddRing(root, "ScopeHood", new Vector3(0, 0.12f, 0.238f), 0.036f, 16, 0.008f, 0.03f, dark);
-            AddBox(root, "ReticleH", new Vector3(0.05f, 0.0012f, 0.001f), new Vector3(0, 0.12f, 0.2268f), steel);
-            AddBox(root, "ReticleV", new Vector3(0.0012f, 0.05f, 0.001f), new Vector3(0, 0.12f, 0.2268f), steel);
-            AddSphere(root, "ReticleDot", 0.0016f, new Vector3(0, 0.12f, 0.2272f), WeaponRef.Dot);
+            AddRing(root, "ScopeHood", new Vector3(0, 0.12f, 0.238f), 0.036f, 16, 0.010f, 0.03f, steel);
+            AddBox(root, "ReticleH", new Vector3(0.05f, 0.0022f, 0.001f), new Vector3(0, 0.12f, 0.2268f), steel);
+            AddBox(root, "ReticleV", new Vector3(0.0022f, 0.05f, 0.001f), new Vector3(0, 0.12f, 0.2268f), steel);
+            AddSphere(root, "ReticleDot", 0.0026f, new Vector3(0, 0.12f, 0.2272f), WeaponRef.Dot);
             AddCyl(root, "TurretTop", 0.014f, 0.03f, new Vector3(0, 0.158f, 0.06f), dark);
             sightY = 0.12f;
             muzzle = new Vector3(0, 0.015f, 0.85f);
