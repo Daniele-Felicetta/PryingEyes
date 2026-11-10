@@ -159,7 +159,19 @@ namespace PryingEyes
 
             Vector3 gp = transform.position;
             Vector3 feet = playerT.position;
-            Vector3 chest = feet + Vector3.up * 1.3f;
+            // il corpo del giocatore e' dove sta davvero: con il lean la testa sporge dal riparo, il bacino no.
+            // Se il petto e' coperto ma la testa si vede, si prende di mira la testa.
+            var pl = GameManager.I.player;
+            Vector3 chest = pl.LeanedPoint(1.3f);
+            if (Mathf.Abs(pl.lean) > 0.05f)
+            {
+                Vector3 eyeE = gp + Vector3.up * 1.9f;
+                if (!HotelNav.ClearLine(eyeE, chest))
+                {
+                    Vector3 headP = pl.LeanedPoint(1.58f);
+                    if (HotelNav.ClearLine(eyeE, headP)) chest = headP;
+                }
+            }
             Vector3 toP = feet - gp; toP.y = 0f;
             float hd = toP.magnitude;                       // distanza orizzontale
             if (hd > 0.01f) toP /= hd;

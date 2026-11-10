@@ -107,7 +107,7 @@ Loop completo verificato in PIE con log (`LogBlueprintUserMessages`):
 
 Hall giocabile in prima persona, generata da `HotelBuilder`, con questi sistemi:
 
-- **armi sui muri stile COD Zombies** (`Scripts/WallBuy.cs`): VESPER-9 (SMG) 500 punti, BREACHER-12 (pompa) 1200, LANCE-7 (DMR semiauto) 1800. Pannello metallico, sagoma di gesso, arma 3D, nome/prezzo e luce colorata; avvicinati e premi **F** per comprare. Riacquistando la stessa arma ricarichi la riserva a metà prezzo.
+- **armi sui muri stile COD Zombies** (`Scripts/WallBuy.cs`; la lista e i prezzi nuovi sono nella sezione "Armi: 28 modelli" qui sotto: questo paragrafo descrive la prima versione con 4 armi). Pannello metallico, sagoma di gesso, arma 3D, nome/prezzo e luce colorata; avvicinati e premi **F** per comprare. Riacquistando la stessa arma ricarichi la riserva a metà prezzo.
 - **punti come valuta** (`GameManager`): si parte da 500; +10 per colpo a segno, +50 per uccisione, +100 per headshot letale. Niente moltiplicatore per ondata. Le armi costano punti, quindi le uccisioni servono a finanziare l'arsenale.
 - **quattro armi con statistiche e viewmodel distinti** (`Scripts/Weapon.cs`): cadenza, danno, caricatore, riserva, rinculo, spread, headshot multiplier, ricarica; il fucile a pompa spara 8 pallini per colpo. Il viewmodel viene ricostruito all'acquisto.
 - **mirini dedicati**: red dot sull'AR-9, reflex sul VESPER-9, tacca fantasma + sfera sul BREACHER-12, ottica con torrette e lenti sul LANCE-7. In ADS l'arma si alza e centra il mirino sul punto di mira (RMB).
@@ -123,6 +123,68 @@ Hall giocabile in prima persona, generata da `HotelBuilder`, con questi sistemi:
 - **HUD**: prompt di acquisto vicino al mirino + nome arma accanto alle munizioni; punteggio e presenze restano in alto a sinistra.
 - test automatici: `-autotest -camshots` produce `hotel_build/wallbuy.png` (foto dell'espositore); `-autotest -walltest` verifica prompt, acquisto, spesa punti e ricarica riserva.
 - build: `BuildPlayer.Windows` (Unity 6000.6.7f1) → `unity/PryingEyes/Builds/PryingEyes.exe`.
+
+## Armi: 28 modelli in 5 gradi di potenza (Unity)
+
+Il gunplay e' stato rifatto da zero (`Scripts/Weapon.cs`, `Scripts/Armi/`). Le quattro armi di primitive sono sparite: ogni arma e' un modello 3D vero fatto con uno script Blender (hard-surface con smussi, guide Picatinny, asole M-LOK, mirini veri), con una texture PBR cotta da Blender (colore, metallicita'/levigatezza/occlusione, normali: usura sugli spigoli, graffi, sporco nelle cavita', puntinatura del polimero, venatura del legno). 25 armi sono "reali" e 3 sono speciali (sacra, organica, aliena) con materiali d'osso, carne ed emissione ambra.
+
+**Controlli.** LMB fuoco, RMB mira (ADS), R ricarica, **B** cambia modo di fuoco (auto/semi/raffica dove c'e'), **1 / 2 / X / rotellina** cambiano arma (due slot), **Q / E** lean, Shift sprint (con un'ottica forte Shift tiene il fiato), F compra/accende.
+
+**Gradi.** I = Ordinaria (grigio), II = Scelta (verde), III = Rara (azzurro), IV = Epica (viola), V = Reliquia (oro). Ai muri compaiono tre armi per piano: vicino all'arrivo la piu' modesta, lontano la migliore, e il grado massimo sale coi piani. A due slot pieni l'acquisto sostituisce l'arma in mano; ricomprando un'arma che si ha si ricarica la riserva a meta' prezzo.
+
+| Gr. | Arma | Classe | Danno | Fuoco | Caricatore | Mirino |
+|---|---|---|---|---|---|---|
+| I | PIETA' P-9 (si parte con questa) | pistola | 25 | semi | 15 | ferri a tre punti |
+| I | VIGILIA .45 | pistola | 38 | semi | 8 | ferri fissi |
+| I | TARANTOLA | micro-mitra | 13 | auto 1150 | 32 | diaframma |
+| II | CARDINALE .357 | revolver | 70, perfora | semi | 6 (tamburo) | tacca e rampa |
+| II | SERAFINO-18 | pistola mitragliatrice | 16 | auto 1000 | 20 | punto rosso aperto |
+| II | VESPER-9 | mitra | 20 | auto 850 | 40 | punto rosso |
+| II | CIMBALO-45 | mitra | 29 | auto/semi 620 | 25 | olografico |
+| II | TRINITA' | fucile a raffica | 36 | raffica da 3 | 30 | maniglia con diaframma |
+| II | AR-9 MALLEUS | fucile d'assalto | 30 | auto/semi 700 | 30 | punto rosso |
+| II | PREDICATORE | carabina a leva | 66, perfora | leva | 8 (tubo) | tacca a corna |
+| II | ROSARIO | fucile a otturatore | 118 | otturatore | 5 | diaframma |
+| II | CAPPELLANO | doppietta | 10 x 14 | 2 canne | 2 | mirino a sfera |
+| II | BREACHER-12 | fucile a pompa | 8 x 15 | pompa | 8 (tubo) | mira fantasma |
+| III | BORDONE | PDW bullpup | 23 | auto 900 | 50 (sopra) | anello |
+| III | ARCANGELO-47 | fucile d'assalto | 42 | auto/semi 600 | 30 | ferri a tangente |
+| III | ORIFIAMMA | bullpup | 32 | auto/semi 680 | 30 | ottica 1,5x |
+| III | LANCE-7 | fucile di precisione | 72 | semi | 12 | cannocchiale 4x |
+| III | MARTELLO-12 | fucile semiautomatico | 8 x 13 | semi | 8 (scatola) | punto rosso |
+| III | SALTERIO | mitragliatrice a tamburo | 36 | auto 640 | 75 | ferri |
+| III | TURIBOLO (speciale) | lanciafiamme sacro | 9 al tick, perfora 4 | auto 1100, gittata 11 m | 120 (serbatoio) | ferri |
+| IV | SPORA (speciale) | lanciaspine alieno | 21 x 7 spine | semi 140 | 6 | ferri |
+| IV | EREMITA .50 | pistola magnum | 125, perfora | semi | 7 | ferri regolabili |
+| IV | GLORIA | fucile da battaglia | 55 | auto/semi 520 | 20 | ACOG 4x |
+| IV | SENTINELLA | fucile da cecchino | 190, perfora 3 | otturatore | 5 | cannocchiale 8x |
+| IV | APOCALISSE-12 | fucile a tamburo | 8 x 11 | auto 300 | 20 | olografico |
+| IV | CAMPANA-249 | mitragliatrice leggera | 40 | auto 780 | 100 (nastro) | ACOG 3x |
+| V | ALTARE-50 | antimateriale | 420, perfora 5 | semi | 5 | cannocchiale 10x |
+| V | PUPILLA (speciale) | fucile-occhio a raggio | 90, trapassa tutto | semi 210 | 14 | anello ambra |
+
+**Armi speciali.** Il TURIBOLO e' un turibolo-lanciafiamme (la catena dondola, il fuoco e' un getto di quad additivi che perfora i nemici in fila e ha gittata corta), la SPORA e' un lanciaspine di osso e carne che spara sette aghi verdi a ventaglio, la PUPILLA e' un fucile con un occhio al posto della bocca che emette un raggio ambra continuo che trapassa tutto. Niente bossoli, suoni sintetici a parte (`SoundGen.Special`).
+
+Ogni arma ha numeri suoi (`Scripts/Armi/WeaponDefs.cs`): caduta del danno con la distanza, moltiplicatore alla testa, perforazione dei nemici, dispersione da fermo e in mira, quanto cresce coi colpi, in corsa, accovacciati e in aria, rinculo verticale e orizzontale e quanto in fretta la visuale rientra, tempo per mirare e per estrarre, velocita' di cammino e in mira, ricarica a caricatore pieno o vuoto, e un tipo di ricarica diverso (caricatore, pistola con carrello fermo, a canna cartuccia per cartuccia e interrompibile sparando, revolver col tamburo che si apre, doppietta che si piega, nastro).
+
+**Gunplay.** Il rinculo sposta davvero la visuale (cresce un poco nella raffica, e' piu' dolce in mira e accovacciati) e poi rientra da solo: tirando il mouse in basso lo si compensa. La dispersione e' un cono in gradi: da fermi in mira e' minima, la prima pallottola dopo una pausa e' precisa, camminando, in corsa o in aria si allarga; il mirino a schermo si apre di conseguenza e sparisce in mira. Il modello ha inerzia (resta un po' indietro rispetto al mouse), si ritrae e si alza davanti a un muro, carrello/otturatore/pompa/leva/martello si muovono, i bossoli escono dall'espulsore e rimbalzano, ogni colpo lascia una traccia luminosa, scintille, polvere e un foro sul muro. Gli spari hanno un suono per classe (pistola, .45, revolver, magnum, mitra, fucile, AK, da battaglia, leva, cecchino, antimateriale, pompa, mitragliatrice) e le manovre hanno i loro rumori.
+
+**Mirini.** Ferri veri (tacca e mirino, diaframma, mira fantasma, mirino a sfera, orecchie di protezione), punto rosso a tubo e aperto, olografico con cerchio e trattini, anello del PDW. Il reticolo dei punti rossi e' *collimato*: e' disegnato in funzione della direzione dello sguardo rispetto all'asse dell'ottica, quindi non ha parallasse, scivola se l'occhio esce dall'asse e da davanti non si vede. Le ottiche ingrandite (ACOG, cannocchiali) mostrano nella lente l'immagine di una seconda camera con l'ingrandimento vero, il reticolo inciso (croce duplex con punti, oppure chevron luminoso), l'ombra del cannocchiale se l'occhio e' fuori asse e il respiro del tiratore (Shift lo ferma).
+
+**Lean vero.** Q/E inclinano il busto attorno al bacino: la testa sporge di circa 43 cm e la visuale si inclina di 19 gradi; la collisione della testa impedisce di entrare nei muri (a un muro il lean si ferma), e i nemici vedono e colpiscono il giocatore dove si trova davvero: da dietro un angolo si vede la testa ma non il bacino.
+
+**Pipeline** (`modelli/armi/`, Blender 4.5, Python di sistema con numpy e PIL):
+```powershell
+blender -b -P genera_armi.py -- render <nomi> rapido lato        # anteprime in render/ (python sheet_pil.py lato <nomi> fa un foglio)
+blender -b -P genera_armi.py -- bake [nomi]                      # UV, bake PBR in tex/raw, FBX in export/ (~25 s ad arma)
+python pack_tex.py                                               # base.jpg, mask.png, normal.jpg in tex/
+Unity -executeMethod PryingEyes.EditorTools.ArmiImport.Run       # copia FBX e texture, materiali, prefab in Resources/Armi
+Unity -executeMethod PryingEyes.EditorTools.ArmiShots.Run -armi p9_pieta   # foto in mano, in mira, di lato (hotel_build/armi)
+PryingEyes.exe -batchmode -guntest [-armi p9_pieta,ar9_malleus]            # prova in gioco di tutte le armi (o di quelle indicate): foto e numeri in hotel_build/armi_gioco (guntest.txt: cadenza misurata, rinculo massimo, dispersione)
+PryingEyes.exe -batchmode -guntest -fxtest -armi tu_turibolo               # in piu' foto degli effetti a quad isolati (fiamma, raggio, traccia): fxtest0-2.png
+PryingEyes.exe -batchmode -autotest -leantest -camshots                    # prova del lean nell'ascensore (con un muro a 38 cm il lean si ferma a 0,64)
+python sheet_game.py hotel_build/armi lato 4                               # foglio di contatto (jpg) di una vista: mano, mira, lato, sparo, ricarica
+```
 
 ## La Torre: piani procedurali (Unity, scena `Torre.unity`)
 

@@ -7,6 +7,10 @@ namespace PryingEyes
     public static class Synth
     {
         public static void Shot() => Sfx.UI(SoundBank.Shot, 0.55f, Random.Range(0.96f, 1.04f));
+        /// <summary>Sparo di un'arma: set "pistol", "revolver", "smg", "rifle", "ak", "br", "sniper", "amr", "shotgun", "lmg"...</summary>
+        public static void Gun(string set, float vol, float pitch) => Sfx.UI(SoundBank.Gun(set), vol, pitch);
+        /// <summary>Rumore meccanico di un'arma (caricatore, otturatore, pompa, cartucce...).</summary>
+        public static void Mech(string name, float vol, float pitch) => Sfx.UI(SoundBank.Mech(name), vol, pitch);
         public static void Hit() => Sfx.UI(SoundBank.HitTick, 0.4f, Random.Range(0.97f, 1.03f));
         public static void Kill() => Sfx.UI(SoundBank.Kill, 0.5f);
         public static void Reload() => Sfx.UI(SoundBank.Reload, 0.55f);

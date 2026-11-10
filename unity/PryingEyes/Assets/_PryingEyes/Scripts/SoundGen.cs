@@ -161,6 +161,240 @@ namespace PryingEyes
             return s;
         }
 
+        // ---------- spari per classe di arma ----------
+        struct GP { public float hp, crackD, lp, bodyD, f0, f1, thumpD, tl, tailD, dur, crack, body, thump, tail, drive; }
+
+        static GP Profile(string set)
+        {
+            switch (set)
+            {
+                case "pistol":  return new GP { hp = 3000, crackD = 0.0025f, lp = 2400, bodyD = 0.032f, f0 = 170, f1 = 80, thumpD = 0.04f, tl = 900, tailD = 0.16f, dur = 0.55f, crack = 1.5f, body = 1.3f, thump = 0.7f, tail = 0.5f, drive = 1.6f };
+                case "pistol45": return new GP { hp = 2600, crackD = 0.003f, lp = 1700, bodyD = 0.045f, f0 = 130, f1 = 60, thumpD = 0.06f, tl = 650, tailD = 0.2f, dur = 0.6f, crack = 1.3f, body = 1.5f, thump = 0.95f, tail = 0.55f, drive = 1.7f };
+                case "revolver": return new GP { hp = 2300, crackD = 0.0035f, lp = 1300, bodyD = 0.07f, f0 = 95, f1 = 40, thumpD = 0.11f, tl = 520, tailD = 0.32f, dur = 0.95f, crack = 1.4f, body = 1.6f, thump = 1.2f, tail = 0.75f, drive = 1.9f };
+                case "magnum":  return new GP { hp = 2000, crackD = 0.004f, lp = 1000, bodyD = 0.09f, f0 = 72, f1 = 30, thumpD = 0.16f, tl = 420, tailD = 0.42f, dur = 1.1f, crack = 1.4f, body = 1.8f, thump = 1.5f, tail = 0.9f, drive = 2.1f };
+                case "smg":     return new GP { hp = 3200, crackD = 0.0022f, lp = 2600, bodyD = 0.028f, f0 = 150, f1 = 85, thumpD = 0.035f, tl = 1000, tailD = 0.13f, dur = 0.42f, crack = 1.5f, body = 1.2f, thump = 0.6f, tail = 0.45f, drive = 1.5f };
+                case "smg45":   return new GP { hp = 2800, crackD = 0.0026f, lp = 1900, bodyD = 0.038f, f0 = 125, f1 = 62, thumpD = 0.05f, tl = 750, tailD = 0.16f, dur = 0.48f, crack = 1.4f, body = 1.4f, thump = 0.85f, tail = 0.5f, drive = 1.6f };
+                case "ak":      return new GP { hp = 1900, crackD = 0.0042f, lp = 1350, bodyD = 0.06f, f0 = 105, f1 = 40, thumpD = 0.085f, tl = 430, tailD = 0.32f, dur = 0.95f, crack = 1.5f, body = 1.7f, thump = 1.0f, tail = 0.65f, drive = 1.8f };
+                case "br":      return new GP { hp = 1700, crackD = 0.0048f, lp = 1050, bodyD = 0.07f, f0 = 88, f1 = 33, thumpD = 0.11f, tl = 380, tailD = 0.40f, dur = 1.05f, crack = 1.5f, body = 1.8f, thump = 1.25f, tail = 0.75f, drive = 1.9f };
+                case "lever":   return new GP { hp = 2000, crackD = 0.0045f, lp = 1450, bodyD = 0.06f, f0 = 100, f1 = 38, thumpD = 0.09f, tl = 460, tailD = 0.34f, dur = 0.9f, crack = 1.5f, body = 1.6f, thump = 1.0f, tail = 0.7f, drive = 1.8f };
+                case "sniper":  return new GP { hp = 1500, crackD = 0.006f, lp = 800, bodyD = 0.09f, f0 = 66, f1 = 28, thumpD = 0.16f, tl = 300, tailD = 0.6f, dur = 1.45f, crack = 1.6f, body = 1.9f, thump = 1.4f, tail = 1.0f, drive = 2.0f };
+                case "amr":     return new GP { hp = 1200, crackD = 0.008f, lp = 600, bodyD = 0.12f, f0 = 48, f1 = 22, thumpD = 0.28f, tl = 250, tailD = 0.9f, dur = 1.9f, crack = 1.6f, body = 2.0f, thump = 1.8f, tail = 1.2f, drive = 2.4f };
+                case "shotgun": return new GP { hp = 1300, crackD = 0.009f, lp = 950, bodyD = 0.10f, f0 = 72, f1 = 32, thumpD = 0.14f, tl = 360, tailD = 0.5f, dur = 1.05f, crack = 1.2f, body = 2.0f, thump = 1.2f, tail = 0.9f, drive = 2.0f };
+                case "lmg":     return new GP { hp = 2000, crackD = 0.0035f, lp = 1450, bodyD = 0.045f, f0 = 95, f1 = 46, thumpD = 0.07f, tl = 460, tailD = 0.25f, dur = 0.75f, crack = 1.4f, body = 1.6f, thump = 1.0f, tail = 0.6f, drive = 1.8f };
+                default:        return new GP { hp = 2200, crackD = 0.0035f, lp = 1700, bodyD = 0.05f, f0 = 120, f1 = 42, thumpD = 0.075f, tl = 480, tailD = 0.28f, dur = 0.9f, crack = 1.4f, body = 1.6f, thump = 0.9f, tail = 0.6f, drive = 1.6f };
+            }
+        }
+
+        /// <summary>Sparo di una classe d'arma: schiocco, corpo, tonfo basso e coda, con parametri diversi per ogni classe.</summary>
+        public static float[] Gunshot(string set, int seed)
+        {
+            var p = Profile(set);
+            var r = new System.Random(seed * 17 + set.Length * 101);
+            var s = Buf(p.dur);
+            var hp = Biquad.HighPass(p.hp * U(r, 0.94f, 1.06f), 0.7f);
+            var lp = Biquad.LowPass(p.lp * U(r, 0.94f, 1.06f), 0.8f);
+            var tl = Biquad.LowPass(p.tl, 0.7f);
+            double ph = 0;
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate, n = N(r);
+                float crack = hp.Run(n) * Mathf.Exp(-t / p.crackD) * p.crack;
+                float body = lp.Run(n) * Mathf.Exp(-t / p.bodyD) * p.body;
+                ph += TwoPi * Mathf.Lerp(p.f0, p.f1, Mathf.Clamp01(t / (p.thumpD * 1.2f))) / Rate;
+                float thump = (float)Math.Sin(ph) * Mathf.Exp(-t / p.thumpD) * p.thump;
+                float tail = tl.Run(n) * Mathf.Exp(-t / p.tailD) * p.tail;
+                s[i] = crack + body + thump + tail;
+            }
+            SoftClip(s, p.drive);
+            Normalize(s, 0.95f);
+            return s;
+        }
+
+        /// <summary>Suoni delle armi speciali: ruggito di fiamma (si ripete a raffica), raggio d'energia, spine organiche.</summary>
+        public static float[] Special(string set, int seed)
+        {
+            var r = new System.Random(seed * 23 + set.Length * 37);
+            float[] s;
+            switch (set)
+            {
+                case "flame":
+                {
+                    s = Buf(0.42f);
+                    var lp = Biquad.LowPass(1500f, 0.7f); var lp2 = Biquad.LowPass(420f, 0.8f);
+                    double ph = 0;
+                    for (int i = 0; i < s.Length; i++)
+                    {
+                        float t = (float)i / Rate, n = N(r);
+                        float env = Mathf.Clamp01(t / 0.035f) * Mathf.Exp(-t / 0.17f);
+                        ph += TwoPi * (62f + 18f * Mathf.Sin(t * 31f)) / Rate;
+                        s[i] = (lp.Run(n) * 1.0f + lp2.Run(n) * 1.4f + (float)Math.Sin(ph) * 0.45f) * env;
+                    }
+                    SoftClip(s, 1.5f); Normalize(s, 0.85f);
+                    return s;
+                }
+                case "beam":
+                {
+                    s = Buf(0.95f);
+                    double ph = 0, ph2 = 0;
+                    var hp = Biquad.HighPass(3200f, 0.7f);
+                    for (int i = 0; i < s.Length; i++)
+                    {
+                        float t = (float)i / Rate, n = N(r);
+                        float f = Mathf.Lerp(2600f, 150f, 1f - Mathf.Exp(-t / 0.05f));
+                        ph += TwoPi * f / Rate;
+                        ph2 += TwoPi * f * 1.5f / Rate;
+                        float body = ((float)Math.Sin(ph) + 0.5f * (float)Math.Sin(ph2)) * Mathf.Exp(-t / 0.16f);
+                        float crack = hp.Run(n) * Mathf.Exp(-t / 0.012f) * 1.2f;
+                        s[i] = body + crack;
+                    }
+                    Chime(s, 0.01f, 1700f, 0.5f, new[] { 1f, 2.41f, 3.73f, 5.1f }, new[] { 0.35f, 0.22f, 0.14f, 0.08f }, 1f);
+                    SoftClip(s, 1.4f); Normalize(s, 0.92f);
+                    return s;
+                }
+                default: // spine
+                {
+                    s = Buf(0.60f);
+                    var bp = Biquad.BandPass(650f, 1.5f); var hp = Biquad.HighPass(5000f, 0.7f); var hp2 = Biquad.HighPass(3200f, 0.7f);
+                    double ph = 0;
+                    for (int i = 0; i < s.Length; i++)
+                    {
+                        float t = (float)i / Rate, n = N(r);
+                        ph += TwoPi * Mathf.Lerp(125f, 52f, Mathf.Clamp01(t / 0.12f)) / Rate;
+                        float thump = (float)Math.Sin(ph) * Mathf.Exp(-t / 0.07f) * 1.1f;
+                        float wet = bp.Run(n) * Mathf.Exp(-t / 0.09f) * 1.5f;
+                        float hiss = hp.Run(n) * Mathf.Exp(-t / 0.22f) * 0.45f;
+                        float crack = hp2.Run(n) * Mathf.Exp(-t / 0.004f) * 1.1f;
+                        s[i] = thump + wet + hiss + crack;
+                    }
+                    SoftClip(s, 1.7f); Normalize(s, 0.92f);
+                    return s;
+                }
+            }
+        }
+
+        /// <summary>Rumori meccanici delle armi: caricatori, otturatori, pompe, cilindro, leve, cartucce.</summary>
+        public static float[] Mech(string name, int seed)
+        {
+            var r = new System.Random(seed * 13 + name.Length * 7 + name[0]);
+            float[] s;
+            switch (name)
+            {
+                case "magout":
+                    s = Buf(0.32f);
+                    Burst(s, 0.0f, 2600f, 3f, 0.012f, 1f, r); Chime(s, 0.0f, 3200f, 0.05f, new[] { 1f }, new[] { 0.3f }, 1f);
+                    Thump(s, 0.09f, 150f, 80f, 0.05f, 0.05f, 0.5f); Burst(s, 0.09f, 900f, 2f, 0.02f, 0.5f, r);
+                    break;
+                case "magin":
+                    s = Buf(0.30f);
+                    Thump(s, 0.0f, 140f, 90f, 0.05f, 0.045f, 0.7f); Burst(s, 0.0f, 1900f, 3f, 0.011f, 1.0f, r);
+                    Burst(s, 0.045f, 3100f, 5f, 0.006f, 0.8f, r); Chime(s, 0.04f, 2700f, 0.04f, new[] { 1f, 1.6f }, new[] { 0.3f, 0.15f }, 1f);
+                    break;
+                case "boltback":
+                    s = Buf(0.34f);
+                    Burst(s, 0.0f, 1500f, 1.4f, 0.09f, 0.9f, r); Burst(s, 0.14f, 2300f, 4f, 0.01f, 1.0f, r); Thump(s, 0.14f, 150f, 90f, 0.04f, 0.04f, 0.5f);
+                    break;
+                case "boltfwd":
+                    s = Buf(0.32f);
+                    Burst(s, 0.0f, 1700f, 1.4f, 0.07f, 0.8f, r); Burst(s, 0.10f, 2000f, 3f, 0.012f, 1.3f, r); Thump(s, 0.10f, 130f, 70f, 0.05f, 0.06f, 0.9f);
+                    Chime(s, 0.10f, 2400f, 0.06f, new[] { 1f, 2.3f }, new[] { 0.3f, 0.15f }, 1f);
+                    break;
+                case "boltup":
+                    s = Buf(0.18f);
+                    Burst(s, 0.0f, 2800f, 5f, 0.008f, 1.0f, r); Burst(s, 0.03f, 1400f, 2f, 0.04f, 0.5f, r);
+                    break;
+                case "slidefwd":
+                    s = Buf(0.22f);
+                    Burst(s, 0.0f, 2300f, 4f, 0.01f, 1.4f, r); Thump(s, 0.0f, 160f, 90f, 0.03f, 0.04f, 0.6f); Chime(s, 0.0f, 3300f, 0.05f, new[] { 1f }, new[] { 0.35f }, 1f);
+                    break;
+                case "pumpback":
+                    s = Buf(0.3f);
+                    Burst(s, 0.0f, 1200f, 1.2f, 0.08f, 0.8f, r); Burst(s, 0.11f, 2400f, 4f, 0.01f, 0.9f, r); Thump(s, 0.11f, 140f, 80f, 0.04f, 0.04f, 0.5f);
+                    break;
+                case "pumpfwd":
+                    s = Buf(0.3f);
+                    Burst(s, 0.0f, 1300f, 1.2f, 0.06f, 0.7f, r); Burst(s, 0.09f, 1900f, 3f, 0.012f, 1.4f, r); Thump(s, 0.09f, 120f, 65f, 0.05f, 0.07f, 1.0f);
+                    Chime(s, 0.09f, 2100f, 0.05f, new[] { 1f, 2.1f }, new[] { 0.25f, 0.1f }, 1f);
+                    break;
+                case "leverdown":
+                    s = Buf(0.34f);
+                    Burst(s, 0.0f, 2200f, 2f, 0.03f, 0.6f, r); Burst(s, 0.02f, 1000f, 1.2f, 0.1f, 0.7f, r); Burst(s, 0.16f, 2600f, 4f, 0.01f, 0.9f, r);
+                    break;
+                case "leverup":
+                    s = Buf(0.30f);
+                    Burst(s, 0.0f, 1500f, 1.4f, 0.09f, 0.7f, r); Burst(s, 0.12f, 2100f, 3f, 0.012f, 1.4f, r); Thump(s, 0.12f, 130f, 70f, 0.05f, 0.06f, 0.9f);
+                    break;
+                case "shellin":
+                    s = Buf(0.2f);
+                    Burst(s, 0.0f, 3400f, 6f, 0.006f, 0.9f, r); Burst(s, 0.0f, 900f, 1.5f, 0.02f, 0.6f, r); Thump(s, 0.012f, 220f, 120f, 0.03f, 0.03f, 0.5f);
+                    Chime(s, 0.0f, 4200f, 0.03f, new[] { 1f }, new[] { 0.25f }, 1f);
+                    break;
+                case "shellopen":
+                    s = Buf(0.14f);
+                    Burst(s, 0.0f, 2800f, 5f, 0.008f, 0.8f, r);
+                    break;
+                case "cylopen":
+                    s = Buf(0.32f);
+                    Burst(s, 0.0f, 2600f, 4f, 0.01f, 1.0f, r);
+                    for (int k = 0; k < 5; k++) Burst(s, 0.07f + k * 0.032f, 3300f, 8f, 0.004f, 0.55f, r);
+                    Thump(s, 0.0f, 150f, 90f, 0.04f, 0.04f, 0.4f);
+                    break;
+                case "cylshells":
+                    s = Buf(0.28f);
+                    for (int k = 0; k < 7; k++) Burst(s, k * 0.03f + (float)r.NextDouble() * 0.01f, 3600f + (float)r.NextDouble() * 900f, 6f, 0.006f, 0.6f, r);
+                    Thump(s, 0.15f, 170f, 100f, 0.03f, 0.04f, 0.4f);
+                    break;
+                case "cylclose":
+                    s = Buf(0.22f);
+                    Burst(s, 0.0f, 2100f, 3f, 0.012f, 1.2f, r); Thump(s, 0.0f, 140f, 75f, 0.04f, 0.06f, 0.9f);
+                    Chime(s, 0.0f, 2500f, 0.05f, new[] { 1f, 2.2f }, new[] { 0.3f, 0.12f }, 1f);
+                    break;
+                case "breakclose":
+                    s = Buf(0.26f);
+                    Burst(s, 0.0f, 1800f, 2.5f, 0.015f, 1.4f, r); Thump(s, 0.0f, 110f, 60f, 0.05f, 0.08f, 1.0f);
+                    Chime(s, 0.0f, 2000f, 0.07f, new[] { 1f, 2.0f }, new[] { 0.3f, 0.14f }, 1f);
+                    break;
+                case "dry":
+                    s = Buf(0.1f);
+                    Burst(s, 0.0f, 3400f, 7f, 0.004f, 1.2f, r); Thump(s, 0.0f, 220f, 140f, 0.02f, 0.02f, 0.3f);
+                    break;
+                case "click":
+                    s = Buf(0.08f);
+                    Burst(s, 0.0f, 3000f, 6f, 0.005f, 1.0f, r);
+                    break;
+                case "holster":
+                    s = Buf(0.22f);
+                    Burst(s, 0.0f, 700f, 0.8f, 0.07f, 0.9f, r); Burst(s, 0.06f, 2200f, 3f, 0.01f, 0.5f, r);
+                    break;
+                default: // draw
+                    s = Buf(0.28f);
+                    Burst(s, 0.0f, 800f, 0.8f, 0.08f, 0.9f, r); Burst(s, 0.12f, 2400f, 4f, 0.01f, 0.8f, r); Thump(s, 0.12f, 150f, 90f, 0.04f, 0.04f, 0.4f);
+                    break;
+            }
+            Normalize(s, 0.8f);
+            return s;
+        }
+
+        /// <summary>Bossolo che tocca terra: tintinnio acuto di ottone, o tonfo sordo di plastica per le cartucce.</summary>
+        public static float[] CasingDrop(string kind, int seed)
+        {
+            var r = new System.Random(seed * 5 + kind.Length);
+            var s = Buf(0.35f);
+            if (kind == "shell")
+            {
+                Burst(s, 0.0f, 1100f, 1.5f, 0.02f, 1f, r); Thump(s, 0.0f, 260f, 150f, 0.03f, 0.03f, 0.6f);
+                Burst(s, 0.09f, 1400f, 2f, 0.015f, 0.4f, r);
+            }
+            else
+            {
+                float f = kind == "pistol" ? 5200f : kind == "big" ? 3000f : 4200f;
+                Chime(s, 0.0f, f, 0.07f, new[] { 1f, 2.76f, 5.4f }, new[] { 0.5f, 0.25f, 0.1f }, 1f);
+                Chime(s, 0.08f, f * 1.1f, 0.05f, new[] { 1f, 2.76f }, new[] { 0.35f, 0.15f }, 1f);
+                Burst(s, 0.0f, 4000f, 4f, 0.004f, 0.5f, r);
+            }
+            Normalize(s, 0.7f);
+            return s;
+        }
+
         /// <summary>Tic del colpo andato a segno.</summary>
         public static float[] HitTick()
         {

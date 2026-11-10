@@ -16,7 +16,7 @@ namespace PryingEyes
         static WallBuy near;
         Light glow;
 
-        public int AmmoPrice => Mathf.RoundToInt(price * 0.5f);
+        public int AmmoPrice => Mathf.Max(150, Mathf.RoundToInt(price * 0.5f));
 
         /// <summary>Costruisce i tre espositori (chiamato dal GameManager all'avvio).</summary>
         public static void BuildAll()
@@ -24,15 +24,11 @@ namespace PryingEyes
             all.RemoveAll(w => w == null);   // sopravvive al ricaricamento della scena in editor
             near = null;
             if (all.Count > 0) return;
-            var cyan = new Color(0.30f, 0.95f, 1f);
-            var orange = new Color(1f, 0.62f, 0.22f);
-            var violet = new Color(0.70f, 0.55f, 1f);
-            // sud: a sinistra dell'ingresso, verso la stanza
-            Create(1, 500, new Vector3(-10f, 1.55f, 22.42f), Quaternion.Euler(0f, 180f, 0f), cyan);
-            // ovest: accanto al salotto, sopra il carrello
-            Create(2, 1200, new Vector3(-34.42f, 1.55f, 12f), Quaternion.Euler(0f, 90f, 0f), orange);
-            // est: sotto le vetrate, vicino alla reception
-            Create(3, 1800, new Vector3(34.42f, 1.55f, 14f), Quaternion.Euler(0f, -90f, 0f), violet);
+            // sud: a sinistra dell'ingresso, ovest: accanto al salotto, est: sotto le vetrate
+            int v = WeaponDefs.IndexOf("smg_vesper9"), br = WeaponDefs.IndexOf("sg_breacher12"), la = WeaponDefs.IndexOf("dmr_lance7");
+            Create(v, WeaponDefs.All[v].price, new Vector3(-10f, 1.55f, 22.42f), Quaternion.Euler(0f, 180f, 0f), WeaponDefs.All[v].GradeColor);
+            Create(br, WeaponDefs.All[br].price, new Vector3(-34.42f, 1.55f, 12f), Quaternion.Euler(0f, 90f, 0f), WeaponDefs.All[br].GradeColor);
+            Create(la, WeaponDefs.All[la].price, new Vector3(34.42f, 1.55f, 14f), Quaternion.Euler(0f, -90f, 0f), WeaponDefs.All[la].GradeColor);
         }
 
         /// <summary>Piazza un espositore (usato dai piani procedurali): indice dell'arma, prezzo, posizione e rotazione (il davanti guarda la stanza).</summary>
@@ -51,7 +47,7 @@ namespace PryingEyes
 
         static WallBuy Create(int index, int cost, Vector3 pos, Quaternion rot, Color tint)
         {
-            var def = Weapon.Defs[index];
+            var def = WeaponDefs.All[index];
             var go = new GameObject("Muro_" + def.name);
             go.transform.position = pos;
             go.transform.rotation = rot;
@@ -70,7 +66,7 @@ namespace PryingEyes
             chalk.transform.SetParent(go.transform, false);
             chalk.transform.localPosition = new Vector3(0f, 0f, 0.035f);
             chalk.transform.localScale = new Vector3(1.26f, 0.80f, 0.012f);
-            var chalkTex = ChalkTex(Weapon.Defs[index].model);
+            var chalkTex = ChalkTex(def);
             var chalkMat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
             chalkMat.color = Color.white;
             chalkMat.SetTexture("_BaseMap", chalkTex);
@@ -80,9 +76,9 @@ namespace PryingEyes
             // arma vera e propria, parallela al muro
             var gun = BuildWallGun(index);
             gun.transform.SetParent(go.transform, false);
-            gun.transform.localPosition = new Vector3(0f, -0.01f, 0.14f);
             gun.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
-            gun.transform.localScale = Vector3.one * 0.82f;
+            gun.transform.localScale = Vector3.one;
+            FitOnPanel(gun, go.transform);
 
             // striscia luminosa + luce di richiamo
             var stripMat = Lit(new Color(0.02f, 0.03f, 0.04f), 0.2f, 0.4f);
@@ -103,8 +99,8 @@ namespace PryingEyes
             light.shadows = LightShadows.None;
 
             // nome e prezzo incisi sul pannello
-            MakeText(go.transform, def.name, new Color(0.93f, 0.89f, 0.80f), -0.300f, 0.055f, 0.0135f);
-            MakeText(go.transform, cost + " PUNTI", tint, -0.385f, 0.055f, 0.0115f);
+            MakeText(go.transform, def.name, Color.Lerp(new Color(0.93f, 0.89f, 0.80f), def.GradeColor, 0.55f), -0.300f, 0.055f, 0.0135f);
+            MakeText(go.transform, (cost > 0 ? cost + " PUNTI" : "MUNIZIONI") + "  ·  GRADO " + HUD.Roman(def.grade), def.GradeColor, -0.385f, 0.055f, 0.0105f);
 
             var wb = go.AddComponent<WallBuy>();
             wb.weaponIndex = index;
@@ -185,65 +181,27 @@ namespace PryingEyes
             return m;
         }
 
-        // ---------- sagoma di gesso disegnata a pixel ----------
-        static Texture2D ChalkTex(string model)
+        // ---------- sagoma di gesso: cornice con gli angoli ----------
+        static Texture2D ChalkTex(WeaponDef d)
         {
             const int W = 512, H = 320;
-            var tex = new Texture2D(W, H, TextureFormat.RGBA32, false)
-            { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var tex = new Texture2D(W, H, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
             var px = new Color32[W * H];
             var bg = new Color32(13, 17, 22, 255);
             for (int i = 0; i < px.Length; i++) px[i] = bg;
             var chalk = new Color32(228, 238, 250, 255);
-
-            void Dot(int x, int y)
-            {
-                if (x < 0 || y < 0 || x >= W || y >= H) return;
-                px[y * W + x] = chalk;
-            }
-            void Line(int x0, int y0, int x1, int y1)
-            {
-                if (y0 == y1) for (int x = Mathf.Min(x0, x1); x <= Mathf.Max(x0, x1); x++) { Dot(x, y0); Dot(x, y0 + 1); }
-                else for (int y = Mathf.Min(y0, y1); y <= Mathf.Max(y0, y1); y++) { Dot(x0, y); Dot(x0 + 1, y); }
-            }
-            void Outline(int x0, int y0, int x1, int y1)
-            {
-                Line(x0, y0, x1, y0); Line(x0, y1, x1, y1);
-                Line(x0, y0, x0, y1); Line(x1, y0, x1, y1);
-            }
-
-            // Texture2D ha l'origine in basso a sinistra: +y = verso l'alto.
-            const int mid = 165;
-            if (model == "smg")
-            {
-                Outline(120, mid - 34, 330, mid + 34);
-                Outline(330, mid - 8, 430, mid + 14);
-                Outline(252, mid - 96, 286, mid - 34);   // caricatore sotto
-                Outline(205, mid - 92, 238, mid - 34);   // impugnatura sotto
-                Line(120, mid - 6, 72, mid + 8); Line(72, mid + 8, 72, mid + 22); Line(72, mid + 22, 120, mid + 18);
-                Outline(250, mid + 40, 300, mid + 56);   // mirino sopra
-            }
-            else if (model == "shotgun")
-            {
-                Outline(58, mid - 30, 150, mid + 34);
-                Outline(150, mid + 4, 460, mid + 24);    // canna alta
-                Outline(150, mid - 22, 432, mid - 6);    // tubo sotto
-                Outline(258, mid - 50, 340, mid - 22);   // pompa
-                Outline(205, mid - 94, 240, mid - 24);
-                Outline(460, mid - 26, 500, mid + 32);
-            }
-            else
-            {
-                Outline(55, mid - 26, 180, mid + 30);
-                Outline(180, mid + 2, 486, mid + 20);    // canna
-                Outline(180, mid - 20, 476, mid - 8);    // fusto
-                Outline(225, mid - 94, 262, mid - 22);   // caricatore
-                Outline(230, mid + 30, 345, mid + 62);   // ottica
-                Outline(240, mid + 62, 338, mid + 76);
-                Outline(486, mid - 24, 508, mid + 26);
-            }
-
-            // granulosità del gesso
+            void Dot(int x, int y) { if (x >= 0 && y >= 0 && x < W && y < H) px[y * W + x] = chalk; }
+            void HLine(int x0, int x1, int y) { for (int x = x0; x <= x1; x++) { Dot(x, y); Dot(x, y + 1); } }
+            void VLine(int x, int y0, int y1) { for (int y = y0; y <= y1; y++) { Dot(x, y); Dot(x + 1, y); } }
+            int m = 16, L = 54;
+            foreach (int sx in new[] { 0, 1 })
+                foreach (int sy in new[] { 0, 1 })
+                {
+                    int x = sx == 0 ? m : W - m - 1, y = sy == 0 ? m : H - m - 1;
+                    int dx = sx == 0 ? 1 : -1, dy = sy == 0 ? 1 : -1;
+                    HLine(Mathf.Min(x, x + dx * L), Mathf.Max(x, x + dx * L), y);
+                    VLine(x, Mathf.Min(y, y + dy * L), Mathf.Max(y, y + dy * L));
+                }
             for (int i = 0; i < 900; i++)
             {
                 int x = Random.Range(0, W), y = Random.Range(0, H);
@@ -253,6 +211,23 @@ namespace PryingEyes
             tex.SetPixels32(px);
             tex.Apply(false);
             return tex;
+        }
+
+        /// <summary>Scala e centra il modello nel pannello (1,26 x 0,80 m, lato lungo orizzontale), un po' davanti al muro.</summary>
+        static void FitOnPanel(GameObject gun, Transform panel)
+        {
+            var rs = gun.GetComponentsInChildren<Renderer>();
+            if (rs.Length == 0) return;
+            Bounds b = rs[0].bounds;
+            foreach (var r in rs) b.Encapsulate(r.bounds);
+            Vector3 size = panel.InverseTransformVector(b.size);
+            float length = Mathf.Abs(size.x), height = Mathf.Abs(size.y);
+            float k = Mathf.Min(1.0f, Mathf.Min(1.12f / Mathf.Max(0.05f, length), 0.64f / Mathf.Max(0.05f, height)));
+            gun.transform.localScale = Vector3.one * k;
+            b = rs[0].bounds;
+            foreach (var r in rs) b.Encapsulate(r.bounds);
+            Vector3 target = panel.TransformPoint(new Vector3(0f, -0.01f, 0.13f));
+            gun.transform.position += target - b.center;
         }
 
         // ---------- interazione ----------
@@ -286,14 +261,20 @@ namespace PryingEyes
                 return false;
             }
             var weapon = gm.player.weapon;
-            bool same = weapon.CurrentIndex == near.weaponIndex;
-            bool full = same && weapon.reserve >= weapon.reserveMax;
+            int sl = weapon.SlotOf(near.weaponIndex);
+            bool same = sl >= 0;
+            bool full = same && weapon.ReserveOf(sl) >= WeaponDefs.All[near.weaponIndex].reserveMax;
             int cost = same ? near.AmmoPrice : near.price;
             if (full)
                 gm.hud.SetPrompt(near.displayName + " — riserva al massimo");
             else
+            {
+                string extra = "";
+                if (!same && weapon.WeaponInSlot(0) >= 0 && weapon.WeaponInSlot(1) >= 0)
+                    extra = "   (sostituisce " + WeaponDefs.All[weapon.weaponIndex].name + ")";
                 gm.hud.SetPrompt((same ? "MUNIZIONI " : "ACQUISTA ") + near.displayName
-                    + " — " + cost + " PUNTI   [F]");
+                    + " — " + cost + " PUNTI   [F]" + extra);
+            }
             foreach (var w in all)
                 if (w != null && w.glow != null) w.glow.intensity = w == near ? 2.4f + Mathf.Sin(Time.time * 3.2f) * 0.5f : 1.0f;
             return true;
@@ -304,8 +285,9 @@ namespace PryingEyes
             var gm = GameManager.I;
             if (near == null || gm == null || gm.player == null) return;
             var weapon = gm.player.weapon;
-            bool same = weapon.CurrentIndex == near.weaponIndex;
-            bool full = same && weapon.reserve >= weapon.reserveMax;
+            int sl = weapon.SlotOf(near.weaponIndex);
+            bool same = sl >= 0;
+            bool full = same && weapon.ReserveOf(sl) >= WeaponDefs.All[near.weaponIndex].reserveMax;
             if (same && full) { gm.hud?.Toast("Riserva già al massimo"); return; }
             int cost = same ? near.AmmoPrice : near.price;
             if (gm.score < cost)
@@ -317,14 +299,13 @@ namespace PryingEyes
             gm.AddPoints(-cost);
             if (same)
             {
-                weapon.reserve = weapon.reserveMax;
-                gm.hud?.SetAmmo(weapon.mag, weapon.reserve);
+                weapon.FillReserve(sl);
                 gm.hud?.Toast("Munizioni " + near.displayName + " ripristinate — −" + cost + " punti");
             }
             else
             {
                 weapon.Equip(near.weaponIndex);
-                gm.hud?.Toast(Weapon.Defs[near.weaponIndex].name + " acquisita — −" + cost + " punti");
+                gm.hud?.Toast(WeaponDefs.All[near.weaponIndex].name + " acquisita — −" + cost + " punti");
             }
             Synth.Buy();
         }

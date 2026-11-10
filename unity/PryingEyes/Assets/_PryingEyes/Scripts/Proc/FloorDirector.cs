@@ -194,6 +194,7 @@ namespace PryingEyes.Proc
             lit++;
             var hud = gm.hud;
             gm.AddPoints(60);
+            gm.player.weapon.AddAmmoFraction(0.18f);
             if (lit >= total)
             {
                 OpenExit();
@@ -232,7 +233,8 @@ namespace PryingEyes.Proc
             var pl = gm.player;
             pl.invulnerable = true;
             gm.AddPoints(100 + 50 * floor);
-            gm.hud?.Toast($"Piano {floor} superato. +{100 + 50 * floor} punti");
+            pl.weapon.AddAmmoFraction(0.4f);
+            gm.hud?.Toast($"Piano {floor} superato. +{100 + 50 * floor} punti, munizioni recuperate");
             Sfx.UI(SoundBank.LiftRide, 0.55f);
             if (cur.exit != null) cur.exit.Close();
             for (float k = 0f; k < 1f; k += Time.deltaTime / 1.2f) { gm.hud?.SetFade(k); yield return null; }
@@ -327,8 +329,7 @@ namespace PryingEyes.Proc
             cand.Sort((a, b) => dist[a.id].CompareTo(dist[b.id]));
             if (cand.Count == 0) return;
             int[] pick = { Mathf.Min(1, cand.Count - 1), cand.Count / 2, Mathf.Max(0, cand.Count - 1 - cand.Count / 6) };
-            var tints = new[] { new Color(0.30f, 0.95f, 1f), new Color(1f, 0.62f, 0.22f), new Color(0.70f, 0.55f, 1f) };
-            int[] cost = { 500, 1200, 1800 };
+            int[] picks = PickWeapons(plan.seed);
             var used = new HashSet<Room>();
             var rng = new Rng(plan.seed + 5);
             for (int k = 0; k < 3; k++)
@@ -338,8 +339,42 @@ namespace PryingEyes.Proc
                 while (used.Contains(room) && guard++ < cand.Count) room = cand[(cand.IndexOf(room) + 1) % cand.Count];
                 used.Add(room);
                 if (TryWallSpot(plan, room, rng, out Vector3 pos, out Quaternion rot))
-                    WallBuy.Place(k + 1, cost[k], pos, rot, tints[k]);
+                    WallBuy.Place(picks[k], WeaponDefs.All[picks[k]].price, pos, rot, WeaponDefs.All[picks[k]].GradeColor);
             }
+        }
+
+        /// <summary>Tre armi per piano, per grado: piu' si scende, piu' potenti. Vicino all'arrivo la piu' modesta, lontano la migliore.
+        /// Mai la pistola di partenza, mai due armi della stessa classe se si puo' evitare.</summary>
+        int[] PickWeapons(int seed)
+        {
+            var r = new System.Random(seed * 31 + floor * 7 + 5);
+            int gMax = Mathf.Min(5, 2 + floor / 2);                    // grado "normale" del piano: 2, 3, 3, 4, 4, 5...
+            int[][] bands =
+            {
+                new[] { 1, Mathf.Min(2, gMax) },                          // vicino: modesta
+                new[] { Mathf.Max(1, gMax - 1), gMax },                   // a meta': del grado del piano
+                new[] { gMax, Mathf.Min(5, gMax + 1) },                   // lontano: un grado sopra, da meritarsi
+            };
+            int start = WeaponDefs.IndexOf("p9_pieta");
+            var picks = new int[3];
+            var classes = new HashSet<string>();
+            for (int k = 0; k < 3; k++)
+            {
+                var pool = new List<int>();
+                for (int i = 0; i < WeaponDefs.All.Length; i++)
+                {
+                    var d = WeaponDefs.All[i];
+                    if (i == start || d.grade < bands[k][0] || d.grade > bands[k][1]) continue;
+                    bool dup = false;
+                    for (int j = 0; j < k; j++) if (picks[j] == i) dup = true;
+                    if (dup || (classes.Contains(d.cls) && r.Next(3) != 0)) continue;
+                    pool.Add(i);
+                }
+                if (pool.Count == 0) for (int i = 0; i < WeaponDefs.All.Length; i++) { bool dup2 = false; for (int j = 0; j < k; j++) if (picks[j] == i) dup2 = true; if (i != start && !dup2 && WeaponDefs.All[i].grade <= gMax + 1) pool.Add(i); }
+                picks[k] = pool[r.Next(pool.Count)];
+                classes.Add(WeaponDefs.All[picks[k]].cls);
+            }
+            return picks;
         }
 
         bool TryWallSpot(Plan plan, Room r, Rng rng, out Vector3 pos, out Quaternion rot)
@@ -446,7 +481,7 @@ namespace PryingEyes.Proc
                 float vmed = (p - botLogPos).magnitude / 5f; botLogPos = p;
                 System.IO.File.AppendAllText(BotLog, $"fps={botFrames / 5f:F0} v={vmed:F2} dir=({prevDir.x:F1},{prevDir.z:F1}) cc={pl.GetComponent<CharacterController>().velocity.magnitude:F2} ");
                 botFrames = 0;
-                System.IO.File.AppendAllText(BotLog, $"t={botT:F0} piano={floor} candele={lit}/{total} uscita={(exitOpen ? "aperta" : "chiusa")} hp={pl.hp:F0} nemici={Enemy.All.Count} pos=({p.x:F0},{p.z:F0}) " +
+                System.IO.File.AppendAllText(BotLog, $"t={botT:F0} piano={floor} candele={lit}/{total} uscita={(exitOpen ? "aperta" : "chiusa")} hp={pl.hp:F0} nemici={Enemy.All.Count} pos=({p.x:F0},{p.z:F0}) y={p.y:F1} " +
                     $"stanza={(playerRoom != null ? playerRoom.kind.ToString() : "-")} morti={deaths} kill={gm.kills} punti={gm.score}\n");
             }
             if (botT > limit) { System.IO.File.AppendAllText(BotLog, $"fine: piano {floor}, morti {deaths}, kill {gm.kills}\n"); Application.Quit(); return; }

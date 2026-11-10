@@ -1,0 +1,15 @@
+lean=0 reale=0,00 testa laterale=0,00 m quota=0,000 m roll=0,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,00 m bacino_per_i_nemici=0,00 m
+lean=1 reale=1,00 testa laterale=0,43 m quota=-0,075 m roll=-19,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,42 m bacino_per_i_nemici=0,01 m
+lean=-1 reale=-1,00 testa laterale=-0,43 m quota=-0,075 m roll=19,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,42 m bacino_per_i_nemici=0,01 m
+lean=1 reale=1,00 testa laterale=0,43 m quota=-0,075 m roll=-19,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,42 m bacino_per_i_nemici=0,01 m
+muro a destra: lean reale=1,00 spazio_dx=1,00
+lean=0 reale=0,00 testa laterale=0,00 m quota=0,000 m roll=0,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,00 m bacino_per_i_nemici=0,00 m
+lean=1 reale=1,00 testa laterale=0,43 m quota=-0,075 m roll=-19,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,42 m bacino_per_i_nemici=0,01 m
+lean=-1 reale=-1,00 testa laterale=-0,43 m quota=-0,075 m roll=19,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,42 m bacino_per_i_nemici=0,01 m
+lean=1 reale=1,00 testa laterale=0,43 m quota=-0,075 m roll=-19,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,42 m bacino_per_i_nemici=0,01 m
+muro a destra: lean reale=0,64 spazio_dx=0,64
+lean=0 reale=0,00 testa laterale=0,00 m quota=0,000 m roll=0,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,00 m bacino_per_i_nemici=0,00 m
+lean=1 reale=1,00 testa laterale=0,43 m quota=-0,075 m roll=-19,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,42 m bacino_per_i_nemici=0,01 m
+lean=-1 reale=-1,00 testa laterale=-0,43 m quota=-0,075 m roll=19,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,42 m bacino_per_i_nemici=0,01 m
+lean=1 reale=1,00 testa laterale=0,43 m quota=-0,075 m roll=-19,0 gradi spazio_dx=1,00 spazio_sx=1,00 testa_per_i_nemici=0,42 m bacino_per_i_nemici=0,01 m
+muro a destra: lean reale=0,64 spazio_dx=0,64

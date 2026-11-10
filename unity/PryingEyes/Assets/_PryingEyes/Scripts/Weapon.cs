@@ -1,108 +1,232 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using System.Collections.Generic;
+using UnityEngine.Rendering.Universal;
 
 namespace PryingEyes
 {
-    /// <summary>Definizione di un'arma acquistabile sui muri o di partenza.</summary>
-    [System.Serializable]
-    public class WeaponDef
-    {
-        public string name;
-        public int magSize, reserve, reserveMax;
-        public float rpm, damage, range, spread, reloadTime, shotRecoil, bloomPerShot;
-        public int pellets;
-        public bool auto;
-        public float headMult;
-        public string model;      // rifle / smg / shotgun / dmr
-        public string modeLabel;  // AUTO / SEMI / PUMP
-    }
-
-    /// <summary>Hitscan multi-arma: RPM, caricatore/riserva, ricarica, rinculo, muzzle flash,
-    /// viewmodel procedurale per arma. Le armi si comprano sui muri con i punti (WallBuy.cs).</summary>
+    /// <summary>Arma del giocatore: due slot, ventidue... venticinque modelli veri (Resources/Armi), cinque gradi di potenza,
+    /// rinculo della visuale con ritorno, dispersione che cresce coi colpi e col movimento, mira con mirini veri
+    /// (collimati o con seconda camera per le ottiche), ricarica diversa per tipo, cambio arma, effetti ai colpi.
+    /// Le armi si comprano sui muri con i punti (WallBuy.cs).</summary>
     public class Weapon : MonoBehaviour
     {
-        // 0 = arma di partenza, 1..3 = armi sui muri
-        public static readonly WeaponDef[] Defs =
-        {
-            new WeaponDef { name = "AR-9 MALLEUS", magSize = 30, reserve = 120, reserveMax = 240, rpm = 700f,
-                damage = 30f, range = 120f, spread = 0.006f, reloadTime = 1.7f, shotRecoil = 0.06f, bloomPerShot = 0.10f, pellets = 1,
-                auto = true, headMult = 2f, model = "rifle", modeLabel = "AUTO" },
-            new WeaponDef { name = "VESPER-9", magSize = 40, reserve = 200, reserveMax = 320, rpm = 850f,
-                damage = 19f, range = 90f, spread = 0.012f, reloadTime = 1.5f, shotRecoil = 0.045f, bloomPerShot = 0.06f, pellets = 1,
-                auto = true, headMult = 2f, model = "smg", modeLabel = "AUTO" },
-            new WeaponDef { name = "BREACHER-12", magSize = 8, reserve = 48, reserveMax = 80, rpm = 75f,
-                damage = 14f, range = 45f, spread = 0.035f, reloadTime = 2.4f, shotRecoil = 0.14f, bloomPerShot = 0.22f, pellets = 8,
-                auto = true, headMult = 1.6f, model = "shotgun", modeLabel = "PUMP" },
-            new WeaponDef { name = "LANCE-7", magSize = 12, reserve = 72, reserveMax = 120, rpm = 260f,
-                damage = 70f, range = 140f, spread = 0.002f, reloadTime = 2.0f, shotRecoil = 0.10f, bloomPerShot = 0.30f, pellets = 1,
-                auto = false, headMult = 2.5f, model = "dmr", modeLabel = "SEMI" },
-        };
+        // ------------------------------------------------------------------ slot e stato
+        class Slot { public int idx = -1; public int mag, reserve, mode; }
+        readonly Slot[] slots = { new Slot(), new Slot() };
+        int cur;
 
-        [Header("Tuning (sincronizzati con l'arma equipaggiata)")]
-        public int weaponIndex = 0;
-        public int magSize = 30;
-        public int mag = 30;
-        public int reserve = 120;
-        public int reserveMax = 240;
-        public float rpm = 700f;
-        public float damage = 30f;
-        public float range = 120f;
+        public int weaponIndex => Mathf.Max(0, slots[cur].idx);
+        public int CurrentIndex => weaponIndex;
+        public WeaponDef Def => WeaponDefs.All[weaponIndex];
+        public int mag { get => slots[cur].mag; set => slots[cur].mag = value; }
+        public int reserve { get => slots[cur].reserve; set => slots[cur].reserve = value; }
+        public int magSize => Def.mag;
+        public int reserveMax => Def.reserveMax;
+        public int SlotIndex => cur;
+        public int WeaponInSlot(int s) => slots[s].idx;
+        public FireMode Mode => Def.modes[slots[cur].mode % Def.modes.Length];
 
-        [Header("State")]
-        public bool reloading = false;
-        public float ads = 0f;
-        public float recoil = 0f;
-        public float bloom = 0f;   // dispersione: 0 = colpo preciso, 1 = massima (colpi, passi, aria)
-        float lastShot = -99f, reloadT = 0f;
-        float adsSightY = 0.10f;   // altezza del mirino: in ADS la arma si alza fino a centrarlo
-        float equipT;              // animazione di entrata dell'arma
-        bool triggerHeld;
-        Transform magPart, chargePart, pumpPart;
-        Vector3 magRest, chargeRest, pumpRest;
-        static Material flashRuntime;
+        [Header("Stato")]
+        public bool reloading;
+        public float ads;                      // 0..1 (con curva)
+        public float recoil;                   // contraccolpo del modello (0..1), usato anche dal giocatore per un piccolo scatto
+        public float bloom;                    // gradi di dispersione accumulata
+        float adsRaw;
 
-        [Header("Viewmodel materials (assigned by HotelBuilder)")]
-        public Material bodyMat;
-        public Material gripMat;
-        public Material flashMat;
+        [Header("Materiali (assegnati dal builder)")]
+        public Material bodyMat, gripMat, flashMat;
 
         Transform cam;
         Transform viewRoot;
-        GameObject flashQuad;
-        Light flashLight;
+        WeaponRig rig;
         HUD hud;
-        bool adsHeld;
+        PlayerController player;
+        GameObject flashA, flashB;
+        Light flashLight;
+        Light fill;
+        Camera scopeCam;
+        RenderTexture scopeRT;
+        Renderer scopeRenderer;
+        Material scopeMat;
+        float scopeRadius = 0.0185f;
 
-        public WeaponDef Def => Defs[Mathf.Clamp(weaponIndex, 0, Defs.Length - 1)];
-        public int CurrentIndex => weaponIndex;
+        float fireT, cycleT, reloadT, reloadDur, swapT, equipT, lastShot = -99f, flashT;
+        int burstLeft, streak, shellsToLoad, shellsLoaded;
+        bool reloadEmpty, triggerHeld, dryPlayed, sprintHeld;
+        float sprintBlend, kickBack, kickPitch, kickRoll, swayX, swayY, swayVx, swayVy, breath;
+        float cycleAnim = -1f, cycleLen = 0.6f;
+        float pendingSlotTime;
+        int pendingSlot = -1;
+        float hipYaw = -3.5f;
 
+        // mani
+        Transform handL, handR;
+        Vector3 handLRest;
+        Renderer[] handLRend;
+        bool handLOnMag;
+        GameObject handsGo;
+
+        public bool IsBound => cam != null && viewRoot != null;
+
+        // solo per le prove automatiche (-guntest): mira forzata, sparo singolo, immagine della seconda camera subito
+        public static bool debugAds;
+        public void DebugFire() { if (mag > 0 && cam != null && viewRoot != null) Shoot(Def); }
+        public void RenderScopeNow() { LateUpdate(); }
+        public float LastShotTime => lastShot;
+        public bool CanFireNow => fireT <= 0f && cycleT <= 0f && !reloading && swapT <= 0f;
+
+        // ------------------------------------------------------------------ avvio
         public void Bind(Transform camera, HUD h)
         {
             cam = camera;
             hud = h;
+            player = GetComponent<PlayerController>();
+            if (slots[0].idx < 0) GiveStart();
             BuildViewmodel();
+            RefreshHud();
         }
 
-        static void SafeDestroy(Object o)
+        void Awake()
+        {
+            if (cam == null)
+            {
+                var t = transform.Find("MainCamera");
+                if (t != null) cam = t;
+            }
+            if (hud == null) hud = FindAnyObjectByType<HUD>();
+            if (player == null) player = GetComponent<PlayerController>();
+            if (slots[0].idx < 0) GiveStart();
+            if (cam != null) BuildViewmodel();
+            RefreshHud();
+        }
+
+        void GiveStart()
+        {
+            int i = WeaponDefs.IndexOf("p9_pieta");
+            slots[0] = new Slot { idx = i, mag = WeaponDefs.All[i].mag, reserve = WeaponDefs.All[i].reserve };
+            slots[1] = new Slot();
+            cur = 0;
+        }
+
+        /// <summary>Riparte da zero: pistola di partenza, secondo slot vuoto (nuova partita).</summary>
+        public void ResetLoadout()
+        {
+            GiveStart();
+            reloading = false; swapT = 0f; burstLeft = 0; bloom = 0f;
+            if (cam != null) BuildViewmodel();
+            RefreshHud();
+        }
+
+        /// <summary>Riscrive HUD (munizioni, nome, grado, slot): si chiama quando l'HUD e' certamente costruito.</summary>
+        public void Refresh() { RefreshHud(); }
+
+        void RefreshHud()
+        {
+            if (hud == null) return;
+            var d = Def;
+            hud.SetAmmo(mag, reserve);
+            hud.SetReloading(reloading);
+            hud.SetWeapon(d, d.ModeLabel(Mode), cur, slots[0].idx >= 0 ? WeaponDefs.All[slots[0].idx] : null, slots[1].idx >= 0 ? WeaponDefs.All[slots[1].idx] : null);
+        }
+
+        // ------------------------------------------------------------------ equipaggiamento
+        /// <summary>Acquisto al muro o reset: se l'arma e' gia' in uno slot lo riempie; altrimenti occupa lo slot libero, e a slot
+        /// pieni sostituisce quella in mano. full = caricatore e riserva pieni.</summary>
+        public void Equip(int index, bool full = true)
+        {
+            index = Mathf.Clamp(index, 0, WeaponDefs.All.Length - 1);
+            var d = WeaponDefs.All[index];
+            int target = -1;
+            for (int s = 0; s < 2; s++) if (slots[s].idx == index) target = s;
+            if (target < 0) target = slots[0].idx < 0 ? 0 : slots[1].idx < 0 ? 1 : cur;
+            slots[target] = new Slot { idx = index, mag = d.mag, reserve = d.reserve };
+            if (!full) { slots[target].mag = Mathf.Min(d.mag, slots[target].mag); }
+            bool same = target == cur;
+            cur = target;
+            reloading = false; reloadT = 0f; burstLeft = 0; bloom = 0f; recoil = 0f; swapT = 0f; pendingSlot = -1;
+            BuildViewmodel();
+            equipT = d.drawTime;
+            RefreshHud();
+            if (!same) Synth.Mech("draw", 0.6f, 1f);
+        }
+
+        public int ReserveOf(int slot) => slots[slot].reserve;
+        public bool Owns(int index) => slots[0].idx == index || slots[1].idx == index;
+        public int SlotOf(int index) => slots[0].idx == index ? 0 : slots[1].idx == index ? 1 : -1;
+
+        public void FillReserve(int slot = -1)
+        {
+            int s = slot < 0 ? cur : slot;
+            if (slots[s].idx < 0) return;
+            slots[s].reserve = WeaponDefs.All[slots[s].idx].reserveMax;
+            if (s == cur) RefreshHud();
+        }
+
+        public void AddAmmoFraction(float f)
+        {
+            for (int s = 0; s < 2; s++)
+            {
+                if (slots[s].idx < 0) continue;
+                var d = WeaponDefs.All[slots[s].idx];
+                slots[s].reserve = Mathf.Min(d.reserveMax, slots[s].reserve + Mathf.CeilToInt(d.reserveMax * f));
+            }
+            RefreshHud();
+        }
+
+        /// <summary>Alla rinascita: caricatore pieno e riserva almeno quella di partenza, per entrambe le armi.</summary>
+        public void RespawnAmmo()
+        {
+            for (int s = 0; s < 2; s++)
+            {
+                if (slots[s].idx < 0) continue;
+                var d = WeaponDefs.All[slots[s].idx];
+                slots[s].mag = d.mag;
+                slots[s].reserve = Mathf.Min(d.reserveMax, Mathf.Max(slots[s].reserve, d.reserve));
+            }
+            reloading = false; swapT = 0f; pendingSlot = -1;
+            RefreshHud();
+        }
+
+        public void SwitchSlot(int s)
+        {
+            if (s < 0 || s > 1 || s == cur || slots[s].idx < 0 || swapT > 0f) return;
+            // l'arma in mano scende; a meta' si cambia il modello
+            reloading = false; hud?.SetReloading(false);
+            burstLeft = 0; cycleAnim = -1f;
+            pendingSlot = s;
+            swapT = 0.16f;
+            pendingSlotTime = 0.16f;
+            Synth.Mech("holster", 0.5f, 1f);
+        }
+
+        void ToggleMode()
+        {
+            var d = Def;
+            if (d.modes.Length < 2) return;
+            slots[cur].mode = (slots[cur].mode + 1) % d.modes.Length;
+            burstLeft = 0;
+            Synth.Mech("click", 0.5f, 1.2f);
+            RefreshHud();
+        }
+
+        // ------------------------------------------------------------------ modello
+        void SafeDestroy(Object o)
         {
             if (o == null) return;
-            if (Application.isPlaying) Destroy(o);
-            else DestroyImmediate(o);
+            if (Application.isPlaying) Destroy(o); else DestroyImmediate(o);
         }
 
         /// <summary>Fiammata procedurale a stella (niente quadrato arancione).</summary>
         public static Texture2D BuildFlashStar()
         {
             const int S = 64;
-            var tex = new Texture2D(S, S, TextureFormat.RGBA32, false)
-            { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
             var px = new Color32[S * S];
             for (int y = 0; y < S; y++)
                 for (int x = 0; x < S; x++)
                 {
-                    float nx = (x + 0.5f) / S * 2f - 1f;
-                    float ny = (y + 0.5f) / S * 2f - 1f;
+                    float nx = (x + 0.5f) / S * 2f - 1f, ny = (y + 0.5f) / S * 2f - 1f;
                     float r = Mathf.Sqrt(nx * nx + ny * ny);
                     float core = Mathf.Clamp01(1f - r * 1.7f);
                     float ang = Mathf.Atan2(ny, nx);
@@ -116,78 +240,42 @@ namespace PryingEyes
             return tex;
         }
 
-        /// <summary>Configura un materiale Unlit URP come fiammata additiva (stella con alfa). Salvato come asset dal builder: cosi' la
-        /// variante trasparente resta nella build (creato solo a runtime veniva tolta e la fiammata usciva come un quadrato arancione opaco).</summary>
-        public static void ConfigureFlash(Material m, Texture2D tex)
-        {
-            m.SetTexture("_BaseMap", tex);
-            m.SetTexture("_MainTex", tex);
-            m.SetColor("_BaseColor", Color.white);
-            m.SetFloat("_Surface", 1f);
-            m.SetFloat("_Blend", 2f);
-            m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            m.SetFloat("_DstBlend", (float)BlendMode.One);
-            m.SetFloat("_ZWrite", 0f);
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            m.renderQueue = (int)RenderQueue.Transparent;
-        }
+        /// <summary>Usata dal builder della scena: il materiale della fiammata va salvato come asset (la variante trasparente resta nella build).</summary>
+        public static void ConfigureFlash(Material m, Texture2D tex) => Fx.ConfigureUnlit(m, tex, true);
 
-        static Material FlashRuntimeMat()
+        static GameObject LoadPrefab(string id) => Resources.Load<GameObject>("Armi/" + id);
+
+        /// <summary>Modello dell'arma per l'esposizione sul muro (senza mani, fiammata e luci).</summary>
+        public static GameObject BuildDisplayModel(int index)
         {
-            if (flashRuntime != null) return flashRuntime;
-            var tex = BuildFlashStar();
-            flashRuntime = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            flashRuntime.SetTexture("_BaseMap", tex);
-            flashRuntime.SetTexture("_MainTex", tex);
-            flashRuntime.SetColor("_BaseColor", Color.white);
-            flashRuntime.SetFloat("_Surface", 1f);
-            flashRuntime.SetFloat("_Blend", 2f);   // additivo
-            flashRuntime.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            flashRuntime.SetFloat("_DstBlend", (float)BlendMode.One);
-            flashRuntime.SetFloat("_ZWrite", 0f);
-            flashRuntime.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            flashRuntime.renderQueue = (int)RenderQueue.Transparent;
-            return flashRuntime;
+            var d = WeaponDefs.All[index];
+            var prefab = LoadPrefab(d.id);
+            GameObject g;
+            if (prefab != null) g = Instantiate(prefab);
+            else
+            {
+                g = new GameObject("Arma");
+                var b = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(b.GetComponent<Collider>());
+                b.transform.SetParent(g.transform, false);
+                b.transform.localScale = new Vector3(0.05f, 0.1f, 0.7f);
+            }
+            g.name = "Arma";
+            foreach (var c in g.GetComponentsInChildren<Collider>()) Destroy(c);
+            return g;
         }
 
         void BuildViewmodel()
         {
-            if (cam == null) return;
+            if (cam == null || !Application.isPlaying) return;
             if (viewRoot != null) { SafeDestroy(viewRoot.gameObject); viewRoot = null; }
-            // pulizia dei viewmodel rimasti nella scena (ricostruita dall'editor)
             for (int i = cam.childCount - 1; i >= 0; i--)
             {
                 var c = cam.GetChild(i);
                 if (c != null && c.name == "Viewmodel") SafeDestroy(c.gameObject);
             }
-            if (bodyMat == null || gripMat == null || flashMat == null)
-            {
-                Debug.LogError("[PryingEyes] Weapon materials missing - viewmodel skipped");
-                return;
-            }
-
+            DestroyScope();
             var d = Def;
-            if (Application.isPlaying)
-            {
-                // PBR procedurale: metallo usurato, acciaio, polimero o legno (nessun asset scaricato)
-                GunMats.Ensure();
-                WeaponRef.Body = GunMats.Metal;
-                WeaponRef.Steel = GunMats.Steel;
-                WeaponRef.Dark = GunMats.Dark;
-                WeaponRef.Lens = GunMats.Lens;
-                WeaponRef.Dot = GunMats.Dot;
-                WeaponRef.Grip = d.model == "shotgun" ? GunMats.Wood : GunMats.Polymer;
-            }
-            else
-            {
-                // in editor (build della scena) bastano i materiali serializzati
-                WeaponRef.Body = bodyMat;
-                WeaponRef.Steel = bodyMat;
-                WeaponRef.Dark = bodyMat;
-                WeaponRef.Lens = bodyMat;
-                WeaponRef.Dot = bodyMat;
-                WeaponRef.Grip = gripMat;
-            }
             var root = new GameObject("Viewmodel");
             root.layer = 2;
             root.transform.SetParent(cam, false);
@@ -195,638 +283,771 @@ namespace PryingEyes
             root.transform.localRotation = Quaternion.identity;
             viewRoot = root.transform;
 
-            Vector3 muzzle;
-            float sightY;
-            WeaponRef.Mag = WeaponRef.Charge = WeaponRef.Pump = null;
-            switch (d.model)
+            var prefab = LoadPrefab(d.id);
+            GameObject model;
+            if (prefab != null) model = Instantiate(prefab, root.transform);
+            else
             {
-                case "smg": BuildSmg(root, out muzzle, out sightY); break;
-                case "shotgun": BuildShotgun(root, out muzzle, out sightY); break;
-                case "dmr": BuildDmr(root, out muzzle, out sightY); break;
-                default: BuildRifle(root, out muzzle, out sightY); break;
+                Debug.LogWarning("[PryingEyes] prefab dell'arma mancante: Armi/" + d.id);
+                model = new GameObject("Arma");
+                model.transform.SetParent(root.transform, false);
+                var b = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(b.GetComponent<Collider>());
+                b.transform.SetParent(model.transform, false);
+                b.transform.localScale = new Vector3(0.05f, 0.1f, 0.7f);
+                b.transform.localPosition = new Vector3(0f, 0f, 0.3f);
             }
-            adsSightY = sightY;
-            magPart = WeaponRef.Mag; chargePart = WeaponRef.Charge; pumpPart = WeaponRef.Pump;
-            if (magPart != null) magRest = magPart.localPosition;
-            if (chargePart != null) chargeRest = chargePart.localPosition;
-            if (pumpPart != null) pumpRest = pumpPart.localPosition;
-            AddHands(root, d.model);
-            equipT = 0.30f;
+            model.name = "Arma";
+            model.transform.localPosition = Vector3.zero;
+            model.transform.localRotation = Quaternion.identity;
+            foreach (var t in model.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = 2;
+            foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
+            rig = model.GetComponent<WeaponRig>();
+            if (rig == null) rig = model.AddComponent<WeaponRig>();
+            rig.Setup();
+            foreach (var r in rig.renderers) { if (r != null) r.shadowCastingMode = ShadowCastingMode.Off; }
 
-            flashQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            flashQuad.name = "Flash";
-            NoPhys(flashQuad);
-            flashQuad.transform.SetParent(root.transform, false);
-            flashQuad.transform.localPosition = muzzle;
-            flashQuad.transform.localScale = new Vector3(0.13f, 0.13f, 1f);
-            flashQuad.GetComponent<MeshRenderer>().material =
-                (flashMat.mainTexture != null || !Application.isPlaying) ? flashMat : FlashRuntimeMat();
-            flashQuad.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            flashQuad.SetActive(false);
+            AddHands(root, d);
+            BuildFlash(root, d);
+            SetupScope(d);
+            equipT = d.drawTime;
+            cycleAnim = -1f;
+            handLOnMag = rig.mag != null && d.hand > 0.5f;
+        }
 
-            flashLight = root.AddComponent<Light>();
+        void BuildFlash(GameObject root, WeaponDef d)
+        {
+            Vector3 muzzle = rig.MuzzleLocal;
+            Material mat = flashMat != null && flashMat.mainTexture != null ? flashMat : Fx.FlashMat;
+            if (Fx.FlashMat == null) { var f = Fx.Unlit(Fx.StarTex(), true); Fx.FlashMat = f; mat = f; }
+            flashA = MakeQuad("Flash", root.transform, muzzle, mat);
+            flashB = MakeQuad("FlashLato", root.transform, muzzle, mat);
+            var fb = new MaterialPropertyBlock();
+            fb.SetColor("_BaseColor", Color.Lerp(Color.white, d.flashColor, 0.7f));
+            flashA.GetComponent<MeshRenderer>().SetPropertyBlock(fb);
+            flashB.GetComponent<MeshRenderer>().SetPropertyBlock(fb);
+            flashA.SetActive(false); flashB.SetActive(false);
+            // la luce del lampo sta 40 cm davanti alla bocca: con la luce alla mano l'intensita' col quadrato lavava via i guanti
+            var fgo = new GameObject("FlashLight");
+            fgo.transform.SetParent(root.transform, false);
+            fgo.transform.localPosition = muzzle + new Vector3(0f, 0f, 0.4f);
+            flashLight = fgo.AddComponent<Light>();
             flashLight.type = LightType.Point;
-            flashLight.color = new Color(1f, 0.6f, 0.25f);
+            flashLight.color = d.flashColor;
             flashLight.intensity = 0f;
             flashLight.range = 6f;
-
-            // luce dedicata all'arma (la hall e' buia e il viewmodel metallico sparirebbe)
-            var fill = new GameObject("ViewmodelFill").AddComponent<Light>();
+            flashLight.shadows = LightShadows.None;
+            // luce di riempimento dedicata all'arma (la hall e' buia e il metallo sparirebbe)
+            fill = new GameObject("ViewmodelFill").AddComponent<Light>();
             fill.transform.SetParent(root.transform, false);
-            fill.transform.localPosition = new Vector3(-0.18f, 0.32f, 0.15f);
+            // lontana dall'arma (dietro e sopra la spalla sinistra): a 30 cm l'intensita' sale col quadrato e il polimero nero esce bianco
+            fill.transform.localPosition = new Vector3(-0.32f, 0.55f, -0.35f);
             fill.type = LightType.Point;
             fill.color = new Color(1f, 0.95f, 0.88f);
-            fill.intensity = 1.15f;
-            fill.range = 1.5f;
+            // in Unity il diffuso e' albedo x illuminamento (senza 1/pi): E = intensita' / distanza^2, a 65 cm ~1.3 -> polimero nero a ~70/255
+            fill.intensity = 0.55f;
+            fill.range = 2.6f;
             fill.shadows = LightShadows.None;
         }
 
-        // ---------- mani del giocatore (Resources/Mani, da modelli/hotel/genera_mani.py) ----------
-        Transform handL;
-        Vector3 handLRest;          // posizione della mano sinistra nel riferimento dell'arma
-        bool handLOnMag;            // ricarica: la mano sinistra va al caricatore (sul fucile a pompa resta sulla pompa)
-
-        /// <summary>Guanti e maniche, posati sull'impugnatura (destra) e sull'astina (sinistra) del fucile d'assalto;
-        /// per le altre armi si spostano della differenza tra le loro impugnature e astine. Sul fucile a pompa la mano
-        /// sinistra e' figlia della pompa e la segue.</summary>
-        void AddHands(GameObject root, string model)
+        static GameObject MakeQuad(string name, Transform parent, Vector3 pos, Material m)
         {
-            handL = null;
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            q.name = name;
+            var c = q.GetComponent<Collider>();
+            if (c != null) { if (Application.isPlaying) Destroy(c); else DestroyImmediate(c); }
+            q.transform.SetParent(parent, false);
+            q.transform.localPosition = pos;
+            q.layer = 2;
+            var r = q.GetComponent<MeshRenderer>();
+            r.sharedMaterial = m;
+            r.shadowCastingMode = ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            return q;
+        }
+
+        // ------------------------------------------------------------------ mani (Resources/Mani, da modelli/hotel/genera_mani.py)
+        /// <summary>Guanti e maniche: la destra sull'impugnatura (coincide per tutte le armi: l'origine dei modelli e' scelta cosi'),
+        /// la sinistra dove l'arma ha l'aggancio grip_l (astina, pompa, caricatore). Le armi a una mano la nascondono.</summary>
+        void AddHands(GameObject root, WeaponDef d)
+        {
+            handL = handR = null; handLRend = null; handsGo = null;
             var prefab = Resources.Load<GameObject>("Mani");
             if (prefab == null) return;
             var g = Instantiate(prefab, root.transform);
+            handsGo = g;
             g.name = "Mani";
             g.transform.localPosition = Vector3.zero;
             g.transform.localRotation = Quaternion.identity;
-            Vector3 offR, offL;
-            switch (model)
-            {
-                case "smg": offR = new Vector3(0f, 0.03f, 0f); offL = new Vector3(0f, -0.005f, -0.11f); break;
-                case "shotgun": offR = new Vector3(0f, 0.02f, -0.04f); offL = new Vector3(0f, -0.055f, 0.05f); break;
-                case "dmr": offR = new Vector3(0f, 0.02f, 0.01f); offL = new Vector3(0f, 0f, -0.01f); break;
-                default: offR = offL = Vector3.zero; break;
-            }
-            Transform handR = null;
             foreach (var t in g.GetComponentsInChildren<Transform>(true))
             {
                 if (t.name == "mano_d") handR = t;
                 else if (t.name == "mano_s") handL = t;
-                t.gameObject.layer = 2;                       // come l'arma: non blocca mai l'hitscan
+                t.gameObject.layer = 2;
             }
-            foreach (var r in g.GetComponentsInChildren<Renderer>(true))
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            if (handR != null) handR.position += root.transform.TransformVector(offR);
+            foreach (var r in g.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = ShadowCastingMode.Off;
+            if (handR != null && d.handDrop != 0f) handR.position += root.transform.TransformVector(new Vector3(0f, -d.handDrop, 0f));
             if (handL != null)
             {
-                handL.position += root.transform.TransformVector(offL);
-                if (model == "shotgun" && pumpPart != null) handL.SetParent(pumpPart, true);
-                else
+                Vector3 hg = new Vector3(0f, 0.005f, 0.31f);          // dove la mano sinistra sta sul fucile d'assalto
+                Vector3 target = rig.gripL != null ? root.transform.InverseTransformPoint(rig.gripL.position) : hg;
+                handL.position += root.transform.TransformVector(target - hg);
+                handLRest = root.transform.InverseTransformPoint(handL.position);
+                handLRend = handL.GetComponentsInChildren<Renderer>(true);
+            }
+        }
+
+        // ------------------------------------------------------------------ ottica ingrandita (seconda camera)
+        void DestroyScope()
+        {
+            if (scopeCam != null) SafeDestroy(scopeCam.gameObject);
+            if (scopeRT != null) { scopeRT.Release(); SafeDestroy(scopeRT); }
+            scopeCam = null; scopeRT = null; scopeRenderer = null; scopeMat = null;
+        }
+
+        void SetupScope(WeaponDef d)
+        {
+            if (rig.scopeLens == null || d.zoom < 1.4f) return;
+            scopeRenderer = rig.scopeLens.GetComponent<Renderer>();
+            if (scopeRenderer == null) return;
+            scopeMat = scopeRenderer.material;          // istanza per arma
+            var mf = rig.scopeLens.GetComponent<MeshFilter>();
+            if (mf != null && mf.sharedMesh != null) scopeRadius = Mathf.Max(mf.sharedMesh.bounds.extents.x, mf.sharedMesh.bounds.extents.z);
+            scopeRT = new RenderTexture(768, 768, 16, RenderTextureFormat.ARGB32) { antiAliasing = 1, name = "ScopeRT", useMipMap = false };
+            scopeRT.Create();
+            var go = new GameObject("ScopeCam");
+            go.transform.SetParent(rig.scopeLens, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            scopeCam = go.AddComponent<Camera>();
+            var main = cam.GetComponent<Camera>();
+            scopeCam.CopyFrom(main);
+            scopeCam.targetTexture = scopeRT;
+            scopeCam.cullingMask = ~((1 << 2) | (1 << 5));
+            scopeCam.nearClipPlane = 0.15f;
+            scopeCam.fieldOfView = 8f;
+            scopeCam.enabled = false;
+            var ad = scopeCam.GetUniversalAdditionalCameraData();
+            ad.renderPostProcessing = false;
+            ad.antialiasing = AntialiasingMode.None;
+            ad.renderShadows = true;
+            scopeMat.SetTexture("_ScopeTex", scopeRT);
+            scopeMat.SetFloat("_Radius", scopeRadius);
+            scopeMat.SetFloat("_Zoom", d.zoom);
+            scopeMat.SetFloat("_Reticle", d.pattern == 3 ? 3f : 4f);
+            scopeMat.SetFloat("_Lit", d.pattern == 3 ? 1f : 0f);
+        }
+
+        void LateUpdate()
+        {
+            if (scopeCam == null || cam == null) return;
+            bool on = ads > 0.35f;
+            if (scopeMat != null) scopeMat.SetFloat("_Active", Mathf.Clamp01((ads - 0.45f) * 3.5f));
+            if (!on) return;
+            // il campo della seconda camera: l'ingrandimento e' quello rispetto a come l'occhio vede la lente
+            float dist = Mathf.Max(0.03f, Vector3.Distance(cam.position, scopeCam.transform.position));
+            float alpha = 2f * Mathf.Atan(scopeRadius / dist);
+            float fov = 2f * Mathf.Atan(Mathf.Tan(alpha * 0.5f) / Mathf.Max(1f, Def.zoom)) * Mathf.Rad2Deg;
+            scopeCam.fieldOfView = Mathf.Clamp(fov, 1f, 40f);
+            scopeCam.transform.rotation = viewRoot.rotation * (rig != null ? Quaternion.identity : Quaternion.identity);
+            scopeCam.Render();
+        }
+
+        // ------------------------------------------------------------------ ciclo
+        float LookMult => Mathf.Lerp(1f, Def.zoom > 1.4f ? Mathf.Clamp(1.1f / Mathf.Pow(Def.zoom, 0.78f), 0.2f, 1f) : 0.62f, ads);
+        public float SensMult => LookMult;
+
+        public void Tick(float dt, bool sprinting, float speed = 0f, bool grounded = true, bool crouched = false, Vector2 lookDelta = default)
+        {
+            if (cam == null || viewRoot == null) return;
+            var d = Def;
+            sprintHeld = sprinting;
+            sprintBlend = Mathf.MoveTowards(sprintBlend, sprinting ? 1f : 0f, dt / (sprinting ? 0.20f : 0.18f));
+
+            // ----- cambio arma
+            if (swapT > 0f)
+            {
+                swapT -= dt;
+                if (pendingSlot >= 0 && swapT <= 0f)
                 {
-                    handLRest = root.transform.InverseTransformPoint(handL.position);
-                    handLOnMag = magPart != null;
+                    cur = pendingSlot;
+                    pendingSlot = -1;
+                    BuildViewmodel();
+                    equipT = Def.drawTime;
+                    RefreshHud();
+                    Synth.Mech("draw", 0.6f, 1f);
                 }
             }
-        }
-
-        /// <summary>Modello dettagliato per l'esposizione sul muro (stessa geometria del viewmodel,
-        /// materiali PBR procedurali, senza mani né fiammata).</summary>
-        public static GameObject BuildDisplayModel(int index)
-        {
-            GunMats.Ensure();
-            // copie schiarite solo per l'esposizione: sul muro la luce e' poca
-            var displayBody = new Material(GunMats.Metal) { color = new Color(1.8f, 1.85f, 1.95f) };
-            var displaySteel = new Material(GunMats.Steel) { color = new Color(2.0f, 2.05f, 2.15f) };
-            displayBody.SetFloat("_Smoothness", 0.48f);
-            displaySteel.SetFloat("_Smoothness", 0.55f);
-            WeaponRef.Body = displayBody;
-            WeaponRef.Steel = displaySteel;
-            WeaponRef.Dark = GunMats.Dark;
-            WeaponRef.Lens = GunMats.Lens;
-            WeaponRef.Dot = GunMats.Dot;
-            WeaponRef.Grip = Defs[index].model == "shotgun" ? GunMats.Wood : GunMats.Polymer;
-            WeaponRef.Mag = WeaponRef.Charge = WeaponRef.Pump = null;
-            var g = new GameObject("Arma");
-            Vector3 muzzle; float sightY;
-            switch (Defs[index].model)
+            else
             {
-                case "smg": BuildSmg(g, out muzzle, out sightY); break;
-                case "shotgun": BuildShotgun(g, out muzzle, out sightY); break;
-                case "dmr": BuildDmr(g, out muzzle, out sightY); break;
-                default: BuildRifle(g, out muzzle, out sightY); break;
+                if (Input.GetKeyDown(KeyCode.Alpha1)) SwitchSlot(0);
+                else if (Input.GetKeyDown(KeyCode.Alpha2)) SwitchSlot(1);
+                else if (Input.GetKeyDown(KeyCode.X)) SwitchSlot(1 - cur);
+                float wheel = Input.GetAxis("Mouse ScrollWheel");
+                if (Mathf.Abs(wheel) > 0.01f) SwitchSlot(1 - cur);
             }
-            return g;
-        }
+            if (Input.GetKeyDown(KeyCode.B)) ToggleMode();
 
-        // ---------- viewmodel: geometrie e mirini distinti per arma ----------
-        static void BuildRifle(GameObject root, out Vector3 muzzle, out float sightY)
-        {
-            var body = WeaponRef.Body;
-            var steel = WeaponRef.Steel;
-            var dark = WeaponRef.Dark;
-            var grip = WeaponRef.Grip;
-            AddEllipsoid(root, "Body", new Vector3(0.10f, 0.12f, 0.43f), new Vector3(0, 0, 0), body);
-            AddEllipsoid(root, "Upper", new Vector3(0.085f, 0.05f, 0.36f), new Vector3(0, 0.077f, 0.02f), dark);
-            AddCapsule(root, "Handguard", 0.0375f, 0.26f, new Vector3(0, 0.005f, 0.31f), steel);
-            for (int i = 0; i < 3; i++)
+            // ----- mira
+            bool adsWant = (Input.GetMouseButton(1) || debugAds) && !sprinting && swapT <= 0f && (!reloading || Def.style == ReloadStyle.Tube);
+            adsRaw = Mathf.MoveTowards(adsRaw, adsWant ? 1f : 0f, dt / Mathf.Max(0.05f, d.adsTime));
+            ads = adsRaw * adsRaw * (3f - 2f * adsRaw);
+
+            // ----- dispersione: cala da sola; il pavimento dipende dal movimento
+            bloom = Mathf.Max(0f, bloom - d.bloomRecover * dt * (1f + ads));
+            streakT -= dt;
+            if (streakT <= 0f) streak = 0;
+
+            // ----- ricarica
+            if (reloading) TickReload(dt, d);
+            if (Input.GetKeyDown(KeyCode.R) && swapT <= 0f) Reload();
+
+            // ----- fuoco
+            fireT -= dt;
+            if (cycleT > 0f) cycleT -= dt;
+            bool autoBot = GameManager.autoTest && !GameManager.gunTest;
+            bool press = Input.GetMouseButtonDown(0) || (autoBot && Time.time - lastShot > 0.2f);
+            bool held = Input.GetMouseButton(0) || autoBot;
+            if (!held) { triggerHeld = false; dryPlayed = false; }
+            bool blocked = swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
+            if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || shellsLoaded > 0))
             {
-                AddBox(root, "VentL", new Vector3(0.004f, 0.028f, 0.05f), new Vector3(-0.039f, 0.01f, 0.22f + i * 0.09f), dark);
-                AddBox(root, "VentR", new Vector3(0.004f, 0.028f, 0.05f), new Vector3(0.039f, 0.01f, 0.22f + i * 0.09f), dark);
+                // sparare interrompe la ricarica a canna
+                CancelReload();
             }
-            AddCyl(root, "Barrel", 0.016f, 0.30f, new Vector3(0, 0.015f, 0.52f), steel);
-            AddCyl(root, "Brake", 0.030f, 0.06f, new Vector3(0, 0.015f, 0.69f), steel);
-            for (int i = 0; i < 3; i++)
-                AddBox(root, "BrakePort", new Vector3(0.062f, 0.006f, 0.012f), new Vector3(0, 0.015f, 0.672f + i * 0.018f), dark);
-            AddCapsule(root, "Grip", 0.031f, 0.16f, new Vector3(0, -0.12f, 0.10f), grip, true, 12f);
-            AddBox(root, "TriggerGuard", new Vector3(0.05f, 0.008f, 0.09f), new Vector3(0, -0.145f, 0.02f), dark);
-            AddBox(root, "Trigger", new Vector3(0.008f, 0.03f, 0.012f), new Vector3(0, -0.115f, 0.03f), steel);
-            var magG = new GameObject("MagGroup").transform;
-            magG.SetParent(root.transform, false);
-            magG.localPosition = new Vector3(0, -0.135f, -0.02f);
-            AddCapsule(magG.gameObject, "Mag", 0.029f, 0.18f, Vector3.zero, grip, true);
-            for (int i = 0; i < 3; i++)
-                AddBox(magG.gameObject, "MagRib", new Vector3(0.057f, 0.006f, 0.087f), new Vector3(0, 0.06f - i * 0.035f, 0), dark);
-            AddBox(magG.gameObject, "MagBase", new Vector3(0.062f, 0.016f, 0.092f), new Vector3(0, -0.093f, 0), dark);
-            WeaponRef.Mag = magG;
-            AddCapsule(root, "Stock", 0.038f, 0.19f, new Vector3(0, -0.01f, -0.28f), grip);
-            AddBox(root, "Cheek", new Vector3(0.055f, 0.022f, 0.10f), new Vector3(0, 0.048f, -0.30f), grip);
-            AddBox(root, "ButtPad", new Vector3(0.075f, 0.11f, 0.03f), new Vector3(0, -0.01f, -0.378f), dark);
-            AddBox(root, "EjectPort", new Vector3(0.006f, 0.032f, 0.09f), new Vector3(0.046f, 0.02f, 0.04f), dark);
-            var chG = new GameObject("ChargeGroup").transform;
-            chG.SetParent(root.transform, false);
-            chG.localPosition = new Vector3(0.03f, 0.06f, -0.18f);
-            AddBox(chG.gameObject, "Charge", new Vector3(0.03f, 0.018f, 0.06f), Vector3.zero, steel);
-            WeaponRef.Charge = chG;
-            for (int i = 0; i < 6; i++)
-                AddBox(root, "Rail", new Vector3(0.055f, 0.008f, 0.032f), new Vector3(0, 0.104f, -0.07f + i * 0.045f), dark);
-
-            // red dot: base, gabbia, lente, punto
-            AddBox(root, "DotBase", new Vector3(0.06f, 0.012f, 0.085f), new Vector3(0, 0.113f, 0.05f), dark);
-            AddBox(root, "DotL", new Vector3(0.012f, 0.06f, 0.08f), new Vector3(-0.026f, 0.147f, 0.05f), dark);
-            AddBox(root, "DotR", new Vector3(0.012f, 0.06f, 0.08f), new Vector3(0.026f, 0.147f, 0.05f), dark);
-            AddBox(root, "DotTop", new Vector3(0.064f, 0.012f, 0.08f), new Vector3(0, 0.177f, 0.05f), dark);
-            AddBox(root, "DotLens", new Vector3(0.052f, 0.055f, 0.006f), new Vector3(0, 0.147f, 0.093f), WeaponRef.Lens);
-            AddRing(root, "DotBezel", new Vector3(0, 0.147f, 0.092f), 0.034f, 16, 0.011f, 0.010f, steel);
-            AddRing(root, "DotReticle", new Vector3(0, 0.147f, 0.0985f), 0.0085f, 14, 0.0024f, 0.0014f, WeaponRef.Dot);
-            AddSphere(root, "Dot", 0.0042f, new Vector3(0, 0.147f, 0.099f), WeaponRef.Dot);
-            sightY = 0.147f;
-            muzzle = new Vector3(0, 0.015f, 0.72f);
-        }
-
-        static void BuildSmg(GameObject root, out Vector3 muzzle, out float sightY)
-        {
-            var body = WeaponRef.Body;
-            var steel = WeaponRef.Steel;
-            var dark = WeaponRef.Dark;
-            var grip = WeaponRef.Grip;
-            AddEllipsoid(root, "Body", new Vector3(0.09f, 0.11f, 0.31f), Vector3.zero, body);
-            AddEllipsoid(root, "Upper", new Vector3(0.075f, 0.045f, 0.26f), new Vector3(0, 0.068f, 0), dark);
-            AddCapsule(root, "Handguard", 0.0325f, 0.18f, new Vector3(0, 0, 0.20f), steel);
-            for (int i = 0; i < 2; i++)
+            if (!blocked && !reloading)
             {
-                AddBox(root, "VentL", new Vector3(0.004f, 0.024f, 0.05f), new Vector3(-0.034f, 0.005f, 0.14f + i * 0.09f), dark);
-                AddBox(root, "VentR", new Vector3(0.004f, 0.024f, 0.05f), new Vector3(0.034f, 0.005f, 0.14f + i * 0.09f), dark);
-            }
-            AddCyl(root, "Barrel", 0.015f, 0.22f, new Vector3(0, 0.012f, 0.36f), steel);
-            AddCyl(root, "Shroud", 0.024f, 0.10f, new Vector3(0, 0.012f, 0.30f), dark);
-            var magG = new GameObject("MagGroup").transform;
-            magG.SetParent(root.transform, false);
-            magG.localPosition = new Vector3(0, -0.13f, -0.02f);
-            AddCapsule(magG.gameObject, "Mag", 0.027f, 0.18f, Vector3.zero, grip, true);
-            AddBox(magG.gameObject, "MagBase", new Vector3(0.056f, 0.015f, 0.076f), new Vector3(0, -0.092f, 0), dark);
-            WeaponRef.Mag = magG;
-            AddCapsule(root, "Grip", 0.028f, 0.12f, new Vector3(0, -0.09f, 0.10f), grip, true, 12f);
-            AddBox(root, "TriggerGuard", new Vector3(0.045f, 0.008f, 0.08f), new Vector3(0, -0.115f, 0.02f), dark);
-            AddCapsule(root, "Stock", 0.032f, 0.17f, new Vector3(0, -0.01f, -0.20f), dark);
-            AddBox(root, "EjectPort", new Vector3(0.006f, 0.026f, 0.07f), new Vector3(0.041f, 0.018f, 0.04f), dark);
-            var chG = new GameObject("ChargeGroup").transform;
-            chG.SetParent(root.transform, false);
-            chG.localPosition = new Vector3(0.03f, 0.055f, -0.13f);
-            AddBox(chG.gameObject, "Charge", new Vector3(0.025f, 0.015f, 0.05f), Vector3.zero, steel);
-            WeaponRef.Charge = chG;
-            for (int i = 0; i < 5; i++)
-                AddBox(root, "Rail", new Vector3(0.05f, 0.007f, 0.03f), new Vector3(0, 0.095f, -0.06f + i * 0.042f), dark);
-
-            // reflex compatto
-            AddBox(root, "RefBase", new Vector3(0.056f, 0.012f, 0.08f), new Vector3(0, 0.104f, 0.04f), dark);
-            AddBox(root, "RefL", new Vector3(0.011f, 0.055f, 0.075f), new Vector3(-0.024f, 0.134f, 0.04f), dark);
-            AddBox(root, "RefR", new Vector3(0.011f, 0.055f, 0.075f), new Vector3(0.024f, 0.134f, 0.04f), dark);
-            AddBox(root, "RefTop", new Vector3(0.058f, 0.011f, 0.075f), new Vector3(0, 0.162f, 0.04f), dark);
-            AddBox(root, "RefLens", new Vector3(0.05f, 0.052f, 0.006f), new Vector3(0, 0.134f, 0.08f), WeaponRef.Lens);
-            AddRing(root, "RefBezel", new Vector3(0, 0.134f, 0.079f), 0.032f, 16, 0.010f, 0.010f, steel);
-            AddRing(root, "RefReticle", new Vector3(0, 0.134f, 0.0865f), 0.0078f, 14, 0.0022f, 0.0014f, WeaponRef.Dot);
-            AddSphere(root, "Dot", 0.0046f, new Vector3(0, 0.134f, 0.086f), WeaponRef.Dot);
-            sightY = 0.134f;
-            muzzle = new Vector3(0, 0.012f, 0.48f);
-        }
-
-        static void BuildShotgun(GameObject root, out Vector3 muzzle, out float sightY)
-        {
-            var body = WeaponRef.Body;
-            var steel = WeaponRef.Steel;
-            var dark = WeaponRef.Dark;
-            var wood = WeaponRef.Grip;
-            AddEllipsoid(root, "Body", new Vector3(0.09f, 0.12f, 0.37f), new Vector3(0, 0, 0.02f), body);
-            AddBox(root, "Top", new Vector3(0.085f, 0.025f, 0.30f), new Vector3(0, 0.065f, 0.03f), steel);
-            AddCyl(root, "Barrel", 0.023f, 0.55f, new Vector3(0, 0.025f, 0.44f), steel);
-            AddCyl(root, "BarrelRib", 0.026f, 0.48f, new Vector3(0, 0.028f, 0.42f), dark);
-            AddCyl(root, "Tube", 0.016f, 0.50f, new Vector3(0, -0.05f, 0.42f), dark);
-            var pumpG = new GameObject("PumpGroup").transform;
-            pumpG.SetParent(root.transform, false);
-            pumpG.localPosition = new Vector3(0, -0.05f, 0.36f);
-            AddCapsule(pumpG.gameObject, "Pump", 0.038f, 0.20f, Vector3.zero, wood);
-            for (int i = 0; i < 4; i++)
-                AddBox(pumpG.gameObject, "PumpRib", new Vector3(0.078f, 0.006f, 0.012f), new Vector3(0, 0, -0.08f + i * 0.055f), dark);
-            WeaponRef.Pump = pumpG;
-            AddCapsule(root, "Stock", 0.040f, 0.22f, new Vector3(0, -0.03f, -0.28f), wood);
-            AddBox(root, "ButtPad", new Vector3(0.08f, 0.13f, 0.03f), new Vector3(0, -0.03f, -0.40f), dark);
-            AddCapsule(root, "Grip", 0.028f, 0.13f, new Vector3(0, -0.10f, 0.06f), wood, true, 10f);
-            AddBox(root, "TriggerGuard", new Vector3(0.04f, 0.008f, 0.08f), new Vector3(0, -0.15f, -0.02f), dark);
-
-            // tacca fantasma posteriore + mirino a sfera frontale
-            AddBox(root, "GhostBase", new Vector3(0.022f, 0.04f, 0.02f), new Vector3(0, 0.068f, 0.02f), dark);
-            AddRing(root, "GhostAperture", new Vector3(0, 0.094f, 0.02f), 0.022f, 14, 0.008f, 0.012f, steel);
-            AddBox(root, "FrontPost", new Vector3(0.012f, 0.055f, 0.012f), new Vector3(0, 0.075f, 0.70f), dark);
-            AddRing(root, "BeadHood", new Vector3(0, 0.105f, 0.698f), 0.0105f, 10, 0.0045f, 0.010f, steel);
-            AddSphere(root, "Bead", 0.0075f, new Vector3(0, 0.105f, 0.70f), WeaponRef.Dot);
-            sightY = 0.105f;
-            muzzle = new Vector3(0, 0.025f, 0.73f);
-        }
-
-        static void BuildDmr(GameObject root, out Vector3 muzzle, out float sightY)
-        {
-            var body = WeaponRef.Body;
-            var steel = WeaponRef.Steel;
-            var dark = WeaponRef.Dark;
-            var grip = WeaponRef.Grip;
-            AddEllipsoid(root, "Body", new Vector3(0.09f, 0.12f, 0.44f), new Vector3(0, 0, 0.02f), body);
-            AddEllipsoid(root, "Upper", new Vector3(0.075f, 0.05f, 0.38f), new Vector3(0, 0.077f, 0.04f), dark);
-            AddCapsule(root, "Handguard", 0.035f, 0.20f, new Vector3(0, 0.005f, 0.30f), steel);
-            AddCyl(root, "Barrel", 0.016f, 0.55f, new Vector3(0, 0.015f, 0.54f), steel);
-            AddCyl(root, "Brake", 0.028f, 0.06f, new Vector3(0, 0.015f, 0.82f), steel);
-            for (int i = 0; i < 6; i++)
-                AddBox(root, "Rail", new Vector3(0.05f, 0.008f, 0.032f), new Vector3(0, 0.104f, -0.04f + i * 0.045f), dark);
-            var magG = new GameObject("MagGroup").transform;
-            magG.SetParent(root.transform, false);
-            magG.localPosition = new Vector3(0, -0.13f, -0.02f);
-            AddCapsule(magG.gameObject, "Mag", 0.027f, 0.16f, Vector3.zero, grip, true);
-            AddBox(magG.gameObject, "MagBase", new Vector3(0.056f, 0.015f, 0.086f), new Vector3(0, -0.082f, 0), dark);
-            WeaponRef.Mag = magG;
-            AddCapsule(root, "Grip", 0.028f, 0.13f, new Vector3(0, -0.10f, 0.11f), grip, true, 12f);
-            AddBox(root, "TriggerGuard", new Vector3(0.045f, 0.008f, 0.08f), new Vector3(0, -0.13f, 0.02f), dark);
-            AddCapsule(root, "Stock", 0.038f, 0.21f, new Vector3(0, -0.02f, -0.30f), grip);
-            AddBox(root, "Cheek", new Vector3(0.055f, 0.022f, 0.11f), new Vector3(0, 0.045f, -0.30f), grip);
-            AddBox(root, "ButtPad", new Vector3(0.075f, 0.13f, 0.03f), new Vector3(0, -0.02f, -0.40f), dark);
-
-            // ottica con attacchi, lenti e torrette
-            AddBox(root, "ScopeMountA", new Vector3(0.045f, 0.05f, 0.04f), new Vector3(0, 0.085f, -0.02f), dark);
-            AddBox(root, "ScopeMountB", new Vector3(0.045f, 0.05f, 0.04f), new Vector3(0, 0.085f, 0.14f), dark);
-            AddCyl(root, "Scope", 0.035f, 0.32f, new Vector3(0, 0.12f, 0.06f), dark);
-            AddCyl(root, "ScopeFront", 0.031f, 0.006f, new Vector3(0, 0.12f, 0.222f), WeaponRef.Lens);
-            AddCyl(root, "ScopeRear", 0.031f, 0.006f, new Vector3(0, 0.12f, -0.102f), WeaponRef.Lens);
-            AddRing(root, "ScopeHood", new Vector3(0, 0.12f, 0.238f), 0.036f, 16, 0.010f, 0.03f, steel);
-            AddBox(root, "ReticleH", new Vector3(0.05f, 0.0022f, 0.001f), new Vector3(0, 0.12f, 0.2268f), steel);
-            AddBox(root, "ReticleV", new Vector3(0.0022f, 0.05f, 0.001f), new Vector3(0, 0.12f, 0.2268f), steel);
-            AddSphere(root, "ReticleDot", 0.0026f, new Vector3(0, 0.12f, 0.2272f), WeaponRef.Dot);
-            AddCyl(root, "TurretTop", 0.014f, 0.03f, new Vector3(0, 0.158f, 0.06f), dark);
-            sightY = 0.12f;
-            muzzle = new Vector3(0, 0.015f, 0.85f);
-        }
-
-        // piccole classi d'appoggio per i materiali usati dai builder statici
-        static class WeaponRef
-        {
-            public static Material Body, Grip, Steel, Dark, Lens, Dot;
-            public static Transform Mag, Charge, Pump;
-        }
-
-        void Awake()
-        {
-            if (cam == null)
-            {
-                var t = transform.Find("MainCamera");
-                if (t != null) cam = t;
-            }
-            // il riferimento all'HUD non e' serializzato nella scena: senza questo lookup
-            // colpi e ricarica non arrivavano mai al contatore delle munizioni
-            if (hud == null) hud = FindAnyObjectByType<HUD>();
-            if (cam != null) BuildViewmodel();
-            SyncTuning();
-        }
-
-        void SyncTuning()
-        {
-            var d = Def;
-            magSize = d.magSize;
-            reserveMax = d.reserveMax;
-            rpm = d.rpm;
-            damage = d.damage;
-            range = d.range;
-            mag = Mathf.Clamp(mag, 0, magSize);
-            reserve = Mathf.Clamp(reserve, 0, reserveMax);
-            hud?.SetAmmo(mag, reserve);
-            hud?.SetWeaponName(d.name + " · " + d.modeLabel);
-        }
-
-        /// <summary>Equipaggia un'arma (acquisto al muro o reset). full = caricatore e riserva pieni.</summary>
-        public void Equip(int index, bool full = true)
-        {
-            weaponIndex = Mathf.Clamp(index, 0, Defs.Length - 1);
-            var d = Def;
-            magSize = d.magSize;
-            reserveMax = d.reserveMax;
-            rpm = d.rpm;
-            damage = d.damage;
-            range = d.range;
-            mag = full ? d.magSize : Mathf.Clamp(mag, 0, d.magSize);
-            reserve = full ? d.reserve : Mathf.Clamp(reserve, 0, d.reserveMax);
-            reloading = false; reloadT = 0f; triggerHeld = false; recoil = 0f; bloom = 0f;
-            BuildViewmodel();
-            hud?.SetReloading(false);
-            hud?.SetAmmo(mag, reserve);
-            hud?.SetWeaponName(d.name + " · " + d.modeLabel);
-        }
-
-        static void NoPhys(GameObject go)
-        {
-            var c = go.GetComponent<Collider>();
-            if (c == null) return;
-            if (Application.isPlaying) Destroy(c);
-            else DestroyImmediate(c);
-        }
-
-        static GameObject AddBox(GameObject parent, string name, Vector3 size, Vector3 pos, Material m)
-        {
-            var b = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            b.name = name;
-            NoPhys(b);
-            b.transform.SetParent(parent.transform, false);
-            b.transform.localPosition = pos;
-            b.transform.localScale = size;
-            var r = b.GetComponent<MeshRenderer>();
-            r.material = m;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            b.layer = 2; // Ignore Raycast: il viewmodel non blocca mai l'hitscan
-            return b;
-        }
-
-        /// <summary>Anello sul piano XY (asse di mira = Z), fatto di segmenti corti: bezel, reticolo, apertura.
-        /// Lascia vedere attraverso il centro, a differenza di un disco.</summary>
-        static void AddRing(GameObject parent, string name, Vector3 center, float radius, int n, float tube, float depth, Material m)
-        {
-            float seg = 2f * Mathf.PI * radius / n * 1.25f;
-            for (int i = 0; i < n; i++)
-            {
-                float a = i / (float)n * 360f;
-                Vector3 dir = new Vector3(Mathf.Cos(a * Mathf.Deg2Rad), Mathf.Sin(a * Mathf.Deg2Rad), 0f);
-                var b = AddBox(parent, name, new Vector3(seg, tube, depth), center + dir * radius, m);
-                b.transform.localRotation = Quaternion.Euler(0f, 0f, a + 90f);
-            }
-        }
-
-        static void AddEllipsoid(GameObject parent, string name, Vector3 size, Vector3 pos, Material m, float tiltX = 0f)
-        {
-            var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            s.name = name;
-            NoPhys(s);
-            s.transform.SetParent(parent.transform, false);
-            s.transform.localPosition = pos;
-            s.transform.localRotation = Quaternion.Euler(tiltX, 0f, 0f);
-            s.transform.localScale = size;
-            var r = s.GetComponent<MeshRenderer>();
-            r.material = m;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            s.layer = 2;
-        }
-
-        /// <summary>Capsula arrotondata: asse verticale (Y) oppure lungo Z, con inclinazione opzionale.</summary>
-        static void AddCapsule(GameObject parent, string name, float radius, float length, Vector3 pos, Material m,
-            bool vertical = false, float tilt = 0f)
-        {
-            var c = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            c.name = name;
-            NoPhys(c);
-            c.transform.SetParent(parent.transform, false);
-            c.transform.localPosition = pos;
-            c.transform.localRotation = vertical ? Quaternion.Euler(tilt, 0f, 0f) : Quaternion.Euler(90f + tilt, 0f, 0f);
-            c.transform.localScale = new Vector3(radius * 2f, length * 0.5f, radius * 2f);
-            var r = c.GetComponent<MeshRenderer>();
-            r.material = m;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            c.layer = 2;
-        }
-
-        static void AddSphere(GameObject parent, string name, float radius, Vector3 pos, Material m)
-        {
-            var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            s.name = name;
-            NoPhys(s);
-            s.transform.SetParent(parent.transform, false);
-            s.transform.localPosition = pos;
-            s.transform.localScale = Vector3.one * (radius * 2f);
-            var r = s.GetComponent<MeshRenderer>();
-            r.material = m;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            s.layer = 2;
-        }
-
-        static void AddCyl(GameObject parent, string name, float radius, float length, Vector3 pos, Material m)
-        {
-            var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            c.name = name;
-            NoPhys(c);
-            c.transform.SetParent(parent.transform, false);
-            c.transform.localPosition = pos;
-            c.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            c.transform.localScale = new Vector3(radius * 2f, length * 0.5f, radius * 2f);
-            var r = c.GetComponent<MeshRenderer>();
-            r.material = m;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            c.layer = 2;
-        }
-
-        public bool IsBound { get { return cam != null && flashQuad != null; } }
-
-        public void Tick(float dt, bool sprinting, float speed = 0f, bool grounded = true)
-        {
-            if (cam == null || flashQuad == null) return;
-            var d = Def;
-            adsHeld = Input.GetMouseButton(1);
-            ads += ((adsHeld ? 1 : 0) - ads) * Mathf.Min(1f, 13f * dt);
-            recoil *= Mathf.Max(0f, 1f - 11f * dt);
-
-            // la dispersione non scende sotto il livello di movimento: si ricalcola ogni tick
-            float floor = Mathf.Clamp01(speed / 6f) * 0.25f + (grounded ? 0f : 0.4f);
-            bloom = bloom > floor ? Mathf.Max(floor, bloom - dt * 2.6f) : Mathf.Min(floor, bloom + dt * 4f);
-            hud?.SetCrosshair(d.model, bloom, ads);
-
-            if (reloading)
-            {
-                reloadT -= dt;
-                if (reloadT <= 0f)
+                var m = Mode;
+                if (burstLeft > 0 && fireT <= 0f)
                 {
-                    int need = magSize - mag;
-                    int take = Mathf.Min(need, reserve);
-                    mag += take; reserve -= take;
-                    reloading = false;
-                    hud?.SetAmmo(mag, reserve);
-                    hud?.SetReloading(false);
+                    if (mag > 0) { Shoot(d); burstLeft--; if (burstLeft == 0) fireT = Mathf.Max(fireT, d.burstGap); }
+                    else burstLeft = 0;
+                }
+                else if (fireT <= 0f && cycleT <= 0f)
+                {
+                    bool want = false;
+                    switch (m)
+                    {
+                        case FireMode.Auto: want = held; break;
+                        case FireMode.Burst: want = press; break;
+                        default: want = press; break;   // semi, pompa, otturatore, leva, doppietta
+                    }
+                    if (m == FireMode.Auto && held && !triggerHeld) triggerHeld = true;
+                    if (want)
+                    {
+                        if (mag > 0)
+                        {
+                            Shoot(d);
+                            if (m == FireMode.Burst) burstLeft = d.burst - 1;
+                        }
+                        else if (!dryPlayed)
+                        {
+                            dryPlayed = true;
+                            Synth.Mech("dry", 0.55f, 1f);
+                            Reload();
+                        }
+                    }
                 }
             }
-            if (Input.GetKeyDown(KeyCode.R)) Reload();
+            else if (!reloading && mag <= 0 && press && swapT <= 0f && !dryPlayed) { }
 
-            float interval = 60f / rpm;
-            bool wantFire = Input.GetMouseButton(0) || GameManager.autoTest;
-            bool triggerOk = GameManager.autoTest || d.auto || !triggerHeld;
-            if (wantFire && triggerOk && !reloading && Time.time - lastShot >= interval)
+            // fiammata
+            if (flashA != null && flashA.activeSelf && Time.time - lastShot > 0.05f)
             {
-                Shoot(d);
-                triggerHeld = true;
-            }
-            if (!wantFire) triggerHeld = false;
-
-            if (flashQuad.activeSelf && Time.time - lastShot > 0.055f)
-            {
-                flashQuad.SetActive(false);
+                flashA.SetActive(false); flashB.SetActive(false);
                 flashLight.intensity = 0f;
             }
+            if (cycleAnim >= 0f)
+            {
+                cycleAnim += dt / Mathf.Max(0.05f, cycleLen);
+                if (cycleAnim >= 1f) cycleAnim = -1f;
+            }
 
-            UpdatePose(dt, speed, sprinting);
+            // ----- animazioni di rinculo e dondolio
+            kickBack = Mathf.Max(0f, kickBack - dt * (6.5f + d.kick * 1.5f));
+            kickPitch *= Mathf.Max(0f, 1f - 11f * dt);
+            kickRoll *= Mathf.Max(0f, 1f - 9f * dt);
+            recoil = kickBack;
+            // inerzia: il modello resta un poco indietro rispetto al movimento del mouse
+            swayVx += (-lookDelta.x * 0.045f - swayX) * 90f * dt; swayVx *= Mathf.Max(0f, 1f - 11f * dt);
+            swayVy += (-lookDelta.y * 0.045f - swayY) * 90f * dt; swayVy *= Mathf.Max(0f, 1f - 11f * dt);
+            swayX = Mathf.Clamp(swayX + swayVx * dt, -2.6f, 2.6f);
+            swayY = Mathf.Clamp(swayY + swayVy * dt, -2.6f, 2.6f);
+            breath += dt;
+
+            // ----- mirino a schermo (solo senza ottica: con il mirino fisico in mira sparisce)
+            if (hud != null)
+            {
+                float spread = CurrentSpread(speed, grounded, crouched);
+                float fov = cam.GetComponent<Camera>().fieldOfView;
+                float px = Mathf.Tan(spread * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad) * 360f;
+                hud.SetCrosshair(px, ads, d.cls, d.pellets > 1);
+                hud.SetAdsVignette(ads * (d.zoom > 1.4f ? 0.80f : 0.42f));
+            }
+
+            UpdatePose(dt, speed, sprinting, grounded);
+            lastSpread = CurrentSpread(speed, grounded, crouched);
         }
 
-        /// <summary>Posa del viewmodel: respiro, camminata, corsa, rinculo, ricarica e ingresso arma.</summary>
-        void UpdatePose(float dt, float speed, bool sprinting)
+        float streakT;
+        float lastSpread;
+        float moveNow, airNow, crouchNow;
+
+        /// <summary>Semiapertura corrente del cono di dispersione (gradi).</summary>
+        float CurrentSpread(float speed, bool grounded, bool crouched)
         {
-            if (viewRoot == null) return;
+            var d = Def;
+            moveNow = Mathf.Clamp01(speed / 5.6f); airNow = grounded ? 0f : 1f; crouchNow = crouched ? 1f : 0f;
+            float baseDeg = Mathf.Lerp(d.hip, d.ads, ads);
+            float mv = 1f + d.moveSpread * moveNow * (1f - ads * 0.6f);
+            float c = crouched ? 0.72f : 1f;
+            float air = 1f + airNow * 1.6f;
+            return baseDeg * mv * c * air + bloom * Mathf.Lerp(1f, 0.5f, ads);
+        }
+
+        // ------------------------------------------------------------------ ricarica
+        public void Reload()
+        {
+            var d = Def;
+            if (reloading || swapT > 0f) return;
+            if (mag >= magSize || reserve <= 0) return;
+            reloading = true;
+            reloadT = 0f;
+            reloadEmpty = mag <= 0;
+            burstLeft = 0;
+            shellsLoaded = 0;
+            if (d.style == ReloadStyle.Tube)
+            {
+                shellsToLoad = Mathf.Min(magSize - mag, reserve);
+                reloadDur = 0.35f + shellsToLoad * d.shellTime + 0.25f;
+            }
+            else reloadDur = reloadEmpty ? d.reloadEmpty : d.reload;
+            hud?.SetReloading(true);
+            Synth.Mech(d.style == ReloadStyle.Tube ? "shellopen" : d.style == ReloadStyle.Revolver ? "cylopen" : "magout", 0.55f, 1f);
+            reloadStage = 0;
+        }
+
+        int reloadStage;
+
+        void CancelReload()
+        {
+            reloading = false;
+            hud?.SetReloading(false);
+            hud?.SetAmmo(mag, reserve);
+        }
+
+        void TickReload(float dt, WeaponDef d)
+        {
+            reloadT += dt;
+            float rp = Mathf.Clamp01(reloadT / Mathf.Max(0.05f, reloadDur));
+            if (d.style == ReloadStyle.Tube)
+            {
+                float t = reloadT - 0.35f;
+                while (shellsLoaded < shellsToLoad && t >= shellsLoaded * d.shellTime + d.shellTime * 0.55f)
+                {
+                    mag++; reserve--; shellsLoaded++;
+                    Synth.Mech("shellin", 0.5f, Random.Range(0.95f, 1.1f));
+                    hud?.SetAmmo(mag, reserve);
+                }
+                if (rp >= 1f) { reloading = false; hud?.SetReloading(false); if (d.cycle > 0f && reloadEmpty) StartCycle(d, false); }
+                return;
+            }
+            // suoni a tappe
+            if (reloadStage == 0 && rp > 0.50f)
+            {
+                reloadStage = 1;
+                Synth.Mech(d.style == ReloadStyle.Revolver ? "cylshells" : d.style == ReloadStyle.Break ? "shellin" : "magin", 0.6f, 1f);
+            }
+            else if (reloadStage == 1 && rp > 0.76f)
+            {
+                reloadStage = 2;
+                if (d.style == ReloadStyle.Revolver) Synth.Mech("cylclose", 0.6f, 1f);
+                else if (d.style == ReloadStyle.Break) Synth.Mech("breakclose", 0.6f, 1f);
+                else if (reloadEmpty) Synth.Mech(d.style == ReloadStyle.Pistol ? "slidefwd" : "boltfwd", 0.6f, 1f);
+            }
+            if (rp >= 1f)
+            {
+                int take = Mathf.Min(magSize - mag, reserve);
+                mag += take; reserve -= take;
+                reloading = false;
+                hud?.SetAmmo(mag, reserve);
+                hud?.SetReloading(false);
+            }
+        }
+
+        // ------------------------------------------------------------------ sparo
+        static readonly RaycastHit[] hitBuf = new RaycastHit[24];
+
+        void Shoot(WeaponDef d)
+        {
+            mag--;
+            lastShot = Time.time;
+            GameManager.shotsFired++;
+            var m = Mode;
+            fireT = m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm);
+            if (d.cycle > 0f && m != FireMode.Double) StartCycle(d, true);
+            streak++; streakT = 0.28f;
+            // rinculo della visuale: cresce un poco con la raffica, in mira e accovacciati e' piu' dolce
+            float dampen = Mathf.Lerp(1f, 0.72f, ads) * (crouchNow > 0.5f ? 0.85f : 1f);
+            float rv = d.recV * (1f + 0.035f * Mathf.Min(streak, 10)) * dampen;
+            float rh = (Random.Range(-1f, 1f) * d.recH + Mathf.Sin(streak * 0.9f + d.id.Length) * d.recH * 0.45f) * dampen;
+            if (player != null) player.Kick(rv, rh, d.recRecover);
+            // contraccolpo del modello
+            kickBack = Mathf.Min(1.2f, kickBack + 0.38f * d.kick);
+            kickPitch = Mathf.Min(14f, kickPitch + 1.6f * d.kick);
+            kickRoll += Random.Range(-1f, 1f) * 1.2f * d.kick;
+            bloom = Mathf.Min(d.bloomMax, bloom + d.bloomShot);
+
+            // fiammata
+            if (!d.suppressed)
+            {
+                float s = 0.13f * d.flash;
+                flashA.SetActive(true); flashB.SetActive(true);
+                flashA.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
+                flashA.transform.localScale = Vector3.one * Random.Range(0.82f, 1.15f) * s;
+                // fiammata laterale: allungata lungo la canna
+                flashB.transform.localRotation = Quaternion.Euler(0f, 90f, 0f) * Quaternion.Euler(0f, 0f, Random.Range(-8f, 8f));
+                flashB.transform.localScale = new Vector3(s * 2.1f, s * 0.9f, 1f);
+                // illuminamento = intensita' / distanza^2: davanti a un muro vicino si limita l'intensita' (come un'esposizione automatica)
+                float wd = 3f;
+                if (Physics.Raycast(cam.position, cam.forward, out RaycastHit fh, 3f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) wd = fh.distance;
+                float dm = Mathf.Max(0.2f, wd - (rig.MuzzleLocal.z + 0.4f));
+                flashLight.intensity = Mathf.Min(1.6f * d.flash, 0.9f * dm * dm);
+            }
+            if (d.soundEvery <= 1 || streak % d.soundEvery == 1 || streak <= 1)
+                Synth.Gun(d.snd, d.suppressed ? 0.35f : 0.62f, Random.Range(0.96f, 1.04f));
+            if (d.fx == "flame" && rig.muzzle != null) Fx.Flame(rig.muzzle.position, cam.forward);
+
+            // bossolo
+            if (d.casing != "none" && rig.eject != null && d.cycle <= 0f)
+                EjectCasing(d);
+
+            FireRays(d);
+            hud?.SetAmmo(mag, reserve);
+            if (mag <= 0 && reserve > 0 && Mode != FireMode.Double) { /* la ricarica parte al prossimo grilletto */ }
+        }
+
+        void EjectCasing(WeaponDef d)
+        {
+            Vector3 pos = rig.eject.position;
+            Vector3 vel = cam.right * Random.Range(1.4f, 2.4f) + cam.up * Random.Range(0.9f, 1.8f) - cam.forward * Random.Range(0.1f, 0.5f);
+            Fx.Casing(pos, vel, cam.rotation * Quaternion.Euler(Random.Range(-20f, 20f), Random.Range(0f, 360f), 0f), d.casing);
+        }
+
+        void StartCycle(WeaponDef d, bool afterShot)
+        {
+            cycleT = Mathf.Max(cycleT, afterShot ? d.cycle : d.cycle * 0.7f);
+            cycleAnim = 0f; cycleLen = afterShot ? d.cycle : d.cycle * 0.7f;
+            cycleDelayAfterShot = afterShot;
+            cycleCasingDone = false;
+            Synth.Mech(Mode == FireMode.Pump ? "pumpback" : Mode == FireMode.Lever ? "leverdown" : "boltup", 0.55f, 1f);
+            cycleSound = 0;
+        }
+        bool cycleDelayAfterShot, cycleCasingDone;
+        int cycleSound;
+
+        void FireRays(WeaponDef d)
+        {
+            float spread = lastSpread;
+            // la prima pallottola dopo una pausa, in mira e fermi, e' precisa (fucili di precisione)
+            if (Time.time - lastShotPrev > 0.4f && ads > 0.8f && moveNow < 0.1f) spread *= 0.35f;
+            lastShotPrev = Time.time;
+            bool tracer = d.tracerEvery <= 1f || (streak % Mathf.Max(1, Mathf.RoundToInt(d.tracerEvery))) == 0;
+            Vector3 origin = cam.position;
+            Vector3 muzzlePos = rig.muzzle != null ? rig.muzzle.position : origin + cam.forward * 0.6f;
+            var hitSet = new HashSet<Enemy>();
+            for (int p = 0; p < d.pellets; p++)
+            {
+                Vector3 dir = Spread(cam.forward, spread);
+                if (d.pellets > 1) dir = Spread(dir, d.cone * Mathf.Lerp(1f, 0.7f, ads) * (p == 0 && d.pellets > 4 ? 0.2f : 1f));
+                ShootRay(d, origin, dir, hitSet, tracer && (d.pellets == 1 || p < d.tracerPellets), muzzlePos);
+            }
+        }
+        float lastShotPrev = -99f;
+
+        static Vector3 Spread(Vector3 fwd, float deg)
+        {
+            if (deg <= 0.0001f) return fwd;
+            Vector2 c = Random.insideUnitCircle * Mathf.Tan(deg * Mathf.Deg2Rad);
+            Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
+            Vector3 up = Vector3.Cross(fwd, right);
+            return (fwd + right * c.x + up * c.y).normalized;
+        }
+
+        void ShootRay(WeaponDef d, Vector3 origin, Vector3 dir, HashSet<Enemy> hitSet, bool tracer, Vector3 muzzlePos)
+        {
+            int n = Physics.RaycastNonAlloc(origin, dir, hitBuf, d.rangeFar * 2f + 40f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            // ordino per distanza
+            for (int i = 1; i < n; i++)
+            {
+                var h = hitBuf[i]; int j = i - 1;
+                while (j >= 0 && hitBuf[j].distance > h.distance) { hitBuf[j + 1] = hitBuf[j]; j--; }
+                hitBuf[j + 1] = h;
+            }
+            float dmgMul = 1f;
+            int pierced = 0;
+            Vector3 end = origin + dir * Mathf.Min(d.rangeFar * 2f, 250f);
+            var seen = new HashSet<Enemy>();
+            for (int i = 0; i < n; i++)
+            {
+                var h = hitBuf[i];
+                Enemy e = h.collider.GetComponentInParent<Enemy>();
+                if (e == null)
+                {
+                    end = h.point;
+                    Fx.Impact(h.point, h.normal, d.pellets > 1 ? 0.6f : 1f);
+                    break;
+                }
+                if (!seen.Add(e)) continue;
+                bool head = h.collider.CompareTag("Head");
+                float dist = h.distance;
+                float fall = dist <= d.rangeNear ? 1f : Mathf.Lerp(1f, d.farMult, Mathf.Clamp01((dist - d.rangeNear) / Mathf.Max(0.1f, d.rangeFar - d.rangeNear)));
+                float dmg = d.damage * fall * dmgMul * (head ? d.headMult : 1f);
+                bool first = hitSet.Add(e);
+                e.Damage(dmg, h.point, head, first);
+                end = h.point;
+                if (pierced >= d.pierce) break;
+                pierced++;
+                dmgMul *= d.pierceMult;
+            }
+            if (tracer)
+            {
+                if (d.beam) Fx.Beam(muzzlePos, end, d.tracerWidth, d.tracerColor);
+                else Fx.Tracer(muzzlePos, end, 300f + d.damage * 0.5f, d.tracerWidth, d.tracerColor);
+            }
+        }
+
+        // ------------------------------------------------------------------ posa del modello
+        static float Band(float v, float a, float b) => Mathf.Clamp01((v - a) / Mathf.Max(0.0001f, b - a));
+        static float Ease(float t) => t * t * (3f - 2f * t);
+
+        void UpdatePose(float dt, float speed, bool sprinting, bool grounded)
+        {
+            if (viewRoot == null || rig == null) return;
+            var d = Def;
             Vector3 hip = new Vector3(0.28f, -0.26f, 0.62f);
-            Vector3 adsP = new Vector3(0f, -adsSightY, 0.52f);
+            // armi corte: piu' in alto e piu' vicine al centro, altrimenti dal fianco sporge solo uno spigolo del carrello
+            if (d.cls == "PISTOLA" || d.cls == "REVOLVER" || d.cls == "PISTOLA MAGNUM") hip = new Vector3(0.175f, -0.165f, 0.50f);
+            else if (d.cls == "PISTOLA MITRAGLIATRICE" || d.cls == "MICRO-MITRA") hip = new Vector3(0.21f, -0.19f, 0.54f);
+            Vector3 a = rig.AdsLocal;
+            Vector3 adsP = new Vector3(0f, 0f, d.adsDist) - a;
             Vector3 pos = Vector3.Lerp(hip, adsP, ads);
-            Quaternion rot = Quaternion.identity;
+            Quaternion rot = Quaternion.Euler(0f, hipYaw * (1f - ads), 0f);
+            // in mira si guardano il calcio e il dorso dell'arma di striscio: con la luce di riempimento sopra il polimero riflette (Fresnel) e sembra bianco
+            if (fill != null) fill.intensity = Mathf.Lerp(0.55f, 0.15f, ads);
 
             // respiro
-            float calm = 1f - ads * 0.75f;
-            pos.x += Mathf.Sin(Time.time * 1.7f) * 0.0032f * calm;
-            pos.y += Mathf.Sin(Time.time * 2.3f) * 0.0026f * calm;
+            float calm = 1f - ads * 0.7f;
+            pos.x += Mathf.Sin(Time.time * 1.7f) * 0.0030f * calm;
+            pos.y += Mathf.Sin(Time.time * 2.3f) * 0.0024f * calm;
+            // respiro del tiratore con ottica forte: oscillazione lenta del modello (si ferma tenendo il fiato: Shift)
+            if (ads > 0.5f && d.zoom >= 3.9f)
+            {
+                float hold = Input.GetKey(KeyCode.LeftShift) ? 0.12f : 1f;
+                pos.x += Mathf.Sin(breath * 1.1f) * 0.0012f * hold * ads;
+                pos.y += Mathf.Sin(breath * 1.7f + 1f) * 0.0016f * hold * ads;
+            }
 
-            // camminata: dondolio e passo
-            float bob = Mathf.Clamp01(speed / 5.5f) * (1f - ads * 0.8f);
+            // passo
+            float bob = Mathf.Clamp01(speed / 5.5f) * (1f - ads * 0.82f);
             pos.y += Mathf.Sin(Time.time * 8.6f) * 0.0075f * bob;
             pos.x += Mathf.Cos(Time.time * 4.3f) * 0.0065f * bob;
 
             // corsa: arma abbassata e ruotata
-            if (sprinting)
+            if (sprintBlend > 0.001f)
             {
-                pos += new Vector3(0.045f, -0.065f, -0.03f);
-                rot *= Quaternion.Euler(-10f, 20f, 13f);
+                float k = Ease(sprintBlend);
+                pos += new Vector3(0.045f, -0.065f, -0.03f) * k;
+                rot *= Quaternion.Euler(-10f * k, 20f * k, 13f * k);
             }
 
-            // rinculo
-            pos.z -= recoil * 0.32f;
-            pos.y += recoil * 0.055f;
-            rot *= Quaternion.Euler(-recoil * 38f, 0f, 0f);
+            // contraccolpo
+            pos.z -= kickBack * 0.045f * d.kick * (1f - ads * 0.45f);
+            pos.y += kickBack * 0.012f * d.kick;
+            rot *= Quaternion.Euler(-kickPitch * (1f - ads * 0.55f), 0f, kickRoll * (1f - ads * 0.6f));
 
-            // ricarica: l'arma scende e ruota, il caricatore esce e rientra
+            // inerzia del mouse
+            rot *= Quaternion.Euler(swayY * (1f - ads * 0.6f), swayX * (1f - ads * 0.6f), swayX * 0.4f * (1f - ads));
+            pos.x += swayX * 0.0035f * (1f - ads * 0.7f);
+            pos.y += swayY * 0.0035f * (1f - ads * 0.7f);
+
+            // muro davanti: l'arma si ritrae e si alza invece di entrarci
+            float len = 0.95f;
+            if (Physics.SphereCast(cam.position, 0.06f, cam.forward, out RaycastHit wh, len, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+            {
+                float push = Mathf.Clamp01((len - wh.distance) / len);
+                pos.z -= push * 0.30f; pos.y -= push * 0.03f;
+                rot *= Quaternion.Euler(-push * 28f, push * 8f, 0f);
+            }
+
+            // ricarica / cambio / ingresso
             float rp = -1f;
+            Vector3 tiltPos = Vector3.zero; Vector3 tiltRot = Vector3.zero;
             if (reloading)
             {
-                rp = 1f - Mathf.Clamp01(reloadT / Mathf.Max(0.01f, Def.reloadTime));
-                float tilt = Mathf.Sin(Mathf.Clamp01(rp / 0.9f) * Mathf.PI);
-                pos += new Vector3(-0.035f, -0.055f, -0.02f) * tilt;
-                rot *= Quaternion.Euler(-15f * tilt, 10f * tilt, 22f * tilt);
+                float r = Mathf.Clamp01(reloadT / Mathf.Max(0.05f, reloadDur));
+                rp = r;
+                float tilt = Mathf.Sin(Mathf.Clamp01(r / 0.92f) * Mathf.PI);
+                if (d.style == ReloadStyle.Tube) tilt = Mathf.Clamp01(Band(r, 0.0f, 0.12f) - Band(r, 0.88f, 1f));
+                tiltPos = new Vector3(-0.035f, -0.055f, -0.02f) * tilt;
+                tiltRot = new Vector3(-15f * tilt, 10f * tilt, 22f * tilt);
+                if (d.style == ReloadStyle.Tube) { tiltPos = new Vector3(-0.06f, -0.03f, -0.02f) * tilt; tiltRot = new Vector3(-8f * tilt, 30f * tilt, 38f * tilt); }
+                if (d.style == ReloadStyle.Break) { tiltPos = new Vector3(-0.02f, -0.05f, 0f) * tilt; tiltRot = new Vector3(-6f * tilt, 8f * tilt, 18f * tilt); }
             }
-
-            // ingresso arma (acquisto al muro)
-            float e = Mathf.Clamp01(equipT / 0.30f);
+            pos += tiltPos; rot *= Quaternion.Euler(tiltRot);
+            float e = Mathf.Clamp01(equipT / Mathf.Max(0.05f, d.drawTime));
+            e = e * e;
             pos += new Vector3(0.03f, -0.11f, -0.04f) * e;
             rot *= Quaternion.Euler(24f * e, 0f, 7f * e);
             equipT = Mathf.Max(0f, equipT - dt);
+            if (swapT > 0f && pendingSlot >= 0)
+            {
+                float s = 1f - Mathf.Clamp01(swapT / pendingSlotTime);
+                pos += new Vector3(0.03f, -0.14f, -0.05f) * s;
+                rot *= Quaternion.Euler(28f * s, 0f, 9f * s);
+            }
 
             viewRoot.localPosition = pos;
             viewRoot.localRotation = rot;
-            AnimateParts(rp);
+            AnimateParts(rp, d);
         }
 
-        static float Band(float v, float a, float b) => Mathf.Clamp01((v - a) / Mathf.Max(0.0001f, b - a));
-
-        void AnimateParts(float rp)
+        void AnimateParts(float rp, WeaponDef d)
         {
-            if (magPart != null)
+            rig.Reset();
+            float since = Time.time - lastShot;
+            // ---- carrello / otturatore che arretra a ogni colpo (visibile)
+            float cyc = Mathf.Exp(-since * 28f) * (since < 0.12f ? 1f : 0f);
+            float slideBack = Mathf.Clamp01(1f - since / Mathf.Min(0.07f, 60f / d.rpm * 0.7f));
+            if (since < 0.1f)
             {
-                if (rp >= 0f)
+                if (rig.slide != null) rig.Offset(rig.slide, Vector3.back * (0.034f * slideBack));
+                if (rig.recip != null) rig.Offset(rig.recip, Vector3.back * (0.040f * slideBack));
+                if (rig.hammer != null) rig.Rotate(rig.hammer, new Vector3(-35f * slideBack, 0f, 0f));
+                if (rig.trigger != null) rig.Offset(rig.trigger, Vector3.back * (0.004f * slideBack));
+            }
+            // slide fermo indietro con l'arma scarica (pistole)
+            if (rig.slide != null && mag <= 0 && !reloading && d.style == ReloadStyle.Pistol) rig.Offset(rig.slide, Vector3.back * 0.034f);
+
+            // ---- cicli manuali dopo lo sparo
+            if (cycleAnim >= 0f) AnimateCycle(d, cycleAnim);
+
+            // ---- ricarica
+            if (rp >= 0f)
+            {
+                bool tube = d.style == ReloadStyle.Tube;
+                if (rig.mag != null && !tube && d.style != ReloadStyle.Revolver && d.style != ReloadStyle.Break)
                 {
-                    // esce tra il 12% e il 30%, rientra tra il 52% e il 68% della ricarica
                     float down = Mathf.Clamp01(Band(rp, 0.12f, 0.30f) - Band(rp, 0.52f, 0.68f));
-                    magPart.localPosition = magRest + Vector3.down * (0.24f * down);
-                    magPart.localRotation = Quaternion.Euler(18f * down, 0f, 0f);
+                    rig.Offset(rig.mag, (d.magUp ? Vector3.up : Vector3.down) * (0.24f * down));
+                    rig.Rotate(rig.mag, new Vector3(18f * down, 0f, 0f));
                 }
-                else
+                if (rig.charge != null)
                 {
-                    magPart.localPosition = magRest;
-                    magPart.localRotation = Quaternion.identity;
+                    float pull = Mathf.Clamp01(Band(rp, 0.78f, 0.84f) - Band(rp, 0.88f, 0.94f));
+                    rig.Offset(rig.charge, Vector3.back * (0.045f * pull));
                 }
-                // la mano sinistra lascia l'astina, va al caricatore, lo accompagna fuori e dentro e torna
-                if (handL != null && handLOnMag)
+                if (rig.slide != null && d.style == ReloadStyle.Pistol && reloadEmpty)
                 {
-                    float k = rp >= 0f ? Band(rp, 0.04f, 0.14f) - Band(rp, 0.56f, 0.72f) : 0f;
-                    Vector3 grab = magPart.localPosition + new Vector3(0f, -0.07f, 0.02f);
-                    handL.position = viewRoot.TransformPoint(Vector3.Lerp(handLRest, grab, Mathf.Clamp01(k)));
+                    float held = 1f - Band(rp, 0.78f, 0.86f);
+                    rig.Offset(rig.slide, Vector3.back * (0.034f * held));
+                }
+                if (rig.bolt != null && reloadEmpty && d.style == ReloadStyle.Mag && rig.boltHandle != null)
+                {
+                    float pull = Mathf.Clamp01(Band(rp, 0.74f, 0.80f) - Band(rp, 0.86f, 0.92f));
+                    rig.Offset(rig.bolt, Vector3.back * (0.06f * pull));
+                }
+                if (rig.cyl != null && d.style == ReloadStyle.Revolver)
+                {
+                    float open = Mathf.Clamp01(Band(rp, 0.10f, 0.22f) - Band(rp, 0.78f, 0.90f));
+                    rig.Rotate(rig.cyl, new Vector3(0f, 0f, -78f * open));
+                }
+                if (rig.barrels != null && d.style == ReloadStyle.Break)
+                {
+                    float open = Mathf.Clamp01(Band(rp, 0.10f, 0.24f) - Band(rp, 0.76f, 0.90f));
+                    rig.Rotate(rig.barrels, new Vector3(32f * open, 0f, 0f));
+                }
+                if (rig.cover != null && d.style == ReloadStyle.Belt)
+                {
+                    float open = Mathf.Clamp01(Band(rp, 0.06f, 0.18f) - Band(rp, 0.84f, 0.94f));
+                    rig.Rotate(rig.cover, new Vector3(-75f * open, 0f, 0f));
                 }
             }
-            if (chargePart != null)
+            // ---- mano sinistra
+            if (handL != null)
             {
-                float pull = rp >= 0f
-                    ? Mathf.Clamp01(Band(rp, 0.78f, 0.84f) - Band(rp, 0.88f, 0.94f))
-                    : 0f;
-                chargePart.localPosition = chargeRest + Vector3.back * (0.045f * pull);
-            }
-            if (pumpPart != null)
-            {
-                float cycle = rp >= 0f ? Mathf.Sin(Mathf.Clamp01((rp - 0.15f) / 0.70f) * Mathf.PI * 2f) : 0f;
-                pumpPart.localPosition = pumpRest + Vector3.back * (0.06f * cycle);
+                bool vis = d.hand > 0.5f || (rp >= 0f && rp > 0.04f && rp < 0.96f);
+                if (handLRend != null) foreach (var r in handLRend) if (r != null) r.enabled = vis;
+                if (d.hand > 0.5f)
+                {
+                    Vector3 target = handLRest;
+                    if (rp >= 0f)
+                    {
+                        if (handLOnMag && rig.mag != null && d.style != ReloadStyle.Tube)
+                        {
+                            float k = Band(rp, 0.04f, 0.14f) - Band(rp, 0.56f, 0.72f);
+                            Vector3 grab = viewRoot.InverseTransformPoint(rig.mag.position) + new Vector3(0f, -0.07f, 0.02f);
+                            target = Vector3.Lerp(handLRest, grab, Mathf.Clamp01(k));
+                        }
+                        else if (d.style == ReloadStyle.Tube || d.style == ReloadStyle.Break || d.style == ReloadStyle.Revolver)
+                        {
+                            float k = Band(rp, 0.04f, 0.14f) - Band(rp, 0.84f, 0.96f);
+                            target = Vector3.Lerp(handLRest, handLRest + new Vector3(-0.02f, -0.10f, -0.12f), Mathf.Clamp01(k) * (0.6f + 0.4f * Mathf.Sin(reloadT * 9f) * 0.5f + 0.2f));
+                        }
+                    }
+                    handL.position = viewRoot.TransformPoint(target);
+                    if (rig.pump != null && cycleAnim >= 0f && (Mode == FireMode.Pump))
+                    {
+                        float travel = PumpTravel(cycleAnim);
+                        handL.position += viewRoot.TransformVector(Vector3.back * (0.07f * travel));
+                    }
+                }
+                else if (rp >= 0f)
+                {
+                    // armi a una mano: la sinistra viene sotto per il caricatore
+                    float k = Band(rp, 0.04f, 0.16f) - Band(rp, 0.62f, 0.78f);
+                    Vector3 grab = rig.mag != null ? viewRoot.InverseTransformPoint(rig.mag.position) + new Vector3(0f, -0.07f, 0.02f) : handLRest;
+                    handL.position = viewRoot.TransformPoint(Vector3.Lerp(handLRest + new Vector3(-0.06f, -0.12f, -0.05f), grab, Mathf.Clamp01(k)));
+                }
             }
         }
 
-        public void Reload()
+        static float PumpTravel(float c) => c < 0.5f ? Ease(c / 0.5f) : 1f - Ease((c - 0.5f) / 0.5f);
+
+        void AnimateCycle(WeaponDef d, float c)
         {
-            if (reloading || mag >= magSize || reserve <= 0) return;
-            reloading = true;
-            reloadT = Def.reloadTime;
-            hud?.SetReloading(true);
-            Synth.Reload();
+            var m = Mode;
+            if (m == FireMode.Pump && rig.pump != null)
+            {
+                float back = PumpTravel(Band(c, 0.08f, 0.92f));
+                rig.Offset(rig.pump, Vector3.back * (0.065f * back));
+                if (c > 0.38f && cycleSound == 0) { cycleSound = 1; Synth.Mech("pumpfwd", 0.55f, 1f); EjectCycleCasing(d); }
+            }
+            else if (m == FireMode.Lever && rig.lever != null)
+            {
+                float down = PumpTravel(Band(c, 0.05f, 0.95f));
+                rig.Rotate(rig.lever, new Vector3(-55f * down, 0f, 0f));
+                if (rig.bolt != null) rig.Offset(rig.bolt, Vector3.back * (0.045f * down));
+                if (c > 0.4f && cycleSound == 0) { cycleSound = 1; Synth.Mech("leverup", 0.55f, 1f); EjectCycleCasing(d); }
+            }
+            else if (m == FireMode.Bolt && rig.bolt != null)
+            {
+                // alza la maniglia, tira indietro, spinge avanti, riabbassa
+                float up = Band(c, 0.08f, 0.22f) - Band(c, 0.82f, 0.94f);
+                float back = Band(c, 0.22f, 0.50f) - Band(c, 0.56f, 0.80f);
+                rig.Offset(rig.bolt, Vector3.back * (0.075f * back));
+                if (rig.boltHandle != null) rig.Rotate(rig.boltHandle, new Vector3(0f, 0f, -70f * Mathf.Clamp01(up)));
+                else rig.Rotate(rig.bolt, new Vector3(0f, 0f, -70f * Mathf.Clamp01(up)));
+                if (c > 0.30f && cycleSound == 0) { cycleSound = 1; Synth.Mech("boltback", 0.55f, 1f); EjectCycleCasing(d); }
+                if (c > 0.62f && cycleSound == 1) { cycleSound = 2; Synth.Mech("boltfwd", 0.55f, 1f); }
+            }
         }
 
-        void Shoot(WeaponDef d)
+        void EjectCycleCasing(WeaponDef d)
         {
-            if (mag <= 0) { Reload(); return; }
-            mag--;
-            lastShot = Time.time;
-            GameManager.shotsFired++;
-            recoil += d.shotRecoil;
-            bloom = Mathf.Min(1f, bloom + d.bloomPerShot);
-            flashQuad.SetActive(true);
-            flashQuad.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
-            flashQuad.transform.localScale = Vector3.one * Random.Range(0.11f, 0.16f);
-            flashLight.intensity = 3f;
-            hud?.SetAmmo(mag, reserve);
-            Synth.Shot();
-
-            // più pallini per il fucile a pompa, uno solo per le altre armi
-            var hitSet = new HashSet<Enemy>();
-            // in mira la dispersione si stringe; la dispersione accumulata la allarga (fino a triplicarla)
-            float cone = d.spread * Mathf.Lerp(1f, 0.45f, ads) * (1f + bloom * 2f);
-            for (int p = 0; p < d.pellets; p++)
-            {
-                Vector3 dir = cam.forward
-                    + cam.right * Random.Range(-cone, cone)
-                    + cam.up * Random.Range(-cone, cone);
-                if (Physics.Raycast(cam.position, dir.normalized, out RaycastHit hit, d.range))
-                {
-                    Enemy e = hit.collider.GetComponentInParent<Enemy>();
-                    if (e == null) continue;
-                    bool head = hit.collider.CompareTag("Head");
-                    bool firstOnThisEnemy = hitSet.Add(e);
-                    e.Damage(d.damage * (head ? d.headMult : 1f), hit.point, head, firstOnThisEnemy);
-                }
-            }
+            if (cycleCasingDone || d.casing == "none" || rig.eject == null) return;
+            cycleCasingDone = true;
+            EjectCasing(d);
         }
     }
 }

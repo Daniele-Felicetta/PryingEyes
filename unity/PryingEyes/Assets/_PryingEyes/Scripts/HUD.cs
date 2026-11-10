@@ -14,14 +14,16 @@ namespace PryingEyes
         Text ammoText, reserveText, reloadText, waveLabel, waveText, enemiesText, scoreText, bannerText, bannerSub, toastText;
         Text promptText, weaponNameText, objectiveText;
         Image fadeImg;
-        Image vignette;
+        Image vignette, adsVig;
         RectTransform hitRoot;      // hit marker: X di 4 tacche attorno al mirino
         Image[] hitTicks;
         RectTransform[] xDash;      // mirino: quattro trattini attorno al centro
         Image[] xDashImg;
         Image xDot;                 // punto centrale (solo DMR, in mira)
-        float xGap = 8f, xBloom, xAds;
-        string xModel = "rifle";
+        float xGap = 8f, xGapTarget = 8f, xAds;
+        string xCls = "";
+        bool xShot;
+        Text weaponSubText, slotText;
         Color hitCol = Color.white;
         float hitT, hitDur, hitPop, hitSize, bannerT, toastT, vigT, hpNow = 100f;
         static Font serif;
@@ -90,6 +92,13 @@ namespace PryingEyes
             vr.anchorMin = Vector2.zero; vr.anchorMax = Vector2.one;
             vr.offsetMin = Vector2.zero; vr.offsetMax = Vector2.zero;
 
+            // vignettatura nera in mira: restringe lo sguardo sul mirino (piu' forte con le ottiche ingrandite)
+            adsVig = MakeImage("AdsVignette", Color.clear);
+            adsVig.sprite = AdsVignetteSprite();
+            var ar = adsVig.GetComponent<RectTransform>();
+            ar.anchorMin = Vector2.zero; ar.anchorMax = Vector2.one;
+            ar.offsetMin = Vector2.zero; ar.offsetMax = Vector2.zero;
+
             // in alto a sinistra: ondata in numeri romani, presenze, punti
             waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(26, -16), new Vector2(300, 22), 15, TextAnchor.UpperLeft, "ondata", Dim, FontStyle.Italic);
             waveText = MakeText("Wave", new Vector2(0, 1), new Vector2(24, -34), new Vector2(300, 56), 46, TextAnchor.UpperLeft, "I", Ink, FontStyle.Normal);
@@ -102,7 +111,9 @@ namespace PryingEyes
             ammoText = MakeText("Ammo", new Vector2(1, 0), new Vector2(-92, 16), new Vector2(160, 58), 48, TextAnchor.LowerRight, "30", Ink, FontStyle.Normal);
             reserveText = MakeText("Reserve", new Vector2(1, 0), new Vector2(-26, 24), new Vector2(70, 30), 20, TextAnchor.LowerRight, "/ 120", Dim, FontStyle.Normal);
             reloadText = MakeText("Reload", new Vector2(1, 0), new Vector2(-28, 76), new Vector2(220, 22), 15, TextAnchor.LowerRight, "", Dim, FontStyle.Italic);
-            weaponNameText = MakeText("WeaponName", new Vector2(1, 0), new Vector2(-26, 98), new Vector2(300, 22), 15, TextAnchor.LowerRight, "", Dim, FontStyle.Normal);
+            weaponNameText = MakeText("WeaponName", new Vector2(1, 0), new Vector2(-26, 100), new Vector2(420, 24), 19, TextAnchor.LowerRight, "", Dim, FontStyle.Normal);
+            weaponSubText = MakeText("WeaponSub", new Vector2(1, 0), new Vector2(-26, 122), new Vector2(520, 20), 13, TextAnchor.LowerRight, "", Dim, FontStyle.Italic);
+            slotText = MakeText("Slots", new Vector2(1, 0), new Vector2(-26, 142), new Vector2(520, 20), 13, TextAnchor.LowerRight, "", Dim, FontStyle.Normal);
             // prompt delle armi sul muro (acquisto con F)
             promptText = MakeText("Prompt", new Vector2(0.5f, 0.5f), new Vector2(0, -118), new Vector2(1000, 28), 18, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
             MakeCrosshair();
@@ -172,6 +183,30 @@ namespace PryingEyes
             return i;
         }
 
+        static Sprite adsVigSprite;
+        static Sprite AdsVignetteSprite()
+        {
+            if (adsVigSprite != null) return adsVigSprite;
+            const int S = 128;
+            var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color32[S * S];
+            for (int y = 0; y < S; y++)
+                for (int x = 0; x < S; x++)
+                {
+                    float u = (x + 0.5f) / S * 2f - 1f, v = (y + 0.5f) / S * 2f - 1f;
+                    float r = Mathf.Sqrt(u * u + v * v) / 1.414f;
+                    float a = Mathf.SmoothStep(0.30f, 1f, r);
+                    px[y * S + x] = new Color32(0, 0, 0, (byte)Mathf.RoundToInt(255f * a));
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false);
+            return adsVigSprite = Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+        }
+
+        float adsVigTarget;
+        /// <summary>Forza della vignettatura di mira (0..1).</summary>
+        public void SetAdsVignette(float a) { adsVigTarget = a; }
+
         /// <summary>Bordi rossi che sfumano al centro (colpi subiti, vita bassa): prima era un velo rosso piatto.</summary>
         static Sprite VignetteSprite()
         {
@@ -222,41 +257,30 @@ namespace PryingEyes
             xDot.raycastTarget = false;
         }
 
-        struct XStyle { public float gap, len, dot, adsAlpha; }
-
-        static XStyle CrosshairStyle(string model)
+        /// <summary>Mirino a schermo: gap in pixel di riferimento (720p) dalla dispersione reale dell'arma; ads (0..1) lo spegne
+        /// perche' il mirino fisico e' gia' al centro. Il fucile a pompa ha trattini piu' lunghi.</summary>
+        public void SetCrosshair(float gapPx, float ads, string cls, bool shotgun)
         {
-            switch (model)
-            {
-                case "smg": return new XStyle { gap = 6f, len = 6f, dot = 0f, adsAlpha = 0f };
-                case "shotgun": return new XStyle { gap = 11f, len = 8f, dot = 0f, adsAlpha = 0.35f };
-                case "dmr": return new XStyle { gap = 5f, len = 4f, dot = 3f, adsAlpha = 0f };
-                default: return new XStyle { gap = 8f, len = 7f, dot = 0f, adsAlpha = 0f };
-            }
-        }
-
-        /// <summary>Mirino dell'arma equipaggiata: forma per modello, apertura dalla dispersione (0..1), dissolvenza in mira (0..1).</summary>
-        public void SetCrosshair(string model, float bloom, float ads)
-        {
-            xModel = model; xBloom = bloom; xAds = ads;
+            xGapTarget = Mathf.Clamp(gapPx, 4f, 90f); xAds = ads; xCls = cls; xShot = shotgun;
         }
 
         void UpdateCrosshair(float dt)
         {
             if (xDash == null) return;
-            var st = CrosshairStyle(xModel);
-            xGap += (st.gap + xBloom * 9f - xGap) * Mathf.Min(1f, 18f * dt);
-            float a = Mathf.Lerp(0.85f, st.adsAlpha * 0.85f, xAds);
+            xGap += (xGapTarget - xGap) * Mathf.Min(1f, 20f * dt);
+            if (adsVig != null) adsVig.color = new Color(1f, 1f, 1f, Mathf.Clamp01(adsVigTarget));
+            float len = xShot ? 10f : 6f;
+            float a = 0.85f * Mathf.Clamp01(1f - xAds * 1.6f);
             for (int i = 0; i < 4; i++)
             {
                 bool vert = i < 2;
-                xDash[i].sizeDelta = vert ? new Vector2(2f, st.len) : new Vector2(st.len, 2f);
+                xDash[i].sizeDelta = vert ? new Vector2(2f, len) : new Vector2(len, 2f);
                 float d = xGap;
                 xDash[i].anchoredPosition = i == 0 ? new Vector2(0, d) : i == 1 ? new Vector2(0, -d) : i == 2 ? new Vector2(d, 0) : new Vector2(-d, 0);
                 var c = xDashImg[i].color; c.a = a; xDashImg[i].color = c;
             }
-            xDot.rectTransform.sizeDelta = Vector2.one * st.dot;
-            var dc = xDot.color; dc.a = st.dot > 0f ? 0.9f * xAds : 0f; xDot.color = dc;
+            xDot.rectTransform.sizeDelta = Vector2.one * 2f;
+            var dc = xDot.color; dc.a = 0.7f * a; xDot.color = dc;
         }
 
         const int TexelsPerUnit = 8;       // risoluzione dello sprite della tacca
@@ -397,6 +421,19 @@ namespace PryingEyes
         public string CurrentAmmo => ammoText != null ? ammoText.text : "";
         public string CurrentReserve => reserveText != null ? reserveText.text : "";
         public void SetWeaponName(string s) { if (weaponNameText != null) weaponNameText.text = s ?? ""; }
+
+        /// <summary>Arma in mano: nome nel colore del grado, riga con grado, tipo e modalita' di fuoco, i due slot.</summary>
+        public void SetWeapon(WeaponDef d, string mode, int slot, WeaponDef a, WeaponDef b)
+        {
+            if (weaponNameText == null || d == null) return;
+            weaponNameText.text = d.name;
+            weaponNameText.color = d.GradeColor;
+            weaponSubText.text = $"GRADO {Roman(d.grade)} · {d.GradeName.ToUpperInvariant()}  —  {d.cls}  —  {mode}";
+            string s1 = a != null ? a.name : "—", s2 = b != null ? b.name : "—";
+            string c1 = slot == 0 ? "#EDE3CC" : "#8A7F6C", c2 = slot == 1 ? "#EDE3CC" : "#8A7F6C";
+            slotText.supportRichText = true;
+            slotText.text = $"<color={c1}>[1] {s1}</color>     <color={c2}>[2] {s2}</color>";
+        }
         public void SetScore(int s) { if (scoreText != null) scoreText.text = s > 0 ? string.Format(It, "{0:N0} punti", s) : ""; }
         public void SetEnemiesLeft(int n)
         {

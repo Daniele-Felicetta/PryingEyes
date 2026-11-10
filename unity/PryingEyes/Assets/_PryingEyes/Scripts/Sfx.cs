@@ -109,6 +109,50 @@ namespace PryingEyes
         }
 
         public static AudioClip Shot => Pick(ref shots, 3, "sparo", i => SoundGen.Gunshot(100 + i));
+
+        // spari e rumori meccanici delle armi: generati alla prima richiesta (Warm li prepara tutti)
+        static readonly System.Collections.Generic.Dictionary<string, AudioClip[]> gunSets = new System.Collections.Generic.Dictionary<string, AudioClip[]>();
+        static readonly System.Collections.Generic.Dictionary<string, AudioClip[]> mechSets = new System.Collections.Generic.Dictionary<string, AudioClip[]>();
+        public static readonly string[] GunKinds = { "pistol", "pistol45", "revolver", "magnum", "smg", "smg45", "rifle", "ak", "br", "lever", "sniper", "amr", "shotgun", "lmg", "flame", "beam", "spine" };
+        /// <summary>Campioni di uno sparo: i set speciali (fiamme, raggio, spine) hanno un generatore a parte.</summary>
+        public static float[] GunSamples(string set, int seed) =>
+            set == "flame" || set == "beam" || set == "spine" ? SoundGen.Special(set, seed) : SoundGen.Gunshot(set, seed);
+        public static readonly string[] MechKinds = { "magout", "magin", "boltback", "boltfwd", "boltup", "slidefwd", "pumpback", "pumpfwd", "leverdown", "leverup",
+            "shellin", "shellopen", "cylopen", "cylshells", "cylclose", "breakclose", "dry", "click", "holster", "draw" };
+
+        public static AudioClip Gun(string set)
+        {
+            if (!gunSets.TryGetValue(set, out var arr))
+            {
+                arr = new AudioClip[3];
+                for (int i = 0; i < 3; i++) arr[i] = Clip("sparo_" + set + i, GunSamples(set, 200 + i));
+                gunSets[set] = arr;
+            }
+            return arr[Random.Range(0, arr.Length)];
+        }
+
+        public static AudioClip Mech(string name)
+        {
+            if (!mechSets.TryGetValue(name, out var arr))
+            {
+                arr = new AudioClip[2];
+                for (int i = 0; i < 2; i++) arr[i] = Clip("mecc_" + name + i, SoundGen.Mech(name, 300 + i));
+                mechSets[name] = arr;
+            }
+            return arr[Random.Range(0, arr.Length)];
+        }
+
+        static readonly System.Collections.Generic.Dictionary<string, AudioClip[]> casingSets = new System.Collections.Generic.Dictionary<string, AudioClip[]>();
+        public static AudioClip Casing(string kind)
+        {
+            if (!casingSets.TryGetValue(kind, out var arr))
+            {
+                arr = new AudioClip[3];
+                for (int i = 0; i < 3; i++) arr[i] = Clip("bossolo_" + kind + i, SoundGen.CasingDrop(kind, 400 + i));
+                casingSets[kind] = arr;
+            }
+            return arr[Random.Range(0, arr.Length)];
+        }
         public static AudioClip HitTick => One(ref hit, "colpito", SoundGen.HitTick);
         public static AudioClip Kill => One(ref kill, "ucciso", SoundGen.KillThunk);
         public static AudioClip Hurt => One(ref hurt, "ferito", SoundGen.Hurt);
@@ -159,6 +203,9 @@ namespace PryingEyes
         /// litanie e valzer (i piu' lunghi) partono in un thread.</summary>
         public static void Warm()
         {
+            foreach (var k in GunKinds) _ = Gun(k);
+            foreach (var k in MechKinds) _ = Mech(k);
+            _ = Casing("pistol"); _ = Casing("rifle"); _ = Casing("shell"); _ = Casing("big");
             _ = Shot; _ = HitTick; _ = Kill; _ = Hurt; _ = Reload; _ = Step(0); _ = Step(1); _ = Step(2);
             _ = Bell; _ = Ding; _ = Doors; _ = Creak; _ = Whisper; _ = Wind; _ = RoomTone;
             _ = Tap; _ = Strike; _ = MonkDeath; _ = EyeHum; _ = EyeStare; _ = EyeBurst;
