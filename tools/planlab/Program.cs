@@ -13,10 +13,33 @@ static class Program
     static int Main(string[] a)
     {
         string cmd = a.Length > 0 ? a[0] : "stats";
+        if (cmd == "passages") return Passages();
         if (cmd == "stats") return Stats(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "map") { Map(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         if (cmd == "sheet") { Sheet(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         return 1;
+    }
+
+    static int Passages()
+    {
+        for (int i = 0; i < 300; i++)
+        {
+            var p = PlanGen.Generate(1000 + i * 17, 1 + i % 12);
+            if (p == null) throw new Exception("Generazione fallita");
+            var passages = p.openings.FindAll(o => o.style == OpenStyle.Passaggio);
+            if (passages.Count == 0) throw new Exception("Nessun passaggio: " + p.seed);
+            foreach (var o in passages)
+            {
+                if (o.top != 1.3f || o.width != 12 || o.sill != 0f) throw new Exception("Dimensioni del passaggio");
+                foreach (var other in p.openings)
+                    if (o != other && o.line == other.line && o.alongX == other.alongX && o.Lo < other.Hi && o.Hi > other.Lo)
+                        throw new Exception("Aperture sovrapposte");
+            }
+            p.openings.RemoveAll(o => o.style == OpenStyle.Passaggio);
+            if (!PlanGen.Validate(p, out string why)) throw new Exception("Percorso ordinario compromesso: " + why);
+        }
+        Console.WriteLine("300 piani: passaggi bassi, senza sovrapposizioni e percorsi ordinari validi");
+        return 0;
     }
 
     static int Stats(int n)

@@ -54,11 +54,43 @@ namespace PryingEyes.Proc
                 var rng = new Rng(Hash(seed, floor, attempt));
                 var p = Build(rng, seed, floor, simple: attempt >= 60);
                 if (p == null) continue;
-                if (Validate(p, out string why)) { LastAttempts = attempt + 1; return p; }
+                if (Validate(p, out string why)) { AddPassages(p, rng); LastAttempts = attempt + 1; return p; }
                 LastFailure = why;
             }
             LastAttempts = 80;
             return null;
+        }
+
+        // Scorciatoie aggiuntive: non sostituiscono porte necessarie agli obiettivi.
+        static void AddPassages(Plan p, Rng rng)
+        {
+            var candidates = new List<Opening>();
+            foreach (var room in p.rooms)
+            {
+                if (room.IsLift) continue;
+                foreach (var side in AllSides)
+                foreach (var seg in p.Segments(room, side))
+                {
+                    if (seg.other <= room.id || p.rooms[seg.other].IsLift || seg.a1 - seg.a0 < 24) continue;
+                    int line = Plan.Line(room, side);
+                    bool ax = Plan.AlongX(side);
+                    for (int center = seg.a0 + 8; center <= seg.a1 - 8; center += 4)
+                    {
+                        bool clear = true;
+                        foreach (var o in p.openings)
+                            if (o.line == line && o.alongX == ax && center + 10 > o.Lo && center - 10 < o.Hi) { clear = false; break; }
+                        if (clear) candidates.Add(new Opening { a = room.id, b = seg.other, alongX = ax, line = line, center = center, width = 12, style = OpenStyle.Passaggio });
+                    }
+                }
+            }
+            int count = Math.Min(3 * p.units, candidates.Count);
+            for (int i = 0; i < count && candidates.Count > 0; i++)
+            {
+                var o = candidates[rng.Range(0, candidates.Count)];
+                Opening.Defaults(o);
+                p.openings.Add(o);
+                candidates.RemoveAll(c => c.alongX == o.alongX && c.line == o.line && Math.Abs(c.center - o.center) < 24);
+            }
         }
 
         static int Hash(int seed, int floor, int attempt) =>

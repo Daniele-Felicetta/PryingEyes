@@ -200,10 +200,14 @@ Il gioco principale non e' piu' la hall con le ondate ma una discesa a piani gen
 
 | Tasto | Azione |
 |---|---|
+| `M` | Apri o chiudi la mappa del piano esplorato. |
+| `N` | Mostra o nascondi la minimappa. |
 | `T` | Accendi o spegni la torcia. Una pila dura circa 3 minuti e mezzo di luce. |
 | `Y` | Sostituisci la pila quando la carica è all'80% o meno. A zero la torcia usa automaticamente una scorta, se disponibile. |
 | `F` | Raccogli una pila da terra o accendi il candelabro che stai guardando. |
 | `V` | Invia un ping. Per alcuni secondi mostra segnali pulsanti sulle candele ancora spente e sull'ascensore. I nemici vicini lo sentono. |
+
+La mappa rivela le stanze visitate e segna armi, candelabri e uscita incontrati da vicino. Alcuni muri nascondono passaggi bassi: tieni premuto C o Ctrl per attraversarli. I nemici infliggono il 50% di danni in pi�.
 
 L'HUD mostra carica, scorte e attesa prima del prossimo ping. La freccia in alto indica il percorso verso l'ascensore di uscita e segnala quando è aperto.
 

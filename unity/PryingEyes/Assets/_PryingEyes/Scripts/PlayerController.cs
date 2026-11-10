@@ -230,6 +230,14 @@ namespace PryingEyes
                 { slide = false; crouch = wantCrouch; }
             }
             else crouch = wantCrouch;
+            // Non espandere la capsula se il soffitto impedisce di rialzarsi.
+            if (!crouch && !slide && cc.height < heightStand - 0.01f)
+            {
+                float radius = Mathf.Max(0.01f, cc.radius - cc.skinWidth);
+                Vector3 bottom = transform.position + Vector3.up * (cc.height - radius);
+                Vector3 top = transform.position + Vector3.up * (heightStand - radius);
+                if (Physics.CheckCapsule(bottom, top, radius, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) crouch = true;
+            }
 
             var wd = weapon.Def;
             float maxSpeed = (crouch && !slide) ? crouchSpeed : (wantSprint && !slide ? sprint : walk);
@@ -389,6 +397,7 @@ namespace PryingEyes
         {
             if (!alive || GameMenu.Blocked || invulnerable) return;
             lastDamage = Time.time;
+            dmg *= 1.5f;
             float absorbed = Mathf.Min(shield, dmg * 0.6f);
             shield -= absorbed;
             hp -= dmg - absorbed;

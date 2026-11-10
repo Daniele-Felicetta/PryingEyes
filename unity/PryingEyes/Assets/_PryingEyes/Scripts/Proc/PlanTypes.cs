@@ -29,7 +29,7 @@ namespace PryingEyes.Proc
 
     public enum CeilKind { Flat, Beams, Gable, BarrelRound, BarrelPointed }
 
-    public enum OpenStyle { Porta, PortaLarga, Arco, Arcata, Finestra, Lancetta, Feritoia, Ascensore }
+    public enum OpenStyle { Porta, PortaLarga, Arco, Arcata, Finestra, Lancetta, Feritoia, Ascensore, Passaggio }
 
     public sealed class Room
     {
@@ -86,6 +86,7 @@ namespace PryingEyes.Proc
                 case OpenStyle.Lancetta: o.sill = 1.9f; o.top = 4.7f; break;
                 case OpenStyle.Feritoia: o.sill = 2.35f; o.top = 3.05f; break;
                 case OpenStyle.Ascensore: o.sill = 0f; o.top = 2.4f; break;
+                case OpenStyle.Passaggio: o.sill = 0f; o.top = 1.3f; break;
             }
         }
 

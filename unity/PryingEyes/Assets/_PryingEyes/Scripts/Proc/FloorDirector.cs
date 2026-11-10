@@ -23,6 +23,11 @@ namespace PryingEyes.Proc
         float trickleT, floorTime, hudT, probeT;
         bool perfStarted;                    // -perftest: la sonda dei fotogrammi gira una volta sola per partita
         Room playerRoom;
+        readonly HashSet<int> explored = new HashSet<int>();
+        readonly HashSet<WallBuy> foundWeapons = new HashSet<WallBuy>();
+        readonly HashSet<Candelabro> foundCandles = new HashSet<Candelabro>();
+        bool foundExit, mapOpen, miniMap = true;
+        float mapScan;
         GameManager gm;
         const string BotLog = "C:/Users/danie/Desktop/prying-eyes/hotel_build/proctest.txt";
 
@@ -83,6 +88,7 @@ namespace PryingEyes.Proc
                 yield return null;
             }
             floor = n;
+            explored.Clear(); foundWeapons.Clear(); foundCandles.Clear(); foundExit = false; mapOpen = false;
             // piu' si scende, piu' buio: la scala di tutte le luci del piano, letta da RoomKits.AddLight mentre costruisce
             LightPool.Dim = LightDim(n);
             var plan = PlanGen.Generate(runSeed + n * 1013, n);
@@ -604,6 +610,24 @@ namespace PryingEyes.Proc
         {
             if (cur == null || gm == null || gm.player == null) return;
             float dt = Time.deltaTime;
+            if (!GameMenu.Blocked && !transitioning && gm.player.alive)
+            {
+                if (Input.GetKeyDown(KeyCode.M)) mapOpen = !mapOpen;
+                if (Input.GetKeyDown(KeyCode.N)) miniMap = !miniMap;
+                var room = cur.RoomAt(gm.player.transform.position);
+                if (room != null) explored.Add(room.id);
+                mapScan -= dt;
+                if (mapScan <= 0f)
+                {
+                    mapScan = 0.5f;
+                    Vector3 here = gm.player.transform.position;
+                    foreach (var w in FindObjectsOfType<WallBuy>())
+                        if ((w.transform.position - here).sqrMagnitude < 64f && cur.RoomAt(w.transform.position)?.id == room?.id) foundWeapons.Add(w);
+                    foreach (var c in cur.candles)
+                        if (c != null && (c.transform.position - here).sqrMagnitude < 64f && cur.RoomAt(c.transform.position)?.id == room?.id) foundCandles.Add(c);
+                    if (cur.exit != null && (cur.exit.transform.position - here).sqrMagnitude < 64f) foundExit = true;
+                }
+            }
             if (!transitioning && gm.player.alive)
             {
                 floorTime += dt;
@@ -630,6 +654,46 @@ namespace PryingEyes.Proc
                 perfStarted = true;
                 StartCoroutine(PerfProbe.Run(this));
             }
+        }
+
+        void OnGUI()
+        {
+            if (cur == null || gm == null || gm.player == null || GameMenu.Blocked || transitioning) return;
+            if (miniMap) DrawMap(new Rect(Screen.width - 220, 18, 202, 202), false);
+            if (mapOpen) DrawMap(new Rect(Screen.width * 0.12f, Screen.height * 0.1f, Screen.width * 0.76f, Screen.height * 0.8f), true);
+        }
+
+        void DrawMap(Rect area, bool full)
+        {
+            var plan = cur.plan;
+            Vector3 player = gm.player.transform.position;
+            float span = full ? Mathf.Max((plan.maxX - plan.minX) * 0.1f, (plan.maxZ - plan.minZ) * 0.1f) + 8f : 34f;
+            float scale = Mathf.Min(area.width, area.height - (full ? 45f : 0f)) / Mathf.Max(span, 1f);
+            float cx = full ? (plan.minX + plan.maxX) * 0.05f : player.x;
+            float cz = full ? (plan.minZ + plan.maxZ) * 0.05f : player.z;
+            GUI.BeginGroup(area);
+            GUI.color = new Color(0.025f, 0.035f, 0.045f, 0.92f); GUI.DrawTexture(new Rect(0, 0, area.width, area.height), Texture2D.whiteTexture);
+            float px(float x) => area.width * 0.5f + (x - cx) * scale;
+            float py(float z) => (area.height - (full ? 35f : 0f)) * 0.5f - (z - cz) * scale;
+            foreach (var r in plan.rooms)
+            {
+                if (!explored.Contains(r.id)) continue;
+                GUI.color = r.church ? new Color(0.36f, 0.40f, 0.43f) : new Color(0.40f, 0.36f, 0.32f);
+                GUI.DrawTexture(new Rect(px(r.x0 * 0.1f), py(r.z1 * 0.1f), (r.x1-r.x0)*0.1f*scale, (r.z1-r.z0)*0.1f*scale), Texture2D.whiteTexture);
+            }
+            void Mark(Vector3 p, Color color, string label)
+            {
+                float x = px(p.x), y = py(p.z);
+                GUI.color = color; GUI.DrawTexture(new Rect(x-3, y-3, 6, 6), Texture2D.whiteTexture);
+                if (full) { GUI.color = Color.white; GUI.Label(new Rect(x+5, y-10, 100, 20), label); }
+            }
+            foreach (var w in foundWeapons) if (w != null) Mark(w.transform.position, Color.cyan, full ? w.displayName : "");
+            foreach (var c in foundCandles) if (c != null) Mark(c.transform.position, Color.yellow, c.lit ? "Candela accesa" : "Candela");
+            if (foundExit && cur.exit != null) Mark(cur.exit.transform.position, Color.green, "Uscita");
+            Mark(player, Color.red, "Tu");
+            GUI.color = Color.white;
+            if (full) GUI.Label(new Rect(12, area.height - 30, area.width - 24, 25), "M: chiudi   N: minimappa   • rosso: tu   • azzurro: armi   • giallo: candele   • verde: uscita");
+            GUI.EndGroup();
         }
 
         // ---- foto dal punto di vista del giocatore (con HUD), una per tipo di stanza in cui entra: -autotest -procshots (senza -nographics)

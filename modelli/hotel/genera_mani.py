@@ -66,10 +66,12 @@ def hand_right(g):
         psi = radians(338)
         R = 0.0435
         pts = [at(psi, h, R)]
-        for k, ln in enumerate(lens):
-            psi += ln / 0.040
-            pts.append(at(psi, h - 0.0035 * (k + 1), 0.0405))
-        chain(g, [(p.x, p.y, p.z) for p in pts], (rad, rad * 0.94, rad * 0.88, rad * 0.8))
+        # Una curva continua evita le nocche spigolose e la torsione della punta.
+        length = sum(lens) * 0.78
+        for k in range(1, 9):
+            u = k / 8
+            pts.append(at(psi + u * length / 0.0435, h - 0.006 * u, R))
+        chain(g, [(p.x, p.y, p.z) for p in pts], [rad * (1 - 0.2 * k / 8) for k in range(9)])
     # indice sul ponticello: lungo il fianco destro del calcio, fino davanti al grilletto
     ip = [(0.046, -0.083, 0.070), (0.056, -0.080, 0.105), (0.060, -0.080, 0.140), (0.060, -0.083, 0.168)]
     chain(g, ip, (0.0118, 0.0108, 0.0098, 0.0088))
@@ -101,10 +103,11 @@ def hand_left(g):
         psi = radians(212)
         R = 0.0455
         pts = [at(psi, z, R)]
-        for k, ln in enumerate(lens):
-            psi += ln / 0.0415
-            pts.append(at(psi, z + 0.002 * (k + 1), 0.0415))
-        chain(g, [(p.x, p.y, p.z) for p in pts], (rad, rad * 0.94, rad * 0.88, rad * 0.8))
+        length = sum(lens) * 0.78
+        for k in range(1, 9):
+            u = k / 8
+            pts.append(at(psi + u * length / R, z + 0.003 * u, R))
+        chain(g, [(p.x, p.y, p.z) for p in pts], [rad * (1 - 0.2 * k / 8) for k in range(9)])
     # pollice: dal palmo lungo il lato sinistro, in avanti
     th = [(-0.040, -0.040, 0.235), (-0.050, -0.012, 0.275), (-0.047, 0.012, 0.325), (-0.040, 0.026, 0.372), (-0.032, 0.032, 0.405)]
     chain(g, th, (0.0150, 0.0140, 0.0126, 0.0112, 0.0098))
