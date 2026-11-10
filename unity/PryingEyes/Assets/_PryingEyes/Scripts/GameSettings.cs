@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace PryingEyes
 {
@@ -9,7 +11,10 @@ namespace PryingEyes
     public static class GameSettings
     {
         const string KeyMaster = "vol_master", KeyEffects = "vol_effects", KeyMusic = "vol_music";
+        const string KeyBrightness = "video_brightness";
         static float master = 1f, effects = 1f, music = 1f;
+        static float brightness, baseExposure;
+        static ColorAdjustments grading;
         static bool loaded;
 
         struct Loop { public AudioSource src; public float vol; public bool music; }
@@ -18,6 +23,7 @@ namespace PryingEyes
         public static float Master { get { Load(); return master; } }
         public static float Effects { get { Load(); return effects; } }
         public static float Music { get { Load(); return music; } }
+        public static float Brightness { get { Load(); return brightness; } }
 
         static void Load()
         {
@@ -26,12 +32,34 @@ namespace PryingEyes
             master = PlayerPrefs.GetFloat(KeyMaster, 1f);
             effects = PlayerPrefs.GetFloat(KeyEffects, 1f);
             music = PlayerPrefs.GetFloat(KeyMusic, 1f);
+            brightness = Clamp01(PlayerPrefs.GetFloat(KeyBrightness, 0.5f));
             Apply();
         }
 
         public static void SetMaster(float v) { master = Clamp01(v); PlayerPrefs.SetFloat(KeyMaster, master); Apply(); }
         public static void SetEffects(float v) { effects = Clamp01(v); PlayerPrefs.SetFloat(KeyEffects, effects); Apply(); }
         public static void SetMusic(float v) { music = Clamp01(v); PlayerPrefs.SetFloat(KeyMusic, music); Apply(); }
+
+        public static void BindBrightness(Volume volume)
+        {
+            grading = null;
+            if (volume == null || !volume.profile.TryGet(out grading)) return;
+            baseExposure = grading.postExposure.value + (GameManager.proc ? 0.60f : 0f);
+            ApplyBrightness(Brightness);
+        }
+
+        public static void SetBrightness(float v)
+        {
+            Load();
+            brightness = Clamp01(v);
+            PlayerPrefs.SetFloat(KeyBrightness, brightness);
+            ApplyBrightness(brightness);
+        }
+
+        static void ApplyBrightness(float value)
+        {
+            if (grading != null) grading.postExposure.Override(baseExposure + Mathf.Lerp(-1.3f, 1.3f, value));
+        }
 
         static float Clamp01(float v) => Mathf.Clamp01(v);
 

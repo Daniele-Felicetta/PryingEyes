@@ -11,7 +11,7 @@ namespace PryingEyes
     /// distanza orizzontale, e dal piano terra si colpiva chi stava sul soppalco.</summary>
     public partial class Enemy : MonoBehaviour
     {
-        public enum EnemyType { Occhio, Abate, Monaco }
+        public enum EnemyType { Occhio, Abate, Monaco, Falena, Medusa, Carapace }
         public EnemyType type;
 
         public float hp, maxHp, speed;
@@ -46,9 +46,9 @@ namespace PryingEyes
 
         /// <summary>Dove mira il bot di prova: il centro dell'occhio (l'origine e' li'), il torace di chi cammina
         /// (l'origine e' ai piedi: prima mirava sempre 80 cm sopra l'origine e mancava l'occhio di mezzo metro).</summary>
-        public Vector3 AimPoint => type == EnemyType.Occhio
+        public Vector3 AimPoint => Archetype == EnemyType.Occhio
             ? transform.position
-            : transform.position + Vector3.up * (type == EnemyType.Abate ? 1.1f : 0.8f);
+            : transform.position + Vector3.up * (Archetype == EnemyType.Abate ? 1.1f : 0.8f);
 
         /// <summary>Toglie tutti i nemici (cambio piano).</summary>
         public static void ClearAll()
@@ -74,11 +74,12 @@ namespace PryingEyes
         {
             Material glow;
             List<Material> flashes;
-            GameObject go = t == EnemyType.Occhio ? BuildOcchio(out glow, out flashes)
-                : t == EnemyType.Abate ? BuildAbate(out glow, out flashes)
-                : BuildMonaco(out glow, out flashes);
+            EnemyType archetype = BaseType(t);
+            GameObject go = t != archetype ? BuildAlien(t, out glow, out flashes)
+                : t == EnemyType.Occhio ? BuildOcchio(out glow, out flashes)
+                : t == EnemyType.Abate ? BuildAbate(out glow, out flashes) : BuildMonaco(out glow, out flashes);
             // chi cammina nasce sulla navmesh (lo spawn sullo scalone finiva dentro i gradini)
-            if (t != EnemyType.Occhio && HotelNav.Ready && NavMesh.SamplePosition(pos, out NavMeshHit nh, 4f, NavMesh.AllAreas))
+            if (archetype != EnemyType.Occhio && HotelNav.Ready && NavMesh.SamplePosition(pos, out NavMeshHit nh, 4f, NavMesh.AllAreas))
                 pos = nh.position;
             go.transform.position = pos;
             foreach (var tr in go.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = HotelNav.EnemyLayer;
@@ -99,13 +100,16 @@ namespace PryingEyes
             foreach (var m in flashes) m.EnableKeyword("_EMISSION");
             e.eye = go.GetComponent<EyeRig>();
             if (e.eye != null) e.eye.lookAt = Stealth.Enabled ? null : GameManager.I.player.cam;
-            if (t != EnemyType.Occhio && HotelNav.Ready) e.AddAgent();
+            if (archetype != EnemyType.Occhio && HotelNav.Ready) e.AddAgent();
             // suoni attaccati: il monaco lo senti prima di vederlo, l'occhio ha un ronzio umido (con effetto Doppler)
             e.basePitch = t == EnemyType.Monaco ? Random.Range(0.92f, 1.06f)
                 : t == EnemyType.Abate ? Random.Range(0.58f, 0.66f)       // la litania dell'abate e' un'ottava sotto
                 : Random.Range(0.9f, 1.1f);
-            if (t == EnemyType.Monaco || t == EnemyType.Abate) e.AttachChant();
-            else if (t == EnemyType.Occhio) e.loop = Sfx.Loop(go, SoundBank.EyeHum, 0.30f, 1.5f, 24f, e.basePitch, 1f, 1f);
+            e.alienRig = go.GetComponent<AlienRig>();
+            if (t != archetype) e.SetAlienStats();
+            if (t == EnemyType.Carapace) e.loop = Sfx.Loop(go, SoundBank.EyeHum, 0.38f, 1.5f, 22f, e.basePitch);
+            else if (archetype == EnemyType.Occhio) e.loop = Sfx.Loop(go, SoundBank.EyeHum, 0.30f, 1.5f, 24f, e.basePitch, 1f, 1f);
+            else e.AttachChant();
             e.stepT = Random.value;
             all.Add(e);
             GameManager.I.SetAlive(all.Count);
@@ -120,15 +124,15 @@ namespace PryingEyes
         void AddAgent()
         {
             agent = gameObject.AddComponent<NavMeshAgent>();
-            agent.radius = type == EnemyType.Abate ? 0.5f : 0.35f;
-            agent.height = type == EnemyType.Abate ? 2.4f : 2f;
+            agent.radius = Archetype == EnemyType.Abate ? 0.5f : 0.35f;
+            agent.height = Archetype == EnemyType.Abate ? 2.4f : 2f;
             agent.baseOffset = 0f;
             agent.speed = speed;
-            agent.acceleration = type == EnemyType.Abate ? 4f : 6f;
+            agent.acceleration = Archetype == EnemyType.Abate ? 4f : 6f;
             agent.angularSpeed = 0f;
             agent.updateRotation = false;           // la rotazione la decide Face(): verso il giocatore da vicino
             agent.autoBraking = true;
-            agent.stoppingDistance = type == EnemyType.Abate ? 1.8f : 1.3f;
+            agent.stoppingDistance = Archetype == EnemyType.Abate ? 1.8f : 1.3f;
             agent.obstacleAvoidanceType = ObstacleAvoidanceType.MedQualityObstacleAvoidance;
             agent.avoidancePriority = Random.Range(30, 70);
             if (!agent.isOnNavMesh) { Destroy(agent); agent = null; }
@@ -141,7 +145,7 @@ namespace PryingEyes
         {
             var chant = SoundBank.Chant;
             if (chant == null) return;
-            bool abate = type == EnemyType.Abate;
+            bool abate = Archetype == EnemyType.Abate;
             loop = Sfx.Loop(gameObject, chant, abate ? 0.75f : 0.55f, 1.5f, abate ? 30f : 22f, basePitch);
         }
 
@@ -169,7 +173,7 @@ namespace PryingEyes
             Vector3 chest = pl.LeanedPoint(1.3f);
             if (Mathf.Abs(pl.lean) > 0.05f)
             {
-                Vector3 eyeE = gp + Vector3.up * 1.9f;
+                Vector3 eyeE = gp + Vector3.up * (type == EnemyType.Carapace ? EyeHeight : 1.9f);
                 if (!HotelNav.ClearLine(eyeE, chest))
                 {
                     Vector3 headP = pl.LeanedPoint(1.58f);
@@ -194,9 +198,10 @@ namespace PryingEyes
             // furtivita' (Enemy.Stealth.cs): vista, udito, stato di allerta e dove andare
             SenseTick(dt, gp, pl);
             PlanMove(dt, gp, feet);
-            if (type == EnemyType.Occhio) UpdateOcchio(dt, gp, chest, sep, enraged);
-            else if (type == EnemyType.Monaco) UpdateMonaco(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
+            if (Archetype == EnemyType.Occhio) UpdateOcchio(dt, gp, chest, sep, enraged);
+            else if (Archetype == EnemyType.Monaco) UpdateMonaco(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
             else UpdateAbate(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
+            if (alienRig != null) alienRig.Animate(phase, vel.magnitude, alert == Alert.Hunting, strikeAt >= 0f);
         }
 
         // ---------- chi cammina ----------
@@ -212,8 +217,8 @@ namespace PryingEyes
                 vel = agent.velocity;
                 return;
             }
-            float stopAt = type == EnemyType.Abate ? 2.0f : 1.9f;
-            Vector3 desired = (!hold && hd > stopAt ? toP * spd : Vector3.zero) + sep * (type == EnemyType.Monaco ? 0.5f : 1f);
+            float stopAt = Archetype == EnemyType.Abate ? 2.0f : 1.9f;
+            Vector3 desired = (!hold && hd > stopAt ? toP * spd : Vector3.zero) + sep * (Archetype == EnemyType.Monaco ? 0.5f : 1f);
             vel = Vector3.Lerp(vel, desired, Mathf.Min(1f, 3f * dt));
             gp += vel * dt;
             gp.y = 0f;
@@ -242,7 +247,8 @@ namespace PryingEyes
             atkLock -= dt;
             flinchT -= dt;
             bool attacking = atkLock > 0f;
-            Vector3 eye = gp + Vector3.up * 1.9f;
+            bool carapace = type == EnemyType.Carapace;
+            Vector3 eye = gp + Vector3.up * (carapace ? EyeHeight : 1.9f);
             bool see = HotelNav.ClearLine(eye, chest);
             bool hunting = alert == Alert.Hunting;
             Vector3 toG = moveGoal - gp; toG.y = 0f;
@@ -274,7 +280,7 @@ namespace PryingEyes
                 if (strikeAt < 0f)
                 {
                     // punta del bastone nel riferimento del monaco (Blender 0.31, -0.37, 0 -> Unity -0.31, 0, 0.37)
-                    Vector3 tip = transform.TransformPoint(new Vector3(-0.31f, 0f, 0.37f));
+                    Vector3 tip = transform.TransformPoint(carapace ? new Vector3(0f, 0f, 0.68f) : new Vector3(-0.31f, 0f, 0.37f));
                     if (glowMat != null) Shockwave.Spawn(tip, glowMat);
                     Sfx.At(SoundBank.Strike, tip, 1f, Random.Range(0.70f, 0.78f), 3f, 42f);
                     Vector3 p = playerT.position;
@@ -468,11 +474,11 @@ namespace PryingEyes
             {
                 strikeAt -= dt;
                 if (strikeAt < 0f && GameManager.I.player.alive && dist3 < 3.4f && HotelNav.ClearLine(gp, chest))
-                    HitPlayer(6f + Random.value * 4f, dist3, Mathf.Abs(chest.y - gp.y));
+                    HitPlayer((type == EnemyType.Medusa ? 12f : 6f) + Random.value * 4f, dist3, Mathf.Abs(chest.y - gp.y));
             }
             else if (hunting && see && dist3 < 2.7f && atkCd <= 0f && GameManager.I.player.alive)
             {
-                atkCd = 2.2f;
+                atkCd = type == EnemyType.Falena ? 1.6f : type == EnemyType.Medusa ? 3.1f : 2.2f;
                 strikeAt = 0.5f;
                 if (eye != null) eye.Stare(0.9f);
                 Sfx.At(SoundBank.EyeStare, gp, 0.55f, Random.Range(0.92f, 1.08f), 2f, 22f);
@@ -528,17 +534,17 @@ namespace PryingEyes
             Synth.Hit();
             Vector3 push = (transform.position - playerT.position);
             push.y = 0f;
-            push = push.normalized * (type == EnemyType.Occhio ? 2.2f : type == EnemyType.Monaco ? 0.5f : 0.25f);
+            push = push.normalized * (Archetype == EnemyType.Occhio ? 2.2f : Archetype == EnemyType.Monaco ? 0.5f : 0.25f);
             if (OnNav) agent.velocity += push;
             else vel += push;
             // durante il colpo di bastone niente reazione: l'animazione dell'attacco non si interrompe
-            if (type == EnemyType.Monaco && hp > 0f && atkLock <= 0f && anim != null) anim.SetTrigger("Colpito");
-            if (type == EnemyType.Abate && hp > 0f && atkLock <= 0f && flinchT <= 0f && anim != null)
+            if (Archetype == EnemyType.Monaco && hp > 0f && atkLock <= 0f && anim != null) anim.SetTrigger("Colpito");
+            if (Archetype == EnemyType.Abate && hp > 0f && atkLock <= 0f && flinchT <= 0f && anim != null)
             {
                 anim.SetTrigger("Colpito");
                 flinchT = 1.5f;
             }
-            if (type == EnemyType.Occhio && eye != null) eye.Hit();
+            if (Archetype == EnemyType.Occhio && eye != null) eye.Hit();
             if (hp <= 0f) Die(headshot);
         }
 
@@ -551,7 +557,8 @@ namespace PryingEyes
             Synth.Kill();
             if (agent != null) agent.enabled = false;
             if (loop != null) loop.Stop();
-            if (type == EnemyType.Monaco || type == EnemyType.Abate)
+            if (alienRig != null) alienRig.Collapse();
+            if (Archetype == EnemyType.Monaco || Archetype == EnemyType.Abate)
             {
                 // niente detriti: crolla con l'animazione e sparisce dopo qualche secondo
                 dead = true;
@@ -562,7 +569,7 @@ namespace PryingEyes
                 Destroy(gameObject, 5f);
                 return;
             }
-            if (type == EnemyType.Occhio)
+            if (Archetype == EnemyType.Occhio)
             {
                 // cade flaccido: palpebre calate, iride spenta, tentacoli penzolanti; poi sparisce
                 dead = true;

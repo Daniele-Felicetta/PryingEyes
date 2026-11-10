@@ -47,68 +47,128 @@ def wall_bond(n, cols, rows, rng, jw, warp=0.012):
     return edge, row % rows, bx % cols, lx / bw, ly / rh
 
 
-def pietra_muro(n=1024):
-    """Muro di pietra squadrata (calcare caldo e annerito): 4 x 8 blocchi su 2,4 m, giunti di malta incassati, scheggiature."""
+def irregular_courses(x, y, cuts_y, rng, widths, count):
+    n = x.shape[0]
+    cy = np.searchsorted(cuts_y[1:-1], y)
+    height = cuts_y[cy + 1] - cuts_y[cy]
+    ly = (y - cuts_y[cy]) / height
+    edge = np.minimum(ly, 1 - ly) * height
+    cx = np.empty_like(cy)
+    lx = np.empty_like(x)
+    for row in range(len(cuts_y) - 1):
+        indices = cy == row
+        cuts = np.r_[0, np.cumsum(rng.uniform(*widths, count(row)))].astype(F)
+        cuts *= n / cuts[-1]
+        local = (x[indices] + rng.uniform(0, n)) % n
+        tile = np.searchsorted(cuts[1:-1], local)
+        width = cuts[tile + 1] - cuts[tile]
+        u = (local - cuts[tile]) / width
+        lx[indices], cx[indices] = u, tile
+        edge[indices] = np.minimum(edge[indices], np.minimum(u, 1 - u) * width)
+    return edge, cy, cx, lx, ly
+
+
+def pietra_muro(n=2048):
+    """Corsi di calcare irregolari e riprese di malta su un modulo di 4,2 m."""
     rng = np.random.default_rng(101)
-    jw = n / 2.4 * 0.012
-    edge, row, bx, lx, ly = wall_bond(n, 4, 8, rng, jw)
-    mortar = 1 - smooth(jw * 0.4, jw * 1.4, edge)
+    jw = n / 4.2 * 0.013
+    y, x = np.mgrid[0:n, 0:n].astype(F)
+    xx = (x + (fbm(n, 17, 4, rng) - 0.5) * 0.020 * n) % n
+    yy = (y + (fbm(n, 13, 4, rng) - 0.5) * 0.016 * n) % n
+    courses = np.array([0, .085, .13, .227, .312, .37, .475, .555, .62, .733, .812, .861, .939, 1], F) * n
+    edge, row, bx, _, _ = irregular_courses(xx, yy, courses, rng, (0.55, 1.6), lambda i: 6 + (i * 5) % 4)
+    chipped = smooth(0.54, 0.78, fbm(n, 43, 4, rng))
+    edge -= chipped * jw * 1.7
+    mortar = 1 - smooth(jw * 0.34, jw * 1.25, edge)
     tone = hash2(bx, row, 7)
     cloud = warped(n, rng, 3, 5, 0.3)
     fine = fbm(n, 24, 4, rng)
-    base = lerp(col((0.50, 0.45, 0.38), n), col((0.34, 0.30, 0.26), n), np.clip(tone * 1.3 - 0.15, 0, 1))
-    base = lerp(base, col((0.62, 0.57, 0.48), n), smooth(0.55, 0.85, cloud) * 0.4)
-    base = base * (0.84 + 0.30 * fine[..., None])
+    base = lerp(col((0.51, 0.48, 0.42), n), col((0.31, 0.32, 0.29), n), np.clip(tone * 1.3 - 0.15, 0, 1))
+    base = lerp(base, col((0.64, 0.60, 0.52), n), smooth(0.50, 0.84, cloud) * 0.5)
+    base = base * (0.69 + 0.54 * fine[..., None])
+    runoff = smooth(0.43, 0.78, perlin(n, 19, rng, cells_y=3) * 0.5 + 0.5)
+    base = lerp(base, col((0.28, 0.27, 0.23), n), runoff * 0.42)
     # fuliggine e umido a chiazze grandi (il resto lo fanno le decalcomanie)
     soot = smooth(0.55, 0.85, fbm(n, 2, 5, rng))
     damp = smooth(0.62, 0.88, fbm(n, 3, 5, rng))
     base = lerp(base, col((0.13, 0.12, 0.11), n), soot * 0.45)
     base = lerp(base, col((0.20, 0.25, 0.17), n), damp * 0.22)
-    base = lerp(base, col((0.46, 0.44, 0.40), n), mortar * 0.85)
+    repair = smooth(0.51, 0.73, warped(n, rng, 5, 4, 0.16))
+    base = lerp(base, col((0.47, 0.44, 0.38), n), repair * 0.62)
+    joint = lerp(col((0.26, 0.24, 0.20), n), col((0.46, 0.43, 0.37), n), repair * 0.85)
+    base = lerp(base, joint * (0.76 + fine[..., None] * 0.44), mortar * 0.9)
     # rilievo: ogni blocco un po' bombato, giunti incavati, scheggiature ai bordi
     bevel = smooth(0, jw * 5, edge)
-    pit = (fbm(n, 48, 3, rng) - 0.5) * 0.12 + (fbm(n, 12, 4, rng) - 0.5) * 0.18
+    pit = (fbm(n, 70, 3, rng) - 0.5) * 0.19 + (fbm(n, 16, 4, rng) - 0.5) * 0.25
     chips = smooth(0.72, 0.9, fbm(n, 20, 3, rng)) * (1 - smooth(0, jw * 8, edge))
-    h = bevel * 0.5 * (1 - mortar) + pit + (tone - 0.5) * 0.08 - chips * 0.25 - mortar * 0.3
+    h = bevel * 0.24 + pit + (tone - 0.5) * 0.10 - chips * 0.22 - mortar * (0.19 - repair * 0.10)
     sm = 0.16 + 0.10 * (1 - soot) - mortar * 0.08 + damp * 0.08
     ao = 1 - mortar * 0.5 - chips * 0.2
-    save("pietra_muro", base, normals(h, 7.0), np.zeros((n, n), F), ao, sm)
+    save("pietra_muro", base, normals(h, 11.0), np.zeros((n, n), F), ao, sm)
 
 
-def pietra_lastre(n=1024):
-    """Pavimento di lastre di pietra grigia: 2 x 2 lastre da 90 cm su 1,8 m, consumate al centro, con crepe e fughe scure."""
+def pietra_lastre(n=2048):
+    """Lastre su 4,8 m, disposte a corsi di larghezza e sfalsatura diversa."""
     rng = np.random.default_rng(103)
-    jw = n / 1.8 * 0.016
+    jw = n / 4.8 * 0.010
     y, x = np.mgrid[0:n, 0:n].astype(F)
-    wx = (fbm(n, 5, 3, rng) - 0.5) * 0.02 * n
-    wy = (fbm(n, 5, 3, rng) - 0.5) * 0.02 * n
-    xx, yy = x + wx, y + wy
-    cell = n / 2
-    cx, cy = np.floor(xx / cell).astype(int) % 2, np.floor(yy / cell).astype(int) % 2
-    lx, ly = xx - np.floor(xx / cell) * cell, yy - np.floor(yy / cell) * cell
-    edge = np.minimum(np.minimum(lx, cell - lx), np.minimum(ly, cell - ly))
-    grout = 1 - smooth(jw * 0.4, jw * 1.5, edge)
+    xx = (x + (fbm(n, 14, 3, rng) - 0.5) * 0.012 * n) % n
+    yy = (y + (fbm(n, 11, 4, rng) - 0.5) * 0.011 * n) % n
+    courses = np.array([0, 0.16, 0.34, 0.57, 0.70, 0.87, 1], F) * n
+    edge, cy, cx, lx, ly = irregular_courses(xx, yy, courses, rng, (0.55, 1.5), lambda row: 4 + row % 3)
+    grain = fbm(n, 86, 3, rng)
+    chipped = smooth(0.51, 0.78, fbm(n, 21, 4, rng))
+    grout = 1 - smooth(jw * 0.3, jw * 1.7, edge - chipped * jw * 2.1)
     tone = hash2(cx, cy, 11)
     cloud = warped(n, rng, 3, 5, 0.3)
     fine = fbm(n, 32, 4, rng)
-    base = lerp(col((0.40, 0.40, 0.39), n), col((0.28, 0.28, 0.29), n), tone)
-    base = lerp(base, col((0.52, 0.51, 0.49), n), smooth(0.5, 0.85, cloud) * 0.35)
-    base = base * (0.86 + 0.28 * fine[..., None])
+    base = lerp(col((0.48, 0.45, 0.39), n), col((0.30, 0.32, 0.30), n), tone)
+    base = lerp(base, col((0.60, 0.56, 0.47), n), smooth(0.47, 0.84, cloud) * 0.48)
+    base = base * (0.69 + 0.48 * fine[..., None] + 0.15 * grain[..., None])
     # lastre consumate al centro (piu' chiare e lucide)
-    uc = np.hypot((lx / cell - 0.5), (ly / cell - 0.5))
+    uc = np.hypot(lx - 0.5, ly - 0.5)
     worn = (1 - smooth(0.08, 0.5, uc)) * (0.4 + 0.6 * smooth(0.3, 0.7, fbm(n, 3, 4, rng)))
     base = lerp(base, col((0.58, 0.57, 0.55), n), worn * 0.35)
     # crepe: ramificate, dentro le lastre
-    d1, d2, _ = voronoi(n, 5, rng)
-    crack = (1 - smooth(0.0, 0.018, d2 - d1)) * smooth(0.55, 0.75, fbm(n, 4, 4, rng))
+    d1, d2, _ = voronoi(n, 9, rng)
+    crack = (1 - smooth(0.0, 0.018, d2 - d1 + (grain - 0.5) * 0.025)) * smooth(0.5, 0.69, fbm(n, 8, 4, rng))
     dirt = smooth(0.55, 0.85, fbm(n, 3, 5, rng))
     base = lerp(base, col((0.16, 0.15, 0.14), n), dirt * 0.4)
-    base = lerp(base, col((0.06, 0.06, 0.06), n), np.clip(crack * 0.8 + grout, 0, 1))
-    bevel = smooth(0, jw * 5, edge)
-    h = bevel * 0.35 * (1 - grout) + (fbm(n, 40, 3, rng) - 0.5) * 0.1 + (fbm(n, 6, 3, rng) - 0.5) * 0.12 - crack * 0.3 - grout * 0.3 - worn * 0.05
-    sm = 0.30 + worn * 0.35 - dirt * 0.22 - crack * 0.2
+    base = lerp(base, col((0.19, 0.172, 0.144), n), np.clip(crack * 0.68 + grout, 0, 1))
+    bevel = smooth(0, jw * 6, edge - chipped * jw * 2.1)
+    h = bevel * 0.24 + (grain - 0.5) * 0.18 + (cloud - 0.5) * 0.22 - crack * 0.18 - grout * 0.18
+    sm = 0.18 + worn * 0.24 - dirt * 0.12 - crack * 0.11
     sm = sm * (1 - grout) + 0.1 * grout
-    save("pietra_lastre", base, normals(h, 6.0), np.zeros((n, n), F), 1 - grout * 0.5 - crack * 0.2, sm)
+    save("pietra_lastre", base, normals(h, 15.0), np.zeros((n, n), F), 1 - grout * 0.46 - crack * 0.2, sm)
+
+
+def pietra_massello(n=1024):
+    """Calcare scolpito senza fughe, per conci, capitelli e cornici con giunti in geometria."""
+    rng = np.random.default_rng(104)
+    cloud = warped(n, rng, 4, 5, 0.28)
+    grain = fbm(n, 68, 4, rng)
+    pits = smooth(0.54, 0.79, fbm(n, 34, 4, rng))
+    base = lerp(col((0.29, 0.275, 0.25), n), col((0.63, 0.58, 0.49), n), cloud)
+    base *= 0.71 + grain[..., None] * 0.49
+    base = lerp(base, col((0.16, 0.155, 0.13), n), pits * 0.42)
+    h = 0.3 * cloud + 0.21 * grain - 0.27 * pits
+    save("pietra_massello", base, normals(h, 7.5), np.zeros((n, n), F), 1 - pits * 0.4, 0.16 + 0.15 * cloud)
+
+
+def quercia_portale(n=1024):
+    """Quercia brunita, con fibre verticali, pori e velature di umidità."""
+    rng = np.random.default_rng(149)
+    phase = 2 * np.pi * (np.arange(n, dtype=F)[None, :] * 47 / n + perlin(n, 8, rng, cells_y=4) * 2.0)
+    rings = (np.sin(phase) * 0.5 + 0.5) ** 5
+    fiber = perlin(n, 120, rng, cells_y=9) * 0.5 + 0.5
+    pores = smooth(0.57, 0.78, perlin(n, 122, rng, cells_y=52) * 0.5 + 0.5)
+    cloud = warped(n, rng, 3, 4, 0.23)
+    grain = np.clip(0.42 + fiber * 0.5 + cloud * 0.16 - rings * 0.34 - pores * 0.30, 0, 1)
+    base = lerp(col((0.10, 0.097, 0.079), n), col((0.37, 0.29, 0.205), n), grain)
+    damp = smooth(0.53, 0.81, warped(n, rng, 4, 4, 0.22))
+    base = lerp(base, col((0.12, 0.14, 0.107), n), damp * 0.60)
+    h = fiber * 0.14 - rings * 0.15 - pores * 0.25
+    save("quercia_portale", base, normals(h, 6.2), np.zeros((n, n), F), 1 - pores * 0.25, 0.18 + grain * 0.15 - damp * 0.07)
 
 
 def pietra_cripta(n=1024):
@@ -394,7 +454,7 @@ if __name__ == "__main__":
     if rest:
         OUT = Path(rest[0])
     gt.OUT = OUT
-    for fn in (pietra_muro, pietra_lastre, pietra_cripta, mattoni_volta, parquet, piastrelle, piastrelle_pav, cemento,
+    for fn in (pietra_muro, pietra_lastre, pietra_massello, quercia_portale, pietra_cripta, mattoni_volta, parquet, piastrelle, piastrelle_pav, cemento,
                vetrata0, vetrata1, vetrata2, vetrata3):
         if only is None or fn.__name__ in only:
             fn()

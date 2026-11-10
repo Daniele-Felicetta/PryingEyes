@@ -80,7 +80,7 @@ namespace PryingEyes.Proc
         static Vector3 LongAxis(Ctx c) => c.W >= c.D ? Vector3.right : Vector3.forward;
 
         // ---------------------------------------------------------------- ingresso
-        public static void Dress(FloorInstance fi, Room r, Transform parent)
+        public static Light Dress(FloorInstance fi, Room r, Transform parent)
         {
             var c = new Ctx
             {
@@ -116,9 +116,11 @@ namespace PryingEyes.Proc
                 case RoomKind.Campanile: Campanile(c); break;
             }
             if (!r.IsLift && c.plan.objectives.Contains(r.id)) Objective(c);
-            WindowLights(c);
-            Fill(c);
+            if (r.church) PortalCandles(c);
+            var window = WindowLights(c);
+            Fill(c, window != null);
             Spawns(c);
+            return window;
         }
 
         /// <summary>Il candelabro da accendere: in un punto libero della stanza (a caso), spento, con l'alone freddo.</summary>
@@ -293,28 +295,63 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Applique a muro: placca d'ottone, lampadina e luce calda; alcune sono rotte (lampadina spenta, niente luce).</summary>
-        static void Sconce(Ctx c, Vector3 pt, Vector3 inward, bool on, float intensity = 3.4f, float range = 8.5f)
+        static void Sconce(Ctx c, Vector3 pt, Vector3 inward, bool on, float intensity = 3.4f, float range = 8.5f, bool candle = false)
         {
             var g = new GameObject(on ? "Applique" : "AppliqueRotta");
             g.transform.SetParent(c.props, false);
             g.transform.position = pt;
             g.transform.rotation = Quaternion.LookRotation(inward);
-            var brass = ProcKit.Mat("ottone");
+            var metal = ProcKit.Mat(candle ? "ferro" : "ottone");
             void Part(PrimitiveType t, Vector3 sc, Vector3 lp, Material m)
             {
                 var p = GameObject.CreatePrimitive(t);
-                Util.Kill(p.GetComponent<Collider>());
+                var collider = p.GetComponent<Collider>();
+                collider.enabled = false;
+                Util.Kill(collider);
                 p.transform.SetParent(g.transform, false);
                 p.transform.localPosition = lp; p.transform.localScale = sc;
                 p.GetComponent<MeshRenderer>().sharedMaterial = m;
                 p.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
-            Part(PrimitiveType.Cube, new Vector3(0.16f, 0.32f, 0.05f), new Vector3(0f, 0f, 0.02f), brass);
-            Part(PrimitiveType.Cube, new Vector3(0.03f, 0.03f, 0.16f), new Vector3(0f, 0.05f, 0.1f), brass);
-            Part(PrimitiveType.Sphere, Vector3.one * 0.11f, new Vector3(0f, 0.1f, 0.19f), ProcKit.Mat(on ? "lampadina" : "lampadina_spenta"));
+            if (candle)
+            {
+                Part(PrimitiveType.Sphere, new Vector3(0.094f, 0.24f, 0.029f), new Vector3(0f, -0.022f, 0.02f), metal);
+                var bracket = new MeshBuilder();
+                foreach (int side in new[] { -1, 1 })
+                {
+                    float x = side * 0.124f;
+                    Vector3 a = new Vector3(side * 0.018f, -0.105f, 0.032f);
+                    Vector3 b = new Vector3(side * 0.087f, -0.085f, 0.112f);
+                    Vector3 d = new Vector3(x, 0.023f, 0.223f);
+                    bracket.Beam(metal, a, b, 0.021f, 0.024f, Vector3.up);
+                    bracket.Beam(metal, b, d, 0.018f, 0.021f, Vector3.up);
+                    float h = side < 0 ? 0.109f : 0.143f;
+                    Part(PrimitiveType.Cylinder, new Vector3(0.092f, 0.008f, 0.092f), d, metal);
+                    Part(PrimitiveType.Cylinder, new Vector3(0.038f, h * 0.5f, 0.038f), d + Vector3.up * (h * 0.5f), ProcKit.Mat("cera"));
+                    Part(PrimitiveType.Cylinder, new Vector3(0.006f, 0.006f, 0.006f), d + Vector3.up * (h + 0.004f), metal);
+                    Part(PrimitiveType.Sphere, new Vector3(0.016f, 0.044f, 0.016f), d + Vector3.up * (h + 0.023f), ProcKit.Mat("fiamma"));
+                }
+                g.AddComponent<MeshFilter>().sharedMesh = bracket.ToMesh("Ferro dell'applique", out var materials);
+                var mr = g.AddComponent<MeshRenderer>();
+                mr.sharedMaterials = materials;
+                mr.shadowCastingMode = ShadowCastingMode.Off;
+            }
+            else
+            {
+                Part(PrimitiveType.Cube, new Vector3(0.16f, 0.32f, 0.05f), new Vector3(0f, 0f, 0.02f), metal);
+                Part(PrimitiveType.Cube, new Vector3(0.03f, 0.03f, 0.16f), new Vector3(0f, 0.05f, 0.1f), metal);
+                Part(PrimitiveType.Sphere, Vector3.one * 0.11f, new Vector3(0f, 0.1f, 0.19f), ProcKit.Mat(on ? "lampadina" : "lampadina_spenta"));
+            }
             if (!on) return;
-            var pl = AddLight(c, pt + inward * 0.55f + Vector3.up * 0.12f, new Color(1f, 0.74f, 0.48f), intensity, range, true, true, g.transform);
-            if (c.rng.Chance(0.4)) g.AddComponent<LampFlicker>().Init(pl);
+            var pl = AddLight(c, pt + inward * (candle ? 0.68f : 0.55f) + Vector3.up * (candle ? 0.32f : 0.12f),
+                              candle ? CandleCol : new Color(1f, 0.74f, 0.48f), intensity, range, true, true, g.transform);
+            if (candle)
+            {
+                pl.l.shadowStrength = 0.68f;
+                var pulse = g.AddComponent<LightPulse>();
+                pulse.l = pl.l; pulse.baseI = pl.l.intensity; pulse.amp = 0.11f; pulse.speed = 7f;
+            }
+            else if (c.rng.Chance(0.4)) g.AddComponent<LampFlicker>().Init(pl);
         }
 
         /// <summary>Lampadario: la corona di ferro con le candele (stesso modello della chiesa), appesa al soffitto. 'pos' e' il centro
@@ -325,8 +362,9 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Luce del chiaro di luna che passa dalle finestre: faro freddo davanti al vetro, in giu' e verso l'interno.</summary>
-        static void WindowLights(Ctx c)
+        static Light WindowLights(Ctx c)
         {
+            Light first = null, second = null;
             foreach (Side s in new[] { Side.S, Side.N, Side.W, Side.E })
                 foreach (var o in c.plan.OpeningsOn(c.r, s))
                 {
@@ -337,16 +375,85 @@ namespace PryingEyes.Proc
                     float y = Mathf.Lerp(o.sill, o.top, 0.7f);
                     Vector3 pt = ax ? new Vector3(o.center * 0.1f, y, wallCoord) : new Vector3(wallCoord, y, o.center * 0.1f);
                     bool church = o.style == OpenStyle.Lancetta;
-                    Color col = church ? GlassColor(o.variant) : new Color(0.62f, 0.74f, 1f);
-                    float inten = church ? (o.oneSided ? 12f : 17f) : 6f;
-                    var pl = AddLight(c, pt + inw * 0.25f, col, inten, church ? 13f : 8.5f, church, true, c.parent, LightType.Spot);
+                    Color col = church ? Color.Lerp(new Color(0.73f, 0.82f, 1f), GlassColor(o.variant), 0.22f) : new Color(0.62f, 0.74f, 1f);
+                    float inten = church ? (o.oneSided ? 21f : 31f) : 6f;
+                    var pl = AddLight(c, pt + inw * 0.25f, col, inten, church ? 17f : 8.5f, church, true, c.parent, LightType.Spot);
                     var l = pl.l;
-                    l.spotAngle = church ? 75f : 90f;
-                    l.innerSpotAngle = 20f;
+                    l.spotAngle = church ? 86f : 90f;
+                    l.innerSpotAngle = church ? 47f : 20f;
                     Vector3 dir = (inw + Vector3.down * (o.oneSided ? 1.5f : 0.7f)).normalized;
                     l.transform.rotation = Quaternion.LookRotation(dir);
-                    if (church && ProcKit.HasMat("cookie_vetrata" + (o.variant & 3))) { }
+                    if (!church) continue;
+                    l.name = "Luce della vetrata";
+                    l.cookie = StainedWindowCookie();
+                    l.shadowStrength = 0.82f;
+                    if (first == null) first = l;
+                    else if (c.r.kind == RoomKind.Navata && second == null && (l.transform.position - first.transform.position).sqrMagnitude > 40f)
+                        second = l;
                 }
+            if (first != null) c.fi.windowBounceSources.Add(first);
+            if (second != null) c.fi.windowBounceSources.Add(second);
+            return first;
+        }
+
+        static Texture2D stainedWindowCookie;
+
+        static Texture2D StainedWindowCookie()
+        {
+            if (stainedWindowCookie != null) return stainedWindowCookie;
+            const int size = 96;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, true, true)
+            {
+                name = "Proiezione della vetrata",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Trilinear
+            };
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float u = (x + 0.5f) / size * 2f - 1f, v = (y + 0.5f) / size * 2f - 1f;
+                    float arch = 0.86f - Mathf.Pow(Mathf.Abs(u), 1.5f) * 0.85f;
+                    float aperture = (1f - Stealth.Smooth(0.66f, 0.96f, Mathf.Abs(u)))
+                                   * Stealth.Smooth(-0.97f, -0.65f, v) * (1f - Stealth.Smooth(arch - 0.24f, arch + 0.11f, v));
+                    float lead = Mathf.Min(Mathf.Abs(u), Mathf.Min(Mathf.Abs(v + 0.31f), Mathf.Abs(v - 0.22f)));
+                    float transmission = aperture * Mathf.Lerp(0.76f, 1f, Stealth.Smooth(0.009f, 0.045f, lead));
+                    byte value = (byte)Mathf.RoundToInt(transmission * 255f);
+                    pixels[y * size + x] = new Color32(value, value, value, value);
+                }
+            texture.SetPixels32(pixels);
+            texture.Apply(true, true);
+            return stainedWindowCookie = texture;
+        }
+
+        internal static void PlaceWindowBounce(FloorInstance floor)
+        {
+            if (floor.windowBounceSources.Count == 0) return;
+            Physics.SyncTransforms();
+            foreach (var source in floor.windowBounceSources)
+            {
+                var direction = source.transform.forward;
+                var parent = source.transform.parent;
+                if (!Physics.Raycast(source.transform.position, direction, out var hit, source.range, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)
+                    || !hit.transform.IsChildOf(parent) || hit.distance < 0.65f) continue;
+
+                var go = new GameObject("Rimbalzo della vetrata");
+                go.transform.SetParent(parent, false);
+                go.transform.position = hit.point + hit.normal * 0.23f;
+                Vector3 reflection = Vector3.Reflect(direction, hit.normal);
+                go.transform.rotation = Quaternion.LookRotation(Vector3.Slerp(hit.normal, reflection, 0.32f));
+                var light = go.AddComponent<Light>();
+                light.type = LightType.Spot;
+                light.spotAngle = 147f;
+                light.innerSpotAngle = 72f;
+                light.color = Color.Lerp(source.color, new Color(0.80f, 0.75f, 0.66f), 0.53f);
+                light.range = Mathf.Clamp(hit.distance + 3.4f, 5.2f, 8.8f);
+                float incidence = Mathf.Clamp01(Vector3.Dot(-direction, hit.normal));
+                light.intensity = Mathf.Min(3.7f * LightPool.Dim, source.intensity * incidence * 6f / (1f + hit.distance * hit.distance));
+                floor.lights.Add(light);
+                LightPool.Register(light, false);
+            }
+            floor.windowBounceSources.Clear();
         }
 
         public static Color GlassColor(int variant)
@@ -362,16 +469,16 @@ namespace PryingEyes.Proc
 
         /// <summary>Luce di riempimento senza ombre: al posto dei rimbalzi della luce cotta, che qui non ci sono. Tenue e di tinta
         /// diversa per le due ali (fredda in chiesa, polverosa in albergo), cosi' ogni stanza si legge anche con le lampade spente.</summary>
-        static void Fill(Ctx c)
+        static void Fill(Ctx c, bool hasWindow)
         {
             var r = c.r;
             if (r.IsLift) return;
             float size = Mathf.Max(c.W, c.D);
-            Color col = r.church ? new Color(0.55f, 0.62f, 0.9f) : new Color(0.95f, 0.78f, 0.6f);
+            Color col = r.church ? new Color(0.65f, 0.74f, 0.83f) : new Color(0.95f, 0.78f, 0.6f);
             // sopra il soffitto nelle stanze basse (niente macchia calda sull'intonaco: la faccia del soffitto guarda in basso e non la prende),
             // a mezza altezza in quelle alte
             float y = r.wallH < 5.2f ? r.wallH + 1.2f : 5.0f;
-            float inten = (r.church ? 3.0f : 2.6f) * (y / 3.6f) * (y / 3.6f);
+            float inten = (r.church ? (hasWindow ? 3.65f : 5.6f) : 2.6f) * (y / 3.6f) * (y / 3.6f);
             float range = Mathf.Min(size * 0.55f + y + 1.5f, 22f);
             int n = size > 14f ? Mathf.RoundToInt(size / 12f) : 1;
             Vector3 a = LongAxis(c);

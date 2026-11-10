@@ -7,6 +7,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_fibre
+    second: {fileID: 2100000, guid: 16591ab08bdc9264ea4e794ebfff0694, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_legno
     second: {fileID: 2100000, guid: 0a1ad6712c0b808459ce5b71876e43f1, type: 2}
   - first:

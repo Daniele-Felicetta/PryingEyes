@@ -190,7 +190,7 @@ python sheet_game.py hotel_build/armi lato 4                               # fog
 
 Il gioco principale non e' piu' la hall con le ondate ma una discesa a piani generati a ogni partita: **un'ala d'albergo e un'ala di chiesa**, sempre tutte e due, unite da un portale e orientate in modo diverso a ogni piano (forme a L o dritte, 19-35 stanze, 25-90 m). La hall classica resta nel progetto (`Hotel.unity`, `HotelBuilder`) ma non e' piu' nella build.
 
-**Come si gioca.** Si arriva da un ascensore (a volte in un atrio d'albergo, a volte in una sacrestia). Su ogni piano ci sono 2-4 **candelabri da accendere** (`F`), sparsi tra stanze d'albergo e di chiesa e segnalati da un alone freddo. Accenderli richiama i nemici. Quando sono tutti accesi, l'ascensore di uscita si apre e si può scendere (punti bonus). Restano le armi sui muri (3 espositori per piano), i punti come valuta e i tre nemici (monaco, abate, occhio). Se si muore si rinasce nell'ascensore di arrivo, sullo stesso piano.
+**Come si gioca.** Si arriva da un ascensore (a volte in un atrio d'albergo, a volte in una sacrestia). Su ogni piano ci sono 2-4 **candelabri da accendere** (`F`), sparsi tra stanze d'albergo e di chiesa e segnalati da un alone freddo. Accenderli richiama i nemici. Quando sono tutti accesi, l'ascensore di uscita si apre e si può scendere (punti bonus). Le armi si comprano con i punti presso i tre espositori a parete di ogni piano. Se si muore si rinasce nell'ascensore di arrivo, sullo stesso piano.
 
 **Stealth.** Le luci si affievoliscono scendendo. Monaco, abate e occhio pattugliano, indagano sui rumori e cercano nell'ultimo punto in cui ti hanno visto. Gli occhi sopra la testa indicano sospetto, ricerca e caccia. Al buio e accovacciato sei più difficile da notare. La torcia aumenta la distanza a cui ti vedono. Il battito e lo sfarfallio avvisano quando si avvicina una minaccia.
 
@@ -202,6 +202,10 @@ Il gioco principale non e' piu' la hall con le ondate ma una discesa a piani gen
 | `V` | Invia un ping. Per alcuni secondi mostra segnali pulsanti sulle candele ancora spente e sull'ascensore. I nemici vicini lo sentono. |
 
 L'HUD mostra carica, scorte e attesa prima del prossimo ping. La freccia in alto indica il percorso verso l'ascensore di uscita e segnala quando è aperto.
+
+**Luminosità e nebbia.** La luce di base è più alta e la nebbia sfuma la distanza, con toni più freddi nell'ala di chiesa. Il cursore **Luminosità** è nelle impostazioni del menu iniziale e della pausa. Regola l'esposizione subito e salva il valore per le partite successive.
+
+**Alieni.** La **Falena** è rapida e fragile, con ali viola e occhi rosa. Dal secondo piano si possono incontrare anche la **Medusa**, più lenta e dotata di tentacoli ciano, e il **Carapace**, una creatura corazzata a sei zampe che colpisce da vicino. Tutti pattugliano e hanno un punto debole luminoso sul muso.
 
 **Stanze.** Albergo: atrio con reception, corridoio con applique, camere e suite (letto, comodini, armadio, scrivania), ristorante con cucina, sala da ballo con pianoforte, locali di servizio. Chiesa: nartece con fonti e statue, navata con panche, candelabri e lampadari a corona (capriate a vista), navate laterali con confessionali, cappelle laterali, presbiterio con altare e pala con l'Occhio d'oro, stalli del coro e organo, sacrestia, cripta con sarcofagi (volta a botte con nervature), campanile. Vetrate colorate con l'Occhio: ogni finestra e' un faro colorato in tempo reale che proietta le ombre delle panche.
 
@@ -221,3 +225,5 @@ L'HUD mostra carica, scorte e attesa prima del prossimo ping. La freccia in alto
 - Connettivita': `-executeMethod PryingEyes.EditorTools.ProcCheck.Run -seeds 500` (riepilogo in `hotel_build/proccheck.txt`).
 - Bot che attraversa i piani: `PryingEyes.exe -batchmode -nographics -autotest -procbot -procsecs 240 -seed 1000` (log in `hotel_build/proctest.txt`); con `-procshots` (senza `-nographics`) scatta foto dal punto di vista del giocatore, con HUD (`hotel_build/gioco_p*_*.png`).
 - Prova stealth: `PryingEyes.exe -batchmode -autotest -stealthtest -seed 1000`. Controlla vista, udito, torcia, pile, ping e apertura dell'uscita. Foto e risultato in `hotel_build/furtivo/`.
+- Prova rapida di luminosità e alieni: aggiungi `-alientest` al comando precedente. Salva le foto dei tre alieni e del corridoio con diverse esposizioni.
+- Confronto visivo della chiesa dalla build: `PryingEyes.exe -batchmode -autotest -stealthtest -refshot -seed 1000`. Salva le inquadrature in `hotel_build/fotorealismo/` e verifica che le fibre della veste seguano la posa e che tutte e cinque le clip del monaco siano presenti.

@@ -70,30 +70,12 @@ namespace PryingEyes.EditorTools
             var kit = Object.FindFirstObjectByType<ProcKit>();
             TorreBuilder.FillKit(kit);
             LightPool.Clear();
-            // stesso buio del gioco (FloorDirector.GoTo/ApplyLook)
-            float deep = Mathf.Clamp01((floor - 1) / 7f);
-            LightPool.Dim = Mathf.Lerp(0.42f, 0.27f, deep);
+            LightPool.Dim = FloorDirector.LightDim(floor);
             var plan = PlanGen.Generate(seed, floor);
             if (plan == null) { Debug.LogError("piano non generato"); return; }
             var fi = FloorBuilder.Build(plan, null);
             Physics.SyncTransforms();
-            bool churchy = plan.startInChurch;
-            RenderSettings.fogDensity = 0.031f * Mathf.Lerp(1f, 1.25f, deep);
-            RenderSettings.fogColor = churchy ? new Color(0.025f, 0.035f, 0.06f) : new Color(0.04f, 0.03f, 0.035f);
-            float amb = Mathf.Lerp(0.22f, 0.14f, deep);
-            RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.13f, 0.15f, 0.21f) * amb;
-            RenderSettings.ambientEquatorColor = new Color(0.095f, 0.095f, 0.11f) * amb;
-            RenderSettings.ambientGroundColor = new Color(0.05f, 0.046f, 0.05f) * amb;
-            RenderSettings.reflectionIntensity = 0.30f;
-            var vol = Object.FindFirstObjectByType<Volume>();
-            if (vol != null && vol.profile != null)
-            {
-                var prof = vol.profile;
-                if (prof.TryGet(out ColorAdjustments ca)) { ca.saturation.Override(-24f); ca.contrast.Override(18f); }
-                if (prof.TryGet(out Vignette vg)) { vg.intensity.Override(0.46f); vg.smoothness.Override(0.5f); }
-                if (prof.TryGet(out FilmGrain fg)) fg.intensity.Override(0.30f);
-            }
+            FloorDirector.ApplyLook(plan, floor);
             Debug.Log($"[PryingEyes] foto torcia seme {seed} piano {floor}: {plan.rooms.Count} stanze, {LightPool.Count} luci, Dim {LightPool.Dim:F2}");
 
             var camGo = new GameObject("ShotCam");

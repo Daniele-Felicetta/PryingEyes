@@ -82,7 +82,7 @@ namespace PryingEyes.Proc
             }
             floor = n;
             // piu' si scende, piu' buio: la scala di tutte le luci del piano, letta da RoomKits.AddLight mentre costruisce
-            LightPool.Dim = Mathf.Lerp(0.42f, 0.27f, Mathf.Clamp01((n - 1) / 7f));
+            LightPool.Dim = LightDim(n);
             var plan = PlanGen.Generate(runSeed + n * 1013, n);
             if (plan == null) { Debug.LogError("[PryingEyes] piano non generabile: " + PlanGen.LastFailure); yield break; }
             float t0 = Time.realtimeSinceStartup;
@@ -93,7 +93,7 @@ namespace PryingEyes.Proc
             HotelNav.Rebuild(cur.bounds, cur.propRoots);
             int stripped = Connectivity.Repair(cur, out int problems);
             if (problems > 0) Debug.Log($"[PryingEyes] connettivita': {problems} problemi, {stripped} stanze svuotate");
-            ApplyLook(plan);
+            ApplyLook(plan, floor);
             ValidateReach(plan);
 
             // obiettivo: candele da accendere; uscita sigillata finche' non lo sono tutte
@@ -188,17 +188,20 @@ namespace PryingEyes.Proc
             Sfx.Loop(g, SoundBank.Waltz, 0.45f, 3f, 40f, 1f, 1f, 0f, true);
         }
 
-        /// <summary>Atmosfera del piano: nebbia e tinta dell'ambiente cambiano un po' tra piani d'albergo e di chiesa.</summary>
-        void ApplyLook(Plan plan)
+        public static float LightDim(int floor) => Mathf.Lerp(0.50f, 0.32f, Mathf.Clamp01((floor - 1) / 7f));
+
+        /// <summary>Atmosfera condivisa tra il piano di gioco e le foto di taratura.</summary>
+        public static void ApplyLook(Plan plan, int floor)
         {
             var rnd = new Rng(plan.seed + 77);
             bool churchy = plan.startInChurch;
             float deep = Mathf.Clamp01((floor - 1) / 7f);
-            // nebbia piu' fitta e scura: oltre la luce della torcia il piano sparisce
-            RenderSettings.fogDensity = rnd.Range(0.026f, 0.036f) * Mathf.Lerp(1f, 1.25f, deep);
-            RenderSettings.fogColor = churchy ? new Color(0.025f, 0.035f, 0.06f) : new Color(0.04f, 0.03f, 0.035f);
-            // ambiente quasi spento: senza lampade ne' torcia si intravede appena la sagoma delle cose
-            float amb = Mathf.Lerp(0.22f, 0.14f, deep);
+            // La foschia fonde lo sfondo lasciando leggibili gli oggetti vicini.
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Exponential;
+            RenderSettings.fogDensity = rnd.Range(0.027f, 0.033f) * Mathf.Lerp(1f, 1.22f, deep);
+            RenderSettings.fogColor = churchy ? new Color(0.17f, 0.19f, 0.23f) : new Color(0.19f, 0.16f, 0.17f);
+            float amb = Mathf.Lerp(0.48f, 0.31f, deep);
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = new Color(0.13f, 0.15f, 0.21f) * amb;
             RenderSettings.ambientEquatorColor = new Color(0.095f, 0.095f, 0.11f) * amb;
@@ -209,8 +212,8 @@ namespace PryingEyes.Proc
             if (vol != null && vol.profile != null)
             {
                 var prof = vol.profile;
-                if (prof.TryGet(out UnityEngine.Rendering.Universal.ColorAdjustments ca)) { ca.saturation.Override(-24f); ca.contrast.Override(18f); }
-                if (prof.TryGet(out UnityEngine.Rendering.Universal.Vignette vg)) { vg.intensity.Override(0.46f); vg.smoothness.Override(0.5f); }
+                if (prof.TryGet(out UnityEngine.Rendering.Universal.ColorAdjustments ca)) { ca.saturation.Override(-24f); ca.contrast.Override(5f); }
+                if (prof.TryGet(out UnityEngine.Rendering.Universal.Vignette vg)) { vg.intensity.Override(0.24f); vg.smoothness.Override(0.55f); }
                 if (prof.TryGet(out UnityEngine.Rendering.Universal.FilmGrain fg)) fg.intensity.Override(0.30f);
             }
         }
@@ -310,8 +313,13 @@ namespace PryingEyes.Proc
             float fly = Mathf.Min(0.38f, 0.14f + floor * 0.025f);
             float abate = floor >= 2 ? Mathf.Min(0.22f, 0.04f + floor * 0.025f) : 0f;
             float r = Random.value;
-            if (r < fly) return Enemy.EnemyType.Occhio;
-            if (r < fly + abate) return Enemy.EnemyType.Abate;
+            if (r < fly)
+            {
+                if (r < fly * 0.38f) return Enemy.EnemyType.Falena;
+                if (floor >= 2 && r < fly * 0.70f) return Enemy.EnemyType.Medusa;
+                return Enemy.EnemyType.Occhio;
+            }
+            if (r < fly + abate) return r < fly + abate * 0.55f ? Enemy.EnemyType.Carapace : Enemy.EnemyType.Abate;
             return Enemy.EnemyType.Monaco;
         }
 
@@ -349,7 +357,7 @@ namespace PryingEyes.Proc
         void SpawnOne()
         {
             var t = PickType();
-            if (PickSpawn(t == Enemy.EnemyType.Occhio, out Vector3 p)) Enemy.Spawn(t, p);
+            if (PickSpawn(Enemy.IsFlying(t), out Vector3 p)) Enemy.Spawn(t, p);
         }
 
         void Horde(int count, string why)
@@ -448,7 +456,7 @@ namespace PryingEyes.Proc
                 var room = rooms[rng.Range(0, rooms.Count)];
                 var t = PickType();
                 Vector3 p = new Vector3(rng.Range(room.x0 * 0.1f + 1.2f, room.x1 * 0.1f - 1.2f), 0f, rng.Range(room.z0 * 0.1f + 1.2f, room.z1 * 0.1f - 1.2f));
-                if (t == Enemy.EnemyType.Occhio) p.y = Mathf.Min(2.2f, room.wallH - 0.7f);
+                if (Enemy.IsFlying(t)) p.y = Mathf.Min(2.2f, room.wallH - 0.7f);
                 else if (NavMesh.SamplePosition(p, out NavMeshHit nh, 2.5f, NavMesh.AllAreas)) p = nh.position;
                 else continue;
                 Enemy.Spawn(t, p);
@@ -471,7 +479,7 @@ namespace PryingEyes.Proc
                 if (Enemy.All.Count < cap)
                 {
                     var t = PickType();
-                    if (PickSpawn(t == Enemy.EnemyType.Occhio, out Vector3 p)) Enemy.Spawn(t, p, target);
+                    if (PickSpawn(Enemy.IsFlying(t), out Vector3 p)) Enemy.Spawn(t, p, target);
                 }
                 yield return new WaitForSeconds(Random.Range(1.5f, 4f));
             }

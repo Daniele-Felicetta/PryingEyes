@@ -25,6 +25,148 @@ namespace PryingEyes
 
         static Camera hudCam;
 
+        IEnumerator ReferenceShots(FloorDirector floor)
+        {
+            var plan = floor.cur.plan;
+            var entrance = plan.Find(RoomKind.Nartece);
+            var nave = plan.Find(RoomKind.Navata);
+            var portal = plan.openings.Find(o => (o.a == entrance.id && o.b == nave.id) || (o.a == nave.id && o.b == entrance.id));
+            if (portal == null)
+            {
+                Debug.LogError("Arco tra nartece e navata mancante");
+                Application.Quit(1);
+                yield break;
+            }
+
+            string output = System.IO.Path.GetFullPath(Dir + "/../fotorealismo");
+            Directory.CreateDirectory(output);
+            var pl = GameManager.I.player;
+            var cam = pl.cam.GetComponent<Camera>();
+            cam.cullingMask &= ~(1 << 2); // viewmodel su Ignore Raycast
+            Enemy.ClearAll();
+            Enemy.debugFreeze = true;
+            Enemy.debugNoSense = true;
+            PlayerController.holdLook = true;
+            Vector3 threshold = portal.alongX ? new Vector3(portal.center, 0, portal.line) * 0.1f : new Vector3(portal.line, 0, portal.center) * 0.1f;
+            Vector3 naveCenter = new Vector3(nave.CenterX, 0f, nave.CenterZ);
+            Vector3 forward = portal.alongX ? Vector3.forward * Mathf.Sign(naveCenter.z - threshold.z) : Vector3.right * Mathf.Sign(naveCenter.x - threshold.x);
+            Vector3 right = Vector3.Cross(Vector3.up, forward);
+            Vector3 hero = threshold - forward * 1.10f - right * 1.32f;
+            var monk = Enemy.Spawn(Enemy.EnemyType.Monaco, hero);
+            monk.transform.rotation = Quaternion.LookRotation(-forward + right * 0.38f);
+
+            IEnumerator Capture(string name, Vector3 position, Vector3 look, float fov)
+            {
+                pl.Teleport(new Vector3(position.x, 0.05f, position.z));
+                pl.yaw = Mathf.Atan2(forward.x, forward.z);
+                yield return new WaitForSeconds(0.45f);
+                cam.transform.SetPositionAndRotation(position, Quaternion.LookRotation(look - position));
+                cam.fieldOfView = fov;
+                LightPool.Tick(false, position);
+                GameManager.CamShot(output + "/" + name + ".png", cam, false);
+            }
+
+            yield return Capture("monaco_arco", threshold - forward * 4.12f - right * 0.45f + Vector3.up * 1.33f,
+                                 threshold + forward * 1.35f + Vector3.up * 1.40f, 54f);
+            yield return Capture("navata", threshold + forward * 1.25f + Vector3.up * 1.62f,
+                                 naveCenter + Vector3.up * 1.9f, 60f);
+            yield return Capture("monaco_dettaglio", hero - forward * 1.65f + right * 0.25f + Vector3.up * 1.52f,
+                                 hero + Vector3.up * 1.49f, 50f);
+            yield return Capture("monaco_laterale", threshold - forward * 4.09f - right * 2.42f + Vector3.up * 1.35f,
+                                 threshold + forward * 1.25f + right * 0.34f + Vector3.up * 1.45f, 55f);
+            var sanctuary = plan.Find(RoomKind.Presbiterio);
+            if (sanctuary != null)
+            {
+                Vector3 altar = new Vector3(sanctuary.CenterX, 0f, sanctuary.CenterZ);
+                yield return Capture("presbiterio", Vector3.Lerp(naveCenter, altar, 0.46f) + Vector3.up * 1.54f,
+                                     altar + Vector3.up * 1.50f, 56f);
+            }
+            int pews = 0;
+            var props = floor.cur.roomGo[nave.id].transform.Find("Arredi");
+            if (props != null)
+                foreach (Transform item in props)
+                    if (item.name == "chi_panca") pews++;
+            int windows = floor.cur.lights.FindAll(light => light != null && light.name == "Luce della vetrata" && light.cookie != null).Count;
+            int bounces = floor.cur.lights.FindAll(light => light != null && light.name == "Rimbalzo della vetrata" && light.intensity > 0f).Count;
+            Debug.Log($"[PryingEyes] confronto: {pews} panche in navata, foschia={(floor.cur.roomGo[nave.id].transform.Find("Foschia") != null)}, {windows} vetrate con proiezione, {bounces} rimbalzi");
+            Application.Quit(CheckMonkFibers(monk) && windows > 0 && bounces > 0 ? 0 : 1);
+        }
+
+        static bool CheckMonkFibers(Enemy monk)
+        {
+            var fibers = System.Array.Find(monk.GetComponentsInChildren<SkinnedMeshRenderer>(), r => r.name == "FiliSfilacciati");
+            var animator = monk.GetComponentInChildren<Animator>();
+            if (fibers == null || animator == null || animator.runtimeAnimatorController == null)
+            {
+                Debug.LogError("[PryingEyes] fibre o animatore del monaco mancanti");
+                return false;
+            }
+            var mesh = new Mesh();
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            animator.Play("Fermo", 0, 0.1f);
+            animator.Update(0f);
+            fibers.BakeMesh(mesh);
+            var idle = mesh.vertices;
+            animator.Play("Cammina", 0, 0.37f);
+            animator.Update(0f);
+            fibers.BakeMesh(mesh);
+            var walking = mesh.vertices;
+            Destroy(mesh);
+            float displacement = 0f;
+            for (int i = 0; i < idle.Length; i++) displacement = Mathf.Max(displacement, (walking[i] - idle[i]).sqrMagnitude);
+            int clips = animator.runtimeAnimatorController.animationClips.Length;
+            Debug.Log($"[PryingEyes] fibre: {idle.Length} vertici, {clips} clip, spostamento fra pose {Mathf.Sqrt(displacement):F3} m");
+            return clips == 5 && displacement > 0.000025f;
+        }
+
+        IEnumerator CheckAliens(Vector3 start, Vector3 dir)
+        {
+            var volume = FindAnyObjectByType<UnityEngine.Rendering.Volume>();
+            if (volume == null || !volume.profile.TryGet(out ColorAdjustments grading))
+            {
+                Log("alieni: profilo di luminosità mancante");
+                Application.Quit(1);
+                yield break;
+            }
+            float previous = GameSettings.Brightness;
+            bool hadSetting = PlayerPrefs.HasKey("video_brightness");
+            GameSettings.SetBrightness(0f);
+            float low = grading.postExposure.value;
+            yield return null;
+            GameManager.CamShot(Dir + "/luce_minima.png", null, false);
+            GameSettings.SetBrightness(1f);
+            float high = grading.postExposure.value;
+            yield return null;
+            GameManager.CamShot(Dir + "/luce_massima.png", null, false);
+            GameSettings.SetBrightness(previous);
+            if (!hadSetting) PlayerPrefs.DeleteKey("video_brightness");
+            yield return null;
+            GameManager.CamShot(Dir + "/luce_normale.png", null, false);
+            bool passed = high > low + 2f && RenderSettings.fog && RenderSettings.fogMode == FogMode.Exponential;
+            Log($"luminosità: esposizione {low:F2} → {high:F2}, nebbia={RenderSettings.fogMode}");
+
+            Enemy.debugNoSense = true;
+            Torch.I.Toggle();
+            foreach (var type in new[] { Enemy.EnemyType.Falena, Enemy.EnemyType.Medusa, Enemy.EnemyType.Carapace })
+            {
+                var pos = start + dir * 3.3f + Vector3.up * (Enemy.IsFlying(type) ? 1.5f : 0f);
+                var alien = Enemy.Spawn(type, pos);
+                alien.transform.rotation = Quaternion.LookRotation(-dir);
+                yield return new WaitForSeconds(0.45f);
+                bool visible = alien.GetComponentInChildren<Renderer>() != null;
+                bool weakSpot = System.Array.Exists(alien.GetComponentsInChildren<Collider>(), c => !c.isTrigger && c.CompareTag("Head"));
+                var agent = alien.GetComponent<NavMeshAgent>();
+                bool navigation = Enemy.IsFlying(type) ? agent == null : agent != null && agent.isOnNavMesh;
+                GameManager.CamShot(Dir + "/alieno_" + type + ".png", null, false);
+                alien.Damage(alien.hp + 1f, alien.AimPoint, false, false);
+                Log($"{type}: modello={visible}, punto debole={weakSpot}, navigazione={navigation}, eliminato={alien.IsDead}");
+                passed &= visible && weakSpot && navigation && alien.IsDead;
+                Destroy(alien.gameObject);
+            }
+            Log(passed ? "alieni: OK" : "alieni: ERRORE");
+            Application.Quit(passed ? 0 : 1);
+        }
+
         bool CheckExposure()
         {
             var origin = Vector3.up * 100f;
@@ -75,10 +217,17 @@ namespace PryingEyes
         IEnumerator Start()
         {
             Directory.CreateDirectory(Dir);
-            log = Dir + "/furtivo.txt";
-            File.WriteAllText(log, "");
+            bool alienTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-alientest") >= 0;
+            bool reference = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-refshot") >= 0;
             var gm = GameManager.I;
             while (FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) yield return null;
+            if (reference)
+            {
+                yield return ReferenceShots(FloorDirector.I);
+                yield break;
+            }
+            log = Dir + (alienTest ? "/alieni.txt" : "/furtivo.txt");
+            File.WriteAllText(log, "");
             yield return new WaitForSeconds(2.0f);
             var fd = FloorDirector.I;
             var pl = gm.player;
@@ -114,6 +263,11 @@ namespace PryingEyes
             pl.pitch = 0f;
             Enemy.debugFreeze = true;
             yield return new WaitForSeconds(0.6f);
+            if (alienTest)
+            {
+                yield return CheckAliens(start, dir);
+                yield break;
+            }
 
             // ----- 1) vista: tempo per notarti, per distanza e condizione
             Log("vista: distanza condizione luce portata t_sospetto t_caccia stato_finale consapevolezza");

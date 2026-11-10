@@ -277,6 +277,18 @@ PrefabInstance:
       propertyPath: m_AABB.m_Extent.z
       value: 1.0787246
       objectReference: {fileID: 0}
+    - target: {fileID: 5282987183777213199, guid: 78abd80b2c460c34a85c27e0f19ccb26, type: 3}
+      propertyPath: m_AABB.m_Extent.x
+      value: 1.2031366
+      objectReference: {fileID: 0}
+    - target: {fileID: 5282987183777213199, guid: 78abd80b2c460c34a85c27e0f19ccb26, type: 3}
+      propertyPath: m_AABB.m_Extent.y
+      value: 1.6381323
+      objectReference: {fileID: 0}
+    - target: {fileID: 5282987183777213199, guid: 78abd80b2c460c34a85c27e0f19ccb26, type: 3}
+      propertyPath: m_AABB.m_Extent.z
+      value: 1.102238
+      objectReference: {fileID: 0}
     - target: {fileID: 5566952834592129050, guid: 78abd80b2c460c34a85c27e0f19ccb26, type: 3}
       propertyPath: m_TagString
       value: Head

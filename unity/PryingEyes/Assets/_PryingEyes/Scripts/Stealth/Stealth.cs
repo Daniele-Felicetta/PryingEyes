@@ -61,8 +61,8 @@ namespace PryingEyes
             if (Time.time - lastShotTime < 0.6f && !lastShotQuiet) r = Mathf.Max(r, 34f);
             if (e != null)
             {
-                if (e.type == Enemy.EnemyType.Occhio) r *= 1.2f;
-                else if (e.type == Enemy.EnemyType.Abate) r *= 0.92f;
+                if (e.Archetype == Enemy.EnemyType.Occhio) r *= 1.2f;
+                else if (e.Archetype == Enemy.EnemyType.Abate) r *= 0.92f;
             }
             return r;
         }

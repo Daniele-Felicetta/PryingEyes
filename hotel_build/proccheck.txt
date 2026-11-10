@@ -1,0 +1,2 @@
+[PryingEyes] CHECK piani con problemi prima della riparazione: 2 su 45 (2 stanze svuotate); ancora rotti dopo: 0
+[PryingEyes] CHECK 45 piani: con problemi 0; stanze 1140, irraggiungibili 0; candele irraggiungibili 0; uscite 0; cabine isolate 0; costruzione media 40 ms, navmesh media 9 ms

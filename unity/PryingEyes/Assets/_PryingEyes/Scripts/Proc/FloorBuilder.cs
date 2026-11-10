@@ -17,6 +17,7 @@ namespace PryingEyes.Proc
         public ProcLift arrival, exit;
         public readonly List<Candelabro> candles = new List<Candelabro>();
         public readonly List<Light> lights = new List<Light>();
+        internal readonly List<Light> windowBounceSources = new List<Light>();
         /// <summary>Radici degli arredi: la navmesh li tratta da ostacoli non camminabili (la loro cima non e' un'isola).</summary>
         public readonly List<Transform> propRoots = new List<Transform>();
 
@@ -59,6 +60,7 @@ namespace PryingEyes.Proc
             if (parent != null) fi.root.transform.SetParent(parent, false);
             fi.roomGo = new GameObject[plan.rooms.Count];
             foreach (var r in plan.rooms) BuildRoom(fi, r);
+            RoomKits.PlaceWindowBounce(fi);
             plan.ComputeBounds();
             var b = new Bounds(new Vector3(M(plan.minX + plan.maxX) * 0.5f, 6f, M(plan.minZ + plan.maxZ) * 0.5f),
                                new Vector3(M(plan.maxX - plan.minX) + 8f, 16f, M(plan.maxZ - plan.minZ) + 8f));
@@ -110,7 +112,7 @@ namespace PryingEyes.Proc
                     s.floor = Mat("pav_lastre"); s.wall = Mat("mur_pietra"); s.ceil = Mat("sof_legno"); s.trim = Mat("cornice_pietra"); s.beam = Mat("trave"); break;
                 case RoomKind.Cappella:
                 case RoomKind.Presbiterio:
-                    s.floor = Mat(r.kind == RoomKind.Presbiterio ? "pav_marmo" : "pav_lastre"); s.wall = Mat("mur_pietra"); s.ceil = Mat("sof_volta"); s.trim = Mat("cornice_pietra"); s.beam = Mat("cornice_pietra"); break;
+                    s.floor = Mat("pav_lastre"); s.wall = Mat("mur_pietra"); s.ceil = Mat("sof_volta"); s.trim = Mat("cornice_pietra"); s.beam = Mat("cornice_pietra"); break;
                 case RoomKind.Sacrestia:
                     s.floor = Mat("pav_parquet"); s.wall = Mat("mur_intonaco"); s.dado = Mat("mur_boiserie"); s.dadoH = 1.4f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
                 case RoomKind.Cripta:
@@ -137,6 +139,8 @@ namespace PryingEyes.Proc
             float ix0 = x0 + TH, ix1 = x1 - TH, iz0 = z0 + TH, iz1 = z1 - TH;
             var shell = new MeshBuilder();
             var roof = new MeshBuilder();
+            var archTrim = new MeshBuilder();
+            var doors = new MeshBuilder();
 
             // pavimento: sotto i muri fino alla linea di mezzo, cosi' alle soglie non resta nessun buco
             shell.Quad(st.floor, new Vector3(x0, 0, z0), new Vector3(x0, 0, z1), new Vector3(x1, 0, z1), new Vector3(x1, 0, z0),
@@ -147,10 +151,22 @@ namespace PryingEyes.Proc
             // muri
             foreach (Side s in new[] { Side.S, Side.N, Side.W, Side.E }) WallSide(shell, plan, r, st, s, ix0, ix1, iz0, iz1);
             // riquadri delle aperture (spalle, davanzale, architrave) e vetri
-            foreach (var o in plan.openings) if (o.a == r.id) OpeningGeometry(shell, plan, r, o, st);
+            foreach (var o in plan.openings)
+            {
+                if (o.a != r.id) continue;
+                OpeningGeometry(shell, plan, r, o, st);
+                if (r.church && o.b >= 0 && plan.rooms[o.b].church && o.Pointed)
+                {
+                    StoneArch(archTrim, r, o, st.trim);
+                    if (r.kind == RoomKind.Nartece && plan.rooms[o.b].kind == RoomKind.Navata)
+                        OpenChurchDoor(doors, fi, go.transform, r, o);
+                }
+            }
 
             Flush(go, "Guscio", shell, true, null);
             Flush(go, "Soffitto", roof, true, fi.ceilings);
+            Flush(go, "Cornici in pietra", archTrim, false, null);
+            Flush(go, "Portale aperto", doors, true, null);
 
             // il collider del pavimento e' un blocco: niente caduta tra i triangoli
             var floorGo = new GameObject("Pavimento");
@@ -159,7 +175,34 @@ namespace PryingEyes.Proc
             bc.center = new Vector3((x0 + x1) * 0.5f, -0.25f, (z0 + z1) * 0.5f);
             bc.size = new Vector3(x1 - x0, 0.5f, z1 - z0);
 
-            RoomKits.Dress(fi, r, go.transform);
+            var window = RoomKits.Dress(fi, r, go.transform);
+            if (r.church && ProcKit.HasMat("foschia_chiesa")) ChurchHaze(go.transform, x0, x1, z0, z1, r.wallH, window);
+        }
+
+        static void ChurchHaze(Transform room, float x0, float x1, float z0, float z1, float height, Light window)
+        {
+            var volume = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            volume.name = "Foschia";
+            var collider = volume.GetComponent<Collider>();
+            collider.enabled = false;
+            Util.Kill(collider);
+            volume.transform.SetParent(room, false);
+            volume.transform.localPosition = new Vector3((x0 + x1) * 0.5f, height * 0.5f, (z0 + z1) * 0.5f);
+            volume.transform.localScale = new Vector3(x1 - x0, height, z1 - z0);
+            var renderer = volume.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = ProcKit.Mat("foschia_chiesa");
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            if (window != null)
+            {
+                var properties = new MaterialPropertyBlock();
+                var position = window.transform.position;
+                var direction = window.transform.forward;
+                properties.SetVector("_WindowPosition", new Vector4(position.x, position.y, position.z, window.intensity * 0.16f));
+                properties.SetVector("_WindowDirection", new Vector4(direction.x, direction.y, direction.z, Mathf.Cos(window.spotAngle * 0.5f * Mathf.Deg2Rad)));
+                properties.SetColor("_WindowTint", window.color);
+                renderer.SetPropertyBlock(properties);
+            }
         }
 
         static void Flush(GameObject parent, string name, MeshBuilder mb, bool collide, List<Renderer> track)
@@ -460,6 +503,223 @@ namespace PryingEyes.Proc
             }
             // vetro al centro dello spessore (solo le finestre sul vuoto)
             if (o.b < 0) Glass(mb, o, A, P, nOut);
+        }
+
+        /// <summary>Conci separati e cornice a due risalti sopra il muro, fuori dalla luce utile del passaggio.</summary>
+        static void StoneArch(MeshBuilder mesh, Room room, Opening opening, Material stone)
+        {
+            if (stone == null) return;
+            bool alongX = opening.alongX;
+            Vector3 along = alongX ? Vector3.right : Vector3.forward;
+            Vector3 outward = alongX ? (room.z1 == opening.line ? Vector3.forward : Vector3.back)
+                : (room.x1 == opening.line ? Vector3.right : Vector3.left);
+            Vector3 origin = along * M(opening.Lo + opening.Hi) * 0.5f + (alongX ? Vector3.forward : Vector3.right) * M(opening.line);
+            float half = M(opening.Hi - opening.Lo) * 0.5f;
+            float spring = opening.Head(half, half);
+            float width = Mathf.Clamp(half * 0.18f, 0.13f, 0.25f);
+            Vector3 Size(float span, float height, float depth) => alongX ? new Vector3(span, height, depth) : new Vector3(depth, height, span);
+            var wear = new Rng(unchecked(room.seed + opening.center * 1181 + opening.line * 877));
+
+            foreach (int side in new[] { -1, 1 })
+            {
+                Vector3 facing = outward * side;
+                Vector3 wall = origin + facing * TH;
+                Vector3 Point(float t, float offset, float depth)
+                {
+                    float x = Mathf.Lerp(-half, half, t);
+                    float y = opening.Head(x, half) + offset * (1f - Mathf.Abs(x) / half);
+                    return wall + along * (x * (1f + offset / half)) + Vector3.up * y + facing * depth;
+                }
+
+                void Course(float from, float to, float depth, int stones)
+                {
+                    float start = 0f;
+                    for (int i = 0; i < stones; i++)
+                    {
+                        float end = i == stones - 1 ? 1f : (i + 1f + wear.Range(-0.24f, 0.24f)) / stones;
+                        float gap = wear.Range(0.018f, 0.042f) / stones;
+                        float t0 = start + gap, t1 = end - gap;
+                        float outer = to + wear.Range(-0.018f, 0.012f);
+                        CarvedStone(mesh, stone, Point(t0, from, 0f), Point(t1, from, 0f),
+                                    Point(t1, outer, 0f), Point(t0, outer, 0f), facing,
+                                    depth + wear.Range(-0.012f, 0.011f), wear.Range(0.009f, 0.022f));
+                        start = end;
+                    }
+                }
+
+                int count = Mathf.Clamp(Mathf.CeilToInt(half * 12f), 9, 30);
+                Course(width * 0.95f, width * 1.55f, 0.055f, count);
+                Course(0.015f, width, 0.13f, count);
+                foreach (int end in new[] { -1, 1 })
+                {
+                    Vector3 jamb = wall + along * end * (half + width * 0.52f);
+                    int blocks = Mathf.Max(1, Mathf.CeilToInt(spring / 0.42f));
+                    float height = spring / blocks;
+                    float bottom = 0f;
+                    for (int i = 0; i < blocks; i++)
+                    {
+                        float top = i == blocks - 1 ? spring : (i + 1) * height + wear.Range(-0.055f, 0.055f);
+                        Vector3 a = jamb + Vector3.up * (bottom + 0.003f) - along * (width * 0.5f);
+                        Vector3 d = jamb + Vector3.up * (top - 0.003f) - along * (width * 0.5f);
+                        Vector3 w = along * width;
+                        CarvedStone(mesh, stone, a, a + w, d + w, d, facing, wear.Range(0.11f, 0.137f), wear.Range(0.012f, 0.022f));
+                        bottom = top;
+                    }
+                    mesh.Box(stone, jamb + Vector3.up * (spring - 0.04f) + facing * 0.082f, Size(width * 1.30f, 0.11f, 0.164f));
+                    mesh.Box(stone, jamb + Vector3.up * 0.08f + facing * 0.079f, Size(width * 1.27f, 0.16f, 0.158f));
+                    if (room.kind == RoomKind.Nartece && side < 0 && opening.width >= 28 && opening.style == OpenStyle.Arco)
+                        PortalColumn(mesh, stone, wall + along * end * (half + width + 0.15f) - facing * 0.02f, spring);
+                }
+            }
+        }
+
+        static void PortalColumn(MeshBuilder mesh, Material stone, Vector3 foot, float spring)
+        {
+            var profile = new (float y, float radius)[]
+            {
+                (0f, 0.202f), (0.11f, 0.202f), (0.14f, 0.178f), (0.24f, 0.157f),
+                (0.27f, 0.161f), (0.30f, 0.136f), (spring - 0.29f, 0.122f),
+                (spring - 0.25f, 0.154f), (spring - 0.19f, 0.149f), (spring - 0.09f, 0.182f),
+                (spring - 0.05f, 0.197f), (spring + 0.01f, 0.197f)
+            };
+            const int faces = 16;
+            Vector3 Radial(int i)
+            {
+                float angle = i * (2f * Mathf.PI / faces);
+                return new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+            }
+            Vector3 P((float y, float radius) ring, Vector3 radial) => foot + Vector3.up * ring.y + radial * ring.radius;
+            for (int r = 1; r < profile.Length; r++)
+                for (int i = 0; i < faces; i++)
+                {
+                    Vector3 a = Radial(i), b = Radial(i + 1);
+                    var low = profile[r - 1];
+                    var high = profile[r];
+                    Vector3 n0 = (a * (high.y - low.y) + Vector3.up * (low.radius - high.radius)).normalized;
+                    Vector3 n1 = (b * (high.y - low.y) + Vector3.up * (low.radius - high.radius)).normalized;
+                    float u0 = i * (0.95f / faces), u1 = (i + 1) * (0.95f / faces);
+                    mesh.QuadSmooth(stone, P(low, a), P(low, b), P(high, b), P(high, a), n0, n1, n1, n0,
+                                    new Vector2(u0, low.y), new Vector2(u1, low.y), new Vector2(u1, high.y), new Vector2(u0, high.y));
+                }
+        }
+
+        // Il gradino del bordo è geometria: intercetta le candele anche quando il concio è visto di taglio.
+        static void CarvedStone(MeshBuilder mesh, Material stone, Vector3 a, Vector3 b, Vector3 c, Vector3 d,
+                                Vector3 facing, float depth, float bevel)
+        {
+            Vector3 center = (a + b + c + d) * 0.25f;
+            Vector3 rim = facing * (depth - bevel);
+            Vector3 Top(Vector3 p) => Vector3.MoveTowards(p, center, bevel * 1.4f) + facing * depth;
+            void Edge(Vector3 p, Vector3 q)
+            {
+                mesh.QuadW(stone, p, q, q + rim, p + rim, (p + q) * 0.5f - center);
+                mesh.QuadW(stone, p + rim, q + rim, Top(q), Top(p), facing);
+            }
+            Edge(a, b); Edge(b, c); Edge(c, d); Edge(d, a);
+            mesh.QuadW(stone, Top(a), Top(b), Top(c), Top(d), facing);
+        }
+
+        static void OpenChurchDoor(MeshBuilder mesh, FloorInstance floor, Transform roomRoot, Room room, Opening opening)
+        {
+            bool alongX = opening.alongX;
+            Vector3 forward = alongX ? (room.z1 == opening.line ? Vector3.forward : Vector3.back)
+                : (room.x1 == opening.line ? Vector3.right : Vector3.left);
+            Vector3 right = Vector3.Cross(Vector3.up, forward);
+            Vector3 span = alongX ? Vector3.right : Vector3.forward;
+            Vector3 origin = span * M(opening.center) + (alongX ? Vector3.forward : Vector3.right) * M(opening.line);
+            float half = M(opening.Hi - opening.Lo) * 0.5f;
+            float width = Mathf.Min(1.39f, half);
+            float Top(float x) => opening.Head(half - x, half) - 0.08f;
+            var hinge = origin + right * (half - 0.035f) - forward * (TH + 0.18f);
+            var leaf = (right * 0.96f - forward * 0.28f).normalized;
+            var normal = Vector3.Cross(leaf, Vector3.up);
+            float yaw = Quaternion.LookRotation(normal).eulerAngles.y;
+            var oak = Mat("quercia_portale");
+            var iron = Mat("ferro");
+            Vector3 P(float x, float y, float z) => hinge + leaf * x + Vector3.up * y + normal * z;
+            void Detail(Material m, float x, float y, float z, Vector3 size) => mesh.Box(m, P(x, y, z), size, yaw);
+
+            const int boards = 10;
+            for (int i = 0; i < boards; i++)
+            {
+                float x0 = width * i / boards, x1 = width * (i + 1) / boards;
+                float y0 = Top(x0), y1 = Top(x1);
+                mesh.QuadW(oak, P(x0, y0, -0.042f), P(x1, y1, -0.042f), P(x1, y1, 0.042f), P(x0, y0, 0.042f), Vector3.up);
+                mesh.QuadW(oak, P(x0, 0.035f, -0.042f), P(x1, 0.035f, -0.042f), P(x1, 0.035f, 0.042f), P(x0, 0.035f, 0.042f), Vector3.down);
+                foreach (float z in new[] { -0.042f, 0.042f })
+                    mesh.QuadW(oak, P(x0, 0.035f, z), P(x1, 0.035f, z), P(x1, y1, z), P(x0, y0, z), normal * Mathf.Sign(z));
+            }
+            foreach (float x in new[] { 0f, width })
+                mesh.QuadW(oak, P(x, 0.035f, -0.042f), P(x, Top(x), -0.042f), P(x, Top(x), 0.042f), P(x, 0.035f, 0.042f), x == 0f ? -leaf : leaf);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                for (int i = 0; i < boards; i++)
+                {
+                    float x0 = width * i / boards, x1 = width * (i + 1) / boards;
+                    float y0 = Top(x0), y1 = Top(x1);
+                    float z = side * (i % 3 == 1 ? 0.046f : 0.053f);
+                    const float bottom = 0.035f;
+                    float offset = (i * 0.47f) % 1.35f;
+                    Vector2 U(float x, float y) => new Vector2(x + offset, y + offset * 0.44f);
+                    mesh.Quad(oak, P(x0 + 0.001f, bottom, z), P(x1 - 0.001f, bottom, z), P(x1 - 0.001f, y1, z), P(x0 + 0.001f, y0, z),
+                              U(x0, bottom), U(x1, bottom), U(x1, y1), U(x0, y0), normal * side);
+                    mesh.Beam(oak, P(x0, y0 - 0.055f, side * 0.061f), P(x1, y1 - 0.055f, side * 0.061f), 0.115f, 0.032f, normal);
+                }
+                foreach (float x in new[] { 0.051f, width - 0.051f })
+                {
+                    float h = Top(x) - 0.065f;
+                    Detail(oak, x, h * 0.5f + 0.035f, side * 0.065f, new Vector3(0.105f, h, 0.045f));
+                }
+                foreach (float y in new[] { 0.13f, 1.14f })
+                    Detail(oak, width * 0.5f, y, side * 0.066f, new Vector3(width, 0.13f, 0.045f));
+                foreach (float y in new[] { 0.36f, Top(0f) - 0.23f })
+                {
+                    Detail(iron, width * 0.24f, y, side * 0.085f, new Vector3(width * 0.48f, 0.077f, 0.024f));
+                    for (int i = 1; i <= 4; i++)
+                        Detail(iron, width * i * 0.10f, y, side * 0.104f, new Vector3(0.031f, 0.031f, 0.02f));
+                    for (int curl = -1; curl <= 1; curl += 2)
+                    {
+                        Vector3 last = P(width * 0.33f, y, side * 0.092f);
+                        for (int step = 1; step <= 14; step++)
+                        {
+                            float t = step / 14f;
+                            float angle = t * 5.3f;
+                            float r = Mathf.Lerp(0.125f, 0.026f, t);
+                            Vector3 point = P(width * 0.33f + 0.125f - Mathf.Cos(angle) * r,
+                                              y + curl * Mathf.Sin(angle) * r, side * 0.092f);
+                            mesh.Beam(iron, last, point, 0.020f, 0.019f, normal);
+                            last = point;
+                        }
+                    }
+                }
+                Detail(iron, width - 0.16f, 1.08f, side * 0.075f, new Vector3(0.12f, 0.23f, 0.035f));
+                Detail(iron, width - 0.16f, 1.10f, side * 0.115f, new Vector3(0.18f, 0.042f, 0.074f));
+            }
+
+            // Lanterna incernierata sulla faccia che guarda il nartece. La fiamma ha una luce propria a corto raggio.
+            float lx = width * 0.70f, ly = 1.78f, lz = -0.216f;
+            Detail(iron, lx, ly + 0.185f, -0.150f, new Vector3(0.028f, 0.038f, 0.17f));
+            Detail(iron, lx, ly - 0.115f, lz, new Vector3(0.175f, 0.038f, 0.147f));
+            Detail(iron, lx, ly + 0.126f, lz, new Vector3(0.17f, 0.045f, 0.148f));
+            Detail(iron, lx, ly + 0.162f, lz, new Vector3(0.108f, 0.035f, 0.091f));
+            foreach (float dx in new[] { -0.068f, 0.068f })
+                foreach (float dz in new[] { -0.055f, 0.055f })
+                    Detail(iron, lx + dx, ly + 0.01f, lz + dz, new Vector3(0.012f, 0.229f, 0.012f));
+            Detail(Mat("cera"), lx, ly - 0.052f, lz, new Vector3(0.036f, 0.087f, 0.036f));
+            Detail(Mat("fiamma"), lx, ly + 0.016f, lz, new Vector3(0.019f, 0.044f, 0.019f));
+
+            var lamp = new GameObject("Lume del portale");
+            lamp.transform.SetParent(roomRoot, false);
+            lamp.transform.position = P(lx, ly + 0.042f, lz - 0.18f);
+            var light = lamp.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.69f, 0.37f);
+            light.range = 4.2f;
+            light.intensity = 0.90f * LightPool.Dim;
+            floor.lights.Add(light);
+            LightPool.Register(light, false);
+            var pulse = lamp.AddComponent<LightPulse>();
+            pulse.l = light; pulse.baseI = light.intensity; pulse.amp = 0.12f; pulse.speed = 6.1f;
         }
 
         /// <summary>Normale verso l'interno dell'apertura (in basso e verso l'asse): ogni meta' dell'arco acuto ha il centro

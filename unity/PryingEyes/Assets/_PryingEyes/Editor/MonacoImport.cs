@@ -42,24 +42,34 @@ namespace PryingEyes.EditorTools
             BuildPrefab(ctrl);
         }
 
+        public static void RefreshMaterials()
+        {
+            foreach (string name in new[] { "monaco_iride_base", "monaco_tela_detail", "monaco_tela_detail_normal" })
+                if (AssetImporter.GetAtPath($"{TexDir}/{name}.png") is TextureImporter texture) ConfigureTexture(texture);
+            SetupMaterials();
+            AssetDatabase.SaveAssets();
+        }
+
         static void SetupTextures()
         {
             foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { TexDir }))
-            {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-                var ti = (TextureImporter)AssetImporter.GetAtPath(path);
-                bool normal = path.EndsWith("_normal.png");
-                bool mask = path.EndsWith("_mask_unity.png");
-                bool linear = normal || mask || path.EndsWith("_rough.png");
-                ti.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
-                ti.sRGBTexture = !linear;
-                ti.alphaSource = mask ? TextureImporterAlphaSource.FromInput : TextureImporterAlphaSource.None;
-                ti.maxTextureSize = 4096;
-                ti.mipmapEnabled = true;
-                ti.anisoLevel = 4;
-                ti.textureCompression = TextureImporterCompression.CompressedHQ;
-                ti.SaveAndReimport();
-            }
+                ConfigureTexture((TextureImporter)AssetImporter.GetAtPath(AssetDatabase.GUIDToAssetPath(guid)));
+        }
+
+        static void ConfigureTexture(TextureImporter ti)
+        {
+            string path = ti.assetPath;
+            bool normal = path.EndsWith("_normal.png");
+            bool mask = path.EndsWith("_mask_unity.png");
+            bool linear = normal || mask || path.EndsWith("_rough.png") || path.EndsWith("_detail.png");
+            ti.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+            ti.sRGBTexture = !linear;
+            ti.alphaSource = mask ? TextureImporterAlphaSource.FromInput : TextureImporterAlphaSource.None;
+            ti.maxTextureSize = 4096;
+            ti.mipmapEnabled = true;
+            ti.anisoLevel = 4;
+            ti.textureCompression = TextureImporterCompression.CompressedHQ;
+            ti.SaveAndReimport();
         }
 
         static System.Collections.Generic.Dictionary<string, Material> SetupMaterials()
@@ -67,11 +77,12 @@ namespace PryingEyes.EditorTools
             if (!AssetDatabase.IsValidFolder(MatDir)) AssetDatabase.CreateFolder(Dir, "Materials");
             return new System.Collections.Generic.Dictionary<string, Material>
             {
-                { "M_stoffa", Lit("Monaco_Stoffa", "stoffa", Color.white) },
-                { "M_stoffa_interno", Lit("Monaco_StoffaInterno", "stoffa", new Color(0.5f, 0.5f, 0.5f)) },
+                { "M_stoffa", Cloth("Monaco_Stoffa", new Color(1.20f, 1.12f, 0.98f)) },
+                { "M_stoffa_interno", Cloth("Monaco_StoffaInterno", new Color(0.55f, 0.53f, 0.49f)) },
+                { "M_fibre", Cloth("Monaco_Fibre", new Color(1.42f, 1.26f, 1.04f)) },
                 { "M_pelle", Lit("Monaco_Pelle", "pelle", Color.white) },
                 { "M_volto", Lit("Monaco_Volto", "volto", Color.white) },
-                { "M_occhio", Lit("Monaco_Occhio", "occhio", Color.white) },
+                { "M_occhio", Eye() },
                 { "M_legno", Lit("Monaco_Legno", "legno", Color.white) },
                 { "M_sottoveste", Lit("Monaco_Sottoveste", "sottoveste", Color.white) },
                 { "M_metallo", Lit("Monaco_Metallo", "metallo", Color.white) },
@@ -299,12 +310,40 @@ namespace PryingEyes.EditorTools
             return m;
         }
 
+        static Material Cloth(string name, Color tint)
+        {
+            var m = Lit(name, "stoffa", tint);
+            m.SetFloat("_BumpScale", 1.28f);
+            m.SetFloat("_Smoothness", 0.67f);
+            var detail = Tex("monaco_tela_detail");
+            var normal = Tex("monaco_tela_detail_normal");
+            if (detail != null && normal != null)
+            {
+                m.SetTexture("_DetailAlbedoMap", detail);
+                m.SetTextureScale("_DetailAlbedoMap", new Vector2(4f, 4f));
+                m.SetTexture("_DetailNormalMap", normal);
+                m.SetFloat("_DetailAlbedoMapScale", 1f);
+                m.SetFloat("_DetailNormalMapScale", 0.52f);
+                m.EnableKeyword("_DETAIL_MULX2");
+            }
+            return m;
+        }
+
+        static Material Eye()
+        {
+            var m = Lit("Monaco_Occhio", "occhio", Color.white);
+            var iris = Tex("monaco_iride_base");
+            if (iris != null) m.SetTexture("_BaseMap", iris);
+            m.SetFloat("_Smoothness", 0.79f);
+            return m;
+        }
+
         static Material Glow(string name)
         {
             var m = Asset(name, Shader.Find("Universal Render Pipeline/Lit"));
             m.SetColor("_BaseColor", new Color(0.08f, 0.25f, 0.55f));
             m.SetFloat("_Smoothness", 0.9f);
-            m.SetColor("_EmissionColor", new Color(0.22f, 0.58f, 1f) * 3f);
+            m.SetColor("_EmissionColor", new Color(0.075f, 0.39f, 1f) * 5.2f);
             m.EnableKeyword("_EMISSION");
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             EditorUtility.SetDirty(m);

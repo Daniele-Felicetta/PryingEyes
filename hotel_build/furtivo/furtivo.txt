@@ -1,29 +1,29 @@
-piano 1: stanze=27 candele=2 luci=118 preti=2
+piano 1: stanze=27 candele=2 luci=138 preti=2
 pile sul piano: 4
 faretto: nel cono=0,49 fuori cono=0,00 dietro muro=0,00
 scena di prova: lunghezza 27,0 m, da (1,4,1,2) verso (1,0)
 vista: distanza condizione luce portata t_sospetto t_caccia stato_finale consapevolezza
-vista 3 buio lum=0,00 (esposizione 0,09) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 8 buio lum=0,00 (esposizione 0,15) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 13 buio lum=0,00 (esposizione 0,14) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 19 buio lum=0,00 (esposizione 0,14) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 3 luce lum=0,10 (esposizione 0,15) portata=3,6 t_sospetto=0,9 t_caccia=2,5 finale=Hunting aw=1,00
-vista 8 luce lum=0,10 (esposizione 0,14) portata=3,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 13 luce lum=0,10 (esposizione 0,15) portata=3,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 19 luce lum=0,10 (esposizione 0,14) portata=3,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 3 torcia lum=0,00 (esposizione 0,15) portata=19,7 t_sospetto=0,2 t_caccia=0,5 finale=Hunting aw=1,00
-vista 8 torcia lum=0,00 (esposizione 0,15) portata=19,7 t_sospetto=0,2 t_caccia=0,6 finale=Hunting aw=1,00
-vista 13 torcia lum=0,00 (esposizione 0,15) portata=19,7 t_sospetto=0,3 t_caccia=0,9 finale=Hunting aw=1,00
-vista 19 torcia lum=0,00 (esposizione 0,15) portata=19,7 t_sospetto=1,3 t_caccia=4,1 finale=Hunting aw=1,00
+vista 3 buio lum=0,00 (esposizione 0,17) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 8 buio lum=0,00 (esposizione 0,17) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 13 buio lum=0,00 (esposizione 0,18) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 19 buio lum=0,00 (esposizione 0,17) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 3 luce lum=0,12 (esposizione 0,17) portata=3,8 t_sospetto=0,7 t_caccia=2,2 finale=Hunting aw=1,00
+vista 8 luce lum=0,12 (esposizione 0,17) portata=3,8 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 13 luce lum=0,12 (esposizione 0,17) portata=3,8 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 19 luce lum=0,12 (esposizione 0,17) portata=3,8 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 3 torcia lum=0,00 (esposizione 0,17) portata=19,7 t_sospetto=0,2 t_caccia=0,5 finale=Hunting aw=1,00
+vista 8 torcia lum=0,00 (esposizione 0,11) portata=19,7 t_sospetto=0,2 t_caccia=0,7 finale=Hunting aw=1,00
+vista 13 torcia lum=0,00 (esposizione 0,17) portata=19,7 t_sospetto=0,3 t_caccia=0,9 finale=Hunting aw=1,00
+vista 19 torcia lum=0,00 (esposizione 0,18) portata=19,7 t_sospetto=1,3 t_caccia=4,1 finale=Hunting aw=1,00
 udito: sparo a 16 m, prete di spalle -> Searching aw=0,54
 udito: dopo 18 s senza altri rumori -> Hunting aw=1,00
 udito: passi di corsa a 6 m -> sospetto dopo 0,5 s, stato Hunting
 udito: passi da accovacciato a 14 m -> Patrol aw=0,00
 torcia: pila a 2% -> cambio visto=True carica=0,99 scorte=1 accesa=True
 pila: raccolta -> scorte 1 -> 2
-tipo Monaco: in 14 s al buio si e' allontanato al massimo di 8,5 m dalla partenza, stati visti Patrol/, stato finale Patrol
-tipo Abate: in 14 s al buio si e' allontanato al massimo di 7,8 m dalla partenza, stati visti Patrol/, stato finale Patrol
-tipo Occhio: in 14 s al buio si e' allontanato al massimo di 19,2 m dalla partenza, stati visti Patrol/, stato finale Patrol
+tipo Monaco: in 14 s al buio si e' allontanato al massimo di 9,1 m dalla partenza, stati visti Patrol/, stato finale Patrol
+tipo Abate: in 14 s al buio si e' allontanato al massimo di 7,4 m dalla partenza, stati visti Patrol/, stato finale Patrol
+tipo Occhio: in 14 s al buio si e' allontanato al massimo di 19,3 m dalla partenza, stati visti Patrol/, stato finale Patrol
 ping: lanciato=True segnali=3 mostrati=3 (candele sul piano 2)
 obiettivo completato: ascensore aperto=True, ping aggiornato=True, freccia aggiornata=True
 fine: OK

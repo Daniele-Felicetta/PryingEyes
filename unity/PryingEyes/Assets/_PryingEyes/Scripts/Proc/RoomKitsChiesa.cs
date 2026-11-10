@@ -8,6 +8,33 @@ namespace PryingEyes.Proc
     {
         static readonly Color CandleCol = new Color(1f, 0.70f, 0.38f);
 
+        static void PortalCandles(Ctx c)
+        {
+            if (c.r.kind != RoomKind.Nartece && c.r.kind != RoomKind.Navata && c.r.kind != RoomKind.Presbiterio && c.r.kind != RoomKind.Cappella) return;
+            foreach (Side side in new[] { Side.S, Side.N, Side.W, Side.E })
+            {
+                var openings = c.plan.OpeningsOn(c.r, side);
+                var inward = Inward(side);
+                foreach (var o in openings)
+                {
+                    if (o.style != OpenStyle.Arco || o.b < 0) continue;
+                    var other = c.plan.rooms[o.a == c.r.id ? o.b : o.a];
+                    if (!other.church) continue;
+                    foreach (float s in new[] { o.Lo * 0.1f - 0.62f, o.Hi * 0.1f + 0.62f })
+                    {
+                        // L'anta aperta occupa il lato destro del nartece. Una candela dietro il legno lo illuminerebbe da dentro.
+                        var along = o.alongX ? Vector3.right : Vector3.forward;
+                        if (c.r.kind == RoomKind.Nartece && other.kind == RoomKind.Navata &&
+                            Vector3.Dot(Vector3.Cross(Vector3.up, -inward), along) * (s - o.center * 0.1f) > 0f) continue;
+                        if (s < (o.alongX ? c.ix0 : c.iz0) + 0.35f || s > (o.alongX ? c.ix1 : c.iz1) - 0.35f) continue;
+                        if (openings.Exists(h => s > h.Lo * 0.1f - 0.18f && s < h.Hi * 0.1f + 0.18f)) continue;
+                        var wall = o.alongX ? new Vector3(s, 1.67f, o.line * 0.1f) : new Vector3(o.line * 0.1f, 1.67f, s);
+                        Sconce(c, wall + inward * (FloorBuilder.TH + 0.008f), inward, true, 2.25f, 7.2f, true);
+                    }
+                }
+            }
+        }
+
         /// <summary>Candelabro o stand di ceri: fiamme come mesh a parte (materiale "fiamma"), una luce calda in cima. 'objective'
         /// = uno di quelli da accendere per aprire l'ascensore (parte spento, si accende con F).</summary>
         static Candelabro Candle(Ctx c, string name, Vector3 pos, Vector3 face, bool lit, bool objective = false, bool check = true)
@@ -51,12 +78,15 @@ namespace PryingEyes.Proc
                     Vector3 inw = Inward(sd);
                     if (Mathf.Abs(Vector3.Dot(inw, fr.r)) < 0.5f) continue;                 // solo i muri lunghi
                     Vector3 wp = Mathf.Abs(inw.z) > 0.5f ? new Vector3(o.center * 0.1f, 0f, inw.z > 0 ? c.iz0 : c.iz1) : new Vector3(inw.x > 0 ? c.ix0 : c.ix1, 0f, o.center * 0.1f);
-                    float fo = Vector3.Dot(wp - fr.o, fr.f), hw = o.width * 0.05f + 0.55f;
+                    float fo = Vector3.Dot(wp - fr.o, fr.f);
+                    // Nelle arcate rimane un corridoio centrale di 2,5 m. I blocchi di panche stanno tra i corridoi.
+                    float hw = o.style == OpenStyle.Arcata ? 1.25f : o.width * 0.05f + 0.55f;
                     bool nearZero = Vector3.Dot(wp - fr.o, fr.r) < Lr * 0.5f;
                     c.occ.Add(Box2(fr.P(fo - hw, nearZero ? 0f : Lr * 0.5f), fr.P(fo + hw, nearZero ? Lr * 0.5f : Lr)));
                 }
-            float blockLen = Lr * 0.5f - aisleHalf - 0.30f;
-            float sx = Mathf.Clamp(blockLen / 2.6f, 0.5f, 1f);
+            // Lascia spazio anche dal lato del muro: ReserveOpenings occupa 1,1 m davanti alle arcate.
+            float blockLen = Lr * 0.5f - aisleHalf - 1.18f - 0.26f;
+            float sx = Mathf.Clamp(blockLen / PropDefs.Get("chi_panca").size.x, 0.42f, 1f);
             float pewW = 2.6f * sx;
             float f0 = 2.8f, fEnd = Lf - 7.8f;
             int rows = Mathf.Max(0, Mathf.FloorToInt((fEnd - f0) / 1.38f) + 1);
@@ -168,15 +198,21 @@ namespace PryingEyes.Proc
             float Lf = fr.Lf, Lr = fr.Lr;
             Prop(c, "chi_fonte", fr.P(Lf * 0.5f, Lr * 0.5f - 4.5f), fr.f);
             Prop(c, "chi_fonte", fr.P(Lf * 0.5f, Lr * 0.5f + 4.5f), fr.f, 1f, true, 0f, 37f);
-            Prop(c, "chi_statua", fr.P(Lf - 0.65f, Lr * 0.5f - 2.7f), -fr.f);
-            Prop(c, "chi_statua", fr.P(Lf - 0.65f, Lr * 0.5f + 2.7f), -fr.f);
+            Prop(c, "chi_statua", fr.P(Lf * 0.62f, 0.63f), fr.r);
+            Prop(c, "chi_statua", fr.P(Lf * 0.38f, Lr - 0.58f), -fr.r);
             Candle(c, "chi_ceri", fr.P(0.4f, Lr * 0.5f - 2.0f), fr.f, c.rng.Chance(0.7));
             Candle(c, "chi_ceri", fr.P(0.4f, Lr * 0.5f + 2.0f), fr.f, c.rng.Chance(0.7));
             for (int i = 0; i < 2; i++)
                 Prop(c, "chi_panca", fr.P(0.55f, Lr * 0.5f + (i == 0 ? -5.5f : 5.5f)), fr.f);
-            Candle(c, "chi_candelabro", fr.P(Lf * 0.6f, Lr * 0.5f - 1.0f), fr.f, c.rng.Chance(0.8), false, false);
-            Candle(c, "chi_candelabro", fr.P(Lf * 0.6f, Lr * 0.5f + 1.0f), fr.f, c.rng.Chance(0.8), false, false);
+            Candle(c, "chi_candelabro", fr.P(Lf * 0.54f, 0.85f), fr.f, c.rng.Chance(0.8), false, true);
+            Candle(c, "chi_candelabro", fr.P(Lf * 0.54f, Lr - 0.85f), fr.f, c.rng.Chance(0.8), false, true);
             AddLight(c, fr.P(Lf * 0.5f, Lr * 0.5f, c.r.wallH - 0.8f), CandleCol, 5f, 10f, true);
+            // Luce fredda diffusa dall'ingresso alto, che sfiora il tessuto e i conci di fronte alle candele.
+            var position = fr.P(0.65f, Lr * 0.5f - 1.10f, 3.3f);
+            var reflected = AddLight(c, position, new Color(0.69f, 0.82f, 1f), 13f, 9f, false, true, c.parent, LightType.Spot).l;
+            reflected.spotAngle = 104f;
+            reflected.innerSpotAngle = 61f;
+            reflected.transform.rotation = Quaternion.LookRotation(fr.P(Lf * 0.76f, Lr * 0.5f, 1.05f) - position);
         }
 
         // ---------------------------------------------------------------- navata laterale

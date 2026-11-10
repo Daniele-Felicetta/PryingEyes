@@ -33,11 +33,11 @@ namespace PryingEyes
         bool Omniscient => !Stealth.Enabled;
 
         /// <summary>Dove sta il segnalino sopra la testa.</summary>
-        public Vector3 MarkerPoint => transform.position + Vector3.up * (type == EnemyType.Occhio ? 0.85f : type == EnemyType.Abate ? 3.0f : 2.3f);
+        public Vector3 MarkerPoint => transform.position + Vector3.up * (type == EnemyType.Carapace ? 1.65f : Archetype == EnemyType.Occhio ? 0.85f : Archetype == EnemyType.Abate ? 3.0f : 2.3f);
 
-        float EyeHeight => type == EnemyType.Occhio ? 0f : type == EnemyType.Abate ? 2.0f : 1.55f;
-        float FovHalf => type == EnemyType.Occhio ? 85f : type == EnemyType.Abate ? 52f : 58f;
-        float LoseTime => type == EnemyType.Occhio ? 2.5f : 3.6f;
+        float EyeHeight => type == EnemyType.Carapace ? 0.9f : Archetype == EnemyType.Occhio ? 0f : Archetype == EnemyType.Abate ? 2.0f : 1.55f;
+        float FovHalf => Archetype == EnemyType.Occhio ? 85f : Archetype == EnemyType.Abate ? 52f : 58f;
+        float LoseTime => Archetype == EnemyType.Occhio ? 2.5f : 3.6f;
 
         static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
         static float YawTo(Vector3 d) => Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
@@ -73,9 +73,9 @@ namespace PryingEyes
         public void Hear(Vector3 pos, float radius, NoiseKind kind)
         {
             if (dead || Omniscient) return;
-            Vector3 ep = transform.position + Vector3.up * (type == EnemyType.Occhio ? 0f : 1.4f);
+            Vector3 ep = transform.position + Vector3.up * (type == EnemyType.Carapace ? EyeHeight : Archetype == EnemyType.Occhio ? 0f : 1.4f);
             float d = Vector3.Distance(ep, pos);
-            float eff = radius * (type == EnemyType.Occhio ? 0.55f : type == EnemyType.Abate ? 1.2f : 1f);   // l'occhio non ha orecchie
+            float eff = radius * (Archetype == EnemyType.Occhio ? 0.55f : Archetype == EnemyType.Abate ? 1.2f : 1f);   // l'occhio non ha orecchie
             if (d > eff) return;
             if (!HotelNav.ClearLine(ep, pos + Vector3.up * 0.4f))
             {
@@ -130,7 +130,7 @@ namespace PryingEyes
             if (d > range && !near) return false;
             float half = FovHalf * (alert == Alert.Patrol ? 1f : 1.5f);
             Vector3 fwd = transform.forward, to2 = to;
-            if (type != EnemyType.Occhio) { fwd.y = 0f; to2.y = 0f; }
+            if (Archetype != EnemyType.Occhio) { fwd.y = 0f; to2.y = 0f; }
             if (!near && Vector3.Angle(fwd, to2) > half) return false;
             if (!(HotelNav.ClearLine(eyeP, head) || HotelNav.ClearLine(eyeP, chest))) return false;
             float k = 1f - Mathf.Clamp01(d / Mathf.Max(range, 0.01f));
@@ -214,7 +214,7 @@ namespace PryingEyes
                     Sfx.At(SoundBank.Suspect, p, 0.55f, basePitch, 2f, 26f);
                     break;
                 case Alert.Hunting:
-                    Sfx.At(SoundBank.AlertSting, p, 0.9f, basePitch * (type == EnemyType.Abate ? 0.8f : 1f), 3f, 48f);
+                    Sfx.At(SoundBank.AlertSting, p, 0.9f, basePitch * (Archetype == EnemyType.Abate ? 0.8f : 1f), 3f, 48f);
                     if (old != Alert.Hunting && seeing) Sfx.UI(SoundBank.AlertSting, 0.2f, 1.5f);   // il tuo cuore: sei stato visto
                     if (old != Alert.Hunting) Noise.Emit(transform.position, 15f, NoiseKind.Shout);        // il grido richiama gli altri
                     lostT = 0f;
@@ -289,7 +289,7 @@ namespace PryingEyes
                 {
                     bool close = (feet - gp).sqrMagnitude < 36f;
                     moveGoal = seeing || close ? feet : lastKnown;
-                    moveMul = type == EnemyType.Occhio ? 1.45f : type == EnemyType.Abate ? 1.7f : 1.9f;
+                    moveMul = Archetype == EnemyType.Occhio ? 1.45f : Archetype == EnemyType.Abate ? 1.7f : 1.9f;
                     if (seeing) arrivedScan = false;
                     else if (!close && Flat(moveGoal - gp).magnitude < 1.6f)
                     {

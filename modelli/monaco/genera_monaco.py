@@ -8,7 +8,7 @@ Uso (dalla cartella del file):
   blender -b -P genera_monaco.py -- export    bake texture, versione da gioco  -> export/monaco_export.blend
   blender -b -P genera_monaco.py -- rig       scheletro, pesi, animazioni      -> export/monaco.fbx, monaco.glb
   blender -b -P genera_monaco.py -- pose      fotogrammi chiave delle animazioni -> render/pose/
-Opzioni: nocloth (salta le simulazioni), clay (render in creta).
+Opzioni: nocloth (salta le simulazioni), clay (render in creta), fbx-only (rig esportato solo per Unity).
 
 Assi: Z in alto, il monaco guarda verso -Y, la sua destra e' -X. Unita': metri.
 """
@@ -2391,6 +2391,86 @@ def make_action(arm, name, n, loop, rot=None, rot_local=None, loc=None, scale=No
     return act
 
 
+def fray_cloth(cloth):
+    """Fibre di lana strappate sulle cuciture aperte, con gli stessi pesi del bordo."""
+    source = cloth.data
+    uv = source.uv_layers.active.data
+    rims = {}
+    for face in source.polygons:
+        if face.material_index != 0:
+            continue
+        for j, li in enumerate(face.loop_indices):
+            lj = face.loop_indices[(j + 1) % face.loop_total]
+            a, b = source.loops[li].vertex_index, source.loops[lj].vertex_index
+            key = (min(a, b), max(a, b))
+            rims[key] = None if key in rims else (a, b, face.normal.copy(), uv[li].uv.copy(), uv[lj].uv.copy())
+
+    rng = random.Random(4264)
+    vertices, faces, uvs, weights = [], [], [], []
+    for rim in rims.values():
+        if rim is None:
+            continue
+        a, b, normal, uv_a, uv_b = rim
+        va, vb = source.vertices[a], source.vertices[b]
+        edge = vb.co - va.co
+        length = edge.length
+        if length < 0.0003:
+            continue
+        tangent = edge / length
+        outward = tangent.cross(normal).normalized()
+        if outward.length_squared < 0.5:
+            continue
+        count = int(length / 0.007 + rng.random())
+        for i in range(count):
+            t = (i + rng.uniform(0.12, 0.88)) / count
+            root = va.co.lerp(vb.co, t)
+            delta = outward * rng.uniform(0.82, 1.0) + tangent * rng.uniform(-0.56, 0.56)
+            delta += normal * rng.uniform(-0.13, 0.60)
+            size = 0.003 + rng.random() ** 1.65 * 0.020
+            radius = rng.uniform(0.00029, 0.00062)
+            mid = root + delta * size * 0.55
+            tip = root + (delta + tangent * rng.uniform(-0.32, 0.32)) * size
+            start = len(vertices)
+            tex = uv_a.lerp(uv_b, t)
+            for j in range(3):
+                angle = 2 * pi * j / 3
+                cross = (tangent * cos(angle) + normal * sin(angle)) * radius
+                vertices.extend((root + cross, mid + cross * 0.57))
+                uvs.extend(((tex.x + j * 0.0009, tex.y), (tex.x + j * 0.0009, tex.y + size * 0.13)))
+            vertices.append(tip)
+            uvs.append((tex.x + 0.0009, tex.y + size * 0.25))
+            for j in range(3):
+                a0 = start + j * 2
+                b0 = start + ((j + 1) % 3) * 2
+                faces.extend(((a0, b0, b0 + 1, a0 + 1), (a0 + 1, b0 + 1, start + 6)))
+            groups = {}
+            for vert, scale in ((va, 1 - t), (vb, t)):
+                for g in vert.groups:
+                    groups[g.group] = groups.get(g.group, 0) + g.weight * scale
+            weights.append((start, sorted(groups.items(), key=lambda item: item[1], reverse=True)[:4]))
+
+    mesh = bpy.data.meshes.new('FiliSfilacciati')
+    mesh.from_pydata(vertices, [], faces)
+    tex = mesh.uv_layers.new(name='bake')
+    for loop in mesh.loops:
+        tex.data[loop.index].uv = uvs[loop.vertex_index]
+    fiber = source.materials[0].copy()
+    fiber.name = 'M_fibre'
+    mesh.materials.append(fiber)
+    ob = bpy.data.objects.new('FiliSfilacciati', mesh)
+    link(ob)
+    ob.matrix_world = cloth.matrix_world.copy()
+    groups = [ob.vertex_groups.new(name=g.name) for g in cloth.vertex_groups]
+    for start, weighted in weights:
+        indices = list(range(start, start + 7))
+        total = sum(w for _, w in weighted)
+        for group, weight in weighted:
+            if total > 0:
+                groups[group].add(indices, weight / total, 'REPLACE')
+    print(f'[rig] stoffa: {len(weights)} fibre sfilacciate con pesi di armatura')
+    return ob
+
+
 def stage_rig():
     bpy.ops.wm.open_mainfile(filepath=EXPORT_BLEND)
     sc = bpy.context.scene
@@ -2398,6 +2478,7 @@ def stage_rig():
     G = Vector(list(sc['presa']))
     specs = bone_specs(G)
     meshes = [ob for ob in sc.objects if ob.type == 'MESH']
+    meshes.append(fray_cloth(bpy.data.objects['stoffa']))
     arm = build_armature(specs)
     for ob in meshes:
         ob.parent = arm
@@ -2420,9 +2501,10 @@ def stage_rig():
                              bake_anim_use_all_bones=True, bake_anim_force_startend_keying=True,
                              bake_anim_step=1.0, bake_anim_simplify_factor=0.0,
                              path_mode='RELATIVE', embed_textures=False)
-    bpy.ops.export_scene.gltf(filepath=os.path.join(EXPORT_DIR, 'monaco.glb'), export_format='GLB',
-                              use_selection=True, export_apply=False, export_skins=True,
-                              export_animations=True, export_animation_mode='ACTIONS')
+    if 'fbx-only' not in ARGS:
+        bpy.ops.export_scene.gltf(filepath=os.path.join(EXPORT_DIR, 'monaco.glb'), export_format='GLB',
+                                  use_selection=True, export_apply=False, export_skins=True,
+                                  export_animations=True, export_animation_mode='ACTIONS')
     print('[rig] ossa:', len(arm.data.bones), ' azioni:', [a.name for a in acts])
 
 

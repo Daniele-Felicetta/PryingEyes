@@ -56,6 +56,7 @@ namespace PryingEyes
             if (autoTest)
                 System.IO.File.WriteAllText(REPORT, "t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n");
             proc = FindFirstObjectByType<Proc.FloorDirector>() != null;
+            GameSettings.BindBrightness(FindAnyObjectByType<UnityEngine.Rendering.Volume>());
             if (!proc)
             {
                 HotelNav.Build();   // prima di qualunque nemico: i collider della scena ci sono gia'
@@ -134,7 +135,7 @@ namespace PryingEyes
                 autoT += Time.deltaTime;
                 reportT += Time.deltaTime;
                 foreach (var e in Enemy.All)
-                    if (e != null && e.type != Enemy.EnemyType.Occhio) walkerMaxY = Mathf.Max(walkerMaxY, e.transform.position.y);
+                    if (e != null && !Enemy.IsFlying(e.type)) walkerMaxY = Mathf.Max(walkerMaxY, e.transform.position.y);
                 if (reportT >= 5f)
                 {
                     reportT = 0f;

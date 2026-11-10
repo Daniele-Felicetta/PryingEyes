@@ -56,7 +56,7 @@ namespace PryingEyes.EditorTools
             RenderSettings.ambientGroundColor = new Color(0.05f, 0.046f, 0.05f);
             RenderSettings.skybox = AssetDatabase.LoadAssetAtPath<Material>(MatDir + "NightSky.mat");
             RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogMode = FogMode.Exponential;
             RenderSettings.fogColor = new Color(0.045f, 0.055f, 0.08f);
             RenderSettings.fogDensity = 0.022f;
             var cube = AssetDatabase.LoadAssetAtPath<Cubemap>("Assets/_PryingEyes/Settings/HallProbe.exr");
@@ -149,7 +149,7 @@ namespace PryingEyes.EditorTools
             m.SetFloat("_Metallic", 0f);
             m.SetFloat("_Smoothness", 0.75f);
             m.SetTexture("_EmissionMap", tex);
-            m.SetColor("_EmissionColor", Color.white * 1.35f);
+            m.SetColor("_EmissionColor", new Color(0.83f, 0.91f, 1f) * 0.63f);
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             m.EnableKeyword("_EMISSION");
             EditorUtility.SetDirty(m);
@@ -167,7 +167,7 @@ namespace PryingEyes.EditorTools
             M("pav_moquette", Existing("Carpet"));
             M("pav_parquet", Pbr("kit_parquet", "parquet", Color.white, 1.2f));
             M("pav_piastrelle", Pbr("kit_piastrelle_pav", "piastrelle_pav", Color.white, 1.2f));
-            M("pav_lastre", Pbr("kit_lastre", "pietra_lastre", Color.white, 1.8f));
+            M("pav_lastre", Pbr("kit_lastre", "pietra_lastre", Color.white, 4.8f));
             M("pav_cripta", Pbr("kit_cripta", "pietra_cripta", new Color(0.85f, 0.85f, 0.85f), 2.0f));
             M("pav_servizio", Pbr("kit_cemento", "cemento", Color.white, 2.0f));
             // muri
@@ -175,7 +175,7 @@ namespace PryingEyes.EditorTools
             M("mur_damasco_verde", Pbr("kit_damasco_verde", "damasco", new Color(0.55f, 0.85f, 0.62f), 0.64f));
             M("mur_damasco_ocra", Pbr("kit_damasco_ocra", "damasco", new Color(1.0f, 0.82f, 0.45f), 0.64f));
             M("mur_intonaco", Pbr("kit_intonaco", "intonaco", new Color(0.72f, 0.70f, 0.66f), 2.0f));
-            M("mur_pietra", Pbr("kit_pietra", "pietra_muro", Color.white, 2.4f));
+            M("mur_pietra", Pbr("kit_pietra", "pietra_muro", Color.white, 4.2f));
             M("mur_cripta", Pbr("kit_cripta_muro", "pietra_cripta", new Color(0.8f, 0.8f, 0.8f), 2.0f));
             M("mur_piastrelle", Pbr("kit_piastrelle", "piastrelle", Color.white, 1.2f));
             M("mur_boiserie", Existing("Wood"));
@@ -185,7 +185,8 @@ namespace PryingEyes.EditorTools
             M("sof_volta", Pbr("kit_volta", "mattoni_volta", Color.white, 1.6f));
             M("trave", Pbr("kit_trave", "noce", new Color(0.62f, 0.60f, 0.58f), 1.0f));
             M("cornice_legno", Existing("Wood"));
-            M("cornice_pietra", Pbr("kit_cornice_pietra", "pietra_muro", new Color(1.05f, 1.0f, 0.95f), 1.2f));
+            M("cornice_pietra", Pbr("kit_cornice_pietra", "pietra_massello", Color.white, 1.55f));
+            M("quercia_portale", Pbr("kit_quercia_portale", "quercia_portale", Color.white, 1.35f));
             // vetri e vetrate
             M("vetro_albergo", Existing("Glass"));
             M("vetro_buio", Emit("kit_vetro_buio", new Color(0.01f, 0.012f, 0.02f), new Color(0.02f, 0.03f, 0.05f)));
@@ -199,9 +200,11 @@ namespace PryingEyes.EditorTools
             M("paralume", Existing("LampShade"));
             M("paralume_spento", Flat("kit_paralume_spento", new Color(0.20f, 0.16f, 0.11f), 0f, 0.1f));
             M("fiamma", Emit("fiamma", new Color(0.05f, 0.03f, 0.01f), new Color(5.5f, 2.6f, 0.55f)));
+            M("cera", Flat("kit_cera", new Color(0.78f, 0.72f, 0.58f), 0f, 0.35f));
             M("pannello_luce", Existing("CabLamp"));
             M("indicatore", Existing("ElevArrow"));
             M("occhi_buio", Existing("EyeGlow"));
+            M("foschia_chiesa", KitMat("kit_foschia_chiesa", Shader.Find("PryingEyes/ChurchHaze")));
             kit.mats = mats.ToArray();
 
             // arredi: un prefab per FBX, con i materiali del kit al posto di quelli del ruolo

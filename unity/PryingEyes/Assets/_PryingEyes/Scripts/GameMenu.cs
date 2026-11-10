@@ -20,8 +20,8 @@ namespace PryingEyes
         static readonly Color BtnColor = new Color(0.10f, 0.08f, 0.07f, 0.85f);
 
         RectTransform backdrop, mainPanel, pausePanel, settingsPanel, settingsFrom;
-        Slider sMaster, sEffects, sMusic;
-        Text vMaster, vEffects, vMusic;
+        Slider sMaster, sEffects, sMusic, sBrightness;
+        Text vMaster, vEffects, vMusic, vBrightness;
 
         public static void Create()
         {
@@ -86,7 +86,11 @@ namespace PryingEyes
             Show(settingsPanel);
         }
 
-        void Back() => Show(settingsFrom);
+        void Back()
+        {
+            PlayerPrefs.Save();
+            Show(settingsFrom);
+        }
 
         static void Quit() => Application.Quit();
 
@@ -113,6 +117,7 @@ namespace PryingEyes
             SetSlider(sMaster, vMaster, GameSettings.Master);
             SetSlider(sEffects, vEffects, GameSettings.Effects);
             SetSlider(sMusic, vMusic, GameSettings.Music);
+            SetSlider(sBrightness, vBrightness, GameSettings.Brightness);
         }
 
         static void SetSlider(Slider s, Text v, float x)
@@ -160,10 +165,11 @@ namespace PryingEyes
 
             settingsPanel = Stretch(backdrop, "Impostazioni");
             Label(settingsPanel, "Titolo", new Vector2(0, 200), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Impostazioni", Ink, FontStyle.Normal);
-            sMaster = Row(settingsPanel, 100, "Volume generale", GameSettings.Master, GameSettings.SetMaster, out vMaster);
-            sEffects = Row(settingsPanel, 0, "Effetti sonori", GameSettings.Effects, GameSettings.SetEffects, out vEffects);
-            sMusic = Row(settingsPanel, -100, "Musica", GameSettings.Music, GameSettings.SetMusic, out vMusic);
-            MakeButton(settingsPanel, "Indietro", new Vector2(0, -220), Back);
+            sBrightness = Row(settingsPanel, 112, "Luminosità", GameSettings.Brightness, GameSettings.SetBrightness, out vBrightness);
+            sMaster = Row(settingsPanel, 30, "Volume generale", GameSettings.Master, GameSettings.SetMaster, out vMaster);
+            sEffects = Row(settingsPanel, -52, "Effetti sonori", GameSettings.Effects, GameSettings.SetEffects, out vEffects);
+            sMusic = Row(settingsPanel, -134, "Musica", GameSettings.Music, GameSettings.SetMusic, out vMusic);
+            MakeButton(settingsPanel, "Indietro", new Vector2(0, -240), Back);
         }
 
         Slider Row(Transform parent, float y, string name, float init, UnityAction<float> set, out Text value)
