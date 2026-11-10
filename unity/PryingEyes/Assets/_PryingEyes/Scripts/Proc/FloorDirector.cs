@@ -21,6 +21,7 @@ namespace PryingEyes.Proc
         bool exitOpen, firstHorde, lastHorde;
         public bool ExitOpen => exitOpen;
         float trickleT, floorTime, hudT, probeT;
+        bool perfStarted;                    // -perftest: la sonda dei fotogrammi gira una volta sola per partita
         Room playerRoom;
         GameManager gm;
         const string BotLog = "C:/Users/danie/Desktop/prying-eyes/hotel_build/proctest.txt";
@@ -202,12 +203,25 @@ namespace PryingEyes.Proc
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Exponential;
             RenderSettings.fogDensity = rnd.Range(0.027f, 0.033f) * Mathf.Lerp(1f, 1.22f, deep);
-            RenderSettings.fogColor = churchy ? new Color(0.17f, 0.19f, 0.23f) : new Color(0.19f, 0.16f, 0.17f);
+            // teatro: polvere rossastra di velluto e legno; sanatorio: aria verdastra di vernice e disinfettante
+            Color fog = churchy ? new Color(0.17f, 0.19f, 0.23f) : new Color(0.19f, 0.16f, 0.17f);
+            Color sky = new Color(0.13f, 0.15f, 0.21f), equator = new Color(0.095f, 0.095f, 0.11f), ground = new Color(0.05f, 0.046f, 0.05f);
+            if (plan.theme == Theme.Teatro)
+            {
+                fog = new Color(0.21f, 0.11f, 0.11f);
+                sky = new Color(0.16f, 0.11f, 0.13f); equator = new Color(0.115f, 0.082f, 0.088f); ground = new Color(0.06f, 0.04f, 0.045f);
+            }
+            else if (plan.theme == Theme.Sanatorio)
+            {
+                fog = new Color(0.12f, 0.175f, 0.155f);
+                sky = new Color(0.105f, 0.17f, 0.17f); equator = new Color(0.082f, 0.11f, 0.105f); ground = new Color(0.045f, 0.052f, 0.05f);
+            }
+            RenderSettings.fogColor = fog;
             float amb = Mathf.Lerp(0.48f, 0.31f, deep);
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.13f, 0.15f, 0.21f) * amb;
-            RenderSettings.ambientEquatorColor = new Color(0.095f, 0.095f, 0.11f) * amb;
-            RenderSettings.ambientGroundColor = new Color(0.05f, 0.046f, 0.05f) * amb;
+            RenderSettings.ambientSkyColor = sky * amb;
+            RenderSettings.ambientEquatorColor = equator * amb;
+            RenderSettings.ambientGroundColor = ground * amb;
             RenderSettings.reflectionIntensity = 0.30f;     // il cubemap della hall illuminata, al buio, farebbe brillare i metalli
             // grading piu' duro (profilo copiato in istanza: l'asset non cambia)
             var vol = FindFirstObjectByType<UnityEngine.Rendering.Volume>();
@@ -598,7 +612,7 @@ namespace PryingEyes.Proc
                 if (trickleT <= 0f)
                 {
                     trickleT = Mathf.Lerp(40f, 22f, Mathf.Clamp01(floor / 10f)) * Random.Range(0.8f, 1.25f);
-                    if (floorTime > 25f && Enemy.All.Count < 3 + floor + units) SpawnOne();
+                    if (floorTime > 25f && !perfStarted && Enemy.All.Count < 3 + floor + units) SpawnOne();
                 }
             }
             hudT -= dt;
@@ -611,6 +625,11 @@ namespace PryingEyes.Proc
             }
             if (GameManager.autoTest && HasArg("-procbot")) BotTick(dt);
             if (GameManager.autoTest && HasArg("-procshots")) ShotTick();
+            if (GameManager.autoTest && !perfStarted && !transitioning && floorTime > 2f && HasArg("-perftest"))
+            {
+                perfStarted = true;
+                StartCoroutine(PerfProbe.Run(this));
+            }
         }
 
         // ---- foto dal punto di vista del giocatore (con HUD), una per tipo di stanza in cui entra: -autotest -procshots (senza -nographics)

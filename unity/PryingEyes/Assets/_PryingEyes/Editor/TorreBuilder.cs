@@ -181,7 +181,19 @@ namespace PryingEyes.EditorTools
             M("mur_boiserie", Existing("Wood"));
             M("pav_linoleo", Pbr("kit_linoleo", "linoleo", Color.white, 1.0f));
             M("mur_vernice_verde", Pbr("kit_vernice_verde", "vernice_verde", Color.white, 2.0f));
-            M("pav_palco", Pbr("kit_palco", "noce", new Color(0.66f, 0.60f, 0.56f), 1.2f));
+            M("pav_palco", Pbr("kit_palco", "noce", new Color(1.5f, 1.38f, 1.28f), 1.2f));
+            M("pav_moquetta", Pbr("kit_moquetta_teatro", "moquette", new Color(1.9f, 1.4f, 1.4f), 1.0f));       // rossa e sbiadita: sotto poca luce deve ancora leggersi
+            // teatro: velluto rosso scuro (pareti della sala, tende), quinte nere, intonaco e soffitti scuri
+            M("mur_velluto", Pbr("kit_mur_velluto", "velluto", new Color(0.42f, 0.10f, 0.11f), 0.45f));
+            M("tenda", Pbr("kit_tenda", "velluto", new Color(0.36f, 0.05f, 0.07f), 0.30f));
+            M("tenda_nera", Pbr("kit_tenda_nera", "velluto", new Color(0.045f, 0.045f, 0.05f), 0.30f));
+            M("mur_intonaco_nero", Pbr("kit_intonaco_nero", "intonaco", new Color(0.44f, 0.43f, 0.42f), 2.0f));
+            M("sof_scuro", Pbr("kit_sof_scuro", "intonaco", new Color(0.22f, 0.21f, 0.20f), 2.0f));
+            // sanatorio: intonaco freddo e verdastro, tubi al neon (acceso e spento)
+            M("mur_intonaco_freddo", Pbr("kit_intonaco_freddo", "intonaco", new Color(0.62f, 0.72f, 0.67f), 2.0f));
+            M("neon", Emit("kit_neon", new Color(0.78f, 0.86f, 0.82f), new Color(2.1f, 2.5f, 2.3f)));
+            M("neon_spento", Flat("kit_neon_spento", new Color(0.52f, 0.56f, 0.53f), 0f, 0.45f));
+            M("uscita", Emit("kit_uscita", new Color(0.04f, 0.16f, 0.07f), new Color(0.25f, 2.4f, 0.55f)));
             // soffitti e travi
             M("sof_intonaco", Existing("Ceil"));
             M("sof_legno", Pbr("kit_soffitto_legno", "noce", new Color(0.55f, 0.55f, 0.55f), 1.0f));

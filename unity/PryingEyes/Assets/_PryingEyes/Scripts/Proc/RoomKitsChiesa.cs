@@ -123,7 +123,7 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Lampadario a corona di ferro con le candele, appeso a una catena. Luce calda grande, spesso spento.</summary>
-        static void Crown(Ctx c, Vector3 top, bool lit)
+        static void Crown(Ctx c, Vector3 top, bool lit, float gain = 1f, float range = 13f)
         {
             float drop = Mathf.Clamp(top.y - 2.7f, 0.4f, 3.4f);
             var g = Prop(c, "chi_lampadario", top + Vector3.down * drop, Vector3.forward, 1f, false);
@@ -138,7 +138,7 @@ namespace PryingEyes.Proc
             chain.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             if (lit)
             {
-                var pl = AddLight(c, g.transform.position + Vector3.up * 0.3f, CandleCol, 12f, 13f, true, true, g.transform);
+                var pl = AddLight(c, g.transform.position + Vector3.up * 0.3f, CandleCol, 12f * gain, range, true, true, g.transform);
                 g.AddComponent<LampFlicker>().Init(pl);
             }
             else foreach (var r in g.GetComponentsInChildren<MeshRenderer>()) { foreach (var m in r.sharedMaterials) if (m != null && m.name.StartsWith("fiamma")) { r.enabled = false; break; } }

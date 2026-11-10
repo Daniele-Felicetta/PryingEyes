@@ -39,3 +39,5 @@ modelli/armi/render/
 hotel_build/armi/*.png
 hotel_build/armi_gioco/*.png
 !hotel_build/armi_gioco/espositori.png
+# foto della sonda dei fotogrammi (1920x1080, 2-3 MB l'una, un'ottantina a ogni giro): si rifanno con -perftest -perfshots; si tiene solo il foglio di confronto
+hotel_build/perf/

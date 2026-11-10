@@ -95,6 +95,11 @@ namespace PryingEyes.Proc
 
             ReserveOpenings(c);
             if (r.kind != RoomKind.Corridoio && r.kind != RoomKind.Navata) ReserveSpokes(c);
+            // teatro e sanatorio: il candelabro dell'obiettivo sceglie il posto PRIMA degli arredi. Con gli arredi gia' messi, nelle stanze piccole
+            // (depositi, camerini, palchi) non restava un posto libero e il ripiego lo metteva al centro, l'incrocio dei tracciati riservati,
+            // chiudendo la stanza. I corridoi riservano la loro corsia nella ricetta, quindi restano nell'ordine di prima.
+            bool objectiveFirst = c.plan.theme != Theme.Albergo && !r.church && !r.IsLift && r.kind != RoomKind.Corridoio && c.plan.objectives.Contains(r.id);
+            if (objectiveFirst) Objective(c, true);
             switch (r.kind)
             {
                 case RoomKind.Ascensore: Lift(c); break;
@@ -114,8 +119,27 @@ namespace PryingEyes.Proc
                 case RoomKind.Sacrestia: Sacrestia(c); break;
                 case RoomKind.Cripta: Cripta(c); break;
                 case RoomKind.Campanile: Campanile(c); break;
+                // teatro
+                case RoomKind.Platea: Platea(c); break;
+                case RoomKind.Palco: Palco(c); break;
+                case RoomKind.Foyer: Foyer(c); break;
+                case RoomKind.Palcoscenico: Palcoscenico(c); break;
+                case RoomKind.Camerino: Camerino(c); break;
+                case RoomKind.Deposito: Deposito(c); break;
+                case RoomKind.Ridotto: Ridotto(c); break;
+                // sanatorio
+                case RoomKind.Accettazione: Accettazione(c); break;
+                case RoomKind.Degenza: Degenza(c, false); break;
+                case RoomKind.Corsia: Degenza(c, true); break;
+                case RoomKind.Cella: Cella(c); break;
+                case RoomKind.Refettorio: Refettorio(c); break;
+                case RoomKind.SalaOperatoria: SalaOperatoria(c); break;
+                case RoomKind.Lavanderia: Lavanderia(c); break;
+                case RoomKind.Archivio: Archivio(c); break;
+                case RoomKind.Obitorio: Obitorio(c); break;
+                case RoomKind.SalaMedici: SalaMedici(c); break;
             }
-            if (!r.IsLift && c.plan.objectives.Contains(r.id)) Objective(c);
+            if (!objectiveFirst && !r.IsLift && c.plan.objectives.Contains(r.id)) Objective(c);
             if (r.church) PortalCandles(c);
             var window = WindowLights(c);
             Fill(c, window != null);
@@ -123,17 +147,51 @@ namespace PryingEyes.Proc
             return window;
         }
 
-        /// <summary>Il candelabro da accendere: in un punto libero della stanza (a caso), spento, con l'alone freddo.</summary>
-        static void Objective(Ctx c)
+        /// <summary>Il candelabro da accendere: in un punto libero della stanza (a caso), spento, con l'alone freddo. Con 'nearWall' (i temi
+        /// nuovi, dove lo si piazza prima degli arredi) sta a 0,6-1,5 m da un muro e si riserva un metro libero tutt'attorno: in mezzo a
+        /// un blocco di sedie o di scaffali gli arredi messi dopo lo chiudevano in una tasca.</summary>
+        static void Objective(Ctx c, bool nearWall = false)
         {
             if (c.W > 2.4f && c.D > 2.4f)
                 for (int i = 0; i < 80; i++)
                 {
-                    var p = new Vector3(c.rng.Range(c.ix0 + 1.0f, c.ix1 - 1.0f), 0f, c.rng.Range(c.iz0 + 1.0f, c.iz1 - 1.0f));
+                    Vector3 p;
+                    if (nearWall)
+                    {
+                        float d = c.rng.Range(0.6f, 1.5f);
+                        switch (c.rng.Range(0, 4))
+                        {
+                            case 0: p = new Vector3(c.rng.Range(c.ix0 + 0.8f, c.ix1 - 0.8f), 0f, c.iz0 + d); break;
+                            case 1: p = new Vector3(c.rng.Range(c.ix0 + 0.8f, c.ix1 - 0.8f), 0f, c.iz1 - d); break;
+                            case 2: p = new Vector3(c.ix0 + d, 0f, c.rng.Range(c.iz0 + 0.8f, c.iz1 - 0.8f)); break;
+                            default: p = new Vector3(c.ix1 - d, 0f, c.rng.Range(c.iz0 + 0.8f, c.iz1 - 0.8f)); break;
+                        }
+                    }
+                    else p = new Vector3(c.rng.Range(c.ix0 + 1.0f, c.ix1 - 1.0f), 0f, c.rng.Range(c.iz0 + 1.0f, c.iz1 - 1.0f));
                     var cd = Candle(c, "chi_candelabro", p, Vector3.forward, false, true, true);
-                    if (cd != null) return;
+                    if (cd == null) continue;
+                    if (nearWall) c.occ.Add(new Rect(p.x - 1.0f, p.z - 1.0f, 2.0f, 2.0f));
+                    return;
                 }
-            Candle(c, "chi_candelabro", c.Center, Vector3.forward, false, true, false);
+            // nessun posto libero: in un angolo, il piu' lontano dalle porte. Il centro e' l'incrocio dei tracciati riservati: un candelabro
+            // li' chiude le stanze piccole (un deposito di 6,8 x 4,4 m a due porte lo spezzava in due e l'ala dietro restava isolata)
+            Vector3 corner = c.Center; float far = -1f;
+            var fronts = new List<Vector3>();
+            foreach (Side s in new[] { Side.S, Side.N, Side.W, Side.E })
+                foreach (var o in c.plan.OpeningsOn(c.r, s))
+                {
+                    if (o.b < 0 || o.oneSided) continue;
+                    fronts.Add(OpeningPoint(o) + Inward(s) * 1.0f);
+                }
+            foreach (float cx in new[] { c.ix0 + 0.55f, c.ix1 - 0.55f })
+                foreach (float cz in new[] { c.iz0 + 0.55f, c.iz1 - 0.55f })
+                {
+                    var p = new Vector3(cx, 0f, cz);
+                    float dmin = float.MaxValue;
+                    foreach (var f in fronts) dmin = Mathf.Min(dmin, (f - p).sqrMagnitude);
+                    if (dmin > far) { far = dmin; corner = p; }
+                }
+            Candle(c, "chi_candelabro", corner, Vector3.forward, false, true, false);
         }
 
         // ---------------------------------------------------------------- occupazione
@@ -412,7 +470,8 @@ namespace PryingEyes.Proc
                     var origin = WindowOrigin(o, inw);
                     bool church = o.style == OpenStyle.Lancetta;
                     bool key = o == keyOpening;
-                    Color col = church ? Color.Lerp(new Color(0.73f, 0.82f, 1f), GlassColor(o.variant), 0.22f) : new Color(0.62f, 0.74f, 1f);
+                    Color col = church ? Color.Lerp(new Color(0.73f, 0.82f, 1f), GlassColor(o.variant), 0.22f)
+                        : c.plan.theme == Theme.Sanatorio ? new Color(0.62f, 0.84f, 0.80f) : new Color(0.62f, 0.74f, 1f);
                     float inten = church ? (o.oneSided ? 21f : 31f) : 6f;
                     float range = church ? 17f : 8.5f;
                     var direction = inw + Vector3.down * (o.oneSided ? 1.5f : 0.7f);
@@ -527,10 +586,14 @@ namespace PryingEyes.Proc
             if (r.IsLift) return;
             float size = Mathf.Max(c.W, c.D);
             Color col = r.church ? new Color(0.65f, 0.74f, 0.83f) : new Color(0.95f, 0.78f, 0.6f);
+            float base_ = r.church ? (hasWindow ? 3.65f : 5.6f) : 2.6f;
+            // teatro: un fondo rossastro e fioco (la sala e' quasi al buio); sanatorio: verdastro e freddo, come i neon
+            if (!r.church && c.plan.theme == Theme.Teatro) { col = new Color(0.95f, 0.64f, 0.50f); base_ = r.wallH > 5.2f ? 11f : r.kind == RoomKind.Palco ? 9f : 4.6f; }
+            else if (!r.church && c.plan.theme == Theme.Sanatorio) { col = new Color(0.72f, 0.88f, 0.82f); base_ = 2.7f; }
             // sopra il soffitto nelle stanze basse (niente macchia calda sull'intonaco: la faccia del soffitto guarda in basso e non la prende),
             // a mezza altezza in quelle alte
             float y = r.wallH < 5.2f ? r.wallH + 1.2f : 5.0f;
-            float inten = (r.church ? (hasWindow ? 3.65f : 5.6f) : 2.6f) * (y / 3.6f) * (y / 3.6f);
+            float inten = base_ * (y / 3.6f) * (y / 3.6f);
             float range = Mathf.Min(size * 0.55f + y + 1.5f, 22f);
             int n = size > 14f ? Mathf.RoundToInt(size / 12f) : 1;
             Vector3 a = LongAxis(c);

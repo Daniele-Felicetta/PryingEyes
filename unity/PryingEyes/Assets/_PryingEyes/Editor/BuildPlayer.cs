@@ -56,6 +56,10 @@ namespace PryingEyes.EditorTools
             };
             var outPath = System.IO.Path.GetFullPath(
                 System.IO.Path.Combine(Application.dataPath, "../Builds/PryingEyes.exe"));
+            // -buildOut <cartella>: compila altrove (per provare mentre una copia del gioco e' aperta e blocca i file di Builds/)
+            var args = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+                if (args[i] == "-buildOut") outPath = System.IO.Path.GetFullPath(System.IO.Path.Combine(args[i + 1], "PryingEyes.exe"));
             Debug.Log("[PryingEyes] Building to: " + outPath);
             var opts = new BuildPlayerOptions
             {

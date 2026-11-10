@@ -44,6 +44,15 @@ namespace PryingEyes.EditorTools
             Save("organo_loop", organ, orr);
             Save("rintocco", SoundGen.BellToll(), r);
             Save("ascensore_discesa_loop", SoundGen.LiftRide(), r);
+            // temi: teatro e sanatorio
+            Save("teatro_orchestra_loop", SoundGen.TheatreTone(), r);
+            Save("teatro_brusio_loop", SoundGen.Murmur(), r);
+            Save("teatro_applauso", SoundGen.Applause(), r);
+            Save("teatro_campanello", SoundGen.TheatreBell(), r);
+            Save("sanatorio_neon_loop", SoundGen.ClinicBuzz(), r);
+            Save("sanatorio_carrello", SoundGen.TrolleySqueak(), r);
+            Save("sanatorio_monitor", SoundGen.MonitorBeep(), r);
+            Save("sanatorio_portone", SoundGen.IronClang(), r);
         }
 
         static void Save(string name, float[] s, int rate)

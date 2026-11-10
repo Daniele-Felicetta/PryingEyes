@@ -61,7 +61,7 @@ namespace PryingEyes
             {
                 var fd = Proc.FloorDirector.I;
                 var room = fd != null && fd.cur != null ? fd.cur.RoomAt(p) : null;
-                return room != null ? Proc.FloorBuilder.Surface(room) : 0;
+                return room != null ? Proc.FloorBuilder.Surface(room, fd.cur.plan.theme) : 0;
             }
             if (p.y > 3.5f) return 2;
             bool In(float x0, float x1, float z0, float z1) => p.x > x0 && p.x < x1 && p.z > z0 && p.z < z1;
