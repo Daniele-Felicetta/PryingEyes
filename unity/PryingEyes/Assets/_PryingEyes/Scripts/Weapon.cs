@@ -488,14 +488,14 @@ namespace PryingEyes
             {
                 if (Input.GetKeyDown(KeyCode.Alpha1)) SwitchSlot(0);
                 else if (Input.GetKeyDown(KeyCode.Alpha2)) SwitchSlot(1);
-                else if (Input.GetKeyDown(KeyCode.X)) SwitchSlot(1 - cur);
+                else if ((Input.GetKeyDown(KeyCode.X) || TouchControls.Down(TouchControls.Action.Swap))) SwitchSlot(1 - cur);
                 float wheel = Input.GetAxis("Mouse ScrollWheel");
                 if (Mathf.Abs(wheel) > 0.01f) SwitchSlot(1 - cur);
             }
-            if (Input.GetKeyDown(KeyCode.B)) ToggleMode();
+            if ((Input.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
 
             // ----- mira
-            bool adsWant = (Input.GetMouseButton(1) || debugAds) && !sprinting && swapT <= 0f && (!reloading || Def.style == ReloadStyle.Tube);
+            bool adsWant = (Input.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && (!reloading || Def.style == ReloadStyle.Tube);
             adsRaw = Mathf.MoveTowards(adsRaw, adsWant ? 1f : 0f, dt / Mathf.Max(0.05f, d.adsTime));
             ads = adsRaw * adsRaw * (3f - 2f * adsRaw);
 
@@ -506,14 +506,14 @@ namespace PryingEyes
 
             // ----- ricarica
             if (reloading) TickReload(dt, d);
-            if (Input.GetKeyDown(KeyCode.R) && swapT <= 0f) Reload();
+            if ((Input.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f) Reload();
 
             // ----- fuoco
             fireT -= dt;
             if (cycleT > 0f) cycleT -= dt;
             bool autoBot = GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire;
-            bool press = Input.GetMouseButtonDown(0) || (autoBot && Time.time - lastShot > 0.2f);
-            bool held = Input.GetMouseButton(0) || autoBot;
+            bool press = Input.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f);
+            bool held = Input.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot;
             if (!held) { triggerHeld = false; dryPlayed = false; }
             bool blocked = swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
             if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || shellsLoaded > 0))
@@ -852,7 +852,7 @@ namespace PryingEyes
             // respiro del tiratore con ottica forte: oscillazione lenta del modello (si ferma tenendo il fiato: Shift)
             if (ads > 0.5f && d.zoom >= 3.9f)
             {
-                float hold = Input.GetKey(KeyCode.LeftShift) ? 0.12f : 1f;
+                float hold = (Input.GetKey(KeyCode.LeftShift) || TouchControls.Held(TouchControls.Action.Sprint)) ? 0.12f : 1f;
                 pos.x += Mathf.Sin(breath * 1.1f) * 0.0012f * hold * ads;
                 pos.y += Mathf.Sin(breath * 1.7f + 1f) * 0.0016f * hold * ads;
             }

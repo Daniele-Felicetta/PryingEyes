@@ -227,3 +227,14 @@ L'HUD mostra carica, scorte e attesa prima del prossimo ping. La freccia in alto
 - Prova stealth: `PryingEyes.exe -batchmode -autotest -stealthtest -seed 1000`. Controlla vista, udito, torcia, pile, ping e apertura dell'uscita. Foto e risultato in `hotel_build/furtivo/`.
 - Prova rapida di luminosità e alieni: aggiungi `-alientest` al comando precedente. Salva le foto dei tre alieni e del corridoio con diverse esposizioni.
 - Confronto visivo della chiesa dalla build: `PryingEyes.exe -batchmode -autotest -stealthtest -refshot -seed 1000`. Salva le inquadrature in `hotel_build/fotorealismo/` e verifica che le fibre della veste seguano la posa e che tutte e cinque le clip del monaco siano presenti.
+
+## Build e controlli touch
+
+La scena da includere è `Assets/_PryingEyes/Scenes/Torre.unity`. Unity 6000.6.7f1: **File > Build Profiles**, aggiungi la piattaforma e scegli **Switch Profile**. Installa i moduli mancanti dalla stessa versione in Unity Hub.
+
+- Windows: Build; distribuisci tutta la cartella prodotta, esclusa la cartella `*_BackUpThisFolder_ButDontShipItWithYourGame`. Il metodo `PryingEyes.EditorTools.BuildPlayer.Windows` genera `Builds/PryingEyes.exe`.
+- Web: installa Web Build Support; Build and Run per provare, oppure carica tutta la cartella su un server HTTP configurato per la compressione scelta. Il metodo `PryingEyes.EditorTools.BuildPlayer.Web` genera `Builds/Web`. I suoni lunghi sono generati durante il caricamento perché Web non supporta thread C#.
+- iOS: installa iOS Build Support, scegli iOS e fai Build. Apri il progetto generato su un Mac con Xcode, imposta un bundle identifier unico, il team e la firma, poi compila e installa sull'iPhone. Per la distribuzione servono le credenziali e le autorizzazioni Apple appropriate.
+- Android: installa Android Build Support con SDK, NDK e OpenJDK, poi genera un APK per una prova o un AAB firmato per Google Play.
+
+Su iOS e Android il gioco usa il paesaggio: trascina a sinistra per muoverti, trascina nell'area libera a destra per guardare e tieni premuti i pulsanti per le azioni continue. I pulsanti coprono fuoco, mira, salto, accovacciamento, corsa, interazione, ricarica, cambio arma, modo di fuoco, torcia, pila, ping, lean e pausa. I controlli e le prestazioni devono ancora essere provati e calibrati su dispositivi reali; la versione Web non abilita questi controlli mobili.

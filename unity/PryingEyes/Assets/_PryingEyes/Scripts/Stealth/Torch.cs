@@ -167,8 +167,8 @@ namespace PryingEyes
             bool alive = gm == null || gm.player == null || gm.player.alive;
             if (!GameMenu.Blocked && alive)
             {
-                if (Input.GetKeyDown(KeyCode.T)) Toggle();
-                if (Input.GetKeyDown(KeyCode.Y)) ManualSwap();
+                if ((Input.GetKeyDown(KeyCode.T) || TouchControls.Down(TouchControls.Action.Torch))) Toggle();
+                if ((Input.GetKeyDown(KeyCode.Y) || TouchControls.Down(TouchControls.Action.Battery))) ManualSwap();
             }
             if (!alive && on) on = false;
 

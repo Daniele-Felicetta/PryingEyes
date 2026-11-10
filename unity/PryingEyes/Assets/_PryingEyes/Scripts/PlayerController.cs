@@ -183,16 +183,16 @@ namespace PryingEyes
 
             // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
             float ms = sens * weapon.SensMult;           // mira piu' fine in ADS, ancora di piu' con un'ottica ingrandita
-            float dYaw = Input.GetAxis("Mouse X") * ms;
-            float dPitch = -Input.GetAxis("Mouse Y") * ms;
+            float dYaw = Input.GetAxis("Mouse X") * ms + TouchControls.Look.x * 4f * weapon.SensMult;
+            float dPitch = -Input.GetAxis("Mouse Y") * ms - TouchControls.Look.y * 4f * weapon.SensMult;
             yaw += dYaw;
             pitch += dPitch;
             pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
             Vector2 lookDelta = new Vector2(dYaw * Mathf.Rad2Deg, -dPitch * Mathf.Rad2Deg);
 
             // --- input ---
-            float f = (Input.GetKey(KeyCode.W) ? 1 : 0) - (Input.GetKey(KeyCode.S) ? 1 : 0);
-            float s = (Input.GetKey(KeyCode.D) ? 1 : 0) - (Input.GetKey(KeyCode.A) ? 1 : 0);
+            float f = (Input.GetKey(KeyCode.W) ? 1 : 0) - (Input.GetKey(KeyCode.S) ? 1 : 0) + TouchControls.Move.y;
+            float s = (Input.GetKey(KeyCode.D) ? 1 : 0) - (Input.GetKey(KeyCode.A) ? 1 : 0) + TouchControls.Move.x;
             if (GameManager.autoTest && !holdLook)
             {
                 var e = Enemy.Nearest(transform.position);
@@ -211,10 +211,10 @@ namespace PryingEyes
                     s = Vector3.Dot(botDir, new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)));
                 }
             }
-            bool wantCrouch = Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl);
-            bool wantSprint = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && f > 0 && !wantCrouch
+            bool wantCrouch = Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl) || TouchControls.Held(TouchControls.Action.Crouch);
+            bool wantSprint = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0 && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
-            if (Input.GetKeyDown(KeyCode.Space)) jumpBuf = 0.15f; else jumpBuf -= dt;
+            if ((Input.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;
 
             float hSpeed = new Vector2(vel.x, vel.z).magnitude;
             if (!slide && wantSprint && wantCrouch && hSpeed > 4.4f && cc.isGrounded)
@@ -301,7 +301,7 @@ namespace PryingEyes
 
             // --- lean: Q a sinistra, E a destra; non in corsa ne' in scivolata, non nei muri ---
             float leanWant = 0f;
-            if (!slide && !wantSprint) leanWant = float.IsNaN(debugLean) ? (Input.GetKey(KeyCode.E) ? 1f : 0f) - (Input.GetKey(KeyCode.Q) ? 1f : 0f) : debugLean;
+            if (!slide && !wantSprint) leanWant = float.IsNaN(debugLean) ? (Input.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (Input.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
             float room = leanWant != 0f ? LeanRoom(leanWant) : 1f;
             float leanTarget = leanWant * room;
             // se la testa e' gia' contro un muro rientra piu' in fretta
@@ -381,7 +381,7 @@ namespace PryingEyes
             {
                 bool onWall = WallBuy.Tick(cam);
                 bool onThing = !onWall && Proc.Interact.Tick(cam);
-                if (Input.GetKeyDown(KeyCode.F)) { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
+                if ((Input.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use))) { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
             }
         }
 

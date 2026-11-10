@@ -209,6 +209,16 @@ namespace PryingEyes
             _ = Shot; _ = HitTick; _ = Kill; _ = Hurt; _ = Reload; _ = Step(0); _ = Step(1); _ = Step(2);
             _ = Bell; _ = Ding; _ = Doors; _ = Creak; _ = Whisper; _ = Wind; _ = RoomTone;
             _ = Tap; _ = Strike; _ = MonkDeath; _ = EyeHum; _ = EyeStare; _ = EyeBurst;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Web non supporta i thread C#; genera questi suoni durante il caricamento.
+            if (chants == null)
+            {
+                var first = SoundGen.MonkChant(600, out chantRate);
+                var second = SoundGen.MonkChant(601, out int secondRate);
+                chants = new[] { Clip("litania0", first, chantRate), Clip("litania1", second, secondRate) };
+            }
+            if (waltz == null) waltz = Clip("valzer", SoundGen.Waltz(out waltzRate), waltzRate);
+#else
             if (chantTasks == null)
                 chantTasks = new[]
                 {
@@ -216,6 +226,7 @@ namespace PryingEyes
                     Task.Run(() => SoundGen.MonkChant(601, out int _)),
                 };
             if (waltzTask == null) waltzTask = Task.Run(() => SoundGen.Waltz(out waltzRate));
+#endif
         }
 
         public static bool WaltzReady => waltz != null || (waltzTask != null && waltzTask.IsCompleted);

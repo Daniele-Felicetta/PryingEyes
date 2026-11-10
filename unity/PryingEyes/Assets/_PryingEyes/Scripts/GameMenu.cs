@@ -48,7 +48,7 @@ namespace PryingEyes
         void Update()
         {
             if (Blocked) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
-            if (!Input.GetKeyDown(KeyCode.Escape)) return;
+            if (!Input.GetKeyDown(KeyCode.Escape) && !TouchControls.Down(TouchControls.Action.Pause)) return;
             if (settingsPanel.gameObject.activeSelf) { Back(); return; }
             if (InMenu) return;
             if (Paused) Resume(); else Pause();

@@ -89,7 +89,7 @@ namespace PryingEyes
             float dt = Time.deltaTime;
             if (cd > 0f) cd -= dt;
             hud.SetPingCooldown(cd > 0f ? cd / Cooldown : 0f);
-            if (!GameMenu.Blocked && gm.player.alive && !fd.transitioning && Input.GetKeyDown(KeyCode.V)) TryPing();
+            if (!GameMenu.Blocked && gm.player.alive && !fd.transitioning && (Input.GetKeyDown(KeyCode.V) || TouchControls.Down(TouchControls.Action.Ping))) TryPing();
             TickWave();
             TickArrow(dt, fd, hud);
         }

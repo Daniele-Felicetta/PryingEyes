@@ -34,6 +34,19 @@ namespace PryingEyes.EditorTools
             Windows();
         }
 
+        public static void Web()
+        {
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { "Assets/_PryingEyes/Scenes/Torre.unity" },
+                locationPathName = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "../Builds/Web")),
+                target = BuildTarget.WebGL,
+                options = BuildOptions.None
+            });
+            Debug.Log("[PryingEyes] Web build: " + report.summary.result + " errors=" + report.summary.totalErrors);
+            if (report.summary.result != BuildResult.Succeeded) EditorApplication.Exit(2);
+        }
+
         public static void Windows()
         {
             // la Torre (piani procedurali) e' la scena principale; la hall classica resta nel progetto ma fuori dalla build
