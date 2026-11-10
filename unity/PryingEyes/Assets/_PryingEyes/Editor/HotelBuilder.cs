@@ -101,6 +101,14 @@ namespace PryingEyes.EditorTools
                 var l = layers.GetArrayElementAtIndex(i);
                 if (string.IsNullOrEmpty(l.stringValue)) l.stringValue = i == 8 ? "Weapon" : ("User Layer " + i);
             }
+            // strato di rendering "Arma" (bit 1): senza un nome definito URP scarta i bit oltre il primo dalle maschere delle luci
+            var rls = tm.FindProperty("m_RenderingLayers");
+            if (rls != null)
+            {
+                bool has = false;
+                for (int i = 0; i < rls.arraySize; i++) if (rls.GetArrayElementAtIndex(i).stringValue == "Arma") has = true;
+                if (!has) { rls.InsertArrayElementAtIndex(rls.arraySize); rls.GetArrayElementAtIndex(rls.arraySize - 1).stringValue = "Arma"; }
+            }
             tm.ApplyModifiedProperties();
         }
 

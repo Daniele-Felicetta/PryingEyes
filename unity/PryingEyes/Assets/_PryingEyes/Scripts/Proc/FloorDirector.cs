@@ -18,6 +18,7 @@ namespace PryingEyes.Proc
 
         int lit, total, deaths;
         bool exitOpen, firstHorde, lastHorde;
+        public bool ExitOpen => exitOpen;
         float trickleT, floorTime, hudT, probeT;
         Room playerRoom;
         GameManager gm;
@@ -54,6 +55,7 @@ namespace PryingEyes.Proc
         public void StartRun(int seed = 0)
         {
             gm = GameManager.I;
+            StealthRig.Install();      // torcia, ping, freccia, cuore (Scripts/Stealth)
             runSeed = seed != 0 ? seed : ArgInt("-seed", Random.Range(1, 1 << 28));
             floor = 0;
             deaths = 0;
@@ -79,6 +81,8 @@ namespace PryingEyes.Proc
                 yield return null;
             }
             floor = n;
+            // piu' si scende, piu' buio: la scala di tutte le luci del piano, letta da RoomKits.AddLight mentre costruisce
+            LightPool.Dim = Mathf.Lerp(0.42f, 0.27f, Mathf.Clamp01((n - 1) / 7f));
             var plan = PlanGen.Generate(runSeed + n * 1013, n);
             if (plan == null) { Debug.LogError("[PryingEyes] piano non generabile: " + PlanGen.LastFailure); yield break; }
             float t0 = Time.realtimeSinceStartup;
@@ -94,6 +98,11 @@ namespace PryingEyes.Proc
 
             // obiettivo: candele da accendere; uscita sigillata finche' non lo sono tutte
             lit = 0; total = cur.candles.Count; exitOpen = false; firstHorde = false; lastHorde = false;
+            Guide.I?.ClearMarks();
+            Stealth.Reset();
+            PlaceBatteries(plan);
+            BuildPatrolPoints(plan);
+            PopulateFloor(plan);
             foreach (var c in cur.candles) c.onLit += OnCandle;
             if (cur.exit != null)
             {
@@ -103,7 +112,7 @@ namespace PryingEyes.Proc
             }
             PlaceWallBuys(plan);
             StartCoroutine(Gramophone(plan));
-            floorTime = 0f; trickleT = 22f; hudT = 0f;
+            floorTime = 0f; trickleT = 40f; hudT = 0f;
 
             // giocatore nella cabina di arrivo
             var lift = cur.arrival;
@@ -184,8 +193,26 @@ namespace PryingEyes.Proc
         {
             var rnd = new Rng(plan.seed + 77);
             bool churchy = plan.startInChurch;
-            RenderSettings.fogDensity = rnd.Range(0.016f, 0.026f);
-            RenderSettings.fogColor = churchy ? new Color(0.04f, 0.06f, 0.10f) : new Color(0.07f, 0.055f, 0.06f);
+            float deep = Mathf.Clamp01((floor - 1) / 7f);
+            // nebbia piu' fitta e scura: oltre la luce della torcia il piano sparisce
+            RenderSettings.fogDensity = rnd.Range(0.026f, 0.036f) * Mathf.Lerp(1f, 1.25f, deep);
+            RenderSettings.fogColor = churchy ? new Color(0.025f, 0.035f, 0.06f) : new Color(0.04f, 0.03f, 0.035f);
+            // ambiente quasi spento: senza lampade ne' torcia si intravede appena la sagoma delle cose
+            float amb = Mathf.Lerp(0.22f, 0.14f, deep);
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.13f, 0.15f, 0.21f) * amb;
+            RenderSettings.ambientEquatorColor = new Color(0.095f, 0.095f, 0.11f) * amb;
+            RenderSettings.ambientGroundColor = new Color(0.05f, 0.046f, 0.05f) * amb;
+            RenderSettings.reflectionIntensity = 0.30f;     // il cubemap della hall illuminata, al buio, farebbe brillare i metalli
+            // grading piu' duro (profilo copiato in istanza: l'asset non cambia)
+            var vol = FindFirstObjectByType<UnityEngine.Rendering.Volume>();
+            if (vol != null && vol.profile != null)
+            {
+                var prof = vol.profile;
+                if (prof.TryGet(out UnityEngine.Rendering.Universal.ColorAdjustments ca)) { ca.saturation.Override(-24f); ca.contrast.Override(18f); }
+                if (prof.TryGet(out UnityEngine.Rendering.Universal.Vignette vg)) { vg.intensity.Override(0.46f); vg.smoothness.Override(0.5f); }
+                if (prof.TryGet(out UnityEngine.Rendering.Universal.FilmGrain fg)) fg.intensity.Override(0.30f);
+            }
         }
 
         // ------------------------------------------------------------------ candele e uscita
@@ -195,6 +222,8 @@ namespace PryingEyes.Proc
             var hud = gm.hud;
             gm.AddPoints(60);
             gm.player.weapon.AddAmmoFraction(0.18f);
+            // accendere una candela si sente e si vede: i preti vicini vengono a controllare
+            Noise.Emit(c.transform.position, 26f, NoiseKind.Candle);
             if (lit >= total)
             {
                 OpenExit();
@@ -202,8 +231,9 @@ namespace PryingEyes.Proc
             else
             {
                 hud?.Toast($"Candela accesa ({lit}/{total}). Qualcosa si muove nell'albergo.");
-                Horde(3 + floor + lit, "candela");
+                Summon(1 + floor / 3 + lit / 2, c.transform.position);
             }
+            Guide.I?.CandleLit(c, exitOpen);
             RefreshObjective();
         }
 
@@ -213,7 +243,23 @@ namespace PryingEyes.Proc
             if (cur.exit != null) { cur.exit.unlocked = true; cur.exit.Open(); }
             gm.hud?.Toast("Tutte le candele sono accese. Le porte dell'ascensore si aprono.");
             Sfx.UI(SoundBank.Toll, 0.7f);
-            if (!lastHorde) { lastHorde = true; Horde(4 + floor * 2, "ultima"); }
+            if (!lastHorde && cur.exit != null) { lastHorde = true; Summon(2 + floor / 2, cur.exit.frontPoint); }
+            // faro verde sulla porta dell'ascensore: nel buio si vede da lontano
+            if (cur.exit != null)
+            {
+                var bg = new GameObject("FaroUscita");
+                bg.transform.SetParent(cur.root.transform, false);
+                bg.transform.position = cur.exit.frontPoint + Vector3.up * 2.2f;
+                var bl = bg.AddComponent<Light>();
+                bl.type = LightType.Point;
+                bl.color = new Color(0.45f, 1f, 0.6f);
+                bl.intensity = 2.6f;
+                bl.range = 11f;
+                bl.shadows = LightShadows.None;
+                LightPool.Register(bl, false, true);
+                var bp = bg.AddComponent<LightPulse>();
+                bp.l = bl; bp.baseI = 2.6f; bp.amp = 0.35f; bp.speed = 2.6f;
+            }
         }
 
         void RefreshObjective()
@@ -221,10 +267,7 @@ namespace PryingEyes.Proc
             var hud = gm.hud;
             if (hud == null) return;
             if (exitOpen) { hud.SetObjective("Raggiungi l'ascensore e scendi"); return; }
-            float best = float.MaxValue;
-            var p = gm.player.transform.position;
-            foreach (var c in cur.candles) if (c != null && !c.lit) best = Mathf.Min(best, Vector3.Distance(p, c.transform.position));
-            hud.SetObjective(best < float.MaxValue ? $"Accendi le candele {lit}/{total}  ·  la più vicina a {best:F0} m" : $"Candele {lit}/{total}");
+            hud.SetObjective($"Accendi le candele {lit}/{total}  ·  V per il ping");
         }
 
         IEnumerator Descend()
@@ -248,6 +291,17 @@ namespace PryingEyes.Proc
         {
             deaths++;
             if (cur != null && cur.arrival != null) cur.arrival.SetOpenInstant(true);
+            Enemy.ForgetAll();                 // chi ti cercava ha perso la pista
+            StartCoroutine(Grace());
+        }
+
+        /// <summary>Due secondi e mezzo di tregua alla rinascita, per non essere ucciso di nuovo sulla porta.</summary>
+        IEnumerator Grace()
+        {
+            var pl = gm.player;
+            pl.invulnerable = true;
+            yield return new WaitForSeconds(2.5f);
+            if (!transitioning) pl.invulnerable = false;
         }
 
         // ------------------------------------------------------------------ nemici
@@ -311,6 +365,115 @@ namespace PryingEyes.Proc
                 if (cur == null) yield break;
                 if (Enemy.All.Count < cap) SpawnOne();
                 yield return new WaitForSeconds(Random.Range(0.5f, 1.3f));
+            }
+        }
+
+        // ------------------------------------------------------------------ pile, pattuglie, richiami
+        /// <summary>Pile per la torcia sparse per il piano: una non lontano dall'arrivo (un premio presto), le altre in stanze a caso,
+        /// sempre in punti liberi, raggiungibili a piedi e distanziati tra loro. Il numero cala di una ogni tre piani.</summary>
+        void PlaceBatteries(Plan plan)
+        {
+            var lift = cur.arrival;
+            if (lift == null || !NavMesh.SamplePosition(lift.frontPoint, out NavMeshHit fh, 2.5f, NavMesh.AllAreas)) return;
+            var dist = plan.WalkDist(plan.start);
+            var path = new NavMeshPath();
+            bool Reach(Vector3 target)
+            {
+                if (!NavMesh.SamplePosition(target, out NavMeshHit th, 0.7f, NavMesh.AllAreas)) return false;
+                return NavMesh.CalculatePath(fh.position, th.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
+            }
+            var rng = new Rng(plan.seed + 4242);
+            int n = Mathf.Max(3, total + 2 - floor / 3);
+            var rooms = new List<Room>();
+            foreach (var r in plan.rooms)
+                if (!r.IsLift && dist[r.id] < float.MaxValue && r.W * r.D >= 500) rooms.Add(r);
+            for (int i = rooms.Count - 1; i > 0; i--) { int j = rng.Range(0, i + 1); var t = rooms[i]; rooms[i] = rooms[j]; rooms[j] = t; }
+            int first = rooms.FindIndex(r => dist[r.id] >= 8f && dist[r.id] <= 30f);
+            if (first > 0) { var t = rooms[first]; rooms.RemoveAt(first); rooms.Insert(0, t); }
+            var placed = new List<Vector3>();
+            int made = 0;
+            for (int pass = 0; pass < 2 && made < n; pass++)
+                foreach (var room in rooms)
+                {
+                    if (made >= n) break;
+                    for (int tries = 0; tries < 40; tries++)
+                    {
+                        float x = rng.Range(room.x0 * 0.1f + 0.7f, room.x1 * 0.1f - 0.7f), z = rng.Range(room.z0 * 0.1f + 0.7f, room.z1 * 0.1f - 0.7f);
+                        var q = new Vector3(x, 0.02f, z);
+                        bool tooNear = false;
+                        foreach (var p in placed) if ((p - q).sqrMagnitude < 49f) { tooNear = true; break; }
+                        if (tooNear) continue;
+                        if (Physics.CheckBox(q + Vector3.up * 0.3f, new Vector3(0.22f, 0.2f, 0.22f), Quaternion.identity, ~0, QueryTriggerInteraction.Ignore)) continue;
+                        if (!Reach(q)) continue;
+                        Pila.Make(q, rng.Range(0f, 360f), cur.root.transform);
+                        placed.Add(q);
+                        made++;
+                        break;
+                    }
+                }
+            Debug.Log($"[PryingEyes] piano {floor}: {made}/{n} pile");
+        }
+
+        /// <summary>Dove pattugliano i preti: il centro di ogni stanza e qualche punto in piu' in quelle grandi.</summary>
+        void BuildPatrolPoints(Plan plan)
+        {
+            var pts = Enemy.PatrolPoints;
+            pts.Clear();
+            var rng = new Rng(plan.seed + 321);
+            foreach (var r in plan.rooms)
+            {
+                if (r.IsLift) continue;
+                pts.Add(new Vector3(r.CenterX, 0f, r.CenterZ));
+                int extra = r.W * r.D > 3000 ? 2 : r.W * r.D > 1400 ? 1 : 0;
+                for (int i = 0; i < extra; i++)
+                    pts.Add(new Vector3(rng.Range(r.x0 * 0.1f + 1.5f, r.x1 * 0.1f - 1.5f), 0f, rng.Range(r.z0 * 0.1f + 1.5f, r.z1 * 0.1f - 1.5f)));
+            }
+        }
+
+        /// <summary>Preti che pattugliano il piano fin dall'inizio, in stanze lontane dall'arrivo (almeno 20 m a piedi, se il piano lo permette).</summary>
+        void PopulateFloor(Plan plan)
+        {
+            var dist = plan.WalkDist(plan.start);
+            var rng = new Rng(plan.seed + 555);
+            var rooms = new List<Room>();
+            foreach (var r in plan.rooms)
+                if (!r.IsLift && dist[r.id] < float.MaxValue && dist[r.id] >= 20f) rooms.Add(r);
+            if (rooms.Count == 0)
+                foreach (var r in plan.rooms)
+                    if (!r.IsLift && dist[r.id] < float.MaxValue && dist[r.id] >= 10f) rooms.Add(r);
+            if (rooms.Count == 0) return;
+            int n = Mathf.Min(7, 2 + floor / 2 + (floor >= 3 ? 1 : 0));
+            for (int i = 0; i < n; i++)
+            {
+                var room = rooms[rng.Range(0, rooms.Count)];
+                var t = PickType();
+                Vector3 p = new Vector3(rng.Range(room.x0 * 0.1f + 1.2f, room.x1 * 0.1f - 1.2f), 0f, rng.Range(room.z0 * 0.1f + 1.2f, room.z1 * 0.1f - 1.2f));
+                if (t == Enemy.EnemyType.Occhio) p.y = Mathf.Min(2.2f, room.wallH - 0.7f);
+                else if (NavMesh.SamplePosition(p, out NavMeshHit nh, 2.5f, NavMesh.AllAreas)) p = nh.position;
+                else continue;
+                Enemy.Spawn(t, p);
+            }
+        }
+
+        /// <summary>Richiama dei preti verso un punto (una candela appena accesa, l'ascensore): nascono fuori vista e vanno a controllare.</summary>
+        void Summon(int count, Vector3 target)
+        {
+            StartCoroutine(SummonCo(count, target));
+        }
+
+        IEnumerator SummonCo(int count, Vector3 target)
+        {
+            int cap = 7 + floor;
+            yield return new WaitForSeconds(Random.Range(2f, 5f));
+            for (int i = 0; i < count; i++)
+            {
+                if (cur == null) yield break;
+                if (Enemy.All.Count < cap)
+                {
+                    var t = PickType();
+                    if (PickSpawn(t == Enemy.EnemyType.Occhio, out Vector3 p)) Enemy.Spawn(t, p, target);
+                }
+                yield return new WaitForSeconds(Random.Range(1.5f, 4f));
             }
         }
 
@@ -420,12 +583,12 @@ namespace PryingEyes.Proc
             if (!transitioning && gm.player.alive)
             {
                 floorTime += dt;
-                if (!firstHorde && floorTime > 16f) { firstHorde = true; Horde(2 + floor / 2, "primo"); }
+                // il piano si ripopola piano piano: ogni tanto un prete nuovo, che pattuglia
                 trickleT -= dt;
                 if (trickleT <= 0f)
                 {
-                    trickleT = Mathf.Lerp(24f, 10f, Mathf.Clamp01(floor / 10f)) * Random.Range(0.8f, 1.25f);
-                    if (floorTime > 8f && Enemy.All.Count < 4 + floor) SpawnOne();
+                    trickleT = Mathf.Lerp(50f, 28f, Mathf.Clamp01(floor / 10f)) * Random.Range(0.8f, 1.25f);
+                    if (floorTime > 25f && Enemy.All.Count < 3 + floor) SpawnOne();
                 }
             }
             hudT -= dt;

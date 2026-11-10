@@ -29,6 +29,8 @@ namespace PryingEyes
         public static bool autoTest = false;
         /// <summary>-guntest: niente bot e niente nemici, il test passa in rassegna tutte le armi (foto e numeri).</summary>
         public static bool gunTest = false;
+        /// <summary>-nofire (o -stealthtest): il bot di prova non spara da solo; senza, ogni sparo sveglia tutto il piano.</summary>
+        public static bool noFire = false;
         public static int shotsFired = 0, shotsHit = 0, damageTaken = 0;
         float autoT = 0f, reportT = 0f, walkerMaxY = 0f;
         // -botmezz: il bot gioca dal soppalco (y 4.2), dove i nemici colpivano attraverso il pavimento
@@ -48,7 +50,8 @@ namespace PryingEyes
             score = 500;
             autoTest = HasArg("-autotest") || HasArg("-guntest");
             gunTest = HasArg("-guntest");
-            if (autoTest && HasArg("-procbot")) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
+            noFire = HasArg("-nofire") || HasArg("-stealthtest");
+            if (autoTest && (HasArg("-procbot") || HasArg("-stealthtest"))) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
             camShots = HasArg("-camshots");
             if (autoTest)
                 System.IO.File.WriteAllText(REPORT, "t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n");
@@ -148,7 +151,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
-                if (autoT >= (proc ? (HasArg("-procbot") || gunTest || HasArg("-leantest") ? 1e9f : 70f) : 100f))
+                if (autoT >= (proc ? (HasArg("-procbot") || HasArg("-stealthtest") || gunTest || HasArg("-leantest") ? 1e9f : 70f) : 100f))
                 {
                     System.IO.File.AppendAllText(REPORT, $"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
                     Application.Quit();

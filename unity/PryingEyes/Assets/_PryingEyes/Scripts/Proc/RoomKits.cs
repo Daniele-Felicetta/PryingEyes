@@ -261,7 +261,7 @@ namespace PryingEyes.Proc
         static float WallLen(Ctx c, Side s) => Plan.AlongX(s) ? c.W : c.D;
 
         // ---------------------------------------------------------------- luci
-        static PoolLight AddLight(Ctx c, Vector3 pos, Color col, float intensity, float range, bool shadow, bool wanted = true, Transform parent = null, LightType type = LightType.Point)
+        static PoolLight AddLight(Ctx c, Vector3 pos, Color col, float intensity, float range, bool shadow, bool wanted = true, Transform parent = null, LightType type = LightType.Point, bool dim = true)
         {
             var g = new GameObject("Luce");
             g.transform.SetParent(parent != null ? parent : c.parent, false);
@@ -269,7 +269,7 @@ namespace PryingEyes.Proc
             var l = g.AddComponent<Light>();
             l.type = type;
             l.color = col;
-            l.intensity = intensity;
+            l.intensity = dim ? intensity * LightPool.Dim : intensity;
             l.range = range;
             l.shadows = LightShadows.None;
             c.fi.lights.Add(l);

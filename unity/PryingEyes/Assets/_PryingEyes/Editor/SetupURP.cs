@@ -68,6 +68,7 @@ namespace PryingEyes.EditorTools
             SetBool(so, "m_ReflectionProbeBoxProjection", true);
             SetBool(so, "m_ReflectionProbeBlending", true);
             SetBool(so, "m_RequireDepthTexture", true);              // le lame di luna si fermano sulle superfici
+            SetBool(so, "m_SupportsLightLayers", true);              // strati di luce: la torcia non brucia l'arma in mano, la luce di riempimento non illumina i muri
             so.ApplyModifiedPropertiesWithoutUndo();
 
             var ro = new SerializedObject(renderer);

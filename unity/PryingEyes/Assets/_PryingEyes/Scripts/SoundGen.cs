@@ -6,7 +6,7 @@ namespace PryingEyes
     /// <summary>Suoni procedurali, nessun file audio: filtri biquad, inviluppi, rumore e i singoli suoni del gioco.
     /// Ogni generatore restituisce un array di campioni mono; usa System.Random e niente API di Unity che non siano
     /// matematica, cosi' i suoni lunghi (il valzer) si possono calcolare in un thread.</summary>
-    public static class SoundGen
+    public static partial class SoundGen
     {
         public const int Rate = 44100;
 

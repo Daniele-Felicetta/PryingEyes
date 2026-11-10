@@ -38,6 +38,8 @@ namespace PryingEyes
         float saccT;
         float clock;
         public bool dead;
+        /// <summary>Moltiplica il bagliore dell'iride: piu' forte quando il prete e' allertato.</summary>
+        public float glowBoost = 1f;
 
         static readonly int Emission = Shader.PropertyToID("_EmissionColor");
 
@@ -214,6 +216,7 @@ namespace PryingEyes
             // l'iride brilla in ambra (si legge nel buio); piu' forte quando fissa, spenta da morto
             float k = dead ? 0.05f : 1f + (stareT > 0f ? 2.2f : 0f) + (hitT > 0f ? 1.2f : 0f);
             k *= 1f + 0.12f * Mathf.Sin(clock * 3.1f);
+            if (!dead) k *= glowBoost;
             var col = Color.white * (0.7f * k);
             foreach (var r in irisRenderers)
             {

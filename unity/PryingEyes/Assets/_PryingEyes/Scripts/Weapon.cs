@@ -45,6 +45,9 @@ namespace PryingEyes
         GameObject flashA, flashB;
         Light flashLight;
         Light fill;
+        /// <summary>Strato di rendering dell'arma e delle mani (il mondo sta nello strato 1): la torcia e le lampade del piano
+        /// la illuminano (le lampade) o no (la torcia, che a 40 cm la brucerebbe), e la luce di riempimento vale solo qui.</summary>
+        public const uint ViewLayer = 2u;
         Camera scopeCam;
         RenderTexture scopeRT;
         Renderer scopeRenderer;
@@ -305,7 +308,7 @@ namespace PryingEyes
             rig = model.GetComponent<WeaponRig>();
             if (rig == null) rig = model.AddComponent<WeaponRig>();
             rig.Setup();
-            foreach (var r in rig.renderers) { if (r != null) r.shadowCastingMode = ShadowCastingMode.Off; }
+            foreach (var r in rig.renderers) { if (r != null) { r.shadowCastingMode = ShadowCastingMode.Off; r.renderingLayerMask = ViewLayer; } }
 
             AddHands(root, d);
             BuildFlash(root, d);
@@ -337,6 +340,7 @@ namespace PryingEyes
             flashLight.intensity = 0f;
             flashLight.range = 6f;
             flashLight.shadows = LightShadows.None;
+            Stealth.SetLightLayers(flashLight, 3u);      // il lampo di bocca illumina mondo e arma
             // luce di riempimento dedicata all'arma (la hall e' buia e il metallo sparirebbe)
             fill = new GameObject("ViewmodelFill").AddComponent<Light>();
             fill.transform.SetParent(root.transform, false);
@@ -345,9 +349,11 @@ namespace PryingEyes
             fill.type = LightType.Point;
             fill.color = new Color(1f, 0.95f, 0.88f);
             // in Unity il diffuso e' albedo x illuminamento (senza 1/pi): E = intensita' / distanza^2, a 65 cm ~1.3 -> polimero nero a ~70/255
-            fill.intensity = 0.55f;
+            fill.intensity = 0.75f;
             fill.range = 2.6f;
             fill.shadows = LightShadows.None;
+            // solo l'arma e le mani: se illuminasse anche i muri vicini, al buio si vedrebbe un alone fantasma intorno al giocatore
+            Stealth.SetLightLayers(fill, ViewLayer);
         }
 
         static GameObject MakeQuad(string name, Transform parent, Vector3 pos, Material m)
@@ -385,7 +391,7 @@ namespace PryingEyes
                 else if (t.name == "mano_s") handL = t;
                 t.gameObject.layer = 2;
             }
-            foreach (var r in g.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = ShadowCastingMode.Off;
+            foreach (var r in g.GetComponentsInChildren<Renderer>(true)) { r.shadowCastingMode = ShadowCastingMode.Off; r.renderingLayerMask = ViewLayer; }
             if (handR != null && d.handDrop != 0f) handR.position += root.transform.TransformVector(new Vector3(0f, -d.handDrop, 0f));
             if (handL != null)
             {
@@ -505,7 +511,7 @@ namespace PryingEyes
             // ----- fuoco
             fireT -= dt;
             if (cycleT > 0f) cycleT -= dt;
-            bool autoBot = GameManager.autoTest && !GameManager.gunTest;
+            bool autoBot = GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire;
             bool press = Input.GetMouseButtonDown(0) || (autoBot && Time.time - lastShot > 0.2f);
             bool held = Input.GetMouseButton(0) || autoBot;
             if (!held) { triggerHeld = false; dryPlayed = false; }
@@ -683,6 +689,9 @@ namespace PryingEyes
             mag--;
             lastShot = Time.time;
             GameManager.shotsFired++;
+            // i preti sentono lo sparo (e ne vedono il lampo): l'arma silenziata si sente da molto meno lontano
+            Stealth.NoteShot(d.suppressed);
+            Noise.Emit(cam.position, d.suppressed ? 11f : 42f, NoiseKind.Gunshot);
             var m = Mode;
             fireT = m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm);
             if (d.cycle > 0f && m != FireMode.Double) StartCycle(d, true);

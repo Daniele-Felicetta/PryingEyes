@@ -8,7 +8,7 @@ namespace PryingEyes
     /// Tono "grand hotel": Georgia di sistema (niente font da scaricare), avorio su nero, tutto in italiano,
     /// niente scritte da sala giochi. L'ondata e' un numero romano, i nemici sono "presenze"; l'hit marker resta
     /// quello stile CoD.</summary>
-    public class HUD : MonoBehaviour
+    public partial class HUD : MonoBehaviour
     {
         Slider hpBar, shieldBar;
         Text ammoText, reserveText, reloadText, waveLabel, waveText, enemiesText, scoreText, bannerText, bannerSub, toastText;
@@ -98,6 +98,9 @@ namespace PryingEyes
             var ar = adsVig.GetComponent<RectTransform>();
             ar.anchorMin = Vector2.zero; ar.anchorMax = Vector2.one;
             ar.offsetMin = Vector2.zero; ar.offsetMax = Vector2.zero;
+
+            // componente furtiva (HUD.Stealth.cs): torcia, segnalini dei preti, freccia dell'ascensore, ping
+            BuildStealthUI();
 
             // in alto a sinistra: ondata in numeri romani, presenze, punti
             waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(26, -16), new Vector2(300, 22), 15, TextAnchor.UpperLeft, "ondata", Dim, FontStyle.Italic);
@@ -371,6 +374,7 @@ namespace PryingEyes
             float dt = Time.deltaTime;
             UpdateHitmarker(dt);
             UpdateCrosshair(dt);
+            UpdateStealthUI(dt);
             if (bannerT > 0f)
             {
                 bannerT -= dt;
@@ -438,6 +442,8 @@ namespace PryingEyes
         public void SetEnemiesLeft(int n)
         {
             if (enemiesText == null) return;
+            // nei piani il numero esatto delle presenze sarebbe un indizio gratis: al buio non lo si sa
+            if (Stealth.Enabled) { enemiesText.text = ""; return; }
             enemiesText.text = n <= 0 ? "" : n == 1 ? "una presenza" : n + " presenze";
         }
 

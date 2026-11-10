@@ -82,7 +82,7 @@ namespace PryingEyes
 
     /// <summary>I suoni del gioco, generati una volta da SoundGen e tenuti in memoria. Il valzer (lento da calcolare)
     /// parte in un thread all'avvio e si usa quando e' pronto.</summary>
-    public static class SoundBank
+    public static partial class SoundBank
     {
         static AudioClip[] shots, steps0, steps1, steps2, taps, creaks, chants, whispers;
         static AudioClip hit, kill, hurt, reload, bell, ding, doors, strike, monkDeath, eyeHum, eyeStare, eyeBurst, wind, room, waltz;

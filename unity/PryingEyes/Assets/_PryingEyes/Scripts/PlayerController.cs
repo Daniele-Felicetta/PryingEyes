@@ -90,6 +90,11 @@ namespace PryingEyes
             vel = Vector3.zero;
         }
 
+        /// <summary>Per la componente furtiva: come si muove il giocatore adesso (velocita' orizzontale, corsa, accovacciato).</summary>
+        public float SpeedH { get; private set; }
+        public bool IsSprinting { get; private set; }
+        public bool IsCrouching { get; private set; }
+
         public float yaw = Mathf.PI, pitch, lean, bobPhase;
         float coyote, jumpBuf, slideT, eyeH, fovKick;
         bool crouch, slide;
@@ -318,6 +323,9 @@ namespace PryingEyes
 
             // --- camera ---
             float hs = new Vector2(vel.x, vel.z).magnitude;
+            SpeedH = hs;
+            IsSprinting = wantSprint && !slide && hs > 1f;
+            IsCrouching = crouch || slide;
             float bobAmp = (crouch ? 0.45f : 1f) * (1f - weapon.ads * 0.8f) * Mathf.Min(1f, hs / 6f);
             bobPhase += dt * (4f + hs * 1.35f) * (cc.isGrounded ? 1f : 0.15f);
             // un passo per ogni ciclo del dondolio (bobY = sin(2*fase): un ciclo ogni pi greco di fase)
@@ -326,7 +334,14 @@ namespace PryingEyes
             {
                 lastStep = stepIdx;
                 if (cc.isGrounded && hs > 1.2f)
-                    Synth.Step(Surface(), Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f));
+                {
+                    int surf = Surface();
+                    Synth.Step(surf, Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f));
+                    // i preti sentono i passi: piu' lontano di corsa, quasi niente accovacciati o sulla moquette
+                    float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : 1.15f;
+                    float loud = crouch || slide ? 0.4f : wantSprint ? 1.6f : 0.95f;
+                    Noise.Emit(transform.position, 6.8f * loud * surfK, NoiseKind.Step);
+                }
             }
             float bobY = Mathf.Sin(bobPhase * 2f) * 0.032f * bobAmp;
             float bobX = Mathf.Cos(bobPhase) * 0.026f * bobAmp;
@@ -401,6 +416,7 @@ namespace PryingEyes
             lean = 0f; recP = recY = recTargetP = recTargetY = 0f;
             // mantieni le armi comprate, con caricatore pieno e riserva almeno quella di partenza
             weapon.RespawnAmmo();
+            Torch.I?.OnRespawn();
             hud?.SetBars(hp, shield);
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;

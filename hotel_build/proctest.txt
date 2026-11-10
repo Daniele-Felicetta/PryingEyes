@@ -1,0 +1,137 @@
+fps=0 v=0,12 dir=(0,0,0,0) cc=28,32 t=0 piano=1 candele=0/0 uscita=chiusa hp=100 nemici=0 pos=(0,1) stanza=Atrio morti=0 kill=0 punti=500
+fps=60 v=10,86 dir=(-0,6,-0,8) cc=3,90 t=5 piano=1 candele=0/2 uscita=chiusa hp=100 nemici=0 pos=(54,1) stanza=Presbiterio morti=0 kill=0 punti=500
+fps=60 v=2,42 dir=(-1,0,0,2) cc=3,90 t=10 piano=1 candele=1/2 uscita=chiusa hp=100 nemici=3 pos=(44,-5) stanza=Navatella morti=0 kill=0 punti=560
+fps=60 v=3,34 dir=(-1,0,0,1) cc=3,90 t=15 piano=1 candele=1/2 uscita=chiusa hp=100 nemici=5 pos=(28,1) stanza=Nartece morti=0 kill=0 punti=560
+fps=58 v=2,83 dir=(-1,0,0,0) cc=3,90 t=20 piano=1 candele=2/2 uscita=aperta hp=88 nemici=12 pos=(14,2) stanza=Corridoio morti=0 kill=0 punti=620
+fps=60 v=3,64 dir=(-1,0,0,0) cc=3,90 t=25 piano=1 candele=2/2 uscita=aperta hp=64 nemici=13 pos=(-4,2) stanza=Atrio morti=0 kill=0 punti=620
+fps=60 v=11,64 dir=(-1,0,0,0) cc=3,90 t=30 piano=2 candele=0/2 uscita=chiusa hp=64 nemici=0 pos=(47,-27) stanza=Ascensore morti=0 kill=0 punti=770
+fps=60 v=2,90 dir=(-0,5,0,9) cc=3,90 t=35 piano=2 candele=0/2 uscita=chiusa hp=69 nemici=0 pos=(35,-18) stanza=Navata morti=0 kill=0 punti=770
+fps=60 v=2,52 dir=(0,1,1,0) cc=3,90 t=40 piano=2 candele=1/2 uscita=chiusa hp=84 nemici=3 pos=(30,-6) stanza=Navatella morti=0 kill=0 punti=830
+fps=60 v=2,52 dir=(-1,0,0,0) cc=3,90 t=45 piano=2 candele=1/2 uscita=chiusa hp=90 nemici=6 pos=(20,1) stanza=Corridoio morti=0 kill=0 punti=830
+fps=60 v=3,46 dir=(-0,5,0,9) cc=0,43 t=50 piano=2 candele=1/2 uscita=chiusa hp=80 nemici=9 pos=(3,3) stanza=Camera morti=0 kill=0 punti=830
+fps=60 v=0,58 dir=(1,0,-0,1) cc=0,00 t=55 piano=2 candele=2/2 uscita=aperta hp=70 nemici=16 pos=(5,2) stanza=Corridoio morti=0 kill=0 punti=890
+fps=60 v=1,15 dir=(1,0,0,0) cc=3,90 t=60 piano=2 candele=2/2 uscita=aperta hp=2 nemici=17 pos=(11,1) stanza=Corridoio morti=0 kill=0 punti=890
+fps=60 v=8,43 dir=(-1,0,0,1) cc=3,90 t=65 piano=2 candele=2/2 uscita=aperta hp=100 nemici=17 pos=(43,-27) stanza=Sacrestia morti=1 kill=0 punti=900
+fps=60 v=3,39 dir=(-0,3,1,0) cc=3,90 t=70 piano=2 candele=2/2 uscita=aperta hp=91 nemici=17 pos=(34,-12) stanza=Navata morti=1 kill=0 punti=940
+fps=60 v=2,20 dir=(0,9,0,4) cc=0,00 t=75 piano=2 candele=2/2 uscita=aperta hp=33 nemici=17 pos=(30,-2) stanza=Navatella morti=1 kill=0 punti=940
+fps=60 v=5,52 dir=(-1,0,0,1) cc=3,90 t=80 piano=2 candele=2/2 uscita=aperta hp=100 nemici=17 pos=(43,-26) stanza=Sacrestia morti=2 kill=0 punti=940
+fps=60 v=3,61 dir=(-0,3,1,0) cc=3,90 t=85 piano=2 candele=2/2 uscita=aperta hp=69 nemici=17 pos=(34,-11) stanza=Navata morti=2 kill=0 punti=970
+fps=60 v=4,21 dir=(-1,0,0,0) cc=3,91 t=90 piano=2 candele=2/2 uscita=aperta hp=100 nemici=17 pos=(48,-27) stanza=Navatella morti=3 kill=0 punti=970
+fps=60 v=2,71 dir=(-0,4,0,9) cc=3,90 t=95 piano=2 candele=2/2 uscita=aperta hp=93 nemici=17 pos=(37,-18) stanza=Navata morti=3 kill=0 punti=980
+fps=60 v=2,67 dir=(-0,5,-0,9) cc=3,23 t=100 piano=2 candele=2/2 uscita=aperta hp=100 nemici=17 pos=(48,-26) stanza=Ascensore morti=4 kill=0 punti=980
+fps=60 v=2,90 dir=(-0,3,1,0) cc=2,71 t=105 piano=2 candele=2/2 uscita=aperta hp=68 nemici=15 pos=(36,-18) stanza=Navata morti=4 kill=2 punti=1210
+fps=60 v=2,86 dir=(0,0,0,0) cc=3,90 t=110 piano=2 candele=2/2 uscita=aperta hp=0 nemici=15 pos=(31,-4) stanza=Navatella morti=4 kill=2 punti=1210
+fps=60 v=3,73 dir=(-0,4,0,9) cc=3,90 t=115 piano=2 candele=2/2 uscita=aperta hp=100 nemici=14 pos=(38,-22) stanza=Navata morti=5 kill=3 punti=1300
+fps=60 v=2,20 dir=(-0,6,0,8) cc=3,90 t=120 piano=2 candele=2/2 uscita=aperta hp=100 nemici=14 pos=(48,-27) stanza=Navata morti=6 kill=3 punti=1300
+fps=60 v=2,51 dir=(0,0,0,0) cc=0,00 t=125 piano=2 candele=2/2 uscita=aperta hp=0 nemici=14 pos=(38,-19) stanza=Navata morti=6 kill=3 punti=1330
+fps=60 v=1,28 dir=(-0,6,0,8) cc=3,90 t=130 piano=2 candele=2/2 uscita=aperta hp=100 nemici=14 pos=(40,-25) stanza=Presbiterio morti=7 kill=3 punti=1390
+fps=60 v=1,65 dir=(0,0,0,0) cc=0,00 t=135 piano=2 candele=2/2 uscita=aperta hp=100 nemici=13 pos=(48,-27) stanza=Navata morti=8 kill=4 punti=1460
+fps=60 v=1,69 dir=(-1,0,-0,1) cc=0,00 t=140 piano=2 candele=2/2 uscita=aperta hp=78 nemici=13 pos=(40,-24) stanza=Presbiterio morti=8 kill=4 punti=1510
+fps=60 v=0,00 dir=(0,0,0,0) cc=0,00 t=145 piano=2 candele=2/2 uscita=aperta hp=0 nemici=13 pos=(40,-24) stanza=Presbiterio morti=8 kill=4 punti=1510
+fps=60 v=0,24 dir=(-0,4,0,9) cc=0,00 t=150 piano=2 candele=2/2 uscita=aperta hp=63 nemici=11 pos=(40,-26) stanza=Presbiterio morti=9 kill=6 punti=1700
+fps=60 v=0,79 dir=(-1,0,0,1) cc=3,90 t=155 piano=2 candele=2/2 uscita=aperta hp=100 nemici=11 pos=(44,-27) stanza=Sacrestia morti=10 kill=6 punti=1700
+fps=60 v=0,52 dir=(0,0,0,0) cc=0,00 t=160 piano=2 candele=2/2 uscita=aperta hp=0 nemici=11 pos=(41,-26) stanza=Presbiterio morti=10 kill=6 punti=1760
+INCASTRATO a (42,3,-26,5) verso (26,1,-3,7); teletrasporto
+fps=60 v=2,30 dir=(-0,5,0,8) cc=3,90 t=165 piano=2 candele=2/2 uscita=aperta hp=88 nemici=10 pos=(37,-15) stanza=Navata morti=11 kill=7 punti=1930
+fps=60 v=3,73 dir=(-0,7,-0,7) cc=2,75 t=170 piano=2 candele=2/2 uscita=aperta hp=88 nemici=10 pos=(29,1) stanza=Nartece morti=11 kill=7 punti=1930
+fps=60 v=14,67 dir=(-0,8,-0,6) cc=23,16 t=175 piano=2 candele=2/2 uscita=aperta hp=85 nemici=10 pos=(28,3) stanza=Camera morti=11 kill=7 punti=1930
+fps=60 v=22,00 dir=(1,0,-0,1) cc=22,56 t=180 piano=2 candele=2/2 uscita=aperta hp=85 nemici=10 pos=(26,3) stanza=Corridoio morti=11 kill=7 punti=1930
+fps=60 v=22,00 dir=(0,9,-0,4) cc=22,29 t=185 piano=2 candele=2/2 uscita=aperta hp=100 nemici=10 pos=(27,3) stanza=Corridoio morti=11 kill=7 punti=1930
+fps=60 v=22,00 dir=(-0,3,-0,9) cc=22,27 t=190 piano=2 candele=2/2 uscita=aperta hp=100 nemici=10 pos=(28,2) stanza=Corridoio morti=11 kill=7 punti=1930
+fps=60 v=22,00 dir=(0,1,1,0) cc=22,27 t=195 piano=2 candele=2/2 uscita=aperta hp=100 nemici=10 pos=(27,2) stanza=Corridoio morti=11 kill=7 punti=1930
+fine: piano 2, morti 11, kill 7
+fps=0 v=0,02 dir=(0,0,0,0) cc=0,00 t=0 piano=1 candele=0/0 uscita=chiusa hp=100 nemici=0 pos=(0,0) y=0,1 stanza=Corridoio morti=0 kill=0 punti=500
+fps=60 v=10,85 dir=(-0,6,-0,8) cc=3,90 t=5 piano=1 candele=0/2 uscita=chiusa hp=100 nemici=0 pos=(54,1) y=0,1 stanza=Presbiterio morti=0 kill=0 punti=500
+fps=60 v=2,43 dir=(-1,0,0,2) cc=3,90 t=10 piano=1 candele=1/2 uscita=chiusa hp=100 nemici=3 pos=(44,-5) y=0,1 stanza=Navatella morti=0 kill=0 punti=560
+fps=60 v=3,35 dir=(-1,0,0,1) cc=3,90 t=15 piano=1 candele=1/2 uscita=chiusa hp=100 nemici=5 pos=(28,1) y=0,1 stanza=Nartece morti=0 kill=0 punti=560
+fps=59 v=2,39 dir=(-1,0,0,1) cc=3,91 t=20 piano=1 candele=2/2 uscita=aperta hp=82 nemici=11 pos=(16,1) y=0,1 stanza=Corridoio morti=0 kill=0 punti=620
+fps=60 v=3,47 dir=(-1,0,0,1) cc=3,90 t=25 piano=1 candele=2/2 uscita=aperta hp=62 nemici=13 pos=(-1,1) y=0,1 stanza=Corridoio morti=0 kill=0 punti=620
+fps=60 v=11,35 dir=(0,0,0,0) cc=0,00 t=30 piano=2 candele=0/2 uscita=chiusa hp=62 nemici=0 pos=(48,-27) y=0,1 stanza=Ascensore morti=0 kill=0 punti=770
+fps=60 v=2,62 dir=(-0,5,0,9) cc=3,90 t=35 piano=2 candele=0/2 uscita=chiusa hp=71 nemici=0 pos=(37,-20) y=0,1 stanza=Navata morti=0 kill=0 punti=770
+fps=60 v=2,63 dir=(0,1,1,0) cc=3,90 t=40 piano=2 candele=1/2 uscita=chiusa hp=86 nemici=3 pos=(30,-9) y=0,1 stanza=Navatella morti=0 kill=0 punti=830
+fps=60 v=1,97 dir=(-1,0,0,1) cc=0,00 t=45 piano=2 candele=1/2 uscita=chiusa hp=88 nemici=6 pos=(28,1) y=0,1 stanza=Corridoio morti=0 kill=0 punti=830
+fps=60 v=0,00 dir=(-1,0,0,1) cc=0,00 t=50 piano=2 candele=1/2 uscita=chiusa hp=61 nemici=9 pos=(28,1) y=0,1 stanza=Corridoio morti=0 kill=0 punti=830
+INCASTRATO a (28,3,0,6) verso (2,1,6,2); teletrasporto
+fps=60 v=4,05 dir=(-1,0,0,0) cc=3,90 t=55 piano=2 candele=1/2 uscita=chiusa hp=1 nemici=9 pos=(8,2) y=0,1 stanza=Corridoio morti=0 kill=0 punti=830
+fps=60 v=0,97 dir=(0,0,0,0) cc=1,30 t=60 piano=2 candele=2/2 uscita=aperta hp=0 nemici=14 pos=(3,2) y=0,1 stanza=Corridoio morti=0 kill=0 punti=890
+fps=60 v=8,26 dir=(-0,4,0,9) cc=3,90 t=65 piano=2 candele=2/2 uscita=aperta hp=92 nemici=15 pos=(38,-20) y=0,1 stanza=Navata morti=1 kill=2 punti=1130
+fps=60 v=2,19 dir=(0,0,1,0) cc=0,00 t=70 piano=2 candele=2/2 uscita=aperta hp=65 nemici=15 pos=(33,-10) y=0,1 stanza=Navata morti=1 kill=2 punti=1130
+INCASTRATO a (33,2,-10,4) verso (26,1,-3,7); teletrasporto
+fps=60 v=0,28 dir=(0,0,0,0) cc=3,94 t=75 piano=2 candele=2/2 uscita=aperta hp=0 nemici=15 pos=(33,-9) y=0,1 stanza=Navatella morti=1 kill=2 punti=1130
+fps=60 v=2,70 dir=(-0,4,0,9) cc=3,90 t=80 piano=2 candele=2/2 uscita=aperta hp=100 nemici=15 pos=(38,-21) y=0,1 stanza=Navata morti=2 kill=2 punti=1150
+fps=60 v=1,41 dir=(0,0,0,0) cc=0,00 t=85 piano=2 candele=2/2 uscita=aperta hp=0 nemici=15 pos=(35,-15) y=0,1 stanza=Navata morti=2 kill=2 punti=1150
+fps=60 v=1,78 dir=(-0,4,0,9) cc=3,90 t=90 piano=2 candele=2/2 uscita=aperta hp=100 nemici=15 pos=(39,-23) y=0,1 stanza=Navata morti=3 kill=2 punti=1190
+fps=60 v=1,43 dir=(0,0,0,0) cc=3,90 t=95 piano=2 candele=2/2 uscita=aperta hp=0 nemici=15 pos=(35,-17) y=0,1 stanza=Navata morti=3 kill=2 punti=1190
+fps=60 v=1,27 dir=(-0,4,0,9) cc=1,18 t=100 piano=2 candele=2/2 uscita=aperta hp=93 nemici=15 pos=(39,-22) y=0,1 stanza=Navata morti=4 kill=2 punti=1250
+fps=60 v=1,46 dir=(-1,0,0,1) cc=3,90 t=105 piano=2 candele=2/2 uscita=aperta hp=100 nemici=14 pos=(45,-27) y=0,1 stanza=Sacrestia morti=5 kill=3 punti=1310
+fps=60 v=1,50 dir=(0,0,0,0) cc=0,00 t=110 piano=2 candele=2/2 uscita=aperta hp=0 nemici=14 pos=(38,-23) y=0,1 stanza=Navata morti=5 kill=3 punti=1350
+fps=60 v=0,47 dir=(-0,9,0,5) cc=0,00 t=115 piano=2 candele=2/2 uscita=aperta hp=76 nemici=13 pos=(40,-24) y=0,1 stanza=Presbiterio morti=6 kill=4 punti=1460
+fps=60 v=0,00 dir=(0,0,0,0) cc=0,00 t=120 piano=2 candele=2/2 uscita=aperta hp=0 nemici=13 pos=(40,-24) y=0,1 stanza=Presbiterio morti=6 kill=4 punti=1460
+fps=60 v=0,25 dir=(-0,6,0,8) cc=0,00 t=125 piano=2 candele=2/2 uscita=aperta hp=60 nemici=12 pos=(40,-26) y=0,1 stanza=Presbiterio morti=7 kill=5 punti=1600
+fps=60 v=0,88 dir=(-1,0,0,1) cc=3,90 t=130 piano=2 candele=2/2 uscita=aperta hp=100 nemici=12 pos=(45,-27) y=0,1 stanza=Sacrestia morti=8 kill=5 punti=1610
+fps=60 v=0,81 dir=(0,0,0,0) cc=0,00 t=135 piano=2 candele=2/2 uscita=aperta hp=0 nemici=10 pos=(41,-26) y=0,1 stanza=Presbiterio morti=8 kill=7 punti=1800
+INCASTRATO a (42,2,-26,5) verso (26,1,-3,7); teletrasporto
+fps=60 v=2,06 dir=(-0,5,0,8) cc=3,90 t=140 piano=2 candele=2/2 uscita=aperta hp=92 nemici=9 pos=(38,-16) y=0,1 stanza=Navata morti=9 kill=8 punti=1950
+fps=60 v=3,81 dir=(-1,0,-0,3) cc=2,78 t=145 piano=2 candele=2/2 uscita=aperta hp=92 nemici=9 pos=(29,1) y=0,1 stanza=Nartece morti=9 kill=8 punti=1950
+fps=60 v=7,48 dir=(0,0,0,0) cc=0,00 t=150 piano=3 candele=0/3 uscita=chiusa hp=89 nemici=0 pos=(-8,2) y=0,1 stanza=Ascensore morti=9 kill=8 punti=2150
+fps=60 v=2,15 dir=(0,5,-0,9) cc=3,95 t=155 piano=3 candele=1/3 uscita=chiusa hp=89 nemici=1 pos=(2,2) y=0,1 stanza=Corridoio morti=9 kill=8 punti=2210
+fps=60 v=2,97 dir=(0,9,0,5) cc=3,90 t=160 piano=3 candele=1/3 uscita=chiusa hp=100 nemici=7 pos=(17,4) y=0,1 stanza=Ristorante morti=9 kill=8 punti=2210
+fps=60 v=0,58 dir=(0,0,-1,0) cc=0,00 t=165 piano=3 candele=2/3 uscita=chiusa hp=87 nemici=12 pos=(15,3) y=0,1 stanza=Ristorante morti=9 kill=8 punti=2270
+fps=60 v=0,00 dir=(0,0,-1,0) cc=0,00 t=170 piano=3 candele=2/3 uscita=chiusa hp=39 nemici=18 pos=(15,3) y=0,1 stanza=Ristorante morti=9 kill=8 punti=2270
+fps=60 v=4,25 dir=(0,7,-0,7) cc=3,99 t=175 piano=3 candele=2/3 uscita=chiusa hp=100 nemici=18 pos=(-7,2) y=0,1 stanza=Atrio morti=10 kill=8 punti=2300
+fps=60 v=1,64 dir=(-1,0,0,1) cc=0,00 t=180 piano=3 candele=2/3 uscita=chiusa hp=85 nemici=16 pos=(-6,-6) y=0,1 stanza=Sacrestia morti=10 kill=10 punti=2520
+fps=60 v=0,00 dir=(0,0,0,0) cc=0,00 t=185 piano=3 candele=2/3 uscita=chiusa hp=0 nemici=16 pos=(-6,-6) y=0,1 stanza=Sacrestia morti=10 kill=10 punti=2520
+fps=60 v=0,92 dir=(1,0,-0,3) cc=0,82 t=190 piano=3 candele=2/3 uscita=chiusa hp=82 nemici=15 pos=(-4,-2) y=0,1 stanza=Atrio morti=11 kill=11 punti=2680
+fps=60 v=0,07 dir=(0,0,0,0) cc=0,43 t=195 piano=3 candele=2/3 uscita=chiusa hp=0 nemici=15 pos=(-5,-2) y=0,1 stanza=Atrio morti=11 kill=11 punti=2680
+fine: piano 3, morti 12, kill 11
+fps=0 v=0,09 dir=(0,0,0,0) cc=23,00 t=0 piano=1 candele=0/0 uscita=chiusa hp=100 nemici=0 pos=(0,0) y=0,1 stanza=Corridoio morti=0 kill=0 punti=500
+fps=59 v=0,51 dir=(0,8,-0,6) cc=4,07 t=5 piano=1 candele=1/2 uscita=chiusa hp=100 nemici=1 pos=(2,2) y=0,1 stanza=Camera morti=0 kill=0 punti=560
+fps=60 v=3,08 dir=(1,0,0,0) cc=3,66 t=10 piano=1 candele=1/2 uscita=chiusa hp=96 nemici=5 pos=(18,1) y=0,1 stanza=Corridoio morti=0 kill=0 punti=580
+fps=60 v=3,59 dir=(1,0,0,1) cc=3,90 t=15 piano=1 candele=1/2 uscita=chiusa hp=89 nemici=5 pos=(36,1) y=0,1 stanza=Nartece morti=0 kill=0 punti=580
+fps=60 v=3,83 dir=(1,0,0,1) cc=3,90 t=20 piano=1 candele=1/2 uscita=chiusa hp=85 nemici=7 pos=(55,3) y=0,1 stanza=Navata morti=0 kill=0 punti=580
+fps=58 v=2,75 dir=(-0,1,-1,0) cc=3,90 t=25 piano=1 candele=2/2 uscita=aperta hp=82 nemici=8 pos=(68,6) y=0,1 stanza=Cripta morti=0 kill=0 punti=640
+fps=60 v=1,20 dir=(0,0,-1,0) cc=3,90 t=30 piano=1 candele=2/2 uscita=aperta hp=77 nemici=13 pos=(67,0) y=0,1 stanza=Presbiterio morti=0 kill=0 punti=640
+fps=60 v=15,14 dir=(0,0,0,0) cc=0,00 t=35 piano=2 candele=0/2 uscita=chiusa hp=77 nemici=0 pos=(-8,1) y=0,1 stanza=Ascensore morti=0 kill=0 punti=790
+fps=60 v=3,33 dir=(1,0,0,0) cc=3,90 t=40 piano=2 candele=1/2 uscita=chiusa hp=84 nemici=5 pos=(8,2) y=0,1 stanza=Corridoio morti=0 kill=0 punti=850
+fps=60 v=3,52 dir=(0,0,-1,0) cc=3,92 t=45 piano=2 candele=1/2 uscita=chiusa hp=67 nemici=6 pos=(26,-2) y=0,1 stanza=Nartece morti=0 kill=0 punti=850
+fps=60 v=2,29 dir=(0,0,-1,0) cc=3,90 t=50 piano=2 candele=1/2 uscita=chiusa hp=52 nemici=6 pos=(27,-13) y=0,1 stanza=Navatella morti=0 kill=0 punti=850
+fps=60 v=3,88 dir=(0,2,-1,0) cc=3,90 t=55 piano=2 candele=1/2 uscita=chiusa hp=52 nemici=9 pos=(31,-32) y=0,1 stanza=Presbiterio morti=0 kill=0 punti=850
+fps=60 v=1,28 dir=(0,0,0,0) cc=0,01 t=60 piano=2 candele=2/2 uscita=aperta hp=55 nemici=14 pos=(25,-31) y=0,1 stanza=Sacrestia morti=0 kill=0 punti=1110
+fps=60 v=9,62 dir=(-1,0,0,2) cc=3,90 t=65 piano=3 candele=0/3 uscita=chiusa hp=70 nemici=3 pos=(64,-4) y=0,1 stanza=Navatella morti=0 kill=0 punti=1110
+fps=60 v=3,61 dir=(-1,0,0,1) cc=3,90 t=70 piano=3 candele=1/3 uscita=chiusa hp=76 nemici=7 pos=(47,1) y=0,1 stanza=Navata morti=0 kill=0 punti=1170
+fps=60 v=2,66 dir=(0,1,-1,0) cc=0,36 t=75 piano=3 candele=2/3 uscita=chiusa hp=67 nemici=12 pos=(34,2) y=0,1 stanza=Camera morti=0 kill=0 punti=1230
+fps=60 v=2,47 dir=(0,0,0,0) cc=3,08 t=80 piano=3 candele=2/3 uscita=chiusa hp=0 nemici=19 pos=(22,2) y=0,1 stanza=Corridoio morti=0 kill=0 punti=1230
+fps=60 v=8,35 dir=(-1,0,0,1) cc=3,90 t=85 piano=3 candele=2/3 uscita=chiusa hp=100 nemici=19 pos=(63,-4) y=0,1 stanza=Navatella morti=1 kill=0 punti=1260
+fps=60 v=3,70 dir=(-1,0,0,2) cc=3,90 t=90 piano=3 candele=2/3 uscita=chiusa hp=73 nemici=19 pos=(45,0) y=0,1 stanza=Navata morti=1 kill=0 punti=1260
+fps=60 v=1,60 dir=(0,0,0,0) cc=0,00 t=95 piano=3 candele=2/3 uscita=chiusa hp=0 nemici=19 pos=(37,2) y=0,1 stanza=Nartece morti=1 kill=0 punti=1260
+fps=60 v=5,77 dir=(-1,0,0,1) cc=3,90 t=100 piano=3 candele=2/3 uscita=chiusa hp=100 nemici=18 pos=(65,-5) y=0,1 stanza=Navatella morti=2 kill=1 punti=1350
+fps=60 v=3,52 dir=(-1,0,0,3) cc=0,32 t=105 piano=3 candele=2/3 uscita=chiusa hp=73 nemici=18 pos=(48,-1) y=0,1 stanza=Navata morti=2 kill=1 punti=1350
+fps=60 v=1,19 dir=(0,0,0,0) cc=0,00 t=110 piano=3 candele=2/3 uscita=chiusa hp=0 nemici=18 pos=(42,0) y=0,1 stanza=Navata morti=2 kill=1 punti=1350
+fps=60 v=3,39 dir=(-0,9,0,4) cc=3,93 t=115 piano=3 candele=2/3 uscita=chiusa hp=100 nemici=18 pos=(59,-4) y=0,1 stanza=Navatella morti=3 kill=1 punti=1380
+fps=60 v=2,13 dir=(0,0,0,0) cc=0,00 t=120 piano=3 candele=2/3 uscita=chiusa hp=0 nemici=18 pos=(49,0) y=0,1 stanza=Navata morti=3 kill=1 punti=1380
+fps=60 v=2,51 dir=(-1,0,0,1) cc=3,90 t=125 piano=3 candele=2/3 uscita=chiusa hp=100 nemici=17 pos=(61,-4) y=0,1 stanza=Navatella morti=4 kill=2 punti=1470
+fps=60 v=1,02 dir=(0,0,0,0) cc=0,00 t=130 piano=3 candele=2/3 uscita=chiusa hp=0 nemici=17 pos=(56,-3) y=0,1 stanza=Navata morti=4 kill=2 punti=1470
+fps=60 v=1,68 dir=(-1,0,0,1) cc=3,90 t=135 piano=3 candele=2/3 uscita=chiusa hp=88 nemici=17 pos=(64,-4) y=0,1 stanza=Navatella morti=5 kill=2 punti=1560
+INCASTRATO a (73,3,-5,8) verso (1,3,-2,5); teletrasporto
+fps=60 v=0,22 dir=(-1,0,0,0) cc=1,32 t=140 piano=3 candele=2/3 uscita=chiusa hp=100 nemici=17 pos=(63,-5) y=0,1 stanza=Ascensore morti=6 kill=2 punti=1590
+fps=60 v=1,24 dir=(-1,0,0,1) cc=0,00 t=145 piano=3 candele=2/3 uscita=chiusa hp=53 nemici=16 pos=(57,-7) y=0,1 stanza=Navatella morti=6 kill=3 punti=1750
+INCASTRATO a (57,1,-6,6) verso (1,3,-2,5); teletrasporto
+fps=60 v=1,88 dir=(-1,0,0,1) cc=3,90 t=150 piano=3 candele=2/3 uscita=chiusa hp=53 nemici=16 pos=(48,-6) y=0,1 stanza=Navatella morti=6 kill=3 punti=1750
+fps=60 v=2,92 dir=(-1,0,0,0) cc=3,90 t=155 piano=3 candele=2/3 uscita=chiusa hp=56 nemici=16 pos=(35,1) y=0,1 stanza=Nartece morti=6 kill=3 punti=1750
+fps=60 v=3,90 dir=(-1,0,0,0) cc=3,90 t=160 piano=3 candele=2/3 uscita=chiusa hp=56 nemici=16 pos=(15,1) y=0,1 stanza=Corridoio morti=6 kill=3 punti=1750
+fps=60 v=2,60 dir=(-0,5,0,9) cc=3,92 t=165 piano=3 candele=3/3 uscita=aperta hp=54 nemici=17 pos=(2,-1) y=0,1 stanza=Camera morti=6 kill=3 punti=1810
+fps=60 v=5,49 dir=(0,0,0,0) cc=0,00 t=170 piano=4 candele=0/3 uscita=chiusa hp=54 nemici=1 pos=(-2,26) y=0,1 stanza=Ascensore morti=6 kill=3 punti=2060
+fps=60 v=2,57 dir=(-0,1,-1,0) cc=5,37 t=175 piano=4 candele=0/3 uscita=chiusa hp=50 nemici=4 pos=(-3,14) y=0,1 stanza=Presbiterio morti=6 kill=3 punti=2060
+fps=60 v=3,03 dir=(0,1,-1,0) cc=3,90 t=180 piano=4 candele=1/3 uscita=chiusa hp=43 nemici=5 pos=(1,-1) y=0,1 stanza=Camera morti=6 kill=3 punti=2120
+fps=60 v=0,65 dir=(-1,0,0,0) cc=1,31 t=185 piano=4 candele=2/3 uscita=chiusa hp=43 nemici=13 pos=(2,2) y=0,1 stanza=Corridoio morti=6 kill=3 punti=2180
+fps=60 v=0,63 dir=(-1,0,0,2) cc=0,00 t=190 piano=4 candele=2/3 uscita=chiusa hp=18 nemici=20 pos=(-1,4) y=0,1 stanza=Atrio morti=6 kill=3 punti=2180
+fps=60 v=3,63 dir=(-0,2,-1,0) cc=3,90 t=195 piano=4 candele=2/3 uscita=chiusa hp=100 nemici=20 pos=(-2,22) y=0,1 stanza=Cripta morti=7 kill=3 punti=2230
+fps=60 v=3,56 dir=(-0,8,-0,6) cc=3,90 t=200 piano=4 candele=2/3 uscita=chiusa hp=78 nemici=18 pos=(-17,11) y=0,1 stanza=Navata morti=7 kill=5 punti=2460
+fps=60 v=1,17 dir=(1,0,0,1) cc=3,90 t=205 piano=4 candele=3/3 uscita=aperta hp=61 nemici=20 pos=(-11,8) y=0,1 stanza=Navatella morti=7 kill=5 punti=2520
+fps=60 v=0,94 dir=(0,0,0,0) cc=0,00 t=210 piano=4 candele=3/3 uscita=aperta hp=0 nemici=20 pos=(-7,8) y=0,1 stanza=Navatella morti=7 kill=5 punti=2520
+fps=60 v=1,00 dir=(-0,8,-0,6) cc=0,00 t=215 piano=4 candele=3/3 uscita=aperta hp=87 nemici=20 pos=(-3,11) y=0,1 stanza=Presbiterio morti=8 kill=5 punti=2610
+fps=60 v=0,00 dir=(0,0,0,0) cc=0,00 t=220 piano=4 candele=3/3 uscita=aperta hp=0 nemici=20 pos=(-3,11) y=0,1 stanza=Presbiterio morti=8 kill=5 punti=2610
+fps=60 v=0,78 dir=(-0,1,-1,0) cc=1,14 t=225 piano=4 candele=3/3 uscita=aperta hp=73 nemici=19 pos=(-3,15) y=0,1 stanza=Presbiterio morti=9 kill=6 punti=2790
+fps=60 v=1,04 dir=(-0,1,-1,0) cc=3,91 t=230 piano=4 candele=3/3 uscita=aperta hp=91 nemici=19 pos=(-3,20) y=0,1 stanza=Cripta morti=10 kill=6 punti=2810
+fps=60 v=1,10 dir=(0,0,-1,0) cc=3,90 t=235 piano=4 candele=3/3 uscita=aperta hp=100 nemici=17 pos=(-2,26) y=0,1 stanza=Presbiterio morti=11 kill=8 punti=2980
+fine: piano 4, morti 11, kill 10
