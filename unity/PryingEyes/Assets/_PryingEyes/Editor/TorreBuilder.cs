@@ -140,16 +140,16 @@ namespace PryingEyes.EditorTools
             return m;
         }
 
-        static Material StainedGlass(int i)
+        static Material WindowGlass(string name, Color emission)
         {
-            var m = KitMat("vetrata" + i, Shader.Find("Universal Render Pipeline/Lit"));
-            var tex = Tex("vetrata" + i + ".png");
+            var m = KitMat(name, Shader.Find("Universal Render Pipeline/Lit"));
+            var tex = Tex(name + ".png");
             m.SetTexture("_BaseMap", tex);
             m.color = Color.white;
             m.SetFloat("_Metallic", 0f);
             m.SetFloat("_Smoothness", 0.75f);
             m.SetTexture("_EmissionMap", tex);
-            m.SetColor("_EmissionColor", new Color(0.83f, 0.91f, 1f) * 0.58f);
+            m.SetColor("_EmissionColor", emission);
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             m.EnableKeyword("_EMISSION");
             EditorUtility.SetDirty(m);
@@ -190,7 +190,8 @@ namespace PryingEyes.EditorTools
             // vetri e vetrate
             M("vetro_albergo", Existing("Glass"));
             M("vetro_buio", Emit("kit_vetro_buio", new Color(0.01f, 0.012f, 0.02f), new Color(0.02f, 0.03f, 0.05f)));
-            for (int i = 0; i < 4; i++) M("vetrata" + i, StainedGlass(i));
+            for (int i = 0; i < 4; i++) M("vetrata" + i, WindowGlass("vetrata" + i, new Color(0.83f, 0.91f, 1f) * 0.58f));
+            M("vetrata_chiara", WindowGlass("vetrata_chiara", new Color(0.81f, 0.95f, 1.13f)));
             // metalli e luci
             M("acciaio", Existing("Steel"));
             M("ottone", Existing("Gold"));

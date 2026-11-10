@@ -770,7 +770,9 @@ namespace PryingEyes.Proc
 
         static void Glass(MeshBuilder mb, Opening o, Room A, Func<float, float, float, Vector3> P, Vector3 nOut)
         {
-            var mat = o.style == OpenStyle.Lancetta ? Mat("vetrata" + (o.variant & 3)) : o.style == OpenStyle.Feritoia ? Mat("vetro_buio") : Mat("vetro_albergo");
+            var mat = o.style == OpenStyle.Lancetta
+                ? Mat(A.kind == RoomKind.Nartece ? "vetrata_chiara" : "vetrata" + (o.variant & 3))
+                : Mat(o.style == OpenStyle.Feritoia ? "vetro_buio" : "vetro_albergo");
             Vector3 facing = -nOut;
             float sLo = M(o.Lo), sHi = M(o.Hi), hw = (sHi - sLo) * 0.5f, c = (sLo + sHi) * 0.5f;
             float w = sHi - sLo, hgt = o.top - o.sill;

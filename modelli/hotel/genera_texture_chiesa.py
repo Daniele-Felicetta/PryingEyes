@@ -404,6 +404,27 @@ def vetrata2(): vetrata(2)
 def vetrata3(): vetrata(3)
 
 
+def vetrata_chiara(w=384, h=960):
+    """Vetro chiaro colato a mano, in piccole lastre montate a piombo."""
+    rng = np.random.default_rng(215)
+    y, x = np.mgrid[0:h, 0:w].astype(F)
+    u, v = x / w, 1 - y / h
+    flow = fbm(h, 11, 4, rng)[:, :w] - 0.5
+    pits = fbm(h, 72, 3, rng)[:, :w] - 0.5
+    col_id = u > 0.5
+    row_id = np.searchsorted([0.25, 0.48, 0.68], v)
+    shade = hash2(col_id, row_id, 43)
+    strength = np.clip(0.71 + shade * 0.22 + flow * 0.49 + pits * 0.16, 0, 1)
+    glass = strength[..., None] * np.array((0.88, 0.94, 1.0), F)
+    edge = np.minimum(np.minimum(u, 1 - u), np.abs(u - 0.5 + flow * 0.006))
+    lead = 1 - smooth(0.009, 0.021, edge)
+    for seam in (0.25, 0.48, 0.68):
+        lead = np.maximum(lead, 1 - smooth(0.002, 0.007, np.abs(v - seam + flow * 0.005)))
+    img = lerp(glass, np.array((0.070, 0.080, 0.084), F), lead)
+    OUT.mkdir(parents=True, exist_ok=True)
+    Image.fromarray((img * 255 + 0.5).astype(np.uint8)).save(OUT / "vetrata_chiara.png")
+
+
 def anteprima(path):
     names = ["pietra_muro", "pietra_lastre", "pietra_cripta", "mattoni_volta", "parquet", "piastrelle", "piastrelle_pav", "cemento"]
     tiles = []
@@ -442,7 +463,7 @@ if __name__ == "__main__":
         OUT = Path(rest[0])
     gt.OUT = OUT
     for fn in (pietra_muro, pietra_lastre, pietra_massello, quercia_portale, pietra_cripta, mattoni_volta, parquet, piastrelle, piastrelle_pav, cemento,
-               vetrata0, vetrata1, vetrata2, vetrata3):
+               vetrata0, vetrata1, vetrata2, vetrata3, vetrata_chiara):
         if only is None or fn.__name__ in only:
             fn()
     if preview:

@@ -102,10 +102,14 @@ namespace PryingEyes
             if (props != null)
                 foreach (Transform item in props)
                     if (item.name == "chi_panca") pews++;
-            int windows = floor.cur.lights.FindAll(light => light != null && light.name == "Luce della vetrata" && light.cookie != null).Count;
+            var entranceKey = floor.cur.roomGo[entrance.id].transform.Find("Chiarore del nartece")?.GetComponent<Light>();
+            int windows = floor.cur.lights.FindAll(light => light != null && light.cookie != null &&
+                (light.name == "Luce della vetrata" || light == entranceKey)).Count;
             int bounces = floor.cur.lights.FindAll(light => light != null && light.name == "Rimbalzo della vetrata" && light.intensity > 0f).Count;
             Debug.Log($"[PryingEyes] confronto: {pews} panche in navata, foschia={(floor.cur.roomGo[nave.id].transform.Find("Foschia") != null)}, {windows} vetrate con proiezione, {bounces} rimbalzi");
             Debug.Log($"[PryingEyes] pala scolpita: {retableMeshes} mesh");
+            if (entranceKey != null)
+                Debug.Log($"[PryingEyes] chiarore del nartece: {entranceKey.transform.position}, intensità {entranceKey.intensity:F1}, ombre {entranceKey.shadows}");
             Application.Quit(CheckMonkFibers(monk) && windows > 0 && bounces > 0 && (sanctuary == null || retableMeshes >= 3) ? 0 : 1);
         }
 

@@ -29,7 +29,7 @@ namespace PryingEyes.Proc
                         if (s < (o.alongX ? c.ix0 : c.iz0) + 0.35f || s > (o.alongX ? c.ix1 : c.iz1) - 0.35f) continue;
                         if (openings.Exists(h => s > h.Lo * 0.1f - 0.18f && s < h.Hi * 0.1f + 0.18f)) continue;
                         var wall = o.alongX ? new Vector3(s, 1.67f, o.line * 0.1f) : new Vector3(o.line * 0.1f, 1.67f, s);
-                        Sconce(c, wall + inward * (FloorBuilder.TH + 0.008f), inward, true, 2.25f, 7.2f, true);
+                        Sconce(c, wall + inward * (FloorBuilder.TH + 0.008f), inward, true, 0.44f, 4.8f, true);
                     }
                 }
             }
@@ -206,13 +206,6 @@ namespace PryingEyes.Proc
                 Prop(c, "chi_panca", fr.P(0.55f, Lr * 0.5f + (i == 0 ? -5.5f : 5.5f)), fr.f);
             Candle(c, "chi_candelabro", fr.P(Lf * 0.54f, 0.85f), fr.f, c.rng.Chance(0.8), false, true);
             Candle(c, "chi_candelabro", fr.P(Lf * 0.54f, Lr - 0.85f), fr.f, c.rng.Chance(0.8), false, true);
-            AddLight(c, fr.P(Lf * 0.5f, Lr * 0.5f, c.r.wallH - 0.8f), CandleCol, 5f, 10f, true);
-            // Luce fredda diffusa dall'ingresso alto, che sfiora il tessuto e i conci di fronte alle candele.
-            var position = fr.P(0.65f, Lr * 0.5f - 1.10f, 3.3f);
-            var reflected = AddLight(c, position, new Color(0.69f, 0.82f, 1f), 13f, 9f, false, true, c.parent, LightType.Spot).l;
-            reflected.spotAngle = 104f;
-            reflected.innerSpotAngle = 61f;
-            reflected.transform.rotation = Quaternion.LookRotation(fr.P(Lf * 0.76f, Lr * 0.5f, 1.05f) - position);
         }
 
         // ---------------------------------------------------------------- navata laterale

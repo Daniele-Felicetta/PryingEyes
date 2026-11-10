@@ -343,7 +343,7 @@ namespace PryingEyes.Proc
                 Part(PrimitiveType.Sphere, Vector3.one * 0.11f, new Vector3(0f, 0.1f, 0.19f), ProcKit.Mat(on ? "lampadina" : "lampadina_spenta"));
             }
             if (!on) return;
-            var pl = AddLight(c, pt + inward * (candle ? 0.68f : 0.55f) + Vector3.up * (candle ? 0.32f : 0.12f),
+            var pl = AddLight(c, pt + inward * (candle ? 0.33f : 0.55f) + Vector3.up * (candle ? 0.18f : 0.12f),
                               candle ? CandleCol : new Color(1f, 0.74f, 0.48f), intensity, range, true, true, g.transform);
             if (candle)
             {
@@ -361,36 +361,88 @@ namespace PryingEyes.Proc
             Crown(c, new Vector3(pos.x, c.r.wallH - 0.05f, pos.z), on);
         }
 
-        /// <summary>Luce del chiaro di luna che passa dalle finestre: faro freddo davanti al vetro, in giu' e verso l'interno.</summary>
+        static Vector3 WindowOrigin(Opening opening, Vector3 inward)
+        {
+            float y = Mathf.Lerp(opening.sill, opening.top, 0.72f);
+            var onWall = opening.alongX ? new Vector3(opening.center * 0.1f, y, opening.line * 0.1f)
+                : new Vector3(opening.line * 0.1f, y, opening.center * 0.1f);
+            return onWall + inward * (FloorBuilder.TH + 0.25f);
+        }
+
+        static Opening EntranceKey(Ctx c, out Vector3 target)
+        {
+            target = default;
+            if (c.r.kind != RoomKind.Nartece) return null;
+            var nave = c.plan.Find(RoomKind.Navata);
+            if (nave == null) return null;
+            var portal = c.plan.openings.Find(o => o.a == c.r.id && o.b == nave.id || o.a == nave.id && o.b == c.r.id);
+            if (portal == null) return null;
+            Vector3 forward = ChurchAxis(c);
+            Vector3 right = Vector3.Cross(Vector3.up, forward);
+            var center = portal.alongX ? new Vector3(portal.center * 0.1f, 1.8f, portal.line * 0.1f)
+                : new Vector3(portal.line * 0.1f, 1.8f, portal.center * 0.1f);
+            target = center - forward * 0.55f - right * (portal.width * 0.05f + 0.25f);
+            Opening best = null;
+            float bestScore = 0f;
+            foreach (Side side in new[] { Side.S, Side.N, Side.W, Side.E })
+                foreach (var window in c.plan.OpeningsOn(c.r, side))
+                {
+                    if (window.b >= 0 || window.style != OpenStyle.Lancetta) continue;
+                    Vector3 toward = target - WindowOrigin(window, Inward(side));
+                    float incidence = Vector3.Dot(toward.normalized, Inward(side));
+                    if (incidence < 0.38f) continue;
+                    float score = incidence / (1f + toward.sqrMagnitude);
+                    if (score <= bestScore) continue;
+                    bestScore = score;
+                    best = window;
+                }
+            return best;
+        }
+
+        /// <summary>Chiarore dall'esterno, con una luce radente dal vetro del nartece verso i conci del portale.</summary>
         static Light WindowLights(Ctx c)
         {
-            Light first = null, second = null;
+            var keyOpening = EntranceKey(c, out var keyTarget);
+            Light first = null, second = null, keyLight = null;
             foreach (Side s in new[] { Side.S, Side.N, Side.W, Side.E })
                 foreach (var o in c.plan.OpeningsOn(c.r, s))
                 {
                     if (o.b >= 0 || o.style == OpenStyle.Feritoia) continue;
                     Vector3 inw = Inward(s);
-                    bool ax = Mathf.Abs(inw.z) > 0.5f;
-                    float wallCoord = ax ? (inw.z > 0 ? c.iz0 : c.iz1) : (inw.x > 0 ? c.ix0 : c.ix1);
-                    float y = Mathf.Lerp(o.sill, o.top, 0.7f);
-                    Vector3 pt = ax ? new Vector3(o.center * 0.1f, y, wallCoord) : new Vector3(wallCoord, y, o.center * 0.1f);
+                    var origin = WindowOrigin(o, inw);
                     bool church = o.style == OpenStyle.Lancetta;
+                    bool key = o == keyOpening;
                     Color col = church ? Color.Lerp(new Color(0.73f, 0.82f, 1f), GlassColor(o.variant), 0.22f) : new Color(0.62f, 0.74f, 1f);
                     float inten = church ? (o.oneSided ? 21f : 31f) : 6f;
-                    var pl = AddLight(c, pt + inw * 0.25f, col, inten, church ? 17f : 8.5f, church, true, c.parent, LightType.Spot);
+                    float range = church ? 17f : 8.5f;
+                    var direction = inw + Vector3.down * (o.oneSided ? 1.5f : 0.7f);
+                    if (key)
+                    {
+                        direction = keyTarget - origin;
+                        col = new Color(0.80f, 0.87f, 1f);
+                        inten = Mathf.Clamp(30f + direction.sqrMagnitude * 1.65f, 42f, 135f);
+                        range = Mathf.Clamp(direction.magnitude + 8f, 13f, 22f);
+                    }
+                    else if (c.r.kind == RoomKind.Nartece && church)
+                    {
+                        col = new Color(0.74f, 0.84f, 1f);
+                        inten = 18f;
+                    }
+                    var pl = AddLight(c, origin, col, inten, range, church, true, c.parent, LightType.Spot);
                     var l = pl.l;
-                    l.spotAngle = church ? 86f : 90f;
-                    l.innerSpotAngle = church ? 47f : 20f;
-                    Vector3 dir = (inw + Vector3.down * (o.oneSided ? 1.5f : 0.7f)).normalized;
-                    l.transform.rotation = Quaternion.LookRotation(dir);
+                    l.spotAngle = key ? 75f : church ? 86f : 90f;
+                    l.innerSpotAngle = key ? 41f : church ? 47f : 20f;
+                    l.transform.rotation = Quaternion.LookRotation(direction);
                     if (!church) continue;
-                    l.name = "Luce della vetrata";
+                    l.name = key ? "Chiarore del nartece" : "Luce della vetrata";
                     l.cookie = StainedWindowCookie();
                     l.shadowStrength = 0.82f;
+                    if (key) keyLight = l;
                     if (first == null) first = l;
                     else if (c.r.kind == RoomKind.Navata && second == null && (l.transform.position - first.transform.position).sqrMagnitude > 40f)
                         second = l;
                 }
+            first = keyLight != null ? keyLight : first;
             if (first != null) c.fi.windowBounceSources.Add(first);
             if (second != null) c.fi.windowBounceSources.Add(second);
             return first;

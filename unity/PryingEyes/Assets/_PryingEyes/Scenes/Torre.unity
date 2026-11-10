@@ -205,6 +205,8 @@ MonoBehaviour:
     mat: {fileID: 2100000, guid: 00b252afbb3f7634f8d5cb1982f1dc32, type: 2}
   - name: vetrata3
     mat: {fileID: 2100000, guid: 534d5f77b369a1b4da035610d2514f1e, type: 2}
+  - name: vetrata_chiara
+    mat: {fileID: 2100000, guid: 62dd2244a43b46e9956038dd5bde1816, type: 2}
   - name: acciaio
     mat: {fileID: 2100000, guid: 160ce7d56ce803045aa2286ef18c9b84, type: 2}
   - name: ottone
