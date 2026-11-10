@@ -149,7 +149,7 @@ namespace PryingEyes.EditorTools
             m.SetFloat("_Metallic", 0f);
             m.SetFloat("_Smoothness", 0.75f);
             m.SetTexture("_EmissionMap", tex);
-            m.SetColor("_EmissionColor", new Color(0.83f, 0.91f, 1f) * 0.63f);
+            m.SetColor("_EmissionColor", new Color(0.83f, 0.91f, 1f) * 0.58f);
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             m.EnableKeyword("_EMISSION");
             EditorUtility.SetDirty(m);
@@ -216,7 +216,7 @@ namespace PryingEyes.EditorTools
                 { "A_vaso", Existing("Pot") }, { "A_terra", Existing("Soil") }, { "A_foglia", Existing("Leaf") }, { "A_paralume", Existing("LampShade") },
                 { "A_vetro", Existing("Glass") }, { "A_scuro", Existing("Dark") }, { "A_fondo", Existing("Felt") }, { "A_quadrante", Existing("ClockFace") },
                 { "A_acciaio", Existing("Steel") },
-                { "A_pietra", Pbr("kit_pietra_scultura", "pietra_muro", new Color(1.1f, 1.05f, 0.98f), 1.0f, 0.9f) },
+                { "A_pietra", Pbr("kit_pietra_scultura", "pietra_massello", new Color(1.1f, 1.05f, 0.98f), 1.0f, 0.9f) },
                 { "A_ferro", Flat("kit_ferro", new Color(0.07f, 0.07f, 0.08f), 0.85f, 0.35f) },
                 { "A_fiamma", Emit("fiamma", new Color(0.05f, 0.03f, 0.01f), new Color(5.5f, 2.6f, 0.55f)) },
                 { "A_cera", Flat("kit_cera", new Color(0.78f, 0.72f, 0.58f), 0f, 0.35f) },

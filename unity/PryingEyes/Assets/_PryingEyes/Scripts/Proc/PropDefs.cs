@@ -49,7 +49,7 @@ namespace PryingEyes.Proc
             // chiesa
             A("chi_panca", 2.6f, 0.95f, 0.9f);
             A("chi_altare", 2.4f, 1.05f, 1.0f);
-            A("chi_pala", 3.4f, 4.4f, 0.45f);
+            A("chi_pala", 3.4f, 3.4f, 0.45f);
             A("chi_candelabro", 0.6f, 1.9f, 0.6f);
             A("chi_ceri", 0.9f, 1.25f, 0.45f);
             A("chi_confessionale", 2.5f, 2.7f, 1.15f);

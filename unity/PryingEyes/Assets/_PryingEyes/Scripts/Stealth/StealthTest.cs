@@ -75,11 +75,27 @@ namespace PryingEyes
             yield return Capture("monaco_laterale", threshold - forward * 4.09f - right * 2.42f + Vector3.up * 1.35f,
                                  threshold + forward * 1.25f + right * 0.34f + Vector3.up * 1.45f, 55f);
             var sanctuary = plan.Find(RoomKind.Presbiterio);
+            int retableMeshes = 0;
             if (sanctuary != null)
             {
                 Vector3 altar = new Vector3(sanctuary.CenterX, 0f, sanctuary.CenterZ);
                 yield return Capture("presbiterio", Vector3.Lerp(naveCenter, altar, 0.46f) + Vector3.up * 1.54f,
                                      altar + Vector3.up * 1.50f, 56f);
+                var glass = plan.openings.Find(o => o.a == sanctuary.id && o.style == OpenStyle.Lancetta);
+                if (glass != null)
+                {
+                    float height = Mathf.Lerp(glass.sill, glass.top, 0.5f);
+                    var window = glass.alongX ? new Vector3(glass.center * 0.1f, height, glass.line * 0.1f)
+                        : new Vector3(glass.line * 0.1f, height, glass.center * 0.1f);
+                    var inward = glass.alongX ? Vector3.forward * Mathf.Sign(altar.z - window.z)
+                        : Vector3.right * Mathf.Sign(altar.x - window.x);
+                    var beside = Vector3.Cross(Vector3.up, inward);
+                    float fov = Mathf.Max(52f, 2f * Mathf.Atan((glass.top - glass.sill + 0.5f) / 6.5f) * Mathf.Rad2Deg);
+                    yield return Capture("vetrata_dettaglio", window + inward * 3.4f + beside * 0.5f - Vector3.up * 0.36f, window, fov);
+                }
+                var retable = floor.cur.roomGo[sanctuary.id].transform.Find("Arredi/chi_pala");
+                if (retable != null)
+                    retableMeshes = System.Array.FindAll(retable.GetComponentsInChildren<MeshFilter>(), mf => mf.sharedMesh != null).Length;
             }
             int pews = 0;
             var props = floor.cur.roomGo[nave.id].transform.Find("Arredi");
@@ -89,7 +105,8 @@ namespace PryingEyes
             int windows = floor.cur.lights.FindAll(light => light != null && light.name == "Luce della vetrata" && light.cookie != null).Count;
             int bounces = floor.cur.lights.FindAll(light => light != null && light.name == "Rimbalzo della vetrata" && light.intensity > 0f).Count;
             Debug.Log($"[PryingEyes] confronto: {pews} panche in navata, foschia={(floor.cur.roomGo[nave.id].transform.Find("Foschia") != null)}, {windows} vetrate con proiezione, {bounces} rimbalzi");
-            Application.Quit(CheckMonkFibers(monk) && windows > 0 && bounces > 0 ? 0 : 1);
+            Debug.Log($"[PryingEyes] pala scolpita: {retableMeshes} mesh");
+            Application.Quit(CheckMonkFibers(monk) && windows > 0 && bounces > 0 && (sanctuary == null || retableMeshes >= 3) ? 0 : 1);
         }
 
         static bool CheckMonkFibers(Enemy monk)

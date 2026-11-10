@@ -155,6 +155,7 @@ namespace PryingEyes.Proc
             {
                 if (o.a != r.id) continue;
                 OpeningGeometry(shell, plan, r, o, st);
+                if (o.style == OpenStyle.Lancetta) LancetFrame(archTrim, r, o, st.trim);
                 if (r.church && o.b >= 0 && plan.rooms[o.b].church && o.Pointed)
                 {
                     StoneArch(archTrim, r, o, st.trim);
@@ -503,6 +504,39 @@ namespace PryingEyes.Proc
             }
             // vetro al centro dello spessore (solo le finestre sul vuoto)
             if (o.b < 0) Glass(mb, o, A, P, nOut);
+        }
+
+        static void LancetFrame(MeshBuilder mesh, Room room, Opening opening, Material stone)
+        {
+            Vector3 along = opening.alongX ? Vector3.right : Vector3.forward;
+            Vector3 across = opening.alongX ? Vector3.forward : Vector3.right;
+            Vector3 inside = across * ((opening.alongX ? room.z1 : room.x1) == opening.line ? -1f : 1f);
+            float center = M(opening.Lo + opening.Hi) * 0.5f;
+            float half = M(opening.Hi - opening.Lo) * 0.5f;
+            Vector3 origin = along * center + across * M(opening.line);
+            Vector3 Point(float x, float y, float depth) => origin + along * x + Vector3.up * y + inside * depth;
+
+            // Mostra lo spessore della battuta dentro al vano e un davanzale sporgente.
+            float rim = half - 0.035f;
+            float yBase = opening.sill + 0.025f;
+            Vector3 Head(float x) => Point(x, opening.Head(x, half) - 0.034f, 0.053f);
+            mesh.Beam(stone, Point(-half - 0.085f, opening.sill - 0.028f, TH - 0.07f),
+                Point(half + 0.085f, opening.sill - 0.028f, TH - 0.07f), 0.31f, 0.095f, Vector3.up);
+            mesh.Beam(stone, Point(-rim, yBase, 0.053f), Head(-rim), 0.065f, 0.07f, inside);
+            mesh.Beam(stone, Point(rim, yBase, 0.053f), Head(rim), 0.065f, 0.07f, inside);
+            const int segments = 14;
+            for (int i = 0; i < segments; i++)
+                mesh.Beam(stone, Head(Mathf.Lerp(-rim, rim, i / (float)segments)),
+                    Head(Mathf.Lerp(-rim, rim, (i + 1f) / segments)), 0.065f, 0.07f, inside);
+
+            var iron = Mat("ferro");
+            float spring = opening.Head(half, half);
+            foreach (float joint in new[] { 0.25f, 0.48f })
+            {
+                float y = Mathf.Lerp(opening.sill, opening.top, joint);
+                if (y < spring - 0.02f)
+                    mesh.Beam(iron, Point(-rim, y, 0.027f), Point(rim, y, 0.027f), 0.044f, 0.024f, Vector3.up);
+            }
         }
 
         /// <summary>Conci separati e cornice a due risalti sopra il muro, fuori dalla luce utile del passaggio.</summary>

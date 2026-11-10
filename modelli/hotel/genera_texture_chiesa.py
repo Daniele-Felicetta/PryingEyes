@@ -110,7 +110,7 @@ def pietra_muro(n=2048):
 def pietra_lastre(n=2048):
     """Lastre su 4,8 m, disposte a corsi di larghezza e sfalsatura diversa."""
     rng = np.random.default_rng(103)
-    jw = n / 4.8 * 0.010
+    jw = n / 4.8 * 0.007
     y, x = np.mgrid[0:n, 0:n].astype(F)
     xx = (x + (fbm(n, 14, 3, rng) - 0.5) * 0.012 * n) % n
     yy = (y + (fbm(n, 11, 4, rng) - 0.5) * 0.011 * n) % n
@@ -118,28 +118,32 @@ def pietra_lastre(n=2048):
     edge, cy, cx, lx, ly = irregular_courses(xx, yy, courses, rng, (0.55, 1.5), lambda row: 4 + row % 3)
     grain = fbm(n, 86, 3, rng)
     chipped = smooth(0.51, 0.78, fbm(n, 21, 4, rng))
-    grout = 1 - smooth(jw * 0.3, jw * 1.7, edge - chipped * jw * 2.1)
+    grout = 1 - smooth(jw * 0.35, jw * 1.65, edge - chipped * jw * 1.6)
     tone = hash2(cx, cy, 11)
     cloud = warped(n, rng, 3, 5, 0.3)
     fine = fbm(n, 32, 4, rng)
-    base = lerp(col((0.48, 0.45, 0.39), n), col((0.30, 0.32, 0.30), n), tone)
-    base = lerp(base, col((0.60, 0.56, 0.47), n), smooth(0.47, 0.84, cloud) * 0.48)
+    base = lerp(col((0.51, 0.47, 0.39), n), col((0.34, 0.36, 0.32), n), tone)
+    base = lerp(base, col((0.59, 0.53, 0.43), n), smooth(0.44, 0.78, cloud) * 0.57)
     base = base * (0.69 + 0.48 * fine[..., None] + 0.15 * grain[..., None])
     # lastre consumate al centro (piu' chiare e lucide)
     uc = np.hypot(lx - 0.5, ly - 0.5)
     worn = (1 - smooth(0.08, 0.5, uc)) * (0.4 + 0.6 * smooth(0.3, 0.7, fbm(n, 3, 4, rng)))
-    base = lerp(base, col((0.58, 0.57, 0.55), n), worn * 0.35)
+    base = lerp(base, col((0.56, 0.52, 0.44), n), worn * 0.35)
     # crepe: ramificate, dentro le lastre
     d1, d2, _ = voronoi(n, 9, rng)
     crack = (1 - smooth(0.0, 0.018, d2 - d1 + (grain - 0.5) * 0.025)) * smooth(0.5, 0.69, fbm(n, 8, 4, rng))
     dirt = smooth(0.55, 0.85, fbm(n, 3, 5, rng))
     base = lerp(base, col((0.16, 0.15, 0.14), n), dirt * 0.4)
-    base = lerp(base, col((0.19, 0.172, 0.144), n), np.clip(crack * 0.68 + grout, 0, 1))
-    bevel = smooth(0, jw * 6, edge - chipped * jw * 2.1)
-    h = bevel * 0.24 + (grain - 0.5) * 0.18 + (cloud - 0.5) * 0.22 - crack * 0.18 - grout * 0.18
+    calcite = smooth(0.62, 0.8, fbm(n, 15, 5, rng)) * smooth(0.36, 0.67, grain)
+    base = lerp(base, col((0.64, 0.60, 0.51), n), calcite * 0.65)
+    base = lerp(base, col((0.22, 0.19, 0.16), n), crack * 0.52)
+    mortar = lerp(col((0.28, 0.24, 0.20), n), col((0.46, 0.40, 0.33), n), cloud)
+    base = lerp(base, mortar, grout * 0.86)
+    bevel = smooth(0, jw * 5, edge - chipped * jw * 1.6)
+    h = bevel * 0.15 + (grain - 0.5) * 0.19 + (cloud - 0.5) * 0.22 - crack * 0.12 - grout * 0.085
     sm = 0.18 + worn * 0.24 - dirt * 0.12 - crack * 0.11
     sm = sm * (1 - grout) + 0.1 * grout
-    save("pietra_lastre", base, normals(h, 15.0), np.zeros((n, n), F), 1 - grout * 0.46 - crack * 0.2, sm)
+    save("pietra_lastre", base, normals(h, 13.0), np.zeros((n, n), F), 1 - grout * 0.27 - crack * 0.14, sm)
 
 
 def pietra_massello(n=1024):
@@ -316,96 +320,79 @@ def cemento(n=1024):
 
 # ---------------------------------------------------------------- vetrate
 PALETTES = [
-    # rosso/oro con occhio ambra
-    [(0.62, 0.05, 0.05), (0.85, 0.30, 0.08), (0.95, 0.70, 0.15), (0.35, 0.03, 0.10), (0.72, 0.12, 0.20)],
-    # blu e viola, occhio azzurro
-    [(0.08, 0.14, 0.62), (0.15, 0.35, 0.85), (0.35, 0.55, 0.95), (0.30, 0.10, 0.55), (0.05, 0.06, 0.30)],
-    # verde e oro
-    [(0.05, 0.38, 0.14), (0.20, 0.60, 0.22), (0.80, 0.78, 0.20), (0.04, 0.22, 0.12), (0.45, 0.70, 0.35)],
-    # ambra e miele
-    [(0.80, 0.45, 0.05), (0.95, 0.65, 0.12), (0.98, 0.85, 0.35), (0.55, 0.22, 0.04), (0.70, 0.40, 0.10)],
+    [(0.16, 0.28, 0.38), (0.48, 0.21, 0.18), (0.65, 0.54, 0.32)],
+    [(0.17, 0.28, 0.45), (0.37, 0.22, 0.36), (0.55, 0.64, 0.66)],
+    [(0.19, 0.32, 0.34), (0.26, 0.44, 0.29), (0.57, 0.55, 0.33)],
+    [(0.19, 0.28, 0.38), (0.49, 0.31, 0.17), (0.66, 0.52, 0.30)],
 ]
 
 
 def vetrata(idx, w=512, h=1280):
-    """Vetrata a lancetta: vetri colorati a cellette con piombi scuri; al centro l'Occhio (mandorla, iride, pupilla), in alto
-    un rosone, in basso una fascia ornamentale. Rapporto 1:2,5 come i vani (1,2 x 3 m). L'immagine va sia sul colore sia sull'emissione."""
+    """Grisaglia, medaglioni e vetro soffiato, con una griglia di piombo in losanghe."""
     rng = np.random.default_rng(200 + idx)
-    pal = PALETTES[idx % 4]
+    field, accent, enamel = (np.broadcast_to(np.array(rgb, F), (h, w, 3)) for rgb in PALETTES[idx])
     y, x = np.mgrid[0:h, 0:w].astype(F)
-    u, v = x / w, 1 - y / h           # v = 0 in basso, 1 in alto
-    # cellette di vetro: Voronoi su una griglia piu' fitta in verticale
-    cells_x, cells_y = 9, 22
-    ptsx = rng.random((cells_y, cells_x)) * 0.8 + 0.1
-    ptsy = rng.random((cells_y, cells_x)) * 0.8 + 0.1
-    cx = u * cells_x
-    cy = v * cells_y
-    ix, iy = np.floor(cx).astype(int), np.floor(cy).astype(int)
-    d1 = np.full((h, w), 9.0, F); d2 = np.full((h, w), 9.0, F); ident = np.zeros((h, w), int)
-    for oy in (-1, 0, 1):
-        for ox in (-1, 0, 1):
-            jx, jy = ix + ox, iy + oy
-            inb = (jx >= 0) & (jx < cells_x) & (jy >= 0) & (jy < cells_y)
-            jxc, jyc = np.clip(jx, 0, cells_x - 1), np.clip(jy, 0, cells_y - 1)
-            px = jx + ptsx[jyc, jxc]
-            py = jy + ptsy[jyc, jxc]
-            d = np.hypot((cx - px) * 1.0, (cy - py) * 1.0)
-            d = np.where(inb, d, 9.0)
-            closer = d < d1
-            d2 = np.where(closer, d1, np.minimum(d2, d))
-            ident = np.where(closer, jyc * cells_x + jxc, ident)
-            d1 = np.minimum(d1, d)
-    lead = 1 - smooth(0.035, 0.10, d2 - d1)
-    tone = hash2(ident, ident * 0 + 1, 31 + idx)
-    pick = (tone * len(pal)).astype(int) % len(pal)
-    pal_a = np.array(pal, F)
-    glass = pal_a[pick]
-    # sfumatura chiara al centro di ogni vetro e un po' di imperfezioni
-    glass = glass * (0.72 + 0.35 * (1 - smooth(0.0, 0.8, d1))[..., None])
-    noise = fbm(max(h, w), 8, 3, rng)[:h, :w]
-    glass = glass * (0.88 + 0.24 * noise[..., None])
-    # --- motivo centrale: mandorla con l'occhio
-    ex, ey = 0.5, 0.52
-    dx, dy = (u - ex), (v - ey) * (h / w)
-    a, b = 0.40, 0.17                       # semiassi della mandorla (in larghezze)
-    # forma a mandorla: intersezione di due cerchi
-    R = (a * a + b * b) / (2 * b)
-    in1 = np.hypot(dx, dy + (R - b)) < R
-    in2 = np.hypot(dx, dy - (R - b)) < R
-    almond = (in1 & in2).astype(F)
-    iris_r = np.hypot(dx, dy)
-    iris = (iris_r < 0.145).astype(F)
-    pupil = (iris_r < 0.060).astype(F)
-    glint = (np.hypot(dx - 0.03, dy - 0.04) < 0.018).astype(F)
-    white = np.array([0.95, 0.92, 0.80], F)
-    iriscol = np.array(pal[2], F) * 1.1
-    pupcol = np.array([0.02, 0.01, 0.01], F)
-    glass = np.where(almond[..., None] > 0.5, white * (0.8 + 0.2 * noise[..., None]), glass)
-    glass = np.where(iris[..., None] > 0.5, iriscol, glass)
-    glass = np.where(pupil[..., None] > 0.5, pupcol, glass)
-    glass = np.where(glint[..., None] > 0.5, white, glass)
-    # contorni in piombo attorno ai disegni
-    def outline(mask, wd):
-        e = blur(mask, 2)
-        return np.exp(-((e - 0.5) / wd) ** 2)
-    lead = np.maximum(lead, np.maximum(outline(almond, 0.07), np.maximum(outline(iris, 0.08), outline(pupil, 0.08))) * 0.95)
-    # raggi dall'occhio verso i bordi: fasci chiari
-    ang = np.arctan2(dy, dx)
-    rays = (np.sin(ang * 16) > 0.55) & (iris_r > 0.18) & (iris_r < 0.50) & (almond < 0.5)
-    glass = np.where(rays[..., None], glass * 1.25, glass)
-    # --- fasce ornamentali in alto e in basso (disegni geometrici)
-    band_lo = (v < 0.10)
-    band_hi = (v > 0.86)
-    stripes = (np.sin(u * 2 * np.pi * 9) > 0).astype(F)
-    glass = np.where(band_lo[..., None], glass * (0.75 + 0.35 * stripes[..., None]), glass)
-    lead = np.maximum(lead, (np.abs(v - 0.10) < 0.004).astype(F))
-    lead = np.maximum(lead, (np.abs(v - 0.90) < 0.003).astype(F))
-    # bordo
-    border = np.minimum(np.minimum(u, 1 - u), np.minimum(v, 1 - v))
-    lead = np.maximum(lead, 1 - smooth(0.012, 0.03, border))
-    lead = np.clip(lead, 0, 1)
-    img = glass * (1 - lead[..., None]) + np.array([0.025, 0.025, 0.03], F) * lead[..., None]
-    img = np.clip(img, 0, 1)
+    u, v = x / w, 1 - y / h
+    n = max(h, w)
+    ripple = fbm(n, 21, 4, rng)[:h, :w] - 0.5
+    glass_flow = fbm(n, 7, 4, rng)[:h, :w] - 0.5
+    hammered = fbm(n, 70, 3, rng)[:h, :w] - 0.5
+    p = (u - 0.5) * 5
+    q = v * (5 * h / w)
+    diagonal_a = p + q + ripple * 0.13
+    diagonal_b = q - p - ripple * 0.09
+    cell_a, cell_b = np.floor(diagonal_a), np.floor(diagonal_b)
+    fract_a, fract_b = diagonal_a - cell_a, diagonal_b - cell_b
+    diagonal = np.minimum(np.minimum(fract_a, 1 - fract_a), np.minimum(fract_b, 1 - fract_b))
+    tone = hash2(cell_a, cell_b, 31 + idx)
+    grisaille = np.array((0.48, 0.51, 0.47), F)
+    glass = lerp(field, grisaille, smooth(0.18, 0.92, tone) * 0.70)
+    lead = 1 - smooth(0.016, 0.045, diagonal)
+    border = np.abs(u - 0.5)
+    for boundary in (0.355, 0.427):
+        lead = np.maximum(lead, 1 - smooth(0.003, 0.009, np.abs(border - boundary)))
+    beads = np.sin(q * np.pi) ** 2
+    band = smooth(0.35, 0.36, border) * (1 - smooth(0.422, 0.432, border))
+    glass = lerp(glass, lerp(accent, enamel, beads * 0.75), band)
+    lead = np.maximum(lead, smooth(0.457, 0.481, border))
+
+    # Tre medaglioni policromi, con l'occhio inciso nel vetro del medaglione centrale.
+    for center in (0.15, 0.365, 0.635):
+        dx, dy = u - 0.5, (v - center) * (h / w)
+        radius = np.hypot(dx, dy)
+        angle = np.arctan2(dy, dx)
+        outer = 0.285 + 0.018 * np.cos(angle * 4)
+        inside = 1 - smooth(outer - 0.008, outer + 0.004, radius)
+        ring = smooth(0.202, 0.221, radius)
+        petal = (np.cos(angle * 4) * 0.5 + 0.5) ** 2
+        surround = lerp(accent, enamel, petal * 0.6)
+        center_glass = lerp(enamel, np.array((0.73, 0.73, 0.65), F), (1 - smooth(0.0, 0.24, radius)) * 0.6)
+        motif = lerp(center_glass, surround, ring)
+        inner_lead = 1 - smooth(0.004, 0.010, np.abs(radius - 0.211))
+        if center == 0.365:
+            almond = np.maximum(np.hypot(dx, dy + 0.168), np.hypot(dx, dy - 0.168)) - 0.235
+            eye = 1 - smooth(-0.004, 0.004, almond)
+            pupil = 1 - smooth(0.036, 0.044, radius)
+            iris = 1 - smooth(0.072, 0.079, radius)
+            paint = lerp(np.broadcast_to(np.array((0.69, 0.71, 0.64), F), (h, w, 3)), field, iris)
+            paint = lerp(paint, np.array((0.05, 0.06, 0.055), F), pupil)
+            motif = lerp(motif, paint, eye)
+            inner_lead = np.maximum(inner_lead, 1 - smooth(0.003, 0.008, np.abs(almond)))
+        else:
+            foil = radius - (0.102 + np.cos(angle * 4) * 0.035)
+            motif = lerp(motif, field, (1 - smooth(-0.006, 0.005, foil)) * 0.77)
+            inner_lead = np.maximum(inner_lead, 1 - smooth(0.004, 0.009, np.abs(foil)))
+        glass = lerp(glass, motif, inside)
+        lead = np.maximum(lead * (1 - inside), np.maximum(inner_lead * inside, 1 - smooth(0.004, 0.010, np.abs(radius - outer))))
+
+    for joint in (0.25, 0.48):
+        lead = np.maximum(lead, 1 - smooth(0.002, 0.005, np.abs(v - joint)))
+    # Trasmissione disomogenea: onde del vetro, velature dipinte e bollicine.
+    bubbles = smooth(0.19, 0.34, hammered)
+    transmission = 0.88 + glass_flow * 0.65 + ripple * 0.43 + hammered * 0.14 - bubbles * 0.19
+    glass = glass * transmission[..., None]
+    patina = lerp(np.array((0.026, 0.030, 0.032), F), np.array((0.10, 0.106, 0.098), F), smooth(0.26, 0.82, lead + ripple * 0.5)[..., None] * 0.65)
+    img = np.clip(lerp(glass, patina, lead), 0, 1)
     OUT.mkdir(parents=True, exist_ok=True)
     Image.fromarray((img * 255 + 0.5).astype(np.uint8)).save(OUT / f"vetrata{idx}.png")
     print(f"vetrata{idx}: {w}x{h}")

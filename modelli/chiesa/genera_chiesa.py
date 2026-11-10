@@ -187,44 +187,66 @@ def altare():
 
 def pala():
     A = Asset('chi_pala')
-    st = A.bm('A_pietra')
-    dk = A.bm('A_scuro')
+    stone = A.bm('A_pietra')
+    dark = A.bm('A_scuro')
     gold = A.bm('A_oro')
-    W, H, D = 3.4, 4.4, 0.45
-    # zoccolo e fondo scuro
-    box(st, V(0, 0, 0.30), V(W, D, 0.60), bevel=0.012, seg=2)
-    box(dk, V(0, -D / 2 + 0.03, 2.5), V(W - 0.24, 0.05, 3.9))
-    # tre arcate: centrale alta, laterali piu' basse; cornici in pietra con incavo scuro
-    bays = [(-1.12, 0.95, 3.0), (0.0, 1.30, 4.0), (1.12, 0.95, 3.0)]
-    for cx, w, h in bays:
-        # cornice (pietra) e lastra interna (scuro) a sesto acuto
-        arch_slab(st, cx, 0.60, w + 0.16, h + 0.08, -D / 2 + 0.04, D / 2 - 0.06)
-        arch_slab(dk, cx, 0.64, w - 0.04, h - 0.10, D / 2 - 0.075, D / 2 - 0.045)
-        # colonnine ai lati dell'arcata
-        for sx in (-1, 1):
-            cyl(st, V(cx + sx * (w / 2 + 0.11), D / 2 - 0.08, 0.60), V(cx + sx * (w / 2 + 0.11), D / 2 - 0.08, 0.60 + h * 0.62), 0.035, 10)
-    # pilastri e pinnacoli tra le arcate e ai lati
-    for x in (-1.62, -0.56, 0.56, 1.62):
-        box(st, V(x, 0.0, 1.9), V(0.16, D - 0.10, 2.6), bevel=0.01, seg=1)
-        pinnacle(st, (x, 0.0, 3.2), 0.9, 0.06)
-    pinnacle(st, (0.0, 0.0, 4.0), 0.4, 0.05)
-    # L'Occhio al centro: disco d'oro con raggi, iride, pupilla
-    ex, ez = 0.0, 2.75
-    y = D / 2 - 0.05
-    lathe(gold, [(0.0, 0.0), (0.30, 0.0), (0.30, 0.02), (0.0, 0.02)], c=V(ex, y + 0.0, ez), segs=28, axis='Y')
-    # mandorla: due archi; si fa con un anello
-    torus_pts = []
-    for i in range(24):
-        a = 2 * pi * i / 24
-        torus_pts.append((ex + cos(a) * 0.38, ez + sin(a) * 0.17 * 0.0 + sin(a) * 0.17))
-    poly_prism(gold, [(ex + cos(a) * 0.40, ez + sin(a) * 0.20) for a in [2 * pi * i / 32 for i in range(32)]], 'y', y + 0.0, y + 0.012)
-    poly_prism(dk, [(ex + cos(a) * 0.34, ez + sin(a) * 0.15) for a in [2 * pi * i / 32 for i in range(32)]], 'y', y + 0.012, y + 0.02)
-    lathe(gold, [(0.0, 0.0), (0.13, 0.0), (0.13, 0.03), (0.0, 0.034)], c=V(ex, y + 0.02, ez), segs=24, axis='Y')
-    lathe(dk, [(0.0, 0.0), (0.055, 0.0), (0.055, 0.04), (0.0, 0.04)], c=V(ex, y + 0.04, ez), segs=16, axis='Y')
-    for i in range(24):
-        a = 2 * pi * i / 24
-        r0, r1 = 0.46, 0.92 if i % 2 == 0 else 0.68
-        cyl(gold, V(ex + cos(a) * r0, y + 0.008, ez + sin(a) * r0), V(ex + cos(a) * r1, y + 0.008, ez + sin(a) * r1), 0.012 if i % 2 else 0.018, 6)
+    width, depth = 3.36, 0.44
+    box(stone, V(0, 0, 0.11), V(width, depth, 0.22), bevel=0.022, seg=3)
+    box(stone, V(0, -0.014, 0.33), V(width - 0.10, depth - 0.045, 0.25), bevel=0.017, seg=2)
+    box(stone, V(0, 0, 0.47), V(width - 0.035, depth, 0.075), bevel=0.012, seg=2)
+
+    def frame(outer, inner, back, front):
+        # Cornice chiusa con smusso sul bordo interno.
+        bevel = [(x * 0.22 + u * 0.78, z * 0.22 + v * 0.78) for (x, z), (u, v) in zip(outer, inner)]
+        loops = [[stone.verts.new(V(x, y, z)) for x, z in outline]
+                 for outline, y in ((outer, back), (outer, front - 0.014), (bevel, front), (inner, front - 0.018), (inner, back))]
+        for ring in range(len(loops)):
+            a, b = loops[ring - 1], loops[ring]
+            for i in range(len(outer)):
+                j = (i + 1) % len(outer)
+                stone.faces.new((a[i], a[j], b[j], b[i]))
+
+    for cx, span, height in ((-1.10, 0.92, 1.90), (0.0, 1.36, 2.60), (1.10, 0.92, 1.90)):
+        base = 0.51
+        arch_slab(stone, cx, base, span, height, -0.18, 0.033)
+        frame(gothic_pts(cx, base, span, height),
+              gothic_pts(cx, base + 0.080, span - 0.16, height - 0.18), 0.02, 0.19)
+        frame(gothic_pts(cx, base + 0.062, span - 0.12, height - 0.13),
+              gothic_pts(cx, base + 0.111, span - 0.221, height - 0.23), 0.042, 0.119)
+
+        for sign in (-1, 1):
+            x = cx + sign * (span * 0.5 - 0.053)
+            shaft = height - span * 0.8
+            profile = [(0.047, 0), (0.050, 0.04), (0.035, 0.077), (0.028, 0.106),
+                       (0.028, shaft - 0.105), (0.037, shaft - 0.079),
+                       (0.050, shaft - 0.025), (0.048, shaft)]
+            lathe(stone, profile, c=V(x, 0.136, base), segs=12)
+        if cx != 0.0:
+            z = base + 0.91
+            for i in range(4):
+                a = i * pi * 0.5
+                lathe(stone, [(0.078, 0), (0.078, 0.012), (0.058, 0.037), (0, 0.040)],
+                      c=V(cx + cos(a) * 0.09, 0.030, z + sin(a) * 0.09), segs=16, axis='Y')
+            sphere(dark, V(cx, 0.059, z), 0.032, 10)
+
+    for x in (-1.60, -0.67, 0.67, 1.60):
+        pillar = 2.20 if abs(x) > 1.0 else 2.55
+        box(stone, V(x, 0.025, 0.50 + pillar * 0.5), V(0.10, 0.29, pillar), bevel=0.014, seg=2)
+        pinnacle(stone, (x, 0.025, 0.50 + pillar), 0.28, 0.043)
+    pinnacle(stone, (0, 0.024, 3.04), 0.33, 0.044)
+
+    # L'occhio e' una borchia di metallo incastonata nel calcare del vano centrale.
+    z = 1.96
+    lathe(stone, [(0.265, 0), (0.265, 0.060), (0.237, 0.091), (0.211, 0.092)],
+          c=V(0, 0.035, z), segs=36, axis='Y')
+    lathe(dark, [(0.0, 0), (0.211, 0), (0.211, 0.026), (0, 0.029)],
+          c=V(0, 0.083, z), segs=32, axis='Y')
+    for sign in (-1, 1):
+        lid = [V(0.175 * cos(pi * i / 18), 0.132, z + sign * 0.078 * sin(pi * i / 18)) for i in range(19)]
+        tube(gold, lid, (0.011, 0.011), segs=7, n=24)
+    lathe(gold, [(0.028, 0), (0.062, 0), (0.069, 0.010), (0.057, 0.025), (0.028, 0.029)],
+          c=V(0, 0.125, z), segs=24, axis='Y')
+    sphere(dark, V(0, 0.138, z), 0.029, 12)
     return A
 
 
@@ -566,7 +588,7 @@ ASSETS = {
     'chi_sarcofago': sarcofago, 'chi_lampadario': lampadario, 'chi_stallo': stallo, 'chi_inginocchiatoio': inginocchiatoio,
 }
 VIEWS = {
-    'chi_panca': ((2.6, 3.0, 1.5), (0, 0, 0.5), 40), 'chi_altare': ((2.8, 3.4, 1.7), (0, 0, 0.6), 40), 'chi_pala': ((3.6, 6.0, 2.8), (0, 0, 2.2), 36),
+    'chi_panca': ((2.6, 3.0, 1.5), (0, 0, 0.5), 40), 'chi_altare': ((2.8, 3.4, 1.7), (0, 0, 0.6), 40), 'chi_pala': ((3.6, 5.2, 2.6), (0, 0, 1.7), 36),
     'chi_candelabro': ((1.5, 2.0, 1.6), (0, 0, 0.9), 40), 'chi_ceri': ((1.8, 2.2, 1.3), (0, 0, 0.6), 40),
     'chi_confessionale': ((3.2, 4.4, 2.2), (0, 0, 1.2), 40), 'chi_pulpito': ((2.8, 3.6, 2.4), (0, 0, 1.7), 40),
     'chi_fonte': ((1.7, 2.1, 1.3), (0, 0, 0.55), 40), 'chi_statua': ((1.9, 2.5, 1.9), (0, 0, 1.1), 40),
