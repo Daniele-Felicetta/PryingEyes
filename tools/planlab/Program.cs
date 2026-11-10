@@ -24,6 +24,8 @@ static class Program
         int fail = 0; var attempts = new int[81]; var sw = Stopwatch.StartNew();
         double rooms = 0, area = 0; int maxRooms = 0, minRooms = 999;
         var kinds = new Dictionary<RoomKind, int>(); int churchStart = 0, openings = 0;
+        var themeN = new Dictionary<Theme, int>(); var themeRooms = new Dictionary<Theme, int>();
+        var themeAtt = new Dictionary<Theme, double>(); var themeWalk = new Dictionary<Theme, double>();
         double maxW = 0, maxD = 0, pathSum = 0;
         var reasons = new Dictionary<string, int>();
         for (int i = 0; i < n; i++)
@@ -35,6 +37,10 @@ static class Program
             rooms += p.rooms.Count; maxRooms = Math.Max(maxRooms, p.rooms.Count); minRooms = Math.Min(minRooms, p.rooms.Count);
             foreach (var r in p.rooms) { kinds[r.kind] = kinds.TryGetValue(r.kind, out int c) ? c + 1 : 1; area += r.W * r.D / 100.0; }
             if (p.startInChurch) churchStart++;
+            themeN[p.theme] = themeN.TryGetValue(p.theme, out int tn) ? tn + 1 : 1;
+            themeRooms[p.theme] = themeRooms.TryGetValue(p.theme, out int tr) ? tr + p.rooms.Count : p.rooms.Count;
+            themeAtt[p.theme] = themeAtt.TryGetValue(p.theme, out double ta) ? ta + PlanGen.LastAttempts : PlanGen.LastAttempts;
+            themeWalk[p.theme] = themeWalk.TryGetValue(p.theme, out double tw) ? tw + p.WalkDist(p.start)[p.exit] : p.WalkDist(p.start)[p.exit];
             openings += p.openings.Count;
             maxW = Math.Max(maxW, (p.maxX - p.minX) / 10.0); maxD = Math.Max(maxD, (p.maxZ - p.minZ) / 10.0);
             pathSum += p.WalkDist(p.start)[p.exit];
@@ -49,6 +55,8 @@ static class Program
         Console.WriteLine($"ingombro massimo {maxW:F0} x {maxD:F0} m, cammino medio arrivo-uscita {pathSum / ok:F0} m");
         foreach (var kv in kinds) Console.WriteLine($"  {kv.Key}: {kv.Value / (double)ok:F2} per piano");
         foreach (var kv in reasons) Console.WriteLine($"  motivo: {kv.Key} x{kv.Value}");
+        foreach (var kv in themeN)
+            Console.WriteLine($"  tema {kv.Key}: {kv.Value} piani, {themeRooms[kv.Key] / (double)kv.Value:F0} stanze in media, tentativi medi {themeAtt[kv.Key] / kv.Value:F1}, cammino medio {themeWalk[kv.Key] / kv.Value:F0} m");
         return fail == 0 ? 0 : 2;
     }
 
@@ -60,6 +68,12 @@ static class Program
         { RoomKind.Nartece, (120, 150, 190) }, { RoomKind.Navata, (100, 130, 200) }, { RoomKind.Navatella, (90, 160, 190) },
         { RoomKind.Cappella, (150, 110, 200) }, { RoomKind.Presbiterio, (70, 100, 190) }, { RoomKind.Sacrestia, (130, 100, 170) },
         { RoomKind.Cripta, (80, 70, 110) }, { RoomKind.Campanile, (100, 140, 140) }, { RoomKind.Ascensore, (80, 200, 80) },
+        { RoomKind.Platea, (110, 30, 40) }, { RoomKind.Palco, (150, 60, 70) }, { RoomKind.Foyer, (200, 150, 90) },
+        { RoomKind.Palcoscenico, (120, 60, 130) }, { RoomKind.Camerino, (170, 110, 150) }, { RoomKind.Deposito, (90, 90, 90) }, { RoomKind.Ridotto, (190, 120, 60) },
+        { RoomKind.Accettazione, (180, 200, 210) }, { RoomKind.Degenza, (200, 210, 220) }, { RoomKind.Corsia, (160, 190, 200) },
+        { RoomKind.Cella, (120, 130, 140) }, { RoomKind.Refettorio, (150, 170, 150) }, { RoomKind.SalaOperatoria, (220, 240, 245) },
+        { RoomKind.Lavanderia, (120, 160, 170) }, { RoomKind.Archivio, (140, 120, 90) }, { RoomKind.Obitorio, (70, 90, 100) },
+        { RoomKind.SalaMedici, (170, 170, 120) },
     };
 
     static byte[] Render(Plan p, int px, out int W, out int H)
@@ -117,7 +131,7 @@ static class Program
         if (p == null) { Console.WriteLine("nessun piano: " + PlanGen.LastFailure); return; }
         var img = Render(p, 6, out int w, out int h);
         WritePpm(path, img, w, h);
-        Console.WriteLine($"seme {seed} piano {floor}: {p.rooms.Count} stanze, {p.openings.Count} aperture, tentativi {PlanGen.LastAttempts}, {(p.maxX - p.minX) / 10.0:F0}x{(p.maxZ - p.minZ) / 10.0:F0} m, partenza {(p.startInChurch ? "chiesa" : "albergo")}, cammino {p.WalkDist(p.start)[p.exit]:F0} m");
+        Console.WriteLine($"seme {seed} piano {floor}: {p.rooms.Count} stanze, {p.openings.Count} aperture, tentativi {PlanGen.LastAttempts}, {(p.maxX - p.minX) / 10.0:F0}x{(p.maxZ - p.minZ) / 10.0:F0} m, partenza {(p.startInChurch ? "chiesa" : "albergo")}, tema {p.theme}, cammino {p.WalkDist(p.start)[p.exit]:F0} m");
     }
 
     // foglio di mappe: n piani affiancati in un solo file

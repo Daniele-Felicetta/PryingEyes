@@ -85,11 +85,11 @@ namespace PryingEyes
             foreach (var tr in go.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = HotelNav.EnemyLayer;
             Enemy e = go.AddComponent<Enemy>();
             e.type = t;
-            e.hp = e.maxHp = t == EnemyType.Occhio ? 70f : t == EnemyType.Abate ? 280f : 170f;
-            // passo da orda: nessuno corre, il giocatore ha il tempo di mirare e comprare
-            e.speed = t == EnemyType.Occhio ? 2.3f + Random.value * 0.8f
-                : t == EnemyType.Abate ? 1.00f + Random.value * 0.25f   // pesante: lento e inesorabile
-                : 1.20f + Random.value * 0.30f;      // lento e ostinato
+            e.hp = e.maxHp = t == EnemyType.Occhio ? 80f : t == EnemyType.Abate ? 320f : 200f;
+            // passo da orda: nessuno corre, ma non si fermano e non ti lasciano il tempo di comprare con calma
+            e.speed = t == EnemyType.Occhio ? 2.5f + Random.value * 0.8f
+                : t == EnemyType.Abate ? 1.10f + Random.value * 0.25f   // pesante: lento e inesorabile
+                : 1.30f + Random.value * 0.30f;      // ostinato
             e.phase = Random.value * 10f;
             e.anim = go.GetComponentInChildren<Animator>();
             if (t == EnemyType.Abate && e.anim != null) e.anim.speed = AbateAnimSpeed;
@@ -287,13 +287,13 @@ namespace PryingEyes
                     float hd2 = new Vector2(p.x - tip.x, p.z - tip.z).magnitude;
                     float dy2 = Mathf.Abs(p.y - tip.y);
                     if (GameManager.I.player.alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, 3.1f))
-                        HitPlayer((enraged ? 24f : 18f) + Random.value * 8f, hd2, dy2);
+                        HitPlayer((enraged ? 28f : 22f) + Random.value * 8f, hd2, dy2);
                     else if (GameManager.autoTest) Debug.Log($"[PryingEyes] abate: colpo a vuoto, giocatore a {hd2:F1} m, dislivello {dy2:F1} m");
                 }
             }
             else if (hunting && atkCd <= 0f && GameManager.I.player.alive && InReach(eye, chest, hd, dy, 2.8f))
             {
-                atkCd = 3.0f;
+                atkCd = 2.5f;
                 strikeAt = 16f / 30f / AbateAnimSpeed;
                 atkLock = 1.5f;
                 if (anim != null) anim.SetTrigger("Attacca");
@@ -368,7 +368,7 @@ namespace PryingEyes
                     Vector3 tip = castOrb != null
                         ? castOrb.transform.position
                         : transform.TransformPoint(new Vector3(-0.30f, 1.35f, 0.40f));
-                    MagicBolt.Launch(tip, chest, 8f + Random.value * 4f);
+                    MagicBolt.Launch(tip, chest, 10f + Random.value * 5f);
                     if (castOrb != null) castOrb.SetActive(false);
                     if (castLight != null) castLight.intensity = 0f;
                     if (GameManager.autoTest) Debug.Log($"[PryingEyes] mago lancia magia da {hd:F1} m");
@@ -387,13 +387,13 @@ namespace PryingEyes
                     float hd2 = new Vector2(p.x - tip.x, p.z - tip.z).magnitude;
                     float dy2 = Mathf.Abs(p.y - tip.y);
                     if (GameManager.I.player.alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, 2.4f))
-                        HitPlayer((enraged ? 18f : 13f) + Random.value * 6f, hd2, dy2);
+                        HitPlayer((enraged ? 22f : 16f) + Random.value * 6f, hd2, dy2);
                     else if (GameManager.autoTest) Debug.Log($"[PryingEyes] monaco: colpo a vuoto, giocatore a {hd2:F1} m, dislivello {dy2:F1} m");
                 }
             }
             else if (hunting && atkCd <= 0f && GameManager.I.player.alive && InReach(eye, chest, hd, dy, 2.1f))
             {
-                atkCd = 2.2f;
+                atkCd = 1.9f;
                 strikeAt = 16f / 30f;
                 atkLock = 1.25f;
                 if (anim != null) anim.SetTrigger("Attacca");
@@ -401,7 +401,7 @@ namespace PryingEyes
             else if (hunting && seeing && atkCd <= 0f && GameManager.I.player.alive && see && hd > 3.0f && hd < 26f)
             {
                 // a distanza il monaco diventa un mago: telegrafa la carica e lancia
-                atkCd = 3.2f + Random.value * 0.8f;
+                atkCd = 2.6f + Random.value * 0.8f;
                 castAt = 0.9f;
                 atkLock = 1.4f;
                 EnsureCastOrb();
@@ -474,11 +474,11 @@ namespace PryingEyes
             {
                 strikeAt -= dt;
                 if (strikeAt < 0f && GameManager.I.player.alive && dist3 < 3.4f && HotelNav.ClearLine(gp, chest))
-                    HitPlayer((type == EnemyType.Medusa ? 12f : 6f) + Random.value * 4f, dist3, Mathf.Abs(chest.y - gp.y));
+                    HitPlayer((type == EnemyType.Medusa ? 15f : 8f) + Random.value * 4f, dist3, Mathf.Abs(chest.y - gp.y));
             }
             else if (hunting && see && dist3 < 2.7f && atkCd <= 0f && GameManager.I.player.alive)
             {
-                atkCd = type == EnemyType.Falena ? 1.6f : type == EnemyType.Medusa ? 3.1f : 2.2f;
+                atkCd = type == EnemyType.Falena ? 1.3f : type == EnemyType.Medusa ? 2.6f : 1.8f;
                 strikeAt = 0.5f;
                 if (eye != null) eye.Stare(0.9f);
                 Sfx.At(SoundBank.EyeStare, gp, 0.55f, Random.Range(0.92f, 1.08f), 2f, 22f);

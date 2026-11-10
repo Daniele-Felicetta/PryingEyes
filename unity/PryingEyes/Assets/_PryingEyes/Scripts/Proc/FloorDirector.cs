@@ -15,6 +15,7 @@ namespace PryingEyes.Proc
         public int runSeed;
         public FloorInstance cur;
         public bool transitioning;
+        int units = 1;                       // ali-coppia del piano in corso: orde e popolazione crescono con il piano
 
         int lit, total, deaths;
         bool exitOpen, firstHorde, lastHorde;
@@ -85,6 +86,7 @@ namespace PryingEyes.Proc
             LightPool.Dim = LightDim(n);
             var plan = PlanGen.Generate(runSeed + n * 1013, n);
             if (plan == null) { Debug.LogError("[PryingEyes] piano non generabile: " + PlanGen.LastFailure); yield break; }
+            units = plan.units;
             float t0 = Time.realtimeSinceStartup;
             cur = FloorBuilder.Build(plan, null);
             float tBuild = Time.realtimeSinceStartup - t0;
@@ -129,7 +131,7 @@ namespace PryingEyes.Proc
             RefreshObjective();
             hud?.Banner("Piano " + n, plan.epithet);
             hud?.Toast(FloorLines[(n - 1) % FloorLines.Length]);
-            Debug.Log($"[PryingEyes] piano {n} seme {runSeed + n * 1013}: {plan.rooms.Count} stanze, {cur.candles.Count} candele, {LightPool.Count} luci, " +
+            Debug.Log($"[PryingEyes] piano {n} seme {runSeed + n * 1013}: {plan.rooms.Count} stanze in {plan.units} ali, {cur.candles.Count} candele, {LightPool.Count} luci, " +
                       $"costruito in {tBuild * 1000f:F0} ms, partenza {(plan.startInChurch ? "chiesa" : "albergo")}");
             if (!first) { for (float k = 1f; k > 0f; k -= Time.deltaTime / 0.9f) { hud?.SetFade(k); yield return null; } }
             hud?.SetFade(0f);
@@ -234,7 +236,7 @@ namespace PryingEyes.Proc
             else
             {
                 hud?.Toast($"Candela accesa ({lit}/{total}). Qualcosa si muove nell'albergo.");
-                Summon(1 + floor / 3 + lit / 2, c.transform.position);
+                Summon(2 + floor / 3 + lit / 2, c.transform.position);
             }
             Guide.I?.CandleLit(c, exitOpen);
             RefreshObjective();
@@ -246,7 +248,7 @@ namespace PryingEyes.Proc
             if (cur.exit != null) { cur.exit.unlocked = true; cur.exit.Open(); }
             gm.hud?.Toast("Tutte le candele sono accese. Le porte dell'ascensore si aprono.");
             Sfx.UI(SoundBank.Toll, 0.7f);
-            if (!lastHorde && cur.exit != null) { lastHorde = true; Summon(2 + floor / 2, cur.exit.frontPoint); }
+            if (!lastHorde && cur.exit != null) { lastHorde = true; Summon(3 + floor / 2, cur.exit.frontPoint); }
             // faro verde sulla porta dell'ascensore: nel buio si vede da lontano
             if (cur.exit != null)
             {
@@ -450,7 +452,7 @@ namespace PryingEyes.Proc
                 foreach (var r in plan.rooms)
                     if (!r.IsLift && dist[r.id] < float.MaxValue && dist[r.id] >= 10f) rooms.Add(r);
             if (rooms.Count == 0) return;
-            int n = Mathf.Min(7, 2 + floor / 2 + (floor >= 3 ? 1 : 0));
+            int n = Mathf.Min(12, 2 + floor / 2 + (floor >= 3 ? 1 : 0) + plan.units - 1);
             for (int i = 0; i < n; i++)
             {
                 var room = rooms[rng.Range(0, rooms.Count)];
@@ -471,7 +473,7 @@ namespace PryingEyes.Proc
 
         IEnumerator SummonCo(int count, Vector3 target)
         {
-            int cap = 7 + floor;
+            int cap = 8 + floor + units;
             yield return new WaitForSeconds(Random.Range(2f, 5f));
             for (int i = 0; i < count; i++)
             {
@@ -595,8 +597,8 @@ namespace PryingEyes.Proc
                 trickleT -= dt;
                 if (trickleT <= 0f)
                 {
-                    trickleT = Mathf.Lerp(50f, 28f, Mathf.Clamp01(floor / 10f)) * Random.Range(0.8f, 1.25f);
-                    if (floorTime > 25f && Enemy.All.Count < 3 + floor) SpawnOne();
+                    trickleT = Mathf.Lerp(40f, 22f, Mathf.Clamp01(floor / 10f)) * Random.Range(0.8f, 1.25f);
+                    if (floorTime > 25f && Enemy.All.Count < 3 + floor + units) SpawnOne();
                 }
             }
             hudT -= dt;

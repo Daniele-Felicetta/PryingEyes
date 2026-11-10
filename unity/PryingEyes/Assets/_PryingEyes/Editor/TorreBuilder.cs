@@ -179,6 +179,9 @@ namespace PryingEyes.EditorTools
             M("mur_cripta", Pbr("kit_cripta_muro", "pietra_cripta", new Color(0.8f, 0.8f, 0.8f), 2.0f));
             M("mur_piastrelle", Pbr("kit_piastrelle", "piastrelle", Color.white, 1.2f));
             M("mur_boiserie", Existing("Wood"));
+            M("pav_linoleo", Pbr("kit_linoleo", "linoleo", Color.white, 1.0f));
+            M("mur_vernice_verde", Pbr("kit_vernice_verde", "vernice_verde", Color.white, 2.0f));
+            M("pav_palco", Pbr("kit_palco", "noce", new Color(0.66f, 0.60f, 0.56f), 1.2f));
             // soffitti e travi
             M("sof_intonaco", Existing("Ceil"));
             M("sof_legno", Pbr("kit_soffitto_legno", "noce", new Color(0.55f, 0.55f, 0.55f), 1.0f));

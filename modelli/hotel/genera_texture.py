@@ -453,6 +453,42 @@ def forme(n=512):
     print("sporco_base")
 
 
+def _nz(a):
+    """Normalizza un campo di rumore a 0..1."""
+    return (a - a.min()) / (a.max() - a.min() + 1e-9)
+
+
+def linoleo(n=1024):
+    """Linoleum del sanatorio: grigio-verde spento, grana fine, usura lucida lungo i passaggi, qualche graffio."""
+    rng = np.random.default_rng(61)
+    mott = _nz(fbm(n, 6, 5, rng))
+    grain = _nz(perlin(n, n // 2, rng))
+    wear = smooth(0.55, 0.8, _nz(fbm(n, 3, 4, rng)))
+    base = lerp(col((0.56, 0.62, 0.57), n), col((0.46, 0.53, 0.49), n), mott)
+    base = lerp(base, col((0.66, 0.70, 0.66), n), wear * 0.5)
+    base = base * (0.93 + 0.14 * grain)[..., None]
+    base = lerp(base, col((0.30, 0.34, 0.31), n), scratches(n, 40, rng, (0.01, 0.05), 1.0) * 0.6)
+    h = (mott - 0.5) * 0.2 + (grain - 0.5) * 0.15 - wear * 0.05
+    save("linoleo", base, normals(h, 1.5), np.zeros((n, n), F), 1 - (1 - grain) * 0.08, 0.36 + 0.10 * wear - 0.05 * grain)
+
+
+def vernice_verde(n=1024):
+    """Vernice verde da ospedale, parte bassa dei muri: satinata, pennellate orizzontali, scrostature chiare, aloni d'umidita' in basso."""
+    rng = np.random.default_rng(73)
+    brush = _nz(perlin(n, 5, rng, cells_y=n // 2))
+    mott = _nz(fbm(n, 5, 5, rng))
+    d1, _, _ = voronoi(n, 12, rng)
+    chip = (1 - smooth(0.0, 0.035, d1)) * smooth(0.45, 0.6, fbm(n, 4, 4, rng))
+    bottom = np.linspace(0.0, 1.0, n)[:, None] * np.ones((1, n))
+    damp = smooth(0.55, 1.0, bottom) * smooth(0.5, 0.7, _nz(fbm(n, 3, 5, rng)))
+    base = lerp(col((0.40, 0.55, 0.47), n), col((0.45, 0.60, 0.51), n), brush * 0.7)
+    base = base * (0.95 + 0.08 * mott)[..., None]
+    base = lerp(base, col((0.74, 0.73, 0.67), n), chip * 0.85)
+    base = lerp(base, col((0.22, 0.28, 0.24), n), damp * 0.6)
+    h = (brush - 0.5) * 0.18 + (mott - 0.5) * 0.1 - chip * 0.7
+    save("vernice_verde", base, normals(h, 2.0), np.zeros((n, n), F), 1 - damp * 0.25, 0.26 - chip * 0.2)
+
+
 def anteprima(path):
     names = ["marmo_pavimento", "marmo_bianco", "damasco", "noce", "intonaco", "moquette", "ottone", "acciaio", "velluto"]
     tiles = []
@@ -487,7 +523,7 @@ if __name__ == "__main__":
         rest = rest[:k] + rest[k + 2:]
     if rest:
         OUT = Path(rest[0])
-    for fn in (marmo_scacchiera, marmo_bianco, damasco, noce, intonaco, moquette, ottone, acciaio, velluto, cuoio, forme):
+    for fn in (marmo_scacchiera, marmo_bianco, damasco, noce, intonaco, moquette, ottone, acciaio, velluto, cuoio, forme, linoleo, vernice_verde):
         if only is None or fn.__name__ in only:
             fn()
     if preview:

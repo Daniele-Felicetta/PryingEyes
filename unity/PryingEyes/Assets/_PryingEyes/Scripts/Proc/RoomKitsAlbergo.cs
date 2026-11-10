@@ -61,6 +61,9 @@ namespace PryingEyes.Proc
             Vector3 a = LongAxis(c);
             var fr = MakeFrame(c, a);
             float Lf = fr.Lf, Lr = fr.Lr;
+            // corsia libera al centro: un carrello e una palma su due muri opposti chiudevano il corridoio per la navmesh (serve 0,8 m)
+            Vector3 lane0 = fr.P(0f, Lr * 0.5f - 0.8f), lane1 = fr.P(Lf, Lr * 0.5f + 0.8f);
+            c.occ.Add(Rect.MinMaxRect(Mathf.Min(lane0.x, lane1.x), Mathf.Min(lane0.z, lane1.z), Mathf.Max(lane0.x, lane1.x), Mathf.Max(lane0.z, lane1.z)));
             // applique ogni ~5,5 m, alternate sui due muri
             int n = Mathf.Max(2, Mathf.RoundToInt(Lf / 5.5f));
             for (int i = 0; i < n; i++)

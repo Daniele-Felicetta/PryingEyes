@@ -215,7 +215,7 @@ namespace PryingEyes.Proc
             var fr = MakeFrame(c, ax);
             float Lf = fr.Lf, Lr = fr.Lr;
             // quale lato e' l'arcata? quello verso la navata
-            var nave = c.plan.Find(RoomKind.Navata);
+            var nave = c.plan.FindIn(RoomKind.Navata, c.r.unit);
             Vector3 toNave = nave != null ? new Vector3(nave.CenterX - c.r.CenterX, 0f, nave.CenterZ - c.r.CenterZ) : fr.r;
             bool arcadeRight = Vector3.Dot(toNave, fr.r) > 0f;
             float outerR = arcadeRight ? 0f : Lr;

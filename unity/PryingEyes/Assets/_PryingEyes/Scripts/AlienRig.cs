@@ -21,9 +21,9 @@ namespace PryingEyes
         {
             (maxHp, speed, basePitch) = type switch
             {
-                EnemyType.Falena => (55f, 3.4f, 1.35f),
-                EnemyType.Medusa => (120f, 1.75f, 0.68f),
-                _ => (235f, 1.15f, 0.56f)
+                EnemyType.Falena => (60f, 3.5f, 1.35f),
+                EnemyType.Medusa => (140f, 1.9f, 0.68f),
+                _ => (260f, 1.25f, 0.56f)
             };
             hp = maxHp;
         }

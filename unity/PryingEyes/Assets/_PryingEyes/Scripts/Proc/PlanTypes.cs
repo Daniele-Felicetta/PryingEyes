@@ -9,6 +9,10 @@ namespace PryingEyes.Proc
     /// <summary>Lato di una stanza: S = z minima, N = z massima, W = x minima, E = x massima.</summary>
     public enum Side { S = 0, N = 1, W = 2, E = 3 }
 
+    /// <summary>Il tema di un piano: l'albergo con la chiesa (il tema di partenza), il teatro (sala e palcoscenico) o il sanatorio
+    /// (istituto e cappella). Tutte le ali di un piano hanno lo stesso tema.</summary>
+    public enum Theme { Albergo, Teatro, Sanatorio }
+
     public enum RoomKind
     {
         // albergo
@@ -16,7 +20,11 @@ namespace PryingEyes.Proc
         // chiesa
         Nartece, Navata, Navatella, Cappella, Presbiterio, Sacrestia, Cripta, Campanile,
         // speciale: la cabina di un ascensore (arrivo o uscita)
-        Ascensore
+        Ascensore,
+        // teatro: la sala e il palcoscenico
+        Platea, Palco, Foyer, Palcoscenico, Camerino, Deposito, Ridotto,
+        // sanatorio: l'istituto (la cappella e' la chiesa)
+        Accettazione, Degenza, Corsia, Cella, Refettorio, SalaOperatoria, Lavanderia, Archivio, Obitorio, SalaMedici
     }
 
     public enum CeilKind { Flat, Beams, Gable, BarrelRound, BarrelPointed }
@@ -35,6 +43,8 @@ namespace PryingEyes.Proc
         public int seed;                    // per gli arredi: ogni stanza ne ha uno suo
         public string label = "";
         public int variant;
+        public int wing;                    // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
+        public int unit;                    // ala-coppia di appartenenza (0 per la prima): vedi PlanGen.Compound
 
         public int W => x1 - x0;
         public int D => z1 - z0;
@@ -105,6 +115,10 @@ namespace PryingEyes.Proc
         public int start = -1, exit = -1;
         public int minX, minZ, maxX, maxZ;
         public bool startInChurch;
+        /// <summary>Il tema del piano: tutte le sue ali lo condividono (vedi PlanGen.PickTheme).</summary>
+        public Theme theme = Theme.Albergo;
+        /// <summary>Quante ali-coppia (un'ala d'albergo e una di chiesa ciascuna) compongono il piano: vedi PlanGen.Compound.</summary>
+        public int units = 1;
         /// <summary>Stanze dove sta un candelabro da accendere (obiettivo del piano).</summary>
         public List<int> objectives = new List<int>();
 
@@ -172,6 +186,13 @@ namespace PryingEyes.Proc
                 minX = Math.Min(minX, r.x0); minZ = Math.Min(minZ, r.z0);
                 maxX = Math.Max(maxX, r.x1); maxZ = Math.Max(maxZ, r.z1);
             }
+        }
+
+        /// <summary>Stanza di un tipo dentro una sola ala-coppia: con piu' chiese nel piano 'Find' darebbe quella della prima.</summary>
+        public Room FindIn(RoomKind k, int unit)
+        {
+            foreach (var r in rooms) if (r.kind == k && r.unit == unit) return r;
+            return null;
         }
 
         public Room Find(RoomKind k)

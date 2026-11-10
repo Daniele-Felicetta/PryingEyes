@@ -35,10 +35,17 @@ namespace PryingEyes.Proc
     /// ballo) e un'ala di chiesa (nartece, navata con navate laterali e cappelle, presbiterio, sacrestia, cripta),
     /// unite da un portale e orientate in modo diverso a ogni piano. Gli ascensori di arrivo e di uscita sono due
     /// stanzette attaccate ai muri esterni delle due ali.</summary>
-    public static class PlanGen
+    public static partial class PlanGen
     {
         public static string LastFailure = "";
         public static int LastAttempts;
+
+        /// <summary>Le stanze sono un po' piu' grandi di prima (+12%): ogni misura di stanza passa da Grow. Il risultato e' pari.</summary>
+        const float RoomGrow = 1.12f;
+        static int Grow(int dm) => 2 * (int)Math.Round(dm * RoomGrow * 0.5f);
+        /// <summary>Ingombro massimo di un piano intero (dm): oltre si scarta la pianta.</summary>
+        const int MaxSpan = 2400;
+        static readonly Side[] AllSides = { Side.S, Side.N, Side.W, Side.E };
 
         public static Plan Generate(int seed, int floor)
         {
@@ -63,11 +70,12 @@ namespace PryingEyes.Proc
             public readonly List<Room> rooms = new List<Room>();
             public readonly List<Opening> ops = new List<Opening>();
             public readonly bool church;
-            public Wing(bool church) { this.church = church; }
+            public readonly int wing;
+            public Wing(bool church, int wing = -1) { this.church = church; this.wing = wing >= 0 ? wing : (church ? 1 : 0); }
 
             public Room Add(RoomKind k, int x0, int z0, int x1, int z1, Rng r)
             {
-                var room = new Room { id = rooms.Count, kind = k, church = church, x0 = x0, z0 = z0, x1 = x1, z1 = z1, seed = r.Range(1, 1 << 30) };
+                var room = new Room { id = rooms.Count, kind = k, church = church, wing = wing, x0 = x0, z0 = z0, x1 = x1, z1 = z1, seed = r.Range(1, 1 << 30) };
                 SetKindDefaults(room);
                 rooms.Add(room);
                 return room;
@@ -79,6 +87,7 @@ namespace PryingEyes.Proc
 
         static void SetKindDefaults(Room r)
         {
+            if (ThemeKindDefaults(r)) return;
             r.ceil = CeilKind.Flat;
             switch (r.kind)
             {
@@ -126,14 +135,14 @@ namespace PryingEyes.Proc
         }
 
         // ------------------------------------------------------------------ ala d'albergo
-        static Wing HotelWing(Rng r, bool simple)
+        static Wing HotelWing(Rng r, bool simple, HotelKinds kd)
         {
-            var w = new Wing(false);
-            int cw = r.Pick(24, 26, 28);
-            int L = simple ? 280 : r.Range(23, 39) * 10;
+            var w = new Wing(false, 0);
+            int cw = Grow(r.Pick(24, 26, 28));
+            int L = simple ? Grow(280) : Grow(r.Range(23, 39) * 10);
             var cor = w.Add(RoomKind.Corridoio, 0, 0, L, cw, r);
-            int pad = r.Pick(24, 30, 36);
-            var atr = w.Add(RoomKind.Atrio, -r.Pick(70, 80, 90), -pad, 0, cw + pad, r);
+            int pad = Grow(r.Pick(24, 30, 36));
+            var atr = w.Add(kd.Atrium, -Grow(r.Pick(70, 80, 90)), -pad, 0, cw + pad, r);
             w.Connect(atr, cor, OpenStyle.PortaLarga, cw, margin: 0);
 
             for (int side = 0; side < 2; side++)
@@ -144,20 +153,20 @@ namespace PryingEyes.Proc
                 int rem = L;
                 while (rem > 0)
                 {
-                    int wd = r.Pick(36, 42, 48, 42);
-                    if (rem - wd < 30 && rem - wd != 0) wd = rem <= 66 ? rem : rem / 2;
+                    int wd = Grow(r.Pick(36, 42, 48, 42));
+                    if (rem - wd < Grow(30) && rem - wd != 0) wd = rem <= Grow(66) ? rem : rem / 2;
                     wd &= ~1;
                     if (rem - wd < 0) wd = rem;
                     widths.Add(wd); rem -= wd;
                 }
-                int guestD = r.Pick(54, 54, 60);
+                int guestD = Grow(r.Pick(54, 54, 60));
                 // un blocco speciale per ala: ristorante (con cucina accanto) o sala da ballo, se c'e' posto
                 int bigStart = -1, bigCount = 0;
-                RoomKind bigKind = RoomKind.Ristorante;
+                RoomKind bigKind = kd.Big;
                 if (!simple && widths.Count >= 6 && r.Chance(north ? 0.55 : 0.25))
                 {
-                    bigKind = r.Chance(0.35) ? RoomKind.SalaBallo : RoomKind.Ristorante;
-                    int need = bigKind == RoomKind.SalaBallo ? 120 : 96;
+                    bigKind = r.Chance(0.35) ? kd.BigAlt : kd.Big;
+                    int need = Grow(bigKind == kd.BigAlt ? 120 : 96);
                     bigStart = r.Range(1, widths.Count - 2);
                     int sum = 0;
                     while (bigStart + bigCount < widths.Count - 1 && sum < need) { sum += widths[bigStart + bigCount]; bigCount++; }
@@ -170,19 +179,19 @@ namespace PryingEyes.Proc
                     if (i == bigStart)
                     {
                         int sum = 0; for (int k = 0; k < bigCount; k++) sum += widths[i + k];
-                        int d = bigKind == RoomKind.SalaBallo ? r.Pick(100, 108) : r.Pick(84, 90, 96);
+                        int d = Grow(bigKind == kd.BigAlt ? r.Pick(100, 108) : r.Pick(84, 90, 96));
                         var big = AddSide(w, r, cor, north, bigKind, x, x + sum, d, cw);
                         w.Connect(big, cor, OpenStyle.PortaLarga, 16, x + sum / 2, 3);   // doppia porta sul corridoio
                         i += bigCount - 1;
                         x += sum;
                         prev = big;
                         // la cucina sta accanto al ristorante
-                        if (bigKind == RoomKind.Ristorante && i + 1 < widths.Count && widths[i + 1] >= 36 && widths[i + 1] <= 66)
+                        if (bigKind == kd.Big && i + 1 < widths.Count && widths[i + 1] >= Grow(36) && widths[i + 1] <= Grow(66))
                         {
                             i++;
-                            var kit = AddSide(w, r, cor, north, RoomKind.Cucina, x, x + widths[i], Math.Min(d, 66), cw);
-                            w.Connect(kit, cor, OpenStyle.Porta, 12, x + widths[i] / 2, 3);
-                            w.Connect(big, kit, OpenStyle.Porta, 12, int.MinValue, 4);
+                            var kit = AddSide(w, r, cor, north, kd.Kitchen, x, x + widths[i], Math.Min(d, Grow(66)), cw);
+                            w.Connect(kit, cor, OpenStyle.Porta, 14, x + widths[i] / 2, 3);
+                            w.Connect(big, kit, OpenStyle.Porta, 14, int.MinValue, 4);
                             x += widths[i];
                             prev = kit;
                         }
@@ -190,18 +199,18 @@ namespace PryingEyes.Proc
                     }
                     int wd = widths[i];
                     RoomKind k2;
-                    if (wd <= 32) k2 = r.Chance(0.75) ? RoomKind.Servizio : RoomKind.Camera;
-                    else if (wd >= 60) k2 = RoomKind.Suite;
-                    else k2 = r.Chance(0.07) ? RoomKind.Servizio : RoomKind.Camera;
-                    var room = AddSide(w, r, cor, north, k2, x, x + wd, k2 == RoomKind.Suite ? 60 : (k2 == RoomKind.Servizio ? 48 : guestD), cw);
-                    int doorW = k2 == RoomKind.Suite ? 14 : 12;     // sotto i 1,2 m la navmesh non passa (agente da 40 cm di raggio)
-                    int dc = x + wd / 2 + (k2 == RoomKind.Camera && wd >= 42 ? r.Pick(-8, 8, 0) : 0);
-                    w.Connect(room, cor, k2 == RoomKind.Suite ? OpenStyle.PortaLarga : OpenStyle.Porta, doorW, dc, 3);
+                    if (wd <= Grow(32)) k2 = r.Chance(0.75) ? kd.PickService(r) : kd.Guest;
+                    else if (wd >= Grow(60)) k2 = kd.Suite;
+                    else k2 = r.Chance(0.07) ? kd.PickService(r) : kd.Guest;
+                    var room = AddSide(w, r, cor, north, k2, x, x + wd, k2 == kd.Suite ? kd.SuiteDepth : (IsService(k2) ? Grow(48) : guestD), cw);
+                    int doorW = 14;     // a 1,2 m la navmesh era al limite (agente da 40 cm di raggio): ora 1,4 m ovunque
+                    int dc = x + wd / 2 + (k2 == kd.Guest && wd >= Grow(42) ? r.Pick(-8, 8, 0) : 0);
+                    w.Connect(room, cor, k2 == kd.Suite ? OpenStyle.PortaLarga : OpenStyle.Porta, doorW, dc, 3);
                     // porta di collegamento con la stanza accanto, ogni tanto: crea giri e scorciatoie
-                    if (prev != null && prev.kind != RoomKind.Cucina && !IsBig(prev.kind) && k2 != RoomKind.Servizio && prev.kind != RoomKind.Servizio && r.Chance(0.22))
+                    if (prev != null && prev.kind != kd.Kitchen && !IsBig(prev.kind) && !IsService(k2) && !IsService(prev.kind) && r.Chance(0.22))
                     {
                         int back = north ? cw + (int)(guestD * 0.7f) : -(int)(guestD * 0.7f);
-                        w.Connect(prev, room, OpenStyle.Porta, 12, back, 3);
+                        w.Connect(prev, room, OpenStyle.Porta, 14, back, 3);
                     }
                     prev = room;
                     x += wd;
@@ -210,7 +219,10 @@ namespace PryingEyes.Proc
             return w;
         }
 
-        static bool IsBig(RoomKind k) => k == RoomKind.Ristorante || k == RoomKind.SalaBallo;
+        static bool IsBig(RoomKind k) => k == RoomKind.Ristorante || k == RoomKind.SalaBallo || k == RoomKind.Refettorio || k == RoomKind.SalaOperatoria;
+
+        /// <summary>Stanze di servizio: non ricevono le porte di collegamento tra le camere e non fanno da cucina.</summary>
+        static bool IsService(RoomKind k) => k == RoomKind.Servizio || k == RoomKind.Cella || k == RoomKind.Archivio || k == RoomKind.Obitorio || k == RoomKind.SalaMedici || k == RoomKind.Lavanderia;
 
         static Room AddSide(Wing w, Rng r, Room cor, bool north, RoomKind k, int x0, int x1, int depth, int cw) =>
             north ? w.Add(k, x0, cw, x1, cw + depth, r) : w.Add(k, x0, -depth, x1, 0, r);
@@ -219,13 +231,13 @@ namespace PryingEyes.Proc
         static Wing ChurchWing(Rng r, bool simple)
         {
             var w = new Wing(true);
-            const int bay = 45;
+            int bay = Grow(45);
             int bays = simple ? 4 : r.Range(4, 7);
             int Ln = bays * bay;
-            int Wn = simple ? 90 : r.Pick(84, 90, 96);
+            int Wn = simple ? Grow(90) : Grow(r.Pick(84, 90, 96));
             int half = Wn / 2;
             bool aisles = simple || r.Chance(0.82);
-            const int Wa = 36;
+            int Wa = Grow(36);
             int ext = aisles ? Wa : 0;
 
             var nave = w.Add(RoomKind.Navata, 0, -half, Ln, half, r);
@@ -235,11 +247,11 @@ namespace PryingEyes.Proc
                 aN = w.Add(RoomKind.Navatella, 0, half, Ln, half + Wa, r);
                 aS = w.Add(RoomKind.Navatella, 0, -half - Wa, Ln, -half, r);
             }
-            var nar = w.Add(RoomKind.Nartece, -54, -half - ext, 0, half + ext, r);
-            int presD = r.Pick(72, 78, 84);
+            var nar = w.Add(RoomKind.Nartece, -Grow(54), -half - ext, 0, half + ext, r);
+            int presD = Grow(r.Pick(72, 78, 84));
             var pres = w.Add(RoomKind.Presbiterio, Ln, -half, Ln + presD, half, r);
-            var sac = w.Add(RoomKind.Sacrestia, Ln, half, Ln + 54, half + 54, r);
-            var cry = w.Add(RoomKind.Cripta, Ln, -half - 54, Ln + 66, -half, r);
+            var sac = w.Add(RoomKind.Sacrestia, Ln, half, Ln + Grow(54), half + Grow(54), r);
+            var cry = w.Add(RoomKind.Cripta, Ln, -half - Grow(54), Ln + Grow(66), -half, r);
 
             // porte e arcate
             w.Connect(nar, nave, OpenStyle.Arco, 30, 0);
@@ -256,12 +268,12 @@ namespace PryingEyes.Proc
             }
             var chancel = w.Connect(nave, pres, OpenStyle.Arco, 54, 0);
             if (chancel != null) chancel.top = 8.2f;
-            w.Connect(pres, sac, OpenStyle.Arco, 14, Ln + 27);
-            w.Connect(pres, cry, OpenStyle.Arco, 14, Ln + 33);
+            w.Connect(pres, sac, OpenStyle.Arco, 14, Ln + Grow(54) / 2);
+            w.Connect(pres, cry, OpenStyle.Arco, 14, Ln + Grow(66) / 2);
             if (aisles)
             {
-                w.Connect(aN, sac, OpenStyle.Arco, 12);
-                w.Connect(aS, cry, OpenStyle.Arco, 12);
+                w.Connect(aN, sac, OpenStyle.Arco, 14);
+                w.Connect(aS, cry, OpenStyle.Arco, 14);
             }
 
             // cappelle laterali: una campata ciascuna, contro il muro esterno della navata laterale
@@ -276,8 +288,8 @@ namespace PryingEyes.Proc
                     int bi = r.Range(0, bays);
                     if (taken.Contains(bi) || taken.Contains(bi - 1) || taken.Contains(bi + 1)) continue;
                     taken.Add(bi);
-                    int cz0 = north ? half + ext : -half - ext - 48;
-                    var cap = w.Add(RoomKind.Cappella, bi * bay, cz0, (bi + 1) * bay, cz0 + 48, r);
+                    int cz0 = north ? half + ext : -half - ext - Grow(48);
+                    var cap = w.Add(RoomKind.Cappella, bi * bay, cz0, (bi + 1) * bay, cz0 + Grow(48), r);
                     var host = aisles ? (north ? aN : aS) : nave;
                     w.Connect(cap, host, OpenStyle.Arco, 24, bi * bay + bay / 2);
                 }
@@ -285,7 +297,7 @@ namespace PryingEyes.Proc
             // campanile: stanza alta accanto al nartece
             if (!simple && r.Chance(0.5))
             {
-                var camp = w.Add(RoomKind.Campanile, -54, half + ext, 0, half + ext + 54, r);
+                var camp = w.Add(RoomKind.Campanile, -Grow(54), half + ext, 0, half + ext + Grow(54), r);
                 w.Connect(nar, camp, OpenStyle.Arco, 14);
             }
             return w;
@@ -317,15 +329,11 @@ namespace PryingEyes.Proc
             if (Plan.AlongX(s)) { x = c; z = Plan.Line(r, s); } else { x = Plan.Line(r, s); z = c; }
         }
 
-        static Plan Assemble(Wing h, Wing c, Rng r, bool simple)
+        static Plan Assemble(Wing h, Wing c, Rng r, bool simple, Joint j)
         {
-            var hp = new List<(RoomKind k, Side s, double wt)> { (RoomKind.Corridoio, Side.E, 3.0), (RoomKind.Atrio, Side.N, 1.0), (RoomKind.Atrio, Side.S, 1.0) };
-            var cp = new List<(RoomKind k, Side s, double wt)>
-            {
-                (RoomKind.Nartece, Side.W, 3.0), (RoomKind.Nartece, Side.N, 1.0), (RoomKind.Nartece, Side.S, 1.0),
-                (RoomKind.Sacrestia, Side.E, 1.0), (RoomKind.Sacrestia, Side.N, 1.0),
-            };
-            if (simple) { hp.RemoveRange(1, 2); cp.RemoveRange(1, cp.Count - 1); }
+            var hp = new List<(RoomKind k, Side s, double wt)>(j.A);
+            var cp = new List<(RoomKind k, Side s, double wt)>(j.B);
+            if (simple) { hp.RemoveRange(1, hp.Count - 1); cp.RemoveRange(1, cp.Count - 1); }
 
             var cands = new List<(Room hr, Side hs, Room cr, Side cs, Xf xf, double wt)>();
             foreach (var a in hp)
@@ -374,7 +382,7 @@ namespace PryingEyes.Proc
                 p.openings.Add(t);
             }
             // il portale tra le due ali
-            var link = Connect(p.openings, pick.hr, map[pick.cr], OpenStyle.Arco, 18, int.MinValue, 3);
+            var link = Connect(p.openings, pick.hr, map[pick.cr], j.Style, j.Width, int.MinValue, 3);
             if (link == null) return null;
             p.startInChurch = r.Chance(0.5);
             return p;
@@ -386,7 +394,7 @@ namespace PryingEyes.Proc
             xf.Apply(r.x1, r.z1, out int bx, out int bz);
             var t = new Room
             {
-                id = r.id, kind = r.kind, church = r.church, seed = r.seed, label = r.label, variant = r.variant,
+                id = r.id, kind = r.kind, church = r.church, wing = r.wing, seed = r.seed, label = r.label, variant = r.variant, unit = r.unit,
                 x0 = Math.Min(ax, bx), x1 = Math.Max(ax, bx), z0 = Math.Min(az, bz), z1 = Math.Max(az, bz),
                 wallH = r.wallH, ridgeH = r.ridgeH, ceil = r.ceil,
                 ridgeAlongX = (xf.rot & 1) == 1 ? !r.ridgeAlongX : r.ridgeAlongX,
@@ -442,14 +450,14 @@ namespace PryingEyes.Proc
                     else if (s == Side.N) { x0 = c - Lw / 2; x1 = c + Lw / 2; z0 = line; z1 = line + Lw; }
                     else if (s == Side.W) { z0 = c - Lw / 2; z1 = c + Lw / 2; x1 = line; x0 = line - Lw; }
                     else { z0 = c - Lw / 2; z1 = c + Lw / 2; x0 = line; x1 = line + Lw; }
-                    var cab = new Room { kind = RoomKind.Ascensore, x0 = x0, z0 = z0, x1 = x1, z1 = z1, church = host.church, seed = r.Range(1, 1 << 30) };
+                    var cab = new Room { kind = RoomKind.Ascensore, x0 = x0, z0 = z0, x1 = x1, z1 = z1, church = host.church, wing = host.wing, unit = host.unit, seed = r.Range(1, 1 << 30) };
                     SetKindDefaults(cab);
                     bool clash = false;
                     foreach (var o in p.rooms) if (Overlap(o, cab, 2) && o != host) { clash = true; break; }
                     if (clash) continue;
                     cab.id = p.rooms.Count;
                     p.rooms.Add(cab);
-                    var op = Connect(p.openings, host, cab, OpenStyle.Ascensore, 12, c, 3);
+                    var op = Connect(p.openings, host, cab, OpenStyle.Ascensore, 14, c, 3);
                     if (op == null) { p.rooms.RemoveAt(p.rooms.Count - 1); continue; }
                     return true;
                 }
@@ -459,10 +467,7 @@ namespace PryingEyes.Proc
 
         static bool PlaceLifts(Plan p, Rng r)
         {
-            bool churchStart = p.startInChurch;
-            RoomKind[] startKinds = churchStart
-                ? new[] { RoomKind.Sacrestia, RoomKind.Cripta, RoomKind.Cappella }
-                : new[] { RoomKind.Atrio };
+            RoomKind[] startKinds = StartKinds(p.theme, p.startInChurch);
             Room startHost = null;
             foreach (var k in startKinds)
             {
@@ -477,13 +482,11 @@ namespace PryingEyes.Proc
             // uscita: una stanza dell'altra ala, la piu' lontana a piedi dall'arrivo; prima i locali di servizio o di
             // culto, le camere solo se non c'e' altro
             var dist = p.WalkDist(startHost.id);
-            bool Preferred(Room q) => q.kind == RoomKind.Servizio || q.kind == RoomKind.Cucina || q.kind == RoomKind.Atrio || q.kind == RoomKind.SalaBallo
-                || q.kind == RoomKind.Ristorante || q.kind == RoomKind.Cripta || q.kind == RoomKind.Sacrestia || q.kind == RoomKind.Cappella
-                || q.kind == RoomKind.Campanile || q.kind == RoomKind.Presbiterio;
+            bool Preferred(Room q) => IsPreferredExit(q.kind);
             var order = new List<Room>();
             foreach (var q in p.rooms)
             {
-                if (q.IsLift || q.church == startHost.church || q.kind == RoomKind.Corridoio || q.kind == RoomKind.Navata || q.kind == RoomKind.Navatella) continue;
+                if (q.IsLift || q.wing == startHost.wing || q.kind == RoomKind.Corridoio || q.kind == RoomKind.Navata || q.kind == RoomKind.Navatella) continue;
                 if (dist[q.id] == float.MaxValue) continue;
                 order.Add(q);
             }
@@ -602,7 +605,7 @@ namespace PryingEyes.Proc
         /// lontano), con almeno una di chiesa e una d'albergo.</summary>
         static void PickObjectives(Plan p, Rng r, int floor)
         {
-            int n = Math.Min(4, 2 + Math.Max(0, floor - 1) / 2);
+            int n = Math.Min(6, 2 + Math.Max(0, floor - 1) / 2 + (p.units - 1));
             var elig = new List<Room>();
             foreach (var q in p.rooms)
             {
@@ -633,14 +636,139 @@ namespace PryingEyes.Proc
             // almeno una per ala (se si puo')
             if (chosen.Count >= 2)
             {
-                bool anyChurch = chosen.Exists(q => q.church), anyHotel = chosen.Exists(q => !q.church);
-                if (!anyChurch || !anyHotel)
+                bool anyWing0 = chosen.Exists(q => q.wing == 0), anyWing1 = chosen.Exists(q => q.wing == 1);
+                if (!anyWing0 || !anyWing1)
                 {
+                    int want = anyWing0 ? 1 : 0;
                     foreach (var q in elig)
-                        if (!chosen.Contains(q) && q.church == anyHotel) { chosen[chosen.Count - 1] = q; break; }
+                        if (!chosen.Contains(q) && q.wing == want) { chosen[chosen.Count - 1] = q; break; }
                 }
             }
             foreach (var q in chosen) p.objectives.Add(q.id);
+        }
+
+        // ------------------------------------------------------------------ piano composto
+        /// <summary>Quante ali-coppia compongono un piano: tre ai primi due piani, poi una in piu' ogni due, al massimo cinque.
+        /// Nei tentativi di ripiego (simple) sono due, cosi' il piano riesce quasi sempre.</summary>
+        public static int UnitsFor(int floor, bool simple) => simple ? 2 : Math.Min(5, 3 + Math.Max(0, floor - 1) / 2);
+
+        /// <summary>Un piano e' fatto di piu' ali-coppia: ognuna e' il piano di prima (un'ala d'albergo e una di chiesa, unite da un
+        /// portale). Si attaccano una all'altra con una porta, su un lato qualunque e con una rotazione a caso.</summary>
+        static Plan Compound(Rng r, bool simple, int units, Theme theme)
+        {
+            var p = OneUnit(r, simple, theme);
+            if (p == null) return null;
+            SetUnit(p, 0);
+            for (int u = 1; u < units; u++)
+            {
+                var next = OneUnit(r, simple, theme);
+                if (next == null) return null;
+                SetUnit(next, u);
+                if (!Attach(p, next, r)) return null;
+            }
+            p.units = units;
+            return p;
+        }
+
+        static void SetUnit(Plan p, int unit)
+        {
+            foreach (var room in p.rooms) room.unit = unit;
+        }
+
+        /// <summary>Un'ala-coppia del tema: la prima ala e la seconda, unite dal portale proprio del tema.</summary>
+        static Plan OneUnit(Rng r, bool simple, Theme theme)
+        {
+            switch (theme)
+            {
+                case Theme.Teatro: return Assemble(TheatreWing(r, simple), StageWing(r, simple), r, simple, Joint.Teatro());
+                case Theme.Sanatorio: return Assemble(HotelWing(r, simple, KindsIstituto), ChurchWing(r, simple), r, simple, Joint.Istituto());
+                default: return Assemble(HotelWing(r, simple, KindsAlbergo), ChurchWing(r, simple), r, simple, Joint.Albergo());
+            }
+        }
+
+        /// <summary>Il bordo piu' esterno di un insieme di stanze sul lato 's' (z minima per S, z massima per N, x minima per W...).</summary>
+        static int Extreme(List<Room> rs, Side s)
+        {
+            bool min = s == Side.S || s == Side.W;
+            int v = min ? int.MaxValue : int.MinValue;
+            foreach (var q in rs)
+            {
+                int c = s == Side.S ? q.z0 : s == Side.N ? q.z1 : s == Side.W ? q.x0 : q.x1;
+                v = min ? Math.Min(v, c) : Math.Max(v, c);
+            }
+            return v;
+        }
+
+        /// <summary>Stanze dove si puo' aprire una porta tra ali. Presbiterio e cappella no: la pala e l'altare vi sono messi contro
+        /// il muro di fondo senza controllare le porte (RoomKitsChiesa, check=false) e una porta li chiuderebbe fuori dalla navmesh.</summary>
+        static bool AttachOk(Room q) => q.kind != RoomKind.Presbiterio && q.kind != RoomKind.Cappella;
+
+        /// <summary>Appoggia l'ala 'u' al lato 's' di 'p', fuori dal perimetro di 'p', e la collega con una porta in un tratto di
+        /// muro in comune. Le ali si toccano direttamente (niente corridoi in mezzo), come le camere d'albergo tra loro.</summary>
+        static bool Attach(Plan p, Plan u, Rng r)
+        {
+            p.ComputeBounds();
+            const int Share = 22;                                  // dm di muro in comune: porta da 14 e 4 di margine per lato
+            for (int tries = 0; tries < 60; tries++)
+            {
+                Side s = AllSides[r.Range(0, 4)], os = Plan.Opposite(s);
+                var xf = new Xf { mirror = r.Chance(0.5), rot = r.Range(0, 4) };
+                var rr = new List<Room>(u.rooms.Count);
+                foreach (var room in u.rooms) rr.Add(Transform(room, xf));
+                int target = Extreme(p.rooms, s), ext = Extreme(rr, os);
+                var pa = p.rooms.FindAll(q => AttachOk(q) && Plan.Line(q, s) == target);
+                var pb = rr.FindAll(q => AttachOk(q) && Plan.Line(q, os) == ext);
+                if (pa.Count == 0 || pb.Count == 0) continue;
+                Room A = pa[r.Range(0, pa.Count)], B = pb[r.Range(0, pb.Count)];
+                Plan.Span(A, s, out int alo, out int ahi);
+                Plan.Span(B, os, out int blo, out int bhi);
+                if (ahi - alo < Share || bhi - blo < Share) continue;
+                // spostamento lungo il muro: la sovrapposizione dei due tratti resta di almeno Share (intervallo esatto)
+                int minAlong = alo + Share - bhi, maxAlong = ahi - Share - blo;
+                if (minAlong > maxAlong) continue;
+                int along = r.Range(minAlong, maxAlong + 1);
+                int lo = Math.Max(alo, blo + along), hi = Math.Min(ahi, bhi + along);
+                // spostamento: normale al muro (target - ext) e lungo il muro (along)
+                bool alongX = Plan.AlongX(s);
+                xf.tx = alongX ? along : target - ext;
+                xf.tz = alongX ? target - ext : along;
+                var tr = new List<Room>(rr.Count);
+                foreach (var room in u.rooms) tr.Add(Transform(room, xf));
+                int bx0 = p.minX, bz0 = p.minZ, bx1 = p.maxX, bz1 = p.maxZ;
+                bool clash = false;
+                foreach (var t in tr)
+                {
+                    bx0 = Math.Min(bx0, t.x0); bz0 = Math.Min(bz0, t.z0); bx1 = Math.Max(bx1, t.x1); bz1 = Math.Max(bz1, t.z1);
+                    foreach (var q in p.rooms) if (Overlap(q, t, 0)) clash = true;
+                }
+                if (clash || bx1 - bx0 > MaxSpan || bz1 - bz0 > MaxSpan) continue;
+                int off = p.rooms.Count;
+                foreach (var t in tr) { t.id = p.rooms.Count; p.rooms.Add(t); }
+                foreach (var o in u.openings)
+                {
+                    var t = TransformOpening(o, xf);
+                    t.a += off;
+                    if (t.b >= 0) t.b += off;
+                    p.openings.Add(t);
+                }
+                AddDoor(p, A, p.rooms[off + B.id], s, lo, hi);
+                p.ComputeBounds();
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Porta (arcata se una delle due ali e' di chiesa) tra due stanze che si toccano sul lato 's' di 'a'.</summary>
+        static void AddDoor(Plan p, Room a, Room b, Side s, int lo, int hi)
+        {
+            bool arch = a.church || b.church;
+            var o = new Opening
+            {
+                a = a.id, b = b.id, alongX = Plan.AlongX(s), line = Plan.Line(a, s), center = (lo + hi) / 2,
+                width = arch ? 16 : 14, style = arch ? OpenStyle.Arco : OpenStyle.PortaLarga,
+            };
+            Opening.Defaults(o);
+            p.openings.Add(o);
         }
 
         // ------------------------------------------------------------------ rifinitura e controlli
@@ -649,17 +777,19 @@ namespace PryingEyes.Proc
 
         static Plan Build(Rng r, int seed, int floor, bool simple)
         {
-            var hotel = HotelWing(r, simple);
-            var church = ChurchWing(r, simple);
-            var p = Assemble(hotel, church, r, simple);
+            // il tema dipende da seme e piano, non dal tentativo: cosi' ogni tema esce con la stessa probabilita'
+            var theme = PickTheme(floor, new Rng(unchecked(seed * 73 + floor * 1009 + 5)));
+            var p = Compound(r, simple, UnitsFor(floor, simple), theme);
             if (p == null) return null;
+            p.theme = theme;
             p.seed = seed; p.floor = floor;
             if (!PlaceLifts(p, r)) return null;
             AddWindows(p, r);
+            AddThemeWindows(p, r);
             PickObjectives(p, r, floor);
             p.ComputeBounds();
             foreach (var room in p.rooms) { room.label = room.kind.ToString(); room.variant = r.Range(0, 1000); }
-            p.epithet = r.Chance(0.7) ? (p.startInChurch ? r.Pick(ChurchNames) : r.Pick(HotelNames)) : (p.startInChurch ? r.Pick(HotelNames) : r.Pick(ChurchNames));
+            p.epithet = Epithet(p, r);
             p.name = "Piano " + floor;
             return p;
         }
@@ -711,7 +841,7 @@ namespace PryingEyes.Proc
                     if (o.Lo < q.Hi + 1 && q.Lo < o.Hi + 1) { why = $"aperture accavallate {p.rooms[o.a]}"; return false; }
                 }
             p.ComputeBounds();
-            if (p.maxX - p.minX > 1500 || p.maxZ - p.minZ > 1300) { why = "troppo grande"; return false; }
+            if (p.maxX - p.minX > MaxSpan || p.maxZ - p.minZ > MaxSpan) { why = "troppo grande"; return false; }
             return true;
         }
     }

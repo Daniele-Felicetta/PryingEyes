@@ -47,6 +47,14 @@ namespace PryingEyes.EditorTools
                 tBuild += t1 - t0; tNav += t2 - t1;
                 // rete di sicurezza: quanti problemi ci sarebbero senza, e quanti restano con
                 {
+                    var dgTri = NavMesh.CalculateTriangulation();
+                    float dgMinX = float.MaxValue, dgMaxX = float.MinValue, dgMinZ = float.MaxValue, dgMaxZ = float.MinValue;
+                    foreach (var dgV in dgTri.vertices) { dgMinX = Mathf.Min(dgMinX, dgV.x); dgMaxX = Mathf.Max(dgMaxX, dgV.x); dgMinZ = Mathf.Min(dgMinZ, dgV.z); dgMaxZ = Mathf.Max(dgMaxZ, dgV.z); }
+                    var dgPre = Connectivity.Unreachable(fi, out int dgCandles, out bool dgExit);
+                    var dgDist = plan.WalkDist(plan.start);
+                    var dgNames = new List<string>();
+                    foreach (var dgR in dgPre) dgNames.Add($"{dgR.kind}@{dgDist[dgR.id]:F0}m");
+                    sb.AppendLine($"seme {seed} piano {floor}: navmesh x {dgMinX:F0}..{dgMaxX:F0} z {dgMinZ:F0}..{dgMaxZ:F0} m; piano x {plan.minX * 0.1f:F0}..{plan.maxX * 0.1f:F0} z {plan.minZ * 0.1f:F0}..{plan.maxZ * 0.1f:F0} m; {plan.units} ali, {plan.rooms.Count} stanze; prima della riparazione: {dgPre.Count} stanze irraggiungibili [{string.Join(" ", dgNames.GetRange(0, Mathf.Min(8, dgNames.Count)))}], {dgCandles} candele, uscita {(dgExit ? "no" : "ok")}");
                     int stripped = Connectivity.Repair(fi, out int before);
                     if (before > 0) { rawProblems++; rawRooms += stripped; }
                     var left = Connectivity.Unreachable(fi, out int cbLeft, out bool exitLeft);

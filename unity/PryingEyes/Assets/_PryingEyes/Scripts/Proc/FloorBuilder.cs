@@ -117,6 +117,36 @@ namespace PryingEyes.Proc
                     s.floor = Mat("pav_parquet"); s.wall = Mat("mur_intonaco"); s.dado = Mat("mur_boiserie"); s.dadoH = 1.4f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
                 case RoomKind.Cripta:
                     s.floor = Mat("pav_cripta"); s.wall = Mat("mur_cripta"); s.ceil = Mat("sof_volta"); s.trim = Mat("cornice_pietra"); s.beam = Mat("cornice_pietra"); break;
+                // teatro e sanatorio: materiali provvisori, presi da quelli dell'albergo (fase 2 li rifa')
+                case RoomKind.Platea:
+                    s.floor = Mat("pav_parquet"); s.wall = Mat(damask[1]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
+                case RoomKind.Palco:
+                    s.floor = Mat("pav_moquette"); s.wall = Mat(damask[0]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.0f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); break;
+                case RoomKind.Foyer:
+                    s.floor = Mat("pav_marmo"); s.wall = Mat(damask[0]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
+                case RoomKind.Palcoscenico:
+                    s.floor = Mat("pav_parquet"); s.wall = Mat("mur_intonaco"); s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
+                case RoomKind.Camerino:
+                    s.floor = Mat("pav_parquet"); s.wall = Mat(damask[1]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.0f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); break;
+                case RoomKind.Ridotto:
+                    s.floor = Mat("pav_parquet"); s.wall = Mat(damask[2]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.1f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); break;
+                case RoomKind.Deposito:
+                    s.floor = Mat("pav_servizio"); s.wall = Mat("mur_intonaco"); s.ceil = Mat("sof_intonaco"); s.trim = Mat("mur_intonaco"); break;
+                case RoomKind.Accettazione:
+                    s.floor = Mat("pav_piastrelle"); s.wall = Mat("mur_intonaco"); s.dado = Mat("mur_piastrelle"); s.dadoH = 1.9f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("mur_intonaco"); break;
+                case RoomKind.Degenza:
+                case RoomKind.Corsia:
+                case RoomKind.Cella:
+                case RoomKind.Obitorio:
+                    s.floor = Mat("pav_servizio"); s.wall = Mat("mur_intonaco"); s.ceil = Mat("sof_intonaco"); s.trim = Mat("mur_intonaco"); break;
+                case RoomKind.Refettorio:
+                    s.floor = Mat("pav_parquet"); s.wall = Mat(damask[1]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
+                case RoomKind.SalaOperatoria:
+                case RoomKind.Lavanderia:
+                    s.floor = Mat("pav_piastrelle"); s.wall = Mat("mur_intonaco"); s.dado = Mat("mur_piastrelle"); s.dadoH = 1.9f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("mur_intonaco"); break;
+                case RoomKind.Archivio:
+                case RoomKind.SalaMedici:
+                    s.floor = Mat("pav_parquet"); s.wall = Mat("mur_intonaco"); s.dado = Mat("mur_boiserie"); s.dadoH = 1.4f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); break;
                 case RoomKind.Ascensore:
                     s.floor = Mat("pav_servizio"); s.wall = Mat("mur_boiserie"); s.ceil = Mat("mur_boiserie"); s.trim = Mat("ottone"); break;
             }

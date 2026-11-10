@@ -69,8 +69,8 @@ namespace PryingEyes.Proc
         /// <summary>Direzione (asse) lungo la quale la chiesa guarda l'altare: dal nartece al presbiterio.</summary>
         static Vector3 ChurchAxis(Ctx c)
         {
-            var pres = c.plan.Find(RoomKind.Presbiterio);
-            var nar = c.plan.Find(RoomKind.Nartece);
+            var pres = c.plan.FindIn(RoomKind.Presbiterio, c.r.unit);
+            var nar = c.plan.FindIn(RoomKind.Nartece, c.r.unit);
             if (pres == null || nar == null) return Vector3.right;
             Vector3 d = new Vector3(pres.CenterX - nar.CenterX, 0f, pres.CenterZ - nar.CenterZ);
             if (Mathf.Abs(d.x) >= Mathf.Abs(d.z)) return d.x >= 0f ? Vector3.right : Vector3.left;
@@ -373,7 +373,7 @@ namespace PryingEyes.Proc
         {
             target = default;
             if (c.r.kind != RoomKind.Nartece) return null;
-            var nave = c.plan.Find(RoomKind.Navata);
+            var nave = c.plan.FindIn(RoomKind.Navata, c.r.unit);
             if (nave == null) return null;
             var portal = c.plan.openings.Find(o => o.a == c.r.id && o.b == nave.id || o.a == nave.id && o.b == c.r.id);
             if (portal == null) return null;

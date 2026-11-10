@@ -36,8 +36,8 @@ namespace PryingEyes
         public Vector3 MarkerPoint => transform.position + Vector3.up * (type == EnemyType.Carapace ? 1.65f : Archetype == EnemyType.Occhio ? 0.85f : Archetype == EnemyType.Abate ? 3.0f : 2.3f);
 
         float EyeHeight => type == EnemyType.Carapace ? 0.9f : Archetype == EnemyType.Occhio ? 0f : Archetype == EnemyType.Abate ? 2.0f : 1.55f;
-        float FovHalf => Archetype == EnemyType.Occhio ? 85f : Archetype == EnemyType.Abate ? 52f : 58f;
-        float LoseTime => Archetype == EnemyType.Occhio ? 2.5f : 3.6f;
+        float FovHalf => Archetype == EnemyType.Occhio ? 90f : Archetype == EnemyType.Abate ? 58f : 64f;
+        float LoseTime => Archetype == EnemyType.Occhio ? 3.0f : 4.5f;
 
         static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
         static float YawTo(Vector3 d) => Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
@@ -134,7 +134,7 @@ namespace PryingEyes
             if (!near && Vector3.Angle(fwd, to2) > half) return false;
             if (!(HotelNav.ClearLine(eyeP, head) || HotelNav.ClearLine(eyeP, chest))) return false;
             float k = 1f - Mathf.Clamp01(d / Mathf.Max(range, 0.01f));
-            gain = 0.20f + 1.35f * k;
+            gain = 0.26f + 1.5f * k;
             if (near) gain = Mathf.Max(gain, 3f);
             // il fascio della torcia dritto in faccia lo allerta in fretta
             var tc = Torch.I;
