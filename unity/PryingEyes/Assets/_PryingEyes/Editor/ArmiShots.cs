@@ -90,7 +90,7 @@ namespace PryingEyes.EditorTools
                 {
                     var rootGo = new GameObject("Viewmodel");
                     if (v == "lato") BuildSide(rootGo, prefab, def, cam);
-                    else BuildView(rootGo, prefab, def, cam, v == "mira");
+                    else BuildView(rootGo, prefab, def, cam, v == "mira", v == "ricarica");
                     cam.Render(); cam.Render();
                     Save(rt, Out + "/" + id + "_" + v + ".png");
                     Object.DestroyImmediate(rootGo);
@@ -126,7 +126,7 @@ namespace PryingEyes.EditorTools
         }
 
         /// <summary>Come in gioco: arma e mani nel riferimento della camera, in mano o in mira.</summary>
-        static void BuildView(GameObject root, GameObject prefab, WeaponDef d, Camera cam, bool ads)
+        static void BuildView(GameObject root, GameObject prefab, WeaponDef d, Camera cam, bool ads, bool reload = false)
         {
             cam.transform.position = new Vector3(0f, 0f, 0f);
             cam.transform.rotation = Quaternion.identity;
@@ -142,7 +142,34 @@ namespace PryingEyes.EditorTools
             Vector3 a = rig.AdsLocal;
             root.transform.localPosition = ads ? new Vector3(0f, 0f, d.adsDist) - a : hip;
             root.transform.localRotation = ads ? Quaternion.identity : Quaternion.Euler(0f, -3.5f, 0f);
-            AddHands(root, rig, d);
+            var handL = AddHands(root, rig, d);
+            if (reload) PoseReload(root, rig, d, handL);
+            if (ads)
+            {
+                // dove stanno le mani rispetto all'occhio (riferimento della camera: x destra, y su, z avanti), per tarare le maniche
+                foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                    if (t.name == "mano_d" || t.name == "mano_s")
+                    {
+                        Vector3 p = cam.transform.InverseTransformPoint(t.position);
+                        Debug.Log($"[ArmiMani] {d.id} {t.name} x={p.x:F3} y={p.y:F3} z={p.z:F3} fov={d.adsFov:F0} adsDist={d.adsDist:F3}");
+                        // come Weapon.AddHands: la mano destra a meno di 17 cm dall'occhio in mira non si disegna
+                        if (t.name == "mano_d" && p.z < 0.17f) foreach (var r in t.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+                    }
+                // la manica destra in coordinate camera: profondita' minima e dove sta la parte tra 5 e 15 cm dall'occhio
+                foreach (var mf in root.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    if (mf.sharedMesh == null || !mf.name.Contains("_manica")) continue;
+                    var m = cam.transform.worldToLocalMatrix * mf.transform.localToWorldMatrix;
+                    float zmin = 9f, zmax = -9f; Vector3 nearC = Vector3.zero; int nn = 0;
+                    foreach (var v in mf.sharedMesh.vertices)
+                    {
+                        Vector3 p = m.MultiplyPoint3x4(v);
+                        zmin = Mathf.Min(zmin, p.z); zmax = Mathf.Max(zmax, p.z);
+                        if (p.z > 0.05f && p.z < 0.15f) { nearC += p; nn++; }
+                    }
+                    Debug.Log($"[ArmiMani] {d.id} {mf.name} z=[{zmin:F3},{zmax:F3}] vicino n={nn} centro={(nn > 0 ? nearC / nn : Vector3.zero):F3}");
+                }
+            }
             // luce di riempimento come in gioco
             var fill = new GameObject("Fill").AddComponent<Light>();
             fill.transform.SetParent(root.transform, false);
@@ -151,23 +178,58 @@ namespace PryingEyes.EditorTools
             SetupScope(rig, d, cam, ads);
         }
 
-        static void AddHands(GameObject root, WeaponRig rig, WeaponDef d)
+        /// <summary>La posa di Weapon.UpdatePose e AnimateParts nel punto piu' basso della ricarica (circa al 40%): arma inclinata,
+        /// caricatore sfilato di 24 cm e mano sinistra dove la manda il gioco (stesse formule: se cambiano li', cambiano anche qui).</summary>
+        static void PoseReload(GameObject root, WeaponRig rig, WeaponDef d, Transform handL)
         {
-            var mani = Resources.Load<GameObject>("Mani");
-            if (mani == null) return;
+            bool tube = d.style == ReloadStyle.Tube;
+            Vector3 tiltPos = new Vector3(-0.035f, -0.055f, -0.02f), tiltRot = new Vector3(-15f, 10f, 22f);
+            if (tube) { tiltPos = new Vector3(-0.06f, -0.03f, -0.02f); tiltRot = new Vector3(-8f, 30f, 38f); }
+            if (d.style == ReloadStyle.Break) { tiltPos = new Vector3(-0.02f, -0.05f, 0f); tiltRot = new Vector3(-6f, 8f, 18f); }
+            Vector3 rest = handL != null ? root.transform.InverseTransformPoint(handL.position) : Vector3.zero;
+            if (rig.mag != null && !tube && d.style != ReloadStyle.Revolver && d.style != ReloadStyle.Break)
+            {
+                rig.Offset(rig.mag, (d.magUp ? Vector3.up : Vector3.down) * 0.24f);
+                rig.Rotate(rig.mag, new Vector3(18f, 0f, 0f));
+            }
+            root.transform.localPosition += tiltPos;
+            root.transform.localRotation *= Quaternion.Euler(tiltRot);
+            if (handL == null) return;
+            foreach (var r in handL.GetComponentsInChildren<Renderer>(true)) r.enabled = true;
+            Vector3 grab = rig.mag != null ? root.transform.InverseTransformPoint(rig.mag.position) + new Vector3(0f, -0.07f, 0.02f) : rest;
+            Vector3 target = rest;
+            if (d.hand > 0.5f)
+            {
+                if (rig.mag != null && !tube) target = grab;
+                else if (tube || d.style == ReloadStyle.Break || d.style == ReloadStyle.Revolver) target = rest + new Vector3(-0.02f, -0.10f, -0.12f) * 0.8f;
+            }
+            else target = grab;
+            handL.position = root.transform.TransformPoint(target);
+        }
+
+        static Transform AddHands(GameObject root, WeaponRig rig, WeaponDef d)
+        {
+            var mani = Resources.Load<GameObject>("ManiArmi/" + d.id);       // mani su misura (genera_mani2.py), se no il paio unico
+            bool onMeasure = mani != null;
+            if (!onMeasure) mani = Resources.Load<GameObject>("Mani");
+            if (mani == null) return null;
             var g = Object.Instantiate(mani, root.transform);
             g.name = "Mani";
             SetLayerAndShadows(g);
             Transform handL = null, handR = null;
             foreach (var t in g.GetComponentsInChildren<Transform>(true)) { if (t.name == "mano_s") handL = t; else if (t.name == "mano_d") handR = t; }
-            if (handR != null && d.handDrop != 0f) handR.position += root.transform.TransformVector(new Vector3(0f, -d.handDrop, 0f));
+            if (!onMeasure && handR != null && d.handDrop != 0f) handR.position += root.transform.TransformVector(new Vector3(0f, -d.handDrop, 0f));
             if (handL != null)
             {
-                Vector3 hg = new Vector3(0f, 0.005f, 0.31f);
-                Vector3 target = rig.gripL != null ? root.transform.InverseTransformPoint(rig.gripL.position) : hg;
-                handL.position += root.transform.TransformVector(target - hg);
+                if (!onMeasure)
+                {
+                    Vector3 hg = new Vector3(0f, 0.005f, 0.31f);
+                    Vector3 target = rig.gripL != null ? root.transform.InverseTransformPoint(rig.gripL.position) : hg;
+                    handL.position += root.transform.TransformVector(target - hg);
+                }
                 if (d.hand < 0.5f) foreach (var r in handL.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
             }
+            return handL;
         }
 
         /// <summary>Per le ottiche ingrandite: una seconda camera rende l'immagine sulla lente, come in gioco.</summary>

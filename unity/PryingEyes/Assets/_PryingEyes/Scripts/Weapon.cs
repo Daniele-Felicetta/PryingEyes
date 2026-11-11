@@ -69,6 +69,9 @@ namespace PryingEyes
         Renderer[] handLRend;
         bool handLOnMag;
         GameObject handsGo;
+        // mano destra troppo vicina all'occhio in mira (la leva): in mira si nasconde, il piano vicino la taglierebbe a brandelli
+        Renderer[] handRRend;
+        bool handRHideAds, handRVis = true;
 
         public bool IsBound => cam != null && viewRoot != null;
 
@@ -372,13 +375,18 @@ namespace PryingEyes
             return q;
         }
 
-        // ------------------------------------------------------------------ mani (Resources/Mani, da modelli/hotel/genera_mani.py)
-        /// <summary>Guanti e maniche: la destra sull'impugnatura (coincide per tutte le armi: l'origine dei modelli e' scelta cosi'),
-        /// la sinistra dove l'arma ha l'aggancio grip_l (astina, pompa, caricatore). Le armi a una mano la nascondono.</summary>
+        // ------------------------------------------------------------------ mani (Resources/ManiArmi/<id>, da modelli/hotel/genera_mani2.py)
+        /// <summary>Guanti e maniche. Ogni arma ha il suo paio, modellato sulla sua impugnatura (destra) e sulla sua astina o sul suo
+        /// aggancio grip_l (sinistra): le dita avvolgono il pezzo vero e non serve spostare niente; il punto dell'Empty mano_s e' il
+        /// palmo, quello che la ricarica muove. Se l'arma non ha mani su misura si ripiega sul paio unico (Resources/Mani, da
+        /// genera_mani.py): destra sull'impugnatura, sinistra spostata su grip_l. Le armi a una mano nascondono la sinistra.</summary>
         void AddHands(GameObject root, WeaponDef d)
         {
             handL = handR = null; handLRend = null; handsGo = null;
-            var prefab = Resources.Load<GameObject>("Mani");
+            handRRend = null; handRHideAds = false; handRVis = true;
+            var prefab = Resources.Load<GameObject>("ManiArmi/" + d.id);
+            bool onMeasure = prefab != null;
+            if (!onMeasure) prefab = Resources.Load<GameObject>("Mani");
             if (prefab == null) return;
             var g = Instantiate(prefab, root.transform);
             handsGo = g;
@@ -392,14 +400,25 @@ namespace PryingEyes
                 t.gameObject.layer = 2;
             }
             foreach (var r in g.GetComponentsInChildren<Renderer>(true)) { r.shadowCastingMode = ShadowCastingMode.Off; r.renderingLayerMask = ViewLayer; }
-            if (handR != null && d.handDrop != 0f) handR.position += root.transform.TransformVector(new Vector3(0f, -d.handDrop, 0f));
+            if (!onMeasure && handR != null && d.handDrop != 0f) handR.position += root.transform.TransformVector(new Vector3(0f, -d.handDrop, 0f));
             if (handL != null)
             {
-                Vector3 hg = new Vector3(0f, 0.005f, 0.31f);          // dove la mano sinistra sta sul fucile d'assalto
-                Vector3 target = rig.gripL != null ? root.transform.InverseTransformPoint(rig.gripL.position) : hg;
-                handL.position += root.transform.TransformVector(target - hg);
+                if (!onMeasure)
+                {
+                    Vector3 hg = new Vector3(0f, 0.005f, 0.31f);          // dove la mano sinistra sta sul fucile d'assalto
+                    Vector3 target = rig.gripL != null ? root.transform.InverseTransformPoint(rig.gripL.position) : hg;
+                    handL.position += root.transform.TransformVector(target - hg);
+                }
                 handLRest = root.transform.InverseTransformPoint(handL.position);
                 handLRend = handL.GetComponentsInChildren<Renderer>(true);
+            }
+            if (handR != null)
+            {
+                // in mira l'occhio sta adsDist dietro il punto di mira: se il palmo destro risulta a meno di 17 cm dall'occhio
+                // (la leva: il mirino e' sulla canna) il guanto riempie lo schermo
+                handRRend = handR.GetComponentsInChildren<Renderer>(true);
+                Vector3 hp = root.transform.InverseTransformPoint(handR.position);
+                handRHideAds = d.adsDist - rig.AdsLocal.z + hp.z < 0.17f;
             }
         }
 
@@ -842,6 +861,11 @@ namespace PryingEyes
             Vector3 adsP = new Vector3(0f, 0f, d.adsDist) - a;
             Vector3 pos = Vector3.Lerp(hip, adsP, ads);
             Quaternion rot = Quaternion.Euler(0f, hipYaw * (1f - ads), 0f);
+            if (handRHideAds && handRRend != null)
+            {
+                bool seen = ads < 0.55f;
+                if (seen != handRVis) { handRVis = seen; foreach (var r in handRRend) if (r != null) r.enabled = seen; }
+            }
             // in mira si guardano il calcio e il dorso dell'arma di striscio: con la luce di riempimento sopra il polimero riflette (Fresnel) e sembra bianco
             if (fill != null) fill.intensity = Mathf.Lerp(0.55f, 0.15f, ads);
 

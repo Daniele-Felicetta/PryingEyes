@@ -1,0 +1,14 @@
+piano 3: stanze=99 candele=6 luci=567 preti=7
+pile sul piano: 7
+faretto: nel cono=0,49 fuori cono=0,00 dietro muro=0,00
+scena di prova: lunghezza 41,4 m, da (6,8,20,6) verso (1,0)
+torcia: accesa=True luce=True fascio=True
+Maschera: modello=True (15 renderer, 2 luci), punto debole=True, navigazione=True, hp=150, eliminato=True
+Direttore: modello=True (14 renderer, 1 luci), punto debole=True, navigazione=True, hp=330, eliminato=True
+Infermiere: modello=True (12 renderer, 2 luci), punto debole=True, navigazione=True, hp=190, eliminato=True
+Primario: modello=True (15 renderer, 2 luci), punto debole=True, navigazione=True, hp=360, eliminato=True
+Maschera: fischietto=True dopo 0,6 s
+Infermiere: sedativo=True dopo 0,7 s (sedT=2,8)
+Primario: richiamo=True, nemici 1 -> 2
+Direttore: dardi=3 dopo 1,9 s
+temi: OK

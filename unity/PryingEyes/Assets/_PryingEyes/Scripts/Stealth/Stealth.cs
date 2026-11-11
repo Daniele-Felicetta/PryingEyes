@@ -8,7 +8,7 @@ namespace PryingEyes
     public enum Alert { Patrol, Suspicious, Hunting, Searching }
 
     /// <summary>Tipi di rumore. Il raggio lo decide chi lo emette; chi ascolta lo scala in base ai muri e a come sente.</summary>
-    public enum NoiseKind { Step, Gunshot, Ping, Candle, Shout, Other }
+    public enum NoiseKind { Step, Gunshot, Ping, Candle, Shout, Other, Alarm }
 
     /// <summary>Componente furtiva dei piani: quanto sei visibile (luce, torcia, movimento, spari), quanto e' vicina la
     /// minaccia (cuore, sfarfallio della torcia, vignetta) e i rumori che i preti possono sentire.

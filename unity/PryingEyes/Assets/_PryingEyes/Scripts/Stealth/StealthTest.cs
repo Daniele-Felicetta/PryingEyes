@@ -188,6 +188,106 @@ namespace PryingEyes
             Application.Quit(passed ? 0 : 1);
         }
 
+        /// <summary>-temitest: i quattro nemici di tema nel piano vero (foto con la torcia a 3-4 m), poi i loro colpi di scena:
+        /// la Maschera soffia, l'Infermiere sedativo (gambe a 55%), il Primario chiama rinforzi, il Direttore lancia tre dardi.</summary>
+        IEnumerator CheckThemed(Vector3 start, Vector3 dir)
+        {
+            var pl = GameManager.I.player;
+            bool passed = true;
+            Enemy.debugNoSense = true;
+            if (!Torch.I.on) Torch.I.Toggle();
+            var types = new[] { Enemy.EnemyType.Maschera, Enemy.EnemyType.Direttore, Enemy.EnemyType.Infermiere, Enemy.EnemyType.Primario };
+            // la scena di prova parte in fondo alla sala e nel teatro li' c'e' il sipario (Tenda, nero e senza collider): qualche metro
+            // piu' avanti la camera vede la sala e non la stoffa
+            if (NavMesh.SamplePosition(start + dir * 2.8f, out NavMeshHit sh, 2f, NavMesh.AllAreas)) start = sh.position;
+            pl.Teleport(start);
+            yield return new WaitForSeconds(0.5f);
+            Log($"torcia: accesa={Torch.I.on} luce={Torch.I.Lit} fascio={(Torch.I.Beam != null && Torch.I.Beam.enabled)}");
+            foreach (var type in types)
+            {
+                var e = Enemy.Spawn(type, start + dir * (type == Enemy.EnemyType.Primario ? 4.4f : 3.6f));
+                e.transform.rotation = Quaternion.LookRotation(-dir);
+                yield return new WaitForSeconds(0.5f);
+                bool visible = e.GetComponentInChildren<Renderer>() != null;
+                bool weakSpot = System.Array.Exists(e.GetComponentsInChildren<Collider>(), c => !c.isTrigger && c.CompareTag("Head"));
+                var agent = e.GetComponent<NavMeshAgent>();
+                bool navigation = agent != null && agent.isOnNavMesh;
+                int rends = e.GetComponentsInChildren<Renderer>().Length, lights = e.GetComponentsInChildren<Light>().Length;
+                GameManager.CamShot(Dir + "/tema_" + type + ".png", null, false);
+                e.transform.rotation = Quaternion.LookRotation(-dir) * Quaternion.Euler(0f, 50f, 0f);      // di tre quarti: si vedono gli accessori
+                yield return new WaitForSeconds(0.2f);
+                GameManager.CamShot(Dir + "/tema_" + type + "_3q.png", null, false);
+                e.Damage(e.hp + 1f, e.AimPoint, false, false);
+                Log($"{type}: modello={visible} ({rends} renderer, {lights} luci), punto debole={weakSpot}, navigazione={navigation}, hp={e.maxHp}, eliminato={e.IsDead}");
+                passed &= visible && weakSpot && navigation && e.IsDead;
+                Destroy(e.gameObject);                  // il cadavere resterebbe sul posto (fuori da Enemy.All) e il prossimo ci nascerebbe sopra
+                yield return null;
+            }
+
+            Enemy.ClearAll();
+            Enemy.debugNoSense = false;
+            Enemy.debugFreeze = false;
+            pl.invulnerable = true;
+            float t0;
+            Enemy Face(Enemy.EnemyType type, float dist)
+            {
+                var e = Enemy.Spawn(type, start + dir * dist);
+                e.transform.rotation = Quaternion.LookRotation(-dir);
+                return e;
+            }
+
+            // la Maschera ti vede e soffia il fischietto
+            int w0 = Enemy.statWhistles;
+            var m = Face(Enemy.EnemyType.Maschera, 9f);
+            t0 = Time.time;
+            while (Time.time - t0 < 9f && Enemy.statWhistles == w0) yield return null;
+            bool whistled = Enemy.statWhistles > w0;
+            Log($"Maschera: fischietto={whistled} dopo {Time.time - t0:F1} s");
+            passed &= whistled;
+
+            // l'Infermiere ti raggiunge e la puntura ti addormenta le gambe (Sedate non fa nulla a un giocatore invulnerabile:
+            // qui il giocatore e' vulnerabile per il tempo della prova, ma le punture sono 10 pf l'una)
+            Enemy.ClearAll();
+            yield return null;
+            pl.sedT = 0f;
+            pl.invulnerable = false;
+            var n = Face(Enemy.EnemyType.Infermiere, 2.0f);
+            t0 = Time.time;
+            while (Time.time - t0 < 9f && pl.sedT <= 0f) yield return null;
+            bool sedated = pl.sedT > 0f;
+            Log($"Infermiere: sedativo={sedated} dopo {Time.time - t0:F1} s (sedT={pl.sedT:F1})");
+            pl.invulnerable = true;
+            passed &= sedated;
+
+            // il Primario ti vede e chiama due infermieri (arrivano dopo qualche secondo)
+            Enemy.ClearAll();
+            yield return null;
+            int h0 = Enemy.statHelps;
+            var p = Face(Enemy.EnemyType.Primario, 9f);
+            t0 = Time.time;
+            while (Time.time - t0 < 9f && Enemy.statHelps == h0) yield return null;
+            bool called = Enemy.statHelps > h0;
+            int before = Enemy.All.Count;
+            yield return new WaitForSeconds(6f);
+            int after = Enemy.All.Count;
+            Log($"Primario: richiamo={called}, nemici {before} -> {after}");
+            passed &= called && after > before;
+
+            // il Direttore carica e lancia un ventaglio di tre dardi
+            Enemy.ClearAll();
+            yield return null;
+            int b0 = Enemy.statBolts;
+            var d = Face(Enemy.EnemyType.Direttore, 11f);
+            t0 = Time.time;
+            while (Time.time - t0 < 12f && Enemy.statBolts - b0 < 3) yield return null;
+            int bolts = Enemy.statBolts - b0;
+            Log($"Direttore: dardi={bolts} dopo {Time.time - t0:F1} s");
+            passed &= bolts >= 3;
+
+            Log(passed ? "temi: OK" : "temi: ERRORE");
+            Application.Quit(passed ? 0 : 1);
+        }
+
         bool CheckExposure()
         {
             var origin = Vector3.up * 100f;
@@ -239,6 +339,7 @@ namespace PryingEyes
         {
             Directory.CreateDirectory(Dir);
             bool alienTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-alientest") >= 0;
+            bool themeTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-temitest") >= 0;
             bool reference = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-refshot") >= 0;
             var gm = GameManager.I;
             while (FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) yield return null;
@@ -247,7 +348,7 @@ namespace PryingEyes
                 yield return ReferenceShots(FloorDirector.I);
                 yield break;
             }
-            log = Dir + (alienTest ? "/alieni.txt" : "/furtivo.txt");
+            log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : "/furtivo.txt");
             File.WriteAllText(log, "");
             yield return new WaitForSeconds(2.0f);
             var fd = FloorDirector.I;
@@ -287,6 +388,11 @@ namespace PryingEyes
             if (alienTest)
             {
                 yield return CheckAliens(start, dir);
+                yield break;
+            }
+            if (themeTest)
+            {
+                yield return CheckThemed(start, dir);
                 yield break;
             }
 

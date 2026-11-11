@@ -11,7 +11,7 @@ namespace PryingEyes
     /// distanza orizzontale, e dal piano terra si colpiva chi stava sul soppalco.</summary>
     public partial class Enemy : MonoBehaviour
     {
-        public enum EnemyType { Occhio, Abate, Monaco, Falena, Medusa, Carapace }
+        public enum EnemyType { Occhio, Abate, Monaco, Falena, Medusa, Carapace, Maschera, Direttore, Infermiere, Primario }
         public EnemyType type;
 
         public float hp, maxHp, speed;
@@ -75,7 +75,8 @@ namespace PryingEyes
             Material glow;
             List<Material> flashes;
             EnemyType archetype = BaseType(t);
-            GameObject go = t != archetype ? BuildAlien(t, out glow, out flashes)
+            GameObject go = IsThemed(t) ? BuildThemed(t, out glow, out flashes)
+                : IsAlien(t) ? BuildAlien(t, out glow, out flashes)
                 : t == EnemyType.Occhio ? BuildOcchio(out glow, out flashes)
                 : t == EnemyType.Abate ? BuildAbate(out glow, out flashes) : BuildMonaco(out glow, out flashes);
             // chi cammina nasce sulla navmesh (lo spawn sullo scalone finiva dentro i gradini)
@@ -92,7 +93,7 @@ namespace PryingEyes
                 : 1.30f + Random.value * 0.30f;      // ostinato
             e.phase = Random.value * 10f;
             e.anim = go.GetComponentInChildren<Animator>();
-            if (t == EnemyType.Abate && e.anim != null) e.anim.speed = AbateAnimSpeed;
+            if (archetype == EnemyType.Abate && e.anim != null) e.anim.speed = AbateAnimSpeed;
             e.playerT = GameManager.I.player.transform;
             e.renderers = go.GetComponentsInChildren<Renderer>();
             e.flashMats = flashes;
@@ -106,7 +107,8 @@ namespace PryingEyes
                 : t == EnemyType.Abate ? Random.Range(0.58f, 0.66f)       // la litania dell'abate e' un'ottava sotto
                 : Random.Range(0.9f, 1.1f);
             e.alienRig = go.GetComponent<AlienRig>();
-            if (t != archetype) e.SetAlienStats();
+            if (IsAlien(t)) e.SetAlienStats();
+            else if (IsThemed(t)) e.SetThemedStats();
             if (t == EnemyType.Carapace) e.loop = Sfx.Loop(go, SoundBank.EyeHum, 0.38f, 1.5f, 22f, e.basePitch);
             else if (archetype == EnemyType.Occhio) e.loop = Sfx.Loop(go, SoundBank.EyeHum, 0.30f, 1.5f, 24f, e.basePitch, 1f, 1f);
             else e.AttachChant();
@@ -124,8 +126,8 @@ namespace PryingEyes
         void AddAgent()
         {
             agent = gameObject.AddComponent<NavMeshAgent>();
-            agent.radius = Archetype == EnemyType.Abate ? 0.5f : 0.35f;
-            agent.height = Archetype == EnemyType.Abate ? 2.4f : 2f;
+            agent.radius = Archetype == EnemyType.Abate ? 0.5f : type == EnemyType.Direttore ? 0.42f : 0.35f;
+            agent.height = Archetype == EnemyType.Abate ? 2.4f : type == EnemyType.Direttore ? 2.5f : 2f;
             agent.baseOffset = 0f;
             agent.speed = speed;
             agent.acceleration = Archetype == EnemyType.Abate ? 4f : 6f;
@@ -143,6 +145,7 @@ namespace PryingEyes
         /// <summary>Litania del monaco; quella dell'abate e' piu' forte e si sente da piu' lontano.</summary>
         void AttachChant()
         {
+            if (IsThemed(type)) { AttachThemedLoop(); return; }
             var chant = SoundBank.Chant;
             if (chant == null) return;
             bool abate = Archetype == EnemyType.Abate;
@@ -311,7 +314,7 @@ namespace PryingEyes
             Destroy(castOrb.GetComponent<Collider>());
             castOrb.name = "SferaMagica";
             castOrb.transform.SetParent(transform, false);
-            castOrb.transform.localPosition = new Vector3(-0.30f, 1.35f, 0.40f);
+            castOrb.transform.localPosition = CastOrbLocal();
             castOrb.transform.localScale = Vector3.one * 0.001f;
             castOrb.GetComponent<MeshRenderer>().material = mat;
             castLight = castOrb.AddComponent<Light>();
@@ -356,7 +359,7 @@ namespace PryingEyes
             {
                 // carica la sfera sul bastone, poi lancia il dardo verso il petto del giocatore
                 castAt -= dt;
-                float p = 1f - Mathf.Clamp01(castAt / 0.9f);
+                float p = 1f - Mathf.Clamp01(castAt / castWind);
                 if (castOrb != null)
                 {
                     castOrb.SetActive(true);
@@ -367,8 +370,8 @@ namespace PryingEyes
                 {
                     Vector3 tip = castOrb != null
                         ? castOrb.transform.position
-                        : transform.TransformPoint(new Vector3(-0.30f, 1.35f, 0.40f));
-                    MagicBolt.Launch(tip, chest, 10f + Random.value * 5f);
+                        : transform.TransformPoint(CastOrbLocal());
+                    LaunchBolts(tip, chest, enraged);
                     if (castOrb != null) castOrb.SetActive(false);
                     if (castLight != null) castLight.intensity = 0f;
                     if (GameManager.autoTest) Debug.Log($"[PryingEyes] mago lancia magia da {hd:F1} m");
@@ -386,24 +389,27 @@ namespace PryingEyes
                     Vector3 p = playerT.position;
                     float hd2 = new Vector2(p.x - tip.x, p.z - tip.z).magnitude;
                     float dy2 = Mathf.Abs(p.y - tip.y);
-                    if (GameManager.I.player.alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, 2.4f))
-                        HitPlayer((enraged ? 22f : 16f) + Random.value * 6f, hd2, dy2);
+                    if (GameManager.I.player.alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, meleeReach + 0.3f))
+                    {
+                        HitPlayer((enraged ? meleeDmg + 6f : meleeDmg) + Random.value * 6f, hd2, dy2);
+                        if (type == EnemyType.Infermiere) GameManager.I.player.Sedate(2.8f);   // la puntura addormenta le gambe
+                    }
                     else if (GameManager.autoTest) Debug.Log($"[PryingEyes] monaco: colpo a vuoto, giocatore a {hd2:F1} m, dislivello {dy2:F1} m");
                 }
             }
-            else if (hunting && atkCd <= 0f && GameManager.I.player.alive && InReach(eye, chest, hd, dy, 2.1f))
+            else if (hunting && atkCd <= 0f && GameManager.I.player.alive && InReach(eye, chest, hd, dy, meleeReach))
             {
-                atkCd = 1.9f;
+                atkCd = meleeCd;
                 strikeAt = 16f / 30f;
                 atkLock = 1.25f;
                 if (anim != null) anim.SetTrigger("Attacca");
             }
-            else if (hunting && seeing && atkCd <= 0f && GameManager.I.player.alive && see && hd > 3.0f && hd < 26f)
+            else if (volley > 0 && hunting && seeing && atkCd <= 0f && GameManager.I.player.alive && see && hd > 3.0f && hd < 26f)
             {
                 // a distanza il monaco diventa un mago: telegrafa la carica e lancia
-                atkCd = 2.6f + Random.value * 0.8f;
-                castAt = 0.9f;
-                atkLock = 1.4f;
+                atkCd = castCd + Random.value * 0.8f;
+                castAt = castWind;
+                atkLock = castWind + 0.5f;
                 EnsureCastOrb();
                 castOrb.SetActive(true);
                 if (castLight != null) castLight.intensity = 0.2f;

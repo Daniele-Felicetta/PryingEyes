@@ -244,6 +244,7 @@ namespace PryingEyes
             maxSpeed *= wd.moveMult;
             maxSpeed *= Mathf.Lerp(1f, wd.adsMoveMult, weapon.ads);
             if (weapon.reloading && wd.style != ReloadStyle.Tube) maxSpeed *= 0.92f;
+            if (sedT > 0f) { sedT -= dt; maxSpeed *= 0.55f; }       // sedativo dell'infermiere
 
             // wish dir (yaw plane): forward = (sin yaw, 0, cos yaw) to match camera
             float sin = Mathf.Sin(yaw), cos = Mathf.Cos(yaw);
@@ -391,6 +392,16 @@ namespace PryingEyes
                 bool onThing = !onWall && Proc.Interact.Tick(cam);
                 if ((Input.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use))) { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
             }
+        }
+
+        /// <summary>Secondi di sedativo rimasti: finché dura ti muovi al 55%. Lo dà la puntura dell'infermiere.</summary>
+        public float sedT;
+
+        public void Sedate(float seconds)
+        {
+            if (!alive || invulnerable) return;
+            if (sedT <= 0f) hud?.Toast("Il sedativo ti appesantisce le gambe.");
+            sedT = Mathf.Max(sedT, seconds);
         }
 
         public void Hurt(float dmg)

@@ -33,9 +33,9 @@ namespace PryingEyes
         bool Omniscient => !Stealth.Enabled;
 
         /// <summary>Dove sta il segnalino sopra la testa.</summary>
-        public Vector3 MarkerPoint => transform.position + Vector3.up * (type == EnemyType.Carapace ? 1.65f : Archetype == EnemyType.Occhio ? 0.85f : Archetype == EnemyType.Abate ? 3.0f : 2.3f);
+        public Vector3 MarkerPoint => transform.position + Vector3.up * (type == EnemyType.Carapace ? 1.65f : Archetype == EnemyType.Occhio ? 0.85f : Archetype == EnemyType.Abate ? 3.0f : type == EnemyType.Direttore ? 2.95f : 2.3f);
 
-        float EyeHeight => type == EnemyType.Carapace ? 0.9f : Archetype == EnemyType.Occhio ? 0f : Archetype == EnemyType.Abate ? 2.0f : 1.55f;
+        float EyeHeight => type == EnemyType.Carapace ? 0.9f : Archetype == EnemyType.Occhio ? 0f : Archetype == EnemyType.Abate ? 2.0f : type == EnemyType.Direttore ? 1.9f : 1.55f;
         float FovHalf => Archetype == EnemyType.Occhio ? 90f : Archetype == EnemyType.Abate ? 58f : 64f;
         float LoseTime => Archetype == EnemyType.Occhio ? 3.0f : 4.5f;
 
@@ -91,6 +91,13 @@ namespace PryingEyes
                 case NoiseKind.Ping:
                 case NoiseKind.Candle:
                     if (alert == Alert.Hunting) { if (!seeing) lastKnown = where; break; }
+                    lastKnown = where;
+                    awareness = Mathf.Max(awareness, 0.6f);
+                    if (alert != Alert.Searching) SetAlert(Alert.Searching);
+                    else { SetGoalNear(where); searchLeft = 14f; arrivedScan = false; firstScan = true; }
+                    break;
+                case NoiseKind.Alarm:                               // il fischietto dell'usciere: chi non caccia gia' corre sul posto
+                    if (alert == Alert.Hunting) break;
                     lastKnown = where;
                     awareness = Mathf.Max(awareness, 0.6f);
                     if (alert != Alert.Searching) SetAlert(Alert.Searching);
@@ -218,6 +225,11 @@ namespace PryingEyes
                     if (old != Alert.Hunting && seeing) Sfx.UI(SoundBank.AlertSting, 0.2f, 1.5f);   // il tuo cuore: sei stato visto
                     if (old != Alert.Hunting) Noise.Emit(transform.position, 15f, NoiseKind.Shout);        // il grido richiama gli altri
                     lostT = 0f;
+                    if (old != Alert.Hunting)
+                    {
+                        if (type == EnemyType.Maschera) Whistle();        // l'usciere dà l'allarme
+                        else if (type == EnemyType.Primario) CallHelp();  // il primario chiama gli infermieri
+                    }
                     if (eye != null) eye.Stare(1.0f);
                     break;
                 case Alert.Searching:

@@ -345,6 +345,24 @@ namespace PryingEyes.Proc
             return Enemy.EnemyType.Monaco;
         }
 
+        /// <summary>Nei piani a tema chi cammina cambia costume: nel teatro il monaco diventa Maschera e l'abate Direttore, nel
+        /// sanatorio Infermiere e Primario; la cappella del sanatorio resta dei monaci. Chi vola e gli alieni non cambiano.</summary>
+        Enemy.EnemyType Retheme(Enemy.EnemyType t, Room room)
+        {
+            if (cur == null || (t != Enemy.EnemyType.Monaco && t != Enemy.EnemyType.Abate)) return t;
+            var theme = cur.plan.theme;
+            if (theme == Theme.Albergo || (room != null && room.church)) return t;
+            bool heavy = t == Enemy.EnemyType.Abate;
+            if (theme == Theme.Teatro) return heavy ? Enemy.EnemyType.Direttore : Enemy.EnemyType.Maschera;
+            return heavy ? Enemy.EnemyType.Primario : Enemy.EnemyType.Infermiere;
+        }
+
+        /// <summary>Richiamo (il primario): arrivano altri nemici, fuori vista, verso quel punto.</summary>
+        public void CallHelp(Vector3 where, int count)
+        {
+            if (cur != null) StartCoroutine(SummonCo(count, where));
+        }
+
         /// <summary>Un punto di nascita fuori dalla vista del giocatore e a distanza giusta; sulla navmesh per chi cammina.</summary>
         bool PickSpawn(bool flying, out Vector3 pos)
         {
@@ -379,7 +397,7 @@ namespace PryingEyes.Proc
         void SpawnOne()
         {
             var t = PickType();
-            if (PickSpawn(Enemy.IsFlying(t), out Vector3 p)) Enemy.Spawn(t, p);
+            if (PickSpawn(Enemy.IsFlying(t), out Vector3 p)) Enemy.Spawn(Retheme(t, cur.RoomAt(p)), p);
         }
 
         void Horde(int count, string why)
@@ -476,7 +494,7 @@ namespace PryingEyes.Proc
             for (int i = 0; i < n; i++)
             {
                 var room = rooms[rng.Range(0, rooms.Count)];
-                var t = PickType();
+                var t = Retheme(PickType(), room);
                 Vector3 p = new Vector3(rng.Range(room.x0 * 0.1f + 1.2f, room.x1 * 0.1f - 1.2f), 0f, rng.Range(room.z0 * 0.1f + 1.2f, room.z1 * 0.1f - 1.2f));
                 if (Enemy.IsFlying(t)) p.y = Mathf.Min(2.2f, room.wallH - 0.7f);
                 else if (NavMesh.SamplePosition(p, out NavMeshHit nh, 2.5f, NavMesh.AllAreas)) p = nh.position;
@@ -501,7 +519,7 @@ namespace PryingEyes.Proc
                 if (Enemy.All.Count < cap)
                 {
                     var t = PickType();
-                    if (PickSpawn(Enemy.IsFlying(t), out Vector3 p)) Enemy.Spawn(t, p, target);
+                    if (PickSpawn(Enemy.IsFlying(t), out Vector3 p)) Enemy.Spawn(Retheme(t, cur.RoomAt(p)), p, target);
                 }
                 yield return new WaitForSeconds(Random.Range(1.5f, 4f));
             }
@@ -692,7 +710,7 @@ namespace PryingEyes.Proc
             if (foundExit && cur.exit != null) Mark(cur.exit.transform.position, Color.green, "Uscita");
             Mark(player, Color.red, "Tu");
             GUI.color = Color.white;
-            if (full) GUI.Label(new Rect(12, area.height - 30, area.width - 24, 25), "M: chiudi   N: minimappa   • rosso: tu   • azzurro: armi   • giallo: candele   • verde: uscita");
+            if (full) GUI.Label(new Rect(12, area.height - 30, area.width - 24, 25), "M: chiudi   N: minimappa   â€¢ rosso: tu   â€¢ azzurro: armi   â€¢ giallo: candele   â€¢ verde: uscita");
             GUI.EndGroup();
         }
 

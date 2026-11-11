@@ -24,6 +24,7 @@ modelli/occhio/occhio.blend
 modelli/occhio/export/
 modelli/hotel/arredi/*.fbx
 modelli/hotel/mani/*.fbx
+modelli/hotel/mani2/*.fbx
 # Piani procedurali: il progetto del laboratorio dotnet resta tracciato nonostante *.csproj, non le sue cartelle di build;
 # degli FBX di Blender si tengono solo quelli in unity/.../Models (si rigenerano con gli script), le anteprime in render/ come per gli altri modelli
 !tools/planlab/PlanLab.csproj

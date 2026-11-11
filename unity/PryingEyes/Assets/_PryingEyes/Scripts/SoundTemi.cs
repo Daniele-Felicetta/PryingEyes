@@ -214,11 +214,76 @@ namespace PryingEyes
             Normalize(s, 0.75f);
             return s;
         }
+
+        /// <summary>Fischietto d'ottone dell'usciere: due colpi, il secondo piu' lungo, con la pallina che trilla e un po' di fiato; un'eco di sala. 1,5 s.</summary>
+        public static float[] Whistle()
+        {
+            var r = new System.Random(41);
+            var s = Buf(1.5f);
+            var breath = Biquad.BandPass(3300f, 1.4f);
+            double ph = 0, ph2 = 0;
+            foreach (var (t0, len) in new[] { (0.02f, 0.30f), (0.42f, 0.62f) })
+            {
+                int i0 = (int)(t0 * Rate), n = (int)(len * Rate);
+                for (int k = 0; k < n && i0 + k < s.Length; k++)
+                {
+                    float t = (float)k / Rate;
+                    float env = SmoothEdge(0f, 0.015f, t) * (1f - SmoothEdge(len - 0.06f, len, t));
+                    float trill = 0.55f + 0.45f * Mathf.Sin(TwoPi * 36f * t);                    // la pallina rimbalza nella camera
+                    float f = 2850f + 120f * Mathf.Sin(TwoPi * 36f * t + 1f) + 90f * Mathf.Min(1f, t / 0.12f);
+                    ph += f / Rate; ph2 += f * 2.01f / Rate;
+                    float tone = Mathf.Sin(TwoPi * (float)(ph - Math.Floor(ph))) + 0.28f * Mathf.Sin(TwoPi * (float)(ph2 - Math.Floor(ph2)));
+                    float air = breath.Run(N(r)) * 0.6f;
+                    s[i0 + k] += (tone * trill * 0.5f + air * (0.5f + 0.5f * trill)) * env;
+                }
+            }
+            var dry = (float[])s.Clone();
+            foreach (var (delay, gain) in new[] { (0.09f, 0.32f), (0.21f, 0.16f) })
+            {
+                int d = (int)(delay * Rate);
+                for (int i = d; i < s.Length; i++) s[i] += dry[i - d] * gain;
+            }
+            var lp = Biquad.LowPass(7000f, 0.7f);
+            for (int i = 0; i < s.Length; i++) s[i] = lp.Run(s[i]);
+            Normalize(s, 0.8f);
+            return s;
+        }
+
+        /// <summary>Carillon scordato: un valzer lento in la minore che non si risolve mai, denti di pettine (parziali inarmonici), un basso a ogni
+        /// battuta e tempo appena ballerino. Loop di circa 10 s.</summary>
+        public static float[] MusicBox()
+        {
+            var r = new System.Random(42);
+            var s = Buf(12.6f);
+            const float E5 = 659.25f, A5 = 880f, G5 = 783.99f, C5 = 523.25f, D5 = 587.33f, B4 = 493.88f, F5 = 698.46f;
+            float[] melody = { E5, A5, G5, E5, C5, D5, E5, G5, E5, D5, C5, B4, C5, E5, A5, G5, E5, G5, F5, E5, D5, E5, 0f, 0f };
+            float[] bass = { 220f, 220f, 261.6f, 196f, 174.6f, 261.6f, 293.7f, 329.6f };
+            float[] ratios = { 1f, 2.756f, 5.404f, 8.933f }, amps = { 1f, 0.35f, 0.14f, 0.06f };
+            float beat = 0.38f;
+            for (int i = 0; i < melody.Length; i++)
+            {
+                float at = 0.1f + i * beat + U(r, -0.012f, 0.012f);
+                if (melody[i] > 0f)
+                {
+                    Chime(s, at, melody[i] * (1f + U(r, -0.003f, 0.003f)), 0.55f, ratios, amps, 0.34f);
+                    Burst(s, at, 6200f, 2f, 0.0018f, 0.05f, r);
+                }
+                if (i % 3 == 0) Chime(s, at, bass[i / 3], 0.7f, ratios, amps, 0.30f);
+            }
+            var lp = Biquad.LowPass(5200f, 0.7f);
+            for (int i = 0; i < s.Length; i++) s[i] = lp.Run(s[i]);
+            s = LoopSeamless(s, Rate * 2);
+            Normalize(s, 0.5f);
+            return s;
+        }
     }
 
     public static partial class SoundBank
     {
-        static AudioClip theatreTone, murmur, applause, theatreBell, clinicBuzz, trolley, monitor, clang;
+        static AudioClip theatreTone, murmur, applause, theatreBell, clinicBuzz, trolley, monitor, clang, whistle, musicBox;
+
+        public static AudioClip Whistle => One(ref whistle, "fischietto", SoundGen.Whistle);
+        public static AudioClip MusicBox => One(ref musicBox, "carillon", SoundGen.MusicBox);
 
         public static AudioClip TheatreTone => One(ref theatreTone, "tonoTeatro", SoundGen.TheatreTone);
         public static AudioClip Murmur => One(ref murmur, "brusio", SoundGen.Murmur);
@@ -233,7 +298,7 @@ namespace PryingEyes
         public static void WarmThemes()
         {
             _ = TheatreTone; _ = Murmur; _ = Applause; _ = TheatreBell;
-            _ = ClinicBuzz; _ = Trolley; _ = Monitor; _ = Clang;
+            _ = ClinicBuzz; _ = Trolley; _ = Monitor; _ = Clang; _ = Whistle; _ = MusicBox;
         }
     }
 }

@@ -12,11 +12,35 @@ namespace PryingEyes.EditorTools
             Windows();
         }
 
-        /// <summary>Scena Torre (piani procedurali) + build Windows: niente bake, e' veloce.</summary>
+        /// <summary>Scena Torre (piani procedurali) + build Windows: niente bake, e' veloce.
+        /// Con -scriptsOnly (e una build completa gia' presente nella stessa cartella) ricompila solo il codice: una build completa
+        /// riscrive ~700 MB di dati (resources.assets.resS, sharedassets0.assets.resS) e TorreBuilder rigenera scena e materiali, che
+        /// per provare la modifica a uno script e' un'enorme scrittura su disco inutile. Se le risorse sono cambiate (modelli, texture,
+        /// prefab, materiali, componenti nella scena) serve la build completa, cioe' senza il flag.</summary>
         public static void Torre()
         {
+            if (HasArg("-scriptsOnly") && System.IO.File.Exists(OutPath()))
+            {
+                Debug.Log("[PryingEyes] build solo-script (nessun dato riscritto)");
+                Build(true);
+                return;
+            }
             TorreBuilder.Build();
             Windows();
+        }
+
+        static bool HasArg(string name) => System.Array.IndexOf(System.Environment.GetCommandLineArgs(), name) >= 0;
+
+        /// <summary>Dove scrive la build: Builds/PryingEyes.exe, o la cartella data da -buildOut (per provare mentre una copia
+        /// del gioco e' aperta e blocca i file di Builds/).</summary>
+        static string OutPath()
+        {
+            var outPath = System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(Application.dataPath, "../Builds/PryingEyes.exe"));
+            var args = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < args.Length - 1; i++)
+                if (args[i] == "-buildOut") outPath = System.IO.Path.GetFullPath(System.IO.Path.Combine(args[i + 1], "PryingEyes.exe"));
+            return outPath;
         }
 
         public static void Verify()
@@ -47,26 +71,23 @@ namespace PryingEyes.EditorTools
             if (report.summary.result != BuildResult.Succeeded) EditorApplication.Exit(2);
         }
 
-        public static void Windows()
+        public static void Windows() => Build(false);
+
+        static void Build(bool scriptsOnly)
         {
             // la Torre (piani procedurali) e' la scena principale; la hall classica resta nel progetto ma fuori dalla build
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene("Assets/_PryingEyes/Scenes/Torre.unity", true)
             };
-            var outPath = System.IO.Path.GetFullPath(
-                System.IO.Path.Combine(Application.dataPath, "../Builds/PryingEyes.exe"));
-            // -buildOut <cartella>: compila altrove (per provare mentre una copia del gioco e' aperta e blocca i file di Builds/)
-            var args = System.Environment.GetCommandLineArgs();
-            for (int i = 0; i < args.Length - 1; i++)
-                if (args[i] == "-buildOut") outPath = System.IO.Path.GetFullPath(System.IO.Path.Combine(args[i + 1], "PryingEyes.exe"));
+            var outPath = OutPath();
             Debug.Log("[PryingEyes] Building to: " + outPath);
             var opts = new BuildPlayerOptions
             {
                 scenes = new[] { "Assets/_PryingEyes/Scenes/Torre.unity" },
                 locationPathName = outPath,
                 target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.None
+                options = scriptsOnly ? BuildOptions.BuildScriptsOnly : BuildOptions.None
             };
             var report = BuildPipeline.BuildPlayer(opts);
             Debug.Log("[PryingEyes] report outputPath=" + report.summary.outputPath);
