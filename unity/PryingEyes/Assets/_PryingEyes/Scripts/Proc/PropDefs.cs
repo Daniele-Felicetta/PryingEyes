@@ -62,6 +62,19 @@ namespace PryingEyes.Proc
             A("chi_stallo", 2.8f, 2.3f, 0.9f);
             A("chi_inginocchiatoio", 0.6f, 0.95f, 0.5f);
             A("chi_occhio", 1.2f, 1.2f, 0.12f, false);
+            // teatro e sanatorio (fase 3): modelli propri (modelli/hotel/genera_arredi3.py); la fila di poltrone e' larga 2,4 m
+            A("tea_fila", 2.4f, 0.95f, 0.75f);
+            A("tea_fila_b", 2.4f, 0.95f, 0.75f);
+            A("tea_fila_c", 2.4f, 0.95f, 0.75f);
+            A("tea_toeletta", 1.25f, 1.8f, 0.5f);
+            A("tea_manichino", 0.55f, 1.75f, 0.55f);
+            A("tea_faro", 0.9f, 1.95f, 0.9f);
+            A("san_letto", 1.0f, 1.07f, 2.05f);
+            A("san_carrello", 0.8f, 0.95f, 0.55f);
+            A("san_flebo", 0.5f, 2.05f, 0.5f);                  // la base a stella e' larga 0,6 m, ma sotto ai letti: il collider sta nello spazio di 0,65 m tra due letti
+            A("san_sedia_ruote", 0.72f, 0.95f, 1.0f);
+            A("san_scialitica", 0.8f, 1.1f, 0.8f, false);       // origine sul fondo del disco; l'asta fino al soffitto la fa il kit
+            A("san_paravento", 1.3f, 1.7f, 0.45f);
         }
 
         public static Def Get(string name)

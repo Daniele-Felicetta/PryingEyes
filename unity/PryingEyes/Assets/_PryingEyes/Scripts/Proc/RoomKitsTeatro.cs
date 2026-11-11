@@ -115,24 +115,26 @@ namespace PryingEyes.Proc
             Vector3 toStage = SideTo(c, RoomKind.Palcoscenico, out Side ss, out var arch) ? -Inward(ss) : Vector3.left;
             var fr = MakeFrame(c, toStage);                        // f: dal fondo (foyer) verso il palcoscenico
             float Lf = fr.Lf, Lr = fr.Lr, mid = Lr * 0.5f;
-            const float pitch = 0.6f, rowStep = 1.15f, centerHalf = 1.1f, sideLane = 2.0f;
+            // file da quattro poltrone a ribalta (tea_fila, 2,4 m): tre varianti, una con due sedili alzati, una con un sedile senza cuscino
+            const float rowStep = 1.15f, centerHalf = 1.1f, sideLane = 2.0f, rowW = 2.4f;
             float f0 = 5.5f, fEnd = Lf - 5.2f;
             int rows = Mathf.Max(0, Mathf.FloorToInt((fEnd - f0) / rowStep) + 1);
+            float block = mid - sideLane - centerHalf;                        // larghezza di un blocco di file
+            int per = Mathf.FloorToInt(block / (rowW * 0.88f));               // file per blocco (possono stringersi fino al 12%)
+            float sx = per > 0 ? Mathf.Clamp(block / (per * rowW), 0.88f, 1.15f) : 1f;
+            var variants = new[] { "tea_fila", "tea_fila_b", "tea_fila_c" };
             for (int i = 0; i < rows; i++)
             {
-                if (c.rng.Chance(0.07)) continue;                  // una fila e' sparita
                 float f = f0 + i * rowStep;
                 foreach (float sg in new[] { -1f, 1f })
-                {
-                    float rIn = mid + sg * centerHalf, rOut = mid + sg * (mid - sideLane);
-                    int n = Mathf.FloorToInt(Mathf.Abs(rOut - rIn) / pitch);
-                    for (int k = 0; k < n; k++)
+                    for (int k = 0; k < per; k++)
                     {
-                        if (c.rng.Chance(0.42)) continue;          // sedie mancanti, ribaltate, portate via
-                        float yaw = c.rng.Chance(0.06) ? c.rng.Range(-70f, 70f) : c.rng.Range(-4f, 4f);
-                        Prop(c, "arr_sedia", fr.P(f + c.rng.Range(-0.05f, 0.05f), rIn + sg * (k + 0.5f) * pitch), fr.f, 1f, true, 0f, yaw);
+                        if (c.rng.Chance(0.14)) continue;                    // una fila e' stata portata via
+                        float rc = mid + sg * (centerHalf + (k + 0.5f) * block / per);
+                        string nm = variants[c.rng.Weighted(new[] { 0.55, 0.25, 0.20 })];
+                        float yaw = c.rng.Chance(0.08) ? c.rng.Range(-6f, 6f) : c.rng.Range(-1.5f, 1.5f);
+                        Prop(c, nm, fr.P(f + c.rng.Range(-0.04f, 0.04f), rc), fr.f, sx, true, 0f, yaw);
                     }
-                }
             }
             // lampadari a corona sull'asse: il primo (verso l'ingresso) e' sempre acceso
             for (int i = 0; i < 3; i++)
@@ -300,6 +302,14 @@ namespace PryingEyes.Proc
                 Prop(c, "arr_sedia", fr.P(c.rng.Range(Lf * 0.3f, Lf * 0.85f), c.rng.Range(2.8f, Lr - 2.8f)), Quaternion.Euler(0f, c.rng.Range(0f, 360f), 0f) * Vector3.forward);
             if (c.rng.Chance(0.6)) Prop(c, "arr_tavolo", fr.P(Lf * 0.4f, c.rng.Range(3f, Lr - 3f)), fr.f, 1f, true, 0f, c.rng.Range(-40f, 40f));
             if (c.rng.Chance(0.5)) Prop(c, "arr_carrello", fr.P(2.0f, c.rng.Chance(0.5f) ? 3.2f : Lr - 3.2f), fr.r, 1f, true, 0f, c.rng.Range(-30f, 30f));
+            // due fari su treppiede ai lati dell'arco, puntati verso il centro del palco, e un manichino dimenticato
+            foreach (float rr in new[] { 2.6f, Lr - 2.6f })
+            {
+                Vector3 p = fr.P(Lf - 3.4f, rr);
+                Vector3 toward = (fr.P(Lf * 0.55f, mid) - p); toward.y = 0f;
+                Prop(c, "tea_faro", p, toward.normalized, 1f, true, 0f, c.rng.Range(-10f, 10f));
+            }
+            if (c.rng.Chance(0.45)) Prop(c, "tea_manichino", fr.P(c.rng.Range(Lf * 0.25f, Lf * 0.5f), c.rng.Chance(0.5f) ? 3.4f : Lr - 3.4f), Quaternion.Euler(0f, c.rng.Range(0f, 360f), 0f) * Vector3.forward);
         }
 
         /// <summary>Il camerino: le toelette lungo il muro in fondo, ognuna con la sua sedia e una lampadina, l'armadio dei costumi.</summary>
@@ -308,14 +318,18 @@ namespace PryingEyes.Proc
             Side ds = MainSide(c, RoomKind.Corridoio);
             var fr = MakeFrame(c, Inward(ds));
             float Lf = fr.Lf, Lr = fr.Lr;
-            int n = Mathf.Clamp(Mathf.FloorToInt(Lr / 2.2f), 1, 3);
+            int n = Mathf.Clamp(Mathf.FloorToInt(Lr / 1.9f), 1, 3);
             for (int i = 0; i < n; i++)
             {
                 float r = (i + 0.5f) * Lr / n;
-                if (Prop(c, "arr_scrivania", fr.P(Lf - 0.35f, r), -fr.f) == null) continue;
-                Prop(c, "arr_sedia", fr.P(Lf - 1.05f, r + c.rng.Range(-0.2f, 0.2f)), fr.f, 1f, true, 0f, c.rng.Range(-35f, 35f));
-                NightLamp(c, fr.P(Lf - 0.4f, r + 0.35f, 0.76f), c.rng.Chance(0.5));
+                // toeletta con lo specchio a lampadine contro il muro in fondo, la sedia davanti; la luce calda si somma alle lampadine
+                var t = Prop(c, "tea_toeletta", fr.P(Lf - 0.30f, r), -fr.f);
+                if (t == null) continue;
+                Prop(c, "arr_sedia", fr.P(Lf - 0.95f, r + c.rng.Range(-0.2f, 0.2f)), fr.f, 1f, true, 0f, c.rng.Range(-35f, 35f));
+                if (c.rng.Chance(0.75)) AddLight(c, fr.P(Lf - 0.55f, r, 1.35f), new Color(1f, 0.74f, 0.46f), 3.2f, 4.6f, false, true, t.transform);
             }
+            // un manichino da sarta in un angolo, girato verso la porta
+            if (c.rng.Chance(0.65)) Prop(c, "tea_manichino", fr.P(c.rng.Range(1.0f, Lf * 0.5f), c.rng.Chance(0.5f) ? 0.6f : Lr - 0.6f), Quaternion.Euler(0f, c.rng.Range(-40f, 40f), 0f) * -fr.f);
             bool left = c.rng.Chance(0.5);
             Prop(c, "arr_armadio", fr.P(2.6f, left ? 0.4f : Lr - 0.4f), left ? fr.r : -fr.r);
             if (c.rng.Chance(0.5)) Prop(c, "arr_poltrona", fr.P(Lf * 0.55f, left ? Lr - 0.9f : 0.9f), left ? -fr.r : fr.r, 1f, true, 0f, c.rng.Range(-20f, 20f));
@@ -335,6 +349,10 @@ namespace PryingEyes.Proc
             for (int i = 0; i < ch; i++)
                 Prop(c, "arr_sedia", fr.P(c.rng.Range(2.4f, Mathf.Max(2.5f, Lf - 1.2f)), c.rng.Range(0.5f, Lr - 0.5f)), Quaternion.Euler(0f, c.rng.Range(0f, 360f), 0f) * Vector3.forward);
             if (c.rng.Chance(0.5)) Prop(c, "arr_tavolo", fr.P(Lf * 0.6f, Lr - 0.9f), fr.f, 1f, true, 0f, c.rng.Range(-30f, 30f));
+            // manichini ammucchiati tra le casse, girati in direzioni diverse
+            int dummies = c.rng.Range(1, 3);
+            for (int i = 0; i < dummies; i++)
+                Prop(c, "tea_manichino", fr.P(c.rng.Range(2.4f, Mathf.Max(2.5f, Lf - 1.2f)), c.rng.Range(0.6f, Lr - 0.6f)), Quaternion.Euler(0f, c.rng.Range(0f, 360f), 0f) * Vector3.forward);
             PendantBulb(c, new Vector3(c.Center.x, c.r.wallH - 0.6f, c.Center.z), c.rng.Chance(0.6), 4.5f, 7f);
         }
 
@@ -345,8 +363,9 @@ namespace PryingEyes.Proc
             int n = Mathf.Max(2, Mathf.RoundToInt(Lf / 5f));
             for (int i = 0; i < n; i++)
                 PendantBulb(c, fr.P((i + 0.5f) / n * Lf, Lr * 0.5f, c.r.wallH - 0.45f), c.rng.Chance(0.75), 9f, 10f);
-            if (c.rng.Chance(0.5)) Prop(c, "arr_carrello", fr.P(Lf * c.rng.Range(0.2f, 0.8f), c.rng.Chance(0.5f) ? 0.5f : Lr - 0.5f), fr.r, 1f, true, 0f, c.rng.Range(-20f, 20f));
-            if (c.rng.Chance(0.35)) Prop(c, "arr_armadio", fr.P(Lf * c.rng.Range(0.2f, 0.8f), Lr - 0.4f), -fr.r);
+            // i corridoi delle quinte sono larghi 2,6 m (interno 2,3: fascia di 0,5 m): carrello e armadio ci stanno solo in quello da 3 m
+            if (c.rng.Chance(0.5)) HugWallAny(c, fr, "arr_carrello", 3f);
+            if (c.rng.Chance(0.35)) HugWallAny(c, fr, "arr_armadio");
         }
     }
 }

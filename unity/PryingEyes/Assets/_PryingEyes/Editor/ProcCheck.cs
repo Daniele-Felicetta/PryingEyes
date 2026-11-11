@@ -32,6 +32,9 @@ namespace PryingEyes.EditorTools
             var sb = new StringBuilder();
             var kindBad = new Dictionary<string, int>();
             float tBuild = 0f, tNav = 0f;
+            // -propstats: quanti arredi di ogni tipo finiscono in quale tipo di stanza, sommati sui piani (dopo la riparazione)
+            var propStats = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-propstats") >= 0 ? new SortedDictionary<string, SortedDictionary<string, int>>() : null;
+            var themeFloors = new SortedDictionary<string, int>();
             for (int i = 0; i < n; i++)
             {
                 int seed = seed0 + i * 17, floor = 1 + i % 8;
@@ -62,6 +65,19 @@ namespace PryingEyes.EditorTools
                     {
                         sb.AppendLine($"seme {seed} piano {floor}: DOPO LA RIPARAZIONE restano {left.Count} stanze, {cbLeft} candele, uscita {(exitLeft ? "no" : "ok")}");
                         stillBad++;
+                    }
+                    if (propStats != null)
+                    {
+                        string th = plan.theme.ToString();
+                        themeFloors[th] = themeFloors.TryGetValue(th, out int tf) ? tf + 1 : 1;
+                        foreach (var pr in fi.propRoots)
+                            foreach (Transform pt in pr)
+                            {
+                                var prm = fi.RoomAt(pt.position);
+                                string pk = prm != null ? prm.kind.ToString() : "?";
+                                if (!propStats.TryGetValue(pt.name, out var pd)) propStats[pt.name] = pd = new SortedDictionary<string, int>();
+                                pd[pk] = pd.TryGetValue(pk, out int pc) ? pc + 1 : 1;
+                            }
                     }
                 }
                 bool bad = false;
@@ -127,6 +143,20 @@ namespace PryingEyes.EditorTools
             foreach (var kv in kindBad) sb.AppendLine($"[PryingEyes] CHECK irraggiungibili per tipo: {kv.Key} x{kv.Value}");
             Debug.Log(sb.ToString());
             System.IO.File.WriteAllText("C:/Users/danie/Desktop/prying-eyes/hotel_build/proccheck.txt", sb.ToString());
+            if (propStats != null)
+            {
+                var ps = new StringBuilder();
+                var tl = new List<string>();
+                foreach (var kv in themeFloors) tl.Add($"{kv.Key} {kv.Value}");
+                ps.AppendLine($"piani per tema: {string.Join(", ", tl)}");
+                foreach (var kv in propStats)
+                {
+                    int tot = 0; var parts = new List<string>();
+                    foreach (var k2 in kv.Value) { tot += k2.Value; parts.Add($"{k2.Key} {k2.Value}"); }
+                    ps.AppendLine($"{kv.Key,-18} {tot,6}  [{string.Join(", ", parts)}]");
+                }
+                System.IO.File.WriteAllText("C:/Users/danie/Desktop/prying-eyes/hotel_build/propstats.txt", ps.ToString());
+            }
         }
 
         /// <summary>Mappa ASCII della stanza che ospita l'arrivo (e dei suoi vicini): '#' fuori navmesh, '.' raggiungibile dall'arrivo,

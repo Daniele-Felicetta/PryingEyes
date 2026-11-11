@@ -41,28 +41,29 @@ namespace PryingEyes.Proc
             g.AddComponent<NeonFlicker>().Init(pl, tube, ProcKit.Mat("neon"), ProcKit.Mat("neon_spento"));
         }
 
-        /// <summary>Lampada scialitica sopra il tavolo operatorio: asta dal soffitto, piatto d'acciaio, disco che brilla e un faro bianco stretto.</summary>
+        /// <summary>Lampada scialitica sopra il tavolo operatorio: il modello (disco con le lenti che brillano, snodo, asta) appeso a un'asta
+        /// che arriva al soffitto, e un faro bianco stretto che fa luce (il modello ha l'origine sul fondo del disco, la cima a 0,92 m).</summary>
         static void Scialitica(Ctx c, Vector3 pos)
         {
-            float y = Mathf.Min(c.r.wallH - 1.0f, 2.55f);
-            var g = new GameObject("Scialitica");
+            float y = Mathf.Min(c.r.wallH - 1.3f, 2.5f);
+            Vector3 at = new Vector3(pos.x, 0f, pos.z);
+            Prop(c, "san_scialitica", at, Vector3.forward, 1f, false, y);
+            var g = new GameObject("AstaScialitica");
             g.transform.SetParent(c.props, false);
-            g.transform.position = new Vector3(pos.x, 0f, pos.z);
-            void Part(PrimitiveType t, Vector3 sc, Vector3 lp, string mat)
+            g.transform.position = at;
+            float top = y + 0.92f, arm = c.r.wallH - top;
+            if (arm > 0.05f)
             {
-                var p = GameObject.CreatePrimitive(t);
+                var p = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 Util.Kill(p.GetComponent<Collider>());
                 p.transform.SetParent(g.transform, false);
-                p.transform.localPosition = lp; p.transform.localScale = sc;
+                p.transform.localPosition = new Vector3(0f, top + arm * 0.5f, 0f);
+                p.transform.localScale = new Vector3(0.044f, arm * 0.5f, 0.044f);
                 var mr = p.GetComponent<MeshRenderer>();
-                mr.sharedMaterial = ProcKit.Mat(mat);
+                mr.sharedMaterial = ProcKit.Mat("acciaio");
                 mr.shadowCastingMode = ShadowCastingMode.Off;
             }
-            float arm = c.r.wallH - y;
-            Part(PrimitiveType.Cylinder, new Vector3(0.05f, arm * 0.5f, 0.05f), new Vector3(0f, y + arm * 0.5f, 0f), "acciaio");
-            Part(PrimitiveType.Cylinder, new Vector3(0.95f, 0.035f, 0.95f), new Vector3(0f, y, 0f), "acciaio");
-            Part(PrimitiveType.Cylinder, new Vector3(0.8f, 0.01f, 0.8f), new Vector3(0f, y - 0.034f, 0f), "neon");
-            var pl = AddLight(c, g.transform.position + Vector3.up * (y - 0.15f), new Color(0.92f, 0.98f, 1f), 18f, 6.5f, true, true, g.transform, LightType.Spot);
+            var pl = AddLight(c, at + Vector3.up * (y - 0.15f), new Color(0.92f, 0.98f, 1f), 18f, 6.5f, true, true, g.transform, LightType.Spot);
             pl.l.spotAngle = 70f; pl.l.innerSpotAngle = 38f;
             pl.l.transform.rotation = Quaternion.LookRotation(Vector3.down);
         }
@@ -75,8 +76,13 @@ namespace PryingEyes.Proc
             int n = Mathf.Max(2, Mathf.RoundToInt(Lf / 5f));
             for (int i = 0; i < n; i++)
                 Neon(c, fr.P((i + 0.5f) / n * Lf, Lr * 0.5f, NeonY(c)), a, 1.25f, c.rng.Chance(0.68));
-            if (c.rng.Chance(0.6)) Prop(c, "arr_carrello", fr.P(Lf * c.rng.Range(0.2f, 0.8f), c.rng.Chance(0.5f) ? 0.5f : Lr - 0.5f), fr.r, 1f, true, 0f, c.rng.Range(-20f, 20f));
-            if (c.rng.Chance(0.4)) Prop(c, "arr_scaffale", fr.P(Lf * c.rng.Range(0.2f, 0.8f), Lr - 0.3f), -fr.r);
+            // niente sedia a rotelle in mezzo alla corsia: lasciava meno di 0,9 m per lato e la navmesh non passa sotto ~1,2 m, quindi il
+            // corridoio restava raggiungibile ma chiuso e Connectivity.Repair (che svuota solo le stanze irraggiungibili) non lo apriva piu'.
+            // Gli arredi stanno solo nella fascia tra muro e corsia, larga ~0,7 m (corridoio di 3 m, interno 2,7): il carrello (0,55 + margini)
+            // ci sta solo quasi dritto (+-4 gradi), l'asta (base 0,5) fino a +-14.
+            if (c.rng.Chance(0.55)) HugWallAny(c, fr, "san_carrello", 4f);
+            if (c.rng.Chance(0.3)) HugWallAny(c, fr, "san_flebo", 14f);
+            if (c.rng.Chance(0.4)) HugWallAny(c, fr, "arr_scaffale");
         }
 
         // ---------------------------------------------------------------- l'istituto
@@ -95,7 +101,9 @@ namespace PryingEyes.Proc
             int chairs = Mathf.Max(2, Mathf.FloorToInt((Lf - 4.2f) / 0.62f));
             ThemeRow(c, "arr_sedia", fr.P(2.4f, rw), fr.f * 0.62f, chairs, inL, 0.12);
             Prop(c, "arr_orologio", fr.P(Lf * 0.5f, left ? Lr - 0.3f : 0.3f), left ? -fr.r : fr.r);
-            if (c.rng.Chance(0.5)) Prop(c, "arr_carrello", fr.P(Lf * 0.72f, left ? Lr - 0.6f : 0.6f), left ? -fr.r : fr.r, 1f, true, 0f, c.rng.Range(-30f, 30f));
+            if (c.rng.Chance(0.5)) Prop(c, "san_carrello", fr.P(Lf * 0.72f, left ? Lr - 0.6f : 0.6f), left ? -fr.r : fr.r, 1f, true, 0f, c.rng.Range(-30f, 30f));
+            // una sedia a rotelle vicino alle sedie d'attesa, come se qualcuno fosse appena stato portato via
+            if (c.rng.Chance(0.6)) Prop(c, "san_sedia_ruote", fr.P(Lf * c.rng.Range(0.35f, 0.6f), rw + (left ? 1.0f : -1.0f)), Quaternion.Euler(0f, c.rng.Range(-50f, 50f), 0f) * (left ? fr.r : -fr.r), 1f, true);
             int n = Mathf.Clamp(Mathf.RoundToInt(Lf / 3.5f), 2, 4);
             for (int i = 0; i < n; i++)
                 Neon(c, fr.P((i + 0.5f) / n * Lf, Lr * 0.5f, NeonY(c)), fr.r, 1.25f, c.rng.Chance(0.75), 5.6f, 9f);
@@ -108,7 +116,7 @@ namespace PryingEyes.Proc
             Side ds = MainSide(c, RoomKind.Corridoio);
             var fr = MakeFrame(c, Inward(ds));
             float Lf = fr.Lf, Lr = fr.Lr;
-            var bd = PropDefs.Get("arr_letto");
+            var bd = PropDefs.Get("san_letto");
             float bw = bd.size.x, bl = bd.size.z;
             bool both = Lr >= 2f * bl + 1.3f;
             if (both)       // passaggio libero in mezzo alle due file
@@ -125,11 +133,19 @@ namespace PryingEyes.Proc
                 for (float f = 1.2f + bw * 0.5f; f + bw * 0.5f < Lf - 0.2f; f += pitch)
                 {
                     if (c.rng.Chance(big ? 0.1 : 0.22)) continue;                   // un letto e' stato portato via
-                    var bed = Prop(c, "arr_letto", fr.P(f, wallR + sgn * (bl * 0.5f + 0.04f)), inW);
-                    if (bed != null && c.rng.Chance(0.75)) Prop(c, "arr_comodino", fr.P(f + bw * 0.5f + 0.35f, wallR + sgn * 0.25f), inW);
+                    var bed = Prop(c, "san_letto", fr.P(f, wallR + sgn * (bl * 0.5f + 0.04f)), inW);
+                    if (bed == null) continue;
+                    if (c.rng.Chance(0.75)) Prop(c, "arr_comodino", fr.P(f + bw * 0.5f + 0.35f, wallR + sgn * 0.25f), inW);
+                    // l'asta della flebo nel varco di 0,65 m tra questo letto e il precedente (dalla parte opposta al comodino), a meta' letto
+                    // per non toccare il comodino del vicino, che sta al muro; il varco e' largo quanto il collider piu' i margini di Free, quindi
+                    // niente rotazione a caso: 0,5 m ruotati di 45 gradi non ci stanno piu'
+                    if (c.rng.Chance(0.35)) Prop(c, "san_flebo", fr.P(f - bw * 0.5f - 0.325f, wallR + sgn * 0.95f), inW, 1f, true, 0f, c.rng.Range(-8f, 8f));
                 }
             }
-            if (c.rng.Chance(0.5)) Prop(c, "arr_carrello", fr.P(Lf - 0.9f, Lr * 0.5f), -fr.f, 1f, true, 0f, c.rng.Range(-25f, 25f));
+            // in una degenza con una fila sola: un paravento di tela contro il muro opposto, aperto a meta'
+            if (!both && Lr > 4.0f && c.rng.Chance(0.6))
+                Prop(c, "san_paravento", fr.P(Lf * c.rng.Range(0.35f, 0.7f), (sides[0] == 0 ? Lr : 0f) + (sides[0] == 0 ? -0.35f : 0.35f)), sides[0] == 0 ? -fr.r : fr.r, 1f, true, 0f, c.rng.Range(-10f, 10f));
+            if (c.rng.Chance(0.5)) Prop(c, "san_carrello", fr.P(Lf - 0.9f, Lr * 0.5f), -fr.f, 1f, true, 0f, c.rng.Range(-25f, 25f));
             int n = Mathf.Clamp(Mathf.RoundToInt(Lf / (big ? 3.4f : 4.2f)), 1, 5);
             for (int i = 0; i < n; i++)
                 Neon(c, fr.P((i + 0.5f) / n * Lf, Lr * 0.5f, NeonY(c)), fr.r, 1.25f, c.rng.Chance(0.7), 5.0f, 8.5f);
@@ -141,9 +157,9 @@ namespace PryingEyes.Proc
             Side ds = MainSide(c);
             var fr = MakeFrame(c, Inward(ds));
             float Lf = fr.Lf, Lr = fr.Lr;
-            var bd = PropDefs.Get("arr_letto");
+            var bd = PropDefs.Get("san_letto");
             bool left = c.rng.Chance(0.5);
-            Prop(c, "arr_letto", fr.P(Lf - (bd.size.z * 0.5f + 0.04f), left ? bd.size.x * 0.5f + 0.1f : Lr - bd.size.x * 0.5f - 0.1f), -fr.f);
+            Prop(c, "san_letto", fr.P(Lf - (bd.size.z * 0.5f + 0.04f), left ? bd.size.x * 0.5f + 0.1f : Lr - bd.size.x * 0.5f - 0.1f), -fr.f);
             if (c.rng.Chance(0.4)) Prop(c, "arr_sedia", fr.P(Lf * 0.5f, left ? Lr - 0.4f : 0.4f), left ? -fr.r : fr.r, 1f, true, 0f, c.rng.Range(-40f, 40f));
             PendantBulb(c, new Vector3(c.Center.x, c.r.wallH - 0.5f, c.Center.z), c.rng.Chance(0.55), 3.8f, 6f);
         }
@@ -188,8 +204,8 @@ namespace PryingEyes.Proc
             var fr = MakeFrame(c, a);
             float Lf = fr.Lf, Lr = fr.Lr;
             ThemeRow(c, "arr_scaffale", fr.P(1.2f, 0.3f), fr.f * 1.3f, Mathf.Max(1, Mathf.FloorToInt((Lf - 2.4f) / 1.3f)), fr.r, 0.35);
-            if (c.rng.Chance(0.8)) Prop(c, "arr_carrello", fr.P(Lf * 0.5f + 2.0f, Lr * 0.5f + 1.6f), fr.r, 1f, true, 0f, c.rng.Range(-30f, 30f));
-            if (c.rng.Chance(0.6)) Prop(c, "arr_carrello", fr.P(Lf * 0.5f - 2.0f, Lr * 0.5f - 1.6f), -fr.r, 1f, true, 0f, c.rng.Range(-30f, 30f));
+            if (c.rng.Chance(0.8)) Prop(c, "san_carrello", fr.P(Lf * 0.5f + 2.0f, Lr * 0.5f + 1.6f), fr.r, 1f, true, 0f, c.rng.Range(-30f, 30f));
+            if (c.rng.Chance(0.6)) Prop(c, "san_carrello", fr.P(Lf * 0.5f - 2.0f, Lr * 0.5f - 1.6f), -fr.r, 1f, true, 0f, c.rng.Range(-30f, 30f));
             int n = Mathf.Clamp(Mathf.RoundToInt(Lf / 4f), 2, 5);
             for (int i = 0; i < n; i++)
                 Neon(c, fr.P((i + 0.5f) / n * Lf, Lr * (i % 2 == 0 ? 0.3f : 0.7f), NeonY(c)), fr.r, 1.25f, c.rng.Chance(0.8), 7.0f, 10f);
@@ -207,7 +223,7 @@ namespace PryingEyes.Proc
             int tables = Mathf.Clamp(Mathf.FloorToInt(Lf / 3.2f), 1, 3);
             for (int i = 0; i < tables; i++)
                 Prop(c, "arr_tavolo_acciaio", fr.P((i + 0.5f) * Lf / tables, Lr * 0.28f), fr.r, 1f, true, 0f, c.rng.Range(-8f, 8f));
-            if (c.rng.Chance(0.7)) Prop(c, "arr_carrello", fr.P(Lf * c.rng.Range(0.3f, 0.7f), 0.55f), fr.r, 1f, true, 0f, c.rng.Range(-25f, 25f));
+            if (c.rng.Chance(0.7)) Prop(c, "san_carrello", fr.P(Lf * c.rng.Range(0.3f, 0.7f), 0.55f), fr.r, 1f, true, 0f, c.rng.Range(-25f, 25f));
             int nl = Mathf.Clamp(Mathf.RoundToInt(Lf / 3.4f), 1, 4);
             for (int i = 0; i < nl; i++)
                 Neon(c, fr.P((i + 0.5f) / nl * Lf, Lr * 0.5f, NeonY(c)), fr.r, 1.25f, c.rng.Chance(0.72), 5.2f, 8.5f);
@@ -249,7 +265,7 @@ namespace PryingEyes.Proc
                 for (int i = 0; i < n; i++)
                     if (!c.rng.Chance(0.2)) Prop(c, "arr_tavolo_acciaio", fr.P(1.2f + (i + 0.5f) * (Lf - 2.4f) / n, rr), fr.r);
             ThemeRow(c, "arr_scaffale", fr.P(Lf - 0.25f, 0.8f), fr.r * 1.25f, Mathf.Max(1, Mathf.FloorToInt((Lr - 0.4f) / 1.25f)), -fr.f, 0.1);
-            if (c.rng.Chance(0.6)) Prop(c, "arr_carrello", fr.P(Lf * 0.5f, Lr * 0.5f), fr.r, 1f, true, 0f, c.rng.Range(-30f, 30f));
+            if (c.rng.Chance(0.6)) Prop(c, "san_carrello", fr.P(Lf * 0.5f, Lr * 0.5f), fr.r, 1f, true, 0f, c.rng.Range(-30f, 30f));
             int nl = Mathf.Clamp(Mathf.RoundToInt(Lf / 3.2f), 1, 4);
             for (int i = 0; i < nl; i++)
                 Neon(c, fr.P((i + 0.5f) / nl * Lf, Lr * 0.5f, NeonY(c)), fr.r, 1.25f, c.rng.Chance(0.8), 6.4f, 9f);

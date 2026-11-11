@@ -72,3 +72,173 @@
 I giri fatti dopo i ritocchi finali sono stati scartati: alle 22:54 la GPU partiva fredda (a riposo sta a ~1 GHz di 3: ora la sonda la scalda
 per 3 s prima di misurare) e tra le 23:02 e le 23:05 era aperto il Builds/PryingEyes.exe dell'utente (GPU all'89%): anche l'albergo, che la fase 2
 non tocca, usciva a 15-20 ms invece di 5. Prima di misurare: nvidia-smi a scheda libera e nessun gioco aperto. Rifare con -perftest.
+== [f3a_teatro] piano 3 tema Teatro seme 6000: 49 stanze, 240 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Platea        24,8x22,4 m  luci 33/240: medio   3,9 ms (logica  0,4 + render CPU  1,7 + attesa GPU  1,8)  p50   3,8  p95   4,2  p99   5,2  max   5,6
+  Palcoscenico  24,8x19,0 m  luci 36/240: medio   4,5 ms (logica  0,4 + render CPU  2,1 + attesa GPU  2,0)  p50   4,5  p95   5,2  p99   5,5  max   5,7
+  Foyer         12,4x12,4 m  luci 55/240: medio   3,7 ms (logica  0,4 + render CPU  1,4 + attesa GPU  1,9)  p50   3,6  p95   4,4  p99   4,9  max   5,0
+  Corridoio     24,8x2,6  m  luci 47/240: medio   5,1 ms (logica  0,5 + render CPU  2,0 + attesa GPU  2,6)  p50   5,1  p95   5,6  p99   5,9  max   6,4
+  Camerino       6,8x7,6  m  luci 51/240: medio   4,5 ms (logica  0,4 + render CPU  1,7 + attesa GPU  2,4)  p50   4,5  p95   5,0  p99   5,5  max   5,7
+  Deposito       8,8x5,6  m  luci 53/240: medio   5,0 ms (logica  0,4 + render CPU  2,1 + attesa GPU  2,4)  p50   4,9  p95   5,6  p99   6,4  max   6,6
+  Palco          6,8x4,4  m  luci 26/240: medio   3,5 ms (logica  0,4 + render CPU  1,2 + attesa GPU  1,9)  p50   3,4  p95   4,2  p99   4,4  max   4,6
+  Ridotto        4,4x5,6  m  luci 53/240: medio   5,1 ms (logica  0,4 + render CPU  1,9 + attesa GPU  2,8)  p50   5,1  p95   5,5  p99   5,8  max   5,8
+  >> 8 inquadrature: medio 4,4 ms (227 fps), peggior p99 6,4 ms
+== [f3a_sanatorio] piano 3 tema Sanatorio seme 6085: 99 stanze, 567 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Navata        30,0x10,8 m  luci 65/567: medio   6,8 ms (logica  0,6 + render CPU  3,1 + attesa GPU  3,1)  p50   6,7  p95   7,3  p99   8,9  max  10,0
+  SalaOperatoria 18,2x11,2 m  luci 69/567: medio   4,1 ms (logica  0,4 + render CPU  1,7 + attesa GPU  2,0)  p50   4,1  p95   4,6  p99   4,9  max   5,1
+  Refettorio    14,4x10,0 m  luci 57/567: medio   3,4 ms (logica  0,4 + render CPU  1,3 + attesa GPU  1,8)  p50   3,3  p95   4,0  p99   4,2  max   5,1
+  Corridoio     41,4x3,0  m  luci 105/567: medio   7,2 ms (logica  0,6 + render CPU  2,7 + attesa GPU  4,0)  p50   7,2  p95   7,8  p99   8,2  max   8,6
+  Nartece        6,0x18,8 m  luci 86/567: medio   7,1 ms (logica  0,6 + render CPU  3,4 + attesa GPU  3,2)  p50   7,1  p95   7,8  p99   8,0  max   8,0
+  Presbiterio    9,4x10,8 m  luci 65/567: medio   4,9 ms (logica  0,5 + render CPU  1,6 + attesa GPU  2,7)  p50   4,9  p95   5,6  p99   6,1  max   7,4
+  Accettazione   9,0x11,2 m  luci 95/567: medio   4,7 ms (logica  0,5 + render CPU  1,8 + attesa GPU  2,5)  p50   4,8  p95   5,2  p99   5,6  max   5,7
+  Navatella      4,0x25,0 m  luci 92/567: medio   5,5 ms (logica  0,5 + render CPU  2,2 + attesa GPU  2,7)  p50   5,4  p95   6,0  p99   6,3  max   6,5
+  Cripta         6,0x7,4  m  luci 89/567: medio   4,6 ms (logica  0,5 + render CPU  2,1 + attesa GPU  2,1)  p50   4,6  p95   5,2  p99   5,6  max   5,7
+  Degenza        6,6x6,0  m  luci 108/567: medio   5,5 ms (logica  0,5 + render CPU  2,2 + attesa GPU  2,9)  p50   5,5  p95   6,1  p99   7,0  max   7,8
+  Sacrestia      6,0x6,0  m  luci 106/567: medio   6,2 ms (logica  0,5 + render CPU  2,4 + attesa GPU  3,2)  p50   6,1  p95   6,7  p99   6,9  max  11,6
+  Campanile      6,0x6,0  m  luci 57/567: medio   3,5 ms (logica  0,3 + render CPU  1,1 + attesa GPU  2,0)  p50   3,4  p95   3,9  p99   4,2  max   9,1
+  Lavanderia     4,8x7,4  m  luci 72/567: medio   3,8 ms (logica  0,4 + render CPU  1,4 + attesa GPU  2,0)  p50   3,7  p95   4,3  p99   4,7  max   4,8
+  Cappella       5,4x5,0  m  luci 97/567: medio   5,8 ms (logica  0,4 + render CPU  2,0 + attesa GPU  3,3)  p50   5,7  p95   6,2  p99   6,6  max   6,7
+  >> 14 inquadrature: medio 5,2 ms (192 fps), peggior p99 8,9 ms
+== [f3a_sanatorio2] piano 3 tema Sanatorio seme 3153: 102 stanze, 576 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Navata        10,8x25,0 m  luci 84/576: medio   6,0 ms (logica  0,5 + render CPU  2,2 + attesa GPU  3,2)  p50   5,9  p95   6,4  p99   7,0  max   8,3
+  SalaOperatoria 14,8x12,0 m  luci 81/576: medio   4,5 ms (logica  0,5 + render CPU  2,0 + attesa GPU  2,0)  p50   4,5  p95   4,9  p99   5,4  max   5,4
+  Corridoio     42,6x3,0  m  luci 79/576: medio   6,7 ms (logica  0,6 + render CPU  3,0 + attesa GPU  3,1)  p50   6,6  p95   7,0  p99   7,3  max   7,8
+  Nartece       18,8x6,0  m  luci 98/576: medio   5,3 ms (logica  0,5 + render CPU  2,2 + attesa GPU  2,5)  p50   5,3  p95   5,6  p99   5,8  max   6,1
+  Accettazione  10,0x11,0 m  luci 62/576: medio   4,8 ms (logica  0,4 + render CPU  1,9 + attesa GPU  2,4)  p50   4,7  p95   5,2  p99   5,4  max   5,8
+  Navatella      4,0x25,0 m  luci 81/576: medio   5,4 ms (logica  0,5 + render CPU  1,9 + attesa GPU  3,0)  p50   5,3  p95   5,9  p99   6,3  max  14,4
+  Presbiterio    9,4x9,4  m  luci 70/576: medio   5,1 ms (logica  0,5 + render CPU  1,6 + attesa GPU  3,1)  p50   5,1  p95   5,6  p99   6,0  max   6,1
+  Corsia         9,4x7,4  m  luci 84/576: medio   4,7 ms (logica  0,5 + render CPU  1,8 + attesa GPU  2,4)  p50   4,7  p95   5,0  p99   5,2  max   5,7
+  Cripta         6,0x7,4  m  luci 63/576: medio   4,7 ms (logica  0,4 + render CPU  1,9 + attesa GPU  2,3)  p50   4,7  p95   5,1  p99   5,4  max   5,8
+  Degenza        6,2x6,8  m  luci 92/576: medio   5,4 ms (logica  0,5 + render CPU  2,1 + attesa GPU  2,8)  p50   5,4  p95   5,8  p99   5,9  max   6,0
+  Sacrestia      6,0x6,0  m  luci 81/576: medio   5,8 ms (logica  0,5 + render CPU  2,3 + attesa GPU  3,0)  p50   5,8  p95   6,3  p99   6,6  max   6,8
+  Campanile      6,0x6,0  m  luci 73/576: medio   4,3 ms (logica  0,4 + render CPU  1,6 + attesa GPU  2,2)  p50   4,2  p95   4,7  p99   5,4  max   9,3
+  Cella          6,6x5,4  m  luci 70/576: medio   3,6 ms (logica  0,4 + render CPU  1,1 + attesa GPU  2,0)  p50   3,5  p95   3,9  p99   4,6  max  10,2
+  Cappella       5,4x5,0  m  luci 81/576: medio   5,7 ms (logica  0,5 + render CPU  2,0 + attesa GPU  3,1)  p50   5,7  p95   6,0  p99   6,1  max   6,9
+  >> 14 inquadrature: medio 5,1 ms (195 fps), peggior p99 7,3 ms
+######## FASE 3 (modelli propri), scheda libera, GPU scaldata 3 s ########
+== [f3_giro1] piano 3 tema Albergo seme 6034: 92 stanze, 552 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Navata        10,0x30,0 m  luci 75/552: medio   6,5 ms (logica  0,6 + render CPU  2,6 + attesa GPU  3,3)  p50   6,5  p95   7,1  p99   7,5  max   8,4
+  SalaBallo     14,4x12,0 m  luci 62/552: medio   4,4 ms (logica  0,5 + render CPU  2,0 + attesa GPU  2,0)  p50   4,4  p95   4,8  p99   5,1  max   5,2
+  Ristorante    10,0x15,0 m  luci 65/552: medio   5,3 ms (logica  0,5 + render CPU  2,6 + attesa GPU  2,2)  p50   5,3  p95   5,8  p99   6,0  max   6,2
+  Navatella      4,0x30,0 m  luci 84/552: medio   5,5 ms (logica  0,5 + render CPU  1,4 + attesa GPU  3,6)  p50   5,4  p95   5,9  p99   6,3  max  18,4
+  Nartece        6,0x18,8 m  luci 84/552: medio   6,3 ms (logica  0,5 + render CPU  2,9 + attesa GPU  2,9)  p50   6,3  p95   6,6  p99   6,9  max   7,0
+  Corridoio      3,2x30,2 m  luci 78/552: medio   6,2 ms (logica  0,5 + render CPU  2,9 + attesa GPU  2,8)  p50   6,1  p95   7,0  p99   7,3  max   7,3
+  Presbiterio    9,4x9,4  m  luci 62/552: medio   4,6 ms (logica  0,4 + render CPU  1,5 + attesa GPU  2,7)  p50   4,6  p95   5,1  p99   5,2  max   5,4
+  Atrio          7,8x10,6 m  luci 74/552: medio   6,6 ms (logica  0,5 + render CPU  3,2 + attesa GPU  2,9)  p50   6,5  p95   7,1  p99   7,3  max   7,9
+  Cucina         7,4x7,2  m  luci 79/552: medio   5,6 ms (logica  0,5 + render CPU  2,6 + attesa GPU  2,5)  p50   5,6  p95   6,0  p99   6,2  max   6,3
+  Suite          6,8x6,8  m  luci 79/552: medio   4,5 ms (logica  0,4 + render CPU  1,8 + attesa GPU  2,3)  p50   4,5  p95   4,8  p99   4,9  max   4,9
+  Camera         6,6x6,8  m  luci 90/552: medio   5,0 ms (logica  0,4 + render CPU  2,2 + attesa GPU  2,4)  p50   5,0  p95   5,3  p99   5,7  max   5,9
+  Cripta         7,4x6,0  m  luci 60/552: medio   3,5 ms (logica  0,3 + render CPU  1,3 + attesa GPU  1,9)  p50   3,5  p95   3,8  p99   3,9  max   3,9
+  Sacrestia      6,0x6,0  m  luci 62/552: medio   5,0 ms (logica  0,5 + render CPU  2,1 + attesa GPU  2,5)  p50   5,0  p95   5,3  p99   6,1  max  10,6
+  Campanile      6,0x6,0  m  luci 94/552: medio   4,9 ms (logica  0,4 + render CPU  1,8 + attesa GPU  2,8)  p50   4,9  p95   5,4  p99   5,7  max   5,9
+  >> 14 inquadrature: medio 5,3 ms (189 fps), peggior p99 7,5 ms
+== [f3_giro1] piano 3 tema Teatro seme 6000: 49 stanze, 240 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Platea        24,8x22,4 m  luci 33/240: medio   4,1 ms (logica  0,4 + render CPU  1,8 + attesa GPU  1,9)  p50   4,1  p95   4,5  p99   4,8  max   6,0
+  Palcoscenico  24,8x19,0 m  luci 36/240: medio   4,6 ms (logica  0,4 + render CPU  2,1 + attesa GPU  2,0)  p50   4,5  p95   5,2  p99   5,7  max   5,8
+  Foyer         12,4x12,4 m  luci 55/240: medio   3,5 ms (logica  0,4 + render CPU  1,3 + attesa GPU  1,8)  p50   3,5  p95   3,9  p99   4,0  max   4,2
+  Corridoio     24,8x2,6  m  luci 47/240: medio   4,8 ms (logica  0,4 + render CPU  1,9 + attesa GPU  2,6)  p50   4,8  p95   5,2  p99   5,7  max   5,9
+  Camerino       6,8x7,6  m  luci 51/240: medio   4,6 ms (logica  0,4 + render CPU  1,7 + attesa GPU  2,5)  p50   4,6  p95   5,0  p99   5,1  max   5,1
+  Deposito       8,8x5,6  m  luci 53/240: medio   5,0 ms (logica  0,4 + render CPU  2,1 + attesa GPU  2,5)  p50   4,9  p95   5,4  p99   5,7  max   6,0
+  Palco          6,8x4,4  m  luci 26/240: medio   3,4 ms (logica  0,4 + render CPU  1,1 + attesa GPU  1,9)  p50   3,4  p95   3,8  p99   4,1  max   4,2
+  Ridotto        4,4x5,6  m  luci 53/240: medio   5,0 ms (logica  0,4 + render CPU  1,8 + attesa GPU  2,8)  p50   5,0  p95   5,4  p99   5,8  max   5,8
+  >> 8 inquadrature: medio 4,4 ms (228 fps), peggior p99 5,8 ms
+== [f3_giro1] piano 3 tema Sanatorio seme 6085: 99 stanze, 567 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Navata        30,0x10,8 m  luci 65/567: medio   6,9 ms (logica  0,6 + render CPU  3,1 + attesa GPU  3,1)  p50   6,8  p95   7,3  p99   7,7  max   8,9
+  SalaOperatoria 18,2x11,2 m  luci 69/567: medio   4,1 ms (logica  0,5 + render CPU  1,7 + attesa GPU  2,0)  p50   4,1  p95   4,5  p99   4,7  max   5,2
+  Refettorio    14,4x10,0 m  luci 57/567: medio   3,5 ms (logica  0,4 + render CPU  1,3 + attesa GPU  1,8)  p50   3,5  p95   3,9  p99   4,3  max   4,6
+  Corridoio     41,4x3,0  m  luci 105/567: medio   7,2 ms (logica  0,6 + render CPU  2,7 + attesa GPU  3,9)  p50   7,1  p95   7,8  p99   8,1  max   8,3
+  Nartece        6,0x18,8 m  luci 86/567: medio   7,2 ms (logica  0,6 + render CPU  3,4 + attesa GPU  3,2)  p50   7,1  p95   7,7  p99   8,1  max   8,2
+  Presbiterio    9,4x10,8 m  luci 65/567: medio   4,5 ms (logica  0,4 + render CPU  1,4 + attesa GPU  2,6)  p50   4,4  p95   5,0  p99   5,7  max   9,8
+  Accettazione   9,0x11,2 m  luci 95/567: medio   4,8 ms (logica  0,5 + render CPU  1,8 + attesa GPU  2,5)  p50   4,8  p95   5,2  p99   5,6  max   5,7
+  Navatella      4,0x25,0 m  luci 92/567: medio   5,3 ms (logica  0,5 + render CPU  2,1 + attesa GPU  2,7)  p50   5,3  p95   5,7  p99   6,2  max   6,2
+  Cripta         6,0x7,4  m  luci 89/567: medio   4,7 ms (logica  0,4 + render CPU  2,1 + attesa GPU  2,2)  p50   4,7  p95   5,1  p99   5,4  max   5,5
+  Degenza        6,6x6,0  m  luci 108/567: medio   5,5 ms (logica  0,5 + render CPU  2,2 + attesa GPU  2,8)  p50   5,4  p95   5,9  p99   6,1  max   6,3
+  Sacrestia      6,0x6,0  m  luci 106/567: medio   6,1 ms (logica  0,5 + render CPU  2,4 + attesa GPU  3,2)  p50   6,1  p95   6,5  p99   6,8  max   6,9
+  Campanile      6,0x6,0  m  luci 57/567: medio   3,5 ms (logica  0,3 + render CPU  1,2 + attesa GPU  1,9)  p50   3,4  p95   3,8  p99   4,4  max   4,8
+  Lavanderia     4,8x7,4  m  luci 72/567: medio   3,7 ms (logica  0,4 + render CPU  1,3 + attesa GPU  2,0)  p50   3,6  p95   4,1  p99   4,5  max  11,0
+  Cappella       5,4x5,0  m  luci 97/567: medio   5,8 ms (logica  0,5 + render CPU  2,1 + attesa GPU  3,3)  p50   5,7  p95   6,2  p99   6,7  max   6,7
+  >> 14 inquadrature: medio 5,2 ms (193 fps), peggior p99 8,1 ms
+== [f3_giro2] piano 3 tema Albergo seme 6034: 92 stanze, 552 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Navata        10,0x30,0 m  luci 75/552: medio   6,6 ms (logica  0,6 + render CPU  2,6 + attesa GPU  3,3)  p50   6,5  p95   7,1  p99   7,4  max   8,5
+  SalaBallo     14,4x12,0 m  luci 62/552: medio   4,4 ms (logica  0,5 + render CPU  2,0 + attesa GPU  2,0)  p50   4,4  p95   4,8  p99   5,5  max   5,7
+  Ristorante    10,0x15,0 m  luci 65/552: medio   5,4 ms (logica  0,5 + render CPU  2,7 + attesa GPU  2,2)  p50   5,4  p95   5,8  p99   6,2  max   6,9
+  Navatella      4,0x30,0 m  luci 84/552: medio   5,5 ms (logica  0,5 + render CPU  1,4 + attesa GPU  3,6)  p50   5,4  p95   5,7  p99   6,3  max  17,2
+  Nartece        6,0x18,8 m  luci 84/552: medio   6,4 ms (logica  0,5 + render CPU  3,0 + attesa GPU  2,9)  p50   6,3  p95   6,7  p99   7,0  max   7,0
+  Corridoio      3,2x30,2 m  luci 78/552: medio   6,3 ms (logica  0,5 + render CPU  2,9 + attesa GPU  2,9)  p50   6,3  p95   7,0  p99   7,1  max   7,3
+  Presbiterio    9,4x9,4  m  luci 62/552: medio   4,7 ms (logica  0,4 + render CPU  1,5 + attesa GPU  2,8)  p50   4,7  p95   5,0  p99   5,1  max   5,3
+  Atrio          7,8x10,6 m  luci 74/552: medio   6,6 ms (logica  0,5 + render CPU  3,2 + attesa GPU  2,9)  p50   6,6  p95   7,1  p99   7,2  max   7,2
+  Cucina         7,4x7,2  m  luci 79/552: medio   5,7 ms (logica  0,5 + render CPU  2,7 + attesa GPU  2,5)  p50   5,6  p95   6,0  p99   6,2  max   6,2
+  Suite          6,8x6,8  m  luci 79/552: medio   4,5 ms (logica  0,4 + render CPU  1,7 + attesa GPU  2,3)  p50   4,5  p95   4,8  p99   5,0  max   5,1
+  Camera         6,6x6,8  m  luci 90/552: medio   5,1 ms (logica  0,4 + render CPU  2,2 + attesa GPU  2,4)  p50   5,0  p95   5,4  p99   5,8  max   5,9
+  Cripta         7,4x6,0  m  luci 60/552: medio   3,4 ms (logica  0,3 + render CPU  1,2 + attesa GPU  1,9)  p50   3,5  p95   3,8  p99   4,1  max   4,3
+  Sacrestia      6,0x6,0  m  luci 62/552: medio   5,1 ms (logica  0,5 + render CPU  2,0 + attesa GPU  2,6)  p50   5,0  p95   5,4  p99   6,3  max  10,5
+  Campanile      6,0x6,0  m  luci 94/552: medio   5,0 ms (logica  0,4 + render CPU  1,7 + attesa GPU  2,9)  p50   4,9  p95   5,4  p99   5,5  max  12,3
+  >> 14 inquadrature: medio 5,3 ms (188 fps), peggior p99 7,4 ms
+== [f3_giro2] piano 3 tema Teatro seme 6000: 49 stanze, 240 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Platea        24,8x22,4 m  luci 33/240: medio   4,1 ms (logica  0,4 + render CPU  1,8 + attesa GPU  1,9)  p50   4,1  p95   4,7  p99   5,5  max   6,1
+  Palcoscenico  24,8x19,0 m  luci 36/240: medio   4,5 ms (logica  0,4 + render CPU  2,0 + attesa GPU  2,1)  p50   4,5  p95   5,3  p99   5,5  max   5,6
+  Foyer         12,4x12,4 m  luci 55/240: medio   3,5 ms (logica  0,4 + render CPU  1,3 + attesa GPU  1,9)  p50   3,5  p95   4,1  p99   4,3  max   4,7
+  Corridoio     24,8x2,6  m  luci 47/240: medio   5,0 ms (logica  0,4 + render CPU  1,9 + attesa GPU  2,6)  p50   4,9  p95   5,6  p99   5,7  max   5,8
+  Camerino       6,8x7,6  m  luci 51/240: medio   4,6 ms (logica  0,4 + render CPU  1,7 + attesa GPU  2,5)  p50   4,5  p95   5,2  p99   5,3  max   5,4
+  Deposito       8,8x5,6  m  luci 53/240: medio   4,8 ms (logica  0,4 + render CPU  2,0 + attesa GPU  2,4)  p50   4,7  p95   5,3  p99   5,4  max   5,4
+  Palco          6,8x4,4  m  luci 26/240: medio   3,2 ms (logica  0,3 + render CPU  1,0 + attesa GPU  1,9)  p50   3,2  p95   3,7  p99   4,0  max   4,6
+  Ridotto        4,4x5,6  m  luci 53/240: medio   5,0 ms (logica  0,4 + render CPU  1,8 + attesa GPU  2,8)  p50   4,9  p95   5,6  p99   5,7  max   5,7
+  >> 8 inquadrature: medio 4,3 ms (230 fps), peggior p99 5,7 ms
+== [f3_giro2] piano 3 tema Sanatorio seme 6085: 99 stanze, 567 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Navata        30,0x10,8 m  luci 65/567: medio   6,6 ms (logica  0,7 + render CPU  2,9 + attesa GPU  3,0)  p50   6,6  p95   7,1  p99   7,4  max   7,9
+  SalaOperatoria 18,2x11,2 m  luci 69/567: medio   4,0 ms (logica  0,5 + render CPU  1,5 + attesa GPU  2,0)  p50   4,0  p95   4,5  p99   4,9  max   5,1
+  Refettorio    14,4x10,0 m  luci 57/567: medio   3,4 ms (logica  0,4 + render CPU  1,1 + attesa GPU  1,9)  p50   3,3  p95   3,8  p99   4,2  max   8,1
+  Corridoio     41,4x3,0  m  luci 105/567: medio   6,9 ms (logica  0,6 + render CPU  2,4 + attesa GPU  3,9)  p50   6,9  p95   7,2  p99   7,4  max   7,6
+  Nartece        6,0x18,8 m  luci 86/567: medio   6,8 ms (logica  0,6 + render CPU  3,0 + attesa GPU  3,3)  p50   6,8  p95   7,1  p99   7,3  max   7,3
+  Presbiterio    9,4x10,8 m  luci 65/567: medio   4,3 ms (logica  0,4 + render CPU  1,2 + attesa GPU  2,6)  p50   4,2  p95   4,7  p99   5,4  max  13,1
+  Accettazione   9,0x11,2 m  luci 95/567: medio   4,7 ms (logica  0,5 + render CPU  1,7 + attesa GPU  2,5)  p50   4,7  p95   5,1  p99   5,2  max   5,6
+  Navatella      4,0x25,0 m  luci 92/567: medio   5,1 ms (logica  0,5 + render CPU  1,9 + attesa GPU  2,7)  p50   5,1  p95   5,5  p99   5,8  max   5,8
+  Cripta         6,0x7,4  m  luci 89/567: medio   4,5 ms (logica  0,5 + render CPU  1,9 + attesa GPU  2,2)  p50   4,5  p95   4,9  p99   5,1  max   5,1
+  Degenza        6,6x6,0  m  luci 108/567: medio   5,3 ms (logica  0,5 + render CPU  2,0 + attesa GPU  2,9)  p50   5,3  p95   5,6  p99   5,9  max   6,3
+  Sacrestia      6,0x6,0  m  luci 106/567: medio   6,1 ms (logica  0,5 + render CPU  2,3 + attesa GPU  3,3)  p50   6,0  p95   6,4  p99   7,0  max  11,4
+  Campanile      6,0x6,0  m  luci 57/567: medio   3,4 ms (logica  0,4 + render CPU  1,0 + attesa GPU  2,0)  p50   3,4  p95   3,8  p99   4,0  max   4,3
+  Lavanderia     4,8x7,4  m  luci 72/567: medio   3,5 ms (logica  0,4 + render CPU  1,2 + attesa GPU  2,0)  p50   3,5  p95   4,0  p99   4,1  max   4,7
+  Cappella       5,4x5,0  m  luci 97/567: medio   5,7 ms (logica  0,6 + render CPU  1,9 + attesa GPU  3,3)  p50   5,6  p95   6,3  p99   6,6  max  10,3
+  >> 14 inquadrature: medio 5,0 ms (199 fps), peggior p99 7,4 ms
+######## FASE 3 finale (corridoi ritoccati), scheda libera ########
+== [f3_fin] piano 3 tema Albergo seme 6034: 92 stanze, 552 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Navata        10,0x30,0 m  luci 75/552: medio   5,8 ms (logica  0,5 + render CPU  2,3 + attesa GPU  3,1)  p50   5,8  p95   6,2  p99   6,6  max   7,6
+  SalaBallo     14,4x12,0 m  luci 62/552: medio   4,1 ms (logica  0,4 + render CPU  1,8 + attesa GPU  1,9)  p50   4,1  p95   4,4  p99   4,9  max   5,2
+  Ristorante    10,0x15,0 m  luci 65/552: medio   5,0 ms (logica  0,4 + render CPU  2,4 + attesa GPU  2,1)  p50   4,9  p95   5,2  p99   5,4  max   5,4
+  Navatella      4,0x30,0 m  luci 84/552: medio   5,1 ms (logica  0,3 + render CPU  1,2 + attesa GPU  3,5)  p50   5,0  p95   5,2  p99   5,9  max  16,5
+  Nartece        6,0x18,8 m  luci 84/552: medio   5,6 ms (logica  0,4 + render CPU  2,6 + attesa GPU  2,7)  p50   5,6  p95   5,9  p99   6,1  max   6,2
+  Corridoio      3,2x30,2 m  luci 78/552: medio   5,3 ms (logica  0,4 + render CPU  2,2 + attesa GPU  2,7)  p50   5,3  p95   5,7  p99   6,0  max   6,3
+  Presbiterio    9,4x9,4  m  luci 62/552: medio   4,4 ms (logica  0,3 + render CPU  1,3 + attesa GPU  2,7)  p50   4,3  p95   4,7  p99   4,8  max   4,9
+  Atrio          7,8x10,6 m  luci 74/552: medio   6,3 ms (logica  0,5 + render CPU  3,0 + attesa GPU  2,8)  p50   6,2  p95   6,7  p99   6,9  max   6,9
+  Cucina         7,4x7,2  m  luci 79/552: medio   5,0 ms (logica  0,4 + render CPU  2,3 + attesa GPU  2,3)  p50   5,0  p95   5,4  p99   5,5  max   5,6
+  Suite          6,8x6,8  m  luci 79/552: medio   4,0 ms (logica  0,3 + render CPU  1,5 + attesa GPU  2,2)  p50   4,0  p95   4,3  p99   4,7  max   5,1
+  Camera         6,6x6,8  m  luci 90/552: medio   4,7 ms (logica  0,4 + render CPU  2,0 + attesa GPU  2,4)  p50   4,7  p95   5,1  p99   5,4  max   5,6
+  Cripta         7,4x6,0  m  luci 60/552: medio   3,2 ms (logica  0,3 + render CPU  1,1 + attesa GPU  1,9)  p50   3,2  p95   3,5  p99   4,2  max   6,1
+  Sacrestia      6,0x6,0  m  luci 62/552: medio   4,7 ms (logica  0,3 + render CPU  1,8 + attesa GPU  2,5)  p50   4,6  p95   5,0  p99   5,3  max   5,4
+  Campanile      6,0x6,0  m  luci 94/552: medio   4,6 ms (logica  0,4 + render CPU  1,5 + attesa GPU  2,7)  p50   4,5  p95   4,9  p99   5,9  max   9,4
+  >> 14 inquadrature: medio 4,8 ms (206 fps), peggior p99 6,9 ms
+== [f3_fin] piano 3 tema Teatro seme 6000: 49 stanze, 240 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Platea        24,8x22,4 m  luci 33/240: medio   3,8 ms (logica  0,4 + render CPU  1,6 + attesa GPU  1,8)  p50   3,7  p95   4,2  p99   5,0  max   5,6
+  Palcoscenico  24,8x19,0 m  luci 36/240: medio   4,2 ms (logica  0,3 + render CPU  1,9 + attesa GPU  2,0)  p50   4,1  p95   4,6  p99   4,9  max   5,1
+  Foyer         12,4x12,4 m  luci 55/240: medio   3,2 ms (logica  0,3 + render CPU  1,1 + attesa GPU  1,8)  p50   3,1  p95   3,5  p99   3,7  max   5,4
+  Corridoio     24,8x2,6  m  luci 47/240: medio   4,4 ms (logica  0,3 + render CPU  1,6 + attesa GPU  2,4)  p50   4,3  p95   4,8  p99   5,0  max   5,2
+  Camerino       6,8x7,6  m  luci 51/240: medio   4,1 ms (logica  0,3 + render CPU  1,5 + attesa GPU  2,3)  p50   4,0  p95   4,3  p99   4,9  max   6,4
+  Deposito       8,8x5,6  m  luci 53/240: medio   4,4 ms (logica  0,3 + render CPU  1,8 + attesa GPU  2,3)  p50   4,3  p95   4,7  p99   5,1  max   5,3
+  Palco          6,8x4,4  m  luci 26/240: medio   2,9 ms (logica  0,2 + render CPU  0,8 + attesa GPU  1,8)  p50   2,9  p95   3,2  p99   3,5  max   3,6
+  Ridotto        4,4x5,6  m  luci 53/240: medio   4,5 ms (logica  0,3 + render CPU  1,5 + attesa GPU  2,7)  p50   4,5  p95   4,8  p99   5,1  max   5,3
+  >> 8 inquadrature: medio 3,9 ms (255 fps), peggior p99 5,1 ms
+== [f3_fin] piano 3 tema Sanatorio seme 6085: 99 stanze, 567 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Navata        30,0x10,8 m  luci 65/567: medio   6,4 ms (logica  0,5 + render CPU  3,0 + attesa GPU  2,9)  p50   6,4  p95   6,9  p99   7,1  max   7,7
+  SalaOperatoria 18,2x11,2 m  luci 69/567: medio   4,1 ms (logica  0,5 + render CPU  1,7 + attesa GPU  1,9)  p50   4,0  p95   4,8  p99   5,2  max   5,3
+  Refettorio    14,4x10,0 m  luci 57/567: medio   3,7 ms (logica  0,4 + render CPU  1,4 + attesa GPU  1,9)  p50   3,7  p95   4,3  p99   4,6  max   4,7
+  Corridoio     41,4x3,0  m  luci 105/567: medio   7,0 ms (logica  0,5 + render CPU  2,7 + attesa GPU  3,7)  p50   6,9  p95   7,6  p99   8,3  max   8,6
+  Nartece        6,0x18,8 m  luci 86/567: medio   6,8 ms (logica  0,5 + render CPU  3,2 + attesa GPU  3,1)  p50   6,8  p95   7,6  p99   8,2  max   8,4
+  Presbiterio    9,4x10,8 m  luci 65/567: medio   4,3 ms (logica  0,3 + render CPU  1,3 + attesa GPU  2,6)  p50   4,2  p95   4,8  p99   5,3  max   9,2
+  Accettazione   9,0x11,2 m  luci 95/567: medio   4,4 ms (logica  0,3 + render CPU  1,7 + attesa GPU  2,4)  p50   4,4  p95   4,7  p99   4,9  max   5,2
+  Navatella      4,0x25,0 m  luci 92/567: medio   4,9 ms (logica  0,4 + render CPU  1,9 + attesa GPU  2,6)  p50   4,9  p95   5,3  p99   5,3  max   5,8
+  Cripta         6,0x7,4  m  luci 89/567: medio   4,3 ms (logica  0,4 + render CPU  1,8 + attesa GPU  2,1)  p50   4,2  p95   4,7  p99   5,0  max   5,3
+  Degenza        6,6x6,0  m  luci 108/567: medio   5,1 ms (logica  0,4 + render CPU  1,9 + attesa GPU  2,8)  p50   5,1  p95   5,5  p99   5,6  max   5,7
+  Sacrestia      6,0x6,0  m  luci 106/567: medio   5,8 ms (logica  0,4 + render CPU  2,2 + attesa GPU  3,2)  p50   5,8  p95   6,1  p99   6,4  max   7,5
+  Campanile      6,0x6,0  m  luci 57/567: medio   3,2 ms (logica  0,3 + render CPU  1,0 + attesa GPU  1,9)  p50   3,2  p95   3,5  p99   3,6  max   3,8
+  Lavanderia     4,8x7,4  m  luci 72/567: medio   3,3 ms (logica  0,3 + render CPU  1,1 + attesa GPU  1,9)  p50   3,3  p95   3,6  p99   4,0  max   4,0
+  Cappella       5,4x5,0  m  luci 97/567: medio   5,3 ms (logica  0,4 + render CPU  1,8 + attesa GPU  3,1)  p50   5,2  p95   5,6  p99   6,4  max  10,1
+  >> 14 inquadrature: medio 4,9 ms (204 fps), peggior p99 8,3 ms

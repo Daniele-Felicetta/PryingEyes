@@ -1,8 +1,8 @@
-seme 3000 piano 1: navmesh x -97..76 z -84..15 m; piano x -97..76 z -85..16 m; 3 ali, 85 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
+seme 3000 piano 1: navmesh x -97..76 z -84..15 m; piano x -97..76 z -85..16 m; 3 ali, 85 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3017 piano 2: navmesh x -45..74 z -40..122 m; piano x -46..74 z -41..123 m; 3 ali, 78 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3034 piano 3: navmesh x -126..59 z -29..95 m; piano x -126..60 z -29..96 m; 4 ali, 103 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3051 piano 4: navmesh x -102..98 z -33..101 m; piano x -102..99 z -33..101 m; 4 ali, 111 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 3068 piano 5: navmesh x -31..190 z -58..37 m; piano x -31..191 z -59..38 m; 5 ali, 65 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 3068 piano 5: navmesh x -30..190 z -58..37 m; piano x -31..191 z -59..38 m; 5 ali, 65 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3085 piano 6: navmesh x -83..62 z -137..102 m; piano x -84..63 z -137..102 m; 5 ali, 126 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3102 piano 7: navmesh x -159..37 z -105..26 m; piano x -160..37 z -106..27 m; 5 ali, 64 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3119 piano 8: navmesh x -85..81 z -130..80 m; piano x -86..82 z -131..81 m; 5 ali, 124 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
@@ -42,11 +42,11 @@ seme 3680 piano 1: navmesh x -39..83 z -47..101 m; piano x -40..83 z -47..101 m;
 seme 3697 piano 2: navmesh x -75..75 z -66..47 m; piano x -76..75 z -67..48 m; 3 ali, 68 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3714 piano 3: navmesh x -46..85 z -100..80 m; piano x -46..85 z -101..81 m; 4 ali, 103 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3731 piano 4: navmesh x -67..75 z -157..62 m; piano x -68..75 z -158..62 m; 4 ali, 108 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 3748 piano 5: navmesh x -95..93 z -38..87 m; piano x -96..94 z -39..88 m; 5 ali, 64 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
+seme 3748 piano 5: navmesh x -95..93 z -38..87 m; piano x -96..94 z -39..88 m; 5 ali, 64 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3765 piano 6: navmesh x -165..67 z -75..113 m; piano x -166..68 z -75..114 m; 5 ali, 123 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3782 piano 7: navmesh x -121..100 z -37..58 m; piano x -121..100 z -38..60 m; 5 ali, 65 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3799 piano 8: navmesh x -74..32 z -15..193 m; piano x -75..33 z -16..193 m; 5 ali, 63 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 3816 piano 1: navmesh x -15..88 z -37..95 m; piano x -16..89 z -37..96 m; 3 ali, 74 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 3816 piano 1: navmesh x -15..88 z -37..95 m; piano x -16..89 z -37..96 m; 3 ali, 74 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
 seme 3833 piano 2: navmesh x -85..85 z -17..45 m; piano x -86..85 z -18..46 m; 3 ali, 77 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3850 piano 3: navmesh x -61..85 z -43..67 m; piano x -62..85 z -44..68 m; 4 ali, 100 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 3867 piano 4: navmesh x -28..45 z -144..76 m; piano x -29..46 z -144..77 m; 4 ali, 54 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
@@ -107,7 +107,7 @@ seme 4785 piano 2: navmesh x -93..61 z -12..129 m; piano x -94..62 z -13..130 m;
 seme 4802 piano 3: navmesh x -123..74 z -65..45 m; piano x -124..75 z -66..45 m; 4 ali, 108 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
 seme 4819 piano 4: navmesh x -66..61 z -21..59 m; piano x -66..61 z -21..60 m; 4 ali, 52 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 4836 piano 5: navmesh x -152..68 z -31..43 m; piano x -153..68 z -32..44 m; 5 ali, 62 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 4853 piano 6: navmesh x -121..50 z -47..79 m; piano x -122..50 z -48..80 m; 5 ali, 62 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 4853 piano 6: navmesh x -121..49 z -47..79 m; piano x -122..50 z -48..80 m; 5 ali, 62 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 4870 piano 7: navmesh x -143..81 z -11..126 m; piano x -144..82 z -13..127 m; 5 ali, 124 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 4887 piano 8: navmesh x -70..106 z -40..142 m; piano x -70..106 z -40..143 m; 5 ali, 124 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 4904 piano 1: navmesh x -104..72 z -37..61 m; piano x -105..73 z -38..62 m; 3 ali, 83 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
@@ -156,12 +156,12 @@ seme 5618 piano 3: navmesh x -30..128 z -86..20 m; piano x -31..128 z -86..22 m;
 seme 5635 piano 4: navmesh x -30..158 z -83..15 m; piano x -31..159 z -84..16 m; 4 ali, 51 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 5652 piano 5: navmesh x -59..144 z -35..109 m; piano x -60..145 z -36..110 m; 5 ali, 130 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 5669 piano 6: navmesh x -44..141 z -130..33 m; piano x -44..142 z -130..33 m; 5 ali, 118 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 5686 piano 7: navmesh x -28..101 z -46..126 m; piano x -28..102 z -47..126 m; 5 ali, 65 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 5686 piano 7: navmesh x -27..101 z -46..126 m; piano x -28..102 z -47..126 m; 5 ali, 65 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 5703 piano 8: navmesh x -8..132 z -74..124 m; piano x -9..133 z -74..125 m; 5 ali, 122 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 5720 piano 1: navmesh x -15..69 z -39..104 m; piano x -16..70 z -40..105 m; 3 ali, 74 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 5737 piano 2: navmesh x -42..100 z -56..38 m; piano x -43..101 z -57..38 m; 3 ali, 85 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 5754 piano 3: navmesh x -26..86 z -98..49 m; piano x -27..86 z -99..51 m; 4 ali, 51 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 5771 piano 4: navmesh x -51..86 z -172..50 m; piano x -52..86 z -173..52 m; 4 ali, 104 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 5771 piano 4: navmesh x -51..86 z -172..50 m; piano x -52..86 z -173..52 m; 4 ali, 104 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
 seme 5788 piano 5: navmesh x -121..60 z -48..173 m; piano x -122..61 z -49..173 m; 5 ali, 122 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 5805 piano 6: navmesh x -175..41 z -97..126 m; piano x -175..41 z -98..127 m; 5 ali, 137 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 5822 piano 7: navmesh x -84..60 z -129..88 m; piano x -85..61 z -130..89 m; 5 ali, 128 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
@@ -219,10 +219,10 @@ seme 6689 piano 2: navmesh x -9..75 z -127..15 m; piano x -10..76 z -128..16 m; 
 seme 6706 piano 3: navmesh x -119..91 z -41..18 m; piano x -119..91 z -41..19 m; 4 ali, 51 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 6723 piano 4: navmesh x -140..85 z -37..95 m; piano x -141..85 z -38..96 m; 4 ali, 109 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 6740 piano 5: navmesh x -180..55 z -118..37 m; piano x -181..56 z -119..38 m; 5 ali, 125 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 6757 piano 6: navmesh x -33..156 z -98..73 m; piano x -33..156 z -98..74 m; 5 ali, 64 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 6757 piano 6: navmesh x -33..156 z -97..73 m; piano x -33..156 z -98..74 m; 5 ali, 64 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 6774 piano 7: navmesh x -90..62 z -30..122 m; piano x -90..64 z -31..123 m; 5 ali, 62 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 6791 piano 8: navmesh x -26..43 z -109..106 m; piano x -26..44 z -109..107 m; 5 ali, 64 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 6808 piano 1: navmesh x -61..77 z -42..37 m; piano x -62..77 z -43..38 m; 3 ali, 75 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
+seme 6808 piano 1: navmesh x -61..77 z -42..37 m; piano x -62..77 z -43..38 m; 3 ali, 75 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 6825 piano 2: navmesh x -38..64 z -131..34 m; piano x -39..65 z -132..35 m; 3 ali, 79 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 6842 piano 3: navmesh x -99..64 z -101..92 m; piano x -99..64 z -102..93 m; 4 ali, 99 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 6859 piano 4: navmesh x -44..77 z -87..94 m; piano x -45..79 z -87..94 m; 4 ali, 103 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
@@ -310,7 +310,7 @@ seme 8236 piano 5: navmesh x -148..55 z -90..49 m; piano x -150..56 z -91..50 m;
 seme 8253 piano 6: navmesh x -80..141 z -109..103 m; piano x -81..141 z -109..104 m; 5 ali, 127 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8270 piano 7: navmesh x -31..50 z -45..137 m; piano x -32..50 z -46..138 m; 5 ali, 66 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8287 piano 8: navmesh x -114..90 z -135..29 m; piano x -115..91 z -136..31 m; 5 ali, 128 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 8304 piano 1: navmesh x -133..37 z -28..97 m; piano x -134..38 z -29..98 m; 3 ali, 84 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
+seme 8304 piano 1: navmesh x -133..37 z -28..97 m; piano x -134..38 z -29..98 m; 3 ali, 84 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8321 piano 2: navmesh x -9..64 z -107..99 m; piano x -10..65 z -108..99 m; 3 ali, 79 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8338 piano 3: navmesh x -60..43 z -26..123 m; piano x -61..45 z -27..124 m; 4 ali, 104 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8355 piano 4: navmesh x -158..70 z -19..84 m; piano x -158..71 z -19..85 m; 4 ali, 102 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
@@ -332,19 +332,19 @@ seme 8610 piano 3: navmesh x -26..93 z -81..78 m; piano x -27..93 z -82..79 m; 4
 seme 8627 piano 4: navmesh x -29..126 z -38..77 m; piano x -30..127 z -39..78 m; 4 ali, 50 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8644 piano 5: navmesh x -80..82 z -44..139 m; piano x -81..83 z -44..140 m; 5 ali, 122 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8661 piano 6: navmesh x -131..83 z -12..182 m; piano x -132..84 z -14..183 m; 5 ali, 134 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 8678 piano 7: navmesh x -41..97 z -50..77 m; piano x -41..98 z -52..78 m; 5 ali, 67 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
-seme 8695 piano 8: navmesh x -56..151 z -34..80 m; piano x -56..151 z -34..80 m; 5 ali, 68 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 8678 piano 7: navmesh x -41..97 z -50..77 m; piano x -41..98 z -52..78 m; 5 ali, 67 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 8695 piano 8: navmesh x -56..150 z -33..80 m; piano x -56..151 z -34..80 m; 5 ali, 68 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8712 piano 1: navmesh x -130..80 z -49..40 m; piano x -131..80 z -50..40 m; 3 ali, 85 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8729 piano 2: navmesh x -93..53 z -38..40 m; piano x -94..54 z -39..41 m; 3 ali, 71 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
 seme 8746 piano 3: navmesh x -145..71 z -129..15 m; piano x -145..71 z -129..16 m; 4 ali, 94 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8763 piano 4: navmesh x -63..81 z -133..53 m; piano x -64..82 z -133..54 m; 4 ali, 104 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
 seme 8780 piano 5: navmesh x -164..69 z -79..125 m; piano x -165..70 z -80..126 m; 5 ali, 135 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 8797 piano 6: navmesh x -89..94 z -80..44 m; piano x -90..94 z -80..46 m; 5 ali, 65 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 8797 piano 6: navmesh x -89..94 z -79..44 m; piano x -90..94 z -80..46 m; 5 ali, 65 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8814 piano 7: navmesh x -50..129 z -91..127 m; piano x -51..129 z -92..128 m; 5 ali, 131 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8831 piano 8: navmesh x -141..94 z -42..149 m; piano x -142..95 z -43..150 m; 5 ali, 131 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8848 piano 1: navmesh x -95..86 z -18..53 m; piano x -96..87 z -19..54 m; 3 ali, 84 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8865 piano 2: navmesh x -12..87 z -40..91 m; piano x -13..88 z -40..92 m; 3 ali, 80 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 8882 piano 3: navmesh x -90..93 z -17..77 m; piano x -90..94 z -18..78 m; 4 ali, 52 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 8882 piano 3: navmesh x -89..93 z -17..77 m; piano x -90..94 z -18..78 m; 4 ali, 52 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8899 piano 4: navmesh x -130..80 z -41..106 m; piano x -131..80 z -42..107 m; 4 ali, 105 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8916 piano 5: navmesh x -46..113 z -54..64 m; piano x -46..114 z -55..66 m; 5 ali, 133 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 8933 piano 6: navmesh x -60..39 z -113..48 m; piano x -60..40 z -114..48 m; 5 ali, 67 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
@@ -402,7 +402,7 @@ seme 9800 piano 1: navmesh x -88..107 z -37..14 m; piano x -88..108 z -38..15 m;
 seme 9817 piano 2: navmesh x -94..90 z -42..17 m; piano x -95..91 z -43..18 m; 3 ali, 76 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 9834 piano 3: navmesh x -57..108 z -80..58 m; piano x -58..109 z -81..59 m; 4 ali, 108 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 9851 piano 4: navmesh x -8..91 z -89..81 m; piano x -9..92 z -90..82 m; 4 ali, 99 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 9868 piano 5: navmesh x -87..83 z -104..79 m; piano x -87..84 z -104..80 m; 5 ali, 119 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
+seme 9868 piano 5: navmesh x -87..83 z -104..79 m; piano x -87..84 z -104..80 m; 5 ali, 119 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 9885 piano 6: navmesh x -186..49 z -99..61 m; piano x -187..50 z -99..62 m; 5 ali, 117 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 9902 piano 7: navmesh x -93..137 z -137..15 m; piano x -93..138 z -138..16 m; 5 ali, 133 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 9919 piano 8: navmesh x -87..112 z -60..77 m; piano x -88..113 z -62..78 m; 5 ali, 130 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
@@ -440,7 +440,7 @@ seme 10446 piano 7: navmesh x -137..61 z -121..97 m; piano x -138..62 z -121..97
 seme 10463 piano 8: navmesh x -86..137 z -71..19 m; piano x -87..139 z -71..20 m; 5 ali, 64 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 10480 piano 1: navmesh x -36..72 z -125..35 m; piano x -37..72 z -126..36 m; 3 ali, 79 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 10497 piano 2: navmesh x -42..155 z -33..31 m; piano x -42..156 z -33..32 m; 3 ali, 74 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
-seme 10514 piano 3: navmesh x -28..97 z -51..75 m; piano x -28..98 z -52..75 m; 4 ali, 53 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
+seme 10514 piano 3: navmesh x -28..97 z -51..75 m; piano x -28..98 z -52..75 m; 4 ali, 53 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
 seme 10531 piano 4: navmesh x -7..79 z -81..109 m; piano x -8..79 z -82..109 m; 4 ali, 91 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 10548 piano 5: navmesh x -26..64 z -150..44 m; piano x -26..66 z -151..44 m; 5 ali, 68 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 10565 piano 6: navmesh x -121..95 z -78..23 m; piano x -122..96 z -79..24 m; 5 ali, 64 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
@@ -498,5 +498,5 @@ seme 11432 piano 1: navmesh x -52..83 z -86..40 m; piano x -53..84 z -87..40 m; 
 seme 11449 piano 2: navmesh x -41..130 z -27..74 m; piano x -41..131 z -28..76 m; 3 ali, 76 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 11466 piano 3: navmesh x -76..50 z -103..43 m; piano x -77..51 z -103..44 m; 4 ali, 103 stanze; prima della riparazione: 0 stanze irraggiungibili [], 0 candele, uscita ok
 seme 11483 piano 4: navmesh x -181..39 z -45..90 m; piano x -182..39 z -46..90 m; 4 ali, 106 stanze; prima della riparazione: 0 stanze irraggiungibili [], 1 candele, uscita ok
-[PryingEyes] CHECK piani con problemi prima della riparazione: 21 su 500 (21 stanze svuotate); ancora rotti dopo: 0
-[PryingEyes] CHECK 500 piani: con problemi 0; stanze 45918, irraggiungibili 0; candele irraggiungibili 0; uscite 0; cabine isolate 0; costruzione media 180 ms, navmesh media 42 ms
+[PryingEyes] CHECK piani con problemi prima della riparazione: 18 su 500 (18 stanze svuotate); ancora rotti dopo: 0
+[PryingEyes] CHECK 500 piani: con problemi 0; stanze 45918, irraggiungibili 0; candele irraggiungibili 0; uscite 0; cabine isolate 0; costruzione media 167 ms, navmesh media 40 ms

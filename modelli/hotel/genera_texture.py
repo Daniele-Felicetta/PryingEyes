@@ -489,6 +489,28 @@ def vernice_verde(n=1024):
     save("vernice_verde", base, normals(h, 2.0), np.zeros((n, n), F), 1 - damp * 0.25, 0.26 - chip * 0.2)
 
 
+def ruggine(n=1024):
+    """Ferro verniciato e arrugginito (letti, carrelli, sedie a rotelle): smalto grigio-bianco sporco che salta a placche e
+    lascia vedere ruggine bruna e arancio, colature verticali scure, graffi; dove e' scoperto il metallo e' opaco."""
+    rng = np.random.default_rng(79)
+    patch = _nz(warped(n, rng, 4, 6, 0.35))                    # dove lo smalto e' saltato
+    flake = smooth(0.50, 0.60, patch)
+    detail = _nz(fbm(n, 32, 4, rng))
+    mott = _nz(fbm(n, 6, 5, rng))
+    streak = blur(np.repeat(rng.random((1, n)).astype(F), n, axis=0), 1) * 0.55 + _nz(fbm(n, 3, 4, rng)) * 0.45
+    drip = smooth(0.55, 0.85, streak) * smooth(0.40, 0.62, patch)
+    scr = scratches(n, 90, rng, (0.02, 0.10), 1)
+    enamel = lerp(col((0.66, 0.67, 0.62), n), col((0.50, 0.52, 0.48), n), mott)
+    rust = lerp(col((0.28, 0.11, 0.045), n), col((0.64, 0.29, 0.09), n), detail)
+    base = lerp(enamel, rust, flake)
+    base = lerp(base, col((0.16, 0.07, 0.035), n), drip * 0.55)
+    base = lerp(base, col((0.82, 0.80, 0.74), n), scr * 0.25 * (1 - flake))
+    h = -flake * 0.35 + (detail - 0.5) * 0.18 * flake + (mott - 0.5) * 0.05 - scr * 0.1
+    metal = flake * 0.22 + scr * 0.1
+    smooth_ = 0.52 - flake * 0.36 - drip * 0.08 + (mott - 0.5) * 0.08
+    save("ruggine", base, normals(h, 2.6), metal, 1 - flake * 0.18 - drip * 0.1, smooth_)
+
+
 def anteprima(path):
     names = ["marmo_pavimento", "marmo_bianco", "damasco", "noce", "intonaco", "moquette", "ottone", "acciaio", "velluto"]
     tiles = []
@@ -523,7 +545,7 @@ if __name__ == "__main__":
         rest = rest[:k] + rest[k + 2:]
     if rest:
         OUT = Path(rest[0])
-    for fn in (marmo_scacchiera, marmo_bianco, damasco, noce, intonaco, moquette, ottone, acciaio, velluto, cuoio, forme, linoleo, vernice_verde):
+    for fn in (marmo_scacchiera, marmo_bianco, damasco, noce, intonaco, moquette, ottone, acciaio, velluto, cuoio, forme, linoleo, vernice_verde, ruggine):
         if only is None or fn.__name__ in only:
             fn()
     if preview:

@@ -318,6 +318,34 @@ namespace PryingEyes.Proc
             return Prop(c, name, pos, inw, sx, check, yOff);
         }
 
+        /// <summary>Mezza larghezza della corsia libera che i corridoi dei temi nuovi tengono sull'asse (1,3 m in tutto: la navmesh chiude i
+        /// varchi sotto ~1,2 m). Gli arredi stanno nella fascia tra il muro e la corsia, larga (larghezza del corridoio / 2 - questo).</summary>
+        const float ThemeLaneHalf = 0.65f;
+
+        /// <summary>Un arredo addossato a un muro lungo del corridoio con la fronte verso l'asse, nella fascia tra muro e corsia. La posizione
+        /// si ricava dall'ingombro vero (compresa l'inclinazione 'jitter' in gradi): messo a 0,5 m dal muro e ruotato a caso, come prima,
+        /// Free lo scartava quasi sempre perche' sconfinava nella corsia riservata e i corridoi restavano vuoti. Nullo se non ci sta.</summary>
+        static GameObject HugWall(Ctx c, Frame fr, string name, float f, bool far, float jitter = 0f)
+        {
+            var def = PropDefs.Get(name);
+            float j = jitter > 0f ? c.rng.Range(-jitter, jitter) : 0f;
+            float half = (def.size.x * Mathf.Abs(Mathf.Sin(j * Mathf.Deg2Rad)) + def.size.z * Mathf.Cos(j * Mathf.Deg2Rad)) * 0.5f;
+            float d = half + 0.045f;
+            return Prop(c, name, fr.P(f, far ? fr.Lr - d : d), far ? -fr.r : fr.r, 1f, true, 0f, j);
+        }
+
+        /// <summary>HugWall con fino a 'tries' tentativi (lato e punto a caso lungo il corridoio): ogni porta riserva davanti a se' mezza parete,
+        /// quindi con un tentativo solo ne riusciva uno ogni dieci.</summary>
+        static GameObject HugWallAny(Ctx c, Frame fr, string name, float jitter = 0f, int tries = 8)
+        {
+            for (int i = 0; i < tries; i++)
+            {
+                var go = HugWall(c, fr, name, fr.Lf * c.rng.Range(0.1f, 0.9f), c.rng.Chance(0.5), jitter);
+                if (go != null) return go;
+            }
+            return null;
+        }
+
         static float WallLen(Ctx c, Side s) => Plan.AlongX(s) ? c.W : c.D;
 
         // ---------------------------------------------------------------- luci

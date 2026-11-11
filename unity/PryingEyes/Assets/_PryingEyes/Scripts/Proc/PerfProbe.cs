@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using UnityEngine;
@@ -41,10 +42,88 @@ namespace PryingEyes.Proc
             var old = RenderTexture.active;
             RenderTexture.active = rt;
             tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
-            tex.Apply();
             RenderTexture.active = old;
+            // -perfgamma 0.5: schiarisce la foto (solo la foto, non il gioco) per vedere gli arredi nelle stanze buie
+            if (float.TryParse(Arg("-perfgamma", "1"), NumberStyles.Float, CultureInfo.InvariantCulture, out float g) && g > 0.05f && g < 0.999f)
+            {
+                var lut = new byte[256];
+                for (int i = 0; i < 256; i++) lut[i] = (byte)Mathf.Clamp(Mathf.RoundToInt(255f * Mathf.Pow(i / 255f, g)), 0, 255);
+                var px = tex.GetPixels32();
+                for (int i = 0; i < px.Length; i++) { px[i].r = lut[px[i].r]; px[i].g = lut[px[i].g]; px[i].b = lut[px[i].b]; }
+                tex.SetPixels32(px);
+            }
+            tex.Apply();
             File.WriteAllBytes(path, tex.EncodeToPNG());
             Object.Destroy(tex);
+        }
+
+        // -perfprops: invece del giro delle stanze, una foto ravvicinata per ognuno degli arredi nuovi (la prima istanza che ha un punto
+        // di vista libero sulla navmesh e una linea di vista pulita, di fronte se possibile). Con -perftorch la torcia e' accesa.
+        static readonly string[] PropNames = { "tea_toeletta", "tea_manichino", "tea_faro", "tea_fila", "tea_fila_b", "tea_fila_c", "san_letto", "san_carrello", "san_flebo", "san_sedia_ruote", "san_scialitica", "san_paravento", "arr_carrello", "arr_armadio", "arr_scaffale" };
+        static readonly float[] PropDist = { 2.0f, 2.3f, 2.8f, 2.6f, 2.6f, 2.6f, 3.0f, 2.0f, 2.4f, 2.2f, 3.2f, 2.6f, 2.6f, 3.0f, 2.8f };
+        static readonly float[] Azim = { 0f, 30f, -30f, 60f, -60f, 90f, -90f, 140f, -140f, 180f };
+
+        static IEnumerator RunProps(Plan plan, PlayerController pl, Camera cam, RenderTexture rt, string tag)
+        {
+            Directory.CreateDirectory(ShotDir);
+            if (Torch.I != null && Has("-perftorch")) { Torch.I.on = true; Torch.I.charge = 1f; }
+            var all = Object.FindObjectsByType<Transform>(FindObjectsSortMode.None);
+            var sb = new StringBuilder();
+            sb.AppendLine($"== [{tag}] foto ravvicinate degli arredi");
+            var cw = new List<string>();
+            foreach (var r in plan.rooms) if (r.kind == RoomKind.Corridoio) cw.Add($"{System.Math.Min(r.W, r.D) / 10f:F1}");
+            sb.AppendLine($"  corridoi (lato corto, m): {string.Join(" ", cw)}");
+            for (int k = 0; k < PropNames.Length; k++)
+            {
+                string n = PropNames[k];
+                int bestRank = int.MaxValue, found = 0;
+                Vector3 bestPos = default, bestTarget = default;
+                var perKind = new SortedDictionary<string, int>();
+                foreach (var t in all)
+                {
+                    if (t == null || t.name != n || t.childCount == 0) continue;
+                    bool nested = false;                                                  // il modello dentro il prefab porta lo stesso nome della radice
+                    for (var up = t.parent; up != null && !nested; up = up.parent) nested = up.name == n;
+                    if (nested) continue;
+                    found++;
+                    string kind = "?";
+                    foreach (var r in plan.rooms)
+                        if (!r.IsLift && t.position.x >= r.x0 * 0.1f && t.position.x <= r.x1 * 0.1f && t.position.z >= r.z0 * 0.1f && t.position.z <= r.z1 * 0.1f) { kind = r.kind.ToString(); break; }
+                    perKind[kind] = perKind.TryGetValue(kind, out int cnt) ? cnt + 1 : 1;
+                    var rs = t.GetComponentsInChildren<Renderer>();
+                    if (rs.Length == 0) continue;
+                    var b = rs[0].bounds;
+                    foreach (var r in rs) b.Encapsulate(r.bounds);
+                    Vector3 target = b.center;
+                    for (int ai = 0; ai < Azim.Length && ai < bestRank; ai++)
+                    {
+                        Vector3 dir = Quaternion.Euler(0f, t.eulerAngles.y + Azim[ai], 0f) * Vector3.forward;
+                        Vector3 ideal = new Vector3(t.position.x, 0f, t.position.z) + dir * PropDist[k];
+                        if (!NavMesh.SamplePosition(ideal, out var hit, 0.5f, NavMesh.AllAreas)) continue;
+                        Vector3 eye = hit.position + Vector3.up * 1.6f, to = target - eye;
+                        if (Physics.Raycast(eye, to.normalized, out var rh, to.magnitude + 0.1f, ~0, QueryTriggerInteraction.Ignore) && !rh.transform.IsChildOf(t)) continue;
+                        bestRank = ai; bestPos = hit.position; bestTarget = target;
+                        break;
+                    }
+                }
+                var where = new List<string>();
+                foreach (var kv in perKind) where.Add($"{kv.Key} {kv.Value}");
+                if (bestRank == int.MaxValue) { sb.AppendLine($"  {n}: {(found == 0 ? "nessuna istanza in questo piano" : $"{found} istanze ma nessun punto di vista libero")} [{string.Join(", ", where)}]"); continue; }
+                Enemy.ClearAll();
+                pl.Teleport(bestPos);
+                yield return null;
+                Vector3 d = bestTarget - cam.transform.position;
+                pl.yaw = Mathf.Atan2(d.x, d.z);
+                pl.pitch = Mathf.Atan2(-d.y, new Vector2(d.x, d.z).magnitude);       // positivo = guarda in basso
+                for (int i = 0; i < 25; i++) { yield return null; cam.Render(); }
+                LightPool.Tick(true);
+                yield return null;
+                cam.Render();
+                SavePng(rt, ShotDir + tag + "_prop_" + n + ".png");
+                sb.AppendLine($"  {n}: foto fatta ({found} istanze, vista a {Azim[bestRank]:F0} gradi dal fronte, distanza {PropDist[k]:F1} m) [{string.Join(", ", where)}]");
+            }
+            File.AppendAllText(LogPath, sb.ToString());
+            Debug.Log("[PryingEyes] perfprops: " + sb);
         }
 
         struct View { public Room room; public Vector3 pos; public float yaw; }
@@ -77,6 +156,14 @@ namespace PryingEyes.Proc
             // giro misura una scheda lenta (dopo ProcCheck, che gira senza grafica, l'albergo risultava 3 volte piu' lento del solito).
             float warmStart = Time.realtimeSinceStartup;
             while (Time.realtimeSinceStartup - warmStart < 3f) { yield return null; cam.Render(); }
+            if (Has("-perfprops"))
+            {
+                yield return RunProps(plan, pl, cam, rt, tag);
+                cam.targetTexture = null;
+                rt.Release();
+                Application.Quit();
+                yield break;
+            }
             foreach (var v in views)
             {
                 Enemy.ClearAll();

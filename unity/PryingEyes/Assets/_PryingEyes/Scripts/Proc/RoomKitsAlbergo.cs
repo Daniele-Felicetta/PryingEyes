@@ -62,7 +62,8 @@ namespace PryingEyes.Proc
             var fr = MakeFrame(c, a);
             float Lf = fr.Lf, Lr = fr.Lr;
             // corsia libera al centro: un carrello e una palma su due muri opposti chiudevano il corridoio per la navmesh (serve 0,8 m)
-            Vector3 lane0 = fr.P(0f, Lr * 0.5f - 0.8f), lane1 = fr.P(Lf, Lr * 0.5f + 0.8f);
+            float laneHalf = c.plan.theme == Theme.Albergo ? 0.8f : ThemeLaneHalf;      // nei temi nuovi la corsia e' di 1,3 m: resta posto per un carrello al muro (HugWall)
+            Vector3 lane0 = fr.P(0f, Lr * 0.5f - laneHalf), lane1 = fr.P(Lf, Lr * 0.5f + laneHalf);
             c.occ.Add(Rect.MinMaxRect(Mathf.Min(lane0.x, lane1.x), Mathf.Min(lane0.z, lane1.z), Mathf.Max(lane0.x, lane1.x), Mathf.Max(lane0.z, lane1.z)));
             // il teatro (dietro le quinte) e il sanatorio hanno i loro corridoi
             if (c.plan.theme == Theme.Teatro) { CorridoioTeatro(c, fr); return; }

@@ -31,6 +31,7 @@ tools/planlab/bin/
 tools/planlab/obj/
 modelli/chiesa/export/*.fbx
 modelli/hotel/arredi2/*.fbx
+modelli/hotel/arredi3/*.fbx
 # Armi (fase 5): i FBX e le texture che contano stanno in unity/.../Models/Armi; qui solo gli script. Si rigenerano con modelli/armi/genera_armi.py
 modelli/armi/tex/
 modelli/armi/export/

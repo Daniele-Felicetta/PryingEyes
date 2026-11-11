@@ -242,6 +242,12 @@ namespace PryingEyes.EditorTools
                 { "A_osso", Flat("kit_osso", new Color(0.62f, 0.58f, 0.48f), 0f, 0.3f) },
                 { "A_canne", Pbr("kit_canne", "ottone", new Color(0.8f, 0.78f, 0.7f), 0.5f) },
                 { "A_lacca", Flat("kit_lacca", new Color(0.02f, 0.02f, 0.025f), 0.1f, 0.85f) },
+                // teatro e sanatorio (fase 3)
+                { "A_ruggine", Pbr("kit_ruggine", "ruggine", Color.white, 0.8f) },
+                { "A_gomma", Flat("kit_gomma", new Color(0.03f, 0.03f, 0.035f), 0f, 0.35f) },
+                { "A_specchio", Flat("kit_specchio", new Color(0.30f, 0.34f, 0.36f), 1f, 0.9f) },
+                { "A_lampadina", Existing("Bulb") },
+                { "A_neon", Emit("kit_neon", new Color(0.78f, 0.86f, 0.82f), new Color(2.1f, 2.5f, 2.3f)) },
             };
             var prefabs = new List<ProcKit.PrefabRef>();
             if (!AssetDatabase.IsValidFolder("Assets/_PryingEyes/Prefabs")) AssetDatabase.CreateFolder("Assets/_PryingEyes", "Prefabs");
