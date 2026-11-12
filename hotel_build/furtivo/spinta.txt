@@ -1,0 +1,5 @@
+piano 3 seme 114: stanze=12; vecchio comportamento (-bodiesclash): False
+misure: spostamento massimo 0,00 m, quota minima 0,03, falena piu' vicina all'asse del giocatore 0,29 m, cadute 0
+ok       le falene non spostano un giocatore fermo   [0,00 m in 14 s]
+ok       e non lo fanno uscire dal pavimento   [quota minima 0,03, cadute 0]
+ESITO: ok

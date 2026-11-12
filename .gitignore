@@ -9,6 +9,7 @@ unity/PryingEyes/Temp/
 unity/PryingEyes/Logs/
 unity/PryingEyes/UserSettings/
 unity/PryingEyes/Builds/
+unity/PryingEyes/Data/
 *.csproj
 *.slnx
 .vsconfig

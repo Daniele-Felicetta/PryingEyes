@@ -19,7 +19,7 @@ Material:
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
-  m_LockedProperties:
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs: []
@@ -29,5 +29,8 @@ Material:
     - _HeightFalloff: 0.48
     m_Colors:
     - _Tint: {r: 0.155, g: 0.177, b: 0.185, a: 1}
+    - _WindowDirection: {r: 0, g: 0, b: 1, a: 1}
+    - _WindowPosition: {r: 0, g: 0, b: 0, a: 0}
+    - _WindowTint: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

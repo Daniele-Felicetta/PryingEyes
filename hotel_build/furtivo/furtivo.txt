@@ -12,18 +12,18 @@ vista 8 luce lum=0,15 (esposizione 0,21) portata=4,1 t_sospetto=mai t_caccia=mai
 vista 13 luce lum=0,15 (esposizione 0,21) portata=4,1 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
 vista 16 luce lum=0,15 (esposizione 0,21) portata=4,1 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
 vista 3 torcia lum=0,00 (esposizione 0,21) portata=19,7 t_sospetto=0,1 t_caccia=0,4 finale=Hunting aw=1,00
-vista 8 torcia lum=0,00 (esposizione 0,21) portata=19,7 t_sospetto=0,2 t_caccia=0,5 finale=Hunting aw=1,00
+vista 8 torcia lum=0,00 (esposizione 0,21) portata=19,7 t_sospetto=0,2 t_caccia=0,6 finale=Hunting aw=1,00
 vista 13 torcia lum=0,00 (esposizione 0,21) portata=19,7 t_sospetto=0,3 t_caccia=0,8 finale=Hunting aw=1,00
 vista 16 torcia lum=0,00 (esposizione 0,21) portata=19,7 t_sospetto=0,6 t_caccia=1,9 finale=Hunting aw=1,00
 udito: sparo a 16 m, prete di spalle -> Searching aw=0,54
-udito: dopo 18 s senza altri rumori -> Patrol aw=0,00
+udito: dopo 18 s senza altri rumori -> Hunting aw=1,00
 udito: passi di corsa a 6 m -> sospetto dopo 0,5 s, stato Hunting
 udito: passi da accovacciato a 14 m -> Patrol aw=0,00
 torcia: pila a 2% -> cambio visto=True carica=0,99 scorte=1 accesa=True
 pila: raccolta -> scorte 1 -> 2
-tipo Monaco: in 14 s al buio si e' allontanato al massimo di 10,3 m dalla partenza, stati visti Patrol/, stato finale Patrol
-tipo Abate: in 14 s al buio si e' allontanato al massimo di 8,9 m dalla partenza, stati visti Patrol/, stato finale Patrol
-tipo Occhio: in 14 s al buio si e' allontanato al massimo di 14,3 m dalla partenza, stati visti Patrol/, stato finale Patrol
+tipo Monaco: in 14 s al buio si e' allontanato al massimo di 9,3 m dalla partenza, stati visti Patrol/, stato finale Patrol
+tipo Abate: in 14 s al buio si e' allontanato al massimo di 5,1 m dalla partenza, stati visti Patrol/, stato finale Patrol
+tipo Occhio: in 14 s al buio si e' allontanato al massimo di 15,7 m dalla partenza, stati visti Patrol/, stato finale Patrol
 ping: lanciato=True segnali=3 mostrati=3 (candele sul piano 2, il segnale piu' lontano e' a 29 m, letti 3,1 s dopo il lancio)
 obiettivo completato: ascensore aperto=True, ping aggiornato=True, freccia aggiornata=True
 fine: OK
