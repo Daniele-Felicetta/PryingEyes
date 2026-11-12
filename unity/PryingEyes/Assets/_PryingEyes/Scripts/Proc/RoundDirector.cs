@@ -483,11 +483,13 @@ namespace PryingEyes.Proc
             if (!Enabled || phase != Phase.Idle || fi == null || c == null) return false;
             var fd = FloorDirector.I;
             var gm = GameManager.I;
-            if (fd == null || gm == null || gm.player == null || fd.transitioning || !gm.player.alive) return false;
+            if (fd == null || gm == null || gm.player == null || fd.transitioning) return false;
+            var by = Targets.OfSlot(c.litBy) ?? Targets.Local;       // chi l'ha accesa (in cooperativa puo' essere un compagno)
+            if (!by.Alive) return false;
             var z = zones.Find(q => q.candle == c);
             if (z == null || z.done) return false;
             var pl = gm.player;
-            var here = fi.RoomAt(pl.transform.position);
+            var here = fi.RoomAt(by.Feet);
             if (here == null || !z.reg.Has(here.id)) return false;     // la candela l'ha accesa da fuori: niente round
 
             cur = z;
@@ -505,7 +507,7 @@ namespace PryingEyes.Proc
             var seal = new List<int>();
             foreach (var o in z.reg.cuts) if (areaOf.TryGetValue(o, out int a)) seal.Add(a);
             HotelNav.SealAreas(seal);
-            ClearBands(z, pl);
+            ClearBands(z);
             foreach (var s in z.shutters) s.Drop();
             Physics.SyncTransforms();
 
@@ -529,6 +531,8 @@ namespace PryingEyes.Proc
             Sfx.UI(SoundBank.Toll, 0.55f, 0.55f);
             if (moth) Sfx.UI(SoundBank.MothSwarm, 0.7f);
             Debug.Log($"[PryingEyes] round {Round} (piano {fd.floor}, {mood}): {target} nemici in {z.reg.area:F0} m2, massimo {cap} insieme, {adopted} gia' dentro, {z.shutters.Count} serrande");
+            statusT = 0f;
+            Coop.Game?.RoundStarted(zones.IndexOf(z), Round, moth, (int)mood);     // cooperativa: l'ospite lo racconta agli altri
             return true;
         }
 
@@ -546,15 +550,20 @@ namespace PryingEyes.Proc
 
         /// <summary>Chi sta sulla soglia quando la serranda cala viene portato da una parte o dall'altra (il giocatore e chi e' dentro:
         /// dentro; chi e' fuori: fuori). Gli agenti sulla soglia sigillata non avrebbero piu' un percorso.</summary>
-        void ClearBands(Zone z, PlayerController pl)
+        void ClearBands(Zone z)
         {
             foreach (var s in z.shutters)
             {
-                Vector3 pp = pl.transform.position;
-                if (InBand(s, pp))
+                for (int i = 0, n = Targets.Count; i < n; i++)
                 {
+                    var t = Targets.At(i);
+                    if (!t.Alive) continue;
+                    Vector3 pp = t.Feet;
+                    if (!InBand(s, pp)) continue;
                     Vector3 q = SidePoint(s, pp, true);
-                    pl.Teleport(new Vector3(q.x, pp.y, q.z));
+                    var dest = new Vector3(q.x, pp.y, q.z);
+                    if (t is LocalTarget) GameManager.I.player.Teleport(dest);
+                    else Coop.Game?.TeleportRemote(t.Slot, dest);          // un compagno sulla soglia: lo sposta il suo gioco
                 }
                 foreach (var e in Enemy.All)
                 {
@@ -605,8 +614,6 @@ namespace PryingEyes.Proc
         bool SpawnOne()
         {
             var fd = FloorDirector.I;
-            var pl = GameManager.I.player;
-            Vector3 pp = pl.transform.position, eye = pp + Vector3.up * 1.6f;
             int spawnMask = NavMesh.AllAreas & ~doorBits;
             for (int pass = 0; pass < 3; pass++)
             {
@@ -616,7 +623,7 @@ namespace PryingEyes.Proc
                     var room = PickRoom(cur);
                     float x0 = room.x0 * 0.1f + 1.0f, x1 = room.x1 * 0.1f - 1.0f, z0 = room.z0 * 0.1f + 1.0f, z1 = room.z1 * 0.1f - 1.0f;
                     var q = new Vector3(x1 > x0 ? Random.Range(x0, x1) : room.CenterX, 0f, z1 > z0 ? Random.Range(z0, z1) : room.CenterZ);
-                    if (new Vector2(q.x - pp.x, q.z - pp.z).magnitude < dmin) continue;
+                    if (Targets.NearestDistance(q) < dmin) continue;
                     var t = moth ? Enemy.EnemyType.Falena : fd.PickRoundType(room);
                     bool fly = Enemy.IsFlying(t);
                     if (fly)
@@ -630,7 +637,7 @@ namespace PryingEyes.Proc
                         if (new Vector2(nh.position.x - q.x, nh.position.z - q.z).magnitude > 1.2f || !Inside(cur, nh.position)) continue;
                         q = nh.position;
                     }
-                    if (pass == 0 && HotelNav.ClearLine(eye, q + Vector3.up * 1.2f)) continue;      // si vede nascere: meglio altrove
+                    if (pass == 0 && Targets.AnySees(q + Vector3.up * 1.2f)) continue;               // si vede nascere: meglio altrove
                     var e = Enemy.Spawn(t, q);
                     if (e == null) continue;
                     Scale(e);
@@ -649,8 +656,14 @@ namespace PryingEyes.Proc
             if (phase == Phase.Idle) return;
             var gm = GameManager.I;
             if (gm == null || gm.player == null) return;
-            if (!gm.player.alive) { Abort(); return; }
             float dt = Time.deltaTime;
+            if (Coop.IsClient) { ClientTick(dt); return; }        // sugli ospitati il round lo gioca l'ospite: qui si vede soltanto
+            if (!Targets.AnyAlive) { Abort(); return; }           // da solo: il giocatore e' morto; in cooperativa: sono morti tutti
+            if (phase == Phase.Fighting)
+            {
+                statusT -= dt;
+                if (statusT <= 0f) { statusT = 0.5f; Coop.Game?.RoundStatus(target, spawned, mine.Count); }
+            }
             if (phase == Phase.Opening)
             {
                 bool up = true;
@@ -688,8 +701,88 @@ namespace PryingEyes.Proc
             if (cur == null) return "";
             string head = moth ? $"NOTTE DELLE FALENE {Round}" : $"ROUND {Round}";
             if (clock < delay) return $"{head}  ·  le serrande sono calate";
-            int left = Mathf.Max(0, target - spawned) + mine.Count;
+            int left = Coop.IsClient ? Mathf.Max(0, netTarget - netSpawned) + netAlive : Mathf.Max(0, target - spawned) + mine.Count;
             return $"{head}  ·  {(left == 1 ? "una presenza" : left + " presenze")} ancora";
+        }
+
+        // ------------------------------------------------------------------ cooperativa: gli ospitati vedono il round, lo gioca l'ospite
+        int netTarget, netSpawned, netAlive;
+        float statusT;
+
+        /// <summary>Indice della zona del round in corso tra quelle del piano (-1 se non c'e'): lo stesso su ogni macchina.</summary>
+        public int CurrentZone => cur != null ? zones.IndexOf(cur) : -1;
+
+        /// <summary>Ospitato: l'ospite ha cominciato un round. Serrande giu', striscione e rintocco, come sull'ospite (senza nemici: arrivano dalla rete).</summary>
+        public void CoopStart(int zoneIdx, int round, bool isMoth, int moodIdx)
+        {
+            if (fi == null || zoneIdx < 0 || zoneIdx >= zones.Count) return;
+            if (phase != Phase.Idle) Finish();
+            var z = zones[zoneIdx];
+            cur = z; Round = round; moth = isMoth; mood = (RoundMood)Mathf.Clamp(moodIdx, 0, 2);
+            clock = 0f; endT = 0f;
+            delay = mood == RoundMood.Calm ? RoundRules.DelayCalm : mood == RoundMood.Alarm ? RoundRules.DelayAlarm : RoundRules.DelayNormal;
+            netTarget = netSpawned = netAlive = 0;
+            BuildShutters(z);
+            foreach (var s in z.shutters) s.Drop();
+            Physics.SyncTransforms();
+            phase = Phase.Fighting;
+            var gm = GameManager.I;
+            gm.hud?.SetRound(Round);
+            if (moth) gm.hud?.Banner("Notte delle Falene", "Round " + Round + "  ·  un battito d'ali, ovunque.");
+            else gm.hud?.Banner("Round " + Round, mood == RoundMood.Calm ? "Nessuno sa che sei qui." : "Le serrande sono calate.");
+            Sfx.UI(SoundBank.Toll, 0.55f, 0.55f);
+            if (moth) Sfx.UI(SoundBank.MothSwarm, 0.7f);
+            FloorDirector.I?.RefreshObjectiveNow();
+        }
+
+        public void CoopStatus(int t, int s, int alive) { netTarget = t; netSpawned = s; netAlive = alive; }
+
+        /// <summary>Ospitato: il round e' finito, premio a tutti.</summary>
+        public void CoopComplete(bool reward, int pts)
+        {
+            if (cur == null) return;
+            var gm = GameManager.I;
+            var pl = gm.player;
+            if (reward)
+            {
+                gm.AddPoints(pts);
+                pl.shield = 50f;
+                pl.weapon.AddAmmoFraction(0.25f);
+            }
+            foreach (var s in cur.shutters) if (s != null) s.Release();
+            Sfx.UI(SoundBank.Toll, 0.7f);
+            gm.hud?.SetRound(Round);
+            gm.hud?.Banner((moth ? "Notte delle Falene " : "Round ") + Round + " superato",
+                reward ? $"+{pts} punti  ·  scudo e munizioni" : "Le presenze si sono dissolte.");
+            cur.done = true;
+            phase = Phase.Opening;
+        }
+
+        /// <summary>Ospitato: il round e' saltato (sono morti tutti): serrande su, candela da riaccendere.</summary>
+        public void CoopAbort()
+        {
+            if (cur == null) { phase = Phase.Idle; return; }
+            var z = cur;
+            foreach (var s in z.shutters) if (s != null) s.SnapUp();
+            if (phase != Phase.Opening)
+            {
+                z.candle.Setup(false);
+                Round = Mathf.Max(0, Round - 1);
+                var gm = GameManager.I;
+                gm.hud?.SetRound(Round, false);
+                FloorDirector.I?.OnRoundAborted(z.candle);
+            }
+            Finish();
+        }
+
+        void ClientTick(float dt)
+        {
+            if (phase == Phase.Fighting) { clock += dt; return; }
+            if (phase == Phase.Opening && cur != null)
+            {
+                foreach (var s in cur.shutters) if (s != null && !s.IsUp) return;
+                Finish();
+            }
         }
 
         void Complete(bool reward)
@@ -704,6 +797,7 @@ namespace PryingEyes.Proc
                 pl.shield = 50f;
                 pl.weapon.AddAmmoFraction(0.25f);
             }
+            Coop.Game?.RoundComplete(reward, pts);        // cooperativa: il premio e' di tutti
             foreach (var s in cur.shutters) if (s != null) s.Release();
             Sfx.UI(SoundBank.Toll, 0.7f);
             gm.hud?.SetRound(Round);
@@ -734,7 +828,7 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Il giocatore e' morto: il round salta. Serrande su, nemici via, candela da riaccendere, il numero del round non conta.</summary>
-        public void OnPlayerDied() { if (phase != Phase.Idle) Abort(); }
+        public void OnPlayerDied() { if (phase != Phase.Idle && !Coop.Active) Abort(); }     // in cooperativa il round salta solo se muoiono tutti (Update)
 
         void Abort()
         {
@@ -752,6 +846,7 @@ namespace PryingEyes.Proc
             foreach (var s in z.shutters) if (s != null) s.SnapUp();
             z.candle.Setup(false);
             Debug.Log($"[PryingEyes] round {Round} annullato: giocatore morto dopo {clock:F0} s, {spawned}/{target} nati");
+            Coop.Game?.RoundAborted();
             Round = Mathf.Max(0, Round - 1);
             var gm = GameManager.I;
             if (gm != null && gm.hud != null) gm.hud.SetRound(Round, false);

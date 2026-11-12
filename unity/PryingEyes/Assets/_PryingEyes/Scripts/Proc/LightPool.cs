@@ -39,6 +39,9 @@ namespace PryingEyes.Proc
 
         public static void Clear() { all.Clear(); }
 
+        /// <summary>Toglie una lampada dal pool (la torcia di un compagno, in cooperativa, mentre il piano si costruisce).</summary>
+        public static void Remove(PoolLight e) { if (e != null) all.Remove(e); }
+
         /// <summary>Stima la luce diretta sul giocatore, tenendo conto di distanza, coni e ostacoli.</summary>
         public static float Exposure(Vector3 p)
         {

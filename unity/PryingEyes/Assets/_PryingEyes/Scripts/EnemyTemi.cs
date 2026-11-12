@@ -106,6 +106,7 @@ namespace PryingEyes
             statWhistles++;
             Vector3 mouth = transform.position + Vector3.up * 1.6f;
             Sfx.At(SoundBank.Whistle, mouth, 1f, Random.Range(0.96f, 1.06f), 4f, 60f);
+            Coop.Game?.EnemyEvent(this, EnemyEvt.Whistle, mouth);
             Noise.Emit(transform.position, 46f, NoiseKind.Alarm);
             if (GameManager.autoTest) Debug.Log($"[PryingEyes] maschera: fischietto, {all.Count - 1} altri nemici sul piano");
         }
@@ -119,6 +120,7 @@ namespace PryingEyes
             var fd = Proc.FloorDirector.I;
             if (fd == null) return;
             Sfx.At(SoundBank.AlertSting, transform.position + Vector3.up * 2f, 0.9f, 0.62f, 4f, 55f);
+            Coop.Game?.EnemyEvent(this, EnemyEvt.Help, transform.position);
             fd.CallHelp(transform.position, 2);
             if (GameManager.autoTest) Debug.Log("[PryingEyes] primario: chiama rinforzi");
         }

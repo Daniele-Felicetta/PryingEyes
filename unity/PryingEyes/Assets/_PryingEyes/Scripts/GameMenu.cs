@@ -19,9 +19,10 @@ namespace PryingEyes
         static readonly Color Dim = new Color(0.74f, 0.67f, 0.56f, 0.92f);
         static readonly Color BtnColor = new Color(0.10f, 0.08f, 0.07f, 0.85f);
 
-        RectTransform backdrop, mainPanel, pausePanel, settingsPanel, settingsFrom;
+        RectTransform backdrop, mainPanel, pausePanel, settingsPanel, settingsFrom, coopPanel;
         Slider sMaster, sEffects, sMusic, sBrightness;
-        Text vMaster, vEffects, vMusic, vBrightness;
+        Text vMaster, vEffects, vMusic, vBrightness, coopStatus, pauseNet;
+        InputField coopName, coopAddr;
 
         public static void Create()
         {
@@ -48,8 +49,10 @@ namespace PryingEyes
         void Update()
         {
             if (Blocked) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
+            if (coopPanel.gameObject.activeSelf && coopStatus != null) coopStatus.text = Coop.Status;
             if (!Input.GetKeyDown(KeyCode.Escape) && !TouchControls.Down(TouchControls.Action.Pause)) return;
             if (settingsPanel.gameObject.activeSelf) { Back(); return; }
+            if (coopPanel.gameObject.activeSelf) { CoopBack(); return; }
             if (InMenu) return;
             if (Paused) Resume(); else Pause();
         }
@@ -64,10 +67,64 @@ namespace PryingEyes
             if (GameManager.I != null) GameManager.I.BeginRun();
         }
 
+        /// <summary>Cooperativa: l'ospite ha salutato (o ha avviato lui la partita): il menu si toglie e il gioco parte.</summary>
+        public void CoopEnter()
+        {
+            if (!InMenu) return;
+            InMenu = false;
+            Show(null);
+            Refresh();
+        }
+
+        void OpenCoop()
+        {
+            coopName.text = Coop.PlayerName;
+            coopAddr.text = Coop.LastAddress;
+            coopStatus.text = Coop.Available ? "" : "La cooperativa non c'è in questa versione.";
+            Show(coopPanel);
+        }
+
+        void CoopHost()
+        {
+            Coop.PlayerName = coopName.text;
+            if (Coop.StartHost())
+            {
+                Play();                              // la partita dell'ospite parte subito: gli altri entrano quando vogliono
+                GameManager.I?.hud?.Toast(NetInfo(2) + " - lo ritrovi in pausa");
+            }
+            else coopStatus.text = Coop.Status;
+        }
+
+        /// <summary>Che cosa dire agli amici (ospite) o a chi gioca (ospitato), per il menu di pausa.</summary>
+        static string NetInfo(int maxAddr = 4)
+        {
+            if (Coop.IsHost)
+            {
+                string a = Coop.LocalAddresses(maxAddr);
+                return "Partita aperta: gli altri scrivono " + (a.Length > 0 ? a : "il tuo indirizzo") + " (UDP " + CoopProtocol.DefaultPort + ")";
+            }
+            return Coop.IsClient ? "In cooperativa: sei collegato all'ospite." : "";
+        }
+
+        void CoopJoin()
+        {
+            Coop.PlayerName = coopName.text;
+            if (Coop.StartJoin(coopAddr.text)) coopStatus.text = Coop.Status;
+            else coopStatus.text = Coop.Status;
+        }
+
+        void CoopBack()
+        {
+            if (Coop.WaitingForHost) Coop.Stop("");     // stava ancora provando a entrare: lascia stare
+            PlayerPrefs.Save();
+            Show(mainPanel);
+        }
+
         void Pause()
         {
             if (InMenu || Paused) return;
             Paused = true;
+            if (pauseNet != null) pauseNet.text = NetInfo();
             Show(pausePanel);
             Refresh();
         }
@@ -99,12 +156,13 @@ namespace PryingEyes
             mainPanel.gameObject.SetActive(p == mainPanel);
             pausePanel.gameObject.SetActive(p == pausePanel);
             settingsPanel.gameObject.SetActive(p == settingsPanel);
+            coopPanel.gameObject.SetActive(p == coopPanel);
         }
 
         void Refresh()
         {
             Blocked = InMenu || Paused;
-            Time.timeScale = Blocked ? 0f : 1f;
+            Time.timeScale = Blocked && !Coop.Active ? 0f : 1f;     // in cooperativa gli altri non si fermano: la pausa blocca solo i comandi
             backdrop.gameObject.SetActive(Blocked);
             var hud = GameManager.I != null && GameManager.I.hud != null ? GameManager.I.hud.GetComponent<Canvas>() : null;
             if (hud != null) hud.enabled = !Blocked;
@@ -150,9 +208,10 @@ namespace PryingEyes
             mainPanel = Stretch(backdrop, "Principale");
             Label(mainPanel, "Titolo", new Vector2(0, 170), new Vector2(1000, 90), 76, TextAnchor.MiddleCenter, "PRYING EYES", Ink, FontStyle.Normal);
             Label(mainPanel, "Sottotitolo", new Vector2(0, 100), new Vector2(1000, 34), 24, TextAnchor.MiddleCenter, "Il Grand Hotel non chiude mai.", Dim, FontStyle.Italic);
-            MakeButton(mainPanel, "Gioca", new Vector2(0, 10), Play);
-            MakeButton(mainPanel, "Impostazioni", new Vector2(0, -60), () => OpenSettings(mainPanel));
-            MakeButton(mainPanel, "Esci", new Vector2(0, -130), Quit);
+            MakeButton(mainPanel, "Gioca", new Vector2(0, 40), Play);
+            MakeButton(mainPanel, "Cooperativa", new Vector2(0, -26), OpenCoop);
+            MakeButton(mainPanel, "Impostazioni", new Vector2(0, -92), () => OpenSettings(mainPanel));
+            MakeButton(mainPanel, "Esci", new Vector2(0, -158), Quit);
             // tre righe corte (una sola, lunga, usciva dallo schermo): movimento, armi, furtivo
             Label(mainPanel, "Comandi", new Vector2(0, -236), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
                 "WASD muovi · Shift corri · C accovacciati · Spazio salta · Q/E sporgi · F usa e compra · Esc pausa", Dim, FontStyle.Italic);
@@ -167,6 +226,21 @@ namespace PryingEyes
             MakeButton(pausePanel, "Riprendi", new Vector2(0, 10), Resume);
             MakeButton(pausePanel, "Impostazioni", new Vector2(0, -60), () => OpenSettings(pausePanel));
             MakeButton(pausePanel, "Esci dal gioco", new Vector2(0, -130), Quit);
+            pauseNet = Label(pausePanel, "Rete", new Vector2(0, -200), new Vector2(1100, 28), 18, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+
+            coopPanel = Stretch(backdrop, "Cooperativa");
+            Label(coopPanel, "Titolo", new Vector2(0, 200), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Cooperativa", Ink, FontStyle.Normal);
+            Label(coopPanel, "Sottotitolo", new Vector2(0, 148), new Vector2(1000, 30), 20, TextAnchor.MiddleCenter, "Fino a quattro giocatori nello stesso albergo. L'ospite fa girare il mondo.", Dim, FontStyle.Italic);
+            Label(coopPanel, "EtichettaNome", new Vector2(-250, 98), new Vector2(200, 28), 20, TextAnchor.MiddleLeft, "Il tuo nome", Dim, FontStyle.Normal);
+            coopName = MakeInput(coopPanel, new Vector2(60, 98), new Vector2(340, 40), "Giocatore");
+            Label(coopPanel, "EtichettaIndirizzo", new Vector2(-250, 44), new Vector2(200, 28), 20, TextAnchor.MiddleLeft, "Indirizzo", Dim, FontStyle.Normal);
+            coopAddr = MakeInput(coopPanel, new Vector2(60, 44), new Vector2(340, 40), "192.168.1.10");
+            MakeButton(coopPanel, "Ospita una partita", new Vector2(0, -34), CoopHost);
+            MakeButton(coopPanel, "Unisciti all'indirizzo", new Vector2(0, -100), CoopJoin);
+            coopStatus = Label(coopPanel, "Stato", new Vector2(0, -156), new Vector2(1100, 30), 20, TextAnchor.MiddleCenter, "", Ink, FontStyle.Italic);
+            Label(coopPanel, "Nota", new Vector2(0, -190), new Vector2(1100, 26), 16, TextAnchor.MiddleCenter,
+                "Chi ospita deve aprire la porta UDP 7807 sul router. Nella stessa rete basta l'indirizzo locale.", Dim, FontStyle.Italic);
+            MakeButton(coopPanel, "Indietro", new Vector2(0, -250), CoopBack);
 
             settingsPanel = Stretch(backdrop, "Impostazioni");
             Label(settingsPanel, "Titolo", new Vector2(0, 200), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Impostazioni", Ink, FontStyle.Normal);
@@ -217,6 +291,23 @@ namespace PryingEyes
             sh.effectColor = new Color(0f, 0f, 0f, 0.8f);
             sh.effectDistance = new Vector2(1.5f, -1.5f);
             return t;
+        }
+
+        /// <summary>Campo di testo a riga singola nello stile del menu.</summary>
+        static InputField MakeInput(Transform parent, Vector2 pos, Vector2 size, string placeholder)
+        {
+            var rt = Rect(parent, "Campo " + placeholder, size, pos);
+            var img = rt.gameObject.AddComponent<Image>();
+            img.color = new Color(0.03f, 0.025f, 0.025f, 0.92f);
+            var input = rt.gameObject.AddComponent<InputField>();
+            var text = Label(rt, "Testo", Vector2.zero, size - new Vector2(24f, 4f), 22, TextAnchor.MiddleLeft, "", Ink, FontStyle.Normal);
+            text.supportRichText = false;
+            var ph = Label(rt, "Segnaposto", Vector2.zero, size - new Vector2(24f, 4f), 22, TextAnchor.MiddleLeft, placeholder, new Color(Dim.r, Dim.g, Dim.b, 0.45f), FontStyle.Italic);
+            input.targetGraphic = img;
+            input.textComponent = text;
+            input.placeholder = ph;
+            input.characterLimit = 40;
+            return input;
         }
 
         static Button MakeButton(Transform parent, string label, Vector2 pos, UnityAction click)

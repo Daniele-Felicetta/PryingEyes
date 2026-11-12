@@ -43,13 +43,15 @@ namespace PryingEyes
         public bool CanTakedown(Vector3 from) =>
             !dead && !relentless && IsWalker && alert != Alert.Hunting && !seeing && IsBehind(from);
 
-        /// <summary>L'ha colpito il giocatore e non e' morto: adesso sa dov'e'. Il grido richiama gli altri (SetAlert).</summary>
-        public void Provoke()
+        /// <summary>L'ha colpito un giocatore ('by', di default quello di questa macchina) e non e' morto: adesso sa dov'e'. Il grido richiama
+        /// gli altri (SetAlert). Su un pupazzo non fa niente: lo fa l'ospite quando riceve il colpo (HitClaim).</summary>
+        public void Provoke(ITarget by = null)
         {
-            if (dead || Omniscient) return;
+            if (dead || puppet || Omniscient) return;
+            SwitchTarget(by ?? Targets.Local);
             awareness = 1f;
             lostT = 0f;
-            lastKnown = GameManager.I.player.transform.position;
+            lastKnown = tgt.Feet;
             if (alert != Alert.Hunting) SetAlert(Alert.Hunting);
         }
     }

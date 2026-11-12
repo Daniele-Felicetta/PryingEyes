@@ -50,21 +50,40 @@ namespace PryingEyes
             var gm = GameManager.I;
             var pl = gm != null ? gm.player : null;
             if (pl == null) return 0f;
-            bool torch = Torch.I != null && Torch.I.Lit;
-            float r = Mathf.Lerp(DarkSight, LitSight, Mathf.Clamp01(PlayerLum));
-            if (torch) r = Mathf.Max(r, TorchSight);
+            return SightRange(e, new SightProfile
+            {
+                lum = PlayerLum,
+                torch = Torch.I != null && Torch.I.Lit,
+                crouch = pl.IsCrouching, sprint = pl.IsSprinting, speedH = pl.SpeedH,
+                sightMult = Perks.SightMult, velo = Perks.VeloOn,
+                shotAge = Time.time - lastShotTime, shotQuiet = lastShotQuiet,
+            });
+        }
+
+        /// <summary>Tutto quello che serve per sapere quanto e' visibile un giocatore: lo costruisce il giocatore locale da se' (SightRange(e)) e,
+        /// per i compagni in cooperativa, arriva dalla rete (PlayerNet).</summary>
+        public struct SightProfile
+        {
+            public float lum, speedH, sightMult, shotAge;
+            public bool torch, crouch, sprint, shotQuiet, velo;
+        }
+
+        public static float SightRange(Enemy e, in SightProfile s)
+        {
+            float r = Mathf.Lerp(DarkSight, LitSight, Mathf.Clamp01(s.lum));
+            if (s.torch) r = Mathf.Max(r, TorchSight);
             float stance;
-            if (pl.IsCrouching) stance = pl.SpeedH > 0.6f ? 0.72f : 0.55f;
-            else if (pl.IsSprinting) stance = 1.4f;
-            else stance = pl.SpeedH > 0.6f ? 1f : 0.82f;
-            r *= stance * Perks.SightMult;            // Velo: ti vedono il 30% in meno
-            if (Time.time - lastShotTime < 0.6f && !lastShotQuiet) r = Mathf.Max(r, 34f);
+            if (s.crouch) stance = s.speedH > 0.6f ? 0.72f : 0.55f;
+            else if (s.sprint) stance = 1.4f;
+            else stance = s.speedH > 0.6f ? 1f : 0.82f;
+            r *= stance * s.sightMult;                // Velo: ti vedono il 30% in meno
+            if (s.shotAge < 0.6f && !s.shotQuiet) r = Mathf.Max(r, 34f);
             if (e != null)
             {
                 if (e.Archetype == Enemy.EnemyType.Occhio) r *= 1.2f;
                 else if (e.Archetype == Enemy.EnemyType.Abate) r *= 0.92f;
             }
-            if (Perks.VeloOn) r = Mathf.Min(r, 1.5f);   // Velo attivo (5 s): solo a due passi (EvalVision) ti notano ancora
+            if (s.velo) r = Mathf.Min(r, 1.5f);       // Velo attivo (5 s): solo a due passi (EvalVision) ti notano ancora
             return r;
         }
 
@@ -129,6 +148,13 @@ namespace PryingEyes
             lastRadius = radius; lastKind = kind;
             if (kind == NoiseKind.Step) lastStepRadius = radius;
             if (!Stealth.Enabled) return;
+            Coop.Game?.NoiseHeard(pos, radius, kind);       // cooperativa: se non sono l'ospite lo dico a lui, che ha i nemici che ascoltano
+            Hear(pos, radius, kind);
+        }
+
+        /// <summary>I preti veri ascoltano (i pupazzi degli ospitati non pensano). Anche l'ospite lo usa per i rumori dei compagni.</summary>
+        public static void Hear(Vector3 pos, float radius, NoiseKind kind)
+        {
             var all = Enemy.All;
             for (int i = all.Count - 1; i >= 0; i--)
             {

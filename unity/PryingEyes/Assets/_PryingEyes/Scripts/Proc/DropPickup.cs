@@ -27,6 +27,11 @@ namespace PryingEyes
         static readonly Dictionary<string, Mesh> meshes = new Dictionary<string, Mesh>();
 
         public float Age => Time.time - born;
+        /// <summary>Cooperativa: identificativo di rete (lo da' l'ospite) e quando e' stata fatta l'ultima richiesta di raccolta.</summary>
+        [System.NonSerialized] public int netId = -1;
+        float claimAt = -99f;
+        /// <summary>Cooperativa: un potenziamento nato da un po' (chi entra a partita in corso lo vede gia' invecchiato).</summary>
+        public void SetAge(float age) { born = Time.time - Mathf.Max(0f, age); }
         /// <summary>Il centro dell'oggetto (per la distanza di raccolta e per le prove).</summary>
         public Vector3 Center => transform.position + Vector3.up * (Hover + 0.12f);
 
@@ -145,9 +150,12 @@ namespace PryingEyes
                 Vector3 c = pl.transform.position + Vector3.up * 1.0f;
                 if ((c - Center).sqrMagnitude < PickRadius * PickRadius)
                 {
-                    Drops.Forget(this);
-                    Drops.Apply(kind);
-                    Destroy(gameObject);
+                    if (Coop.IsClient)
+                    {
+                        // ospitato: lo dice all'ospite, che decide chi l'ha preso e lo racconta a tutti (DropTaken)
+                        if (Time.unscaledTime - claimAt > 1f) { claimAt = Time.unscaledTime; Coop.Game?.ClaimDrop(this); }
+                    }
+                    else Drops.Take(this, Coop.Slot);
                 }
             }
         }

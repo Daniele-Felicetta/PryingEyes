@@ -31,9 +31,21 @@ namespace PryingEyes.Proc
             foreach (var f in flames) if (f != null) f.enabled = on;
         }
 
+        /// <summary>Chi l'ha accesa (slot): 0 da solo o l'ospite, 1..3 un compagno. Lo legge FloorDirector.OnCandle per i premi.</summary>
+        [System.NonSerialized] public int litBy;
+
         public void Use()
         {
             if (lit || !objective) return;
+            if (Coop.IsClient) { Coop.Game?.RequestCandle(this); return; }      // ospitato: decide l'ospite
+            LightBy(Coop.Slot);
+        }
+
+        /// <summary>Accende la candela (da solo o sull'ospite); 'by' e' lo slot di chi l'accende.</summary>
+        public void LightBy(int by)
+        {
+            if (lit || !objective) return;
+            litBy = by;
             Setup(true);
             Sfx.At(SoundBank.Ignite, transform.position + Vector3.up, 0.9f, Random.Range(0.95f, 1.05f), 2f, 28f);
             onLit?.Invoke(this);

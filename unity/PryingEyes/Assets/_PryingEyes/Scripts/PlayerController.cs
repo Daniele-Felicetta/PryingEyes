@@ -84,6 +84,7 @@ namespace PryingEyes
             transform.position = p;
             cc.enabled = true;
             vel = Vector3.zero;
+            Enemy.IgnorePlayerBodies();      // riaccendere il controller cancella le coppie che i volanti ignoravano
         }
 
         /// <summary>Sposta il punto di (ri)nascita e ci porta subito il giocatore (usato dal bot per il soppalco).</summary>
@@ -95,6 +96,7 @@ namespace PryingEyes
             transform.position = p;
             cc.enabled = true;
             vel = Vector3.zero;
+            Enemy.IgnorePlayerBodies();
         }
 
         /// <summary>Per la componente furtiva: come si muove il giocatore adesso (velocita' orizzontale, corsa, accovacciato).</summary>
@@ -121,11 +123,18 @@ namespace PryingEyes
 
         /// <summary>Dove si trova davvero il corpo del giocatore a quell'altezza (m dai piedi): usato dai nemici per vedere e
         /// colpire; con il lean la testa sporge dal riparo, il bacino no.</summary>
-        public Vector3 LeanedPoint(float h)
+        public Vector3 LeanedPoint(float h) => LeanedPointFor(transform.position, yaw, lean, h);
+
+        /// <summary>Lo stesso per un altro giocatore (un compagno in cooperativa: piedi, direzione e lean arrivano dalla rete), con le stesse misure.</summary>
+        public Vector3 LeanedPointFor(Vector3 feet, float yawR, float leanV, float h)
         {
-            Vector3 p = transform.position + Vector3.up * h;
-            if (Mathf.Abs(lean) < 0.001f) return p;
-            return p + Right() * LeanLateral(h) - Vector3.up * (Mathf.Max(0f, h - leanPivot) * (1f - Mathf.Cos(lean * leanAngle * Mathf.Deg2Rad)));
+            Vector3 p = feet + Vector3.up * h;
+            if (Mathf.Abs(leanV) < 0.001f) return p;
+            float th = leanV * leanAngle * Mathf.Deg2Rad;
+            float arm = Mathf.Max(0f, h - leanPivot);
+            float lateral = arm * Mathf.Sin(th) + leanV * leanSlide * Mathf.Clamp01(arm / Mathf.Max(0.1f, eyeStand - leanPivot));
+            Vector3 right = new Vector3(Mathf.Cos(yawR), 0f, -Mathf.Sin(yawR));
+            return p + right * lateral - Vector3.up * (arm * (1f - Mathf.Cos(th)));
         }
 
         /// <summary>Quanto lean (0..1) si puo' fare dal lato 'sign' (+1 destra) senza che la testa entri in un muro.</summary>
@@ -425,7 +434,8 @@ namespace PryingEyes
 
         public void Hurt(float dmg)
         {
-            if (!alive || GameMenu.Blocked || invulnerable || reviveInv > 0f) return;
+            // in cooperativa la pausa non ferma il mondo, quindi non rende nemmeno immuni
+            if (!alive || (GameMenu.Blocked && !Coop.Active) || invulnerable || reviveInv > 0f) return;
             lastDamage = Time.time;
             dmg *= 1.5f;
             float absorbed = Mathf.Min(shield, dmg * 0.6f);

@@ -93,14 +93,43 @@ namespace PryingEyes
             statSpawned++;
             Sfx.At(SoundBank.DropAppear, g + Vector3.up * 0.8f, 0.85f, 1f, 3f, 45f);
             if (GameManager.autoTest) Debug.Log($"[PryingEyes] drop {kind} a {g} ({onFloor}/{PerFloor} sul piano)");
+            Coop.Game?.DropSpawned(pk);          // cooperativa: l'ospite lo racconta agli altri
             return pk;
+        }
+
+        /// <summary>Cooperativa, sugli ospitati: l'ospite ha fatto cadere un potenziamento (la sua posizione e' gia' quella a terra).</summary>
+        public static DropPickup SpawnPuppet(int id, DropKind kind, Vector3 pos, float age)
+        {
+            var go = new GameObject("Drop_" + kind);
+            go.transform.position = pos;
+            var pk = go.AddComponent<DropPickup>();
+            pk.Init(kind);
+            pk.netId = id;
+            pk.SetAge(age);
+            live.Add(pk);
+            statSpawned++;
+            if (age < 1f) Sfx.At(SoundBank.DropAppear, pos + Vector3.up * 0.8f, 0.85f, 1f, 3f, 45f);
+            return pk;
+        }
+
+        /// <summary>Da solo o sull'ospite: lo prende 'by' (slot). In cooperativa il potenziamento vale per tutti (come i power-up dei Black Ops
+        /// Zombies): l'ospite lo racconta e ognuno lo applica a se'; solo l'ospite fa cadere i nemici con la Campana.</summary>
+        public static void Take(DropPickup p, int by)
+        {
+            if (p == null) return;
+            var taker = Targets.OfSlot(by) ?? Targets.Local;
+            Forget(p);
+            Coop.Game?.DropTaken(p, by, taker.Feet);
+            Apply(p.kind, taker.Feet, true);
+            Object.Destroy(p.gameObject);
         }
 
         public static void Forget(DropPickup p) { live.Remove(p); }
 
         // ------------------------------------------------------------------ effetti
-        /// <summary>Il giocatore ha preso un potenziamento.</summary>
-        public static void Apply(DropKind kind)
+        /// <summary>Il giocatore ha preso un potenziamento. 'at' e' dove si trovava chi l'ha preso (la Campana colpisce intorno a lui; di
+        /// default il giocatore di questa macchina) e 'simulate' dice se qui si simulano i nemici (da solo o sull'ospite).</summary>
+        public static void Apply(DropKind kind, Vector3? at = null, bool simulate = true)
         {
             var gm = GameManager.I;
             if (gm == null || gm.player == null) return;
@@ -129,34 +158,33 @@ namespace PryingEyes
                     hud?.Banner("Offerta", "I punti valgono il doppio.");
                     break;
                 default:
-                    Toll(gm);
+                    Toll(gm, at ?? gm.player.transform.position, simulate);
                     break;
             }
         }
 
         /// <summary>La Campana: lampo bianco, rintocco, chi e' nel round o entro 22 m cade (nessun punto a testa, 400 in tutto), e il
-        /// suono arriva fino a 55 m: i sopravvissuti vengono a cercarti.</summary>
-        static void Toll(GameManager gm)
+        /// suono arriva fino a 55 m: i sopravvissuti vengono a cercarti. In cooperativa cadono i nemici (sull'ospite) intorno a chi l'ha presa.</summary>
+        static void Toll(GameManager gm, Vector3 pp, bool simulate)
         {
-            var pl = gm.player;
             var hud = gm.hud;
-            Vector3 pp = pl.transform.position;
             Sfx.UI(SoundBank.NukeToll, 0.95f);
             hud?.Flash(Color.white, 1.7f, 0.95f);
             var rd = RoundDirector.I;
             int killed = 0;
-            foreach (var e in new List<Enemy>(Enemy.All))
-            {
-                if (e == null || e.IsDead) continue;
-                bool mine = rd != null && rd.Owns(e);
-                if (!mine && Vector3.Distance(e.transform.position, pp) > NukeRadius) continue;
-                RoundFlare.At(e.transform.position + Vector3.up * 0.4f);
-                e.Damage(e.hp + 1f, e.AimPoint, false, false, DamageSource.Nuke);
-                killed++;
-            }
+            if (simulate)
+                foreach (var e in new List<Enemy>(Enemy.All))
+                {
+                    if (e == null || e.IsDead) continue;
+                    bool mine = rd != null && rd.Owns(e);
+                    if (!mine && Vector3.Distance(e.transform.position, pp) > NukeRadius) continue;
+                    RoundFlare.At(e.transform.position + Vector3.up * 0.4f);
+                    e.Damage(e.hp + 1f, e.AimPoint, false, false, DamageSource.Nuke);
+                    killed++;
+                }
             gm.AddPoints(NukePoints);
-            Noise.Emit(pp, NukeHearing, NoiseKind.Alarm);          // dopo: lo sentono i sopravvissuti
-            hud?.Banner("Campana", killed > 0 ? "Le presenze vicine cadono. Tutto il piano ha sentito." : "Tutto il piano ha sentito.");
+            if (simulate) Noise.Emit(pp, NukeHearing, NoiseKind.Alarm);          // dopo: lo sentono i sopravvissuti
+            hud?.Banner("Campana", killed > 0 || !simulate ? "Le presenze vicine cadono. Tutto il piano ha sentito." : "Tutto il piano ha sentito.");
             statNuked += killed;
         }
         public static int statNuked;

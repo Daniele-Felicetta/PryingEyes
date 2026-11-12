@@ -50,7 +50,7 @@ namespace PryingEyes
             score = 500;
             autoTest = HasArg("-autotest") || HasArg("-guntest");
             gunTest = HasArg("-guntest");
-            noFire = HasArg("-nofire") || HasArg("-stealthtest");
+            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest");
             if (autoTest && (HasArg("-procbot") || HasArg("-stealthtest"))) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
             camShots = HasArg("-camshots");
             if (autoTest)
@@ -64,14 +64,23 @@ namespace PryingEyes
                 Ambience.Create();  // eco, vento, scricchiolii, grammofono; genera anche tutti i suoni
             }
             else Proc.ProcAmbience.Create();
+            if (proc) Coop.BootFromArgs();   // prove con due processi: -coophost / -coopjoin <indirizzo>
             if (!autoTest && !camShots) GameMenu.Create();   // menu principale: la prima ondata parte da "Gioca"
         }
 
         /// <summary>Avvia la partita: prima ondata. Lo chiama il menu su "Gioca".</summary>
         public void BeginRun()
         {
+            if (Coop.WaitingForHost) return;     // ospitato: la partita parte quando l'ospite lo saluta (BeginCoopRun)
             if (proc) { if (Proc.FloorDirector.I != null && Proc.FloorDirector.I.floor == 0) Proc.FloorDirector.I.StartRun(); return; }
             if (wave == 0 && !waveActive) StartWave(1);
+        }
+
+        /// <summary>Cooperativa, ospitato: l'ospite ha detto seme e piano, si parte da li' (e il menu si toglie di mezzo).</summary>
+        public void BeginCoopRun(int seed, int floor)
+        {
+            GameMenu.I?.CoopEnter();
+            if (proc && Proc.FloorDirector.I != null && Proc.FloorDirector.I.floor == 0) Proc.FloorDirector.I.StartRun(seed, floor);
         }
 
         /// <summary>Punti (tabella in Punti.cs): +10 per colpo che non uccide, 60 per uccisione, 100 alla testa, 130 col coltello.
@@ -154,7 +163,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
-                if (autoT >= (proc ? (HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") ? 1e9f : 70f) : 100f))
+                if (autoT >= (proc ? (HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : 100f))
                 {
                     System.IO.File.AppendAllText(REPORT, $"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
                     Application.Quit();
@@ -565,20 +574,31 @@ namespace PryingEyes
             return fallback;
         }
 
-        public void OnEnemyKilled(Enemy e, bool headshot, DamageSource src = DamageSource.Gun)
+        /// <summary>Un'uccisione a mio nome: il conteggio, i punti (COD Zombies: 60, 100 se letale alla testa, 130 col coltello) e la cura
+        /// di Sete di sangue (il coltello cura: poco in faccia, molto alle spalle). In cooperativa arriva anche dall'ospite per le uccisioni
+        /// dei compagni (CoopKind.KillCredit).</summary>
+        public void CreditKill(DamageSource src, bool headshot)
+        {
+            kills++;
+            AddPoints(Punti.PerUccisione(src, headshot));
+            float heal = Perks.BloodHeal(src);
+            if (heal > 0f && player != null && player.alive)
+            {
+                player.Heal(heal);
+                hud?.Flash(Perks.Of(PerkId.SeteDiSangue).color, 0.35f, 0.18f);
+            }
+        }
+
+        /// <summary>'claimer' e' lo slot di chi ha dato il colpo che ha ucciso (solo in cooperativa, sull'ospite): 0 sono io.</summary>
+        public void OnEnemyKilled(Enemy e, bool headshot, DamageSource src = DamageSource.Gun, int claimer = 0)
         {
             // COD Zombies: 60 punti per uccisione, 100 se letale alla testa, 130 col coltello (i +10 dei colpi arrivano da Damage)
             int pts = Punti.PerUccisione(src, headshot);
             if (proc)
             {
-                kills++; AddPoints(pts); Drops.OnKill(e, src);
-                // Sete di sangue: il coltello cura (poco in faccia, molto alle spalle)
-                float heal = Perks.BloodHeal(src);
-                if (heal > 0f && player != null && player.alive)
-                {
-                    player.Heal(heal);
-                    hud?.Flash(Perks.Of(PerkId.SeteDiSangue).color, 0.35f, 0.18f);
-                }
+                if (claimer == 0) CreditKill(src, headshot);
+                else Coop.Game?.KillCredit(claimer, src, headshot);
+                Drops.OnKill(e, src);
                 return;
             }
             alive--;

@@ -15,7 +15,10 @@ namespace PryingEyes
         Transform spin;
         static Material coreMat, sparkMat, trailMat;
 
-        public static void Launch(Vector3 origin, Vector3 target, float dmg)
+        /// <summary>Cooperativa: sugli ospitati il dardo e' solo grafica (il danno lo decide l'ospite, che lo racconta con HurtPlayer).</summary>
+        bool visualOnly;
+
+        public static void Launch(Vector3 origin, Vector3 target, float dmg, bool visualOnly = false)
         {
             var go = new GameObject("DardoMagico");
             go.layer = 2;   // Ignore Raycast: non blocca i colpi veri
@@ -24,7 +27,9 @@ namespace PryingEyes
             b.transform.position = origin;
             b.dir = (target - origin).normalized;
             b.damage = dmg;
+            b.visualOnly = visualOnly;
             b.transform.rotation = Quaternion.LookRotation(b.dir);
+            if (!visualOnly) Coop.Game?.BoltLaunched(origin, target, dmg);
         }
 
         static void EnsureMats()
@@ -111,6 +116,22 @@ namespace PryingEyes
                 return;
             }
             transform.position += dir * step;
+            // cooperativa: i compagni sono bersagli dell'ospite (i loro pupazzi non hanno un corpo che faccia scattare il dardo)
+            if (!visualOnly && Coop.IsHost)
+            {
+                for (int i = 1; i < Targets.Count; i++)
+                {
+                    var t = Targets.At(i);
+                    if (!t.Alive) continue;
+                    if ((t.LeanedPoint(1.1f) - transform.position).sqrMagnitude < 0.6f * 0.6f)
+                    {
+                        t.Hurt(damage);
+                        if (GameManager.autoTest) Debug.Log($"[PryingEyes] magia colpisce il compagno {t.Slot}: {damage:F0} danni");
+                        Impact(transform.position);
+                        return;
+                    }
+                }
+            }
             if (spin != null) spin.Rotate(Vector3.forward, 420f * dt, Space.Self);
             float pulse = 0.85f + Mathf.Sin(Time.time * 16f) * 0.25f;
             if (glow != null) glow.intensity = 2.2f * pulse;
@@ -123,6 +144,7 @@ namespace PryingEyes
             if (other.GetComponentInParent<Enemy>() != null) return;
             var p = other.GetComponentInParent<PlayerController>();
             if (p == null) return;
+            if (visualOnly) { Impact(transform.position); return; }
             p.Hurt(damage);
             GameManager.damageTaken++;
             if (GameManager.autoTest)

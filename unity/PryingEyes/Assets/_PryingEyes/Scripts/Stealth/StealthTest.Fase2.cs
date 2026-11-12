@@ -495,6 +495,7 @@ namespace PryingEyes
                 yield return new WaitForSeconds(0.8f);
                 RoundDirector.Round = RoundRules.MothEvery - 1;
                 sp = Drops.statSpawned; pk0 = Drops.statPicked; f0 = Drops.OnFloor;
+                int falls0 = FloorDirector.statFalls;
                 reserved.Use();
                 yield return null;
                 float mulM = rd.Mood == RoundMood.Calm ? RoundRules.CalmMul : rd.Mood == RoundMood.Alarm ? RoundRules.AlarmMul : 1f;
@@ -512,6 +513,8 @@ namespace PryingEyes
                 yield return DriveRound(rd, cap, null, new List<Vector3>(), pl, run);
                 Check("il round delle falene finisce, serrande su", !rd.Sealed, $"{run.took:F0} s, nati {rd.Spawned}/{run.seenTarget}");
                 Check("tetto dei vivi: quello della zona piu' quattro, tutti dentro", run.maxAlive <= cap && run.allInside, $"massimo {run.maxAlive}, tetto {cap}");
+                // le falene si stringono attorno al giocatore: se i loro collider spingono il controller, prima o poi lo fanno uscire dal muro
+                Check("le falene non spingono il giocatore fuori dal piano (nessuna CADUTA)", FloorDirector.statFalls == falls0, $"cadute {FloorDirector.statFalls - falls0}");
                 bool gift = (Drops.Live.Count == 1 && Drops.Live[0].kind == DropKind.Ammo) || Drops.statPicked == pk0 + 1;
                 Check("a fine round cade sempre un Reliquiario, fuori dal tetto del piano", Drops.statSpawned == sp + 1 && gift && Drops.OnFloor == f0,
                       $"caduti {Drops.statSpawned - sp}, a terra {Drops.Live.Count}, presi {Drops.statPicked - pk0}, sul piano {Drops.OnFloor}");
@@ -542,6 +545,68 @@ namespace PryingEyes
                 }
             }
 
+            Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
+            Application.Quit(passed ? 0 : 1);
+        }
+
+        // ------------------------------------------------------------------ i volanti non spingono il giocatore (-pushtest)
+        /// <summary>Un giocatore fermo (nessun comando) con dieci falene all'attacco addosso: i loro collider non devono spostarlo ne' farlo
+        /// uscire dal pavimento. Con -bodiesclash (il vecchio comportamento) la prova serve a vedere il difetto; esito in
+        /// hotel_build/furtivo/spinta.txt, uscita 0 ok, 1 fallito, 2 nessuno spiazzo libero.
+        ///   PryingEyes.exe -batchmode -nographics -autotest -stealthtest -pushtest -seed N -floor N [-bodiesclash]</summary>
+        IEnumerator CheckPush()
+        {
+            var gm = GameManager.I;
+            var fd = FloorDirector.I;
+            var pl = gm.player;
+            bool passed = true;
+            void Check(string what, bool ok, string detail = "")
+            {
+                Log((ok ? "ok       " : "FALLITO  ") + what + (detail.Length > 0 ? "   [" + detail + "]" : ""));
+                if (!ok) passed = false;
+            }
+            yield return new WaitForSeconds(2.0f);
+            Log($"piano {fd.floor} seme {fd.runSeed}: stanze={fd.cur.plan.rooms.Count}; vecchio comportamento (-bodiesclash): {System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-bodiesclash") >= 0}");
+            Drops.disabled = true;
+            Enemy.ClearAll();
+            PlayerController.holdLook = true;
+            pl.invulnerable = true;
+            Enemy.debugFreeze = false;
+            if (!FindOpenSpot(fd.cur, out Vector3 spot, out Vector3 dir)) { Log("nessuno spiazzo libero su questo piano: prova non applicabile (cambia seme)"); Application.Quit(2); yield break; }
+            Vector3 home = NavPoint(spot - dir * 1.9f);
+            pl.Teleport(home);
+            pl.yaw = Mathf.Atan2(dir.x, dir.z);
+            pl.pitch = 0f;
+            yield return new WaitForSeconds(0.6f);                       // il controller si posa a terra
+            Vector3 start = pl.transform.position;
+            int falls0 = FloorDirector.statFalls;
+            const int N = 10;
+            for (int i = 0; i < N; i++)
+            {
+                Vector3 p = start + Quaternion.Euler(0f, i * 36f, 0f) * Vector3.forward * (2.4f + (i % 3) * 0.6f);
+                p.y = 1.8f;
+                var e = Enemy.Spawn(Enemy.EnemyType.Falena, p);
+                e.MakeRelentless();
+            }
+            float t0 = Time.time, maxMove = 0f, minY = 99f, nearest = 99f;
+            while (Time.time - t0 < 14f)
+            {
+                Vector3 pp = pl.transform.position;
+                maxMove = Mathf.Max(maxMove, new Vector2(pp.x - start.x, pp.z - start.z).magnitude);
+                minY = Mathf.Min(minY, pp.y);
+                foreach (var e in Enemy.All)
+                {
+                    if (e == null || e.IsDead) continue;
+                    Vector3 q = e.transform.position;
+                    if (q.y < 0.3f || q.y > 2.2f) continue;               // all'altezza del corpo
+                    nearest = Mathf.Min(nearest, new Vector2(q.x - pp.x, q.z - pp.z).magnitude);
+                }
+                yield return null;
+            }
+            Log($"misure: spostamento massimo {maxMove:F2} m, quota minima {minY:F2}, falena piu' vicina all'asse del giocatore {nearest:F2} m, cadute {FloorDirector.statFalls - falls0}");
+            Check("le falene non spostano un giocatore fermo", maxMove < 0.1f, $"{maxMove:F2} m in 14 s");
+            Check("e non lo fanno uscire dal pavimento", minY > -0.5f && FloorDirector.statFalls == falls0, $"quota minima {minY:F2}, cadute {FloorDirector.statFalls - falls0}");
+            Enemy.ClearAll();
             Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
             Application.Quit(passed ? 0 : 1);
         }

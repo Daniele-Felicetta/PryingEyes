@@ -18,7 +18,7 @@ namespace PryingEyes
             relentless = true;
             alert = Alert.Hunting;
             awareness = 1f;
-            if (eye != null) { eye.lookAt = GameManager.I.player.cam; eye.glowBoost = 1.9f; }
+            if (eye != null) { eye.lookAt = (tgt ?? Targets.Local).LookAt; eye.glowBoost = 1.9f; }
         }
 
         /// <summary>Guardia (pianta a griglia): pattuglia solo la sua stanza, tra due angoli (x, z in metri). Quando ti perde o finisce di
@@ -57,6 +57,7 @@ namespace PryingEyes
         {
             if (e == null) return;
             all.Remove(e);
+            if (!e.puppet) Coop.Game?.EnemyRemoved(e);       // cooperativa: l'ospite dice agli altri che sparisce (senza morire)
             if (GameManager.I != null) GameManager.I.SetAlive(all.Count);
             if (e.loop != null) e.loop.Stop();
             Destroy(e.gameObject);

@@ -29,7 +29,8 @@ namespace PryingEyes
         const float AbateScale = 1.30f;       // scala orizzontale del prefab (AbateImport.Scale)
         const float MaxStepUp = 1.4f;         // dislivello massimo tra i piedi per colpire in mischia
         Vector3 vel;
-        Transform playerT;
+        /// <summary>Chi sta cacciando o guardando adesso (da solo e' sempre il giocatore locale; in cooperativa, sull'ospite, uno dei compagni).</summary>
+        ITarget tgt;
         NavMeshAgent agent;
         NavMeshPath path;
         readonly Vector3[] corners = new Vector3[32];
@@ -50,11 +51,35 @@ namespace PryingEyes
             ? transform.position
             : transform.position + Vector3.up * (Archetype == EnemyType.Abate ? 1.1f : 0.8f);
 
+        /// <summary>I volanti (occhio, falena, medusa) puntano al petto del giocatore e lo scarto dai muri (SphereCast su EnvMask) non ne vede la
+        /// capsula, che sta sullo strato Ignore Raycast: i loro collider si infilavano nel CharacterController e a ogni fotogramma il recupero
+        /// della penetrazione lo scacciava, a volte oltre un muro sottile o sotto il pavimento (la riga CADUTA nel log, soprattutto nel round
+        /// delle falene: tre cadute in un round, sempre appena fuori dal muro ovest). Non si toccano piu'; chi cammina resta solido (i monaci
+        /// non si attraversano).</summary>
+        static readonly bool bodiesClash = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-bodiesclash") >= 0;   // solo per le prove: rimette il vecchio comportamento
+
+        static void IgnorePlayerBody(Enemy e)
+        {
+            if (bodiesClash) return;
+            var cc =GameManager.I != null && GameManager.I.player != null ? GameManager.I.player.GetComponent<CharacterController>() : null;
+            if (cc == null || !cc.enabled) return;
+            foreach (var c in e.GetComponentsInChildren<Collider>(true))
+                if (c != null && c.enabled && c.gameObject.activeInHierarchy) Physics.IgnoreCollision(c, cc, true);
+        }
+
+        /// <summary>Rifa le coppie ignorate dopo che il controller del giocatore e' stato spento e riacceso (Teleport, SetSpawn): spegnere un
+        /// collider ne cancella le coppie.</summary>
+        public static void IgnorePlayerBodies()
+        {
+            foreach (var e in all) if (e != null && !e.dead && IsFlying(e.type)) IgnorePlayerBody(e);
+        }
+
         /// <summary>Toglie tutti i nemici (cambio piano).</summary>
         public static void ClearAll()
         {
             foreach (var e in all) if (e != null) Destroy(e.gameObject);
             all.Clear();
+            Coop.Game?.OnEnemiesCleared();
         }
 
         public static Enemy Nearest(Vector3 p)
@@ -70,7 +95,9 @@ namespace PryingEyes
             return best;
         }
 
-        public static Enemy Spawn(EnemyType t, Vector3 pos, Vector3? investigate = null)
+        /// <summary>Un nemico. In cooperativa gli ospitati ricevono dall'ospite un 'pupazzo' (puppet = true): stesso corpo, stessi suoni, ma
+        /// niente intelligenza ne' navmesh, lo muove la rete (Enemy.Net.cs).</summary>
+        public static Enemy Spawn(EnemyType t, Vector3 pos, Vector3? investigate = null, bool puppet = false)
         {
             Material glow;
             List<Material> flashes;
@@ -80,7 +107,7 @@ namespace PryingEyes
                 : t == EnemyType.Occhio ? BuildOcchio(out glow, out flashes)
                 : t == EnemyType.Abate ? BuildAbate(out glow, out flashes) : BuildMonaco(out glow, out flashes);
             // chi cammina nasce sulla navmesh (lo spawn sullo scalone finiva dentro i gradini)
-            if (archetype != EnemyType.Occhio && HotelNav.Ready && NavMesh.SamplePosition(pos, out NavMeshHit nh, 4f, NavMesh.AllAreas))
+            if (!puppet && archetype != EnemyType.Occhio && HotelNav.Ready && NavMesh.SamplePosition(pos, out NavMeshHit nh, 4f, NavMesh.AllAreas))
                 pos = nh.position;
             go.transform.position = pos;
             foreach (var tr in go.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = HotelNav.EnemyLayer;
@@ -94,14 +121,16 @@ namespace PryingEyes
             e.phase = Random.value * 10f;
             e.anim = go.GetComponentInChildren<Animator>();
             if (archetype == EnemyType.Abate && e.anim != null) e.anim.speed = AbateAnimSpeed;
-            e.playerT = GameManager.I.player.transform;
+            e.tgt = Targets.Local;
+            e.puppet = puppet;
+            if (IsFlying(t)) IgnorePlayerBody(e);
             e.renderers = go.GetComponentsInChildren<Renderer>();
             e.flashMats = flashes;
             e.glowMat = glow;
             foreach (var m in flashes) m.EnableKeyword("_EMISSION");
             e.eye = go.GetComponent<EyeRig>();
             if (e.eye != null) e.eye.lookAt = Stealth.Enabled ? null : GameManager.I.player.cam;
-            if (archetype != EnemyType.Occhio && HotelNav.Ready) e.AddAgent();
+            if (!puppet && archetype != EnemyType.Occhio && HotelNav.Ready) e.AddAgent();
             // suoni attaccati: il monaco lo senti prima di vederlo, l'occhio ha un ronzio umido (con effetto Doppler)
             e.basePitch = t == EnemyType.Monaco ? Random.Range(0.92f, 1.06f)
                 : t == EnemyType.Abate ? Random.Range(0.58f, 0.66f)       // la litania dell'abate e' un'ottava sotto
@@ -118,8 +147,9 @@ namespace PryingEyes
             // furtivita': nei piani si nasce a pattugliare (o a controllare un punto); nella hall classica si caccia subito
             e.alert = Stealth.Enabled ? Alert.Patrol : Alert.Hunting;
             e.waitT = Random.Range(0.4f, 2.5f);
-            if (investigate.HasValue) e.Investigate(investigate.Value);
-            if (GameManager.autoTest) Debug.Log($"[PryingEyes] spawn {t} hp={e.hp} vel={e.speed:F2} pos={pos} nav={(e.agent != null && e.agent.isOnNavMesh)} stato={e.alert}");
+            if (investigate.HasValue && !puppet) e.Investigate(investigate.Value);
+            if (GameManager.autoTest && !puppet) Debug.Log($"[PryingEyes] spawn {t} hp={e.hp} vel={e.speed:F2} pos={pos} nav={(e.agent != null && e.agent.isOnNavMesh)} stato={e.alert}");
+            if (!puppet) Coop.Game?.EnemySpawned(e);      // cooperativa: l'ospite lo annuncia agli altri (a fine fotogramma, quando ha finito di prepararlo)
             return e;
         }
 
@@ -164,23 +194,33 @@ namespace PryingEyes
                 var ec = new Color(0.035f, 0.035f, 0.04f) + Color.white * (flash * 0.95f);
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", ec);
             }
+            // cooperativa: chi non e' l'ospite non pensa, ripete quello che l'ospite gli racconta (Enemy.Net.cs)
+            if (puppet) { UpdatePuppet(dt); return; }
             atkCd -= dt;
             repathT -= dt;
             // la litania si calcola in un thread: il monaco nato prima che fosse pronta la attacca adesso
             if (loop == null && (type == EnemyType.Monaco || type == EnemyType.Abate)) AttachChant();
 
             Vector3 gp = transform.position;
-            Vector3 feet = playerT.position;
+            // il bersaglio: chi stava seguendo, o il piu' vicino se non c'e' piu' (morto, o su un altro piano)
+            if (tgt == null || !tgt.Alive)
+            {
+                // morto il bersaglio, chi lo cacciava ne perde la pista (se c'e' ancora qualcuno vivo: da solo ci pensa SenseTick)
+                if (tgt != null && alert != Alert.Patrol && !Omniscient && Targets.AnyAlive) Forget();
+                SwitchTarget(Targets.Nearest(gp));
+            }
+            else if (Omniscient) RetargetOmniscient(dt, gp);     // chi caccia per round segue il piu' vicino
+            var T = tgt;
+            Vector3 feet = T.Feet;
             // il corpo del giocatore e' dove sta davvero: con il lean la testa sporge dal riparo, il bacino no.
             // Se il petto e' coperto ma la testa si vede, si prende di mira la testa.
-            var pl = GameManager.I.player;
-            Vector3 chest = pl.LeanedPoint(1.3f);
-            if (Mathf.Abs(pl.lean) > 0.05f)
+            Vector3 chest = T.LeanedPoint(1.3f);
+            if (Mathf.Abs(T.Lean) > 0.05f)
             {
                 Vector3 eyeE = gp + Vector3.up * (type == EnemyType.Carapace ? EyeHeight : 1.9f);
                 if (!HotelNav.ClearLine(eyeE, chest))
                 {
-                    Vector3 headP = pl.LeanedPoint(1.58f);
+                    Vector3 headP = T.LeanedPoint(1.58f);
                     if (HotelNav.ClearLine(eyeE, headP)) chest = headP;
                 }
             }
@@ -200,7 +240,7 @@ namespace PryingEyes
 
             bool enraged = hp < maxHp * 0.5f;
             // furtivita' (Enemy.Stealth.cs): vista, udito, stato di allerta e dove andare
-            SenseTick(dt, gp, pl);
+            SenseTick(dt, gp);
             PlanMove(dt, gp, feet);
             if (Archetype == EnemyType.Occhio) UpdateOcchio(dt, gp, chest, sep, enraged);
             else if (Archetype == EnemyType.Monaco) UpdateMonaco(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
@@ -288,20 +328,22 @@ namespace PryingEyes
                     Vector3 tip = transform.TransformPoint(carapace ? new Vector3(0f, 0f, 0.68f) : new Vector3(-0.31f, 0f, 0.37f));
                     if (glowMat != null) Shockwave.Spawn(tip, glowMat);
                     Sfx.At(SoundBank.Strike, tip, 1f, Random.Range(0.70f, 0.78f), 3f, 42f);
-                    Vector3 p = playerT.position;
+                    Coop.Game?.EnemyEvent(this, EnemyEvt.Strike, tip);
+                    Vector3 p = tgt.Feet;
                     float hd2 = new Vector2(p.x - tip.x, p.z - tip.z).magnitude;
                     float dy2 = Mathf.Abs(p.y - tip.y);
-                    if (GameManager.I.player.alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, 3.1f))
+                    if (tgt.Alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, 3.1f))
                         HitPlayer((enraged ? 28f : 22f) + Random.value * 8f, hd2, dy2);
                     else if (GameManager.autoTest) Debug.Log($"[PryingEyes] abate: colpo a vuoto, giocatore a {hd2:F1} m, dislivello {dy2:F1} m");
                 }
             }
-            else if (hunting && atkCd <= 0f && GameManager.I.player.alive && InReach(eye, chest, hd, dy, 2.8f))
+            else if (hunting && atkCd <= 0f && tgt.Alive && InReach(eye, chest, hd, dy, 2.8f))
             {
                 atkCd = 2.5f;
                 strikeAt = 16f / 30f / AbateAnimSpeed;
                 atkLock = 1.5f;
                 if (anim != null) anim.SetTrigger("Attacca");
+                Coop.Game?.EnemyEvent(this, EnemyEvt.Attack, Vector3.zero);
             }
         }
 
@@ -388,25 +430,27 @@ namespace PryingEyes
                     Vector3 tip = transform.TransformPoint(new Vector3(-0.31f, 0f, 0.37f));
                     if (glowMat != null) Shockwave.Spawn(tip, glowMat);
                     Sfx.At(SoundBank.Strike, tip, 0.85f, Random.Range(0.95f, 1.05f), 3f, 35f);
-                    Vector3 p = playerT.position;
+                    Coop.Game?.EnemyEvent(this, EnemyEvt.Strike, tip);
+                    Vector3 p = tgt.Feet;
                     float hd2 = new Vector2(p.x - tip.x, p.z - tip.z).magnitude;
                     float dy2 = Mathf.Abs(p.y - tip.y);
-                    if (GameManager.I.player.alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, meleeReach + 0.3f))
+                    if (tgt.Alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, meleeReach + 0.3f))
                     {
                         HitPlayer((enraged ? meleeDmg + 6f : meleeDmg) + Random.value * 6f, hd2, dy2);
-                        if (type == EnemyType.Infermiere) GameManager.I.player.Sedate(2.8f);   // la puntura addormenta le gambe
+                        if (type == EnemyType.Infermiere) tgt.Sedate(2.8f);   // la puntura addormenta le gambe
                     }
                     else if (GameManager.autoTest) Debug.Log($"[PryingEyes] monaco: colpo a vuoto, giocatore a {hd2:F1} m, dislivello {dy2:F1} m");
                 }
             }
-            else if (hunting && atkCd <= 0f && GameManager.I.player.alive && InReach(eye, chest, hd, dy, meleeReach))
+            else if (hunting && atkCd <= 0f && tgt.Alive && InReach(eye, chest, hd, dy, meleeReach))
             {
                 atkCd = meleeCd;
                 strikeAt = 16f / 30f;
                 atkLock = 1.25f;
                 if (anim != null) anim.SetTrigger("Attacca");
+                Coop.Game?.EnemyEvent(this, EnemyEvt.Attack, Vector3.zero);
             }
-            else if (volley > 0 && hunting && seeing && atkCd <= 0f && GameManager.I.player.alive && see && hd > 3.0f && hd < 26f)
+            else if (volley > 0 && hunting && seeing && atkCd <= 0f && tgt.Alive && see && hd > 3.0f && hd < 26f)
             {
                 // a distanza il monaco diventa un mago: telegrafa la carica e lancia
                 atkCd = castCd + Random.value * 0.8f;
@@ -418,6 +462,7 @@ namespace PryingEyes
                 if (anim != null) anim.SetTrigger("Attacca");
                 Sfx.At(SoundBank.Whisper, castOrb.transform.position, 0.5f,
                        Random.Range(0.85f, 1.05f), 2f, 24f);
+                Coop.Game?.EnemyEvent(this, EnemyEvt.Cast, Vector3.zero);
             }
         }
 
@@ -440,7 +485,7 @@ namespace PryingEyes
                 if (see || !HotelNav.Ready) target = aimAt + Vector3.up * (height + bob);
                 else
                 {
-                    if (repathT <= 0f) { RePath(gp, seeing ? playerT.position : lastKnown); repathT = 0.5f; }
+                    if (repathT <= 0f) { RePath(gp, seeing ? tgt.Feet : lastKnown); repathT = 0.5f; }
                     target = NextCorner(gp) + Vector3.up * (2.0f + bob);
                 }
             }
@@ -471,7 +516,7 @@ namespace PryingEyes
             gp.y = Mathf.Clamp(gp.y, 0.95f, ceil);
             transform.position = gp;
             // la direzione dello sguardo e' l'asse Z: verso la testa del giocatore, in 3D, con un po' di ritardo
-            Vector3 look = playerT.position + Vector3.up * 1.6f - gp;
+            Vector3 look = tgt.Feet + Vector3.up * 1.6f - gp;
             if (hunting && look.sqrMagnitude > 0.01f)
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(look, Vector3.up), 1f - Mathf.Exp(-4.5f * dt));
             else if (!hunting) FaceCalm(dt, 2.6f);
@@ -481,15 +526,16 @@ namespace PryingEyes
             if (strikeAt >= 0f)
             {
                 strikeAt -= dt;
-                if (strikeAt < 0f && GameManager.I.player.alive && dist3 < 3.4f && HotelNav.ClearLine(gp, chest))
+                if (strikeAt < 0f && tgt.Alive && dist3 < 3.4f && HotelNav.ClearLine(gp, chest))
                     HitPlayer((type == EnemyType.Medusa ? 15f : 8f) + Random.value * 4f, dist3, Mathf.Abs(chest.y - gp.y));
             }
-            else if (hunting && see && dist3 < 2.7f && atkCd <= 0f && GameManager.I.player.alive)
+            else if (hunting && see && dist3 < 2.7f && atkCd <= 0f && tgt.Alive)
             {
                 atkCd = type == EnemyType.Falena ? 1.3f : type == EnemyType.Medusa ? 2.6f : 1.8f;
                 strikeAt = 0.5f;
                 if (eye != null) eye.Stare(0.9f);
                 Sfx.At(SoundBank.EyeStare, gp, 0.55f, Random.Range(0.92f, 1.08f), 2f, 22f);
+                Coop.Game?.EnemyEvent(this, EnemyEvt.Attack, Vector3.zero);
             }
         }
 
@@ -524,25 +570,34 @@ namespace PryingEyes
 
         void HitPlayer(float dmg, float dist, float dy)
         {
-            GameManager.I.player.Hurt(dmg);
-            GameManager.damageTaken++;
+            var t = tgt;
+            t.Hurt(dmg);                                  // il giocatore locale si fa male da se'; un compagno lo sente dall'ospite (HurtPlayer)
+            if (t is LocalTarget) GameManager.damageTaken++;
             if (GameManager.autoTest)
-                Debug.Log($"[PryingEyes] danno {type} {dmg:F0} a {dist:F1} m, dislivello {dy:F1} m, nemico y={transform.position.y:F1}");
+                Debug.Log($"[PryingEyes] danno {type} {dmg:F0} a {dist:F1} m (giocatore {t.Slot}), dislivello {dy:F1} m, nemico y={transform.position.y:F1}");
         }
 
-        public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true, DamageSource src = DamageSource.Gun)
+        /// <summary>Un colpo. 'claimer' e' lo slot di chi l'ha sparato quando e' un compagno (arriva dalla rete, solo sull'ospite): i punti
+        /// dei suoi colpi e della sua uccisione vanno a lui. 0 = il giocatore di questa macchina.</summary>
+        public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true, DamageSource src = DamageSource.Gun, int claimer = 0)
         {
             if (dead) return;
+            if (puppet) { PuppetDamage(dmg, point, headshot, awardPoints, src); return; }
             if (Drops.InstaKill && src != DamageSource.Nuke) dmg = Mathf.Max(dmg, hp + 1f);   // lo Sguardo: ogni colpo uccide
             // +10 per colpo a segno che non uccide; l'uccisione paga a parte (Punti.PerUccisione)
-            if (awardPoints && hp - dmg > 0f) GameManager.I.AddPoints(Punti.Colpo);
+            if (awardPoints && hp - dmg > 0f) PayPoints(claimer, Punti.Colpo);
             hp -= dmg;
             flash = 1f;
             foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
-            GameManager.I.hud?.Hitmarker(hp <= 0f, headshot);
-            GameManager.shotsHit++;
-            Synth.Hit();
-            Vector3 push = (transform.position - playerT.position);
+            if (claimer == 0)
+            {
+                GameManager.I.hud?.Hitmarker(hp <= 0f, headshot);
+                GameManager.shotsHit++;
+                Synth.Hit();
+            }
+            if (hp > 0f) Coop.Game?.EnemyEvent(this, EnemyEvt.Hit, point, headshot ? 1f : 0f);
+            var shooter = claimer == 0 ? Targets.Local : Targets.OfSlot(claimer);
+            Vector3 push = transform.position - (shooter != null ? shooter.Feet : point);
             push.y = 0f;
             push = push.normalized * (Archetype == EnemyType.Occhio ? 2.2f : Archetype == EnemyType.Monaco ? 0.5f : 0.25f);
             if (OnNav) agent.velocity += push;
@@ -555,14 +610,25 @@ namespace PryingEyes
                 flinchT = 1.5f;
             }
             if (Archetype == EnemyType.Occhio && eye != null) eye.Hit();
-            if (hp <= 0f) Die(headshot, src);
+            if (hp <= 0f) Die(headshot, src, claimer);
         }
 
-        void Die(bool headshot, DamageSource src)
+        /// <summary>I punti vanno a chi ha colpito: a me se sono io (o da solo), altrimenti li manda l'ospite al compagno.</summary>
+        static void PayPoints(int slot, int pts)
         {
-            if (GameManager.autoTest) Debug.Log($"[PryingEyes] morto {type} headshot={headshot} da {src}");
+            if (slot > 0 && Coop.Game != null) Coop.Game.AwardPoints(slot, pts);
+            else GameManager.I.AddPoints(pts);
+        }
+
+        void Die(bool headshot, DamageSource src, int claimer = 0)
+        {
+            if (GameManager.autoTest) Debug.Log($"[PryingEyes] morto {type} headshot={headshot} da {src}{(claimer > 0 ? " (compagno " + claimer + ")" : "")}");
             all.Remove(this);
-            GameManager.I.OnEnemyKilled(this, headshot, src);
+            if (!puppet)
+            {
+                GameManager.I.OnEnemyKilled(this, headshot, src, claimer);
+                Coop.Game?.EnemyDied(this, headshot, src, claimer);
+            }
             GameManager.I.SetAlive(all.Count);
             Synth.Kill();
             if (agent != null) agent.enabled = false;

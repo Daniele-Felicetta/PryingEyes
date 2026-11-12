@@ -56,10 +56,16 @@ namespace PryingEyes
             foreach (var e in all) if (e != null) e.Forget();
         }
 
+        /// <summary>Chi cercava proprio quel giocatore (rinato) perde la pista; gli altri continuano. Da solo e' ForgetAll.</summary>
+        public static void ForgetOf(ITarget t)
+        {
+            foreach (var e in all) if (e != null && !e.puppet && (e.tgt == null || e.tgt == t)) e.Forget();
+        }
+
         /// <summary>Va a controllare un punto (candela accesa, uscita): cerca come se avesse perso una pista.</summary>
         public void Investigate(Vector3 pos)
         {
-            if (dead || Omniscient) return;
+            if (dead || puppet || Omniscient) return;
             lastKnown = pos;
             awareness = Mathf.Max(awareness, 0.6f);
             if (alert == Alert.Hunting) return;
@@ -73,7 +79,7 @@ namespace PryingEyes
         // ------------------------------------------------------------------ udito
         public void Hear(Vector3 pos, float radius, NoiseKind kind)
         {
-            if (dead || Omniscient) return;
+            if (dead || puppet || Omniscient) return;
             Vector3 ep = transform.position + Vector3.up * (type == EnemyType.Carapace ? EyeHeight : Archetype == EnemyType.Occhio ? 0f : 1.4f);
             float d = Vector3.Distance(ep, pos);
             float eff = radius * (Archetype == EnemyType.Occhio ? 0.55f : Archetype == EnemyType.Abate ? 1.2f : 1f);   // l'occhio non ha orecchie
@@ -125,7 +131,7 @@ namespace PryingEyes
         /// <summary>Vede il giocatore adesso? Entro la portata del momento, nel cono davanti a se' (piu' largo se e' gia'
         /// in allerta) e con la linea libera verso la testa o il petto. A due passi ti vede comunque, al buio come alla luce.
         /// 'gain' e' la velocita' con cui sale la consapevolezza (al secondo): poco al limite della portata, tanto da vicino.</summary>
-        bool EvalVision(Vector3 gp, PlayerController pl, out float gain)
+        bool EvalVision(Vector3 gp, ITarget pl, out float gain)
         {
             gain = 0f;
             Vector3 eyeP = gp + Vector3.up * EyeHeight;
@@ -133,7 +139,7 @@ namespace PryingEyes
             Vector3 to = head - eyeP;
             float d = to.magnitude;
             bool hunting = alert == Alert.Hunting;
-            float range = Stealth.SightRange(this) * (hunting ? 1.35f : 1f);
+            float range = pl.SightRange(this) * (hunting ? 1.35f : 1f);
             Vector3 fwd = transform.forward, to2 = to;
             if (Archetype != EnemyType.Occhio) { fwd.y = 0f; to2.y = 0f; }
             // a due passi ti nota comunque; ma chi cammina non ti sente alle spalle oltre il metro: senza questo la presa col
@@ -148,27 +154,53 @@ namespace PryingEyes
             gain = 0.26f + 1.5f * k;
             if (near) gain = Mathf.Max(gain, 3f);
             // il fascio della torcia dritto in faccia lo allerta in fretta
-            var tc = Torch.I;
-            if (tc != null && tc.Lit && tc.Beam != null && d < 16f)
+            var bt = pl.BeamT;
+            if (bt != null && d < 16f)
             {
-                var bt = tc.Beam.transform;
                 if (Vector3.Angle(bt.forward, eyeP - bt.position) < 24f) gain *= 1.7f;
             }
             return true;
         }
 
-        void SenseTick(float dt, Vector3 gp, PlayerController pl)
+        /// <summary>Guarda tutti i giocatori vivi e dice se ne vede almeno uno; se ne vede piu' d'uno resta su quello che seguiva, altrimenti passa al
+        /// piu' visibile. Da solo c'e' un solo giocatore e il risultato e' quello di sempre.</summary>
+        bool EvalVisionAll(Vector3 gp, out float gain)
+        {
+            gain = 0f;
+            ITarget best = null;
+            bool curSeen = false;
+            for (int i = 0, n = Targets.Count; i < n; i++)
+            {
+                var t = Targets.At(i);
+                if (!t.Alive || !EvalVision(gp, t, out float g)) continue;
+                if (t == tgt) curSeen = true;
+                if (g > gain || best == null) { gain = g; best = t; }
+            }
+            if (best == null) return false;
+            if (!curSeen) SwitchTarget(best);
+            return true;
+        }
+
+        /// <summary>Cambia bersaglio: l'occhio fissa la visuale del nuovo.</summary>
+        void SwitchTarget(ITarget t)
+        {
+            if (t == null || t == tgt) return;
+            tgt = t;
+            if (eye != null && eye.lookAt != null) eye.lookAt = t.LookAt;
+        }
+
+        void SenseTick(float dt, Vector3 gp)
         {
             if (Omniscient)
             {
                 alert = Alert.Hunting; seeing = true; awareness = 1f; lostT = 0f;
-                lastKnown = pl.transform.position;
+                lastKnown = tgt.Feet;
                 return;
             }
             if (debugNoSense) { seeing = false; return; }
-            if (!pl.alive)
+            if (!Targets.AnyAlive)
             {
-                // il giocatore e' morto: tutti perdono la pista
+                // nessun giocatore e' vivo: tutti perdono la pista
                 seeing = false; seenCache = false;
                 if (alert != Alert.Patrol || awareness > 0f) Forget();
                 return;
@@ -177,12 +209,12 @@ namespace PryingEyes
             if (senseT <= 0f)
             {
                 senseT = 0.1f + Random.value * 0.05f;
-                seenCache = EvalVision(gp, pl, out visGain);
+                seenCache = EvalVisionAll(gp, out visGain);
             }
             seeing = seenCache;
             if (seeing)
             {
-                lastKnown = pl.transform.position;
+                lastKnown = tgt.Feet;
                 lostT = 0f;
                 awareness = Mathf.Min(1f, awareness + visGain * dt);
             }
@@ -227,7 +259,7 @@ namespace PryingEyes
                 case Alert.Hunting:
                     if (old != Alert.Hunting) Stealth.Spotted++;      // per il bonus Fantasma (FloorDirector.OnCandle)
                     Sfx.At(SoundBank.AlertSting, p, 0.9f, basePitch * (Archetype == EnemyType.Abate ? 0.8f : 1f), 3f, 48f);
-                    if (old != Alert.Hunting && seeing) Sfx.UI(SoundBank.AlertSting, 0.2f, 1.5f);   // il tuo cuore: sei stato visto
+                    if (old != Alert.Hunting && seeing && tgt is LocalTarget) Sfx.UI(SoundBank.AlertSting, 0.2f, 1.5f);   // il tuo cuore: sei stato visto
                     if (old != Alert.Hunting) Noise.Emit(transform.position, 15f, NoiseKind.Shout);        // il grido richiama gli altri
                     lostT = 0f;
                     if (old != Alert.Hunting)
@@ -247,7 +279,7 @@ namespace PryingEyes
             }
             if (eye != null)
             {
-                eye.lookAt = a == Alert.Patrol || a == Alert.Searching ? null : GameManager.I.player.cam;
+                eye.lookAt = a == Alert.Patrol || a == Alert.Searching ? null : (tgt ?? Targets.Local).LookAt;
                 eye.glowBoost = a == Alert.Hunting ? 1.9f : a == Alert.Suspicious ? 1.35f : 0.85f;
             }
         }

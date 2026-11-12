@@ -63,8 +63,9 @@ namespace PryingEyes.Proc
             return def;
         }
 
-        /// <summary>Avvia la partita: primo piano. Lo chiama il GameManager su "Gioca".</summary>
-        public void StartRun(int seed = 0)
+        /// <summary>Avvia la partita: primo piano. Lo chiama il GameManager su "Gioca". In cooperativa un ospitato la avvia con il seme e il
+        /// piano dell'ospite.</summary>
+        public void StartRun(int seed = 0, int startFloor = 0)
         {
             gm = GameManager.I;
             StealthRig.Install();      // torcia, ping, freccia, cuore (Scripts/Stealth)
@@ -75,7 +76,21 @@ namespace PryingEyes.Proc
             RoundDirector.ResetRun();
             Drops.ResetRun();
             Perks.ResetRun();
-            StartCoroutine(GoTo(ArgInt("-floor", 1), true));
+            StartCoroutine(GoTo(startFloor > 0 ? startFloor : ArgInt("-floor", 1), true));
+        }
+
+        /// <summary>Cooperativa, sull'ospite: un compagno e' entrato nell'ascensore aperto, si scende.</summary>
+        public void CoopDescend()
+        {
+            if (!transitioning && exitOpen && cur != null) StartCoroutine(Descend());
+        }
+
+        /// <summary>Cooperativa: l'ospite ha cambiato piano. Chi e' ancora nel piano di prima comincia la discesa (stessa dissolvenza di Descend).</summary>
+        public void CoopFollow(int seed, int toFloor)
+        {
+            if (transitioning || floor == toFloor || floor == 0) return;
+            if (seed != 0) runSeed = seed;
+            StartCoroutine(toFloor == floor + 1 ? Descend() : GoTo(toFloor, false));
         }
 
         // ------------------------------------------------------------------ cambio piano
@@ -86,6 +101,7 @@ namespace PryingEyes.Proc
             var pl = gm.player;
             pl.invulnerable = true;
             var hud = gm.hud;
+            Coop.OnFloorStart(n);                // cooperativa: l'ospite annuncia il piano (epoca), gli altri aspettano il suo
             if (cur != null)
             {
                 RoundDirector.I?.Disarm();       // le serrande sono figlie del piano: vanno via con lui
@@ -128,14 +144,19 @@ namespace PryingEyes.Proc
             ghostMark = Stealth.Spotted;
             PlaceBatteries(plan);
             BuildPatrolPoints(plan);
-            PopulateFloor(plan);
+            if (Coop.Sim) PopulateFloor(plan);   // in cooperativa i nemici li simula solo l'ospite
             foreach (var c in cur.candles) c.onLit += OnCandle;
             RoundDirector.I?.Arm(cur, regions);
             if (cur.exit != null)
             {
                 cur.exit.unlocked = false;
                 cur.exit.lockedText = () => $"L'ASCENSORE È SIGILLATO — CANDELE {lit}/{total}";
-                cur.exit.onEnter = () => { if (!transitioning) StartCoroutine(Descend()); };
+                cur.exit.onEnter = () =>
+                {
+                    if (transitioning) return;
+                    if (Coop.IsClient) Coop.Game?.RequestDescend();      // cooperativa: decide l'ospite
+                    else StartCoroutine(Descend());
+                };
             }
             PlaceWallBuys(plan);
             StartCoroutine(Gramophone(plan));
@@ -145,7 +166,14 @@ namespace PryingEyes.Proc
             var lift = cur.arrival;
             if (lift != null)
             {
-                pl.SetSpawn(lift.spawnPoint);
+                Vector3 spot = lift.spawnPoint;
+                if (Coop.Active)
+                {
+                    // in cooperativa ognuno nasce a fianco degli altri nella cabina, non sulla stessa mattonella
+                    Vector3 side = Vector3.Cross(Vector3.up, new Vector3(lift.lookOut.x, 0f, lift.lookOut.z)).normalized;
+                    spot += side * ((Coop.Slot - 1.5f) * 0.36f);
+                }
+                pl.SetSpawn(spot);
                 pl.yaw = Mathf.Atan2(lift.lookOut.x, lift.lookOut.z);
                 pl.pitch = 0f;
                 lift.SetOpenInstant(false);
@@ -156,6 +184,8 @@ namespace PryingEyes.Proc
             RefreshObjective();
             hud?.Banner("Piano " + n, plan.epithet);
             hud?.Toast(FloorLines[(n - 1) % FloorLines.Length]);
+            if (Coop.Active) Debug.Log($"[PryingEyes] coop: firma del piano {n}: {FloorSignature():X8}");
+            Coop.OnFloorBuilt();                 // cooperativa: piano costruito (la torcia dei compagni torna nel pool, l'ospite saluta chi aspettava)
             Debug.Log($"[PryingEyes] piano {n} seme {runSeed + n * 1013}: {plan.rooms.Count} stanze in {plan.units} ali, {cur.candles.Count} candele, {LightPool.Count} luci, " +
                       $"costruito in {tBuild * 1000f:F0} ms, partenza {(plan.startInChurch ? "chiesa" : "albergo")}, pianta {(plan.grid ? "a griglia" : "ad ali")}");
             if (!first) { for (float k = 1f; k > 0f; k -= Time.deltaTime / 0.9f) { hud?.SetFade(k); yield return null; } }
@@ -164,6 +194,23 @@ namespace PryingEyes.Proc
             yield return new WaitForSeconds(1.2f);
             pl.invulnerable = false;
             transitioning = false;
+        }
+
+        /// <summary>Impronta del piano costruito (candele, uscita, arrivo, numero di luci): in cooperativa le macchine devono ottenere lo stesso
+        /// numero. Si legge nel log, ed e' il modo di accorgersi di un piano che si costruisce diverso da una macchina all'altra.</summary>
+        public int FloorSignature()
+        {
+            if (cur == null) return 0;
+            unchecked
+            {
+                int h = 17;
+                void Mix(Vector3 p) { h = h * 31 + Mathf.RoundToInt(p.x * 100f); h = h * 31 + Mathf.RoundToInt(p.z * 100f); }
+                foreach (var c in cur.candles) if (c != null) Mix(c.transform.position);
+                if (cur.exit != null) Mix(cur.exit.transform.position);
+                if (cur.arrival != null) Mix(cur.arrival.spawnPoint);
+                h = h * 31 + cur.candles.Count; h = h * 31 + LightPool.Count; h = h * 31 + cur.plan.rooms.Count;
+                return h;
+            }
         }
 
         /// <summary>Ogni candela e l'uscita devono essere raggiungibili a piedi dall'arrivo. Una candela finita dove non si arriva
@@ -264,15 +311,47 @@ namespace PryingEyes.Proc
         int ghostMark;
         public int GhostMark => ghostMark;
 
+        /// <summary>Un premio a chi ha acceso la candela ('slot': 0 da solo o l'ospite, 1..3 un compagno, a cui lo manda l'ospite).</summary>
+        void Reward(int slot, int pts, float ammo)
+        {
+            if (slot == Coop.Slot)
+            {
+                gm.AddPoints(pts);
+                if (ammo > 0f) gm.player.weapon.AddAmmoFraction(ammo);
+            }
+            else Coop.Game?.AwardPoints(slot, pts, ammo);
+        }
+
+        /// <summary>Cooperativa, sugli ospitati: l'ospite ha detto che una candela si e' accesa.</summary>
+        Candelabro lastLit;
+        public void CoopCandleLit(Candelabro c, int by, bool quiet = false)
+        {
+            if (c == null || c.lit) return;
+            c.Setup(true);
+            c.litBy = by;
+            if (!quiet) Sfx.At(SoundBank.Ignite, c.transform.position + Vector3.up, 0.9f, Random.Range(0.95f, 1.05f), 2f, 28f);
+            lit++;
+            lastLit = c;
+            if (lit < total && !quiet) gm.hud?.Toast($"Candela accesa ({lit}/{total}). Qualcosa si muove nell'albergo.");
+            Guide.I?.CandleLit(c, exitOpen);
+            RefreshObjective();
+        }
+
+        /// <summary>Cooperativa: quante candele sono accese (per l'ospite che saluta chi entra dopo).</summary>
+        public int LitCount => lit;
+        public int CandleCount => total;
+
         void OnCandle(Candelabro c)
         {
             lit++;
             var hud = gm.hud;
-            gm.AddPoints(60);
-            gm.player.weapon.AddAmmoFraction(0.18f);
+            int by = c.litBy;                                  // chi l'ha accesa: da solo, sempre il giocatore
+            bool mine = by == Coop.Slot;
+            Coop.Game?.CandleLit(c, by);                       // cooperativa: l'ospite lo racconta agli altri
+            Reward(by, 60, 0.18f);
             bool ghost = Stealth.Spotted == ghostMark && Stealth.Hunters == 0;
             ghostMark = Stealth.Spotted;
-            if (ghost) gm.AddPoints(Punti.Fantasma);
+            if (ghost) Reward(by, Punti.Fantasma, 0f);
             // una candela in una zona sigillabile fa partire un round (RoundDirector): le serrande calano e l'orda nasce dentro. Se
             // parte, il resto (uscita, richiamo) aspetta la fine del round (OnRoundEnd). Il tono, calmo o in allarme, lo misura
             // prima del rumore della candela, che altrimenti sveglierebbe tutti.
@@ -280,12 +359,14 @@ namespace PryingEyes.Proc
             // accendere una candela si sente e si vede: i preti vicini vengono a controllare
             Noise.Emit(c.transform.position, 26f, NoiseKind.Candle);
             // Fantasma: grande avviso (nel round resta quello del round, e si usa la riga piccola)
-            if (ghost)
+            if (ghost && mine)
             {
                 Sfx.UI(SoundBank.PickCoins, 0.5f, 0.85f);
                 if (round) hud?.Toast($"Fantasma: nessun prete ti ha visto.  +{Punti.Fantasma} punti");
                 else hud?.Banner("Fantasma", $"Nessun prete ti ha visto.  +{Punti.Fantasma} punti");
             }
+            else if (ghost)
+                Coop.Game?.Announce(by, (round ? 0 : 1) | 2, round ? $"Fantasma: +{Punti.Fantasma} punti" : "Fantasma", $"Nessun prete ti ha visto.  +{Punti.Fantasma} punti");
             if (round) { RefreshObjective(); return; }
             if (lit >= total)
             {
@@ -319,13 +400,26 @@ namespace PryingEyes.Proc
         /// <summary>Un tipo di nemico per i round, gia' nel costume del tema della stanza.</summary>
         public Enemy.EnemyType PickRoundType(Room room) => Retheme(PickType(), room);
 
-        void OpenExit()
+        /// <summary>Solo per le prove (-cooptest): apre l'uscita come se tutte le candele fossero accese.</summary>
+        public void DebugOpenExit() { if (cur != null && !exitOpen) OpenExit(); }
+
+        /// <summary>Cooperativa, sugli ospitati: l'ospite ha aperto l'uscita.</summary>
+        public void CoopOpenExit()
+        {
+            if (exitOpen || cur == null) return;
+            if (lastLit != null) Guide.I?.CandleLit(lastLit, true);
+            OpenExit(false);
+        }
+
+        /// <summary>Apre l'uscita. 'announce' e' falso sugli ospitati: l'orda dell'ultima candela la richiama solo l'ospite.</summary>
+        void OpenExit(bool announce = true)
         {
             exitOpen = true;
+            if (announce) Coop.Game?.ExitOpened();
             if (cur.exit != null) { cur.exit.unlocked = true; cur.exit.Open(); }
             gm.hud?.Toast("Tutte le candele sono accese. Le porte dell'ascensore si aprono.");
             Sfx.UI(SoundBank.Toll, 0.7f);
-            if (!lastHorde && cur.exit != null) { lastHorde = true; Summon(3 + floor / 2, cur.exit.frontPoint); }
+            if (announce && !lastHorde && cur.exit != null) { lastHorde = true; Summon(3 + floor / 2, cur.exit.frontPoint); }
             // faro verde sulla porta dell'ascensore: nel buio si vede da lontano
             if (cur.exit != null)
             {
@@ -344,6 +438,8 @@ namespace PryingEyes.Proc
             }
         }
 
+        public void RefreshObjectiveNow() => RefreshObjective();
+
         void RefreshObjective()
         {
             var hud = gm.hud;
@@ -356,6 +452,7 @@ namespace PryingEyes.Proc
         IEnumerator Descend()
         {
             transitioning = true;
+            Coop.OnDescendBegin(floor + 1);      // cooperativa: l'ospite dice a tutti che si scende, e ognuno comincia la sua dissolvenza
             var pl = gm.player;
             pl.invulnerable = true;
             gm.AddPoints(100 + 50 * floor);
@@ -377,7 +474,7 @@ namespace PryingEyes.Proc
             Drops.OnPlayerDied();
             RoundDirector.I?.OnPlayerDied();     // se era un round, salta (di norma l'ha gia' visto morire)
             if (cur != null && cur.arrival != null) cur.arrival.SetOpenInstant(true);
-            Enemy.ForgetAll();                 // chi ti cercava ha perso la pista
+            Enemy.ForgetOf(Targets.Local);     // chi ti cercava ha perso la pista (gli altri, che cercano un compagno, no)
             StartCoroutine(Grace());
         }
 
@@ -421,7 +518,7 @@ namespace PryingEyes.Proc
         /// <summary>Richiamo (il primario): arrivano altri nemici, fuori vista, verso quel punto.</summary>
         public void CallHelp(Vector3 where, int count)
         {
-            if (cur != null) StartCoroutine(SummonCo(count, where));
+            if (cur != null && Coop.Sim) StartCoroutine(SummonCo(count, where));
         }
 
         /// <summary>Un punto di nascita fuori dalla vista del giocatore e a distanza giusta; sulla navmesh per chi cammina.</summary>
@@ -431,7 +528,6 @@ namespace PryingEyes.Proc
             if (cur == null || gm.player == null) return false;
             var list = flying ? cur.airSpawns : cur.groundSpawns;
             if (list.Count == 0) return false;
-            Vector3 pp = gm.player.transform.position, eye = pp + Vector3.up * 1.6f;
             int off = Random.Range(0, list.Count);
             for (int pass = 0; pass < 3; pass++)
             {
@@ -439,7 +535,7 @@ namespace PryingEyes.Proc
                 for (int j = 0; j < list.Count; j++)
                 {
                     Vector3 p = list[(off + j) % list.Count];
-                    float d = new Vector2(p.x - pp.x, p.z - pp.z).magnitude;
+                    float d = Targets.NearestDistance(p);              // lontano da tutti i giocatori (da solo: dal giocatore)
                     if (d < dmin || d > dmax) continue;
                     Vector3 q = p + new Vector3(Random.Range(-1.2f, 1.2f), 0f, Random.Range(-1.2f, 1.2f));
                     if (!flying)
@@ -448,7 +544,7 @@ namespace PryingEyes.Proc
                         q = nh.position;
                     }
                     if (RoundDirector.I != null && RoundDirector.I.InsideSealed(q)) continue;     // dentro la zona sigillata nascono solo i nemici del round
-                    if (pass < 2 && HotelNav.ClearLine(eye, q + Vector3.up * 1.2f)) continue;     // si vede: no
+                    if (pass < 2 && Targets.AnySees(q + Vector3.up * 1.2f)) continue;              // si vede: no
                     pos = q;
                     return true;
                 }
@@ -458,13 +554,14 @@ namespace PryingEyes.Proc
 
         void SpawnOne()
         {
+            if (!Coop.Sim) return;
             var t = PickType();
             if (PickSpawn(Enemy.IsFlying(t), out Vector3 p)) Enemy.Spawn(Retheme(t, cur.RoomAt(p)), p);
         }
 
         void Horde(int count, string why)
         {
-            StartCoroutine(HordeCo(count, why));
+            if (Coop.Sim) StartCoroutine(HordeCo(count, why));
         }
 
         IEnumerator HordeCo(int count, string why)
@@ -631,7 +728,7 @@ namespace PryingEyes.Proc
         /// <summary>Richiama dei preti verso un punto (una candela appena accesa, l'ascensore): nascono fuori vista e vanno a controllare.</summary>
         void Summon(int count, Vector3 target)
         {
-            StartCoroutine(SummonCo(count, target));
+            if (Coop.Sim) StartCoroutine(SummonCo(count, target));
         }
 
         IEnumerator SummonCo(int count, Vector3 target)
@@ -918,6 +1015,8 @@ namespace PryingEyes.Proc
         Vector3 lastSafe;
         float safeT;
         bool haveSafe;
+        /// <summary>Quante volte la rete di sicurezza e' dovuta intervenire (le prove controllano che resti ferma).</summary>
+        public static int statFalls;
 
         /// <summary>Se per qualunque motivo il giocatore esce dal pavimento (una volta, in una prova col bot, e' caduto nel vuoto in un
         /// campanile senza che il pavimento avesse buchi: causa non trovata) lo riporta all'ultimo punto d'appoggio invece di lasciarlo
@@ -933,6 +1032,7 @@ namespace PryingEyes.Proc
             }
             if (p.y > -20f) return;
             Vector3 back = haveSafe ? lastSafe + Vector3.up * 0.1f : cur.arrival != null ? cur.arrival.spawnPoint : Vector3.up;
+            statFalls++;
             Debug.LogWarning($"[PryingEyes] CADUTA: giocatore a y={p.y:F0} in ({p.x:F1},{p.z:F1}), lo riporto a ({back.x:F1},{back.z:F1})");
             pl.Teleport(back);
         }

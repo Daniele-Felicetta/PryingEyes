@@ -731,6 +731,7 @@ namespace PryingEyes
             bool dropTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-droptest") >= 0;
             bool bookTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-booktest") >= 0;
             bool gridTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-gridtest") >= 0;
+            bool pushTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pushtest") >= 0;
             var gm = GameManager.I;
             while (FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) yield return null;
             if (reference)
@@ -738,8 +739,9 @@ namespace PryingEyes
                 yield return ReferenceShots(FloorDirector.I);
                 yield break;
             }
-            log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : roundTest ? "/round.txt" : knifeTest ? "/coltello.txt" : dropTest ? "/drop.txt" : bookTest ? "/libri.txt" : gridTest ? "/griglia.txt" : holeScan ? "/buchi.txt" : "/furtivo.txt");
+            log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : roundTest ? "/round.txt" : knifeTest ? "/coltello.txt" : dropTest ? "/drop.txt" : bookTest ? "/libri.txt" : gridTest ? "/griglia.txt" : pushTest ? "/spinta.txt" : holeScan ? "/buchi.txt" : "/furtivo.txt");
             File.WriteAllText(log, "");
+            if (pushTest) { yield return CheckPush(); yield break; }
             if (gridTest) { yield return CheckGrid(); yield break; }
             if (roundTest) { yield return CheckRounds(); yield break; }
             if (knifeTest) { yield return CheckKnife(); yield break; }
