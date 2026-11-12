@@ -30,7 +30,8 @@ namespace PryingEyes
         bool moveHold;
         float moveMul = 1f;
 
-        bool Omniscient => !Stealth.Enabled;
+        /// <summary>Onnisciente: nella hall classica, e per chi nasce in un round (Enemy.Rounds.cs): sa sempre dove sei e ti viene incontro.</summary>
+        bool Omniscient => !Stealth.Enabled || relentless;
 
         /// <summary>Dove sta il segnalino sopra la testa.</summary>
         public Vector3 MarkerPoint => transform.position + Vector3.up * (type == EnemyType.Carapace ? 1.65f : Archetype == EnemyType.Occhio ? 0.85f : Archetype == EnemyType.Abate ? 3.0f : type == EnemyType.Direttore ? 2.95f : 2.3f);

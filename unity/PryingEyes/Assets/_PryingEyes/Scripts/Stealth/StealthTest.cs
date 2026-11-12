@@ -288,6 +288,296 @@ namespace PryingEyes
             Application.Quit(passed ? 0 : 1);
         }
 
+        // ------------------------------------------------------------------ round (-roundtest)
+        static Vector3 NavPoint(Vector3 p) => NavMesh.SamplePosition(p, out NavMeshHit h, 2f, NavMesh.AllAreas) ? h.position : p;
+        static Vector3 DoorPoint(Opening o) => o.alongX ? new Vector3(o.center * 0.1f, 0f, o.line * 0.1f) : new Vector3(o.line * 0.1f, 0f, o.center * 0.1f);
+
+        /// <summary>Verso l'interno della zona, attraverso l'apertura (orizzontale, unitario).</summary>
+        static Vector3 InwardOf(FloorInstance fi, RoundRegion reg, Opening o)
+        {
+            var room = fi.plan.rooms[reg.Has(o.a) ? o.a : o.b];
+            float s = o.alongX ? (room.CenterZ > o.line * 0.1f ? 1f : -1f) : (room.CenterX > o.line * 0.1f ? 1f : -1f);
+            return o.alongX ? new Vector3(0f, 0f, s) : new Vector3(s, 0f, 0f);
+        }
+
+        sealed class RoundRun
+        {
+            public int maxAlive, outsiderIn, seenTarget;
+            public float minDoor = 99f, minPlayer = 99f, startPlayer, took;
+            public bool allInside = true;
+        }
+
+        /// <summary>Porta avanti un round gia' partito: uccide i nemici del round a ondate (li lascia accumulare fino al tetto o fino
+        /// all'ultimo nato) e misura il massimo di vivi insieme, le nascite fuori dalla zona e, per il nemico di fuori, quanto si avvicina
+        /// al giocatore (e alle soglie) e se riesce a entrare. Con la strada chiusa il nemico va al punto della navmesh piu' vicino al
+        /// giocatore, che non e' per forza una porta: per questo si misura la distanza dal giocatore e non da una soglia sola.</summary>
+        IEnumerator DriveRound(RoundDirector rd, int cap, Enemy outsider, List<Vector3> doors, PlayerController pl, RoundRun run,
+                               string openShot = null, Vector3 aimAt = default)
+        {
+            Transform player = pl.transform;
+            float tStart = Time.time;
+            run.seenTarget = rd.Target;
+            if (outsider != null) run.startPlayer = Vector3.Distance(outsider.transform.position, player.position);
+            bool shotDone = openShot == null;
+            if (!shotDone) { Vector3 d0 = aimAt - player.position; pl.yaw = Mathf.Atan2(d0.x, d0.z); pl.pitch = -0.05f; }
+            while (rd.Sealed && Time.time - tStart < 170f)
+            {
+                run.maxAlive = Mathf.Max(run.maxAlive, rd.Alive);
+                foreach (var e in Enemy.All)
+                {
+                    if (e == null || e.IsDead) continue;
+                    if (e == outsider)
+                    {
+                        Vector3 ep = e.transform.position;
+                        if (rd.InsideSealed(ep)) run.outsiderIn++;
+                        foreach (var d in doors) run.minDoor = Mathf.Min(run.minDoor, Vector3.Distance(ep, d));
+                        run.minPlayer = Mathf.Min(run.minPlayer, Vector3.Distance(ep, player.position));
+                    }
+                    else if (e.relentless && !rd.InsideSealed(e.transform.position)) run.allInside = false;
+                }
+                if (rd.Fighting && rd.Clock > 8f && (rd.Alive >= cap || (rd.Spawned >= rd.Target && rd.Alive > 0)))
+                    foreach (var e in new List<Enemy>(Enemy.All))
+                        if (e != null && !e.IsDead && e.relentless && e != outsider) e.Damage(100000f, e.AimPoint, false, true);
+                if (!shotDone && rd.Sealed && !rd.Fighting)
+                {
+                    shotDone = true;
+                    yield return new WaitForSeconds(0.4f);        // le serrande stanno salendo e il banner "Round N superato" e' in vista
+                    Shot(openShot);
+                }
+                yield return new WaitForSeconds(0.25f);
+            }
+            run.took = Time.time - tStart;
+        }
+
+        /// <summary>Prova dei round: PryingEyes.exe -batchmode -nographics -autotest -stealthtest -roundtest -seed N -floor N (senza -nographics
+        /// per le foto). Sceglie le zone sigillabili del piano e prova, nell'ordine: un round annullato dalla morte; un round intero con un
+        /// nemico fuori che preme sulle serrande (soglie nella navmesh, serrande che fermano vista, colpi e percorsi, nascite solo dentro la
+        /// zona, tetto dei vivi, premio, serrande su, il nemico di fuori entra a serrande alzate); un secondo round in un'altra zona (numero
+        /// che continua, tono calmo, formula dei nemici, bonus); un round scaduto (tempo massimo ridotto: si chiude da solo, senza premio).
+        /// Esito in hotel_build/furtivo/round.txt; uscita 0 ok, 1 fallito, 2 piano senza zone.</summary>
+        IEnumerator CheckRounds()
+        {
+            var gm = GameManager.I;
+            var fd = FloorDirector.I;
+            var rd = RoundDirector.I;
+            var pl = gm.player;
+            bool passed = true;
+            void Check(string what, bool ok, string detail = "")
+            {
+                Log((ok ? "ok       " : "FALLITO  ") + what + (detail.Length > 0 ? "   [" + detail + "]" : ""));
+                if (!ok) passed = false;
+            }
+            bool shots = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
+            yield return new WaitForSeconds(2.0f);
+            Log($"piano {fd.floor} seme {fd.runSeed}: stanze={fd.cur.plan.rooms.Count} candele={fd.cur.candles.Count} zone={(rd != null ? rd.ZoneCount : -1)}");
+            Check("RoundDirector presente e attivo", rd != null && RoundDirector.Enabled);
+            if (rd == null) { Application.Quit(1); yield break; }
+            var cands = fd.cur.candles.FindAll(c => c != null && rd.HasZone(c));
+            if (cands.Count == 0) { Log("nessuna zona sigillabile su questo piano: prova non applicabile (cambia seme)"); Application.Quit(2); yield break; }
+
+            Enemy.ClearAll();
+            PlayerController.holdLook = true;
+            pl.invulnerable = true;
+            Enemy.debugFreeze = false;
+            var candle = cands[0];
+            var reg = rd.RegionOf(candle);
+            Log($"zone con candela: {cands.Count}; prima scelta: {reg}");
+            int cap = RoundRules.AliveCap(reg.area);
+
+            // il giocatore dentro la zona di una candela, vicino a lei, che la guarda
+            void PlaceAt(Candelabro c)
+            {
+                Vector3 cp = c.transform.position;
+                var room = fd.cur.RoomAt(cp);
+                Vector3 toCenter = new Vector3(room.CenterX - cp.x, 0f, room.CenterZ - cp.z);
+                Vector3 pos = NavPoint(cp + (toCenter.sqrMagnitude > 0.5f ? toCenter.normalized : Vector3.right) * 1.3f);
+                Vector3 look = cp - pos;
+                pl.Teleport(pos);
+                pl.yaw = Mathf.Atan2(look.x, look.z);
+                pl.pitch = 0f;
+            }
+
+            // ----- soglie: ogni apertura di taglio ha la sua area nella navmesh
+            foreach (var o in reg.cuts)
+            {
+                int area = RoundDirector.AreaOf(o);
+                bool marked = area >= HotelNav.FirstDoorArea && NavMesh.SamplePosition(DoorPoint(o) + Vector3.up * 0.1f, out NavMeshHit mh, 1.2f, 1 << area);
+                Check("soglia marcata nella navmesh", marked, $"area {area}, apertura {o.style} larga {o.width * 0.1f:F1} m");
+            }
+            PlaceAt(candle);
+            yield return new WaitForSeconds(0.5f);
+
+            // ----- 1) il round parte e il giocatore muore a meta': il round salta
+            Log("--- round annullato dalla morte");
+            int round0 = RoundDirector.Round;
+            candle.Use();
+            yield return null;
+            Check("la candela fa partire il round", rd.Fighting && RoundDirector.Round == round0 + 1, $"round {RoundDirector.Round}, tono {rd.Mood}, {rd.Target} nemici, massimo {cap} insieme");
+            Check("HUD: numero del round", gm.hud.CurrentRound == RoundDirector.Round.ToString(), "'" + gm.hud.CurrentRound + "'");
+            Check("navmesh sigillata (maschera dei nemici ridotta)", HotelNav.EnemyMask != NavMesh.AllAreas);
+            yield return new WaitForSeconds(1.2f);
+            bool allDown = true;
+            foreach (var s in rd.Shutters) if (!s.IsDown) allDown = false;
+            Check("serrande calate su tutte le aperture di taglio", rd.Shutters.Count == reg.cuts.Count && allDown, $"{rd.Shutters.Count}/{reg.cuts.Count}");
+            foreach (var o in reg.cuts)
+            {
+                Vector3 dp = DoorPoint(o), n = InwardOf(fd.cur, reg, o);
+                Vector3 inside = NavPoint(dp + n * 2.0f), outside = NavPoint(dp - n * 2.0f);
+                bool blocked = Physics.Linecast(outside + Vector3.up * 1.2f, inside + Vector3.up * 1.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+                var path = new NavMeshPath();
+                bool pathAll = NavMesh.CalculatePath(outside, inside, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
+                bool pathOpen = NavMesh.CalculatePath(outside, inside, HotelNav.EnemyMask, path) && path.status == NavMeshPathStatus.PathComplete;
+                Check("serranda: ferma vista e colpi", blocked, o.style.ToString());
+                Check("navmesh: tra fuori e dentro c'e' strada solo con le serrande alzate", pathAll && !pathOpen, $"tutte le aree {pathAll}, aree aperte {pathOpen}");
+            }
+            if (shots)
+            {
+                // foto: la prima serranda vista da dentro, a due metri e mezzo
+                var o0 = reg.cuts[0];
+                Vector3 dp0 = DoorPoint(o0), n0 = InwardOf(fd.cur, reg, o0);
+                pl.Teleport(NavPoint(dp0 + n0 * 2.6f));
+                pl.yaw = Mathf.Atan2(-n0.x, -n0.z); pl.pitch = -0.05f;
+                yield return new WaitForSeconds(0.8f);
+                Shot("round_serranda");
+                PlaceAt(candle);
+            }
+            float t0 = Time.time;
+            while (rd.Spawned < 1 && Time.time - t0 < 20f) yield return null;
+            bool inZone = rd.Spawned >= 1;
+            Enemy first = null;
+            foreach (var e in Enemy.All)
+            {
+                if (e == null || e.IsDead || !e.relentless) continue;
+                if (first == null) first = e;
+                if (!rd.InsideSealed(e.transform.position)) inZone = false;
+            }
+            Check("il primo nemico nasce dentro la zona", inZone, $"nati {rd.Spawned}, dopo {Time.time - t0:F1} s");
+            if (shots)
+            {
+                // foto: il lampo della nascita (dura 0,7 s), guardando il punto; due fotogrammi del solo mondo per vedere come si spegne
+                var flare = GameObject.Find("LampoRound");
+                var fl = flare != null ? flare.GetComponent<Light>() : null;
+                Log(fl != null ? $"lampo: acceso={fl.isActiveAndEnabled} intensita {fl.intensity:F1} raggio {fl.range:F1}, a {Vector3.Distance(flare.transform.position, pl.transform.position):F1} m dal giocatore"
+                               : "lampo: assente");
+                if (first != null) { Vector3 d = first.transform.position + Vector3.up - pl.transform.position; pl.yaw = Mathf.Atan2(d.x, d.z); pl.pitch = 0f; }
+                yield return new WaitForSeconds(0.05f);
+                GameManager.CamShot(Dir + "/round_lampo_a.png", null, false);
+                yield return new WaitForSeconds(0.12f);
+                GameManager.CamShot(Dir + "/round_lampo_b.png", null, false);
+                Shot("round_nascita");
+                if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-roundshots") >= 0) { Log("-roundshots: foto fatte, esco"); Application.Quit(0); yield break; }
+            }
+            pl.invulnerable = false;
+            pl.Hurt(10000f);
+            yield return new WaitForSeconds(0.6f);
+            int relentlessLeft = 0;
+            foreach (var e in Enemy.All) if (e != null && e.relentless) relentlessLeft++;
+            Check("morte: il round salta, serrande tolte", !rd.Sealed && fd.cur.root.GetComponentsInChildren<Shutter>().Length == 0);
+            Check("morte: navmesh libera, candela di nuovo spenta, numero del round restituito",
+                  HotelNav.EnemyMask == NavMesh.AllAreas && !candle.lit && RoundDirector.Round == round0, $"round {RoundDirector.Round}");
+            Check("morte: i nemici del round non ci sono piu'", relentlessLeft == 0, relentlessLeft + " rimasti");
+            while (!pl.alive) yield return null;
+            yield return new WaitForSeconds(3.2f);          // la tregua dopo la rinascita finisce da sola
+
+            // ----- 2) round intero, con un nemico fuori che preme sulle serrande
+            Log("--- round intero");
+            Enemy.ClearAll();
+            pl.invulnerable = true;
+            PlaceAt(candle);
+            var oa = reg.cuts[0];
+            Vector3 dpa = DoorPoint(oa), na = InwardOf(fd.cur, reg, oa);
+            var outsider = Enemy.Spawn(Enemy.EnemyType.Monaco, NavPoint(dpa - na * 5.5f));
+            outsider.MakeRelentless();
+            yield return new WaitForSeconds(0.5f);
+            int score0 = gm.score;
+            candle.Use();
+            yield return null;
+            Check("secondo avvio del round", rd.Fighting && RoundDirector.Round == round0 + 1, $"tono {rd.Mood}, {rd.Target} nemici");
+            var run = new RoundRun();
+            var doorPts = new List<Vector3>();
+            foreach (var o in reg.cuts) doorPts.Add(DoorPoint(o));
+            yield return DriveRound(rd, cap, outsider, doorPts, pl, run, shots ? "round_fine" : null, dpa + Vector3.up * 1.2f);
+            Check("il round finisce da solo, serrande su", !rd.Sealed, $"{run.took:F0} s, nati {rd.Spawned}/{run.seenTarget}");
+            Check("tutti i nemici del round nascono dentro la zona", run.allInside);
+            Check("mai piu' vivi insieme del tetto", run.maxAlive <= cap, $"massimo {run.maxAlive}, tetto {cap}");
+            Check("il nemico fuori non entra a serrande calate", run.outsiderIn == 0, $"entrato per {run.outsiderIn} campionamenti");
+            // (informazione, non verifica: con la strada chiusa il nemico va al punto della navmesh piu' vicino al giocatore, che non e' per
+            // forza una porta; la prova che non e' fermo a caso e' che a serrande alzate entra subito, qui sotto)
+            Log($"info: il nemico fuori, dal giocatore {run.startPlayer:F1} -> {run.minPlayer:F1} m; soglia piu' vicina {run.minDoor:F1} m");
+            Check("premio del round", gm.score - score0 >= RoundRules.Reward(RoundDirector.Round), $"+{gm.score - score0} punti");
+            Check("candela contata, numero del round", candle.lit && RoundDirector.Round == round0 + 1, $"round {RoundDirector.Round}");
+            Check("HUD: numero del round", gm.hud.CurrentRound == RoundDirector.Round.ToString());
+            Check("navmesh libera", HotelNav.EnemyMask == NavMesh.AllAreas);
+            if (fd.cur.candles.Count == 1) Check("ultima candela: l'uscita si apre", fd.ExitOpen);
+            float tIn = Time.time;
+            bool entered = false;
+            while (Time.time - tIn < 25f && !entered)
+            {
+                var rr = outsider != null ? fd.cur.RoomAt(outsider.transform.position) : null;
+                entered = rr != null && reg.Has(rr.id);
+                yield return new WaitForSeconds(0.25f);
+            }
+            Check("a serrande alzate il nemico di fuori entra", entered, $"{Time.time - tIn:F1} s");
+
+            // ----- 3) un'altra zona: il numero continua, nessuno ti cerca (tono calmo), i nemici seguono la formula, c'e' il bonus
+            if (cands.Count >= 2)
+            {
+                Log("--- secondo round in un'altra zona");
+                var candleB = cands[1];
+                var regB = rd.RegionOf(candleB);
+                int capB = RoundRules.AliveCap(regB.area);
+                Enemy.ClearAll();
+                pl.invulnerable = true;
+                PlaceAt(candleB);
+                yield return new WaitForSeconds(1.0f);       // la percezione dei preti si aggiorna: nessuno e' piu' in allarme
+                int scoreB = gm.score;
+                candleB.Use();
+                yield return null;
+                float mulB = rd.Mood == RoundMood.Calm ? RoundRules.CalmMul : rd.Mood == RoundMood.Alarm ? RoundRules.AlarmMul : 1f;
+                int adoptedB = rd.Alive;                     // chi era gia' dentro la zona entra nel round e conta nel totale
+                int expectB = Mathf.Max(2, Mathf.RoundToInt(RoundRules.Count(RoundDirector.Round, fd.floor) * mulB) - adoptedB);
+                Check("secondo round: il numero continua", rd.Fighting && RoundDirector.Round == round0 + 2, $"round {RoundDirector.Round}, tono {rd.Mood}");
+                Check("secondo round: tono calmo (nessuno ti cercava)", rd.Mood == RoundMood.Calm, rd.Mood.ToString());
+                Check("secondo round: nemici secondo la formula", rd.Target == expectB, $"{rd.Target} nemici, attesi {expectB} ({adoptedB} gia' dentro); primo round {run.seenTarget}");
+                Check("HUD: numero del round aggiornato", gm.hud.CurrentRound == (round0 + 2).ToString(), "'" + gm.hud.CurrentRound + "'");
+                var runB = new RoundRun();
+                yield return DriveRound(rd, capB, null, new List<Vector3>(), pl, runB);
+                Check("secondo round: finisce, serrande su", !rd.Sealed, $"{runB.took:F0} s, nati {rd.Spawned}/{runB.seenTarget}");
+                Check("secondo round: nascite solo dentro, tetto rispettato", runB.allInside && runB.maxAlive <= capB, $"massimo {runB.maxAlive}, tetto {capB}");
+                int bonusB = RoundRules.Reward(round0 + 2) + (rd.Mood == RoundMood.Calm ? RoundRules.CalmBonus : 0);
+                Check("secondo round: premio con il bonus del tono", gm.score - scoreB >= bonusB, $"+{gm.score - scoreB} punti, almeno {bonusB}");
+            }
+
+            // ----- 4) round scaduto: il tempo massimo (ridotto) finisce prima dei nemici
+            if (cands.Count >= 3)
+            {
+                Log("--- round scaduto");
+                var candleC = cands[2];
+                Enemy.ClearAll();
+                pl.invulnerable = true;
+                PlaceAt(candleC);
+                yield return new WaitForSeconds(0.6f);
+                int scoreC = gm.score;
+                float oldFs = RoundRules.Failsafe;
+                RoundRules.Failsafe = 10f;
+                int roundC = RoundDirector.Round + 1;
+                candleC.Use();
+                yield return null;
+                float tC = Time.time;
+                while (rd.Sealed && Time.time - tC < 40f) yield return new WaitForSeconds(0.25f);
+                RoundRules.Failsafe = oldFs;
+                int left = 0;
+                foreach (var e in Enemy.All) if (e != null && !e.IsDead && e.relentless) left++;
+                Check("round scaduto: si chiude da solo", !rd.Sealed && RoundDirector.Round == roundC && candleC.lit, $"{Time.time - tC:F0} s, round {RoundDirector.Round}");
+                Check("round scaduto: nessun premio", gm.score - scoreC < RoundRules.Reward(roundC), $"+{gm.score - scoreC} punti (la candela ne da' 60)");
+                Check("round scaduto: nessun nemico del round rimasto", left == 0, left + " rimasti");
+            }
+            else Log("meno di tre zone su questo piano: round scaduto non provato");
+
+            Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
+            Application.Quit(passed ? 0 : 1);
+        }
+
         bool CheckExposure()
         {
             var origin = Vector3.up * 100f;
@@ -335,12 +625,101 @@ namespace PryingEyes
             GameManager.CamShot(Dir + "/" + name + "_hud.png", hudCam, true);
         }
 
+        /// <summary>Cerca buchi nel pavimento del piano: raggi verso il basso su una griglia di 40 cm dentro ogni stanza (tranne gli ascensori,
+        /// dove il pavimento e' la cabina) e lungo ogni apertura, attraverso lo spessore del muro. Un punto e' un buco se sotto non c'e' niente
+        /// o se il primo appoggio e' a piu' di 25 cm sotto il pavimento. PryingEyes.exe -batchmode -nographics -autotest -stealthtest
+        /// -holescan -seed N -floor N; esito in hotel_build/furtivo/buchi.txt, uscita 0 senza buchi, 1 con buchi.</summary>
+        IEnumerator CheckHoles()
+        {
+            var fd = FloorDirector.I;
+            yield return new WaitForSeconds(1.5f);
+            var plan = fd.cur.plan;
+            Log($"piano {fd.floor} seme {fd.runSeed}: {plan.rooms.Count} stanze, {plan.openings.Count} aperture");
+            int samples = 0, holes = 0;
+            var perRoom = new Dictionary<int, int>();
+            var shown = new List<string>();
+            bool Probe(float x, float z, string what)
+            {
+                samples++;
+                bool ground = Physics.Raycast(new Vector3(x, 1.2f, z), Vector3.down, out RaycastHit h, 5f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore) && h.point.y > -0.25f;
+                if (ground) return false;
+                holes++;
+                if (shown.Count < 40) shown.Add($"({x:F1},{z:F1}) {what}");
+                return true;
+            }
+            foreach (var r in plan.rooms)
+            {
+                if (r.IsLift) continue;
+                int bad = 0;
+                for (float x = r.x0 * 0.1f + 0.35f; x < r.x1 * 0.1f - 0.34f; x += 0.4f)
+                    for (float z = r.z0 * 0.1f + 0.35f; z < r.z1 * 0.1f - 0.34f; z += 0.4f)
+                        if (Probe(x, z, $"stanza {r.id} {r.kind}")) bad++;
+                if (bad > 0) perRoom[r.id] = bad;
+            }
+            foreach (var o in plan.openings)
+            {
+                if (o.a < 0 || o.b < 0 || o.sill >= 0.5f) continue;         // finestre e aperture sull'esterno: non si cammina
+                var ra = plan.rooms[o.a];
+                var rb = plan.rooms[o.b];
+                if (ra.IsLift || rb.IsLift) continue;
+                for (float al = o.center * 0.1f - o.width * 0.05f + 0.2f; al <= o.center * 0.1f + o.width * 0.05f - 0.19f; al += 0.4f)
+                    for (float ac = o.line * 0.1f - 0.6f; ac <= o.line * 0.1f + 0.61f; ac += 0.2f)
+                        Probe(o.alongX ? al : ac, o.alongX ? ac : al, $"apertura {o.style} tra {o.a} e {o.b}");
+            }
+            // -holeat X,Z: cosa c'e' in quel punto (stanza, appoggio sotto i piedi, collider intorno)
+            var cl = System.Environment.GetCommandLineArgs();
+            int ai = System.Array.IndexOf(cl, "-holeat");
+            if (ai >= 0 && ai + 1 < cl.Length)
+            {
+                var xz = cl[ai + 1].Split(',');
+                float hx = float.Parse(xz[0], System.Globalization.CultureInfo.InvariantCulture), hz = float.Parse(xz[1], System.Globalization.CultureInfo.InvariantCulture);
+                var rm = fd.cur.RoomAt(new Vector3(hx, 0.5f, hz));
+                Log($"punto ({hx:F1},{hz:F1}): stanza {(rm != null ? rm.id + " " + rm.kind + $" [{rm.x0 * 0.1f:F1}..{rm.x1 * 0.1f:F1}]x[{rm.z0 * 0.1f:F1}..{rm.z1 * 0.1f:F1}]" : "nessuna")}");
+                for (float dz = -1.0f; dz <= 1.01f; dz += 0.5f)
+                {
+                    string row = "";
+                    for (float dx = -1.0f; dx <= 1.01f; dx += 0.5f)
+                    {
+                        bool g = Physics.Raycast(new Vector3(hx + dx, 1.2f, hz + dz), Vector3.down, out RaycastHit gh, 5f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+                        row += g ? $" {gh.point.y,5:F2}" : "  ----";
+                    }
+                    Log($"  z={hz + dz:F1}: {row}");
+                }
+                foreach (var col in Physics.OverlapSphere(new Vector3(hx, 0.3f, hz), 1.6f, ~0, QueryTriggerInteraction.Collide))
+                    Log($"  collider {col.name} ({col.GetType().Name}, strato {col.gameObject.layer}, trigger={col.isTrigger}) in {(col.transform.parent != null ? col.transform.parent.name : "-")}, limiti y {col.bounds.min.y:F2}..{col.bounds.max.y:F2}");
+            }
+            foreach (var s in shown) Log("buco " + s);
+            foreach (var kv in perRoom) Log($"stanza {kv.Key} ({plan.rooms[kv.Key].kind}): {kv.Value} punti senza pavimento");
+            Log($"punti provati {samples}, senza pavimento {holes}");
+
+            // rete di sicurezza (FloorDirector.FallGuard): un giocatore buttato nel vuoto torna sul pavimento
+            var plr = GameManager.I.player;
+            bool guardOk = true;
+            if (fd.cur.arrival != null)
+            {
+                Vector3 sp = fd.cur.arrival.spawnPoint;
+                plr.invulnerable = true;
+                plr.Teleport(sp);
+                yield return new WaitForSeconds(1.2f);                      // il tempo di posarsi e di essere ricordato come ultimo appoggio
+                plr.Teleport(new Vector3(sp.x, -60f, sp.z));
+                yield return new WaitForSeconds(1.0f);
+                float back = Vector3.Distance(plr.transform.position, sp);
+                guardOk = plr.transform.position.y > -1f && back < 3f;
+                Log($"caduta: dopo il tuffo a -60 m il giocatore e' a y={plr.transform.position.y:F1}, a {back:F1} m dall'appoggio -> {(guardOk ? "ok" : "FALLITO")}");
+            }
+            bool allOk = holes == 0 && guardOk;
+            Log(allOk ? "ESITO: ok" : "ESITO: FALLITO");
+            Application.Quit(allOk ? 0 : 1);
+        }
+
         IEnumerator Start()
         {
             Directory.CreateDirectory(Dir);
+            bool holeScan = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-holescan") >= 0;
             bool alienTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-alientest") >= 0;
             bool themeTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-temitest") >= 0;
             bool reference = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-refshot") >= 0;
+            bool roundTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-roundtest") >= 0;
             var gm = GameManager.I;
             while (FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) yield return null;
             if (reference)
@@ -348,8 +727,10 @@ namespace PryingEyes
                 yield return ReferenceShots(FloorDirector.I);
                 yield break;
             }
-            log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : "/furtivo.txt");
+            log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : roundTest ? "/round.txt" : holeScan ? "/buchi.txt" : "/furtivo.txt");
             File.WriteAllText(log, "");
+            if (roundTest) { yield return CheckRounds(); yield break; }
+            if (holeScan) { yield return CheckHoles(); yield break; }
             yield return new WaitForSeconds(2.0f);
             var fd = FloorDirector.I;
             var pl = gm.player;

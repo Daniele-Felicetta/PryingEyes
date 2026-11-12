@@ -137,6 +137,7 @@ namespace PryingEyes
             agent.stoppingDistance = Archetype == EnemyType.Abate ? 1.8f : 1.3f;
             agent.obstacleAvoidanceType = ObstacleAvoidanceType.MedQualityObstacleAvoidance;
             agent.avoidancePriority = Random.Range(30, 70);
+            agent.areaMask = HotelNav.EnemyMask;     // a serrande calate le soglie sigillate non sono percorribili
             if (!agent.isOnNavMesh) { Destroy(agent); agent = null; }
         }
 
@@ -214,6 +215,7 @@ namespace PryingEyes
             if (OnNav)
             {
                 agent.speed = spd;
+                agent.areaMask = HotelNav.EnemyMask;
                 agent.isStopped = hold;
                 if (hold) agent.velocity = Vector3.zero;
                 else if (repathT <= 0f) { agent.SetDestination(feet); repathT = 0.25f; }
@@ -506,7 +508,7 @@ namespace PryingEyes
             if (!HotelNav.Ground(gp, out Vector3 from)) return;
             if (!NavMesh.SamplePosition(dest, out NavMeshHit th, 2.5f, NavMesh.AllAreas)) return;
             if (path == null) path = new NavMeshPath();
-            if (NavMesh.CalculatePath(from, th.position, NavMesh.AllAreas, path))
+            if (NavMesh.CalculatePath(from, th.position, HotelNav.EnemyMask, path))
                 cornerCount = path.GetCornersNonAlloc(corners);
         }
 

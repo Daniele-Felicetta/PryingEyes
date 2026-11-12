@@ -1,0 +1,43 @@
+piano 3 seme 3046: stanze=99 candele=6 zone=4
+ok       RoundDirector presente e attivo
+zone con candela: 4; prima scelta: stanze [18] candela in 18, 44 m2, 2 serrande (2,8 m), punteggio 1,55
+ok       soglia marcata nella navmesh   [area 5, apertura Arco larga 1,4 m]
+ok       soglia marcata nella navmesh   [area 6, apertura Arco larga 1,4 m]
+--- round annullato dalla morte
+ok       la candela fa partire il round   [round 1, tono Calm, 4 nemici, massimo 5 insieme]
+ok       HUD: numero del round   ['1']
+ok       navmesh sigillata (maschera dei nemici ridotta)
+ok       serrande calate su tutte le aperture di taglio   [2/2]
+ok       serranda: ferma vista e colpi   [Arco]
+ok       navmesh: tra fuori e dentro c'e' strada solo con le serrande alzate   [tutte le aree True, aree aperte False]
+ok       serranda: ferma vista e colpi   [Arco]
+ok       navmesh: tra fuori e dentro c'e' strada solo con le serrande alzate   [tutte le aree True, aree aperte False]
+ok       il primo nemico nasce dentro la zona   [nati 1, dopo 4,6 s]
+ok       morte: il round salta, serrande tolte
+ok       morte: navmesh libera, candela di nuovo spenta, numero del round restituito   [round 0]
+ok       morte: i nemici del round non ci sono piu'   [0 rimasti]
+--- round intero
+ok       secondo avvio del round   [tono Alarm, 8 nemici]
+ok       il round finisce da solo, serrande su   [20 s, nati 8/8]
+ok       tutti i nemici del round nascono dentro la zona
+ok       mai piu' vivi insieme del tetto   [massimo 5, tetto 5]
+ok       il nemico fuori non entra a serrande calate   [entrato per 0 campionamenti]
+info: il nemico fuori, dal giocatore 7,9 -> 4,3 m; soglia piu' vicina 1,9 m
+ok       premio del round   [+660 punti]
+ok       candela contata, numero del round   [round 1]
+ok       HUD: numero del round
+ok       navmesh libera
+ok       a serrande alzate il nemico di fuori entra   [2,3 s]
+--- secondo round in un'altra zona
+ok       secondo round: il numero continua   [round 2, tono Calm]
+ok       secondo round: tono calmo (nessuno ti cercava)   [Calm]
+ok       secondo round: nemici secondo la formula   [5 nemici, attesi 5 (0 gia' dentro); primo round 8]
+ok       HUD: numero del round aggiornato   ['2']
+ok       secondo round: finisce, serrande su   [18 s, nati 5/5]
+ok       secondo round: nascite solo dentro, tetto rispettato   [massimo 4, tetto 4]
+ok       secondo round: premio con il bonus del tono   [+650 punti, almeno 290]
+--- round scaduto
+ok       round scaduto: si chiude da solo   [12 s, round 3]
+ok       round scaduto: nessun premio   [+60 punti (la candela ne da' 60)]
+ok       round scaduto: nessun nemico del round rimasto   [0 rimasti]
+ESITO: ok

@@ -14,6 +14,24 @@ namespace PryingEyes
         /// <summary>Cio' che blocca vista e movimento dei nemici: tutto tranne il giocatore (Ignore Raycast) e i nemici.</summary>
         public static readonly int EnvMask = ~((1 << 2) | (1 << EnemyLayer));
 
+        /// <summary>Aree della navmesh sotto le soglie che le serrande dei round chiudono: una per apertura (da 3 a 31, le prime due
+        /// sono di Unity). Normalmente si cammina come ovunque; a serrande calate i nemici perdono quelle aree dalla maschera
+        /// (EnemyMask) e non passano: gli agenti ignorano i collider, contano solo le aree. Cosi' non c'e' nessuna ricostruzione e
+        /// nessun carving (con una tessera sola per piano costerebbe troppo), e chiudere una zona non tocca le soglie delle altre.</summary>
+        public const int FirstDoorArea = 3, LastDoorArea = 31;
+        public struct DoorBox { public Vector3 center, size; public float yaw; public int area; }
+        /// <summary>Le soglie da marcare alla prossima costruzione della navmesh (le riempie RoundDirector prima di Rebuild; Rebuild le rilegge).</summary>
+        public static readonly List<DoorBox> DoorBoxes = new List<DoorBox>();
+        /// <summary>Aree percorribili da chi cammina e da chi vola (CalculatePath): tutte, tranne le soglie sigillate.</summary>
+        public static int EnemyMask = NavMesh.AllAreas;
+        public static void SealAreas(IEnumerable<int> areas)
+        {
+            int m = NavMesh.AllAreas;
+            foreach (int a in areas) m &= ~(1 << a);
+            EnemyMask = m;
+        }
+        public static void Unseal() { EnemyMask = NavMesh.AllAreas; }
+
         static NavMeshDataInstance instance;
         public static bool Ready { get; private set; }
 
@@ -49,6 +67,15 @@ namespace PryingEyes
                 foreach (var b in blockers)
                     if (b != null) markups.Add(new NavMeshBuildMarkup { root = b, area = 1, overrideArea = true, applyToChildren = true });
             NavMeshBuilder.CollectSources(bounds, mask, NavMeshCollectGeometry.PhysicsColliders, 0, markups, sources);
+            // le soglie delle serrande: la navmesh sotto di loro e' un'area a parte (non blocca nulla finche' nessuno la toglie dalla maschera)
+            foreach (var d in DoorBoxes)
+                sources.Add(new NavMeshBuildSource
+                {
+                    shape = NavMeshBuildSourceShape.ModifierBox,
+                    transform = Matrix4x4.TRS(d.center, Quaternion.Euler(0f, d.yaw, 0f), Vector3.one),
+                    size = d.size,
+                    area = d.area,
+                });
             var s = NavMesh.GetSettingsByID(0);
             s.agentRadius = 0.4f;
             s.agentHeight = 1.9f;
@@ -64,7 +91,7 @@ namespace PryingEyes
             float minY = float.MaxValue, maxY = float.MinValue;
             foreach (var v in tri.vertices) { minY = Mathf.Min(minY, v.y); maxY = Mathf.Max(maxY, v.y); }
             Debug.Log($"[PryingEyes] navmesh: {sources.Count} collider, {tri.indices.Length / 3} triangoli, " +
-                      $"quota {minY:F1}..{maxY:F1} m, {(Time.realtimeSinceStartup - t0) * 1000f:F0} ms");
+                      $"quota {minY:F1}..{maxY:F1} m, {DoorBoxes.Count} soglie, {(Time.realtimeSinceStartup - t0) * 1000f:F0} ms");
         }
 
         /// <summary>Linea libera tra due punti (muri, pavimenti, soppalco, vetri e porte bloccano).</summary>

@@ -101,6 +101,7 @@ namespace PryingEyes
 
             // componente furtiva (HUD.Stealth.cs): torcia, segnalini dei preti, freccia dell'ascensore, ping
             BuildStealthUI();
+            BuildRoundUI();          // HUD.Round.cs: il numero del round, rosso in basso a sinistra
 
             // in alto a sinistra: ondata in numeri romani, presenze, punti
             waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(26, -16), new Vector2(300, 22), 15, TextAnchor.UpperLeft, "ondata", Dim, FontStyle.Italic);
@@ -375,6 +376,7 @@ namespace PryingEyes
             UpdateHitmarker(dt);
             UpdateCrosshair(dt);
             UpdateStealthUI(dt);
+            UpdateRoundUI(dt);
             if (bannerT > 0f)
             {
                 bannerT -= dt;

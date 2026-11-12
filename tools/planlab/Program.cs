@@ -14,6 +14,7 @@ static class Program
     {
         string cmd = a.Length > 0 ? a[0] : "stats";
         if (cmd == "passages") return Passages();
+        if (cmd == "regions") return Regions(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "stats") return Stats(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "map") { Map(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         if (cmd == "sheet") { Sheet(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
@@ -39,6 +40,52 @@ static class Program
             if (!PlanGen.Validate(p, out string why)) throw new Exception("Percorso ordinario compromesso: " + why);
         }
         Console.WriteLine("300 piani: passaggi bassi, senza sovrapposizioni e percorsi ordinari validi");
+        return 0;
+    }
+
+    // Zone sigillabili intorno alle candele (round): quante candele ne hanno una, di che misura, con quante serrande.
+    //   dotnet run -c Release -- regions 2000
+    static int Regions(int n)
+    {
+        int plans = 0, candles = 0, withRegion = 0, plansAllCovered = 0, plansNone = 0;
+        var why = new Dictionary<string, int>();
+        var cutsHist = new int[RoundRegions.MaxCuts + 1]; var roomsHist = new int[RoundRegions.MaxRooms + 1];
+        var areas = new List<float>(); var widths = new List<float>();
+        var byTheme = new Dictionary<Theme, (int c, int r)>();
+        var byFloor = new Dictionary<int, (int c, int r)>();
+        var styleCuts = new Dictionary<OpenStyle, int>();
+        var sw = Stopwatch.StartNew();
+        for (int i = 0; i < n; i++)
+        {
+            int seed = 1000 + i * 17, floor = 1 + i % 12;
+            var p = PlanGen.Generate(seed, floor);
+            if (p == null) continue;
+            plans++;
+            var regs = RoundRegions.Find(p, why);
+            candles += p.objectives.Count; withRegion += regs.Count;
+            if (regs.Count == p.objectives.Count && p.objectives.Count > 0) plansAllCovered++;
+            if (regs.Count == 0) plansNone++;
+            (int c, int r) t = byTheme.TryGetValue(p.theme, out var tv) ? tv : (0, 0); byTheme[p.theme] = (t.c + p.objectives.Count, t.r + regs.Count);
+            (int c, int r) f = byFloor.TryGetValue(floor, out var fv) ? fv : (0, 0); byFloor[floor] = (f.c + p.objectives.Count, f.r + regs.Count);
+            foreach (var r in regs)
+            {
+                cutsHist[r.cuts.Count]++; roomsHist[r.rooms.Count]++; areas.Add(r.area);
+                foreach (var o in r.cuts) { widths.Add(o.width * 0.1f); styleCuts[o.style] = styleCuts.TryGetValue(o.style, out int c) ? c + 1 : 1; }
+            }
+        }
+        sw.Stop();
+        areas.Sort(); widths.Sort();
+        float Pct(List<float> l, double q) => l.Count == 0 ? 0 : l[Math.Min(l.Count - 1, (int)(l.Count * q))];
+        Console.WriteLine($"{plans} piani in {sw.ElapsedMilliseconds} ms: {candles} candele, {withRegion} con una zona ({withRegion * 100.0 / Math.Max(1, candles):F0}%)");
+        Console.WriteLine($"piani con tutte le candele coperte: {plansAllCovered * 100 / Math.Max(1, plans)}%, piani senza nessuna zona: {plansNone * 100 / Math.Max(1, plans)}%");
+        Console.Write("serrande per zona: "); for (int k = 1; k < cutsHist.Length; k++) Console.Write($"{k}:{cutsHist[k]} "); Console.WriteLine();
+        Console.Write("stanze per zona: "); for (int k = 1; k < roomsHist.Length; k++) Console.Write($"{k}:{roomsHist[k]} "); Console.WriteLine();
+        Console.WriteLine($"area m2: min {Pct(areas, 0):F0}, 10% {Pct(areas, 0.1):F0}, mediana {Pct(areas, 0.5):F0}, 90% {Pct(areas, 0.9):F0}, max {areas[areas.Count - 1]:F0}");
+        Console.WriteLine($"luce di una serranda m: mediana {Pct(widths, 0.5):F1}, 90% {Pct(widths, 0.9):F1}, max {widths[widths.Count - 1]:F1}");
+        foreach (var kv in styleCuts) Console.WriteLine($"  serrande su {kv.Key}: {kv.Value}");
+        foreach (var kv in byTheme) Console.WriteLine($"  tema {kv.Key}: {kv.Value.r}/{kv.Value.c} candele con zona ({kv.Value.r * 100 / Math.Max(1, kv.Value.c)}%)");
+        for (int fl = 1; fl <= 12; fl++) if (byFloor.TryGetValue(fl, out var v2)) Console.WriteLine($"  piano {fl}: {v2.r}/{v2.c} ({v2.r * 100 / Math.Max(1, v2.c)}%)");
+        foreach (var kv in why) Console.WriteLine($"  scartate: {kv.Key} x{kv.Value}");
         return 0;
     }
 

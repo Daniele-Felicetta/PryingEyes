@@ -43,7 +43,11 @@ namespace PryingEyes.Proc
             "Stanotte tutte le camere sono occupate.",
         };
 
-        void Awake() { I = this; }
+        void Awake()
+        {
+            I = this;
+            if (GetComponent<RoundDirector>() == null) gameObject.AddComponent<RoundDirector>();     // round nelle zone sigillabili
+        }
 
         static bool HasArg(string a)
         {
@@ -66,6 +70,7 @@ namespace PryingEyes.Proc
             runSeed = seed != 0 ? seed : ArgInt("-seed", Random.Range(1, 1 << 28));
             floor = 0;
             deaths = 0;
+            RoundDirector.ResetRun();
             StartCoroutine(GoTo(ArgInt("-floor", 1), true));
         }
 
@@ -79,6 +84,7 @@ namespace PryingEyes.Proc
             var hud = gm.hud;
             if (cur != null)
             {
+                RoundDirector.I?.Disarm();       // le serrande sono figlie del piano: vanno via con lui
                 Destroy(cur.root);
                 cur = null;
                 Enemy.ClearAll();
@@ -99,6 +105,7 @@ namespace PryingEyes.Proc
             float tBuild = Time.realtimeSinceStartup - t0;
             Physics.SyncTransforms();
             yield return null;
+            var regions = RoundDirector.PrepareNav(plan);     // zone sigillabili: le loro soglie diventano aree a parte della navmesh
             HotelNav.Rebuild(cur.bounds, cur.propRoots);
             int stripped = Connectivity.Repair(cur, out int problems);
             if (problems > 0) Debug.Log($"[PryingEyes] connettivita': {problems} problemi, {stripped} stanze svuotate");
@@ -113,6 +120,7 @@ namespace PryingEyes.Proc
             BuildPatrolPoints(plan);
             PopulateFloor(plan);
             foreach (var c in cur.candles) c.onLit += OnCandle;
+            RoundDirector.I?.Arm(cur, regions);
             if (cur.exit != null)
             {
                 cur.exit.unlocked = false;
@@ -247,8 +255,13 @@ namespace PryingEyes.Proc
             var hud = gm.hud;
             gm.AddPoints(60);
             gm.player.weapon.AddAmmoFraction(0.18f);
+            // una candela in una zona sigillabile fa partire un round (RoundDirector): le serrande calano e l'orda nasce dentro. Se
+            // parte, il resto (uscita, richiamo) aspetta la fine del round (OnRoundEnd). Il tono, calmo o in allarme, lo misura
+            // prima del rumore della candela, che altrimenti sveglierebbe tutti.
+            bool round = RoundDirector.I != null && RoundDirector.I.TryStart(c);
             // accendere una candela si sente e si vede: i preti vicini vengono a controllare
             Noise.Emit(c.transform.position, 26f, NoiseKind.Candle);
+            if (round) { RefreshObjective(); return; }
             if (lit >= total)
             {
                 OpenExit();
@@ -261,6 +274,25 @@ namespace PryingEyes.Proc
             Guide.I?.CandleLit(c, exitOpen);
             RefreshObjective();
         }
+
+        /// <summary>Il round e' finito: ora vale la candela (uscita se erano tutte accese).</summary>
+        public void OnRoundEnd(Candelabro c)
+        {
+            if (lit >= total) OpenExit();
+            else gm.hud?.Toast($"Candela accesa ({lit}/{total}). Le serrande si aprono.");
+            Guide.I?.CandleLit(c, exitOpen);
+            RefreshObjective();
+        }
+
+        /// <summary>Il round e' saltato (giocatore morto): la candela e' di nuovo spenta e non conta.</summary>
+        public void OnRoundAborted(Candelabro c)
+        {
+            lit = Mathf.Max(0, lit - 1);
+            RefreshObjective();
+        }
+
+        /// <summary>Un tipo di nemico per i round, gia' nel costume del tema della stanza.</summary>
+        public Enemy.EnemyType PickRoundType(Room room) => Retheme(PickType(), room);
 
         void OpenExit()
         {
@@ -291,6 +323,7 @@ namespace PryingEyes.Proc
         {
             var hud = gm.hud;
             if (hud == null) return;
+            if (RoundDirector.I != null && RoundDirector.I.Fighting) { hud.SetObjective(RoundDirector.I.Status()); return; }
             if (exitOpen) { hud.SetObjective("Raggiungi l'ascensore e scendi"); return; }
             hud.SetObjective($"Accendi le candele {lit}/{total}  ·  V per il ping");
         }
@@ -315,6 +348,7 @@ namespace PryingEyes.Proc
         public void OnRespawn()
         {
             deaths++;
+            RoundDirector.I?.OnPlayerDied();     // se era un round, salta (di norma l'ha gia' visto morire)
             if (cur != null && cur.arrival != null) cur.arrival.SetOpenInstant(true);
             Enemy.ForgetAll();                 // chi ti cercava ha perso la pista
             StartCoroutine(Grace());
@@ -386,6 +420,7 @@ namespace PryingEyes.Proc
                         if (!NavMesh.SamplePosition(q, out NavMeshHit nh, 2.5f, NavMesh.AllAreas)) continue;
                         q = nh.position;
                     }
+                    if (RoundDirector.I != null && RoundDirector.I.InsideSealed(q)) continue;     // dentro la zona sigillata nascono solo i nemici del round
                     if (pass < 2 && HotelNav.ClearLine(eye, q + Vector3.up * 1.2f)) continue;     // si vede: no
                     pos = q;
                     return true;
@@ -623,6 +658,29 @@ namespace PryingEyes.Proc
             return false;
         }
 
+        // ------------------------------------------------------------------ rete di sicurezza contro le cadute
+        Vector3 lastSafe;
+        float safeT;
+        bool haveSafe;
+
+        /// <summary>Se per qualunque motivo il giocatore esce dal pavimento (una volta, in una prova col bot, e' caduto nel vuoto in un
+        /// campanile senza che il pavimento avesse buchi: causa non trovata) lo riporta all'ultimo punto d'appoggio invece di lasciarlo
+        /// cadere per sempre. Lascia una riga CADUTA nel log del gioco.</summary>
+        void FallGuard(float dt)
+        {
+            var pl = gm.player;
+            Vector3 p = pl.transform.position;
+            safeT -= dt;
+            if (safeT <= 0f && p.y > -0.3f && p.y < 12f && pl.GetComponent<CharacterController>().isGrounded && cur.RoomAt(p) != null)
+            {
+                lastSafe = p; haveSafe = true; safeT = 0.5f;
+            }
+            if (p.y > -20f) return;
+            Vector3 back = haveSafe ? lastSafe + Vector3.up * 0.1f : cur.arrival != null ? cur.arrival.spawnPoint : Vector3.up;
+            Debug.LogWarning($"[PryingEyes] CADUTA: giocatore a y={p.y:F0} in ({p.x:F1},{p.z:F1}), lo riporto a ({back.x:F1},{back.z:F1})");
+            pl.Teleport(back);
+        }
+
         // ------------------------------------------------------------------ ogni fotogramma
         void Update()
         {
@@ -649,12 +707,14 @@ namespace PryingEyes.Proc
             if (!transitioning && gm.player.alive)
             {
                 floorTime += dt;
+                FallGuard(dt);
                 // il piano si ripopola piano piano: ogni tanto un prete nuovo, che pattuglia
                 trickleT -= dt;
                 if (trickleT <= 0f)
                 {
                     trickleT = Mathf.Lerp(40f, 22f, Mathf.Clamp01(floor / 10f)) * Random.Range(0.8f, 1.25f);
-                    if (floorTime > 25f && !perfStarted && Enemy.All.Count < 3 + floor + units) SpawnOne();
+                    bool sealedNow = RoundDirector.I != null && RoundDirector.I.Sealed;     // durante un round il piano non si ripopola
+                    if (floorTime > 25f && !perfStarted && !sealedNow && Enemy.All.Count < 3 + floor + units) SpawnOne();
                 }
             }
             hudT -= dt;
