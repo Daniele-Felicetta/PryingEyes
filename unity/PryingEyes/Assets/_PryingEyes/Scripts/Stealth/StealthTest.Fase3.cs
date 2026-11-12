@@ -21,7 +21,7 @@ namespace PryingEyes
 
         /// <summary>Un posto sulla navmesh a 'dist' m da 'target' (a quell'altezza, sopra l'oggetto: la linea di vista parte dagli occhi),
         /// di preferenza davanti ('front', orizzontale) e poi sempre piu' di lato, con la vista libera.</summary>
-        static bool StandNear(Vector3 target, Vector3 front, float dist, out Vector3 pos, Vector3? from = null)
+        static bool StandNear(Vector3 target, Vector3 front, float dist, out Vector3 pos, Vector3? from = null, IInteract interact = null)
         {
             pos = target;
             front.y = 0f;
@@ -33,6 +33,12 @@ namespace PryingEyes
                     Vector3 q = target + Quaternion.Euler(0f, ang, 0f) * front * dist * k; q.y = 0f;
                     if (!NavMesh.SamplePosition(q, out NavMeshHit h, 0.5f, NavMesh.AllAreas)) continue;
                     if (!HotelNav.ClearLine(h.position + Vector3.up * 1.5f, target)) continue;
+                    if (interact != null)
+                    {
+                        Vector3 eye = h.position + Vector3.up * 1.62f;
+                        if (Vector3.Distance(eye, interact.Point) > interact.Radius * 0.95f ||
+                            !Interact.Visible(eye, interact.Point, (interact as Component)?.transform)) continue;
+                    }
                     // con 'from': solo posti a cui si arriva a piedi da li'
                     if (from.HasValue && !(NavMesh.CalculatePath(from.Value, h.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete)) continue;
                     pos = h.position;
@@ -124,9 +130,9 @@ namespace PryingEyes
             // pianta a griglia: l'altare sta nella stanza Segreta, che si raggiunge solo a carponi: a piedi si parte da dentro, davanti al buco
             Vector3? fromAltarPos = fromPos;
             if (fd.altarRoom.type == RoomType.Segreta) { fromAltarPos = null; if (fd.SecretEntry(fd.altarRoom, out Vector3 secretIn)) fromAltarPos = secretIn; }
-            bool hasLib = StandNear(mid + Vector3.up * 1.3f, libFront, 1.9f, out Vector3 libNear, fromPos);
-            bool hasChest = StandNear(chest.transform.position + Vector3.up * 1.4f, chest.transform.forward, 1.8f, out Vector3 chestStand, fromPos);
-            bool hasAltar = StandNear(altar.transform.position + Vector3.up * 1.4f, altar.transform.forward, 2.0f, out Vector3 altarStand, fromAltarPos);
+            bool hasLib = StandNear(mid + Vector3.up * 1.3f, libFront, 1.9f, out Vector3 libNear, fromPos, lib.stands[1]);
+            bool hasChest = StandNear(chest.transform.position + Vector3.up * 1.4f, chest.transform.forward, 1.8f, out Vector3 chestStand, fromPos, chest);
+            bool hasAltar = StandNear(altar.transform.position + Vector3.up * 1.4f, altar.transform.forward, 2.0f, out Vector3 altarStand, fromAltarPos, altar);
             Check("davanti a leggii, scrigno e altare c'e' un posto raggiungibile a piedi dall'arrivo", hasLib && hasChest && hasAltar, $"leggii {hasLib}, scrigno {hasChest}, altare {hasAltar}");
             if (fromPos.HasValue)
             {
@@ -185,6 +191,12 @@ namespace PryingEyes
                 Log("prompt altare: " + gm.hud.CurrentPrompt);
                 Check("prompt dell'altare con il prezzo", gm.hud.CurrentPrompt.Contains("CONSACRAZIONE") && gm.hud.CurrentPrompt.Contains("3000"), gm.hud.CurrentPrompt);
                 if (shots) Shot("libri_altare");
+            }
+
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-shrineprompttest") >= 0)
+            {
+                Log("prompt santuari: " + (passed ? "SUPERATA" : "FALLITA"));
+                Application.Quit(passed ? 0 : 1); yield break;
             }
 
             // ----- 3) la Biblioteca: punti che mancano, acquisto, gli altri libri si chiudono

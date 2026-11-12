@@ -41,10 +41,35 @@ namespace PryingEyes
         bool camShots, cam1done, cam2done, wallShotDone;
         bool wallTestDone, magicTestDone, enemyShotDone, gunTestStarted, leanTestStarted;
         const string REPORT = "C:/Users/danie/Desktop/prying-eyes/hotel_build/autotest.txt";
+        bool returningToMenu;
+
+        /// <summary>Chiude la sessione locale e ricrea la scena iniziale: nessuno stato di una discesa entra nella successiva.</summary>
+        public void ReturnToMenu()
+        {
+            if (returningToMenu) return;
+            returningToMenu = true;
+            Coop.Stop("");
+            StopAllCoroutines();
+            Proc.FloorDirector.I?.StopAllCoroutines();
+            Proc.RoundDirector.ResetRun();
+            Enemy.ClearAll();
+            WallBuy.ClearAll();
+            Proc.Interact.Clear();
+            Proc.LightPool.Clear();
+            Drops.ResetRun();
+            Perks.ResetRun();
+            Targets.Clear();
+            Fx.Clear();
+            Sfx.StopAll();
+            TouchControls.ResetInput();
+            Time.timeScale = 1f;
+            UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+        }
 
         void Awake()
         {
             I = this;
+            shotsFired = shotsHit = damageTaken = 0;
             // i valori serializzati nella scena costruita dall'editor hanno la precedenza sui default:
             // qui riallineo la valuta di partenza al ritmo COD Zombies
             score = 500;
@@ -173,11 +198,11 @@ namespace PryingEyes
 
         /// <summary>Foto su RenderTexture. Con l'HUD: il canvas passa per un attimo in ScreenSpaceCamera, cosi' entra
         /// nella foto (in Overlay non si vede dentro una RenderTexture).</summary>
-        public static void CamShot(string path, Camera cam = null, bool withHud = true)
+        public static void CamShot(string path, Camera cam = null, bool withHud = true, int width = 1280, int height = 720)
         {
             if (cam == null) cam = Camera.main;
             if (cam == null) { Debug.LogWarning("[PryingEyes] camshot: nessuna camera"); return; }
-            const int W = 1280, H = 720;
+            int W = width, H = height;
             var rt = RenderTexture.GetTemporary(W, H, 24);
             var prev = cam.targetTexture;
             cam.targetTexture = rt;

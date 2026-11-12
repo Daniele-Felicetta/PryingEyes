@@ -805,7 +805,7 @@ namespace PryingEyes.Proc
                     float dist = flat.magnitude;
                     if (dist > it.Radius * 0.9f) continue;
                     Vector3 eye = h.position + Vector3.up * 1.5f;
-                    if (!HotelNav.ClearLine(eye, eye + flat.normalized * Mathf.Max(0f, dist - 0.9f))) continue;
+                    if (Vector3.Distance(eye, it.Point) > it.Radius * 0.95f || !Interact.Visible(eye, it.Point, (it as Component)?.transform)) continue;
                     if (NavMesh.CalculatePath(from, h.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete) return true;
                 }
             return false;
@@ -1044,7 +1044,7 @@ namespace PryingEyes.Proc
             float dt = Time.deltaTime;
             if (!GameMenu.Blocked && !transitioning && gm.player.alive)
             {
-                if (Input.GetKeyDown(KeyCode.M)) mapOpen = !mapOpen;
+                if (Input.GetKeyDown(KeyCode.M) || TouchControls.Down(TouchControls.Action.Map)) mapOpen = !mapOpen;
                 if (Input.GetKeyDown(KeyCode.N)) miniMap = !miniMap;
                 var room = cur.RoomAt(gm.player.transform.position);
                 if (room != null) explored.Add(room.id);
@@ -1115,7 +1115,11 @@ namespace PryingEyes.Proc
         {
             if (cur == null || gm == null || gm.player == null || GameMenu.Blocked || transitioning) return;
             if (Event.current.type != EventType.Repaint) return;      // la mappa si disegna e basta: niente liste e stringhe a ogni evento di layout/mouse
-            if (miniMap) DrawMap(new Rect(Screen.width - 220, 18, 202, 202), false);
+            if (miniMap)
+            {
+                float scale = gm.hud != null ? gm.hud.GetComponent<Canvas>().scaleFactor : 1f;
+                DrawMap(new Rect(Screen.width - 220 * scale, 18 * scale, 202 * scale, 202 * scale), false);
+            }
             if (mapOpen) DrawMap(new Rect(Screen.width * 0.12f, Screen.height * 0.1f, Screen.width * 0.76f, Screen.height * 0.8f), true);
         }
 

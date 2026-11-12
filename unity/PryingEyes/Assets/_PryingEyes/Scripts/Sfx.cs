@@ -11,6 +11,12 @@ namespace PryingEyes
         static int next;
         static GameObject host;
 
+        public static void StopAll()
+        {
+            if (pool == null) return;
+            foreach (var source in pool) if (source != null) source.Stop();
+        }
+
         static void Ensure()
         {
             if (host != null) return;

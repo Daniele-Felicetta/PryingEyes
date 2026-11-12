@@ -199,9 +199,10 @@ namespace PryingEyes
             }
 
             // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
-            float ms = sens * weapon.SensMult;           // mira piu' fine in ADS, ancora di piu' con un'ottica ingrandita
-            float dYaw = Input.GetAxis("Mouse X") * ms + TouchControls.Look.x * 4f * weapon.SensMult;
-            float dPitch = -Input.GetAxis("Mouse Y") * ms - TouchControls.Look.y * 4f * weapon.SensMult;
+            float ms = sens * GameSettings.Sensitivity * weapon.SensMult;
+            float touchSens = 4f * GameSettings.Sensitivity * weapon.SensMult;
+            float dYaw = Input.GetAxis("Mouse X") * ms + TouchControls.Look.x * touchSens;
+            float dPitch = -Input.GetAxis("Mouse Y") * ms - TouchControls.Look.y * touchSens;
             yaw += dYaw;
             pitch += dPitch;
             pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
@@ -229,12 +230,13 @@ namespace PryingEyes
                 }
             }
             bool wantCrouch = Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl) || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch);
-            bool wantSprint = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0 && !wantCrouch
+            bool sprintInput = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0;
+            bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
             if ((Input.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;
 
             float hSpeed = new Vector2(vel.x, vel.z).magnitude;
-            if (!slide && wantSprint && wantCrouch && hSpeed > 4.4f && cc.isGrounded)
+            if (!slide && !crouch && sprintInput && wantCrouch && hSpeed > 4.4f && cc.isGrounded)
             {
                 slide = true; slideT = 0.85f; crouch = true;
                 slideDir = new Vector3(vel.x, 0, vel.z).normalized;
@@ -266,7 +268,9 @@ namespace PryingEyes
             // wish dir (yaw plane): forward = (sin yaw, 0, cos yaw) to match camera
             float sin = Mathf.Sin(yaw), cos = Mathf.Cos(yaw);
             Vector3 wish = new Vector3(sin * f + cos * s, 0, cos * f - sin * s);
-            if (wish.sqrMagnitude > 1f) wish.Normalize();
+            float wishAmount = Mathf.Clamp01(wish.magnitude);
+            wish = wish.normalized;
+            maxSpeed *= wishAmount; // lo stick regola la velocità, non la lunghezza della base usata dall'accelerazione
 
             Vector3 hv = new Vector3(vel.x, 0, vel.z);
             if (slide)
@@ -293,6 +297,11 @@ namespace PryingEyes
                     {
                         float acc = Mathf.Min(accelGround * dt * maxSpeed, add);
                         vel.x += wish.x * acc; vel.z += wish.z * acc;
+                    }
+                    else if (add < 0f)
+                    {
+                        float brake = Mathf.Min(-add, accelGround * dt * maxSpeed);
+                        vel.x -= wish.x * brake; vel.z -= wish.z * brake;
                     }
                     Vector3 lat = new Vector3(-wish.z, 0, wish.x);
                     float latV = vel.x * lat.x + vel.z * lat.z;
@@ -352,7 +361,8 @@ namespace PryingEyes
             SpeedH = hs;
             IsSprinting = wantSprint && !slide && hs > 1f;
             IsCrouching = crouch || slide;
-            float bobAmp = (crouch ? 0.45f : 1f) * (1f - weapon.ads * 0.8f) * Mathf.Min(1f, hs / 6f);
+            float motion = GameSettings.Motion;
+            float bobAmp = (crouch ? 0.45f : 1f) * (1f - weapon.ads * 0.8f) * Mathf.Min(1f, hs / 6f) * motion;
             bobPhase += dt * (4f + hs * 1.35f) * (cc.isGrounded ? 1f : 0.15f);
             // un passo per ogni ciclo del dondolio (bobY = sin(2*fase): un ciclo ogni pi greco di fase)
             int stepIdx = Mathf.FloorToInt(bobPhase / Mathf.PI);
@@ -375,8 +385,8 @@ namespace PryingEyes
             eyeH += (targetEye - eyeH) * Mathf.Min(1f, 11f * dt);
 
             Camera c = cam.GetComponent<Camera>();
-            float baseFov = 75f;
-            float targetFov = baseFov + (wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + fovKick
+            float baseFov = GameSettings.Fov;
+            float targetFov = baseFov + ((wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + fovKick) * motion
                 - weapon.ads * (baseFov - wd.adsFov);
             fovKick *= Mathf.Max(0f, 1f - 6f * dt);
             c.fieldOfView += (targetFov - c.fieldOfView) * Mathf.Min(1f, 10f * dt);
@@ -392,7 +402,7 @@ namespace PryingEyes
                 transform.position.x + bobX * cos + right.x * latOff,
                 transform.position.y + eyeH + bobY - drop,
                 transform.position.z - bobX * sin + right.z * latOff);
-            float roll = strafeLean * Mathf.Rad2Deg - lean * leanRoll + (slide ? 5f : 0f);
+            float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll;
             cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP, yaw * Mathf.Rad2Deg + recY, roll);
 
             // --- regen lenta, tensione da survival ---

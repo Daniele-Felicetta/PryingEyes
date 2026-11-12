@@ -11,6 +11,9 @@ Shader "PryingEyes/Reticle"
         _Pattern ("Reticolo (0 punto, 1 anello+punto, 2 anello)", Float) = 0
         _Dot ("Diametro del punto (gradi)", Float) = 0.16
         _Ring ("Raggio dell'anello (gradi)", Float) = 0.54
+        [HideInInspector] _AimForward ("Asse del tiro", Vector) = (0,0,0,0)
+        [HideInInspector] _AimRight ("Destra del tiro", Vector) = (0,0,0,0)
+        [HideInInspector] _AimUp ("Alto del tiro", Vector) = (0,0,0,0)
     }
     SubShader
     {
@@ -36,6 +39,7 @@ Shader "PryingEyes/Reticle"
                 float _Pattern;
                 float _Dot;
                 float _Ring;
+                float4 _AimForward, _AimRight, _AimUp;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; };
@@ -49,6 +53,12 @@ Shader "PryingEyes/Reticle"
                 o.fwd = normalize(TransformObjectToWorldDir(float3(0, 1, 0)));
                 o.up = normalize(TransformObjectToWorldDir(float3(0, 0, -1)));
                 o.right = normalize(TransformObjectToWorldDir(float3(1, 0, 0)));
+                if (dot(_AimForward.xyz, _AimForward.xyz) > 0.5)
+                {
+                    o.fwd = _AimForward.xyz;
+                    o.right = _AimRight.xyz;
+                    o.up = _AimUp.xyz;
+                }
                 return o;
             }
 

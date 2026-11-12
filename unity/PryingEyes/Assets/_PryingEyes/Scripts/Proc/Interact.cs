@@ -16,28 +16,50 @@ namespace PryingEyes.Proc
     {
         static readonly List<IInteract> all = new List<IInteract>();
         static IInteract near;
+        static Transform lastCamera;
 
         public static void Add(IInteract i) { if (!all.Contains(i)) all.Add(i); }
         public static void Remove(IInteract i) { all.Remove(i); if (near == i) near = null; }
-        public static void Clear() { all.Clear(); near = null; }
+        public static void Clear() { all.Clear(); near = null; lastCamera = null; }
+
+        /// <summary>Il primo ostacolo deve essere l'oggetto stesso: niente uso attraverso pareti, vetri o serrande.</summary>
+        public static bool Visible(Transform cam, Vector3 point, Transform owner)
+        {
+            return cam != null && Visible(cam.position, point, owner);
+        }
+
+        public static bool Visible(Vector3 eye, Vector3 point, Transform owner)
+        {
+            Vector3 to = point - eye;
+            float distance = to.magnitude;
+            if (distance < 0.001f) return true;
+            if (!Physics.Raycast(eye, to / distance, out var hit, distance, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) return true;
+            return owner != null && (hit.transform == owner || hit.transform.IsChildOf(owner));
+        }
+
+        static bool Selectable(IInteract it, Transform cam)
+        {
+            if (cam == null || it == null || (it is Object obj && obj == null) || it.Prompt == null) return false;
+            Vector3 to = it.Point - cam.position;
+            float distance = to.magnitude;
+            return distance <= it.Radius && Vector3.Dot(cam.forward, to / Mathf.Max(distance, 0.01f)) >= 0.6f &&
+                Visible(cam, it.Point, (it as Component)?.transform);
+        }
 
         /// <summary>Sceglie cio' che si guarda da vicino e scrive il prompt. Vero se c'e' qualcosa da usare.</summary>
         public static bool Tick(Transform cam)
         {
             var gm = GameManager.I;
-            if (gm == null || gm.hud == null) return false;
             near = null;
+            lastCamera = cam;
+            if (gm == null || gm.hud == null || cam == null) return false;
             float bd = float.MaxValue;
-            Vector3 cp = cam.position, fwd = cam.forward;
             for (int i = all.Count - 1; i >= 0; i--)
             {
                 var it = all[i];
                 if (it == null || (it is Object uo && uo == null)) { all.RemoveAt(i); continue; }
-                if (it.Prompt == null) continue;
-                Vector3 to = it.Point - cp;
-                float d = to.magnitude;
-                if (d > it.Radius || d >= bd) continue;
-                if (Vector3.Dot(fwd, to / Mathf.Max(d, 0.01f)) < 0.6f) continue;
+                float d = Vector3.Distance(it.Point, cam.position);
+                if (d >= bd || !Selectable(it, cam)) continue;
                 near = it; bd = d;
             }
             if (near == null) return false;
@@ -47,7 +69,7 @@ namespace PryingEyes.Proc
 
         public static void TryUse()
         {
-            if (near != null) near.Use();
+            if (!GameMenu.Blocked && Selectable(near, lastCamera)) near.Use();
         }
     }
 }

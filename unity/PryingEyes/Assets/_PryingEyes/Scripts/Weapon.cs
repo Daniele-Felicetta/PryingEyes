@@ -5,7 +5,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace PryingEyes
 {
-    /// <summary>Arma del giocatore: due slot, ventidue... venticinque modelli veri (Resources/Armi), cinque gradi di potenza,
+    /// <summary>Arma del giocatore: due slot, 28 modelli (Resources/Armi), cinque gradi di potenza,
     /// rinculo della visuale con ritorno, dispersione che cresce coi colpi e col movimento, mira con mirini veri
     /// (collimati o con seconda camera per le ottiche), ricarica diversa per tipo, cambio arma, effetti ai colpi.
     /// Le armi si comprano sui muri con i punti (WallBuy.cs).</summary>
@@ -61,6 +61,8 @@ namespace PryingEyes
         Renderer scopeRenderer;
         Material scopeMat;
         float scopeRadius = 0.0185f;
+        Renderer reticleRenderer;
+        readonly MaterialPropertyBlock aimProperties = new MaterialPropertyBlock();
 
         float fireT, cycleT, reloadT, reloadDur, swapT, equipT, lastShot = -99f, flashT;
         int burstLeft, streak, shellsToLoad, shellsLoaded;
@@ -105,7 +107,8 @@ namespace PryingEyes
         public void DebugFire() { if (mag > 0 && cam != null && viewRoot != null) Shoot(Def); }
         public void RenderScopeNow() { LateUpdate(); }
         public float LastShotTime => lastShot;
-        public bool CanFireNow => fireT <= 0f && cycleT <= 0f && !reloading && swapT <= 0f;
+        public bool CanFireNow => fireT <= 0f && cycleT <= 0f && !reloading && swapT <= 0f &&
+            !knifeOut && sprintBlend <= 0.35f && equipT <= Def.drawTime * 0.6f;
 
         // ------------------------------------------------------------------ avvio
         public void Bind(Transform camera, HUD h)
@@ -132,6 +135,8 @@ namespace PryingEyes
             RefreshHud();
         }
 
+        void OnDestroy() => DestroyScope();
+
         void GiveStart()
         {
             int i = WeaponDefs.IndexOf("p9_pieta");
@@ -144,7 +149,8 @@ namespace PryingEyes
         public void ResetLoadout()
         {
             GiveStart();
-            reloading = false; swapT = 0f; burstLeft = 0; bloom = 0f;
+            ResetActionState();
+            swapT = 0f; pendingSlot = -1; knifeOut = false; knifeBlend = 0f;
             if (cam != null) BuildViewmodel();
             RefreshHud();
         }
@@ -178,7 +184,8 @@ namespace PryingEyes
             if (!full) { slots[target].mag = Mathf.Min(MagFor(d, keepUpg), slots[target].mag); }
             bool same = target == cur;
             cur = target;
-            reloading = false; reloadT = 0f; burstLeft = 0; bloom = 0f; recoil = 0f; swapT = 0f; pendingSlot = -1;
+            ResetActionState();
+            swapT = 0f; pendingSlot = -1;
             BuildViewmodel();
             equipT = d.drawTime;
             RefreshHud();
@@ -186,6 +193,7 @@ namespace PryingEyes
         }
 
         public int ReserveOf(int slot) => slots[slot].reserve;
+        public int ReserveMaxOf(int slot) => slots[slot].idx < 0 ? 0 : ReserveMaxFor(WeaponDefs.All[slots[slot].idx], slots[slot].upg);
         public bool Owns(int index) => slots[0].idx == index || slots[1].idx == index;
         public int SlotOf(int index) => slots[0].idx == index ? 0 : slots[1].idx == index ? 1 : -1;
 
@@ -209,10 +217,10 @@ namespace PryingEyes
             RefreshHud();
         }
 
-        /// <summary>Il Reliquiario (Drops.cs): caricatore e riserva al massimo, per entrambe le armi. Una ricarica in corso finisce da sola
-        /// (riempie di zero).</summary>
+        /// <summary>Il Reliquiario (Drops.cs): annulla la ricarica e riempie caricatore e riserva di entrambe le armi.</summary>
         public void MaxAmmo()
         {
+            if (reloading) CancelReload();
             for (int s = 0; s < 2; s++)
             {
                 if (slots[s].idx < 0) continue;
@@ -233,7 +241,8 @@ namespace PryingEyes
                 slots[s].mag = MagFor(d, slots[s].upg);
                 slots[s].reserve = Mathf.Min(ReserveMaxFor(d, slots[s].upg), Mathf.Max(slots[s].reserve, d.reserve));
             }
-            reloading = false; swapT = 0f; pendingSlot = -1;
+            ResetActionState();
+            swapT = 0f; pendingSlot = -1;
             RefreshHud();
         }
 
@@ -247,6 +256,17 @@ namespace PryingEyes
             swapT = 0.16f;
             pendingSlotTime = 0.16f;
             Synth.Mech("holster", 0.5f, 1f);
+        }
+
+        // I tempi e il rinculo appartengono all'arma estratta, non al prossimo slot o alla prossima vita.
+        void ResetActionState()
+        {
+            reloading = false; reloadT = 0f;
+            fireT = cycleT = 0f; burstLeft = 0; cycleAnim = -1f;
+            triggerHeld = dryPlayed = false;
+            bloom = recoil = 0f; streak = 0; streakT = 0f; lastSpread = 0f; lastShotPrev = -99f;
+            adsRaw = ads = 0f;
+            kickBack = kickPitch = kickRoll = 0f;
         }
 
         void ToggleMode()
@@ -354,6 +374,7 @@ namespace PryingEyes
             rig = model.GetComponent<WeaponRig>();
             if (rig == null) rig = model.AddComponent<WeaponRig>();
             rig.Setup();
+            reticleRenderer = rig.reticle != null ? rig.reticle.GetComponent<Renderer>() : null;
             foreach (var r in rig.renderers) { if (r != null) { r.shadowCastingMode = ShadowCastingMode.Off; r.renderingLayerMask = ViewLayer; } }
 
             AddHands(root, d);
@@ -525,6 +546,7 @@ namespace PryingEyes
         {
             if (scopeCam != null) SafeDestroy(scopeCam.gameObject);
             if (scopeRT != null) { scopeRT.Release(); SafeDestroy(scopeRT); }
+            if (scopeMat != null) SafeDestroy(scopeMat);
             scopeCam = null; scopeRT = null; scopeRenderer = null; scopeMat = null;
         }
 
@@ -545,10 +567,13 @@ namespace PryingEyes
             scopeCam = go.AddComponent<Camera>();
             var main = cam.GetComponent<Camera>();
             scopeCam.CopyFrom(main);
+            scopeCam.ResetWorldToCameraMatrix();
+            scopeCam.ResetProjectionMatrix();
             scopeCam.targetTexture = scopeRT;
             scopeCam.cullingMask = ~((1 << 2) | (1 << 5));
             scopeCam.nearClipPlane = 0.15f;
             scopeCam.fieldOfView = 8f;
+            scopeCam.aspect = 1f;
             scopeCam.enabled = false;
             var ad = scopeCam.GetUniversalAdditionalCameraData();
             ad.renderPostProcessing = false;
@@ -563,16 +588,28 @@ namespace PryingEyes
 
         void LateUpdate()
         {
-            if (scopeCam == null || cam == null) return;
+            if (cam == null || rig == null) return;
+            // Un solo asse per proiettile, punto collimato e immagine ingrandita. Il modello può oscillare intorno ad esso.
+            aimProperties.SetVector("_AimOrigin", cam.position);
+            aimProperties.SetVector("_AimForward", cam.forward);
+            aimProperties.SetVector("_AimRight", cam.right);
+            aimProperties.SetVector("_AimUp", cam.up);
+            if (reticleRenderer != null) reticleRenderer.SetPropertyBlock(aimProperties);
+            if (scopeCam == null) return;
             bool on = ads > 0.35f;
             if (scopeMat != null) scopeMat.SetFloat("_Active", Mathf.Clamp01((ads - 0.45f) * 3.5f));
             if (!on) return;
             // il campo della seconda camera: l'ingrandimento e' quello rispetto a come l'occhio vede la lente
-            float dist = Mathf.Max(0.03f, Vector3.Distance(cam.position, scopeCam.transform.position));
-            float alpha = 2f * Mathf.Atan(scopeRadius / dist);
+            float dist = Mathf.Max(0.03f, Vector3.Distance(cam.position, rig.scopeLens.position));
+            var scale = rig.scopeLens.lossyScale;
+            float radius = scopeRadius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+            float alpha = 2f * Mathf.Atan(radius / dist);
             float fov = 2f * Mathf.Atan(Mathf.Tan(alpha * 0.5f) / Mathf.Max(1f, Def.zoom)) * Mathf.Rad2Deg;
             scopeCam.fieldOfView = Mathf.Clamp(fov, 1f, 40f);
-            scopeCam.transform.rotation = viewRoot.rotation * (rig != null ? Quaternion.identity : Quaternion.identity);
+            scopeCam.ResetProjectionMatrix(); // non riutilizzare l'eventuale proiezione jitterata copiata dalla camera principale
+            scopeCam.transform.SetPositionAndRotation(cam.position, cam.rotation);
+            aimProperties.SetFloat("_AimScale", dist / Mathf.Max(0.0001f, radius));
+            scopeRenderer.SetPropertyBlock(aimProperties);
             scopeCam.Render();
         }
 
@@ -599,6 +636,7 @@ namespace PryingEyes
                 {
                     cur = pendingSlot;
                     pendingSlot = -1;
+                    ResetActionState();
                     BuildViewmodel();
                     equipT = Def.drawTime;
                     RefreshHud();
@@ -613,6 +651,7 @@ namespace PryingEyes
                 float wheel = Input.GetAxis("Mouse ScrollWheel");
                 if (Mathf.Abs(wheel) > 0.01f) SwitchSlot(1 - cur);
             }
+            d = Def; // il cambio può essersi concluso in questo stesso fotogramma
             if ((Input.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
 
             // ----- mira
@@ -630,7 +669,8 @@ namespace PryingEyes
             if ((Input.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f && !knifeOut) Reload();
 
             // ----- fuoco
-            fireT -= dt;
+            // Conserva il ritardo del fotogramma quando parte il colpo, senza accumulare credito durante l'attesa.
+            fireT = Mathf.Max(0f, fireT) - dt;
             if (cycleT > 0f) cycleT -= dt;
             bool autoBot = GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire;
             bool press = Input.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f);
@@ -736,7 +776,7 @@ namespace PryingEyes
         public void Reload()
         {
             var d = Def;
-            if (reloading || swapT > 0f) return;
+            if (reloading || swapT > 0f || knifeOut) return;
             if (mag >= magSize || reserve <= 0) return;
             reloading = true;
             reloadT = 0f;
@@ -814,7 +854,7 @@ namespace PryingEyes
             Stealth.NoteShot(d.suppressed);
             Noise.Emit(cam.position, d.suppressed ? 11f : 42f, NoiseKind.Gunshot);
             var m = Mode;
-            fireT = (m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm)) / OwnerPerks.RateMult;    // Doppio colpo: +33% di cadenza
+            fireT += (m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm)) / OwnerPerks.RateMult;    // Doppio colpo: +33% di cadenza
             if (d.cycle > 0f && m != FireMode.Double) StartCycle(d, true);
             streak++; streakT = 0.28f;
             // rinculo della visuale: cresce un poco con la raffica, in mira e accovacciati e' piu' dolce
@@ -983,7 +1023,7 @@ namespace PryingEyes
             if (fill != null) fill.intensity = Mathf.Lerp(0.55f, 0.15f, ads);
 
             // respiro
-            float calm = 1f - ads * 0.7f;
+            float calm = (1f - ads * 0.7f) * GameSettings.Motion;
             pos.x += Mathf.Sin(Time.time * 1.7f) * 0.0030f * calm;
             pos.y += Mathf.Sin(Time.time * 2.3f) * 0.0024f * calm;
             // respiro del tiratore con ottica forte: oscillazione lenta del modello (si ferma tenendo il fiato: Shift)
@@ -995,7 +1035,7 @@ namespace PryingEyes
             }
 
             // passo
-            float bob = Mathf.Clamp01(speed / 5.5f) * (1f - ads * 0.82f);
+            float bob = Mathf.Clamp01(speed / 5.5f) * (1f - ads * 0.82f) * GameSettings.Motion;
             pos.y += Mathf.Sin(Time.time * 8.6f) * 0.0075f * bob;
             pos.x += Mathf.Cos(Time.time * 4.3f) * 0.0065f * bob;
 

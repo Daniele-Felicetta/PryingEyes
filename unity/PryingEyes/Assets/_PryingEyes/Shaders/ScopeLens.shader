@@ -12,6 +12,11 @@ Shader "PryingEyes/ScopeLens"
         _RetColor ("Colore del reticolo", Color) = (0.015, 0.015, 0.015, 1)
         _Lit ("Reticolo acceso (0 nero, 1 rosso luminoso)", Range(0, 1)) = 0
         _Zoom ("Ingrandimento", Float) = 4
+        [HideInInspector] _AimOrigin ("Origine del tiro", Vector) = (0,0,0,0)
+        [HideInInspector] _AimForward ("Asse del tiro", Vector) = (0,0,0,0)
+        [HideInInspector] _AimRight ("Destra del tiro", Vector) = (0,0,0,0)
+        [HideInInspector] _AimUp ("Alto del tiro", Vector) = (0,0,0,0)
+        [HideInInspector] _AimScale ("Scala angolare", Float) = 0
     }
     SubShader
     {
@@ -38,6 +43,8 @@ Shader "PryingEyes/ScopeLens"
                 half4 _RetColor;
                 float _Lit;
                 float _Zoom;
+                float4 _AimOrigin, _AimForward, _AimRight, _AimUp;
+                float _AimScale;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; };
@@ -63,12 +70,20 @@ Shader "PryingEyes/ScopeLens"
 
             half4 frag(Varyings i) : SV_Target
             {
-                float2 p = float2(i.pos.x, -i.pos.z) / _Radius;  // -1..1 sulla lente (x destra, y su)
+                float2 lensP = float2(i.pos.x, -i.pos.z) / _Radius;
                 // ombra: se l'occhio e' fuori asse la lente si sposta e compare una mezzaluna scura
                 float2 shift = clamp(float2(i.eye.x, -i.eye.z) / (_Radius * 1.6), -1.2, 1.2);
-                float r = length(p - shift * 0.55);
+                float r = length(lensP - shift * 0.55);
                 float shadow = smoothstep(1.02, 0.80, r);
-                float edge = smoothstep(1.0, 0.94, length(p));
+                float edge = smoothstep(1.0, 0.94, length(lensP));
+                float2 p = lensP;
+                if (_AimScale > 0.0)
+                {
+                    // Coordina immagine e reticolo nello spazio del tiro, indipendentemente dalla posa della lente.
+                    float3 v = i.posWS - _AimOrigin.xyz;
+                    float z = max(dot(v, _AimForward.xyz), 1e-4);
+                    p = float2(dot(v, _AimRight.xyz), dot(v, _AimUp.xyz)) / z * _AimScale;
+                }
                 float2 uv = p * 0.5 + 0.5;
                 half3 img = SAMPLE_TEXTURE2D(_ScopeTex, sampler_ScopeTex, uv).rgb;
                 // un'ottica raccoglie luce: nel buio dell'albergo l'immagine alzata di esposizione (curva esponenziale: i bianchi non bruciano)

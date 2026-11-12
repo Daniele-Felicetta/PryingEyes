@@ -1,4 +1,18 @@
-# PRYING EYES — FPS in Three.js
+# PRYING EYES — La Torre
+
+La versione principale è il gioco Unity in `unity/PryingEyes`: esplora l'hotel, accendi le candele,
+sopravvivi ai round e scendi con l'ascensore, da solo o in cooperativa fino a quattro giocatori.
+La scena di gioco è `Assets/_PryingEyes/Scenes/Torre.unity`; i dettagli di build sono in fondo a questo documento.
+Le sezioni Three.js e Unreal descrivono le versioni precedenti conservate nel repository.
+
+La revisione in corso aggiunge la guida **Come si gioca** al menu principale e alla pausa, sensibilità,
+campo visivo e riduzione delle oscillazioni nelle impostazioni, mappa touch e stato dei compagni nell'HUD.
+La pausa permette di tornare al menu con conferma, chiudendo la sessione e ripartendo con una nuova partita.
+Prova ripetibile sulla build di verifica: `python tools/check_presentation.py --shots`.
+Armi e movimento: `python tools/check_gunplay.py`; allineamento grafico delle ottiche: aggiungi `--optics`.
+Ambiti verificati e lavoro aperto sono in [docs/quality-audit.md](docs/quality-audit.md).
+
+## Prototipo Three.js
 
 Bozza giocabile di FPS in prima persona. Modelli, audio ed effetti procedurali; texture foto PBR caricate da CDN con fallback procedurale se offline.
 
@@ -227,7 +241,7 @@ Il gioco principale non e' piu' la hall con le ondate ma una discesa a piani gen
 | `H` | Velo (se hai il perk): invisibile per 5 secondi. |
 | `V` | Invia un ping. Per alcuni secondi mostra segnali pulsanti sulle candele ancora spente e sull'ascensore. I nemici vicini lo sentono. |
 
-La mappa rivela le stanze visitate e segna armi, candelabri e uscita incontrati da vicino. Alcuni muri nascondono passaggi bassi: tieni premuto C o Ctrl per attraversarli. I nemici infliggono il 50% di danni in pi�.
+La mappa rivela le stanze visitate e segna armi, candelabri e uscita incontrati da vicino. Alcuni muri nascondono passaggi bassi: tieni premuto C o Ctrl per attraversarli. I nemici infliggono il 50% di danni in più.
 
 L'HUD mostra carica, scorte e attesa prima del prossimo ping. La freccia in alto indica il percorso verso l'ascensore di uscita e segnala quando è aperto.
 
@@ -287,4 +301,4 @@ La scena da includere è `Assets/_PryingEyes/Scenes/Torre.unity`. Unity 6000.6.7
 - iOS: installa iOS Build Support, scegli iOS e fai Build. Apri il progetto generato su un Mac con Xcode, imposta un bundle identifier unico, il team e la firma, poi compila e installa sull'iPhone. Per la distribuzione servono le credenziali e le autorizzazioni Apple appropriate.
 - Android: installa Android Build Support con SDK, NDK e OpenJDK, poi genera un APK per una prova o un AAB firmato per Google Play.
 
-Su iOS e Android il gioco usa il paesaggio: trascina a sinistra per muoverti, trascina nell'area libera a destra per guardare e tieni premuti i pulsanti per le azioni continue. I pulsanti coprono fuoco, mira, salto, accovacciamento, corsa, interazione, ricarica, cambio arma, modo di fuoco, torcia, pila, ping, coltello, lean e pausa. I controlli e le prestazioni devono ancora essere provati e calibrati su dispositivi reali; la versione Web non abilita questi controlli mobili.
+Su iOS e Android il gioco usa il paesaggio: trascina a sinistra per muoverti, trascina nell'area libera a destra per guardare e tieni premuti i pulsanti per le azioni continue. I pulsanti coprono fuoco, mira, salto, accovacciamento, corsa, interazione, ricarica, cambio arma, modo di fuoco, torcia, pila, ping, coltello, Velo, mappa, lean e pausa. La build Web abilita gli stessi controlli quando riconosce un browser mobile. I controlli e le prestazioni devono ancora essere provati e calibrati su dispositivi reali.

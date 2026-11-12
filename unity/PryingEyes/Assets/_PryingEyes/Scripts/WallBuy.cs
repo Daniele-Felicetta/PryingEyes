@@ -14,6 +14,7 @@ namespace PryingEyes
 
         static readonly List<WallBuy> all = new List<WallBuy>();
         static WallBuy near;
+        static Transform lastCamera;
         Light glow;
 
         public int AmmoPrice => Mathf.Max(150, Mathf.RoundToInt(price * 0.5f));
@@ -233,6 +234,7 @@ namespace PryingEyes
         // ---------- interazione ----------
         public static WallBuy Find(Transform cam)
         {
+            if (cam == null) return null;
             WallBuy best = null;
             float bd = float.MaxValue;
             Vector3 cp = cam.position, fwd = cam.forward;
@@ -242,7 +244,8 @@ namespace PryingEyes
                 Vector3 to = w.transform.position - cp;
                 float d = to.magnitude;
                 if (d > 3.4f || d >= bd) continue;
-                if (Vector3.Dot(fwd, to / d) < 0.55f) continue;
+                if (Vector3.Dot(fwd, to / Mathf.Max(d, 0.01f)) < 0.55f) continue;
+                if (!Proc.Interact.Visible(cam, w.transform.position, w.transform)) continue;
                 best = w; bd = d;
             }
             return best;
@@ -252,6 +255,7 @@ namespace PryingEyes
         public static bool Tick(Transform cam)
         {
             var gm = GameManager.I;
+            lastCamera = cam;
             if (gm == null || gm.player == null || gm.hud == null) return false;
             near = Find(cam);
             if (near == null)
@@ -263,7 +267,7 @@ namespace PryingEyes
             var weapon = gm.player.weapon;
             int sl = weapon.SlotOf(near.weaponIndex);
             bool same = sl >= 0;
-            bool full = same && weapon.ReserveOf(sl) >= WeaponDefs.All[near.weaponIndex].reserveMax;
+            bool full = same && weapon.ReserveOf(sl) >= weapon.ReserveMaxOf(sl);
             int cost = same ? near.AmmoPrice : near.price;
             if (full)
                 gm.hud.SetPrompt(near.displayName + " — riserva al massimo");
@@ -283,11 +287,11 @@ namespace PryingEyes
         public static void TryBuy()
         {
             var gm = GameManager.I;
-            if (near == null || gm == null || gm.player == null) return;
+            if (GameMenu.Blocked || near == null || gm == null || gm.player == null || Find(lastCamera) != near) return;
             var weapon = gm.player.weapon;
             int sl = weapon.SlotOf(near.weaponIndex);
             bool same = sl >= 0;
-            bool full = same && weapon.ReserveOf(sl) >= WeaponDefs.All[near.weaponIndex].reserveMax;
+            bool full = same && weapon.ReserveOf(sl) >= weapon.ReserveMaxOf(sl);
             if (same && full) { gm.hud?.Toast("Riserva già al massimo"); return; }
             int cost = same ? near.AmmoPrice : near.price;
             if (gm.score < cost)

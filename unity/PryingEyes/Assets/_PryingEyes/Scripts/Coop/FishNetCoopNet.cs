@@ -1,5 +1,6 @@
 #if PRYINGEYES_FISHNET
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using FishNet.Broadcast;
 using FishNet.Connection;
@@ -30,6 +31,7 @@ namespace PryingEyes
         NetworkManager manager;
         Tugboat transport;
         FishNetSeatAuthenticator auth;
+        SinglePrefabObjects spawnables;
         readonly Dictionary<int, int> slotOfClient = new Dictionary<int, int>();        // ClientId di FishNet -> slot
         readonly Dictionary<int, NetworkConnection> connOfSlot = new Dictionary<int, NetworkConnection>();
         readonly List<int> slotsView = new List<int>();
@@ -55,9 +57,12 @@ namespace PryingEyes
             admission.humanCapacity = CoopProtocol.MaxPlayers - 1;           // l'ospite non e' una connessione
             admission.contentRevision = CoopProtocol.Revision;
             var nm = go.AddComponent<NetworkManager>();
-            nm.SpawnablePrefabs = ScriptableObject.CreateInstance<SinglePrefabObjects>();   // niente oggetti di rete: l'elenco e' vuoto
+            var prefabs = ScriptableObject.CreateInstance<SinglePrefabObjects>();
+            prefabs.name = "CoopSpawnables";
+            nm.SpawnablePrefabs = prefabs;   // niente oggetti di rete: l'elenco e' vuoto
             var net = go.AddComponent<FishNetCoopNet>();
             net.manager = nm; net.transport = tug; net.auth = admission;
+            net.spawnables = prefabs;
             go.SetActive(true);
             return net;
         }
@@ -196,11 +201,18 @@ namespace PryingEyes
                 if (manager.ClientManager != null) manager.ClientManager.StopConnection();
                 if (manager.ServerManager != null) manager.ServerManager.StopConnection(true);
             }
-            Destroy(gameObject, 0.3f);
+            StartCoroutine(DestroyAfterFlush());
+        }
+
+        IEnumerator DestroyAfterFlush()
+        {
+            yield return new WaitForSecondsRealtime(0.3f);
+            Destroy(gameObject);
         }
 
         void OnDestroy()
         {
+            if (spawnables != null) Destroy(spawnables);
             if (manager == null) return;
             if (manager.ServerManager != null)
             {

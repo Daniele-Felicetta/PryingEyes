@@ -17,12 +17,14 @@ namespace PryingEyes
 
         static readonly Color Ink = new Color(0.93f, 0.89f, 0.80f);
         static readonly Color Dim = new Color(0.74f, 0.67f, 0.56f, 0.92f);
-        static readonly Color BtnColor = new Color(0.10f, 0.08f, 0.07f, 0.85f);
+        static readonly Color BtnColor = new Color(0.18f, 0.135f, 0.085f, 0.95f);
 
-        RectTransform backdrop, mainPanel, pausePanel, settingsPanel, settingsFrom, coopPanel;
-        Slider sMaster, sEffects, sMusic, sBrightness;
-        Text vMaster, vEffects, vMusic, vBrightness, coopStatus, pauseNet;
+        RectTransform backdrop, mainPanel, pausePanel, settingsPanel, settingsFrom, coopPanel, helpPanel, helpFrom, leavePanel;
+        Slider sMaster, sEffects, sMusic, sBrightness, sSensitivity, sFov, sMotion;
+        Text vMaster, vEffects, vMusic, vBrightness, vSensitivity, vFov, vMotion, coopStatus, pauseNet, pauseHint;
         InputField coopName, coopAddr;
+        Button hostButton, joinButton;
+        Text leaveNote;
 
         public static void Create()
         {
@@ -32,6 +34,8 @@ namespace PryingEyes
 
         void Awake()
         {
+            I = this;
+            Paused = false;
             Build();
             InMenu = true;
             SyncSliders();
@@ -49,15 +53,48 @@ namespace PryingEyes
         void Update()
         {
             if (Blocked) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
-            if (coopPanel.gameObject.activeSelf && coopStatus != null) coopStatus.text = Coop.Status;
+            if (coopPanel.gameObject.activeSelf && coopStatus != null)
+            {
+                coopStatus.text = Coop.Available ? Coop.Status : "La cooperativa non è disponibile in questa versione.";
+                hostButton.interactable = joinButton.interactable = Coop.Available && !Coop.Active;
+            }
             if (!Input.GetKeyDown(KeyCode.Escape) && !TouchControls.Down(TouchControls.Action.Pause)) return;
             if (settingsPanel.gameObject.activeSelf) { Back(); return; }
+            if (leavePanel.gameObject.activeSelf) { Show(pausePanel); return; }
+            if (helpPanel.gameObject.activeSelf) { Show(helpFrom); return; }
             if (coopPanel.gameObject.activeSelf) { CoopBack(); return; }
             if (InMenu) return;
             if (Paused) Resume(); else Pause();
         }
 
         // ---------- stato ----------
+
+        void OnApplicationFocus(bool focused)
+        {
+            if (!focused && !GameManager.autoTest) Pause();
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            if (paused && !GameManager.autoTest) Pause();
+        }
+
+        void OnDestroy()
+        {
+            if (I != this) return;
+            I = null;
+            Blocked = InMenu = Paused = false;
+            Time.timeScale = 1f;
+        }
+
+        void OpenHelp(RectTransform from) { helpFrom = from; Show(helpPanel); }
+
+        void AskLeave()
+        {
+            leaveNote.text = "La partita attuale verrà chiusa. Progressi, armi e punti di questa discesa andranno persi." +
+                (Coop.IsHost ? "\nI compagni verranno scollegati e potranno proseguire da soli." : "");
+            Show(leavePanel);
+        }
 
         void Play()
         {
@@ -109,8 +146,8 @@ namespace PryingEyes
         void CoopJoin()
         {
             Coop.PlayerName = coopName.text;
-            if (Coop.StartJoin(coopAddr.text)) coopStatus.text = Coop.Status;
-            else coopStatus.text = Coop.Status;
+            Coop.StartJoin(coopAddr.text);
+            coopStatus.text = Coop.Status;
         }
 
         void CoopBack()
@@ -125,6 +162,7 @@ namespace PryingEyes
             if (InMenu || Paused) return;
             Paused = true;
             if (pauseNet != null) pauseNet.text = NetInfo();
+            if (pauseHint != null) pauseHint.text = Coop.Active ? "Gli altri continuano a giocare. Esc per riprendere." : "La partita è sospesa. Esc per riprendere.";
             Show(pausePanel);
             Refresh();
         }
@@ -157,6 +195,14 @@ namespace PryingEyes
             pausePanel.gameObject.SetActive(p == pausePanel);
             settingsPanel.gameObject.SetActive(p == settingsPanel);
             coopPanel.gameObject.SetActive(p == coopPanel);
+            helpPanel.gameObject.SetActive(p == helpPanel);
+            leavePanel.gameObject.SetActive(p == leavePanel);
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+                var first = p != null ? p.GetComponentInChildren<Button>() : null;
+                if (first != null) EventSystem.current.SetSelectedGameObject(first.gameObject);
+            }
         }
 
         void Refresh()
@@ -176,16 +222,21 @@ namespace PryingEyes
             SetSlider(sEffects, vEffects, GameSettings.Effects);
             SetSlider(sMusic, vMusic, GameSettings.Music);
             SetSlider(sBrightness, vBrightness, GameSettings.Brightness);
+            SetSlider(sSensitivity, vSensitivity, GameSettings.Sensitivity, SensText);
+            SetSlider(sFov, vFov, GameSettings.Fov, FovText);
+            SetSlider(sMotion, vMotion, GameSettings.Motion);
         }
 
-        static void SetSlider(Slider s, Text v, float x)
+        static void SetSlider(Slider s, Text v, float x, System.Func<float, string> format = null)
         {
             if (s == null) return;
             s.SetValueWithoutNotify(x);
-            v.text = Pct(x);
+            v.text = (format ?? Pct)(x);
         }
 
         static string Pct(float v) => Mathf.RoundToInt(v * 100f) + "%";
+        static string SensText(float v) => v.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "×";
+        static string FovText(float v) => Mathf.RoundToInt(v) + "°";
 
         // ---------- costruzione ----------
 
@@ -197,21 +248,25 @@ namespace PryingEyes
             var scaler = gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280, 720);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
             gameObject.AddComponent<GraphicRaycaster>();
             if (FindAnyObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 
             backdrop = Stretch(transform as RectTransform, "Velo");
             var veil = backdrop.gameObject.AddComponent<Image>();
-            veil.color = new Color(0f, 0f, 0f, 0.62f);
+            veil.color = new Color(0.025f, 0.032f, 0.04f, 0.90f);
 
             mainPanel = Stretch(backdrop, "Principale");
-            Label(mainPanel, "Titolo", new Vector2(0, 170), new Vector2(1000, 90), 76, TextAnchor.MiddleCenter, "PRYING EYES", Ink, FontStyle.Normal);
-            Label(mainPanel, "Sottotitolo", new Vector2(0, 100), new Vector2(1000, 34), 24, TextAnchor.MiddleCenter, "Il Grand Hotel non chiude mai.", Dim, FontStyle.Italic);
-            MakeButton(mainPanel, "Gioca", new Vector2(0, 40), Play);
-            MakeButton(mainPanel, "Cooperativa", new Vector2(0, -26), OpenCoop);
-            MakeButton(mainPanel, "Impostazioni", new Vector2(0, -92), () => OpenSettings(mainPanel));
-            MakeButton(mainPanel, "Esci", new Vector2(0, -158), Quit);
+            Label(mainPanel, "Titolo", new Vector2(0, 220), new Vector2(1000, 90), 76, TextAnchor.MiddleCenter, "PRYING EYES", Ink, FontStyle.Normal);
+            Label(mainPanel, "Sottotitolo", new Vector2(0, 150), new Vector2(1000, 34), 24, TextAnchor.MiddleCenter, "Il Grand Hotel non chiude mai.", Dim, FontStyle.Italic);
+            Rule(mainPanel, 110);
+            Rule(mainPanel, -210);
+            MakeButton(mainPanel, "Gioca", new Vector2(0, 70), Play);
+            MakeButton(mainPanel, "Cooperativa", new Vector2(0, 10), OpenCoop);
+            MakeButton(mainPanel, "Come si gioca", new Vector2(0, -50), () => OpenHelp(mainPanel));
+            MakeButton(mainPanel, "Impostazioni", new Vector2(0, -110), () => OpenSettings(mainPanel));
+            MakeButton(mainPanel, "Esci", new Vector2(0, -170), Quit);
             // tre righe corte (una sola, lunga, usciva dallo schermo): movimento, armi, furtivo
             Label(mainPanel, "Comandi", new Vector2(0, -236), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
                 "WASD muovi · Shift corri · C accovacciati · Spazio salta · Q/E sporgi · F usa e compra · Esc pausa", Dim, FontStyle.Italic);
@@ -222,11 +277,19 @@ namespace PryingEyes
 
             pausePanel = Stretch(backdrop, "Pausa");
             Label(pausePanel, "Titolo", new Vector2(0, 170), new Vector2(1000, 80), 60, TextAnchor.MiddleCenter, "In pausa", Ink, FontStyle.Normal);
-            Label(pausePanel, "Sottotitolo", new Vector2(0, 100), new Vector2(1000, 34), 22, TextAnchor.MiddleCenter, "Esc per riprendere", Dim, FontStyle.Italic);
+            pauseHint = Label(pausePanel, "Sottotitolo", new Vector2(0, 100), new Vector2(1000, 34), 22, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
             MakeButton(pausePanel, "Riprendi", new Vector2(0, 10), Resume);
             MakeButton(pausePanel, "Impostazioni", new Vector2(0, -60), () => OpenSettings(pausePanel));
-            MakeButton(pausePanel, "Esci dal gioco", new Vector2(0, -130), Quit);
-            pauseNet = Label(pausePanel, "Rete", new Vector2(0, -200), new Vector2(1100, 28), 18, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+            MakeButton(pausePanel, "Come si gioca", new Vector2(0, -130), () => OpenHelp(pausePanel));
+            MakeButton(pausePanel, "Torna al menu", new Vector2(0, -200), AskLeave);
+            MakeButton(pausePanel, "Esci dal gioco", new Vector2(0, -270), Quit);
+            pauseNet = Label(pausePanel, "Rete", new Vector2(0, 62), new Vector2(1100, 36), 16, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+
+            leavePanel = Stretch(backdrop, "LasciaPartita");
+            Label(leavePanel, "Titolo", new Vector2(0, 150), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Tornare al menu?", Ink, FontStyle.Normal);
+            leaveNote = Label(leavePanel, "Conseguenze", new Vector2(0, 45), new Vector2(900, 110), 22, TextAnchor.MiddleCenter, "", Dim, FontStyle.Normal);
+            MakeButton(leavePanel, "Annulla", new Vector2(0, -60), () => Show(pausePanel));
+            MakeButton(leavePanel, "Lascia la partita", new Vector2(0, -130), () => GameManager.I?.ReturnToMenu());
 
             coopPanel = Stretch(backdrop, "Cooperativa");
             Label(coopPanel, "Titolo", new Vector2(0, 200), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Cooperativa", Ink, FontStyle.Normal);
@@ -235,8 +298,8 @@ namespace PryingEyes
             coopName = MakeInput(coopPanel, new Vector2(60, 98), new Vector2(340, 40), "Giocatore");
             Label(coopPanel, "EtichettaIndirizzo", new Vector2(-250, 44), new Vector2(200, 28), 20, TextAnchor.MiddleLeft, "Indirizzo", Dim, FontStyle.Normal);
             coopAddr = MakeInput(coopPanel, new Vector2(60, 44), new Vector2(340, 40), "192.168.1.10");
-            MakeButton(coopPanel, "Ospita una partita", new Vector2(0, -34), CoopHost);
-            MakeButton(coopPanel, "Unisciti all'indirizzo", new Vector2(0, -100), CoopJoin);
+            hostButton = MakeButton(coopPanel, "Ospita una partita", new Vector2(0, -34), CoopHost);
+            joinButton = MakeButton(coopPanel, "Unisciti all'indirizzo", new Vector2(0, -100), CoopJoin);
             coopStatus = Label(coopPanel, "Stato", new Vector2(0, -156), new Vector2(1100, 30), 20, TextAnchor.MiddleCenter, "", Ink, FontStyle.Italic);
             Label(coopPanel, "Nota", new Vector2(0, -190), new Vector2(1100, 26), 16, TextAnchor.MiddleCenter,
                 "Chi ospita deve aprire la porta UDP 7807 sul router. Nella stessa rete basta l'indirizzo locale.", Dim, FontStyle.Italic);
@@ -244,20 +307,41 @@ namespace PryingEyes
 
             settingsPanel = Stretch(backdrop, "Impostazioni");
             Label(settingsPanel, "Titolo", new Vector2(0, 200), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Impostazioni", Ink, FontStyle.Normal);
-            sBrightness = Row(settingsPanel, 112, "Luminosità", GameSettings.Brightness, GameSettings.SetBrightness, out vBrightness);
-            sMaster = Row(settingsPanel, 30, "Volume generale", GameSettings.Master, GameSettings.SetMaster, out vMaster);
-            sEffects = Row(settingsPanel, -52, "Effetti sonori", GameSettings.Effects, GameSettings.SetEffects, out vEffects);
-            sMusic = Row(settingsPanel, -134, "Musica", GameSettings.Music, GameSettings.SetMusic, out vMusic);
+            var view = Rect(settingsPanel, "Visuale", new Vector2(460, 420), new Vector2(-285, 0));
+            var audio = Rect(settingsPanel, "Audio", new Vector2(460, 420), new Vector2(285, 0));
+            sBrightness = Row(view, 112, "Luminosità", GameSettings.Brightness, GameSettings.SetBrightness, out vBrightness);
+            sFov = Row(view, 30, "Campo visivo", GameSettings.Fov, GameSettings.SetFov, out vFov, 60f, 105f, FovText);
+            sSensitivity = Row(view, -52, "Sensibilità mira", GameSettings.Sensitivity, GameSettings.SetSensitivity, out vSensitivity, 0.25f, 3f, SensText);
+            sMotion = Row(view, -134, "Oscillazione visuale", GameSettings.Motion, GameSettings.SetMotion, out vMotion);
+            sMaster = Row(audio, 112, "Volume generale", GameSettings.Master, GameSettings.SetMaster, out vMaster);
+            sEffects = Row(audio, 30, "Effetti sonori", GameSettings.Effects, GameSettings.SetEffects, out vEffects);
+            sMusic = Row(audio, -52, "Musica", GameSettings.Music, GameSettings.SetMusic, out vMusic);
+            Label(audio, "Comfort", new Vector2(0, -134), new Vector2(440, 68), 18, TextAnchor.MiddleLeft,
+                "Riduci l'oscillazione per una visuale più stabile. Le modifiche si applicano subito.", Dim, FontStyle.Italic);
             MakeButton(settingsPanel, "Indietro", new Vector2(0, -240), Back);
+
+            helpPanel = Stretch(backdrop, "Guida");
+            Label(helpPanel, "Titolo", new Vector2(0, 235), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "La Torre", Ink, FontStyle.Normal);
+            Label(helpPanel, "Obiettivo", new Vector2(0, 150), new Vector2(1000, 60), 23, TextAnchor.MiddleCenter,
+                "Accendi tutte le candele del piano. Raggiungi l'ascensore aperto e scendi.", Ink, FontStyle.Normal);
+            Label(helpPanel, "Furtivo", new Vector2(0, 60), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
+                "MUOVITI NELL'OMBRA\nTorcia, corsa e spari attirano le presenze. Accovacciati e usa i ripari. Il coltello alle spalle è silenzioso.", Dim, FontStyle.Normal);
+            Label(helpPanel, "Round", new Vector2(0, -35), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
+                "PREPARATI PRIMA DI ACCENDERE\nAlcune candele abbassano le serrande: sopravvivi al round per riaprirle. Fai scorta di munizioni prima di accenderle.", Dim, FontStyle.Normal);
+            Label(helpPanel, "Risorse", new Vector2(0, -130), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
+                "ESPLORA E SCEGLI\nCompra armi ai muri, cerca pile e libri nei santuari. Se muori perdi metà dei punti e l'ultimo perk acquistato.", Dim, FontStyle.Normal);
+            MakeButton(helpPanel, "Indietro", new Vector2(0, -240), () => Show(helpFrom));
         }
 
-        Slider Row(Transform parent, float y, string name, float init, UnityAction<float> set, out Text value)
+        Slider Row(Transform parent, float y, string name, float init, UnityAction<float> set, out Text value,
+            float min = 0f, float max = 1f, System.Func<float, string> format = null)
         {
-            Label(parent, name, new Vector2(-260, y + 30), new Vector2(400, 32), 22, TextAnchor.MiddleLeft, name, Ink, FontStyle.Normal);
-            var vt = Label(parent, name + " valore", new Vector2(260, y + 30), new Vector2(140, 32), 22, TextAnchor.MiddleRight, Pct(init), Ink, FontStyle.Normal);
+            format = format ?? Pct;
+            Label(parent, name, new Vector2(-50, y + 36), new Vector2(320, 32), 22, TextAnchor.MiddleLeft, name, Ink, FontStyle.Normal);
+            var vt = Label(parent, name + " valore", new Vector2(160, y + 36), new Vector2(100, 32), 22, TextAnchor.MiddleRight, format(init), Ink, FontStyle.Normal);
             value = vt;
-            var sl = MakeSlider(parent, new Vector2(0, y), init);
-            sl.onValueChanged.AddListener(v => { set(v); vt.text = Pct(v); });
+            var sl = MakeSlider(parent, new Vector2(0, y), init, min, max);
+            sl.onValueChanged.AddListener(v => { set(v); vt.text = format(v); });
             return sl;
         }
 
@@ -270,6 +354,12 @@ namespace PryingEyes
             rt.sizeDelta = size;
             rt.anchoredPosition = pos;
             return rt;
+        }
+
+        static void Rule(Transform parent, float y)
+        {
+            var line = Rect(parent, "Ottone", new Vector2(500, 1), new Vector2(0, y)).gameObject.AddComponent<Image>();
+            line.color = new Color(0.64f, 0.49f, 0.28f, 0.55f); line.raycastTarget = false;
         }
 
         static RectTransform Stretch(Transform parent, string name)
@@ -286,7 +376,7 @@ namespace PryingEyes
             t.font = HUD.Serif();
             t.fontSize = fs; t.alignment = a; t.text = s; t.color = col; t.fontStyle = style;
             t.raycastTarget = false;
-            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
             var sh = rt.gameObject.AddComponent<Shadow>();
             sh.effectColor = new Color(0f, 0f, 0f, 0.8f);
             sh.effectDistance = new Vector2(1.5f, -1.5f);
@@ -315,13 +405,16 @@ namespace PryingEyes
             var rt = Rect(parent, "Pulsante " + label, new Vector2(340, 54), pos);
             var img = rt.gameObject.AddComponent<Image>();
             img.color = BtnColor;
+            var edge = rt.gameObject.AddComponent<Outline>();
+            edge.effectColor = new Color(0.64f, 0.49f, 0.28f, 0.50f);
+            edge.effectDistance = new Vector2(1f, -1f);
             var b = rt.gameObject.AddComponent<Button>();
             b.targetGraphic = img;
             var cb = b.colors;
             cb.normalColor = Color.white;
             cb.highlightedColor = new Color(1.6f, 1.35f, 1.0f, 1f);
             cb.pressedColor = new Color(0.7f, 0.6f, 0.5f, 1f);
-            cb.selectedColor = Color.white;
+            cb.selectedColor = new Color(1.5f, 1.3f, 1.0f, 1f);
             b.colors = cb;
             b.onClick.AddListener(click);
             Label(rt, "Testo", Vector2.zero, new Vector2(340, 54), 24, TextAnchor.MiddleCenter, label, Ink, FontStyle.Normal);
@@ -329,21 +422,21 @@ namespace PryingEyes
         }
 
         /// <summary>Cursore orizzontale in stile hotel: binario scuro, riempimento ottone, maniglia avorio.</summary>
-        static Slider MakeSlider(Transform parent, Vector2 pos, float init)
+        static Slider MakeSlider(Transform parent, Vector2 pos, float init, float min, float max)
         {
-            var root = Rect(parent, "Cursore", new Vector2(520, 20), pos);
+            var root = Rect(parent, "Cursore", new Vector2(420, 32), pos);
             var track = root.gameObject.AddComponent<Image>();
             track.color = new Color(0f, 0f, 0f, 0.6f);
 
             var fillArea = Stretch(root, "Riempimento");
-            fillArea.offsetMin = new Vector2(5, 6); fillArea.offsetMax = new Vector2(-5, -6);
+            fillArea.offsetMin = new Vector2(5, 14); fillArea.offsetMax = new Vector2(-5, -14);
             var fill = Stretch(fillArea, "Fill");
             var fillImg = fill.gameObject.AddComponent<Image>();
             fillImg.color = new Color(0.78f, 0.62f, 0.36f);
 
             var handleArea = Stretch(root, "Area maniglia");
             handleArea.offsetMin = new Vector2(10, 0); handleArea.offsetMax = new Vector2(-10, 0);
-            var handle = Rect(handleArea, "Maniglia", new Vector2(14, 28), Vector2.zero);
+            var handle = Rect(handleArea, "Maniglia", new Vector2(12, 0), Vector2.zero);
             var handleImg = handle.gameObject.AddComponent<Image>();
             handleImg.color = Ink;
 
@@ -351,7 +444,7 @@ namespace PryingEyes
             sl.targetGraphic = handleImg;
             sl.fillRect = fill;
             sl.handleRect = handle;
-            sl.minValue = 0f; sl.maxValue = 1f;
+            sl.minValue = min; sl.maxValue = max;
             sl.SetValueWithoutNotify(init);
             return sl;
         }

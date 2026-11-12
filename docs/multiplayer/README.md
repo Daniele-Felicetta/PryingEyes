@@ -78,8 +78,10 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-2`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
+Revisione **`pe-coop-3`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
+La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
+fino al punto d'uso effettivo, quindi può scegliere una posizione diversa. Tutti devono usare la stessa build.
 
 | Direzione | Messaggi |
 | --- | --- |
@@ -136,8 +138,8 @@ la torcia accesa; ha anche fatto trovare un'inversione (il fascio del compagno s
 - Rientro nello stesso slot dopo un'uscita (l'ospite riassegna il primo slot libero; la prova di entrata tardiva c'e', quella di
   rientro no).
 - **I compagni sono manichini semplici** (capsule e sfere, colore diverso per slot): al buio si vedono quasi solo il nome e il fascio
-  della torcia. Non c'e' un elenco giocatori ne' la vita dei compagni sullo schermo. Un modello vero (come il monaco, ma
-  chiaramente diverso da un nemico) e' da fare.
+  della torcia. L'HUD ora elenca i compagni con vita relativa, distanza e stato di attesa/rinascita
+  (`Scripts/Coop/HUD.Coop.cs`, verificato da `-uitest`). Un modello vero, chiaramente diverso da un nemico, e' da fare.
 - Sicurezza: l'ospite si fida dei colpi dichiarati (il danno e' solo limitato tra 0 e 100000, senza controllo di distanza o
   cadenza) e delle candele che un ospitato dice di accendere; le gocce invece le controlla (entro 4,5 m). Nessuna cifratura.
   E' pensata per giocare tra amici.

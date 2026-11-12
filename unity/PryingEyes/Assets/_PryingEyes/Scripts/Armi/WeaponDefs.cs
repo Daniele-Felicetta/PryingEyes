@@ -103,7 +103,7 @@ namespace PryingEyes
         };
     }
 
-    /// <summary>L'arsenale: 25 armi in cinque gradi di potenza.</summary>
+    /// <summary>L'arsenale: 28 armi in cinque gradi di potenza.</summary>
     public static class WeaponDefs
     {
         static readonly FireMode[] A = { FireMode.Auto }, S = { FireMode.Semi }, AS = { FireMode.Auto, FireMode.Semi },
