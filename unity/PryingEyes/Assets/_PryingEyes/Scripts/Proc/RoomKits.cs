@@ -69,6 +69,7 @@ namespace PryingEyes.Proc
         /// <summary>Direzione (asse) lungo la quale la chiesa guarda l'altare: dal nartece al presbiterio.</summary>
         static Vector3 ChurchAxis(Ctx c)
         {
+            if (c.plan.grid) return GridChurchAxis(c);
             var pres = c.plan.FindIn(RoomKind.Presbiterio, c.r.unit);
             var nar = c.plan.FindIn(RoomKind.Nartece, c.r.unit);
             if (pres == null || nar == null) return Vector3.right;
@@ -95,6 +96,8 @@ namespace PryingEyes.Proc
 
             ReserveOpenings(c);
             if (r.kind != RoomKind.Corridoio && r.kind != RoomKind.Navata) ReserveSpokes(c);
+            // arena di una candela (pianta a griglia): le colonne prima di tutto, cosi' gli arredi e la candela le aggirano
+            if (r.type == RoomType.Candela) ArenaColumns(c);
             // teatro e sanatorio: il candelabro dell'obiettivo sceglie il posto PRIMA degli arredi. Con gli arredi gia' messi, nelle stanze piccole
             // (depositi, camerini, palchi) non restava un posto libero e il ripiego lo metteva al centro, l'incrocio dei tracciati riservati,
             // chiudendo la stanza. I corridoi riservano la loro corsia nella ricetta, quindi restano nell'ordine di prima.
@@ -140,6 +143,7 @@ namespace PryingEyes.Proc
                 case RoomKind.SalaMedici: SalaMedici(c); break;
             }
             if (!objectiveFirst && !r.IsLift && c.plan.objectives.Contains(r.id)) Objective(c);
+            if (r.type == RoomType.Candela) ArenaBenches(c);
             if (r.church) PortalCandles(c);
             var window = WindowLights(c);
             Fill(c, window != null);
@@ -636,6 +640,7 @@ namespace PryingEyes.Proc
         static void Spawns(Ctx c)
         {
             if (c.r.IsLift) return;
+            if (c.r.type == RoomType.Segreta) return;       // la stanza segreta e' raggiungibile solo a carponi: nessuno nasce li' dentro (resterebbe sull'isola della navmesh)
             var r = c.r;
             Vector3 ctr = c.Center;
             bool corridor = r.kind == RoomKind.Corridoio;

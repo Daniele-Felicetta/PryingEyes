@@ -27,6 +27,12 @@ namespace PryingEyes.Proc
         Accettazione, Degenza, Corsia, Cella, Refettorio, SalaOperatoria, Lavanderia, Archivio, Obitorio, SalaMedici
     }
 
+    /// <summary>Il ruolo di una stanza nella pianta a griglia (PlanGrid.cs), come i tipi di stanza di The Binding of Isaac: Partenza
+    /// (l'ascensore di arrivo), Guardia (pattuglie), Candela (l'arena di un round), Negozio (armi a muro e scrigno), Biblioteca (i libri dei
+    /// perk), Segreta (si entra solo da un passaggio basso: l'altare della consacrazione) e Boss (a guardia dell'uscita). Nelle piante
+    /// di prima ogni stanza e' Normale.</summary>
+    public enum RoomType { Normale, Partenza, Guardia, Candela, Negozio, Biblioteca, Segreta, Boss }
+
     public enum CeilKind { Flat, Beams, Gable, BarrelRound, BarrelPointed }
 
     public enum OpenStyle { Porta, PortaLarga, Arco, Arcata, Finestra, Lancetta, Feritoia, Ascensore, Passaggio }
@@ -35,6 +41,7 @@ namespace PryingEyes.Proc
     {
         public int id;
         public RoomKind kind;
+        public RoomType type;               // ruolo nella pianta a griglia (Normale nelle piante di prima)
         public bool church;                 // ala della chiesa (le altre sono albergo)
         public int x0, z0, x1, z1;          // decimetri, [x0,x1) x [z0,z1)
         public float wallH = 3f, ridgeH = 3f;   // metri: altezza dei muri e del punto piu' alto del soffitto
@@ -122,6 +129,25 @@ namespace PryingEyes.Proc
         public int units = 1;
         /// <summary>Stanze dove sta un candelabro da accendere (obiettivo del piano).</summary>
         public List<int> objectives = new List<int>();
+        /// <summary>Pianta a griglia (PlanGrid.cs): poche stanze grandi con un ruolo (RoomType), da una a quattro porte ciascuna.</summary>
+        public bool grid;
+
+        /// <summary>Le stanze di un ruolo (nella pianta a griglia).</summary>
+        public List<Room> OfType(RoomType t)
+        {
+            var res = new List<Room>();
+            foreach (var r in rooms) if (r.type == t) res.Add(r);
+            return res;
+        }
+
+        /// <summary>Quante porte vere (non finestre, non ascensori, non passaggi bassi) ha una stanza.</summary>
+        public int DoorCount(Room r)
+        {
+            int n = 0;
+            foreach (var o in openings)
+                if ((o.a == r.id || o.b == r.id) && o.b >= 0 && !o.oneSided && o.style != OpenStyle.Ascensore && o.style != OpenStyle.Passaggio) n++;
+            return n;
+        }
 
         public const int T = 3;   // spessore dei muri (dm)
 

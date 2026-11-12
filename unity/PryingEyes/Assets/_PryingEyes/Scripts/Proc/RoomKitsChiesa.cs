@@ -151,7 +151,7 @@ namespace PryingEyes.Proc
             var fr = MakeFrame(c, ax);
             float Lf = fr.Lf, Lr = fr.Lr;
             // altare e pala contro il muro in fondo
-            Prop(c, "chi_pala", fr.P(Lf - 0.3f, Lr * 0.5f), -fr.f, 1f, false);
+            Prop(c, "chi_pala", fr.P(Lf - 0.3f, Lr * 0.5f), -fr.f, 1f, !FarWallBlind(c, fr.f));    // senza controllo degli ingombri solo se il muro e' cieco
             Prop(c, "chi_altare", fr.P(Lf - 2.2f, Lr * 0.5f), -fr.f);
             Candle(c, "chi_candelabro", fr.P(Lf - 2.0f, Lr * 0.5f - 2.0f), -fr.f, true);
             Candle(c, "chi_candelabro", fr.P(Lf - 2.0f, Lr * 0.5f + 2.0f), -fr.f, true);
@@ -177,11 +177,11 @@ namespace PryingEyes.Proc
         // ---------------------------------------------------------------- cappella
         static void Cappella(Ctx c)
         {
-            Side ds = MainSide(c);
+            Side ds = AltarEntrance(c);       // griglia: l'altare sta contro un muro senza porte (RoomKitsArena.cs)
             var fr = MakeFrame(c, Inward(ds));
             float Lf = fr.Lf, Lr = fr.Lr;
             Vector3 toDoor = -fr.f;
-            var pg = Prop(c, "chi_pala", fr.P(Lf - 0.28f, Lr * 0.5f), toDoor, Mathf.Min(1f, (Lr - 0.3f) / 3.4f), false, 0f);
+            var pg = Prop(c, "chi_pala", fr.P(Lf - 0.28f, Lr * 0.5f), toDoor, Mathf.Min(1f, (Lr - 0.3f) / 3.4f), !FarWallBlind(c, fr.f), 0f);
             Prop(c, "chi_altare", fr.P(Lf - 1.15f, Lr * 0.5f), toDoor, Mathf.Min(1f, (Lr - 0.4f) / 2.4f));
             Candle(c, "chi_ceri", fr.P(Lf - 1.0f, Lr * 0.5f - 1.5f), toDoor, c.rng.Chance(0.7));
             Candle(c, "chi_ceri", fr.P(Lf - 1.0f, Lr * 0.5f + 1.5f), toDoor, c.rng.Chance(0.7));

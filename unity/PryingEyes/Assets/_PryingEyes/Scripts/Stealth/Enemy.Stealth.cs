@@ -260,6 +260,7 @@ namespace PryingEyes
         // ------------------------------------------------------------------ dove andare
         Vector3 PickPatrolGoal(Vector3 gp)
         {
+            if (hasHome) return PickHomeGoal(gp);           // una guardia gira nella sua stanza (pianta a griglia)
             var pts = PatrolPoints;
             if (pts.Count > 0)
                 for (int tries = 0; tries < 8; tries++)

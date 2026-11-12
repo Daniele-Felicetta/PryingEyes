@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace PryingEyes
 {
@@ -18,6 +19,30 @@ namespace PryingEyes
             alert = Alert.Hunting;
             awareness = 1f;
             if (eye != null) { eye.lookAt = GameManager.I.player.cam; eye.glowBoost = 1.9f; }
+        }
+
+        /// <summary>Guardia (pianta a griglia): pattuglia solo la sua stanza, tra due angoli (x, z in metri). Quando ti perde o finisce di
+        /// cercarti ci torna da solo, perche' la prossima meta e' sempre dentro. Non serializzato, come relentless.</summary>
+        [System.NonSerialized] public bool hasHome;
+        [System.NonSerialized] public Vector2 homeMin, homeMax;
+
+        public void SetHome(Vector2 min, Vector2 max)
+        {
+            hasHome = true; homeMin = min; homeMax = max;
+        }
+
+        /// <summary>Un punto a caso della stanza di casa, sulla navmesh, ad almeno 3,5 m da dove sta; se non si trova, dove sta.</summary>
+        Vector3 PickHomeGoal(Vector3 gp)
+        {
+            for (int tries = 0; tries < 12; tries++)
+            {
+                var p = new Vector3(Random.Range(homeMin.x, homeMax.x), gp.y, Random.Range(homeMin.y, homeMax.y));
+                if (Flat(p - gp).magnitude < 3.5f) continue;
+                if (!NavMesh.SamplePosition(p, out NavMeshHit h, 1.8f, NavMesh.AllAreas)) continue;
+                if (h.position.x < homeMin.x - 0.6f || h.position.x > homeMax.x + 0.6f || h.position.z < homeMin.y - 0.6f || h.position.z > homeMax.y + 0.6f) continue;
+                return h.position;
+            }
+            return gp;
         }
 
         /// <summary>Lo sposta (una serranda che cala lo toglie dalla soglia). Chi cammina passa dall'agente, chi vola no.</summary>

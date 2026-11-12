@@ -569,7 +569,18 @@ namespace PryingEyes
         {
             // COD Zombies: 60 punti per uccisione, 100 se letale alla testa, 130 col coltello (i +10 dei colpi arrivano da Damage)
             int pts = Punti.PerUccisione(src, headshot);
-            if (proc) { kills++; AddPoints(pts); Drops.OnKill(e, src); return; }
+            if (proc)
+            {
+                kills++; AddPoints(pts); Drops.OnKill(e, src);
+                // Sete di sangue: il coltello cura (poco in faccia, molto alle spalle)
+                float heal = Perks.BloodHeal(src);
+                if (heal > 0f && player != null && player.alive)
+                {
+                    player.Heal(heal);
+                    hud?.Flash(Perks.Of(PerkId.SeteDiSangue).color, 0.35f, 0.18f);
+                }
+                return;
+            }
             alive--;
             kills++;
             AddPoints(pts);

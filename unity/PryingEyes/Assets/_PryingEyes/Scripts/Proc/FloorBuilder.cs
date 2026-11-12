@@ -195,6 +195,7 @@ namespace PryingEyes.Proc
             var roof = new MeshBuilder();
             var archTrim = new MeshBuilder();
             var doors = new MeshBuilder();
+            var frames = new MeshBuilder();
 
             // pavimento: sotto i muri fino alla linea di mezzo, cosi' alle soglie non resta nessun buco
             shell.Quad(st.floor, new Vector3(x0, 0, z0), new Vector3(x0, 0, z1), new Vector3(x1, 0, z1), new Vector3(x1, 0, z0),
@@ -218,10 +219,22 @@ namespace PryingEyes.Proc
                 }
             }
 
+            // pianta a griglia: ogni porta ha la cornice (e la soglia) del colore della stanza che sta dall'altra parte, come le porte di Isaac
+            if (plan.grid)
+                foreach (var o in plan.openings)
+                {
+                    if ((o.a != r.id && o.b != r.id) || o.b < 0 || o.oneSided || o.style == OpenStyle.Ascensore) continue;
+                    var other = plan.rooms[o.a == r.id ? o.b : o.a];
+                    var fm = FrameMat(other.type);
+                    if (fm == null) continue;
+                    DoorFrame(frames, r, o, fm, !(r.church && other.church));
+                }
+
             Flush(go, "Guscio", shell, true, null);
             Flush(go, "Soffitto", roof, true, fi.ceilings);
             Flush(go, "Cornici in pietra", archTrim, false, null);
             Flush(go, "Portale aperto", doors, true, null);
+            Flush(go, "Cornici di tipo", frames, false, null);
 
             // il collider del pavimento e' un blocco: niente caduta tra i triangoli
             var floorGo = new GameObject("Pavimento");
@@ -232,6 +245,75 @@ namespace PryingEyes.Proc
 
             var window = RoomKits.Dress(fi, r, go.transform);
             if (r.church && ProcKit.HasMat("foschia_chiesa")) ChurchHaze(go.transform, x0, x1, z0, z1, r.wallH, window);
+        }
+
+        // ------------------------------------------------------------------ cornici delle porte per tipo di stanza
+        static readonly Dictionary<RoomType, Material> frameMats = new Dictionary<RoomType, Material>();
+
+        /// <summary>Colore della cornice di una porta che porta in una stanza di questo tipo (nullo: nessuna cornice). La stessa tavolozza
+        /// delle icone della minimappa.</summary>
+        public static Color FrameColor(RoomType t)
+        {
+            switch (t)
+            {
+                case RoomType.Candela: return new Color(1.00f, 0.42f, 0.10f);       // fuoco: qui c'e' una candela e un round
+                case RoomType.Negozio: return new Color(1.00f, 0.78f, 0.22f);       // oro: armi e scrigno
+                case RoomType.Biblioteca: return new Color(0.62f, 0.40f, 1.00f);    // viola: i libri dei perk
+                case RoomType.Boss: return new Color(0.90f, 0.10f, 0.14f);          // cremisi: il guardiano dell'uscita
+                case RoomType.Segreta: return new Color(0.30f, 0.95f, 0.85f);       // turchese: il passaggio basso
+                case RoomType.Partenza: return new Color(0.35f, 1.00f, 0.55f);      // verde: dove sei arrivato
+                case RoomType.Guardia: return new Color(0.55f, 0.66f, 0.80f);       // acciaio: pattuglie
+                default: return new Color(0f, 0f, 0f, 0f);
+            }
+        }
+
+        static Material FrameMat(RoomType t)
+        {
+            var c = FrameColor(t);
+            if (c.a <= 0f) return null;
+            if (frameMats.TryGetValue(t, out var m) && m != null) return m;
+            m = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "cornice_" + t };
+            m.SetColor("_BaseColor", c * 0.22f);
+            m.SetFloat("_Smoothness", 0.25f);
+            m.EnableKeyword("_EMISSION");
+            m.SetColor("_EmissionColor", c * (t == RoomType.Guardia ? 0.55f : 1.35f));
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            frameMats[t] = m;
+            return m;
+        }
+
+        /// <summary>La cornice di una porta vista dalla stanza 'room': due montanti e un architrave (o un arco acuto) sulla faccia del muro,
+        /// e una striscia di soglia sul pavimento. Senza collisione. 'wall' falso: sui conci delle arcate di pietra non si mette la cornice
+        /// (ci sarebbe dentro), resta la soglia.</summary>
+        static void DoorFrame(MeshBuilder mb, Room room, Opening o, Material mat, bool wall)
+        {
+            bool ax = o.alongX;
+            Vector3 along = ax ? Vector3.right : Vector3.forward;
+            Vector3 across = ax ? Vector3.forward : Vector3.right;
+            Vector3 inside = across * (((ax ? room.z1 : room.x1) == o.line) ? -1f : 1f);
+            float hw = o.width * 0.05f;
+            Vector3 origin = along * M(o.center) + across * M(o.line);
+            Vector3 P(float x, float y, float depth) => origin + along * x + Vector3.up * y + inside * depth;
+            // soglia: una lastra sottile sul pavimento, dalla linea del muro fin dentro la stanza (ogni stanza disegna la sua meta': non si sovrappongono)
+            const float strip = 0.012f;
+            mb.Quad(mat, P(-hw, strip, 0f), P(hw, strip, 0f), P(hw, strip, TH + 0.22f), P(-hw, strip, TH + 0.22f),
+                    new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1), Vector3.up);
+            if (!wall) return;
+            const float t = 0.10f, dep = 0.05f, d = TH + dep * 0.5f + 0.004f;
+            float spring = o.Pointed ? o.Head(hw, hw) : o.top;
+            foreach (int side in new[] { -1, 1 })
+                mb.Beam(mat, P(side * (hw + t * 0.5f), 0f, d), P(side * (hw + t * 0.5f), spring, d), t, dep, inside);
+            if (!o.Pointed)
+                mb.Beam(mat, P(-hw - t, o.top + t * 0.5f, d), P(hw + t, o.top + t * 0.5f, d), t, dep, inside);
+            else
+            {
+                const int segs = 12;
+                for (int i = 0; i < segs; i++)
+                {
+                    float x0 = Mathf.Lerp(-hw, hw, i / (float)segs), x1 = Mathf.Lerp(-hw, hw, (i + 1f) / segs);
+                    mb.Beam(mat, P(x0, o.Head(x0, hw) + t * 0.5f, d), P(x1, o.Head(x1, hw) + t * 0.5f, d), t, dep, inside);
+                }
+            }
         }
 
         static void ChurchHaze(Transform room, float x0, float x1, float z0, float z1, float height, Light window)

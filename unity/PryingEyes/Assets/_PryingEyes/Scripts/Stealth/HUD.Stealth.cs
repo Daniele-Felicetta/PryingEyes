@@ -243,13 +243,14 @@ namespace PryingEyes
         void UpdateEyes(Camera cam)
         {
             int n = 0;
+            bool seeAll = Perks.EyeOn;      // Occhio della Torre: dopo un ping si vedono anche i preti che pattugliano, attraverso i muri
             foreach (var e in Enemy.All)
             {
                 if (e == null || e.IsDead) continue;
-                if (e.alert == Alert.Patrol && e.awareness < 0.07f) continue;
+                if (!seeAll && e.alert == Alert.Patrol && e.awareness < 0.07f) continue;
                 Vector3 head = e.MarkerPoint;
                 float dist = Vector3.Distance(head, cam.transform.position);
-                if (dist > 44f) continue;
+                if (dist > (seeAll ? 70f : 44f)) continue;
                 var t = GetTag(eyeTags, n++, "Occhio", new Vector2(58f, 36f), false);
                 t.rt.gameObject.SetActive(true);
                 PlaceTag(t, cam, head, out Vector2 dir, out bool off);
@@ -271,10 +272,12 @@ namespace PryingEyes
                         float a = Mathf.Clamp01((e.awareness - 0.05f) / 0.95f);
                         open = Mathf.Clamp(Mathf.RoundToInt(a * 4.2f), 0, 4);
                         col = Color.Lerp(new Color(0.92f, 0.90f, 0.84f), new Color(1f, 0.72f, 0.25f), a);
+                        // chi non ti ha notato e si vede solo grazie all'Occhio: occhio mezzo chiuso, verde acqua come il perk
+                        if (seeAll && a <= 0.02f) { open = 2; col = Perks.Of(PerkId.Occhio).color; }
                         break;
                     }
                 }
-                col.a = off ? 0.92f : Mathf.Clamp01(1.25f - dist / 44f);
+                col.a = off ? 0.92f : Mathf.Clamp01(1.25f - dist / (seeAll ? 70f : 44f));
                 t.icon.sprite = EyeSprite(open, pupil);
                 t.icon.color = col;
                 t.rt.localScale = Vector3.one * (off ? 0.85f : 1f) * scale;

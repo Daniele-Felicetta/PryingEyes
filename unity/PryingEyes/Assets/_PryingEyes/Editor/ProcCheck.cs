@@ -28,7 +28,7 @@ namespace PryingEyes.EditorTools
             if (player != null) player.SetActive(false);
             var kit = Object.FindFirstObjectByType<ProcKit>();
             TorreBuilder.FillKit(kit);
-            int badFloors = 0, roomsBad = 0, roomsAll = 0, candlesBad = 0, exitBad = 0, liftBad = 0, rawProblems = 0, rawRooms = 0, stillBad = 0;
+            int badFloors = 0, roomsBad = 0, roomsAll = 0, candlesBad = 0, exitBad = 0, liftBad = 0, rawProblems = 0, rawRooms = 0, stillBad = 0, secrets = 0, clearedAll = 0;
             var sb = new StringBuilder();
             var kindBad = new Dictionary<string, int>();
             float tBuild = 0f, tNav = 0f;
@@ -59,7 +59,7 @@ namespace PryingEyes.EditorTools
                     foreach (var dgR in dgPre) dgNames.Add($"{dgR.kind}@{dgDist[dgR.id]:F0}m");
                     sb.AppendLine($"seme {seed} piano {floor}: navmesh x {dgMinX:F0}..{dgMaxX:F0} z {dgMinZ:F0}..{dgMaxZ:F0} m; piano x {plan.minX * 0.1f:F0}..{plan.maxX * 0.1f:F0} z {plan.minZ * 0.1f:F0}..{plan.maxZ * 0.1f:F0} m; {plan.units} ali, {plan.rooms.Count} stanze; prima della riparazione: {dgPre.Count} stanze irraggiungibili [{string.Join(" ", dgNames.GetRange(0, Mathf.Min(8, dgNames.Count)))}], {dgCandles} candele, uscita {(dgExit ? "no" : "ok")}");
                     int stripped = Connectivity.Repair(fi, out int before);
-                    if (before > 0) { rawProblems++; rawRooms += stripped; }
+                    if (before > 0) { rawProblems++; rawRooms += stripped; clearedAll += Connectivity.LastCleared; }
                     var left = Connectivity.Unreachable(fi, out int cbLeft, out bool exitLeft);
                     if (left.Count + cbLeft + (exitLeft ? 1 : 0) > 0)
                     {
@@ -110,6 +110,7 @@ namespace PryingEyes.EditorTools
                 foreach (var r in plan.rooms)
                 {
                     if (r.IsLift) continue;
+                    if (r.type == RoomType.Segreta) { secrets++; continue; }     // pianta a griglia: si entra solo a carponi da un passaggio basso, la navmesh (agente alto 1,9 m) non ci arriva
                     roomsAll++;
                     var ctr = new Vector3(r.CenterX, 0f, r.CenterZ);
                     // il centro puo' cadere su un arredo: si prova qualche punto attorno
@@ -137,8 +138,8 @@ namespace PryingEyes.EditorTools
                 if (bad) badFloors++;
                 Cleanup(fi);
             }
-            sb.AppendLine($"[PryingEyes] CHECK piani con problemi prima della riparazione: {rawProblems} su {n} ({rawRooms} stanze svuotate); ancora rotti dopo: {stillBad}");
-            sb.AppendLine($"[PryingEyes] CHECK {n} piani: con problemi {badFloors}; stanze {roomsAll}, irraggiungibili {roomsBad}; candele irraggiungibili {candlesBad}; uscite {exitBad}; cabine isolate {liftBad}; " +
+            sb.AppendLine($"[PryingEyes] CHECK piani con problemi prima della riparazione: {rawProblems} su {n} ({rawRooms} stanze svuotate, {clearedAll} arredi tolti dai varchi); ancora rotti dopo: {stillBad}");
+            sb.AppendLine($"[PryingEyes] CHECK {n} piani: con problemi {badFloors}; stanze {roomsAll} (piu' {secrets} segrete a carponi), irraggiungibili {roomsBad}; candele irraggiungibili {candlesBad}; uscite {exitBad}; cabine isolate {liftBad}; " +
                           $"costruzione media {tBuild / n * 1000f:F0} ms, navmesh media {tNav / n * 1000f:F0} ms");
             foreach (var kv in kindBad) sb.AppendLine($"[PryingEyes] CHECK irraggiungibili per tipo: {kv.Key} x{kv.Value}");
             Debug.Log(sb.ToString());

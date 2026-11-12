@@ -16,7 +16,7 @@ namespace PryingEyes
         // ------------------------------------------------------------------ scena
         /// <summary>Uno spiazzo libero per le scene di prova: dove sta il bersaglio e in che direzione guarda 'dir'. Dietro di lui, a 1,9 m,
         /// sta il giocatore, e a 3,2 m dal giocatore (di fianco) un testimone. Tutto sulla navmesh e senza muri o mobili in mezzo.</summary>
-        static bool FindOpenSpot(FloorInstance fi, out Vector3 spot, out Vector3 dir)
+        static bool FindOpenSpot(FloorInstance fi, out Vector3 spot, out Vector3 dir, float back = 1.9f)
         {
             spot = Vector3.zero; dir = Vector3.forward;
             Vector3[] dirs = { Vector3.right, Vector3.left, Vector3.forward, Vector3.back };
@@ -25,14 +25,14 @@ namespace PryingEyes
                                     && !Physics.CheckSphere(fh.position + up1, 0.55f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
             foreach (var r in fi.plan.rooms)
             {
-                if (r.IsLift) continue;
+                if (r.IsLift || r.type == RoomType.Segreta) continue;      // la stanza segreta e' un posto a parte (si entra a carponi)
                 float x0 = r.x0 * 0.1f + 1.3f, x1 = r.x1 * 0.1f - 1.3f, z0 = r.z0 * 0.1f + 1.3f, z1 = r.z1 * 0.1f - 1.3f;
                 for (float x = x0; x <= x1; x += 0.8f)
                     for (float z = z0; z <= z1; z += 0.8f)
                         foreach (var d in dirs)
                         {
                             var m = new Vector3(x, 0f, z);
-                            var pp = m - d * 1.9f;
+                            var pp = m - d * back;
                             var ww = pp + Vector3.Cross(Vector3.up, d) * 3.2f;
                             if (!Free(m) || !Free(pp) || !Free(ww)) continue;
                             if (!HotelNav.ClearLine(m + up1, pp + up1) || !HotelNav.ClearLine(pp + up1, ww + up1)) continue;

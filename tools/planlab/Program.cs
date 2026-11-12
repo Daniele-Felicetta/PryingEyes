@@ -12,13 +12,34 @@ static class Program
 {
     static int Main(string[] a)
     {
+        // "old" in qualunque posizione: le ali d'albergo e di chiesa di prima, al posto della griglia
+        if (Array.IndexOf(a, "old") >= 0) { PlanGen.UseGrid = false; a = Array.FindAll(a, x => x != "old"); }
         string cmd = a.Length > 0 ? a[0] : "stats";
+        if (cmd == "grid") return GridStats(a.Length > 1 ? int.Parse(a[1]) : 1000);
+        if (cmd == "dump") return Dump(int.Parse(a[1]), int.Parse(a[2]));
         if (cmd == "passages") return Passages();
         if (cmd == "regions") return Regions(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "stats") return Stats(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "map") { Map(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         if (cmd == "sheet") { Sheet(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         return 1;
+    }
+
+    // Le stanze (ruolo, funzione, rettangolo in dm) e le aperture di un piano, a testo: per capire una prova fallita senza aprire Unity.
+    //   dotnet run -c Release -- dump <seme del piano> <piano>      (il seme del piano e' quello che il gioco scrive: "piano 1 seme 4059")
+    static int Dump(int seed, int floor)
+    {
+        var p = PlanGen.Generate(seed, floor);
+        if (p == null) { Console.WriteLine("piano non generato: " + PlanGen.LastFailure); return 1; }
+        Console.WriteLine($"piano {floor} seme {p.seed}: tema {p.theme}, {p.rooms.Count} stanze, arrivo = stanza {p.start}, uscita = stanza {p.exit}, griglia {p.grid}");
+        foreach (var r in p.rooms)
+            Console.WriteLine($"  stanza {r.id,2} {r.type,-10} {r.kind,-12} x {r.x0}..{r.x1} z {r.z0}..{r.z1}  ({r.W / 10f:F1} x {r.D / 10f:F1} m)");
+        foreach (var o in p.openings)
+        {
+            if (o.b < 0) continue;
+            Console.WriteLine($"  apertura {o.a,2}-{o.b,-2} {o.style,-10} {(o.alongX ? "lungo x" : "lungo z")} linea {o.line} centro {o.center} larga {o.width / 10f:F1} m");
+        }
+        return 0;
     }
 
     static int Passages()
@@ -87,6 +108,77 @@ static class Program
         for (int fl = 1; fl <= 12; fl++) if (byFloor.TryGetValue(fl, out var v2)) Console.WriteLine($"  piano {fl}: {v2.r}/{v2.c} ({v2.r * 100 / Math.Max(1, v2.c)}%)");
         foreach (var kv in why) Console.WriteLine($"  scartate: {kv.Key} x{kv.Value}");
         return 0;
+    }
+
+    // Piante a griglia (fase 4): quanti piani riescono, quante stanze e di che tipo, porte per stanza, zone dei round, ascensori.
+    //   dotnet run -c Release -- grid 2000
+    static int GridStats(int n)
+    {
+        int fail = 0, plans = 0, bad = 0;
+        var sw = Stopwatch.StartNew();
+        var attempts = new int[81]; var reasons = new Dictionary<string, int>();
+        double rooms = 0, area = 0, windows = 0, walk = 0, hops = 0;
+        var degHist = new int[8]; var types = new Dictionary<RoomType, int>(); var kinds = new Dictionary<RoomKind, int>();
+        var cutsHist = new int[8]; var cells = new Dictionary<string, int>(); var themeN = new Dictionary<Theme, int>();
+        double maxW = 0, maxD = 0, minArena = 1e9, maxArena = 0, arenaSum = 0; int arenaN = 0;
+        var secretLinks = 0; int secretN = 0, passages = 0;
+        for (int i = 0; i < n; i++)
+        {
+            int seed = 1000 + i * 17, floor = 1 + i % 12;
+            var p = PlanGen.Generate(seed, floor);
+            if (p == null) { fail++; string r = PlanGen.LastFailure; reasons[r] = reasons.TryGetValue(r, out int c) ? c + 1 : 1; continue; }
+            plans++; attempts[PlanGen.LastAttempts]++;
+            themeN[p.theme] = themeN.TryGetValue(p.theme, out int tn) ? tn + 1 : 1;
+            if (!PlanGen.Validate(p, out string why) || !PlanGen.ValidateGrid(p, out why)) { bad++; Console.WriteLine($"seme {seed} piano {floor}: {why}"); }
+            foreach (var o in p.openings) { if (o.b < 0 && !o.oneSided) windows++; if (o.style == OpenStyle.Passaggio) passages++; }
+            int real = 0;
+            foreach (var r in p.rooms)
+            {
+                if (r.IsLift) continue;
+                real++;
+                area += r.W * r.D / 100.0;
+                int d = p.DoorCount(r); degHist[Math.Min(7, d)]++;
+                types[r.type] = types.TryGetValue(r.type, out int tc) ? tc + 1 : 1;
+                kinds[r.kind] = kinds.TryGetValue(r.kind, out int kc) ? kc + 1 : 1;
+                int cw = (int)Math.Round(r.W / 96.0), ch = (int)Math.Round(r.D / 96.0);
+                string key = cw + "x" + ch; cells[key] = cells.TryGetValue(key, out int cc) ? cc + 1 : 1;
+                if (r.type == RoomType.Segreta) { secretN++; foreach (var o in p.openings) if ((o.a == r.id || o.b == r.id) && o.b >= 0 && o.style != OpenStyle.Ascensore && !o.oneSided) secretLinks++; }
+            }
+            rooms += real;
+            maxW = Math.Max(maxW, (p.maxX - p.minX) / 10.0); maxD = Math.Max(maxD, (p.maxZ - p.minZ) / 10.0);
+            walk += p.WalkDist(p.start)[p.exit]; hops += p.Hops(p.start)[p.exit];
+            foreach (var reg in RoundRegions.Find(p)) { cutsHist[Math.Min(7, reg.cuts.Count)]++; arenaN++; arenaSum += reg.area; minArena = Math.Min(minArena, reg.area); maxArena = Math.Max(maxArena, reg.area); }
+        }
+        sw.Stop();
+        int ok = Math.Max(1, plans);
+        Console.WriteLine($"{n} piani in {sw.ElapsedMilliseconds} ms ({sw.ElapsedMilliseconds / (double)n:F2} ms/piano), falliti {fail}, controlli falliti {bad}");
+        Console.Write("tentativi: "); for (int i = 1; i <= 80; i++) if (attempts[i] > 0) Console.Write($"{i}:{attempts[i]} "); Console.WriteLine();
+        foreach (var kv in reasons) Console.WriteLine($"  motivo: {kv.Key} x{kv.Value}");
+        Console.WriteLine($"stanze {rooms / ok:F1} per piano, area {area / ok:F0} m2, finestre {windows / ok:F1}, ingombro massimo {maxW:F0} x {maxD:F0} m, cammino arrivo-uscita {walk / ok:F0} m ({hops / ok:F1} porte)");
+        Console.Write("porte per stanza: "); for (int k = 0; k < degHist.Length; k++) if (degHist[k] > 0) Console.Write($"{k}:{degHist[k] * 100.0 / rooms:F0}% "); Console.WriteLine();
+        Console.Write("ruoli per piano: "); foreach (var kv in types) Console.Write($"{kv.Key} {kv.Value / (double)ok:F2}  "); Console.WriteLine();
+        Console.Write("misure (celle): "); foreach (var kv in cells) Console.Write($"{kv.Key} {kv.Value * 100.0 / rooms:F0}%  "); Console.WriteLine();
+        Console.WriteLine($"stanze segrete: {secretN}, con una sola via ({secretLinks} collegamenti), passaggi bassi in tutto {passages / (double)ok:F1} per piano");
+        Console.Write("serrande per arena: "); for (int k = 1; k < cutsHist.Length; k++) if (cutsHist[k] > 0) Console.Write($"{k}:{cutsHist[k]} "); Console.WriteLine();
+        Console.WriteLine($"arene: {arenaN} (media {arenaSum / Math.Max(1, arenaN):F0} m2, min {minArena:F0}, max {maxArena:F0})");
+        foreach (var kv in themeN) Console.WriteLine($"  tema {kv.Key}: {kv.Value} piani");
+        Console.Write("funzioni: "); foreach (var kv in kinds) Console.Write($"{kv.Key} {kv.Value / (double)ok:F2}  "); Console.WriteLine();
+        return fail == 0 && bad == 0 ? 0 : 2;
+    }
+
+    static (byte r, byte g, byte b) RoomCol(Plan p, Room r)
+    {
+        if (!p.grid || r.IsLift) return Col[r.kind];
+        switch (r.type)
+        {
+            case RoomType.Partenza: return (90, 190, 110);
+            case RoomType.Boss: return (190, 60, 60);
+            case RoomType.Candela: return (225, 140, 60);
+            case RoomType.Negozio: return (230, 200, 90);
+            case RoomType.Biblioteca: return (150, 110, 220);
+            case RoomType.Segreta: return (80, 200, 200);
+            default: return (110, 125, 145);
+        }
     }
 
     static int Stats(int n)
@@ -168,7 +260,7 @@ static class Program
         }
         foreach (var r in p.rooms)
         {
-            Fill(r.x0, r.z0, r.x1, r.z1, Col[r.kind]);
+            Fill(r.x0, r.z0, r.x1, r.z1, RoomCol(p, r));
             var wall = ((byte)15, (byte)15, (byte)15);
             Fill(r.x0, r.z0, r.x1, r.z0 + 1, wall); Fill(r.x0, r.z1 - 1, r.x1, r.z1, wall);
             Fill(r.x0, r.z0, r.x0 + 1, r.z1, wall); Fill(r.x1 - 1, r.z0, r.x1, r.z1, wall);

@@ -25,6 +25,7 @@ namespace PryingEyes
             I.guide = go.AddComponent<Guide>();
             SoundBank.WarmStealth();
             SoundBank.WarmKnife();
+            SoundBank.WarmPerks();
             I.knife = go.AddComponent<Knife>();
             I.knife.Init(gm.player.cam);
             var clip = SoundBank.Heartbeat;

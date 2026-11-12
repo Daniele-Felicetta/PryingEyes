@@ -1,0 +1,89 @@
+--- posizionamento
+piano 5 seme 777: stanze 13, Biblioteca 7:Suite[0,0..84,100], Scrigno 3:Suite[468,200..552,292], Altare 0:Servizio[292,100..384,200]
+ok       la Biblioteca c'e' con tre leggii   [3 leggii]
+ok       lo Scrigno c'e'
+ok       l'altare della Consacrazione c'e'
+ok       tre stanze diverse
+ok       nessuna nella stanza di una candela
+ok       nessuna dentro una zona sigillabile
+ok       tre perk diversi
+ok       davanti a leggii, scrigno e altare c'e' un posto raggiungibile a piedi dall'arrivo   [leggii True, scrigno True, altare True]
+ok       il controllo del gioco (ShrineUsable) approva tutti i santuari
+ok       la navmesh non entra nei leggii, nello scrigno e nell'altare
+--- prompt
+prompt libro: IL LIBRO DELL'OCCHIO: OCCHIO DELLA TORRE — il ping mostra i nemici nei muri; testa x1,25 — 2000 punti   [F]
+ok       il prompt del libro nomina il perk e il prezzo   [IL LIBRO DELL'OCCHIO: OCCHIO DELLA TORRE — il ping mostra i nemici nei muri; testa x1,25 — 2000 punti   [F]]
+prompt scrigno: SCRIGNO — un'arma a caso — 950 punti   [F]
+ok       prompt dello Scrigno con il prezzo   [SCRIGNO — un'arma a caso — 950 punti   [F]]
+prompt altare: CONSACRAZIONE — PIETÀ P-9: danno x1,7, caricatore x1,5 — 3000 punti   [F]
+ok       prompt dell'altare con il prezzo   [CONSACRAZIONE — PIETÀ P-9: danno x1,7, caricatore x1,5 — 3000 punti   [F]]
+--- Biblioteca
+ok       con 100 punti il libro non si compra
+ok       il primo libro costa 2000   [2000 punti]
+ok       gli altri due libri si richiudono
+ok       un libro sigillato non si compra
+ok       il prompt del libro sigillato lo dice   [IL LIBRO È SIGILLATO — ne hai già scelto un altro]
+ok       il libro letto non ha piu' prompt
+ok       il prossimo perk costa 2500   [2500]
+--- posti e prezzi
+ok       prezzi progressivi 2000, 2500, 3000, 4000
+ok       quattro perk: posti pieni, niente piu' prezzo
+ok       con i posti pieni non si aggiunge altro
+ok       con i posti pieni la Biblioteca non si costruisce
+ok       dopo il reset non c'e' nessun perk
+--- effetti
+ok       Pelle di pietra: vita massima 150 e subito piena   [hp 150/150]
+ok       Pelle di pietra: la barra si allunga   [330 px]
+ok       Mani svelte: la ricarica dura il 60%   [1,85 s -> 1,12 s]
+ok       Doppio colpo: la cadenza sale di un terzo   [133 ms -> 100 ms tra i colpi]
+ok       Rinascita: la prima morte del piano ti rialza sul posto   [vivo True, hp 50]
+ok       Rinascita: tre secondi di tregua
+ok       Rinascita: l'icona si spegne (usata)
+ok       Rinascita: al piano dopo e' di nuovo pronta
+ok       Passi di cenere: il rumore dei passi cala del 40%   [7,1 m -> 4,3 m]
+ok       Passi di cenere: senza il perk il fattore e' 1
+ok       Velo: la vista dei preti cala del 30%   [7,5 m -> 5,2 m]
+ok       Velo attivo: parte col tasto
+ok       Velo attivo: i preti ti vedono solo a due passi   [1,5 m]
+ok       Velo: non si riusa subito
+ok       Velo: dopo cinque secondi il mantello cade
+ok       Velo: resta il tempo di recupero   [0,99]
+ok       Occhio: prima del ping le etichette sono quelle di sempre
+ok       Occhio: dopo il ping si vedono i preti nei muri   [6,0 s]
+ok       senza il perk il ping non mostra nulla di piu'
+ok       Sete di sangue: chi spara non si cura   [hp 40]
+ok       Sete di sangue: il coltello cura 25   [hp 65]
+ok       Sete di sangue: la presa alle spalle cura 40   [hp 100]
+--- danno
+raggio verso la testa: occhio a (0.20, 1.53, 0.00) dal monaco, camera a 1,62 m; Monaco(CapsuleCollider,Untagged) 2,70 m; occhio(SphereCollider,Head) 2,71 m; 
+colpo alla testa: base 50,0, con Occhio 62,5
+ok       Occhio: il colpo alla testa fa 1,25 volte   [50,0 -> 62,5]
+--- Consacrazione
+ok       prima dell'altare l'arma non e' consacrata
+ok       l'altare costa 3000 e consacra l'arma   [3000 punti]
+ok       caricatore e riserva x1,5, caricatore pieno   [15 -> 23, riserva 150 -> 225]
+ok       il nome nell'HUD e' dorato con la scritta   [PIETÀ P-9  <size=13><color=#F5C84C>CONSACRATA</color></size>]
+ok       una volta sola per arma
+ok       il prompt dice che e' gia' consacrata   [L'ARMA IN MANO È GIÀ CONSACRATA]
+ok       Consacrazione: il danno e' 1,7 volte   [50,0 -> 85,0]
+ok       riempire la riserva tiene la consacrazione   [225/225]
+ok       ricomprare la stessa arma non la sconsacra
+ok       un'altra arma non e' consacrata
+ok       tornando alla prima e' di nuovo consacrata
+--- Scrigno
+ok       con 10 punti lo Scrigno non si apre
+ok       lo Scrigno costa 950 e si apre   [950 punti]
+ok       durante l'apertura non ha prompt
+ok       dopo il giro offre un'arma   [Offering]
+ok       l'arma offerta e' una che non hai   [CAPPELLANO]
+prompt offerta: PRENDI CAPPELLANO — doppietta, grado 2 (scelta)
+ok       F prende l'arma   [CAPPELLANO]
+ok       lo Scrigno si richiude
+ok       se non la prendi in tempo lo Scrigno si richiude senza arma   [punti 1050]
+gradi al piano 1: 182 706 365 226 21   al piano 7: 37 377 463 482 141
+ok       lo Scrigno non offre la pistola di partenza ne' armi che hai
+ok       escono tutti i cinque gradi, e al piano 7 piu' alti
+--- morte
+ok       morire costa meta' dei punti e l'ultimo perk   [vivo False, punti 1500, perk 1]
+ok       rinasci con la vita massima del momento   [hp 150/150]
+ESITO: ok

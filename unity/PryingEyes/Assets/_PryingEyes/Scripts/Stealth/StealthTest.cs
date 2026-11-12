@@ -402,6 +402,9 @@ namespace PryingEyes
             foreach (var o in reg.cuts)
             {
                 int area = RoundDirector.AreaOf(o);
+                // un passaggio basso (pianta a griglia: 1,3 m, si passa a carponi) e' piu' basso dell'agente della navmesh: li' non c'e'
+                // navmesh da marcare e i nemici non lo attraversano comunque; la serranda lo chiude solo al giocatore
+                if (o.style == OpenStyle.Passaggio && o.top < 1.9f) { Log($"info: soglia bassa (passaggio largo {o.width * 0.1f:F1} m, alto {o.top:F1} m): fuori dalla navmesh, i nemici non ci passano"); continue; }
                 bool marked = area >= HotelNav.FirstDoorArea && NavMesh.SamplePosition(DoorPoint(o) + Vector3.up * 0.1f, out NavMeshHit mh, 1.2f, 1 << area);
                 Check("soglia marcata nella navmesh", marked, $"area {area}, apertura {o.style} larga {o.width * 0.1f:F1} m");
             }
@@ -429,6 +432,7 @@ namespace PryingEyes
                 bool pathAll = NavMesh.CalculatePath(outside, inside, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
                 bool pathOpen = NavMesh.CalculatePath(outside, inside, HotelNav.EnemyMask, path) && path.status == NavMeshPathStatus.PathComplete;
                 Check("serranda: ferma vista e colpi", blocked, o.style.ToString());
+                if (o.style == OpenStyle.Passaggio && o.top < 1.9f) { Check("passaggio basso: nessuna strada per i nemici", !pathOpen, $"tutte le aree {pathAll}, aree aperte {pathOpen}"); continue; }
                 Check("navmesh: tra fuori e dentro c'e' strada solo con le serrande alzate", pathAll && !pathOpen, $"tutte le aree {pathAll}, aree aperte {pathOpen}");
             }
             if (shots)
@@ -725,6 +729,8 @@ namespace PryingEyes
             bool roundTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-roundtest") >= 0;
             bool knifeTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-knifetest") >= 0;
             bool dropTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-droptest") >= 0;
+            bool bookTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-booktest") >= 0;
+            bool gridTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-gridtest") >= 0;
             var gm = GameManager.I;
             while (FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) yield return null;
             if (reference)
@@ -732,11 +738,13 @@ namespace PryingEyes
                 yield return ReferenceShots(FloorDirector.I);
                 yield break;
             }
-            log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : roundTest ? "/round.txt" : knifeTest ? "/coltello.txt" : dropTest ? "/drop.txt" : holeScan ? "/buchi.txt" : "/furtivo.txt");
+            log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : roundTest ? "/round.txt" : knifeTest ? "/coltello.txt" : dropTest ? "/drop.txt" : bookTest ? "/libri.txt" : gridTest ? "/griglia.txt" : holeScan ? "/buchi.txt" : "/furtivo.txt");
             File.WriteAllText(log, "");
+            if (gridTest) { yield return CheckGrid(); yield break; }
             if (roundTest) { yield return CheckRounds(); yield break; }
             if (knifeTest) { yield return CheckKnife(); yield break; }
             if (dropTest) { yield return CheckDrops(); yield break; }
+            if (bookTest) { yield return CheckBooks(); yield break; }
             if (holeScan) { yield return CheckHoles(); yield break; }
             yield return new WaitForSeconds(2.0f);
             var fd = FloorDirector.I;

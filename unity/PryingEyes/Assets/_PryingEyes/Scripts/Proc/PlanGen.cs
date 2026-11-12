@@ -52,6 +52,15 @@ namespace PryingEyes.Proc
             for (int attempt = 0; attempt < 80; attempt++)
             {
                 var rng = new Rng(Hash(seed, floor, attempt));
+                if (UseGrid)
+                {
+                    // pianta a griglia (fase 4): ruoli, passaggi e controlli propri in PlanGrid.cs
+                    var g = BuildGrid(rng, seed, floor, simple: attempt >= 60);
+                    if (g == null) continue;
+                    if (Validate(g, out string gwhy) && ValidateGrid(g, out gwhy)) { LastAttempts = attempt + 1; return g; }
+                    LastFailure = gwhy;
+                    continue;
+                }
                 var p = Build(rng, seed, floor, simple: attempt >= 60);
                 if (p == null) continue;
                 if (Validate(p, out string why)) { AddPassages(p, rng); LastAttempts = attempt + 1; return p; }

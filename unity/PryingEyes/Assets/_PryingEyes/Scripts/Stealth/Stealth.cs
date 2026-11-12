@@ -57,13 +57,14 @@ namespace PryingEyes
             if (pl.IsCrouching) stance = pl.SpeedH > 0.6f ? 0.72f : 0.55f;
             else if (pl.IsSprinting) stance = 1.4f;
             else stance = pl.SpeedH > 0.6f ? 1f : 0.82f;
-            r *= stance;
+            r *= stance * Perks.SightMult;            // Velo: ti vedono il 30% in meno
             if (Time.time - lastShotTime < 0.6f && !lastShotQuiet) r = Mathf.Max(r, 34f);
             if (e != null)
             {
                 if (e.Archetype == Enemy.EnemyType.Occhio) r *= 1.2f;
                 else if (e.Archetype == Enemy.EnemyType.Abate) r *= 0.92f;
             }
+            if (Perks.VeloOn) r = Mathf.Min(r, 1.5f);   // Velo attivo (5 s): solo a due passi (EvalVision) ti notano ancora
             return r;
         }
 
@@ -119,8 +120,14 @@ namespace PryingEyes
     /// <summary>Rumori che i preti possono sentire: spari, passi, ping, candele accese, grida.</summary>
     public static class Noise
     {
+        /// <summary>Solo per le prove: il raggio dell'ultimo rumore emesso e quello dell'ultimo passo (Passi di cenere lo riduce).</summary>
+        public static float lastRadius, lastStepRadius;
+        public static NoiseKind lastKind;
+
         public static void Emit(Vector3 pos, float radius, NoiseKind kind)
         {
+            lastRadius = radius; lastKind = kind;
+            if (kind == NoiseKind.Step) lastStepRadius = radius;
             if (!Stealth.Enabled) return;
             var all = Enemy.All;
             for (int i = all.Count - 1; i >= 0; i--)

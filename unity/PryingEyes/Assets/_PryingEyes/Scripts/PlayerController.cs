@@ -34,9 +34,15 @@ namespace PryingEyes
         public bool invulnerable;
         /// <summary>Solo per il bot di prova: direzione del mondo in cui camminare (zero = fermo).</summary>
         public static Vector3 botDir;
+        /// <summary>Solo per le prove (-autotest): tiene premuto il tasto per accovacciarsi (il passaggio basso della stanza segreta).</summary>
+        public static bool botCrouch;
         /// <summary>Solo per le prove: lean forzato (-1 sinistra, +1 destra); NaN = usa la tastiera.</summary>
         public static float debugLean = float.NaN;
         float lastDamage = -99f, respawnT = 0f;
+        /// <summary>Vita massima: 100, 150 con Pelle di pietra (Perks.cs). I secondi che restano di tregua dopo una Rinascita sul posto.</summary>
+        public float MaxHp => Perks.MaxHp;
+        float reviveInv;
+        public bool Reviving => reviveInv > 0f;
 
         [Header("Refs")]
         public Weapon weapon;
@@ -211,7 +217,7 @@ namespace PryingEyes
                     s = Vector3.Dot(botDir, new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)));
                 }
             }
-            bool wantCrouch = Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl) || TouchControls.Held(TouchControls.Action.Crouch);
+            bool wantCrouch = Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl) || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch);
             bool wantSprint = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0 && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
             if ((Input.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;
@@ -349,7 +355,7 @@ namespace PryingEyes
                     // i preti sentono i passi: piu' lontano di corsa, quasi niente accovacciati o sulla moquette
                     float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : 1.15f;
                     float loud = crouch || slide ? 0.4f : wantSprint ? 1.6f : 0.95f;
-                    Noise.Emit(transform.position, 6.8f * loud * surfK, NoiseKind.Step);
+                    Noise.Emit(transform.position, 6.8f * loud * surfK * Perks.StepNoise, NoiseKind.Step);     // Passi di cenere: -40%
                 }
             }
             float bobY = Mathf.Sin(bobPhase * 2f) * 0.032f * bobAmp;
@@ -380,7 +386,16 @@ namespace PryingEyes
 
             // --- regen lenta, tensione da survival ---
             if (Time.time - lastDamage > 6f && shield < 50f) shield = Mathf.Min(50f, shield + 8f * dt);
-            if (Time.time - lastDamage > 10f && hp < 100f) hp = Mathf.Min(100f, hp + 3f * dt);
+            if (Time.time - lastDamage > 10f && hp < MaxHp) hp = Mathf.Min(MaxHp, hp + 3f * Perks.MaxHpMult * dt);
+
+            // perk: tempi del Velo e dell'Occhio, tregua dopo la Rinascita, tasto [H] del Velo
+            Perks.Tick(dt);
+            if (reviveInv > 0f) reviveInv -= dt;
+            if (alive && !GameMenu.Blocked && Perks.Has(PerkId.Velo) && (Input.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && Perks.TryVelo())
+            {
+                hud?.Toast("Il Velo ti avvolge: per cinque secondi ti vedono solo da vicino.");
+                Sfx.UI(SoundBank.PerkVelo, 0.65f);
+            }
 
             weapon.Tick(dt, f > 0 && wantSprint, hs, cc.isGrounded, crouch, lookDelta);
             hud?.SetBars(hp, shield);
@@ -408,7 +423,7 @@ namespace PryingEyes
 
         public void Hurt(float dmg)
         {
-            if (!alive || GameMenu.Blocked || invulnerable) return;
+            if (!alive || GameMenu.Blocked || invulnerable || reviveInv > 0f) return;
             lastDamage = Time.time;
             dmg *= 1.5f;
             float absorbed = Mathf.Min(shield, dmg * 0.6f);
@@ -419,19 +434,46 @@ namespace PryingEyes
             Synth.Hurt();
             // il colpo scuote la visuale
             Kick(1.2f, Random.Range(-1f, 1f) * 1.2f, 10f);
+            if (hp <= 0f && Perks.TakeRevive())
+            {
+                // Rinascita: ti rialzi sul posto con meta' vita e tre secondi di tregua; il libro si riaprira' al piano dopo
+                hp = MaxHp * 0.5f; shield = 50f; reviveInv = 3f;
+                hud?.SetBars(hp, shield);
+                hud?.Banner("Rinascita", "Il libro ti rialza. Una volta per piano.");
+                hud?.Flash(new Color(0.55f, 1f, 0.62f), 0.9f, 0.65f);
+                Sfx.UI(SoundBank.PerkRevive, 0.85f);
+                return;
+            }
             if (hp <= 0f)
             {
                 hp = 0f; alive = false; respawnT = 2.5f;
-                hud?.Banner("Sei morto", "L'hotel ti riporta all'ingresso.");
+                // si perde meta' dei punti e l'ultimo perk comprato (FloorDirector.DeathPenalty): la morte pesa, ma non e' la fine
+                string pen = GameManager.proc ? Proc.FloorDirector.I?.DeathPenalty() : null;
+                hud?.Banner("Sei morto", string.IsNullOrEmpty(pen) ? "L'hotel ti riporta all'ingresso." : pen);
                 hud?.SetPrompt("");
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
             }
         }
 
+        /// <summary>Un perk e' arrivato o e' andato perso: la vita massima puo' essere cambiata. Pelle di pietra riempie la vita nuova.</summary>
+        public void OnPerksChanged(bool healToFull)
+        {
+            hp = healToFull ? MaxHp : Mathf.Min(hp, MaxHp);
+            hud?.SetBars(hp, shield);
+        }
+
+        /// <summary>Cura (Sete di sangue): fino alla vita massima.</summary>
+        public void Heal(float n)
+        {
+            if (!alive || n <= 0f) return;
+            hp = Mathf.Min(MaxHp, hp + n);
+            hud?.SetBars(hp, shield);
+        }
+
         void Respawn()
         {
-            alive = true; hp = 100f; shield = 50f;
+            alive = true; hp = MaxHp; shield = 50f; reviveInv = 0f;
             SetSpawn(spawnPos);
             if (GameManager.proc) Proc.FloorDirector.I?.OnRespawn(); else yaw = Mathf.PI;
             pitch = 0f;

@@ -39,6 +39,10 @@ namespace PryingEyes.Proc
             foreach (var r in p.rooms) if (r.IsLift) f.Add(r.id);
             foreach (var o in p.openings)
                 if (o.style == OpenStyle.Ascensore) { f.Add(o.a); if (o.b >= 0) f.Add(o.b); }
+            // pianta a griglia: la zona di un round e' la stanza-arena e basta; le stanze con un ruolo (negozio, biblioteca...) non si sigillano mai
+            if (p.grid)
+                foreach (var r in p.rooms)
+                    if (r.type != RoomType.Candela && r.type != RoomType.Guardia && r.type != RoomType.Normale) f.Add(r.id);
             return f;
         }
 
@@ -66,6 +70,7 @@ namespace PryingEyes.Proc
                 {
                     var reg = Evaluate(p, set, cr, why);
                     if (reg != null && (best == null || reg.score < best.score)) best = reg;
+                    if (p.grid) break;                       // la stanza-arena da sola (il primo insieme di Sets)
                 }
                 if (best != null) res.Add(best); else Count(why, "nessuna zona valida");
             }

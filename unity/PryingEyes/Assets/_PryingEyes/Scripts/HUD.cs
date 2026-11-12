@@ -103,6 +103,7 @@ namespace PryingEyes
             BuildStealthUI();
             BuildRoundUI();          // HUD.Round.cs: il numero del round, rosso in basso a sinistra
             BuildPuntiUI();          // HUD.Punti.cs: "+N" accanto al mirino, timer dei potenziamenti, lampo della Campana
+            BuildPerksUI();          // HUD.Perks.cs: i quattro posti dei perk sotto l'obiettivo
 
             // in alto a sinistra: ondata in numeri romani, presenze, punti
             waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(26, -16), new Vector2(300, 22), 15, TextAnchor.UpperLeft, "ondata", Dim, FontStyle.Italic);
@@ -379,6 +380,7 @@ namespace PryingEyes
             UpdateStealthUI(dt);
             UpdateRoundUI(dt);
             UpdatePuntiUI(dt);
+            UpdatePerksUI(dt);
             if (bannerT > 0f)
             {
                 bannerT -= dt;
@@ -407,7 +409,10 @@ namespace PryingEyes
         {
             if (hpBar == null) return;
             hpNow = hp;
-            hpBar.value = hp / 100f;
+            // Pelle di pietra: la vita massima sale a 150 e la barra si allunga di un mezzo (la lunghezza dice quanta ne hai)
+            float mx = Perks.MaxHp;
+            hpBar.value = hp / mx;
+            hpBar.GetComponent<RectTransform>().sizeDelta = new Vector2(220f * mx / 100f, 6f);
             shieldBar.value = shield / 50f;
         }
 
@@ -428,16 +433,21 @@ namespace PryingEyes
         public string CurrentPrompt => promptText != null ? promptText.text : "";
         public string CurrentAmmo => ammoText != null ? ammoText.text : "";
         public string CurrentReserve => reserveText != null ? reserveText.text : "";
+        public string CurrentWeaponName => weaponNameText != null ? weaponNameText.text : "";
+        /// <summary>Quanto e' lunga la barra della vita (220 con 100 di vita massima, 330 con Pelle di pietra).</summary>
+        public float HpBarWidth => hpBar != null ? hpBar.GetComponent<RectTransform>().sizeDelta.x : 0f;
         public void SetWeaponName(string s) { if (weaponNameText != null) weaponNameText.text = s ?? ""; }
 
         /// <summary>Arma in mano: nome nel colore del grado, riga con grado, tipo e modalita' di fuoco, i due slot.</summary>
-        public void SetWeapon(WeaponDef d, string mode, int slot, WeaponDef a, WeaponDef b)
+        public void SetWeapon(WeaponDef d, string mode, int slot, WeaponDef a, WeaponDef b, bool upg = false, bool upgA = false, bool upgB = false)
         {
             if (weaponNameText == null || d == null) return;
-            weaponNameText.text = d.name;
-            weaponNameText.color = d.GradeColor;
+            weaponNameText.supportRichText = true;
+            // arma consacrata (Consacrazione): nome in oro con la scritta accanto
+            weaponNameText.text = upg ? d.name + "  <size=13><color=#F5C84C>CONSACRATA</color></size>" : d.name;
+            weaponNameText.color = upg ? Gold : d.GradeColor;
             weaponSubText.text = $"GRADO {Roman(d.grade)} · {d.GradeName.ToUpperInvariant()}  —  {d.cls}  —  {mode}";
-            string s1 = a != null ? a.name : "—", s2 = b != null ? b.name : "—";
+            string s1 = a != null ? (upgA ? a.name + " +" : a.name) : "—", s2 = b != null ? (upgB ? b.name + " +" : b.name) : "—";
             string c1 = slot == 0 ? "#EDE3CC" : "#8A7F6C", c2 = slot == 1 ? "#EDE3CC" : "#8A7F6C";
             slotText.supportRichText = true;
             slotText.text = $"<color={c1}>[1] {s1}</color>     <color={c2}>[2] {s2}</color>";

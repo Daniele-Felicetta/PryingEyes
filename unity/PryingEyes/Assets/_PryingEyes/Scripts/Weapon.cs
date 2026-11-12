@@ -12,7 +12,7 @@ namespace PryingEyes
     public class Weapon : MonoBehaviour
     {
         // ------------------------------------------------------------------ slot e stato
-        class Slot { public int idx = -1; public int mag, reserve, mode; }
+        class Slot { public int idx = -1; public int mag, reserve, mode; public bool upg; }
         readonly Slot[] slots = { new Slot(), new Slot() };
         int cur;
 
@@ -21,8 +21,15 @@ namespace PryingEyes
         public WeaponDef Def => WeaponDefs.All[weaponIndex];
         public int mag { get => slots[cur].mag; set => slots[cur].mag = value; }
         public int reserve { get => slots[cur].reserve; set => slots[cur].reserve = value; }
-        public int magSize => Def.mag;
-        public int reserveMax => Def.reserveMax;
+        public int magSize => MagFor(Def, slots[cur].upg);
+        public int reserveMax => ReserveMaxFor(Def, slots[cur].upg);
+        /// <summary>Consacrazione (Consacrazione.cs): un'arma consacrata ha il caricatore e la riserva di una volta e mezza, e fa piu' danno.</summary>
+        public const float UpgMag = 1.5f, UpgDamage = 1.7f;
+        static int MagFor(WeaponDef d, bool upg) => upg ? Mathf.CeilToInt(d.mag * UpgMag) : d.mag;
+        static int ReserveMaxFor(WeaponDef d, bool upg) => upg ? Mathf.CeilToInt(d.reserveMax * UpgMag) : d.reserveMax;
+        public bool Upgraded => slots[cur].idx >= 0 && slots[cur].upg;
+        public bool IsUpgraded(int slot) => slots[slot].idx >= 0 && slots[slot].upg;
+        public bool CanConsecrate => slots[cur].idx >= 0 && !slots[cur].upg && swapT <= 0f && !knifeOut;
         public int SlotIndex => cur;
         public int WeaponInSlot(int s) => slots[s].idx;
         public FireMode Mode => Def.modes[slots[cur].mode % Def.modes.Length];
@@ -150,7 +157,8 @@ namespace PryingEyes
             var d = Def;
             hud.SetAmmo(mag, reserve);
             hud.SetReloading(reloading);
-            hud.SetWeapon(d, d.ModeLabel(Mode), cur, slots[0].idx >= 0 ? WeaponDefs.All[slots[0].idx] : null, slots[1].idx >= 0 ? WeaponDefs.All[slots[1].idx] : null);
+            hud.SetWeapon(d, d.ModeLabel(Mode), cur, slots[0].idx >= 0 ? WeaponDefs.All[slots[0].idx] : null, slots[1].idx >= 0 ? WeaponDefs.All[slots[1].idx] : null,
+                slots[cur].upg, IsUpgraded(0), IsUpgraded(1));
         }
 
         // ------------------------------------------------------------------ equipaggiamento
@@ -163,8 +171,10 @@ namespace PryingEyes
             int target = -1;
             for (int s = 0; s < 2; s++) if (slots[s].idx == index) target = s;
             if (target < 0) target = slots[0].idx < 0 ? 0 : slots[1].idx < 0 ? 1 : cur;
-            slots[target] = new Slot { idx = index, mag = d.mag, reserve = d.reserve };
-            if (!full) { slots[target].mag = Mathf.Min(d.mag, slots[target].mag); }
+            // ricomprare l'arma che hai gia' consacrata la ricarica e basta: la consacrazione resta
+            bool keepUpg = slots[target].idx == index && slots[target].upg;
+            slots[target] = new Slot { idx = index, mag = MagFor(d, keepUpg), reserve = keepUpg ? Mathf.CeilToInt(d.reserve * UpgMag) : d.reserve, upg = keepUpg };
+            if (!full) { slots[target].mag = Mathf.Min(MagFor(d, keepUpg), slots[target].mag); }
             bool same = target == cur;
             cur = target;
             reloading = false; reloadT = 0f; burstLeft = 0; bloom = 0f; recoil = 0f; swapT = 0f; pendingSlot = -1;
@@ -182,7 +192,7 @@ namespace PryingEyes
         {
             int s = slot < 0 ? cur : slot;
             if (slots[s].idx < 0) return;
-            slots[s].reserve = WeaponDefs.All[slots[s].idx].reserveMax;
+            slots[s].reserve = ReserveMaxFor(WeaponDefs.All[slots[s].idx], slots[s].upg);
             if (s == cur) RefreshHud();
         }
 
@@ -192,7 +202,8 @@ namespace PryingEyes
             {
                 if (slots[s].idx < 0) continue;
                 var d = WeaponDefs.All[slots[s].idx];
-                slots[s].reserve = Mathf.Min(d.reserveMax, slots[s].reserve + Mathf.CeilToInt(d.reserveMax * f));
+                int rm = ReserveMaxFor(d, slots[s].upg);
+                slots[s].reserve = Mathf.Min(rm, slots[s].reserve + Mathf.CeilToInt(rm * f));
             }
             RefreshHud();
         }
@@ -205,8 +216,8 @@ namespace PryingEyes
             {
                 if (slots[s].idx < 0) continue;
                 var d = WeaponDefs.All[slots[s].idx];
-                slots[s].mag = d.mag;
-                slots[s].reserve = d.reserveMax;
+                slots[s].mag = MagFor(d, slots[s].upg);
+                slots[s].reserve = ReserveMaxFor(d, slots[s].upg);
             }
             RefreshHud();
         }
@@ -218,8 +229,8 @@ namespace PryingEyes
             {
                 if (slots[s].idx < 0) continue;
                 var d = WeaponDefs.All[slots[s].idx];
-                slots[s].mag = d.mag;
-                slots[s].reserve = Mathf.Min(d.reserveMax, Mathf.Max(slots[s].reserve, d.reserve));
+                slots[s].mag = MagFor(d, slots[s].upg);
+                slots[s].reserve = Mathf.Min(ReserveMaxFor(d, slots[s].upg), Mathf.Max(slots[s].reserve, d.reserve));
             }
             reloading = false; swapT = 0f; pendingSlot = -1;
             RefreshHud();
@@ -350,6 +361,61 @@ namespace PryingEyes
             equipT = d.drawTime;
             cycleAnim = -1f;
             handLOnMag = rig.mag != null && d.hand > 0.5f;
+            ApplyUpgradeLook();
+        }
+
+        /// <summary>La Consacrazione (altare): l'arma in mano diventa consacrata. Caricatore e riserva sono una volta e mezza e vengono
+        /// riempiti, il danno sale di 1,7 volte, i metalli si tingono d'oro. Falso se e' gia' consacrata o stai cambiando arma.</summary>
+        public bool Consecrate()
+        {
+            if (!CanConsecrate) return false;
+            var s = slots[cur];
+            s.upg = true;
+            s.mag = MagFor(Def, true);
+            s.reserve = ReserveMaxFor(Def, true);
+            if (reloading) CancelReload();
+            ApplyUpgradeLook();
+            RefreshHud();
+            return true;
+        }
+
+        /// <summary>Un materiale dell'arma in versione consacrata (uno per materiale, in cache): colore moltiplicato per un oro caldo, piu'
+        /// metallico e lucido, e un velo di luce propria perche' l'oro si veda anche dove non arriva la luce. Il materiale condiviso non cambia.</summary>
+        static Material GoldOf(Material m)
+        {
+            if (goldMats.TryGetValue(m, out var g) && g != null) return g;
+            g = new Material(m) { name = m.name + "_Oro" };
+            Color bc = g.GetColor("_BaseColor");
+            g.SetColor("_BaseColor", new Color(bc.r * 1.75f, bc.g * 1.30f, bc.b * 0.55f, bc.a));
+            g.SetFloat("_Metallic", Mathf.Max(0.82f, g.HasProperty("_Metallic") ? g.GetFloat("_Metallic") : 0f));
+            g.SetFloat("_Smoothness", Mathf.Max(0.72f, g.HasProperty("_Smoothness") ? g.GetFloat("_Smoothness") : 0f));
+            g.EnableKeyword("_EMISSION");
+            g.SetColor("_EmissionColor", new Color(0.17f, 0.095f, 0.016f));
+            g.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            goldMats[m] = g;
+            return g;
+        }
+        static readonly Dictionary<Material, Material> goldMats = new Dictionary<Material, Material>();
+
+        /// <summary>Incisione dorata dell'arma consacrata: i pezzi in metallo prendono la versione dorata del loro materiale (GoldOf).
+        /// I vetri delle ottiche restano come sono. Il modello si ricostruisce a ogni cambio d'arma, quindi non c'e' niente da rimettere a posto.</summary>
+        void ApplyUpgradeLook()
+        {
+            if (rig == null || rig.renderers == null || !slots[cur].upg) return;
+            foreach (var r in rig.renderers)
+            {
+                if (r == null) continue;
+                var mats = r.sharedMaterials;
+                bool changed = false;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    var m = mats[i];
+                    if (m == null || m.name.Contains("Vetro") || m.name.Contains("Fx_") || !m.HasProperty("_BaseColor")) continue;
+                    mats[i] = GoldOf(m);
+                    changed = true;
+                }
+                if (changed) r.sharedMaterials = mats;
+            }
         }
 
         void BuildFlash(GameObject root, WeaponDef d)
@@ -580,7 +646,7 @@ namespace PryingEyes
                 var m = Mode;
                 if (burstLeft > 0 && fireT <= 0f)
                 {
-                    if (mag > 0) { Shoot(d); burstLeft--; if (burstLeft == 0) fireT = Mathf.Max(fireT, d.burstGap); }
+                    if (mag > 0) { Shoot(d); burstLeft--; if (burstLeft == 0) fireT = Mathf.Max(fireT, d.burstGap / Perks.RateMult); }
                     else burstLeft = 0;
                 }
                 else if (fireT <= 0f && cycleT <= 0f)
@@ -698,7 +764,7 @@ namespace PryingEyes
 
         void TickReload(float dt, WeaponDef d)
         {
-            reloadT += dt;
+            reloadT += dt / Perks.ReloadTime;       // Mani svelte: il tempo scorre piu' in fretta, tappe e suoni compresi
             float rp = Mathf.Clamp01(reloadT / Mathf.Max(0.05f, reloadDur));
             if (d.style == ReloadStyle.Tube)
             {
@@ -747,7 +813,7 @@ namespace PryingEyes
             Stealth.NoteShot(d.suppressed);
             Noise.Emit(cam.position, d.suppressed ? 11f : 42f, NoiseKind.Gunshot);
             var m = Mode;
-            fireT = m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm);
+            fireT = (m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm)) / Perks.RateMult;    // Doppio colpo: +33% di cadenza
             if (d.cycle > 0f && m != FireMode.Double) StartCycle(d, true);
             streak++; streakT = 0.28f;
             // rinculo della visuale: cresce un poco con la raffica, in mira e accovacciati e' piu' dolce
@@ -799,8 +865,8 @@ namespace PryingEyes
 
         void StartCycle(WeaponDef d, bool afterShot)
         {
-            cycleT = Mathf.Max(cycleT, afterShot ? d.cycle : d.cycle * 0.7f);
-            cycleAnim = 0f; cycleLen = afterShot ? d.cycle : d.cycle * 0.7f;
+            cycleT = Mathf.Max(cycleT, (afterShot ? d.cycle : d.cycle * 0.7f) / Perks.RateMult);
+            cycleAnim = 0f; cycleLen = (afterShot ? d.cycle : d.cycle * 0.7f) / Perks.RateMult;
             cycleDelayAfterShot = afterShot;
             cycleCasingDone = false;
             Synth.Mech(Mode == FireMode.Pump ? "pumpback" : Mode == FireMode.Lever ? "leverdown" : "boltup", 0.55f, 1f);
@@ -863,9 +929,20 @@ namespace PryingEyes
                 }
                 if (!seen.Add(e)) continue;
                 bool head = h.collider.CompareTag("Head");
+                if (!head)
+                {
+                    // la capsula del corpo copre l'occhio di un soffio (monaco: l'occhio sta a 20 cm dall'asse, la capsula ne ha 30):
+                    // se il proiettile attraversa anche la sfera della testa dello stesso nemico, e' un colpo in testa
+                    for (int k = i + 1; k < n && hitBuf[k].distance - h.distance < 1.2f; k++)
+                    {
+                        var ek = hitBuf[k].collider.GetComponentInParent<Enemy>();
+                        if (ek == null) break;                                  // un muro: oltre non si conta
+                        if (ek == e && hitBuf[k].collider.CompareTag("Head")) { head = true; break; }
+                    }
+                }
                 float dist = h.distance;
                 float fall = dist <= d.rangeNear ? 1f : Mathf.Lerp(1f, d.farMult, Mathf.Clamp01((dist - d.rangeNear) / Mathf.Max(0.1f, d.rangeFar - d.rangeNear)));
-                float dmg = d.damage * fall * dmgMul * (head ? d.headMult : 1f);
+                float dmg = d.damage * fall * dmgMul * (head ? d.headMult * Perks.HeadMult : 1f) * (slots[cur].upg ? UpgDamage : 1f);
                 bool first = hitSet.Add(e);
                 e.Damage(dmg, h.point, head, first);
                 end = h.point;

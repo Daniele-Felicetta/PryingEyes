@@ -1,0 +1,63 @@
+piano 1 seme 1000: 12 stanze, tema Albergo, pianta a griglia, 44 x 38 m
+--- ruoli e porte
+ruoli: partenza 1, boss 1, negozio 1, biblioteca 1, segreta 1, arene 2, guardia 3
+ok       una partenza, un boss, un negozio, una biblioteca
+ok       le arene sono tante quante le candele e almeno due   [arene 2, candele 2, obiettivi 2]
+ok       da una a quattro porte per stanza (la segreta solo il passaggio basso)
+ok       l'ascensore di arrivo e' nella partenza, quello d'uscita nel boss
+ok       negozio, biblioteca e boss hanno al massimo due porte
+--- cornici delle porte
+ok       ogni stanza con porte ha le cornici colorate per tipo   [10 stanze con cornici]
+--- navmesh
+ok       dall'arrivo si raggiungono tutte le stanze (tranne la segreta), le candele e l'uscita   [stanze 0, candele 0, uscita si]
+--- santuari
+ok       la Biblioteca e' nella stanza Biblioteca   [Biblioteca]
+ok       lo Scrigno e' nel Negozio   [Negozio]
+ok       l'altare e' nella stanza segreta (se c'e')   [Segreta]
+--- armi sul muro
+ok       un'arma sul muro della partenza e due nel Negozio   [partenza 1, negozio 2, totale 3]
+--- arene
+arena 3:Ristorante[176,84..260,176]: 8,4 x 9,2 m, colonne 4, panche/divani 0
+arena 9:Navata[0,0..84,84]: 8,4 x 8,4 m, colonne 2, panche/divani 0
+ok       ogni arena ha almeno una colonna
+--- guardie
+nemici 4, con una stanza di casa 4
+ok       c'e' un guardiano pesante e robusto nella stanza del boss   [Abate 640 punti vita]
+ok       gli altri nascono tutti in stanze di guardia
+ok       tutti i nemici del piano hanno una stanza di casa   [4/4]
+dopo due minuti (a velocita' 6): sconfinamento massimo 0,0 m, cammino massimo 60 m, fermi 0 su 4
+ok       le guardie non escono dalla loro stanza   [0,0 m fuori]
+ok       le guardie pattugliano davvero (non sono bloccate)   [fermi 0/4]
+--- stanza segreta
+ok       la stanza segreta ha un unico accesso: il passaggio basso
+ok       in piedi il passaggio e' chiuso, accovacciati e' libero   [in piedi chiuso True, accovacciato libero True]
+ok       i nemici non hanno un percorso fino alla stanza segreta
+ok       il giocatore entra a carponi nella stanza segreta   [1,2 s, a 1,1 m dal buco]
+ok       e ne esce a carponi   [0,8 s]
+--- mappa
+   mappa: '?' a (192,88)
+   mappa: 'Partenza' a (322,88)
+ok       all'inizio si vedono la partenza e, come '?', le stanze oltre le sue porte   [1 stanze '?', porte aperte verso 1]
+   mappa: 'Biblioteca' a (150,276)
+   mappa: 'Negozio' a (150,180)
+   mappa: 'Guardia' a (62,138)
+   mappa: 'Arena' a (238,276)
+   mappa: 'Guardia' a (62,276)
+   mappa: 'Guardia' a (192,88)
+   mappa: 'Partenza' a (322,88)
+   mappa: 'Guardiano' a (372,226)
+   mappa: 'Arena' a (62,364)
+ok       visitate tutte le stanze non resta nessun '?'   [0 stanze '?']
+ok       la stanza segreta non compare sulla mappa finche' non ci si entra
+ok       ...e dopo esserci entrati compare
+   mappa: 'Biblioteca' a (150,276)
+   mappa: 'Negozio' a (150,180)
+   mappa: 'Guardia' a (62,138)
+   mappa: 'Arena' a (238,276)
+   mappa: 'Guardia' a (62,276)
+   mappa: 'Guardia' a (192,88)
+   mappa: 'Segreta' a (150,364)
+   mappa: 'Partenza' a (322,88)
+   mappa: 'Guardiano' a (372,226)
+   mappa: 'Arena' a (62,364)
+ESITO: ok

@@ -76,6 +76,7 @@ namespace PryingEyes
             }
             Sfx.UI(SoundBank.PingOut, 0.6f);
             Noise.Emit(pl.transform.position, PingNoise, NoiseKind.Ping);
+            Perks.OnPing();             // Occhio della Torre: per qualche secondo le etichette mostrano anche i preti che non ti hanno notato
             gm.hud?.PingPulse();
             return true;
         }
