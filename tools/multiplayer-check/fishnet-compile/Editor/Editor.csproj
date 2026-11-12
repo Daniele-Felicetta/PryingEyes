@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Compilation.props" />
+  <PropertyGroup>
+    <AssemblyName>PryingEyes.Multiplayer.EditorCheck</AssemblyName>
+    <DefineConstants>$(DefineConstants);UNITY_EDITOR;PRYINGEYES_FISHNET</DefineConstants>
+    <UnityEditorRoot Condition="'$(UnityEditorRoot)' == ''">C:/Program Files/Unity/Hub/Editor/6000.6.7f1/Editor/Data/Managed</UnityEditorRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../../unity/PryingEyes/Assets/_PryingEyes/Multiplayer/FishNet/Editor/*.cs" />
+    <ProjectReference Include="../Adapter/Adapter.csproj" />
+    <ProjectReference Include="../../unity-compile/UnityModules.csproj" />
+    <Reference Include="$(UnityEditorRoot)/UnityEditor.dll"><Private>false</Private></Reference>
+    <Reference Include="$(UnityEditorRoot)/UnityEditor/UnityEditor*.dll"><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

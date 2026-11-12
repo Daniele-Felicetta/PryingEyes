@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Compilation.props" />
+  <PropertyGroup><AssemblyName>FishNet.Runtime</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(FishNetRoot)/**/*.cs" Exclude="$(FishNetRoot)/Plugins/GameKit/Dependencies/**/*.cs;$(FishNetRoot)/Transporting/Transports/Synapse/**/*.cs" />
+    <ProjectReference Include="../GameKit/GameKit.csproj" />
+  </ItemGroup>
+</Project>

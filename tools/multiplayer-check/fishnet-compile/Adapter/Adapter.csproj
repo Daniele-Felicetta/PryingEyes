@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Compilation.props" />
+  <PropertyGroup>
+    <AssemblyName>PryingEyes.Multiplayer.FishNetCheck</AssemblyName>
+    <DefineConstants>$(DefineConstants);PRYINGEYES_FISHNET</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../../unity/PryingEyes/Assets/_PryingEyes/Multiplayer/FishNet/*.cs" />
+    <ProjectReference Include="../Runtime/Runtime.csproj" />
+    <ProjectReference Include="../../unity-compile/UnityModules.csproj" />
+    <ProjectReference Include="../Gameplay/Gameplay.csproj" />
+  </ItemGroup>
+</Project>

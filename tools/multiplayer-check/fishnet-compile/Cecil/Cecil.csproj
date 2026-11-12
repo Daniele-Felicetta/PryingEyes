@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Compilation.props" />
+  <PropertyGroup>
+    <AssemblyName>FishNet.Codegen.Cecil</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <DefineConstants>$(DefineConstants);NET_CORE;UNITY_EDITOR</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup><Compile Include="$(FishNetRoot)/../CodeGenerating/cecil-0.11.4/**/*.cs" /></ItemGroup>
+</Project>

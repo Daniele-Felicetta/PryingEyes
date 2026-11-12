@@ -40,7 +40,8 @@ namespace PryingEyes
         public static float debugLean = float.NaN;
         float lastDamage = -99f, respawnT = 0f;
         /// <summary>Vita massima: 100, 150 con Pelle di pietra (Perks.cs). I secondi che restano di tregua dopo una Rinascita sul posto.</summary>
-        public float MaxHp => Perks.MaxHp;
+        public PlayerPerks PerkState { get; } = new PlayerPerks();
+        public float MaxHp => PerkState.MaxHp;
         float reviveInv;
         public bool Reviving => reviveInv > 0f;
 
@@ -162,6 +163,7 @@ namespace PryingEyes
             walk = 3.9f; sprint = 5.9f; crouchSpeed = 2.2f;
             accelGround = 20f; accelAir = 6f; friction = 8.5f;
             jumpVel = 4.6f; gravity = 17.5f;
+            PerkState.Changed += OnPerksChanged;
             cc = GetComponent<CharacterController>();
             cc.minMoveDistance = 0f;       // con 10.000 fps (batchmode) 4 m/s sono 0,4 mm a fotogramma: sotto il minimo di default (1 mm) non ci si muoveva
             eyeH = eyeStand;
@@ -355,7 +357,7 @@ namespace PryingEyes
                     // i preti sentono i passi: piu' lontano di corsa, quasi niente accovacciati o sulla moquette
                     float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : 1.15f;
                     float loud = crouch || slide ? 0.4f : wantSprint ? 1.6f : 0.95f;
-                    Noise.Emit(transform.position, 6.8f * loud * surfK * Perks.StepNoise, NoiseKind.Step);     // Passi di cenere: -40%
+                    Noise.Emit(transform.position, 6.8f * loud * surfK * PerkState.StepNoise, NoiseKind.Step);     // Passi di cenere: -40%
                 }
             }
             float bobY = Mathf.Sin(bobPhase * 2f) * 0.032f * bobAmp;
@@ -386,12 +388,12 @@ namespace PryingEyes
 
             // --- regen lenta, tensione da survival ---
             if (Time.time - lastDamage > 6f && shield < 50f) shield = Mathf.Min(50f, shield + 8f * dt);
-            if (Time.time - lastDamage > 10f && hp < MaxHp) hp = Mathf.Min(MaxHp, hp + 3f * Perks.MaxHpMult * dt);
+            if (Time.time - lastDamage > 10f && hp < MaxHp) hp = Mathf.Min(MaxHp, hp + 3f * PerkState.MaxHpMult * dt);
 
             // perk: tempi del Velo e dell'Occhio, tregua dopo la Rinascita, tasto [H] del Velo
-            Perks.Tick(dt);
+            PerkState.Tick(dt);
             if (reviveInv > 0f) reviveInv -= dt;
-            if (alive && !GameMenu.Blocked && Perks.Has(PerkId.Velo) && (Input.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && Perks.TryVelo())
+            if (alive && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (Input.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())
             {
                 hud?.Toast("Il Velo ti avvolge: per cinque secondi ti vedono solo da vicino.");
                 Sfx.UI(SoundBank.PerkVelo, 0.65f);
@@ -434,7 +436,7 @@ namespace PryingEyes
             Synth.Hurt();
             // il colpo scuote la visuale
             Kick(1.2f, Random.Range(-1f, 1f) * 1.2f, 10f);
-            if (hp <= 0f && Perks.TakeRevive())
+            if (hp <= 0f && PerkState.TakeRevive())
             {
                 // Rinascita: ti rialzi sul posto con meta' vita e tre secondi di tregua; il libro si riaprira' al piano dopo
                 hp = MaxHp * 0.5f; shield = 50f; reviveInv = 3f;

@@ -49,6 +49,7 @@ namespace PryingEyes
         WeaponRig rig;
         HUD hud;
         PlayerController player;
+        PlayerPerks OwnerPerks => player != null ? player.PerkState : Perks.State;
         GameObject flashA, flashB;
         Light flashLight;
         Light fill;
@@ -646,7 +647,7 @@ namespace PryingEyes
                 var m = Mode;
                 if (burstLeft > 0 && fireT <= 0f)
                 {
-                    if (mag > 0) { Shoot(d); burstLeft--; if (burstLeft == 0) fireT = Mathf.Max(fireT, d.burstGap / Perks.RateMult); }
+                    if (mag > 0) { Shoot(d); burstLeft--; if (burstLeft == 0) fireT = Mathf.Max(fireT, d.burstGap / OwnerPerks.RateMult); }
                     else burstLeft = 0;
                 }
                 else if (fireT <= 0f && cycleT <= 0f)
@@ -764,7 +765,7 @@ namespace PryingEyes
 
         void TickReload(float dt, WeaponDef d)
         {
-            reloadT += dt / Perks.ReloadTime;       // Mani svelte: il tempo scorre piu' in fretta, tappe e suoni compresi
+            reloadT += dt / OwnerPerks.ReloadTime;       // Mani svelte: il tempo scorre piu' in fretta, tappe e suoni compresi
             float rp = Mathf.Clamp01(reloadT / Mathf.Max(0.05f, reloadDur));
             if (d.style == ReloadStyle.Tube)
             {
@@ -813,7 +814,7 @@ namespace PryingEyes
             Stealth.NoteShot(d.suppressed);
             Noise.Emit(cam.position, d.suppressed ? 11f : 42f, NoiseKind.Gunshot);
             var m = Mode;
-            fireT = (m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm)) / Perks.RateMult;    // Doppio colpo: +33% di cadenza
+            fireT = (m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm)) / OwnerPerks.RateMult;    // Doppio colpo: +33% di cadenza
             if (d.cycle > 0f && m != FireMode.Double) StartCycle(d, true);
             streak++; streakT = 0.28f;
             // rinculo della visuale: cresce un poco con la raffica, in mira e accovacciati e' piu' dolce
@@ -865,8 +866,8 @@ namespace PryingEyes
 
         void StartCycle(WeaponDef d, bool afterShot)
         {
-            cycleT = Mathf.Max(cycleT, (afterShot ? d.cycle : d.cycle * 0.7f) / Perks.RateMult);
-            cycleAnim = 0f; cycleLen = (afterShot ? d.cycle : d.cycle * 0.7f) / Perks.RateMult;
+            cycleT = Mathf.Max(cycleT, (afterShot ? d.cycle : d.cycle * 0.7f) / OwnerPerks.RateMult);
+            cycleAnim = 0f; cycleLen = (afterShot ? d.cycle : d.cycle * 0.7f) / OwnerPerks.RateMult;
             cycleDelayAfterShot = afterShot;
             cycleCasingDone = false;
             Synth.Mech(Mode == FireMode.Pump ? "pumpback" : Mode == FireMode.Lever ? "leverdown" : "boltup", 0.55f, 1f);
@@ -942,7 +943,7 @@ namespace PryingEyes
                 }
                 float dist = h.distance;
                 float fall = dist <= d.rangeNear ? 1f : Mathf.Lerp(1f, d.farMult, Mathf.Clamp01((dist - d.rangeNear) / Mathf.Max(0.1f, d.rangeFar - d.rangeNear)));
-                float dmg = d.damage * fall * dmgMul * (head ? d.headMult * Perks.HeadMult : 1f) * (slots[cur].upg ? UpgDamage : 1f);
+                float dmg = d.damage * fall * dmgMul * (head ? d.headMult * OwnerPerks.HeadMult : 1f) * (slots[cur].upg ? UpgDamage : 1f);
                 bool first = hitSet.Add(e);
                 e.Damage(dmg, h.point, head, first);
                 end = h.point;

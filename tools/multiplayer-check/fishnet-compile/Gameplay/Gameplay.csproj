@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Compilation.props" />
+  <PropertyGroup><AssemblyName>PryingEyes.ExistingGameplayCheck</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/**/*.cs"
+             Exclude="../../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanTypes.cs;../../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanGen.cs;../../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanThemes.cs;../../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanGrid.cs;../../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/RoundRegions.cs" />
+    <ProjectReference Include="../../unity-compile/UnityModules.csproj" />
+    <Reference Include="../../.dependencies/Rendering/*.dll"><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

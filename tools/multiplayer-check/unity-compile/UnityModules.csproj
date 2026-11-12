@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <UnityManagedRoot Condition="'$(UnityManagedRoot)' == ''">C:/Program Files/Unity/Hub/Editor/6000.6.7f1/Editor/Data/Managed/UnityEngine</UnityManagedRoot>
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../unity/PryingEyes/Assets/_PryingEyes/Multiplayer/Core/*.cs" />
+    <Compile Include="../../../unity/PryingEyes/Assets/_PryingEyes/Multiplayer/Procedural/*.cs" />
+    <Compile Include="../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanTypes.cs" />
+    <Compile Include="../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanGen.cs" />
+    <Compile Include="../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanThemes.cs" />
+    <Compile Include="../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanGrid.cs" />
+<Compile Include="../../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/RoundRegions.cs" />
+    <Compile Include="../../../unity/PryingEyes/Assets/_PryingEyes/Multiplayer/LocalSeatInput.cs" />
+    <Compile Include="../../../unity/PryingEyes/Assets/_PryingEyes/Multiplayer/LocalSeatView.cs" />
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(UnityManagedRoot)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(UnityManagedRoot)/UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AudioModule"><HintPath>$(UnityManagedRoot)/UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UIModule"><HintPath>$(UnityManagedRoot)/UnityEngine.UIModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

@@ -43,3 +43,18 @@ hotel_build/armi_gioco/*.png
 !hotel_build/armi_gioco/espositori.png
 # foto della sonda dei fotogrammi (1920x1080, 2-3 MB l'una, un'ottantina a ogni giro): si rifanno con -perftest -perfshots; si tiene solo il foglio di confronto
 hotel_build/perf/
+
+# Isolated multiplayer checks; never use the main worktree build output.
+!tools/multiplayer-check/MultiplayerCheck.csproj
+!tools/multiplayer-check/unity-compile/UnityModules.csproj
+tools/multiplayer-check/unity-compile/bin/
+tools/multiplayer-check/unity-compile/obj/
+tools/multiplayer-check/bin/
+tools/multiplayer-check/obj/
+tools/multiplayer-check/.dotnet/
+tools/multiplayer-check/.dependencies/
+tools/unity-validation/
+.unity-cache/
+!tools/multiplayer-check/fishnet-compile/**/*.csproj
+tools/multiplayer-check/fishnet-compile/**/bin/
+tools/multiplayer-check/fishnet-compile/**/obj/

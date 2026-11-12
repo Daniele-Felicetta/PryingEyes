@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Compilation.props" />
+  <PropertyGroup><AssemblyName>Unity.FishNet.Codegen</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(FishNetRoot)/../CodeGenerating/**/*.cs" Exclude="$(FishNetRoot)/../CodeGenerating/cecil-0.11.4/**/*.cs" />
+    <ProjectReference Include="../Cecil/Cecil.csproj" />
+    <ProjectReference Include="../Runtime/Runtime.csproj" />
+    <Reference Include="Unity.CompilationPipeline.Common"><HintPath>$(UnityManagedRoot)/Unity.CompilationPipeline.Common.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

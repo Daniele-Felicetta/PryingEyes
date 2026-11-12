@@ -1,0 +1,6 @@
+{
+  "name": "PryingEyes.Multiplayer.Core",
+  "rootNamespace": "PryingEyes.Multiplayer",
+  "noEngineReferences": true,
+  "autoReferenced": true
+}

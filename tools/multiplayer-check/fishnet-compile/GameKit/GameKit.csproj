@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Compilation.props" />
+  <PropertyGroup><AssemblyName>GameKit.Dependencies</AssemblyName></PropertyGroup>
+  <ItemGroup><Compile Include="$(FishNetRoot)/Plugins/GameKit/Dependencies/**/*.cs" /></ItemGroup>
+</Project>

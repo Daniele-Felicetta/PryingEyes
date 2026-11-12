@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../Compilation.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>PryingEyes.FishNetWeaverCheck</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <ProjectReference Include="../Codegen/Codegen.csproj" />
+    <Reference Include="Unity.CompilationPipeline.Common"><HintPath>$(UnityManagedRoot)/Unity.CompilationPipeline.Common.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+</Project>

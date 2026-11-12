@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.firstgeargames.fishnet": "https://github.com/FirstGearGames/FishNet.git?path=Assets/FishNet#73f30cf2425dc808a4f463f0a233d386010810b3",
     "com.unity.ide.rider": "3.1.0",
     "com.unity.ide.visualstudio": "2.0.26",
     "com.unity.modules.accessibility": "1.0.0",
