@@ -75,6 +75,23 @@ namespace PryingEyes
 
         public bool IsBound => cam != null && viewRoot != null;
 
+        // coltello (Knife.cs): mentre fende, l'arma si abbassa, sparisce e sta zitta (niente fuoco, mira, ricarica, cambio)
+        bool knifeOut;
+        float knifeBlend;
+        public bool KnifeBusy => knifeOut;
+        public bool CanKnife => swapT <= 0f;
+
+        /// <summary>Il coltello esce (o rientra). Fuori: la ricarica in corso salta e la fiammata si spegne; dentro: l'arma risale.</summary>
+        public void KnifeOut(bool on)
+        {
+            if (knifeOut == on) return;
+            knifeOut = on;
+            if (!on) return;
+            if (reloading) CancelReload();
+            burstLeft = 0; cycleAnim = -1f;
+            if (flashA != null && flashA.activeSelf) { flashA.SetActive(false); flashB.SetActive(false); flashLight.intensity = 0f; }
+        }
+
         // solo per le prove automatiche (-guntest): mira forzata, sparo singolo, immagine della seconda camera subito
         public static bool debugAds;
         public void DebugFire() { if (mag > 0 && cam != null && viewRoot != null) Shoot(Def); }
@@ -180,6 +197,20 @@ namespace PryingEyes
             RefreshHud();
         }
 
+        /// <summary>Il Reliquiario (Drops.cs): caricatore e riserva al massimo, per entrambe le armi. Una ricarica in corso finisce da sola
+        /// (riempie di zero).</summary>
+        public void MaxAmmo()
+        {
+            for (int s = 0; s < 2; s++)
+            {
+                if (slots[s].idx < 0) continue;
+                var d = WeaponDefs.All[slots[s].idx];
+                slots[s].mag = d.mag;
+                slots[s].reserve = d.reserveMax;
+            }
+            RefreshHud();
+        }
+
         /// <summary>Alla rinascita: caricatore pieno e riserva almeno quella di partenza, per entrambe le armi.</summary>
         public void RespawnAmmo()
         {
@@ -196,7 +227,7 @@ namespace PryingEyes
 
         public void SwitchSlot(int s)
         {
-            if (s < 0 || s > 1 || s == cur || slots[s].idx < 0 || swapT > 0f) return;
+            if (s < 0 || s > 1 || s == cur || slots[s].idx < 0 || swapT > 0f || knifeOut) return;
             // l'arma in mano scende; a meta' si cambia il modello
             reloading = false; hud?.SetReloading(false);
             burstLeft = 0; cycleAnim = -1f;
@@ -488,6 +519,10 @@ namespace PryingEyes
             var d = Def;
             sprintHeld = sprinting;
             sprintBlend = Mathf.MoveTowards(sprintBlend, sprinting ? 1f : 0f, dt / (sprinting ? 0.20f : 0.18f));
+            // coltello: l'arma scende in 80 ms e sparisce; rientrando risale in 140 ms
+            knifeBlend = Mathf.MoveTowards(knifeBlend, knifeOut ? 1f : 0f, dt / (knifeOut ? 0.08f : 0.14f));
+            bool shown = knifeBlend < 0.999f;
+            if (viewRoot.gameObject.activeSelf != shown) viewRoot.gameObject.SetActive(shown);
 
             // ----- cambio arma
             if (swapT > 0f)
@@ -514,7 +549,7 @@ namespace PryingEyes
             if ((Input.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
 
             // ----- mira
-            bool adsWant = (Input.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && (!reloading || Def.style == ReloadStyle.Tube);
+            bool adsWant = (Input.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && !knifeOut && (!reloading || Def.style == ReloadStyle.Tube);
             adsRaw = Mathf.MoveTowards(adsRaw, adsWant ? 1f : 0f, dt / Mathf.Max(0.05f, d.adsTime));
             ads = adsRaw * adsRaw * (3f - 2f * adsRaw);
 
@@ -525,7 +560,7 @@ namespace PryingEyes
 
             // ----- ricarica
             if (reloading) TickReload(dt, d);
-            if ((Input.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f) Reload();
+            if ((Input.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f && !knifeOut) Reload();
 
             // ----- fuoco
             fireT -= dt;
@@ -534,7 +569,7 @@ namespace PryingEyes
             bool press = Input.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f);
             bool held = Input.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot;
             if (!held) { triggerHeld = false; dryPlayed = false; }
-            bool blocked = swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
+            bool blocked = knifeOut || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
             if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || shellsLoaded > 0))
             {
                 // sparare interrompe la ricarica a canna
@@ -938,6 +973,13 @@ namespace PryingEyes
                 float s = 1f - Mathf.Clamp01(swapT / pendingSlotTime);
                 pos += new Vector3(0.03f, -0.14f, -0.05f) * s;
                 rot *= Quaternion.Euler(28f * s, 0f, 9f * s);
+            }
+
+            if (knifeBlend > 0f)
+            {
+                float kb = Ease(knifeBlend);
+                pos += new Vector3(0.03f, -0.16f, -0.05f) * kb;
+                rot *= Quaternion.Euler(30f * kb, 0f, 10f * kb);
             }
 
             viewRoot.localPosition = pos;

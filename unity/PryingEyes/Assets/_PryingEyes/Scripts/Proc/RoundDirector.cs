@@ -25,6 +25,13 @@ namespace PryingEyes.Proc
         public static int AliveCap(float areaM2) => Mathf.Clamp(Mathf.RoundToInt(areaM2 / 9f), 4, 12);
         public static float SpawnGap(int round) => Mathf.Lerp(2.2f, 0.9f, Mathf.Clamp01((round - 1) / 20f));
         public static int Reward(int round) => 100 + 20 * round;
+
+        /// <summary>Ogni quinto round e' la Notte delle Falene (come i round dei cani nei Black Ops Zombies): solo falene, una volta e mezzo
+        /// i nemici, piu' vivi insieme, e a fine round un Reliquiario di regalo. Le falene volano svelte e hanno poca salute.</summary>
+        public const int MothEvery = 5;
+        public const float MothCountMul = 1.6f;
+        public const int MothAliveBonus = 4;
+        public static bool IsMoth(int round) => round > 0 && round % MothEvery == 0;
     }
 
     /// <summary>Serranda d'acciaio su un'apertura: scende dall'architrave (la parte alta resta dentro il muro, non si vede) con una
@@ -346,6 +353,13 @@ namespace PryingEyes.Proc
         int target, spawned, cap, fails;
         float clock, delay, spawnT, endT, gap;
 
+        bool moth;
+
+        /// <summary>Il round in corso (o l'ultimo) e' una Notte delle Falene.</summary>
+        public bool Moth => moth;
+        /// <summary>Il nemico e' di questo round (nato o adottato dalle serrande). Lo usa la Campana.</summary>
+        public bool Owns(Enemy e) => mine.Contains(e);
+
         public bool Fighting => phase == Phase.Fighting;
         public bool Sealed => phase != Phase.Idle;
         public int Target => target;
@@ -438,6 +452,7 @@ namespace PryingEyes.Proc
         public void Disarm()
         {
             mine.Clear();
+            moth = false;
             zones.Clear();
             cur = null;
             fi = null;
@@ -478,9 +493,10 @@ namespace PryingEyes.Proc
             cur = z;
             mood = Stealth.Hunters > 0 ? RoundMood.Alarm : Stealth.Aware == 0 ? RoundMood.Calm : RoundMood.Normal;
             Round++;
+            moth = RoundRules.IsMoth(Round);
             clock = 0f; spawned = 0; endT = 0f; spawnT = 0f; fails = 0;
             delay = mood == RoundMood.Calm ? RoundRules.DelayCalm : mood == RoundMood.Alarm ? RoundRules.DelayAlarm : RoundRules.DelayNormal;
-            cap = RoundRules.AliveCap(z.reg.area);
+            cap = RoundRules.AliveCap(z.reg.area) + (moth ? RoundRules.MothAliveBonus : 0);
             gap = RoundRules.SpawnGap(Round);
             mine.Clear();
 
@@ -503,13 +519,15 @@ namespace PryingEyes.Proc
                 mine.Add(e);
                 adopted++;
             }
-            float mul = mood == RoundMood.Calm ? RoundRules.CalmMul : mood == RoundMood.Alarm ? RoundRules.AlarmMul : 1f;
+            float mul = (mood == RoundMood.Calm ? RoundRules.CalmMul : mood == RoundMood.Alarm ? RoundRules.AlarmMul : 1f) * (moth ? RoundRules.MothCountMul : 1f);
             target = Mathf.Max(2, Mathf.RoundToInt(RoundRules.Count(Round, fd.floor) * mul) - adopted);
             phase = Phase.Fighting;
 
             gm.hud?.SetRound(Round);
-            gm.hud?.Banner("Round " + Round, mood == RoundMood.Calm ? "Nessuno sa che sei qui." : "Le serrande sono calate.");
+            if (moth) gm.hud?.Banner("Notte delle Falene", "Round " + Round + "  ·  un battito d'ali, ovunque.");
+            else gm.hud?.Banner("Round " + Round, mood == RoundMood.Calm ? "Nessuno sa che sei qui." : "Le serrande sono calate.");
             Sfx.UI(SoundBank.Toll, 0.55f, 0.55f);
+            if (moth) Sfx.UI(SoundBank.MothSwarm, 0.7f);
             Debug.Log($"[PryingEyes] round {Round} (piano {fd.floor}, {mood}): {target} nemici in {z.reg.area:F0} m2, massimo {cap} insieme, {adopted} gia' dentro, {z.shutters.Count} serrande");
             return true;
         }
@@ -599,7 +617,7 @@ namespace PryingEyes.Proc
                     float x0 = room.x0 * 0.1f + 1.0f, x1 = room.x1 * 0.1f - 1.0f, z0 = room.z0 * 0.1f + 1.0f, z1 = room.z1 * 0.1f - 1.0f;
                     var q = new Vector3(x1 > x0 ? Random.Range(x0, x1) : room.CenterX, 0f, z1 > z0 ? Random.Range(z0, z1) : room.CenterZ);
                     if (new Vector2(q.x - pp.x, q.z - pp.z).magnitude < dmin) continue;
-                    var t = fd.PickRoundType(room);
+                    var t = moth ? Enemy.EnemyType.Falena : fd.PickRoundType(room);
                     bool fly = Enemy.IsFlying(t);
                     if (fly)
                     {
@@ -668,9 +686,10 @@ namespace PryingEyes.Proc
         public string Status()
         {
             if (cur == null) return "";
-            if (clock < delay) return $"ROUND {Round}  ·  le serrande sono calate";
+            string head = moth ? $"NOTTE DELLE FALENE {Round}" : $"ROUND {Round}";
+            if (clock < delay) return $"{head}  ·  le serrande sono calate";
             int left = Mathf.Max(0, target - spawned) + mine.Count;
-            return $"ROUND {Round}  ·  {(left == 1 ? "una presenza" : left + " presenze")} ancora";
+            return $"{head}  ·  {(left == 1 ? "una presenza" : left + " presenze")} ancora";
         }
 
         void Complete(bool reward)
@@ -688,8 +707,16 @@ namespace PryingEyes.Proc
             foreach (var s in cur.shutters) if (s != null) s.Release();
             Sfx.UI(SoundBank.Toll, 0.7f);
             gm.hud?.SetRound(Round);
-            gm.hud?.Banner("Round " + Round + " superato",
-                reward ? $"+{pts} punti  ·  scudo e munizioni" + (mood == RoundMood.Calm ? "  ·  nessuno ti ha sentito" : "") : "Le presenze si sono dissolte.");
+            bool gift = reward && moth;
+            if (gift)
+            {
+                // il regalo della Notte delle Falene: un Reliquiario dove e' caduta l'ultima (non conta nel tetto del piano)
+                Vector3 at = Drops.lastKillPos;
+                if (at == Vector3.zero) at = pl.transform.position;
+                Drops.Spawn(DropKind.Ammo, at, false);
+            }
+            gm.hud?.Banner((moth ? "Notte delle Falene " : "Round ") + Round + " superato",
+                reward ? $"+{pts} punti  ·  scudo e munizioni" + (gift ? "  ·  un Reliquiario e' caduto" : "") + (mood == RoundMood.Calm ? "  ·  nessuno ti ha sentito" : "") : "Le presenze si sono dissolte.");
             cur.done = true;
             phase = Phase.Opening;
             Debug.Log($"[PryingEyes] round {Round} finito in {clock:F0} s ({(reward ? "+" + pts + " punti" : "senza premio")})");

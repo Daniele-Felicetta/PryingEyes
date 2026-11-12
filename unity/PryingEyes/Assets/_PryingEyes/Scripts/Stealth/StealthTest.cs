@@ -12,7 +12,7 @@ namespace PryingEyes
     /// <summary>Prova automatica della componente furtiva: PryingEyes.exe -batchmode -autotest -stealthtest -seed N (senza -nographics
     /// per le foto). Misura dopo quanto tempo un monaco fermo ti nota a varie distanze, al buio e con la torcia; prova l'udito, la pila
     /// che si scarica e si cambia, la raccolta di una pila, il ping e la freccia; fotografa l'HUD. Esito in hotel_build/furtivo/.</summary>
-    public class StealthTest : MonoBehaviour
+    public partial class StealthTest : MonoBehaviour
     {
         const string Dir = "C:/Users/danie/Desktop/prying-eyes/hotel_build/furtivo";
         string log;
@@ -372,6 +372,7 @@ namespace PryingEyes
             Log($"piano {fd.floor} seme {fd.runSeed}: stanze={fd.cur.plan.rooms.Count} candele={fd.cur.candles.Count} zone={(rd != null ? rd.ZoneCount : -1)}");
             Check("RoundDirector presente e attivo", rd != null && RoundDirector.Enabled);
             if (rd == null) { Application.Quit(1); yield break; }
+            Drops.disabled = true;           // le uccisioni di questa prova non devono far cadere potenziamenti a caso
             var cands = fd.cur.candles.FindAll(c => c != null && rd.HasZone(c));
             if (cands.Count == 0) { Log("nessuna zona sigillabile su questo piano: prova non applicabile (cambia seme)"); Application.Quit(2); yield break; }
 
@@ -558,6 +559,8 @@ namespace PryingEyes
                 PlaceAt(candleC);
                 yield return new WaitForSeconds(0.6f);
                 int scoreC = gm.score;
+                // la candela vale 60 e, se nessun prete ti ha visto dall'ultima, anche il bonus Fantasma (FloorDirector.OnCandle)
+                int ghostC = Stealth.Spotted == fd.GhostMark && Stealth.Hunters == 0 ? Punti.Fantasma : 0;
                 float oldFs = RoundRules.Failsafe;
                 RoundRules.Failsafe = 10f;
                 int roundC = RoundDirector.Round + 1;
@@ -569,7 +572,7 @@ namespace PryingEyes
                 int left = 0;
                 foreach (var e in Enemy.All) if (e != null && !e.IsDead && e.relentless) left++;
                 Check("round scaduto: si chiude da solo", !rd.Sealed && RoundDirector.Round == roundC && candleC.lit, $"{Time.time - tC:F0} s, round {RoundDirector.Round}");
-                Check("round scaduto: nessun premio", gm.score - scoreC < RoundRules.Reward(roundC), $"+{gm.score - scoreC} punti (la candela ne da' 60)");
+                Check("round scaduto: nessun premio", gm.score - scoreC - ghostC < RoundRules.Reward(roundC), $"+{gm.score - scoreC} punti (la candela ne da' 60, il Fantasma {ghostC})");
                 Check("round scaduto: nessun nemico del round rimasto", left == 0, left + " rimasti");
             }
             else Log("meno di tre zone su questo piano: round scaduto non provato");
@@ -720,6 +723,8 @@ namespace PryingEyes
             bool themeTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-temitest") >= 0;
             bool reference = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-refshot") >= 0;
             bool roundTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-roundtest") >= 0;
+            bool knifeTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-knifetest") >= 0;
+            bool dropTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-droptest") >= 0;
             var gm = GameManager.I;
             while (FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) yield return null;
             if (reference)
@@ -727,9 +732,11 @@ namespace PryingEyes
                 yield return ReferenceShots(FloorDirector.I);
                 yield break;
             }
-            log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : roundTest ? "/round.txt" : holeScan ? "/buchi.txt" : "/furtivo.txt");
+            log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : roundTest ? "/round.txt" : knifeTest ? "/coltello.txt" : dropTest ? "/drop.txt" : holeScan ? "/buchi.txt" : "/furtivo.txt");
             File.WriteAllText(log, "");
             if (roundTest) { yield return CheckRounds(); yield break; }
+            if (knifeTest) { yield return CheckKnife(); yield break; }
+            if (dropTest) { yield return CheckDrops(); yield break; }
             if (holeScan) { yield return CheckHoles(); yield break; }
             yield return new WaitForSeconds(2.0f);
             var fd = FloorDirector.I;
@@ -954,11 +961,16 @@ namespace PryingEyes
             var guide = Guide.I;
             bool ok = guide.TryPing();
             bool cooldown = !guide.TryPing();
+            float pingT0 = Time.time;
             yield return new WaitForSeconds(0.25f);
             Shot("ping_onda");
             yield return new WaitForSeconds(2.8f);
-            int shown = 0; foreach (var m in guide.marks) if (m.shown) shown++;
-            Log($"ping: lanciato={ok} segnali={guide.marks.Count} mostrati={shown} (candele sul piano {fd.cur.candles.Count})");
+            // l'onda fa 38 m/s e il segnale compare quando ci arriva: su un piano grande il piu' lontano e' a oltre 120 m
+            // (3 s fissi bastavano solo ai piani piccoli): si aspetta che compaiano tutti, al massimo 8 s dal lancio
+            while (Time.time - pingT0 < 8f && guide.marks.Exists(m => !m.shown)) yield return null;
+            int shown = 0; float farMark = 0f;
+            foreach (var m in guide.marks) { if (m.shown) shown++; farMark = Mathf.Max(farMark, Vector3.Distance(m.pos, pl.transform.position)); }
+            Log($"ping: lanciato={ok} segnali={guide.marks.Count} mostrati={shown} (candele sul piano {fd.cur.candles.Count}, il segnale piu' lontano e' a {farMark:F0} m, letti {Time.time - pingT0:F1} s dopo il lancio)");
             Shot("ping_segnali");
             var arrowLabel = System.Array.Find(gm.hud.GetComponentsInChildren<UnityEngine.UI.Text>(), label => label.name == "TestoAscensore");
             bool sealedArrow = arrowLabel != null && arrowLabel.text.Contains("sigillato");

@@ -74,12 +74,14 @@ namespace PryingEyes
             if (wave == 0 && !waveActive) StartWave(1);
         }
 
-        /// <summary>Punti: +10 per colpo a segno, +50 per uccisione, +100 se letale alla testa.
-        /// Spenderli al muro sottrae (n negativo).</summary>
+        /// <summary>Punti (tabella in Punti.cs): +10 per colpo che non uccide, 60 per uccisione, 100 alla testa, 130 col coltello.
+        /// Spenderli al muro sottrae (n negativo). Con l'Offerta in corso i guadagni valgono il doppio.</summary>
         public void AddPoints(int n)
         {
+            if (n > 0 && Drops.DoublePoints) n *= 2;
             score = Mathf.Max(0, score + n);
             hud?.SetScore(score);
+            if (n > 0) hud?.PointFeed(n, Drops.DoublePoints);
         }
 
         static bool HasArg(string a)
@@ -563,13 +565,14 @@ namespace PryingEyes
             return fallback;
         }
 
-        public void OnEnemyKilled(Enemy e, bool headshot)
+        public void OnEnemyKilled(Enemy e, bool headshot, DamageSource src = DamageSource.Gun)
         {
-            if (proc) { kills++; AddPoints(50 + (headshot ? 50 : 0)); return; }
+            // COD Zombies: 60 punti per uccisione, 100 se letale alla testa, 130 col coltello (i +10 dei colpi arrivano da Damage)
+            int pts = Punti.PerUccisione(src, headshot);
+            if (proc) { kills++; AddPoints(pts); Drops.OnKill(e, src); return; }
             alive--;
             kills++;
-            // COD Zombies: 50 punti per uccisione, 100 se letale alla testa (i +10 dei colpi arrivano da Damage)
-            AddPoints(50 + (headshot ? 50 : 0));
+            AddPoints(pts);
             if (alive <= 0 && waveActive)
             {
                 waveActive = false;

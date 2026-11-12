@@ -530,10 +530,12 @@ namespace PryingEyes
                 Debug.Log($"[PryingEyes] danno {type} {dmg:F0} a {dist:F1} m, dislivello {dy:F1} m, nemico y={transform.position.y:F1}");
         }
 
-        public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true)
+        public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true, DamageSource src = DamageSource.Gun)
         {
             if (dead) return;
-            if (awardPoints) GameManager.I.AddPoints(10);   // +10 per colpo a segno
+            if (Drops.InstaKill && src != DamageSource.Nuke) dmg = Mathf.Max(dmg, hp + 1f);   // lo Sguardo: ogni colpo uccide
+            // +10 per colpo a segno che non uccide; l'uccisione paga a parte (Punti.PerUccisione)
+            if (awardPoints && hp - dmg > 0f) GameManager.I.AddPoints(Punti.Colpo);
             hp -= dmg;
             flash = 1f;
             foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
@@ -553,14 +555,14 @@ namespace PryingEyes
                 flinchT = 1.5f;
             }
             if (Archetype == EnemyType.Occhio && eye != null) eye.Hit();
-            if (hp <= 0f) Die(headshot);
+            if (hp <= 0f) Die(headshot, src);
         }
 
-        void Die(bool headshot)
+        void Die(bool headshot, DamageSource src)
         {
-            if (GameManager.autoTest) Debug.Log($"[PryingEyes] morto {type} headshot={headshot}");
+            if (GameManager.autoTest) Debug.Log($"[PryingEyes] morto {type} headshot={headshot} da {src}");
             all.Remove(this);
-            GameManager.I.OnEnemyKilled(this, headshot);
+            GameManager.I.OnEnemyKilled(this, headshot, src);
             GameManager.I.SetAlive(all.Count);
             Synth.Kill();
             if (agent != null) agent.enabled = false;

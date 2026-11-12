@@ -1,0 +1,44 @@
+ok       il coltello c'e' (StealthRig)
+piano 3 seme 3046: spiazzo in (2,9,1,3), il bersaglio guarda (1,0)
+--- presa alle spalle (monaco)
+ok       alle spalle, a 1,9 m, non ti nota (nemmeno stando fermo li')   [Patrol aw=0,00]
+ok       la presa e' possibile   [a 1,90 m]
+ok       prompt PRESA ALLE SPALLE   ['PRESA ALLE SPALLE   [G]']
+ok       durante il colpo l'arma si ritrae
+ok       la presa riesce: il bersaglio muore e il colpo conta come presa   [morto True, prese 1, in silenzio True]
+ok       la presa vale 130 punti   [+130]
+ok       la presa non fa rumore: il testimone a 3 m non si accorge di niente   [Patrol aw=0,00]
+ok       nessun avvistamento
+ok       a fine colpo l'arma torna
+--- vicinissimo alle spalle
+ok       a 0,8 m alle spalle ti nota   [Hunting aw=1,00]
+--- presa all'abate
+ok       abate: la presa e' possibile   [Patrol aw=0,00]
+ok       abate: una presa lo uccide   [hp -1]
+ok       abate: 130 punti   [+130]
+--- fendente in faccia che uccide
+ok       in faccia la presa non c'e'
+ok       in faccia nessun prompt di presa   ['']
+ok       il fendente uccide e conta come colpo rumoroso   [morto True, colpi 1, in silenzio False]
+ok       l'uccisione col coltello vale 130   [+130]
+ok       il fendente si sente: il testimone se ne accorge   [Patrol aw=0,27, a 3,7 m dal colpo, ostacolo sulla linea: nessuno]
+ok       ucciso sul colpo: nessun avvistamento
+--- fendente che non uccide
+ok       sopravvive con 80 PV   [hp 80]
+ok       chi sopravvive ti caccia   [Hunting]
+ok       un colpo che non uccide paga 10   [+10]
+ok       l'avvistamento e' contato (serve al bonus Fantasma)   [1]
+ok       il grido sveglia il testimone   [Suspicious]
+ok       il secondo fendente lo uccide: 130   [morto True, +130]
+--- fendente a vuoto
+ok       a vuoto: contato come mancato   [mancati 1]
+ok       a vuoto: nessun avvistamento
+--- casi in cui la presa non c'e'
+ok       controllo: monaco di spalle che pattuglia -> presa
+ok       chi ti caccia non si prende alle spalle
+ok       tornato a pattugliare, si
+ok       sospettoso ma di spalle, si
+ok       chi nasce in un round non si prende
+ok       di faccia niente presa
+ok       l'occhio non ha una schiena
+ESITO: ok

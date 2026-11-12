@@ -71,6 +71,7 @@ namespace PryingEyes.Proc
             floor = 0;
             deaths = 0;
             RoundDirector.ResetRun();
+            Drops.ResetRun();
             StartCoroutine(GoTo(ArgInt("-floor", 1), true));
         }
 
@@ -88,6 +89,7 @@ namespace PryingEyes.Proc
                 Destroy(cur.root);
                 cur = null;
                 Enemy.ClearAll();
+                Drops.NewFloor();
                 WallBuy.ClearAll();
                 Interact.Clear();
                 LightPool.Clear();
@@ -116,6 +118,7 @@ namespace PryingEyes.Proc
             lit = 0; total = cur.candles.Count; exitOpen = false; firstHorde = false; lastHorde = false;
             Guide.I?.ClearMarks();
             Stealth.Reset();
+            ghostMark = Stealth.Spotted;
             PlaceBatteries(plan);
             BuildPatrolPoints(plan);
             PopulateFloor(plan);
@@ -249,18 +252,33 @@ namespace PryingEyes.Proc
         }
 
         // ------------------------------------------------------------------ candele e uscita
+        /// <summary>Quanti avvistamenti c'erano (Stealth.Spotted) all'ultima candela, o all'inizio del piano: se non e' cambiato niente
+        /// e nessun prete ti sta cacciando, la candela vale il bonus Fantasma.</summary>
+        int ghostMark;
+        public int GhostMark => ghostMark;
+
         void OnCandle(Candelabro c)
         {
             lit++;
             var hud = gm.hud;
             gm.AddPoints(60);
             gm.player.weapon.AddAmmoFraction(0.18f);
+            bool ghost = Stealth.Spotted == ghostMark && Stealth.Hunters == 0;
+            ghostMark = Stealth.Spotted;
+            if (ghost) gm.AddPoints(Punti.Fantasma);
             // una candela in una zona sigillabile fa partire un round (RoundDirector): le serrande calano e l'orda nasce dentro. Se
             // parte, il resto (uscita, richiamo) aspetta la fine del round (OnRoundEnd). Il tono, calmo o in allarme, lo misura
             // prima del rumore della candela, che altrimenti sveglierebbe tutti.
             bool round = RoundDirector.I != null && RoundDirector.I.TryStart(c);
             // accendere una candela si sente e si vede: i preti vicini vengono a controllare
             Noise.Emit(c.transform.position, 26f, NoiseKind.Candle);
+            // Fantasma: grande avviso (nel round resta quello del round, e si usa la riga piccola)
+            if (ghost)
+            {
+                Sfx.UI(SoundBank.PickCoins, 0.5f, 0.85f);
+                if (round) hud?.Toast($"Fantasma: nessun prete ti ha visto.  +{Punti.Fantasma} punti");
+                else hud?.Banner("Fantasma", $"Nessun prete ti ha visto.  +{Punti.Fantasma} punti");
+            }
             if (round) { RefreshObjective(); return; }
             if (lit >= total)
             {
@@ -348,6 +366,8 @@ namespace PryingEyes.Proc
         public void OnRespawn()
         {
             deaths++;
+            ghostMark = Stealth.Spotted;         // dopo la morte si ricomincia a contare
+            Drops.OnPlayerDied();
             RoundDirector.I?.OnPlayerDied();     // se era un round, salta (di norma l'ha gia' visto morire)
             if (cur != null && cur.arrival != null) cur.arrival.SetOpenInstant(true);
             Enemy.ForgetAll();                 // chi ti cercava ha perso la pista

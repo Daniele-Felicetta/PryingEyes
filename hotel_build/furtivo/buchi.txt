@@ -1,4 +1,4 @@
-piano 5 seme 1234: 64 stanze, 121 aperture
-punti provati 44125, senza pavimento 0
+piano 1 seme 1000: 82 stanze, 284 aperture
+punti provati 28861, senza pavimento 0
 caduta: dopo il tuffo a -60 m il giocatore e' a y=0,1, a 0,0 m dall'appoggio -> ok
 ESITO: ok

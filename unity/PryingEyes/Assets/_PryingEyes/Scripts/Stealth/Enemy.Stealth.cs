@@ -134,11 +134,14 @@ namespace PryingEyes
             float d = to.magnitude;
             bool hunting = alert == Alert.Hunting;
             float range = Stealth.SightRange(this) * (hunting ? 1.35f : 1f);
-            bool near = d < 2.2f;
-            if (d > range && !near) return false;
-            float half = FovHalf * (alert == Alert.Patrol ? 1f : 1.5f);
             Vector3 fwd = transform.forward, to2 = to;
             if (Archetype != EnemyType.Occhio) { fwd.y = 0f; to2.y = 0f; }
+            // a due passi ti nota comunque; ma chi cammina non ti sente alle spalle oltre il metro: senza questo la presa col
+            // coltello (Knife.cs) sarebbe impossibile, ti noterebbe prima che tu sia a portata
+            float nearR = !hunting && Archetype != EnemyType.Occhio && Vector3.Angle(fwd, to2) > 105f ? 1.0f : 2.2f;
+            bool near = d < nearR;
+            if (d > range && !near) return false;
+            float half = FovHalf * (alert == Alert.Patrol ? 1f : 1.5f);
             if (!near && Vector3.Angle(fwd, to2) > half) return false;
             if (!(HotelNav.ClearLine(eyeP, head) || HotelNav.ClearLine(eyeP, chest))) return false;
             float k = 1f - Mathf.Clamp01(d / Mathf.Max(range, 0.01f));
@@ -222,6 +225,7 @@ namespace PryingEyes
                     Sfx.At(SoundBank.Suspect, p, 0.55f, basePitch, 2f, 26f);
                     break;
                 case Alert.Hunting:
+                    if (old != Alert.Hunting) Stealth.Spotted++;      // per il bonus Fantasma (FloorDirector.OnCandle)
                     Sfx.At(SoundBank.AlertSting, p, 0.9f, basePitch * (Archetype == EnemyType.Abate ? 0.8f : 1f), 3f, 48f);
                     if (old != Alert.Hunting && seeing) Sfx.UI(SoundBank.AlertSting, 0.2f, 1.5f);   // il tuo cuore: sei stato visto
                     if (old != Alert.Hunting) Noise.Emit(transform.position, 15f, NoiseKind.Shout);        // il grido richiama gli altri

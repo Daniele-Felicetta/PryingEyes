@@ -147,7 +147,7 @@ namespace PryingEyes
             }
             torchCap.color = torchOn ? new Color(1f, 0.86f, 0.5f, 1f) : new Color(0.45f, 0.42f, 0.38f, 0.5f);
             torchCount.text = torchSpares > 0 ? "× " + torchSpares : "";
-            string hint = "T torcia  ·  Y cambia pila  ·  V ping" + (pingCd > 0f ? "  (" + Mathf.CeilToInt(pingCd * Guide.Cooldown) + " s)" : "");
+            string hint = "T torcia  ·  Y cambia pila  ·  V ping" + (pingCd > 0f ? "  (" + Mathf.CeilToInt(pingCd * Guide.Cooldown) + " s)" : "") + "  ·  G coltello";
             if (hint != lastHint) { lastHint = hint; keyHint.text = hint; }
         }
 

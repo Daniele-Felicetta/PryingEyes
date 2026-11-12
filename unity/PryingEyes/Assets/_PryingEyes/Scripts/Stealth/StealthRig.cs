@@ -9,6 +9,7 @@ namespace PryingEyes
         public static StealthRig I;
         public Torch torch;
         public Guide guide;
+        public Knife knife;
         AudioSource beat;
 
         public static void Install()
@@ -23,6 +24,9 @@ namespace PryingEyes
             I.torch.NewRun();
             I.guide = go.AddComponent<Guide>();
             SoundBank.WarmStealth();
+            SoundBank.WarmKnife();
+            I.knife = go.AddComponent<Knife>();
+            I.knife.Init(gm.player.cam);
             var clip = SoundBank.Heartbeat;
             if (clip != null)
             {
@@ -40,6 +44,7 @@ namespace PryingEyes
         void Update()
         {
             Stealth.Tick(Time.deltaTime);
+            Drops.Tick(Time.deltaTime);
             if (beat == null) return;
             float lv = Stealth.Level;
             float v = lv > 0.05f && !GameMenu.Blocked ? Mathf.Pow(lv, 1.2f) * 0.5f : 0f;

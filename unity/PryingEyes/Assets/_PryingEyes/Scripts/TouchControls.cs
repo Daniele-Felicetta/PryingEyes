@@ -6,15 +6,16 @@ namespace PryingEyes
     [DefaultExecutionOrder(-10000)]
     public class TouchControls : MonoBehaviour
     {
-        public enum Action { Fire, Aim, Jump, Crouch, Sprint, Use, Reload, Swap, Mode, Torch, Battery, Ping, Left, Right, Pause }
-        static readonly bool[] held = new bool[15], down = new bool[15];
-        static readonly string[] labels = { "FUOCO", "MIRA", "SALTA", "GIU", "CORRI", "USA", "RICARICA", "ARMA", "MODO", "TORCIA", "PILA", "PING", "<", ">", "II" };
+        public enum Action { Fire, Aim, Jump, Crouch, Sprint, Use, Reload, Swap, Mode, Torch, Battery, Ping, Left, Right, Pause, Knife }
+        static readonly bool[] held = new bool[16], down = new bool[16];
+        static readonly string[] labels = { "FUOCO", "MIRA", "SALTA", "GIU", "CORRI", "USA", "RICARICA", "ARMA", "MODO", "TORCIA", "PILA", "PING", "<", ">", "II", "COLTELLO" };
         static readonly Rect[] buttons = {
             new Rect(1135, 480, 130, 110), new Rect(995, 480, 130, 110), new Rect(1135, 600, 130, 100),
             new Rect(995, 600, 130, 100), new Rect(155, 465, 125, 65), new Rect(855, 600, 130, 100),
             new Rect(855, 480, 130, 110), new Rect(1135, 390, 130, 75), new Rect(995, 390, 130, 75),
             new Rect(710, 600, 135, 100), new Rect(710, 510, 135, 75), new Rect(710, 420, 135, 75),
-            new Rect(295, 620, 90, 80), new Rect(395, 620, 90, 80), new Rect(1200, 10, 65, 60)
+            new Rect(295, 620, 90, 80), new Rect(395, 620, 90, 80), new Rect(1200, 10, 65, 60),
+            new Rect(855, 390, 130, 75)
         };
         static readonly System.Collections.Generic.Dictionary<int, int> fingers = new System.Collections.Generic.Dictionary<int, int>();
         public static Vector2 Move { get; private set; }

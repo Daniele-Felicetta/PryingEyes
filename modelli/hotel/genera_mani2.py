@@ -36,7 +36,7 @@ Y_FRONT = 0.120      # y del davanti dell'impugnatura nel riferimento della mano
 Z_PALM = -0.0140     # z della faccia dell'impugnatura che poggia sul palmo
 MAX_BEND = 30.0      # massima flessione del polso (gradi) tra l'asse della mano e quello dell'avambraccio
 # armi in cui la sinistra non tiene l'arma (WeaponDef.hand = 0): compare solo nella ricarica
-ONE_HANDED = {'p9_pieta', 'm45_vigilia', 'rv_cardinale', 'mp_serafino', 'de_eremita'}
+ONE_HANDED = {'p9_pieta', 'm45_vigilia', 'rv_cardinale', 'mp_serafino', 'de_eremita', 'kn_coltello'}
 
 
 def V(x=0.0, y=0.0, z=0.0):

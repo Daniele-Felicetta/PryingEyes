@@ -72,6 +72,8 @@ namespace PryingEyes
         public static float Level;
         public static float HunterDist = 99f;
         public static int Hunters, Aware;
+        /// <summary>Quante volte un prete e' passato alla caccia dall'inizio della partita (mai azzerato: chi lo usa confronta due letture).</summary>
+        public static int Spotted;
         public static float lastExposure;
         static float lumT;
 

@@ -21,15 +21,32 @@ namespace PryingEyes.EditorTools
         const string PrefabPath = ResDir + "/Mani.prefab";
         const string PrefabArmiDir = ResDir + "/ManiArmi";
 
+        static string Arg(string name)
+        {
+            var a = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < a.Length - 1; i++) if (a[i] == name) return a[i + 1];
+            return null;
+        }
+
+        /// <summary>Un'arma nuova con le sue mani in una sola apertura di Unity (il coltello): importa l'arma indicata da -armi e
+        /// le mani indicate da -mani. Da CLI: -executeMethod PryingEyes.EditorTools.ManiImport.RunWithWeapons -armi id -mani id</summary>
+        public static void RunWithWeapons()
+        {
+            ArmiImport.Run();
+            Run();
+        }
+
         public static void Run()
         {
             AssetDatabase.Refresh();
+            // con -mani id1,id2 si rifanno solo le mani indicate: ogni FBX importato e' una reimportazione e una scrittura su disco
+            string only = Arg("-mani");
             var glove = Pbr("Mani_Guanto", "cuoio", new Color(0.055f, 0.055f, 0.06f), 0.16f, 0.6f);
             var sleeve = Pbr("Mani_Manica", "velluto", new Color(0.075f, 0.08f, 0.062f), 0.2f, 0.3f);
 
             if (!AssetDatabase.IsValidFolder(ResDir)) AssetDatabase.CreateFolder("Assets/_PryingEyes", "Resources");
 
-            if (File.Exists(Fbx))
+            if (File.Exists(Fbx) && only == null)
             {
                 ImportFbx(Fbx, glove, sleeve);
                 SavePrefab(Fbx, PrefabPath, "Mani");
@@ -44,6 +61,7 @@ namespace PryingEyes.EditorTools
                 {
                     string path = AssetDatabase.GUIDToAssetPath(guid);
                     string id = Path.GetFileNameWithoutExtension(path);
+                    if (only != null && System.Array.IndexOf(only.Split(','), id) < 0) continue;
                     ImportFbx(path, glove, sleeve);
                     int v = SavePrefab(path, $"{PrefabArmiDir}/{id}.prefab", "Mani");
                     verts += v; n++;

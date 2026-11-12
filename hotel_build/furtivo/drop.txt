@@ -1,0 +1,42 @@
+piano 3 seme 2961: stanze=49 candele=6 zone=5
+--- Fantasma
+candele libere per il Fantasma: 5; una con zona riservata alle falene: si
+ok       candela: 60 punti, 200 in piu' se nessuno ti ha visto dall'ultima   [+260, Fantasma atteso True]
+ok       candela senza avvistamenti dall'ultima: Fantasma (+200)   [+260, atteso 260]
+ok       un prete ti vede e ti caccia   [Hunting, avvistamenti 1]
+ok       candela dopo un avvistamento: niente Fantasma   [+60]
+ok       dopo la candela il conto riparte: di nuovo Fantasma   [+260]
+--- caduta dall'uccisione
+ok       l'uccisione forzata lascia un potenziamento   [caduti 1, sul piano 1]
+ok       cade dove e' morto   [a 0,0 m]
+ok       a sei metri dal giocatore non si prende da solo
+ok       passandoci vicino lo si prende   [Insta]
+ok       raggiunti i quattro del piano non cade piu' niente   [caduti 0, sul piano 4/4]
+--- Reliquiario
+ok       Reliquiario: caricatore e riserva al massimo   [15/15, riserva 150/150]
+--- Campana
+bersagli: vicino 4,0 m, medio 12,6 m, lontano 24,6 m
+ok       Campana: uccide chi e' vicino e chi e' entro 22 m   [vicino True, medio True]
+ok       Campana: chi e' oltre 22 m sopravvive   [a 25 m]
+ok       Campana: +400 punti in tutto, nessun punto a testa   [+400]
+ok       Campana: conta le uccisioni   [2]
+ok       Campana: le sue uccisioni non fanno cadere altro
+info: il sopravvissuto a 25 m, dopo il rintocco: Searching aw=0,55
+ok       Campana: il rintocco richiama chi sopravvive (entro 27 m)   [Searching]
+--- Sguardo e Offerta
+ok       Sguardo e Offerta presi   [2]
+ok       Sguardo: ogni colpo uccide, per 30 s   [29,2 s]
+ok       Offerta: i punti valgono il doppio, per 30 s   [29,2 s]
+ok       Offerta: 10 punti ne valgono 20   [+20]
+ok       Sguardo: un colpo da 1 uccide un monaco da 200 PV   [hp -1]
+ok       Offerta: l'uccisione vale il doppio (120)   [+120]
+ok       Sguardo e Offerta finiscono dopo 30 s   [30,5 s]
+ok       i potenziamenti non presi spariscono dopo 30 s   [scaduti 3/3]
+--- Notte delle Falene
+ok       il quinto round e' la Notte delle Falene   [round 5, falene True]
+ok       falene: il numero dei nemici segue la formula (x1,6)   [10 nemici, attesi 10 (tono Calm, 0 gia' dentro)]
+ok       nascono solo falene   [3 falene, 0 altri]
+ok       il round delle falene finisce, serrande su   [17 s, nati 10/10]
+ok       tetto dei vivi: quello della zona piu' quattro, tutti dentro   [massimo 10, tetto 13]
+ok       a fine round cade sempre un Reliquiario, fuori dal tetto del piano   [caduti 1, a terra 1, presi 0, sul piano 4]
+ESITO: ok

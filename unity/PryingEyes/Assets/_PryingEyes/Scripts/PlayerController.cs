@@ -391,6 +391,8 @@ namespace PryingEyes
                 bool onWall = WallBuy.Tick(cam);
                 bool onThing = !onWall && Proc.Interact.Tick(cam);
                 if ((Input.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use))) { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
+                // dopo gli altri prompt (che cancellano la riga a ogni fotogramma): la presa alle spalle
+                if (!onWall && !onThing) Knife.I?.PromptTick();
             }
         }
 
