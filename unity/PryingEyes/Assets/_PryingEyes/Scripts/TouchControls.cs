@@ -26,10 +26,17 @@ namespace PryingEyes
         static Vector2 joystick;
         static int moveFinger = -1;
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        static extern int IsMobileBrowser();
+#endif
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Create()
         {
-#if UNITY_IOS || UNITY_ANDROID
+#if UNITY_IOS || UNITY_ANDROID || (UNITY_WEBGL && !UNITY_EDITOR)
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (IsMobileBrowser() == 0) return;
+#endif
             var go = new GameObject("TouchControls");
             DontDestroyOnLoad(go);
             go.AddComponent<TouchControls>();
