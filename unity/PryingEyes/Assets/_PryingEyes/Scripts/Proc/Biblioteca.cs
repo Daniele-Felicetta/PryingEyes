@@ -87,7 +87,8 @@ namespace PryingEyes.Proc
         Transform book;
         Light glow;
         float phase, spin, gone, settle;
-        const float Hover = 1.32f, Lying = 0.965f;
+        const float Hover = 1.32f, Lying = 0.972f, BookScale = 1.35f;      // il libro e' un terzo piu' grande del vero: da tre metri, in una sala buia, un 20 x 28 cm si perdeva
+        const float GlowI = 1.6f;                                           // luce del libro in attesa
 
         static readonly float[] Plinth =
         {
@@ -144,7 +145,9 @@ namespace PryingEyes.Proc
             col.size = new Vector3(0.66f, 0.92f, 0.66f);
             book = BuildBook(transform, d.color);
             book.localPosition = new Vector3(0f, Hover, 0f);
-            glow = ShrineKit.PointLight(transform, "Luce", new Vector3(0f, 1.4f, 0f), d.color, 1.5f, 6.5f, 0.22f, 2.2f);
+            book.localScale = Vector3.one * BookScale;
+            // la luce sta ben sopra il libro (a mezzo metro dal piano del leggio bruciava la pietra fino al bianco)
+            glow = ShrineKit.PointLight(transform, "Luce", new Vector3(0f, 1.95f, 0f), d.color, GlowI, 7f, 0.22f, 2.2f);
             Interact.Add(this);
         }
 
@@ -169,10 +172,10 @@ namespace PryingEyes.Proc
                 gone += dt;
                 float k = Mathf.Clamp01(gone / 0.9f);
                 book.localPosition = new Vector3(0f, Hover + k * 0.9f, 0f);
-                book.localScale = Vector3.one * (1f - k * k);
+                book.localScale = Vector3.one * (BookScale * (1f - k * k));
                 spin += 420f * dt;
                 book.localRotation = Quaternion.Euler(20f, spin, 0f);
-                if (glow != null) glow.intensity = Mathf.Lerp(3.2f, 0f, k);
+                ShrineKit.SetGlow(glow, Mathf.Lerp(3.2f, 0f, k));        // la luce ha il respiro (LightPulse): si cambia la base, non l'intensita'
                 if (k >= 1f) { book.gameObject.SetActive(false); if (glow != null) glow.enabled = false; enabled = false; }
                 return;
             }
@@ -183,7 +186,8 @@ namespace PryingEyes.Proc
                 var p = book.localPosition;
                 book.localPosition = new Vector3(0f, Mathf.Lerp(p.y, Lying, k), 0f);
                 book.localRotation = Quaternion.Slerp(book.localRotation, Quaternion.Euler(0f, spin, 0f), k);
-                if (glow != null) glow.intensity = Mathf.Lerp(glow.intensity, 0f, k);
+                ShrineKit.SetGlow(glow, Mathf.Lerp(GlowI, 0f, k));
+                if (settle >= 1f) { if (glow != null) glow.enabled = false; enabled = false; }       // sigillato e spento: il leggio non ha piu' niente da animare
                 return;
             }
             spin += 62f * dt;

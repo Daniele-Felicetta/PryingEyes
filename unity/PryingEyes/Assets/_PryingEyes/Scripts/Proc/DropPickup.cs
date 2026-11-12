@@ -15,11 +15,15 @@ namespace PryingEyes
         public const float PickRadius = 1.9f, Hover = 0.55f;
 
         float born, phase, spin;
-        Transform body;
+        Transform body, beam;
         Light glow;
         bool shown = true;
+        // fascio di luce e pozza sul pavimento: i modelli sono piccoli (20-30 cm), cosi' il potenziamento si nota anche da lontano
+        Renderer[] beamRends;
+        MaterialPropertyBlock beamMpb;
+        Color beamColor;
 
-        static Material wood, brass, bone, bronze, dark, emAmber, emRed, emGold, emWhite;
+        static Material wood, brass, bone, bronze, dark, emAmber, emRed, emGold, emWhite, beamMat, poolMat;
         static readonly Dictionary<string, Mesh> meshes = new Dictionary<string, Mesh>();
 
         public float Age => Time.time - born;
@@ -56,6 +60,48 @@ namespace PryingEyes
             var pulse = lg.AddComponent<LightPulse>();
             pulse.l = glow; pulse.baseI = 1.5f; pulse.amp = 0.28f; pulse.speed = 3.1f;
             body.localScale = Vector3.zero;
+            BuildBeam(k);
+        }
+
+        /// <summary>Tre piani verticali incrociati (una colonna morbida che sale dal pavimento) e una pozza di luce a terra, nel colore
+        /// del potenziamento: ambra il reliquiario, rosso lo sguardo, oro l'offerta, azzurro la campana. Sono figli della radice e non del
+        /// corpo: l'occhio che ruota verso di te non deve inclinarli.</summary>
+        void BuildBeam(DropKind k)
+        {
+            beamColor = k == DropKind.Ammo ? new Color(1f, 0.64f, 0.24f) : k == DropKind.Insta ? new Color(1f, 0.20f, 0.12f)
+                : k == DropKind.Double ? new Color(1f, 0.86f, 0.34f) : new Color(0.60f, 0.80f, 1f);
+            beamMpb = new MaterialPropertyBlock();
+            beam = new GameObject("Fascio").transform;
+            beam.SetParent(transform, false);
+            beamRends = new Renderer[4];
+            for (int i = 0; i < 3; i++)
+            {
+                var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                q.name = "Piano" + (i + 1);
+                Util.Kill(q.GetComponent<Collider>());
+                q.transform.SetParent(beam, false);
+                q.transform.localPosition = new Vector3(0f, 1.15f, 0f);
+                q.transform.localRotation = Quaternion.Euler(0f, 60f * i, 0f);
+                q.transform.localScale = new Vector3(0.62f, 2.3f, 1f);
+                beamRends[i] = Soft(q.GetComponent<MeshRenderer>(), beamMat);
+            }
+            var pool = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            pool.name = "Pozza";
+            Util.Kill(pool.GetComponent<Collider>());
+            pool.transform.SetParent(beam, false);
+            pool.transform.localPosition = new Vector3(0f, 0.025f, 0f);
+            pool.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            pool.transform.localScale = new Vector3(1.3f, 1.3f, 1f);
+            beamRends[3] = Soft(pool.GetComponent<MeshRenderer>(), poolMat);
+            beam.localScale = Vector3.zero;
+        }
+
+        static Renderer Soft(MeshRenderer r, Material m)
+        {
+            r.sharedMaterial = m;
+            r.shadowCastingMode = ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            return r;
         }
 
         void Update()
@@ -65,6 +111,7 @@ namespace PryingEyes
             float pop = Mathf.Clamp01(t / 0.35f);
             float sc = pop < 1f ? Mathf.Sin(pop * Mathf.PI * 0.5f) * (1f + 0.22f * Mathf.Sin(pop * Mathf.PI)) : 1f;
             body.localScale = Vector3.one * sc;
+            beam.localScale = Vector3.one * sc;
             body.localPosition = new Vector3(0f, Hover + 0.05f * Mathf.Sin(Time.time * 2.1f + phase), 0f);
             var pl = GameManager.I != null ? GameManager.I.player : null;
             if (kind == DropKind.Insta && pl != null)
@@ -82,7 +129,16 @@ namespace PryingEyes
             if (left <= 0f) { Drops.statExpired++; Drops.Forget(this); Destroy(gameObject); return; }
             // gli ultimi otto secondi lampeggia, sempre piu' svelto
             bool vis = left > 8f || Mathf.Repeat(Time.time * (left > 3f ? 3f : 7f), 1f) < 0.62f;
-            if (vis != shown) { shown = vis; body.gameObject.SetActive(vis); }
+            if (vis != shown) { shown = vis; body.gameObject.SetActive(vis); beam.gameObject.SetActive(vis); }
+            if (shown)
+            {
+                // il fascio respira con la luce (stessa velocita' del bagliore)
+                float br = 0.84f + 0.16f * Mathf.Sin(Time.time * 3.1f + phase);
+                beamMpb.SetColor("_BaseColor", new Color(beamColor.r, beamColor.g, beamColor.b, 0.34f * br));
+                for (int i = 0; i < 3; i++) beamRends[i].SetPropertyBlock(beamMpb);
+                beamMpb.SetColor("_BaseColor", new Color(beamColor.r, beamColor.g, beamColor.b, 0.50f * br));
+                beamRends[3].SetPropertyBlock(beamMpb);
+            }
 
             if (pl != null && pl.alive && !GameMenu.Blocked && sc > 0.9f)
             {
@@ -129,6 +185,19 @@ namespace PryingEyes
             emRed = Emit("Drop_Rosso", new Color(1f, 0.10f, 0.06f), 3.2f);
             emGold = Emit("Drop_Oro", new Color(1f, 0.78f, 0.24f), 2.4f);
             emWhite = Emit("Drop_Bianco", new Color(1f, 0.95f, 0.85f), 3.0f);
+            // fascio (v = 0 e' il pavimento: piu' forte in basso, svanisce in alto) e pozza di luce: sfumature morbide, nessun bordo netto
+            beamMat = ShrineKit.Additive(ShrineKit.SoftTex("DropFascio", 32, 64, (u, v) =>
+            {
+                float x = u * 2f - 1f;
+                float lo = Mathf.Clamp01(v / 0.06f);
+                return Mathf.Exp(-x * x * 3.2f) * Mathf.Pow(1f - v, 1.6f) * (lo * lo * (3f - 2f * lo));
+            }));
+            poolMat = ShrineKit.Additive(ShrineKit.SoftTex("DropPozza", 32, 32, (u, v) =>
+            {
+                float x = u * 2f - 1f, y = v * 2f - 1f;
+                float e = Mathf.Clamp01(1f - Mathf.Sqrt(x * x + y * y));
+                return e * e;
+            }));
         }
 
         // ------------------------------------------------------------------ forme

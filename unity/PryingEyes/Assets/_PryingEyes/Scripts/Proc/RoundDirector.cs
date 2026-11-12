@@ -716,7 +716,7 @@ namespace PryingEyes.Proc
                 Drops.Spawn(DropKind.Ammo, at, false);
             }
             gm.hud?.Banner((moth ? "Notte delle Falene " : "Round ") + Round + " superato",
-                reward ? $"+{pts} punti  ·  scudo e munizioni" + (gift ? "  ·  un Reliquiario e' caduto" : "") + (mood == RoundMood.Calm ? "  ·  nessuno ti ha sentito" : "") : "Le presenze si sono dissolte.");
+                reward ? $"+{pts} punti  ·  scudo e munizioni" + (gift ? "  ·  un Reliquiario è caduto" : "") + (mood == RoundMood.Calm ? "  ·  nessuno ti ha sentito" : "") : "Le presenze si sono dissolte.");
             cur.done = true;
             phase = Phase.Opening;
             Debug.Log($"[PryingEyes] round {Round} finito in {clock:F0} s ({(reward ? "+" + pts + " punti" : "senza premio")})");

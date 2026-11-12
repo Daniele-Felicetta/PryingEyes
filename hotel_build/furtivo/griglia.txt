@@ -25,7 +25,7 @@ nemici 4, con una stanza di casa 4
 ok       c'e' un guardiano pesante e robusto nella stanza del boss   [Abate 640 punti vita]
 ok       gli altri nascono tutti in stanze di guardia
 ok       tutti i nemici del piano hanno una stanza di casa   [4/4]
-dopo due minuti (a velocita' 6): sconfinamento massimo 0,0 m, cammino massimo 60 m, fermi 0 su 4
+dopo due minuti (a velocita' 6): sconfinamento massimo 0,0 m, cammino massimo 61 m, fermi 0 su 4
 ok       le guardie non escono dalla loro stanza   [0,0 m fuori]
 ok       le guardie pattugliano davvero (non sono bloccate)   [fermi 0/4]
 --- stanza segreta
@@ -33,7 +33,7 @@ ok       la stanza segreta ha un unico accesso: il passaggio basso
 ok       in piedi il passaggio e' chiuso, accovacciati e' libero   [in piedi chiuso True, accovacciato libero True]
 ok       i nemici non hanno un percorso fino alla stanza segreta
 ok       il giocatore entra a carponi nella stanza segreta   [1,2 s, a 1,1 m dal buco]
-ok       e ne esce a carponi   [0,8 s]
+ok       e ne esce a carponi   [0,9 s]
 --- mappa
    mappa: '?' a (192,88)
    mappa: 'Partenza' a (322,88)

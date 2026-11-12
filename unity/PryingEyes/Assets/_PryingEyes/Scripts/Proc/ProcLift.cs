@@ -34,7 +34,7 @@ namespace PryingEyes.Proc
         // IInteract: solo l'uscita
         public Vector3 Point => frontPoint + Vector3.up * 1.3f;
         public float Radius => 3.4f;
-        public string Prompt => !isExit ? null : (unlocked ? (isOpen ? "SCENDI CON L'ASCENSORE" : null) : (lockedText != null ? lockedText() : "L'ASCENSORE E' SIGILLATO"));
+        public string Prompt => !isExit ? null : (unlocked ? (isOpen ? "SCENDI CON L'ASCENSORE" : null) : (lockedText != null ? lockedText() : "L'ASCENSORE È SIGILLATO"));
 
         public void Use()
         {

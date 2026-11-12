@@ -35,14 +35,14 @@ ok       dopo il reset non c'e' nessun perk
 ok       Pelle di pietra: vita massima 150 e subito piena   [hp 150/150]
 ok       Pelle di pietra: la barra si allunga   [330 px]
 ok       Mani svelte: la ricarica dura il 60%   [1,85 s -> 1,12 s]
-ok       Doppio colpo: la cadenza sale di un terzo   [133 ms -> 100 ms tra i colpi]
+ok       Doppio colpo: la cadenza sale di un terzo   [134 ms -> 100 ms tra i colpi]
 ok       Rinascita: la prima morte del piano ti rialza sul posto   [vivo True, hp 50]
 ok       Rinascita: tre secondi di tregua
 ok       Rinascita: l'icona si spegne (usata)
 ok       Rinascita: al piano dopo e' di nuovo pronta
 ok       Passi di cenere: il rumore dei passi cala del 40%   [7,1 m -> 4,3 m]
 ok       Passi di cenere: senza il perk il fattore e' 1
-ok       Velo: la vista dei preti cala del 30%   [7,5 m -> 5,2 m]
+ok       Velo: la vista dei preti cala del 30%   [19,7 m -> 13,8 m]
 ok       Velo attivo: parte col tasto
 ok       Velo attivo: i preti ti vedono solo a due passi   [1,5 m]
 ok       Velo: non si riusa subito
@@ -80,10 +80,11 @@ prompt offerta: PRENDI CAPPELLANO — doppietta, grado 2 (scelta)
 ok       F prende l'arma   [CAPPELLANO]
 ok       lo Scrigno si richiude
 ok       se non la prendi in tempo lo Scrigno si richiude senza arma   [punti 1050]
-gradi al piano 1: 182 706 365 226 21   al piano 7: 37 377 463 482 141
+gradi al piano 1: 176 647 438 204 35   al piano 7: 47 353 505 458 137
 ok       lo Scrigno non offre la pistola di partenza ne' armi che hai
 ok       escono tutti i cinque gradi, e al piano 7 piu' alti
 --- morte
 ok       morire costa meta' dei punti e l'ultimo perk   [vivo False, punti 1500, perk 1]
 ok       rinasci con la vita massima del momento   [hp 150/150]
+--- HUD
 ESITO: ok

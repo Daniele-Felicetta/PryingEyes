@@ -1,5 +1,5 @@
 ok       il coltello c'e' (StealthRig)
-piano 3 seme 3046: spiazzo in (2,9,1,3), il bersaglio guarda (1,0)
+piano 1 seme 1000: spiazzo in (9,7,12,1), il bersaglio guarda (0,1)
 --- presa alle spalle (monaco)
 ok       alle spalle, a 1,9 m, non ti nota (nemmeno stando fermo li')   [Patrol aw=0,00]
 ok       la presa e' possibile   [a 1,90 m]

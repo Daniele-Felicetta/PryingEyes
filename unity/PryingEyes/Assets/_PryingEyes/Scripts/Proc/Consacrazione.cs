@@ -53,7 +53,7 @@ namespace PryingEyes.Proc
         {
             if (glow == null) return;
             flare = Mathf.MoveTowards(flare, 0f, Time.deltaTime / 2.2f);
-            glow.intensity = Mathf.Lerp(1.4f, 6.5f, flare);
+            ShrineKit.SetGlow(glow, Mathf.Lerp(1.5f, 5f, flare));      // la luce ha il respiro (LightPulse): si cambia la base, non l'intensita'
         }
 
         void OnDestroy() { Interact.Remove(this); if (Current == this) Current = null; }
@@ -89,7 +89,7 @@ namespace PryingEyes.Proc
 
         void Build()
         {
-            var stone = ShrineKit.Stone; var iron = ShrineKit.Iron;
+            var stone = ShrineKit.StoneDark; var iron = ShrineKit.Iron;
             var gold = ShrineKit.Emit(new Color(1f, 0.74f, 0.26f), 2.6f);
             ShrineKit.Prim(transform, PrimitiveType.Cube, "Base", stone, new Vector3(0f, 0.09f, 0f), new Vector3(1.5f, 0.18f, 0.9f));
             ShrineKit.Prim(transform, PrimitiveType.Cube, "Corpo", stone, new Vector3(0f, 0.49f, 0f), new Vector3(1.26f, 0.62f, 0.68f));
@@ -106,7 +106,7 @@ namespace PryingEyes.Proc
             {
                 ShrineKit.Prim(transform, PrimitiveType.Cylinder, "Candela", ShrineKit.Wax, new Vector3(x, 1.055f, -0.28f), new Vector3(0.075f, 0.135f, 0.075f));
                 ShrineKit.Prim(transform, PrimitiveType.Sphere, "Fiamma", ShrineKit.Emit(new Color(1f, 0.62f, 0.14f), 3.4f), new Vector3(x, 1.215f, -0.28f), new Vector3(0.04f, 0.075f, 0.04f));
-                ShrineKit.PointLight(transform, "LuceCandela", new Vector3(x, 1.3f, -0.28f), new Color(1f, 0.62f, 0.26f), 0.75f, 5.2f, 0.3f, 7f);
+                ShrineKit.PointLight(transform, "LuceCandela", new Vector3(x, 1.55f, -0.28f), new Color(1f, 0.62f, 0.26f), 0.6f, 5.2f, 0.3f, 7f);
             }
             // il martello, appoggiato di lato
             ShrineKit.Prim(transform, PrimitiveType.Cylinder, "Manico", ShrineKit.Wood, new Vector3(0.3f, 0.945f, -0.24f), new Vector3(0.024f, 0.15f, 0.024f), new Vector3(0f, 0f, 90f));
@@ -114,7 +114,8 @@ namespace PryingEyes.Proc
             var col = gameObject.AddComponent<BoxCollider>();
             col.center = new Vector3(0f, 0.46f, 0f);
             col.size = new Vector3(1.5f, 0.92f, 0.9f);
-            glow = ShrineKit.PointLight(transform, "Luce", new Vector3(0f, 1.5f, 0.1f), new Color(1f, 0.82f, 0.4f), 1.4f, 7.5f, 0.12f, 1.8f);
+            // alta sul piano: a 60 cm dalla pietra la bruciava fino al bianco e la croce d'oro si perdeva
+            glow = ShrineKit.PointLight(transform, "Luce", new Vector3(0f, 2.1f, 0.1f), new Color(1f, 0.82f, 0.4f), 1.5f, 7.5f, 0.12f, 1.8f);
         }
     }
 }

@@ -60,6 +60,7 @@ namespace PryingEyes.EditorTools
                     sb.AppendLine($"seme {seed} piano {floor}: navmesh x {dgMinX:F0}..{dgMaxX:F0} z {dgMinZ:F0}..{dgMaxZ:F0} m; piano x {plan.minX * 0.1f:F0}..{plan.maxX * 0.1f:F0} z {plan.minZ * 0.1f:F0}..{plan.maxZ * 0.1f:F0} m; {plan.units} ali, {plan.rooms.Count} stanze; prima della riparazione: {dgPre.Count} stanze irraggiungibili [{string.Join(" ", dgNames.GetRange(0, Mathf.Min(8, dgNames.Count)))}], {dgCandles} candele, uscita {(dgExit ? "no" : "ok")}");
                     int stripped = Connectivity.Repair(fi, out int before);
                     if (before > 0) { rawProblems++; rawRooms += stripped; clearedAll += Connectivity.LastCleared; }
+                    if (stripped > 0) sb.AppendLine($"seme {seed} piano {floor}: la riparazione ha svuotato {string.Join(", ", Connectivity.LastStripped)} ({before} problemi prima, {Connectivity.LastCleared} arredi tolti)");
                     var left = Connectivity.Unreachable(fi, out int cbLeft, out bool exitLeft);
                     if (left.Count + cbLeft + (exitLeft ? 1 : 0) > 0)
                     {
@@ -117,6 +118,15 @@ namespace PryingEyes.EditorTools
                     bool ok = false; string why = "";
                     foreach (var off in new[] { Vector3.zero, new Vector3(1.2f, 0, 0), new Vector3(-1.2f, 0, 0), new Vector3(0, 0, 1.2f), new Vector3(0, 0, -1.2f), new Vector3(2.4f, 0, 2.4f) })
                         if (Reach(ctr + off, 1.0f, out why)) { ok = true; break; }
+                    // il centro di una sala piena di tavoli puo' cadere su un'isola: basta un punto subito dentro una porta che si raggiunge
+                    if (!ok)
+                        foreach (var o in plan.openings)
+                        {
+                            if ((o.a != r.id && o.b != r.id) || o.b < 0 || o.oneSided || o.style == OpenStyle.Ascensore || o.style == OpenStyle.Passaggio) continue;
+                            float dx = o.alongX ? o.center * 0.1f : o.line * 0.1f, dz = o.alongX ? o.line * 0.1f : o.center * 0.1f;
+                            Vector3 inw = o.alongX ? new Vector3(0f, 0f, Mathf.Sign(r.CenterZ - dz)) : new Vector3(Mathf.Sign(r.CenterX - dx), 0f, 0f);
+                            if (Reach(new Vector3(dx, 0f, dz) + inw * 0.9f, 0.5f, out _)) { ok = true; break; }
+                        }
                     if (!ok)
                     {
                         roomsBad++; bad = true;

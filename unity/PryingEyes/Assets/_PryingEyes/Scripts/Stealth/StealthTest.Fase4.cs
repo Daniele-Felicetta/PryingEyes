@@ -79,7 +79,7 @@ namespace PryingEyes
             Log("--- navmesh");
             var bad = Connectivity.Unreachable(fd.cur, out int cb, out bool eb);
             Check("dall'arrivo si raggiungono tutte le stanze (tranne la segreta), le candele e l'uscita", bad.Count == 0 && cb == 0 && !eb, $"stanze {bad.Count}, candele {cb}, uscita {(eb ? "no" : "si")}");
-            if (bad.Count > 0 || cb > 0 || eb) DiagnoseBlocked(plan, bad);
+            if (bad.Count > 0 || cb > 0 || eb) DiagnoseBlocked(fd.cur, plan, bad);
 
             // ----- 4) santuari ai loro posti
             Log("--- santuari");
@@ -252,10 +252,13 @@ namespace PryingEyes
                 Check("...e dopo esserci entrati compare", PaintMapHas(fd, plan, plan.OfType(RoomType.Segreta)[0]));
                 PaintMap(fd, plan, Dir + "/griglia_mappa_con_segreta.png");
             }
+            bool gfx = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
             fd.DebugShowMap(true, false);
             yield return new WaitForSeconds(0.4f);
+            if (gfx) GameManager.CamShot(Dir + "/griglia_mappa_ui.png", null, true);          // la mappa a tutto schermo com'e' nel gioco, con l'HUD
             fd.DebugShowMap(false, true);
             yield return new WaitForSeconds(0.3f);
+            if (gfx) GameManager.CamShot(Dir + "/griglia_minimappa_ui.png", null, true);
             fd.DebugShowMap(false, false);
 
             Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
@@ -264,10 +267,49 @@ namespace PryingEyes
 
         /// <summary>Quando una stanza non si raggiunge: per ogni porta tra una stanza raggiunta e una no, quali punti della corsia (da -2,5 a +2,5 m
         /// dalla soglia, ogni mezzo metro) hanno navmesh ('#') e quali oggetti toccano il passaggio. Serve a capire cosa chiude la porta.</summary>
-        void DiagnoseBlocked(Plan plan, IEnumerable<Room> bad)
+        void DiagnoseBlocked(FloorInstance fi, Plan plan, IEnumerable<Room> bad)
         {
             var badIds = new HashSet<int>();
             foreach (var r in bad) badIds.Add(r.id);
+            // dove si ferma il percorso dall'arrivo verso la soglia di ogni porta tra una stanza raggiunta e una no: la stanza raggiunta in cui
+            // si ferma si disegna a testo (una sola volta)
+            if (Connectivity.StartPoint(fi, out Vector3 s0))
+            {
+                var dumped = new HashSet<int>();
+                var pth = new NavMeshPath();
+                foreach (var o in plan.openings)
+                {
+                    if (o.b < 0 || o.oneSided || o.style == OpenStyle.Ascensore || o.style == OpenStyle.Passaggio) continue;
+                    if (badIds.Contains(o.a) == badIds.Contains(o.b)) continue;
+                    float ox = o.alongX ? o.center * 0.1f : o.line * 0.1f, oz = o.alongX ? o.line * 0.1f : o.center * 0.1f;
+                    Room good = plan.rooms[badIds.Contains(o.a) ? o.b : o.a];
+                    Vector3 inward = o.alongX ? new Vector3(0f, 0f, Mathf.Sign(good.CenterZ - oz)) : new Vector3(Mathf.Sign(good.CenterX - ox), 0f, 0f);
+                    if (!NavMesh.SamplePosition(new Vector3(ox, 0f, oz) + inward * 0.8f, out NavMeshHit th, 1.0f, NavMesh.AllAreas)) continue;
+                    NavMesh.CalculatePath(s0, th.position, NavMesh.AllAreas, pth);
+                    if (pth.corners.Length == 0) continue;
+                    Vector3 stall = pth.corners[pth.corners.Length - 1];
+                    Log($"   verso la porta {plan.rooms[o.a]} - {plan.rooms[o.b]} in ({ox:F1},{oz:F1}) il percorso ({pth.status}) si ferma a ({stall.x:F1},{stall.z:F1}), a {Vector3.Distance(stall, th.position):F1} m dalla soglia");
+                    if (pth.status != NavMeshPathStatus.PathComplete && dumped.Add(good.id)) DumpRoomMap(good, stall, th.position);
+                }
+                // le candele che non si raggiungono: dove si ferma il percorso e com'e' fatta la stanza attorno
+                foreach (var cd in fi.candles)
+                {
+                    if (cd == null) continue;
+                    Vector3 cp = cd.transform.position;
+                    bool nearNav = NavMesh.SamplePosition(cp, out NavMeshHit ch, 0.9f, NavMesh.AllAreas);
+                    if (nearNav && Connectivity.Reach(s0, cp, 0.9f)) continue;
+                    Room cr = fi.RoomAt(cp);
+                    Log($"   candela in ({cp.x:F1},{cp.z:F1}) nella stanza {(cr != null ? cr.ToString() : "?")}: navmesh entro 0,9 m {(nearNav ? "si" : "NO")}");
+                    if (NavMesh.SamplePosition(cp, out NavMeshHit c2, 1.5f, NavMesh.AllAreas))
+                    {
+                        NavMesh.CalculatePath(s0, c2.position, NavMesh.AllAreas, pth);
+                        Vector3 st = pth.corners.Length > 0 ? pth.corners[pth.corners.Length - 1] : s0;
+                        Log($"      percorso ({pth.status}) fino a ({c2.position.x:F1},{c2.position.z:F1}) si ferma a ({st.x:F1},{st.z:F1})");
+                        if (cr != null && dumped.Add(cr.id)) DumpRoomMap(cr, st, cp);
+                    }
+                    else if (cr != null && dumped.Add(cr.id)) DumpRoomMap(cr, s0, cp);
+                }
+            }
             foreach (var o in plan.openings)
             {
                 if (o.b < 0 || o.oneSided || o.style == OpenStyle.Ascensore || o.style == OpenStyle.Passaggio) continue;
@@ -286,6 +328,33 @@ namespace PryingEyes
                     names.Add((t.parent != null ? t.parent.name + "/" : "") + t.name + " h" + c.bounds.max.y.ToString("F1"));
                 }
                 Log("      oggetti nel varco: " + string.Join(", ", names));
+            }
+        }
+
+        /// <summary>Mappa a testo di una stanza, una cella ogni 40 cm: '#' navmesh, 'o' un arredo senza navmesh sotto, '.' vuoto senza navmesh (accanto
+        /// ai muri e agli ingombri), 'S' il punto dove si ferma il percorso e 'P' la soglia da raggiungere. Le righe vanno da nord (z alto) a sud.</summary>
+        void DumpRoomMap(Room r, Vector3 stall, Vector3 goal)
+        {
+            const float step = 0.4f;
+            float x0 = r.x0 * 0.1f, x1 = r.x1 * 0.1f, z0 = r.z0 * 0.1f, z1 = r.z1 * 0.1f;
+            Log($"   mappa di {r} (x {x0:F1}..{x1:F1}, z {z1:F1} in alto .. {z0:F1} in basso; 40 cm a cella; # navmesh, o arredo, . niente, S stallo, P soglia)");
+            for (float z = z1 - step * 0.5f; z > z0; z -= step)
+            {
+                var sb = new System.Text.StringBuilder();
+                for (float x = x0 + step * 0.5f; x < x1; x += step)
+                {
+                    if (Mathf.Abs(x - stall.x) < step * 0.5f && Mathf.Abs(z - stall.z) < step * 0.5f) { sb.Append('S'); continue; }
+                    if (Mathf.Abs(x - goal.x) < step * 0.5f && Mathf.Abs(z - goal.z) < step * 0.5f) { sb.Append('P'); continue; }
+                    if (NavMesh.SamplePosition(new Vector3(x, 0.1f, z), out _, 0.2f, NavMesh.AllAreas)) { sb.Append('#'); continue; }
+                    bool prop = false;
+                    foreach (var c in Physics.OverlapBox(new Vector3(x, 1.0f, z), new Vector3(step * 0.5f, 0.6f, step * 0.5f), Quaternion.identity, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                    {
+                        for (Transform t = c.transform; t != null && !prop; t = t.parent) prop = t.parent != null && t.parent.name == "Arredi";
+                        if (prop) break;
+                    }
+                    sb.Append(prop ? 'o' : '.');
+                }
+                Log("      " + sb);
             }
         }
 

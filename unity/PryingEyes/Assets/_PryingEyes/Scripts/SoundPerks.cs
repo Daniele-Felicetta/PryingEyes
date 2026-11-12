@@ -107,6 +107,30 @@ namespace PryingEyes
             return s;
         }
 
+        /// <summary>Lo Scrigno si richiude: il legno geme appena mentre il coperchio cala, batte sul bordo a 0,62 s (la durata della caduta),
+        /// rimbalza e il fermaglio scatta due volte. 1,2 s.</summary>
+        public static float[] ChestClose()
+        {
+            var r = new System.Random(78);
+            var s = Buf(1.2f);
+            var bp = new Biquad();
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                if (t > 0.6f) break;
+                if ((i & 15) == 0) bp.SetBandPass(Mathf.Lerp(430f, 240f, t / 0.6f), 5f, Rate);
+                float env = SmoothEdge(0f, 0.08f, t) * (1f - SmoothEdge(0.35f, 0.6f, t)) * 0.45f;
+                s[i] += bp.Run(N(r)) * env * 1.2f;
+            }
+            Thump(s, 0.62f, 125f, 48f, 0.05f, 0.12f, 1.0f);
+            Burst(s, 0.62f, 950f, 0.9f, 0.02f, 0.75f, r);
+            Thump(s, 0.763f, 92f, 55f, 0.04f, 0.07f, 0.35f);
+            Burst(s, 0.80f, 1900f, 2.5f, 0.004f, 0.8f, r);
+            Burst(s, 0.835f, 2800f, 2.5f, 0.004f, 0.6f, r);
+            Normalize(s, 0.65f);
+            return s;
+        }
+
         /// <summary>L'arma estratta dallo Scrigno: arpeggio che sale e scintille. 1,8 s.</summary>
         public static float[] ChestReveal()
         {
@@ -153,7 +177,7 @@ namespace PryingEyes
 
     public static partial class SoundBank
     {
-        static AudioClip perkVelo, perkRevive, bookOpen, bookSeal, bookNo, chestOpen, chestReveal, consecrate;
+        static AudioClip perkVelo, perkRevive, bookOpen, bookSeal, bookNo, chestOpen, chestClose, chestReveal, consecrate;
 
         public static AudioClip PerkVelo => One(ref perkVelo, "perkVelo", SoundGen.PerkVelo);
         public static AudioClip PerkRevive => One(ref perkRevive, "perkRinascita", SoundGen.PerkRevive);
@@ -161,13 +185,14 @@ namespace PryingEyes
         public static AudioClip BookSeal => One(ref bookSeal, "libroChiuso", SoundGen.BookSeal);
         public static AudioClip BookNo => One(ref bookNo, "libroNo", SoundGen.BookNo);
         public static AudioClip ChestOpen => One(ref chestOpen, "scrignoApre", SoundGen.ChestOpen);
+        public static AudioClip ChestClose => One(ref chestClose, "scrignoChiude", SoundGen.ChestClose);
         public static AudioClip ChestReveal => One(ref chestReveal, "scrignoArma", SoundGen.ChestReveal);
         public static AudioClip Consecrate => One(ref consecrate, "consacrazione", SoundGen.Consecrate);
 
         /// <summary>Prepara i suoni dei perk all'avvio (come WarmKnife): il primo acquisto non deve far scattare il gioco.</summary>
         public static void WarmPerks()
         {
-            _ = PerkVelo; _ = PerkRevive; _ = BookOpen; _ = BookSeal; _ = BookNo; _ = ChestOpen; _ = ChestReveal; _ = Consecrate;
+            _ = PerkVelo; _ = PerkRevive; _ = BookOpen; _ = BookSeal; _ = BookNo; _ = ChestOpen; _ = ChestClose; _ = ChestReveal; _ = Consecrate;
         }
     }
 }

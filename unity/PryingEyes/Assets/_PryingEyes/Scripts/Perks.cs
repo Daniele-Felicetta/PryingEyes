@@ -26,7 +26,7 @@ namespace PryingEyes
         public static readonly Def[] All =
         {
             new Def { id = PerkId.PelleDiPietra, name = "Pelle di pietra", effect = "+50% di vita", book = "Il Libro della Pietra", color = new Color(0.90f, 0.46f, 0.30f) },
-            new Def { id = PerkId.ManiSvelte, name = "Mani svelte", effect = "ricarichi il 40% piu' in fretta", book = "Il Libro delle Dita", color = new Color(0.40f, 0.66f, 1.00f) },
+            new Def { id = PerkId.ManiSvelte, name = "Mani svelte", effect = "ricarichi il 40% più in fretta", book = "Il Libro delle Dita", color = new Color(0.40f, 0.66f, 1.00f) },
             new Def { id = PerkId.DoppioColpo, name = "Doppio colpo", effect = "cadenza di fuoco +33%", book = "Il Libro del Doppio", color = new Color(0.98f, 0.80f, 0.30f) },
             new Def { id = PerkId.Rinascita, name = "Rinascita", effect = "una rinascita a piano, sul posto", book = "Il Libro della Fenice", color = new Color(0.46f, 0.88f, 0.52f) },
             new Def { id = PerkId.PassiDiCenere, name = "Passi di cenere", effect = "i passi si sentono il 40% in meno", book = "Il Libro della Cenere", color = new Color(0.74f, 0.72f, 0.82f) },

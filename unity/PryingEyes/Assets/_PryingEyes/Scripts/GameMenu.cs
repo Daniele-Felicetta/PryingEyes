@@ -153,8 +153,13 @@ namespace PryingEyes
             MakeButton(mainPanel, "Gioca", new Vector2(0, 10), Play);
             MakeButton(mainPanel, "Impostazioni", new Vector2(0, -60), () => OpenSettings(mainPanel));
             MakeButton(mainPanel, "Esci", new Vector2(0, -130), Quit);
-            Label(mainPanel, "Comandi", new Vector2(0, -260), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
-                "WASD muovi · mouse mira · click sinistro spara · tasto destro mira · R ricarica · B modo di fuoco · 1/2 o rotellina cambia arma · Q/E sporgi · F compra · Esc pausa", Dim, FontStyle.Italic);
+            // tre righe corte (una sola, lunga, usciva dallo schermo): movimento, armi, furtivo
+            Label(mainPanel, "Comandi", new Vector2(0, -236), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
+                "WASD muovi · Shift corri · C accovacciati · Spazio salta · Q/E sporgi · F usa e compra · Esc pausa", Dim, FontStyle.Italic);
+            Label(mainPanel, "ComandiArmi", new Vector2(0, -262), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
+                "mouse mira · click sinistro spara · tasto destro mira · R ricarica · B modo di fuoco · 1/2 o rotellina cambia arma", Dim, FontStyle.Italic);
+            Label(mainPanel, "ComandiFurtivo", new Vector2(0, -288), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
+                "G coltello (alle spalle) · T torcia · Y cambia pila · V ping · M mappa · H il Velo (col libro)", Dim, FontStyle.Italic);
 
             pausePanel = Stretch(backdrop, "Pausa");
             Label(pausePanel, "Titolo", new Vector2(0, 170), new Vector2(1000, 80), 60, TextAnchor.MiddleCenter, "In pausa", Ink, FontStyle.Normal);

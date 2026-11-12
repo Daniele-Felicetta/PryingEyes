@@ -1,29 +1,29 @@
-piano 1: stanze=82 candele=4 luci=437 preti=4
-pile sul piano: 6
+piano 1: stanze=12 candele=2 luci=101 preti=4
+pile sul piano: 4
 faretto: nel cono=0,49 fuori cono=0,00 dietro muro=0,00
-scena di prova: lunghezza 39,2 m, da (35,6,-80,5) verso (0,1)
+scena di prova: lunghezza 19,2 m, da (35,3,10,1) verso (0,1)
 vista: distanza condizione luce portata t_sospetto t_caccia stato_finale consapevolezza
-vista 3 buio lum=0,00 (esposizione 0,02) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 8 buio lum=0,00 (esposizione 0,02) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 13 buio lum=0,00 (esposizione 0,02) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 19 buio lum=0,00 (esposizione 0,02) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 3 luce lum=0,02 (esposizione 0,02) portata=2,8 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 8 luce lum=0,02 (esposizione 0,02) portata=2,8 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 13 luce lum=0,02 (esposizione 0,02) portata=2,8 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 19 luce lum=0,02 (esposizione 0,02) portata=2,8 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
-vista 3 torcia lum=0,00 (esposizione 0,02) portata=19,7 t_sospetto=0,1 t_caccia=0,4 finale=Hunting aw=1,00
-vista 8 torcia lum=0,00 (esposizione 0,02) portata=19,7 t_sospetto=0,2 t_caccia=0,5 finale=Hunting aw=1,00
-vista 13 torcia lum=0,00 (esposizione 0,02) portata=19,7 t_sospetto=0,3 t_caccia=0,8 finale=Hunting aw=1,00
-vista 19 torcia lum=0,00 (esposizione 0,02) portata=19,7 t_sospetto=1,0 t_caccia=3,2 finale=Hunting aw=1,00
+vista 3 buio lum=0,00 (esposizione 0,21) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 8 buio lum=0,00 (esposizione 0,21) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 13 buio lum=0,00 (esposizione 0,21) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 16 buio lum=0,00 (esposizione 0,21) portata=2,6 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 3 luce lum=0,15 (esposizione 0,21) portata=4,1 t_sospetto=0,5 t_caccia=1,6 finale=Hunting aw=1,00
+vista 8 luce lum=0,15 (esposizione 0,21) portata=4,1 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 13 luce lum=0,15 (esposizione 0,21) portata=4,1 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 16 luce lum=0,15 (esposizione 0,21) portata=4,1 t_sospetto=mai t_caccia=mai finale=Patrol aw=0,00
+vista 3 torcia lum=0,00 (esposizione 0,21) portata=19,7 t_sospetto=0,1 t_caccia=0,4 finale=Hunting aw=1,00
+vista 8 torcia lum=0,00 (esposizione 0,21) portata=19,7 t_sospetto=0,2 t_caccia=0,5 finale=Hunting aw=1,00
+vista 13 torcia lum=0,00 (esposizione 0,21) portata=19,7 t_sospetto=0,3 t_caccia=0,8 finale=Hunting aw=1,00
+vista 16 torcia lum=0,00 (esposizione 0,21) portata=19,7 t_sospetto=0,6 t_caccia=1,9 finale=Hunting aw=1,00
 udito: sparo a 16 m, prete di spalle -> Searching aw=0,54
-udito: dopo 18 s senza altri rumori -> Hunting aw=1,00
+udito: dopo 18 s senza altri rumori -> Patrol aw=0,00
 udito: passi di corsa a 6 m -> sospetto dopo 0,5 s, stato Hunting
 udito: passi da accovacciato a 14 m -> Patrol aw=0,00
 torcia: pila a 2% -> cambio visto=True carica=0,99 scorte=1 accesa=True
 pila: raccolta -> scorte 1 -> 2
-tipo Monaco: in 14 s al buio si e' allontanato al massimo di 9,2 m dalla partenza, stati visti Patrol/, stato finale Patrol
-tipo Abate: in 14 s al buio si e' allontanato al massimo di 7,6 m dalla partenza, stati visti Patrol/, stato finale Patrol
-tipo Occhio: in 14 s al buio si e' allontanato al massimo di 14,2 m dalla partenza, stati visti Patrol/, stato finale Patrol
-ping: lanciato=True segnali=5 mostrati=5 (candele sul piano 4, il segnale piu' lontano e' a 170 m, letti 4,5 s dopo il lancio)
+tipo Monaco: in 14 s al buio si e' allontanato al massimo di 10,3 m dalla partenza, stati visti Patrol/, stato finale Patrol
+tipo Abate: in 14 s al buio si e' allontanato al massimo di 8,9 m dalla partenza, stati visti Patrol/, stato finale Patrol
+tipo Occhio: in 14 s al buio si e' allontanato al massimo di 14,3 m dalla partenza, stati visti Patrol/, stato finale Patrol
+ping: lanciato=True segnali=3 mostrati=3 (candele sul piano 2, il segnale piu' lontano e' a 29 m, letti 3,1 s dopo il lancio)
 obiettivo completato: ascensore aperto=True, ping aggiornato=True, freccia aggiornata=True
 fine: OK

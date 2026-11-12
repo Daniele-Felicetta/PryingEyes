@@ -471,16 +471,49 @@ namespace PryingEyes
             chest.Use();
             Check("lo Scrigno costa 950 e si apre", before - gm.score == 950 && chest.phase == Scrigno.Phase.Opening, $"{before - gm.score} punti");
             Check("durante l'apertura non ha prompt", chest.Prompt == null);
-            if (shots) { yield return new WaitForSeconds(2.4f); Shot("libri_scrigno_giro"); yield return new WaitForSeconds(0.9f); }
+            if (shots)
+            {
+                // la sequenza dell'apertura vista dal posto del giocatore (scrigno_apre_<centesimi di secondo>.png): si compone in un foglio
+                float to0 = Time.time;
+                foreach (float at in new[] { 0.10f, 0.35f, 0.65f, 0.95f, 1.20f, 1.40f, 1.60f, 2.00f })
+                {
+                    while (Time.time - to0 < at) yield return null;
+                    GameManager.CamShot(Dir + "/scrigno_apre_" + Mathf.RoundToInt(at * 100f).ToString("D3") + ".png", null, false);
+                }
+                while (Time.time - to0 < 2.4f) yield return null;
+                Shot("libri_scrigno_giro");
+                yield return new WaitForSeconds(0.9f);
+            }
             float tw0 = Time.time;
             while (chest.phase != Scrigno.Phase.Offering && Time.time - tw0 < 12f) yield return null;
             Check("dopo il giro offre un'arma", chest.phase == Scrigno.Phase.Offering && chest.OfferedWeapon >= 0, chest.phase.ToString());
             int offered = chest.OfferedWeapon;
             Check("l'arma offerta e' una che non hai", offered >= 0 && !wp.Owns(offered) && offered != WeaponDefs.IndexOf("p9_pieta"), offered >= 0 ? WeaponDefs.All[offered].name : "-");
             Log("prompt offerta: " + (chest.Prompt ?? "null"));
-            if (shots) { yield return new WaitForSeconds(0.6f); Shot("libri_scrigno_arma"); }
+            if (shots)
+            {
+                yield return new WaitForSeconds(0.6f);
+                Shot("libri_scrigno_arma");
+                // di fianco: la volta, il fermo e il tesoro di profilo; poi si torna davanti
+                if (StandNear(chest.transform.position + Vector3.up * 1.4f, chest.transform.right, 1.9f, out Vector3 sideStand))
+                {
+                    yield return Face(sideStand, chest.Point);
+                    GameManager.CamShot(Dir + "/scrigno_lato.png", null, false);
+                    yield return Face(chestStand, chest.Point);
+                }
+            }
             chest.Use();
             Check("F prende l'arma", offered >= 0 && wp.Owns(offered) && wp.CurrentIndex == offered, offered >= 0 ? WeaponDefs.All[offered].name : "-");
+            if (shots)
+            {
+                // la chiusura: l'arma vola via, il coperchio cade, batte, il fermaglio scatta (scrigno_chiude_<centesimi>.png)
+                float tc0 = Time.time;
+                foreach (float at in new[] { 0.10f, 0.25f, 0.50f, 0.75f, 0.90f, 1.10f })
+                {
+                    while (Time.time - tc0 < at) yield return null;
+                    GameManager.CamShot(Dir + "/scrigno_chiude_" + Mathf.RoundToInt(at * 100f).ToString("D3") + ".png", null, false);
+                }
+            }
             tw0 = Time.time;
             while (chest.phase != Scrigno.Phase.Closed && Time.time - tw0 < 5f) yield return null;
             Check("lo Scrigno si richiude", chest.phase == Scrigno.Phase.Closed);

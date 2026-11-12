@@ -18,6 +18,11 @@ namespace PryingEyes
         public float drainMul = 1f;
 
         const float BeamIntensity = 44f, SpillIntensity = 1.5f;
+        // Da vicino il fascio si abbassa, come l'occhio che si adatta: la luce cala col quadrato della distanza, quindi a due metri una
+        // parete di fronte alla torcia riceveva dieci volte la luce di una a sei e diventava un blocco bianco senza dettagli (altare,
+        // scrigno, scritte sui muri). Da NearD0 metri in su non cambia niente; sotto, la luce scende come (d/NearD0)^NearPow, mai oltre NearMin.
+        const float NearD0 = 3.4f, NearPow = 1.6f, NearMin = 0.18f;
+        float near = 1f;
 
         Transform camT, rig;
         Light beam, spill;
@@ -233,7 +238,7 @@ namespace PryingEyes
             if (lit)
             {
                 float warm = Mathf.Clamp01(charge / 0.45f);
-                beam.intensity = BeamIntensity * k;
+                beam.intensity = BeamIntensity * k * near;
                 beam.color = Color.Lerp(new Color(1f, 0.58f, 0.26f), new Color(1f, 0.93f, 0.80f), warm);
                 float full = Mathf.Clamp01(charge / 0.4f);
                 beam.range = Mathf.Lerp(17f, 36f, full);
@@ -256,6 +261,14 @@ namespace PryingEyes
                 fwd = Mathf.Clamp(h.distance - 0.12f, 0.04f, 0.25f);
             rig.rotation = aim;
             rig.position = camT.position + camT.right * 0.08f - camT.up * 0.05f + camT.forward * fwd;
+            if (beam != null && beam.enabled)
+            {
+                float want = 1f;
+                if (Physics.Raycast(camT.position, camT.forward, out RaycastHit nh, NearD0, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                    want = Mathf.Clamp(Mathf.Pow(nh.distance / NearD0, NearPow), NearMin, 1f);
+                // scende subito (una parete che arriva non deve abbagliare), risale piano
+                near = Mathf.Lerp(near, want, 1f - Mathf.Exp(-(want < near ? 18f : 5f) * dt));
+            }
         }
     }
 }

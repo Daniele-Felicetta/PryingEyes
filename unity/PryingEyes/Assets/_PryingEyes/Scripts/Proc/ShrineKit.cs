@@ -10,7 +10,7 @@ namespace PryingEyes.Proc
     /// cuoio e carta fatti a mano.</summary>
     public static class ShrineKit
     {
-        public static Material Stone, Wood, Iron, Brass, Gold, Leather, Paper, Dark, Wax;
+        public static Material Stone, StoneDark, Wood, Iron, Brass, Gold, Leather, Paper, Dark, Wax;
         static readonly Dictionary<long, Material> em = new Dictionary<long, Material>();
 
         public static Material Lit(string name, Color c, float metallic, float smooth, bool doubleSided = false)
@@ -48,7 +48,9 @@ namespace PryingEyes.Proc
         public static void Mats()
         {
             if (Stone != null) return;
-            Stone = ProcKit.HasMat("kit_pietra") ? Darker(ProcKit.Mat("kit_pietra"), 0.55f) : Lit("Santuario_Pietra", new Color(0.30f, 0.29f, 0.28f), 0f, 0.38f);
+            Stone = ProcKit.HasMat("kit_pietra") ? Darker(ProcKit.Mat("kit_pietra"), 0.42f) : Lit("Santuario_Pietra", new Color(0.30f, 0.29f, 0.28f), 0f, 0.38f);
+            // l'altare si usa a un metro e mezzo dalla torcia: con la pietra dei leggii diventava un blocco bianco senza venature
+            StoneDark = Darker(Stone, 0.42f);
             Wood = TexOr("kit_legno_scuro", "Santuario_Legno", new Color(0.16f, 0.085f, 0.045f), 0f, 0.35f);
             Iron = TexOr("kit_ferro", "Santuario_Ferro", new Color(0.10f, 0.10f, 0.11f), 0.85f, 0.45f);
             Wax = TexOr("kit_cera", "Santuario_Cera", new Color(0.86f, 0.80f, 0.64f), 0f, 0.4f);
@@ -106,6 +108,131 @@ namespace PryingEyes.Proc
                 p.l = l; p.baseI = intensity; p.amp = pulseAmp; p.speed = pulseSpeed;
             }
             return l;
+        }
+
+        /// <summary>Cambia l'intensita' di una luce di santuario. Quelle con il respiro (LightPulse) la riscrivono a ogni fotogramma a partire
+        /// da 'baseI': scrivere 'intensity' non serve a niente (o dura un fotogramma), va cambiata la base.</summary>
+        public static void SetGlow(Light l, float intensity)
+        {
+            if (l == null) return;
+            var p = l.GetComponent<LightPulse>();
+            if (p != null) p.baseI = intensity; else l.intensity = intensity;
+        }
+
+        /// <summary>Un emissivo tutto per chi lo chiama (Emit ne condivide uno per colore e intensita'): si puo' animare senza toccare gli altri.</summary>
+        public static Material EmitOwn(Color c, float k)
+        {
+            var m = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "Santuario_LuceViva", color = Color.black };
+            m.SetFloat("_Smoothness", 0.2f);
+            m.EnableKeyword("_EMISSION");
+            m.SetColor("_EmissionColor", c * k);
+            return m;
+        }
+
+        /// <summary>Una texture bianca con alfa calcolato da 'alpha(u, v)' (0..1): per le sfumature morbide dei fasci e dei bagliori.</summary>
+        public static Texture2D SoftTex(string name, int w, int h, System.Func<float, float, float> alpha)
+        {
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = name };
+            var px = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float a = Mathf.Clamp01(alpha(x / (w - 1f), y / (h - 1f)));
+                    px[y * w + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(255f * a));
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            return tex;
+        }
+
+        /// <summary>Unlit additivo, visibile dai due lati, senza scrivere la profondita' (come i lampi dei round).</summary>
+        public static Material Additive(Texture2D tex)
+        {
+            var m = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { name = "Santuario_Fascio" };
+            m.SetTexture("_BaseMap", tex);
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_Blend", 2f);
+            m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)BlendMode.One);
+            m.SetFloat("_ZWrite", 0f);
+            m.SetFloat("_Cull", 0f);
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = (int)RenderQueue.Transparent;
+            return m;
+        }
+
+        static readonly Dictionary<string, Mesh> vaults = new Dictionary<string, Mesh>();
+
+        /// <summary>Una volta a botte: mezzo cilindro cavo lungo 'len' (asse X), con la sezione nel piano YZ. L'origine sta sul bordo
+        /// posteriore (la cerniera): la volta sale in +Y e scende in +Z; il centro dell'arco e' in (y 0, z 'zc'), il raggio esterno e' 'rOut'
+        /// e la parete e' spessa 'thick'. Due sotto-mesh: 0 = fuori, testate e bordi; 1 = dentro (la fodera).</summary>
+        public static Mesh Vault(string name, float len, float rOut, float thick, float zc, int segs = 22)
+        {
+            if (vaults.TryGetValue(name, out var cached) && cached != null) return cached;
+            float rIn = rOut - thick, hl = len * 0.5f;
+            var v = new List<Vector3>(); var nr = new List<Vector3>(); var uv = new List<Vector2>();
+            var outer = new List<int>(); var inner = new List<int>();
+            int Add(Vector3 p, Vector3 n, Vector2 t) { v.Add(p); nr.Add(n); uv.Add(t); return v.Count - 1; }
+            Vector2 Pt(float r, float a) => new Vector2(r * Mathf.Sin(a), zc - r * Mathf.Cos(a));          // (y, z)
+            var oi = new int[segs + 1, 2]; var ii = new int[segs + 1, 2];
+            for (int j = 0; j <= segs; j++)
+            {
+                float a = Mathf.PI * j / segs, sa = Mathf.Sin(a), ca = Mathf.Cos(a);
+                Vector2 po = Pt(rOut, a), pi = Pt(rIn, a);
+                for (int s = 0; s < 2; s++)
+                {
+                    float x = s == 0 ? -hl : hl;
+                    oi[j, s] = Add(new Vector3(x, po.x, po.y), new Vector3(0f, sa, -ca), new Vector2(x, rOut * a));
+                    ii[j, s] = Add(new Vector3(x, pi.x, pi.y), new Vector3(0f, -sa, ca), new Vector2(x, rIn * a));
+                }
+            }
+            for (int j = 0; j < segs; j++)
+            {
+                int a0 = oi[j, 0], b0 = oi[j, 1], c0 = oi[j + 1, 0], d0 = oi[j + 1, 1];
+                outer.Add(a0); outer.Add(c0); outer.Add(b0);
+                outer.Add(b0); outer.Add(c0); outer.Add(d0);
+                int a1 = ii[j, 0], b1 = ii[j, 1], c1 = ii[j + 1, 0], d1 = ii[j + 1, 1];
+                inner.Add(a1); inner.Add(b1); inner.Add(c1);
+                inner.Add(b1); inner.Add(d1); inner.Add(c1);
+            }
+            // le due testate: una mezza corona piatta per lato
+            for (int s = 0; s < 2; s++)
+            {
+                float x = s == 0 ? -hl : hl;
+                var n = new Vector3(s == 0 ? -1f : 1f, 0f, 0f);
+                var oc = new int[segs + 1]; var ic = new int[segs + 1];
+                for (int j = 0; j <= segs; j++)
+                {
+                    float a = Mathf.PI * j / segs;
+                    Vector2 po = Pt(rOut, a), pi = Pt(rIn, a);
+                    oc[j] = Add(new Vector3(x, po.x, po.y), n, new Vector2(po.y, po.x));
+                    ic[j] = Add(new Vector3(x, pi.x, pi.y), n, new Vector2(pi.y, pi.x));
+                }
+                for (int j = 0; j < segs; j++)
+                {
+                    if (s == 1) { outer.Add(oc[j]); outer.Add(oc[j + 1]); outer.Add(ic[j]); outer.Add(ic[j]); outer.Add(oc[j + 1]); outer.Add(ic[j + 1]); }
+                    else { outer.Add(oc[j]); outer.Add(ic[j]); outer.Add(oc[j + 1]); outer.Add(ic[j]); outer.Add(ic[j + 1]); outer.Add(oc[j + 1]); }
+                }
+            }
+            // i due bordi appoggiati sulla cassa (guardano in basso)
+            void Lip(float z0, float z1)
+            {
+                int p0 = Add(new Vector3(-hl, 0f, z0), Vector3.down, new Vector2(-hl, z0));
+                int p1 = Add(new Vector3(hl, 0f, z0), Vector3.down, new Vector2(hl, z0));
+                int p2 = Add(new Vector3(-hl, 0f, z1), Vector3.down, new Vector2(-hl, z1));
+                int p3 = Add(new Vector3(hl, 0f, z1), Vector3.down, new Vector2(hl, z1));
+                outer.Add(p0); outer.Add(p1); outer.Add(p2);
+                outer.Add(p1); outer.Add(p3); outer.Add(p2);
+            }
+            Lip(zc - rOut, zc - rIn);
+            Lip(zc + rIn, zc + rOut);
+            var m = new Mesh { name = name, subMeshCount = 2 };
+            m.SetVertices(v); m.SetNormals(nr); m.SetUVs(0, uv);
+            m.SetTriangles(outer, 0); m.SetTriangles(inner, 1);
+            m.RecalculateBounds();
+            m.RecalculateTangents();
+            vaults[name] = m;
+            return m;
         }
 
         // ------------------------------------------------------------------ raggiungibilita'
