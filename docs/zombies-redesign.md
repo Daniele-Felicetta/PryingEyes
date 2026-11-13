@@ -102,5 +102,19 @@ la maschera animata. Non vengono aggiunte luci dinamiche per ogni creatura.
 Corretti anche i tempi della mischia sul client: la preparazione veniva consumata due volte per fotogramma,
 mentre il blocco del recupero non scadeva. La verifica distingue ora preparazione, contatto e fine del recupero.
 
-Restano aperti: gesto di contatto e recupero dei volanti, gesti del Portachiavi e valutazione degli spazi durante
+## Ottava passata: affondo dei volanti
+
+Occhio, Veglia e Medusa preparano per 0,55 s, scattano per 0,16 s nella direzione scelta all’inizio e recuperano
+fino a 1,13 s. Durante il gesto non inseguono né ruotano verso il bersaglio. Il corpo avanza fino a 85 cm,
+con verifica continua degli ostacoli; da molto vicino la corsa si accorcia per evitare di attraversare il giocatore.
+Tra gli attacchi mantengono uno spazio di avvicinamento. Il danno al contatto richiede ancora il bersaglio
+impegnato, vivo, nel settore frontale, entro 1,2 m in 3D e senza pareti. Schivare di lato, arretrare o passare
+alle spalle può evitare il colpo; l’uscita del bersaglio annulla il contatto senza assegnarlo a un altro giocatore.
+
+La Veglia passa dalla posa arretrata alla spinta in avanti e poi alla distensione; la Medusa contrae la campana
+e raccoglie i tentacoli. L’Occhio mantiene il suo gesto delle palpebre con lo scatto fisico. Impatto e suono
+solo sul colpo arrivato; le particelle nascono sulla superficie alta del bersaglio, visibile dalla prima persona,
+anche per la mischia degli umanoidi. Le copie di rete mostrano gesto e contatto senza infliggere danno.
+
+Restano aperti: gesti del Portachiavi, prestazioni delle nuove creature nelle orde e valutazione degli spazi durante
 combattimenti affollati. La revisione complessiva rimane in corso.

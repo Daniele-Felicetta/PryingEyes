@@ -127,10 +127,10 @@ namespace PryingEyes
             return new Vector3(0,0.025f,0.123f);
         }
 
-        void AnimateVigil(float t,bool striking)
+        void AnimateVigil(float t,bool striking,float flightTime = -1)
         {
-            vigilAttack=Mathf.MoveTowards(vigilAttack,striking?1:0,Time.deltaTime*(striking?3.6f:6));
-            model.localRotation=Quaternion.Euler(-vigilAttack*16+Mathf.Sin(t*0.5f)*2,0,Mathf.Sin(t*0.7f)*2);
+            vigilAttack=flightTime>=0?FlightTension(flightTime):Mathf.MoveTowards(vigilAttack,striking?1:0,Time.deltaTime*(striking?3.6f:6));
+            model.localRotation=Quaternion.Euler((flightTime>=0?FlightPitch(flightTime):-vigilAttack*16)+Mathf.Sin(t*0.5f)*2,0,Mathf.Sin(t*0.7f)*2);
             vigilHalo.localRotation=Quaternion.Euler(0,Mathf.Sin(t*0.3f)*5,vigilAttack*12);
             vigilIris.localScale=Vector3.one*(1+vigilAttack*0.45f);
             for(int i=0;i<vigilFlames.Length;i++)

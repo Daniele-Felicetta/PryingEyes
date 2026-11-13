@@ -176,7 +176,8 @@ namespace PryingEyes
             else gp += to * (1f - Mathf.Exp(-12f * dt));
             transform.position = gp;
             var want = Quaternion.Euler(Archetype == EnemyType.Occhio ? net.pitch * Mathf.Rad2Deg : 0f, net.yaw * Mathf.Rad2Deg, 0f);
-            transform.rotation = Quaternion.Slerp(transform.rotation, want, 1f - Mathf.Exp(-10f * dt));
+            if (!IsFlying(type) || atkLock <= 0)
+                transform.rotation = Quaternion.Slerp(transform.rotation, want, 1f - Mathf.Exp(-10f * dt));
             speedSm = Mathf.Lerp(speedSm, net.speed, 1f - Mathf.Exp(-8f * dt));
             float v = speedSm;
             vel = transform.forward * v;
@@ -217,7 +218,8 @@ namespace PryingEyes
                 }
             }
             else if (loop != null) loop.pitch = basePitch * (0.85f + vel.magnitude / 14f);   // l'occhio accelera: il ronzio sale
-            if (alienRig != null) alienRig.Animate(phase, v, alert == Alert.Hunting, strikeAt >= 0f);
+            if (eye != null && IsFlying(type)) eye.lookAt = atkLock > 0 ? null : PuppetLookAt();
+            if (alienRig != null) alienRig.Animate(phase, v, alert == Alert.Hunting, strikeAt >= 0f, FlightElapsed);
         }
 
         /// <summary>Un attacco, un lancio o un grido sull'ospite: qui l'animazione e il suono.</summary>
@@ -229,9 +231,9 @@ namespace PryingEyes
                 case EnemyEvt.Attack:
                     if (Archetype == EnemyType.Occhio)
                     {
-                        strikeAt = 0.5f;
-                        if (eye != null) eye.Stare(0.9f);
-                        Sfx.At(SoundBank.EyeStare, transform.position, 0.55f, Random.Range(0.92f, 1.08f), 2f, 22f);
+                        strikeAt = FlightContact; atkLock = FlightDuration;
+                        if (pos.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(pos.normalized, Vector3.up);
+                        FlightAnticipation();
                     }
                     else
                     {

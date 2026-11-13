@@ -37,8 +37,9 @@ namespace PryingEyes
             Debug.Log($"[PryingEyes] meleetest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
             Application.Quit(failed == 0 ? 0 : 1);
         }
-        bool FindArena()
+        internal static bool FindArena(out Vector3 arena, out Vector3 forward)
         {
+            arena = forward = Vector3.zero;
             foreach (var point in FloorDirector.I.cur.groundSpawns)
             {
                 if (point.y > 0.5f) continue;
@@ -98,7 +99,7 @@ namespace PryingEyes
             Enemy.ClearAll(); Enemy.debugFreeze = false; Enemy.debugNoSense = false;
             var player = GameManager.I.player; var hud = GameManager.I.hud;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
-            Check("spazio di prova libero sulla navmesh reale", FindArena());
+            Check("spazio di prova libero sulla navmesh reale", FindArena(out arena, out forward));
             if (failed > 0) yield break;
             if (!Torch.I.on) Torch.I.Toggle();
             hud.Banner("", ""); hud.Toast("");

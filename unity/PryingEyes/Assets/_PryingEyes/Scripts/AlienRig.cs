@@ -138,15 +138,30 @@ namespace PryingEyes
             return joint;
         }
 
-        public void Animate(float phase, float speed, bool hunting, bool striking)
+        static float FlightTension(float time) => time <= Enemy.FlightWindup
+            ? Mathf.SmoothStep(0,1,time/Enemy.FlightWindup)
+            : 1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(Enemy.FlightWindup,Enemy.FlightDuration,time));
+
+        static float FlightPitch(float time) => time <= Enemy.FlightWindup ? -16*FlightTension(time)
+            : time <= Enemy.FlightContact ? Mathf.Lerp(-16,22,Mathf.SmoothStep(0,1,Mathf.InverseLerp(Enemy.FlightWindup,Enemy.FlightContact,time)))
+            : Mathf.Lerp(22,0,Mathf.SmoothStep(0,1,Mathf.InverseLerp(Enemy.FlightContact,Enemy.FlightDuration,time)));
+
+        public void Animate(float phase, float speed, bool hunting, bool striking, float flightTime = -1)
         {
             float rate = kind == Enemy.EnemyType.Veglia ? (hunting ? 5.5f : 2.5f) : kind == Enemy.EnemyType.Medusa ? 3.8f : 7f;
             float strength = kind == Enemy.EnemyType.Portachiavi ? Mathf.Clamp01(speed) : 1f;
             float t = Time.time * rate + phase;
             foreach (var limb in limbs)
-                limb.joint.localRotation = Quaternion.AngleAxis(Mathf.Sin(t + limb.phase) * limb.amplitude * strength, limb.axis);
-            if (kind == Enemy.EnemyType.Veglia) AnimateVigil(t, striking);
-            else if (kind == Enemy.EnemyType.Medusa) model.localScale = Vector3.one * (1f + (striking ? 0.09f : 0.028f) * Mathf.Sin(t));
+                limb.joint.localRotation = Quaternion.AngleAxis(Mathf.Sin(t + limb.phase) * limb.amplitude * strength +
+                    (flightTime >= 0 ? FlightTension(flightTime) * (kind == Enemy.EnemyType.Medusa ? 25 : 8) : 0), limb.axis);
+            if (kind == Enemy.EnemyType.Veglia) AnimateVigil(t, striking, flightTime);
+            else if (kind == Enemy.EnemyType.Medusa && flightTime >= 0)
+            {
+                float tension=FlightTension(flightTime);
+                model.localScale=new Vector3(1-tension*0.14f,1+tension*0.16f,1-tension*0.14f);
+                model.localRotation=Quaternion.Euler(FlightPitch(flightTime),0,0);
+            }
+            else if (kind == Enemy.EnemyType.Medusa) { model.localScale = Vector3.one * (1f + (striking ? 0.09f : 0.028f) * Mathf.Sin(t)); model.localRotation=Quaternion.identity; }
             else model.localRotation = Quaternion.Euler(striking ? 12f : Mathf.Sin(t * 0.5f) * 2f, 0f, Mathf.Sin(t * 0.7f) * 2f);
         }
 

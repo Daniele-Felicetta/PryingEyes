@@ -49,10 +49,19 @@ namespace PryingEyes
                 if (victim is LocalTarget) GameManager.damageTaken++;
                 if (type == EnemyType.Infermiere) victim.Sedate(2.8f);
             }
-            PlayMeleeContact(contact, hit);
-            Coop.Game?.EnemyEvent(this, EnemyEvt.Strike, contact, hit ? 1 : 0);
+            Vector3 effect = hit ? MeleeContactPoint(victim) : contact;
+            PlayMeleeContact(effect, hit);
+            Coop.Game?.EnemyEvent(this, EnemyEvt.Strike, effect, hit ? 1 : 0);
             if (GameManager.autoTest) Debug.Log($"[PryingEyes] mischia {type}: {(hit ? "contatto" : "a vuoto")} distanza={horizontal:F2} dislivello={vertical:F2}");
             meleeVictim = null;
+        }
+
+        Vector3 MeleeContactPoint(ITarget victim)
+        {
+            Vector3 point = victim.LookAt != null ? victim.LookAt.position - Vector3.up * 0.12f
+                : victim.LeanedPoint(Mathf.Min(1.5f, victim.BodyHeight * 0.85f));
+            Vector3 toward = transform.position - point; toward.y = 0;
+            return point + toward.normalized * Mathf.Min(0.4f, toward.magnitude * 0.5f);
         }
 
         void PlayMeleeContact(Vector3 position, bool hit)

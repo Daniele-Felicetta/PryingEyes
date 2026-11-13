@@ -440,6 +440,37 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
   **189 file verificati con SHA-256**. Scena/materiali rigenerati confrontati semanticamente e archiviati prima
   di ripristinare gli originali, senza includere cambi dei soli identificatori.
 
+## Ottava passata: affondo e contatto dei volanti (13 novembre 2026)
+
+- Riprodotto il comportamento precedente con controller reale: **37/68**, uscita 1 (`flying-red-player.log`).
+  Occhio, Veglia e Medusa continuavano a inseguire durante la preparazione; schiena e schivata laterale potevano
+  ancora subire danno, mancava il recupero e l’uscita del bersaglio non annullava quel contatto.
+- Nuovo gesto: preparazione 0,55 s, contatto a 0,71 s, recupero fino a 1,13 s. Direzione e bersaglio impegnati;
+  corsa fino a 85 cm con SphereCast dell’intero passo, senza scorrere sul muro durante l’affondo. Corsa ridotta
+  entro 75 cm dalla destinazione iniziale per evitare il superamento del bersaglio quando è già vicinissimo.
+  Raggio di danno 1,2 m in 3D, cono frontale e linea libera verificati al contatto. Avvicinamento a circa 1,55 m
+  tra gli attacchi, anziché puntare a sovrapporsi alla testa del giocatore.
+- Animazioni procedurali guidate dalla stessa fase su ospite e replica: Veglia arretra/inclina/rilascia la posa,
+  Medusa contrae campana e tentacoli; Occhio usa il gesto degli occhi e lo scatto reale. Gli effetti di contatto
+  comuni, anche degli umanoidi, vengono posti sulla superficie alta rivolta al nemico invece che dentro il corpo
+  del giocatore, fuori dalla visuale. Nessun effetto di impatto su un colpo mancato.
+- **117/117 in ciascuno dei tre temi**, uscite 0 (`flying-albergo`, `flying-teatro`, `flying-sanatorio`): tre specie,
+  nessun inseguimento durante preparazione/recupero, affondo fisico, bersaglio fermo e molto vicino, direzione
+  del danno, particelle nel campo visivo, schiena, schivata laterale e arretramento col controller, parete che blocca
+  danno e corpo, bersaglio uscito, replica con direzione impegnata, tempi corretti e nessun danno autonomo.
+- Regressioni dopo il nuovo contatto comune: mischia degli umanoidi **65/65** con grafica (`flying-melee-regression`),
+  dardi/feedback **23/23** (`flying-fx-regression`), uscite 0. Le immagini dei tre temi sono archiviate nei rispettivi
+  percorsi sotto `unity_logs`, comprese preparazione e contatto.
+- Protocollo **`pe-coop-10`**: invariato il formato dei messaggi; l’evento `Attack` dei volanti porta la direzione
+  impegnata e `Strike` ne annuncia anche il contatto/mancato contatto. Le build precedenti hanno tempi e uso
+  degli eventi diversi, quindi l’ammissione evita di mescolarle.
+- Prova di spinta con dieci Veglie attive per 14 s: uscita 0 (`flying-push-player.log`), spostamento massimo
+  del giocatore **0,00 m**, quota minima **0,05 m**, distanza minima dei volanti **0,75 m**, **zero cadute**.
+  È una verifica di collisioni e stabilità del controller, non una misura delle prestazioni di rendering dell’orda.
+- Cooperativa con nuova fase dedicata all’affondo: **17/17 ospite e 32/32 client**, uscite 0 in **84 s**
+  (`flying-coop`). Il client osserva preparazione e spostamento del nemico appena annunciato, riceve il danno
+  dall’ospite e ne mostra la provenienza. Build principale aggiornata a gioco chiuso: **189 file verificati SHA-256**.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

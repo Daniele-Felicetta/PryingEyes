@@ -342,7 +342,7 @@ namespace PryingEyes
                 HostLeave ? new System.Func<IEnumerator>[] { S0, S1, H2 } :
                 Pics ? new System.Func<IEnumerator>[] { S0, S1, P0 } :
                 Late ? new System.Func<IEnumerator>[] { L0, L1, L2 } :
-                new System.Func<IEnumerator>[] { S0, S1, S2, S3, S4, S5, S6, S7, S8 };
+                new System.Func<IEnumerator>[] { S0, S1, S2, S3, S4, S4Flight, S5, S6, S7, S8 };
             var it = Scenario(steps);
             while (true)
             {
@@ -585,6 +585,50 @@ namespace PryingEyes
                 yield return new WaitForSeconds(2f);
             }
             if (Coop.IsHost && biter != null) Enemy.Remove(biter);
+        }
+
+        IEnumerator S4Flight()
+        {
+            var player=GameManager.I.player;
+            Enemy attacker=null;
+            if(Coop.IsHost)
+            {
+                Safe();player.Teleport(FarPoint(PeerPos()));
+                yield return new WaitForSeconds(1);
+                if(PlaceNear(PeerPos(),1.5f,out var point))
+                {
+                    attacker=Enemy.Spawn(Enemy.EnemyType.Veglia,point+Vector3.up*1.35f);
+                    attacker.MakeRelentless();
+                }
+                Check("Veglia piazzata accanto al compagno",attacker!=null);
+                yield return new WaitForSeconds(8);
+                if(attacker!=null)Enemy.Remove(attacker);
+            }
+            else if(!Primary){Safe();yield return new WaitForSeconds(2);}
+            else
+            {
+                Safe(false);float health=player.hp+player.shield;
+                int previousId=-1;
+                foreach(var enemy in Enemy.All)if(enemy!=null)previousId=Mathf.Max(previousId,enemy.netId);
+                bool sawPreparation=false,hasStart=false;Vector3 start=Vector3.zero;
+                yield return Until(()=>
+                {
+                    foreach(var enemy in Enemy.All)
+                    {
+                        if(enemy==null||enemy.type!=Enemy.EnemyType.Veglia||enemy.netId<=previousId)continue;
+                        attacker=enemy;
+                        if(!hasStart){start=enemy.transform.position;hasStart=true;}
+                        sawPreparation|=enemy.PreparingFlight;
+                    }
+                    return player.hp+player.shield<health-0.01f;
+                },12);
+                Check("il client vede la preparazione dell'affondo volante",sawPreparation);
+                Check("l'affondo dell'ospite ferisce il client",player.hp+player.shield<health-0.01f);
+                yield return new WaitForSeconds(0.25f);
+                Check("il client vede lo spostamento fisico dell'affondo",attacker!=null&&hasStart&&Vector3.Distance(start,attacker.transform.position)>0.3f);
+                Check("l'affondo ricevuto mostra la provenienza del danno",GameManager.I.hud.DamageDirectionCount>0);
+                Safe();player.Heal(1000);
+            }
         }
 
         // 5 ------------------------------------------------------------------ candela accesa dall'ospitato

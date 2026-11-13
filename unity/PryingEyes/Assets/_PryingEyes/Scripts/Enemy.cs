@@ -246,7 +246,7 @@ namespace PryingEyes
             if (Archetype == EnemyType.Occhio) UpdateOcchio(dt, gp, chest, sep, enraged);
             else if (Archetype == EnemyType.Monaco) UpdateMonaco(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
             else UpdateAbate(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
-            if (alienRig != null) alienRig.Animate(phase, vel.magnitude, alert == Alert.Hunting, strikeAt >= 0f);
+            if (alienRig != null) alienRig.Animate(phase, vel.magnitude, alert == Alert.Hunting, strikeAt >= 0f, FlightElapsed);
         }
 
         // ---------- chi cammina ----------
@@ -434,11 +434,14 @@ namespace PryingEyes
         // ---------- occhio volante ----------
         /// <summary>Con la vista libera vola dritto verso il giocatore, all'altezza dei suoi occhi (ognuno a una quota un po'
         /// diversa); altrimenti segue il percorso della navmesh 2 m sopra terra (sale lungo lo scalone invece di restare
-        /// sotto il soppalco). Scivola sui muri invece di attraversarli. Guarda sempre il giocatore; da vicino lo fissa
-        /// (palpebre spalancate, iride accesa) e dopo mezzo secondo colpisce.</summary>
+        /// sotto il soppalco). Scivola sui muri mentre insegue; da vicino mantiene spazio per preparare un affondo
+        /// con direzione impegnata, collisione continua e recupero (Enemy.FlyingMelee.cs).</summary>
         void UpdateOcchio(float dt, Vector3 gp, Vector3 chest, Vector3 sep, bool enraged)
         {
             bool hunting = alert == Alert.Hunting;
+            if (atkLock > 0) { UpdateFlight(dt); return; }
+            chest = FlightChest(tgt);
+            if (eye != null) eye.lookAt = hunting ? tgt.LookAt : null;
             // a caccia insegue il giocatore (o l'ultimo punto in cui l'ha visto); altrimenti pattuglia a due metri da terra
             Vector3 aimAt = hunting && !seeing ? lastKnown + Vector3.up * 1.3f : chest;
             bool see = HotelNav.ClearLine(gp, aimAt);
@@ -447,7 +450,13 @@ namespace PryingEyes
             Vector3 target;
             if (hunting)
             {
-                if (see || !HotelNav.Ready) target = aimAt + Vector3.up * (height + bob);
+                if (see || !HotelNav.Ready)
+                {
+                    Vector3 away = gp - aimAt; away.y = 0;
+                    if (away.sqrMagnitude < 0.01f) { away = -transform.forward; away.y = 0; }
+                    if (away.sqrMagnitude < 0.01f) away = Vector3.forward;
+                    target = aimAt + away.normalized * 1.55f + Vector3.up * ((height + bob) * 0.25f);
+                }
                 else
                 {
                     if (repathT <= 0f) { RePath(gp, seeing ? tgt.Feet : lastKnown); repathT = 0.5f; }
@@ -465,21 +474,8 @@ namespace PryingEyes
             Vector3 desired = (d > 0.01f && !moveHold ? to / d * spd * Mathf.Clamp01(d / 1.2f) : Vector3.zero) + sep;
             vel = Vector3.Lerp(vel, desired, Mathf.Min(1f, 3f * dt));
 
-            Vector3 step = vel * dt;
-            float len = step.magnitude;
-            const float R = 0.42f;
-            if (len > 1e-4f && Physics.SphereCast(gp, R, step / len, out RaycastHit hit, len + 0.05f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
-            {
-                vel = Vector3.ProjectOnPlane(vel, hit.normal);
-                step = vel * dt;
-                len = step.magnitude;
-                if (len > 1e-4f && Physics.SphereCast(gp, R, step / len, out hit, len + 0.05f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
-                    step = step / len * Mathf.Max(0f, hit.distance - 0.02f);
-            }
-            gp += step;
-            float ceil = FloorDirectorCeiling(gp);
-            gp.y = Mathf.Clamp(gp.y, 0.95f, ceil);
-            transform.position = gp;
+            MoveFlying(vel * dt, true);
+            gp = transform.position;
             // la direzione dello sguardo e' l'asse Z: verso la testa del giocatore, in 3D, con un po' di ritardo
             Vector3 look = tgt.Feet + Vector3.up * 1.6f - gp;
             if (hunting && look.sqrMagnitude > 0.01f)
@@ -487,21 +483,8 @@ namespace PryingEyes
             else if (!hunting) FaceCalm(dt, 2.6f);
             if (loop != null) loop.pitch = basePitch * (0.85f + vel.magnitude / 14f);   // accelera: il ronzio sale
 
-            float dist3 = (chest - gp).magnitude;
-            if (strikeAt >= 0f)
-            {
-                strikeAt -= dt;
-                if (strikeAt < 0f && tgt.Alive && dist3 < 3.4f && HotelNav.ClearLine(gp, chest))
-                    HitPlayer((type == EnemyType.Medusa ? 15f : 8f) + Random.value * 4f, dist3, Mathf.Abs(chest.y - gp.y));
-            }
-            else if (hunting && see && dist3 < 2.7f && atkCd <= 0f && tgt.Alive)
-            {
-                atkCd = type == EnemyType.Veglia ? 1.3f : type == EnemyType.Medusa ? 2.6f : 1.8f;
-                strikeAt = 0.5f;
-                if (eye != null) eye.Stare(0.9f);
-                Sfx.At(SoundBank.EyeStare, gp, 0.55f, Random.Range(0.92f, 1.08f), 2f, 22f);
-                Coop.Game?.EnemyEvent(this, EnemyEvt.Attack, Vector3.zero);
-            }
+            if (hunting && HotelNav.ClearLine(gp, chest) && (chest - gp).sqrMagnitude < 4f && atkCd <= 0f && tgt.Alive)
+                BeginFlight();
         }
 
         /// <summary>Quota massima di un occhio sopra il punto: nei piani procedurali il soffitto della stanza, altrimenti quello della hall.</summary>
@@ -531,15 +514,6 @@ namespace PryingEyes
                 if (new Vector2(c.x - gp.x, c.z - gp.z).sqrMagnitude > 1.5f * 1.5f) return c;
             }
             return cornerCount > 0 ? corners[cornerCount - 1] : pathDest;
-        }
-
-        void HitPlayer(float dmg, float dist, float dy)
-        {
-            var t = tgt;
-            t.Hurt(dmg, transform.position);                                  // il giocatore locale si fa male da se'; un compagno lo sente dall'ospite (HurtPlayer)
-            if (t is LocalTarget) GameManager.damageTaken++;
-            if (GameManager.autoTest)
-                Debug.Log($"[PryingEyes] danno {type} {dmg:F0} a {dist:F1} m (giocatore {t.Slot}), dislivello {dy:F1} m, nemico y={transform.position.y:F1}");
         }
 
         /// <summary>Un colpo. 'claimer' e' lo slot di chi l'ha sparato quando e' un compagno (arriva dalla rete, solo sull'ospite): i punti
