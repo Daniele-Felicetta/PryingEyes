@@ -28,7 +28,7 @@ R = {
  'stinco_s': [(0,(0,0,0)), (18,(7,0,0)), (38,(0,0,0))],
 }
 L = {
- 'bastone': [(0,(0,0,0)), (10,(0.06,0.10,0.16)), (14,(0.08,0.13,0.20)), (18,(-0.06,-0.32,0.06)), (21,(-0.07,-0.34,0.05)), (28,(-0.02,-0.12,0.04)), (38,(0,0,0))],
+ 'bastone': [(0,(0,0,0)), (10,(0.06,0.10,0.16)), (14,(0.08,0.13,0.20)), (18,(-0.06,-0.20,0.06)), (21,(-0.07,-0.21,0.05)), (28,(-0.02,-0.12,0.04)), (38,(0,0,0))],
  'bacino': [(0,(0,0,0)), (14,(0,0.05,-0.015)), (18,(0,-0.10,-0.04)), (24,(0,-0.07,-0.03)), (38,(0,0,0))],
 }
 act = M.make_action(arm, 'mischia', n=38, loop=False, rot=R, loc=L)
@@ -40,6 +40,22 @@ arm.animation_data.action = act
 bpy.context.scene.render.fps = 30
 bpy.context.scene.frame_start = 0
 bpy.context.scene.frame_end = 38
+# La mano segue la presa con IK, ma non puo' raggiungere un bastone oltre la lunghezza del braccio.
+# Controlliamo anche tra le chiavi: le curve possono superare la portata durante affondo e recupero.
+worst_grip = (0.0, 0.0)
+for sample in range(153):
+    frame = sample / 4
+    bpy.context.scene.frame_set(int(frame), subframe=frame - int(frame))
+    bones = arm.pose.bones
+    error = (bones['mano_s'].head - bones['presa_s'].head).length
+    if error > worst_grip[0]:
+        worst_grip = (error, frame)
+print(f'[mischia] errore massimo della presa {worst_grip[0]:.6f} m al frame {worst_grip[1]:.2f}')
+if worst_grip[0] > 0.003:
+    raise RuntimeError('La mano perde il bastone: correggere la traiettoria prima di esportare')
+bpy.context.scene.frame_set(0)
+if 'check' in M.ARGS:
+    sys.exit(0)
 container = bpy.data.objects.new('AnimazioneMischia', None)
 bpy.context.collection.objects.link(container)
 arm.parent = container

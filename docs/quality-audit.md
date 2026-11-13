@@ -647,6 +647,32 @@ del Monaco dopo un danno reale: il costume torna scuro con i dettagli del tessut
 altro piano e non è un confronto quantitativo della luminosità. Restano da rifinire gesto e leggibilità
 complessiva durante una partita: questa correzione chiude il lampo persistente, non l'intero lavoro sugli attacchi.
 
+## Quattordicesima passata: presa del bastone durante l'affondo (13 novembre 2026)
+
+L'arma era animata indipendentemente dal corpo e il braccio sinistro la seguiva con IK. La traiettoria dell'affondo
+portava però la presa oltre la lunghezza del braccio: nello scheletro sorgente la mano si staccava fino a **7,306 cm**
+al fotogramma 21,25. La nuova verifica del generatore fallisce prima dell'esportazione; misura 153 pose, ogni quarto
+di fotogramma, e rifiuta una distanza mano/presa sopra 3 mm. Comando ripetibile:
+`blender --background --factory-startup --python-exit-code 1 --python modelli/monaco/genera_attacco.py -- check`.
+
+Difetto confermato anche sul player e sui modelli importati (`unity_logs/grip-red`): mischia **102/108**, uscita 1,
+con i soli sei controlli della presa al contatto falliti. Scarti al contatto **2,44–7,86 cm** nei sei umanoidi;
+preparazione e recupero conservavano la presa.
+
+La traslazione del bastone nei fotogrammi 18 e 21 è ora più vicina al corpo di 12–13 cm. La rotazione dell'arma,
+l'avvolgimento del busto, il passo fisico e i tempi di contatto e recupero sono conservati. La presa resta raggiungibile
+anche tra le chiavi, senza allungare il braccio o cambiare il modello: errore massimo nello scheletro **0,005 mm**.
+Il controllo impedisce future esportazioni con una presa irraggiungibile. Rigenerati `mischia.fbx` e `Mischia.anim`;
+importazione **28/28 percorsi compatibili** su Monaco e Abate, durata invariata **1,267 s**.
+
+Build completa e prove con grafica nei tre temi (`unity_logs/grip-final`): mischia **108/108** per tema, compresi
+preparazione, contatto e recupero su tutti e sei i costumi. Lo scarto massimo osservato nei tre temi è **4,3 mm**
+(l'interpolazione del player non coincide con il campionamento di Blender), sotto la soglia di 15 mm nel mondo.
+Superata anche la regressione dei lampi **212/212**. Immagine laterale dell'Abate controllata: arma nella mano durante
+l'affondo, senza perdita della figura eretta. Cooperativa: **17/17 ospite e 32/32 client**, uscite 0 in 84 s
+(`unity_logs/grip-coop`); nessun cambio alle regole o al protocollo. Resta aperta la valutazione del ritmo e della
+varietà dei gesti in partita.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

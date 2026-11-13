@@ -106,6 +106,15 @@ namespace PryingEyes
             }
             return (dust, glow, visible);
         }
+        void CheckGrip(Enemy enemy, string phase)
+        {
+            var bones = enemy.GetComponentsInChildren<Transform>();
+            Transform hand = Array.Find(bones, t => t.name == "mano_s" && t.GetComponent<Renderer>() == null);
+            Transform grip = Array.Find(bones, t => t.name == "presa_s" && t.GetComponent<Renderer>() == null);
+            float error = hand != null && grip != null ? Vector3.Distance(hand.position, grip.position) : float.PositiveInfinity;
+            Check(enemy.type + " mantiene la presa in " + phase, error < 0.015f);
+            Debug.Log($"[PryingEyes] meleetest presa {enemy.type} {phase}: {error:F4} m");
+        }
         float AnimatedHeight(Enemy enemy)
         {
             float min = float.PositiveInfinity, max = float.NegativeInfinity;
@@ -237,6 +246,7 @@ namespace PryingEyes
                 Transform staff = Array.Find(enemy.GetComponentsInChildren<Transform>(), t => t.name == "bastone" && t.GetComponent<Renderer>() == null);
                 Quaternion windup = staff != null ? staff.rotation : Quaternion.identity;
                 Photo(enemy, "preparazione");
+                CheckGrip(enemy, "preparazione");
                 deadline = Time.time + 2;
                 while (enemy.PreparingMelee && Time.time < deadline) yield return null;
                 yield return null; // leggere la posa dopo la valutazione dell'Animator del fotogramma del contatto.
@@ -251,10 +261,12 @@ namespace PryingEyes
                 Check(type + " impatto fisico senza scintille magiche", particles.dust > 0 && particles.glow == 0);
                 Check(type + " impatto fisico visibile dal giocatore", particles.visible > 0);
                 Photo(enemy, "contatto");
+                CheckGrip(enemy, "contatto");
                 health = player.hp + player.shield;
                 yield return new WaitForSeconds(0.25f);
                 Check(type + " recupero senza danni ripetuti", Mathf.Abs(player.hp + player.shield - health) < 0.01f && enemy.RecoveringMelee);
                 Photo(enemy, "recupero");
+                CheckGrip(enemy, "recupero");
                 Enemy.Remove(enemy); yield return null;
             }
             var guarded = Spawn(Enemy.EnemyType.Monaco);

@@ -173,3 +173,10 @@ Bastone, strumenti e attacchi a terra lasciano un breve impatto opaco di polvere
 scintille additive degli incantesimi. Il gesto, il suono di contatto e il segnale direzionale restano sincronizzati
 al danno; un colpo schivato non produce l'impatto. I volanti mantengono il feedback magico. Nessun cambio alle regole
 o al protocollo di rete. Restano da rifinire il gesto e la presentazione del nemico durante il combattimento ravvicinato.
+
+## Quattordicesima passata: arma nella mano
+
+Corretto l'affondo degli umanoidi: il bastone superava la portata del braccio e si staccava dalla mano durante il colpo.
+La presa ora resta raggiungibile per tutta la traiettoria, anche tra i fotogrammi, con controllo nel generatore e sui
+sei costumi del gioco. Restano gli stessi tempi, rotazioni e possibilità di schivata. Ritmo e varietà degli attacchi
+richiedono ancora una valutazione durante le orde.
