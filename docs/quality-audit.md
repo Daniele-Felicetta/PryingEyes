@@ -301,6 +301,27 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
   verificati con SHA-256. Protocollo `pe-coop-7` per geometria e posizionamento deterministico.
   HUD, Veglia e feedback degli attacchi restano ambiti aperti; questa passata non completa l’audit generale.
 
+## Terza passata: HUD da combattimento (13 novembre 2026)
+
+- Dati di combattimento in sans di sistema con numeri grandi, mantenendo i titoli dell’hotel in serif.
+  Vita/scudo/batterie/punti a sinistra, arma e munizioni a destra, navigazione in alto e compagni nell’angolo
+  superiore destro. Sfumature scure sostengono i dati sui fondali chiari; numeri e descrizioni vanno a capo
+  entro i loro spazi. I nomi delle armi adattano la dimensione quando serve.
+- Vita e scudo mostrano valori numerici. Colore e vignetta della vita critica dipendono dal massimo effettivo,
+  compresi i 150 punti di Pelle di pietra. Caricatore critico al 20% della capacità, anche con Consacrazione;
+  avvisi distinti per ricarica in corso, caricatore vuoto con riserva e munizioni completamente esaurite.
+- **157/157** verifiche di presentazione a **1280×720, 1024×768 e 2560×1080**, con schermate normali e durante
+  danno/ricarica (`unity_logs/hud-alerts-*`). Inclusi tutte le armi consacrate con due slot, quattro perk,
+  punteggio a sette cifre, round animato, conteggio durante rigenerazione e avvisi collegati alla ricarica reale.
+  Il controllo del testo tiene conto dei pixel già scalati restituiti dal generatore per il best fit.
+- Prima iterazione: un confronto rigido della vita nel copione falliva perché il personaggio rigenerava già salute;
+  ora la verifica confronta il numero mostrato con la salute effettiva. La prova ultrawide ha inoltre corretto
+  un doppio conteggio della scala nel verificatore; nessuna soglia di testo è stata allargata.
+- Regressione delle armi sulla stessa build: **279/279** (`unity_logs/hud-gunplay`), processo terminato con 0.
+- Build principale aggiornata a gioco chiuso, 189 file verificati con SHA-256.
+- Questo chiude la prima revisione della gerarchia HUD richiesta. Restano le valutazioni durante combattimenti
+  affollati, dispositivi reali, la riformulazione della Veglia e la revisione di animazioni e impatti dei nemici.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

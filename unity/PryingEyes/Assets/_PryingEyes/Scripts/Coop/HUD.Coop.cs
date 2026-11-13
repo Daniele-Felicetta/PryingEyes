@@ -13,14 +13,14 @@ namespace PryingEyes
 
         void BuildCoopUI()
         {
-            coopHeading = MakeText("Compagni", new Vector2(1, 1), new Vector2(-26, -238), new Vector2(300, 24),
-                16, TextAnchor.UpperRight, "", Dim, FontStyle.Italic);
+            coopHeading = MakeText("Compagni", new Vector2(1, 1), new Vector2(-28, -26), new Vector2(300, 24),
+                16, TextAnchor.UpperRight, "", Dim, FontStyle.Normal);
             for (int i = 0; i < coopRows.Length; i++)
             {
                 var go = Child("Compagno" + i);
                 var rt = Comp<RectTransform>(go);
                 rt.anchorMin = rt.anchorMax = rt.pivot = Vector2.one;
-                rt.anchoredPosition = new Vector2(-26, -268 - i * 58);
+                rt.anchoredPosition = new Vector2(-28, -54 - i * 58);
                 rt.sizeDelta = new Vector2(280, 52);
                 var bg = Comp<Image>(go);
                 bg.color = new Color(0.02f, 0.02f, 0.025f, 0.70f); bg.raycastTarget = false;
@@ -32,7 +32,7 @@ namespace PryingEyes
                 coopNames[i].resizeTextMinSize = 12; coopNames[i].resizeTextMaxSize = 18;
                 coopNames[i].transform.SetParent(rt, false);
                 coopDetails[i] = MakeText("CompagnoStato" + i, Vector2.one, new Vector2(-8, -25), new Vector2(264, 20),
-                    14, TextAnchor.UpperRight, "", Dim, FontStyle.Italic);
+                    14, TextAnchor.UpperRight, "", Dim, FontStyle.Normal);
                 coopDetails[i].transform.SetParent(rt, false);
                 var bar = new GameObject("Vita", typeof(RectTransform), typeof(Image));
                 bar.transform.SetParent(rt, false);

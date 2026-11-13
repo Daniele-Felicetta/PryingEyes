@@ -40,6 +40,18 @@ Verifiche: 400 piani costruiti, nessun problema residuo, 8.164 punti superiori r
 angoli esclusi attraversabili. Camminata fisica e collisioni nei tre temi: 42/42 per prova. Dodici piani completi
 percorsi senza avvisi; interfaccia 92/92. Log in `unity_logs/curves-*`.
 
-Restano aperti: riformulazione della Veglia, nuova gerarchia dell’HUD, animazione e feedback degli attacchi e degli
-impatti. Continuare anche la valutazione degli spazi durante il combattimento: le prove di navigazione non bastano
+## Terza passata: gerarchia dell’HUD
+
+Raggruppati vita, scudo, batterie e punti a sinistra; arma e munizioni a destra; piano, obiettivo e perk in alto.
+I compagni occupano l’angolo superiore destro. I dati di combattimento usano un sans di sistema più netto,
+mentre i titoli e il grande numero rosso del round mantengono il serif dell’hotel. Sfumature scure dietro le risorse
+ne sostengono il contrasto anche sui pavimenti chiari. Vita e scudo hanno valori numerici; la vita critica rispetta
+anche il massimo aumentato dal perk. La soglia del caricatore critico è il 20% della capacità dell’arma, incluse le
+armi consacrate. Avvisi distinti per ricarica, caricatore vuoto e munizioni esaurite.
+
+La verifica di presentazione include tutte le armi consacrate con due slot pieni, quattro perk, round animato,
+punteggio a sette cifre, vita critica durante la rigenerazione e ricarica reale. Vedere `docs/quality-audit.md` per gli
+esiti sulle risoluzioni verificate. Restano da valutare leggibilità durante combattimenti affollati e dispositivi fisici.
+
+Restano aperti: riformulazione della Veglia, animazione e feedback degli attacchi e degli impatti. Continuare anche la valutazione degli spazi durante il combattimento: le prove di navigazione non bastano
 a dimostrare il ritmo finale con gruppi di nemici. La revisione complessiva rimane in corso.

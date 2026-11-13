@@ -51,10 +51,10 @@ namespace PryingEyes
             stealthRoot.anchorMin = Vector2.zero; stealthRoot.anchorMax = Vector2.one;
             stealthRoot.offsetMin = Vector2.zero; stealthRoot.offsetMax = Vector2.zero;
 
-            // pila della torcia: cinque tacche in basso a sinistra, sopra le barre di vita e scudo
+            // pila della torcia: cinque tacche in basso a sinistra, sotto le barre di vita e scudo
             var tr = Comp<RectTransform>(SubChild(rootGo, "Pila"));
             tr.anchorMin = tr.anchorMax = Vector2.zero; tr.pivot = Vector2.zero;
-            tr.anchoredPosition = new Vector2(28f, 56f); tr.sizeDelta = new Vector2(112f, 18f);
+            tr.anchoredPosition = new Vector2(28f, 18f); tr.sizeDelta = new Vector2(112f, 18f);
             var back = Comp<Image>(tr.gameObject); back.color = new Color(0f, 0f, 0f, 0.5f); back.raycastTarget = false;
             torchSeg = new Image[5];
             for (int i = 0; i < 5; i++)
@@ -68,8 +68,8 @@ namespace PryingEyes
             cap.anchorMin = cap.anchorMax = Vector2.zero; cap.pivot = Vector2.zero;
             cap.anchoredPosition = new Vector2(108f, 5f); cap.sizeDelta = new Vector2(4f, 8f);
             torchCap = Comp<Image>(cap.gameObject); torchCap.raycastTarget = false;
-            torchCount = MakeText("PileScorta", new Vector2(0f, 0f), new Vector2(146f, 55f), new Vector2(120f, 20f), 16, TextAnchor.MiddleLeft, "", Ink, FontStyle.Normal);
-            keyHint = MakeText("TastiFurtivi", new Vector2(0f, 0f), new Vector2(28f, 78f), new Vector2(560f, 20f), 12, TextAnchor.LowerLeft, "", Dim, FontStyle.Italic);
+            torchCount = MakeText("PileScorta", new Vector2(0f, 0f), new Vector2(146f, 17f), new Vector2(120f, 20f), 16, TextAnchor.MiddleLeft, "", Ink, FontStyle.Normal);
+            keyHint = MakeText("TastiFurtivi", new Vector2(0.5f, 0f), new Vector2(0f, 24f), new Vector2(580f, 20f), 11, TextAnchor.LowerCenter, "", Dim, FontStyle.Normal);
             torchCount.transform.SetParent(rootGo.transform, false);
             keyHint.transform.SetParent(rootGo.transform, false);
 

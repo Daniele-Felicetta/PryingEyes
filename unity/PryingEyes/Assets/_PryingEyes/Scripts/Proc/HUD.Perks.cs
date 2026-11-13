@@ -11,7 +11,7 @@ namespace PryingEyes
         sealed class PerkSlotUi { public Image frame, icon, cool; public Text key; public float pop = 1f; public int shownId = -1; }
         PerkSlotUi[] perkUi;
         int perkShown;
-        const float PerkSize = 40f, PerkGap = 7f, PerkX = 26f, PerkY = -170f;
+        const float PerkSize = 34f, PerkGap = 8f, PerkX = 28f, PerkY = -120f;
 
         void BuildPerksUI()
         {

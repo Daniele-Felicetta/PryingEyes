@@ -10,12 +10,14 @@ namespace PryingEyes
         Text roundText;
         float roundPulse;
         const float RoundPulseTime = 1.6f;
-        static readonly Color RoundInk = new Color(0.66f, 0.09f, 0.08f);
+        static readonly Color RoundInk = new Color(0.90f, 0.21f, 0.17f);
         static readonly Color RoundHot = new Color(1f, 0.30f, 0.22f);
 
         void BuildRoundUI()
         {
-            roundText = MakeText("Round", new Vector2(0f, 0f), new Vector2(26f, 100f), new Vector2(300f, 84f), 68, TextAnchor.LowerLeft, "", RoundInk, FontStyle.Bold);
+            roundText = MakeText("Round", new Vector2(0f, 0f), new Vector2(28f, 162f), new Vector2(240f, 66f), 56, TextAnchor.LowerLeft, "", RoundInk, FontStyle.Bold);
+            roundText.font = Serif();
+            MakeText("RoundLabel", Vector2.zero, new Vector2(30, 252), new Vector2(200, 18), 11, TextAnchor.LowerLeft, "ROUND", Dim, FontStyle.Bold).gameObject.SetActive(false);
         }
 
         /// <summary>n = 0 spegne il numero (nuova partita). 'pulse' lo fa lampeggiare.</summary>
@@ -23,6 +25,7 @@ namespace PryingEyes
         {
             if (roundText == null) return;
             roundText.text = n > 0 ? n.ToString() : "";
+            transform.Find("RoundLabel").gameObject.SetActive(n > 0);
             if (pulse && n > 0) roundPulse = RoundPulseTime;
         }
 

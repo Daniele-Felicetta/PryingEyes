@@ -4,15 +4,13 @@ using UnityEngine.UI;
 
 namespace PryingEyes
 {
-    /// <summary>HUD con ancore agli angoli, costruito a runtime (riusa i figli se esistono gia').
-    /// Tono "grand hotel": Georgia di sistema (niente font da scaricare), avorio su nero, tutto in italiano,
-    /// niente scritte da sala giochi. L'ondata e' un numero romano, i nemici sono "presenze"; l'hit marker resta
-    /// quello stile CoD.</summary>
+    /// <summary>HUD agli angoli: dati di combattimento in sans, titoli dell'hotel in serif.
+    /// Risorse a sinistra, arma a destra; il centro resta dedicato a mira, contatti e interazioni.</summary>
     public partial class HUD : MonoBehaviour
     {
         Slider hpBar, shieldBar;
         Text ammoText, reserveText, reloadText, waveLabel, waveText, enemiesText, scoreText, bannerText, bannerSub, toastText;
-        Text promptText, weaponNameText, objectiveText;
+        Text promptText, weaponNameText, objectiveText, healthText;
         Image fadeImg;
         Image vignette, adsVig;
         RectTransform hitRoot;      // hit marker: X di 4 tacche attorno al mirino
@@ -21,14 +19,16 @@ namespace PryingEyes
         Image[] xDashImg;
         Image xDot;                 // punto centrale (solo DMR, in mira)
         float xGap = 8f, xGapTarget = 8f, xAds;
+        int ammoNow, reserveNow, clipCapacity = 15;
+        bool reloadActive;
         string xCls = "";
         bool xShot;
         Text weaponSubText, slotText;
         Color hitCol = Color.white;
         float hitT, hitDur, hitPop, hitSize, bannerT, toastT, vigT, hpNow = 100f;
-        static Font serif;
+        static Font serif, utility;
         static readonly Color Ink = new Color(0.93f, 0.89f, 0.80f);
-        static readonly Color Dim = new Color(0.74f, 0.67f, 0.56f, 0.92f);
+        static readonly Color Dim = new Color(0.80f, 0.81f, 0.80f, 0.96f);
         static readonly CultureInfo It = CultureInfo.GetCultureInfo("it-IT");
         const float BannerTime = 4.5f, ToastTime = 4.5f;
 
@@ -39,6 +39,12 @@ namespace PryingEyes
             if (serif == null)
                 serif = Font.CreateDynamicFontFromOSFont(new[] { "Georgia", "Palatino Linotype", "Book Antiqua", "Times New Roman" }, 32);
             return serif;
+        }
+
+        static Font Utility()
+        {
+            if (utility == null) utility = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI", "Arial", "Liberation Sans" }, 32);
+            return utility;
         }
 
         /// <summary>Numero romano (ondata III).</summary>
@@ -100,6 +106,9 @@ namespace PryingEyes
             ar.anchorMin = Vector2.zero; ar.anchorMax = Vector2.one;
             ar.offsetMin = Vector2.zero; ar.offsetMax = Vector2.zero;
 
+            BuildHudShade("FondoVita", false);
+            BuildHudShade("FondoArma", true);
+
             // componente furtiva (HUD.Stealth.cs): torcia, segnalini dei preti, freccia dell'ascensore, ping
             BuildStealthUI();
             BuildRoundUI();          // HUD.Round.cs: il numero del round, rosso in basso a sinistra
@@ -107,29 +116,38 @@ namespace PryingEyes
             BuildPerksUI();          // HUD.Perks.cs: i quattro posti dei perk sotto l'obiettivo
             BuildCoopUI();
 
-            // in alto a sinistra: ondata in numeri romani, presenze, punti
-            waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(26, -16), new Vector2(300, 22), 15, TextAnchor.UpperLeft, "ondata", Dim, FontStyle.Italic);
-            waveText = MakeText("Wave", new Vector2(0, 1), new Vector2(24, -34), new Vector2(300, 56), 46, TextAnchor.UpperLeft, "I", Ink, FontStyle.Normal);
-            enemiesText = MakeText("Enemies", new Vector2(0, 1), new Vector2(26, -92), new Vector2(320, 24), 17, TextAnchor.UpperLeft, "", Dim, FontStyle.Italic);
-            scoreText = MakeText("Score", new Vector2(0, 1), new Vector2(26, -114), new Vector2(320, 22), 15, TextAnchor.UpperLeft, "", Dim, FontStyle.Normal);
-            // in basso a sinistra: vita e scudo, sottili e senza etichette
-            hpBar = MakeBar("HpBar", new Vector2(0, 0), new Vector2(28, 30), new Vector2(220, 6), new Color(0.62f, 0.10f, 0.09f));
-            shieldBar = MakeBar("ShieldBar", new Vector2(0, 0), new Vector2(28, 42), new Vector2(220, 4), new Color(0.56f, 0.68f, 0.80f));
-            // in basso a destra: colpi nel caricatore grandi, riserva piccola
-            ammoText = MakeText("Ammo", new Vector2(1, 0), new Vector2(-92, 16), new Vector2(160, 58), 48, TextAnchor.LowerRight, "30", Ink, FontStyle.Normal);
-            reserveText = MakeText("Reserve", new Vector2(1, 0), new Vector2(-26, 24), new Vector2(70, 30), 20, TextAnchor.LowerRight, "/ 120", Dim, FontStyle.Normal);
-            reloadText = MakeText("Reload", new Vector2(1, 0), new Vector2(-28, 76), new Vector2(220, 22), 15, TextAnchor.LowerRight, "", Dim, FontStyle.Italic);
-            weaponNameText = MakeText("WeaponName", new Vector2(1, 0), new Vector2(-26, 100), new Vector2(420, 24), 19, TextAnchor.LowerRight, "", Dim, FontStyle.Normal);
-            weaponSubText = MakeText("WeaponSub", new Vector2(1, 0), new Vector2(-26, 122), new Vector2(520, 20), 13, TextAnchor.LowerRight, "", Dim, FontStyle.Italic);
-            slotText = MakeText("Slots", new Vector2(1, 0), new Vector2(-26, 142), new Vector2(520, 20), 13, TextAnchor.LowerRight, "", Dim, FontStyle.Normal);
+            // Navigazione in alto; risorse di combattimento ai due angoli inferiori.
+            waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(28, -26), new Vector2(100, 22), 13, TextAnchor.UpperLeft, "ONDATA", Dim, FontStyle.Bold);
+            waveText = MakeText("Wave", new Vector2(0, 1), new Vector2(118, -21), new Vector2(190, 32), 26, TextAnchor.UpperLeft, "I", Ink, FontStyle.Bold);
+            enemiesText = MakeText("Enemies", new Vector2(0, 1), new Vector2(28, -88), new Vector2(320, 22), 15, TextAnchor.UpperLeft, "", Dim, FontStyle.Normal);
+            scoreText = MakeText("Score", Vector2.zero, new Vector2(28, 91), new Vector2(290, 38), 30, TextAnchor.LowerLeft, "0", Ink, FontStyle.Bold);
+            MakeText("ScoreLabel", Vector2.zero, new Vector2(28, 128), new Vector2(260, 18), 11, TextAnchor.LowerLeft, "PUNTI", Dim, FontStyle.Bold);
+            healthText = MakeText("Health", Vector2.zero, new Vector2(28, 62), new Vector2(340, 22), 16, TextAnchor.LowerLeft, "100 / 100", Ink, FontStyle.Bold);
+            hpBar = MakeBar("HpBar", Vector2.zero, new Vector2(28, 50), new Vector2(220, 7), new Color(0.86f, 0.88f, 0.84f));
+            shieldBar = MakeBar("ShieldBar", Vector2.zero, new Vector2(28, 42), new Vector2(220, 3), new Color(0.48f, 0.73f, 0.95f));
+            ammoText = MakeText("Ammo", new Vector2(1, 0), new Vector2(-105, 22), new Vector2(170, 68), 60, TextAnchor.LowerRight, "30", Ink, FontStyle.Bold);
+            reserveText = MakeText("Reserve", new Vector2(1, 0), new Vector2(-28, 32), new Vector2(78, 32), 23, TextAnchor.LowerRight, "/ 120", Dim, FontStyle.Normal);
+            reloadText = MakeText("Reload", new Vector2(0.5f, 0.5f), new Vector2(0, -150), new Vector2(420, 24), 16, TextAnchor.MiddleCenter, "", Ink, FontStyle.Bold);
+            weaponNameText = MakeText("WeaponName", new Vector2(1, 0), new Vector2(-28, 92), new Vector2(420, 26), 21, TextAnchor.LowerRight, "", Ink, FontStyle.Bold);
+            weaponSubText = MakeText("WeaponSub", new Vector2(1, 0), new Vector2(-28, 120), new Vector2(520, 22), 13, TextAnchor.LowerRight, "", Dim, FontStyle.Normal);
+            slotText = MakeText("Slots", new Vector2(1, 0), new Vector2(-28, 150), new Vector2(520, 22), 13, TextAnchor.LowerRight, "", Dim, FontStyle.Normal);
             // prompt delle armi sul muro (acquisto con F)
-            promptText = MakeText("Prompt", new Vector2(0.5f, 0.5f), new Vector2(0, -118), new Vector2(1000, 28), 18, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
+            promptText = MakeText("Prompt", new Vector2(0.5f, 0.5f), new Vector2(0, -118), new Vector2(900, 40), 18, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
             MakeCrosshair();
             MakeHitmarker();
             bannerText = MakeText("Banner", new Vector2(0.5f, 1), new Vector2(0, -118), new Vector2(1000, 66), 54, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
             bannerSub = MakeText("BannerSub", new Vector2(0.5f, 1), new Vector2(0, -170), new Vector2(1000, 30), 20, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
-            toastText = MakeText("Toast", new Vector2(0.5f, 0), new Vector2(0, 108), new Vector2(1000, 26), 17, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+            toastText = MakeText("Toast", new Vector2(0.5f, 0), new Vector2(0, 75), new Vector2(400, 58), 15, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
             objectiveText = MakeText("Objective", new Vector2(0, 1), new Vector2(26, -138), new Vector2(560, 24), 16, TextAnchor.UpperLeft, "", Dim, FontStyle.Italic);
+            bannerText.font = Serif(); bannerSub.font = Serif();
+            foreach (var text in new[] { weaponNameText, weaponSubText, slotText })
+            {
+                text.resizeTextForBestFit = true;
+                text.resizeTextMinSize = 11; text.resizeTextMaxSize = text.fontSize;
+            }
+            objectiveText.fontStyle = FontStyle.Normal;
+            objectiveText.rectTransform.anchoredPosition = new Vector2(28, -60);
+            promptText.horizontalOverflow = HorizontalWrapMode.Wrap;
             fadeImg = MakeImage("Fade", Color.clear);
             var fr = fadeImg.GetComponent<RectTransform>();
             fr.anchorMin = Vector2.zero; fr.anchorMax = Vector2.one; fr.offsetMin = Vector2.zero; fr.offsetMax = Vector2.zero;
@@ -139,6 +157,28 @@ namespace PryingEyes
                 var t = transform.Find(old);
                 if (t != null) t.gameObject.SetActive(false);
             }
+        }
+
+        static Sprite hudShade;
+        void BuildHudShade(string name, bool right)
+        {
+            if (hudShade == null)
+            {
+                const int size = 32;
+                var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+                var pixels = new Color[size * size];
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                        pixels[y * size + x] = new Color(0, 0, 0, 0.68f * Mathf.Pow(1f - x / 31f, 0.8f) * Mathf.Pow(1f - y / 31f, 1.5f));
+                tex.SetPixels(pixels); tex.Apply();
+                hudShade = Sprite.Create(tex, new Rect(0, 0, size, size), Vector2.zero);
+            }
+            var image = MakeImage(name, Color.white); image.sprite = hudShade;
+            var rt = image.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(right ? 1 : 0, 0);
+            rt.pivot = Vector2.zero; rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(right ? 560 : 410, 270);
+            rt.localScale = new Vector3(right ? -1 : 1, 1, 1);
         }
 
         Slider MakeBar(string name, Vector2 anchor, Vector2 pos, Vector2 size, Color c)
@@ -170,12 +210,13 @@ namespace PryingEyes
             rt.pivot = new Vector2(anchor.x == 1 ? 1 : (anchor.x == 0 ? 0 : 0.5f), anchor.y == 1 ? 1 : (anchor.y == 0 ? 0 : 0.5f));
             rt.anchoredPosition = pos; rt.sizeDelta = size;
             var t = Comp<Text>(go);
-            t.font = Serif();
+            t.font = Utility();
             t.fontSize = fs; t.alignment = a; t.text = s;
             t.fontStyle = style;
             t.color = col;
             t.raycastTarget = false;
-            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.verticalOverflow = VerticalWrapMode.Truncate;
             var sh = Comp<Shadow>(go);
             sh.effectColor = new Color(0f, 0f, 0f, 0.8f);
             sh.effectDistance = new Vector2(1.5f, -1.5f);
@@ -402,7 +443,8 @@ namespace PryingEyes
             {
                 // colpo appena preso + bordo fisso quando la vita e' bassa
                 vigT = Mathf.Max(0f, vigT - dt);
-                float low = hpNow < 35f ? (35f - hpNow) / 35f * 0.55f : 0f;
+                float threshold = Perks.MaxHp * 0.35f;
+                float low = Mathf.Clamp01((threshold - hpNow) / threshold) * 0.55f;
                 float a = Mathf.Max(low, vigT / 0.6f * 0.85f);
                 vignette.color = new Color(1f, 1f, 1f, a);
             }
@@ -415,21 +457,32 @@ namespace PryingEyes
             // Pelle di pietra: la vita massima sale a 150 e la barra si allunga di un mezzo (la lunghezza dice quanta ne hai)
             float mx = Perks.MaxHp;
             hpBar.value = hp / mx;
-            hpBar.GetComponent<RectTransform>().sizeDelta = new Vector2(220f * mx / 100f, 6f);
+            healthText.text = "VITA  " + Mathf.CeilToInt(Mathf.Max(0f, hp)) + " / " + Mathf.RoundToInt(mx) + (shield > 0f ? "   SCUDO " + Mathf.CeilToInt(shield) : "");
+            healthText.color = hp < mx * 0.35f ? RoundHot : Ink;
+            hpBar.fillRect.GetComponent<Image>().color = hp < mx * 0.35f ? RoundHot : Ink;
+            hpBar.GetComponent<RectTransform>().sizeDelta = new Vector2(220f * mx / 100f, 7f);
             shieldBar.value = shield / 50f;
         }
 
         public void SetAmmo(int m, int r)
         {
             if (ammoText == null) return;
-            ammoText.text = m.ToString();
-            ammoText.color = m <= 5 ? new Color(0.85f, 0.25f, 0.2f) : Ink;
-            reserveText.text = "/ " + r;
+            ammoNow = Mathf.Max(0, m); reserveNow = Mathf.Max(0, r);
+            ammoText.text = ammoNow.ToString();
+            reserveText.text = "/ " + reserveNow;
+            UpdateAmmoStatus();
         }
 
-        public void SetReloading(bool on) { if (reloadText != null) reloadText.text = on ? "ricarica…" : ""; }
+        public void SetReloading(bool on) { reloadActive = on; UpdateAmmoStatus(); }
+        void UpdateAmmoStatus()
+        {
+            if (ammoText == null || reloadText == null) return;
+            ammoText.color = ammoNow <= Mathf.Max(1, Mathf.CeilToInt(clipCapacity * 0.2f)) ? RoundHot : Ink;
+            reloadText.text = reloadActive ? "RICARICA…" : ammoNow > 0 ? "" : reserveNow > 0 ? "CARICATORE VUOTO · RICARICA" : "MUNIZIONI ESAURITE";
+            reloadText.color = !reloadActive && ammoNow == 0 && reserveNow == 0 ? RoundHot : Ink;
+        }
         public void SetObjective(string s) { if (objectiveText != null) objectiveText.text = s ?? ""; }
-        public void SetWaveLabel(string s) { if (waveLabel != null) waveLabel.text = s ?? ""; }
+        public void SetWaveLabel(string s) { if (waveLabel != null) waveLabel.text = s?.ToUpperInvariant() ?? ""; }
         public void SetFade(float a) { if (fadeImg != null) { fadeImg.color = new Color(0f, 0f, 0f, Mathf.Clamp01(a)); fadeImg.transform.SetAsLastSibling(); } }
         public void SetWave(int w) { if (waveText != null) waveText.text = Roman(w); }
         public void SetPrompt(string s) { if (promptText != null) promptText.text = s ?? ""; }
@@ -445,17 +498,19 @@ namespace PryingEyes
         public void SetWeapon(WeaponDef d, string mode, int slot, WeaponDef a, WeaponDef b, bool upg = false, bool upgA = false, bool upgB = false)
         {
             if (weaponNameText == null || d == null) return;
+            clipCapacity = upg ? Mathf.CeilToInt(d.mag * Weapon.UpgMag) : d.mag;
+            UpdateAmmoStatus();
             weaponNameText.supportRichText = true;
             // arma consacrata (Consacrazione): nome in oro con la scritta accanto
             weaponNameText.text = upg ? d.name + "  <size=13><color=#F5C84C>CONSACRATA</color></size>" : d.name;
             weaponNameText.color = upg ? Gold : d.GradeColor;
-            weaponSubText.text = $"GRADO {Roman(d.grade)} · {d.GradeName.ToUpperInvariant()}  —  {d.cls}  —  {mode}";
+            weaponSubText.text = $"{d.cls}  ·  {mode}  ·  {d.GradeName.ToUpperInvariant()}";
             string s1 = a != null ? (upgA ? a.name + " +" : a.name) : "—", s2 = b != null ? (upgB ? b.name + " +" : b.name) : "—";
-            string c1 = slot == 0 ? "#EDE3CC" : "#8A7F6C", c2 = slot == 1 ? "#EDE3CC" : "#8A7F6C";
+            string c1 = slot == 0 ? "#EDE3CC" : "#929694", c2 = slot == 1 ? "#EDE3CC" : "#929694";
             slotText.supportRichText = true;
             slotText.text = $"<color={c1}>[1] {s1}</color>     <color={c2}>[2] {s2}</color>";
         }
-        public void SetScore(int s) { if (scoreText != null) scoreText.text = s > 0 ? string.Format(It, "{0:N0} punti", s) : ""; }
+        public void SetScore(int s) { if (scoreText != null) scoreText.text = string.Format(It, "{0:N0}", Mathf.Max(0, s)); }
         public void SetEnemiesLeft(int n)
         {
             if (enemiesText == null) return;

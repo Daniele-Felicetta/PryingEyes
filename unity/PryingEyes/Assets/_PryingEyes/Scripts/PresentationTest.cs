@@ -111,6 +111,69 @@ namespace PryingEyes
             finally { canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.worldCamera = null; }
         }
 
+        void HudLayout(string name)
+        {
+            Canvas.ForceUpdateCanvases();
+            var hud = GameManager.I.hud;
+            var corners = new Vector3[4];
+            bool fits = true, inScreen = true;
+            foreach (string id in new[] { "WaveLabel", "Wave", "Objective", "Health", "Score", "ScoreLabel", "Ammo", "Reserve", "WeaponName", "WeaponSub", "Slots", "Round", "RoundLabel", "Prompt", "Reload", "Toast" })
+            {
+                var text = hud.transform.Find(id).GetComponent<Text>();
+                if (!text.gameObject.activeInHierarchy || text.text.Length == 0) continue;
+                var settings = text.GetGenerationSettings(text.rectTransform.rect.size);
+                if (text.resizeTextForBestFit)
+                {
+                    var gen = new TextGenerator(); gen.Populate(text.text, settings);
+                    // Il generatore restituisce la dimensione effettiva in pixel, già moltiplicata per il CanvasScaler.
+                    settings.fontSize = Mathf.RoundToInt(gen.fontSizeUsedForBestFit / settings.scaleFactor);
+                    settings.resizeTextForBestFit = false;
+                }
+                float height = new TextGenerator().GetPreferredHeight(text.text, settings) / text.pixelsPerUnit;
+                if (height > text.rectTransform.rect.height + 2f)
+                { fits = false; Debug.Log("[PryingEyes] uitest HUD tagliato: " + id + " " + height); }
+                text.rectTransform.GetWorldCorners(corners);
+                foreach (var point in corners)
+                    if (point.x < -1f || point.y < -1f || point.x > Screen.width + 1f || point.y > Screen.height + 1f) inScreen = false;
+            }
+            Check("HUD testi completi " + name, fits);
+            Check("HUD entro lo schermo " + name, inScreen);
+        }
+
+        IEnumerator CombatHud()
+        {
+            var gm = GameManager.I; var hud = gm.hud; var weapon = gm.player.weapon;
+            Perks.Add(PerkId.PelleDiPietra); Perks.Add(PerkId.ManiSvelte); Perks.Add(PerkId.Velo); Perks.Add(PerkId.Occhio);
+            gm.player.hp = 150; hud.SetBars(150, 50); hud.SetScore(1234567); hud.SetRound(12, true);
+            yield return null;
+            HudLayout("vita massima e quattro perk");
+            foreach (var def in WeaponDefs.All)
+            {
+                hud.SetWeapon(def, def.ModeLabel(def.modes[0]), 0, def, def, true, true, true);
+                hud.SetAmmo(200, 9999);
+                HudLayout("arma " + def.id);
+            }
+            weapon.Equip(WeaponDefs.IndexOf("ar9_malleus"));
+            weapon.mag = 0; weapon.reserve = 0; weapon.Refresh();
+            Check("HUD distingue munizioni esaurite", hud.transform.Find("Reload").GetComponent<Text>().text == "MUNIZIONI ESAURITE");
+            weapon.reserve = 120; weapon.Refresh();
+            Check("HUD richiede ricarica con riserva disponibile", hud.transform.Find("Reload").GetComponent<Text>().text.Contains("CARICATORE VUOTO"));
+            weapon.mag = 7; weapon.Refresh();
+            var normalAmmo = hud.transform.Find("Ammo").GetComponent<Text>().color;
+            weapon.mag = 6; weapon.Refresh();
+            Check("HUD soglia munizioni proporzionale al caricatore", hud.transform.Find("Ammo").GetComponent<Text>().color != normalAmmo);
+            weapon.mag = 3; weapon.Refresh(); weapon.Reload();
+            Check("HUD segue la ricarica reale", weapon.reloading && hud.transform.Find("Reload").GetComponent<Text>().text == "RICARICA…");
+            gm.player.hp = 27; gm.player.shield = 0; hud.SetBars(27, 0); hud.DamageFlash();
+            hud.SetPrompt("[F] PRENDI L’ARMA · sostituisce lo slot in mano");
+            yield return new WaitForSecondsRealtime(0.2f);
+            HudLayout("danno e ricarica");
+            Check("HUD vita numerica e caricatore critico", hud.transform.Find("Health").GetComponent<Text>().text.Contains(Mathf.CeilToInt(gm.player.hp) + " / 150") && gm.player.hp < Perks.MaxHp * 0.35f && hud.CurrentAmmo == "3");
+            if (Shots) GameManager.CamShot(Path.Combine(output, "combattimento.png"), null, true, Screen.width, Screen.height);
+            Perks.ResetRun(); gm.player.hp = 100; gm.player.shield = 50; hud.SetBars(100, 50);
+            hud.SetRound(0, false); hud.SetScore(gm.score); hud.SetPrompt(""); hud.SetReloading(false); weapon.ResetLoadout();
+        }
+
         static Touch Finger(int id, TouchPhase phase, float x, float y)
         {
             var safe = Screen.safeArea;
@@ -179,6 +242,7 @@ namespace PryingEyes
                 Check("compagno e vita nell'HUD", gm.hud.transform.Find("Compagno0").gameObject.activeSelf &&
                     gm.hud.transform.Find("Compagno0/CompagnoStato0").GetComponent<Text>().text.Contains("75%"));
                 if (Shots) GameManager.CamShot(Path.Combine(output, "compagni.png"), null, true, Screen.width, Screen.height);
+                yield return CombatHud();
                 var pausedWeapon = gm.player.weapon;
                 pausedWeapon.ResetLoadout(); pausedWeapon.Equip(WeaponDefs.IndexOf("ar9_malleus"));
                 pausedWeapon.DebugFire(); pausedWeapon.Reload();
