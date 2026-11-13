@@ -258,8 +258,7 @@ namespace PryingEyes
                     Sfx.At(SoundBank.Whisper, castOrb.transform.position, 0.5f, Random.Range(0.85f, 1.05f), 2f, 24f);
                     break;
                 case EnemyEvt.Hit:
-                    flash = 1f;
-                    foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
+                    BeginHitFlash();
                     if (Archetype == EnemyType.Monaco && atkLock <= 0f && anim != null) anim.SetTrigger("Colpito");
                     if (Archetype == EnemyType.Abate && atkLock <= 0f && anim != null && flinchT <= 0f) { anim.SetTrigger("Colpito"); flinchT = 1.5f; }
                     if (Archetype == EnemyType.Occhio && eye != null) eye.Hit();
@@ -284,8 +283,7 @@ namespace PryingEyes
         void PuppetDamage(float dmg, Vector3 point, bool headshot, bool awardPoints, DamageSource src)
         {
             hp -= dmg;
-            flash = 1f;
-            foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
+            BeginHitFlash();
             GameManager.I.hud?.Hitmarker(hp <= 0f, headshot);
             GameManager.shotsHit++;
             Synth.Hit();

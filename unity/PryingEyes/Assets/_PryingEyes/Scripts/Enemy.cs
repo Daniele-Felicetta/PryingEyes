@@ -39,6 +39,7 @@ namespace PryingEyes
         AudioSource loop;                     // litania del monaco / ronzio dell'occhio
         float stepT, basePitch = 1f;
         public List<Material> flashMats = new List<Material>();
+        Color[] flashBase;
         public Material glowMat;
         EyeRig eye;                           // occhio volante: palpebre, sguardo e tentacoli
 
@@ -126,6 +127,8 @@ namespace PryingEyes
             if (IsFlying(t)) IgnorePlayerBody(e);
             e.renderers = go.GetComponentsInChildren<Renderer>();
             e.flashMats = flashes;
+            e.flashBase = new Color[flashes.Count];
+            for (int i = 0; i < flashes.Count; i++) e.flashBase[i] = flashes[i].GetColor("_EmissionColor");
             e.glowMat = glow;
             foreach (var m in flashes) m.EnableKeyword("_EMISSION");
             e.eye = go.GetComponent<EyeRig>();
@@ -185,17 +188,27 @@ namespace PryingEyes
             loop = Sfx.Loop(gameObject, chant, abate ? 0.75f : 0.55f, 1.5f, abate ? 30f : 22f, basePitch);
         }
 
+        void BeginHitFlash()
+        {
+            flash = 1f;
+            foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
+        }
+
+        void AdvanceHitFlash(float dt)
+        {
+            if (flash <= 0f) return;
+            flash = Mathf.Max(0f, flash - dt * 5f);
+            // Scrive anche l'ultimo fotogramma: un salto oltre 0,2 s non deve lasciare il costume bianco.
+            // Ogni materiale torna alla propria emissione, compresi i costumi e le creature procedurali.
+            for (int i = 0; i < flashMats.Count; i++)
+                flashMats[i].SetColor("_EmissionColor", Color.Lerp(flashBase[i], Color.white, flash));
+        }
+
         void Update()
         {
             if (dead) return;
             float dt = Time.deltaTime;
-            flash = Mathf.Max(0f, flash - dt * 5f);
-            if (flash > 0f)
-            {
-                // mantiene la debole autoilluminazione di base sotto il lampo bianco del colpo
-                var ec = new Color(0.035f, 0.035f, 0.04f) + Color.white * (flash * 0.95f);
-                foreach (var m in flashMats) m.SetColor("_EmissionColor", ec);
-            }
+            AdvanceHitFlash(dt);
             // cooperativa: chi non e' l'ospite non pensa, ripete quello che l'ospite gli racconta (Enemy.Net.cs)
             if (puppet) { UpdatePuppet(dt); return; }
             atkCd -= dt;
@@ -531,8 +544,7 @@ namespace PryingEyes
             // +10 per colpo a segno che non uccide; l'uccisione paga a parte (Punti.PerUccisione)
             if (awardPoints && hp - dmg > 0f) PayPoints(claimer, Punti.Colpo);
             hp -= dmg;
-            flash = 1f;
-            foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
+            BeginHitFlash();
             if (claimer == 0)
             {
                 GameManager.I.hud?.Hitmarker(hp <= 0f, headshot);

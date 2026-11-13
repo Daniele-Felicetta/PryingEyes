@@ -620,6 +620,33 @@ Le schermate di contatto mostrano ancora un possibile difetto distinto sul Monac
 il costume appare completamente bianco. È da diagnosticare il ripristino dell'emissione nei fotogrammi lunghi;
 questa passata non dichiara conclusa la qualità delle animazioni o dell'illuminazione in combattimento.
 
+## Tredicesima passata: ripristino del costume dopo i colpi (13 novembre 2026)
+
+Il Monaco completamente bianco nelle immagini della passata precedente non era solo una questione di esposizione.
+Il timer del lampo veniva prima decrementato, poi il materiale veniva aggiornato soltanto se il timer era ancora
+positivo. Un fotogramma di almeno 0,2 s lasciava quindi l'emissione bianca per sempre; anche con fotogrammi brevi
+l'ultimo colore restava parzialmente schiarito e sovrascriveva l'emissione originale con un valore generico.
+
+Riproduzione nel player reale: `-autotest -nofire -noenemies -meleetest -hitflashtest`.
+Con il vecchio avanzamento estratto senza cambiarlo: **122/212**, uscita 1 (`unity_logs/hitflash-red`). Tutti e dieci
+i tipi di nemico fallivano il ripristino dopo 0,25 s, quello a riposo e quello dopo colpi ripetuti con passi di 16 ms,
+nelle tre vie: danno sull'ospite, evento Hit ricevuto e danno previsto sul pupazzo. I materiali del vicino restavano
+corretti: esclusa la condivisione accidentale come causa di questo difetto.
+
+Ora ogni nemico conserva l'emissione iniziale dei propri materiali. `BeginHitFlash` è comune alle tre vie;
+`AdvanceHitFlash`, usato da Update, scrive anche il fotogramma conclusivo e torna esattamente ai colori iniziali,
+senza lavoro per materiale quando il lampo è spento e senza allocazioni aggiunte per colpo.
+La stessa prova passa **212/212**, uscita 0 (`unity_logs/hitflash-final/flash`). La suite esercita direttamente
+l'avanzamento usato nel gioco con tempi controllati, senza modificare il tempo globale o simulare materiali fittizi.
+
+Regressioni con grafica: mischia **90/90**, creature procedurali **63/63**, volanti **117/117**. Cooperativa a due
+processi: **17/17 ospite e 32/32 client**, uscite 0 in 84 s (`unity_logs/hitflash-coop`), protocollo invariato.
+Verificata anche l'immagine del contatto
+del Monaco dopo un danno reale: il costume torna scuro con i dettagli del tessuto, invece della sagoma bianca
+(`unity_logs/hitflash-final/Monaco_after.png`). La schermata precedente archiviata del sanatorio appartiene a un
+altro piano e non è un confronto quantitativo della luminosità. Restano da rifinire gesto e leggibilità
+complessiva durante una partita: questa correzione chiude il lampo persistente, non l'intero lavoro sugli attacchi.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

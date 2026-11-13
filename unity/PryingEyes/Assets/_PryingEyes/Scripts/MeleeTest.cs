@@ -8,7 +8,8 @@ using PryingEyes.Proc;
 
 namespace PryingEyes
 {
-    /// <summary>-autotest -nofire -noenemies -meleetest [-meleeshots]: clip, preparazione, contatto, recupero e schivate reali.</summary>
+    /// <summary>-autotest -nofire -noenemies -meleetest [-meleeshots]: clip, preparazione, contatto, recupero e schivate reali.
+    /// Con -hitflashtest verifica invece i materiali colpiti, anche con fotogrammi lunghi e sulle repliche.</summary>
     public sealed class MeleeTest : MonoBehaviour
     {
         int checks, failed, exceptions;
@@ -38,7 +39,7 @@ namespace PryingEyes
         {
             Application.logMessageReceived += Log;
             shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-meleeshots") >= 0;
-            var sequence = Run();
+            var sequence = Array.IndexOf(Environment.GetCommandLineArgs(), "-hitflashtest") >= 0 ? RunFlashes() : Run();
             while (true)
             {
                 bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
@@ -119,6 +120,56 @@ namespace PryingEyes
                 }
             }
             Destroy(mesh); return max - min;
+        }
+        IEnumerator RunFlashes()
+        {
+            float deadline = Time.realtimeSinceStartup + 60;
+            while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
+            Enemy.ClearAll(); Enemy.debugFreeze = true;
+            Check("spazio della prova lampi sulla navmesh reale", FindArena(out arena, out forward));
+            if (failed > 0) yield break;
+            var types = new[] { Enemy.EnemyType.Monaco, Enemy.EnemyType.Abate, Enemy.EnemyType.Maschera, Enemy.EnemyType.Direttore,
+                Enemy.EnemyType.Infermiere, Enemy.EnemyType.Primario, Enemy.EnemyType.Occhio, Enemy.EnemyType.Veglia, Enemy.EnemyType.Medusa, Enemy.EnemyType.Portachiavi };
+            int id = 20000;
+            foreach (var type in types)
+                foreach (string path in new[] { "ospite", "evento", "previsione" })
+                {
+                    var position = arena + forward * 3;
+                    var enemy = path == "ospite" ? Enemy.Spawn(type, position) : Enemy.SpawnPuppet(id++, type,
+                        new EnemyNet { pos = position, hp = 1, alert = Alert.Patrol });
+                    var sibling = Enemy.Spawn(type, position + Vector3.right * 3);
+                    var baseline = enemy.flashMats.ConvertAll(m => m.GetColor("_EmissionColor"));
+                    var siblingBaseline = sibling.flashMats.ConvertAll(m => m.GetColor("_EmissionColor"));
+                    bool Restored(Enemy subject, System.Collections.Generic.List<Color> colors)
+                    {
+                        for (int i = 0; i < colors.Count; i++)
+                            if (((Vector4)subject.flashMats[i].GetColor("_EmissionColor") - (Vector4)colors[i]).sqrMagnitude > 0.000001f) return false;
+                        return true;
+                    }
+                    void Hit()
+                    {
+                        if (path == "evento") enemy.PuppetEvent(EnemyEvt.Hit, enemy.AimPoint, 0);
+                        else enemy.Damage(1, enemy.AimPoint, false, false);
+                    }
+                    string label = type + " " + path;
+                    Check(label + " possiede materiali di feedback", baseline.Count > 0);
+                    Hit();
+                    Check(label + " mostra un lampo immediato", !Restored(enemy, baseline));
+                    Check(label + " non altera il vicino", Restored(sibling, siblingBaseline));
+                    // Usa lo stesso avanzamento di Update, con un fotogramma piu' lungo dell'intero lampo.
+                    enemy.SendMessage("AdvanceHitFlash", 0.25f);
+                    Check(label + " ripristina il costume dopo un fotogramma lungo", Restored(enemy, baseline));
+                    enemy.SendMessage("AdvanceHitFlash", 1f);
+                    Check(label + " resta ripristinato a riposo", Restored(enemy, baseline));
+                    Hit(); enemy.SendMessage("AdvanceHitFlash", 0.08f);
+                    Check(label + " sfuma nei fotogrammi normali", !Restored(enemy, baseline));
+                    Hit();
+                    for (int step = 0; step < 20; step++) enemy.SendMessage("AdvanceHitFlash", 0.016f);
+                    Check(label + " colpi ripetuti tornano al colore originale", Restored(enemy, baseline));
+                    Enemy.Remove(enemy); Enemy.Remove(sibling);
+                    yield return null;
+                }
+            Enemy.debugFreeze = false;
         }
         IEnumerator Run()
         {
