@@ -108,6 +108,7 @@ namespace PryingEyes.Proc
             }
             near.Sort((a, b) => a.d.CompareTo(b.d));
             for (int k = 0; k < near.Count && k < MaxShadows; k++) all[near[k].i].l.shadows = LightShadows.Soft;
+            Enemy.UpdateBudgets(p);      // ombre e dettaglio dei corpi in base alla distanza e alla folla (Enemy.Budget.cs)
         }
     }
 }

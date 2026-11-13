@@ -146,6 +146,7 @@ namespace PryingEyes.EditorTools
             mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
             mi.motionNodeName = "";
             mi.skinWeights = ModelImporterSkinWeights.Standard;
+            mi.generateMeshLods = true;                    // LOD automatici, come il monaco (vedi MonacoImport)
             mi.importAnimation = true;
             mi.resampleCurves = true;
             mi.animationCompression = ModelImporterAnimationCompression.Optimal;

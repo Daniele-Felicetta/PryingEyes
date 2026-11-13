@@ -65,6 +65,7 @@ namespace PryingEyes.Proc
             var cc = go.AddComponent<CapsuleCollider>();
             cc.radius = radius + 0.04f; cc.height = H; cc.center = new Vector3(0f, H * 0.5f, 0f);
             Occupy(c, pos, w, w, 0f);
+            c.propCount++; c.propArea += w * w;
             return true;
         }
 

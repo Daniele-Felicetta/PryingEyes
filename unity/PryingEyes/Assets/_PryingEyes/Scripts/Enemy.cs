@@ -144,6 +144,7 @@ namespace PryingEyes
             else e.AttachChant();
             e.stepT = Random.value;
             all.Add(e);
+            BeginBudget(e);
             GameManager.I.SetAlive(all.Count);
             // furtivita': nei piani si nasce a pattugliare (o a controllare un punto); nella hall classica si caccia subito
             e.alert = Stealth.Enabled ? Alert.Patrol : Alert.Hunting;

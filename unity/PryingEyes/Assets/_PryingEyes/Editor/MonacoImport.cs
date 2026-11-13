@@ -109,6 +109,7 @@ namespace PryingEyes.EditorTools
             mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
             mi.motionNodeName = "";
             mi.skinWeights = ModelImporterSkinWeights.Standard;     // 4 ossa per vertice, come i pesi fatti in Blender
+            mi.generateMeshLods = true;                              // LOD automatici: nelle orde i lontani costano una frazione (110 mila vertici a testa)
             mi.importAnimation = true;
             mi.resampleCurves = true;
             mi.animationCompression = ModelImporterAnimationCompression.Optimal;

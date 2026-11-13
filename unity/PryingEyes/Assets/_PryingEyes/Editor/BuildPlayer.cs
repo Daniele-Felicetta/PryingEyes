@@ -82,6 +82,7 @@ namespace PryingEyes.EditorTools
             };
             var outPath = OutPath();
             Debug.Log("[PryingEyes] Building to: " + outPath);
+            BodyLodBuilder.WarnIfStale();
             var opts = new BuildPlayerOptions
             {
                 scenes = new[] { "Assets/_PryingEyes/Scenes/Torre.unity" },

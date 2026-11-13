@@ -206,6 +206,7 @@ namespace PryingEyes.EditorTools
                 mi.AddRemap(new AssetImporter.SourceAssetIdentifier(typeof(Material), kv.Key), kv.Value);
             mi.animationType = ModelImporterAnimationType.None;
             mi.importAnimation = false;
+            mi.generateMeshLods = true;                    // LOD automatici, come il monaco (vedi MonacoImport)
             mi.SaveAndReimport();
         }
 

@@ -21,6 +21,8 @@ namespace PryingEyes.Proc
             public Rng rng;
             public float ix0, ix1, iz0, iz1;
             public readonly List<Rect> occ = new List<Rect>();
+            public int propCount;            // per il censimento (-roomcensus): quanti oggetti e che ingombro hanno messo le ricette
+            public float propArea;
             public float W => ix1 - ix0;
             public float D => iz1 - iz0;
             public Vector3 Center => new Vector3((ix0 + ix1) * 0.5f, 0f, (iz0 + iz1) * 0.5f);
@@ -169,6 +171,7 @@ namespace PryingEyes.Proc
             var window = WindowLights(c);
             Fill(c, window != null);
             Spawns(c);
+            Census(c);
             return window;
         }
 
@@ -333,7 +336,18 @@ namespace PryingEyes.Proc
                 bc.size = def.size;
             }
             if (check) Occupy(c, pos, def.size.x * sx, def.size.z, yaw);
+            if (def.solid && def.size.y > 0.3f) { c.propCount++; c.propArea += def.size.x * sx * def.size.z; }
             return go;
+        }
+
+        static readonly bool census = System.Array.IndexOf(Environment.GetCommandLineArgs(), "-roomcensus") >= 0;
+
+        /// <summary>-roomcensus: una riga per stanza con quanti arredi solidi ci sono e che parte del pavimento coprono (per cercare le stanze vuote).</summary>
+        static void Census(Ctx c)
+        {
+            if (!census) return;
+            float area = c.W * c.D;
+            Debug.Log($"[PryingEyes] CENSUS tema={c.plan.theme} tipo={c.r.type} stanza={c.r.kind} area={area:F0} oggetti={c.propCount} copertura={c.propArea / Mathf.Max(1f, area):F3} quote={c.r.GalleryLevels}");
         }
 
         /// <summary>Appoggia un arredo contro un muro: 'side' e' il muro, 't' la distanza lungo il muro dal suo inizio.</summary>

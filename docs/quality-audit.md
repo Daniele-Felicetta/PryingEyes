@@ -471,6 +471,65 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
   (`flying-coop`). Il client osserva preparazione e spostamento del nemico appena annunciato, riceve il danno
   dall’ospite e ne mostra la provenienza. Build principale aggiornata a gioco chiuso: **189 file verificati SHA-256**.
 
+## Nona passata: verifica indipendente (13 novembre 2026)
+
+La nona passata (`a675b19`: atri a tre quote, nemici a gruppi, attacchi senza anelli) è stata consegnata con il limite
+d'uso esaurito. Prima di aggiungere altro è stata rieseguita per intero sul codice committato, con la build di verifica
+(`Builds/Audit`), in modalità senza finestre e senza input iniettato:
+
+- mischia degli umanoidi **71/71**, creature procedurali (Veglia, Portachiavi) **63/63**, volanti **117/117**,
+  dardi e feedback **23/23**, torcia **52/52**;
+- architettura **58/58** (albergo), **74/74** (teatro), **74/74** (sanatorio); interfaccia **157/157** a 1280×720,
+  800×600 e 2560×720; armi **279/279**; round furtivo: esito ok;
+- cooperativa a due processi **17/17 ospite e 32/32 ospitato**; bot rigoroso della navigazione **2/2 piani**, zero avvisi.
+
+Nessuna correzione è stata necessaria. Il costo di rendering delle orde, rimasto aperto, è la passata successiva.
+
+## Decima passata: costo di rendering delle orde (13 novembre 2026)
+
+Misura con la sonda `-perftest -perfhorde` (1920×1080 in una `RenderTexture`, `camera.Render()`, RTX 5060 Ti, piano 1
+seme 1000, nemici in fila davanti al giocatore; millisecondi per fotogramma, medie su 120 fotogrammi dopo 25 di riscaldamento). A stanza vuota il
+fotogramma costa **3,2 ms**.
+
+| Caso | Prima (costo pieno) | Dopo |
+| --- | --- | --- |
+| 24 umanoidi (Monaco, Abate, Maschera, Direttore, Infermiere, Primario) | **113,4 ms** (82 ms in un'altra corsa) | **9,4 ms** |
+| 16 misti (Monaco, Abate, Portachiavi, Veglia) | **28,9 ms** | **8,5 ms** |
+| 16 Veglie, 32 Veglie | 3,9 ms, 5,8 ms | invariate |
+
+Causa: un umanoide ha 110–170 mila vertici (le fibre sfilacciate della tunica sono 62 mila da sole), 24 corpi sono
+**3,7 milioni di vertici** da ricalcolare con la pelle a ogni fotogramma e, per ogni luce con ombra, da ridisegnare.
+I LOD automatici di Unity non aiutano: i `SkinnedMeshRenderer` restano al livello 0 e, anche forzando il livello,
+accorciano solo gli indici mentre il buffer dei vertici resta intero (misurato: livello 4 forzato = 17,8 ms, contro
+9,0 ms con la mesh compatta dello stesso livello).
+
+Tre leve, tutte in `Enemy.Budget.cs` e ricalcolate da `LightPool.Tick` cinque volte al secondo:
+
+1. **Budget delle ombre**: fanno ombra solo i corpi più vicini a chi guarda, entro 14 m e fino a un peso massimo
+   (un umanoide pieno = 1, un occhio volante ≈ un settimo; budget 4,5), con isteresi di 1,5 m. Un'ombra in più non
+   si paga mai su un corpo lontano.
+2. **Politica del dettaglio**: la mesh di ogni parte scende con la distanza (soglie 3, 5, 8, 12, 17 m, accorciate
+   fino a un terzo quando in scena ci sono molti corpi pieni, isteresi di 0,6 m); le fibre sfilacciate spariscono oltre
+   4,5 m e la sottoveste e il metallo oltre 8 m. In mischia il corpo è sempre intero.
+3. **Scala di mesh compatte** (`BodyLodLibrary`, `Resources/BodyLods.asset`, 25 MB binari): per ognuno dei LOD
+   automatici l'editor (`BodyLodBuilder`) estrae una mesh a sé, con solo i vertici di quel livello e gli stessi pesi e
+   pose di legatura; a runtime si cambia `sharedMesh`, quindi la pelle elabora davvero meno vertici (1,03 milioni
+   invece di 3,73 alla nascita di 24 corpi). I `localBounds` originali vengono ripristinati dopo il cambio.
+
+Se i modelli vengono rifatti, la scala va rigenerata (`Unity.exe -batchmode -projectPath … -executeMethod
+PryingEyes.EditorTools.BodyLodBuilder.Run -quit`): la build avvisa (`[BodyLod] AVVISO`) quando il numero di vertici o di
+ossa non corrisponde più, e nel frattempo i corpi ricadono sui LOD automatici senza guasti. Le foto della sonda
+(`24-umanoidi.png`) mostrano costumi, accessori e aureole intatti alle distanze di gioco. La sonda accetta ora
+qualsiasi scenario in `-hordeonly` (conteggio, tipo e modificatori nel nome: `-lodN`, `-scalaN`, `-nofili`, `-parti`,
+`-bone1`, `-tutte-ombre`, `-senza-ombre`, `-dettaglio-pieno`, `-ferme`) e scrive nella colonna `con_ombra` quanti corpi
+fanno ombra.
+
+Regressioni con la build che contiene la scala, tutte con gli stessi conteggi della nona passata: **71/71** mischia,
+**63/63** creature procedurali, **117/117** volanti, **23/23** dardi, **52/52** torcia, **58/58, 74/74, 74/74**
+architettura, round furtivo ok, **157/157** interfaccia in tre risoluzioni, **279/279** armi, cooperativa **17/17 e
+32/32**, bot rigoroso **2/2 piani**. La prima nascita di un umanoide nel processo, che carica anche la libreria, è passata da 57 a 71 ms (una volta sola);
+le altre costano in media circa 1 ms per portare il corpo al dettaglio della sua distanza.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |
