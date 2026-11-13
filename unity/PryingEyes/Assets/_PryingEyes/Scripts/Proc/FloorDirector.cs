@@ -216,7 +216,7 @@ namespace PryingEyes.Proc
             transitioning = false;
         }
 
-        /// <summary>Impronta del piano costruito (candele, uscita, arrivo, numero di luci): in cooperativa le macchine devono ottenere lo stesso
+        /// <summary>Impronta del piano costruito (candele, uscita, arrivo, luci, armi a muro): in cooperativa le macchine devono ottenere lo stesso
         /// numero. Si legge nel log, ed e' il modo di accorgersi di un piano che si costruisce diverso da una macchina all'altra.</summary>
         public int FloorSignature()
         {
@@ -228,6 +228,16 @@ namespace PryingEyes.Proc
                 foreach (var c in cur.candles) if (c != null) Mix(c.transform.position);
                 if (cur.exit != null) Mix(cur.exit.transform.position);
                 if (cur.arrival != null) Mix(cur.arrival.spawnPoint);
+                var walls = new List<WallBuy>(FindObjectsByType<WallBuy>(FindObjectsSortMode.None));
+                walls.Sort((a, b) =>
+                {
+                    int order = a.weaponIndex.CompareTo(b.weaponIndex);
+                    if (order == 0) order = a.transform.position.x.CompareTo(b.transform.position.x);
+                    if (order == 0) order = a.transform.position.z.CompareTo(b.transform.position.z);
+                    return order;
+                });
+                h = h * 31 + walls.Count;
+                foreach (var wall in walls) { h = h * 31 + wall.weaponIndex; Mix(wall.transform.position); }
                 h = h * 31 + cur.candles.Count; h = h * 31 + LightPool.Count; h = h * 31 + cur.plan.rooms.Count;
                 return h;
             }
@@ -914,7 +924,7 @@ namespace PryingEyes.Proc
             var rng = new Rng(plan.seed + 5);
             var taken = new List<Vector3>();
             var fallback = plan.rooms.FindAll(r => r.type == RoomType.Guardia);
-            bool Put(int k, Room room)
+            bool PutWeapon(int index, Room room)
             {
                 for (int attempt = 0; attempt < 8; attempt++)
                 {
@@ -923,16 +933,20 @@ namespace PryingEyes.Proc
                     foreach (var s in taken) if ((s - pos).sqrMagnitude < 16f) { near = true; break; }
                     if (near) continue;
                     taken.Add(pos);
-                    WallBuy.Place(picks[k], WeaponDefs.All[picks[k]].price, pos, rot, WeaponDefs.All[picks[k]].GradeColor);
+                    WallBuy.Place(index, WeaponDefs.All[index].price, pos, rot, WeaponDefs.All[index].GradeColor);
                     return true;
                 }
                 return false;
             }
             var start = plan.OfType(RoomType.Partenza);
             var shop = plan.OfType(RoomType.Negozio);
-            if (start.Count == 0 || !Put(0, start[0])) foreach (var r in fallback) if (Put(0, r)) break;
+            if (start.Count == 0 || !PutWeapon(picks[0], start[0])) foreach (var r in fallback) if (PutWeapon(picks[0], r)) break;
             for (int k = 1; k < 3; k++)
-                if (shop.Count == 0 || !Put(k, shop[0])) foreach (var r in fallback) if (Put(k, r)) break;
+                if (shop.Count == 0 || !PutWeapon(picks[k], shop[0])) foreach (var r in fallback) if (PutWeapon(picks[k], r)) break;
+            // Le serrande isolano negozio e partenza: ogni arena deve conservare un acquisto economico per le munizioni.
+            int supply = WeaponDefs.IndexOf("smg_tarantola");
+            foreach (var room in plan.OfType(RoomType.Candela))
+                if (!PutWeapon(supply, room)) Debug.LogWarning($"[PryingEyes] arena {room.id}: manca l'arma di rifornimento");
         }
 
         void PlaceWallBuys(Plan plan)
@@ -1025,7 +1039,7 @@ namespace PryingEyes.Proc
                     if (blocked) continue;
                     Vector3 wp = ax ? new Vector3(c, 1.55f, face) : new Vector3(face, 1.55f, c);
                     Vector3 mid = wp + inward * 0.55f;
-                    if (Physics.CheckBox(mid, new Vector3(0.7f, 0.55f, 0.5f), Quaternion.LookRotation(inward), ~0, QueryTriggerInteraction.Ignore)) continue;
+                    if (Physics.CheckBox(mid, new Vector3(0.7f, 0.55f, 0.5f), Quaternion.LookRotation(inward), HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) continue;
                     pos = wp + inward * 0.03f;
                     rot = Quaternion.LookRotation(inward);
                     return true;

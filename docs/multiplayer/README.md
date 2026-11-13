@@ -78,7 +78,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-13`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
+Revisione **`pe-coop-14`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
 fino al punto d'uso effettivo, quindi può scegliere una posizione diversa. Tutti devono usare la stessa build.
@@ -110,6 +110,10 @@ La revisione 13 rende il corpo dei giocatori un ostacolo per l'aggiramento local
 ricostruire la navmesh. Vale anche per i compagni vivi nello stesso piano. I punti deboli animati restano colpibili
 ma non spingono il controller; le capsule dei nemici a terra restano solide. Cambia la gestione delle collisioni
 durante gli assedi, quindi tutti devono aggiornarsi; il formato dei messaggi rimane invariato.
+La revisione 14 aggiunge un espositore economico rifornibile dentro ogni arena della pianta a griglia. Il controllo
+del posto libero ignora giocatori e nemici, così le guardie presenti solo sull'ospite non cambiano il posizionamento.
+La firma del piano comprende anche indici e posizioni delle armi a muro, ordinati in modo deterministico;
+la prova cooperativa confronta quindi anche queste risorse. Il formato dei messaggi resta invariato.
 
 | Direzione | Messaggi |
 | --- | --- |

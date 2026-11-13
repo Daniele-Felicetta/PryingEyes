@@ -723,7 +723,45 @@ Corretto anche l'obiettivo del round speciale, che mostrava ancora «NOTTE DELLE
 coerente con creature, striscione e premio. Restano da verificare bilanciamento delle orde con armi e munizioni reali,
 ritmo, varietà delle animazioni e leggibilità in movimento; gli agenti di questa suite non simulano una partita completa.
 
+## Sedicesima passata: munizioni dentro le arene (13 novembre 2026)
+
+Le tre armi a muro erano nella partenza e nel negozio (con ripiego nelle stanze di guardia), mentre il round sigilla
+la stanza-arena. Mancava quindi una fonte acquistabile di munizioni durante il combattimento. Riproduzione nel
+player: `-architecturetest -architecturesupply`, seme 1000 piano 1, **2/4**, con entrambe le arene senza espositore
+(`unity_logs/supply-red`). I potenziamenti casuali e il premio di fine round non garantiscono una risorsa prima
+di finire le munizioni.
+
+Ora ogni stanza `Candela` della pianta a griglia riceve una TARANTOLA (500 punti), con rifornimento da 250 punti.
+Riusa integralmente geometria, interazione F, controllo di ostacoli e tariffe di `WallBuy`: non introduce munizioni
+gratuite né ricariche automatiche del caricatore. Le armi di partenza e del negozio rimangono. Il posto libero viene
+controllato contro l'ambiente, escludendo giocatori e nemici: le guardie presenti solo sull'ospite potevano altrimenti
+influenzare il risultato di `TryWallSpot`. La firma cooperativa comprende ora anche numero, indici e posizioni degli
+espositori, ordinati prima del calcolo. Protocollo **pe-coop-14**.
+
+Verifica su **60 piani / 150 arene**, dieci piani per ciascun livello da 1 a 6: tutte le arene possiedono un espositore
+raggiungibile dalla candela con le soglie effettivamente sigillate; acquisto con i 500 punti iniziali, rifornimento
+con F, addebito esatto e nessun addebito a riserva piena (`unity_logs/supply-seeds/summary.json`).
+Le sei arene dei tre temi passano inoltre con grafica e fotografie; con la misura dell'intera ondata sono **24/24**
+per tema (`unity_logs/supply-budget`). Immagini in `unity_logs/supply`.
+
+La misura delle ondate registra la salute effettiva alla nascita e calcola il minimo di colpi al corpo a bruciapelo,
+senza errori di mira, caduta del danno o bonus. Non è una prova di sopravvivenza: libera i nemici già registrati per
+non fermare il conteggio al limite dei vivi. Nell'albergo, seme 1000 piano 1, le due ondate campionate di 18 e 15
+nemici richiedono rispettivamente **140 e 116 colpi di pistola**, contro **105 iniziali**. Con la TARANTOLA sono
+**279 e 231**, contro **224 iniziali**, ma la riserva acquistabile arriva a **288** e la pistola resta nel primo slot.
+Il punto di rifornimento è dunque una scelta durante il combattimento, non una dichiarazione che qualunque precisione
+o arma basti senza ricaricare. Restano da provare in partita pressione, tempi, guadagni e progressione oltre i primi round.
+
+Cooperativa con la nuova firma degli espositori: a due processi **17/17 ospite e 32/32 client** in 84 s;
+a quattro **17/17 ospite, 32/32 primo client, 22/22 ciascuno degli altri due** in 94 s, tutte le uscite 0
+(`unity_logs/supply-coop-two` e `supply-coop-four`). Verificati anche i passaggi tra piani con le stesse armi
+e posizioni generate su tutte le copie.
+
 ## Ambiti ancora da chiudere
+
+**Nuova direzione richiesta dall'utente:** sostituire la progressione a candele e lo stealth con ondate automatiche,
+aree a pagamento, meno sale più grandi e nemici più veloci. Le prove storiche delle candele non sono criteri di
+accettazione del nuovo ciclo. Vedere la direzione attiva in `docs/zombies-redesign.md`.
 
 | Ambito | Evidenza necessaria |
 | --- | --- |

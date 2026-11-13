@@ -1,5 +1,23 @@
 # Revisione richiesta: ritmo da CoD Zombies
 
+## Direzione attiva: sostituzione della progressione
+
+Ultima richiesta dell'utente, 13 novembre 2026: eliminare le candele da accendere e le meccaniche stealth;
+meno stanze per piano, più grandi e articolate internamente; apertura delle aree pagando punti; nemici più veloci.
+Le verifiche delle passate sotto documentano il sistema precedente e non provano questa nuova versione.
+
+Requisiti della conversione:
+
+- ondate globali automatiche, senza attivare candele e senza serrande che rinchiudono ogni singola arena;
+- punti spesi per aprire nuove aree, con stato condiviso e acquisto convalidato dall'ospite in cooperativa;
+- nessun bonus Fantasma, allerta, rilevamento legato alla luce o obiettivo stealth nella progressione;
+- circa 7–9 aree principali, con grandi sale composte da più zone e quote, mantenendo scale e balconate percorribili;
+- nemici più rapidi, spawn nelle sole aree aperte e tempi d'arrivo controllati anche attraverso le scale;
+- armi e rifornimenti utilizzabili nelle aree aperte, obiettivi e guida riscritti per ondate e acquisti;
+- regressioni di porte/collisioni, spesa dei punti, ondate, morte, cambio piano, entrata tardiva e cooperativa.
+
+La conversione è in corso. Non distribuire come conclusa una build che usa ancora la progressione a candele.
+
 Richiesta utente del 13 novembre 2026. Questa revisione estende l'audit: non è completata dai precedenti controlli.
 
 - Riformulare la Veglia: figura votiva più credibile, evitando il volto cilindrico e la fiamma a cono.
@@ -187,3 +205,11 @@ Il corpo del giocatore ora entra nell'aggiramento degli agenti: la folla non dev
 controller il compito di espellerlo. Vale anche per i compagni vivi nello stesso piano e si adatta all'accovacciamento.
 I punti deboli animati servono ai colpi, senza spingere il giocatore; i corpi a terra continuano a bloccarne il passaggio.
 La navmesh rimane intatta. Protocollo cooperativo `pe-coop-13`.
+
+## Sedicesima passata: rifornimenti nelle arene
+
+Ogni arena della pianta a griglia ha ora una TARANTOLA a muro: 500 punti per l'arma e 250 per rifornirla, secondo
+le tariffe esistenti. Partenza e negozio conservano le proprie scelte. A serrande chiuse resta quindi una risorsa
+raggiungibile senza dipendere dai potenziamenti casuali o dover aspettare il termine del round. Nessun rifornimento
+gratuito: servono i punti guadagnati combattendo. Protocollo cooperativo `pe-coop-14`, con espositori inclusi nella
+firma del piano.
