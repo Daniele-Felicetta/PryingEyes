@@ -192,14 +192,16 @@ namespace PryingEyes
 
         void Update()
         {
-            if (cam == null || weapon == null || GameMenu.Blocked) return;
+            if (cam == null || weapon == null || (GameMenu.Blocked && !Coop.Active)) return;
             float dt = Time.deltaTime;
+            TickSurvival(dt);
             if (!alive)
             {
                 respawnT -= dt;
                 if (respawnT <= 0f) Respawn();
                 return;
             }
+            if (GameMenu.Blocked) { hud?.SetBars(hp, shield); return; }
 
             // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
             float ms = sens * GameSettings.Sensitivity * weapon.SensMult;
@@ -271,7 +273,7 @@ namespace PryingEyes
             maxSpeed *= wd.moveMult;
             maxSpeed *= Mathf.Lerp(1f, wd.adsMoveMult, weapon.ads);
             if (weapon.reloading && wd.style != ReloadStyle.Tube) maxSpeed *= 0.92f;
-            if (sedT > 0f) { sedT -= dt; maxSpeed *= 0.55f; }       // sedativo dell'infermiere
+            if (sedT > 0f) maxSpeed *= 0.55f;       // sedativo dell'infermiere
 
             // wish dir (yaw plane): forward = (sin yaw, 0, cos yaw) to match camera
             float sin = Mathf.Sin(yaw), cos = Mathf.Cos(yaw);
@@ -413,13 +415,7 @@ namespace PryingEyes
             float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll;
             cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP, yaw * Mathf.Rad2Deg + recY, roll);
 
-            // --- regen lenta, tensione da survival ---
-            if (Time.time - lastDamage > 6f && shield < 50f) shield = Mathf.Min(50f, shield + 8f * dt);
-            if (Time.time - lastDamage > 10f && hp < MaxHp) hp = Mathf.Min(MaxHp, hp + 3f * PerkState.MaxHpMult * dt);
-
-            // perk: tempi del Velo e dell'Occhio, tregua dopo la Rinascita, tasto [H] del Velo
-            PerkState.Tick(dt);
-            if (reviveInv > 0f) reviveInv -= dt;
+            // perk attivabile: il tempo degli effetti scorre in TickSurvival, anche nel menu cooperativo
             if (alive && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (Input.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())
             {
                 hud?.Toast("Il Velo ti avvolge: per cinque secondi ti vedono solo da vicino.");
@@ -442,6 +438,16 @@ namespace PryingEyes
 
         /// <summary>Secondi di sedativo rimasti: finché dura ti muovi al 55%. Lo dà la puntura dell'infermiere.</summary>
         public float sedT;
+
+        void TickSurvival(float dt)
+        {
+            PerkState.Tick(dt);
+            reviveInv = Mathf.Max(0f, reviveInv - dt);
+            sedT = Mathf.Max(0f, sedT - dt);
+            if (!alive) return;
+            if (Time.time - lastDamage > 6f && shield < 50f) shield = Mathf.Min(50f, shield + 8f * dt);
+            if (Time.time - lastDamage > 10f && hp < MaxHp) hp = Mathf.Min(MaxHp, hp + 3f * PerkState.MaxHpMult * dt);
+        }
 
         public void Sedate(float seconds)
         {
@@ -503,7 +509,7 @@ namespace PryingEyes
 
         void Respawn()
         {
-            alive = true; hp = MaxHp; shield = 50f; reviveInv = 0f;
+            alive = true; hp = MaxHp; shield = 50f; reviveInv = sedT = 0f;
             SetSpawn(spawnPos);
             if (GameManager.proc) Proc.FloorDirector.I?.OnRespawn(); else yaw = Mathf.PI;
             pitch = 0f;
@@ -512,8 +518,8 @@ namespace PryingEyes
             weapon.RespawnAmmo();
             Torch.I?.OnRespawn();
             hud?.SetBars(hp, shield);
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            Cursor.lockState = GameMenu.Blocked ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.visible = GameMenu.Blocked;
             if (GameManager.autoTest) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
         }
     }

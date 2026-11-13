@@ -227,6 +227,21 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 - Cooperativa `pe-coop-5`, seme 2961: **16/16 ospite, 26/26 client**, uscita regolare di entrambi i processi
   (`unity_logs/relic-coop`).
 
+## Sopravvivenza nel menu cooperativo (13 novembre 2026)
+
+- Riprodotto un congelamento dei timer locali nel menu cooperativo: il mondo continuava, ma il ritorno anticipato
+  di `PlayerController.Update` bloccava protezione di Rinascita, Velo, Occhio e sedativo. Una Rinascita seguita dal menu
+  poteva quindi rendere immuni senza limite. La nuova prova falliva **82/88** (`unity_logs/life-before`).
+- Separato l'avanzamento di vita ed effetti dai comandi del giocatore. In cooperativa i timer, la rigenerazione
+  e il ritorno dopo la morte proseguono anche con il menu aperto; la pausa singola continua a sospenderli.
+  La rinascita elimina il sedativo della vita precedente e rispetta lo stato del cursore del menu.
+- Prova con grafica e menu reali: **88/88** (`unity_logs/life-after`), inclusi danno dopo la scadenza della protezione,
+  morte e rinascita senza chiudere il menu, cursore utilizzabile ed effetti sospesi correttamente in singolo.
+- Regressioni: armi e movimento **279/279** (`unity_logs/life-gunplay`); libri, perk, Rinascita, penalità di morte,
+  Scrigno e Consacrazione **ESITO: ok** (`unity_logs/life-books.log`). Build senza errori (`life-fixed-build.log`).
+- Cooperativa reale a due processi: **16/16 ospite, 26/26 client** (`unity_logs/life-coop`), con uscita regolare.
+  Aggiornata anche la build principale a gioco chiuso: 189 file verificati con SHA-256 contro `Builds/Audit`.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |
