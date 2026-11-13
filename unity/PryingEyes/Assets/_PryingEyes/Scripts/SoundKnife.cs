@@ -137,23 +137,20 @@ namespace PryingEyes
             return s;
         }
 
-        /// <summary>Notte delle Falene: un battito d'ali sempre piu' fitto, rumore filtrato modulato a 36 Hz. 3,2 s.</summary>
-        public static float[] MothSwarm()
+        /// <summary>Processione dei Lumi: un respiro nel tessuto e quattro rintocchi ascendenti. 3,2 s.</summary>
+        public static float[] LumiProcession()
         {
-            var r = new System.Random(68);
+            var breath = VigilBreath();
             var s = Buf(3.2f);
-            var bp1 = Biquad.BandPass(1300f, 0.9f); var bp2 = Biquad.BandPass(2600f, 1.1f);
             for (int i = 0; i < s.Length; i++)
             {
                 float t = (float)i / Rate;
-                float rate = Mathf.Lerp(24f, 44f, SmoothEdge(0f, 2.4f, t));
-                float flap = 0.5f + 0.5f * Mathf.Sin(TwoPi * rate * t);
-                float flap2 = 0.5f + 0.5f * Mathf.Sin(TwoPi * rate * 1.31f * t + 1.7f);
-                float env = SmoothEdge(0f, 1.2f, t) * (1f - SmoothEdge(2.3f, 3.2f, t));
-                float n = N(r);
-                s[i] = (bp1.Run(n) * flap * flap + bp2.Run(n) * flap2 * 0.5f) * env;
+                s[i] = breath[i] * (1f - SmoothEdge(2.6f, 3.2f, t));
             }
-            Normalize(s, 0.6f);
+            for (int i = 0; i < 4; i++)
+                Chime(s, 0.15f + i * 0.48f, 293.66f * Mathf.Pow(2f, i / 12f), 0.9f,
+                    new[] { 1f, 2.01f, 2.76f }, new[] { 0.24f, 0.08f, 0.03f }, 0.5f);
+            Normalize(s, 0.55f);
             return s;
         }
     }
@@ -171,13 +168,13 @@ namespace PryingEyes
         public static AudioClip NukeToll => One(ref nukeToll, "dropCampana", SoundGen.NukeToll);
         public static AudioClip DropTick => One(ref dropTick, "dropTic", SoundGen.DropTick);
         public static AudioClip DropEnd => One(ref dropEnd, "dropFine", SoundGen.DropEnd);
-        public static AudioClip MothSwarm => One(ref mothSwarm, "falene", SoundGen.MothSwarm);
+        public static AudioClip LumiProcession => One(ref mothSwarm, "processioneLumi", SoundGen.LumiProcession);
 
         /// <summary>Prepara i suoni del coltello e dei potenziamenti all'avvio della partita: la Campana e' lunga da calcolare e il primo drop non deve far scattare il gioco.</summary>
         public static void WarmKnife()
         {
             _ = KnifeSwish; _ = KnifeStab; _ = DropAppear; _ = PickAmmo; _ = PickEye; _ = PickCoins;
-            _ = NukeToll; _ = DropTick; _ = DropEnd; _ = MothSwarm;
+            _ = NukeToll; _ = DropTick; _ = DropEnd; _ = LumiProcession;
         }
     }
 }

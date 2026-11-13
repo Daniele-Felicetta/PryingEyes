@@ -34,9 +34,9 @@ namespace PryingEyes
         bool Omniscient => !Stealth.Enabled || relentless;
 
         /// <summary>Dove sta il segnalino sopra la testa.</summary>
-        public Vector3 MarkerPoint => transform.position + Vector3.up * (type == EnemyType.Carapace ? 1.65f : Archetype == EnemyType.Occhio ? 0.85f : Archetype == EnemyType.Abate ? 3.0f : type == EnemyType.Direttore ? 2.95f : 2.3f);
+        public Vector3 MarkerPoint => transform.position + Vector3.up * (type == EnemyType.Portachiavi ? 1.65f : Archetype == EnemyType.Occhio ? 0.85f : Archetype == EnemyType.Abate ? 3.0f : type == EnemyType.Direttore ? 2.95f : 2.3f);
 
-        float EyeHeight => type == EnemyType.Carapace ? 0.9f : Archetype == EnemyType.Occhio ? 0f : Archetype == EnemyType.Abate ? 2.0f : type == EnemyType.Direttore ? 1.9f : 1.55f;
+        float EyeHeight => type == EnemyType.Portachiavi ? 0.9f : Archetype == EnemyType.Occhio ? 0f : Archetype == EnemyType.Abate ? 2.0f : type == EnemyType.Direttore ? 1.9f : 1.55f;
         float FovHalf => Archetype == EnemyType.Occhio ? 90f : Archetype == EnemyType.Abate ? 58f : 64f;
         float LoseTime => Archetype == EnemyType.Occhio ? 3.0f : 4.5f;
 
@@ -80,7 +80,7 @@ namespace PryingEyes
         public void Hear(Vector3 pos, float radius, NoiseKind kind)
         {
             if (dead || puppet || Omniscient) return;
-            Vector3 ep = transform.position + Vector3.up * (type == EnemyType.Carapace ? EyeHeight : Archetype == EnemyType.Occhio ? 0f : 1.4f);
+            Vector3 ep = transform.position + Vector3.up * (type == EnemyType.Portachiavi ? EyeHeight : Archetype == EnemyType.Occhio ? 0f : 1.4f);
             float d = Vector3.Distance(ep, pos);
             float eff = radius * (Archetype == EnemyType.Occhio ? 0.55f : Archetype == EnemyType.Abate ? 1.2f : 1f);   // l'occhio non ha orecchie
             if (d > eff) return;

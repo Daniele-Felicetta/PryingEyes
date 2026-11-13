@@ -19,7 +19,7 @@ namespace PryingEyes
         /// <summary>Contatori per la prova automatica (StealthTest -temitest): fischietti soffiati, richiami, dardi lanciati.</summary>
         public static int statWhistles, statHelps, statBolts;
 
-        public static bool IsAlien(EnemyType t) => t == EnemyType.Falena || t == EnemyType.Medusa || t == EnemyType.Carapace;
+        public static bool IsAlien(EnemyType t) => t == EnemyType.Veglia || t == EnemyType.Medusa || t == EnemyType.Portachiavi;
         public static bool IsThemed(EnemyType t) => t >= EnemyType.Maschera;
 
         void SetThemedStats()

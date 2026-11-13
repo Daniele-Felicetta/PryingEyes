@@ -513,11 +513,11 @@ namespace PryingEyes.Proc
             float r = Random.value;
             if (r < fly)
             {
-                if (r < fly * 0.38f) return Enemy.EnemyType.Falena;
+                if (r < fly * 0.38f) return Enemy.EnemyType.Veglia;
                 if (floor >= 2 && r < fly * 0.70f) return Enemy.EnemyType.Medusa;
                 return Enemy.EnemyType.Occhio;
             }
-            if (r < fly + abate) return r < fly + abate * 0.55f ? Enemy.EnemyType.Carapace : Enemy.EnemyType.Abate;
+            if (r < fly + abate) return r < fly + abate * 0.55f ? Enemy.EnemyType.Portachiavi : Enemy.EnemyType.Abate;
             return Enemy.EnemyType.Monaco;
         }
 

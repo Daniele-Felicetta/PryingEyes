@@ -206,6 +206,27 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
   dopo la discesa (`unity_logs/nav-coop`). Copiata la build finale nell'eseguibile principale in `Builds`, a gioco chiuso:
   189 file verificati con SHA-256 contro `Builds/Audit`.
 
+## Presenze tematiche (13 novembre 2026)
+
+- Su richiesta dell'utente, sostituiti la Falena e il Carapace con **Veglia** e **Portachiavi**: cero avvolto in un velo
+  votivo strappato e casellario/reliquiario della reception con campanello e quattro chiavi snodate.
+- Volumi torniti, plissettature e orli del tessuto, colature di cera, cassetti e maniglie, anelli e denti delle chiavi.
+  Materiali con trama e patina, palette di cera, stoffa bruna, legno e ottone; eliminati ali viola e guscio a sei zampe.
+- Animazioni proprie: movimento lento del velo, passo alternato delle quattro chiavi, inchino di attacco e collasso
+  alla morte. Il Portachiavi anticipa l'attacco con il campanello, riprodotto anche sui compagni in cooperativa.
+- Suoni dedicati di chiavi e respiro; il quinto round diventa **Processione dei Lumi**, con sole Veglie e rintocchi
+  ascendenti. Restano i ruoli di combattimento, HP, velocità, ricompense e periodicità del round speciale.
+- Indici numerici dei nemici conservati; revisione cooperativa `pe-coop-5` per mantenere nomi, modelli e segnali coerenti.
+- La prova `-autotest -nofire -relictest` rende quattro angoli per modello in `unity_logs/relics`, controlla mesh finite,
+  dimensione della geometria, animazione, punto debole e rilascio delle mesh generate. Le immagini sono viste del
+  modello runtime, non concept art. La prova `-stealthtest -alientest` controlla anche navigazione e morte nella scena.
+- Build senza errori (`unity_logs/relic-release-build.log`); rassegna modelli **24/24** (`relic-review.log`), prova nella
+  scena **OK** (`relic-live.log`), potenziamenti e quinto round **ESITO: ok** (`relic-drops.log`), collisioni dei volanti
+  **ESITO: ok** (`relic-push.log`: nessuno spostamento del giocatore fermo, nessuna caduta).
+- Aggiornato l'eseguibile principale in `Builds` a gioco chiuso: 189 file uguali alla build di verifica (SHA-256).
+- Cooperativa `pe-coop-5`, seme 2961: **16/16 ospite, 26/26 client**, uscita regolare di entrambi i processi
+  (`unity_logs/relic-coop`).
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

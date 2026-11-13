@@ -6,7 +6,7 @@ using PryingEyes.Proc;
 
 namespace PryingEyes
 {
-    /// <summary>Prove della fase 2 (punti, coltello, potenziamenti, Notte delle Falene, bonus Fantasma), con lo schema di -roundtest:
+    /// <summary>Prove della fase 2 (punti, coltello, potenziamenti, Processione dei Lumi, bonus Fantasma), con lo schema di -roundtest:
     ///   PryingEyes.exe -batchmode [-nographics] -autotest -stealthtest -knifetest -seed N -floor N    esito in hotel_build/furtivo/coltello.txt
     ///   PryingEyes.exe -batchmode [-nographics] -autotest -stealthtest -droptest  -seed N -floor N    esito in hotel_build/furtivo/drop.txt
     /// Uscita 0 ok, 1 fallito, 2 piano senza lo spiazzo che serve (cambia seme). Senza -nographics fanno anche le foto del coltello
@@ -270,7 +270,7 @@ namespace PryingEyes
         // ------------------------------------------------------------------ potenziamenti, falene, Fantasma (-droptest)
         /// <summary>Prova dei potenziamenti: il bonus Fantasma (con e senza avvistamenti), la caduta dall'uccisione e il tetto di quattro per
         /// piano, i quattro effetti (Reliquiario: munizioni; Campana: +400, uccide entro 22 m, il rintocco richiama chi resta; Sguardo e Offerta:
-        /// 30 s), la scadenza di quelli lasciati a terra, la Notte delle Falene (ogni quinto round: solo falene, piu' numerose, un Reliquiario di
+        /// 30 s), la scadenza di quelli lasciati a terra, la Processione dei Lumi (ogni quinto round: solo Veglie, piu' numerose, un Reliquiario di
         /// premio) e, con la grafica, la foto dei quattro modelli.</summary>
         IEnumerator CheckDrops()
         {
@@ -325,7 +325,7 @@ namespace PryingEyes
             Log("--- Fantasma");
             var all = fd.cur.candles.FindAll(c => c != null && c.objective && !c.lit);
             all.Sort((a, b) => (rd != null && rd.HasZone(a) ? 1 : 0).CompareTo(rd != null && rd.HasZone(b) ? 1 : 0));      // prima quelle senza zona
-            Candelabro reserved = null;                           // una candela con zona resta spenta per la Notte delle Falene
+            Candelabro reserved = null;                           // una candela con zona resta spenta per la Processione dei Lumi
             for (int i = all.Count - 1; i >= 0; i--)
                 if (rd != null && rd.HasZone(all[i])) { reserved = all[i]; all.RemoveAt(i); break; }
             Log($"candele libere per il Fantasma: {all.Count}; una con zona riservata alle falene: {(reserved != null ? "si" : "no")}");
@@ -479,12 +479,12 @@ namespace PryingEyes
             Check("Sguardo e Offerta finiscono dopo 30 s", !Drops.InstaKill && !Drops.DoublePoints && lived > 29f && lived < 33f, $"{lived:F1} s");
             Check("i potenziamenti non presi spariscono dopo 30 s", Drops.Live.Count == 0 && Drops.statExpired - e0 == nFar, $"scaduti {Drops.statExpired - e0}/{nFar}");
 
-            // ----- 6) Notte delle Falene: il quinto round
-            Log("--- Notte delle Falene");
+            // ----- 6) Processione dei Lumi: il quinto round
+            Log("--- Processione dei Lumi");
             Drops.OnPlayerDied();
             Drops.disabled = true;
             Enemy.debugFreeze = false;
-            if (rd == null || reserved == null) Log("nessuna candela con zona rimasta: Notte delle Falene non provata");
+            if (rd == null || reserved == null) Log("nessuna candela con zona rimasta: Processione dei Lumi non provata");
             else
             {
                 var reg = rd.RegionOf(reserved);
@@ -501,14 +501,14 @@ namespace PryingEyes
                 float mulM = rd.Mood == RoundMood.Calm ? RoundRules.CalmMul : rd.Mood == RoundMood.Alarm ? RoundRules.AlarmMul : 1f;
                 int adopted = rd.Alive;
                 int expect = Mathf.Max(2, Mathf.RoundToInt(RoundRules.Count(RoundDirector.Round, fd.floor) * mulM * RoundRules.MothCountMul) - adopted);
-                Check("il quinto round e' la Notte delle Falene", rd.Fighting && rd.Moth && RoundDirector.Round == RoundRules.MothEvery, $"round {RoundDirector.Round}, falene {rd.Moth}");
+                Check("il quinto round e' la Processione dei Lumi", rd.Fighting && rd.Moth && RoundDirector.Round == RoundRules.MothEvery, $"round {RoundDirector.Round}, falene {rd.Moth}");
                 Check("falene: il numero dei nemici segue la formula (x1,6)", rd.Target == expect, $"{rd.Target} nemici, attesi {expect} (tono {rd.Mood}, {adopted} gia' dentro)");
                 float tm = Time.time;
                 while (rd.Spawned < Mathf.Min(3, rd.Target) && Time.time - tm < 40f) yield return null;
                 int moths = 0, others = 0;
                 foreach (var e in Enemy.All)
-                    if (e != null && !e.IsDead && e.relentless) { if (e.type == Enemy.EnemyType.Falena) moths++; else others++; }
-                Check("nascono solo falene", moths > 0 && others == 0, $"{moths} falene, {others} altri");
+                    if (e != null && !e.IsDead && e.relentless) { if (e.type == Enemy.EnemyType.Veglia) moths++; else others++; }
+                Check("nascono solo Veglie", moths > 0 && others == 0, $"{moths} falene, {others} altri");
                 var run = new RoundRun();
                 yield return DriveRound(rd, cap, null, new List<Vector3>(), pl, run);
                 Check("il round delle falene finisce, serrande su", !rd.Sealed, $"{run.took:F0} s, nati {rd.Spawned}/{run.seenTarget}");
@@ -585,7 +585,7 @@ namespace PryingEyes
             {
                 Vector3 p = start + Quaternion.Euler(0f, i * 36f, 0f) * Vector3.forward * (2.4f + (i % 3) * 0.6f);
                 p.y = 1.8f;
-                var e = Enemy.Spawn(Enemy.EnemyType.Falena, p);
+                var e = Enemy.Spawn(Enemy.EnemyType.Veglia, p);
                 e.MakeRelentless();
             }
             float t0 = Time.time, maxMove = 0f, minY = 99f, nearest = 99f;

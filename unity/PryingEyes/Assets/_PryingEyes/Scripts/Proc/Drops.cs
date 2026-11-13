@@ -39,7 +39,7 @@ namespace PryingEyes
         public static float InstaLeft => Mathf.Max(0f, instaUntil - Time.time);
         public static float DoubleLeft => Mathf.Max(0f, doubleUntil - Time.time);
 
-        /// <summary>Dove e' morto l'ultimo nemico (il Reliquiario della Notte delle Falene cade li').</summary>
+        /// <summary>Dove e' morto l'ultimo nemico (il Reliquiario della Processione dei Lumi cade li').</summary>
         public static Vector3 lastKillPos;
         public static IReadOnlyList<DropPickup> Live => live;
         public static int OnFloor => onFloor;

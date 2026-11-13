@@ -227,7 +227,15 @@ namespace PryingEyes
                         if (eye != null) eye.Stare(0.9f);
                         Sfx.At(SoundBank.EyeStare, transform.position, 0.55f, Random.Range(0.92f, 1.08f), 2f, 22f);
                     }
-                    else if (anim != null) anim.SetTrigger("Attacca");
+                    else
+                    {
+                        if (type == EnemyType.Portachiavi)
+                        {
+                            strikeAt = 16f / 30f / AbateAnimSpeed;
+                            Sfx.At(SoundBank.KeeperBell, transform.position + Vector3.up * 1.4f, 0.65f, 1f, 2f, 28f);
+                        }
+                        if (anim != null) anim.SetTrigger("Attacca");
+                    }
                     break;
                 case EnemyEvt.Strike:
                     if (glowMat != null) Shockwave.Spawn(pos, glowMat);

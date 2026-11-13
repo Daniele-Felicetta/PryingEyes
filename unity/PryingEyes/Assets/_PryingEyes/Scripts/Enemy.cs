@@ -11,7 +11,7 @@ namespace PryingEyes
     /// distanza orizzontale, e dal piano terra si colpiva chi stava sul soppalco.</summary>
     public partial class Enemy : MonoBehaviour
     {
-        public enum EnemyType { Occhio, Abate, Monaco, Falena, Medusa, Carapace, Maschera, Direttore, Infermiere, Primario }
+        public enum EnemyType { Occhio, Abate, Monaco, Veglia, Medusa, Portachiavi, Maschera, Direttore, Infermiere, Primario }
         public EnemyType type;
 
         public float hp, maxHp, speed;
@@ -138,7 +138,8 @@ namespace PryingEyes
             e.alienRig = go.GetComponent<AlienRig>();
             if (IsAlien(t)) e.SetAlienStats();
             else if (IsThemed(t)) e.SetThemedStats();
-            if (t == EnemyType.Carapace) e.loop = Sfx.Loop(go, SoundBank.EyeHum, 0.38f, 1.5f, 22f, e.basePitch);
+            if (t == EnemyType.Portachiavi) e.loop = Sfx.Loop(go, SoundBank.KeeperKeys, 0.38f, 1.5f, 22f, 1f);
+            else if (t == EnemyType.Veglia) e.loop = Sfx.Loop(go, SoundBank.VigilBreath, 0.30f, 1.5f, 24f, 1f);
             else if (archetype == EnemyType.Occhio) e.loop = Sfx.Loop(go, SoundBank.EyeHum, 0.30f, 1.5f, 24f, e.basePitch, 1f, 1f);
             else e.AttachChant();
             e.stepT = Random.value;
@@ -217,7 +218,7 @@ namespace PryingEyes
             Vector3 chest = T.LeanedPoint(1.3f);
             if (Mathf.Abs(T.Lean) > 0.05f)
             {
-                Vector3 eyeE = gp + Vector3.up * (type == EnemyType.Carapace ? EyeHeight : 1.9f);
+                Vector3 eyeE = gp + Vector3.up * (type == EnemyType.Portachiavi ? EyeHeight : 1.9f);
                 if (!HotelNav.ClearLine(eyeE, chest))
                 {
                     Vector3 headP = T.LeanedPoint(1.58f);
@@ -292,7 +293,7 @@ namespace PryingEyes
             atkLock -= dt;
             flinchT -= dt;
             bool attacking = atkLock > 0f;
-            bool carapace = type == EnemyType.Carapace;
+            bool carapace = type == EnemyType.Portachiavi;
             Vector3 eye = gp + Vector3.up * (carapace ? EyeHeight : 1.9f);
             bool see = HotelNav.ClearLine(eye, chest);
             bool hunting = alert == Alert.Hunting;
@@ -342,6 +343,7 @@ namespace PryingEyes
                 atkCd = 2.5f;
                 strikeAt = 16f / 30f / AbateAnimSpeed;
                 atkLock = 1.5f;
+                if (type == EnemyType.Portachiavi) Sfx.At(SoundBank.KeeperBell, gp + Vector3.up * 1.4f, 0.65f, 1f, 2f, 28f);
                 if (anim != null) anim.SetTrigger("Attacca");
                 Coop.Game?.EnemyEvent(this, EnemyEvt.Attack, Vector3.zero);
             }
@@ -531,7 +533,7 @@ namespace PryingEyes
             }
             else if (hunting && see && dist3 < 2.7f && atkCd <= 0f && tgt.Alive)
             {
-                atkCd = type == EnemyType.Falena ? 1.3f : type == EnemyType.Medusa ? 2.6f : 1.8f;
+                atkCd = type == EnemyType.Veglia ? 1.3f : type == EnemyType.Medusa ? 2.6f : 1.8f;
                 strikeAt = 0.5f;
                 if (eye != null) eye.Stare(0.9f);
                 Sfx.At(SoundBank.EyeStare, gp, 0.55f, Random.Range(0.92f, 1.08f), 2f, 22f);
@@ -638,7 +640,7 @@ namespace PryingEyes
             {
                 // niente detriti: crolla con l'animazione e sparisce dopo qualche secondo
                 dead = true;
-                Sfx.At(SoundBank.MonkDeath, transform.position + Vector3.up, 0.8f, basePitch, 2f, 30f);
+                Sfx.At(type == EnemyType.Portachiavi ? SoundBank.KeeperKeys : SoundBank.MonkDeath, transform.position + Vector3.up, 0.8f, basePitch, 2f, 30f);
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
                 if (anim != null) anim.SetBool("Morto", true);
                 foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
@@ -650,7 +652,7 @@ namespace PryingEyes
                 // cade flaccido: palpebre calate, iride spenta, tentacoli penzolanti; poi sparisce
                 dead = true;
                 if (eye != null) eye.Die();
-                Sfx.At(SoundBank.EyeBurst, transform.position, 0.8f, basePitch, 2f, 30f);
+                Sfx.At(type == EnemyType.Veglia ? SoundBank.Whisper : SoundBank.EyeBurst, transform.position, 0.8f, basePitch, 2f, 30f);
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
                 foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
                 // il corpo continua a cadere come un oggetto fisico, ma i proiettili e il giocatore lo ignorano

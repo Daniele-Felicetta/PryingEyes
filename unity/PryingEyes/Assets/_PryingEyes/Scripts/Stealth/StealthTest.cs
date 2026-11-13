@@ -168,7 +168,7 @@ namespace PryingEyes
 
             Enemy.debugNoSense = true;
             Torch.I.Toggle();
-            foreach (var type in new[] { Enemy.EnemyType.Falena, Enemy.EnemyType.Medusa, Enemy.EnemyType.Carapace })
+            foreach (var type in new[] { Enemy.EnemyType.Veglia, Enemy.EnemyType.Medusa, Enemy.EnemyType.Portachiavi })
             {
                 var pos = start + dir * 3.3f + Vector3.up * (Enemy.IsFlying(type) ? 1.5f : 0f);
                 var alien = Enemy.Spawn(type, pos);
