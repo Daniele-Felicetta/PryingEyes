@@ -219,8 +219,8 @@ def build_role(role, paint=None):
         wv.wave_type = 'BANDS'
         wv.bands_direction = 'X'
         wv.wave_profile = 'SIN'
-        wv.inputs['Scale'].default_value = 70.0
-        wv.inputs['Distortion'].default_value = 7.0
+        wv.inputs['Scale'].default_value = 110.0      # fasce da ~3 mm: in mira il calcio e' a 20 cm dall'occhio e a 70 (4,5 mm) sembravano righe di zebra
+        wv.inputs['Distortion'].default_value = 6.0
         wv.inputs['Detail'].default_value = 3.0
         wv.inputs['Detail Scale'].default_value = 1.8
         wv.inputs['Detail Roughness'].default_value = 0.6
@@ -228,13 +228,19 @@ def build_role(role, paint=None):
         grain = wv.outputs['Fac']
         dark = paint.get('legno_scuro', (0.030, 0.012, 0.005))
         lite = paint.get('legno_chiaro', (0.125, 0.056, 0.022))
+        # legno piu' scuro e fasce poco contrastate: in mira la luce viene dall'alto e il calcio e' di striscio, sotto un lampadario il legno
+        # chiaro e a fasce larghe usciva giallo paglierino con le strisce di tigre (in mano, in penombra, andava gia' bene)
+        dark = tuple(c * 0.72 for c in dark)
+        lite = tuple(c * 0.72 for c in lite)
+        lite = tuple(d + (l - d) * 0.55 for d, l in zip(dark, lite))
         wood = ramp(nt, grain, [(0.15, dark), (0.85, lite)])
         w = wear_of(nt, mk, 0.8, 0.20)
         base = mix(nt, math_(nt, 'MULTIPLY', w, 0.55), wood, (0.20, 0.11, 0.055))
         base = _mulrgb(nt, base, None, math_(nt, 'SUBTRACT', 1.0, math_(nt, 'MULTIPLY', mk['cav'], 0.5)))
         pores = noise(nt, mapping(nt, obj, scale=(1.0, 0.06, 1.0)), 900.0, 1.0, 0.5)
-        rough = math_(nt, 'ADD', maprange(nt, w, 0.0, 1.0, 0.36, 0.62), math_(nt, 'MULTIPLY', math_(nt, 'SUBTRACT', pores, 0.5), 0.15))
-        nrm = bump(nt, math_(nt, 'ADD', math_(nt, 'MULTIPLY', grain, 0.2), math_(nt, 'MULTIPLY', pores, 0.5)), 0.30, 0.0005)
+        # cera e non vernice: piu' ruvido e con la venatura appena in rilievo, cosi' il riflesso della luce di riempimento non segue ogni fascia
+        rough = math_(nt, 'ADD', maprange(nt, w, 0.0, 1.0, 0.68, 0.86), math_(nt, 'MULTIPLY', math_(nt, 'SUBTRACT', pores, 0.5), 0.12))
+        nrm = bump(nt, math_(nt, 'ADD', math_(nt, 'MULTIPLY', grain, 0.08), math_(nt, 'MULTIPLY', pores, 0.35)), 0.18, 0.0005)
         p = _principled(nt, base, 0.0, rough, nrm, coat=0.35, coat_rough=0.18)
         metal_sock = 0.0
     elif role == 'osso':

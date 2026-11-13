@@ -8,7 +8,7 @@ namespace PryingEyes.Proc
     /// <summary>Regista della partita a piani: genera la pianta, la costruisce, mette il giocatore nell'ascensore di arrivo,
     /// piazza le armi sui muri e i candelabri da accendere, manda le orde (a ogni candela e a intervalli) e fa scendere al
     /// piano dopo quando le candele sono tutte accese. Sostituisce le ondate della hall.</summary>
-    public class FloorDirector : MonoBehaviour
+    public partial class FloorDirector : MonoBehaviour
     {
         public static FloorDirector I;
         public int floor;
@@ -62,6 +62,17 @@ namespace PryingEyes.Proc
             for (int i = 0; i < a.Length - 1; i++) if (a[i] == name && int.TryParse(a[i + 1], out int v)) return v;
             return def;
         }
+
+        static string ArgStr(string name, string def)
+        {
+            var a = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < a.Length - 1; i++) if (a[i] == name) return a[i + 1];
+            return def;
+        }
+
+        static bool? noEnemies;
+        /// <summary>Solo per le prove (-autotest -noenemies): il piano resta vuoto, per misurare la sola navigazione.</summary>
+        static bool NoEnemies => noEnemies ??= GameManager.autoTest && HasArg("-noenemies");
 
         /// <summary>Avvia la partita: primo piano. Lo chiama il GameManager su "Gioca". In cooperativa un ospitato la avvia con il seme e il
         /// piano dell'ospite.</summary>
@@ -554,7 +565,7 @@ namespace PryingEyes.Proc
 
         void SpawnOne()
         {
-            if (!Coop.Sim) return;
+            if (!Coop.Sim || NoEnemies) return;
             var t = PickType();
             if (PickSpawn(Enemy.IsFlying(t), out Vector3 p)) Enemy.Spawn(Retheme(t, cur.RoomAt(p)), p);
         }
@@ -640,6 +651,7 @@ namespace PryingEyes.Proc
         /// <summary>Preti che pattugliano il piano fin dall'inizio, in stanze lontane dall'arrivo (almeno 20 m a piedi, se il piano lo permette).</summary>
         void PopulateFloor(Plan plan)
         {
+            if (NoEnemies) return;
             if (plan.grid) { PopulateGrid(plan); return; }
             var dist = plan.WalkDist(plan.start);
             var rng = new Rng(plan.seed + 555);
@@ -733,6 +745,7 @@ namespace PryingEyes.Proc
 
         IEnumerator SummonCo(int count, Vector3 target)
         {
+            if (NoEnemies) yield break;
             int cap = 8 + floor + units;
             yield return new WaitForSeconds(Random.Range(2f, 5f));
             for (int i = 0; i < count; i++)
@@ -1086,7 +1099,7 @@ namespace PryingEyes.Proc
                 if (!exitOpen) RefreshObjective();
                 playerRoom = cur.RoomAt(gm.player.transform.position);
             }
-            if (GameManager.autoTest && HasArg("-procbot")) BotTick(dt);
+            if (GameManager.autoTest && HasArg("-procbot")) { if (HasArg("-botstrict")) BotStrictTick(dt); else BotTick(dt); }
             if (GameManager.autoTest && HasArg("-procshots")) ShotTick();
             if (GameManager.autoTest && !perfStarted && !transitioning && floorTime > 2f && HasArg("-perftest"))
             {

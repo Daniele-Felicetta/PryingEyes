@@ -34,6 +34,9 @@ namespace PryingEyes
         public bool invulnerable;
         /// <summary>Solo per il bot di prova: direzione del mondo in cui camminare (zero = fermo).</summary>
         public static Vector3 botDir;
+        /// <summary>Solo per il bot rigoroso (-botstrict): se non e' zero il giocatore guarda in quella direzione (come chi mira a cio' che
+        /// vuole usare), mentre botDir resta il movimento.</summary>
+        public static Vector3 botLook;
         /// <summary>Solo per le prove (-autotest): tiene premuto il tasto per accovacciarsi (il passaggio basso della stanza segreta).</summary>
         public static bool botCrouch;
         /// <summary>Solo per le prove: lean forzato (-1 sinistra, +1 destra); NaN = usa la tastiera.</summary>
@@ -219,6 +222,11 @@ namespace PryingEyes
                     Vector3 aim = (e.AimPoint - cam.position).normalized;
                     yaw = Mathf.Atan2(aim.x, aim.z);
                     pitch = -Mathf.Asin(Mathf.Clamp(aim.y, -1f, 1f));
+                }
+                else if (botLook.sqrMagnitude > 0.01f)
+                {
+                    yaw = Mathf.MoveTowardsAngle(yaw * Mathf.Rad2Deg, Mathf.Atan2(botLook.x, botLook.z) * Mathf.Rad2Deg, 220f * dt) * Mathf.Deg2Rad;
+                    pitch = Mathf.MoveTowards(pitch, -Mathf.Asin(Mathf.Clamp(botLook.normalized.y, -1f, 1f)), 3f * dt);
                 }
                 else if (botDir.sqrMagnitude > 0.01f)
                     yaw = Mathf.MoveTowardsAngle(yaw * Mathf.Rad2Deg, Mathf.Atan2(botDir.x, botDir.z) * Mathf.Rad2Deg, 220f * dt) * Mathf.Deg2Rad;

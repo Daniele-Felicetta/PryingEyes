@@ -18,6 +18,9 @@ namespace PryingEyes.Proc
         static IInteract near;
         static Transform lastCamera;
 
+        /// <summary>Cio' che F userebbe adesso (l'ultimo Tick). Lo leggono le prove, per verificare che si usi proprio quell'oggetto.</summary>
+        public static IInteract Current => near;
+
         public static void Add(IInteract i) { if (!all.Contains(i)) all.Add(i); }
         public static void Remove(IInteract i) { all.Remove(i); if (near == i) near = null; }
         public static void Clear() { all.Clear(); near = null; lastCamera = null; }

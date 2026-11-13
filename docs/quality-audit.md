@@ -74,8 +74,9 @@ posizione ora controlla distanza tridimensionale e visibilità del punto d'uso r
   in 4 s e MALLEUS 47 a ciascuna delle tre frequenze, contro rispettivamente circa 76,7 e 46,7 previsti.
 - Rassegna visiva: generate 112 viste (mano, ADS, sparo, ricarica di ciascuna arma), tutte ispezionate nei quattro
   fogli `unity_logs/weapon-review-*.jpg`; dettaglio aggiuntivo di pistola, mitra, ottica, mitragliatrice e armi aliene.
-  La rassegna ha preceduto la correzione ottica, verificata separatamente sotto. Restano da rifinire i materiali
-  con venature del legno troppo contrastate e la leggibilità generale alle esposizioni basse.
+  La rassegna ha preceduto la correzione ottica, verificata separatamente sotto. Le venature del legno troppo
+  contrastate sono state rifatte il 13 novembre (vedi «Seconda passata»); resta da rifinire la leggibilità
+  generale alle esposizioni basse.
 - Segnalazione utente sul punto ottico: riprodotta con bersaglio a 20 m e sway. La camera della lente si discostava
   dall'asse hitscan di circa 0,37 m. `opticstest` ora supera **36/36**, su 14 mirini, di cui 6 ingranditi;
   verifica pixel del reticolo entro due pixel dall'asse, a riposo e con sway, più coerenza del raggio della camera
@@ -105,6 +106,67 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 - Ripetuta la cooperativa reale sulla build aggiornata, seme 2961: **16/16 ospite e 26/26 client**,
   uscita regolare di entrambi i processi (`unity_logs/session-coop`).
 
+## Seconda passata (13 novembre 2026)
+
+### Navigazione con il controller vero
+
+- Nuova prova `-botstrict` (`Scripts/Proc/FloorDirector.Bot.cs`) con il driver `tools/check_navigation.py`: un giocatore
+  automatico cammina i piani generati con il CharacterController vero, senza teletrasporti di recupero, guarda ciò che
+  vuole usare e accende le candele e prende l'ascensore con la stessa selezione del tasto F (`Interact.Current`: raggio,
+  sguardo, visuale libera). Scrive una riga per piano e una per ogni INCASTRATO (fermo 4 s: collider a contatto con la
+  capsula, stato del controller, tracciato e mappa a celle da 25 cm), VARCO, IRRAGGIUNGIBILE, NAVMESH, NONSELEZIONABILE,
+  CADUTA, MORTE, TEMPO e SOFTLOCK; esce con 0 solo se l'ultima riga è `ESITO: ok`. Il controllo negativo `-botfreeze`
+  (giocatore immobile) deve fallire, e fallisce: quattro INCASTRATO e poi SOFTLOCK.
+- Primo giro, 48 semi × 6 piani (288 piani nei tre temi): tutti completati. Sei avvisi INCASTRATO erano falsi allarmi del
+  rilevatore (la finestra dei 4 s non ripartiva dalla posizione giusta dopo l'accensione di una candela; il percorso si
+  girava di 180° fra due strade quasi alla pari) e sono stati corretti nella prova, non nel gioco.
+- Secondo giro con la prova corretta: 47 semi su 48 senza avvisi. Il caso reale è il seme 5008, piano 3 (Ristorante): la
+  navmesh promette un passaggio fra una colonna e un divano che la capsula del giocatore non passa (servono 0,92 m:
+  raggio 0,38 più 0,08 di margine per lato; la navmesh si accontenta di 0,8 m). Un giocatore sceglie un'altra strada,
+  il bot seguiva la navmesh e restava fermo.
+- Causa: `RoomKits.Free` lascia 4 cm fra arredi non collegati e il riparo di connettività controlla a 0,4 m di raggio,
+  quindi restano varchi fra 0,6 e 0,95 m. Ingrossare la navmesh non è la soluzione (ProcCheck su 400 piani, riparazioni /
+  oggetti rimossi / stanze svuotate / piani rotti: raggio 0,40 → 26/66/0/0; 0,42 → 37/93/0/0; 0,44 → 39/96/0/0;
+  0,46 → 53/150/2/2; 0,50 → 186/591/50/44), quindi il raggio resta 0,4. Il difetto non è chiuso nel generatore:
+  cambierebbe tutte le piante e la compatibilità della cooperativa.
+- Nella prova: dopo due incastri nello stesso punto il bot toglie dalla navmesh l'area del varco (ostacolo che scava) e
+  cerca un'altra strada come farebbe una persona. Se c'è, il piano si completa con un avviso VARCO (seme 5008 piano 3
+  ora si completa); se non c'è è un vero soft-lock e la prova fallisce.
+- Giro finale con il bot completo, sulla build di verifica con tutte le correzioni: 48 semi × 6 piani, 288 piani (Albergo
+  180, Teatro 64, Sanatorio 44), **48/48 `ESITO: ok`**, nessun IRRAGGIUNGIBILE, NAVMESH, NONSELEZIONABILE, CADUTA, MORTE
+  o SOFTLOCK. L'unico caso con avvisi è il seme 5008, piano 3: due INCASTRATO e un VARCO, piano completato. Log in
+  `unity_logs/navigation_wide3` (ignorata da git; si rigenera con `python tools/check_navigation.py --seeds 5000 ...
+  5047 --floors 6`). I piani sono vuoti di nemici: la prova misura la sola navigazione.
+
+### Aspetto: legno delle armi
+
+- In mira il calcio dell'AK usciva giallo paglierino con righe di tigre: luce dall'alto, vista radente e venature larghe e
+  contrastate. Il materiale `legno` di `modelli/armi/mats.py` è stato rifatto (venature da circa 3 mm invece di 4,5, toni più
+  scuri del 28%, fasce meno contrastate, superficie più ruvida) e le texture delle 8 armi che lo usano sono state
+  ricalcolate e reimportate: AK Arcangelo, Predicatore, Rosario, Salterio, Vigilia .45, Cardinale .357, Cappellano, Turibolo.
+  Foto prima e dopo a seme fisso (`-guntest -armi ... -seed 168272998 -floor 1`); in mano il legno resta bruno scuro,
+  in mira ha venatura fine e non più a zebra. Non cambia nessuna regola di gioco.
+
+### Testi dei pannelli d'acquisto
+
+- Trovato con le stesse foto: nome e prezzo dell'arma sui pannelli a muro (`TextMesh`) si leggevano, specchiati e accesi
+  nel buio, attraverso i muri e da dietro il pannello, perché lo shader dei font di Unity disegna senza test di profondità.
+  Ora i testi si spengono quando il pannello non si vede davvero: da dietro, oltre 14 m o con un ostacolo (muro, colonna,
+  porta) fra l'occhio e la fronte del pannello. A seme fisso lo stesso fotogramma mostrava il testo specchiato prima e non
+  più dopo.
+
+### Prestazioni e rassegna delle armi
+
+- Sonda `-perftest` a 1080p sulla build di verifica (RTX 5060 Ti, piano 3, pianta a griglia): albergo 3,7 ms (268 fps),
+  teatro 3,8 ms (261 fps), sanatorio 4,0 ms (253 fps); peggior p99 9,1 ms (Cripta dell'albergo, già così prima). Stessi
+  valori della misura precedente alla seconda passata (269, 273 fps): nessuna regressione. Le due prime stanze del
+  sanatorio sono salite a 4,9 e 6,1 ms, con la scheda condivisa con altre applicazioni; il resto è invariato.
+- Rassegna completa `-guntest` (28 armi, mano, mira, sparo, ricarica, più i tre espositori) a seme fisso dopo le
+  modifiche: tutte le armi si caricano, sparano e si vedono, e i testi dei pannelli si leggono ancora da davanti. La
+  cadenza misurata sta entro l'8% della scheda per 27 armi su 28; il Predicatore (a leva) fa 94-97 colpi al minuto
+  contro gli 85 di scheda, perché il ciclo vero è `cycle = 0,62 s` e la cifra di scheda non è usata in gioco (solo nel
+  confronto del log): nessun effetto sul gioco, dato da allineare quando si rimette mano a `WeaponDefs.cs`.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |
@@ -114,9 +176,9 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 | Gunplay | Rassegna di armi, ADS, ricariche, cambio slot, acquisti e munizioni con la build finale |
 | Interazioni | Distanza, orientamento e ostacoli: candele, acquisti, santuari, ascensore, nessun uso attraverso pareti |
 | Progressione e sopravvivenza | Round, morte/respawn, perk, gocce, uscita e transizioni su più semi e temi |
-| Generazione e navigazione | Generatore, raggiungibilità reale, passaggi bassi, assenza di buchi e incastri con il controller vero |
+| Generazione e navigazione | Provata con il controller vero (vedi «Seconda passata»); resta aperto il generatore, che lascia varchi fra 0,6 e 0,95 m che la navmesh crede percorribili e la capsula no; prova con i nemici presenti |
 | Cooperativa | Regressioni a più processi, entrata tardiva, uscita/rientro, morte e transizioni; verifiche delle richieste all'ospite e coerenza dei piani |
-| Prestazioni e audio | Misure sui tre temi e qualità di volume, spazialità e feedback durante una partita |
+| Prestazioni e audio | Prestazioni misurate sui tre temi (vedi sopra); resta la qualità di volume, spazialità e feedback durante una partita, che non si misura senza ascoltare |
 | Distribuzione | Build finale, guida aggiornata, avvio da cartella estratta e verifica delle piattaforme effettivamente supportate |
 | Altre versioni nel repository | Valutare ruolo e stato di Three.js/Unreal rispetto alla versione distribuita, eliminando ambiguità nella documentazione |
 

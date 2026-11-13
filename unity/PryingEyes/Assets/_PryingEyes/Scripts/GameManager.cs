@@ -40,7 +40,14 @@ namespace PryingEyes
         // (ScreenCapture li' non ha uno schermo da copiare). Niente HUD: serve a controllare luce e materiali.
         bool camShots, cam1done, cam2done, wallShotDone;
         bool wallTestDone, magicTestDone, enemyShotDone, gunTestStarted, leanTestStarted;
-        const string REPORT = "C:/Users/danie/Desktop/prying-eyes/hotel_build/autotest.txt";
+        /// <summary>Rapporto delle prove (-autotest). Con -report FILE ogni processo scrive il suo: piu' prove in parallelo non si pestano i piedi.</summary>
+        static readonly string REPORT = ReportPath();
+        static string ReportPath()
+        {
+            var a = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-report") return a[i + 1];
+            return "C:/Users/danie/Desktop/prying-eyes/hotel_build/autotest.txt";
+        }
         bool returningToMenu;
 
         /// <summary>Chiude la sessione locale e ricrea la scena iniziale: nessuno stato di una discesa entra nella successiva.</summary>

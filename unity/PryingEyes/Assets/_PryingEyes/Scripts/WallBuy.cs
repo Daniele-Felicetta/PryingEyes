@@ -100,10 +100,11 @@ namespace PryingEyes
             light.shadows = LightShadows.None;
 
             // nome e prezzo incisi sul pannello
-            MakeText(go.transform, def.name, Color.Lerp(new Color(0.93f, 0.89f, 0.80f), def.GradeColor, 0.55f), -0.300f, 0.055f, 0.0135f);
-            MakeText(go.transform, (cost > 0 ? cost + " PUNTI" : "MUNIZIONI") + "  ·  GRADO " + HUD.Roman(def.grade), def.GradeColor, -0.385f, 0.055f, 0.0105f);
+            var t1 = MakeText(go.transform, def.name, Color.Lerp(new Color(0.93f, 0.89f, 0.80f), def.GradeColor, 0.55f), -0.300f, 0.055f, 0.0135f);
+            var t2 = MakeText(go.transform, (cost > 0 ? cost + " PUNTI" : "MUNIZIONI") + "  ·  GRADO " + HUD.Roman(def.grade), def.GradeColor, -0.385f, 0.055f, 0.0105f);
 
             var wb = go.AddComponent<WallBuy>();
+            wb.texts = new[] { t1, t2 };
             wb.weaponIndex = index;
             wb.price = cost;
             wb.displayName = def.name;
@@ -113,7 +114,29 @@ namespace PryingEyes
             return wb;
         }
 
-        static void MakeText(Transform parent, string s, Color c, float y, float z, float size)
+        /// <summary>Lo shader di font di Unity (GUI/Text Shader) disegna con ZTest Always: il nome e il prezzo dell'arma si leggevano, specchiati e
+        /// accesi nel buio, attraverso i muri e da dietro il pannello. Qui si spengono quando il pannello non si vede davvero: da dietro, oltre 14 m
+        /// o con un ostacolo (muro, colonna, porta) tra l'occhio e la fronte del pannello.</summary>
+        MeshRenderer[] texts;
+        float textT;
+        bool textsOn = true;
+
+        void Update()
+        {
+            textT -= Time.unscaledDeltaTime;
+            if (textT > 0f || texts == null) return;
+            textT = 0.15f;
+            Transform cam = lastCamera != null ? lastCamera : (Camera.main != null ? Camera.main.transform : null);
+            if (cam == null) return;
+            Vector3 to = cam.position - transform.position;
+            bool show = to.sqrMagnitude < 14f * 14f && Vector3.Dot(to, transform.forward) > 0.05f &&
+                        !Physics.Linecast(cam.position, transform.position + transform.forward * 0.3f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+            if (show == textsOn) return;
+            textsOn = show;
+            foreach (var r in texts) if (r != null) r.enabled = show;
+        }
+
+        static MeshRenderer MakeText(Transform parent, string s, Color c, float y, float z, float size)
         {
             // il font di sistema dinamico funziona con la UI ma non sempre con TextMesh:
             // uso il font legacy integrato e assegno esplicitamente il materiale al renderer
@@ -138,6 +161,7 @@ namespace PryingEyes
             var mr = go.GetComponent<MeshRenderer>();
             if (font != null && font.material != null) mr.sharedMaterial = font.material;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return mr;
         }
 
         // ---------- modello decorativo (canna lungo +Z) ----------
