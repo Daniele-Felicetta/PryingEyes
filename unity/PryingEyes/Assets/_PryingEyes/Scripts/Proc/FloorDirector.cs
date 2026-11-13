@@ -1005,7 +1005,8 @@ namespace PryingEyes.Proc
             foreach (var s in sides)
             {
                 bool ax = Plan.AlongX(s);
-                float lo = (ax ? r.x0 : r.z0) * 0.1f + T + 1.2f, hi = (ax ? r.x1 : r.z1) * 0.1f - T - 1.2f;
+                float inset = Mathf.Max(T + 1.2f, r.cornerRadius > 0f ? r.cornerRadius + 0.85f : 0f);
+                float lo = (ax ? r.x0 : r.z0) * 0.1f + inset, hi = (ax ? r.x1 : r.z1) * 0.1f - inset;
                 if (hi - lo < 0.5f) continue;
                 Vector3 inward = s == Side.S ? Vector3.forward : s == Side.N ? Vector3.back : s == Side.W ? Vector3.right : Vector3.left;
                 float face = s == Side.S ? r.z0 * 0.1f + T : s == Side.N ? r.z1 * 0.1f - T : s == Side.W ? r.x0 * 0.1f + T : r.x1 * 0.1f - T;
@@ -1193,7 +1194,7 @@ namespace PryingEyes.Proc
             public Kind kind;
             public Rect r;
             public Color c;
-            public float t;
+            public float t, radius;
             public string text;
         }
 
@@ -1218,6 +1219,7 @@ namespace PryingEyes.Proc
                 bool seen = explored.Contains(r.id);
                 if (!seen && (!known.Contains(r.id) || r.type == RoomType.Segreta)) continue;
                 var q = new Rect(px(r.x0 * 0.1f) + 1.5f, py(r.z1 * 0.1f) + 1.5f, (r.x1 - r.x0) * 0.1f * scale - 3f, (r.z1 - r.z0) * 0.1f * scale - 3f);
+                int firstItem = items.Count;
                 if (seen)
                 {
                     Color t = Tint(r);
@@ -1225,13 +1227,18 @@ namespace PryingEyes.Proc
                     items.Add(new MapItem { kind = MapItem.Kind.Box, r = q, c = new Color(t.r, t.g, t.b, 0.9f), t = 2f });
                     if (full)
                         items.Add(new MapItem { kind = MapItem.Kind.Label, r = q, c = new Color(1f, 1f, 1f, 0.75f),
-                            text = r.type == RoomType.Normale ? r.kind.ToString() : r.type == RoomType.Candela ? "Arena" : r.type == RoomType.Boss ? "Guardiano" : r.type.ToString() });
+                            text = r.kind == RoomKind.Rotonda ? "Rotonda" : r.kind == RoomKind.Galleria ? "Galleria" : r.kind == RoomKind.GiardinoInverno ? "Giardino d'inverno" :
+                                r.type == RoomType.Normale ? r.kind.ToString() : r.type == RoomType.Candela ? "Arena" : r.type == RoomType.Boss ? "Guardiano" : r.type.ToString() });
                 }
                 else
                 {
                     items.Add(new MapItem { kind = MapItem.Kind.Fill, r = q, c = new Color(0.11f, 0.12f, 0.14f, 1f) });
                     items.Add(new MapItem { kind = MapItem.Kind.Box, r = q, c = new Color(0.30f, 0.33f, 0.38f, 1f), t = 1.5f });
                     items.Add(new MapItem { kind = MapItem.Kind.Label, r = q, c = new Color(1f, 1f, 1f, 0.55f), text = "?" });
+                }
+                for (int i = firstItem; i < items.Count; i++)
+                {
+                    var item = items[i]; item.radius = Mathf.Max(0f, r.cornerRadius * scale - 1.5f); items[i] = item;
                 }
             }
             foreach (var o in plan.openings)
@@ -1261,9 +1268,14 @@ namespace PryingEyes.Proc
                 switch (it.kind)
                 {
                     case MapItem.Kind.Fill:
-                        GUI.DrawTexture(it.r, Texture2D.whiteTexture);
+                        GUI.DrawTexture(it.r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0f, Color.white, 0f, it.radius);
                         break;
                     case MapItem.Kind.Box:
+                        if (it.radius > 0f)
+                        {
+                            GUI.DrawTexture(it.r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0f, Color.white, it.t, it.radius);
+                            break;
+                        }
                         GUI.DrawTexture(new Rect(it.r.x, it.r.y, it.r.width, it.t), Texture2D.whiteTexture);
                         GUI.DrawTexture(new Rect(it.r.x, it.r.yMax - it.t, it.r.width, it.t), Texture2D.whiteTexture);
                         GUI.DrawTexture(new Rect(it.r.x, it.r.y, it.t, it.r.height), Texture2D.whiteTexture);

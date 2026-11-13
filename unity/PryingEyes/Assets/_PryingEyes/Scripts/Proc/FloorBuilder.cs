@@ -25,7 +25,7 @@ namespace PryingEyes.Proc
         public Room RoomAt(Vector3 p)
         {
             foreach (var r in plan.rooms)
-                if (p.x >= r.x0 * 0.1f && p.x <= r.x1 * 0.1f && p.z >= r.z0 * 0.1f && p.z <= r.z1 * 0.1f) return r;
+                if (r.Contains(p.x, p.z)) return r;
             return null;
         }
 
@@ -82,7 +82,7 @@ namespace PryingEyes.Proc
             if (!r.church && theme == Theme.Sanatorio) return r.kind == RoomKind.Archivio || r.kind == RoomKind.SalaMedici ? 2 : 0;
             switch (r.kind)
             {
-                case RoomKind.Corridoio: return 1;
+                case RoomKind.Corridoio: case RoomKind.Galleria: return 1;
                 case RoomKind.Camera:
                 case RoomKind.Suite: return r.variant % 3 == 0 ? 1 : 2;
                 case RoomKind.Ristorante:
@@ -102,8 +102,11 @@ namespace PryingEyes.Proc
             switch (r.kind)
             {
                 case RoomKind.Atrio:
+                case RoomKind.Rotonda:
+                case RoomKind.GiardinoInverno:
                     s.floor = Mat("pav_marmo"); s.wall = Mat(damask[0]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
                 case RoomKind.Corridoio:
+                case RoomKind.Galleria:
                     if (theme == Theme.Sanatorio)       // corsia dell'istituto: linoleum e vernice verde
                     {
                         s.floor = Mat("pav_linoleo"); s.wall = Mat("mur_intonaco_freddo"); s.dado = Mat("mur_vernice_verde"); s.dadoH = 1.4f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("mur_intonaco_freddo");
@@ -245,6 +248,7 @@ namespace PryingEyes.Proc
             bc.size = new Vector3(x1 - x0, 0.5f, z1 - z0);
 
             if (r.upperGallery) BuildGallery(fi, r, go);
+            if (r.cornerRadius > TH) BuildRoundedCorners(r, st, go);
             var window = RoomKits.Dress(fi, r, go.transform);
             if (r.church && ProcKit.HasMat("foschia_chiesa")) ChurchHaze(go.transform, x0, x1, z0, z1, r.wallH, window);
         }

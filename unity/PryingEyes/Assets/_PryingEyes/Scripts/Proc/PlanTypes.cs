@@ -24,7 +24,8 @@ namespace PryingEyes.Proc
         // teatro: la sala e il palcoscenico
         Platea, Palco, Foyer, Palcoscenico, Camerino, Deposito, Ridotto,
         // sanatorio: l'istituto (la cappella e' la chiesa)
-        Accettazione, Degenza, Corsia, Cella, Refettorio, SalaOperatoria, Lavanderia, Archivio, Obitorio, SalaMedici
+        Accettazione, Degenza, Corsia, Cella, Refettorio, SalaOperatoria, Lavanderia, Archivio, Obitorio, SalaMedici,
+        Rotonda, Galleria, GiardinoInverno
     }
 
     /// <summary>Il ruolo di una stanza nella pianta a griglia (PlanGrid.cs), come i tipi di stanza di The Binding of Isaac: Partenza
@@ -51,6 +52,7 @@ namespace PryingEyes.Proc
         public string label = "";
         public int variant;
         public bool upperGallery;           // doppia altezza e percorso superiore con due scale indipendenti
+        public float cornerRadius;          // metri: raggio della pianta interna arrotondata, zero = rettangolare
         public int wing;                    // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
         public int unit;                    // ala-coppia di appartenenza (0 per la prima): vedi PlanGen.Compound
 
@@ -59,6 +61,18 @@ namespace PryingEyes.Proc
         public float CenterX => (x0 + x1) * 0.05f;   // metri
         public float CenterZ => (z0 + z1) * 0.05f;
         public bool IsLift => kind == RoomKind.Ascensore;
+
+        public bool Contains(float x, float z, float margin = 0f)
+        {
+            float left = x0 * 0.1f + margin, right = x1 * 0.1f - margin;
+            float bottom = z0 * 0.1f + margin, top = z1 * 0.1f - margin;
+            if (x < left || x > right || z < bottom || z > top) return false;
+            float radius = Math.Max(0f, cornerRadius - margin);
+            if (radius == 0f) return true;
+            float cx = Math.Max(left + radius, Math.Min(right - radius, x));
+            float cz = Math.Max(bottom + radius, Math.Min(top - radius, z));
+            return (x - cx) * (x - cx) + (z - cz) * (z - cz) <= radius * radius;
+        }
 
         public override string ToString() => $"{id}:{kind}[{x0},{z0}..{x1},{z1}]";
     }

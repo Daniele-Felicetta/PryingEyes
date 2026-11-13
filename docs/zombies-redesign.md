@@ -27,6 +27,19 @@ Verifiche: 1.000 piante pure senza fallimenti, 400 piani costruiti senza problem
 raggiungibili dall'arrivo; camminata del controller su sei balconate nei tre temi (21/21 per ciascuna prova),
 più dodici piani completi percorsi senza incastri. Vedere `unity_logs/architecture*` e `docs/quality-audit.md`.
 
-Restano richiesti e aperti: nuove funzioni delle stanze, corridoi progettati come collegamenti, geometrie curve e
-meno regolari; riformulazione della Veglia; nuova gerarchia dell'HUD; animazione e feedback degli attacchi e degli
-impatti. La prima passata non chiude la revisione complessiva.
+## Seconda passata: nuove forme e funzioni
+
+Il generatore ora sceglie una sala adatta come Rotonda, con quattro pareti curve fisiche, fontana bassa centrale,
+isole di seduta e due fasce di circolazione. La curvatura rispetta le porte esistenti; le finestre restano sui tratti
+rettilinei. Le sale allungate diventano Gallerie; nell’albergo compare anche un Giardino d’inverno con piante e sedute.
+Le stanze curve usano la stessa impronta per appartenenza, arredi, punti dei nemici e mappa. Gli espositori restano
+sui tratti rettilinei accessibili. Il lampadario della Rotonda illumina pavimento e ostacoli senza cambiare la luminosità
+scelta dal giocatore. Le balconate della prima passata restano nelle altre sale ampie.
+
+Verifiche: 400 piani costruiti, nessun problema residuo, 8.164 punti superiori raggiungibili; 399 sale curve senza
+angoli esclusi attraversabili. Camminata fisica e collisioni nei tre temi: 42/42 per prova. Dodici piani completi
+percorsi senza avvisi; interfaccia 92/92. Log in `unity_logs/curves-*`.
+
+Restano aperti: riformulazione della Veglia, nuova gerarchia dell’HUD, animazione e feedback degli attacchi e degli
+impatti. Continuare anche la valutazione degli spazi durante il combattimento: le prove di navigazione non bastano
+a dimostrare il ritmo finale con gruppi di nemici. La revisione complessiva rimane in corso.

@@ -222,15 +222,71 @@ namespace PryingEyes.Proc
             if (!AddLift(p, r, boss.room)) { LastFailure = "griglia: ascensore di uscita"; return null; }
             p.exit = p.rooms.Count - 1;
 
+            ShapeSpaces(p);
             AddWindows(p, r);
             AddThemeWindows(p, r);
             AddGridPassages(p, r);
+            p.openings.RemoveAll(o =>
+            {
+                if (o.sill < 0.5f && !o.oneSided) return false;
+                var room = p.rooms[o.a];
+                if (room.cornerRadius <= 0f) return false;
+                float lo = (o.alongX ? room.x0 : room.z0) * 0.1f + room.cornerRadius + 0.2f;
+                float hi = (o.alongX ? room.x1 : room.z1) * 0.1f - room.cornerRadius - 0.2f;
+                return o.Lo * 0.1f < lo || o.Hi * 0.1f > hi;
+            });
             foreach (var a in arenas) p.objectives.Add(a.room.id);
             p.ComputeBounds();
             foreach (var room in p.rooms) { room.label = room.kind.ToString(); room.variant = r.Range(0, 1000); }
             p.epithet = Epithet(p, r);
             p.name = "Piano " + floor;
             return p;
+        }
+
+        static void ShapeSpaces(Plan plan)
+        {
+            float Radius(Room room)
+            {
+                float radius = Math.Min(room.W, room.D) * 0.05f - 1.7f;
+                foreach (var opening in plan.openings)
+                {
+                    if (opening.a != room.id && opening.b != room.id) continue;
+                    int lo = opening.alongX ? room.x0 : room.z0, hi = opening.alongX ? room.x1 : room.z1;
+                    radius = Math.Min(radius, Math.Min(opening.Lo - lo, hi - opening.Hi) * 0.1f - 0.4f);
+                }
+                return Math.Max(0f, radius);
+            }
+            Room rotunda = null;
+            float best = 0f;
+            foreach (var room in plan.rooms)
+            {
+                if (room.type != RoomType.Guardia || Math.Min(room.W, room.D) < 128) continue;
+                if (Math.Max(room.W, room.D) > Math.Min(room.W, room.D) * 1.5f) continue;
+                float radius = Radius(room);
+                if (radius > best) { best = radius; rotunda = room; }
+            }
+            if (rotunda != null && best >= 2.5f)
+            {
+                rotunda.kind = RoomKind.Rotonda; rotunda.cornerRadius = best;
+                rotunda.upperGallery = false; rotunda.ceil = CeilKind.Flat;
+                rotunda.wallH = Math.Max(rotunda.wallH, 6.2f); rotunda.ridgeH = rotunda.wallH;
+            }
+            bool garden = false;
+            foreach (var room in plan.rooms)
+            {
+                if (room.type != RoomType.Guardia || room == rotunda) continue;
+                if (Math.Max(room.W, room.D) >= Math.Min(room.W, room.D) * 1.65f)
+                {
+                    room.kind = RoomKind.Galleria;
+                    room.wallH = Math.Max(room.wallH, 4.8f); room.ridgeH = Math.Max(room.ridgeH, room.wallH);
+                }
+                else if (!garden && !room.church && plan.theme == Theme.Albergo)
+                {
+                    room.kind = RoomKind.GiardinoInverno; garden = true;
+                    room.cornerRadius = Math.Min(1.5f, Radius(room));
+                    room.wallH = Math.Max(room.wallH, 5.8f); room.ridgeH = Math.Max(room.ridgeH, room.wallH);
+                }
+            }
         }
 
         /// <summary>Foglie speciali e arene non fanno anelli: la partenza si limita a tre porte, tutte le altre a quattro.</summary>
@@ -489,12 +545,13 @@ namespace PryingEyes.Proc
             var candidates = new List<Opening>();
             foreach (var room in p.rooms)
             {
-                if (room.IsLift || room.type == RoomType.Segreta || room.type == RoomType.Boss || room.type == RoomType.Negozio || room.type == RoomType.Biblioteca) continue;
+                if (room.IsLift || room.cornerRadius > 0f || room.type == RoomType.Segreta || room.type == RoomType.Boss || room.type == RoomType.Negozio || room.type == RoomType.Biblioteca) continue;
                 foreach (var side in AllSides)
                     foreach (var seg in p.Segments(room, side))
                     {
                         if (seg.other <= room.id) continue;
                         var other = p.rooms[seg.other];
+                        if (other.cornerRadius > 0f) continue;
                         if (other.IsLift || other.type == RoomType.Segreta || other.type == RoomType.Boss || other.type == RoomType.Negozio || other.type == RoomType.Biblioteca) continue;
                         if (seg.a1 - seg.a0 < 24) continue;
                         int line = Plan.Line(room, side);

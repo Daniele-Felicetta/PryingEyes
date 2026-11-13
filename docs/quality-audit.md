@@ -279,6 +279,28 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 - Cooperativa sul nuovo generatore: **16/16 ospite e 26/26 client** (`architecture-coop`), con firma del piano
   uguale dopo la transizione. Build principale aggiornata a gioco chiuso, 189 file verificati con SHA-256.
 
+## Seconda passata degli spazi: curve e nuove sale (13 novembre 2026)
+
+- Aggiunte Rotonda, Galleria e Giardino d’inverno. Le pareti curve hanno mesh e collisioni; l’impronta condivisa
+  esclude gli angoli da stanza, arredi e punti dei nemici. Finestre e acquisti rispettano i tratti rettilinei rimasti.
+  La mappa usa bordi arrotondati e nomi delle nuove funzioni. La luce della Rotonda è stata rivista osservando
+  il rendering reale (`unity_logs/architecture/rotonda.png`), senza modificare le preferenze del giocatore.
+- **400/400** piani senza problemi residui, 5.164 stanze ordinarie più 386 segrete, nessuna candela, uscita o cabina
+  irraggiungibile. Riparazioni limitate a nove arredi su due piani, nessuna stanza svuotata. Medie: costruzione
+  38 ms e navmesh 107 ms (`curves-400.log`). **8.164 punti superiori raggiungibili**; **399 sale curve** senza
+  angoli esclusi attraversabili dalla navmesh.
+- Controller reale: salita e discesa delle balconate, parete curva che blocca visione e movimento, sedici tratti
+  attorno alla Rotonda: **42/42** in albergo, teatro e sanatorio (`curves-light-player.log`, `curves-2961.log`,
+  `curves-3046.log`). Teletrasporto usato solo per posizionare l’inizio delle prove, non per superarne gli ostacoli.
+- **12/12 piani** completati senza avvisi con navigazione rigorosa su quattro semi (`curves-navigation`).
+  Interfaccia **92/92**, comprese interazioni ostruite e acquisti sui quattro orientamenti (`curves-ui`).
+- Mappa, pattuglie e passaggi bassi: `curves-griglia.txt`, **ESITO: ok**. Libri, altare, scrigno,
+  bonus e morte/rinascita: `curves-libri.txt`, **ESITO: ok**, entrambi con uscita del processo 0.
+- Cooperativa a due processi: **16/16 ospite, 26/26 client**, entrambi usciti con 0 in 76 s, firma del nuovo
+  piano concorde dopo la transizione (`curves-coop`). Build principale aggiornata a gioco chiuso, 189 file
+  verificati con SHA-256. Protocollo `pe-coop-7` per geometria e posizionamento deterministico.
+  HUD, Veglia e feedback degli attacchi restano ambiti aperti; questa passata non completa l’audit generale.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

@@ -32,7 +32,7 @@ namespace PryingEyes.EditorTools
             var sb = new StringBuilder();
             var kindBad = new Dictionary<string, int>();
             float tBuild = 0f, tNav = 0f;
-            int upperAll = 0, upperBad = 0;
+            int upperAll = 0, upperBad = 0, curvedAll = 0, curvedBad = 0;
             // -propstats: quanti arredi di ogni tipo finiscono in quale tipo di stanza, sommati sui piani (dopo la riparazione)
             var propStats = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-propstats") >= 0 ? new SortedDictionary<string, SortedDictionary<string, int>>() : null;
             var themeFloors = new SortedDictionary<string, int>();
@@ -148,6 +148,17 @@ namespace PryingEyes.EditorTools
                             sb.AppendLine($"seme {seed} piano {floor}: balconata sala {gallery.room.id} punto {point} irraggiungibile ({upperWhy})");
                         }
                     }
+                foreach (var room in plan.rooms)
+                {
+                    if (room.cornerRadius < 2.5f) continue;
+                    curvedAll++;
+                    Vector3 excluded = new Vector3(room.x0 * 0.1f + 0.2f, 0f, room.z0 * 0.1f + 0.2f);
+                    if (room.Contains(excluded.x, excluded.z) || Reach(excluded, 0.12f, out _))
+                    {
+                        curvedBad++; bad = true;
+                        sb.AppendLine($"seme {seed} piano {floor}: angolo escluso della rotonda {room.id} attraversabile");
+                    }
+                }
                 if (fi.exit != null && !Reach(fi.exit.frontPoint, 1.5f, out string why2))
                 {
                     exitBad++; bad = true;
@@ -164,6 +175,7 @@ namespace PryingEyes.EditorTools
                           $"costruzione media {tBuild / n * 1000f:F0} ms, navmesh media {tNav / n * 1000f:F0} ms");
             foreach (var kv in kindBad) sb.AppendLine($"[PryingEyes] CHECK irraggiungibili per tipo: {kv.Key} x{kv.Value}");
             sb.AppendLine($"[PryingEyes] CHECK balconate: {upperAll} punti superiori, {upperBad} irraggiungibili dall'arrivo");
+            sb.AppendLine($"[PryingEyes] CHECK sale curve: {curvedAll}, angoli esclusi attraversabili {curvedBad}");
             Debug.Log(sb.ToString());
             System.IO.File.WriteAllText("C:/Users/danie/Desktop/prying-eyes/hotel_build/proccheck.txt", sb.ToString());
             if (propStats != null)

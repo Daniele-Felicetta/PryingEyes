@@ -115,6 +115,9 @@ namespace PryingEyes.Proc
             {
                 case RoomKind.Ascensore: Lift(c); break;
                 case RoomKind.Atrio: Atrio(c); break;
+                case RoomKind.Rotonda: Rotonda(c); break;
+                case RoomKind.Galleria: Corridoio(c); break;
+                case RoomKind.GiardinoInverno: GiardinoInverno(c); break;
                 case RoomKind.Corridoio: Corridoio(c); break;
                 case RoomKind.Camera: Camera(c, false); break;
                 case RoomKind.Suite: Camera(c, true); break;
@@ -256,10 +259,15 @@ namespace PryingEyes.Proc
             float s = Mathf.Abs(Mathf.Sin(yaw * Mathf.Deg2Rad)), co = Mathf.Abs(Mathf.Cos(yaw * Mathf.Deg2Rad));
             float ex = (w * co + d * s) * 0.5f + margin, ez = (w * s + d * co) * 0.5f + margin;
             if (pos.x - ex < c.ix0 - 0.02f || pos.x + ex > c.ix1 + 0.02f || pos.z - ez < c.iz0 - 0.02f || pos.z + ez > c.iz1 + 0.02f) return false;
+            if (c.r.cornerRadius > 0f && !FitsShape(c.r, pos, ex, ez)) return false;
             var rc = new Rect(pos.x - ex, pos.z - ez, ex * 2f, ez * 2f);
             foreach (var o in c.occ) if (o.Overlaps(rc)) return false;
             return true;
         }
+
+        static bool FitsShape(Room room, Vector3 pos, float ex, float ez) =>
+            room.Contains(pos.x - ex, pos.z - ez, FloorBuilder.TH) && room.Contains(pos.x + ex, pos.z - ez, FloorBuilder.TH) &&
+            room.Contains(pos.x - ex, pos.z + ez, FloorBuilder.TH) && room.Contains(pos.x + ex, pos.z + ez, FloorBuilder.TH);
 
         static void Occupy(Ctx c, Vector3 pos, float w, float d, float yaw)
         {
@@ -277,6 +285,11 @@ namespace PryingEyes.Proc
         {
             var def = PropDefs.Get(name);
             float yaw = YawOf(face) + yawJitter;
+            if (c.r.cornerRadius > 0f)
+            {
+                float s = Mathf.Abs(Mathf.Sin(yaw * Mathf.Deg2Rad)), co = Mathf.Abs(Mathf.Cos(yaw * Mathf.Deg2Rad));
+                if (!FitsShape(c.r, pos, (def.size.x * sx * co + def.size.z * s) * 0.5f, (def.size.x * sx * s + def.size.z * co) * 0.5f)) return null;
+            }
             if (check && !Free(c, pos, def.size.x * sx, def.size.z, yaw)) return null;
             var go = new GameObject(name);
             go.transform.SetParent(c.props, false);
@@ -651,7 +664,7 @@ namespace PryingEyes.Proc
             if (c.r.type == RoomType.Segreta) return;       // la stanza segreta e' raggiungibile solo a carponi: nessuno nasce li' dentro (resterebbe sull'isola della navmesh)
             var r = c.r;
             Vector3 ctr = c.Center;
-            bool corridor = r.kind == RoomKind.Corridoio;
+            bool corridor = r.kind == RoomKind.Corridoio || r.kind == RoomKind.Galleria;
             if (corridor)
             {
                 Vector3 a = LongAxis(c);
@@ -669,7 +682,7 @@ namespace PryingEyes.Proc
                 for (int i = 0; i < n; i++)
                 {
                     Vector3 p = ctr + new Vector3(c.rng.Range(-0.3f, 0.3f) * c.W * (n > 1 ? 1f : 0f), 0f, c.rng.Range(-0.3f, 0.3f) * c.D * (n > 1 ? 1f : 0f));
-                    c.fi.groundSpawns.Add(p);
+                    if (r.Contains(p.x, p.z, 0.8f)) c.fi.groundSpawns.Add(p);
                 }
             }
             c.fi.airSpawns.Add(new Vector3(ctr.x, Mathf.Min(2.4f, r.wallH - 0.6f), ctr.z));
