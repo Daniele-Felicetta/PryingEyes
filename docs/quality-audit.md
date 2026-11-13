@@ -410,6 +410,36 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 - Build principale aggiornata a gioco chiuso: **189 file verificati con SHA-256**. Archiviate le rigenerazioni
   della scena e dei materiali delle armi; confronto semantico con gli originali riuscito prima della pulizia.
 
+## Settima passata: Veglia e replica della mischia (13 novembre 2026)
+
+- Riformulata la Veglia come effigie votiva sospesa: maschera con orbita realmente scavata, colature di cera,
+  aureola metallica, tre ceri e pannelli di tessuto con normali morbide. Superata la sagoma cilindrica con teli
+  rigidi. Preparazione con inclinazione del corpo, dilatazione dell’iride e allungamento delle fiamme; il punto
+  debole segue la maschera. Fiamme a due materiali emissivi e spegnimento alla morte, senza luci aggiuntive.
+- Le prime immagini hanno rilevato normali nulle sulla maschera e sul velo: il prodotto vettoriale fra differenze
+  molto piccole finiva sotto la soglia di `Vector3.normalized`. Normalizzati prima i due vettori tangenti. Un secondo
+  problema interessava le facce degli orli da 3 mm: corretto `MeshBuilder.Quad` usando la lunghezza effettiva,
+  dopo il controllo dei degeneri. `QuadW` sceglie gli UV dalla direzione senza azzerare il vettore. La verifica
+  delle normali ha fallito **49/52** prima della correzione degli orli (`vigil-fixed-player.log`).
+- Trovato un errore nella replica: `strikeAt` diminuiva due volte, `atkLock` non diminuiva. Riprodotti preparazione
+  troppo breve e recupero che non terminava (`vigil-puppet-red-player.log`). Ora ogni timer avanza una sola volta;
+  la nuova prova usa il pupazzo con eventi reali, attende le tre fasi e verifica la durata. Mischia con grafica:
+  **65/65**, uscita 0 (`vigil-puppet-final-player.log`). La prova iniziale senza foto segnalava anche sei confronti
+  delle pose; la verifica completa delle pose è quella con `-meleeshots`, senza allentarne le soglie.
+- Verifica finale dei modelli: **54/54 in ciascuno dei tre temi**, uscite 0 (`vigil-release-albergo`,
+  `vigil-release-teatro`, `vigil-release-sanatorio`). Comprende vertici finiti, normali valide, budget geometrico,
+  posa di preparazione, allineamento del punto debole, recupero, spegnimento e rilascio di mesh/materiali.
+  Veglia **14.507 vertici**, Portachiavi **5.411**; entrambi sotto il limite della prova di 18.000. Viste a quattro
+  angoli e immagini nell’ambiente reale con torcia e luminosità dell’utente. Sono prove di presentazione delle
+  pose, non una verifica nuova del danno dei volanti; quella rimane da completare.
+- Regressione dei percorsi fisici con la correzione di `MeshBuilder`: **42/42**, uscita 0 (`vigil-architecture`),
+  comprese salita/discesa delle balconate e circolazione della Rotonda. Build completa e successiva build del
+  codice riuscite. Resta da misurare il costo della nuova Veglia durante le orde.
+- Cooperativa a due processi: **16/16 ospite, 28/28 client**, uscite 0 in 76 s (`vigil-coop`). Nessun cambio al
+  formato di rete o alle regole del piano: protocollo **`pe-coop-9`**. Build principale aggiornata a gioco chiuso,
+  **189 file verificati con SHA-256**. Scena/materiali rigenerati confrontati semanticamente e archiviati prima
+  di ripristinare gli originali, senza includere cambi dei soli identificatori.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

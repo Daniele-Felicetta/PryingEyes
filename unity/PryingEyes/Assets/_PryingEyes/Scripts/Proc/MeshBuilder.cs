@@ -49,7 +49,8 @@ namespace PryingEyes.Proc
                 var tu = ub; ub = ud; ud = tu;
                 n = -n;
             }
-            n.Normalize();
+            // Vector3.Normalize azzera anche facce valide sotto 1e-5 m² (orli e fili sottili).
+            n /= Mathf.Sqrt(n.sqrMagnitude);
             var s = S(m);
             int i = s.v.Count;
             s.v.Add(a); s.v.Add(b); s.v.Add(c); s.v.Add(d);
@@ -94,7 +95,7 @@ namespace PryingEyes.Proc
 
         public void QuadW(Material m, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 facing)
         {
-            var n = Vector3.Cross(b - a, c - a).normalized;
+            var n = Vector3.Cross(b - a, c - a);
             if (Vector3.Dot(n, facing) < 0f) n = -n;
             Quad(m, a, b, c, d, BoxUV(a, n), BoxUV(b, n), BoxUV(c, n), BoxUV(d, n), facing);
         }

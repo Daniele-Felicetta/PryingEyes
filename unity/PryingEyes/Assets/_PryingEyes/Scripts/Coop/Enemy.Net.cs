@@ -168,6 +168,7 @@ namespace PryingEyes
         {
             if (!netInit) return;
             flinchT -= dt;
+            atkLock -= dt;
             if (strikeAt >= 0f) strikeAt -= dt;
             Vector3 gp = transform.position;
             Vector3 to = net.pos - gp;
@@ -201,7 +202,7 @@ namespace PryingEyes
                         else Sfx.At(SoundBank.Tap, tap, 0.55f, Random.Range(0.92f, 1.08f), 1.5f, 24f);
                     }
                 }
-                if (strikeAt >= 0f) { strikeAt -= dt; MeleeSwish(); }
+                if (strikeAt >= 0f) MeleeSwish();
                 if (castAt >= 0f)
                 {
                     // la sfera si carica sul bastone; il dardo arriva da solo (messaggio Bolt)

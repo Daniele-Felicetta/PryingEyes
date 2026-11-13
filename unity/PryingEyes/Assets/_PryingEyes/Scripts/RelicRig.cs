@@ -84,58 +84,6 @@ namespace PryingEyes
                 }
         }
 
-        Vector3 Vigil()
-        {
-            var mb = new MeshBuilder();
-            // Un cero scavato: bocca scura, maschera di cera, bordo colato e stoppino vivo.
-            Turn(mb, Shell, Vector3.zero, new[] { new Vector2(0.12f, -0.26f), new Vector2(0.16f, -0.12f),
-                new Vector2(0.14f, 0.12f), new Vector2(0.15f, 0.22f), new Vector2(0.11f, 0.25f),
-                new Vector2(0.085f, 0.20f), new Vector2(0.085f, 0.14f) });
-            Turn(mb, Glow, Vector3.up * 0.22f, new[] { new Vector2(0.005f, 0), new Vector2(0.035f, 0.045f),
-                new Vector2(0.018f, 0.095f), new Vector2(0.001f, 0.16f) }, 16);
-            for (int side = -1; side <= 1; side += 2)
-            {
-                Piece(model, new Vector3(side * 0.063f, 0.08f, 0.132f), new Vector3(0.058f, 0.025f, 0.006f), membrane);
-                Piece(model, new Vector3(side * 0.063f, 0.076f, 0.137f), new Vector3(0.020f, 0.006f, 0.003f), Glow);
-            }
-            Piece(model, new Vector3(0, -0.07f, 0.163f), new Vector3(0.03f, 0.07f, 0.009f), membrane);
-            mb.Beam(Shell, new Vector3(0, 0.07f, 0.15f), new Vector3(0, -0.02f, 0.173f), 0.022f, 0.022f, Vector3.forward);
-            for (int i = 0; i < 9; i++)
-            {
-                float a = i * Mathf.PI * 2f / 9f;
-                Vector3 p = new Vector3(Mathf.Sin(a) * 0.14f, 0.14f, Mathf.Cos(a) * 0.14f);
-                mb.Beam(Shell, p, p - Vector3.up * (0.12f + 0.08f * Mathf.Sin(i * 1.7f)), 0.025f, 0.025f, Vector3.forward);
-            }
-            RelicPart(model, "Volto di cera e stoppino", mb);
-            // Tre teli plissettati, aperti davanti: il volto resta leggibile e colpibile.
-            for (int panel = 0; panel < 3; panel++)
-            {
-                var cloth = new MeshBuilder();
-                float from = 35f + panel * 96f;
-                Vector3 P(int u, int v)
-                {
-                    float t = v / 10f, angle = (from + u * 96f / 20f) * Mathf.Deg2Rad;
-                    float folds = 0.025f * Mathf.Cos(u * Mathf.PI * 0.8f) * (0.3f + t);
-                    float radius = Mathf.Lerp(0.18f, 0.48f, t) + folds;
-                    float rag = t * t * (0.055f * Mathf.Sin(u * 2.3f + panel) + 0.035f * Mathf.Cos(u * 4f));
-                    return new Vector3(Mathf.Sin(angle) * radius, 0.24f - t * 0.95f + rag, Mathf.Cos(angle) * radius);
-                }
-                for (int v = 0; v < 10; v++)
-                    for (int u = 0; u < 20; u++)
-                    {
-                        if (v == 9 && (u + panel) % 7 == 0) continue;
-                        var a = P(u, v); var b = P(u + 1, v); var c = P(u + 1, v + 1); var d = P(u, v + 1);
-                        cloth.QuadW(membrane, a, b, c, d, new Vector3(a.x, 0f, a.z));
-                        // Orlo ocra consumato, cucito nella stessa geometria.
-                        if (u == 0 || u == 19 || v == 8)
-                            cloth.Beam(Shell, a, u == 0 || u == 19 ? d : b, 0.007f, 0.007f, Vector3.forward);
-                    }
-                var veil = Limb(Vector3.zero, Vector3.forward, panel * 1.9f, panel == 1 ? 4f : 9f);
-                RelicPart(veil, "Velo votivo " + panel, cloth);
-            }
-            return new Vector3(0f, 0.03f, 0.15f);
-        }
-
         Vector3 KeyKeeper()
         {
             var mb = new MeshBuilder();

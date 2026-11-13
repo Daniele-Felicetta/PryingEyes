@@ -83,10 +83,10 @@ namespace PryingEyes
             Glow = EnemyMats.Glow(colors.Item2, 0.58f);
             if (kind == Enemy.EnemyType.Veglia)
             {
-                membrane.color = new Color(0.23f, 0.19f, 0.14f);
+                membrane.color = new Color(0.075f, 0.085f, 0.105f);
                 membrane.SetFloat("_Smoothness", 0.12f);
                 membrane.SetFloat("_Cull", 0f);
-                Shell.color = colors.Item1 * 0.65f;
+                Shell.color = new Color(0.78f, 0.66f, 0.47f);
                 Shell.SetFloat("_Smoothness", 0.2f);
             }
             else if (kind == Enemy.EnemyType.Portachiavi)
@@ -105,7 +105,7 @@ namespace PryingEyes
                 case Enemy.EnemyType.Medusa: weakPoint = Jelly(); break;
                 default: weakPoint = KeyKeeper(); break;
             }
-            var head = Joint(transform, "Nucleo", weakPoint);
+            var head = Joint(model, "Nucleo", weakPoint);
             head.tag = "Head";
             var weak = head.gameObject.AddComponent<SphereCollider>();
             weak.radius = 0.16f;
@@ -145,13 +145,16 @@ namespace PryingEyes
             float t = Time.time * rate + phase;
             foreach (var limb in limbs)
                 limb.joint.localRotation = Quaternion.AngleAxis(Mathf.Sin(t + limb.phase) * limb.amplitude * strength, limb.axis);
-            if (kind == Enemy.EnemyType.Medusa) model.localScale = Vector3.one * (1f + (striking ? 0.09f : 0.028f) * Mathf.Sin(t));
+            if (kind == Enemy.EnemyType.Veglia) AnimateVigil(t, striking);
+            else if (kind == Enemy.EnemyType.Medusa) model.localScale = Vector3.one * (1f + (striking ? 0.09f : 0.028f) * Mathf.Sin(t));
             else model.localRotation = Quaternion.Euler(striking ? 12f : Mathf.Sin(t * 0.5f) * 2f, 0f, Mathf.Sin(t * 0.7f) * 2f);
         }
 
         public void Collapse()
         {
             Glow.SetColor("_EmissionColor", Color.black);
+            if (vigilFire != null) vigilFire.SetColor("_EmissionColor", Color.black);
+            if (vigilHeart != null) vigilHeart.SetColor("_EmissionColor", Color.black);
             if (kind == Enemy.EnemyType.Portachiavi) model.localScale = new Vector3(1f, 0.58f, 1f);
             if (kind == Enemy.EnemyType.Veglia) model.localScale = new Vector3(1f, 0.55f, 1f);
         }
@@ -161,6 +164,9 @@ namespace PryingEyes
             Destroy(Shell);
             Destroy(membrane);
             Destroy(Glow);
+            if (vigilMetal != null) Destroy(vigilMetal);
+            if (vigilFire != null) Destroy(vigilFire);
+            if (vigilHeart != null) Destroy(vigilHeart);
             foreach (var mesh in relicMeshes) Destroy(mesh);
             foreach (var texture in relicTextures) Destroy(texture);
         }

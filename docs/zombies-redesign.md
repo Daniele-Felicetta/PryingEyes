@@ -91,5 +91,16 @@ Verifica dei pixel renderizzati: **53/53**, a 0,9, 1,8 e 8 m, fuori asse e con t
 il bianco della stessa inquadratura, per rilevare la saturazione anche dopo la colorazione cinematografica.
 Le prove della mischia passano **62/62 in ciascuno dei tre temi**, con immagini delle fasi frontali e laterali.
 
-Restano aperti: riformulazione della Veglia, gesti dei nemici non umanoidi e valutazione degli spazi durante
+## Settima passata: effigie votiva e tempi della replica
+
+La Veglia perde il corpo cilindrico e il velo a cono. Ora è una maschera di cera scavata attorno a un’unica
+orbita, con colature sotto il mento, aureola in ottone brunito, tre ceri asimmetrici e un velo funebre a pieghe
+morbide. Le fiamme hanno involucro ambrato e nucleo chiaro, oscillano e si spengono alla morte. Durante la
+preparazione il corpo si inclina, l’iride si allarga e le fiamme si allungano; il collider del punto debole segue
+la maschera animata. Non vengono aggiunte luci dinamiche per ogni creatura.
+
+Corretti anche i tempi della mischia sul client: la preparazione veniva consumata due volte per fotogramma,
+mentre il blocco del recupero non scadeva. La verifica distingue ora preparazione, contatto e fine del recupero.
+
+Restano aperti: gesto di contatto e recupero dei volanti, gesti del Portachiavi e valutazione degli spazi durante
 combattimenti affollati. La revisione complessiva rimane in corso.

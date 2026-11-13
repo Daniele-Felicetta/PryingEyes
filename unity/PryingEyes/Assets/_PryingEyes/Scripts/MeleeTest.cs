@@ -110,6 +110,16 @@ namespace PryingEyes
                 enemy.transform.rotation = Quaternion.LookRotation(-forward); enemy.MakeRelentless(); return enemy;
             }
             var types = new[] { Enemy.EnemyType.Monaco, Enemy.EnemyType.Abate, Enemy.EnemyType.Maschera, Enemy.EnemyType.Direttore, Enemy.EnemyType.Infermiere, Enemy.EnemyType.Primario };
+            var puppet = Enemy.SpawnPuppet(9876, Enemy.EnemyType.Monaco,
+                new EnemyNet { pos = arena + forward * 3, hp = 1, alert = Alert.Patrol });
+            puppet.PuppetEvent(EnemyEvt.Attack, Vector3.zero, 0);
+            yield return new WaitForSeconds(0.4f);
+            Check("replica conserva la preparazione per la durata della clip", puppet.PreparingMelee);
+            yield return new WaitForSeconds(0.25f);
+            Check("replica passa al recupero dopo il contatto", !puppet.PreparingMelee && puppet.RecoveringMelee);
+            yield return new WaitForSeconds(0.9f);
+            Check("replica termina il recupero", !puppet.RecoveringMelee);
+            Enemy.Remove(puppet); yield return null;
             foreach (var type in types)
             {
                 var enemy = Spawn(type);

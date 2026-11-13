@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace PryingEyes
@@ -44,6 +45,28 @@ namespace PryingEyes
             gm.player.enabled = false; gm.player.invulnerable = true;
             Enemy.ClearAll(); Enemy.debugFreeze = Enemy.debugNoSense = true;
             string output = Path.GetFullPath("unity_logs/relics"); Directory.CreateDirectory(output);
+            bool worldView=false;
+            foreach(var point in Proc.FloorDirector.I.cur.groundSpawns)
+            {
+                if(point.y>0.5f)continue;
+                Vector3 position=point+Vector3.up*1.55f+Vector3.forward*1.8f;
+                if(Physics.CheckCapsule(position-Vector3.up*0.65f,position+Vector3.up*0.4f,0.42f,HotelNav.EnvMask,QueryTriggerInteraction.Ignore)||
+                    Physics.CheckCapsule(point+Vector3.up*0.5f,point+Vector3.up*1.4f,0.42f,HotelNav.EnvMask,QueryTriggerInteraction.Ignore)||
+                    !HotelNav.ClearLine(point+Vector3.up*1.62f,position))continue;
+                gm.player.Teleport(point+Vector3.up*0.05f);
+                gm.player.cam.SetPositionAndRotation(point+Vector3.up*1.62f,Quaternion.identity);
+                var actor=Enemy.Spawn(Enemy.EnemyType.Veglia,position,puppet:true);actor.enabled=false;
+                actor.transform.rotation=Quaternion.Euler(0,180,0);
+                Torch.I.on=true;
+                yield return new WaitForSeconds(0.8f);
+                Proc.LightPool.Tick(false,gm.player.cam.position);
+                GameManager.CamShot(Path.Combine(output,"Veglia_ambiente.png"),null,true);
+                float end=Time.time+0.4f;
+                while(Time.time<end){actor.GetComponent<AlienRig>().Animate(0,1,true,true);yield return null;}
+                GameManager.CamShot(Path.Combine(output,"Veglia_ambiente_preparazione.png"),null,true);
+                Enemy.Remove(actor);yield return null;worldView=true;break;
+            }
+            Check("Veglia vista con luce e ambiente reali",worldView);
             const int layer = 13;
             var cam = new GameObject("Camera modelli").AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.022f, 0.026f, 0.033f);
@@ -68,9 +91,11 @@ namespace PryingEyes
                 foreach (var mf in enemy.GetComponentsInChildren<MeshFilter>())
                 {
                     Check(kind + " mesh finita " + mf.name, Array.TrueForAll(mf.sharedMesh.vertices, v => float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z)));
+                    Check(kind + " normali valide " + mf.name, Array.TrueForAll(mf.sharedMesh.normals, n => float.IsFinite(n.x) && float.IsFinite(n.y) && float.IsFinite(n.z) && n.sqrMagnitude > 0.9f));
                     count += mf.sharedMesh.vertexCount;
                 }
                 Check(kind + " geometria e budget", count > 1000 && count < 18000);
+                Debug.Log($"[PryingEyes] relictest geometria {kind}: {count} vertici");
                 Check(kind + " punto debole", Array.Exists(enemy.GetComponentsInChildren<Collider>(), c => c.CompareTag("Head") && !c.isTrigger));
                 var joint = rig.transform.Find("Corpo/Arto");
                 rig.Animate(0f, 1f, false, false);
@@ -87,9 +112,31 @@ namespace PryingEyes
                     GameManager.CamShot(Path.Combine(output, kind + "_" + angle + ".png"), cam, false, 960, 960);
                 }
                 var meshes = enemy.GetComponentsInChildren<MeshFilter>();
-                Mesh owned = Array.Find(meshes, mf => mf.sharedMesh.name == (kind == Enemy.EnemyType.Veglia ? "Volto di cera e stoppino" : "Casellario e campanello")).sharedMesh;
+                Mesh owned = Array.Find(meshes, mf => mf.sharedMesh.name == (kind == Enemy.EnemyType.Veglia ? "Maschera votiva di cera" : "Casellario e campanello")).sharedMesh;
+                var ownedMaterials = new HashSet<Material>();
+                foreach (var renderer in enemy.GetComponentsInChildren<Renderer>())
+                    foreach (var material in renderer.sharedMaterials) ownedMaterials.Add(material);
+                if (kind == Enemy.EnemyType.Veglia)
+                {
+                    enemy.transform.rotation = Quaternion.identity;
+                    var iris=enemy.transform.Find("Corpo/Iride della Veglia");
+                    var head=enemy.transform.Find("Corpo/Nucleo");
+                    float end=Time.time+0.4f;
+                    while(Time.time<end){rig.Animate(0,1,true,true);yield return null;}
+                    Check("Veglia prepara il contatto con iride e corpo",iris.localScale.x>1.25f && Quaternion.Angle(Quaternion.identity,iris.parent.localRotation)>8);
+                    Check("Veglia punto debole segue la maschera animata",Vector3.Distance(head.position,iris.position)<0.001f);
+                    GameManager.CamShot(Path.Combine(output,"Veglia_preparazione.png"),cam,false,960,960);
+                    end=Time.time+0.4f;
+                    while(Time.time<end){rig.Animate(0,1,true,false);yield return null;}
+                    Check("Veglia recupera dopo la preparazione",iris.localScale.x<1.05f);
+                    rig.Collapse();
+                    var fire=enemy.transform.Find("Corpo/Fiamma 0").GetComponent<Renderer>().sharedMaterials;
+                    Check("Veglia spegne le fiamme alla morte",Array.TrueForAll(fire,m=>m.GetColor("_EmissionColor").maxColorComponent<0.001f));
+                }
                 Destroy(enemy.gameObject); yield return null; yield return null;
                 Check(kind + " mesh rilasciata", owned == null);
+                bool released=true; foreach(var material in ownedMaterials) released &= material==null;
+                Check(kind+" materiali rilasciati",released);
             }
         }
     }
