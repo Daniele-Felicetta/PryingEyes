@@ -59,6 +59,7 @@ namespace PryingEyes
         Transform visual, legL, legR, headT, torchT;
         new TextMesh tag;                       // il nome sopra la testa (nasconde Component.tag: qui non serve quello di Unity)
         Light beam;
+        float torchNear = 1f;
         Proc.PoolLight pooled;
         float walkPhase;
         bool shown;
@@ -157,9 +158,9 @@ namespace PryingEyes
             bg.transform.SetParent(transform, false);
             beam = bg.AddComponent<Light>();
             beam.type = LightType.Spot;
-            beam.range = 30f; beam.spotAngle = 66f; beam.innerSpotAngle = 46f;
+            beam.range = 36f; beam.spotAngle = 72f; beam.innerSpotAngle = 52f;
             beam.color = new Color(1f, 0.93f, 0.80f);
-            beam.intensity = 30f;
+            beam.intensity = Torch.BeamIntensity;
             beam.shadows = LightShadows.None;
             beam.cookie = Torch.Cookie();
             beam.bounceIntensity = 0f;
@@ -253,6 +254,13 @@ namespace PryingEyes
                 Vector3 head = transform.position + Vector3.up * (last.crouch ? 1.2f : 1.62f);
                 beam.transform.position = head + transform.forward * 0.25f;
                 beam.transform.rotation = Quaternion.Euler(netPitch * Mathf.Rad2Deg, yawDeg, 0f);      // come la camera di PlayerController: pitch positivo = guarda in basso
+                if (beam.enabled)
+                {
+                    torchNear = Torch.AdaptProximity(torchNear, Torch.ProximityScale(beam.transform), dt);
+                    beam.intensity = Torch.BeamIntensity * torchNear;
+                    beam.spotAngle = Torch.BeamAngle(72, torchNear); beam.innerSpotAngle = beam.spotAngle * 0.72f;
+                }
+                else torchNear = 1f;
             }
             if (tag != null)
             {

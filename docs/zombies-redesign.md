@@ -79,7 +79,17 @@ Verifica nel gioco: **62/62**, comprese le sei clip, altezza delle mesh animate,
 del controller e contatto annullato. Pose frontali e laterali in `unity_logs/melee`. Cooperativa: **16/16 ospite,
 28/28 client**, inclusa la visione della preparazione della nuova clip sul client.
 
-Restano aperti: riformulazione della Veglia e valutazione dei gesti dei nemici non umanoidi, ancora procedurali.
-Le immagini ravvicinate evidenziano anche zone bruciate dalla torcia su alcuni costumi: correggere luce/materiali
-senza cambiare le preferenze del giocatore. Continuare la valutazione degli spazi durante combattimenti affollati.
-La revisione complessiva rimane in corso.
+## Sesta passata: torcia e costumi leggibili
+
+Il fascio misura anche i nemici e le superfici ai lati del centro; attenua immediatamente luce e alone da vicino,
+allarga il cono e recupera gradualmente la portata quando si guarda lontano. Il pavimento sfiorato non oscura
+un corridoio libero. La torcia del compagno usa lo stesso adattamento e resta margine per due fasci sovrapposti.
+Ribilanciato il colore diffuso dei tessuti del monaco, preservando texture, rugosità e dettaglio delle superfici.
+La luminosità salvata dal giocatore resta invariata; la percezione dei nemici e il protocollo di rete non cambiano.
+
+Verifica dei pixel renderizzati: **53/53**, a 0,9, 1,8 e 8 m, fuori asse e con torce cooperative. Confronto con
+il bianco della stessa inquadratura, per rilevare la saturazione anche dopo la colorazione cinematografica.
+Le prove della mischia passano **62/62 in ciascuno dei tre temi**, con immagini delle fasi frontali e laterali.
+
+Restano aperti: riformulazione della Veglia, gesti dei nemici non umanoidi e valutazione degli spazi durante
+combattimenti affollati. La revisione complessiva rimane in corso.

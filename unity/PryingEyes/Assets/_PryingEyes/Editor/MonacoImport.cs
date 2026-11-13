@@ -77,9 +77,9 @@ namespace PryingEyes.EditorTools
             if (!AssetDatabase.IsValidFolder(MatDir)) AssetDatabase.CreateFolder(Dir, "Materials");
             return new System.Collections.Generic.Dictionary<string, Material>
             {
-                { "M_stoffa", Cloth("Monaco_Stoffa", new Color(1.20f, 1.12f, 0.98f)) },
-                { "M_stoffa_interno", Cloth("Monaco_StoffaInterno", new Color(0.55f, 0.53f, 0.49f)) },
-                { "M_fibre", Cloth("Monaco_Fibre", new Color(1.42f, 1.26f, 1.04f)) },
+                { "M_stoffa", Cloth("Monaco_Stoffa", new Color(5.20f, 4.88f, 4.30f)) },
+                { "M_stoffa_interno", Cloth("Monaco_StoffaInterno", new Color(1.60f, 1.54f, 1.42f)) },
+                { "M_fibre", Cloth("Monaco_Fibre", new Color(6.40f, 5.68f, 4.69f)) },
                 { "M_pelle", Lit("Monaco_Pelle", "pelle", Color.white) },
                 { "M_volto", Lit("Monaco_Volto", "volto", Color.white) },
                 { "M_occhio", Eye() },

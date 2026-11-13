@@ -17,12 +17,43 @@ namespace PryingEyes
         public const float FullSeconds = 210f;
         public float drainMul = 1f;
 
-        const float BeamIntensity = 44f, SpillIntensity = 1.5f;
-        // Da vicino il fascio si abbassa, come l'occhio che si adatta: la luce cala col quadrato della distanza, quindi a due metri una
-        // parete di fronte alla torcia riceveva dieci volte la luce di una a sei e diventava un blocco bianco senza dettagli (altare,
-        // scrigno, scritte sui muri). Da NearD0 metri in su non cambia niente; sotto, la luce scende come (d/NearD0)^NearPow, mai oltre NearMin.
-        const float NearD0 = 3.4f, NearPow = 1.6f, NearMin = 0.18f;
-        float near = 1f;
+        internal const float BeamIntensity = 88f;
+        const float SpillIntensity = 1.5f;
+        const float NearD0 = 8f, NearMin = 0.0001f;
+        float near = 1f, power, baseAngle = 72f;
+
+        /// <summary>Misura le superfici nel punto caldo del fascio, compresi i nemici.
+        /// Il corpo del portatore e l'arma sono sullo strato 2 e restano esclusi.</summary>
+        internal static float ProximityScale(Transform light)
+        {
+            const float probe = 0.20f;
+            int mask = HotelNav.EnvMask | (1 << HotelNav.EnemyLayer);
+            Vector3 origin = light.position, forward = light.forward, right = light.right, up = light.up;
+            if (Physics.CheckSphere(origin, probe, mask, QueryTriggerInteraction.Ignore)) return NearMin;
+            float distance = NearD0;
+            for (int i = 0; i < 9; i++)
+            {
+                Vector3 direction = forward;
+                if (i > 0)
+                {
+                    float angle = (i - 1) * Mathf.PI / 4;
+                    direction = forward * 0.9063078f + (right * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * 0.4226183f;
+                }
+                // Il pavimento sfiorato dai raggi bassi non deve dimezzare il fascio anche in un corridoio libero.
+                if (Physics.SphereCast(origin, probe, direction, out var hit, NearD0, mask, QueryTriggerInteraction.Ignore) &&
+                    Vector3.Dot(hit.normal, -direction) > 0.5f)
+                    distance = Mathf.Min(distance, hit.distance + probe);
+            }
+            float scale = distance * distance / (NearD0 * NearD0);
+            // Lascia margine alle torce dei compagni quando illuminano insieme una superficie vicina.
+            return Mathf.Clamp(scale * Mathf.Lerp(0.6f, 1f, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.08f, 0.5f, scale))), NearMin, 1f);
+        }
+
+        internal static float BeamAngle(float baseAngle, float proximity) =>
+            baseAngle * Mathf.Lerp(1.32f, 1f, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.06f, 0.3f, proximity)));
+
+        internal static float AdaptProximity(float previous, float wanted, float dt) =>
+            wanted < previous ? wanted : Mathf.Lerp(previous, wanted, 1f - Mathf.Exp(-5f * dt));
 
         Transform camT, rig;
         Light beam, spill;
@@ -234,17 +265,15 @@ namespace PryingEyes
                 k *= stutterT > 0f ? Random.Range(0.02f, 0.22f) : 1f + 0.025f * Mathf.Sin(Time.time * 37f);
             }
             bool lit = k > 0.004f;
-            if (beam.enabled != lit) { beam.enabled = lit; spill.enabled = lit; }
+            if (beam.enabled != lit) { beam.enabled = lit; spill.enabled = lit; if (lit) near = 1f; }
+            power = k;
             if (lit)
             {
                 float warm = Mathf.Clamp01(charge / 0.45f);
-                beam.intensity = BeamIntensity * k * near;
                 beam.color = Color.Lerp(new Color(1f, 0.58f, 0.26f), new Color(1f, 0.93f, 0.80f), warm);
                 float full = Mathf.Clamp01(charge / 0.4f);
                 beam.range = Mathf.Lerp(17f, 36f, full);
-                beam.spotAngle = Mathf.Lerp(56f, 72f, full);
-                beam.innerSpotAngle = beam.spotAngle * 0.72f;
-                spill.intensity = SpillIntensity * k;
+                baseAngle = Mathf.Lerp(56f, 72f, full);
                 spill.color = beam.color;
             }
             gm?.hud?.SetTorch(on, charge, spares, swapT > 0f, SwapProgress);
@@ -263,11 +292,11 @@ namespace PryingEyes
             rig.position = camT.position + camT.right * 0.08f - camT.up * 0.05f + camT.forward * fwd;
             if (beam != null && beam.enabled)
             {
-                float want = 1f;
-                if (Physics.Raycast(camT.position, camT.forward, out RaycastHit nh, NearD0, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
-                    want = Mathf.Clamp(Mathf.Pow(nh.distance / NearD0, NearPow), NearMin, 1f);
-                // scende subito (una parete che arriva non deve abbagliare), risale piano
-                near = Mathf.Lerp(near, want, 1f - Mathf.Exp(-(want < near ? 18f : 5f) * dt));
+                near = AdaptProximity(near, ProximityScale(beam.transform), dt);
+                beam.intensity = BeamIntensity * power * near;
+                spill.intensity = SpillIntensity * power * near;
+                beam.spotAngle = BeamAngle(baseAngle, near);
+                beam.innerSpotAngle = beam.spotAngle * 0.72f;
             }
         }
     }

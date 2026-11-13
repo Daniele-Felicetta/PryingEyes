@@ -381,6 +381,35 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 - Resta da rifinire la torcia ravvicinata: alcune superfici dei costumi saturano nelle immagini. Restano inoltre
   Veglia e gesti dei non umanoidi, valutazione delle orde, audio ascoltato e gli altri ambiti generali sotto elencati.
 
+## Sesta passata: luce ravvicinata e costumi (13 novembre 2026)
+
+- Riprodotta la perdita dei dettagli chiari sui costumi: il controllo precedente misurava solo le pareti lungo
+  l’asse della camera; la maschera escludeva i nemici e l’alone non veniva attenuato. La correzione arrivava inoltre
+  al fotogramma successivo. Ora nove sonde sferiche seguono il fascio effettivo, includono i nemici, escludono
+  portatore/arma e ignorano i contatti radenti col pavimento. Riduzione immediata, recupero graduale, cono più
+  ampio da vicino; fascio e alone applicano la stessa attenuazione dopo il posizionamento della luce.
+- Prova iniziale **21/31**, uscita 1 (`torch-reference-player.log`): superfici appiattite fino al 53,16% sul costume
+  dell’Infermiere e 70,69% sulla parete. La soglia RGB assoluta non rilevava correttamente il problema, perché
+  il grading porta il bianco visibile sotto 255: il confronto usa ora una maschera bianca nello stesso render.
+- Il primo adattamento lasciava il monaco troppo scuro. Ribilanciati i soli colori diffusi dei tre tessuti, sia
+  nei materiali distribuiti sia nell’importatore; nessuna soglia di leggibilità allentata. Aggiunto margine di
+  potenza vicino alle superfici dopo una prova con due torce sovrapposte fallita **52/53** (`torch-final-player.log`).
+- Esito finale **53/53**, uscita 0 (`torch-balanced-player.log`): modelli reali Monaco/Infermiere a 0,9, 1,8 e 8 m,
+  soggetto fuori asse di 22°, parete e torcia remota reale, sovrapposizione di due fasci e recupero a distanza.
+  Sui soggetti resta sotto il 4% la quota di bianco appiattito; la parete con due torce scende dal 33,11% a 0%.
+  Preferenza di luminosità verificata prima/dopo: **0,091**, conservata anche su disco.
+- Costo della misura: **4,73 µs**, media di 200 chiamate, **0 byte gestiti**, nella scena isolata di prova.
+  Questo dato riguarda la misura di prossimità con pochi collider, non le prestazioni complessive di un’orda.
+- Regressione della mischia con grafica: **62/62 in ciascuno dei tre temi**, uscite 0 (`torch-melee-albergo`,
+  `torch-melee-teatro`, `torch-melee-sanatorio`). Controllate le immagini frontali e laterali, compresi i costumi
+  nelle stanze effettive; iride e tessuto restano riconoscibili. Build completa riuscita senza errori.
+- La modifica riguarda la presentazione della luce: il segnale acceso/direzione usato dalla percezione e il
+  formato dei messaggi restano invariati. Protocollo **`pe-coop-9`**.
+- Cooperativa a due processi: **16/16 ospite e 28/28 client**, uscite 0 in 75 s (`torch-coop`). Interfaccia e
+  interazioni: **157/157**, uscita 0 (`torch-ui`), comprese le protezioni contro acquisti attraverso i muri.
+- Build principale aggiornata a gioco chiuso: **189 file verificati con SHA-256**. Archiviate le rigenerazioni
+  della scena e dei materiali delle armi; confronto semantico con gli originali riuscito prima della pulizia.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |
