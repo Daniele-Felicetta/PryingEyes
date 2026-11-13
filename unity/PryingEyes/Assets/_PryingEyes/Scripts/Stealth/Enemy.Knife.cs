@@ -41,7 +41,7 @@ namespace PryingEyes
         /// <summary>Si puo' fare la presa: cammina, non ti ha visto e non ti sta cacciando, e gli sei dietro. Chi nasce in un round
         /// (relentless) sa sempre dov'e' il giocatore e si gira: per lui niente.</summary>
         public bool CanTakedown(Vector3 from) =>
-            !dead && !relentless && IsWalker && alert != Alert.Hunting && !seeing && IsBehind(from);
+            Stealth.Enabled && !dead && !relentless && IsWalker && alert != Alert.Hunting && !seeing && IsBehind(from);
 
         /// <summary>L'ha colpito un giocatore ('by', di default quello di questa macchina) e non e' morto: adesso sa dov'e'. Il grido richiama
         /// gli altri (SetAlert). Su un pupazzo non fa niente: lo fa l'ospite quando riceve il colpo (HitClaim).</summary>

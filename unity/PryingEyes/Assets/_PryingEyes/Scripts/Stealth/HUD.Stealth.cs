@@ -107,17 +107,19 @@ namespace PryingEyes
         void UpdateStealthUI(float dt)
         {
             if (stealthRoot == null) return;
-            bool on = Stealth.Enabled;
+            bool on = Stealth.Enabled || Proc.SurvivalMode.Enabled;
             if (stealthRoot.gameObject.activeSelf != on) stealthRoot.gameObject.SetActive(on);
             if (!on) { if (threatVig != null) threatVig.color = Color.clear; return; }
-            UpdateThreatVig();
+            if (Stealth.Enabled) UpdateThreatVig();
+            else if (threatVig != null) threatVig.color = Color.clear;
             UpdateTorchUI();
             UpdateArrow(dt);
             UpdatePingRing(dt);
             var cam = Camera.main;
             if (cam == null) return;
             UpdateMarks(cam);
-            UpdateEyes(cam);
+            if (Stealth.Enabled || Perks.EyeOn) UpdateEyes(cam);
+            else foreach (var tag in eyeTags) tag.rt.gameObject.SetActive(false);
         }
 
         void UpdateThreatVig()

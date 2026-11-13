@@ -27,6 +27,12 @@ namespace PryingEyes.Proc
         float botSHoldT;
         int botSFlips, botSGaps;
         readonly List<GameObject> botSCarves = new List<GameObject>();
+        // nuovo ciclo (SurvivalMode): niente candele; il bot compra le porte una dopo l'altra e a stanze finite l'ascensore si apre da solo
+        PaidRoomDoor botSDoor;
+        readonly HashSet<PaidRoomDoor> botSDoorBlack = new HashSet<PaidRoomDoor>();
+        readonly NavMeshPath botSProbe = new NavMeshPath();
+        float botSPause;
+        int botSBought;
 
         /// <summary>Un varco che la navmesh promette ma il controller non passa (fra arredi a meno di 0,92 m): lo si toglie dalla navmesh con un ostacolo
         /// che scava, cosi' il bot cerca un'altra strada come farebbe una persona. Se un'altra strada c'e' il piano si completa con un avviso VARCO;
@@ -71,8 +77,12 @@ namespace PryingEyes.Proc
             botSCarves.Clear();
             botSProgPos = gm.player.transform.position;
             botSBlack.Clear();
+            botSDoor = null; botSDoorBlack.Clear(); botSPause = 0f; botSBought = 0;
             var plan = cur.plan;
-            BotLine($"PIANO {floor} seme={plan.seed} tema={plan.theme} griglia={(plan.grid ? "si" : "no")} stanze={plan.rooms.Count} candele={cur.candles.Count}");
+            var doors = SurvivalMode.Enabled ? RoomAccessDoors.I : null;
+            if (doors != null && gm.score < 20000) gm.AddPoints(20000 - gm.score);      // il bot non combatte: ha i punti per comprare ogni porta
+            BotLine($"PIANO {floor} seme={plan.seed} tema={plan.theme} griglia={(plan.grid ? "si" : "no")} stanze={plan.rooms.Count} candele={cur.candles.Count}" +
+                    (doors != null ? $" porte={doors.Doors.Count} aree-navmesh={RoomAccessDoors.AreasNeeded(plan)} ciclo=ondate" : " ciclo=candele"));
             int navDataCount = Resources.FindObjectsOfTypeAll<NavMeshData>().Length;
             if (navDataCount != 1)
             {
@@ -90,6 +100,57 @@ namespace PryingEyes.Proc
             botSBadPathT = botSNearT = botSProgT = 0f;
             botSProgPos = gm.player.transform.position;
             BotLine($"IRRAGGIUNGIBILE candela ({tc.transform.position.x:F1},{tc.transform.position.z:F1}) al piano {floor}: {why}");
+        }
+
+        void BotGiveUpDoor(PaidRoomDoor d, string why)
+        {
+            botSFails++;
+            botSDoorBlack.Add(d);
+            botSDoor = null;
+            botSChain = botSTries = 0;
+            botSBadPathT = botSNearT = botSProgT = 0f;
+            botSProgPos = gm.player.transform.position;
+            var c = d.Shutter.center;
+            BotLine($"IRRAGGIUNGIBILE porta ({c.x:F1},{c.z:F1}) al piano {floor}: {why}");
+        }
+
+        /// <summary>La porta da comprare adesso: quella gia' scelta se serve ancora, altrimenti la piu' vicina a piedi (cammino vero sulla navmesh
+        /// dei nemici, cioe' senza le porte chiuse) fra quelle che danno su una stanza ancora chiusa. Null se non ce n'e'.</summary>
+        PaidRoomDoor BotNextDoor(RoomAccessDoors access, Vector3 pp)
+        {
+            if (botSDoor != null && access.Target(botSDoor) >= 0 && !botSDoorBlack.Contains(botSDoor)) return botSDoor;
+            botSDoor = null;
+            if (!NavMesh.SamplePosition(pp, out NavMeshHit start, 2f, NavMesh.AllAreas)) return null;
+            float best = float.MaxValue;
+            foreach (var d in access.Doors)
+            {
+                if (access.Target(d) < 0 || botSDoorBlack.Contains(d)) continue;
+                if (!NavMesh.SamplePosition(d.Front(access.OpenSide(d)), out NavMeshHit goal, 1.5f, NavMesh.AllAreas)) continue;
+                if (!NavMesh.CalculatePath(start.position, goal.position, HotelNav.EnemyMask, botSProbe) || botSProbe.status != NavMeshPathStatus.PathComplete) continue;
+                float len = 0f;
+                var corners = botSProbe.corners;
+                for (int i = 1; i < corners.Length; i++) len += Vector3.Distance(corners[i - 1], corners[i]);
+                if (len < best) { best = len; botSDoor = d; }
+            }
+            if (botSDoor == null) return null;
+            botSTries = botSChain = 0;
+            botSBadPathT = botSNearT = botSProgT = 0f;
+            botSProgPos = pp; botRepath = 0f;
+            botSHoldT = 0f; botSPrevHeading = Vector2.zero;
+            BotLine($"  verso la porta per l'area {access.Target(botSDoor)} ({botSDoor.Shutter.center.x:F1},{botSDoor.Shutter.center.z:F1}), {best:F0} m a piedi");
+            return botSDoor;
+        }
+
+        /// <summary>Il primo collider fra l'occhio e il punto d'uso (lo stesso raggio di Interact.Visible): dice cosa nasconde l'oggetto al giocatore.</summary>
+        static string BotBlocker(Vector3 eye, Vector3 point)
+        {
+            Vector3 to = point - eye;
+            float d = to.magnitude;
+            if (d < 0.001f || !Physics.Raycast(eye, to / d, out var h, d, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) return "nessuno";
+            var chain = new System.Text.StringBuilder(h.collider.name);
+            int up = 0;
+            for (var t = h.transform; t != null && up < 3; t = t.parent, up++) if (t != h.collider.transform) chain.Append('<').Append(t.name);
+            return $"{chain} a {h.distance:F2} m da ({h.point.x:F1},{h.point.y:F1},{h.point.z:F1})";
         }
 
         /// <summary>Cosa tocca la capsula del giocatore: dice quale arredo o muro lo ferma.</summary>
@@ -254,7 +315,7 @@ namespace PryingEyes.Proc
         {
             botSChain++; botSFloorStuck++; botSAvvisi++;
             BotLine($"INCASTRATO piano {floor} #{botSChain} a ({pp.x:F1},{pp.y:F1},{pp.z:F1}) stanza={(playerRoom != null ? playerRoom.kind.ToString() : "-")} " +
-                    $"verso {(tc != null ? "candela" : "uscita")} ({target.x:F1},{target.z:F1}) a {horiz:F1} m, mosso {moved:F2} m in {StuckSecs:F0} s; contatti: {BotTouching(pp)}; " +
+                    $"verso {(botSDoor != null ? "porta" : tc != null ? "candela" : "uscita")} ({target.x:F1},{target.z:F1}) a {horiz:F1} m, mosso {moved:F2} m in {StuckSecs:F0} s; contatti: {BotTouching(pp)}; " +
                     $"percorso {botPath.status}, {(botPath.corners != null ? botPath.corners.Length : 0)} angoli");
             BotLine("    " + BotDeep(pp, next));
             BotLine("    tracciato: " + BotTraceText());
@@ -267,7 +328,11 @@ namespace PryingEyes.Proc
                 BotLine($"VARCO stretto al piano {floor}: la navmesh passa da ({next.x:F1},{next.z:F1}) ma il giocatore, fermo in ({pp.x:F1},{pp.z:F1}), no; area tolta dalla navmesh, si cerca un'altra strada");
                 botSBadPathT = 0f;
             }
-            else if (botSChain >= 4) BotGiveUp(tc, $"incastrato 4 volte di fila in ({pp.x:F1},{pp.z:F1}), anche dopo aver escluso il varco");
+            else if (botSChain >= 4)
+            {
+                string why = $"incastrato 4 volte di fila in ({pp.x:F1},{pp.z:F1}), anche dopo aver escluso il varco";
+                if (botSDoor != null) BotGiveUpDoor(botSDoor, why); else BotGiveUp(tc, why);
+            }
         }
 
         void BotStrictTick(float dt)
@@ -301,7 +366,8 @@ namespace PryingEyes.Proc
             botSFloorT += dt;
             if (botSFloorT > botSCap)
             {
-                BotEnd(false, $"TEMPO PIANO {floor}: oltre {botSCap} s (candele {lit}/{total}, uscita {(exitOpen ? "aperta" : "chiusa")}, stanza {(playerRoom != null ? playerRoom.kind.ToString() : "-")})");
+                string goal = SurvivalMode.Enabled && RoomAccessDoors.I != null ? $"aree aperte {RoomAccessDoors.I.Access.OpenRooms.Count}/{cur.plan.rooms.Count}" : $"candele {lit}/{total}";
+                BotEnd(false, $"TEMPO PIANO {floor}: oltre {botSCap} s ({goal}, uscita {(exitOpen ? "aperta" : "chiusa")}, stanza {(playerRoom != null ? playerRoom.kind.ToString() : "-")})");
                 return;
             }
             if (statFalls > botSFalls0)
@@ -312,32 +378,63 @@ namespace PryingEyes.Proc
 
             Vector3 pp = pl.transform.position;
             Candelabro tc = null;
+            PaidRoomDoor td = null;
             IInteract it;
             Vector3 target;
+            var access = SurvivalMode.Enabled ? RoomAccessDoors.I : null;
+            // col nuovo ciclo il bot cammina sulla navmesh dei nemici: a piedi si passa solo dalle porte gia' aperte, come al giocatore
+            int mask = access != null ? HotelNav.EnemyMask : NavMesh.AllAreas;
             if (!exitOpen)
             {
-                float bd = float.MaxValue;
-                foreach (var c in cur.candles)
-                    if (c != null && c.objective && !c.lit && !botSBlack.Contains(c))
-                    {
-                        float d = (c.transform.position - pp).sqrMagnitude;
-                        if (d < bd) { bd = d; tc = c; }
-                    }
-                if (tc == null)
+                if (access != null)
                 {
-                    botSWaitT += dt;
-                    if (botSBlack.Count > 0) BotEnd(false, $"SOFTLOCK piano {floor}: uscita chiusa, restano solo candele irraggiungibili ({botSBlack.Count})");
-                    else if (botSWaitT > 8f) BotEnd(false, $"SOFTLOCK piano {floor}: candele tutte accese ({lit}/{total}) ma l'uscita non si apre");
-                    return;
+                    // senza candele: le porte, una dopo l'altra dalla piu' vicina; a stanze finite l'ascensore si apre da solo (senza nemici le ondate non girano)
+                    if (botSPause > 0f) { botSPause -= dt; return; }       // la serranda appena pagata sale in 1,6 s: finche' non e' su, oltre non si passa
+                    td = BotNextDoor(access, pp);
+                    if (td == null)
+                    {
+                        if (access.AllOpen)
+                        {
+                            botSWaitT = 0f;
+                            BotLine($"  aree tutte aperte a {botSFloorT:F0} s ({botSBought} acquisti, {gm.score} punti): senza ondate l'ascensore si apre da solo");
+                            SurvivalExitReady();
+                            return;
+                        }
+                        botSWaitT += dt;
+                        if (botSDoorBlack.Count > 0) BotEnd(false, $"SOFTLOCK piano {floor}: restano aree chiuse ({access.Access.OpenRooms.Count}/{cur.plan.rooms.Count} aperte) e solo porte irraggiungibili ({botSDoorBlack.Count})");
+                        else if (botSWaitT > 8f) BotEnd(false, $"SOFTLOCK piano {floor}: aree chiuse ({access.Access.OpenRooms.Count}/{cur.plan.rooms.Count} aperte) ma nessuna porta si raggiunge a piedi");
+                        return;
+                    }
+                    botSWaitT = 0f;
+                    target = td.Front(access.OpenSide(td)); it = td;
                 }
-                botSWaitT = 0f;
-                target = tc.transform.position; it = tc;
+                else
+                {
+                    float bd = float.MaxValue;
+                    foreach (var c in cur.candles)
+                        if (c != null && c.objective && !c.lit && !botSBlack.Contains(c))
+                        {
+                            float d = (c.transform.position - pp).sqrMagnitude;
+                            if (d < bd) { bd = d; tc = c; }
+                        }
+                    if (tc == null)
+                    {
+                        botSWaitT += dt;
+                        if (botSBlack.Count > 0) BotEnd(false, $"SOFTLOCK piano {floor}: uscita chiusa, restano solo candele irraggiungibili ({botSBlack.Count})");
+                        else if (botSWaitT > 8f) BotEnd(false, $"SOFTLOCK piano {floor}: candele tutte accese ({lit}/{total}) ma l'uscita non si apre");
+                        return;
+                    }
+                    botSWaitT = 0f;
+                    target = tc.transform.position; it = tc;
+                }
             }
             else
             {
                 if (cur.exit == null) { BotEnd(false, $"piano {floor}: manca l'ascensore di uscita"); return; }
                 target = cur.exit.frontPoint; it = cur.exit;
             }
+            string what = td != null ? "porta" : tc != null ? "candela" : "uscita";
+            void GiveUp(string why) { if (td != null) BotGiveUpDoor(td, why); else BotGiveUp(tc, why); }
 
             // --- uso, come il tasto F: conta solo se la selezione vera (raggio, sguardo, visuale libera) cade proprio su questo oggetto
             float horiz = new Vector2(target.x - pp.x, target.z - pp.z).magnitude;
@@ -348,7 +445,20 @@ namespace PryingEyes.Proc
             {
                 botSTries++;
                 Interact.TryUse();
-                if (tc != null)
+                if (td != null)
+                {
+                    if (access.Target(td) < 0)
+                    {
+                        // comprata: la stanza dietro la porta e' aperta; la serranda sale, nel frattempo il bot aspetta fermo
+                        botSBought++;
+                        botSDoor = null; botSPause = 2.4f;
+                        botSTries = 0; botSNearT = 0f; botSProgT = 0f; botSChain = 0; botSProgPos = pp;
+                        botSHoldT = 0f; botSPrevHeading = Vector2.zero; botRepath = 0f;
+                        BotLine($"  area comprata ({botSBought}) a {botSFloorT:F0} s da ({pp.x:F1},{pp.z:F1}): aperte {access.Access.OpenRooms.Count}/{cur.plan.rooms.Count}, punti {gm.score}");
+                    }
+                    else if (botSTries > 30) BotGiveUpDoor(td, "F premuto 30 volte senza che la porta si apra");
+                }
+                else if (tc != null)
                 {
                     if (tc.lit)
                     {
@@ -366,7 +476,7 @@ namespace PryingEyes.Proc
                 else if (transitioning)
                 {
                     botSFloorsDone++;
-                    BotLine($"PIANO {floor} COMPLETATO in {botSFloorT:F0} s (ultima candela a {botSLitT:F0} s, avvisi {botSFloorStuck})");
+                    BotLine($"PIANO {floor} COMPLETATO in {botSFloorT:F0} s ({(access != null ? $"porte comprate {botSBought}" : $"ultima candela a {botSLitT:F0} s")}, avvisi {botSFloorStuck})");
                     if (botSFloorsDone >= botSFloorsGoal) BotEnd(botSFails == 0, botSFails == 0 ? "obiettivo raggiunto" : "obiettivo raggiunto ma con fallimenti");
                 }
                 else if (botSTries > 30) BotEnd(false, $"USCITA al piano {floor}: F premuto 30 volte senza scendere");
@@ -380,9 +490,9 @@ namespace PryingEyes.Proc
                 if (botSNearT > 5f)
                 {
                     Vector3 to = it.Point - pl.cam.position;
-                    BotLine($"NONSELEZIONABILE piano {floor} a ({pp.x:F1},{pp.z:F1}): {(tc != null ? "candela" : "uscita")} a {to.magnitude:F2} m (raggio {it.Radius:F1}), " +
-                            $"coseno dello sguardo {Vector3.Dot(pl.cam.forward, to.normalized):F2}, visuale libera={Interact.Visible(pl.cam, it.Point, (it as Component)?.transform)}, prompt={(it.Prompt ?? "nullo")}");
-                    BotGiveUp(tc, "oggetto non selezionabile da vicino");
+                    BotLine($"NONSELEZIONABILE piano {floor} a ({pp.x:F1},{pp.z:F1}): {what} a {to.magnitude:F2} m (raggio {it.Radius:F1}), " +
+                            $"coseno dello sguardo {Vector3.Dot(pl.cam.forward, to.normalized):F2}, visuale libera={Interact.Visible(pl.cam, it.Point, (it as Component)?.transform)}, ostacolo={BotBlocker(pl.cam.position, it.Point)}, prompt={(it.Prompt ?? "nullo")}");
+                    GiveUp("oggetto non selezionabile da vicino");
                     return;
                 }
             }
@@ -396,7 +506,7 @@ namespace PryingEyes.Proc
                 botRepath = 0.4f;
                 bool okT = NavMesh.SamplePosition(target, out NavMeshHit th, 3f, NavMesh.AllAreas);
                 bool okF = NavMesh.SamplePosition(pp, out NavMeshHit fh, 2f, NavMesh.AllAreas);
-                if (okT && okF) NavMesh.CalculatePath(fh.position, th.position, NavMesh.AllAreas, botPath); else botPath.ClearCorners();
+                if (okT && okF) NavMesh.CalculatePath(fh.position, th.position, mask, botPath); else botPath.ClearCorners();
                 if (botPath.corners != null && botPath.corners.Length > 1)
                 {
                     var h = new Vector2(botPath.corners[1].x - pp.x, botPath.corners[1].z - pp.z);
@@ -420,14 +530,14 @@ namespace PryingEyes.Proc
                         // dove si ferma il percorso parziale (il punto raggiungibile piu' vicino al bersaglio) dice quale passaggio e' chiuso
                         Vector3 endP = botPath.corners != null && botPath.corners.Length > 0 ? botPath.corners[botPath.corners.Length - 1] : pp;
                         string Rn(Room q) => q == null ? "-" : $"{q.kind}#{q.id}/{q.type}";
-                        BotLine($"NAVMESH piano {floor}: nessun percorso completo da ({pp.x:F1},{pp.z:F1}) a {(tc != null ? "candela" : "uscita")} ({target.x:F1},{target.z:F1}): " +
+                        BotLine($"NAVMESH piano {floor}: nessun percorso completo da ({pp.x:F1},{pp.z:F1}) a {what} ({target.x:F1},{target.z:F1}): " +
                                 $"partenza sulla navmesh={okF}, arrivo={okT}, stato={botPath.status}; il percorso parziale finisce a ({endP.x:F1},{endP.y:F1},{endP.z:F1}) in {Rn(cur.RoomAt(endP))}, " +
                                 $"partenza in {Rn(cur.RoomAt(pp))}, bersaglio in {Rn(cur.RoomAt(target))}");
                         BotLine("    tracciato: " + BotTraceText());
                         BotMap(pp);
                         BotReach(pp, target);
                         BotNavMap(pp);
-                        BotGiveUp(tc, "la navmesh non collega partenza e bersaglio");
+                        GiveUp("la navmesh non collega partenza e bersaglio");
                         return;
                     }
                 }

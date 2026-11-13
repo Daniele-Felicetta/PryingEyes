@@ -757,11 +757,50 @@ a quattro **17/17 ospite, 32/32 primo client, 22/22 ciascuno degli altri due** i
 (`unity_logs/supply-coop-two` e `supply-coop-four`). Verificati anche i passaggi tra piani con le stesse armi
 e posizioni generate su tutte le copie.
 
+## Diciassettesima passata: ciclo a ondate (13 novembre 2026)
+
+Chiusura della conversione richiesta dall'utente il 13 novembre: via candele e stealth, aree da aprire coi punti, meno sale più grandi,
+ondate automatiche, nemici più veloci. Il lavoro era a metà nell'albero (non committato); ora `SurvivalMode` è il ciclo predefinito e quello
+a candele resta dormiente con `-candles`. Descrizione delle regole in `docs/zombies-redesign.md`, «Diciassettesima passata». Tutte le prove
+sono sulla build di verifica `Builds/Audit` (solo script).
+
+| Prova | Esito |
+| --- | --- |
+| Compilazione Unity | 0 errori |
+| `planlab survival 1000` (senza Unity) | 1000 piani validi: 8,0 aree principali in media, 925 m² l'una, 2598 atri a tre quote, 6996 acquisti e snapshot validi; al massimo 13 porte e 12 coppie di stanze su 29 aree della navmesh; ascensore di uscita a 3,5 porte in media (massimo 8), 2.908 punti per arrivarci (massimo 9.500) |
+| `-autotest -survivaltest -seed 1000` | **80/80**: prima ondata dopo 8 s, nascite solo nelle aree aperte (anche quella appena comprata), mai a meno di 3 m, tutti all'attacco, tetto dei vivi, premio una volta sola, Processione alla quinta, tre ondate aprono l'ascensore, la morte annulla l'ondata e il suo numero torna indietro |
+| `-architecturetest` / `-architecturepursuit` / `-architectureaccess` | **74/74**, **72/72**, **20/20** (porte col controller vero: collider, navmesh dei nemici, selezione con `F`, punti insufficienti, acquisto una volta sola, attraversamento; più il controllo di vista da entrambi i lati di tutte le porte) |
+| Camminata rigorosa (`tools/check_navigation.py --floors 3`, sei semi: 1000, 2961, 3046, 777, 114, 4242) | **6/6 esecuzioni, 18 piani** (albergo, teatro, sanatorio), nessun avviso; il bot compra le porte da solo con `F` |
+| Cooperativa `pe-coop-15`, 8 scenari a più processi | ospite + client a due: 37/37 e 50/50; ali con ciclo a candele 19/19 e 34/34; entrata tardiva 6/6 e 10/10; uscita pulita 8/8 e 4/4; processo ucciso 8/8 e 4/4; uscita dell'ospite 2/2 e 7/7; a tre 37/37, 50/50, 39/39; a quattro 37/37, 50/50, 39/39, 39/39. Uscite 0, tranne il processo ucciso apposta nello scenario del crash |
+| Vecchio ciclo a candele, una volta sola | `-architecturesupply` 22/22 e le suite stealth, round, coltello, potenziamenti, libri, griglia, buchi e spinta passano ancora sul ciclo a candele; non fanno parte dell'accettazione del ciclo nuovo |
+
+### Difetti trovati e corretti
+
+- **La stanza Segreta non si poteva comprare.** Si entra da un passaggio basso (architrave a 1,3 m) e il punto che si guarda per comprare
+  la sua porta (`PaidRoomDoor.Point`) stava proprio a 1,3 m: la linea di vista sbatteva nel muro (`Guscio` della stanza), quindi né chi
+  gioca né il bot potevano selezionarla. Lo ha trovato la camminata rigorosa (prima porta di ogni piano `NONSELEZIONABILE`, ora con la
+  diagnostica `ostacolo=` che nomina il collider). Il punto ora è `min(1,3; architrave - 0,35)`. Prova di regressione in
+  `-architectureaccess`: ogni porta, da tutti e due i lati a 1,5 m e in piedi, deve vedersi; senza la correzione fallisce con 4 lati nascosti
+  (i due passaggi bassi fra le stanze 2 e 5 del seme 1000), con la correzione 0 su 9 porte.
+- **Controllo sbagliato nella prova delle ondate.** Il premio atteso non contava le uccisioni, che pagano sempre 60 punti ciascuna: il gioco
+  era giusto, la prova no (ad esempio +3680 invece di +200). Ora attende premio più uccisioni.
+- **Cooperativa, entrata tardiva.** Il confronto fra i nemici dell'ospite e i pupazzi del nuovo arrivato usava un rapporto già vecchio
+  (i nemici inseguono e si muovono): lontani fino a 16,6 m. Ora i processi si sincronizzano con una barriera prima del rapporto.
+- **Menu.** La riga dei comandi parlava ancora di presa alle spalle e di Velo; ora dice coltello, torcia, pila, `V` per le porte da
+  comprare e mappa.
+
+### Cosa non è stato rigirato
+
+In questa chiusura non sono state rigirate la prova dell'interfaccia a tre risoluzioni e quelle delle armi (`check_presentation.py`,
+`check_gunplay.py`; le ultime esecuzioni sono della passata precedente), né la cooperativa dopo l'ultima correzione del punto delle porte
+(cambia solo i passaggi bassi); le prestazioni non sono state rimisurate. Nessuna partita giocata da una persona: ritmo,
+prezzi, numero di nemici e difficoltà delle ondate non sono tarati. La rete resta provata solo su loopback.
+
 ## Ambiti ancora da chiudere
 
-**Nuova direzione richiesta dall'utente:** sostituire la progressione a candele e lo stealth con ondate automatiche,
-aree a pagamento, meno sale più grandi e nemici più veloci. Le prove storiche delle candele non sono criteri di
-accettazione del nuovo ciclo. Vedere la direzione attiva in `docs/zombies-redesign.md`.
+**Direzione dell'utente (13 novembre):** la progressione a candele e lo stealth sono stati sostituiti da ondate automatiche,
+aree a pagamento, meno sale più grandi e nemici più veloci (diciassettesima passata). Le prove storiche delle candele non sono
+criteri di accettazione del ciclo nuovo. Regole in `docs/zombies-redesign.md`.
 
 | Ambito | Evidenza necessaria |
 | --- | --- |

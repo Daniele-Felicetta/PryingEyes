@@ -1,8 +1,10 @@
-"""Walk generated Torre floors with the real player controller and report stuck spots, unreachable candles, soft-locks, falls.
+"""Walk generated Torre floors with the real player controller and report stuck spots, unreachable doors/candles, soft-locks, falls.
 
 Each process runs the strict bot (-procbot -botstrict, no enemies by default): it walks with the real CharacterController, no
-recovery teleports, lights every candle and takes the lift through the same selection the F key uses (range, view direction,
-clear line of sight), for --floors floors starting at --floor. The last line of a bot log is "ESITO: ok" or "ESITO: FALLITO".
+recovery teleports, buys every paid door (the wave cycle, the default; --legacy: lights every candle instead) and takes the lift
+through the same selection the F key uses (range, view direction, clear line of sight), for --floors floors starting at --floor.
+In the wave cycle the bot walks on the navmesh without the sealed doors, like the enemies do, and pauses after each purchase until
+the shutter is up. The last line of a bot log is "ESITO: ok" or "ESITO: FALLITO".
 Logs: <out>/nav_<seed>.txt (bot) and nav_<seed>_player.log (Unity). Exit status 0 only when every run ends with "ESITO: ok".
 """
 import argparse
@@ -25,8 +27,10 @@ parser.add_argument("--scale", type=int, default=4, help="game time multiplier (
 parser.add_argument("--cap", type=int, default=420, help="game seconds allowed per floor")
 parser.add_argument("--jobs", type=int, default=6, help="parallel processes")
 parser.add_argument("--timeout", type=int, default=1500, help="real seconds allowed per process")
-parser.add_argument("--enemies", action="store_true", help="leave the guards in (default: empty floors, navigation only)")
-parser.add_argument("--oldplan", action="store_true", help="legacy wing-based plans instead of the room grid")
+parser.add_argument("--enemies", action="store_true",
+                    help="leave the enemies in (default: empty floors, navigation only); in the wave cycle this turns the waves on (-rounds)")
+parser.add_argument("--legacy", action="store_true", help="the old candle cycle (-candles) instead of the wave cycle: the bot lights candles, no paid doors")
+parser.add_argument("--oldplan", action="store_true", help="legacy wing-based plans instead of the room grid (implies the candle cycle)")
 parser.add_argument("--extra", action="append", default=[], metavar="FLAG",
                     help="extra player argument, e.g. --extra=-botfreeze (negative control: a motionless player must be reported stuck)")
 args = parser.parse_args()
@@ -57,6 +61,10 @@ def run(seed):
                "-logFile", str(player_log)]
     if not args.enemies:
         command.append("-noenemies")
+    elif not (args.legacy or args.oldplan):
+        command.append("-rounds")           # the bot runs without waves unless asked (RoundDirector.Enabled)
+    if args.legacy:
+        command.append("-candles")
     if args.oldplan:
         command.append("-oldplan")
     command += args.extra

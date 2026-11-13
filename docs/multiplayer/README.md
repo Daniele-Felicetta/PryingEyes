@@ -65,9 +65,10 @@ In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tu
 | `CoopWire.cs` | Tipi di messaggio (`CoopKind`), `CoopProtocol` (revisione, porta, tempi), `NetWriter`/`NetReader` (il lettore non lancia mai) |
 | `CoopGame.cs` | Giocatori, piano ed epoca, saluto, stato di ciascuno, nomi |
 | `CoopGame.World.cs` | Il mondo condiviso: nemici, colpi, rumore, candele, uscita, round, gocce, annunci |
+| `CoopGame.Rooms.cs` | Acquisto delle aree: richiesta del client con i punti messi da parte, convalida e risposta dell'ospite, stato delle aree |
 | `Enemy.Net.cs` | Pupazzi dei nemici e stato di rete |
 | `Targets.cs`, `RemotePlayer.cs` | Bersagli multipli e compagni (pupazzo con torcia, nome, posa interpolata) |
-| `CoopTest.cs` | Prova automatica a piu' processi (solo con `-cooptest`) |
+| `CoopTest.cs`, `CoopTest.Survival.cs` | Prova automatica a piu' processi (solo con `-cooptest`); la seconda ha i passi del ciclo a ondate |
 
 L'ammissione (revisione del protocollo, capienza, tempo massimo) la fa `FishNetSeatAuthenticator`, scritto da ChatGPT nella
 sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti toccati sono: `Enemy` (+`Stealth`, `Knife`,
@@ -78,7 +79,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-14`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
+Revisione **`pe-coop-15`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
 fino al punto d'uso effettivo, quindi può scegliere una posizione diversa. Tutti devono usare la stessa build.
@@ -115,10 +116,21 @@ del posto libero ignora giocatori e nemici, così le guardie presenti solo sull'
 La firma del piano comprende anche indici e posizioni delle armi a muro, ordinati in modo deterministico;
 la prova cooperativa confronta quindi anche queste risorse. Il formato dei messaggi resta invariato.
 
+La revisione 15 sostituisce la progressione a candele con il ciclo a ondate (`SurvivalMode`, il predefinito): aree da aprire coi punti e ondate
+globali, senza candele e senza stealth. Tre messaggi nuovi: `BuyRoom` (giocatore -> ospite: epoca, numero della richiesta, area, prezzo messo
+da parte), `RoomReply` (ospite -> giocatore: richiesta ed esito) e `RoomsState` (ospite -> tutti i pronti: le aree aperte; lo riceve anche chi
+entra tardi). Chi compra mette da parte il prezzo subito (`CoopGame.RequestRoom`); l'ospite accetta solo se l'epoca e' quella giusta, il giocatore
+e' pronto, il prezzo coincide con la tabella e l'acquirente sta in un'area aperta collegata, a non piu' di 4,5 m dalla porta
+(`RoomAccessDoors.TryBuy`); se rifiuta il client si rimette i punti (`SettleRoom`), anche se la connessione cade o il piano cambia
+(`RefundPendingRoom`). `RoundState` ha un quinto tipo (4: numero dell'ondata, in corso, secondi alla prossima, ondate superate del piano,
+Processione) per chi entra a ondata in corso; gli altri tipi (inizio, stato, fine, annullata) servono anche alle ondate, che l'ospite fa
+partire da solo e il cui premio e' di tutti. L'ondata si dimensiona sui giocatori collegati (16 nemici piu' 4 per ondata piu' 8 per ogni
+giocatore oltre il primo, con un tetto di vivi insieme che cresce allo stesso modo).
+
 | Direzione | Messaggi |
 | --- | --- |
-| giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent` |
-| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport` |
+| giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `BuyRoom`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent` |
+| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `RoomsState`, `RoomReply`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport` |
 | entrambe | `Test` (solo `-cooptest`, altrimenti scartato) |
 
 ## Prove
@@ -132,12 +144,15 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 
 | Flag | Cosa prova |
 | --- | --- |
-| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, ferite dall'ospite, candela semplice e di zona accesa dall'ospitato, round con serrande e premio, gocce, uscita, discesa insieme e piano nuovo |
-| `-cooplate` | entrata a round in corso: serrande, numero del round e nemici arrivano al nuovo |
-| `-coopleave` / `-coopcrash` | uscita pulita / processo ucciso: l'ospite se ne accorge e prosegue da solo |
+| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, ferite dall'ospite, area comprata dall'ospitato (e richiesta da lontano rifiutata, con i punti restituiti), ondata con nascite solo nelle aree aperte e premio per tutti, altre due ondate che aprono l'ascensore, gocce, uscita, discesa insieme e piano nuovo da capo (col ciclo a candele: candela semplice e di zona, round con serrande e premio) |
+| `-cooplate` | entrata a ondata in corso: aree comprate, porte su e giu', numero dell'ondata e nemici arrivano al nuovo (col ciclo a candele: serrande e round) |
+| `-coopleave` / `-coopcrash` | uscita pulita / processo ucciso: l'ospite se ne accorge e prosegue da solo (un nemico lo caccia, poi un'ondata intera) |
 | `-coophostleave` | se ne va l'ospite: l'ospitato prosegue da solo con Role spento |
 | `-coopplayers N` | numero di giocatori attesi (con 3 processi) |
 | `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`, di serie `%TEMP%\pryingeyes-coop\foto`) |
+
+Con `-cooptest` le ondate partono ferme (`SurvivalMode.Hold`): le avvia il copione, perche' i passi che contano punti e nemici uno per uno non devono
+trovarsele in mezzo. Il ciclo a candele si prova con `-candles` su tutti i processi (la pianta ad ali, `-oldplan`, lo implica).
 
 Lo script `tools/coop/run_coop.ps1` avvia l'ospite e gli ospitati dalla build di verifica (`Builds/Audit`, non quella da cui gioca l'utente; senza grafica, un log per processo in
 `%TEMP%\pryingeyes-coop`), li aspetta, stampa le righe che contano ed esce con 0 solo se tutti hanno superato:

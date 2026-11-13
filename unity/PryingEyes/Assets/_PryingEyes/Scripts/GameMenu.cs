@@ -273,7 +273,7 @@ namespace PryingEyes
             Label(mainPanel, "ComandiArmi", new Vector2(0, -262), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
                 "mouse mira · click sinistro spara · tasto destro mira · R ricarica · B modo di fuoco · 1/2 o rotellina cambia arma", Dim, FontStyle.Italic);
             Label(mainPanel, "ComandiFurtivo", new Vector2(0, -288), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
-                "G coltello (alle spalle) · T torcia · Y cambia pila · V ping · M mappa · H il Velo (col libro)", Dim, FontStyle.Italic);
+                "G coltello · T torcia · Y cambia pila · V mostra le porte da comprare · M mappa", Dim, FontStyle.Italic);
 
             pausePanel = Stretch(backdrop, "Pausa");
             Label(pausePanel, "Titolo", new Vector2(0, 170), new Vector2(1000, 80), 60, TextAnchor.MiddleCenter, "In pausa", Ink, FontStyle.Normal);
@@ -323,11 +323,11 @@ namespace PryingEyes
             helpPanel = Stretch(backdrop, "Guida");
             Label(helpPanel, "Titolo", new Vector2(0, 235), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "La Torre", Ink, FontStyle.Normal);
             Label(helpPanel, "Obiettivo", new Vector2(0, 150), new Vector2(1000, 60), 23, TextAnchor.MiddleCenter,
-                "Accendi tutte le candele del piano. Raggiungi l'ascensore aperto e scendi.", Ink, FontStyle.Normal);
+                "Sopravvivi alle ondate. Dopo tre ondate puoi raggiungere l’ascensore e scendere.", Ink, FontStyle.Normal);
             Label(helpPanel, "Furtivo", new Vector2(0, 60), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
-                "MUOVITI NELL'OMBRA\nTorcia, corsa e spari attirano le presenze. Accovacciati e usa i ripari. Il coltello alle spalle è silenzioso.", Dim, FontStyle.Normal);
+                "TIENITI IN MOVIMENTO\nI nemici ti inseguono subito. Usa scale, balconate e ripari per creare una via di fuga. G per il corpo a corpo.", Dim, FontStyle.Normal);
             Label(helpPanel, "Round", new Vector2(0, -35), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
-                "PREPARATI PRIMA DI ACCENDERE\nAlcune candele abbassano le serrande: sopravvivi al round per riaprirle. Fai scorta di munizioni prima di accenderle.", Dim, FontStyle.Normal);
+                "APRI NUOVE AREE\nLe ondate partono da sole. Spendi i punti alle porte con F: le aree acquistate restano aperte per tutti. V indica le porte.", Dim, FontStyle.Normal);
             Label(helpPanel, "Risorse", new Vector2(0, -130), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
                 "ESPLORA E SCEGLI\nCompra armi ai muri, cerca pile e libri nei santuari. Se muori perdi metà dei punti e l'ultimo perk acquistato.", Dim, FontStyle.Normal);
             MakeButton(helpPanel, "Indietro", new Vector2(0, -240), () => Show(helpFrom));

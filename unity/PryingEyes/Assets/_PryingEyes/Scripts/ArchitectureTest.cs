@@ -26,7 +26,8 @@ namespace PryingEyes
         IEnumerator Start()
         {
             shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-architectureshots") >= 0;
-            var sequence = Array.IndexOf(Environment.GetCommandLineArgs(), "-architecturesupply") >= 0 ? RunSupply() :
+            var sequence = Array.IndexOf(Environment.GetCommandLineArgs(), "-architectureaccess") >= 0 ? RunAccess() :
+                Array.IndexOf(Environment.GetCommandLineArgs(), "-architecturesupply") >= 0 ? RunSupply() :
                 Array.IndexOf(Environment.GetCommandLineArgs(), "-architecturepursuit") >= 0 ? RunPursuit() : Run();
             while (true)
             {

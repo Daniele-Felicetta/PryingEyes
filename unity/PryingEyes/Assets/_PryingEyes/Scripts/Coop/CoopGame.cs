@@ -63,6 +63,7 @@ namespace PryingEyes
 
         public void Close(CoopRole was)
         {
+            RefundPendingRoom();
             if (net != null)
             {
                 net.PeerJoined -= OnPeerJoined; net.PeerLeft -= OnPeerLeft; net.Message -= OnMessage;

@@ -18,6 +18,7 @@ namespace PryingEyes
         HitClaim,             // ho colpito un nemico (id, danno, testa, fonte)
         NoiseEvt,             // ho fatto rumore (posizione, raggio, tipo)
         DropClaim,            // ho preso una goccia
+        BuyRoom,
         PlayerEvent,          // morto / rinato
         // ---- ospite -> giocatore
         Welcome = 64,         // slot, seme, piano, epoca
@@ -41,6 +42,8 @@ namespace PryingEyes
         Bolt,                 // dardo magico (solo grafica sui giocatori)
         KillCredit,           // un'uccisione a tuo nome: fonte e testa; punti, conteggio e cura li calcola chi la riceve (GameManager.CreditKill)
         Teleport,             // l'ospite ti sposta (una serranda che cala sulla soglia): epoca e posizione
+        RoomsState,
+        RoomReply,
         // ---- in tutte e due le direzioni
         Test = 120,           // solo per la prova a due processi (CoopTest, con -cooptest): senza quel flag chi lo riceve lo butta
     }
@@ -48,7 +51,7 @@ namespace PryingEyes
     public static class CoopProtocol
     {
         /// <summary>Versione del protocollo + contenuto: da alzare a ogni cambio di formato dei messaggi o delle regole del piano.</summary>
-        public const string Revision = "pe-coop-14";
+        public const string Revision = "pe-coop-15";
         public const ushort DefaultPort = 7807;
         public const int MaxPlayers = 4;
         /// <summary>Un pacchetto non affidabile resta sotto l'MTU di Tugboat (1023 byte): lasciamo margine per l'intestazione di FishNet.</summary>

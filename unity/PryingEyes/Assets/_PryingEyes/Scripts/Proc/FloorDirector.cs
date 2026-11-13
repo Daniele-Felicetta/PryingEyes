@@ -138,11 +138,13 @@ namespace PryingEyes.Proc
             explored.Clear(); foundWeapons.Clear(); foundCandles.Clear(); foundShrines.Clear(); foundExit = false; mapOpen = false;
             // piu' si scende, piu' buio: la scala di tutte le luci del piano, letta da RoomKits.AddLight mentre costruisce
             LightPool.Dim = LightDim(n);
+            PlanGen.SurvivalLayout = SurvivalMode.Enabled;
             var plan = PlanGen.Generate(runSeed + n * 1013, n);
             if (plan == null) { Debug.LogError("[PryingEyes] piano non generabile: " + PlanGen.LastFailure); yield break; }
             units = plan.units;
             float t0 = Time.realtimeSinceStartup;
             cur = FloorBuilder.Build(plan, null);
+            if (SurvivalMode.Enabled) SurvivalMode.DecorationOnly(cur);
             float tBuild = Time.realtimeSinceStartup - t0;
             AlienRig.Warmup();                               // sagome riusabili: il costo delle mesh resta nel caricamento, non nel round
             SoundBank.WarmRelics();                          // anche il primo respiro/campanello viene preparato prima di restituire il controllo
@@ -164,13 +166,14 @@ namespace PryingEyes.Proc
             ghostMark = Stealth.Spotted;
             PlaceBatteries(plan);
             BuildPatrolPoints(plan);
-            if (Coop.Sim) PopulateFloor(plan);   // in cooperativa i nemici li simula solo l'ospite
+            if (Coop.Sim && !SurvivalMode.Enabled) PopulateFloor(plan);   // nel nuovo ciclo i nemici arrivano con le ondate.
             foreach (var c in cur.candles) c.onLit += OnCandle;
             RoundDirector.I?.Arm(cur, regions);
+            if (SurvivalMode.Enabled) RoomAccessDoors.Build(cur);
             if (cur.exit != null)
             {
                 cur.exit.unlocked = false;
-                cur.exit.lockedText = () => $"L'ASCENSORE È SIGILLATO — CANDELE {lit}/{total}";
+                cur.exit.lockedText = () => SurvivalMode.Enabled ? "L'ASCENSORE È SIGILLATO" : $"L'ASCENSORE È SIGILLATO — CANDELE {lit}/{total}";
                 cur.exit.onEnter = () =>
                 {
                     if (transitioning) return;
@@ -447,9 +450,9 @@ namespace PryingEyes.Proc
             exitOpen = true;
             if (announce) Coop.Game?.ExitOpened();
             if (cur.exit != null) { cur.exit.unlocked = true; cur.exit.Open(); }
-            gm.hud?.Toast("Tutte le candele sono accese. Le porte dell'ascensore si aprono.");
+            gm.hud?.Toast(SurvivalMode.Enabled ? "Tre ondate superate. Ascensore aperto: resta a combattere o scendi." : "Tutte le candele sono accese. Le porte dell'ascensore si aprono.");
             Sfx.UI(SoundBank.Toll, 0.7f);
-            if (announce && !lastHorde && cur.exit != null) { lastHorde = true; Summon(3 + floor / 2, cur.exit.frontPoint); }
+            if (announce && !SurvivalMode.Enabled && !lastHorde && cur.exit != null) { lastHorde = true; Summon(3 + floor / 2, cur.exit.frontPoint); }
             // faro verde sulla porta dell'ascensore: nel buio si vede da lontano
             if (cur.exit != null)
             {
@@ -468,12 +471,15 @@ namespace PryingEyes.Proc
             }
         }
 
+        public void SurvivalExitReady() { if (cur != null && !exitOpen) OpenExit(); }
+
         public void RefreshObjectiveNow() => RefreshObjective();
 
         void RefreshObjective()
         {
             var hud = gm.hud;
             if (hud == null) return;
+            if (SurvivalMode.Enabled) { hud.SetObjective((RoundDirector.I != null ? RoundDirector.I.Status() : "Preparati alla prima ondata") + (exitOpen ? "  ·  Ascensore disponibile" : "  ·  3 ondate per l’ascensore")); return; }
             if (RoundDirector.I != null && RoundDirector.I.Fighting) { hud.SetObjective(RoundDirector.I.Status()); return; }
             if (exitOpen) { hud.SetObjective("Raggiungi l'ascensore e scendi"); return; }
             hud.SetObjective($"Accendi le candele {lit}/{total}  ·  V per il ping");
@@ -940,6 +946,7 @@ namespace PryingEyes.Proc
             }
             var start = plan.OfType(RoomType.Partenza);
             var shop = plan.OfType(RoomType.Negozio);
+            if (SurvivalMode.Enabled && start.Count > 0) PutWeapon(WeaponDefs.IndexOf("smg_tarantola"), start[0]);
             if (start.Count == 0 || !PutWeapon(picks[0], start[0])) foreach (var r in fallback) if (PutWeapon(picks[0], r)) break;
             for (int k = 1; k < 3; k++)
                 if (shop.Count == 0 || !PutWeapon(picks[k], shop[0])) foreach (var r in fallback) if (PutWeapon(picks[k], r)) break;
@@ -1112,7 +1119,7 @@ namespace PryingEyes.Proc
                 {
                     trickleT = Mathf.Lerp(40f, 22f, Mathf.Clamp01(floor / 10f)) * Random.Range(0.8f, 1.25f);
                     bool sealedNow = RoundDirector.I != null && RoundDirector.I.Sealed;     // durante un round il piano non si ripopola
-                    if (floorTime > 25f && !perfStarted && !sealedNow && Enemy.All.Count < 3 + floor + units) SpawnOne();
+                    if (!SurvivalMode.Enabled && floorTime > 25f && !perfStarted && !sealedNow && Enemy.All.Count < 3 + floor + units) SpawnOne();
                 }
             }
             hudT -= dt;
@@ -1123,7 +1130,8 @@ namespace PryingEyes.Proc
                 if (!exitOpen) RefreshObjective();
                 playerRoom = cur.RoomAt(gm.player.transform.position);
             }
-            if (GameManager.autoTest && HasArg("-procbot")) { if (HasArg("-botstrict")) BotStrictTick(dt); else BotTick(dt); }
+            // col nuovo ciclo (niente candele) il vecchio bot non avrebbe bersagli: ci pensa quello rigoroso, che compra le porte
+            if (GameManager.autoTest && HasArg("-procbot")) { if (HasArg("-botstrict") || SurvivalMode.Enabled) BotStrictTick(dt); else BotTick(dt); }
             if (GameManager.autoTest && HasArg("-procshots")) ShotTick();
             if (GameManager.autoTest && !perfStarted && !transitioning && floorTime > 2f && HasArg("-perftest"))
             {

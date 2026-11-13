@@ -16,7 +16,7 @@ namespace PryingEyes
     /// nemici, premio per tutti); 7 goccia presa dall'ospitato (effetto per tutti); 8 uscita e discesa insieme (stessa firma del piano).
     /// Altri copioni: -cooplate (entrata a round in corso), -coopleave / -coopcrash (un ospitato se ne va, pulito o ucciso), -coophostleave (se ne va
     /// l'ospite), -cooppics (foto del compagno, solo con la grafica), -coopplayers N (N giocatori in tutto).</summary>
-    public sealed class CoopTest : MonoBehaviour
+    public sealed partial class CoopTest : MonoBehaviour
     {
         public static CoopTest I;
         static readonly bool Flag = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-cooptest") >= 0;
@@ -125,6 +125,11 @@ namespace PryingEyes
             {
                 int sig = r.I32(), fl = r.I32();
                 if (r.Ok) { sigValue = sig; sigFloor = fl; sigSeq++; }
+            }
+            else if (sub == 5)                  // l'ospite racconta le aree aperte e l'ultima comprata (ciclo a ondate, SendRooms)
+            {
+                int open = r.U8(), bought = r.U8();
+                if (r.Ok) { peerOpenRooms = open; peerBoughtRoom = bought - 1; roomsSeq++; }
             }
         }
 
@@ -315,7 +320,7 @@ namespace PryingEyes
             var claimed = new Dictionary<Enemy, float>();
             fightKills = 0;
             float t0 = Time.time;
-            while (rd.Sealed && Time.time - t0 < timeout)
+            while ((SurvivalMode.Enabled ? rd.Fighting : rd.Sealed) && Time.time - t0 < timeout)
             {
                 foreach (var e in new List<Enemy>(Enemy.All))
                 {
@@ -337,11 +342,14 @@ namespace PryingEyes
         // ------------------------------------------------------------------ il copione
         IEnumerator Run()
         {
+            // col ciclo a ondate (predefinito) le candele non ci sono: al posto di candela e round (S5, S6) si compra un'area e si giocano tre ondate
+            bool survival = SurvivalMode.Enabled;
             System.Func<IEnumerator>[] steps =
                 Leave || Crash ? new System.Func<IEnumerator>[] { S0, S1, E2 } :
                 HostLeave ? new System.Func<IEnumerator>[] { S0, S1, H2 } :
                 Pics ? new System.Func<IEnumerator>[] { S0, S1, P0 } :
-                Late ? new System.Func<IEnumerator>[] { L0, L1, L2 } :
+                Late ? (survival ? new System.Func<IEnumerator>[] { L0s, L1s, L2s } : new System.Func<IEnumerator>[] { L0, L1, L2 }) :
+                survival ? new System.Func<IEnumerator>[] { S0, S1, S2, S3, S4, S4Flight, V5, V6, S7, V7, S8 } :
                 new System.Func<IEnumerator>[] { S0, S1, S2, S3, S4, S4Flight, S5, S6, S7, S8 };
             var it = Scenario(steps);
             while (true)
@@ -836,6 +844,7 @@ namespace PryingEyes
             float d1 = chaser != null && !chaser.IsDead ? Flat(chaser.transform.position - pl.transform.position) : 0f;
             Check("un nemico caccia l'ospite da solo (si avvicina)", chaser != null && d1 < d0 - 1.5f, $"da {d0:F1} a {d1:F1} m");
             if (chaser != null) Enemy.Remove(chaser);
+            if (SurvivalMode.Enabled) { yield return SoloWave(); yield break; }       // col ciclo a ondate: un'ondata intera da soli
             int zi = rd == null ? -1 : fd.cur.candles.FindIndex(c => c != null && c.objective && !c.lit && rd.HasZone(c));
             if (zi < 0) { Log("info: nessuna candela con zona sigillabile: round saltato"); yield break; }
             PlaceAt(fd.cur.candles[zi]);
@@ -896,6 +905,7 @@ namespace PryingEyes
             }
             yield return new WaitForSeconds(3f);
             Check("a destinazione i compagni sono vicini", Flat(PeerPos() - GameManager.I.player.transform.position) < 4f, $"{Flat(PeerPos() - GameManager.I.player.transform.position):F1} m");
+            if (SurvivalMode.Enabled) CheckFreshFloor();
             if (Coop.IsHost) SendEnemies();
             else yield return ExpectEnemies("i pupazzi del piano nuovo coincidono con i nemici dell'ospite", 12f);
         }

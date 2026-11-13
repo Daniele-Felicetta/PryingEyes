@@ -22,7 +22,7 @@ namespace PryingEyes.Proc
         public static List<PerkId> Offer(Rng rng)
         {
             var pool = new List<PerkId>();
-            foreach (var d in Perks.All) if (!Perks.Has(d.id)) pool.Add(d.id);
+            foreach (var d in Perks.All) if (!Perks.Has(d.id) && (!SurvivalMode.Enabled || (d.id != PerkId.Velo && d.id != PerkId.PassiDiCenere))) pool.Add(d.id);
             for (int i = pool.Count - 1; i > 0; i--) { int j = rng.Range(0, i + 1); var t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
             if (pool.Count > 3) pool.RemoveRange(3, pool.Count - 3);
             return pool;

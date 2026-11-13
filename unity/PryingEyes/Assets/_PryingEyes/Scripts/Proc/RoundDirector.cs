@@ -137,6 +137,7 @@ namespace PryingEyes.Proc
         }
 
         public void SnapUp() { falling = false; t = 0f; Apply(); }
+        public void SnapDown() { falling = true; t = 1f; slammed = true; Apply(); }
 
         void Update()
         {
@@ -181,7 +182,7 @@ namespace PryingEyes.Proc
     /// piu' numerosi, forti e veloci a ogni round) e, quando sono tutti a terra, le serrande salgono, la candela conta e si prende il
     /// premio. Il numero del round e' unico per la partita e non riparte da zero ai piani successivi. Se il giocatore muore il round
     /// salta: serrande su, nemici via, candela di nuovo spenta da accendere.</summary>
-    public class RoundDirector : MonoBehaviour
+    public partial class RoundDirector : MonoBehaviour
     {
         public static RoundDirector I;
         /// <summary>L'ultimo round cominciato (quello in corso, o l'ultimo finito).</summary>
@@ -238,7 +239,7 @@ namespace PryingEyes.Proc
         public bool Owns(Enemy e) => mine.Contains(e);
 
         public bool Fighting => phase == Phase.Fighting;
-        public bool Sealed => phase != Phase.Idle;
+        public bool Sealed => SurvivalMode.Enabled ? fi != null : phase != Phase.Idle;
         public int Target => target;
         public int Spawned => spawned;
         public int Alive => mine.Count;
@@ -267,6 +268,7 @@ namespace PryingEyes.Proc
             areaOf.Clear();
             doorBits = 0;
             HotelNav.Unseal();
+            if (SurvivalMode.Enabled) { RoomAccessDoors.PrepareNav(plan); return null; }
             if (!Enabled) return null;
             var found = RoundRegions.Find(plan);
             var kept = new List<RoundRegion>();
@@ -290,7 +292,7 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>La fascia di navmesh da marcare sotto un'apertura: larga come l'apertura (piu' un margine) e profonda 1,4 m, a cavallo del muro.</summary>
-        static HotelNav.DoorBox Band(Opening o, int area)
+        internal static HotelNav.DoorBox Band(Opening o, int area)
         {
             float w = o.width * 0.1f + 0.3f;
             bool ax = o.alongX;
@@ -308,6 +310,7 @@ namespace PryingEyes.Proc
         {
             Disarm();
             fi = f;
+            if (SurvivalMode.Enabled && f != null) { ArmSurvival(); return; }
             if (regions == null || f == null) return;
             foreach (var r in regions)
             {
@@ -543,6 +546,7 @@ namespace PryingEyes.Proc
         // ------------------------------------------------------------------ svolgimento
         void Update()
         {
+            if (SurvivalMode.Enabled) { TickSurvival(Time.deltaTime); return; }
             if (phase == Phase.Idle) return;
             var gm = GameManager.I;
             if (gm == null || gm.player == null) return;
@@ -595,6 +599,7 @@ namespace PryingEyes.Proc
         /// <summary>Testo per la riga dell'obiettivo mentre il round e' in corso.</summary>
         public string Status()
         {
+            if (SurvivalMode.Enabled) return SurvivalStatus();
             if (cur == null) return "";
             string head = moth ? $"PROCESSIONE DEI LUMI {Round}" : $"ROUND {Round}";
             if (clock < delay) return $"{head}  ·  le serrande sono calate";
@@ -607,11 +612,12 @@ namespace PryingEyes.Proc
         float statusT;
 
         /// <summary>Indice della zona del round in corso tra quelle del piano (-1 se non c'e'): lo stesso su ogni macchina.</summary>
-        public int CurrentZone => cur != null ? zones.IndexOf(cur) : -1;
+        public int CurrentZone => SurvivalMode.Enabled && fi != null ? 0 : cur != null ? zones.IndexOf(cur) : -1;
 
         /// <summary>Ospitato: l'ospite ha cominciato un round. Serrande giu', striscione e rintocco, come sull'ospite (senza nemici: arrivano dalla rete).</summary>
         public void CoopStart(int zoneIdx, int round, bool isMoth, int moodIdx)
         {
+            if (SurvivalMode.Enabled) { Round = round; moth = isMoth; phase = Phase.Fighting; clock = 0; ShowSurvivalWave(); return; }
             if (fi == null || zoneIdx < 0 || zoneIdx >= zones.Count) return;
             if (phase != Phase.Idle) Finish();
             var z = zones[zoneIdx];
@@ -637,6 +643,7 @@ namespace PryingEyes.Proc
         /// <summary>Ospitato: il round e' finito, premio a tutti.</summary>
         public void CoopComplete(bool reward, int pts)
         {
+            if (SurvivalMode.Enabled) { FinishSurvivalWave(reward, pts); return; }
             if (cur == null) return;
             var gm = GameManager.I;
             var pl = gm.player;
@@ -658,6 +665,13 @@ namespace PryingEyes.Proc
         /// <summary>Ospitato: il round e' saltato (sono morti tutti): serrande su, candela da riaccendere.</summary>
         public void CoopAbort()
         {
+            if (SurvivalMode.Enabled)
+            {
+                if (phase == Phase.Fighting) Round = Mathf.Max(0, Round - 1);
+                phase = Phase.Idle; nextWave = FirstWaveDelay;
+                GameManager.I.hud?.SetRound(Round, false);
+                return;
+            }
             if (cur == null) { phase = Phase.Idle; return; }
             var z = cur;
             foreach (var s in z.shutters) if (s != null) s.SnapUp();
@@ -729,6 +743,7 @@ namespace PryingEyes.Proc
 
         void Abort()
         {
+            if (SurvivalMode.Enabled) { AbortSurvival(); return; }
             if (cur == null) { phase = Phase.Idle; HotelNav.Unseal(); return; }
             var z = cur;
             if (phase == Phase.Opening)

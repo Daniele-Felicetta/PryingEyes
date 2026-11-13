@@ -17,6 +17,9 @@ namespace PryingEyes.Proc
     {
         /// <summary>Quale generatore usa Generate: la griglia (default) o le ali d'albergo e di chiesa di prima (il flag -oldplan del gioco).</summary>
         public static bool UseGrid = true;
+        /// <summary>Pianta del nuovo ciclo a ondate: meno aree, più grandi, senza stanza segreta a passaggio basso.
+        /// Attivata dal nuovo ciclo quando sarà integrato; il laboratorio la verifica con il comando survival.</summary>
+        public static bool SurvivalLayout;
 
         /// <summary>Dimensioni possibili di una colonna o di una riga della griglia (dm): le stanze sullo stesso allineamento le condividono,
         /// cosi' i muri combaciano e le stanze non sono tutte uguali.</summary>
@@ -49,7 +52,8 @@ namespace PryingEyes.Proc
         static Plan BuildGrid(Rng r, int seed, int floor, bool simple)
         {
             var theme = PickTheme(floor, new Rng(unchecked(seed * 73 + floor * 1009 + 5)));
-            int n = Math.Min(17, 13 + Math.Max(0, floor - 1) / 3) - (simple ? 1 : 0);
+            int n = SurvivalLayout ? Math.Max(7, Math.Min(9, 7 + Math.Max(0, floor - 1) / 4) - (simple ? 1 : 0)) :
+                Math.Min(17, 13 + Math.Max(0, floor - 1) / 3) - (simple ? 1 : 0);
             int gw = 7, gh = n >= 15 ? 6 : 5;
 
             var occ = new int[gw, gh];
@@ -58,8 +62,9 @@ namespace PryingEyes.Proc
 
             // colonne e righe: misure a caso, prefisso delle coordinate
             var colW = new int[gw]; var rowH = new int[gh];
-            for (int i = 0; i < gw; i++) colW[i] = r.Pick(CellSizes);
-            for (int j = 0; j < gh; j++) rowH[j] = r.Pick(CellSizes);
+            var sizes = SurvivalLayout ? new[] { 176, 192, 208, 224 } : CellSizes;
+            for (int i = 0; i < gw; i++) colW[i] = r.Pick(sizes);
+            for (int j = 0; j < gh; j++) rowH[j] = r.Pick(sizes);
             var colX = new int[gw + 1]; var rowZ = new int[gh + 1];
             for (int i = 0; i < gw; i++) colX[i + 1] = colX[i] + colW[i];
             for (int j = 0; j < gh; j++) rowZ[j + 1] = rowZ[j] + rowH[j];
@@ -69,6 +74,11 @@ namespace PryingEyes.Proc
 
             // ---- partenza: una stanza sul bordo (con un lato sul vuoto), non enorme
             var starts = gs.FindAll(g => g.hull && g.Cells <= 2);
+            if (SurvivalLayout)
+            {
+                var large = gs.FindAll(g => g.hull && g.Cells >= 2);
+                if (large.Count > 0) starts = large;
+            }
             if (starts.Count == 0) { LastFailure = "griglia: nessuna partenza"; return null; }
             var start = starts[r.Range(0, starts.Count)];
             start.type = RoomType.Partenza;
@@ -109,20 +119,20 @@ namespace PryingEyes.Proc
             GRoom boss = null; double bs = -1;
             foreach (var g in leaves)
             {
-                if (!g.hull || g.hops < 3) continue;
+                if (!g.hull || g.hops < (SurvivalLayout ? 2 : 3)) continue;
                 double s = g.hops + (g.Cells - 1) * 0.7 + r.Value() * 0.8;
                 if (s > bs) { bs = s; boss = g; }
             }
             if (boss == null) { LastFailure = "griglia: nessun boss"; return null; }
             boss.type = RoomType.Boss;
 
-            var secret = PickRole(gs, r, g => g.deg == 1 && g.type == RoomType.Normale && g.Cells == 1, g => 0.0);
+            var secret = SurvivalLayout ? null : PickRole(gs, r, g => g.deg == 1 && g.type == RoomType.Normale && g.Cells == 1, g => 0.0);
             if (secret != null)
             {
                 secret.type = RoomType.Segreta;
                 foreach (var e in secret.adj) if (e.door) e.secret = true;
             }
-            var shop = PickRole(gs, r, g => g.type == RoomType.Normale && g.deg <= 2 && g.Cells == 1, g => (g.deg == 1 ? 2.0 : 0.0) + (g.hops >= 2 && g.hops <= 5 ? 1.0 : 0.0));
+            var shop = PickRole(gs, r, g => g.type == RoomType.Normale && g.deg <= 2 && (SurvivalLayout || g.Cells == 1), g => (g.deg == 1 ? 2.0 : 0.0) + (g.hops >= 2 && g.hops <= 5 ? 1.0 : 0.0));
             if (shop == null) { LastFailure = "griglia: nessun negozio"; return null; }
             shop.type = RoomType.Negozio;
             var library = PickRole(gs, r, g => g.type == RoomType.Normale && g.deg <= 2, g => (g.deg == 1 ? 2.0 : 0.0) + Math.Min(g.hops, 5) * 0.4 - Math.Abs(g.Cells - 2) * 0.35);
@@ -130,7 +140,7 @@ namespace PryingEyes.Proc
             library.type = RoomType.Biblioteca;
 
             // le arene delle candele: lontane dall'arrivo e tra loro (campionamento del punto piu' lontano), non troppo grandi per sigillarle
-            int candles = Math.Min(4, 2 + Math.Max(0, floor - 1) / 3);
+            int candles = SurvivalLayout ? 2 : Math.Min(4, 2 + Math.Max(0, floor - 1) / 3);
             var arenas = new List<GRoom>();
             var arenaDist = new List<int[]>();
             for (int k = 0; k < candles; k++)
@@ -140,7 +150,7 @@ namespace PryingEyes.Proc
                 {
                     if (g.type != RoomType.Normale || g.Cells > 4) continue;
                     long area = (long)(colX[g.cx + g.cw] - colX[g.cx]) * (rowZ[g.cy + g.ch] - rowZ[g.cy]);
-                    if (area > 180000) continue;
+                    if (!SurvivalLayout && area > 180000) continue;
                     double m = g.hops;
                     foreach (var d in arenaDist) m = Math.Min(m, d[gs.IndexOf(g)]);
                     m *= 0.7 + r.Value() * 0.6;
@@ -192,7 +202,7 @@ namespace PryingEyes.Proc
                 };
                 SetKindDefaults(room);
                 room.upperGallery = room.W >= 160 && room.D >= 144 &&
-                    (room.type == RoomType.Candela || room.type == RoomType.Boss || room.type == RoomType.Guardia);
+                    (room.type == RoomType.Candela || room.type == RoomType.Boss || room.type == RoomType.Guardia || (SurvivalLayout && room.type == RoomType.Partenza));
                 if (room.W >= 240 && room.D >= 240 && room.type != RoomType.Segreta)
                     room.upperGallery = true;
                 if (room.upperGallery)
@@ -341,6 +351,7 @@ namespace PryingEyes.Proc
                 var parent = r.Chance(0.5) ? list[list.Count - 1 - r.Range(0, Math.Min(3, list.Count))] : list[r.Range(0, list.Count)];
                 int shape = r.Weighted(new[] { 0.30, 0.24, 0.24, 0.22 });       // 1x1, 2x1, 1x2, 2x2
                 if (huge==0 && list.Count<4) shape=3;                         // almeno un grande atrio prima di riempire la griglia di stanze minori
+                if (SurvivalLayout && huge < 2 && list.Count < 5) shape = 3;
                 int w = shape == 1 || shape == 3 ? 2 : 1, h = shape == 2 || shape == 3 ? 2 : 1;
                 if (w * h > 1 && big >= 8) w = h = 1;
                 if (w == 2 && h == 2 && huge >= 3) h = 1;
@@ -602,6 +613,7 @@ namespace PryingEyes.Proc
             if (start < 0 || boss < 0 || start == boss) { why = "partenza o boss mancanti"; return false; }
             if (shops < 1 || libs < 1) { why = "negozio o biblioteca mancanti"; return false; }
             if (p.objectives.Count < 2) { why = "poche candele"; return false; }
+            if (SurvivalLayout) return true; // sono marcatori di grandi sale, non zone da sigillare nel nuovo ciclo.
             var regions = RoundRegions.Find(p);
             if (regions.Count != p.objectives.Count) { why = $"candele senza zona sigillabile ({regions.Count}/{p.objectives.Count})"; return false; }
             return true;

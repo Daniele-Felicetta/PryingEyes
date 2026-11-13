@@ -14,5 +14,6 @@
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanThemes.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanGrid.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\RoundRegions.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\RoomAccessState.cs" />
   </ItemGroup>
 </Project>

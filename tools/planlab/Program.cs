@@ -15,6 +15,7 @@ static class Program
         // "old" in qualunque posizione: le ali d'albergo e di chiesa di prima, al posto della griglia
         if (Array.IndexOf(a, "old") >= 0) { PlanGen.UseGrid = false; a = Array.FindAll(a, x => x != "old"); }
         string cmd = a.Length > 0 ? a[0] : "stats";
+        if (cmd == "survival") return Survival(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "grid") return GridStats(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "dump") return Dump(int.Parse(a[1]), int.Parse(a[2]));
         if (cmd == "passages") return Passages();
@@ -23,6 +24,74 @@ static class Program
         if (cmd == "map") { Map(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         if (cmd == "sheet") { Sheet(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         return 1;
+    }
+
+    static int Survival(int count)
+    {
+        PlanGen.SurvivalLayout = true;
+        int mainRooms = 0, atria = 0, purchases = 0, maxLinks = 0, maxPairs = 0, maxBossDepth = 0, maxExitCost = 0; double totalArea = 0, sumBossDepth = 0, sumExitCost = 0;
+        void Check(bool ok, string reason) { if (!ok) throw new Exception(reason); }
+        for (int i = 0; i < count; i++)
+        {
+            var plan = PlanGen.Generate(9000 + i * 31, 1 + i % 12);
+            Check(plan != null, "Piano non generato: " + PlanGen.LastFailure);
+            var rooms = plan.rooms.FindAll(r => !r.IsLift);
+            Check(rooms.Count >= 7 && rooms.Count <= 9, "Numero di aree principali");
+            Check(rooms.FindAll(r => r.GalleryLevels == 2).Count >= 2, "Mancano due atri a tre quote");
+            Check(!plan.rooms.Exists(r => r.type == RoomType.Segreta), "Passaggio furtivo nel nuovo ciclo");
+            var access = new RoomAccessState(plan);
+            Check(plan.rooms[access.StartRoom].W * plan.rooms[access.StartRoom].D >= 60000, "Area iniziale troppo piccola");
+            Check(access.IsOpen(access.StartRoom) && access.IsOpen(plan.start), "Arrivo chiuso");
+            while (true)
+            {
+                int from = -1, next = -1;
+                foreach (var aRoom in rooms)
+                    foreach (var bRoom in rooms)
+                        if (access.CanBuy(aRoom.id, bRoom.id)) { from = aRoom.id; next = bRoom.id; break; }
+                if (next < 0) break;
+                int cost = access.Price(next), before = access.OpenRooms.Count;
+                Check(cost >= 500 && cost <= 1500, "Prezzo area fuori scala");
+                Check(!access.TryBuy(from, next, cost - 1, out int paid) && paid == 0 && access.OpenRooms.Count == before, "Acquisto senza punti");
+                Check(!access.TryBuy(next, from, 100000, out paid) && paid == 0, "Acquisto da area chiusa");
+                Check(access.TryBuy(from, next, cost, out paid) && paid == cost && access.IsOpen(next), "Acquisto valido rifiutato");
+                Check(!access.TryBuy(from, next, 100000, out paid) && paid == 0, "Doppio pagamento");
+                var replica = new RoomAccessState(plan); replica.ApplySnapshot(access.OpenRooms);
+                foreach (var room in plan.rooms) Check(replica.IsOpen(room.id) == access.IsOpen(room.id), "Snapshot incoerente");
+                purchases++;
+            }
+            foreach (var room in plan.rooms) Check(access.IsOpen(room.id), "Area rimasta inaccessibile");
+
+            // una porta per apertura, un'area della navmesh per coppia di stanze (RoomAccessDoors.PrepareNav): le aree sono 29 (3..31)
+            var pairs = new HashSet<long>(); int links = 0;
+            var adjacent = new List<int>[plan.rooms.Count];
+            for (int k = 0; k < adjacent.Length; k++) adjacent[k] = new List<int>();
+            foreach (var o in plan.openings)
+            {
+                if (!RoundRegions.IsLink(o)) continue;
+                adjacent[o.a].Add(o.b); adjacent[o.b].Add(o.a);
+                if (o.style == OpenStyle.Ascensore) continue;
+                links++; pairs.Add(Math.Min(o.a, o.b) * 1000L + Math.Max(o.a, o.b));
+            }
+            maxLinks = Math.Max(maxLinks, links); maxPairs = Math.Max(maxPairs, pairs.Count);
+            Check(pairs.Count <= 29, "Troppe coppie di stanze per le aree della navmesh");
+
+            // quanto costa arrivare all'ascensore di uscita (la stanza del boss) comprando solo le aree sul cammino piu' corto
+            var depth = new int[plan.rooms.Count]; Array.Fill(depth, -1);
+            var queue = new Queue<int>(); queue.Enqueue(access.StartRoom); depth[access.StartRoom] = 0;
+            while (queue.Count > 0) { int r0 = queue.Dequeue(); foreach (int n0 in adjacent[r0]) if (depth[n0] < 0) { depth[n0] = depth[r0] + 1; queue.Enqueue(n0); } }
+            var boss = plan.OfType(RoomType.Boss);
+            Check(boss.Count == 1, "Serve una sola stanza del boss");
+            int bossDepth = depth[boss[0].id], exitCost = 0;
+            for (int d = 1; d <= bossDepth; d++) exitCost += 500 + Math.Min(4, d - 1) * 250;
+            sumBossDepth += bossDepth; sumExitCost += exitCost; maxBossDepth = Math.Max(maxBossDepth, bossDepth); maxExitCost = Math.Max(maxExitCost, exitCost);
+
+            mainRooms += rooms.Count; atria += rooms.FindAll(r => r.GalleryLevels == 2).Count;
+            foreach (var room in rooms) totalArea += room.W * room.D * 0.01;
+        }
+        Console.WriteLine($"SURVIVAL: {count} piani verificati, {mainRooms / (double)count:F1} aree principali medie, {totalArea / mainRooms:F0} m2 per area, {atria} atri a tre quote, {purchases} acquisti e snapshot validi");
+        Console.WriteLine($"          porte al massimo {maxLinks}, coppie di stanze (aree navmesh) al massimo {maxPairs} su 29; ascensore di uscita a {sumBossDepth / count:F1} porte in media (massimo {maxBossDepth}), " +
+                          $"costo per arrivarci {sumExitCost / count:F0} punti in media (massimo {maxExitCost})");
+        return 0;
     }
 
     // Le stanze (ruolo, funzione, rettangolo in dm) e le aperture di un piano, a testo: per capire una prova fallita senza aprire Unity.

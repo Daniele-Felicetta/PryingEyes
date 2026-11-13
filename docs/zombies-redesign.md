@@ -4,7 +4,7 @@
 
 Ultima richiesta dell'utente, 13 novembre 2026: eliminare le candele da accendere e le meccaniche stealth;
 meno stanze per piano, più grandi e articolate internamente; apertura delle aree pagando punti; nemici più veloci.
-Le verifiche delle passate sotto documentano il sistema precedente e non provano questa nuova versione.
+Le verifiche delle passate sotto documentano il sistema precedente; il ciclo nuovo è provato dalla diciassettesima passata.
 
 Requisiti della conversione:
 
@@ -16,7 +16,10 @@ Requisiti della conversione:
 - armi e rifornimenti utilizzabili nelle aree aperte, obiettivi e guida riscritti per ondate e acquisti;
 - regressioni di porte/collisioni, spesa dei punti, ondate, morte, cambio piano, entrata tardiva e cooperativa.
 
-La conversione è in corso. Non distribuire come conclusa una build che usa ancora la progressione a candele.
+La conversione è completata (diciassettesima passata): il ciclo a ondate è il predefinito della modalità procedurale e la progressione
+a candele resta solo con `-candles`. Le prove delle passate precedenti documentano il sistema a candele, salvo dove indicato;
+quelle del ciclo nuovo sono nella diciassettesima passata e in `docs/quality-audit.md`. Nessuna prova umana: ritmo, prezzi e
+difficoltà vanno ancora giudicati giocando.
 
 Richiesta utente del 13 novembre 2026. Questa revisione estende l'audit: non è completata dai precedenti controlli.
 
@@ -213,3 +216,34 @@ le tariffe esistenti. Partenza e negozio conservano le proprie scelte. A serrand
 raggiungibile senza dipendere dai potenziamenti casuali o dover aspettare il termine del round. Nessun rifornimento
 gratuito: servono i punti guadagnati combattendo. Protocollo cooperativo `pe-coop-14`, con espositori inclusi nella
 firma del piano.
+
+## Diciassettesima passata: ciclo a ondate
+
+Conversione chiusa. `SurvivalMode` (`Proc/SurvivalMode.cs`) è il ciclo predefinito; il ciclo a candele e lo stealth restano con
+`-candles` (o `-legacycycle`, `-oldplan`) e con i flag delle prove che li verificano (`-stealthtest`, `-roundtest`, `-roundshots`,
+`-knifetest`, `-droptest`, `-architecturesupply`). `-zombies` forza il nuovo; `-nowaves` ferma le ondate (le ferma anche `-noenemies`
+e `-cooptest`, che le fa partire dal copione).
+
+- **Aree a pagamento.** Pianta a griglia di circa 8 aree principali (media 8,0 su 1000 piani, 925 m² l'una, spesso con atrio a tre quote)
+  più i due ascensori. Tutte chiuse da una serranda tranne la Partenza; `F` davanti alla porta compra l'area dietro: 500 punti la prima,
+  250 in più per ogni area di distanza (al massimo 1.500). L'acquisto vale per tutti e per il piano; due porte fra le stesse aree si
+  aprono insieme, gli ascensori con la loro area. Sui 1000 piani: al massimo 13 porte e 12 coppie di stanze su 29 aree della navmesh; l'ascensore di
+  uscita è a 3,5 porte in media (massimo 8) e costa 2.908 punti per arrivarci (massimo 9.500).
+- **Ondate.** Partono da sole: la prima 8 s dopo l'arrivo, le altre 10 s dopo la fine della precedente. Sedici nemici più quattro per
+  ondata (più otto per ogni giocatore oltre il primo), da 20 a 100, con 12 più uno per ondata (più tre a giocatore) vivi insieme, da 14 a 28.
+  Nascono solo nelle aree aperte, a 7–28 m da chi gioca e raggiungibili a piedi in pochi secondi, sempre all'attacco e più veloci (×1,6, i
+  volanti ×1,15). A ondata finita 100 punti più 20 per ondata, per tutti; ogni quinta è la Processione dei Lumi. Tre ondate aprono l'ascensore
+  di uscita, ma si può restare a combattere e comprare. Se muore chi gioca (in cooperativa: tutti) l'ondata salta senza premio e il numero torna
+  indietro. Un'ondata ferma da 120 s si chiude da sola.
+- **Fuori lo stealth.** Nessuna allerta, rilevamento legato alla luce, bonus Fantasma o presa alle spalle (il coltello è un colpo ravvicinato,
+  130 punti se uccide); Velo e Passi di cenere non si offrono più nella Biblioteca. La TARANTOLA a muro della Partenza e le armi dei
+  negozi sono il rifornimento.
+- **Cooperativa.** Protocollo `pe-coop-15`: `BuyRoom` / `RoomReply` / `RoomsState`; compra chi sta davanti alla porta, l'ospite convalida
+  (epoca, area di partenza collegata, prezzo, a non più di 4,5 m) e il client rimette i punti messi da parte se la richiesta cade. Chi entra
+  tardi riceve aree comprate e stato dell'ondata.
+- **Difetto trovato dalla camminata rigorosa.** La stanza Segreta si apre da un passaggio basso (architrave a 1,3 m) e il punto che si
+  guardava per comprare la sua porta era proprio a 1,3 m: la vista sbatteva nel muro e quell'area non si poteva comprare, né da chi gioca né dal bot.
+  Ora il punto sta sempre dentro l'apertura (`PaidRoomDoor.Point`) e `-architectureaccess` controlla che si veda da entrambi i lati di tutte le porte.
+- Aggiornati menu (comandi e guida), obiettivi, guida con `V` (porte da comprare), `README.md` e `docs/multiplayer/README.md`.
+
+Prove e numeri nel dettaglio: `docs/quality-audit.md`, «Diciassettesima passata».

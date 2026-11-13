@@ -68,6 +68,9 @@ namespace PryingEyes
                 Vector3 p = c.transform.position + Vector3.up * 1.3f;
                 marks.Add(new Mark { pos = p, kind = 0, candle = c, reveal = Time.time + Vector3.Distance(p, waveO) / WaveSpeed });
             }
+            if (SurvivalMode.Enabled && RoomAccessDoors.I != null)
+                foreach (var door in RoomAccessDoors.I.Doors)
+                    if (door.TargetRoom >= 0) marks.Add(new Mark { pos = door.Point, kind = 0, reveal = Time.time + Vector3.Distance(door.Point, waveO) / WaveSpeed });
             var ex = fd.cur.exit;
             if (ex != null)
             {

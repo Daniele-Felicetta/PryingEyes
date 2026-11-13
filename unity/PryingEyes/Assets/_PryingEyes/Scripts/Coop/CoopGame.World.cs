@@ -25,6 +25,7 @@ namespace PryingEyes
             switch (k)
             {
                 case CoopKind.EnemySpawn: case CoopKind.EnemyGone: case CoopKind.EnemyState: case CoopKind.EnemyEvent:
+                case CoopKind.RoomsState:
                 case CoopKind.CandleLit: case CoopKind.ExitState: case CoopKind.RoundState:
                 case CoopKind.DropSpawn: case CoopKind.DropTaken: case CoopKind.Bolt: case CoopKind.Teleport:
                     return true;
@@ -98,6 +99,7 @@ namespace PryingEyes
 
         void OnFloorStartWorld()
         {
+            RefundPendingRoom();
             enemies.Clear(); spawnQueue.Clear(); drops.Clear(); readyPending.Clear();
         }
 
@@ -137,8 +139,14 @@ namespace PryingEyes
                         net.SendToSlot(slot, CoopKind.CandleLit, w.Reset().U8(EpochByte).U8(i).U8(cs[i].litBy).Bool(true).ToArray());
                 if (fd.ExitOpen) net.SendToSlot(slot, CoopKind.ExitState, w.Reset().U8(EpochByte).Bool(true).ToArray());
             }
+            if (RoomAccessDoors.I != null) net.SendToSlot(slot, CoopKind.RoomsState, RoomSnapshot());
             var rd = RoundDirector.I;
-            if (rd != null && rd.Sealed && rd.CurrentZone >= 0)
+            if (SurvivalMode.Enabled && rd != null)
+            {
+                net.SendToSlot(slot, CoopKind.RoundState, w.Reset().U8(EpochByte).U8(4).U16(RoundDirector.Round).Bool(rd.Fighting).F32(rd.NextWave).U8(rd.FloorWaves).Bool(rd.Moth).ToArray());
+                net.SendToSlot(slot, CoopKind.RoundState, w.Reset().U8(EpochByte).U8(1).U16(rd.Target).U16(rd.Spawned).U16(rd.Alive).ToArray());
+            }
+            else if (rd != null && rd.Sealed && rd.CurrentZone >= 0)
             {
                 net.SendToSlot(slot, CoopKind.RoundState, w.Reset().U8(EpochByte).U8(0).U8(rd.CurrentZone).U16(RoundDirector.Round).Bool(rd.Moth).U8((int)rd.Mood).ToArray());
                 if (rd.Fighting) net.SendToSlot(slot, CoopKind.RoundState, w.Reset().U8(EpochByte).U8(1).U16(rd.Target).U16(rd.Spawned).U16(rd.Alive).ToArray());
@@ -420,6 +428,7 @@ namespace PryingEyes
             var fd = FloorDirector.I;
             switch (kind)
             {
+                case CoopKind.BuyRoom: HostBuyRoom(from, ref r); break;
                 case CoopKind.UseExit:
                 {
                     int ep = r.U16();
@@ -480,6 +489,9 @@ namespace PryingEyes
             var gm = GameManager.I;
             switch (kind)
             {
+                case CoopKind.RoomsState: ReceiveRooms(ref r); break;
+                case CoopKind.RoomReply:
+                { int request = r.U16(); bool accepted = r.Bool(); if (r.Ok) SettleRoom(request, accepted); break; }
                 case CoopKind.EnemySpawn:
                 {
                     r.U8();
@@ -624,6 +636,11 @@ namespace PryingEyes
                         if (r.Ok) rd.CoopComplete(reward, pts);
                     }
                     else if (sub == 3) rd.CoopAbort();
+                    else if (sub == 4)
+                    {
+                        int round = r.U16(); bool fighting = r.Bool(); float next = r.F32(); int completed = r.U8(); bool procession = r.Bool();
+                        if (r.Ok && SurvivalMode.Enabled) rd.CoopSurvivalSnapshot(round, fighting, next, completed, procession);
+                    }
                     break;
                 }
                 case CoopKind.DropSpawn:
