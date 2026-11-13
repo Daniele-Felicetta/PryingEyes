@@ -24,7 +24,7 @@ namespace PryingEyes.Proc
         bool teamDown;          // tutti a terra: le ondate aspettano
         public int FloorWaves => floorWaves;
         public float NextWave => nextWave;
-        readonly NavMeshPath spawnPath = new NavMeshPath();
+        NavMeshPath spawnPath;      // creato al primo uso: un NavMeshPath nell'inizializzatore di un campo da' eccezione in editor
 
         void ArmSurvival()
         {
@@ -87,6 +87,7 @@ namespace PryingEyes.Proc
             float dMax = relax == 0 ? 28f : relax == 1 ? 38f : 70f;
             float pathMax = relax == 0 ? 38f : relax == 1 ? 55f : 100f;
             int unseenTries = relax == 0 ? 40 : relax == 1 ? 24 : 0;
+            if (spawnPath == null) spawnPath = new NavMeshPath();
             for (int attempt = 0; attempt < 72; attempt++)
             {
                 var room = PickOpenRoom(access.Access);

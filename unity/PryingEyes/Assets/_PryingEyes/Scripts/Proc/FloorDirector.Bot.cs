@@ -30,7 +30,7 @@ namespace PryingEyes.Proc
         // nuovo ciclo (SurvivalMode): niente candele; il bot compra le porte una dopo l'altra e a stanze finite l'ascensore si apre da solo
         PaidRoomDoor botSDoor;
         readonly HashSet<PaidRoomDoor> botSDoorBlack = new HashSet<PaidRoomDoor>();
-        readonly NavMeshPath botSProbe = new NavMeshPath();
+        NavMeshPath botSProbe;      // creato al primo uso: un NavMeshPath nell'inizializzatore di un campo da' eccezione in editor (come botPath)
         float botSPause;
         int botSBought;
 
@@ -121,6 +121,7 @@ namespace PryingEyes.Proc
             if (botSDoor != null && access.Target(botSDoor) >= 0 && !botSDoorBlack.Contains(botSDoor)) return botSDoor;
             botSDoor = null;
             if (!NavMesh.SamplePosition(pp, out NavMeshHit start, 2f, NavMesh.AllAreas)) return null;
+            if (botSProbe == null) botSProbe = new NavMeshPath();
             float best = float.MaxValue;
             foreach (var d in access.Doors)
             {
