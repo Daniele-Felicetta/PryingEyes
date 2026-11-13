@@ -350,6 +350,37 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
   (`combat-gunplay`), ottiche **37/37** (`combat-optics`), tutti i processi usciti con 0.
 - Build principale aggiornata a gioco chiuso; 189 file confrontati con SHA-256.
 
+## Quinta passata: gesto e contatto della mischia (13 novembre 2026)
+
+- Nuova clip `mischia`: 38 frame a 30 fps, contatto al frame 18 (0,6 s); Abate e Primario la rallentano a 0,85.
+  Caricamento laterale del busto e del bastone, affondo a quota torace e recupero. Distingue gli incantesimi
+  con stato `Incanto` e trigger `Lancia`. Gli importatori conservano questa configurazione se si ricreano i prefab.
+- Pipeline: `modelli/monaco/genera_attacco.py` esporta solo lo scheletro dalla base animata; `EnemyMeleeImport`
+  verifica **28/28 percorsi** compatibili su Monaco e Abate e genera `Mischia.anim`, preservando la trasformazione
+  dell’armatura originale. Le mesh e le texture dei costumi non sono state rigenerate.
+- Il bersaglio viene impegnato all’inizio del gesto. Direzione bloccata durante preparazione e recupero; contatto
+  limitato al settore frontale, portata effettiva, dislivello e linea libera. Nessun danno anticipato o ripetuto.
+  Uscita del bersaglio: il riferimento impegnato viene annullato. Colpo a vuoto: solo fruscio, senza falso impatto
+  sul pavimento. Colpi ricevuti durante il gesto non desincronizzano la clip; i trigger precedenti sono ripuliti.
+- **62/62** nella prova con controller e Animator reali (`melee-final-player.log`), comprese le sei varianti,
+  mesh animate erette e nella scala prevista, fase visibile dell’affondo, recupero, arretramento fisico, schiena,
+  parete comparsa durante la preparazione, evento di uscita e reazione al danno. Viste frontali e laterali delle
+  tre fasi controllate in `unity_logs/melee`.
+- Le prime immagini hanno rilevato la radice inclinata del file con sole ossa: corretta conversione degli assi e
+  conservata la trasformazione dell’armatura del costume. La prima prova di arretramento teneva il bot immobile
+  col blocco dello sguardo delle foto; ora usa il movimento vero. La lettura della fase avviene dopo la valutazione
+  dell’Animator, evitando una posa precedente quando la prima cattura blocca a lungo il fotogramma.
+- Cooperativa: **16/16 ospite e 28/28 client**, uscita 0 in 76 s (`melee-coop`), inclusa la nuova verifica della
+  preparazione visibile sul client. Protocollo **`pe-coop-9`**. Nemici tematici: **temi: OK**, uscita 0 (`melee-temi`).
+- La build completa ha rilevato una creazione nativa di `MaterialPropertyBlock` nel costruttore di `Weapon`;
+  spostata al primo aggiornamento dell’ottica. Le build complete successive non riportano l’eccezione.
+- Regressioni dopo la nuova clip e la correzione del materiale ottico: interfaccia **157/157** (`melee-ui`),
+  armi **279/279** (`melee-gunplay`), ottiche **37/37** (`melee-optics`), uscite 0.
+- Build principale aggiornata a gioco chiuso, 189 file verificati con SHA-256. Scene e materiali ricreati dalla
+  build sono stati confrontati semanticamente: conservati gli originali, evitando modifiche dei soli identificatori.
+- Resta da rifinire la torcia ravvicinata: alcune superfici dei costumi saturano nelle immagini. Restano inoltre
+  Veglia e gesti dei non umanoidi, valutazione delle orde, audio ascoltato e gli altri ambiti generali sotto elencati.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

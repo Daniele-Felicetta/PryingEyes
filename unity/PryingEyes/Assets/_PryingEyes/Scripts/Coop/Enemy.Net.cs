@@ -91,7 +91,11 @@ namespace PryingEyes
         public static void OnTargetGone(ITarget t)
         {
             foreach (var e in all)
-                if (e != null && e.tgt == t) e.tgt = Targets.Nearest(e.transform.position);
+            {
+                if (e == null) continue;
+                if (e.meleeVictim == t) e.meleeVictim = null;
+                if (e.tgt == t) e.tgt = Targets.Nearest(e.transform.position);
+            }
         }
 
         // ------------------------------------------------------------------ ospitato: pupazzo
@@ -197,6 +201,7 @@ namespace PryingEyes
                         else Sfx.At(SoundBank.Tap, tap, 0.55f, Random.Range(0.92f, 1.08f), 1.5f, 24f);
                     }
                 }
+                if (strikeAt >= 0f) { strikeAt -= dt; MeleeSwish(); }
                 if (castAt >= 0f)
                 {
                     // la sfera si carica sul bastone; il dardo arriva da solo (messaggio Bolt)
@@ -231,30 +236,29 @@ namespace PryingEyes
                     {
                         if (type == EnemyType.Portachiavi)
                         {
-                            strikeAt = 16f / 30f / AbateAnimSpeed;
                             Sfx.At(SoundBank.KeeperBell, transform.position + Vector3.up * 1.4f, 0.65f, 1f, 2f, 28f);
                         }
-                        if (anim != null) anim.SetTrigger("Attacca");
+                        strikeAt = MeleeWindup / MeleeRate; atkLock = MeleeDuration / MeleeRate + 0.05f; meleeSwished = false;
+                        if (anim != null) { anim.ResetTrigger("Colpito"); anim.SetTrigger("Attacca"); }
                     }
                     break;
                 case EnemyEvt.Strike:
-                    if (glowMat != null) Fx.EnemyImpact(pos, Vector3.up, glowMat.GetColor("_EmissionColor"));
-                    if (Archetype == EnemyType.Abate) Sfx.At(SoundBank.Strike, pos, 1f, Random.Range(0.70f, 0.78f), 3f, 42f);
-                    else Sfx.At(SoundBank.Strike, pos, 0.85f, Random.Range(0.95f, 1.05f), 3f, 35f);
+                    strikeAt = -1f;
+                    PlayMeleeContact(pos, extra > 0.5f);
                     break;
                 case EnemyEvt.Cast:
-                    if (anim != null) anim.SetTrigger("Attacca");
+                    if (anim != null) { anim.ResetTrigger("Colpito"); anim.SetTrigger("Lancia"); }
                     EnsureCastOrb();
                     castOrb.SetActive(true);
-                    castAt = castWind;
+                    castAt = castWind; atkLock = castWind + 0.5f;
                     if (castLight != null) castLight.intensity = 0.2f;
                     Sfx.At(SoundBank.Whisper, castOrb.transform.position, 0.5f, Random.Range(0.85f, 1.05f), 2f, 24f);
                     break;
                 case EnemyEvt.Hit:
                     flash = 1f;
                     foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.white);
-                    if (Archetype == EnemyType.Monaco && anim != null) anim.SetTrigger("Colpito");
-                    if (Archetype == EnemyType.Abate && anim != null && flinchT <= 0f) { anim.SetTrigger("Colpito"); flinchT = 1.5f; }
+                    if (Archetype == EnemyType.Monaco && atkLock <= 0f && anim != null) anim.SetTrigger("Colpito");
+                    if (Archetype == EnemyType.Abate && atkLock <= 0f && anim != null && flinchT <= 0f) { anim.SetTrigger("Colpito"); flinchT = 1.5f; }
                     if (Archetype == EnemyType.Occhio && eye != null) eye.Hit();
                     break;
                 case EnemyEvt.Whistle:

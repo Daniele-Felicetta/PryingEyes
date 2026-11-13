@@ -62,7 +62,7 @@ namespace PryingEyes
         Material scopeMat;
         float scopeRadius = 0.0185f;
         Renderer reticleRenderer;
-        readonly MaterialPropertyBlock aimProperties = new MaterialPropertyBlock();
+        MaterialPropertyBlock aimProperties;
 
         float fireT, cycleT, reloadT, reloadDur, swapT, equipT, lastShot = -99f, flashT;
         int burstLeft, streak, shellsToLoad, shellsLoaded;
@@ -589,6 +589,7 @@ namespace PryingEyes
         void LateUpdate()
         {
             if (cam == null || rig == null) return;
+            aimProperties ??= new MaterialPropertyBlock();
             // Un solo asse per proiettile, punto collimato e immagine ingrandita. Il modello può oscillare intorno ad esso.
             aimProperties.SetVector("_AimOrigin", cam.position);
             aimProperties.SetVector("_AimForward", cam.forward);

@@ -64,7 +64,22 @@ svaniscono in 0,85 s; l’immunità non produce segnali falsi. La provenienza pa
 Il dardo verifica il tratto intero percorso a ogni aggiornamento contro pareti e capsule dei giocatori, sceglie il
 primo contatto e infligge danno una volta sola; la copia grafica non causa danno. Accovacciarsi riduce il bersaglio.
 
-Restano aperti: riformulazione della Veglia e revisione delle animazioni di corpo a corpo, preparazione, contatto e
-recupero. La quarta passata migliora gli effetti e il feedback ma mantiene per ora le clip esistenti dei nemici.
-Continuare anche la valutazione degli spazi durante il combattimento: le prove di navigazione non bastano a
-dimostrare il ritmo finale con gruppi di nemici. La revisione complessiva rimane in corso.
+## Quinta passata: corpo a corpo degli umanoidi
+
+Nuova animazione di 38 fotogrammi a 30 fps: caricamento laterale, affondo a quota torace al fotogramma 18,
+recupero. Monaco, Abate, Maschera, Direttore, Infermiere e Primario usano lo stesso scheletro; l’Abate mantiene
+la velocità ridotta a 0,85. L’incantesimo ha ora uno stato distinto, senza usare l’affondo della mischia.
+
+Durante il gesto il nemico mantiene la direzione scelta. Il danno al contatto richiede ancora bersaglio vivo,
+settore frontale, distanza, quota e linea libera. Arretrare o spostarsi alle spalle evita il colpo; una parete
+sopraggiunta lo blocca. Il bersaglio non cambia durante il gesto, e la sua uscita annulla il contatto. Il recupero
+non infligge altri danni. Fruscio dell’arma durante l’affondo, suono e particelle di contatto solo se il colpo arriva.
+
+Verifica nel gioco: **62/62**, comprese le sei clip, altezza delle mesh animate, fase dell’affondo, movimento reale
+del controller e contatto annullato. Pose frontali e laterali in `unity_logs/melee`. Cooperativa: **16/16 ospite,
+28/28 client**, inclusa la visione della preparazione della nuova clip sul client.
+
+Restano aperti: riformulazione della Veglia e valutazione dei gesti dei nemici non umanoidi, ancora procedurali.
+Le immagini ravvicinate evidenziano anche zone bruciate dalla torcia su alcuni costumi: correggere luce/materiali
+senza cambiare le preferenze del giocatore. Continuare la valutazione degli spazi durante combattimenti affollati.
+La revisione complessiva rimane in corso.

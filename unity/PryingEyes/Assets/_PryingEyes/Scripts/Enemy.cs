@@ -284,10 +284,8 @@ namespace PryingEyes
         bool InReach(Vector3 from, Vector3 chest, float hd, float dy, float range) =>
             hd < range && dy < MaxStepUp && HotelNav.ClearLine(from, chest);
 
-        /// <summary>Abate: avanza lento e inesorabile e, a tiro, pianta il bastone-ostensorio a terra (la clip del monaco,
-        /// un po' piu' lenta): il danno e l'onda d'urto arrivano quando il bastone tocca terra, solo se il giocatore e'
-        /// a tiro. Niente magie, ma colpisce piu' forte e da piu' lontano. Incassa i proiettili senza barcollare a
-        /// ogni colpo: una reazione al massimo ogni secondo e mezzo.</summary>
+        /// <summary>Abate: caricamento, affondo e recupero più lenti. La direzione si impegna all'avvio;
+        /// il contatto deve ancora trovare il bersaglio nel settore frontale e senza ostacoli.</summary>
         void UpdateAbate(float dt, Vector3 gp, Vector3 feet, Vector3 chest, Vector3 toP, float hd, float dy, Vector3 sep, bool enraged)
         {
             atkLock -= dt;
@@ -301,7 +299,7 @@ namespace PryingEyes
             float hdG = toG.magnitude; if (hdG > 0.01f) toG /= hdG;
             Walk(dt, gp, moveGoal, toG, hdG, sep, speed * moveMul * (enraged ? 1.3f : 1f), attacking || moveHold);
             // a caccia guarda il giocatore solo se lo vede; arrivato dove l'ha perso si guarda intorno come in ricerca
-            if (hunting && !scanning) Face(dt, transform.position, feet, hd, see && seeing, 4f); else FaceCalm(dt, hunting ? 4f : 3.2f);
+            if (!attacking) { if (hunting && !scanning) Face(dt, transform.position, feet, hd, see && seeing, 4f); else FaceCalm(dt, hunting ? 4f : 3.2f); }
             float v = new Vector3(vel.x, 0f, vel.z).magnitude;
             // la camminata va a passo con il terreno: la clip e' del monaco, qui scalata e rallentata
             float pv = Mathf.Clamp(v / (MonacoWalkSpeed * AbateScale * AbateAnimSpeed), 0.5f, 2.6f);
@@ -323,35 +321,19 @@ namespace PryingEyes
             if (strikeAt >= 0f)
             {
                 strikeAt -= dt;
+                MeleeSwish();
                 if (strikeAt < 0f)
                 {
-                    // punta del bastone nel riferimento del monaco (Blender 0.31, -0.37, 0 -> Unity -0.31, 0, 0.37)
-                    Vector3 tip = transform.TransformPoint(carapace ? new Vector3(0f, 0f, 0.68f) : new Vector3(-0.31f, 0f, 0.37f));
-                    if (glowMat != null) Fx.EnemyImpact(tip, Vector3.up, glowMat.GetColor("_EmissionColor"));
-                    Sfx.At(SoundBank.Strike, tip, 1f, Random.Range(0.70f, 0.78f), 3f, 42f);
-                    Coop.Game?.EnemyEvent(this, EnemyEvt.Strike, tip);
-                    Vector3 p = tgt.Feet;
-                    float hd2 = new Vector2(p.x - tip.x, p.z - tip.z).magnitude;
-                    float dy2 = Mathf.Abs(p.y - tip.y);
-                    if (tgt.Alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, 3.1f))
-                        HitPlayer((enraged ? 28f : 22f) + Random.value * 8f, hd2, dy2);
-                    else if (GameManager.autoTest) Debug.Log($"[PryingEyes] abate: colpo a vuoto, giocatore a {hd2:F1} m, dislivello {dy2:F1} m");
+                    ResolveMelee((enraged ? 28f : 22f) + Random.value * 8f, 2.8f);
                 }
             }
-            else if (hunting && atkCd <= 0f && tgt.Alive && InReach(eye, chest, hd, dy, 2.8f))
+            else if (hunting && atkCd <= 0f && tgt.Alive && InMeleeArc(tgt.Feet) && InReach(eye, chest, hd, dy, 2.8f))
             {
-                atkCd = 2.5f;
-                strikeAt = 16f / 30f / AbateAnimSpeed;
-                atkLock = 1.5f;
-                if (type == EnemyType.Portachiavi) Sfx.At(SoundBank.KeeperBell, gp + Vector3.up * 1.4f, 0.65f, 1f, 2f, 28f);
-                if (anim != null) anim.SetTrigger("Attacca");
-                Coop.Game?.EnemyEvent(this, EnemyEvt.Attack, Vector3.zero);
+                BeginMelee(2.5f);
             }
         }
 
-        /// <summary>Monaco: si avvicina camminando, si ferma e pianta il bastone a terra; il danno e l'onda d'urto
-        /// arrivano quando il bastone tocca terra (fotogramma 16 della clip, 0.53 s), solo se il giocatore e' a tiro.</summary>
-        /// <summary>Sigillo di carica sulla punta del bastone, creata alla prima magia.</summary>
+        /// <summary>Sigillo dell'incantesimo. La clip di lancio resta separata dal nuovo affondo in mischia.</summary>
         void EnsureCastOrb()
         {
             if (castOrb != null) return;
@@ -380,7 +362,7 @@ namespace PryingEyes
             Vector3 toG = moveGoal - gp; toG.y = 0f;
             float hdG = toG.magnitude; if (hdG > 0.01f) toG /= hdG;
             Walk(dt, gp, moveGoal, toG, hdG, sep, speed * moveMul * (enraged ? 1.25f : 1f), attacking || casting || moveHold);
-            if (hunting && !scanning) Face(dt, transform.position, feet, hd, see && seeing, 5f); else FaceCalm(dt, hunting ? 5f : 3.5f);
+            if (!attacking || casting) { if (hunting && !scanning) Face(dt, transform.position, feet, hd, see && seeing, 5f); else FaceCalm(dt, hunting ? 5f : 3.5f); }
             float v = new Vector3(vel.x, 0f, vel.z).magnitude;
             if (anim != null)
             {
@@ -423,31 +405,15 @@ namespace PryingEyes
             else if (strikeAt >= 0f)
             {
                 strikeAt -= dt;
+                MeleeSwish();
                 if (strikeAt < 0f)
                 {
-                    // punta del bastone nel riferimento del monaco (Blender 0.31, -0.37, 0 -> Unity -0.31, 0, 0.37)
-                    Vector3 tip = transform.TransformPoint(new Vector3(-0.31f, 0f, 0.37f));
-                    if (glowMat != null) Fx.EnemyImpact(tip, Vector3.up, glowMat.GetColor("_EmissionColor"));
-                    Sfx.At(SoundBank.Strike, tip, 0.85f, Random.Range(0.95f, 1.05f), 3f, 35f);
-                    Coop.Game?.EnemyEvent(this, EnemyEvt.Strike, tip);
-                    Vector3 p = tgt.Feet;
-                    float hd2 = new Vector2(p.x - tip.x, p.z - tip.z).magnitude;
-                    float dy2 = Mathf.Abs(p.y - tip.y);
-                    if (tgt.Alive && InReach(tip + Vector3.up * 0.6f, p + Vector3.up * 1.3f, hd2, dy2, meleeReach + 0.3f))
-                    {
-                        HitPlayer((enraged ? meleeDmg + 6f : meleeDmg) + Random.value * 6f, hd2, dy2);
-                        if (type == EnemyType.Infermiere) tgt.Sedate(2.8f);   // la puntura addormenta le gambe
-                    }
-                    else if (GameManager.autoTest) Debug.Log($"[PryingEyes] monaco: colpo a vuoto, giocatore a {hd2:F1} m, dislivello {dy2:F1} m");
+                    ResolveMelee((enraged ? meleeDmg + 6f : meleeDmg) + Random.value * 6f, meleeReach);
                 }
             }
-            else if (hunting && atkCd <= 0f && tgt.Alive && InReach(eye, chest, hd, dy, meleeReach))
+            else if (hunting && atkCd <= 0f && tgt.Alive && InMeleeArc(tgt.Feet) && InReach(eye, chest, hd, dy, meleeReach))
             {
-                atkCd = meleeCd;
-                strikeAt = 16f / 30f;
-                atkLock = 1.25f;
-                if (anim != null) anim.SetTrigger("Attacca");
-                Coop.Game?.EnemyEvent(this, EnemyEvt.Attack, Vector3.zero);
+                BeginMelee(meleeCd);
             }
             else if (volley > 0 && hunting && seeing && atkCd <= 0f && tgt.Alive && see && hd > 3.0f && hd < 26f)
             {
@@ -458,7 +424,7 @@ namespace PryingEyes
                 EnsureCastOrb();
                 castOrb.SetActive(true);
                 if (castLight != null) castLight.intensity = 0.2f;
-                if (anim != null) anim.SetTrigger("Attacca");
+                if (anim != null) { anim.ResetTrigger("Colpito"); anim.SetTrigger("Lancia"); }
                 Sfx.At(SoundBank.Whisper, castOrb.transform.position, 0.5f,
                        Random.Range(0.85f, 1.05f), 2f, 24f);
                 Coop.Game?.EnemyEvent(this, EnemyEvt.Cast, Vector3.zero);

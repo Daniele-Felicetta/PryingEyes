@@ -235,6 +235,7 @@ namespace PryingEyes.EditorTools
             d.hasExitTime = false; d.duration = 0.1f; d.canTransitionToSelf = false;
             EditorUtility.SetDirty(ctrl);
             AssetDatabase.SaveAssets();
+            EnemyMeleeImport.Configure(ctrl, Clip("attacco"));
             return ctrl;
         }
 
