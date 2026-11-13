@@ -17,7 +17,7 @@ namespace PryingEyes.Proc
     /// anche una foto per inquadratura (hotel_build/perf/etichetta_tema_stanza.png): e' la vista vera del giocatore, con
     /// nebbia, luci e post-processing del gioco. -perftag mette un'etichetta ai file. Il confronto prima/dopo vale solo con
     /// lo stesso seme e lo stesso piano.</summary>
-    public static class PerfProbe
+    public static partial class PerfProbe
     {
         const string LogPath = "C:/Users/danie/Desktop/prying-eyes/hotel_build/perf.txt";
         const string ShotDir = "C:/Users/danie/Desktop/prying-eyes/hotel_build/perf/";
@@ -134,6 +134,8 @@ namespace PryingEyes.Proc
             var pl = gm != null ? gm.player : null;
             var cam = Camera.main;
             if (pl == null || cam == null || fd.cur == null) { Application.Quit(); yield break; }
+            if (Has("-perfhorde") && SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+            { Debug.LogError("[PryingEyes] hordeperf richiede grafica reale"); Application.Quit(2); yield break; }
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = -1;
             PlayerController.holdLook = true;
@@ -156,6 +158,12 @@ namespace PryingEyes.Proc
             // giro misura una scheda lenta (dopo ProcCheck, che gira senza grafica, l'albergo risultava 3 volte piu' lento del solito).
             float warmStart = Time.realtimeSinceStartup;
             while (Time.realtimeSinceStartup - warmStart < 3f) { yield return null; cam.Render(); }
+            if (Has("-perfhorde"))
+            {
+                yield return RunHorde(fd,pl,cam,rt,one);
+                cam.targetTexture=null;rt.Release();Object.Destroy(one);
+                yield break;
+            }
             if (Has("-perfprops"))
             {
                 yield return RunProps(plan, pl, cam, rt, tag);

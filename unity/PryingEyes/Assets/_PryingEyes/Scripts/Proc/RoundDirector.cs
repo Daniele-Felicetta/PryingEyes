@@ -17,13 +17,14 @@ namespace PryingEyes.Proc
         public static float Failsafe = 240f;                                          // oltre, il round finisce da solo (senza premio); non const per le prove
 
         /// <summary>Quanti nemici in tutto: cresce con il round e, un po', con il piano.</summary>
-        public static int Count(int round, int floor) => Mathf.Clamp(Mathf.RoundToInt(4f + 0.55f * round + 0.5f * floor), 4, 24);
+        public static int Count(int round, int floor) => Mathf.Clamp(Mathf.RoundToInt(12f + 2.5f * round + 1.5f * floor), 16, 72);
+        public static int CountForArea(int round,int floor,float areaM2) => Count(round,floor)+Mathf.Clamp(Mathf.RoundToInt((areaM2-240)/90),0,14);
         /// <summary>Salute: +6% a round fino al 16, poi esponenziale (come i Black Ops Zombies, dove dal 10 in poi si fa piu' fatica).</summary>
         public static float HpMul(int round) => round <= 16 ? 1f + 0.06f * (round - 1) : 1.9f * Mathf.Pow(1.035f, round - 16);
         public static float SpeedMul(int round) => Mathf.Min(1.8f, 1f + 0.025f * (round - 1));
         /// <summary>Quanti vivi insieme: dipende da quanto e' grande la zona.</summary>
-        public static int AliveCap(float areaM2) => Mathf.Clamp(Mathf.RoundToInt(areaM2 / 9f), 4, 12);
-        public static float SpawnGap(int round) => Mathf.Lerp(2.2f, 0.9f, Mathf.Clamp01((round - 1) / 20f));
+        public static int AliveCap(float areaM2) => Mathf.Clamp(Mathf.RoundToInt(areaM2 / 28f), 8, 24);
+        public static float SpawnGap(int round) => Mathf.Lerp(0.75f, 0.35f, Mathf.Clamp01((round - 1) / 20f));
         public static int Reward(int round) => 100 + 20 * round;
 
         /// <summary>Ogni quinto round e' la Processione dei Lumi (come i round dei cani nei Black Ops Zombies): solo Veglie, una volta e mezzo
@@ -165,137 +166,13 @@ namespace PryingEyes.Proc
         }
     }
 
-    /// <summary>Dove nasce un nemico del round (e dove sparisce se il round salta o scade): una colonna di luce fredda dai bordi morbidi
-    /// che si stringe, un anello che si allarga sul pavimento e un lampo di luce vera. Una luce azzurra da sola si perdeva sulla carta da
-    /// parati rossa. Dura meno di un secondo e si cancella da sola.</summary>
-    public sealed class RoundFlare : MonoBehaviour
+    /// <summary>Ingresso breve in cenere e pulviscolo, senza anello a terra o colonna luminosa.</summary>
+    public static class RoundFlare
     {
-        const float Life = 0.85f, BeamH = 2.5f;
-        static Material beamMat, ringMat;
-        Light l;
-        Renderer[] beams;
-        Renderer ring;
-        Transform beamsT, ringT;
-        MaterialPropertyBlock mpb;
-        float t;
-
-        static float Sm(float a, float b, float x) { float k = Mathf.Clamp01((x - a) / (b - a)); return k * k * (3f - 2f * k); }
-
-        // le due texture si fanno una volta sola: sfumatura morbida invece di un cilindro dai bordi netti
-        static Texture2D MakeTex(int w, int h, System.Func<float, float, float> alpha)
+        public static void At(Vector3 position)
         {
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "Lampo" };
-            var px = new Color32[w * h];
-            for (int y = 0; y < h; y++)
-                for (int x = 0; x < w; x++)
-                {
-                    float a = Mathf.Clamp01(alpha(x / (w - 1f), y / (h - 1f)));
-                    px[y * w + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(255f * a));
-                }
-            tex.SetPixels32(px);
-            tex.Apply(false, true);
-            return tex;
-        }
-
-        static Material Additive(Texture2D tex)
-        {
-            var m = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            m.SetTexture("_BaseMap", tex);
-            m.SetFloat("_Surface", 1f);
-            m.SetFloat("_Blend", 2f);                                                // additivo
-            m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
-            m.SetFloat("_ZWrite", 0f);
-            m.SetFloat("_Cull", 0f);                                                 // visibile da tutti e due i lati
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            return m;
-        }
-
-        static void EnsureMats()
-        {
-            if (beamMat != null) return;
-            beamMat = Additive(MakeTex(32, 64, (u, v) =>
-            {
-                float x = u * 2f - 1f;                                               // v = 0 e' a terra: la colonna e' piu' forte in basso e svanisce in alto
-                return Mathf.Exp(-x * x * 2.2f) * Mathf.Pow(1f - v, 0.6f) * Sm(0f, 0.05f, v);
-            }));
-            ringMat = Additive(MakeTex(64, 64, (u, v) =>
-            {
-                float x = u * 2f - 1f, y = v * 2f - 1f;
-                float r = Mathf.Sqrt(x * x + y * y);
-                float edge = 1f - Sm(0.88f, 1f, r);
-                return (Mathf.Exp(-Mathf.Pow((r - 0.78f) / 0.14f, 2f)) + 0.12f * (1f - r)) * edge;
-            }));
-        }
-
-        static Renderer Quad(Transform parent, string name, Vector3 localPos, Quaternion localRot, Material m)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            go.name = name;
-            Destroy(go.GetComponent<Collider>());
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPos;
-            go.transform.localRotation = localRot;
-            var r = go.GetComponent<MeshRenderer>();
-            r.sharedMaterial = m;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            r.receiveShadows = false;
-            return r;
-        }
-
-        public static void At(Vector3 p)
-        {
-            EnsureMats();
-            Vector3 floor = p;                                                       // i volanti nascono in aria: colonna e anello stanno a terra
-            if (Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, out RaycastHit hit, 6f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) floor = hit.point;
-            var g = new GameObject("LampoRound");
-            g.transform.position = floor + Vector3.up * 1.1f;                        // la luce sta all'altezza del petto
-            var f = g.AddComponent<RoundFlare>();
-            f.l = g.AddComponent<Light>();
-            f.l.type = LightType.Point;
-            f.l.color = new Color(0.70f, 0.85f, 1f);
-            f.l.intensity = 7f;
-            f.l.range = 7.5f;
-            f.l.shadows = LightShadows.None;
-
-            var bt = new GameObject("Colonna").transform;                            // due piani verticali incrociati
-            bt.SetParent(g.transform, false);
-            f.beamsT = bt;
-            f.beams = new[]
-            {
-                Quad(bt, "Piano1", Vector3.zero, Quaternion.identity, beamMat),
-                Quad(bt, "Piano2", Vector3.zero, Quaternion.Euler(0f, 90f, 0f), beamMat),
-            };
-            f.ring = Quad(g.transform, "Anello", new Vector3(0f, -1.08f, 0f), Quaternion.Euler(90f, 0f, 0f), ringMat);
-            f.ringT = f.ring.transform;
-            f.mpb = new MaterialPropertyBlock();
-            f.Animate(0f);
-            Sfx.At(SoundBank.Whisper, p + Vector3.up, 0.6f, Random.Range(0.8f, 1.0f), 2f, 28f);
-        }
-
-        void Animate(float k)
-        {
-            float fade = (1f - k) * (1f - k);
-            l.intensity = 7f * fade;
-            float w = 2.3f * (1f - 0.45f * k);                                       // piu' larga del nemico: lui nasconde il centro dei piani
-            float hh = BeamH * (0.85f + 0.3f * k);
-            beamsT.localPosition = new Vector3(0f, hh * 0.5f - 1.08f, 0f);           // la base resta a terra mentre la colonna sale
-            beamsT.localScale = new Vector3(w, hh, w);                               // i piani base sono 1 x 1 m
-            float open = 1f - (1f - k) * (1f - k);
-            float rr = 1.2f + 5.8f * open;
-            ringT.localScale = new Vector3(rr, rr, 1f);
-            mpb.SetColor("_BaseColor", new Color(0.60f, 1.05f, 1.9f, 0.95f * fade));
-            foreach (var b in beams) b.SetPropertyBlock(mpb);
-            mpb.SetColor("_BaseColor", new Color(0.55f, 0.92f, 1.6f, 0.9f * (1f - k)));
-            ring.SetPropertyBlock(mpb);
-        }
-
-        void Update()
-        {
-            t += Time.deltaTime;
-            Animate(Mathf.Clamp01(t / Life));
-            if (t >= Life) Destroy(gameObject);
+            Fx.EnemyImpact(position + Vector3.up * 0.4f, Vector3.up, new Color(0.42f, 0.36f, 0.28f));
+            Sfx.At(SoundBank.Whisper, position + Vector3.up, 0.3f, Random.Range(0.8f, 1f), 2f, 18f);
         }
     }
 
@@ -522,7 +399,7 @@ namespace PryingEyes.Proc
                 adopted++;
             }
             float mul = (mood == RoundMood.Calm ? RoundRules.CalmMul : mood == RoundMood.Alarm ? RoundRules.AlarmMul : 1f) * (moth ? RoundRules.MothCountMul : 1f);
-            target = Mathf.Max(2, Mathf.RoundToInt(RoundRules.Count(Round, fd.floor) * mul) - adopted);
+            target = Mathf.Max(2, Mathf.RoundToInt(RoundRules.CountForArea(Round, fd.floor,z.reg.area) * mul) - adopted);
             phase = Phase.Fighting;
 
             gm.hud?.SetRound(Round);
@@ -623,12 +500,25 @@ namespace PryingEyes.Proc
                     var room = PickRoom(cur);
                     float x0 = room.x0 * 0.1f + 1.0f, x1 = room.x1 * 0.1f - 1.0f, z0 = room.z0 * 0.1f + 1.0f, z1 = room.z1 * 0.1f - 1.0f;
                     var q = new Vector3(x1 > x0 ? Random.Range(x0, x1) : room.CenterX, 0f, z1 > z0 ? Random.Range(z0, z1) : room.CenterZ);
+                    if (room.upperGallery && Random.value < 0.3f)
+                    {
+                        var routes=fi.galleries.FindAll(g=>g.room==room);
+                        if(routes.Count>0)
+                        {
+                            var route=routes[Random.Range(0,routes.Count)];
+                            for(int attempt=0;attempt<4;attempt++)
+                            {
+                                var upper=route.points[Random.Range(1,route.points.Length-1)];
+                                if(upper.y>2.5f){q=upper;break;}
+                            }
+                        }
+                    }
                     if (Targets.NearestDistance(q) < dmin) continue;
                     var t = moth ? Enemy.EnemyType.Veglia : fd.PickRoundType(room);
                     bool fly = Enemy.IsFlying(t);
                     if (fly)
                     {
-                        q.y = Mathf.Min(2.2f, room.wallH - 0.7f);
+                        q.y = Mathf.Min(q.y + 2.2f, room.wallH - 0.7f);
                         if (Physics.CheckSphere(q, 0.45f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) continue;
                     }
                     else
@@ -678,7 +568,14 @@ namespace PryingEyes.Proc
                 spawnT -= dt;
                 if (spawnT <= 0f && mine.Count < cap)
                 {
-                    if (SpawnOne()) { spawned++; fails = 0; spawnT = gap * Random.Range(0.8f, 1.25f); }
+                    int batch = Mathf.Min(spawned == 0 ? 4 : mine.Count < cap / 2 ? 2 : 1, Mathf.Min(cap - mine.Count, target - spawned));
+                    bool added = false;
+                    for (int i = 0; i < batch; i++)
+                    {
+                        if (!SpawnOne()) break;
+                        spawned++; added = true;
+                    }
+                    if (added) { fails = 0; spawnT = gap * Random.Range(0.8f, 1.25f); }
                     else
                     {
                         spawnT = 0.6f;

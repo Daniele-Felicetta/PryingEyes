@@ -28,9 +28,10 @@ namespace PryingEyes
                     for (int x = 0; x < size; x++)
                     {
                         float u = (x + 0.5f) / size * 2f - 1f, v = (y + 0.5f) / size * 2f - 1f;
-                        float radius = Mathf.Sqrt(u * u + v * v);
-                        float angle = Mathf.Abs(Mathf.Atan2(u, v) * Mathf.Rad2Deg);
-                        float alpha = Mathf.Clamp01((0.07f - Mathf.Abs(radius - 0.83f)) / 0.025f) * Mathf.Clamp01((35f - angle) / 8f);
+                        // Un segno corto che punta verso il centro: nessun anello intorno al mirino.
+                        float width = Mathf.Lerp(0.01f, 0.16f, Mathf.InverseLerp(0.48f, 0.82f, v));
+                        float alpha = Mathf.Clamp01((width - Mathf.Abs(u)) / 0.025f) *
+                            Mathf.Clamp01((v - 0.48f) / 0.035f) * Mathf.Clamp01((0.84f - v) / 0.035f);
                         pixels[y * size + x] = new Color(1, 1, 1, alpha);
                     }
                 tex.SetPixels(pixels); tex.Apply();

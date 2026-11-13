@@ -78,7 +78,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-10`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
+Revisione **`pe-coop-11`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
 fino al punto d'uso effettivo, quindi può scegliere una posizione diversa. Tutti devono usare la stessa build.
@@ -99,6 +99,10 @@ La revisione 10 introduce l’affondo dei volanti: `EnemyEvt.Attack` porta nel v
 `Strike` annuncia contatto o colpo mancato anche per Occhio, Veglia e Medusa. Preparazione 0,55 s, contatto a
 0,71 s e recupero fino a 1,13 s; il client segue la posizione dell’ospite e mostra le stesse fasi senza causare danno.
 Il formato dei messaggi non cambia, ma le vecchie build non riproducono correttamente questi eventi.
+La revisione 11 ingrandisce i moduli del piano, introduce atri a tre quote con ripari sulle balconate e rivede
+densità/arredi, pattuglie e ondate. Le grandi arene ricevono più presenze e ingressi a gruppi, anche in quota.
+I nemici ordinari privilegiano la mischia; gli umanoidi accompagnano il colpo con un passo fisico. Il formato
+rimane invariato; generatore, regole e presentazione devono corrispondere su tutte le macchine.
 
 | Direzione | Messaggi |
 | --- | --- |

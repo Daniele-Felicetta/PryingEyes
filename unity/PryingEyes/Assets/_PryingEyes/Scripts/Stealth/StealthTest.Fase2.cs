@@ -500,7 +500,7 @@ namespace PryingEyes
                 yield return null;
                 float mulM = rd.Mood == RoundMood.Calm ? RoundRules.CalmMul : rd.Mood == RoundMood.Alarm ? RoundRules.AlarmMul : 1f;
                 int adopted = rd.Alive;
-                int expect = Mathf.Max(2, Mathf.RoundToInt(RoundRules.Count(RoundDirector.Round, fd.floor) * mulM * RoundRules.MothCountMul) - adopted);
+                int expect = Mathf.Max(2, Mathf.RoundToInt(RoundRules.CountForArea(RoundDirector.Round, fd.floor,reg.area) * mulM * RoundRules.MothCountMul) - adopted);
                 Check("il quinto round e' la Processione dei Lumi", rd.Fighting && rd.Moth && RoundDirector.Round == RoundRules.MothEvery, $"round {RoundDirector.Round}, falene {rd.Moth}");
                 Check("falene: il numero dei nemici segue la formula (x1,6)", rd.Target == expect, $"{rd.Target} nemici, attesi {expect} (tono {rd.Mood}, {adopted} gia' dentro)");
                 float tm = Time.time;

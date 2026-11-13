@@ -129,14 +129,17 @@ namespace PryingEyes
             Physics.SyncTransforms(); var wallMask = Mask(wall, "parete-1.8m");
             yield return new WaitForSeconds(0.25f); Torch.I.SendMessage("LateUpdate");
             Measure(Capture("parete-1.8m"), wallMask, "parete-1.8m");
+            long controlStart = GC.GetAllocatedBytesForCurrentThread();
+            var control = new byte[4096]; GC.KeepAlive(control);
+            bool allocationCounter = GC.GetAllocatedBytesForCurrentThread() > controlStart;
             var clock = System.Diagnostics.Stopwatch.StartNew();
             long allocated = GC.GetAllocatedBytesForCurrentThread();
             float lastScale = 0;
             for (int i = 0; i < 200; i++) lastScale = Torch.ProximityScale(Torch.I.Beam.transform);
             long bytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
             clock.Stop();
-            Debug.Log($"[PryingEyes] torchreview costo misura {clock.Elapsed.TotalMilliseconds * 1000 / 200:F2} us, {bytes} byte gestiti, scala={lastScale:F4}");
-            Check("misurazione senza allocazioni gestite", bytes == 0);
+            Debug.Log($"[PryingEyes] torchreview costo misura {clock.Elapsed.TotalMilliseconds * 1000 / 200:F2} us, byte gestiti={(allocationCounter ? bytes.ToString() : "contatore non disponibile")}, scala={lastScale:F4}");
+            if (allocationCounter) Check("misurazione senza allocazioni gestite", bytes == 0);
 
             Check("sessione locale per torcia del compagno", Coop.StartHost(port: 27831, localOnly: true));
             Coop.OnFloorStart(FloorDirector.I.floor); Coop.OnFloorBuilt();

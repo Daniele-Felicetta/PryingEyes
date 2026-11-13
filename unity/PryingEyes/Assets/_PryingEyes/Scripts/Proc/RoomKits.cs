@@ -99,13 +99,14 @@ namespace PryingEyes.Proc
             {
                 // Le due scale e il percorso sotto la balconata restano liberi dagli arredi casuali.
                 float x = r.x0 * 0.1f + 1.1f, end = r.x1 * 0.1f - 1.1f;
-                c.occ.Add(new Rect(x, r.z0 * 0.1f + 1.1f, end - x, 4.2f));
-                c.occ.Add(new Rect(x, r.z1 * 0.1f - 5.3f, end - x, 4.2f));
-                c.occ.Add(new Rect(r.x1 * 0.1f - 5.3f, r.z0 * 0.1f + 1.1f, 4.2f, c.D));
+                float band = r.GalleryLevels == 2 ? 6.8f : 4.2f;
+                c.occ.Add(new Rect(x, r.z0 * 0.1f + 1.1f, end - x, band));
+                c.occ.Add(new Rect(x, r.z1 * 0.1f - 1.1f - band, end - x, band));
+                c.occ.Add(new Rect(r.x1 * 0.1f - 1.1f - band, r.z0 * 0.1f + 1.1f, band, c.D));
             }
             if (r.kind != RoomKind.Corridoio && r.kind != RoomKind.Navata) ReserveSpokes(c);
             // arena di una candela (pianta a griglia): le colonne prima di tutto, cosi' gli arredi e la candela le aggirano
-            if (r.type == RoomType.Candela) ArenaColumns(c);
+            if (r.type == RoomType.Candela || (r.upperGallery && r.GalleryLevels == 2)) ArenaColumns(c);
             // teatro e sanatorio: il candelabro dell'obiettivo sceglie il posto PRIMA degli arredi. Con gli arredi gia' messi, nelle stanze piccole
             // (depositi, camerini, palchi) non restava un posto libero e il ripiego lo metteva al centro, l'incrocio dei tracciati riservati,
             // chiudendo la stanza. I corridoi riservano la loro corsia nella ricetta, quindi restano nell'ordine di prima.
@@ -154,7 +155,16 @@ namespace PryingEyes.Proc
                 case RoomKind.SalaMedici: SalaMedici(c); break;
             }
             if (!objectiveFirst && !r.IsLift && c.plan.objectives.Contains(r.id)) Objective(c);
-            if (r.type == RoomType.Candela) ArenaBenches(c);
+            if (r.GalleryLevels==2)
+            {
+                Prop(c,"chi_lampadario",c.Center,Vector3.forward,2f,false,r.wallH-2.2f);
+                float lampY=r.wallH-1.5f;
+                var light=AddLight(c,c.Center+Vector3.up*lampY,new Color(0.94f,0.83f,0.63f),
+                    45f*Mathf.Pow(lampY/5.1f,2),Mathf.Max(c.W,c.D),false,true,null,LightType.Spot);
+                light.l.transform.rotation=Quaternion.Euler(90,0,0);light.l.spotAngle=140;light.l.innerSpotAngle=100;
+                if(r.kind==RoomKind.GiardinoInverno)Prop(c,"chi_fonte",c.Center,Vector3.forward,2.4f,false);
+            }
+            if (r.kind != RoomKind.Rotonda && (r.type == RoomType.Candela || (c.W*c.D>180 && (r.type==RoomType.Guardia || r.type==RoomType.Boss || r.type==RoomType.Normale)))) ArenaBenches(c);
             if (r.church) PortalCandles(c);
             var window = WindowLights(c);
             Fill(c, window != null);

@@ -448,6 +448,8 @@ namespace PryingEyes
             }
             float t0 = Time.time;
             while (rd.Spawned < 1 && Time.time - t0 < 20f) yield return null;
+            Check("l'ingresso del round porta subito un gruppo",rd.Spawned>=4&&rd.Alive>=4,$"nati {rd.Spawned}, vivi {rd.Alive}");
+            Check("il round ha una pressione adatta alla sala",rd.Target>=12,$"obiettivo {rd.Target} nemici");
             bool inZone = rd.Spawned >= 1;
             Enemy first = null;
             foreach (var e in Enemy.All)
@@ -540,7 +542,7 @@ namespace PryingEyes
                 yield return null;
                 float mulB = rd.Mood == RoundMood.Calm ? RoundRules.CalmMul : rd.Mood == RoundMood.Alarm ? RoundRules.AlarmMul : 1f;
                 int adoptedB = rd.Alive;                     // chi era gia' dentro la zona entra nel round e conta nel totale
-                int expectB = Mathf.Max(2, Mathf.RoundToInt(RoundRules.Count(RoundDirector.Round, fd.floor) * mulB) - adoptedB);
+                int expectB = Mathf.Max(2, Mathf.RoundToInt(RoundRules.CountForArea(RoundDirector.Round, fd.floor,regB.area) * mulB) - adoptedB);
                 Check("secondo round: il numero continua", rd.Fighting && RoundDirector.Round == round0 + 2, $"round {RoundDirector.Round}, tono {rd.Mood}");
                 Check("secondo round: tono calmo (nessuno ti cercava)", rd.Mood == RoundMood.Calm, rd.Mood.ToString());
                 Check("secondo round: nemici secondo la formula", rd.Target == expectB, $"{rd.Target} nemici, attesi {expectB} ({adoptedB} gia' dentro); primo round {run.seenTarget}");

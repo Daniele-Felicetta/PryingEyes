@@ -18,7 +18,7 @@ Passi, nell'ordine:
              (BuildPlayer.Torre -scriptsOnly, ~2 MB scritti invece di centinaia). Il marcatore sta in unity_logs\ship_built.json
   prova      tools\check_navigation.py su -SmokeFloors piani (seme -SmokeSeed), senza grafica: se fallisce non si pusha
   push       origin <ramo corrente>, mai forzato, con i parametri per i file grandi; poi controlla che il remoto abbia lo stesso HEAD
-  exe        copia la build in Builds\PryingEyes.exe (l'exe dell'utente) SOLO se il suo gioco e' chiuso: non lo chiude mai.
+  exe        copia la build in Builds\Prova\PryingEyes.exe (l'exe usato dall'utente) SOLO se il suo gioco e' chiuso: non lo chiude mai.
              Con -WaitGameMin N aspetta fino a N minuti che l'utente lo chiuda
 
 Non annulla mai nulla: le modifiche che build e prova lasciano nell'albero vengono solo elencate come AVVISO.
@@ -47,6 +47,7 @@ $ErrorActionPreference = 'Continue'
 $repo = Split-Path -Parent $PSScriptRoot
 $proj = Join-Path $repo 'unity\PryingEyes'
 $userBuilds = (Join-Path $proj 'Builds').TrimEnd('\')
+$userRun = Join-Path $userBuilds 'Prova'
 $logDir = Join-Path $repo 'unity_logs'
 $logFile = Join-Path $logDir 'ship_last.log'
 $statusFile = Join-Path $logDir 'ship_last.status'
@@ -241,6 +242,7 @@ if (-not $NoBuild) {
     }
 }
 if ($buildOut -eq $userBuilds) { Finish $false "controlli: la cartella di uscita e' quella dell'utente (Builds): non si costruisce li'" }
+if ($buildOut -eq $userRun) { Finish $false "controlli: la cartella di uscita e' Prova, usata dall'utente: non si costruisce li'" }
 
 # ---------------------------------------------------------------- commit
 function Do-Commit {
@@ -446,7 +448,7 @@ function Do-Push {
 
 # ---------------------------------------------------------------- exe dell'utente
 function Test-GameOpen {
-    $mine = @((Join-Path $userBuilds 'PryingEyes.exe'), (Join-Path $userBuilds 'UnityCrashHandler64.exe'))
+    $mine = @((Join-Path $userRun 'PryingEyes.exe'), (Join-Path $userRun 'UnityCrashHandler64.exe'))
     foreach ($n in 'PryingEyes', 'UnityCrashHandler64') {
         foreach ($pr in @(Get-Process $n -ErrorAction SilentlyContinue)) {
             if ($pr.Path -and ($mine -contains $pr.Path)) { return $true }
@@ -459,7 +461,7 @@ function Do-Exe {
     if ($NoExe) { $summary['exe'] = 'saltato (-NoExe)'; return }
     Step 'exe'
     $src = $buildOut
-    $dst = $userBuilds
+    $dst = $userRun
     if (-not $DryRun -and -not $script:builtNow -and -not (Test-Fresh)) {
         $summary['exe'] = "NON aggiornato: la build in $src non e' allineata al HEAD attuale (rifai la build)"
         $warns.Add($summary['exe'])
@@ -468,7 +470,7 @@ function Do-Exe {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     while (Test-GameOpen) {
         if ($WaitGameMin -le 0 -or $sw.Elapsed.TotalMinutes -ge $WaitGameMin) {
-            $summary['exe'] = "NON aggiornato: il gioco dell'utente e' aperto da Builds (non l'ho chiuso)"
+            $summary['exe'] = "NON aggiornato: il gioco dell'utente e' aperto da Builds\Prova (non l'ho chiuso)"
             $warns.Add($summary['exe'] + '; va copiato da ' + $src + ' quando lo chiude')
             return
         }

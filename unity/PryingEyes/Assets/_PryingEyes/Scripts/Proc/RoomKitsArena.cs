@@ -13,7 +13,7 @@ namespace PryingEyes.Proc
         {
             float W = c.W, D = c.D;
             int nx = Mathf.Max(2, Mathf.RoundToInt(W / 5.2f)), nz = Mathf.Max(2, Mathf.RoundToInt(D / 5.2f));
-            int made = 0, cap = nx * nz > 6 ? 6 : nx * nz;
+            int made = 0, cap = Mathf.Clamp(Mathf.RoundToInt(W*D/80f),3,12);
             var placed = new List<Vector3>();
             for (int i = 0; i < nx && made < cap; i++)
                 for (int j = 0; j < nz && made < cap; j++)
@@ -24,7 +24,7 @@ namespace PryingEyes.Proc
                 }
             // i tracciati riservati tra le porte (ReserveSpokes) possono aver bloccato tutto il reticolo, soprattutto nelle stanze lunghe con
             // porte su piu' lati: in quel caso si prova a caso, a un paio di metri dai muri e ad almeno 4,4 m dalle altre colonne
-            int want = Mathf.Clamp(Mathf.RoundToInt(W * D / 30f), 2, 6);
+            int want = cap;
             for (int tries = 0; tries < 120 && made < want; tries++)
             {
                 var pos = new Vector3(c.rng.Range(c.ix0 + 1.6f, c.ix1 - 1.6f), 0f, c.rng.Range(c.iz0 + 1.6f, c.iz1 - 1.6f));
@@ -72,9 +72,9 @@ namespace PryingEyes.Proc
         /// degli ingombri e i tracciati riservati.</summary>
         static void ArenaBenches(Ctx c)
         {
-            string bench = c.r.church ? "chi_panca" : "arr_divano";
-            int want = c.W * c.D > 150f ? 3 : 2, made = 0;
-            for (int i = 0; i < 40 && made < want; i++)
+            string bench = c.r.church ? "chi_panca" : c.plan.theme == Theme.Teatro ? "tea_fila" : c.plan.theme == Theme.Sanatorio ? "san_letto" : "arr_divano";
+            int want = Mathf.Clamp(Mathf.RoundToInt(c.W*c.D/65f),3,14), made = 0;
+            for (int i = 0; i < 120 && made < want; i++)
             {
                 var pos = new Vector3(c.rng.Range(c.ix0 + 1.6f, c.ix1 - 1.6f), 0f, c.rng.Range(c.iz0 + 1.6f, c.iz1 - 1.6f));
                 Vector3 face = c.rng.Chance(0.5) ? Vector3.forward : Vector3.right;

@@ -129,6 +129,7 @@ namespace PryingEyes
                 while (!enemy.PreparingMelee && Time.time < deadline) yield return null;
                 Check(type + " prepara il colpo", enemy.PreparingMelee);
                 float health = player.hp + player.shield;
+                Vector3 attackStart = enemy.transform.position;
                 yield return new WaitForSeconds(0.4f);
                 Check(type + " nessun danno prima del contatto", Mathf.Abs(player.hp + player.shield - health) < 0.01f);
                 var animator = enemy.GetComponentInChildren<Animator>();
@@ -144,6 +145,7 @@ namespace PryingEyes
                 while (enemy.PreparingMelee && Time.time < deadline) yield return null;
                 yield return null; // leggere la posa dopo la valutazione dell'Animator del fotogramma del contatto.
                 Check(type + " danno al contatto", player.hp + player.shield < health - 0.1f && enemy.RecoveringMelee);
+                Check(type + " passo fisico accompagna il colpo", Vector3.Distance(attackStart, enemy.transform.position) > 0.25f);
                 float phase = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
                 Check(type + " contatto nella fase di affondo", phase > 0.4f && phase < 0.65f);
                 Debug.Log($"[PryingEyes] meleetest fase contatto {type} {phase:F3}");

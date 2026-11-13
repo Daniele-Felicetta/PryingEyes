@@ -14,7 +14,7 @@ namespace PryingEyes
         // numeri di combattimento: i valori di partenza sono quelli del monaco, SetThemedStats li cambia
         float meleeDmg = 16f, meleeCd = 1.9f, meleeReach = 2.1f;
         float boltDmg = 10f, castCd = 2.6f, castWind = 0.9f;
-        int volley = 1;                                   // dardi a ogni magia: 0 niente magia, 1 uno solo, 3 a ventaglio
+        int volley = 0;                                   // i nemici ordinari pressano in mischia; i dardi restano una specialità del Direttore
         float whistleT = -99f, helpT = -99f;
         /// <summary>Contatori per la prova automatica (StealthTest -temitest): fischietti soffiati, richiami, dardi lanciati.</summary>
         public static int statWhistles, statHelps, statBolts;

@@ -50,11 +50,14 @@ namespace PryingEyes
             var path = new NavMeshPath();
             Time.timeScale = 2f;
             string output = Path.GetFullPath("unity_logs/architecture"); Directory.CreateDirectory(output);
-            for (int gallery = 0; gallery < Mathf.Min(2, fi.galleries.Count); gallery++)
+            var routes = new System.Collections.Generic.List<GalleryRoute>(fi.galleries);
+            float Highest(GalleryRoute route) { float height=0; foreach(var point in route.points)height=Mathf.Max(height,point.y);return height; }
+            routes.Sort((a,b)=>Highest(b).CompareTo(Highest(a)));
+            for (int gallery = 0; gallery < Mathf.Min(2, routes.Count); gallery++)
             {
-                var route = fi.galleries[gallery];
+                var route = routes[gallery];
                 var points = route.points;
-                Debug.Log($"[PryingEyes] architecturetest sala {route.room.id} {route.room.kind}: {route.room.W * 0.1f:F1}x{route.room.D * 0.1f:F1} m, altezza {route.room.wallH:F1}, quota superiore {FloorBuilder.GalleryHeight:F1}");
+                Debug.Log($"[PryingEyes] architecturetest sala {route.room.id} {route.room.kind}: {route.room.W * 0.1f:F1}x{route.room.D * 0.1f:F1} m, altezza {route.room.wallH:F1}, quota superiore {Highest(route):F1}");
                 player.Teleport(points[0]);
                 yield return new WaitForSeconds(0.3f);
                 for (int leg = 1; leg < points.Length; leg++)
@@ -99,8 +102,9 @@ namespace PryingEyes
                     Vector3 center = new Vector3(route.room.CenterX, 2.8f, route.room.CenterZ);
                     cam.transform.SetPositionAndRotation(points[0] + new Vector3(-0.2f, 1.62f, 0.2f), Quaternion.LookRotation(center - points[0] - Vector3.up * 1.62f));
                     GameManager.CamShot(Path.Combine(output, "sala_" + route.room.id + "_terra.png"), cam, true);
-                    cam.transform.SetPositionAndRotation(points[2] + Vector3.up * 1.62f, Quaternion.LookRotation(new Vector3(route.room.CenterX, 1f, route.room.CenterZ) - points[2] - Vector3.up * 1.62f));
-                    GameManager.CamShot(Path.Combine(output, "sala_" + route.room.id + "_balconata.png"), cam, true);
+                    Vector3 highest=points[2];foreach(var point in points)if(point.y>highest.y)highest=point;
+                    cam.transform.SetPositionAndRotation(highest + Vector3.up * 1.62f, Quaternion.LookRotation(new Vector3(route.room.CenterX, 1f, route.room.CenterZ) - highest - Vector3.up * 1.62f));
+                    GameManager.CamShot(Path.Combine(output, "sala_" + route.room.id + "_balconata_" + Mathf.RoundToInt(Highest(route)*10) + ".png"), cam, true);
                     player.enabled = true;
                 }
             }

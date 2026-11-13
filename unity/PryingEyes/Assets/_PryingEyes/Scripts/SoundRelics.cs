@@ -46,5 +46,6 @@ namespace PryingEyes
         public static AudioClip KeeperBell => One(ref keeperBell, "campanelloDelCustode", SoundGen.KeeperBell);
         public static AudioClip KeeperKeys => One(ref keeperKeys, "chiaviDelCustode", SoundGen.KeeperKeys);
         public static AudioClip VigilBreath => One(ref vigilBreath, "respiroDellaVeglia", SoundGen.VigilBreath);
+        public static void WarmRelics() { _ = KeeperBell; _ = KeeperKeys; _ = VigilBreath; }
     }
 }

@@ -116,5 +116,24 @@ e raccoglie i tentacoli. L’Occhio mantiene il suo gesto delle palpebre con lo 
 solo sul colpo arrivato; le particelle nascono sulla superficie alta del bersaglio, visibile dalla prima persona,
 anche per la mischia degli umanoidi. Le copie di rete mostrano gesto e contatto senza infliggere danno.
 
-Restano aperti: gesti del Portachiavi, prestazioni delle nuove creature nelle orde e valutazione degli spazi durante
-combattimenti affollati. La revisione complessiva rimane in corso.
+## Nona passata: densità, atri e pressione dell’orda
+
+Moduli da 14,4–19,2 m e almeno un rettangolo di quattro celle previsto durante la crescita della pianta. Le sale
+ampie possono avere tre quote: terreno, 3,6 m e 7,2 m, con soffitto da 11,6 m. Due U contrapposte, quattro
+scale e corsia libera al livello intermedio consentono salita, attraversamento e discesa; parapetti bassi forniscono
+riparo al livello alto. Il grande atrio viene preferito come prima arena della candela, anziché restare solo di passaggio.
+La Rotonda occupa un’altra sala, anche ovale. Colonne, sedute e arredi del tema crescono con l’area; lampadario
+e punti luce sostengono la lettura delle quote, con un riferimento centrale nel Giardino d’inverno.
+
+Più pattuglie nelle stanze di guardia e ondate proporzionate anche all’area, fino a 24 vivi nelle grandi arene
+(28 nella Processione). Primo ingresso a gruppi di quattro, poi rinforzi più frequenti; parte delle nascite usa le
+balconate. I nemici ordinari cercano la mischia, i dardi restano al Direttore. Passo fisico fino a 36 cm insieme
+all’affondo degli umanoidi, limitato da ostacoli e spazio davanti al bersaglio. Rimosso l’anello di arrivo dei nemici
+e sostituiti gli archi dell’HUD con segni direzionali compatti.
+
+Le creature procedurali condividono tre sagome preparate nel caricamento; materiali che lampeggiano o si
+spengono restano indipendenti per creatura. La cartella di avvio confermata dall’utente è `Builds/Prova`:
+la copia della build deve aggiornare quella cartella, oltre alla principale quando possibile.
+
+Restano aperti: rifinitura ulteriore dei gesti, costo di rendering e ombre degli umanoidi nelle orde, verifica del
+bilanciamento durante partite prolungate e gli altri ambiti della revisione generale.

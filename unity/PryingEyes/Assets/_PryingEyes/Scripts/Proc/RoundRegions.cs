@@ -24,7 +24,7 @@ namespace PryingEyes.Proc
 
     public static class RoundRegions
     {
-        public const float MinArea = 28f, MaxArea = 900f;   // grandi sale per la circolazione delle orde, anche su due quote
+        public const float MinArea = 28f, MaxArea = 1800f;  // atri su tre quote e grandi sale per la circolazione delle orde
         public const float IdealArea = 240f;
         public const int MaxCuts = 4, MaxRooms = 3;
         public const float MaxCutWidth = 13f;               // m di serranda in tutto

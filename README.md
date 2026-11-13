@@ -139,6 +139,8 @@ Hall giocabile in prima persona, generata da `HotelBuilder`, con questi sistemi:
 - **HUD**: prompt di acquisto vicino al mirino + nome arma accanto alle munizioni; punteggio e presenze restano in alto a sinistra.
 - test automatici: `-autotest -camshots` produce `hotel_build/wallbuy.png` (foto dell'espositore); `-autotest -walltest` verifica prompt, acquisto, spesa punti e ricarica riserva.
 - build: `BuildPlayer.Windows` (Unity 6000.6.7f1) → `unity/PryingEyes/Builds/PryingEyes.exe`.
+  La cartella usata dall’utente per giocare è **`unity/PryingEyes/Builds/Prova`**: `tools/ship.ps1` aggiorna questa
+  copia a gioco chiuso. La cartella `Audit` serve alle verifiche; gli ZIP e le release precedenti possono essere più vecchi.
 
 ## Armi: 28 modelli in 5 gradi di potenza (Unity)
 

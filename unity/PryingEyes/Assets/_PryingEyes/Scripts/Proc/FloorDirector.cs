@@ -144,6 +144,8 @@ namespace PryingEyes.Proc
             float t0 = Time.realtimeSinceStartup;
             cur = FloorBuilder.Build(plan, null);
             float tBuild = Time.realtimeSinceStartup - t0;
+            AlienRig.Warmup();                               // sagome riusabili: il costo delle mesh resta nel caricamento, non nel round
+            SoundBank.WarmRelics();                          // anche il primo respiro/campanello viene preparato prima di restituire il controllo
             Physics.SyncTransforms();
             yield return null;
             var regions = RoundDirector.PrepareNav(plan);     // zone sigillabili: le loro soglie diventano aree a parte della navmesh
@@ -696,14 +698,14 @@ namespace PryingEyes.Proc
             var rooms = plan.rooms.FindAll(r => r.type == RoomType.Guardia && hops[r.id] >= 0);
             if (floor == 1)
             {
-                var far = rooms.FindAll(r => hops[r.id] >= 3);
+                var far = rooms.FindAll(r => hops[r.id] >= 2);
                 if (far.Count > 0) rooms = far;
             }
-            int budget = Mathf.Min(12, 3 + floor);
+            int budget = Mathf.Clamp(plan.rooms.Count + 8 + floor * 2, 18, 36);
             int made = 0;
             foreach (var room in rooms)
             {
-                int n = 1 + ((long)room.W * room.D >= 14000 ? 1 : 0) + (floor >= 5 && rng.Chance(0.4) ? 1 : 0);
+                int n = Mathf.Clamp(Mathf.CeilToInt(room.W * room.D * 0.01f / 140f), 2, 6) + (floor >= 5 && rng.Chance(0.4) ? 1 : 0);
                 for (int i = 0; i < n && made < budget; i++)
                 {
                     var t = Retheme(PickType(), room);

@@ -113,9 +113,12 @@ namespace PryingEyes
                 }
                 var meshes = enemy.GetComponentsInChildren<MeshFilter>();
                 Mesh owned = Array.Find(meshes, mf => mf.sharedMesh.name == (kind == Enemy.EnemyType.Veglia ? "Maschera votiva di cera" : "Casellario e campanello")).sharedMesh;
-                var ownedMaterials = new HashSet<Material>();
-                foreach (var renderer in enemy.GetComponentsInChildren<Renderer>())
-                    foreach (var material in renderer.sharedMaterials) ownedMaterials.Add(material);
+                Material ownedShell=rig.Shell,ownedGlow=rig.Glow;
+                var sibling=Enemy.Spawn(kind,origin+Vector3.right*4,puppet:true);sibling.enabled=false;
+                var siblingRig=sibling.GetComponent<AlienRig>();
+                var sharedMesh=Array.Find(sibling.GetComponentsInChildren<MeshFilter>(),m=>m.sharedMesh.name==owned.name).sharedMesh;
+                Check(kind+" riusa la stessa geometria",sharedMesh==owned);
+                Check(kind+" materiali mutabili indipendenti",rig.Shell!=siblingRig.Shell&&rig.Glow!=siblingRig.Glow);
                 if (kind == Enemy.EnemyType.Veglia)
                 {
                     enemy.transform.rotation = Quaternion.identity;
@@ -132,11 +135,20 @@ namespace PryingEyes
                     rig.Collapse();
                     var fire=enemy.transform.Find("Corpo/Fiamma 0").GetComponent<Renderer>().sharedMaterials;
                     Check("Veglia spegne le fiamme alla morte",Array.TrueForAll(fire,m=>m.GetColor("_EmissionColor").maxColorComponent<0.001f));
+                    var siblingFire=sibling.transform.Find("Corpo/Fiamma 0").GetComponent<Renderer>().sharedMaterials;
+                    Check("Veglia morta non spegne la compagna",Array.TrueForAll(siblingFire,m=>m.GetColor("_EmissionColor").maxColorComponent>0.1f));
                 }
                 Destroy(enemy.gameObject); yield return null; yield return null;
-                Check(kind + " mesh rilasciata", owned == null);
-                bool released=true; foreach(var material in ownedMaterials) released &= material==null;
-                Check(kind+" materiali rilasciati",released);
+                Check(kind+" materiali privati rilasciati",ownedShell==null&&ownedGlow==null);
+                Check(kind+" geometria condivisa conservata",owned!=null&&sharedMesh!=null);
+                bool healthy=true;
+                foreach(var renderer in sibling.GetComponentsInChildren<Renderer>())
+                    foreach(var material in renderer.sharedMaterials)healthy&=material!=null;
+                Check(kind+" compagna ancora renderizzabile",healthy);
+                Destroy(sibling.gameObject);yield return null;yield return null;
+                var next=Enemy.Spawn(kind,origin,puppet:true);next.enabled=false;
+                Check(kind+" geometria riusata dopo la rimozione di tutte le istanze",Array.Exists(next.GetComponentsInChildren<MeshFilter>(),m=>m.sharedMesh==owned));
+                Destroy(next.gameObject);yield return null;
             }
         }
     }

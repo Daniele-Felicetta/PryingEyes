@@ -33,12 +33,10 @@ namespace PryingEyes
 
         static GameObject BuildAlien(EnemyType kind, out Material glow, out List<Material> flashes)
         {
-            var root = new GameObject(kind.ToString());
-            var rig = root.AddComponent<AlienRig>();
-            rig.Build(kind);
+            var rig = AlienRig.Create(kind);
             glow = rig.Glow;
             flashes = new List<Material> { rig.Shell };
-            return root;
+            return rig.gameObject;
         }
     }
 
@@ -51,6 +49,7 @@ namespace PryingEyes
         public Material Shell { get; private set; }
         public Material Glow { get; private set; }
         static Mesh sphere;
+        bool ownsGeometry = true;
 
         public void Build(Enemy.EnemyType alien)
         {
@@ -177,9 +176,9 @@ namespace PryingEyes
         void OnDestroy()
         {
             Destroy(Shell);
-            Destroy(membrane);
+            if (ownsGeometry) Destroy(membrane);
             Destroy(Glow);
-            if (vigilMetal != null) Destroy(vigilMetal);
+            if (ownsGeometry && vigilMetal != null) Destroy(vigilMetal);
             if (vigilFire != null) Destroy(vigilFire);
             if (vigilHeart != null) Destroy(vigilHeart);
             foreach (var mesh in relicMeshes) Destroy(mesh);

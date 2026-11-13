@@ -320,7 +320,9 @@ namespace PryingEyes
             }
             if (strikeAt >= 0f)
             {
+                float beforeStrike = strikeAt;
                 strikeAt -= dt;
+                AdvanceMelee(beforeStrike, strikeAt, dt);
                 MeleeSwish();
                 if (strikeAt < 0f)
                 {
@@ -404,7 +406,9 @@ namespace PryingEyes
             }
             else if (strikeAt >= 0f)
             {
+                float beforeStrike = strikeAt;
                 strikeAt -= dt;
+                AdvanceMelee(beforeStrike, strikeAt, dt);
                 MeleeSwish();
                 if (strikeAt < 0f)
                 {

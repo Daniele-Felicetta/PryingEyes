@@ -14,6 +14,7 @@ namespace PryingEyes.Proc
 
         static void BuildGallery(FloorInstance fi, Room room, GameObject parent)
         {
+            if (room.GalleryLevels == 2) { BuildAtrium(fi,room,parent); return; }
             float start = room.x0 * 0.1f + 2f, top = start + 7.2f, end = room.x1 * 0.1f - 2f;
             float south = room.z0 * 0.1f + 2f, north = room.z1 * 0.1f - 2f - GalleryWidth;
             const float h = GalleryHeight, width = GalleryWidth;

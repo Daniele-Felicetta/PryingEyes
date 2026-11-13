@@ -20,7 +20,7 @@ namespace PryingEyes.Proc
 
         /// <summary>Dimensioni possibili di una colonna o di una riga della griglia (dm): le stanze sullo stesso allineamento le condividono,
         /// cosi' i muri combaciano e le stanze non sono tutte uguali.</summary>
-        static readonly int[] CellSizes = { 128, 144, 160, 176 };
+        static readonly int[] CellSizes = { 144, 160, 176, 192 };
 
         sealed class GAdj
         {
@@ -140,10 +140,11 @@ namespace PryingEyes.Proc
                 {
                     if (g.type != RoomType.Normale || g.Cells > 4) continue;
                     long area = (long)(colX[g.cx + g.cw] - colX[g.cx]) * (rowZ[g.cy + g.ch] - rowZ[g.cy]);
-                    if (area > 88000) continue;                               // grandi arene: spazio per aggirare le orde e usare le balconate
+                    if (area > 180000) continue;
                     double m = g.hops;
                     foreach (var d in arenaDist) m = Math.Min(m, d[gs.IndexOf(g)]);
                     m *= 0.7 + r.Value() * 0.6;
+                    if (k==0 && g.cw==2 && g.ch==2) m+=20;                     // il grande atrio deve ospitare un'orda, non essere solo un corridoio scenografico
                     if (m > bd) { bd = m; best = g; }
                 }
                 if (best == null) break;
@@ -192,9 +193,11 @@ namespace PryingEyes.Proc
                 SetKindDefaults(room);
                 room.upperGallery = room.W >= 160 && room.D >= 144 &&
                     (room.type == RoomType.Candela || room.type == RoomType.Boss || room.type == RoomType.Guardia);
+                if (room.W >= 240 && room.D >= 240 && room.type != RoomType.Segreta)
+                    room.upperGallery = true;
                 if (room.upperGallery)
                 {
-                    room.wallH = Math.Max(room.wallH, 8.2f);
+                    room.wallH = Math.Max(room.wallH, room.GalleryLevels == 2 ? 11.6f : 8.2f);
                     room.ridgeH = Math.Max(room.ridgeH, room.wallH);
                 }
                 if (room.ceil == CeilKind.Gable || room.ceil == CeilKind.BarrelRound || room.ceil == CeilKind.BarrelPointed)
@@ -261,7 +264,7 @@ namespace PryingEyes.Proc
             foreach (var room in plan.rooms)
             {
                 if (room.type != RoomType.Guardia || Math.Min(room.W, room.D) < 128) continue;
-                if (Math.Max(room.W, room.D) > Math.Min(room.W, room.D) * 1.5f) continue;
+                if (room.GalleryLevels==2) continue; // la sala più grande resta un atrio a tre quote; la Rotonda può essere anche ovale
                 float radius = Radius(room);
                 if (radius > best) { best = radius; rotunda = room; }
             }
@@ -337,6 +340,7 @@ namespace PryingEyes.Proc
             {
                 var parent = r.Chance(0.5) ? list[list.Count - 1 - r.Range(0, Math.Min(3, list.Count))] : list[r.Range(0, list.Count)];
                 int shape = r.Weighted(new[] { 0.30, 0.24, 0.24, 0.22 });       // 1x1, 2x1, 1x2, 2x2
+                if (huge==0 && list.Count<4) shape=3;                         // almeno un grande atrio prima di riempire la griglia di stanze minori
                 int w = shape == 1 || shape == 3 ? 2 : 1, h = shape == 2 || shape == 3 ? 2 : 1;
                 if (w * h > 1 && big >= 8) w = h = 1;
                 if (w == 2 && h == 2 && huge >= 3) h = 1;

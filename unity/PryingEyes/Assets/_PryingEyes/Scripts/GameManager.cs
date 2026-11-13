@@ -195,7 +195,9 @@ namespace PryingEyes
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
-                if (autoT >= (proc ? (HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : 100f))
+                bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-meleetest") ||
+                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview");
+                if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : 100f))
                 {
                     System.IO.File.AppendAllText(REPORT, $"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
                     Application.Quit();

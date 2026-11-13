@@ -52,6 +52,7 @@ namespace PryingEyes.Proc
         public string label = "";
         public int variant;
         public bool upperGallery;           // doppia altezza e percorso superiore con due scale indipendenti
+        public int GalleryLevels => upperGallery ? (W >= 240 && D >= 240 ? 2 : 1) : 0;
         public float cornerRadius;          // metri: raggio della pianta interna arrotondata, zero = rettangolare
         public int wing;                    // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
         public int unit;                    // ala-coppia di appartenenza (0 per la prima): vedi PlanGen.Compound
