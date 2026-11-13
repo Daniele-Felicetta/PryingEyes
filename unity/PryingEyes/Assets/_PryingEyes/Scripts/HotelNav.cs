@@ -11,6 +11,7 @@ namespace PryingEyes
     public static class HotelNav
     {
         public const int EnemyLayer = 9, DoorLayer = 10;
+        public const float AgentRadius = 0.4f, AgentClimb = 0.4f, VoxelSize = 0.1f;
         /// <summary>Cio' che blocca vista e movimento dei nemici: tutto tranne il giocatore (Ignore Raycast) e i nemici.</summary>
         public static readonly int EnvMask = ~((1 << 2) | (1 << EnemyLayer));
 
@@ -33,6 +34,7 @@ namespace PryingEyes
         public static void Unseal() { EnemyMask = NavMesh.AllAreas; }
 
         static NavMeshDataInstance instance;
+        static NavMeshData data;
         public static bool Ready { get; private set; }
 
         public static void Build()
@@ -53,6 +55,8 @@ namespace PryingEyes
         {
             if (instance.valid) NavMesh.RemoveNavMeshData(instance);
             instance = default;
+            Proc.Util.Kill(data);
+            data = null;
             Ready = false;
         }
 
@@ -77,13 +81,15 @@ namespace PryingEyes
                     area = d.area,
                 });
             var s = NavMesh.GetSettingsByID(0);
-            s.agentRadius = 0.4f;
+            s.agentRadius = AgentRadius;
             s.agentHeight = 1.9f;
-            s.agentClimb = 0.4f;      // gradini da 0.35; tavolino (0.56) e base della gabbia (0.5) restano ostacoli
+            s.agentClimb = AgentClimb;      // gradini da 0.35; tavolino (0.56) e base della gabbia (0.5) restano ostacoli
             s.agentSlope = 45f;
-            s.overrideTileSize = true;     // una tessera sola per tutto il piano: i bordi tra tessere lasciavano fasce non camminabili
+            s.overrideVoxelSize = true;
+            s.voxelSize = VoxelSize;       // il default eredita il raggio dell'agente di progetto: perde i varchi stretti fra gli arredi
+            s.overrideTileSize = true;     // tessere ampie: i bordi tra tessere lasciavano fasce non camminabili
             s.tileSize = 1024;
-            var data = NavMeshBuilder.BuildNavMeshData(s, sources, bounds, Vector3.zero, Quaternion.identity);
+            data = NavMeshBuilder.BuildNavMeshData(s, sources, bounds, Vector3.zero, Quaternion.identity);
             if (data == null) { Debug.LogWarning("[PryingEyes] navmesh: costruzione fallita, nemici in linea retta"); return; }
             instance = NavMesh.AddNavMeshData(data);
             Ready = instance.valid;

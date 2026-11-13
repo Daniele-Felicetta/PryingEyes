@@ -167,6 +167,45 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
   contro gli 85 di scheda, perché il ciclo vero è `cycle = 0,62 s` e la cifra di scheda non è usata in gioco (solo nel
   confronto del log): nessun effetto sul gioco, dato da allineare quando si rimette mano a `WeaponDefs.cs`.
 
+## Terza passata (13 novembre 2026)
+
+### Risorse della navigazione e varchi fra arredi
+
+- Verificati sul remoto i commit `99444a0`, `6d49fa4` e `50ea55a`: `preview` locale e remoto coincidevano su `50ea55a`.
+- Riprodotto il caso 5008/piano 3 sulla seconda passata: due incastri e un varco escluso dal bot prima di proseguire
+  (`unity_logs/nav-review`). Il precedente ripiego nella prova non correggeva il percorso suggerito dal gioco.
+- La navmesh ora usa esplicitamente celle da **10 cm**, mantenendo raggio 0,4 m e gradino 0,4 m. La discretizzazione
+  ereditata dalle impostazioni di progetto perdeva precisione fra colonna e tavolo; aumentando la precisione il caso
+  5008/piano 3 si completa senza incastri, senza modificare le ricette degli arredi o la capsula del giocatore.
+  Il log diagnostico del bot ora riporta i parametri realmente usati, anziché quelli del progetto prima degli override.
+- `ProcCheck.Run -seeds 400 -seed0 3000`: **400/400**, 3.960 stanze ordinarie, nessuna candela/uscita/cabina
+  irraggiungibile dopo la riparazione, nessuna stanza svuotata. 14 piani riparati, 34 arredi rimossi; costruzione media
+  18 ms e navmesh 26 ms (`unity_logs/nav-precision-400.log` e `.txt`). È una verifica navmesh, non del controller.
+- Camminata con controller reale, semi 5000–5023, sei piani ciascuno: **144/144 piani, 24/24 partite**, nessun
+  incastro né esclusione di varchi (91 Albergo, 29 Teatro, 24 Sanatorio; `unity_logs/nav-precision-wide`).
+- Ripetuti sulla build finale sei piani per ciascuno dei semi 5008, 1000, 2961 e 3046: **24/24 piani**, senza avvisi,
+  incluso il nuovo controllo che verifica un solo `NavMeshData` vivo dopo ogni transizione (`unity_logs/nav-final`).
+- Perdita di memoria riprodotta: i dati nativi delle navmesh precedenti rimanevano vivi a ogni ricostruzione;
+  tornando al menu restava anche la registrazione del piano precedente. `HotelNav` conserva e distrugge i propri
+  dati, e `FloorDirector` li rilascia alla distruzione della scena. Il controllo su due ritorni al menu e nuove
+  partite passa da **61/65 a 65/65** (`unity_logs/nav-resources-before`, `nav-resources-after`).
+- Revisione cooperativa **`pe-coop-4`**: il formato dei messaggi non cambia, ma la navmesh più precisa può modificare
+  riparazioni degli arredi e posizioni dei santuari. Tutti i partecipanti devono usare la build aggiornata.
+
+### Segnalazione: acquisto di armi dall'altro lato del muro
+
+- Riprodotta con pannelli sui quattro orientamenti: il retro era selezionabile e una camera dentro il collider del
+  muro consentiva l'acquisto, perché il raycast non rileva il collider che contiene la sua origine. La vecchia prova
+  controllava un muro interposto con la camera esterna, quindi non copriva questo caso (**69/77**, otto fallimenti;
+  `unity_logs/wallbuy-before`).
+- Selezione, acquisto e testo ora condividono il controllo del lato frontale del pannello e della visuale verso la sua
+  faccia. Il prompt memorizzato viene comunque riverificato al momento dell'acquisto.
+- Sulla build corretta: **77/77**, con grafica, incluso acquisto impedito dal muro e selezione consentita sul fronte
+  nei quattro orientamenti (`unity_logs/wallbuy-after`). Build completata senza errori (`unity_logs/wallbuy-fixed-build.log`).
+- Cooperativa reale a due processi su `pe-coop-4`, seme 2961: **16/16 ospite, 26/26 client**, stessa firma del piano
+  dopo la discesa (`unity_logs/nav-coop`). Copiata la build finale nell'eseguibile principale in `Builds`, a gioco chiuso:
+  189 file verificati con SHA-256 contro `Builds/Audit`.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |
@@ -176,7 +215,7 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 | Gunplay | Rassegna di armi, ADS, ricariche, cambio slot, acquisti e munizioni con la build finale |
 | Interazioni | Distanza, orientamento e ostacoli: candele, acquisti, santuari, ascensore, nessun uso attraverso pareti |
 | Progressione e sopravvivenza | Round, morte/respawn, perk, gocce, uscita e transizioni su più semi e temi |
-| Generazione e navigazione | Provata con il controller vero (vedi «Seconda passata»); resta aperto il generatore, che lascia varchi fra 0,6 e 0,95 m che la navmesh crede percorribili e la capsula no; prova con i nemici presenti |
+| Generazione e navigazione | Camminata con controller vero e confronto del varco noto (vedi seconda e terza passata); estendere la verifica a più semi e alle partite con nemici presenti |
 | Cooperativa | Regressioni a più processi, entrata tardiva, uscita/rientro, morte e transizioni; verifiche delle richieste all'ospite e coerenza dei piani |
 | Prestazioni e audio | Prestazioni misurate sui tre temi (vedi sopra); resta la qualità di volume, spazialità e feedback durante una partita, che non si misura senza ascoltare |
 | Distribuzione | Build finale, guida aggiornata, avvio da cartella estratta e verifica delle piattaforme effettivamente supportate |

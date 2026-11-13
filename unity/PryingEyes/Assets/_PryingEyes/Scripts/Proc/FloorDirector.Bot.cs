@@ -73,6 +73,12 @@ namespace PryingEyes.Proc
             botSBlack.Clear();
             var plan = cur.plan;
             BotLine($"PIANO {floor} seme={plan.seed} tema={plan.theme} griglia={(plan.grid ? "si" : "no")} stanze={plan.rooms.Count} candele={cur.candles.Count}");
+            int navDataCount = Resources.FindObjectsOfTypeAll<NavMeshData>().Length;
+            if (navDataCount != 1)
+            {
+                botSFails++;
+                BotLine($"NAVMESH dati vivi {navDataCount}, atteso 1 al piano {floor}: risorse di un piano precedente non liberate");
+            }
         }
 
         void BotGiveUp(Candelabro tc, string why)
@@ -128,8 +134,7 @@ namespace PryingEyes.Proc
                 ? $"{gh.collider.name}[L{gh.collider.gameObject.layer}] a {gh.distance - 0.5f:F2} m" : "nessuno";
             Vector3 v = cc != null ? cc.velocity : Vector3.zero;
             var bd = PlayerController.botDir;
-            var ns = UnityEngine.AI.NavMesh.GetSettingsByID(0);
-            return $"capsula allargata: {(n == 0 ? "vuota" : sb.ToString())}; cc raggio {(cc != null ? cc.radius : 0f):F2} pelle {(cc != null ? cc.skinWidth : 0f):F2} gradino {(cc != null ? cc.stepOffset : 0f):F2}, navmesh raggio {ns.agentRadius:F2} gradino {ns.agentClimb:F2}; " +
+            return $"capsula allargata: {(n == 0 ? "vuota" : sb.ToString())}; cc raggio {(cc != null ? cc.radius : 0f):F2} pelle {(cc != null ? cc.skinWidth : 0f):F2} gradino {(cc != null ? cc.stepOffset : 0f):F2}, navmesh raggio {HotelNav.AgentRadius:F2} gradino {HotelNav.AgentClimb:F2} voxel {HotelNav.VoxelSize:F2}; " +
                    $"suolo: {ground}; cc a terra={(cc != null && cc.isGrounded)} flag={(cc != null ? cc.collisionFlags.ToString() : "-")} " +
                    $"v=({v.x:F1},{v.z:F1}); botDir=({bd.x:F1},{bd.z:F1}); prossimo angolo ({next.x:F1},{next.z:F1}) a {new Vector2(next.x - pp.x, next.z - pp.z).magnitude:F1} m; scala tempo {Time.timeScale:F1}, dt {Time.deltaTime:F3}";
         }

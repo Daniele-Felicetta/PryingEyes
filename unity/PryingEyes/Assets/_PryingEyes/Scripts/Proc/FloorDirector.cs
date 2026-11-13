@@ -50,6 +50,13 @@ namespace PryingEyes.Proc
             if (GetComponent<RoundDirector>() == null) gameObject.AddComponent<RoundDirector>();     // round nelle zone sigillabili
         }
 
+        void OnDestroy()
+        {
+            if (I != this) return;
+            HotelNav.Clear();
+            I = null;
+        }
+
         static bool HasArg(string a)
         {
             foreach (var s in System.Environment.GetCommandLineArgs()) if (s == a) return true;

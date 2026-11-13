@@ -81,7 +81,7 @@ failed = 0
 with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
     results = list(pool.map(run, args.seeds))
 for r in results:
-    ok = r["verdict"] is not None and r["verdict"].startswith("ESITO: ok") and not r["timed_out"] and not r["exceptions"]
+    ok = r["code"] == 0 and r["verdict"] is not None and r["verdict"].startswith("ESITO: ok") and not r["timed_out"] and not r["exceptions"]
     floors = [l for l in r["lines"] if l.startswith("PIANO") and "COMPLETATO" in l]
     print(f"seed {r['seed']}: {'OK' if ok else 'FALLITO'} in {r['seconds']:.0f} s, {len(floors)} piani completati, uscita {r['code']}", flush=True)
     for l in r["lines"]:

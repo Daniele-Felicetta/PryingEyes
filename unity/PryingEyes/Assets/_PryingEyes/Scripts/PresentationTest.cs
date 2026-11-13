@@ -207,10 +207,12 @@ namespace PryingEyes
                 yield return new WaitForSecondsRealtime(0.5f);
                 Check("trasporto distrutto anche col menu in pausa", FindObjectsByType<CoopNet>(FindObjectsSortMode.None).Length == 0);
                 Check("nessun elenco prefab di rete abbandonato", !Array.Exists(Resources.FindObjectsOfTypeAll<ScriptableObject>(), so => so.name == "CoopSpawnables"));
+                Check("nessuna navmesh della partita lasciata nel menu", Resources.FindObjectsOfTypeAll<UnityEngine.AI.NavMeshData>().Length == 0 && !HotelNav.Ready);
                 Click("Gioca");
                 until = Time.realtimeSinceStartup + 60f;
                 while ((FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < until) yield return null;
                 Check("nuova partita con piano identico e round azzerato", FloorDirector.I.FloorSignature() == signature && RoundDirector.Round == 0);
+                Check("una sola navmesh dopo la nuova partita", Resources.FindObjectsOfTypeAll<UnityEngine.AI.NavMeshData>().Length == 1 && HotelNav.Ready);
                 gm.player.invulnerable = true;
             }
         }
@@ -252,6 +254,32 @@ namespace PryingEyes
             wall.SetActive(false); Physics.SyncTransforms();
             Check("espositore torna accessibile", WallBuy.Find(probe) == rack);
             Destroy(rack.gameObject); Destroy(wall); Destroy(candleGo); Destroy(probe.gameObject);
+            // Pannello montato sulla faccia di un muro: retro e occhio dentro il collider (sporgenza/camera a filo muro).
+            var eye = new GameObject("Occhio acquisti a parete").transform;
+            for (int side = 0; side < 4; side++)
+            {
+                var rot = Quaternion.Euler(0f, side * 90f, 0f);
+                Vector3 forward = rot * Vector3.forward, center = new Vector3(2000f + side * 10f, 1.5f, 2000f);
+                var mounted = WallBuy.Place(WeaponDefs.IndexOf("smg_vesper9"), 500, center + forward * 0.2f, rot, Color.white);
+                var partition = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                partition.transform.SetPositionAndRotation(center, rot);
+                partition.transform.localScale = new Vector3(3f, 3f, 0.4f);
+                partition.SetActive(false);
+                eye.position = center - forward; eye.LookAt(mounted.transform);
+                Physics.SyncTransforms();
+                Check("retro del pannello non acquistabile lato " + side, WallBuy.Find(eye) == null);
+                partition.SetActive(true);
+                eye.position = center + forward * 0.02f; eye.LookAt(mounted.transform);
+                Physics.SyncTransforms();
+                int before = gm.score;
+                WallBuy.Tick(eye); WallBuy.TryBuy();
+                Check("occhio nel muro non compra lato " + side, WallBuy.Find(eye) == null && gm.score == before);
+                eye.position = center + forward * 2f; eye.LookAt(mounted.transform);
+                Check("fronte montato sul muro acquistabile lato " + side, WallBuy.Find(eye) == mounted);
+                mounted.gameObject.SetActive(false); partition.SetActive(false);
+                Destroy(mounted.gameObject); Destroy(partition);
+            }
+            Destroy(eye.gameObject);
         }
     }
 }

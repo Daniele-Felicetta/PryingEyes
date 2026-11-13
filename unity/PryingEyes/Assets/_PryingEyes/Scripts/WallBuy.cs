@@ -44,6 +44,7 @@ namespace PryingEyes
             foreach (var w in all) if (w != null) Destroy(w.gameObject);
             all.Clear();
             near = null;
+            lastCamera = null;
         }
 
         static WallBuy Create(int index, int cost, Vector3 pos, Quaternion rot, Color tint)
@@ -128,9 +129,7 @@ namespace PryingEyes
             textT = 0.15f;
             Transform cam = lastCamera != null ? lastCamera : (Camera.main != null ? Camera.main.transform : null);
             if (cam == null) return;
-            Vector3 to = cam.position - transform.position;
-            bool show = to.sqrMagnitude < 14f * 14f && Vector3.Dot(to, transform.forward) > 0.05f &&
-                        !Physics.Linecast(cam.position, transform.position + transform.forward * 0.3f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+            bool show = (cam.position - transform.position).sqrMagnitude < 14f * 14f && VisibleFrom(cam.position);
             if (show == textsOn) return;
             textsOn = show;
             foreach (var r in texts) if (r != null) r.enabled = show;
@@ -256,6 +255,13 @@ namespace PryingEyes
         }
 
         // ---------- interazione ----------
+        bool VisibleFrom(Vector3 eye)
+        {
+            // Un raycast non vede il collider da cui parte: se la camera entra nel muro non basta la sola visuale libera.
+            return Vector3.Dot(eye - transform.position, transform.forward) > 0.05f &&
+                Proc.Interact.Visible(eye, transform.position + transform.forward * 0.06f, transform);
+        }
+
         public static WallBuy Find(Transform cam)
         {
             if (cam == null) return null;
@@ -269,7 +275,7 @@ namespace PryingEyes
                 float d = to.magnitude;
                 if (d > 3.4f || d >= bd) continue;
                 if (Vector3.Dot(fwd, to / Mathf.Max(d, 0.01f)) < 0.55f) continue;
-                if (!Proc.Interact.Visible(cam, w.transform.position, w.transform)) continue;
+                if (!w.VisibleFrom(cp)) continue;
                 best = w; bd = d;
             }
             return best;
