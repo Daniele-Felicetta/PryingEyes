@@ -673,6 +673,56 @@ l'affondo, senza perdita della figura eretta. Cooperativa: **17/17 ospite e 32/3
 (`unity_logs/grip-coop`); nessun cambio alle regole o al protocollo. Resta aperta la valutazione del ritmo e della
 varietà dei gesti in partita.
 
+## Quindicesima passata: inseguimenti verticali e spinta della folla (13 novembre 2026)
+
+La raggiungibilità della navmesh e la camminata del giocatore non provavano ancora il comportamento dei nemici
+in gruppo. Aggiunta `-architecturetest -architecturepursuit`: otto agenti reali, con sei tipi di corpo, inseguono
+il giocatore da 7,2 m a terra e viceversa. Si controllano navmesh attiva, passaggio alla quota intermedia, assenza di
+salti verticali e arrivo con preparazione della mischia. Nella prova di percorso si rimuove chi è arrivato e prepara
+il colpo, liberando la prima fila: un bersaglio immortale non deve trasformare la coda dietro gli attaccanti in un
+falso errore di navigazione. La variante `-pursuitpressure` tiene invece tutti vivi per 120 s per direzione e misura
+lo spostamento del giocatore fermo. Nessun Warp o recupero degli agenti durante le due prove.
+
+La prima verifica dei soli arrivi dava 54/54 ma non misurava lo spostamento del bersaglio: non era sufficiente.
+La verifica estesa ha rilevato spostamenti di **1–3 m**, in un caso con discesa involontaria del giocatore dalla
+balconata. In `unity_logs/pursuit-isolate` e `pursuit-obstacle` sono conservati i confronti che isolano le cause:
+disabilitare solo il passo della mischia o solo le collisioni con i punti deboli non risolveva la spinta.
+Rilevata una sovrapposizione di **22 cm** con la capsula di un Monaco, e di **3,6 cm** con il nucleo del Portachiavi.
+Gli agenti aggiravano gli altri agenti ma non il giocatore; un punto debole animato poteva inoltre avanzare nel
+controller. I valori delle singole corse variano con il passo temporale: non sono misure di prestazioni.
+
+Correzione in due parti:
+
+- `PlayerAvoidance`: capsula per l'aggiramento degli agenti sul giocatore locale e sui compagni vivi nello stesso
+  piano. Si adatta all'altezza del corpo, si spegne alla morte o quando il compagno non è presente, non ritaglia
+  la navmesh e non aggiunge collider o ostacoli ai colpi.
+- I punti deboli animati non collidono con il CharacterController, ma restano visibili ai colpi. I corpi a terra
+  restano solidi; le coppie di collisione vengono ripristinate anche dopo Teleport/SetSpawn. Stessa gestione per
+  nemici reali e repliche. Protocollo **pe-coop-13**: formato dei messaggi invariato, comportamento fisico aggiornato.
+
+Verifica finale (`unity_logs/pursuit-final`), senza modifiche alle collisioni da parte della suite:
+
+| Tema | Percorso, salita e discesa | Assedio, 120 s per quota | Spostamento massimo del giocatore |
+| --- | --- | --- | --- |
+| Albergo | 72/72 | 40/40 | 0,00 m |
+| Teatro | 72/72 | 40/40 | 0,09 m |
+| Sanatorio | 72/72 | 40/40 | 0,13 m |
+
+Regressione della mischia **120/120** (`pursuit-final/melee`),
+compresi i sei controlli con camminata reale contro un corpo fermo, ancora solido, e i sei controlli sui punti
+deboli dopo il riavvio del controller. La prova del corpo disabilita l'agente: altrimenti l'IA può cedere il passo
+e una camminata oltre il punto iniziale non dimostra l'attraversamento del collider.
+
+Regressioni (`unity_logs/pursuit-regressions`): armi e movimento **279/279**, interfaccia **157/157**, potenziamenti
+e Processione dei Lumi **ESITO: ok**. Cooperativa a due processi **17/17 ospite e 32/32 client** in 84 s
+(`pursuit-coop`); a quattro processi **17/17 ospite, 32/32 primo client, 22/22 ciascuno degli altri due** in 93 s
+(`pursuit-coop-four`), tutte le uscite 0. La suite cooperativa verifica sessione, round, danno e transizioni;
+non sostituisce una prova di assedio su rete reale con persone che si muovono.
+
+Corretto anche l'obiettivo del round speciale, che mostrava ancora «NOTTE DELLE FALENE»: ora usa «PROCESSIONE DEI LUMI»,
+coerente con creature, striscione e premio. Restano da verificare bilanciamento delle orde con armi e munizioni reali,
+ritmo, varietà delle animazioni e leggibilità in movimento; gli agenti di questa suite non simulano una partita completa.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

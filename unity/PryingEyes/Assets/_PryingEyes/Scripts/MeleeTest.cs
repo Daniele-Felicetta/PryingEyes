@@ -269,6 +269,26 @@ namespace PryingEyes
                 CheckGrip(enemy, "recupero");
                 Enemy.Remove(enemy); yield return null;
             }
+            foreach (var type in types)
+            {
+                var enemy = Spawn(type);
+                enemy.relentless = false; enemy.alert = Alert.Patrol;
+                Enemy.debugFreeze = Enemy.debugNoSense = true;
+                // Misura il collider fermo, non un agente che puo' cedere il passo al giocatore in avvicinamento.
+                enemy.enabled = false;
+                var bodyAgent = enemy.GetComponent<NavMeshAgent>();
+                if (bodyAgent != null) bodyAgent.enabled = false;
+                player.Teleport(arena + Vector3.up * 0.05f); // spegne/riaccende il controller: le coppie vanno ripristinate.
+                var head = Array.Find(enemy.GetComponentsInChildren<Collider>(), c => c.CompareTag("Head"));
+                Check(type + " punto debole non spinge il controller dopo il teletrasporto",
+                    head != null && Physics.GetIgnoreCollision(head, player.GetComponent<CharacterController>()));
+                PlayerController.holdLook = false; PlayerController.botDir = forward;
+                yield return new WaitForSeconds(1f);
+                PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
+                Check(type + " corpo resta solido al passaggio del giocatore", Vector3.Dot(player.transform.position - arena, forward) < 1.4f);
+                Enemy.Remove(enemy); Enemy.debugFreeze = Enemy.debugNoSense = false;
+                yield return null;
+            }
             var guarded = Spawn(Enemy.EnemyType.Monaco);
             deadline = Time.time + 5; while (!guarded.PreparingMelee && Time.time < deadline) yield return null;
             guarded.PuppetEvent(EnemyEvt.Hit, guarded.AimPoint, 0);

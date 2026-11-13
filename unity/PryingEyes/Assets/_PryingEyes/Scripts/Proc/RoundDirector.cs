@@ -596,7 +596,7 @@ namespace PryingEyes.Proc
         public string Status()
         {
             if (cur == null) return "";
-            string head = moth ? $"NOTTE DELLE FALENE {Round}" : $"ROUND {Round}";
+            string head = moth ? $"PROCESSIONE DEI LUMI {Round}" : $"ROUND {Round}";
             if (clock < delay) return $"{head}  ·  le serrande sono calate";
             int left = Coop.IsClient ? Mathf.Max(0, netTarget - netSpawned) + netAlive : Mathf.Max(0, target - spawned) + mine.Count;
             return $"{head}  ·  {(left == 1 ? "una presenza" : left + " presenze")} ancora";

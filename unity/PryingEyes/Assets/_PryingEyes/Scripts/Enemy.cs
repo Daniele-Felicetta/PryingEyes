@@ -55,8 +55,8 @@ namespace PryingEyes
         /// <summary>I volanti (occhio, falena, medusa) puntano al petto del giocatore e lo scarto dai muri (SphereCast su EnvMask) non ne vede la
         /// capsula, che sta sullo strato Ignore Raycast: i loro collider si infilavano nel CharacterController e a ogni fotogramma il recupero
         /// della penetrazione lo scacciava, a volte oltre un muro sottile o sotto il pavimento (la riga CADUTA nel log, soprattutto nel round
-        /// delle falene: tre cadute in un round, sempre appena fuori dal muro ovest). Non si toccano piu'; chi cammina resta solido (i monaci
-        /// non si attraversano).</summary>
+        /// delle falene: tre cadute in un round, sempre appena fuori dal muro ovest). Non si toccano piu'. Anche i punti deboli animati
+        /// servono ai colpi, non a spingere il controller: chi cammina conserva solida la capsula del corpo.</summary>
         static readonly bool bodiesClash = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-bodiesclash") >= 0;   // solo per le prove: rimette il vecchio comportamento
 
         static void IgnorePlayerBody(Enemy e)
@@ -65,14 +65,14 @@ namespace PryingEyes
             var cc =GameManager.I != null && GameManager.I.player != null ? GameManager.I.player.GetComponent<CharacterController>() : null;
             if (cc == null || !cc.enabled) return;
             foreach (var c in e.GetComponentsInChildren<Collider>(true))
-                if (c != null && c.enabled && c.gameObject.activeInHierarchy) Physics.IgnoreCollision(c, cc, true);
+                if (c != null && c.enabled && c.gameObject.activeInHierarchy && (IsFlying(e.type) || c.CompareTag("Head"))) Physics.IgnoreCollision(c, cc, true);
         }
 
         /// <summary>Rifa le coppie ignorate dopo che il controller del giocatore e' stato spento e riacceso (Teleport, SetSpawn): spegnere un
         /// collider ne cancella le coppie.</summary>
         public static void IgnorePlayerBodies()
         {
-            foreach (var e in all) if (e != null && !e.dead && IsFlying(e.type)) IgnorePlayerBody(e);
+            foreach (var e in all) if (e != null && !e.dead) IgnorePlayerBody(e);
         }
 
         /// <summary>Toglie tutti i nemici (cambio piano).</summary>
@@ -124,7 +124,7 @@ namespace PryingEyes
             if (archetype == EnemyType.Abate && e.anim != null) e.anim.speed = AbateAnimSpeed;
             e.tgt = Targets.Local;
             e.puppet = puppet;
-            if (IsFlying(t)) IgnorePlayerBody(e);
+            IgnorePlayerBody(e);
             e.renderers = go.GetComponentsInChildren<Renderer>();
             e.flashMats = flashes;
             e.flashBase = new Color[flashes.Count];

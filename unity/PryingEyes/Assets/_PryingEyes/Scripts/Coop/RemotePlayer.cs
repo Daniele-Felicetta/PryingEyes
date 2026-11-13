@@ -107,6 +107,7 @@ namespace PryingEyes
             var rp = go.AddComponent<RemotePlayer>();
             rp.slot = slot; rp.playerName = string.IsNullOrEmpty(name) ? "Giocatore " + (slot + 1) : name;
             rp.Build();
+            PlayerAvoidance.Bind(go, rp);
             if (Coop.IsHost) Targets.Add(rp);       // solo l'ospite fa girare i nemici: gli altri non hanno bisogno di bersagli
             return rp;
         }

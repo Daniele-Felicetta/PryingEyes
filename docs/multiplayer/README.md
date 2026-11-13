@@ -1,6 +1,6 @@
 # Cooperativa online (fino a 4 giocatori)
 
-Aggiornato il 12 novembre 2026, ramo `multiplayer`. La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
+Aggiornato il 13 novembre 2026. La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
 gira con la propria copia, uno **ospita** e gli altri si collegano al suo indirizzo. Rete: FishNet 4.7.3 (trasporto
 Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 
@@ -78,7 +78,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-12`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
+Revisione **`pe-coop-13`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
 fino al punto d'uso effettivo, quindi può scegliere una posizione diversa. Tutti devono usare la stessa build.
@@ -104,8 +104,12 @@ densità/arredi, pattuglie e ondate. Le grandi arene ricevono più presenze e in
 I nemici ordinari privilegiano la mischia; gli umanoidi accompagnano il colpo con un passo fisico. Il formato
 rimane invariato; generatore, regole e presentazione devono corrispondere su tutte le macchine.
 La revisione 12 aggiunge i ripari tematici alle sale grandi (`RoomKits.ArenaCover`): file di sedie, letti, panche, banconi e
-armadi a un minimo di 1,6 m dai muri e dagli altri arredi. Cambiano arredi, collisioni e navmesh di arene, stanze di guardia
+armadi con margini di 1,2 m dai muri e 1,3 m dagli arredi esistenti. Cambiano arredi, collisioni e navmesh di arene, stanze di guardia
 e boss; i messaggi restano invariati. Il costo di rendering delle orde (`Enemy.Budget`) è solo locale e non cambia il protocollo.
+La revisione 13 rende il corpo dei giocatori un ostacolo per l'aggiramento locale degli agenti, senza ritagliare o
+ricostruire la navmesh. Vale anche per i compagni vivi nello stesso piano. I punti deboli animati restano colpibili
+ma non spingono il controller; le capsule dei nemici a terra restano solide. Cambia la gestione delle collisioni
+durante gli assedi, quindi tutti devono aggiornarsi; il formato dei messaggi rimane invariato.
 
 | Direzione | Messaggi |
 | --- | --- |

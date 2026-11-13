@@ -8,7 +8,7 @@ using PryingEyes.Proc;
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -noenemies -architecturetest: percorre le balconate senza recuperi o teletrasporti fra le tappe.</summary>
-    public sealed class ArchitectureTest : MonoBehaviour
+    public sealed partial class ArchitectureTest : MonoBehaviour
     {
         int checks, failed;
         bool shots;
@@ -26,7 +26,7 @@ namespace PryingEyes
         IEnumerator Start()
         {
             shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-architectureshots") >= 0;
-            var sequence = Run();
+            var sequence = Array.IndexOf(Environment.GetCommandLineArgs(), "-architecturepursuit") >= 0 ? RunPursuit() : Run();
             while (true)
             {
                 bool more;

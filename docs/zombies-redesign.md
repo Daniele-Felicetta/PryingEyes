@@ -180,3 +180,10 @@ Corretto l'affondo degli umanoidi: il bastone superava la portata del braccio e 
 La presa ora resta raggiungibile per tutta la traiettoria, anche tra i fotogrammi, con controllo nel generatore e sui
 sei costumi del gioco. Restano gli stessi tempi, rotazioni e possibilità di schivata. Ritmo e varietà degli attacchi
 richiedono ancora una valutazione durante le orde.
+
+## Quindicesima passata: folla e balconate
+
+Il corpo del giocatore ora entra nell'aggiramento degli agenti: la folla non deve sovrapporglisi e lasciare al
+controller il compito di espellerlo. Vale anche per i compagni vivi nello stesso piano e si adatta all'accovacciamento.
+I punti deboli animati servono ai colpi, senza spingere il giocatore; i corpi a terra continuano a bloccarne il passaggio.
+La navmesh rimane intatta. Protocollo cooperativo `pe-coop-13`.

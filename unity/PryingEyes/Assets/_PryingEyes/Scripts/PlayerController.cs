@@ -179,6 +179,7 @@ namespace PryingEyes
             PerkState.Changed += OnPerksChanged;
             cc = GetComponent<CharacterController>();
             cc.minMoveDistance = 0f;       // con 10.000 fps (batchmode) 4 m/s sono 0,4 mm a fotogramma: sotto il minimo di default (1 mm) non ci si muoveva
+            PlayerAvoidance.Bind(gameObject, Targets.Local);
             eyeH = eyeStand;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
