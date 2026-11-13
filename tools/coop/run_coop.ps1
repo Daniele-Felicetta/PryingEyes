@@ -1,4 +1,4 @@
-# Prova della cooperativa a piu' processi: un ospite e N ospitati dalla build di prova, tutti senza grafica, ognuno col suo log.
+# Prova della cooperativa a piu' processi: un ospite e N ospitati dalla build di verifica (Builds\Audit), tutti senza grafica, ognuno col suo log.
 # Esce con 0 solo se tutti i processi hanno chiuso con 0 (le prove con -cooptest escono 0 se superate, 1 se fallite).
 #
 #   .\tools\coop\run_coop.ps1 -Clients 1 -HostArgs '-cooptest','-seed','2961' -ClientArgs '-cooptest' -TimeoutSec 420
@@ -8,9 +8,10 @@
 #                                          (foto del compagno in <LogDir>\foto; usa la GPU: controlla prima che nessun altro la stia usando)
 #
 # Gli ospitati partono -JoinDelaySec secondi dopo l'ospite (+2 s per ciascuno, oppure -ClientDelays). Il gioco lo si compila a parte
-# (BuildPlayer.Torre con -buildOut, vedi README principale). Non parte se una copia di quell'exe e' gia' aperta.
+# (BuildPlayer.Torre con -buildOut ...\Builds\Audit, vedi README principale; Builds\Prova e' la cartella da cui gioca l'utente e non va usata per le prove,
+# si passa con -Exe solo di proposito). Non parte se una copia di quell'exe e' gia' aperta.
 param(
-    [string]$Exe = (Join-Path $PSScriptRoot '..\..\unity\PryingEyes\Builds\Prova\PryingEyes.exe'),
+    [string]$Exe = (Join-Path $PSScriptRoot '..\..\unity\PryingEyes\Builds\Audit\PryingEyes.exe'),
     [string]$LogDir = (Join-Path $env:TEMP 'pryingeyes-coop'),
     [string]$Name = 'prova',
     [int]$Clients = 1,

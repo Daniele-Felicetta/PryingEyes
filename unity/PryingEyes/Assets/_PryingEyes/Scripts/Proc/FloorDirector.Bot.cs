@@ -170,6 +170,69 @@ namespace PryingEyes.Proc
             BotLine($"    (x da {pp.x - half:F1} a {pp.x + half:F1}, una cella = {step} m)");
         }
 
+        /// <summary>Quando la navmesh non collega il giocatore al bersaglio: da qui si prova ogni candela, la partenza e l'uscita, e per i percorsi parziali si
+        /// dice in che stanza finiscono. Se le candele si raggiungono e l'uscita no, il difetto e' dalla parte dell'uscita; se non si raggiunge nulla, il giocatore
+        /// e' in un'isola.</summary>
+        void BotReach(Vector3 pp, Vector3 target)
+        {
+            string Rn(Room q) => q == null ? "-" : $"{q.kind}#{q.id}";
+            void One(string label, Vector3 to)
+            {
+                bool a = UnityEngine.AI.NavMesh.SamplePosition(pp, out var fh, 2f, UnityEngine.AI.NavMesh.AllAreas);
+                bool b = UnityEngine.AI.NavMesh.SamplePosition(to, out var th, 3f, UnityEngine.AI.NavMesh.AllAreas);
+                if (!a || !b) { BotLine($"    {label}: fuori navmesh (partenza {a}, arrivo {b})"); return; }
+                var path = new UnityEngine.AI.NavMeshPath();
+                UnityEngine.AI.NavMesh.CalculatePath(fh.position, th.position, UnityEngine.AI.NavMesh.AllAreas, path);
+                var end = path.corners.Length > 0 ? path.corners[path.corners.Length - 1] : fh.position;
+                BotLine($"    {label} ({to.x:F1},{to.z:F1}) in {Rn(cur.RoomAt(to))}: {path.status}, {path.corners.Length} angoli, finisce a ({end.x:F1},{end.z:F1}) in {Rn(cur.RoomAt(end))}");
+            }
+            BotLine($"    raggiungibilita' da ({pp.x:F1},{pp.z:F1}) in {Rn(cur.RoomAt(pp))}:");
+            for (int i = 0; i < cur.candles.Count; i++) One($"candela {i + 1}", cur.candles[i].transform.position);
+            if (cur.plan.start >= 0 && cur.plan.start < cur.plan.rooms.Count) One("partenza", new Vector3(cur.plan.rooms[cur.plan.start].CenterX, 0f, cur.plan.rooms[cur.plan.start].CenterZ));
+            One("uscita", target);
+            foreach (var rr in cur.plan.rooms)
+                if (rr.type == RoomType.Boss || rr.IsLift) One($"{rr.kind}#{rr.id}/{rr.type} centro", new Vector3(rr.CenterX, 0f, rr.CenterZ));
+        }
+
+        /// <summary>Mappa a componenti della navmesh attorno al giocatore (celle da 25 cm, 16 x 28 m): 'a' = si raggiunge dal giocatore, 'M' = si raggiunge
+        /// dall'ascensore di partenza, '?' = su nessuna delle due, '.' = niente navmesh, 'P' = il giocatore. Dove 'a' e 'M' si toccano senza un
+        /// collegamento si vede il punto in cui la navmesh e' spezzata.</summary>
+        void BotNavMap(Vector3 pp)
+        {
+            const float step = 0.25f, hx = 8f, hz = 14f;
+            var rs = cur.plan.rooms[cur.plan.start];
+            var mainRef = new Vector3(rs.CenterX, 0f, rs.CenterZ);
+            bool okM = UnityEngine.AI.NavMesh.SamplePosition(mainRef, out var mh, 3f, UnityEngine.AI.NavMesh.AllAreas);
+            bool okP = UnityEngine.AI.NavMesh.SamplePosition(pp, out var ph, 2f, UnityEngine.AI.NavMesh.AllAreas);
+            if (!okM || !okP) { BotLine("    mappa a componenti: riferimenti fuori navmesh"); return; }
+            var path = new UnityEngine.AI.NavMeshPath();
+            int nx = Mathf.RoundToInt(hx * 2f / step), nz = Mathf.RoundToInt(hz * 2f / step);
+            for (int row = nz; row >= 0; row--)
+            {
+                var sb = new System.Text.StringBuilder();
+                float z = pp.z - hz + row * step;
+                for (int col = 0; col <= nx; col++)
+                {
+                    float x = pp.x - hx + col * step;
+                    char ch = '.';
+                    if (UnityEngine.AI.NavMesh.SamplePosition(new Vector3(x, pp.y, z), out var cell, 0.12f, UnityEngine.AI.NavMesh.AllAreas))
+                    {
+                        UnityEngine.AI.NavMesh.CalculatePath(ph.position, cell.position, UnityEngine.AI.NavMesh.AllAreas, path);
+                        if (path.status == NavMeshPathStatus.PathComplete) ch = 'a';
+                        else
+                        {
+                            UnityEngine.AI.NavMesh.CalculatePath(mh.position, cell.position, UnityEngine.AI.NavMesh.AllAreas, path);
+                            ch = path.status == NavMeshPathStatus.PathComplete ? 'M' : '?';
+                        }
+                    }
+                    if (Mathf.Abs(x - pp.x) < step * 0.5f && Mathf.Abs(z - pp.z) < step * 0.5f) ch = 'P';
+                    sb.Append(ch);
+                }
+                BotLine($"    n z{z,6:F2} {sb}");
+            }
+            BotLine($"    (x da {pp.x - hx:F1} a {pp.x + hx:F1}, una cella = {step} m)");
+        }
+
         /// <summary>Gli ultimi fotogrammi in una riga (x,z>dirx,dirz, ogni terzo fotogramma) e gli angoli del percorso.</summary>
         string BotTraceText()
         {
@@ -292,6 +355,10 @@ namespace PryingEyes.Proc
                         // la finestra del controllo "fermo" riparte da qui, con la posizione di adesso: se resta quella di prima e il bot torna indietro
                         // per la strada da cui era venuto (candela in fondo a un ramo), 4 secondi dopo risulterebbe fermo senza esserlo
                         botSLitT = botSFloorT; botSTries = 0; botSNearT = 0f; botSProgT = 0f; botSChain = 0; botSProgPos = pp;
+                        // il bersaglio cambia (la prossima candela o l'uscita): il "dritto per un secondo" della strada di prima non vale piu'. Visto sul seme 1000,
+                        // piano 5: dopo l'ultima candela la nuova strada tornava indietro, il bot tirava dritto 3,4 m nel vicolo oltre la candela e li' restava
+                        // isolato (la navmesh non passa tra candela e muro, il controller si')
+                        botSHoldT = 0f; botSPrevHeading = Vector2.zero; botRepath = 0f;
                         BotLine($"  candela {lit}/{total} accesa a {botSFloorT:F0} s da ({pp.x:F1},{pp.z:F1}), a {horiz:F1} m");
                     }
                     else if (botSTries > 30) BotGiveUp(tc, "F premuto 30 volte senza che la candela si accenda");
@@ -350,8 +417,16 @@ namespace PryingEyes.Proc
                     botSBadPathT += 0.4f;
                     if (botSBadPathT > 3f)
                     {
+                        // dove si ferma il percorso parziale (il punto raggiungibile piu' vicino al bersaglio) dice quale passaggio e' chiuso
+                        Vector3 endP = botPath.corners != null && botPath.corners.Length > 0 ? botPath.corners[botPath.corners.Length - 1] : pp;
+                        string Rn(Room q) => q == null ? "-" : $"{q.kind}#{q.id}/{q.type}";
                         BotLine($"NAVMESH piano {floor}: nessun percorso completo da ({pp.x:F1},{pp.z:F1}) a {(tc != null ? "candela" : "uscita")} ({target.x:F1},{target.z:F1}): " +
-                                $"partenza sulla navmesh={okF}, arrivo={okT}, stato={botPath.status}");
+                                $"partenza sulla navmesh={okF}, arrivo={okT}, stato={botPath.status}; il percorso parziale finisce a ({endP.x:F1},{endP.y:F1},{endP.z:F1}) in {Rn(cur.RoomAt(endP))}, " +
+                                $"partenza in {Rn(cur.RoomAt(pp))}, bersaglio in {Rn(cur.RoomAt(target))}");
+                        BotLine("    tracciato: " + BotTraceText());
+                        BotMap(pp);
+                        BotReach(pp, target);
+                        BotNavMap(pp);
                         BotGiveUp(tc, "la navmesh non collega partenza e bersaglio");
                         return;
                     }

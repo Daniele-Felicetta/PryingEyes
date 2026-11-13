@@ -137,3 +137,32 @@ la copia della build deve aggiornare quella cartella, oltre alla principale quan
 
 Restano aperti: rifinitura ulteriore dei gesti, costo di rendering e ombre degli umanoidi nelle orde, verifica del
 bilanciamento durante partite prolungate e gli altri ambiti della revisione generale.
+
+## Decima passata: orde leggere
+
+Il round porta fino a 24 umanoidi vivi, e ognuno ha 110–170 mila vertici: con tutto il costo pieno il fotogramma
+arrivava a 113 ms. Fanno ombra solo i corpi più vicini (budget di peso 4,5 entro 14 m), il dettaglio scende con la
+distanza e con la folla e, da lontano, la pelle elabora mesh compatte preparate dall'editor invece dei livelli di
+Unity (che accorciano solo gli indici). Con 24 umanoidi il fotogramma costa 9,4 ms (stanza vuota 3,2 ms); da vicino
+il corpo resta intero, quindi il gioco non cambia: cambia quanti nemici si possono permettere. Dettagli e misure in
+`docs/quality-audit.md`.
+
+## Undicesima passata: ripari nelle sale
+
+Le sale erano diventate grandi ma erano ancora vuote: il censimento (`-roomcensus`, 90 piani) dava, nelle 585 sale
+sopra i 150 m² (esclusi corridoi e stanze con impianto proprio), arredi solidi su appena il 3,7% del pavimento (3,1% nelle
+stanze di guardia, 4,7% nelle arene) e più di metà delle Gallerie sotto il 3%. Nelle sale con balconata (circa tre su quattro) la causa era la riserva a terra: tutta la
+fascia sotto i solai, 4,2 m per lato (6,8 nell'atrio) più la testata, cioè quasi tutto il pavimento.
+
+Ora a terra restano riservate solo le scale (da x0+2 per 7,2 m) e le colonne dei solai; sotto i solai, a 3,6 m, restano
+3,3 m liberi e ci stanno ripari bassi. Ogni sala sopra i 150 m² (arene, boss, guardie) riceve dopo le altre ricette
+file di sedie o panche, letti, divani, banconi, armadi, paraventi, sarcofagi: pezzi del tema, soli o in fila di tre come
+una barricata, sempre a 1,3 m dagli altri arredi e a 1,2 m dai muri, quindi con corsie larghe quanto servono alla
+navmesh e alla capsula del giocatore. L'obiettivo per tipo di sala è 11% (arena), 10% (boss), 9% (guardia). Si arriva
+al 7,0% nella media (sale basse 7,7%, con balconata 6,3%, atri a tre quote 7,8%): più o meno il doppio di prima, con
+15 pezzi in più a sala (nessuna Galleria resta più vuota). Le file danno qualcosa dietro cui girare mentre l'orda
+insegue; l'effetto sul bilanciamento non è stato provato a mano, solo con i bot e le suite automatiche.
+
+Il generatore cambia (nuove sale, nuovi arredi), quindi la cooperativa passa al protocollo `pe-coop-12`: ospite e
+ospitati devono avere la stessa versione. `-nocover` rende il generatore quello di prima (per confronti a parità di
+seme).

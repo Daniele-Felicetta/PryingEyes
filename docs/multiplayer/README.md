@@ -78,7 +78,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-11`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
+Revisione **`pe-coop-12`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
 fino al punto d'uso effettivo, quindi può scegliere una posizione diversa. Tutti devono usare la stessa build.
@@ -103,6 +103,9 @@ La revisione 11 ingrandisce i moduli del piano, introduce atri a tre quote con r
 densità/arredi, pattuglie e ondate. Le grandi arene ricevono più presenze e ingressi a gruppi, anche in quota.
 I nemici ordinari privilegiano la mischia; gli umanoidi accompagnano il colpo con un passo fisico. Il formato
 rimane invariato; generatore, regole e presentazione devono corrispondere su tutte le macchine.
+La revisione 12 aggiunge i ripari tematici alle sale grandi (`RoomKits.ArenaCover`): file di sedie, letti, panche, banconi e
+armadi a un minimo di 1,6 m dai muri e dagli altri arredi. Cambiano arredi, collisioni e navmesh di arene, stanze di guardia
+e boss; i messaggi restano invariati. Il costo di rendering delle orde (`Enemy.Budget`) è solo locale e non cambia il protocollo.
 
 | Direzione | Messaggi |
 | --- | --- |
@@ -128,7 +131,7 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 | `-coopplayers N` | numero di giocatori attesi (con 3 processi) |
 | `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`, di serie `%TEMP%\pryingeyes-coop\foto`) |
 
-Lo script `tools/coop/run_coop.ps1` avvia l'ospite e gli ospitati dalla build di prova (senza grafica, un log per processo in
+Lo script `tools/coop/run_coop.ps1` avvia l'ospite e gli ospitati dalla build di verifica (`Builds/Audit`, non quella da cui gioca l'utente; senza grafica, un log per processo in
 `%TEMP%\pryingeyes-coop`), li aspetta, stampa le righe che contano ed esce con 0 solo se tutti hanno superato:
 
 ```powershell

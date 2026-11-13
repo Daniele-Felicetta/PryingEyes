@@ -530,6 +530,70 @@ architettura, round furtivo ok, **157/157** interfaccia in tre risoluzioni, **27
 32/32**, bot rigoroso **2/2 piani**. La prima nascita di un umanoide nel processo, che carica anche la libreria, è passata da 57 a 71 ms (una volta sola);
 le altre costano in media circa 1 ms per portare il corpo al dettaglio della sua distanza.
 
+## Undicesima passata: ripari nelle sale (13 novembre 2026)
+
+Richiesta rimasta aperta nel filo di Codex: «le stanze sono più grosse ma sembrano troppo vuote». Prima di cambiare
+qualcosa le sale sono state misurate: il flag `-roomcensus` di `ProcCheck` scrive per ogni stanza `CENSUS` (oggetti,
+area coperta da arredi solidi) e, per le sale trattate dalla passata nuova, `COVER` (obiettivo, prima, dopo, tentativi).
+Su 90 piani (seme 3000, 1427 stanze, 1201 sopra i 200 m²) le 585 sale grandi che la passata nuova tratta (sopra i 150 m²,
+senza corridoi e stanze con impianto proprio) avevano arredi solidi sul **3,7%** del pavimento (stanze di guardia 3,1%,
+arene 4,7%, boss 4,1%); il 64% delle sale sopra i 200 m² stava sotto il 4%, 33 erano senza alcun oggetto, 115 Gallerie
+su 201 sotto il 3%.
+
+Cause: le ricette mettono arredi a muro e qualche colonna, e in tre sale grandi su quattro (quelle con balconata)
+`RoomKits.Dress` riservava a terra tutta la fascia sotto i solai: 4,2 m per lato (6,8 nell'atrio a tre quote) lungo
+tutta la sala, più la testata. Con i tracciati davanti alle porte non restava quasi pavimento libero. Una prima versione
+della passata nuova, che teneva 1,6 m anche dai tracciati riservati, non piazzava quasi nulla (il 99% dei tentativi
+bloccato): ora `Ctx.footprints` separa gli ingombri veri degli arredi dai tracciati riservati.
+
+Cosa è cambiato:
+
+- **`RoomKitsCover.cs` (`ArenaCover`)**, ultima ricetta dopo colonne, panche e candelabro: porta arene (11%), boss (10%) e
+  guardie (9%) verso un obiettivo di copertura con pezzi del tema (divani, armadi, banconi, file di sedie, letti,
+  paraventi, panche, sarcofagi...), soli o in fila di fino a tre come una barricata, a 1,3 m dagli altri arredi e a 1,2 m
+  dai muri (corsie larghe quanto servono a navmesh e capsula). Salta corridoi, ascensori, rotonda, navate, platea, corsie e
+  palchi, che hanno un impianto proprio, e le stanze speciali. Ha un generatore a parte, quindi non sposta i numeri
+  che le ricette successive (luci, nascite) traggono da quello della stanza.
+- **`ReserveBalconies`**: a terra restano riservate solo le scale (da x0+2 per 7,2 m più mezzo metro) e un metro attorno a
+  ogni colonna dei solai. Il pavimento sotto i solai (3,3 m liberi) è `Ctx.underSlab`: vietato alle altre ricette
+  (`Free`), aperto ai soli ripari alti al massimo 3 m.
+- **`-nocover`** riporta generatore e riserve a com'erano (confronti a parità di seme). Protocollo cooperativo **`pe-coop-12`**.
+
+Risultato sugli stessi 90 piani: copertura **3,7% → 7,0%** nelle sale trattate (8948 pezzi, circa 15 a sala, 6293 sotto i
+solai): sale basse 4,8 → 7,7%, con balconata 3,0 → 6,3%, atri a tre quote 4,5 → 7,8%; arene 4,7 → 7,8%, boss 4,1 → 7,6%,
+guardie 3,1 → 6,5%. Sopra i 200 m²: 441 sale su 1201 sotto il 4% (prima 765), zero sale senza oggetti (prima 33), una
+sola Galleria sotto il 3% (prima 115). Gli obiettivi 9–11% non vengono raggiunti ovunque: la ricerca si ferma a 400
+tentativi e lo spazio libero con i corridoi larghi 1,2–1,3 m non basta. Non è stato abbassato il margine, perché con i
+varchi sotto 1,2 m la navmesh chiude la strada (vedi la nota sul raggio della navmesh nelle passate precedenti).
+
+Verifica: `ProcCheck` su 400 piani (seme 3000, `-fast`): 8 piani con problemi prima della riparazione, **0 rotti dopo**,
+0 stanze svuotate (55 arredi tolti dai varchi). Build di verifica (`Builds/Audit`, solo script) senza finestre e senza
+input iniettato: mischia **71/71**, creature **63/63**, volanti **117/117**, dardi **23/23**, torcia **52/52**,
+architettura **58/58, 74/74, 74/74**, round furtivo ok, interfaccia **157/157** in tre risoluzioni, armi **279/279**,
+cooperativa **17/17 ospite e 32/32 ospitato** con `pe-coop-12`, e il bot rigoroso della navigazione su **6 semi × 5 piani =
+30 piani, 6/6 completati**. Foto delle sale (`unity_logs/architecture`, scattate dalla suite di architettura): file di
+panche nella chiesa, tavoli lunghi nel refettorio, vista dalla balconata alta sul pavimento arredato.
+
+Costo dei pezzi in più, con la sonda `-perftest` (1080p in una `RenderTexture`, RTX 5060 Ti, stessi piani con e senza
+`-nocover`): albergo (seme 6034, 15 stanze) **3,5 → 3,7 ms** medi, peggior p99 6,3 → 6,4 ms; teatro (seme 6000) **3,4 → 3,5 ms**,
+peggior p99 5,5 → 5,9 ms. Circa 0,1–0,2 ms per fotogramma, nessuna sala fuori budget.
+
+Il bot ha trovato due cose, nessuna dovuta ai ripari (le ho riprodotte con `-nocover`):
+
+1. **Un difetto del bot** (corretto): alla fine del piano 5 del seme 1000 (sanatorio) il bot risultava isolato («uscita
+   irraggiungibile»). Dopo l'ultima candela la strada per l'uscita tornava indietro e la logica «tira dritto per un secondo» al bivio, nata per
+   evitare lo sfarfallio tra due strade alla pari, lo portava nel vicolo oltre la candela: tra candela e muro la navmesh non passa
+   (agente 0,8 m), il controller sì, quindi il bot entrava e non poteva più uscire. Ora al cambio di bersaglio quello stato si azzera. Il vicolo è
+   comunque uno spazio che i nemici (navmesh) non raggiungono: non è un blocco per il giocatore.
+2. **Un avviso noto, non causato dai ripari**: seme 2961 piano 2 (albergo, navata con le panche), uno o due `INCASTRATO` e piano completato
+   con avviso, uguale con e senza ripari. È la classe «la navmesh promette un varco che la capsula non passa»
+   della terza passata (fessure tra 0,6 e 0,95 m tra arredi vicini); la regola di generazione che la chiuderebbe
+   cambierebbe tutte le piante e resta da decidere.
+
+Il bot stampa ora, quando la navmesh non collega partenza e bersaglio, dove finisce il percorso parziale e in che stanza, la
+raggiungibilità di candele, partenza e uscita e una mappa a componenti (`a` dal giocatore, `M` dalla partenza) di 16 × 28 m.
+`tools/coop/run_coop.ps1` usa di serie la build di verifica (`Builds/Audit`) e non quella da cui gioca l'utente.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

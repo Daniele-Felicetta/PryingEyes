@@ -21,6 +21,8 @@ namespace PryingEyes.Proc
             public Rng rng;
             public float ix0, ix1, iz0, iz1;
             public readonly List<Rect> occ = new List<Rect>();
+            public readonly List<Rect> footprints = new List<Rect>();   // solo gli ingombri veri degli arredi (Occupy); il resto di occ sono tracciati riservati (porte, corsie, balconate)
+            public readonly List<Rect> underSlab = new List<Rect>();    // pavimento sotto i solai delle balconate: vietato alle ricette (Free), aperto ai soli ripari bassi di ArenaCover
             public int propCount;            // per il censimento (-roomcensus): quanti oggetti e che ingombro hanno messo le ricette
             public float propArea;
             public float W => ix1 - ix0;
@@ -97,15 +99,8 @@ namespace PryingEyes.Proc
             fi.propRoots.Add(pg.transform);
 
             ReserveOpenings(c);
-            if (r.upperGallery)
-            {
-                // Le due scale e il percorso sotto la balconata restano liberi dagli arredi casuali.
-                float x = r.x0 * 0.1f + 1.1f, end = r.x1 * 0.1f - 1.1f;
-                float band = r.GalleryLevels == 2 ? 6.8f : 4.2f;
-                c.occ.Add(new Rect(x, r.z0 * 0.1f + 1.1f, end - x, band));
-                c.occ.Add(new Rect(x, r.z1 * 0.1f - 1.1f - band, end - x, band));
-                c.occ.Add(new Rect(r.x1 * 0.1f - 1.1f - band, r.z0 * 0.1f + 1.1f, band, c.D));
-            }
+            // Le due scale e il percorso sotto la balconata restano liberi dagli arredi casuali (sotto i solai solo ArenaCover mette ripari bassi).
+            if (r.upperGallery) ReserveBalconies(c);
             if (r.kind != RoomKind.Corridoio && r.kind != RoomKind.Navata) ReserveSpokes(c);
             // arena di una candela (pianta a griglia): le colonne prima di tutto, cosi' gli arredi e la candela le aggirano
             if (r.type == RoomType.Candela || (r.upperGallery && r.GalleryLevels == 2)) ArenaColumns(c);
@@ -167,6 +162,7 @@ namespace PryingEyes.Proc
                 if(r.kind==RoomKind.GiardinoInverno)Prop(c,"chi_fonte",c.Center,Vector3.forward,2.4f,false);
             }
             if (r.kind != RoomKind.Rotonda && (r.type == RoomType.Candela || (c.W*c.D>180 && (r.type==RoomType.Guardia || r.type==RoomType.Boss || r.type==RoomType.Normale)))) ArenaBenches(c);
+            ArenaCover(c);
             if (r.church) PortalCandles(c);
             var window = WindowLights(c);
             Fill(c, window != null);
@@ -275,6 +271,7 @@ namespace PryingEyes.Proc
             if (c.r.cornerRadius > 0f && !FitsShape(c.r, pos, ex, ez)) return false;
             var rc = new Rect(pos.x - ex, pos.z - ez, ex * 2f, ez * 2f);
             foreach (var o in c.occ) if (o.Overlaps(rc)) return false;
+            foreach (var o in c.underSlab) if (o.Overlaps(rc)) return false;
             return true;
         }
 
@@ -286,7 +283,9 @@ namespace PryingEyes.Proc
         {
             float s = Mathf.Abs(Mathf.Sin(yaw * Mathf.Deg2Rad)), co = Mathf.Abs(Mathf.Cos(yaw * Mathf.Deg2Rad));
             float ex = (w * co + d * s) * 0.5f, ez = (w * s + d * co) * 0.5f;
-            c.occ.Add(new Rect(pos.x - ex, pos.z - ez, ex * 2f, ez * 2f));
+            var rc = new Rect(pos.x - ex, pos.z - ez, ex * 2f, ez * 2f);
+            c.occ.Add(rc);
+            c.footprints.Add(rc);
         }
 
         static float YawOf(Vector3 dir) => Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
