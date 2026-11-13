@@ -85,7 +85,11 @@ namespace PryingEyes
         void PlayMeleeContact(Vector3 position, bool hit)
         {
             if (!hit) return; // il colpo a vuoto ha soltanto il fruscio del gesto, nessun falso impatto a terra.
-            if (glowMat != null) Fx.EnemyImpact(position, -transform.forward, glowMat.GetColor("_EmissionColor"));
+            if (Archetype == EnemyType.Occhio)
+            {
+                if (glowMat != null) Fx.EnemyImpact(position, -transform.forward, glowMat.GetColor("_EmissionColor"));
+            }
+            else Fx.MeleeImpact(position, -transform.forward);
             Sfx.At(SoundBank.Strike, position, 0.75f, Archetype == EnemyType.Abate ? 0.72f : 0.95f, 2, 30);
         }
     }

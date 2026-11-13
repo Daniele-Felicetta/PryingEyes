@@ -166,3 +166,10 @@ insegue; l'effetto sul bilanciamento non è stato provato a mano, solo con i bot
 Il generatore cambia (nuove sale, nuovi arredi), quindi la cooperativa passa al protocollo `pe-coop-12`: ospite e
 ospitati devono avere la stessa versione. `-nocover` rende il generatore quello di prima (per confronti a parità di
 seme).
+
+## Dodicesima passata: contatto fisico
+
+Bastone, strumenti e attacchi a terra lasciano un breve impatto opaco di polvere e piccoli frammenti, invece delle
+scintille additive degli incantesimi. Il gesto, il suono di contatto e il segnale direzionale restano sincronizzati
+al danno; un colpo schivato non produce l'impatto. I volanti mantengono il feedback magico. Nessun cambio alle regole
+o al protocollo di rete. Restano da rifinire il gesto e la presentazione del nemico durante il combattimento ravvicinato.

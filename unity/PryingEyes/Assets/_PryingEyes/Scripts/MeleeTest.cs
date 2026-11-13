@@ -15,6 +15,18 @@ namespace PryingEyes
         Vector3 arena, forward;
         bool shots;
         Camera review;
+        RenderTexture poseTarget;
+        // Il player batch non presenta fotogrammi: renderizziamo comunque le pose per non misurare ossa sospese dal culling.
+        void LateUpdate()
+        {
+            var camera = Camera.main;
+            if (poseTarget == null || camera == null) return;
+            var previous = camera.targetTexture;
+            camera.targetTexture = poseTarget;
+            camera.Render();
+            camera.targetTexture = previous;
+        }
+        void OnDestroy() { if (poseTarget != null) RenderTexture.ReleaseTemporary(poseTarget); }
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
         {
@@ -77,6 +89,22 @@ namespace PryingEyes
             review.fieldOfView = 50;
             GameManager.CamShot(Path.Combine(folder, enemy.type + "_" + phase + "_lato.png"), review, false);
         }
+        (int dust, int glow, int visible) ContactParticles()
+        {
+            int dust = 0, glow = 0, visible = 0;
+            var root = GameObject.Find("Fx");
+            if (root == null) return (0, 0, 0);
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>())
+            {
+                if (!renderer.enabled) continue;
+                if (renderer.sharedMaterial == Fx.SparkMat) glow++;
+                if (renderer.sharedMaterial != Fx.PuffMat) continue;
+                dust++;
+                Vector3 screen = Camera.main.WorldToViewportPoint(renderer.transform.position);
+                if (screen.z > Camera.main.nearClipPlane && screen.x > 0 && screen.x < 1 && screen.y > 0 && screen.y < 1 && renderer.transform.localScale.x > 0.001f) visible++;
+            }
+            return (dust, glow, visible);
+        }
         float AnimatedHeight(Enemy enemy)
         {
             float min = float.PositiveInfinity, max = float.NegativeInfinity;
@@ -97,6 +125,7 @@ namespace PryingEyes
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
             Enemy.ClearAll(); Enemy.debugFreeze = false; Enemy.debugNoSense = false;
+            poseTarget = RenderTexture.GetTemporary(512, 288, 24);
             var player = GameManager.I.player; var hud = GameManager.I.hud;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             Check("spazio di prova libero sulla navmesh reale", FindArena(out arena, out forward));
@@ -105,10 +134,12 @@ namespace PryingEyes
             hud.Banner("", ""); hud.Toast("");
             Enemy Spawn(Enemy.EnemyType type)
             {
+                Fx.Clear();
                 player.Teleport(arena + Vector3.up * 0.05f); player.hp = 100; player.shield = 50; player.sedT = 0; player.invulnerable = false;
                 player.yaw = Mathf.Atan2(forward.x, forward.z); player.pitch = 0;
                 var enemy = Enemy.Spawn(type, arena + forward * 1.8f);
-                enemy.transform.rotation = Quaternion.LookRotation(-forward); enemy.MakeRelentless(); return enemy;
+                enemy.transform.rotation = Quaternion.LookRotation(-forward); enemy.MakeRelentless();
+                return enemy;
             }
             var types = new[] { Enemy.EnemyType.Monaco, Enemy.EnemyType.Abate, Enemy.EnemyType.Maschera, Enemy.EnemyType.Direttore, Enemy.EnemyType.Infermiere, Enemy.EnemyType.Primario };
             var puppet = Enemy.SpawnPuppet(9876, Enemy.EnemyType.Monaco,
@@ -120,6 +151,20 @@ namespace PryingEyes
             Check("replica passa al recupero dopo il contatto", !puppet.PreparingMelee && puppet.RecoveringMelee);
             yield return new WaitForSeconds(0.9f);
             Check("replica termina il recupero", !puppet.RecoveringMelee);
+            Fx.Clear();
+            float replicaHealth = player.hp + player.shield;
+            puppet.PuppetEvent(EnemyEvt.Strike, puppet.AimPoint, 0);
+            yield return null;
+            var replicaParticles = ContactParticles();
+            Check("replica non mostra impatto per un colpo mancato", replicaParticles.dust == 0 && replicaParticles.glow == 0);
+            puppet.PuppetEvent(EnemyEvt.Strike, puppet.AimPoint, 1);
+            yield return new WaitForSeconds(0.03f);
+            replicaParticles = ContactParticles();
+            Check("replica usa lo stesso impatto fisico dell'ospite", replicaParticles.dust > 0 && replicaParticles.glow == 0);
+            Check("replica del contatto non infligge danno autonomo", Mathf.Abs(player.hp + player.shield - replicaHealth) < 0.01f);
+            yield return new WaitForSeconds(0.35f);
+            replicaParticles = ContactParticles();
+            Check("impatto fisico si esaurisce senza residui", replicaParticles.dust == 0 && replicaParticles.glow == 0);
             Enemy.Remove(puppet); yield return null;
             foreach (var type in types)
             {
@@ -150,6 +195,10 @@ namespace PryingEyes
                 Check(type + " contatto nella fase di affondo", phase > 0.4f && phase < 0.65f);
                 Debug.Log($"[PryingEyes] meleetest fase contatto {type} {phase:F3}");
                 Check(type + " arma animata dal caricamento all'affondo", staff != null && Quaternion.Angle(windup, staff.rotation) > 20);
+                yield return new WaitForSeconds(0.03f);
+                var particles = ContactParticles();
+                Check(type + " impatto fisico senza scintille magiche", particles.dust > 0 && particles.glow == 0);
+                Check(type + " impatto fisico visibile dal giocatore", particles.visible > 0);
                 Photo(enemy, "contatto");
                 health = player.hp + player.shield;
                 yield return new WaitForSeconds(0.25f);
@@ -190,6 +239,8 @@ namespace PryingEyes
                 deadline = Time.time + 2; while (enemy.PreparingMelee && Time.time < deadline) yield return null;
                 PlayerController.botDir = Vector3.zero; PlayerController.holdLook = true;
                 Check(escape + " evita il danno", Mathf.Abs(player.hp + player.shield - health) < 0.01f);
+                var particles = ContactParticles();
+                Check(escape + " non mostra un falso impatto", particles.dust == 0 && particles.glow == 0);
                 Check(escape + " non fa ruotare il nemico durante il gesto", Quaternion.Angle(facing, enemy.transform.rotation) < 2);
                 if (escape == "arretramento") Check("schivata con controller reale", Vector3.Distance(arena, player.transform.position) > 1.2f);
                 if (wall != null) Destroy(wall);

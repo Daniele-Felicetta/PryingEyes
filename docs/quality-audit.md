@@ -398,7 +398,10 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
   soggetto fuori asse di 22°, parete e torcia remota reale, sovrapposizione di due fasci e recupero a distanza.
   Sui soggetti resta sotto il 4% la quota di bianco appiattito; la parete con due torce scende dal 33,11% a 0%.
   Preferenza di luminosità verificata prima/dopo: **0,091**, conservata anche su disco.
-- Costo della misura: **4,73 µs**, media di 200 chiamate, **0 byte gestiti**, nella scena isolata di prova.
+- Costo della misura: **4,73 µs**, media di 200 chiamate nella scena isolata di prova. La precedente lettura di
+  **0 byte gestiti non dimostra l'assenza di allocazioni**: la controprova introdotta nella nona passata (un array
+  noto di 4 KB mantenuto vivo) restituisce anch'essa zero nel player Unity usato. La suite ora segnala il contatore
+  non disponibile e omette quella sola asserzione; restano 52 verifiche valide.
   Questo dato riguarda la misura di prossimità con pochi collider, non le prestazioni complessive di un’orda.
 - Regressione della mischia con grafica: **62/62 in ciascuno dei tre temi**, uscite 0 (`torch-melee-albergo`,
   `torch-melee-teatro`, `torch-melee-sanatorio`). Controllate le immagini frontali e laterali, compresi i costumi
@@ -593,6 +596,29 @@ Il bot ha trovato due cose, nessuna dovuta ai ripari (le ho riprodotte con `-noc
 Il bot stampa ora, quando la navmesh non collega partenza e bersaglio, dove finisce il percorso parziale e in che stanza, la
 raggiungibilità di candele, partenza e uscita e una mappa a componenti (`a` dal giocatore, `M` dalla partenza) di 16 × 28 m.
 `tools/coop/run_coop.ps1` usa di serie la build di verifica (`Builds/Audit`) e non quella da cui gioca l'utente.
+
+## Dodicesima passata: distinguere impatto fisico e magico (13 novembre 2026)
+
+Il contatto della mischia usava ancora `Fx.EnemyImpact`, con nove scintille additive colorate come l'incantesimo.
+La nuova verifica ha riprodotto il difetto nei sei umanoidi: **80/86**, con le sole sei asserzioni sull'impatto
+fisico fallite nella corsa con immagini (`unity_logs/physical-melee-red-shots`).
+
+`Fx.MeleeImpact` usa invece sei piccoli frammenti opachi e due sbuffi di polvere di tessuto, senza emissione,
+luci, anelli o materiali nuovi. Durano 0,12–0,28 s e riutilizzano lo stesso pool degli altri impatti.
+`Enemy.PlayMeleeContact`, comune a ospite e replica, sceglie questo effetto per gli attacchi a terra, compreso il
+Portachiavi. Occhio, Veglia e Medusa conservano il contatto magico. Restano invariati danni, tempi e messaggi di rete.
+
+La suite controlla assenza di scintille additive, presenza nel campo visivo, colpi schivati senza falso impatto,
+stesso effetto sulla replica, nessun danno autonomo della replica e scomparsa di tutti gli elementi dopo 0,35 s.
+È inoltre stata corretta la modalità senza immagini della suite: nel player batch le ossa con
+`CullUpdateTransforms` potevano restare ferme senza fotogrammi presentati. Una piccola RenderTexture aggiornata
+durante la prova mantiene effettiva la verifica delle pose, senza forzare l'Animator né modificarne il culling.
+
+Verifiche (`unity_logs/physical-melee-final`): mischia **90/90** nei tre temi e **90/90** anche senza salvare immagini;
+volanti **117/117**, dardi/feedback **22/22** (senza la fotografia aggiuntiva della modalità `-feedbackshots`).
+Le schermate di contatto mostrano ancora un possibile difetto distinto sul Monaco dopo un colpo ricevuto:
+il costume appare completamente bianco. È da diagnosticare il ripristino dell'emissione nei fotogrammi lunghi;
+questa passata non dichiara conclusa la qualità delle animazioni o dell'illuminazione in combattimento.
 
 ## Ambiti ancora da chiudere
 

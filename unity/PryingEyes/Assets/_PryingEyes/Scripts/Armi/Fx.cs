@@ -162,7 +162,30 @@ namespace PryingEyes
             return it;
         }
 
-        /// <summary>Contatto dei nemici: scintille radenti e pulviscolo, senza un disco opaco che copra il bersaglio.</summary>
+        /// <summary>Colpo fisico: polvere di tessuto e schegge opache brevi. Niente bagliori da incantesimo o disco davanti alla visuale.</summary>
+        public static void MeleeImpact(Vector3 p, Vector3 normal)
+        {
+            Ensure();
+            for (int i = 0; i < 6; i++)
+            {
+                var it = I.Spawn(PuffMat, Random.Range(0.12f, 0.24f));
+                it.kind = 1; it.t.position = p + normal * 0.025f;
+                it.vel = normal * Random.Range(0.3f, 0.9f) + Random.insideUnitSphere * 1.3f;
+                it.grav = Vector3.down * 4f;
+                it.size0 = Random.Range(0.012f, 0.022f); it.size1 = 0.003f;
+                it.a0 = 1f; it.col = new Color(0.48f, 0.39f, 0.29f);
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                var it = I.Spawn(PuffMat, Random.Range(0.18f, 0.28f));
+                it.kind = 0; it.t.position = p + normal * 0.035f;
+                it.vel = normal * 0.25f + Random.insideUnitSphere * 0.25f;
+                it.grav = Vector3.zero; it.size0 = 0.055f; it.size1 = 0.22f;
+                it.a0 = 0.5f; it.col = new Color(0.62f, 0.54f, 0.43f);
+            }
+        }
+
+        /// <summary>Contatto magico dei nemici: scintille radenti e pulviscolo, senza un disco opaco che copra il bersaglio.</summary>
         public static void EnemyImpact(Vector3 p, Vector3 normal, Color tint)
         {
             Ensure();
