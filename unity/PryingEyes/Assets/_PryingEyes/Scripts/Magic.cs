@@ -1,161 +1,165 @@
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace PryingEyes
 {
-    /// <summary>Dardo magico lanciato dai monaci da lontano: nucleo emissivo, anelli in orbita,
-    /// luce e scia. Nessun asset scaricato. Colpisce il giocatore o esplode sul muro.</summary>
+    /// <summary>Dardo emissivo con scia rastremata. Il segmento percorso verifica muri e capsule dei bersagli
+    /// nello stesso ordine: danno deciso dall'ospite, grafica soltanto sugli ospitati.</summary>
     public class MagicBolt : MonoBehaviour
     {
-        public float damage = 9f;
-        public float speed = 9.5f;
+        public float damage = 9f, speed = 9.5f;
         float life = 5f;
-        Vector3 dir;
+        Vector3 dir, launchedFrom;
         Light glow;
-        Transform spin;
-        static Material coreMat, sparkMat, trailMat;
+        Transform halo;
+        bool visualOnly, ended;
+        static Material coreMat, trailMat, haloMat;
+        static Mesh shardMesh, haloMesh;
+        static readonly Color Tint = new Color(0.48f, 0.82f, 1f);
+        const float Radius = 0.17f;
 
-        /// <summary>Cooperativa: sugli ospitati il dardo e' solo grafica (il danno lo decide l'ospite, che lo racconta con HurtPlayer).</summary>
-        bool visualOnly;
-
-        public static void Launch(Vector3 origin, Vector3 target, float dmg, bool visualOnly = false)
+        public static MagicBolt Launch(Vector3 origin, Vector3 target, float dmg, bool visualOnly = false)
         {
             var go = new GameObject("DardoMagico");
-            go.layer = 2;   // Ignore Raycast: non blocca i colpi veri
             var b = go.AddComponent<MagicBolt>();
-            b.Build();
-            b.transform.position = origin;
             b.dir = (target - origin).normalized;
-            b.damage = dmg;
-            b.visualOnly = visualOnly;
-            b.transform.rotation = Quaternion.LookRotation(b.dir);
+            if (b.dir.sqrMagnitude < 0.01f) b.dir = Vector3.forward;
+            b.launchedFrom = origin; b.damage = dmg; b.visualOnly = visualOnly;
+            go.transform.SetPositionAndRotation(origin, Quaternion.LookRotation(b.dir));
+            b.Build();
             if (!visualOnly) Coop.Game?.BoltLaunched(origin, target, dmg);
+            return b;
         }
 
-        static void EnsureMats()
+        static void EnsureAssets()
         {
             if (coreMat != null) return;
             coreMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            coreMat.color = Color.black;
-            coreMat.EnableKeyword("_EMISSION");
-            coreMat.SetColor("_EmissionColor", new Color(0.35f, 1.9f, 3.0f));
-            coreMat.SetFloat("_Metallic", 0.1f);
-            coreMat.SetFloat("_Smoothness", 0.2f);
+            coreMat.color = Color.black; coreMat.EnableKeyword("_EMISSION");
+            coreMat.SetColor("_EmissionColor", new Color(1.8f, 2.8f, 3.2f));
+            trailMat = Fx.Unlit(Fx.BeamTex(), true);
+            trailMat.SetColor("_BaseColor", new Color(0.25f, 0.7f, 1f, 0.7f));
+            haloMat = Fx.Unlit(Fx.PuffTex(), true);
+            haloMat.SetColor("_BaseColor", new Color(0.2f, 0.65f, 1f, 0.55f));
+            haloMesh = new Mesh { name = "Alone dardo" };
+            haloMesh.vertices = new[] { new Vector3(-0.5f,-0.5f,0), new Vector3(0.5f,-0.5f,0), new Vector3(0.5f,0.5f,0), new Vector3(-0.5f,0.5f,0) };
+            haloMesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up };
+            haloMesh.triangles = new[] { 0,1,2, 0,2,3 }; haloMesh.RecalculateBounds();
+            shardMesh = new Mesh { name = "Dardo sfaccettato" };
+            shardMesh.vertices = new[] { new Vector3(0,0,0.5f), new Vector3(0,0,-0.5f),
+                new Vector3(-0.5f,0,-0.12f), new Vector3(0,0.5f,-0.12f), new Vector3(0.5f,0,-0.12f), new Vector3(0,-0.5f,-0.12f) };
+            shardMesh.triangles = new[] { 0,3,2, 0,4,3, 0,5,4, 0,2,5, 1,2,3, 1,3,4, 1,4,5, 1,5,2 };
+            shardMesh.RecalculateNormals(); shardMesh.RecalculateBounds();
+        }
 
-            sparkMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            sparkMat.color = Color.black;
-            sparkMat.EnableKeyword("_EMISSION");
-            sparkMat.SetColor("_EmissionColor", new Color(0.10f, 0.55f, 1.1f));
-            sparkMat.SetFloat("_Metallic", 0.1f);
-
-            trailMat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            trailMat.SetColor("_BaseColor", new Color(0.30f, 0.85f, 1f, 1f));
-            trailMat.SetFloat("_Surface", 1f);
-            trailMat.SetFloat("_Blend", 0f);
-            trailMat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            trailMat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            trailMat.SetFloat("_ZWrite", 0f);
-            trailMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            trailMat.renderQueue = (int)RenderQueue.Transparent;
+        public static GameObject ChargeVisual()
+        {
+            EnsureAssets();
+            var go = new GameObject("Sigillo di carica", typeof(MeshFilter), typeof(MeshRenderer));
+            go.GetComponent<MeshFilter>().sharedMesh = shardMesh;
+            var renderer = go.GetComponent<MeshRenderer>(); renderer.sharedMaterial = coreMat;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            return go;
         }
 
         void Build()
         {
-            EnsureMats();
-            var core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            core.name = "Nucleo";
-            Destroy(core.GetComponent<Collider>());
-            core.transform.SetParent(transform, false);
-            core.transform.localScale = Vector3.one * 0.30f;
-            core.GetComponent<MeshRenderer>().material = coreMat;
-
-            var ring = new GameObject("Anelli");
-            ring.transform.SetParent(transform, false);
-            spin = ring.transform;
-            for (int i = 0; i < 3; i++)
-            {
-                var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                Destroy(s.GetComponent<Collider>());
-                s.transform.SetParent(ring.transform, false);
-                float a = i * Mathf.PI * 2f / 3f;
-                s.transform.localPosition = new Vector3(Mathf.Cos(a) * 0.22f, Mathf.Sin(a) * 0.22f, 0);
-                s.transform.localScale = Vector3.one * 0.075f;
-                s.GetComponent<MeshRenderer>().material = sparkMat;
-            }
-
-            glow = gameObject.AddComponent<Light>();
-            glow.type = LightType.Point;
-            glow.color = new Color(0.35f, 0.8f, 1f);
-            glow.intensity = 2.2f;
-            glow.range = 4.5f;
-            glow.shadows = LightShadows.None;
-
-            var tr = gameObject.AddComponent<TrailRenderer>();
-            tr.time = 0.32f;
-            tr.startWidth = 0.14f;
-            tr.endWidth = 0f;
-            tr.material = trailMat;
-            tr.numCapVertices = 4;
-
-            var sc = gameObject.AddComponent<SphereCollider>();
-            sc.radius = 0.22f;
-            sc.isTrigger = true;
-            var rb = gameObject.AddComponent<Rigidbody>();
-            rb.isKinematic = true;
-            rb.useGravity = false;
+            var core = ChargeVisual(); core.transform.SetParent(transform, false);
+            core.transform.localScale = new Vector3(0.035f, 0.035f, 0.35f);
+            var haloGo = new GameObject("Alone", typeof(MeshFilter), typeof(MeshRenderer));
+            halo = haloGo.transform; halo.SetParent(transform, false); halo.localScale = Vector3.one * 0.28f;
+            haloGo.GetComponent<MeshFilter>().sharedMesh = haloMesh;
+            var haloRenderer = haloGo.GetComponent<MeshRenderer>(); haloRenderer.sharedMaterial = haloMat;
+            haloRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; haloRenderer.receiveShadows = false;
+            glow = gameObject.AddComponent<Light>(); glow.type = LightType.Point;
+            glow.color = Tint; glow.intensity = 1.6f; glow.range = 3f; glow.shadows = LightShadows.None;
+            var trail = gameObject.AddComponent<TrailRenderer>();
+            trail.time = 0.18f; trail.startWidth = 0.15f; trail.endWidth = 0f;
+            trail.sharedMaterial = trailMat; trail.numCapVertices = 3; trail.minVertexDistance = 0.04f;
+            trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; trail.receiveShadows = false;
         }
 
-        void Update()
+        void Update() => Advance(Time.deltaTime);
+        void LateUpdate()
         {
-            float dt = Time.deltaTime;
-            float step = speed * dt;
-            if (Physics.SphereCast(transform.position, 0.17f, dir, out RaycastHit hit, step + 0.06f,
-                    HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+            var camera = Camera.main;
+            if (halo != null && camera != null) halo.rotation = camera.transform.rotation;
+        }
+
+        internal void Advance(float dt)
+        {
+            if (ended || dt <= 0f) return;
+            Vector3 from = transform.position;
+            float distance = speed * dt;
+            if (Physics.CheckSphere(from, Radius, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+            { Impact(from, -dir); return; }
+            bool wall = Physics.SphereCast(from, Radius, dir, out var wallHit, distance, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+            float first = wall ? wallHit.distance : distance;
+            ITarget victim = null;
+            for (int i = 0; i < Targets.Count; i++)
             {
-                Impact(hit.point);
-                return;
+                var target = Targets.At(i);
+                if (!target.Alive) continue;
+                float hit = BodyHit(from, dir, target);
+                if (hit >= 0f && hit < first) { first = hit; victim = target; }
             }
-            transform.position += dir * step;
-            // cooperativa: i compagni sono bersagli dell'ospite (i loro pupazzi non hanno un corpo che faccia scattare il dardo)
-            if (!visualOnly && Coop.IsHost)
+            if (victim != null)
             {
-                for (int i = 1; i < Targets.Count; i++)
+                transform.position = from + dir * first;
+                if (!visualOnly)
                 {
-                    var t = Targets.At(i);
-                    if (!t.Alive) continue;
-                    if ((t.LeanedPoint(1.1f) - transform.position).sqrMagnitude < 0.6f * 0.6f)
-                    {
-                        t.Hurt(damage);
-                        if (GameManager.autoTest) Debug.Log($"[PryingEyes] magia colpisce il compagno {t.Slot}: {damage:F0} danni");
-                        Impact(transform.position);
-                        return;
-                    }
+                    victim.Hurt(damage, launchedFrom);
+                    if (victim is LocalTarget) GameManager.damageTaken++;
+                    if (GameManager.autoTest) Debug.Log($"[PryingEyes] magia colpisce il giocatore {victim.Slot}: {damage:F0} danni");
                 }
+                Impact(transform.position, -dir); return;
             }
-            if (spin != null) spin.Rotate(Vector3.forward, 420f * dt, Space.Self);
-            float pulse = 0.85f + Mathf.Sin(Time.time * 16f) * 0.25f;
-            if (glow != null) glow.intensity = 2.2f * pulse;
+            if (wall) { Impact(wallHit.point, wallHit.normal); return; }
+            transform.position = from + dir * distance;
+            if (glow != null) glow.intensity = 1.6f * (0.9f + Mathf.Sin(Time.time * 7f) * 0.1f);
             life -= dt;
-            if (life <= 0f) Destroy(gameObject);
+            if (life <= 0f) { ended = true; Destroy(gameObject); }
         }
 
-        void OnTriggerEnter(Collider other)
+        // Raggio contro capsula verticale, allargata del raggio del dardo. Nessun salto del bersaglio a bassi fps.
+        static float BodyHit(Vector3 from, Vector3 direction, ITarget target)
         {
-            if (other.GetComponentInParent<Enemy>() != null) return;
-            var p = other.GetComponentInParent<PlayerController>();
-            if (p == null) return;
-            if (visualOnly) { Impact(transform.position); return; }
-            p.Hurt(damage);
-            GameManager.damageTaken++;
-            if (GameManager.autoTest)
-                Debug.Log($"[PryingEyes] magia colpisce il giocatore: {damage:F0} danni");
-            Impact(transform.position);
+            const float bodyRadius = 0.38f; // stesso raggio del CharacterController (HotelBuilder)
+            float radius = bodyRadius + Radius;
+            Vector3 o = from - target.Feet;
+            float low = bodyRadius, high = Mathf.Max(low, target.BodyHeight - bodyRadius);
+            float result = Mathf.Min(SphereHit(o, direction, Vector3.up * low, radius), SphereHit(o, direction, Vector3.up * high, radius));
+            float a = direction.x * direction.x + direction.z * direction.z;
+            float b = o.x * direction.x + o.z * direction.z;
+            float c = o.x * o.x + o.z * o.z - radius * radius;
+            if (c <= 0f && o.y >= low && o.y <= high) return 0f;
+            float discriminant = b * b - a * c;
+            if (a > 0.000001f && discriminant >= 0f)
+            {
+                float hit = (-b - Mathf.Sqrt(discriminant)) / a;
+                float y = o.y + direction.y * hit;
+                if (hit >= 0f && y >= low && y <= high) result = Mathf.Min(result, hit);
+            }
+            return result;
         }
 
-        void Impact(Vector3 p)
+        static float SphereHit(Vector3 from, Vector3 direction, Vector3 center, float radius)
         {
-            Shockwave.Spawn(p, coreMat);
-            Sfx.At(SoundBank.Strike, p, 0.55f, Random.Range(0.8f, 1.05f), 3f, 28f);
+            Vector3 offset = from - center;
+            float c = offset.sqrMagnitude - radius * radius;
+            if (c <= 0f) return 0f;
+            float b = Vector3.Dot(offset, direction), disc = b * b - c;
+            if (disc < 0f) return float.PositiveInfinity;
+            float hit = -b - Mathf.Sqrt(disc);
+            return hit >= 0f ? hit : float.PositiveInfinity;
+        }
+
+        void Impact(Vector3 point, Vector3 normal)
+        {
+            if (ended) return;
+            ended = true;
+            Fx.EnemyImpact(point, normal, Tint);
+            Sfx.At(SoundBank.Strike, point, 0.45f, Random.Range(0.95f, 1.1f), 2f, 22f);
             Destroy(gameObject);
         }
     }

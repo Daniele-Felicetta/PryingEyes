@@ -78,7 +78,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-7`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
+Revisione **`pe-coop-8`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
 fino al punto d'uso effettivo, quindi può scegliere una posizione diversa. Tutti devono usare la stessa build.
@@ -89,6 +89,9 @@ La revisione 6 cambia scala, numero delle sale, porte e collegamenti del piano; 
 scale con navigazione a più quote. I partecipanti devono usare tutti il nuovo generatore.
 La revisione 7 aggiunge Rotonda, Galleria e Giardino d’inverno: cambiano impronte, arredi, collisioni e scelte
 di posizionamento degli espositori. Gli indici dei tipi precedenti restano invariati.
+La revisione 8 aggiunge la provenienza opzionale al messaggio `HurtPlayer`: il client mostra la direzione del
+colpo comunicato dall’ospite. Cambia inoltre la collisione dei dardi: stesso percorso continuo contro muri e
+capsule dei bersagli, con altezza ridotta quando sono accovacciati.
 
 | Direzione | Messaggi |
 | --- | --- |

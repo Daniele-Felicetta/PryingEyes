@@ -567,6 +567,7 @@ namespace PryingEyes
                 yield return Until(() => pl.hp + pl.shield < hp0 - 0.01f, 20f);
                 bool hurt = pl.hp + pl.shield < hp0 - 0.01f;
                 Check("il nemico dell'ospite mi ferisce (HurtPlayer)", hurt, $"da {hp0:F0} a {pl.hp + pl.shield:F0}");
+                Check("la provenienza del danno arriva al client", gm.hud != null && gm.hud.DamageDirectionCount > 0);
                 Safe();
                 pl.Heal(1000f);
                 yield return new WaitForSeconds(2f);

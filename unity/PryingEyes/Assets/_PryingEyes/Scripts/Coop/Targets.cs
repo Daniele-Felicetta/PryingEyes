@@ -15,6 +15,7 @@ namespace PryingEyes
         /// <summary>Vivo e nel piano di chi lo guarda.</summary>
         bool Alive { get; }
         float Lean { get; }
+        float BodyHeight { get; }
         /// <summary>Dove si trova davvero il corpo a quell'altezza dai piedi (col lean la testa sporge).</summary>
         Vector3 LeanedPoint(float h);
         /// <summary>Cosa guarda l'occhio quando ti fissa: la visuale del giocatore.</summary>
@@ -23,7 +24,7 @@ namespace PryingEyes
         Transform BeamT { get; }
         /// <summary>Entro quanti metri ti nota un prete, ora (luce, torcia, movimento, spari: Stealth.SightRange).</summary>
         float SightRange(Enemy e);
-        void Hurt(float dmg);
+        void Hurt(float dmg, Vector3? origin = null);
         void Sedate(float seconds);
     }
 
@@ -34,12 +35,13 @@ namespace PryingEyes
         public int Slot => Coop.Slot;
         public Vector3 Feet { get { var p = P; return p != null ? p.transform.position : Vector3.zero; } }
         public bool Alive { get { var p = P; return p != null && p.alive; } }
+        public float BodyHeight => P != null ? P.BodyHeight : 1.75f;
         public float Lean { get { var p = P; return p != null ? p.lean : 0f; } }
         public Vector3 LeanedPoint(float h) { var p = P; return p != null ? p.LeanedPoint(h) : Vector3.up * h; }
         public Transform LookAt { get { var p = P; return p != null ? p.cam : null; } }
         public Transform BeamT { get { var t = Torch.I; return t != null && t.Lit && t.Beam != null ? t.Beam.transform : null; } }
         public float SightRange(Enemy e) => Stealth.SightRange(e);
-        public void Hurt(float dmg) { var p = P; if (p != null) p.Hurt(dmg); }
+        public void Hurt(float dmg, Vector3? origin = null) { var p = P; if (p != null) p.Hurt(dmg, origin); }
         public void Sedate(float seconds) { var p = P; if (p != null) p.Sedate(seconds); }
     }
 

@@ -53,5 +53,18 @@ La verifica di presentazione include tutte le armi consacrate con due slot pieni
 punteggio a sette cifre, vita critica durante la rigenerazione e ricarica reale. Vedere `docs/quality-audit.md` per gli
 esiti sulle risoluzioni verificate. Restano da valutare leggibilità durante combattimenti affollati e dispositivi fisici.
 
-Restano aperti: riformulazione della Veglia, animazione e feedback degli attacchi e degli impatti. Continuare anche la valutazione degli spazi durante il combattimento: le prove di navigazione non bastano
-a dimostrare il ritmo finale con gruppi di nemici. La revisione complessiva rimane in corso.
+## Quarta passata: dardi, contatti e provenienza del danno
+
+Sostituite le sfere con un nucleo sottile, alone morbido e scia rastremata. La carica sul bastone usa un sigillo
+sfaccettato. I contatti di bastone e dardo producono scintille e pulviscolo brevi al posto del disco pieno che si
+espandeva. I dardi e gli effetti del mondo rimangono visibili anche nella camera delle ottiche.
+
+Fino a quattro archi attorno al mirino indicano da dove arriva il danno, seguono la rotazione dello sguardo e
+svaniscono in 0,85 s; l’immunità non produce segnali falsi. La provenienza passa anche dal server al client.
+Il dardo verifica il tratto intero percorso a ogni aggiornamento contro pareti e capsule dei giocatori, sceglie il
+primo contatto e infligge danno una volta sola; la copia grafica non causa danno. Accovacciarsi riduce il bersaglio.
+
+Restano aperti: riformulazione della Veglia e revisione delle animazioni di corpo a corpo, preparazione, contatto e
+recupero. La quarta passata migliora gli effetti e il feedback ma mantiene per ora le clip esistenti dei nemici.
+Continuare anche la valutazione degli spazi durante il combattimento: le prove di navigazione non bastano a
+dimostrare il ritmo finale con gruppi di nemici. La revisione complessiva rimane in corso.

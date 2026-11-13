@@ -54,6 +54,7 @@ namespace PryingEyes
         public HUD hud;
 
         CharacterController cc;
+        public float BodyHeight => cc != null ? cc.height : heightStand;
         Vector3 vel;
         Vector3 spawnPos = new Vector3(0, 0.1f, 19f);
         int lastStep;
@@ -456,7 +457,7 @@ namespace PryingEyes
             sedT = Mathf.Max(sedT, seconds);
         }
 
-        public void Hurt(float dmg)
+        public void Hurt(float dmg, Vector3? origin = null)
         {
             // in cooperativa la pausa non ferma il mondo, quindi non rende nemmeno immuni
             if (!alive || (GameMenu.Blocked && !Coop.Active) || invulnerable || reviveInv > 0f) return;
@@ -465,7 +466,7 @@ namespace PryingEyes
             float absorbed = Mathf.Min(shield, dmg * 0.6f);
             shield -= absorbed;
             hp -= dmg - absorbed;
-            hud?.DamageFlash();
+            hud?.DamageFlash(origin);
             hud?.SetBars(hp, shield);
             Synth.Hurt();
             // il colpo scuote la visuale

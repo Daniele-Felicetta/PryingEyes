@@ -238,7 +238,7 @@ namespace PryingEyes
                     }
                     break;
                 case EnemyEvt.Strike:
-                    if (glowMat != null) Shockwave.Spawn(pos, glowMat);
+                    if (glowMat != null) Fx.EnemyImpact(pos, Vector3.up, glowMat.GetColor("_EmissionColor"));
                     if (Archetype == EnemyType.Abate) Sfx.At(SoundBank.Strike, pos, 1f, Random.Range(0.70f, 0.78f), 3f, 42f);
                     else Sfx.At(SoundBank.Strike, pos, 0.85f, Random.Range(0.95f, 1.05f), 3f, 35f);
                     break;

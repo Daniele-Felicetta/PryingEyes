@@ -135,6 +135,7 @@ namespace PryingEyes
             promptText = MakeText("Prompt", new Vector2(0.5f, 0.5f), new Vector2(0, -118), new Vector2(900, 40), 18, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
             MakeCrosshair();
             MakeHitmarker();
+            BuildDamageDirections();
             bannerText = MakeText("Banner", new Vector2(0.5f, 1), new Vector2(0, -118), new Vector2(1000, 66), 54, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
             bannerSub = MakeText("BannerSub", new Vector2(0.5f, 1), new Vector2(0, -170), new Vector2(1000, 30), 20, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
             toastText = MakeText("Toast", new Vector2(0.5f, 0), new Vector2(0, 75), new Vector2(400, 58), 15, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
@@ -419,6 +420,7 @@ namespace PryingEyes
         {
             float dt = Time.deltaTime;
             UpdateHitmarker(dt);
+            UpdateDamageDirections(dt);
             UpdateCrosshair(dt);
             UpdateStealthUI(dt);
             UpdateRoundUI(dt);
@@ -548,6 +550,10 @@ namespace PryingEyes
             SetAlpha(toastText, Dim, 0f);
         }
 
-        public void DamageFlash() { vigT = 0.6f; }
+        public void DamageFlash(Vector3? origin = null)
+        {
+            vigT = 0.6f;
+            if (origin.HasValue) ShowDamageDirection(origin.Value);
+        }
     }
 }

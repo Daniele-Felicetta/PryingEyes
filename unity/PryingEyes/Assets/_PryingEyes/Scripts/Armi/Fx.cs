@@ -144,7 +144,7 @@ namespace PryingEyes
             if (it == null)
             {
                 var go = new GameObject("fx");
-                go.layer = 2;
+                go.layer = 0; // effetti nel mondo, visibili anche dalla camera delle ottiche; nessun collider
                 go.transform.SetParent(transform, false);
                 var mf = go.AddComponent<MeshFilter>();
                 mf.sharedMesh = quadMesh;
@@ -160,6 +160,29 @@ namespace PryingEyes
             it.t.gameObject.SetActive(true);
             items.Add(it);
             return it;
+        }
+
+        /// <summary>Contatto dei nemici: scintille radenti e pulviscolo, senza un disco opaco che copra il bersaglio.</summary>
+        public static void EnemyImpact(Vector3 p, Vector3 normal, Color tint)
+        {
+            Ensure();
+            float peak = Mathf.Max(1f, Mathf.Max(tint.r, Mathf.Max(tint.g, tint.b)));
+            tint /= peak; tint.a = 1f;
+            for (int i = 0; i < 9; i++)
+            {
+                var it = I.Spawn(SparkMat, Random.Range(0.16f, 0.34f));
+                it.kind = 1; it.t.position = p + normal * 0.025f;
+                it.vel = normal * Random.Range(0.5f, 2f) + Random.insideUnitSphere * 2.8f;
+                it.grav = Vector3.down * 6f; it.size0 = 0.022f; it.size1 = 0.002f;
+                it.a0 = 1f; it.col = Color.Lerp(tint, Color.white, 0.35f);
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                var it = I.Spawn(PuffMat, Random.Range(0.25f, 0.45f));
+                it.kind = 0; it.t.position = p + normal * 0.04f;
+                it.vel = normal * 0.6f + Random.insideUnitSphere * 0.45f; it.grav = Vector3.zero;
+                it.size0 = 0.04f; it.size1 = 0.35f; it.a0 = 0.24f; it.col = Color.Lerp(tint, Color.gray, 0.65f);
+            }
         }
 
         public static void Impact(Vector3 p, Vector3 n, float scale = 1f)
@@ -197,7 +220,7 @@ namespace PryingEyes
             if (h == null)
             {
                 var go = new GameObject("foro");
-                go.layer = 2;
+                go.layer = 0; // effetti nel mondo, visibili anche dalla camera delle ottiche; nessun collider
                 go.transform.SetParent(transform, false);
                 go.AddComponent<MeshFilter>().sharedMesh = quadMesh;
                 var r = go.AddComponent<MeshRenderer>();

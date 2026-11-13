@@ -322,6 +322,34 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 - Questo chiude la prima revisione della gerarchia HUD richiesta. Restano le valutazioni durante combattimenti
   affollati, dispositivi reali, la riformulazione della Veglia e la revisione di animazioni e impatti dei nemici.
 
+## Quarta passata: provenienza del danno e dardi (13 novembre 2026)
+
+- Fino a quattro archi attorno al mirino indicano la provenienza dei colpi, si riallineano quando lo sguardo ruota
+  e svaniscono in 0,85 s. Il segnale nasce solo quando il giocatore accetta il danno: nessuna falsa direzione
+  durante immunità o pausa singola. `HurtPlayer` conserva la provenienza opzionale anche fra processi;
+  protocollo aggiornato a `pe-coop-8`.
+- Dardo con nucleo sottile, alone e scia rastremata; carica sfaccettata sul bastone. Sostituiti i dischi opachi dei
+  contatti di bastone e magia con scintille e pulviscolo brevi, usando il pool degli effetti già esistente.
+  Le clip di attacco restano quelle precedenti: la revisione delle animazioni non è chiusa da questo passaggio.
+- Collisione continua lungo il segmento percorso, contro pareti e capsule dei giocatori: risolve il primo contatto,
+  rispetta il dislivello e l’altezza accovacciata, infligge danno una volta sola. Le repliche restano soltanto grafiche.
+  Rimossi collider e rigidbody ausiliari del dardo. Il raggio corporeo corrisponde ai 38 cm del controller.
+- Corretti gli strati di scie, particelle e fori nel mondo: erano sullo strato 2 escluso dalla camera ottica.
+  Ora restano visibili attraverso le ottiche; i bossoli fisici mantengono lo strato che esclude i raycast.
+- **23/23** nella prova `-autotest -nofire -noenemies -combatfeedbacktest -combatshots` con grafica
+  (`unity_logs/combat-pixels-player.log`). Include passo simulato da 10 m in un aggiornamento, parete spessa
+  8 cm prima/dopo il bersaglio, colpo evitato accovacciandosi, ordine fra più giocatori, replica senza danno,
+  quattro direzioni, rotazione, scadenza, immunità e maschere della camera ottica reale.
+- Verifica delle particelle renderizzate su passaggio isolato: **723 pixel** sopra la soglia, oltre ai controlli di
+  stato. Immagini controllate in `unity_logs/combat-feedback`: `dardo-impatto.png`, `particelle.png`.
+  La scia è stata ridotta dopo la prima immagine, dove il nucleo sembrava una grande losanga piatta.
+- Regressione dei nemici tematici: **temi: OK**, uscita 0 (`combat-temi.log`), inclusi sedativo, richiamo e ventaglio
+  del Direttore. Cooperativa: **16/16 ospite e 27/27 client**, entrambi usciti con 0 in 76 s (`combat-coop`);
+  la nuova verifica conferma che la provenienza del danno raggiunga il client attraverso la rete.
+- Regressioni con gli effetti aggiornati: interfaccia **157/157** (`combat-ui`), armi **279/279**
+  (`combat-gunplay`), ottiche **37/37** (`combat-optics`), tutti i processi usciti con 0.
+- Build principale aggiornata a gioco chiuso; 189 file confrontati con SHA-256.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

@@ -235,10 +235,12 @@ namespace PryingEyes
 
         // ------------------------------------------------------------------ danni, punti, rumori
         /// <summary>Ospite: un nemico ferisce un compagno (il suo gioco lo applica: e' lui che conosce scudo, perk e invulnerabilita').</summary>
-        public void HurtRemote(int slot, float dmg)
+        public void HurtRemote(int slot, float dmg, Vector3? origin = null)
         {
             if (!host || net == null) return;
-            net.SendToSlot(slot, CoopKind.HurtPlayer, w.Reset().F32(dmg).ToArray());
+            w.Reset().F32(dmg).Bool(origin.HasValue);
+            if (origin.HasValue) w.V3(origin.Value);
+            net.SendToSlot(slot, CoopKind.HurtPlayer, w.ToArray());
         }
 
         public void SedateRemote(int slot, float seconds)
@@ -554,8 +556,10 @@ namespace PryingEyes
                 case CoopKind.HurtPlayer:
                 {
                     float dmg = r.F32();
+                    bool hasOrigin = r.Bool();
+                    Vector3? origin = hasOrigin ? r.V3() : (Vector3?)null;
                     if (!r.Ok || gm == null || gm.player == null || !gm.player.alive) return;
-                    gm.player.Hurt(Mathf.Clamp(dmg, 0f, 500f));
+                    gm.player.Hurt(Mathf.Clamp(dmg, 0f, 500f), origin);
                     GameManager.damageTaken++;
                     break;
                 }

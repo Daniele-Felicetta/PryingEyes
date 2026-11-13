@@ -96,7 +96,8 @@ namespace PryingEyes
             });
         }
 
-        public void Hurt(float dmg) { if (!last.invulnerable) CoopGame.I?.HurtRemote(slot, dmg); }
+        public float BodyHeight => last.crouch ? 1.15f : 1.75f;
+        public void Hurt(float dmg, Vector3? origin = null) { if (!last.invulnerable) CoopGame.I?.HurtRemote(slot, dmg, origin); }
         public void Sedate(float seconds) { CoopGame.I?.SedateRemote(slot, seconds); }
 
         public static RemotePlayer Create(int slot, string name)

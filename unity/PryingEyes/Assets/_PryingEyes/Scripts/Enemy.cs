@@ -327,7 +327,7 @@ namespace PryingEyes
                 {
                     // punta del bastone nel riferimento del monaco (Blender 0.31, -0.37, 0 -> Unity -0.31, 0, 0.37)
                     Vector3 tip = transform.TransformPoint(carapace ? new Vector3(0f, 0f, 0.68f) : new Vector3(-0.31f, 0f, 0.37f));
-                    if (glowMat != null) Shockwave.Spawn(tip, glowMat);
+                    if (glowMat != null) Fx.EnemyImpact(tip, Vector3.up, glowMat.GetColor("_EmissionColor"));
                     Sfx.At(SoundBank.Strike, tip, 1f, Random.Range(0.70f, 0.78f), 3f, 42f);
                     Coop.Game?.EnemyEvent(this, EnemyEvt.Strike, tip);
                     Vector3 p = tgt.Feet;
@@ -351,18 +351,15 @@ namespace PryingEyes
 
         /// <summary>Monaco: si avvicina camminando, si ferma e pianta il bastone a terra; il danno e l'onda d'urto
         /// arrivano quando il bastone tocca terra (fotogramma 16 della clip, 0.53 s), solo se il giocatore e' a tiro.</summary>
-        /// <summary>Sfera di carica sulla punta del bastone, creata alla prima magia.</summary>
+        /// <summary>Sigillo di carica sulla punta del bastone, creata alla prima magia.</summary>
         void EnsureCastOrb()
         {
             if (castOrb != null) return;
-            var mat = EnemyMats.Glow(new Color(0.30f, 0.75f, 1f), 2.2f);
-            castOrb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Destroy(castOrb.GetComponent<Collider>());
-            castOrb.name = "SferaMagica";
+            castOrb = MagicBolt.ChargeVisual();
+            castOrb.name = "SigilloMagico";
             castOrb.transform.SetParent(transform, false);
             castOrb.transform.localPosition = CastOrbLocal();
             castOrb.transform.localScale = Vector3.one * 0.001f;
-            castOrb.GetComponent<MeshRenderer>().material = mat;
             castLight = castOrb.AddComponent<Light>();
             castLight.type = LightType.Point;
             castLight.color = new Color(0.35f, 0.8f, 1f);
@@ -430,7 +427,7 @@ namespace PryingEyes
                 {
                     // punta del bastone nel riferimento del monaco (Blender 0.31, -0.37, 0 -> Unity -0.31, 0, 0.37)
                     Vector3 tip = transform.TransformPoint(new Vector3(-0.31f, 0f, 0.37f));
-                    if (glowMat != null) Shockwave.Spawn(tip, glowMat);
+                    if (glowMat != null) Fx.EnemyImpact(tip, Vector3.up, glowMat.GetColor("_EmissionColor"));
                     Sfx.At(SoundBank.Strike, tip, 0.85f, Random.Range(0.95f, 1.05f), 3f, 35f);
                     Coop.Game?.EnemyEvent(this, EnemyEvt.Strike, tip);
                     Vector3 p = tgt.Feet;
@@ -573,7 +570,7 @@ namespace PryingEyes
         void HitPlayer(float dmg, float dist, float dy)
         {
             var t = tgt;
-            t.Hurt(dmg);                                  // il giocatore locale si fa male da se'; un compagno lo sente dall'ospite (HurtPlayer)
+            t.Hurt(dmg, transform.position);                                  // il giocatore locale si fa male da se'; un compagno lo sente dall'ospite (HurtPlayer)
             if (t is LocalTarget) GameManager.damageTaken++;
             if (GameManager.autoTest)
                 Debug.Log($"[PryingEyes] danno {type} {dmg:F0} a {dist:F1} m (giocatore {t.Slot}), dislivello {dy:F1} m, nemico y={transform.position.y:F1}");
