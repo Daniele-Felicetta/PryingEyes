@@ -116,9 +116,25 @@ namespace PryingEyes
                 {
                     var scope = Array.Find(player.cam.GetComponentsInChildren<Camera>(), c => c != camera && c.name == "ScopeCam");
                     if (scope == null) { Check(d.id + " camera ottica", false); continue; }
+                    // In spazio camera: l'inversione della VP mondiale di ViewportPointToRay perde precisione a 1 km
+                    // con questi FOV molto stretti (circa 5 mm a 20 m, anche con assi e proiezione corretti).
+                    float Miss()
+                    {
+                        Vector3 direction = scope.projectionMatrix.inverse.MultiplyPoint(new Vector3(0f, 0f, 1f)).normalized;
+                        Vector3 point = scope.worldToCameraMatrix.MultiplyPoint3x4(target.transform.position);
+                        return Vector3.Cross(point, direction).magnitude;
+                    }
                     var ray = scope.ViewportPointToRay(new Vector3(0.5f, 0.5f));
-                    float miss = Vector3.Cross(target.transform.position - ray.origin, ray.direction).magnitude;
+                    float worldMiss = Vector3.Cross(target.transform.position - ray.origin, ray.direction).magnitude;
+                    float miss = Miss();
+                    Debug.Log($"[PryingEyes] opticstest {d.id}: misura locale {miss:F6} m, inversione mondiale {worldMiss:F6} m");
                     Check(d.id + " scena ingrandita coincide con hitscan", miss < 0.005f, $"scarto a 20 m {miss:F4} m");
+                    if (d.id == "bp_orifiamma")
+                    {
+                        scope.transform.localPosition = Vector3.right * 0.03f;
+                        Check("controllo negativo: camera spostata di 3 cm rilevata", Miss() > 0.025f);
+                        scope.transform.localPosition = Vector3.zero;
+                    }
                 }
                 yield return null;
             }

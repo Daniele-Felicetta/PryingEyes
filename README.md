@@ -11,6 +11,8 @@ La pausa permette di tornare al menu con conferma, chiudendo la sessione e ripar
 Prova ripetibile sulla build di verifica: `python tools/check_presentation.py --shots`.
 Armi e movimento: `python tools/check_gunplay.py`; allineamento grafico delle ottiche: aggiungi `--optics`.
 Ambiti verificati e lavoro aperto sono in [docs/quality-audit.md](docs/quality-audit.md).
+È in corso la [revisione di spazi, verticalità, HUD e combattimento](docs/zombies-redesign.md): la prima passata
+introduce grandi sale a doppia altezza con balconate percorribili e due scale collegate.
 
 ## Prototipo Three.js
 

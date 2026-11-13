@@ -561,7 +561,7 @@ namespace PryingEyes
             scopeRT = new RenderTexture(768, 768, 16, RenderTextureFormat.ARGB32) { antiAliasing = 1, name = "ScopeRT", useMipMap = false };
             scopeRT.Create();
             var go = new GameObject("ScopeCam");
-            go.transform.SetParent(rig.scopeLens, false);
+            go.transform.SetParent(cam, false);
             go.transform.localPosition = Vector3.zero;
             go.transform.localRotation = Quaternion.identity;
             scopeCam = go.AddComponent<Camera>();
@@ -607,7 +607,7 @@ namespace PryingEyes
             float fov = 2f * Mathf.Atan(Mathf.Tan(alpha * 0.5f) / Mathf.Max(1f, Def.zoom)) * Mathf.Rad2Deg;
             scopeCam.fieldOfView = Mathf.Clamp(fov, 1f, 40f);
             scopeCam.ResetProjectionMatrix(); // non riutilizzare l'eventuale proiezione jitterata copiata dalla camera principale
-            scopeCam.transform.SetPositionAndRotation(cam.position, cam.rotation);
+            scopeCam.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             aimProperties.SetFloat("_AimScale", dist / Mathf.Max(0.0001f, radius));
             scopeRenderer.SetPropertyBlock(aimProperties);
             scopeCam.Render();
@@ -620,6 +620,7 @@ namespace PryingEyes
         public void Tick(float dt, bool sprinting, float speed = 0f, bool grounded = true, bool crouched = false, Vector2 lookDelta = default)
         {
             if (cam == null || viewRoot == null) return;
+            bool inputEnabled = !GameMenu.Blocked;
             var d = Def;
             sprintHeld = sprinting;
             sprintBlend = Mathf.MoveTowards(sprintBlend, sprinting ? 1f : 0f, dt / (sprinting ? 0.20f : 0.18f));
@@ -643,7 +644,7 @@ namespace PryingEyes
                     Synth.Mech("draw", 0.6f, 1f);
                 }
             }
-            else
+            else if (inputEnabled)
             {
                 if (Input.GetKeyDown(KeyCode.Alpha1)) SwitchSlot(0);
                 else if (Input.GetKeyDown(KeyCode.Alpha2)) SwitchSlot(1);
@@ -652,10 +653,10 @@ namespace PryingEyes
                 if (Mathf.Abs(wheel) > 0.01f) SwitchSlot(1 - cur);
             }
             d = Def; // il cambio può essersi concluso in questo stesso fotogramma
-            if ((Input.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
+            if (inputEnabled && (Input.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
 
             // ----- mira
-            bool adsWant = (Input.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && !knifeOut && (!reloading || Def.style == ReloadStyle.Tube);
+            bool adsWant = inputEnabled && (Input.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && !knifeOut && (!reloading || Def.style == ReloadStyle.Tube);
             adsRaw = Mathf.MoveTowards(adsRaw, adsWant ? 1f : 0f, dt / Mathf.Max(0.05f, d.adsTime));
             ads = adsRaw * adsRaw * (3f - 2f * adsRaw);
 
@@ -666,15 +667,15 @@ namespace PryingEyes
 
             // ----- ricarica
             if (reloading) TickReload(dt, d);
-            if ((Input.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f && !knifeOut) Reload();
+            if (inputEnabled && (Input.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f && !knifeOut) Reload();
 
             // ----- fuoco
             // Conserva il ritardo del fotogramma quando parte il colpo, senza accumulare credito durante l'attesa.
             fireT = Mathf.Max(0f, fireT) - dt;
             if (cycleT > 0f) cycleT -= dt;
-            bool autoBot = GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire;
-            bool press = Input.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f);
-            bool held = Input.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot;
+            bool autoBot = inputEnabled && GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire;
+            bool press = inputEnabled && (Input.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f));
+            bool held = inputEnabled && (Input.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot);
             if (!held) { triggerHeld = false; dryPlayed = false; }
             bool blocked = knifeOut || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
             if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || shellsLoaded > 0))
@@ -1029,7 +1030,7 @@ namespace PryingEyes
             // respiro del tiratore con ottica forte: oscillazione lenta del modello (si ferma tenendo il fiato: Shift)
             if (ads > 0.5f && d.zoom >= 3.9f)
             {
-                float hold = (Input.GetKey(KeyCode.LeftShift) || TouchControls.Held(TouchControls.Action.Sprint)) ? 0.12f : 1f;
+                float hold = !GameMenu.Blocked && (Input.GetKey(KeyCode.LeftShift) || TouchControls.Held(TouchControls.Action.Sprint)) ? 0.12f : 1f;
                 pos.x += Mathf.Sin(breath * 1.1f) * 0.0012f * hold * ads;
                 pos.y += Mathf.Sin(breath * 1.7f + 1f) * 0.0016f * hold * ads;
             }

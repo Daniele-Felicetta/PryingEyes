@@ -88,7 +88,7 @@ namespace PryingEyes
             s.overrideVoxelSize = true;
             s.voxelSize = VoxelSize;       // il default eredita il raggio dell'agente di progetto: perde i varchi stretti fra gli arredi
             s.overrideTileSize = true;     // tessere ampie: i bordi tra tessere lasciavano fasce non camminabili
-            s.tileSize = 1024;
+            s.tileSize = 2048;
             data = NavMeshBuilder.BuildNavMeshData(s, sources, bounds, Vector3.zero, Quaternion.identity);
             if (data == null) { Debug.LogWarning("[PryingEyes] navmesh: costruzione fallita, nemici in linea retta"); return; }
             instance = NavMesh.AddNavMeshData(data);

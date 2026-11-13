@@ -17,6 +17,7 @@ namespace PryingEyes.Proc
         public ProcLift arrival, exit;
         public readonly List<Candelabro> candles = new List<Candelabro>();
         public readonly List<Light> lights = new List<Light>();
+        public readonly List<GalleryRoute> galleries = new List<GalleryRoute>();
         internal readonly List<Light> windowBounceSources = new List<Light>();
         /// <summary>Radici degli arredi: la navmesh li tratta da ostacoli non camminabili (la loro cima non e' un'isola).</summary>
         public readonly List<Transform> propRoots = new List<Transform>();
@@ -40,7 +41,7 @@ namespace PryingEyes.Proc
     /// <summary>Costruisce un piano dalla pianta: pavimenti, muri con porte, arcate e finestre, soffitti (piani, a travi,
     /// capriate, volte a botte), travi e nervature. Tutto in metri, una mesh per stanza e materiale. I muri sono sottili
     /// 30 cm: ogni stanza disegna la sua faccia, 15 cm dentro la linea, e tra le due facce resta il pieno.</summary>
-    public static class FloorBuilder
+    public static partial class FloorBuilder
     {
         public const float TH = 0.15f;          // mezzo spessore dei muri
         public const float Bay = 4.5f;          // passo delle campate
@@ -243,6 +244,7 @@ namespace PryingEyes.Proc
             bc.center = new Vector3((x0 + x1) * 0.5f, -0.25f, (z0 + z1) * 0.5f);
             bc.size = new Vector3(x1 - x0, 0.5f, z1 - z0);
 
+            if (r.upperGallery) BuildGallery(fi, r, go);
             var window = RoomKits.Dress(fi, r, go.transform);
             if (r.church && ProcKit.HasMat("foschia_chiesa")) ChurchHaze(go.transform, x0, x1, z0, z1, r.wallH, window);
         }

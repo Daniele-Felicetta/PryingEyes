@@ -32,6 +32,7 @@ namespace PryingEyes.EditorTools
             var sb = new StringBuilder();
             var kindBad = new Dictionary<string, int>();
             float tBuild = 0f, tNav = 0f;
+            int upperAll = 0, upperBad = 0;
             // -propstats: quanti arredi di ogni tipo finiscono in quale tipo di stanza, sommati sui piani (dopo la riparazione)
             var propStats = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-propstats") >= 0 ? new SortedDictionary<string, SortedDictionary<string, int>>() : null;
             var themeFloors = new SortedDictionary<string, int>();
@@ -137,6 +138,16 @@ namespace PryingEyes.EditorTools
                 }
                 foreach (var c in fi.candles)
                     if (!Reach(c.transform.position, 0.9f, out string why)) { candlesBad++; bad = true; sb.AppendLine($"seme {seed} piano {floor}: candela irraggiungibile ({why})"); }
+                foreach (var gallery in fi.galleries)
+                    for (int point = 1; point < gallery.points.Length - 1; point++)
+                    {
+                        upperAll++;
+                        if (!Reach(gallery.points[point], 0.6f, out string upperWhy))
+                        {
+                            upperBad++; bad = true;
+                            sb.AppendLine($"seme {seed} piano {floor}: balconata sala {gallery.room.id} punto {point} irraggiungibile ({upperWhy})");
+                        }
+                    }
                 if (fi.exit != null && !Reach(fi.exit.frontPoint, 1.5f, out string why2))
                 {
                     exitBad++; bad = true;
@@ -152,6 +163,7 @@ namespace PryingEyes.EditorTools
             sb.AppendLine($"[PryingEyes] CHECK {n} piani: con problemi {badFloors}; stanze {roomsAll} (piu' {secrets} segrete a carponi), irraggiungibili {roomsBad}; candele irraggiungibili {candlesBad}; uscite {exitBad}; cabine isolate {liftBad}; " +
                           $"costruzione media {tBuild / n * 1000f:F0} ms, navmesh media {tNav / n * 1000f:F0} ms");
             foreach (var kv in kindBad) sb.AppendLine($"[PryingEyes] CHECK irraggiungibili per tipo: {kv.Key} x{kv.Value}");
+            sb.AppendLine($"[PryingEyes] CHECK balconate: {upperAll} punti superiori, {upperBad} irraggiungibili dall'arrivo");
             Debug.Log(sb.ToString());
             System.IO.File.WriteAllText("C:/Users/danie/Desktop/prying-eyes/hotel_build/proccheck.txt", sb.ToString());
             if (propStats != null)

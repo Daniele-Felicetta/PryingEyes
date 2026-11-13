@@ -50,6 +50,7 @@ namespace PryingEyes.Proc
         public int seed;                    // per gli arredi: ogni stanza ne ha uno suo
         public string label = "";
         public int variant;
+        public bool upperGallery;           // doppia altezza e percorso superiore con due scale indipendenti
         public int wing;                    // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
         public int unit;                    // ala-coppia di appartenenza (0 per la prima): vedi PlanGen.Compound
 

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace PryingEyes.Proc
 {
-    /// <summary>Pianta a griglia (fase 4): al posto di un centinaio di stanze piccole in ali d'albergo e di chiesa, dieci-tredici stanze
+    /// <summary>Pianta a griglia: tredici-diciassette ambienti principali, grandi sale e percorsi su più quote;
     /// grandi su una griglia di celle (1x1, 2x1, 1x2, 2x2), ciascuna con un ruolo (RoomType) e da una a quattro porte, come le stanze di
     /// The Binding of Isaac. Emette lo stesso Plan di prima (geometria intera in decimetri, aperture, ascensori, finestre): costruttore,
     /// temi, luci, navmesh e nemici restano quelli. Il ruolo decide che cosa c'e' dentro: l'arena di una candela, il negozio, la
@@ -20,7 +20,7 @@ namespace PryingEyes.Proc
 
         /// <summary>Dimensioni possibili di una colonna o di una riga della griglia (dm): le stanze sullo stesso allineamento le condividono,
         /// cosi' i muri combaciano e le stanze non sono tutte uguali.</summary>
-        static readonly int[] CellSizes = { 84, 92, 100, 108 };
+        static readonly int[] CellSizes = { 128, 144, 160, 176 };
 
         sealed class GAdj
         {
@@ -49,8 +49,8 @@ namespace PryingEyes.Proc
         static Plan BuildGrid(Rng r, int seed, int floor, bool simple)
         {
             var theme = PickTheme(floor, new Rng(unchecked(seed * 73 + floor * 1009 + 5)));
-            int n = Math.Min(13, 10 + Math.Max(0, floor - 1) / 3) - (simple ? 1 : 0);
-            int gw = 6, gh = n >= 12 ? 5 : 4;
+            int n = Math.Min(17, 13 + Math.Max(0, floor - 1) / 3) - (simple ? 1 : 0);
+            int gw = 7, gh = n >= 15 ? 6 : 5;
 
             var occ = new int[gw, gh];
             var gs = GrowLayout(r, gw, gh, n, occ);
@@ -140,7 +140,7 @@ namespace PryingEyes.Proc
                 {
                     if (g.type != RoomType.Normale || g.Cells > 4) continue;
                     long area = (long)(colX[g.cx + g.cw] - colX[g.cx]) * (rowZ[g.cy + g.ch] - rowZ[g.cy]);
-                    if (area > 31000) continue;                               // piu' di 310 m2: una zona sigillabile non puo' essere cosi' grande
+                    if (area > 88000) continue;                               // grandi arene: spazio per aggirare le orde e usare le balconate
                     double m = g.hops;
                     foreach (var d in arenaDist) m = Math.Min(m, d[gs.IndexOf(g)]);
                     m *= 0.7 + r.Value() * 0.6;
@@ -157,12 +157,12 @@ namespace PryingEyes.Proc
             // ---- anelli: qualche porta in piu' tra stanze che non siano foglie speciali (cosi' si gira attorno alle arene)
             var loops = adjs.FindAll(e => !e.door && LoopOk(gs[e.a], start) && LoopOk(gs[e.b], start));
             for (int i = loops.Count - 1; i > 0; i--) { int j = r.Range(0, i + 1); var t = loops[i]; loops[i] = loops[j]; loops[j] = t; }
-            int maxLoops = Math.Max(2, gs.Count / 3), made = 0;
+            int maxLoops = Math.Max(3, gs.Count / 2), made = 0;
             foreach (var e in loops)
             {
                 if (made >= maxLoops) break;
                 if (!LoopOk(gs[e.a], start) || !LoopOk(gs[e.b], start)) continue;
-                if (!r.Chance(0.6)) continue;
+                if (!r.Chance(0.85)) continue;
                 e.door = true; gs[e.a].deg++; gs[e.b].deg++; made++;
             }
 
@@ -190,6 +190,13 @@ namespace PryingEyes.Proc
                     x0 = colX[g.cx], z0 = rowZ[g.cy], x1 = colX[g.cx + g.cw], z1 = rowZ[g.cy + g.ch],
                 };
                 SetKindDefaults(room);
+                room.upperGallery = room.W >= 160 && room.D >= 144 &&
+                    (room.type == RoomType.Candela || room.type == RoomType.Boss || room.type == RoomType.Guardia);
+                if (room.upperGallery)
+                {
+                    room.wallH = Math.Max(room.wallH, 8.2f);
+                    room.ridgeH = Math.Max(room.ridgeH, room.wallH);
+                }
                 if (room.ceil == CeilKind.Gable || room.ceil == CeilKind.BarrelRound || room.ceil == CeilKind.BarrelPointed)
                     room.ridgeAlongX = room.W > room.D || (room.W == room.D && r.Chance(0.5));
                 g.room = room;
@@ -204,7 +211,7 @@ namespace PryingEyes.Proc
                 bool churchDoor = ra.church || rb.church;
                 bool toBoss = ra.type == RoomType.Boss || rb.type == RoomType.Boss;
                 OpenStyle st = e.secret ? OpenStyle.Passaggio : churchDoor ? OpenStyle.Arco : OpenStyle.PortaLarga;
-                int width = e.secret ? 12 : toBoss ? 22 : churchDoor ? 18 : theme == Theme.Teatro ? 20 : 16;
+                int width = e.secret ? 12 : toBoss ? 30 : churchDoor ? 26 : 24;
                 int at = e.centers[r.Range(0, e.centers.Count)];
                 if (Connect(p.openings, ra, rb, st, width, at, 3) == null) { LastFailure = "griglia: porta"; return null; }
             }
@@ -273,10 +280,10 @@ namespace PryingEyes.Proc
             for (int guard = 0; list.Count < n && guard < 4000; guard++)
             {
                 var parent = r.Chance(0.5) ? list[list.Count - 1 - r.Range(0, Math.Min(3, list.Count))] : list[r.Range(0, list.Count)];
-                int shape = r.Weighted(new[] { 0.50, 0.18, 0.18, 0.14 });       // 1x1, 2x1, 1x2, 2x2
+                int shape = r.Weighted(new[] { 0.30, 0.24, 0.24, 0.22 });       // 1x1, 2x1, 1x2, 2x2
                 int w = shape == 1 || shape == 3 ? 2 : 1, h = shape == 2 || shape == 3 ? 2 : 1;
-                if (w * h > 1 && big >= 4) w = h = 1;
-                if (w == 2 && h == 2 && huge >= 2) h = 1;
+                if (w * h > 1 && big >= 8) w = h = 1;
+                if (w == 2 && h == 2 && huge >= 3) h = 1;
                 var cand = new List<int[]>();
                 for (int x = parent.cx - w; x <= parent.cx + parent.cw; x++)
                     for (int y = parent.cy - h; y <= parent.cy + parent.ch; y++)

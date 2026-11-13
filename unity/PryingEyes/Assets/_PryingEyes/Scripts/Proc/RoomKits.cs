@@ -95,6 +95,14 @@ namespace PryingEyes.Proc
             fi.propRoots.Add(pg.transform);
 
             ReserveOpenings(c);
+            if (r.upperGallery)
+            {
+                // Le due scale e il percorso sotto la balconata restano liberi dagli arredi casuali.
+                float x = r.x0 * 0.1f + 1.1f, end = r.x1 * 0.1f - 1.1f;
+                c.occ.Add(new Rect(x, r.z0 * 0.1f + 1.1f, end - x, 4.2f));
+                c.occ.Add(new Rect(x, r.z1 * 0.1f - 5.3f, end - x, 4.2f));
+                c.occ.Add(new Rect(r.x1 * 0.1f - 5.3f, r.z0 * 0.1f + 1.1f, 4.2f, c.D));
+            }
             if (r.kind != RoomKind.Corridoio && r.kind != RoomKind.Navata) ReserveSpokes(c);
             // arena di una candela (pianta a griglia): le colonne prima di tutto, cosi' gli arredi e la candela le aggirano
             if (r.type == RoomType.Candela) ArenaColumns(c);

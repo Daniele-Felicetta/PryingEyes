@@ -242,6 +242,43 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 - Cooperativa reale a due processi: **16/16 ospite, 26/26 client** (`unity_logs/life-coop`), con uscita regolare.
   Aggiornata anche la build principale a gioco chiuso: 189 file verificati con SHA-256 contro `Builds/Audit`.
 
+## Fisica e azioni nel menu cooperativo (13 novembre 2026)
+
+- Un secondo ritorno anticipato del controller congelava corpo e arma dopo l'aggiornamento dei timer di vita:
+  il giocatore poteva restare sospeso in aria e la ricarica non terminava finché il menu rimaneva aperto.
+  La prova riproduceva entrambi i difetti (**90/92**, `unity_logs/pause-physics-before`).
+- Il controller ora continua a simulare gravità, collisioni e inerzia; l'arma porta avanti ricarica, estrazione e
+  cicli già iniziati. I comandi vengono filtrati alla lettura in controller e arma: niente nuovi movimenti, salti,
+  lean, mira, fuoco, cambio slot o cambio modalità dal menu. La pausa singola conserva il fermo completo del mondo.
+- La prova usa anche comandi touch campionati prima di aprire il menu, due slot e un'arma con più modalità;
+  verifica l'atterraggio con `CharacterController`, il caricatore riempito e l'assenza di azioni nuove nel menu.
+- Prova definitiva con grafica **92/92** (`unity_logs/architecture-ui`), armi e movimento **279/279**
+  (`unity_logs/pause-physics-gunplay`).
+
+## Sale grandi e verticalità (13 novembre 2026)
+
+- Nuova richiesta registrata integralmente in `docs/zombies-redesign.md`: spazi e verticalità, nuove forme e stanze,
+  HUD, Veglia, animazioni e feedback degli attacchi. La revisione richiesta resta aperta.
+- Prima passata sul generatore: moduli 12,8–17,6 m, più ambienti e sale a più moduli, più porte ad anello,
+  accessi principali da 2,4–3 m, zone dei round ampliate per contenere le grandi sale.
+- Nelle sale ampie, soffitti di almeno 8,2 m e percorso superiore largo 2,4 m a quota 3,6 m, con due scale da 18
+  alzate di 20 cm. Il percorso a U collega le scale; porte e passaggi al piano terra restano liberi. Gli arredi
+  rispettano scale e balconate, le superfici superiori sono camminabili dalla navmesh e ospitano punti di pattuglia.
+- Pianificatore puro: **1.000/1.000**, circa 16–17 ambienti e 6.038 m² medi, percorso arrivo–uscita medio 142 m.
+  Costruzione e navmesh: **400/400** piani senza problemi residui, 5.167 stanze ordinarie e **9.456 punti superiori
+  raggiungibili**, nessuna stanza svuotata; tempi medi 43 ms costruzione e 117 ms navmesh (`architecture-400.log`).
+- Camminata fisica di salita, attraversamento e discesa su due balconate nei tre temi: **21/21** per prova
+  (`architecture-player.log`, `architecture-2961.log`, `architecture-3046.log`). Viste dalle due quote controllate
+  in `unity_logs/architecture`. Ulteriori **12/12 piani completi** senza avvisi (`architecture-navigation`).
+- Revisione cooperativa `pe-coop-6`, perché cambia il generatore. Nuovi ambienti specifici, forme curve, HUD,
+  Veglia e feedback degli attacchi non sono ancora chiusi da questa prima passata.
+- Regressione ottica: rimosso il legame della camera ottica con la gerarchia del modello oscillante. La misura
+  di allineamento usa lo spazio camera, evitando l'errore numerico dell'inversione VP mondiale a 1 km dall'origine.
+  Non è stata allargata la soglia: resta 5 mm a 20 m. **37/37**, incluso controllo negativo che rileva una camera
+  spostata di 3 cm (`architecture-optics-final`); i log confrontano le due misure.
+- Cooperativa sul nuovo generatore: **16/16 ospite e 26/26 client** (`architecture-coop`), con firma del piano
+  uguale dopo la transizione. Build principale aggiornata a gioco chiuso, 189 file verificati con SHA-256.
+
 ## Ambiti ancora da chiudere
 
 | Ambito | Evidenza necessaria |

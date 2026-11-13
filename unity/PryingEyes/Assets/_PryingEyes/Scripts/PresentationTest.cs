@@ -179,10 +179,34 @@ namespace PryingEyes
                 Check("compagno e vita nell'HUD", gm.hud.transform.Find("Compagno0").gameObject.activeSelf &&
                     gm.hud.transform.Find("Compagno0/CompagnoStato0").GetComponent<Text>().text.Contains("75%"));
                 if (Shots) GameManager.CamShot(Path.Combine(output, "compagni.png"), null, true, Screen.width, Screen.height);
+                var pausedWeapon = gm.player.weapon;
+                pausedWeapon.ResetLoadout(); pausedWeapon.Equip(WeaponDefs.IndexOf("ar9_malleus"));
+                pausedWeapon.DebugFire(); pausedWeapon.Reload();
                 GameMenu.I.SendMessage("OnApplicationFocus", false);
                 Check("pausa in cooperativa lascia il mondo attivo", GameMenu.Blocked && Time.timeScale == 1f);
                 Enemy.debugFreeze = true; Enemy.ClearAll();
                 var player = gm.player;
+                yield return new WaitForSecondsRealtime(pausedWeapon.Def.reload + 0.35f);
+                Check("ricarica gia avviata termina nel menu cooperativo", !pausedWeapon.reloading && pausedWeapon.mag == pausedWeapon.magSize);
+                Vector3 floorPosition = player.transform.position;
+                player.Teleport(floorPosition + Vector3.up * 0.7f);
+                yield return new WaitForSecondsRealtime(0.7f);
+                Check("gravita continua nel menu cooperativo", player.transform.position.y < floorPosition.y + 0.2f && player.GetComponent<CharacterController>().isGrounded);
+                player.Teleport(floorPosition);
+                int pausedShots = GameManager.shotsFired, pausedSlot = pausedWeapon.SlotIndex;
+                var pausedMode = pausedWeapon.Mode;
+                // Comandi tenuti prima dell'apertura: nemmeno l'input gia campionato deve entrare nella simulazione del menu.
+                Click("Riprendi");
+                TouchControls.ProcessTouches(new[] { Finger(90, TouchPhase.Began, 100, 620) });
+                TouchControls.ProcessTouches(new[] { Finger(90, TouchPhase.Moved, 100, 500),
+                    Finger(91, TouchPhase.Began, 1200, 520), Finger(92, TouchPhase.Began, 1050, 520),
+                    Finger(93, TouchPhase.Began, 1200, 650), Finger(94, TouchPhase.Began, 1200, 420),
+                    Finger(95, TouchPhase.Began, 1050, 420) });
+                GameMenu.I.SendMessage("Pause");
+                yield return new WaitForSecondsRealtime(0.4f);
+                Check("menu cooperativo ignora movimento e salto touch", Vector3.Distance(player.transform.position, floorPosition) < 0.05f);
+                Check("menu cooperativo ignora fuoco mira cambio e modo", GameManager.shotsFired == pausedShots && pausedWeapon.ads < 0.01f && pausedWeapon.SlotIndex == pausedSlot && pausedWeapon.Mode == pausedMode);
+                TouchControls.ResetInput();
                 player.invulnerable = false;
                 Perks.ResetRun(); Perks.Add(PerkId.Velo); Perks.Add(PerkId.Occhio); Perks.Add(PerkId.Rinascita);
                 Perks.TryVelo(); Perks.OnPing(); player.Sedate(3f);
