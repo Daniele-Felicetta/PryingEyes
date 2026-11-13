@@ -435,8 +435,8 @@ namespace PryingEyes
                     Debug.Log("[PryingEyes] fxtest" + pass + " " + Fx.Dump());
                 }
             }
-            // espositori: tre armi sul muro davanti al giocatore (come i muri dei piani)
-            if (only == null)
+            // espositori: tre armi sul muro davanti al giocatore (come i muri dei piani); con -armi solo se c'e' anche -espositori
+            if (only == null || HasArg("-espositori"))
             {
                 // i pannelli non devono finire dentro un muro: si guarda dove c'e' piu' spazio
                 Enemy.ClearAll();

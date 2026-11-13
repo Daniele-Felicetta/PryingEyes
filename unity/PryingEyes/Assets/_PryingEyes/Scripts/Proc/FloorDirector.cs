@@ -295,48 +295,7 @@ namespace PryingEyes.Proc
             Sfx.Loop(g, SoundBank.Waltz, 0.45f, 3f, 40f, 1f, 1f, 0f, true);
         }
 
-        public static float LightDim(int floor) => Mathf.Lerp(0.50f, 0.32f, Mathf.Clamp01((floor - 1) / 7f));
-
-        /// <summary>Atmosfera condivisa tra il piano di gioco e le foto di taratura.</summary>
-        public static void ApplyLook(Plan plan, int floor)
-        {
-            var rnd = new Rng(plan.seed + 77);
-            bool churchy = plan.startInChurch;
-            float deep = Mathf.Clamp01((floor - 1) / 7f);
-            // La foschia fonde lo sfondo lasciando leggibili gli oggetti vicini.
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Exponential;
-            RenderSettings.fogDensity = rnd.Range(0.027f, 0.033f) * Mathf.Lerp(1f, 1.22f, deep);
-            // teatro: polvere rossastra di velluto e legno; sanatorio: aria verdastra di vernice e disinfettante
-            Color fog = churchy ? new Color(0.17f, 0.19f, 0.23f) : new Color(0.19f, 0.16f, 0.17f);
-            Color sky = new Color(0.13f, 0.15f, 0.21f), equator = new Color(0.095f, 0.095f, 0.11f), ground = new Color(0.05f, 0.046f, 0.05f);
-            if (plan.theme == Theme.Teatro)
-            {
-                fog = new Color(0.21f, 0.11f, 0.11f);
-                sky = new Color(0.16f, 0.11f, 0.13f); equator = new Color(0.115f, 0.082f, 0.088f); ground = new Color(0.06f, 0.04f, 0.045f);
-            }
-            else if (plan.theme == Theme.Sanatorio)
-            {
-                fog = new Color(0.12f, 0.175f, 0.155f);
-                sky = new Color(0.105f, 0.17f, 0.17f); equator = new Color(0.082f, 0.11f, 0.105f); ground = new Color(0.045f, 0.052f, 0.05f);
-            }
-            RenderSettings.fogColor = fog;
-            float amb = Mathf.Lerp(0.48f, 0.31f, deep);
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = sky * amb;
-            RenderSettings.ambientEquatorColor = equator * amb;
-            RenderSettings.ambientGroundColor = ground * amb;
-            RenderSettings.reflectionIntensity = 0.30f;     // il cubemap della hall illuminata, al buio, farebbe brillare i metalli
-            // grading piu' duro (profilo copiato in istanza: l'asset non cambia)
-            var vol = FindFirstObjectByType<UnityEngine.Rendering.Volume>();
-            if (vol != null && vol.profile != null)
-            {
-                var prof = vol.profile;
-                if (prof.TryGet(out UnityEngine.Rendering.Universal.ColorAdjustments ca)) { ca.saturation.Override(-24f); ca.contrast.Override(5f); }
-                if (prof.TryGet(out UnityEngine.Rendering.Universal.Vignette vg)) { vg.intensity.Override(0.24f); vg.smoothness.Override(0.55f); }
-                if (prof.TryGet(out UnityEngine.Rendering.Universal.FilmGrain fg)) fg.intensity.Override(0.30f);
-            }
-        }
+        // LightDim e ApplyLook (nebbia, luce ambiente e grading di ogni tema) stanno in FloorDirector.Look.cs.
 
         // ------------------------------------------------------------------ candele e uscita
         /// <summary>Quanti avvistamenti c'erano (Stealth.Spotted) all'ultima candela, o all'inizio del piano: se non e' cambiato niente

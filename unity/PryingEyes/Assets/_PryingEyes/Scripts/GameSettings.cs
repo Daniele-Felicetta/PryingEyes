@@ -54,11 +54,24 @@ namespace PryingEyes
         public static void SetFov(float v) { Load(); fov = Valid(v, 60f, 105f, 75f); PlayerPrefs.SetFloat(KeyFov, fov); }
         public static void SetMotion(float v) { Load(); motion = Clamp01(v); PlayerPrefs.SetFloat(KeyMotion, motion); }
 
+        /// <summary>EV in piu' sul profilo nella partita a piani. Era +0,60 in spazio colore Gamma; in Linear (HDR + ACES) la stessa
+        /// luminosita' media chiede +0,70: la gamma non schiarisce piu' le ombre di nascosto, il contrasto ora lo fanno luci e ambiente
+        /// (FloorDirector.Look.cs). Tarata sulle foto a seme fisso di albergo, teatro e sanatorio.</summary>
+        const float ProcExposure = 0.70f;
+        static float themeExposure;
+
         public static void BindBrightness(Volume volume)
         {
             grading = null;
             if (volume == null || !volume.profile.TryGet(out grading)) return;
-            baseExposure = grading.postExposure.value + (GameManager.proc ? 0.60f : 0f);
+            baseExposure = grading.postExposure.value + (GameManager.proc ? ProcExposure : 0f);
+            ApplyBrightness(Brightness);
+        }
+
+        /// <summary>L'esposizione propria del tema in corso (FloorDirector.ApplyLook), in EV, sopra il valore base e sotto la luminosita' scelta.</summary>
+        public static void SetThemeExposure(float ev)
+        {
+            themeExposure = ev;
             ApplyBrightness(Brightness);
         }
 
@@ -72,7 +85,7 @@ namespace PryingEyes
 
         static void ApplyBrightness(float value)
         {
-            if (grading != null) grading.postExposure.Override(baseExposure + Mathf.Lerp(-1.3f, 1.3f, value));
+            if (grading != null) grading.postExposure.Override(baseExposure + themeExposure + Mathf.Lerp(-1.3f, 1.3f, value));
         }
 
         static float Clamp01(float v) => Valid(v, 0f, 1f, 0.5f);

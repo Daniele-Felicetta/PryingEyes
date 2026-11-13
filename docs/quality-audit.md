@@ -796,6 +796,71 @@ In questa chiusura non sono state rigirate la prova dell'interfaccia a tre risol
 (cambia solo i passaggi bassi); le prestazioni non sono state rimisurate. Nessuna partita giocata da una persona: ritmo,
 prezzi, numero di nemici e difficoltà delle ondate non sono tarati. La rete resta provata solo su loopback.
 
+## Diciottesima passata: fondamento grafico, spazio colore Linear (13 novembre 2026)
+
+Richiesta dell'utente: avvicinare grafica e animazioni a un gioco tripla A senza rifare gli asset e, visto che vuole aggiungere cose nuove,
+decidere prima la base dell'immagine, così le novità nascono già con la luce giusta (ordine concordato: fondamento, novità, lucidatura).
+Questa passata è solo il fondamento: nessun asset nuovo, nessuna meccanica toccata. Prove sulla build di verifica `Builds/Audit`.
+
+### Cosa è cambiato
+
+- **Spazio colore Gamma → Linear** (`ProjectSettings.asset`) e **grading di URP da LDR a HDR** (`HotelURP.asset`, tonemapper ACES invariato).
+  Luci e nebbia si sommano e sfumano come in natura e le pozze di luce calda staccano dall'ambiente freddo. Le texture create a runtime
+  e i 7 shader nostri non hanno richiesto modifiche (nel codice non c'erano conversioni di gamma).
+- **Look dei temi in un file solo** (`Scripts/Proc/FloorDirector.Look.cs`): nebbia, luce ambiente, esposizione, split toning, bloom,
+  vignetta e grana di albergo, chiesa, teatro e sanatorio sono la tabella `ThemeLook` (prima erano numeri sparsi in `ApplyLook`).
+  `LightDim`, la forza delle luci del piano, va da 1,20 a 0,77 (era da 0,50 a 0,32): in Linear i lampadari non si alzano più da soli
+  con la gamma.
+- **Esposizione**: `GameSettings.ProcExposure` +0,70 EV (era +0,60 in Gamma) più un valore per tema (albergo e chiesa −0,10,
+  teatro −0,50, sanatorio −0,30: marmo e piastrelle chiare bruciavano le pozze di luce). Il cursore della luminosità dell'utente
+  (±1,3 EV) resta sopra e non cambia.
+- **Nebbia**: il colore vale la metà di prima. La nebbia non è illuminata da niente e l'esposizione la schiarisce come il resto:
+  con il colore vecchio era 10-20 volte più chiara delle pareti illuminate dal solo ambiente e le stanze diventavano un latte piatto
+  (il sanatorio un acquario verde). Con la metà le zone lontane sfumano nel buio e le luci vicine restano nette.
+- **Flag di taratura** (senza ricostruire): `-lookexp EV`, `-lookamb x`, `-lookfog x` (densità), `-lookfogc x` (luminosità del colore
+  della nebbia), `-lookdim x`, `-looksat d`, `-lookcon d`, `-lookbloom x`. Nuovo anche `-espositori` per `-guntest -armi ...`
+  (fotografa i pannelli d'acquisto senza passare in rassegna tutte le armi).
+
+### Misure
+
+Foto 1920×1080 della sonda `-perftest -perfshots` (piano 3, semi 2995 albergo, 2961 teatro, 3046 sanatorio), luminanza sRGB di tutti i
+pixel, media / mediana sulle foto di ogni tema. Il primo passaggio a Linear senza ritarare dava metà della luce di prima (+1 EV vale circa
+il doppio di luminanza); i valori sopra sono il risultato di tre giri di varianti (esposizione, colore della nebbia, ambiente, luci).
+
+| Tema | Prima (Gamma) | Dopo (Linear) |
+| --- | --- | --- |
+| Albergo (6 foto) | 0,050 / 0,033 | 0,092 / 0,049 |
+| Teatro (5 foto) | 0,041 / 0,019 | 0,082 / 0,035 |
+| Sanatorio (5 foto) | 0,057 / 0,038 | 0,104 / 0,057 |
+
+- Torcia (`-torchreview`): **52/52 prima e dopo**. Infermiere a 0,9 m: pixel bruciati 2,92% → 2,09%, luminanza 0,431 → 0,433;
+  Monaco a 0,9 m: luminanza 0,131 → 0,236 (la tonaca si legge di più); due torce sul muro 0,811 → 0,791, 0% bruciati.
+- Fotogramma a 1080p: 3,4-3,7 ms in media sui tre temi (prima 3,2-3,7): nessun costo misurabile. Nessuna eccezione nei log.
+- Armi (`-guntest` su VESPER-9, SENTINELLA, TURIBOLO, PUPILLA con `-fxtest` e `-espositori`): cadenza e rinculo uguali alla scheda;
+  fiammate, tracce, mirino a lente, pannelli d'acquisto e HUD guardati nelle foto e a posto sotto Linear.
+
+### Prova a tempo del GI in tempo reale (Surface Cache di URP): non riuscita, parcheggiata
+
+Con il define `SURFACE_CACHE`, lo static batching spento e il feature nel renderer la build parte (0 errori, circa 4 MB di shader in più),
+ma a ogni fotogramma il feature lancia `InvalidOperationException: Not allowed to change buffer target on mesh '…' (isReadable is
+false …)` e il render graph si azzera: **tutti i 109 FBX del progetto sono importati non leggibili** e il feature li vuole leggibili
+dalla CPU. Le foto della sonda con e senza GI sono identiche (luminanza 0,091 contro 0,092), il fotogramma sale comunque da 3,4-3,7 a
+4,5-5,5 ms e `-torchreview` fallisce **15/52** (le 12 misure leggono 0 pixel: l'eccezione azzera il render graph e la camera di prova
+resta vuota). Per riprovare servono: Read/Write su tutti i modelli
+(più RAM, riimportazione), la misura del costo (la scena oggi costa 3,5 ms) e un'opzione di qualità, perché i giocatori della cooperativa
+possono avere GPU più deboli. `Editor/SurfaceCacheTrial.cs` (`Enable`, `EnableAndBuild`, `Disable`) aggiunge e toglie il feature; il
+define e lo static batching (`m_BuildTargetBatching`) vanno messi a mano in `ProjectSettings.asset`, e il define scrive anche nel
+volume di default e nelle impostazioni globali di URP (da annullare con `git checkout`). Nel progetto il define non c'è.
+
+### Cosa non è stato verificato
+
+- Menu, impostazioni e schermate di presentazione sotto Linear: non ho rilanciato `check_presentation.py` né `-uitest` (modificano le
+  preferenze del gioco se interrotti). Le sfumature semitrasparenti dell'interfaccia si fondono ora in lineare e potrebbero
+  apparire un po' diverse; l'HUD in partita (foto delle armi) è a posto.
+- La scena classica `Hotel` (`-oldplan`) ha lightmap e una sonda di riflessione cotte in Gamma: non sono state ricotte.
+- Nessuna partita giocata da una persona: le tarature sono sui numeri e sulle foto a seme fisso, non sulla sensazione di gioco.
+  Il cursore della luminosità serve proprio a questo.
+
 ## Ambiti ancora da chiudere
 
 **Direzione dell'utente (13 novembre):** la progressione a candele e lo stealth sono stati sostituiti da ondate automatiche,
