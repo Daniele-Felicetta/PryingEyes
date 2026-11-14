@@ -141,7 +141,7 @@ python -m unittest discover -s tools -p "test_rooms.py"
 `rooms.schema.json`: palette, dimensions, portals, furniture, labels, lights and
 route points. Each solid has explicit dimensions and collision; the schema bounds
 the content budget to 500 parts. IDs are stable and unique within their scope.
-The current recipe is a 25 × 15 m workshop with 43 parts and two exits.
+The current recipe is a 25 Ã— 15 m workshop with 43 parts and two exits.
 
 `RoomPlan` belongs to the same engine-free `Production.Layout` assembly as the
 district planner. PlanLab compiles that exact source for the tools. It resizes the
@@ -170,7 +170,7 @@ Prying Eyes scripts, catalog or materials. Its native verification produces eigh
 checks, including a resized room, a rejected blocked exit and a separate room
 scene. The recorded proof is `unity_logs/workshop-independent/report.json`.
 
-Room contract checks resize the real workshop to 20 × 12 and 32 × 20 m and reject
+Room contract checks resize the real workshop to 20 Ã— 12 and 32 Ã— 20 m and reject
 a deliberately blocked entrance, missing material, misspelled field and nonfinite
 coordinate. These are planner checks; native traversal is separately verified
 in the full pipeline at the dimensions actually used by the city.

@@ -142,7 +142,7 @@ def native_city(job, executable):
     runtime = job.folder / "city-runtime/run.json"
     job.report["artifacts"].append(str(runtime)); job.save()
     try:
-        job.run("city", [sys.executable, ROOT / "tools/citylab.py", "--runtime", executable, "--report", job.folder / "city.json"], timeout=300)
+        job.run("city", [sys.executable, ROOT / "tools/citylab.py", "--require-assets", "--runtime", executable, "--report", job.folder / "city.json"], timeout=300)
     finally:
         if runtime.is_file():
             result = json.loads(runtime.read_text(encoding="utf-8"))

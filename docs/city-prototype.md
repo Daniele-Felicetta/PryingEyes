@@ -157,11 +157,11 @@ L'isolato sud-ovest usa ora una ricetta arredata dal catalogo delle stanze: banc
 banco di lavoro, armadi, fusti, insegna, illuminazione e uscita laterale. I percorsi
 sono ampi e circolari attorno al banco: non sono generati spostando casualmente
 blocchi fino a ottenere una stanza piena. Le altre tre costruzioni restano ancora
-gusci generici e l'identit‡ visiva del quartiere richiede ulteriore lavoro.
+gusci generici e l'identit√† visiva del quartiere richiede ulteriore lavoro.
 
-Il piano locale degli arredi Ë calcolato dal pacchetto senza Unity `RoomPlan`,
+Il piano locale degli arredi √® calcolato dal pacchetto senza Unity `RoomPlan`,
 consumato da PlanLab, CityBuilder e dal progetto indipendente LayoutDemo.
-La prima verifica nativa dell'officina Ë 65/65 (`unity_logs/workshop-native`),
+La prima verifica nativa dell'officina √® 65/65 (`unity_logs/workshop-native`),
 incluso controller reale sulle otto tratte e inseguimento attraverso l'uscita
 laterale. Questa prova non comprende ancora la successiva correzione delle insegne
 specchiate attraverso i muri: la filiera completa verifica anche quel comportamento.

@@ -77,7 +77,9 @@ namespace PryingEyes.EditorTools
         public static void City()
         {
             bool scriptsOnly = HasArg("-scriptsOnly");
-            if (!scriptsOnly) CityBuilder.Build();
+            // Citta.unity is derived (CityBuilder regenerates it, git ignores it): -scriptsOnly may reuse it, but only if it exists.
+            string scene = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", CityBuilder.ScenePath));
+            if (!scriptsOnly || !System.IO.File.Exists(scene)) CityBuilder.Build();
             var output = HasArg("-buildOut") ? OutPath() : System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath,
                 "../Builds/CityPreview/PryingEyes.exe"));
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions

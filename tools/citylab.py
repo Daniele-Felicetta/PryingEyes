@@ -20,6 +20,17 @@ ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / "unity/PryingEyes/Assets/_PryingEyes/City/citta.json"
 
 
+def missing_assets(weapons, families, root=ROOT):
+    """Blender outputs Unity needs before it can import the family weapons among `weapons`.
+
+    This is production readiness, not recipe validity: it depends on the files one machine has generated.
+    """
+    suffixes = ("_base.jpg", "_mask.png", "_normal.jpg")
+    return [file for weapon in weapons if weapon in families
+            for file in (root / f"modelli/armi/export/{weapon}.fbx", *(root / f"modelli/armi/tex/{weapon}{suffix}" for suffix in suffixes))
+            if not file.is_file()]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--recipe", type=Path, default=RECIPE)
@@ -28,6 +39,8 @@ def main():
     parser.add_argument("--out", type=Path, default=ROOT / "unity_logs/city_preview.svg")
     parser.add_argument("--report", type=Path, default=ROOT / "unity_logs/city_report.json")
     parser.add_argument("--build-assets", action="store_true", help="Bake and pack the city weapons before validation")
+    parser.add_argument("--require-assets", action="store_true",
+                        help="Fail when a family weapon's generated model or textures are missing (needs this machine's Blender outputs)")
     args = parser.parse_args()
     try:
         r = json.loads(args.recipe.read_text(encoding="utf-8"))
@@ -70,12 +83,8 @@ def main():
     for weapon in shops:
         if weapon not in registered:
             errors.append(f"Weapon is not registered: {weapon}")
-        if weapon in families:
-            for file in [ROOT / f"modelli/armi/export/{weapon}.fbx",
-                         *(ROOT / f"modelli/armi/tex/{weapon}{suffix}" for suffix in
-                           ("_base.jpg", "_mask.png", "_normal.jpg"))]:
-                if not file.is_file():
-                    errors.append(f"Asset missing: {file}")
+    if args.require_assets or args.build_assets:
+        errors.extend(f"Asset missing: {file}" for file in missing_assets(shops, families))
 
     layout_file = args.report.parent / "city_layout.json"
     layout_file.parent.mkdir(parents=True, exist_ok=True)

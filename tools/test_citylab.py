@@ -10,30 +10,42 @@ from unittest.mock import patch
 from pathlib import Path
 from xml.etree import ElementTree
 
-from citylab import RECIPE, ROOT, run_native
+from citylab import RECIPE, ROOT, missing_assets, run_native
 
 
 class CityLabCheck(unittest.TestCase):
     def test_report_rejects_wrong_layout_or_recipe(self):
+        recipe = json.loads(RECIPE.read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as folder:
             folder = Path(folder)
             exe = folder / "PryingEyes.exe"; exe.write_bytes(b"test binary")
             assembly = folder / "PryingEyes_Data/Managed/Assembly-CSharp.dll"
             assembly.parent.mkdir(parents=True); assembly.write_bytes(b"test assembly")
             expected = {"spawns": [{"x": 0, "z": 24.0}]}
-            native = {"ok": True, "layout": expected, "recipeSha256": hashlib.sha256(RECIPE.read_bytes()).hexdigest(), "rooms": []}
+            good = {"ok": True, "layout": expected, "recipeSha256": hashlib.sha256(RECIPE.read_bytes()).hexdigest(), "rooms": [],
+                    "survival": recipe["survival"], "areas": recipe["areas"]}
+            # Every recipe section the native build echoes back must match: a stale value in any one of them fails the run.
+            stale = {"layout": {"spawns": [{"x": 0, "z": 23.0}]}, "rooms": [{"block": "Building_-1_-1", "id": "stale_room"}],
+                     "recipeSha256": "old recipe", "survival": None, "areas": []}
+            native = dict(good)
             def write_report(*args, **kwargs):
                 (folder / "report.json").write_text(json.dumps(native), encoding="utf-8")
                 return SimpleNamespace(returncode=0)
             with patch("citylab.subprocess.run", side_effect=write_report):
                 self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 0)
-                native["layout"] = {"spawns": [{"x": 0, "z": 23.0}]}
-                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 1)
-                native["layout"] = expected
-                native["rooms"] = [{"block": "Building_-1_-1", "id": "stale_room"}]
-                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 1)
-                native["rooms"] = []; native["recipeSha256"] = "old recipe"
-                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 1)
+                for field, value in stale.items():
+                    with self.subTest(field=field):
+                        native.clear(); native.update(good); native[field] = value
+                        self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 1)
+
+    def test_asset_readiness_is_separate_from_recipe_validity(self):
+        families = {"p9_ronda", "p45_argine"}
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            self.assertEqual(len(missing_assets(["p9_ronda", "not_a_family_weapon"], families, root)), 4)
+            for name in ("export/p9_ronda.fbx", "tex/p9_ronda_base.jpg", "tex/p9_ronda_mask.png", "tex/p9_ronda_normal.jpg"):
+                target = root / "modelli/armi" / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(b"x")
+            self.assertEqual(missing_assets(["p9_ronda", "not_a_family_weapon"], families, root), [])
 
     def test_missing_binary_cannot_reuse_stale_success(self):
         with tempfile.TemporaryDirectory() as folder:

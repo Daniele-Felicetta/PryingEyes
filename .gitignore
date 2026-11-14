@@ -10,6 +10,11 @@ unity/PryingEyes/Logs/
 unity/PryingEyes/UserSettings/
 unity/PryingEyes/Builds/
 unity/PryingEyes/Data/
+# Scene derivate: le rigenerano CityBuilder e CityRoomBuilder (tracciate cambiavano a ogni prova e finivano nei commit)
+unity/PryingEyes/Assets/_PryingEyes/Scenes/Citta.unity
+unity/PryingEyes/Assets/_PryingEyes/Scenes/Citta.unity.meta
+unity/PryingEyes/Assets/_PryingEyes/Scenes/Labs/
+unity/PryingEyes/Assets/_PryingEyes/Scenes/Labs.meta
 *.csproj
 *.slnx
 .vsconfig
