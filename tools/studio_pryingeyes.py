@@ -67,7 +67,8 @@ def native_city(job, executable):
     runtime = job.folder / "city-runtime/run.json"
     job.report["artifacts"].append(str(runtime)); job.save()
     try:
-        job.run("city", [sys.executable, ROOT / "tools/citylab.py", "--require-assets", "--runtime", executable, "--report", job.folder / "city.json"], timeout=300)
+        # citylab.py bounds the player run itself (120 s plus 80 s per bound room); this is only the outer backstop.
+        job.run("city", [sys.executable, ROOT / "tools/citylab.py", "--require-assets", "--runtime", executable, "--report", job.folder / "city.json"], timeout=900)
     finally:
         if runtime.is_file():
             result = json.loads(runtime.read_text(encoding="utf-8"))

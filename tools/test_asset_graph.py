@@ -22,7 +22,8 @@ class DependencyContracts(unittest.TestCase):
     def test_palette_section_reaches_room_and_level_without_invalidating_weapons(self):
         rows = self.graph.affected(ROOMS, "/materials/1/color")
         ids = {a["id"] for a in rows}
-        self.assertEqual(ids, {"room_material_wood", "room_workshop_station", "room_depot_station", "district_station"})
+        self.assertEqual(ids, {"room_material_wood", "room_workshop_station", "room_depot_station", "room_offices_station",
+                               "district_station"})
         self.assertEqual(next(a for a in rows if a["id"] == "district_station")["via"],
                          ["room_material_wood", "room_workshop_station", "district_station"])
 

@@ -37,6 +37,10 @@
     {
       "block": "Building_1_-1",
       "asset": "room_depot_station"
+    },
+    {
+      "block": "Building_-1_1",
+      "asset": "room_offices_station"
     }
   ]
 }

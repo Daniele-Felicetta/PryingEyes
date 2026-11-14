@@ -165,6 +165,39 @@
       "metallic": 0,
       "smoothness": 0.4,
       "emission": 2.5
+    },
+    {
+      "id": "plaster",
+      "color": [
+        0.55,
+        0.52,
+        0.45
+      ],
+      "metallic": 0,
+      "smoothness": 0.08,
+      "emission": 0
+    },
+    {
+      "id": "carpet",
+      "color": [
+        0.07,
+        0.09,
+        0.13
+      ],
+      "metallic": 0,
+      "smoothness": 0.03,
+      "emission": 0
+    },
+    {
+      "id": "leaf",
+      "color": [
+        0.05,
+        0.2,
+        0.07
+      ],
+      "metallic": 0,
+      "smoothness": 0.2,
+      "emission": 0
     }
   ],
   "rooms": [
@@ -4311,6 +4344,3508 @@
             "x": 11.4,
             "y": 2.4,
             "z": -3.3
+          }
+        }
+      ]
+    },
+    {
+      "id": "room_offices_station",
+      "name": "Uffici della stazione",
+      "width": 25,
+      "depth": 15,
+      "doors": [
+        {
+          "side": "front",
+          "center": 0,
+          "width": 3.4,
+          "height": 2.6
+        },
+        {
+          "side": "left",
+          "center": 3.6,
+          "width": 3.4,
+          "height": 2.6
+        }
+      ],
+      "parts": [
+        {
+          "id": "deck",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -3.15,
+            "y": 2.85,
+            "z": -5.4
+          },
+          "size": {
+            "x": 18.5,
+            "y": 0.3,
+            "z": 4.0
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "deck_beam",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -3.15,
+            "y": 2.55,
+            "z": -3.32
+          },
+          "size": {
+            "x": 18.5,
+            "y": 0.3,
+            "z": 0.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "stair_l",
+          "kind": "stairs",
+          "material": "steel",
+          "position": {
+            "x": -11.4,
+            "y": 1.5,
+            "z": -1.525
+          },
+          "size": {
+            "x": 2.0,
+            "y": 3.0,
+            "z": 3.75
+          },
+          "yaw": 180,
+          "collider": true,
+          "steps": 15
+        },
+        {
+          "id": "stair_mark_l",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -11.4,
+            "y": 0.012,
+            "z": 0.65
+          },
+          "size": {
+            "x": 2.0,
+            "y": 0.02,
+            "z": 0.25
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "stair_r",
+          "kind": "stairs",
+          "material": "steel",
+          "position": {
+            "x": 9.0,
+            "y": 1.5,
+            "z": -6.4
+          },
+          "size": {
+            "x": 2.0,
+            "y": 3.0,
+            "z": 6.0
+          },
+          "yaw": 270,
+          "collider": true,
+          "steps": 15
+        },
+        {
+          "id": "stair_mark_r",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 12.22,
+            "y": 0.012,
+            "z": -6.4
+          },
+          "size": {
+            "x": 0.25,
+            "y": 0.02,
+            "z": 2.0
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rail_top",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -2.125,
+            "y": 4.05,
+            "z": -3.34
+          },
+          "size": {
+            "x": 16.35,
+            "y": 0.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_mid",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -2.125,
+            "y": 3.55,
+            "z": -3.34
+          },
+          "size": {
+            "x": 16.35,
+            "y": 0.04,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rail_kick",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -2.125,
+            "y": 3.08,
+            "z": -3.34
+          },
+          "size": {
+            "x": 16.35,
+            "y": 0.16,
+            "z": 0.03
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rail_post_0",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -10.3,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_1",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -8.483,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_2",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -6.667,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_3",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -4.85,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_4",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -3.033,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_5",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -1.217,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_6",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0.6,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_7",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 2.417,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_8",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 4.233,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_9",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 6.05,
+            "y": 3.53,
+            "z": -3.34
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_end_top",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 6.0,
+            "y": 4.05,
+            "z": -4.35
+          },
+          "size": {
+            "x": 0.06,
+            "y": 0.06,
+            "z": 1.9
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_end_mid",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 6.0,
+            "y": 3.55,
+            "z": -4.35
+          },
+          "size": {
+            "x": 0.04,
+            "y": 0.04,
+            "z": 1.9
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rail_end_post_0",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 6.0,
+            "y": 3.53,
+            "z": -5.3
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_end_post_1",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 6.0,
+            "y": 3.53,
+            "z": -3.4
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "board_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -4.0,
+            "y": 5.2,
+            "z": -7.43
+          },
+          "size": {
+            "x": 9.0,
+            "y": 1.9,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_title",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": -4.0,
+            "y": 6.3,
+            "z": -7.36
+          },
+          "size": {
+            "x": 6.0,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "QUADRO MOVIMENTO"
+        },
+        {
+          "id": "board_line_main",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -4.0,
+            "y": 5.0,
+            "z": -7.4
+          },
+          "size": {
+            "x": 8.2,
+            "y": 0.05,
+            "z": 0.02
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_line_loop",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -4.4,
+            "y": 5.45,
+            "z": -7.4
+          },
+          "size": {
+            "x": 5.6,
+            "y": 0.05,
+            "z": 0.02
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_link_0",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -7.2,
+            "y": 5.225,
+            "z": -7.4
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.45,
+            "z": 0.02
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_link_1",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -5.6,
+            "y": 5.225,
+            "z": -7.4
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.45,
+            "z": 0.02
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_link_2",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -2.8,
+            "y": 5.225,
+            "z": -7.4
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.45,
+            "z": 0.02
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_link_3",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -1.4,
+            "y": 5.225,
+            "z": -7.4
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.45,
+            "z": 0.02
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_node_0",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -7.2,
+            "y": 5.0,
+            "z": -7.39
+          },
+          "size": {
+            "x": 0.2,
+            "y": 0.2,
+            "z": 0.03
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_node_1",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -1.4,
+            "y": 5.0,
+            "z": -7.39
+          },
+          "size": {
+            "x": 0.2,
+            "y": 0.2,
+            "z": 0.03
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_node_2",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -7.2,
+            "y": 5.45,
+            "z": -7.39
+          },
+          "size": {
+            "x": 0.2,
+            "y": 0.2,
+            "z": 0.03
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_node_3",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -1.4,
+            "y": 5.45,
+            "z": -7.39
+          },
+          "size": {
+            "x": 0.2,
+            "y": 0.2,
+            "z": 0.03
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_node_4",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -4.4,
+            "y": 5.0,
+            "z": -7.39
+          },
+          "size": {
+            "x": 0.2,
+            "y": 0.2,
+            "z": 0.03
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -6.0,
+            "y": 3.4,
+            "z": -6.7
+          },
+          "size": {
+            "x": 6.0,
+            "y": 0.8,
+            "z": 0.8
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "ctl_screen_0",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -8.2,
+            "y": 4.07,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.9,
+            "y": 0.5,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_stand_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -8.2,
+            "y": 3.84,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_screen_1",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -6.8,
+            "y": 4.07,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.9,
+            "y": 0.5,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_stand_1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -6.8,
+            "y": 3.84,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_screen_2",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -5.4,
+            "y": 4.07,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.9,
+            "y": 0.5,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_stand_2",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -5.4,
+            "y": 3.84,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_screen_3",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -4.0,
+            "y": 4.07,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.9,
+            "y": 0.5,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_stand_3",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -4.0,
+            "y": 3.84,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_chair_0_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -7.0,
+            "y": 3.45,
+            "z": -5.95
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_chair_0_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -7.0,
+            "y": 3.78,
+            "z": -5.7
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_chair_0_post",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -7.0,
+            "y": 3.22,
+            "z": -5.95
+          },
+          "size": {
+            "x": 0.07,
+            "y": 0.44,
+            "z": 0.07
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_chair_1_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -4.4,
+            "y": 3.45,
+            "z": -5.95
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_chair_1_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -4.4,
+            "y": 3.78,
+            "z": -5.7
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_chair_1_post",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -4.4,
+            "y": 3.22,
+            "z": -5.95
+          },
+          "size": {
+            "x": 0.07,
+            "y": 0.44,
+            "z": 0.07
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ctl_cabinet",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 2.5,
+            "y": 3.95,
+            "z": -7.1
+          },
+          "size": {
+            "x": 1.2,
+            "y": 1.9,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "ctl_locker_mark",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 2.5,
+            "y": 4.6,
+            "z": -6.84
+          },
+          "size": {
+            "x": 0.9,
+            "y": 0.18,
+            "z": 0.02
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "deck_light_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -2.0,
+            "y": 5.8,
+            "z": -5.4
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "deck_light_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": -2.0,
+            "y": 5.7,
+            "z": -5.4
+          },
+          "size": {
+            "x": 1.4,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "deck_light",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": -2.0,
+            "y": 5.5,
+            "z": -5.4
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 4,
+          "range": 9
+        },
+        {
+          "id": "front_wall_0",
+          "kind": "box",
+          "material": "plaster",
+          "position": {
+            "x": -10.9,
+            "y": 1.35,
+            "z": -3.55
+          },
+          "size": {
+            "x": 3.0,
+            "y": 2.7,
+            "z": 0.12
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "front_wall_1",
+          "kind": "box",
+          "material": "plaster",
+          "position": {
+            "x": -5.9,
+            "y": 1.35,
+            "z": -3.55
+          },
+          "size": {
+            "x": 3.8,
+            "y": 2.7,
+            "z": 0.12
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "front_wall_2",
+          "kind": "box",
+          "material": "plaster",
+          "position": {
+            "x": -0.2,
+            "y": 1.35,
+            "z": -3.55
+          },
+          "size": {
+            "x": 4.4,
+            "y": 2.7,
+            "z": 0.12
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "front_wall_3",
+          "kind": "box",
+          "material": "plaster",
+          "position": {
+            "x": 4.8,
+            "y": 1.35,
+            "z": -3.55
+          },
+          "size": {
+            "x": 2.4,
+            "y": 2.7,
+            "z": 0.12
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "side_wall_0",
+          "kind": "box",
+          "material": "plaster",
+          "position": {
+            "x": -6.2,
+            "y": 1.35,
+            "z": -5.475
+          },
+          "size": {
+            "x": 0.12,
+            "y": 2.7,
+            "z": 3.85
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "side_wall_1",
+          "kind": "box",
+          "material": "plaster",
+          "position": {
+            "x": -0.2,
+            "y": 1.35,
+            "z": -5.475
+          },
+          "size": {
+            "x": 0.12,
+            "y": 2.7,
+            "z": 3.85
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "side_wall_2",
+          "kind": "box",
+          "material": "plaster",
+          "position": {
+            "x": 6.0,
+            "y": 1.35,
+            "z": -5.475
+          },
+          "size": {
+            "x": 0.12,
+            "y": 2.7,
+            "z": 3.85
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "cell_0_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -9.3,
+            "y": 0.375,
+            "z": -7.0
+          },
+          "size": {
+            "x": 1.7,
+            "y": 0.75,
+            "z": 0.7
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "cell_0_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -9.3,
+            "y": 1.07,
+            "z": -7.2
+          },
+          "size": {
+            "x": 0.55,
+            "y": 0.36,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_0_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -9.3,
+            "y": 0.45,
+            "z": -6.2
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_0_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -9.3,
+            "y": 0.78,
+            "z": -5.95
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_0_post",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -9.3,
+            "y": 0.22,
+            "z": -6.2
+          },
+          "size": {
+            "x": 0.07,
+            "y": 0.44,
+            "z": 0.07
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_0_cabinet",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -6.9,
+            "y": 0.9,
+            "z": -7.1
+          },
+          "size": {
+            "x": 0.7,
+            "y": 1.8,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "cell_0_plate",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": -8.6,
+            "y": 2.3,
+            "z": -3.46
+          },
+          "size": {
+            "x": 1.5,
+            "y": 0.16,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "CAPOSTAZIONE"
+        },
+        {
+          "id": "cell_light_0_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -9.3,
+            "y": 2.65,
+            "z": -5.4
+          },
+          "size": {
+            "x": 1.2,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_light_0_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": -9.3,
+            "y": 2.55,
+            "z": -5.4
+          },
+          "size": {
+            "x": 1.0,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_light_0",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": -9.3,
+            "y": 2.35,
+            "z": -5.4
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 2.4,
+          "range": 5.5
+        },
+        {
+          "id": "cell_1_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -3.2,
+            "y": 0.375,
+            "z": -7.0
+          },
+          "size": {
+            "x": 1.7,
+            "y": 0.75,
+            "z": 0.7
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "cell_1_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -3.2,
+            "y": 1.07,
+            "z": -7.2
+          },
+          "size": {
+            "x": 0.55,
+            "y": 0.36,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_1_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -3.2,
+            "y": 0.45,
+            "z": -6.2
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_1_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -3.2,
+            "y": 0.78,
+            "z": -5.95
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_1_post",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -3.2,
+            "y": 0.22,
+            "z": -6.2
+          },
+          "size": {
+            "x": 0.07,
+            "y": 0.44,
+            "z": 0.07
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_1_cabinet",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -0.8,
+            "y": 0.9,
+            "z": -7.1
+          },
+          "size": {
+            "x": 0.7,
+            "y": 1.8,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "cell_1_plate",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": -3.2,
+            "y": 2.3,
+            "z": -3.46
+          },
+          "size": {
+            "x": 1.5,
+            "y": 0.16,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "MOVIMENTO"
+        },
+        {
+          "id": "cell_light_1_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -3.2,
+            "y": 2.65,
+            "z": -5.4
+          },
+          "size": {
+            "x": 1.2,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_light_1_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": -3.2,
+            "y": 2.55,
+            "z": -5.4
+          },
+          "size": {
+            "x": 1.0,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_light_1",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": -3.2,
+            "y": 2.35,
+            "z": -5.4
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 2.4,
+          "range": 5.5
+        },
+        {
+          "id": "cell_2_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 2.9,
+            "y": 0.375,
+            "z": -7.0
+          },
+          "size": {
+            "x": 1.7,
+            "y": 0.75,
+            "z": 0.7
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "cell_2_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": 2.9,
+            "y": 1.07,
+            "z": -7.2
+          },
+          "size": {
+            "x": 0.55,
+            "y": 0.36,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_2_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 2.9,
+            "y": 0.45,
+            "z": -6.2
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_2_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 2.9,
+            "y": 0.78,
+            "z": -5.95
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_2_post",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 2.9,
+            "y": 0.22,
+            "z": -6.2
+          },
+          "size": {
+            "x": 0.07,
+            "y": 0.44,
+            "z": 0.07
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_2_cabinet",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 5.3,
+            "y": 0.9,
+            "z": -7.1
+          },
+          "size": {
+            "x": 0.7,
+            "y": 1.8,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "cell_2_plate",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": 2.8,
+            "y": 2.3,
+            "z": -3.46
+          },
+          "size": {
+            "x": 1.5,
+            "y": 0.16,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "ARCHIVIO"
+        },
+        {
+          "id": "cell_light_2_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 2.9,
+            "y": 2.65,
+            "z": -5.4
+          },
+          "size": {
+            "x": 1.2,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_light_2_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 2.9,
+            "y": 2.55,
+            "z": -5.4
+          },
+          "size": {
+            "x": 1.0,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cell_light_2",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 2.9,
+            "y": 2.35,
+            "z": -5.4
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 2.4,
+          "range": 5.5
+        },
+        {
+          "id": "counter",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 11.65,
+            "y": 0.55,
+            "z": 2.3
+          },
+          "size": {
+            "x": 1.3,
+            "y": 1.1,
+            "z": 6.2
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "counter_top",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 11.62,
+            "y": 1.13,
+            "z": 2.3
+          },
+          "size": {
+            "x": 1.42,
+            "y": 0.06,
+            "z": 6.32
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_glass",
+          "kind": "box",
+          "material": "window_glass",
+          "position": {
+            "x": 11.02,
+            "y": 1.76,
+            "z": 2.3
+          },
+          "size": {
+            "x": 0.05,
+            "y": 1.25,
+            "z": 6.0
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_post_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 11.02,
+            "y": 1.76,
+            "z": -0.7
+          },
+          "size": {
+            "x": 0.07,
+            "y": 1.25,
+            "z": 0.07
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_post_1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 11.02,
+            "y": 1.76,
+            "z": 1.3
+          },
+          "size": {
+            "x": 0.07,
+            "y": 1.25,
+            "z": 0.07
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_post_2",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 11.02,
+            "y": 1.76,
+            "z": 3.3
+          },
+          "size": {
+            "x": 0.07,
+            "y": 1.25,
+            "z": 0.07
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_post_3",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 11.02,
+            "y": 1.76,
+            "z": 5.3
+          },
+          "size": {
+            "x": 0.07,
+            "y": 1.25,
+            "z": 0.07
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ticket_sign",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": 12.38,
+            "y": 3.6,
+            "z": 2.3
+          },
+          "size": {
+            "x": 6.0,
+            "y": 0.5,
+            "z": 0.05
+          },
+          "yaw": 90,
+          "collider": false,
+          "text": "BIGLIETTERIA"
+        },
+        {
+          "id": "ticket_window_0",
+          "kind": "label",
+          "material": "amber",
+          "position": {
+            "x": 12.38,
+            "y": 2.85,
+            "z": 0.3
+          },
+          "size": {
+            "x": 0.6,
+            "y": 0.4,
+            "z": 0.05
+          },
+          "yaw": 90,
+          "collider": false,
+          "text": "1"
+        },
+        {
+          "id": "ticket_slot_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 11.02,
+            "y": 1.3,
+            "z": 0.3
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.06,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ticket_window_1",
+          "kind": "label",
+          "material": "amber",
+          "position": {
+            "x": 12.38,
+            "y": 2.85,
+            "z": 2.3
+          },
+          "size": {
+            "x": 0.6,
+            "y": 0.4,
+            "z": 0.05
+          },
+          "yaw": 90,
+          "collider": false,
+          "text": "2"
+        },
+        {
+          "id": "ticket_slot_1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 11.02,
+            "y": 1.3,
+            "z": 2.3
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.06,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "ticket_window_2",
+          "kind": "label",
+          "material": "amber",
+          "position": {
+            "x": 12.38,
+            "y": 2.85,
+            "z": 4.3
+          },
+          "size": {
+            "x": 0.6,
+            "y": 0.4,
+            "z": 0.05
+          },
+          "yaw": 90,
+          "collider": false,
+          "text": "3"
+        },
+        {
+          "id": "ticket_slot_2",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 11.02,
+            "y": 1.3,
+            "z": 4.3
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.06,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_panel",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -6.5,
+            "y": 3.5,
+            "z": 7.44
+          },
+          "size": {
+            "x": 5.6,
+            "y": 1.7,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "board_head",
+          "kind": "label",
+          "material": "amber",
+          "position": {
+            "x": -6.5,
+            "y": 4.15,
+            "z": 7.4
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false,
+          "text": "PARTENZE"
+        },
+        {
+          "id": "board_row_0",
+          "kind": "label",
+          "material": "screen",
+          "position": {
+            "x": -6.5,
+            "y": 3.78,
+            "z": 7.4
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.22,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false,
+          "text": "12:40 ROMA TERMINI  3"
+        },
+        {
+          "id": "board_row_1",
+          "kind": "label",
+          "material": "screen",
+          "position": {
+            "x": -6.5,
+            "y": 3.48,
+            "z": 7.4
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.22,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false,
+          "text": "13:05 NAPOLI C.LE   1"
+        },
+        {
+          "id": "board_row_2",
+          "kind": "label",
+          "material": "screen",
+          "position": {
+            "x": -6.5,
+            "y": 3.18,
+            "z": 7.4
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.22,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false,
+          "text": "13:30 MILANO C.LE   5"
+        },
+        {
+          "id": "board_row_3",
+          "kind": "label",
+          "material": "screen",
+          "position": {
+            "x": -6.5,
+            "y": 2.88,
+            "z": 7.4
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.22,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false,
+          "text": "14:10 BOLOGNA C.LE  2"
+        },
+        {
+          "id": "bench_00_seat",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -7.6,
+            "y": 0.43,
+            "z": 3.7
+          },
+          "size": {
+            "x": 3.0,
+            "y": 0.06,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "bench_00_back",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -7.6,
+            "y": 0.8,
+            "z": 3.48
+          },
+          "size": {
+            "x": 3.0,
+            "y": 0.5,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "bench_00_leg_a",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -8.95,
+            "y": 0.2,
+            "z": 3.7
+          },
+          "size": {
+            "x": 0.06,
+            "y": 0.4,
+            "z": 0.44
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "bench_00_leg_b",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -6.25,
+            "y": 0.2,
+            "z": 3.7
+          },
+          "size": {
+            "x": 0.06,
+            "y": 0.4,
+            "z": 0.44
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "bench_01_seat",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -4.3,
+            "y": 0.43,
+            "z": 3.7
+          },
+          "size": {
+            "x": 3.0,
+            "y": 0.06,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "bench_01_back",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -4.3,
+            "y": 0.8,
+            "z": 3.48
+          },
+          "size": {
+            "x": 3.0,
+            "y": 0.5,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "bench_01_leg_a",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -5.65,
+            "y": 0.2,
+            "z": 3.7
+          },
+          "size": {
+            "x": 0.06,
+            "y": 0.4,
+            "z": 0.44
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "bench_01_leg_b",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -2.95,
+            "y": 0.2,
+            "z": 3.7
+          },
+          "size": {
+            "x": 0.06,
+            "y": 0.4,
+            "z": 0.44
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "bench_10_seat",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -7.6,
+            "y": 0.43,
+            "z": 5.5
+          },
+          "size": {
+            "x": 3.0,
+            "y": 0.06,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "bench_10_back",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -7.6,
+            "y": 0.8,
+            "z": 5.28
+          },
+          "size": {
+            "x": 3.0,
+            "y": 0.5,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "bench_10_leg_a",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -8.95,
+            "y": 0.2,
+            "z": 5.5
+          },
+          "size": {
+            "x": 0.06,
+            "y": 0.4,
+            "z": 0.44
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "bench_10_leg_b",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -6.25,
+            "y": 0.2,
+            "z": 5.5
+          },
+          "size": {
+            "x": 0.06,
+            "y": 0.4,
+            "z": 0.44
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "bench_11_seat",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -4.3,
+            "y": 0.43,
+            "z": 5.5
+          },
+          "size": {
+            "x": 3.0,
+            "y": 0.06,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "bench_11_back",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -4.3,
+            "y": 0.8,
+            "z": 5.28
+          },
+          "size": {
+            "x": 3.0,
+            "y": 0.5,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "bench_11_leg_a",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -5.65,
+            "y": 0.2,
+            "z": 5.5
+          },
+          "size": {
+            "x": 0.06,
+            "y": 0.4,
+            "z": 0.44
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "bench_11_leg_b",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -2.95,
+            "y": 0.2,
+            "z": 5.5
+          },
+          "size": {
+            "x": 0.06,
+            "y": 0.4,
+            "z": 0.44
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_00_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -7.4,
+            "y": 0.375,
+            "z": -1.9
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.75,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "island_a_00_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -7.4,
+            "y": 1.07,
+            "z": -1.708
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.34,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_00_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -7.4,
+            "y": 0.45,
+            "z": -2.65
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_00_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -7.4,
+            "y": 0.78,
+            "z": -2.9
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_01_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -5.6,
+            "y": 0.375,
+            "z": -1.9
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.75,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "island_a_01_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -5.6,
+            "y": 1.07,
+            "z": -1.708
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.34,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_01_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -5.6,
+            "y": 0.45,
+            "z": -2.65
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_01_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -5.6,
+            "y": 0.78,
+            "z": -2.9
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_10_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -7.4,
+            "y": 0.375,
+            "z": -0.8
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.75,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "island_a_10_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -7.4,
+            "y": 1.07,
+            "z": -0.993
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.34,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_10_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -7.4,
+            "y": 0.45,
+            "z": -0.05
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_10_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -7.4,
+            "y": 0.78,
+            "z": 0.2
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_11_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -5.6,
+            "y": 0.375,
+            "z": -0.8
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.75,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "island_a_11_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -5.6,
+            "y": 1.07,
+            "z": -0.993
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.34,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_11_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -5.6,
+            "y": 0.45,
+            "z": -0.05
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_a_11_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -5.6,
+            "y": 0.78,
+            "z": 0.2
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_00_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 3.0,
+            "y": 0.375,
+            "z": -1.9
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.75,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "island_b_00_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": 3.0,
+            "y": 1.07,
+            "z": -1.708
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.34,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_00_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 3.0,
+            "y": 0.45,
+            "z": -2.65
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_00_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 3.0,
+            "y": 0.78,
+            "z": -2.9
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_01_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 4.8,
+            "y": 0.375,
+            "z": -1.9
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.75,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "island_b_01_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": 4.8,
+            "y": 1.07,
+            "z": -1.708
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.34,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_01_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 4.8,
+            "y": 0.45,
+            "z": -2.65
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_01_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 4.8,
+            "y": 0.78,
+            "z": -2.9
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_10_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 3.0,
+            "y": 0.375,
+            "z": -0.8
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.75,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "island_b_10_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": 3.0,
+            "y": 1.07,
+            "z": -0.993
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.34,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_10_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 3.0,
+            "y": 0.45,
+            "z": -0.05
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_10_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 3.0,
+            "y": 0.78,
+            "z": 0.2
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_11_desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 4.8,
+            "y": 0.375,
+            "z": -0.8
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.75,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "island_b_11_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": 4.8,
+            "y": 1.07,
+            "z": -0.993
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.34,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_11_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 4.8,
+            "y": 0.45,
+            "z": -0.05
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.08,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "island_b_11_back",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": 4.8,
+            "y": 0.78,
+            "z": 0.2
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.55,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rug_runner",
+          "kind": "box",
+          "material": "carpet",
+          "position": {
+            "x": 0,
+            "y": 0.011,
+            "z": 3.4
+          },
+          "size": {
+            "x": 2.6,
+            "y": 0.02,
+            "z": 6.6
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rug_a",
+          "kind": "box",
+          "material": "carpet",
+          "position": {
+            "x": -6.5,
+            "y": 0.011,
+            "z": -1.35
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.02,
+            "z": 3.6
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rug_b",
+          "kind": "box",
+          "material": "carpet",
+          "position": {
+            "x": 3.9,
+            "y": 0.011,
+            "z": -1.35
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.02,
+            "z": 3.6
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "column_0",
+          "kind": "cylinder",
+          "material": "concrete",
+          "position": {
+            "x": -4.3,
+            "y": 3.0,
+            "z": 1.8
+          },
+          "size": {
+            "x": 0.55,
+            "y": 6.0,
+            "z": 0.55
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "column_1",
+          "kind": "cylinder",
+          "material": "concrete",
+          "position": {
+            "x": 4.3,
+            "y": 3.0,
+            "z": 1.8
+          },
+          "size": {
+            "x": 0.55,
+            "y": 6.0,
+            "z": 0.55
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "pot_0",
+          "kind": "cylinder",
+          "material": "amber",
+          "position": {
+            "x": -11.5,
+            "y": 0.225,
+            "z": 6.4
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.45,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "plant_0",
+          "kind": "cylinder",
+          "material": "leaf",
+          "position": {
+            "x": -11.5,
+            "y": 0.95,
+            "z": 6.4
+          },
+          "size": {
+            "x": 0.75,
+            "y": 0.9,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "pot_1",
+          "kind": "cylinder",
+          "material": "amber",
+          "position": {
+            "x": 11.3,
+            "y": 0.225,
+            "z": 6.4
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.45,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "plant_1",
+          "kind": "cylinder",
+          "material": "leaf",
+          "position": {
+            "x": 11.3,
+            "y": 0.95,
+            "z": 6.4
+          },
+          "size": {
+            "x": 0.75,
+            "y": 0.9,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "pot_2",
+          "kind": "cylinder",
+          "material": "amber",
+          "position": {
+            "x": 6.0,
+            "y": 0.225,
+            "z": 6.2
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.45,
+            "z": 0.5
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "plant_2",
+          "kind": "cylinder",
+          "material": "leaf",
+          "position": {
+            "x": 6.0,
+            "y": 0.95,
+            "z": 6.2
+          },
+          "size": {
+            "x": 0.75,
+            "y": 0.9,
+            "z": 0.75
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "threshold_front",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0,
+            "y": 0.012,
+            "z": 6.7
+          },
+          "size": {
+            "x": 3.6,
+            "y": 0.02,
+            "z": 0.3
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "threshold_left",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -11.8,
+            "y": 0.012,
+            "z": 3.6
+          },
+          "size": {
+            "x": 0.3,
+            "y": 0.02,
+            "z": 3.6
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "sign_panel",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": 0,
+            "y": 3.65,
+            "z": 7.7
+          },
+          "size": {
+            "x": 8.5,
+            "y": 1.1,
+            "z": 0.15
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "sign",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": 0,
+            "y": 3.65,
+            "z": 7.8
+          },
+          "size": {
+            "x": 7.8,
+            "y": 0.55,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "UFFICI DELLA STAZIONE"
+        },
+        {
+          "id": "awning",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 0,
+            "y": 2.98,
+            "z": 8.0
+          },
+          "size": {
+            "x": 9.5,
+            "y": 0.16,
+            "z": 1.7
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "exit_sign",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": -12.2,
+            "y": 2.95,
+            "z": 3.6
+          },
+          "size": {
+            "x": 2.0,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 270,
+          "collider": false,
+          "text": "USCITA"
+        },
+        {
+          "id": "hall_light_0_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -7.0,
+            "y": 5.3,
+            "z": 4.6
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_0_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": -7.0,
+            "y": 5.2,
+            "z": 4.6
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_0",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": -7.0,
+            "y": 5.0,
+            "z": 4.6
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 8,
+          "range": 14
+        },
+        {
+          "id": "hall_light_1_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 6.5,
+            "y": 5.3,
+            "z": 4.6
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_1_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 6.5,
+            "y": 5.2,
+            "z": 4.6
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_1",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 6.5,
+            "y": 5.0,
+            "z": 4.6
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 8,
+          "range": 14
+        },
+        {
+          "id": "hall_light_2_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -6.5,
+            "y": 5.3,
+            "z": -0.6
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_2_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": -6.5,
+            "y": 5.2,
+            "z": -0.6
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_2",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": -6.5,
+            "y": 5.0,
+            "z": -0.6
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 8,
+          "range": 14
+        },
+        {
+          "id": "hall_light_3_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 4.0,
+            "y": 5.3,
+            "z": -0.6
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_3_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 4.0,
+            "y": 5.2,
+            "z": -0.6
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_3",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 4.0,
+            "y": 5.0,
+            "z": -0.6
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 8,
+          "range": 14
+        },
+        {
+          "id": "counter_light_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 9.4,
+            "y": 4.4,
+            "z": 2.3
+          },
+          "size": {
+            "x": 2.4,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_light_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 9.4,
+            "y": 4.3,
+            "z": 2.3
+          },
+          "size": {
+            "x": 2.2,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_light",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 9.4,
+            "y": 4.1,
+            "z": 2.3
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 3.5,
+          "range": 6
+        },
+        {
+          "id": "stair_light_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 9.2,
+            "y": 4.3,
+            "z": -4.4
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "stair_light_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 9.2,
+            "y": 4.2,
+            "z": -4.4
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "stair_light",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 9.2,
+            "y": 4.0,
+            "z": -4.4
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 5,
+          "range": 9
+        }
+      ],
+      "route": [
+        {
+          "x": 0,
+          "z": 5.8
+        },
+        {
+          "x": 0,
+          "z": 1.4
+        },
+        {
+          "x": -11.4,
+          "z": 1.2
+        },
+        {
+          "x": -11.4,
+          "y": 3.0,
+          "z": -4.6
+        },
+        {
+          "x": 5.0,
+          "y": 3.0,
+          "z": -5.0
+        },
+        {
+          "x": 9.5,
+          "z": -4.2
+        },
+        {
+          "x": -10.0,
+          "z": 3.6
+        },
+        {
+          "x": -14.0,
+          "z": 3.6
+        }
+      ],
+      "views": [
+        {
+          "name": "hall",
+          "position": {
+            "x": -10.4,
+            "z": 6.0
+          },
+          "target": {
+            "x": 4.0,
+            "y": 1.4,
+            "z": -2.0
+          }
+        },
+        {
+          "name": "gallery",
+          "position": {
+            "x": 4.0,
+            "y": 3.0,
+            "z": -4.6
+          },
+          "target": {
+            "x": -4.0,
+            "y": 1.0,
+            "z": 5.0
+          }
+        },
+        {
+          "name": "stairs",
+          "position": {
+            "x": 7.5,
+            "z": -2.4
+          },
+          "target": {
+            "x": 9.0,
+            "y": 1.6,
+            "z": -6.4
+          }
+        },
+        {
+          "name": "counter",
+          "position": {
+            "x": 4.5,
+            "z": 6.0
+          },
+          "target": {
+            "x": 11.2,
+            "y": 1.6,
+            "z": 2.3
+          }
+        },
+        {
+          "name": "board",
+          "position": {
+            "x": 3.0,
+            "z": 1.2
+          },
+          "target": {
+            "x": -6.5,
+            "y": 3.6,
+            "z": 7.4
+          }
+        },
+        {
+          "name": "left_stairs",
+          "position": {
+            "x": -7.6,
+            "z": 1.8
+          },
+          "target": {
+            "x": -11.4,
+            "y": 1.6,
+            "z": -2.0
           }
         }
       ]

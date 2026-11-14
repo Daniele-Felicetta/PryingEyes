@@ -149,8 +149,9 @@ python -m unittest discover -s tools -p "test_rooms.py"
 `rooms.schema.json`: palette, dimensions, portals, furniture, labels, lights and
 route points. Each solid has explicit dimensions and collision; the schema bounds
 the content budget to 500 parts. IDs are stable and unique within their scope.
-The catalog holds two 25 × 15 m recipes with two exits each: the workshop (43 parts)
-and the depot (189 recipe parts that plan to 221 solids once its stairs expand).
+The catalog holds three 25 × 15 m recipes with two exits each: the workshop (43 parts),
+the depot (189 recipe parts that plan to 221 solids once its stairs expand) and the
+station offices (196 recipe parts that plan to 224 solids).
 
 `RoomPlan` belongs to the same engine-free `Production.Layout` assembly as the
 district planner. PlanLab compiles that exact source for the tools. It resizes the
@@ -214,8 +215,8 @@ PlanLab run (`room <catalog> '*'`), expand flights in all four directions and re
 each kind of unusable stair and standing place. A district whose block is too small
 for its bound room fails with the room and the block named
 (`ROOM_DOES_NOT_FIT: room_depot_station on Building_1_-1 at 25 x 12 m:
-ROOM_STAIRS_SHORT ...`): the depot's flight keeps a 0.25 m tread only in a block 15 m
-deep. These are planner checks; native traversal is separately verified in the full
+ROOM_STAIRS_SHORT ...`): the depot's flights and the offices' left flight keep a 0.25 m
+tread only in a block 15 m deep. These are planner checks; native traversal is separately verified in the full
 pipeline at the dimensions actually used by the city.
 
 Complete room job: `unity_logs/studio/20261114T092523Z-94b35b15/report.json`.
@@ -234,6 +235,21 @@ with the real controller, two of them raised: the player ends both standing at 3
 on the deck. A walker that starts on the floor climbs to 3.33 m to reach the player on
 the deck, and another crosses the depot's left door to catch someone in the street.
 Evidence images are `city-runtime/room_depot_station_{interior,deck,stairs,exterior}.png`
+in the job folder.
+
+Offices job: `unity_logs/studio/20261114T201809Z-ecc8fbdc/report.json`, run with
+`--publish`. All six stages passed: **297/297 gunplay**, **162 native city findings**
+(82 about rooms, 30 of them the offices; 32 about access), **1,454 weapon-state** and
+**36 survival-state** findings, the fresh-import material check for the three new
+materials, and **194 published files** verified by SHA256 in `Builds/CityPreview`
+(depot and offices together). The route walks seven legs with the real controller, two
+of them raised (feet at 3.32 m on the deck); a walker that starts on the floor climbs
+to 3.07 m to reach the player, and another crosses the left door to catch someone in
+the street. The first attempt of this job failed with `RUNTIME_TIMEOUT` although every
+native check had passed: the player run lasts about 240 s and its limit was 240 s.
+`citylab.py` now scales the limit with the bound rooms (120 s plus 80 s per room) and
+the studio step keeps a 900 s outer backstop. Evidence images are
+`city-runtime/room_offices_station_{hall,gallery,stairs,counter,board,left_stairs,exterior}.png`
 in the job folder.
 
 

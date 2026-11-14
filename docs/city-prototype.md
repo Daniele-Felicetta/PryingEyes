@@ -156,9 +156,9 @@ prima della correzione; ora e' respinto sia nella CLI sia nel progetto indipende
 L'isolato sud-ovest usa ora una ricetta arredata dal catalogo delle stanze: banconi,
 banco di lavoro, armadi, fusti, insegna, illuminazione e uscita laterale. I percorsi
 sono ampi e circolari attorno al banco: non sono generati spostando casualmente
-blocchi fino a ottenere una stanza piena. Delle altre tre costruzioni solo il deposito
-e' stato arredato dopo (vedi in fondo); le altre restano gusci generici e l'identità
-visiva del quartiere richiede ulteriore lavoro.
+blocchi fino a ottenere una stanza piena. Delle altre tre costruzioni il deposito e gli
+uffici sono stati arredati dopo (vedi in fondo); resta un guscio generico solo il posto
+di controllo, e l'identità visiva del quartiere richiede ulteriore lavoro.
 
 Il piano locale degli arredi è calcolato dal pacchetto senza Unity `RoomPlan`,
 consumato da PlanLab, CityBuilder e dal progetto indipendente LayoutDemo.
@@ -205,10 +205,10 @@ visibilita', lato di acquisto, collisioni, navigazione e addebito unico. La fili
 passa 103 verifiche native della citta', di cui 32 sugli accessi, e aggiorna
 CityPreview con 194 file verificati. Il progetto indipendente passa 17 controlli.
 
-Gli acquisti aprono gli interni dal reticolo stradale gia' disponibile. Due edifici
-(uffici e posto di controllo) sono ancora gusci generici: percorsi alternativi, arredi,
-verticalita' e identita' visiva restano da completare; il deposito e' stato arredato
-dopo (vedi sotto). Questa fase non suddivide ancora l'intero quartiere
+Gli acquisti aprono gli interni dal reticolo stradale gia' disponibile. Un solo edificio
+(il posto di controllo) e' ancora un guscio generico: percorsi alternativi, arredi,
+verticalita' e identita' visiva restano da completare; deposito e uffici sono stati
+arredati dopo (vedi sotto). Questa fase non suddivide ancora l'intero quartiere
 in settori acquistabili. Prove e limiti sono descritti in `production-studio.md`.
 
 
@@ -244,5 +244,40 @@ Spazzino che parte da terra sale a 3,3 m e raggiunge il giocatore sul ponte; un 
 attraversa la porta sinistra per raggiungere chi sta in strada. Le foto sono in
 `city-runtime/room_depot_station_{interior,deck,stairs,exterior}.png`. Resta un
 blockout di primitive, piu' ricco ma non definitivo: modelli, decal e identita'
-visiva finali sono ancora da fare, e uffici e posto di controllo non hanno ancora
-interni propri.
+visiva finali sono ancora da fare.
+
+
+## Uffici della stazione
+
+L'isolato nord-ovest (1000 punti) usa la ricetta `room_offices_station`: una sala di
+25 x 15 m con due porte (fronte e lato sinistro, quello verso il viale) e un ponte di
+servizio a 3 m. In basso c'e' la biglietteria: sportello con vetro lungo la parete
+destra (tre finestrini numerati), tabellone delle partenze sul muro d'ingresso, panche,
+due isole di scrivanie con schermi, colonne, piante in vaso, passatoie scure e cartelli.
+In fondo, sotto il ponte, tre uffici in cartongesso (Capostazione, Movimento, Archivio)
+con scrivania, schermo, sedia e armadio. Sul ponte c'e' la sala del movimento: scrivania
+lunga con quattro schermi, quadro sinottico a parete con la linea e i nodi della rete,
+armadio e parapetto giallo verso la sala.
+
+Il ponte e' un anello e non un vicolo cieco: due rampe da 15 gradini (alzata 20 cm), una
+lungo la parete sinistra con pedata di 25 cm e una ruotata di un quarto, lungo la parete
+di fondo, con pedata di 40 cm. Chi sale puo' scendere dall'altra rampa o uscire dalla
+porta laterale, e i nemici lo inseguono lassu' con la stessa navigazione. Come per il
+deposito, la pedata di 25 cm esiste solo in un isolato profondo almeno 15 m; la ricetta
+regge pero' anche l'isolato piu' stretto dei test (20 x 15 m).
+
+Prova nativa del job `unity_logs/studio/20261114T201809Z-ecc8fbdc`, con pubblicazione:
+tutti i 1652 risultati passano, di cui 162 della citta' (82 sulle tre stanze, 30 delle
+quali sugli uffici, e 32 sugli accessi), 1454 dello stato armi e 36 del survival; il
+gunplay passa 297/297 e 194 file verificati con SHA256 sono in `Builds/CityPreview`,
+dove ora ci sono insieme deposito e uffici. Il controller reale percorre le sette
+tratte, due in quota (piedi a 3,32 m sul ponte); uno Spazzino che parte da terra sale
+fino a 3,07 m e raggiunge il giocatore sul ponte; un altro attraversa la porta sinistra
+per raggiungere chi sta in strada. Le foto (sala, ponte, rampa, sportello, tabellone,
+rampa sinistra, esterno) sono in `city-runtime/room_offices_station_*.png`.
+
+Il primo tentativo del job e' fallito solo per tempo (`RUNTIME_TIMEOUT`) con tutti i
+controlli nativi gia' passati: la prova dura circa 240 s e il limite era 240 s. Ora il
+limite cresce con le stanze legate al quartiere (120 s piu' 80 s a stanza). Resta un
+blockout di primitive, piu' ricco ma non definitivo: modelli, decal e identita' visiva
+finali sono ancora da fare, e il posto di controllo non ha ancora un interno proprio.

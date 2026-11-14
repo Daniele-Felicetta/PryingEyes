@@ -35,7 +35,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--recipe", type=Path, default=RECIPE)
     parser.add_argument("--runtime", type=Path, help="Run the native city acceptance test with this executable")
-    parser.add_argument("--timeout", type=float, default=240, help="Native test timeout in seconds")
+    parser.add_argument("--timeout", type=float, default=None,
+                        help="Native test timeout in seconds (default: 120 plus 80 per bound room: each room walks its route and photographs its views in real time)")
     parser.add_argument("--out", type=Path, default=ROOT / "unity_logs/city_preview.svg")
     parser.add_argument("--report", type=Path, default=ROOT / "unity_logs/city_report.json")
     parser.add_argument("--build-assets", action="store_true", help="Bake and pack the city weapons before validation")
@@ -143,7 +144,8 @@ def main():
                                       "preview": str(args.out), "layout": str(layout_file), "rooms": rooms}, indent=2), encoding="utf-8")
     print(f"CITY OK: {r['district']}; seed={r['seed']}; 4 buildings, 4 entrances, 3 weapons, 4 spawns; {args.out}")
     if args.runtime:
-        return run_native(args.runtime.resolve(), args.report.parent / "city-runtime", args.timeout, args.recipe, layout, rooms)
+        timeout = args.timeout if args.timeout is not None else 120 + 80 * len(rooms or [])
+        return run_native(args.runtime.resolve(), args.report.parent / "city-runtime", timeout, args.recipe, layout, rooms)
     return 0
 
 
