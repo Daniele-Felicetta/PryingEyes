@@ -21,16 +21,19 @@ class CityLabCheck(unittest.TestCase):
             assembly = folder / "PryingEyes_Data/Managed/Assembly-CSharp.dll"
             assembly.parent.mkdir(parents=True); assembly.write_bytes(b"test assembly")
             expected = {"spawns": [{"x": 0, "z": 24.0}]}
-            native = {"ok": True, "layout": expected, "recipeSha256": hashlib.sha256(RECIPE.read_bytes()).hexdigest()}
+            native = {"ok": True, "layout": expected, "recipeSha256": hashlib.sha256(RECIPE.read_bytes()).hexdigest(), "rooms": []}
             def write_report(*args, **kwargs):
                 (folder / "report.json").write_text(json.dumps(native), encoding="utf-8")
                 return SimpleNamespace(returncode=0)
             with patch("citylab.subprocess.run", side_effect=write_report):
-                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected), 0)
+                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 0)
                 native["layout"] = {"spawns": [{"x": 0, "z": 23.0}]}
-                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected), 1)
-                native["layout"] = expected; native["recipeSha256"] = "old recipe"
-                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected), 1)
+                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 1)
+                native["layout"] = expected
+                native["rooms"] = [{"block": "Building_-1_-1", "id": "stale_room"}]
+                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 1)
+                native["rooms"] = []; native["recipeSha256"] = "old recipe"
+                self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 1)
 
     def test_missing_binary_cannot_reuse_stale_success(self):
         with tempfile.TemporaryDirectory() as folder:

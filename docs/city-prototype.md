@@ -149,3 +149,25 @@ piu' i punti fissi della prima bozza, che sarebbero finiti sulla recinzione.
 Il pianificatore rifiuta anche dimensioni finite che produrrebbero un terreno
 di larghezza infinita dopo il raddoppio. Il caso 3e38 metri falliva la verifica
 prima della correzione; ora e' respinto sia nella CLI sia nel progetto indipendente.
+
+
+## Officina e filiera delle stanze
+
+L'isolato sud-ovest usa ora una ricetta arredata dal catalogo delle stanze: banconi,
+banco di lavoro, armadi, fusti, insegna, illuminazione e uscita laterale. I percorsi
+sono ampi e circolari attorno al banco: non sono generati spostando casualmente
+blocchi fino a ottenere una stanza piena. Le altre tre costruzioni restano ancora
+gusci generici e l'identità visiva del quartiere richiede ulteriore lavoro.
+
+Il piano locale degli arredi è calcolato dal pacchetto senza Unity `RoomPlan`,
+consumato da PlanLab, CityBuilder e dal progetto indipendente LayoutDemo.
+La prima verifica nativa dell'officina è 65/65 (`unity_logs/workshop-native`),
+incluso controller reale sulle otto tratte e inseguimento attraverso l'uscita
+laterale. Questa prova non comprende ancora la successiva correzione delle insegne
+specchiate attraverso i muri: la filiera completa verifica anche quel comportamento.
+Comandi e limiti dell'adattatore sono in `production-studio.md`.
+
+La filiera completa successiva passa **67/67** controlli, incluse le insegne,
+e **297/297** verifiche armi. Job `unity_logs/studio/20261114T092523Z-94b35b15`:
+192 file pubblicati e verificati in `Builds/CityPreview`. Il progetto indipendente
+passa 8 controlli (`unity_logs/workshop-independent/report.json`).

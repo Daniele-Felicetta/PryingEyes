@@ -9,10 +9,11 @@ using Production.Layout;
 namespace PryingEyes
 {
     /// <summary>Native acceptance loop: -autotest -nofire -citytest [-cityshots].</summary>
-    public sealed class CityTest : MonoBehaviour
+    public sealed partial class CityTest : MonoBehaviour
     {
         [Serializable] sealed class Finding { public string code, subject, observed, expected; public bool passed; }
-        [Serializable] sealed class Report { public string operation = "city.runtime", revision, unity, reproduce, recipeSha256; public DistrictPlan layout; public bool ok; public Finding[] findings; }
+        [Serializable] sealed class Report { public string operation = "city.runtime", revision, unity, reproduce, recipeSha256; public DistrictPlan layout; public RoomEvidence[] rooms; public bool ok; public Finding[] findings; }
+        [Serializable] sealed class RoomEvidence { public string id, block, sourceSha256; public RoomPlan plan; }
         readonly List<Finding> findings = new List<Finding>();
         string output;
         bool shots;
@@ -50,6 +51,7 @@ namespace PryingEyes
             PlayerController.botDir = Vector3.zero;
             var city = FindFirstObjectByType<CityDirector>();
             var report = new Report { recipeSha256 = city != null ? city.recipeSha256 : "",
+                rooms = System.Array.ConvertAll(FindObjectsByType<CityRoom>(FindObjectsSortMode.None), r => new RoomEvidence { id = r.recipeId, block = r.name, sourceSha256 = r.sourceSha256, plan = r.Plan }),
                 layout = city != null ? JsonUtility.FromJson<DistrictPlan>(city.layoutJson) : null, ok = findings.TrueForAll(f => f.passed), findings = findings.ToArray(),
                 revision = CoopProtocol.ContentRevision, unity = Application.unityVersion,
                 reproduce = "PryingEyes.exe -batchmode -autotest -nofire -citytest -cityshots" };
@@ -124,6 +126,8 @@ namespace PryingEyes
                 Check("CONTROLLER_ENTRANCE", floor.parent.name, Vector3.Distance(player.transform.position, to.position) <= 0.6f,
                     player.transform.position.ToString(), to.position.ToString());
             }
+            var rooms = RunRooms();
+            while (rooms.MoveNext()) yield return rooms.Current;
             foreach (var spawn in gm.spawnPoints)
             {
                 bool sample = NavMesh.SamplePosition(spawn.position, out var from, 1, HotelNav.EnemyMask) && NavMesh.SamplePosition(street, out var to, 1, HotelNav.EnemyMask);

@@ -106,8 +106,8 @@ ADS and player-view cameras retain their intended viewpoint.
 
 ## Scope still open
 
-The catalog currently covers weapons; materials, enemies and room recipes still need
-equivalent production records. Dependency impact queries and a local gallery are not
+The catalog covers weapons and the first furnished-room recipe. Enemies still need
+equivalent production records; the room palette is embedded in the room catalog, not yet a general material catalog. Dependency impact queries and a local gallery are not
 implemented. Native gunplay/optics still primarily report through their existing logs,
 and the native presentation lab still uses its legacy output directory. Studio's
 common report wraps the checks that are integrated today.
@@ -117,3 +117,59 @@ definition data and production, not the full weapon runtime. The reusable distri
 package and independent Unity demo are documented separately in `city-prototype.md`.
 The city's visual identity, paid-area progression, enemy art/animation, actual combat
 balance, performance and urban co-op remain part of the active objective.
+
+
+## Furnished-room pipeline
+
+```powershell
+python tools/studio.py catalog list --type room
+python tools/studio.py asset inspect room_workshop_station
+python tools/studio.py asset preview room_workshop_station
+python tools/studio.py asset build room_workshop_station --publish
+python -m unittest discover -s tools -p "test_rooms.py"
+```
+
+`Resources/Production/rooms.json` is the editable source, validated by
+`rooms.schema.json`: palette, dimensions, portals, furniture, labels, lights and
+route points. Each solid has explicit dimensions and collision; the schema bounds
+the content budget to 500 parts. IDs are stable and unique within their scope.
+The current recipe is a 25 × 15 m workshop with 43 parts and two exits.
+
+`RoomPlan` belongs to the same engine-free `Production.Layout` assembly as the
+district planner. PlanLab compiles that exact source for the tools. It resizes the
+recipe, checks solid bounds and rejects furniture in the door clearance bands.
+`CityRoomBuilder` is the Unity adapter: primitive geometry, materials, lighting,
+colliders and labels. It remains game-specific; this is not yet an extracted
+rendering or lighting framework. The floor material must currently be named
+`concrete`, and the first adapter supports boxes, cylinders, lights and labels.
+
+Bind a recipe ID to a block in `City/citta.json` to test it in the city. Unknown
+blocks and duplicate bindings fail rather than disappearing from the result.
+Builds store the source hash and complete room plan; CityLab compares both with
+the requested recipe. An omitted room or stale furniture layout cannot pass just
+because the executable exits successfully. The common Studio report now includes
+the native findings and links their evidence, including on native test failure.
+
+The lab produces an isolated cutaway preview, a local plan, a playable city build
+and in-game interior/exterior images. Native checks compare placements, bounds,
+collision and palette, walk the route with the real controller, and require an
+enemy to pursue the player through the side exit. The preview uses the existing
+ShotScene warm-up approach; its first render otherwise showed every surface with
+the same material. A passing geometry test is not an artistic approval.
+
+`unity/LayoutDemo` consumes `RoomPlan` with its own `Assets/room-demo.json`, without
+Prying Eyes scripts, catalog or materials. Its native verification produces eight
+checks, including a resized room, a rejected blocked exit and a separate room
+scene. The recorded proof is `unity_logs/workshop-independent/report.json`.
+
+Room contract checks resize the real workshop to 20 × 12 and 32 × 20 m and reject
+a deliberately blocked entrance, missing material, misspelled field and nonfinite
+coordinate. These are planner checks; native traversal is separately verified
+in the full pipeline at the dimensions actually used by the city.
+
+Complete room job: `unity_logs/studio/20261114T092523Z-94b35b15/report.json`.
+All stages passed: **297/297 gunplay**, **67/67 native city/room findings**,
+including sign visibility, and **192 published files** verified by SHA256 in
+`Builds/CityPreview`. `Builds/Prova` remains the separately verified Torre build.
+This proves the first furnished-room pipeline; the rest of the suite and the
+polished urban survival game remain open work.

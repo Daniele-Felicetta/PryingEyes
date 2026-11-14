@@ -24,7 +24,10 @@ namespace PryingEyes.EditorTools
             public int blocksX = 2, blocksZ = 2;
             public string district = "Quartiere della Stazione";
             public string[] shopWeapons;
+            public RoomBinding[] rooms;
         }
+
+        [System.Serializable] public sealed class RoomBinding { public string block, asset; }
 
         [MenuItem("Prying Eyes/City/Generate Preview Scene")]
         public static void Build()
@@ -40,6 +43,10 @@ namespace PryingEyes.EditorTools
                     throw new System.InvalidOperationException("City weapon is not registered: " + weapon);
 
             var plan = DistrictPlan.Create(recipe.seed, recipe.halfWidth, recipe.halfDepth, recipe.roadHalfWidth);
+            var bound = new System.Collections.Generic.HashSet<string>();
+            foreach (var room in recipe.rooms ?? new RoomBinding[0])
+                if (room == null || !bound.Add(room.block) || !System.Array.Exists(plan.blocks, b => b.id == room.block) || string.IsNullOrWhiteSpace(room.asset))
+                    throw new System.InvalidOperationException("ROOM_BINDING_UNKNOWN_OR_DUPLICATE");
             HotelBuilder.EnsureTagsLayers();
             foreach (var id in recipe.shopWeapons)
                 if (WeaponDefs.Catalog.weapons[WeaponDefs.IndexOf(id)].source["family"] != null) ArmiImport.ImportOne(id);
@@ -64,8 +71,10 @@ namespace PryingEyes.EditorTools
             foreach (var block in plan.blocks)
             {
                 Box("Sidewalk", At(block.pavement, .06f), new Vector3(block.pavementWidth, .12f, block.pavementDepth), pavement);
-                Building(block.id, At(block.building), block.width, block.depth, block.height,
+                var room = recipe.rooms == null ? null : System.Array.Find(recipe.rooms, r => r.block == block.id);
+                if (room == null) Building(block.id, At(block.building), block.width, block.depth, block.height,
                     block.alternate ? stone : brick, glass, accent, block.facing);
+                else CityRoomBuilder.Build(block, room.asset, block.alternate ? stone : brick);
                 Lamp(At(block.lamp), accent);
             }
             Box("North barrier", new Vector3(0, 1f, recipe.halfDepth), new Vector3(recipe.halfWidth * 2, 2f, .3f), stone);

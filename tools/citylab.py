@@ -14,6 +14,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from content_catalog import validate_catalog
+from room_catalog import compile_rooms
 
 ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / "unity/PryingEyes/Assets/_PryingEyes/City/citta.json"
@@ -87,7 +88,8 @@ def main():
             errors.append(layout_run.stderr.strip() or layout_run.stdout.strip() or "Layout planner failed")
         else:
             layout = json.loads(layout_file.read_text(encoding="utf-8-sig"))
-    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+            rooms = compile_rooms(r, layout, args.report.parent / "rooms")
+    except (OSError, ValueError, TypeError, subprocess.TimeoutExpired) as error:
         errors.append(str(error))
     if errors:
         args.report.parent.mkdir(parents=True, exist_ok=True)
@@ -129,10 +131,10 @@ def main():
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps({"schemaVersion": 1, "operation": "city.validate", "ok": True, "recipeSha256": hashlib.sha256(args.recipe.read_bytes()).hexdigest(), "seed": r["seed"], "buildings": 4,
                                       "entrances": 4, "weapons": shops, "spawns": 4,
-                                      "preview": str(args.out), "layout": str(layout_file)}, indent=2), encoding="utf-8")
+                                      "preview": str(args.out), "layout": str(layout_file), "rooms": rooms}, indent=2), encoding="utf-8")
     print(f"CITY OK: {r['district']}; seed={r['seed']}; 4 buildings, 4 entrances, 3 weapons, 4 spawns; {args.out}")
     if args.runtime:
-        return run_native(args.runtime.resolve(), args.report.parent / "city-runtime", args.timeout, args.recipe, layout)
+        return run_native(args.runtime.resolve(), args.report.parent / "city-runtime", args.timeout, args.recipe, layout, rooms)
     return 0
 
 
@@ -146,7 +148,7 @@ def same_layout(expected, observed):
     return expected == observed
 
 
-def run_native(exe, output, timeout, recipe, layout=None):
+def run_native(exe, output, timeout, recipe, layout=None, rooms=None):
     """Keep binary identity and process outcome beside the native findings and screenshots."""
     output = output.resolve(); output.mkdir(parents=True, exist_ok=True)
     command = [str(exe), "-batchmode", "-autotest", "-nofire", "-citytest", "-cityshots",
@@ -167,8 +169,9 @@ def run_native(exe, output, timeout, recipe, layout=None):
             result["native"] = json.loads(report_path.read_text(encoding="utf-8"))
             result["recipeMatchesBuild"] = result["native"].get("recipeSha256") == result["requestedRecipeSha256"]
             result["layoutMatchesBuild"] = layout is not None and same_layout(layout, result["native"].get("layout"))
-            result["ok"] = child.returncode == 0 and result["native"].get("ok") is True and result["recipeMatchesBuild"] and result["layoutMatchesBuild"]
-            if not result["recipeMatchesBuild"] or not result["layoutMatchesBuild"]:
+            result["roomsMatchBuild"] = rooms is not None and same_layout(rooms, sorted(result["native"].get("rooms", []), key=lambda r: r["block"]))
+            result["ok"] = child.returncode == 0 and result["native"].get("ok") is True and result["recipeMatchesBuild"] and result["layoutMatchesBuild"] and result["roomsMatchBuild"]
+            if not result["recipeMatchesBuild"] or not result["layoutMatchesBuild"] or not result["roomsMatchBuild"]:
                 result["error"] = "BUILD_LAYOUT_OR_RECIPE_MISMATCH"
         else:
             result["error"] = "RUNTIME_REPORT_MISSING"

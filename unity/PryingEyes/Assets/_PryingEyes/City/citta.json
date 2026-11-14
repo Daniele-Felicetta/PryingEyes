@@ -6,5 +6,15 @@
   "roadHalfWidth": 5,
   "blocksX": 2,
   "blocksZ": 2,
-  "shopWeapons": ["p9_ronda", "p45_argine", "ar9_malleus"]
+  "shopWeapons": [
+    "p9_ronda",
+    "p45_argine",
+    "ar9_malleus"
+  ],
+  "rooms": [
+    {
+      "block": "Building_-1_-1",
+      "asset": "room_workshop_station"
+    }
+  ]
 }

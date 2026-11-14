@@ -46,7 +46,25 @@ public static class DistrictDemo
         if (at >= 0 && at + 1 < args.Length) folder = Path.GetFullPath(args[at + 1]);
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "layout.json"), JsonUtility.ToJson(plan, true));
-        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\"]}");
-        Debug.Log("[LayoutDemo] PASS: independent local package, deterministic layout, variant, validation, scene");
+        var recipe = JsonUtility.FromJson<RoomPlan.Recipe>(File.ReadAllText("Assets/room-demo.json"));
+        var room = RoomPlan.Create(recipe, 32, 20);
+        if (room.width != 32 || room.parts[0].size.x != 4 * (32f / 24)) throw new Exception("Room scaling ignored");
+        recipe.parts[0].position = new RoomPlan.Vector(0, .5f, 6);
+        rejected = false;
+        try { RoomPlan.Create(recipe, 24, 14); } catch (ArgumentException e) { rejected = e.Message.StartsWith("PASSAGE_BLOCKED"); }
+        if (!rejected) throw new Exception("Room exit obstruction accepted");
+        var roomScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
+        ground = GameObject.CreatePrimitive(PrimitiveType.Cube); ground.name = "Floor";
+        ground.transform.localScale = new Vector3(room.width, .2f, room.depth);
+        foreach (var part in room.parts)
+        {
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube); cube.name = part.id;
+            cube.transform.position = new Vector3(part.position.x, part.position.y, part.position.z);
+            cube.transform.localScale = new Vector3(part.size.x, part.size.y, part.size.z);
+        }
+        EditorSceneManager.SaveScene(roomScene, "Assets/RoomDemo.unity");
+        File.WriteAllText(Path.Combine(folder, "room.json"), JsonUtility.ToJson(room, true));
+        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_blocked_exit\",\"room_scene_generation\"]}");
+        Debug.Log("[LayoutDemo] PASS: independent district and room packages, variant, blocked exit, scene");
     }
 }

@@ -17,6 +17,7 @@ static class Program
         // "old" in qualunque posizione: le ali d'albergo e di chiesa di prima, al posto della griglia
         if (Array.IndexOf(a, "old") >= 0) { PlanGen.UseGrid = false; a = Array.FindAll(a, x => x != "old"); }
         string cmd = a.Length > 0 ? a[0] : "stats";
+        if (cmd == "room") return Room(a);
         if (cmd == "city") return City(a);
         if (cmd == "survival") return Survival(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "grid") return GridStats(a.Length > 1 ? int.Parse(a[1]) : 1000);
@@ -27,6 +28,28 @@ static class Program
         if (cmd == "map") { Map(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         if (cmd == "sheet") { Sheet(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         return 1;
+    }
+
+    static int Room(string[] args)
+    {
+        try
+        {
+            var settings = new JsonSerializerOptions { IncludeFields = true, WriteIndented = true };
+            using var catalog = JsonDocument.Parse(File.ReadAllText(args[1]));
+            foreach (var item in catalog.RootElement.GetProperty("rooms").EnumerateArray())
+            {
+                if (item.GetProperty("id").GetString() != args[2]) continue;
+                var recipe = JsonSerializer.Deserialize<RoomPlan.Recipe>(item.GetRawText(), settings);
+                float width = args.Length > 4 ? float.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture) : recipe.width;
+                float depth = args.Length > 5 ? float.Parse(args[5], System.Globalization.CultureInfo.InvariantCulture) : recipe.depth;
+                var plan = RoomPlan.Create(recipe, width, depth);
+                File.WriteAllText(args[3], JsonSerializer.Serialize(plan, settings));
+                Console.WriteLine("ROOM PASS: " + recipe.id + "; " + plan.parts.Length + " parts; " + plan.route.Length + " route points");
+                return 0;
+            }
+            throw new Exception("ROOM_UNKNOWN: " + args[2]);
+        }
+        catch (Exception e) { Console.Error.WriteLine(e.Message); return 1; }
     }
 
     static int City(string[] args)

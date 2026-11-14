@@ -68,5 +68,6 @@ unity/LayoutDemo/UserSettings/
 unity/LayoutDemo/obj/
 unity/LayoutDemo/Verification/
 unity/LayoutDemo/Assets/DistrictDemo.unity*
+unity/LayoutDemo/Assets/RoomDemo.unity*
 unity/LayoutDemo/ProjectSettings/*
 !unity/LayoutDemo/ProjectSettings/ProjectVersion.txt

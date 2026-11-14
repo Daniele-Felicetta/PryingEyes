@@ -13,6 +13,7 @@ import time
 import uuid
 
 from content_catalog import ROOT, CATALOG, SCHEMA, find_asset, validate_catalog
+from room_catalog import CATALOG as ROOMS, SCHEMA as ROOM_SCHEMA, validate_rooms
 
 PROJECT = ROOT / "unity/PryingEyes"
 OUTPUT = ROOT / "unity_logs/studio"
@@ -106,6 +107,18 @@ def preview_asset(job, blender, identity):
         target = job.folder / image.name; shutil.copy2(image, target); job.report["artifacts"].append(str(target))
 
 
+def native_city(job, executable):
+    runtime = job.folder / "city-runtime/run.json"
+    job.report["artifacts"].append(str(runtime)); job.save()
+    try:
+        job.run("city", [sys.executable, ROOT / "tools/citylab.py", "--runtime", executable, "--report", job.folder / "city.json"], timeout=300)
+    finally:
+        if runtime.is_file():
+            result = json.loads(runtime.read_text(encoding="utf-8"))
+            job.report["findings"].extend({**finding, "evidence": str(runtime)} for finding in result.get("native", {}).get("findings", []))
+            job.save()
+
+
 def verify_sources(job, paths):
     for path in paths:
         if hashlib.sha256(path.read_bytes()).hexdigest() != job.report["sources"][str(path.relative_to(ROOT))]:
@@ -116,25 +129,30 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor")
-    catalog = commands.add_parser("catalog"); catalog.add_argument("action", choices=["list"]); catalog.add_argument("--type", default="weapon", choices=["weapon"])
+    catalog = commands.add_parser("catalog"); catalog.add_argument("action", choices=["list"]); catalog.add_argument("--type", default="weapon", choices=["weapon", "room"])
     asset = commands.add_parser("asset"); asset.add_argument("--publish", action="store_true", help="Copy a verified build to CityPreview after all checks"); asset.add_argument("action", choices=["inspect", "preview", "build"]); asset.add_argument("id")
     test = commands.add_parser("test"); test.add_argument("suite", choices=["gunplay"])
     report = commands.add_parser("report"); report.add_argument("action", choices=["latest"])
     args = parser.parse_args()
     if args.command == "report":
         print((Path(json.loads((OUTPUT / "latest.json").read_text())["report"])).read_text()); return 0
-    job = Job(args.command + ("." + args.action if hasattr(args, "action") else ""), getattr(args, "id", "weapons"))
+    job = Job(args.command + ("." + args.action if hasattr(args, "action") else ""), getattr(args, "id", getattr(args, "type", "weapons")))
     try:
-        data = validate_catalog(); blender, unity = executables()
-        source_files = {CATALOG, SCHEMA, ROOT / "tools/fixtures/weapon-prefix-v1.json", PROJECT / "Assets/_PryingEyes/City/citta.json", Path(__file__).resolve(), ROOT / "tools/content_catalog.py", ROOT / "tools/citylab.py"}
+        data = validate_catalog(); room_data = validate_rooms(); blender, unity = executables()
+        is_room = args.command == "asset" and any(r["id"] == args.id for r in room_data["rooms"])
+        source_files = {CATALOG, SCHEMA, ROOMS, ROOM_SCHEMA, ROOT / "tools/room_catalog.py", ROOT / "tools/fixtures/weapon-prefix-v1.json", PROJECT / "Assets/_PryingEyes/City/citta.json", Path(__file__).resolve(), ROOT / "tools/content_catalog.py", ROOT / "tools/citylab.py"}
         source_files.update((PROJECT / "Assets/_PryingEyes").rglob("*.cs"))
         source_files.update((PROJECT / "Packages/com.pryingeyes.layout").rglob("*.cs"))
         source_files.update((ROOT / "modelli/armi").glob("*.py"))
-        if args.command == "asset":
+        if is_room:
+            entry = next(r for r in room_data["rooms"] if r["id"] == args.id)
+        elif args.command == "asset":
             entry = find_asset(args.id, data); source = entry["source"]
             source_files.update(ROOT / p for p in [source["generator"], source["recipe"]["file"], *source["dependencies"]])
         job.report["sources"] = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}; job.save()
-        if args.command == "catalog":
+        if args.command == "catalog" and args.type == "room":
+            for room in room_data["rooms"]: print(f"{room['id']:28} {room['name']} ({room['width']} x {room['depth']} m)")
+        elif args.command == "catalog":
             for entry in data["weapons"]:
                 d = entry["definition"]; print(f"{entry['index']:2}  {d['id']:22} {d['name']}")
         elif args.command == "doctor":
@@ -145,25 +163,40 @@ def main():
         else:
             if args.action == "inspect": print(json.dumps(entry, ensure_ascii=False, indent=2))
             elif args.action == "preview":
-                with project_lock(): preview_asset(job, blender, args.id)
+                with project_lock():
+                    if is_room:
+                        check_editor_closed()
+                        job.run("room-preview", [unity, "-batchmode", "-projectPath", PROJECT, "-executeMethod", "PryingEyes.EditorTools.CityRoomBuilder.Preview", "-room", args.id, "-roomout", job.folder, "-quit", "-logFile", job.folder / "unity.log"], timeout=300)
+                        job.report["artifacts"].extend(str(p) for p in [job.folder / (args.id + ".png"), job.folder / "plan.json"])
+                    else: preview_asset(job, blender, args.id)
             else:
                 with project_lock():
                     check_editor_closed()
-                    identities = [args.id]
-                    recipe = json.loads((PROJECT / "Assets/_PryingEyes/City/citta.json").read_text())
-                    for identity in recipe["shopWeapons"]:
-                        candidate = find_asset(identity, data)
-                        if candidate["source"].get("family") and not (ROOT / f"modelli/armi/export/{identity}.fbx").is_file() and identity not in identities:
-                            identities.append(identity)
-                    for identity in identities:
-                        job.run("bake-" + identity, [blender, "-b", "-P", "genera_armi.py", "--", "bake", identity], ROOT / "modelli/armi", 1800)
-                        job.run("pack-" + identity, [sys.executable, "pack_tex.py", identity], ROOT / "modelli/armi")
-                    preview_asset(job, blender, args.id)
                     build = job.folder / "build"; executable = build / "PryingEyes.exe"
-                    job.run("unity", [unity, "-batchmode", "-projectPath", PROJECT, "-executeMethod", "PryingEyes.EditorTools.ProductionCatalog.BuildAsset", "-asset", args.id, "-buildOut", build, "-quit", "-logFile", job.folder / "unity.log"], timeout=1200)
+                    if is_room:
+                        recipe = json.loads((PROJECT / "Assets/_PryingEyes/City/citta.json").read_text())
+                        if not any(b["asset"] == args.id for b in recipe.get("rooms", [])):
+                            raise RuntimeError("ROOM_NOT_IN_CITY: bind the room recipe to a city block before integration testing")
+                        method = "PryingEyes.EditorTools.CityRoomBuilder.BuildAsset"
+                        asset_args = ["-room", args.id, "-roomout", job.folder]
+                    else:
+                        identities = [args.id]
+                        recipe = json.loads((PROJECT / "Assets/_PryingEyes/City/citta.json").read_text())
+                        for identity in recipe["shopWeapons"]:
+                            candidate = find_asset(identity, data)
+                            if candidate["source"].get("family") and not (ROOT / f"modelli/armi/export/{identity}.fbx").is_file() and identity not in identities:
+                                identities.append(identity)
+                        for identity in identities:
+                            job.run("bake-" + identity, [blender, "-b", "-P", "genera_armi.py", "--", "bake", identity], ROOT / "modelli/armi", 1800)
+                            job.run("pack-" + identity, [sys.executable, "pack_tex.py", identity], ROOT / "modelli/armi")
+                        preview_asset(job, blender, args.id)
+                        method = "PryingEyes.EditorTools.ProductionCatalog.BuildAsset"
+                        asset_args = ["-asset", args.id]
+                    job.run("unity", [unity, "-batchmode", "-projectPath", PROJECT, "-executeMethod", method, *asset_args, "-buildOut", build, "-quit", "-logFile", job.folder / "unity.log"], timeout=1200)
+                    if is_room:
+                        job.report["artifacts"].extend(str(p) for p in [job.folder / (args.id + ".png"), job.folder / "plan.json"])
                     native_gunplay(job, executable)
-                    job.run("city", [sys.executable, ROOT / "tools/citylab.py", "--runtime", executable, "--report", job.folder / "city.json"], timeout=300)
-                    job.report["artifacts"].append(str(job.folder / "city-runtime/run.json"))
+                    native_city(job, executable)
                     if args.publish:
                         verify_sources(job, source_files)
                         check_editor_closed()
@@ -174,6 +207,8 @@ def main():
                                 raise RuntimeError("PUBLISH_HASH_MISMATCH: " + str(product))
                         job.report["published"] = {"path": str(EXE), "filesVerified": len(files)}
         verify_sources(job, source_files)
+        for artifact in job.report["artifacts"]:
+            if not Path(artifact).is_file(): raise RuntimeError("ARTIFACT_MISSING: " + artifact)
         job.report["ok"] = True
     except (Exception, KeyboardInterrupt) as error:
         job.report["findings"].append({"code": "JOB_CANCELLED" if isinstance(error, KeyboardInterrupt) else str(error).split(":")[0], "subject": job.report["subject"], "observed": str(error), "expected": "successful production operation", "passed": False})

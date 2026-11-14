@@ -1,0 +1,49 @@
+{
+  "id": "demo_hall",
+  "name": "Independent hall",
+  "width": 24,
+  "depth": 14,
+  "doors": [
+    {
+      "side": "front",
+      "center": 0,
+      "width": 3.4,
+      "height": 2.6
+    },
+    {
+      "side": "back",
+      "center": 0,
+      "width": 3.4,
+      "height": 2.6
+    }
+  ],
+  "parts": [
+    {
+      "id": "island",
+      "kind": "box",
+      "material": "neutral",
+      "position": {
+        "x": 0,
+        "y": 0.5,
+        "z": 0
+      },
+      "size": {
+        "x": 4,
+        "y": 1,
+        "z": 1.5
+      },
+      "yaw": 0,
+      "collider": true
+    }
+  ],
+  "route": [
+    {
+      "x": -4,
+      "z": 0
+    },
+    {
+      "x": 4,
+      "z": 0
+    }
+  ]
+}

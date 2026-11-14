@@ -1,0 +1,883 @@
+{
+  "schemaVersion": 1,
+  "materials": [
+    {
+      "id": "concrete",
+      "color": [
+        0.19,
+        0.2,
+        0.18
+      ],
+      "metallic": 0,
+      "smoothness": 0.12,
+      "emission": 0
+    },
+    {
+      "id": "wood",
+      "color": [
+        0.26,
+        0.14,
+        0.075
+      ],
+      "metallic": 0,
+      "smoothness": 0.2,
+      "emission": 0
+    },
+    {
+      "id": "steel",
+      "color": [
+        0.16,
+        0.18,
+        0.2
+      ],
+      "metallic": 0.75,
+      "smoothness": 0.3,
+      "emission": 0
+    },
+    {
+      "id": "paint",
+      "color": [
+        0.07,
+        0.19,
+        0.16
+      ],
+      "metallic": 0.15,
+      "smoothness": 0.25,
+      "emission": 0
+    },
+    {
+      "id": "amber",
+      "color": [
+        0.65,
+        0.35,
+        0.09
+      ],
+      "metallic": 0.3,
+      "smoothness": 0.25,
+      "emission": 0
+    },
+    {
+      "id": "paper",
+      "color": [
+        0.72,
+        0.68,
+        0.52
+      ],
+      "metallic": 0,
+      "smoothness": 0.08,
+      "emission": 0.1
+    },
+    {
+      "id": "warm_light",
+      "color": [
+        1,
+        0.72,
+        0.45
+      ],
+      "metallic": 0,
+      "smoothness": 0.15,
+      "emission": 2
+    }
+  ],
+  "rooms": [
+    {
+      "id": "room_workshop_station",
+      "name": "Officina del capolinea",
+      "width": 25,
+      "depth": 15,
+      "doors": [
+        {
+          "side": "front",
+          "center": 0,
+          "width": 3.4,
+          "height": 2.6
+        },
+        {
+          "side": "right",
+          "center": -2.4,
+          "width": 3.4,
+          "height": 2.6
+        }
+      ],
+      "parts": [
+        {
+          "id": "counter_-1",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": -6,
+            "y": 0.55,
+            "z": 3.8
+          },
+          "size": {
+            "x": 5,
+            "y": 1.1,
+            "z": 0.9
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "counter_top_-1",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -6,
+            "y": 1.14,
+            "z": 3.8
+          },
+          "size": {
+            "x": 5.1,
+            "y": 0.12,
+            "z": 1.02
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_rail_-1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -6,
+            "y": 0.2,
+            "z": 4.28
+          },
+          "size": {
+            "x": 4.8,
+            "y": 0.1,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "back_cabinet_-1",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": -7,
+            "y": 1.1,
+            "z": -7
+          },
+          "size": {
+            "x": 3,
+            "y": 2.2,
+            "z": 0.7
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "cabinet_handle_-1_-0.75",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -7.75,
+            "y": 1.15,
+            "z": -6.61
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cabinet_handle_-1_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -7,
+            "y": 1.15,
+            "z": -6.61
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cabinet_handle_-1_0.75",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -6.25,
+            "y": 1.15,
+            "z": -6.61
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_1",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": 6,
+            "y": 0.55,
+            "z": 3.8
+          },
+          "size": {
+            "x": 5,
+            "y": 1.1,
+            "z": 0.9
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "counter_top_1",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 6,
+            "y": 1.14,
+            "z": 3.8
+          },
+          "size": {
+            "x": 5.1,
+            "y": 0.12,
+            "z": 1.02
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "counter_rail_1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 6,
+            "y": 0.2,
+            "z": 4.28
+          },
+          "size": {
+            "x": 4.8,
+            "y": 0.1,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "back_cabinet_1",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": 7,
+            "y": 1.1,
+            "z": -7
+          },
+          "size": {
+            "x": 3,
+            "y": 2.2,
+            "z": 0.7
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "cabinet_handle_1_-0.75",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 6.25,
+            "y": 1.15,
+            "z": -6.61
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cabinet_handle_1_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 7,
+            "y": 1.15,
+            "z": -6.61
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "cabinet_handle_1_0.75",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 7.75,
+            "y": 1.15,
+            "z": -6.61
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "workbench",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 0,
+            "y": 0.45,
+            "z": -2.4
+          },
+          "size": {
+            "x": 4,
+            "y": 0.9,
+            "z": 1.2
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "workbench_top",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 0,
+            "y": 0.96,
+            "z": -2.4
+          },
+          "size": {
+            "x": 4.2,
+            "y": 0.12,
+            "z": 1.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "vise",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -1.5,
+            "y": 1.15,
+            "z": -2.4
+          },
+          "size": {
+            "x": 0.5,
+            "y": 0.3,
+            "z": 0.45
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "locker_0",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": -12,
+            "y": 1.05,
+            "z": -2
+          },
+          "size": {
+            "x": 0.7,
+            "y": 2.1,
+            "z": 2.4
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "locker_handle_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -11.61,
+            "y": 1.1,
+            "z": -2
+          },
+          "size": {
+            "x": 0.04,
+            "y": 0.3,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "locker_1",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": -12,
+            "y": 1.05,
+            "z": 1
+          },
+          "size": {
+            "x": 0.7,
+            "y": 2.1,
+            "z": 2.4
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "locker_handle_1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -11.61,
+            "y": 1.1,
+            "z": 1
+          },
+          "size": {
+            "x": 0.04,
+            "y": 0.3,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "drum_0",
+          "kind": "cylinder",
+          "material": "amber",
+          "position": {
+            "x": 8.0,
+            "y": 0.55,
+            "z": -5.5
+          },
+          "size": {
+            "x": 0.6,
+            "y": 1.1,
+            "z": 0.6
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "drum_1",
+          "kind": "cylinder",
+          "material": "amber",
+          "position": {
+            "x": 8.75,
+            "y": 0.55,
+            "z": -5.5
+          },
+          "size": {
+            "x": 0.6,
+            "y": 1.1,
+            "z": 0.6
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "crate",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 8,
+            "y": 0.5,
+            "z": 1.8
+          },
+          "size": {
+            "x": 1.4,
+            "y": 1,
+            "z": 1.4
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "notice_board",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -7,
+            "y": 1.8,
+            "z": -7.2
+          },
+          "size": {
+            "x": 2.6,
+            "y": 1.3,
+            "z": 0.14
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "notice_0",
+          "kind": "box",
+          "material": "paper",
+          "position": {
+            "x": -8.0,
+            "y": 1.85,
+            "z": -7.1
+          },
+          "size": {
+            "x": 0.3,
+            "y": 0.7,
+            "z": 0.025
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "notice_1",
+          "kind": "box",
+          "material": "paper",
+          "position": {
+            "x": -7.55,
+            "y": 1.85,
+            "z": -7.1
+          },
+          "size": {
+            "x": 0.3,
+            "y": 0.7,
+            "z": 0.025
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "notice_2",
+          "kind": "box",
+          "material": "paper",
+          "position": {
+            "x": -7.1,
+            "y": 1.85,
+            "z": -7.1
+          },
+          "size": {
+            "x": 0.3,
+            "y": 0.7,
+            "z": 0.025
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "notice_3",
+          "kind": "box",
+          "material": "paper",
+          "position": {
+            "x": -6.65,
+            "y": 1.85,
+            "z": -7.1
+          },
+          "size": {
+            "x": 0.3,
+            "y": 0.7,
+            "z": 0.025
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "notice_4",
+          "kind": "box",
+          "material": "paper",
+          "position": {
+            "x": -6.2,
+            "y": 1.85,
+            "z": -7.1
+          },
+          "size": {
+            "x": 0.3,
+            "y": 0.7,
+            "z": 0.025
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "sign_panel",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": 0,
+            "y": 3.65,
+            "z": 7.7
+          },
+          "size": {
+            "x": 8.5,
+            "y": 1.1,
+            "z": 0.15
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "sign",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": 0,
+            "y": 3.65,
+            "z": 7.8
+          },
+          "size": {
+            "x": 7.8,
+            "y": 0.55,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "OFFICINA CAPOLINEA"
+        },
+        {
+          "id": "awning",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 0,
+            "y": 2.98,
+            "z": 8.0
+          },
+          "size": {
+            "x": 9.5,
+            "y": 0.16,
+            "z": 1.7
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "exit_sign",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": 12.2,
+            "y": 2.95,
+            "z": -2.4
+          },
+          "size": {
+            "x": 2,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 90,
+          "collider": false,
+          "text": "USCITA"
+        },
+        {
+          "id": "lamp_housing_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -7,
+            "y": 3.8,
+            "z": -0.5
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.35
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "lamp_strip_0",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": -7,
+            "y": 3.7,
+            "z": -0.5
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.25
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "light_0",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": -7,
+            "y": 3.5,
+            "z": -0.5
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 6,
+          "range": 14
+        },
+        {
+          "id": "lamp_housing_1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 0,
+            "y": 3.8,
+            "z": -0.5
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.35
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "lamp_strip_1",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 0,
+            "y": 3.7,
+            "z": -0.5
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.25
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "light_1",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 0,
+            "y": 3.5,
+            "z": -0.5
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 6,
+          "range": 14
+        },
+        {
+          "id": "lamp_housing_2",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 7,
+            "y": 3.8,
+            "z": -0.5
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.35
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "lamp_strip_2",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 7,
+            "y": 3.7,
+            "z": -0.5
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.25
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "light_2",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 7,
+            "y": 3.5,
+            "z": -0.5
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 6,
+          "range": 14
+        }
+      ],
+      "route": [
+        {
+          "x": 0,
+          "z": 5.5
+        },
+        {
+          "x": 0,
+          "z": 0
+        },
+        {
+          "x": -3.2,
+          "z": -2.4
+        },
+        {
+          "x": 0,
+          "z": -5.4
+        },
+        {
+          "x": 3.2,
+          "z": -2.4
+        },
+        {
+          "x": 10.5,
+          "z": -2.4
+        },
+        {
+          "x": 14,
+          "z": -2.4
+        },
+        {
+          "x": 0,
+          "z": 9.5
+        },
+        {
+          "x": 0,
+          "z": 5.5
+        }
+      ]
+    }
+  ]
+}
