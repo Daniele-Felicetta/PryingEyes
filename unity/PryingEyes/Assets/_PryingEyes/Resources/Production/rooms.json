@@ -77,6 +77,94 @@
       "metallic": 0,
       "smoothness": 0.15,
       "emission": 2
+    },
+    {
+      "id": "rack_blue",
+      "color": [
+        0.05,
+        0.16,
+        0.42
+      ],
+      "metallic": 0.35,
+      "smoothness": 0.35,
+      "emission": 0
+    },
+    {
+      "id": "safety_orange",
+      "color": [
+        0.78,
+        0.3,
+        0.04
+      ],
+      "metallic": 0.3,
+      "smoothness": 0.35,
+      "emission": 0
+    },
+    {
+      "id": "cardboard",
+      "color": [
+        0.52,
+        0.38,
+        0.22
+      ],
+      "metallic": 0,
+      "smoothness": 0.06,
+      "emission": 0
+    },
+    {
+      "id": "wrap",
+      "color": [
+        0.62,
+        0.68,
+        0.7
+      ],
+      "metallic": 0,
+      "smoothness": 0.55,
+      "emission": 0
+    },
+    {
+      "id": "yellow_paint",
+      "color": [
+        0.82,
+        0.62,
+        0.04
+      ],
+      "metallic": 0,
+      "smoothness": 0.3,
+      "emission": 0
+    },
+    {
+      "id": "rubber",
+      "color": [
+        0.025,
+        0.025,
+        0.03
+      ],
+      "metallic": 0,
+      "smoothness": 0.12,
+      "emission": 0
+    },
+    {
+      "id": "window_glass",
+      "color": [
+        0.1,
+        0.2,
+        0.25
+      ],
+      "metallic": 0,
+      "smoothness": 0.8,
+      "emission": 0
+    },
+    {
+      "id": "screen",
+      "color": [
+        0.25,
+        0.95,
+        0.5
+      ],
+      "metallic": 0,
+      "smoothness": 0.4,
+      "emission": 2.5
     }
   ],
   "rooms": [
@@ -876,6 +964,3354 @@
         {
           "x": 0,
           "z": 5.5
+        }
+      ],
+      "views": [
+        {
+          "name": "interior",
+          "position": {
+            "x": -8,
+            "z": 5.2
+          },
+          "target": {
+            "x": 0,
+            "y": 0.96,
+            "z": -2.4
+          }
+        }
+      ]
+    },
+    {
+      "id": "room_depot_station",
+      "name": "Deposito del capolinea",
+      "width": 25,
+      "depth": 15,
+      "doors": [
+        {
+          "side": "front",
+          "center": 0,
+          "width": 3.4,
+          "height": 2.6
+        },
+        {
+          "side": "left",
+          "center": 3.6,
+          "width": 3.4,
+          "height": 2.6
+        }
+      ],
+      "parts": [
+        {
+          "id": "deck",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 0,
+            "y": 3.15,
+            "z": -5.5
+          },
+          "size": {
+            "x": 24.7,
+            "y": 0.3,
+            "z": 3.7
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "deck_edge_beam",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 0,
+            "y": 2.85,
+            "z": -3.57
+          },
+          "size": {
+            "x": 24.7,
+            "y": 0.3,
+            "z": 0.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "deck_column_0",
+          "kind": "cylinder",
+          "material": "rack_blue",
+          "position": {
+            "x": -8,
+            "y": 1.5,
+            "z": -3.45
+          },
+          "size": {
+            "x": 0.36,
+            "y": 3.0,
+            "z": 0.36
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "deck_column_1",
+          "kind": "cylinder",
+          "material": "rack_blue",
+          "position": {
+            "x": -4,
+            "y": 1.5,
+            "z": -3.45
+          },
+          "size": {
+            "x": 0.36,
+            "y": 3.0,
+            "z": 0.36
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "deck_column_2",
+          "kind": "cylinder",
+          "material": "rack_blue",
+          "position": {
+            "x": 0,
+            "y": 1.5,
+            "z": -3.45
+          },
+          "size": {
+            "x": 0.36,
+            "y": 3.0,
+            "z": 0.36
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "deck_column_3",
+          "kind": "cylinder",
+          "material": "rack_blue",
+          "position": {
+            "x": 4,
+            "y": 1.5,
+            "z": -3.45
+          },
+          "size": {
+            "x": 0.36,
+            "y": 3.0,
+            "z": 0.36
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "deck_column_4",
+          "kind": "cylinder",
+          "material": "rack_blue",
+          "position": {
+            "x": 8,
+            "y": 1.5,
+            "z": -3.45
+          },
+          "size": {
+            "x": 0.36,
+            "y": 3.0,
+            "z": 0.36
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "stair_l",
+          "kind": "stairs",
+          "material": "steel",
+          "position": {
+            "x": -11.4,
+            "y": 1.65,
+            "z": -1.525
+          },
+          "size": {
+            "x": 2.0,
+            "y": 3.3,
+            "z": 4.25
+          },
+          "yaw": 180,
+          "collider": true,
+          "steps": 17
+        },
+        {
+          "id": "stair_mark_l",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -11.4,
+            "y": 0.012,
+            "z": 0.9
+          },
+          "size": {
+            "x": 2.0,
+            "y": 0.02,
+            "z": 0.25
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "stair_r",
+          "kind": "stairs",
+          "material": "steel",
+          "position": {
+            "x": 11.4,
+            "y": 1.65,
+            "z": -1.525
+          },
+          "size": {
+            "x": 2.0,
+            "y": 3.3,
+            "z": 4.25
+          },
+          "yaw": 180,
+          "collider": true,
+          "steps": 17
+        },
+        {
+          "id": "stair_mark_r",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 11.4,
+            "y": 0.012,
+            "z": 0.9
+          },
+          "size": {
+            "x": 2.0,
+            "y": 0.02,
+            "z": 0.25
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rail_top",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0.0,
+            "y": 4.35,
+            "z": -3.59
+          },
+          "size": {
+            "x": 20.6,
+            "y": 0.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_mid",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0.0,
+            "y": 3.85,
+            "z": -3.59
+          },
+          "size": {
+            "x": 20.6,
+            "y": 0.04,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rail_kick",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0.0,
+            "y": 3.38,
+            "z": -3.59
+          },
+          "size": {
+            "x": 20.6,
+            "y": 0.16,
+            "z": 0.03
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rail_post_0",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -10.3,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_1",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -8.427,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_2",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -6.555,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_3",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -4.682,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_4",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -2.809,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_5",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -0.936,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_6",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0.936,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_7",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 2.809,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_8",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 4.682,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_9",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 6.555,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_10",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 8.427,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rail_post_11",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 10.3,
+            "y": 3.83,
+            "z": -3.59
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.06,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "desk",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -9.0,
+            "y": 3.7,
+            "z": -6.7
+          },
+          "size": {
+            "x": 2.4,
+            "y": 0.8,
+            "z": 0.9
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "desk_screen",
+          "kind": "box",
+          "material": "screen",
+          "position": {
+            "x": -9.0,
+            "y": 4.3,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.7,
+            "y": 0.42,
+            "z": 0.04
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "desk_stand",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -9.0,
+            "y": 4.15,
+            "z": -6.95
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.12,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "deck_crate_0",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 6.5,
+            "y": 3.8,
+            "z": -6.5
+          },
+          "size": {
+            "x": 1.2,
+            "y": 1.0,
+            "z": 1.2
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "deck_crate_1",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 7.8,
+            "y": 3.7,
+            "z": -6.6
+          },
+          "size": {
+            "x": 1.0,
+            "y": 0.8,
+            "z": 1.0
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "deck_crate_2",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 6.9,
+            "y": 4.6,
+            "z": -6.5
+          },
+          "size": {
+            "x": 0.9,
+            "y": 0.8,
+            "z": 0.9
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "deck_lamp_post",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -5.0,
+            "y": 4.5,
+            "z": -7.2
+          },
+          "size": {
+            "x": 0.1,
+            "y": 2.4,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "deck_light_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -5.0,
+            "y": 6.0,
+            "z": -6.9
+          },
+          "size": {
+            "x": 1.4,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "deck_light_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": -5.0,
+            "y": 5.9,
+            "z": -6.9
+          },
+          "size": {
+            "x": 1.2,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "deck_light",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": -5.0,
+            "y": 5.7,
+            "z": -6.9
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 4,
+          "range": 9
+        },
+        {
+          "id": "rack_a1_goods",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -6.5,
+            "y": 0.8,
+            "z": 2.4
+          },
+          "size": {
+            "x": 5.0,
+            "y": 1.6,
+            "z": 1.1
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rack_a1_load_a0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -8.167,
+            "y": 0.82,
+            "z": 1.83
+          },
+          "size": {
+            "x": 1.487,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_load_a1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -6.5,
+            "y": 0.82,
+            "z": 1.83
+          },
+          "size": {
+            "x": 1.487,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_load_a2",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -4.833,
+            "y": 0.82,
+            "z": 1.83
+          },
+          "size": {
+            "x": 1.487,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_load_b0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -8.167,
+            "y": 0.82,
+            "z": 2.97
+          },
+          "size": {
+            "x": 1.487,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_load_b1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -6.5,
+            "y": 0.82,
+            "z": 2.97
+          },
+          "size": {
+            "x": 1.487,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_load_b2",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -4.833,
+            "y": 0.82,
+            "z": 2.97
+          },
+          "size": {
+            "x": 1.487,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_beam_0",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -6.5,
+            "y": 1.75,
+            "z": 2.4
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_beam_1",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -6.5,
+            "y": 3.0,
+            "z": 2.4
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_beam_2",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -6.5,
+            "y": 4.25,
+            "z": 2.4
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_post_0a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -8.95,
+            "y": 2.7,
+            "z": 1.89
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_post_0b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -8.95,
+            "y": 2.7,
+            "z": 2.91
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_post_1a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -6.5,
+            "y": 2.7,
+            "z": 1.89
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_post_1b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -6.5,
+            "y": 2.7,
+            "z": 2.91
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_post_2a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -4.05,
+            "y": 2.7,
+            "z": 1.89
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_post_2b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -4.05,
+            "y": 2.7,
+            "z": 2.91
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_stock_1_0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -7.75,
+            "y": 3.51,
+            "z": 2.4
+          },
+          "size": {
+            "x": 2.2,
+            "y": 0.9,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_stock_1_1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -5.25,
+            "y": 3.585,
+            "z": 2.4
+          },
+          "size": {
+            "x": 2.2,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_stock_2_0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -7.75,
+            "y": 4.835,
+            "z": 2.4
+          },
+          "size": {
+            "x": 2.2,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a1_stock_2_1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -5.25,
+            "y": 4.685,
+            "z": 2.4
+          },
+          "size": {
+            "x": 2.2,
+            "y": 0.75,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_goods",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 6.75,
+            "y": 0.8,
+            "z": 2.4
+          },
+          "size": {
+            "x": 4.5,
+            "y": 1.6,
+            "z": 1.1
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rack_a2_load_a0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 5.625,
+            "y": 0.82,
+            "z": 1.83
+          },
+          "size": {
+            "x": 2.07,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_load_a1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 7.875,
+            "y": 0.82,
+            "z": 1.83
+          },
+          "size": {
+            "x": 2.07,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_load_b0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 5.625,
+            "y": 0.82,
+            "z": 2.97
+          },
+          "size": {
+            "x": 2.07,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_load_b1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 7.875,
+            "y": 0.82,
+            "z": 2.97
+          },
+          "size": {
+            "x": 2.07,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_beam_0",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 6.75,
+            "y": 1.75,
+            "z": 2.4
+          },
+          "size": {
+            "x": 4.5,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_beam_1",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 6.75,
+            "y": 3.0,
+            "z": 2.4
+          },
+          "size": {
+            "x": 4.5,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_beam_2",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 6.75,
+            "y": 4.25,
+            "z": 2.4
+          },
+          "size": {
+            "x": 4.5,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_post_0a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 4.55,
+            "y": 2.7,
+            "z": 1.89
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_post_0b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 4.55,
+            "y": 2.7,
+            "z": 2.91
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_post_1a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 6.75,
+            "y": 2.7,
+            "z": 1.89
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_post_1b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 6.75,
+            "y": 2.7,
+            "z": 2.91
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_post_2a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 8.95,
+            "y": 2.7,
+            "z": 1.89
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_post_2b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 8.95,
+            "y": 2.7,
+            "z": 2.91
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_stock_1_0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 5.625,
+            "y": 3.51,
+            "z": 2.4
+          },
+          "size": {
+            "x": 1.95,
+            "y": 0.9,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_stock_1_1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 7.875,
+            "y": 3.585,
+            "z": 2.4
+          },
+          "size": {
+            "x": 1.95,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_stock_2_0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 5.625,
+            "y": 4.835,
+            "z": 2.4
+          },
+          "size": {
+            "x": 1.95,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_a2_stock_2_1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 7.875,
+            "y": 4.685,
+            "z": 2.4
+          },
+          "size": {
+            "x": 1.95,
+            "y": 0.75,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_goods",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -7.0,
+            "y": 0.8,
+            "z": -1.2
+          },
+          "size": {
+            "x": 4.0,
+            "y": 1.6,
+            "z": 1.1
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rack_b1_load_a0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -8.0,
+            "y": 0.82,
+            "z": -1.77
+          },
+          "size": {
+            "x": 1.82,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_load_a1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -6.0,
+            "y": 0.82,
+            "z": -1.77
+          },
+          "size": {
+            "x": 1.82,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_load_b0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -8.0,
+            "y": 0.82,
+            "z": -0.63
+          },
+          "size": {
+            "x": 1.82,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_load_b1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -6.0,
+            "y": 0.82,
+            "z": -0.63
+          },
+          "size": {
+            "x": 1.82,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_beam_0",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -7.0,
+            "y": 1.75,
+            "z": -1.2
+          },
+          "size": {
+            "x": 4.0,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_beam_1",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -7.0,
+            "y": 3.0,
+            "z": -1.2
+          },
+          "size": {
+            "x": 4.0,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_beam_2",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": -7.0,
+            "y": 4.25,
+            "z": -1.2
+          },
+          "size": {
+            "x": 4.0,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_post_0a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -8.95,
+            "y": 2.7,
+            "z": -1.71
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_post_0b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -8.95,
+            "y": 2.7,
+            "z": -0.69
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_post_1a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -7.0,
+            "y": 2.7,
+            "z": -1.71
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_post_1b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -7.0,
+            "y": 2.7,
+            "z": -0.69
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_post_2a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -5.05,
+            "y": 2.7,
+            "z": -1.71
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_post_2b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -5.05,
+            "y": 2.7,
+            "z": -0.69
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_stock_1_0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -8.0,
+            "y": 3.51,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.7,
+            "y": 0.9,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_stock_1_1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -6.0,
+            "y": 3.585,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.7,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_stock_2_0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -8.0,
+            "y": 4.835,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.7,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b1_stock_2_1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -6.0,
+            "y": 4.685,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.7,
+            "y": 0.75,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_goods",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 0.0,
+            "y": 0.8,
+            "z": -1.2
+          },
+          "size": {
+            "x": 4.0,
+            "y": 1.6,
+            "z": 1.1
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rack_b2_load_a0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -1.0,
+            "y": 0.82,
+            "z": -1.77
+          },
+          "size": {
+            "x": 1.82,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_load_a1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 1.0,
+            "y": 0.82,
+            "z": -1.77
+          },
+          "size": {
+            "x": 1.82,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_load_b0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -1.0,
+            "y": 0.82,
+            "z": -0.63
+          },
+          "size": {
+            "x": 1.82,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_load_b1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 1.0,
+            "y": 0.82,
+            "z": -0.63
+          },
+          "size": {
+            "x": 1.82,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_beam_0",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 0.0,
+            "y": 1.75,
+            "z": -1.2
+          },
+          "size": {
+            "x": 4.0,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_beam_1",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 0.0,
+            "y": 3.0,
+            "z": -1.2
+          },
+          "size": {
+            "x": 4.0,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_beam_2",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 0.0,
+            "y": 4.25,
+            "z": -1.2
+          },
+          "size": {
+            "x": 4.0,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_post_0a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -1.95,
+            "y": 2.7,
+            "z": -1.71
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_post_0b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": -1.95,
+            "y": 2.7,
+            "z": -0.69
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_post_1a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 0.0,
+            "y": 2.7,
+            "z": -1.71
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_post_1b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 0.0,
+            "y": 2.7,
+            "z": -0.69
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_post_2a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 1.95,
+            "y": 2.7,
+            "z": -1.71
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_post_2b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 1.95,
+            "y": 2.7,
+            "z": -0.69
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_stock_1_0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -1.0,
+            "y": 3.51,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.7,
+            "y": 0.9,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_stock_1_1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 1.0,
+            "y": 3.585,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.7,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_stock_2_0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": -1.0,
+            "y": 4.835,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.7,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b2_stock_2_1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 1.0,
+            "y": 4.685,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.7,
+            "y": 0.75,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_goods",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 6.75,
+            "y": 0.8,
+            "z": -1.2
+          },
+          "size": {
+            "x": 3.5,
+            "y": 1.6,
+            "z": 1.1
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "rack_b3_load_a0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 5.875,
+            "y": 0.82,
+            "z": -1.77
+          },
+          "size": {
+            "x": 1.57,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_load_a1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 7.625,
+            "y": 0.82,
+            "z": -1.77
+          },
+          "size": {
+            "x": 1.57,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_load_b0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 5.875,
+            "y": 0.82,
+            "z": -0.63
+          },
+          "size": {
+            "x": 1.57,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_load_b1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 7.625,
+            "y": 0.82,
+            "z": -0.63
+          },
+          "size": {
+            "x": 1.57,
+            "y": 1.5,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_beam_0",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 6.75,
+            "y": 1.75,
+            "z": -1.2
+          },
+          "size": {
+            "x": 3.5,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_beam_1",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 6.75,
+            "y": 3.0,
+            "z": -1.2
+          },
+          "size": {
+            "x": 3.5,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_beam_2",
+          "kind": "box",
+          "material": "safety_orange",
+          "position": {
+            "x": 6.75,
+            "y": 4.25,
+            "z": -1.2
+          },
+          "size": {
+            "x": 3.5,
+            "y": 0.12,
+            "z": 1.16
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_post_0a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 5.05,
+            "y": 2.7,
+            "z": -1.71
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_post_0b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 5.05,
+            "y": 2.7,
+            "z": -0.69
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_post_1a",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 8.45,
+            "y": 2.7,
+            "z": -1.71
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_post_1b",
+          "kind": "box",
+          "material": "rack_blue",
+          "position": {
+            "x": 8.45,
+            "y": 2.7,
+            "z": -0.69
+          },
+          "size": {
+            "x": 0.1,
+            "y": 5.4,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_stock_1_0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 5.875,
+            "y": 3.51,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.45,
+            "y": 0.9,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_stock_1_1",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 7.625,
+            "y": 3.585,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.45,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_stock_2_0",
+          "kind": "box",
+          "material": "cardboard",
+          "position": {
+            "x": 5.875,
+            "y": 4.835,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.45,
+            "y": 1.05,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "rack_b3_stock_2_1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 7.625,
+            "y": 4.685,
+            "z": -1.2
+          },
+          "size": {
+            "x": 1.45,
+            "y": 0.75,
+            "z": 0.88
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "dock_door_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -7.0,
+            "y": 1.45,
+            "z": -7.3
+          },
+          "size": {
+            "x": 3.2,
+            "y": 2.9,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "dock_band_0",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -7.0,
+            "y": 0.15,
+            "z": -7.25
+          },
+          "size": {
+            "x": 3.2,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "dock_number_0",
+          "kind": "label",
+          "material": "yellow_paint",
+          "position": {
+            "x": -7.0,
+            "y": 2.35,
+            "z": -7.2
+          },
+          "size": {
+            "x": 0.8,
+            "y": 0.8,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "1"
+        },
+        {
+          "id": "dock_door_1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 0.0,
+            "y": 1.45,
+            "z": -7.3
+          },
+          "size": {
+            "x": 3.2,
+            "y": 2.9,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "dock_band_1",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0.0,
+            "y": 0.15,
+            "z": -7.25
+          },
+          "size": {
+            "x": 3.2,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "dock_number_1",
+          "kind": "label",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0.0,
+            "y": 2.35,
+            "z": -7.2
+          },
+          "size": {
+            "x": 0.8,
+            "y": 0.8,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "2"
+        },
+        {
+          "id": "dock_door_2",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 7.0,
+            "y": 1.45,
+            "z": -7.3
+          },
+          "size": {
+            "x": 3.2,
+            "y": 2.9,
+            "z": 0.08
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "dock_band_2",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 7.0,
+            "y": 0.15,
+            "z": -7.25
+          },
+          "size": {
+            "x": 3.2,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "dock_number_2",
+          "kind": "label",
+          "material": "yellow_paint",
+          "position": {
+            "x": 7.0,
+            "y": 2.35,
+            "z": -7.2
+          },
+          "size": {
+            "x": 0.8,
+            "y": 0.8,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "3"
+        },
+        {
+          "id": "pallet_0",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -11.3,
+            "y": 0.08,
+            "z": -6.3
+          },
+          "size": {
+            "x": 1.4,
+            "y": 0.16,
+            "z": 1.2
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "pallet_load_0",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -11.3,
+            "y": 0.71,
+            "z": -6.3
+          },
+          "size": {
+            "x": 1.25,
+            "y": 1.1,
+            "z": 1.05
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "pallet_1",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": -11.3,
+            "y": 0.08,
+            "z": -4.6
+          },
+          "size": {
+            "x": 1.4,
+            "y": 0.16,
+            "z": 1.2
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "pallet_load_1",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": -11.3,
+            "y": 0.71,
+            "z": -4.6
+          },
+          "size": {
+            "x": 1.25,
+            "y": 1.1,
+            "z": 1.05
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "pallet_2",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 11.3,
+            "y": 0.08,
+            "z": -6.4
+          },
+          "size": {
+            "x": 1.4,
+            "y": 0.16,
+            "z": 1.2
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "pallet_load_2",
+          "kind": "box",
+          "material": "wrap",
+          "position": {
+            "x": 11.3,
+            "y": 0.71,
+            "z": -6.4
+          },
+          "size": {
+            "x": 1.25,
+            "y": 1.1,
+            "z": 1.05
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "drum_0",
+          "kind": "cylinder",
+          "material": "amber",
+          "position": {
+            "x": -9.4,
+            "y": 0.55,
+            "z": -6.6
+          },
+          "size": {
+            "x": 0.6,
+            "y": 1.1,
+            "z": 0.6
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "drum_1",
+          "kind": "cylinder",
+          "material": "amber",
+          "position": {
+            "x": -8.6,
+            "y": 0.55,
+            "z": -6.2
+          },
+          "size": {
+            "x": 0.6,
+            "y": 1.1,
+            "z": 0.6
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "under_light_0_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -5.5,
+            "y": 2.65,
+            "z": -5.3
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "under_light_0_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": -5.5,
+            "y": 2.55,
+            "z": -5.3
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "under_light_0",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": -5.5,
+            "y": 2.35,
+            "z": -5.3
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 3.2,
+          "range": 7
+        },
+        {
+          "id": "under_light_1_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 5.5,
+            "y": 2.65,
+            "z": -5.3
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "under_light_1_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 5.5,
+            "y": 2.55,
+            "z": -5.3
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "under_light_1",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 5.5,
+            "y": 2.35,
+            "z": -5.3
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 3.2,
+          "range": 7
+        },
+        {
+          "id": "office_body",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": 9.9,
+            "y": 1.3,
+            "z": 5.5
+          },
+          "size": {
+            "x": 4.8,
+            "y": 2.6,
+            "z": 3.6
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "office_roof",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 9.9,
+            "y": 2.68,
+            "z": 5.5
+          },
+          "size": {
+            "x": 5.0,
+            "y": 0.16,
+            "z": 3.8
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "office_window_s",
+          "kind": "box",
+          "material": "window_glass",
+          "position": {
+            "x": 8.8,
+            "y": 1.65,
+            "z": 3.67
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.9,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "office_window_w",
+          "kind": "box",
+          "material": "window_glass",
+          "position": {
+            "x": 7.47,
+            "y": 1.65,
+            "z": 5.5
+          },
+          "size": {
+            "x": 0.05,
+            "y": 0.9,
+            "z": 1.8
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "office_door",
+          "kind": "box",
+          "material": "wood",
+          "position": {
+            "x": 11.4,
+            "y": 1.0,
+            "z": 3.67
+          },
+          "size": {
+            "x": 0.9,
+            "y": 2.0,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "office_label",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": 11.4,
+            "y": 2.3,
+            "z": 3.65
+          },
+          "size": {
+            "x": 1.5,
+            "y": 0.26,
+            "z": 0.05
+          },
+          "yaw": 0,
+          "collider": false,
+          "text": "UFFICIO"
+        },
+        {
+          "id": "forklift_body",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -6.5,
+            "y": 0.5,
+            "z": 5.6
+          },
+          "size": {
+            "x": 1.7,
+            "y": 0.8,
+            "z": 1.2
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "forklift_weight",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -7.45,
+            "y": 0.6,
+            "z": 5.6
+          },
+          "size": {
+            "x": 0.55,
+            "y": 1.0,
+            "z": 1.2
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "forklift_hood",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -6.3,
+            "y": 0.98,
+            "z": 5.6
+          },
+          "size": {
+            "x": 0.8,
+            "y": 0.16,
+            "z": 1.0
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_seat",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -6.85,
+            "y": 1.05,
+            "z": 5.6
+          },
+          "size": {
+            "x": 0.55,
+            "y": 0.3,
+            "z": 0.55
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_pillar_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -7.0,
+            "y": 1.55,
+            "z": 5.05
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.1,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_pillar_1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -7.0,
+            "y": 1.55,
+            "z": 6.15
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.1,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_pillar_2",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -5.95,
+            "y": 1.55,
+            "z": 5.05
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.1,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_pillar_3",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -5.95,
+            "y": 1.55,
+            "z": 6.15
+          },
+          "size": {
+            "x": 0.06,
+            "y": 1.1,
+            "z": 0.06
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_roof",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -6.48,
+            "y": 2.12,
+            "z": 5.6
+          },
+          "size": {
+            "x": 1.3,
+            "y": 0.06,
+            "z": 1.3
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_mast",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -5.5,
+            "y": 1.2,
+            "z": 5.6
+          },
+          "size": {
+            "x": 0.14,
+            "y": 2.4,
+            "z": 0.8
+          },
+          "yaw": 0,
+          "collider": true
+        },
+        {
+          "id": "forklift_fork_0",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -4.9,
+            "y": 0.1,
+            "z": 5.25
+          },
+          "size": {
+            "x": 1.2,
+            "y": 0.06,
+            "z": 0.12
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_fork_1",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -4.9,
+            "y": 0.1,
+            "z": 5.95
+          },
+          "size": {
+            "x": 1.2,
+            "y": 0.06,
+            "z": 0.12
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_wheel_0",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -7.1,
+            "y": 0.27,
+            "z": 4.95
+          },
+          "size": {
+            "x": 0.55,
+            "y": 0.54,
+            "z": 0.26
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_wheel_1",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -7.1,
+            "y": 0.27,
+            "z": 6.25
+          },
+          "size": {
+            "x": 0.55,
+            "y": 0.54,
+            "z": 0.26
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_wheel_2",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -5.85,
+            "y": 0.27,
+            "z": 4.95
+          },
+          "size": {
+            "x": 0.55,
+            "y": 0.54,
+            "z": 0.26
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "forklift_wheel_3",
+          "kind": "box",
+          "material": "rubber",
+          "position": {
+            "x": -5.85,
+            "y": 0.27,
+            "z": 6.25
+          },
+          "size": {
+            "x": 0.55,
+            "y": 0.54,
+            "z": 0.26
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "threshold_front",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0,
+            "y": 0.012,
+            "z": 6.7
+          },
+          "size": {
+            "x": 3.6,
+            "y": 0.02,
+            "z": 0.3
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "threshold_left",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": -11.8,
+            "y": 0.012,
+            "z": 3.6
+          },
+          "size": {
+            "x": 0.3,
+            "y": 0.02,
+            "z": 3.6
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "lane_0",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0,
+            "y": 0.012,
+            "z": 3.35
+          },
+          "size": {
+            "x": 22.0,
+            "y": 0.02,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "lane_1",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0,
+            "y": 0.012,
+            "z": 0.45
+          },
+          "size": {
+            "x": 22.0,
+            "y": 0.02,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "lane_2",
+          "kind": "box",
+          "material": "yellow_paint",
+          "position": {
+            "x": 0,
+            "y": 0.012,
+            "z": -2.2
+          },
+          "size": {
+            "x": 22.0,
+            "y": 0.02,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "sign_panel",
+          "kind": "box",
+          "material": "paint",
+          "position": {
+            "x": 0,
+            "y": 3.65,
+            "z": 7.7
+          },
+          "size": {
+            "x": 8.5,
+            "y": 1.1,
+            "z": 0.15
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "sign",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": 0,
+            "y": 3.65,
+            "z": 7.8
+          },
+          "size": {
+            "x": 7.8,
+            "y": 0.55,
+            "z": 0.05
+          },
+          "yaw": 180,
+          "collider": false,
+          "text": "DEPOSITO MERCI"
+        },
+        {
+          "id": "awning",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 0,
+            "y": 2.98,
+            "z": 8.0
+          },
+          "size": {
+            "x": 9.5,
+            "y": 0.16,
+            "z": 1.7
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "exit_sign",
+          "kind": "label",
+          "material": "paper",
+          "position": {
+            "x": -12.2,
+            "y": 2.95,
+            "z": 3.6
+          },
+          "size": {
+            "x": 2.0,
+            "y": 0.3,
+            "z": 0.05
+          },
+          "yaw": 270,
+          "collider": false,
+          "text": "USCITA"
+        },
+        {
+          "id": "hall_light_0_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": -8.0,
+            "y": 5.5,
+            "z": 1.0
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_0_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": -8.0,
+            "y": 5.4,
+            "z": 1.0
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_0",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": -8.0,
+            "y": 5.2,
+            "z": 1.0
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 9,
+          "range": 17
+        },
+        {
+          "id": "hall_light_1_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 0.0,
+            "y": 5.5,
+            "z": 1.0
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_1_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 0.0,
+            "y": 5.4,
+            "z": 1.0
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_1",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 0.0,
+            "y": 5.2,
+            "z": 1.0
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 9,
+          "range": 17
+        },
+        {
+          "id": "hall_light_2_housing",
+          "kind": "box",
+          "material": "steel",
+          "position": {
+            "x": 8.0,
+            "y": 5.5,
+            "z": 1.0
+          },
+          "size": {
+            "x": 1.8,
+            "y": 0.15,
+            "z": 0.4
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_2_strip",
+          "kind": "box",
+          "material": "warm_light",
+          "position": {
+            "x": 8.0,
+            "y": 5.4,
+            "z": 1.0
+          },
+          "size": {
+            "x": 1.6,
+            "y": 0.05,
+            "z": 0.28
+          },
+          "yaw": 0,
+          "collider": false
+        },
+        {
+          "id": "hall_light_2",
+          "kind": "light",
+          "material": "warm_light",
+          "position": {
+            "x": 8.0,
+            "y": 5.2,
+            "z": 1.0
+          },
+          "size": {
+            "x": 0.1,
+            "y": 0.1,
+            "z": 0.1
+          },
+          "yaw": 0,
+          "collider": false,
+          "intensity": 9,
+          "range": 17
+        }
+      ],
+      "route": [
+        {
+          "x": 0,
+          "z": 5.8
+        },
+        {
+          "x": 0,
+          "z": 0.4
+        },
+        {
+          "x": 7.0,
+          "z": 0.4
+        },
+        {
+          "x": 11.4,
+          "z": 1.2
+        },
+        {
+          "x": 11.4,
+          "y": 3.3,
+          "z": -5.3
+        },
+        {
+          "x": -11.4,
+          "y": 3.3,
+          "z": -5.3
+        },
+        {
+          "x": -11.4,
+          "z": 1.2
+        },
+        {
+          "x": -10.0,
+          "z": 3.6
+        },
+        {
+          "x": -14.0,
+          "z": 3.6
+        }
+      ],
+      "views": [
+        {
+          "name": "interior",
+          "position": {
+            "x": -3.0,
+            "z": 5.7
+          },
+          "target": {
+            "x": 3.0,
+            "y": 1.9,
+            "z": -4.0
+          }
+        },
+        {
+          "name": "deck",
+          "position": {
+            "x": -5.5,
+            "y": 3.3,
+            "z": -5.3
+          },
+          "target": {
+            "x": 3.0,
+            "y": 0.8,
+            "z": 3.0
+          }
+        },
+        {
+          "name": "stairs",
+          "position": {
+            "x": 8.8,
+            "z": 1.6
+          },
+          "target": {
+            "x": 11.4,
+            "y": 2.4,
+            "z": -3.3
+          }
         }
       ]
     }

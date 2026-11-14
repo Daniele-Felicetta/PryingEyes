@@ -156,8 +156,9 @@ prima della correzione; ora e' respinto sia nella CLI sia nel progetto indipende
 L'isolato sud-ovest usa ora una ricetta arredata dal catalogo delle stanze: banconi,
 banco di lavoro, armadi, fusti, insegna, illuminazione e uscita laterale. I percorsi
 sono ampi e circolari attorno al banco: non sono generati spostando casualmente
-blocchi fino a ottenere una stanza piena. Le altre tre costruzioni restano ancora
-gusci generici e l'identità visiva del quartiere richiede ulteriore lavoro.
+blocchi fino a ottenere una stanza piena. Delle altre tre costruzioni solo il deposito
+e' stato arredato dopo (vedi in fondo); le altre restano gusci generici e l'identità
+visiva del quartiere richiede ulteriore lavoro.
 
 Il piano locale degli arredi è calcolato dal pacchetto senza Unity `RoomPlan`,
 consumato da PlanLab, CityBuilder e dal progetto indipendente LayoutDemo.
@@ -204,7 +205,44 @@ visibilita', lato di acquisto, collisioni, navigazione e addebito unico. La fili
 passa 103 verifiche native della citta', di cui 32 sugli accessi, e aggiorna
 CityPreview con 194 file verificati. Il progetto indipendente passa 17 controlli.
 
-Gli acquisti aprono gli interni dal reticolo stradale gia' disponibile. Tre edifici
-sono ancora gusci generici: percorsi alternativi, arredi, verticalita' e identita'
-visiva restano da completare. Questa fase non suddivide ancora l'intero quartiere
+Gli acquisti aprono gli interni dal reticolo stradale gia' disponibile. Due edifici
+(uffici e posto di controllo) sono ancora gusci generici: percorsi alternativi, arredi,
+verticalita' e identita' visiva restano da completare; il deposito e' stato arredato
+dopo (vedi sotto). Questa fase non suddivide ancora l'intero quartiere
 in settori acquistabili. Prove e limiti sono descritti in `production-studio.md`.
+
+
+## Deposito e soppalco
+
+L'isolato sud-est (750 punti) non e' piu' un guscio generico: usa la ricetta
+`room_depot_station`, un deposito di 25 x 15 m con due porte (fronte e lato sinistro,
+ognuna con la sua serranda finche' l'area non e' pagata) e un soppalco d'acciaio a
+3,3 m. Nella sala ci sono scaffalature a corsie numerate con merce, un carrello
+elevatore, plafoniere al neon e strisce gialle a terra. Il ponte corre lungo la parete
+di fondo con parapetto, colonne, casse e una lampada su palo, e si raggiunge da due
+rampe di 17 gradini agli estremi (alzata 19,4 cm, pedata 25 cm, larghezza 2 m): chi
+sale puo' scendere dall'altra rampa o dalla porta laterale, e i nemici lo inseguono
+lassu' con la stessa navigazione.
+
+La scala e' un solo elemento della ricetta: il pacchetto `RoomPlan` la espande in
+gradini solidi e rifiuta alzate oltre 20 cm, pedate sotto 25 cm e larghezze sotto
+1,2 m. Anche i punti del percorso e le viste fotografiche dichiarano l'altezza della
+superficie su cui si sta in piedi, e il pianificatore rifiuta quelli appesi nel vuoto
+o dentro un arredo. Le tre foto del deposito (sala, ponte, rampa) nascono dai dati
+della ricetta, non da posizioni scritte nel codice di prova. Un quartiere troppo
+stretto per la stanza fallisce nominandola: la pedata di 25 cm esiste solo in un
+isolato profondo almeno 15 m.
+
+Prova nativa del job `unity_logs/studio/20261114T191550Z-b0d1f465` (nessuna
+pubblicazione: la build verificata e' rimasta nella cartella del job, non in
+`Builds/CityPreview`): tutti i 1622 risultati passano, di cui 132 della citta'
+(52 sulle stanze, 32 sugli accessi), 1454 dello stato armi e 36 del survival; il
+gunplay passa 297/297 e il progetto indipendente 20 controlli
+(`unity_logs/room-stairs-independent/report.json`). Il controller reale percorre le
+otto tratte del deposito, due delle quali in quota (piedi a 3,62 m sul ponte); uno
+Spazzino che parte da terra sale a 3,3 m e raggiunge il giocatore sul ponte; un altro
+attraversa la porta sinistra per raggiungere chi sta in strada. Le foto sono in
+`city-runtime/room_depot_station_{interior,deck,stairs,exterior}.png`. Resta un
+blockout di primitive, piu' ricco ma non definitivo: modelli, decal e identita'
+visiva finali sono ancora da fare, e uffici e posto di controllo non hanno ancora
+interni propri.

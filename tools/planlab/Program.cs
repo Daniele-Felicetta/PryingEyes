@@ -30,12 +30,35 @@ static class Program
         return 1;
     }
 
+    // room <catalog> <id> <plan.json> [width depth]   plans one room;
+    // room <catalog> '*'  <plans.json> [width depth]   plans every room, writes {id: {plan} | {error}} and fails if any room failed.
+    static int AllRooms(JsonDocument catalog, string[] args, JsonSerializerOptions settings)
+    {
+        var results = new Dictionary<string, object>(); int failed = 0;
+        foreach (var item in catalog.RootElement.GetProperty("rooms").EnumerateArray())
+        {
+            string id = item.GetProperty("id").GetString();
+            try
+            {
+                var recipe = JsonSerializer.Deserialize<RoomPlan.Recipe>(item.GetRawText(), settings);
+                float width = args.Length > 4 ? float.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture) : recipe.width;
+                float depth = args.Length > 5 ? float.Parse(args[5], System.Globalization.CultureInfo.InvariantCulture) : recipe.depth;
+                results[id] = new { plan = RoomPlan.Create(recipe, width, depth) };
+            }
+            catch (Exception e) { failed++; results[id] = new { error = e.Message }; Console.Error.WriteLine("ROOM FAIL: " + id + ": " + e.Message); }
+        }
+        File.WriteAllText(args[3], JsonSerializer.Serialize(results, settings));
+        Console.WriteLine("ROOM CHECK: " + results.Count + " rooms, " + failed + " failed");
+        return failed == 0 ? 0 : 1;
+    }
+
     static int Room(string[] args)
     {
         try
         {
             var settings = new JsonSerializerOptions { IncludeFields = true, WriteIndented = true };
             using var catalog = JsonDocument.Parse(File.ReadAllText(args[1]));
+            if (args[2] == "*") return AllRooms(catalog, args, settings);
             foreach (var item in catalog.RootElement.GetProperty("rooms").EnumerateArray())
             {
                 if (item.GetProperty("id").GetString() != args[2]) continue;

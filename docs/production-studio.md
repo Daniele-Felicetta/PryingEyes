@@ -149,7 +149,8 @@ python -m unittest discover -s tools -p "test_rooms.py"
 `rooms.schema.json`: palette, dimensions, portals, furniture, labels, lights and
 route points. Each solid has explicit dimensions and collision; the schema bounds
 the content budget to 500 parts. IDs are stable and unique within their scope.
-The current recipe is a 25 × 15 m workshop with 43 parts and two exits.
+The catalog holds two 25 × 15 m recipes with two exits each: the workshop (43 parts)
+and the depot (189 recipe parts that plan to 221 solids once its stairs expand).
 
 `RoomPlan` belongs to the same engine-free `Production.Layout` assembly as the
 district planner. PlanLab compiles that exact source for the tools. It resizes the
@@ -157,7 +158,29 @@ recipe, checks solid bounds and rejects furniture in the door clearance bands.
 `CityRoomBuilder` is the Unity adapter: primitive geometry, materials, lighting,
 colliders and labels. It remains game-specific; this is not yet an extracted
 rendering or lighting framework. The floor material must currently be named
-`concrete`, and the first adapter supports boxes, cylinders, lights and labels.
+`concrete`, and the adapter supports boxes, cylinders, lights and labels; stairs
+reach it already expanded into boxes.
+
+A recipe can raise the floor, and the planner decides whether anyone could use it. A
+`stairs` part is one entry for a whole flight: its position and size are the solid
+bounding box (`x` across, `y` the total rise, `z` the run), `yaw` (a multiple of 90°)
+says where it climbs (0 towards +z, 90 +x, 180 −z, 270 −x) and `steps` counts the
+risers. The package expands it into solid boxes `<id>_01` to `<id>_NN` standing on the
+floor, so the adapter, the colliders and the navigation only ever see boxes, and it
+refuses a flight a walking agent could not climb: riser over 0.2 m
+(`ROOM_STAIRS_STEEP`), tread under 0.25 m (`ROOM_STAIRS_SHORT`), width under 1.2 m
+(`ROOM_STAIRS_NARROW`), fewer than two steps (`ROOM_STAIRS_STEPS`) or no collision
+(`ROOM_STAIRS_COLLIDER`).
+
+Route points and views are places to stand. Their `y` is the height of the surface
+under the feet (omitted: the floor). The planner requires a solid top within 5 cm of
+that height and 1.8 m of free space above it, so a route cannot hover over a deck or
+cross a rack (`ROOM_STAND_FLOATING`, `ROOM_STAND_BLOCKED`). `views` (at most eight) are
+named pictures, a stand point and a target; the native test photographs each of them,
+so evidence is comparable between runs and no camera position lives in C#. Heights
+never scale with the room. A part turned a quarter (yaw 90 or 270) now stretches along
+the plan's axes; the planner used to swap them when width and depth scaled by
+different ratios.
 
 Bind a recipe ID to a block in `City/citta.json` to test it in the city. Unknown
 blocks and duplicate bindings fail rather than disappearing from the result.
@@ -169,19 +192,31 @@ the native findings and links their evidence, including on native test failure.
 The lab produces an isolated cutaway preview, a local plan, a playable city build
 and in-game interior/exterior images. Native checks compare placements, bounds,
 collision and palette, walk the route with the real controller, and require an
-enemy to pursue the player through the side exit. The preview uses the existing
+enemy to pursue the player through the side exit. A room whose route climbs adds
+three more: the controller ends each raised leg standing on the planned surface
+(`ROOM_ROUTE_ELEVATED`), navigation exists under the highest route point
+(`ROOM_PERCH_NAV`), and a walker that starts on the floor climbs to the player on that
+surface (`ROOM_ENEMY_CLIMB`). The preview uses the existing
 ShotScene warm-up approach; its first render otherwise showed every surface with
 the same material. A passing geometry test is not an artistic approval.
 
 `unity/LayoutDemo` consumes `RoomPlan` with its own `Assets/room-demo.json`, without
-Prying Eyes scripts, catalog or materials. Its native verification produces eight
-checks, including a resized room, a rejected blocked exit and a separate room
-scene. The recorded proof is `unity_logs/workshop-independent/report.json`.
+Prying Eyes scripts, catalog or materials. Its report lists 20 checks, among them a
+resized room, a rejected blocked exit, a flight of stairs that reaches its deck, a
+route point resting on nothing, a flight too steep to climb and a separate room
+scene. The first eight were recorded in `unity_logs/workshop-independent/report.json`,
+all 20 in `unity_logs/room-stairs-independent/report.json`.
 
 Room contract checks resize the real workshop to 20 × 12 and 32 × 20 m and reject
 a deliberately blocked entrance, missing material, misspelled field and nonfinite
-coordinate. These are planner checks; native traversal is separately verified
-in the full pipeline at the dimensions actually used by the city.
+coordinate. They also plan every recipe of the catalog at its own size in one
+PlanLab run (`room <catalog> '*'`), expand flights in all four directions and reject
+each kind of unusable stair and standing place. A district whose block is too small
+for its bound room fails with the room and the block named
+(`ROOM_DOES_NOT_FIT: room_depot_station on Building_1_-1 at 25 x 12 m:
+ROOM_STAIRS_SHORT ...`): the depot's flight keeps a 0.25 m tread only in a block 15 m
+deep. These are planner checks; native traversal is separately verified in the full
+pipeline at the dimensions actually used by the city.
 
 Complete room job: `unity_logs/studio/20261114T092523Z-94b35b15/report.json`.
 All stages passed: **297/297 gunplay**, **67/67 native city/room findings**,
@@ -189,6 +224,17 @@ including sign visibility, and **192 published files** verified by SHA256 in
 `Builds/CityPreview`. `Builds/Prova` remains the separately verified Torre build.
 This proves the first furnished-room pipeline; the rest of the suite and the
 polished urban survival game remain open work.
+
+Depot job: `unity_logs/studio/20261114T191550Z-b0d1f465/report.json`, run without
+`--publish` (the verified build stayed in the job's own folder). All six stages passed
+in 245 s: **297/297 gunplay**, **132 native city findings** (52 about rooms, 32 about
+access), **1,454 weapon-state** and **36 survival-state** findings, and the
+fresh-import material check for the eight new materials. The route walks eight legs
+with the real controller, two of them raised: the player ends both standing at 3.62 m
+on the deck. A walker that starts on the floor climbs to 3.33 m to reach the player on
+the deck, and another crosses the depot's left door to catch someone in the street.
+Evidence images are `city-runtime/room_depot_station_{interior,deck,stairs,exterior}.png`
+in the job folder.
 
 
 ## Mechanical weapon-state module

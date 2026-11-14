@@ -49,6 +49,21 @@ public static class DistrictDemo
         var recipe = JsonUtility.FromJson<RoomPlan.Recipe>(File.ReadAllText("Assets/room-demo.json"));
         var room = RoomPlan.Create(recipe, 32, 20);
         if (room.width != 32 || room.parts[0].size.x != 4 * (32f / 24)) throw new Exception("Room scaling ignored");
+        // One stairs entry becomes a flight of solid steps that rise from the floor to the deck the route ends on.
+        var steps = Array.FindAll(room.parts, p => p.id.StartsWith("flight_"));
+        var top = steps[steps.Length - 1];
+        if (steps.Length != 10 || Math.Abs(top.position.y + top.size.y / 2 - 2f) > 1e-3 || room.route[room.route.Length - 1].y != 2f)
+            throw new Exception("Stairs were not expanded into a flight reaching the deck");
+        var tall = JsonUtility.FromJson<RoomPlan.Recipe>(File.ReadAllText("Assets/room-demo.json"));
+        tall.route[tall.route.Length - 1].y = 2.5f;     // hovering half a metre above the deck
+        rejected = false;
+        try { RoomPlan.Create(tall, 24, 14); } catch (ArgumentException e) { rejected = e.Message.StartsWith("ROOM_STAND_FLOATING"); }
+        if (!rejected) throw new Exception("A route point resting on nothing was accepted");
+        tall = JsonUtility.FromJson<RoomPlan.Recipe>(File.ReadAllText("Assets/room-demo.json"));
+        tall.parts[1].steps = 5;
+        rejected = false;
+        try { RoomPlan.Create(tall, 24, 14); } catch (ArgumentException e) { rejected = e.Message.StartsWith("ROOM_STAIRS_STEEP"); }
+        if (!rejected) throw new Exception("A flight too steep to climb was accepted");
         recipe.parts[0].position = new RoomPlan.Vector(0, .5f, 6);
         rejected = false;
         try { RoomPlan.Create(recipe, 24, 14); } catch (ArgumentException e) { rejected = e.Message.StartsWith("PASSAGE_BLOCKED"); }
@@ -88,7 +103,7 @@ public static class DistrictDemo
         access.ResetDemo();
         EditorSceneManager.SaveScene(roomScene, "Assets/RoomDemo.unity");
         File.WriteAllText(Path.Combine(folder, "room.json"), JsonUtility.ToJson(room, true));
-        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_blocked_exit\",\"room_scene_generation\",\"weapon_firing\",\"weapon_cadence\",\"weapon_reload_lock\",\"weapon_ammo_conservation\",\"wave_population_cap\",\"wave_population_resume\",\"access_adjacency\",\"access_charge_once\",\"access_progression\"]}");
-        Debug.Log("[LayoutDemo] PASS: independent layout, weapon, wave and access state, interactive scene, 17 checks");
+        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_stairs_flight\",\"room_floating_route\",\"room_steep_stairs\",\"room_blocked_exit\",\"room_scene_generation\",\"weapon_firing\",\"weapon_cadence\",\"weapon_reload_lock\",\"weapon_ammo_conservation\",\"wave_population_cap\",\"wave_population_resume\",\"access_adjacency\",\"access_charge_once\",\"access_progression\"]}");
+        Debug.Log("[LayoutDemo] PASS: independent layout, weapon, wave and access state, interactive scene, 20 checks");
     }
 }

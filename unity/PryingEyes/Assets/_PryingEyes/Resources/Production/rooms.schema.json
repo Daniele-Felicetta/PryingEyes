@@ -134,7 +134,8 @@
                     "box",
                     "cylinder",
                     "label",
-                    "light"
+                    "light",
+                    "stairs"
                   ]
                 },
                 "material": {
@@ -214,6 +215,12 @@
                   "type": "number",
                   "minimum": 0.1,
                   "maximum": 100
+                },
+                "steps": {
+                  "description": "Number of risers of a stairs part (size.y is the total rise, size.z the run, yaw the climbing direction).",
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 64
                 }
               },
               "required": [
@@ -254,6 +261,32 @@
                       "text"
                     ]
                   }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "stairs"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "steps"
+                    ],
+                    "properties": {
+                      "collider": {
+                        "const": true
+                      }
+                    }
+                  },
+                  "else": {
+                    "not": {
+                      "required": [
+                        "steps"
+                      ]
+                    }
+                  }
                 }
               ]
             }
@@ -271,6 +304,12 @@
                   "minimum": -200,
                   "maximum": 200
                 },
+                "y": {
+                  "description": "Height of the surface to stand on; 0 (the default) is the room floor.",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 50
+                },
                 "z": {
                   "type": "number",
                   "minimum": -200,
@@ -280,6 +319,77 @@
               "required": [
                 "x",
                 "z"
+              ]
+            }
+          },
+          "views": {
+            "description": "Named pictures of the room: where to stand (like a route point) and what to look at, in metres above the floor.",
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]+$"
+                },
+                "position": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "x": {
+                      "type": "number",
+                      "minimum": -200,
+                      "maximum": 200
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "z": {
+                      "type": "number",
+                      "minimum": -200,
+                      "maximum": 200
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "z"
+                  ]
+                },
+                "target": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "x": {
+                      "type": "number",
+                      "minimum": -200,
+                      "maximum": 200
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": -10,
+                      "maximum": 50
+                    },
+                    "z": {
+                      "type": "number",
+                      "minimum": -200,
+                      "maximum": 200
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "z"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "position",
+                "target"
               ]
             }
           }
