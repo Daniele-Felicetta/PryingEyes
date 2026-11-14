@@ -259,11 +259,16 @@ namespace PryingEyes
 
         static bool PlaceNear(Vector3 center, float dist, out Vector3 p)
         {
+            p = center;
+            if (!NavMesh.SamplePosition(center, out var origin, 2f, HotelNav.EnemyMask)) return false;
+            var path = new NavMeshPath();
             for (int k = 0; k < 16; k++)
             {
                 float a = k * Mathf.PI * 2f / 16f, d = k < 8 ? dist : dist * 0.6f;
                 var q = center + new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * d;
-                if (NavMesh.SamplePosition(q, out var h, 1.0f, NavMesh.AllAreas) && Flat(h.position - center) > d * 0.7f) { p = h.position; return true; }
+                if (NavMesh.SamplePosition(q, out var h, 1.0f, HotelNav.EnemyMask) && Flat(h.position - center) > d * 0.7f &&
+                    NavMesh.CalculatePath(h.position, origin.position, HotelNav.EnemyMask, path) && path.status == NavMeshPathStatus.PathComplete)
+                { p = h.position; return true; }
             }
             p = center;
             return false;
@@ -479,7 +484,9 @@ namespace PryingEyes
             Safe();
             if (Coop.IsHost)
             {
-                PlaceNear(PeerPos(), 8f, out Vector3 at);
+                bool placed = PlaceNear(PeerPos(), 8f, out Vector3 at);
+                Check("nemico della prova su un percorso aperto verso il compagno", placed);
+                if (!placed) { aborted = true; yield break; }
                 spawned = Enemy.Spawn(Enemy.EnemyType.Monaco, at);
                 Log($"nemico {spawned.netId} nato a {at.x:F1} {at.z:F1}");
                 yield return new WaitForSeconds(2.5f);

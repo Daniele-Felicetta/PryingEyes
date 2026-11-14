@@ -74,7 +74,7 @@ namespace PryingEyes
             Check(tag + (moth ? "e' una Processione" : "non e' una Processione"), rd.Moth == moth);
             int scoreBefore = gm.score, statBefore = Drops.statSpawned;
             var seen = new HashSet<Enemy>();
-            int outside = 0, notHunting = 0, tooClose = 0, wrongType = 0, maxAlive = 0;
+            int outside = 0, notHunting = 0, tooClose = 0, wrongType = 0, wrongSpeed = 0, maxAlive = 0;
             float killT = 0f, started = Time.time;
             while (rd.Fighting && Time.time - started < 150f)
             {
@@ -87,6 +87,11 @@ namespace PryingEyes
                     if (e.alert != Alert.Hunting || !e.relentless) notHunting++;
                     if (Targets.NearestDistance(e.transform.position) < 3f) tooClose++;
                     if (moth && e.type != Enemy.EnemyType.Veglia) wrongType++;
+                    if (e.type == Enemy.EnemyType.Monaco)
+                    {
+                        float multiplier = SurvivalMode.SpeedMultiplier(round, false);
+                        if (e.speed < 1.30f * multiplier - .001f || e.speed > 1.60f * multiplier + .001f) wrongSpeed++;
+                    }
                 }
                 maxAlive = Mathf.Max(maxAlive, rd.Alive);
                 killT -= Time.deltaTime;
@@ -97,6 +102,7 @@ namespace PryingEyes
             Check(tag + "nascono tutti", seen.Count == expectedTarget && rd.Spawned == expectedTarget, $"{seen.Count}/{expectedTarget}, contati {rd.Spawned}");
             Check(tag + "mai in un'area chiusa", outside == 0, $"{outside} fuori");
             Check(tag + "sempre all'attacco", notHunting == 0, $"{notHunting} no");
+            Check(tag + "velocità reale senza doppio moltiplicatore", wrongSpeed == 0);
             Check(tag + "mai addosso a chi gioca", tooClose == 0, $"{tooClose} a meno di 3 m");
             Check(tag + "tetto dei vivi rispettato", maxAlive <= expectedCap, $"massimo {maxAlive}, tetto {expectedCap}");
             if (moth) Check(tag + "solo Veglie", wrongType == 0, $"{wrongType} di altro tipo");
@@ -120,6 +126,11 @@ namespace PryingEyes
             Check("ciclo a ondate attivo", SurvivalMode.Enabled && RoundDirector.Enabled && !SurvivalMode.HoldWaves);
             Check("stealth spento", !Stealth.Enabled);
             Check("nessuna candela", fd.cur.candles.Count == 0);
+            Check("velocità cresce e si ferma alla decima ondata",
+                SurvivalMode.SpeedMultiplier(1, false) < SurvivalMode.SpeedMultiplier(5, false) &&
+                Mathf.Approximately(SurvivalMode.SpeedMultiplier(10, false), SurvivalMode.SpeedMultiplier(100, false)) &&
+                Mathf.Approximately(SurvivalMode.SpeedMultiplier(0, false), 1.6f) &&
+                Mathf.Approximately(SurvivalMode.SpeedMultiplier(100, true), 1.15f));
             Check("nessun nemico prima dell'ondata", Alive() == 0 && !rd.Fighting && RoundDirector.Round == 0);
             Check("ascensore sigillato", !fd.ExitOpen);
             Time.timeScale = 3f;

@@ -47,6 +47,10 @@ namespace PryingEyes.Proc
 
         static bool Has(string flag) => Array.IndexOf(Environment.GetCommandLineArgs(), flag) >= 0;
 
+        // La pressione cresce fino alla decima ondata; resta possibile distanziare l'orda correndo.
+        public static float SpeedMultiplier(int round, bool flying) =>
+            flying ? 1.15f : Mathf.Lerp(1.6f, 2.2f, Mathf.Clamp01((round - 1) / 9f));
+
         /// <summary>Le candele restano nel piano come arredo (luce e fiamma) ma non si accendono piu' e non contano come obiettivo.</summary>
         public static void DecorationOnly(FloorInstance floor)
         {

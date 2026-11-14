@@ -474,7 +474,8 @@ namespace PryingEyes.Proc
         {
             e.maxHp *= RoundRules.HpMul(Round);
             e.hp = e.maxHp;
-            e.speed *= RoundRules.SpeedMul(Round);
+            // Survival applica già alla nascita la curva completa, con un tetto alla decima ondata.
+            if (!SurvivalMode.Enabled) e.speed *= RoundRules.SpeedMul(Round);
         }
 
         Room PickRoom(Zone z)

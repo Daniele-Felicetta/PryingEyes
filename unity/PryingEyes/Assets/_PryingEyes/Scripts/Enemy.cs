@@ -141,7 +141,7 @@ namespace PryingEyes
             e.alienRig = go.GetComponent<AlienRig>();
             if (IsAlien(t)) e.SetAlienStats();
             else if (IsThemed(t)) e.SetThemedStats();
-            if (Proc.SurvivalMode.Enabled) e.speed *= IsFlying(t) ? 1.15f : 1.6f;
+            if (Proc.SurvivalMode.Enabled) e.speed *= Proc.SurvivalMode.SpeedMultiplier(Proc.RoundDirector.Round, IsFlying(t));
             if (t == EnemyType.Portachiavi) e.loop = Sfx.Loop(go, SoundBank.KeeperKeys, 0.38f, 1.5f, 22f, 1f);
             else if (t == EnemyType.Veglia) e.loop = Sfx.Loop(go, SoundBank.VigilBreath, 0.30f, 1.5f, 24f, 1f);
             else if (archetype == EnemyType.Occhio) e.loop = Sfx.Loop(go, SoundBank.EyeHum, 0.30f, 1.5f, 24f, e.basePitch, 1f, 1f);

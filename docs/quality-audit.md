@@ -882,3 +882,29 @@ criteri di accettazione del ciclo nuovo. Regole in `docs/zombies-redesign.md`.
 
 Limiti già documentati da verificare: rete reale fuori da loopback, manichini dei compagni, fiducia nei colpi dichiarati
 dagli ospitati e dispositivi mobili. Vedere anche `docs/multiplayer/README.md`.
+
+
+### 14 novembre: Torre Zombies e aggiornamento della copia Prova
+
+La Torre mantiene il ciclo predefinito senza candele interattive o stealth: 7–9 aree principali,
+porte a pagamento e ondate automatiche. La copia Prova era precedente alla build Audit del 14 novembre.
+Ora aggiornata da una nuova build completa, poi ricompilata per le regole definitive.
+
+La velocità dei nemici a terra cresce da ×1,6 alla prima ondata a ×2,2 alla decima e resta stabile;
+i volanti mantengono ×1,15. Tolto il secondo incremento di velocità da RoundDirector.Scale nel ciclo
+survival. Il protocollo passa a pe-coop-17 per evitare sessioni con regole di movimento differenti.
+
+Verifiche locali (log in unity_logs, non versionati):
+
+- PlanLab survival: 1.000 piani validi, 8,0 aree medie, 925 m² per area e 2.598 atri a tre quote.
+- zombies-final-survival.log: 86/86; incluse velocità reali dei monaci senza doppio moltiplicatore.
+- zombies-final-access.log: 20/20 sul seme 2961; porte fisiche, pagamento, navigazione e assenza di stealth/candele interattive.
+- zombies-coop-fixed: host 38/38, client 50/50, entrambi usciti con 0, seme 1000.
+- La prima prova cooperativa sul seme 1000 era 37/37 host e 49/50 client: PlaceNear usava AllAreas,
+  consentendo un nemico di verifica dietro una porta chiusa. Ora richiede EnemyMask e un percorso completo
+  fino al compagno. Lo stesso scenario ripetuto verifica anche lo spostamento del pupazzo (0,7 m).
+- zombies-coop-fix-build.log: build riuscita, zero errori.
+- Copiati in Builds/Prova e confrontati per SHA256 tutti i 192 file; ricevuta in build-info.json nella stessa cartella.
+
+Le uccisioni nelle prove delle ondate sono automatiche: verificano regole e sincronizzazione, non il bilanciamento
+di una partita giocata con le armi. Il nuovo laboratorio dell’officina urbana resta separato da questo aggiornamento.

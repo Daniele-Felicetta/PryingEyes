@@ -231,8 +231,10 @@ e `-cooptest`, che le fa partire dal copione).
   uscita è a 3,5 porte in media (massimo 8) e costa 2.908 punti per arrivarci (massimo 9.500).
 - **Ondate.** Partono da sole: la prima 8 s dopo l'arrivo, le altre 10 s dopo la fine della precedente. Sedici nemici più quattro per
   ondata (più otto per ogni giocatore oltre il primo), da 20 a 100, con 12 più uno per ondata (più tre a giocatore) vivi insieme, da 14 a 28.
-  Nascono solo nelle aree aperte, a 7–28 m da chi gioca e raggiungibili a piedi in pochi secondi, sempre all'attacco e più veloci (×1,6, i
-  volanti ×1,15). A ondata finita 100 punti più 20 per ondata, per tutti; ogni quinta è la Processione dei Lumi. Tre ondate aprono l'ascensore
+  Nascono solo nelle aree aperte, a 7–28 m da chi gioca e raggiungibili a piedi in pochi secondi, sempre all'attacco e più veloci. Dal
+  14 novembre il moltiplicatore dei nemici a terra cresce da ×1,6 alla prima ondata a ×2,2 alla decima, poi resta stabile; i volanti
+  restano a ×1,15. Questa curva sostituisce il precedente incremento aggiuntivo di RoundRules: non si moltiplica due volte.
+  A ondata finita 100 punti più 20 per ondata, per tutti; ogni quinta è la Processione dei Lumi. Tre ondate aprono l'ascensore
   di uscita, ma si può restare a combattere e comprare. Se muore chi gioca (in cooperativa: tutti) l'ondata salta senza premio e il numero torna
   indietro. Un'ondata ferma da 120 s si chiude da sola.
 - **Fuori lo stealth.** Nessuna allerta, rilevamento legato alla luce, bonus Fantasma o presa alle spalle (il coltello è un colpo ravvicinato,
