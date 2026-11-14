@@ -305,9 +305,8 @@ Recorded acceptance:
   run followed by the Unity workshop preview, each with its own report, captured
   sources, supervisor PID and artifacts.
 
-The queue supports existing operations; it does not yet provide dependency impact
-queries, a gallery, general material/enemy catalogs or the rest of the game runtime
-refactoring. Those remain part of the active production-suite objective.
+The queue supports existing production operations. General material/enemy catalogs,
+parallel generation and the remaining game runtime refactoring are still open work.
 
 
 ### Material persistence regression found during queue acceptance
@@ -325,7 +324,7 @@ Room preview/build operations add a separate Unity session that imports and
 verifies the saved materials; native room checks also verify emission keyword
 and RGB intensity. This is material persistence, not a new real-time GI feature.
 
-Source capture currently covers the declared recipes, generators, C# sources,
+Source capture currently covers the declared recipes, generators, C# and shader sources,
 local package definitions and production-tool sources. A complete transitive
 dependency model for all shaders, textures and other imported inputs remains
 open work; source pinning is not a claim that this graph already exists.
@@ -340,3 +339,61 @@ and intensity. Before the material fix, fresh-session verification failed with
 `ROOM_EMISSION_IMPORT: paper` (`unity_logs/queue-material-stored-red.log`); the
 corrected flags and saved keywords survive the new session. The final queue
 regression suite remains **14/14** (`unity_logs/queue-tests-final.log`).
+
+
+## Portable evidence gallery and dependency queries
+
+```powershell
+python tools/studio.py catalog affected modelli/armi/armi_pistole.py
+python tools/studio.py catalog affected unity/PryingEyes/Assets/_PryingEyes/Resources/Production/rooms.json --pointer /materials/1
+python tools/studio.py gallery build --out unity_logs/gallery
+```
+
+Open `unity_logs/gallery/index.html` directly. The generated folder includes images,
+reports, logs and an embedded catalog, with no web service or build tool needed to
+view it. Keep the folder together when copying it. Without `--out`, the gallery is
+written inside its own Studio job. Additional stores can be supplied with repeated
+`--store` arguments. Default discovery covers the Studio store and immediate
+subdirectories of `unity_logs`, reading only top-level common job reports.
+
+The gallery contains the 30 weapons and the furnished workshop. Search includes
+weapon modes and reload style, for example `Tube`. Choose two jobs and a shared
+view for comparison; the initial selection prefers the latest successful job with
+images and an older job containing a common view. Missing views remain explicitly
+missing. Parameters are the **current catalog**, while images and measurements
+belong to the **selected job**. An image from another asset's job is labeled as
+context. Mechanical, gunplay and city counts describe that job's checks, rather
+than claiming each visible asset independently passed the entire suite.
+
+Recorded source hashes are compared with current production inputs. Changed or
+added inputs mark a successful job as historical; absent source provenance cannot
+become current verification. Older loose render images are available as references
+without a verification badge. The gallery does not rerun tests or approve art and
+balance. Failed checks, report/log links and reproduction commands remain visible.
+Untrusted report text is inserted as text, and the embedded JSON escapes HTML
+delimiters. Only known raster image names are copied into the portable bundle.
+
+The impact query and gallery use the same `AssetGraph.affected` implementation.
+Nodes record explicit content dependencies and source files. Recipe Python imports
+are inspected without executing Blender code: changing `armi_pistole.py` therefore
+reaches the urban pistol recipes that import it. JSON pointers let a palette change
+reach the material, workshop and district without invalidating unrelated weapons.
+The whole-file query is deliberately conservative. Cycles, unknown nodes and paths
+outside the supplied root are rejected. This is **not** a complete Unity GUID,
+dynamic Python import, texture or runtime dependency graph.
+
+The graph itself accepts ordinary nodes and a root directory; importing and using
+it outside the repository is tested in an isolated Python process. The Prying Eyes
+adapter loads the catalogs only when requested. The gallery bundler likewise accepts
+assets, graph, reports and an explicit root; its adapter supplies game-specific
+catalog fields. The HTML is read-only and starts no production commands.
+
+Local acceptance: `gallery-studio-tests.log` contains 17 passing checks, and
+`gallery-graph-tests.log` contains 6, including the independent graph consumer.
+The room preview at `studio/20261114T135222Z-af527e4b/report.json` passes both the
+preview and fresh-session material check; all 240 captured sources match during
+gallery collection. Browser checks cover A/B views, search, empty and failed
+filters, missing provenance, report links, material impact chains and a 390-pixel
+viewport without horizontal overflow. Error rendering is exercised with an explicit
+UI fixture, kept separate from production content. `gallery-desktop.jpg` records
+the local visual check. These local evidence files are not versioned assets.

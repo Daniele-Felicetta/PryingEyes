@@ -970,3 +970,29 @@ and intensity. Before the material fix, fresh-session verification failed with
 `ROOM_EMISSION_IMPORT: paper` (`unity_logs/queue-material-stored-red.log`); the
 corrected flags and saved keywords survive the new session. The final queue
 regression suite remains **14/14** (`unity_logs/queue-tests-final.log`).
+
+
+## Production gallery and declared dependency graph
+
+The read-only portable gallery now collects the 30 catalog weapons, furnished room,
+job images, measurements, failures and reproduction commands. A/B comparisons use
+common views where possible. Current catalog values are labeled separately from
+historical job evidence; unknown source provenance stays unverified. Mixed direct
+and queued report date formats no longer reorder history incorrectly.
+
+CLI and gallery share dependency traversal. Local Python recipe imports are read
+without execution, and JSON pointer queries scope room palette changes. The graph
+rejects cycles, missing content nodes and paths outside its root; a copied module
+also runs in an isolated Python process without the game catalogs installed. It
+does not yet describe all Unity GUID links or dynamic imports.
+
+Local checks: **17 Studio/gallery tests**, **6 graph tests**, plus a fresh workshop
+preview and a second Unity material-import session. Browser verification covers
+desktop and 390-pixel layouts, loaded comparison images, search/filter behavior,
+report links, historical/unverified provenance and material impacts. A separate
+synthetic failed-check fixture displays HTML-like error text literally, without
+creating an image element. Details and evidence paths are in `production-studio.md`.
+
+Remaining objective includes material/lighting and performance laboratories,
+parallel independent generation, broader catalogs and dependencies, further weapon
+integration separation, and the urban survival level's progression and art work.

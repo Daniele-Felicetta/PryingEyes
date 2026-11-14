@@ -179,11 +179,14 @@ def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor")
-    catalog = commands.add_parser("catalog"); catalog.add_argument("action", choices=["list"]); catalog.add_argument("--type", default="weapon", choices=["weapon", "room"])
+    catalog = commands.add_parser("catalog"); catalog.add_argument("action", choices=["list", "affected"]); catalog.add_argument("--type", default="weapon", choices=["weapon", "room"])
+    catalog.add_argument("path", nargs="?"); catalog.add_argument("--pointer", help="Optional JSON pointer within the changed file")
     asset = commands.add_parser("asset"); asset.add_argument("--publish", action="store_true", help="Copy a verified build to CityPreview after all checks"); asset.add_argument("action", choices=["inspect", "preview", "build"]); asset.add_argument("id")
     test = commands.add_parser("test"); test.add_argument("suite", choices=["gunplay", "weapon-state"])
     test.add_argument("--runtime", type=Path, default=EXE, help="Verified native build to test (gunplay only)")
     report = commands.add_parser("report"); report.add_argument("action", choices=["latest"])
+    gallery = commands.add_parser("gallery"); gallery.add_argument("action", choices=["build"])
+    gallery.add_argument("--out", type=Path); gallery.add_argument("--store", type=Path, action="append", default=[])
     queue = commands.add_parser("queue"); operations = queue.add_subparsers(dest="action", required=True)
     add = operations.add_parser("add"); add.add_argument("arguments", nargs=argparse.REMAINDER)
     run = operations.add_parser("run"); run.add_argument("--background", action="store_true")
@@ -197,6 +200,8 @@ def source_snapshot(args, data, rooms):
     is_room = args.command == "asset" and any(r["id"] == args.id for r in rooms["rooms"])
     source_files = {CATALOG, SCHEMA, ROOMS, ROOM_SCHEMA, ROOT / "tools/room_catalog.py", ROOT / "tools/fixtures/weapon-prefix-v1.json", PROJECT / "Assets/_PryingEyes/City/citta.json", Path(__file__).resolve(), ROOT / "tools/content_catalog.py", ROOT / "tools/citylab.py"}
     source_files.update((PROJECT / "Assets/_PryingEyes").rglob("*.cs"))
+    for extension in ("*.shader", "*.hlsl"):
+        source_files.update((PROJECT / "Assets/_PryingEyes").rglob(extension))
     source_files.update((PROJECT / "Packages/com.pryingeyes.layout").rglob("*.cs"))
     source_files.update((PROJECT / "Packages/com.pryingeyes.weapons").rglob("*.cs"))
     source_files.update(PROJECT / "Packages" / name for name in ("manifest.json", "packages-lock.json"))
@@ -211,6 +216,9 @@ def source_snapshot(args, data, rooms):
         entry = find_asset(args.id, data); source = entry["source"]
         source_files.update(ROOT / p for p in [source["generator"], source["recipe"]["file"], *source["dependencies"]])
     source_files.update(ROOT / "tools" / name for name in ("studio_process.py", "studio_queue.py"))
+    if args.command in ("catalog", "gallery"): source_files.add(ROOT / "tools/asset_graph.py")
+    if args.command == "gallery":
+        source_files.add(ROOT / "tools/studio_gallery.py"); source_files.update(p for p in (ROOT / "tools/studio_web").glob("*") if p.is_file())
     sources = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}
     return sources, entry if args.command == "asset" else None, is_room
 
@@ -220,14 +228,26 @@ def execute(args, queued=None):
     interrupted = cancelled = False
     try:
         job.check_cancel()
-        data = validate_catalog(); room_data = validate_rooms(); blender, unity = executables()
+        from content_catalog import read_catalog
+        catalog_reader = read_catalog if args.command == "catalog" and args.action == "affected" else validate_catalog
+        data = catalog_reader()
+        room_data = validate_rooms(); blender, unity = executables()
         sources, entry, is_room = source_snapshot(args, data, room_data)
-        job.source_guard = lambda: source_snapshot(args, validate_catalog(), validate_rooms())[0]
+        job.source_guard = lambda: source_snapshot(args, catalog_reader(), validate_rooms())[0]
         job.report["sources"] = sources; job.save()
         if queued and sources != queued["sources"]:
             job.report["sourceChanges"] = sorted(name for name in sources.keys() | queued["sources"].keys() if sources.get(name) != queued["sources"].get(name))
             raise RuntimeError("QUEUED_SOURCES_CHANGED: resubmit against current sources")
-        if args.command == "catalog" and args.type == "room":
+        if args.command == "catalog" and args.action == "affected":
+            from asset_graph import production_graph
+            if not args.path: raise ValueError("DEPENDENCY_PATH_REQUIRED")
+            graph = production_graph(data, room_data); affected = graph.affected(args.path, args.pointer)
+            result = {"schemaVersion": 1, "operation": "catalog.affected", "ok": True,
+                "scope": "declared dependencies and local model-recipe imports; not the complete Unity graph", "path": args.path,
+                "pointer": args.pointer, "affected": affected}
+            target = job.folder / "affected.json"; atomic_json(target, result); job.report["artifacts"].append(str(target))
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        elif args.command == "catalog" and args.type == "room":
             for room in room_data["rooms"]: print(f"{room['id']:28} {room['name']} ({room['width']} x {room['depth']} m)")
         elif args.command == "catalog":
             for entry in data["weapons"]:
@@ -240,6 +260,17 @@ def execute(args, queued=None):
             with project_lock(job):
                 if args.suite == "weapon-state": weapon_state(job)
                 else: native_gunplay(job, args.runtime.resolve())
+        elif args.command == "gallery":
+            from asset_graph import production_graph
+            from studio_gallery import build_gallery
+            graph = production_graph(data, room_data)
+            expected, _, _ = source_snapshot(argparse.Namespace(command="test", suite="weapon-state"), data, room_data)
+            stores = {OUTPUT, DEFAULT_OUTPUT, *args.store}
+            stores.update(p for p in (ROOT / "unity_logs").iterdir() if p.is_dir())
+            target = (args.out or job.folder / "gallery").resolve()
+            manifest = build_gallery(target, graph, data, room_data, expected, stores)
+            job.report["artifacts"].extend(str(target / name) for name in ("index.html", "manifest.json"))
+            print(f"STUDIO GALLERY: {len(manifest['assets'])} contents, {len(manifest['runs'])} recorded/reference runs; {target / 'index.html'}")
         else:
             if args.action == "inspect": print(json.dumps(entry, ensure_ascii=False, indent=2))
             elif args.action == "preview":

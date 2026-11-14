@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prying Eyes · Banco prove</title><style>__STYLE__</style></head>
+<body><header class="mast"><div><p class="brand">PRYING EYES / STUDIO</p><h1>Banco prove</h1></div><p id="stamp"></p></header>
+<div class="workspace"><aside class="catalog"><h2>Contenuti</h2><label for="search">Cerca per nome, tipo o modalità</label><input id="search" type="search" placeholder="Es. pistola, Tube, RONDA…">
+<div class="filters"><label>Tipo<select id="kind"><option value="all">Tutti</option><option value="weapon">Armi</option><option value="room">Stanze</option></select></label>
+<label>Prove<select id="state"><option value="all">Tutte</option><option value="complete">Con prove superate</option><option value="failed">Con prove fallite</option><option value="unverified">Senza prove superate</option></select></label></div>
+<p id="count" class="muted" aria-live="polite"></p><nav id="assets" aria-label="Catalogo dei contenuti"></nav><p id="no-results" hidden>Nessun contenuto corrisponde ai filtri. Cambia ricerca o tipo.</p></aside>
+<main id="detail"><div class="asset-heading"><div><p id="category" class="eyebrow"></p><h2 id="asset-name"></h2><p id="asset-id" class="mono muted"></p></div><span id="asset-status" class="badge"></span></div>
+<p class="small muted">Parametri attuali del catalogo</p><div id="stats" class="stats" aria-label="Parametri attuali del catalogo"></div>
+<section class="bench" aria-labelledby="comparison-title"><div class="section-head"><h3 id="comparison-title">Confronto delle anteprime</h3><label>Vista<select id="view"></select></label></div>
+<div class="compare"><article class="proof"><div class="proof-head"><span class="side">A</span><label>Versione di confronto<select id="before"></select></label></div><div class="image-frame"><img id="image-a" alt=""><p id="empty-a" hidden></p></div><p id="caption-a" class="caption"></p></article>
+<article class="proof"><div class="proof-head"><span class="side">B</span><label>Versione da esaminare<select id="after"></select></label></div><div class="image-frame"><img id="image-b" alt=""><p id="empty-b" hidden></p></div><p id="caption-b" class="caption"></p></article></div>
+<p id="comparison-note" class="muted"></p></section>
+<section class="results" aria-labelledby="results-title"><div class="section-head"><h3 id="results-title">Prova selezionata · B</h3><span id="run-status" class="badge"></span></div><p id="run-origin" class="muted"></p>
+<div id="metrics" class="metrics"></div><p id="freshness"></p><div id="failures"></div><div id="links" class="links"></div>
+<p class="small muted">Una prova tecnica superata non approva automaticamente l’aspetto o il bilanciamento.</p>
+<details><summary>Dettagli e comando per riprodurre</summary><pre id="reproduce"></pre><ul id="source-changes"></ul></details></section>
+<section class="dependencies" aria-labelledby="dependencies-title"><div class="section-head"><h3 id="dependencies-title">Da cosa dipende</h3></div><p class="muted">Ricette e dipendenze dichiarate, più le importazioni locali dei modelli. Non è ancora l’intero grafo Unity.</p><div id="dependencies"></div>
+<label for="changed-file">Se cambia questo file, quali contenuti sono interessati?</label><div class="impact-form"><select id="changed-file"></select><button id="impact" type="button">Mostra impatti</button></div><div id="impacts" aria-live="polite"></div></section>
+</main></div><footer><p id="warnings"></p><p>Archivio locale · immagini, dati e rapporti inclusi. Nessuna operazione di build viene avviata da questa pagina.</p></footer>
+<script id="gallery-data" type="application/json">__DATA__</script><script>__SCRIPT__</script></body></html>
