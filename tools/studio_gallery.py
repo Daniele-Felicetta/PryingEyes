@@ -90,11 +90,12 @@ def bundle(assets, graph, reports, output, root, expected_sources=None, loose=No
             source_changes = changed(report.get("sources"), expected_sources)
             findings = [f for f in report.get("findings", []) if f.get("passed") is False]
             metrics = []
-            state_file = safe_file(path.parent / "weapon-state.json", root)
-            if state_file:
-                mechanical = json.loads(state_file.read_text())
-                checks = mechanical.get("findings", [])
-                metrics.append({"label": "Meccanica armi", "value": f"{sum(f.get('passed') is True for f in checks)}/{len(checks)}"})
+            for filename, label in (("weapon-state.json", "Meccanica armi"), ("survival-state.json", "Ritmo delle ondate")):
+                state_file = safe_file(path.parent / filename, root)
+                if state_file:
+                    mechanical = json.loads(state_file.read_text(encoding="utf-8-sig"))
+                    checks = mechanical.get("findings", [])
+                    metrics.append({"label": label, "value": f"{sum(f.get('passed') is True for f in checks)}/{len(checks)}"})
             gunlog = safe_file(path.parent / "gunplay-player.log", root)
             if gunlog:
                 match = re.search(r"gunplaytest RISULTATO \w+: (\d+/\d+)", gunlog.read_text(encoding="utf-8-sig", errors="replace"))
@@ -106,6 +107,7 @@ def bundle(assets, graph, reports, output, root, expected_sources=None, loose=No
                 checks = native.get("native", {}).get("findings", [])
                 metrics.append({"label": "Città", "value": f"{sum(f.get('passed') is True for f in checks)}/{len(checks)}"})
                 build_match = all(native.get(k) is True for k in ("recipeMatchesBuild", "layoutMatchesBuild", "roomsMatchBuild"))
+                if "survivalMatchesBuild" in native: build_match &= native["survivalMatchesBuild"] is True
                 if not native.get("ok") and native.get("error"):
                     findings.append({"code": native["error"], "observed": "build o risultato non corrispondente", "expected": "build verificata", "passed": False})
             logs = []

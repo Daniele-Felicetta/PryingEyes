@@ -29,6 +29,10 @@ class DependencyContracts(unittest.TestCase):
         ids = {a["id"] for a in self.graph.affected(CATALOG, "/weapons/29/definition/damage")}
         self.assertIn("p45_argine", ids); self.assertNotIn("p9_ronda", ids)
 
+    def test_wave_package_change_reaches_city_rules_without_rebuilding_weapon_models(self):
+        rows = self.graph.affected("unity/PryingEyes/Packages/com.pryingeyes.survival/Runtime/WaveSchedule.cs")
+        self.assertEqual({r["id"] for r in rows}, {"city_survival", "district_station"})
+
     def test_graph_rejects_cycles_unknown_nodes_and_escape_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

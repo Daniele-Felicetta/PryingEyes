@@ -996,3 +996,29 @@ creating an image element. Details and evidence paths are in `production-studio.
 Remaining objective includes material/lighting and performance laboratories,
 parallel independent generation, broader catalogs and dependencies, further weapon
 integration separation, and the urban survival level's progression and art work.
+
+
+## Urban wave scheduling package
+
+The city now consumes the engine-free `Production.Survival` package. Wave budget,
+spawn pacing and a population limit are separated from city enemy selection,
+difficulty, rewards and locations. Its clock advances with caller-supplied time;
+failed creation preserves budget and a capped population cannot bank spawn bursts.
+The independent Unity consumer uses the same package in an interactive simulation.
+
+The city recipe configures 12/16/20 enemies for the first three waves, a total cap
+of 96, a concurrent cap of 24, 0.65-second entry spacing, ten-second intermissions,
+immediate pursuit and progressive health/speed multipliers. Native evidence at
+`studio/20261114T141116Z-c42694a8` passes **71 city**, **297 gunplay**, **1,454 weapon
+state**, **24 wave state** and **7 imported-material** checks. **194 CityPreview
+files** were compared by SHA256. All 246 recorded sources remain unchanged. The
+independent Unity consumer passes **14 checks**; final Python suites pass **17 + 7**.
+The full report and the corrected first-run expectation are documented in
+`production-studio.md`. The gallery exposes the wave-state measurements and impact
+queries connect the shared wave package to city rules and the district.
+
+The crowd screenshot still shows primitive enemy bodies and generic buildings.
+This verifies population and pacing, not finished art or final gameplay balance.
+Urban paid access, vertical interiors, enemy presentation and further framework
+work remain part of the active objective. This change updates CityPreview, not the
+Torre/Prova copy.

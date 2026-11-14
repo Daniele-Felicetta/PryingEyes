@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace PryingEyes
 {
-    /// <summary>City-specific shopping; the wave loop remains the existing survival loop.</summary>
-    public sealed class CityDirector : MonoBehaviour
+    /// <summary>City-specific shopping and survival integration.</summary>
+    public sealed partial class CityDirector : MonoBehaviour
     {
         [System.Serializable]
         public struct Shop

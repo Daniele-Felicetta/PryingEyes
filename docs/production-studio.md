@@ -397,3 +397,70 @@ filters, missing provenance, report links, material impact chains and a 390-pixe
 viewport without horizontal overflow. Error rendering is exercised with an explicit
 UI fixture, kept separate from production content. `gallery-desktop.jpg` records
 the local visual check. These local evidence files are not versioned assets.
+
+
+## Reusable survival scheduling and city balance
+
+`com.pryingeyes.survival` supplies `WaveSchedule`, compiled without engine
+references. Advance its clock with elapsed simulation seconds and the actual living
+population, then call `CommitSpawn` only after successful enemy creation. Failed
+creation preserves the budget. The population cap pauses admission; time spent
+blocked cannot accumulate a catch-up burst. A wave completes only when both its
+pending budget and living population are zero. The caller owns deaths, random
+choices, locations, difficulty, rewards and intermission.
+
+The city adapter is `CityWaves.cs`. Its profile is authored in `citta.json` and
+serialized into the generated scene. It starts at 12 enemies, adds 4 each wave,
+caps totals at 96 and concurrent living enemies at 24, and spaces entries by
+0.65 seconds. Breaks last 10 seconds. All wave enemies hunt immediately, without
+a stealth activation. Their original archetype health is multiplied by
+`1 + min(wave - 1, 100) * healthPerWave`; speed is multiplied by a profile curve
+from 1.45 to 2.0. The heavy guard keeps its slower archetype movement. The classic
+hall keeps its existing counts, presentation and eight-second break; Torre uses
+its own existing round director. This extraction does not replace those modes.
+
+```powershell
+python tools/studio.py test survival
+python tools/studio.py queue add test survival
+python tools/studio.py asset build room_workshop_station --publish
+```
+
+`test survival` produces a common report with 24 checks, compiling the exact package
+source under .NET. It exercises failed creation, duplicate commit, timing, capped
+population, no catch-up burst, conservation, final-enemy draining, invalid inputs,
+and simulations at different caller tick rates. Asset builds run this check before
+Unity. Source capture now includes C# from every local Production package and the
+survival laboratory, so adding another package cannot silently omit its code.
+
+The independent Unity project imports this third local package. Its generated room
+scene has a wave simulation with Defeat/Reset controls alongside the weapon demo.
+`DistrictDemo.Verify` checks the population cap and resumed spawning without any
+Prying Eyes enemies, catalog, HUD or GameManager. The native city loop completes
+three configured waves, checks actual roster, relentless pursuit and scaled stats,
+then leaves the fifth wave alive to verify the concurrent limit. CityLab also
+compares the profile reported by the executable with the requested recipe.
+
+The profile and scheduler are production infrastructure, not a claim that the
+urban level is finished. Paid urban areas, the three remaining generic interiors,
+vertical routes, enemy art/attack polish and urban cooperative support remain open.
+
+
+Native acceptance for this change: `unity_logs/studio/20261114T141116Z-c42694a8/report.json`.
+All **246 captured sources** match the verified working tree. The job passes
+**1,454 weapon-state checks**, **24 wave-schedule checks**, **297 native gunplay
+checks**, **71 city checks** and the fresh-session check of **7 room materials**.
+It publishes and SHA256-verifies **194 files** in CityPreview, including
+`Production.Survival.dll`. Recipe, layout, room plan and survival profile all match
+the executable. The native loop defeats 48 enemies across three complete waves,
+then confirms 24 living enemies against a fifth-wave budget of 28. The HUD retains
+pending enemies in its remaining count. `city-wave5-population.png` records that run.
+
+The first native attempt failed `WAVE_SCALING` because its expected health assumed
+one base value for both city archetypes. Actual base health is 140 for Spazzino and
+340 for Vigile. The corrected check verifies each health multiplier and each speed
+range. That failed run was not published. The final independent Unity consumer
+passes **14 checks** (`survival-independent-unity.log` and
+`unity/LayoutDemo/Verification/report.json`). The final Python regression suites
+pass **17 Studio/gallery tests** and **7 graph tests**. Running the project-lock
+unit check concurrently with production correctly returned PROJECT_BUSY; it was
+rerun successfully after production released the lock.

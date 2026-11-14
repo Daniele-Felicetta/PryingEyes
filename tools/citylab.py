@@ -170,8 +170,9 @@ def run_native(exe, output, timeout, recipe, layout=None, rooms=None):
             result["recipeMatchesBuild"] = result["native"].get("recipeSha256") == result["requestedRecipeSha256"]
             result["layoutMatchesBuild"] = layout is not None and same_layout(layout, result["native"].get("layout"))
             result["roomsMatchBuild"] = rooms is not None and same_layout(rooms, sorted(result["native"].get("rooms", []), key=lambda r: r["block"]))
-            result["ok"] = child.returncode == 0 and result["native"].get("ok") is True and result["recipeMatchesBuild"] and result["layoutMatchesBuild"] and result["roomsMatchBuild"]
-            if not result["recipeMatchesBuild"] or not result["layoutMatchesBuild"] or not result["roomsMatchBuild"]:
+            result["survivalMatchesBuild"] = same_layout(json.loads(recipe.read_text(encoding="utf-8")).get("survival"), result["native"].get("survival"))
+            result["ok"] = child.returncode == 0 and result["native"].get("ok") is True and all(result[k] for k in ("recipeMatchesBuild", "layoutMatchesBuild", "roomsMatchBuild", "survivalMatchesBuild"))
+            if not all(result[k] for k in ("recipeMatchesBuild", "layoutMatchesBuild", "roomsMatchBuild", "survivalMatchesBuild")):
                 result["error"] = "BUILD_LAYOUT_OR_RECIPE_MISMATCH"
         else:
             result["error"] = "RUNTIME_REPORT_MISSING"

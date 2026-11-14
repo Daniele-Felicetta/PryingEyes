@@ -12,7 +12,7 @@ namespace PryingEyes
     public sealed partial class CityTest : MonoBehaviour
     {
         [Serializable] sealed class Finding { public string code, subject, observed, expected; public bool passed; }
-        [Serializable] sealed class Report { public string operation = "city.runtime", revision, unity, reproduce, recipeSha256; public DistrictPlan layout; public RoomEvidence[] rooms; public bool ok; public Finding[] findings; }
+        [Serializable] sealed class Report { public string operation = "city.runtime", revision, unity, reproduce, recipeSha256; public DistrictPlan layout; public RoomEvidence[] rooms; public CityWaveProfile survival; public bool ok; public Finding[] findings; }
         [Serializable] sealed class RoomEvidence { public string id, block, sourceSha256; public RoomPlan plan; }
         readonly List<Finding> findings = new List<Finding>();
         string output;
@@ -50,7 +50,7 @@ namespace PryingEyes
             }
             PlayerController.botDir = Vector3.zero;
             var city = FindFirstObjectByType<CityDirector>();
-            var report = new Report { recipeSha256 = city != null ? city.recipeSha256 : "",
+            var report = new Report { recipeSha256 = city != null ? city.recipeSha256 : "", survival = city != null ? city.survival : null,
                 rooms = System.Array.ConvertAll(FindObjectsByType<CityRoom>(FindObjectsSortMode.None), r => new RoomEvidence { id = r.recipeId, block = r.name, sourceSha256 = r.sourceSha256, plan = r.Plan }),
                 layout = city != null ? JsonUtility.FromJson<DistrictPlan>(city.layoutJson) : null, ok = findings.TrueForAll(f => f.passed), findings = findings.ToArray(),
                 revision = CoopProtocol.ContentRevision, unity = Application.unityVersion,
@@ -185,20 +185,37 @@ namespace PryingEyes
                 GameManager.CamShot(Path.Combine(output, "district.png"), null, true);
             }
             player.Teleport(street); gm.waveActive = false; gm.StartWave(1);
-            int defeated = 0; bool onlyCityEnemies = true; float waveDeadline = Time.time + 90;
+            int defeated = 0; bool onlyCityEnemies = true, relentless = true, scaled = true; float waveDeadline = Time.time + 110;
             while (Time.time < waveDeadline && (gm.wave < 3 || gm.waveActive))
             {
                 foreach (var enemy in new List<Enemy>(Enemy.All))
                 {
                     if (enemy == null || enemy.IsDead) continue;
                     onlyCityEnemies &= enemy.type == Enemy.EnemyType.Spazzino || enemy.type == Enemy.EnemyType.Vigile;
+                    relentless &= enemy.relentless;
+                    bool guard = enemy.type == Enemy.EnemyType.Vigile;
+                    float health = (guard ? 340 : 140) * city.survival.Health(gm.wave);
+                    float lowSpeed = (guard ? 1.05f : 1.65f) * city.survival.Speed(gm.wave);
+                    float highSpeed = (guard ? 1.20f : 1.90f) * city.survival.Speed(gm.wave);
+                    scaled &= Mathf.Abs(enemy.maxHp - health) < .01f && enemy.speed >= lowSpeed - .01f && enemy.speed <= highSpeed + .01f;
                     defeated++; enemy.Damage(100000, enemy.AimPoint, false);
                 }
                 yield return null;
             }
-            Check("WAVE_PROGRESS", "three complete waves", gm.wave == 3 && !gm.waveActive && defeated == 24,
-                $"wave={gm.wave}, active={gm.waveActive}, defeated={defeated}", "wave=3, inactive, 24 enemies");
+            int expected = city.survival.Count(1) + city.survival.Count(2) + city.survival.Count(3);
+            Check("WAVE_PROGRESS", "three complete waves", gm.wave == 3 && !gm.waveActive && defeated == expected,
+                $"wave={gm.wave}, active={gm.waveActive}, defeated={defeated}", $"wave=3, inactive, {expected} enemies");
             Check("WAVE_CITY_ROSTER", "spawn rules", onlyCityEnemies, onlyCityEnemies.ToString(), "urban enemies only");
+            Check("WAVE_RELENTLESS", "urban pursuit", relentless && defeated > 0, relentless.ToString(), "every wave enemy hunts without stealth activation");
+            Check("WAVE_SCALING", "urban pressure", scaled && defeated > 0, scaled.ToString(), "configured health and speed progression applied");
+            gm.StartWave(5);
+            float capDeadline = Time.time + city.survival.aliveLimit * city.survival.interval + 5;
+            while (Enemy.All.Count < city.survival.aliveLimit && Time.time < capDeadline) yield return null;
+            yield return new WaitForSeconds(city.survival.interval * 2);
+            Check("WAVE_POPULATION_CAP", "fifth wave", Enemy.All.Count == city.survival.aliveLimit && gm.waveActive,
+                $"living={Enemy.All.Count}, active={gm.waveActive}", $"living={city.survival.aliveLimit}, active=True");
+            if (shots) GameManager.CamShot(Path.Combine(output, "city-wave5-population.png"), null, true);
+            gm.StopAllCoroutines(); Enemy.ClearAll();
         }
     }
 }

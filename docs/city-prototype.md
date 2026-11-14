@@ -171,3 +171,21 @@ La filiera completa successiva passa **67/67** controlli, incluse le insegne,
 e **297/297** verifiche armi. Job `unity_logs/studio/20261114T092523Z-94b35b15`:
 192 file pubblicati e verificati in `Builds/CityPreview`. Il progetto indipendente
 passa 8 controlli (`unity_logs/workshop-independent/report.json`).
+
+
+## Ondate urbane configurabili
+
+La ricetta ora contiene il profilo survival. Le prime tre ondate hanno 12, 16 e
+20 nemici; la crescita arriva fino a 96 totali, con al massimo 24 presenti insieme.
+Spazzino e Vigile inseguono subito il giocatore. Velocita' e resistenza crescono
+con l'ondata; i Vigili mantengono il passo piu' lento del loro archetipo.
+
+Il pacchetto senza Unity `Production.Survival` gestisce budget e ritmo delle
+comparse. Il gioco mantiene scelta dei nemici, posizioni, difficolta' e ricompense.
+La filiera `asset build room_workshop_station --publish` passa 71 controlli della
+citta', 297 del gunplay e 24 del nuovo modulo, oltre ai controlli gia' presenti.
+Aggiorna CityPreview con 194 file verificati. La prova indipendente Unity passa
+14 controlli. Dettagli, limiti e percorsi delle prove sono in `production-studio.md`.
+
+La citta' rimane incompleta: accessi a pagamento, altri interni caratterizzati,
+verticalita' e qualita' visiva dei nemici devono ancora essere portati avanti.

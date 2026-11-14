@@ -22,6 +22,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.pryingeyes.survival": {
+      "version": "file:com.pryingeyes.survival",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.pryingeyes.weapons": {
       "version": "file:com.pryingeyes.weapons",
       "depth": 0,

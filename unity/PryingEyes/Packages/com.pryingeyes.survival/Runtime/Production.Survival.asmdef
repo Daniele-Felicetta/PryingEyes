@@ -1,0 +1,7 @@
+{
+  "name": "Production.Survival",
+  "rootNamespace": "Production.Survival",
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

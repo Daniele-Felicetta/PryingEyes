@@ -25,6 +25,7 @@ namespace PryingEyes.EditorTools
             public string district = "Quartiere della Stazione";
             public string[] shopWeapons;
             public RoomBinding[] rooms;
+            public CityWaveProfile survival;
         }
 
         [System.Serializable] public sealed class RoomBinding { public string block, asset; }
@@ -41,6 +42,8 @@ namespace PryingEyes.EditorTools
             foreach (var weapon in recipe.shopWeapons)
                 if (WeaponDefs.IndexOf(weapon) < 0)
                     throw new System.InvalidOperationException("City weapon is not registered: " + weapon);
+            if (recipe.survival == null) throw new System.InvalidOperationException("CITY_WAVE_PROFILE_MISSING");
+            recipe.survival.Validate();
 
             var plan = DistrictPlan.Create(recipe.seed, recipe.halfWidth, recipe.halfDepth, recipe.roadHalfWidth);
             var bound = new System.Collections.Generic.HashSet<string>();
@@ -103,6 +106,7 @@ namespace PryingEyes.EditorTools
             // The player's original spawn must agree with this scene, including after death.
             player.GetComponent<PlayerController>().SetSpawn(player.transform.position);
             var city = new GameObject("CityDirector").AddComponent<CityDirector>();
+            city.survival = recipe.survival;
             city.shops = new CityDirector.Shop[plan.panels.Length];
             for (int i = 0; i < plan.panels.Length; i++)
                 city.shops[i] = new CityDirector.Shop { weaponId = recipe.shopWeapons[i], position = At(plan.panels[i].position, 1.5f), yaw = plan.panels[i].yaw };

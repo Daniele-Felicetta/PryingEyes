@@ -74,9 +74,15 @@ public static class DistrictDemo
         weapon.Advance(.6f);
         if (weapon.State.IsReloading || weapon.State.Magazine != 8 || weapon.State.Reserve != 31) throw new Exception("Independent reload conservation failed");
         weapon.ResetDemo();
+        var waves = new GameObject("IndependentWaves").AddComponent<WaveDemo>(); waves.ResetDemo();
+        for (int i = 0; i < 6; i++) waves.Advance(.5f);
+        if (waves.Living != 3 || waves.Schedule.Pending != 9) throw new Exception("Independent wave cap failed");
+        waves.DefeatOne(); waves.Advance(.5f);
+        if (waves.Living != 3 || waves.Schedule.Pending != 8) throw new Exception("Independent wave resume failed");
+        waves.ResetDemo();
         EditorSceneManager.SaveScene(roomScene, "Assets/RoomDemo.unity");
         File.WriteAllText(Path.Combine(folder, "room.json"), JsonUtility.ToJson(room, true));
-        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_blocked_exit\",\"room_scene_generation\",\"weapon_firing\",\"weapon_cadence\",\"weapon_reload_lock\",\"weapon_ammo_conservation\"]}");
-        Debug.Log("[LayoutDemo] PASS: independent layout and weapon state, interactive scene, 12 checks");
+        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_blocked_exit\",\"room_scene_generation\",\"weapon_firing\",\"weapon_cadence\",\"weapon_reload_lock\",\"weapon_ammo_conservation\",\"wave_population_cap\",\"wave_population_resume\"]}");
+        Debug.Log("[LayoutDemo] PASS: independent layout, weapon and wave state, interactive scene, 14 checks");
     }
 }

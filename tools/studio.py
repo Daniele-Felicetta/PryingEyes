@@ -164,6 +164,18 @@ def weapon_state(job):
     if result is None or not result["ok"]: raise RuntimeError("WEAPON_STATE_FAILED_OR_REPORT_MISSING")
 
 
+def survival_state(job):
+    report = job.folder / "survival-state.json"
+    job.report["artifacts"].append(str(report)); job.save()
+    try:
+        job.run("survival-state", ["dotnet", "run", "-c", "Release", "--project", ROOT / "tools/survivallab", "--", report], timeout=180)
+    finally:
+        if report.is_file():
+            result = json.loads(report.read_text(encoding="utf-8"))
+            job.report["findings"].extend({**finding, "evidence": str(report)} for finding in result["findings"]); job.save()
+    if not report.is_file() or not result["ok"]: raise RuntimeError("SURVIVAL_STATE_FAILED_OR_REPORT_MISSING")
+
+
 def verify_sources(job, paths):
     if job.source_guard is not None:
         current = job.source_guard(); expected = job.report["sources"]
@@ -182,7 +194,7 @@ def arguments():
     catalog = commands.add_parser("catalog"); catalog.add_argument("action", choices=["list", "affected"]); catalog.add_argument("--type", default="weapon", choices=["weapon", "room"])
     catalog.add_argument("path", nargs="?"); catalog.add_argument("--pointer", help="Optional JSON pointer within the changed file")
     asset = commands.add_parser("asset"); asset.add_argument("--publish", action="store_true", help="Copy a verified build to CityPreview after all checks"); asset.add_argument("action", choices=["inspect", "preview", "build"]); asset.add_argument("id")
-    test = commands.add_parser("test"); test.add_argument("suite", choices=["gunplay", "weapon-state"])
+    test = commands.add_parser("test"); test.add_argument("suite", choices=["gunplay", "weapon-state", "survival"])
     test.add_argument("--runtime", type=Path, default=EXE, help="Verified native build to test (gunplay only)")
     report = commands.add_parser("report"); report.add_argument("action", choices=["latest"])
     gallery = commands.add_parser("gallery"); gallery.add_argument("action", choices=["build"])
@@ -202,12 +214,11 @@ def source_snapshot(args, data, rooms):
     source_files.update((PROJECT / "Assets/_PryingEyes").rglob("*.cs"))
     for extension in ("*.shader", "*.hlsl"):
         source_files.update((PROJECT / "Assets/_PryingEyes").rglob(extension))
-    source_files.update((PROJECT / "Packages/com.pryingeyes.layout").rglob("*.cs"))
-    source_files.update((PROJECT / "Packages/com.pryingeyes.weapons").rglob("*.cs"))
     source_files.update(PROJECT / "Packages" / name for name in ("manifest.json", "packages-lock.json"))
     for package in (PROJECT / "Packages").glob("com.pryingeyes.*"):
+        source_files.update(package.rglob("*.cs"))
         source_files.update(package.rglob("*.asmdef")); source_files.add(package / "package.json")
-    for folder in (ROOT / "tools/planlab", ROOT / "tools/weaponslab"):
+    for folder in (ROOT / "tools/planlab", ROOT / "tools/weaponslab", ROOT / "tools/survivallab"):
         source_files.update(folder.glob("*.cs*"))
     source_files.update((ROOT / "modelli/armi").glob("*.py"))
     if is_room:
@@ -259,6 +270,7 @@ def execute(args, queued=None):
         elif args.command == "test":
             with project_lock(job):
                 if args.suite == "weapon-state": weapon_state(job)
+                elif args.suite == "survival": survival_state(job)
                 else: native_gunplay(job, args.runtime.resolve())
         elif args.command == "gallery":
             from asset_graph import production_graph
@@ -285,6 +297,7 @@ def execute(args, queued=None):
                 with project_lock(job):
                     check_editor_closed()
                     weapon_state(job)
+                    survival_state(job)
                     build = job.folder / "build"; executable = build / "PryingEyes.exe"
                     if is_room:
                         recipe = json.loads((PROJECT / "Assets/_PryingEyes/City/citta.json").read_text())

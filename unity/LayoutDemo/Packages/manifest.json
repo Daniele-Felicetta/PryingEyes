@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.pryingeyes.survival": "file:../../PryingEyes/Packages/com.pryingeyes.survival",
     "com.pryingeyes.layout": "file:../../PryingEyes/Packages/com.pryingeyes.layout",
     "com.pryingeyes.weapons": "file:../../PryingEyes/Packages/com.pryingeyes.weapons",
     "com.unity.modules.imgui": "1.0.0",

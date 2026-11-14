@@ -34,6 +34,9 @@ tools/planlab/bin/
 tools/planlab/obj/
 tools/weaponslab/bin/
 tools/weaponslab/obj/
+!tools/survivallab/SurvivalLab.csproj
+tools/survivallab/bin/
+tools/survivallab/obj/
 modelli/chiesa/export/*.fbx
 modelli/hotel/arredi2/*.fbx
 modelli/hotel/arredi3/*.fbx

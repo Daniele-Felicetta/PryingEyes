@@ -6,6 +6,18 @@
   "roadHalfWidth": 5,
   "blocksX": 2,
   "blocksZ": 2,
+  "survival": {
+    "firstCount": 12,
+    "increment": 4,
+    "maximum": 96,
+    "aliveLimit": 24,
+    "interval": 0.65,
+    "intermission": 10,
+    "healthPerWave": 0.12,
+    "speed": 1.45,
+    "speedPerWave": 0.05,
+    "maximumSpeed": 2
+  },
   "shopWeapons": [
     "p9_ronda",
     "p45_argine",

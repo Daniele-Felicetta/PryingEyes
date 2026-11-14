@@ -6,6 +6,12 @@
       "source": "local",
       "dependencies": {}
     },
+    "com.pryingeyes.survival": {
+      "version": "file:../../PryingEyes/Packages/com.pryingeyes.survival",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.pryingeyes.weapons": {
       "version": "file:../../PryingEyes/Packages/com.pryingeyes.weapons",
       "depth": 0,

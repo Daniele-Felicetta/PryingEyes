@@ -107,6 +107,10 @@ def production_graph(weapons=None, rooms=None):
     import json
     recipe_path = ROOT / "unity/PryingEyes/Assets/_PryingEyes/City/citta.json"
     city = json.loads(recipe_path.read_text(encoding="utf-8-sig"))
+    nodes.append({"id": "city_survival", "name": "Progressione delle ondate urbane", "type": "rules", "dependsOn": [],
+        "sources": [{"path": rel(recipe_path), "pointer": "/survival", "reason": "city balance profile"},
+            {"path": "unity/PryingEyes/Assets/_PryingEyes/Scripts/CityWaves.cs", "reason": "city wave integration"},
+            {"path": "unity/PryingEyes/Packages/com.pryingeyes.survival/Runtime/WaveSchedule.cs", "reason": "reusable wave scheduler"}]})
     nodes.append({"id": "district_station", "name": city["district"], "type": "level", "sources": [{"path": rel(recipe_path), "reason": "district recipe"}],
-        "dependsOn": sorted(set(city["shopWeapons"]) | {b["asset"] for b in city.get("rooms", [])})})
+        "dependsOn": sorted(set(city["shopWeapons"]) | {b["asset"] for b in city.get("rooms", [])} | {"city_survival"})})
     return AssetGraph(nodes, ROOT)

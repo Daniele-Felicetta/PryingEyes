@@ -535,7 +535,8 @@ namespace PryingEyes
             if (waveActive) return;
             wave = n;
             waveActive = true;
-            int count = Mathf.Min(28, 4 + n * 2);
+            var city = FindFirstObjectByType<CityDirector>();
+            int count = city != null ? city.survival.Count(n) : Mathf.Min(28, 4 + n * 2);
             // chi deve ancora arrivare conta gia': l'ondata non finisce prima che siano entrati tutti
             alive = count;
             hud?.Banner("Ondata " + HUD.Roman(n), FindFirstObjectByType<CityDirector>() != null
@@ -569,15 +570,10 @@ namespace PryingEyes
         /// il primo monaco, gli altri entrano scaglionati dagli altri ingressi.</summary>
         System.Collections.IEnumerator SpawnWave(int n, int count)
         {
-            if (FindFirstObjectByType<CityDirector>() != null)
+            var city = FindFirstObjectByType<CityDirector>();
+            if (city != null)
             {
-                for (int k = 0; k < count; k++)
-                {
-                    if (k > 0) yield return new WaitForSeconds(Random.Range(.6f, 1.25f));
-                    var type = k > 0 && Random.value < Mathf.Min(.30f, .12f + n * .025f)
-                        ? Enemy.EnemyType.Vigile : Enemy.EnemyType.Spazzino;
-                    Enemy.Spawn(type, PickSpawn(type));
-                }
+                yield return city.RunWave(this, n);
                 yield break;
             }
             Sfx.At(SoundBank.Bell, BellPos, 0.8f, 1f, 3f, 50f);
@@ -612,7 +608,7 @@ namespace PryingEyes
             t.position = p0;
         }
 
-        Vector3 PickSpawn(Enemy.EnemyType type)
+        public Vector3 PickSpawn(Enemy.EnemyType type)
         {
             for (int j = 0; j < spawnPoints.Length; j++)
             {
@@ -660,10 +656,21 @@ namespace PryingEyes
             alive--;
             kills++;
             AddPoints(pts);
-            if (alive <= 0 && waveActive)
+            if (alive <= 0 && waveActive && FindFirstObjectByType<CityDirector>() == null) CompleteWave(8f);
+        }
+
+        public void SetWaveRemaining(int remaining)
+        {
+            alive = remaining;
+            hud?.SetEnemiesLeft(alive);
+        }
+
+        public void CompleteWave(float intermission)
+        {
+            if (waveActive)
             {
                 waveActive = false;
-                waveBreak = 8f;
+                waveBreak = intermission;
                 if (player != null)
                 {
                     player.shield = 50f;
