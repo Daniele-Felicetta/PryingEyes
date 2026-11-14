@@ -59,9 +59,10 @@ namespace PryingEyes
         IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60f;
-            while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
+            while ((GameManager.I == null || !GameManager.I.LevelReady) && Time.realtimeSinceStartup < deadline) yield return null;
             gm = GameManager.I;
-            Check("piano avviato", FloorDirector.I != null && FloorDirector.I.cur != null && !FloorDirector.I.transitioning);
+            Check("livello avviato", gm != null && gm.LevelReady);
+            if (!GameManager.proc) { gm.StopAllCoroutines(); gm.waveActive = false; gm.wave = 0; }
             gm.player.enabled = false;
             gm.player.invulnerable = true;
             Enemy.debugFreeze = Enemy.debugNoSense = true;

@@ -73,6 +73,24 @@ namespace PryingEyes.EditorTools
 
         public static void Windows() => Build(false);
 
+        /// <summary>Build the experimental city as a separate executable, leaving Torre's build alone.</summary>
+        public static void City()
+        {
+            bool scriptsOnly = HasArg("-scriptsOnly");
+            if (!scriptsOnly) CityBuilder.Build();
+            var output = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath,
+                "../Builds/CityPreview/PryingEyes.exe"));
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { CityBuilder.ScenePath },
+                locationPathName = output,
+                target = BuildTarget.StandaloneWindows64,
+                options = scriptsOnly ? BuildOptions.BuildScriptsOnly : BuildOptions.None
+            });
+            Debug.Log("[PryingEyes] city build: " + report.summary.result + " errors=" + report.summary.totalErrors);
+            if (report.summary.result != BuildResult.Succeeded) EditorApplication.Exit(2);
+        }
+
         static void Build(bool scriptsOnly)
         {
             // la Torre (piani procedurali) e' la scena principale; la hall classica resta nel progetto ma fuori dalla build

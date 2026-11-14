@@ -81,9 +81,10 @@ namespace PryingEyes
         IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60f;
-            while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
+            while ((GameManager.I == null || !GameManager.I.LevelReady) && Time.realtimeSinceStartup < deadline) yield return null;
             Check("grafica disponibile", SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null);
             var gm = GameManager.I; var player = gm.player; var weapon = player.weapon;
+            if (!GameManager.proc) { gm.StopAllCoroutines(); gm.waveActive = false; gm.wave = 0; }
             player.enabled = false; player.invulnerable = true;
             Enemy.ClearAll(); Enemy.debugFreeze = Enemy.debugNoSense = true;
             gm.hud.GetComponent<Canvas>().enabled = false;

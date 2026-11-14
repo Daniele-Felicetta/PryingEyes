@@ -112,7 +112,7 @@ namespace PryingEyes.Proc
             var pool = new List<int>(); var weights = new List<float>(); float sum = 0f;
             for (int i = 0; i < WeaponDefs.All.Length; i++)
             {
-                if (i == start || (w != null && w.Owns(i))) continue;
+                if (i == start || WeaponDefs.All[i].cityOnly || (w != null && w.Owns(i))) continue;
                 float wt = GradeWeight(WeaponDefs.All[i].grade, floor);
                 pool.Add(i); weights.Add(wt); sum += wt;
             }
@@ -169,7 +169,7 @@ namespace PryingEyes.Proc
                 if (el >= next)
                 {
                     int pick;
-                    do pick = Random.Range(0, WeaponDefs.All.Length); while (pick == shown || pick == offered);
+                    do pick = Random.Range(0, WeaponDefs.All.Length); while (pick == shown || pick == offered || WeaponDefs.All[pick].cityOnly);
                     shown = pick;
                     ShowWeapon(shown);
                     Sfx.UI(SoundBank.DropTick, 0.4f, Mathf.Lerp(1.25f, 0.8f, el / rollTime));

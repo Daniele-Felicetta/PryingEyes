@@ -11,7 +11,7 @@ namespace PryingEyes
     /// distanza orizzontale, e dal piano terra si colpiva chi stava sul soppalco.</summary>
     public partial class Enemy : MonoBehaviour
     {
-        public enum EnemyType { Occhio, Abate, Monaco, Veglia, Medusa, Portachiavi, Maschera, Direttore, Infermiere, Primario }
+        public enum EnemyType { Occhio, Abate, Monaco, Veglia, Medusa, Portachiavi, Maschera, Direttore, Infermiere, Primario, Spazzino, Vigile }
         public EnemyType type;
 
         public float hp, maxHp, speed;

@@ -1,0 +1,168 @@
+"""Validate and preview the city recipe without launching Unity.
+
+Usage: python tools/citylab.py [--out unity_logs/city_preview.svg]
+The SVG marks entrances, weapon panels, and enemy spawns. Exit 1 on invalid layout.
+"""
+import argparse
+import hashlib
+import sys
+import json
+import math
+import os
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+RECIPE = ROOT / "unity/PryingEyes/Assets/_PryingEyes/City/citta.json"
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--recipe", type=Path, default=RECIPE)
+    parser.add_argument("--runtime", type=Path, help="Run the native city acceptance test with this executable")
+    parser.add_argument("--timeout", type=float, default=240, help="Native test timeout in seconds")
+    parser.add_argument("--out", type=Path, default=ROOT / "unity_logs/city_preview.svg")
+    parser.add_argument("--report", type=Path, default=ROOT / "unity_logs/city_report.json")
+    parser.add_argument("--build-assets", action="store_true", help="Bake and pack the city weapons before validation")
+    args = parser.parse_args()
+    try:
+        r = json.loads(args.recipe.read_text(encoding="utf-8"))
+        required = ("halfWidth", "halfDepth", "roadHalfWidth", "seed", "blocksX", "blocksZ", "district", "shopWeapons")
+        if not isinstance(r, dict) or any(key not in r for key in required):
+            raise ValueError("Recipe must contain district, seed, bounds, block counts and shopWeapons")
+        if any(isinstance(r[key], bool) or not isinstance(r[key], (int, float)) or not math.isfinite(r[key])
+               for key in ("halfWidth", "halfDepth", "roadHalfWidth")):
+            raise ValueError("District dimensions must be finite numbers")
+        if not isinstance(r["shopWeapons"], list) or any(not isinstance(id, str) for id in r["shopWeapons"]):
+            raise ValueError("shopWeapons must be an array of weapon IDs")
+    except (OSError, ValueError, TypeError) as error:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps({"schemaVersion": 1, "operation": "city.validate", "ok": False,
+            "findings": [{"code": "RECIPE_INVALID", "subject": str(args.recipe), "observed": str(error),
+                          "expected": "valid city recipe", "passed": False}]}, indent=2), encoding="utf-8")
+        print("CITY INVALID:", error)
+        return 1
+    if args.build_assets:
+        blender = os.environ.get("BLENDER_EXE") or shutil.which("blender")
+        if not blender and os.name == "nt":
+            blender = r"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe"
+        if not blender or not Path(blender).is_file():
+            parser.error("Blender 4.5 not found: set BLENDER_EXE")
+        source = ROOT / "modelli/armi"
+        subprocess.run([blender, "-b", "-P", "genera_armi.py", "--", "bake", "p9_ronda"],
+                       cwd=source, check=True)
+        subprocess.run([sys.executable, "pack_tex.py", "p9_ronda"], cwd=source, check=True)
+    w, d, road = (float(r[k]) for k in ("halfWidth", "halfDepth", "roadHalfWidth"))
+    errors = []
+    if w < 25 or d < 22 or road < 4 or r["blocksX"] != 2 or r["blocksZ"] != 2:
+        errors.append("District bounds, road clearance or 2x2 block count invalid")
+    shops = r.get("shopWeapons", [])
+    if len(shops) != 3 or len(set(shops)) != 3:
+        errors.append("Expected three different weapon IDs")
+    defs = (ROOT / "unity/PryingEyes/Assets/_PryingEyes/Scripts/Armi/WeaponDefs.cs").read_text(encoding="utf-8")
+    registered = set(re.findall(r'new WeaponDef\s*\{\s*id\s*=\s*"([^"]+)"', defs))
+    for weapon in shops:
+        if weapon not in registered:
+            errors.append(f"Weapon is not registered: {weapon}")
+        if weapon == "p9_ronda":
+            for file in [ROOT / f"modelli/armi/export/{weapon}.fbx",
+                         *(ROOT / f"modelli/armi/tex/{weapon}{suffix}" for suffix in
+                           ("_base.jpg", "_mask.png", "_normal.jpg"))]:
+                if not file.is_file():
+                    errors.append(f"Asset missing: {file}")
+
+    # Same measurements as CityBuilder: each shop has a 3.4 m doorway.
+    bw = w - road - 9
+    bd = d - road - 9
+    bx, bz = (w + road) / 2 + 2, (d + road) / 2 + 2
+    front = bz - bd / 2
+    panel = front - .6
+    if bw < 20 or bd < 12 or front < road + 2:
+        errors.append("Buildings overlap the street or are too small")
+    if abs(bx - 8) >= w or abs(panel) >= d:
+        errors.append("Weapon panels outside district bounds")
+    if w <= 36 or d <= 26:
+        errors.append("Spawn clearance: outer street spawns require halfWidth > 36 and halfDepth > 26")
+    if errors:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps({"schemaVersion": 1, "operation": "city.validate", "ok": False, "errors": errors,
+            "findings": [{"code": "LAYOUT_INVALID", "subject": r["district"], "observed": error, "expected": "valid city layout", "passed": False} for error in errors]}, indent=2), encoding="utf-8")
+        for error in errors:
+            print("CITY INVALID:", error)
+        return 1
+
+    scale = 10
+    width, height = 2 * w * scale, 2 * d * scale
+
+    def xy(x, z):
+        return (x + w) * scale, (d - z) * scale
+
+    def rect(x, z, rw, rd, fill, stroke="none"):
+        px, py = xy(x - rw / 2, z + rd / 2)
+        return f'<rect x="{px:.1f}" y="{py:.1f}" width="{rw * scale:.1f}" height="{rd * scale:.1f}" fill="{fill}" stroke="{stroke}" stroke-width="2"/>'
+
+    svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0f}" height="{height:.0f}" viewBox="0 0 {width:.0f} {height:.0f}">',
+           f'<rect width="100%" height="100%" fill="#31343b"/>',
+           rect(0, 0, road * 2, d * 2, "#51545b"), rect(0, 0, w * 2, road * 2, "#51545b")]
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            cx, cz = sx * (w + road) / 2, sz * (d + road) / 2
+            svg.append(rect(cx, cz, w - road - 3, d - road - 3, "#82827e"))
+            svg.append(rect(cx + sx * 2, cz + sz * 2, bw, bd, "#765048", "#cca879"))
+            ex, ez = xy(cx + sx * 2, cz + sz * 2 - sz * bd / 2)
+            svg.append(f'<circle cx="{ex:.1f}" cy="{ez:.1f}" r="8" fill="#5ce0a8"/>')
+    for x, z, label in ((-bx + 8, -panel, shops[0]), (bx - 8, -panel, shops[1]), (-bx + 8, panel, shops[2])):
+        px, py = xy(x, z)
+        svg.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="7" fill="#ffcf54"/>')
+        svg.append(f'<text x="{px + 10:.1f}" y="{py - 6:.1f}" fill="white" font-size="12">{label}</text>')
+    for x, z in ((0, -24), (0, 24), (-34, 0), (34, 0)):
+        px, py = xy(x, z)
+        svg.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="6" fill="#e86d74"/>')
+    svg.append('</svg>')
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text("\n".join(svg), encoding="utf-8")
+    args.report.parent.mkdir(parents=True, exist_ok=True)
+    args.report.write_text(json.dumps({"schemaVersion": 1, "operation": "city.validate", "ok": True, "recipeSha256": hashlib.sha256(args.recipe.read_bytes()).hexdigest(), "seed": r["seed"], "buildings": 4,
+                                      "entrances": 4, "weapons": shops, "spawns": 4,
+                                      "preview": str(args.out)}, indent=2), encoding="utf-8")
+    print(f"CITY OK: {r['district']}; seed={r['seed']}; 4 buildings, 4 entrances, 3 weapons, 4 spawns; {args.out}")
+    if args.runtime:
+        return run_native(args.runtime.resolve(), args.report.parent / "city-runtime", args.timeout, args.recipe)
+    return 0
+
+
+def run_native(exe, output, timeout, recipe):
+    """Keep binary identity and process outcome beside the native findings and screenshots."""
+    output = output.resolve(); output.mkdir(parents=True, exist_ok=True)
+    command = [str(exe), "-batchmode", "-autotest", "-nofire", "-citytest", "-cityshots",
+               "-screen-width", "1280", "-screen-height", "720", "-cityout", str(output),
+               "-report", str(output / "telemetry.txt"), "-logFile", str(output / "player.log")]
+    report_path = output / "report.json"
+    if report_path.exists():
+        report_path.unlink()  # A stale passing report must never validate a failed or timed-out process.
+    result = {"schemaVersion": 1, "operation": "city.runtime", "ok": False,
+              "command": command, "requestedRecipeSha256": hashlib.sha256(recipe.read_bytes()).hexdigest()}
+    try:
+        result["exeSha256"] = hashlib.sha256(exe.read_bytes()).hexdigest()
+        assembly = exe.parent / "PryingEyes_Data/Managed/Assembly-CSharp.dll"
+        result["assemblySha256"] = hashlib.sha256(assembly.read_bytes()).hexdigest()
+        child = subprocess.run(command, cwd=ROOT, timeout=timeout, creationflags=0x08000000 if os.name == "nt" else 0)
+        result["exitCode"] = child.returncode
+        if report_path.is_file():
+            result["native"] = json.loads(report_path.read_text(encoding="utf-8"))
+            result["ok"] = child.returncode == 0 and result["native"].get("ok") is True
+        else:
+            result["error"] = "RUNTIME_REPORT_MISSING"
+    except subprocess.TimeoutExpired:
+        result["error"] = "RUNTIME_TIMEOUT"
+    except (OSError, ValueError) as error:
+        result["error"] = str(error)
+    (output / "run.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    print("CITY RUNTIME:", "PASS" if result["ok"] else "FAIL", output / "run.json")
+    return 0 if result["ok"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

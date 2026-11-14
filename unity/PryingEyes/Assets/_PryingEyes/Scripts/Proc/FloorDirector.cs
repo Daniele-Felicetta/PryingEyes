@@ -965,13 +965,13 @@ namespace PryingEyes.Proc
                 for (int i = 0; i < WeaponDefs.All.Length; i++)
                 {
                     var d = WeaponDefs.All[i];
-                    if (i == start || d.grade < bands[k][0] || d.grade > bands[k][1]) continue;
+                    if (i == start || d.cityOnly || d.grade < bands[k][0] || d.grade > bands[k][1]) continue;
                     bool dup = false;
                     for (int j = 0; j < k; j++) if (picks[j] == i) dup = true;
                     if (dup || (classes.Contains(d.cls) && r.Next(3) != 0)) continue;
                     pool.Add(i);
                 }
-                if (pool.Count == 0) for (int i = 0; i < WeaponDefs.All.Length; i++) { bool dup2 = false; for (int j = 0; j < k; j++) if (picks[j] == i) dup2 = true; if (i != start && !dup2 && WeaponDefs.All[i].grade <= gMax + 1) pool.Add(i); }
+                if (pool.Count == 0) for (int i = 0; i < WeaponDefs.All.Length; i++) { bool dup2 = false; for (int j = 0; j < k; j++) if (picks[j] == i) dup2 = true; if (i != start && !dup2 && !WeaponDefs.All[i].cityOnly && WeaponDefs.All[i].grade <= gMax + 1) pool.Add(i); }
                 picks[k] = pool[r.Next(pool.Count)];
                 classes.Add(WeaponDefs.All[picks[k]].cls);
             }

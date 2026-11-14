@@ -33,7 +33,7 @@ namespace PryingEyes
             get
             {
 #if PRYINGEYES_FISHNET
-                return true;
+                return UnityEngine.Object.FindFirstObjectByType<CityDirector>() == null;
 #else
                 return false;
 #endif
@@ -113,6 +113,7 @@ namespace PryingEyes
 
         public static bool StartHost(ushort port = CoopProtocol.DefaultPort, bool localOnly = false)
         {
+            if (!Available) { lastStatus = "La cooperativa nella citta' e' in preparazione"; return false; }
             if (Active) return false;
 #if PRYINGEYES_FISHNET
             KeepRunning(true);
@@ -130,6 +131,7 @@ namespace PryingEyes
 
         public static bool StartJoin(string address, ushort port = CoopProtocol.DefaultPort)
         {
+            if (!Available) { lastStatus = "La cooperativa nella citta' e' in preparazione"; return false; }
             if (Active) return false;
             address = (address ?? "").Trim();
             if (address.Length == 0) { lastStatus = "Scrivi l'indirizzo dell'ospite"; return false; }

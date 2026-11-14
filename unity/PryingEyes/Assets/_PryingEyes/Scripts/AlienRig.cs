@@ -12,8 +12,8 @@ namespace PryingEyes
             EnemyType.Veglia or EnemyType.Medusa => EnemyType.Occhio,
             EnemyType.Portachiavi => EnemyType.Abate,
             // i nemici dei piani a tema (EnemyTemi.cs) sono il monaco e l'abate con un altro costume
-            EnemyType.Maschera or EnemyType.Direttore or EnemyType.Infermiere => EnemyType.Monaco,
-            EnemyType.Primario => EnemyType.Abate,
+            EnemyType.Maschera or EnemyType.Direttore or EnemyType.Infermiere or EnemyType.Spazzino => EnemyType.Monaco,
+            EnemyType.Primario or EnemyType.Vigile => EnemyType.Abate,
             _ => kind
         };
 

@@ -23,7 +23,7 @@ REG = {}
 
 
 def load_registry():
-    for mod in ('armi_fucili', 'armi_fucili2', 'armi_pistole', 'armi_mitra', 'armi_pompe', 'armi_pesanti', 'armi_lunghi', 'armi_speciali', 'armi_coltello'):
+    for mod in ('armi_fucili', 'armi_fucili2', 'armi_pistole', 'armi_mitra', 'armi_pompe', 'armi_pesanti', 'armi_lunghi', 'armi_speciali', 'armi_coltello', 'armi_urbane'):
         try:
             m = importlib.import_module(mod)
         except ModuleNotFoundError as ex:

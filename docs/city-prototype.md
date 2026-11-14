@@ -1,0 +1,115 @@
+# Quartiere della Stazione: base giocabile verificata
+
+La scena `Assets/_PryingEyes/Scenes/Citta.unity` viene generata dalla ricetta
+`Assets/_PryingEyes/City/citta.json`. La Torre non viene sostituita.
+
+1. Su un nuovo checkout, `python tools/citylab.py --build-assets` genera FBX
+   e texture con Blender 4.5; `BLENDER_EXE` permette di indicare il percorso.
+   `python tools/citylab.py` controlla le misure della ricetta e produce
+   `unity_logs/city_preview.svg`: strade, edifici, porte, espositori e spawn.
+   Produce anche `unity_logs/city_report.json` per l'agente.
+2. Nell'Editor Unity: **Prying Eyes > City > Generate Preview Scene** costruisce
+   la scena. Apri `Citta.unity` e premi Play per provare il ciclo a ondate della
+   hall, con quattro edifici visitabili e tre espositori sulla strada.
+3. In batch: `-executeMethod PryingEyes.EditorTools.BuildPlayer.City -batchmode -quit`
+   crea un eseguibile distinto in `Builds/CityPreview`. Va lanciato con Unity
+   6000.6.7f1, con una licenza attiva e senza un secondo Editor sul progetto.
+
+La RONDA-9 viene modellata in `modelli/armi/armi_urbane.py`, cotta e impacchettata
+come le altre armi; l'importazione in Unity avviene durante la generazione della
+scena. Ha un ID e un indice aggiunti in coda al catalogo; gli indici precedenti
+restano stabili e la Torre la esclude dagli acquisti casuali finche' non importa
+il relativo prefab. Nelle ondate urbane compaiono lo Spazzino (rapido, con attrezzo di presa)
+e il Vigile (corazzato, con scudo): modelli procedurali e combattimento con la
+logica esistente. La co-op urbana e' disabilitata fino all'integrazione della
+sincronizzazione del nuovo livello.
+
+Questa e' una prima fetta di produzione: edifici e arredi sono ancora blocchi,
+e i nuovi nemici richiedono prove di movimento, collisione e leggibilita'.
+La build Unity e la prova nativa ora riescono. La verifica automatica passa **33/33**:
+quattro percorsi dalla strada agli interni, quattro attraversamenti con il vero
+CharacterController, quattro percorsi dagli spawn, acquisto e rifornimento dei tre
+espositori, inseguimento e contatto in mischia di entrambi i nemici, dimensioni degli
+agganci e tre ondate complete (24 nemici). Questo ultimo controllo elimina i nemici
+con danno di prova: verifica la progressione, non il bilanciamento di una partita armata.
+
+## Riproduzione e prove
+
+```powershell
+python tools/test_citylab.py
+python tools/citylab.py --runtime unity/PryingEyes/Builds/CityPreview/PryingEyes.exe --timeout 240
+```
+
+Il secondo comando produce `unity_logs/city-runtime/run.json`, con esito del
+processo, SHA256 dell'eseguibile e dell'assembly effettivamente provati, e i controlli
+nativi. `report.json` contiene codice, soggetto, risultato osservato e risultato
+atteso per ciascun controllo. Nella stessa cartella ci sono immagini della RONDA-9,
+dello Spazzino, del Vigile e del quartiere. Un report positivo precedente viene
+rimosso prima di avviare il processo: crash, timeout o report mancante falliscono.
+La ricetta richiesta viene identificata separatamente: il suo hash non prova che
+una build preesistente sia stata generata da quella ricetta.
+
+`python tools/citylab.py --recipe percorso.json` permette di provare una variante
+senza modificare la ricetta del progetto. Ricette malformate, numeri non finiti,
+armi sconosciute e spawn troppo vicini ai confini sono rifiutati con report.
+`python tools/test_citylab.py` verifica il caso valido, quattro varianti errate e
+il rifiuto di un vecchio report positivo quando manca l'eseguibile.
+
+Per aggiornare solo il codice di una CityPreview gia' completa, aggiungere
+`-scriptsOnly` alla build City; le modifiche a ricetta, scena o asset richiedono
+invece la build completa. Unity deve essere avviato con accesso ai suoi servizi
+nativi: il precedente crash nel servizio BuildReport/Mono avveniva prima della
+generazione della scena nell'ambiente ristretto, non nel generatore urbano.
+
+## Laboratori riutilizzati nella citta'
+
+`GameManager.LevelReady` espone quando il livello e il giocatore sono pronti sia
+nella Torre sia nelle scene costruite. GunplayTest e OpticsTest usano questa
+condizione e isolano le ondate della hall/citta' durante le misure.
+
+Sulla CityPreview aggiornata:
+
+- `-autotest -nofire -gunplaytest`: **288/288** controlli. Include prefab e agganci,
+  ingresso ADS, modalita' di fuoco, ricariche, munizioni e acquisti della RONDA-9.
+- `-autotest -nofire -opticstest -opticout <cartella>`: **37/37** controlli. Il
+  laboratorio controlla le ottiche previste dal suo copione; non e' una valutazione
+  artistica della mira metallica della RONDA-9.
+
+Log riproducibili in `unity_logs/city-gunplay.log` e `unity_logs/city-optics.log`.
+Questi due laboratori non hanno ancora lo schema JSON unico: vanno collegati alla
+suite comune. Il test di gunplay usa anche bersagli isolati e Tick controllato;
+non sostituisce una partita di bilanciamento.
+
+## Difetto riprodotto e corretto
+
+Gli accessori ereditavano la scala del braccio: attrezzo da **0,462 m** invece di
+1,05 m e scudo da **0,143 m** invece di 0,65 m. La prova mirata
+`-autotest -nofire -citytest -cityrigonly` falliva entrambi i controlli
+`ATTACHMENT_SCALE` prima della correzione. I punti di aggancio ora restano a scala
+unitaria e solo la mesh riceve le proporzioni; la prova completa conferma le due
+misure. Braccia e gambe hanno movimento procedurale, con preparazione, colpo e
+recupero distinti. I modelli restano sagome di prototipo, non asset finali.
+
+## Lavoro ancora necessario per l'obiettivo completo
+
+- Dare al quartiere identita' visiva: facciate, arredi, segnaletica, interni e
+  illuminazione. Le immagini attuali mostrano esplicitamente un blockout.
+- Portare la progressione urbana dal ciclo della hall a un survival urbano
+  completo: aree a pagamento, percorsi alternativi e pressione delle orde.
+- Completare la valutazione visiva e il bilanciamento della prima arma; aggiungere
+  la seconda arma tramite dati/ricetta senza cambiare la logica centrale.
+- Produrre modelli e animazioni definitivi dei due nemici, misurare prestazioni e
+  bilanciamento con una partita reale. Lo scudo per ora caratterizza la sagoma;
+  non e' ancora una meccanica distinta di protezione frontale.
+- Unificare catalogo, schema dei report e comandi di produzione. CityLab e' una
+  prima filiera utilizzata davvero, non l'intera suite proposta. La geometria
+  della ricetta e' ancora calcolata sia in Python sia nel generatore Unity:
+  serve una fonte condivisa verificabile per eliminare questa duplicazione.
+- Coordinare build/import concorrenti, risultati per lavoro, annullamento e
+  provenienza completa delle sorgenti. Gli hash della build sono una prima
+  protezione, non la prova completa di provenienza degli asset.
+- Estrarre i moduli di gioco richiesti e dimostrarne l'uso in un progetto minimo
+  indipendente, senza Hotel, HUD o GameManager. Questo traguardo resta aperto.
+- Integrare e verificare la cooperativa urbana; attualmente e' disabilitata.
+
+La Torre e le sue build non vengono sostituite da CityPreview.

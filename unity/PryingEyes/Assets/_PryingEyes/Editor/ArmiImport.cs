@@ -11,7 +11,7 @@ namespace PryingEyes.EditorTools
     /// Da CLI: Unity.exe -batchmode -projectPath ... -executeMethod PryingEyes.EditorTools.ArmiImport.Run [-armi id1,id2] -quit</summary>
     public static class ArmiImport
     {
-        const string Src = "C:/Users/danie/Desktop/prying-eyes/modelli/armi";
+        static string Src => Path.GetFullPath(Path.Combine(Application.dataPath, "../../../modelli/armi"));
         const string Dir = "Assets/_PryingEyes/Models/Armi";
         const string MatDir = Dir + "/Materiali";
         const string ResDir = "Assets/_PryingEyes/Resources/Armi";
@@ -47,6 +47,20 @@ namespace PryingEyes.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[Armi] importate " + ids.Count + " armi: " + string.Join(", ", ids));
+        }
+
+        /// <summary>Incremental import for content recipes that need one specific weapon.</summary>
+        public static void ImportOne(string id)
+        {
+            if (WeaponDefs.IndexOf(id) < 0 || !File.Exists(Src + "/export/" + id + ".fbx"))
+                throw new System.IO.FileNotFoundException("Weapon recipe or FBX missing: " + id);
+            foreach (var suffix in new[] { "_base.jpg", "_mask.png", "_normal.jpg" })
+                if (!File.Exists(Src + "/tex/" + id + suffix))
+                    throw new System.IO.FileNotFoundException("Weapon map missing: " + id + suffix);
+            Folder(Dir); Folder(MatDir); Folder(ResDir);
+            BuildFxMaterials();
+            Import(id);
+            AssetDatabase.SaveAssets();
         }
 
         // ------------------------------------------------------------------ una arma

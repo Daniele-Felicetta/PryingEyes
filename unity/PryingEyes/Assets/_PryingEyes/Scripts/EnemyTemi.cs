@@ -41,6 +41,14 @@ namespace PryingEyes
                     (maxHp, speed, basePitch) = (190f, Random.Range(1.35f, 1.70f), Random.Range(1.0f, 1.12f));
                     (meleeDmg, meleeCd, meleeReach, volley) = (10f, 1.5f, 2.2f, 0);
                     break;
+                case EnemyType.Spazzino:
+                    (maxHp, speed, basePitch) = (140f, Random.Range(1.65f, 1.90f), 1f);
+                    (meleeDmg, meleeCd, meleeReach, volley) = (12f, 1.55f, 2.15f, 0);
+                    break;
+                case EnemyType.Vigile:
+                    (maxHp, speed, basePitch) = (340f, Random.Range(1.05f, 1.20f), .72f);
+                    (meleeDmg, meleeCd, meleeReach, volley) = (22f, 2.2f, 2.3f, 0);
+                    break;
                 default:                                   // Primario: l'abate del sanatorio, colpi e portata dell'abate
                     (maxHp, speed, basePitch) = (360f, Random.Range(1.0f, 1.2f), Random.Range(0.52f, 0.58f));
                     break;
@@ -58,6 +66,8 @@ namespace PryingEyes
         /// il bagliore non si spegne. Se il prefab non c'e' ancora si presenta il monaco o l'abate.</summary>
         static GameObject BuildThemed(EnemyType t, out Material glow, out List<Material> flashes)
         {
+            if (t == EnemyType.Spazzino || t == EnemyType.Vigile)
+                return BuildCity(t, out glow, out flashes);
             var prefab = Resources.Load<GameObject>(t.ToString());
             if (prefab == null)
             {
@@ -92,6 +102,8 @@ namespace PryingEyes
                 case EnemyType.Maschera: loop = Sfx.Loop(gameObject, SoundBank.MusicBox, 0.40f, 1.5f, 24f, basePitch); break;
                 case EnemyType.Direttore: loop = Sfx.Loop(gameObject, SoundBank.TheatreTone, 0.55f, 2f, 30f, basePitch); break;
                 case EnemyType.Infermiere: loop = Sfx.Loop(gameObject, SoundBank.Monitor, 0.40f, 1.5f, 20f, basePitch); break;
+                case EnemyType.Spazzino: loop = Sfx.Loop(gameObject, SoundBank.KeeperKeys, .20f, 1.5f, 20f, basePitch); break;
+                case EnemyType.Vigile: loop = Sfx.Loop(gameObject, SoundBank.TheatreTone, .25f, 2f, 26f, basePitch); break;
                 default: loop = Sfx.Loop(gameObject, SoundBank.ClinicBuzz, 0.55f, 2f, 28f, basePitch); break;
             }
         }

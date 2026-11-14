@@ -56,7 +56,7 @@ namespace PryingEyes
         CharacterController cc;
         public float BodyHeight => cc != null ? cc.height : heightStand;
         Vector3 vel;
-        Vector3 spawnPos = new Vector3(0, 0.1f, 19f);
+        [SerializeField] Vector3 spawnPos = new Vector3(0, 0.1f, 19f);
         int lastStep;
 
         // rinculo della visuale (gradi): il bersaglio sale a ogni colpo e rientra; la visuale lo segue

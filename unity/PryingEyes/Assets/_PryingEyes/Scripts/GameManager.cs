@@ -9,6 +9,8 @@ namespace PryingEyes
         public static GameManager I;
         /// <summary>True nella scena Torre (piani procedurali): niente ondate della hall.</summary>
         public static bool proc;
+        public bool LevelReady => player != null && player.weapon != null && (!proc ||
+            (Proc.FloorDirector.I != null && Proc.FloorDirector.I.cur != null && !Proc.FloorDirector.I.transitioning));
 
         [Header("Waves")]
         public int wave = 0;
@@ -82,7 +84,7 @@ namespace PryingEyes
             score = 500;
             autoTest = HasArg("-autotest") || HasArg("-guntest");
             gunTest = HasArg("-guntest");
-            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest") || HasArg("-survivaltest");
+            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest");
             if (autoTest && (HasArg("-procbot") || HasArg("-stealthtest"))) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
             camShots = HasArg("-camshots");
             if (autoTest)
@@ -92,7 +94,8 @@ namespace PryingEyes
             if (!proc)
             {
                 HotelNav.Build();   // prima di qualunque nemico: i collider della scena ci sono gia'
-                WallBuy.BuildAll(); // armi sui muri (VESPER-9, BREACHER-12, LANCE-7)
+                if (FindFirstObjectByType<CityDirector>() == null)
+                    WallBuy.BuildAll(); // armi sui muri della hall classica
                 Ambience.Create();  // eco, vento, scricchiolii, grammofono; genera anche tutti i suoni
             }
             else Proc.ProcAmbience.Create();
@@ -196,8 +199,8 @@ namespace PryingEyes
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
                 bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-meleetest") ||
-                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest");
-                if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : 100f))
+                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest");
+                if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
                     System.IO.File.AppendAllText(REPORT, $"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
                     Application.Quit();
@@ -535,7 +538,8 @@ namespace PryingEyes
             int count = Mathf.Min(28, 4 + n * 2);
             // chi deve ancora arrivare conta gia': l'ondata non finisce prima che siano entrati tutti
             alive = count;
-            hud?.Banner("Ondata " + HUD.Roman(n), WaveLines[(n - 1) % WaveLines.Length]);
+            hud?.Banner("Ondata " + HUD.Roman(n), FindFirstObjectByType<CityDirector>() != null
+                ? CityWaveLines[(n - 1) % CityWaveLines.Length] : WaveLines[(n - 1) % WaveLines.Length]);
             hud?.SetWave(n);
             hud?.SetEnemiesLeft(alive);
             StartCoroutine(SpawnWave(n, count));
@@ -552,12 +556,30 @@ namespace PryingEyes
             "Stanotte ogni stanza è occupata.",
             "Gli ospiti ti stavano aspettando.",
         };
+        static readonly string[] CityWaveLines =
+        {
+            "La strada e' deserta. Senti passi dietro l'angolo.",
+            "Qualcuno bussa alle vetrine chiuse.",
+            "Dalle traverse arrivano altri infetti.",
+            "Il quartiere non e' mai stato evacuato.",
+        };
         static readonly Vector3 BellPos = new Vector3(24f, 1.3f, 2f);
 
         /// <summary>Messa in scena dell'ondata: il campanello della reception suona da solo, l'ascensore arriva ed esce
         /// il primo monaco, gli altri entrano scaglionati dagli altri ingressi.</summary>
         System.Collections.IEnumerator SpawnWave(int n, int count)
         {
+            if (FindFirstObjectByType<CityDirector>() != null)
+            {
+                for (int k = 0; k < count; k++)
+                {
+                    if (k > 0) yield return new WaitForSeconds(Random.Range(.6f, 1.25f));
+                    var type = k > 0 && Random.value < Mathf.Min(.30f, .12f + n * .025f)
+                        ? Enemy.EnemyType.Vigile : Enemy.EnemyType.Spazzino;
+                    Enemy.Spawn(type, PickSpawn(type));
+                }
+                yield break;
+            }
             Sfx.At(SoundBank.Bell, BellPos, 0.8f, 1f, 3f, 50f);
             var bell = GameObject.Find("Bell");
             if (bell != null) StartCoroutine(Jiggle(bell.transform));

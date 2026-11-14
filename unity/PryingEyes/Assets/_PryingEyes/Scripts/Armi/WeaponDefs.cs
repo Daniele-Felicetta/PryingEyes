@@ -12,6 +12,7 @@ namespace PryingEyes
         public string id, name, cls;
         public int grade = 1;                 // 1 ordinaria .. 5 reliquia
         public int price;
+        public bool cityOnly;
         public FireMode[] modes = { FireMode.Auto };
 
         // danno
@@ -302,6 +303,15 @@ namespace PryingEyes
                     hip = 5.0f, ads = 0.10f, bloomShot = 2.2f, bloomMax = 5f, bloomRecover = 3f, recV = 8f, recH = 1.0f, recRecover = 4.5f, kick = 2.6f,
                     adsTime = 0.38f, drawTime = 0.70f, moveMult = 0.80f, adsMoveMult = 0.45f, sight = "scope", zoom = 10f, adsFov = 48f, adsDist = 0.11f, pattern = 4,
                     snd = "amr", flash = 2.0f, casing = "big", tracerEvery = 1f },
+                // Append-only: weapon indices are serialized and shared by the co-op protocol.
+                new WeaponDef { id = "p9_ronda", name = "RONDA-9", cls = "PISTOLA URBANA", grade = 1, price = 700, cityOnly = true, modes = S,
+                    damage = 31, headMult = 2f, rangeNear = 18, rangeFar = 55, farMult = 0.55f, rpm = 420,
+                    mag = 17, reserve = 102, reserveMax = 170, reload = 1.55f, reloadEmpty = 1.95f, style = ReloadStyle.Pistol,
+                    hip = 1.65f, ads = 0.32f, bloomShot = 0.42f, bloomMax = 2.3f, bloomRecover = 7f,
+                    recV = 1.05f, recH = 0.28f, recRecover = 10f, kick = 0.9f,
+                    adsTime = 0.13f, drawTime = 0.29f, moveMult = 1f, adsMoveMult = 0.8f,
+                    sight = "iron", adsFov = 64f, adsDist = 0.30f, snd = "pistol", handDrop = 0.028f,
+                    flash = 0.8f, casing = "pistol", tracerEvery = 1f },
             };
         }
     }

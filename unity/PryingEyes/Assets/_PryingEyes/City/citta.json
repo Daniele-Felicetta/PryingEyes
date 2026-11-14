@@ -1,0 +1,10 @@
+{
+  "seed": 2026,
+  "district": "Quartiere della Stazione",
+  "halfWidth": 39,
+  "halfDepth": 29,
+  "roadHalfWidth": 5,
+  "blocksX": 2,
+  "blocksZ": 2,
+  "shopWeapons": ["p9_ronda", "sg_breacher12", "ar9_malleus"]
+}
