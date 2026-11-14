@@ -111,6 +111,10 @@ def production_graph(weapons=None, rooms=None):
         "sources": [{"path": rel(recipe_path), "pointer": "/survival", "reason": "city balance profile"},
             {"path": "unity/PryingEyes/Assets/_PryingEyes/Scripts/CityWaves.cs", "reason": "city wave integration"},
             {"path": "unity/PryingEyes/Packages/com.pryingeyes.survival/Runtime/WaveSchedule.cs", "reason": "reusable wave scheduler"}]})
+    nodes.append({"id": "city_access", "name": "Accessi urbani a pagamento", "type": "rules", "dependsOn": [],
+        "sources": [{"path": rel(recipe_path), "pointer": "/areas", "reason": "city access prices and identities"},
+            {"path": "unity/PryingEyes/Assets/_PryingEyes/Scripts/CityAccess.cs", "reason": "city physical access integration"},
+            {"path": "unity/PryingEyes/Packages/com.pryingeyes.survival/Runtime/AreaAccess.cs", "reason": "reusable access state"}]})
     nodes.append({"id": "district_station", "name": city["district"], "type": "level", "sources": [{"path": rel(recipe_path), "reason": "district recipe"}],
-        "dependsOn": sorted(set(city["shopWeapons"]) | {b["asset"] for b in city.get("rooms", [])} | {"city_survival"})})
+        "dependsOn": sorted(set(city["shopWeapons"]) | {b["asset"] for b in city.get("rooms", [])} | {"city_survival", "city_access"})})
     return AssetGraph(nodes, ROOT)

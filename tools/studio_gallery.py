@@ -90,7 +90,7 @@ def bundle(assets, graph, reports, output, root, expected_sources=None, loose=No
             source_changes = changed(report.get("sources"), expected_sources)
             findings = [f for f in report.get("findings", []) if f.get("passed") is False]
             metrics = []
-            for filename, label in (("weapon-state.json", "Meccanica armi"), ("survival-state.json", "Ritmo delle ondate")):
+            for filename, label in (("weapon-state.json", "Meccanica armi"), ("survival-state.json", "Regole survival")):
                 state_file = safe_file(path.parent / filename, root)
                 if state_file:
                     mechanical = json.loads(state_file.read_text(encoding="utf-8-sig"))
@@ -107,7 +107,8 @@ def bundle(assets, graph, reports, output, root, expected_sources=None, loose=No
                 checks = native.get("native", {}).get("findings", [])
                 metrics.append({"label": "Città", "value": f"{sum(f.get('passed') is True for f in checks)}/{len(checks)}"})
                 build_match = all(native.get(k) is True for k in ("recipeMatchesBuild", "layoutMatchesBuild", "roomsMatchBuild"))
-                if "survivalMatchesBuild" in native: build_match &= native["survivalMatchesBuild"] is True
+                for field in ("survivalMatchesBuild", "accessMatchesBuild"):
+                    if field in native: build_match &= native[field] is True
                 if not native.get("ok") and native.get("error"):
                     findings.append({"code": native["error"], "observed": "build o risultato non corrispondente", "expected": "build verificata", "passed": False})
             logs = []

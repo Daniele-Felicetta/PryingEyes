@@ -80,9 +80,15 @@ public static class DistrictDemo
         waves.DefeatOne(); waves.Advance(.5f);
         if (waves.Living != 3 || waves.Schedule.Pending != 8) throw new Exception("Independent wave resume failed");
         waves.ResetDemo();
+        var access = new GameObject("IndependentAccess").AddComponent<AccessDemo>(); access.ResetDemo();
+        if (access.Buy("roof") || access.Balance != 1000) throw new Exception("Independent access adjacency failed");
+        if (!access.Buy("shop") || access.Balance != 250 || access.Buy("shop")) throw new Exception("Independent access charge failed");
+        access.Earn(); access.Earn();
+        if (!access.Buy("roof") || access.Balance != 0) throw new Exception("Independent access progression failed");
+        access.ResetDemo();
         EditorSceneManager.SaveScene(roomScene, "Assets/RoomDemo.unity");
         File.WriteAllText(Path.Combine(folder, "room.json"), JsonUtility.ToJson(room, true));
-        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_blocked_exit\",\"room_scene_generation\",\"weapon_firing\",\"weapon_cadence\",\"weapon_reload_lock\",\"weapon_ammo_conservation\",\"wave_population_cap\",\"wave_population_resume\"]}");
-        Debug.Log("[LayoutDemo] PASS: independent layout, weapon and wave state, interactive scene, 14 checks");
+        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_blocked_exit\",\"room_scene_generation\",\"weapon_firing\",\"weapon_cadence\",\"weapon_reload_lock\",\"weapon_ammo_conservation\",\"wave_population_cap\",\"wave_population_resume\",\"access_adjacency\",\"access_charge_once\",\"access_progression\"]}");
+        Debug.Log("[LayoutDemo] PASS: independent layout, weapon, wave and access state, interactive scene, 17 checks");
     }
 }

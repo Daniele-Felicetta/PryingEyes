@@ -33,6 +33,10 @@ class DependencyContracts(unittest.TestCase):
         rows = self.graph.affected("unity/PryingEyes/Packages/com.pryingeyes.survival/Runtime/WaveSchedule.cs")
         self.assertEqual({r["id"] for r in rows}, {"city_survival", "district_station"})
 
+    def test_access_package_change_reaches_only_access_rules_and_level(self):
+        rows = self.graph.affected("unity/PryingEyes/Packages/com.pryingeyes.survival/Runtime/AreaAccess.cs")
+        self.assertEqual({r["id"] for r in rows}, {"city_access", "district_station"})
+
     def test_graph_rejects_cycles_unknown_nodes_and_escape_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

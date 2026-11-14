@@ -12,7 +12,7 @@ namespace PryingEyes
     public sealed partial class CityTest : MonoBehaviour
     {
         [Serializable] sealed class Finding { public string code, subject, observed, expected; public bool passed; }
-        [Serializable] sealed class Report { public string operation = "city.runtime", revision, unity, reproduce, recipeSha256; public DistrictPlan layout; public RoomEvidence[] rooms; public CityWaveProfile survival; public bool ok; public Finding[] findings; }
+        [Serializable] sealed class Report { public string operation = "city.runtime", revision, unity, reproduce, recipeSha256; public DistrictPlan layout; public RoomEvidence[] rooms; public CityWaveProfile survival; public CityAreaDefinition[] areas; public bool ok; public Finding[] findings; }
         [Serializable] sealed class RoomEvidence { public string id, block, sourceSha256; public RoomPlan plan; }
         readonly List<Finding> findings = new List<Finding>();
         string output;
@@ -50,7 +50,7 @@ namespace PryingEyes
             }
             PlayerController.botDir = Vector3.zero;
             var city = FindFirstObjectByType<CityDirector>();
-            var report = new Report { recipeSha256 = city != null ? city.recipeSha256 : "", survival = city != null ? city.survival : null,
+            var report = new Report { recipeSha256 = city != null ? city.recipeSha256 : "", survival = city != null ? city.survival : null, areas = city != null ? city.areas : null,
                 rooms = System.Array.ConvertAll(FindObjectsByType<CityRoom>(FindObjectsSortMode.None), r => new RoomEvidence { id = r.recipeId, block = r.name, sourceSha256 = r.sourceSha256, plan = r.Plan }),
                 layout = city != null ? JsonUtility.FromJson<DistrictPlan>(city.layoutJson) : null, ok = findings.TrueForAll(f => f.passed), findings = findings.ToArray(),
                 revision = CoopProtocol.ContentRevision, unity = Application.unityVersion,
@@ -98,6 +98,7 @@ namespace PryingEyes
                 yield break;
             }
             var path = new NavMeshPath();
+            var access = RunAccess(); while (access.MoveNext()) yield return access.Current;
             Vector3 street = Vector3.up * 0.1f;
             var floors = new List<Transform>();
             foreach (var t in FindObjectsByType<Transform>(FindObjectsSortMode.None))

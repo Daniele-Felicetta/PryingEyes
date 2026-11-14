@@ -67,7 +67,7 @@ namespace PryingEyes.Proc
             return redMat;
         }
 
-        public static Shutter Make(Transform parent, Opening op, float inwardSign)
+        public static Shutter Make(Transform parent, Opening op, float inwardSign, Material steel = null, Material iron = null)
         {
             bool ax = op.alongX;
             float line = op.line * 0.1f, c = op.center * 0.1f;
@@ -82,8 +82,8 @@ namespace PryingEyes.Proc
             s.center = go.transform.position;
 
             float W = s.width, H = s.height;
-            var steel = ProcKit.Mat("acciaio");
-            var iron = ProcKit.Mat("ferro");
+            steel = steel != null ? steel : ProcKit.Mat("acciaio");
+            iron = iron != null ? iron : ProcKit.Mat("ferro");
             var mb = new MeshBuilder();
             mb.Box(steel, new Vector3(0f, H * 0.5f, 0f), new Vector3(W, H, 0.05f));                          // il telo
             for (float y = 0.12f; y < H - 0.05f; y += 0.12f)                                                  // le doghe

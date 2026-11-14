@@ -60,6 +60,21 @@ static class Program
             Check("WAVE_POPULATION_SIMULATION", simulation.Complete(live) && killed == 96 && max <= 24,
                 $"dt={dt}, spawned={simulation.Spawned}, killed={killed}, peak={max}", "96 enemies, peak <=24, completed");
         }
+        var access = new AreaAccess(new[] { new AreaAccess.Area("start", 0), new AreaAccess.Area("shop", 750), new AreaAccess.Area("roof", 1250) },
+            new[] { new AreaAccess.Link("start", "shop"), new AreaAccess.Link("shop", "roof") }, new[] { "start" });
+        Check("ACCESS_INITIAL_STATE", access.IsOpen("start") && !access.IsOpen("shop"), "initial ownership", "only start open");
+        Check("ACCESS_NONADJACENT", !access.TryBuy("start", "roof", 2000, out int charge) && charge == 0, "roof unreachable", "no purchase through unopened shop");
+        Check("ACCESS_INSUFFICIENT_FUNDS", !access.TryBuy("start", "shop", 749, out charge) && charge == 0 && !access.IsOpen("shop"), "749 points", "no charge and no opening");
+        Check("ACCESS_EXACT_BALANCE", access.TryBuy("start", "shop", 750, out charge) && charge == 750 && access.IsOpen("shop"), charge.ToString(), "750 charged exactly once");
+        Check("ACCESS_ALREADY_OPEN", !access.TryBuy("start", "shop", 750, out charge) && charge == 0 && access.Price("shop") == 0, "repeated purchase", "no second charge");
+        Check("ACCESS_PROGRESS", access.TryBuy("shop", "roof", 1250, out charge) && charge == 1250, "new adjacent area", "roof can now be purchased");
+        Check("ACCESS_UNKNOWN", !access.CanBuy("absent", "roof") && !access.CanBuy("start", "absent"), "unknown IDs", "cannot buy");
+        var oneArea = new[] { new AreaAccess.Area("only", 0) };
+        Reject("ACCESS_BAD_PRICE", () => new AreaAccess(new[] { new AreaAccess.Area("only", -1) }, new AreaAccess.Link[0], new[] { "only" }));
+        Reject("ACCESS_DUPLICATE", () => new AreaAccess(new[] { oneArea[0], oneArea[0] }, new AreaAccess.Link[0], new[] { "only" }));
+        Reject("ACCESS_BAD_LINK", () => new AreaAccess(oneArea, new[] { new AreaAccess.Link("only", "absent") }, new[] { "only" }));
+        Reject("ACCESS_BAD_START", () => new AreaAccess(oneArea, new AreaAccess.Link[0], new[] { "absent" }));
+        Reject("ACCESS_DISCONNECTED", () => new AreaAccess(new[] { oneArea[0], new AreaAccess.Area("island", 1) }, new AreaAccess.Link[0], new[] { "only" }));
         var report = new { schemaVersion = 1, operation = "survival.schedule", ok, findings };
         if (args.Length > 0) File.WriteAllText(args[0], JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
         return ok ? 0 : 1;

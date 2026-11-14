@@ -93,6 +93,7 @@ namespace PryingEyes
             GameSettings.BindBrightness(FindAnyObjectByType<UnityEngine.Rendering.Volume>());
             if (!proc)
             {
+                FindFirstObjectByType<CityDirector>()?.PrepareAccess();
                 HotelNav.Build();   // prima di qualunque nemico: i collider della scena ci sono gia'
                 if (FindFirstObjectByType<CityDirector>() == null)
                     WallBuy.BuildAll(); // armi sui muri della hall classica

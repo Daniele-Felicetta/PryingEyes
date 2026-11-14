@@ -464,3 +464,62 @@ passes **14 checks** (`survival-independent-unity.log` and
 pass **17 Studio/gallery tests** and **7 graph tests**. Running the project-lock
 unit check concurrently with production correctly returned PROJECT_BUSY; it was
 rerun successfully after production released the lock.
+
+
+## Paid urban areas
+
+`AreaAccess` in `Production.Survival` owns a graph of stable area IDs, supplied prices
+and ownership. It validates references/connectivity, requires an open adjacent
+source, and returns a charge only for the first successful purchase. Currency,
+physical interaction, door meshes, navigation and game-specific free-area policy
+stay with the caller. It has no hotel plan, Unity, HUD or networking dependency.
+
+The city recipe declares all four buildings with a title and price. The street
+and zero-price buildings start open. The workshop remains free; the other buildings
+cost 750, 1000 and 1250 points. `CityAccess.cs` creates shutters before the navigation
+build, without depending on Awake ordering. Every entrance of a priced building
+shares its ownership and navigation area. Furnished rooms use their planned doors;
+generic buildings use their main entrance. Buying an area lifts all of its shutters
+but navigation stays sealed until the lifting animation has finished.
+
+The adapter reuses the existing shutter geometry/animation with explicit city
+materials. Existing hotel callers still use their original kit materials. Buying
+checks the actual buyer's open source area, living state, distance, view direction,
+line of sight and balance again. Cached selection cannot bypass a newly inserted
+wall. The collider remains a physical barrier for the player while the masked
+navigation area prevents enemy paths. The city removes its masks and navmesh when
+its scene is destroyed, so a new run does not inherit bought access.
+
+`test survival` now includes 12 access checks alongside the 24 wave checks. The
+independent Unity consumer adds a shop-to-roof purchase simulation with caller-owned
+points, and verifies adjacency, charging once and progression. CityLab compares the
+area identities/titles/prices reported by the executable with the requested recipe.
+The gallery and CLI dependency graph connect this access module to the city rules
+and level; changing it does not require regenerating weapon models.
+
+This is access to building interiors from the existing streets. It does not yet
+partition the entire district, add verticality or replace the three generic shells
+with finished spaces. The older Torre RoomAccessState remains a separate plan-
+specific adapter and has not yet been migrated to this graph model. City multiplayer
+and persistence are not provided by this change.
+
+
+Access acceptance: `unity_logs/studio/20261114T143120Z-b94873d7/report.json` passes
+**103 native city checks**, including **32 access checks**, plus **297 gunplay**,
+**1,454 weapon-state**, **36 survival-state** and **7 fresh-import material** checks.
+All **249 captured sources** match; **194 CityPreview files** are SHA256-verified.
+The executable reports the requested access, survival, room, layout and recipe data.
+Native tests verify blocked paths, insufficient points, stale selection through a
+wall, rejection from a closed source area, a moving controller stopped by the
+shutter, exact charging, sealing during animation, complete paths afterwards,
+repeated-purchase rejection and real controller entry for all three paid buildings.
+Closed/open screenshots are kept with that native report.
+
+The first controller probe accidentally retained `holdLook`, which also suppresses
+autotest movement. It correctly failed the movement requirement even though the
+purchase and path checks passed. The job was cancelled through Studio, then the
+probe was corrected to enable movement during both controller checks. The complete
+second run above passed before publication. The independent consumer passes
+**17 checks** (`access-independent-unity.log`); final Python checks pass **17 Studio/
+gallery tests** and **8 dependency graph tests**. The generic area model compiles
+from the same package source in the standalone .NET laboratory and Unity consumer.

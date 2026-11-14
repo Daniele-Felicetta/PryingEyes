@@ -3,5 +3,6 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.survival/Runtime/WaveSchedule.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.survival/Runtime/AreaAccess.cs" />
   </ItemGroup>
 </Project>

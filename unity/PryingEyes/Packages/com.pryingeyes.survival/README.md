@@ -27,3 +27,26 @@ currency rules are required. `tools/survivallab` compiles this exact source unde
 .NET; `unity/LayoutDemo` consumes the package in a separate Unity project with an
 interactive population simulation. The city's profile and its Unity adapter live
 in the game rather than in this package.
+
+## Paid area access
+
+`AreaAccess` owns an adjacency graph and the set of open areas. Supply unique area
+IDs, nonnegative prices, bidirectional links and at least one initially open area.
+Every declared area must be reachable from an initial area. Cycles and multiple
+entrances are allowed; unknown references, duplicate IDs and disconnected areas
+are rejected during construction. Input collections are copied into owned state.
+
+`TryBuy(from, destination, balance, out charged)` opens an adjacent closed area
+only when the source is open and the supplied balance covers its price. Success
+returns the charge exactly once. Failure changes neither ownership nor the output
+charge, which is zero. The caller deducts currency, checks interaction distance,
+view direction and visibility, and opens every physical entrance for that area.
+`IsOpen`, `CanBuy` and `Price` expose the resulting state; querying an unknown price
+throws. This model is used on a single simulation thread. Network replication,
+save storage, rendering, colliders and game-specific initial/free-area policy are
+outside it.
+
+The city adapter registers every priced entrance before the navigation build and
+uses the existing animated shutter with explicitly supplied city materials. The
+independent Unity consumer has a paid-access simulation using the same model,
+with a shop-to-roof progression and a caller-owned points balance.

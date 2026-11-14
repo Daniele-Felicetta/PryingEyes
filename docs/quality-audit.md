@@ -1022,3 +1022,36 @@ This verifies population and pacing, not finished art or final gameplay balance.
 Urban paid access, vertical interiors, enemy presentation and further framework
 work remain part of the active objective. This change updates CityPreview, not the
 Torre/Prova copy.
+
+
+## Paid city access and independent ownership model
+
+The `Production.Survival.AreaAccess` model now accepts stable IDs, prices, links and
+initial ownership without a Unity, hotel-plan, currency-store or rendering
+dependency. It validates its graph and performs adjacent, affordable purchases
+exactly once. The city supplies physical reach, view/visibility checks, currency,
+shutters and masked navmesh areas; the independent consumer supplies a separate
+shop-to-roof simulation. The older Torre plan adapter is still separate.
+
+The street/workshop start open. The three other interiors cost 750/1000/1250 points.
+Every priced entry is registered before navmesh creation. Ownership opens all
+shutters of a building while paths stay sealed until their lift animation finishes.
+Scene destruction removes masks and navigation data to prevent inherited state.
+
+`studio/20261114T143120Z-b94873d7` passes **103 native city checks**, including
+**32 access checks**, **297 gunplay**, **1,454 weapon state**, **36 survival state**,
+and a fresh import check of **7 materials**. All **249 source hashes** match and
+**194 CityPreview files** are compared by SHA256. The executable also reports access
+prices/identities that match the requested recipe. Independent Unity: **17 checks**;
+Python suites: **17 Studio/gallery + 8 graph checks**.
+
+The initial controller probe failed because its fixed-look setting suppressed bot
+movement. That production job was cancelled, not published. The corrected probe
+requires actual movement against the closed barrier and entry after opening; the
+complete rerun passes. Native screenshots and precise paths are documented in
+`production-studio.md`.
+
+This adds purchased interiors to the existing streets. The three generic buildings
+still need distinct layouts, alternate routes, furnishings, verticality and visual
+work. It is not yet paid progression through separate district sectors. City
+multiplayer, persistence and the broader production-suite objective remain open.

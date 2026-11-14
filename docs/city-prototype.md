@@ -189,3 +189,22 @@ Aggiorna CityPreview con 194 file verificati. La prova indipendente Unity passa
 
 La citta' rimane incompleta: accessi a pagamento, altri interni caratterizzati,
 verticalita' e qualita' visiva dei nemici devono ancora essere portati avanti.
+
+
+## Accessi agli edifici
+
+La strada e l'officina sono libere dall'inizio; deposito, uffici e posto di controllo
+costano rispettivamente 750, 1000 e 1250 punti. Le serrande fermano il controller
+e la navigazione dei nemici. Dopo l'acquisto si sollevano e liberano il percorso
+solo alla fine dell'animazione. Il prezzo si paga una volta per edificio.
+
+La logica di possesso e acquisto e' nel modulo senza Unity `AreaAccess`, verificato
+anche nel progetto indipendente. Nella citta' le prove controllano fondi,
+visibilita', lato di acquisto, collisioni, navigazione e addebito unico. La filiera
+passa 103 verifiche native della citta', di cui 32 sugli accessi, e aggiorna
+CityPreview con 194 file verificati. Il progetto indipendente passa 17 controlli.
+
+Gli acquisti aprono gli interni dal reticolo stradale gia' disponibile. Tre edifici
+sono ancora gusci generici: percorsi alternativi, arredi, verticalita' e identita'
+visiva restano da completare. Questa fase non suddivide ancora l'intero quartiere
+in settori acquistabili. Prove e limiti sono descritti in `production-studio.md`.

@@ -26,6 +26,7 @@ namespace PryingEyes.EditorTools
             public string[] shopWeapons;
             public RoomBinding[] rooms;
             public CityWaveProfile survival;
+            public CityAreaDefinition[] areas;
         }
 
         [System.Serializable] public sealed class RoomBinding { public string block, asset; }
@@ -46,6 +47,7 @@ namespace PryingEyes.EditorTools
             recipe.survival.Validate();
 
             var plan = DistrictPlan.Create(recipe.seed, recipe.halfWidth, recipe.halfDepth, recipe.roadHalfWidth);
+            CityDirector.ValidateAreas(recipe.areas, plan);
             var bound = new System.Collections.Generic.HashSet<string>();
             foreach (var room in recipe.rooms ?? new RoomBinding[0])
                 if (room == null || !bound.Add(room.block) || !System.Array.Exists(plan.blocks, b => b.id == room.block) || string.IsNullOrWhiteSpace(room.asset))
@@ -107,6 +109,7 @@ namespace PryingEyes.EditorTools
             player.GetComponent<PlayerController>().SetSpawn(player.transform.position);
             var city = new GameObject("CityDirector").AddComponent<CityDirector>();
             city.survival = recipe.survival;
+            city.areas = recipe.areas; city.gateMetal = stone; city.gateTrim = accent;
             city.shops = new CityDirector.Shop[plan.panels.Length];
             for (int i = 0; i < plan.panels.Length; i++)
                 city.shops[i] = new CityDirector.Shop { weaponId = recipe.shopWeapons[i], position = At(plan.panels[i].position, 1.5f), yaw = plan.panels[i].yaw };

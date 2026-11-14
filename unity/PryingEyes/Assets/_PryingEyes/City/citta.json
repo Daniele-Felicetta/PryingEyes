@@ -6,6 +6,12 @@
   "roadHalfWidth": 5,
   "blocksX": 2,
   "blocksZ": 2,
+  "areas": [
+    {"block": "Building_-1_-1", "title": "Officina del capolinea", "price": 0},
+    {"block": "Building_1_-1", "title": "Deposito", "price": 750},
+    {"block": "Building_-1_1", "title": "Uffici della stazione", "price": 1000},
+    {"block": "Building_1_1", "title": "Posto di controllo", "price": 1250}
+  ],
   "survival": {
     "firstCount": 12,
     "increment": 4,
