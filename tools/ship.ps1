@@ -11,6 +11,8 @@ Senza -Detach lo script gira in primo piano. Per provare senza cambiare nulla: -
 
 Passi, nell'ordine:
   controlli  ramo, Unity non aperto sul progetto, nessuna copia del gioco in esecuzione dalla cartella della build
+  cancello   tools\check_suite.py (i pacchetti riusabili non dipendono dal gioco ne' da Unity) e i test Python di tools\
+             (~30 s, senza Unity); se falliscono non si committa nulla. -NoGate lo salta
   commit     solo i percorsi di -Paths (mai git add -A), messaggio da -MessageFile, indice vuoto in partenza;
              senza -Paths non si committa nulla
   build      Unity in batchmode a priorita' bassa (CPU, disco, memoria) in Builds\Audit (o -OutDir). -Mode auto: completa
@@ -37,6 +39,7 @@ param(
     [switch]$NoBuild,
     [switch]$NoPush,
     [switch]$NoExe,
+    [switch]$NoGate,
     [switch]$DryRun,
     [switch]$Detach,
     [switch]$Child,
@@ -244,6 +247,26 @@ if (-not $NoBuild) {
 if ($buildOut -eq $userBuilds) { Finish $false "controlli: la cartella di uscita e' quella dell'utente (Builds): non si costruisce li'" }
 if ($buildOut -eq $userRun) { Finish $false "controlli: la cartella di uscita e' Prova, usata dall'utente: non si costruisce li'" }
 
+# ---------------------------------------------------------------- cancello veloce (prima di committare)
+function Do-Gate {
+    if ($NoGate) { $summary['cancello'] = 'saltato (-NoGate)'; return }
+    Step 'cancello'
+    $py = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $py) { Finish $false 'cancello: python non trovato nel PATH' }
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    # niente -I: i test importano jsonschema e PIL, che possono stare nelle librerie dell'utente
+    $o = @(& python (Join-Path $repo 'tools\check_suite.py') --root $repo 2>&1 | ForEach-Object { "$_".TrimEnd() })
+    $code = $LASTEXITCODE
+    $o | Select-Object -First 30 | ForEach-Object { Log ('  ' + $_) }
+    if ($code -ne 0) { Finish $false 'cancello: i confini dei pacchetti riusabili sono violati (tools\check_suite.py)' }
+    $o = @(& python -m unittest discover -s (Join-Path $repo 'tools') -p 'test_*.py' 2>&1 | ForEach-Object { "$_".TrimEnd() })
+    $code = $LASTEXITCODE
+    $o | Select-Object -Last 12 | ForEach-Object { Log ('  ' + $_) }
+    $ran = [string]($o | Where-Object { $_ -match '^Ran \d+ tests?' } | Select-Object -Last 1)
+    if ($code -ne 0) { Finish $false "cancello: i test Python di tools\ falliscono ($ran)" }
+    $summary['cancello'] = "confini dei pacchetti ok, $ran, " + [int]$sw.Elapsed.TotalSeconds + ' s'
+}
+
 # ---------------------------------------------------------------- commit
 function Do-Commit {
     Step 'commit'
@@ -314,7 +337,8 @@ function Get-BuildMode {
     $null = GitLocal @('cat-file', '-e', ([string]$m.commit + '^{commit}'))
     if ($script:gitExit -ne 0) { return @('full', 'il commit del marcatore non esiste piu') }
     $changed = @(GitLocal @('diff', '--name-only', [string]$m.commit, '--', 'unity/PryingEyes/Assets', 'unity/PryingEyes/ProjectSettings', 'unity/PryingEyes/Packages') | Where-Object { $_ })
-    $data = @($changed | Where-Object { $_ -notmatch '\.cs$' -and $_ -notmatch '\.cs\.meta$' })
+    # il gioco di Torre non contiene Citta ne' Labs (scene generate dalle pipeline) ne' i README dei pacchetti: non pesano sulla build
+    $data = @($changed | Where-Object { $_ -notmatch '\.cs$' -and $_ -notmatch '\.cs\.meta$' -and $_ -notmatch '/Scenes/(Citta\.unity|Labs)' -and $_ -notmatch '/Packages/[^/]+/(README|CHANGELOG)\.md(\.meta)?$' })
     if ($data.Count -gt 0) { return @('full', "dati cambiati dall'ultimo ship ($($data.Count) file, es. $($data[0]))") }
     return @('scripts', "dall'ultimo ship ($(Short ([string]$m.commit))) e' cambiato solo codice ($($changed.Count) file .cs)")
 }
@@ -527,6 +551,7 @@ function Do-Exe {
     if ($bad -gt 0 -or $mis -gt 0) { Finish $false "exe: la copia ha problemi ($bad errori di robocopy, $mis differenze)" }
 }
 
+Do-Gate
 Do-Commit
 Do-Build
 Do-Smoke
