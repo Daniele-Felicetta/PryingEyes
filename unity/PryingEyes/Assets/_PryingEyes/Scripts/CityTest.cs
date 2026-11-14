@@ -51,7 +51,7 @@ namespace PryingEyes
             var city = FindFirstObjectByType<CityDirector>();
             var report = new Report { recipeSha256 = city != null ? city.recipeSha256 : "",
                 layout = city != null ? JsonUtility.FromJson<DistrictPlan>(city.layoutJson) : null, ok = findings.TrueForAll(f => f.passed), findings = findings.ToArray(),
-                revision = CoopProtocol.Revision, unity = Application.unityVersion,
+                revision = CoopProtocol.ContentRevision, unity = Application.unityVersion,
                 reproduce = "PryingEyes.exe -batchmode -autotest -nofire -citytest -cityshots" };
             File.WriteAllText(Path.Combine(output, "report.json"), JsonUtility.ToJson(report, true));
             Debug.Log($"[CityTest] RESULT {(report.ok ? "PASS" : "FAIL")}: {findings.FindAll(f => f.passed).Count}/{findings.Count}");

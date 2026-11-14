@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from content_catalog import validate_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / "unity/PryingEyes/Assets/_PryingEyes/City/citta.json"
@@ -44,6 +45,8 @@ def main():
                           "expected": "valid city recipe", "passed": False}]}, indent=2), encoding="utf-8")
         print("CITY INVALID:", error)
         return 1
+    catalog = validate_catalog()
+    families = {e["definition"]["id"] for e in catalog["weapons"] if e["source"].get("family")}
     if args.build_assets:
         blender = os.environ.get("BLENDER_EXE") or shutil.which("blender")
         if not blender and os.name == "nt":
@@ -51,9 +54,10 @@ def main():
         if not blender or not Path(blender).is_file():
             parser.error("Blender 4.5 not found: set BLENDER_EXE")
         source = ROOT / "modelli/armi"
-        subprocess.run([blender, "-b", "-P", "genera_armi.py", "--", "bake", "p9_ronda"],
-                       cwd=source, check=True)
-        subprocess.run([sys.executable, "pack_tex.py", "p9_ronda"], cwd=source, check=True)
+        for identity in r["shopWeapons"]:
+            if identity in families:
+                subprocess.run([blender, "-b", "-P", "genera_armi.py", "--", "bake", identity], cwd=source, check=True)
+                subprocess.run([sys.executable, "pack_tex.py", identity], cwd=source, check=True)
     w, d, road = (float(r[k]) for k in ("halfWidth", "halfDepth", "roadHalfWidth"))
     errors = []
     if w < 25 or d < 22 or road < 4 or r["blocksX"] != 2 or r["blocksZ"] != 2:
@@ -61,12 +65,11 @@ def main():
     shops = r.get("shopWeapons", [])
     if len(shops) != 3 or len(set(shops)) != 3:
         errors.append("Expected three different weapon IDs")
-    defs = (ROOT / "unity/PryingEyes/Assets/_PryingEyes/Scripts/Armi/WeaponDefs.cs").read_text(encoding="utf-8")
-    registered = set(re.findall(r'new WeaponDef\s*\{\s*id\s*=\s*"([^"]+)"', defs))
+    registered = {e["definition"]["id"] for e in catalog["weapons"]}
     for weapon in shops:
         if weapon not in registered:
             errors.append(f"Weapon is not registered: {weapon}")
-        if weapon == "p9_ronda":
+        if weapon in families:
             for file in [ROOT / f"modelli/armi/export/{weapon}.fbx",
                          *(ROOT / f"modelli/armi/tex/{weapon}{suffix}" for suffix in
                            ("_base.jpg", "_mask.png", "_normal.jpg"))]:

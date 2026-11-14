@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "migrationFrom": "c1918d8",
+  "definitions": [
+    {
+      "index": 0,
+      "id": "p9_pieta",
+      "sha256": "06f3265aa5475f02516c44d26636c833201e8d39ae142795fe98f8bd29a69feb"
+    },
+    {
+      "index": 1,
+      "id": "m45_vigilia",
+      "sha256": "34df43bd1a134b6567ffc3647770bbfcc12cfb67e9e3d038a5a5a133205a3c3d"
+    },
+    {
+      "index": 2,
+      "id": "smg_tarantola",
+      "sha256": "841954328a46b64fa56909338e778ae611416d771725bc9a7b839242b31a2846"
+    },
+    {
+      "index": 3,
+      "id": "rv_cardinale",
+      "sha256": "8eb1585112669c407883e5a60effe601829203485ea2156d7e7b443fd94e84ff"
+    },
+    {
+      "index": 4,
+      "id": "mp_serafino",
+      "sha256": "f07a4a91ee9271e23e3698e2e27a64ab204b80c0be170baaf3c6a3ba61c2e20b"
+    },
+    {
+      "index": 5,
+      "id": "smg_vesper9",
+      "sha256": "4eb75c8a09b08871ecc64de3ba0017e599cf39f5b5e23633dd0e4cd5dc89d67b"
+    },
+    {
+      "index": 6,
+      "id": "smg_cimbalo",
+      "sha256": "e137c519b1b3c5addb34ad9becc7c7a0eb46066eaff9d26e349e75ba65655bda"
+    },
+    {
+      "index": 7,
+      "id": "ar_trinita",
+      "sha256": "239c4533188262a7a5abe81a7376c069e6add8ec90d82b2b8d4f379bf87a9c7c"
+    },
+    {
+      "index": 8,
+      "id": "ar9_malleus",
+      "sha256": "a6fcb211b4acd7d42105a28b1e56d4a1485d93ea25e65507c36647091805a604"
+    },
+    {
+      "index": 9,
+      "id": "lv_predicatore",
+      "sha256": "83999fb076d2f07c0471862252ef9c70f2b4d59166088bd3abebcfe62b95155d"
+    },
+    {
+      "index": 10,
+      "id": "bolt_rosario",
+      "sha256": "19ddc5ea76af44e56c6b2f2944ef2d067efb9e9cca5886dad53dec13159c85d9"
+    },
+    {
+      "index": 11,
+      "id": "sg_cappellano",
+      "sha256": "0f1b64d042994f0071c73416e9499a655f3edee22a9e1093972ab0f55daaeaf0"
+    },
+    {
+      "index": 12,
+      "id": "sg_breacher12",
+      "sha256": "a49e26c24ac5d3649fc9a23523b5383cbcd8ddb855b62436e6272443d7414b83"
+    },
+    {
+      "index": 13,
+      "id": "pdw_bordone",
+      "sha256": "1f19e72a83b18dffc8e2965631c1d3046658e06c074a85a005d937bba9960e1c"
+    },
+    {
+      "index": 14,
+      "id": "ak_arcangelo",
+      "sha256": "54626ea4834517dd6d0642d96669b88ff653a35c6a6dbddb0c94faada938e7ec"
+    },
+    {
+      "index": 15,
+      "id": "bp_orifiamma",
+      "sha256": "94d36214139bc925107a17fbef26532edafc905fbdcf129c006e6b48713d2d43"
+    },
+    {
+      "index": 16,
+      "id": "dmr_lance7",
+      "sha256": "ce7cf222106b0e89deba67045a09cb71f086365eba9c719759fb8ff7fc1386b5"
+    },
+    {
+      "index": 17,
+      "id": "sg_martello12",
+      "sha256": "1ed65804cb8f6eb22123188e089a50130565c24c6ea194fd0151e55e57082657"
+    },
+    {
+      "index": 18,
+      "id": "lmg_salterio",
+      "sha256": "0ddffd7fe922856f4ae1efb8f29dd31531bf1c01288353c372637810249f2e0a"
+    },
+    {
+      "index": 19,
+      "id": "de_eremita",
+      "sha256": "2fa3c5c20a39e1ffdfd0cfa247296777d425c07bc092786c8f8ab48b7ddbfa3a"
+    },
+    {
+      "index": 20,
+      "id": "br_gloria",
+      "sha256": "acc27ee2400a37707b2d26ab730756c4e2c3e6201ae2d3035af594982a5caea0"
+    },
+    {
+      "index": 21,
+      "id": "snp_sentinella",
+      "sha256": "a576df47d97b1d1b6d8c2684c51ea202a4ea73764f016c0864d869c9486e2824"
+    },
+    {
+      "index": 22,
+      "id": "sg_apocalisse12",
+      "sha256": "958f8a0e348db978f7245686c84537ddcd8c614956b15b2ccab8716b3fcb1f4d"
+    },
+    {
+      "index": 23,
+      "id": "lmg_campana249",
+      "sha256": "681010deebad552e81c81f7f350b3f36b14c096ca59018e2a788f6f37f831839"
+    },
+    {
+      "index": 24,
+      "id": "tu_turibolo",
+      "sha256": "db7d6067a9c97960e5334ad439076938d80a453d22126491cabc189faeca9b83"
+    },
+    {
+      "index": 25,
+      "id": "sp_spora",
+      "sha256": "0fd351f67bebce8acd3d97e75d958c883ab561de9bd7f5e22585b8a9c9fe63cf"
+    },
+    {
+      "index": 26,
+      "id": "pu_pupilla",
+      "sha256": "e96d488565ae4f42484ae24fdad41a0776396fe0487b57ebd8dcc4cbfdb8d4e5"
+    },
+    {
+      "index": 27,
+      "id": "amr_altare50",
+      "sha256": "9056f069f26804a532d72228792ccc673c3f1b32f3611c61af762c5b3b181c4b"
+    },
+    {
+      "index": 28,
+      "id": "p9_ronda",
+      "sha256": "a1cc391c851352b9263f0c4977be8a99aea7a56546f0acdbb1511f3d870ed25e"
+    }
+  ]
+}

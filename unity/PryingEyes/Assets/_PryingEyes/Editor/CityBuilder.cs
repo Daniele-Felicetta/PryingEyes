@@ -41,7 +41,8 @@ namespace PryingEyes.EditorTools
 
             var plan = DistrictPlan.Create(recipe.seed, recipe.halfWidth, recipe.halfDepth, recipe.roadHalfWidth);
             HotelBuilder.EnsureTagsLayers();
-            ArmiImport.ImportOne("p9_ronda");
+            foreach (var id in recipe.shopWeapons)
+                if (WeaponDefs.Catalog.weapons[WeaponDefs.IndexOf(id)].source["family"] != null) ArmiImport.ImportOne(id);
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
             scene.name = "Citta";
             RenderSettings.ambientMode = AmbientMode.Trilight;

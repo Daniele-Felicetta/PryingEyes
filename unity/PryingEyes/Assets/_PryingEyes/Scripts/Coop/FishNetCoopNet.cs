@@ -55,7 +55,7 @@ namespace PryingEyes
             var admission = go.AddComponent<FishNetSeatAuthenticator>();
             admission.localPlayers = 1;
             admission.humanCapacity = CoopProtocol.MaxPlayers - 1;           // l'ospite non e' una connessione
-            admission.contentRevision = CoopProtocol.Revision;
+            admission.contentRevision = CoopProtocol.ContentRevision;
             var nm = go.AddComponent<NetworkManager>();
             var prefabs = ScriptableObject.CreateInstance<SinglePrefabObjects>();
             prefabs.name = "CoopSpawnables";

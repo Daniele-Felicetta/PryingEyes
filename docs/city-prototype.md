@@ -15,11 +15,12 @@ La scena `Assets/_PryingEyes/Scenes/Citta.unity` viene generata dalla ricetta
    crea un eseguibile distinto in `Builds/CityPreview`. Va lanciato con Unity
    6000.6.7f1, con una licenza attiva e senza un secondo Editor sul progetto.
 
-La RONDA-9 viene modellata in `modelli/armi/armi_urbane.py`, cotta e impacchettata
+La RONDA-9 e ARGINE .45 vengono modellate dalla famiglia parametrica in
+`modelli/armi/armi_urbane.py`, cotte e impacchettate
 come le altre armi; l'importazione in Unity avviene durante la generazione della
-scena. Ha un ID e un indice aggiunti in coda al catalogo; gli indici precedenti
+scena. Hanno ID e indici aggiunti in coda al catalogo; gli indici precedenti
 restano stabili e la Torre la esclude dagli acquisti casuali finche' non importa
-il relativo prefab. Nelle ondate urbane compaiono lo Spazzino (rapido, con attrezzo di presa)
+i relativi prefab. Nelle ondate urbane compaiono lo Spazzino (rapido, con attrezzo di presa)
 e il Vigile (corazzato, con scudo): modelli procedurali e combattimento con la
 logica esistente. La co-op urbana e' disabilitata fino all'integrazione della
 sincronizzazione del nuovo livello.
@@ -74,7 +75,7 @@ condizione e isolano le ondate della hall/citta' durante le misure.
 
 Sulla CityPreview aggiornata:
 
-- `-autotest -nofire -gunplaytest`: **288/288** controlli. Include prefab e agganci,
+- `-autotest -nofire -gunplaytest`: **297/297** controlli. Include prefab e agganci,
   ingresso ADS, modalita' di fuoco, ricariche, munizioni e acquisti della RONDA-9.
 - `-autotest -nofire -opticstest -opticout <cartella>`: **37/37** controlli. Il
   laboratorio controlla le ottiche previste dal suo copione; non e' una valutazione
@@ -102,11 +103,14 @@ recupero distinti. I modelli restano sagome di prototipo, non asset finali.
 - Portare la progressione urbana dal ciclo della hall a un survival urbano
   completo: aree a pagamento, percorsi alternativi e pressione delle orde.
 - Completare la valutazione visiva e il bilanciamento della prima arma; aggiungere
-  la seconda arma tramite dati/ricetta senza cambiare la logica centrale.
+  varianti: ARGINE .45 e' stata aggiunta tramite dati alla famiglia della RONDA-9,
+  senza un nuovo ramo per ID nel runtime.
 - Produrre modelli e animazioni definitivi dei due nemici, misurare prestazioni e
   bilanciamento con una partita reale. Lo scudo per ora caratterizza la sagoma;
   non e' ancora una meccanica distinta di protezione frontale.
-- Unificare catalogo, schema dei report e comandi di produzione. CityLab e' una
+- Proseguire l'unificazione di catalogo, report e comandi: il primo catalogo
+  autorevole comprende ora tutte le 30 armi, con schema e comandi Studio
+  (vedi `production-studio.md`). CityLab e' una
   prima filiera utilizzata davvero, non l'intera suite proposta. La geometria ora
   ha una sola implementazione nel pacchetto `com.pryingeyes.layout`, compilata
   direttamente da Unity e PlanLab e consumata dall'anteprima Python.

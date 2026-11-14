@@ -127,6 +127,13 @@ namespace PryingEyes.EditorTools
                 r.sharedMaterials = mats;
             }
             Folder(ResDir);
+            if (di >= 0)
+            {
+                var parts = go.GetComponentsInChildren<Transform>(true);
+                foreach (var socket in WeaponDefs.Catalog.weapons[di].source["requiredSockets"])
+                    if (!System.Array.Exists(parts, t => t.name == (string)socket))
+                    { Object.DestroyImmediate(go); throw new System.InvalidOperationException("SOCKET_MISSING: " + id + "." + socket); }
+            }
             PrefabUtility.SaveAsPrefabAsset(go, ResDir + "/" + id + ".prefab");
             Object.DestroyImmediate(go);
             Debug.Log("[Armi] " + id + ": prefab salvato (" + slots + " slot)");

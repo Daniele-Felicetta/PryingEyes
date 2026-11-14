@@ -1,0 +1,3 @@
+# Versions used by the verified production run. Blender uses its bundled Python.
+jsonschema==4.25.0
+Pillow==11.3.0

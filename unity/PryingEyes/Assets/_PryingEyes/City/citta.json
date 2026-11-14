@@ -6,5 +6,5 @@
   "roadHalfWidth": 5,
   "blocksX": 2,
   "blocksZ": 2,
-  "shopWeapons": ["p9_ronda", "sg_breacher12", "ar9_malleus"]
+  "shopWeapons": ["p9_ronda", "p45_argine", "ar9_malleus"]
 }

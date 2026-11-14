@@ -78,7 +78,7 @@ namespace PryingEyes.EditorTools
         {
             bool scriptsOnly = HasArg("-scriptsOnly");
             if (!scriptsOnly) CityBuilder.Build();
-            var output = System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath,
+            var output = HasArg("-buildOut") ? OutPath() : System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath,
                 "../Builds/CityPreview/PryingEyes.exe"));
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {

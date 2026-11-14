@@ -34,6 +34,11 @@ def load_registry():
             f = getattr(m, k)
             if callable(f) and getattr(f, 'e_arma', False):
                 REG[k] = f
+    from armi_urbane import register_catalog
+    register_catalog(REG)
+    from content_catalog import read_catalog
+    missing = [e["definition"]["id"] for e in read_catalog()["weapons"] if e["definition"]["id"] not in REG]
+    if missing: raise ValueError("MODEL_RECIPE_MISSING: " + ", ".join(missing))
 
 
 def world_bbox(objs):
@@ -49,9 +54,20 @@ def world_bbox(objs):
     return lo, hi
 
 
-def shoot(path, loc, target, fov=34.0, hfit=True):
+def shoot(path, loc, target, fov=34.0, hfit=True, fit_objects=None):
     cam = camera(loc, target, fov)
     cam.data.sensor_fit = 'HORIZONTAL' if hfit else 'VERTICAL'
+    if fit_objects:
+        from bpy_extras.object_utils import world_to_camera_view
+        for attempt in range(26):
+            bpy.context.view_layer.update()
+            points = [world_to_camera_view(bpy.context.scene, cam, o.matrix_world @ Vector(c)) for o in fit_objects for c in o.bound_box]
+            if all(p.z > 0 and .05 <= p.x <= .95 and .05 <= p.y <= .95 for p in points):
+                print('[preview] PREVIEW_FRAME_PASS', os.path.basename(path), 'adjustments=', attempt)
+                break
+            cam.location = Vector(target) + (cam.location - Vector(target)) * 1.12
+        else:
+            raise RuntimeError('PREVIEW_CLIPPED: ' + path)
     bpy.context.scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
 
@@ -82,9 +98,9 @@ def views(g, nm, which, samples, res, tag=''):
     dist = max((L / 2) / math.tan(radians(36 / 2)), (H / 2) / math.tan(radians(10.4))) * 1.12
     for v in which:
         if v == 'lato':
-            shoot(os.path.join(out, f'{nm}_lato{tag}.png'), c + Vector((dist, 0, 0)), c, 36)
+            shoot(os.path.join(out, f'{nm}_lato{tag}.png'), c + Vector((dist, 0, 0)), c, 36, fit_objects=objs)
         elif v == 'tre_quarti':
-            shoot(os.path.join(out, f'{nm}_34{tag}.png'), c + Vector((dist * 0.62, -dist * 0.72, dist * 0.34)), c, 36)
+            shoot(os.path.join(out, f'{nm}_34{tag}.png'), c + Vector((dist * 0.62, -dist * 0.72, dist * 0.34)), c, 36, fit_objects=objs)
         elif v == 'giocatore':
             shoot(os.path.join(out, f'{nm}_giocatore{tag}.png'), Vector((-0.28, -0.72, 0.38)) + kit.OFFSET, Vector((-0.02, 0.5, 0.20)) + kit.OFFSET, 60, hfit=False)
         elif v == 'ads':
@@ -93,7 +109,7 @@ def views(g, nm, which, samples, res, tag=''):
                 p = e.matrix_world.translation
                 shoot(os.path.join(out, f'{nm}_ads{tag}.png'), p + Vector((0, -0.30, 0)), p + Vector((0, 1, 0)), 55, hfit=False)
         elif v == 'sopra':
-            shoot(os.path.join(out, f'{nm}_sopra{tag}.png'), c + Vector((0, 0, dist)), c + Vector((0, 0, 0)), 36)
+            shoot(os.path.join(out, f'{nm}_sopra{tag}.png'), c + Vector((0, 0, dist)), c + Vector((0, 0, 0)), 36, fit_objects=objs)
 
 
 def stage_render(names):
