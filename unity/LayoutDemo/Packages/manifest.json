@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "com.pryingeyes.layout": "file:../../PryingEyes/Packages/com.pryingeyes.layout",
+    "com.pryingeyes.weapons": "file:../../PryingEyes/Packages/com.pryingeyes.weapons",
+    "com.unity.modules.imgui": "1.0.0",
     "com.unity.modules.physics": "1.0.0",
     "com.unity.modules.jsonserialize": "1.0.0",
     "com.unity.modules.imageconversion": "1.0.0"

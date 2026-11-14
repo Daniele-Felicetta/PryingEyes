@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Production.Weapons;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -12,7 +13,13 @@ namespace PryingEyes
     public class Weapon : MonoBehaviour
     {
         // ------------------------------------------------------------------ slot e stato
-        class Slot { public int idx = -1; public int mag, reserve, mode; public bool upg; }
+        class Slot
+        {
+            public int idx = -1, mode; public bool upg;
+            public readonly WeaponState state = new WeaponState();
+            public int mag { get => state.Magazine; set => state.SetAmmunition(value, state.Reserve); }
+            public int reserve { get => state.Reserve; set => state.SetAmmunition(state.Magazine, value); }
+        }
         readonly Slot[] slots = { new Slot(), new Slot() };
         int cur;
 
@@ -34,8 +41,9 @@ namespace PryingEyes
         public int WeaponInSlot(int s) => slots[s].idx;
         public FireMode Mode => Def.modes[slots[cur].mode % Def.modes.Length];
 
+        WeaponState State => slots[cur].state;
+        public bool reloading => State.IsReloading;
         [Header("Stato")]
-        public bool reloading;
         public float ads;                      // 0..1 (con curva)
         public float recoil;                   // contraccolpo del modello (0..1), usato anche dal giocatore per un piccolo scatto
         public float bloom;                    // gradi di dispersione accumulata
@@ -64,9 +72,13 @@ namespace PryingEyes
         Renderer reticleRenderer;
         MaterialPropertyBlock aimProperties;
 
-        float fireT, cycleT, reloadT, reloadDur, swapT, equipT, lastShot = -99f, flashT;
-        int burstLeft, streak, shellsToLoad, shellsLoaded;
-        bool reloadEmpty, triggerHeld, dryPlayed, sprintHeld;
+        float fireT => State.FireDelay;
+        float cycleT => State.CycleDelay;
+        float reloadT => State.ReloadElapsed;
+        bool reloadEmpty => State.ReloadStartedEmpty;
+        float swapT, equipT, lastShot = -99f, flashT;
+        int burstLeft, streak;
+        bool triggerHeld, dryPlayed, sprintHeld;
         float sprintBlend, kickBack, kickPitch, kickRoll, swayX, swayY, swayVx, swayVy, breath;
         float cycleAnim = -1f, cycleLen = 0.6f;
         float pendingSlotTime;
@@ -107,7 +119,7 @@ namespace PryingEyes
         public void DebugFire() { if (mag > 0 && cam != null && viewRoot != null) Shoot(Def); }
         public void RenderScopeNow() { LateUpdate(); }
         public float LastShotTime => lastShot;
-        public bool CanFireNow => fireT <= 0f && cycleT <= 0f && !reloading && swapT <= 0f &&
+        public bool CanFireNow => State.Ready && swapT <= 0f &&
             !knifeOut && sprintBlend <= 0.35f && equipT <= Def.drawTime * 0.6f;
 
         // ------------------------------------------------------------------ avvio
@@ -250,7 +262,7 @@ namespace PryingEyes
         {
             if (s < 0 || s > 1 || s == cur || slots[s].idx < 0 || swapT > 0f || knifeOut) return;
             // l'arma in mano scende; a meta' si cambia il modello
-            reloading = false; hud?.SetReloading(false);
+            State.CancelReload(); hud?.SetReloading(false);
             burstLeft = 0; cycleAnim = -1f;
             pendingSlot = s;
             swapT = 0.16f;
@@ -261,8 +273,8 @@ namespace PryingEyes
         // I tempi e il rinculo appartengono all'arma estratta, non al prossimo slot o alla prossima vita.
         void ResetActionState()
         {
-            reloading = false; reloadT = 0f;
-            fireT = cycleT = 0f; burstLeft = 0; cycleAnim = -1f;
+            State.ResetActions();
+            burstLeft = 0; cycleAnim = -1f;
             triggerHeld = dryPlayed = false;
             bloom = recoil = 0f; streak = 0; streakT = 0f; lastSpread = 0f; lastShotPrev = -99f;
             adsRaw = ads = 0f;
@@ -672,14 +684,13 @@ namespace PryingEyes
 
             // ----- fuoco
             // Conserva il ritardo del fotogramma quando parte il colpo, senza accumulare credito durante l'attesa.
-            fireT = Mathf.Max(0f, fireT) - dt;
-            if (cycleT > 0f) cycleT -= dt;
+            State.AdvanceCadence(dt);
             bool autoBot = inputEnabled && GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire;
             bool press = inputEnabled && (Input.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f));
             bool held = inputEnabled && (Input.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot);
             if (!held) { triggerHeld = false; dryPlayed = false; }
             bool blocked = knifeOut || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
-            if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || shellsLoaded > 0))
+            if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || State.RoundsLoaded > 0))
             {
                 // sparare interrompe la ricarica a canna
                 CancelReload();
@@ -689,7 +700,7 @@ namespace PryingEyes
                 var m = Mode;
                 if (burstLeft > 0 && fireT <= 0f)
                 {
-                    if (mag > 0) { Shoot(d); burstLeft--; if (burstLeft == 0) fireT = Mathf.Max(fireT, d.burstGap / OwnerPerks.RateMult); }
+                    if (mag > 0) { Shoot(d); burstLeft--; if (burstLeft == 0) State.DelayAfterBurst(d.burstGap / OwnerPerks.RateMult); }
                     else burstLeft = 0;
                 }
                 else if (fireT <= 0f && cycleT <= 0f)
@@ -779,68 +790,46 @@ namespace PryingEyes
         {
             var d = Def;
             if (reloading || swapT > 0f || knifeOut) return;
-            if (mag >= magSize || reserve <= 0) return;
-            reloading = true;
-            reloadT = 0f;
-            reloadEmpty = mag <= 0;
+            var timing = d.style == ReloadStyle.Tube ? ReloadTiming.PerRound(d.shellTime, .35f, .25f, .55f) :
+                ReloadTiming.Magazine(d.reload, d.reloadEmpty);
+            if (!State.BeginReload(magSize, timing)) return;
             burstLeft = 0;
-            shellsLoaded = 0;
-            if (d.style == ReloadStyle.Tube)
-            {
-                shellsToLoad = Mathf.Min(magSize - mag, reserve);
-                reloadDur = 0.35f + shellsToLoad * d.shellTime + 0.25f;
-            }
-            else reloadDur = reloadEmpty ? d.reloadEmpty : d.reload;
             hud?.SetReloading(true);
             Synth.Mech(d.style == ReloadStyle.Tube ? "shellopen" : d.style == ReloadStyle.Revolver ? "cylopen" : "magout", 0.55f, 1f);
-            reloadStage = 0;
         }
-
-        int reloadStage;
 
         void CancelReload()
         {
-            reloading = false;
+            State.CancelReload();
             hud?.SetReloading(false);
             hud?.SetAmmo(mag, reserve);
         }
 
         void TickReload(float dt, WeaponDef d)
         {
-            reloadT += dt / OwnerPerks.ReloadTime;       // Mani svelte: il tempo scorre piu' in fretta, tappe e suoni compresi
-            float rp = Mathf.Clamp01(reloadT / Mathf.Max(0.05f, reloadDur));
+            var step = State.AdvanceReload(dt / OwnerPerks.ReloadTime);
             if (d.style == ReloadStyle.Tube)
             {
-                float t = reloadT - 0.35f;
-                while (shellsLoaded < shellsToLoad && t >= shellsLoaded * d.shellTime + d.shellTime * 0.55f)
-                {
-                    mag++; reserve--; shellsLoaded++;
+                for (int round = 0; round < step.RoundsInserted; round++)
                     Synth.Mech("shellin", 0.5f, Random.Range(0.95f, 1.1f));
-                    hud?.SetAmmo(mag, reserve);
+            }
+            else
+            {
+                if ((step.Events & ReloadEvents.MagazineInserted) != 0)
+                    Synth.Mech(d.style == ReloadStyle.Revolver ? "cylshells" : d.style == ReloadStyle.Break ? "shellin" : "magin", 0.6f, 1f);
+                if ((step.Events & ReloadEvents.ActionClosed) != 0)
+                {
+                    if (d.style == ReloadStyle.Revolver) Synth.Mech("cylclose", 0.6f, 1f);
+                    else if (d.style == ReloadStyle.Break) Synth.Mech("breakclose", 0.6f, 1f);
+                    else if (reloadEmpty) Synth.Mech(d.style == ReloadStyle.Pistol ? "slidefwd" : "boltfwd", 0.6f, 1f);
                 }
-                if (rp >= 1f) { reloading = false; hud?.SetReloading(false); if (d.cycle > 0f && reloadEmpty) StartCycle(d, false); }
-                return;
             }
-            // suoni a tappe
-            if (reloadStage == 0 && rp > 0.50f)
-            {
-                reloadStage = 1;
-                Synth.Mech(d.style == ReloadStyle.Revolver ? "cylshells" : d.style == ReloadStyle.Break ? "shellin" : "magin", 0.6f, 1f);
-            }
-            else if (reloadStage == 1 && rp > 0.76f)
-            {
-                reloadStage = 2;
-                if (d.style == ReloadStyle.Revolver) Synth.Mech("cylclose", 0.6f, 1f);
-                else if (d.style == ReloadStyle.Break) Synth.Mech("breakclose", 0.6f, 1f);
-                else if (reloadEmpty) Synth.Mech(d.style == ReloadStyle.Pistol ? "slidefwd" : "boltfwd", 0.6f, 1f);
-            }
-            if (rp >= 1f)
-            {
-                int take = Mathf.Min(magSize - mag, reserve);
-                mag += take; reserve -= take;
-                reloading = false;
+            if (step.RoundsInserted > 0 || (d.style != ReloadStyle.Tube && (step.Events & ReloadEvents.Completed) != 0))
                 hud?.SetAmmo(mag, reserve);
+            if ((step.Events & ReloadEvents.Completed) != 0)
+            {
                 hud?.SetReloading(false);
+                if (d.style == ReloadStyle.Tube && d.cycle > 0f && reloadEmpty) StartCycle(d, false);
             }
         }
 
@@ -849,14 +838,14 @@ namespace PryingEyes
 
         void Shoot(WeaponDef d)
         {
-            mag--;
+            if (!State.ConsumeRound()) return;
             lastShot = Time.time;
             GameManager.shotsFired++;
             // i preti sentono lo sparo (e ne vedono il lampo): l'arma silenziata si sente da molto meno lontano
             Stealth.NoteShot(d.suppressed);
             Noise.Emit(cam.position, d.suppressed ? 11f : 42f, NoiseKind.Gunshot);
             var m = Mode;
-            fireT += (m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm)) / OwnerPerks.RateMult;    // Doppio colpo: +33% di cadenza
+            State.RecordShot((m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm)) / OwnerPerks.RateMult);    // Doppio colpo: +33% di cadenza
             if (d.cycle > 0f && m != FireMode.Double) StartCycle(d, true);
             streak++; streakT = 0.28f;
             // rinculo della visuale: cresce un poco con la raffica, in mira e accovacciati e' piu' dolce
@@ -908,7 +897,7 @@ namespace PryingEyes
 
         void StartCycle(WeaponDef d, bool afterShot)
         {
-            cycleT = Mathf.Max(cycleT, (afterShot ? d.cycle : d.cycle * 0.7f) / OwnerPerks.RateMult);
+            State.StartCycle((afterShot ? d.cycle : d.cycle * 0.7f) / OwnerPerks.RateMult);
             cycleAnim = 0f; cycleLen = (afterShot ? d.cycle : d.cycle * 0.7f) / OwnerPerks.RateMult;
             cycleDelayAfterShot = afterShot;
             cycleCasingDone = false;
@@ -1073,7 +1062,7 @@ namespace PryingEyes
             Vector3 tiltPos = Vector3.zero; Vector3 tiltRot = Vector3.zero;
             if (reloading)
             {
-                float r = Mathf.Clamp01(reloadT / Mathf.Max(0.05f, reloadDur));
+                float r = State.ReloadProgress;
                 rp = r;
                 float tilt = Mathf.Sin(Mathf.Clamp01(r / 0.92f) * Mathf.PI);
                 if (d.style == ReloadStyle.Tube) tilt = Mathf.Clamp01(Band(r, 0.0f, 0.12f) - Band(r, 0.88f, 1f));

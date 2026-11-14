@@ -22,6 +22,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.pryingeyes.weapons": {
+      "version": "file:com.pryingeyes.weapons",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.burst": {
       "version": "2.0.0",
       "depth": 2,

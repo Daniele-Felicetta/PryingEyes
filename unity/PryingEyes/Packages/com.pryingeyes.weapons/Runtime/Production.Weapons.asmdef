@@ -1,0 +1,7 @@
+{
+  "name": "Production.Weapons",
+  "rootNamespace": "Production.Weapons",
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

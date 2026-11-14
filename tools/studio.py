@@ -119,6 +119,20 @@ def native_city(job, executable):
             job.save()
 
 
+def weapon_state(job):
+    report = job.folder / "weapon-state.json"
+    result = None
+    job.report["artifacts"].append(str(report)); job.save()
+    try:
+        job.run("weapon-state", ["dotnet", "run", "-c", "Release", "--project", ROOT / "tools/weaponslab", "--", CATALOG, report], timeout=180)
+    finally:
+        if report.is_file():
+            result = json.loads(report.read_text())
+            job.report["findings"].extend({**finding, "evidence": str(report)} for finding in result["findings"])
+            job.save()
+    if result is None or not result["ok"]: raise RuntimeError("WEAPON_STATE_FAILED_OR_REPORT_MISSING")
+
+
 def verify_sources(job, paths):
     for path in paths:
         if hashlib.sha256(path.read_bytes()).hexdigest() != job.report["sources"][str(path.relative_to(ROOT))]:
@@ -131,7 +145,8 @@ def main():
     commands.add_parser("doctor")
     catalog = commands.add_parser("catalog"); catalog.add_argument("action", choices=["list"]); catalog.add_argument("--type", default="weapon", choices=["weapon", "room"])
     asset = commands.add_parser("asset"); asset.add_argument("--publish", action="store_true", help="Copy a verified build to CityPreview after all checks"); asset.add_argument("action", choices=["inspect", "preview", "build"]); asset.add_argument("id")
-    test = commands.add_parser("test"); test.add_argument("suite", choices=["gunplay"])
+    test = commands.add_parser("test"); test.add_argument("suite", choices=["gunplay", "weapon-state"])
+    test.add_argument("--runtime", type=Path, default=EXE, help="Verified native build to test (gunplay only)")
     report = commands.add_parser("report"); report.add_argument("action", choices=["latest"])
     args = parser.parse_args()
     if args.command == "report":
@@ -143,6 +158,12 @@ def main():
         source_files = {CATALOG, SCHEMA, ROOMS, ROOM_SCHEMA, ROOT / "tools/room_catalog.py", ROOT / "tools/fixtures/weapon-prefix-v1.json", PROJECT / "Assets/_PryingEyes/City/citta.json", Path(__file__).resolve(), ROOT / "tools/content_catalog.py", ROOT / "tools/citylab.py"}
         source_files.update((PROJECT / "Assets/_PryingEyes").rglob("*.cs"))
         source_files.update((PROJECT / "Packages/com.pryingeyes.layout").rglob("*.cs"))
+        source_files.update((PROJECT / "Packages/com.pryingeyes.weapons").rglob("*.cs"))
+        source_files.update(PROJECT / "Packages" / name for name in ("manifest.json", "packages-lock.json"))
+        for package in (PROJECT / "Packages").glob("com.pryingeyes.*"):
+            source_files.update(package.rglob("*.asmdef")); source_files.add(package / "package.json")
+        for folder in (ROOT / "tools/planlab", ROOT / "tools/weaponslab"):
+            source_files.update(folder.glob("*.cs*"))
         source_files.update((ROOT / "modelli/armi").glob("*.py"))
         if is_room:
             entry = next(r for r in room_data["rooms"] if r["id"] == args.id)
@@ -159,7 +180,9 @@ def main():
             if not blender.is_file() or not unity.is_file(): raise RuntimeError("TOOL_MISSING: configure BLENDER_EXE and UNITY_EDITOR_EXE")
             print(f"STUDIO: {len(data['weapons'])} valid weapon entries; Blender and Unity available")
         elif args.command == "test":
-            with project_lock(): native_gunplay(job)
+            with project_lock():
+                if args.suite == "weapon-state": weapon_state(job)
+                else: native_gunplay(job, args.runtime)
         else:
             if args.action == "inspect": print(json.dumps(entry, ensure_ascii=False, indent=2))
             elif args.action == "preview":
@@ -172,6 +195,7 @@ def main():
             else:
                 with project_lock():
                     check_editor_closed()
+                    weapon_state(job)
                     build = job.folder / "build"; executable = build / "PryingEyes.exe"
                     if is_room:
                         recipe = json.loads((PROJECT / "Assets/_PryingEyes/City/citta.json").read_text())

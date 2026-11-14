@@ -62,9 +62,21 @@ public static class DistrictDemo
             cube.transform.position = new Vector3(part.position.x, part.position.y, part.position.z);
             cube.transform.localScale = new Vector3(part.size.x, part.size.y, part.size.z);
         }
+        camera = new GameObject("Camera").AddComponent<Camera>();
+        camera.transform.SetPositionAndRotation(new Vector3(22, 26, -22), Quaternion.LookRotation(new Vector3(-22, -26, 22)));
+        light = new GameObject("Sun").AddComponent<Light>(); light.type = LightType.Directional; light.transform.rotation = Quaternion.Euler(45, -30, 0);
+        var weapon = new GameObject("IndependentWeapon").AddComponent<WeaponDemo>(); weapon.ResetDemo();
+        if (!weapon.FireOnce() || weapon.State.Magazine != 7 || weapon.FireOnce()) throw new Exception("Independent firing/cadence failed");
+        weapon.Advance(.2f);
+        if (!weapon.Reload() || weapon.FireOnce()) throw new Exception("Independent reload lock failed");
+        weapon.Advance(.6f);
+        if (!weapon.State.IsReloading || weapon.State.Magazine != 7) throw new Exception("Independent reload completed too soon");
+        weapon.Advance(.6f);
+        if (weapon.State.IsReloading || weapon.State.Magazine != 8 || weapon.State.Reserve != 31) throw new Exception("Independent reload conservation failed");
+        weapon.ResetDemo();
         EditorSceneManager.SaveScene(roomScene, "Assets/RoomDemo.unity");
         File.WriteAllText(Path.Combine(folder, "room.json"), JsonUtility.ToJson(room, true));
-        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_blocked_exit\",\"room_scene_generation\"]}");
-        Debug.Log("[LayoutDemo] PASS: independent district and room packages, variant, blocked exit, scene");
+        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_blocked_exit\",\"room_scene_generation\",\"weapon_firing\",\"weapon_cadence\",\"weapon_reload_lock\",\"weapon_ammo_conservation\"]}");
+        Debug.Log("[LayoutDemo] PASS: independent layout and weapon state, interactive scene, 12 checks");
     }
 }

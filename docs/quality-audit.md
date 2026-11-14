@@ -908,3 +908,27 @@ Verifiche locali (log in unity_logs, non versionati):
 
 Le uccisioni nelle prove delle ondate sono automatiche: verificano regole e sincronizzazione, non il bilanciamento
 di una partita giocata con le armi. Il nuovo laboratorio dell’officina urbana resta separato da questo aggiornamento.
+
+
+## Weapon-state extraction: verified integration
+
+Full pipeline job: `unity_logs/studio/20261114T123907Z-990ed0ba/report.json`.
+The new package is compiled into the game and the full job passes 1,454 state
+checks, 297/297 native gunplay checks and 67/67 city checks. It publishes and
+verifies 193 files in `Builds/CityPreview`, including `Production.Weapons.dll`.
+The independent Unity consumer passes 12 checks, with an interactive Fire/Reload/Reset
+demo in the generated RoomDemo scene (`unity_logs/weapon-state-independent`).
+
+The Torre build also passes 161/161 presentation checks (`unity_logs/weapon-state-ui`),
+including reload HUD state, ammo exhaustion, inventory changes and a reload that
+continues inside the cooperative menu. Preferences are restored by the existing
+presentation test. This preserves the visible integration in addition to the pure
+state comparison. Full logs are local evidence, not versioned artifacts.
+
+Torre cooperative regression: host **38/38**, client **50/50**, both exit 0
+in 103 seconds (`unity_logs/weapon-state-coop`). The Torre package DLL matches
+the one verified in the city. Published **193 files** to `Builds/Prova`, all
+compared by SHA256; provenance in `build-info.json` and
+`unity_logs/weapon-state-torre-publish.json`. No network message format or balance
+rule changes were introduced. Build-generated scene IDs and numerically identical
+material rewrites are archived locally rather than included in the refactor.

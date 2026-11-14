@@ -112,8 +112,9 @@ implemented. Native gunplay/optics still primarily report through their existing
 and the native presentation lab still uses its legacy output directory. Studio's
 common report wraps the checks that are integrated today.
 
-Weapon state/input/presentation remain largely in `Weapon.cs`; this work extracts
-definition data and production, not the full weapon runtime. The reusable district
+Weapon input, inventory, fire-mode selection and presentation remain in `Weapon.cs`.
+A first mechanical-state module now owns ammunition, reload transitions and cadence;
+the rest of the weapon runtime is not yet extracted. The reusable district
 package and independent Unity demo are documented separately in `city-prototype.md`.
 The city's visual identity, paid-area progression, enemy art/animation, actual combat
 balance, performance and urban co-op remain part of the active objective.
@@ -173,3 +174,59 @@ including sign visibility, and **192 published files** verified by SHA256 in
 `Builds/CityPreview`. `Builds/Prova` remains the separately verified Torre build.
 This proves the first furnished-room pipeline; the rest of the suite and the
 polished urban survival game remain open work.
+
+
+## Mechanical weapon-state module
+
+`Packages/com.pryingeyes.weapons` is a second engine-free runtime assembly. The game
+uses one `WeaponState` per inventory slot; it no longer maintains a separate reload
+clock, shell counters, transfer algorithm or cadence timers inside `Weapon.cs`.
+Game-specific rules calculate capacities, timings and bonuses, while the adapter
+maps state events to audio, animation and HUD. No weapon ID or upgrade concept is
+part of the package. Its README documents the caller's ordering and restoration rules.
+
+```powershell
+python tools/studio.py test weapon-state
+python tools/studio.py test gunplay --runtime path/to/PryingEyes.exe
+```
+
+The managed lab has 1,454 comparisons/contracts and 89,076 per-frame samples.
+It compiles the package source directly and compares against the frozen old reload
+algorithm from `6fcbecf`, including all 30 weapon definitions, upgraded capacities,
+scarce reserve, several time steps and reload bonuses. It intentionally preserves
+the old event ordering, including one presentation stage per coarse tick. The
+extra contracts prevent cancelled or externally refilled reloads from adding ammo.
+
+Every asset build now runs the state lab before producing assets. Its findings
+join the common report. Source capture also includes both local packages, assembly
+definitions/manifests and the PlanLab/WeaponsLab programs and project files.
+
+The independent `unity/LayoutDemo` now includes an interactive `WeaponDemo` in
+the generated `RoomDemo` scene: Fire, Reload and Reset buttons. It references the
+local package and built-in Unity modules, without the Prying Eyes runtime. Native
+verification passes 12 checks across layout, rooms and weapon state, recorded in
+`unity_logs/weapon-state-independent/report.json`.
+
+
+## Weapon-state extraction: verified integration
+
+Full pipeline job: `unity_logs/studio/20261114T123907Z-990ed0ba/report.json`.
+The new package is compiled into the game and the full job passes 1,454 state
+checks, 297/297 native gunplay checks and 67/67 city checks. It publishes and
+verifies 193 files in `Builds/CityPreview`, including `Production.Weapons.dll`.
+The independent Unity consumer passes 12 checks, with an interactive Fire/Reload/Reset
+demo in the generated RoomDemo scene (`unity_logs/weapon-state-independent`).
+
+The Torre build also passes 161/161 presentation checks (`unity_logs/weapon-state-ui`),
+including reload HUD state, ammo exhaustion, inventory changes and a reload that
+continues inside the cooperative menu. Preferences are restored by the existing
+presentation test. This preserves the visible integration in addition to the pure
+state comparison. Full logs are local evidence, not versioned artifacts.
+
+Torre cooperative regression: host **38/38**, client **50/50**, both exit 0
+in 103 seconds (`unity_logs/weapon-state-coop`). The Torre package DLL matches
+the one verified in the city. Published **193 files** to `Builds/Prova`, all
+compared by SHA256; provenance in `build-info.json` and
+`unity_logs/weapon-state-torre-publish.json`. No network message format or balance
+rule changes were introduced. Build-generated scene IDs and numerically identical
+material rewrites are archived locally rather than included in the refactor.
