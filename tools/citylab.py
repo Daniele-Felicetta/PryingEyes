@@ -73,18 +73,19 @@ def main():
                 if not file.is_file():
                     errors.append(f"Asset missing: {file}")
 
-    # Same measurements as CityBuilder: each shop has a 3.4 m doorway.
-    bw = w - road - 9
-    bd = d - road - 9
-    bx, bz = (w + road) / 2 + 2, (d + road) / 2 + 2
-    front = bz - bd / 2
-    panel = front - .6
-    if bw < 20 or bd < 12 or front < road + 2:
-        errors.append("Buildings overlap the street or are too small")
-    if abs(bx - 8) >= w or abs(panel) >= d:
-        errors.append("Weapon panels outside district bounds")
-    if w <= 36 or d <= 26:
-        errors.append("Spawn clearance: outer street spawns require halfWidth > 36 and halfDepth > 26")
+    layout_file = args.report.parent / "city_layout.json"
+    layout_file.parent.mkdir(parents=True, exist_ok=True)
+    if layout_file.exists():
+        layout_file.unlink()
+    try:
+        layout_run = subprocess.run(["dotnet", "run", "-c", "Release", "--project", str(ROOT / "tools/planlab"),
+            "--", "city", str(args.recipe.resolve()), str(layout_file.resolve())], cwd=ROOT, capture_output=True, text=True, timeout=90)
+        if layout_run.returncode:
+            errors.append(layout_run.stderr.strip() or layout_run.stdout.strip() or "Layout planner failed")
+        else:
+            layout = json.loads(layout_file.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+        errors.append(str(error))
     if errors:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps({"schemaVersion": 1, "operation": "city.validate", "ok": False, "errors": errors,
@@ -106,19 +107,18 @@ def main():
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0f}" height="{height:.0f}" viewBox="0 0 {width:.0f} {height:.0f}">',
            f'<rect width="100%" height="100%" fill="#31343b"/>',
            rect(0, 0, road * 2, d * 2, "#51545b"), rect(0, 0, w * 2, road * 2, "#51545b")]
-    for sx in (-1, 1):
-        for sz in (-1, 1):
-            cx, cz = sx * (w + road) / 2, sz * (d + road) / 2
-            svg.append(rect(cx, cz, w - road - 3, d - road - 3, "#82827e"))
-            svg.append(rect(cx + sx * 2, cz + sz * 2, bw, bd, "#765048", "#cca879"))
-            ex, ez = xy(cx + sx * 2, cz + sz * 2 - sz * bd / 2)
-            svg.append(f'<circle cx="{ex:.1f}" cy="{ez:.1f}" r="8" fill="#5ce0a8"/>')
-    for x, z, label in ((-bx + 8, -panel, shops[0]), (bx - 8, -panel, shops[1]), (-bx + 8, panel, shops[2])):
-        px, py = xy(x, z)
+    for block in layout["blocks"]:
+        pavement, building, entrance = (block[key] for key in ("pavement", "building", "entrance"))
+        svg.append(rect(pavement["x"], pavement["z"], block["pavementWidth"], block["pavementDepth"], "#82827e"))
+        svg.append(rect(building["x"], building["z"], block["width"], block["depth"], "#765048", "#cca879"))
+        ex, ez = xy(entrance["x"], entrance["z"])
+        svg.append(f'<circle cx="{ex:.1f}" cy="{ez:.1f}" r="8" fill="#5ce0a8"/>')
+    for panel, label in zip(layout["panels"], shops):
+        px, py = xy(panel["position"]["x"], panel["position"]["z"])
         svg.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="7" fill="#ffcf54"/>')
         svg.append(f'<text x="{px + 10:.1f}" y="{py - 6:.1f}" fill="white" font-size="12">{label}</text>')
-    for x, z in ((0, -24), (0, 24), (-34, 0), (34, 0)):
-        px, py = xy(x, z)
+    for point in layout["spawns"]:
+        px, py = xy(point["x"], point["z"])
         svg.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="6" fill="#e86d74"/>')
     svg.append('</svg>')
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -126,14 +126,24 @@ def main():
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps({"schemaVersion": 1, "operation": "city.validate", "ok": True, "recipeSha256": hashlib.sha256(args.recipe.read_bytes()).hexdigest(), "seed": r["seed"], "buildings": 4,
                                       "entrances": 4, "weapons": shops, "spawns": 4,
-                                      "preview": str(args.out)}, indent=2), encoding="utf-8")
+                                      "preview": str(args.out), "layout": str(layout_file)}, indent=2), encoding="utf-8")
     print(f"CITY OK: {r['district']}; seed={r['seed']}; 4 buildings, 4 entrances, 3 weapons, 4 spawns; {args.out}")
     if args.runtime:
-        return run_native(args.runtime.resolve(), args.report.parent / "city-runtime", args.timeout, args.recipe)
+        return run_native(args.runtime.resolve(), args.report.parent / "city-runtime", args.timeout, args.recipe, layout)
     return 0
 
 
-def run_native(exe, output, timeout, recipe):
+def same_layout(expected, observed):
+    if isinstance(expected, dict):
+        return isinstance(observed, dict) and expected.keys() == observed.keys() and all(same_layout(v, observed[k]) for k, v in expected.items())
+    if isinstance(expected, list):
+        return isinstance(observed, list) and len(expected) == len(observed) and all(same_layout(a, b) for a, b in zip(expected, observed))
+    if isinstance(expected, (float, int)) and not isinstance(expected, bool):
+        return isinstance(observed, (float, int)) and math.isclose(expected, observed, rel_tol=0, abs_tol=0.00001)
+    return expected == observed
+
+
+def run_native(exe, output, timeout, recipe, layout=None):
     """Keep binary identity and process outcome beside the native findings and screenshots."""
     output = output.resolve(); output.mkdir(parents=True, exist_ok=True)
     command = [str(exe), "-batchmode", "-autotest", "-nofire", "-citytest", "-cityshots",
@@ -152,7 +162,11 @@ def run_native(exe, output, timeout, recipe):
         result["exitCode"] = child.returncode
         if report_path.is_file():
             result["native"] = json.loads(report_path.read_text(encoding="utf-8"))
-            result["ok"] = child.returncode == 0 and result["native"].get("ok") is True
+            result["recipeMatchesBuild"] = result["native"].get("recipeSha256") == result["requestedRecipeSha256"]
+            result["layoutMatchesBuild"] = layout is not None and same_layout(layout, result["native"].get("layout"))
+            result["ok"] = child.returncode == 0 and result["native"].get("ok") is True and result["recipeMatchesBuild"] and result["layoutMatchesBuild"]
+            if not result["recipeMatchesBuild"] or not result["layoutMatchesBuild"]:
+                result["error"] = "BUILD_LAYOUT_OR_RECIPE_MISMATCH"
         else:
             result["error"] = "RUNTIME_REPORT_MISSING"
     except subprocess.TimeoutExpired:

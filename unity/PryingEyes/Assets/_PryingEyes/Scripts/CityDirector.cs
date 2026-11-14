@@ -14,6 +14,7 @@ namespace PryingEyes
         }
 
         public Shop[] shops;
+        [HideInInspector] public string layoutJson, recipeSha256;
 
         void Start()
         {

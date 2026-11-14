@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
+using Production.Layout;
 
 namespace PryingEyes
 {
@@ -11,7 +12,7 @@ namespace PryingEyes
     public sealed class CityTest : MonoBehaviour
     {
         [Serializable] sealed class Finding { public string code, subject, observed, expected; public bool passed; }
-        [Serializable] sealed class Report { public string operation = "city.runtime", revision, unity, reproduce; public bool ok; public Finding[] findings; }
+        [Serializable] sealed class Report { public string operation = "city.runtime", revision, unity, reproduce, recipeSha256; public DistrictPlan layout; public bool ok; public Finding[] findings; }
         readonly List<Finding> findings = new List<Finding>();
         string output;
         bool shots;
@@ -47,7 +48,9 @@ namespace PryingEyes
                 yield return sequence.Current;
             }
             PlayerController.botDir = Vector3.zero;
-            var report = new Report { ok = findings.TrueForAll(f => f.passed), findings = findings.ToArray(),
+            var city = FindFirstObjectByType<CityDirector>();
+            var report = new Report { recipeSha256 = city != null ? city.recipeSha256 : "",
+                layout = city != null ? JsonUtility.FromJson<DistrictPlan>(city.layoutJson) : null, ok = findings.TrueForAll(f => f.passed), findings = findings.ToArray(),
                 revision = CoopProtocol.Revision, unity = Application.unityVersion,
                 reproduce = "PryingEyes.exe -batchmode -autotest -nofire -citytest -cityshots" };
             File.WriteAllText(Path.Combine(output, "report.json"), JsonUtility.ToJson(report, true));
@@ -69,6 +72,20 @@ namespace PryingEyes
             var gm = GameManager.I; var city = FindFirstObjectByType<CityDirector>();
             Check("CITY_BOOT", "scene", city != null && gm != null && !GameManager.proc, UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, "Citta, non-procedural");
             if (city == null || gm == null) yield break;
+            var layout = JsonUtility.FromJson<DistrictPlan>(city.layoutJson);
+            Check("LAYOUT_PROVENANCE", "district", layout != null && city.recipeSha256.Length == 64, city.recipeSha256, "baked layout and recipe SHA256");
+            if (layout == null) yield break;
+            foreach (var block in layout.blocks)
+            {
+                var root = GameObject.Find(block.id); var floor = root != null ? root.transform.Find("Floor") : null;
+                bool matches = floor != null && Vector2.Distance(new Vector2(floor.position.x, floor.position.z), new Vector2(block.building.x, block.building.z)) < .001f &&
+                    Mathf.Abs(floor.lossyScale.x - block.width) < .001f && Mathf.Abs(floor.lossyScale.z - block.depth) < .001f;
+                Check("BUILDING_PLAN_MATCH", block.id, matches, matches.ToString(), "scene equals shared layout");
+            }
+            for (int i = 0; i < gm.spawnPoints.Length; i++)
+                Check("SPAWN_PLAN_MATCH", "spawn " + i, i < layout.spawns.Length && Vector2.Distance(new Vector2(gm.spawnPoints[i].position.x, gm.spawnPoints[i].position.z), new Vector2(layout.spawns[i].x, layout.spawns[i].z)) < .001f, gm.spawnPoints[i].position.ToString(), "scene equals shared layout");
+            for (int i = 0; i < city.shops.Length; i++)
+                Check("PANEL_PLAN_MATCH", "panel " + i, i < layout.panels.Length && Vector2.Distance(new Vector2(city.shops[i].position.x, city.shops[i].position.z), new Vector2(layout.panels[i].position.x, layout.panels[i].position.z)) < .001f && city.shops[i].yaw == layout.panels[i].yaw, city.shops[i].position.ToString(), "scene equals shared layout");
             var player = gm.player; player.invulnerable = true;
             Check("WAVE_AUTOSTART", "wave", gm.wave == 1 && gm.waveActive, gm.wave.ToString(), "1, active");
             gm.StopAllCoroutines(); Enemy.ClearAll();

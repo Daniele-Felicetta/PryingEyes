@@ -59,3 +59,14 @@ tools/unity-validation/
 !tools/multiplayer-check/fishnet-compile/**/*.csproj
 tools/multiplayer-check/fishnet-compile/**/bin/
 tools/multiplayer-check/fishnet-compile/**/obj/
+
+# Independent layout consumer: keep its source and package configuration, regenerate scene and settings.
+unity/LayoutDemo/Library/
+unity/LayoutDemo/Temp/
+unity/LayoutDemo/Logs/
+unity/LayoutDemo/UserSettings/
+unity/LayoutDemo/obj/
+unity/LayoutDemo/Verification/
+unity/LayoutDemo/Assets/DistrictDemo.unity*
+unity/LayoutDemo/ProjectSettings/*
+!unity/LayoutDemo/ProjectSettings/ProjectVersion.txt

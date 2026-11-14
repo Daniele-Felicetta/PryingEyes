@@ -1,4 +1,6 @@
 using System.IO;
+using System.Security.Cryptography;
+using Production.Layout;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -27,8 +29,6 @@ namespace PryingEyes.EditorTools
         [MenuItem("Prying Eyes/City/Generate Preview Scene")]
         public static void Build()
         {
-            HotelBuilder.EnsureTagsLayers();
-            ArmiImport.ImportOne("p9_ronda");
             var recipe = JsonUtility.FromJson<Recipe>(File.ReadAllText(
                 Path.Combine(Application.dataPath, "_PryingEyes/City/citta.json")));
             if (recipe == null || recipe.halfWidth < 25 || recipe.halfDepth < 22 ||
@@ -39,6 +39,9 @@ namespace PryingEyes.EditorTools
                 if (WeaponDefs.IndexOf(weapon) < 0)
                     throw new System.InvalidOperationException("City weapon is not registered: " + weapon);
 
+            var plan = DistrictPlan.Create(recipe.seed, recipe.halfWidth, recipe.halfDepth, recipe.roadHalfWidth);
+            HotelBuilder.EnsureTagsLayers();
+            ArmiImport.ImportOne("p9_ronda");
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
             scene.name = "Citta";
             RenderSettings.ambientMode = AmbientMode.Trilight;
@@ -57,21 +60,12 @@ namespace PryingEyes.EditorTools
             var glass = Mat("Windows", new Color(.10f, .19f, .25f));
             var accent = Mat("Accent", new Color(.47f, .30f, .12f));
             Box("Ground", Vector3.zero, new Vector3(recipe.halfWidth * 2, .2f, recipe.halfDepth * 2), asphalt);
-            var rng = new System.Random(recipe.seed);
-            for (int sx = -1; sx <= 1; sx += 2)
-            for (int sz = -1; sz <= 1; sz += 2)
+            foreach (var block in plan.blocks)
             {
-                float cx = sx * (recipe.halfWidth + recipe.roadHalfWidth) / 2f;
-                float cz = sz * (recipe.halfDepth + recipe.roadHalfWidth) / 2f;
-                float w = recipe.halfWidth - recipe.roadHalfWidth - 3f;
-                float d = recipe.halfDepth - recipe.roadHalfWidth - 3f;
-                Box("Sidewalk", new Vector3(cx, .06f, cz), new Vector3(w, .12f, d), pavement);
-                float bx = cx + sx * 2f, bz = cz + sz * 2f;
-                float height = 8f + rng.Next(0, 4) * 2.5f;
-                Building($"Building_{sx}_{sz}", new Vector3(bx, 0, bz), w - 6f, d - 6f, height,
-                    (sx == sz) ? brick : stone, glass, accent, -sz);
-                // Street furniture remains outside the road and the building doorway.
-                Lamp(new Vector3(cx - sx * (w / 2 - 1f), 0, cz - sz * (d / 2 - 1f)), accent);
+                Box("Sidewalk", At(block.pavement, .06f), new Vector3(block.pavementWidth, .12f, block.pavementDepth), pavement);
+                Building(block.id, At(block.building), block.width, block.depth, block.height,
+                    block.alternate ? stone : brick, glass, accent, block.facing);
+                Lamp(At(block.lamp), accent);
             }
             Box("North barrier", new Vector3(0, 1f, recipe.halfDepth), new Vector3(recipe.halfWidth * 2, 2f, .3f), stone);
             Box("South barrier", new Vector3(0, 1f, -recipe.halfDepth), new Vector3(recipe.halfWidth * 2, 2f, .3f), stone);
@@ -88,32 +82,30 @@ namespace PryingEyes.EditorTools
             volume.sharedProfile = AssetDatabase.LoadAssetAtPath<VolumeProfile>("Assets/_PryingEyes/Settings/HotelVolume.asset");
 
             var spawns = new GameObject("SpawnPoints").transform;
-            foreach (var p in new[] { new Vector3(0, .1f, -24), new Vector3(0, .1f, 24),
-                     new Vector3(-34, .1f, 0), new Vector3(34, .1f, 0) })
+            foreach (var point in plan.spawns)
             {
                 var t = new GameObject("Spawn").transform;
-                t.SetParent(spawns);
-                t.position = p;
+                t.SetParent(spawns); t.position = At(point, .1f);
             }
             HotelBuilder.PlayerAndGame();
             var player = GameObject.Find("Player");
             player.transform.position = new Vector3(0, .1f, 0);
             // The player's original spawn must agree with this scene, including after death.
             player.GetComponent<PlayerController>().SetSpawn(player.transform.position);
-            float shopX = (recipe.halfWidth + recipe.roadHalfWidth) / 2f + 2f;
-            float buildingDepth = recipe.halfDepth - recipe.roadHalfWidth - 9f;
-            float shopZ = (recipe.halfDepth + recipe.roadHalfWidth) / 2f + 2f - buildingDepth / 2f - .6f;
             var city = new GameObject("CityDirector").AddComponent<CityDirector>();
-            city.shops = new[]
-            {
-                new CityDirector.Shop { weaponId = recipe.shopWeapons[0], position = new Vector3(-shopX + 8f, 1.5f, -shopZ), yaw = 0 },
-                new CityDirector.Shop { weaponId = recipe.shopWeapons[1], position = new Vector3(shopX - 8f, 1.5f, -shopZ), yaw = 0 },
-                new CityDirector.Shop { weaponId = recipe.shopWeapons[2], position = new Vector3(-shopX + 8f, 1.5f, shopZ), yaw = 180 }
-            };
+            city.shops = new CityDirector.Shop[plan.panels.Length];
+            for (int i = 0; i < plan.panels.Length; i++)
+                city.shops[i] = new CityDirector.Shop { weaponId = recipe.shopWeapons[i], position = At(plan.panels[i].position, 1.5f), yaw = plan.panels[i].yaw };
+            city.layoutJson = JsonUtility.ToJson(plan);
+            using (var sha = SHA256.Create())
+                city.recipeSha256 = System.BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(
+                    Path.Combine(Application.dataPath, "_PryingEyes/City/citta.json")))).Replace("-", "").ToLowerInvariant();
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
             Debug.Log("[PryingEyes] city built: " + recipe.district + " seed=" + recipe.seed);
         }
+
+        static Vector3 At(DistrictPlan.Point point, float y = 0) => new Vector3(point.x, y, point.z);
 
         static Material Mat(string id, Color color)
         {

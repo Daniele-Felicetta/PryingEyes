@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
+using Production.Layout;
 using PryingEyes.Proc;
 
 // Laboratorio del pianificatore: genera migliaia di piani senza aprire Unity, li controlla e disegna le mappe.
@@ -15,6 +17,7 @@ static class Program
         // "old" in qualunque posizione: le ali d'albergo e di chiesa di prima, al posto della griglia
         if (Array.IndexOf(a, "old") >= 0) { PlanGen.UseGrid = false; a = Array.FindAll(a, x => x != "old"); }
         string cmd = a.Length > 0 ? a[0] : "stats";
+        if (cmd == "city") return City(a);
         if (cmd == "survival") return Survival(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "grid") return GridStats(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "dump") return Dump(int.Parse(a[1]), int.Parse(a[2]));
@@ -24,6 +27,20 @@ static class Program
         if (cmd == "map") { Map(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         if (cmd == "sheet") { Sheet(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         return 1;
+    }
+
+    static int City(string[] args)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(File.ReadAllText(args[1]));
+            var recipe = json.RootElement;
+            var plan = DistrictPlan.Create(recipe.GetProperty("seed").GetInt32(), recipe.GetProperty("halfWidth").GetSingle(),
+                recipe.GetProperty("halfDepth").GetSingle(), recipe.GetProperty("roadHalfWidth").GetSingle());
+            File.WriteAllText(args[2], JsonSerializer.Serialize(plan, new JsonSerializerOptions { IncludeFields = true, WriteIndented = true }));
+            return 0;
+        }
+        catch (Exception e) { Console.Error.WriteLine("CITY_LAYOUT_INVALID: " + e.Message); return 1; }
     }
 
     static int Survival(int count)

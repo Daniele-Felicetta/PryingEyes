@@ -1,0 +1,7 @@
+{
+  "name": "Production.Layout",
+  "rootNamespace": "Production.Layout",
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

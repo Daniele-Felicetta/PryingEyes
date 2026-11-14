@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Packages\com.pryingeyes.layout\Runtime\DistrictPlan.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanTypes.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanGen.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanThemes.cs" />

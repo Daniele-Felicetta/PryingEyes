@@ -26,7 +26,8 @@ sincronizzazione del nuovo livello.
 
 Questa e' una prima fetta di produzione: edifici e arredi sono ancora blocchi,
 e i nuovi nemici richiedono prove di movimento, collisione e leggibilita'.
-La build Unity e la prova nativa ora riescono. La verifica automatica passa **33/33**:
+La build Unity e la prova nativa ora riescono. La verifica automatica passa **45/45**:
+ricetta e geometria incorporate, corrispondenza di quattro edifici, quattro spawn e tre espositori con il piano condiviso,
 quattro percorsi dalla strada agli interni, quattro attraversamenti con il vero
 CharacterController, quattro percorsi dagli spawn, acquisto e rifornimento dei tre
 espositori, inseguimento e contatto in mischia di entrambi i nemici, dimensioni degli
@@ -46,14 +47,18 @@ nativi. `report.json` contiene codice, soggetto, risultato osservato e risultato
 atteso per ciascun controllo. Nella stessa cartella ci sono immagini della RONDA-9,
 dello Spazzino, del Vigile e del quartiere. Un report positivo precedente viene
 rimosso prima di avviare il processo: crash, timeout o report mancante falliscono.
-La ricetta richiesta viene identificata separatamente: il suo hash non prova che
-una build preesistente sia stata generata da quella ricetta.
+La ricetta richiesta e' confrontata con lo SHA256 incorporato nella scena dalla
+build; il piano calcolato esternamente e' confrontato con quello incorporato.
+Una ricetta o una geometria diversa falliscono con `BUILD_LAYOUT_OR_RECIPE_MISMATCH`,
+anche se il processo e i suoi controlli locali sono positivi.
 
 `python tools/citylab.py --recipe percorso.json` permette di provare una variante
 senza modificare la ricetta del progetto. Ricette malformate, numeri non finiti,
 armi sconosciute e spawn troppo vicini ai confini sono rifiutati con report.
-`python tools/test_citylab.py` verifica il caso valido, quattro varianti errate e
-il rifiuto di un vecchio report positivo quando manca l'eseguibile.
+`python tools/test_citylab.py` verifica il caso valido, cinque varianti errate, una variante piu' piccola con spawn adattati,
+il rifiuto di un vecchio report positivo quando manca l'eseguibile e il rifiuto di
+report con ricetta o geometria diversa. Questi ultimi casi usano un processo simulato;
+il caso completo usa la build reale.
 
 Per aggiornare solo il codice di una CityPreview gia' completa, aggiungere
 `-scriptsOnly` alla build City; le modifiche a ricetta, scena o asset richiedono
@@ -102,14 +107,41 @@ recupero distinti. I modelli restano sagome di prototipo, non asset finali.
   bilanciamento con una partita reale. Lo scudo per ora caratterizza la sagoma;
   non e' ancora una meccanica distinta di protezione frontale.
 - Unificare catalogo, schema dei report e comandi di produzione. CityLab e' una
-  prima filiera utilizzata davvero, non l'intera suite proposta. La geometria
-  della ricetta e' ancora calcolata sia in Python sia nel generatore Unity:
-  serve una fonte condivisa verificabile per eliminare questa duplicazione.
+  prima filiera utilizzata davvero, non l'intera suite proposta. La geometria ora
+  ha una sola implementazione nel pacchetto `com.pryingeyes.layout`, compilata
+  direttamente da Unity e PlanLab e consumata dall'anteprima Python.
 - Coordinare build/import concorrenti, risultati per lavoro, annullamento e
   provenienza completa delle sorgenti. Gli hash della build sono una prima
   protezione, non la prova completa di provenienza degli asset.
-- Estrarre i moduli di gioco richiesti e dimostrarne l'uso in un progetto minimo
-  indipendente, senza Hotel, HUD o GameManager. Questo traguardo resta aperto.
+- Proseguire l'estrazione dei moduli di gioco: la geometria del quartiere e' ora
+  un primo pacchetto riutilizzato nel progetto indipendente `unity/LayoutDemo`.
+  Armi, stato del combattimento e resto della suite restano da estrarre.
 - Integrare e verificare la cooperativa urbana; attualmente e' disabilitata.
 
 La Torre e le sue build non vengono sostituite da CityPreview.
+
+
+## Primo pacchetto e prova di riutilizzo
+
+`unity/PryingEyes/Packages/com.pryingeyes.layout` contiene il calcolo autorevole
+del quartiere, in un assembly senza riferimenti al motore. `CityBuilder` lo usa
+per costruire la scena. PlanLab compila lo stesso file e produce i dati letti da
+CityLab per anteprima e controlli: Python non ricalcola piu' edifici, porte o spawn.
+
+`unity/LayoutDemo` installa il pacchetto locale e solo moduli incorporati di Unity.
+La verifica nativa `DistrictDemo.Verify` passa determinismo, variazione delle misure,
+rifiuto di misure invalide e generazione di una scena indipendente. Il suo
+`unity_logs/layout-demo/layout.json` coincide con il piano della CLI e della build
+urbana, confrontando i numeri con tolleranza di 0,01 mm.
+
+Il refactoring conserva posizione, rotazione e scala di tutti i **77 elementi con trasformazione**
+della scena del commit `022ded6`: confronto registrato in
+`unity_logs/city-layout-refactor.json`. La scena include ora anche ricetta e piano
+per identificare con precisione cosa e' stato costruito.
+
+La variante piu' piccola adatta gli spawn ai limiti del quartiere: non conserva
+piu' i punti fissi della prima bozza, che sarebbero finiti sulla recinzione.
+
+Il pianificatore rifiuta anche dimensioni finite che produrrebbero un terreno
+di larghezza infinita dopo il raddoppio. Il caso 3e38 metri falliva la verifica
+prima della correzione; ora e' respinto sia nella CLI sia nel progetto indipendente.
