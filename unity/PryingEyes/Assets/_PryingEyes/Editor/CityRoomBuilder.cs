@@ -32,7 +32,21 @@ namespace PryingEyes.EditorTools
             material.SetColor("_BaseColor", color); material.SetFloat("_Metallic", p.metallic); material.SetFloat("_Smoothness", p.smoothness);
             if (p.emission > 0) material.EnableKeyword("_EMISSION"); else material.DisableKeyword("_EMISSION");
             material.SetColor("_EmissionColor", color * p.emission); EditorUtility.SetDirty(material);
+            // URP's importer derives _EMISSION from these flags; the default EmissiveIsBlack erased it after saving.
+            material.globalIlluminationFlags = p.emission > 0 ? MaterialGlobalIlluminationFlags.BakedEmissive : MaterialGlobalIlluminationFlags.EmissiveIsBlack;
             return material;
+        }
+        public static void VerifyImportedMaterials()
+        {
+            foreach (var palette in Load().materials)
+            {
+                string path = "Assets/_PryingEyes/City/Materials/Rooms/" + palette.id + ".mat";
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+                var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (material == null || material.IsKeywordEnabled("_EMISSION") != (palette.emission > 0))
+                    throw new InvalidOperationException("ROOM_EMISSION_IMPORT: " + palette.id);
+            }
+            Debug.Log("[RoomLab] MATERIAL_IMPORT_PASS: " + Load().materials.Length);
         }
         static Vector3 V(RoomPlan.Vector p) => new Vector3(p.x, p.y, p.z);
 
@@ -134,6 +148,7 @@ namespace PryingEyes.EditorTools
             camera.backgroundColor = new Color(.04f, .055f, .07f); camera.fieldOfView = 45;
             camera.transform.SetPositionAndRotation(new Vector3(18, 26, 24), Quaternion.LookRotation(new Vector3(-18, -25, -24)));
             AssetDatabase.SaveAssets();
+            VerifyImportedMaterials();
             var target = new RenderTexture(1280, 900, 24); camera.targetTexture = target;
             // Come ShotScene: il primo render prepara le varianti e i buffer dei materiali appena creati.
             camera.Render(); camera.Render(); camera.Render();

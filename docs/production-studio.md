@@ -27,15 +27,22 @@ production and checked again; changing those sources during a job fails the job.
 Missing city family exports are generated before compiling the city. On a clean
 checkout the first build can therefore generate more than the requested asset.
 
-An OS file lock serializes this project's Studio jobs and releases automatically
-when the process exits. A second job is refused with `PROJECT_BUSY`. Studio also
-checks for a live Editor using this project or a running CityPreview before building
-or publishing. It does not close the user's applications. Timeouts stop only the
-child owned by the job. Ctrl+C cancels the current child and releases the lock.
+An OS file lock serializes production for a project, including when reports are
+written to different output directories. Direct commands refuse a busy project;
+queued commands wait for that Studio lock and remain cancellable. A live Editor
+using the project or a running CityPreview still causes `PROJECT_IN_USE`: Studio
+does not close the user's applications or silently build over them.
 
-This is currently a lock/refusal workflow, not a persistent queue. Independent asset
-generation is also serialized. Persistent queued jobs, a cancellation command for a
-detached job and parallel asset generation remain future work.
+Requests can now be persisted in a SQLite FIFO queue, drained in the foreground
+or by a background worker. Job reports are replaced atomically and record owner
+PID plus process-creation token. Cancellation is a request observed by that owner;
+it never kills an arbitrary recorded PID. Owned process trees are contained before
+the actual command is allowed to launch, so cancelling CityLab also stops the game
+it started. Completed generation/import writes are not rolled back on cancellation.
+
+Independent generation is still serialized with the rest of a project job. A
+separate generation pool remains open work; this is deliberately not a claim of
+parallel generation throughput.
 
 ## One source for weapon data
 
@@ -230,3 +237,106 @@ compared by SHA256; provenance in `build-info.json` and
 `unity_logs/weapon-state-torre-publish.json`. No network message format or balance
 rule changes were introduced. Build-generated scene IDs and numerically identical
 material rewrites are archived locally rather than included in the refactor.
+
+
+## Persistent queue and cancellation
+
+```powershell
+python tools/studio.py queue add asset build room_workshop_station --publish
+python tools/studio.py queue add test weapon-state
+python tools/studio.py queue run --background
+python tools/studio.py queue status
+python tools/studio.py queue status JOB_ID
+python tools/studio.py queue cancel JOB_ID
+python tools/studio.py job list
+python tools/studio.py job status JOB_ID
+python tools/studio.py job cancel JOB_ID
+```
+
+`queue add` validates a supported asset/test request and captures source hashes.
+The worker runs the stored request with its own report directory, source evidence,
+logs and artifacts. If those sources changed before execution, it fails with
+`QUEUED_SOURCES_CHANGED` before launching any step: resubmit deliberately against
+the new version. The captured source set is checked again after acquiring the
+project resource, including newly added files. This avoids compiling changed code
+while reporting evidence for an older request.
+
+`queue run` drains available requests and exits. `--background` returns the worker
+PID and log path immediately. It is not a permanent service: requests submitted
+after it exits need another `queue run`. SQLite preserves pending requests across
+CLI/worker exits. One worker owns a queue at a time; jobs also share the project
+resource lock with direct invocations and with queues using other report stores.
+`STUDIO_OUTPUT` can isolate a report/queue store without bypassing that resource.
+
+States are `queued`, `running`, `complete`, `failed`, `cancelled` and `interrupted`.
+The report may additionally show `waiting` for the project lock or `cancelling`.
+Cancelling a queued request prevents it from launching. Cancelling a running one
+stops only its contained command tree. Ctrl+C also stops draining the queue and
+leaves untouched requests pending. A failed/cancelled request does not prevent
+other queued requests from running.
+
+Recovery observes the recorded process identity; elapsed time or a stale lock file
+is not enough to declare a worker dead. A reused PID is a different identity. If a
+worker disappeared before finishing, the request becomes `interrupted`, without
+automatically retrying partially executed production. If its complete report was
+already written before it disappeared, recovery preserves that completed outcome.
+
+`studio_queue.py` is a project-independent coordinator accepting a request payload,
+a source snapshot and an execution callback. `studio_process.py` supplies the
+OS-backed locks, atomic report writes and contained commands. They have no Unity
+or Prying Eyes content dependency. The Windows containment uses
+[Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects);
+a waiting launcher joins the job before starting the requested command. The
+Windows implementation is verified here; POSIX process-group support has not yet
+received the same native acceptance run.
+
+Recorded acceptance:
+
+- `unity_logs/queue-tests.log`: 14 checks across existing Studio contracts and queue
+  lifecycle integration. Real subprocesses verify FIFO order, worker exclusion,
+  queued/running cancellation, nested child cleanup, timeout, abrupt worker death,
+  pending-request resume, crash after report completion, PID-token distinction,
+  source pinning and CLI rejection of invalid requests. A separately launched
+  process stays alive during cancellation.
+- `unity_logs/queue-source-lock-tests.log`: project lock still excludes another
+  process even when its report output directory differs; source-file additions
+  during the wait are rejected before execution.
+- Real background requests in `unity_logs/queue-final`: a 1,454-check weapon-state
+  run followed by the Unity workshop preview, each with its own report, captured
+  sources, supervisor PID and artifacts.
+
+The queue supports existing operations; it does not yet provide dependency impact
+queries, a gallery, general material/enemy catalogs or the rest of the game runtime
+refactoring. Those remain part of the active production-suite objective.
+
+
+### Material persistence regression found during queue acceptance
+
+The queued preview exposed two saved materials losing `_EMISSION` after the
+Editor session ended. A same-session check initially passed; a fresh Unity
+session correctly failed with `ROOM_EMISSION_IMPORT: paper` in
+`unity_logs/queue-material-stored-red.log`. This is why a successful render is
+not sufficient evidence of durable material settings.
+
+`CityRoomBuilder` now marks emissive palette materials as `BakedEmissive`, instead
+of leaving `EmissiveIsBlack`. The installed URP importer derives the shader
+keyword from those flags. Non-emissive materials retain the black-emission flag.
+Room preview/build operations add a separate Unity session that imports and
+verifies the saved materials; native room checks also verify emission keyword
+and RGB intensity. This is material persistence, not a new real-time GI feature.
+
+Source capture currently covers the declared recipes, generators, C# sources,
+local package definitions and production-tool sources. A complete transitive
+dependency model for all shaders, textures and other imported inputs remains
+open work; source pinning is not a claim that this graph already exists.
+
+
+Final queued full-production proof: `unity_logs/queue-production/20261114T131900Z-5d41b9d7/report.json`.
+The background worker completes **1,454 state checks**, **297/297 native gunplay**,
+**68/68 city/room checks**, and a fresh-session import check of **7 materials**.
+All **193 files** published to CityPreview are verified. The source snapshots match
+the implementation at verification. The extra city check covers emissive keyword
+and intensity. Before the material fix, fresh-session verification failed with
+`ROOM_EMISSION_IMPORT: paper` (`unity_logs/queue-material-stored-red.log`); the
+corrected flags and saved keywords survive the new session. The final queue
+regression suite remains **14/14** (`unity_logs/queue-tests-final.log`).

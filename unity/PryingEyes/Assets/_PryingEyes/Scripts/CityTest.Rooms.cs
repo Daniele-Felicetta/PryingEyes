@@ -16,7 +16,7 @@ namespace PryingEyes
             var catalog = JObject.Parse(Resources.Load<TextAsset>("Production/rooms").text);
             foreach (var marker in markers)
             {
-                var plan = marker.Plan; bool geometry = true, collision = true, palette = true;
+                var plan = marker.Plan; bool geometry = true, collision = true, palette = true, emission = true;
                 foreach (var part in plan.parts)
                 {
                     var child = marker.transform.Find(part.id);
@@ -38,12 +38,18 @@ namespace PryingEyes
                                 var color = renderer.sharedMaterial.GetColor("_BaseColor");
                                 palette &= Mathf.Abs(color.r - (float)material["color"][0]) < .0001f &&
                                     Mathf.Abs(color.g - (float)material["color"][1]) < .0001f && Mathf.Abs(color.b - (float)material["color"][2]) < .0001f;
+                                float intensity = (float)material["emission"];
+                                var glow = renderer.sharedMaterial.GetColor("_EmissionColor");
+                                emission &= renderer.sharedMaterial.IsKeywordEnabled("_EMISSION") == (intensity > 0) &&
+                                    Mathf.Abs(glow.r - color.r * intensity) < .0001f && Mathf.Abs(glow.g - color.g * intensity) < .0001f &&
+                                    Mathf.Abs(glow.b - color.b * intensity) < .0001f;
                             }
                     }
                 }
                 Check("ROOM_PARTS_MATCH", marker.recipeId, geometry, plan.parts.Length + " parts", "baked placements and sizes equal recipe");
                 Check("ROOM_COLLIDERS_MATCH", marker.recipeId, collision, collision.ToString(), "planned solids have correct collision bounds");
                 Check("ROOM_PALETTE_MATCH", marker.recipeId, palette, palette.ToString(), "materials retain recipe colors");
+                Check("ROOM_EMISSION_MATCH", marker.recipeId, emission, emission.ToString(), "emissive keyword and color retain recipe intensity");
                 var first = plan.route[0]; player.Teleport(marker.transform.TransformPoint(new Vector3(first.x, .35f, first.z)));
                 yield return new WaitForSeconds(.2f);
                 var path = new NavMeshPath();

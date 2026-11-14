@@ -932,3 +932,41 @@ compared by SHA256; provenance in `build-info.json` and
 `unity_logs/weapon-state-torre-publish.json`. No network message format or balance
 rule changes were introduced. Build-generated scene IDs and numerically identical
 material rewrites are archived locally rather than included in the refactor.
+
+
+## Persistent Studio queue: lifecycle verification
+
+The coordinator now persists requests in SQLite, pins submitted source snapshots,
+serializes the project resource across report stores, and supports foreground or
+background draining, status and cancellation. Generic queue/process modules have
+no Unity content dependency; the Studio adapter supplies validated operations.
+
+`unity_logs/queue-tests.log`: **14 tests passed**, including actual worker/child/
+grandchild processes, cancellation while waiting, queued and running cancellation,
+timeout cleanup, worker crash and resume, recovery after a completed report, PID
+creation-token distinction, stale-source refusal and CLI request validation.
+An unrelated process stays alive during cancellation. The strengthened cross-store
+resource-lock check also passes (`queue-source-lock-tests.log`).
+
+`unity_logs/queue-final/acceptance.json`: actual background worker **7276** completes
+job `20261114T131100Z-6f348fa8` (1,454 state checks) before starting
+`20261114T131101Z-8775dbf4` (Unity workshop preview). Verified timestamps, worker
+identity, source hashes, existing artifacts, 1280×900 preview and reproduction
+commands. Each operation has its own common report. Job IDs and worker identity
+are evidence for this run, not values assumed for future runs.
+
+This adds queue/cancellation behavior, not a parallel asset-generation pool. The
+worker drains available jobs and exits; it is not a permanent service. Interrupted
+jobs are not silently retried. Direct Editor usage is refused rather than closed.
+Commands, source pinning and cancellation limits are in `production-studio.md`.
+
+
+Final queued full-production proof: `unity_logs/queue-production/20261114T131900Z-5d41b9d7/report.json`.
+The background worker completes **1,454 state checks**, **297/297 native gunplay**,
+**68/68 city/room checks**, and a fresh-session import check of **7 materials**.
+All **193 files** published to CityPreview are verified. The source snapshots match
+the implementation at verification. The extra city check covers emissive keyword
+and intensity. Before the material fix, fresh-session verification failed with
+`ROOM_EMISSION_IMPORT: paper` (`unity_logs/queue-material-stored-red.log`); the
+corrected flags and saved keywords survive the new session. The final queue
+regression suite remains **14/14** (`unity_logs/queue-tests-final.log`).
