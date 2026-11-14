@@ -1,13 +1,10 @@
+"""The Prying Eyes catalog contract. The engine's own behaviour (jobs, locks, sources, queue) is in test_studio_engine.py."""
 import copy
 import json
 from pathlib import Path
-import subprocess
-import sys
 import tempfile
 import unittest
-from unittest.mock import patch
 
-import studio
 from content_catalog import ROOT, read_catalog, validate_catalog
 
 
@@ -37,33 +34,6 @@ class StudioCheck(unittest.TestCase):
             for change in changes:
                 data = copy.deepcopy(catalog); change(data); path.write_text(json.dumps(data), encoding="utf-8")
                 with self.assertRaises(ValueError): validate_catalog(path)
-
-    def test_project_lock_excludes_another_process_and_releases(self):
-        with tempfile.TemporaryDirectory() as folder, patch.object(studio, "OUTPUT", Path(folder)):
-            script = "import studio,sys; from pathlib import Path\nstudio.OUTPUT=Path(sys.argv[1])\nwith studio.project_lock(): pass"
-            command = [sys.executable, "-c", script, str(Path(folder) / "other-output")]
-            with studio.project_lock():
-                rejected = subprocess.run(command, cwd=ROOT / "tools", capture_output=True, text=True)
-                self.assertNotEqual(rejected.returncode, 0)
-                self.assertIn("PROJECT_BUSY", rejected.stderr)
-            self.assertEqual(subprocess.run(command, cwd=ROOT / "tools", capture_output=True).returncode, 0)
-
-    def test_step_timeout_is_reported(self):
-        with tempfile.TemporaryDirectory() as folder, patch.object(studio, "OUTPUT", Path(folder)):
-            job = studio.Job("test", "timeout")
-            with self.assertRaisesRegex(RuntimeError, "STEP_TIMEOUT"):
-                job.run("slow", [sys.executable, "-c", "import time; time.sleep(10)"], timeout=.1)
-            result = json.loads((job.folder / "report.json").read_text())
-            self.assertEqual(result["steps"][0]["error"], "STEP_TIMEOUT")
-
-    def test_new_source_file_during_resource_wait_is_rejected(self):
-        with tempfile.TemporaryDirectory() as folder, patch.object(studio, "OUTPUT", Path(folder)), patch.object(studio, "PROJECT", Path(folder) / "project"):
-            job = studio.Job("test", "sources"); job.report["sources"] = {"existing.cs": "old"}
-            job.source_guard = lambda: {"existing.cs": "old", "added.cs": "new"}
-            with self.assertRaisesRegex(RuntimeError, "SOURCE_CHANGED_DURING_JOB"):
-                with studio.project_lock(job): self.fail("A changed source set acquired execution permission")
-            self.assertEqual(job.report["sourceChanges"], ["added.cs"])
-            self.assertEqual(job.report["steps"], [])
 
 
 if __name__ == "__main__": unittest.main()

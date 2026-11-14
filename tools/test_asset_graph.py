@@ -4,9 +4,10 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from asset_graph import AssetGraph, production_graph, recipe_sources
+from asset_graph import AssetGraph, recipe_sources
 from content_catalog import ROOT, CATALOG
 from room_catalog import CATALOG as ROOMS
+from studio_pryingeyes import production_graph
 
 
 class DependencyContracts(unittest.TestCase):

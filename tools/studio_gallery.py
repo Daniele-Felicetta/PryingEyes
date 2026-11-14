@@ -150,20 +150,3 @@ def bundle(assets, graph, reports, output, root, expected_sources=None, loose=No
     html = re.sub(r"__(STYLE|DATA|SCRIPT)__", lambda match: fragments[match[1]], html)
     (output / "index.html").write_text(html, encoding="utf-8")
     return data
-
-
-def build_gallery(output, graph, weapons, rooms, expected_sources, stores):
-    from content_catalog import ROOT
-    assets = []
-    for entry in weapons["weapons"]:
-        d = entry["definition"]
-        assets.append({"id": d["id"], "name": d["name"], "type": "weapon", "category": d["cls"],
-            "family": entry["source"].get("family", ""), "tags": [*d["modes"], d["style"]],
-            "stats": [{"label": "Danno", "value": str(d["damage"])}, {"label": "Colpi/min", "value": str(d["rpm"])},
-                      {"label": "Caricatore", "value": str(d["mag"])}, {"label": "Riserva", "value": str(d["reserveMax"])}]})
-    for room in rooms["rooms"]:
-        assets.append({"id": room["id"], "name": room["name"], "type": "room", "category": "Ambiente", "family": "",
-            "tags": [], "stats": [{"label": "Dimensioni", "value": f"{room['width']} × {room['depth']} m"},
-                {"label": "Elementi", "value": str(len(room["parts"]))}, {"label": "Uscite", "value": str(len(room["doors"]))}]})
-    reports = [p for store in stores for p in Path(store).glob("*/report.json") if JOB_ID.fullmatch(p.parent.name)]
-    return bundle(assets, graph, reports, output, root=ROOT, expected_sources=expected_sources, loose=ROOT / "modelli/armi/render")

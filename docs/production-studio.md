@@ -44,6 +44,12 @@ Independent generation is still serialized with the rest of a project job. A
 separate generation pool remains open work; this is deliberately not a claim of
 parallel generation throughput.
 
+`tools/studio.py` is only the entry point. Jobs, locking, source guards, the queue and the
+command line live in the project-agnostic `tools/studio_engine.py`; weapons, rooms, Blender,
+Unity and the city checks live in the profile `tools/studio_pryingeyes.py`. Adding a content
+kind or a check means adding a `ContentType` or `Suite` there; `suite-architecture.md` explains
+the boundary and how another project plugs in.
+
 ## One source for weapon data
 
 `Assets/_PryingEyes/Resources/Production/weapons.json` is the authoritative source of
@@ -108,8 +114,10 @@ ADS and player-view cameras retain their intended viewpoint.
 - Native presentation: `unity_logs/catalog-presentation.log`, with hand/ADS/fire/
   reload images for both city pistols. Measured 420 RPM for RONDA-9 and 330 for
   ARGINE .45. This is a controlled firing test, not a combat balance assessment.
-- `python tools/test_studio.py`: schema failures, ID stability, two-process locking
-  and timeout reporting. `python tools/test_citylab.py`: layout and provenance gates.
+- `python tools/test_studio.py`: weapon-catalog schema failures and ID stability.
+  `python tools/test_studio_engine.py`: two-process locking, timeout reporting, source guard, queue and publish, run on a toy
+  project so they hold for any project. `python tools/test_citylab.py`: layout and provenance gates.
+  `python tools/check_suite.py`: the reuse boundaries (see `suite-architecture.md`).
 
 ## Scope still open
 

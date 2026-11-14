@@ -1,20 +1,21 @@
-"""Independent queue consumer used by process/lifecycle integration checks."""
+"""Independent queue consumer used by process/lifecycle integration checks. Runs on the toy project: the engine, not a game."""
 import json
 import os
 from pathlib import Path
 import sys
 import time
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import studio
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import studio_engine as engine
 from studio_process import atomic_json
 from studio_queue import Queue
+from toy_project import ToyProject
 
-studio.OUTPUT = Path(sys.argv[1])
-studio.PROJECT = studio.OUTPUT / "fixture-project"
+project = ToyProject(sys.argv[1], output=sys.argv[1])
 
 
 def execute(row):
-    mode = row["request"][0]; job = studio.Job("fixture", mode, row)
+    mode = row["request"][0]; job = engine.Job(project, "fixture", mode, row)
     marker = job.folder / "children.json"
     program = """import json,os,subprocess,sys,time
 child=None
@@ -24,12 +25,12 @@ open(sys.argv[1],'w').write(json.dumps({'child':os.getpid(),'grandchild':child.p
 time.sleep(30 if child else .5)
 """
     try:
-        with studio.project_lock(job):
-            with (studio.OUTPUT / "events.jsonl").open("a") as log: log.write(json.dumps([row["id"], "start", time.time()]) + "\n")
+        with engine.project_lock(project, job):
+            with (project.output / "events.jsonl").open("a") as log: log.write(json.dumps([row["id"], "start", time.time()]) + "\n")
             job.run("fixture", [sys.executable, "-c", program, marker, mode], timeout=.8 if mode == "timeout" else 60)
-            with (studio.OUTPUT / "events.jsonl").open("a") as log: log.write(json.dumps([row["id"], "end", time.time()]) + "\n")
+            with (project.output / "events.jsonl").open("a") as log: log.write(json.dumps([row["id"], "end", time.time()]) + "\n")
         job.report.update(state="complete", ok=True)
-    except studio.JobCancelled:
+    except engine.JobCancelled:
         job.report.update(state="cancelled", ok=False)
     except Exception as error:
         job.report.update(state="failed", ok=False)
@@ -39,4 +40,4 @@ time.sleep(30 if child else .5)
     return 0 if job.report["ok"] else 1
 
 
-Queue(studio.OUTPUT).work(execute)
+Queue(project.output).work(execute)

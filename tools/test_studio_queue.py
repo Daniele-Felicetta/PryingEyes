@@ -8,7 +8,8 @@ import time
 import unittest
 from studio_process import file_lock, process_identity
 from studio_queue import Queue
-from studio import project_lock_path
+from studio_engine import project_lock_path
+from fixtures.toy_project import ToyProject
 
 TOOLS = Path(__file__).resolve().parent
 
@@ -93,7 +94,7 @@ class QueueLifecycle(unittest.TestCase):
     def test_waiting_for_project_lock_is_cancellable_without_starting_work(self):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory); queue = Queue(folder); identity = queue.submit(["complete"], {})
-            with file_lock(project_lock_path(folder / "fixture-project")):
+            with file_lock(project_lock_path(ToyProject(folder))):
                 worker = self.worker(folder)
                 until(lambda: queue.report(identity).get("state") == "waiting")
                 queue.cancel(identity); self.assertEqual(worker.wait(15), 0)
