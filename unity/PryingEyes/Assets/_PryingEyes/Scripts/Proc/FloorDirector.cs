@@ -1097,6 +1097,9 @@ namespace PryingEyes.Proc
                 perfStarted = true;
                 StartCoroutine(PerfProbe.Run(this));
             }
+#if !PE_DISTRIBUTION_BUILD
+            TrailerHook();      // -trailer copione.json: le riprese del trailer (FloorDirector.Trailer.cs)
+#endif
         }
 
         /// <summary>Solo per le prove: apre la mappa grande o la minimappa (e chiude l'altra).</summary>
