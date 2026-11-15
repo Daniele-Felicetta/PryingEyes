@@ -150,4 +150,4 @@ Not verified:
 - Which generator produces `Models/Mani/mani.fbx`: `genera_mani.py` writes `mani/mani.fbx`, `genera_mani2.py` writes `mani2/mani.fbx`, and the copy step is manual.
 - The location of `PryingEyes.exe` after the build.
 
-Known issue: `ArmiShots.cs` and `GameManager.cs` write to an absolute `hotel_build/...` path of the maintainer's machine instead of a path relative to the repository root, so on any other checkout the photos do not land in this repository's `hotel_build/`.
+Known issue: `ArmiShots.cs`, like the other scripts under `Assets/_PryingEyes/Editor`, writes to an absolute `hotel_build/...` path of the maintainer's machine instead of a path relative to the repository root, so on any other checkout its photos do not land in this repository's `hotel_build/`. The test hooks of the player (`GameManager.cs` and the others) no longer do this: they find `hotel_build/` through `TestPaths` (see [../engineering/testing.md](../engineering/testing.md)).

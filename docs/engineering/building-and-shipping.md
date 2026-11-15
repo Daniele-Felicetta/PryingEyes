@@ -40,6 +40,9 @@ Flags:
   `*Test*.cs` files in `Scripts/` and the trailer recorder (`TrailerCapture.cs`, `TrailerJob.cs`, `FloorDirector.Trailer.cs`, and a part of
   `FloorDirector.cs`). Not wrapped, so still in the player: the `ArchitectureTest*`, `CityTest*`, `CoopTest*` and `StealthTest*` files
   (counted by grep on 2026-11-15). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.
+  A distribution build also runs `BuildScrub` (`Editor/BuildScrub.cs`). The compiler writes the path of the `.pdb` it produced into every
+  assembly, which names the folders of the build machine, so that entry is overwritten with the bare file name; then every managed assembly
+  of the build is searched for the path of the checkout and each hit is logged as a warning (`[PryingEyes] distribution: ...`).
 
 The methods that build a player (`Torre`, `Windows`, `Web`, `City`) exit with 2 when the build does not succeed.
 

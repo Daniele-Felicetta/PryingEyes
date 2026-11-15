@@ -120,6 +120,8 @@ namespace PryingEyes.EditorTools
             };
             var report = BuildPipeline.BuildPlayer(opts);
             Debug.Log("[PryingEyes] report outputPath=" + report.summary.outputPath);
+            // a release must not carry the paths of this machine: overwrite the .pdb path of the assemblies and look for the checkout path
+            if (distribution && report.summary.result == BuildResult.Succeeded) BuildScrub.Run(outPath);
             Debug.Log("[PryingEyes] Build result: " + report.summary.result +
                       " errors=" + report.summary.totalErrors +
                       " size=" + report.summary.totalSize);

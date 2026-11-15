@@ -19,8 +19,8 @@ namespace PryingEyes.Proc
     /// lo stesso seme e lo stesso piano.</summary>
     public static partial class PerfProbe
     {
-        const string LogPath = "C:/Users/danie/Desktop/prying-eyes/hotel_build/perf.txt";
-        const string ShotDir = "C:/Users/danie/Desktop/prying-eyes/hotel_build/perf/";
+        static string LogPath => TestPaths.Out("perf.txt");
+        static string ShotDir => TestPaths.Out("perf") + "/";
         const int Warm = 25, Frames = 120, MaxViews = 14;
 
         static bool Has(string a)

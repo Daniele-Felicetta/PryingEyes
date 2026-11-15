@@ -14,7 +14,7 @@ namespace PryingEyes
     /// che si scarica e si cambia, la raccolta di una pila, il ping e la freccia; fotografa l'HUD. Esito in hotel_build/furtivo/.</summary>
     public partial class StealthTest : MonoBehaviour
     {
-        const string Dir = "C:/Users/danie/Desktop/prying-eyes/hotel_build/furtivo";
+        static string Dir => TestPaths.Out("furtivo");
         string log;
 
         void Log(string s)

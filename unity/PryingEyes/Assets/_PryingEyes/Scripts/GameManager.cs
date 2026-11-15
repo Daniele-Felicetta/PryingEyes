@@ -45,12 +45,12 @@ namespace PryingEyes
         bool camShots, cam1done, cam2done, wallShotDone;
         bool wallTestDone, magicTestDone, enemyShotDone, gunTestStarted, leanTestStarted;
         /// <summary>Rapporto delle prove (-autotest). Con -report FILE ogni processo scrive il suo: piu' prove in parallelo non si pestano i piedi.</summary>
-        static readonly string REPORT = ReportPath();
+        static string REPORT => ReportPath();
         static string ReportPath()
         {
             var a = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-report") return a[i + 1];
-            return "C:/Users/danie/Desktop/prying-eyes/hotel_build/autotest.txt";
+            return TestPaths.Out("autotest.txt");
         }
         bool returningToMenu;
 
@@ -200,11 +200,11 @@ namespace PryingEyes
                         $"{autoT:F0} {wave} {kills} {score} {player.hp:F0} {player.shield:F0} {player.weapon.mag} {player.weapon.reserve} {list.Count} {shotsFired} {shotsHit} {damageTaken} {walkerMaxY:F1}" +
                         $" p({player.transform.position.x:F0},{player.transform.position.y:F0},{player.transform.position.z:F0}){epos}\n");
                 }
-                if (autoT >= 15f && !shot1done && !trailer) { shot1done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot1.png"); }
-                if (autoT >= 75f && !shot2done && !trailer) { shot2done = true; ScreenCapture.CaptureScreenshot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_shot2.png"); }
+                if (autoT >= 15f && !shot1done && !trailer) { shot1done = true; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot1.png")); }
+                if (autoT >= 75f && !shot2done && !trailer) { shot2done = true; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot2.png")); }
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; WallShot(); }
-                if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
-                if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
+                if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot(TestPaths.Out("auto_cam1.png")); }
+                if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot(TestPaths.Out("auto_cam2.png")); }
                 bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-meleetest") ||
                     HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || trailer;
                 if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
@@ -266,7 +266,7 @@ namespace PryingEyes
             cam.enabled = false;
             cam.transform.position = new Vector3(-10f, 1.55f, 20.15f);
             cam.transform.rotation = Quaternion.LookRotation(new Vector3(-10f, 1.45f, 22.42f) - cam.transform.position);
-            CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/wallbuy.png", cam, true);
+            CamShot(TestPaths.Out("wallbuy.png"), cam, true);
             Destroy(go);
         }
 
@@ -285,7 +285,7 @@ namespace PryingEyes
             cam.enabled = false;
             cam.transform.position = new Vector3(0f, 1.65f, 13f);
             cam.transform.rotation = Quaternion.LookRotation(new Vector3(0f, 1.25f, 8f) - cam.transform.position);
-            CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/enemies.png", cam, false);
+            CamShot(TestPaths.Out("enemies.png"), cam, false);
             Destroy(go);
         }
 
@@ -314,7 +314,7 @@ namespace PryingEyes
         /// spostamento della testa, inclinazione, punto del corpo visto dai nemici e spazio concesso dai muri.</summary>
         System.Collections.IEnumerator LeanTest()
         {
-            string dir = "C:/Users/danie/Desktop/prying-eyes/hotel_build/armi_gioco";
+            string dir = TestPaths.Out("armi_gioco");
             System.IO.Directory.CreateDirectory(dir);
             Enemy.ClearAll();
             player.invulnerable = true;
@@ -359,7 +359,7 @@ namespace PryingEyes
         /// piu' i numeri misurati (dispersione, rinculo, cadenza). Foto in hotel_build/armi_gioco/, numeri in guntest.txt.</summary>
         System.Collections.IEnumerator GunTest()
         {
-            string dir = "C:/Users/danie/Desktop/prying-eyes/hotel_build/armi_gioco";
+            string dir = TestPaths.Out("armi_gioco");
             System.IO.Directory.CreateDirectory(dir);
             string log = dir + "/guntest.txt";
             System.IO.File.WriteAllText(log, "id grado classe colpi_in_4s rpm_misurata kick_max_gradi dispersione_mano dispersione_mira\n");
@@ -501,7 +501,7 @@ namespace PryingEyes
             player.weapon.mag = 3;
             player.weapon.Reload();
             yield return new WaitForSeconds(0.70f);
-            CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/reload.png", Camera.main, true);
+            CamShot(TestPaths.Out("reload.png"), Camera.main, true);
             Debug.Log("[PryingEyes] walltest hud durante ricarica=" + hud.CurrentAmmo + " " + hud.CurrentReserve);
             yield return new WaitForSeconds(1.20f);
             Debug.Log("[PryingEyes] walltest hud dopo ricarica=" + hud.CurrentAmmo + " " + hud.CurrentReserve);
@@ -533,7 +533,7 @@ namespace PryingEyes
             cam.enabled = false;
             go.transform.position = new Vector3(-27.5f, 1.7f, 3.5f);
             go.transform.rotation = Quaternion.LookRotation(new Vector3(-36.5f, 1.2f, 0f) - go.transform.position);
-            CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam_ascensore.png", cam, false);
+            CamShot(TestPaths.Out("auto_cam_ascensore.png"), cam, false);
             Destroy(go);
         }
 

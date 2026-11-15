@@ -30,7 +30,7 @@ namespace PryingEyes.Proc
         bool foundExit, mapOpen, miniMap = true;
         float mapScan;
         GameManager gm;
-        const string BotLog = "C:/Users/danie/Desktop/prying-eyes/hotel_build/proctest.txt";
+        static string BotLog => TestPaths.Out("proctest.txt");
 
         static readonly string[] FloorLines =
         {
@@ -1313,7 +1313,7 @@ namespace PryingEyes.Proc
             shotKinds.Add(key);
             shotCount++;
             shotCool = 1.2f;
-            GameManager.CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/gioco_p" + floor + "_" + playerRoom.kind + ".png", null, true);
+            GameManager.CamShot(TestPaths.Out("gioco_p" + floor + "_" + playerRoom.kind + ".png"), null, true);
         }
 
         public Room PlayerRoom => playerRoom;
