@@ -19,6 +19,13 @@ namespace PryingEyes
         static ColorAdjustments grading;
         static bool loaded;
 
+        static readonly bool silentRun = System.Array.Exists(System.Environment.GetCommandLineArgs(),
+            arg => arg == "-autotest" || arg == "-guntest" || arg == "-uitest" || arg == "-displaytest" || arg == "-batchmode" || arg == "-nographics" || arg == "-nosound");
+
+        // Mute before any scene AudioSource starts; never persist the test volume in PlayerPrefs.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        static void InitializeAudio() => AudioListener.volume = silentRun ? 0f : Master;
+
         struct Loop { public AudioSource src; public float vol; public bool music; }
         static readonly List<Loop> loops = new List<Loop>();
 
@@ -100,7 +107,7 @@ namespace PryingEyes
 
         static void Apply()
         {
-            AudioListener.volume = master;
+            AudioListener.volume = silentRun ? 0f : master;
             loops.RemoveAll(l => l.src == null);
             foreach (var l in loops) l.src.volume = l.vol * (l.music ? music : effects);
         }

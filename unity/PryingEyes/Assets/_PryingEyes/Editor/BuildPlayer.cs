@@ -95,6 +95,13 @@ namespace PryingEyes.EditorTools
 
         static void Build(bool scriptsOnly)
         {
+            bool distribution = HasArg("-distribution");
+            if (scriptsOnly && distribution)
+            {
+                Debug.LogError("[PryingEyes] Distribution builds require a full build; remove -scriptsOnly.");
+                EditorApplication.Exit(2);
+                return;
+            }
             // la Torre (piani procedurali) e' la scena principale; la hall classica resta nel progetto ma fuori dalla build
             EditorBuildSettings.scenes = new[]
             {
@@ -108,6 +115,7 @@ namespace PryingEyes.EditorTools
                 scenes = new[] { "Assets/_PryingEyes/Scenes/Torre.unity" },
                 locationPathName = outPath,
                 target = BuildTarget.StandaloneWindows64,
+                extraScriptingDefines = distribution ? new[] { "PE_DISTRIBUTION_BUILD" } : System.Array.Empty<string>(),
                 options = scriptsOnly ? BuildOptions.BuildScriptsOnly : BuildOptions.None
             };
             var report = BuildPipeline.BuildPlayer(opts);

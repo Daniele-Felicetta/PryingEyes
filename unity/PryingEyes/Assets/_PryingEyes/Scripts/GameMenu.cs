@@ -8,7 +8,7 @@ namespace PryingEyes
     /// <summary>Menu principale, pausa (Esc) e impostazioni audio, costruiti a runtime come l'HUD.
     /// All'avvio il gioco resta fermo sul menu; "Gioca" fa partire la prima ondata. In pausa il tempo si ferma,
     /// l'HUD si nasconde e il mouse torna libero. Blocked dice agli altri script di non prendere input.</summary>
-    public class GameMenu : MonoBehaviour
+    public partial class GameMenu : MonoBehaviour
     {
         public static GameMenu I;
         public static bool Blocked { get; private set; }
@@ -16,8 +16,8 @@ namespace PryingEyes
         public static bool Paused { get; private set; }
 
         static readonly Color Ink = new Color(0.93f, 0.89f, 0.80f);
-        static readonly Color Dim = new Color(0.74f, 0.67f, 0.56f, 0.92f);
-        static readonly Color BtnColor = new Color(0.18f, 0.135f, 0.085f, 0.95f);
+        static readonly Color Dim = new Color(0.60f, 0.70f, 0.67f);
+        static readonly Color BtnColor = new Color(0.055f, 0.12f, 0.12f, 0.98f);
 
         RectTransform backdrop, mainPanel, pausePanel, settingsPanel, settingsFrom, coopPanel, helpPanel, helpFrom, leavePanel;
         Slider sMaster, sEffects, sMusic, sBrightness, sSensitivity, sFov, sMotion;
@@ -52,6 +52,9 @@ namespace PryingEyes
 
         void Update()
         {
+            bool confirming = displayPending;
+            UpdateDisplayPreview();
+            if (confirming) return;
             if (Blocked) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
             if (coopPanel.gameObject.activeSelf && coopStatus != null)
             {
@@ -81,6 +84,7 @@ namespace PryingEyes
 
         void OnDestroy()
         {
+            CancelDisplayPreview();
             if (I != this) return;
             I = null;
             Blocked = InMenu = Paused = false;
@@ -178,11 +182,14 @@ namespace PryingEyes
         {
             settingsFrom = from;
             SyncSliders();
+            SyncDisplay();
+            SettingsTab(true);
             Show(settingsPanel);
         }
 
         void Back()
         {
+            if (displayPending) { CancelDisplayPreview(); return; }
             PlayerPrefs.Save();
             Show(settingsFrom);
         }
@@ -255,25 +262,10 @@ namespace PryingEyes
 
             backdrop = Stretch(transform as RectTransform, "Velo");
             var veil = backdrop.gameObject.AddComponent<Image>();
-            veil.color = new Color(0.025f, 0.032f, 0.04f, 0.90f);
+            veil.color = new Color(0.018f, 0.035f, 0.039f, 0.98f);
 
-            mainPanel = Stretch(backdrop, "Principale");
-            Label(mainPanel, "Titolo", new Vector2(0, 220), new Vector2(1000, 90), 76, TextAnchor.MiddleCenter, "PRYING EYES", Ink, FontStyle.Normal);
-            Label(mainPanel, "Sottotitolo", new Vector2(0, 150), new Vector2(1000, 34), 24, TextAnchor.MiddleCenter, "Il Grand Hotel non chiude mai.", Dim, FontStyle.Italic);
-            Rule(mainPanel, 110);
-            Rule(mainPanel, -210);
-            MakeButton(mainPanel, "Gioca", new Vector2(0, 70), Play);
-            MakeButton(mainPanel, "Cooperativa", new Vector2(0, 10), OpenCoop);
-            MakeButton(mainPanel, "Come si gioca", new Vector2(0, -50), () => OpenHelp(mainPanel));
-            MakeButton(mainPanel, "Impostazioni", new Vector2(0, -110), () => OpenSettings(mainPanel));
-            MakeButton(mainPanel, "Esci", new Vector2(0, -170), Quit);
-            // tre righe corte (una sola, lunga, usciva dallo schermo): movimento, armi, furtivo
-            Label(mainPanel, "Comandi", new Vector2(0, -236), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
-                "WASD muovi · Shift corri · C accovacciati · Spazio salta · Q/E sporgi · F usa e compra · Esc pausa", Dim, FontStyle.Italic);
-            Label(mainPanel, "ComandiArmi", new Vector2(0, -262), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
-                "mouse mira · click sinistro spara · tasto destro mira · R ricarica · B modo di fuoco · 1/2 o rotellina cambia arma", Dim, FontStyle.Italic);
-            Label(mainPanel, "ComandiFurtivo", new Vector2(0, -288), new Vector2(1200, 26), 17, TextAnchor.MiddleCenter,
-                "G coltello · T torcia · Y cambia pila · V mostra le porte da comprare · M mappa", Dim, FontStyle.Italic);
+            BuildAtmosphere();
+            BuildMainMenu();
 
             pausePanel = Stretch(backdrop, "Pausa");
             Label(pausePanel, "Titolo", new Vector2(0, 170), new Vector2(1000, 80), 60, TextAnchor.MiddleCenter, "In pausa", Ink, FontStyle.Normal);
@@ -305,20 +297,7 @@ namespace PryingEyes
                 "Chi ospita deve aprire la porta UDP 7807 sul router. Nella stessa rete basta l'indirizzo locale.", Dim, FontStyle.Italic);
             MakeButton(coopPanel, "Indietro", new Vector2(0, -250), CoopBack);
 
-            settingsPanel = Stretch(backdrop, "Impostazioni");
-            Label(settingsPanel, "Titolo", new Vector2(0, 200), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Impostazioni", Ink, FontStyle.Normal);
-            var view = Rect(settingsPanel, "Visuale", new Vector2(460, 420), new Vector2(-285, 0));
-            var audio = Rect(settingsPanel, "Audio", new Vector2(460, 420), new Vector2(285, 0));
-            sBrightness = Row(view, 112, "Luminosità", GameSettings.Brightness, GameSettings.SetBrightness, out vBrightness);
-            sFov = Row(view, 30, "Campo visivo", GameSettings.Fov, GameSettings.SetFov, out vFov, 60f, 105f, FovText);
-            sSensitivity = Row(view, -52, "Sensibilità mira", GameSettings.Sensitivity, GameSettings.SetSensitivity, out vSensitivity, 0.25f, 3f, SensText);
-            sMotion = Row(view, -134, "Oscillazione visuale", GameSettings.Motion, GameSettings.SetMotion, out vMotion);
-            sMaster = Row(audio, 112, "Volume generale", GameSettings.Master, GameSettings.SetMaster, out vMaster);
-            sEffects = Row(audio, 30, "Effetti sonori", GameSettings.Effects, GameSettings.SetEffects, out vEffects);
-            sMusic = Row(audio, -52, "Musica", GameSettings.Music, GameSettings.SetMusic, out vMusic);
-            Label(audio, "Comfort", new Vector2(0, -134), new Vector2(440, 68), 18, TextAnchor.MiddleLeft,
-                "Riduci l'oscillazione per una visuale più stabile. Le modifiche si applicano subito.", Dim, FontStyle.Italic);
-            MakeButton(settingsPanel, "Indietro", new Vector2(0, -240), Back);
+            BuildSettings();
 
             helpPanel = Stretch(backdrop, "Guida");
             Label(helpPanel, "Titolo", new Vector2(0, 235), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "La Torre", Ink, FontStyle.Normal);
@@ -373,7 +352,7 @@ namespace PryingEyes
         {
             var rt = Rect(parent, name, size, pos);
             var t = rt.gameObject.AddComponent<Text>();
-            t.font = HUD.Serif();
+            t.font = fs >= 32 || style == FontStyle.Italic ? HUD.Serif() : MenuUtility;
             t.fontSize = fs; t.alignment = a; t.text = s; t.color = col; t.fontStyle = style;
             t.raycastTarget = false;
             t.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -412,9 +391,9 @@ namespace PryingEyes
             b.targetGraphic = img;
             var cb = b.colors;
             cb.normalColor = Color.white;
-            cb.highlightedColor = new Color(1.6f, 1.35f, 1.0f, 1f);
+            cb.highlightedColor = new Color(2.0f, 2.3f, 2.0f, 1f);
             cb.pressedColor = new Color(0.7f, 0.6f, 0.5f, 1f);
-            cb.selectedColor = new Color(1.5f, 1.3f, 1.0f, 1f);
+            cb.selectedColor = new Color(1.7f, 2.0f, 1.8f, 1f);
             b.colors = cb;
             b.onClick.AddListener(click);
             Label(rt, "Testo", Vector2.zero, new Vector2(340, 54), 24, TextAnchor.MiddleCenter, label, Ink, FontStyle.Normal);

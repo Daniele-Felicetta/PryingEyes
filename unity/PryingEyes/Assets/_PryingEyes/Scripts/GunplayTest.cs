@@ -1,3 +1,4 @@
+#if !PE_DISTRIBUTION_BUILD
 using System;
 using System.Collections;
 using UnityEngine;
@@ -239,3 +240,4 @@ namespace PryingEyes
         }
     }
 }
+#endif

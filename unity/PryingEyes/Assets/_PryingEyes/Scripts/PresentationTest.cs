@@ -1,3 +1,4 @@
+#if !PE_DISTRIBUTION_BUILD
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -190,6 +191,7 @@ namespace PryingEyes
             Layout("principale");
             Click("Come si gioca"); Layout("guida"); Click("Indietro");
             Click("Impostazioni"); Layout("impostazioni");
+            Click("Audio e comandi"); Layout("audio e comandi");
             var sliders = GameMenu.I.GetComponentsInChildren<Slider>();
             Check("sette impostazioni disponibili", sliders.Length == 7);
             Check("maniglie contenute nei cursori", Array.TrueForAll(sliders,
@@ -399,3 +401,4 @@ namespace PryingEyes
         }
     }
 }
+#endif
