@@ -97,13 +97,21 @@ the room photo have that level). The residual is up to 8 levels between values 0
 its Split Toning, not its ambient light. 60 % of the pixels of the room photo are below 8/255 and 95 % below 50, which is why the fit
 is weighted by the photo's histogram.
 
-**Light.** `-pe_scene=lab` (a white plane, one light, no ambient) shows that Unreal's candela conversion agrees with the derivation
-in the table above to 3 %: the plane at 3 m under a Unity-intensity-1 light reads like a ramp patch of 0.112 where theory says 0.111.
+**Light.** `-pe_scene=lab` in Unreal and `UnrealExport -lab 1` in Unity are the same experiment: a white plane at 3 m, one light of
+Unity intensity 1 at the camera, no ambient, no screen effects (`-labi`, `-labd`, `-labspot 1` for a spot). Theory (albedo x I / d^2)
+says a scene value of 0.111. Read through each engine's own tone ramp, Unity's centre pixel (132 137 141) is 0.107 and Unreal's
+(141 144 148) is 0.112, point or spot alike: both follow the inverse-square law and K is right.
 In the room, however, lit surfaces come out brighter in Unreal than in Unity: the median ratio of scene values is 1.3 to 1.5 (a
 point light alone, the window spots alone), with a spread (10th to 90th percentile 0.8 to 2.5) that says it is not one constant.
-Not explained. Candidates, none checked: specular (Unreal's GGX against URP's simplified term), how the master material maps
-`_Smoothness`, `_BumpScale` and the detail maps, the viewmodel's shaders. The ambient, emission and fog terms are exact by
-construction. The two `-pe_gi` variants and the Unity photo are in `unity_logs/unreal/photos` (not committed).
+The whole photo is brighter too: mean pixel value 0.107 against Unity's 0.056 (about 1.9 times; 0.095 with `-pe_gi=0`), mean linear
+luminance 0.0223, 0.0187 and 0.0076.
+Not explained. Ruled out: the light scale (above), the light colour (the exporter converts it to linear), the detail-map factor (it
+applies only to materials that have a detail texture) and global illumination (switching it off lowers the mean pixel value by 11 %
+and the mean linear luminance by 16 %, a small part of the gap). Candidates, none checked: the normal maps (the importer flips the
+green channel and maps `_BumpScale` by hand), the mask maps (smoothness and metallic), the specular term (a rough estimate finds the
+two formulas alike, nothing measured), the viewmodel's shaders, the exported light parameters (cone, range) and the ambient terms (an
+ambient-only photo came out black in both engines, so it compared nothing). The two `-pe_gi` variants and the Unity photo are in
+`unity_logs/unreal/photos` (not committed).
 
 ## Things that cost time
 

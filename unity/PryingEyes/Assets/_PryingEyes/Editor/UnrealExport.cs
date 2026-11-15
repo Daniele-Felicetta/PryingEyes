@@ -194,6 +194,13 @@ namespace PryingEyes.EditorTools
                 RampTest(cam, w, h);
                 return;
             }
+            if (ArgInt("-lab", 0) != 0)
+            {
+                if (weaponRoot != null) UnityEngine.Object.DestroyImmediate(weaponRoot);
+                if (monk != null) UnityEngine.Object.DestroyImmediate(monk);
+                LabTest(cam, w, h);
+                return;
+            }
 
             // le luci come le vede la camera
             LightPool.Tick(false, camPos);
@@ -317,6 +324,67 @@ namespace PryingEyes.EditorTools
             File.WriteAllText(outDir + "/ramp_unity.txt", lines.ToString());
             File.WriteAllBytes(outDir + "/ramp_unity.png", tex.EncodeToPNG());
             Debug.Log("[UnrealExport] rampa tonale scritta in " + outDir + "/ramp_unity.txt");
+            cam.targetTexture = null;
+            UnityEngine.Object.DestroyImmediate(rt);
+            UnityEngine.Object.DestroyImmediate(tex);
+        }
+
+        /// <summary>-lab 1: la scala della luce senza una stanza. Un quadrato Lit bianco di fronte alla camera, una luce puntiforme (con
+        /// -labspot 1 un faretto) di intensita' -labi (1) alla camera, a -labd (3) metri, niente ambiente; scrive lab_unity.txt con il pixel
+        /// centrale, da leggere con la rampa tonale. E' la prova gemella di -pe_scene=lab di Unreal: la teoria dice albedo x I / d^2.</summary>
+        static void LabTest(Camera cam, int w, int h)
+        {
+            RenderSettings.fog = false;
+            RenderSettings.ambientMode = AmbientMode.Flat; RenderSettings.ambientLight = Color.black;
+            RenderSettings.reflectionIntensity = 0f;
+            foreach (var l in UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)) l.enabled = false;
+            cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = Color.black;
+            var volume = UnityEngine.Object.FindFirstObjectByType<Volume>();
+            if (volume != null && volume.profile != null)
+            {
+                if (volume.profile.TryGet(out Bloom bloom)) bloom.intensity.Override(0f);
+                if (volume.profile.TryGet(out Vignette vignette)) vignette.intensity.Override(0f);
+                if (volume.profile.TryGet(out FilmGrain grain)) grain.intensity.Override(0f);
+            }
+            var rt = new RenderTexture(w, h, 24);
+            cam.targetTexture = rt;
+            Vector3 origin = new Vector3(0f, 400f, 0f);
+            cam.transform.SetPositionAndRotation(origin, Quaternion.identity);
+            cam.fieldOfView = 60f;
+            float dist = ArgFloat("-labd", 3f), intensity = ArgFloat("-labi", 1f);
+            bool spot = ArgInt("-labspot", 0) != 0;
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            var col = q.GetComponent<Collider>(); if (col != null) UnityEngine.Object.DestroyImmediate(col);
+            q.transform.position = origin + new Vector3(0f, 0f, dist);
+            q.transform.localScale = Vector3.one * 20f;
+            var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            m.SetColor("_BaseColor", Color.white);
+            m.SetFloat("_Smoothness", 0f);
+            m.SetFloat("_Metallic", 0f);
+            q.GetComponent<Renderer>().sharedMaterial = m;
+            var go = new GameObject("lab light");
+            go.transform.position = origin;
+            var light = go.AddComponent<Light>();
+            light.type = spot ? LightType.Spot : LightType.Point;
+            light.intensity = intensity; light.range = 100f; light.color = Color.white; light.shadows = LightShadows.None;
+            if (spot) { light.spotAngle = 90f; light.innerSpotAngle = 20f; }
+            cam.Render(); cam.Render();
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+            var old = RenderTexture.active;
+            RenderTexture.active = rt;
+            tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            RenderTexture.active = old;
+            double r = 0, g = 0, b = 0; int n = 0;
+            for (int dy = -10; dy <= 10; dy++)
+                for (int dx = -10; dx <= 10; dx++)
+                {
+                    var c = tex.GetPixel(w / 2 + dx, h / 2 + dy);
+                    r += c.r; g += c.g; b += c.b; n++;
+                }
+            string line = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} {1:F2} {2:F2} {3:F2}", spot ? "spot" : "point", 255 * r / n, 255 * g / n, 255 * b / n);
+            File.AppendAllText(outDir + "/lab_unity.txt", line + "\n");
+            File.WriteAllBytes(outDir + "/lab_unity.png", tex.EncodeToPNG());
+            Debug.Log("[UnrealExport] lab: " + line + " (intensity " + intensity + ", distance " + dist + " m)");
             cam.targetTexture = null;
             UnityEngine.Object.DestroyImmediate(rt);
             UnityEngine.Object.DestroyImmediate(tex);
