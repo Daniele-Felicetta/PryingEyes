@@ -46,7 +46,14 @@ namespace PryingEyes.Proc
             spawned = fails = 0; clock = spawnT = endT = statusT = 0; stallT = 0f; lastAlive = 0;
             gap = Mathf.Max(0.28f, 0.65f - Round * 0.018f); delay = 0;
             phase = Phase.Fighting;
+            // ogni otto ondate scende il Cardinale (non nelle Processioni: quelle sono delle falene)
+            bossPending = Round % 8 == 0 && !moth;
             ShowSurvivalWave();
+            if (bossPending)
+            {
+                GameManager.I.hud?.Banner("IL CARDINALE", "Il capo dell'ordine e' sceso nel piano.");
+                Sfx.UI(SoundBank.BossRoar, 0.8f, 0.9f);
+            }
             Debug.Log($"[PryingEyes] ondata {Round} (piano {FloorDirector.I.floor}): {target} nemici, {cap} insieme, aree aperte {RoomAccessDoors.I?.Access.OpenRooms.Count}{(moth ? ", Processione" : "")}");
             Coop.Game?.RoundStarted(0, Round, moth, (int)mood);
         }
@@ -109,7 +116,7 @@ namespace PryingEyes.Proc
                 float length = 0; var corners = spawnPath.corners;
                 for (int i = 1; i < corners.Length; i++) length += Vector3.Distance(corners[i-1], corners[i]);
                 if (length > pathMax || (attempt < unseenTries && Targets.AnySees(q + Vector3.up))) continue;
-                var type = moth ? Enemy.EnemyType.Veglia : FloorDirector.I.PickRoundType(room);
+                var type = PickSurvivalType(room);
                 if (Enemy.IsFlying(type)) q.y += 1.8f;
                 if (Physics.CheckSphere(q + Vector3.up * 0.6f, 0.4f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) continue;
                 var e = Enemy.Spawn(type, q);
@@ -119,6 +126,32 @@ namespace PryingEyes.Proc
             }
             return false;
         }
+
+        /// <summary>Chi nasce in un'ondata: il Cardinale apre le ondate ottave (una volta), poi le varianti a percentuali che salgono con
+        /// le ondate (flagellanti dalla terza, appestati dalla quarta, al massimo una statua viva dalla sesta), altrimenti il tipo del
+        /// piano (monaci, abati, volanti, costumi a tema). La Processione resta delle falene.</summary>
+        Enemy.EnemyType PickSurvivalType(Room room)
+        {
+            if (bossPending) { bossPending = false; return Enemy.EnemyType.Cardinale; }
+            if (moth) return Enemy.EnemyType.Veglia;
+            float r = Random.value;
+            if (Round >= 6 && r < 0.05f && CountAlive(Enemy.EnemyType.Statua) == 0) return Enemy.EnemyType.Statua;
+            r = Random.value;
+            float flag = Round >= 3 ? Mathf.Min(0.20f, 0.08f + 0.012f * Round) : 0f;
+            float plague = Round >= 4 ? Mathf.Min(0.14f, 0.05f + 0.010f * Round) : 0f;
+            if (r < flag) return Enemy.EnemyType.Flagellante;
+            if (r < flag + plague) return Enemy.EnemyType.Appestato;
+            return FloorDirector.I.PickRoundType(room);
+        }
+
+        int CountAlive(Enemy.EnemyType t)
+        {
+            int n = 0;
+            foreach (var e in mine) if (e != null && !e.IsDead && e.type == t) n++;
+            return n;
+        }
+
+        bool bossPending;
 
         void TickSurvival(float dt)
         {

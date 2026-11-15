@@ -7,6 +7,8 @@ namespace PryingEyes
         Knife,      // coltello, in faccia: rumoroso come una rissa
         Takedown,   // coltello alle spalle su chi non ti ha notato: nessun rumore
         Nuke,       // la Campana: uccide senza pagare l'uccisione, il premio e' il bonus fisso
+        Esplosione, // scoppio dell'Appestato o la sua nube: paga come un'arma
+        Scoppio,    // l'Appestato che scoppia da solo vicino a te: nessun premio
     }
 
     /// <summary>Tabella dei punti, quella dei Black Ops Zombies: 10 a ogni colpo che non uccide, 60 per l'uccisione, 100 se
@@ -19,7 +21,7 @@ namespace PryingEyes
 
         public static int PerUccisione(DamageSource src, bool headshot)
         {
-            if (src == DamageSource.Nuke) return 0;
+            if (src == DamageSource.Nuke || src == DamageSource.Scoppio) return 0;
             if (src == DamageSource.Knife || src == DamageSource.Takedown) return Coltello;
             return headshot ? Testa : Uccisione;
         }

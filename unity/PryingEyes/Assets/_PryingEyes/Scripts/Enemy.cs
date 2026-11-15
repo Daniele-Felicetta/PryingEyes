@@ -11,7 +11,9 @@ namespace PryingEyes
     /// distanza orizzontale, e dal piano terra si colpiva chi stava sul soppalco.</summary>
     public partial class Enemy : MonoBehaviour
     {
-        public enum EnemyType { Occhio, Abate, Monaco, Veglia, Medusa, Portachiavi, Maschera, Direttore, Infermiere, Primario, Spazzino, Vigile }
+        public enum EnemyType { Occhio, Abate, Monaco, Veglia, Medusa, Portachiavi, Maschera, Direttore, Infermiere, Primario, Spazzino, Vigile,
+            // varianti dell'orda (Enemy.Varianti.cs): sempre in fondo, il numero viaggia in rete
+            Appestato, Flagellante, Statua, Cardinale }
         public EnemyType type;
 
         public float hp, maxHp, speed;
@@ -103,7 +105,8 @@ namespace PryingEyes
             Material glow;
             List<Material> flashes;
             EnemyType archetype = BaseType(t);
-            GameObject go = IsThemed(t) ? BuildThemed(t, out glow, out flashes)
+            GameObject go = IsVariant(t) ? BuildVariant(t, out glow, out flashes)
+                : IsThemed(t) ? BuildThemed(t, out glow, out flashes)
                 : IsAlien(t) ? BuildAlien(t, out glow, out flashes)
                 : t == EnemyType.Occhio ? BuildOcchio(out glow, out flashes)
                 : t == EnemyType.Abate ? BuildAbate(out glow, out flashes) : BuildMonaco(out glow, out flashes);
@@ -141,6 +144,8 @@ namespace PryingEyes
             e.alienRig = go.GetComponent<AlienRig>();
             if (IsAlien(t)) e.SetAlienStats();
             else if (IsThemed(t)) e.SetThemedStats();
+            else if (IsVariant(t)) e.SetVariantStats();
+            if (IsBoss(t) && !puppet) Boss = e;
             if (Proc.SurvivalMode.Enabled) e.speed *= Proc.SurvivalMode.SpeedMultiplier(Proc.RoundDirector.Round, IsFlying(t));
             if (t == EnemyType.Portachiavi) e.loop = Sfx.Loop(go, SoundBank.KeeperKeys, 0.38f, 1.5f, 22f, 1f);
             else if (t == EnemyType.Veglia) e.loop = Sfx.Loop(go, SoundBank.VigilBreath, 0.30f, 1.5f, 24f, 1f);
@@ -162,8 +167,8 @@ namespace PryingEyes
         void AddAgent()
         {
             agent = gameObject.AddComponent<NavMeshAgent>();
-            agent.radius = Archetype == EnemyType.Abate ? 0.5f : type == EnemyType.Direttore ? 0.42f : 0.35f;
-            agent.height = Archetype == EnemyType.Abate ? 2.4f : type == EnemyType.Direttore ? 2.5f : 2f;
+            agent.radius = type == EnemyType.Cardinale ? 0.62f : Archetype == EnemyType.Abate ? 0.5f : type == EnemyType.Direttore ? 0.42f : 0.35f;
+            agent.height = type == EnemyType.Cardinale ? 2.9f : Archetype == EnemyType.Abate ? 2.4f : type == EnemyType.Direttore ? 2.5f : 2f;
             agent.baseOffset = 0f;
             agent.speed = speed;
             agent.acceleration = Archetype == EnemyType.Abate ? 4f : 6f;
@@ -182,6 +187,7 @@ namespace PryingEyes
         /// <summary>Litania del monaco; quella dell'abate e' piu' forte e si sente da piu' lontano.</summary>
         void AttachChant()
         {
+            if (type == EnemyType.Statua) return;              // la pietra non canta: gratta, e solo quando si muove
             if (IsThemed(type)) { AttachThemedLoop(); return; }
             var chant = SoundBank.Chant;
             if (chant == null) return;
@@ -211,7 +217,7 @@ namespace PryingEyes
             float dt = Time.deltaTime;
             AdvanceHitFlash(dt);
             // cooperativa: chi non e' l'ospite non pensa, ripete quello che l'ospite gli racconta (Enemy.Net.cs)
-            if (puppet) { UpdatePuppet(dt); return; }
+            if (puppet) { UpdatePuppet(dt); if (IsVariant(type)) VariantPuppetTick(dt); return; }
             atkCd -= dt;
             repathT -= dt;
             // la litania si calcola in un thread: il monaco nato prima che fosse pronta la attacca adesso
@@ -258,6 +264,7 @@ namespace PryingEyes
             // furtivita' (Enemy.Stealth.cs): vista, udito, stato di allerta e dove andare
             SenseTick(dt, gp);
             PlanMove(dt, gp, feet);
+            if (IsVariant(type) && VariantTick(dt, gp, chest, hd, dy)) return;
             if (Archetype == EnemyType.Occhio) UpdateOcchio(dt, gp, chest, sep, enraged);
             else if (Archetype == EnemyType.Monaco) UpdateMonaco(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
             else UpdateAbate(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
@@ -541,6 +548,7 @@ namespace PryingEyes
         {
             if (dead) return;
             if (puppet) { PuppetDamage(dmg, point, headshot, awardPoints, src); return; }
+            if (IsVariant(type)) dmg *= VariantDamageScale(src);
             if (Drops.InstaKill && src != DamageSource.Nuke) dmg = Mathf.Max(dmg, hp + 1f);   // lo Sguardo: ogni colpo uccide
             // +10 per colpo a segno che non uccide; l'uccisione paga a parte (Punti.PerUccisione)
             if (awardPoints && hp - dmg > 0f) PayPoints(claimer, Punti.Colpo);
@@ -560,7 +568,7 @@ namespace PryingEyes
             if (OnNav) agent.velocity += push;
             else vel += push;
             // durante il colpo di bastone niente reazione: l'animazione dell'attacco non si interrompe
-            if (Archetype == EnemyType.Monaco && hp > 0f && atkLock <= 0f && anim != null) anim.SetTrigger("Colpito");
+            if (Archetype == EnemyType.Monaco && type != EnemyType.Statua && hp > 0f && atkLock <= 0f && anim != null) anim.SetTrigger("Colpito");
             if (Archetype == EnemyType.Abate && hp > 0f && atkLock <= 0f && flinchT <= 0f && anim != null)
             {
                 anim.SetTrigger("Colpito");
@@ -599,6 +607,8 @@ namespace PryingEyes
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
                 if (anim != null) anim.SetBool("Morto", true);
                 foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
+                if (BloodTint.a > 0f) Fx.BloodPool(transform.position, BloodTint, Archetype == EnemyType.Abate ? 1.35f : 1f);
+                if (IsVariant(type)) VariantDie(src, claimer);
                 Destroy(gameObject, 5f);
                 return;
             }
@@ -707,6 +717,18 @@ namespace PryingEyes
             glow.SetColor("_EmissionColor", new Color(0.22f, 0.58f, 1f) * 3f);
             return g;
         }
+
+        /// <summary>Colore del sangue (Fx.Blood): rosso scuro per chi e' di carne, colori propri per gli alieni; alfa 0 = solo polvere
+        /// (la statua si scheggia), niente macchie.</summary>
+        public Color BloodTint => type switch
+        {
+            EnemyType.Statua => new Color(0.62f, 0.60f, 0.56f, 0f),
+            EnemyType.Veglia => new Color(0.55f, 0.48f, 0.34f, 0f),
+            EnemyType.Medusa => new Color(0.05f, 0.30f, 0.32f, 1f),
+            EnemyType.Portachiavi => new Color(0.16f, 0.08f, 0.03f, 1f),
+            EnemyType.Appestato => new Color(0.20f, 0.24f, 0.04f, 1f),
+            _ => new Color(0.30f, 0.012f, 0.010f, 1f),
+        };
 
         static Material Lit(Color c, float metallic, float roughness)
         {

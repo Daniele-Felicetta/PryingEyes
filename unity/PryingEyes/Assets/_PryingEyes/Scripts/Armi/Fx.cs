@@ -24,6 +24,9 @@ namespace PryingEyes
         readonly Queue<Item> free = new Queue<Item>();
         readonly Item[] holes = new Item[48];
         int holeNext;
+        readonly Item[] stains = new Item[72];      // macchie di sangue su muri e pavimenti (stesso materiale dei fori, texture propria)
+        int stainNext;
+        static Texture2D bloodTex, poolTex;
         readonly List<GameObject> casings = new List<GameObject>();
         Transform camT;
 
@@ -261,6 +264,199 @@ namespace PryingEyes
             h.age = 0f; h.life = 28f; h.alive = true;
         }
 
+        // ---------- sangue (2026-11-15)
+        static Texture2D MakeBig(int n, System.Func<float, float, Color> f)
+        {
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear };
+            var px = new Color32[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                    px[y * n + x] = f((x + 0.5f) / n * 2f - 1f, (y + 0.5f) / n * 2f - 1f);
+            tex.SetPixels32(px);
+            tex.Apply(true);
+            return tex;
+        }
+
+        /// <summary>Schizzo: macchia centrale dal bordo frastagliato, goccioline attorno e una scia (verso +u: la direzione del colpo).
+        /// Bianco: la tinta la da' il blocco di proprieta' (rosso scuro, verde dell'appestato, ...).</summary>
+        static Texture2D BloodTex() => bloodTex != null ? bloodTex : bloodTex = MakeBig(128, (u, v) =>
+        {
+            float ang = Mathf.Atan2(v, u);
+            float edge = 0.42f + 0.13f * Mathf.PerlinNoise(Mathf.Cos(ang) * 1.7f + 3f, Mathf.Sin(ang) * 1.7f + 7f)
+                         + 0.10f * Mathf.PerlinNoise(Mathf.Cos(ang) * 5f + 11f, Mathf.Sin(ang) * 5f + 2f);
+            float su = u < 0f ? u : u * 0.55f;                           // la macchia si allunga verso +u
+            float r = Mathf.Sqrt(su * su + v * v);
+            float a = Mathf.Clamp01((edge - r) * 18f);
+            // goccioline: celle di una griglia sparsa, una su tre accesa, piu' fitte lungo la scia
+            for (int k = 0; k < 14; k++)
+            {
+                float cx = Mathf.Sin(k * 12.9898f) * 0.5f + 0.5f, cy = Mathf.Sin(k * 78.233f) * 0.5f + 0.5f;
+                Vector2 c = new Vector2(Mathf.Lerp(-0.2f, 0.95f, cx), Mathf.Lerp(-0.75f, 0.75f, cy));
+                float rr = 0.025f + 0.05f * Mathf.Abs(Mathf.Sin(k * 3.7f));
+                float d = Vector2.Distance(new Vector2(u, v), c);
+                a = Mathf.Max(a, Mathf.Clamp01((rr - d) * 60f));
+            }
+            float shade = 0.72f + 0.28f * Mathf.PerlinNoise(u * 6f + 1f, v * 6f + 9f);
+            return new Color(shade, shade, shade, a * 0.92f);
+        });
+
+        /// <summary>Pozza: un disco irregolare piu' scuro al centro.</summary>
+        static Texture2D PoolTex() => poolTex != null ? poolTex : poolTex = MakeBig(128, (u, v) =>
+        {
+            float ang = Mathf.Atan2(v, u);
+            float edge = 0.62f + 0.16f * Mathf.PerlinNoise(Mathf.Cos(ang) * 1.4f + 5f, Mathf.Sin(ang) * 1.4f + 1f)
+                         + 0.08f * Mathf.PerlinNoise(Mathf.Cos(ang) * 4f + 9f, Mathf.Sin(ang) * 4f + 4f);
+            float r = Mathf.Sqrt(u * u + v * v);
+            float a = Mathf.Clamp01((edge - r) * 14f);
+            float shade = 0.62f + 0.38f * Mathf.Clamp01(r / edge);
+            return new Color(shade, shade, shade, a * 0.95f);
+        });
+
+        Item NextStain(Texture2D tex)
+        {
+            var h = stains[stainNext];
+            if (h == null)
+            {
+                var go = new GameObject("macchia");
+                go.layer = 0;
+                go.transform.SetParent(transform, false);
+                go.AddComponent<MeshFilter>().sharedMesh = quadMesh;
+                var r = go.AddComponent<MeshRenderer>();
+                r.shadowCastingMode = ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                r.sharedMaterial = HoleMat;
+                h = stains[stainNext] = new Item { t = go.transform, r = r };
+            }
+            stainNext = (stainNext + 1) % stains.Length;
+            h.mpb.SetTexture("_BaseMap", tex);
+            h.t.gameObject.SetActive(true);
+            h.age = 0f; h.alive = true;
+            return h;
+        }
+
+        void PlaceStain(Texture2D tex, Vector3 p, Vector3 n, Vector3 along, float size, float stretch, Color tint, float life, float grow)
+        {
+            var h = NextStain(tex);
+            Vector3 up = Vector3.ProjectOnPlane(along, n);
+            if (up.sqrMagnitude < 1e-4f) up = Vector3.ProjectOnPlane(Random.onUnitSphere, n);
+            // l'asse u della texture (la scia) va lungo la direzione del colpo proiettata sul muro
+            h.t.position = p + n * Random.Range(0.004f, 0.009f);
+            h.t.rotation = Quaternion.LookRotation(-n, Vector3.Cross(-n, up.normalized));    // +X locale = direzione del colpo
+            h.size1 = size; h.size0 = grow > 0f ? size * 0.35f : size; h.len = grow; h.a0 = stretch;
+            h.life = life; h.col = tint;
+            h.t.localScale = new Vector3(h.size0 * stretch, h.size0, 1f);
+            h.mpb.SetColor("_BaseColor", tint);
+            h.r.SetPropertyBlock(h.mpb);
+        }
+
+        /// <summary>Colpo su un nemico: spruzzo di gocce e nebbiolina nel colore del suo sangue, e una macchia sul muro o sul pavimento
+        /// dietro di lui se ce n'e' uno entro un paio di metri sulla traiettoria. Tinta con alfa 0 = solo polvere (pietra, falene).</summary>
+        public static void Blood(Vector3 p, Vector3 dir, Color tint, bool head)
+        {
+            Ensure();
+            dir = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector3.forward;
+            Color mist = new Color(tint.r, tint.g, tint.b, 1f);
+            bool dust = tint.a <= 0f;
+            int drops = dust ? 0 : head ? 12 : 7;
+            for (int i = 0; i < drops; i++)
+            {
+                var it = I.Spawn(PuffMat, Random.Range(0.25f, 0.5f));
+                it.kind = 0; it.t.position = p;
+                it.vel = dir * Random.Range(1.5f, 4.5f) + Random.insideUnitSphere * 1.6f + Vector3.up * 0.6f;
+                it.grav = Vector3.down * 9.8f;
+                it.size0 = Random.Range(0.015f, 0.03f); it.size1 = it.size0 * 0.7f;
+                it.a0 = 1f; it.col = mist * 0.8f;
+            }
+            for (int i = 0; i < (head ? 3 : 2); i++)
+            {
+                var it = I.Spawn(PuffMat, Random.Range(0.3f, 0.55f));
+                it.kind = 0; it.t.position = p + dir * 0.05f;
+                it.vel = dir * Random.Range(0.4f, 1.0f) + Random.insideUnitSphere * 0.3f;
+                it.grav = Vector3.zero;
+                it.size0 = 0.06f; it.size1 = head ? 0.42f : 0.28f;
+                it.a0 = dust ? 0.45f : 0.55f; it.col = dust ? Color.Lerp(mist, Color.gray, 0.3f) : mist;
+            }
+            if (dust) return;
+            if (Physics.Raycast(p + dir * 0.15f, dir, out var wh, 2.4f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                I.PlaceStain(BloodTex(), wh.point, wh.normal, dir, Random.Range(0.28f, 0.5f) * (head ? 1.35f : 1f), Random.Range(1.0f, 1.5f), tint, 40f, 0f);
+            if (Random.value < 0.45f && Physics.Raycast(p, Vector3.down, out var fh, 2.6f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                I.PlaceStain(BloodTex(), fh.point, fh.normal, dir, Random.Range(0.22f, 0.4f), Random.Range(1.0f, 1.3f), tint, 40f, 0f);
+        }
+
+        /// <summary>Pozza di sangue sotto chi muore: cresce in un secondo e mezzo, resta, sfuma.</summary>
+        public static void BloodPool(Vector3 pos, Color tint, float scale = 1f)
+        {
+            Ensure();
+            if (!Physics.Raycast(pos + Vector3.up * 0.6f, Vector3.down, out var fh, 2.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) return;
+            var c = new Color(tint.r * 0.8f, tint.g * 0.8f, tint.b * 0.8f, 1f);
+            I.PlaceStain(PoolTex(), fh.point, fh.normal, Random.onUnitSphere, Random.Range(1.0f, 1.45f) * scale, Random.Range(1.0f, 1.25f), c, 45f, 1.6f);
+        }
+
+        // ---------- varianti dell'orda
+        /// <summary>Scoppio dell'Appestato: bile verde che schizza, una nuvola che si allarga e un lampo di luce verde.</summary>
+        public static void PlagueBurst(Vector3 p)
+        {
+            Ensure();
+            for (int i = 0; i < 24; i++)
+            {
+                var it = I.Spawn(PuffMat, Random.Range(0.6f, 1.2f));
+                it.kind = 0; it.t.position = p + Random.insideUnitSphere * 0.3f;
+                it.vel = Random.insideUnitSphere * 3.4f + Vector3.up * 1.1f; it.grav = Vector3.down * 1.2f;
+                it.size0 = 0.25f; it.size1 = Random.Range(1.2f, 2.1f); it.a0 = 0.65f; it.col = new Color(0.40f, 0.60f, 0.14f);
+            }
+            for (int i = 0; i < 26; i++)
+            {
+                var it = I.Spawn(PuffMat, Random.Range(0.35f, 0.7f));
+                it.kind = 0; it.t.position = p;
+                it.vel = Random.insideUnitSphere * 7f + Vector3.up * 2.2f; it.grav = Vector3.down * 9.8f;
+                it.size0 = Random.Range(0.03f, 0.07f); it.size1 = it.size0 * 0.6f; it.a0 = 1f; it.col = new Color(0.32f, 0.48f, 0.08f);
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                var it = I.Spawn(SparkMat, Random.Range(0.2f, 0.4f));
+                it.kind = 1; it.t.position = p;
+                it.vel = Random.insideUnitSphere * 6f + Vector3.up; it.grav = Vector3.down * 6f;
+                it.size0 = 0.035f; it.size1 = 0.005f; it.a0 = 1f; it.col = new Color(0.6f, 1f, 0.3f);
+            }
+            for (int i = 0; i < 5; i++)
+            {
+                Vector3 d = Random.onUnitSphere; if (d.y > 0.3f) d.y = -d.y;
+                if (Physics.Raycast(p, d, out var h, 3.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                    I.PlaceStain(BloodTex(), h.point, h.normal, d, Random.Range(0.45f, 0.8f), 1.2f, new Color(0.20f, 0.26f, 0.05f, 1f), 40f, 0f);
+            }
+            var go = new GameObject("LampoScoppio");
+            go.transform.position = p;
+            var l = go.AddComponent<Light>();
+            l.type = LightType.Point; l.color = new Color(0.55f, 1f, 0.25f); l.intensity = 6f; l.range = 9f; l.shadows = LightShadows.None;
+            Destroy(go, 0.22f);
+        }
+
+        /// <summary>Uno sbuffo della nube tossica: sale lento e si allarga.</summary>
+        public static void ToxicPuff(Vector3 p)
+        {
+            Ensure();
+            var it = I.Spawn(PuffMat, Random.Range(1.6f, 2.4f));
+            it.kind = 0; it.t.position = p;
+            it.vel = Vector3.up * Random.Range(0.1f, 0.3f) + Random.insideUnitSphere * 0.25f; it.grav = Vector3.zero;
+            it.size0 = 0.5f; it.size1 = Random.Range(1.4f, 2.0f); it.a0 = 0.20f; it.col = new Color(0.33f, 0.52f, 0.12f);
+        }
+
+        /// <summary>Anello di fuoco del Cardinale: lingue di fiamma che corrono dal centro fino al raggio.</summary>
+        public static void FireRing(Vector3 c, float radius)
+        {
+            Ensure();
+            for (int i = 0; i < 56; i++)
+            {
+                float a = i / 56f * Mathf.PI * 2f + Random.Range(-0.05f, 0.05f);
+                Vector3 d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                var it = I.Spawn(SparkMat, Random.Range(0.45f, 0.8f));
+                it.kind = 4; it.t.position = c + d * Random.Range(0.8f, 1.6f) + Vector3.up * 0.25f;
+                it.vel = d * (radius / 0.55f) * Random.Range(0.8f, 1.05f) + Vector3.up * Random.Range(0.6f, 1.6f);
+                it.grav = Vector3.zero;
+                it.size0 = 0.35f; it.size1 = Random.Range(0.9f, 1.4f); it.a0 = 0.85f;
+            }
+        }
+
         /// <summary>Traccia luminosa da 'from' a 'to', a velocita' finita.</summary>
         public static void Tracer(Vector3 from, Vector3 to, float speed = 280f, float width = 0.010f, Color? color = null)
         {
@@ -442,6 +638,20 @@ namespace PryingEyes
                     it.t.localScale = new Vector3(s, s, 1f);
                     SetAlpha(it, it.a0 * (1f - k) * Mathf.Clamp01(it.age / 0.05f));
                 }
+            }
+            // macchie: si allargano un attimo (la pozza cresce), poi sfumano alla fine
+            for (int i = 0; i < stains.Length; i++)
+            {
+                var h = stains[i];
+                if (h == null || !h.alive) continue;
+                h.age += dt;
+                if (h.age > h.life) { h.t.gameObject.SetActive(false); h.alive = false; continue; }
+                float g = h.len > 0f ? Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(h.age / h.len)) : 1f;
+                float sx = Mathf.Lerp(h.size0, h.size1, g);
+                h.t.localScale = new Vector3(sx * h.a0, sx, 1f);
+                float fa = h.age > h.life - 6f ? (h.life - h.age) / 6f : 1f;
+                h.mpb.SetColor("_BaseColor", new Color(h.col.r, h.col.g, h.col.b, h.col.a * fa));
+                h.r.SetPropertyBlock(h.mpb);
             }
             // fori: sfumano alla fine
             for (int i = 0; i < holes.Length; i++)

@@ -20,7 +20,7 @@ namespace PryingEyes
         public static int statWhistles, statHelps, statBolts;
 
         public static bool IsAlien(EnemyType t) => t == EnemyType.Veglia || t == EnemyType.Medusa || t == EnemyType.Portachiavi;
-        public static bool IsThemed(EnemyType t) => t >= EnemyType.Maschera;
+        public static bool IsThemed(EnemyType t) => t >= EnemyType.Maschera && t <= EnemyType.Vigile;
 
         void SetThemedStats()
         {

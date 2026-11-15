@@ -115,6 +115,7 @@ namespace PryingEyes
             BuildPuntiUI();          // HUD.Punti.cs: "+N" accanto al mirino, timer dei potenziamenti, lampo della Campana
             BuildPerksUI();          // HUD.Perks.cs: i quattro posti dei perk sotto l'obiettivo
             BuildCoopUI();
+            BuildBossUI();           // HUD.Boss.cs: nome e vita del Cardinale in alto al centro
 
             // Navigazione in alto; risorse di combattimento ai due angoli inferiori.
             waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(28, -26), new Vector2(100, 22), 13, TextAnchor.UpperLeft, "ONDATA", Dim, FontStyle.Bold);
@@ -427,6 +428,7 @@ namespace PryingEyes
             UpdatePuntiUI(dt);
             UpdatePerksUI(dt);
             UpdateCoopUI();
+            UpdateBossUI(dt);
             if (bannerT > 0f)
             {
                 bannerT -= dt;

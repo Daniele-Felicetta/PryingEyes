@@ -451,7 +451,7 @@ namespace PryingEyes
                     int src = r.U8();
                     bool award = r.Bool();
                     Vector3 pt = r.V3();
-                    if (!r.Ok || ep != EpochByte || src > (int)DamageSource.Nuke) break;
+                    if (!r.Ok || ep != EpochByte || src > (int)DamageSource.Scoppio) break;
                     var e = EnemyById(id);
                     if (e == null || e.IsDead) break;
                     var ds = (DamageSource)src;
@@ -538,7 +538,7 @@ namespace PryingEyes
                     if (!enemies.TryGetValue(id, out var e)) return;
                     enemies.Remove(id);
                     if (e == null) return;
-                    if (mode == 1) e.PuppetDie(head, (DamageSource)Mathf.Clamp(src, 0, (int)DamageSource.Nuke));
+                    if (mode == 1) e.PuppetDie(head, (DamageSource)Mathf.Clamp(src, 0, (int)DamageSource.Scoppio));
                     else Enemy.Remove(e);
                     break;
                 }
@@ -562,7 +562,7 @@ namespace PryingEyes
                 {
                     int src = r.U8();
                     bool head = r.Bool();
-                    if (r.Ok && gm != null) gm.CreditKill((DamageSource)Mathf.Clamp(src, 0, (int)DamageSource.Nuke), head);
+                    if (r.Ok && gm != null) gm.CreditKill((DamageSource)Mathf.Clamp(src, 0, (int)DamageSource.Scoppio), head);
                     break;
                 }
                 case CoopKind.HurtPlayer:

@@ -1008,6 +1008,7 @@ namespace PryingEyes
                 float fall = dist <= d.rangeNear ? 1f : Mathf.Lerp(1f, d.farMult, Mathf.Clamp01((dist - d.rangeNear) / Mathf.Max(0.1f, d.rangeFar - d.rangeNear)));
                 float dmg = d.damage * fall * dmgMul * (head ? d.headMult * OwnerPerks.HeadMult : 1f) * (slots[cur].upg ? UpgDamage : 1f);
                 bool first = hitSet.Add(e);
+                Fx.Blood(h.point, dir, e.BloodTint, head);
                 e.Damage(dmg, h.point, head, first);
                 end = h.point;
                 if (pierced >= d.pierce) break;

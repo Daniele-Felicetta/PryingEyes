@@ -51,7 +51,7 @@ namespace PryingEyes
     public static class CoopProtocol
     {
         /// <summary>Versione del protocollo + contenuto: da alzare a ogni cambio di formato dei messaggi o delle regole del piano.</summary>
-        public const string Revision = "pe-coop-18";       // 18: cattedrali alte e annessi (torri, cripte, giardini) nel piano
+        public const string Revision = "pe-coop-19";       // 19: varianti dell'orda (appestato, flagellante, statua, cardinale) e nuove fonti di danno
         public static string ContentRevision => Revision + "-" + WeaponDefs.ContentHash;
         public const ushort DefaultPort = 7807;
         public const int MaxPlayers = 4;
