@@ -36,8 +36,10 @@ Flags:
 
 - `-buildOut <folder>` writes `<folder>/PryingEyes.exe`. **Without it the build overwrites `Builds/PryingEyes.exe`, the game the
   maintainer plays.** Always pass it for verification builds (`ship.ps1` and the studio do).
-- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out every automated test class (each `*Test.cs` starts with
-  `#if !PE_DISTRIBUTION_BUILD`). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.
+- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out the files wrapped in `#if !PE_DISTRIBUTION_BUILD`: 29 of the 42
+  `*Test*.cs` files in `Scripts/` and the trailer recorder (`TrailerCapture.cs`, `TrailerJob.cs`, `FloorDirector.Trailer.cs`, and a part of
+  `FloorDirector.cs`). Not wrapped, so still in the player: the `ArchitectureTest*`, `CityTest*`, `CoopTest*` and `StealthTest*` files
+  (counted by grep on 2026-11-15). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.
 
 The methods that build a player (`Torre`, `Windows`, `Web`, `City`) exit with 2 when the build does not succeed.
 
@@ -124,4 +126,5 @@ Touch controls (iOS, Android, and the Web build when it detects a mobile browser
 
 A release is a zip of a full build folder, without the `*_BackUpThisFolder_ButDontShipItWithYourGame` and `*_BurstDebugInformation_DoNotShip`
 folders, attached to a GitHub release (zips are kept in `Builds/Releases`). A release is made only on request, from a build made with
-`-RequireClean` so that it contains nothing that is not in a commit, and with `-distribution` when the test classes should be left out.
+`-RequireClean` so that it contains nothing that is not in a commit, and with `-distribution` when the test classes and the trailer recorder
+should be left out (see above for what that covers).
