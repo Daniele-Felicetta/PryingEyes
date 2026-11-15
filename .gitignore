@@ -85,3 +85,14 @@ unity/LayoutDemo/ProjectSettings/*
 
 modelli/hotel/braccia/*.fbx
 modelli/hotel/braccia/render/
+
+# Unreal prototype (unreal/PryingEyes): only the source, config and Python scripts are tracked; everything the engine
+# generates (and the imported assets, which the Python scripts in unreal/PryingEyes/Python rebuild from the Unity export) stays out of git.
+unreal/**/Binaries/
+unreal/**/Intermediate/
+unreal/**/Saved/
+unreal/**/DerivedDataCache/
+unreal/**/Content/
+unreal/**/.vs/
+unreal/**/*.sln
+unreal/**/*.suo

@@ -1,0 +1,27 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "",
+	"Category": "",
+	"Description": "Prying Eyes - Unreal feasibility prototype. C++ and Python only, no Blueprints: see docs/engineering/unreal-prototype.md",
+	"Modules": [
+		{
+			"Name": "PryingEyes",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "PythonScriptPlugin",
+			"Enabled": true
+		},
+		{
+			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		},
+		{
+			"Name": "AndroidFileServer",
+			"Enabled": false
+		}
+	]
+}

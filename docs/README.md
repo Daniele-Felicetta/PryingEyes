@@ -43,6 +43,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [production-studio.md](engineering/production-studio.md) | The content pipeline: one source for weapon data, furnished rooms, the weapon-state module, the persistent queue, the evidence gallery. |
 | [city-prototype.md](engineering/city-prototype.md) | The station district: the first project built on the suite beyond the hotel, its labs and verified results (Italian). |
 | [trailer.md](engineering/trailer.md) | How the trailer is recorded from the game itself and edited, and how to make it again. |
+| [unreal-prototype.md](engineering/unreal-prototype.md) | The Unreal Engine 5.8 feasibility prototype: one generated room exported from Unity and rebuilt in Unreal from the command line (no Blueprints), how the Unity look is matched, how frames are timed, results and traps. |
 
 The reusable C# packages have their own READMEs:
 [layout](../unity/PryingEyes/Packages/com.pryingeyes.layout/README.md),

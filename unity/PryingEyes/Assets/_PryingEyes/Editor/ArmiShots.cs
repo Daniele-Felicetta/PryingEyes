@@ -127,7 +127,7 @@ namespace PryingEyes.EditorTools
         }
 
         /// <summary>Come in gioco: arma e mani nel riferimento della camera, in mano o in mira.</summary>
-        static void BuildView(GameObject root, GameObject prefab, WeaponDef d, Camera cam, bool ads, bool reload = false)
+        internal static void BuildView(GameObject root, GameObject prefab, WeaponDef d, Camera cam, bool ads, bool reload = false)
         {
             cam.transform.position = new Vector3(0f, 0f, 0f);
             cam.transform.rotation = Quaternion.identity;

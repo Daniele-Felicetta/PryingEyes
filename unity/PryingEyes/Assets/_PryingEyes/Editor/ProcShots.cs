@@ -24,7 +24,7 @@ namespace PryingEyes.EditorTools
 
         static int ArgInt(string name, int def) => int.TryParse(Arg(name), out int v) ? v : def;
 
-        struct Shot { public string name; public Vector3 pos; public Vector3 look; public float fov; }
+        internal struct Shot { public string name; public Vector3 pos; public Vector3 look; public float fov; }
 
         public static void Run()
         {
@@ -147,7 +147,7 @@ namespace PryingEyes.EditorTools
         }
 
         /// <summary>Inquadratura d'ingresso: dalla soglia principale, 0,7 m dentro la stanza, verso il suo centro.</summary>
-        static Shot EntryShot(Plan plan, Room r)
+        internal static Shot EntryShot(Plan plan, Room r)
         {
             Opening best = null; float bw = -1f;
             foreach (var o in plan.openings)
