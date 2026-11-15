@@ -7,14 +7,23 @@ dipendere dal giudizio del sottoagente, la sequenza con i controlli e le trappol
 Uso (il sottoagente lancia due comandi; il secondo si ripete finche' stampa "SHIP: OK" o "SHIP: FALLITO"):
   powershell -NoProfile -ExecutionPolicy Bypass -File tools\ship.ps1 -Detach -MessageFile C:\...\msg.txt -Paths "a/b.cs,c/d.md"
   powershell -NoProfile -ExecutionPolicy Bypass -File tools\ship.ps1 -Wait 540
-Senza -Detach lo script gira in primo piano. Per provare senza cambiare nulla: -DryRun.
+Senza -Detach lo script gira in primo piano. Per provare senza cambiare nulla: -DryRun. Per le release: -RequireClean (vedi 'sorgenti').
 
 Passi, nell'ordine:
   controlli  ramo, Unity non aperto sul progetto, nessuna copia del gioco in esecuzione dalla cartella della build
   cancello   tools\check_suite.py (i pacchetti riusabili non dipendono dal gioco ne' da Unity) e i test Python di tools\
-             (~30 s, senza Unity); se falliscono non si committa nulla. -NoGate lo salta
+             (~30 s, senza Unity); se falliscono non si committa nulla. -NoGate lo salta. I due laboratori .NET delle regole
+             (studio.py test weapon-state e survival) non ci sono: prendono il lock del progetto e qui fallirebbero con PROJECT_BUSY
+             quando un altro agente ha una produzione in corso; li esegue la CI (.github/workflows/gate.yml)
   commit     solo i percorsi di -Paths (mai git add -A), messaggio da -MessageFile, indice vuoto in partenza;
              senza -Paths non si committa nulla
+  sorgenti   dopo il commit e prima della build: Unity costruisce l'albero di lavoro, non il commit, quindi si elencano i sorgenti NON
+             committati che compilera' o impacchettera' (file sotto unity/PryingEyes/Assets, Packages e ProjectSettings che differiscono
+             da HEAD, piu' i non tracciati e non ignorati; esclusi i derivati: .mat, Scenes/Torre.unity, Citta.unity, Labs; conta il
+             contenuto, non git status: file identici a meno dei fine riga non contano). NON blocca (con due agenti l'albero e' spesso
+             sporco), ma l'elenco compare nelle righe build: ed exe: del riepilogo, in un AVVISO, nel marcatore ship_built.json e in
+             Builds\Prova\build_info.json, accanto all'exe. Si ottiene anche con -NoBuild. -RequireClean: elenco non vuoto = rifiuto
+             prima della build (per le release)
   build      Unity in batchmode a priorita' bassa (CPU, disco, memoria) in Builds\Audit (o -OutDir). -Mode auto: completa
              (BuildPlayer.Windows) se dall'ultimo ship e' cambiato un file che non sia .cs, altrimenti solo script
              (BuildPlayer.Torre -scriptsOnly, ~2 MB scritti invece di centinaia). Il marcatore sta in unity_logs\ship_built.json
@@ -24,7 +33,8 @@ Passi, nell'ordine:
              Con -WaitGameMin N aspetta fino a N minuti che l'utente lo chiuda
 
 Non annulla mai nulla: le modifiche che build e prova lasciano nell'albero vengono solo elencate come AVVISO.
-File: unity_logs\ship_last.log (log), ship_last.status (stato), ship_build.log (Unity), ship_built.json (marcatore).
+File: unity_logs\ship_last.log (log), ship_last.status (stato), ship_build.log (Unity), ship_built.json (marcatore), e accanto
+all'exe dell'utente Builds\Prova\build_info.json (commit, data, modo di build e sorgenti non committati dell'exe che c'e' li').
 Uscita 0 solo con "SHIP: OK". Tutto ASCII di proposito: PowerShell 5.1 legge male gli accenti senza BOM.
 #>
 param(
@@ -40,6 +50,7 @@ param(
     [switch]$NoPush,
     [switch]$NoExe,
     [switch]$NoGate,
+    [switch]$RequireClean,
     [switch]$DryRun,
     [switch]$Detach,
     [switch]$Child,
@@ -165,6 +176,11 @@ $swAll = [Diagnostics.Stopwatch]::StartNew()
 $script:step = 'avvio'
 $script:gitExit = 0
 $script:builtNow = $false
+$script:dirty = @()          # sorgenti non committati che la build contiene (Do-Sources)
+$script:dirtyNote = ''       # 'HEAD abc1234 + N sorgenti non committati', per le righe build: ed exe: del riepilogo
+$script:commitPaths = @()    # i percorsi di -Paths: la prova a secco non committa, quindi non li conta come sporchi
+$srcRoots = @('unity/PryingEyes/Assets', 'unity/PryingEyes/Packages', 'unity/PryingEyes/ProjectSettings')
+$maxListed = 300             # quanti sorgenti si scrivono nel marcatore e in build_info.json (il conteggio e' sempre intero)
 Set-Content -LiteralPath $logFile -Value ('ship ' + (Get-Date -Format 's') + '  pid=' + $PID + $(if ($DryRun) { '  PROVA A SECCO' } else { '' })) -Encoding UTF8
 
 function Log([string]$m) {
@@ -286,6 +302,7 @@ function Do-Commit {
         }
         $norm += $x
     }
+    $script:commitPaths = $norm
     $pre = @(GitLocal @('diff', '--cached', '--name-only') | Where-Object { $_ })
     if ($pre.Count -gt 0) { Finish $false ("commit: l'indice non e' vuoto ($($pre.Count) file gia' in stage, es. $($pre[0])): non committo roba che non so cos'e'") }
     if (-not $MessageFile -or -not (Test-Path -LiteralPath $MessageFile)) { Finish $false 'commit: manca -MessageFile (file col messaggio) o non esiste' }
@@ -324,6 +341,73 @@ function Do-Commit {
     $summary['commit'] = (@(GitLocal @('log', '-1', '--format=%h %s'))[0]) + " ($($st.Count) file)"
 }
 
+# ---------------------------------------------------------------- sorgenti non committati (che cosa c'e' davvero nella build)
+# Unity costruisce l'albero di lavoro, non il commit: i sorgenti che differiscono da HEAD finiscono nell'exe senza stare nella storia.
+# I derivati (regola 4 di AGENTS.md) non contano: le pipeline e la build li rigenerano a ogni giro e non dicono nulla di chi li ha toccati.
+function Test-DerivedSource([string]$p) {
+    if ($p -match '\.mat(\.meta)?$') { return $true }
+    if ($p -match '/Scenes/(Citta|Torre)\.unity(\.meta)?$') { return $true }
+    if ($p -match '/Scenes/Labs(/|\.meta$)') { return $true }
+    return $false
+}
+function Test-CommitCovers([string]$p) {
+    # solo per la prova a secco, che non committa: i percorsi di -Paths vanno tolti a mano dall'elenco
+    foreach ($c in $script:commitPaths) {
+        $c2 = ([string]$c).TrimEnd('/')
+        if ($p -ceq $c2 -or $p.StartsWith($c2 + '/', [StringComparison]::Ordinal)) { return $true }
+    }
+    return $false
+}
+function Get-UncommittedSources {
+    # righe {status, path}: M modificato, A aggiunto all'indice, D cancellato, T cambio di tipo, ?? non tracciato e non ignorato
+    $q = @('-c', 'core.quotepath=false')
+    $status = @{}
+    foreach ($l in @(GitLocal ($q + @('diff', '--name-status', '--no-renames', 'HEAD', '--') + $srcRoots))) {
+        if ($l -match '^([A-Z])\t(.+)$') { $status[$Matches[2]] = $Matches[1] }
+    }
+    # git status segna come modificati anche i file identici a meno dei fine riga (non c'e' .gitattributes). Con --ignore-cr-at-eol
+    # il numstat omette i file che, tolti i CR a fine riga, non hanno nessuna riga diversa: un 'M' che li' non compare non e'
+    # cambiato davvero. Se git fallisce non si filtra niente (meglio un file di troppo che uno di meno).
+    $real = @{}
+    $filterEol = $false
+    $ns = @(GitLocal ($q + @('diff', '--numstat', '--no-renames', '--ignore-cr-at-eol', 'HEAD', '--') + $srcRoots))
+    if ($script:gitExit -eq 0) {
+        $filterEol = $true
+        foreach ($l in $ns) { if ($l -match '^(\d+|-)\t(\d+|-)\t(.+)$') { $real[$Matches[3]] = $true } }
+    }
+    foreach ($l in @(GitLocal ($q + @('ls-files', '--others', '--exclude-standard', '--') + $srcRoots))) {
+        if ($l -and $l -notmatch '^(warning|fatal|error):' -and -not $status.ContainsKey($l)) { $status[$l] = '??' }
+    }
+    $names = [string[]]@($status.Keys)
+    [Array]::Sort($names, [StringComparer]::Ordinal)
+    $out = @()
+    foreach ($p in $names) {
+        if ($filterEol -and $status[$p] -eq 'M' -and -not $real.ContainsKey($p)) { continue }
+        if (Test-DerivedSource $p) { continue }
+        if ($DryRun -and (Test-CommitCovers $p)) { continue }
+        $out += [pscustomobject]@{ status = $status[$p]; path = $p }
+    }
+    return $out
+}
+
+function Do-Sources {
+    Step 'sorgenti'
+    $list = @(Get-UncommittedSources)
+    $script:dirty = $list
+    $head = Short (@(GitLocal @('rev-parse', 'HEAD'))[0])
+    if ($list.Count -eq 0) {
+        $script:dirtyNote = "HEAD $head, nessun sorgente non committato"
+        Log ('sorgenti: ' + $script:dirtyNote + ' (sotto Assets, Packages e ProjectSettings; derivati esclusi)')
+        return
+    }
+    $script:dirtyNote = "HEAD $head + $($list.Count) sorgenti non committati"
+    Log ('sorgenti: ' + $script:dirtyNote + ' (sotto Assets, Packages e ProjectSettings; derivati esclusi)')
+    $list | Select-Object -First 40 | ForEach-Object { Log ('  ' + $_.status + ' ' + $_.path) }
+    if ($list.Count -gt 40) { Log ('  ... e altri ' + ($list.Count - 40)) }
+    $warns.Add("$($list.Count) sorgenti non committati (Assets, Packages, ProjectSettings; derivati esclusi): Unity costruisce l'albero di lavoro, non il commit. Es.: " + (($list | Select-Object -First 6 | ForEach-Object { $_.status + ' ' + $_.path }) -join ' | '))
+    if ($RequireClean) { Finish $false "sorgenti: $($list.Count) sorgenti non committati e c'e' -RequireClean (nessuna build)" }
+}
+
 # ---------------------------------------------------------------- build
 function Get-BuildMode {
     $resA = Join-Path $buildOut 'PryingEyes_Data\resources.assets'
@@ -353,8 +437,43 @@ function Test-Fresh {
     return ([string]$m.commit -eq @(GitLocal @('rev-parse', 'HEAD'))[0])
 }
 
+function Write-BuildInfo([string]$infoFile) {
+    # build_info.json accanto all'exe dell'utente: che cosa e' stato costruito, per poter sempre sapere che cosa si sta giocando.
+    # I dati vengono dal marcatore scritto dalla build, non dall'albero di adesso (che nel frattempo puo' essere cambiato).
+    # Restituisce la frase per la riga exe: del riepilogo.
+    $m = $null
+    if (Test-Path -LiteralPath $markerFile) { try { $m = Get-Content -LiteralPath $markerFile -Raw | ConvertFrom-Json } catch { $m = $null } }
+    $info = [ordered]@{ commit = ''; commitShort = ''; branch = ''; mode = ''; builtAt = ''; copiedAt = (Get-Date -Format 's'); builtFrom = $buildOut }
+    $what = 'commit sconosciuto (marcatore illeggibile)'
+    if ($m) {
+        $h = Short ([string]$m.commit)
+        $info['commit'] = [string]$m.commit
+        $info['commitShort'] = $h
+        $info['branch'] = [string]$m.branch
+        $info['mode'] = [string]$m.mode
+        $info['builtAt'] = [string]$m.when
+        if ($null -ne $m.PSObject.Properties['uncommittedCount']) {
+            $cnt = [int]$m.uncommittedCount
+            $list = @()
+            if ($null -ne $m.uncommitted) { foreach ($e in $m.uncommitted) { $list += $e } }
+            $info['uncommittedCount'] = $cnt
+            $info['uncommittedTruncated'] = [bool]$m.uncommittedTruncated
+            $info['uncommitted'] = $list
+            if ($cnt -gt 0) { $what = "HEAD $h + $cnt sorgenti non committati" } else { $what = "HEAD $h, nessun sorgente non committato" }
+        } else {
+            $info['uncommittedCount'] = $null
+            $info['note'] = 'marker written by a ship.ps1 that did not record the uncommitted sources'
+            $what = "HEAD $h, sorgenti non committati non registrati (marcatore di un ship precedente)"
+        }
+    }
+    try {
+        [IO.File]::WriteAllText($infoFile, (($info | ConvertTo-Json -Depth 4) + "`r`n"), (New-Object Text.UTF8Encoding($false)))
+    } catch { $warns.Add('build_info.json non scritto: ' + $_.Exception.Message) }
+    return $what
+}
+
 function Do-Build {
-    if ($NoBuild) { $summary['build'] = 'saltata (-NoBuild)'; $summary['prova'] = 'saltata (-NoBuild)'; return }
+    if ($NoBuild) { $summary['build'] = 'saltata (-NoBuild); ' + $script:dirtyNote; $summary['prova'] = 'saltata (-NoBuild)'; return }
     Step 'build'
     $exeOut = Join-Path $buildOut 'PryingEyes.exe'
     foreach ($pr in @(Get-Process PryingEyes -ErrorAction SilentlyContinue)) {
@@ -369,7 +488,7 @@ function Do-Build {
     $a = @('-batchmode', '-projectPath', ('"' + $proj + '"'), '-executeMethod', $method, '-buildOut', ('"' + $buildOut + '"'), '-quit', '-logFile', ('"' + $buildLog + '"'))
     if ($mode2 -eq 'scripts') { $a += '-scriptsOnly' }
     Log ('unity: ' + ($a -join ' '))
-    if ($DryRun) { $summary['build'] = "(prova a secco) $mode2 in $buildOut ($($d[1]))"; return }
+    if ($DryRun) { $summary['build'] = "(prova a secco) $mode2 in $buildOut ($($d[1])); " + $script:dirtyNote; return }
     $before = Get-Dirty
     if (Test-Path -LiteralPath $buildLog) { Remove-Item -LiteralPath $buildLog -Force }    # un log vecchio fa credere che sia andata bene
     $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -409,10 +528,15 @@ function Do-Build {
         resTicks = [string](Get-Item -LiteralPath $resA).LastWriteTimeUtc.Ticks
         mode = $mode2
         when = (Get-Date -Format 's')
+        branch = $branch
+        # i sorgenti non committati che questa build contiene (calcolati prima di costruire, vedi Do-Sources)
+        uncommittedCount = $script:dirty.Count
+        uncommittedTruncated = ($script:dirty.Count -gt $maxListed)
+        uncommitted = @($script:dirty | Select-Object -First $maxListed)
     }
-    ($mk | ConvertTo-Json) | Set-Content -LiteralPath $markerFile -Encoding UTF8
+    ($mk | ConvertTo-Json -Depth 4) | Set-Content -LiteralPath $markerFile -Encoding UTF8
     $script:builtNow = $true
-    $summary['build'] = "$mode2 in " + [int]$sw.Elapsed.TotalSeconds + " s -> $buildOut (Assembly-CSharp.dll del " + $di.LastWriteTime.ToString('s') + ')'
+    $summary['build'] = "$mode2 in " + [int]$sw.Elapsed.TotalSeconds + " s -> $buildOut (Assembly-CSharp.dll del " + $di.LastWriteTime.ToString('s') + '); ' + $script:dirtyNote
     $new = @(Get-Dirty | Where-Object { $before -notcontains $_ })
     if ($new.Count -gt 0) { $warns.Add("la build ha lasciato $($new.Count) modifiche nell'albero (non le ho annullate): " + (($new | Select-Object -First 6) -join ' | ')) }
 }
@@ -501,8 +625,11 @@ function Do-Exe {
         Set-Status ("IN CORSO: exe, aspetto che l'utente chiuda il gioco pid=$PID")
         Start-Sleep -Seconds 3
     }
-    if ($DryRun) { $summary['exe'] = "(prova a secco) il gioco e' chiuso: copierei $src -> $dst"; return }
+    if ($DryRun) { $summary['exe'] = "(prova a secco) il gioco e' chiuso: copierei $src -> $dst; conterrebbe " + $script:dirtyNote; return }
     if ($sw.Elapsed.TotalSeconds -gt 1) { Start-Sleep -Seconds 2 }
+    # se la copia si ferma a meta' l'exe e' un miscuglio: meglio nessun build_info.json che quello vecchio, che direbbe il falso
+    $infoFile = Join-Path $dst 'build_info.json'
+    if (Test-Path -LiteralPath $infoFile) { Remove-Item -LiteralPath $infoFile -Force }
     $dirs = @('D3D12', 'MonoBleedingEdge', 'PryingEyes_Data')
     foreach ($x in @(Get-ChildItem -LiteralPath $src -Directory | Where-Object { $dirs -notcontains $_.Name -and $_.Name -notlike '*BackUpThisFolder*' -and $_.Name -notlike '*BurstDebugInformation*' })) {
         $warns.Add("la build ha una cartella che non copio: $($x.Name)")
@@ -549,10 +676,12 @@ function Do-Exe {
     }
     $summary['exe'] = "aggiornato in ${dst}: $n file controllati, $mis differenze, SHA-256 di dll/resources/level0 " + $(if ($hashOk) { 'uguali' } else { 'DIVERSI' })
     if ($bad -gt 0 -or $mis -gt 0) { Finish $false "exe: la copia ha problemi ($bad errori di robocopy, $mis differenze)" }
+    $summary['exe'] += '; contiene ' + (Write-BuildInfo $infoFile) + ' (build_info.json)'
 }
 
 Do-Gate
 Do-Commit
+Do-Sources
 Do-Build
 Do-Smoke
 Do-Push
