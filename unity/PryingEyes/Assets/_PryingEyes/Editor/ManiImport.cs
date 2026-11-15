@@ -4,11 +4,11 @@ using UnityEditor;
 
 namespace PryingEyes.EditorTools
 {
-    /// <summary>Importa le mani e le maniche del giocatore: materiali URP (guanto di cuoio nero, manica di tessuto, con le texture
-    /// della hall), rig niente, prefab in Resources (li usa Weapon). Due strati:
+    /// <summary>Importa le mani e le maniche del giocatore: materiali URP (guanto di cuoio, giacca di tela, gomma dei rinforzi, con
+    /// le texture procedurali di genera_texture.py), rig niente, prefab in Resources (li usa Weapon). Due strati:
     ///  - mani.fbx (modelli/hotel/genera_mani.py): le mani di una volta, Resources/Mani.prefab, ripiego per le armi senza mani su misura;
-    ///  - armi/&lt;id&gt;.fbx (modelli/hotel/genera_mani2.py): un paio di mani per arma, modellate sulla sua impugnatura e sulla sua astina,
-    ///    prefab Resources/ManiArmi/&lt;id&gt;.prefab.
+    ///  - armi/&lt;id&gt;.fbx (modelli/hotel/genera_braccia.py, prima genera_mani2.py): un paio di braccia per arma, mani modellate sulla
+    ///    sua impugnatura e sulla sua astina, manica col gomito e giunti per ArmRig; prefab Resources/ManiArmi/&lt;id&gt;.prefab.
     /// Da CLI: Unity.exe -batchmode -projectPath ... -executeMethod PryingEyes.EditorTools.ManiImport.Run -quit</summary>
     public static class ManiImport
     {
@@ -39,16 +39,19 @@ namespace PryingEyes.EditorTools
         public static void Run()
         {
             AssetDatabase.Refresh();
+            HotelBuilder.ImportHotelTextures();          // guanto, giacca e rinforzo nuovi: normal map e maschere lineari
             // con -mani id1,id2 si rifanno solo le mani indicate: ogni FBX importato e' una reimportazione e una scrittura su disco
             string only = Arg("-mani");
-            var glove = Pbr("Mani_Guanto", "cuoio", new Color(0.055f, 0.055f, 0.06f), 0.16f, 0.6f);
-            var sleeve = Pbr("Mani_Manica", "velluto", new Color(0.075f, 0.08f, 0.062f), 0.2f, 0.3f);
+            // guanto di cuoio scuro, giacca di tela marrone (si legge anche al buio: il nero di prima spariva), gomma dei rinforzi
+            var glove = Pbr("Mani_Guanto", "guanto", new Color(0.115f, 0.098f, 0.088f), 0.10f, 0.85f);
+            var sleeve = Pbr("Mani_Manica", "giacca", new Color(0.36f, 0.31f, 0.24f), 0.09f, 0.6f);
+            var guard = Pbr("Mani_Rinforzo", "rinforzo", new Color(0.16f, 0.16f, 0.17f), 0.05f, 0.7f);
 
             if (!AssetDatabase.IsValidFolder(ResDir)) AssetDatabase.CreateFolder("Assets/_PryingEyes", "Resources");
 
             if (File.Exists(Fbx) && only == null)
             {
-                ImportFbx(Fbx, glove, sleeve);
+                ImportFbx(Fbx, glove, sleeve, guard, false);
                 SavePrefab(Fbx, PrefabPath, "Mani");
             }
 
@@ -62,7 +65,8 @@ namespace PryingEyes.EditorTools
                     string path = AssetDatabase.GUIDToAssetPath(guid);
                     string id = Path.GetFileNameWithoutExtension(path);
                     if (only != null && System.Array.IndexOf(only.Split(','), id) < 0) continue;
-                    ImportFbx(path, glove, sleeve);
+                    // leggibile: ArmRig ricava dalla manica la mesh con la pelle (pesi sulle ossa del braccio)
+                    ImportFbx(path, glove, sleeve, guard, true);
                     int v = SavePrefab(path, $"{PrefabArmiDir}/{id}.prefab", "Mani");
                     verts += v; n++;
                     Debug.Log($"[Mani] {id}: {v} vertici");
@@ -81,7 +85,7 @@ namespace PryingEyes.EditorTools
         }
 
         /// <summary>Stesse impostazioni per tutti gli FBX: niente rig ne' animazioni, normali importate, materiali del progetto.</summary>
-        static void ImportFbx(string path, Material glove, Material sleeve)
+        static void ImportFbx(string path, Material glove, Material sleeve, Material guard, bool readable)
         {
             var mi = (ModelImporter)AssetImporter.GetAtPath(path);
             mi.globalScale = 1f;
@@ -89,12 +93,13 @@ namespace PryingEyes.EditorTools
             mi.bakeAxisConversion = true;
             mi.importCameras = false;
             mi.importLights = false;
-            mi.isReadable = false;
+            mi.isReadable = readable;
             mi.importNormals = ModelImporterNormals.Import;
             mi.importTangents = ModelImporterTangents.CalculateMikk;
             mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
             mi.AddRemap(new AssetImporter.SourceAssetIdentifier(typeof(Material), "G_guanto"), glove);
             mi.AddRemap(new AssetImporter.SourceAssetIdentifier(typeof(Material), "G_manica"), sleeve);
+            mi.AddRemap(new AssetImporter.SourceAssetIdentifier(typeof(Material), "G_rinforzo"), guard);
             mi.importAnimation = false;
             mi.animationType = ModelImporterAnimationType.None;
             mi.SaveAndReimport();

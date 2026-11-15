@@ -84,6 +84,10 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -4912229186784255131, guid: 1b885e4a98daca042a4dec5b76c28253, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -4427651782608671867, guid: 1b885e4a98daca042a4dec5b76c28253, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -91,6 +95,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 1b885e4a98daca042a4dec5b76c28253, type: 3}
       propertyPath: m_Name
       value: tu_turibolo
+      objectReference: {fileID: 0}
+    - target: {fileID: 4872536437498290008, guid: 1b885e4a98daca042a4dec5b76c28253, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7341724637688759304, guid: 1b885e4a98daca042a4dec5b76c28253, type: 3}
       propertyPath: m_CastShadows

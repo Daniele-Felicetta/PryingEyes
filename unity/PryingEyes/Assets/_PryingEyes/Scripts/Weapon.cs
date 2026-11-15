@@ -94,8 +94,27 @@ namespace PryingEyes
         // mano destra troppo vicina all'occhio in mira (la leva): in mira si nasconde, il piano vicino la taglierebbe a brandelli
         Renderer[] handRRend;
         bool handRHideAds, handRVis = true;
+        // braccia col gomito (genera_braccia.py): la manica si piega quando la mano si sposta rispetto all'arma
+        ArmRig armR, armL;
 
         public bool IsBound => cam != null && viewRoot != null;
+
+        /// <summary>Posa al fianco del modello in prima persona (riferimento della camera) per classe d'arma. Le pistole, anche quelle
+        /// urbane, stanno piu' in alto e piu' vicine al centro: dal fianco sporgerebbe solo uno spigolo del carrello. Usata anche da
+        /// ArmiShots e, con gli stessi numeri, da modelli/hotel/genera_braccia.py per scegliere la posa delle braccia.</summary>
+        public static Vector3 HipFor(string cls)
+        {
+            if (cls == "PISTOLA MITRAGLIATRICE" || cls == "MICRO-MITRA") return new Vector3(0.21f, -0.19f, 0.54f);
+            if (cls != null && (cls.StartsWith("PISTOLA") || cls == "REVOLVER")) return new Vector3(0.175f, -0.165f, 0.50f);
+            return new Vector3(0.28f, -0.26f, 0.62f);
+        }
+
+        static Renderer[] WithSkin(Renderer[] rs, ArmRig arm)
+        {
+            if (arm == null || arm.Skin == null) return rs;
+            var list = new List<Renderer>(rs ?? new Renderer[0]) { arm.Skin };
+            return list.ToArray();
+        }
 
         // coltello (Knife.cs): mentre fende, l'arma si abbassa, sparisce e sta zitta (niente fuoco, mira, ricarica, cambio)
         bool knifeOut;
@@ -515,6 +534,7 @@ namespace PryingEyes
         {
             handL = handR = null; handLRend = null; handsGo = null;
             handRRend = null; handRHideAds = false; handRVis = true;
+            armR = armL = null;
             var prefab = Resources.Load<GameObject>("ManiArmi/" + d.id);
             bool onMeasure = prefab != null;
             if (!onMeasure) prefab = Resources.Load<GameObject>("Mani");
@@ -532,6 +552,18 @@ namespace PryingEyes
             }
             foreach (var r in g.GetComponentsInChildren<Renderer>(true)) { r.shadowCastingMode = ShadowCastingMode.Off; r.renderingLayerMask = ViewLayer; }
             if (!onMeasure && handR != null && d.handDrop != 0f) handR.position += root.transform.TransformVector(new Vector3(0f, -d.handDrop, 0f));
+            if (onMeasure)
+            {
+                armR = ArmRig.Build(g.transform, handR, "d");
+                armL = ArmRig.Build(g.transform, handL, "s");
+                // spalle attaccate al corpo: nella posa al fianco coincidono con quelle modellate (la radice delle mani e' il viewRoot)
+                Vector3 hipP = HipFor(d.cls);
+                Quaternion hipQ = Quaternion.Euler(0f, hipYaw, 0f);
+                armR?.AnchorTo(cam, hipP + hipQ * armR.ShoulderLocal);
+                armL?.AnchorTo(cam, hipP + hipQ * armL.ShoulderLocal);
+                if (armR != null) armR.AdsDrop = 0.20f;
+                if (armL != null) armL.AdsDrop = 0.04f;
+            }
             if (handL != null)
             {
                 if (!onMeasure)
@@ -541,13 +573,13 @@ namespace PryingEyes
                     handL.position += root.transform.TransformVector(target - hg);
                 }
                 handLRest = root.transform.InverseTransformPoint(handL.position);
-                handLRend = handL.GetComponentsInChildren<Renderer>(true);
+                handLRend = WithSkin(handL.GetComponentsInChildren<Renderer>(true), armL);
             }
             if (handR != null)
             {
                 // in mira l'occhio sta adsDist dietro il punto di mira: se il palmo destro risulta a meno di 17 cm dall'occhio
                 // (la leva: il mirino e' sulla canna) il guanto riempie lo schermo
-                handRRend = handR.GetComponentsInChildren<Renderer>(true);
+                handRRend = WithSkin(handR.GetComponentsInChildren<Renderer>(true), armR);
                 Vector3 hp = root.transform.InverseTransformPoint(handR.position);
                 handRHideAds = d.adsDist - rig.AdsLocal.z + hp.z < 0.17f;
             }
@@ -997,10 +1029,7 @@ namespace PryingEyes
         {
             if (viewRoot == null || rig == null) return;
             var d = Def;
-            Vector3 hip = new Vector3(0.28f, -0.26f, 0.62f);
-            // armi corte: piu' in alto e piu' vicine al centro, altrimenti dal fianco sporge solo uno spigolo del carrello
-            if (d.cls == "PISTOLA" || d.cls == "REVOLVER" || d.cls == "PISTOLA MAGNUM") hip = new Vector3(0.175f, -0.165f, 0.50f);
-            else if (d.cls == "PISTOLA MITRAGLIATRICE" || d.cls == "MICRO-MITRA") hip = new Vector3(0.21f, -0.19f, 0.54f);
+            Vector3 hip = HipFor(d.cls);
             Vector3 a = rig.AdsLocal;
             Vector3 adsP = new Vector3(0f, 0f, d.adsDist) - a;
             Vector3 pos = Vector3.Lerp(hip, adsP, ads);
@@ -1094,6 +1123,8 @@ namespace PryingEyes
             viewRoot.localPosition = pos;
             viewRoot.localRotation = rot;
             AnimateParts(rp, d);
+            armR?.Solve(ads);
+            armL?.Solve(ads);
         }
 
         void AnimateParts(float rp, WeaponDef d)

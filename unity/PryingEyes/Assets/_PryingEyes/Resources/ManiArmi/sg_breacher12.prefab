@@ -80,6 +80,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -6647496348468483719, guid: cd2270237a26b6a49a1a712fa5d28b0a, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -2895683003912530136, guid: cd2270237a26b6a49a1a712fa5d28b0a, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -99,6 +103,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: cd2270237a26b6a49a1a712fa5d28b0a, type: 3}
       propertyPath: m_Name
       value: sg_breacher12
+      objectReference: {fileID: 0}
+    - target: {fileID: 9218312260839783339, guid: cd2270237a26b6a49a1a712fa5d28b0a, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

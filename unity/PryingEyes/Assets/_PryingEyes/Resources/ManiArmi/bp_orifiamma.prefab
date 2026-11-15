@@ -80,6 +80,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -6137551473083134610, guid: 9c065c847e4fcf54e83dcd80e668fd6c, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 9c065c847e4fcf54e83dcd80e668fd6c, type: 3}
       propertyPath: m_Name
       value: bp_orifiamma
@@ -93,6 +97,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5438711412660185911, guid: 9c065c847e4fcf54e83dcd80e668fd6c, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6729226939352742781, guid: 9c065c847e4fcf54e83dcd80e668fd6c, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}

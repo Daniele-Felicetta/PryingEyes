@@ -84,6 +84,10 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 422943282181234090, guid: ecf6ca0bf42c3ed408cfb3b3c1615bf2, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: ecf6ca0bf42c3ed408cfb3b3c1615bf2, type: 3}
       propertyPath: m_Name
       value: sp_spora
@@ -93,6 +97,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3325067118754823056, guid: ecf6ca0bf42c3ed408cfb3b3c1615bf2, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7479080978092024569, guid: ecf6ca0bf42c3ed408cfb3b3c1615bf2, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}

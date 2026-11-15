@@ -14,6 +14,11 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: G_manica
     second: {fileID: 2100000, guid: c31b7fdbf129f3547857d1ed8e5e88b3, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: G_rinforzo
+    second: {fileID: 2100000, guid: b639fbded6163154290c6785c0d4fa97, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

@@ -427,6 +427,55 @@ def cuoio(n=512):
     save("cuoio", base, normals(h, 2.8), np.zeros((n, n), F), 1 - (1 - grain) * 0.3, smooth_)
 
 
+def guanto(n=512):
+    """Cuoio dei guanti del giocatore: grana fine e fitta, pori, pieghe corte e incrociate, lucido dove la pelle si consuma.
+    Grigio (la tinta la da' il materiale Mani_Guanto)."""
+    rng = np.random.default_rng(91)
+    d1, d2, _ = voronoi(n, 110, rng)
+    grain = smooth(0.0, 0.10, d2 - d1)
+    pores = smooth(0.78, 1.0, perlin(n, 192, rng) * 0.5 + 0.5)
+    # pieghe corte e spezzate (non linee continue): creste di un rumore, mascherate da un altro rumore
+    creases = (1 - smooth(0.0, 0.030, np.abs(perlin(n, 18, rng)))) * smooth(0.45, 0.72, fbm(n, 6, 3, rng))
+    fine = (1 - smooth(0.0, 0.050, np.abs(perlin(n, 40, rng, 20)))) * smooth(0.40, 0.80, fbm(n, 10, 3, rng))
+    wear = smooth(0.55, 0.9, fbm(n, 4, 5, rng))
+    g = 0.62 + 0.10 * grain + 0.16 * wear - 0.12 * creases - 0.05 * fine
+    base = np.repeat(g[..., None], 3, -1) * np.array([1.0, 0.95, 0.90], F)
+    h = grain * 0.22 - creases * 0.28 - fine * 0.12 - pores * 0.05
+    smooth_ = 0.36 + 0.26 * wear - 0.16 * creases + 0.05 * grain
+    save("guanto", base, normals(h, 3.0), np.zeros((n, n), F), 1 - creases * 0.35 - fine * 0.1, smooth_)
+
+
+def giacca(n=1024):
+    """Tela della giacca del giocatore: armatura a saia 2/2 (coste diagonali), fili con fiammature, peluria, usura sbiadita.
+    Grigio (la tinta la da' il materiale Mani_Manica). 128 fili per ripetizione."""
+    rng = np.random.default_rng(97)
+    y, x = (np.mgrid[0:n, 0:n].astype(F) + 0.5) / n
+    T = 128
+    u, v = x * T, y * T
+    warp = np.sin(np.pi * u) ** 2
+    weft = np.sin(np.pi * v) ** 2
+    diag = np.sin(2 * np.pi * (u + v) / 4.0) * 0.5 + 0.5          # costa della saia: periodo 4 fili, chiude sui bordi (T multiplo di 4)
+    slub = perlin(n, 16, rng, 128) * 0.5 + 0.5                     # fiammature lungo il filo di trama
+    fuzz = perlin(n, 256, rng) * 0.5 + 0.5
+    # niente macchie d'usura: la ripetizione e' di 9 cm e sulla manica diventavano pois; l'usura la fanno le pieghe e la luce
+    wear = smooth(0.50, 0.92, fbm(n, 3, 5, rng)) * 0.15
+    h = 0.42 * diag + 0.18 * warp + 0.18 * weft + 0.14 * slub + 0.08 * fuzz
+    g = 0.56 + 0.10 * (diag - 0.5) + 0.07 * (slub - 0.5) + 0.05 * (fuzz - 0.5) + 0.16 * wear
+    base = np.repeat(g[..., None], 3, -1) * np.array([1.0, 0.98, 0.94], F)
+    ao = 0.82 + 0.18 * h
+    save("giacca", base, normals(h, 2.2), np.zeros((n, n), F), ao, 0.10 + 0.06 * diag + 0.04 * wear)
+
+
+def rinforzo(n=512):
+    """Gomma dei paranocche e del cinturino: buccia d'arancia fine, opaca, grigio scuro."""
+    rng = np.random.default_rng(101)
+    peel = fbm(n, 48, 3, rng)
+    dots = perlin(n, 160, rng) * 0.5 + 0.5
+    h = peel * 0.35 + dots * 0.20
+    base = np.repeat((0.50 + 0.10 * peel)[..., None], 3, -1) * np.array([0.98, 0.99, 1.0], F)
+    save("rinforzo", base, normals(h, 1.6), np.zeros((n, n), F), np.ones((n, n), F), 0.20 + 0.10 * peel)
+
+
 def forme(n=512):
     """Forme in scala di grigi (alfa) per pozzanghere e macchie: bordo irregolare e sfumato."""
     rng = np.random.default_rng(71)
@@ -545,7 +594,8 @@ if __name__ == "__main__":
         rest = rest[:k] + rest[k + 2:]
     if rest:
         OUT = Path(rest[0])
-    for fn in (marmo_scacchiera, marmo_bianco, damasco, noce, intonaco, moquette, ottone, acciaio, velluto, cuoio, forme, linoleo, vernice_verde, ruggine):
+    for fn in (marmo_scacchiera, marmo_bianco, damasco, noce, intonaco, moquette, ottone, acciaio, velluto, cuoio, forme, linoleo, vernice_verde, ruggine,
+               guanto, giacca, rinforzo):
         if only is None or fn.__name__ in only:
             fn()
     if preview:

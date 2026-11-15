@@ -84,6 +84,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: p9_pieta
       objectReference: {fileID: 0}
+    - target: {fileID: 1170029183796951482, guid: d010ecab78366934383a1e7cdf91b81b, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2690598177621986102, guid: d010ecab78366934383a1e7cdf91b81b, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3190558009373643446, guid: d010ecab78366934383a1e7cdf91b81b, type: 3}
       propertyPath: m_CastShadows
       value: 0

@@ -92,7 +92,15 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4601996357928313988, guid: 8ca69e698f0ea0c43b97d2c8916c481a, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7409578919428659333, guid: 8ca69e698f0ea0c43b97d2c8916c481a, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7524113926484210453, guid: 8ca69e698f0ea0c43b97d2c8916c481a, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}

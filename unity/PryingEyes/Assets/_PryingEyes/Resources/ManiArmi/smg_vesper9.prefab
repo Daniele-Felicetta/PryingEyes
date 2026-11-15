@@ -88,6 +88,10 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -1968680132741178386, guid: 09393d04299481a4881a32e96b06c9f8, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 329660153953280620, guid: 09393d04299481a4881a32e96b06c9f8, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -95,6 +99,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 09393d04299481a4881a32e96b06c9f8, type: 3}
       propertyPath: m_Name
       value: smg_vesper9
+      objectReference: {fileID: 0}
+    - target: {fileID: 2866333191386768930, guid: 09393d04299481a4881a32e96b06c9f8, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6815832428702877742, guid: 09393d04299481a4881a32e96b06c9f8, type: 3}
       propertyPath: m_CastShadows

@@ -88,6 +88,10 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -4505078380700876910, guid: 9eb8160ad72cd074789757226c1b0d31, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -2576860292089680491, guid: 9eb8160ad72cd074789757226c1b0d31, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -97,6 +101,10 @@ PrefabInstance:
       value: dmr_lance7
       objectReference: {fileID: 0}
     - target: {fileID: 3119583248871158731, guid: 9eb8160ad72cd074789757226c1b0d31, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9077017114977376681, guid: 9eb8160ad72cd074789757226c1b0d31, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}

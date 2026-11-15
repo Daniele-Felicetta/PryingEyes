@@ -137,13 +137,20 @@ namespace PryingEyes.EditorTools
             var rig = model.GetComponent<WeaponRig>();
             rig.Setup();
             SetLayerAndShadows(model);
-            Vector3 hip = new Vector3(0.28f, -0.26f, 0.62f);
-            if (d.cls == "PISTOLA" || d.cls == "REVOLVER" || d.cls == "PISTOLA MAGNUM" || d.cls == "PISTOLA MITRAGLIATRICE") hip = new Vector3(0.25f, -0.245f, 0.55f);
+            Vector3 hip = Weapon.HipFor(d.cls);                  // la posa al fianco del gioco
             Vector3 a = rig.AdsLocal;
             root.transform.localPosition = ads ? new Vector3(0f, 0f, d.adsDist) - a : hip;
             root.transform.localRotation = ads ? Quaternion.identity : Quaternion.Euler(0f, -3.5f, 0f);
-            var handL = AddHands(root, rig, d);
-            if (reload) PoseReload(root, rig, d, handL);
+            var handL = AddHands(root, rig, d, out var armR, out var armL);
+            // spalle attaccate alla camera come in gioco (Weapon.AddHands): in mira i gomiti restano in basso
+            Quaternion hipQ = Quaternion.Euler(0f, -3.5f, 0f);
+            armR?.AnchorTo(cam.transform, hip + hipQ * armR.ShoulderLocal);
+            armL?.AnchorTo(cam.transform, hip + hipQ * armL.ShoulderLocal);
+            if (armR != null) armR.AdsDrop = 0.20f;
+            if (armL != null) armL.AdsDrop = 0.04f;
+            armR?.Solve(ads ? 1f : 0f);
+            armL?.Solve(ads ? 1f : 0f);
+            if (reload) PoseReload(root, rig, d, handL, armL);
             if (ads)
             {
                 // dove stanno le mani rispetto all'occhio (riferimento della camera: x destra, y su, z avanti), per tarare le maniche
@@ -153,12 +160,16 @@ namespace PryingEyes.EditorTools
                         Vector3 p = cam.transform.InverseTransformPoint(t.position);
                         Debug.Log($"[ArmiMani] {d.id} {t.name} x={p.x:F3} y={p.y:F3} z={p.z:F3} fov={d.adsFov:F0} adsDist={d.adsDist:F3}");
                         // come Weapon.AddHands: la mano destra a meno di 17 cm dall'occhio in mira non si disegna
-                        if (t.name == "mano_d" && p.z < 0.17f) foreach (var r in t.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+                        if (t.name == "mano_d" && p.z < 0.17f)
+                        {
+                            foreach (var r in t.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+                            if (armR != null) armR.Skin.enabled = false;
+                        }
                     }
                 // la manica destra in coordinate camera: profondita' minima e dove sta la parte tra 5 e 15 cm dall'occhio
                 foreach (var mf in root.GetComponentsInChildren<MeshFilter>(true))
                 {
-                    if (mf.sharedMesh == null || !mf.name.Contains("_manica")) continue;
+                    if (mf.sharedMesh == null || !mf.name.Contains("_manica") || !mf.gameObject.activeInHierarchy) continue;
                     var m = cam.transform.worldToLocalMatrix * mf.transform.localToWorldMatrix;
                     float zmin = 9f, zmax = -9f; Vector3 nearC = Vector3.zero; int nn = 0;
                     foreach (var v in mf.sharedMesh.vertices)
@@ -180,7 +191,7 @@ namespace PryingEyes.EditorTools
 
         /// <summary>La posa di Weapon.UpdatePose e AnimateParts nel punto piu' basso della ricarica (circa al 40%): arma inclinata,
         /// caricatore sfilato di 24 cm e mano sinistra dove la manda il gioco (stesse formule: se cambiano li', cambiano anche qui).</summary>
-        static void PoseReload(GameObject root, WeaponRig rig, WeaponDef d, Transform handL)
+        static void PoseReload(GameObject root, WeaponRig rig, WeaponDef d, Transform handL, ArmRig armL)
         {
             bool tube = d.style == ReloadStyle.Tube;
             Vector3 tiltPos = new Vector3(-0.035f, -0.055f, -0.02f), tiltRot = new Vector3(-15f, 10f, 22f);
@@ -196,6 +207,7 @@ namespace PryingEyes.EditorTools
             root.transform.localRotation *= Quaternion.Euler(tiltRot);
             if (handL == null) return;
             foreach (var r in handL.GetComponentsInChildren<Renderer>(true)) r.enabled = true;
+            if (armL != null) armL.Skin.enabled = true;
             Vector3 grab = rig.mag != null ? root.transform.InverseTransformPoint(rig.mag.position) + new Vector3(0f, -0.07f, 0.02f) : rest;
             Vector3 target = rest;
             if (d.hand > 0.5f)
@@ -205,11 +217,13 @@ namespace PryingEyes.EditorTools
             }
             else target = grab;
             handL.position = root.transform.TransformPoint(target);
+            armL?.Solve();                                         // il gomito segue la mano come in gioco
         }
 
-        static Transform AddHands(GameObject root, WeaponRig rig, WeaponDef d)
+        static Transform AddHands(GameObject root, WeaponRig rig, WeaponDef d, out ArmRig armR, out ArmRig armL)
         {
-            var mani = Resources.Load<GameObject>("ManiArmi/" + d.id);       // mani su misura (genera_mani2.py), se no il paio unico
+            armR = armL = null;
+            var mani = Resources.Load<GameObject>("ManiArmi/" + d.id);       // braccia su misura (genera_braccia.py), se no il paio unico
             bool onMeasure = mani != null;
             if (!onMeasure) mani = Resources.Load<GameObject>("Mani");
             if (mani == null) return null;
@@ -219,6 +233,11 @@ namespace PryingEyes.EditorTools
             Transform handL = null, handR = null;
             foreach (var t in g.GetComponentsInChildren<Transform>(true)) { if (t.name == "mano_s") handL = t; else if (t.name == "mano_d") handR = t; }
             if (!onMeasure && handR != null && d.handDrop != 0f) handR.position += root.transform.TransformVector(new Vector3(0f, -d.handDrop, 0f));
+            if (onMeasure)
+            {
+                armR = ArmRig.Build(g.transform, handR, "d");
+                armL = ArmRig.Build(g.transform, handL, "s");
+            }
             if (handL != null)
             {
                 if (!onMeasure)
@@ -227,7 +246,11 @@ namespace PryingEyes.EditorTools
                     Vector3 target = rig.gripL != null ? root.transform.InverseTransformPoint(rig.gripL.position) : hg;
                     handL.position += root.transform.TransformVector(target - hg);
                 }
-                if (d.hand < 0.5f) foreach (var r in handL.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+                if (d.hand < 0.5f)
+                {
+                    foreach (var r in handL.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+                    if (armL != null) armL.Skin.enabled = false;
+                }
             }
             return handL;
         }

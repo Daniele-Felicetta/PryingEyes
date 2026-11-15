@@ -88,11 +88,19 @@ PrefabInstance:
       propertyPath: m_Name
       value: pu_pupilla
       objectReference: {fileID: 0}
+    - target: {fileID: 2716341139814959919, guid: 5042506a213322b419270db25c549399, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3293459508461435486, guid: 5042506a213322b419270db25c549399, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4007599824514384483, guid: 5042506a213322b419270db25c549399, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5116716480687447443, guid: 5042506a213322b419270db25c549399, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
