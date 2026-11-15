@@ -171,7 +171,7 @@ namespace PryingEyes.Proc
             if (Coop.Sim && !SurvivalMode.Enabled) PopulateFloor(plan);   // nel nuovo ciclo i nemici arrivano con le ondate.
             foreach (var c in cur.candles) c.onLit += OnCandle;
             RoundDirector.I?.Arm(cur, regions);
-            if (SurvivalMode.Enabled) { RoomAccessDoors.Build(cur); DoorTraps.Build(cur); Barrels.Build(cur); HiddenEyes.Build(cur); }
+            if (SurvivalMode.Enabled) { RoomAccessDoors.Build(cur); DoorTraps.Build(cur); Barrels.Build(cur); HiddenEyes.Build(cur); Chandeliers.Build(cur); }
             // la corrente: nel ciclo a ondate si parte con le luci d'emergenza e il quadro elettrico nell'area piu' lontana (Power.cs)
             Power.Reset(SurvivalMode.Enabled && RoomAccessDoors.I != null && RoomAccessDoors.I.Access != null && !HasArg("-nopower")
                 ? PowerPanel.Build(cur, RoomAccessDoors.I.Access) : null);
