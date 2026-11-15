@@ -10,7 +10,7 @@ namespace PryingEyes
     /// rinculo della visuale con ritorno, dispersione che cresce coi colpi e col movimento, mira con mirini veri
     /// (collimati o con seconda camera per le ottiche), ricarica diversa per tipo, cambio arma, effetti ai colpi.
     /// Le armi si comprano sui muri con i punti (WallBuy.cs).</summary>
-    public class Weapon : MonoBehaviour
+    public partial class Weapon : MonoBehaviour
     {
         // ------------------------------------------------------------------ slot e stato
         class Slot
@@ -1197,14 +1197,20 @@ namespace PryingEyes
             if (cycleAnim >= 0f) AnimateCycle(d, cycleAnim);
 
             // ---- ricarica
+            if (rp < 0f) MagVisibleAgain();                   // ricarica finita o interrotta: il caricatore torna visibile
             if (rp >= 0f)
             {
                 bool tube = d.style == ReloadStyle.Tube;
                 if (rig.mag != null && !tube && d.style != ReloadStyle.Revolver && d.style != ReloadStyle.Break)
                 {
-                    float down = Mathf.Clamp01(Band(rp, 0.12f, 0.30f) - Band(rp, 0.52f, 0.68f));
-                    rig.Offset(rig.mag, (d.magUp ? Vector3.up : Vector3.down) * (0.24f * down));
-                    rig.Rotate(rig.mag, new Vector3(18f * down, 0f, 0f));
+                    // fuori (0,12-0,28), la mano alla cintura e di ritorno col nuovo (0,28-0,50), dentro (0,52-0,68); il vuoto cade
+                    // nella ricarica a vuoto (Weapon.MagDrop.cs)
+                    float down = Mathf.Clamp01(Band(rp, 0.12f, 0.28f) - Band(rp, 0.52f, 0.68f));
+                    float belt = Mathf.Clamp01(Band(rp, 0.28f, 0.36f) - Band(rp, 0.40f, 0.50f));
+                    Vector3 magAxis = d.magUp ? Vector3.up : Vector3.down;
+                    rig.Offset(rig.mag, magAxis * (0.24f * down + 0.22f * belt) + Vector3.back * (0.07f * belt) + Vector3.left * (0.05f * belt));
+                    rig.Rotate(rig.mag, new Vector3(18f * down + 22f * belt, 0f, 0f));
+                    MagDropTick(rp, d);
                 }
                 if (rig.charge != null)
                 {

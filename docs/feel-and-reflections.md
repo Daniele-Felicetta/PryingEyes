@@ -111,3 +111,18 @@ Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -shafttest
 (`Scripts/ShaftTest.cs`, 9 checks: shafts exist, one is visible from the side, lit with its light, facing the camera, visible,
 hidden when hidden, dust inside, faded near the axis). Photos with and without from the same point in `unity_logs/fasci`.
 
+## Empty magazines
+
+Added on 15 November 2026 (`Scripts/Weapon.MagDrop.cs`).
+
+The magazine reload choreography now has four beats: the magazine comes out with the left hand (12-28% of the reload), the hand
+takes it down to the belt out of view and comes back with a fresh one (28-50%), then inserts it (52-68%), followed by the charging
+handle or bolt on empty reloads as before. On an empty reload, as soon as the magazine leaves the well a real-scale copy of it
+moves into the world (world layer and lights, shadows on), falls with physics in front of the player's feet, bounces with a
+metallic clatter (the heavy casing sound pitched down, louder on the first hit) and disappears after 15 s; at most ten lie on
+the floor. The real magazine is hidden while the hand goes to the belt and reappears with the fresh one. Tactical reloads keep
+the magazine (the hand stows it and comes back with another); tube-fed shotguns, revolvers and break-actions drop nothing.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -magtest [-magshots] -seed 1000 -floor 1`
+(`Scripts/MagTest.cs`, 9 checks with the AR-9, the P9 pistol and the Breacher shotgun). Photos in `unity_logs/caricatori`.
+
