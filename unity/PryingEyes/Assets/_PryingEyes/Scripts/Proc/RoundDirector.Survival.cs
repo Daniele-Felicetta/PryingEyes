@@ -237,7 +237,7 @@ namespace PryingEyes.Proc
         void FinishSurvivalWave(bool reward, int points)
         {
             var gm = GameManager.I;
-            if (reward) { gm.AddPoints(points); gm.player.shield = 50; gm.player.weapon.AddAmmoFraction(0.25f); floorWaves++; }
+            if (reward) { gm.AddPoints(points); gm.player.shield = 50; gm.player.weapon.AddAmmoFraction(0.25f); floorWaves++; MusicDirector.WaveCleared(); }
             phase = Phase.Idle; nextWave = WaveBreak; mine.Clear(); stallT = 0f; lastAlive = 0;
             if (floorWaves >= WavesForExit) FloorDirector.I?.SurvivalExitReady();
             string head = (moth ? "PROCESSIONE DEI LUMI " : "ONDATA ") + Round + " SUPERATA";

@@ -641,6 +641,9 @@ namespace PryingEyes.Proc
 
         public void CoopStatus(int t, int s, int alive) { netTarget = t; netSpawned = s; netAlive = alive; }
 
+        /// <summary>Nemici che l'ondata in corso deve ancora far cadere (da nascere piu' vivi); sugli ospitati dallo stato dell'ospite.</summary>
+        public int Remaining => Coop.IsClient ? Mathf.Max(0, netTarget - netSpawned) + netAlive : Mathf.Max(0, target - spawned) + mine.Count;
+
         /// <summary>Ospitato: il round e' finito, premio a tutti.</summary>
         public void CoopComplete(bool reward, int pts)
         {
@@ -653,6 +656,7 @@ namespace PryingEyes.Proc
                 gm.AddPoints(pts);
                 pl.shield = 50f;
                 pl.weapon.AddAmmoFraction(0.25f);
+                MusicDirector.WaveCleared();
             }
             foreach (var s in cur.shutters) if (s != null) s.Release();
             Sfx.UI(SoundBank.Toll, 0.7f);
@@ -708,6 +712,7 @@ namespace PryingEyes.Proc
                 gm.AddPoints(pts);
                 pl.shield = 50f;
                 pl.weapon.AddAmmoFraction(0.25f);
+                MusicDirector.WaveCleared();
             }
             Coop.Game?.RoundComplete(reward, pts);        // cooperativa: il premio e' di tutti
             foreach (var s in cur.shutters) if (s != null) s.Release();

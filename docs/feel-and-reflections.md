@@ -147,3 +147,35 @@ Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -medaltest
 11 checks: chain medals with their points and the banner, the chain restarting after a pause, the headshot streak, the blast
 triple, the untouchable streak at exactly 25 after a hurt, the last-breath kill, the knife triple).
 
+## Adaptive music
+
+Added on 15 November 2026 (`Scripts/MusicDirector.cs`; hooks in `RoundDirector`, `ProcAmbience` and `GameManager`).
+
+Procedural like every other sound: four clips computed on worker threads when the procedural scene starts (`SoundBank.WarmMusic`,
+about a second of work in total, `Task.FromResult` on Web), attached to the director's sources as soon as each is ready. Between
+waves there is only the ambience. While a wave fights (`RoundDirector.Fighting`, on hosts and clients alike) three layers play in
+sync, 24 s loops (8 bars at 80 bpm, every partial an integer number of cycles in the loop, reverb and high-pass computed over two
+passes so the tail of the loop falls back on its start):
+
+- drums (32 kHz): low taiko on beats 1 and 3, frame drum on 2 and 4, ticks on the eighths with a little swing, a tom roll on bars
+  4 and 8, a metal hit at the head of each phrase; 0.40 with few enemies, 0.80 at 14 alive, x0.4 when 3 or fewer remain;
+- ostinato (22 kHz): staccato bowed D in eighths, down to B flat and A on bar 4 and through C on bar 8, doubled an octave below, over
+  a D-A drone; 0.34 to 0.44;
+- strings (22 kHz): a D, A, D, E flat, A cluster on two detuned desks with vibrato, measured tremolo on the high voices and slow
+  alternating swells; 0.42 from 10 alive, 0.60 while the Cardinal lives.
+
+Layers rise in 1.5-3 s and fall in 3.5-4 s (0.8 s when the player dies). A wave won with its reward (`MusicDirector.WaveCleared`,
+also on clients through `CoopComplete`) plays an organ chord, D minor opening into D major with a soft chime. The music bus is
+0.65 of the "Musica" setting (0.35 of that in the pause menu); the sources bypass the listener reverb and have high priority.
+While it plays, `MusicDirector.Duck` lowers the ambient organ and theatre pad by up to 60%. `-nomusic` turns it off.
+
+Measured on the exported clips (`-musicwav`, demo mixed with the same rules): about -22 LUFS per layer at full level, -21.8 LUFS
+with few enemies, -18.3 with many, -17.6 with the Cardinal, -23.8 with the last ones, peak -1.4 dBFS; the ambient organ in a church
+is -28.8 LUFS. Not yet listened to by a person.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -musictest [-musicwav] -seed 1000 -floor 1`
+(`Scripts/MusicTest.cs`, 34 checks: clips from the threads, lengths, valid samples and seamless loop joins, levels between the
+ambience and gunfire, then with the wave state forced: silent between waves, drums and ostinato with the fight and growing with the
+enemies, strings with many enemies and louder with the Cardinal, drums stepping back for the last ones, fast drop on death, the
+chord on a won wave and not on an aborted one, the ambient organ lowered, the Musica volume applied, the three layers aligned; last
+a real wave turning the music on by itself). `-musicwav` writes the clips to `unity_logs/music`.

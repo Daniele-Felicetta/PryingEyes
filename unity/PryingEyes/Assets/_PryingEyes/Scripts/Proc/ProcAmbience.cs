@@ -66,10 +66,11 @@ namespace PryingEyes.Proc
             }
             else if (clinic)
                 buzzT = r.kind == RoomKind.Corridoio ? 0.22f : (r.kind == RoomKind.SalaOperatoria || r.kind == RoomKind.Obitorio) ? 0.24f : 0.13f;
-            Blend(organ, orgT * GameSettings.Music, dt * 0.5f);
+            float duck = 1f - 0.6f * MusicDirector.Duck;          // la musica del combattimento copre organo e toni (MusicDirector)
+            Blend(organ, orgT * GameSettings.Music * duck, dt * 0.5f);
             Blend(room, roomT * GameSettings.Effects, dt * 0.8f);
             Blend(wind, windT * GameSettings.Effects, dt * 0.6f);
-            Blend(pad, padT * GameSettings.Music, dt * 0.5f);
+            Blend(pad, padT * GameSettings.Music * duck, dt * 0.5f);
             Blend(murmur, murT * GameSettings.Effects, dt * 0.6f);
             Blend(buzz, buzzT * GameSettings.Effects, dt * 0.8f);
 
