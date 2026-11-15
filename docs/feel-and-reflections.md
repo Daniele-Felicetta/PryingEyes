@@ -76,3 +76,20 @@ Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -mantletes
 vaulting a 1 m wall 25 cm thick in 0.41 s and landing beyond it, no vault for a 2.2 m wall or a 25 cm step). Photos in
 `unity_logs/scavalco`.
 
+## Hit reactions
+
+Added on 15 November 2026 (`Scripts/EnemyFlinch.cs`).
+
+A hit that does not kill a monk (any costume) or the abbot pushes pelvis, chest and head away from the shot with a damped spring
+on top of the animation (stiffness 120, damping 15: back in about half a second). The impulse grows with the damage (6 + 0.22 per
+point, up to 16 degrees of hit), shotgun pellets in the same frame add up to a cap of 22, a body shot bends the chest and the head
+follows at 60%, a headshot throws the head back about twice as much as the chest, with a little random twist. It is applied in
+`LateUpdate` after the Animator as a world rotation around the horizontal axis perpendicular to the shot; each bone remembers the
+Animator pose, so when the Animator does not rewrite it in a frame the bend does not accumulate. The spring is integrated in 8 ms
+sub-steps (one long frame would otherwise eat the impulse). Beyond 35 m from the camera it stops; the stone Statue does not react;
+the abbot reacts at 70%. The killing hit disables it before the ragdoll takes the body. Measured: 4 degrees of chest for a
+12-damage body hit, 9 degrees of head for a headshot, 12 for eight pellets at once.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -flinchtest [-flinchshots] -seed 1000 -floor 1`
+(`Scripts/FlinchTest.cs`, 9 checks). Photos in `unity_logs/reazioni`.
+

@@ -552,6 +552,12 @@ namespace PryingEyes
             if (dead) return;
             var shooter = claimer == 0 ? Targets.Local : Targets.OfSlot(claimer);
             NoteHit(dmg, point, shooter);                       // come cadra' se questo colpo uccide (Enemy.Ragdoll.cs)
+            // il colpo che non uccide piega busto e testa via dal colpo (EnemyFlinch, sopra l'animazione)
+            if ((Archetype == EnemyType.Monaco || Archetype == EnemyType.Abate) && type != EnemyType.Statua && hp - dmg > 0f)
+            {
+                var flinch = EnemyFlinch.For(gameObject);
+                if (flinch != null) { flinch.Scale = Archetype == EnemyType.Abate ? 0.7f : 1f; flinch.Kick(lastHitDir, dmg, headshot); }
+            }
             if (puppet) { PuppetDamage(dmg, point, headshot, awardPoints, src); return; }
             if (IsVariant(type)) dmg *= VariantDamageScale(src);
             if (Drops.InstaKill && src != DamageSource.Nuke) dmg = Mathf.Max(dmg, hp + 1f);   // lo Sguardo: ogni colpo uccide
@@ -611,6 +617,8 @@ namespace PryingEyes
                 Sfx.At(type == EnemyType.Portachiavi ? SoundBank.KeeperKeys : SoundBank.MonkDeath, transform.position + Vector3.up, 0.8f, basePitch, 2f, 30f);
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
                 foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
+                var fl = GetComponent<EnemyFlinch>();
+                if (fl != null) fl.enabled = false;                // la molla lascia il corpo al ragdoll
                 // cade come un corpo vero spinto dal colpo (EnemyRagdoll); oltre il tetto dei corpi fisici, l'animazione di caduta
                 var rag = BeginRagdoll(src, carried);
                 if (rag == null && anim != null) anim.SetBool("Morto", true);
