@@ -24,5 +24,15 @@ The map and the reasons are in `docs/suite-architecture.md`; this page is the sh
    works in a separate git worktree on its own branch and reaches `preview` through a pull request.
 10. **What `tools/ship.ps1` records**: it builds the working tree, not the commit. After committing it lists the uncommitted sources under
     `unity/PryingEyes/{Assets,Packages,ProjectSettings}` (derived files and line-ending-only changes excluded) in the `build:` and `exe:`
-    lines, an AVVISO, `unity_logs/ship_built.json` and `Builds/Prova/build_info.json`. It never blocks on a dirty tree; `-RequireClean`
+    lines, an AVVISO, `unity_logs/ship_built.json` and `Builds/build_info.json`. It never blocks on a dirty tree; `-RequireClean`
     refuses before the build and is for releases.
+11. **Builds** (`unity/PryingEyes/Builds`, git-ignored): `PryingEyes.exe` with its `PryingEyes_Data`, `D3D12` and `MonoBleedingEdge` at the top
+    level is the game the maintainer plays (the taskbar pin) and must always be the latest build. `tools/ship.ps1` refreshes it from `Audit`
+    after every build and, when the game is open, finishes the copy by itself as soon as it closes; never close the game yourself.
+    `Audit` is where builds and checks run: tests and agents use it, never the top-level game. `CityPreview` is where the studio publishes
+    the city prototype and `Releases/` holds the released zips. Anything else (`*Candidate`, `Web`, per-release folders) is disposable:
+    delete it when the task ends, and the per-job `unity_logs/studio/*/build` folders once the job is over.
+12. **Branches and worktrees**: `preview` is the only long-lived branch. Any other branch goes through a pull request and is deleted as soon
+    as it merges (a squash merge makes git call it unmerged: delete it anyway, its commits stay on the pull request). A worktree
+    (`.codex/worktrees/*`, `prying-eyes-*`) is removed with `git worktree remove` when its task ends. Nothing is lost: every commit of a
+    merged branch stays reachable from `preview`.

@@ -8,7 +8,7 @@
 #                                          (foto del compagno in <LogDir>\foto; usa la GPU: controlla prima che nessun altro la stia usando)
 #
 # Gli ospitati partono -JoinDelaySec secondi dopo l'ospite (+2 s per ciascuno, oppure -ClientDelays). Il gioco lo si compila a parte
-# (BuildPlayer.Torre con -buildOut ...\Builds\Audit, vedi README principale; Builds\Prova e' la cartella da cui gioca l'utente e non va usata per le prove,
+# (BuildPlayer.Torre con -buildOut ...\Builds\Audit, vedi README principale; Builds\PryingEyes.exe e' il gioco dell'utente e non va usato per le prove,
 # si passa con -Exe solo di proposito). Non parte se una copia di quell'exe e' gia' aperta.
 param(
     [string]$Exe = (Join-Path $PSScriptRoot '..\..\unity\PryingEyes\Builds\Audit\PryingEyes.exe'),

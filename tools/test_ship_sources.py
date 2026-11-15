@@ -2,8 +2,12 @@
 
 Unity builds the working tree, not the commit. After committing, ship.ps1 lists what differs from HEAD under
 unity/PryingEyes/{Assets,Packages,ProjectSettings}: the `build:` and `exe:` summary lines, an AVVISO, the marker and
-Builds/Prova/build_info.json carry that list, and -RequireClean refuses to go on while it is not empty. Derived files (.mat,
+Builds/build_info.json carry that list, and -RequireClean refuses to go on while it is not empty. Derived files (.mat,
 Scenes/Torre.unity) and files that differ from HEAD only in their line endings do not count.
+
+The build the maintainer plays is Builds/PryingEyes.exe and must always be the latest one: the exe step copies the verified build there,
+leaves the sibling folders (Audit, Releases, ...) alone, and when the game is open it starts a hidden -RefreshOnly process that copies
+as soon as the game closes.
 
 Here the real script runs against temporary repositories shaped like this one, with no gate, no build and no push; the exe step runs
 against a fake build folder. That needs Windows PowerShell 5.1, so those tests are skipped elsewhere."""
@@ -16,9 +20,10 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 import unittest
 
-SCRIPT = Path(__file__).resolve().parent / "ship.ps1"
+SCRIPT =Path(__file__).resolve().parent / "ship.ps1"
 ASSETS = "unity/PryingEyes/Assets/_PryingEyes"
 UNIX_EPOCH_TICKS = 621355968000000000        # .NET ticks (100 ns since 0001-01-01) at 1970-01-01
 
@@ -100,7 +105,9 @@ def fake_build(root, repo, head):
               "uncommittedCount": 2, "uncommittedTruncated": False,
               "uncommitted": [{"status": "M", "path": f"{ASSETS}/Scripts/A.cs"}, {"status": "??", "path": f"{ASSETS}/Scripts/B.cs"}]}
     write(repo, "unity_logs/ship_built.json", json.dumps(marker).encode("utf-8"))
-    write(repo, "unity/PryingEyes/Builds/Prova/build_info.json", b'{"commit": "stale"}')       # must be replaced, never kept
+    write(repo, "unity/PryingEyes/Builds/build_info.json", b'{"commit": "stale"}')            # must be replaced, never kept
+    write(repo, "unity/PryingEyes/Builds/Audit/keep.txt", b"workspace")                      # the exe step must leave its siblings alone
+    write(repo, "unity/PryingEyes/Builds/Releases/old.zip", b"zip")
     return build
 
 
@@ -211,9 +218,13 @@ class ShipDeclaresWhatTheBuildContains(unittest.TestCase):
         self.assertEqual(code, 0, output)
         self.assertRegex(summary(output, "exe"), r"^exe:\s+aggiornato in ", output)
         self.assertIn(f"contiene HEAD {head[:7]} + 2 sorgenti non committati", summary(output, "exe"), output)
-        prova = repo / "unity/PryingEyes/Builds/Prova"
-        self.assertTrue((prova / "PryingEyes.exe").is_file(), output)
-        info = json.loads((prova / "build_info.json").read_text(encoding="utf-8"))
+        builds = repo / "unity/PryingEyes/Builds"
+        self.assertTrue((builds / "PryingEyes.exe").is_file(), output)
+        self.assertEqual((builds / "PryingEyes_Data/resources.assets").read_bytes(), b"PryingEyes_Data/resources.assets", output)
+        self.assertFalse((builds / "Prova").exists(), "nothing may be published to the retired Prova folder")
+        self.assertEqual((builds / "Audit/keep.txt").read_bytes(), b"workspace", "the exe step must not touch the build workspace")
+        self.assertEqual((builds / "Releases/old.zip").read_bytes(), b"zip", "the exe step must not touch the releases")
+        info = json.loads((builds / "build_info.json").read_text(encoding="utf-8"))
         self.assertEqual((info["commit"], info["branch"], info["mode"], info["builtAt"]), (head, "main", "scripts", "2026-01-01T00:00:00"))
         self.assertEqual((info["uncommittedCount"], info["uncommittedTruncated"]), (2, False))
         self.assertEqual([(e["status"], e["path"]) for e in info["uncommitted"]], [("M", f"{ASSETS}/Scripts/A.cs"), ("??", f"{ASSETS}/Scripts/B.cs")])
@@ -226,6 +237,73 @@ class ShipDeclaresWhatTheBuildContains(unittest.TestCase):
         self.assertEqual(listed(output), expected, output)
         self.assertEqual(git(repo, self.env, "rev-parse", "HEAD"), head)
         self.assertEqual(git(repo, self.env, "diff", "--cached", "--name-only"), "")
+
+
+def kill_tree(pid):
+    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
+
+
+@unittest.skipUnless(os.name == "nt" and shutil.which("powershell") and shutil.which("git"), "ship.ps1 needs Windows PowerShell 5.1 and git")
+class ShipKeepsTheGameCurrentEvenWhenItIsOpen(unittest.TestCase):
+    """While the game is open the exe step cannot copy over it. Instead of leaving the build stale, ship.ps1 starts a hidden -RefreshOnly
+    process that waits for the game to close and copies then. The stand-in game is a copy of ping.exe named PryingEyes.exe and started from
+    the folder the script treats as the game's; it holds its files locked, like the real player, until the test lets it go."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = Path(tempfile.mkdtemp(prefix="ship-defer-")).resolve()
+        cls.addClassCleanup(shutil.rmtree, cls.root, onerror=force_remove)
+        empty = write(cls.root, "empty.gitconfig", b"")
+        inherited = {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
+        cls.env = {**inherited, "GIT_CONFIG_GLOBAL": str(empty), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0"}
+        cls.repo = make_repo(cls.root, cls.env, "defer")
+        cls.head = git(cls.repo, cls.env, "rev-parse", "HEAD")
+        build = fake_build(cls.root, cls.repo, cls.head)
+        cls.builds = cls.repo / "unity/PryingEyes/Builds"
+        cls.status = cls.repo / "unity_logs/ship_refresh.status"
+        game = cls.builds / "PryingEyes.exe"
+        shutil.copyfile(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "PING.EXE", game)
+        cls.fake_game = subprocess.Popen([str(game), "-t", "127.0.0.1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        cls.addClassCleanup(cls.stop_everything)       # registered last, so it runs first: processes die before the folder is removed
+        cls.code, cls.output = ship(cls.repo, cls.env, "-NoBuild", "-OutDir", str(build), "-DeferExeMin", "3")
+        cls.game_while_open = game.read_bytes()
+        cls.fake_game.kill()
+        cls.fake_game.wait()
+        cls.final_status = cls.wait_for_refresh()
+
+    @classmethod
+    def stop_everything(cls):
+        if cls.fake_game.poll() is None:
+            cls.fake_game.kill()
+            cls.fake_game.wait()
+        if cls.status.exists():
+            match = re.search(r"pid=(\d+)", cls.status.read_text(encoding="utf-8-sig", errors="replace"))
+            if match: kill_tree(match[1])
+
+    @classmethod
+    def wait_for_refresh(cls, timeout=120):
+        deadline = time.monotonic() + timeout
+        text = ""
+        while time.monotonic() < deadline:
+            text = cls.status.read_text(encoding="utf-8-sig", errors="replace").strip() if cls.status.exists() else ""
+            if text.startswith("FINITO"): break
+            time.sleep(1)
+        return text
+
+    def test_ship_does_not_wait_and_leaves_the_open_game_alone(self):
+        self.assertEqual(self.code, 0, self.output)
+        line = summary(self.output, "exe")
+        self.assertRegex(line, r"^exe:\s+NON aggiornato: il gioco dell'utente e' aperto", self.output)
+        self.assertIn("aggiornamento differito avviato", line, self.output)
+        self.assertEqual(self.game_while_open[:2], b"MZ", "the open game must be exactly what it was: the stand-in executable")
+
+    def test_the_hidden_refresh_copies_the_build_once_the_game_closes(self):
+        self.assertTrue(self.final_status.startswith("FINITO: SHIP: OK"), self.final_status)
+        self.assertEqual((self.builds / "PryingEyes.exe").read_bytes(), b"PryingEyes.exe")
+        self.assertEqual((self.builds / "PryingEyes_Data/resources.assets").read_bytes(), b"PryingEyes_Data/resources.assets")
+        info = json.loads((self.builds / "build_info.json").read_text(encoding="utf-8"))
+        self.assertEqual((info["commit"], info["mode"]), (self.head, "scripts"))
+        self.assertEqual((self.builds / "Audit/keep.txt").read_bytes(), b"workspace")
 
 
 if __name__ == "__main__":

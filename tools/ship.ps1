@@ -22,19 +22,24 @@ Passi, nell'ordine:
              da HEAD, piu' i non tracciati e non ignorati; esclusi i derivati: .mat, Scenes/Torre.unity, Citta.unity, Labs; conta il
              contenuto, non git status: file identici a meno dei fine riga non contano). NON blocca (con due agenti l'albero e' spesso
              sporco), ma l'elenco compare nelle righe build: ed exe: del riepilogo, in un AVVISO, nel marcatore ship_built.json e in
-             Builds\Prova\build_info.json, accanto all'exe. Si ottiene anche con -NoBuild. -RequireClean: elenco non vuoto = rifiuto
+             Builds\build_info.json, accanto all'exe. Si ottiene anche con -NoBuild. -RequireClean: elenco non vuoto = rifiuto
              prima della build (per le release)
   build      Unity in batchmode a priorita' bassa (CPU, disco, memoria) in Builds\Audit (o -OutDir). -Mode auto: completa
              (BuildPlayer.Windows) se dall'ultimo ship e' cambiato un file che non sia .cs, altrimenti solo script
              (BuildPlayer.Torre -scriptsOnly, ~2 MB scritti invece di centinaia). Il marcatore sta in unity_logs\ship_built.json
   prova      tools\check_navigation.py su -SmokeFloors piani (seme -SmokeSeed), senza grafica: se fallisce non si pusha
   push       origin <ramo corrente>, mai forzato, con i parametri per i file grandi; poi controlla che il remoto abbia lo stesso HEAD
-  exe        copia la build in Builds\Prova\PryingEyes.exe (l'exe usato dall'utente) SOLO se il suo gioco e' chiuso: non lo chiude mai.
-             Con -WaitGameMin N aspetta fino a N minuti che l'utente lo chiuda
+  exe        copia la build (PryingEyes.exe, UnityPlayer.dll, PryingEyes_Data, D3D12, MonoBleedingEdge) in Builds\: e' il gioco che
+             l'utente avvia (collegamento sulla barra delle applicazioni) e deve essere sempre l'ultimo. Lo fa SOLO se il suo gioco e'
+             chiuso: non lo chiude mai. Se e' aperto avvia un aggiornamento differito (-DeferExeMin, default 720 minuti): un processo
+             nascosto che aspetta la chiusura del gioco e poi copia da solo; -DeferExeMin 0 lo disattiva. Con -WaitGameMin N aspetta
+             invece lo ship stesso, fino a N minuti. -RefreshOnly fa solo questo passo, con la build che c'e' in Audit se il suo
+             marcatore e' integro (anche se HEAD e' avanzato dopo quella build): serve a rilanciarlo a mano e al processo differito
 
 Non annulla mai nulla: le modifiche che build e prova lasciano nell'albero vengono solo elencate come AVVISO.
-File: unity_logs\ship_last.log (log), ship_last.status (stato), ship_build.log (Unity), ship_built.json (marcatore), e accanto
-all'exe dell'utente Builds\Prova\build_info.json (commit, data, modo di build e sorgenti non committati dell'exe che c'e' li').
+File: unity_logs\ship_last.log (log), ship_last.status (stato), ship_build.log (Unity), ship_built.json (marcatore),
+ship_refresh.log e ship_refresh.status (l'aggiornamento differito dell'exe) e accanto all'exe dell'utente Builds\build_info.json
+(commit, data, modo di build e sorgenti non committati dell'exe che c'e' li').
 Uscita 0 solo con "SHIP: OK". Tutto ASCII di proposito: PowerShell 5.1 legge male gli accenti senza BOM.
 #>
 param(
@@ -46,12 +51,15 @@ param(
     [int]$SmokeSeed = 1000,
     [int]$BuildTimeoutSec = 1500,
     [int]$WaitGameMin = 0,
+    [int]$DeferExeMin = 720,
+    [string]$GameDir = '',
     [switch]$NoBuild,
     [switch]$NoPush,
     [switch]$NoExe,
     [switch]$NoGate,
     [switch]$RequireClean,
     [switch]$DryRun,
+    [switch]$RefreshOnly,
     [switch]$Detach,
     [switch]$Child,
     [int]$Wait = 0
@@ -61,10 +69,14 @@ $ErrorActionPreference = 'Continue'
 $repo = Split-Path -Parent $PSScriptRoot
 $proj = Join-Path $repo 'unity\PryingEyes'
 $userBuilds = (Join-Path $proj 'Builds').TrimEnd('\')
-$userRun = Join-Path $userBuilds 'Prova'
+# il gioco che l'utente avvia (collegamento sulla barra delle applicazioni) e' Builds\PryingEyes.exe: la build principale, sempre l'ultima
+if ($GameDir -eq '') { $gameDir = $userBuilds } else { $gameDir = [IO.Path]::GetFullPath($GameDir).TrimEnd('\') }
 $logDir = Join-Path $repo 'unity_logs'
-$logFile = Join-Path $logDir 'ship_last.log'
-$statusFile = Join-Path $logDir 'ship_last.status'
+$runTag = 'ship_last'
+# -RefreshOnly: solo il passo exe (lo lancia lo ship stesso quando il gioco e' aperto); log e stato propri, per non pestare quelli dello ship
+if ($RefreshOnly) { $runTag = 'ship_refresh'; $NoBuild = $true; $NoGate = $true; $NoPush = $true; $SmokeFloors = 0 }
+$logFile = Join-Path $logDir ($runTag + '.log')
+$statusFile = Join-Path $logDir ($runTag + '.status')
 $markerFile = Join-Path $logDir 'ship_built.json'
 $buildLog = Join-Path $logDir 'ship_build.log'
 $attribution = 'Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>'
@@ -243,6 +255,29 @@ function GitNet([string[]]$a, [int]$timeoutSec) {
 function Get-Dirty { return @(GitLocal @('status', '--porcelain') | Where-Object { $_ }) }
 function Short([string]$h) { if ($h.Length -ge 7) { return $h.Substring(0, 7) } else { return $h } }
 
+# Un aggiornamento differito (processo nascosto lanciato da Do-Exe con -RefreshOnly) che aspetta ancora la chiusura del gioco non serve
+# piu' quando parte un nuovo ship: costruisce una build piu' nuova. Se sta gia' copiando lo aspetto: ucciderlo darebbe un exe a meta'.
+function Stop-DeferredRefresh {
+    $f = Join-Path $logDir 'ship_refresh.status'
+    if (-not (Test-Path -LiteralPath $f)) { return }
+    $st = ''
+    try { $st = (Get-Content -LiteralPath $f -Raw -ErrorAction Stop).Trim() } catch { return }
+    $m = [regex]::Match($st, 'pid=(\d+)')
+    if (-not $m.Success) { return }
+    $procId = [int]$m.Groups[1].Value
+    $c = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
+    if (-not $c -or [string]$c.CommandLine -notmatch 'RefreshOnly') { return }
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ($st -like '*copia*' -and (Get-Process -Id $procId -ErrorAction SilentlyContinue) -and $sw.Elapsed.TotalSeconds -lt 180) {
+        Start-Sleep -Seconds 3
+        try { $st = (Get-Content -LiteralPath $f -Raw -ErrorAction Stop).Trim() } catch { break }
+    }
+    if (Get-Process -Id $procId -ErrorAction SilentlyContinue) {
+        & taskkill /F /T /PID $procId 2>&1 | Out-Null
+        Log "fermato l'aggiornamento differito in attesa (pid $procId): questo ship costruisce una build piu' nuova"
+    }
+}
+
 # ---------------------------------------------------------------- controlli
 Step 'controlli'
 $branch = @(GitLocal @('rev-parse', '--abbrev-ref', 'HEAD'))[0]
@@ -261,7 +296,9 @@ if (-not $NoBuild) {
     }
 }
 if ($buildOut -eq $userBuilds) { Finish $false "controlli: la cartella di uscita e' quella dell'utente (Builds): non si costruisce li'" }
-if ($buildOut -eq $userRun) { Finish $false "controlli: la cartella di uscita e' Prova, usata dall'utente: non si costruisce li'" }
+if ($buildOut -eq $gameDir) { Finish $false "controlli: la cartella di uscita e' quella del gioco dell'utente ($gameDir): non si costruisce li'" }
+if ($RefreshOnly -and -not (Test-Path -LiteralPath (Join-Path $buildOut 'PryingEyes.exe'))) { Finish $false "controlli: -RefreshOnly ma in $buildOut non c'e' nessuna build" }
+if (-not $RefreshOnly -and -not $DryRun) { Stop-DeferredRefresh }
 
 # ---------------------------------------------------------------- cancello veloce (prima di committare)
 function Do-Gate {
@@ -596,7 +633,7 @@ function Do-Push {
 
 # ---------------------------------------------------------------- exe dell'utente
 function Test-GameOpen {
-    $mine = @((Join-Path $userRun 'PryingEyes.exe'), (Join-Path $userRun 'UnityCrashHandler64.exe'))
+    $mine = @((Join-Path $gameDir 'PryingEyes.exe'), (Join-Path $gameDir 'UnityCrashHandler64.exe'))
     foreach ($n in 'PryingEyes', 'UnityCrashHandler64') {
         foreach ($pr in @(Get-Process $n -ErrorAction SilentlyContinue)) {
             if ($pr.Path -and ($mine -contains $pr.Path)) { return $true }
@@ -605,28 +642,75 @@ function Test-GameOpen {
     return $false
 }
 
+# Il gioco e' aperto e non lo chiudo: lancio un processo nascosto (-RefreshOnly) che aspetta la chiusura e poi copia la build da solo.
+# Cosi' la build principale e' sempre l'ultima senza che nessuno debba ricordarsene. Restituisce il pid, o $null se e' disattivato.
+function Start-DeferredRefresh {
+    if ($DeferExeMin -le 0) { return $null }
+    Stop-DeferredRefresh
+    $argLine = '-NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '" -RefreshOnly -WaitGameMin ' + $DeferExeMin + ' -OutDir "' + $buildOut + '" -GameDir "' + $gameDir + '"'
+    $p = Start-Process -FilePath 'powershell.exe' -ArgumentList $argLine -WindowStyle Hidden -PassThru
+    Set-Content -LiteralPath (Join-Path $logDir 'ship_refresh.status') -Value ('IN CORSO: avvio pid=' + $p.Id) -Encoding UTF8
+    return $p.Id
+}
+
+# Il marcatore di buildOut descrive davvero quella cartella (nessuno l'ha ricostruita dopo). Basta per copiarla, anche se HEAD nel
+# frattempo e' avanzato: l'exe deve avere l'ultima build che e' stata costruita e provata, e build_info.json dice quale commit e'.
+function Test-BuildIntact {
+    $resA = Join-Path $buildOut 'PryingEyes_Data\resources.assets'
+    if (-not (Test-Path -LiteralPath $markerFile) -or -not (Test-Path -LiteralPath $resA)) { return $false }
+    try { $m = Get-Content -LiteralPath $markerFile -Raw | ConvertFrom-Json } catch { return $false }
+    if ($m.out -ne $buildOut) { return $false }
+    return ([string]$m.resTicks -eq [string](Get-Item -LiteralPath $resA).LastWriteTimeUtc.Ticks)
+}
+
 function Do-Exe {
     if ($NoExe) { $summary['exe'] = 'saltato (-NoExe)'; return }
     Step 'exe'
     $src = $buildOut
-    $dst = $userRun
-    if (-not $DryRun -and -not $script:builtNow -and -not (Test-Fresh)) {
-        $summary['exe'] = "NON aggiornato: la build in $src non e' allineata al HEAD attuale (rifai la build)"
-        $warns.Add($summary['exe'])
-        return
-    }
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    while (Test-GameOpen) {
-        if ($WaitGameMin -le 0 -or $sw.Elapsed.TotalMinutes -ge $WaitGameMin) {
-            $summary['exe'] = "NON aggiornato: il gioco dell'utente e' aperto da Builds\Prova (non l'ho chiuso)"
-            $warns.Add($summary['exe'] + '; va copiato da ' + $src + ' quando lo chiude')
+    $dst = $gameDir
+    if (-not $DryRun -and -not $script:builtNow) {
+        if ($RefreshOnly) { $okSrc = Test-BuildIntact } else { $okSrc = Test-Fresh }
+        if (-not $okSrc) {
+            if ($RefreshOnly) { $summary['exe'] = "NON aggiornato: la build in $src non ha un marcatore valido (rifai la build)" }
+            else { $summary['exe'] = "NON aggiornato: la build in $src non e' allineata al HEAD attuale (rifai la build)" }
+            $warns.Add($summary['exe'])
             return
         }
-        Set-Status ("IN CORSO: exe, aspetto che l'utente chiuda il gioco pid=$PID")
+    }
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $lastNote = -60
+    while (Test-GameOpen) {
+        if ($WaitGameMin -le 0 -or $sw.Elapsed.TotalMinutes -ge $WaitGameMin) {
+            $summary['exe'] = "NON aggiornato: il gioco dell'utente e' aperto da $gameDir (non l'ho chiuso)"
+            $note = 'va copiato da ' + $src + ' quando lo chiude'
+            if (-not $RefreshOnly -and -not $DryRun) {
+                $dpid = Start-DeferredRefresh
+                if ($dpid) {
+                    $note = "aggiornamento differito avviato (pid $dpid, per al massimo $DeferExeMin minuti): copia da solo non appena lo chiude"
+                    $summary['exe'] += '; ' + $note
+                }
+            }
+            $warns.Add($summary['exe'] + $(if ($note -like 'aggiornamento*') { '' } else { '; ' + $note }))
+            return
+        }
+        if ($sw.Elapsed.TotalSeconds - $lastNote -ge 60) {
+            $lastNote = $sw.Elapsed.TotalSeconds
+            Set-Status ("IN CORSO: exe, aspetto che l'utente chiuda il gioco pid=$PID")
+        }
         Start-Sleep -Seconds 3
     }
     if ($DryRun) { $summary['exe'] = "(prova a secco) il gioco e' chiuso: copierei $src -> $dst; conterrebbe " + $script:dirtyNote; return }
     if ($sw.Elapsed.TotalSeconds -gt 1) { Start-Sleep -Seconds 2 }
+    if ($RefreshOnly) {
+        # l'aggiornamento differito non deve pestare uno ship in corso: la build di buildOut potrebbe essere a meta', e copiera' lui
+        $other = ''
+        try { $other = (Get-Content -LiteralPath (Join-Path $logDir 'ship_last.status') -Raw -ErrorAction Stop).Trim() } catch { }
+        if ($other -like 'IN CORSO*' -and (Test-Alive $other)) {
+            $summary['exe'] = "NON aggiornato: e' in corso uno ship ($other), l'exe lo aggiornera' lui"
+            return
+        }
+    }
+    Set-Status ("IN CORSO: copia dell'exe pid=$PID")
     # se la copia si ferma a meta' l'exe e' un miscuglio: meglio nessun build_info.json che quello vecchio, che direbbe il falso
     $infoFile = Join-Path $dst 'build_info.json'
     if (Test-Path -LiteralPath $infoFile) { Remove-Item -LiteralPath $infoFile -Force }
@@ -679,17 +763,25 @@ function Do-Exe {
     $summary['exe'] += '; contiene ' + (Write-BuildInfo $infoFile) + ' (build_info.json)'
 }
 
-Do-Gate
-Do-Commit
-Do-Sources
-Do-Build
-Do-Smoke
-Do-Push
-Do-Exe
+if ($RefreshOnly) {
+    Do-Exe
+} else {
+    Do-Gate
+    Do-Commit
+    Do-Sources
+    Do-Build
+    Do-Smoke
+    Do-Push
+    Do-Exe
+}
 
 Step 'chiusura'
 $headEnd = @(GitLocal @('rev-parse', '--short', 'HEAD'))[0]
 $summary.Insert(0, 'ramo', "$branch @ $headEnd")
+if ($RefreshOnly) {
+    if (-not $DryRun -and [string]$summary['exe'] -notlike 'aggiornato*') { Finish $false ([string]$summary['exe']) }
+    Finish $true ''
+}
 $left = Get-Dirty
 if ($left.Count -gt 0) { $warns.Add("nell'albero restano $($left.Count) voci non committate (non le ho toccate), es.: " + (($left | Select-Object -First 6) -join ' | ')) }
 Finish $true ''

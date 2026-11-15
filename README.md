@@ -139,8 +139,10 @@ Hall giocabile in prima persona, generata da `HotelBuilder`, con questi sistemi:
 - **HUD**: prompt di acquisto vicino al mirino + nome arma accanto alle munizioni; punteggio e presenze restano in alto a sinistra.
 - test automatici: `-autotest -camshots` produce `hotel_build/wallbuy.png` (foto dell'espositore); `-autotest -walltest` verifica prompt, acquisto, spesa punti e ricarica riserva.
 - build: `BuildPlayer.Windows` (Unity 6000.6.7f1) → `unity/PryingEyes/Builds/PryingEyes.exe`.
-  La cartella usata dall’utente per giocare è **`unity/PryingEyes/Builds/Prova`**: `tools/ship.ps1` aggiorna questa
-  copia a gioco chiuso. La cartella `Audit` serve alle verifiche; gli ZIP e le release precedenti possono essere più vecchi.
+  Il gioco che l’utente avvia (collegamento sulla barra delle applicazioni) è **`unity/PryingEyes/Builds/PryingEyes.exe`**: `tools/ship.ps1` lo
+  aggiorna a ogni giro dalla build di `Audit` e, se il gioco è aperto, da solo appena lo si chiude. `Audit` è la cartella in cui si costruisce e si
+  verifica (le prove non partono dal gioco dell’utente); `Releases` contiene gli ZIP pubblicati, `CityPreview` è dove lo studio pubblica la mini-città,
+  ogni altra cartella di `Builds` è temporanea e si può cancellare.
 
 ## Armi: 28 modelli in 5 gradi di potenza (Unity)
 
@@ -316,7 +318,7 @@ L'HUD mostra carica, scorte e attesa prima del prossimo ping. La freccia in alto
 
 Fino a quattro giocatori nello stesso albergo, in rete (FishNet, UDP, porta 7807): dal menu, **Cooperativa**; uno **ospita**, gli altri scrivono il suo indirizzo (per giocare da Internet l'ospite deve avere la porta UDP raggiungibile, non c'e' un relay). L'ospite fa girare il mondo (nemici, round, gocce) e gli altri ne vedono i pupazzi; punti, armi, perk, libri e torcia sono di ognuno, mentre candele, serrande, uscita e discesa sono comuni (si scende tutti insieme). I piani sono uguali per tutti perche' ogni macchina li costruisce dallo stesso seme; chi entra a meta' riceve lo stato del piano. Il codice sta in `Scripts/Coop/`; progetto, protocollo, limiti e cosa non e' ancora verificato in [`docs/multiplayer/README.md`](docs/multiplayer/README.md).
 
-Prova con piu' processi (senza grafica, sulla build di `Builds/Prova`): `.\tools\coop\run_coop.ps1 -Clients 1 -HostArgs '-cooptest','-seed','2961' -ClientArgs '-cooptest'` (anche `-coopplayers 3` con due ospitati, `-cooplate`, `-coopleave`, `-coopcrash`, `-coophostleave`); esce con 0 se tutte le verifiche passano, e `.\tools\coop\run_all.ps1` le fa girare tutte in fila (griglia, ali, entrata tardiva, uscite, tre e quattro giocatori).
+Prova con piu' processi (senza grafica, sulla build di `Builds/Audit`): `.\tools\coop\run_coop.ps1 -Clients 1 -HostArgs '-cooptest','-seed','2961' -ClientArgs '-cooptest'` (anche `-coopplayers 3` con due ospitati, `-cooplate`, `-coopleave`, `-coopcrash`, `-coophostleave`); esce con 0 se tutte le verifiche passano, e `.\tools\coop\run_all.ps1` le fa girare tutte in fila (griglia, ali, entrata tardiva, uscite, tre e quattro giocatori).
 
 ## Build e controlli touch
 
