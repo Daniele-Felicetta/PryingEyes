@@ -42,3 +42,15 @@ player's feet. If the wave ends first the trial is lost. Each player has their o
 pays, and leaves the thrower 6 m away unharmed; a carillon pulls three monks away from the player and kills them; three waves
 refill the stock; three headshot kills complete a trial and pay; the Intatto trial counts seconds and resets on a hit.
 Photos in `unity_logs/equipaggiamento` (launch from the repository root).
+
+## Glass eyes (hidden hunt)
+
+`Scripts/Proc/HiddenEyes.cs`: three glass eyes per floor, first inside the annexes (tower, crypt, garden), then on the
+galleries, then in the corners farthest from the arrival lift, at least 12 m apart, from the plan seed. They float at face
+height, turn to watch the player within 9 m, glow faintly green and breathe (audible within a few metres). Take them with F
+or shoot them. With all three, the weapon in hand is consecrated for free (or +3500 points if it already is) plus 1000
+points. Each player hunts their own (local state, like annex treasures). The scoreboard shows the count.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -eyetest [-eyeshots] -seed 1000 -floor 3`
+(`Scripts/EyesTest.cs`, 13 checks: three eyes, far apart, above the navmesh; F and a bullet both collect; all three
+consecrate the weapon and pay).

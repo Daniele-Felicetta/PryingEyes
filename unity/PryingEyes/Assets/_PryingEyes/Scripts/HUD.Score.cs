@@ -64,10 +64,12 @@ namespace PryingEyes
             float acc = fired > 0 ? 100f * hit / fired : 0f;
             int secs = Mathf.FloorToInt(Time.timeSinceLevelLoad);
             var eq = Equipment.I;
-            scoreLeft.text = "Punti\nUccisioni\nAlla testa\nPrecisione\nProve superate\nMorti\nTempo\nEquipaggiamento" + (Coop.Active ? "\nGiocatori" : "");
+            var he = HiddenEyes.I;
+            scoreLeft.text = "Punti\nUccisioni\nAlla testa\nPrecisione\nProve superate\nMorti\nTempo\nEquipaggiamento\nOcchi di vetro" + (Coop.Active ? "\nGiocatori" : "");
             scoreRight.text = $"{gm.score.ToString("N0", It)}\n{kills}\n{heads} ({(kills > 0 ? 100 * heads / kills : 0)}%)\n{acc:F0}%  ({hit}/{fired})\n" +
                               $"{Prove.completed}\n{GameManager.deaths}\n{secs / 60}:{secs % 60:00}\n" +
-                              (eq != null ? $"acquasanta {eq.grenades}, carillon {eq.lures}" : "-") + (Coop.Active ? $"\n{Targets.Count}" : "");
+                              (eq != null ? $"acquasanta {eq.grenades}, carillon {eq.lures}" : "-") + "\n" + (he != null ? $"{he.Found}/{he.Total}" : "-") +
+                              (Coop.Active ? $"\n{Targets.Count}" : "");
         }
     }
 }
