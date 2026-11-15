@@ -185,7 +185,7 @@ namespace PryingEyes
             TileRect = TileOf(0, count, Area);
             var pads = AssignPads(PadControls.ConnectedMask(), count, p1Pad);
             PadOnly = pads[0] >= 0;
-            if (pads[0] >= 0) PadControls.Enable(pads[0]);
+            if (pads[0] >= 0) PadControls.Enable(pads[0]); else PadControls.Disable();      // i controller sono degli altri giocatori: la ricerca automatica non deve prenderne uno
             Debug.Log($"[PryingEyes] split: {count} giocatori, porta {port}, schermo {Area}, il mio posto {TileRect}, controller {string.Join(",", pads)}");
 
             Screen.SetResolution(TileRect.width, TileRect.height, FullScreenMode.Windowed);

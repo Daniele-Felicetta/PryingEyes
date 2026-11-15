@@ -263,7 +263,7 @@ namespace PryingEyes.Proc
         string SurvivalStatus()
         {
             if (SurvivalMode.HoldWaves) return "ONDATE FERME";
-            if (phase == Phase.Idle) return $"PROSSIMA ONDATA IN {Mathf.CeilToInt(nextWave)} s  ·  F per comprare aree e rifornimenti";
+            if (phase == Phase.Idle) return $"PROSSIMA ONDATA IN {Mathf.CeilToInt(nextWave)} s  ·  {PadControls.UseKey} per comprare aree e rifornimenti";
             int left = Coop.IsClient ? Mathf.Max(0, netTarget - netSpawned) + netAlive : target - spawned + mine.Count;
             return $"{(moth ? "PROCESSIONE " : "ONDATA ")}{Round}  ·  {left} nemici rimasti  ·  Aree aperte {RoomAccessDoors.I?.Access.OpenRooms.Count}";
         }

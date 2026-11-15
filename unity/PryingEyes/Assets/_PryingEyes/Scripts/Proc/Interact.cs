@@ -66,7 +66,7 @@ namespace PryingEyes.Proc
                 near = it; bd = d;
             }
             if (near == null) return false;
-            gm.hud.SetPrompt(near.Prompt + "   [F]");
+            gm.hud.SetPrompt(near.Prompt + "   [" + PadControls.UseKey + "]");
             return true;
         }
 

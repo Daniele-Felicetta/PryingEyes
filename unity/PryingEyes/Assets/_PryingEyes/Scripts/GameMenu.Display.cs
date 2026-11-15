@@ -14,7 +14,7 @@ namespace PryingEyes
         RectTransform displayConfirm;
         Text modeValue, resolutionValue, aspectValue, refreshValue, vsyncValue, fpsValue, displayNote, previewCountdown;
         Button applyDisplayButton;
-        Button ratePrevious, rateNext, fpsPrevious, fpsNext;
+        Button ratePrevious, rateNext, fpsPrevious, fpsNext, modePrevious, aspectPrevious;
         Text displayActual;
 
         void BuildDisplayControls()
@@ -24,8 +24,8 @@ namespace PryingEyes
                 var modes = new[] { FullScreenMode.FullScreenWindow, FullScreenMode.ExclusiveFullScreen, FullScreenMode.Windowed };
                 displayDraft.mode = modes[Wrap(System.Array.IndexOf(modes, displayDraft.mode) + d, modes.Length)];
                 displayDraft.hz = 0; NormalizeDisplay();
-            }, out modeValue);
-            Choice(videoTab, "Formato", 285, 120, d => { aspectFilter = Wrap(aspectFilter + d, 4); NormalizeDisplay(); }, out aspectValue);
+            }, out modeValue, out modePrevious, out _);
+            Choice(videoTab, "Formato", 285, 120, d => { aspectFilter = Wrap(aspectFilter + d, 4); NormalizeDisplay(); }, out aspectValue, out aspectPrevious, out _);
             Choice(videoTab, "Risoluzione", -285, 30, d =>
             {
                 var modes = VideoSettings.Modes(displayDraft.mode, aspectFilter);
@@ -152,8 +152,9 @@ namespace PryingEyes
         {
             if (!displayPending) return;
             float left = displayDeadline - Time.realtimeSinceStartup;
-            previewCountdown.text = "Ripristino automatico tra " + Mathf.Max(0, Mathf.CeilToInt(left)) + " secondi.\nInvio conferma la scelta · Esc ripristina";
-            if (left <= 0 || Input.GetKeyDown(KeyCode.Escape)) CancelDisplayPreview();
+            previewCountdown.text = "Ripristino automatico tra " + Mathf.Max(0, Mathf.CeilToInt(left)) + " secondi.\n" +
+                (PadControls.Preferred ? "A conferma la scelta · B ripristina" : "Invio conferma la scelta · Esc ripristina");
+            if (left <= 0 || Input.GetKeyDown(KeyCode.Escape) || PadControls.Cancel) CancelDisplayPreview();
         }
     }
 }

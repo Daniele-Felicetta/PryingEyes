@@ -221,7 +221,7 @@ namespace PryingEyes
         {
             if (!PadOnly) return;
             Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = GameMenu.Blocked;
+            Cursor.visible = GameMenu.Blocked && !PadMenuInput.NavMode;       // col controller il cursore resta nascosto anche nel menu
         }
 
         static void EnforceWindow()
@@ -259,7 +259,7 @@ namespace PryingEyes
             var pl = GameManager.I != null ? GameManager.I.player : null;
             Vector3 p = pl != null ? pl.transform.position : Vector3.zero;
             Debug.Log(FormattableString.Invariant(
-                $"[PryingEyes] split: io pos {p.x:F1} {p.y:F1} {p.z:F1} yaw {(pl != null ? Mathf.Repeat(pl.yaw * Mathf.Rad2Deg, 360f) : 0f):F0} controller {(PadControls.Connected ? 1 : 0)} stick {PadControls.Move.x:F2} {PadControls.Move.y:F2} sguardo {PadControls.LookRate.x:F2} menu {(GameMenu.Blocked ? "bloccato" : "libero")} coop {(Coop.Active ? 1 : 0)}"));
+                $"[PryingEyes] split: io pos {p.x:F1} {p.y:F1} {p.z:F1} yaw {(pl != null ? Mathf.Repeat(pl.yaw * Mathf.Rad2Deg, 360f) : 0f):F0} controller {(PadControls.Connected ? 1 : 0)} stick {PadControls.Move.x:F2} {PadControls.Move.y:F2} sguardo {PadControls.LookRate.x:F2} menu {(GameMenu.Blocked ? "bloccato" : "libero")} coop {(Coop.Active ? 1 : 0)} fuoco {(Application.isFocused ? 1 : 0)} ui {(UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.isFocused ? 1 : 0)}"));
         }
 
         static void WatchChildren()

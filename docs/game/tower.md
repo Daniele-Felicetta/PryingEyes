@@ -252,12 +252,13 @@ Game controls (translated from the original text, checked against the code where
 
 The map reveals rooms you have visited and marks weapons, candelabra and the exit you have seen up close. Some walls hide low passages: hold C or Ctrl to crawl through. Enemies deal 50% extra damage (`PlayerController.cs`; the condition is not verified). The HUD shows charge, spares and the wait before the next ping. The arrow at the top points to the exit lift and shows when it is open (not verified).
 
-### Controller (split screen only)
+### Controller
 
-In a split screen (main menu, **Schermo condiviso**) each player can use an XInput controller: left stick to move (pressed: run), right
-stick to look (pressed: knife), RT to fire, LT to aim, A to jump, B to crouch, X to reload, Y to change weapon, RB to use and buy, and LB as
-a second layer for the veil, fire mode, music box, mine, map, ping and battery. The full table, the layout of the windows and the limits are
-in [../multiplayer/split-screen.md](../multiplayer/split-screen.md#controller). A normal game does not read controllers.
+An XInput controller plays the normal game, the online co-op and the split screen, and drives every menu: left stick to move (pressed: run),
+right stick to look (pressed: knife), RT to fire, LT to aim, A to jump, B to crouch, X to reload, Y to change weapon, RB to use and buy, and
+LB as a second layer for the veil, fire mode, music box, mine, map, ping and battery. In the menus the D-pad or the left stick moves, A
+confirms, B goes back and Start pauses. The game finds the controller by itself (press a button). The full tables, the rules and the limits are
+in [controller.md](controller.md).
 
 ### Touch controls
 

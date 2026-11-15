@@ -50,7 +50,7 @@ namespace PryingEyes
             Label(splitWait, "Titolo", new Vector2(0, 70), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Schermo condiviso", Ink, FontStyle.Normal);
             splitWaitStatus = Label(splitWait, "Stato", new Vector2(0, 0), new Vector2(1100, 34), 22, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
 
-            padHelp = Label(pausePanel, "Comandi controller", new Vector2(420, 10), new Vector2(430, 300), 15, TextAnchor.UpperLeft, PadSheet, Dim, FontStyle.Normal);
+            padHelp = Label(pausePanel, "Comandi controller", new Vector2(420, -120), new Vector2(430, 300), 15, TextAnchor.UpperLeft, PadSheet, Dim, FontStyle.Normal);      // sotto la frase e la riga di rete: stanno al centro fino a +-260
             padHelp.gameObject.SetActive(false);
         }
 
@@ -137,7 +137,7 @@ namespace PryingEyes
             var leave = pausePanel.Find("Pulsante Torna al menu");
             var text = leave != null ? leave.GetComponentInChildren<Text>() : null;
             if (text != null) text.text = SplitScreen.Active ? (SplitScreen.IsChild ? "Lascia la partita" : "Chiudi lo split screen") : "Torna al menu";
-            if (padHelp != null) padHelp.gameObject.SetActive(PadControls.Enabled);
+            if (padHelp != null) padHelp.gameObject.SetActive(PadControls.Preferred);
         }
     }
 }

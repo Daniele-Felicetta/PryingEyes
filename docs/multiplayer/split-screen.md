@@ -38,27 +38,11 @@ would stretch it, so the horizontal angle is capped at 125 degrees (`SplitScreen
 
 ## Controller
 
-Only XInput controllers are read (Xbox and compatible; `xinput1_4.dll`, `xinput1_3.dll` as a fallback). A PlayStation or Switch
-controller needs an XInput wrapper such as Steam Input or DS4Windows (not verified).
-
-| Control | Action |
-| --- | --- |
-| Left stick | Move (pressed: run on/off; it also stops when you stop, aim or fire) |
-| Right stick | Look (pressed: knife) |
-| RT / LT | Fire / aim |
-| A / B / X / Y | Jump / crouch (hold) / reload / change weapon |
-| RB | Use, buy, pick up (`F`) |
-| D-pad left, right | Lean |
-| D-pad up / down | Torch / holy water |
-| LB + A, B, X, Y | Veil / fire mode / music box / reliquary mine |
-| LB + D-pad up, down, left | Map / ping the doors / replace the battery |
-| Start / Back (hold) | Pause / scoreboard |
-
-The sticks have dead zones (7849 and 8689 of 32767), the triggers switch on at half a stroke and off at 30% (`PadControls.Mapper`);
-look speed follows a curve, so small movements are fine and a full push turns fast (3.2 rad/s at most horizontally at sensitivity 1).
-The controller goes through the same `TouchControls` actions as the touch buttons, so every action has exactly one code path
-(`TouchControls.Held`, `Down`, `Move`). A window driven by a controller never locks the cursor (the mouse belongs to player 1); the cursor
-shows only while a menu is open. The menu (pause) lists these controls when the window uses a controller.
+The mapping, the menus and the on-screen hints are on [the controller page](../game/controller.md); a split screen uses the same ones. What is
+specific to a split screen: the slots are given out by `SplitScreen` and never searched for (player 2 gets the first connected controller, and so
+on), the controllers are read straight from XInput so they work in a window that has no focus, and a window driven by a controller never locks the
+cursor (the mouse belongs to player 1; the cursor shows only while a menu is open). The pause menu of such a window lists the controller's buttons,
+and its menu is meant to answer to the controller even without focus (`PadEventSystem`; not observed, the windows of the visible test all reported focus).
 
 ## How it works
 
@@ -127,5 +111,6 @@ exactly the expected rectangles and borderless, and the pictures show four diffe
   125% of the test machine is not verified (the placement uses real pixels).
 - The performance with four players on a modest machine is not measured: four copies of the game run at once.
 - A split screen cannot be combined with an online co-op: the menu button is disabled while a co-op game is on.
-- Controllers work only in a split screen. A normal single-player or online game does not read them (`PadControls.Enable` is called only
-  by `SplitScreen`).
+- Controllers also work in the normal game and the online co-op since 15 November 2026 (the game finds the controller by itself, see
+  [the controller page](../game/controller.md)); in a split screen the slots stay under `SplitScreen`'s control, and player 1 without a
+  controller does not search for one, because the controllers belong to the other players.

@@ -41,6 +41,13 @@ giocatore 1...*). The pause menu of a split-screen window says **Chiudi lo split
 window uses a controller, lists the controller's buttons. Window layout, controls and checks: [../multiplayer/split-screen.md](../multiplayer/split-screen.md).
 The windows of players 2 to 4 skip the saved display settings: each has the size of its part of the screen.
 
+## Keyboard and controller navigation
+
+The menu input is `PadMenuInput`, not Unity's default: arrows, WASD, D-pad and the left stick move the selection, Enter, Space and A confirm,
+Esc and B go back, Start toggles the pause. A brass frame marks the selected item when you navigate without the mouse, the footer and the pause
+text name the keys of the device in use, the two settings tabs are chosen with left and right, sliders are adjusted with left and right, and a
+text field is entered only with Enter, A or a click. Details and checks: [controller.md](controller.md).
+
 ## Verification
 
 - `PryingEyes.EditorTools.MenuReview.Run` renders main menu, display, comfort, guide and co-op panels at 1280×720,

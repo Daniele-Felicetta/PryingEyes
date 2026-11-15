@@ -15,6 +15,8 @@ Unity 6 (6000.6.7f1), Windows player, co-op over FishNet (UDP port 7807). The ma
   player, the `Builds/` layout and the other platforms are in [Building, shipping and CI](docs/engineering/building-and-shipping.md).
 - **Co-op**: *Cooperativa* in the main menu. One player hosts and the others type the host's address. There is no relay: to play over the
   Internet the host needs UDP port 7807 reachable. Design, protocol and limits are in [docs/multiplayer](docs/multiplayer/README.md).
+- **Controller**: an Xbox-compatible (XInput) controller plays the game and drives the menus; press a button and the game finds it. Mapping and
+  rules in [docs/game/controller.md](docs/game/controller.md).
 - **Split screen**: *Schermo condiviso* in the main menu, two to four players on one PC, one window each (keyboard and mouse for player 1, an
   Xbox-compatible controller for each of the others). Layout, controls and limits are in
   [docs/multiplayer/split-screen.md](docs/multiplayer/split-screen.md).

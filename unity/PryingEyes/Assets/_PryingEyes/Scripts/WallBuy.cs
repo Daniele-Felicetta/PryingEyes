@@ -307,7 +307,7 @@ namespace PryingEyes
                 if (!same && weapon.WeaponInSlot(0) >= 0 && weapon.WeaponInSlot(1) >= 0)
                     extra = "   (sostituisce " + WeaponDefs.All[weapon.weaponIndex].name + ")";
                 gm.hud.SetPrompt((same ? "MUNIZIONI " : "ACQUISTA ") + near.displayName
-                    + " — " + cost + " PUNTI   [F]" + extra);
+                    + " — " + cost + " PUNTI   [" + PadControls.UseKey + "]" + extra);
             }
             foreach (var w in all)
                 if (w != null && w.glow != null) w.glow.intensity = w == near ? 2.4f + Mathf.Sin(Time.time * 3.2f) * 0.5f : 1.0f;

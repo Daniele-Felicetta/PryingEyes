@@ -56,21 +56,27 @@ namespace PryingEyes
             bool confirming = displayPending;
             UpdateDisplayPreview();
             if (confirming) return;
-            if (Blocked) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
+            bool padBack = false;
+            if (Blocked)
+            {
+                Cursor.lockState = CursorLockMode.None; Cursor.visible = !PadMenuInput.NavMode;      // col controller o la tastiera il cursore sta nascosto
+                padBack = PadUpdate();
+            }
             if (coopPanel.gameObject.activeSelf && coopStatus != null)
             {
                 coopStatus.text = Coop.Available ? Coop.Status : "La cooperativa non è disponibile in questa versione.";
                 hostButton.interactable = joinButton.interactable = Coop.Available && !Coop.Active;
             }
             SplitUpdate();
-            if (!Input.GetKeyDown(KeyCode.Escape) && !TouchControls.Down(TouchControls.Action.Pause)) return;
+            bool toggle = Input.GetKeyDown(KeyCode.Escape) || TouchControls.Down(TouchControls.Action.Pause);     // Esc e Start aprono e chiudono la pausa
+            if (!toggle && !padBack) return;                                                                         // B torna solo indietro: in gioco e' "abbassati"
             if (settingsPanel.gameObject.activeSelf) { Back(); return; }
             if (leavePanel.gameObject.activeSelf) { Show(pausePanel); return; }
             if (helpPanel.gameObject.activeSelf) { Show(helpFrom); return; }
             if (splitPanel.gameObject.activeSelf) { Show(mainPanel); return; }
             if (coopPanel.gameObject.activeSelf) { CoopBack(); return; }
             if (InMenu) return;
-            if (Paused) Resume(); else Pause();
+            if (Paused) Resume(); else if (toggle) Pause();
         }
 
         // ---------- stato ----------
@@ -171,8 +177,8 @@ namespace PryingEyes
             if (InMenu || Paused) return;
             Paused = true;
             if (pauseNet != null) pauseNet.text = NetInfo(); SplitPauseText();
-            if (pauseHint != null) pauseHint.text = Coop.Active ? "Gli altri continuano a giocare. " + (PadControls.Enabled ? "Start per riprendere." : "Esc per riprendere.") : "La partita è sospesa. Esc per riprendere.";
             Show(pausePanel);
+            shownHints = null; RefreshHints();       // la frase "per riprendere" nomina i tasti del dispositivo in uso
             Refresh();
         }
 
@@ -188,7 +194,8 @@ namespace PryingEyes
             settingsFrom = from;
             SyncSliders();
             SyncDisplay();
-            SettingsTab(!SplitScreen.Active); videoTabButton.interactable = !SplitScreen.Active;      // nello split screen la misura delle finestre non si cambia dal menu
+            videoTabButton.interactable = !SplitScreen.Active;      // nello split screen la misura delle finestre non si cambia dal menu
+            SettingsTab(!SplitScreen.Active);
             Show(settingsPanel);
         }
 
@@ -203,17 +210,24 @@ namespace PryingEyes
 
         void Show(RectTransform p)
         {
+            var system = EventSystem.current;
+            // tornando indietro alla schermata da cui si era partiti si ritrova il pulsante che l'aveva aperta
+            GameObject restore = null;
+            if (p == null) panelStack.Clear();
+            else if (panelStack.Count > 0 && panelStack.Peek().panel == p) restore = panelStack.Pop().selected;
+            else if (currentPanel != null && currentPanel != p) panelStack.Push((currentPanel, system != null ? system.currentSelectedGameObject : null));
+            currentPanel = p;
             mainPanel.gameObject.SetActive(p == mainPanel);
             pausePanel.gameObject.SetActive(p == pausePanel);
             settingsPanel.gameObject.SetActive(p == settingsPanel);
             coopPanel.gameObject.SetActive(p == coopPanel);
             helpPanel.gameObject.SetActive(p == helpPanel);
             leavePanel.gameObject.SetActive(p == leavePanel); splitPanel.gameObject.SetActive(p == splitPanel); splitWait.gameObject.SetActive(p == splitWait);
-            if (EventSystem.current != null)
+            if (system != null)
             {
-                EventSystem.current.SetSelectedGameObject(null);
-                var first = p != null ? p.GetComponentInChildren<Button>() : null;
-                if (first != null) EventSystem.current.SetSelectedGameObject(first.gameObject);
+                system.SetSelectedGameObject(null);
+                var pick = restore != null && restore.activeInHierarchy ? restore : FirstSelectable(p);
+                if (pick != null) system.SetSelectedGameObject(pick);
             }
         }
 
@@ -262,8 +276,7 @@ namespace PryingEyes
             scaler.referenceResolution = new Vector2(1280, 720);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
             gameObject.AddComponent<GraphicRaycaster>();
-            if (FindAnyObjectByType<EventSystem>() == null)
-                new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            PadMenuInput.Install();         // EventSystem con l'input dei menu: tastiera, mouse e controller (croce, A, B)
 
             backdrop = Stretch(transform as RectTransform, "Velo");
             var veil = backdrop.gameObject.AddComponent<Image>();
@@ -309,13 +322,15 @@ namespace PryingEyes
             Label(helpPanel, "Titolo", new Vector2(0, 235), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "La Torre", Ink, FontStyle.Normal);
             Label(helpPanel, "Obiettivo", new Vector2(0, 150), new Vector2(1000, 60), 23, TextAnchor.MiddleCenter,
                 "Sopravvivi alle ondate. Dopo tre ondate puoi raggiungere l’ascensore e scendere.", Ink, FontStyle.Normal);
-            Label(helpPanel, "Furtivo", new Vector2(0, 60), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
-                "TIENITI IN MOVIMENTO\nI nemici ti inseguono subito. Usa scale, balconate e ripari per creare una via di fuga. G per il corpo a corpo.", Dim, FontStyle.Normal);
-            Label(helpPanel, "Round", new Vector2(0, -35), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
-                "APRI NUOVE AREE\nLe ondate partono da sole. Spendi i punti alle porte con F: le aree acquistate restano aperte per tutti. V indica le porte.", Dim, FontStyle.Normal);
+            helpMove = Label(helpPanel, "Furtivo", new Vector2(0, 60), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft, HelpMoveText(false), Dim, FontStyle.Normal);
+            helpRound = Label(helpPanel, "Round", new Vector2(0, -35), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft, HelpRoundText(false), Dim, FontStyle.Normal);
             Label(helpPanel, "Risorse", new Vector2(0, -130), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
                 "ESPLORA E SCEGLI\nCompra armi ai muri, cerca pile e libri nei santuari. Se muori perdi metà dei punti e l'ultimo perk acquistato.", Dim, FontStyle.Normal);
+            helpPad = Label(helpPanel, "Controller", new Vector2(0, -190), new Vector2(1120, 26), 16, TextAnchor.MiddleCenter,
+                "CONTROLLER  ·  RT spara  ·  LT mira  ·  A salta  ·  B abbassati  ·  X ricarica  ·  Y arma  ·  RB usa e compra  ·  Start pausa", Brass, FontStyle.Normal);
+            helpPad.gameObject.SetActive(false);
             MakeButton(helpPanel, "Indietro", new Vector2(0, -240), () => Show(helpFrom));
+            BuildPadUi();
         }
 
         Slider Row(Transform parent, float y, string name, float init, UnityAction<float> set, out Text value,
@@ -382,6 +397,7 @@ namespace PryingEyes
             input.textComponent = text;
             input.placeholder = ph;
             input.characterLimit = 40;
+            input.shouldActivateOnSelect = false;       // arrivarci con la tastiera o il controller non apre la scrittura (e non intrappola la navigazione): la apre Invio, A o un clic
             return input;
         }
 
@@ -431,6 +447,11 @@ namespace PryingEyes
             sl.handleRect = handle;
             sl.minValue = min; sl.maxValue = max;
             sl.SetValueWithoutNotify(init);
+            // sinistra e destra regolano il cursore (con la navigazione automatica saltavano a quello dell'altra colonna); su e giu' lo lasciano
+            sl.navigation = new Navigation { mode = Navigation.Mode.Vertical };
+            var cb = sl.colors;
+            cb.highlightedColor = cb.selectedColor = new Color(1f, 0.80f, 0.42f, 1f);      // la maniglia diventa ottone quando e' scelto
+            sl.colors = cb;
             return sl;
         }
     }

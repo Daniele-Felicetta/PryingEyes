@@ -105,6 +105,8 @@ namespace PryingEyes
             else { Proc.ProcAmbience.Create(); MusicDirector.Create(); }     // ambiente dei piani e musica adattiva delle ondate
             if (proc) { SplitScreen.BootFromArgs(); Coop.BootFromArgs(); }   // split screen: finestre figlie (-splitchild); prove con due processi: -coophost / -coopjoin <indirizzo>
             if (!autoTest && !camShots) GameMenu.Create();   // menu principale: la prima ondata parte da "Gioca"
+            // controller: lo cerca il gioco e adotta il primo su cui si preme un tasto (nello split screen lo slot lo sceglie SplitScreen; nelle prove no, salvo -padauto)
+            if (!SplitScreen.IsChild && (!VideoSettings.Automated || HasArg("-padauto"))) PadControls.EnableAuto();
         }
 
         /// <summary>Avvia la partita: prima ondata. Lo chiama il menu su "Gioca".</summary>

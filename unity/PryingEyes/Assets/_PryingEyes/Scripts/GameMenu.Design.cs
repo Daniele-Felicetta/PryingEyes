@@ -27,8 +27,7 @@ namespace PryingEyes
                 "NESSUNA STANZA È VUOTA", Dim, FontStyle.Normal);
             Plate(backdrop, "Fregio superiore", new Vector2(0, 298), new Vector2(1170, 1), new Color(0.69f, 0.53f, 0.30f, 0.4f));
             Plate(backdrop, "Fregio inferiore", new Vector2(0, -298), new Vector2(1170, 1), new Color(0.69f, 0.53f, 0.30f, 0.4f));
-            Label(backdrop, "Footer", new Vector2(0, -324), new Vector2(1120, 24), 12, TextAnchor.MiddleCenter,
-                "WASD / FRECCE   NAVIGA       ·       INVIO   SCEGLI       ·       ESC   INDIETRO", Dim, FontStyle.Normal);
+            footer = Label(backdrop, "Footer", new Vector2(0, -324), new Vector2(1120, 24), 12, TextAnchor.MiddleCenter, FooterKeys, Dim, FontStyle.Normal);
         }
 
         void BuildMainMenu()
@@ -99,6 +98,10 @@ namespace PryingEyes
             settingsBackButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(video ? -285 : 0, -260);
             videoTabButton.GetComponent<Image>().color = video ? new Color(0.26f, 0.21f, 0.13f) : BtnColor;
             comfortTabButton.GetComponent<Image>().color = !video ? new Color(0.26f, 0.21f, 0.13f) : BtnColor;
+            // con tastiera e controller le due schede si scelgono con sinistra e destra e portano in basso al primo comando della scheda aperta
+            // (la navigazione automatica sceglierebbe il comando piu' vicino, non l'altra scheda)
+            videoTabButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = comfortTabButton, selectOnDown = video ? (Selectable)modePrevious : sBrightness };
+            comfortTabButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnLeft = videoTabButton.interactable ? videoTabButton : null, selectOnDown = video ? (Selectable)aspectPrevious : sMaster };
         }
     }
 }
