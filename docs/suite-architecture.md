@@ -2,7 +2,9 @@
 
 The goal of the engineering work is a suite that outlives Prying Eyes. This page is the map: which parts are already
 independent of the game, what enforces that, and what is still game-specific. It is written to be checked, not admired:
-`python tools/check_suite.py` fails when a boundary below is crossed, and `tools/ship.ps1` runs it before every commit.
+`python tools/check_suite.py` fails when a boundary below is crossed; `tools/ship.ps1` runs it, with the Python unit tests, before every
+commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the two .NET rule labs, on every push to `preview` and every
+pull request against it.
 
 ## Layers
 
@@ -14,6 +16,20 @@ independent of the game, what enforces that, and what is still game-specific. It
 | Guard | `tools/check_suite.py`, `tools/test_check_suite.py` | the repository layout | the guard is itself tested against a fixture repository with every kind of violation |
 
 The C# packages already use neutral assembly and namespace names (`Production.*`); only the package ids carry the game name.
+
+## Where the gate runs
+
+| Where | What | Needs |
+| --- | --- | --- |
+| `tools/ship.ps1`, before every commit | `check_suite.py` and the Python unit tests | Python, no Unity |
+| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state` and `studio.py test survival`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of a few MB |
+
+The labs are not part of `ship.ps1`: they take the project lock and would fail with `PROJECT_BUSY` whenever another agent has a
+production running on the same checkout. The runner is Windows because the engine owns process trees with Job Objects and its POSIX
+variant has never been verified. The checkout lists the only paths the gate reads (the `sparse-checkout` block of the workflow); to check
+that list after a change, make a throwaway sparse worktree with exactly those patterns and run the four commands there. There is no branch
+protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: a red run on `preview` is fixed before
+anything else (rule 8 of `AGENTS.md`).
 
 ## What the engine gives any project
 

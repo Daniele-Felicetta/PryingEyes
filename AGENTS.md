@@ -17,3 +17,12 @@ The map and the reasons are in `docs/suite-architecture.md`; this page is the sh
    explicit flag (for example `citylab.py --require-assets`).
 6. Do not run `tools/check_presentation.py` or the player's `-uitest` unprompted: they change the game's registry settings.
 7. The maintainer writes in Italian; reply to them in Italian. Keep code, identifiers and docs in English.
+8. **CI** (`.github/workflows/gate.yml`): every push to `preview` and every pull request against it runs the rule-3 gate plus the two
+   .NET rule labs (`python tools/studio.py test weapon-state` and `... test survival`) on a sparse checkout. Before starting work look at
+   the latest run on `preview` (`gh run list --branch preview --limit 1`); if it is red, fix that before anything else.
+9. **One writer per Unity checkout**: in the checkout the editor opens, one agent writes at a time. Anyone who does not need the editor
+   works in a separate git worktree on its own branch and reaches `preview` through a pull request.
+10. **What `tools/ship.ps1` records**: it builds the working tree, not the commit. After committing it lists the uncommitted sources under
+    `unity/PryingEyes/{Assets,Packages,ProjectSettings}` (derived files and line-ending-only changes excluded) in the `build:` and `exe:`
+    lines, an AVVISO, `unity_logs/ship_built.json` and `Builds/Prova/build_info.json`. It never blocks on a dirty tree; `-RequireClean`
+    refuses before the build and is for releases.
