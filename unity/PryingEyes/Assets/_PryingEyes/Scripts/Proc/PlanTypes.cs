@@ -148,6 +148,35 @@ namespace PryingEyes.Proc
         /// <summary>Pianta a griglia (PlanGrid.cs): poche stanze grandi con un ruolo (RoomType), da una a quattro porte ciascuna.</summary>
         public bool grid;
 
+        /// <summary>Le stanze di difficile accesso (PlanAnnex.cs): torri, cripte e giardini segreti. Non sono stanze della pianta: stanno
+        /// dentro la sala madre (torre, botola) o fuori dai suoi muri (giardino), e la visita del piano non le conta.</summary>
+        public List<Annex> annexes = new List<Annex>();
+        /// <summary>Le porte del giardino segreto: tagli nel muro della sala madre (b = -2), che ne' le stanze ne' i percorsi vedono.</summary>
+        public List<Opening> annexDoors = new List<Opening>();
+
+        /// <summary>La sala madre di un giardino che contiene il punto (m): lo spazio fuori dai muri conta come sala madre per chi chiede
+        /// "dove sono" (FloorInstance.RoomAt). Null se il punto non e' in un giardino.</summary>
+        public Room AnnexHostAt(float x, float z)
+        {
+            foreach (var a in annexes) if (a.OutsideContains(x, z)) return rooms[a.host];
+            return null;
+        }
+
+        /// <summary>La cripta la cui camera (sotto il pavimento) sta sotto il punto (m), o null.</summary>
+        public Annex CryptAt(float x, float z)
+        {
+            foreach (var a in annexes)
+                if (a.kind == AnnexKind.Cripta && x >= a.x0 * 0.1f && x <= a.x1 * 0.1f && z >= a.z0 * 0.1f && z <= a.z1 * 0.1f) return a;
+            return null;
+        }
+
+        /// <summary>La sala madre della cripta che sta sotto il punto (m): la camera puo' sporgere dalla sala, e li' sotto chi cammina e' comunque della sala madre.</summary>
+        public Room AnnexHostBelow(float x, float z)
+        {
+            var a = CryptAt(x, z);
+            return a == null ? null : rooms[a.host];
+        }
+
         /// <summary>Le stanze di un ruolo (nella pianta a griglia).</summary>
         public List<Room> OfType(RoomType t)
         {
@@ -228,6 +257,19 @@ namespace PryingEyes.Proc
             {
                 minX = Math.Min(minX, r.x0); minZ = Math.Min(minZ, r.z0);
                 maxX = Math.Max(maxX, r.x1); maxZ = Math.Max(maxZ, r.z1);
+            }
+        }
+
+        /// <summary>Gli estremi di tutto cio' che si cammina (dm), giardini fuori dai muri compresi: per la navmesh. Le mappe usano minX..maxZ.</summary>
+        public void WalkBounds(out int x0, out int z0, out int x1, out int z1)
+        {
+            ComputeBounds();
+            x0 = minX; z0 = minZ; x1 = maxX; z1 = maxZ;
+            foreach (var a in annexes)
+            {
+                if (a.kind != AnnexKind.Giardino) continue;
+                x0 = Math.Min(x0, Math.Min(a.x0, a.px0)); z0 = Math.Min(z0, Math.Min(a.z0, a.pz0));
+                x1 = Math.Max(x1, Math.Max(a.x1, a.px1)); z1 = Math.Max(z1, Math.Max(a.z1, a.pz1));
             }
         }
 

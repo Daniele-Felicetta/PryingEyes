@@ -346,6 +346,17 @@ namespace PryingEyes.Proc
                     if (dx * dx + dz * dz < 2.5f * 2.5f) { bad = true; break; }
                 }
                 if (bad) continue;
+                // il piazzale degli annessi della sala (base di una torre, botola, porta di un giardino) resta libero
+                foreach (var an in plan.annexes)
+                {
+                    if (an.host != r.id) continue;
+                    bool ax = Plan.AlongX(an.side);
+                    float cx = an.HasShaft ? an.AxisX : (ax ? an.center * 0.1f : an.line * 0.1f), cz = an.HasShaft ? an.AxisZ : (ax ? an.line * 0.1f : an.center * 0.1f);
+                    float rad = an.HasShaft ? 4.6f : 3.6f;
+                    float dx = cx - x, dz = cz - z;
+                    if (dx * dx + dz * dz < rad * rad) { bad = true; break; }
+                }
+                if (bad) continue;
                 if (grid == null) grid = RoomGrid.Build(r);
                 if (!grid.Reachable(plan, r, p, halfXZ)) continue;
                 pos = new Vector3(x, fh.point.y, z);

@@ -20,6 +20,9 @@ namespace PryingEyes.Proc
         /// <summary>Pianta del nuovo ciclo a ondate: meno aree, più grandi, senza stanza segreta a passaggio basso.
         /// Attivata dal nuovo ciclo quando sarà integrato; il laboratorio la verifica con il comando survival.</summary>
         public static bool SurvivalLayout;
+        /// <summary>Altezza dei muri (m) delle sale a balconata del ciclo a ondate: a tre quote (atrio) e a una quota. Sopra l'ultimo anello o
+        /// la cella di una torre resta la volta (vedi PlanAnnex.cs: CellHigh/CellLow piu' CellHeight piu' due metri e mezzo).</summary>
+        public const float CathedralHigh = 17.6f, CathedralLow = 13.2f;
 
         /// <summary>Dimensioni possibili di una colonna o di una riga della griglia (dm): le stanze sullo stesso allineamento le condividono,
         /// cosi' i muri combaciano e le stanze non sono tutte uguali.</summary>
@@ -207,8 +210,11 @@ namespace PryingEyes.Proc
                     room.upperGallery = true;
                 if (room.upperGallery)
                 {
-                    room.wallH = Math.Max(room.wallH, room.GalleryLevels == 2 ? 11.6f : 8.2f);
+                    // le sale a balconata del ciclo a ondate sono cattedrali: sopra l'ultimo anello restano da cinque a sei metri di volta
+                    float minH = SurvivalLayout ? (room.GalleryLevels == 2 ? CathedralHigh : CathedralLow) : (room.GalleryLevels == 2 ? 11.6f : 8.2f);
+                    room.wallH = Math.Max(room.wallH, minH);
                     room.ridgeH = Math.Max(room.ridgeH, room.wallH);
+                    if (SurvivalLayout && room.ceil == CeilKind.Gable) room.ridgeH = Math.Max(room.ridgeH, room.wallH + 4.5f);
                 }
                 if (room.ceil == CeilKind.Gable || room.ceil == CeilKind.BarrelRound || room.ceil == CeilKind.BarrelPointed)
                     room.ridgeAlongX = room.W > room.D || (room.W == room.D && r.Chance(0.5));
@@ -239,6 +245,7 @@ namespace PryingEyes.Proc
             AddWindows(p, r);
             AddThemeWindows(p, r);
             AddGridPassages(p, r);
+            TallenWindows(p, r);
             p.openings.RemoveAll(o =>
             {
                 if (o.sill < 0.5f && !o.oneSided) return false;
@@ -550,6 +557,49 @@ namespace PryingEyes.Proc
             var kind = ok[r.Weighted(w)].k;
             used[kind] = used.TryGetValue(kind, out int uu) ? uu + 1 : 1;
             return kind;
+        }
+
+        // ------------------------------------------------------------------ finestre delle cattedrali
+        /// <summary>Nelle sale-cattedrale (muri da 11 m in su) le finestrelle a un metro da terra stonano: quelle sui lati che danno sul vuoto diventano
+        /// lancette alte fin quasi sotto la volta, e sui lati che confinano con stanze piu' basse se ne aprono altre sopra il tetto del vicino
+        /// (cleristorio, come nella navata). Solo le sale a balconata del ciclo a ondate arrivano a queste altezze.</summary>
+        static void TallenWindows(Plan p, Rng r)
+        {
+            foreach (var o in p.openings)
+            {
+                if (o.b != -1 || o.oneSided || o.style == OpenStyle.Feritoia) continue;
+                var room = p.rooms[o.a];
+                if (room.wallH < 11f) continue;
+                o.style = OpenStyle.Lancetta;
+                o.sill = 2.6f;
+                o.top = Math.Min(room.wallH - 1.8f, o.sill + (room.wallH >= 16f ? 10.2f : 6.4f));
+            }
+            int n = p.rooms.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var room = p.rooms[i];
+                if (room.wallH < 11f || room.IsLift) continue;
+                foreach (var side in AllSides)
+                {
+                    bool ax = Plan.AlongX(side);
+                    int line = Plan.Line(room, side);
+                    foreach (var seg in p.Segments(room, side))
+                    {
+                        if (seg.other < 0) continue;
+                        var nb = p.rooms[seg.other];
+                        if (nb.IsLift) continue;
+                        float sill = Math.Max(nb.wallH, nb.ridgeH) + 0.9f, top = room.wallH - 1.8f;
+                        if (top - sill < 2.8f) continue;
+                        for (int c = seg.a0 + 28; c <= seg.a1 - 28; c += 62)
+                        {
+                            var o = new Opening { a = room.id, b = -1, alongX = ax, line = line, center = c, width = 14, style = OpenStyle.Lancetta, oneSided = true, variant = r.Range(0, 4) };
+                            Opening.Defaults(o);
+                            o.sill = sill; o.top = top;
+                            p.openings.Add(o);
+                        }
+                    }
+                }
+            }
         }
 
         // ------------------------------------------------------------------ passaggi bassi

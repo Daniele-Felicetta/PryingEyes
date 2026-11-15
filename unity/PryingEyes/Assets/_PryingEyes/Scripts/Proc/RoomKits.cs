@@ -99,6 +99,7 @@ namespace PryingEyes.Proc
             fi.propRoots.Add(pg.transform);
 
             ReserveOpenings(c);
+            ReserveAnnexes(c);
             // Le due scale e il percorso sotto la balconata restano liberi dagli arredi casuali (sotto i solai solo ArenaCover mette ripari bassi).
             if (r.upperGallery) ReserveBalconies(c);
             if (r.kind != RoomKind.Corridoio && r.kind != RoomKind.Navata) ReserveSpokes(c);
@@ -551,6 +552,13 @@ namespace PryingEyes.Proc
                     float inten = church ? (o.oneSided ? 21f : 31f) : 6f;
                     float range = church ? 17f : 8.5f;
                     var direction = inw + Vector3.down * (o.oneSided ? 1.5f : 0.7f);
+                    // vetrate delle sale-cattedrale: la luce parte molto piu' in alto, quindi piu' forte, piu' lunga e piu' inclinata
+                    if (church && c.plan.grid && origin.y > 6f)
+                    {
+                        inten *= Mathf.Clamp(Mathf.Pow(origin.y / 3.9f, 1.6f), 1f, 6f);
+                        range += origin.y * 0.9f;
+                        direction = inw + Vector3.down * (o.oneSided ? 1.3f : 1.0f);
+                    }
                     if (key)
                     {
                         direction = keyTarget - origin;
@@ -696,7 +704,8 @@ namespace PryingEyes.Proc
                 for (int i = 0; i < n; i++)
                 {
                     float t = (i + 0.5f) / n - 0.5f;
-                    c.fi.groundSpawns.Add(ctr + a * (t * len));
+                    Vector3 q = ctr + a * (t * len);
+                    if (!AnnexRuntime.Forbidden(c.fi, q)) c.fi.groundSpawns.Add(q);
                 }
             }
             else
@@ -705,10 +714,12 @@ namespace PryingEyes.Proc
                 for (int i = 0; i < n; i++)
                 {
                     Vector3 p = ctr + new Vector3(c.rng.Range(-0.3f, 0.3f) * c.W * (n > 1 ? 1f : 0f), 0f, c.rng.Range(-0.3f, 0.3f) * c.D * (n > 1 ? 1f : 0f));
-                    if (r.Contains(p.x, p.z, 0.8f)) c.fi.groundSpawns.Add(p);
+                    // mai dentro un annesso (il fusto di una torre o di una botola ingombra la sala: li' resterebbe chiuso)
+                    if (r.Contains(p.x, p.z, 0.8f) && !AnnexRuntime.Forbidden(c.fi, p)) c.fi.groundSpawns.Add(p);
                 }
             }
-            c.fi.airSpawns.Add(new Vector3(ctr.x, Mathf.Min(2.4f, r.wallH - 0.6f), ctr.z));
+            var air = new Vector3(ctr.x, Mathf.Min(2.4f, r.wallH - 0.6f), ctr.z);
+            if (!AnnexRuntime.Forbidden(c.fi, air)) c.fi.airSpawns.Add(air);
         }
 
         // ---------------------------------------------------------------- ascensore

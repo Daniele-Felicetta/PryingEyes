@@ -21,19 +21,27 @@ namespace PryingEyes.Proc
         internal readonly List<Light> windowBounceSources = new List<Light>();
         /// <summary>Radici degli arredi: la navmesh li tratta da ostacoli non camminabili (la loro cima non e' un'isola).</summary>
         public readonly List<Transform> propRoots = new List<Transform>();
+        /// <summary>Gli annessi costruiti (torri, cripte, giardini): vedi AnnexRuntime.cs.</summary>
+        public readonly List<AnnexSite> annexSites = new List<AnnexSite>();
 
         public Room RoomAt(Vector3 p)
         {
+            // sotto il pavimento c'e' al piu' la camera di una cripta, che puo' sporgere fuori dalla sala madre: conta come la sala madre
+            if (p.y < -1.5f) { var below = plan.AnnexHostBelow(p.x, p.z); if (below != null) return below; }
             foreach (var r in plan.rooms)
                 if (r.Contains(p.x, p.z)) return r;
-            return null;
+            // il giardino segreto sta fuori dai muri, ma e' dell'ala della sala madre
+            return plan.AnnexHostAt(p.x, p.z);
         }
 
         /// <summary>Altezza del soffitto sopra il punto (per chi vola).</summary>
         public float CeilingAt(Vector3 p)
         {
+            if (p.y < -1.5f) { var crypt = plan.CryptAt(p.x, p.z); if (crypt != null) return crypt.FloorY + PlanAnnexGen.CryptHeight; }
             var r = RoomAt(p);
             if (r == null) return 3f;
+            // all'aperto (giardino) il soffitto e' il cielo: una quota ragionevole per chi vola
+            if (!r.Contains(p.x, p.z)) return 6.5f;
             return FloorBuilder.CeilHeight(r, p.x, p.z);
         }
     }
@@ -61,10 +69,13 @@ namespace PryingEyes.Proc
             if (parent != null) fi.root.transform.SetParent(parent, false);
             fi.roomGo = new GameObject[plan.rooms.Count];
             foreach (var r in plan.rooms) BuildRoom(fi, r);
+            BuildGardens(fi);
             RoomKits.PlaceWindowBounce(fi);
-            plan.ComputeBounds();
-            var b = new Bounds(new Vector3(M(plan.minX + plan.maxX) * 0.5f, 6f, M(plan.minZ + plan.maxZ) * 0.5f),
-                               new Vector3(M(plan.maxX - plan.minX) + 8f, 16f, M(plan.maxZ - plan.minZ) + 8f));
+            // la navmesh deve coprire anche i giardini fuori dai muri e, in altezza, dalla camera della cripta (-4,4 m) alle celle delle torri e alle volte delle cattedrali
+            plan.WalkBounds(out int wx0, out int wz0, out int wx1, out int wz1);
+            bool tall = plan.annexes.Count > 0 || plan.rooms.Exists(q => q.wallH > 12f);
+            var b = new Bounds(new Vector3(M(wx0 + wx1) * 0.5f, tall ? 7f : 6f, M(wz0 + wz1) * 0.5f),
+                               new Vector3(M(wx1 - wx0) + 8f, tall ? 28f : 16f, M(wz1 - wz0) + 8f));
             fi.bounds = b;
             return fi;
         }
@@ -202,10 +213,16 @@ namespace PryingEyes.Proc
             var frames = new MeshBuilder();
 
             // pavimento: sotto i muri fino alla linea di mezzo, cosi' alle soglie non resta nessun buco
-            shell.Quad(st.floor, new Vector3(x0, 0, z0), new Vector3(x0, 0, z1), new Vector3(x1, 0, z1), new Vector3(x1, 0, z0),
-                       new Vector2(x0, z0), new Vector2(x0, z1), new Vector2(x1, z1), new Vector2(x1, z0), Vector3.up);
+            // (la sala che ha una botola per la cripta ha il suo pavimento forato: una lastra spessa 50 cm con il foro del pozzo)
+            Annex cryptHere = null;
+            foreach (var an in plan.annexes) if (an.host == r.id && an.kind == AnnexKind.Cripta) cryptHere = an;
+            if (cryptHere != null) CryptHostFloor(shell, st, r, cryptHere);
+            else
+                shell.Quad(st.floor, new Vector3(x0, 0, z0), new Vector3(x0, 0, z1), new Vector3(x1, 0, z1), new Vector3(x1, 0, z0),
+                           new Vector2(x0, z0), new Vector2(x0, z1), new Vector2(x1, z1), new Vector2(x1, z0), Vector3.up);
 
             Ceiling(roof, r, st, ix0, ix1, iz0, iz1);
+            CathedralRibs(archTrim, plan, r);
 
             // muri
             foreach (Side s in new[] { Side.S, Side.N, Side.W, Side.E }) WallSide(shell, plan, r, st, s, ix0, ix1, iz0, iz1);
@@ -222,6 +239,9 @@ namespace PryingEyes.Proc
                         OpenChurchDoor(doors, fi, go.transform, r, o);
                 }
             }
+            // le porte dei giardini segreti (b = -2): solo il riquadro nel muro, il resto lo fa BuildGarden
+            foreach (var o in plan.annexDoors)
+                if (o.a == r.id) OpeningGeometry(shell, plan, r, o, st);
 
             // pianta a griglia: ogni porta ha la cornice (e la soglia) del colore della stanza che sta dall'altra parte, come le porte di Isaac
             if (plan.grid)
@@ -241,13 +261,18 @@ namespace PryingEyes.Proc
             Flush(go, "Cornici di tipo", frames, false, null);
 
             // il collider del pavimento e' un blocco: niente caduta tra i triangoli
-            var floorGo = new GameObject("Pavimento");
-            floorGo.transform.SetParent(go.transform, false);
-            var bc = floorGo.AddComponent<BoxCollider>();
-            bc.center = new Vector3((x0 + x1) * 0.5f, -0.25f, (z0 + z1) * 0.5f);
-            bc.size = new Vector3(x1 - x0, 0.5f, z1 - z0);
+            // (con la botola della cripta il pavimento e' la lastra forata del Guscio, che ha il suo collider di mesh)
+            if (cryptHere == null)
+            {
+                var floorGo = new GameObject("Pavimento");
+                floorGo.transform.SetParent(go.transform, false);
+                var bc = floorGo.AddComponent<BoxCollider>();
+                bc.center = new Vector3((x0 + x1) * 0.5f, -0.25f, (z0 + z1) * 0.5f);
+                bc.size = new Vector3(x1 - x0, 0.5f, z1 - z0);
+            }
 
             if (r.upperGallery) BuildGallery(fi, r, go);
+            BuildAnnexesIn(fi, r);
             if (r.cornerRadius > TH) BuildRoundedCorners(r, st, go);
             var window = RoomKits.Dress(fi, r, go.transform);
             if (r.church && ProcKit.HasMat("foschia_chiesa")) ChurchHaze(go.transform, x0, x1, z0, z1, r.wallH, window);
@@ -542,6 +567,8 @@ namespace PryingEyes.Proc
             var holes = new List<Hole>();
             foreach (var o in plan.OpeningsOn(r, s))
                 holes.Add(new Hole { c = M(o.center) - faceStart, hw = o.width * 0.05f, o = o });
+            foreach (var o in AnnexDoorsOn(plan, r, s))
+                holes.Add(new Hole { c = M(o.center) - faceStart, hw = o.width * 0.05f, o = o });
 
             DrawFace(mb, st.wall, st.dado, st.dadoH, origin, u, facing, len, top, breaks, holes, faceStart);
 
@@ -644,8 +671,8 @@ namespace PryingEyes.Proc
                     acc += seg; prevY = y1;
                 }
             }
-            // vetro al centro dello spessore (solo le finestre sul vuoto)
-            if (o.b < 0) Glass(mb, o, A, P, nOut);
+            // vetro al centro dello spessore (solo le finestre sul vuoto; la porta di un giardino, b = -2, e' un varco aperto)
+            if (o.b == -1) Glass(mb, o, A, P, nOut);
         }
 
         static void LancetFrame(MeshBuilder mesh, Room room, Opening opening, Material stone)

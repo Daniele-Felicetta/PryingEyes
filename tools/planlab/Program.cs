@@ -20,6 +20,7 @@ static class Program
         if (cmd == "room") return Room(a);
         if (cmd == "city") return City(a);
         if (cmd == "survival") return Survival(a.Length > 1 ? int.Parse(a[1]) : 1000);
+        if (cmd == "annex") return AnnexStats(a.Length > 1 ? int.Parse(a[1]) : 1000, Array.IndexOf(a, "list") >= 0);
         if (cmd == "grid") return GridStats(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "dump") return Dump(int.Parse(a[1]), int.Parse(a[2]));
         if (cmd == "passages") return Passages();
@@ -87,6 +88,57 @@ static class Program
             return 0;
         }
         catch (Exception e) { Console.Error.WriteLine("CITY_LAYOUT_INVALID: " + e.Message); return 1; }
+    }
+
+    // annex <quanti> [list]: genera piani del ciclo a ondate e controlla torri, cripte e giardini (PlanAnnex.cs): validita', determinismo, statistiche.
+    // Con "list" stampa una riga per piano con annessi (seme, piano, tipi, cancelli): serve a scegliere i semi da fotografare.
+    static int AnnexStats(int count, bool list = false)
+    {
+        PlanGen.SurvivalLayout = true;
+        int planned = 0, failed = 0, withAny = 0, secret = 0, gardenKey = 0, minTowerSlack = int.MaxValue;
+        var kinds = new int[3]; var gates = new int[3]; var perFloor = new int[13]; var plansPerFloor = new int[13];
+        var hostKinds = new Dictionary<string, int>();
+        string Describe(Plan p)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var x in p.annexes) sb.Append(x.kind).Append(x.host).Append(':').Append(x.cx).Append(',').Append(x.cz).Append(',').Append(x.floorY).Append(',').Append(x.gate).Append(x.secret).Append(';');
+            foreach (var o in p.annexDoors) sb.Append(o.line).Append(',').Append(o.center).Append(';');
+            return sb.ToString();
+        }
+        for (int i = 0; i < count; i++)
+        {
+            int seed = 9000 + i * 31, floor = 1 + i % 12;
+            var plan = PlanGen.Generate(seed, floor);
+            if (plan == null) { failed++; Console.WriteLine("ANNEX NOPLAN seed=" + seed + " floor=" + floor + ": " + PlanGen.LastFailure); continue; }
+            planned++; plansPerFloor[floor]++;
+            if (!PlanAnnexGen.Validate(plan, out string why)) { failed++; Console.WriteLine("ANNEX INVALID seed=" + seed + " floor=" + floor + ": " + why); continue; }
+            var again = PlanGen.Generate(seed, floor);
+            if (again == null || Describe(plan) != Describe(again)) { failed++; Console.WriteLine("ANNEX NONDETERMINISTIC seed=" + seed + " floor=" + floor); continue; }
+            if (plan.annexes.Count > 0) withAny++;
+            perFloor[floor] += plan.annexes.Count;
+            if (list && plan.annexes.Count > 0)
+            {
+                var parts = new List<string>();
+                foreach (var an in plan.annexes) parts.Add($"{an.kind}/{plan.rooms[an.host].kind}/{an.gate}{(an.secret ? "/secret" : "")}");
+                Console.WriteLine($"ANNEXLIST seed={seed} floor={floor}: {string.Join(" ", parts)}");
+            }
+            foreach (var an in plan.annexes)
+            {
+                kinds[(int)an.kind]++; gates[(int)an.gate]++;
+                if (an.secret && an.kind == AnnexKind.Torre) secret++;
+                if (an.gate == GateKind.Chiave) gardenKey++;
+                var host = plan.rooms[an.host];
+                string hk = an.kind + "@" + host.kind + "/" + host.type + (host.upperGallery ? "/L" + host.GalleryLevels : "");
+                hostKinds[hk] = hostKinds.TryGetValue(hk, out int n) ? n + 1 : 1;
+                if (an.kind == AnnexKind.Torre) minTowerSlack = Math.Min(minTowerSlack, (int)Math.Round((host.wallH - (an.floorY / 10f + PlanAnnexGen.CellHeight)) * 10));
+            }
+        }
+        Console.WriteLine($"ANNEX: {planned} piani, {withAny} con annessi, {failed} guasti");
+        Console.WriteLine($"  torri {kinds[0]} (nascoste {secret}), cripte {kinds[1]}, giardini {kinds[2]}; cancelli: sigilli {gates[0]}, tributo {gates[1]}, chiave {gates[2]}");
+        Console.WriteLine("  per piano (media annessi): " + string.Join(" ", Array.ConvertAll(new[] { 1, 2, 3, 4, 6, 8, 12 }, f => f + "=" + (plansPerFloor[f] == 0 ? "-" : (perFloor[f] / (double)plansPerFloor[f]).ToString("F1")))));
+        Console.WriteLine("  spazio sopra la cella (dm, minimo): " + (minTowerSlack == int.MaxValue ? "-" : minTowerSlack.ToString()));
+        foreach (var kv in new SortedDictionary<string, int>(hostKinds)) Console.WriteLine("  " + kv.Key + " = " + kv.Value);
+        return failed == 0 ? 0 : 1;
     }
 
     static int Survival(int count)

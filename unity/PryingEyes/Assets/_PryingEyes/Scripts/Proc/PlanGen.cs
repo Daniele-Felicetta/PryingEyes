@@ -57,7 +57,13 @@ namespace PryingEyes.Proc
                     // pianta a griglia (fase 4): ruoli, passaggi e controlli propri in PlanGrid.cs
                     var g = BuildGrid(rng, seed, floor, simple: attempt >= 60);
                     if (g == null) continue;
-                    if (Validate(g, out string gwhy) && ValidateGrid(g, out gwhy)) { LastAttempts = attempt + 1; return g; }
+                    if (Validate(g, out string gwhy) && ValidateGrid(g, out gwhy))
+                    {
+                        // torri, cripte e giardini segreti (PlanAnnex.cs): solo nel ciclo a ondate, con un generatore a parte cosi' la pianta non cambia
+                        if (SurvivalLayout) PlanAnnexGen.Generate(g, new Rng(Hash(seed, floor, 7919)));
+                        LastAttempts = attempt + 1;
+                        return g;
+                    }
                     LastFailure = gwhy;
                     continue;
                 }

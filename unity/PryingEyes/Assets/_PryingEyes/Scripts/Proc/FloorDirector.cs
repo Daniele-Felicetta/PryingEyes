@@ -152,10 +152,12 @@ namespace PryingEyes.Proc
             yield return null;
             var regions = RoundDirector.PrepareNav(plan);     // zone sigillabili: le loro soglie diventano aree a parte della navmesh
             PlaceShrines(plan, regions);                      // Biblioteca, Scrigno, altare della Consacrazione: prima della navmesh, sono ostacoli
+            AnnexRuntime.Place(cur);                          // annessi (torri, cripte, giardini): cancelli, leve, chiavi e tesori, anch'essi ostacoli per la navmesh
             HotelNav.Rebuild(cur.bounds, cur.propRoots);
             int stripped = Connectivity.Repair(cur, out int problems);
             if (problems > 0) Debug.Log($"[PryingEyes] connettivita': {problems} problemi, {Connectivity.LastCleared} arredi tolti dai varchi, {stripped} stanze svuotate");
             ValidateShrines(plan, regions);                   // leggii, scrigno e altare devono avere un posto davanti che si raggiunge a piedi
+            AnnexRuntime.Arm(cur);                            // log: ogni annesso (ingresso, interno, tesoro) deve raggiungersi a piedi dall'arrivo
             ApplyLook(plan, floor);
             ValidateReach(plan);
 
@@ -242,6 +244,8 @@ namespace PryingEyes.Proc
                 h = h * 31 + walls.Count;
                 foreach (var wall in walls) { h = h * 31 + wall.weaponIndex; Mix(wall.transform.position); }
                 h = h * 31 + cur.candles.Count; h = h * 31 + LightPool.Count; h = h * 31 + cur.plan.rooms.Count;
+                foreach (var a in cur.plan.annexes) { h = h * 31 + (int)a.kind; h = h * 31 + (int)a.gate; h = h * 31 + a.cx; h = h * 31 + a.cz; h = h * 31 + a.x0; h = h * 31 + a.z0; }
+                h = h * 31 + cur.annexSites.Count;
                 return h;
             }
         }
@@ -539,6 +543,7 @@ namespace PryingEyes.Proc
                         q = nh.position;
                     }
                     if (RoundDirector.I != null && RoundDirector.I.InsideSealed(q)) continue;     // dentro la zona sigillata nascono solo i nemici del round
+                    if (AnnexRuntime.Forbidden(cur, q)) continue;                                   // e mai dentro un annesso (torre, cripta, giardino): resterebbe chiuso li'
                     if (pass < 2 && Targets.AnySees(q + Vector3.up * 1.2f)) continue;              // si vede: no
                     pos = q;
                     return true;

@@ -19,6 +19,10 @@ namespace PryingEyes.Proc
 
         public Phase phase = Phase.Closed;
         public int uses;
+        /// <summary>Prezzo di questo scrigno (quello del negozio e' Price; il tesoro di un annesso e' gratis), grado minimo dell'arma e se
+        /// si apre una volta sola (il tesoro degli annessi: una volta presa l'arma resta vuoto).</summary>
+        [System.NonSerialized] public int price = Price, minGrade = 1;       // NonSerialized: il formato dei dati della build non cambia (basta -scriptsOnly)
+        [System.NonSerialized] public bool oneShot, spent;
         public int OfferedWeapon => offered;
         public float rollTime = 3.2f, offerTime = 9f;
 
@@ -62,8 +66,10 @@ namespace PryingEyes.Proc
                 var gm = GameManager.I;
                 if (phase == Phase.Closed)
                 {
+                    if (spent) return null;
+                    if (price <= 0) return "SCRIGNO ANTICO — un'arma rara, gratis";
                     int have = gm != null ? gm.score : 0;
-                    return have >= Price ? $"SCRIGNO — un'arma a caso — {Price} punti" : $"SCRIGNO — un'arma a caso — {Price} punti (ti mancano {Price - have})";
+                    return have >= price ? $"SCRIGNO — un'arma a caso — {price} punti" : $"SCRIGNO — un'arma a caso — {price} punti (ti mancano {price - have})";
                 }
                 if (phase == Phase.Offering && offered >= 0)
                 {
@@ -88,11 +94,11 @@ namespace PryingEyes.Proc
                 BeginClose();       // l'offerta finisce: il giro la vede e richiude
                 return;
             }
-            if (phase != Phase.Closed) return;
-            if (gm.score < Price) { gm.hud?.Toast($"Servono {Price} punti."); Sfx.UI(SoundBank.BookNo, 0.6f); return; }
-            gm.AddPoints(-Price);
+            if (phase != Phase.Closed || spent) return;
+            if (gm.score < price) { gm.hud?.Toast($"Servono {price} punti."); Sfx.UI(SoundBank.BookNo, 0.6f); return; }
+            if (price > 0) gm.AddPoints(-price);
             uses++;
-            offered = PickWeapon(gm.player.weapon, FloorDirector.I != null ? FloorDirector.I.floor : 1);
+            offered = PickWeapon(gm.player.weapon, FloorDirector.I != null ? FloorDirector.I.floor : 1, minGrade);
             StartCoroutine(Run());
         }
 
@@ -106,15 +112,20 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Un'arma a caso tra quelle che non hai, pesata sul grado e sul piano.</summary>
-        public static int PickWeapon(Weapon w, int floor)
+        public static int PickWeapon(Weapon w, int floor, int minGrade = 1)
         {
             int start = WeaponDefs.IndexOf("p9_pieta");
             var pool = new List<int>(); var weights = new List<float>(); float sum = 0f;
-            for (int i = 0; i < WeaponDefs.All.Length; i++)
+            // 'minGrade': i tesori degli annessi danno armi di grado alto; se le hai gia' tutte si ripiega su qualunque arma che non hai
+            for (int pass = 0; pass < 2 && pool.Count == 0; pass++)
             {
-                if (i == start || WeaponDefs.All[i].cityOnly || (w != null && w.Owns(i))) continue;
-                float wt = GradeWeight(WeaponDefs.All[i].grade, floor);
-                pool.Add(i); weights.Add(wt); sum += wt;
+                int gmin = pass == 0 ? minGrade : 1;
+                for (int i = 0; i < WeaponDefs.All.Length; i++)
+                {
+                    if (i == start || WeaponDefs.All[i].cityOnly || WeaponDefs.All[i].grade < gmin || (w != null && w.Owns(i))) continue;
+                    float wt = GradeWeight(WeaponDefs.All[i].grade, floor);
+                    pool.Add(i); weights.Add(wt); sum += wt;
+                }
             }
             if (pool.Count == 0) return start;
             float r = Random.value * sum;
@@ -227,6 +238,8 @@ namespace PryingEyes.Proc
             angle = 0f;
             Pose(0f);
             offered = -1;
+            // il tesoro di un annesso si prende una volta sola; se l'arma e' rientrata (non l'hai presa in tempo) resta li' per un'altra volta
+            if (oneShot && wasTaken) spent = true;
             phase = Phase.Closed;
         }
 
@@ -330,6 +343,22 @@ namespace PryingEyes.Proc
             s.Build();
             Interact.Add(s);
             Current = s;
+            return s;
+        }
+
+        /// <summary>Uno scrigno in un punto preciso (il tesoro di un annesso): non e' lo scrigno del negozio, quindi non diventa 'Current'.</summary>
+        public static Scrigno PlaceAt(FloorInstance cur, Vector3 pos, float yaw, int price, int minGrade, bool oneShot)
+        {
+            ShrineKit.Mats();
+            var go = new GameObject("Scrigno antico");
+            go.transform.SetParent(cur.root.transform, false);
+            go.transform.position = pos;
+            go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            cur.propRoots.Add(go.transform);
+            var s = go.AddComponent<Scrigno>();
+            s.price = price; s.minGrade = minGrade; s.oneShot = oneShot;
+            s.Build();
+            Interact.Add(s);
             return s;
         }
 
@@ -480,7 +509,7 @@ namespace PryingEyes.Proc
             {
                 var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 q.name = "Piano" + (i + 1);
-                Destroy(q.GetComponent<Collider>());
+                Util.Kill(q.GetComponent<Collider>());
                 q.transform.SetParent(shaft, false);
                 q.transform.localPosition = new Vector3(0f, 1.0f, 0f);
                 q.transform.localRotation = Quaternion.Euler(0f, 60f * i, 0f);
@@ -494,7 +523,7 @@ namespace PryingEyes.Proc
             shaft.gameObject.SetActive(false);
             var mo = GameObject.CreatePrimitive(PrimitiveType.Quad);
             mo.name = "Bocca";
-            Destroy(mo.GetComponent<Collider>());
+            Util.Kill(mo.GetComponent<Collider>());
             mo.transform.SetParent(transform, false);
             mo.transform.localPosition = new Vector3(0f, 0.585f, 0f);
             mo.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
