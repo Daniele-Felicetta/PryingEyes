@@ -145,7 +145,9 @@ class ShipScriptSource(unittest.TestCase):
 class ShipDeclaresWhatTheBuildContains(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.root = Path(tempfile.mkdtemp(prefix="ship-test-"))
+        # resolve(): a runner's TEMP can be an 8.3 short path (C:\Users\RUNNER~1\...) and PowerShell 5.1 expands it, so the fake
+        # marker has to name the build folder the way the script will, or the exe step finds it "not the one this ship built".
+        cls.root = Path(tempfile.mkdtemp(prefix="ship-test-")).resolve()
         cls.addClassCleanup(shutil.rmtree, cls.root, onerror=force_remove)
         empty = write(cls.root, "empty.gitconfig", b"")
         cls.env = {**os.environ, "GIT_CONFIG_GLOBAL": str(empty), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0"}
