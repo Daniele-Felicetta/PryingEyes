@@ -188,6 +188,7 @@ namespace PryingEyes.Proc
             }
             PlaceWallBuys(plan);
             LightShafts.Build(cur);                           // fasci di luce visibili dalle finestre e dalle vetrate (LightShafts.cs)
+            BreakableLamps.Build(cur);                        // lampade che si rompono sparandoci (BreakableLamps.cs)
             StartCoroutine(Gramophone(plan));
             StartCoroutine(RoomProbes.Bake(cur));             // riflessi per stanza: una sonda per stanza, fotografata una volta (RoomProbes.cs)
             floorTime = 0f; trickleT = 40f; hudT = 0f;

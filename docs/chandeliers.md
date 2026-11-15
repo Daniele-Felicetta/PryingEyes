@@ -25,3 +25,24 @@ Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -lampadari
 enough and the second drops it, its light goes out and the chain snaps, it lands, the three monks below die and pay, the one just
 outside the radius and the distant player are unharmed, it carves the navmesh and cannot be hit again). Photos in
 `unity_logs/lampadari`. Not rerun: the co-op scenarios.
+
+## Breakable lamps
+
+Added on 15 November 2026 (`Scripts/Proc/BreakableLamps.cs`).
+
+Every electric lamp that is a visible fixture breaks with one shot: table lamps (`Abatjour`), hanging bulbs (`Lampadina`),
+electric wall lamps (`Applique`; the candle ones are not electric and do not break), floor lamps (`arr_lampada`), neon tubes
+(`Neon`) and surgical lamps (`AstaScialitica`). They are found after the floor is built among the pool lights flagged electric
+whose parent has one of those names; a small sphere collider on the lamp is the bullet target. Breaking it takes its light out of
+the pool (`wanted = false`), stops its flicker (`LampFlicker`, `NeonFlicker`), swaps bulb, shade and tube to their unlit
+materials (`lampadina_spenta`, `paralume_spento`, `neon_spento`), plays a procedural pop with glass shards
+(`SoundGen.BulbPop`) and throws sparks. During a fight lamps go out one after another and the room really gets darker.
+Co-op (`Coop/CoopGame.Lamps.cs`, protocol `pe-coop-25`): guests send `LampHit`, the host breaks the lamp and sends
+`LampBroken` to everyone, late joiners receive the broken ones silently.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -lamptest [-lampshots] -seed 1000 -floor 1`
+(`Scripts/LampTest.cs`, 10 checks: lamps exist and none is a candle, a lit one is hit by a real bullet ray, its light goes out
+and leaves the pool, the target disappears, the materials turn unlit, a second shot does nothing). The church floor of seed 1000
+has 5 (electric wall lamps); the hotel floors have more. Photos in `unity_logs/lampade` (the wall goes from 42.5 to 25.2 of mean
+luminance).
+

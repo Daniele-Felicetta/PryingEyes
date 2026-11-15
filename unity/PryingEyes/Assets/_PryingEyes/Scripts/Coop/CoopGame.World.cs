@@ -25,7 +25,7 @@ namespace PryingEyes
             switch (k)
             {
                 case CoopKind.EnemySpawn: case CoopKind.EnemyGone: case CoopKind.EnemyState: case CoopKind.EnemyEvent:
-                case CoopKind.RoomsState: case CoopKind.TrapsState: case CoopKind.BarrelGone: case CoopKind.PowerState: case CoopKind.ChandelierDrop:
+                case CoopKind.RoomsState: case CoopKind.TrapsState: case CoopKind.BarrelGone: case CoopKind.PowerState: case CoopKind.ChandelierDrop: case CoopKind.LampBroken:
                 case CoopKind.CandleLit: case CoopKind.ExitState: case CoopKind.RoundState:
                 case CoopKind.DropSpawn: case CoopKind.DropTaken: case CoopKind.Bolt: case CoopKind.Teleport:
                     return true;
@@ -144,6 +144,7 @@ namespace PryingEyes
             SendBarrelsTo(slot);
             SendPowerTo(slot);
             SendChandeliersTo(slot);
+            SendLampsTo(slot);
             var rd = RoundDirector.I;
             if (SurvivalMode.Enabled && rd != null)
             {
@@ -437,6 +438,7 @@ namespace PryingEyes
                 case CoopKind.BarrelHit: HostBarrelHit(from, ref r); break;
                 case CoopKind.UsePower: HostUsePower(from, ref r); break;
                 case CoopKind.ChandelierHit: HostChandelierHit(from, ref r); break;
+                case CoopKind.LampHit: HostLampHit(from, ref r); break;
                 case CoopKind.UseExit:
                 {
                     int ep = r.U16();
@@ -503,6 +505,7 @@ namespace PryingEyes
                 case CoopKind.BarrelGone: ReceiveBarrelGone(ref r); break;
                 case CoopKind.PowerState: ReceivePower(ref r); break;
                 case CoopKind.ChandelierDrop: ReceiveChandelierDrop(ref r); break;
+                case CoopKind.LampBroken: ReceiveLampBroken(ref r); break;
                 case CoopKind.TrapReply:
                 { int trapReq = r.U16(); bool trapOk = r.Bool(); if (r.Ok) SettleTrap(trapReq, trapOk); break; }
                 case CoopKind.RoomReply:

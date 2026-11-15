@@ -24,6 +24,7 @@ namespace PryingEyes
         BarrelHit,            // ho colpito una botte d'olio santo (indice)
         UsePower,             // ho tirato la leva del quadro elettrico (epoca)
         ChandelierHit,        // ho colpito un lampadario (indice)
+        LampHit,              // ho colpito una lampada (indice a 16 bit)
         // ---- ospite -> giocatore
         Welcome = 64,         // slot, seme, piano, epoca
         PlayerJoined,
@@ -53,6 +54,7 @@ namespace PryingEyes
         BarrelGone,           // una botte e' scoppiata (indice, senza effetti per chi entra tardi)
         PowerState,           // la corrente del piano e' accesa (epoca; anche a chi entra tardi)
         ChandelierDrop,       // un lampadario crolla (indice; 'silent' = gia' a terra, per chi entra tardi)
+        LampBroken,           // una lampada si rompe (indice a 16 bit; 'silent' = gia' rotta, per chi entra tardi)
         // ---- in tutte e due le direzioni
         Test = 120,           // solo per la prova a due processi (CoopTest, con -cooptest): senza quel flag chi lo riceve lo butta
     }
@@ -60,7 +62,7 @@ namespace PryingEyes
     public static class CoopProtocol
     {
         /// <summary>Versione del protocollo + contenuto: da alzare a ogni cambio di formato dei messaggi o delle regole del piano.</summary>
-        public const string Revision = "pe-coop-24";       // 24: lampadari che crollano; 23: corrente del piano; 22: botti d'olio santo
+        public const string Revision = "pe-coop-25";       // 25: lampade che si rompono; 24: lampadari che crollano; 23: corrente del piano
         public static string ContentRevision => Revision + "-" + WeaponDefs.ContentHash;
         public const ushort DefaultPort = 7807;
         public const int MaxPlayers = 4;
