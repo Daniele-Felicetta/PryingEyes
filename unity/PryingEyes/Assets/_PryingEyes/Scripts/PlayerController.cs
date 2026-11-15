@@ -7,7 +7,7 @@ namespace PryingEyes
     /// Il lean e' un'inclinazione del busto attorno al bacino: la testa sporge di ~40 cm e si inclina di ~20 gradi, la
     /// collisione impedisce di entrare nei muri e i nemici vedono e colpiscono il corpo dove si trova davvero (LeanedPoint).</summary>
     [RequireComponent(typeof(CharacterController))]
-    public class PlayerController : MonoBehaviour
+    public partial class PlayerController : MonoBehaviour
     {
         [Header("Move")]
         // ritmo da COD Zombies: camminata lenta, sprint breve, poca inerzia
@@ -84,6 +84,7 @@ namespace PryingEyes
         public void Teleport(Vector3 p)
         {
             if (cc == null) cc = GetComponent<CharacterController>();
+            CancelMantle();
             cc.enabled = false;
             transform.position = p;
             cc.enabled = true;
@@ -96,6 +97,7 @@ namespace PryingEyes
         {
             spawnPos = p;
             if (cc == null) cc = GetComponent<CharacterController>();
+            CancelMantle();
             cc.enabled = false;              // con il controller acceso la posizione impostata a mano non vale
             transform.position = p;
             cc.enabled = true;
@@ -349,15 +351,29 @@ namespace PryingEyes
             vel.y -= gravity * dt;
             vel.y = Mathf.Max(vel.y, -22f);
             if (cc.isGrounded) coyote = 0.13f; else coyote -= dt;
-            if (inputEnabled && jumpBuf > 0f && (cc.isGrounded || coyote > 0f))
+            // scavalcare (PlayerController.Mantle.cs): Salto davanti a un ostacolo basso lo supera; dopo un salto normale, contro il
+            // bordo di uno appena piu' alto andando avanti, ci si aggrappa
+            Vector3 facing = new Vector3(sin, 0f, cos);
+            if (!Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
+            else if (!Mantling && inputEnabled && jumpBuf > 0f && (cc.isGrounded || coyote > 0f))
             {
                 vel.y = jumpVel * (crouch ? 0.92f : 1f);
                 coyote = 0f; jumpBuf = 0f; slide = false;
+                mantleWindow = 0.4f;
+            }
+            else if (!Mantling && mantleWindow > 0f)
+            {
+                mantleWindow -= dt;
+                if (!cc.isGrounded && f > 0.1f) TryMantle(facing);
             }
 
-            cc.height = Mathf.Lerp(cc.height, crouch || slide ? heightCrouch : heightStand, 11f * dt);
-            cc.center = new Vector3(0, cc.height / 2f, 0);
-            cc.Move(vel * dt);
+            if (Mantling) MantleTick(dt);
+            else
+            {
+                cc.height = Mathf.Lerp(cc.height, crouch || slide ? heightCrouch : heightStand, 11f * dt);
+                cc.center = new Vector3(0, cc.height / 2f, 0);
+                cc.Move(vel * dt);
+            }
 
             // --- lean: Q a sinistra, E a destra; non in corsa ne' in scivolata, non nei muri ---
             float leanWant = 0f;
@@ -425,10 +441,10 @@ namespace PryingEyes
             float drop = arm * (1f - Mathf.Cos(th));
             cam.position = new Vector3(
                 transform.position.x + bobX * cos + right.x * latOff,
-                transform.position.y + eyeH + bobY - drop,
+                transform.position.y + eyeH + bobY - drop - mantleDrop,
                 transform.position.z - bobX * sin + right.z * latOff);
             float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll;
-            cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP, yaw * Mathf.Rad2Deg + recY, roll);
+            cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP + mantlePitch, yaw * Mathf.Rad2Deg + recY, roll + mantleRoll);
 
             // perk attivabile: il tempo degli effetti scorre in TickSurvival, anche nel menu cooperativo
             if (alive && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (Input.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())
@@ -437,7 +453,7 @@ namespace PryingEyes
                 Sfx.UI(SoundBank.PerkVelo, 0.65f);
             }
 
-            weapon.Tick(dt, f > 0 && wantSprint, hs, cc.isGrounded, crouch, lookDelta);
+            weapon.Tick(dt, (f > 0 && wantSprint) || Mantling, hs, cc.isGrounded || Mantling, crouch, lookDelta);
             hud?.SetBars(hp, shield);
 
             // --- armi sui muri: prompt + acquisto con F ---

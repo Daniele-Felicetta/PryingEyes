@@ -52,3 +52,27 @@ Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -ragdollte
 an explosion launches the body, parts stay attached and above the floor, the player is not blocked, a bullet through a corpse
 hits the enemy behind it, bodies freeze, the staff lies on the floor, the corpse disappears, at most 10 ragdolls at once).
 Photos in `unity_logs/ragdoll`.
+
+## Vaulting and climbing
+
+Added on 15 November 2026 (`Scripts/PlayerController.Mantle.cs`).
+
+The jump reaches 60 cm, so tables, pews, sarcophagi, low walls and fallen chandeliers used to be walls. Now Jump in front of an
+obstacle 42-135 cm high (or against its edge shortly after a normal jump while pressing forward) gets over it:
+
+- **Vault** when it is thin and there is floor behind it at the same height (within 35 cm), on the navmesh, inside a room and
+  with room to stand: the body goes up to the edge and over (0.30 s + 0.12 s per metre of height) and lands on the other side
+  keeping its speed (at least 3.6 m/s).
+- **Climb** otherwise, when its top is flat and there is room to stand (or to crouch, then the player stays crouched): up to the
+  edge and onto it (0.36 s + 0.14 s per metre).
+- Never down from a balcony (the floor behind must be at the same height), never through a window out of the rooms, never under
+  a low ceiling (the crouched body must fit above the edge).
+- During the move the weapon lowers as when sprinting (no shooting), the view dips by 7 degrees, rolls by 5 (alternating side)
+  and drops 12 cm, all scaled by the motion comfort setting; a footstep at the start and a louder one on landing. Teleports and
+  respawns cancel it.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -mantletest [-mantleshots] -seed 1000 -floor 1`
+(`Scripts/MantleTest.cs`, 9 checks with real obstacles placed in an arena: climbing a 90 cm table in 0.48 s and standing on it,
+vaulting a 1 m wall 25 cm thick in 0.41 s and landing beyond it, no vault for a 2.2 m wall or a 25 cm step). Photos in
+`unity_logs/scavalco`.
+
