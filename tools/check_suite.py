@@ -12,18 +12,32 @@ Reusable code stays reusable only while something fails when it stops being so. 
   engine     the Python production engine (tools/studio_engine.py, its process and queue modules and the dependency
              graph) names no game, no content type and no tool of this project: a project plugs in through its profile
              (tools/studio_pryingeyes.py for this game)
+  docs       README.md, AGENTS.md, docs/**/*.md and the package READMEs
+             - every relative link resolves, anchors included, and every `docs/....md` path named in code spans exists
+             - every page under docs/ is listed in docs/README.md, the index
+             - every page starts with a title, is valid UTF-8 and holds no replacement character
+             - no machine-specific path (a Windows user folder, /home/...): the repository is public and paths are relative to its root
 
-Usage: python tools/check_suite.py [--root PATH]      Exit 0 = PASS, 1 = findings. Run by tools/ship.ps1 and the unit suite.
+Usage: python tools/check_suite.py [--root PATH]      Exit 0 = PASS, 1 = findings. Run by tools/ship.ps1, the unit suite and CI.
 """
 import argparse
 import json
 from pathlib import Path
 import re
 import sys
+from urllib.parse import unquote
 from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = "unity/PryingEyes/Packages"
+DOCS = "docs"
+MD_FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,}).*?^[ \t]*\1[ \t]*$", re.M | re.S)
+MD_INLINE_CODE = re.compile(r"`[^`\n]*`")
+MD_LINK = re.compile(r"\[[^\]\n]*\]\(<?([^)\s>]+)>?(?:\s+\"[^\"\n]*\")?\)")
+MD_HEADING = re.compile(r"^#{1,6}[ \t]+(.+?)[ \t#]*$", re.M)
+MD_DOC_PATH = re.compile(r"`(docs/[\w./-]+\.md)`")
+REPLACEMENT_CHARACTER = chr(0xFFFD)  # what a decoder writes for a byte it could not read; spelled so this file holds none itself
+MACHINE_PATH = re.compile(r"[A-Za-z]:[\\/]+Users[\\/]|/Users/[\w.-]+/|/home/[\w.-]+/")
 CONSUMER = "unity/LayoutDemo/Packages/manifest.json"
 # Names a package must never use in code: the game, the engine, the netcode and UI libraries of this project.
 FORBIDDEN_IN_PACKAGES = re.compile(r"\b(UnityEngine|UnityEditor|PryingEyes|FishNet|TMPro)\b")
@@ -109,9 +123,73 @@ def check_engine(root):
     return findings
 
 
+def heading_slugs(text):
+    """The anchors GitHub gives the headings of a page (fenced code excluded, repeats numbered)."""
+    slugs, seen = set(), {}
+    for match in MD_HEADING.finditer(MD_FENCE.sub("", text)):
+        title = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", match[1])
+        slug = re.sub(r"[^\w\- ]", "", title.replace("`", "").replace("*", "").lower().strip()).replace(" ", "-")
+        count = seen.get(slug, 0)
+        seen[slug] = count + 1
+        slugs.add(slug if count == 0 else f"{slug}-{count}")
+    return slugs
+
+
+def doc_links(text):
+    """Targets of the [text](target) links outside fenced and inline code."""
+    return MD_LINK.findall(MD_INLINE_CODE.sub("", MD_FENCE.sub("", text)))
+
+
+def check_docs(root):
+    docs = root / DOCS
+    if not docs.is_dir(): return []
+    pages = [root / name for name in ("README.md", "AGENTS.md") if (root / name).is_file()]
+    pages += sorted(docs.rglob("*.md")) + sorted((root / PACKAGES).glob("*/README.md"))
+    findings, texts, slugs = [], {}, {}
+    for page in pages:
+        rel = page.relative_to(root)
+        try: text = page.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            findings.append(finding("DOC_NOT_UTF8", rel, "the file is not valid UTF-8", "UTF-8 text")); continue
+        texts[page.resolve()] = text
+        if REPLACEMENT_CHARACTER in text:
+            findings.append(finding("DOC_REPLACEMENT_CHARACTER", rel, "contains U+FFFD, a letter that was lost when the file was saved", "the real character"))
+        first = next((line for line in text.splitlines() if line.strip()), "")
+        if not first.startswith("# "):
+            findings.append(finding("DOC_TITLE_MISSING", rel, f"starts with {first[:40]!r}", "a first line '# Title'"))
+        machine = MACHINE_PATH.search(text)
+        if machine:
+            findings.append(finding("DOC_MACHINE_PATH", rel, f"names {machine[0]!r}", "paths relative to the repository root, never one machine's"))
+    for page in pages:
+        text = texts.get(page.resolve())
+        if text is None: continue
+        rel = page.relative_to(root)
+        for target in doc_links(text):
+            if target.startswith(("http://", "https://", "mailto:")): continue
+            path_part, _, anchor = unquote(target).partition("#")
+            destination = page if not path_part else (root / path_part.lstrip("/") if path_part.startswith("/") else page.parent / path_part).resolve()
+            if not destination.exists():
+                findings.append(finding("DOC_LINK_BROKEN", rel, f"links to {target}", "a path that exists")); continue
+            if anchor and destination.suffix == ".md" and destination.resolve() in texts:
+                if destination.resolve() not in slugs: slugs[destination.resolve()] = heading_slugs(texts[destination.resolve()])
+                if anchor.lower() not in slugs[destination.resolve()]:
+                    findings.append(finding("DOC_ANCHOR_BROKEN", rel, f"links to {target}", "a heading of the target page"))
+        for mentioned in sorted(set(MD_DOC_PATH.findall(MD_FENCE.sub("", text)))):
+            if not (root / mentioned).is_file():
+                findings.append(finding("DOC_PATH_MISSING", rel, f"names `{mentioned}`", "a page that exists"))
+    index = (docs / "README.md").resolve()
+    if index not in texts:
+        return findings + [finding("DOC_INDEX_MISSING", Path(DOCS) / "README.md", "no index page", "docs/README.md lists every page")]
+    listed = {(index.parent / unquote(t).partition("#")[0]).resolve() for t in doc_links(texts[index]) if not t.startswith(("http://", "https://", "#"))}
+    for page in sorted(docs.rglob("*.md")):
+        if page.resolve() != index and page.resolve() not in listed:
+            findings.append(finding("DOC_NOT_INDEXED", page.relative_to(root), "not linked from docs/README.md", "every page is listed in the index"))
+    return findings
+
+
 def check(root=ROOT):
     root = Path(root).resolve()
-    return check_packages(root) + check_engine(root)
+    return check_packages(root) + check_engine(root) + check_docs(root)
 
 
 def main(argv=None):

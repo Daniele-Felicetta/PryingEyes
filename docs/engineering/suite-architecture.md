@@ -4,7 +4,7 @@ The goal of the engineering work is a suite that outlives Prying Eyes. This page
 independent of the game, what enforces that, and what is still game-specific. It is written to be checked, not admired:
 `python tools/check_suite.py` fails when a boundary below is crossed; `tools/ship.ps1` runs it, with the Python unit tests, before every
 commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the two .NET rule labs, on every push to `preview` and every
-pull request against it.
+pull request against it. How a change is built, shipped and gated is in [building-and-shipping.md](building-and-shipping.md).
 
 ## Layers
 
@@ -16,6 +16,10 @@ pull request against it.
 | Guard | `tools/check_suite.py`, `tools/test_check_suite.py` | the repository layout | the guard is itself tested against a fixture repository with every kind of violation |
 
 The C# packages already use neutral assembly and namespace names (`Production.*`); only the package ids carry the game name.
+
+The guard also keeps the documentation honest: relative links and anchors must resolve, every page under `docs/` must be listed in
+`docs/README.md`, and no page may name a machine-specific path (rule 13 of `AGENTS.md`). The repository is public, so the guard treats a
+path of one machine in a page as a defect, like a broken link.
 
 ## Where the gate runs
 
@@ -52,7 +56,7 @@ after it; the only difference is the two new modules appearing in each job's has
 ## Plugging in a second project
 
 A project is a `Project` subclass (`tools/studio_engine.py`). `tools/fixtures/toy_project.py` is a complete working one in
-about forty lines, and `tools/test_studio_engine.py` is its test. The contract:
+about sixty lines, and `tools/test_studio_engine.py` is its test. The contract:
 
 ```python
 class Sprites(ContentType):                 # one kind of content = one catalog

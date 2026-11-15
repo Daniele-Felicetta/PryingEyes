@@ -23,6 +23,10 @@ not traversability: the built scene must still pass collision and controller tes
 Prying Eyes maps the three panels in order to southwest, southeast and northwest
 weapon shops. Content identity and pricing stay outside this package.
 
+`RoomPlan.Create(recipe, width, depth)` plans a furnished room (parts, doors, stairs,
+route and views) from a recipe. It rejects blocked passages, floating or blocked standing
+points and stairs that are too steep. `unity/LayoutDemo` checks it with `Assets/room-demo.json`.
+
 Standalone JSON output:
 
 ```powershell
@@ -35,8 +39,10 @@ Independent Unity consumer, tested with Unity 6000.6.7f1:
 Unity.exe -batchmode -projectPath unity/LayoutDemo -executeMethod DistrictDemo.Verify -quit -logFile unity_logs/layout-demo.log
 ```
 
-The demo installs only this package and built-in Unity modules. It checks determinism,
-a differently sized variant, invalid dimensions and scene generation. Open the project
-and choose **Layout Demo > Generate and Verify** to generate its blockout scene.
-This is evidence of reuse for this geometry module; it does not claim that weapons,
-combat or the full Prying Eyes production suite have been extracted.
+The demo installs the layout, weapons and survival packages and built-in Unity modules,
+not Prying Eyes code. It checks determinism, a differently sized variant, invalid and
+overflowing dimensions, room stairs and route validation, scene generation, and the
+weapon, wave and paid-access states (20 checks). Open the project and choose
+**Layout Demo > Generate and Verify** to generate its blockout scenes.
+This is evidence of reuse for these packages; it does not claim that combat, presentation
+or the full Prying Eyes production suite have been extracted.

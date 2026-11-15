@@ -1,6 +1,6 @@
 # Cooperativa online (fino a 4 giocatori)
 
-Aggiornato il 13 novembre 2026. La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
+Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
 gira con la propria copia, uno **ospita** e gli altri si collegano al suo indirizzo. Rete: FishNet 4.7.3 (trasporto
 Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 
@@ -53,8 +53,9 @@ In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tu
   (i pupazzi spariscono e il piano si ripopola).
 - **In rete anche in secondo piano.** `Application.runInBackground` e' spento nel progetto; la cooperativa lo accende per tutta
   la partita (un Alt-Tab non deve bloccare gli altri).
-- **Senza FishNet.** Il codice che nomina FishNet sta in `FishNetCoopNet.cs` dietro `PRYINGEYES_FISHNET` (solo Standalone):
-  nella build web `Coop.Available` e' falso e ogni chiamata della facciata non fa niente.
+- **Senza FishNet.** Il codice che nomina FishNet sta in `FishNetCoopNet.cs` (e nell'autenticatore in `Multiplayer/FishNet/`)
+  dietro `PRYINGEYES_FISHNET` (solo Standalone): nella build web, o nella citta' (`CityDirector` presente), `Coop.Available` e' falso
+  e ogni chiamata della facciata non fa niente.
 
 ## Dove sta il codice (`Assets/_PryingEyes/Scripts/Coop/`)
 
@@ -66,6 +67,10 @@ In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tu
 | `CoopGame.cs` | Giocatori, piano ed epoca, saluto, stato di ciascuno, nomi |
 | `CoopGame.World.cs` | Il mondo condiviso: nemici, colpi, rumore, candele, uscita, round, gocce, annunci |
 | `CoopGame.Rooms.cs` | Acquisto delle aree: richiesta del client con i punti messi da parte, convalida e risposta dell'ospite, stato delle aree |
+| `CoopGame.Traps.cs` | Trappole delle soglie (`DoorTraps`): il client riserva i punti e chiede, l'ospite accende e manda lo stato |
+| `CoopGame.Power.cs` | Corrente del piano (leva del quadro): il client chiede, l'ospite accende e lo dice a tutti |
+| `CoopGame.Barrels.cs`, `CoopGame.Chandeliers.cs`, `CoopGame.Lamps.cs` | Botti d'olio santo, lampadari e lampade che si rompono: il colpo del client va all'ospite, che decide e racconta a tutti |
+| `HUD.Coop.cs` | Elenco dei compagni nell'HUD (vita relativa, distanza, attesa/rinascita) |
 | `Enemy.Net.cs` | Pupazzi dei nemici e stato di rete |
 | `Targets.cs`, `RemotePlayer.cs` | Bersagli multipli e compagni (pupazzo con torcia, nome, posa interpolata) |
 | `CoopTest.cs`, `CoopTest.Survival.cs` | Prova automatica a piu' processi (solo con `-cooptest`); la seconda ha i passi del ciclo a ondate |
@@ -79,7 +84,8 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-15`** (`CoopProtocol.Revision`): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
+Revisione **`pe-coop-25`** (`CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
+del catalogo delle armi in coda): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
 fino al punto d'uso effettivo, quindi può scegliere una posizione diversa. Tutti devono usare la stessa build.
@@ -127,10 +133,16 @@ Processione) per chi entra a ondata in corso; gli altri tipi (inizio, stato, fin
 partire da solo e il cui premio e' di tutti. L'ondata si dimensiona sui giocatori collegati (16 nemici piu' 4 per ondata piu' 8 per ogni
 giocatore oltre il primo, con un tetto di vivi insieme che cresce allo stesso modo).
 
+Le revisioni 16-25 (dettagli nei commenti di `CoopWire.cs` e nei documenti in `docs/`) aggiungono: 16 l'impronta del catalogo
+nell'ammissione; 17 le regole di movimento (tolto il secondo aumento di velocita' delle ondate); 18 altezze delle cattedrali e annessi;
+19 varianti dell'orda; 20 trappole delle soglie; 21 equipaggiamento e prove; 22 botti d'olio santo (`BarrelGone`); 23 corrente del piano
+(`UsePower`, `PowerState`); 24 lampadari che crollano (`ChandelierHit`, `ChandelierDrop`); 25 lampade che si rompono (`LampHit`, `LampBroken`).
+Ogni cambio di revisione richiede la stessa build su tutte le macchine.
+
 | Direzione | Messaggi |
 | --- | --- |
-| giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `BuyRoom`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent` |
-| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `RoomsState`, `RoomReply`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport` |
+| giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `BuyRoom`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent`, `UseTrap`, `BarrelHit`, `UsePower`, `ChandelierHit`, `LampHit` |
+| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `RoomsState`, `RoomReply`, `TrapsState`, `TrapReply`, `BarrelGone`, `PowerState`, `ChandelierDrop`, `LampBroken`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport` |
 | entrambe | `Test` (solo `-cooptest`, altrimenti scartato) |
 
 ## Prove
@@ -149,9 +161,9 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 | `-coopleave` / `-coopcrash` | uscita pulita / processo ucciso: l'ospite se ne accorge e prosegue da solo (un nemico lo caccia, poi un'ondata intera) |
 | `-coophostleave` | se ne va l'ospite: l'ospitato prosegue da solo con Role spento |
 | `-coopplayers N` | numero di giocatori attesi (con 3 processi) |
-| `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`, di serie `%TEMP%\pryingeyes-coop\foto`) |
+| `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`; senza, `persistentDataPath/coop`; con `run_coop.ps1 -HostGraphics` e' `%TEMP%\pryingeyes-coop\foto`) |
 
-Con `-cooptest` le ondate partono ferme (`SurvivalMode.Hold`): le avvia il copione, perche' i passi che contano punti e nemici uno per uno non devono
+Con `-cooptest` le ondate partono ferme (`SurvivalMode.HoldWaves`; il copione le libera con `SurvivalMode.Hold`): le avvia il copione, perche' i passi che contano punti e nemici uno per uno non devono
 trovarsele in mezzo. Il ciclo a candele si prova con `-candles` su tutti i processi (la pianta ad ali, `-oldplan`, lo implica).
 
 Lo script `tools/coop/run_coop.ps1` avvia l'ospite e gli ospitati dalla build di verifica (`Builds/Audit`, non quella da cui gioca l'utente; senza grafica, un log per processo in
@@ -165,16 +177,16 @@ Lo script `tools/coop/run_coop.ps1` avvia l'ospite e gli ospitati dalla build di
 `tools/coop/run_all.ps1` le fa girare tutte in fila (griglia, ali, entrata tardiva, uscita pulita, processo ucciso, uscita
 dell'ospite, tre e quattro giocatori; circa 12 minuti) e dice quali sono fallite. Aggiungere `-oldplan` a entrambi i
 processi prova anche la pianta ad ali. La build di prova si fa con `BuildPlayer.Torre -buildOut` come
-per le altre prove (vedi il README principale); lo script non parte se una copia di quell'exe e' gia' aperta.
+per le altre prove (vedi `docs/engineering/building-and-shipping.md`); lo script non parte se una copia di quell'exe e' gia' aperta.
 
-**Esiti del 12 novembre 2026**, su una build **completa** (FishNet si registra da solo, senza ritocchi), tutti i processi sulla
+**Esiti del 12 novembre 2026** (sul protocollo `pe-coop-15`, prima delle revisioni 16-25: da ripetere), su una build **completa** (FishNet si registra da solo, senza ritocchi), tutti i processi sulla
 stessa macchina (loopback): `run_all.ps1` supera tutti e otto gli scenari (griglia 26+16 verifiche, ali 28+18, entrata
 tardiva, uscita pulita, processo ucciso, uscita dell'ospite, tre giocatori, quattro giocatori) con zero eccezioni nel gioco;
 i nemici dell'ospitato stanno entro 0,1-0,2 m da quelli dell'ospite. Le regressioni del gioco da solo (stealth classico, round,
 coltello, gocce, bot) passano come prima. Una prova delle gocce e' fallita una volta, e ha fatto trovare un difetto che c'era gia'
 prima della cooperativa: i collider dei nemici volanti (occhio, falena, medusa) si infilavano nel controller del giocatore e lo
 scacciavano a ogni fotogramma, a volte oltre un muro sottile o sotto il pavimento (la riga `CADUTA` nel log). Corretto in
-`Enemy.IgnorePlayerBody` e coperto dalla nuova prova `-pushtest` (vedi il README principale); le gocce e i round passano
+`Enemy.IgnorePlayerBody` e coperto dalla nuova prova `-pushtest` (vedi `docs/engineering/testing.md`); le gocce e i round passano
 anche sui piani 2961/3 e 3046/3, e la cooperativa (griglia, tre giocatori) dopo la correzione. La prova `-cooppics` ha mostrato un compagno con il nome leggibile sopra la testa e
 la torcia accesa; ha anche fatto trovare un'inversione (il fascio del compagno saliva quando lui guardava in basso: corretta).
 
@@ -208,4 +220,5 @@ posti locali, `NetworkFloorPlan`, obiettivi di prova) e `tools/multiplayer-check
 
 Fonti: [FishNet](https://github.com/FirstGearGames/FishNet), [release 4.7.3](https://github.com/FirstGearGames/FishNet/releases/tag/4.7.3),
 [connessioni remote e port forwarding](https://fish-networking.gitbook.io/docs/tutorials/getting-started/connecting-to-remote-devices).
-I prototipi Fusion precedenti restano come riferimento in `docs/multiplayer/reference/Fusion2` (fuori dagli Assets).
+I prototipi Fusion precedenti restano come riferimento in `docs/multiplayer/reference/Fusion2` (fuori dagli Assets): non sono compilati,
+perche' il simbolo `PRYINGEYES_FUSION2` non e' definito in nessun progetto e nessun codice li usa.

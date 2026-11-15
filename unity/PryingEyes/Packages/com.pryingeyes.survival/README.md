@@ -23,8 +23,8 @@ nonnegative elapsed seconds and a nonnegative population; total, population limi
 and interval must be positive. Invalid values throw before changing state.
 
 No engine references, global clocks, random source, game IDs, enemy types or
-currency rules are required. `tools/survivallab` compiles this exact source under
-.NET; `unity/LayoutDemo` consumes the package in a separate Unity project with an
+currency rules are required. `tools/survivallab` compiles and checks this exact source under
+.NET (wave schedule and paid access); `unity/LayoutDemo` consumes the package in a separate Unity project with an
 interactive population simulation. The city's profile and its Unity adapter live
 in the game rather than in this package.
 

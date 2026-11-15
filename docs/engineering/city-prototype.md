@@ -25,9 +25,9 @@ e il Vigile (corazzato, con scudo): modelli procedurali e combattimento con la
 logica esistente. La co-op urbana e' disabilitata fino all'integrazione della
 sincronizzazione del nuovo livello.
 
-Questa e' una prima fetta di produzione: edifici e arredi sono ancora blocchi,
-e i nuovi nemici richiedono prove di movimento, collisione e leggibilita'.
-La build Unity e la prova nativa ora riescono. La verifica automatica passa **45/45**:
+Questa e' una prima fetta di produzione: edifici e arredi sono in gran parte ancora blocchi
+(deposito e uffici sono stati arredati dopo, vedi sotto), e i nuovi nemici richiedono prove di movimento, collisione e leggibilita'.
+La build Unity e la prova nativa ora riescono. La prima verifica automatica passava **45/45** (i conteggi aggiornati sono nelle sezioni successive):
 ricetta e geometria incorporate, corrispondenza di quattro edifici, quattro spawn e tre espositori con il piano condiviso,
 quattro percorsi dalla strada agli interni, quattro attraversamenti con il vero
 CharacterController, quattro percorsi dagli spawn, acquisto e rifornimento dei tre
@@ -102,6 +102,9 @@ recupero distinti. I modelli restano sagome di prototipo, non asset finali.
   illuminazione. Le immagini attuali mostrano esplicitamente un blockout.
 - Portare la progressione urbana dal ciclo della hall a un survival urbano
   completo: aree a pagamento, percorsi alternativi e pressione delle orde.
+  Stato (2026-11-15): aree a pagamento e ondate urbane sono implementate (sezioni
+  «Ondate urbane configurabili» e «Accessi agli edifici»); restano da valutare a mano
+  i percorsi alternativi e la pressione delle orde.
 - Completare la valutazione visiva e il bilanciamento della prima arma; aggiungere
   varianti: ARGINE .45 e' stata aggiunta tramite dati alla famiglia della RONDA-9,
   senza un nuovo ramo per ID nel runtime.
@@ -129,13 +132,13 @@ La Torre e le sue build non vengono sostituite da CityPreview.
 
 `unity/PryingEyes/Packages/com.pryingeyes.layout` contiene il calcolo autorevole
 del quartiere, in un assembly senza riferimenti al motore. `CityBuilder` lo usa
-per costruire la scena. PlanLab compila lo stesso file e produce i dati letti da
+per costruire la scena. PlanLab (`tools/planlab`, .NET) compila lo stesso file e produce i dati letti da
 CityLab per anteprima e controlli: Python non ricalcola piu' edifici, porte o spawn.
 
 `unity/LayoutDemo` installa il pacchetto locale e solo moduli incorporati di Unity.
 La verifica nativa `DistrictDemo.Verify` passa determinismo, variazione delle misure,
 rifiuto di misure invalide e generazione di una scena indipendente. Il suo
-`unity_logs/layout-demo/layout.json` coincide con il piano della CLI e della build
+`unity/LayoutDemo/Verification/layout.json` (scritto da `DistrictDemo.Verify`) coincide con il piano della CLI e della build
 urbana, confrontando i numeri con tolleranza di 0,01 mm.
 
 Il refactoring conserva posizione, rotazione e scala di tutti i **77 elementi con trasformazione**
@@ -183,13 +186,14 @@ con l'ondata; i Vigili mantengono il passo piu' lento del loro archetipo.
 
 Il pacchetto senza Unity `Production.Survival` gestisce budget e ritmo delle
 comparse. Il gioco mantiene scelta dei nemici, posizioni, difficolta' e ricompense.
-La filiera `asset build room_workshop_station --publish` passa 71 controlli della
+La filiera `python tools/studio.py asset build room_workshop_station --publish` passa 71 controlli della
 citta', 297 del gunplay e 24 del nuovo modulo, oltre ai controlli gia' presenti.
 Aggiorna CityPreview con 194 file verificati. La prova indipendente Unity passa
 14 controlli. Dettagli, limiti e percorsi delle prove sono in `production-studio.md`.
 
-La citta' rimane incompleta: accessi a pagamento, altri interni caratterizzati,
-verticalita' e qualita' visiva dei nemici devono ancora essere portati avanti.
+Stato (2026-11-15): gli accessi a pagamento sono implementati (vedi sotto). La citta'
+rimane incompleta: il posto di controllo e' ancora un guscio, la verticalita' oltre i
+due interni con soppalco o ponte e la qualita' visiva dei nemici devono ancora essere portati avanti.
 
 
 ## Accessi agli edifici

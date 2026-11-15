@@ -1,5 +1,7 @@
 # Revisione richiesta: ritmo da CoD Zombies
 
+> Stato (2026-11-15): verificato sul codice. Il ciclo a ondate è il predefinito (`unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/SurvivalMode.cs`). Il protocollo cooperativo corrente è `pe-coop-25` (`Scripts/Coop/CoopWire.cs`): i numeri `pe-coop-12`…`pe-coop-15` citati nelle passate sono quelli del momento.
+
 ## Direzione attiva: sostituzione della progressione
 
 Ultima richiesta dell'utente, 13 novembre 2026: eliminare le candele da accendere e le meccaniche stealth;
@@ -17,8 +19,8 @@ Requisiti della conversione:
 - regressioni di porte/collisioni, spesa dei punti, ondate, morte, cambio piano, entrata tardiva e cooperativa.
 
 La conversione è completata (diciassettesima passata): il ciclo a ondate è il predefinito della modalità procedurale e la progressione
-a candele resta solo con `-candles`. Le prove delle passate precedenti documentano il sistema a candele, salvo dove indicato;
-quelle del ciclo nuovo sono nella diciassettesima passata e in `docs/quality-audit.md`. Nessuna prova umana: ritmo, prezzi e
+a candele resta solo con `-candles` (o `-legacycycle`, `-oldplan`) e con i flag delle prove che la verificano. Le prove delle passate precedenti documentano il sistema a candele, salvo dove indicato;
+quelle del ciclo nuovo sono nella diciassettesima passata e in `docs/history/quality-audit.md`. Nessuna prova umana: ritmo, prezzi e
 difficoltà vanno ancora giudicati giocando.
 
 Richiesta utente del 13 novembre 2026. Questa revisione estende l'audit: non è completata dai precedenti controlli.
@@ -46,7 +48,7 @@ Gli arredi casuali rispettano i percorsi e i nemici possono usare le quote super
 
 Verifiche: 1.000 piante pure senza fallimenti, 400 piani costruiti senza problemi residui, 9.456 punti superiori
 raggiungibili dall'arrivo; camminata del controller su sei balconate nei tre temi (21/21 per ciascuna prova),
-più dodici piani completi percorsi senza incastri. Vedere `unity_logs/architecture*` e `docs/quality-audit.md`.
+più dodici piani completi percorsi senza incastri. Vedere `unity_logs/architecture*` e `docs/history/quality-audit.md`.
 
 ## Seconda passata: nuove forme e funzioni
 
@@ -71,7 +73,7 @@ anche il massimo aumentato dal perk. La soglia del caricatore critico è il 20% 
 armi consacrate. Avvisi distinti per ricarica, caricatore vuoto e munizioni esaurite.
 
 La verifica di presentazione include tutte le armi consacrate con due slot pieni, quattro perk, round animato,
-punteggio a sette cifre, vita critica durante la rigenerazione e ricarica reale. Vedere `docs/quality-audit.md` per gli
+punteggio a sette cifre, vita critica durante la rigenerazione e ricarica reale. Vedere `docs/history/quality-audit.md` per gli
 esiti sulle risoluzioni verificate. Restano da valutare leggibilità durante combattimenti affollati e dispositivi fisici.
 
 ## Quarta passata: dardi, contatti e provenienza del danno
@@ -153,8 +155,8 @@ all’affondo degli umanoidi, limitato da ostacoli e spazio davanti al bersaglio
 e sostituiti gli archi dell’HUD con segni direzionali compatti.
 
 Le creature procedurali condividono tre sagome preparate nel caricamento; materiali che lampeggiano o si
-spengono restano indipendenti per creatura. La cartella di avvio confermata dall’utente è `Builds/Prova`:
-la copia della build deve aggiornare quella cartella, oltre alla principale quando possibile.
+spengono restano indipendenti per creatura. Il gioco che l'utente avvia è `unity/PryingEyes/Builds/PryingEyes.exe` (`Builds/` del progetto Unity, non della radice del repository): `tools/ship.ps1` lo aggiorna a ogni giro
+dalla build di `Builds/Audit` (fino al 15 novembre 2026 si credeva che fosse `Builds/Prova`, cartella oggi rimossa; vedi `docs/engineering/building-and-shipping.md`).
 
 Restano aperti: rifinitura ulteriore dei gesti, costo di rendering e ombre degli umanoidi nelle orde, verifica del
 bilanciamento durante partite prolungate e gli altri ambiti della revisione generale.
@@ -166,7 +168,7 @@ arrivava a 113 ms. Fanno ombra solo i corpi più vicini (budget di peso 4,5 entr
 distanza e con la folla e, da lontano, la pelle elabora mesh compatte preparate dall'editor invece dei livelli di
 Unity (che accorciano solo gli indici). Con 24 umanoidi il fotogramma costa 9,4 ms (stanza vuota 3,2 ms); da vicino
 il corpo resta intero, quindi il gioco non cambia: cambia quanti nemici si possono permettere. Dettagli e misure in
-`docs/quality-audit.md`.
+`docs/history/quality-audit.md`.
 
 ## Undicesima passata: ripari nelle sale
 
@@ -219,6 +221,8 @@ firma del piano.
 
 ## Diciassettesima passata: ciclo a ondate
 
+> Stato (2026-11-15): confermato nel codice. Ondate in `Scripts/Proc/RoundDirector.Survival.cs` (`SurvivalTarget`, `SurvivalCap`, `FirstWaveDelay`, `WaveBreak`, `StallLimit`); moltiplicatore in `SurvivalMode.SpeedMultiplier`; prezzo delle aree in `Scripts/Proc/RoomAccessState.cs` (`Price`). Il protocollo cooperativo ora è `pe-coop-25`, non `pe-coop-15`.
+
 Conversione chiusa. `SurvivalMode` (`Proc/SurvivalMode.cs`) è il ciclo predefinito; il ciclo a candele e lo stealth restano con
 `-candles` (o `-legacycycle`, `-oldplan`) e con i flag delle prove che li verificano (`-stealthtest`, `-roundtest`, `-roundshots`,
 `-knifetest`, `-droptest`, `-architecturesupply`). `-zombies` forza il nuovo; `-nowaves` ferma le ondate (le ferma anche `-noenemies`
@@ -248,4 +252,4 @@ e `-cooptest`, che le fa partire dal copione).
   Ora il punto sta sempre dentro l'apertura (`PaidRoomDoor.Point`) e `-architectureaccess` controlla che si veda da entrambi i lati di tutte le porte.
 - Aggiornati menu (comandi e guida), obiettivi, guida con `V` (porte da comprare), `README.md` e `docs/multiplayer/README.md`.
 
-Prove e numeri nel dettaglio: `docs/quality-audit.md`, «Diciassettesima passata».
+Prove e numeri nel dettaglio: `docs/history/quality-audit.md`, «Diciassettesima passata».

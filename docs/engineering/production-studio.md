@@ -18,7 +18,7 @@ python tools/studio.py report latest
 separate City build, runs gunplay and the city acceptance loop. `--publish` copies
 that verified build to `Builds/CityPreview` and compares every copied file by SHA256.
 Without it, the executable stays in the job's own `build` directory. This command
-does not update Torre's main/Prova executables or push Git changes.
+does not update Torre's executables (the game in `Builds/`, see [building-and-shipping.md](building-and-shipping.md)) or push Git changes.
 
 Each operation writes `unity_logs/studio/<timestamp>-<id>/report.json`: operation,
 subject, result, problem code/observed/expected, command to reproduce, child process
@@ -44,8 +44,8 @@ Independent generation is still serialized with the rest of a project job. A
 separate generation pool remains open work; this is deliberately not a claim of
 parallel generation throughput.
 
-`tools/studio.py` is only the entry point. Jobs, locking, source guards, the queue and the
-command line live in the project-agnostic `tools/studio_engine.py`; weapons, rooms, Blender,
+`tools/studio.py` is only the entry point. Jobs, locking, source guards and the
+command line live in the project-agnostic `tools/studio_engine.py`; the persistent queue is `tools/studio_queue.py` and the OS locks and owned processes are `tools/studio_process.py`. Weapons, rooms, Blender,
 Unity and the city checks live in the profile `tools/studio_pryingeyes.py`. Adding a content
 kind or a check means adding a `ContentType` or `Suite` there; `suite-architecture.md` explains
 the boundary and how another project plugs in.
@@ -72,7 +72,7 @@ IDs. This historical hash check is a migration audit, not a second editable set 
 weapon stats. Intentional future balance changes can change the catalog without
 changing the runtime code; their compatibility fingerprint changes accordingly.
 
-Co-op admission now uses `pe-coop-16` plus a fingerprint of the normalized catalog.
+Co-op admission now uses `CoopProtocol.ContentRevision`: the protocol revision (`pe-coop-25` in `CoopWire.cs` at the time of writing) plus `WeaponDefs.ContentHash`, a fingerprint of the normalized catalog.
 Peers with different production/balance data are refused instead of sharing
 incompatible weapon indices or stats. This does not fingerprint every compiled mesh
 or texture yet; full content provenance remains unfinished.
@@ -121,9 +121,8 @@ ADS and player-view cameras retain their intended viewpoint.
 
 ## Scope still open
 
-The catalog covers weapons and the first furnished-room recipe. Enemies still need
-equivalent production records; the room palette is embedded in the room catalog, not yet a general material catalog. Dependency impact queries and a local gallery are not
-implemented. Native gunplay/optics still primarily report through their existing logs,
+The catalog covers weapons and three furnished-room recipes. Enemies still need
+equivalent production records; the room palette is embedded in the room catalog, not yet a general material catalog. Native gunplay/optics still primarily report through their existing logs,
 and the native presentation lab still uses its legacy output directory. Studio's
 common report wraps the checks that are integrated today.
 
@@ -222,7 +221,7 @@ pipeline at the dimensions actually used by the city.
 Complete room job: `unity_logs/studio/20261114T092523Z-94b35b15/report.json`.
 All stages passed: **297/297 gunplay**, **67/67 native city/room findings**,
 including sign visibility, and **192 published files** verified by SHA256 in
-`Builds/CityPreview`. `Builds/Prova` remains the separately verified Torre build.
+`Builds/CityPreview`. At that time `Builds/Prova` was the separately verified Torre build (it no longer exists: the game is `Builds/PryingEyes.exe`, refreshed by `tools/ship.ps1`).
 This proves the first furnished-room pipeline; the rest of the suite and the
 polished urban survival game remain open work.
 
@@ -302,7 +301,7 @@ state comparison. Full logs are local evidence, not versioned artifacts.
 
 Torre cooperative regression: host **38/38**, client **50/50**, both exit 0
 in 103 seconds (`unity_logs/weapon-state-coop`). The Torre package DLL matches
-the one verified in the city. Published **193 files** to `Builds/Prova`, all
+the one verified in the city. Published **193 files** to `Builds/Prova` (since replaced by `Builds/`, see [building-and-shipping.md](building-and-shipping.md)), all
 compared by SHA256; provenance in `build-info.json` and
 `unity_logs/weapon-state-torre-publish.json`. No network message format or balance
 rule changes were introduced. Build-generated scene IDs and numerically identical

@@ -4,17 +4,17 @@ Added on 15 November 2026.
 
 - **Room reflections** (`Scripts/Proc/RoomProbes.cs`): one box-projected reflection probe per room, sized to the room from
   floor to ceiling, rendered once right after the floor is built (one per frame, with the room's lights forced on through
-  `LightPool.HoldPoint`) and then left static. Glossy surfaces (checkered marble, brass, glass, lacquered wood) now reflect
+  `LightPool.HoldPoint`) and then left static until a blackout ends: when the power comes back they are photographed again (`RoomProbes.Rebake`, called from `Proc/Power.cs`). Glossy surfaces (checkered marble, brass, glass, lacquered wood) now reflect
   their own room instead of the bright fallback environment, which flattened the marble halls. URP Forward+ probe blending,
   box projection and the probe atlas were already enabled in `HotelURP`. 128 px, 256 px for rooms over 400 m². Cost measured
   with the frame probe at 1080p on seed 2995 floor 3: 4.8 ms with and without probes; baking 9 probes takes about 120 ms
   during the arrival. `-noprobes` disables them for comparisons.
 - **Scoreboard** (`Scripts/HUD.Score.cs`): hold Tab for wave and floor, points, kills and headshot share, accuracy, trials
-  completed, deaths, time, throwables and, in co-op, the number of players. New counters `GameManager.headshots` and
+  completed, medals, deaths, time, equipment (holy water, carillons, mines), glass eyes found and, in co-op, the number of players. New counters `GameManager.headshots` and
   `GameManager.deaths`.
 - **Weapon inspection** (`Weapon.Inspect`, key I): 2.6 s, the weapon rises and turns to show its left side with a slow
   sway, then returns; firing, aiming, reloading, switching or the knife interrupt it.
-- **Explosion shake** (`PlayerController.Shake`): flasks, carillons, Appestato bursts and the Cardinal's fire ring kick the
+- **Explosion shake** (`PlayerController.Shake`): flasks, carillons, Appestato bursts, barrels, chandeliers, mines and the Cardinal's fire ring kick the
   view and the field of view, stronger when closer (scaled by the motion comfort setting).
 - **Corpses** (`Scripts/CorpseSink.cs`): monks and abbots finish their fall, then sink into the floor over 1.4 s with a puff of
   dust before being removed, instead of vanishing.
@@ -33,9 +33,9 @@ Added on 15 November 2026 (`Scripts/EnemyRagdoll.cs`, `Scripts/Enemy.Ragdoll.cs`
 - The killing hit decides the fall. `Enemy.Damage` notes where the hit landed, where it came from (the shooter's eye) and how
   much damage arrived in that frame (shotgun pellets add up). The part closest to the hit gets the impulse (pistol about
   20 N*s, shotgun and sniper 45, capped at 3.5 m/s on the part) and the pelvis a quarter of it, so a headshot snaps the head
-  back and the body follows. A running enemy keeps its velocity and falls forward. Knife and takedowns push gently; the Bell,
+  back and the body follows. A running enemy keeps its velocity and falls forward. Takedowns push with 5 N*s and knife kills with 18 N*s; the Bell,
   fire traps and poison clouds just drop the body.
-- Explosions push from their centre: barrels, the Appestato burst and thrown flasks call `Enemy.NoteBlast(centre)` before
+- Explosions push from their centre: barrels, the Appestato burst, thrown flasks, mines and chandeliers call `Enemy.NoteBlast(centre)` before
   damaging, and whoever dies in that frame flies away from it (5.5 m/s at the centre, less with distance, the same for every
   part so the body does not tear at the joints).
 - The staff is a parentless bone in the monk rig (`genera_monaco.py`): it gets its own capsule (from the floor to 1.48 m along
@@ -83,7 +83,7 @@ Added on 15 November 2026 (`Scripts/EnemyFlinch.cs`).
 A hit that does not kill a monk (any costume) or the abbot pushes pelvis, chest and head away from the shot with a damped spring
 on top of the animation (stiffness 120, damping 15: back in about half a second). The impulse grows with the damage (6 + 0.22 per
 point, up to 16 degrees of hit), shotgun pellets in the same frame add up to a cap of 22, a body shot bends the chest and the head
-follows at 60%, a headshot throws the head back about twice as much as the chest, with a little random twist. It is applied in
+follows at 60%, a headshot kicks the head about 3.5 times as hard as the chest (1.9 against 0.55), with a little random twist. It is applied in
 `LateUpdate` after the Animator as a world rotation around the horizontal axis perpendicular to the shot; each bone remembers the
 Animator pose, so when the Animator does not rewrite it in a frame the bend does not accumulate. The spring is integrated in 8 ms
 sub-steps (one long frame would otherwise eat the impulse). Beyond 35 m from the camera it stops; the stone Statue does not react;

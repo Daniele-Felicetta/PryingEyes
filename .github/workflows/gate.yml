@@ -45,6 +45,9 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /tools/
+            /README.md
+            /AGENTS.md
+            /docs/
             /unity/PryingEyes/Packages/
             /unity/PryingEyes/Assets/_PryingEyes/**/*.cs
             /unity/PryingEyes/Assets/_PryingEyes/Resources/Production/*.json
@@ -88,8 +91,8 @@ jobs:
           dotnet --list-runtimes
           git --version
 
-      # The cheapest check first.
-      - name: Suite boundaries
+      # The cheapest check first: package and engine boundaries, and the documentation (links, index, no machine-specific paths).
+      - name: Suite boundaries and documentation
         run: python tools/check_suite.py
 
       # Compiled here, once, so the Python tests that run `dotnet run` (90-120 s limits) do not spend them restoring and compiling.

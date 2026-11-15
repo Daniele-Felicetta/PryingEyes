@@ -12,7 +12,7 @@ make_shots.py ──► job.json ──► shoot.ps1 ──► player (-trailer)
 
 | Piece | Where | What it does |
 | --- | --- | --- |
-| Recorder | `Scripts/Proc/TrailerJob.cs`, `TrailerCapture.cs`, `FloorDirector.Trailer.cs` (all `#if !PE_DISTRIBUTION_BUILD`) | `-trailer job.json`: builds a floor from a seed, flies a free camera or plays first person with a weapon, spawns enemies, fires `fire / burst / kill / ads / slow / torch` events, renders to a RenderTexture and pipes raw RGB to ffmpeg (mp4 per shot) or writes stills |
+| Recorder | `Scripts/Proc/TrailerJob.cs`, `TrailerCapture.cs`, `FloorDirector.Trailer.cs` (all `#if !PE_DISTRIBUTION_BUILD`) | `-trailer job.json`: builds a floor from a seed, flies a free camera or plays first person with a weapon, spawns enemies, fires `fire / burst / kill / ads / slow / torch / reload / equip` events, renders to a RenderTexture and pipes raw RGB to ffmpeg (mp4 per shot) or writes stills |
 | Floor maps | `tools/trailer/floorlib.py` | reads the scout dump of a floor: free cells, straight lanes, a map PNG; `make_shots.py` uses it to warn about cameras close to obstacles |
 | Shot list | `tools/trailer/make_shots.py` | the shots (church, theatre, sanatorium, first person) as Python; writes the job file |
 | Shooting | `tools/trailer/shoot.ps1` | runs `Builds\Audit\PryingEyes.exe` at BelowNormal priority; refuses to start if another player is running (the GPU is shared) |

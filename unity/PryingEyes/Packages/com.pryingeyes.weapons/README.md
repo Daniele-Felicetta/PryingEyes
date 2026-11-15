@@ -32,7 +32,7 @@ Interface rules:
 - `SetAmmunition` deliberately permits a count above a normal capacity for restoration
   and existing debug scenarios. A reload transfer cannot create ammunition, make
   reserve negative or increase the magazine above its captured capacity.
-- Reset actions on equip/switch/respawn; this clears reload and timer locks without
+- Call `ResetActions()` on equip/switch/respawn; it clears reload and timer locks without
   changing stored ammunition. Inventory selection and upgrade policy stay in the game.
 
 Verification in this repository:
@@ -41,7 +41,7 @@ Verification in this repository:
 python tools/studio.py test weapon-state
 ```
 
-The console lab compiles this exact source with .NET and compares all 30 real
+The console lab (`tools/weaponslab`) compiles this exact source with .NET and compares all 30 real
 weapon definitions against a frozen reload implementation from commit `6fcbecf`.
 It checks frame traces, event stages, partial/empty magazines, scarce reserve,
 upgraded capacities, several frame steps and accelerated reloads. Extra contracts

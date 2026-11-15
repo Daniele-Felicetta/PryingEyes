@@ -4,6 +4,13 @@ Obiettivo: verificare e completare aspetto, funzionalità e gameplay del progett
 la versione Unity/Torre, attualmente distribuita; le versioni Three.js e Unreal restano da valutare separatamente.
 Questo documento registra prove e lavoro aperto, senza dichiarare conclusa la revisione complessiva.
 
+> **Nota di aggiornamento (15 novembre 2026).** Le sezioni datate descrivono lo stato di quella data. Stato attuale verificato sul codice:
+> - Protocollo cooperativo: `pe-coop-25` (`CoopWire.cs`, `CoopProtocol.Revision`). Le revisioni `pe-coop-3`…`pe-coop-17` citate sotto sono storiche; `docs/multiplayer/README.md` riporta `pe-coop-25` (i suoi esiti del 12 novembre sono su `pe-coop-15`, da ripetere).
+> - Catalogo armi: 30 voci in `Resources/Production/weapons.json` (`WeaponDefs.All`). I 28 citati il 12–13 novembre sono il conteggio di allora.
+> - Ciclo predefinito della Torre: ondate (`SurvivalMode`); le candele restano solo con `-candles` o `-legacycycle`. Regole attuali in `docs/history/zombies-redesign.md`.
+> - Cartelle di build: la copia `Builds/Prova` citata nelle sezioni del 14 novembre non esiste più (rimossa il 15 novembre 2026). Il gioco che l'utente avvia è `Builds/PryingEyes.exe`, aggiornato da `tools/ship.ps1`; le prove usano `Builds/Audit` (vedi `docs/engineering/building-and-shipping.md`).
+> - Questo registro sta in `docs/history/`; la mappa di tutta la documentazione è `docs/README.md`.
+
 ## Interventi attuali
 
 - Impostazioni: sensibilità 0,25–3×, campo visivo verticale 60–105°, oscillazione 0–100%, applicazione immediata
@@ -65,7 +72,7 @@ posizione ora controlla distanza tridimensionale e visibilità del punto d'uso r
 
 ### Armi, movimento e segnalazione sulle ottiche
 
-- `gunplaytest`: **279/279** sulla build aggiornata (`unity_logs/gunplay/player.log`). Controlla i 28 prefab e i loro
+- `gunplaytest`: **279/279** sulla build aggiornata (`unity_logs/gunplay/player.log`). Controlla i 28 prefab (allora; il catalogo ha ora 30 armi) e i loro
   agganci, ADS, tutti i modi di fuoco, ricariche vuote/tattiche, bonus durante le ricariche a cartucce, acquisti
   consacrati, cambio slot, danno al corpo/testa, punti, muro e penetrazione. Prova anche il controller reale
   su un pavimento isolato con sprint, scivolata, crouch, camminata e mezzo stick.
@@ -161,7 +168,7 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
   teatro 3,8 ms (261 fps), sanatorio 4,0 ms (253 fps); peggior p99 9,1 ms (Cripta dell'albergo, già così prima). Stessi
   valori della misura precedente alla seconda passata (269, 273 fps): nessuna regressione. Le due prime stanze del
   sanatorio sono salite a 4,9 e 6,1 ms, con la scheda condivisa con altre applicazioni; il resto è invariato.
-- Rassegna completa `-guntest` (28 armi, mano, mira, sparo, ricarica, più i tre espositori) a seme fisso dopo le
+- Rassegna completa `-guntest` (28 armi allora, mano, mira, sparo, ricarica, più i tre espositori) a seme fisso dopo le
   modifiche: tutte le armi si caricano, sparano e si vedono, e i testi dei pannelli si leggono ancora da davanti. La
   cadenza misurata sta entro l'8% della scheda per 27 armi su 28; il Predicatore (a leva) fa 94-97 colpi al minuto
   contro gli 85 di scheda, perché il ciclo vero è `cycle = 0,62 s` e la cifra di scheda non è usata in gioco (solo nel
@@ -257,7 +264,7 @@ vero percorso hitscan/danno. La verifica dei mirini richiede grafica; senza `--o
 
 ## Sale grandi e verticalità (13 novembre 2026)
 
-- Nuova richiesta registrata integralmente in `docs/zombies-redesign.md`: spazi e verticalità, nuove forme e stanze,
+- Nuova richiesta registrata integralmente in `docs/history/zombies-redesign.md`: spazi e verticalità, nuove forme e stanze,
   HUD, Veglia, animazioni e feedback degli attacchi. La revisione richiesta resta aperta.
 - Prima passata sul generatore: moduli 12,8–17,6 m, più ambienti e sale a più moduli, più porte ad anello,
   accessi principali da 2,4–3 m, zone dei round ampliate per contenere le grandi sale.
@@ -569,7 +576,7 @@ sola Galleria sotto il 3% (prima 115). Gli obiettivi 9–11% non vengono raggiun
 tentativi e lo spazio libero con i corridoi larghi 1,2–1,3 m non basta. Non è stato abbassato il margine, perché con i
 varchi sotto 1,2 m la navmesh chiude la strada (vedi la nota sul raggio della navmesh nelle passate precedenti).
 
-Verifica: `ProcCheck` su 400 piani (seme 3000, `-fast`): 8 piani con problemi prima della riparazione, **0 rotti dopo**,
+Verifica: `ProcCheck` su 400 piani (seme 3000; il flag `-fast` allora citato non è letto da `ProcCheck.cs`): 8 piani con problemi prima della riparazione, **0 rotti dopo**,
 0 stanze svuotate (55 arredi tolti dai varchi). Build di verifica (`Builds/Audit`, solo script) senza finestre e senza
 input iniettato: mischia **71/71**, creature **63/63**, volanti **117/117**, dardi **23/23**, torcia **52/52**,
 architettura **58/58, 74/74, 74/74**, round furtivo ok, interfaccia **157/157** in tre risoluzioni, armi **279/279**,
@@ -615,7 +622,7 @@ stesso effetto sulla replica, nessun danno autonomo della replica e scomparsa di
 durante la prova mantiene effettiva la verifica delle pose, senza forzare l'Animator né modificarne il culling.
 
 Verifiche (`unity_logs/physical-melee-final`): mischia **90/90** nei tre temi e **90/90** anche senza salvare immagini;
-volanti **117/117**, dardi/feedback **22/22** (senza la fotografia aggiuntiva della modalità `-feedbackshots`).
+volanti **117/117**, dardi/feedback **22/22** (senza la fotografia aggiuntiva; il flag `-feedbackshots` non esiste nel codice).
 Le schermate di contatto mostrano ancora un possibile difetto distinto sul Monaco dopo un colpo ricevuto:
 il costume appare completamente bianco. È da diagnosticare il ripristino dell'emissione nei fotogrammi lunghi;
 questa passata non dichiara conclusa la qualità delle animazioni o dell'illuminazione in combattimento.
@@ -761,7 +768,7 @@ e posizioni generate su tutte le copie.
 
 Chiusura della conversione richiesta dall'utente il 13 novembre: via candele e stealth, aree da aprire coi punti, meno sale più grandi,
 ondate automatiche, nemici più veloci. Il lavoro era a metà nell'albero (non committato); ora `SurvivalMode` è il ciclo predefinito e quello
-a candele resta dormiente con `-candles`. Descrizione delle regole in `docs/zombies-redesign.md`, «Diciassettesima passata». Tutte le prove
+a candele resta dormiente con `-candles`. Descrizione delle regole in `docs/history/zombies-redesign.md`, «Diciassettesima passata». Tutte le prove
 sono sulla build di verifica `Builds/Audit` (solo script).
 
 | Prova | Esito |
@@ -865,7 +872,7 @@ volume di default e nelle impostazioni globali di URP (da annullare con `git che
 
 **Direzione dell'utente (13 novembre):** la progressione a candele e lo stealth sono stati sostituiti da ondate automatiche,
 aree a pagamento, meno sale più grandi e nemici più veloci (diciassettesima passata). Le prove storiche delle candele non sono
-criteri di accettazione del ciclo nuovo. Regole in `docs/zombies-redesign.md`.
+criteri di accettazione del ciclo nuovo. Regole in `docs/history/zombies-redesign.md`.
 
 | Ambito | Evidenza necessaria |
 | --- | --- |
