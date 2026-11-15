@@ -18,7 +18,13 @@ def atomic_json(path, data):
     try:
         with temp.open("w", encoding="utf-8") as stream:
             json.dump(data, stream, indent=2); stream.flush(); os.fsync(stream.fileno())
-        os.replace(temp, path)
+        deadline = time.monotonic() + 5
+        while True:
+            try: os.replace(temp, path); break
+            except PermissionError:
+                # Windows refuses to replace a file while any process has it open for reading (a poller of report.json): wait a moment.
+                if os.name != "nt" or time.monotonic() > deadline: raise
+                time.sleep(.01)
     finally:
         temp.unlink(missing_ok=True)
 

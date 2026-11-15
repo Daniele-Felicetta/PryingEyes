@@ -4,9 +4,10 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
-from studio_process import file_lock, process_identity
+from studio_process import atomic_json, file_lock, process_identity
 from studio_queue import Queue
 from studio_engine import project_lock_path
 from fixtures.toy_project import ToyProject
@@ -20,7 +21,7 @@ def until(check, timeout=15):
         try:
             result = check()
             if result: return result
-        except (FileNotFoundError, json.JSONDecodeError): pass
+        except (FileNotFoundError, PermissionError, json.JSONDecodeError): pass  # a file being replaced under the reader
         time.sleep(.05)
     raise AssertionError("Timed out waiting for observed process/job state")
 
@@ -90,6 +91,24 @@ class QueueLifecycle(unittest.TestCase):
             resumed = self.worker(folder); self.assertEqual(resumed.wait(15), 0)
             self.assertEqual(queue.get(identity)["state"], "interrupted")
             self.assertEqual(queue.get(following)["state"], "complete")
+
+    def test_atomic_json_replaces_a_report_that_a_poller_is_reading(self):
+        # Windows refuses os.replace over a file another handle has open: a worker saving report.json must survive a poller reading it.
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "report.json"; atomic_json(target, {"n": -1})
+            stop = threading.Event(); reads = []
+            def poll():
+                while not stop.is_set():
+                    try: reads.append(json.loads(target.read_text(encoding="utf-8"))["n"])
+                    except (FileNotFoundError, PermissionError, json.JSONDecodeError): pass
+            poller = threading.Thread(target=poll); poller.start()
+            try:
+                for n in range(100): atomic_json(target, {"n": n})
+            finally:
+                stop.set(); poller.join()
+            self.assertEqual(json.loads(target.read_text(encoding="utf-8")), {"n": 99})
+            self.assertTrue(reads)
+            self.assertEqual(list(Path(directory).glob("*.tmp")), [])
 
     def test_waiting_for_project_lock_is_cancellable_without_starting_work(self):
         with tempfile.TemporaryDirectory() as directory:
