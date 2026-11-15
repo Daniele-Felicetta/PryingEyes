@@ -126,3 +126,24 @@ the magazine (the hand stows it and comes back with another); tube-fed shotguns,
 Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -magtest [-magshots] -seed 1000 -floor 1`
 (`Scripts/MagTest.cs`, 9 checks with the AR-9, the P9 pistol and the Breacher shotgun). Photos in `unity_logs/caricatori`.
 
+## Medals
+
+Added on 15 November 2026 (`Scripts/Medals.cs`, `Scripts/HUD.Medals.cs`).
+
+Instant feats, rewarded with a gold medal at the top centre (name between two growing rules, points below, a scale pop, 1.9 s), a
+two-note chime (`SoundGen.Medal`) and a few points, counted on the Tab scoreboard ("Medaglie"). They complement the wave Trials
+and are computed on the kills credited to this player (`GameManager.CreditKill`; in co-op each player has their own):
+
+- chained kills less than 0.75 s apart: Doppietta +20, Tripletta +50, Quaterna +80, Strage (five or more) +120;
+- Mira divina: five kills in a row to the head +100 (Occhio di Dio at ten, +250);
+- Intoccabile: twenty-five kills without being hurt +150 (any hurt resets the streak);
+- Ultimo respiro: a kill with health under 15% +50 (at most every 20 s);
+- Fuoco purificatore: three kills or more in the same blast (same frame, explosion damage) +75;
+- Lama santa: three knife kills within 5 s +60.
+
+Counts reset with the run (`GameManager` and `FloorDirector` resets). The scoreboard equipment line now also lists mines.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -medaltest -seed 1000 -floor 1` (`Scripts/MedalTest.cs`,
+11 checks: chain medals with their points and the banner, the chain restarting after a pause, the headshot streak, the blast
+triple, the untouchable streak at exactly 25 after a hurt, the last-breath kill, the knife triple).
+

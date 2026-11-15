@@ -65,10 +65,10 @@ namespace PryingEyes
             int secs = Mathf.FloorToInt(Time.timeSinceLevelLoad);
             var eq = Equipment.I;
             var he = HiddenEyes.I;
-            scoreLeft.text = "Punti\nUccisioni\nAlla testa\nPrecisione\nProve superate\nMorti\nTempo\nEquipaggiamento\nOcchi di vetro" + (Coop.Active ? "\nGiocatori" : "");
+            scoreLeft.text = "Punti\nUccisioni\nAlla testa\nPrecisione\nProve superate\nMedaglie\nMorti\nTempo\nEquipaggiamento\nOcchi di vetro" + (Coop.Active ? "\nGiocatori" : "");
             scoreRight.text = $"{gm.score.ToString("N0", It)}\n{kills}\n{heads} ({(kills > 0 ? 100 * heads / kills : 0)}%)\n{acc:F0}%  ({hit}/{fired})\n" +
-                              $"{Prove.completed}\n{GameManager.deaths}\n{secs / 60}:{secs % 60:00}\n" +
-                              (eq != null ? $"acquasanta {eq.grenades}, carillon {eq.lures}" : "-") + "\n" + (he != null ? $"{he.Found}/{he.Total}" : "-") +
+                              $"{Prove.completed}\n{Medals.Count}\n{GameManager.deaths}\n{secs / 60}:{secs % 60:00}\n" +
+                              (eq != null ? $"acquasanta {eq.grenades}, carillon {eq.lures}, mine {eq.mines}" : "-") + "\n" + (he != null ? $"{he.Found}/{he.Total}" : "-") +
                               (Coop.Active ? $"\n{Targets.Count}" : "");
         }
     }

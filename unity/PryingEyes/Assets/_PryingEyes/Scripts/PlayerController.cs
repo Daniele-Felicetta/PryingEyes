@@ -500,6 +500,7 @@ namespace PryingEyes
             hud?.SetBars(hp, shield);
             Synth.Hurt();
             Prove.OnHurt();
+            Medals.OnHurt();
             // il colpo scuote la visuale
             Kick(1.2f, Random.Range(-1f, 1f) * 1.2f, 10f);
             if (hp <= 0f && PerkState.TakeRevive())

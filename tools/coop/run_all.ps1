@@ -16,15 +16,20 @@ $tests = [ordered]@{
     g_tre     = @{ Clients = 2; H = @('-cooptest', '-coopplayers', '3', '-seed', $S); C = @('-cooptest', '-coopplayers', '3') }
     h_quattro = @{ Clients = 3; H = @('-cooptest', '-coopplayers', '4', '-seed', $S); C = @('-cooptest', '-coopplayers', '4') }
 }
+# con 'powershell -File' l'elenco -Only a,c arriva come una stringa sola: la si spezza sulle virgole
+$Only = @($Only | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $bad = 0
+$ran = 0
 foreach ($k in $tests.Keys) {
     if ($Only.Count -and -not ($Only -contains $k.Substring(0, 1))) { continue }
     $t = $tests[$k]
+    $ran++
     $out = & $run -LogDir $LogDir -Name $k -Clients $t.Clients -HostArgs $t.H -ClientArgs $t.C -TimeoutSec $TimeoutSec -Pattern 'RISULTATO|FALLITO|Exception|error CS'
     $code = $LASTEXITCODE
     if ($code -ne 0) { $bad++ }
     $res = @($out | Where-Object { $_ -match 'RISULTATO|FALLITO|tempo scaduto|uscite|Exception|error CS' })
     "[$k] $(if ($code -eq 0) { 'ok' } else { 'FALLITA' }): " + ($res -join ' | ')
 }
+if ($ran -eq 0) { 'nessuna prova selezionata (controllare -Only)'; exit 2 }
 if ($bad) { "$bad prove fallite"; exit 1 }
 'tutte superate'

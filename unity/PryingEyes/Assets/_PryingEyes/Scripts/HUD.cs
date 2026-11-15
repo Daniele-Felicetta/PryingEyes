@@ -117,6 +117,7 @@ namespace PryingEyes
             BuildCoopUI();
             BuildBossUI();           // HUD.Boss.cs: nome e vita del Cardinale in alto al centro
             BuildEquipUI();          // HUD.Equip.cs: acquasanta e carillon sopra le armi, la Prova dell'ondata in basso al centro
+            BuildMedalUI();          // HUD.Medals.cs: la medaglia in alto al centro
             BuildScoreUI();          // HUD.Score.cs: tabellone tenendo premuto Tab (sopra a tutto il resto)
 
             // Navigazione in alto; risorse di combattimento ai due angoli inferiori.
@@ -431,6 +432,7 @@ namespace PryingEyes
             UpdatePerksUI(dt);
             UpdateCoopUI();
             UpdateBossUI(dt);
+            UpdateMedalUI(dt);
             UpdateScoreUI(dt);
             if (bannerT > 0f)
             {

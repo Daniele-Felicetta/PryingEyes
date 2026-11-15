@@ -94,6 +94,7 @@ namespace PryingEyes.Proc
             RoundDirector.ResetRun();
             Drops.ResetRun();
             Perks.ResetRun();
+            Medals.Reset();
             StartCoroutine(GoTo(startFloor > 0 ? startFloor : ArgInt("-floor", 1), true));
         }
 
