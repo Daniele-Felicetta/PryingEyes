@@ -63,6 +63,7 @@ namespace PryingEyes
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
             yield return null;
             Enemy.ClearAll(); Enemy.debugFreeze = false; Enemy.debugNoSense = false;
+            Power.ForceOn();                                  // le trappole vanno con la corrente: qui si provano loro, non il quadro
             var gm = GameManager.I; var player = gm.player;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             var traps = DoorTraps.I;

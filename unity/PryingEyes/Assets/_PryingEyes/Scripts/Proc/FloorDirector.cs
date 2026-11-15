@@ -172,6 +172,9 @@ namespace PryingEyes.Proc
             foreach (var c in cur.candles) c.onLit += OnCandle;
             RoundDirector.I?.Arm(cur, regions);
             if (SurvivalMode.Enabled) { RoomAccessDoors.Build(cur); DoorTraps.Build(cur); Barrels.Build(cur); HiddenEyes.Build(cur); }
+            // la corrente: nel ciclo a ondate si parte con le luci d'emergenza e il quadro elettrico nell'area piu' lontana (Power.cs)
+            Power.Reset(SurvivalMode.Enabled && RoomAccessDoors.I != null && RoomAccessDoors.I.Access != null && !HasArg("-nopower")
+                ? PowerPanel.Build(cur, RoomAccessDoors.I.Access) : null);
             if (cur.exit != null)
             {
                 cur.exit.unlocked = false;
@@ -443,7 +446,12 @@ namespace PryingEyes.Proc
         {
             var hud = gm.hud;
             if (hud == null) return;
-            if (SurvivalMode.Enabled) { hud.SetObjective((RoundDirector.I != null ? RoundDirector.I.Status() : "Preparati alla prima ondata") + (exitOpen ? "  ·  Ascensore disponibile" : "  ·  3 ondate per l’ascensore")); return; }
+            if (SurvivalMode.Enabled)
+            {
+                string power = Power.Panel != null && !Power.On ? "  ·  Trova il quadro elettrico" : "";
+                hud.SetObjective((RoundDirector.I != null ? RoundDirector.I.Status() : "Preparati alla prima ondata") + (exitOpen ? "  ·  Ascensore disponibile" : "  ·  3 ondate per l’ascensore") + power);
+                return;
+            }
             if (RoundDirector.I != null && RoundDirector.I.Fighting) { hud.SetObjective(RoundDirector.I.Status()); return; }
             if (exitOpen) { hud.SetObjective("Raggiungi l'ascensore e scendi"); return; }
             hud.SetObjective($"Accendi le candele {lit}/{total}  ·  V per il ping");

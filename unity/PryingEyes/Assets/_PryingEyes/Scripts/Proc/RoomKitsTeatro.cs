@@ -100,7 +100,7 @@ namespace PryingEyes.Proc
             var mr = p.GetComponent<MeshRenderer>();
             mr.sharedMaterial = ProcKit.Mat("uscita");
             mr.shadowCastingMode = ShadowCastingMode.Off;
-            AddLight(c, g.transform.position + inward * 0.35f, new Color(0.35f, 1f, 0.5f), 0.9f, 4.5f, false, true, g.transform);
+            AddLight(c, g.transform.position + inward * 0.35f, new Color(0.35f, 1f, 0.5f), 0.9f, 4.5f, false, true, g.transform, electric: false);   // uscita: a batteria
         }
 
         /// <summary>Il punto sul muro (al centro dello spessore) dove sta un'apertura.</summary>
@@ -289,7 +289,7 @@ namespace PryingEyes.Proc
                     eye.transform.localScale = Vector3.one * 3.2f;
                     // un faro stretto lo illumina dall'alto e dal davanti: dall'arco si vede come un'icona nel buio
                     Vector3 from = eyeAt + Inward(back) * 6.0f + Vector3.up * (H - 1.4f);
-                    var eyeSpot = AddLight(c, from, new Color(1f, 0.82f, 0.5f), 150f, 14f, false, true, null, LightType.Spot);
+                    var eyeSpot = AddLight(c, from, new Color(1f, 0.82f, 0.5f), 150f, 14f, false, true, null, LightType.Spot, electric: false);
                     eyeSpot.l.spotAngle = 30f; eyeSpot.l.innerSpotAngle = 14f;
                     eyeSpot.l.transform.rotation = Quaternion.LookRotation((eyeAt + Vector3.up * 6.1f) - from);
                 }

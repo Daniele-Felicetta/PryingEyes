@@ -111,7 +111,7 @@ namespace PryingEyes.Proc
                 if (Perks.Full) return $"{d.book.ToUpperInvariant()} — i quattro posti sono pieni";
                 int price = Perks.NextPrice, have = GameManager.I != null ? GameManager.I.score : 0;
                 string cost = have >= price ? $"{price} punti" : $"{price} punti (ti mancano {price - have})";
-                return $"{d.book.ToUpperInvariant()}: {d.name.ToUpperInvariant()} — {d.effect} — {cost}";
+                return $"{Power.Prefix}{d.book.ToUpperInvariant()}: {d.name.ToUpperInvariant()} — {d.effect} — {cost}";
             }
         }
 
@@ -119,6 +119,7 @@ namespace PryingEyes.Proc
         {
             var gm = GameManager.I;
             if (gm == null || Sealed || Taken) return;
+            if (!Power.Check()) return;                       // i libri si leggono solo con la corrente (Power.cs)
             if (Perks.Full) { gm.hud?.Toast("Hai già quattro libri: le mani sono piene."); Sfx.UI(SoundBank.BookNo, 0.6f); return; }
             int price = Perks.NextPrice;
             if (gm.score < price) { gm.hud?.Toast($"Servono {price} punti."); Sfx.UI(SoundBank.BookNo, 0.6f); return; }

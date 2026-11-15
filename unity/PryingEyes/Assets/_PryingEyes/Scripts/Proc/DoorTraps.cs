@@ -100,6 +100,7 @@ namespace PryingEyes.Proc
         public void Use()
         {
             if (!Available || state != 0) { Sfx.UI(SoundBank.BookNo, 0.5f); return; }
+            if (!Power.Check()) return;                       // le trappole vanno con la corrente (Power.cs)
             if (Coop.IsClient) { Coop.Game?.RequestTrap(index); return; }
             var gm = GameManager.I;
             if (gm.score < DoorTraps.Price) { gm.hud?.Toast("Punti insufficienti."); Sfx.UI(SoundBank.BookNo, 0.5f); return; }
@@ -110,7 +111,7 @@ namespace PryingEyes.Proc
         /// <summary>Sull'ospite, la richiesta di un compagno (i punti li ha gia' riservati lui).</summary>
         public bool HostActivate(int slot)
         {
-            if (!Available || state != 0) return false;
+            if (!Available || state != 0 || !Power.On) return false;
             Activate(slot);
             return true;
         }
@@ -251,7 +252,7 @@ namespace PryingEyes.Proc
                 if (trap == null || !trap.Available) return null;
                 if (trap.state == 1) return $"TRAPPOLA DI {trap.Name} ACCESA — {Mathf.CeilToInt(trap.timer)} s";
                 if (trap.state == 2) return $"TRAPPOLA DI {trap.Name} IN RICARICA — {Mathf.CeilToInt(trap.timer)} s";
-                return $"ACCENDI LA TRAPPOLA DI {trap.Name} — {DoorTraps.Price} PUNTI";
+                return $"{Power.Prefix}ACCENDI LA TRAPPOLA DI {trap.Name} — {DoorTraps.Price} PUNTI";
             }
         }
         public void Use() => trap?.Use();

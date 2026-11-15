@@ -50,11 +50,11 @@ namespace PryingEyes.Proc
                     if (m != null && m.name.StartsWith("fiamma")) { flames.Add(r); break; }
             cd.flames = flames.ToArray();
             // i candelabri dell'obiettivo, accesi, sono i fari del piano: luce piu' forte delle candele d'arredo
-            var pl = AddLight(c, go.transform.position + Vector3.up * (def.size.y + 0.1f), CandleCol, (name == "chi_ceri" ? 2.6f : 3.8f) * (objective ? 1.9f : 1f), objective ? 8f : 6.5f, true, lit, go.transform);
+            var pl = AddLight(c, go.transform.position + Vector3.up * (def.size.y + 0.1f), CandleCol, (name == "chi_ceri" ? 2.6f : 3.8f) * (objective ? 1.9f : 1f), objective ? 8f : 6.5f, true, lit, go.transform, electric: false);
             cd.glow = pl.l;
             cd.pool = pl;
             // l'alone freddo di chi aspetta di essere acceso non si abbassa con il buio: e' l'unico indizio da lontano
-            if (objective) cd.hint = AddLight(c, go.transform.position + Vector3.up * (def.size.y * 0.55f), new Color(0.45f, 0.62f, 1f), 2.4f, 6.5f, false, !lit, go.transform, LightType.Point, false);
+            if (objective) cd.hint = AddLight(c, go.transform.position + Vector3.up * (def.size.y * 0.55f), new Color(0.45f, 0.62f, 1f), 2.4f, 6.5f, false, !lit, go.transform, LightType.Point, false, false);
             cd.Setup(lit);
             if (objective) { c.fi.candles.Add(cd); Interact.Add(cd); }
             return cd;
@@ -138,7 +138,7 @@ namespace PryingEyes.Proc
             chain.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             if (lit)
             {
-                var pl = AddLight(c, g.transform.position + Vector3.up * 0.3f, CandleCol, 12f * gain, range, true, true, g.transform);
+                var pl = AddLight(c, g.transform.position + Vector3.up * 0.3f, CandleCol, 12f * gain, range, true, true, g.transform, electric: false);
                 g.AddComponent<LampFlicker>().Init(pl);
             }
             else foreach (var r in g.GetComponentsInChildren<MeshRenderer>()) { foreach (var m in r.sharedMaterials) if (m != null && m.name.StartsWith("fiamma")) { r.enabled = false; break; } }
@@ -171,7 +171,7 @@ namespace PryingEyes.Proc
             Prop(c, "chi_statua", fr.P(Lf - 0.7f, 0.9f), fr.r);
             Prop(c, "chi_statua", fr.P(Lf - 0.7f, Lr - 0.9f), -fr.r);
             // lampada del santissimo: rossa, bassa
-            AddLight(c, fr.P(Lf - 2.4f, Lr * 0.5f, 3.2f), new Color(1f, 0.15f, 0.1f), 4f, 7f, false);
+            AddLight(c, fr.P(Lf - 2.4f, Lr * 0.5f, 3.2f), new Color(1f, 0.15f, 0.1f), 4f, 7f, false, electric: false);
         }
 
         // ---------------------------------------------------------------- cappella
@@ -276,7 +276,7 @@ namespace PryingEyes.Proc
             Side ds = MainSide(c);
             var fr = MakeFrame(c, Inward(ds));
             Candle(c, "chi_candelabro", fr.P(fr.Lf * 0.5f, fr.Lr * 0.5f), fr.f, c.rng.Chance(0.7), false, false);
-            AddLight(c, c.Center + Vector3.up * 4.4f, new Color(0.7f, 0.8f, 1f), 4f, 10f, false);
+            AddLight(c, c.Center + Vector3.up * 4.4f, new Color(0.7f, 0.8f, 1f), 4f, 10f, false, electric: false);   // luna dalle bifore
         }
     }
 }

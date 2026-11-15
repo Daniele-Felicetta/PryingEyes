@@ -398,7 +398,8 @@ namespace PryingEyes.Proc
         static float WallLen(Ctx c, Side s) => Plan.AlongX(s) ? c.W : c.D;
 
         // ---------------------------------------------------------------- luci
-        static PoolLight AddLight(Ctx c, Vector3 pos, Color col, float intensity, float range, bool shadow, bool wanted = true, Transform parent = null, LightType type = LightType.Point, bool dim = true)
+        /// <summary>'electric': lampada della rete (senza corrente sta al 40%, vedi Power); false per candele, luna, finestre, insegne.</summary>
+        static PoolLight AddLight(Ctx c, Vector3 pos, Color col, float intensity, float range, bool shadow, bool wanted = true, Transform parent = null, LightType type = LightType.Point, bool dim = true, bool electric = true)
         {
             var g = new GameObject("Luce");
             g.transform.SetParent(parent != null ? parent : c.parent, false);
@@ -410,7 +411,7 @@ namespace PryingEyes.Proc
             l.range = range;
             l.shadows = LightShadows.None;
             c.fi.lights.Add(l);
-            return LightPool.Register(l, shadow, wanted);
+            return LightPool.Register(l, shadow, wanted, electric);
         }
 
         static Material EmissiveMat(string name) => ProcKit.Mat(name);
@@ -479,7 +480,7 @@ namespace PryingEyes.Proc
             }
             if (!on) return;
             var pl = AddLight(c, pt + inward * (candle ? 0.33f : 0.55f) + Vector3.up * (candle ? 0.18f : 0.12f),
-                              candle ? CandleCol : new Color(1f, 0.74f, 0.48f), intensity, range, true, true, g.transform);
+                              candle ? CandleCol : new Color(1f, 0.74f, 0.48f), intensity, range, true, true, g.transform, electric: !candle);
             if (candle)
             {
                 pl.l.shadowStrength = 0.68f;
@@ -571,7 +572,7 @@ namespace PryingEyes.Proc
                         col = new Color(0.74f, 0.84f, 1f);
                         inten = 18f;
                     }
-                    var pl = AddLight(c, origin, col, inten, range, church, true, c.parent, LightType.Spot);
+                    var pl = AddLight(c, origin, col, inten, range, church, true, c.parent, LightType.Spot, electric: false);   // luce dalle finestre
                     var l = pl.l;
                     l.spotAngle = key ? 75f : church ? 86f : 90f;
                     l.innerSpotAngle = key ? 41f : church ? 47f : 20f;

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -12,10 +13,12 @@ namespace PryingEyes.Proc
     public static class RoomProbes
     {
         public static int Baked { get; private set; }
+        static readonly List<ReflectionProbe> probes = new List<ReflectionProbe>();
 
         public static IEnumerator Bake(FloorInstance fi)
         {
             Baked = 0;
+            probes.Clear();
             if (fi == null || fi.plan == null || System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-noprobes") >= 0) yield break;
             var root = new GameObject("SondeRiflessi");
             root.transform.SetParent(fi.root.transform, false);
@@ -34,6 +37,7 @@ namespace PryingEyes.Proc
                 go.transform.SetParent(root.transform, false);
                 go.transform.position = eye;
                 var p = go.AddComponent<ReflectionProbe>();
+                probes.Add(p);
                 p.mode = ReflectionProbeMode.Realtime;
                 p.refreshMode = ReflectionProbeRefreshMode.ViaScripting;
                 p.timeSlicingMode = ReflectionProbeTimeSlicingMode.NoTimeSlicing;
@@ -63,6 +67,28 @@ namespace PryingEyes.Proc
             LightPool.HoldPoint = null;
             LightPool.Tick(true);
             if (GameManager.autoTest) Debug.Log($"[PryingEyes] riflessi: {Baked} sonde in {(Time.realtimeSinceStartup - t0) * 1000f:F0} ms");
+        }
+
+        /// <summary>Rifa le foto delle sonde gia' messe (dopo 'wait' secondi): quando torna la corrente le stanze sono piu' luminose
+        /// di quando sono state fotografate. Una sonda per fotogramma, con le luci della stanza tenute accese.</summary>
+        public static IEnumerator Rebake(float wait)
+        {
+            if (wait > 0f) yield return new WaitForSeconds(wait);
+            int n = 0;
+            foreach (var p in probes.ToArray())
+            {
+                if (p == null) continue;
+                Vector3 eye = p.transform.position;
+                LightPool.HoldPoint = eye;
+                LightPool.Tick(false, eye);
+                int id = p.RenderProbe();
+                int guard = 0;
+                do { yield return null; } while (p != null && !p.IsFinishedRendering(id) && ++guard < 30);
+                n++;
+            }
+            LightPool.HoldPoint = null;
+            LightPool.Tick(true);
+            if (GameManager.autoTest) Debug.Log($"[PryingEyes] riflessi rifatti: {n} sonde");
         }
     }
 }

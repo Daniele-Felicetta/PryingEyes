@@ -38,6 +38,8 @@ namespace PryingEyes.Proc
         }
 
         public bool IsOpen(int room) => open.Contains(room);
+        /// <summary>Porte dall'area iniziale (0 per quella iniziale).</summary>
+        public int Depth(int room) => room >= 0 && room < depth.Length ? depth[room] : -1;
         public int Price(int room) => room < 0 || room >= links.Length || plan.rooms[room].IsLift || IsOpen(room) ? 0 :
             500 + Math.Min(4, Math.Max(0, depth[room] - 1)) * 250;
 

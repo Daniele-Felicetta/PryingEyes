@@ -27,7 +27,7 @@ namespace PryingEyes.Proc
                 if (!w.CanConsecrate) return null;
                 int have = gm.score;
                 string cost = have >= Price ? $"{Price} punti" : $"{Price} punti (ti mancano {Price - have})";
-                return $"CONSACRAZIONE — {w.Def.name}: danno x{Weapon.UpgDamage:0.#}, caricatore x{Weapon.UpgMag:0.#} — {cost}";
+                return $"{Power.Prefix}CONSACRAZIONE — {w.Def.name}: danno x{Weapon.UpgDamage:0.#}, caricatore x{Weapon.UpgMag:0.#} — {cost}";
             }
         }
 
@@ -37,6 +37,7 @@ namespace PryingEyes.Proc
             if (gm == null || gm.player == null) return;
             var w = gm.player.weapon;
             if (!w.CanConsecrate) return;
+            if (!Power.Check()) return;                       // l'altare va con la corrente (Power.cs)
             if (gm.score < Price) { gm.hud?.Toast($"Servono {Price} punti."); Sfx.UI(SoundBank.BookNo, 0.6f); return; }
             string name = w.Def.name;
             if (!w.Consecrate()) return;

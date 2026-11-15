@@ -75,7 +75,7 @@ namespace PryingEyes.Proc
                 go.transform.position = new Vector3((top + end) * 0.5f, h - 0.65f, z);
                 var light = go.AddComponent<Light>(); light.type = LightType.Point; light.range = 8f;
                 light.color = new Color(1f, 0.77f, 0.48f); light.intensity = 1.4f; light.shadows = LightShadows.None;
-                LightPool.Register(light, false, true);
+                LightPool.Register(light, false, true, true);
             }
         }
     }

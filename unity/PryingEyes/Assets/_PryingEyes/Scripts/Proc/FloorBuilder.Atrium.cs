@@ -85,7 +85,7 @@ namespace PryingEyes.Proc
                 var lamp=new GameObject("Luce atrio");lamp.transform.SetParent(parent.transform,false);
                 lamp.transform.position=new Vector3((left+end)*0.5f,level+1.3f,z);
                 var light=lamp.AddComponent<Light>();light.type=LightType.Point;light.range=13;light.intensity=8f;
-                light.color=new Color(1,0.78f,0.52f);LightPool.Register(light,false,true);
+                light.color=new Color(1,0.78f,0.52f);LightPool.Register(light,false,true,true);
             }
         }
     }
