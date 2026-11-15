@@ -577,7 +577,7 @@ namespace PryingEyes.Proc
                     l.spotAngle = key ? 75f : church ? 86f : 90f;
                     l.innerSpotAngle = key ? 41f : church ? 47f : 20f;
                     l.transform.rotation = Quaternion.LookRotation(direction);
-                    if (!church) continue;
+                    if (!church) { l.name = "Luce della finestra"; continue; }       // il nome lo cercano i fasci di luce (LightShafts)
                     l.name = key ? "Chiarore del nartece" : "Luce della vetrata";
                     l.cookie = StainedWindowCookie();
                     l.shadowStrength = 0.82f;

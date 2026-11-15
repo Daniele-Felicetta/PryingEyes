@@ -93,3 +93,21 @@ the abbot reacts at 70%. The killing hit disables it before the ragdoll takes th
 Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -flinchtest [-flinchshots] -seed 1000 -floor 1`
 (`Scripts/FlinchTest.cs`, 9 checks). Photos in `unity_logs/reazioni`.
 
+## Light shafts
+
+Added on 15 November 2026 (`Scripts/Proc/LightShafts.cs`).
+
+Every window light built by `RoomKits.WindowLights` ("Luce della vetrata", "Chiarore del nartece", and now "Luce della
+finestra" for the plain windows) gets a visible shaft: an additive trapezoid along the light axis, from the glass to the floor
+(or 80% of the range), 0.75-0.95 m wide at the window and widening with a quarter of the spot cone, turned every frame around its
+own axis to face the camera. Its texture is generated at runtime: soft gaussian edges, brighter near the glass and fading toward
+the floor, with soft vertical streaks (the light between the leads). It takes the colour of its light (stained glass or moonlight),
+follows its intensity and the light pool (far lights and their shafts switch off), and fades when the camera gets within about
+2.7 m of the axis, so standing in a beam never shows a wall of fog. Inside each shaft a few dust motes drift slowly (a particle
+system aligned with the axis, 7 per second, 5-8 s, growing in and out). At most 24 per floor; alpha 0.11 for stained glass and
+0.07 for moonlight (the first tuning, 0.15, made the nave 37% brighter on average; now about 25%). `-noshafts` removes them.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -shafttest [-shaftshots] -seed 1000 -floor 1`
+(`Scripts/ShaftTest.cs`, 9 checks: shafts exist, one is visible from the side, lit with its light, facing the camera, visible,
+hidden when hidden, dust inside, faded near the axis). Photos with and without from the same point in `unity_logs/fasci`.
+
