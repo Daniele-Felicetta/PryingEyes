@@ -197,6 +197,7 @@ namespace PryingEyes
             GameManager.I?.player?.Shake(p, kind == 0 ? 1f : 1.3f);
             Sfx.At(SoundBank.Blast, p, 1f, kind == 0 ? Random.Range(0.95f, 1.05f) : 0.85f, 4f, 60f);
             var list = new List<Enemy>(Enemy.All);
+            Enemy.NoteBlast(p);                                   // chi muore ora vola via dal centro (EnemyRagdoll)
             foreach (var e in list)
             {
                 if (e == null || e.IsDead) continue;

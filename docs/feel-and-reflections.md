@@ -22,3 +22,33 @@ Added on 15 November 2026.
 Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -feeltest [-feelshots] -seed 1000 -floor 1`
 (`Scripts/FeelTest.cs`, 11 checks: probes rendered for every room and the light pool released, scoreboard opens with the
 right numbers and closes, inspection runs and ends, a killed monk sinks and disappears). Photos in `unity_logs/rifiniture`.
+
+## Ragdoll deaths
+
+Added on 15 November 2026 (`Scripts/EnemyRagdoll.cs`, `Scripts/Enemy.Ragdoll.cs`).
+
+- When a monk (any costume) or an abbot dies, the Animator stops and eleven bones become rigid bodies: pelvis, chest, head,
+  upper arms, forearms, thighs and shins, with capsules sized from the bone to the next one and character joints toward the
+  parent (knees bend only backwards, elbows only forwards, thighs up to 90 degrees forward). About 65 kg in all.
+- The killing hit decides the fall. `Enemy.Damage` notes where the hit landed, where it came from (the shooter's eye) and how
+  much damage arrived in that frame (shotgun pellets add up). The part closest to the hit gets the impulse (pistol about
+  20 N*s, shotgun and sniper 45, capped at 3.5 m/s on the part) and the pelvis a quarter of it, so a headshot snaps the head
+  back and the body follows. A running enemy keeps its velocity and falls forward. Knife and takedowns push gently; the Bell,
+  fire traps and poison clouds just drop the body.
+- Explosions push from their centre: barrels, the Appestato burst and thrown flasks call `Enemy.NoteBlast(centre)` before
+  damaging, and whoever dies in that frame flies away from it (5.5 m/s at the centre, less with distance, the same for every
+  part so the body does not tear at the joints).
+- The staff is a parentless bone in the monk rig (`genera_monaco.py`): it gets its own capsule (from the floor to 1.48 m along
+  the bone) and body without a joint, so the monk lets go of it and it falls on its own.
+- Ragdoll parts live on the Ignore Raycast layer: bullets and sight lines pass through corpses, so a body never shields the
+  enemy behind it, and the player's controller ignores them. Parts of one body ignore each other.
+- Bodies freeze after at most 2.8 s (earlier when they stop moving); the blood pool appears under the pelvis at that moment and
+  `CorpseSink` lowers the frozen body into the floor as before, with its dust under the pelvis.
+- At most 10 bodies move at once; beyond that (the Bell killing a whole horde) the old fall animation plays. Enemies killed
+  while rising from the floor and the stone Statue keep the animation too. `-noragdoll` turns the feature off for comparisons.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -ragdolltest [-ragdollshots] -seed 1000 -floor 1`
+(`Scripts/RagdollTest.cs`, 16 checks: chest shot pushes the body back, a headshot throws the head back more than the pelvis,
+an explosion launches the body, parts stay attached and above the floor, the player is not blocked, a bullet through a corpse
+hits the enemy behind it, bodies freeze, the staff lies on the floor, the corpse disappears, at most 10 ragdolls at once).
+Photos in `unity_logs/ragdoll`.

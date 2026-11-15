@@ -550,6 +550,8 @@ namespace PryingEyes
         public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true, DamageSource src = DamageSource.Gun, int claimer = 0)
         {
             if (dead) return;
+            var shooter = claimer == 0 ? Targets.Local : Targets.OfSlot(claimer);
+            NoteHit(dmg, point, shooter);                       // come cadra' se questo colpo uccide (Enemy.Ragdoll.cs)
             if (puppet) { PuppetDamage(dmg, point, headshot, awardPoints, src); return; }
             if (IsVariant(type)) dmg *= VariantDamageScale(src);
             if (Drops.InstaKill && src != DamageSource.Nuke) dmg = Mathf.Max(dmg, hp + 1f);   // lo Sguardo: ogni colpo uccide
@@ -564,7 +566,6 @@ namespace PryingEyes
                 Synth.Hit();
             }
             if (hp > 0f) Coop.Game?.EnemyEvent(this, EnemyEvt.Hit, point, headshot ? 1f : 0f);
-            var shooter = claimer == 0 ? Targets.Local : Targets.OfSlot(claimer);
             Vector3 push = transform.position - (shooter != null ? shooter.Feet : point);
             push.y = 0f;
             push = push.normalized * (Archetype == EnemyType.Occhio ? 2.2f : Archetype == EnemyType.Monaco ? 0.5f : 0.25f);
@@ -599,6 +600,7 @@ namespace PryingEyes
             }
             GameManager.I.SetAlive(all.Count);
             Synth.Kill();
+            Vector3 carried = agent != null && agent.enabled && agent.isOnNavMesh ? agent.velocity : vel;
             if (agent != null) agent.enabled = false;
             if (loop != null) loop.Stop();
             if (alienRig != null) alienRig.Collapse();
@@ -608,9 +610,18 @@ namespace PryingEyes
                 dead = true;
                 Sfx.At(type == EnemyType.Portachiavi ? SoundBank.KeeperKeys : SoundBank.MonkDeath, transform.position + Vector3.up, 0.8f, basePitch, 2f, 30f);
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
-                if (anim != null) anim.SetBool("Morto", true);
                 foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
-                if (BloodTint.a > 0f) Fx.BloodPool(transform.position, BloodTint, Archetype == EnemyType.Abate ? 1.35f : 1f);
+                // cade come un corpo vero spinto dal colpo (EnemyRagdoll); oltre il tetto dei corpi fisici, l'animazione di caduta
+                var rag = BeginRagdoll(src, carried);
+                if (rag == null && anim != null) anim.SetBool("Morto", true);
+                if (BloodTint.a > 0f)
+                {
+                    Color tint = BloodTint;
+                    float pool = Archetype == EnemyType.Abate ? 1.35f : 1f;
+                    // col corpo fisico la pozza nasce dove il corpo si ferma, non dove stava in piedi
+                    if (rag != null) rag.Settled = p => Fx.BloodPool(p, tint, pool);
+                    else Fx.BloodPool(transform.position, tint, pool);
+                }
                 CorpseSink.Begin(gameObject);                  // finita la caduta sprofonda, invece di sparire di colpo
                 if (IsVariant(type)) VariantDie(src, claimer);
                 Destroy(gameObject, 5f);

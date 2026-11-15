@@ -26,7 +26,10 @@ namespace PryingEyes
             if (!dusted)
             {
                 dusted = true;
-                Fx.EnemyImpact(start + Vector3.up * 0.05f, Vector3.up, new Color(0.42f, 0.38f, 0.32f));
+                // col corpo fisico la polvere si alza sotto il bacino, che puo' essere caduto lontano da dove stava in piedi
+                var rag = GetComponent<EnemyRagdoll>();
+                Vector3 at = rag != null && rag.Bodies.Count > 0 && rag.Bodies[0] != null ? rag.Bodies[0].position : start;
+                Fx.EnemyImpact(new Vector3(at.x, start.y + 0.05f, at.z), Vector3.up, new Color(0.42f, 0.38f, 0.32f));
             }
         }
     }

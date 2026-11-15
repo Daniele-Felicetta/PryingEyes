@@ -414,6 +414,7 @@ namespace PryingEyes
                     t.Hurt(Mathf.Lerp(34f, 10f, d / BurstRadius), c);
                     if (t is LocalTarget) GameManager.damageTaken++;
                 }
+                NoteBlast(c);                                         // chi muore ora vola via dal centro (EnemyRagdoll)
                 foreach (var o in all.ToArray())
                 {
                     if (o == null || o == this || o.dead) continue;

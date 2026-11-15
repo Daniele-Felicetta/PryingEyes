@@ -197,6 +197,7 @@ namespace PryingEyes.Proc
             var shields = new List<Collider>();
             if (Barrels.I != null) foreach (var o in Barrels.I.List) if (o != null && o.body != null && o.body.enabled) { o.body.enabled = false; shields.Add(o.body); }
             var list = new List<Enemy>(Enemy.All);
+            Enemy.NoteBlast(c);                                   // chi muore ora vola via dal centro (EnemyRagdoll)
             foreach (var e in list)
             {
                 if (e == null || e.IsDead) continue;
