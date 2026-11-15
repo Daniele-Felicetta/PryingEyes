@@ -25,7 +25,7 @@ namespace PryingEyes
             switch (k)
             {
                 case CoopKind.EnemySpawn: case CoopKind.EnemyGone: case CoopKind.EnemyState: case CoopKind.EnemyEvent:
-                case CoopKind.RoomsState:
+                case CoopKind.RoomsState: case CoopKind.TrapsState:
                 case CoopKind.CandleLit: case CoopKind.ExitState: case CoopKind.RoundState:
                 case CoopKind.DropSpawn: case CoopKind.DropTaken: case CoopKind.Bolt: case CoopKind.Teleport:
                     return true;
@@ -140,6 +140,7 @@ namespace PryingEyes
                 if (fd.ExitOpen) net.SendToSlot(slot, CoopKind.ExitState, w.Reset().U8(EpochByte).Bool(true).ToArray());
             }
             if (RoomAccessDoors.I != null) net.SendToSlot(slot, CoopKind.RoomsState, RoomSnapshot());
+            if (DoorTraps.I != null) net.SendToSlot(slot, CoopKind.TrapsState, TrapSnapshot());
             var rd = RoundDirector.I;
             if (SurvivalMode.Enabled && rd != null)
             {
@@ -429,6 +430,7 @@ namespace PryingEyes
             switch (kind)
             {
                 case CoopKind.BuyRoom: HostBuyRoom(from, ref r); break;
+                case CoopKind.UseTrap: HostUseTrap(from, ref r); break;
                 case CoopKind.UseExit:
                 {
                     int ep = r.U16();
@@ -490,6 +492,9 @@ namespace PryingEyes
             switch (kind)
             {
                 case CoopKind.RoomsState: ReceiveRooms(ref r); break;
+                case CoopKind.TrapsState: ReceiveTraps(ref r); break;
+                case CoopKind.TrapReply:
+                { int trapReq = r.U16(); bool trapOk = r.Bool(); if (r.Ok) SettleTrap(trapReq, trapOk); break; }
                 case CoopKind.RoomReply:
                 { int request = r.U16(); bool accepted = r.Bool(); if (r.Ok) SettleRoom(request, accepted); break; }
                 case CoopKind.EnemySpawn:
