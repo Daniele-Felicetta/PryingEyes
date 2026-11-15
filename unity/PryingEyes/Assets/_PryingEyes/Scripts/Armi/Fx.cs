@@ -6,6 +6,19 @@ namespace PryingEyes
 {
     /// <summary>Effetti dei colpi: tracce luminose, polvere e scintille agli impatti, fori sui muri, bossoli che rimbalzano.
     /// Tutto a quad con materiali Unlit (niente ParticleSystem, che in build perde lo shader); riuso a pool.</summary>
+    /// <summary>Luce che si spegne in fretta e poi sparisce (lampi delle esplosioni).</summary>
+    public sealed class LightFade : MonoBehaviour
+    {
+        Light l; float dur, t, i0;
+        public void Begin(Light light, float seconds) { l = light; dur = seconds; i0 = light.intensity; }
+        void Update()
+        {
+            t += Time.deltaTime;
+            if (l != null) l.intensity = i0 * Mathf.Clamp01(1f - t / dur) * Mathf.Clamp01(1f - t / dur);
+            if (t >= dur) Destroy(gameObject);
+        }
+    }
+
     public class Fx : MonoBehaviour
     {
         static Fx I;
@@ -429,6 +442,38 @@ namespace PryingEyes
             var l = go.AddComponent<Light>();
             l.type = LightType.Point; l.color = new Color(0.55f, 1f, 0.25f); l.intensity = 6f; l.range = 9f; l.shadows = LightShadows.None;
             Destroy(go, 0.22f);
+        }
+
+        /// <summary>Esplosione dell'acquasanta (azzurra) o del carillon (calda): lampo di luce, nuvola che si allarga, gocce e schegge.</summary>
+        public static void HolyBurst(Vector3 p, Color tint)
+        {
+            Ensure();
+            for (int i = 0; i < 22; i++)
+            {
+                var it = I.Spawn(PuffMat, Random.Range(0.7f, 1.4f));
+                it.kind = 0; it.t.position = p + Random.insideUnitSphere * 0.4f;
+                it.vel = Random.insideUnitSphere * 4.5f + Vector3.up * 1.6f; it.grav = Vector3.down * 0.8f;
+                it.size0 = 0.4f; it.size1 = Random.Range(1.6f, 2.6f); it.a0 = 0.55f; it.col = Color.Lerp(tint, new Color(0.7f, 0.7f, 0.72f), 0.55f);
+            }
+            for (int i = 0; i < 36; i++)
+            {
+                var it = I.Spawn(SparkMat, Random.Range(0.3f, 0.7f));
+                it.kind = 1; it.t.position = p;
+                it.vel = Random.insideUnitSphere * 11f + Vector3.up * 3f; it.grav = Vector3.down * 9f;
+                it.size0 = 0.05f; it.size1 = 0.008f; it.a0 = 1f; it.col = Color.Lerp(tint, Color.white, 0.5f);
+            }
+            for (int i = 0; i < 18; i++)
+            {
+                var it = I.Spawn(PuffMat, Random.Range(0.4f, 0.8f));
+                it.kind = 0; it.t.position = p;
+                it.vel = Random.insideUnitSphere * 6f + Vector3.up * 3f; it.grav = Vector3.down * 9.8f;
+                it.size0 = 0.04f; it.size1 = 0.02f; it.a0 = 0.9f; it.col = tint;
+            }
+            var go = new GameObject("LampoEsplosione");
+            go.transform.position = p + Vector3.up * 0.4f;
+            var l = go.AddComponent<Light>();
+            l.type = LightType.Point; l.color = Color.Lerp(tint, Color.white, 0.4f); l.intensity = 9f; l.range = 13f; l.shadows = LightShadows.None;
+            go.AddComponent<LightFade>().Begin(l, 0.35f);
         }
 
         /// <summary>Uno sbuffo della nube tossica: sale lento e si allarga.</summary>

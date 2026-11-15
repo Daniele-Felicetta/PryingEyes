@@ -83,8 +83,32 @@ namespace PryingEyes
         }
     }
 
+    public static partial class SoundGen
+    {
+        /// <summary>Esplosione dell'acquasanta e del carillon: tonfo profondo, schianto di rumore che si chiude, crepitio. 1,8 s.</summary>
+        public static float[] Blast()
+        {
+            var r = new System.Random(53);
+            var s = Buf(1.8f);
+            Thump(s, 0f, 70f, 28f, 0.25f, 0.30f, 1.4f);
+            Burst(s, 0f, 420f, 0.5f, 0.22f, 1.6f, r);
+            Burst(s, 0.004f, 1500f, 0.8f, 0.06f, 0.9f, r);
+            for (int k = 0; k < 40; k++)
+            {
+                float at = 0.05f + (float)Math.Pow(U(r, 0f, 1f), 2f) * 1.3f;
+                Burst(s, at, U(r, 1800f, 4200f), 2f, 0.008f, 0.25f * (1f - at / 1.5f), r);
+            }
+            var lp = Biquad.LowPass(6000f);
+            for (int i = 0; i < s.Length; i++) s[i] = lp.Run(s[i]);
+            Normalize(s, 0.95f);
+            return s;
+        }
+    }
+
     public static partial class SoundBank
     {
+        static AudioClip blast;
+        public static AudioClip Blast => One(ref blast, "esplosione", SoundGen.Blast);
         static AudioClip plagueBurst, stoneGrind, bossRoar;
         public static AudioClip Burst => One(ref plagueBurst, "scoppio", SoundGen.PlagueBurst);
         public static AudioClip StoneGrind => One(ref stoneGrind, "pietra", SoundGen.StoneGrind);

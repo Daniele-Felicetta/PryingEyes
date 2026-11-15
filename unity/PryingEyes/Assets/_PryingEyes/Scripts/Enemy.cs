@@ -232,6 +232,8 @@ namespace PryingEyes
                 SwitchTarget(Targets.Nearest(gp));
             }
             else if (Omniscient) RetargetOmniscient(dt, gp);     // chi caccia per round segue il piu' vicino
+            // il carillon (Equipment): chi e' a portata lascia il giocatore e va da lui; non il capo, non la statua
+            if (!IsBoss(type) && type != EnemyType.Statua && Lure.Pull(gp, out var lure)) SwitchTarget(lure);
             var T = tgt;
             Vector3 feet = T.Feet;
             // il corpo del giocatore e' dove sta davvero: con il lean la testa sporge dal riparo, il bacino no.

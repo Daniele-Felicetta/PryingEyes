@@ -54,7 +54,7 @@ namespace PryingEyes
     public static class CoopProtocol
     {
         /// <summary>Versione del protocollo + contenuto: da alzare a ogni cambio di formato dei messaggi o delle regole del piano.</summary>
-        public const string Revision = "pe-coop-20";       // 20: trappole delle soglie (fuoco, fulmine) a pagamento
+        public const string Revision = "pe-coop-21";       // 21: equipaggiamento da lancio (il carillon dell'ospitato arriva come NoiseKind.Lure)
         public static string ContentRevision => Revision + "-" + WeaponDefs.ContentHash;
         public const ushort DefaultPort = 7807;
         public const int MaxPlayers = 4;

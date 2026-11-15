@@ -188,6 +188,8 @@ namespace PryingEyes
 
         void Start()
         {
+            Equipment.Ensure(this);          // acquasanta e carillon (Z, 4)
+            Prove.Ensure(gameObject);        // le prove delle ondate
             Debug.Log("[PryingEyes] player boot: cam=" + (cam != null) + " weapon=" + (weapon != null)
                 + " hud=" + (hud != null) + " gunBound=" + (weapon != null && weapon.IsBound));
         }
@@ -470,6 +472,7 @@ namespace PryingEyes
             hud?.DamageFlash(origin);
             hud?.SetBars(hp, shield);
             Synth.Hurt();
+            Prove.OnHurt();
             // il colpo scuote la visuale
             Kick(1.2f, Random.Range(-1f, 1f) * 1.2f, 10f);
             if (hp <= 0f && PerkState.TakeRevive())

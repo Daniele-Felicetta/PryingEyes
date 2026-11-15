@@ -119,6 +119,10 @@ namespace PryingEyes
         // coltello (Knife.cs): mentre fende, l'arma si abbassa, sparisce e sta zitta (niente fuoco, mira, ricarica, cambio)
         bool knifeOut;
         float knifeBlend;
+        float throwT;                       // lancio dell'equipaggiamento: l'arma si abbassa e torna (Equipment)
+
+        /// <summary>L'arma si abbassa mezzo secondo mentre la mano lancia acquasanta o carillon.</summary>
+        public void ThrowDip() { throwT = 0.5f; }
         public bool KnifeBusy => knifeOut;
         public bool CanKnife => swapT <= 0f;
 
@@ -1121,6 +1125,13 @@ namespace PryingEyes
                 rot *= Quaternion.Euler(30f * kb, 0f, 10f * kb);
             }
 
+            if (throwT > 0f)
+            {
+                float tk = Mathf.Sin(Mathf.Clamp01(1f - throwT / 0.5f) * Mathf.PI);
+                pos += new Vector3(0.02f, -0.13f, -0.05f) * tk;
+                rot *= Quaternion.Euler(26f * tk, -6f * tk, 9f * tk);
+                throwT -= dt;
+            }
             viewRoot.localPosition = pos;
             viewRoot.localRotation = rot;
             AnimateParts(rp, d);

@@ -467,8 +467,9 @@ namespace PryingEyes
                     int ep = r.U8();
                     Vector3 pos = r.V3();
                     int radius = r.U8(), k = r.U8();
-                    if (!r.Ok || ep != EpochByte || k > (int)NoiseKind.Alarm || !IsReady(from)) break;
-                    Noise.Hear(pos, radius, (NoiseKind)k);
+                    if (!r.Ok || ep != EpochByte || k > (int)NoiseKind.Lure || !IsReady(from)) break;
+                    if ((NoiseKind)k == NoiseKind.Lure) Lure.StartAt(pos, radius);      // il carillon di un compagno attira i nemici dell'ospite
+                    else Noise.Hear(pos, radius, (NoiseKind)k);
                     break;
                 }
                 case CoopKind.DropClaim:
