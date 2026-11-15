@@ -120,7 +120,7 @@ namespace PryingEyes.Proc
         public void Shot(float dmg, Vector3 point, Vector3 dir)
         {
             if (Fallen || Falling) return;
-            Fx.Impact(point, -dir, 0.5f);
+            Fx.Impact(point, -dir, 0.5f, Surface.Metal, dir);
             if (Coop.IsClient) { Coop.Game?.ChandelierHit(index); return; }
             hp -= dmg;
             if (hp <= 0f) Drop(0);

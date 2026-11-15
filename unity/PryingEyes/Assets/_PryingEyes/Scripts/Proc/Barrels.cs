@@ -156,7 +156,7 @@ namespace PryingEyes.Proc
         public void Shot(float dmg, Vector3 point, Vector3 dir)
         {
             if (Gone || armed) return;
-            Fx.Impact(point, -dir, 0.6f);
+            Fx.Impact(point, -dir, 0.6f, Surface.Wood, dir);
             if (Coop.IsClient) { Coop.Game?.BarrelHit(index); return; }
             hp -= dmg;
             if (hp <= 0f) Trigger(0f);

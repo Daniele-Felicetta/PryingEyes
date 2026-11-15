@@ -23,8 +23,8 @@ namespace PryingEyes
     {
         static Fx I;
         static Mesh quadMesh;
-        public static Material PuffMat, SparkMat, TracerMat, BeamMat, HoleMat, FlashMat, BrassMat, ShellMat;
-        static Texture2D puffTex, sparkTex, tracerTex, beamTex, holeTex, starTex;
+        public static Material PuffMat, SparkMat, TracerMat, BeamMat, HoleMat, FlashMat, BrassMat, ShellMat, ChipMat;
+        static Texture2D puffTex, sparkTex, tracerTex, beamTex, holeTex, starTex, chipTex;
 
         class Item
         {
@@ -32,6 +32,10 @@ namespace PryingEyes
             public float life, age, size0, size1, a0; public Vector3 vel, grav; public int kind; public Vector3 from, to; public float len;
             public bool alive;
             public Color col = Color.white;
+            // schegge (kind 5): allungamento, rotazione nel piano della vista, pavimento su cui rimbalzano, attrito dell'aria
+            public float stretch = 1f, spin, ang, floorY, drag; public int bounces;
+            // fori e macchie: la luce che li tinge e quando ricalcolarla
+            public Color light = Color.white; public float lightT;
         }
         readonly List<Item> items = new List<Item>();
         readonly Queue<Item> free = new Queue<Item>();
@@ -68,6 +72,20 @@ namespace PryingEyes
             FlashMat = Res("Fx_Flash") ?? Unlit(StarTex(), true);
             BrassMat = Res("Armi_Ottone") ?? Lit(new Color(0.78f, 0.55f, 0.20f), 1f, 0.72f);
             ShellMat = Res("Armi_Cartuccia") ?? Lit(new Color(0.55f, 0.05f, 0.04f), 0f, 0.5f);
+            ChipMat = new Material(PuffMat) { name = "Fx_Scheggia" };
+            ChipMat.SetTexture("_BaseMap", ChipTex());
+            ChipMat.SetTexture("_MainTex", ChipTex());
+        }
+
+        /// <summary>Fori e macchie: Unlit a trasparenza (il Lit trasparente del progetto conserva i riflessi anche dove l'alfa e' zero e
+        /// disegnava un quadrato chiaro attorno a ogni foro); la luce la mettono loro, ricalcolata ogni 0,15 s (LightOf).</summary>
+        static Material DecalMat => HoleMat;
+
+        /// <summary>Il colore della luce che arriva su un foro o una macchia (lampade, ambiente, torcia), con un minimo per non sparire.</summary>
+        static Color LightOf(Vector3 p, Vector3 n)
+        {
+            var c = Surfaces.LightColorAt(p + n * 0.05f, n);
+            return new Color(Mathf.Clamp(c.r, 0.035f, 1.25f), Mathf.Clamp(c.g, 0.035f, 1.25f), Mathf.Clamp(c.b, 0.035f, 1.25f), 1f);
         }
 
         public static Material Unlit(Texture2D tex, bool additive)
@@ -153,6 +171,133 @@ namespace PryingEyes
         }, true);
         public static Texture2D StarTex() => starTex != null ? starTex : starTex = Weapon.BuildFlashStar();
 
+        /// <summary>Scheggia: un poligono irregolare a bordo netto, un filo piu' chiaro in alto (si legge come un pezzetto solido).</summary>
+        public static Texture2D ChipTex() => chipTex != null ? chipTex : chipTex = Make((u, v) =>
+        {
+            float ang = Mathf.Atan2(v, u);
+            float edge = 0.55f + 0.22f * Mathf.PerlinNoise(Mathf.Cos(ang) * 1.3f + 2f, Mathf.Sin(ang) * 1.3f + 8f) + 0.12f * Mathf.Sin(ang * 3f + 0.7f);
+            float r = Mathf.Sqrt(u * u + v * v);
+            float a = Mathf.Clamp01((edge - r) * 10f);
+            float shade = 0.78f + 0.22f * (v * 0.5f + 0.5f);
+            return new Color(shade, shade, shade, a);
+        });
+
+        static readonly Texture2D[] holeTexs = new Texture2D[7];
+
+        /// <summary>Il foro di ogni superficie (bianco = colore della superficie scheggiata, illuminato dalla scena): intonaco con cratere e
+        /// alone di polvere, pietra con l'orlo chiaro scheggiato, piastrelle con le crepe, legno con le fibre strappate lungo la venatura,
+        /// metallo con l'ammaccatura lucida e l'alone bruciato, stoffa col buco sfilacciato, vetro con la crepa a stella.</summary>
+        public static Texture2D HoleTex(Surface s)
+        {
+            int i = (int)s;
+            if (holeTexs[i] != null) return holeTexs[i];
+            System.Func<float, float, Color> f;
+            switch (s)
+            {
+                case Surface.Stone: f = (u, v) => Crater(u, v, 0.17f, 0.46f, 0.0f, new Color(0.84f, 0.82f, 0.78f), 9.5f); break;
+                case Surface.Tile: f = (u, v) =>
+                {
+                    var c = Crater(u, v, 0.16f, 0.36f, 0.0f, new Color(0.94f, 0.94f, 0.92f), 12f);
+                    float crack = Cracks(u, v, 6, 0.2f, 0.9f, 0.030f, 7.1f);
+                    return Over(c, new Color(0.10f, 0.10f, 0.10f, crack * 0.85f));
+                }; break;
+                case Surface.Wood: f = (u, v) =>
+                {
+                    // fibre strappate lungo la venatura (asse u): un'ellisse chiara a strisce, il buco scuro al centro
+                    float r = Mathf.Sqrt(u * u * 0.6f + v * v * 3.0f);
+                    float streak = Mathf.PerlinNoise(u * 2.2f + 5f, v * 18f + 3f);
+                    float edge = Mathf.Clamp01((1f - Mathf.Abs(u)) * 5f) * Mathf.Clamp01((1f - Mathf.Abs(v)) * 5f);    // mai fino al bordo del quad
+                    float fib = Mathf.Clamp01((0.62f + 0.25f * streak - r) * 6f) * (0.55f + 0.45f * streak) * edge;
+                    float rc = Mathf.Sqrt(u * u + v * v);
+                    float core = Mathf.Clamp01((0.19f + 0.05f * Mathf.PerlinNoise(u * 5f + 1f, v * 5f) - rc) * 14f);
+                    var raw = new Color(0.76f, 0.62f, 0.45f);
+                    var col = Color.Lerp(raw, new Color(0.06f, 0.04f, 0.03f), core);
+                    return new Color(col.r, col.g, col.b, Mathf.Clamp01(Mathf.Max(core, fib * 0.9f)));
+                }; break;
+                case Surface.Metal: f = (u, v) =>
+                {
+                    float r = Mathf.Sqrt(u * u + v * v);
+                    float n = Mathf.PerlinNoise(u * 6f + 2f, v * 6f + 9f);
+                    float core = Mathf.Clamp01((0.20f + 0.03f * n - r) * 16f);
+                    float ring = Mathf.Clamp01((0.40f + 0.05f * n - r) * 12f) * (1f - core);
+                    float scorch = Mathf.Clamp01((0.78f - r) * 3f) * (1f - ring - core) * 0.55f * (0.6f + 0.4f * n);
+                    Color col = core > 0.5f ? new Color(0.10f, 0.10f, 0.11f) : ring > 0.2f ? new Color(0.82f, 0.82f, 0.84f) : new Color(0.10f, 0.09f, 0.08f);
+                    return new Color(col.r, col.g, col.b, Mathf.Clamp01(core + ring + scorch));
+                }; break;
+                case Surface.Fabric: f = (u, v) =>
+                {
+                    float ang = Mathf.Atan2(v, u);
+                    float r = Mathf.Sqrt(u * u + v * v);
+                    float edge = 0.34f + 0.12f * Mathf.PerlinNoise(Mathf.Cos(ang) * 4f + 3f, Mathf.Sin(ang) * 4f + 5f);
+                    float a = Mathf.Clamp01((edge - r) * 7f);
+                    return new Color(0.03f, 0.025f, 0.02f, a * 0.95f);
+                }; break;
+                case Surface.Glass: f = (u, v) =>
+                {
+                    float r = Mathf.Sqrt(u * u + v * v);
+                    float radial = Cracks(u, v, 10, 0.07f, 0.92f, 0.022f, 3.3f);
+                    float ang = Mathf.Atan2(v, u);
+                    float arcs = 0f;
+                    foreach (float rr in new[] { 0.34f, 0.62f })
+                    {
+                        float on = Mathf.PerlinNoise(Mathf.Cos(ang) * 2.5f + rr * 9f, Mathf.Sin(ang) * 2.5f) > 0.48f ? 1f : 0f;
+                        arcs = Mathf.Max(arcs, on * Mathf.Clamp01(1f - Mathf.Abs(r - rr) / 0.018f));
+                    }
+                    float core = Mathf.Clamp01((0.07f - r) * 30f);
+                    float a = Mathf.Clamp01(Mathf.Max(Mathf.Max(radial, arcs) * 0.8f, core));
+                    Color col = core > 0.5f ? new Color(0.05f, 0.05f, 0.06f) : new Color(0.92f, 0.96f, 1f);
+                    return new Color(col.r, col.g, col.b, a);
+                }; break;
+                default: f = (u, v) => Crater(u, v, 0.23f, 0.56f, 0.95f, new Color(0.80f, 0.78f, 0.74f), 7f); break;   // intonaco
+            }
+            holeTexs[i] = MakeBig(96, f);
+            holeTexs[i].name = "foro_" + s;
+            return holeTexs[i];
+        }
+
+        /// <summary>Cratere: buco scuro, orlo scheggiato del colore della superficie, alone di polvere fino a 'halo' (0 = niente).</summary>
+        static Color Crater(float u, float v, float core, float rim, float halo, Color rimColor, float sharp)
+        {
+            float r = Mathf.Sqrt(u * u + v * v);
+            float ang = Mathf.Atan2(v, u);
+            float n = Mathf.PerlinNoise(Mathf.Cos(ang) * 2.2f + 4f, Mathf.Sin(ang) * 2.2f + 1f);
+            float m = Mathf.PerlinNoise(u * 7f + 3f, v * 7f + 6f);
+            float c = Mathf.Clamp01((core + 0.05f * m - r) * 16f);
+            float ring = Mathf.Clamp01((rim * (0.8f + 0.4f * n) - r) * sharp) * (0.75f + 0.25f * m);
+            float dust = halo > 0f ? Mathf.Clamp01(1f - r / halo) * 0.28f * (0.5f + m) : 0f;
+            Color col = Color.Lerp(rimColor * (0.85f + 0.15f * m), new Color(0.05f, 0.05f, 0.05f), c);
+            return new Color(col.r, col.g, col.b, Mathf.Clamp01(Mathf.Max(c, Mathf.Max(ring * 0.92f, dust))));
+        }
+
+        /// <summary>Crepe dritte che partono dal centro: 'count' raggi da r0 a r1, larghi 'w' e piu' sottili verso la punta.</summary>
+        static float Cracks(float u, float v, int count, float r0, float r1, float w, float seed)
+        {
+            float r = Mathf.Sqrt(u * u + v * v);
+            if (r < r0 || r > r1) return 0f;
+            float a = 0f;
+            for (int k = 0; k < count; k++)
+            {
+                float ang = (k + 0.35f * Mathf.Sin(k * 12.9898f + seed)) / count * Mathf.PI * 2f;
+                float len = Mathf.Lerp(r0 + 0.25f, r1, 0.5f + 0.5f * Mathf.Sin(k * 78.233f + seed));
+                if (r > len) continue;
+                // distanza dal raggio, con un filo di zig-zag
+                float wob = 0.025f * Mathf.Sin(r * 31f + k * 2.1f);
+                float d = Mathf.Abs(-Mathf.Sin(ang + wob) * u + Mathf.Cos(ang + wob) * v);
+                if (Mathf.Cos(ang) * u + Mathf.Sin(ang) * v < 0f) continue;
+                float width = w * (1f - (r - r0) / Mathf.Max(0.01f, len - r0) * 0.7f);
+                a = Mathf.Max(a, Mathf.Clamp01(1f - d / width));
+            }
+            return a;
+        }
+
+        static Color Over(Color under, Color over)
+        {
+            float a = over.a + under.a * (1f - over.a);
+            if (a < 1e-4f) return new Color(0, 0, 0, 0);
+            Color c = (over * over.a + under * under.a * (1f - over.a)) / a;
+            return new Color(c.r, c.g, c.b, a);
+        }
+
         // ---------- creazione elementi
         Item Spawn(Material mat, float life)
         {
@@ -224,37 +369,159 @@ namespace PryingEyes
             }
         }
 
-        public static void Impact(Vector3 p, Vector3 n, float scale = 1f)
+        // ---------- impatti per superficie (2026-11-15)
+        /// <summary>Come reagisce una famiglia di superficie a un proiettile: polvere, schegge (che cadono e rimbalzano sul pavimento),
+        /// scintille, misura del foro (la texture e' HoleTex) e volume del suono.</summary>
+        struct Recipe
         {
-            Ensure();
-            I.DoImpact(p, n, scale);
+            public int puffs; public float puffSize, puffLife, puffAlpha; public Color dust;
+            public int chips; public float chipSize, chipSpeed, chipStretch, chipLife, chipGrav, chipDrag, chipAlpha; public Color chip0, chip1;
+            public int sparks; public float sparkSpeed, sparkLife; public Color spark;
+            public float hole0, hole1;
+            public float vol, ricochet;
         }
 
-        void DoImpact(Vector3 p, Vector3 n, float scale)
+        static readonly Recipe[] recipes =
+        {
+            // intonaco: nuvola chiara e larga, briciole bianche, niente scintille
+            new Recipe { puffs = 5, puffSize = 0.42f, puffLife = 1.25f, puffAlpha = 0.40f, dust = new Color(0.80f, 0.78f, 0.74f),
+                         chips = 6, chipSize = 0.012f, chipSpeed = 2.6f, chipStretch = 1f, chipLife = 1.3f, chipGrav = 9.8f, chipAlpha = 1f,
+                         chip0 = new Color(0.88f, 0.86f, 0.82f), chip1 = new Color(0.66f, 0.64f, 0.60f),
+                         hole0 = 0.085f, hole1 = 0.12f, vol = 0.34f },
+            // pietra e marmo: schegge grigie veloci, poca polvere, una scintilla ogni tanto
+            new Recipe { puffs = 3, puffSize = 0.26f, puffLife = 0.9f, puffAlpha = 0.32f, dust = new Color(0.62f, 0.60f, 0.56f),
+                         chips = 8, chipSize = 0.010f, chipSpeed = 3.6f, chipStretch = 1f, chipLife = 1.2f, chipGrav = 9.8f, chipAlpha = 1f,
+                         chip0 = new Color(0.74f, 0.72f, 0.68f), chip1 = new Color(0.44f, 0.43f, 0.41f),
+                         sparks = 2, sparkSpeed = 3f, sparkLife = 0.12f, spark = new Color(1f, 0.86f, 0.6f),
+                         hole0 = 0.07f, hole1 = 0.09f, vol = 0.40f, ricochet = 0.06f },
+            // piastrelle e porcellana: schegge bianche che volano lontano, crepe nel foro
+            new Recipe { puffs = 2, puffSize = 0.2f, puffLife = 0.7f, puffAlpha = 0.28f, dust = new Color(0.86f, 0.86f, 0.84f),
+                         chips = 9, chipSize = 0.011f, chipSpeed = 4.2f, chipStretch = 1.2f, chipLife = 1.2f, chipGrav = 9.8f, chipAlpha = 1f,
+                         chip0 = new Color(0.96f, 0.96f, 0.94f), chip1 = new Color(0.74f, 0.76f, 0.74f),
+                         hole0 = 0.08f, hole1 = 0.10f, vol = 0.40f },
+            // legno: schegge lunghe chiare (il legno vivo sotto la vernice), segatura scura
+            new Recipe { puffs = 2, puffSize = 0.18f, puffLife = 0.8f, puffAlpha = 0.24f, dust = new Color(0.52f, 0.42f, 0.30f),
+                         chips = 8, chipSize = 0.009f, chipSpeed = 3.0f, chipStretch = 3.5f, chipLife = 1.5f, chipGrav = 9.8f, chipAlpha = 1f,
+                         chip0 = new Color(0.80f, 0.66f, 0.47f), chip1 = new Color(0.36f, 0.25f, 0.15f),
+                         hole0 = 0.06f, hole1 = 0.08f, vol = 0.40f },
+            // metallo: scintille fitte, un lampo, un filo di fumo, ammaccatura lucida; rimbalza spesso
+            new Recipe { puffs = 1, puffSize = 0.12f, puffLife = 0.5f, puffAlpha = 0.18f, dust = new Color(0.26f, 0.26f, 0.27f),
+                         sparks = 13, sparkSpeed = 4.6f, sparkLife = 0.32f, spark = new Color(1f, 0.74f, 0.35f),
+                         hole0 = 0.045f, hole1 = 0.06f, vol = 0.45f, ricochet = 0.25f },
+            // stoffa, moquette, cuoio: uno sbuffo del colore del tessuto, fili che galleggiano, foro piccolo
+            new Recipe { puffs = 3, puffSize = 0.16f, puffLife = 0.8f, puffAlpha = 0.30f, dust = new Color(0.36f, 0.31f, 0.28f),
+                         chips = 5, chipSize = 0.006f, chipSpeed = 1.0f, chipStretch = 2.2f, chipLife = 1.6f, chipGrav = 1.4f, chipDrag = 2.5f, chipAlpha = 0.9f,
+                         chip0 = new Color(0.42f, 0.36f, 0.32f), chip1 = new Color(0.20f, 0.17f, 0.15f),
+                         hole0 = 0.035f, hole1 = 0.05f, vol = 0.22f },
+            // vetro e specchi: schegge chiare che luccicano, crepa a stella
+            new Recipe { chips = 10, chipSize = 0.012f, chipSpeed = 3.5f, chipStretch = 1.6f, chipLife = 1.1f, chipGrav = 9.8f, chipAlpha = 0.85f,
+                         chip0 = new Color(0.86f, 0.90f, 0.95f), chip1 = new Color(0.52f, 0.58f, 0.64f),
+                         sparks = 5, sparkSpeed = 2.6f, sparkLife = 0.16f, spark = new Color(0.85f, 0.92f, 1f),
+                         hole0 = 0.13f, hole1 = 0.18f, vol = 0.45f },
+        };
+
+        /// <summary>Per le prove: impatti fatti, suoni partiti, rimbalzi, superficie e texture del foro dell'ultimo impatto.</summary>
+        public static int ImpactCount, ImpactSounds, Ricochets;
+        public static Surface LastSurface { get; private set; }
+        public static Texture LastHoleTexture { get; private set; }
+        public static float LastLight { get; private set; }
+        static float lastImpactSound = -1f;
+
+        /// <summary>Colpo su un punto di una superficie nota (botti, lampade, lampadari, ...).</summary>
+        public static void Impact(Vector3 p, Vector3 n, float scale = 1f, Surface surface = Surface.Plaster, Vector3 incoming = default)
+        {
+            Ensure();
+            I.DoImpact(p, n, scale, surface, incoming, null);
+        }
+
+        /// <summary>Colpo su una superficie trovata da un raggio: la famiglia (Surfaces) decide polvere, schegge, scintille, foro e suono.</summary>
+        public static Surface Impact(RaycastHit h, float scale, Vector3 incoming)
+        {
+            Ensure();
+            var mat = Surfaces.MaterialAt(h, out var owner);
+            var s = Surfaces.Of(mat, owner != null ? owner.name : h.collider != null ? h.collider.name : null);
+            I.DoImpact(h.point, h.normal, scale, s, incoming, mat);
+            return s;
+        }
+
+        static Color Shade(Color c, float light) => new Color(c.r * light, c.g * light, c.b * light, c.a);
+        static Color Tinted(Color c, Color light) => new Color(c.r * light.r, c.g * light.g, c.b * light.b, c.a);
+
+        void DoImpact(Vector3 p, Vector3 n, float scale, Surface surface, Vector3 incoming, Material mat)
         {
             if (camT == null && Camera.main != null) camT = Camera.main.transform;
-            // polvere: poche nuvolette che salgono lente
-            for (int i = 0; i < 4; i++)
+            var rc = recipes[(int)surface];
+            // gli effetti sono Unlit: prendono la luce del punto, cosi' al buio non brillano
+            float light = Mathf.Clamp(Surfaces.LightAt(p + n * 0.05f), 0.04f, 1.3f);
+            LastLight = light;
+            Color dust = rc.dust;
+            if (surface == Surface.Fabric && mat != null && mat.HasProperty("_BaseColor"))
             {
-                var it = Spawn(PuffMat, Random.Range(0.55f, 0.95f));
+                var bc = mat.GetColor("_BaseColor");
+                if (bc.grayscale < 0.85f) dust = Color.Lerp(dust, bc, 0.6f);   // la moquette rossa fa polvere rossa
+            }
+            dust = Shade(dust, light);
+            // polvere: nuvolette che si allargano e salgono lente
+            for (int i = 0; i < rc.puffs; i++)
+            {
+                var it = Spawn(PuffMat, rc.puffLife * Random.Range(0.8f, 1.2f));
                 it.kind = 0;
                 it.t.position = p + n * 0.02f + Random.insideUnitSphere * 0.02f;
-                it.vel = (n * Random.Range(0.25f, 0.8f) + Random.insideUnitSphere * 0.35f + Vector3.up * 0.15f);
+                it.vel = n * Random.Range(0.2f, 0.75f) + Random.insideUnitSphere * 0.3f + Vector3.up * 0.12f;
                 it.grav = Vector3.zero;
-                it.size0 = 0.05f * scale; it.size1 = Random.Range(0.22f, 0.36f) * scale;
-                it.a0 = 0.30f;
+                it.size0 = 0.05f * scale; it.size1 = rc.puffSize * Random.Range(0.75f, 1.25f) * scale;
+                it.a0 = rc.puffAlpha; it.col = dust;
             }
-            // scintille: righe sottili additive
-            for (int i = 0; i < 6; i++)
+            // schegge: volano via dal muro, cadono, rimbalzano sul pavimento e si fermano
+            int chips = Mathf.RoundToInt(rc.chips * Mathf.Lerp(0.6f, 1f, Mathf.Clamp01(scale)));
+            if (chips > 0)
             {
-                var it = Spawn(SparkMat, Random.Range(0.14f, 0.32f));
+                float floorY = -1e4f;
+                if (Physics.Raycast(p + n * 0.05f, Vector3.down, out var fh, 3f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) floorY = fh.point.y;
+                for (int i = 0; i < chips; i++)
+                {
+                    var it = Spawn(ChipMat, rc.chipLife * Random.Range(0.75f, 1.25f));
+                    it.kind = 5;
+                    it.t.position = p + n * 0.012f;
+                    Vector3 v = n * Random.Range(0.5f, 1.1f) + Random.insideUnitSphere * 0.8f + Vector3.up * 0.2f;
+                    it.vel = v.normalized * rc.chipSpeed * Random.Range(0.5f, 1.2f);
+                    it.grav = Vector3.down * rc.chipGrav;
+                    it.size0 = it.size1 = rc.chipSize * Random.Range(0.6f, 1.45f) * Mathf.Sqrt(Mathf.Max(0.3f, scale));
+                    it.stretch = rc.chipStretch * Random.Range(0.7f, 1.3f);
+                    it.a0 = rc.chipAlpha;
+                    it.col = Shade(Color.Lerp(rc.chip0, rc.chip1, Random.value), light);
+                    it.spin = Random.Range(-900f, 900f); it.ang = Random.Range(0f, 360f);
+                    it.floorY = floorY; it.bounces = 0; it.drag = rc.chipDrag;
+                }
+            }
+            // scintille: righe sottili additive (metallo; qualcuna dalla pietra; luccichii dal vetro)
+            for (int i = 0; i < rc.sparks; i++)
+            {
+                var it = Spawn(SparkMat, rc.sparkLife * Random.Range(0.5f, 1.1f));
                 it.kind = 1;
                 it.t.position = p + n * 0.01f;
-                it.vel = n * Random.Range(1.5f, 4f) + Random.insideUnitSphere * 2.2f;
+                it.vel = n * Random.Range(0.4f, 1f) * rc.sparkSpeed + Random.insideUnitSphere * rc.sparkSpeed * 0.55f;
                 it.grav = Vector3.down * 9f;
-                it.size0 = 0.018f * scale; it.size1 = 0.004f; it.a0 = 1f;
+                it.size0 = (surface == Surface.Glass ? 0.010f : 0.016f) * scale; it.size1 = 0.003f; it.a0 = 1f;
+                it.col = rc.spark;
             }
-            // foro sul muro
+            if (surface == Surface.Metal)
+            {
+                // il lampo del colpo sul metallo
+                var it = Spawn(SparkMat, 0.05f);
+                it.kind = 4; it.t.position = p + n * 0.03f; it.vel = Vector3.zero; it.grav = Vector3.zero;
+                it.size0 = 0.05f * scale; it.size1 = 0.12f * scale; it.a0 = 0.9f;
+            }
+            // rimbalzo: una traccia corta che riparte riflessa, col suo fischio
+            bool ricochet = rc.ricochet > 0f && incoming.sqrMagnitude > 0.01f && Random.value < rc.ricochet;
+            if (ricochet)
+            {
+                Vector3 r = Vector3.Reflect(incoming.normalized, n);
+                r = (r + Random.insideUnitSphere * 0.35f + n * 0.15f).normalized;
+                Tracer(p + n * 0.02f, p + r * Random.Range(4f, 9f), 150f, 0.006f, new Color(1f, 0.78f, 0.45f));
+                Ricochets++;
+            }
+            // foro: texture, misura e lucido della superficie, illuminato dalla scena
             var h = holes[holeNext];
             if (h == null)
             {
@@ -265,16 +532,31 @@ namespace PryingEyes
                 var r = go.AddComponent<MeshRenderer>();
                 r.shadowCastingMode = ShadowCastingMode.Off;
                 r.receiveShadows = false;
-                r.sharedMaterial = HoleMat;
+                r.sharedMaterial = DecalMat;
                 h = holes[holeNext] = new Item { t = go.transform, r = r };
             }
             holeNext = (holeNext + 1) % holes.Length;
+            var tex = HoleTex(surface);
+            h.col = Color.white;
+            h.light = LightOf(p, n); h.lightT = Time.time + 0.15f;
+            h.mpb.SetTexture("_BaseMap", tex);
+            h.mpb.SetColor("_BaseColor", h.light);
+            h.r.SetPropertyBlock(h.mpb);
             h.t.gameObject.SetActive(true);
             h.t.position = p + n * 0.004f;
             h.t.rotation = Quaternion.LookRotation(-n) * Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
-            float s = Random.Range(0.07f, 0.10f) * scale;
+            float s = Random.Range(rc.hole0, rc.hole1) * scale;
             h.t.localScale = new Vector3(s, s, 1f);
             h.age = 0f; h.life = 28f; h.alive = true;
+            // suono: uno ogni 45 ms al massimo (i pallettoni di una fucilata ne fanno uno), solo se vicino
+            if (camT != null && Time.unscaledTime - lastImpactSound > 0.045f && (camT.position - p).sqrMagnitude < 45f * 45f)
+            {
+                lastImpactSound = Time.unscaledTime;
+                Sfx.At(SoundBank.Impact(surface), p + n * 0.05f, rc.vol * Mathf.Lerp(0.75f, 1f, Mathf.Clamp01(scale)), Random.Range(0.92f, 1.08f), 1.5f, 30f);
+                ImpactSounds++;
+            }
+            if (ricochet) Sfx.At(SoundBank.Ricochet, p + n * 0.05f, 0.30f, Random.Range(0.9f, 1.12f), 2f, 35f);
+            ImpactCount++; LastSurface = surface; LastHoleTexture = tex;
         }
 
         // ---------- sangue (2026-11-15)
@@ -337,7 +619,7 @@ namespace PryingEyes
                 var r = go.AddComponent<MeshRenderer>();
                 r.shadowCastingMode = ShadowCastingMode.Off;
                 r.receiveShadows = false;
-                r.sharedMaterial = HoleMat;
+                r.sharedMaterial = DecalMat;            // tinta dalla luce del punto (LightOf): al buio non si vede, sotto la torcia si'
                 h = stains[stainNext] = new Item { t = go.transform, r = r };
             }
             stainNext = (stainNext + 1) % stains.Length;
@@ -358,7 +640,8 @@ namespace PryingEyes
             h.size1 = size; h.size0 = grow > 0f ? size * 0.35f : size; h.len = grow; h.a0 = stretch;
             h.life = life; h.col = tint;
             h.t.localScale = new Vector3(h.size0 * stretch, h.size0, 1f);
-            h.mpb.SetColor("_BaseColor", tint);
+            h.light = LightOf(p, n); h.lightT = Time.time + 0.15f;
+            h.mpb.SetColor("_BaseColor", Tinted(tint, h.light));
             h.r.SetPropertyBlock(h.mpb);
         }
 
@@ -368,7 +651,8 @@ namespace PryingEyes
         {
             Ensure();
             dir = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector3.forward;
-            Color mist = new Color(tint.r, tint.g, tint.b, 1f);
+            // gocce e nebbiolina sono Unlit: prendono la luce del punto (al buio il sangue non brilla)
+            Color mist = Shade(new Color(tint.r, tint.g, tint.b, 1f), Mathf.Clamp(Surfaces.LightAt(p), 0.05f, 1.3f));
             bool dust = tint.a <= 0f;
             int drops = dust ? 0 : head ? 12 : 7;
             for (int i = 0; i < drops; i++)
@@ -653,6 +937,28 @@ namespace PryingEyes
                     SetAlpha(it, it.a0 * Mathf.Pow(1f - k, 1.4f));
                     continue;
                 }
+                if (it.kind == 5)
+                {
+                    // scheggia: vola, cade, rimbalza un paio di volte sul pavimento, si ferma e sfuma alla fine
+                    if (it.bounces < 3)
+                    {
+                        it.vel += it.grav * dt;
+                        if (it.drag > 0f) it.vel *= Mathf.Max(0f, 1f - it.drag * dt);
+                        it.t.position += it.vel * dt;
+                        it.ang += it.spin * dt;
+                        Vector3 q = it.t.position;
+                        if (q.y < it.floorY + 0.004f && it.vel.y < 0f)
+                        {
+                            q.y = it.floorY + 0.004f; it.t.position = q;
+                            if (++it.bounces >= 3 || -it.vel.y < 0.6f) { it.bounces = 3; it.vel = Vector3.zero; it.spin = 0f; }
+                            else { it.vel = new Vector3(it.vel.x * 0.45f, -it.vel.y * 0.3f, it.vel.z * 0.45f); it.spin *= 0.5f; }
+                        }
+                    }
+                    it.t.rotation = Quaternion.LookRotation(it.t.position - camPos) * Quaternion.Euler(0f, 0f, it.ang);
+                    it.t.localScale = new Vector3(it.size0 * it.stretch, it.size0, 1f);
+                    SetAlpha(it, it.a0 * (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((k - 0.7f) / 0.3f))));
+                    continue;
+                }
                 it.vel += it.grav * dt;
                 it.t.position += it.vel * dt;
                 if (it.kind == 0) it.vel *= Mathf.Max(0f, 1f - 2.2f * dt);
@@ -696,7 +1002,9 @@ namespace PryingEyes
                 float sx = Mathf.Lerp(h.size0, h.size1, g);
                 h.t.localScale = new Vector3(sx * h.a0, sx, 1f);
                 float fa = h.age > h.life - 6f ? (h.life - h.age) / 6f : 1f;
-                h.mpb.SetColor("_BaseColor", new Color(h.col.r, h.col.g, h.col.b, h.col.a * fa));
+                if (Time.time >= h.lightT) { h.lightT = Time.time + 0.15f; h.light = LightOf(h.t.position, -h.t.forward); }
+                var sc = Tinted(h.col, h.light);
+                h.mpb.SetColor("_BaseColor", new Color(sc.r, sc.g, sc.b, h.col.a * fa));
                 h.r.SetPropertyBlock(h.mpb);
             }
             // fori: sfumano alla fine
@@ -706,8 +1014,11 @@ namespace PryingEyes
                 if (h == null || !h.alive) continue;
                 h.age += dt;
                 if (h.age > h.life) { h.t.gameObject.SetActive(false); h.alive = false; continue; }
-                if (h.age > h.life - 4f) { h.mpb.SetColor("_BaseColor", new Color(1, 1, 1, (h.life - h.age) / 4f)); h.r.SetPropertyBlock(h.mpb); }
-                else if (h.age < dt * 2f + 0.001f) { h.mpb.SetColor("_BaseColor", Color.white); h.r.SetPropertyBlock(h.mpb); }
+                // la luce che lo tinge (la torcia che passa lo accende), e la dissolvenza degli ultimi 4 s
+                float fa = h.age > h.life - 4f ? (h.life - h.age) / 4f : 1f;
+                bool relight = Time.time >= h.lightT;
+                if (relight) { h.lightT = Time.time + 0.15f; h.light = LightOf(h.t.position, -h.t.forward); }
+                if (relight || fa < 1f) { h.mpb.SetColor("_BaseColor", new Color(h.light.r, h.light.g, h.light.b, fa)); h.r.SetPropertyBlock(h.mpb); }
             }
         }
 
@@ -715,6 +1026,44 @@ namespace PryingEyes
         {
             it.mpb.SetColor("_BaseColor", new Color(it.col.r, it.col.g, it.col.b, Mathf.Clamp01(a)));
             it.r.SetPropertyBlock(it.mpb);
+        }
+
+        /// <summary>Solo per le prove: elementi vivi di un tipo (5 = schegge; 'resting' solo quelle ferme sul pavimento).</summary>
+        public static int Count(int kind, bool resting = false)
+        {
+            if (I == null) return 0;
+            int n = 0;
+            foreach (var it in I.items) if (it.kind == kind && (!resting || it.bounces >= 3)) n++;
+            return n;
+        }
+
+        /// <summary>Solo per le prove: i fori vivi (posizione, scala, texture, materiale, visibilita') e l'alfa media di ogni texture dei fori.</summary>
+        public static string HoleDebug()
+        {
+            if (I == null) return "Fx non creato";
+            var sb = new System.Text.StringBuilder();
+            for (int s = 0; s < 7; s++)
+            {
+                var px = HoleTex((Surface)s).GetPixels32();
+                double a = 0; foreach (var c in px) a += c.a;
+                sb.Append($"{(Surface)s} alfa {a / px.Length / 255.0:F2}; ");
+            }
+            foreach (var h in I.holes)
+            {
+                if (h == null || !h.alive) continue;
+                var tex = h.mpb.GetTexture("_BaseMap");
+                sb.Append($"\n  foro {h.t.position:F2} sc {h.t.localScale.x:F3} tex {(tex != null ? tex.name : "null")} mat {h.r.sharedMaterial?.name} en {h.r.enabled} vis {h.r.isVisible} age {h.age:F1}");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>Solo per le prove: quanto in alto sta la scheggia ferma piu' alta sopra il suo pavimento (deve essere ~4 mm).</summary>
+        public static float RestingChipLift()
+        {
+            float worst = 0f;
+            if (I == null) return worst;
+            foreach (var it in I.items) if (it.kind == 5 && it.bounces >= 3 && it.floorY > -1e3f) worst = Mathf.Max(worst, it.t.position.y - it.floorY);
+            return worst;
         }
 
         /// <summary>Solo per le prove: riepilogo degli elementi vivi (tipo, posizione, scala, visibilita').</summary>
@@ -739,6 +1088,7 @@ namespace PryingEyes
             foreach (var it in I.items) { it.t.gameObject.SetActive(false); I.free.Enqueue(it); }
             I.items.Clear();
             foreach (var h in I.holes) if (h != null) { h.t.gameObject.SetActive(false); h.alive = false; }
+            foreach (var h in I.stains) if (h != null) { h.t.gameObject.SetActive(false); h.alive = false; }
             foreach (var c in I.casings) if (c != null) c.SetActive(false);
         }
     }

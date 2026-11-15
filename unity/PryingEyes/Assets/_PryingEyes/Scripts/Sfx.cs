@@ -215,6 +215,7 @@ namespace PryingEyes
             _ = Shot; _ = HitTick; _ = Kill; _ = Hurt; _ = Reload; _ = Step(0); _ = Step(1); _ = Step(2);
             _ = Bell; _ = Ding; _ = Doors; _ = Creak; _ = Whisper; _ = Wind; _ = RoomTone;
             _ = Tap; _ = Strike; _ = MonkDeath; _ = EyeHum; _ = EyeStare; _ = EyeBurst;
+            WarmImpacts();          // i colpi dei proiettili sulle superfici (SoundImpatti.cs)
 #if UNITY_WEBGL && !UNITY_EDITOR
             // Web non supporta i thread C#; genera questi suoni durante il caricamento.
             if (chants == null)

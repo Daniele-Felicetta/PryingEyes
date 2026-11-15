@@ -61,7 +61,7 @@ namespace PryingEyes.Proc
         public void Shot(float dmg, Vector3 point, Vector3 dir)
         {
             if (Broken) return;
-            if (Coop.IsClient) { Coop.Game?.LampHit(index); Fx.Impact(point, -dir, 0.4f); return; }
+            if (Coop.IsClient) { Coop.Game?.LampHit(index); Fx.Impact(point, -dir, 0.4f, Surface.Glass, dir); return; }
             Break(true);
             Coop.Game?.LampBroken(index);
         }

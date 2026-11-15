@@ -152,6 +152,8 @@ namespace PryingEyes
         // solo per le prove automatiche (-guntest): mira forzata, sparo singolo, immagine della seconda camera subito
         public static bool debugAds;
         public void DebugFire() { if (mag > 0 && cam != null && viewRoot != null) Shoot(Def); }
+        /// <summary>Solo per le prove: nasconde arma e mani (le foto di cio' che c'e' davanti, -impactshots).</summary>
+        public void DebugHideView(bool hide) { if (viewRoot != null) foreach (var r in viewRoot.GetComponentsInChildren<Renderer>(true)) r.enabled = !hide; }
         public void RenderScopeNow() { LateUpdate(); }
         public float LastShotTime => lastShot;
         public bool CanFireNow => State.Ready && swapT <= 0f &&
@@ -1012,7 +1014,7 @@ namespace PryingEyes
                     end = h.point;
                     var shootable = h.collider.GetComponentInParent<IShootable>();     // botti d'olio santo
                     if (shootable != null) shootable.Shot(d.damage * dmgMul, h.point, dir);
-                    else Fx.Impact(h.point, h.normal, d.pellets > 1 ? 0.6f : 1f);
+                    else Fx.Impact(h, d.pellets > 1 ? 0.6f : 1f, dir);         // polvere, schegge, foro e suono della superficie (Surfaces)
                     break;
                 }
                 if (!seen.Add(e)) continue;

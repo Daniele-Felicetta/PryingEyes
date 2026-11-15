@@ -179,3 +179,40 @@ ambience and gunfire, then with the wave state forced: silent between waves, dru
 enemies, strings with many enemies and louder with the Cardinal, drums stepping back for the last ones, fast drop on death, the
 chord on a won wave and not on an aborted one, the ambient organ lowered, the Musica volume applied, the three layers aligned; last
 a real wave turning the music on by itself). `-musicwav` writes the clips to `unity_logs/music`.
+
+## Surface impacts
+
+Added on 15 November 2026 (`Scripts/Armi/Surfaces.cs`, `Fx.Impact`, `Scripts/SoundImpatti.cs`).
+
+Every bullet that hits the level now reacts to what it hits. `Surfaces.MaterialAt` finds the visible material at the hit: the
+sub-mesh of the hit triangle on the merged room shells (floor, wall, dado and ceiling are one mesh), the renderer of the object or
+its nearest part, or, for colliders without a renderer (the floor blocks), the visible surface at the same point. The name is read
+as the generator asks for it (the ProcKit keys: `pav_parquet`, `mur_pietra`...) or else as the material and object are called,
+against keyword lists in Italian and English (chosen so that they do not hide inside other words: `_osso` and not `osso`, which is
+in `rosso`; `vetro` and not `vetr`, which is in `VelvetR`; `_oro$` only at the end). Seven families:
+
+| family | particles | hole | sound |
+|---|---|---|---|
+| Plaster | wide light dust, white crumbs | crater with chipped rim and dust halo | crumbling crack |
+| Stone | grey chips, a spark now and then, rare ricochet | small crater with light chipped rim | sharp snap |
+| Tile | white chips flying far | crater with radial cracks | ceramic tink |
+| Wood | long light splinters, dark sawdust | torn fibres along the grain | knock of the board |
+| Metal | dense sparks, a flash, a wisp of smoke, ricochets (25%) | dent with a bright ring and scorch | ring of the metal |
+| Fabric | a puff in the cloth colour, floating fibres | small frayed hole | dull thump |
+| Glass | glinting shards | star crack | crack and falling tinkle |
+
+Chips fly off the wall, fall, bounce twice on the floor found under the impact and rest there until they fade. Dust and chips are
+Unlit and take the colour of the light at the point (`Surfaces.LightAt`: ambient, pool lights with inverse square and the URP range
+window, the torch cone), so they no longer glow in dark rooms; blood mist does the same. Holes and blood stains stay Unlit (the
+project's transparent Lit material preserves specular where alpha is zero and drew a light square around every hole) and are
+re-tinted every 0.15 s by `Surfaces.LightColorAt` with the surface normal, so a torch sweeping over a wall lights its holes. One
+impact sound every 45 ms at most and only within 45 m; ricochets add a short reflected tracer and a whine. Barrels, lamps and
+chandeliers pass their own family (wood, glass, metal).
+
+Census on seed 1000 floor 1 (224 rays from every room): plaster 25%, stone 38%, wood 23%, fabric 11%, metal 2%, recognised 100%.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -impacttest [-impactshots] -seed 1000 -floor 1`
+(`Scripts/ImpactTest.cs`, 7 checks: kit keys and trap words, the floor census, one impact per family with its hole and sound, chips
+resting about 4 mm above the floor, the light estimate under the strongest lamp against the darkest point, the real weapon firing at
+a wall of every family). `-impactshots` writes close-ups to `unity_logs/impatti`, including `catalogo.png`, the seven holes side by
+side on the most lit wall.
