@@ -90,6 +90,7 @@ namespace PryingEyes.EditorTools
                 {
                     var rootGo = new GameObject("Viewmodel");
                     if (v == "lato") BuildSide(rootGo, prefab, def, cam);
+                    else if (v == "dito" || v == "grilletto") BuildFinger(rootGo, prefab, def, cam, v == "grilletto");
                     else BuildView(rootGo, prefab, def, cam, v == "mira", v == "ricarica");
                     cam.Render(); cam.Render();
                     Save(rt, Out + "/" + id + "_" + v + ".png");
@@ -150,6 +151,8 @@ namespace PryingEyes.EditorTools
             if (armL != null) armL.AdsDrop = 0.04f;
             armR?.Solve(ads ? 1f : 0f);
             armL?.Solve(ads ? 1f : 0f);
+            // in mira l'indice va sul grilletto come in gioco (TriggerFinger)
+            if (ads) foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == "mano_d") TriggerFinger.Build(t)?.Pose(1f);
             if (reload) PoseReload(root, rig, d, handL, armL);
             if (ads)
             {
@@ -187,6 +190,27 @@ namespace PryingEyes.EditorTools
             fill.transform.localPosition = new Vector3(-0.32f, 0.55f, -0.35f);
             fill.type = LightType.Point; fill.intensity = Arg("-luce") == "solokey" ? 0f : 0.55f; fill.range = 2.6f; fill.color = new Color(1f, 0.95f, 0.88f);
             SetupScope(rig, d, cam, ads);
+        }
+
+        /// <summary>La mano destra vista dal fianco destro, da vicino (viste 'dito' e 'grilletto'): l'indice disteso lungo il telaio
+        /// a riposo, oppure sul grilletto come quando si spara (TriggerFinger), per controllare la posa misurata da genera_braccia.py.</summary>
+        static void BuildFinger(GameObject root, GameObject prefab, WeaponDef d, Camera cam, bool onTrigger)
+        {
+            BuildView(root, prefab, d, cam, false);
+            Transform hand = null;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == "mano_d") hand = t;
+            if (hand == null) return;
+            if (onTrigger) TriggerFinger.Build(hand)?.Pose(1f);
+            root.transform.SetParent(null, true);
+            Transform w = root.transform;                         // riferimento dell'arma: x destra, y su, z avanti
+            Vector3 c = hand.position + w.forward * 0.05f + w.up * 0.01f;
+            cam.fieldOfView = 34f;
+            cam.transform.position = c + w.right * 0.32f + w.up * 0.05f - w.forward * 0.03f;
+            cam.transform.LookAt(c, w.up);
+            var side = new GameObject("Side").AddComponent<Light>();
+            side.transform.SetParent(root.transform, false);
+            side.transform.position = cam.transform.position + w.up * 0.15f;
+            side.type = LightType.Point; side.intensity = 0.7f; side.range = 1.6f; side.color = new Color(1f, 0.95f, 0.88f);
         }
 
         /// <summary>La posa di Weapon.UpdatePose e AnimateParts nel punto piu' basso della ricarica (circa al 40%): arma inclinata,

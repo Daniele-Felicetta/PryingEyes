@@ -100,6 +100,10 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -2012044187790617071, guid: f82ba47f6b53a3146a67637d656eaed5, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -643121136517886266, guid: f82ba47f6b53a3146a67637d656eaed5, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -107,6 +111,14 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: f82ba47f6b53a3146a67637d656eaed5, type: 3}
       propertyPath: m_Name
       value: lmg_campana249
+      objectReference: {fileID: 0}
+    - target: {fileID: 2603767807705047446, guid: f82ba47f6b53a3146a67637d656eaed5, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4746427172293248550, guid: f82ba47f6b53a3146a67637d656eaed5, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -80,6 +80,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -8324603083053994235, guid: e900ca1d782a36b4f8ff3a3a5520dd32, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -5259323067900842443, guid: e900ca1d782a36b4f8ff3a3a5520dd32, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -99,6 +103,14 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: e900ca1d782a36b4f8ff3a3a5520dd32, type: 3}
       propertyPath: m_Name
       value: pdw_bordone
+      objectReference: {fileID: 0}
+    - target: {fileID: 1028355923621591252, guid: e900ca1d782a36b4f8ff3a3a5520dd32, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6453859015743468324, guid: e900ca1d782a36b4f8ff3a3a5520dd32, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6955083568336692247, guid: e900ca1d782a36b4f8ff3a3a5520dd32, type: 3}
       propertyPath: m_CastShadows

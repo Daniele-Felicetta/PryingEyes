@@ -2,22 +2,36 @@
 from piezas import *
 
 
+# di quanto l'impugnatura degli AR sta dietro al punto in cui era disegnata prima (attaccata al pozzo, senza ponticello):
+# si disegna l'impugnatura arretrata e si trasla tutta l'arma in avanti dello stesso tanto, cosi' l'impugnatura resta
+# all'origine (dove le mani la misurano) e il resto dell'arma le sta davanti nelle proporzioni vere
+AR_GRIP_BACK = 0.0605
+
+
 def ar_upper_lower(g, ZB, rail_to=0.40, rear=-0.118):
     """Carcassa tipo AR: superiore con guida e finestra di espulsione, inferiore con pozzo del caricatore e ponticello,
-    impugnatura, spine, selettore, rilascio del caricatore. Ritorna la quota del piano della guida."""
+    impugnatura, spine, selettore, rilascio del caricatore. Ritorna la quota del piano della guida.
+    Proporzioni di un AR vero: ponticello di 44 mm tra il pozzo e l'impugnatura, grilletto (parte 'trigger') a meta',
+    impugnatura con il raccordo alla carcassa; tutta l'arma e' traslata di AR_GRIP_BACK (g.shift)."""
+    B = AR_GRIP_BACK
+    g.shift = Vector((0.0, B, 0.0))
     top = ZB + 0.0215
     # superiore
     g.prism('alluminio', [(rear, ZB - 0.024), (rear, top), (0.150, top), (0.150, ZB - 0.024)], -0.0165, 0.0165, r=0.0016, seg=3)
     g.box('alluminio', (0, rear - 0.004, ZB + 0.002), (0.0300, 0.014, 0.036), r=0.003)                               # collare posteriore
     # inferiore
     g.prism('alluminio', [(rear, ZB - 0.052), (rear, ZB - 0.021), (0.098, ZB - 0.021), (0.098, ZB - 0.060), (0.095, ZB - 0.092),
-                          (0.026, ZB - 0.092), (0.020, ZB - 0.060), (-0.012, ZB - 0.052)], -0.0155, 0.0155, r=0.0016, seg=3)
+                          (0.026, ZB - 0.092), (0.020, ZB - 0.060), (-0.026, ZB - 0.060), (-0.034, ZB - 0.052)], -0.0155, 0.0155, r=0.0016, seg=3)
     g.box('alluminio', (0, 0.064, ZB - 0.104), (0.0305, 0.074, 0.024), r=0.002)                                      # bocca del pozzo
     g.box('alluminio', (0, 0.064, ZB - 0.103), (0.0238, 0.066, 0.030), cut=True)                                     # cavita' del pozzo
-    # ponticello e grilletto
-    g.prism('alluminio', [(0.026, ZB - 0.060), (0.026, ZB - 0.082), (-0.002, ZB - 0.082), (-0.012, ZB - 0.060),
-                          (-0.008, ZB - 0.060), (0.0, ZB - 0.0775), (0.0215, ZB - 0.0775), (0.0215, ZB - 0.060)], -0.0022, 0.0022, r=0.0008)
-    g.prism('acciaio', [(0.004, ZB - 0.052), (0.014, ZB - 0.052), (0.018, ZB - 0.074), (0.011, ZB - 0.074)], -0.0030, 0.0030, r=0.0006)
+    # ponticello (apertura 44 x 21,5 mm, il braccio dietro entra nella faccia davanti dell'impugnatura) e grilletto curvo a meta'
+    g.prism('alluminio', [(0.026, ZB - 0.060), (0.026, ZB - 0.086), (-0.028, ZB - 0.086), (-0.026, ZB - 0.060),
+                          (-0.0225, ZB - 0.060), (-0.0225, ZB - 0.0815), (0.0215, ZB - 0.0815), (0.0215, ZB - 0.060)], -0.0022, 0.0022, r=0.0008)
+    g.box('alluminio', (0, -0.0465, ZB - 0.0585), (0.0290, 0.045, 0.016), r=0.002)                                   # raccordo dell'impugnatura
+    g.part('trigger', pivot=(0, -0.002, ZB - 0.056))
+    g.prism('acciaio', [(-0.006, ZB - 0.056), (0.003, ZB - 0.056), (0.004, ZB - 0.064), (0.0045, ZB - 0.071), (0.0085, ZB - 0.0785),
+                        (0.0040, ZB - 0.0790), (0.0000, ZB - 0.0715), (-0.0030, ZB - 0.064)], -0.0030, 0.0030, r=0.0006)
+    g.part('corpo')
     # finestra di espulsione con sportellino, deflettore, forward assist
     g.box('alluminio', (0.0168, -0.034, ZB + 0.0035), (0.0030, 0.060, 0.0220), cut=True)
     g.box('alluminio', (0.0168, -0.034, ZB + 0.0035), (0.0020, 0.048, 0.0170), r=0.0005)
@@ -34,12 +48,12 @@ def ar_upper_lower(g, ZB, rail_to=0.40, rear=-0.118):
     g.lathe('acciaio', (0.0158, 0.040, ZB - 0.052), [(0.0, 0.0070), (0.0050, 0.0070)], segs=14, axis='x')
     g.box('acciaio', (0.0172, 0.008, ZB - 0.030), (0.0040, 0.0150, 0.0060), r=0.0008)
     # impugnatura (polimero), inclinata: la cima va in avanti
-    path = arc((-0.015, -0.062), (0.016, 0.060), 0.0045, 10)
+    path = arc((-0.015 - B, -0.062), (0.016 - B, 0.060), 0.0045, 10)
     hws = [0.0185 + 0.0040 * sin(pi * i / 10) for i in range(11)]
     dps = [0.0215 + 0.0035 * sin(pi * i / 10) for i in range(11)]
     g.sweep('polimero', path, hws, dps, rad=0.007, seg=3)
-    g.box('polimero', (0, -0.020, -0.004), (0.0360, 0.0120, 0.050), r=0.004, rot=(-14, 0, 0))                          # dorso dell'impugnatura
-    g.box('polimero', (0, 0.0, -0.067), (0.0420, 0.0480, 0.0060), r=0.0022)                                          # tallone
+    g.box('polimero', (0, -0.020 - B, -0.004), (0.0360, 0.0120, 0.050), r=0.004, rot=(-14, 0, 0))                      # dorso dell'impugnatura
+    g.box('polimero', (0, -B, -0.067), (0.0420, 0.0480, 0.0060), r=0.0022)                                           # tallone
     return top
 
 

@@ -100,7 +100,19 @@ PrefabInstance:
       propertyPath: m_Name
       value: p9_ronda
       objectReference: {fileID: 0}
+    - target: {fileID: 3515233849250851691, guid: c6ed0e289368da7448eb1a865cb9c819, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6069063400626634687, guid: c6ed0e289368da7448eb1a865cb9c819, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6516173439511236649, guid: c6ed0e289368da7448eb1a865cb9c819, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7278644415669455184, guid: c6ed0e289368da7448eb1a865cb9c819, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}

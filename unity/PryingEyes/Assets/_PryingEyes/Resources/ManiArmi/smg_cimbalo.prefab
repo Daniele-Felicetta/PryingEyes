@@ -84,7 +84,15 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7108468442776673446, guid: 4b08915fbf9687c4da0c38dedf1f75ab, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -5550821381843655367, guid: 4b08915fbf9687c4da0c38dedf1f75ab, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -5038600825786907581, guid: 4b08915fbf9687c4da0c38dedf1f75ab, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
@@ -95,6 +103,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 4b08915fbf9687c4da0c38dedf1f75ab, type: 3}
       propertyPath: m_Name
       value: smg_cimbalo
+      objectReference: {fileID: 0}
+    - target: {fileID: 1267110282962607363, guid: 4b08915fbf9687c4da0c38dedf1f75ab, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2552764487762403352, guid: 4b08915fbf9687c4da0c38dedf1f75ab, type: 3}
       propertyPath: m_CastShadows

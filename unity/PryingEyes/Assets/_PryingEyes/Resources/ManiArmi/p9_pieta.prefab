@@ -84,6 +84,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: p9_pieta
       objectReference: {fileID: 0}
+    - target: {fileID: 1101857381176157880, guid: d010ecab78366934383a1e7cdf91b81b, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1170029183796951482, guid: d010ecab78366934383a1e7cdf91b81b, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -100,11 +104,19 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6424256841464096821, guid: d010ecab78366934383a1e7cdf91b81b, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6588633843143163739, guid: d010ecab78366934383a1e7cdf91b81b, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6624116100200980389, guid: d010ecab78366934383a1e7cdf91b81b, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7504547801283438088, guid: d010ecab78366934383a1e7cdf91b81b, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}

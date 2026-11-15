@@ -80,6 +80,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -5380076584012688374, guid: 3378022b2c355644a87fc3c8ad8d23f0, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -888801518415058335, guid: 3378022b2c355644a87fc3c8ad8d23f0, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -87,6 +91,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 3378022b2c355644a87fc3c8ad8d23f0, type: 3}
       propertyPath: m_Name
       value: smg_tarantola
+      objectReference: {fileID: 0}
+    - target: {fileID: 2584088029314095777, guid: 3378022b2c355644a87fc3c8ad8d23f0, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3573948303201374859, guid: 3378022b2c355644a87fc3c8ad8d23f0, type: 3}
       propertyPath: m_CastShadows
@@ -97,6 +105,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5497775963048244575, guid: 3378022b2c355644a87fc3c8ad8d23f0, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5630865449630338615, guid: 3378022b2c355644a87fc3c8ad8d23f0, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}

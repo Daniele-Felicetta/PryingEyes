@@ -88,15 +88,27 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 703031818428383820, guid: 9861cc69d0e42dc4393d0e4b820f158e, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 9861cc69d0e42dc4393d0e4b820f158e, type: 3}
       propertyPath: m_Name
       value: de_eremita
+      objectReference: {fileID: 0}
+    - target: {fileID: 2059325733735427686, guid: 9861cc69d0e42dc4393d0e4b820f158e, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2467836867049269709, guid: 9861cc69d0e42dc4393d0e4b820f158e, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2949860330431440160, guid: 9861cc69d0e42dc4393d0e4b820f158e, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3609110068232225773, guid: 9861cc69d0e42dc4393d0e4b820f158e, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}

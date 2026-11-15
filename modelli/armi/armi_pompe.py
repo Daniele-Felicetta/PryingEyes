@@ -149,6 +149,7 @@ def sg_apocalisse12():
     trigger_guard(g, 'polimero', 0.064, -0.004, ZB - 0.052, ZB - 0.092, th=0.0050, w=0.0080)
     g.part('trigger', pivot=(0, 0.032, ZB - 0.054))
     g.prism('acciaio', [(0.028, ZB - 0.054), (0.036, ZB - 0.054), (0.044, ZB - 0.078), (0.036, ZB - 0.078)], -0.0035, 0.0035, r=0.0008)
+    g.part('corpo')                                                                    # l'impugnatura anteriore e' del corpo, non del grilletto
     g.prism('polimero', [(0.200, ZB - 0.046), (0.232, ZB - 0.046), (0.226, ZB - 0.140), (0.204, ZB - 0.140)], -0.0170, 0.0170, r=0.0080, seg=3)       # impugnatura anteriore
     # tamburo da 20 (parte mobile): disco con nervature e mozzo
     g.part('caricatore', pivot=(0, 0.060, ZB - 0.054))

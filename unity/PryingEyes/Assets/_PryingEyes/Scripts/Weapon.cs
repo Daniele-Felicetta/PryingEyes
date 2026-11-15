@@ -96,6 +96,11 @@ namespace PryingEyes
         bool handRHideAds, handRVis = true;
         // braccia col gomito (genera_braccia.py): la manica si piega quando la mano si sposta rispetto all'arma
         ArmRig armR, armL;
+        // indice destro articolato: disteso lungo il telaio a riposo, sul grilletto quando si spara o si mira (TriggerFinger)
+        TriggerFinger trigFinger;
+        float trigBlend;
+        /// <summary>Quanto l'indice sta sul grilletto (0 disteso, 1 sul grilletto): per le prove.</summary>
+        public float TriggerBlend => trigBlend;
 
         public bool IsBound => cam != null && viewRoot != null;
 
@@ -546,6 +551,7 @@ namespace PryingEyes
             handL = handR = null; handLRend = null; handsGo = null;
             handRRend = null; handRHideAds = false; handRVis = true;
             armR = armL = null;
+            trigFinger = null;
             var prefab = Resources.Load<GameObject>("ManiArmi/" + d.id);
             bool onMeasure = prefab != null;
             if (!onMeasure) prefab = Resources.Load<GameObject>("Mani");
@@ -572,6 +578,8 @@ namespace PryingEyes
                 Quaternion hipQ = Quaternion.Euler(0f, hipYaw, 0f);
                 armR?.AnchorTo(cam, hipP + hipQ * armR.ShoulderLocal);
                 armL?.AnchorTo(cam, hipP + hipQ * armL.ShoulderLocal);
+                trigFinger = TriggerFinger.Build(handR);
+                trigBlend = 0f;
                 if (armR != null) armR.AdsDrop = 0.20f;
                 if (armL != null) armL.AdsDrop = 0.04f;
             }
@@ -1158,6 +1166,13 @@ namespace PryingEyes
             viewRoot.localRotation = rot;
             AnimateParts(rp, d);
             armR?.Solve(ads);
+            if (trigFinger != null)
+            {
+                float sinceShot = Time.time - lastShot;
+                bool wantTrigger = (triggerHeld || sinceShot < 0.3f || ads > 0.35f) && !reloading && swapT <= 0f;
+                trigBlend = Mathf.MoveTowards(trigBlend, wantTrigger ? 1f : 0f, dt * (wantTrigger ? 10f : 3.5f));
+                trigFinger.Pose(trigBlend, sinceShot < 0.09f ? 1f - sinceShot / 0.09f : 0f);
+            }
             armL?.Solve(ads);
         }
 

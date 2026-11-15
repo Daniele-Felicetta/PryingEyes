@@ -84,6 +84,10 @@ PrefabInstance:
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7235650836524554705, guid: 3b8392e205ef7604488e24079a8ca39b, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: -6252253218997566821, guid: 3b8392e205ef7604488e24079a8ca39b, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -105,6 +109,14 @@ PrefabInstance:
       value: br_gloria
       objectReference: {fileID: 0}
     - target: {fileID: 3475867228164226193, guid: 3b8392e205ef7604488e24079a8ca39b, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3780709600092191504, guid: 3b8392e205ef7604488e24079a8ca39b, type: 3}
+      propertyPath: m_CastShadows
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4851962473871255754, guid: 3b8392e205ef7604488e24079a8ca39b, type: 3}
       propertyPath: m_CastShadows
       value: 0
       objectReference: {fileID: 0}

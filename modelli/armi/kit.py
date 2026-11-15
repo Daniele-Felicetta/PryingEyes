@@ -87,6 +87,9 @@ class Gun:
         self.root = None
         self.paint = {}
         self.parents = {}
+        # traslazione finale di tutta l'arma (parti ed Empty). Serve a chi sposta l'impugnatura disegnandola: si disegna la
+        # presa dove deve stare rispetto al resto e si trasla tutto perche' torni all'origine (vedi armi_fucili.ar_upper_lower)
+        self.shift = Vector((0, 0, 0))
 
     # -- parti
     def part(self, name, pivot=None, parent=None):
@@ -383,7 +386,7 @@ class Gun:
             fin.free()
             ob = bpy.data.objects.new(part, me)
             bpy.context.scene.collection.objects.link(ob)
-            ob.location = piv + OFFSET
+            ob.location = piv + OFFSET + self.shift
             ob.parent = root
             pending_parent = self.parents.get(part)
             if pending_parent is not None:
@@ -403,7 +406,7 @@ class Gun:
             e = bpy.data.objects.new(nm, None)
             e.empty_display_type = 'ARROWS'
             e.empty_display_size = 0.02
-            e.location = pos + OFFSET
+            e.location = pos + OFFSET + self.shift
             if fwd is not None:
                 e.rotation_euler = Vector(fwd).to_track_quat('Y', 'Z').to_euler()
             bpy.context.scene.collection.objects.link(e)

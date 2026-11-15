@@ -102,6 +102,36 @@ def pose_key(wid, cls):
 
 
 # ----------------------------------------------------------------------------- mano: dita piu' lisce (guanto, non salsicce)
+# l'indice della mano destra, tenuto da parte da build_hand_bm per diventare tre falangi mobili (arm_side lo costruisce)
+LAST_INDEX = {}
+CURRENT_WID = ''
+LAST_INFO = {}
+_load_weapon = H.load_weapon
+
+
+# armi il cui grilletto e' fuso nel corpo (nessuna parte 'trigger' nell'FBX): centro del grilletto preso dalla geometria di
+# modelli/armi/armi_mitra.py, in coordinate d'autore. Serve solo alla posa dell'indice: la presa della mano resta quella di sempre.
+TRIGGER_FUSED = {
+    'pdw_bordone': (0.0, 0.056, 0.088 - 0.066),
+    'smg_tarantola': (0.0, 0.0265, 0.068 - 0.042),
+    'smg_vesper9': (0.0, 0.037, 0.090 - 0.050),
+    'smg_cimbalo': (0.0, 0.037, 0.092 - 0.058),
+}
+
+
+def load_weapon_keep(wid):
+    """Come genera_mani2.load_weapon, ma tiene le misure (serve la posizione del grilletto per la posa dell'indice)."""
+    bvh, bvh_all, info = _load_weapon(wid)
+    LAST_INFO.clear()
+    LAST_INFO.update(info)
+    if 'trigger_c' not in LAST_INFO and wid in TRIGGER_FUSED:
+        LAST_INFO['trigger_c'] = V(*TRIGGER_FUSED[wid])
+    return bvh, bvh_all, info
+
+
+H.load_weapon = load_weapon_keep
+
+
 def build_hand_bm(poly, thumb_zc, idx_curls=(4, 3, 0), idx_spread=0.0, thumb=None):
     """Come genera_mani2.build_hand_bm, con le nocche meno gonfie (un guanto tirato non fa i rigonfiamenti delle dita nude) e i
     polpastrelli un po' schiacciati verso il palmo."""
@@ -125,6 +155,12 @@ def build_hand_bm(poly, thumb_zc, idx_curls=(4, 3, 0), idx_spread=0.0, thumb=Non
         report.append(curls)
         pts, dirs, a = M.finger_chain(k, sp, lens, curls)
         cap(bm, (k[0] * 0.35, 0.004, 0.0075), (k[0], k[1] - 0.01, 0.0085), 0.003 * GS, 0.003 * GS, seg=8)
+        if fi == 0 and idx_curls is not None and CURRENT_WID != KNIFE:
+            # destra: la nocca resta nel guanto, le tre falangi diventano pezzi a parte con i perni alle articolazioni
+            sph(bm, pts[0], radii[0] * GS * 1.10, seg=16)
+            LAST_INDEX.clear()
+            LAST_INDEX.update({'k': k, 'sp': sp, 'lens': lens, 'radii': radii, 'curls': curls, 'pts': pts})
+            continue
         for i in range(3):
             cap(bm, pts[i], pts[i + 1], radii[i] * GS, radii[i + 1] * GS, seg=16)
         sph(bm, pts[0], radii[0] * GS * 1.10, seg=16)
@@ -523,11 +559,69 @@ def arm_side(res, side, cls, wid, mats):
         H.box_uv(o)
     for o in (glove, guard, sleeve):
         o.location += OFFSET
+    finger = None
+    if side == 'd' and LAST_INDEX:
+        finger = index_finger(Mx, mats['guanto'], wid)
     Wc, Ec, Sc = (author_to_cam(p, hip) for p in (W, E, S))
     elbow = degrees((W - E).angle(S - E))
     print(f'  [{wid}] {side}: posa {pk}, polso piegato {bend:.0f} gradi, gomito {elbow:.0f} gradi, braccio {(S - E).length:.2f} m; '
           f'camera: polso {tuple(round(v, 3) for v in Wc)} gomito {tuple(round(v, 3) for v in Ec)} spalla {tuple(round(v, 3) for v in Sc)}')
-    return {'objs': (glove, guard, sleeve), 'joints': {'polso': W, 'gomito': E, 'spalla': S}}
+    return {'objs': (glove, guard, sleeve), 'joints': {'polso': W, 'gomito': E, 'spalla': S}, 'finger': finger}
+
+
+def index_finger(Mx, mat, wid):
+    """L'indice destro in tre falangi, ognuna con il suo perno, e la posa sul grilletto. Disteso lungo il telaio (disciplina di
+    tiro) com'era nel guanto; la posa sul grilletto si cerca in coordinate canoniche della mano: il polpastrello (al 60% della terza
+    falange) davanti al centro del grilletto vero dell'arma. Ritorna i pezzi, i perni (indice_d_1..4) e i punti della posa
+    (grilletto_d_2..4) in coordinate d'autore; Weapon/TriggerFinger porta il dito da una posa all'altra."""
+    d = LAST_INDEX
+    k, sp, lens, radii, pts = d['k'], d['sp'], d['lens'], d['radii'], d['pts']
+    GS = H.GS
+    pieces = []
+    for i in range(3):
+        bm = bmesh.new()
+        M.bm_capsule(bm, pts[i], pts[i + 1], radii[i] * GS, radii[i + 1] * GS, seg=18)
+        M.bm_sphere(bm, pts[i + 1], radii[i + 1] * GS * (1.04 if i < 2 else 1.0), seg=16)
+        if i == 2:
+            d3 = (pts[3] - pts[2]).normalized()
+            tip = pts[3] - d3 * radii[3] * 0.6
+            M.bm_ellipsoid(bm, tuple(tip), (radii[3] * GS * 1.04, radii[3] * GS * 1.10, radii[3] * GS * 1.04), seg=14)
+        bmesh.ops.triangulate(bm, faces=bm.faces[:])              # niente n-goni: l'FBX porta le tangenti
+        bmesh.ops.transform(bm, matrix=Mx, verts=bm.verts)
+        ob = mesh_obj(f'd_{wid}_indice{i + 1}', bm, mat)
+        H.box_uv(ob)
+        ob.location += OFFSET
+        pieces.append(ob)
+    # posa sul grilletto
+    trig = LAST_INFO.get('trigger_c')
+    best = None
+    if trig is not None:
+        target = Mx.inverted() @ trig
+        target = target + V(0, 0.006, 0)                     # il polpastrello sta davanti alla lama del grilletto
+        for spd in (sp, M.SPREAD_PRESA[0]):
+            for c1 in range(-20, 82, 2):                     # la nocca si iperestende un poco (grilletti alti)
+                for c2 in range(0, 112, 3):
+                    curls = (c1, c2, c2 * 0.6)
+                    p, _, _ = M.finger_chain(k, spd, lens, curls)
+                    pad = p[2] + (p[3] - p[2]) * 0.6
+                    err = (pad - target).length
+                    if best is None or err < best[0]:
+                        best = (err, curls, spd, p)
+    if best is None or best[0] > 0.02:
+        # grilletto non misurato o fuori portata: posa di presa leggera
+        if trig is not None and best is not None:
+            tg = Mx.inverted() @ trig
+            print(f'  [{wid}] indice: grilletto a ({tg.x:.3f}, {tg.y:.3f}, {tg.z:.3f}) nella mano, nocca {tuple(round(c, 3) for c in k)}, '
+                  f'scarto minimo {best[0] * 1000:.1f} mm')
+        curls = (40, 60, 36)
+        best = (0.0, curls, sp, M.finger_chain(k, sp, lens, curls)[0])
+        print(f'  [{wid}] indice: grilletto {"non misurato" if trig is None else "non raggiunto"}, posa di ripiego')
+    else:
+        print(f'  [{wid}] indice: sul grilletto con pieghe {tuple(round(c) for c in best[1])}, scarto {best[0] * 1000:.1f} mm')
+    tp = best[3]
+    joints = {f'indice_d_{i + 1}': Mx @ pts[i] for i in range(4)}
+    trigger = {f'grilletto_d_{i + 1}': Mx @ tp[i] for i in range(1, 4)}
+    return {'pieces': pieces, 'joints': joints, 'trigger': trigger}
 
 
 def material(name, color, rough, metal=0.0):
@@ -543,6 +637,9 @@ def make_mats():
 
 
 def arms_for(wid, cat):
+    global CURRENT_WID
+    CURRENT_WID = wid
+    LAST_INDEX.clear()
     res = H.hands_for(wid)
     cls = (cat.get(wid) or {}).get('cls')
     mats = make_mats()
@@ -576,6 +673,34 @@ def export_one(wid, arms, res):
             j.parent = r
             j.matrix_parent_inverse = inv
             keep.append(j)
+        f = arms[side].get('finger')
+        if f:
+            parent = r
+            for i in range(4):
+                nm = f'indice_d_{i + 1}'
+                e = bpy.data.objects.new(nm, None)
+                e.empty_display_size = 0.01
+                sc.collection.objects.link(e)
+                e.location = f['joints'][nm] + OFFSET
+                bpy.context.view_layer.update()
+                e.parent = parent
+                e.matrix_parent_inverse = parent.matrix_world.inverted()
+                keep.append(e)
+                if i < 3:
+                    piece = f['pieces'][i]
+                    bpy.context.view_layer.update()
+                    piece.parent = e
+                    piece.matrix_parent_inverse = e.matrix_world.inverted()
+                    keep.append(piece)
+                parent = e
+            for nm, p in f['trigger'].items():
+                g = bpy.data.objects.new(nm, None)
+                g.empty_display_size = 0.01
+                sc.collection.objects.link(g)
+                g.location = p + OFFSET
+                g.parent = r
+                g.matrix_parent_inverse = inv
+                keep.append(g)
     for o in bpy.context.view_layer.objects:
         o.select_set(False)
     for o in keep:
