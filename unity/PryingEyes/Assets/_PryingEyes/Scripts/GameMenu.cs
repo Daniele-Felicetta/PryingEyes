@@ -48,6 +48,7 @@ namespace PryingEyes
             Refresh();
             // prova senza mouse: -autoplay preme "Gioca" da solo (per far girare tutto il percorso del giocatore vero, non solo quello del bot)
             foreach (var a in System.Environment.GetCommandLineArgs()) if (a == "-autoplay") { Play(); break; }
+            SplitAutoStart();       // finestra figlia dello split screen: attesa; -splitscreen N: l'ospite parte da solo
         }
 
         void Update()
@@ -61,10 +62,12 @@ namespace PryingEyes
                 coopStatus.text = Coop.Available ? Coop.Status : "La cooperativa non è disponibile in questa versione.";
                 hostButton.interactable = joinButton.interactable = Coop.Available && !Coop.Active;
             }
+            SplitUpdate();
             if (!Input.GetKeyDown(KeyCode.Escape) && !TouchControls.Down(TouchControls.Action.Pause)) return;
             if (settingsPanel.gameObject.activeSelf) { Back(); return; }
             if (leavePanel.gameObject.activeSelf) { Show(pausePanel); return; }
             if (helpPanel.gameObject.activeSelf) { Show(helpFrom); return; }
+            if (splitPanel.gameObject.activeSelf) { Show(mainPanel); return; }
             if (coopPanel.gameObject.activeSelf) { CoopBack(); return; }
             if (InMenu) return;
             if (Paused) Resume(); else Pause();
@@ -74,12 +77,12 @@ namespace PryingEyes
 
         void OnApplicationFocus(bool focused)
         {
-            if (!focused && !GameManager.autoTest) Pause();
+            if (!focused && !GameManager.autoTest && !SplitScreen.Active) Pause();      // nello split screen le altre finestre hanno il fuoco a turno: nessuna deve fermarsi
         }
 
         void OnApplicationPause(bool paused)
         {
-            if (paused && !GameManager.autoTest) Pause();
+            if (paused && !GameManager.autoTest && !SplitScreen.Active) Pause();
         }
 
         void OnDestroy()
@@ -97,6 +100,7 @@ namespace PryingEyes
         {
             leaveNote.text = "La partita attuale verrà chiusa. Progressi, armi e punti di questa discesa andranno persi." +
                 (Coop.IsHost ? "\nI compagni verranno scollegati e potranno proseguire da soli." : "");
+            SplitLeaveText();
             Show(leavePanel);
         }
 
@@ -137,7 +141,8 @@ namespace PryingEyes
         }
 
         /// <summary>Che cosa dire agli amici (ospite) o a chi gioca (ospitato), per il menu di pausa.</summary>
-        static string NetInfo(int maxAddr = 4)
+        static string NetInfo(int maxAddr = 4) => SplitScreen.Active ? "Split screen a " + SplitScreen.Count + " giocatori. " + SplitScreen.Hint : NetInfoOnline(maxAddr);
+        static string NetInfoOnline(int maxAddr)
         {
             if (Coop.IsHost)
             {
@@ -165,8 +170,8 @@ namespace PryingEyes
         {
             if (InMenu || Paused) return;
             Paused = true;
-            if (pauseNet != null) pauseNet.text = NetInfo();
-            if (pauseHint != null) pauseHint.text = Coop.Active ? "Gli altri continuano a giocare. Esc per riprendere." : "La partita è sospesa. Esc per riprendere.";
+            if (pauseNet != null) pauseNet.text = NetInfo(); SplitPauseText();
+            if (pauseHint != null) pauseHint.text = Coop.Active ? "Gli altri continuano a giocare. " + (PadControls.Enabled ? "Start per riprendere." : "Esc per riprendere.") : "La partita è sospesa. Esc per riprendere.";
             Show(pausePanel);
             Refresh();
         }
@@ -183,7 +188,7 @@ namespace PryingEyes
             settingsFrom = from;
             SyncSliders();
             SyncDisplay();
-            SettingsTab(true);
+            SettingsTab(!SplitScreen.Active); videoTabButton.interactable = !SplitScreen.Active;      // nello split screen la misura delle finestre non si cambia dal menu
             Show(settingsPanel);
         }
 
@@ -203,7 +208,7 @@ namespace PryingEyes
             settingsPanel.gameObject.SetActive(p == settingsPanel);
             coopPanel.gameObject.SetActive(p == coopPanel);
             helpPanel.gameObject.SetActive(p == helpPanel);
-            leavePanel.gameObject.SetActive(p == leavePanel);
+            leavePanel.gameObject.SetActive(p == leavePanel); splitPanel.gameObject.SetActive(p == splitPanel); splitWait.gameObject.SetActive(p == splitWait);
             if (EventSystem.current != null)
             {
                 EventSystem.current.SetSelectedGameObject(null);
@@ -297,6 +302,7 @@ namespace PryingEyes
                 "Chi ospita deve aprire la porta UDP 7807 sul router. Nella stessa rete basta l'indirizzo locale.", Dim, FontStyle.Italic);
             MakeButton(coopPanel, "Indietro", new Vector2(0, -250), CoopBack);
 
+            BuildSplit();
             BuildSettings();
 
             helpPanel = Stretch(backdrop, "Guida");

@@ -31,7 +31,8 @@ namespace PryingEyes
 
         public static float Master { get { Load(); return master; } }
         public static float Effects { get { Load(); return effects; } }
-        public static float Music { get { Load(); return music; } }
+        /// <summary>Nello split screen la musica la fa solo la finestra del giocatore 1: le altre non la suonano (sarebbero N brani sovrapposti).</summary>
+        public static float Music { get { Load(); return SplitScreen.IsChild ? 0f : music; } }
         public static float Brightness { get { Load(); return brightness; } }
         public static float Sensitivity { get { Load(); return sensitivity; } }
         public static float Fov { get { Load(); return fov; } }
@@ -102,14 +103,14 @@ namespace PryingEyes
         {
             Load();
             loops.Add(new Loop { src = src, vol = vol, music = isMusic });
-            return vol * (isMusic ? music : effects);
+            return vol * (isMusic ? Music : effects);
         }
 
         static void Apply()
         {
             AudioListener.volume = silentRun ? 0f : master;
             loops.RemoveAll(l => l.src == null);
-            foreach (var l in loops) l.src.volume = l.vol * (l.music ? music : effects);
+            foreach (var l in loops) l.src.volume = l.vol * (l.music ? Music : effects);
         }
     }
 }

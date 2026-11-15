@@ -57,9 +57,9 @@ namespace PryingEyes
                 GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
             }
             if (GameMenu.Blocked || player == null || player.hp <= 0f || throwCd > 0f) return;
-            if (Input.GetKeyDown(KeyCode.Z) && grenades > 0) Throw(0);
-            else if (Input.GetKeyDown(KeyCode.Alpha4) && lures > 0) Throw(1);
-            else if (Input.GetKeyDown(KeyCode.Alpha5) && mines > 0) PlaceMine();
+            if ((Input.GetKeyDown(KeyCode.Z) || TouchControls.Down(TouchControls.Action.Grenade)) && grenades > 0) Throw(0);
+            else if ((Input.GetKeyDown(KeyCode.Alpha4) || TouchControls.Down(TouchControls.Action.Lure)) && lures > 0) Throw(1);
+            else if ((Input.GetKeyDown(KeyCode.Alpha5) || TouchControls.Down(TouchControls.Action.Mine)) && mines > 0) PlaceMine();
         }
 
         /// <summary>Posa una mina del reliquiario un metro davanti (Mine.cs); null se non ne restano. Pubblico per le prove.</summary>

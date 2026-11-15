@@ -31,6 +31,16 @@ The first ordinary launch uses native desktop resolution in borderless mode, ove
 values left by earlier tests. Later launches apply the last explicitly confirmed display configuration. Automated runs
 skip startup display changes and remain silent; they retain any requested command-line render size.
 
+## Split-screen entry
+
+The main menu has **Schermo condiviso** between **Cooperativa** and **Come si gioca** (`GameMenu.Split.cs`). Its panel offers **2 giocatori**,
+**3 giocatori** and **4 giocatori**, a switch for player 1 (**tastiera e mouse** or **controller**), the number of controllers it sees, and a
+reminder that a click or Alt+Tab moves the keyboard and the mouse to another window. The buttons are off, with the reason, outside the
+Windows player or while a game is already running. In the other windows the menu is replaced by a waiting screen (*Cerco la partita del
+giocatore 1...*). The pause menu of a split-screen window says **Chiudi lo split screen** (window 1) or **Lascia la partita**, and, when the
+window uses a controller, lists the controller's buttons. Window layout, controls and checks: [../multiplayer/split-screen.md](../multiplayer/split-screen.md).
+The windows of players 2 to 4 skip the saved display settings: each has the size of its part of the screen.
+
 ## Verification
 
 - `PryingEyes.EditorTools.MenuReview.Run` renders main menu, display, comfort, guide and co-op panels at 1280×720,
@@ -47,4 +57,4 @@ Verified on 15 November 2026: all editor layout/mesh checks passed at the four s
 acceptance check passed 9/9 with registry restoration confirmed, suite boundaries passed with zero findings, and all
 73 hermetic Python tests passed. No presentation test that changes the player's settings was run.
 
-Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `MenuEngraving.cs`, `VideoSettings.cs`.
+Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Split.cs`, `MenuEngraving.cs`, `VideoSettings.cs`.

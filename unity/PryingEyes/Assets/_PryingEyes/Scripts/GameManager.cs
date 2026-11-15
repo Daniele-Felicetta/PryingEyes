@@ -103,7 +103,7 @@ namespace PryingEyes
                 Ambience.Create();  // eco, vento, scricchiolii, grammofono; genera anche tutti i suoni
             }
             else { Proc.ProcAmbience.Create(); MusicDirector.Create(); }     // ambiente dei piani e musica adattiva delle ondate
-            if (proc) Coop.BootFromArgs();   // prove con due processi: -coophost / -coopjoin <indirizzo>
+            if (proc) { SplitScreen.BootFromArgs(); Coop.BootFromArgs(); }   // split screen: finestre figlie (-splitchild); prove con due processi: -coophost / -coopjoin <indirizzo>
             if (!autoTest && !camShots) GameMenu.Create();   // menu principale: la prima ondata parte da "Gioca"
         }
 
@@ -204,7 +204,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
                 bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-meleetest") ||
-                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || trailer;
+                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || trailer;
                 if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
                     System.IO.File.AppendAllText(REPORT, $"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");

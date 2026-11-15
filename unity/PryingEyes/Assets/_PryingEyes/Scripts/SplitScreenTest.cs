@@ -1,0 +1,293 @@
+#if !PE_DISTRIBUTION_BUILD
+using System;
+using System.Collections;
+using UnityEngine;
+using PryingEyes.Proc;
+
+namespace PryingEyes
+{
+    /// <summary>-autotest -nofire -noenemies -splittest [-seed S -floor F]: le parti dello split screen senza finestre e senza controller.
+    /// Prima la parte pura: disposizione delle finestre (2, 3 e 4 giocatori su schermi diversi, anche con origine negativa), assegnazione dei
+    /// controller, campo visivo nelle finestre larghe, argomenti dei giocatori lanciati, traduzione XInput -> comandi (zone morte, grilletti,
+    /// secondo livello con LB, corsa a scatti). Poi il giocatore vero: con uno stato XInput finto (PadControls.Inject) cammina, gira, spara,
+    /// salta, si abbassa e corre. La lettura vera di XInput si prova solo come "risponde senza errori": un controller fisico non c'e'.
+    /// L'avvio vero a piu' finestre lo prova tools/coop/run_split.ps1.</summary>
+    public sealed class SplitScreenTest : MonoBehaviour
+    {
+        int checks, failed, exceptions;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Install()
+        {
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-splittest") >= 0) new GameObject("SplitScreenTest").AddComponent<SplitScreenTest>();
+        }
+
+        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] splittest " + (ok ? "ok " : "FALLITO ") + name); }
+        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
+
+        IEnumerator Start()
+        {
+            Application.logMessageReceived += Log;
+            var sequence = Run();
+            while (true)
+            {
+                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
+                if (!more) break; yield return sequence.Current;
+            }
+            PadControls.Inject(null); PadControls.Disable();
+            Check("nessuna eccezione runtime", exceptions == 0);
+            Debug.Log($"[PryingEyes] splittest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
+            Application.Quit(failed == 0 ? 0 : 1);
+        }
+
+        static PadControls.Raw Pad(ushort buttons = 0, int lt = 0, int rt = 0, int lx = 0, int ly = 0, int rx = 0, int ry = 0) =>
+            new PadControls.Raw { connected = true, buttons = buttons, leftTrigger = (byte)lt, rightTrigger = (byte)rt, lx = (short)lx, ly = (short)ly, rx = (short)rx, ry = (short)ry };
+
+        static bool IsDown(PadControls.Mapper m, TouchControls.Action a) => m.Down[(int)a];
+        static bool IsHeld(PadControls.Mapper m, TouchControls.Action a) => m.Held[(int)a];
+
+        // ------------------------------------------------------------------ parte pura
+
+        void Layouts()
+        {
+            var areas = new[] { new RectInt(0, 0, 1920, 1080), new RectInt(0, 0, 3440, 1400), new RectInt(-2560, 0, 2560, 1400), new RectInt(-159, -1234, 1280, 672) };
+            foreach (var a in areas)
+                for (int n = 2; n <= 4; n++)
+                {
+                    bool inside = true, disjoint = true; long sum = 0;
+                    for (int i = 0; i < n; i++)
+                    {
+                        var t = SplitScreen.TileOf(i, n, a);
+                        sum += (long)t.width * t.height;
+                        inside &= t.width > 0 && t.height > 0 && t.xMin >= a.xMin && t.yMin >= a.yMin && t.xMax <= a.xMax && t.yMax <= a.yMax;
+                        for (int j = 0; j < i; j++)
+                        {
+                            var u = SplitScreen.TileOf(j, n, a);
+                            disjoint &= t.xMax <= u.xMin || u.xMax <= t.xMin || t.yMax <= u.yMin || u.yMax <= t.yMin;
+                        }
+                    }
+                    Check($"{n} giocatori su {a.width}x{a.height} in ({a.x},{a.y}): le parti stanno nello schermo, non si sovrappongono e lo coprono tutto",
+                        inside && disjoint && sum == (long)a.width * a.height);
+                }
+            var full = new RectInt(0, 0, 3440, 1400);
+            var l = SplitScreen.TileOf(0, 2, full); var r = SplitScreen.TileOf(1, 2, full);
+            Check("due giocatori: uno a sinistra e uno a destra, alti come lo schermo", l.x == 0 && r.x == l.xMax && l.height == 1400 && r.height == 1400 && r.xMax == 3440);
+            var t3 = SplitScreen.TileOf(2, 3, full);
+            Check("tre giocatori: il terzo occupa tutta la riga in basso", t3.x == 0 && t3.width == 3440 && t3.y > 0);
+            var q = new[] { SplitScreen.TileOf(0, 4, full), SplitScreen.TileOf(1, 4, full), SplitScreen.TileOf(2, 4, full), SplitScreen.TileOf(3, 4, full) };
+            Check("quattro giocatori: quattro quadranti (alto sinistra, alto destra, basso sinistra, basso destra)",
+                q[0].x == 0 && q[0].y == 0 && q[1].x > 0 && q[1].y == 0 && q[2].x == 0 && q[2].y > 0 && q[3].x > 0 && q[3].y > 0 && q[0].width == q[2].width);
+        }
+
+        void Pads()
+        {
+            bool Same(int[] a, params int[] b) { if (a.Length != b.Length) return false; for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false; return true; }
+            Check("nessun controller, tre giocatori: il 1 tastiera, il 2 e il 3 aspettano gli slot 0 e 1", Same(SplitScreen.AssignPads(0, 3, false), -1, 0, 1));
+            Check("un controller nello slot 1, due giocatori: il giocatore 2 prende lo slot 1", Same(SplitScreen.AssignPads(0b0010, 2, false), -1, 1));
+            Check("controller negli slot 0 e 2, tre giocatori: 2 e 3 prendono 0 e 2", Same(SplitScreen.AssignPads(0b0101, 3, false), -1, 0, 2));
+            Check("due controller, due giocatori, tutti col controller: 0 e 1", Same(SplitScreen.AssignPads(0b0011, 2, true), 0, 1));
+            Check("senza controller e tutti col controller: slot 0 e 1", Same(SplitScreen.AssignPads(0, 2, true), 0, 1));
+            Check("quattro giocatori, un controller nello slot 3: 2 prende il 3, gli altri i primi liberi", Same(SplitScreen.AssignPads(0b1000, 4, false), -1, 3, 0, 1));
+        }
+
+        void Fov()
+        {
+            Check("campo visivo: nelle finestre strette e nei quadranti resta quello scelto", Mathf.Approximately(SplitScreen.FovFor(75f, 0.9f), 75f) && Mathf.Approximately(SplitScreen.FovFor(75f, 2.39f), 75f));
+            float v = SplitScreen.FovFor(75f, 4.8f);
+            float h = 2f * Mathf.Atan(Mathf.Tan(v * 0.5f * Mathf.Deg2Rad) * 4.8f) * Mathf.Rad2Deg;
+            Check($"campo visivo: in una finestra larga 4,8 volte si accorcia ({v:F1} gradi verticali, {h:F1} orizzontali, tetto {SplitScreen.MaxHorizontalFov})",
+                v < 60f && Mathf.Abs(h - SplitScreen.MaxHorizontalFov) < 0.5f);
+        }
+
+        void Arguments()
+        {
+            string a = SplitScreen.ChildArgs(2, 4, new RectInt(1720, 700, 1720, 700), 23456, 1234, 1, "C:\\log dir\\giocatore3.log", "-batchmode -nographics");
+            foreach (string must in new[] { "-popupwindow", "-screen-width 1720", "-screen-height 700", "-splitchild 2", "-splitcount 4", "-splittile 1720,700,1720,700",
+                "-splitparent 1234", "-padindex 1", "-coopjoin 127.0.0.1", "-coopport 23456", "-coopname \"Giocatore 3\"", "-logFile \"C:\\log dir\\giocatore3.log\"", "-batchmode -nographics" })
+                Check("argomenti del giocatore 3 contengono " + must, a.Contains(must));
+        }
+
+        void Mapping()
+        {
+            var m = new PadControls.Mapper();
+            const float eps = 0.01f;
+            m.Step(Pad(ly: 5000));
+            Check("stick sinistro sotto la zona morta: fermo", m.Move == Vector2.zero);
+            m.Step(Pad(ly: 32767));
+            Check("stick sinistro tutto avanti: (0, 1)", Mathf.Abs(m.Move.y - 1f) < eps && Mathf.Abs(m.Move.x) < eps);
+            m.Step(Pad(lx: 32767, ly: 32767));
+            Check("in diagonale il movimento non supera 1", m.Move.magnitude <= 1.001f && m.Move.x > 0.6f && m.Move.y > 0.6f);
+            m.Step(Pad(rx: 32767));
+            Check($"stick destro tutto a destra: {PadControls.Mapper.YawRate} rad/s, niente rotazione verticale", Mathf.Abs(m.LookRate.x - PadControls.Mapper.YawRate) < 0.05f && Mathf.Abs(m.LookRate.y) < eps);
+            m.Step(Pad(rx: 16000));
+            Check("a meta' stick la rotazione e' meno della meta' (mira fine)", m.LookRate.x > 0f && m.LookRate.x < PadControls.Mapper.YawRate * 0.5f);
+            m.Step(Pad(ry: 32767));
+            Check("stick destro in alto: guarda in alto", m.LookRate.y > 1f);
+
+            m.Reset();
+            m.Step(Pad(PadControls.A));
+            Check("A: salto al primo giro", IsDown(m, TouchControls.Action.Jump) && IsHeld(m, TouchControls.Action.Jump));
+            m.Step(Pad(PadControls.A));
+            Check("A tenuto: il salto non si ripete ma resta premuto", !IsDown(m, TouchControls.Action.Jump) && IsHeld(m, TouchControls.Action.Jump));
+            m.Step(Pad());
+            Check("A rilasciato", !IsHeld(m, TouchControls.Action.Jump));
+
+            var normal = new (ushort button, TouchControls.Action action, string name)[]
+            {
+                (PadControls.X, TouchControls.Action.Reload, "X ricarica"), (PadControls.Y, TouchControls.Action.Swap, "Y cambia arma"),
+                (PadControls.B, TouchControls.Action.Crouch, "B abbassati"), (PadControls.RightShoulder, TouchControls.Action.Use, "RB usa"),
+                (PadControls.RightStick, TouchControls.Action.Knife, "R3 coltello"), (PadControls.StartBtn, TouchControls.Action.Pause, "Start pausa"),
+                (PadControls.DpadUp, TouchControls.Action.Torch, "croce su: torcia"), (PadControls.DpadDown, TouchControls.Action.Grenade, "croce giu': acquasanta"),
+                (PadControls.DpadLeft, TouchControls.Action.Left, "croce sinistra: sporgersi a sinistra"), (PadControls.DpadRight, TouchControls.Action.Right, "croce destra: sporgersi a destra"),
+            };
+            foreach (var c in normal)
+            {
+                m.Reset(); m.Step(Pad(c.button));
+                Check(c.name, IsDown(m, c.action) || IsHeld(m, c.action));
+            }
+            m.Reset(); m.Step(Pad(PadControls.BackBtn));
+            Check("Back tenuto: tabellone", IsHeld(m, TouchControls.Action.Scoreboard));
+
+            var alt = new (ushort button, TouchControls.Action action, TouchControls.Action plain, string name)[]
+            {
+                (PadControls.A, TouchControls.Action.Velo, TouchControls.Action.Jump, "LB + A: velo"), (PadControls.B, TouchControls.Action.Mode, TouchControls.Action.Crouch, "LB + B: modo di fuoco"),
+                (PadControls.X, TouchControls.Action.Lure, TouchControls.Action.Reload, "LB + X: carillon"), (PadControls.Y, TouchControls.Action.Mine, TouchControls.Action.Swap, "LB + Y: mina"),
+                (PadControls.DpadUp, TouchControls.Action.Map, TouchControls.Action.Torch, "LB + su: mappa"), (PadControls.DpadDown, TouchControls.Action.Ping, TouchControls.Action.Grenade, "LB + giu': indica le porte"),
+                (PadControls.DpadLeft, TouchControls.Action.Battery, TouchControls.Action.Left, "LB + sinistra: pila"),
+            };
+            foreach (var c in alt)
+            {
+                m.Reset(); m.Step(Pad(PadControls.LeftShoulder));          // LB da solo non fa niente
+                m.Step(Pad((ushort)(PadControls.LeftShoulder | c.button)));
+                Check(c.name + " (e non il comando normale dello stesso tasto)", IsDown(m, c.action) && !IsDown(m, c.plain) && !IsHeld(m, c.plain));
+            }
+
+            m.Reset();
+            m.Step(Pad(rt: 100));
+            Check("grilletto destro a 39%: non spara", !IsHeld(m, TouchControls.Action.Fire));
+            m.Step(Pad(rt: 200));
+            Check("grilletto destro a 78%: spara (un solo colpo in piu')", IsHeld(m, TouchControls.Action.Fire) && IsDown(m, TouchControls.Action.Fire));
+            m.Step(Pad(rt: 100));
+            Check("scendendo a 39% resta premuto (isteresi), senza nuovo colpo", IsHeld(m, TouchControls.Action.Fire) && !IsDown(m, TouchControls.Action.Fire));
+            m.Step(Pad(rt: 60));
+            Check("sotto il 30% e' rilasciato", !IsHeld(m, TouchControls.Action.Fire));
+            m.Step(Pad(lt: 200));
+            Check("grilletto sinistro: mira", IsHeld(m, TouchControls.Action.Aim));
+
+            m.Reset();
+            m.Step(Pad(PadControls.LeftStick, ly: 32767));
+            Check("L3 con lo stick avanti: corsa", IsHeld(m, TouchControls.Action.Sprint));
+            m.Step(Pad(PadControls.LeftStick, ly: 32767)); m.Step(Pad(ly: 32767));
+            Check("la corsa resta anche tenendo e rilasciando L3", IsHeld(m, TouchControls.Action.Sprint));
+            m.Step(Pad(PadControls.LeftStick, ly: 32767)); m.Step(Pad(ly: 32767));
+            Check("un altro L3 la spegne", !IsHeld(m, TouchControls.Action.Sprint));
+            m.Step(Pad(PadControls.LeftStick, ly: 32767)); m.Step(Pad());
+            Check("fermandosi la corsa si annulla", !IsHeld(m, TouchControls.Action.Sprint));
+            m.Step(Pad(PadControls.LeftStick, ly: 32767)); m.Step(Pad(ly: 32767, rt: 255));
+            Check("sparando la corsa si annulla", !IsHeld(m, TouchControls.Action.Sprint));
+
+            m.Step(Pad(PadControls.A | PadControls.RightShoulder, ly: 32767, rt: 255));
+            m.Step(default);
+            Check("controller scollegato: tutto a zero", m.Move == Vector2.zero && m.LookRate == Vector2.zero && !IsHeld(m, TouchControls.Action.Fire) && !IsDown(m, TouchControls.Action.Jump));
+        }
+
+        void Api()
+        {
+            int mask = -1;
+            try { mask = PadControls.ConnectedMask(); } catch (Exception e) { Debug.LogException(e); }
+            Check($"XInput risponde senza errori (slot collegati: maschera {mask})", mask >= 0 && mask <= 15);
+        }
+
+        // ------------------------------------------------------------------ il giocatore vero
+
+        IEnumerator Run()
+        {
+            Layouts(); Pads(); Fov(); Arguments(); Mapping(); Api();
+
+            float deadline = Time.realtimeSinceStartup + 90;
+            while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
+            yield return null;
+            Enemy.ClearAll(); Enemy.debugFreeze = false; Enemy.debugNoSense = false;
+            var gm = GameManager.I; var player = gm.player;
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
+            Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward));
+            if (failed > 0) yield break;
+            player.invulnerable = true;
+            float yaw = Mathf.Atan2(forward.x, forward.z);
+            Vector3 right = Vector3.Cross(Vector3.up, forward);
+            PadControls.Enable(0);                 // l'istanza ascolta lo slot 0; la prova gli da' lo stato
+
+            void Back() { player.Teleport(arena - forward * 2.8f + Vector3.up * 0.05f); player.yaw = yaw; player.pitch = 0f; }
+
+            // stick sinistro: cammina avanti
+            Back();
+            yield return null; yield return null;
+            Vector3 p0 = player.transform.position;
+            PadControls.Inject(Pad(ly: 32767));
+            yield return new WaitForSeconds(1.0f);
+            Vector3 d = player.transform.position - p0;
+            float along = Vector3.Dot(d, forward), side = Mathf.Abs(Vector3.Dot(d, right));
+            Check($"stick sinistro in avanti: il giocatore avanza ({along:F1} m in 1 s, {side:F1} m di lato)", along > 2f && side < 0.6f);
+            PadControls.Inject(Pad());
+            yield return new WaitForSeconds(0.5f);
+
+            // stick destro: la visuale gira
+            float y0 = player.yaw, expected;
+            PadControls.Inject(Pad(rx: 32767));
+            yield return new WaitForSeconds(0.5f);
+            PadControls.Inject(Pad());
+            float dyaw = player.yaw - y0;
+            expected = PadControls.Mapper.YawRate * GameSettings.Sensitivity * player.weapon.SensMult * 0.5f;
+            Check($"stick destro a destra: la visuale gira a destra (+{dyaw:F2} rad, attesi circa {expected:F2})", dyaw > expected * 0.7f && dyaw < expected * 1.3f);
+            float pitch0 = player.pitch;
+            PadControls.Inject(Pad(ry: 32767));
+            yield return new WaitForSeconds(0.3f);
+            PadControls.Inject(Pad());
+            Check($"stick destro in alto: la visuale sale (inclinazione {pitch0:F2} -> {player.pitch:F2})", player.pitch < pitch0 - 0.2f);
+            player.yaw = yaw; player.pitch = 0f;
+
+            // grilletto destro: spara
+            int shots = GameManager.shotsFired;
+            Check("l'arma ha colpi", player.weapon.mag > 0);
+            PadControls.Inject(Pad(rt: 255));
+            yield return new WaitForSeconds(0.6f);
+            PadControls.Inject(Pad());
+            Check($"grilletto destro: il giocatore spara ({GameManager.shotsFired - shots} colpi)", GameManager.shotsFired > shots);
+
+            // A: salta
+            Back();
+            yield return new WaitForSeconds(0.4f);
+            float yBase = player.transform.position.y, yMax = yBase;
+            PadControls.Inject(Pad(PadControls.A));
+            yield return null; yield return null;
+            PadControls.Inject(Pad());
+            for (float t = 0f; t < 0.8f; t += Time.deltaTime) { yMax = Mathf.Max(yMax, player.transform.position.y); yield return null; }
+            Check($"A: il giocatore salta (+{yMax - yBase:F2} m)", yMax - yBase > 0.25f);
+
+            // B: abbassati finche' e' premuto
+            yield return new WaitForSeconds(0.6f);
+            PadControls.Inject(Pad(PadControls.B));
+            yield return new WaitForSeconds(0.5f);
+            bool crouched = player.IsCrouching;
+            PadControls.Inject(Pad());
+            yield return new WaitForSeconds(0.8f);
+            Check("B tenuto: abbassato; rilasciato: di nuovo in piedi", crouched && !player.IsCrouching);
+
+            // L3: corsa
+            Back();
+            yield return new WaitForSeconds(0.3f);
+            PadControls.Inject(Pad(PadControls.LeftStick, ly: 32767));
+            yield return null; yield return null;
+            PadControls.Inject(Pad(ly: 32767));
+            yield return new WaitForSeconds(0.7f);
+            bool sprinting = player.IsSprinting;
+            PadControls.Inject(Pad());
+            yield return new WaitForSeconds(0.6f);
+            Check($"L3 con lo stick avanti: corre (velocita' {player.SpeedH:F1} m/s dopo)", sprinting && !player.IsSprinting);
+
+            PadControls.Inject(null);
+            player.invulnerable = false;
+        }
+    }
+}
+#endif

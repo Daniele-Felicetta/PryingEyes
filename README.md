@@ -2,7 +2,7 @@
 
 A first-person survival horror game set in **the Tower**: a descent through floors of hotel wings, churches, theatres and sanatoria,
 generated again on every run. Open new areas with the points you earn, hold out against waves of monks, abbots and things that float,
-and take the lift down to the next floor. Play alone or in online co-op with up to four players.
+and take the lift down to the next floor. Play alone, in online co-op with up to four players, or in split screen on one PC.
 
 Unity 6 (6000.6.7f1), Windows player, co-op over FishNet (UDP port 7807). The main scene is
 `unity/PryingEyes/Assets/_PryingEyes/Scenes/Torre.unity`.
@@ -15,6 +15,9 @@ Unity 6 (6000.6.7f1), Windows player, co-op over FishNet (UDP port 7807). The ma
   player, the `Builds/` layout and the other platforms are in [Building, shipping and CI](docs/engineering/building-and-shipping.md).
 - **Co-op**: *Cooperativa* in the main menu. One player hosts and the others type the host's address. There is no relay: to play over the
   Internet the host needs UDP port 7807 reachable. Design, protocol and limits are in [docs/multiplayer](docs/multiplayer/README.md).
+- **Split screen**: *Schermo condiviso* in the main menu, two to four players on one PC, one window each (keyboard and mouse for player 1, an
+  Xbox-compatible controller for each of the others). Layout, controls and limits are in
+  [docs/multiplayer/split-screen.md](docs/multiplayer/split-screen.md).
 
 ## What is in the game
 

@@ -222,9 +222,9 @@ namespace PryingEyes
 
             // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
             float ms = sens * GameSettings.Sensitivity * weapon.SensMult;
-            float touchSens = 4f * GameSettings.Sensitivity * weapon.SensMult;
-            float dYaw = inputEnabled ? Input.GetAxis("Mouse X") * ms + TouchControls.Look.x * touchSens : 0f;
-            float dPitch = inputEnabled ? -Input.GetAxis("Mouse Y") * ms - TouchControls.Look.y * touchSens : 0f;
+            float touchSens = 4f * GameSettings.Sensitivity * weapon.SensMult, padSens = GameSettings.Sensitivity * weapon.SensMult * dt;
+            float dYaw = inputEnabled ? Input.GetAxis("Mouse X") * ms + TouchControls.Look.x * touchSens + PadControls.LookRate.x * padSens : 0f;
+            float dPitch = inputEnabled ? -Input.GetAxis("Mouse Y") * ms - TouchControls.Look.y * touchSens - PadControls.LookRate.y * padSens : 0f;
             yaw += dYaw;
             pitch += dPitch;
             pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
@@ -426,7 +426,7 @@ namespace PryingEyes
             eyeH += (targetEye - eyeH) * Mathf.Min(1f, 11f * dt);
 
             Camera c = cam.GetComponent<Camera>();
-            float baseFov = GameSettings.Fov;
+            float baseFov = SplitScreen.Active ? SplitScreen.FovFor(GameSettings.Fov, c.aspect) : GameSettings.Fov;     // nelle finestre larghe dello split screen il campo orizzontale non esagera
             float targetFov = baseFov + ((wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + fovKick) * motion
                 - weapon.ads * (baseFov - wd.adsFov);
             fovKick *= Mathf.Max(0f, 1f - 6f * dt);

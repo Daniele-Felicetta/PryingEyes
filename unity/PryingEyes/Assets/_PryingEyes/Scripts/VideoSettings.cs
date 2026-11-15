@@ -24,7 +24,7 @@ namespace PryingEyes
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Initialize()
         {
-            if (Automated || Application.isEditor) return;
+            if (Automated || Application.isEditor || SplitScreen.IsChild) return;      // le finestre dello split screen hanno la loro misura (SplitScreen)
             Config c;
             if (PlayerPrefs.GetInt(Key, 0) == 1)
             {

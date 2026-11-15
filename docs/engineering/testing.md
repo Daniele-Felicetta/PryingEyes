@@ -188,6 +188,7 @@ Mode flags used by these tests and the bot:
 | `-powertest [-powershots]` (16) | Floor power: emergency lights at 40 %, breaker in the farthest area; the lever turns the hotel's power back on (once per wave); perks, traps and altar need power. `-nopower` starts with power on. | `unity_logs/corrente/` |
 | `-minetest [-mineshots]` (12) | Reliquary mine (key 5): placed 1 m ahead, armed in 1.2 s, explodes when an enemy comes near, not the player. | `unity_logs/mine/` |
 | `-ragdolltest [-ragdollshots]` (16) | Dead monks and abbots become ragdolls pushed by the killing hit; they stop and sink; at most 10 at once. `-noragdoll` compares. | `unity_logs/ragdoll/` |
+| `-splittest` (85) | Split screen without windows or a controller: the layout for 2 to 4 players, controller assignment, the field-of-view cap, the arguments of the launched windows, the XInput mapping, and the real player driven by a fake XInput state. Needs `-autotest -nofire -noenemies`. | the log (`-report FILE` keeps the result out of `hotel_build/autotest.txt`) |
 
 ### 3.5 Further flags in the code
 
@@ -254,6 +255,17 @@ Several Unity processes on one machine, with no graphics: one host and up to thr
 | `h_quattro` | `-cooptest -coopplayers 4 -seed 2961` | `-cooptest -coopplayers 4` | Four players. |
 
 The co-op code is in `Scripts/Coop/`. Protocol, limits and what is not yet verified are in `docs/multiplayer/README.md`.
+
+**Split screen on one PC** (several windows on one screen, built on the same co-op) has `-splittest` (section 3.4) and a real start,
+`tools/coop/run_split.ps1`: window 1 starts with `-splitscreen N`, launches the other windows by itself and a fake controller (`-padsim giro`)
+moves players 2 to 4. It checks that every player is admitted, that each window knows its part and controller, that no process logs an
+exception, that window 1 sees player 2 move, and that closing window 1 closes the others. Exit `0` only if every check passed, `3` if a copy
+of the same exe is already running. Parameters: `-Exe` (default `Builds\Audit`), `-LogDir` (default `$env:TEMP\pryingeyes-split`),
+`-Players` (2 to 4), `-Graphics` (real windows: also checks each window's rectangle and borderless style), `-Shot` (a picture of the
+screen, `split_N.png`), `-PadSim`, `-HostPad`, `-TimeoutSec`, `-SettleSec`. With `-Graphics` the windows fill the screen for about a minute and
+use the GPU: do not run it while someone plays, and close the game's other copies first. Window sizes are written to the Unity registry
+(`Screenmanager ...` values of the game): a run that matters should save and restore them, as `tools/check_display.py` does. Details and
+results: [../multiplayer/split-screen.md](../multiplayer/split-screen.md).
 
 ## 6. Performance probe
 

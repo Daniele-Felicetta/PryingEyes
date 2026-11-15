@@ -6,8 +6,10 @@ namespace PryingEyes
     [DefaultExecutionOrder(-10000)]
     public class TouchControls : MonoBehaviour
     {
-        public enum Action { Fire, Aim, Jump, Crouch, Sprint, Use, Reload, Swap, Mode, Torch, Battery, Ping, Left, Right, Pause, Knife, Velo, Map }
-        static readonly bool[] held = new bool[24], down = new bool[24];
+        // dopo Map: azioni che il touch non disegna (nessun bottone) ma che il controller (PadControls) puo' dare
+        public enum Action { Fire, Aim, Jump, Crouch, Sprint, Use, Reload, Swap, Mode, Torch, Battery, Ping, Left, Right, Pause, Knife, Velo, Map, Grenade, Lure, Mine, Scoreboard }
+        public const int Slots = 24;
+        static readonly bool[] held = new bool[Slots], down = new bool[Slots];
         static readonly string[] labels = { "FUOCO", "MIRA", "SALTA", "GIU", "CORRI", "USA", "RICARICA", "ARMA", "MODO", "TORCIA", "PILA", "PING", "<", ">", "II", "COLTELLO", "VELO", "MAPPA" };
         static readonly Rect[] buttons = {
             new Rect(1135, 480, 130, 110), new Rect(995, 480, 130, 110), new Rect(1135, 600, 130, 100),
@@ -18,10 +20,13 @@ namespace PryingEyes
             new Rect(855, 390, 130, 75), new Rect(855, 305, 130, 70), new Rect(1060, 10, 130, 60)
         };
         static readonly System.Collections.Generic.Dictionary<int, int> fingers = new System.Collections.Generic.Dictionary<int, int>();
-        public static Vector2 Move { get; private set; }
+        /// <summary>Solo il joystick virtuale del touch.</summary>
+        public static Vector2 TouchMove { get; private set; }
+        /// <summary>Il movimento voluto: joystick del touch e stick sinistro del controller (PadControls) insieme, di lunghezza al massimo 1.</summary>
+        public static Vector2 Move { get { var m = TouchMove + PadControls.Move; return m.sqrMagnitude > 1f ? m.normalized : m; } }
         public static Vector2 Look { get; private set; }
-        public static bool Held(Action a) => held[(int)a];
-        public static bool Down(Action a) => down[(int)a];
+        public static bool Held(Action a) => held[(int)a] || PadControls.Held(a);
+        public static bool Down(Action a) => down[(int)a] || PadControls.Down(a);
         static Rect safe;
         static Vector2 joystick;
         static int moveFinger = -1;
@@ -65,7 +70,7 @@ namespace PryingEyes
             if (GameMenu.Blocked || safe.width <= 0 || safe.height <= 0)
             {
                 System.Array.Clear(held, 0, held.Length);
-                fingers.Clear(); moveFinger = -1; Move = Vector2.zero;
+                fingers.Clear(); moveFinger = -1; TouchMove = Vector2.zero;
                 return;
             }
             foreach (Touch t in touches)
@@ -83,10 +88,10 @@ namespace PryingEyes
                 if (!fingers.TryGetValue(t.fingerId, out int action)) continue;
                 if (t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled)
                 {
-                    if (action == -2) { moveFinger = -1; Move = Vector2.zero; }
+                    if (action == -2) { moveFinger = -1; TouchMove = Vector2.zero; }
                     fingers.Remove(t.fingerId);
                 }
-                else if (action == -2) Move = Vector2.ClampMagnitude(new Vector2(pos.x - joystick.x, joystick.y - pos.y) / 90f, 1f);
+                else if (action == -2) TouchMove = Vector2.ClampMagnitude(new Vector2(pos.x - joystick.x, joystick.y - pos.y) / 90f, 1f);
                 else if (action == -3 && t.phase == TouchPhase.Moved)
                     Look += new Vector2(t.deltaPosition.x / safe.width, t.deltaPosition.y / safe.height);
             }
@@ -101,7 +106,7 @@ namespace PryingEyes
         public static void ResetInput()
         {
             System.Array.Clear(held, 0, held.Length); System.Array.Clear(down, 0, down.Length);
-            fingers.Clear(); moveFinger = -1; Move = Look = Vector2.zero;
+            fingers.Clear(); moveFinger = -1; TouchMove = Look = Vector2.zero;
         }
         void OnGUI()
         {

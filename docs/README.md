@@ -30,6 +30,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [feel-and-reflections.md](game/feel-and-reflections.md) | Room reflections, scoreboard, inspection, ragdolls, vaulting, hit reactions, light shafts, empty magazines, medals, adaptive music, surface impacts. |
 | [display-and-menu.md](game/display-and-menu.md) | Display settings and the hotel-register main menu. |
 | [multiplayer/README.md](multiplayer/README.md) | Online co-op for up to four players: how it plays, the protocol, the tests, the limits (Italian). |
+| [multiplayer/split-screen.md](multiplayer/split-screen.md) | Split screen on one PC for two to four players: layout, controllers, how it works, the checks and what is not verified. |
 
 ## Engineering (`engineering/`)
 

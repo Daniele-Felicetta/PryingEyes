@@ -6,6 +6,9 @@ Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 
 ## Come si gioca
 
+Per giocare in piu' persone sullo stesso PC (da due a quattro finestre affiancate, anche con i controller) non serve niente di tutto
+questo: menu iniziale, **Schermo condiviso**. Vedi [split-screen.md](split-screen.md). Qui sotto si gioca tra macchine diverse.
+
 1. Chi ospita: menu iniziale, **Cooperativa**, scrive il proprio nome e preme **Ospita una partita**. La sua partita
    parte subito; gli altri entrano quando vogliono (anche a piano iniziato, con un round in corso).
 2. Gli altri: **Cooperativa**, nome, indirizzo dell'ospite, **Unisciti all'indirizzo**. Il menu si toglie da solo
@@ -202,7 +205,8 @@ la torcia accesa; ha anche fatto trovare un'inversione (il fascio del compagno s
 - Sicurezza: l'ospite si fida dei colpi dichiarati (il danno e' solo limitato tra 0 e 100000, senza controllo di distanza o
   cadenza) e delle candele che un ospitato dice di accendere; le gocce invece le controlla (entro 4,5 m). Nessuna cifratura.
   E' pensata per giocare tra amici.
-- Nessuno schermo diviso (un giocatore per macchina) e nessun relay: da Internet serve la porta UDP aperta o una VPN.
+- Nessun relay: da Internet serve la porta UDP aperta o una VPN. Lo schermo diviso sullo stesso PC c'e' dal 15 novembre 2026 e riusa questa
+  cooperativa su loopback (una finestra per giocatore, controller XInput): [split-screen.md](split-screen.md), in inglese.
 
 ## La bozza di ChatGPT e perche' FishNet
 

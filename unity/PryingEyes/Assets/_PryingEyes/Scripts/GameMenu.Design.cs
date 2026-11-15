@@ -41,11 +41,11 @@ namespace PryingEyes
                 "PRYING\nEYES", Ink, FontStyle.Normal);
             Label(mainPanel, "Sottotitolo", new Vector2(-340, 26), new Vector2(420, 34), 21, TextAnchor.MiddleLeft,
                 "Il Grand Hotel non chiude mai.", Dim, FontStyle.Italic);
-            string[] names = { "Gioca", "Cooperativa", "Come si gioca", "Impostazioni", "Esci" };
-            UnityEngine.Events.UnityAction[] actions = { Play, OpenCoop, () => OpenHelp(mainPanel), () => OpenSettings(mainPanel), Quit };
+            string[] names = { "Gioca", "Cooperativa", "Schermo condiviso", "Come si gioca", "Impostazioni", "Esci" };
+            UnityEngine.Events.UnityAction[] actions = { Play, OpenCoop, OpenSplit, () => OpenHelp(mainPanel), () => OpenSettings(mainPanel), Quit };
             for (int i = 0; i < names.Length; i++)
             {
-                var button = MakeButton(mainPanel, names[i], new Vector2(-340, -39 - i * 49), actions[i]);
+                var button = MakeButton(mainPanel, names[i], new Vector2(-340, -39 - i * 45), actions[i]);
                 button.GetComponent<RectTransform>().sizeDelta = new Vector2(420, 42);
                 var text = button.GetComponentInChildren<Text>();
                 text.alignment = TextAnchor.MiddleLeft; text.rectTransform.sizeDelta = new Vector2(368, 40); text.fontSize = 21;
