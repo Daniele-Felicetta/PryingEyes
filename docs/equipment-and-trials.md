@@ -54,3 +54,24 @@ points. Each player hunts their own (local state, like annex treasures). The sco
 Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -eyetest [-eyeshots] -seed 1000 -floor 3`
 (`Scripts/EyesTest.cs`, 13 checks: three eyes, far apart, above the navmesh; F and a bullet both collect; all three
 consecrate the weapon and pay).
+
+## Reliquary mine
+
+Added on 15 November 2026 (`Scripts/Mine.cs`), the third piece of equipment (key 5).
+
+- A brass disc with a cross and a red glass dome, placed on the floor one metre ahead (flat floor near the navmesh, with a clear
+  line from the player; otherwise at the feet). It arms in 1.2 s (slow blink), then waits with a slow blink.
+- When a walking enemy comes within 1.7 m (and 1.2 m of height) it blinks fast, beeps and explodes a quarter of a second later:
+  520 damage at the centre down to 110 at 4.5 m with a clear line, bodies fly away (`Enemy.NoteBlast`), nearby holy-oil barrels
+  chain. Players never trigger it and are never hurt by it. Flying eyes do not trigger it.
+- One at the start, one more every four waves, at most two in the pocket and three placed (placing a fourth sets off the oldest).
+  Mines are children of the floor, so they disappear when you go down. In co-op everyone has their own and the damage goes
+  through the usual hits (hit claims on guests), as for the flasks.
+- The count is `[NonSerialized]` on `Equipment`: adding a serialized field to a MonoBehaviour changes its data layout and
+  forces a full player build instead of the scripts-only one.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -minetest [-mineshots] -seed 1000 -floor 1`
+(`Scripts/MineTest.cs`, 12 checks: one at the start, placed one metre ahead on the floor, the count goes down and an empty pocket
+places nothing, not armed at 0.3 s and armed after 1.2 s, a monk at 4 m does not trigger it, one at 1 m does within 0.8 s and
+dies, the player next to it is unharmed). Photos in `unity_logs/mine`.
+

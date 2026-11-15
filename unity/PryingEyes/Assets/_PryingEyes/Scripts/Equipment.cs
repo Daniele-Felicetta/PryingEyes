@@ -10,14 +10,17 @@ namespace PryingEyes
     ///    ondata, al massimo quattro;
     ///  - carillon (4): scatoletta di legno che, appena si posa, suona la sua ninna nanna per 7 s: i nemici entro 35 m (non il capo, non
     ///    la statua) lasciano chi stavano cacciando e vanno da lui, poi esplode (650 al centro). Uno all'inizio, uno ogni tre ondate,
-    ///    al massimo due.
+    ///    al massimo due;
+    ///  - mina del reliquiario (5, Mine.cs): si posa un metro davanti, si arma e scoppia quando un nemico le arriva vicino. Una
+    ///    all'inizio, una ogni quattro ondate, al massimo due.
     /// In cooperativa ognuno ha i suoi; il danno passa dai colpi (sugli ospitati diventa HitClaim verso l'ospite) e il carillon di un
     /// ospitato lo annuncia all'ospite (NoiseKind.Lure), che ha i nemici da attirare.</summary>
     public sealed class Equipment : MonoBehaviour
     {
         public static Equipment I;
         public int grenades = 2, lures = 1;
-        public const int MaxGrenades = 4, MaxLures = 2;
+        [System.NonSerialized] public int mines = 1;      // fuori dalla serializzazione: la build solo-script resta possibile
+        public const int MaxGrenades = 4, MaxLures = 2, MaxMines = 2;
         float throwCd;
         int seenRound = -1;
         PlayerController player;
@@ -32,7 +35,7 @@ namespace PryingEyes
             return e;
         }
 
-        void Start() => GameManager.I?.hud?.SetEquipment(grenades, lures);
+        void Start() => GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
 
         void Update()
         {
@@ -48,13 +51,28 @@ namespace PryingEyes
                 {
                     grenades = Mathf.Min(MaxGrenades, grenades + 2);
                     if (r % 3 == 0) lures = Mathf.Min(MaxLures, lures + 1);
+                    if (r % 4 == 0) mines = Mathf.Min(MaxMines, mines + 1);
                 }
                 seenRound = round;
-                GameManager.I?.hud?.SetEquipment(grenades, lures);
+                GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
             }
             if (GameMenu.Blocked || player == null || player.hp <= 0f || throwCd > 0f) return;
             if (Input.GetKeyDown(KeyCode.Z) && grenades > 0) Throw(0);
             else if (Input.GetKeyDown(KeyCode.Alpha4) && lures > 0) Throw(1);
+            else if (Input.GetKeyDown(KeyCode.Alpha5) && mines > 0) PlaceMine();
+        }
+
+        /// <summary>Posa una mina del reliquiario un metro davanti (Mine.cs); null se non ne restano. Pubblico per le prove.</summary>
+        public Mine PlaceMine()
+        {
+            if (player == null) player = GetComponent<PlayerController>();
+            if (mines <= 0 || player == null) return null;
+            throwCd = 0.6f;
+            mines--;
+            var m = Mine.Place(Mine.Spot(player), player.yaw);
+            player.GetComponent<Weapon>()?.ThrowDip();
+            GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
+            return m;
         }
 
         /// <summary>Lancio dalla mano destra, un po' sotto e a destra della visuale, a 13 m/s piu' una spinta verso l'alto e la velocita'
@@ -71,7 +89,7 @@ namespace PryingEyes
             if (kind == 0) grenades--; else lures--;
             player.GetComponent<Weapon>()?.ThrowDip();
             Sfx.At(SoundBank.KnifeSwish, origin, 0.7f, kind == 0 ? 0.85f : 0.7f, 1.5f, 12f);
-            GameManager.I?.hud?.SetEquipment(grenades, lures);
+            GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
         }
     }
 
