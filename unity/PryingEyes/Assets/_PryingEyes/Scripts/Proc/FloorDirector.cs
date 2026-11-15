@@ -185,6 +185,7 @@ namespace PryingEyes.Proc
             }
             PlaceWallBuys(plan);
             StartCoroutine(Gramophone(plan));
+            StartCoroutine(RoomProbes.Bake(cur));             // riflessi per stanza: una sonda per stanza, fotografata una volta (RoomProbes.cs)
             floorTime = 0f; trickleT = 40f; hudT = 0f;
 
             // giocatore nella cabina di arrivo

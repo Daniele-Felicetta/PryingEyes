@@ -26,6 +26,9 @@ namespace PryingEyes.Proc
         /// <summary>Scala di tutte le luci del piano create dopo (le ricette di arredo la leggono in RoomKits.AddLight): piu' si scende, piu' buio.
         /// Con 1 i piani restano come nelle foto in editor.</summary>
         public static float Dim = 1f;
+        /// <summary>Se impostato, il pool tiene accese le luci attorno a questo punto invece che attorno alla camera (RoomProbes mentre
+        /// fotografa le stanze).</summary>
+        public static Vector3? HoldPoint;
 
         public static PoolLight Register(Light l, bool canShadow, bool wanted = true)
         {
@@ -77,7 +80,7 @@ namespace PryingEyes.Proc
             t -= Time.unscaledDeltaTime;
             if (t > 0f) return;
             t = 0.2f;
-            Tick(true);
+            if (HoldPoint.HasValue) Tick(false, HoldPoint.Value); else Tick(true);
         }
 
         /// <summary>Aggiorna subito. Senza giocatore (foto in editor) si passa un punto.</summary>

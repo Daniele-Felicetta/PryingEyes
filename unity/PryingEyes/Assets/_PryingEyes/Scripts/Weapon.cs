@@ -120,9 +120,16 @@ namespace PryingEyes
         bool knifeOut;
         float knifeBlend;
         float throwT;                       // lancio dell'equipaggiamento: l'arma si abbassa e torna (Equipment)
+        float inspectT;                     // ispezione (I): l'arma si gira a mostrare il fianco e torna
+        const float InspectTime = 2.6f;
+        /// <summary>Ispezione in corso (per le prove).</summary>
+        public bool Inspecting => inspectT > 0f;
 
         /// <summary>L'arma si abbassa mezzo secondo mentre la mano lancia acquasanta o carillon.</summary>
-        public void ThrowDip() { throwT = 0.5f; }
+        public void ThrowDip() { throwT = 0.5f; inspectT = 0f; }
+
+        /// <summary>Ispezione dell'arma (I): pubblico per le prove.</summary>
+        public void Inspect() { inspectT = InspectTime; Synth.Mech("draw", 0.35f, 0.9f); }
         public bool KnifeBusy => knifeOut;
         public bool CanKnife => swapT <= 0f;
 
@@ -702,6 +709,9 @@ namespace PryingEyes
                 if (Mathf.Abs(wheel) > 0.01f) SwitchSlot(1 - cur);
             }
             d = Def; // il cambio può essersi concluso in questo stesso fotogramma
+            // ispezione dell'arma: I a riposo; sparare, mirare, ricaricare, cambiare o il coltello la interrompono
+            if (inputEnabled && Input.GetKeyDown(KeyCode.I) && inspectT <= 0f && !reloading && ads < 0.1f && swapT <= 0f && !knifeOut) Inspect();
+            if (inspectT > 0f && (triggerHeld || ads > 0.2f || reloading || swapT > 0f || knifeOut)) inspectT = 0f;
             if (inputEnabled && (Input.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
 
             // ----- mira
@@ -1125,6 +1135,16 @@ namespace PryingEyes
                 rot *= Quaternion.Euler(30f * kb, 0f, 10f * kb);
             }
 
+            if (inspectT > 0f)
+            {
+                // sale e ruota a mostrare il fianco sinistro, resta con un'oscillazione lenta, torna
+                float u = 1f - inspectT / InspectTime;
+                float ik = u < 0.22f ? Ease(u / 0.22f) : u > 0.78f ? Ease((1f - u) / 0.22f) : 1f;
+                float wob = Mathf.Sin(u * Mathf.PI * 3f) * 0.25f * ik;
+                pos += new Vector3(-0.10f, 0.07f, -0.07f) * ik;
+                rot *= Quaternion.Euler((-10f + wob * 8f) * ik, (52f + wob * 10f) * ik, (-34f + wob * 12f) * ik);
+                inspectT = Mathf.Max(0f, inspectT - dt);
+            }
             if (throwT > 0f)
             {
                 float tk = Mathf.Sin(Mathf.Clamp01(1f - throwT / 0.5f) * Mathf.PI);

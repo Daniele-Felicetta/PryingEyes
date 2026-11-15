@@ -154,6 +154,17 @@ namespace PryingEyes
 
         // ------------------------------------------------------------------ rinculo
         /// <summary>Scatto della visuale a ogni colpo (gradi: v verso l'alto, h verso destra) e velocita' con cui rientra.</summary>
+        /// <summary>Scossone della visuale per un'esplosione vicina: piu' forte da vicino, nullo oltre 'radius' metri.</summary>
+        public void Shake(Vector3 at, float strength = 1f, float radius = 12f)
+        {
+            if (cam == null || !alive) return;
+            float d = Vector3.Distance(cam.position, at);
+            if (d >= radius) return;
+            float k = (1f - d / radius); k *= k * strength * GameSettings.Motion;
+            Kick(2.4f * k, Random.Range(-1f, 1f) * 1.6f * k, 8f);
+            fovKick += 4f * k;
+        }
+
         public void Kick(float v, float h, float recover)
         {
             recTargetP += v;
@@ -488,6 +499,7 @@ namespace PryingEyes
             if (hp <= 0f)
             {
                 hp = 0f; alive = false; respawnT = 2.5f;
+                GameManager.deaths++;
                 // si perde meta' dei punti e l'ultimo perk comprato (FloorDirector.DeathPenalty): la morte pesa, ma non e' la fine
                 string pen = GameManager.proc ? Proc.FloorDirector.I?.DeathPenalty() : null;
                 hud?.Banner("Sei morto", string.IsNullOrEmpty(pen) ? "L'hotel ti riporta all'ingresso." : pen);

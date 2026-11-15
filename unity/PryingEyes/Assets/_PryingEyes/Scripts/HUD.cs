@@ -117,6 +117,7 @@ namespace PryingEyes
             BuildCoopUI();
             BuildBossUI();           // HUD.Boss.cs: nome e vita del Cardinale in alto al centro
             BuildEquipUI();          // HUD.Equip.cs: acquasanta e carillon sopra le armi, la Prova dell'ondata in basso al centro
+            BuildScoreUI();          // HUD.Score.cs: tabellone tenendo premuto Tab (sopra a tutto il resto)
 
             // Navigazione in alto; risorse di combattimento ai due angoli inferiori.
             waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(28, -26), new Vector2(100, 22), 13, TextAnchor.UpperLeft, "ONDATA", Dim, FontStyle.Bold);
@@ -430,6 +431,7 @@ namespace PryingEyes
             UpdatePerksUI(dt);
             UpdateCoopUI();
             UpdateBossUI(dt);
+            UpdateScoreUI(dt);
             if (bannerT > 0f)
             {
                 bannerT -= dt;

@@ -610,6 +610,7 @@ namespace PryingEyes
                 if (anim != null) anim.SetBool("Morto", true);
                 foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
                 if (BloodTint.a > 0f) Fx.BloodPool(transform.position, BloodTint, Archetype == EnemyType.Abate ? 1.35f : 1f);
+                CorpseSink.Begin(gameObject);                  // finita la caduta sprofonda, invece di sparire di colpo
                 if (IsVariant(type)) VariantDie(src, claimer);
                 Destroy(gameObject, 5f);
                 return;

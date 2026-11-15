@@ -194,6 +194,7 @@ namespace PryingEyes
             done = true;
             Vector3 p = transform.position + Vector3.up * 0.1f;
             Fx.HolyBurst(p, kind == 0 ? new Color(0.6f, 0.85f, 1f) : new Color(1f, 0.75f, 0.4f));
+            GameManager.I?.player?.Shake(p, kind == 0 ? 1f : 1.3f);
             Sfx.At(SoundBank.Blast, p, 1f, kind == 0 ? Random.Range(0.95f, 1.05f) : 0.85f, 4f, 60f);
             var list = new List<Enemy>(Enemy.All);
             foreach (var e in list)

@@ -34,6 +34,8 @@ namespace PryingEyes
         /// <summary>-nofire (o -stealthtest): il bot di prova non spara da solo; senza, ogni sparo sveglia tutto il piano.</summary>
         public static bool noFire = false;
         public static int shotsFired = 0, shotsHit = 0, damageTaken = 0;
+        /// <summary>Per il tabellone (HUD.Score.cs): uccisioni alla testa di questo giocatore e volte che e' morto.</summary>
+        public static int headshots = 0, deaths = 0;
         float autoT = 0f, reportT = 0f, walkerMaxY = 0f;
         // -botmezz: il bot gioca dal soppalco (y 4.2), dove i nemici colpivano attraverso il pavimento
         static readonly Vector3 MezzSpot = new Vector3(-20f, 4.3f, -17f);
@@ -201,7 +203,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam1.png"); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot("C:/Users/danie/Desktop/prying-eyes/hotel_build/auto_cam2.png"); }
                 bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-meleetest") ||
-                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || trailer;
+                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || trailer;
                 if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
                     System.IO.File.AppendAllText(REPORT, $"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
@@ -635,6 +637,7 @@ namespace PryingEyes
         {
             kills++;
             AddPoints(Punti.PerUccisione(src, headshot));
+            if (headshot) headshots++;
             Prove.OnKill(src, headshot);
             float heal = Perks.BloodHeal(src);
             if (heal > 0f && player != null && player.alive)

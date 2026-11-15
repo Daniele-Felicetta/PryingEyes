@@ -399,6 +399,7 @@ namespace PryingEyes
             bursted = true;
             Vector3 c = transform.position + Vector3.up * 1.0f;
             Fx.PlagueBurst(c);
+            GameManager.I?.player?.Shake(c, 0.8f, 10f);
             Sfx.At(SoundBank.Burst, c, 1f, Random.Range(0.92f, 1.06f), 3f, 40f);
             if (!puppet)
             {
@@ -459,6 +460,7 @@ namespace PryingEyes
                     if (ringFx != null) Destroy(ringFx);
                     if (glowMat != null) Shockwave.Spawn(gp, glowMat);
                     Fx.FireRing(gp, 7f);
+                    GameManager.I?.player?.Shake(gp, 0.9f, 14f);
                     Sfx.At(SoundBank.Ignite, gp + Vector3.up, 1f, 0.55f, 4f, 50f);
                     for (int i = 0, n = Targets.Count; i < n; i++)
                     {
