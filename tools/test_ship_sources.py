@@ -150,7 +150,10 @@ class ShipDeclaresWhatTheBuildContains(unittest.TestCase):
         cls.root = Path(tempfile.mkdtemp(prefix="ship-test-")).resolve()
         cls.addClassCleanup(shutil.rmtree, cls.root, onerror=force_remove)
         empty = write(cls.root, "empty.gitconfig", b"")
-        cls.env = {**os.environ, "GIT_CONFIG_GLOBAL": str(empty), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0"}
+        # No PSModulePath: when the tests are started from pwsh 7 (as on the runner) the child would inherit its module path and Windows
+        # PowerShell 5.1 loses Get-FileHash, which the exe step uses; without the variable it builds its own default.
+        inherited = {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
+        cls.env = {**inherited, "GIT_CONFIG_GLOBAL": str(empty), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0"}
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:      # four PowerShell starts in parallel: a few seconds in all
             cases = {"default": pool.submit(cls.dirty_run), "refused": pool.submit(cls.dirty_run, "-RequireClean"),
                      "clean": pool.submit(cls.clean_run), "dry": pool.submit(cls.dry_run)}
