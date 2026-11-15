@@ -212,6 +212,7 @@ namespace PryingEyes
                 float d = Vector3.Distance(body, p);
                 if (d < radius && HotelNav.ClearLine(p + Vector3.up * 0.2f, body)) me.Hurt(Mathf.Lerp(self, 4f, d / radius), p);
             }
+            Barrels.I?.ExplodeNear(p, radius);              // le botti d'olio vicine scoppiano a catena
             Lure.Stop(transform);
             Destroy(gameObject);
         }

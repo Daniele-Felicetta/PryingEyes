@@ -171,7 +171,7 @@ namespace PryingEyes.Proc
             if (Coop.Sim && !SurvivalMode.Enabled) PopulateFloor(plan);   // nel nuovo ciclo i nemici arrivano con le ondate.
             foreach (var c in cur.candles) c.onLit += OnCandle;
             RoundDirector.I?.Arm(cur, regions);
-            if (SurvivalMode.Enabled) { RoomAccessDoors.Build(cur); DoorTraps.Build(cur); }
+            if (SurvivalMode.Enabled) { RoomAccessDoors.Build(cur); DoorTraps.Build(cur); Barrels.Build(cur); }
             if (cur.exit != null)
             {
                 cur.exit.unlocked = false;

@@ -1002,7 +1002,9 @@ namespace PryingEyes
                 if (e == null)
                 {
                     end = h.point;
-                    Fx.Impact(h.point, h.normal, d.pellets > 1 ? 0.6f : 1f);
+                    var shootable = h.collider.GetComponentInParent<IShootable>();     // botti d'olio santo
+                    if (shootable != null) shootable.Shot(d.damage * dmgMul, h.point, dir);
+                    else Fx.Impact(h.point, h.normal, d.pellets > 1 ? 0.6f : 1f);
                     break;
                 }
                 if (!seen.Add(e)) continue;

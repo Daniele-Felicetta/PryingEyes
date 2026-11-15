@@ -400,6 +400,7 @@ namespace PryingEyes
             Vector3 c = transform.position + Vector3.up * 1.0f;
             Fx.PlagueBurst(c);
             GameManager.I?.player?.Shake(c, 0.8f, 10f);
+            Proc.Barrels.I?.ExplodeNear(c, BurstRadius);
             Sfx.At(SoundBank.Burst, c, 1f, Random.Range(0.92f, 1.06f), 3f, 40f);
             if (!puppet)
             {

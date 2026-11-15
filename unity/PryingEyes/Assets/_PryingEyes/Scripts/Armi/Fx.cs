@@ -472,7 +472,8 @@ namespace PryingEyes
             var go = new GameObject("LampoEsplosione");
             go.transform.position = p + Vector3.up * 0.4f;
             var l = go.AddComponent<Light>();
-            l.type = LightType.Point; l.color = Color.Lerp(tint, Color.white, 0.4f); l.intensity = 9f; l.range = 13f; l.shadows = LightShadows.None;
+            // con l'ombra: senza, il lampo passava i muri e accendeva la stanza accanto (dura un terzo di secondo, il costo e' breve)
+            l.type = LightType.Point; l.color = Color.Lerp(tint, Color.white, 0.4f); l.intensity = 9f; l.range = 10f; l.shadows = LightShadows.Hard;
             go.AddComponent<LightFade>().Begin(l, 0.35f);
         }
 

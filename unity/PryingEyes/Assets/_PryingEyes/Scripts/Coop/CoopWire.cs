@@ -21,6 +21,7 @@ namespace PryingEyes
         BuyRoom,
         PlayerEvent,          // morto / rinato
         UseTrap,              // voglio accendere la trappola (richiesta, indice; punti gia' riservati)
+        BarrelHit,            // ho colpito una botte d'olio santo (indice)
         // ---- ospite -> giocatore
         Welcome = 64,         // slot, seme, piano, epoca
         PlayerJoined,
@@ -47,6 +48,7 @@ namespace PryingEyes
         RoomReply,
         TrapsState,           // stato di tutte le trappole delle soglie (con epoca)
         TrapReply,            // risposta alla richiesta di una trappola
+        BarrelGone,           // una botte e' scoppiata (indice, senza effetti per chi entra tardi)
         // ---- in tutte e due le direzioni
         Test = 120,           // solo per la prova a due processi (CoopTest, con -cooptest): senza quel flag chi lo riceve lo butta
     }
@@ -54,7 +56,7 @@ namespace PryingEyes
     public static class CoopProtocol
     {
         /// <summary>Versione del protocollo + contenuto: da alzare a ogni cambio di formato dei messaggi o delle regole del piano.</summary>
-        public const string Revision = "pe-coop-21";       // 21: equipaggiamento da lancio (il carillon dell'ospitato arriva come NoiseKind.Lure)
+        public const string Revision = "pe-coop-22";       // 22: botti d'olio santo (BarrelHit, BarrelGone) e nemici che salgono dal pavimento
         public static string ContentRevision => Revision + "-" + WeaponDefs.ContentHash;
         public const ushort DefaultPort = 7807;
         public const int MaxPlayers = 4;

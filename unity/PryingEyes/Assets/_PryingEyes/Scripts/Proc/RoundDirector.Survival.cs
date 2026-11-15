@@ -121,6 +121,7 @@ namespace PryingEyes.Proc
                 if (Physics.CheckSphere(q + Vector3.up * 0.6f, 0.4f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) continue;
                 var e = Enemy.Spawn(type, q);
                 if (e == null) continue;
+                if (!Enemy.IsFlying(type)) e.RiseFromGround(Random.Range(1.0f, 1.35f));     // sale dal pavimento
                 Scale(e); e.MakeRelentless(); mine.Add(e); RoundFlare.At(q);
                 return true;
             }

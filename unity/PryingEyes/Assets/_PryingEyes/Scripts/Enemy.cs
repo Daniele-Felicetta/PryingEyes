@@ -218,6 +218,7 @@ namespace PryingEyes
             AdvanceHitFlash(dt);
             // cooperativa: chi non e' l'ospite non pensa, ripete quello che l'ospite gli racconta (Enemy.Net.cs)
             if (puppet) { UpdatePuppet(dt); if (IsVariant(type)) VariantPuppetTick(dt); return; }
+            if (riseT >= 0f) { RiseTick(dt); return; }      // sta salendo dal pavimento (Enemy.Rise.cs)
             atkCd -= dt;
             repathT -= dt;
             // la litania si calcola in un thread: il monaco nato prima che fosse pronta la attacca adesso
