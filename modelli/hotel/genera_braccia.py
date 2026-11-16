@@ -17,6 +17,8 @@ Uso (Blender 4.5 headless, dalla cartella del file):
   blender -b -P genera_braccia.py -- build [id ...]                                       braccia/<id>.fbx (tutte se non indicate)
   blender -b -P genera_braccia.py -- libera                 braccia/mano_libera.fbx (la mano articolata: Unity la usa per tutte e due)
   blender -b -P genera_braccia.py -- manica                 braccia/manica_libera.fbx (la manica in posa neutra con le proporzioni vere)
+    (mano libera e manica neutra hanno le UV di un atlante e scrivono anche braccia/<nome>_uv.npz: le superfici per le texture uniche
+    di genera_texture_braccia.py)
   blender -b -P genera_braccia.py -- pose [id ...]          braccia/presa_sinistra.json e presa_destra.json (dove stanno le dita)
   blender -b -P genera_braccia.py -- vedi                   anteprime di mano e manica in braccia/render/ (Cycles su CPU)
 """
@@ -110,6 +112,8 @@ def pose_key(wid, cls):
 LAST_INDEX = {}
 CURRENT_WID = ''
 LAST_INFO = {}
+LAST_SLEEVE = {}          # sleeve_bm (v2): angoli e lunghezze della manica neutra, per le texture
+SLEEVE_CIRC = 2 * pi * 0.05
 # le articolazioni dell'ultima mano costruita (coordinate canoniche): in hands_for la sinistra si costruisce per ultima, quindi dopo
 # hands_for qui ci sono le dita della sinistra avvolte all'astina (stage_pose le scrive per la mano libera di Unity)
 LAST_HAND = {}
@@ -406,6 +410,11 @@ def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False, v2=False):
     fE = min(frames, key=lambda f: abs(f[0] - sE))
     th_in = atan2(vin.dot(fE[4]), vin.dot(fE[3]))
     th_seam = th_in + 0.35
+    # la manica neutra comincia gli anelli sulla cucitura interna: il taglio delle UV (u = 0 e u = 1) cade sotto la cucitura vera
+    th0 = th_seam if v2 else 0.0
+    if v2:
+        LAST_SLEEVE.clear()
+        LAST_SLEEVE.update(th_in=th_in, th_seam=th_seam, th0=th0, sE=sE, total=total)
 
     def radii(s):
         if v2:
@@ -480,7 +489,7 @@ def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False, v2=False):
         dth = down_angle(T, N_, B_)
         ring = []
         for i in range(M_ + 1):
-            th = 2 * pi * i / M_
+            th = th0 + 2 * pi * i / M_
             f = folds(s, th, dth)
             ring.append(p + N_ * (a * f * cos(th)) + B_ * (b * f * sin(th)))
         grid.append(ring)
@@ -493,13 +502,13 @@ def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False, v2=False):
     for (ds, dr) in ((0.016, -0.0055), (0.0025, -0.0050), (-0.0012, -0.0022)):
         ring = []
         for i in range(M_ + 1):
-            th = 2 * pi * i / M_
+            th = th0 + 2 * pi * i / M_
             f = folds(0.0, th, d0)
             ring.append(p0 + T0_ * ds + N0 * ((a0 * f + dr) * cos(th)) + B0 * ((b0 * f + dr) * sin(th)))
         lip.append(ring)
     allrings = lip + grid
     allv = [-0.016, -0.0025, 0.0012] + vcoord
-    circ = 2 * pi * 0.05
+    circ = SLEEVE_CIRC
     vs = [[bm.verts.new(q) for q in ring] for ring in allrings]
     for k in range(len(allrings) - 1):
         for i in range(M_):
@@ -523,6 +532,80 @@ def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False, v2=False):
     if fmid is not None and fmid.normal.dot(fmid.calc_center_median() - cmid) < 0:
         bmesh.ops.reverse_faces(bm, faces=bm.faces)
     return bm, sE, total
+
+
+def atlas_uv(objs, margin=0.004, angle=62.0):
+    """Le UV di un atlante per texture uniche: proiezione 'smart' di tutti gli oggetti insieme (isole spezzate dove la superficie gira
+    di piu' di 'angle' gradi) e impacchettamento con la stessa scala per tutte le isole: densita' di texel uniforme."""
+    vl = bpy.context.view_layer
+    if vl.objects.active is not None and vl.objects.active.mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+    for o in vl.objects:
+        o.select_set(False)
+    for o in objs:
+        while len(o.data.uv_layers):
+            o.data.uv_layers.remove(o.data.uv_layers[0])
+        o.data.uv_layers.new(name='UVMap')
+        o.select_set(True)
+    vl.objects.active = objs[0]
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=radians(angle), island_margin=margin, area_weight=0.0, correct_aspect=True,
+                             scale_to_bounds=False)
+    bpy.ops.uv.select_all(action='SELECT')
+    bpy.ops.uv.pack_islands(rotate=True, margin=margin)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    for o in objs:
+        o.select_set(False)
+
+
+def dump_surface(path, parts, to_canon, meta=None):
+    """Le superfici per genera_texture_braccia.py (braccia/<nome>_uv.npz): per ogni triangolo i tre angoli con punto e normale
+    (riferimento 'to_canon'), coordinate UV dell'atlante, la parte (l'indice in 'parts'), la cavita' (curvatura media per vertice,
+    positiva nei solchi, smussata due volte) e gli attributi per angolo di ogni parte (parts: (oggetto, {nome: valori per angolo})).
+    meta: valori in piu' (le articolazioni, gli angoli della manica)."""
+    import numpy as np
+    R = np.array(to_canon.to_3x3())
+    out = {'P': [], 'N': [], 'UV': [], 'part': [], 'cav': []}
+    per_part = []
+    for pid, (ob, attrs) in enumerate(parts):
+        me = ob.data
+        me.calc_loop_triangles()
+        nv, nl, ne, nt = len(me.vertices), len(me.loops), len(me.edges), len(me.loop_triangles)
+        co = np.empty(nv * 3); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+        vn = np.empty(nv * 3); me.vertices.foreach_get('normal', vn); vn = vn.reshape(-1, 3)
+        ed = np.empty(ne * 2, dtype=np.int64); me.edges.foreach_get('vertices', ed); ed = ed.reshape(-1, 2)
+        acc = np.zeros((nv, 3)); cnt = np.zeros(nv)
+        np.add.at(acc, ed[:, 0], co[ed[:, 1]]); np.add.at(acc, ed[:, 1], co[ed[:, 0]])
+        np.add.at(cnt, ed[:, 0], 1.0); np.add.at(cnt, ed[:, 1], 1.0)
+        cnt = np.maximum(cnt, 1.0)
+        elen = float(np.linalg.norm(co[ed[:, 0]] - co[ed[:, 1]], axis=1).mean())
+        cav = ((acc / cnt[:, None] - co) * vn).sum(1) / max(1e-9, elen)
+        for _ in range(2):
+            a2 = np.zeros(nv); np.add.at(a2, ed[:, 0], cav[ed[:, 1]]); np.add.at(a2, ed[:, 1], cav[ed[:, 0]])
+            cav = 0.5 * cav + 0.5 * a2 / cnt
+        lv = np.empty(nl, dtype=np.int64); me.loops.foreach_get('vertex_index', lv)
+        tl = np.empty(nt * 3, dtype=np.int64); me.loop_triangles.foreach_get('loops', tl); tl = tl.reshape(-1, 3)
+        uv = np.empty(nl * 2); me.uv_layers.active.data.foreach_get('uv', uv); uv = uv.reshape(-1, 2)
+        cn = np.empty(nl * 3); me.corner_normals.foreach_get('vector', cn); cn = cn.reshape(-1, 3)
+        Mw = np.array(ob.matrix_world)
+        A = R @ Mw[:3, :3]
+        pw = (co @ A.T) + R @ Mw[:3, 3]
+        nw = cn @ A.T
+        nw /= np.maximum(1e-12, np.linalg.norm(nw, axis=1))[:, None]
+        out['P'].append(pw[lv[tl]])
+        out['N'].append(nw[tl])
+        out['UV'].append(uv[tl])
+        out['part'].append(np.full(nt, pid, dtype=np.int8))
+        out['cav'].append(cav[lv[tl]])
+        per_part.append((nt, {k: np.asarray(v, dtype=np.float64)[tl] for k, v in (attrs or {}).items()}))
+    arrays = {k: np.concatenate(v) for k, v in out.items()}
+    for k in sorted({k for _, d in per_part for k in d}):
+        arrays[k] = np.concatenate([d.get(k, np.zeros((nt, 3))) for nt, d in per_part])
+    for k, v in (meta or {}).items():
+        arrays['meta_' + k] = np.asarray(v, dtype=np.float64)
+    np.savez_compressed(path, **arrays)
+    print(f'[uv] {os.path.basename(path)}: {len(arrays["P"])} triangoli')
 
 
 def mesh_obj(name, bm, mat, smooth=True):
@@ -985,13 +1068,19 @@ def stage_libera():
     for o, mt in ((glove, mats['guanto']), (guard, mats['rinforzo'])):
         o.data.materials.clear()
         o.data.materials.append(mt)
-        H.box_uv(o)
+    # texture uniche (genera_texture_braccia.py): guanto e cinturino nello stesso atlante
+    atlas_uv([glove, guard])
     joints = {'L_polso': W, 'L_palmo': V(0.003, 0.046, -0.002), 'L_dorso': V(0.003, 0.046, 0.030), 'L_manichetta': W + G * 0.070}
     for fi, nm in enumerate(FINGER_NAMES):
         for i in range(4):
             joints[f'L_{nm}_{i + 1}'] = fingers[fi][i]
     for i in range(4):
         joints[f'L_pollice_{i}'] = tj[i]
+    # le superfici nel riferimento canonico della mano (dita +y, dorso +z, pollice -x) con le articolazioni
+    meta = {'fingers': [[tuple(p) for p in f] for f in fingers], 'thumb': [tuple(p) for p in tj], 'wrist': tuple(W),
+            'cuff': tuple(W + G * 0.070), 'radii': [list(M.FINGERS[fi][4]) for fi in range(4)], 'gs': H.GS,
+            'thumb_r': list(H.THUMB_R)}
+    dump_surface(os.path.join(OUT, 'mano_libera_uv.npz'), [(glove, None), (guard, None)], Mf.inverted(), meta)
     sc = bpy.context.scene
     top = bpy.data.objects.new('mano_libera', None)
     sc.collection.objects.link(top)
@@ -1124,6 +1213,21 @@ def stage_manica():
     X = V(1, 0, 0)
     slb, sE, total = sleeve_bm(W, G, D, E, S, X, seed=9.0, v2=True)
     sleeve = mesh_obj('manica_libera_manica', slb, mats['manica'])
+    # le UV 'tessuto' sono in metri (giro, lunghezza): diventano l'atlante 0..1 delle texture uniche; giro e lunghezza vanno alle
+    # texture come attributi (phi = frazione del giro dalla cucitura interna, s = metri dall'orlo)
+    import numpy as np
+    me = sleeve.data
+    uvd = me.uv_layers['tessuto']
+    raw = np.empty(len(me.loops) * 2)
+    uvd.data.foreach_get('uv', raw)
+    raw = raw.reshape(-1, 2)
+    phi, sl = raw[:, 0] / SLEEVE_CIRC, raw[:, 1]
+    s0, s1 = float(sl.min()), float(sl.max())
+    uvd.data.foreach_set('uv', np.stack([phi, (sl - s0) / (s1 - s0)], 1).ravel())
+    uvd.name = 'UVMap'
+    meta = dict(LAST_SLEEVE)
+    meta.update(s0=s0, s1=s1, wrist=tuple(W), elbow=tuple(E), shoulder=tuple(S))
+    dump_surface(os.path.join(OUT, 'manica_libera_uv.npz'), [(sleeve, {'s': sl, 'phi': phi})], Matrix.Identity(4), meta)
     sc = bpy.context.scene
     top = bpy.data.objects.new('manica_libera', None)
     sc.collection.objects.link(top)
@@ -1149,6 +1253,46 @@ def stage_manica():
           f'lunga {total:.2f} m, {time.time() - t0:.1f} s')
 
 
+TEX_DIR = os.path.normpath(os.path.join(DIR, '..', '..', 'unity', 'PryingEyes', 'Assets', '_PryingEyes', 'Textures', 'Braccia'))
+TEX_SET = {'mano_libera': 'guanto_libero', 'manica_libera': 'manica_libera'}
+
+
+def textured_preview(o, tex):
+    """Materiale d'anteprima con le texture uniche: colore, normal map, lucidita' (alfa della maschera) e occlusione (verde)."""
+    mt = bpy.data.materials.new('vedi_' + o.name)
+    mt.use_nodes = True
+    nt = mt.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+
+    def img(kind, colorspace):
+        n = nt.nodes.new('ShaderNodeTexImage')
+        n.image = bpy.data.images.load(os.path.join(TEX_DIR, f'{tex}_{kind}.png'))
+        n.image.colorspace_settings.name = colorspace
+        return n
+    base, nrm, mask = img('base', 'sRGB'), img('normal', 'Non-Color'), img('mask', 'Non-Color')
+    mask.image.alpha_mode = 'CHANNEL_PACKED'
+    mix = nt.nodes.new('ShaderNodeMix')
+    mix.data_type = 'RGBA'
+    mix.blend_type = 'MULTIPLY'
+    mix.inputs['Factor'].default_value = 1.0
+    sep = nt.nodes.new('ShaderNodeSeparateColor')
+    nt.links.new(mask.outputs['Color'], sep.inputs['Color'])
+    nt.links.new(base.outputs['Color'], mix.inputs[6])
+    nt.links.new(sep.outputs['Green'], mix.inputs[7])
+    nt.links.new(mix.outputs[2], bsdf.inputs['Base Color'])
+    inv = nt.nodes.new('ShaderNodeMath')
+    inv.operation = 'SUBTRACT'
+    inv.inputs[0].default_value = 1.0
+    nt.links.new(mask.outputs['Alpha'], inv.inputs[1])
+    nt.links.new(inv.outputs[0], bsdf.inputs['Roughness'])
+    nm = nt.nodes.new('ShaderNodeNormalMap')
+    nm.uv_map = o.data.uv_layers.active.name if o.data.uv_layers.active else 'UVMap'
+    nt.links.new(nrm.outputs['Color'], nm.inputs['Color'])
+    nt.links.new(nm.outputs['Normal'], bsdf.inputs['Normal'])
+    o.data.materials.clear()
+    o.data.materials.append(mt)
+
+
 def stage_vedi():
     """Anteprime (Cycles su CPU) di mano libera e manica neutra, da tre lati, con una luce morbida: braccia/render/vedi_*.png."""
     for nm in ('mano_libera', 'manica_libera'):
@@ -1170,7 +1314,12 @@ def stage_vedi():
         w.use_nodes = True
         w.node_tree.nodes['Background'].inputs[0].default_value = (0.18, 0.18, 0.2, 1)
         sc.world = w
+        tex = TEX_SET.get(nm)
+        tex_ok = tex is not None and os.path.exists(os.path.join(TEX_DIR, tex + '_base.png'))
         for o in obs:
+            if tex_ok:
+                textured_preview(o, tex)
+                continue
             # materiali d'anteprima: cuoio scuro lucido per il guanto, tela chiara opaca per la manica, gomma per il cinturino
             nm_o = o.name.lower()
             col, rough = ((0.20, 0.17, 0.15, 1), 0.38) if 'guanto' in nm_o else ((0.10, 0.10, 0.11, 1), 0.6) if 'rinforzo' in nm_o else ((0.42, 0.36, 0.28, 1), 0.85)

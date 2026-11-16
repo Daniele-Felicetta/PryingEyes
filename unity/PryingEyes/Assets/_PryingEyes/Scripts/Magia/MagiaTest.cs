@@ -58,6 +58,7 @@ namespace PryingEyes
             side = HasArg("-magiaside") || armView;
             zoom = HasArg("-magiazoom");
             if (armView || zoom) shots = true;
+            if (HasArg("-reloadview")) shots = side = true;
             outDir = TestPaths.Out("magia");
             System.IO.Directory.CreateDirectory(outDir);
             if (HasArg("-vfxdump") && MagicVfx.On)
@@ -194,6 +195,20 @@ namespace PryingEyes
             RenderLike(main, name + "_tre4", from, Quaternion.LookRotation(palm - from, eye.up), 50f);
         }
 
+        /// <summary>Primi piani delle due mani dall'occhio (teleobiettivo): il cuoio, le cuciture e le maniche da vicino.</summary>
+        void HandCloseUps(string name, Weapon w)
+        {
+            var main = Camera.main;
+            if (main == null || w == null) return;
+            Transform eye = main.transform;
+            foreach (var (tag, arm) in new[] { ("mano_s", ArmOf(w, "armL")), ("mano_d", ArmOf(w, "armR")) })
+            {
+                if (arm == null) continue;
+                Vector3 at = arm.LastWristW + (arm.LastWristW - arm.LastElbowW).normalized * 0.05f;
+                RenderLike(main, $"{name}_{tag}", eye.position, Quaternion.LookRotation(at - eye.position, eye.up), 18f);
+            }
+        }
+
         /// <summary>Una foto con una camera come quella del gioco (strati, post-produzione) messa altrove.</summary>
         void RenderLike(Camera main, string name, Vector3 pos, Quaternion rot, float fov)
         {
@@ -320,6 +335,77 @@ namespace PryingEyes
             player.invulnerable = true; PlayerController.holdLook = true;
             yield return new WaitForSeconds(0.5f);
 
+            if (HasArg("-reloadview"))
+            {
+                // le ricariche fatte dalla mano sinistra: foto a punti fissi della ricarica (a vuoto con le viste di lato, poi tattica),
+                // le misure delle braccia a ogni foto. -armids a,b: solo quelle armi
+                Vector3 o = OpenSpot(fi, out float oy);
+                var args = Environment.GetCommandLineArgs();
+                int ai = Array.IndexOf(args, "-armids");
+                string only = ai >= 0 && ai + 1 < args.Length ? "," + args[ai + 1] + "," : null;
+                float[] marks = { 0.05f, 0.13f, 0.18f, 0.24f, 0.30f, 0.40f, 0.46f, 0.50f, 0.56f, 0.66f, 0.72f, 0.80f, 0.92f };
+                for (int i = 0; i < WeaponDefs.All.Length; i++)
+                {
+                    string id = WeaponDefs.All[i].id;
+                    if (id.StartsWith("kn_")) continue;
+                    if (only != null && only.IndexOf("," + id + ",", StringComparison.Ordinal) < 0) continue;
+                    var w = player.weapon;
+                    w.Equip(i);
+                    player.Teleport(o); player.yaw = oy; player.pitch = 0f;
+                    yield return new WaitForSeconds(1.0f);
+                    for (int pass = 0; pass < 2; pass++)
+                    {
+                        bool empty = pass == 0;
+                        w.mag = empty ? 0 : Mathf.Max(1, w.magSize / 3);
+                        w.reserve = 200;
+                        w.Reload();
+                        Check($"{id} ricarica {(empty ? "a vuoto" : "tattica")} fatta dalla mano", w.ReloadByHand);
+                        int m = 0;
+                        float t0 = Time.realtimeSinceStartup;
+                        while (w.reloading && Time.realtimeSinceStartup - t0 < 20f)
+                        {
+                            float rp = w.ReloadProgress;
+                            if (m < marks.Length && rp >= marks[m])
+                            {
+                                yield return new WaitForEndOfFrame();
+                                string nm = $"ric_{id}_{(empty ? "v" : "t")}{m:00}";
+                                Shot(nm);
+                                if (empty) SideShot(nm, w);
+                                DumpArms(id, w, $"ricarica {(empty ? "a vuoto" : "tattica")} {rp:F2}");
+                                if (w.OffHand != null) report.AppendLine($"   {id} {rp:F2} mano: {w.OffHand.DebugKey()}");
+                                m++;
+                                continue;
+                            }
+                            yield return null;
+                        }
+                        Check($"{id} ricarica {(empty ? "a vuoto" : "tattica")} finita (caricatore {w.mag})", !w.reloading && w.mag > 0);
+                        // il ciclo manuale dopo la ricarica a vuoto (otturatore, pompa): le sue foto
+                        if (empty)
+                        {
+                            float[] cyc = { 0.08f, 0.18f, 0.30f, 0.42f, 0.60f, 0.78f, 0.92f };
+                            int ci = 0;
+                            float t1 = Time.realtimeSinceStartup;
+                            while (w.CycleProgress >= 0f && ci < cyc.Length && Time.realtimeSinceStartup - t1 < 5f)
+                            {
+                                if (w.CycleProgress >= cyc[ci])
+                                {
+                                    yield return new WaitForEndOfFrame();
+                                    string nm = $"ric_{id}_c{ci:00}";
+                                    Shot(nm);
+                                    SideShot(nm, w);
+                                    DumpArms(id, w, $"ciclo {w.CycleProgress:F2}");
+                                    ci++;
+                                    continue;
+                                }
+                                yield return null;
+                            }
+                        }
+                        yield return new WaitForSeconds(0.8f);
+                    }
+                }
+                yield break;
+            }
+
             if (armView)
             {
                 // solo la posa di riposo di ogni arma: foto, viste di lato e dall'alto, misure
@@ -340,6 +426,7 @@ namespace PryingEyes
                     ArmChecks(id, player.weapon, "riposo", WeaponDefs.All[i].hand > 0.5f);
                     Shot($"{tagv}_{id}");
                     SideShot($"{tagv}_{id}", player.weapon);
+                    if (zoom) HandCloseUps($"{tagv}_{id}", player.weapon);
                     // in mira: com'e' il braccio quando l'arma sale all'occhio
                     Weapon.debugAds = true;
                     yield return new WaitForSeconds(0.8f);

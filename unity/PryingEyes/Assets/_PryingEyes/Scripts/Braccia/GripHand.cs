@@ -58,16 +58,8 @@ namespace PryingEyes
             Quaternion qR = wrapRot * Quaternion.Inverse(qPR);
             inst.transform.localRotation = qR;
             inst.transform.localPosition = g.wrist - qR * pPR;
-            // i materiali del guanto modellato: la stessa mano
-            Material glove = null, guard = null;
-            if (modelled != null)
-                foreach (var r in modelled)
-                {
-                    if (r == null || r.transform.IsChildOf(inst.transform)) continue;
-                    if (glove == null && r.name.Contains("_guanto")) glove = r.sharedMaterial;
-                    if (guard == null && r.name.Contains("_rinforzo")) guard = r.sharedMaterial;
-                }
-            var hand = HandRig.Build(inst.transform, glove, guard);
+            // la mano articolata tiene il suo materiale (Mani_GuantoLibero: texture uniche dipinte sulla sua superficie)
+            var hand = HandRig.Build(inst.transform, null, null);
             if (hand == null) { Object.Destroy(inst); return null; }
             foreach (var r in hand.Renderers) { r.renderingLayerMask = Weapon.ViewLayer; r.shadowCastingMode = ShadowCastingMode.Off; }
             // la presa e la posa sul grilletto nel riferimento del palmo

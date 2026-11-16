@@ -126,6 +126,22 @@ runes run from the hand outwards) and emits its particles.
   the hand: the bend happened 6 cm back inside the sleeve and the hand looked like it had a long neck. Poses are anatomical angles (`HandPose`: spread, MCP, PIP, DIP; thumb abduction, opposition, MCP, IP) limited to human
   ranges (MCP -30..92, PIP 0..110, DIP never more than PIP + 12, no fanning with a closed fist). Fifteen named poses: relaxed, open,
   flat, fist, claw, cup, point, horns, snap-ready, snapped, pinch, grip, blessing, thrust.
+- **Textures painted on the surface** (`modelli/hotel/genera_texture_braccia.py`): the articulated glove (with its strap) and the
+  neutral sleeve have their own UV atlas (`genera_braccia.py -- libera / -- manica`: smart projection of the glove and strap together
+  with one texel density; the sleeve unrolled from its inner seam) and the stages also write `braccia/<name>_uv.npz`, the surface
+  triangle by triangle with points, normals, atlas coordinates, a cavity value per vertex and, for the sleeve, the length from the hem
+  and the turn from the inner seam. The texture script rasterises the atlas, knows for every texel where it lies on the hand, and
+  computes colour, height and smoothness there: dark brown pebbled leather on the back, suede on the palm and the palm side of the
+  fingers, the seam between them along the sides of every finger and around the fingertips with a row of stitches, the three
+  stitched points on the back, the stitched outline of the knuckle pads, soft wrinkles over and under the joints and the palm creases,
+  wear on knuckles, fingertips and the side of the index, scratches, grime in the creases, a little dried blood, the cuff's hem and
+  wrist seam with their stitches, the gathered elastic under the wrist and the nylon strap with stitched edges; on the sleeve faded
+  canvas on the outer side, the topstitched cuff band, the felled inner seam, an elbow patch, ridges worn and folds darker, grime and
+  mud towards the wrist. The normal map comes from the height with finite differences in texel space and each triangle's u and v
+  directions; islands are grown by 16 texels for the mipmaps. Unity materials `Mani_GuantoLibero` and `Mani_ManicaLibera`
+  (`ManiImport.Atlas`: base, normal, mask with metal, occlusion and smoothness; the sleeve keeps the jacket's twill as a tiled detail
+  map, `tela_dettaglio_base.png` and `Hotel/giacca_normal.png`). The per-weapon gloves that remain (the knife, `-presavecchia`) are tinted
+  to the same average colour.
 - **Invisible swap**: `genera_braccia.py -- pose` writes, weapon by weapon, where the joints of the left hand wrapped on the handguard
   are (`Resources/ManiArmi/presa_sinistra.json`); Unity finds the author-to-Unity axes by itself from the wrist, elbow and shoulder
   empties and puts the free hand exactly on the wrapped glove, with the same finger angles, before switching.
@@ -170,6 +186,29 @@ runes run from the hand outwards) and emits its particles.
   camera space, weapon space with its parts (muzzle, magazine and its base, ejection port, sight, handguard, receiver, a point along the
   barrel or on the left side, measured from the parts' bounds by `WeaponSurface`), the rest grip, or below the frame; the wrist follows
   a Catmull-Rom curve, rotations and poses blend with each key's easing; weapon keys and timed events.
+- **Reloads done by the left hand** (`ReloadAnims`, `Weapon.ReloadHands.cs`; with the realistic hold, `-ricaricavecchia` brings back the
+  old one): every reload style has its choreography, written with the same keys but tied to the reload clock of `WeaponState`
+  (`OffHand.PlayExternal` and `Seek`), so perks that shorten a reload shorten the gesture and the state's sounds fall on it. The weapon is
+  brought to the chest and canted (`OffHand.OffsetToBring` moves the point the hand works on to a fixed place in front of the chest,
+  where the left shoulder reaches and the screen shows it). Magazine: the hand leaves the handguard, takes the magazine from the front
+  (palm on its front, fingers round the side), strips it along its axis, drops it when empty or takes it to the belt, comes back with
+  the new one, aligns it under the well, inserts it, slaps the base with the palm and, when empty, pulls a charging handle that is in
+  reach (in front or on the side) or slaps the bolt catch above the well. The magazine travels in the hand: it is attached to the palm
+  in the frame of the insert pose, so it lands exactly in its seat, and inside the well it slides along its axis; when empty a physical
+  copy falls (`DropMag`) and the real one reappears in the hand when it comes back from the belt. Pistol: the empty magazine drops
+  by itself, a tactical one is caught; the new one goes in from below with a palm slap and the left thumb presses the slide stop.
+  Tube (pump, lever): one shell at a time from the belt, held between thumb and fingers (`AttachProp`), pushed into the port.
+  Double barrel: the barrels open around the hinge (`Weapon.breakHinge`), the extractor throws the empty shells, two new shells go in
+  from above under the palm, the hand closes the barrels from the forend. Revolver: the fingers push the cylinder out, muzzle up and
+  the thumb on the ejector rod, a speedloader from below, the fingers close the cylinder. Belt: the hand lifts the cover, changes the
+  box like a magazine, lays the belt and closes the cover with a slap. Weapon switch and the knife still interrupt a reload
+  (`Weapon.GestureBusy` counts only spells, seals and throws).
+- **The right hand works the action** (`Weapon.WorkHand.cs`): with a turn bolt, after every shot (and after an empty reload) the right
+  hand leaves the grip, takes the bolt knob between thumb and index, follows it up, back, forward and down (the handle is moved by
+  `AnimateCycle` with the same times) and goes back to the grip and the trigger; with a lever the hand turns with the lever around its
+  pivot (60 percent of it) and the fingers open a little in the loop.
+- **Idle**: besides regripping every 4-8 seconds, every 10-18 seconds without shooting the left hand drums on the handguard, the
+  fingers lifting and falling from the little finger to the index, twice (`OffHand.Idle`).
 
 ## Effects (`MagicVfx`, `VfxTextures`)
 
@@ -197,17 +236,19 @@ shader (a scripts-only build over an old player) it falls back to the `Fx` quads
 
 ## Code map
 
-`Scripts/Braccia/`: `HandPose.cs`, `HandRig.cs`, `GripPoses.cs`, `GripHand.cs`, `HandMirror.cs`, `OffHand.cs` (and `WeaponSurface`).
-`Scripts/ArmRig.cs`.
+`Scripts/Braccia/`: `HandPose.cs`, `HandRig.cs`, `GripPoses.cs`, `GripHand.cs`, `HandMirror.cs`, `OffHand.cs` (and `WeaponSurface`),
+`ReloadAnims.cs`. `Scripts/ArmRig.cs`, `Scripts/Weapon.ReloadHands.cs`, `Scripts/Weapon.WorkHand.cs`.
 `Scripts/Magia/`: `Grimoire.cs`, `MagicState.cs`, `MagicCaster.cs` (input, effects, the `Magic` facade), `OffHandAnims.cs`, `MagicFx.cs`
 (effects, `Fireball`, `EnemyStatus`, `WeaponAura`), `MagicVfx.cs` and `VfxTextures.cs` (particles, lightning, circles, textures),
 `Resources/Shaders/MagicParticle.shader`, `SoundMagia.cs`, `HUD.Magia.cs`, `GrimoireIcons.cs`, `GrimoirePage.cs`,
 `GrimoireUI.cs`, `GrimoireAltar.cs`, `MagiaTest.cs`. `Scripts/Weapon.Sigilli.cs` (seals on hits). `Scripts/Proc/PlanAnnex.cs`
 (placement), `Proc/FloorBuilder.Sacrario.cs` (geometry), `Proc/AnnexRuntime.cs` (the secret wall). Assets:
 `Models/Mani/libera/mano_libera.fbx` and `manica_libera.fbx`, `Resources/ManoLibera.prefab` and `ManicaLibera.prefab` (`ManiImport.Run`,
-`-mani libera` / `-mani manica`), `Resources/ManiArmi/presa_sinistra.json` and `presa_destra.json`. The Blender stages of
+`-mani libera` / `-mani manica`), `Resources/ManiArmi/presa_sinistra.json` and `presa_destra.json`, `Textures/Braccia/` (the atlases
+and the detail) with the materials `Models/Mani/Materials/Mani_GuantoLibero.mat` and `Mani_ManicaLibera.mat`. The Blender stages of
 `modelli/hotel/genera_braccia.py`: `libera` (the hand), `manica` (the neutral sleeve), `pose [id ...]` (both grip tables), `vedi`
-(previews of hand and sleeve in `braccia/render/`).
+(previews of hand and sleeve in `braccia/render/`, with the atlases when they exist); then `python -I genera_texture_braccia.py
+[guanto] [manica] [dettaglio]` paints the atlases (about two and a half minutes).
 
 ## Co-op
 
@@ -233,7 +274,10 @@ because it blocks every player's commands.
   close-up of the left wrist where sleeve and glove cuff meet, and the measures in the report), `-magiazoom` (two close-ups of the
   left hand with the real scene and effects: from the eye with a telephoto lens and three-quarters from the left), `-vfxdump` (the
   effect textures as images), `-armview [-armids a,b] [-presavecchia]` (only the rest and aiming pose of every weapon, with arm
-  measures; at rest it checks both wrists against the joint ranges).
+  measures; at rest it checks both wrists against the joint ranges; with `-magiazoom` also a close-up of each hand from the eye),
+  `-reloadview [-armids a,b]` (for every weapon an empty and a tactical reload done by the hand, photographed at thirteen fixed points
+  with side and top views when empty, then the manual cycle after it; the report has, for every photo, the key the hand is going to,
+  where the palm should be and where it is). `-seed 1000` gives the lit hall used for the photos.
 - The gesture photos are taken at the end of the frame: Unity skins sleeves and gloves after `LateUpdate`, and a photo taken earlier
   in the frame mixes the skinned meshes of the previous frame with the bones and rigid parts of this one (the glove's cuff looked
   detached from the sleeve, and a sleeve could look like a sheet near the eye).
@@ -249,3 +293,8 @@ because it blocks every player's commands.
   well outside human ranges (`-armview` logs it but does not check it), most visibly on straight stocks and pistols.
 - The lever-action `lv_predicatore` has a dark rod sticking out of its model next to the left hand (it was there before the
   realistic hold).
+- The reloads were checked on photographs of seven weapons (rifle, AK, pistol, pump, double barrel, revolver, belt-fed; bolt and lever
+  for the right hand), not on every weapon; on weapons with unusual magazines (the flamethrower, the alien spine launcher, the eye
+  rifle) the hand goes where the magazine's bounds say. In first person the left forearm of a pistol reload and of the double barrel
+  passes close to the eye and fills part of the screen.
+- With a scripts-only build over an older player the new textures and materials are missing: they need a full build.

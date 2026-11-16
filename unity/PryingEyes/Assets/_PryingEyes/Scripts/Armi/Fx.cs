@@ -24,6 +24,9 @@ namespace PryingEyes
         static Fx I;
         static Mesh quadMesh;
         public static Material PuffMat, SparkMat, TracerMat, BeamMat, HoleMat, FlashMat, BrassMat, ShellMat, ChipMat;
+        /// <summary>I materiali dei bossoli (ottone, plastica della cartuccia) anche prima del primo colpo: le cartucce in mano.</summary>
+        public static Material Brass { get { Ensure(); return BrassMat; } }
+        public static Material ShellPlastic { get { Ensure(); return ShellMat; } }
         static Texture2D puffTex, sparkTex, tracerTex, beamTex, holeTex, starTex, chipTex;
 
         class Item

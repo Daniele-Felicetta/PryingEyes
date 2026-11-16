@@ -271,7 +271,9 @@ namespace PryingEyes
             var mr = sleeve.GetComponent<MeshRenderer>();
             if (mr != null)
             {
-                smr.sharedMaterials = mr.sharedMaterials;
+                // la manica neutra ha il suo materiale (Mani_ManicaLibera: texture uniche); il resto come la manica dell'arma
+                var own = isNeutral ? skinMf.GetComponent<MeshRenderer>() : null;
+                smr.sharedMaterials = own != null ? own.sharedMaterials : mr.sharedMaterials;
                 smr.shadowCastingMode = mr.shadowCastingMode;
                 smr.receiveShadows = mr.receiveShadows;
                 smr.renderingLayerMask = mr.renderingLayerMask;

@@ -22,7 +22,11 @@ namespace PryingEyes
     {
         public enum Space { Camera, Weapon, Grip, Below }
         public enum Contact { Wrist, Palm, Index, Middle, Thumb, Pinky }
-        public enum Part { None, Muzzle, Mag, Eject, Sight, GripL, Receiver, Barrel, MagBase, LeftSide }
+        /// <summary>Parti dell'arma su cui si mette la mano. MagGrip e' dove la sinistra afferra il caricatore (fianco sinistro, sotto
+        /// il pozzetto) e Port la finestra di caricamento sotto il castello: punti fermi dell'arma. Charge, SlideRear, Cover, Breech,
+        /// Forend e Cylinder stanno sulle parti che si muovono (leva d'armamento, carrello, coperchio, canne, astina della doppietta,
+        /// tamburo): la mano che ci sta sopra le segue (ReloadAnims).</summary>
+        public enum Part { None, Muzzle, Mag, Eject, Sight, GripL, Receiver, Barrel, MagBase, LeftSide, MagGrip, Charge, SlideRear, Cover, Breech, Forend, Cylinder, Port }
 
         public struct Key
         {
@@ -58,6 +62,12 @@ namespace PryingEyes
             /// <summary>Spostamento del punto di lavoro rispetto a ReachTarget per questo gesto (camera; solo armi a due mani): un gesto
             /// che lavora sotto l'arma, sul caricatore, la vuole piu' alta perche' la mano resti in vista.</summary>
             public Vector3 reachOffset;
+            /// <summary>Ricariche (ReloadAnims; secondi, negativo = non c'e'): quando la mano prende il caricatore dall'arma, lo butta,
+            /// torna dalla cintura con quello nuovo, comincia a infilarlo e lo inserisce; la chiave della posa d'inserimento (mano col
+            /// caricatore al suo posto) e il verso in cui il caricatore si sfila (spazio dell'arma). Weapon attacca il caricatore al palmo.</summary>
+            public float take = -1f, drop = -1f, fetch = -1f, insert = -1f, seat = -1f;
+            public int seatKey = -1;
+            public Vector3 magAxis = Vector3.down;
         }
 
         // ------------------------------------------------------------------ stato costruito con il modello
@@ -78,6 +88,7 @@ namespace PryingEyes
         // ------------------------------------------------------------------ animazione in corso
         Anim anim;
         float time;
+        bool external;
         int nextEvent;
         Action<string> onEvent;
         bool freeShown;
@@ -87,6 +98,15 @@ namespace PryingEyes
         public HandPose LastPose { get; private set; }
 
         public bool Busy => anim != null;
+        /// <summary>L'animazione in corso segue un altro orologio (la ricarica): Weapon chiama Seek prima di Tick.</summary>
+        public bool External => anim != null && external;
+        public Anim CurrentAnim => anim;
+        /// <summary>Il tempo dell'animazione in corso (secondi).</summary>
+        public float Clock => time;
+        /// <summary>L'osso del palmo della mano libera (origine al polso): ci si attacca quello che la mano porta.</summary>
+        public Transform PalmBone => free.Palm;
+        /// <summary>Verso cui il caricatore si sfila dall'arma (spazio dell'arma).</summary>
+        public Vector3 MagAxis { get; private set; } = Vector3.down;
         public string Current => anim != null ? anim.name : null;
         public float Progress => anim != null ? Mathf.Clamp01(time / anim.duration) : 0f;
         public HandRig Hand => free;
@@ -156,15 +176,8 @@ namespace PryingEyes
             inst.transform.localRotation = qR;
             inst.transform.localPosition = wristL - qR * pPR;
 
-            // i materiali del guanto avvolto: la stessa mano
-            Material glove = null, guard = null;
-            foreach (var r in handL.GetComponentsInChildren<Renderer>(true))
-            {
-                if (r.transform.IsChildOf(inst.transform)) continue;
-                if (glove == null && r.name.Contains("_guanto")) glove = r.sharedMaterial;
-                if (guard == null && r.name.Contains("_rinforzo")) guard = r.sharedMaterial;
-            }
-            var hand = HandRig.Build(inst.transform, glove, guard);
+            // la mano articolata tiene il suo materiale (Mani_GuantoLibero: texture uniche dipinte sulla sua superficie)
+            var hand = HandRig.Build(inst.transform, null, null);
             if (hand == null) { UnityEngine.Object.Destroy(inst); return null; }
             foreach (var r in hand.Renderers) r.renderingLayerMask = Weapon.ViewLayer;
 
@@ -197,9 +210,60 @@ namespace PryingEyes
         {
             if (a == null || a.keys == null || a.keys.Length < 2) return false;
             if (anim != null) Cancel();
-            anim = a; time = 0f; nextEvent = 0; onEvent = events;
+            anim = a; time = 0f; nextEvent = 0; onEvent = events; external = false;
             reach = RealHold ? RealHoldPresent(a) : ReachFor(a);
             if (armL != null) armL.ClampHand = true;           // nel gesto la mano rispetta i campi articolari
+            return true;
+        }
+
+        /// <summary>Come Play, ma il tempo lo da' Weapon con Seek (la ricarica segue WeaponState: perk, magie che la accorciano).</summary>
+        public bool PlayExternal(Anim a, Action<string> events)
+        {
+            if (!Play(a, events)) return false;
+            external = true;
+            return true;
+        }
+
+        public void Seek(float t)
+        {
+            if (anim != null) time = Mathf.Clamp(t, 0f, anim.duration);
+        }
+
+        /// <summary>Per le prove: la chiave verso cui va la mano, dove la vuole il palmo e dove sta (spazio della camera, cm di scarto).</summary>
+        public string DebugKey()
+        {
+            if (anim == null) return "ferma";
+            var ks = anim.keys;
+            int i1 = ks.Length - 1;
+            for (int i = 1; i < ks.Length; i++) if (time <= ks[i].t) { i1 = i; break; }
+            KeyCam(ks[i1], out Vector3 w, out Quaternion r);
+            Vector3 palm = cam.InverseTransformPoint(free.Palm.position);
+            Vector3 part = ks[i1].space == Space.Weapon ? viewRoot.localPosition + viewRoot.localRotation * PartLocal(ks[i1].part, ks[i1].barrel) : Vector3.zero;
+            return $"chiave {i1} ({ks[i1].space} {ks[i1].part} t {ks[i1].t:F2}) polso voluto ({w.x:F3}, {w.y:F3}, {w.z:F3}) polso vero ({palm.x:F3}, {palm.y:F3}, {palm.z:F3}) " +
+                   $"scarto {(palm - w).magnitude * 100f:F1} cm, parte ({part.x:F3}, {part.y:F3}, {part.z:F3})";
+        }
+
+        /// <summary>Il punto di una parte nello spazio dell'arma (per le coreografie).</summary>
+        public Vector3 PartPoint(Part p, float barrel = 0.5f) => PartLocal(p, barrel);
+
+        /// <summary>Lo scarto dell'arma (spazio della camera, come le chiavi WKey) che porta il suo punto p (spazio dell'arma) in target
+        /// (spazio della camera) con la rotazione rot della chiave, partendo dalla posa di adesso; lungo al piu' maxLen. Le ricariche
+        /// portano cosi' il caricatore davanti al petto, dove arriva la sinistra e dove si vede (al fianco il caricatore di un fucile sta
+        /// sotto il bordo dello schermo e a piu' di un braccio dalla spalla sinistra).</summary>
+        public Vector3 OffsetToBring(Vector3 p, Vector3 rot, Vector3 target, float maxLen = 0.22f)
+        {
+            Vector3 at = viewRoot.localPosition + viewRoot.localRotation * (Quaternion.Euler(rot) * p);
+            return Vector3.ClampMagnitude(target - at, maxLen);
+        }
+
+        /// <summary>Dove starebbe l'osso del palmo (mondo) se la mano fosse esattamente nella chiave i dell'animazione in corso.</summary>
+        public bool KeyPalmWorld(int i, out Vector3 pos, out Quaternion rot)
+        {
+            pos = Vector3.zero; rot = Quaternion.identity;
+            if (anim == null || i < 0 || i >= anim.keys.Length) return false;
+            KeyCam(anim.keys[i], out Vector3 w, out Quaternion r);
+            pos = cam.TransformPoint(w);
+            rot = cam.rotation * r;
             return true;
         }
 
@@ -242,7 +306,7 @@ namespace PryingEyes
         {
             if (anim == null) return;
             var cb = onEvent;
-            anim = null; onEvent = null;
+            anim = null; onEvent = null; external = false;
             ShowFree(false);
             RestoreRest();
             cb?.Invoke("annullata");
@@ -312,10 +376,11 @@ namespace PryingEyes
             return viewRoot.InverseTransformPoint(handL.position);
         }
 
-        float idleT, regripAt = 3f;
+        float idleT, regripAt = 3f, drumAt = 11f;
 
         /// <summary>A riposo (presa di sostegno naturale) la sinistra e' viva: ogni 4-8 secondi si riassesta sull'astina (le dita si
-        /// allentano un poco e tornano a stringere in mezzo secondo) e a ogni colpo stringe un attimo (shot 0..1, il contraccolpo).</summary>
+        /// allentano un poco e tornano a stringere in mezzo secondo), a ogni colpo stringe un attimo (shot 0..1, il contraccolpo) e ogni
+        /// 10-18 secondi senza sparare tamburella sull'astina: le dita si alzano e ricadono dal mignolo all'indice, due volte.</summary>
         public void Idle(float dt, float shot)
         {
             if (anim != null || !NaturalRest) return;
@@ -327,7 +392,28 @@ namespace PryingEyes
                 if (ph > 0.55f) regripAt = idleT + UnityEngine.Random.Range(4f, 8f);
             }
             var p = HandPose.Lerp(gripPose, HandPoses.Relaxed, loosen);
-            if (shot > 0.01f) p = HandPose.Lerp(p, HandPoses.Fist, 0.12f * Mathf.Clamp01(shot));
+            if (shot > 0.01f)
+            {
+                p = HandPose.Lerp(p, HandPoses.Fist, 0.12f * Mathf.Clamp01(shot));
+                drumAt = Mathf.Max(drumAt, idleT + 6f);
+            }
+            float dph = idleT - drumAt;
+            if (dph >= 0f)
+            {
+                const float Beat = 0.20f, Lag = 0.075f, Gap = 0.42f;
+                if (dph > Gap + 3f * Lag + Beat) drumAt = idleT + UnityEngine.Random.Range(10f, 18f);
+                else
+                    for (int f = 0; f < 4; f++)
+                    {
+                        float lift = 0f;
+                        for (int beat = 0; beat < 2; beat++)
+                        {
+                            float x = (dph - beat * Gap - (3 - f) * Lag) / Beat;
+                            if (x > 0f && x < 1f) lift = Mathf.Max(lift, Mathf.Sin(x * Mathf.PI));
+                        }
+                        if (lift > 0f) p.SetFinger(f, p.Spread(f), p.Mcp(f) - 30f * lift, p.Pip(f) - 20f * lift, p.Dip(f) - 8f * lift);
+                    }
+            }
             free.Apply(p, dt);
         }
 
@@ -352,10 +438,50 @@ namespace PryingEyes
             }
         }
 
+        // i punti delle parti che si muovono, nel riferimento della parte (InitParts)
+        readonly Dictionary<Part, (Transform t, Vector3 local)> anchors = new Dictionary<Part, (Transform, Vector3)>();
+        Vector3 magGrip;
+        bool hasMagGrip;
+
+        /// <summary>Dopo la costruzione: dove la mano afferra il caricatore (fianco sinistro, poco sotto il pozzetto; con il caricatore
+        /// sopra la canna, sul dorso) e i punti delle parti mobili, presi dai riquadri dei loro pezzi a riposo.</summary>
+        public void InitParts(bool magUp)
+        {
+            MagAxis = magUp ? Vector3.up : Vector3.down;
+            anchors.Clear();
+            if (rig.mag != null && WeaponSurface.PartBounds(viewRoot, rig.mag, out var mb))
+            {
+                float top = Mathf.Min(mb.max.y, surface.Bottom(mb.center.z));
+                // il palmo sul davanti del caricatore (poco sotto il pozzetto), un filo a sinistra del centro: le dita girano sul fianco
+                magGrip = magUp ? new Vector3(mb.center.x, mb.max.y + 0.004f, mb.center.z)
+                                : new Vector3(mb.center.x - 0.006f, Mathf.Lerp(mb.min.y, Mathf.Max(mb.min.y + 0.02f, top), 0.45f), mb.max.z + 0.004f);
+                hasMagGrip = true;
+            }
+            void Add(Part p, Transform t, Func<Bounds, Vector3> pick)
+            {
+                if (t == null || !WeaponSurface.PartBounds(viewRoot, t, out var b)) return;
+                anchors[p] = (t, t.InverseTransformPoint(viewRoot.TransformPoint(pick(b))));
+            }
+            Add(Part.Charge, rig.charge, b => new Vector3(b.center.x, b.max.y, b.min.z));
+            Add(Part.SlideRear, rig.slide, b => new Vector3(b.center.x, b.max.y, Mathf.Lerp(b.min.z, b.max.z, 0.18f)));
+            Add(Part.Cover, rig.cover, b => new Vector3(b.center.x, b.max.y, Mathf.Lerp(b.min.z, b.max.z, 0.15f)));
+            Add(Part.Breech, rig.barrels, b => new Vector3(b.center.x, Mathf.Lerp(b.min.y, b.max.y, 0.6f), b.min.z));
+            Add(Part.Forend, rig.barrels, b => new Vector3(b.center.x, b.min.y, Mathf.Lerp(b.min.z, b.max.z, 0.28f)));
+            Add(Part.Cylinder, rig.cyl, b => b.center);
+        }
+
         Vector3 PartLocal(Part p, float barrel)
         {
+            if (anchors.TryGetValue(p, out var an) && an.t != null) return viewRoot.InverseTransformPoint(an.t.TransformPoint(an.local));
             switch (p)
             {
+                case Part.MagGrip: return hasMagGrip ? magGrip : surface.Below(0.10f) + Vector3.left * 0.02f;
+                case Part.Port: return surface.Below(surface.Receiver.z + 0.03f);
+                case Part.Charge: return surface.TopPoint(Mathf.Max(0.0f, surface.Receiver.z - 0.08f));
+                case Part.SlideRear: return surface.TopPoint(Mathf.Max(0.0f, surface.Receiver.z - 0.04f));
+                case Part.Cover: case Part.Breech: return surface.TopPoint(surface.Receiver.z);
+                case Part.Forend: return surface.Below(surface.Receiver.z + 0.18f);
+                case Part.Cylinder: return surface.Receiver;
                 case Part.Muzzle: return rig.MuzzleLocal;
                 case Part.Sight: return rig.AdsLocal;
                 case Part.Mag: return rig.mag != null ? viewRoot.InverseTransformPoint(rig.mag.position) : surface.Below(0.10f);
@@ -449,7 +575,7 @@ namespace PryingEyes
         {
             if (anim == null) return;
             float speed = Mathf.Max(0.2f, anim.speed);
-            time += dt * speed;
+            if (!external) time += dt * speed;
             var ks = anim.keys;
             if (!freeShown)
             {
@@ -503,7 +629,7 @@ namespace PryingEyes
             if (time >= anim.duration)
             {
                 var cb = onEvent;
-                anim = null; onEvent = null;
+                anim = null; onEvent = null; external = false;
                 ShowFree(false);
                 RestoreRest();
                 cb?.Invoke("fine");
@@ -561,6 +687,28 @@ namespace PryingEyes
                         magLow = Mathf.Min(magLow, m.MultiplyPoint3x4(b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1))).y);
                 }
             MagBase = magLow < float.MaxValue ? new Vector3(mag.x, magLow, mag.z) : mag + Vector3.down * 0.10f;
+        }
+
+        /// <summary>Il riquadro dei pezzi di una parte dell'arma nello spazio dell'arma (dalle mesh, che non sono leggibili).</summary>
+        public static bool PartBounds(Transform viewRoot, Transform part, out Bounds bb)
+        {
+            bb = default;
+            bool any = false;
+            if (part == null) return false;
+            foreach (var r in part.GetComponentsInChildren<Renderer>(true))
+            {
+                var mf = r.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) continue;
+                var b = mf.sharedMesh.bounds;
+                var m = viewRoot.worldToLocalMatrix * r.transform.localToWorldMatrix;
+                for (int i = 0; i < 8; i++)
+                {
+                    Vector3 c = m.MultiplyPoint3x4(b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1)));
+                    if (!any) { bb = new Bounds(c, Vector3.zero); any = true; }
+                    else bb.Encapsulate(c);
+                }
+            }
+            return any;
         }
 
         bool Covers(Bounds b, float z) => z >= b.min.z - 0.005f && z <= b.max.z + 0.005f;

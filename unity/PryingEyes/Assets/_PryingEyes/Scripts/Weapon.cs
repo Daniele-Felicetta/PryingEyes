@@ -49,6 +49,11 @@ namespace PryingEyes
 
         WeaponState State => slots[cur].state;
         public bool reloading => State.IsReloading;
+        /// <summary>Per le prove: a che punto e' la ricarica (0..1; -1 fuori ricarica) e se la fa la mano sinistra.</summary>
+        public float ReloadProgress => State.IsReloading ? State.ReloadProgress : -1f;
+        public bool ReloadByHand => reloadAnim;
+        /// <summary>Per le prove: a che punto e' il ciclo manuale dopo il colpo (pompa, leva, otturatore; -1 fermo).</summary>
+        public float CycleProgress => cycleAnim;
         [Header("Stato")]
         public float ads;                      // 0..1 (con curva)
         public float recoil;                   // contraccolpo del modello (0..1), usato anche dal giocatore per un piccolo scatto
@@ -117,6 +122,8 @@ namespace PryingEyes
         public Transform ViewRootT => viewRoot;
         public WeaponRig Rig => rig;
         bool OffBusy => offHand != null && offHand.Busy;
+        /// <summary>La sinistra fa un gesto (magia, sigillo, lancio), non la ricarica: la ricarica si puo' interrompere col cambio o il coltello.</summary>
+        bool GestureBusy => OffBusy && !reloadAnim;
         // indice destro articolato: disteso lungo il telaio a riposo, sul grilletto quando si spara o si mira (TriggerFinger)
         TriggerFinger trigFinger;
         /// <summary>La mano destra articolata (presa realistica): al posto del guanto modellato e di TriggerFinger.</summary>
@@ -212,7 +219,7 @@ namespace PryingEyes
         /// <summary>Ispezione dell'arma (I): pubblico per le prove.</summary>
         public void Inspect() { inspectT = InspectTime; Synth.Mech("draw", 0.35f, 0.9f); }
         public bool KnifeBusy => knifeOut;
-        public bool CanKnife => swapT <= 0f && !OffBusy;
+        public bool CanKnife => swapT <= 0f && !GestureBusy;
 
         /// <summary>La mano sinistra puo' lasciare l'arma per un gesto? Niente durante la ricarica, il cambio, l'estrazione, il coltello,
         /// la corsa o un altro gesto. 'why' vuoto = no in silenzio (non serve dirlo).</summary>
@@ -389,8 +396,9 @@ namespace PryingEyes
 
         public void SwitchSlot(int s)
         {
-            if (s < 0 || s > 1 || s == cur || slots[s].idx < 0 || swapT > 0f || knifeOut || OffBusy) return;
+            if (s < 0 || s > 1 || s == cur || slots[s].idx < 0 || swapT > 0f || knifeOut || GestureBusy) return;
             // l'arma in mano scende; a meta' si cambia il modello
+            EndReloadAnim();
             State.CancelReload(); hud?.SetReloading(false);
             burstLeft = 0; cycleAnim = -1f;
             pendingSlot = s;
@@ -652,6 +660,8 @@ namespace PryingEyes
             trigFinger = null;
             gripHand = null;
             offHand = null;
+            reloadAnim = false; magCarry = 0; pendingDrop = false;
+            ClearProp();
             var prefab = Resources.Load<GameObject>("ManiArmi/" + d.id);
             bool onMeasure = prefab != null;
             if (!onMeasure) prefab = Resources.Load<GameObject>("Mani");
@@ -714,7 +724,7 @@ namespace PryingEyes
                 handLRend = WithSkin(wrappedLeft, armL);
                 // la mano libera nasce qui, sotto mano_s, dove sta il guanto avvolto (OffHand)
                 if (onMeasure) offHand = OffHand.Build(cam, root.transform, g.transform, handL, armL, rig, d, wrappedLeft);
-                if (offHand != null) offHand.RealHold = RealHold(d);
+                if (offHand != null) { offHand.RealHold = RealHold(d); offHand.InitParts(d.magUp); }
                 // presa realistica a due mani: la sinistra sotto l'astina come la tiene un tiratore (la mano articolata al posto del guanto
                 // modellato per la spalla finta); il nuovo riposo vale anche per le ricariche
                 if (offHand != null && RealHold(d) && d.hand > 0.5f) { handLRest = offHand.SetNaturalRest(); wrappedL = wrappedLeft; }
@@ -740,6 +750,7 @@ namespace PryingEyes
                 Vector3 hp = root.transform.InverseTransformPoint(handR.position);
                 handRHideAds = d.adsDist - rig.AdsLocal.z + hp.z < 0.17f;
             }
+            InitWorkHand(d);
         }
 
         // ------------------------------------------------------------------ ottica ingrandita (seconda camera)
@@ -856,7 +867,7 @@ namespace PryingEyes
                     Synth.Mech("draw", 0.6f, 1f);
                 }
             }
-            else if (inputEnabled && !OffBusy)
+            else if (inputEnabled && !GestureBusy)
             {
                 if (SeatInput.GetKeyDown(KeyCode.Alpha1)) SwitchSlot(0);
                 else if (SeatInput.GetKeyDown(KeyCode.Alpha2)) SwitchSlot(1);
@@ -999,11 +1010,15 @@ namespace PryingEyes
             if (!State.BeginReload(magSize, timing)) return;
             burstLeft = 0;
             hud?.SetReloading(true);
-            Synth.Mech(d.style == ReloadStyle.Tube ? "shellopen" : d.style == ReloadStyle.Revolver ? "cylopen" : "magout", 0.55f, 1f);
+            // con la presa realistica la ricarica la fa la mano sinistra (ReloadAnims): lo sgancio suona quando sfila il caricatore
+            bool hands = StartReloadAnim(d, timing);
+            if (!hands || d.style == ReloadStyle.Tube || d.style == ReloadStyle.Revolver || d.style == ReloadStyle.Break)
+                Synth.Mech(d.style == ReloadStyle.Tube ? "shellopen" : d.style == ReloadStyle.Revolver ? "cylopen" : "magout", 0.55f, 1f);
         }
 
         void CancelReload()
         {
+            EndReloadAnim();
             State.CancelReload();
             hud?.SetReloading(false);
             hud?.SetAmmo(mag, reserve);
@@ -1034,6 +1049,8 @@ namespace PryingEyes
             {
                 hud?.SetReloading(false);
                 if (d.style == ReloadStyle.Tube && d.cycle > 0f && reloadEmpty) StartCycle(d, false);
+                // otturatore girevole: a vuoto la destra lo manovra dopo aver messo il caricatore (con la mano che ricarica)
+                else if (reloadAnim && reloadEmpty && d.cycle > 0f && rig != null && rig.boltHandle != null && Mode == FireMode.Bolt) StartCycle(d, false);
             }
         }
 
@@ -1284,10 +1301,10 @@ namespace PryingEyes
             // ricarica / cambio / ingresso
             float rp = -1f;
             Vector3 tiltPos = Vector3.zero; Vector3 tiltRot = Vector3.zero;
-            if (reloading)
+            if (reloading) rp = State.ReloadProgress;
+            if (reloading && !reloadAnim)
             {
-                float r = State.ReloadProgress;
-                rp = r;
+                float r = rp;
                 float tilt = Mathf.Sin(Mathf.Clamp01(r / 0.92f) * Mathf.PI);
                 if (d.style == ReloadStyle.Tube) tilt = Mathf.Clamp01(Band(r, 0.0f, 0.12f) - Band(r, 0.88f, 1f));
                 tiltPos = new Vector3(-0.035f, -0.055f, -0.02f) * tilt;
@@ -1353,6 +1370,7 @@ namespace PryingEyes
             }
             if (armR != null) armR.BodyMotion = bodyR;
             if (armL != null) armL.BodyMotion = bodyL;
+            WorkHandTick();
             armR?.Solve(ads);
             gripHand?.AfterArmSolve();
             if (trigFinger != null || gripHand != null)
@@ -1364,10 +1382,13 @@ namespace PryingEyes
                 if (gripHand != null) gripHand.Pose(trigBlend, squeeze, Mathf.Clamp01(kickBack));
                 else trigFinger.Pose(trigBlend, squeeze);
             }
+            WorkHandFingers();
             offHand?.Idle(dt, Mathf.Clamp01(kickBack));
+            ReloadSeek();
             offHand?.Tick(dt);
             armL?.Solve(ads, dt);
             offHand?.AfterArmSolve();
+            ReloadPostSolve();
         }
 
         void AnimateParts(float rp, WeaponDef d)
@@ -1395,7 +1416,7 @@ namespace PryingEyes
             if (rp >= 0f)
             {
                 bool tube = d.style == ReloadStyle.Tube;
-                if (rig.mag != null && !tube && d.style != ReloadStyle.Revolver && d.style != ReloadStyle.Break)
+                if (rig.mag != null && !tube && d.style != ReloadStyle.Revolver && d.style != ReloadStyle.Break && !reloadAnim)
                 {
                     // fuori (0,12-0,28), la mano alla cintura e di ritorno col nuovo (0,28-0,50), dentro (0,52-0,68); il vuoto cade
                     // nella ricarica a vuoto (Weapon.MagDrop.cs)
@@ -1408,32 +1429,47 @@ namespace PryingEyes
                 }
                 if (rig.charge != null)
                 {
-                    float pull = Mathf.Clamp01(Band(rp, 0.78f, 0.84f) - Band(rp, 0.88f, 0.94f));
+                    // con la mano: solo a vuoto, tirata da ChargeHook a ChargeBack e lasciata a ChargeGo (torna avanti di scatto)
+                    float pull = reloadAnim
+                        ? (reloadEmpty ? Mathf.Clamp01(Band(rp, ReloadAnims.ChargeHook, ReloadAnims.ChargeBack) - Band(rp, ReloadAnims.ChargeGo - 0.004f, ReloadAnims.ChargeGo + 0.022f)) : 0f)
+                        : Mathf.Clamp01(Band(rp, 0.78f, 0.84f) - Band(rp, 0.88f, 0.94f));
                     rig.Offset(rig.charge, Vector3.back * (0.045f * pull));
                 }
                 if (rig.slide != null && d.style == ReloadStyle.Pistol && reloadEmpty)
                 {
-                    float held = 1f - Band(rp, 0.78f, 0.86f);
+                    // con la mano: fermo indietro, la mano lo arretra ancora un poco e lo lascia
+                    float held = reloadAnim
+                        ? (rp < ReloadAnims.SlideGo ? 1f : 1f - Band(rp, ReloadAnims.SlideGo, ReloadAnims.SlideGo + 0.02f))
+                        : 1f - Band(rp, 0.78f, 0.86f);
                     rig.Offset(rig.slide, Vector3.back * (0.034f * held));
                 }
-                if (rig.bolt != null && reloadEmpty && d.style == ReloadStyle.Mag && rig.boltHandle != null)
+                if (rig.bolt != null && reloadEmpty && d.style == ReloadStyle.Mag && rig.boltHandle != null && !reloadAnim)
                 {
                     float pull = Mathf.Clamp01(Band(rp, 0.74f, 0.80f) - Band(rp, 0.86f, 0.92f));
                     rig.Offset(rig.bolt, Vector3.back * (0.06f * pull));
                 }
                 if (rig.cyl != null && d.style == ReloadStyle.Revolver)
                 {
-                    float open = Mathf.Clamp01(Band(rp, 0.10f, 0.22f) - Band(rp, 0.78f, 0.90f));
+                    float open = reloadAnim ? Mathf.Clamp01(Band(rp, ReloadAnims.CylOpen0, ReloadAnims.CylOpen1) - Band(rp, ReloadAnims.CylClose0, ReloadAnims.CylClose1))
+                                            : Mathf.Clamp01(Band(rp, 0.10f, 0.22f) - Band(rp, 0.78f, 0.90f));
                     rig.Rotate(rig.cyl, new Vector3(0f, 0f, -78f * open));
                 }
                 if (rig.barrels != null && d.style == ReloadStyle.Break)
                 {
-                    float open = Mathf.Clamp01(Band(rp, 0.10f, 0.24f) - Band(rp, 0.76f, 0.90f));
+                    float open = reloadAnim ? Mathf.Clamp01(Band(rp, ReloadAnims.BreakOpen0, ReloadAnims.BreakOpen1) - Band(rp, ReloadAnims.BreakClose0, ReloadAnims.BreakClose1))
+                                            : Mathf.Clamp01(Band(rp, 0.10f, 0.24f) - Band(rp, 0.76f, 0.90f));
                     rig.Rotate(rig.barrels, new Vector3(32f * open, 0f, 0f));
+                    // con la mano: attorno alla cerniera (sotto il retro delle canne), non attorno al perno del pezzo
+                    if (reloadAnim && hasBreakHinge && open > 0f)
+                    {
+                        rig.Rotate(rig.barrels, Vector3.zero);
+                        rig.barrels.RotateAround(viewRoot.TransformPoint(breakHinge), viewRoot.right, 32f * open);
+                    }
                 }
                 if (rig.cover != null && d.style == ReloadStyle.Belt)
                 {
-                    float open = Mathf.Clamp01(Band(rp, 0.06f, 0.18f) - Band(rp, 0.84f, 0.94f));
+                    float open = reloadAnim ? Mathf.Clamp01(Band(rp, ReloadAnims.CoverOpen0, ReloadAnims.CoverOpen1) - Band(rp, ReloadAnims.CoverClose0, ReloadAnims.CoverClose1))
+                                            : Mathf.Clamp01(Band(rp, 0.06f, 0.18f) - Band(rp, 0.84f, 0.94f));
                     rig.Rotate(rig.cover, new Vector3(-75f * open, 0f, 0f));
                 }
             }
@@ -1501,14 +1537,15 @@ namespace PryingEyes
             }
             else if (m == FireMode.Bolt && rig.bolt != null)
             {
-                // alza la maniglia, tira indietro, spinge avanti, riabbassa
-                float up = Band(c, 0.08f, 0.22f) - Band(c, 0.82f, 0.94f);
-                float back = Band(c, 0.22f, 0.50f) - Band(c, 0.56f, 0.80f);
+                // alza la maniglia, tira indietro, spinge avanti, riabbassa (con la destra che la manovra: prima la mano ci arriva)
+                bool hand = BoltByHand;
+                float up = hand ? Band(c, BoltUp0, BoltUp1) - Band(c, BoltDown0, BoltDown1) : Band(c, 0.08f, 0.22f) - Band(c, 0.82f, 0.94f);
+                float back = hand ? Band(c, BoltBack0, BoltBack1) - Band(c, BoltFwd0, BoltFwd1) : Band(c, 0.22f, 0.50f) - Band(c, 0.56f, 0.80f);
                 rig.Offset(rig.bolt, Vector3.back * (0.075f * back));
                 if (rig.boltHandle != null) rig.Rotate(rig.boltHandle, new Vector3(0f, 0f, -70f * Mathf.Clamp01(up)));
                 else rig.Rotate(rig.bolt, new Vector3(0f, 0f, -70f * Mathf.Clamp01(up)));
-                if (c > 0.30f && cycleSound == 0) { cycleSound = 1; Synth.Mech("boltback", 0.55f, 1f); EjectCycleCasing(d); }
-                if (c > 0.62f && cycleSound == 1) { cycleSound = 2; Synth.Mech("boltfwd", 0.55f, 1f); }
+                if (c > (hand ? 0.38f : 0.30f) && cycleSound == 0) { cycleSound = 1; Synth.Mech("boltback", 0.55f, 1f); EjectCycleCasing(d); }
+                if (c > (hand ? 0.66f : 0.62f) && cycleSound == 1) { cycleSound = 2; Synth.Mech("boltfwd", 0.55f, 1f); }
             }
         }
 
