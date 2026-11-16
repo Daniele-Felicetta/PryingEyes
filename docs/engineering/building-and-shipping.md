@@ -141,8 +141,11 @@ A release is a zip of a full **distribution** build attached to a GitHub release
    `0 still contain the checkout path` (`BuildScrub`).
 3. Try the package itself. It has no test classes (`-distribution`), so the in-game suites run on the `Audit` build of the same commit, not
    here. On the package: it starts without graphics (`-batchmode -nographics`), the player log has `[PryingEyes] VERSIONE <version>` and no
-   exception, and a split screen starts at 2 and 4 players (`-splitscreen N`). A window run would take the screen and the display
-   registry values, so say in the notes when it was not done on the package.
+   exception, and a split screen starts at 2, 3 and 4 players (`-splitscreen N`, with `-menureview -nowaves` so that the saved display
+   setting is not applied and no wave starts). A window run would take the screen and the display registry values, so say in the notes
+   when it was not done on the package. Also search every file of the build for the user folder and the checkout path, in UTF-8 and in
+   UTF-16: `BuildScrub` covers only the managed assemblies. For 0.6.2 the only file that named them was `lib_burst_generated.txt` in the
+   `*_BackUpThisFolder_ButDontShipItWithYourGame` folder, which the zip leaves out.
 4. Zip the folder with the files at the root of the zip, add `LEGGIMI.txt`, leave out `*_BackUpThisFolder_ButDontShipItWithYourGame` and
    `*_BurstDebugInformation_DoNotShip`, write `SHA256SUMS.txt` and compare the hash of every entry with its source. Zips and checksums are kept
    in `Builds/Releases`.
