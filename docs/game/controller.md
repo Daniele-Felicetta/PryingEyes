@@ -34,6 +34,8 @@ Switch controller needs an XInput wrapper such as Steam Input or DS4Windows (not
 | D-pad up / down | Torch / holy water |
 | LB + A, B, X, Y | Veil / fire mode / music box / reliquary mine |
 | LB + D-pad up, down, left | Map / ping the doors / replace the battery |
+| LB + RB (tap / hold) | Left-hand spell / seal on the weapon (`3` tapped / held); with LB held RB does not use |
+| LB + D-pad right / LB + R3 | Next spell / next seal (`6` / `7`); with LB held R3 is not the knife |
 | Start / Back (hold) | Pause / scoreboard |
 
 The sticks have dead zones (7849 and 8689 of 32767), the triggers switch on at half a stroke and off at 30%; look speed follows a curve, so

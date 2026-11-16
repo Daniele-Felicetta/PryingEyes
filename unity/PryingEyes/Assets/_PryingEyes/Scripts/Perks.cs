@@ -48,7 +48,7 @@ namespace PryingEyes
         public static int NextPrice => State.NextPrice;
         public static bool Add(PerkId p) => State.Add(p);
         public static bool LoseLast(out PerkId lost) => State.LoseLast(out lost);
-        public static void ResetRun() { State.ResetRun(); Biblioteca.ResetRun(); }
+        public static void ResetRun() { State.ResetRun(); Biblioteca.ResetRun(); Magic.State.ResetRun(); }
         public static void NewFloor() => State.NewFloor();
         public static float MaxHpMult => State.MaxHpMult;
         public static float MaxHp => State.MaxHp;

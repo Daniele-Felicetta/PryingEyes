@@ -20,6 +20,7 @@ namespace PryingEyes.EditorTools
         const string ResDir = "Assets/_PryingEyes/Resources";
         const string PrefabPath = ResDir + "/Mani.prefab";
         const string PrefabArmiDir = ResDir + "/ManiArmi";
+        const string LiberaFbx = Dir + "/libera/mano_libera.fbx";
 
         static string Arg(string name)
         {
@@ -72,6 +73,14 @@ namespace PryingEyes.EditorTools
                     Debug.Log($"[Mani] {id}: {v} vertici");
                 }
                 Debug.Log($"[Mani] {n} paia di mani per arma, {verts} vertici in tutto");
+            }
+            // la mano sinistra libera (genera_braccia.py -- libera): stessi materiali, leggibile (HandRig le da' la pelle a runtime);
+            // le prese della sinistra arma per arma stanno in Resources/ManiArmi/presa_sinistra.json (genera_braccia.py -- pose)
+            if (File.Exists(LiberaFbx) && (only == null || System.Array.IndexOf(only.Split(','), "libera") >= 0))
+            {
+                ImportFbx(LiberaFbx, glove, sleeve, guard, true);
+                int v = SavePrefab(LiberaFbx, ResDir + "/ManoLibera.prefab", "ManoLibera");
+                Debug.Log($"[Mani] mano libera: {v} vertici");
             }
             AssetDatabase.SaveAssets();
         }

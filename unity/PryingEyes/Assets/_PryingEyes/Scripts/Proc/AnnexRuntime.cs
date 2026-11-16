@@ -46,6 +46,7 @@ namespace PryingEyes.Proc
                 bool inRect = p.x >= a.x0 * 0.1f && p.x <= a.x1 * 0.1f && p.z >= a.z0 * 0.1f && p.z <= a.z1 * 0.1f;
                 if (a.kind == AnnexKind.Cripta && inRect && p.y < -1.2f) return true;
                 if (a.kind == AnnexKind.Giardino && inRect) return true;
+                if (a.kind == AnnexKind.Sacrario && a.OutsideContains(p.x, p.z)) return true;
             }
             return false;
         }
@@ -66,6 +67,14 @@ namespace PryingEyes.Proc
             }
             foreach (var s in fi.annexSites)
             {
+                if (s.data.kind == AnnexKind.Sacrario)
+                {
+                    // il sacrario si raggiunge solo a carponi (cunicolo di 1,3 m): la navmesh non ci arriva, ed e' voluto (i nemici non entrano)
+                    bool okS = Reach(s.outside, out string ws);
+                    string ls = $"[PryingEyes] ANNESSO {s.data} libro={(s.data.book == 0 ? "Stregoneria" : "Arsenale")}: parete {(okS ? "ok" : ws)}, interno a carponi";
+                    if (okS) Debug.Log(ls); else Debug.LogWarning(ls);
+                    continue;
+                }
                 bool okOut = Reach(s.outside, out string w1), okIn = Reach(s.inside, out string w2), okRw = Reach(s.rewardPos, out string w3);
                 string line = $"[PryingEyes] ANNESSO {s.data} cancello={s.data.gate}: ingresso {(okOut ? "ok" : w1)}, interno {(okIn ? "ok" : w2)}, tesoro {(okRw ? "ok" : w3)}";
                 if (okOut && okIn && okRw) Debug.Log(line); else Debug.LogWarning(line);
@@ -83,6 +92,10 @@ namespace PryingEyes.Proc
         public Collider closerCol;
         public Material sigilMat;
         public Vector3 gatePoint, outside, inside, rewardPos, keyPos, altarPos;
+        /// <summary>Sacrario: verso l'esterno (dalla sala al cunicolo) e lungo il muro, per far rientrare e scorrere la parete finta.</summary>
+        public Vector3 secretOut, secretAlong;
+        /// <summary>Il grimorio sull'altare (solo il sacrario).</summary>
+        public GrimoireAltar altar;
         public float gateRadius = 3f, rewardYaw, altarYaw, cellFloorY;
         /// <summary>Cose che scompaiono con l'apertura oltre al cancello (l'edera del giardino): figli del cancello, affondano con lui.</summary>
         public readonly List<Transform> fade = new List<Transform>();
@@ -100,7 +113,8 @@ namespace PryingEyes.Proc
         public float ResetAfter => data.levers >= 3 ? 130f : 160f;
         public float Remaining => firstPull < 0f ? ResetAfter : Mathf.Max(0f, ResetAfter - (Time.time - firstPull));
 
-        string What => data.kind == AnnexKind.Torre ? (data.secret ? "PARETE CAVA" : "GRATA SIGILLATA") : data.kind == AnnexKind.Cripta ? "BOTOLA SIGILLATA" : "EDERA FITTA";
+        string What => data.kind == AnnexKind.Torre ? (data.secret ? "PARETE CAVA" : "GRATA SIGILLATA") : data.kind == AnnexKind.Cripta ? "BOTOLA SIGILLATA"
+            : data.kind == AnnexKind.Sacrario ? "UN OCCHIO SCOLPITO NEL MURO" : "EDERA FITTA";
 
         // ------------------------------------------------------------------ messa in opera
         public void Place()
@@ -113,6 +127,12 @@ namespace PryingEyes.Proc
                 gate.site = this;
                 Interact.Add(gate);
             }
+            if (data.kind == AnnexKind.Sacrario)
+            {
+                // il sacrario custodisce il grimorio, non uno scrigno; si apre trovando la parete (nessuna leva, nessun tributo)
+                altar = GrimoireAltar.Place(this, (Grimoire.Book)data.book);
+                return;
+            }
             int grade = data.kind == AnnexKind.Torre ? 4 : 3;
             chest = Scrigno.PlaceAt(fi, rewardPos, rewardYaw, 0, grade, true);
             var garden = fi.plan.annexes.Find(x => x.kind == AnnexKind.Giardino && x.keyHolder == data.id);
@@ -121,7 +141,7 @@ namespace PryingEyes.Proc
             if (data.gate == GateKind.Tributo && altarPos != Vector3.zero) AnnexAltar.Build(this);
         }
 
-        string Target => data.kind == AnnexKind.Torre ? "la torre" : data.kind == AnnexKind.Cripta ? "la cripta" : "il giardino";
+        string Target => data.kind == AnnexKind.Torre ? "la torre" : data.kind == AnnexKind.Cripta ? "la cripta" : data.kind == AnnexKind.Sacrario ? "il sacrario" : "il giardino";
 
         /// <summary>Il testo sull'altare del tributo (e sul cancello quando e' un tributo).</summary>
         public string TributePrompt(string head)
@@ -219,6 +239,8 @@ namespace PryingEyes.Proc
                     return $"{What} — la tengono chiusa {Mathf.Max(1, levers.Count)} sigilli, in questa sala";
                 case GateKind.Tributo:
                     return TributePrompt(What);
+                case GateKind.Segreto:
+                    return $"{What} — sussurra il tuo nome: premi l'occhio";
                 default:
                     return AnnexRuntime.HasKeyFor(data.id) ? $"{What} — apri con la chiave" : $"{What} — serve una chiave, custodita altrove";
             }
@@ -239,6 +261,9 @@ namespace PryingEyes.Proc
                     if (gm.score < data.price) { gm.hud?.Toast($"Servono {data.price} punti."); Sfx.UI(SoundBank.BookNo, 0.6f); return; }
                     gm.AddPoints(-data.price);
                     Sfx.UI(SoundBank.PickCoins, 0.7f);
+                    Open();
+                    break;
+                case GateKind.Segreto:
                     Open();
                     break;
                 default:
@@ -273,11 +298,20 @@ namespace PryingEyes.Proc
             opened = true;
             if (closerCol != null) closerCol.enabled = false;
             var gm = GameManager.I;
-            string msg = data.kind == AnnexKind.Torre ? "Qualcosa si muove alla base della torre." : data.kind == AnnexKind.Cripta ? "Il sigillo della botola si dissolve." : "L'edera si ritira: c'è una porta.";
+            string msg = data.kind == AnnexKind.Torre ? "Qualcosa si muove alla base della torre." : data.kind == AnnexKind.Cripta ? "Il sigillo della botola si dissolve."
+                : data.kind == AnnexKind.Sacrario ? "Il muro rientra su un cunicolo basso: chinati (C) e segui la luce rossa." : "L'edera si ritira: c'è una porta.";
             gm?.hud?.Toast(msg);
-            Sfx.At(SoundBank.Clang, gatePoint, 0.9f, 0.7f, 3f, 55f);
-            Sfx.At(SoundBank.Creak, gatePoint, 0.8f, 0.6f, 3f, 40f);
-            if (closer != null) StartCoroutine(OpenAnim());
+            if (data.kind == AnnexKind.Sacrario)
+            {
+                Sfx.At(SoundBank.SegretaApre, gatePoint, 0.9f, 1f, 3f, 40f);
+                foreach (var src in closer != null ? closer.GetComponents<AudioSource>() : new AudioSource[0]) src.Stop();
+            }
+            else
+            {
+                Sfx.At(SoundBank.Clang, gatePoint, 0.9f, 0.7f, 3f, 55f);
+                Sfx.At(SoundBank.Creak, gatePoint, 0.8f, 0.6f, 3f, 40f);
+            }
+            if (closer != null) StartCoroutine(data.kind == AnnexKind.Sacrario ? SlideAnim() : OpenAnim());
         }
 
         IEnumerator OpenAnim()
@@ -290,6 +324,32 @@ namespace PryingEyes.Proc
                 if (shrink) { closer.localScale = s0 * Mathf.Max(0.001f, 1f - k); closer.position = p0 + Vector3.down * (0.3f * k); }
                 else closer.position = p0 + Vector3.down * (2.6f * k);
                 if (sigilMat != null) sigilMat.SetColor("_EmissionColor", FloorBuilder.GateColor(data.gate) * Mathf.Lerp(2.6f, 0f, k));
+                yield return null;
+            }
+            closer.gameObject.SetActive(false);
+        }
+
+        /// <summary>La parete del sacrario: rientra di 30 cm (si stacca dal muro con un tonfo di polvere), poi scorre di lato dentro il muro.</summary>
+        IEnumerator SlideAnim()
+        {
+            Vector3 p0 = closer.position;
+            const float push = 0.55f, slide = 1.25f;
+            for (float t = 0f; t < push; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / push);
+                closer.position = p0 + secretOut * (0.30f * k) + Random.insideUnitSphere * 0.003f * (1f - k);
+                if (sigilMat != null) sigilMat.SetColor("_EmissionColor", FloorBuilder.GateColor(data.gate) * Mathf.Lerp(1.4f, 3.2f, k));
+                yield return null;
+            }
+            for (int i = 0; i < 14; i++)
+                Fx.Particle(0, false, gatePoint + secretAlong * Random.Range(-0.6f, 0.6f) + Vector3.down * Random.Range(0.1f, 0.7f), -secretOut * 0.4f + Random.insideUnitSphere * 0.2f, Vector3.down * 0.3f,
+                            0.08f, 0.4f, 1.4f, new Color(0.45f, 0.42f, 0.38f), 0.35f);
+            Vector3 p1 = closer.position;
+            for (float t = 0f; t < slide; t += Time.deltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / slide);
+                closer.position = p1 + secretAlong * (1.22f * k);
+                if (sigilMat != null) sigilMat.SetColor("_EmissionColor", FloorBuilder.GateColor(data.gate) * Mathf.Lerp(3.2f, 0.4f, k));
                 yield return null;
             }
             closer.gameObject.SetActive(false);

@@ -1,6 +1,6 @@
 # Cooperativa online (fino a 4 giocatori)
 
-Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
+Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md)). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
 gira con la propria copia, uno **ospita** e gli altri si collegano al suo indirizzo. Rete: FishNet 4.7.3 (trasporto
 Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 

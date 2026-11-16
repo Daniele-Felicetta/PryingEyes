@@ -71,6 +71,7 @@ namespace PryingEyes.Proc
             foreach (var r in plan.rooms) BuildRoom(fi, r);
             BuildGardens(fi);
             if (plan.theme == Theme.Guardaroba) BuildGuardarobaSky(fi);
+            BuildSacrari(fi);
             RoomKits.PlaceWindowBounce(fi);
             // la navmesh deve coprire anche i giardini fuori dai muri e, in altezza, dalla camera della cripta (-4,4 m) alle celle delle torri e alle volte delle cattedrali
             plan.WalkBounds(out int wx0, out int wz0, out int wx1, out int wz1);

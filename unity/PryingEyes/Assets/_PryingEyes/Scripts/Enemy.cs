@@ -551,31 +551,33 @@ namespace PryingEyes
         }
 
         /// <summary>Un colpo. 'claimer' e' lo slot di chi l'ha sparato quando e' un compagno (arriva dalla rete, solo sull'ospite): i punti
-        /// dei suoi colpi e della sua uccisione vanno a lui. 0 = il giocatore di questa macchina.</summary>
-        public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true, DamageSource src = DamageSource.Gun, int claimer = 0)
+        /// dei suoi colpi e della sua uccisione vanno a lui. 0 = il giocatore di questa macchina. 'quiet': danno nel tempo (fuoco,
+        /// emorragia, corrosione dei sigilli e delle magie): niente segnalino, suono, sussulto ne' spinta a ogni goccia.</summary>
+        public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true, DamageSource src = DamageSource.Gun, int claimer = 0, bool quiet = false)
         {
             if (dead) return;
             var shooter = claimer == 0 ? Seats.MyTarget : Targets.OfSlot(claimer);     // nello schermo condiviso chi spara e' il posto che gira
             NoteHit(dmg, point, shooter);                       // come cadra' se questo colpo uccide (Enemy.Ragdoll.cs)
             // il colpo che non uccide piega busto e testa via dal colpo (EnemyFlinch, sopra l'animazione)
-            if ((Archetype == EnemyType.Monaco || Archetype == EnemyType.Abate) && type != EnemyType.Statua && hp - dmg > 0f)
+            if (!quiet && (Archetype == EnemyType.Monaco || Archetype == EnemyType.Abate) && type != EnemyType.Statua && hp - dmg > 0f)
             {
                 var flinch = EnemyFlinch.For(gameObject);
                 if (flinch != null) { flinch.Scale = Archetype == EnemyType.Abate ? 0.7f : 1f; flinch.Kick(lastHitDir, dmg, headshot); }
             }
-            if (puppet) { PuppetDamage(dmg, point, headshot, awardPoints, src); return; }
+            if (puppet) { PuppetDamage(dmg, point, headshot, awardPoints, src, quiet); return; }
             if (IsVariant(type)) dmg *= VariantDamageScale(src);
             if (Drops.InstaKill && src != DamageSource.Nuke) dmg = Mathf.Max(dmg, hp + 1f);   // lo Sguardo: ogni colpo uccide
             // +10 per colpo a segno che non uccide; l'uccisione paga a parte (Punti.PerUccisione)
             if (awardPoints && hp - dmg > 0f) PayPoints(claimer, Punti.Colpo);
             hp -= dmg;
-            BeginHitFlash();
-            if (claimer == 0)
+            if (!quiet) BeginHitFlash();
+            if (claimer == 0 && (!quiet || hp <= 0f))
             {
                 GameManager.I.hud?.Hitmarker(hp <= 0f, headshot);
-                GameManager.shotsHit++;
+                if (!quiet) GameManager.shotsHit++;
                 Synth.Hit();
             }
+            if (quiet) { if (hp <= 0f) Die(headshot, src, claimer); return; }
             if (hp > 0f) Coop.Game?.EnemyEvent(this, EnemyEvt.Hit, point, headshot ? 1f : 0f);
             Vector3 push = transform.position - (shooter != null ? shooter.Feet : point);
             push.y = 0f;

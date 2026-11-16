@@ -109,6 +109,13 @@ namespace PryingEyes.EditorTools
                 foreach (var s in fi.annexSites)
                 {
                     annexes++;
+                    // il sacrario del grimorio si raggiunge solo a carponi (niente navmesh dentro, voluto): qui si controlla solo la parete
+                    if (s.data.kind == AnnexKind.Sacrario)
+                    {
+                        if (s.closer == null || s.closerCol == null || s.closerCol.gameObject.layer != HotelNav.DoorLayer || !Reach(s.outside, 1.5f, out string ws))
+                        { annexBad++; bad = true; sb.AppendLine($"{head}: {s.data}: parete del sacrario senza collider o non raggiungibile"); }
+                        continue;
+                    }
                     if (s.data.kind == AnnexKind.Torre) towers++; else if (s.data.kind == AnnexKind.Cripta) crypts++; else gardens++;
                     string tag = $"{head}: {s.data} ({s.data.gate})";
                     bool siteBad = false;

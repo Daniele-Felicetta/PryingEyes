@@ -763,6 +763,16 @@ namespace PryingEyes
             go.AddComponent<LightFade>().Begin(l, 0.35f);
         }
 
+        /// <summary>Una particella per gli effetti delle magie e dei sigilli (MagicFx): kind 0 sbuffo che cresce e sfuma, 1 scintilla
+        /// allungata sulla velocita', 4 lingua di fuoco (dal giallo al rosso). additive: si somma alla luce (bagliori, fuoco, gelo).</summary>
+        public static void Particle(int kind, bool additive, Vector3 pos, Vector3 vel, Vector3 grav, float size0, float size1, float life, Color col, float alpha = 1f)
+        {
+            Ensure();
+            var it = I.Spawn(additive ? SparkMat : PuffMat, life);
+            it.kind = kind; it.t.position = pos; it.vel = vel; it.grav = grav;
+            it.size0 = size0; it.size1 = size1; it.a0 = alpha; it.col = col;
+        }
+
         /// <summary>Uno sbuffo della nube tossica: sale lento e si allarga.</summary>
         public static void ToxicPuff(Vector3 p)
         {

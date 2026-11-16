@@ -169,7 +169,7 @@ You start with **500** points.
 
 **Perks** (phase 3). The perks are those of Black Ops Zombies, but kept in **magic books**, one per perk, in the **Biblioteca** of every floor: three stone lecterns in a row, each with a book floating and turning, with a seal lit in its perk's colour. You buy one (`F`) and the other two close again.
 
-There are four slots and four prices, depending on how many perks you already have: **2,000, 2,500, 3,000 and 4,000** points. With all slots full the Biblioteca offers nothing. The eight perks:
+There are four slots and four prices, depending on how many perks you already have: **2,000, 2,500, 3,000 and 4,000** points. With all slots full the Biblioteca offers nothing. Besides the Biblioteca, every floor hides one secret book room with a 19-node grimoire (spells for the left hand, or seals for the weapons): see [arms-and-magic.md](arms-and-magic.md). The eight perks:
 
 | Perk | Effect |
 |---|---|
@@ -250,6 +250,8 @@ Game controls (translated from the original text, checked against the code where
 | `G` | Knife: a slash (130 points if it kills). In the candle cycle, also the takedown when the prompt appears. |
 | `H` | Veil (candle cycle, if you have the perk): invisible for 5 seconds. |
 | `V` | Ping. For a few seconds it shows pulsing signals on doors still to buy (candle cycle: on unlit candles) and on the lift. Nearby enemies hear it. |
+| `3` / middle mouse | Left hand: tap to cast the selected spell, hold `3` to trace the selected seal on the weapon (needs the grimoires: [arms-and-magic.md](arms-and-magic.md)). |
+| `6` / `7` | Next spell / next seal. |
 
 The map reveals rooms you have visited and marks weapons, candelabra and the exit you have seen up close. Some walls hide low passages: hold C or Ctrl to crawl through. Enemies deal 50% extra damage (`PlayerController.cs`; the condition is not verified). The HUD shows charge, spares and the wait before the next ping. The arrow at the top points to the exit lift and shows when it is open (not verified).
 

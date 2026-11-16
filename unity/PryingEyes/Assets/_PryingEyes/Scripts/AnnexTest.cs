@@ -118,7 +118,10 @@ namespace PryingEyes
             Check($"nessun punto di nascita dentro un annesso ({fi.groundSpawns.Count} a terra, {fi.airSpawns.Count} in aria)", bad == 0);
 
             // prima i custodi delle chiavi: il giardino si apre solo con la chiave presa in un altro annesso
+            // il sacrario del grimorio si prova a parte (MagiaTest, -magiatest): si entra a carponi e custodisce un libro, non uno scrigno
             var order = new List<AnnexSite>(fi.annexSites);
+            order.RemoveAll(x => x.data.kind == AnnexKind.Sacrario);
+            Check("il piano ha il suo sacrario del grimorio (uno solo)", fi.annexSites.FindAll(x => x.data.kind == AnnexKind.Sacrario).Count == 1);
             order.Sort((a, b) => (a.data.gate == GateKind.Chiave ? 1 : 0).CompareTo(b.data.gate == GateKind.Chiave ? 1 : 0));
             foreach (var s in order)
             {

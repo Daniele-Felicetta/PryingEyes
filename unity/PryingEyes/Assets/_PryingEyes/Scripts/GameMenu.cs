@@ -14,6 +14,19 @@ namespace PryingEyes
         public static bool Blocked { get; private set; }
         public static bool InMenu { get; private set; }
         public static bool Paused { get; private set; }
+        static bool overlay;
+        /// <summary>Un'interfaccia sopra il gioco (il grimorio della stanza segreta): blocca i comandi come la pausa e libera il mouse, ma
+        /// non ferma il tempo, non nasconde l'HUD e Esc la chiude lei (GrimoireUI).</summary>
+        public static bool Overlay
+        {
+            get => overlay;
+            set
+            {
+                overlay = value; Blocked = InMenu || Paused || overlay;
+                // schermo condiviso: il libro blocca i comandi di tutti, quindi ferma anche il tempo (vedi Refresh)
+                if (Seats.Split && !Coop.Active && !InMenu && !Paused) Time.timeScale = overlay ? 0f : 1f;
+            }
+        }
 
         static readonly Color Ink = new Color(0.93f, 0.89f, 0.80f);
         static readonly Color Dim = new Color(0.60f, 0.70f, 0.67f);
@@ -56,6 +69,11 @@ namespace PryingEyes
             bool confirming = displayPending;
             UpdateDisplayPreview();
             if (confirming) return;
+            if (overlay && !InMenu && !Paused)
+            {
+                Cursor.lockState = CursorLockMode.None; Cursor.visible = !PadMenuInput.NavMode;
+                return;                                       // l'interfaccia sopra il gioco gestisce da se' Esc e il controller
+            }
             bool padBack = false;
             if (Blocked)
             {
@@ -232,14 +250,17 @@ namespace PryingEyes
 
         void Refresh()
         {
-            Blocked = InMenu || Paused;
-            Time.timeScale = Blocked && !Coop.Active ? 0f : 1f;     // in cooperativa gli altri non si fermano: la pausa blocca solo i comandi
-            backdrop.gameObject.SetActive(Blocked);
-            if (Seats.Split) Seats.SetHudsVisible(!Blocked);         // schermo condiviso: gli HUD di tutti
+            Blocked = InMenu || Paused || overlay;
+            bool menuUp = InMenu || Paused;
+            // in cooperativa gli altri non si fermano: la pausa blocca solo i comandi. Nello schermo condiviso anche il grimorio aperto
+            // ferma il tempo: blocca i comandi di tutti, e gli altri resterebbero indifesi
+            Time.timeScale = (menuUp || (overlay && Seats.Split)) && !Coop.Active ? 0f : 1f;
+            backdrop.gameObject.SetActive(menuUp);
+            if (Seats.Split) Seats.SetHudsVisible(!menuUp);         // schermo condiviso: gli HUD di tutti
             else
             {
                 var hud = GameManager.I != null && GameManager.I.hud != null ? GameManager.I.hud.GetComponent<Canvas>() : null;
-                if (hud != null) hud.enabled = !Blocked;
+                if (hud != null) hud.enabled = !menuUp;
             }
             bool alive = GameManager.I == null || GameManager.I.player == null || GameManager.I.player.alive;
             if (!Blocked && alive) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }

@@ -106,6 +106,9 @@ def pose_key(wid, cls):
 LAST_INDEX = {}
 CURRENT_WID = ''
 LAST_INFO = {}
+# le articolazioni dell'ultima mano costruita (coordinate canoniche): in hands_for la sinistra si costruisce per ultima, quindi dopo
+# hands_for qui ci sono le dita della sinistra avvolte all'astina (stage_pose le scrive per la mano libera di Unity)
+LAST_HAND = {}
 _load_weapon = H.load_weapon
 
 
@@ -146,6 +149,8 @@ def build_hand_bm(poly, thumb_zc, idx_curls=(4, 3, 0), idx_spread=0.0, thumb=Non
     cap(bm, (0, -0.050, 0), (0, -0.006, 0), 0.0300, 0.0255, seg=18)
     sph(bm, (0.022, -0.004, 0.007), 0.0065 * g)
     report = []
+    LAST_HAND.clear()
+    LAST_HAND['fingers'] = []
     for fi, (nm, k, sp0, lens, radii) in enumerate(M.FINGERS):
         if fi == 0 and idx_curls is not None:
             curls, sp = idx_curls, idx_spread
@@ -154,6 +159,7 @@ def build_hand_bm(poly, thumb_zc, idx_curls=(4, 3, 0), idx_spread=0.0, thumb=Non
             curls = H.wrap_curls_poly(k, sp, lens, radii, poly)
         report.append(curls)
         pts, dirs, a = M.finger_chain(k, sp, lens, curls)
+        LAST_HAND['fingers'].append([p.copy() for p in pts])
         cap(bm, (k[0] * 0.35, 0.004, 0.0075), (k[0], k[1] - 0.01, 0.0085), 0.003 * GS, 0.003 * GS, seg=8)
         if fi == 0 and idx_curls is not None and CURRENT_WID != KNIFE:
             # destra: la nocca resta nel guanto, le tre falangi diventano pezzi a parte con i perni alle articolazioni
@@ -171,6 +177,7 @@ def build_hand_bm(poly, thumb_zc, idx_curls=(4, 3, 0), idx_spread=0.0, thumb=Non
         tip = pts[3] - d3 * radii[3] * 0.6
         ell(bm, tuple(tip), (radii[3] * GS * 1.04, radii[3] * GS * 1.10, radii[3] * GS * 1.04), seg=12)
     tj = thumb if thumb is not None else H.thumb_joints(thumb_zc)
+    LAST_HAND['thumb'] = [p.copy() for p in tj]
     for i in range(3):
         cap(bm, tj[i], tj[i + 1], H.THUMB_R[i], H.THUMB_R[i + 1], seg=16)
     sph(bm, tj[1], H.THUMB_R[1] * 1.06, seg=14)
@@ -784,6 +791,178 @@ def stage_build(ids, cat):
         print(f'[build] {wid}: {time.time() - t0:.1f} s')
 
 
+# ----------------------------------------------------------------------------- mano libera (magie, potenziamenti, lanci)
+# La sinistra che lascia l'arma: lo stesso guanto, ma in posa neutra (dita appena piegate e aperte a ventaglio, pollice staccato dal
+# palmo) e con un perno a ogni articolazione. In Unity HandRig le da' la pelle (pesi per distanza dalle falangi) e la piega in qualunque
+# posa; per passare senza scatto dalla mano avvolta all'astina a questa, stage_pose scrive arma per arma dove stanno le articolazioni
+# della sinistra avvolta (presa_sinistra.json): Unity porta le falangi della mano libera esattamente li' e poi le muove.
+FREE_CURLS = ((8, 12, 7), (10, 14, 8), (12, 16, 9), (14, 18, 10))
+FREE_SPREAD = (-13.0, -3.0, 8.0, 19.0)          # ventaglio piu' aperto della mano rilassata: il remesh non fonde le dita tra loro
+FINGER_NAMES = ('indice', 'medio', 'anulare', 'mignolo')
+# assi della sinistra, gli stessi di genera_mani2.hands_for: dita verso +x d'autore, dorso verso -z, pollice verso +y (e' uno specchio)
+XL, YL, ZL = V(0, -1, 0), V(1, 0, 0), V(0, 0, -1)
+
+
+def free_thumb():
+    """Pollice rilassato, staccato dal palmo di ~40 gradi (dalla nocca carpo-metacarpale CMC di genera_mani2)."""
+    d1 = V(-0.62, 0.62, -0.48).normalized()
+    d2 = V(-0.36, 0.86, -0.36).normalized()
+    d3 = V(-0.22, 0.94, -0.26).normalized()
+    mcp = H.CMC + d1 * 0.046
+    ip = mcp + d2 * 0.035
+    tip = ip + d3 * 0.029
+    return [H.CMC.copy(), mcp, ip, tip]
+
+
+def build_free_bm():
+    """Mano destra canonica in posa neutra (come build_hand_bm, senza impugnatura): mesh, articolazioni delle dita e del pollice."""
+    bm = bmesh.new()
+    ell, cap, sph = M.bm_ellipsoid, M.bm_capsule, M.bm_sphere
+    GS = H.GS
+    g = 1.08
+    ell(bm, (0.003, 0.046, -0.002), (0.036 * g, 0.047, 0.0125 * g), seg=28)
+    ell(bm, (-0.021, 0.026, -0.009), (0.016 * g, 0.027, 0.012 * g), Matrix.Rotation(radians(-25), 3, 'Z'))
+    ell(bm, (0.025, 0.034, -0.007), (0.012 * g, 0.030, 0.010 * g))
+    ell(bm, (0.0, -0.004, 0.0), (0.027 * g, 0.020, 0.016 * g))
+    cap(bm, (0, -0.050, 0), (0, -0.006, 0), 0.0300, 0.0255, seg=18)
+    sph(bm, (0.022, -0.004, 0.007), 0.0065 * g)
+    fingers = []
+    for fi, (nm, k, sp0, lens, radii) in enumerate(M.FINGERS):
+        pts, dirs, a = M.finger_chain(k, FREE_SPREAD[fi], lens, FREE_CURLS[fi])
+        fingers.append(pts)
+        cap(bm, (k[0] * 0.35, 0.004, 0.0075), (k[0], k[1] - 0.01, 0.0085), 0.003 * GS, 0.003 * GS, seg=8)
+        for i in range(3):
+            cap(bm, pts[i], pts[i + 1], radii[i] * GS, radii[i + 1] * GS, seg=16)
+        sph(bm, pts[0], radii[0] * GS * 1.10, seg=16)
+        sph(bm, pts[1], radii[1] * GS * 1.04, seg=14)
+        sph(bm, pts[2], radii[2] * GS * 1.02, seg=14)
+        d3 = (pts[3] - pts[2]).normalized()
+        tip = pts[3] - d3 * radii[3] * 0.6
+        ell(bm, tuple(tip), (radii[3] * GS * 1.04, radii[3] * GS * 1.10, radii[3] * GS * 1.04), seg=12)
+    tj = free_thumb()
+    for i in range(3):
+        cap(bm, tj[i], tj[i + 1], H.THUMB_R[i], H.THUMB_R[i + 1], seg=16)
+    sph(bm, tj[1], H.THUMB_R[1] * 1.06, seg=14)
+    sph(bm, tj[2], H.THUMB_R[2] * 1.04, seg=14)
+    return bm, fingers, tj
+
+
+def stage_libera():
+    """braccia/mano_libera.fbx: radice mano_libera nell'origine canonica, guanto (mano + manichetta) e rinforzo (paranocche +
+    cinturino) e le articolazioni come Empty L_<dito>_1..4, L_pollice_0..3, L_polso, L_palmo, L_dorso, L_manichetta."""
+    t0 = time.time()
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    mats = make_mats()
+    bm, fingers, tj = build_free_bm()
+    Mf = H.frame_matrix(XL, YL, ZL, V(0, 0, 0))
+    W = V(0, -0.006, 0)                  # il polso della sinistra di genera_mani2 (WL = OL + YL * -0.006)
+    G = V(0, -1, 0)                      # la manichetta prolunga la mano: Unity la piega tra palmo e avambraccio col polso
+    X = V(1, 0, 0)
+    gb = gauntlet_bm(W, G, X)
+    tmp = bpy.data.meshes.new('tmp')
+    gb.to_mesh(tmp)
+    gb.free()
+    bm.from_mesh(tmp)
+    bpy.data.meshes.remove(tmp)
+    bmesh.ops.transform(bm, matrix=Mf, verts=bm.verts)
+    bmesh.ops.reverse_faces(bm, faces=bm.faces)
+    glove = H.make_obj('libera_guanto', bm, voxel=0.0024, sm_iter=3, folds=0.0004, seed=5.0, decimate=0.30)
+    kb = knuckle_guard_bm()
+    sb = strap_bm(W, G, X)
+    tmp = bpy.data.meshes.new('tmp')
+    sb.to_mesh(tmp)
+    sb.free()
+    kb.from_mesh(tmp)
+    bpy.data.meshes.remove(tmp)
+    bmesh.ops.transform(kb, matrix=Mf, verts=kb.verts)
+    bmesh.ops.reverse_faces(kb, faces=kb.faces)
+    guard = H.make_obj('libera_rinforzo', kb, voxel=0.0015, sm_iter=2, folds=0.0, decimate=0.35)
+    for o, mt in ((glove, mats['guanto']), (guard, mats['rinforzo'])):
+        o.data.materials.clear()
+        o.data.materials.append(mt)
+        H.box_uv(o)
+    joints = {'L_polso': W, 'L_palmo': V(0.003, 0.046, -0.002), 'L_dorso': V(0.003, 0.046, 0.030), 'L_manichetta': W + G * 0.070}
+    for fi, nm in enumerate(FINGER_NAMES):
+        for i in range(4):
+            joints[f'L_{nm}_{i + 1}'] = fingers[fi][i]
+    for i in range(4):
+        joints[f'L_pollice_{i}'] = tj[i]
+    sc = bpy.context.scene
+    top = bpy.data.objects.new('mano_libera', None)
+    sc.collection.objects.link(top)
+    keep = [top]
+    for o in (glove, guard):
+        o.parent = top
+        keep.append(o)
+    for nm, p in joints.items():
+        e = bpy.data.objects.new(nm, None)
+        e.empty_display_size = 0.01
+        sc.collection.objects.link(e)
+        e.location = Mf @ p
+        e.parent = top
+        keep.append(e)
+    for o in bpy.context.view_layer.objects:
+        o.select_set(False)
+    for o in keep:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = top
+    os.makedirs(OUT, exist_ok=True)
+    bpy.ops.export_scene.fbx(filepath=os.path.join(OUT, 'mano_libera.fbx'), use_selection=True, object_types={'EMPTY', 'MESH'}, apply_unit_scale=True,
+                             apply_scale_options='FBX_SCALE_UNITS', axis_forward='-Z', axis_up='Y', mesh_smooth_type='FACE', use_tspace=True,
+                             add_leaf_bones=False, bake_anim=False, path_mode='RELATIVE', embed_textures=False)
+    nv = len(glove.data.vertices) + len(guard.data.vertices)
+    print(f'[libera] mano_libera.fbx: {nv} vertici, {len(joints)} articolazioni, {time.time() - t0:.1f} s')
+
+
+def stage_pose(ids, cat):
+    """braccia/presa_sinistra.json: per ogni arma, le articolazioni della sinistra avvolta all'astina (o a coppa sul caricatore per le
+    armi a una mano) in coordinate d'autore relative a mano_s, piu' polso, gomito e spalla (con questi tre Unity ricava da solo come
+    gli assi d'autore finiscono nei suoi). Nessuna mesh: non si riesporta nessun FBX."""
+    global CURRENT_WID
+    out = []
+    for wid in ids:
+        if wid == KNIFE:
+            continue
+        t0 = time.time()
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        CURRENT_WID = wid
+        LAST_INDEX.clear()
+        res = H.hands_for(wid)
+        hand = {'fingers': [list(f) for f in LAST_HAND['fingers']], 'thumb': list(LAST_HAND['thumb'])}
+        bm, Mx, W, D_old, mirrored = res['left']
+        cls = (cat.get(wid) or {}).get('cls')
+        hip = hip_for(cls)
+        dR, sR, dL, sL = POSES[pose_key(wid, cls)]
+        back = (Mx.to_3x3() @ V(0, -1, 0)).normalized()
+        D, bend = H.limit_bend(back, cam_dir_to_author(dL), 40.0)
+        E = W + D * LF
+        S = cam_to_author(sL, hip)
+        anchor = res['anchor_s']
+
+        def rel(p):
+            return [round(c, 6) for c in (p - anchor)]
+
+        def canon(c):
+            return Mx @ (c if isinstance(c, Vector) else V(*c))
+
+        # vettori piatti (x, y, z, x, y, z...): li legge JsonUtility di Unity, che non conosce gli array annidati
+        out.append({
+            'id': wid,
+            'polso': rel(W), 'gomito': rel(E), 'spalla': rel(S),
+            'dita': [c for f in hand['fingers'] for p in f for c in rel(canon(p))],
+            'pollice': [c for p in hand['thumb'] for c in rel(canon(p))],
+            'palmo': rel(canon((0.003, 0.046, -0.002))),
+            'dorso': rel(canon((0.003, 0.046, 0.030))),
+        })
+        res['left'][0].free()
+        res['right'][0].free()
+        print(f'[pose] {wid}: {time.time() - t0:.1f} s')
+    os.makedirs(OUT, exist_ok=True)
+    with open(os.path.join(OUT, 'presa_sinistra.json'), 'w', encoding='utf-8') as f:
+        json.dump({'versione': 1, 'armi': out}, f, indent=1)
+    print(f'[pose] presa_sinistra.json: {len(out)} armi')
+
+
 if __name__ == '__main__':
     cat = catalog()
     all_ids = H.weapon_ids()
@@ -792,3 +971,7 @@ if __name__ == '__main__':
         stage_prova(ids, cat)
     if 'build' in ARGS:
         stage_build(ids, cat)
+    if 'libera' in ARGS:
+        stage_libera()
+    if 'pose' in ARGS:
+        stage_pose(ids, cat)

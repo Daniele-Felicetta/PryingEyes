@@ -56,6 +56,8 @@ hotel_build/armi_gioco/*.png
 !hotel_build/armi_gioco/espositori.png
 # foto della sonda dei fotogrammi (1920x1080, 2-3 MB l'una, un'ottantina a ogni giro): si rifanno con -perftest -perfshots; si tiene solo il foglio di confronto
 hotel_build/perf/
+# prova delle magie e dei sigilli (-magiatest -magiashots): risultati e circa 190 foto a ogni giro, si rifanno
+hotel_build/magia/
 
 # Isolated multiplayer checks; never use the main worktree build output.
 !tools/multiplayer-check/MultiplayerCheck.csproj
@@ -85,6 +87,7 @@ unity/LayoutDemo/ProjectSettings/*
 !unity/LayoutDemo/ProjectSettings/ProjectVersion.txt
 
 modelli/hotel/braccia/*.fbx
+modelli/hotel/braccia/*.json
 modelli/hotel/braccia/render/
 
 # Unreal prototype (unreal/PryingEyes): only the source, config and Python scripts are tracked; everything the engine

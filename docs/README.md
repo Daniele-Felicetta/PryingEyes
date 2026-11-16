@@ -28,6 +28,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [chandeliers.md](game/chandeliers.md) | Chandeliers that fall when shot, and breakable lamps. |
 | [power.md](game/power.md) | Floor power: emergency lights, the switchboard and its lever. |
 | [cathedrals-and-annexes.md](game/cathedrals-and-annexes.md) | Cathedral halls and annexes of the survival layout. |
+| [arms-and-magic.md](game/arms-and-magic.md) | The biomechanical arms and articulated left hand, the spells and weapon seals of the second hand, the secret book room and its two 19-node grimoires. |
 | [feel-and-reflections.md](game/feel-and-reflections.md) | Room reflections, scoreboard, inspection, ragdolls, vaulting, hit reactions, light shafts, empty magazines, medals, adaptive music, surface impacts. |
 | [display-and-menu.md](game/display-and-menu.md) | Display settings and the hotel-register main menu. |
 | [controller.md](game/controller.md) | The XInput controller: how the game finds it, the mapping, menu navigation with it, the on-screen hints, the checks and what is not verified. |

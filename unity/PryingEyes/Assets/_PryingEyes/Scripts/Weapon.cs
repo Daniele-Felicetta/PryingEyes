@@ -32,7 +32,13 @@ namespace PryingEyes
         public int reserveMax => ReserveMaxFor(Def, slots[cur].upg);
         /// <summary>Consacrazione (Consacrazione.cs): un'arma consacrata ha il caricatore e la riserva di una volta e mezza, e fa piu' danno.</summary>
         public const float UpgMag = 1.5f, UpgDamage = 1.7f;
-        static int MagFor(WeaponDef d, bool upg) => upg ? Mathf.CeilToInt(d.mag * UpgMag) : d.mag;
+        /// <summary>Caricatore dell'arma: una volta e mezza se consacrata, +25% con il sigillo Caricatore Esteso (Libro dell'Arsenale).</summary>
+        int MagFor(WeaponDef d, bool upg)
+        {
+            float m = OwnerMagic.MagMult;
+            int baseMag = upg ? Mathf.CeilToInt(d.mag * UpgMag) : d.mag;
+            return m > 1.001f ? Mathf.CeilToInt(baseMag * m) : baseMag;
+        }
         static int ReserveMaxFor(WeaponDef d, bool upg) => upg ? Mathf.CeilToInt(d.reserveMax * UpgMag) : d.reserveMax;
         public bool Upgraded => slots[cur].idx >= 0 && slots[cur].upg;
         public bool IsUpgraded(int slot) => slots[slot].idx >= 0 && slots[slot].upg;
@@ -58,6 +64,10 @@ namespace PryingEyes
         HUD hud;
         PlayerController player;
         PlayerPerks OwnerPerks => player != null ? player.PerkState : Perks.State;
+        /// <summary>Lo stato magico di chi impugna l'arma (i sigilli dell'Arsenale valgono per tutte le sue armi).</summary>
+        MagicState OwnerMagic => player != null ? player.Arcana : Magic.State;
+        /// <summary>Cadenza: Doppio colpo (perk) per Raffica Mortale (sigillo).</summary>
+        float RateK => OwnerPerks.RateMult * OwnerMagic.RateMult;
         GameObject flashA, flashB;
         Light flashLight;
         Light fill;
@@ -96,6 +106,15 @@ namespace PryingEyes
         bool handRHideAds, handRVis = true;
         // braccia col gomito (genera_braccia.py): la manica si piega quando la mano si sposta rispetto all'arma
         ArmRig armR, armL;
+        // la seconda mano che lascia l'arma: magie, sigilli tracciati sull'arma, lanci (OffHand, mano libera articolata HandRig)
+        OffHand offHand;
+        float holsterT;
+        bool detonationShot;
+        /// <summary>La seconda mano (null senza mano libera o senza mani su misura).</summary>
+        public OffHand OffHand => offHand;
+        public Transform ViewRootT => viewRoot;
+        public WeaponRig Rig => rig;
+        bool OffBusy => offHand != null && offHand.Busy;
         // indice destro articolato: disteso lungo il telaio a riposo, sul grilletto quando si spara o si mira (TriggerFinger)
         TriggerFinger trigFinger;
         float trigBlend;
@@ -136,7 +155,22 @@ namespace PryingEyes
         /// <summary>Ispezione dell'arma (I): pubblico per le prove.</summary>
         public void Inspect() { inspectT = InspectTime; Synth.Mech("draw", 0.35f, 0.9f); }
         public bool KnifeBusy => knifeOut;
-        public bool CanKnife => swapT <= 0f;
+        public bool CanKnife => swapT <= 0f && !OffBusy;
+
+        /// <summary>La mano sinistra puo' lasciare l'arma per un gesto? Niente durante la ricarica, il cambio, l'estrazione, il coltello,
+        /// la corsa o un altro gesto. 'why' vuoto = no in silenzio (non serve dirlo).</summary>
+        public bool CanUseOffHand(out string why)
+        {
+            why = "";
+            if (cam == null || viewRoot == null || OffBusy) return false;
+            if (knifeOut || knifeBlend > 0.01f || swapT > 0f || pendingSlot >= 0) return false;
+            if (equipT > Def.drawTime * 0.5f) return false;
+            if (sprintBlend > 0.3f) return false;
+            if (reloading) { why = "Prima finisci di ricaricare."; return false; }
+            inspectT = 0f;
+            why = null;
+            return true;
+        }
 
         /// <summary>Il coltello esce (o rientra). Fuori: la ricarica in corso salta e la fiammata si spegne; dentro: l'arma risale.</summary>
         public void KnifeOut(bool on)
@@ -144,6 +178,7 @@ namespace PryingEyes
             if (knifeOut == on) return;
             knifeOut = on;
             if (!on) return;
+            offHand?.Cancel();
             if (reloading) CancelReload();
             burstLeft = 0; cycleAnim = -1f;
             if (flashA != null && flashA.activeSelf) { flashA.SetActive(false); flashB.SetActive(false); flashLight.intensity = 0f; }
@@ -297,7 +332,7 @@ namespace PryingEyes
 
         public void SwitchSlot(int s)
         {
-            if (s < 0 || s > 1 || s == cur || slots[s].idx < 0 || swapT > 0f || knifeOut) return;
+            if (s < 0 || s > 1 || s == cur || slots[s].idx < 0 || swapT > 0f || knifeOut || OffBusy) return;
             // l'arma in mano scende; a meta' si cambia il modello
             State.CancelReload(); hud?.SetReloading(false);
             burstLeft = 0; cycleAnim = -1f;
@@ -386,6 +421,8 @@ namespace PryingEyes
         void BuildViewmodel()
         {
             if (cam == null || !Application.isPlaying) return;
+            offHand?.Cancel();
+            offHand = null;
             if (viewRoot != null) { SafeDestroy(viewRoot.gameObject); viewRoot = null; }
             for (int i = cam.childCount - 1; i >= 0; i--)
             {
@@ -554,6 +591,7 @@ namespace PryingEyes
             handRRend = null; handRHideAds = false; handRVis = true;
             armR = armL = null;
             trigFinger = null;
+            offHand = null;
             var prefab = Resources.Load<GameObject>("ManiArmi/" + d.id);
             bool onMeasure = prefab != null;
             if (!onMeasure) prefab = Resources.Load<GameObject>("Mani");
@@ -594,7 +632,10 @@ namespace PryingEyes
                     handL.position += root.transform.TransformVector(target - hg);
                 }
                 handLRest = root.transform.InverseTransformPoint(handL.position);
-                handLRend = WithSkin(handL.GetComponentsInChildren<Renderer>(true), armL);
+                var wrappedLeft = handL.GetComponentsInChildren<Renderer>(true);
+                handLRend = WithSkin(wrappedLeft, armL);
+                // la mano libera nasce qui, sotto mano_s, dove sta il guanto avvolto (OffHand)
+                if (onMeasure) offHand = OffHand.Build(cam, root.transform, g.transform, handL, armL, rig, d, wrappedLeft);
             }
             if (handR != null)
             {
@@ -720,7 +761,7 @@ namespace PryingEyes
                     Synth.Mech("draw", 0.6f, 1f);
                 }
             }
-            else if (inputEnabled)
+            else if (inputEnabled && !OffBusy)
             {
                 if (SeatInput.GetKeyDown(KeyCode.Alpha1)) SwitchSlot(0);
                 else if (SeatInput.GetKeyDown(KeyCode.Alpha2)) SwitchSlot(1);
@@ -730,13 +771,15 @@ namespace PryingEyes
             }
             d = Def; // il cambio può essersi concluso in questo stesso fotogramma
             // ispezione dell'arma: I a riposo; sparare, mirare, ricaricare, cambiare o il coltello la interrompono
-            if (inputEnabled && SeatInput.GetKeyDown(KeyCode.I) && inspectT <= 0f && !reloading && ads < 0.1f && swapT <= 0f && !knifeOut) Inspect();
+            if (inputEnabled && SeatInput.GetKeyDown(KeyCode.I) && inspectT <= 0f && !reloading && ads < 0.1f && swapT <= 0f && !knifeOut && !OffBusy) Inspect();
+            if (OffBusy) inspectT = 0f;
+            AutoReloadHolstered(dt);
             if (inspectT > 0f && (triggerHeld || ads > 0.2f || reloading || swapT > 0f || knifeOut)) inspectT = 0f;
             if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
 
             // ----- mira
-            bool adsWant = inputEnabled && (SeatInput.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && !knifeOut && (!reloading || Def.style == ReloadStyle.Tube);
-            adsRaw = Mathf.MoveTowards(adsRaw, adsWant ? 1f : 0f, dt / Mathf.Max(0.05f, d.adsTime));
+            bool adsWant = inputEnabled && (SeatInput.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && !knifeOut && !OffBusy && (!reloading || Def.style == ReloadStyle.Tube);
+            adsRaw = Mathf.MoveTowards(adsRaw, adsWant ? 1f : 0f, dt * OwnerMagic.HandlingMult / Mathf.Max(0.05f, d.adsTime));
             ads = adsRaw * adsRaw * (3f - 2f * adsRaw);
 
             // ----- dispersione: cala da sola; il pavimento dipende dal movimento
@@ -746,7 +789,7 @@ namespace PryingEyes
 
             // ----- ricarica
             if (reloading) TickReload(dt, d);
-            if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f && !knifeOut) Reload();
+            if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f && !knifeOut && !OffBusy) Reload();
 
             // ----- fuoco
             // Conserva il ritardo del fotogramma quando parte il colpo, senza accumulare credito durante l'attesa.
@@ -755,7 +798,7 @@ namespace PryingEyes
             bool press = inputEnabled && (SeatInput.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f));
             bool held = inputEnabled && (SeatInput.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot);
             if (!held) { triggerHeld = false; dryPlayed = false; }
-            bool blocked = knifeOut || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
+            bool blocked = knifeOut || OffBusy || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
             if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || State.RoundsLoaded > 0))
             {
                 // sparare interrompe la ricarica a canna
@@ -766,7 +809,7 @@ namespace PryingEyes
                 var m = Mode;
                 if (burstLeft > 0 && fireT <= 0f)
                 {
-                    if (mag > 0) { Shoot(d); burstLeft--; if (burstLeft == 0) State.DelayAfterBurst(d.burstGap / OwnerPerks.RateMult); }
+                    if (mag > 0) { Shoot(d); burstLeft--; if (burstLeft == 0) State.DelayAfterBurst(d.burstGap / RateK); }
                     else burstLeft = 0;
                 }
                 else if (fireT <= 0f && cycleT <= 0f)
@@ -848,14 +891,14 @@ namespace PryingEyes
             float mv = 1f + d.moveSpread * moveNow * (1f - ads * 0.6f);
             float c = crouched ? 0.72f : 1f;
             float air = 1f + airNow * 1.6f;
-            return baseDeg * mv * c * air + bloom * Mathf.Lerp(1f, 0.5f, ads);
+            return (baseDeg * mv * c * air + bloom * Mathf.Lerp(1f, 0.5f, ads)) * OwnerMagic.SpreadMult;
         }
 
         // ------------------------------------------------------------------ ricarica
         public void Reload()
         {
             var d = Def;
-            if (reloading || swapT > 0f || knifeOut) return;
+            if (reloading || swapT > 0f || knifeOut || OffBusy) return;
             var timing = d.style == ReloadStyle.Tube ? ReloadTiming.PerRound(d.shellTime, .35f, .25f, .55f) :
                 ReloadTiming.Magazine(d.reload, d.reloadEmpty);
             if (!State.BeginReload(magSize, timing)) return;
@@ -873,7 +916,7 @@ namespace PryingEyes
 
         void TickReload(float dt, WeaponDef d)
         {
-            var step = State.AdvanceReload(dt / OwnerPerks.ReloadTime);
+            var step = State.AdvanceReload(dt * OwnerMagic.HandlingMult / OwnerPerks.ReloadTime);
             if (d.style == ReloadStyle.Tube)
             {
                 for (int round = 0; round < step.RoundsInserted; round++)
@@ -905,22 +948,24 @@ namespace PryingEyes
         void Shoot(WeaponDef d)
         {
             if (!State.ConsumeRound()) return;
+            // Munizioni Fantasma (un colpo su otto torna nel caricatore) e Arma Maledetta (munizioni infinite)
+            if (OwnerMagic.CursedOn(cur) || (OwnerMagic.GhostAmmo && Random.value < 0.125f)) mag = Mathf.Min(magSize, mag + 1);
             lastShot = Time.time;
             GameManager.shotsFired++;
             // i preti sentono lo sparo (e ne vedono il lampo): l'arma silenziata si sente da molto meno lontano
             Stealth.NoteShot(d.suppressed);
             Noise.Emit(cam.position, d.suppressed ? 11f : 42f, NoiseKind.Gunshot);
             var m = Mode;
-            State.RecordShot((m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm)) / OwnerPerks.RateMult);    // Doppio colpo: +33% di cadenza
+            State.RecordShot((m == FireMode.Burst ? 60f / d.rpm : (d.cycle > 0f ? 0.08f : 60f / d.rpm)) / RateK);    // Doppio colpo +33%, Raffica Mortale +12%
             if (d.cycle > 0f && m != FireMode.Double) StartCycle(d, true);
             streak++; streakT = 0.28f;
             // rinculo della visuale: cresce un poco con la raffica, in mira e accovacciati e' piu' dolce
-            float dampen = Mathf.Lerp(1f, 0.72f, ads) * (crouchNow > 0.5f ? 0.85f : 1f);
+            float dampen = Mathf.Lerp(1f, 0.72f, ads) * (crouchNow > 0.5f ? 0.85f : 1f) * OwnerMagic.RecoilMult;     // Stabilita' Oscura: -30%
             float rv = d.recV * (1f + 0.035f * Mathf.Min(streak, 10)) * dampen;
             float rh = (Random.Range(-1f, 1f) * d.recH + Mathf.Sin(streak * 0.9f + d.id.Length) * d.recH * 0.45f) * dampen;
             if (player != null) player.Kick(rv, rh, d.recRecover);
             // contraccolpo del modello
-            kickBack = Mathf.Min(1.2f, kickBack + 0.38f * d.kick);
+            kickBack = Mathf.Min(1.2f, kickBack + 0.38f * d.kick * OwnerMagic.RecoilMult);
             kickPitch = Mathf.Min(14f, kickPitch + 1.6f * d.kick);
             kickRoll += Random.Range(-1f, 1f) * 1.2f * d.kick;
             bloom = Mathf.Min(d.bloomMax, bloom + d.bloomShot);
@@ -949,7 +994,9 @@ namespace PryingEyes
             if (d.casing != "none" && rig.eject != null && d.cycle <= 0f)
                 EjectCasing(d);
 
+            detonationShot = OwnerMagic.Detonation && Random.value < 0.0625f;
             FireRays(d);
+            detonationShot = false;
             hud?.SetAmmo(mag, reserve);
             if (mag <= 0 && reserve > 0 && Mode != FireMode.Double) { /* la ricarica parte al prossimo grilletto */ }
         }
@@ -963,8 +1010,8 @@ namespace PryingEyes
 
         void StartCycle(WeaponDef d, bool afterShot)
         {
-            State.StartCycle((afterShot ? d.cycle : d.cycle * 0.7f) / OwnerPerks.RateMult);
-            cycleAnim = 0f; cycleLen = (afterShot ? d.cycle : d.cycle * 0.7f) / OwnerPerks.RateMult;
+            State.StartCycle((afterShot ? d.cycle : d.cycle * 0.7f) / RateK);
+            cycleAnim = 0f; cycleLen = (afterShot ? d.cycle : d.cycle * 0.7f) / RateK;
             cycleDelayAfterShot = afterShot;
             cycleCasingDone = false;
             Synth.Mech(Mode == FireMode.Pump ? "pumpback" : Mode == FireMode.Lever ? "leverdown" : "boltup", 0.55f, 1f);
@@ -1043,14 +1090,17 @@ namespace PryingEyes
                 float dist = h.distance;
                 float fall = dist <= d.rangeNear ? 1f : Mathf.Lerp(1f, d.farMult, Mathf.Clamp01((dist - d.rangeNear) / Mathf.Max(0.1f, d.rangeFar - d.rangeNear)));
                 float dmg = d.damage * fall * dmgMul * (head ? d.headMult * OwnerPerks.HeadMult : 1f) * (slots[cur].upg ? UpgDamage : 1f);
+                dmg = SigilDamage(e, dmg, h.point);
                 bool first = hitSet.Add(e);
                 Fx.Blood(h.point, dir, e.BloodTint, head);
                 e.Damage(dmg, h.point, head, first);
+                SigilHit(e, dmg, h.point, d);
                 end = h.point;
-                if (pierced >= d.pierce) break;
+                if (pierced >= d.pierce + OwnerMagic.ExtraPierce) break;
                 pierced++;
                 dmgMul *= d.pierceMult;
             }
+            if (detonationShot && (end - origin).sqrMagnitude < 150f * 150f) { Detonate(end, d.damage); detonationShot = false; }
             if (tracer)
             {
                 if (d.beam) Fx.Beam(muzzlePos, end, d.tracerWidth, d.tracerColor);
@@ -1174,6 +1224,13 @@ namespace PryingEyes
                 rot *= Quaternion.Euler(26f * tk, -6f * tk, 9f * tk);
                 throwT -= dt;
             }
+            if (OffBusy)
+            {
+                // la seconda mano lavora: l'arma la regge la destra da sola (abbassata) o viene offerta di lato alla sinistra
+                offHand.WeaponOffset(out Vector3 op, out Vector3 orr);
+                pos += op;
+                rot *= Quaternion.Euler(orr);
+            }
             viewRoot.localPosition = pos;
             viewRoot.localRotation = rot;
             AnimateParts(rp, d);
@@ -1185,7 +1242,8 @@ namespace PryingEyes
                 trigBlend = Mathf.MoveTowards(trigBlend, wantTrigger ? 1f : 0f, dt * (wantTrigger ? 10f : 3.5f));
                 trigFinger.Pose(trigBlend, sinceShot < 0.09f ? 1f - sinceShot / 0.09f : 0f);
             }
-            armL?.Solve(ads);
+            offHand?.Tick(dt);
+            armL?.Solve(ads, dt);
         }
 
         void AnimateParts(float rp, WeaponDef d)
@@ -1255,8 +1313,12 @@ namespace PryingEyes
                     rig.Rotate(rig.cover, new Vector3(-75f * open, 0f, 0f));
                 }
             }
-            // ---- mano sinistra
-            if (handL != null)
+            // ---- mano sinistra (durante un gesto la muove OffHand: qui solo la manica, che deve vedersi anche con le pistole)
+            if (handL != null && OffBusy)
+            {
+                if (armL != null && armL.Skin != null) armL.Skin.enabled = true;
+            }
+            else if (handL != null)
             {
                 bool vis = d.hand > 0.5f || (rp >= 0f && rp > 0.04f && rp < 0.96f);
                 if (handLRend != null) foreach (var r in handLRend) if (r != null) r.enabled = vis;

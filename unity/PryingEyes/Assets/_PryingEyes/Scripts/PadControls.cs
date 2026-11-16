@@ -20,7 +20,8 @@ namespace PryingEyes
     ///   RT fuoco, LT mira; A salto, B abbassati (tenuto), X ricarica, Y cambia arma, RB usa e compra (F)
     ///   croce: sinistra e destra sporgersi (Q, E), su torcia (T), giu' acquasanta (Z)
     ///   LB + A velo (H), LB + B modo di fuoco (B), LB + X carillon (4), LB + Y mina (5), LB + su mappa (M), LB + giu' indica le porte (V),
-    ///   LB + sinistra cambio pila (Y); Start pausa, Back tabellone (tenuto, Tab).</summary>
+    ///   LB + sinistra cambio pila (Y); LB + RB magia della mano sinistra (3: tocco la magia, tenuto il sigillo sull'arma), LB + destra
+    ///   magia seguente (6), LB + R3 sigillo seguente (7); Start pausa, Back tabellone (tenuto, Tab).</summary>
     [DefaultExecutionOrder(-10001)]
     public sealed class PadControls : MonoBehaviour
     {
@@ -151,15 +152,19 @@ namespace PryingEyes
                 NavX = nx; NavY = ny;
                 Confirm = Pressed(A); Cancel = Pressed(B);
 
-                // sempre uguali, in tutti e due i livelli
-                Set(TouchControls.Action.Use, Is(RightShoulder), Pressed(RightShoulder));
-                Set(TouchControls.Action.Knife, false, Pressed(RightStick));
+                // sempre uguali, in tutti e due i livelli (RB e R3 con LB tenuto sono della mano sinistra: magie e sigilli)
+                bool lb = Is(LeftShoulder);
+                Set(TouchControls.Action.Use, !lb && Is(RightShoulder), !lb && Pressed(RightShoulder));
+                Set(TouchControls.Action.Knife, false, !lb && Pressed(RightStick));
                 Set(TouchControls.Action.Pause, false, Pressed(StartBtn));
                 Set(TouchControls.Action.Scoreboard, Is(BackBtn), false);
 
-                if (Is(LeftShoulder))
+                if (lb)
                 {
                     // secondo livello: tutto quello che non sta sui tasti principali
+                    Set(TouchControls.Action.Spell, Is(RightShoulder), Pressed(RightShoulder));
+                    Set(TouchControls.Action.SpellNext, false, Pressed(DpadRight));
+                    Set(TouchControls.Action.InfusionNext, false, Pressed(RightStick));
                     Set(TouchControls.Action.Velo, false, Pressed(A));
                     Set(TouchControls.Action.Mode, false, Pressed(B));
                     Set(TouchControls.Action.Lure, false, Pressed(X));
