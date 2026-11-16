@@ -40,9 +40,9 @@ Sections 2 to 4 describe the floor. Sections 5 and 6 describe the two cycles. Se
 - **Hotel with church** (`Albergo`): always on floors 1 and 2 (`PlanThemes.PickTheme`).
 - **Theatre** (`Teatro`): an auditorium with boxes and a foyer, a stage with dressing rooms, joined by the proscenium arch.
 - **Sanatorium** (`Sanatorio`): an institute with reception, wards, cells and services, plus the chapel.
-- **Guardaroba** (`Guardaroba`): the Count's castle of wardrobes, vampires, scissors and lava, with open-air terraces; see [guardaroba.md](guardaroba.md).
+- **Guardaroba** (`Guardaroba`): the Count's castle of wardrobes, vampires, scissors and lava, with open-air terraces; see [guardaroba.md](guardaroba.md). Off by default: `-guardaroba N` makes N floors in a hundred, from the third up, Guardaroba (`PlanGen.GuardarobaPercent`, default 0), and `-theme guardaroba` forces it.
 
-From floor 3 one floor in four is the Guardaroba (`PlanGen.GuardarobaPercent`, 25) and the theme of the others is drawn with equal weight among the first three.
+From floor 3 the theme is drawn with equal weight among the first three, and the Guardaroba replaces it on the floors the second draw picks (none by default).
 
 Theatre and sanatorium have their own plans, materials, lights, fog, sounds, furniture and models (phases 1 to 3 of the themes). The models are:
 

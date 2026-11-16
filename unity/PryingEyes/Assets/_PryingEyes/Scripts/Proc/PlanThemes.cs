@@ -13,8 +13,10 @@ namespace PryingEyes.Proc
         /// vecchio (-oldplan) non sa comporre il Guardaroba e lo legge come albergo.</summary>
         public static Theme? ForceTheme;
 
-        /// <summary>Su cento piani dal terzo in su, quanti sono il Guardaroba. 0 lo spegne (i piani tornano quelli di prima).</summary>
-        public static int GuardarobaPercent = 25;
+        /// <summary>Su cento piani dal terzo in su, quanti sono il Guardaroba. 0 (il predefinito) lo spegne: i piani sono quelli di prima, sullo stesso
+        /// seme, e la cooperativa non cambia. Si accende con <c>-guardaroba N</c> (ThemeFlag.cs; con la cooperativa lo stesso N su ogni
+        /// macchina: il piano si ricava dal seme) o si forza con <c>-theme guardaroba</c>. Il tema e' fatto ma non e' ancora stato giocato.</summary>
+        public static int GuardarobaPercent = 0;
 
         /// <summary>Piani 1 e 2: solo albergo e chiesa, per imparare il gioco. Dal terzo piano il tema viene estratto a pari peso tra
         /// albergo, teatro e sanatorio con lo stesso Rng di sempre (cosi' il resto del piano non cambia); il Guardaroba e' una seconda

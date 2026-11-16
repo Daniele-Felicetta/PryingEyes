@@ -102,9 +102,12 @@ dotnet run -c Release -- stats 3000        # statistics of the wing plans
 dotnet run -c Release -- grid 2000         # grid plan: roles, doors, sizes, arenas, shutters
 dotnet run -c Release -- regions 2000      # sealable round zones: candles with a zone, by theme and floor
 dotnet run -c Release -- sheet <seed> 6 file.ppm   # plan map in PPM
+dotnet run -c Release -- themes 3068/5 1000/3      # the theme of each seed/floor with the current settings
 ```
 
-Add `old` anywhere on the line to use the previous generator (wing plans, `PlanGen.UseGrid = false`). Output: stdout, or the `.ppm` file.
+Add `old` anywhere on the line to use the previous generator (wing plans, `PlanGen.UseGrid = false`). Other words valid on any command: `waves` (the room layout of the wave cycle, the game's default), `theme=guardaroba` (or albergo, teatro, sanatorio: every plan of that theme), `guardaroba=N` (how many floors in a hundred, from the third up, are the Guardaroba; the default is 0) and `salt=N` (the salt of that second draw; `themes scan seed/floor ...` lists salts that keep the theme of the seeds you name). Output: stdout, or the `.ppm` file.
+
+To prove that a change to the generator leaves the floors of the other themes alone, build the lab from the previous commit (`git archive <commit> tools/planlab unity/PryingEyes/Packages/com.pryingeyes.layout/Runtime unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc` into an empty folder) and compare the output of `grid`, `survival`, `stats`, `regions`, `annex` and of `dump <seed> <floor>` between the two (only the timing line differs). Done on 16 November 2026 for the Guardaroba against `3938be9`: 2,000 plans per command and 48 dumps (12 seeds, floors 1, 3, 5, 8), identical with the theme off.
 
 ### 2.5 Procedural floor tools (Unity editor, edit mode)
 

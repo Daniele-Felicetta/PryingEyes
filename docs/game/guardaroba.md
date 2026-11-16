@@ -1,9 +1,10 @@
 # Guardaroba: the Count's wardrobe
 
-Added on 16 November 2026 on the `guardaroba` branch. The fourth theme of the Tower after the hotel, the theatre and the sanatorium:
-wardrobes, vampires, scissors and lava, with open-air terraces over a lake of lava. It started from a request for new assets, and
-the asset set is the part that was asked for first, so it comes first here: 17 hand-modelled props (`modelli/hotel/genera_arredi4.py`).
-The theme's level code sits in the same branch and is summarised at the end. New enemies and new weapons are not done.
+Added on 16 November 2026. The fourth theme of the Tower after the hotel, the theatre and the sanatorium: wardrobes, vampires,
+scissors and lava, with open-air terraces over a lake of lava. It started from a request for new assets, and the asset set is the part
+that was asked for first, so it comes first here: 17 hand-modelled props (`modelli/hotel/genera_arredi4.py`). The theme's level
+code is summarised at the end. **The theme is off by default** (no floor is a Guardaroba unless you ask, see below), so the game plays as before;
+the props and the code are in the repository for whoever turns it on. New enemies and new weapons are not done.
 
 ## The 17 props
 
@@ -92,13 +93,16 @@ Arenas and guard rooms get cover from `CoverGuardaroba` (`RoomKitsCover.cs`): wa
 mannequins, coat stands, fabric shelves, coffins, gargoyles, cutting tables, anvils, benches and carts. The crypt's arena benches are
 `gu_bara`.
 
-## The level code in the branch
+## The level code
 
 Written before the assets, summarised from the sources (it is not the subject of this page):
 
-- Theme: `Theme.Guardaroba` and six room kinds (`PlanTypes.cs`); one floor in four from the third up is a Guardaroba
-  (`PlanGen.GuardarobaPercent` = 25, `PlanThemes.cs`; the other floors are drawn among the three old themes as before). Flags for
-  tools: `-theme guardaroba` forces it, `-guardaroba N` sets the percentage (`ThemeFlag.cs`). Room roles and their candidate kinds are in `PlanGrid.cs`, which also forces one or two terraces per floor.
+- Theme: `Theme.Guardaroba` and six room kinds (`PlanTypes.cs`, appended at the end of the enums: the theme value travels in the co-op
+  signal). A second draw, independent of the first, makes a floor from the third up a Guardaroba with probability
+  `PlanGen.GuardarobaPercent` per hundred (`PlanThemes.cs`); **the default is 0**, and with 0 the plans of every seed are the ones of
+  before (checked, see below). Launch flags (`ThemeFlag.cs`, read by the player and by the editor tools): `-guardaroba N` sets the
+  percentage (in co-op give the same N on every machine: each one builds the floor from the seed, and a client whose plan digest differs from the
+  host's refuses the floor with "Procedural plan mismatch", `FishNetWorldState.cs`), `-theme guardaroba` forces the theme of every grid floor. Room roles and their candidate kinds are in `PlanGrid.cs`, which also forces one or two terraces per floor.
 - Open-air rooms (`CeilKind.Open`): no ceiling, a parapet 1.55 m high with merlons over the void (`FloorBuilder.Open.cs`).
 - Outside: a night sky with a red moon (`NightSky.shader`, `GuardarobaKit.cs`) and, 17 m below the floor, a lake of lava
   (`FloorBuilder.Guardaroba.cs`); whoever falls into the void reaches the lava and is brought back up by the existing `FallGuard` at -20 m.
@@ -129,7 +133,13 @@ Written before the assets, summarised from the sources (it is not the subject of
   problems, 0 unreachable rooms, 0 unreachable candles, exits and lifts fine; average build 81 ms and navmesh 154 ms per floor.
   The statistics of the 24 floors place 1,792 wardrobes, 514 open coffins, 307 gargoyles, 416 cutting tables and 17 crucibles.
 - One floor of seed 3068 (floor 5) photographed room by room with the real look (`ProcShots -look`).
+- With the theme drawn by chance (`-guardaroba 25`) `ProcCheck` over 48 floors gives 12 Guardaroba floors (Albergo 22, Teatro 10, Sanatorio 4) and again
+  0 floors with problems and 0 unreachable rooms; with the default (off), 24 floors, 0 problems.
+- **With the theme off nothing changes.** The plan generator was built from the commit before the theme (`3938be9`) and from this one and compared: the
+  output of `grid`, `survival`, `stats`, `regions` and `annex` over 2,000 plans and the `dump` of 48 plans (12 seeds, floors 1, 3, 5, 8) are identical (only the
+  timing line differs); with `guardaroba=25` the same comparison does differ, so it can tell. The changes to `FloorBuilder`, `RoomKits`
+  and `FloorDirector.Look` are all behind `theme == Theme.Guardaroba`, a new `RoomKind` or `CeilKind.Open`. Commands in [../engineering/testing.md](../engineering/testing.md) (2.4).
 
 Not verified: frame time in the player with the new props (only editor photos and the editor connectivity check), the player build,
-any playtest, co-op (floor plans of a given seed change from floor 3 when the theme is on, so the co-op protocol revision would have
-to be bumped before merging), the light balance of the fire baskets in the player. Enemies, weapons and sounds of the theme are not done.
+any playtest, co-op with the theme on (every machine needs the same `-guardaroba N`; a mismatch is refused by the digest check, not tried),
+the light balance of the fire baskets in the player. Enemies, weapons and sounds of the theme are not done.
