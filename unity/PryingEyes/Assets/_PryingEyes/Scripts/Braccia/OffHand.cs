@@ -269,7 +269,7 @@ namespace PryingEyes
         public void AfterArmSolve()
         {
             if (!freeShown) return;
-            free.UpdateCuff(armL != null ? armL.LastWristW - armL.LastElbowW : Vector3.zero);
+            free.UpdateCuff(armL != null ? armL.LastForearmDirW : Vector3.zero);
         }
 
         /// <summary>Presa di sostegno naturale (presa realistica, armi a due mani): il guanto sinistro di ogni arma e' modellato per la
@@ -310,6 +310,25 @@ namespace PryingEyes
             free.Apply(pose);
             ShowFree(false);
             return viewRoot.InverseTransformPoint(handL.position);
+        }
+
+        float idleT, regripAt = 3f;
+
+        /// <summary>A riposo (presa di sostegno naturale) la sinistra e' viva: ogni 4-8 secondi si riassesta sull'astina (le dita si
+        /// allentano un poco e tornano a stringere in mezzo secondo) e a ogni colpo stringe un attimo (shot 0..1, il contraccolpo).</summary>
+        public void Idle(float dt, float shot)
+        {
+            if (anim != null || !NaturalRest) return;
+            idleT += dt;
+            float loosen = 0f, ph = idleT - regripAt;
+            if (ph >= 0f)
+            {
+                loosen = Mathf.Sin(Mathf.Clamp01(ph / 0.55f) * Mathf.PI) * 0.32f;
+                if (ph > 0.55f) regripAt = idleT + UnityEngine.Random.Range(4f, 8f);
+            }
+            var p = HandPose.Lerp(gripPose, HandPoses.Relaxed, loosen);
+            if (shot > 0.01f) p = HandPose.Lerp(p, HandPoses.Fist, 0.12f * Mathf.Clamp01(shot));
+            free.Apply(p, dt);
         }
 
         void RestoreRest()

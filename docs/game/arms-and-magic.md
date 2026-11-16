@@ -23,8 +23,7 @@ back and throws; the object leaves from the palm).
 
 To try arms, gestures and effects by hand without finding the books, launch the game with `-provamagia`: every spell and seal with
 their outer nodes (except Gesto Rapido and Maneggevolezza, which speed the gestures up), full essence, 10,000 points and the AR-9
-Malleus in the second slot (with the starting P9 Pieta it is one of the two weapons with the realistic hold). It is applied again at
-every new game.
+Malleus in the second slot (a rifle next to the starting P9 Pieta). It is applied again at every new game.
 
 ## The secret book room (`AnnexKind.Sacrario`)
 
@@ -116,9 +115,12 @@ runes run from the hand outwards) and emits its particles.
 ## Arms and hands
 
 - **Free hand** (`HandRig`): the left glove of the per-weapon hands, rebuilt by `modelli/hotel/genera_braccia.py -- libera` in a
-  neutral pose with a pivot at every joint (4 per finger, 4 on the thumb, wrist, palm, back). At runtime the glove is skinned on 17
+  neutral pose with a pivot at every joint (4 per finger, 4 on the thumb, wrist, palm, back). The second version has no rubber
+  knuckle plate (it looked like a paw), knuckle padding and tendons under the leather, and only a strap with a tab around the cuff;
+  it is remeshed at 1.3 mm and decimated to about 29,000 vertices. At runtime the glove is skinned on 17
   bones (palm, 15 phalanges, cuff) with weights from the distance to the phalanx capsules, blended at the joints and between
-  neighbouring fingers. The cuff behind the wrist belongs to the forearm, not to the hand: its bone sits on the wrist, along the
+  neighbouring fingers. Bones and skin are built in the hand root's own frame, so they come out the same on every build and the skin
+  cached per mesh fits every hand built later. The cuff behind the wrist belongs to the forearm, not to the hand: its bone sits on the wrist, along the
   forearm and turned with the hand around it (`HandRig.UpdateCuff`, after the arm solve), and the skin passes from palm to cuff
   across 3 cm around the wrist, so the hand bends at the wrist. Before, the cuff was rigid with the palm and the sleeve hem followed
   the hand: the bend happened 6 cm back inside the sleeve and the hand looked like it had a long neck. Poses are anatomical angles (`HandPose`: spread, MCP, PIP, DIP; thumb abduction, opposition, MCP, IP) limited to human
@@ -127,6 +129,11 @@ runes run from the hand outwards) and emits its particles.
 - **Invisible swap**: `genera_braccia.py -- pose` writes, weapon by weapon, where the joints of the left hand wrapped on the handguard
   are (`Resources/ManiArmi/presa_sinistra.json`); Unity finds the author-to-Unity axes by itself from the wrist, elbow and shoulder
   empties and puts the free hand exactly on the wrapped glove, with the same finger angles, before switching.
+- **Right hand** (`GripHand`, with the realistic hold): the same articulated hand, mirrored (`HandMirror`: local positions and
+  rotations conjugated by the reflection, mesh copies with x negated and triangles flipped), put exactly where the modelled right
+  glove of each weapon was (`presa_destra.json`, also from `-- pose`, with the index finger's trigger pose). The modelled glove and its
+  sausage fingers are switched off: both hands are the same glove. The index moves from along the frame to the trigger and closes a
+  little more on the shot; the other fingers tighten on the grip with the recoil. The right arm's anatomy is measured like the left.
 - **Arm** (`ArmRig`): a forearm twist bone takes half of the hand's roll around the forearm, so supination no longer wrings the cuff;
   the elbow stays between 28 and 176 degrees; with the free arm the elbow swivels around the shoulder-wrist axis to keep the wrist
   comfortable, scored with the real joint ranges when the hand's frame is known (pro-supination, flexion-extension and radial-ulnar
@@ -138,13 +145,27 @@ runes run from the hand outwards) and emits its particles.
   does not twist (`FreeSleeve`); with the modelled glove it follows the hand, whose rigid cuff it must cover. The free arm has human
   proportions: the shoulder 19 cm to the side of and 24 cm below the eye, protracting up to 12 cm on long reaches, and a 30 cm upper
   arm (the sleeve's upper bone is scaled to it).
-- **Realistic hold** (prototype on `ar9_malleus` and `p9_pieta`, `Weapon.RealHoldTable`; `-presavecchia` brings back the old one):
-  the weapon at human distance (the rifle's right hand 31 cm from the eye instead of 63), the torso turned like a shooter's (35
-  degrees with the rifle, 10 with the pistol; it straightens while the left hand works), body shoulders and hanging elbows on both
-  arms. The per-weapon left glove was modelled for the old fake shoulder (forearm arriving horizontally from the left) and on a real
-  arm would need 120-180 degrees of forearm rotation, so on two-handed weapons the articulated hand replaces it for good
-  (`OffHand.SetNaturalRest`): palm under the handguard, hand diagonal with the thumb along the left side, forearm rising from below
-  (at rest pro-supination 73, flexion -11, deviation -9 degrees). The other 28 weapons keep the old hold for now.
+- **Neutral sleeve** (with the realistic hold): one sleeve for every weapon, `Resources/ManicaLibera` from `genera_braccia.py --
+  manica`, modelled on the real proportions (30 cm upper arm, 26 cm forearm, elbow at 140 degrees) with diamond-shaped compression
+  folds, spirals and deeper elbow folds; mirrored for the right arm. The per-weapon sleeves were modelled on the fake arm (upper arm up
+  to 75 cm) and on a real arm were stretched and twisted a lot. Its hem bone is moved to the weapon's wrist after binding, so the
+  sleeve reaches the glove's cuff wherever the hand holds the weapon.
+- **The body moves the shoulders** (`ArmRig.BodyMotion`): breathing lifts both shoulders, walking swings them alternately forward and
+  back with the step, the recoil pushes the right shoulder back and the left follows a little. The shoulders move with the torso and
+  the weapon with the hands: elbows and wrists live on what lies between. The left hand regrips the handguard every 4-8 seconds and
+  tightens at every shot (`OffHand.Idle`); the right fingers tighten with the recoil.
+- **Realistic hold** (every weapon but the knives, `Weapon.RealHold`; `-presavecchia` brings back the old one): the weapon at human
+  distance (the rifle's right hand 31 cm from the eye instead of 63), the torso turned like a shooter's (35 degrees with long guns, 25
+  with submachine guns, 10 with pistols; it straightens while the left hand works), body shoulders and hanging elbows on both arms.
+  `Weapon.HoldOf` gives each weapon its pose: `ar9_malleus` and `p9_pieta` were tuned by hand (`RealHoldTable`), the others take their
+  class's (pistols and revolvers like the P9, submachine guns in between, everything else like the AR-9). Straight stocks without a
+  pistol grip (lever, bolt, double barrel, pump: `StraightStock`) sit 6 cm lower, turned 13 degrees inwards, with the right elbow
+  further out: the right hand holds the stock's neck palm down, and with the rifle's pose the forearm would have to turn past 90
+  degrees. On long handguards the left hand slides back to 28 cm in front of the grip, where a real arm reaches. The per-weapon left
+  glove was modelled for the old fake shoulder (forearm arriving horizontally from the left) and on a real arm would need 120-180
+  degrees of forearm rotation, so on two-handed weapons the articulated hand replaces it for good (`OffHand.SetNaturalRest`): palm
+  under the handguard, hand diagonal with the thumb along the left side, forearm rising from below. At rest all 30 weapons keep both
+  wrists within human ranges (`-armview`: pro-supination up to 90, flexion-extension up to 85, deviation up to 35 degrees).
 - **Gestures** (`OffHand`, `OffHandAnims`): keys of a contact point of the hand (wrist, palm, index, middle, thumb, little finger) in
   camera space, weapon space with its parts (muzzle, magazine and its base, ejection port, sight, handguard, receiver, a point along the
   barrel or on the left side, measured from the parts' bounds by `WeaponSurface`), the rest grip, or below the frame; the wrist follows
@@ -176,13 +197,17 @@ shader (a scripts-only build over an old player) it falls back to the `Fx` quads
 
 ## Code map
 
-`Scripts/Braccia/`: `HandPose.cs`, `HandRig.cs`, `GripPoses.cs`, `OffHand.cs` (and `WeaponSurface`). `Scripts/ArmRig.cs`.
+`Scripts/Braccia/`: `HandPose.cs`, `HandRig.cs`, `GripPoses.cs`, `GripHand.cs`, `HandMirror.cs`, `OffHand.cs` (and `WeaponSurface`).
+`Scripts/ArmRig.cs`.
 `Scripts/Magia/`: `Grimoire.cs`, `MagicState.cs`, `MagicCaster.cs` (input, effects, the `Magic` facade), `OffHandAnims.cs`, `MagicFx.cs`
 (effects, `Fireball`, `EnemyStatus`, `WeaponAura`), `MagicVfx.cs` and `VfxTextures.cs` (particles, lightning, circles, textures),
 `Resources/Shaders/MagicParticle.shader`, `SoundMagia.cs`, `HUD.Magia.cs`, `GrimoireIcons.cs`, `GrimoirePage.cs`,
 `GrimoireUI.cs`, `GrimoireAltar.cs`, `MagiaTest.cs`. `Scripts/Weapon.Sigilli.cs` (seals on hits). `Scripts/Proc/PlanAnnex.cs`
 (placement), `Proc/FloorBuilder.Sacrario.cs` (geometry), `Proc/AnnexRuntime.cs` (the secret wall). Assets:
-`Models/Mani/libera/mano_libera.fbx`, `Resources/ManoLibera.prefab` (`ManiImport.Run`), `Resources/ManiArmi/presa_sinistra.json`.
+`Models/Mani/libera/mano_libera.fbx` and `manica_libera.fbx`, `Resources/ManoLibera.prefab` and `ManicaLibera.prefab` (`ManiImport.Run`,
+`-mani libera` / `-mani manica`), `Resources/ManiArmi/presa_sinistra.json` and `presa_destra.json`. The Blender stages of
+`modelli/hotel/genera_braccia.py`: `libera` (the hand), `manica` (the neutral sleeve), `pose [id ...]` (both grip tables), `vedi`
+(previews of hand and sleeve in `braccia/render/`).
 
 ## Co-op
 
@@ -204,15 +229,23 @@ because it blocks every player's commands.
   books (rules, prices, all 38 nodes), the seven spells and seven seals on a rifle and a pistol (they start, the free hand takes the
   wrapped glove's place and gives it back, effects arrive, the elbow stays in range, the wrist and forearm stay within human
   ranges) and the left-hand throw. Results in `hotel_build/magia/magia.txt`, photos with `-magiashots`.
-- Diagnostic flags of the same test: `-magiaside` (with every photo a side and a top view of the arms with the solved joints, and
-  their measures in the report), `-magiazoom` (two close-ups of the left hand with the real scene and effects: from the eye with a
-  telephoto lens and three-quarters from the left), `-vfxdump` (the effect textures as images), `-armview [-armids a,b]
-  [-presavecchia]` (only the rest and aiming pose of every weapon, with arm measures).
+- Diagnostic flags of the same test: `-magiaside` (with every photo a side and a top view of the arms with the solved joints, a
+  close-up of the left wrist where sleeve and glove cuff meet, and the measures in the report), `-magiazoom` (two close-ups of the
+  left hand with the real scene and effects: from the eye with a telephoto lens and three-quarters from the left), `-vfxdump` (the
+  effect textures as images), `-armview [-armids a,b] [-presavecchia]` (only the rest and aiming pose of every weapon, with arm
+  measures; at rest it checks both wrists against the joint ranges).
+- The gesture photos are taken at the end of the frame: Unity skins sleeves and gloves after `LateUpdate`, and a photo taken earlier
+  in the frame mixes the skinned meshes of the previous frame with the bones and rigid parts of this one (the glove's cuff looked
+  detached from the sleeve, and a sleeve could look like a sheet near the eye).
 
 ## Known limits
 
 - Balance (essence, prices, damage, durations) is untested by a human player.
 - Spell and seal effects are not replicated to the other co-op players' screens.
 - The gestures were authored by numbers and checked on photographs, not motion-captured.
-- The realistic hold covers two weapons; the view model shares the world camera's field of view (75 degrees by default), so a
-  forearm reaching forward 30 cm from the eye looks large.
+- The view model shares the world camera's field of view (75 degrees by default), so a forearm reaching forward 30 cm from the eye
+  looks large.
+- Aiming down the sights keeps the old geometry (each weapon's sight at its eye distance): on many weapons the right wrist is then
+  well outside human ranges (`-armview` logs it but does not check it), most visibly on straight stocks and pistols.
+- The lever-action `lv_predicatore` has a dark rod sticking out of its model next to the left hand (it was there before the
+  realistic hold).

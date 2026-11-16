@@ -49,6 +49,8 @@ namespace PryingEyes
         float tremorT;
 
         public IReadOnlyList<Renderer> Renderers => renderers;
+        /// <summary>Da che parte sta il pollice nel riferimento del palmo: +1 la sinistra (il modello), -1 la destra (lo specchio).</summary>
+        public float ThumbSign => thumbSign;
 
         HandRig(Transform root, Transform palm, Vector3 palmCenter, Vector3 dorsal, Vector3 cuff)
         {
@@ -98,14 +100,17 @@ namespace PryingEyes
                 for (int i = 0; i < 4; i++) if ((jt[f, i] = Find(root, $"L_{Names[f]}_{i + 1}")) == null) return null;
             for (int i = 0; i < 4; i++) if ((jt[4, i] = Find(root, $"L_pollice_{i}")) == null) return null;
 
-            // il palmo: polso come origine, verso il medio e verso il dorso
-            Vector3 fwd = (jt[1, 0].position - tw.position).normalized;
-            Vector3 up = Vector3.ProjectOnPlane(td.position - tp.position, fwd).normalized;
+            // il palmo: polso come origine, verso il medio e verso il dorso. Tutto nel riferimento della radice: ossa e pelle vengono
+            // uguali a ogni costruzione qualunque cosa ci sia sopra (la pelle e' in cache, legata alla prima mano costruita)
+            Vector3 L(Transform t) => root.InverseTransformPoint(t.position);
+            Vector3 fwd = (L(jt[1, 0]) - L(tw)).normalized;
+            Vector3 up = Vector3.ProjectOnPlane(L(td) - L(tp), fwd).normalized;
             var palmGo = new GameObject("osso_palmo");
             palmGo.layer = root.gameObject.layer;
             var palm = palmGo.transform;
             palm.SetParent(root, false);
-            palm.SetPositionAndRotation(tw.position, Quaternion.LookRotation(fwd, up));
+            palm.localPosition = L(tw);
+            palm.localRotation = Quaternion.LookRotation(fwd, up);
             Vector3 P(Transform t) => palm.InverseTransformPoint(t.position);
             var h = new HandRig(root, palm, P(tp), P(td), tc != null ? P(tc) : new Vector3(0f, 0f, -0.07f));
             for (int f = 0; f < 5; f++) for (int i = 0; i < 4; i++) h.J[f, i] = P(jt[f, i]);
@@ -117,7 +122,8 @@ namespace PryingEyes
             cuffGo.layer = root.gameObject.layer;
             h.cuff = cuffGo.transform;
             h.cuff.SetParent(root, false);
-            h.cuff.SetPositionAndRotation(palm.position, palm.rotation);
+            h.cuff.localPosition = palm.localPosition;
+            h.cuff.localRotation = palm.localRotation;
 
             // pelle: guanto e rinforzo diventano SkinnedMeshRenderer sulle ossa (palmo, 15 falangi, manichetta)
             var bones = new List<Transform> { palm };
@@ -354,6 +360,9 @@ namespace PryingEyes
 
         // ------------------------------------------------------------------ pelle
         static readonly Dictionary<Mesh, BoneWeight[]> weightCache = new Dictionary<Mesh, BoneWeight[]>();
+        /// <summary>La mesh con la pelle per mesh d'origine: pesi e pose di legame dipendono solo da come mesh e ossa stanno nella
+        /// radice, che e' la stessa a ogni costruzione (prima ogni cambio d'arma ne copiava una nuova e la lasciava in memoria).</summary>
+        static readonly Dictionary<Mesh, Mesh> skinCache = new Dictionary<Mesh, Mesh>();
 
         SkinnedMeshRenderer SkinPart(MeshFilter mf, Transform[] bones, bool isGuard)
         {
@@ -362,12 +371,10 @@ namespace PryingEyes
             var go = new GameObject(mf.name + "_pelle");
             go.layer = mf.gameObject.layer;
             go.transform.SetParent(Root, false);
-            go.transform.SetPositionAndRotation(mf.transform.position, mf.transform.rotation);
-            go.transform.localScale = Vector3.one;
-            Vector3 ls = mf.transform.lossyScale, ps = go.transform.lossyScale;
-            go.transform.localScale = new Vector3(ls.x / ps.x, ls.y / ps.y, ls.z / ps.z);
-            var mesh = Object.Instantiate(src);
-            mesh.name = src.name + "_pelle";
+            ArmRig.PlaceLocal(go.transform, Root.worldToLocalMatrix * mf.transform.localToWorldMatrix);
+            skinCache.TryGetValue(src, out var mesh);
+            bool fresh = mesh == null;
+            if (fresh) { mesh = Object.Instantiate(src); mesh.name = src.name + "_pelle"; }
             var toPalm = Palm.worldToLocalMatrix * mf.transform.localToWorldMatrix;
             var vs = src.vertices;
             if (!weightCache.TryGetValue(src, out var bw) || bw == null || bw.Length != vs.Length)
@@ -376,7 +383,13 @@ namespace PryingEyes
                 for (int i = 0; i < vs.Length; i++) bw[i] = Weigh(toPalm.MultiplyPoint3x4(vs[i]), isGuard);
                 weightCache[src] = bw;
             }
-            mesh.boneWeights = bw;
+            if (fresh)
+            {
+                mesh.boneWeights = bw;
+                skinCache[src] = mesh;
+            }
+            // le pose di legame a ogni costruzione (ossa e pelle sono nel riferimento della radice, quindi vengono uguali; ma se un
+            // giorno no, la pelle in cache non resta legata alle ossa di un'altra mano)
             var bind = new Matrix4x4[bones.Length];
             for (int b = 0; b < bones.Length; b++) bind[b] = bones[b].worldToLocalMatrix * go.transform.localToWorldMatrix;
             mesh.bindposes = bind;

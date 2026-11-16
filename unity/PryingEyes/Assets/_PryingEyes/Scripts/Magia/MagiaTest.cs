@@ -168,6 +168,16 @@ namespace PryingEyes
             Vector3 focus = eye.TransformPoint(new Vector3(0f, -0.25f, 0.33f));
             Render2(name + "_lato", focus - eye.right * 2.2f + eye.up * 0.05f, focus, eye.up, layer);
             Render2(name + "_alto", focus + eye.up * 2.2f, focus, eye.forward, layer);
+            // il polso sinistro da vicino, di fianco all'avambraccio: il giunto tra la manica e la manichetta del guanto
+            var al = ArmOf(w, "armL");
+            if (al != null && w.OffHand != null && w.OffHand.Hand != null && w.OffHand.Hand.Visible)
+            {
+                Vector3 wr = al.LastWristW, fa = (al.LastWristW - al.LastElbowW).normalized;
+                Vector3 sideDir = Vector3.ProjectOnPlane(-eye.right, fa);
+                if (sideDir.sqrMagnitude < 1e-4f) sideDir = Vector3.ProjectOnPlane(eye.up, fa);
+                Vector3 at = wr - fa * 0.04f;
+                Render2(name + "_polso", at + sideDir.normalized * 0.45f, at, Vector3.ProjectOnPlane(eye.up, sideDir).normalized, layer);
+            }
             foreach (var g in tmp) { var m = g.GetComponent<MeshRenderer>().sharedMaterial; Destroy(g); Destroy(m); }
         }
 
@@ -287,6 +297,19 @@ namespace PryingEyes
 
         static string V3(Vector3 v) => $"({v.x:F2}, {v.y:F2}, {v.z:F2})";
 
+        /// <summary>Le braccia di un'arma nei campi articolari (con la mano articolata il sistema della mano e' noto): prono-supinazione
+        /// entro 90 gradi, flessione-estensione entro 85, deviazione entro 35; la sinistra solo sulle armi a due mani.</summary>
+        void ArmChecks(string id, Weapon w, string when, bool twoHanded)
+        {
+            foreach (var (tag, arm) in new[] { ("sinistro", ArmOf(w, "armL")), ("destro", ArmOf(w, "armR")) })
+            {
+                if (arm == null || !arm.HasHandFrame || (tag == "sinistro" && !twoHanded)) continue;
+                float ps = Mathf.Abs(arm.LastProSupDeg), fl = Mathf.Abs(arm.LastFlexDeg), dv = Mathf.Abs(arm.LastDevDeg);
+                Check($"{id} {when}: braccio {tag} nei campi articolari", ps <= 90f && fl <= 85f && dv <= 35f,
+                      $"prono-sup {arm.LastProSupDeg:F0}, flessione {arm.LastFlexDeg:F0}, deviazione {arm.LastDevDeg:F0}, gomito {arm.LastElbowDeg:F0}");
+            }
+        }
+
         // ------------------------------------------------------------------ percorso
         IEnumerator Run()
         {
@@ -314,6 +337,7 @@ namespace PryingEyes
                     player.Teleport(o); player.yaw = oy; player.pitch = 0f;
                     yield return new WaitForSeconds(1.0f);
                     DumpArms(id, player.weapon, "riposo");
+                    ArmChecks(id, player.weapon, "riposo", WeaponDefs.All[i].hand > 0.5f);
                     Shot($"{tagv}_{id}");
                     SideShot($"{tagv}_{id}", player.weapon);
                     // in mira: com'e' il braccio quando l'arma sale all'occhio
@@ -619,6 +643,9 @@ namespace PryingEyes
                 }
                 if (next < at.Length && hand.Progress >= at[next])
                 {
+                    // a fine fotogramma: le pelli (maniche e guanti) Unity le ricalcola dopo LateUpdate; scattando prima, le mesh con le
+                    // ossa erano quelle del fotogramma prima e le parti rigide quelle di adesso (la manichetta sembrava staccata)
+                    yield return new WaitForEndOfFrame();
                     Shot($"{name}_{next}");
                     ZoomShot($"{name}_{next}", hand);
                     if (side) { SideShot($"{name}_{next}", w); DumpArms(name, w, $"foto {next}"); }

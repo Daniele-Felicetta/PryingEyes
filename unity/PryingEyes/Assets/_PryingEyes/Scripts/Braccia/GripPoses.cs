@@ -3,16 +3,17 @@ using UnityEngine;
 
 namespace PryingEyes
 {
-    /// <summary>Le prese della mano sinistra arma per arma (Resources/ManiArmi/presa_sinistra.json, da genera_braccia.py -- pose): dove
-    /// stanno polso, palmo, dorso e le articolazioni delle dita della sinistra avvolta all'astina, in coordinate d'autore relative
-    /// all'Empty mano_s. Servono alla mano libera (HandRig) per mettersi esattamente dove sta il guanto avvolto prima di staccarsi
+    /// <summary>Le prese delle due mani arma per arma (Resources/ManiArmi/presa_sinistra.json e presa_destra.json, da genera_braccia.py
+    /// -- pose): dove stanno polso, palmo, dorso e le articolazioni delle dita della sinistra avvolta all'astina e della destra avvolta
+    /// all'impugnatura (piu', per la destra, l'indice nella posa sul grilletto), in coordinate d'autore relative all'Empty mano_s o
+    /// mano_d. Servono alla mano libera (HandRig) per mettersi esattamente dove sta il guanto avvolto prima di staccarsi
     /// dall'arma, e per tornarci: cosi' il cambio tra le due mani non si vede.
     /// Gli assi d'autore (Blender) finiscono in quelli di Unity con l'importazione dell'FBX; invece di supporlo, qui si ricavano da
     /// polso, gomito e spalla, che sono anche Empty figli di mano_s nel prefab: tra le 48 permutazioni con segno si sceglie quella che
     /// porta i tre vettori d'autore sui tre di Unity.</summary>
     public static class GripPoses
     {
-        [System.Serializable] sealed class Arma { public string id; public float[] polso, gomito, spalla, dita, pollice, palmo, dorso; }
+        [System.Serializable] sealed class Arma { public string id; public float[] polso, gomito, spalla, dita, pollice, palmo, dorso, grilletto; }
         [System.Serializable] sealed class Root { public int versione; public Arma[] armi; }
 
         /// <summary>Una presa nel riferimento locale di mano_s (Unity).</summary>
@@ -21,23 +22,31 @@ namespace PryingEyes
             public Vector3 wrist, palm, dorsal;
             public readonly Vector3[][] fingers = new Vector3[4][];
             public readonly Vector3[] thumb = new Vector3[4];
+            /// <summary>Destra: PIP, DIP e punta dell'indice nella posa sul grilletto (null senza).</summary>
+            public Vector3[] trigger;
             public float calibrationError;
         }
 
-        static Dictionary<string, Arma> table;
+        static Dictionary<string, Arma> table, tableD;
 
-        static void Load()
+        static Dictionary<string, Arma> Load(bool right)
         {
-            if (table != null) return;
-            table = new Dictionary<string, Arma>();
-            var ta = Resources.Load<TextAsset>("ManiArmi/presa_sinistra");
-            if (ta == null) { Debug.LogWarning("[PryingEyes] presa_sinistra.json mancante: la mano libera parte da una presa generica"); return; }
+            if (right) return tableD ??= Read("presa_destra");
+            return table ??= Read("presa_sinistra");
+        }
+
+        static Dictionary<string, Arma> Read(string file)
+        {
+            var table = new Dictionary<string, Arma>();
+            var ta = Resources.Load<TextAsset>("ManiArmi/" + file);
+            if (ta == null) { Debug.LogWarning($"[PryingEyes] {file}.json mancante: la mano articolata parte da una presa generica"); return table; }
             try
             {
                 var root = JsonUtility.FromJson<Root>(ta.text);
                 if (root?.armi != null) foreach (var a in root.armi) if (a != null && !string.IsNullOrEmpty(a.id)) table[a.id] = a;
             }
-            catch (System.Exception e) { Debug.LogWarning("[PryingEyes] presa_sinistra.json illeggibile: " + e.Message); }
+            catch (System.Exception e) { Debug.LogWarning($"[PryingEyes] {file}.json illeggibile: " + e.Message); }
+            return table;
         }
 
         static Vector3 V(float[] a, int i = 0) => a != null && a.Length >= i * 3 + 3 ? new Vector3(a[i * 3], a[i * 3 + 1], a[i * 3 + 2]) : Vector3.zero;
@@ -67,19 +76,23 @@ namespace PryingEyes
             return best;
         }
 
-        /// <summary>La presa dell'arma 'id' nel riferimento locale di manoS. Falso se manca nella tabella o se la calibrazione non torna
-        /// (oltre 1 cm: l'FBX e la tabella non vengono dalla stessa versione di genera_braccia).</summary>
-        public static bool TryGet(string id, Transform manoS, out Grip g)
+        /// <summary>La presa sinistra dell'arma 'id' nel riferimento locale di manoS.</summary>
+        public static bool TryGet(string id, Transform manoS, out Grip g) => TryGet(id, manoS, false, out g);
+
+        /// <summary>La presa dell'arma 'id' (destra o sinistra) nel riferimento locale di mano (mano_d o mano_s). Falso se manca nella
+        /// tabella o se la calibrazione non torna (oltre 1 cm: l'FBX e la tabella non vengono dalla stessa versione di genera_braccia).</summary>
+        public static bool TryGet(string id, Transform mano, bool right, out Grip g)
         {
             g = null;
-            Load();
-            if (manoS == null || !table.TryGetValue(id, out var a)) return false;
-            Transform tp = Child(manoS, "polso_s"), te = Child(manoS, "gomito_s"), ts = Child(manoS, "spalla_s");
+            var tab = Load(right);
+            if (mano == null || !tab.TryGetValue(id, out var a)) return false;
+            string sx = right ? "d" : "s";
+            Transform tp = Child(mano, "polso_" + sx), te = Child(mano, "gomito_" + sx), ts = Child(mano, "spalla_" + sx);
             if (tp == null || te == null || ts == null) return false;
             var author = new[] { V(a.polso), V(a.gomito), V(a.spalla) };
-            var unity = new[] { manoS.InverseTransformPoint(tp.position), manoS.InverseTransformPoint(te.position), manoS.InverseTransformPoint(ts.position) };
+            var unity = new[] { mano.InverseTransformPoint(tp.position), mano.InverseTransformPoint(te.position), mano.InverseTransformPoint(ts.position) };
             var m = Calibrate(author, unity, out float err);
-            if (err > 0.01f) { Debug.LogWarning($"[PryingEyes] presa sinistra di {id}: calibrazione fuori di {err * 100f:F1} cm, presa generica"); return false; }
+            if (err > 0.01f) { Debug.LogWarning($"[PryingEyes] presa {(right ? "destra" : "sinistra")} di {id}: calibrazione fuori di {err * 100f:F1} cm, presa generica"); return false; }
             Vector3 M(Vector3 v) => m.MultiplyVector(v);
             g = new Grip { wrist = M(V(a.polso)), palm = M(V(a.palmo)), dorsal = M(V(a.dorso)), calibrationError = err };
             for (int f = 0; f < 4; f++)
@@ -88,6 +101,7 @@ namespace PryingEyes
                 for (int i = 0; i < 4; i++) g.fingers[f][i] = M(V(a.dita, f * 4 + i));
             }
             for (int i = 0; i < 4; i++) g.thumb[i] = M(V(a.pollice, i));
+            if (a.grilletto != null && a.grilletto.Length >= 9) g.trigger = new[] { M(V(a.grilletto, 0)), M(V(a.grilletto, 1)), M(V(a.grilletto, 2)) };
             return true;
         }
     }

@@ -26,6 +26,11 @@ namespace PryingEyes
         readonly Transform root, hand, handBone, foreBone, upperBone, twistBone;
         /// <summary>L'osso dell'orlo della manica rispetto a quello dell'avambraccio nella posa di legame.</summary>
         readonly Quaternion handBoneRelFore;
+        /// <summary>La pelle e' la manica neutra (FreeSleeve sempre 1: l'orlo segue l'avambraccio) e la lunghezza dell'omero con cui e'
+        /// legata (la scala dell'osso del braccio si misura su questa).</summary>
+        bool neutral;
+        float bindUpper;
+        public bool NeutralSleeve => neutral;
         readonly Vector3 shoulder, wristInHand, poleRest, normalRest, handRefLocal, handAxisLocal;
         readonly float lu, lf;
         public readonly SkinnedMeshRenderer Skin;
@@ -44,6 +49,9 @@ namespace PryingEyes
         public float PoleWeight;
         /// <summary>Spostamento della spalla (riferimento del corpo) col braccio libero: avanti quando il braccio si allunga.</summary>
         public Vector3 ShoulderOffset;
+        /// <summary>Il corpo che porta la spalla (riferimento del corpo, metri): respiro, passo, contraccolpo (Weapon.UpdatePose). Le
+        /// spalle si muovono con il busto e l'arma con le mani: il gomito e il polso vivono di quello che c'e' in mezzo.</summary>
+        public Vector3 BodyMotion;
         /// <summary>Limite di comodita' del polso (gradi tra l'asse della mano e quello dell'avambraccio) che la ricerca del gomito rispetta.</summary>
         public float WristLimit = 32f;
         /// <summary>Presa realistica (2026-11-16): il braccio e' sempre un braccio vero, anche sull'arma: spalla del corpo (con la
@@ -95,6 +103,8 @@ namespace PryingEyes
         public Vector3 LastShoulderW { get; private set; }
         public Vector3 LastElbowW { get; private set; }
         public Vector3 LastWristW { get; private set; }
+        /// <summary>Il verso dell'avambraccio (dal gomito al polso) nel mondo: la manichetta del guanto si allinea qui (HandRig.UpdateCuff).</summary>
+        public Vector3 LastForearmDirW { get; private set; }
 
         public void AnchorTo(Transform bodyT, Vector3 shoulderInBody) { body = bodyT; shoulderBody = shoulderInBody; }
 
@@ -123,8 +133,15 @@ namespace PryingEyes
             return t * t * (3f - 2f * t);
         }
 
-        /// <summary>root = radice delle mani (riferimento dell'arma), hand = Empty mano_d / mano_s, side = "d" / "s".</summary>
-        public static ArmRig Build(Transform root, Transform hand, string side)
+        static GameObject neutralPrefab;
+        static bool neutralTried;
+
+        /// <summary>root = radice delle mani (riferimento dell'arma), hand = Empty mano_d / mano_s, side = "d" / "s". neutral: la pelle e'
+        /// la manica neutra (Resources/ManicaLibera, genera_braccia.py -- manica), una sola per tutte le armi, modellata con le proporzioni
+        /// vere (omero 30 cm, gomito a 140 gradi) e specchiata per la destra: con le braccia vere (Body) si piega poco e resta una manica;
+        /// la manica di ogni arma, modellata sul braccio virtuale (omero fino a 75 cm), col braccio vero veniva stirata e girata molto.
+        /// I giunti dell'arma (polso, gomito, spalla) restano: il polso e' dove la mano tiene l'arma.</summary>
+        public static ArmRig Build(Transform root, Transform hand, string side, bool neutral = false)
         {
             if (root == null || hand == null) return null;
             Transform wj = Child(hand, "polso_" + side), ej = Child(hand, "gomito_" + side), sj = Child(hand, "spalla_" + side);
@@ -133,8 +150,6 @@ namespace PryingEyes
             foreach (var mf in hand.GetComponentsInChildren<MeshFilter>(true))
                 if (mf.name.EndsWith("_manica")) { sleeve = mf; break; }
             if (sleeve == null || sleeve.sharedMesh == null) return null;
-            var src = sleeve.sharedMesh;
-            if (!src.isReadable) { Debug.LogWarning("[PryingEyes] braccio: manica non leggibile, resta rigida: " + src.name); return null; }
 
             Vector3 W0 = root.InverseTransformPoint(wj.position), E0 = root.InverseTransformPoint(ej.position), S0 = root.InverseTransformPoint(sj.position);
             float lf = (E0 - W0).magnitude, lu = (S0 - E0).magnitude;
@@ -145,56 +160,98 @@ namespace PryingEyes
             Vector3 dir0 = (W0 - S0).normalized;
             Vector3 pole = E0 - (S0 + dir0 * Vector3.Dot(E0 - S0, dir0));
             pole = pole.sqrMagnitude > 1e-10f ? pole.normalized : n0;
-
             int layer = sleeve.gameObject.layer;
+
+            // la pelle: la manica neutra (se c'e' e se richiesta) o quella dell'arma; giunti di legame Ws, Es, Ss
+            MeshFilter skinMf = sleeve;
+            GameObject neutralInst = null;
+            Vector3 Ws = W0, Es = E0, Ss = S0;
+            if (neutral)
+            {
+                if (!neutralTried) { neutralTried = true; neutralPrefab = Resources.Load<GameObject>("ManicaLibera"); }
+                if (neutralPrefab != null)
+                {
+                    neutralInst = Object.Instantiate(neutralPrefab, root);
+                    neutralInst.name = "ManicaNeutra_" + side;
+                    foreach (var t in neutralInst.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
+                    neutralInst.transform.localPosition = Vector3.zero;
+                    neutralInst.transform.localRotation = Quaternion.identity;
+                    neutralInst.transform.localScale = Vector3.one;
+                    if (side == "d") HandMirror.Mirror(neutralInst.transform);
+                    Transform nw = Child(neutralInst.transform, "polso_s"), ne = Child(neutralInst.transform, "gomito_s"), ns = Child(neutralInst.transform, "spalla_s");
+                    var nmf = neutralInst.GetComponentInChildren<MeshFilter>(true);
+                    if (nw != null && ne != null && ns != null && nmf != null && nmf.sharedMesh != null && nmf.sharedMesh.isReadable)
+                    {
+                        skinMf = nmf;
+                        Ws = root.InverseTransformPoint(nw.position); Es = root.InverseTransformPoint(ne.position); Ss = root.InverseTransformPoint(ns.position);
+                    }
+                    else { Object.Destroy(neutralInst); neutralInst = null; }
+                }
+            }
+            bool isNeutral = neutralInst != null;
+            var src = skinMf.sharedMesh;
+            if (!src.isReadable) { Debug.LogWarning("[PryingEyes] braccio: manica non leggibile, resta rigida: " + src.name); return null; }
+            float lfs = (Es - Ws).magnitude, lus = (Ss - Es).magnitude;
+            Vector3 ns0 = Vector3.Cross(Es - Ss, Ws - Es);
+            if (ns0.sqrMagnitude < 1e-10f) ns0 = Vector3.Cross(Es - Ss, Vector3.up);
+            ns0.Normalize();
+
             var hb = new GameObject("osso_mano_" + side).transform;
-            hb.SetParent(hand, false);
-            hb.position = wj.position;
-            hb.localRotation = Quaternion.identity;
+            if (isNeutral)
+            {
+                // legata al polso della manica neutra, nel verso del suo avambraccio; dopo il legame va sul polso dell'arma (sotto)
+                hb.SetParent(root, false);
+                hb.localPosition = Ws;
+                hb.localRotation = Quaternion.LookRotation(Ws - Es, ns0);
+            }
+            else
+            {
+                hb.SetParent(hand, false);
+                hb.position = wj.position;
+                hb.localRotation = Quaternion.identity;
+            }
             var fb = new GameObject("osso_avambraccio_" + side).transform;
             fb.SetParent(root, false);
-            fb.localPosition = E0;
-            fb.localRotation = Quaternion.LookRotation(W0 - E0, n0);
+            fb.localPosition = Es;
+            fb.localRotation = Quaternion.LookRotation(Ws - Es, ns0);
             var tb = new GameObject("osso_torsione_" + side).transform;
             tb.SetParent(root, false);
-            tb.localPosition = E0;
+            tb.localPosition = Es;
             tb.localRotation = fb.localRotation;
             var ub = new GameObject("osso_braccio_" + side).transform;
             ub.SetParent(root, false);
-            ub.localPosition = S0;
-            ub.localRotation = Quaternion.LookRotation(E0 - S0, n0);
+            ub.localPosition = Ss;
+            ub.localRotation = Quaternion.LookRotation(Es - Ss, ns0);
             foreach (var t in new[] { hb, fb, tb, ub }) t.gameObject.layer = layer;
 
-            // la pelle: copia della mesh con pesi e pose di legame, una volta per mesh (cambiare arma non la ricalcola)
-            var go = new GameObject(sleeve.name + "_pelle");
+            // la pelle: copia della mesh con pesi e pose di legame, una volta per mesh (cambiare arma non la ricalcola). Messa sulla
+            // mesh d'origine nel riferimento della radice, con le matrici (non con lossyScale, che e' un'approssimazione)
+            var go = new GameObject(skinMf.name + "_pelle");
             go.layer = layer;
             go.transform.SetParent(root, false);
-            go.transform.SetPositionAndRotation(sleeve.transform.position, sleeve.transform.rotation);
-            go.transform.localScale = Vector3.one;
-            Vector3 ls = sleeve.transform.lossyScale, ps = go.transform.lossyScale;
-            go.transform.localScale = new Vector3(ls.x / ps.x, ls.y / ps.y, ls.z / ps.z);
+            PlaceLocal(go.transform, root.worldToLocalMatrix * skinMf.transform.localToWorldMatrix);
             var bones = new[] { hb, fb, ub, tb };
             if (!skinned.TryGetValue(src, out var mesh) || mesh == null)
             {
                 mesh = Object.Instantiate(src);
                 mesh.name = src.name + "_pelle";
-                var toRoot = root.worldToLocalMatrix * sleeve.transform.localToWorldMatrix;
+                var toRoot = root.worldToLocalMatrix * skinMf.transform.localToWorldMatrix;
                 var vs = src.vertices;
                 var bw = new BoneWeight[vs.Length];
                 for (int i = 0; i < vs.Length; i++)
                 {
                     Vector3 p = toRoot.MultiplyPoint3x4(vs[i]);
-                    float t1 = Mathf.Clamp01(Vector3.Dot(p - W0, E0 - W0) / (lf * lf));
-                    float d1 = (p - (W0 + (E0 - W0) * t1)).sqrMagnitude;
-                    float t2 = Mathf.Clamp01(Vector3.Dot(p - E0, S0 - E0) / (lu * lu));
-                    float d2 = (p - (E0 + (S0 - E0) * t2)).sqrMagnitude;
-                    float s = d1 <= d2 ? t1 * lf : lf + t2 * lu;
+                    float t1 = Mathf.Clamp01(Vector3.Dot(p - Ws, Es - Ws) / (lfs * lfs));
+                    float d1 = (p - (Ws + (Es - Ws) * t1)).sqrMagnitude;
+                    float t2 = Mathf.Clamp01(Vector3.Dot(p - Es, Ss - Es) / (lus * lus));
+                    float d2 = (p - (Es + (Ss - Es) * t2)).sqrMagnitude;
+                    float s = d1 <= d2 ? t1 * lfs : lfs + t2 * lus;
                     // il polsino e le pieghe sopra la manichetta seguono la mano; al gomito avambraccio e braccio si mescolano
                     float wh = 1f - Smooth(0.030f, 0.090f, s);
-                    float u = Smooth(lf - 0.055f, lf + 0.055f, s);
+                    float u = Smooth(lfs - 0.055f, lfs + 0.055f, s);
                     float wu = (1f - wh) * u, wf = (1f - wh) * (1f - u);
                     // la torsione: vicino al polso l'avambraccio ruota con la mano, vicino al gomito no (radio sull'ulna)
-                    float ts = 1f - Smooth(0.18f * lf, 0.92f * lf, s);
+                    float ts = 1f - Smooth(0.18f * lfs, 0.92f * lfs, s);
                     float wt = wf * ts;
                     wf -= wt;
                     bw[i] = new BoneWeight { boneIndex0 = 0, weight0 = wh, boneIndex1 = 1, weight1 = wf, boneIndex2 = 2, weight2 = wu, boneIndex3 = 3, weight3 = wt };
@@ -221,13 +278,38 @@ namespace PryingEyes
             }
             else smr.shadowCastingMode = ShadowCastingMode.Off;
             sleeve.gameObject.SetActive(false);
+            if (isNeutral)
+            {
+                // legata: l'osso dell'orlo va sul polso vero (dove la mano tiene l'arma) e ci resta, figlio della mano
+                Matrix4x4 rel = hand.worldToLocalMatrix * hb.localToWorldMatrix;
+                hb.SetParent(hand, false);
+                PlaceLocal(hb, rel);
+                hb.localPosition = hand.InverseTransformPoint(wj.position);
+                Object.Destroy(neutralInst);
+            }
             Vector3 wih = hand.InverseTransformPoint(wj.position);
             // riferimento del rollio: il 'su' dell'avambraccio di legame visto dalla mano (rollio 0 nella posa modellata)
             Vector3 refLocal = hand.InverseTransformDirection(root.TransformDirection(n0));
-            return new ArmRig(root, hand, hb, fb, ub, tb, S0, wih, pole, n0, refLocal, lu, lf, smr, side == "s" ? -1f : 1f);
+            var rig = new ArmRig(root, hand, hb, fb, ub, tb, S0, wih, pole, n0, refLocal, lu, lf, smr, side == "s" ? -1f : 1f);
+            rig.neutral = isNeutral;
+            rig.bindUpper = isNeutral ? lus : lu;
+            if (isNeutral) rig.FreeSleeve = 1f;
+            return rig;
         }
 
         static Vector3 ElbowAt(Vector3 S, Vector3 dir, float a, float h, Vector3 pole) => S + dir * a + pole * h;
+
+        /// <summary>Posizione, rotazione e scala locali da una matrice relativa al genitore (senza taglio): esatte anche quando qualche
+        /// antenato ha una scala, dove lossyScale approssima.</summary>
+        public static void PlaceLocal(Transform t, Matrix4x4 rel)
+        {
+            Vector3 c0 = rel.GetColumn(0), c1 = rel.GetColumn(1), c2 = rel.GetColumn(2);
+            Vector3 sc = new Vector3(c0.magnitude, c1.magnitude, c2.magnitude);
+            if (Vector3.Dot(Vector3.Cross(c0, c1), c2) < 0f) sc.x = -sc.x;
+            t.localPosition = rel.GetColumn(3);
+            t.localRotation = Quaternion.LookRotation(c2 / Mathf.Max(1e-8f, sc.z), c1 / Mathf.Max(1e-8f, sc.y));
+            t.localScale = sc;
+        }
 
         /// <summary>Misure anatomiche di polso e avambraccio per spalla S, gomito E, polso W e il sistema della mano (pollice, dita):
         /// la prono-supinazione e' l'angolo del pollice attorno all'avambraccio rispetto alla stretta di mano (pollice perpendicolare al
@@ -316,7 +398,7 @@ namespace PryingEyes
                 S = new Vector3(sb.x, sb.y, shoulder.z);
                 if (free > 0f)
                 {
-                    Vector3 sb2 = BodyShoulder(side, Stance) + ShoulderOffset;
+                    Vector3 sb2 = BodyShoulder(side, Stance) + ShoulderOffset + BodyMotion;
                     Vector3 sf = root.InverseTransformPoint(body.TransformPoint(sb2));
                     // la spalla si protende verso la mano quando il braccio non ci arriva (fino a 12 cm, la scapola che scivola)
                     Vector3 toW = W - sf;
@@ -356,7 +438,9 @@ namespace PryingEyes
                 float best = swivel, bestCost = float.MaxValue;
                 // presa realistica: sull'arma il gomito ruota poco (20 gradi) e resta giu' anche se il polso si piega un po' (il guanto e'
                 // modellato sull'impugnatura: allinearci l'avambraccio alzerebbe il gomito di lato, ad ala di pollo); nei gesti fino a 70
-                float range = Body ? Mathf.Lerp(20f, 70f, Mathf.Clamp01(Free)) : 70f;
+                // a riposo sull'arma 40 gradi (con la mano articolata il costo e' anatomico: il gomito cerca il polso comodo senza
+                // alzarsi ad ala di pollo, lo tiene giu' il costo dell'altezza), nei gesti fino a 70
+                float range = Body ? Mathf.Lerp(40f, 70f, Mathf.Clamp01(Free)) : 70f;
                 // la spalla nel riferimento del corpo (la camera): per tenere giu' il gomito
                 Vector3 sBody = BodyShoulder(side, Stance) + ShoulderOffset;
                 for (int k = -7; k <= 7; k++)
@@ -415,7 +499,7 @@ namespace PryingEyes
             upperBone.localPosition = S;
             upperBone.localRotation = Quaternion.LookRotation(E - S, n);
             // la manica del braccio si accorcia con l'omero (la sua pelle e' legata all'omero virtuale dell'arma)
-            float uk = Mathf.Max(0.05f, (E - S).magnitude / Mathf.Max(0.05f, this.lu));
+            float uk = Mathf.Max(0.05f, (E - S).magnitude / Mathf.Max(0.05f, bindUpper > 0f ? bindUpper : this.lu));
             upperBone.localScale = Mathf.Abs(uk - 1f) < 0.002f ? Vector3.one : new Vector3(1f, 1f, uk);
             // torsione: il rollio della mano attorno all'avambraccio, rispetto al 'su' del gomito; meta' all'osso di meta' avambraccio
             Vector3 fa = (W - E).normalized;
@@ -423,7 +507,7 @@ namespace PryingEyes
             Vector3 handRef = Vector3.ProjectOnPlane(root.InverseTransformDirection(hand.TransformDirection(handRefLocal)), fa);
             float roll = foreUp.sqrMagnitude > 1e-8f && handRef.sqrMagnitude > 1e-8f ? Vector3.SignedAngle(foreUp, handRef, fa) : 0f;
             LastRollDeg = roll;
-            float fs = Mathf.Clamp01(FreeSleeve);
+            float fs = neutral ? 1f : Mathf.Clamp01(FreeSleeve);
             if (twistBone != null)
             {
                 twistBone.localPosition = E;
@@ -437,6 +521,7 @@ namespace PryingEyes
             }
             LastElbowDeg = Vector3.Angle(S - E, W - E);
             LastShoulderW = root.TransformPoint(S); LastElbowW = root.TransformPoint(E); LastWristW = root.TransformPoint(W);
+            LastForearmDirW = root.TransformDirection(fa);
             if (HasHandFrame)
             {
                 Anatomy(S, E, W, root.InverseTransformDirection(hand.TransformDirection(ThumbLocal)), root.InverseTransformDirection(hand.TransformDirection(FingersLocal)),
