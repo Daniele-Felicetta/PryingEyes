@@ -312,6 +312,15 @@ namespace PryingEyes
             return false;
         }
 
+        /// <summary>Il sacrario del grimorio del piano (uno per piano della griglia), o null.</summary>
+        static AnnexSite SacrarioSite()
+        {
+            var fd = FloorDirector.I;
+            if (fd == null || fd.cur == null) return null;
+            foreach (var a in fd.cur.annexSites) if (a != null && a.data.kind == AnnexKind.Sacrario) return a;
+            return null;
+        }
+
         /// <summary>Il centro navigabile della stanza piu' lontana da 'from' (almeno una ventina di metri, se il piano li ha).</summary>
         static Vector3 FarPoint(Vector3 from)
         {
@@ -392,8 +401,8 @@ namespace PryingEyes
                 HostLeave ? new System.Func<IEnumerator>[] { S0, S1, H2 } :
                 Pics ? new System.Func<IEnumerator>[] { S0, S1, P0 } :
                 Late ? (survival ? new System.Func<IEnumerator>[] { L0s, L1s, L2s } : new System.Func<IEnumerator>[] { L0, L1, L2 }) :
-                survival ? new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, S4, S4Flight, V5, V6, S7, V7, S8 } :
-                new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, S4, S4Flight, S5, S6, S7, S8 };
+                survival ? new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, A3, S4, S4Flight, V5, V6, S7, V7, S8 } :
+                new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, A3, S4, S4Flight, S5, S6, S7, S8 };
             var it = Scenario(steps);
             while (true)
             {
@@ -600,6 +609,7 @@ namespace PryingEyes
             // prima della fine della ricarica e finire tra quelli 'gia' visti'
             var known = new HashSet<int>();
             foreach (var kv in G.EnemyMap) known.Add(kv.Key);
+            int replay0 = MagicReplay.Count, claims0 = EnemyStatus.ClaimsApplied, seen0 = EnemyStatus.NetSeen;
             if (wp != null)
             {
                 wp.mag = 0;
@@ -622,6 +632,11 @@ namespace PryingEyes
                 Check("la magia del compagno ferisce il nemico anche sull'ospite (fonte Magia)",
                       had && (magicTarget == null || magicTarget.IsDead || magicTarget.hp < magicHp0 - 1f),
                       !had ? "nessun bersaglio" : magicTarget != null ? $"vita {magicHp0:F0} -> {magicTarget.hp:F0}" : "morto");
+                // 0.7.1: la magia si vede anche qui (MagicReplay) e lo stordimento del fulmine del compagno ferma il nemico vero (StatusClaim)
+                if (had) yield return Until(() => MagicReplay.Count > replay0 && EnemyStatus.ClaimsApplied > claims0, 3f);
+                Check("la magia del compagno si vede anche sull'ospite (MagicReplay)", MagicReplay.Count > replay0, $"{MagicReplay.Count - replay0} effetti");
+                Check("lo stordimento del fulmine del compagno arriva al nemico dell'ospite (StatusClaim)", EnemyStatus.ClaimsApplied > claims0,
+                      $"{EnemyStatus.ClaimsApplied - claims0} stati applicati");
                 Enemy.debugFreeze = false;
                 if (magicTarget != null && !magicTarget.IsDead) Enemy.Remove(magicTarget);
                 magicTarget = null;
@@ -663,11 +678,37 @@ namespace PryingEyes
                 float hp0 = target.hp;
                 yield return Until(() => target == null || target.IsDead || target.hp < hp0 - 1f, 6f);
                 Check("il fulmine colpisce il pupazzo", target == null || target.IsDead || target.hp < hp0 - 1f, target != null ? $"vita {hp0:F0} -> {target.hp:F0}" : "morto");
+                yield return Until(() => EnemyStatus.NetSeen > seen0, 3f);
+                Check("lo stordimento deciso dall'ospite si vede sul pupazzo (EnemyNet.status)", EnemyStatus.NetSeen > seen0);
                 s.Witch &= ~(1u << 13);
                 s.SelectedSpell = -1;
                 yield return new WaitForSeconds(4f);
             }
-            else yield return new WaitForSeconds(9f);
+            else
+            {
+                yield return new WaitForSeconds(9f);
+                Check("la magia di un compagno si vede anche qui (MagicReplay)", MagicReplay.Count > replay0, $"{MagicReplay.Count - replay0} effetti");
+                Check("lo stato del nemico colpito da un compagno si vede anche qui (EnemyNet.status)", EnemyStatus.NetSeen > seen0);
+            }
+        }
+
+        // A ------------------------------------------------------------------ gli annessi sono di tutti (0.7.1)
+        /// <summary>L'ospitato principale apre il muro del sacrario del piano (c'e' su ogni piano della griglia): deve aprirsi su tutti.</summary>
+        IEnumerator A3()
+        {
+            Safe();
+            var sac = SacrarioSite();
+            if (sac == null) { Log("info: nessun sacrario su questo piano, passo degli annessi saltato"); yield return new WaitForSeconds(1f); yield break; }
+            Check("il muro del sacrario e' chiuso", !sac.opened);
+            yield return new WaitForSeconds(0.5f);
+            if (!Coop.IsHost && Primary)
+            {
+                sac.GateUse();
+                Check("l'ospitato apre il muro del sacrario", sac.opened);
+            }
+            yield return Until(() => sac.opened, 8f);
+            Check("il muro aperto da un ospitato si apre su tutti", sac.opened);
+            yield return new WaitForSeconds(1f);
         }
 
         // 4 ------------------------------------------------------------------ un nemico dell'ospite ferisce l'ospitato

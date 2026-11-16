@@ -278,21 +278,27 @@ namespace PryingEyes
                     SetPhase(null);
                     Vector3 from = palm + (aim - palm).normalized * 0.12f;
                     Fireball.Launch(from, aim - from, 140f * dmgK, 3.5f * rangeK);
+                    MagicReplay.Send(MagicReplay.Spell, 12, from, aim);
                     // la fiamma lascia la mano con uno sbuffo di fuoco
                     if (MagicVfx.On) MagicVfx.Explosion(palm + (aim - palm).normalized * 0.07f, MagicFx.Fire, 0.1f, Color.white);
                     Sfx.At(SoundBank.MagiaFuoco, palm, 0.8f, 0.9f, 1.5f, 20f);
                     break;
                 }
-                case 13: CastLightning(hand, dmgK, rangeK); SetPhase(null); break;
+                case 13: MagicReplay.Send(MagicReplay.Spell, 13, palm, aim, CastLightning(hand, dmgK, rangeK)); SetPhase(null); break;
                 case 14:
                     CastFrost(palm, dmgK, rangeK); SetPhase("cone", MagicFx.Frost, 1.0f);
+                    MagicReplay.Send(MagicReplay.Spell, 14, palm, palm + Cam.forward * (7f * rangeK));
                     HandCircle(hand, 0.07f, MagicFx.Frost, 0.55f, 110f);
                     break;
-                case 15: StartDrain(rangeK); HandCircle(hand, 0.05f, MagicFx.Blood, 0.8f, -70f); break;
+                case 15:
+                    StartDrain(rangeK); HandCircle(hand, 0.05f, MagicFx.Blood, 0.8f, -70f);
+                    MagicReplay.Send(MagicReplay.Spell, 15, palm, aim, drainTarget != null ? new List<Enemy> { drainTarget } : null);
+                    break;
                 case 16: Blink(rangeK); SetPhase(null); break;
                 case 17: Wave(palm, dmgK, rangeK); SetPhase(null); HandCircle(hand, 0.12f, MagicFx.OfSpell(17), 0.5f, 150f); break;
                 default:
                     s.StartEssenza();
+                    MagicReplay.Send(MagicReplay.Spell, node, palm, palm);
                     if (MagicVfx.On)
                     {
                         // il cerchio del Dodecaedro si apre davanti alla mano, le rune gli girano attorno, il fuoco rosso esplode
@@ -324,14 +330,15 @@ namespace PryingEyes
         }
 
         /// <summary>Dove il fulmine colpisce: lampo, anello d'urto e scintille.</summary>
-        static void BoltHit(Vector3 p)
+        internal static void BoltHit(Vector3 p)
         {
             MagicFx.Glow(p, MagicFx.Shock, 0.3f, 0.12f, 0.9f);
             MagicVfx.Emit(MagicVfx.Kind.Ring, p, Vector3.zero, 0.9f, 0.22f, MagicFx.Shock);
             MagicFx.Sparks(p, MagicFx.Shock, 12, 3.8f);
         }
 
-        void CastLightning(OffHand hand, float dmgK, float rangeK)
+        /// <summary>Il fulmine e la sua catena; rende i nemici colpiti, in ordine (per gli altri giocatori della cooperativa).</summary>
+        List<Enemy> CastLightning(OffHand hand, float dmgK, float rangeK)
         {
             Vector3 from = hand != null ? hand.TipWorld(1) : Cam.position + Cam.forward * 0.45f;
             System.Func<Vector3> fromF = hand != null ? () => hand.TipWorld(1) : (System.Func<Vector3>)null;
@@ -345,7 +352,7 @@ namespace PryingEyes
                 end = from + Vector3.ClampMagnitude(end - from, 14f);
                 if (MagicVfx.On) { MagicVfx.Lightning(from, end, MagicFx.Shock, 0.02f, 0.28f, 3, 0.17f, fromF); BoltHit(end); }
                 else { for (int i = 0; i < 3; i++) MagicFx.Arc(from, end, MagicFx.Shock, 0.016f, 9, 0.18f); MagicFx.Sparks(end, MagicFx.Shock, 14, 4f); }
-                return;
+                return hit;
             }
             Vector3 prev = from;
             var e = first;
@@ -374,6 +381,7 @@ namespace PryingEyes
                 dmg *= 0.7f;
                 e = MagicFx.NearestFrom(p, 6f * rangeK, hit);
             }
+            return hit;
         }
 
         void CastFrost(Vector3 palm, float dmgK, float rangeK)
@@ -476,13 +484,14 @@ namespace PryingEyes
             if ((dest - feet).sqrMagnitude < 0.25f) { player.hud?.Toast("L'ombra non trova spazio."); return; }
             player.Teleport(dest);
             ShadowPuff(dest, 1f);
+            MagicReplay.Send(MagicReplay.Spell, 16, feet, dest);
             player.hud?.Flash(new Color(0.25f, 0.1f, 0.4f), 0.45f, 0.18f);
             Sfx.UI(SoundBank.MagiaOmbra, 0.8f);
         }
 
         /// <summary>L'ombra del Passo: dove si parte il fumo viola-nero si richiude su se stesso (dir -1) con le rune, dove si arriva
         /// esplode in fuori (dir 1) con un lampo viola e le scintille.</summary>
-        static void ShadowPuff(Vector3 feet, float dir)
+        internal static void ShadowPuff(Vector3 feet, float dir)
         {
             Vector3 c = feet + Vector3.up * 0.95f;
             for (int i = 0; i < 18; i++)
@@ -510,6 +519,7 @@ namespace PryingEyes
             MagicFx.Flash(palm, new Color(0.85f, 0.55f, 1f), 5f, 8f, 0.35f);
             Sfx.At(SoundBank.MagiaOnda, palm, 0.95f, 1f, 2f, 40f);
             player.Shake(palm, 0.5f, 6f);
+            MagicReplay.Send(MagicReplay.Spell, 17, origin, origin + f * range);
             var list = new List<Enemy>(Enemy.All);
             foreach (var e in list)
             {
@@ -586,6 +596,7 @@ namespace PryingEyes
             }
             // ---- il sigillo prende l'arma
             S.ApplyInfusion(node, slot);
+            MagicReplay.Send(MagicReplay.Seal, node, palm, palm, null, slot);
             if (node == 18) { player.hud?.Banner("Arma Maledetta", "Quindici secondi: danno doppio, ogni sigillo insieme, munizioni infinite."); player.hud?.Flash(MagicFx.Cursed, 0.6f, 0.4f); }
             else player.hud?.Toast($"{Grimoire.Arsenal[node].name}: l'arma porta il sigillo per {MagicState.InfusionTime:F0} s.");
             // gli altri sigilli hanno gia' acceso l'arma nel gesto (taglio, scia, icore, schiaffo, brina, rune): Critici si accende ora

@@ -15,7 +15,7 @@ namespace PryingEyes.EditorTools
     /// Uscita: hotel_build/furtivo/torcia_&lt;variante&gt;_&lt;stanza&gt;.png, piu' gli sprite degli occhi dei segnalini. Argomenti: -seed N -floor N -rooms A,B -variants a,b.</summary>
     public static class StealthShots
     {
-        const string Out = "C:/Users/danie/Desktop/prying-eyes/hotel_build/furtivo/";
+        static string Out => TestPaths.Out("furtivo") + "/";         // hotel_build del checkout in cui gira l'editor (TestPaths), non una cartella di questo PC
 
         static string Arg(string name)
         {

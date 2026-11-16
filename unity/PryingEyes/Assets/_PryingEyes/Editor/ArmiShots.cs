@@ -13,7 +13,7 @@ namespace PryingEyes.EditorTools
     /// Da CLI: Unity.exe -batchmode -projectPath ... -executeMethod PryingEyes.EditorTools.ArmiShots.Run [-armi id1,id2] [-viste mano,mira,lato] -quit</summary>
     public static class ArmiShots
     {
-        const string Out = "C:/Users/danie/Desktop/prying-eyes/hotel_build/armi";
+        static string Out => TestPaths.Out("armi");         // hotel_build del checkout in cui gira l'editor (TestPaths), non una cartella di questo PC
 
         static string Arg(string name)
         {

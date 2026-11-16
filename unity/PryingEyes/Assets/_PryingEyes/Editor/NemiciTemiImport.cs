@@ -426,7 +426,7 @@ namespace PryingEyes.EditorTools
                     tex.ReadPixels(new Rect(0, 0, 960, 720), 0, 0);
                     tex.Apply();
                     RenderTexture.active = null;
-                    System.IO.File.WriteAllBytes($"C:/Users/danie/Desktop/prying-eyes/hotel_build/shot_temi_{look.costume}_{s.tag}.png", tex.EncodeToPNG());
+                    System.IO.File.WriteAllBytes(TestPaths.Out($"shot_temi_{look.costume}_{s.tag}.png"), tex.EncodeToPNG());
                     Object.DestroyImmediate(tex);
                 }
                 Debug.Log("[Temi] foto salvate: " + look.name);

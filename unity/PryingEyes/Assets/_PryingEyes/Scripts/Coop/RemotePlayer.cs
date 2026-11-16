@@ -70,6 +70,12 @@ namespace PryingEyes
         };
 
         public Vector3 Feet => transform.position;
+        /// <summary>La mano sinistra del pupazzo, protesa in avanti: le magie degli altri partono da qui (MagicReplay).</summary>
+        public Vector3 HandPoint => visual != null ? visual.TransformPoint(new Vector3(-0.20f, 1.28f, 0.44f)) : transform.position + Vector3.up * 1.3f;
+        /// <summary>La mano destra (quella della torcia): li' brilla il sigillo sull'arma di un compagno.</summary>
+        public Vector3 GunPoint => torchT != null ? torchT.position : transform.position + Vector3.up * 1.3f;
+        /// <summary>Dove guarda (orizzontale e in alto/basso, come la sua visuale).</summary>
+        public Vector3 Forward => Quaternion.Euler(last.pitch * Mathf.Rad2Deg, transform.eulerAngles.y, 0f) * Vector3.forward;
         /// <summary>Vivo e nel mio stesso piano (un compagno su un altro piano non e' un bersaglio per i miei nemici).</summary>
         public bool Alive => this != null && shown && last.alive;
         /// <summary>Il pupazzo e' disegnato (compagno nello stesso piano, gia' costruito).</summary>

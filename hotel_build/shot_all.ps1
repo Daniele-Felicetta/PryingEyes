@@ -33,6 +33,6 @@ $dc = $g.GetHdc()
 [ScrCap2]::BitBlt($dc, 0, 0, $vw, $vh, $src, $vx, $vy, 13369376) | Out-Null
 $g.ReleaseHdc($dc)
 [ScrCap2]::ReleaseDC($desk, $src) | Out-Null
-$bmp.Save("C:\Users\danie\Desktop\prying-eyes\hotel_build\unity_run3.png", [Drawing.Imaging.ImageFormat]::Png)
+$bmp.Save((Join-Path $PSScriptRoot "unity_run3.png"), [Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $bmp.Dispose()
 Write-Output "SAVED"

@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-OUT = Path(r"C:\Users\danie\Desktop\prying-eyes\unity\PryingEyes\Assets\_PryingEyes\Textures\Hotel")
+OUT = Path(__file__).resolve().parents[2] / "unity" / "PryingEyes" / "Assets" / "_PryingEyes" / "Textures" / "Hotel"
 F = np.float32
 
 

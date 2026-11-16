@@ -30,7 +30,7 @@ from genera_arredi import V, box, lathe, sphere, cyl, tube, Asset   # noqa: E402
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 EXPORT_DIR = os.path.join(HERE, 'export')
 RENDER_DIR = os.path.join(HERE, 'render')
-TEX_DIR = r"C:\Users\danie\Desktop\prying-eyes\unity\PryingEyes\Assets\_PryingEyes\Models\Temi\Textures"
+TEX_DIR = os.path.normpath(os.path.join(HERE, "..", "..", "unity", "PryingEyes", "Assets", "_PryingEyes", "Models", "Temi", "Textures"))
 
 # ruoli per le anteprime (in Unity li sostituisce NemiciTemiImport coi suoi materiali)
 ga.ROLE.update({

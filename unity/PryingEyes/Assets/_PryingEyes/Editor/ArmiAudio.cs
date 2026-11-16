@@ -7,7 +7,7 @@ namespace PryingEyes.EditorTools
     /// numpy (picco, durata, centro spettrale) e per ascoltarli senza aprire il gioco.</summary>
     public static class ArmiAudio
     {
-        const string Dir = "C:/Users/danie/Desktop/prying-eyes/hotel_build/audio/armi";
+        static string Dir => TestPaths.Out("audio/armi");         // hotel_build del checkout in cui gira l'editor (TestPaths), non una cartella di questo PC
 
         public static void Run()
         {

@@ -61,6 +61,16 @@ namespace PryingEyes
         /// <summary>Rotazione del busto del tiratore (gradi): la spalla sinistra va avanti e la destra indietro attorno alla spina,
         /// come chi imbraccia un fucile (30-40) o tiene una pistola (5-15).</summary>
         public float Stance;
+        /// <summary>In mira (presa realistica, 0.7.1): fin dove puo' girare il gomito attorno all'asse spalla-polso (gradi), quanto puo' salire
+        /// oltre il limite di riposo (metri: col calcio alla spalla il gomito destro si apre di lato, ad ala) e di quanto la spalla va
+        /// sotto il calcio (riferimento della camera). Prima in mira il gomito restava giu' come a riposo e il polso usciva dai campi
+        /// articolari su tutte le armi (deviazione fino a 120 gradi).</summary>
+        public float AdsSwivel = 40f, AdsElbowRise;
+        public Vector3 AdsShoulder;
+        /// <summary>Quanto il gomito preferisce restare dov'era nel fotogramma prima (per grado al quadrato): a riposo tiene ferme le
+        /// soluzioni quasi uguali; in mira pesa poco, se no il gomito resta incastrato in basso (minimo locale) invece di aprirsi di lato.
+        /// Il movimento lo ammorbidisce la molla (Solve con dt).</summary>
+        public float Stickiness = 0.03f, AdsStickiness = 0.004f;
         public const float MinElbowDeg = 28f, MaxElbowDeg = 176f;
         /// <summary>Il braccio libero e' un braccio vero: omero di 30 cm (quello dell'arma e' virtuale, 0,35-0,75 m, perche' il modello in
         /// prima persona sta piu' avanti di una presa vera) e spalla dove sta una spalla, 19 cm di lato, 24 sotto e 3 dietro l'occhio.
@@ -366,6 +376,29 @@ namespace PryingEyes
 
         /// <summary>Quanto una soluzione esce dai campi articolari umani (gradi al quadrato, 0 = dentro): prono-supinazione oltre 75,
         /// flessione-estensione oltre 65, deviazione oltre 25 (con un po' di margine sotto i limiti veri, 85/80/30).</summary>
+        /// <summary>Quanto un pezzo di braccio (un punto del suo asse e il suo raggio, riferimento della camera) entra nel centro dello
+        /// schermo, dove coprirebbe la vista: 0 se resta fuori (ai lati oltre |x/z| 0,9 o in basso sotto y/z -0,40, dove stanno mani e
+        /// arma), di piu' quanto piu' entra. Conta lo spessore: un avambraccio a pochi centimetri dall'occhio riempie lo schermo anche se il
+        /// suo asse cade di lato; dietro l'occhio non si vede (con un margine di quanto e' grosso).</summary>
+        public static float Occlusion(Vector3 p, float radius = 0.05f)
+        {
+            if (p.z < -radius * 0.5f) return 0f;
+            float z = Mathf.Max(p.z, 0.03f);
+            float k = radius / z;
+            float inX = 0.9f + k - Mathf.Abs(p.x) / z, inY = p.y / z + k + 0.40f;
+            return Mathf.Min(1.5f, Mathf.Max(0f, Mathf.Min(inX, inY)));
+        }
+
+        /// <summary>Quanto il braccio intero (spalla S, gomito E, polso W nel riferimento della camera) copre il centro dello schermo:
+        /// l'avambraccio dalla meta' al gomito (vicino al polso c'e' l'impugnatura, che in basso al centro ci sta), il gomito e l'omero.</summary>
+        public static float ArmOcclusion(Vector3 S, Vector3 E, Vector3 W)
+        {
+            float occ = Occlusion(E, 0.055f);
+            for (int q = 0; q < 4; q++) occ += Occlusion(Vector3.Lerp(W, E, 0.4f + q * 0.2f), 0.05f);
+            for (int q = 0; q < 2; q++) occ += Occlusion(Vector3.Lerp(E, S, 0.3f + q * 0.35f), 0.06f);
+            return occ;
+        }
+
         static float AnatomyCost(float proSup, float flex, float dev)
         {
             float a = Mathf.Max(0f, Mathf.Abs(proSup) - 75f), b = Mathf.Max(0f, Mathf.Abs(flex) - 65f), c = Mathf.Max(0f, Mathf.Abs(dev) - 25f);
@@ -389,6 +422,7 @@ namespace PryingEyes
             Vector3 S = shoulder;
             // presa realistica: spalla, omero e gomito sono sempre quelli del corpo; Free governa solo la ricerca del polso comodo
             float free = Body ? 1f : Mathf.Clamp01(Free);
+            float adsK = Body ? Mathf.Clamp01(ads) : 0f;
             // col braccio libero l'omero torna lungo come un omero vero
             float lu = Mathf.Lerp(this.lu, UpperReal, free);
             if (body != null)
@@ -400,7 +434,7 @@ namespace PryingEyes
                 S = new Vector3(sb.x, sb.y, shoulder.z);
                 if (free > 0f)
                 {
-                    Vector3 sb2 = BodyShoulder(side, Stance) + ShoulderOffset + BodyMotion;
+                    Vector3 sb2 = BodyShoulder(side, Stance) + ShoulderOffset + BodyMotion + AdsShoulder * adsK;
                     Vector3 sf = root.InverseTransformPoint(body.TransformPoint(sb2));
                     // la spalla si protende verso la mano quando il braccio non ci arriva (fino a 12 cm, la scapola che scivola)
                     Vector3 toW = W - sf;
@@ -443,11 +477,14 @@ namespace PryingEyes
                 // a riposo sull'arma 40 gradi (con la mano articolata il costo e' anatomico: il gomito cerca il polso comodo senza
                 // alzarsi ad ala di pollo, lo tiene giu' il costo dell'altezza), nei gesti fino a 70
                 float range = Body ? Mathf.Lerp(40f, 70f, Mathf.Clamp01(Free)) : 70f;
-                // la spalla nel riferimento del corpo (la camera): per tenere giu' il gomito
-                Vector3 sBody = BodyShoulder(side, Stance) + ShoulderOffset;
-                for (int k = -7; k <= 7; k++)
+                range = Mathf.Lerp(range, Mathf.Max(range, AdsSwivel), adsK);
+                // la spalla nel riferimento del corpo (la camera): per tenere giu' il gomito (in mira puo' salire di AdsElbowRise)
+                Vector3 sBody = BodyShoulder(side, Stance) + ShoulderOffset + AdsShoulder * adsK;
+                float hiTop = sBody.y - 0.08f + AdsElbowRise * adsK, nearMin = Mathf.Lerp(0.27f, 0.18f, adsK);
+                const int steps = 12;
+                for (int k = -steps; k <= steps; k++)
                 {
-                    float phi = k * range / 7f;
+                    float phi = k * range / steps;
                     Vector3 pk = Quaternion.AngleAxis(phi, dir) * pole;
                     Vector3 Ek = ElbowAt(S, dir, a, h, pk);
                     Vector3 fk = (W - Ek).normalized;
@@ -471,11 +508,17 @@ namespace PryingEyes
                         // (ClampToJoints). Prima il gomito saliva all'altezza degli occhi nelle spinte (fulmine, onda) e il braccio
                         // copriva mezza vista
                         Vector3 eb = body.InverseTransformPoint(root.TransformPoint(Ek));
-                        float hi = Mathf.Max(0f, eb.y - (sBody.y - 0.08f));
-                        float near = Mathf.Max(0f, 0.27f - eb.magnitude);
+                        float hi = Mathf.Max(0f, eb.y - hiTop);
+                        float near = Mathf.Max(0f, nearMin - eb.magnitude);
                         joints += 15000f * hi * hi + 20000f * near * near;
+                        if (adsK > 0f)
+                        {
+                            // in mira il braccio non passa davanti alla vista (ArmOcclusion, con lo spessore del braccio)
+                            float occ = ArmOcclusion(body.InverseTransformPoint(root.TransformPoint(S)), eb, body.InverseTransformPoint(root.TransformPoint(W)));
+                            joints += adsK * 60000f * occ * occ;
+                        }
                     }
-                    float cost = joints + 0.012f * phi * phi + 0.03f * (phi - swivel) * (phi - swivel);
+                    float cost = joints + 0.012f * phi * phi + Mathf.Lerp(Stickiness, AdsStickiness, adsK) * (phi - swivel) * (phi - swivel);
                     if (cost < bestCost) { bestCost = cost; best = phi; }
                 }
                 if (dt > 0f)

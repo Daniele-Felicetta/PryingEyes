@@ -279,6 +279,8 @@ namespace PryingEyes
                 yield return Until(() => access.Access.IsOpen(room), 3f);
                 Check("l'ospite da solo compra un'area", access.Access.IsOpen(room) && gm.score == s0 - price, $"area {room}, {gm.score - s0:+0;-0;0} punti");
                 boughtRoom = room;
+                var sacH = SacrarioSite();
+                if (sacH != null) { sacH.Open(); Check("l'ospite da solo apre il muro del sacrario", sacH.opened); }
                 SurvivalMode.Hold(false);
                 rd.SurvivalNextWaveIn(0f);
                 yield return Until(() => rd.Fighting, 6f);
@@ -327,6 +329,8 @@ namespace PryingEyes
             }
             Check("le porte delle aree aperte sono gia' su", open > 0 && openUp, $"{open} porte aperte");
             Check("le porte delle aree ancora chiuse sono giu'", closedDown, $"{closed} porte chiuse");
+            var sacG = SacrarioSite();
+            if (sacG != null) Check("il sacrario aperto dall'ospite prima del mio arrivo e' aperto anche qui", sacG.opened);
             yield return Barrier();
             if (aborted) yield break;
             yield return ExpectEnemies("i nemici dell'ondata in corso sono qui come pupazzi uguali", 10f);

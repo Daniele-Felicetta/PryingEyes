@@ -46,7 +46,7 @@ namespace PryingEyes.EditorTools
         public static void Run()
         {
             int n = ArgInt("-seeds", 60), seed0 = ArgInt("-seed0", 9000);
-            string outFile = Arg("-out") ?? "C:/Users/danie/Desktop/prying-eyes/hotel_build/annexcheck.txt";
+            string outFile = Arg("-out") ?? TestPaths.Out("annexcheck.txt");
             EditorSceneManager.OpenScene(TorreBuilder.ScenePath);
             var player = GameObject.Find("Player");
             if (player != null) player.SetActive(false);

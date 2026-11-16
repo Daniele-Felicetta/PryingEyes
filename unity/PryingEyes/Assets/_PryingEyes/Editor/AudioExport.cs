@@ -7,7 +7,7 @@ namespace PryingEyes.EditorTools
     /// e per controllarli (livello di picco, RMS, durata, campioni non validi).</summary>
     public static class AudioExport
     {
-        const string Dir = "C:/Users/danie/Desktop/prying-eyes/hotel_build/audio";
+        static string Dir => TestPaths.Out("audio");         // hotel_build del checkout in cui gira l'editor (TestPaths), non una cartella di questo PC
 
         public static void Run()
         {

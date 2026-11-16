@@ -24,7 +24,7 @@ namespace PryingEyes.EditorTools
         {
             int seed = int.TryParse(Arg("-seed"), out int sd) ? sd : 3017;
             int floor = int.TryParse(Arg("-floor"), out int fl) ? fl : 2;
-            string outPath = Arg("-out") ?? "C:/Users/danie/Desktop/prying-eyes/hotel_build/navmap.ppm";
+            string outPath = Arg("-out") ?? TestPaths.Out("navmap.ppm");
             EditorSceneManager.OpenScene(TorreBuilder.ScenePath);
             var player = GameObject.Find("Player");
             if (player != null) player.SetActive(false);

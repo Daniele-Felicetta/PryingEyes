@@ -32,7 +32,8 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Solo per le prove: il nuovo ciclo senza ondate (nessun nemico nasce da solo). Vale con -nowaves e -noenemies; con -cooptest
-        /// parte attivo e il copione lo toglie quando serve (Hold), cosi' le ondate non coprono i passi che contano punti e nemici uno per uno.</summary>
+        /// le ondate partono ferme anche li' e il copione le libera quando serve (Hold(false)), cosi' non coprono i passi che contano punti e
+        /// nemici uno per uno.</summary>
         public static bool HoldWaves => noWaves ??= Has("-nowaves") || Has("-noenemies") || Has("-cooptest");
 
         /// <summary>Solo per le prove: ferma o libera le ondate a mano.</summary>

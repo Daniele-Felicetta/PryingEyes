@@ -34,7 +34,7 @@ namespace PryingEyes.EditorTools
             ShaderUtil.allowAsyncCompilation = false;
             int seed = ArgInt("-seed", 9062), floor = ArgInt("-floor", 3);
             string tag = Arg("-tag") != null ? "_" + Arg("-tag") : "";
-            string outDir = Arg("-out") ?? "C:/Users/danie/Desktop/prying-eyes/hotel_build";
+            string outDir = Arg("-out") ?? TestPaths.Root;
             Directory.CreateDirectory(outDir);
             EditorSceneManager.OpenScene(TorreBuilder.ScenePath);
             var player = GameObject.Find("Player");

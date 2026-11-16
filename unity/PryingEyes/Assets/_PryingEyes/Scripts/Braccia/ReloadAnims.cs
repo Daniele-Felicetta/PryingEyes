@@ -63,8 +63,12 @@ namespace PryingEyes
         /// centro, nel terzo basso dello schermo; a 45 cm dalla spalla sinistra.</summary>
         static readonly Vector3 MagWork = new Vector3(-0.01f, -0.185f, 0.37f), TopWork = new Vector3(-0.02f, -0.13f, 0.36f);
         static readonly Vector3 PistolWork = new Vector3(-0.03f, -0.225f, 0.41f), SlideWork = new Vector3(-0.02f, -0.15f, 0.41f);
-        static readonly Vector3 PortWork = new Vector3(-0.02f, -0.20f, 0.37f), BreechWork = new Vector3(-0.02f, -0.16f, 0.36f);
-        static readonly Vector3 CylWork = new Vector3(-0.03f, -0.16f, 0.32f), CoverWork = new Vector3(0.02f, -0.12f, 0.50f);
+        // la culatta della doppietta piu' in basso e piu' avanti (0.7.1): a 16 cm sotto l'occhio la mano che infila le cartucce dall'alto
+        // portava l'avambraccio sinistro in mezzo allo schermo
+        static readonly Vector3 PortWork = new Vector3(-0.02f, -0.20f, 0.37f), BreechWork = new Vector3(-0.01f, -0.235f, 0.40f);
+        // il coperchio della mitragliatrice piu' in basso (0.7.1): a 12 cm sotto l'occhio la mano che lo alza portava l'avambraccio
+        // sinistro di traverso sulla parte alta dello schermo
+        static readonly Vector3 CylWork = new Vector3(-0.03f, -0.16f, 0.32f), CoverWork = new Vector3(0.02f, -0.20f, 0.52f);
 
         /// <summary>La cintura (le tasche dei caricatori), appena fuori dall'inquadratura in basso a sinistra (spazio della camera).</summary>
         static readonly Vector3 Pouch = new Vector3(-0.15f, -0.40f, 0.22f);

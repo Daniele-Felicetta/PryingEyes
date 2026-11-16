@@ -9,8 +9,9 @@ namespace PryingEyes.Proc
     /// cancello che lo chiude (parete finta o grata alla base della torre, sigillo di pietra sulla botola della cripta, porta coperta
     /// d'edera del giardino) e si apre in uno di tre modi: tirando tutte le leve dei sigilli sparse nella sala madre, in basso e sulle
     /// balconate, entro un tempo limite (Sigilli); offrendo molti punti (Tributo); con la chiave che custodisce un altro annesso del
-    /// piano (Chiave). Dentro c'e' uno Scrigno antico, gratis e una volta sola, con un'arma di grado alto. Lo stato e' locale a ogni
-    /// macchina (come lo Scrigno del negozio): in cooperativa ognuno apre i suoi.</summary>
+    /// piano (Chiave). Dentro c'e' uno Scrigno antico, gratis e una volta sola, con un'arma di grado alto. In cooperativa cancelli e leve
+    /// sono di tutti (dal 2026-11-16: CoopGame.Magic.cs, l'ospite fa da arbitro e racconta a chi entra tardi gli annessi aperti); la
+    /// chiave e lo Scrigno restano di ognuno (come lo Scrigno del negozio).</summary>
     public static class AnnexRuntime
     {
         static readonly HashSet<int> keys = new HashSet<int>();
@@ -101,6 +102,8 @@ namespace PryingEyes.Proc
         public readonly List<Transform> fade = new List<Transform>();
 
         // ---- stato
+        /// <summary>Vero mentre si applica un cambio arrivato dalla rete (ApplyRemote): un ospitato non lo rimanda indietro.</summary>
+        public static bool Remote;
         public bool opened;
         public int pulled;
         public Scrigno chest;
@@ -284,6 +287,20 @@ namespace PryingEyes.Proc
             else gm?.hud?.Toast($"Sigillo {pulled}/{total} — hai {Mathf.CeilToInt(Remaining)} secondi per gli altri.");
         }
 
+        /// <summary>In cooperativa: un annesso aperto (what 255) o la leva 'what' tirata altrove; 'instant' = per chi entra tardi, senza
+        /// animazione. Vero se ha cambiato qualcosa.</summary>
+        public bool ApplyRemote(int what, bool instant)
+        {
+            if (opened) return false;
+            Remote = true;
+            try
+            {
+                if (what == 255) { if (instant) OpenInstant(); else Open(); return true; }
+                return what >= 0 && what < levers.Count && levers[what].PullRemote();
+            }
+            finally { Remote = false; }
+        }
+
         /// <summary>Per le prove e le foto: l'annesso aperto subito, senza animazione ne' suoni.</summary>
         public void OpenInstant()
         {
@@ -312,6 +329,8 @@ namespace PryingEyes.Proc
                 Sfx.At(SoundBank.Creak, gatePoint, 0.8f, 0.6f, 3f, 40f);
             }
             if (closer != null) StartCoroutine(data.kind == AnnexKind.Sacrario ? SlideAnim() : OpenAnim());
+            // in cooperativa l'apertura e' di tutti: l'ospite la racconta sempre (anche quella chiesta da un ospitato), un ospitato solo la sua
+            if (!Remote || Coop.IsHost) Coop.Game?.AnnexChanged(this, 255);
         }
 
         IEnumerator OpenAnim()
@@ -472,6 +491,20 @@ namespace PryingEyes.Proc
         public void Use()
         {
             if (done || moving) return;
+            Coop.Game?.AnnexChanged(site, index);          // in cooperativa la leva tirata conta per tutti
+            Pulled();
+        }
+
+        /// <summary>La leva tirata da un compagno (cooperativa). Vero se era ancora su.</summary>
+        public bool PullRemote()
+        {
+            if (done) return false;
+            Pulled();
+            return true;
+        }
+
+        void Pulled()
+        {
             done = true;
             StartCoroutine(Pull(50f));
             Sfx.At(SoundBank.Clang, transform.position, 0.8f, 1.1f, 2f, 40f);

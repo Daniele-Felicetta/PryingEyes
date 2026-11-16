@@ -15,7 +15,7 @@ from mathutils import Vector, Matrix, Quaternion, noise
 from math import sin, cos, pi, radians, sqrt, atan2, acos
 
 DIR = os.path.dirname(os.path.abspath(__file__))
-TEX = r"C:\Users\danie\Desktop\prying-eyes\unity\PryingEyes\Assets\_PryingEyes\Textures\Occhio"
+TEX = os.path.normpath(os.path.join(DIR, "..", "..", "unity", "PryingEyes", "Assets", "_PryingEyes", "Textures", "Occhio"))
 BLEND = os.path.join(DIR, 'occhio.blend')
 RENDER_DIR = os.path.join(DIR, 'render')
 EXPORT_DIR = os.path.join(DIR, 'export')

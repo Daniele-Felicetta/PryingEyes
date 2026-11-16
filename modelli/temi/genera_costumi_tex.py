@@ -20,7 +20,7 @@ from PIL import Image
 HERE = Path(__file__).resolve().parent
 MONK_TEX = HERE.parent / "monaco" / "export" / "textures"
 TRIS = HERE.parent / "abate" / "stoffa_tris.npz"
-OUT = Path(r"C:\Users\danie\Desktop\prying-eyes\unity\PryingEyes\Assets\_PryingEyes\Models\Temi\Textures")
+OUT = Path(__file__).resolve().parents[2] / "unity" / "PryingEyes" / "Assets" / "_PryingEyes" / "Models" / "Temi" / "Textures"
 F = np.float32
 N = 2048
 
