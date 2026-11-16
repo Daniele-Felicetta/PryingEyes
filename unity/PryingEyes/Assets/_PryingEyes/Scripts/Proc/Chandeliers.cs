@@ -130,9 +130,12 @@ namespace PryingEyes.Proc
         public void Drop(int slot)
         {
             if (Fallen || Falling || Coop.IsClient) return;
+            owner = Seats.Current;                      // schermo condiviso: chi l'ha fatto cadere incassa punti e uccisioni
             StartCoroutine(Fall(true, slot));
             Coop.Game?.ChandelierDropped(index);
         }
+
+        Seat owner;
 
         /// <summary>Sugli ospitati: la caduta vista (il danno lo manda l'ospite); 'silent' = gia' a terra (chi entra tardi).</summary>
         public void Remote(bool silent)
@@ -179,7 +182,7 @@ namespace PryingEyes.Proc
             }
             transform.position = start + Vector3.down * drop;
             transform.rotation = Quaternion.AngleAxis(tilt, axis) * r0;
-            Impact(authority, slot);
+            using (Seats.Enter(owner)) Impact(authority, slot);
             Vector3 rest = transform.position;
             for (float u = 0f; u < 0.22f; u += Time.deltaTime)
             {
@@ -201,7 +204,7 @@ namespace PryingEyes.Proc
                 Fx.EnemyImpact(impact + off + Vector3.up * 0.05f, Vector3.up, grey);
             }
             Fx.EnemyImpact(c, Vector3.up, new Color(1f, 0.85f, 0.55f));
-            GameManager.I?.player?.Shake(c, 1.1f, 14f);
+            Seats.ShakeAll(c, 1.1f, 14f);
             if (!authority) return;
             // chi sta sotto: i nemici volano via dal punto d'impatto (EnemyRagdoll), i boss perdono un quarto della vita
             Enemy.NoteBlast(impact);
@@ -222,7 +225,7 @@ namespace PryingEyes.Proc
                 Vector3 f = tg.Feet;
                 if (Mathf.Abs(f.y - impact.y) > 2.5f || new Vector2(f.x - impact.x, f.z - impact.z).magnitude > radius * 0.75f) continue;
                 tg.Hurt(60f, c);
-                if (tg is LocalTarget) GameManager.damageTaken++;
+                Seats.CountDamageTaken(tg);
             }
             if (kills >= 3) GameManager.I?.hud?.Toast($"Il lampadario ne ha schiacciati {kills}.");
             if (GameManager.autoTest) Debug.Log($"[PryingEyes] lampadario {index} a terra: {kills} uccisi");

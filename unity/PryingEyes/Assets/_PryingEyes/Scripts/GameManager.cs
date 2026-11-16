@@ -60,6 +60,7 @@ namespace PryingEyes
             if (returningToMenu) return;
             returningToMenu = true;
             Coop.Stop("");
+            Seats.End();                  // schermo condiviso: via i giocatori in piu' e le porzioni, resta il posto 0 (quello della scena)
             StopAllCoroutines();
             Proc.FloorDirector.I?.StopAllCoroutines();
             Proc.RoundDirector.ResetRun();
@@ -103,10 +104,10 @@ namespace PryingEyes
                 Ambience.Create();  // eco, vento, scricchiolii, grammofono; genera anche tutti i suoni
             }
             else { Proc.ProcAmbience.Create(); MusicDirector.Create(); }     // ambiente dei piani e musica adattiva delle ondate
-            if (proc) { SplitScreen.BootFromArgs(); Coop.BootFromArgs(); }   // split screen: finestre figlie (-splitchild); prove con due processi: -coophost / -coopjoin <indirizzo>
+            if (proc) Coop.BootFromArgs();                   // prove con due processi: -coophost / -coopjoin <indirizzo>
             if (!autoTest && !camShots) GameMenu.Create();   // menu principale: la prima ondata parte da "Gioca"
-            // controller: lo cerca il gioco e adotta il primo su cui si preme un tasto (nello split screen lo slot lo sceglie SplitScreen; nelle prove no, salvo -padauto)
-            if (!SplitScreen.IsChild && (!VideoSettings.Automated || HasArg("-padauto"))) PadControls.EnableAuto();
+            // controller: lo cerca il gioco e adotta il primo su cui si preme un tasto (nello schermo condiviso gli slot li assegna Seats.Begin; nelle prove no, salvo -padauto)
+            if (!VideoSettings.Automated || HasArg("-padauto")) PadControls.EnableAuto();
         }
 
         /// <summary>Avvia la partita: prima ondata. Lo chiama il menu su "Gioca".</summary>
@@ -149,7 +150,14 @@ namespace PryingEyes
             {
                 player.weapon.Refresh();
             }
-            if (GameMenu.I == null) BeginRun();
+            if (GameMenu.I == null)
+            {
+                // prove (-autotest, senza menu): -splitscreen N avvia lo schermo condiviso prima della prima ondata, come il bottone del menu
+                int split = proc ? SplitScreen.AutoStartCount : 0;
+                if (split >= SplitScreen.MinPlayers && !SplitScreen.Begin(Mathf.Min(split, SplitScreen.MaxPlayers), SplitScreen.AutoP1Pad, out string splitError))
+                    Debug.LogWarning("[PryingEyes] split: non parte: " + splitError);
+                BeginRun();
+            }
         }
 
         void Update()
@@ -693,7 +701,7 @@ namespace PryingEyes
         /// <summary>Presenze ancora da affrontare nell'ondata (comprese quelle non ancora entrate).</summary>
         public void SetAlive(int existing)
         {
-            if (proc) { hud?.SetEnemiesLeft(Enemy.All.Count); return; }
+            if (proc) { Seats.EnemiesLeft(Enemy.All.Count); return; }
             hud?.SetEnemiesLeft(alive);
         }
     }

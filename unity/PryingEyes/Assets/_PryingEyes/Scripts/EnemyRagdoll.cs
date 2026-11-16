@@ -66,6 +66,7 @@ namespace PryingEyes
         public System.Action<Vector3> Settled;
         /// <summary>Il bastone lasciato andare (corpo rigido suo, senza giunto), o null.</summary>
         public Rigidbody Staff { get; private set; }
+        CapsuleCollider staffCap;
 
         /// <summary>I corpi rigidi, il bacino per primo.</summary>
         public IReadOnlyList<Rigidbody> Bodies => bodies;
@@ -141,7 +142,7 @@ namespace PryingEyes
                 }
             }
             // il bastone e' un osso senza padre (l'animazione lo teneva in mano): lo lascia andare e cade da solo
-            if (map.TryGetValue("bastone", out var staff)) r.Staff = DropStaff(body, staff, vel, r.parts);
+            if (map.TryGetValue("bastone", out var staff)) { r.Staff = DropStaff(body, staff, vel, r.parts); r.staffCap = r.Staff.GetComponent<CapsuleCollider>(); }
             // i pezzi dello stesso corpo non si urtano fra loro; il giocatore non ci inciampa
             for (int a = 0; a < r.parts.Count; a++)
                 for (int c = a + 1; c < r.parts.Count; c++) Physics.IgnoreCollision(r.parts[a], r.parts[c]);
@@ -204,12 +205,26 @@ namespace PryingEyes
             if (near != bodies[0]) bodies[0].AddForce(dn * impulse * 0.25f, ForceMode.Impulse);
         }
 
+        /// <summary>Il bastone si muove ancora? Conta la velocita' delle sue due estremita', non la rotazione sul proprio asse: rotolare
+        /// piano a terra non e' cadere (e farebbe aspettare il tetto di SettleTime per niente).</summary>
+        bool StaffMoving()
+        {
+            if (Staff == null || staffCap == null) return false;
+            Vector3 half = Vector3.up * Mathf.Max(0f, staffCap.height * 0.5f - staffCap.radius);
+            var tr = Staff.transform;
+            return Staff.GetPointVelocity(tr.TransformPoint(staffCap.center + half)).sqrMagnitude > 0.0225f
+                || Staff.GetPointVelocity(tr.TransformPoint(staffCap.center - half)).sqrMagnitude > 0.0225f;
+        }
+
         void FixedUpdate()
         {
             if (frozen) return;
             t += Time.fixedDeltaTime;
             bool still = t > 1.2f;
             if (still) foreach (var rb in bodies) if (rb != null && rb.linearVelocity.sqrMagnitude > 0.0225f) { still = false; break; }
+            // il bastone cade per conto suo e spesso piu' piano del corpo: finche' si muove non si congela, o resta appeso a mezz'aria
+            // (2 prove su 6 di -ragdolltest lo lasciavano a 0,9 m da terra); SettleTime vale comunque come tetto
+            if (still && StaffMoving()) still = false;
             if (t < SettleTime && !still) return;
             // fermi: corpi cinematici, cosi' CorpseSink puo' abbassare il cadavere spostando la radice
             frozen = true;

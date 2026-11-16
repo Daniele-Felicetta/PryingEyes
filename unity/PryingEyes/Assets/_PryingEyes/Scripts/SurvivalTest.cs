@@ -73,7 +73,7 @@ namespace PryingEyes
             if (!rd.Fighting) yield break;
             Check(tag + "numero di nemici previsto", rd.Target == expectedTarget, $"{rd.Target} invece di {expectedTarget}");
             Check(tag + (moth ? "e' una Processione" : "non e' una Processione"), rd.Moth == moth);
-            int scoreBefore = gm.score, statBefore = Drops.statSpawned;
+            int scoreBefore = gm.score, statBefore = Drops.statSpawned, medalsBefore = Medals.Points;
             var seen = new HashSet<Enemy>();
             int outside = 0, notHunting = 0, tooClose = 0, wrongType = 0, wrongSpeed = 0, maxAlive = 0;
             float killT = 0f, started = Time.time;
@@ -107,9 +107,11 @@ namespace PryingEyes
             Check(tag + "mai addosso a chi gioca", tooClose == 0, $"{tooClose} a meno di 3 m");
             Check(tag + "tetto dei vivi rispettato", maxAlive <= expectedCap, $"massimo {maxAlive}, tetto {expectedCap}");
             if (moth) Check(tag + "solo Veglie", wrongType == 0, $"{wrongType} di altro tipo");
-            // ogni uccisione paga comunque (awardPoints=false toglie solo i 10 per colpo): il resto e' il premio dell'ondata, versato una volta sola
-            int kills = seen.Count * Punti.PerUccisione(DamageSource.Gun, false), expectScore = RoundRules.Reward(round) + kills;
-            Check(tag + "premio una volta sola", gm.score - scoreBefore == expectScore, $"+{gm.score - scoreBefore}, atteso +{expectScore} (premio {RoundRules.Reward(round)} + uccisioni {kills})");
+            // ogni uccisione paga comunque (awardPoints=false toglie solo i 10 per colpo) e le medaglie delle serie (Medals.cs: KillAll ne fa
+            // a raffica) pagano a parte: il resto e' il premio dell'ondata, versato una volta sola
+            int kills = seen.Count * Punti.PerUccisione(DamageSource.Gun, false), medals = Medals.Points - medalsBefore;
+            int expectScore = RoundRules.Reward(round) + kills + medals;
+            Check(tag + "premio una volta sola", gm.score - scoreBefore == expectScore, $"+{gm.score - scoreBefore}, atteso +{expectScore} (premio {RoundRules.Reward(round)} + uccisioni {kills} + medaglie {medals})");
             Check(tag + (moth ? "il regalo della Processione cade" : "nessun regalo"), Drops.statSpawned - statBefore == (moth ? 1 : 0), $"{Drops.statSpawned - statBefore} potenziamenti");
             Check(tag + "pausa prima della successiva", !rd.Fighting && rd.NextWave > 8.5f && rd.NextWave <= RoundDirector.WaveBreak, $"{rd.NextWave:F1} s");
         }

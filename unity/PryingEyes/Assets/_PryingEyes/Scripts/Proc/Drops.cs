@@ -120,13 +120,27 @@ namespace PryingEyes
             var taker = Targets.OfSlot(by) ?? Targets.Local;
             Forget(p);
             Coop.Game?.DropTaken(p, by, taker.Feet);
-            Apply(p.kind, taker.Feet, true);
+            if (Seats.Split) ApplyToEveryone(p.kind, taker.Feet);
+            else Apply(p.kind, taker.Feet, true);
             Object.Destroy(p.gameObject);
         }
 
         public static void Forget(DropPickup p) { live.Remove(p); }
 
         // ------------------------------------------------------------------ effetti
+        /// <summary>Schermo condiviso: il potenziamento vale per tutti i giocatori, come i power-up dei Black Ops Zombies. I tempi (Sguardo,
+        /// Offerta) e la Campana sono del mondo e partono una volta; munizioni, punti della Campana e avvisi sono di ognuno, e il suono si sente una volta.</summary>
+        static void ApplyToEveryone(DropKind kind, Vector3 at)
+        {
+            bool first = true;
+            Seats.ForEach(_ => { Apply(kind, at, first); first = false; muted = true; });
+            muted = false;
+        }
+
+        /// <summary>Vero mentre il potenziamento si applica ai giocatori dopo il primo: niente suoni raddoppiati.</summary>
+        static bool muted;
+        static void Ui(AudioClip clip, float vol, float pitch = 1f) { if (!muted) Sfx.UI(clip, vol, pitch); }
+
         /// <summary>Il giocatore ha preso un potenziamento. 'at' e' dove si trovava chi l'ha preso (la Campana colpisce intorno a lui; di
         /// default il giocatore di questa macchina) e 'simulate' dice se qui si simulano i nemici (da solo o sull'ospite).</summary>
         public static void Apply(DropKind kind, Vector3? at = null, bool simulate = true)
@@ -134,26 +148,26 @@ namespace PryingEyes
             var gm = GameManager.I;
             if (gm == null || gm.player == null) return;
             var hud = gm.hud;
-            statPicked++;
+            if (!muted) statPicked++;
             switch (kind)
             {
                 case DropKind.Ammo:
                     gm.player.weapon.MaxAmmo();
-                    Sfx.UI(SoundBank.PickAmmo, 0.8f);
+                    Ui(SoundBank.PickAmmo, 0.8f);
                     hud?.Flash(new Color(1f, 0.78f, 0.35f), 0.35f, 0.22f);
                     hud?.Banner("Reliquiario", "Munizioni al massimo.");
                     break;
                 case DropKind.Insta:
                     instaUntil = Time.time + Duration;
                     lastShownInsta = Mathf.CeilToInt(Duration);
-                    Sfx.UI(SoundBank.PickEye, 0.85f);
+                    Ui(SoundBank.PickEye, 0.85f);
                     hud?.Flash(new Color(0.9f, 0.1f, 0.06f), 0.5f, 0.32f);
                     hud?.Banner("Sguardo", "Ogni colpo uccide.");
                     break;
                 case DropKind.Double:
                     doubleUntil = Time.time + Duration;
                     lastShownDouble = Mathf.CeilToInt(Duration);
-                    Sfx.UI(SoundBank.PickCoins, 0.8f);
+                    Ui(SoundBank.PickCoins, 0.8f);
                     hud?.Flash(new Color(1f, 0.82f, 0.3f), 0.4f, 0.26f);
                     hud?.Banner("Offerta", "I punti valgono il doppio.");
                     break;
@@ -168,7 +182,7 @@ namespace PryingEyes
         static void Toll(GameManager gm, Vector3 pp, bool simulate)
         {
             var hud = gm.hud;
-            Sfx.UI(SoundBank.NukeToll, 0.95f);
+            Ui(SoundBank.NukeToll, 0.95f);
             hud?.Flash(Color.white, 1.7f, 0.95f);
             var rd = RoundDirector.I;
             int killed = 0;
@@ -233,6 +247,7 @@ namespace PryingEyes
         /// <summary>Il giocatore e' morto: i timer si spengono (i potenziamenti a terra restano).</summary>
         public static void OnPlayerDied()
         {
+            if (Seats.Split) return;      // schermo condiviso: i tempi sono di tutti, non si spengono perche' uno cade
             instaUntil = doubleUntil = 0f;
             lastShownInsta = lastShownDouble = 0;
         }

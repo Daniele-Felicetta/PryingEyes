@@ -88,7 +88,7 @@ namespace PryingEyes.Proc
             if (buyer == null || !buyer.Alive) return false;
             var from = floor.RoomAt(buyer.Feet);
             if (from == null || !Access.CanBuy(from.id, room)) return false;
-            bool local = ReferenceEquals(buyer, Targets.Local);
+            bool local = buyer is LocalTarget || buyer is SeatTarget;      // chi gioca su questa macchina (anche a schermo condiviso)
             foreach (var door in doors)
             {
                 if (Target(door) != room) continue;
@@ -159,7 +159,7 @@ namespace PryingEyes.Proc
         {
             if (Coop.IsClient) { Coop.Game?.RequestRoom(TargetRoom); return; }
             var gm = GameManager.I;
-            if (owner.TryBuy(Targets.Local, TargetRoom, gm.score, out int cost))
+            if (owner.TryBuy(Seats.MyTarget, TargetRoom, gm.score, out int cost))
             { gm.AddPoints(-cost); Coop.Game?.RoomsChanged(); Sfx.UI(SoundBank.Doors, 0.6f); }
             else { gm.hud?.Toast("Punti insufficienti o porta non raggiungibile."); Sfx.UI(SoundBank.BookNo, 0.5f); }
         }

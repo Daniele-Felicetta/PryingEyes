@@ -162,7 +162,33 @@ namespace PryingEyes
         {
             if (ShadowBudgetOn) e.SetShadows(false);
             var cam = Camera.main;
-            if (cam != null) e.SetDetail(Vector3.Distance(e.transform.position, cam.transform.position), CrowdScale(all.Count));
+            if (cam != null)
+            {
+                GatherViewers(cam.transform.position);
+                e.SetDetail(ViewDistance(e.transform.position), CrowdScale(all.Count));
+            }
+        }
+
+        // punti di vista: uno (la camera), o uno per giocatore a schermo condiviso. La distanza di un corpo e' quella dal piu' vicino.
+        static readonly Vector3[] viewers = new Vector3[Seats.MaxSeats];
+        static int viewerCount;
+
+        static void GatherViewers(Vector3 primary)
+        {
+            viewerCount = 0;
+            if (Seats.Split)
+            {
+                var eyes = Seats.Eyes();
+                for (int i = 0; i < eyes.Count && i < viewers.Length; i++) viewers[viewerCount++] = eyes[i].position;
+            }
+            if (viewerCount == 0) viewers[viewerCount++] = primary;
+        }
+
+        static float ViewDistance(Vector3 p)
+        {
+            float best = Vector3.Distance(p, viewers[0]);
+            for (int i = 1; i < viewerCount; i++) best = Mathf.Min(best, Vector3.Distance(p, viewers[i]));
+            return best;
         }
 
         /// <summary>Con molti corpi in scena ogni distanza di cambio livello si accorcia (fino a un terzo).</summary>
@@ -171,6 +197,7 @@ namespace PryingEyes
         public static void UpdateBudgets(Vector3 viewer)
         {
             shadowOrder.Clear();
+            GatherViewers(viewer);
             int heavy = 0;
             foreach (var e in all)
             {
@@ -182,7 +209,7 @@ namespace PryingEyes
             foreach (var e in all)
             {
                 if (e == null) continue;
-                float distance = Vector3.Distance(e.transform.position, viewer);
+                float distance = ViewDistance(e.transform.position);
                 e.SetDetail(distance, scale);
                 if (!ShadowBudgetOn) { e.SetShadows(true); continue; }
                 // isteresi: chi ha gia' l'ombra la tiene un po' piu' a lungo, cosi' due corpi alla pari non la rimbalzano
@@ -193,7 +220,7 @@ namespace PryingEyes
             float used = 0f;
             foreach (var (_, e) in shadowOrder)
             {
-                bool on = Vector3.Distance(e.transform.position, viewer) <= ShadowRange && (e.shadowWeight <= 0f || used <= 0f || used + e.shadowWeight <= ShadowBudget);
+                bool on = ViewDistance(e.transform.position) <= ShadowRange && (e.shadowWeight <= 0f || used <= 0f || used + e.shadowWeight <= ShadowBudget);
                 if (on) used += e.shadowWeight;
                 e.SetShadows(on);
             }

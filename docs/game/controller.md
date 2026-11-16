@@ -12,8 +12,10 @@ Switch controller needs an XInput wrapper such as Steam Input or DS4Windows (not
   button is pressed, a trigger is pulled or a stick is pushed past 55%. A controller that is only plugged in, or one whose stick does not
   return to the centre, therefore moves nobody. If the controller is gone for more than two seconds the slot is let go and the search
   starts again (another controller can take over). Nothing is read while the game window has no focus.
-- **Split screen**: the slots are given out by `SplitScreen` and never searched (see [split-screen.md](../multiplayer/split-screen.md));
-  those windows keep reading their controller without focus.
+- **Split screen** (one game, one window, [split-screen.md](../multiplayer/split-screen.md)): the slots are given out when the game starts
+  (player 2 gets the first connected controller, and so on, and the missing ones the first free slots). Player 1 keeps the keyboard and the
+  mouse and adopts the first free controller on which a button is pressed, or takes one at once if the panel says *controller*. Every
+  controller drives the menus and can pause and resume for everyone.
 - The on-screen hints name the keys of the device you used last: `RB` instead of `F`, the controller line in the guide and the pause menu,
   the footer of the menus. A key press or a mouse click switches them back to the keyboard names; touching the controller switches them again.
 - Automated runs do not search (`-batchmode`, `-autotest` and the like) unless `-padauto` is given, so a controller on the desk does not
@@ -68,8 +70,9 @@ The pause menu lists the controller's buttons when the controller is the device 
 Unity's own UI input reads the left stick and A through its joystick axes (no D-pad, no B), and reading XInput as well would press a button
 twice. `PadMenuInput` replaces the input of the uGUI `StandaloneInputModule` (a `BaseInput` override) for the keyboard, the mouse pointer and
 the controller together, reading the controller from `PadControls`. It also hides the pointer while navigating (it reports a position off the
-screen) and selects a button when nothing is selected. `PadEventSystem` keeps the UI listening in a split-screen window that has no focus (by design: in the visible test every window reported focus,
-so the unfocused case itself was not observed).
+screen) and selects a button when nothing is selected. `PadEventSystem` only lets the tests with a real window that has no focus (`-padtest
+-padshots`) keep the UI listening. In a split screen each player has a controller *channel* (`PadControls.Channel`); the menus read all of them
+at once.
 `PadControls.EnableAuto` is called by `GameManager.Awake`; `Mapper` holds the translation from the raw XInput state, including the menu
 direction, confirm and back; `GameMenu.Pad.cs` has the frame, the hints and the selection rules.
 
@@ -88,7 +91,8 @@ Code (`Assets/_PryingEyes/Scripts/`): `PadControls.cs`, `PadMenuInput.cs`, `Game
 - `-padtest -padshots FOLDER` (a real window, with `-menureview` so the saved display is not applied) saves screenshots of the menus driven the
   same way: the frame, the hints, the guide, the pause. Used on 15 November 2026 to review the frame and the pause sheet; the registry
   `Screenmanager` values were restored afterwards.
-- `-splittest` (85 of 85) and `tools/coop/run_split.ps1 -Players 2` still pass; `MenuReview.Run` (609 checks) too.
+- On 16 November 2026, after the split screen became one game in one window: `-splittest` 63 of 63; `-seatstest` (each player's controller walks,
+  fires and jumps on its own, Start on any controller pauses and resumes everyone) 55 to 57 of 57 for 2 to 4 players; `MenuReview.Run` 665 checks.
 - **Not verified**: a physical controller (none was available; the real XInput read answers without errors and the rest runs on fake
   states), PlayStation and Switch controllers through a wrapper, several controllers in the normal game (the first one pressed wins),
   Steam Input, controller hot-plug during a real game, and the look of the menus at resolutions other than 1024x720.

@@ -63,7 +63,7 @@ namespace PryingEyes
             if(hit)
             {
                 victim.Hurt((type==EnemyType.Medusa?15:8)+Random.value*4,transform.position);
-                if(victim is LocalTarget)GameManager.damageTaken++;
+                Seats.CountDamageTaken(victim);
             }
             Vector3 effect=hit?MeleeContactPoint(victim):contact;
             PlayMeleeContact(effect,hit);

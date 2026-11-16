@@ -64,11 +64,16 @@ namespace PryingEyes
         static void IgnorePlayerBody(Enemy e)
         {
             if (bodiesClash) return;
-            var cc =GameManager.I != null && GameManager.I.player != null ? GameManager.I.player.GetComponent<CharacterController>() : null;
-            if (cc == null || !cc.enabled) return;
-            foreach (var c in e.GetComponentsInChildren<Collider>(true))
-                if (c != null && c.enabled && c.gameObject.activeInHierarchy && (IsFlying(e.type) || c.CompareTag("Head"))) Physics.IgnoreCollision(c, cc, true);
+            Seats.Players(bodyList);                // schermo condiviso: i corpi di tutti i giocatori
+            foreach (var pl in bodyList)
+            {
+                var cc = pl != null ? pl.GetComponent<CharacterController>() : null;
+                if (cc == null || !cc.enabled) continue;
+                foreach (var c in e.GetComponentsInChildren<Collider>(true))
+                    if (c != null && c.enabled && c.gameObject.activeInHierarchy && (IsFlying(e.type) || c.CompareTag("Head"))) Physics.IgnoreCollision(c, cc, true);
+            }
         }
+        static readonly List<PlayerController> bodyList = new List<PlayerController>();
 
         /// <summary>Rifa le coppie ignorate dopo che il controller del giocatore e' stato spento e riacceso (Teleport, SetSpawn): spegnere un
         /// collider ne cancella le coppie.</summary>
@@ -125,7 +130,7 @@ namespace PryingEyes
             e.phase = Random.value * 10f;
             e.anim = go.GetComponentInChildren<Animator>();
             if (archetype == EnemyType.Abate && e.anim != null) e.anim.speed = AbateAnimSpeed;
-            e.tgt = Targets.Local;
+            e.tgt = Seats.Split ? Targets.Nearest(pos) : Targets.Local;      // a schermo condiviso parte da chi ha piu' vicino
             e.puppet = puppet;
             IgnorePlayerBody(e);
             e.renderers = go.GetComponentsInChildren<Renderer>();
@@ -550,7 +555,7 @@ namespace PryingEyes
         public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true, DamageSource src = DamageSource.Gun, int claimer = 0)
         {
             if (dead) return;
-            var shooter = claimer == 0 ? Targets.Local : Targets.OfSlot(claimer);
+            var shooter = claimer == 0 ? Seats.MyTarget : Targets.OfSlot(claimer);     // nello schermo condiviso chi spara e' il posto che gira
             NoteHit(dmg, point, shooter);                       // come cadra' se questo colpo uccide (Enemy.Ragdoll.cs)
             // il colpo che non uccide piega busto e testa via dal colpo (EnemyFlinch, sopra l'animazione)
             if ((Archetype == EnemyType.Monaco || Archetype == EnemyType.Abate) && type != EnemyType.Statua && hp - dmg > 0f)
@@ -650,8 +655,12 @@ namespace PryingEyes
                 {
                     foreach (var tr in GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = 2;
                     body.enabled = true;
-                    var cc = GameManager.I.player.GetComponent<CharacterController>();
-                    if (cc != null) Physics.IgnoreCollision(body, cc);
+                    Seats.Players(bodyList);
+                    foreach (var pl in bodyList)
+                    {
+                        var cc = pl != null ? pl.GetComponent<CharacterController>() : null;
+                        if (cc != null) Physics.IgnoreCollision(body, cc);
+                    }
                     rb.isKinematic = false;
                     rb.useGravity = true;
                     rb.mass = 2f;

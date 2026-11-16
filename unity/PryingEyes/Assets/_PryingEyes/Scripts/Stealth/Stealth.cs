@@ -32,15 +32,29 @@ namespace PryingEyes
             if (ad != null) ad.renderingLayers = mask;
         }
 
+        // ---- stato del giocatore ----------------------------------------------------------------
+        /// <summary>Tutto lo stato furtivo di UN giocatore. Nello split screen ogni posto (Seat) ne ha uno e Seats.Enter mette al suo posto
+        /// quello del giocatore che sta girando (si scambia solo il puntatore): il resto del gioco legge sempre Stealth.Level e compagni.</summary>
+        public sealed class State
+        {
+            public float PlayerLum, lastShotTime = -99f, Level, HunterDist = 99f, lastExposure, lumT;
+            public bool lastShotQuiet;
+            public int Hunters, Aware, Spotted;
+        }
+        static State st = new State();
+        /// <summary>Lo stato del giocatore che gira adesso.</summary>
+        public static State Current => st;
+        public static void Use(State s) { st = s ?? new State(); }
+
         // ---- quanto sei visibile -------------------------------------------------------------
         /// <summary>Luce che arriva sul giocatore dalle lampade, dalle candele e dalle finestre (0 buio nero .. 1 pieno), senza la torcia.</summary>
-        public static float PlayerLum;
+        public static float PlayerLum { get => st.PlayerLum; set => st.PlayerLum = value; }
         /// <summary>Solo per le prove: se non e' NaN, vale al posto della luce misurata (per provare il buio nero in una stanza illuminata).</summary>
         public static float lumOverride = float.NaN;
         /// <summary>Distanza (m) a cui ti vede un prete al buio nero, da fermo; in piena luce; e con la torcia accesa.</summary>
         public const float DarkSight = 3.2f, LitSight = 15f, TorchSight = 24f;
-        public static float lastShotTime = -99f;
-        public static bool lastShotQuiet;
+        public static float lastShotTime { get => st.lastShotTime; set => st.lastShotTime = value; }
+        public static bool lastShotQuiet { get => st.lastShotQuiet; set => st.lastShotQuiet = value; }
         public static void NoteShot(bool quiet) { lastShotTime = Time.time; lastShotQuiet = quiet; }
 
         /// <summary>Entro quanti metri un prete ti nota, ora. Dipende dalla luce intorno a te, dalla torcia, da come ti muovi
@@ -89,13 +103,14 @@ namespace PryingEyes
 
         // ---- minaccia ------------------------------------------------------------------------
         /// <summary>0..1, lisciata: quanto e' vicino un prete che ti cerca (o che ti ha visto). Guida cuore, torcia e vignetta.</summary>
-        public static float Level;
-        public static float HunterDist = 99f;
-        public static int Hunters, Aware;
+        public static float Level { get => st.Level; set => st.Level = value; }
+        public static float HunterDist { get => st.HunterDist; set => st.HunterDist = value; }
+        public static int Hunters { get => st.Hunters; set => st.Hunters = value; }
+        public static int Aware { get => st.Aware; set => st.Aware = value; }
         /// <summary>Quante volte un prete e' passato alla caccia dall'inizio della partita (mai azzerato: chi lo usa confronta due letture).</summary>
-        public static int Spotted;
-        public static float lastExposure;
-        static float lumT;
+        public static int Spotted { get => st.Spotted; set => st.Spotted = value; }
+        public static float lastExposure { get => st.lastExposure; set => st.lastExposure = value; }
+        static float lumT { get => st.lumT; set => st.lumT = value; }
 
         public static void Tick(float dt)
         {

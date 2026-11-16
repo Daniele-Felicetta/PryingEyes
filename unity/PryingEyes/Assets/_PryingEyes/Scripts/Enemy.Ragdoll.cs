@@ -44,7 +44,8 @@ namespace PryingEyes
             else if (src == DamageSource.Knife) impulse = 18f;
             else impulse = Mathf.Clamp(10f + lastHitDmg * 0.25f, 12f, 45f);         // pistola ~20, doppietta e cecchino 45
             Vector3 point = blast ? blastCenter : hit ? lastHitPoint : transform.position + Vector3.up * 1.2f;
-            Vector3 dir = hit ? lastHitDir : (Targets.Local != null ? transform.position - Targets.Local.Feet : -transform.forward);
+            var chaser = tgt ?? Targets.Local;                                        // chi inseguiva (a schermo condiviso non e' sempre il posto 0)
+            Vector3 dir = hit ? lastHitDir : (chaser != null ? transform.position - chaser.Feet : -transform.forward);
             return EnemyRagdoll.Begin(gameObject, anim, carried, point, dir, impulse, blast);
         }
     }

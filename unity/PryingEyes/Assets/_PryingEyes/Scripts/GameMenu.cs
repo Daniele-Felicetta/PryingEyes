@@ -48,7 +48,7 @@ namespace PryingEyes
             Refresh();
             // prova senza mouse: -autoplay preme "Gioca" da solo (per far girare tutto il percorso del giocatore vero, non solo quello del bot)
             foreach (var a in System.Environment.GetCommandLineArgs()) if (a == "-autoplay") { Play(); break; }
-            SplitAutoStart();       // finestra figlia dello split screen: attesa; -splitscreen N: l'ospite parte da solo
+            SplitAutoStart();       // -splitscreen N: lo schermo condiviso parte da solo, come dal bottone
         }
 
         void Update()
@@ -68,7 +68,7 @@ namespace PryingEyes
                 hostButton.interactable = joinButton.interactable = Coop.Available && !Coop.Active;
             }
             SplitUpdate();
-            bool toggle = Input.GetKeyDown(KeyCode.Escape) || TouchControls.Down(TouchControls.Action.Pause);     // Esc e Start aprono e chiudono la pausa
+            bool toggle = Input.GetKeyDown(KeyCode.Escape) || TouchControls.Down(TouchControls.Action.Pause) || PadControls.PausePressed;     // Esc e Start (di qualunque controller) aprono e chiudono la pausa
             if (!toggle && !padBack) return;                                                                         // B torna solo indietro: in gioco e' "abbassati"
             if (settingsPanel.gameObject.activeSelf) { Back(); return; }
             if (leavePanel.gameObject.activeSelf) { Show(pausePanel); return; }
@@ -83,12 +83,12 @@ namespace PryingEyes
 
         void OnApplicationFocus(bool focused)
         {
-            if (!focused && !GameManager.autoTest && !SplitScreen.Active) Pause();      // nello split screen le altre finestre hanno il fuoco a turno: nessuna deve fermarsi
+            if (!focused && !GameManager.autoTest) Pause();
         }
 
         void OnApplicationPause(bool paused)
         {
-            if (paused && !GameManager.autoTest && !SplitScreen.Active) Pause();
+            if (paused && !GameManager.autoTest) Pause();
         }
 
         void OnDestroy()
@@ -194,8 +194,7 @@ namespace PryingEyes
             settingsFrom = from;
             SyncSliders();
             SyncDisplay();
-            videoTabButton.interactable = !SplitScreen.Active;      // nello split screen la misura delle finestre non si cambia dal menu
-            SettingsTab(!SplitScreen.Active);
+            SettingsTab(true);
             Show(settingsPanel);
         }
 
@@ -222,7 +221,7 @@ namespace PryingEyes
             settingsPanel.gameObject.SetActive(p == settingsPanel);
             coopPanel.gameObject.SetActive(p == coopPanel);
             helpPanel.gameObject.SetActive(p == helpPanel);
-            leavePanel.gameObject.SetActive(p == leavePanel); splitPanel.gameObject.SetActive(p == splitPanel); splitWait.gameObject.SetActive(p == splitWait);
+            leavePanel.gameObject.SetActive(p == leavePanel); splitPanel.gameObject.SetActive(p == splitPanel);
             if (system != null)
             {
                 system.SetSelectedGameObject(null);
@@ -236,8 +235,12 @@ namespace PryingEyes
             Blocked = InMenu || Paused;
             Time.timeScale = Blocked && !Coop.Active ? 0f : 1f;     // in cooperativa gli altri non si fermano: la pausa blocca solo i comandi
             backdrop.gameObject.SetActive(Blocked);
-            var hud = GameManager.I != null && GameManager.I.hud != null ? GameManager.I.hud.GetComponent<Canvas>() : null;
-            if (hud != null) hud.enabled = !Blocked;
+            if (Seats.Split) Seats.SetHudsVisible(!Blocked);         // schermo condiviso: gli HUD di tutti
+            else
+            {
+                var hud = GameManager.I != null && GameManager.I.hud != null ? GameManager.I.hud.GetComponent<Canvas>() : null;
+                if (hud != null) hud.enabled = !Blocked;
+            }
             bool alive = GameManager.I == null || GameManager.I.player == null || GameManager.I.player.alive;
             if (!Blocked && alive) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
         }

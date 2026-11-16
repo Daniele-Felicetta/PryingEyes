@@ -161,10 +161,13 @@ namespace PryingEyes.Proc
             if (slammed) return;
             slammed = true;
             Sfx.At(SoundBank.Clang, center + Vector3.up * 1.2f, 1f, Random.Range(0.9f, 1.05f), 3f, 48f);
-            var gm = GameManager.I;
-            if (gm != null && gm.player != null && (gm.player.transform.position - center).sqrMagnitude < 100f)
-                gm.player.Kick(1.8f, Random.Range(-1f, 1f), 9f);
+            Seats.Players(slamList);        // il colpo della serranda scuote chiunque sia vicino (nello schermo condiviso, ogni giocatore)
+            foreach (var p in slamList)
+                if (p != null && (p.transform.position - center).sqrMagnitude < 100f)
+                    p.Kick(1.8f, Random.Range(-1f, 1f), 9f);
         }
+
+        static readonly List<PlayerController> slamList = new List<PlayerController>();
     }
 
     /// <summary>Ingresso breve in cenere e pulviscolo, senza anello a terra o colonna luminosa.</summary>
@@ -256,8 +259,7 @@ namespace PryingEyes.Proc
         {
             Round = 0;
             if (I != null) I.Disarm();
-            var gm = GameManager.I;
-            if (gm != null && gm.hud != null) gm.hud.SetRound(0);
+            Seats.ForHuds(h => h.SetRound(0));
         }
 
         // ------------------------------------------------------------------ piano
@@ -405,9 +407,7 @@ namespace PryingEyes.Proc
             target = Mathf.Max(2, Mathf.RoundToInt(RoundRules.CountForArea(Round, fd.floor,z.reg.area) * mul) - adopted);
             phase = Phase.Fighting;
 
-            gm.hud?.SetRound(Round);
-            if (moth) gm.hud?.Banner("Processione dei Lumi", "Round " + Round + "  ·  Le candele hanno lasciato i loro altari.");
-            else gm.hud?.Banner("Round " + Round, mood == RoundMood.Calm ? "Nessuno sa che sei qui." : "Le serrande sono calate.");
+            AnnounceRound();
             Sfx.UI(SoundBank.Toll, 0.55f, 0.55f);
             if (moth) Sfx.UI(SoundBank.LumiProcession, 0.7f);
             Debug.Log($"[PryingEyes] round {Round} (piano {fd.floor}, {mood}): {target} nemici in {z.reg.area:F0} m2, massimo {cap} insieme, {adopted} gia' dentro, {z.shutters.Count} serrande");
@@ -442,7 +442,11 @@ namespace PryingEyes.Proc
                     if (!InBand(s, pp)) continue;
                     Vector3 q = SidePoint(s, pp, true);
                     var dest = new Vector3(q.x, pp.y, q.z);
-                    if (t is LocalTarget) GameManager.I.player.Teleport(dest);
+                    if (t is LocalTarget || t is SeatTarget)
+                    {
+                        var seat = Seats.Split ? Seats.OfSlot(t.Slot) : null;       // schermo condiviso: il corpo di quel giocatore
+                        (seat != null ? seat.player : GameManager.I.player).Teleport(dest);
+                    }
                     else Coop.Game?.TeleportRemote(t.Slot, dest);          // un compagno sulla soglia: lo sposta il suo gioco
                 }
                 foreach (var e in Enemy.All)
@@ -630,13 +634,18 @@ namespace PryingEyes.Proc
             foreach (var s in z.shutters) s.Drop();
             Physics.SyncTransforms();
             phase = Phase.Fighting;
-            var gm = GameManager.I;
-            gm.hud?.SetRound(Round);
-            if (moth) gm.hud?.Banner("Processione dei Lumi", "Round " + Round + "  ·  Le candele hanno lasciato i loro altari.");
-            else gm.hud?.Banner("Round " + Round, mood == RoundMood.Calm ? "Nessuno sa che sei qui." : "Le serrande sono calate.");
+            AnnounceRound();
             Sfx.UI(SoundBank.Toll, 0.55f, 0.55f);
             if (moth) Sfx.UI(SoundBank.LumiProcession, 0.7f);
             FloorDirector.I?.RefreshObjectiveNow();
+        }
+
+        /// <summary>Il contatore e lo striscione dell'inizio del round, sull'HUD di ogni giocatore.</summary>
+        void AnnounceRound()
+        {
+            string title = moth ? "Processione dei Lumi" : "Round " + Round;
+            string sub = moth ? "Round " + Round + "  ·  Le candele hanno lasciato i loro altari." : mood == RoundMood.Calm ? "Nessuno sa che sei qui." : "Le serrande sono calate.";
+            Seats.ForHuds(h => { h.SetRound(Round); h.Banner(title, sub); });
         }
 
         public void CoopStatus(int t, int s, int alive) { netTarget = t; netSpawned = s; netAlive = alive; }
@@ -709,15 +718,18 @@ namespace PryingEyes.Proc
             if (reward)
             {
                 pts = RoundRules.Reward(Round) + (mood == RoundMood.Calm ? RoundRules.CalmBonus : 0);
-                gm.AddPoints(pts);
-                pl.shield = 50f;
-                pl.weapon.AddAmmoFraction(0.25f);
+                int award = pts;
+                Seats.EachOrOnce(_ =>             // il premio e' di ogni giocatore: i suoi punti, il suo scudo, le sue munizioni
+                {
+                    gm.AddPoints(award);
+                    gm.player.shield = 50f;
+                    gm.player.weapon.AddAmmoFraction(0.25f);
+                });
                 MusicDirector.WaveCleared();
             }
             Coop.Game?.RoundComplete(reward, pts);        // cooperativa: il premio e' di tutti
             foreach (var s in cur.shutters) if (s != null) s.Release();
             Sfx.UI(SoundBank.Toll, 0.7f);
-            gm.hud?.SetRound(Round);
             bool gift = reward && moth;
             if (gift)
             {
@@ -726,8 +738,9 @@ namespace PryingEyes.Proc
                 if (at == Vector3.zero) at = pl.transform.position;
                 Drops.Spawn(DropKind.Ammo, at, false);
             }
-            gm.hud?.Banner((moth ? "Processione dei Lumi " : "Round ") + Round + " superato",
-                reward ? $"+{pts} punti  ·  scudo e munizioni" + (gift ? "  ·  un Reliquiario è caduto" : "") + (mood == RoundMood.Calm ? "  ·  nessuno ti ha sentito" : "") : "Le presenze si sono dissolte.");
+            string head = (moth ? "Processione dei Lumi " : "Round ") + Round + " superato";
+            string sub = reward ? $"+{pts} punti  ·  scudo e munizioni" + (gift ? "  ·  un Reliquiario è caduto" : "") + (mood == RoundMood.Calm ? "  ·  nessuno ti ha sentito" : "") : "Le presenze si sono dissolte.";
+            Seats.ForHuds(h => { h.SetRound(Round); h.Banner(head, sub); });
             cur.done = true;
             phase = Phase.Opening;
             Debug.Log($"[PryingEyes] round {Round} finito in {clock:F0} s ({(reward ? "+" + pts + " punti" : "senza premio")})");
@@ -745,7 +758,7 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Il giocatore e' morto: il round salta. Serrande su, nemici via, candela da riaccendere, il numero del round non conta.</summary>
-        public void OnPlayerDied() { if (phase != Phase.Idle && !Coop.Active) Abort(); }     // in cooperativa il round salta solo se muoiono tutti (Update)
+        public void OnPlayerDied() { if (phase != Phase.Idle && !Coop.Active && !Seats.Split) Abort(); }     // in cooperativa e a schermo condiviso il round salta solo se muoiono tutti (Update)
 
         void Abort()
         {
@@ -766,8 +779,7 @@ namespace PryingEyes.Proc
             Debug.Log($"[PryingEyes] round {Round} annullato: giocatore morto dopo {clock:F0} s, {spawned}/{target} nati");
             Coop.Game?.RoundAborted();
             Round = Mathf.Max(0, Round - 1);
-            var gm = GameManager.I;
-            if (gm != null && gm.hud != null) gm.hud.SetRound(Round, false);
+            Seats.ForHuds(h => h.SetRound(Round, false));
             var fd = FloorDirector.I;
             if (fd != null) fd.OnRoundAborted(z.candle);
             Finish();

@@ -34,6 +34,11 @@ namespace PryingEyes
 
         void Awake() { EnsureBuilt(); }
 
+        /// <summary>Split screen: il posto a cui appartiene questo HUD (null per quello del giocatore singolo e del giocatore 1).</summary>
+        internal Seat seat;
+        /// <summary>La camera di chi guarda questo HUD: nello split screen ognuno ha la sua.</summary>
+        Camera ViewCamera => seat != null && seat.camera != null ? seat.camera : Camera.main;
+
         public static Font Serif()
         {
             if (serif == null)
@@ -420,7 +425,9 @@ namespace PryingEyes
             var c = baseCol; c.a *= a; t.color = c;
         }
 
-        void Update()
+        void Update() { using (Seats.Enter(seat)) UpdateBody(); }
+
+        void UpdateBody()
         {
             float dt = Time.deltaTime;
             UpdateHitmarker(dt);

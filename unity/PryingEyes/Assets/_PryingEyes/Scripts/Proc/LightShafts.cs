@@ -190,11 +190,16 @@ namespace PryingEyes.Proc
 
         void LateUpdate()
         {
-            var cam = Camera.main;
-            if (cam == null) return;
-            Vector3 cp = cam.transform.position;
+            var eyes = Seats.Eyes();         // la camera principale o, a schermo condiviso, un occhio per giocatore
+            if (eyes.Count == 0) return;
             foreach (var s in shafts)
             {
+                Vector3 cp = eyes[0].position;           // il fascio guarda l'occhio piu' vicino
+                for (int e = 1; e < eyes.Count; e++)
+                {
+                    Vector3 q = eyes[e].position;
+                    if ((q - s.origin).sqrMagnitude < (cp - s.origin).sqrMagnitude) cp = q;
+                }
                 bool on = !Hidden && s.light != null && s.light.enabled && s.light.intensity > 0.01f;
                 if (s.beam.gameObject.activeSelf != on)
                 {

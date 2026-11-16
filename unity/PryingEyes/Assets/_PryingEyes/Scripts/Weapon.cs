@@ -395,7 +395,7 @@ namespace PryingEyes
             DestroyScope();
             var d = Def;
             var root = new GameObject("Viewmodel");
-            root.layer = 2;
+            root.layer = Seats.ViewLayer;       // arma e mani: nello split screen lo strato di questo giocatore (le camere degli altri non lo disegnano)
             root.transform.SetParent(cam, false);
             root.transform.localPosition = new Vector3(0.28f, -0.26f, 0.62f);
             root.transform.localRotation = Quaternion.identity;
@@ -418,7 +418,7 @@ namespace PryingEyes
             model.name = "Arma";
             model.transform.localPosition = Vector3.zero;
             model.transform.localRotation = Quaternion.identity;
-            foreach (var t in model.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = 2;
+            foreach (var t in model.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Seats.ViewLayer;
             foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
             rig = model.GetComponent<WeaponRig>();
             if (rig == null) rig = model.AddComponent<WeaponRig>();
@@ -535,7 +535,7 @@ namespace PryingEyes
             if (c != null) { if (Application.isPlaying) Destroy(c); else DestroyImmediate(c); }
             q.transform.SetParent(parent, false);
             q.transform.localPosition = pos;
-            q.layer = 2;
+            q.layer = Seats.ViewLayer;
             var r = q.GetComponent<MeshRenderer>();
             r.sharedMaterial = m;
             r.shadowCastingMode = ShadowCastingMode.Off;
@@ -567,7 +567,7 @@ namespace PryingEyes
             {
                 if (t.name == "mano_d") handR = t;
                 else if (t.name == "mano_s") handL = t;
-                t.gameObject.layer = 2;
+                t.gameObject.layer = Seats.ViewLayer;
             }
             foreach (var r in g.GetComponentsInChildren<Renderer>(true)) { r.shadowCastingMode = ShadowCastingMode.Off; r.renderingLayerMask = ViewLayer; }
             if (!onMeasure && handR != null && d.handDrop != 0f) handR.position += root.transform.TransformVector(new Vector3(0f, -d.handDrop, 0f));
@@ -634,8 +634,9 @@ namespace PryingEyes
             scopeCam.CopyFrom(main);
             scopeCam.ResetWorldToCameraMatrix();
             scopeCam.ResetProjectionMatrix();
+            scopeCam.rect = new Rect(0f, 0f, 1f, 1f);          // la camera del giocatore ha la sua porzione di schermo: la texture dell'ottica e' tutta sua
             scopeCam.targetTexture = scopeRT;
-            scopeCam.cullingMask = ~((1 << 2) | (1 << 5));
+            scopeCam.cullingMask = ~((1 << 2) | (1 << 5) | Seats.AllViewLayersMask);
             scopeCam.nearClipPlane = 0.15f;
             scopeCam.fieldOfView = 8f;
             scopeCam.aspect = 1f;
@@ -651,7 +652,16 @@ namespace PryingEyes
             scopeMat.SetFloat("_Lit", d.pattern == 3 ? 1f : 0f);
         }
 
-        void LateUpdate()
+        void LateUpdate() { using (Seats.Enter(this)) LateUpdateBody(); }
+
+        /// <summary>Split screen: sposta arma e mani sullo strato di Unity di questo giocatore (le camere degli altri non lo disegnano).</summary>
+        public void SetViewLayer(int layer)
+        {
+            if (viewRoot == null) return;
+            foreach (var t in viewRoot.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
+        }
+
+        void LateUpdateBody()
         {
             if (cam == null || rig == null) return;
             aimProperties ??= new MaterialPropertyBlock();
@@ -712,20 +722,20 @@ namespace PryingEyes
             }
             else if (inputEnabled)
             {
-                if (Input.GetKeyDown(KeyCode.Alpha1)) SwitchSlot(0);
-                else if (Input.GetKeyDown(KeyCode.Alpha2)) SwitchSlot(1);
-                else if ((Input.GetKeyDown(KeyCode.X) || TouchControls.Down(TouchControls.Action.Swap))) SwitchSlot(1 - cur);
-                float wheel = Input.GetAxis("Mouse ScrollWheel");
+                if (SeatInput.GetKeyDown(KeyCode.Alpha1)) SwitchSlot(0);
+                else if (SeatInput.GetKeyDown(KeyCode.Alpha2)) SwitchSlot(1);
+                else if ((SeatInput.GetKeyDown(KeyCode.X) || TouchControls.Down(TouchControls.Action.Swap))) SwitchSlot(1 - cur);
+                float wheel = SeatInput.GetAxis("Mouse ScrollWheel");
                 if (Mathf.Abs(wheel) > 0.01f) SwitchSlot(1 - cur);
             }
             d = Def; // il cambio può essersi concluso in questo stesso fotogramma
             // ispezione dell'arma: I a riposo; sparare, mirare, ricaricare, cambiare o il coltello la interrompono
-            if (inputEnabled && Input.GetKeyDown(KeyCode.I) && inspectT <= 0f && !reloading && ads < 0.1f && swapT <= 0f && !knifeOut) Inspect();
+            if (inputEnabled && SeatInput.GetKeyDown(KeyCode.I) && inspectT <= 0f && !reloading && ads < 0.1f && swapT <= 0f && !knifeOut) Inspect();
             if (inspectT > 0f && (triggerHeld || ads > 0.2f || reloading || swapT > 0f || knifeOut)) inspectT = 0f;
-            if (inputEnabled && (Input.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
+            if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
 
             // ----- mira
-            bool adsWant = inputEnabled && (Input.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && !knifeOut && (!reloading || Def.style == ReloadStyle.Tube);
+            bool adsWant = inputEnabled && (SeatInput.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && !knifeOut && (!reloading || Def.style == ReloadStyle.Tube);
             adsRaw = Mathf.MoveTowards(adsRaw, adsWant ? 1f : 0f, dt / Mathf.Max(0.05f, d.adsTime));
             ads = adsRaw * adsRaw * (3f - 2f * adsRaw);
 
@@ -736,14 +746,14 @@ namespace PryingEyes
 
             // ----- ricarica
             if (reloading) TickReload(dt, d);
-            if (inputEnabled && (Input.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f && !knifeOut) Reload();
+            if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.R) || TouchControls.Down(TouchControls.Action.Reload)) && swapT <= 0f && !knifeOut) Reload();
 
             // ----- fuoco
             // Conserva il ritardo del fotogramma quando parte il colpo, senza accumulare credito durante l'attesa.
             State.AdvanceCadence(dt);
             bool autoBot = inputEnabled && GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire;
-            bool press = inputEnabled && (Input.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f));
-            bool held = inputEnabled && (Input.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot);
+            bool press = inputEnabled && (SeatInput.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f));
+            bool held = inputEnabled && (SeatInput.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot);
             if (!held) { triggerHeld = false; dryPlayed = false; }
             bool blocked = knifeOut || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
             if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || State.RoundsLoaded > 0))
@@ -1076,7 +1086,7 @@ namespace PryingEyes
             // respiro del tiratore con ottica forte: oscillazione lenta del modello (si ferma tenendo il fiato: Shift)
             if (ads > 0.5f && d.zoom >= 3.9f)
             {
-                float hold = !GameMenu.Blocked && (Input.GetKey(KeyCode.LeftShift) || TouchControls.Held(TouchControls.Action.Sprint)) ? 0.12f : 1f;
+                float hold = !GameMenu.Blocked && (SeatInput.GetKey(KeyCode.LeftShift) || TouchControls.Held(TouchControls.Action.Sprint)) ? 0.12f : 1f;
                 pos.x += Mathf.Sin(breath * 1.1f) * 0.0012f * hold * ads;
                 pos.y += Mathf.Sin(breath * 1.7f + 1f) * 0.0016f * hold * ads;
             }

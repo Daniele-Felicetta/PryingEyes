@@ -195,7 +195,10 @@ namespace PryingEyes
         }
 
         // ------------------------------------------------------------------ aggiornamento
-        void Update()
+        void Update() { using (Seats.Enter(this)) UpdateBody(); }
+        void LateUpdate() { using (Seats.Enter(this)) LateUpdateBody(); }
+
+        void UpdateBody()
         {
             if (!inited) return;
             var gm = GameManager.I;
@@ -203,8 +206,8 @@ namespace PryingEyes
             bool alive = gm == null || gm.player == null || gm.player.alive;
             if (!GameMenu.Blocked && alive)
             {
-                if ((Input.GetKeyDown(KeyCode.T) || TouchControls.Down(TouchControls.Action.Torch))) Toggle();
-                if ((Input.GetKeyDown(KeyCode.Y) || TouchControls.Down(TouchControls.Action.Battery))) ManualSwap();
+                if ((SeatInput.GetKeyDown(KeyCode.T) || TouchControls.Down(TouchControls.Action.Torch))) Toggle();
+                if ((SeatInput.GetKeyDown(KeyCode.Y) || TouchControls.Down(TouchControls.Action.Battery))) ManualSwap();
             }
             if (!alive && on) on = false;
 
@@ -279,7 +282,7 @@ namespace PryingEyes
             gm?.hud?.SetTorch(on, charge, spares, swapT > 0f, SwapProgress);
         }
 
-        void LateUpdate()
+        void LateUpdateBody()
         {
             if (!inited || camT == null) return;
             float dt = Time.deltaTime;

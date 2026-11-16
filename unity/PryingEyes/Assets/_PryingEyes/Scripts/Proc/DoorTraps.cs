@@ -228,7 +228,7 @@ namespace PryingEyes.Proc
                 var t = Targets.At(i);
                 if (t == null || !t.Alive || !Inside(t.Feet + Vector3.up * 0.8f, 0f)) continue;
                 t.Hurt(30f * step, center + Vector3.up);
-                if (t is LocalTarget) GameManager.damageTaken++;
+                Seats.CountDamageTaken(t);
             }
         }
     }

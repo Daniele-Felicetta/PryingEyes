@@ -39,8 +39,7 @@ namespace PryingEyes.Proc
             CascadeTime = LightPool.PowerCascade(origin, Spread);
             if (Panel != null) Panel.Powered();
             Sfx.At(SoundBank.PowerOn, origin + Vector3.up * 0.3f, 1f, 1f, 6f, 90f);
-            var gm = GameManager.I;
-            gm?.hud?.Banner("La corrente è tornata", "Perk, trappole e altare funzionano.");
+            Seats.ForHuds(h => h.Banner("La corrente è tornata", "Perk, trappole e altare funzionano."));
             if (slot >= 0) Coop.Game?.PowerChanged();
             var fd = FloorDirector.I;
             if (fd != null)

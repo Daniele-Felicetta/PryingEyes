@@ -46,6 +46,7 @@ namespace PryingEyes
         static Texture2D bloodTex, poolTex;
         readonly List<GameObject> casings = new List<GameObject>();
         Transform camT;
+        readonly Vector3[] eyePos = new Vector3[Seats.MaxSeats];
 
         static void Ensure()
         {
@@ -549,7 +550,8 @@ namespace PryingEyes
             h.t.localScale = new Vector3(s, s, 1f);
             h.age = 0f; h.life = 28f; h.alive = true;
             // suono: uno ogni 45 ms al massimo (i pallettoni di una fucilata ne fanno uno), solo se vicino
-            if (camT != null && Time.unscaledTime - lastImpactSound > 0.045f && (camT.position - p).sqrMagnitude < 45f * 45f)
+            bool near = Seats.Split ? Seats.AnyPlayerWithin(p, 45f) : camT != null && (camT.position - p).sqrMagnitude < 45f * 45f;
+            if (near && Time.unscaledTime - lastImpactSound > 0.045f)
             {
                 lastImpactSound = Time.unscaledTime;
                 Sfx.At(SoundBank.Impact(surface), p + n * 0.05f, rc.vol * Mathf.Lerp(0.75f, 1f, Mathf.Clamp01(scale)), Random.Range(0.92f, 1.08f), 1.5f, 30f);
@@ -886,6 +888,14 @@ namespace PryingEyes
         {
             if (camT == null && Camera.main != null) camT = Camera.main.transform;
             float dt = Time.deltaTime;
+            // schermo condiviso: ogni effetto si volta verso l'occhio che gli e' piu' vicino (di solito quello di chi l'ha provocato)
+            int eyeN = 0;
+            if (Seats.Split)
+            {
+                var eyes = Seats.Eyes();
+                eyeN = Mathf.Min(eyes.Count, eyePos.Length);
+                for (int e = 0; e < eyeN; e++) eyePos[e] = eyes[e].position;
+            }
             for (int i = items.Count - 1; i >= 0; i--)
             {
                 var it = items[i];
@@ -901,6 +911,15 @@ namespace PryingEyes
                     continue;
                 }
                 Vector3 camPos = camT != null ? camT.position : Vector3.zero;
+                if (eyeN > 1)
+                {
+                    float best = float.MaxValue;
+                    for (int e = 0; e < eyeN; e++)
+                    {
+                        float d = (eyePos[e] - it.t.position).sqrMagnitude;
+                        if (d < best) { best = d; camPos = eyePos[e]; }
+                    }
+                }
                 if (it.kind == 2)
                 {
                     // traccia: segmento [testa - lunghezza, testa] lungo from->to

@@ -6,12 +6,12 @@ using PryingEyes.Proc;
 
 namespace PryingEyes
 {
-    /// <summary>-autotest -nofire -noenemies -splittest [-seed S -floor F]: le parti dello split screen senza finestre e senza controller.
-    /// Prima la parte pura: disposizione delle finestre (2, 3 e 4 giocatori su schermi diversi, anche con origine negativa), assegnazione dei
-    /// controller, campo visivo nelle finestre larghe, argomenti dei giocatori lanciati, traduzione XInput -> comandi (zone morte, grilletti,
-    /// secondo livello con LB, corsa a scatti). Poi il giocatore vero: con uno stato XInput finto (PadControls.Inject) cammina, gira, spara,
-    /// salta, si abbassa e corre. La lettura vera di XInput si prova solo come "risponde senza errori": un controller fisico non c'e'.
-    /// L'avvio vero a piu' finestre lo prova tools/coop/run_split.ps1.</summary>
+    /// <summary>-autotest -nofire -noenemies -splittest [-seed S -floor F]: le parti dello schermo condiviso che non hanno bisogno di una partita
+    /// a piu' giocatori. Prima la parte pura: disposizione delle porzioni (2, 3 e 4 giocatori: nello schermo, senza sovrapposizioni, tutto coperto),
+    /// assegnazione dei controller, campo visivo nelle porzioni larghe, traduzione XInput -> comandi (zone morte, grilletti, secondo livello con
+    /// LB, corsa a scatti). Poi il giocatore vero: con uno stato XInput finto (PadControls.Inject) cammina, gira, spara, salta, si abbassa e corre.
+    /// La lettura vera di XInput si prova solo come "risponde senza errori": un controller fisico non c'e'.
+    /// La partita a piu' giocatori la prova -seatstest (SeatsTest.cs, lanciato da tools/coop/run_split.ps1).</summary>
     public sealed class SplitScreenTest : MonoBehaviour
     {
         int checks, failed, exceptions;
@@ -50,33 +50,30 @@ namespace PryingEyes
 
         void Layouts()
         {
-            var areas = new[] { new RectInt(0, 0, 1920, 1080), new RectInt(0, 0, 3440, 1400), new RectInt(-2560, 0, 2560, 1400), new RectInt(-159, -1234, 1280, 672) };
-            foreach (var a in areas)
-                for (int n = 2; n <= 4; n++)
+            // Camera.rect: frazioni dello schermo, origine in basso a sinistra
+            for (int n = 2; n <= 4; n++)
+            {
+                bool inside = true, disjoint = true; float sum = 0f;
+                for (int i = 0; i < n; i++)
                 {
-                    bool inside = true, disjoint = true; long sum = 0;
-                    for (int i = 0; i < n; i++)
+                    var t = SplitScreen.ViewOf(i, n);
+                    sum += t.width * t.height;
+                    inside &= t.width > 0f && t.height > 0f && t.xMin >= 0f && t.yMin >= 0f && t.xMax <= 1f && t.yMax <= 1f;
+                    for (int j = 0; j < i; j++)
                     {
-                        var t = SplitScreen.TileOf(i, n, a);
-                        sum += (long)t.width * t.height;
-                        inside &= t.width > 0 && t.height > 0 && t.xMin >= a.xMin && t.yMin >= a.yMin && t.xMax <= a.xMax && t.yMax <= a.yMax;
-                        for (int j = 0; j < i; j++)
-                        {
-                            var u = SplitScreen.TileOf(j, n, a);
-                            disjoint &= t.xMax <= u.xMin || u.xMax <= t.xMin || t.yMax <= u.yMin || u.yMax <= t.yMin;
-                        }
+                        var u = SplitScreen.ViewOf(j, n);
+                        disjoint &= t.xMax <= u.xMin || u.xMax <= t.xMin || t.yMax <= u.yMin || u.yMax <= t.yMin;
                     }
-                    Check($"{n} giocatori su {a.width}x{a.height} in ({a.x},{a.y}): le parti stanno nello schermo, non si sovrappongono e lo coprono tutto",
-                        inside && disjoint && sum == (long)a.width * a.height);
                 }
-            var full = new RectInt(0, 0, 3440, 1400);
-            var l = SplitScreen.TileOf(0, 2, full); var r = SplitScreen.TileOf(1, 2, full);
-            Check("due giocatori: uno a sinistra e uno a destra, alti come lo schermo", l.x == 0 && r.x == l.xMax && l.height == 1400 && r.height == 1400 && r.xMax == 3440);
-            var t3 = SplitScreen.TileOf(2, 3, full);
-            Check("tre giocatori: il terzo occupa tutta la riga in basso", t3.x == 0 && t3.width == 3440 && t3.y > 0);
-            var q = new[] { SplitScreen.TileOf(0, 4, full), SplitScreen.TileOf(1, 4, full), SplitScreen.TileOf(2, 4, full), SplitScreen.TileOf(3, 4, full) };
+                Check($"{n} giocatori: le porzioni stanno nello schermo, non si sovrappongono e lo coprono tutto", inside && disjoint && Mathf.Abs(sum - 1f) < 1e-4f);
+            }
+            var l = SplitScreen.ViewOf(0, 2); var r = SplitScreen.ViewOf(1, 2);
+            Check("due giocatori: uno a sinistra e uno a destra, alti come lo schermo", l.xMin == 0f && r.xMin == l.xMax && l.height == 1f && r.height == 1f && r.xMax == 1f);
+            var t3 = SplitScreen.ViewOf(2, 3);
+            Check("tre giocatori: due sopra e il terzo sotto, a tutta larghezza", t3.xMin == 0f && t3.width == 1f && t3.yMin == 0f && SplitScreen.ViewOf(0, 3).yMin > 0f && SplitScreen.ViewOf(1, 3).yMin > 0f);
+            var q = new[] { SplitScreen.ViewOf(0, 4), SplitScreen.ViewOf(1, 4), SplitScreen.ViewOf(2, 4), SplitScreen.ViewOf(3, 4) };
             Check("quattro giocatori: quattro quadranti (alto sinistra, alto destra, basso sinistra, basso destra)",
-                q[0].x == 0 && q[0].y == 0 && q[1].x > 0 && q[1].y == 0 && q[2].x == 0 && q[2].y > 0 && q[3].x > 0 && q[3].y > 0 && q[0].width == q[2].width);
+                q[0].xMin == 0f && q[0].yMin > 0f && q[1].xMin > 0f && q[1].yMin == q[0].yMin && q[2].xMin == 0f && q[2].yMin == 0f && q[3].xMin == q[1].xMin && q[3].yMin == 0f && q[0].width == q[2].width && q[0].height == q[2].height);
         }
 
         void Pads()
@@ -97,14 +94,6 @@ namespace PryingEyes
             float h = 2f * Mathf.Atan(Mathf.Tan(v * 0.5f * Mathf.Deg2Rad) * 4.8f) * Mathf.Rad2Deg;
             Check($"campo visivo: in una finestra larga 4,8 volte si accorcia ({v:F1} gradi verticali, {h:F1} orizzontali, tetto {SplitScreen.MaxHorizontalFov})",
                 v < 60f && Mathf.Abs(h - SplitScreen.MaxHorizontalFov) < 0.5f);
-        }
-
-        void Arguments()
-        {
-            string a = SplitScreen.ChildArgs(2, 4, new RectInt(1720, 700, 1720, 700), 23456, 1234, 1, "C:\\log dir\\giocatore3.log", "-batchmode -nographics");
-            foreach (string must in new[] { "-popupwindow", "-screen-width 1720", "-screen-height 700", "-splitchild 2", "-splitcount 4", "-splittile 1720,700,1720,700",
-                "-splitparent 1234", "-padindex 1", "-coopjoin 127.0.0.1", "-coopport 23456", "-coopname \"Giocatore 3\"", "-logFile \"C:\\log dir\\giocatore3.log\"", "-batchmode -nographics" })
-                Check("argomenti del giocatore 3 contengono " + must, a.Contains(must));
         }
 
         void Mapping()
@@ -202,7 +191,7 @@ namespace PryingEyes
 
         IEnumerator Run()
         {
-            Layouts(); Pads(); Fov(); Arguments(); Mapping(); Api();
+            Layouts(); Pads(); Fov(); Mapping(); Api();
 
             float deadline = Time.realtimeSinceStartup + 90;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;

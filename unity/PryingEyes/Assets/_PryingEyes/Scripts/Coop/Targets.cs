@@ -28,10 +28,10 @@ namespace PryingEyes
         void Sedate(float seconds);
     }
 
-    /// <summary>Il giocatore di questa macchina.</summary>
+    /// <summary>Il giocatore di questa macchina (nello split screen il primo: gli altri sono SeatTarget).</summary>
     public sealed class LocalTarget : ITarget
     {
-        static PlayerController P => GameManager.I != null ? GameManager.I.player : null;
+        static PlayerController P { get { var s = Seats.Primary; return s != null ? s.player : (GameManager.I != null ? GameManager.I.player : null); } }
         public int Slot => Coop.Slot;
         public Vector3 Feet { get { var p = P; return p != null ? p.transform.position : Vector3.zero; } }
         public bool Alive { get { var p = P; return p != null && p.alive; } }
@@ -39,10 +39,10 @@ namespace PryingEyes
         public float Lean { get { var p = P; return p != null ? p.lean : 0f; } }
         public Vector3 LeanedPoint(float h) { var p = P; return p != null ? p.LeanedPoint(h) : Vector3.up * h; }
         public Transform LookAt { get { var p = P; return p != null ? p.cam : null; } }
-        public Transform BeamT { get { var t = Torch.I; return t != null && t.Lit && t.Beam != null ? t.Beam.transform : null; } }
-        public float SightRange(Enemy e) => Stealth.SightRange(e);
-        public void Hurt(float dmg, Vector3? origin = null) { var p = P; if (p != null) p.Hurt(dmg, origin); }
-        public void Sedate(float seconds) { var p = P; if (p != null) p.Sedate(seconds); }
+        public Transform BeamT { get { var s = Seats.Primary; var t = s != null ? s.TorchNow : Torch.I; return t != null && t.Lit && t.Beam != null ? t.Beam.transform : null; } }
+        public float SightRange(Enemy e) { using (Seats.Enter(Seats.Primary)) return Stealth.SightRange(e); }
+        public void Hurt(float dmg, Vector3? origin = null) { using (Seats.Enter(Seats.Primary)) { var p = P; if (p != null) p.Hurt(dmg, origin); } }
+        public void Sedate(float seconds) { using (Seats.Enter(Seats.Primary)) { var p = P; if (p != null) p.Sedate(seconds); } }
     }
 
     /// <summary>I bersagli dei nemici: il giocatore locale (sempre al posto 0) e i compagni che l'ospite vede.</summary>

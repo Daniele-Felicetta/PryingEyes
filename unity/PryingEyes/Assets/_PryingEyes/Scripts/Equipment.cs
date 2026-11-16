@@ -35,9 +35,11 @@ namespace PryingEyes
             return e;
         }
 
-        void Start() => GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
+        void Start() { using (Seats.Enter(this)) GameManager.I?.hud?.SetEquipment(grenades, lures, mines); }
 
-        void Update()
+        void Update() { using (Seats.Enter(this)) UpdateBody(); }
+
+        void UpdateBody()
         {
             if (player == null) player = GetComponent<PlayerController>();
             float dt = Time.deltaTime;
@@ -57,9 +59,9 @@ namespace PryingEyes
                 GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
             }
             if (GameMenu.Blocked || player == null || player.hp <= 0f || throwCd > 0f) return;
-            if ((Input.GetKeyDown(KeyCode.Z) || TouchControls.Down(TouchControls.Action.Grenade)) && grenades > 0) Throw(0);
-            else if ((Input.GetKeyDown(KeyCode.Alpha4) || TouchControls.Down(TouchControls.Action.Lure)) && lures > 0) Throw(1);
-            else if ((Input.GetKeyDown(KeyCode.Alpha5) || TouchControls.Down(TouchControls.Action.Mine)) && mines > 0) PlaceMine();
+            if ((SeatInput.GetKeyDown(KeyCode.Z) || TouchControls.Down(TouchControls.Action.Grenade)) && grenades > 0) Throw(0);
+            else if ((SeatInput.GetKeyDown(KeyCode.Alpha4) || TouchControls.Down(TouchControls.Action.Lure)) && lures > 0) Throw(1);
+            else if ((SeatInput.GetKeyDown(KeyCode.Alpha5) || TouchControls.Down(TouchControls.Action.Mine)) && mines > 0) PlaceMine();
         }
 
         /// <summary>Posa una mina del reliquiario un metro davanti (Mine.cs); null se non ne restano. Pubblico per le prove.</summary>
@@ -102,6 +104,8 @@ namespace PryingEyes
         Rigidbody rb;
         Light glow;
         AudioSource song;
+        /// <summary>Schermo condiviso: il giocatore che l'ha lanciato. Le uccisioni e i punti dell'esplosione sono suoi.</summary>
+        Seat owner;
 
         public static Thrown Spawn(int kind, Vector3 pos, Vector3 vel, Collider thrower)
         {
@@ -109,6 +113,7 @@ namespace PryingEyes
             go.transform.position = pos;
             go.transform.rotation = Random.rotation;
             var t = go.AddComponent<Thrown>();
+            t.owner = Seats.Current;
             t.kind = kind;
             if (kind == 0) t.BuildFlask(); else t.BuildBox();
             var col = go.AddComponent<SphereCollider>();
@@ -176,7 +181,9 @@ namespace PryingEyes
             return go.transform;
         }
 
-        void Update()
+        void Update() { using (Seats.Enter(owner)) UpdateBody(); }
+
+        void UpdateBody()
         {
             if (done) return;
             float dt = Time.deltaTime;
@@ -212,7 +219,7 @@ namespace PryingEyes
             done = true;
             Vector3 p = transform.position + Vector3.up * 0.1f;
             Fx.HolyBurst(p, kind == 0 ? new Color(0.6f, 0.85f, 1f) : new Color(1f, 0.75f, 0.4f));
-            GameManager.I?.player?.Shake(p, kind == 0 ? 1f : 1.3f);
+            Seats.ShakeAll(p, kind == 0 ? 1f : 1.3f);
             Sfx.At(SoundBank.Blast, p, 1f, kind == 0 ? Random.Range(0.95f, 1.05f) : 0.85f, 4f, 60f);
             var list = new List<Enemy>(Enemy.All);
             Enemy.NoteBlast(p);                                   // chi muore ora vola via dal centro (EnemyRagdoll)
@@ -224,16 +231,27 @@ namespace PryingEyes
                 if (d > radius || !HotelNav.ClearLine(p + Vector3.up * 0.2f, ep)) continue;
                 e.Damage(Mathf.Lerp(center, edge, d / radius), ep, false, true, DamageSource.Esplosione);
             }
-            var me = Targets.Local;
-            if (me != null && me.Alive)
+            if (Seats.Split)
             {
-                Vector3 body = me.Feet + Vector3.up * 1f;
-                float d = Vector3.Distance(body, p);
-                if (d < radius && HotelNav.ClearLine(p + Vector3.up * 0.2f, body)) me.Hurt(Mathf.Lerp(self, 4f, d / radius), p);
+                // schermo condiviso: ferisce chiunque sia vicino (poco), anche i compagni
+                foreach (var s in Seats.All) HurtNear(s.target, p, radius, self);
             }
+            else HurtNear(Targets.Local, p, radius, self);
             Barrels.I?.ExplodeNear(p, radius);              // le botti d'olio vicine scoppiano a catena
             Lure.Stop(transform);
             Destroy(gameObject);
+        }
+
+        static void HurtNear(ITarget me, Vector3 p, float radius, float self)
+        {
+            if (me == null || !me.Alive) return;
+            Vector3 body = me.Feet + Vector3.up * 1f;
+            float d = Vector3.Distance(body, p);
+            if (d < radius && HotelNav.ClearLine(p + Vector3.up * 0.2f, body))
+            {
+                me.Hurt(Mathf.Lerp(self, 4f, d / radius), p);
+                if (Seats.Split) Seats.CountDamageTaken(me);
+            }
         }
     }
 

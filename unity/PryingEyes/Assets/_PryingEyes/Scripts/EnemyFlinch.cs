@@ -86,8 +86,8 @@ namespace PryingEyes
         {
             float dt = Mathf.Min(Time.deltaTime, 0.05f);
             bool moving = vChest.sqrMagnitude + wChest.sqrMagnitude + vHead.sqrMagnitude + wHead.sqrMagnitude + vPel.sqrMagnitude + wPel.sqrMagnitude > 1e-4f;
-            var cam = Camera.main;
-            bool far = cam != null && (cam.transform.position - transform.position).sqrMagnitude > 35f * 35f;
+            float eyeD = Seats.EyeDistanceSqr(transform.position);        // dall'occhio piu' vicino (a schermo condiviso, di qualunque giocatore)
+            bool far = !float.IsPositiveInfinity(eyeD) && eyeD > 35f * 35f;
             if (!moving || far)
             {
                 vChest = wChest = vHead = wHead = vPel = wPel = Vector3.zero;

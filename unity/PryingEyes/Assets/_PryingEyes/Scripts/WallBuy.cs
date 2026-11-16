@@ -13,9 +13,16 @@ namespace PryingEyes
         public Color tint = new Color(0.30f, 0.95f, 1f);
 
         static readonly List<WallBuy> all = new List<WallBuy>();
-        static WallBuy near;
-        static Transform lastCamera;
+
+        /// <summary>Quello che guarda UN giocatore (split screen: ogni posto ha il suo, Seats.Enter mette al suo posto quello di chi gira).</summary>
+        public sealed class State { public WallBuy near; public Transform lastCamera; }
+        static State st = new State();
+        public static State Mine => st;
+        public static void Use(State s) { st = s ?? new State(); }
+
         Light glow;
+        float nearUntil;               // fino a quando (tempo non scalato) qualcuno lo sta guardando da vicino: lo scrive Tick
+        static float anyNearUntil;
 
         public int AmmoPrice => Mathf.Max(150, Mathf.RoundToInt(price * 0.5f));
 
@@ -23,7 +30,7 @@ namespace PryingEyes
         public static void BuildAll()
         {
             all.RemoveAll(w => w == null);   // sopravvive al ricaricamento della scena in editor
-            near = null;
+            st.near = null;
             if (all.Count > 0) return;
             // sud: a sinistra dell'ingresso, ovest: accanto al salotto, est: sotto le vetrate
             int v = WeaponDefs.IndexOf("smg_vesper9"), br = WeaponDefs.IndexOf("sg_breacher12"), la = WeaponDefs.IndexOf("dmr_lance7");
@@ -43,8 +50,8 @@ namespace PryingEyes
         {
             foreach (var w in all) if (w != null) Destroy(w.gameObject);
             all.Clear();
-            near = null;
-            lastCamera = null;
+            st.near = null;
+            st.lastCamera = null;
         }
 
         static WallBuy Create(int index, int cost, Vector3 pos, Quaternion rot, Color tint)
@@ -124,12 +131,24 @@ namespace PryingEyes
 
         void Update()
         {
+            // richiamo luminoso: pulsa se qualcuno lo guarda da vicino (lo segna Tick), altrimenti a riposo (un po' piu' acceso se nessuno ne guarda uno)
+            if (glow != null)
+            {
+                float now = Time.unscaledTime;
+                glow.intensity = now < nearUntil ? 2.4f + Mathf.Sin(Time.time * 3.2f) * 0.5f : (now < anyNearUntil ? 1.0f : 1.1f);
+            }
             textT -= Time.unscaledDeltaTime;
             if (textT > 0f || texts == null) return;
             textT = 0.15f;
-            Transform cam = lastCamera != null ? lastCamera : (Camera.main != null ? Camera.main.transform : null);
-            if (cam == null) return;
-            bool show = (cam.position - transform.position).sqrMagnitude < 14f * 14f && VisibleFrom(cam.position);
+            // il testo si legge se lo vede almeno uno dei giocatori (nello split screen sono piu' camere)
+            var eyes = Seats.Eyes(st.lastCamera);
+            if (eyes.Count == 0) return;
+            bool show = false;
+            for (int i = 0; i < eyes.Count && !show; i++)
+            {
+                var cam = eyes[i];
+                show = cam != null && (cam.position - transform.position).sqrMagnitude < 14f * 14f && VisibleFrom(cam.position);
+            }
             if (show == textsOn) return;
             textsOn = show;
             foreach (var r in texts) if (r != null) r.enabled = show;
@@ -285,15 +304,16 @@ namespace PryingEyes
         public static bool Tick(Transform cam)
         {
             var gm = GameManager.I;
-            lastCamera = cam;
+            st.lastCamera = cam;
             if (gm == null || gm.player == null || gm.hud == null) return false;
-            near = Find(cam);
+            var near = st.near = Find(cam);
             if (near == null)
             {
                 gm.hud.SetPrompt("");
-                foreach (var w in all) if (w != null && w.glow != null) w.glow.intensity = 1.1f;
                 return false;
             }
+            float now = Time.unscaledTime;
+            near.nearUntil = anyNearUntil = now + 0.12f;     // il richiamo luminoso lo anima Update
             var weapon = gm.player.weapon;
             int sl = weapon.SlotOf(near.weaponIndex);
             bool same = sl >= 0;
@@ -309,15 +329,14 @@ namespace PryingEyes
                 gm.hud.SetPrompt((same ? "MUNIZIONI " : "ACQUISTA ") + near.displayName
                     + " — " + cost + " PUNTI   [" + PadControls.UseKey + "]" + extra);
             }
-            foreach (var w in all)
-                if (w != null && w.glow != null) w.glow.intensity = w == near ? 2.4f + Mathf.Sin(Time.time * 3.2f) * 0.5f : 1.0f;
             return true;
         }
 
         public static void TryBuy()
         {
             var gm = GameManager.I;
-            if (GameMenu.Blocked || near == null || gm == null || gm.player == null || Find(lastCamera) != near) return;
+            var near = st.near;
+            if (GameMenu.Blocked || near == null || gm == null || gm.player == null || Find(st.lastCamera) != near) return;
             var weapon = gm.player.weapon;
             int sl = weapon.SlotOf(near.weaponIndex);
             bool same = sl >= 0;

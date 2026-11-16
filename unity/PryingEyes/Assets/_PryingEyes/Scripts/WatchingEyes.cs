@@ -26,12 +26,9 @@ namespace PryingEyes
 
         void Update()
         {
-            if (cam == null)
-            {
-                var c = Camera.main;
-                if (c == null) return;
-                cam = c.transform;
-            }
+            // a schermo condiviso gli occhi nel buio guardano chi hanno piu' vicino, ma si chiudono se li guarda in faccia uno qualunque
+            cam = Seats.NearestEye(transform.position);
+            if (cam == null) return;
             float dt = Time.deltaTime;
             Vector3 to = cam.position - transform.position;
             float dist = to.magnitude;
@@ -44,8 +41,9 @@ namespace PryingEyes
             }
             else
             {
-                float ang = Vector3.Angle(cam.forward, -to);
-                bool stared = ang < 9f && dist < 40f && HotelNav.ClearLine(cam.position, transform.position);
+                bool stared = StaredAt(cam);
+                if (!stared && Seats.Split)
+                    foreach (var s in Seats.All) if (s.Eye != null && s.Eye != cam && StaredAt(s.Eye)) { stared = true; break; }
                 if (stared || dist < 6f)
                 {
                     hiddenT = Random.Range(8f, 18f);
@@ -68,6 +66,13 @@ namespace PryingEyes
             bool vis = open > 0.01f;
             left.enabled = vis;
             right.enabled = vis;
+        }
+
+        /// <summary>Questo occhio e' guardato in faccia da chi ha la camera 'eye' (nel mirino, entro 40 m, con la linea libera)?</summary>
+        bool StaredAt(Transform eye)
+        {
+            Vector3 to = eye.position - transform.position;
+            return Vector3.Angle(eye.forward, -to) < 9f && to.magnitude < 40f && HotelNav.ClearLine(eye.position, transform.position);
         }
     }
 }

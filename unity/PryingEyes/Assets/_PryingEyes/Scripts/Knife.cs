@@ -96,7 +96,7 @@ namespace PryingEyes
         // ------------------------------------------------------------------ modello e mani
         void BuildView()
         {
-            var go = new GameObject("ViewmodelColtello") { layer = 2 };
+            var go = new GameObject("ViewmodelColtello") { layer = Seats.ViewLayer };
             go.transform.SetParent(cam, false);
             root = go.transform;
             SetPose(Slash[0]);
@@ -144,7 +144,7 @@ namespace PryingEyes
 
         static void Prepare(GameObject g)
         {
-            foreach (var tr in g.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = 2;
+            foreach (var tr in g.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = Seats.ViewLayer;
             foreach (var c in g.GetComponentsInChildren<Collider>(true)) Destroy(c);
             foreach (var r in g.GetComponentsInChildren<Renderer>(true))
             {
@@ -227,7 +227,9 @@ namespace PryingEyes
         }
 
         // ------------------------------------------------------------------ azione
-        void Update()
+        void Update() { using (Seats.Enter(this)) UpdateBody(); }
+
+        void UpdateBody()
         {
             if (!ready) { Init(cam); if (!ready) return; }          // l'arma puo' non essere ancora legata alla visuale quando parte il rig
             float dt = Time.deltaTime;
@@ -239,7 +241,7 @@ namespace PryingEyes
                 if (!debugFreeze) Advance(dt);
             }
             if (GameMenu.Blocked || !alive || playing || cool > 0f) return;
-            if (Input.GetKeyDown(KeyCode.G) || TouchControls.Down(TouchControls.Action.Knife)) Begin();
+            if (SeatInput.GetKeyDown(KeyCode.G) || TouchControls.Down(TouchControls.Action.Knife)) Begin();
         }
 
         /// <summary>Solo per le prove: parte come se si fosse premuto G.</summary>

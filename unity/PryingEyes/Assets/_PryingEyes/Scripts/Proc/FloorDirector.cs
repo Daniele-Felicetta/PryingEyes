@@ -27,8 +27,10 @@ namespace PryingEyes.Proc
         readonly HashSet<WallBuy> foundWeapons = new HashSet<WallBuy>();
         readonly HashSet<Candelabro> foundCandles = new HashSet<Candelabro>();
         readonly HashSet<int> foundShrines = new HashSet<int>();      // 0 Biblioteca, 1 Scrigno, 2 altare: segnati sulla mappa quando li hai visti da vicino
-        bool foundExit, mapOpen, miniMap = true;
-        float mapScan;
+        bool foundExit;
+        // la mappa e' di ogni giocatore (apre e chiude la sua, nella sua porzione di schermo); quello che si e' scoperto e' di tutti
+        readonly bool[] mapOpenA = new bool[Seats.MaxSeats], miniMapOff = new bool[Seats.MaxSeats];
+        readonly float[] mapScanA = new float[Seats.MaxSeats];
         GameManager gm;
         static string BotLog => TestPaths.Out("proctest.txt");
 
@@ -86,16 +88,36 @@ namespace PryingEyes.Proc
         public void StartRun(int seed = 0, int startFloor = 0)
         {
             gm = GameManager.I;
-            StealthRig.Install();      // torcia, ping, freccia, cuore (Scripts/Stealth)
+            Seats.EachOrOnce(_ => StealthRig.Install());      // torcia, ping, freccia, cuore di ogni giocatore (Scripts/Stealth)
             if (HasArg("-oldplan")) PlanGen.UseGrid = false;      // le ali d'albergo e di chiesa di prima, al posto della pianta a griglia
             runSeed = seed != 0 ? seed : ArgInt("-seed", Random.Range(1, 1 << 28));
             floor = 0;
             deaths = 0;
             RoundDirector.ResetRun();
             Drops.ResetRun();
-            Perks.ResetRun();
-            Medals.Reset();
+            Seats.EachOrOnce(_ => { Perks.ResetRun(); Medals.Reset(); });
             StartCoroutine(GoTo(startFloor > 0 ? startFloor : ArgInt("-floor", 1), true));
+        }
+
+        /// <summary>Tutti i giocatori (nello schermo condiviso uno per posto), senza allocare a ogni chiamata.</summary>
+        static readonly List<PlayerController> everyone = new List<PlayerController>();
+
+        static void SetInvulnerable(bool on)
+        {
+            Seats.Players(everyone);
+            foreach (var p in everyone) if (p != null) p.invulnerable = on;
+        }
+
+        /// <summary>Dissolvenza dell'HUD di tutti i giocatori (cambio piano).</summary>
+        static void FadeAll(float k) { Seats.ForHuds(h => h.SetFade(k)); }
+
+        /// <summary>Il giocatore i (di tutti, nell'ordine dei posti) nella cabina d'arrivo: in cooperativa o a schermo condiviso ognuno nasce a fianco
+        /// degli altri, non sulla stessa mattonella.</summary>
+        static Vector3 SideBySide(Vector3 spot, Vector3 lookOut, int index, int count)
+        {
+            if (count <= 1) return spot;
+            Vector3 side = Vector3.Cross(Vector3.up, new Vector3(lookOut.x, 0f, lookOut.z)).normalized;
+            return spot + side * ((index - (count - 1) * 0.5f) * 0.36f);
         }
 
         /// <summary>Cooperativa, sull'ospite: un compagno e' entrato nell'ascensore aperto, si scende.</summary>
@@ -118,8 +140,7 @@ namespace PryingEyes.Proc
             transitioning = true;
             gm = GameManager.I;
             var pl = gm.player;
-            pl.invulnerable = true;
-            var hud = gm.hud;
+            SetInvulnerable(true);
             Coop.OnFloorStart(n);                // cooperativa: l'ospite annuncia il piano (epoca), gli altri aspettano il suo
             if (cur != null)
             {
@@ -134,9 +155,9 @@ namespace PryingEyes.Proc
                 yield return null;
             }
             floor = n;
-            Perks.NewFloor();                    // la Rinascita e' di nuovo pronta, il Velo e l'Occhio si spengono
+            Seats.EachOrOnce(_ => Perks.NewFloor());      // la Rinascita e' di nuovo pronta, il Velo e l'Occhio si spengono (per ogni giocatore)
             Biblioteca.Clear();
-            explored.Clear(); foundWeapons.Clear(); foundCandles.Clear(); foundShrines.Clear(); foundExit = false; mapOpen = false;
+            explored.Clear(); foundWeapons.Clear(); foundCandles.Clear(); foundShrines.Clear(); foundExit = false; System.Array.Clear(mapOpenA, 0, mapOpenA.Length);
             // piu' si scende, piu' buio: la scala di tutte le luci del piano, letta da RoomKits.AddLight mentre costruisce
             LightPool.Dim = LightDim(n);
             PlanGen.SurvivalLayout = SurvivalMode.Enabled;
@@ -164,9 +185,7 @@ namespace PryingEyes.Proc
 
             // obiettivo: candele da accendere; uscita sigillata finche' non lo sono tutte
             lit = 0; total = cur.candles.Count; exitOpen = false; firstHorde = false; lastHorde = false;
-            Guide.I?.ClearMarks();
-            Stealth.Reset();
-            ghostMark = Stealth.Spotted;
+            Seats.EachOrOnce(_ => { Guide.I?.ClearMarks(); Stealth.Reset(); ghostMark = Stealth.Spotted; });      // la guida, la furtivita' e il Fantasma sono di ogni giocatore
             PlaceBatteries(plan);
             BuildPatrolPoints(plan);
             if (Coop.Sim && !SurvivalMode.Enabled) PopulateFloor(plan);   // nel nuovo ciclo i nemici arrivano con le ondate.
@@ -198,33 +217,37 @@ namespace PryingEyes.Proc
             var lift = cur.arrival;
             if (lift != null)
             {
-                Vector3 spot = lift.spawnPoint;
-                if (Coop.Active)
+                Seats.Players(everyone);
+                for (int i = 0; i < everyone.Count; i++)
                 {
-                    // in cooperativa ognuno nasce a fianco degli altri nella cabina, non sulla stessa mattonella
-                    Vector3 side = Vector3.Cross(Vector3.up, new Vector3(lift.lookOut.x, 0f, lift.lookOut.z)).normalized;
-                    spot += side * ((Coop.Slot - 1.5f) * 0.36f);
+                    var one = everyone[i];
+                    Vector3 spot = lift.spawnPoint;
+                    if (Coop.Active)
+                    {
+                        // in cooperativa ognuno nasce a fianco degli altri nella cabina, non sulla stessa mattonella
+                        Vector3 side = Vector3.Cross(Vector3.up, new Vector3(lift.lookOut.x, 0f, lift.lookOut.z)).normalized;
+                        spot += side * ((Coop.Slot - 1.5f) * 0.36f);
+                    }
+                    else spot = SideBySide(spot, lift.lookOut, i, everyone.Count);        // schermo condiviso: uno accanto all'altro
+                    one.SetSpawn(spot);
+                    one.yaw = Mathf.Atan2(lift.lookOut.x, lift.lookOut.z);
+                    one.pitch = 0f;
                 }
-                pl.SetSpawn(spot);
-                pl.yaw = Mathf.Atan2(lift.lookOut.x, lift.lookOut.z);
-                pl.pitch = 0f;
                 lift.SetOpenInstant(false);
             }
             playerRoom = cur.RoomAt(pl.transform.position);
-            hud?.SetWaveLabel("piano");
-            hud?.SetWave(n);
+            Seats.ForHuds(h => { h.SetWaveLabel("piano"); h.SetWave(n); });
             RefreshObjective();
-            hud?.Banner("Piano " + n, plan.epithet);
-            hud?.Toast(FloorLines[(n - 1) % FloorLines.Length]);
+            Seats.ForHuds(h => { h.Banner("Piano " + n, plan.epithet); h.Toast(FloorLines[(n - 1) % FloorLines.Length]); });
             if (Coop.Active) Debug.Log($"[PryingEyes] coop: firma del piano {n}: {FloorSignature():X8}");
             Coop.OnFloorBuilt();                 // cooperativa: piano costruito (la torcia dei compagni torna nel pool, l'ospite saluta chi aspettava)
             Debug.Log($"[PryingEyes] piano {n} seme {runSeed + n * 1013}: {plan.rooms.Count} stanze in {plan.units} ali, {cur.candles.Count} candele, {LightPool.Count} luci, " +
                       $"costruito in {tBuild * 1000f:F0} ms, partenza {(plan.startInChurch ? "chiesa" : "albergo")}, pianta {(plan.grid ? "a griglia" : "ad ali")}");
-            if (!first) { for (float k = 1f; k > 0f; k -= Time.deltaTime / 0.9f) { hud?.SetFade(k); yield return null; } }
-            hud?.SetFade(0f);
+            if (!first) { for (float k = 1f; k > 0f; k -= Time.deltaTime / 0.9f) { FadeAll(k); yield return null; } }
+            FadeAll(0f);
             if (lift != null) lift.Open();
             yield return new WaitForSeconds(1.2f);
-            pl.invulnerable = false;
+            SetInvulnerable(false);
             transitioning = false;
         }
 
@@ -311,12 +334,23 @@ namespace PryingEyes.Proc
         // ------------------------------------------------------------------ candele e uscita
         /// <summary>Quanti avvistamenti c'erano (Stealth.Spotted) all'ultima candela, o all'inizio del piano: se non e' cambiato niente
         /// e nessun prete ti sta cacciando, la candela vale il bonus Fantasma.</summary>
-        int ghostMark;
+        readonly int[] ghostMarks = new int[Seats.MaxSeats];      // uno per giocatore: lo schermo condiviso ha piu' furtivita'
+        int ghostMark { get => ghostMarks[Seats.SeatIndex]; set => ghostMarks[Seats.SeatIndex] = value; }
         public int GhostMark => ghostMark;
 
         /// <summary>Un premio a chi ha acceso la candela ('slot': 0 da solo o l'ospite, 1..3 un compagno, a cui lo manda l'ospite).</summary>
         void Reward(int slot, int pts, float ammo)
         {
+            if (Seats.Split)
+            {
+                // schermo condiviso: il premio va al giocatore che ha acceso la candela, con i suoi punti e le sue armi
+                using (Seats.Enter(Seats.OfSlot(slot) ?? Seats.Current))
+                {
+                    gm.AddPoints(pts);
+                    if (ammo > 0f && gm.player != null) gm.player.weapon.AddAmmoFraction(ammo);
+                }
+                return;
+            }
             if (slot == Coop.Slot)
             {
                 gm.AddPoints(pts);
@@ -336,9 +370,12 @@ namespace PryingEyes.Proc
             lit++;
             lastLit = c;
             if (lit < total && !quiet) gm.hud?.Toast($"Candela accesa ({lit}/{total}). Qualcosa si muove nell'albergo.");
-            Guide.I?.CandleLit(c, exitOpen);
+            GuideCandleLit(c, exitOpen);
             RefreshObjective();
         }
+
+        /// <summary>La freccia di ogni giocatore sa che la candela e' accesa.</summary>
+        static void GuideCandleLit(Candelabro c, bool exitOpen) => Seats.EachOrOnce(_ => Guide.I?.CandleLit(c, exitOpen));
 
         /// <summary>Cooperativa: quante candele sono accese (per l'ospite che saluta chi entra dopo).</summary>
         public int LitCount => lit;
@@ -349,7 +386,7 @@ namespace PryingEyes.Proc
             lit++;
             var hud = gm.hud;
             int by = c.litBy;                                  // chi l'ha accesa: da solo, sempre il giocatore
-            bool mine = by == Coop.Slot;
+            bool mine = by == Seats.Slot;
             Coop.Game?.CandleLit(c, by);                       // cooperativa: l'ospite lo racconta agli altri
             Reward(by, 60, 0.18f);
             bool ghost = Stealth.Spotted == ghostMark && Stealth.Hunters == 0;
@@ -377,10 +414,10 @@ namespace PryingEyes.Proc
             }
             else
             {
-                hud?.Toast($"Candela accesa ({lit}/{total}). Qualcosa si muove nell'albergo.");
+                Seats.ForHuds(h => h.Toast($"Candela accesa ({lit}/{total}). Qualcosa si muove nell'albergo."));
                 Summon(2 + floor / 3 + lit / 2, c.transform.position);
             }
-            Guide.I?.CandleLit(c, exitOpen);
+            GuideCandleLit(c, exitOpen);
             RefreshObjective();
         }
 
@@ -388,8 +425,8 @@ namespace PryingEyes.Proc
         public void OnRoundEnd(Candelabro c)
         {
             if (lit >= total) OpenExit();
-            else gm.hud?.Toast($"Candela accesa ({lit}/{total}). Le serrande si aprono.");
-            Guide.I?.CandleLit(c, exitOpen);
+            else Seats.ForHuds(h => h.Toast($"Candela accesa ({lit}/{total}). Le serrande si aprono."));
+            GuideCandleLit(c, exitOpen);
             RefreshObjective();
         }
 
@@ -410,7 +447,7 @@ namespace PryingEyes.Proc
         public void CoopOpenExit()
         {
             if (exitOpen || cur == null) return;
-            if (lastLit != null) Guide.I?.CandleLit(lastLit, true);
+            if (lastLit != null) GuideCandleLit(lastLit, true);
             OpenExit(false);
         }
 
@@ -420,7 +457,7 @@ namespace PryingEyes.Proc
             exitOpen = true;
             if (announce) Coop.Game?.ExitOpened();
             if (cur.exit != null) { cur.exit.unlocked = true; cur.exit.Open(); }
-            gm.hud?.Toast(SurvivalMode.Enabled ? "Tre ondate superate. Ascensore aperto: resta a combattere o scendi." : "Tutte le candele sono accese. Le porte dell'ascensore si aprono.");
+            Seats.ForHuds(h => h.Toast(SurvivalMode.Enabled ? "Tre ondate superate. Ascensore aperto: resta a combattere o scendi." : "Tutte le candele sono accese. Le porte dell'ascensore si aprono."));
             Sfx.UI(SoundBank.Toll, 0.7f);
             if (announce && !SurvivalMode.Enabled && !lastHorde && cur.exit != null) { lastHorde = true; Summon(3 + floor / 2, cur.exit.frontPoint); }
             // faro verde sulla porta dell'ascensore: nel buio si vede da lontano
@@ -447,32 +484,34 @@ namespace PryingEyes.Proc
 
         void RefreshObjective()
         {
-            var hud = gm.hud;
-            if (hud == null) return;
+            if (gm.hud == null) return;
+            string text;
             if (SurvivalMode.Enabled)
             {
                 string power = Power.Panel != null && !Power.On ? "  ·  Trova il quadro elettrico" : "";
-                hud.SetObjective((RoundDirector.I != null ? RoundDirector.I.Status() : "Preparati alla prima ondata") + (exitOpen ? "  ·  Ascensore disponibile" : "  ·  3 ondate per l’ascensore") + power);
-                return;
+                text = (RoundDirector.I != null ? RoundDirector.I.Status() : "Preparati alla prima ondata") + (exitOpen ? "  ·  Ascensore disponibile" : "  ·  3 ondate per l’ascensore") + power;
             }
-            if (RoundDirector.I != null && RoundDirector.I.Fighting) { hud.SetObjective(RoundDirector.I.Status()); return; }
-            if (exitOpen) { hud.SetObjective("Raggiungi l'ascensore e scendi"); return; }
-            hud.SetObjective($"Accendi le candele {lit}/{total}  ·  V per il ping");
+            else if (RoundDirector.I != null && RoundDirector.I.Fighting) text = RoundDirector.I.Status();
+            else if (exitOpen) text = "Raggiungi l'ascensore e scendi";
+            else text = $"Accendi le candele {lit}/{total}  ·  V per il ping";
+            Seats.ForHuds(h => h.SetObjective(text));       // l'obiettivo e' di tutti
         }
 
         IEnumerator Descend()
         {
             transitioning = true;
             Coop.OnDescendBegin(floor + 1);      // cooperativa: l'ospite dice a tutti che si scende, e ognuno comincia la sua dissolvenza
-            var pl = gm.player;
-            pl.invulnerable = true;
-            gm.AddPoints(100 + 50 * floor);
-            pl.weapon.AddAmmoFraction(0.4f);
-            gm.hud?.Toast($"Piano {floor} superato. +{100 + 50 * floor} punti, munizioni recuperate");
+            SetInvulnerable(true);
+            Seats.EachOrOnce(_ =>             // il premio del piano e' di ogni giocatore
+            {
+                gm.AddPoints(100 + 50 * floor);
+                gm.player.weapon.AddAmmoFraction(0.4f);
+                gm.hud?.Toast($"Piano {floor} superato. +{100 + 50 * floor} punti, munizioni recuperate");
+            });
             Sfx.UI(SoundBank.LiftRide, 0.55f);
             if (cur.exit != null) cur.exit.Close();
-            for (float k = 0f; k < 1f; k += Time.deltaTime / 1.2f) { gm.hud?.SetFade(k); yield return null; }
-            gm.hud?.SetFade(1f);
+            for (float k = 0f; k < 1f; k += Time.deltaTime / 1.2f) { FadeAll(k); yield return null; }
+            FadeAll(1f);
             yield return new WaitForSeconds(0.9f);
             yield return GoTo(floor + 1, false);
         }
@@ -485,7 +524,7 @@ namespace PryingEyes.Proc
             Drops.OnPlayerDied();
             RoundDirector.I?.OnPlayerDied();     // se era un round, salta (di norma l'ha gia' visto morire)
             if (cur != null && cur.arrival != null) cur.arrival.SetOpenInstant(true);
-            Enemy.ForgetOf(Targets.Local);     // chi ti cercava ha perso la pista (gli altri, che cercano un compagno, no)
+            Enemy.ForgetOf(Seats.MyTarget);    // chi ti cercava ha perso la pista (gli altri, che cercano un compagno, no)
             StartCoroutine(Grace());
         }
 
@@ -1032,47 +1071,51 @@ namespace PryingEyes.Proc
         }
 
         // ------------------------------------------------------------------ rete di sicurezza contro le cadute
-        Vector3 lastSafe;
-        float safeT;
-        bool haveSafe;
+        // uno per giocatore (lo schermo condiviso ne ha fino a quattro)
+        readonly Vector3[] lastSafeA = new Vector3[Seats.MaxSeats];
+        readonly float[] safeTA = new float[Seats.MaxSeats];
+        readonly bool[] haveSafeA = new bool[Seats.MaxSeats];
         /// <summary>Quante volte la rete di sicurezza e' dovuta intervenire (le prove controllano che resti ferma).</summary>
         public static int statFalls;
 
         /// <summary>Se per qualunque motivo il giocatore esce dal pavimento (una volta, in una prova col bot, e' caduto nel vuoto in un
         /// campanile senza che il pavimento avesse buchi: causa non trovata) lo riporta all'ultimo punto d'appoggio invece di lasciarlo
-        /// cadere per sempre. Lascia una riga CADUTA nel log del gioco.</summary>
+        /// cadere per sempre. Lascia una riga CADUTA nel log del gioco. Gira a nome del giocatore (gm.player e' il suo).</summary>
         void FallGuard(float dt)
         {
+            int si = Seats.SeatIndex;
             var pl = gm.player;
             Vector3 p = pl.transform.position;
-            safeT -= dt;
-            if (safeT <= 0f && p.y > -0.3f && p.y < 12f && pl.GetComponent<CharacterController>().isGrounded && cur.RoomAt(p) != null)
+            safeTA[si] -= dt;
+            if (safeTA[si] <= 0f && p.y > -0.3f && p.y < 12f && pl.GetComponent<CharacterController>().isGrounded && cur.RoomAt(p) != null)
             {
-                lastSafe = p; haveSafe = true; safeT = 0.5f;
+                lastSafeA[si] = p; haveSafeA[si] = true; safeTA[si] = 0.5f;
             }
             if (p.y > -20f) return;
-            Vector3 back = haveSafe ? lastSafe + Vector3.up * 0.1f : cur.arrival != null ? cur.arrival.spawnPoint : Vector3.up;
+            Vector3 back = haveSafeA[si] ? lastSafeA[si] + Vector3.up * 0.1f : cur.arrival != null ? cur.arrival.spawnPoint : Vector3.up;
             statFalls++;
             Debug.LogWarning($"[PryingEyes] CADUTA: giocatore a y={p.y:F0} in ({p.x:F1},{p.z:F1}), lo riporto a ({back.x:F1},{back.z:F1})");
             pl.Teleport(back);
         }
 
-        // ------------------------------------------------------------------ ogni fotogramma
-        void Update()
+        /// <summary>Una volta a fotogramma per giocatore (lo chiama la sua furtivita', a nome del suo posto: gm.player, i tasti e il controller sono
+        /// i suoi): apre e chiude la sua mappa, segna quello che ha scoperto e tiene d'occhio le cadute.</summary>
+        public void TickSeat(float dt)
         {
             if (cur == null || gm == null || gm.player == null) return;
-            float dt = Time.deltaTime;
-            if (!GameMenu.Blocked && !transitioning && gm.player.alive)
+            int si = Seats.SeatIndex;
+            var pl = gm.player;
+            if (!GameMenu.Blocked && !transitioning && pl.alive)
             {
-                if (Input.GetKeyDown(KeyCode.M) || TouchControls.Down(TouchControls.Action.Map)) mapOpen = !mapOpen;
-                if (Input.GetKeyDown(KeyCode.N)) miniMap = !miniMap;
-                var room = cur.RoomAt(gm.player.transform.position);
+                if (SeatInput.GetKeyDown(KeyCode.M) || TouchControls.Down(TouchControls.Action.Map)) mapOpenA[si] = !mapOpenA[si];
+                if (SeatInput.GetKeyDown(KeyCode.N)) miniMapOff[si] = !miniMapOff[si];
+                var room = cur.RoomAt(pl.transform.position);
                 if (room != null) explored.Add(room.id);
-                mapScan -= dt;
-                if (mapScan <= 0f)
+                mapScanA[si] -= dt;
+                if (mapScanA[si] <= 0f)
                 {
-                    mapScan = 0.5f;
-                    Vector3 here = gm.player.transform.position;
+                    mapScanA[si] = 0.5f;
+                    Vector3 here = pl.transform.position;
                     foreach (var w in FindObjectsOfType<WallBuy>())
                         if ((w.transform.position - here).sqrMagnitude < 64f && cur.RoomAt(w.transform.position)?.id == room?.id) foundWeapons.Add(w);
                     foreach (var c in cur.candles)
@@ -1085,10 +1128,17 @@ namespace PryingEyes.Proc
                     }
                 }
             }
-            if (!transitioning && gm.player.alive)
+            if (!transitioning && pl.alive) FallGuard(dt);
+        }
+
+        // ------------------------------------------------------------------ ogni fotogramma
+        void Update()
+        {
+            if (cur == null || gm == null || gm.player == null) return;
+            float dt = Time.deltaTime;
+            if (!transitioning && Targets.AnyAlive)
             {
                 floorTime += dt;
-                FallGuard(dt);
                 // il piano si ripopola piano piano: ogni tanto un prete nuovo, che pattuglia
                 trickleT -= dt;
                 if (trickleT <= 0f)
@@ -1102,7 +1152,7 @@ namespace PryingEyes.Proc
             if (hudT <= 0f)
             {
                 hudT = 0.5f;
-                gm.hud?.SetEnemiesLeft(Enemy.All.Count);
+                Seats.EnemiesLeft(Enemy.All.Count);
                 if (!exitOpen) RefreshObjective();
                 playerRoom = cur.RoomAt(gm.player.transform.position);
             }
@@ -1122,7 +1172,7 @@ namespace PryingEyes.Proc
         /// <summary>Solo per le prove: apre la mappa grande o la minimappa (e chiude l'altra).</summary>
         public void DebugShowMap(bool full, bool mini)
         {
-            mapOpen = full; miniMap = mini;
+            mapOpenA[0] = full; miniMapOff[0] = !mini;
         }
 
         /// <summary>Solo per le prove: segna una stanza come visitata (la mappa mostra solo quello che hai visto).</summary>
@@ -1139,18 +1189,37 @@ namespace PryingEyes.Proc
         {
             if (cur == null || gm == null || gm.player == null || GameMenu.Blocked || transitioning) return;
             if (Event.current.type != EventType.Repaint) return;      // la mappa si disegna e basta: niente liste e stringhe a ogni evento di layout/mouse
-            if (miniMap)
+            if (Seats.Split)
             {
-                float scale = gm.hud != null ? gm.hud.GetComponent<Canvas>().scaleFactor : 1f;
-                DrawMap(new Rect(Screen.width - 220 * scale, 18 * scale, 202 * scale, 202 * scale), false);
+                // schermo condiviso: ogni giocatore ha la sua mappa e la sua minimappa, dentro la sua porzione di schermo
+                foreach (var s in Seats.All)
+                {
+                    if (s.player == null) continue;
+                    var v = s.view;
+                    var area = new Rect(v.x * Screen.width, (1f - v.yMax) * Screen.height, v.width * Screen.width, v.height * Screen.height);
+                    DrawSeatMaps(s.index, s.player.transform.position, s.hud, area);
+                }
+                return;
             }
-            if (mapOpen) DrawMap(new Rect(Screen.width * 0.12f, Screen.height * 0.1f, Screen.width * 0.76f, Screen.height * 0.8f), true);
+            DrawSeatMaps(0, gm.player.transform.position, gm.hud, new Rect(0f, 0f, Screen.width, Screen.height));
         }
 
-        void DrawMap(Rect area, bool full)
+        /// <summary>Minimappa e mappa grande di un giocatore dentro la sua porzione di schermo (in pixel, y dall'alto).</summary>
+        void DrawSeatMaps(int si, Vector3 player, HUD hud, Rect view)
+        {
+            if (!miniMapOff[si])
+            {
+                float scale = hud != null ? hud.transform.lossyScale.x : 1f;       // pixel per unita' della sua interfaccia (quella piena o quella ridotta)
+                DrawMap(new Rect(view.xMax - 220 * scale, view.y + 18 * scale, 202 * scale, 202 * scale), false, player, si);
+            }
+            if (mapOpenA[si]) DrawMap(new Rect(view.x + view.width * 0.12f, view.y + view.height * 0.1f, view.width * 0.76f, view.height * 0.8f), true, player, si);
+        }
+
+        static readonly Color OtherPlayerColor = new Color(1f, 0.42f, 0.78f);
+
+        void DrawMap(Rect area, bool full, Vector3 player, int si)
         {
             var plan = cur.plan;
-            Vector3 player = gm.player.transform.position;
             float span = full ? Mathf.Max((plan.maxX - plan.minX) * 0.1f, (plan.maxZ - plan.minZ) * 0.1f) + 8f : 34f;
             float scale = Mathf.Min(area.width, area.height - (full ? 45f : 0f)) / Mathf.Max(span, 1f);
             float cx = full ? (plan.minX + plan.maxX) * 0.05f : player.x;
@@ -1181,9 +1250,12 @@ namespace PryingEyes.Proc
                 var sp = ShrinePos(k);
                 if (sp.HasValue) Mark(sp.Value, k == 0 ? new Color(0.72f, 0.48f, 1f) : k == 1 ? new Color(1f, 0.58f, 0.16f) : new Color(1f, 0.86f, 0.35f), k == 0 ? "Biblioteca" : k == 1 ? "Scrigno" : "Altare");
             }
+            if (Seats.Split)
+                foreach (var o in Seats.All)
+                    if (o.index != si && o.player != null && o.player.alive) Mark(o.player.transform.position, OtherPlayerColor, o.Name);
             Mark(player, Color.red, "Tu");
             GUI.color = Color.white;
-            if (full) GUI.Label(new Rect(12, area.height - 42, area.width - 24, 40), "M: chiudi   N: minimappa   • rosso: tu   • azzurro: armi   • giallo: candele   • verde: uscita\n• viola: biblioteca dei perk   • arancio: scrigno delle armi   • oro: altare della consacrazione" +
+            if (full) GUI.Label(new Rect(12, area.height - 42, area.width - 24, 40), "M: chiudi   N: minimappa   • rosso: tu" + (Seats.Split ? "   • rosa: compagni" : "") + "   • azzurro: armi   • giallo: candele   • verde: uscita\n• viola: biblioteca dei perk   • arancio: scrigno delle armi   • oro: altare della consacrazione" +
                 (plan.grid ? "\nStanze: fuoco arena (candela) · oro negozio · viola biblioteca · cremisi guardiano · turchese segreta · acciaio guardie" : ""));
             GUI.EndGroup();
         }

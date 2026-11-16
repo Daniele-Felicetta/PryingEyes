@@ -82,8 +82,8 @@ namespace PryingEyes
         void Update() => Advance(Time.deltaTime);
         void LateUpdate()
         {
-            var camera = Camera.main;
-            if (halo != null && camera != null) halo.rotation = camera.transform.rotation;
+            var eye = Seats.NearestEye(transform.position);          // l'alone si volta verso l'occhio piu' vicino
+            if (halo != null && eye != null) halo.rotation = eye.rotation;
         }
 
         internal void Advance(float dt)
@@ -109,7 +109,7 @@ namespace PryingEyes
                 if (!visualOnly)
                 {
                     victim.Hurt(damage, launchedFrom);
-                    if (victim is LocalTarget) GameManager.damageTaken++;
+                    Seats.CountDamageTaken(victim);
                     if (GameManager.autoTest) Debug.Log($"[PryingEyes] magia colpisce il giocatore {victim.Slot}: {damage:F0} danni");
                 }
                 Impact(transform.position, -dir); return;

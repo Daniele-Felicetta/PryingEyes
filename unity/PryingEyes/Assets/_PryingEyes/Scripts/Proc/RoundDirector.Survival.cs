@@ -51,7 +51,7 @@ namespace PryingEyes.Proc
             ShowSurvivalWave();
             if (bossPending)
             {
-                GameManager.I.hud?.Banner("IL CARDINALE", "Il capo dell'ordine e' sceso nel piano.");
+                Seats.ForHuds(h => h.Banner("IL CARDINALE", "Il capo dell'ordine e' sceso nel piano."));
                 Sfx.UI(SoundBank.BossRoar, 0.8f, 0.9f);
             }
             Debug.Log($"[PryingEyes] ondata {Round} (piano {FloorDirector.I.floor}): {target} nemici, {cap} insieme, aree aperte {RoomAccessDoors.I?.Access.OpenRooms.Count}{(moth ? ", Processione" : "")}");
@@ -60,8 +60,9 @@ namespace PryingEyes.Proc
 
         void ShowSurvivalWave()
         {
-            GameManager.I.hud?.SetRound(Round);
-            GameManager.I.hud?.Banner(moth ? "PROCESSIONE DEI LUMI " + Round : "ONDATA " + Round, moth ? "Le candele hanno lasciato i loro altari." : "Muoviti. Tieni libera una via di fuga.");
+            string head = moth ? "PROCESSIONE DEI LUMI " + Round : "ONDATA " + Round;
+            string sub = moth ? "Le candele hanno lasciato i loro altari." : "Muoviti. Tieni libera una via di fuga.";
+            Seats.ForHuds(h => { h.SetRound(Round); h.Banner(head, sub); });
             Sfx.UI(SoundBank.Toll, 0.6f, 0.65f);
             if (moth) Sfx.UI(SoundBank.LumiProcession, 0.7f);
         }
@@ -237,12 +238,17 @@ namespace PryingEyes.Proc
         void FinishSurvivalWave(bool reward, int points)
         {
             var gm = GameManager.I;
-            if (reward) { gm.AddPoints(points); gm.player.shield = 50; gm.player.weapon.AddAmmoFraction(0.25f); floorWaves++; MusicDirector.WaveCleared(); }
+            if (reward)
+            {
+                // il premio dell'ondata e' di ogni giocatore (schermo condiviso o cooperativa): i suoi punti, il suo scudo, le sue munizioni
+                Seats.EachOrOnce(_ => { gm.AddPoints(points); gm.player.shield = 50; gm.player.weapon.AddAmmoFraction(0.25f); });
+                floorWaves++; MusicDirector.WaveCleared();
+            }
             phase = Phase.Idle; nextWave = WaveBreak; mine.Clear(); stallT = 0f; lastAlive = 0;
             if (floorWaves >= WavesForExit) FloorDirector.I?.SurvivalExitReady();
             string head = (moth ? "PROCESSIONE DEI LUMI " : "ONDATA ") + Round + " SUPERATA";
-            gm.hud?.Banner(head, reward ? $"+{points} punti  ·  {WaveBreak:0} secondi per rifornirti e aprire nuove aree" + (moth ? "  ·  un Reliquiario è caduto" : "") : "Le presenze si sono dissolte.");
-            gm.hud?.SetRound(Round);
+            string sub = reward ? $"+{points} punti  ·  {WaveBreak:0} secondi per rifornirti e aprire nuove aree" + (moth ? "  ·  un Reliquiario è caduto" : "") : "Le presenze si sono dissolte.";
+            Seats.ForHuds(h => { h.Banner(head, sub); h.SetRound(Round); });
             FloorDirector.I?.RefreshObjectiveNow();
             Debug.Log($"[PryingEyes] ondata {Round} finita in {clock:F0} s ({(reward ? "+" + points + " punti" : "senza premio")}), ondate del piano {floorWaves}/{WavesForExit}");
         }
@@ -255,7 +261,7 @@ namespace PryingEyes.Proc
             if (phase == Phase.Fighting) Round = Mathf.Max(0, Round - 1);
             phase = Phase.Idle; nextWave = FirstWaveDelay; stallT = 0f; lastAlive = 0;
             if (!active) return;
-            GameManager.I.hud?.SetRound(Round, false);
+            Seats.ForHuds(h => h.SetRound(Round, false));
             Debug.Log($"[PryingEyes] ondata annullata: chi giocava è morto dopo {clock:F0} s, {spawned}/{target} nati");
             Coop.Game?.RoundAborted();
         }

@@ -172,7 +172,7 @@ Use `-nographics` for logic only. Drop it for the tests that take photos (the on
 
 | Command | What it checks | Output |
 |---|---|---|
-| `-batchmode -nographics -autotest -survivaltest -seed 1000` | Wave cycle: first wave after 8 s with 20 enemies and the alive cap; enemies spawn only in open areas, never closer than 3 m, always attacking; prize once; three waves open the lift; death cancels the wave; the fifth is the Processione. | Unity log only; exit 0 ok, 1 failed |
+| `-batchmode -nographics -autotest -survivaltest -seed 1000` | Wave cycle: first wave after 8 s with 20 enemies and the alive cap; enemies spawn only in open areas, never closer than 3 m, always attacking; the score rises by the wave prize once plus the kills and the medals (`Medals.Points`); three waves open the lift; death cancels the wave; the fifth is the Processione. | Unity log only; exit 0 ok, 1 failed |
 | `-batchmode -autotest -architecturetest [-architectureaccess]` | Paid doors through the real controller: colliders, enemy navmesh, selection with F, insufficient points, purchase once, passing through. | `unity_logs/architecture/` |
 | `-architecturesupply` | A candle-cycle test (it implies that cycle). Its checks are described in its test class header. | `unity_logs/supply/` |
 
@@ -197,7 +197,8 @@ Mode flags used by these tests and the bot:
 | `-minetest [-mineshots]` (12) | Reliquary mine (key 5): placed 1 m ahead, armed in 1.2 s, explodes when an enemy comes near, not the player. | `unity_logs/mine/` |
 | `-ragdolltest [-ragdollshots]` (16) | Dead monks and abbots become ragdolls pushed by the killing hit; they stop and sink; at most 10 at once. `-noragdoll` compares. | `unity_logs/ragdoll/` |
 | `-padtest -nowaves` (73) | The controller in the menus and the normal game, without `-autotest` (the menu must exist; usually `-batchmode`): the XInput to menu translation, the automatic search for a controller with a fake XInput (`PadControls.TestPoll`), the real menu driven with a fake state (selection, frame, tabs, sliders, back to the button of origin, text field, first command with nothing selected), and in the game A on *Gioca* not jumping, Start and B and the pause. With `-padshots FOLDER` (a real window, plus `-menureview` so the saved display is not applied) it saves screenshots of the menus instead. | the log |
-| `-splittest` (85) | Split screen without windows or a controller: the layout for 2 to 4 players, controller assignment, the field-of-view cap, the arguments of the launched windows, the XInput mapping, and the real player driven by a fake XInput state. Needs `-autotest -nofire -noenemies`. | the log (`-report FILE` keeps the result out of `hotel_build/autotest.txt`) |
+| `-splittest` (63) | The parts of the split screen that need no second player: the layout of the parts for 2 to 4 players, controller assignment, the field-of-view cap, the XInput mapping, and the real player driven by a fake XInput state. Needs `-autotest -nofire -noenemies`. | the log (`-report FILE` keeps the result out of `hotel_build/autotest.txt`) |
+| `-seatstest -splitscreen N` (55 to 58) | The split screen itself, in one process and one window, from the menu or with `-autotest`: see section 5.1. | the log; `unity_logs/seats/` with `-seatsshots` |
 
 ### 3.5 Further flags in the code
 
@@ -265,16 +266,28 @@ Several Unity processes on one machine, with no graphics: one host and up to thr
 
 The co-op code is in `Scripts/Coop/`. Protocol, limits and what is not yet verified are in `docs/multiplayer/README.md`.
 
-**Split screen on one PC** (several windows on one screen, built on the same co-op) has `-splittest` (section 3.4) and a real start,
-`tools/coop/run_split.ps1`: window 1 starts with `-splitscreen N`, launches the other windows by itself and a fake controller (`-padsim giro`)
-moves players 2 to 4. It checks that every player is admitted, that each window knows its part and controller, that no process logs an
-exception, that window 1 sees player 2 move, and that closing window 1 closes the others. Exit `0` only if every check passed, `3` if a copy
-of the same exe is already running. Parameters: `-Exe` (default `Builds\Audit`), `-LogDir` (default `$env:TEMP\pryingeyes-split`),
-`-Players` (2 to 4), `-Graphics` (real windows: also checks each window's rectangle and borderless style), `-Shot` (a picture of the
-screen, `split_N.png`), `-PadSim`, `-HostPad`, `-TimeoutSec`, `-SettleSec`. With `-Graphics` the windows fill the screen for about a minute and
-use the GPU: do not run it while someone plays, and close the game's other copies first. Window sizes are written to the Unity registry
-(`Screenmanager ...` values of the game): a run that matters should save and restore them, as `tools/check_display.py` does. Details and
-results: [../multiplayer/split-screen.md](../multiplayer/split-screen.md).
+### 5.1 Split screen (one game, one window)
+
+The split screen on one PC is not a co-op any more: it is one process with one window (design, controls and limits in
+[../multiplayer/split-screen.md](../multiplayer/split-screen.md)). It has two checks besides `-splittest` (section 3.4):
+
+- **`-seatstest -splitscreen N`** (N = 2 to 4) runs inside the game, with a fake XInput state injected per player, and exits `0` only if
+  every check passes. Without `-autotest` the game starts from the menu (the menu presses *N giocatori* by itself; use `-menureview -nowaves`
+  so the saved display settings are not applied and no wave starts): this covers the real path and the pause. With `-autotest -nofire
+  -noenemies` it starts without a menu and skips the pause. It checks structure (a body, camera, HUD, target and controller per player; cameras
+  in their parts; one `AudioListener`; weapon layers; HUD rectangles), the context swap of `Seats.Enter`, each controller walking, firing and
+  jumping alone, points, kills and hits per player, enemy targeting (nearest at spawn, switching to a closer player; with `-candles` also
+  `Provoke` and sight), damage, death and respawn of one player, the pause with Start on any controller, and the return to one player.
+  `-seatsshots` (a real window, no `-batchmode`) saves photos of the whole screen in `unity_logs/seats/`.
+- **`tools/coop/run_split.ps1`** runs it from the verification build and reads the result. Parameters: `-Exe` (default `Builds\Audit`),
+  `-LogDir` (default `$env:TEMP\pryingeyes-split`), `-Players` (2 to 4, default 3), `-Graphics` (a 1280x720 window and the photos), `-Candles`,
+  `-NoMenu`, `-TimeoutSec` (240). Exit `0` only if the result is `SUPERATA`, `1` if a check fails or time runs out, `3` if a copy of the same
+  exe is open (with `-Graphics`, if any game is open). With `-Graphics` the window rewrites the `Screenmanager` values of the game's registry
+  key: the script saves them with `reg export` and restores them at the end. It uses the GPU and occupies the screen for about 40 seconds: do
+  not run it while someone plays.
+
+`PryingEyes.EditorTools.MenuReview.Run` (see the Verification section of [../game/display-and-menu.md](../game/display-and-menu.md#verification))
+also renders the split-screen panel at four sizes and checks that its texts fit.
 
 ## 6. Performance probe
 

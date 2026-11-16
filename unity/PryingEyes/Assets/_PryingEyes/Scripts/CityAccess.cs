@@ -80,7 +80,7 @@ namespace PryingEyes
 
         public bool TryPurchase(CityGate gate)
         {
-            var game = GameManager.I; var buyer = Targets.Local;
+            var game = GameManager.I; var buyer = Seats.MyTarget;
             if (gate == null || !gates.Contains(gate) || buyer == null || !buyer.Alive || buyer.LookAt == null) return false;
             Vector3 eye = buyer.LeanedPoint(Mathf.Min(1.6f, buyer.BodyHeight * .92f)); var to = gate.Point - eye;
             if (to.magnitude > gate.Radius || Vector3.Dot(buyer.LookAt.forward, to.normalized) < .6f || !Interact.Visible(eye, gate.Point, gate.transform)) return false;

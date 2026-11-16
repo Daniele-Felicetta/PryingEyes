@@ -151,17 +151,38 @@ namespace PryingEyes
             yield return new WaitForSeconds(EnemyRagdoll.SettleTime + 0.4f);
             View("fermi");
             Check("si fermano entro pochi secondi", ra.Frozen && rb.Frozen && rc.Frozen && EnemyRagdoll.Active == 0);
-            // il bastone (osso senza padre) cade anche lui: le due estremita' della sua capsula ora sono a terra
-            float staffTop = 9f;
-            var scap = ra.Staff != null ? ra.Staff.GetComponent<CapsuleCollider>() : null;
-            if (scap != null)
-            {
-                Vector3 half = Vector3.up * Mathf.Max(0f, scap.height * 0.5f - scap.radius);
-                staffTop = Mathf.Max(ra.Staff.transform.TransformPoint(scap.center + half).y, ra.Staff.transform.TransformPoint(scap.center - half).y) - floorY.y;
-            }
-            Check($"il bastone cade a terra con lui (estremita' piu' alta a {staffTop:F2} m)", staffTop < 0.4f);
             yield return new WaitForSeconds(2.2f);
             Check("poi il cadavere sparisce", a == null && b == null && c == null);
+
+            // il bastone (osso senza padre) cade anche lui: le due estremita' della sua capsula ora sono a terra. Si prova su un monaco solo:
+            // con un altro a 1,4 m (come sopra) il bastone puo' posarsi contro di lui, a 0,6 m da terra, ed e' fisica giusta. Il corpo non
+            // deve congelarsi finche' il bastone cade ancora: restava appeso a mezz'aria (a 0,9 m) in circa un caso su tre
+            Enemy.ClearAll();
+            yield return null;
+            var lone = Enemy.Spawn(Enemy.EnemyType.Monaco, arena);                    // al centro del corridoio libero (da -3 a +3,6 m lungo forward)
+            lone.transform.rotation = Quaternion.LookRotation(-forward);
+            yield return new WaitForSeconds(0.4f);
+            lone.Damage(999f, Bone(lone, "petto").position + Vector3.up * 0.05f, false);
+            yield return null;
+            var rl = lone != null ? lone.GetComponent<EnemyRagdoll>() : null;
+            // l'estremita' piu' alta della capsula del bastone sopra il pavimento (9 se il bastone non c'e')
+            float StaffTop()
+            {
+                var sc = rl != null && rl.Staff != null ? rl.Staff.GetComponent<CapsuleCollider>() : null;
+                if (sc == null) return 9f;
+                Vector3 hf = Vector3.up * Mathf.Max(0f, sc.height * 0.5f - sc.radius);
+                return Mathf.Max(rl.Staff.transform.TransformPoint(sc.center + hf).y, rl.Staff.transform.TransformPoint(sc.center - hf).y) - floorY.y;
+            }
+            // l'altezza del bastone ogni 0,2 s fino a SettleTime + 0,4 s: * = corpo fermo (il bastone non deve cadere ancora dopo l'asterisco)
+            var staffTrace = new System.Text.StringBuilder();
+            for (float settleEnd = Time.time + EnemyRagdoll.SettleTime + 0.4f; Time.time < settleEnd;)
+            {
+                yield return new WaitForSeconds(0.2f);
+                staffTrace.Append(StaffTop().ToString("F2")).Append(rl != null && rl.Frozen ? "* " : " ");
+            }
+            Debug.Log("[PryingEyes] ragdolltest altezza del bastone ogni 0,2 s (* = corpo fermo): " + staffTrace);
+            float staffTop = StaffTop();
+            Check($"il bastone cade a terra con lui (estremita' piu' alta a {staffTop:F2} m)", staffTop < 0.4f);
 
             // tanti insieme: oltre il tetto la vecchia caduta
             Enemy.ClearAll();

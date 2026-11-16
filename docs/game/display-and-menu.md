@@ -34,12 +34,12 @@ skip startup display changes and remain silent; they retain any requested comman
 ## Split-screen entry
 
 The main menu has **Schermo condiviso** between **Cooperativa** and **Come si gioca** (`GameMenu.Split.cs`). Its panel offers **2 giocatori**,
-**3 giocatori** and **4 giocatori**, a switch for player 1 (**tastiera e mouse** or **controller**), the number of controllers it sees, and a
-reminder that a click or Alt+Tab moves the keyboard and the mouse to another window. The buttons are off, with the reason, outside the
-Windows player or while a game is already running. In the other windows the menu is replaced by a waiting screen (*Cerco la partita del
-giocatore 1...*). The pause menu of a split-screen window says **Chiudi lo split screen** (window 1) or **Lascia la partita**, and, when the
-window uses a controller, lists the controller's buttons. Window layout, controls and checks: [../multiplayer/split-screen.md](../multiplayer/split-screen.md).
-The windows of players 2 to 4 skip the saved display settings: each has the size of its part of the screen.
+**3 giocatori** and **4 giocatori**, a switch for player 1 (**tastiera e mouse** or **controller (e tastiera)**), the number of controllers it
+sees and how many two players need, and a note on who uses what. The buttons are off, with the reason, outside the Windows player or while a
+game is already running. A split screen is one game in one window, so the display settings are the ordinary ones. The pause menu names who
+uses what (*G1: tastiera e mouse   G2: controller 1 ...*), says that Esc or Start on any controller resumes, lists the controller's buttons
+when a controller is in use, and **Torna al menu** warns that the split screen closes for every player. Layout, controls and checks:
+[../multiplayer/split-screen.md](../multiplayer/split-screen.md).
 
 ## Keyboard and controller navigation
 
@@ -50,7 +50,7 @@ text field is entered only with Enter, A or a click. Details and checks: [contro
 
 ## Verification
 
-- `PryingEyes.EditorTools.MenuReview.Run` renders main menu, display, comfort, guide and co-op panels at 1280×720,
+- `PryingEyes.EditorTools.MenuReview.Run` renders main menu, display, comfort, guide, co-op and split-screen panels at 1280×720,
   1920×1080, 3440×1440 and 1024×768; also checks pause/resume, leave confirmation, text bounds and real engraving meshes.
   It checks ultrawide presets, filtering, input validation and the seven existing comfort controls. Output:
   `unity_logs/menu-review`. This runs in an empty editor scene without changing player display preferences.

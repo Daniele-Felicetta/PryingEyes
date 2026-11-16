@@ -167,13 +167,16 @@ namespace PryingEyes.Proc
         {
             if (Gone || armed || Coop.IsClient) return;
             armed = true;
+            owner = Seats.Current;                      // schermo condiviso: chi ha acceso la miccia (anche a catena) incassa punti e uccisioni
             StartCoroutine(BoomAfter(delay));
         }
+
+        Seat owner;
 
         IEnumerator BoomAfter(float delay)
         {
             if (delay > 0f) yield return new WaitForSeconds(delay);
-            Boom(true);
+            using (Seats.Enter(owner)) Boom(true);
         }
 
         /// <summary>Lo scoppio: 'authority' (da soli o sull'ospite) fa danno, accende le vicine e lo dice agli altri; sugli ospitati solo
@@ -188,7 +191,7 @@ namespace PryingEyes.Proc
             Fx.BloodPool(transform.position, new Color(0.05f, 0.04f, 0.035f, 1f), 1.3f);       // bruciatura a terra
             Sfx.At(SoundBank.Blast, c, 1f, 0.8f, 4f, 70f);
             Sfx.At(SoundBank.Ignite, c, 0.9f, 0.6f, 3f, 40f);
-            GameManager.I?.player?.Shake(c, 1.4f, 15f);
+            Seats.ShakeAll(c, 1.4f, 15f);
             if (look != null) look.SetActive(false);
             if (body != null) body.enabled = false;
             if (obstacle != null) obstacle.enabled = false;
@@ -216,7 +219,7 @@ namespace PryingEyes.Proc
                 float d = Vector3.Distance(bodyP, c);
                 if (d > 5.5f || !HotelNav.ClearLine(c, bodyP)) continue;
                 t.Hurt(Mathf.Lerp(45f, 8f, d / 5.5f), c);
-                if (t is LocalTarget) GameManager.damageTaken++;
+                Seats.CountDamageTaken(t);
             }
             foreach (var sh in shields) if (sh != null) sh.enabled = true;
             Barrels.I?.ExplodeNear(c, 4.5f, this);

@@ -57,7 +57,7 @@ namespace PryingEyes
 
         void UpdateDamageDirections(float dt)
         {
-            var camera = Camera.main;
+            var camera = ViewCamera;
             if (camera == null) return;
             for (int i = 0; i < damageDirections.Length; i++)
             {

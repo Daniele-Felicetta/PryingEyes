@@ -5,12 +5,12 @@ using UnityEngine;
 namespace PryingEyes
 {
     /// <summary>Controller (XInput: Xbox 360/One/Series e compatibili, anche via Steam Input o DS4Windows): giocatore singolo, cooperativa in
-    /// rete e split screen. Si legge direttamente da XInput e non dall'Input Manager di Unity: cosi' ogni finestra del gioco legge il SUO
-    /// controller (slot 0..3, argomento -padindex N) e lo legge anche quando non ha il fuoco (split screen), mentre tastiera e mouse arrivano
-    /// solo alla finestra attiva. I comandi escono nella forma di quelli del touch (TouchControls.Held/Down/Move): il resto del gioco non
+    /// rete e schermo condiviso. Si legge direttamente da XInput e non dall'Input Manager di Unity: cosi' ogni giocatore legge il SUO
+    /// controller (slot 0..3), anche quando i controller sono quattro nello stesso gioco (uno per posto: Channel), mentre tastiera e mouse
+    /// arrivano solo al giocatore 1. I comandi escono nella forma di quelli del touch (TouchControls.Held/Down/Move): il resto del gioco non
     /// sa da dove arrivano.
     ///
-    /// Come si attiva: nello split screen lo slot lo sceglie SplitScreen (Enable); altrove il gioco lo cerca da solo (EnableAuto): guarda i
+    /// Come si attiva: nello schermo condiviso gli slot li assegna Seats.Begin; altrove il gioco lo cerca da solo (EnableAuto): guarda i
     /// controller collegati e adotta il primo su cui si preme un tasto o si muove uno stick, cosi' un controller dimenticato nella porta USB
     /// (o con lo stick che non torna al centro) non muove nessuno. Quando un menu e' aperto il controller non da' comandi di gioco ma
     /// naviga (PadMenuInput): croce o stick sinistro muovono la selezione, A conferma, B torna indietro, Start apre e chiude la pausa.
@@ -189,37 +189,69 @@ namespace PryingEyes
             }
         }
 
-        static readonly Mapper mapper = new Mapper();
-        static int index = -1;
-        static bool auto, preferred;
-        static Raw? injected;
-        static PadControls driver;
-        float retryAt, scanAt, lostAt = -1f, lastActivity = -100f;
-        int scanMask;
-        bool wasConnected;
+        /// <summary>Un controller e tutto quello che il gioco sa di lui: lo slot XInput, il traduttore dei comandi, se e' stato adottato.
+        /// Il giocatore singolo ne ha uno (Primary); nello split screen ogni posto (Seat) ha il suo e Seats.Enter mette al suo posto
+        /// quello di chi gira (Use): il resto del gioco legge sempre PadControls.Held/Down/Move e compagni.</summary>
+        public sealed class Channel
+        {
+            public readonly Mapper mapper = new Mapper();
+            /// <summary>Lo slot XInput (0..3), -1 se non usa nessun controller (in modo automatico: finche' non ne ha adottato uno).</summary>
+            public int index = -1;
+            public bool auto, preferred, connected;
+            public Raw? injected;
+            internal float retryAt, scanAt, lostAt = -1f, lastActivity = -100f;
+            internal int scanMask;
+            internal bool wasConnected;
+        }
 
-        /// <summary>Lo slot XInput di questa istanza (0..3), -1 se non usa nessun controller (in modo automatico: finche' non ne ha adottato uno).</summary>
-        public static int Index => index;
-        public static bool Enabled => index >= 0;
+        static readonly Channel primary = new Channel();
+        static readonly System.Collections.Generic.List<Channel> extra = new System.Collections.Generic.List<Channel>();
+        static Channel ch = primary;
+        static PadControls driver;
+
+        /// <summary>Il controller del giocatore singolo (e del primo posto dello split screen).</summary>
+        public static Channel Primary => primary;
+        /// <summary>Quello di chi gira adesso.</summary>
+        public static Channel Mine => ch;
+        public static void Use(Channel c) { ch = c ?? primary; }
+        /// <summary>Un controller in piu' per un posto dello split screen (si ascolta da solo: lo aggiorna il driver, un fotogramma prima del gioco).</summary>
+        public static Channel NewChannel() { var c = new Channel(); extra.Add(c); EnsureDriver(); return c; }
+        public static void ClearChannels() { extra.Clear(); ch = primary; }
+        /// <summary>Il posto ascolta quello slot (0..3), o nessuno (-1: resta in cerca da solo, adotta il primo libero su cui si preme un tasto).</summary>
+        public static void Assign(Channel c, int slot)
+        {
+            if (c == null) return;
+            c.mapper.Reset();
+            if (slot < 0) { c.index = -1; c.connected = false; c.auto = true; c.preferred = false; }
+            else { c.index = Mathf.Clamp(slot, 0, 3); c.auto = false; c.preferred = true; c.wasConnected = true; c.lostAt = -1f; c.retryAt = 0f; }
+            EnsureDriver();
+        }
+
+        /// <summary>Lo slot XInput di chi gira (0..3), -1 se non usa nessun controller.</summary>
+        public static int Index => ch.index;
+        public static bool Enabled => ch.index >= 0;
         /// <summary>L'ultimo giro ha trovato il controller collegato (o una prova ne ha messo uno finto).</summary>
-        public static bool Connected { get; private set; }
+        public static bool Connected => ch.connected;
         /// <summary>Si sta giocando col controller: e' stato adottato e l'ultimo comando e' venuto da lui (non dalla tastiera). Decide quali
         /// tasti nominano i suggerimenti a schermo.</summary>
-        public static bool Preferred => Connected && preferred;
+        public static bool Preferred => ch.connected && ch.preferred;
         /// <summary>Il tasto per usare e comprare, nel nome che gli da' chi gioca (F con la tastiera, RB col controller).</summary>
         public static string UseKey => Preferred ? "RB" : "F";
 
-        public static Vector2 Move => mapper.Move;
+        public static Vector2 Move => ch.mapper.Move;
         /// <summary>Rotazione richiesta dallo stick destro, in radianti al secondo a sensibilita' 1 (x a destra, y verso l'alto).</summary>
-        public static Vector2 LookRate => mapper.LookRate;
-        public static bool Held(TouchControls.Action a) => mapper.Held[(int)a];
-        public static bool Down(TouchControls.Action a) => mapper.Down[(int)a];
-        /// <summary>Navigazione dei menu (croce o stick sinistro): direzione tenuta, +1 destra o su, -1 sinistra o giu'.</summary>
-        public static int NavX => mapper.NavX;
-        public static int NavY => mapper.NavY;
-        /// <summary>Menu: A e B appena premuti.</summary>
-        public static bool Confirm => mapper.Confirm;
-        public static bool Cancel => mapper.Cancel;
+        public static Vector2 LookRate => ch.mapper.LookRate;
+        public static bool Held(TouchControls.Action a) => ch.mapper.Held[(int)a];
+        public static bool Down(TouchControls.Action a) => ch.mapper.Down[(int)a];
+        /// <summary>Navigazione dei menu (croce o stick sinistro): direzione tenuta, +1 destra o su, -1 sinistra o giu'. Nei menu vale il
+        /// controller di chiunque (nello split screen il primo che si muove).</summary>
+        public static int NavX { get { int v = primary.mapper.NavX; for (int i = 0; v == 0 && i < extra.Count; i++) v = extra[i].mapper.NavX; return v; } }
+        public static int NavY { get { int v = primary.mapper.NavY; for (int i = 0; v == 0 && i < extra.Count; i++) v = extra[i].mapper.NavY; return v; } }
+        /// <summary>Menu: A e B appena premuti (di chiunque).</summary>
+        public static bool Confirm { get { bool v = primary.mapper.Confirm; for (int i = 0; !v && i < extra.Count; i++) v = extra[i].mapper.Confirm; return v; } }
+        public static bool Cancel { get { bool v = primary.mapper.Cancel; for (int i = 0; !v && i < extra.Count; i++) v = extra[i].mapper.Cancel; return v; } }
+        /// <summary>Menu: Start premuto da chiunque (apre e chiude la pausa).</summary>
+        public static bool PausePressed { get { bool v = primary.mapper.Down[(int)TouchControls.Action.Pause]; for (int i = 0; !v && i < extra.Count; i++) v = extra[i].mapper.Down[(int)TouchControls.Action.Pause]; return v; } }
 
         static void EnsureDriver()
         {
@@ -229,12 +261,12 @@ namespace PryingEyes
             driver = go.AddComponent<PadControls>();
         }
 
-        /// <summary>Da ora questa istanza ascolta il controller dello slot dato (0..3); -1 lo spegne.</summary>
+        /// <summary>Da ora il giocatore singolo (o il primo posto) ascolta il controller dello slot dato (0..3); -1 lo spegne.</summary>
         public static void Enable(int slot)
         {
             if (slot < 0) { Disable(); return; }
-            index = Mathf.Clamp(slot, 0, 3);
-            auto = false; preferred = true;
+            primary.index = Mathf.Clamp(slot, 0, 3);
+            primary.auto = false; primary.preferred = true;
             EnsureDriver();
         }
 
@@ -242,130 +274,115 @@ namespace PryingEyes
         /// tasto. Non cambia niente se uno slot e' gia' stato scelto (Enable); si ferma con Enable e con Disable.</summary>
         public static void EnableAuto()
         {
-            if (index >= 0) return;
-#if !PE_DISTRIBUTION_BUILD
-            if (SimulatedScript != null) { Enable(0); return; }
-#endif
-            auto = true;
+            if (primary.index >= 0) return;
+            primary.auto = true;
             EnsureDriver();
         }
 
         public static void Disable()
         {
-            index = -1; Connected = false; auto = preferred = false;
-            mapper.Reset();
+            primary.index = -1; primary.connected = false; primary.auto = primary.preferred = false;
+            primary.mapper.Reset();
         }
 
         /// <summary>Per le prove: al posto del controller vero il gioco legge questo stato (null = di nuovo quello vero).</summary>
-        public static void Inject(Raw? raw)
+        public static void Inject(Raw? raw) { Inject(primary, raw); }
+        public static void Inject(Channel c, Raw? raw)
         {
-            injected = raw;
+            if (c == null) return;
+            c.injected = raw;
             if (raw.HasValue) EnsureDriver();
         }
 
         static bool Activity(Raw s) => s.buttons != 0 || s.leftTrigger > 100 || s.rightTrigger > 100 ||
             Mathf.Abs(s.lx) > 18000 || Mathf.Abs(s.ly) > 18000 || Mathf.Abs(s.rx) > 18000 || Mathf.Abs(s.ry) > 18000;
 
-        /// <summary>Il gioco puo' ascoltare il controller: ha il fuoco, o e' una finestra dello split screen (che non ce l'ha quasi mai).</summary>
+        /// <summary>Il gioco puo' ascoltare il controller: ha il fuoco (un controller non da' ordini a un gioco in secondo piano).</summary>
         static bool Listening =>
 #if !PE_DISTRIBUTION_BUILD
             TestPoll != null ||
 #endif
-            Application.isFocused || SplitScreen.Active;
+            Application.isFocused;
+
+        /// <summary>Lo slot e' gia' di qualcun altro (un altro posto dello split screen): la ricerca automatica non lo adotta.</summary>
+        static bool Taken(int slot, Channel except)
+        {
+            if (primary != except && primary.index == slot) return true;
+            for (int i = 0; i < extra.Count; i++) if (extra[i] != except && extra[i].index == slot) return true;
+            return false;
+        }
 
         void Update()
         {
-            if (injected.HasValue) { Apply(injected.Value, true); return; }
-            if (index < 0)
-            {
-                // nessun controller scelto: in modo automatico si guardano quelli collegati, e solo a gioco in primo piano
-                if (!auto || !Listening) { mapper.Reset(); Connected = false; return; }
-                Scan();
-                if (index < 0) { mapper.Reset(); Connected = false; return; }
-            }
-            Raw s;
-#if !PE_DISTRIBUTION_BUILD
-            if (SimulatedScript != null) s = Simulated(Time.unscaledTime);
-            else
-#endif
-            {
-                // un controller scollegato si richiede una volta ogni mezzo secondo: XInput lo paga caro a ogni chiamata
-                if (!wasConnected && Time.unscaledTime < retryAt) { mapper.Reset(); Connected = false; return; }
-                s = Poll(index);
-                if (s.connected) lostAt = -1f;
-                else
-                {
-                    retryAt = Time.unscaledTime + 0.5f;
-                    if (auto)
-                    {
-                        // scollegato per piu' di due secondi: lo slot si lascia e si ricomincia a cercare (potrebbe tornare un altro)
-                        if (lostAt < 0f) lostAt = Time.unscaledTime;
-                        else if (Time.unscaledTime - lostAt > 2f) { Release(); return; }
-                    }
-                }
-            }
-            Apply(s, false);
+            Step(primary);
+            for (int i = 0; i < extra.Count; i++) Step(extra[i]);
         }
 
-        void Release()
+        void Step(Channel c)
         {
-            index = -1; Connected = false; wasConnected = false; preferred = false;
-            lostAt = -1f; scanAt = 0f; scanMask = 0;
-            mapper.Reset();
+            if (c.injected.HasValue) { Apply(c, c.injected.Value, true); return; }
+            if (c.index < 0)
+            {
+                // nessun controller scelto: in modo automatico si guardano quelli collegati, e solo a gioco in primo piano
+                if (!c.auto || !Listening) { c.mapper.Reset(); c.connected = false; return; }
+                Scan(c);
+                if (c.index < 0) { c.mapper.Reset(); c.connected = false; return; }
+            }
+            // un controller scollegato si richiede una volta ogni mezzo secondo: XInput lo paga caro a ogni chiamata
+            if (!c.wasConnected && Time.unscaledTime < c.retryAt) { c.mapper.Reset(); c.connected = false; return; }
+            Raw s = Poll(c.index);
+            if (s.connected) c.lostAt = -1f;
+            else
+            {
+                c.retryAt = Time.unscaledTime + 0.5f;
+                if (c.auto)
+                {
+                    // scollegato per piu' di due secondi: lo slot si lascia e si ricomincia a cercare (potrebbe tornare un altro)
+                    if (c.lostAt < 0f) c.lostAt = Time.unscaledTime;
+                    else if (Time.unscaledTime - c.lostAt > 2f) { Release(c); return; }
+                }
+            }
+            Apply(c, s, false);
+        }
+
+        static void Release(Channel c)
+        {
+            c.index = -1; c.connected = false; c.wasConnected = false; c.preferred = false;
+            c.lostAt = -1f; c.scanAt = 0f; c.scanMask = 0;
+            c.mapper.Reset();
         }
 
         /// <summary>Modo automatico, ancora nessuno slot: si rinfresca ogni mezzo secondo quali sono collegati e ogni fotogramma si guardano
-        /// solo quelli; il primo su cui c'e' un tasto premuto o uno stick mosso viene adottato.</summary>
-        void Scan()
+        /// solo quelli; il primo su cui c'e' un tasto premuto o uno stick mosso (e che nessun altro posto sta usando) viene adottato.</summary>
+        static void Scan(Channel c)
         {
             float t = Time.unscaledTime;
-            if (t >= scanAt) { scanAt = t + 0.5f; scanMask = ConnectedMask(); }
+            if (t >= c.scanAt) { c.scanAt = t + 0.5f; c.scanMask = ConnectedMask(); }
             for (int i = 0; i < 4; i++)
             {
-                if ((scanMask & (1 << i)) == 0) continue;
+                if ((c.scanMask & (1 << i)) == 0 || Taken(i, c)) continue;
                 Raw s = Poll(i);
-                if (!s.connected) { scanMask &= ~(1 << i); continue; }
+                if (!s.connected) { c.scanMask &= ~(1 << i); continue; }
                 if (!Activity(s)) continue;
-                index = i; wasConnected = true; lostAt = -1f; retryAt = 0f;
+                c.index = i; c.wasConnected = true; c.lostAt = -1f; c.retryAt = 0f;
                 return;
             }
         }
 
-        void Apply(Raw s, bool fromTest)
+        static void Apply(Channel c, Raw s, bool fromTest)
         {
-            wasConnected = s.connected; Connected = s.connected;
-            mapper.Step(s);
-            if (s.connected && Activity(s)) { lastActivity = Time.unscaledTime; preferred = true; }
-            else if (auto && preferred && Input.anyKeyDown && Time.unscaledTime - lastActivity > 0.3f) preferred = false;     // ha preso tastiera o mouse
-            if (!fromTest && !Listening) mapper.Silence();                                       // un controller non da' ordini a un gioco in secondo piano
-            else if (GameMenu.Blocked) mapper.SuppressGameplay();                                // menu aperto: il controller naviga, non gioca
+            c.wasConnected = s.connected; c.connected = s.connected;
+            c.mapper.Step(s);
+            if (s.connected && Activity(s)) { c.lastActivity = Time.unscaledTime; c.preferred = true; }
+            else if (c.auto && c.preferred && c == primary && Input.anyKeyDown && Time.unscaledTime - c.lastActivity > 0.3f) c.preferred = false;     // ha preso tastiera o mouse
+            if (!fromTest && !Listening) c.mapper.Silence();                                     // un controller non da' ordini a un gioco in secondo piano
+            else if (GameMenu.Blocked) c.mapper.SuppressGameplay();                              // menu aperto: il controller naviga, non gioca
         }
 
         void OnDestroy()
         {
             if (driver == this) driver = null;
         }
-
-#if !PE_DISTRIBUTION_BUILD
-        /// <summary>Solo per la prova a piu' finestre (-padsim copione): il controller di questa istanza e' finto e fa sempre la stessa cosa.
-        /// "avanti" = stick sinistro in avanti; "giro" = in avanti e una curva lenta a destra.</summary>
-        static readonly string SimulatedScript = ArgAfter("-padsim");
-
-        static string ArgAfter(string name)
-        {
-            var a = Environment.GetCommandLineArgs();
-            for (int i = 0; i < a.Length - 1; i++) if (a[i] == name) return a[i + 1];
-            return null;
-        }
-
-        static Raw Simulated(float t)
-        {
-            var r = new Raw { connected = true };
-            if (SimulatedScript == "avanti") r.ly = 32767;
-            else if (SimulatedScript == "giro") { r.ly = 26000; r.rx = 14000; }
-            return r;
-        }
-#endif
 
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
         [StructLayout(LayoutKind.Sequential)]

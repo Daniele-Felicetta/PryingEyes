@@ -1,0 +1,550 @@
+#if !PE_DISTRIBUTION_BUILD
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using UnityEngine;
+using PryingEyes.Proc;
+
+namespace PryingEyes
+{
+    /// <summary>-seatstest -splitscreen N [-seed S -floor F] [-seatsshots]: lo schermo condiviso in UN processo e UNA finestra, provato da dentro.
+    /// Due modi di far partire la partita: dal menu (senza -autotest, con -menureview -nowaves: GameMenu.SplitAutoStart preme il bottone "N giocatori",
+    /// quindi si prova anche il percorso vero, Gioca e la pausa) oppure con -autotest -nofire -noenemies (senza menu: parte GameManager.Start e la
+    /// pausa non si prova). Si controlla: struttura (N giocatori, ognuno con corpo, camera, HUD, controller e oggetti suoi; camere nelle loro
+    /// porzioni, un solo AudioListener, strati dell'arma separati), cambio di posto (Seats.Enter mette al posto dei globali quelli del posto), punti
+    /// e contatori per giocatore, bersagli dei nemici (nascono sul piu' vicino, seguono chi li provoca o chi vedono), danno, morte e rinascita di
+    /// un solo giocatore, controller indipendenti (stato XInput finto per canale: cammina, spara e salta solo il posto giusto, anche il primo),
+    /// pausa con Start di qualunque controller (ferma tutti, riprende per tutti), fine dello schermo condiviso (si torna a un giocatore solo, e
+    /// funziona). Con -seatsshots, a finestra aperta (senza -nographics), salva una foto di tutto lo schermo (porzioni, HUD e righe) in unity_logs/seats.
+    /// Lo lancia tools/coop/run_split.ps1; documentazione in docs/multiplayer/split-screen.md.</summary>
+    public sealed class SeatsTest : MonoBehaviour
+    {
+        int checks, failed, exceptions, errors;
+        readonly List<string> samples = new List<string>();
+        bool shots;
+        static readonly FieldInfo TgtField = typeof(Enemy).GetField("tgt", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Install()
+        {
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-seatstest") < 0) return;
+            Application.runInBackground = true;         // a finestra aperta ma senza il fuoco il gioco (runInBackground e' spento nel progetto) si fermerebbe: la prova no
+            new GameObject("SeatsTest").AddComponent<SeatsTest>();
+        }
+
+        bool Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] seatstest " + (ok ? "ok " : "FALLITO ") + name); return ok; }
+
+        void Log(string message, string stack, LogType type)
+        {
+            if (type == LogType.Exception) exceptions++;
+            else if (type == LogType.Error || type == LogType.Assert) errors++;
+            else return;
+            if (samples.Count < 8) samples.Add(type + ": " + message);
+        }
+
+        IEnumerator Start()
+        {
+            Application.logMessageReceived += Log;
+            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-seatsshots") >= 0 && !Application.isBatchMode;
+            Application.targetFrameRate = 60;           // a 10000 fotogrammi al secondo il CharacterController non cammina come dovrebbe
+            QualitySettings.vSyncCount = 0;
+            yield return null;                          // GameManager.Start avvia lo schermo condiviso nello stesso fotogramma
+            var sequence = Run();
+            while (true)
+            {
+                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
+                if (!more) break; yield return sequence.Current;
+            }
+            foreach (var s in Seats.All) PadControls.Inject(s.pad, null);
+            PadControls.Inject(null); PadControls.Disable();
+            Check("nessuna eccezione runtime", exceptions == 0);
+            Check("nessun errore nel registro", errors == 0);
+            foreach (var s in samples) Debug.Log("[PryingEyes] seatstest registro: " + s);
+            Debug.Log($"[PryingEyes] seatstest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
+            Application.Quit(failed == 0 ? 0 : 1);
+        }
+
+        // ------------------------------------------------------------------ utilita'
+        static PadControls.Raw Pad(ushort buttons = 0, int lt = 0, int rt = 0, int lx = 0, int ly = 0, int rx = 0, int ry = 0) =>
+            new PadControls.Raw { connected = true, buttons = buttons, leftTrigger = (byte)lt, rightTrigger = (byte)rt, lx = (short)lx, ly = (short)ly, rx = (short)rx, ry = (short)ry };
+
+        // i contatori del posto che gira sono nei globali, quelli degli altri nel posto
+        static int ScoreOf(Seat s) => s == Seats.Current ? GameManager.I.score : s.score;
+        static int KillsOf(Seat s) => s == Seats.Current ? GameManager.I.kills : s.kills;
+        static int ShotsOf(Seat s) => s == Seats.Current ? GameManager.shotsFired : s.shotsFired;
+        static int HitsOf(Seat s) => s == Seats.Current ? GameManager.shotsHit : s.shotsHit;
+        static int DeathsOf(Seat s) => s == Seats.Current ? GameManager.deaths : s.deaths;
+
+        static bool Same(Rect a, Rect b) =>
+            Mathf.Abs(a.x - b.x) < 1e-4f && Mathf.Abs(a.y - b.y) < 1e-4f && Mathf.Abs(a.width - b.width) < 1e-4f && Mathf.Abs(a.height - b.height) < 1e-4f;
+
+        static float Overlap(Rect a, Rect b)
+        {
+            float w = Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin), h = Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin);
+            return w > 0f && h > 0f ? w * h : 0f;
+        }
+
+        static float Flat(Vector3 a, Vector3 b) { a.y = b.y = 0f; return Vector3.Distance(a, b); }
+        static ITarget TgtOf(Enemy e) => TgtField != null ? (ITarget)TgtField.GetValue(e) : null;
+        static void Place(Seat s, Vector3 at, float yaw) { s.player.Teleport(at + Vector3.up * 0.05f); s.player.yaw = yaw; s.player.pitch = 0f; }
+
+        /// <summary>Punti di terra lontani da 'from' e fra loro, dove parcheggiare i giocatori che non servono alla prova.</summary>
+        static List<Vector3> FarSpots(Vector3 from, int count)
+        {
+            var pts = new List<Vector3>();
+            foreach (var p in FloorDirector.I.cur.groundSpawns) if (p.y < 0.5f) pts.Add(p);
+            pts.Sort((a, b) => (b - from).sqrMagnitude.CompareTo((a - from).sqrMagnitude));
+            var res = new List<Vector3>();
+            foreach (var p in pts)
+            {
+                bool ok = Flat(p, from) > 25f;
+                foreach (var q in res) if (Flat(p, q) < 12f) ok = false;
+                if (ok) res.Add(p);
+                if (res.Count == count) break;
+            }
+            return res;
+        }
+
+        IEnumerator Photo(string name)
+        {
+            if (!shots) yield break;
+            string folder = Path.GetFullPath("unity_logs/seats");
+            Directory.CreateDirectory(folder);
+            yield return new WaitForEndOfFrame();
+            ScreenCapture.CaptureScreenshot(Path.Combine(folder, name + ".png"));
+            yield return null; yield return null;
+        }
+
+        // ------------------------------------------------------------------ la prova
+        IEnumerator Run()
+        {
+            int n = SplitScreen.AutoStartCount;
+            Check($"-splitscreen {n}: un solo processo con {n} giocatori", n >= SplitScreen.MinPlayers && Seats.Split && Seats.Count == n);
+            if (!Seats.Split) yield break;
+            var seats = Seats.All.ToArray();
+            var gm = GameManager.I;
+
+            float deadline = Time.realtimeSinceStartup + 120f;
+            while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
+            if (!Check("il piano e' pronto", FloorDirector.I != null && FloorDirector.I.cur != null && !FloorDirector.I.transitioning)) yield break;
+            yield return null; yield return null;
+            Enemy.ClearAll(); Enemy.debugFreeze = false; Enemy.debugNoSense = false;
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
+            foreach (var s in seats) s.player.invulnerable = true;
+
+            Structure(seats, n);
+            ContextSwap(seats);
+            yield return Photo("1-arrivo");
+
+            // ---- spazio per la prova
+            if (!Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward))) yield break;
+            float yaw = Mathf.Atan2(forward.x, forward.z);
+            Vector3 start = arena - forward * 2.8f;
+            var far = FarSpots(arena, n);
+            if (!Check($"ci sono {n} punti lontani dove parcheggiare i giocatori ({far.Count})", far.Count >= n)) yield break;
+            void ParkAllBut(int keep) { for (int i = 0; i < n; i++) if (i != keep) Place(seats[i], far[i], 0f); }
+            for (int i = 0; i < n; i++) Place(seats[i], far[i], 0f);
+            yield return new WaitForSeconds(0.3f);
+            yield return Photo("2-ognuno-in-una-stanza-diversa");
+
+            // ---- cambio di posizione: ognuno al suo posto, gli occhi sono quelli giusti
+            {
+                bool eyes = true, nearest = true;
+                for (int i = 0; i < n; i++)
+                {
+                    eyes &= Seats.NearestEye(seats[i].player.transform.position) == seats[i].Eye;
+                    nearest &= Seats.NearestPlayer(seats[i].player.transform.position) == seats[i].player;
+                    nearest &= Targets.Nearest(seats[i].player.transform.position) == seats[i].target;
+                }
+                Check($"{n} giocatori lontani fra loro: ognuno ha vicino il suo occhio, il suo corpo e il suo bersaglio", eyes && nearest);
+                Check("a schermo condiviso gli occhi sono uno per giocatore", Seats.Eyes().Count == n);
+                Check("la distanza dall'occhio piu' vicino e' quella del proprio occhio", Mathf.Abs(Seats.EyeDistanceSqr(seats[1].player.transform.position) - (seats[1].Eye.position - seats[1].player.transform.position).sqrMagnitude) < 1e-3f);
+            }
+
+            // ---- controller: ogni giocatore cammina col suo, gli altri restano fermi
+            for (int who = 0; who < n; who++)
+            {
+                ParkAllBut(who);
+                Place(seats[who], start, yaw);
+                yield return new WaitForSeconds(0.4f);
+                var before = new Vector3[n];
+                for (int i = 0; i < n; i++) before[i] = seats[i].player.transform.position;
+                PadControls.Inject(seats[who].pad, Pad(ly: 32767));
+                yield return new WaitForSeconds(1.0f);
+                PadControls.Inject(seats[who].pad, null);
+                Vector3 d = seats[who].player.transform.position - before[who];
+                float along = Vector3.Dot(d, forward);
+                bool others = true;
+                for (int i = 0; i < n; i++) if (i != who) others &= Flat(seats[i].player.transform.position, before[i]) < 0.1f;
+                Check($"controller del giocatore {who + 1}: avanza ({along:F1} m in 1 s) e gli altri {n - 1} restano fermi", along > 2f && others);
+                yield return new WaitForSeconds(0.4f);
+            }
+
+            // ---- il grilletto di un giocatore spara solo la sua arma
+            {
+                ParkAllBut(1);
+                Place(seats[1], start, yaw);
+                yield return new WaitForSeconds(0.4f);
+                var shotsBefore = new int[n];
+                for (int i = 0; i < n; i++) shotsBefore[i] = ShotsOf(seats[i]);
+                Check("l'arma del giocatore 2 ha colpi", seats[1].player.weapon.mag > 0);
+                PadControls.Inject(seats[1].pad, Pad(rt: 255));
+                yield return new WaitForSeconds(0.6f);
+                PadControls.Inject(seats[1].pad, null);
+                bool onlyHim = ShotsOf(seats[1]) > shotsBefore[1];
+                for (int i = 0; i < n; i++) if (i != 1) onlyHim &= ShotsOf(seats[i]) == shotsBefore[i];
+                Check($"grilletto del giocatore 2: spara lui ({ShotsOf(seats[1]) - shotsBefore[1]} colpi) e nessun altro", onlyHim);
+                yield return new WaitForSeconds(0.3f);
+            }
+
+            // ---- due controller insieme: uno cammina, l'altro salta, senza scambiarsi i comandi
+            {
+                ParkAllBut(-1);
+                Place(seats[0], start, yaw);
+                yield return new WaitForSeconds(0.6f);
+                Vector3 p0 = seats[0].player.transform.position, p1 = seats[1].player.transform.position;
+                float y1 = p1.y, y1Max = p1.y, y0Max = p0.y;
+                var rest = new Vector3[n];
+                for (int i = 0; i < n; i++) rest[i] = seats[i].player.transform.position;
+                PadControls.Inject(seats[0].pad, Pad(ly: 32767));
+                PadControls.Inject(seats[1].pad, Pad(PadControls.A));
+                yield return null; yield return null;
+                PadControls.Inject(seats[1].pad, Pad());
+                for (float t = 0f; t < 0.9f; t += Time.deltaTime)
+                {
+                    y1Max = Mathf.Max(y1Max, seats[1].player.transform.position.y);
+                    y0Max = Mathf.Max(y0Max, seats[0].player.transform.position.y);
+                    yield return null;
+                }
+                PadControls.Inject(seats[0].pad, null);
+                PadControls.Inject(seats[1].pad, null);
+                float along = Vector3.Dot(seats[0].player.transform.position - p0, forward);
+                bool others = true;
+                for (int i = 2; i < n; i++) others &= Flat(seats[i].player.transform.position, rest[i]) < 0.1f;
+                Check($"giocatore 1 cammina ({along:F1} m) mentre il 2 salta (+{y1Max - y1:F2} m): il 1 non salta (+{y0Max - p0.y:F2} m), il 2 non si sposta ({Flat(seats[1].player.transform.position, p1):F2} m)",
+                    along > 1.5f && y1Max - y1 > 0.25f && y0Max - p0.y < 0.12f && Flat(seats[1].player.transform.position, p1) < 0.5f && others);
+                yield return new WaitForSeconds(0.5f);
+            }
+
+            // ---- punti e contatori per giocatore
+            {
+                int[] score = new int[n];
+                for (int i = 0; i < n; i++) score[i] = ScoreOf(seats[i]);
+                using (Seats.Enter(seats[1])) gm.AddPoints(100);
+                bool ok = ScoreOf(seats[1]) == score[1] + 100;
+                for (int i = 0; i < n; i++) if (i != 1) ok &= ScoreOf(seats[i]) == score[i];
+                Check($"+100 punti dal giocatore 2: li ha solo lui ({score[1]} -> {ScoreOf(seats[1])})", ok);
+                for (int i = 0; i < n; i++) score[i] = ScoreOf(seats[i]);
+                var last = seats[n - 1];
+                using (Seats.Enter(last)) gm.AddPoints(-50);
+                ok = ScoreOf(last) == score[n - 1] - 50;
+                for (int i = 0; i < n - 1; i++) ok &= ScoreOf(seats[i]) == score[i];
+                Check($"-50 punti (un acquisto) dal giocatore {n}: li perde solo lui", ok);
+            }
+
+            // ---- nemici: bersaglio, provocazione, colpi e uccisioni
+            {
+                foreach (var s in seats) s.player.invulnerable = true;
+                ParkAllBut(1);
+                Place(seats[1], start, yaw);
+                yield return new WaitForSeconds(0.3f);
+                Vector3 spot = start + forward * 1.8f;
+                var e = Enemy.Spawn(Enemy.EnemyType.Monaco, spot);
+                Check("il nemico nasce", e != null && TgtField != null);
+                if (e == null) yield break;
+                e.transform.rotation = Quaternion.LookRotation(-forward);
+                Check("nasce puntando il giocatore piu' vicino (il 2), non il primo", TgtOf(e) == Targets.At(1));
+
+                // chi caccia per round (onnisciente: sempre, nel ciclo a ondate) segue il piu' vicino
+                e.relentless = true;
+                TgtField.SetValue(e, Targets.At(0));
+                yield return new WaitForSeconds(2.0f);
+                Check("nemico onnisciente: lontano dal primo e a due passi dal secondo, passa al secondo", TgtOf(e) == Targets.At(1));
+                e.relentless = false;
+                yield return Photo("3-nemico-davanti-al-giocatore-2");
+
+                if (Stealth.Enabled)
+                {
+                    // vecchio ciclo con la furtivita': Provoke del posto che gira, e chi vede un giocatore passa a lui
+                    TgtField.SetValue(e, Targets.At(0));
+                    using (Seats.Enter(seats[1])) e.Provoke();
+                    Check("Provoke di chi sta girando (il 2): il nemico passa a lui", TgtOf(e) == Targets.At(1));
+                    TgtField.SetValue(e, Targets.At(0));
+                    yield return new WaitForSeconds(2.0f);
+                    Check("furtivita': il nemico vede il giocatore 2 a due passi e passa a lui", TgtOf(e) == Targets.At(1));
+                }
+                else Debug.Log("[PryingEyes] seatstest: ciclo a ondate, nemici onniscienti: niente prova di Provoke e della vista");
+
+                int[] hits = new int[n], kills = new int[n], score = new int[n];
+                for (int i = 0; i < n; i++) { hits[i] = HitsOf(seats[i]); kills[i] = KillsOf(seats[i]); score[i] = ScoreOf(seats[i]); }
+                using (Seats.Enter(seats[1])) e.Damage(15f, e.AimPoint, false);
+                bool ok = HitsOf(seats[1]) == hits[1] + 1 && ScoreOf(seats[1]) > score[1];
+                for (int i = 0; i < n; i++) if (i != 1) ok &= HitsOf(seats[i]) == hits[i] && ScoreOf(seats[i]) == score[i];
+                Check($"colpo del giocatore 2 al nemico: colpi a segno e punti solo suoi ({ScoreOf(seats[1]) - score[1]} punti)", ok);
+
+                score[1] = ScoreOf(seats[1]);
+                using (Seats.Enter(seats[1])) e.Damage(5000f, e.AimPoint, true);
+                ok = e.IsDead && KillsOf(seats[1]) == kills[1] + 1 && ScoreOf(seats[1]) > score[1];
+                for (int i = 0; i < n; i++) if (i != 1) ok &= KillsOf(seats[i]) == kills[i] && ScoreOf(seats[i]) == score[i];
+                Check($"uccisione del giocatore 2: l'uccisione e i punti sono solo suoi ({ScoreOf(seats[1]) - score[1]} punti)", ok);
+
+                // un nemico da round (onnisciente) segue il piu' vicino
+                yield return new WaitForSeconds(0.3f);
+                Place(seats[0], start, yaw);
+                Place(seats[1], far[1], 0f);
+                yield return new WaitForSeconds(0.3f);
+                var r = Enemy.Spawn(Enemy.EnemyType.Monaco, start + forward * 2.4f);
+                if (r != null)
+                {
+                    r.relentless = true;
+                    TgtField.SetValue(r, Targets.At(1));
+                    yield return new WaitForSeconds(2.0f);
+                    Check("nemico da round: lontano dal giocatore 2 e a due passi dal primo, segue il primo", TgtOf(r) == Targets.At(0));
+                    using (Seats.Enter(seats[0])) r.Damage(5000f, r.AimPoint, false);
+                }
+                Enemy.ClearAll();
+            }
+
+            // ---- ferite, morte e rinascita di un solo giocatore
+            {
+                ParkAllBut(-1);
+                for (int i = 0; i < n; i++) Place(seats[i], far[i], 0f);
+                yield return new WaitForSeconds(0.3f);
+                foreach (var s in seats) s.player.invulnerable = false;
+                // le ferite del giocatore 2 le vede lui solo
+                float[] hp = new float[n];
+                for (int i = 0; i < n; i++) hp[i] = seats[i].player.hp;
+                Targets.At(1).Hurt(10f);
+                bool ok = seats[1].player.hp < hp[1];
+                for (int i = 0; i < n; i++) if (i != 1) ok &= Mathf.Approximately(seats[i].player.hp, hp[i]);
+                Check($"un colpo al bersaglio del giocatore 2: perde vita solo lui ({hp[1]:F0} -> {seats[1].player.hp:F0})", ok);
+
+                // la morte del giocatore 2 e' sua: punti dimezzati, una morte, gli altri vivi
+                int s1 = ScoreOf(seats[1]), s0 = ScoreOf(seats[0]), d0 = DeathsOf(seats[0]), d1 = DeathsOf(seats[1]);
+                Targets.At(1).Hurt(5000f);
+                yield return null;
+                ok = !seats[1].player.alive && !Targets.At(1).Alive && DeathsOf(seats[1]) == d1 + 1 && DeathsOf(seats[0]) == d0 && ScoreOf(seats[0]) == s0 && ScoreOf(seats[1]) < s1;
+                for (int i = 0; i < n; i++) if (i != 1) ok &= seats[i].player.alive && Targets.At(i).Alive;
+                Check($"morte del giocatore 2: muore solo lui, una morte sua ({DeathsOf(seats[1])}), punti {s1} -> {ScoreOf(seats[1])}, gli altri vivi e coi loro punti", ok);
+                Check("con un giocatore morto c'e' ancora chi e' vivo per i nemici", Targets.AnyAlive);
+                if (shots) { yield return new WaitForSeconds(0.7f); yield return Photo("4-giocatore-2-morto"); }
+                yield return new WaitForSeconds(3.0f);
+                ok = seats[1].player.alive && Targets.At(1).Alive && seats[1].player.hp > 50f;
+                for (int i = 0; i < n; i++) if (i != 1) ok &= seats[i].player.alive;
+                Check("il giocatore 2 rinasce da solo (vita piena) e gli altri non se ne accorgono", ok);
+                foreach (var s in seats) s.player.invulnerable = true;
+            }
+
+            yield return Photo("5-dopo-la-rinascita");
+
+            // ---- pausa: Start di un controller qualunque ferma il mondo per tutti e un altro Start lo rimette in moto (serve il menu: con -autotest non c'e')
+            if (GameMenu.I != null)
+            {
+                for (int i = 0; i < n; i++) Place(seats[i], far[i], 0f);
+                yield return new WaitForSeconds(0.4f);
+                var still = new Vector3[n];
+                for (int i = 0; i < n; i++) still[i] = seats[i].player.transform.position;
+                int shotsPaused = ShotsOf(seats[1]);
+                Check("prima della pausa il mondo gira", !GameMenu.Paused && !GameMenu.Blocked && Time.timeScale == 1f);
+
+                var asker = seats[n - 1];
+                PadControls.Inject(asker.pad, Pad(PadControls.StartBtn));
+                yield return null; yield return null; yield return null;
+                PadControls.Inject(asker.pad, null);
+                yield return null; yield return null;
+                bool huds = true;
+                foreach (var s in seats) { var c = s.hud.GetComponent<Canvas>(); huds &= c != null && !c.enabled; }
+                Check($"Start sul controller del giocatore {n}: la pausa e' di tutti (mondo fermo, comandi bloccati)", GameMenu.Paused && GameMenu.Blocked && Time.timeScale == 0f);
+                Check("in pausa gli HUD di tutti i giocatori sono nascosti", huds);
+                yield return Photo("6-pausa");
+
+                // in pausa i controller non danno comandi di gioco: nessuno cammina, nessuno spara
+                PadControls.Inject(seats[0].pad, Pad(ly: 32767));
+                PadControls.Inject(seats[1].pad, Pad(rt: 255));
+                yield return new WaitForSecondsRealtime(0.5f);
+                PadControls.Inject(seats[0].pad, null);
+                PadControls.Inject(seats[1].pad, null);
+                bool frozen = ShotsOf(seats[1]) == shotsPaused;
+                for (int i = 0; i < n; i++) frozen &= Flat(seats[i].player.transform.position, still[i]) < 0.05f;
+                Check("in pausa nessuno cammina e nessuno spara, anche coi controller premuti", frozen);
+
+                PadControls.Inject(seats[1].pad, Pad(PadControls.StartBtn));
+                yield return null; yield return null; yield return null;
+                PadControls.Inject(seats[1].pad, null);
+                yield return null; yield return null;
+                huds = true;
+                foreach (var s in seats) { var c = s.hud.GetComponent<Canvas>(); huds &= c != null && c.enabled; }
+                Check("Start di un altro giocatore riprende la partita per tutti (mondo in moto, HUD di nuovo visibili)", !GameMenu.Paused && !GameMenu.Blocked && Time.timeScale == 1f && huds);
+            }
+            else Debug.Log("[PryingEyes] seatstest: partita avviata senza menu (-autotest): niente prova della pausa");
+
+            // ---- fine dello schermo condiviso: si torna a un giocatore solo e funziona
+            {
+                var player0 = seats[0].player;
+                var cam0 = seats[0].camera;
+                var eq0 = Equipment.I; var torch0 = Torch.I; var knife0 = Knife.I; var rig0 = StealthRig.I;
+                Seats.End();
+                yield return null; yield return null;
+                int bodies = FindObjectsByType<PlayerController>(FindObjectsSortMode.None).Length;
+                int listeners = 0;
+                foreach (var l in FindObjectsByType<AudioListener>(FindObjectsSortMode.None)) if (l.enabled) listeners++;
+                Check("fine: non c'e' piu' lo schermo condiviso e c'e' un solo bersaglio", !Seats.Split && Seats.Count == 0 && Targets.Count == 1);
+                Check($"fine: resta un solo giocatore ({bodies} corpi) e un solo AudioListener ({listeners})", bodies == 1 && listeners == 1 && gm.player == player0);
+                Check("fine: la camera del giocatore 1 e' di nuovo a tutto schermo", Same(cam0.rect, new Rect(0f, 0f, 1f, 1f)));
+                Check("fine: gli oggetti del giocatore 1 sono ancora i suoi (equipaggiamento, torcia, coltello, rete di furtivita')",
+                    Equipment.I == eq0 && Torch.I == torch0 && Knife.I == knife0 && StealthRig.I == rig0 && eq0 != null && rig0 != null);
+
+                // e il giocatore singolo cammina col suo controller come prima
+                PadControls.Enable(0);
+                player0.invulnerable = true;
+                player0.Teleport(start + Vector3.up * 0.05f); player0.yaw = yaw; player0.pitch = 0f;
+                yield return new WaitForSeconds(0.4f);
+                Vector3 p0 = player0.transform.position;
+                PadControls.Inject(Pad(ly: 32767));
+                yield return new WaitForSeconds(1.0f);
+                PadControls.Inject(null);
+                float along = Vector3.Dot(player0.transform.position - p0, forward);
+                Check($"dopo la fine il giocatore singolo cammina col controller ({along:F1} m in 1 s)", along > 2f);
+            }
+        }
+
+        // ------------------------------------------------------------------ struttura
+        void Structure(Seat[] seats, int n)
+        {
+            var bodies = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            Check($"{n} corpi di giocatore, uno per posto", bodies.Length == n);
+
+            bool parts = true, distinct = true;
+            for (int i = 0; i < n; i++)
+            {
+                var s = seats[i];
+                parts &= s.player != null && s.hud != null && s.camera != null && s.target != null && s.pad != null && s.index == i;
+                parts &= i == 0 ? s.root == null && s.hud.seat == null : s.root != null && s.hud.seat == s;       // il posto 1 e' la scena di sempre
+                for (int j = 0; j < i; j++)
+                    distinct &= s.player != seats[j].player && s.hud != seats[j].hud && s.camera != seats[j].camera && s.target != seats[j].target
+                        && s.pad != seats[j].pad && s.stealth != seats[j].stealth && s.medals != seats[j].medals && s.interact != seats[j].interact && s.wallBuy != seats[j].wallBuy;
+            }
+            Check("ogni posto ha corpo, camera, HUD, bersaglio e controller, e il suo stato (furtivita', medaglie, interazioni, acquisti)", parts && distinct);
+            Check("solo il posto 1 riceve tastiera e mouse", seats[0].keyboard && Count(seats, s => s.keyboard) == 1);
+
+            // camere: ognuna nella sua porzione, senza buchi e senza sovrapposizioni
+            bool rects = true, disjoint = true; float area = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                var cam = seats[i].camera;
+                rects &= cam != null && Same(cam.rect, SplitScreen.ViewOf(i, n)) && Same(seats[i].view, SplitScreen.ViewOf(i, n));
+                if (cam != null) area += cam.rect.width * cam.rect.height;
+                for (int j = 0; j < i; j++) if (seats[j].camera != null && cam != null) disjoint &= Overlap(cam.rect, seats[j].camera.rect) < 1e-5f;
+            }
+            Check($"{n} camere ognuna nella sua porzione (SplitScreen.ViewOf)", rects);
+            Check($"le porzioni non si sovrappongono e coprono lo schermo (area {area:F3})", disjoint && Mathf.Abs(area - 1f) < 1e-3f);
+
+            // audio: un solo ascoltatore, sul giocatore 1
+            Camera main = Camera.main;
+            var listeners = FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
+            int on = 0; AudioListener active = null;
+            foreach (var l in listeners) if (l.enabled && l.gameObject.activeInHierarchy) { on++; active = l; }
+            Check($"un solo AudioListener attivo ({on}), sulla camera del giocatore 1", on == 1 && active.gameObject == seats[0].camera.gameObject);
+            Check("la camera principale e' quella del giocatore 1", main == seats[0].camera);
+
+            // strati: ognuno vede il proprio arma e le proprie mani, non quelle degli altri
+            bool masks = true;
+            int baseMask = seats[0].camera.cullingMask & ~Seats.AllViewLayersMask;
+            for (int i = 0; i < n; i++)
+            {
+                int mask = seats[i].camera.cullingMask, own = 1 << seats[i].viewLayer;
+                masks &= (mask & own) != 0 && (mask & Seats.AllViewLayersMask & ~own) == 0 && (mask & ~Seats.AllViewLayersMask) == baseMask;
+            }
+            Check("maschera di ogni camera: il resto del mondo e solo il proprio strato di arma e mani", masks);
+            bool layers = true, any = true;
+            for (int i = 0; i < n; i++)
+            {
+                bool own = false;
+                foreach (var r in seats[i].camera.GetComponentsInChildren<Renderer>(true))
+                {
+                    int l = r.gameObject.layer;
+                    if (l == seats[i].viewLayer) own = true;
+                    else if (l >= Seats.FirstViewLayer && l < Seats.FirstViewLayer + Seats.MaxSeats) layers = false;      // un arma sullo strato di un altro
+                }
+                any &= own;
+            }
+            Check("arma e mani di ogni giocatore stanno sul suo strato (e su nessun altro)", layers && any);
+
+            // HUD: ognuno nel suo rettangolo di schermo (in pixel, canvas condiviso)
+            if (Screen.width > 0 && Screen.height > 0)
+            {
+                bool huds = true; string detail = "";
+                var corners = new Vector3[4];
+                for (int i = 0; i < n; i++)
+                {
+                    var rt = seats[i].hud.GetComponent<RectTransform>();
+                    rt.GetWorldCorners(corners);
+                    var v = seats[i].view;
+                    float x0 = v.x * Screen.width, y0 = v.y * Screen.height, x1 = v.xMax * Screen.width, y1 = v.yMax * Screen.height;
+                    bool ok = Mathf.Abs(corners[0].x - x0) < 2f && Mathf.Abs(corners[0].y - y0) < 2f && Mathf.Abs(corners[2].x - x1) < 2f && Mathf.Abs(corners[2].y - y1) < 2f;
+                    if (!ok) detail += $" [{i + 1}: ({corners[0].x:F0},{corners[0].y:F0})-({corners[2].x:F0},{corners[2].y:F0}) attesi ({x0:F0},{y0:F0})-({x1:F0},{y1:F0})]";
+                    huds &= ok;
+                }
+                Check($"l'HUD di ogni giocatore sta nel rettangolo della sua porzione (schermo {Screen.width}x{Screen.height}){detail}", huds);
+            }
+            else Debug.Log("[PryingEyes] seatstest: schermo senza misura (prova senza finestra), niente controllo dei rettangoli degli HUD");
+
+            // arrivo: uno accanto all'altro, non sulla stessa mattonella
+            bool side = true;
+            float maxD = 0f, minD = 99f;
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < i; j++)
+                {
+                    float d = Flat(seats[i].player.transform.position, seats[j].player.transform.position);
+                    maxD = Mathf.Max(maxD, d); minD = Mathf.Min(minD, d);
+                }
+            side = minD > 0.2f && maxD < 3f;
+            Check($"all'arrivo i giocatori stanno uno accanto all'altro (distanze {minD:F2}-{maxD:F2} m)", side);
+
+            // i bersagli dei nemici
+            bool targets = Targets.Count == n;
+            for (int i = 0; i < n && targets; i++) targets &= Targets.At(i).Slot == i && Seats.SeatOf(Targets.At(i)) == seats[i] && seats[i].target == Targets.At(i);
+            targets &= Targets.At(0) == Targets.Local && !(seats[1].target is LocalTarget);
+            Check($"{n} bersagli per i nemici, uno per posto (slot 0..{n - 1}), il primo e' quello locale", targets);
+            Check("Seats.Slot e' lo slot del posto che gira (a riposo il primo)", Seats.Slot == 0 && Seats.OfSlot(1) == seats[1] && Seats.OfSlot(n) == null);
+            Check("lo schermo condiviso non e' la cooperativa in rete", !Coop.Active);
+        }
+
+        void ContextSwap(Seat[] seats)
+        {
+            int visits = 0; bool swap = true, slot = true, owned = true;
+            string problem = "";
+            Seats.ForEach(s =>
+            {
+                visits++;
+                var gm = GameManager.I;
+                swap &= Seats.Current == s && Seats.SeatIndex == s.index && gm.player == s.player && gm.hud == s.hud && Seats.Keyboard == s.keyboard && Seats.ViewLayer == s.viewLayer;
+                swap &= Stealth.Current == s.stealth && Medals.Current == s.medals && Proc.Interact.Mine == s.interact && WallBuy.Mine == s.wallBuy && PadControls.Mine == s.pad;
+                slot &= Seats.Slot == s.index && Seats.MyTarget == s.target;
+                // gli oggetti installati sono quelli del corpo di questo posto
+                var parts = new Component[] { Equipment.I, Knife.I, Torch.I, Guide.I, StealthRig.I };
+                foreach (var c in parts)
+                {
+                    if (c == null) { owned = false; problem += $" [posto {s.index + 1}: manca un oggetto]"; continue; }
+                    var owner = Seats.OwnerOf(c.transform);
+                    if (s.index == 0 ? owner != null : owner != s) { owned = false; problem += $" [posto {s.index + 1}: {c.GetType().Name} di un altro]"; }
+                }
+            });
+            Check($"Seats.ForEach passa da tutti i {seats.Length} posti ({visits}) e a ognuno mette i suoi globali (giocatore, HUD, furtivita', medaglie, interazioni, controller)", visits == seats.Length && swap);
+            Check("dentro un posto lo slot e il bersaglio sono i suoi", slot);
+            Check("dentro un posto equipaggiamento, coltello, torcia, guida e rete di furtivita' sono quelli del suo corpo" + problem, owned);
+            bool distinct = true;
+            for (int i = 0; i < seats.Length; i++)
+                for (int j = 0; j < i; j++)
+                    distinct &= seats[i].equipment != seats[j].equipment && seats[i].knife != seats[j].knife && seats[i].torch != seats[j].torch
+                        && seats[i].guide != seats[j].guide && seats[i].rig != seats[j].rig;
+            Check("equipaggiamento, coltello, torcia, guida e rete di furtivita' sono distinti fra i posti (dopo il giro)", distinct);
+            Check("finito il giro e' di nuovo installato il posto 1", Seats.Current == seats[0] && GameManager.I.player == seats[0].player && GameManager.I.hud == seats[0].hud);
+        }
+
+        static int Count(Seat[] seats, Func<Seat, bool> f) { int c = 0; foreach (var s in seats) if (f(s)) c++; return c; }
+    }
+}
+#endif

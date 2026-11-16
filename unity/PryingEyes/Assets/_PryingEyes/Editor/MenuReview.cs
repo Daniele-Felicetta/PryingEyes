@@ -51,6 +51,9 @@ namespace PryingEyes.EditorTools
                 Render("ultrawide-options", size, camera, menu, output);
                 Click("Indietro"); Click("Come si gioca"); Render("help", size, camera, menu, output);
                 Click("Indietro"); Click("Cooperativa"); Render("coop", size, camera, menu, output); Click("Indietro");
+                GameManager.proc = true;        // ai piani dell'hotel i bottoni dello schermo condiviso sono accesi e il pannello dice quanti controller servono
+                Click("Schermo condiviso"); Render("split", size, camera, menu, output); Click("Indietro");
+                GameManager.proc = false;
                 if (size.x == 1024)
                 {
                     menu.SendMessage("Play"); menu.SendMessage("Pause");

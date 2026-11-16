@@ -64,7 +64,7 @@ namespace PryingEyes
             if (hit)
             {
                 victim.Hurt(damage, transform.position);
-                if (victim is LocalTarget) GameManager.damageTaken++;
+                Seats.CountDamageTaken(victim);
                 if (type == EnemyType.Infermiere) victim.Sedate(2.8f);
             }
             Vector3 effect = hit ? MeleeContactPoint(victim) : contact;

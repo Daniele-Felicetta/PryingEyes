@@ -38,7 +38,7 @@ namespace PryingEyes.Proc
         {
             if (lit || !objective) return;
             if (Coop.IsClient) { Coop.Game?.RequestCandle(this); return; }      // ospitato: decide l'ospite
-            LightBy(Coop.Slot);
+            LightBy(Seats.Slot);        // schermo condiviso: a nome del giocatore che la accende
         }
 
         /// <summary>Accende la candela (da solo o sull'ospite); 'by' e' lo slot di chi l'accende.</summary>

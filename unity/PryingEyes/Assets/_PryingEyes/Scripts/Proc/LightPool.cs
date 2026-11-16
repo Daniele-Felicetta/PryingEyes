@@ -154,19 +154,32 @@ namespace PryingEyes.Proc
             // partita in corso le lampade vicine non si spengono per un fotogramma
             Vector3? cam = null;
             if (at.HasValue && useCamera == false && Camera.main != null && HoldPoint.HasValue) cam = Camera.main.transform.position;
+            // schermo condiviso: restano accese le luci attorno a ogni giocatore (la distanza e' quella dall'occhio piu' vicino)
+            int viewN = 0;
+            if (!at.HasValue && Seats.Split)
+            {
+                var eyes = Seats.Eyes();
+                for (int v = 0; v < eyes.Count && v < views.Length; v++) views[viewN++] = eyes[v].position;
+            }
+            if (viewN == 0) { views[0] = p; viewN = 1; }
             var near = new List<(float d, int i)>();
             for (int i = 0; i < all.Count; i++)
             {
                 var e = all[i];
-                float d = (e.l.transform.position - p).magnitude;
-                bool on = e.wanted && (d < e.range + CullExtra || (cam.HasValue && (e.l.transform.position - cam.Value).magnitude < e.range + CullExtra));
+                Vector3 lp = e.l.transform.position;
+                float d = (lp - views[0]).magnitude;
+                for (int v = 1; v < viewN; v++) d = Mathf.Min(d, (lp - views[v]).magnitude);
+                bool on = e.wanted && (d < e.range + CullExtra || (cam.HasValue && (lp - cam.Value).magnitude < e.range + CullExtra));
                 if (e.l.enabled != on) e.l.enabled = on;
                 e.l.shadows = LightShadows.None;
                 if (e.canShadow && on && d < ShadowDist) near.Add((d, i));
             }
             near.Sort((a, b) => a.d.CompareTo(b.d));
-            for (int k = 0; k < near.Count && k < MaxShadows; k++) all[near[k].i].l.shadows = LightShadows.Soft;
+            int shadowMax = viewN > 1 ? MaxShadows + viewN - 1 : MaxShadows;       // a schermo condiviso un'ombra in piu' per giocatore
+            for (int k = 0; k < near.Count && k < shadowMax; k++) all[near[k].i].l.shadows = LightShadows.Soft;
             Enemy.UpdateBudgets(p);      // ombre e dettaglio dei corpi in base alla distanza e alla folla (Enemy.Budget.cs)
         }
+
+        static readonly Vector3[] views = new Vector3[Seats.MaxSeats];
     }
 }

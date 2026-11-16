@@ -115,7 +115,7 @@ namespace PryingEyes
             UpdateTorchUI();
             UpdateArrow(dt);
             UpdatePingRing(dt);
-            var cam = Camera.main;
+            var cam = ViewCamera;
             if (cam == null) return;
             UpdateMarks(cam);
             if (Stealth.Enabled || Perks.EyeOn) UpdateEyes(cam);
@@ -221,8 +221,8 @@ namespace PryingEyes
         void PlaceTag(Tag t, Camera cam, Vector3 world, out Vector2 dir, out bool off)
         {
             Vector3 sp = cam.WorldToScreenPoint(world);
-            float sf = stealthCanvas != null ? Mathf.Max(0.01f, stealthCanvas.scaleFactor) : 1f;
-            Vector2 c = new Vector2(cam.pixelWidth, cam.pixelHeight) * 0.5f;
+            float sf = Mathf.Max(0.01f, transform.lossyScale.x);       // pixel dello schermo per unita' dell'HUD (nello split screen l'HUD e' ridotto nella sua porzione)
+            Vector2 c = cam.pixelRect.center;                          // il centro della porzione di schermo della camera
             Vector2 d = (new Vector2(sp.x, sp.y) - c) / sf;
             bool behind = sp.z < 0f;
             if (behind) d = -d;

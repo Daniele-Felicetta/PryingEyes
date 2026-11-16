@@ -22,6 +22,8 @@ namespace PryingEyes
         bool done;
         Material dome;
         Light spia;
+        /// <summary>Schermo condiviso: chi l'ha posata (le sue uccisioni e i suoi punti). null: giocatore singolo.</summary>
+        Seat owner;
 
         public bool Armed => age >= ArmTime;
         public bool Triggered => fuse >= 0f;
@@ -42,13 +44,17 @@ namespace PryingEyes
 
         public static Mine Place(Vector3 at, float yaw)
         {
-            if (Placed.Count >= MaxPlaced) placed[0].Explode();          // la piu' vecchia scoppia: ne restano tre
+            // la piu' vecchia di chi la posa scoppia: ne restano tre a testa
+            Mine oldest = null; int mine = 0;
+            foreach (var other in Placed) if (other.owner == Seats.Current) { if (oldest == null) oldest = other; mine++; }
+            if (mine >= MaxPlaced && oldest != null) oldest.Explode();
             var go = new GameObject("Mina del reliquiario");
             var root = FloorDirector.I != null && FloorDirector.I.cur != null ? FloorDirector.I.cur.root : null;
             if (root != null) go.transform.SetParent(root.transform, false);
             go.transform.position = at + Vector3.up * 0.005f;
             go.transform.rotation = Quaternion.Euler(0f, yaw * Mathf.Rad2Deg, 0f);
             var m = go.AddComponent<Mine>();
+            m.owner = Seats.Current;
             m.Build();
             placed.Add(m);
             Sfx.At(SoundBank.DropTick, at, 0.6f, 0.8f, 1.5f, 15f);
@@ -97,7 +103,9 @@ namespace PryingEyes
             if (spia != null) spia.intensity = on ? 0.9f * strength : 0f;
         }
 
-        void Update()
+        void Update() { using (Seats.Enter(owner)) UpdateBody(); }
+
+        void UpdateBody()
         {
             if (done) return;
             float dt = Time.deltaTime;
@@ -128,14 +136,16 @@ namespace PryingEyes
         }
 
         /// <summary>Lo scoppio: danno ai nemici entro 4,5 m con la linea libera, nessuno a chi gioca; le botti vicine a catena.</summary>
-        public void Explode()
+        public void Explode() { using (Seats.Enter(owner)) ExplodeBody(); }
+
+        void ExplodeBody()
         {
             if (done) return;
             done = true;
             placed.Remove(this);
             Vector3 p = transform.position + Vector3.up * 0.15f;
             Fx.HolyBurst(p, new Color(1f, 0.55f, 0.3f));
-            GameManager.I?.player?.Shake(p, 1.2f);
+            Seats.ShakeAll(p, 1.2f);
             Sfx.At(SoundBank.Blast, p, 1f, Random.Range(0.9f, 1.0f), 4f, 60f);
             Enemy.NoteBlast(p);
             foreach (var e in new List<Enemy>(Enemy.All))

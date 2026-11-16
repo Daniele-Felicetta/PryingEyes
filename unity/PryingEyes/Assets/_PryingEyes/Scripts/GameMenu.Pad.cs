@@ -118,13 +118,13 @@ namespace PryingEyes
         /// <summary>Le scritte che nominano i tasti seguono il dispositivo in uso: tastiera oppure controller.</summary>
         void RefreshHints()
         {
-            bool pad = PadControls.Preferred;
-            string key = pad ? "pad" : "tastiera";
+            bool pad = PadControls.Preferred, split = SplitScreen.Active;
+            string key = (pad ? "pad" : "tastiera") + (split ? "+split" : "");
             if (shownHints == key) return;
             shownHints = key;
             footer.text = pad ? FooterPad : FooterKeys;
-            if (pauseHint != null)
-                pauseHint.text = (Coop.Active ? "Gli altri continuano a giocare. " : "La partita è sospesa. ") + (pad ? "Start o B per riprendere." : "Esc per riprendere.");
+            if (pauseHint != null)      // nello schermo condiviso riprende anche Start di un altro controller (la pausa e' di tutti)
+                pauseHint.text = (Coop.Active ? "Gli altri continuano a giocare. " : "La partita è sospesa. ") + (pad ? "Start o B per riprendere." : split ? "Esc o Start per riprendere." : "Esc per riprendere.");
             if (padHelp != null) padHelp.gameObject.SetActive(pad);
             helpPad.gameObject.SetActive(pad);
             helpMove.text = HelpMoveText(pad);

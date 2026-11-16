@@ -121,7 +121,8 @@ namespace PryingEyes
             var pl = GameManager.I != null ? GameManager.I.player : null;
             if (kind == DropKind.Insta && pl != null)
             {
-                Vector3 to = pl.cam.position - body.position;
+                var watched = Seats.Split ? Seats.NearestPlayer(body.position) ?? pl : pl;      // l'occhio segue chi gli e' piu' vicino
+                Vector3 to = watched.cam.position - body.position;
                 if (to.sqrMagnitude > 0.01f) body.rotation = Quaternion.Slerp(body.rotation, Quaternion.LookRotation(to), 1f - Mathf.Exp(-8f * Time.deltaTime));
             }
             else
@@ -145,10 +146,15 @@ namespace PryingEyes
                 beamRends[3].SetPropertyBlock(beamMpb);
             }
 
-            if (pl != null && pl.alive && !GameMenu.Blocked && sc > 0.9f)
+            if (pl != null && !GameMenu.Blocked && sc > 0.9f)
             {
-                Vector3 c = pl.transform.position + Vector3.up * 1.0f;
-                if ((c - Center).sqrMagnitude < PickRadius * PickRadius)
+                if (Seats.Split)
+                {
+                    // schermo condiviso: lo prende il primo giocatore vivo che ci passa vicino
+                    foreach (var s in Seats.All)
+                        if (Reaches(s.player)) { Drops.Take(this, s.index); break; }
+                }
+                else if (Reaches(pl))
                 {
                     if (Coop.IsClient)
                     {
@@ -158,6 +164,13 @@ namespace PryingEyes
                     else Drops.Take(this, Coop.Slot);
                 }
             }
+        }
+
+        bool Reaches(PlayerController p)
+        {
+            if (p == null || !p.alive) return false;
+            Vector3 c = p.transform.position + Vector3.up * 1.0f;
+            return (c - Center).sqrMagnitude < PickRadius * PickRadius;
         }
 
         void OnDestroy() { Drops.Forget(this); }

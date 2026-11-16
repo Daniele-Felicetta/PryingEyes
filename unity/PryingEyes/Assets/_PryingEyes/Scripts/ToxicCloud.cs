@@ -55,7 +55,7 @@ namespace PryingEyes
                         Vector3 f = t.Feet;
                         if (Mathf.Abs(f.y - c.y) > 2.2f || new Vector2(f.x - c.x, f.z - c.z).magnitude > Radius) continue;
                         t.Hurt(4f, c);
-                        if (t is LocalTarget) GameManager.damageTaken++;
+                        Seats.CountDamageTaken(t);
                     }
                     var list = new System.Collections.Generic.List<Enemy>(Enemy.All);
                     foreach (var e in list)

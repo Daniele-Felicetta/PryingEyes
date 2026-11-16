@@ -42,7 +42,8 @@ Added on 15 November 2026 (`Scripts/EnemyRagdoll.cs`, `Scripts/Enemy.Ragdoll.cs`
   the bone) and body without a joint, so the monk lets go of it and it falls on its own.
 - Ragdoll parts live on the Ignore Raycast layer: bullets and sight lines pass through corpses, so a body never shields the
   enemy behind it, and the player's controller ignores them. Parts of one body ignore each other.
-- Bodies freeze after at most 2.8 s (earlier when they stop moving); the blood pool appears under the pelvis at that moment and
+- Bodies freeze after at most 2.8 s (earlier when they stop moving, the staff included: a body is not frozen while its staff is still
+  falling, or the staff would hang in the air); the blood pool appears under the pelvis at that moment and
   `CorpseSink` lowers the frozen body into the floor as before, with its dust under the pelvis.
 - At most 10 bodies move at once; beyond that (the Bell killing a whole horde) the old fall animation plays. Enemies killed
   while rising from the floor and the stone Statue keep the animation too. `-noragdoll` turns the feature off for comparisons.
@@ -50,7 +51,8 @@ Added on 15 November 2026 (`Scripts/EnemyRagdoll.cs`, `Scripts/Enemy.Ragdoll.cs`
 Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -ragdolltest [-ragdollshots] -seed 1000 -floor 1`
 (`Scripts/RagdollTest.cs`, 16 checks: chest shot pushes the body back, a headshot throws the head back more than the pelvis,
 an explosion launches the body, parts stay attached and above the floor, the player is not blocked, a bullet through a corpse
-hits the enemy behind it, bodies freeze, the staff lies on the floor, the corpse disappears, at most 10 ragdolls at once).
+hits the enemy behind it, bodies freeze, the staff of a lone monk lies on the floor (next to another monk it may rest against him, which is
+fine), the corpse disappears, at most 10 ragdolls at once).
 Photos in `unity_logs/ragdoll`.
 
 ## Vaulting and climbing

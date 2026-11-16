@@ -399,7 +399,7 @@ namespace PryingEyes
             bursted = true;
             Vector3 c = transform.position + Vector3.up * 1.0f;
             Fx.PlagueBurst(c);
-            GameManager.I?.player?.Shake(c, 0.8f, 10f);
+            Seats.ShakeAll(c, 0.8f, 10f);
             Proc.Barrels.I?.ExplodeNear(c, BurstRadius);
             Sfx.At(SoundBank.Burst, c, 1f, Random.Range(0.92f, 1.06f), 3f, 40f);
             if (!puppet)
@@ -412,7 +412,7 @@ namespace PryingEyes
                     float d = Vector3.Distance(body, c);
                     if (d > BurstRadius || !HotelNav.ClearLine(c, body)) continue;
                     t.Hurt(Mathf.Lerp(34f, 10f, d / BurstRadius), c);
-                    if (t is LocalTarget) GameManager.damageTaken++;
+                    Seats.CountDamageTaken(t);
                 }
                 NoteBlast(c);                                         // chi muore ora vola via dal centro (EnemyRagdoll)
                 foreach (var o in all.ToArray())
@@ -462,7 +462,7 @@ namespace PryingEyes
                     if (ringFx != null) Destroy(ringFx);
                     if (glowMat != null) Shockwave.Spawn(gp, glowMat);
                     Fx.FireRing(gp, 7f);
-                    GameManager.I?.player?.Shake(gp, 0.9f, 14f);
+                    Seats.ShakeAll(gp, 0.9f, 14f);
                     Sfx.At(SoundBank.Ignite, gp + Vector3.up, 1f, 0.55f, 4f, 50f);
                     for (int i = 0, n = Targets.Count; i < n; i++)
                     {
@@ -472,7 +472,7 @@ namespace PryingEyes
                         float d = new Vector2(f.x - gp.x, f.z - gp.z).magnitude;
                         if (d > 7f || Mathf.Abs(f.y - gp.y) > 2.2f || !HotelNav.ClearLine(gp + Vector3.up, f + Vector3.up)) continue;
                         t.Hurt(enragedBoss ? 28f : 22f, gp);
-                        if (t is LocalTarget) GameManager.damageTaken++;
+                        Seats.CountDamageTaken(t);
                     }
                 }
                 return;

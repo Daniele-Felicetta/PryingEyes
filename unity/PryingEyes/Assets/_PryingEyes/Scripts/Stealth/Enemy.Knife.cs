@@ -48,7 +48,7 @@ namespace PryingEyes
         public void Provoke(ITarget by = null)
         {
             if (dead || puppet || Omniscient) return;
-            SwitchTarget(by ?? Targets.Local);
+            SwitchTarget(by ?? Seats.MyTarget);                  // chi sta girando (a schermo condiviso il posto che ha colpito)
             awareness = 1f;
             lostT = 0f;
             lastKnown = tgt.Feet;

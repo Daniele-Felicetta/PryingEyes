@@ -69,7 +69,9 @@ namespace PryingEyes
             Begin(k, target);
         }
 
-        void Update()
+        void Update() { using (Seats.Enter(this)) UpdateBody(); }
+
+        void UpdateBody()
         {
             var rd = RoundDirector.I;
             int round = RoundDirector.Round;

@@ -192,14 +192,18 @@ namespace PryingEyes
             PerkState.Changed += OnPerksChanged;
             cc = GetComponent<CharacterController>();
             cc.minMoveDistance = 0f;       // con 10.000 fps (batchmode) 4 m/s sono 0,4 mm a fotogramma: sotto il minimo di default (1 mm) non ci si muoveva
-            PlayerAvoidance.Bind(gameObject, Targets.Local);
+            PlayerAvoidance.Bind(gameObject, Seats.TargetFor(this));       // nello split screen ogni corpo ha il suo bersaglio
             eyeH = eyeStand;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             if (GameManager.autoTest) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
         }
 
-        void Start()
+        // Split screen (Seats.cs): i punti d'ingresso di Unity girano a nome del posto del giocatore (per il posto 0 non cambia niente)
+        void Start() { using (Seats.Enter(this)) StartBody(); }
+        void Update() { using (Seats.Enter(this)) UpdateBody(); }
+
+        void StartBody()
         {
             Equipment.Ensure(this);          // acquasanta e carillon (Z, 4)
             Prove.Ensure(gameObject);        // le prove delle ondate
@@ -207,7 +211,7 @@ namespace PryingEyes
                 + " hud=" + (hud != null) + " gunBound=" + (weapon != null && weapon.IsBound));
         }
 
-        void Update()
+        void UpdateBody()
         {
             if (cam == null || weapon == null || (GameMenu.Blocked && !Coop.Active)) return;
             float dt = Time.deltaTime;
@@ -223,16 +227,16 @@ namespace PryingEyes
             // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
             float ms = sens * GameSettings.Sensitivity * weapon.SensMult;
             float touchSens = 4f * GameSettings.Sensitivity * weapon.SensMult, padSens = GameSettings.Sensitivity * weapon.SensMult * dt;
-            float dYaw = inputEnabled ? Input.GetAxis("Mouse X") * ms + TouchControls.Look.x * touchSens + PadControls.LookRate.x * padSens : 0f;
-            float dPitch = inputEnabled ? -Input.GetAxis("Mouse Y") * ms - TouchControls.Look.y * touchSens - PadControls.LookRate.y * padSens : 0f;
+            float dYaw = inputEnabled ? SeatInput.GetAxis("Mouse X") * ms + TouchControls.Look.x * touchSens + PadControls.LookRate.x * padSens : 0f;
+            float dPitch = inputEnabled ? -SeatInput.GetAxis("Mouse Y") * ms - TouchControls.Look.y * touchSens - PadControls.LookRate.y * padSens : 0f;
             yaw += dYaw;
             pitch += dPitch;
             pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
             Vector2 lookDelta = new Vector2(dYaw * Mathf.Rad2Deg, -dPitch * Mathf.Rad2Deg);
 
             // --- input ---
-            float f = inputEnabled ? (Input.GetKey(KeyCode.W) ? 1 : 0) - (Input.GetKey(KeyCode.S) ? 1 : 0) + TouchControls.Move.y : 0f;
-            float s = inputEnabled ? (Input.GetKey(KeyCode.D) ? 1 : 0) - (Input.GetKey(KeyCode.A) ? 1 : 0) + TouchControls.Move.x : 0f;
+            float f = inputEnabled ? (SeatInput.GetKey(KeyCode.W) ? 1 : 0) - (SeatInput.GetKey(KeyCode.S) ? 1 : 0) + TouchControls.Move.y : 0f;
+            float s = inputEnabled ? (SeatInput.GetKey(KeyCode.D) ? 1 : 0) - (SeatInput.GetKey(KeyCode.A) ? 1 : 0) + TouchControls.Move.x : 0f;
             if (inputEnabled && GameManager.autoTest && !holdLook)
             {
                 var e = Enemy.Nearest(transform.position);
@@ -256,11 +260,11 @@ namespace PryingEyes
                     s = Vector3.Dot(botDir, new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)));
                 }
             }
-            bool wantCrouch = inputEnabled ? Input.GetKey(KeyCode.C) || Input.GetKey(KeyCode.LeftControl) || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch) : crouch;
-            bool sprintInput = inputEnabled && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0;
+            bool wantCrouch = inputEnabled ? SeatInput.GetKey(KeyCode.C) || SeatInput.GetKey(KeyCode.LeftControl) || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch) : crouch;
+            bool sprintInput = inputEnabled && (SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift) || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0;
             bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
-            if (inputEnabled && (Input.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;
+            if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;
 
             float hSpeed = new Vector2(vel.x, vel.z).magnitude;
             if (!slide && !crouch && sprintInput && wantCrouch && hSpeed > 4.4f && cc.isGrounded)
@@ -377,7 +381,7 @@ namespace PryingEyes
 
             // --- lean: Q a sinistra, E a destra; non in corsa ne' in scivolata, non nei muri ---
             float leanWant = 0f;
-            if (inputEnabled && !slide && !wantSprint) leanWant = float.IsNaN(debugLean) ? (Input.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (Input.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
+            if (inputEnabled && !slide && !wantSprint) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
             float room = leanWant != 0f ? LeanRoom(leanWant) : 1f;
             float leanTarget = leanWant * room;
             // se la testa e' gia' contro un muro rientra piu' in fretta
@@ -447,7 +451,7 @@ namespace PryingEyes
             cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP + mantlePitch, yaw * Mathf.Rad2Deg + recY, roll + mantleRoll);
 
             // perk attivabile: il tempo degli effetti scorre in TickSurvival, anche nel menu cooperativo
-            if (alive && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (Input.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())
+            if (alive && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (SeatInput.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())
             {
                 hud?.Toast("Il Velo ti avvolge: per cinque secondi ti vedono solo da vicino.");
                 Sfx.UI(SoundBank.PerkVelo, 0.65f);
@@ -461,7 +465,7 @@ namespace PryingEyes
             {
                 bool onWall = WallBuy.Tick(cam);
                 bool onThing = !onWall && Proc.Interact.Tick(cam);
-                if ((Input.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use))) { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
+                if ((SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use))) { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
                 // dopo gli altri prompt (che cancellano la riga a ogni fotogramma): la presa alle spalle
                 if (!onWall && !onThing) Knife.I?.PromptTick();
             }
@@ -521,8 +525,7 @@ namespace PryingEyes
                 string pen = GameManager.proc ? Proc.FloorDirector.I?.DeathPenalty() : null;
                 hud?.Banner("Sei morto", string.IsNullOrEmpty(pen) ? "L'hotel ti riporta all'ingresso." : pen);
                 hud?.SetPrompt("");
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                if (!Seats.Split) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }     // nello split screen il mouse e' di tutti: non si sblocca per uno che muore
             }
         }
 
@@ -552,6 +555,7 @@ namespace PryingEyes
             weapon.RespawnAmmo();
             Torch.I?.OnRespawn();
             hud?.SetBars(hp, shield);
+            if (Seats.Split) return;
             Cursor.lockState = GameMenu.Blocked ? CursorLockMode.None : CursorLockMode.Locked;
             Cursor.visible = GameMenu.Blocked;
             if (GameManager.autoTest) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }

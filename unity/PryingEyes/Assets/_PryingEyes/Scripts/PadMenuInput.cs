@@ -130,13 +130,12 @@ namespace PryingEyes
         }
     }
 
-    /// <summary>L'EventSystem di uGUI, ma nello split screen resta "in primo piano" anche quando la finestra non lo e' (le finestre degli
-    /// altri giocatori sono guidate da un controller e non hanno mai il fuoco): senza questo il suo menu di pausa non risponderebbe.</summary>
+    /// <summary>L'EventSystem di uGUI, ma per le prove con una finestra vera che non ha il fuoco puo' restare "in primo piano" lo stesso.</summary>
     public sealed class PadEventSystem : EventSystem
     {
         /// <summary>Per le prove con una finestra vera che non ha il fuoco: la UI ascolta lo stesso.</summary>
         public static bool AlwaysFocused;
 
-        protected override void OnApplicationFocus(bool hasFocus) => base.OnApplicationFocus(hasFocus || SplitScreen.Active || AlwaysFocused);
+        protected override void OnApplicationFocus(bool hasFocus) => base.OnApplicationFocus(hasFocus || AlwaysFocused);
     }
 }
