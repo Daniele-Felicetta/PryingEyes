@@ -21,6 +21,11 @@ reloading, swapping, sprinting, with the knife out, or during another gesture. W
 left hand (they no longer use or stab). Holy water and the music box are now thrown with the left hand too (it takes the object, winds
 back and throws; the object leaves from the palm).
 
+To try arms, gestures and effects by hand without finding the books, launch the game with `-provamagia`: every spell and seal with
+their outer nodes (except Gesto Rapido and Maneggevolezza, which speed the gestures up), full essence, 10,000 points and the AR-9
+Malleus in the second slot (with the starting P9 Pieta it is one of the two weapons with the realistic hold). It is applied again at
+every new game.
+
 ## The secret book room (`AnnexKind.Sacrario`)
 
 One per floor of the survival layout, generated after the other annexes with its own random stream (towers, crypts and gardens are

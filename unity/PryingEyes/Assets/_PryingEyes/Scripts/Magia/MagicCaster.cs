@@ -68,6 +68,7 @@ namespace PryingEyes
             weapon = player.weapon;
             float dt = Time.deltaTime;
             var s = player.Arcana;
+            ProvaMagia(s);
             bool still = player.SpeedH < 0.3f || player.IsCrouching;
             s.Tick(dt, still);
             if (!player.alive) { if (castHand != null) castHand.Cancel(); return; }
@@ -95,6 +96,31 @@ namespace PryingEyes
             if (SeatInput.GetMouseButtonDown(2)) TryCast();
             if (SeatInput.GetKeyDown(KeyCode.Alpha6) || TouchControls.Down(TouchControls.Action.SpellNext)) CycleAndTell(Grimoire.Book.Stregoneria);
             if (SeatInput.GetKeyDown(KeyCode.Alpha7) || TouchControls.Down(TouchControls.Action.InfusionNext)) CycleAndTell(Grimoire.Book.Arsenale);
+        }
+
+        /// <summary>-provamagia: per provare a mano braccia, gesti ed effetti senza cercare i libri ne' fare punti. Tutte le magie e tutti i
+        /// sigilli coi loro nodi esterni, tranne Gesto Rapido e Maneggevolezza (accelerano i gesti), essenza piena, 10.000 punti e il
+        /// fucile AR-9 Malleus nel secondo posto (con la pistola di partenza sono le due armi della presa realistica di prova). Si
+        /// riapplica a ogni partita nuova (la scena si ricarica e i grimori ripartono vuoti).</summary>
+        static readonly bool Prova = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-provamagia") >= 0;
+
+        void ProvaMagia(MagicState s)
+        {
+            if (!Prova || s.Witch != 0 || weapon == null) return;
+            var fd = Proc.FloorDirector.I;
+            if (fd == null || fd.cur == null || fd.transitioning) return;
+            const uint all = (1u << Grimoire.Count) - 1u;
+            s.Witch = all & ~(1u << 3);
+            s.Arsenal = all & ~(1u << 8);
+            s.Select(Grimoire.Book.Stregoneria, 12);
+            s.Select(Grimoire.Book.Arsenale, 12);
+            s.Essence = s.EssenceMax;
+            int rifle = WeaponDefs.IndexOf("ar9_malleus");
+            if (rifle >= 0 && !weapon.Owns(rifle)) weapon.Equip(rifle);
+            if (GameManager.I != null) GameManager.I.score = Mathf.Max(GameManager.I.score, 10000);
+            player.hud?.Toast("Prova delle magie: tutte le magie e i sigilli, e il fucile AR-9 Malleus. 3 magia, 3 tenuto sigillo, 6 e 7 per cambiare.");
+            Debug.Log($"[PryingEyes] provamagia: stregoneria {System.Convert.ToString(s.Witch, 2)}, arsenale {System.Convert.ToString(s.Arsenal, 2)}, " +
+                      $"essenza {s.Essence:F0}/{s.EssenceMax:F0}, fucile in mano {weapon.Owns(rifle)}");
         }
 
         void CycleAndTell(Grimoire.Book b)
