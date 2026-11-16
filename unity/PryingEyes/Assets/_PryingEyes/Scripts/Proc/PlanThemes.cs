@@ -20,7 +20,7 @@ namespace PryingEyes.Proc
 
         /// <summary>Piani 1 e 2: solo albergo e chiesa, per imparare il gioco. Dal terzo piano il tema viene estratto a pari peso tra
         /// albergo, teatro e sanatorio con lo stesso Rng di sempre (cosi' il resto del piano non cambia); il Guardaroba e' una seconda
-        /// estrazione, indipendente, che sostituisce quel tema in un piano su quattro.</summary>
+        /// estrazione, indipendente, che sostituisce quel tema in GuardarobaPercent piani su cento (nessuno, di default).</summary>
         static Theme PickTheme(int floor, Rng r, int seed = 0, bool grid = false)
         {
             Theme t = floor <= 2 ? Theme.Albergo : (Theme)r.Range(0, 3);
