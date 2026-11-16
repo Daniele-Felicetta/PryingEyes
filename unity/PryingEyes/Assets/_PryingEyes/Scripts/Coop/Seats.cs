@@ -32,6 +32,8 @@ namespace PryingEyes
         public ITarget target;
 
         public Seat(int index) { this.index = index; viewLayer = Seats.FirstViewLayer + index; }
+        /// <summary>Il corpo di questo posto come lo vedono gli altri (0.7.1).</summary>
+        public SeatAvatar avatar;
         public string Name => "Giocatore " + (index + 1);
         public Transform Eye => player != null ? player.cam : null;
         /// <summary>La torcia di questo posto (se il posto gira adesso, quella installata).</summary>
@@ -53,6 +55,9 @@ namespace PryingEyes
         public const int MaxSeats = 4;
         /// <summary>Strati di Unity per arma e mani dei giocatori: 24 + indice del posto. Fuori dallo split screen l'arma sta sullo strato 2, come sempre.</summary>
         public const int FirstViewLayer = 24;
+        /// <summary>Strati del corpo di ogni posto visto dagli altri (SeatAvatar, 20..23): la camera di un posto disegna quelli degli altri e
+        /// non il suo.</summary>
+        public const int FirstAvatarLayer = 20;
 
         public static readonly List<Seat> All = new List<Seat>();
         public static bool Split => All.Count > 1;
@@ -67,6 +72,7 @@ namespace PryingEyes
         public static int ViewLayer => cur != null ? cur.viewLayer : 2;
         /// <summary>Tutti gli strati di arma e mani dei posti.</summary>
         public static int AllViewLayersMask { get { int m = 0; for (int i = 0; i < MaxSeats; i++) m |= 1 << (FirstViewLayer + i); return m; } }
+        public static int AllAvatarLayersMask { get { int m = 0; for (int i = 0; i < MaxSeats; i++) m |= 1 << (FirstAvatarLayer + i); return m; } }
         public static int SeatIndex => cur != null ? cur.index : 0;
         /// <summary>Lo "slot" di chi gira, come lo conoscono candele, premi e bottino: in cooperativa quello di rete, nello schermo condiviso il suo posto.</summary>
         public static int Slot => Split ? SeatIndex : Coop.Slot;

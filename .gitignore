@@ -58,6 +58,7 @@ hotel_build/armi_gioco/*.png
 hotel_build/perf/
 # prova delle magie e dei sigilli (-magiatest -magiashots): risultati e circa 190 foto a ogni giro, si rifanno
 hotel_build/magia/
+hotel_build/seats/
 
 # Isolated multiplayer checks; never use the main worktree build output.
 !tools/multiplayer-check/MultiplayerCheck.csproj

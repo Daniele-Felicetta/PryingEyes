@@ -79,6 +79,14 @@ Rules for code that touches players (the reasons are in the comments of `Seats.c
    points and kills go to the right player.
 4. A new per-player value that the game reads as a global belongs in `Seat` and in `Seats.Save` / `Seats.Load`.
 
+**How the players see each other** (0.7.1; before, every player had only their first-person arms and nobody saw anybody). Each seat has
+a `SeatAvatar`: the same mannequin as the online co-op partners (`RemotePlayer.BuildBody`: coat in the seat's colour, head, arms forward,
+torch in hand) with the name above the head, turned towards each camera just before it renders. It follows the seat's body at the end of
+the frame (walking legs, crouching, lying down when dead) and sits on the seat's own avatar layer (`Seats.FirstAvatarLayer` + index,
+layers 20 to 23): `Seats.Layout` gives every camera its own weapon layer and the avatar layers of the others, never its own, so nobody
+sees their own body in front of the eyes. The mannequin has no collider (bullets and enemies ignore it) and no light (each seat's real
+torch already lights the world).
+
 How the screen is made: each seat camera is a copy of the main one (URP settings included) with its own `Camera.rect`. The weapon and hands of
 seat n live on layer 24 + n, and a camera draws only its own, so nobody sees another player's gun. There is one `AudioListener`, on player 1's
 camera. The HUDs hang under one overlay canvas, each in its rectangle. Lights, shadows, level of detail and billboards that depend on "the
@@ -110,6 +118,10 @@ It checks:
 
 - **Structure**: a body, a camera, a HUD, a target and a controller per player; cameras in their parts, covering the screen without
   overlaps; one `AudioListener`, on player 1's camera; each weapon on its own layer; each HUD inside its part; side-by-side arrival.
+- **Seeing each other** (0.7.1): each player has a mannequin on their own avatar layer, each camera draws the others' and not its own,
+  the mannequin stands where its player stands; with a GPU (batchmode without `-nographics`) player 2 stands three metres in front of
+  player 1, player 1's camera renders the scene with and without player 2's layer (more than 1% of the pixels must change; 2.1-2.6% with
+  2, 3 and 4 players) and the picture is saved as `hotel_build/seats/vedersi_N.png`.
 - **Context swap**: inside a seat the globals are that seat's; equipment, knife, torch, guide and stealth net are different per seat; seat 1
   is installed again afterwards.
 - **Controllers**: each player walks with their own controller while the others stand still; a trigger fires only that player's weapon; one

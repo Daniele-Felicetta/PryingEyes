@@ -50,6 +50,8 @@ namespace PryingEyes
                 Targets.Add(s.target);
             }
             AssignPads(p1Pad);
+            // ognuno vede gli altri: un manichino per posto, su uno strato che la sua camera non disegna (Layout)
+            foreach (var s in All) s.avatar = SeatAvatar.Create(s);
             Layout(true);
             Debug.Log($"[PryingEyes] split: {count} giocatori in una sola finestra, schermo {Screen.width}x{Screen.height}, controller " + PadSummary());
             return true;
@@ -62,6 +64,7 @@ namespace PryingEyes
             var s0 = Primary;
             if (s0 != null && cur != s0) Install(s0);
             for (int i = 0; i < All.Count; i++) if (All[i].target != null && i > 0) Targets.Remove(All[i].target);
+            for (int i = 0; i < All.Count; i++) if (All[i].avatar != null) { Object.Destroy(All[i].avatar.gameObject); All[i].avatar = null; }
             for (int i = All.Count - 1; i >= 1; i--) if (All[i].root != null) Object.Destroy(All[i].root.gameObject);
             if (s0 != null && s0.camera != null) s0.camera.rect = new Rect(0f, 0f, 1f, 1f);
             All.Clear(); byRoot.Clear(); cur = null;
@@ -206,7 +209,9 @@ namespace PryingEyes
                 if (s.camera != null)
                 {
                     s.camera.rect = s.view;
-                    s.camera.cullingMask = (baseMask & ~AllViewLayersMask) | (1 << s.viewLayer);
+                    // la sua arma e le sue mani, i corpi degli altri e non il suo
+                    s.camera.cullingMask = (baseMask & ~AllViewLayersMask & ~AllAvatarLayersMask) | (1 << s.viewLayer)
+                                           | (AllAvatarLayersMask & ~(1 << (FirstAvatarLayer + s.index)));
                 }
                 PlaceHud(s, size);
             }
