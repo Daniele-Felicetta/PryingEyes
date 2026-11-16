@@ -9,9 +9,10 @@ namespace PryingEyes.Proc
     /// <summary>Lato di una stanza: S = z minima, N = z massima, W = x minima, E = x massima.</summary>
     public enum Side { S = 0, N = 1, W = 2, E = 3 }
 
-    /// <summary>Il tema di un piano: l'albergo con la chiesa (il tema di partenza), il teatro (sala e palcoscenico) o il sanatorio
-    /// (istituto e cappella). Tutte le ali di un piano hanno lo stesso tema.</summary>
-    public enum Theme { Albergo, Teatro, Sanatorio }
+    /// <summary>Il tema di un piano: l'albergo con la chiesa (il tema di partenza), il teatro (sala e palcoscenico), il sanatorio
+    /// (istituto e cappella) o il Guardaroba (il castello del conte: armadi, vampiri, forbici e lava, con terrazze all'aperto).
+    /// Tutte le ali di un piano hanno lo stesso tema. Non riordinare: il valore e' nel segnale della cooperativa.</summary>
+    public enum Theme { Albergo, Teatro, Sanatorio, Guardaroba }
 
     public enum RoomKind
     {
@@ -25,7 +26,9 @@ namespace PryingEyes.Proc
         Platea, Palco, Foyer, Palcoscenico, Camerino, Deposito, Ridotto,
         // sanatorio: l'istituto (la cappella e' la chiesa)
         Accettazione, Degenza, Corsia, Cella, Refettorio, SalaOperatoria, Lavanderia, Archivio, Obitorio, SalaMedici,
-        Rotonda, Galleria, GiardinoInverno
+        Rotonda, Galleria, GiardinoInverno,
+        // guardaroba: la sala degli armadi, la sartoria, lo spogliatoio, il sepolcreto dei vampiri, la forgia con la lava e la terrazza all'aperto
+        SalaArmadi, Sartoria, Spogliatoio, Sepolcreto, Forgia, Terrazza
     }
 
     /// <summary>Il ruolo di una stanza nella pianta a griglia (PlanGrid.cs), come i tipi di stanza di The Binding of Isaac: Partenza
@@ -34,7 +37,9 @@ namespace PryingEyes.Proc
     /// di prima ogni stanza e' Normale.</summary>
     public enum RoomType { Normale, Partenza, Guardia, Candela, Negozio, Biblioteca, Segreta, Boss }
 
-    public enum CeilKind { Flat, Beams, Gable, BarrelRound, BarrelPointed }
+    /// <summary>Open: all'aperto, senza soffitto (la terrazza del Guardaroba): i muri verso il vuoto sono parapetti, quelli verso le altre
+    /// stanze salgono fin sopra il loro tetto, e sopra c'e' il cielo.</summary>
+    public enum CeilKind { Flat, Beams, Gable, BarrelRound, BarrelPointed, Open }
 
     public enum OpenStyle { Porta, PortaLarga, Arco, Arcata, Finestra, Lancetta, Feritoia, Ascensore, Passaggio }
 
@@ -62,6 +67,8 @@ namespace PryingEyes.Proc
         public float CenterX => (x0 + x1) * 0.05f;   // metri
         public float CenterZ => (z0 + z1) * 0.05f;
         public bool IsLift => kind == RoomKind.Ascensore;
+        /// <summary>Stanza all'aperto: niente soffitto (CeilKind.Open).</summary>
+        public bool Open => ceil == CeilKind.Open;
 
         public bool Contains(float x, float z, float margin = 0f)
         {

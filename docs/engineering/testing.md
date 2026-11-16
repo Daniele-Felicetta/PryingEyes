@@ -46,6 +46,8 @@ blender -b -P genera_braccia.py -- build [nomi]               # arms per weapon,
 blender -b -P genera_braccia.py -- prova [giocatore destra sotto ...] <id>   # CPU previews
 blender -b -P genera_arredi3.py -- render [nomi]              # theatre/sanatorium furniture previews (CPU)
 blender -b -P genera_arredi3.py -- build                      # FBX in arredi3/
+blender -b -P genera_arredi4.py -- render [nomi]              # Guardaroba props (17, gu_*): CPU previews in arredi4/render/
+blender -b -P genera_arredi4.py -- build [nomi]               # FBX in arredi4/, then copy them to unity\PryingEyes\Assets\_PryingEyes\Models\Arredi
 
 # modelli/temi/
 blender -b -P genera_accessori.py -- build                    # modelli/temi/export/accessori_temi.fbx
@@ -59,6 +61,7 @@ Unity steps (`Unity -batchmode -projectPath unity\PryingEyes -executeMethod ... 
 | `PryingEyes.EditorTools.ArmiShots.Run -armi p9_pieta` | Photographs one weapon in hand, aimed, from the side. | `hotel_build/armi/` |
 | `PryingEyes.EditorTools.ManiImport.RunAndShots [-armi p9_pieta] [-viste mano,mira,ricarica]` | Imports `mani.fbx` and the per-weapon FBX (prefabs in `Resources/Mani` and `Resources/ManiArmi/<id>`), photographs the requested views without building the player. | `hotel_build/armi/` |
 | `PryingEyes.EditorTools.NemiciTemiImport.RunAndShot` | Builds the theme enemy prefabs (`Resources/`) and photographs them in the hall. | `hotel_build/shot_temi_*.png` |
+| `PryingEyes.EditorTools.PropShots.Run [-prefix gu_] [-props a,b] [-tag v1] [-torch] [-theme guardaroba] [-dist 1.0]` | Imports the kit (`TorreBuilder.FillKit`) and photographs each prop, three-quarter and front, in a small dark room with the theme's look; `-torch` adds the player's torch. | `hotel_build/props/<name>_3q<tag>.png`, `_fronte<tag>.png` |
 
 ### 2.2 Builds
 
@@ -111,8 +114,9 @@ Unity -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.ProcCh
 Unity -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.NavMap.Run -seed 3017 -floor 2 -out navmap.ppm
 ```
 
-- **`ProcShots`**: photographs one floor (or the rooms listed in `-rooms`); `-nav 1` draws the navmesh. Output: `hotel_build/proc_<seme>_<piano>_<nome>.png`.
+- **`ProcShots`**: photographs one floor (or the rooms listed in `-rooms`); `-nav 1` draws the navmesh, `-look` applies the fog, light and grading the player sees. Output: `hotel_build/proc_<seme>_<piano>_<nome>.png`.
 - **`ProcCheck`**: connectivity over hundreds of floors, plus an ASCII map of one room. Output: `hotel_build/proccheck.txt`, `hotel_build/procascii.txt`; with `-propstats` also `hotel_build/propstats.txt` (furniture of each kind by room type).
+- Both read `-theme albergo|teatro|sanatorio|guardaroba` (forces the theme of every grid floor), `-guardaroba N` (percentage of Guardaroba floors from the third up) and `-survivallayout` (the room plans of the wave cycle, which is the game's default; without it the editor tools build the candle-cycle plan). See [../game/guardaroba.md](../game/guardaroba.md).
 - **`NavMap`**: navmesh of one floor in PPM, walkable area, the component of the arrival, and the doors that separate it from the rest. Output: the `-out` file (default `hotel_build/navmap.ppm`).
 
 ## 3. In-game headless tests

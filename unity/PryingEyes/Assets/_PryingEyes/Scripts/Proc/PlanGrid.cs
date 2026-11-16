@@ -54,7 +54,7 @@ namespace PryingEyes.Proc
         // ------------------------------------------------------------------ costruzione
         static Plan BuildGrid(Rng r, int seed, int floor, bool simple)
         {
-            var theme = PickTheme(floor, new Rng(unchecked(seed * 73 + floor * 1009 + 5)));
+            var theme = PickTheme(floor, new Rng(unchecked(seed * 73 + floor * 1009 + 5)), seed, true);
             int n = SurvivalLayout ? Math.Max(7, Math.Min(9, 7 + Math.Max(0, floor - 1) / 4) - (simple ? 1 : 0)) :
                 Math.Min(17, 13 + Math.Max(0, floor - 1) / 3) - (simple ? 1 : 0);
             int gw = 7, gh = n >= 15 ? 6 : 5;
@@ -187,17 +187,45 @@ namespace PryingEyes.Proc
             start.group = 0; boss.group = 1;
             BalanceGroups(gs, dB, si, bi);
 
-            bool churchTheme = theme != Theme.Teatro;
+            // il teatro e il Guardaroba hanno due zone loro (sala/palcoscenico, guardaroba/tomba), non l'albergo con la chiesa
+            bool twoZones = theme == Theme.Teatro || theme == Theme.Guardaroba;
+            bool churchTheme = !twoZones;
             bool startChurch = churchTheme && r.Chance(0.5);                       // la zona dell'arrivo e' la chiesa (e quella del boss l'albergo)
             var used = new Dictionary<RoomKind, int>();
+
+            // il Guardaroba e' anche all'aperto: almeno una terrazza per piano, due se le stanze comuni sono due o piu', una per zona quando si
+            // puo' e sul bordo (con un lato sul vuoto: si affaccia sulla lava) prima che dentro (allora e' un cortile). Solo per questo tema:
+            // gli altri non consumano numeri dal generatore, e i piani di prima restano quelli di prima.
+            var terraces = new HashSet<GRoom>();
+            if (theme == Theme.Guardaroba)
+            {
+                var fillers = gs.FindAll(g => g.type == RoomType.Guardia);
+                int atriaLeft = gs.FindAll(g => g.cw >= 2 && g.ch >= 2).Count;                 // il ciclo a ondate vuole almeno due atri a tre quote
+                for (int k = 0, want = Math.Min(2, fillers.Count); k < want; k++)
+                {
+                    GRoom best = null; double bestScore = double.MinValue;
+                    foreach (var g in fillers)
+                    {
+                        if (terraces.Contains(g)) continue;
+                        if (g.cw >= 2 && g.ch >= 2 && atriaLeft <= 2) continue;             // un atrio non diventa terrazza se ne toglie uno dei due
+                        double score = (g.hull ? 10.0 : 0.0) - g.Cells * 1.2 + r.Value();      // il bordo prima di tutto, poi le piu' piccole
+                        foreach (var t in terraces) if (t.group != g.group) score += 4.0;
+                        if (score > bestScore) { bestScore = score; best = g; }
+                    }
+                    if (best == null) continue;
+                    terraces.Add(best);
+                    if (best.cw >= 2 && best.ch >= 2) atriaLeft--;
+                }
+            }
 
             // ---- la pianta vera
             var p = new Plan { grid = true, theme = theme, seed = seed, floor = floor, units = 1, startInChurch = startChurch };
             foreach (var g in gs)
             {
                 bool church = churchTheme && ((g.group == 0) == startChurch);
-                int wing = theme == Theme.Teatro ? g.group : (church ? 1 : 0);
-                g.kind = PickGridKind(theme, wing, church, g.type, g.Cells, used, r);
+                int wing = twoZones ? g.group : (church ? 1 : 0);
+                if (terraces.Contains(g)) { g.kind = RoomKind.Terrazza; used[g.kind] = used.TryGetValue(g.kind, out int tu) ? tu + 1 : 1; }
+                else g.kind = PickGridKind(theme, wing, church, g.type, g.Cells, used, r);
                 var room = new Room
                 {
                     id = p.rooms.Count, kind = g.kind, type = g.type, church = church, wing = wing, unit = 0, seed = r.Range(1, 1 << 30),
@@ -208,6 +236,7 @@ namespace PryingEyes.Proc
                     (room.type == RoomType.Candela || room.type == RoomType.Boss || room.type == RoomType.Guardia || (SurvivalLayout && room.type == RoomType.Partenza));
                 if (room.W >= 240 && room.D >= 240 && room.type != RoomType.Segreta)
                     room.upperGallery = true;
+                if (room.kind == RoomKind.Terrazza) room.upperGallery = false;      // all'aperto: niente balconata ne' volta
                 if (room.upperGallery)
                 {
                     // le sale a balconata del ciclo a ondate sono cattedrali: sopra l'ultimo anello restano da cinque a sei metri di volta
@@ -265,6 +294,7 @@ namespace PryingEyes.Proc
 
         static void ShapeSpaces(Plan plan)
         {
+            if (plan.theme == Theme.Guardaroba) return;       // ogni stanza resta quella del tema: niente rotonda, galleria o giardino
             float Radius(Room room)
             {
                 float radius = Math.Min(room.W, room.D) * 0.05f - 1.7f;
@@ -519,6 +549,30 @@ namespace PryingEyes.Proc
                         case RoomType.Biblioteca: return new[] { new KC(RoomKind.Camerino, 1, 1, 2), new KC(RoomKind.Deposito, 1, 1, 2) };
                         case RoomType.Segreta: return new[] { new KC(RoomKind.Deposito, 1, 1, 1), new KC(RoomKind.Camerino, 1, 1, 1) };
                         default: return new[] { new KC(RoomKind.Camerino, 3, 1, 1), new KC(RoomKind.Deposito, 3, 1, 2), new KC(RoomKind.Palcoscenico, 1) };
+                    }
+                case Theme.Guardaroba:
+                    // zona 0 = il guardaroba (spogliatoio, sala degli armadi, sartoria), zona 1 = la tomba del conte (cripta, forgia);
+                    // le terrazze all'aperto stanno nelle stanze comuni di tutte e due, mai nei ruoli (arene, negozio, biblioteca)
+                    if (wing == 0)
+                        switch (type)
+                        {
+                            case RoomType.Partenza: return new[] { new KC(RoomKind.Spogliatoio, 3, 1, 2), new KC(RoomKind.SalaArmadi, 1, 1, 2) };
+                            case RoomType.Boss: return new[] { new KC(RoomKind.Sepolcreto, 3) };
+                            case RoomType.Candela: return new[] { new KC(RoomKind.SalaArmadi, 3), new KC(RoomKind.Sartoria, 2), new KC(RoomKind.Spogliatoio, 1, 1, 2) };
+                            case RoomType.Negozio: return new[] { new KC(RoomKind.Sartoria, 3, 1, 2), new KC(RoomKind.Spogliatoio, 1, 1, 1) };
+                            case RoomType.Biblioteca: return new[] { new KC(RoomKind.SalaArmadi, 3, 1, 2), new KC(RoomKind.Spogliatoio, 1, 1, 2) };
+                            case RoomType.Segreta: return new[] { new KC(RoomKind.Spogliatoio, 1, 1, 1) };
+                            default: return new[] { new KC(RoomKind.SalaArmadi, 3), new KC(RoomKind.Sartoria, 3), new KC(RoomKind.Spogliatoio, 2, 1, 2), new KC(RoomKind.Terrazza, 2, 1, 3) };
+                        }
+                    switch (type)
+                    {
+                        case RoomType.Partenza: return new[] { new KC(RoomKind.Spogliatoio, 1, 1, 2) };
+                        case RoomType.Boss: return new[] { new KC(RoomKind.Sepolcreto, 3), new KC(RoomKind.Forgia, 1, 2) };
+                        case RoomType.Candela: return new[] { new KC(RoomKind.Sepolcreto, 3), new KC(RoomKind.Forgia, 2), new KC(RoomKind.SalaArmadi, 1) };
+                        case RoomType.Negozio: return new[] { new KC(RoomKind.Forgia, 3, 1, 2), new KC(RoomKind.Sartoria, 1, 1, 1) };
+                        case RoomType.Biblioteca: return new[] { new KC(RoomKind.Sepolcreto, 2, 1, 2), new KC(RoomKind.SalaArmadi, 1, 1, 2) };
+                        case RoomType.Segreta: return new[] { new KC(RoomKind.Sepolcreto, 1, 1, 1) };
+                        default: return new[] { new KC(RoomKind.Sepolcreto, 3), new KC(RoomKind.Forgia, 3), new KC(RoomKind.Terrazza, 2, 1, 3), new KC(RoomKind.SalaArmadi, 1, 1, 2) };
                     }
                 case Theme.Sanatorio:
                     switch (type)

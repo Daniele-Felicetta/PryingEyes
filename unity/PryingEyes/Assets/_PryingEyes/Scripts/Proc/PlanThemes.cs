@@ -9,8 +9,32 @@ namespace PryingEyes.Proc
     public static partial class PlanGen
     {
         // ------------------------------------------------------------------ tema per piano
-        /// <summary>Piani 1 e 2: solo albergo e chiesa, per imparare il gioco. Dal terzo piano il tema viene estratto a pari peso.</summary>
-        static Theme PickTheme(int floor, Rng r) => floor <= 2 ? Theme.Albergo : (Theme)r.Range(0, 3);
+        /// <summary>Forza il tema di tutti i piani a pianta a griglia (prove, menu, -theme): null = estrazione normale. Il generatore
+        /// vecchio (-oldplan) non sa comporre il Guardaroba e lo legge come albergo.</summary>
+        public static Theme? ForceTheme;
+
+        /// <summary>Su cento piani dal terzo in su, quanti sono il Guardaroba. 0 lo spegne (i piani tornano quelli di prima).</summary>
+        public static int GuardarobaPercent = 25;
+
+        /// <summary>Piani 1 e 2: solo albergo e chiesa, per imparare il gioco. Dal terzo piano il tema viene estratto a pari peso tra
+        /// albergo, teatro e sanatorio con lo stesso Rng di sempre (cosi' il resto del piano non cambia); il Guardaroba e' una seconda
+        /// estrazione, indipendente, che sostituisce quel tema in un piano su quattro.</summary>
+        static Theme PickTheme(int floor, Rng r, int seed = 0, bool grid = false)
+        {
+            Theme t = floor <= 2 ? Theme.Albergo : (Theme)r.Range(0, 3);
+            if (!grid) return t;
+            if (ForceTheme.HasValue) return ForceTheme.Value;
+            if (floor >= 3 && GuardarobaPercent > 0 && new Rng(unchecked(seed * 211 + floor * 7919 + GuardarobaSalt)).Range(0, 100) < GuardarobaPercent)
+                return Theme.Guardaroba;
+            return t;
+        }
+
+        /// <summary>Il sale della seconda estrazione: scelto con 'planlab themes scan' perche' i semi delle prove storiche (tutti dal terzo
+        /// piano in su) mantengano il tema che avevano.</summary>
+        public static int GuardarobaSalt = 66;
+
+        /// <summary>Il tema che il piano (seme, piano) avra' con le impostazioni correnti: per i laboratori e le prove.</summary>
+        public static Theme ThemeFor(int seed, int floor) => PickTheme(floor, new Rng(unchecked(seed * 73 + floor * 1009 + 5)), seed, UseGrid);
 
         // ------------------------------------------------------------------ funzioni delle stanze di un'ala d'albergo
         /// <summary>Un'ala d'albergo ha la stessa pianta nell'albergo e nell'istituto: cambiano le funzioni delle stanze.</summary>
@@ -168,9 +192,17 @@ namespace PryingEyes.Proc
                 case RoomKind.Archivio: r.wallH = 3.8f; break;
                 case RoomKind.Obitorio: r.wallH = 2.8f; break;
                 case RoomKind.SalaMedici: r.wallH = 3.2f; break;
+                // Guardaroba: gli armadi arrivano al soffitto, la cripta ha la volta a botte, la terrazza non ha tetto (le sale a balconata
+                // del ciclo a ondate si alzano da sole, vedi BuildGrid; la terrazza no: niente balconata, i muri verso le altre stanze salgono col vicino)
+                case RoomKind.SalaArmadi: r.wallH = 4.8f; r.ceil = CeilKind.Beams; break;
+                case RoomKind.Sartoria: r.wallH = 3.8f; break;
+                case RoomKind.Spogliatoio: r.wallH = 3.4f; break;
+                case RoomKind.Sepolcreto: r.wallH = 3.6f; r.ridgeH = 5.6f; r.ceil = CeilKind.BarrelRound; r.ridgeAlongX = true; break;
+                case RoomKind.Forgia: r.wallH = 4.2f; r.ceil = CeilKind.Beams; break;
+                case RoomKind.Terrazza: r.wallH = 6.0f; r.ceil = CeilKind.Open; break;
                 default: return false;
             }
-            if (r.ceil == CeilKind.Flat || r.ceil == CeilKind.Beams) r.ridgeH = r.wallH;
+            if (r.ceil == CeilKind.Flat || r.ceil == CeilKind.Beams || r.ceil == CeilKind.Open) r.ridgeH = r.wallH;
             return true;
         }
 
@@ -234,6 +266,21 @@ namespace PryingEyes.Proc
                             case RoomKind.SalaMedici:
                                 if (len >= 20) Win(p, room, ax, line, (seg.a0 + seg.a1) / 2, 8, OpenStyle.Feritoia, r);
                                 break;
+                            // Guardaroba: finestre alte nella sala degli armadi, larghe nella sartoria (serve luce per cucire), spioncini
+                            // nello spogliatoio, feritoie nella cripta e nella forgia (i vampiri non amano il sole, il fabbro il vento)
+                            case RoomKind.SalaArmadi:
+                                for (int c = seg.a0 + 22; c <= seg.a1 - 22; c += 44) Win(p, room, ax, line, c, 14, OpenStyle.Finestra, r);
+                                break;
+                            case RoomKind.Sartoria:
+                                for (int c = seg.a0 + 18; c <= seg.a1 - 18; c += 30) Win(p, room, ax, line, c, 14, OpenStyle.Finestra, r);
+                                break;
+                            case RoomKind.Spogliatoio:
+                                if (len >= 30) Win(p, room, ax, line, (seg.a0 + seg.a1) / 2, 12, OpenStyle.Finestra, r);
+                                break;
+                            case RoomKind.Sepolcreto:
+                            case RoomKind.Forgia:
+                                if (len >= 20) Win(p, room, ax, line, (seg.a0 + seg.a1) / 2, 8, OpenStyle.Feritoia, r);
+                                break;
                         }
                     }
                 }
@@ -244,13 +291,16 @@ namespace PryingEyes.Proc
         static readonly string[] TeatroNames = { "Il sipario non si alza", "La platea vuota", "Il palco riservato", "Le luci di sala", "Il foyer dei ritardatari", "Dietro le quinte" };
         static readonly string[] SanatorioNames = { "Istituto Santa Lucia", "Reparto Silenzio", "Corsia Otto", "La cappella dell'istituto", "Il padiglione delle celle", "Il turno di notte" };
 
-        /// <summary>Il sottotitolo del piano: come prima per albergo e chiesa, con nomi suoi per il teatro e il sanatorio.</summary>
+        static readonly string[] GuardarobaNames = { "Il guardaroba del conte", "L'ultimo armadio", "Taglia e cuci", "Il sarto e la lava", "Appendi il cappotto", "La terrazza del conte", "Le forbici non si fermano" };
+
+        /// <summary>Il sottotitolo del piano: come prima per albergo e chiesa, con nomi suoi per il teatro, il sanatorio e il Guardaroba.</summary>
         static string Epithet(Plan p, Rng r)
         {
             switch (p.theme)
             {
                 case Theme.Teatro: return r.Pick(TeatroNames);
                 case Theme.Sanatorio: return r.Pick(SanatorioNames);
+                case Theme.Guardaroba: return r.Pick(GuardarobaNames);
                 default:
                     return r.Chance(0.7) ? (p.startInChurch ? r.Pick(ChurchNames) : r.Pick(HotelNames)) : (p.startInChurch ? r.Pick(HotelNames) : r.Pick(ChurchNames));
             }

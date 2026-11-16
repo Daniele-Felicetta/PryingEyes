@@ -46,6 +46,13 @@ namespace PryingEyes.Proc
                 look.sky = new Color(0.105f, 0.17f, 0.17f); look.equator = new Color(0.082f, 0.11f, 0.105f); look.ground = new Color(0.045f, 0.052f, 0.05f);
                 look.shadows = new Color(0.30f, 0.46f, 0.46f); look.highlights = new Color(0.60f, 0.62f, 0.46f); look.balance = -10f; look.saturation = -30f;
             }
+            else if (plan.theme == Theme.Guardaroba)    // il castello del conte: fumo rossastro che sale dalla lava, ombre viola, luci di fuoco
+            {
+                look.fog = new Color(0.115f, 0.040f, 0.040f); look.exposure = -0.35f; look.density = 1.05f;
+                look.sky = new Color(0.17f, 0.10f, 0.14f); look.equator = new Color(0.125f, 0.075f, 0.085f); look.ground = new Color(0.075f, 0.035f, 0.032f);
+                look.shadows = new Color(0.50f, 0.30f, 0.52f); look.highlights = new Color(0.80f, 0.50f, 0.32f); look.balance = -4f; look.saturation = -8f;
+                look.bloom = 0.75f;
+            }
             else if (plan.startInChurch)                // pietra e vetro freddi
             {
                 look.fog = new Color(0.085f, 0.095f, 0.115f);

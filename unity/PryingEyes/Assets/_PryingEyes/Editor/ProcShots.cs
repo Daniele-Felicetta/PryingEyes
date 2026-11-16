@@ -13,7 +13,7 @@ namespace PryingEyes.EditorTools
     /// -rooms Navata,Camera (elenco) -only nome (una sola foto). Uscita: hotel_build/proc_seme_piano_nome.png.</summary>
     public static class ProcShots
     {
-        const string Out = "C:/Users/danie/Desktop/prying-eyes/hotel_build/";
+        static string Out => TestPaths.Out("");     // hotel_build/ of the checkout the editor project belongs to
 
         static string Arg(string name)
         {
@@ -37,11 +37,15 @@ namespace PryingEyes.EditorTools
             var kit = Object.FindFirstObjectByType<ProcKit>();
             TorreBuilder.FillKit(kit);
             LightPool.Clear();
+            ThemeFlag.Apply();                       // -theme guardaroba, -guardaroba N
+            bool look = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-look") >= 0;
+            if (look) LightPool.Dim = FloorDirector.LightDim(floor);
             var plan = PlanGen.Generate(seed, floor);
             if (plan == null) { Debug.LogError("piano non generato"); return; }
             var fi = FloorBuilder.Build(plan, null);
             Physics.SyncTransforms();
-            Debug.Log($"[PryingEyes] foto piano seme {seed} piano {floor}: {plan.rooms.Count} stanze, {LightPool.Count} luci");
+            if (look) FloorDirector.ApplyLook(plan, floor);     // -look: the fog, ambient light and grading the player sees
+            Debug.Log($"[PryingEyes] foto piano seme {seed} piano {floor} tema {plan.theme}: {plan.rooms.Count} stanze, {LightPool.Count} luci");
 
             var mainCam = GameObject.Find("MainCamera");
             var camGo = new GameObject("ShotCam");
@@ -77,12 +81,16 @@ namespace PryingEyes.EditorTools
                 seen.Add(r.kind);
                 var s = EntryShot(plan, r);
                 shots.Add(s);
+                if (r.kind == RoomKind.Terrazza && OutsideShot(plan, r, out var outside)) shots.Add(outside);      // la terrazza guarda anche fuori, verso la lava
             }
             // ascensore di arrivo dall'interno della cabina e dalla stanza
             if (fi.arrival != null && want == null)
             {
                 shots.Add(new Shot { name = "ascensore", pos = fi.arrival.frontPoint + Vector3.up * 1.62f - fi.arrival.lookOut * 0.2f, look = fi.arrival.spawnPoint + Vector3.up * 1.3f, fov = 72f });
             }
+            // -skyshot: l'edificio visto da fuori (da nord-est, 70 m di distanza), con il cielo e, sotto l'orizzonte, il lago di lava
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-skyshot") >= 0)
+                shots.Add(new Shot { name = "cielo", pos = mid + new Vector3(70f, 7f, 70f), look = mid + Vector3.up * 16f, fov = 78f });
             string only = Arg("-only");
             if (only != null) shots = shots.FindAll(s => s.name == only);
 
@@ -144,6 +152,23 @@ namespace PryingEyes.EditorTools
             File.WriteAllBytes(Out + file, tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
             Debug.Log("[PryingEyes] foto " + file);
+        }
+
+        /// <summary>Una stanza all'aperto vista dal lato con piu' vuoto: due metri e mezzo dentro il parapetto, lo sguardo oltre il bordo (cielo e lago di lava).</summary>
+        internal static bool OutsideShot(Plan plan, Room r, out Shot shot)
+        {
+            shot = default;
+            Side open = Side.S; int best = -1, mid = 0;
+            foreach (Side s in new[] { Side.S, Side.N, Side.W, Side.E })
+                foreach (var seg in plan.Segments(r, s))
+                    if (seg.other < 0 && seg.a1 - seg.a0 > best) { best = seg.a1 - seg.a0; open = s; mid = (seg.a0 + seg.a1) / 2; }
+            if (best <= 0) return false;
+            int line = Plan.Line(r, open);
+            Vector3 wall = Plan.AlongX(open) ? new Vector3(mid * 0.1f, 0f, line * 0.1f) : new Vector3(line * 0.1f, 0f, mid * 0.1f);
+            Vector3 outward = open == Side.S ? Vector3.back : open == Side.N ? Vector3.forward : open == Side.W ? Vector3.left : Vector3.right;
+            Vector3 pos = wall - outward * 2.6f + Vector3.up * 1.62f;
+            shot = new Shot { name = r.kind.ToString().ToLower() + "_fuori", pos = pos, look = pos + outward * 30f + Vector3.up * 0.6f, fov = 80f };
+            return true;
         }
 
         /// <summary>Inquadratura d'ingresso: dalla soglia principale, 0,7 m dentro la stanza, verso il suo centro.</summary>
