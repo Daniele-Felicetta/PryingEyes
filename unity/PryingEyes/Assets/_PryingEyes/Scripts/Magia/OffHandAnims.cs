@@ -112,9 +112,9 @@ namespace PryingEyes
             k.Add(Cam(0.42f, new Vector3(-0.125f, -0.12f, 0.385f), new Vector3(0.25f, 0.3f, 0.92f), new Vector3(0.05f, -1f, 0.25f), Tight(HandPoses.Cup, 0.15f), Ct.Palm, 0, 0.6f));
             k.Add(Cam(0.53f, new Vector3(-0.235f, -0.075f, 0.285f), new Vector3(0.12f, 0.85f, 0.5f), new Vector3(0.2f, 0.45f, -0.87f), Tight(HandPoses.Cup, 0.3f), Ct.Palm, 2, 0.8f,
                       new Vector3(-0.8f, -0.55f, -0.2f), new Vector3(0f, 0f, -0.04f)));
-            k.Add(Cam(0.64f, new Vector3(-0.045f, -0.035f, 0.56f), new Vector3(0.08f, 0.62f, 0.78f), new Vector3(0f, 0.75f, -0.62f), HandPoses.Open, Ct.Palm, 1, 0f,
+            k.Add(Cam(0.64f, new Vector3(-0.10f, -0.075f, 0.52f), new Vector3(0.08f, 0.62f, 0.78f), new Vector3(0f, 0.75f, -0.62f), HandPoses.Open, Ct.Palm, 1, 0f,
                       default, new Vector3(0.01f, 0f, 0.07f)));
-            k.Add(Cam(0.75f, new Vector3(0.005f, -0.11f, 0.52f), new Vector3(0.22f, 0.12f, 0.97f), new Vector3(0f, 1f, -0.15f), HandPoses.Relaxed, Ct.Palm, 2));
+            k.Add(Cam(0.75f, new Vector3(-0.05f, -0.13f, 0.48f), new Vector3(0.22f, 0.12f, 0.97f), new Vector3(0f, 1f, -0.15f), HandPoses.Relaxed, Ct.Palm, 2));
             Close(k, one, D);
             return Make("Fiamma Sacrilega", D, k, OneHandCarry(one, D), E(0.22f, "ignite"), E(0.62f, "cast"));
         }
@@ -127,8 +127,8 @@ namespace PryingEyes
             var k = Open(one, 0.10f);
             k.Add(Cam(0.33f, new Vector3(-0.12f, -0.065f, 0.40f), new Vector3(0.14f, 0.86f, 0.49f), Back, HandPoses.Claw, Ct.Palm, 2, 2.4f));
             k.Add(Cam(0.44f, new Vector3(-0.13f, -0.06f, 0.37f), new Vector3(0.12f, 0.9f, 0.42f), Back, Tight(HandPoses.Claw, 0.12f), Ct.Palm, 0, 3.2f));
-            k.Add(Cam(0.51f, new Vector3(-0.075f, -0.04f, 0.53f), new Vector3(0.1f, 0.6f, 0.79f), Back, HandPoses.Open, Ct.Palm, 1, 4f, default, new Vector3(0f, 0f, 0.05f)));
-            k.Add(Cam(0.61f, new Vector3(-0.12f, 0.0f, 0.44f), new Vector3(0f, 0.92f, 0.38f), Back, HandPoses.Claw, Ct.Palm, 2, 1.2f));
+            k.Add(Cam(0.51f, new Vector3(-0.11f, -0.07f, 0.50f), new Vector3(0.1f, 0.6f, 0.79f), Back, HandPoses.Open, Ct.Palm, 1, 4f, default, new Vector3(0f, 0f, 0.05f)));
+            k.Add(Cam(0.61f, new Vector3(-0.13f, -0.035f, 0.43f), new Vector3(0f, 0.92f, 0.38f), Back, HandPoses.Claw, Ct.Palm, 2, 1.2f));
             k.Add(Cam(0.71f, new Vector3(-0.155f, -0.115f, 0.40f), new Vector3(0.2f, 0.5f, 0.84f), new Vector3(-0.3f, 0.8f, -0.4f), HandPoses.Relaxed, Ct.Palm, 0, 1.5f));
             Close(k, one, D);
             return Make("Catena del Fulmine", D, k, OneHandCarry(one, D), E(0.20f, "spark"), E(0.49f, "cast"));
@@ -142,8 +142,8 @@ namespace PryingEyes
             var k = Open(one, 0.10f);
             k.Add(Cam(0.34f, new Vector3(-0.10f, -0.10f, 0.36f), new Vector3(0.1f, 1f, 0.15f), Fwd, HandPoses.Cup, Ct.Palm, 2, 0.5f));
             k.Add(Cam(0.45f, new Vector3(-0.095f, -0.085f, 0.38f), new Vector3(0.1f, 0.97f, 0.2f), Fwd, Tight(HandPoses.Cup, 0.2f), Ct.Palm, 0, 1f));
-            k.Add(Cam(0.57f, new Vector3(-0.07f, -0.06f, 0.505f), new Vector3(0.07f, 0.76f, 0.64f), Back, HandPoses.Flat, Ct.Palm, 2, 0.3f, default, new Vector3(0f, 0f, 0.05f)));
-            k.Add(Cam(0.74f, new Vector3(-0.07f, -0.058f, 0.52f), new Vector3(0.07f, 0.78f, 0.62f), Back, HandPoses.Flat, Ct.Palm, 0, 1.2f, default, new Vector3(0f, 0f, 0.05f)));
+            k.Add(Cam(0.57f, new Vector3(-0.11f, -0.085f, 0.48f), new Vector3(0.07f, 0.76f, 0.64f), Back, HandPoses.Flat, Ct.Palm, 2, 0.3f, default, new Vector3(0f, 0f, 0.05f)));
+            k.Add(Cam(0.74f, new Vector3(-0.11f, -0.083f, 0.495f), new Vector3(0.07f, 0.78f, 0.62f), Back, HandPoses.Flat, Ct.Palm, 0, 1.2f, default, new Vector3(0f, 0f, 0.05f)));
             k.Add(Cam(0.86f, new Vector3(-0.13f, -0.12f, 0.43f), new Vector3(0.2f, 0.45f, 0.87f), new Vector3(-0.2f, 0.85f, -0.4f), HandPoses.Relaxed, Ct.Palm, 0));
             Close(k, one, D);
             return Make("Morsa di Gelo", D, k, OneHandCarry(one, D), E(0.18f, "charge"), E(0.56f, "cast"));
@@ -155,8 +155,8 @@ namespace PryingEyes
         {
             const float D = 2.22f;
             var k = Open(one, 0.10f);
-            k.Add(Cam(0.32f, new Vector3(-0.10f, -0.06f, 0.46f), new Vector3(0.05f, 0.8f, 0.6f), Back, HandPoses.Horns, Ct.Palm, 2, 0.4f));
-            k.Add(Cam(0.46f, new Vector3(-0.10f, -0.058f, 0.47f), new Vector3(0.05f, 0.82f, 0.57f), Back, HandPoses.Claw, Ct.Palm, 1, 2f));
+            k.Add(Cam(0.32f, new Vector3(-0.12f, -0.075f, 0.45f), new Vector3(0.05f, 0.8f, 0.6f), Back, HandPoses.Horns, Ct.Palm, 2, 0.4f));
+            k.Add(Cam(0.46f, new Vector3(-0.12f, -0.073f, 0.46f), new Vector3(0.05f, 0.82f, 0.57f), Back, HandPoses.Claw, Ct.Palm, 1, 2f));
             k.Add(Cam(1.05f, new Vector3(-0.125f, -0.09f, 0.39f), new Vector3(0.1f, 0.9f, 0.4f), Back, Tight(HandPoses.Claw, 0.25f), Ct.Palm, 0, 3f));
             k.Add(Cam(1.75f, new Vector3(-0.145f, -0.115f, 0.335f), new Vector3(0.12f, 0.93f, 0.33f), Back, Tight(HandPoses.Claw, 0.55f), Ct.Palm, 0, 3.4f));
             k.Add(Cam(1.95f, new Vector3(-0.15f, -0.12f, 0.33f), new Vector3(0.12f, 0.93f, 0.33f), Back, HandPoses.Fist, Ct.Palm, 1, 1f));
@@ -187,8 +187,8 @@ namespace PryingEyes
             var k = Open(one, 0.10f);
             k.Add(Cam(0.36f, new Vector3(-0.14f, -0.14f, 0.285f), new Vector3(0.2f, 0.6f, 0.77f), new Vector3(-1f, 0f, 0.1f), HandPoses.Fist, Ct.Palm, 2, 1.6f,
                       new Vector3(-0.9f, -0.4f, -0.2f), new Vector3(0f, 0f, -0.03f)));
-            k.Add(Cam(0.52f, new Vector3(-0.05f, -0.06f, 0.56f), new Vector3(0f, 0.8f, 0.6f), Back, HandPoses.Thrust, Ct.Palm, 1, 0f, default, new Vector3(0.01f, 0f, 0.08f)));
-            k.Add(Cam(0.64f, new Vector3(-0.05f, -0.058f, 0.565f), new Vector3(0f, 0.8f, 0.6f), Back, HandPoses.Thrust, Ct.Palm, 0, 0.8f, default, new Vector3(0.01f, 0f, 0.08f)));
+            k.Add(Cam(0.52f, new Vector3(-0.10f, -0.085f, 0.52f), new Vector3(0f, 0.8f, 0.6f), Back, HandPoses.Thrust, Ct.Palm, 1, 0f, default, new Vector3(0.01f, 0f, 0.08f)));
+            k.Add(Cam(0.64f, new Vector3(-0.10f, -0.083f, 0.525f), new Vector3(0f, 0.8f, 0.6f), Back, HandPoses.Thrust, Ct.Palm, 0, 0.8f, default, new Vector3(0.01f, 0f, 0.08f)));
             k.Add(Cam(0.77f, new Vector3(-0.12f, -0.12f, 0.43f), new Vector3(0.2f, 0.45f, 0.87f), new Vector3(-0.3f, 0.85f, -0.4f), HandPoses.Relaxed, Ct.Palm, 0));
             Close(k, one, D);
             return Make("Onda del Dodecaedro", D, k, OneHandCarry(one, D), E(0.18f, "gather"), E(0.50f, "cast"));
@@ -200,10 +200,10 @@ namespace PryingEyes
         {
             const float D = 1.74f;
             var k = Open(one, 0.10f);
-            k.Add(Cam(0.46f, new Vector3(-0.06f, -0.005f, 0.33f), new Vector3(0.02f, 1f, 0.1f), Fwd, HandPoses.Open, Ct.Palm, 2, 0.8f,
+            k.Add(Cam(0.46f, new Vector3(-0.09f, -0.04f, 0.34f), new Vector3(0.02f, 1f, 0.1f), Fwd, HandPoses.Open, Ct.Palm, 2, 0.8f,
                       new Vector3(-0.5f, -0.6f, -0.6f)));
-            k.Add(Cam(1.05f, new Vector3(-0.065f, 0.0f, 0.32f), new Vector3(0.02f, 1f, 0.12f), Fwd, HandPoses.Claw, Ct.Palm, 0, 4.2f, new Vector3(-0.5f, -0.6f, -0.6f)));
-            k.Add(Cam(1.19f, new Vector3(-0.07f, -0.015f, 0.325f), new Vector3(0.02f, 1f, 0.12f), Fwd, HandPoses.Fist, Ct.Palm, 1, 2f, new Vector3(-0.5f, -0.6f, -0.6f)));
+            k.Add(Cam(1.05f, new Vector3(-0.095f, -0.035f, 0.33f), new Vector3(0.02f, 1f, 0.12f), Fwd, HandPoses.Claw, Ct.Palm, 0, 4.2f, new Vector3(-0.5f, -0.6f, -0.6f)));
+            k.Add(Cam(1.19f, new Vector3(-0.10f, -0.05f, 0.335f), new Vector3(0.02f, 1f, 0.12f), Fwd, HandPoses.Fist, Ct.Palm, 1, 2f, new Vector3(-0.5f, -0.6f, -0.6f)));
             k.Add(Cam(1.42f, new Vector3(-0.16f, -0.14f, 0.36f), new Vector3(0.2f, 0.6f, 0.77f), new Vector3(-0.4f, 0.7f, -0.5f), HandPoses.Fist, Ct.Palm, 2, 0.8f));
             Close(k, one, D);
             return Make("Essenza Maledetta", D, k, OneHandCarry(one, D), E(0.26f, "veins"), E(1.18f, "cast"));
@@ -328,9 +328,11 @@ namespace PryingEyes
             k.Add(On(0.96f, Pt.MagBase, new Vector3(0f, -0.012f, 0f), bf, Down, HandPoses.Flat, Ct.Palm, 1));
             k.Add(On(1.07f, Pt.MagBase, new Vector3(-0.01f, -0.075f, 0f), bf, Down, HandPoses.Relaxed, Ct.Palm, 2));
             Close(k, one, D);
-            return Make("Elettrificato", D, k, Present(D, one, W(0.96f, PresentP(one) + new Vector3(0f, 0.015f, 0f), PresentR(one) + new Vector3(-4f, 0f, 0f), 1),
-                                                         W(1.04f, PresentP(one), PresentR(one), 2)),
-                        E(0.32f, "grab"), E(0.44f, "arcs"), E(0.96f, "slap"), E(0.97f, "cast"));
+            var an = Make("Elettrificato", D, k, Present(D, one, W(0.96f, PresentP(one) + new Vector3(0f, 0.015f, 0f), PresentR(one) + new Vector3(-4f, 0f, 0f), 1),
+                                                            W(1.04f, PresentP(one), PresentR(one), 2)),
+                          E(0.32f, "grab"), E(0.44f, "arcs"), E(0.96f, "slap"), E(0.97f, "cast"));
+            an.reachOffset = new Vector3(0.02f, 0.07f, 0.02f);     // il caricatore e il suo fondello stanno sotto l'arma: piu' in alto, in vista
+            return an;
         }
 
         /// <summary>Gelido: il palmo piatto si appoggia sul fianco sinistro dell'arma e preme; la brina corre dal palmo su tutta l'arma; la
@@ -384,9 +386,9 @@ namespace PryingEyes
             var k = Open(oneHanded, 0.08f);
             k.Add(Cam(0.22f, new Vector3(-0.21f, -0.15f, 0.30f), new Vector3(0.2f, 0.7f, 0.68f), new Vector3(-0.6f, 0.1f, -0.8f), HandPoses.Grip, Ct.Palm, 2, 0f,
                       new Vector3(-0.85f, -0.45f, -0.25f), new Vector3(0f, 0f, -0.03f)));
-            k.Add(Cam(0.40f, new Vector3(-0.055f, -0.02f, 0.56f), new Vector3(0.1f, 0.5f, 0.86f), new Vector3(0f, 0.86f, -0.5f), HandPoses.Open, Ct.Palm, 1, 0f,
+            k.Add(Cam(0.40f, new Vector3(-0.10f, -0.055f, 0.53f), new Vector3(0.1f, 0.5f, 0.86f), new Vector3(0f, 0.86f, -0.5f), HandPoses.Open, Ct.Palm, 1, 0f,
                       default, new Vector3(0.01f, 0f, 0.07f)));
-            k.Add(Cam(0.53f, new Vector3(0.0f, -0.12f, 0.50f), new Vector3(0.25f, 0.1f, 0.96f), new Vector3(0f, 1f, -0.1f), HandPoses.Relaxed, Ct.Palm, 2));
+            k.Add(Cam(0.53f, new Vector3(-0.04f, -0.13f, 0.47f), new Vector3(0.25f, 0.1f, 0.96f), new Vector3(0f, 1f, -0.1f), HandPoses.Relaxed, Ct.Palm, 2));
             Close(k, oneHanded, D);
             return Make("Lancio", D, k, OneHandCarry(oneHanded, D), E(0.10f, "take"), E(0.38f, "release"));
         }

@@ -9,7 +9,12 @@ namespace PryingEyes
     /// vera: un osso del palmo sul polso e tre falangi per dito, una pelle calcolata a runtime (pesi per distanza dalle capsule delle
     /// falangi, sfumati alle articolazioni e tra un dito e l'altro, la manichetta divisa tra palmo e avambraccio) e le pose in angoli
     /// anatomici (HandPose) con i campi articolari della mano umana. Riferimento del palmo: +Z verso le dita, +Y il dorso, +X il pollice
-    /// (per la sinistra). Senza i perni Build torna null.</summary>
+    /// (per la sinistra). Senza i perni Build torna null.
+    ///
+    /// La manichetta (il polsino del guanto, dietro il polso) e' dell'avambraccio, non della mano: ha un osso suo (UpdateCuff) che sta
+    /// sul polso, allineato all'avambraccio e girato con la mano attorno al suo asse (la prono-supinazione e' dell'avambraccio, la
+    /// flessione e la deviazione no). La pelle passa dal palmo alla manichetta in 3 cm attorno al polso: il polso si piega li', non
+    /// 6 cm piu' indietro dentro la manica (prima la manichetta era rigida col palmo e la mano sembrava avere un collo).</summary>
     public sealed class HandRig
     {
         public const int ThumbIndex = 4;
@@ -25,6 +30,8 @@ namespace PryingEyes
         };
 
         public readonly Transform Root, Palm;
+        /// <summary>L'osso della manichetta (indice 16 della pelle): sul polso, lungo l'avambraccio (UpdateCuff).</summary>
+        Transform cuff;
         readonly Transform[,] bone = new Transform[5, 3];
         readonly Vector3[,] J = new Vector3[5, 4];                 // articolazioni nella posa di legame, riferimento del palmo
         readonly Quaternion[,] restRot = new Quaternion[5, 3];     // rotazioni di legame delle falangi, riferimento del palmo
@@ -79,10 +86,9 @@ namespace PryingEyes
         public bool Visible => renderers.Count > 0 && renderers[0] != null && renderers[0].enabled;
 
         /// <summary>root = istanza della mano libera; il guanto prende i materiali glove/guard (quelli delle mani su misura dell'arma,
-        /// cosi' la mano libera e quella avvolta sono la stessa). cuffBend = rotazione (mondo) con cui si lega la manichetta: come nelle
-        /// mani su misura sta a meta' strada tra l'asse della mano e quello dell'avambraccio, poi resta rigida col palmo (come l'orlo
-        /// della manica, che ArmRig tiene con la mano fino a 3-9 cm dal polso).</summary>
-        public static HandRig Build(Transform root, Material glove, Material guard, Quaternion cuffBend)
+        /// cosi' la mano libera e quella avvolta sono la stessa). La manichetta si lega dritta, nell'asse della mano: a runtime la porta
+        /// l'osso della manichetta lungo l'avambraccio vero (UpdateCuff).</summary>
+        public static HandRig Build(Transform root, Material glove, Material guard)
         {
             if (root == null) return null;
             Transform tw = Find(root, "L_polso"), tp = Find(root, "L_palmo"), td = Find(root, "L_dorso"), tc = Find(root, "L_manichetta");
@@ -106,16 +112,23 @@ namespace PryingEyes
             h.thumbSign = h.J[4, 3].x >= 0f ? 1f : -1f;
             h.BuildBones();
             h.MeasureRest();
+            // la manichetta: sul polso, legata nell'asse della mano (dritta)
+            var cuffGo = new GameObject("osso_manichetta");
+            cuffGo.layer = root.gameObject.layer;
+            h.cuff = cuffGo.transform;
+            h.cuff.SetParent(root, false);
+            h.cuff.SetPositionAndRotation(palm.position, palm.rotation);
 
-            // pelle: guanto e rinforzo diventano SkinnedMeshRenderer sulle ossa (palmo e 15 falangi)
+            // pelle: guanto e rinforzo diventano SkinnedMeshRenderer sulle ossa (palmo, 15 falangi, manichetta)
             var bones = new List<Transform> { palm };
             for (int f = 0; f < 5; f++) for (int i = 0; i < 3; i++) bones.Add(h.bone[f, i]);
+            bones.Add(h.cuff);
             var mfs = root.GetComponentsInChildren<MeshFilter>(true);
             foreach (var mf in mfs)
             {
                 if (mf.sharedMesh == null) continue;
                 bool isGuard = mf.name.Contains("rinforzo");
-                var smr = h.SkinPart(mf, bones.ToArray(), isGuard, cuffBend);
+                var smr = h.SkinPart(mf, bones.ToArray(), isGuard);
                 if (smr == null) continue;
                 var mat = isGuard ? guard : glove;
                 if (mat != null) smr.sharedMaterial = mat;
@@ -253,6 +266,17 @@ namespace PryingEyes
             }
         }
 
+        /// <summary>Porta la manichetta lungo l'avambraccio: sul polso (l'origine del palmo), con l'asse della mano piegato sull'asse
+        /// dell'avambraccio ('forearm', mondo, dal gomito al polso) per la via piu' corta. Cosi' la manichetta prende dalla mano solo la
+        /// rotazione attorno all'avambraccio (prono-supinazione) e lascia al polso flessione e deviazione. Zero = rigida col palmo.</summary>
+        public void UpdateCuff(Vector3 forearm)
+        {
+            if (cuff == null || Palm == null) return;
+            Quaternion pr = Palm.rotation;
+            Quaternion q = forearm.sqrMagnitude > 1e-8f ? Quaternion.FromToRotation(pr * Vector3.forward, forearm.normalized) * pr : pr;
+            cuff.SetPositionAndRotation(Palm.position, q);
+        }
+
         /// <summary>Un punto di contatto (0 polso, 1 palmo, 2 indice, 3 medio, 4 pollice, 5 mignolo) nel riferimento del palmo per una
         /// posa, senza toccare le ossa (cinematica diretta): serve a mettere il polpastrello o il palmo esattamente su un punto.</summary>
         public Vector3 ContactInPalm(HandPose pose, int contact)
@@ -331,7 +355,7 @@ namespace PryingEyes
         // ------------------------------------------------------------------ pelle
         static readonly Dictionary<Mesh, BoneWeight[]> weightCache = new Dictionary<Mesh, BoneWeight[]>();
 
-        SkinnedMeshRenderer SkinPart(MeshFilter mf, Transform[] bones, bool isGuard, Quaternion cuffBend)
+        SkinnedMeshRenderer SkinPart(MeshFilter mf, Transform[] bones, bool isGuard)
         {
             var src = mf.sharedMesh;
             if (!src.isReadable) { Debug.LogWarning("[PryingEyes] mano libera: mesh non leggibile, resta rigida: " + src.name); return null; }
@@ -351,28 +375,6 @@ namespace PryingEyes
                 bw = new BoneWeight[vs.Length];
                 for (int i = 0; i < vs.Length; i++) bw[i] = Weigh(toPalm.MultiplyPoint3x4(vs[i]), isGuard);
                 weightCache[src] = bw;
-            }
-            // la manichetta si lega piegata come quella delle mani su misura: ogni vertice dietro il polso ruota attorno al polso per
-            // la sua distanza (0 al polso, tutta la piega in fondo alla manichetta); la rotazione e' nel mondo, il vertice nella mesh
-            if (Quaternion.Angle(cuffBend, Quaternion.identity) > 0.5f)
-            {
-                var toMesh = mf.transform.worldToLocalMatrix;
-                var fromMesh = mf.transform.localToWorldMatrix;
-                Vector3 wrist = Palm.position;
-                var nv = (Vector3[])vs.Clone();
-                var nn = src.normals;
-                for (int i = 0; i < nv.Length; i++)
-                {
-                    float w = Smooth(0.004f, 0.062f, -toPalm.MultiplyPoint3x4(vs[i]).z);
-                    if (w <= 0f) continue;
-                    var q = Quaternion.Slerp(Quaternion.identity, cuffBend, w);
-                    Vector3 pw = fromMesh.MultiplyPoint3x4(nv[i]);
-                    nv[i] = toMesh.MultiplyPoint3x4(wrist + q * (pw - wrist));
-                    if (nn != null && i < nn.Length) nn[i] = toMesh.MultiplyVector(q * fromMesh.MultiplyVector(nn[i])).normalized;
-                }
-                mesh.vertices = nv;
-                if (nn != null && nn.Length == nv.Length) mesh.normals = nn;
-                mesh.RecalculateBounds();
             }
             mesh.boneWeights = bw;
             var bind = new Matrix4x4[bones.Length];
@@ -481,6 +483,12 @@ namespace PryingEyes
             Finger(f1, wF1);
             Finger(f2, wF2);
             if (wPalm > 0f) Add(0, wPalm);
+            // dietro il polso il peso del palmo passa alla manichetta (osso 16): tutta da 2 cm dietro, niente da 0,8 cm davanti
+            if (w.TryGetValue(0, out float wp0))
+            {
+                float wc = 1f - Smooth(-0.020f, 0.008f, p.z);
+                if (wc > 1e-4f) { w[0] = wp0 * (1f - wc); Add(16, wp0 * wc); }
+            }
             // i quattro piu' pesanti, normalizzati
             var list = new List<KeyValuePair<int, float>>(w);
             list.Sort((x, y) => y.Value.CompareTo(x.Value));

@@ -23,7 +23,9 @@ namespace PryingEyes
     /// A riposo (Free = 0) il braccio e' esattamente quello di prima. Funziona anche in edit-mode (ArmiShots).</summary>
     public sealed class ArmRig
     {
-        readonly Transform root, hand, foreBone, upperBone, twistBone;
+        readonly Transform root, hand, handBone, foreBone, upperBone, twistBone;
+        /// <summary>L'osso dell'orlo della manica rispetto a quello dell'avambraccio nella posa di legame.</summary>
+        readonly Quaternion handBoneRelFore;
         readonly Vector3 shoulder, wristInHand, poleRest, normalRest, handRefLocal, handAxisLocal;
         readonly float lu, lf;
         public readonly SkinnedMeshRenderer Skin;
@@ -36,11 +38,21 @@ namespace PryingEyes
         public float Free;
         /// <summary>Dove il gomito preferirebbe puntare (riferimento del corpo, cioe' della camera) e quanto conta (0..1).</summary>
         public Vector3 PoleHint = new Vector3(-0.55f, -0.83f, -0.1f);
+        /// <summary>Il polo di riposo, a cui i gesti tornano (OffHand): giu' e in fuori per il braccio dell'arma; con la presa realistica
+        /// quasi solo giu' (i gomiti pendono).</summary>
+        public Vector3 RestPole = new Vector3(-0.55f, -0.83f, -0.1f);
         public float PoleWeight;
         /// <summary>Spostamento della spalla (riferimento del corpo) col braccio libero: avanti quando il braccio si allunga.</summary>
         public Vector3 ShoulderOffset;
         /// <summary>Limite di comodita' del polso (gradi tra l'asse della mano e quello dell'avambraccio) che la ricerca del gomito rispetta.</summary>
         public float WristLimit = 32f;
+        /// <summary>Presa realistica (2026-11-16): il braccio e' sempre un braccio vero, anche sull'arma: spalla del corpo (con la
+        /// rotazione del busto, Stance), omero di 30 cm, gomito diretto dall'anatomia (PoleHint) e polso comodo. Senza, a riposo il
+        /// braccio dell'arma resta quello virtuale di prima (spalla finta e omero lungo, per le armi tenute lontane).</summary>
+        public bool Body;
+        /// <summary>Rotazione del busto del tiratore (gradi): la spalla sinistra va avanti e la destra indietro attorno alla spina,
+        /// come chi imbraccia un fucile (30-40) o tiene una pistola (5-15).</summary>
+        public float Stance;
         public const float MinElbowDeg = 28f, MaxElbowDeg = 176f;
         /// <summary>Il braccio libero e' un braccio vero: omero di 30 cm (quello dell'arma e' virtuale, 0,35-0,75 m, perche' il modello in
         /// prima persona sta piu' avanti di una presa vera) e spalla dove sta una spalla, 19 cm di lato, 24 sotto e 3 dietro l'occhio.
@@ -61,16 +73,39 @@ namespace PryingEyes
         public float LastElbowDeg { get; private set; }
         public float LastWristDeg { get; private set; }
         public float LastRollDeg { get; private set; }
+        /// <summary>Spalla, gomito e polso dell'ultima soluzione, nel mondo (per le prove e la vista di lato).</summary>
+        /// <summary>Il sistema della mano nel riferimento di 'hand' (pollice e dita), quando e' noto (la mano sinistra, che ha il palmo
+        /// della mano libera): allora polso e avambraccio si misurano come in anatomia e guidano la scelta del gomito. Zero = ignoto.</summary>
+        public Vector3 ThumbLocal, FingersLocal;
+        /// <summary>Misure anatomiche dell'ultima soluzione (gradi), se il sistema della mano e' noto: prono-supinazione dalla stretta di
+        /// mano (pollice in su; limite umano ~85), flessione-estensione del polso (~80) e deviazione radiale-ulnare (~30).</summary>
+        public float LastProSupDeg { get; private set; }
+        public float LastFlexDeg { get; private set; }
+        public float LastDevDeg { get; private set; }
+        public bool HasHandFrame => ThumbLocal.sqrMagnitude > 0.5f && FingersLocal.sqrMagnitude > 0.5f;
+        /// <summary>Durante i gesti della mano libera (OffHand): dopo aver scelto il gomito, la mano viene riportata dentro i campi
+        /// articolari umani ruotandola attorno al polso, come fanno i limiti muscolari di un Humanoid di Unity: il gesto chiede una
+        /// direzione, il braccio la da' finche' l'anatomia lo permette. Mai un polso girato di 180 gradi.</summary>
+        public bool ClampHand;
+        public const float ProSupMax = 85f, FlexMax = 75f, DevMax = 30f;
+        /// <summary>1 = l'orlo della manica (gli ultimi 3-9 cm, legati all'osso della mano) segue l'avambraccio come nella posa di legame e
+        /// la manica non si torce: e' il braccio della mano libera articolata, che ha la sua manichetta sull'avambraccio (HandRig) e si
+        /// piega al polso. 0 = l'orlo segue la mano (il guanto modellato, rigido con la mano, ha la manichetta da coprire).</summary>
+        public float FreeSleeve;
+        public Vector3 LastShoulderW { get; private set; }
+        public Vector3 LastElbowW { get; private set; }
+        public Vector3 LastWristW { get; private set; }
 
         public void AnchorTo(Transform bodyT, Vector3 shoulderInBody) { body = bodyT; shoulderBody = shoulderInBody; }
 
         static readonly Dictionary<Mesh, Mesh> skinned = new Dictionary<Mesh, Mesh>();
 
-        ArmRig(Transform root, Transform hand, Transform fore, Transform upper, Transform twist, Vector3 shoulder, Vector3 wristInHand,
+        ArmRig(Transform root, Transform hand, Transform handBone, Transform fore, Transform upper, Transform twist, Vector3 shoulder, Vector3 wristInHand,
                Vector3 poleRest, Vector3 normalRest, Vector3 handRefLocal, float lu, float lf, SkinnedMeshRenderer skin, float side)
         {
             this.side = side;
-            this.root = root; this.hand = hand; foreBone = fore; upperBone = upper; twistBone = twist; this.shoulder = shoulder;
+            this.root = root; this.hand = hand; this.handBone = handBone; foreBone = fore; upperBone = upper; twistBone = twist; this.shoulder = shoulder;
+            handBoneRelFore = Quaternion.Inverse(fore.rotation) * handBone.rotation;
             this.wristInHand = wristInHand; this.poleRest = poleRest; this.normalRest = normalRest; this.handRefLocal = handRefLocal;
             handAxisLocal = (-wristInHand).sqrMagnitude > 1e-8f ? (-wristInHand).normalized : Vector3.forward;
             this.lu = lu; this.lf = lf; Skin = skin;
@@ -189,10 +224,77 @@ namespace PryingEyes
             Vector3 wih = hand.InverseTransformPoint(wj.position);
             // riferimento del rollio: il 'su' dell'avambraccio di legame visto dalla mano (rollio 0 nella posa modellata)
             Vector3 refLocal = hand.InverseTransformDirection(root.TransformDirection(n0));
-            return new ArmRig(root, hand, fb, ub, tb, S0, wih, pole, n0, refLocal, lu, lf, smr, side == "s" ? -1f : 1f);
+            return new ArmRig(root, hand, hb, fb, ub, tb, S0, wih, pole, n0, refLocal, lu, lf, smr, side == "s" ? -1f : 1f);
         }
 
         static Vector3 ElbowAt(Vector3 S, Vector3 dir, float a, float h, Vector3 pole) => S + dir * a + pole * h;
+
+        /// <summary>Misure anatomiche di polso e avambraccio per spalla S, gomito E, polso W e il sistema della mano (pollice, dita):
+        /// la prono-supinazione e' l'angolo del pollice attorno all'avambraccio rispetto alla stretta di mano (pollice perpendicolare al
+        /// piano del gomito, dalla parte opposta all'omero... cioe' in su col gomito in basso); flessione ed estensione sono la rotazione
+        /// delle dita attorno all'asse del pollice, la deviazione quella attorno al dorso.</summary>
+        public static void Anatomy(Vector3 S, Vector3 E, Vector3 W, Vector3 thumb, Vector3 fingers, float side, out float proSup, out float flex, out float dev)
+        {
+            proSup = flex = dev = 0f;
+            Vector3 fa = W - E, n = Vector3.Cross(E - S, W - E);
+            if (fa.sqrMagnitude < 1e-10f || n.sqrMagnitude < 1e-12f || thumb.sqrMagnitude < 1e-8f || fingers.sqrMagnitude < 1e-8f) return;
+            fa.Normalize();
+            Vector3 medial = side * n.normalized;
+            Vector3 neutralThumb = -side * Vector3.Cross(fa, medial);
+            Vector3 tp = Vector3.ProjectOnPlane(thumb, fa);
+            if (tp.sqrMagnitude > 1e-8f) proSup = Vector3.SignedAngle(neutralThumb, tp, fa);
+            Vector3 th = thumb.normalized, dor = Vector3.Cross(fingers, thumb).normalized;
+            Vector3 f1 = Vector3.ProjectOnPlane(fingers, th), a1 = Vector3.ProjectOnPlane(fa, th);
+            if (f1.sqrMagnitude > 1e-8f && a1.sqrMagnitude > 1e-8f) flex = Vector3.SignedAngle(a1, f1, th);
+            Vector3 f2 = Vector3.ProjectOnPlane(fingers, dor), a2 = Vector3.ProjectOnPlane(fa, dor);
+            if (f2.sqrMagnitude > 1e-8f && a2.sqrMagnitude > 1e-8f) dev = Vector3.SignedAngle(a2, f2, dor);
+        }
+
+        /// <summary>Riporta la mano dentro i campi articolari ruotandola attorno al polso (spazio della radice): prima la
+        /// prono-supinazione attorno all'avambraccio, poi la flessione attorno all'asse del pollice, poi la deviazione attorno al dorso.</summary>
+        void ClampToJoints(Vector3 S, Vector3 E, Vector3 W)
+        {
+            Vector3 fa = (W - E).normalized;
+            if (fa.sqrMagnitude < 0.5f) return;
+            Vector3 th = root.InverseTransformDirection(hand.TransformDirection(ThumbLocal));
+            Vector3 fi = root.InverseTransformDirection(hand.TransformDirection(FingersLocal));
+            Quaternion r = Quaternion.identity;
+            // i tre assi si toccano (correggere flessione o deviazione sposta un po' il pollice attorno all'avambraccio): si ripete
+            for (int it = 0; it < 4; it++)
+            {
+                Anatomy(S, E, W, th, fi, side, out float ps, out float fl, out float dv);
+                float e1 = ps - Mathf.Clamp(ps, -ProSupMax, ProSupMax);
+                if (Mathf.Abs(e1) > 0.05f) { var q = Quaternion.AngleAxis(-e1, fa); r = q * r; th = q * th; fi = q * fi; }
+                Anatomy(S, E, W, th, fi, side, out ps, out fl, out dv);
+                float e2 = fl - Mathf.Clamp(fl, -FlexMax, FlexMax);
+                if (Mathf.Abs(e2) > 0.05f) { var q = Quaternion.AngleAxis(-e2, th.normalized); r = q * r; th = q * th; fi = q * fi; }
+                Anatomy(S, E, W, th, fi, side, out ps, out fl, out dv);
+                float e3 = dv - Mathf.Clamp(dv, -DevMax, DevMax);
+                if (Mathf.Abs(e3) > 0.05f) { var q = Quaternion.AngleAxis(-e3, Vector3.Cross(fi, th).normalized); r = q * r; th = q * th; fi = q * fi; }
+                if (Mathf.Abs(e1) + Mathf.Abs(e2) + Mathf.Abs(e3) < 0.5f) break;
+            }
+            if (Quaternion.Angle(r, Quaternion.identity) < 0.05f) return;
+            Vector3 pivot = root.TransformPoint(W);
+            Quaternion rw = root.rotation * r * Quaternion.Inverse(root.rotation);
+            hand.rotation = rw * hand.rotation;
+            hand.position = pivot + rw * (hand.position - pivot);
+        }
+
+        /// <summary>Quanto una soluzione esce dai campi articolari umani (gradi al quadrato, 0 = dentro): prono-supinazione oltre 75,
+        /// flessione-estensione oltre 65, deviazione oltre 25 (con un po' di margine sotto i limiti veri, 85/80/30).</summary>
+        static float AnatomyCost(float proSup, float flex, float dev)
+        {
+            float a = Mathf.Max(0f, Mathf.Abs(proSup) - 75f), b = Mathf.Max(0f, Mathf.Abs(flex) - 65f), c = Mathf.Max(0f, Mathf.Abs(dev) - 25f);
+            return a * a + b * b + 2f * c * c;
+        }
+
+        /// <summary>La spalla del corpo nel riferimento della camera: 19 cm di lato, 24 sotto e 3 dietro l'occhio, ruotata attorno alla
+        /// spina (asse verticale 3 cm dietro l'occhio) di 'stance' gradi: la sinistra avanti, la destra indietro.</summary>
+        public static Vector3 BodyShoulder(float side, float stance)
+        {
+            float t = stance * Mathf.Deg2Rad;
+            return new Vector3(side * ShoulderSide * Mathf.Cos(t), -ShoulderDown, -ShoulderBack - side * ShoulderSide * Mathf.Sin(t));
+        }
 
         /// <summary>Gomito a due ossa verso il polso attuale (riferimento della radice delle mani). Va chiamata dopo che la mano e'
         /// stata messa al suo posto nel fotogramma (Weapon.AnimateParts). dt serve alla molla del gomito col braccio libero.</summary>
@@ -201,7 +303,8 @@ namespace PryingEyes
             if (hand == null || foreBone == null) return;
             Vector3 W = root.InverseTransformPoint(hand.TransformPoint(wristInHand));
             Vector3 S = shoulder;
-            float free = Mathf.Clamp01(Free);
+            // presa realistica: spalla, omero e gomito sono sempre quelli del corpo; Free governa solo la ricerca del polso comodo
+            float free = Body ? 1f : Mathf.Clamp01(Free);
             // col braccio libero l'omero torna lungo come un omero vero
             float lu = Mathf.Lerp(this.lu, UpperReal, free);
             if (body != null)
@@ -213,7 +316,7 @@ namespace PryingEyes
                 S = new Vector3(sb.x, sb.y, shoulder.z);
                 if (free > 0f)
                 {
-                    Vector3 sb2 = new Vector3(side * ShoulderSide, -ShoulderDown, -ShoulderBack) + ShoulderOffset;
+                    Vector3 sb2 = BodyShoulder(side, Stance) + ShoulderOffset;
                     Vector3 sf = root.InverseTransformPoint(body.TransformPoint(sb2));
                     // la spalla si protende verso la mano quando il braccio non ci arriva (fino a 12 cm, la scapola che scivola)
                     Vector3 toW = W - sf;
@@ -237,7 +340,8 @@ namespace PryingEyes
             if (free > 0f && body != null)
             {
                 Vector3 hint = root.InverseTransformDirection(body.TransformDirection(PoleHint.normalized));
-                pr = Vector3.Slerp(poleRest, hint, free * Mathf.Clamp01(0.5f + PoleWeight)).normalized;
+                // il polo modellato e' quello del braccio virtuale: col corpo vero comanda l'anatomia
+                pr = Body ? hint.normalized : Vector3.Slerp(poleRest, hint, free * Mathf.Clamp01(0.5f + PoleWeight)).normalized;
             }
             Vector3 pole = pr - dir * Vector3.Dot(pr, dir);
             pole = pole.sqrMagnitude > 1e-8f ? pole.normalized : normalRest;
@@ -245,29 +349,65 @@ namespace PryingEyes
             {
                 // il gomito ruota attorno all'asse spalla-polso fino a tenere il polso comodo (poca rotazione se non serve)
                 Vector3 axisH = root.InverseTransformDirection(hand.TransformDirection(handAxisLocal));
+                Vector3 refH = root.InverseTransformDirection(hand.TransformDirection(handRefLocal));
+                bool anat = HasHandFrame;
+                Vector3 thumbR = anat ? root.InverseTransformDirection(hand.TransformDirection(ThumbLocal)) : Vector3.zero;
+                Vector3 fingR = anat ? root.InverseTransformDirection(hand.TransformDirection(FingersLocal)) : Vector3.zero;
                 float best = swivel, bestCost = float.MaxValue;
+                // presa realistica: sull'arma il gomito ruota poco (20 gradi) e resta giu' anche se il polso si piega un po' (il guanto e'
+                // modellato sull'impugnatura: allinearci l'avambraccio alzerebbe il gomito di lato, ad ala di pollo); nei gesti fino a 70
+                float range = Body ? Mathf.Lerp(20f, 70f, Mathf.Clamp01(Free)) : 70f;
+                // la spalla nel riferimento del corpo (la camera): per tenere giu' il gomito
+                Vector3 sBody = BodyShoulder(side, Stance) + ShoulderOffset;
                 for (int k = -7; k <= 7; k++)
                 {
-                    float phi = k * 10f;
+                    float phi = k * range / 7f;
                     Vector3 pk = Quaternion.AngleAxis(phi, dir) * pole;
                     Vector3 Ek = ElbowAt(S, dir, a, h, pk);
-                    float dev = Vector3.Angle(axisH, (W - Ek).normalized);
+                    Vector3 fk = (W - Ek).normalized;
+                    float dev = Vector3.Angle(axisH, fk);
                     float over = Mathf.Max(0f, dev - WristLimit);
-                    float cost = over * over + 0.012f * phi * phi + 0.03f * (phi - swivel) * (phi - swivel);
+                    // torsione dell'avambraccio con questo gomito (il 'su' del piano del gomito contro quello della mano): pronazione e
+                    // supinazione arrivano a ~85 gradi, oltre 75 il costo sale come quello del polso
+                    Vector3 nk = Vector3.Cross(Ek - S, W - Ek), rk = Vector3.ProjectOnPlane(refH, fk);
+                    float tw = nk.sqrMagnitude > 1e-10f && rk.sqrMagnitude > 1e-8f ? Mathf.Max(0f, Mathf.Abs(Vector3.SignedAngle(nk, rk, fk)) - 75f) : 0f;
+                    float joints = over * over + 0.6f * tw * tw;
+                    if (anat)
+                    {
+                        // con il sistema della mano noto contano i campi articolari veri, non lo scarto dalla posa modellata
+                        Anatomy(S, Ek, W, thumbR, fingR, side, out float ps, out float fl, out float dv);
+                        joints = AnatomyCost(ps, fl, dv);
+                    }
+                    if (body != null)
+                    {
+                        // il gomito sta giu': piu' alto di 8 cm sotto la spalla, o a meno di 27 cm dall'occhio, costa. Un braccio vero non
+                        // alza il gomito davanti alla faccia per girare la mano: gira l'avambraccio finche' puo', il resto lo da' il polso
+                        // (ClampToJoints). Prima il gomito saliva all'altezza degli occhi nelle spinte (fulmine, onda) e il braccio
+                        // copriva mezza vista
+                        Vector3 eb = body.InverseTransformPoint(root.TransformPoint(Ek));
+                        float hi = Mathf.Max(0f, eb.y - (sBody.y - 0.08f));
+                        float near = Mathf.Max(0f, 0.27f - eb.magnitude);
+                        joints += 15000f * hi * hi + 20000f * near * near;
+                    }
+                    float cost = joints + 0.012f * phi * phi + 0.03f * (phi - swivel) * (phi - swivel);
                     if (cost < bestCost) { bestCost = cost; best = phi; }
                 }
                 if (dt > 0f)
                 {
-                    // molla smorzata: il gomito arriva in ~0,15 s senza oscillare
-                    float k2 = 240f, c = 2f * Mathf.Sqrt(k2);
-                    swivelVel += (k2 * (best - swivel) - c * swivelVel) * dt;
-                    swivel += swivelVel * dt;
+                    // molla smorzata critica integrata esatta: il gomito arriva in ~0,15 s senza oscillare e resta stabile con qualunque
+                    // fotogramma (l'integrazione esplicita di prima esplodeva oltre ~0,13 s: dopo uno scatto il gomito schizzava davanti
+                    // agli occhi e la manica si stirava in un telo)
+                    const float w = 15.5f;
+                    float x0 = swivel - best, tmp = (swivelVel + w * x0) * dt, e = Mathf.Exp(-w * dt);
+                    swivelVel = (swivelVel - w * tmp) * e;
+                    swivel = best + (x0 + tmp) * e;
                 }
                 else swivel = best;
                 pole = Quaternion.AngleAxis(swivel * free, dir) * pole;
             }
             else { swivel = 0f; swivelVel = 0f; }
             Vector3 E = ElbowAt(S, dir, a, h, pole);
+            if (ClampHand && HasHandFrame) ClampToJoints(S, E, W);
             Vector3 n = Vector3.Cross(E - S, W - E);
             n = n.sqrMagnitude > 1e-10f ? n.normalized : normalRest;
             foreBone.localPosition = E;
@@ -283,12 +423,26 @@ namespace PryingEyes
             Vector3 handRef = Vector3.ProjectOnPlane(root.InverseTransformDirection(hand.TransformDirection(handRefLocal)), fa);
             float roll = foreUp.sqrMagnitude > 1e-8f && handRef.sqrMagnitude > 1e-8f ? Vector3.SignedAngle(foreUp, handRef, fa) : 0f;
             LastRollDeg = roll;
+            float fs = Mathf.Clamp01(FreeSleeve);
             if (twistBone != null)
             {
                 twistBone.localPosition = E;
-                twistBone.localRotation = Quaternion.AngleAxis(roll * 0.5f, fa) * foreBone.localRotation;
+                twistBone.localRotation = Quaternion.AngleAxis(roll * 0.5f * (1f - fs), fa) * foreBone.localRotation;
+            }
+            if (handBone != null)
+            {
+                // l'orlo della manica: con la mano (0) o con l'avambraccio, come nella posa di legame (1)
+                if (fs > 0.001f) handBone.rotation = Quaternion.Slerp(hand.rotation, foreBone.rotation * handBoneRelFore, fs);
+                else handBone.localRotation = Quaternion.identity;
             }
             LastElbowDeg = Vector3.Angle(S - E, W - E);
+            LastShoulderW = root.TransformPoint(S); LastElbowW = root.TransformPoint(E); LastWristW = root.TransformPoint(W);
+            if (HasHandFrame)
+            {
+                Anatomy(S, E, W, root.InverseTransformDirection(hand.TransformDirection(ThumbLocal)), root.InverseTransformDirection(hand.TransformDirection(FingersLocal)),
+                        side, out float ps2, out float fl2, out float dv2);
+                LastProSupDeg = ps2; LastFlexDeg = fl2; LastDevDeg = dv2;
+            }
             LastWristDeg = Vector3.Angle(root.InverseTransformDirection(hand.TransformDirection(handAxisLocal)), fa);
         }
     }

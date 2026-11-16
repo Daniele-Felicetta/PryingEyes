@@ -4,9 +4,10 @@ using UnityEngine.AI;
 
 namespace PryingEyes
 {
-    /// <summary>Gli effetti visivi delle magie e dei sigilli, sopra le particelle di Fx: fiamme, scintille e archi, brina, sangue, icore,
-    /// lampi di luce. Tutto in coordinate del mondo: una fiamma nel palmo si emette dove sta il palmo a ogni fotogramma e lascia la
-    /// scia se la mano si muove.</summary>
+    /// <summary>Gli effetti visivi delle magie e dei sigilli: fiamme, scintille e archi, brina, sangue, icore, lampi di luce. Tutto in
+    /// coordinate del mondo: una fiamma nel palmo si emette dove sta il palmo a ogni fotogramma e lascia la scia se la mano si muove.
+    /// Dal 2026-11-16 passano da MagicVfx (particelle vere, fuoco e fumo animati, fulmini ramificati); senza il suo shader restano i
+    /// quad di Fx di prima.</summary>
     public static class MagicFx
     {
         public static readonly Color Fire = new Color(1f, 0.46f, 0.10f), Frost = new Color(0.62f, 0.88f, 1f), Shock = new Color(0.50f, 0.74f, 1f),
@@ -26,28 +27,48 @@ namespace PryingEyes
 
         public static void Flame(Vector3 p, Vector3 up, float scale = 1f)
         {
+            if (MagicVfx.On) { MagicVfx.Flame(p, up, scale, Color.white); return; }
             Fx.Particle(4, true, p + Random.insideUnitSphere * 0.006f * scale, up * Random.Range(0.25f, 0.6f) + Random.insideUnitSphere * 0.12f, Vector3.up * 0.3f,
                         0.02f * scale, Random.Range(0.045f, 0.075f) * scale, Random.Range(0.18f, 0.32f), Color.white, 0.9f);
         }
 
-        public static void Glow(Vector3 p, Color c, float size, float life = 0.12f, float alpha = 0.6f) =>
+        public static void Glow(Vector3 p, Color c, float size, float life = 0.12f, float alpha = 0.6f)
+        {
+            // il bagliore nuovo e' una gaussiana: a parita' di misura sembra piu' piccolo del disco di Fx
+            if (MagicVfx.On) { MagicVfx.Emit(MagicVfx.Kind.Glow, p, Vector3.zero, size * 1.5f, life, new Color(c.r, c.g, c.b, Mathf.Clamp01(alpha * 1.2f))); return; }
             Fx.Particle(0, true, p, Vector3.zero, Vector3.zero, size, size * 1.2f, life, c, alpha);
+        }
 
         public static void Sparks(Vector3 p, Color c, int n, float speed, float size = 0.012f)
         {
+            if (MagicVfx.On)
+            {
+                for (int i = 0; i < n; i++)
+                    MagicVfx.Emit(MagicVfx.Kind.Spark, p, Random.insideUnitSphere * speed + Vector3.up * speed * 0.15f, size * Random.Range(0.6f, 1.1f),
+                                  Random.Range(0.15f, 0.42f), Color.Lerp(c, Color.white, 0.35f));
+                return;
+            }
             for (int i = 0; i < n; i++)
                 Fx.Particle(1, true, p, Random.insideUnitSphere * speed, Vector3.down * 3f, size, size * 0.2f, Random.Range(0.12f, 0.3f), Color.Lerp(c, Color.white, 0.4f));
         }
 
-        public static void Mist(Vector3 p, Vector3 vel, Color c, float size, float life = 0.7f, float alpha = 0.35f) =>
+        public static void Mist(Vector3 p, Vector3 vel, Color c, float size, float life = 0.7f, float alpha = 0.35f)
+        {
+            if (MagicVfx.On) { MagicVfx.Emit(MagicVfx.Kind.Mist, p, vel, size * 2.2f, life, new Color(c.r, c.g, c.b, Mathf.Clamp01(alpha * 1.6f))); return; }
             Fx.Particle(0, true, p, vel, Vector3.zero, size, size * 3f, life, c, alpha);
+        }
 
-        public static void Drip(Vector3 p, Color c, float size = 0.008f) =>
+        public static void Drip(Vector3 p, Color c, float size = 0.008f)
+        {
+            if (MagicVfx.On) { MagicVfx.Emit(MagicVfx.Kind.Drop, p, Vector3.down * 0.3f + Random.insideUnitSphere * 0.06f, size * 1.5f, Random.Range(0.45f, 0.7f), c); return; }
             Fx.Particle(1, false, p, Vector3.down * 0.4f + Random.insideUnitSphere * 0.08f, Vector3.down * 7f, size, size * 0.6f, 0.45f, c);
+        }
 
         /// <summary>Un arco frastagliato da a a b (fulmine): segmenti di raggio con uno scarto casuale perpendicolare.</summary>
         public static void Arc(Vector3 a, Vector3 b, Color c, float width = 0.012f, int seg = 7, float jitter = 0.12f)
         {
+            // un arco breve e frastagliato, con un ramo se e' lungo (i fulmini lunghi li fa MagicCaster con MagicVfx.Lightning)
+            if (MagicVfx.On) { MagicVfx.Lightning(a, b, c, width * 0.8f, Random.Range(0.05f, 0.09f), (a - b).sqrMagnitude > 0.25f ? 1 : 0, Mathf.Min(0.3f, jitter * 0.9f)); return; }
             Vector3 d = b - a;
             float len = d.magnitude;
             if (len < 0.01f) return;
@@ -83,6 +104,7 @@ namespace PryingEyes
 
         public static void Burst(Vector3 p, Color c, float scale)
         {
+            if (MagicVfx.On) { MagicVfx.Explosion(p, c, scale, c == Fire ? Color.white : Color.Lerp(c, Color.white, 0.25f)); return; }
             for (int i = 0; i < 26; i++)
                 Fx.Particle(4, true, p + Random.insideUnitSphere * 0.2f * scale, Random.insideUnitSphere * 5.5f * scale + Vector3.up * 1.2f, Vector3.up * 0.4f,
                             0.18f * scale, Random.Range(0.5f, 0.9f) * scale, Random.Range(0.35f, 0.65f), Color.white, 0.85f);
@@ -98,6 +120,20 @@ namespace PryingEyes
             Vector3 f = fwd.normalized;
             Vector3 s = Vector3.Cross(Vector3.up, f).normalized;
             if (s.sqrMagnitude < 0.5f) s = Vector3.right;
+            if (MagicVfx.On)
+            {
+                // l'anello d'urto a terra e uno di fronte, poi sbuffi che corrono in fuori lungo l'arco
+                MagicVfx.Emit(MagicVfx.Kind.GroundRing, c + Vector3.down * 0.95f, Vector3.zero, radius * 2.3f, 0.5f, col, 0f);
+                MagicVfx.Emit(MagicVfx.Kind.Ring, c + f * 0.25f, Vector3.zero, 1.4f, 0.28f, col);
+                for (int i = 0; i < n / 2; i++)
+                {
+                    float a = (i / (float)(n / 2 - 1) - 0.5f) * arc * Mathf.Deg2Rad;
+                    Vector3 d = f * Mathf.Cos(a) + s * Mathf.Sin(a);
+                    MagicVfx.Emit(MagicVfx.Kind.Mist, c + d * 0.3f + Vector3.down * Random.Range(0f, 0.7f), d * (radius / 0.42f) + Vector3.up * Random.Range(-0.1f, 0.3f),
+                                  Random.Range(0.35f, 0.6f), Random.Range(0.45f, 0.65f), new Color(col.r, col.g, col.b, 0.55f));
+                }
+                return;
+            }
             for (int i = 0; i < n; i++)
             {
                 float a = (i / (float)(n - 1) - 0.5f) * arc * Mathf.Deg2Rad;
@@ -205,6 +241,10 @@ namespace PryingEyes
             go.transform.position = from;
             var f = go.AddComponent<Fireball>();
             f.dir = dir.normalized; f.damage = damage; f.radius = radius;
+            f.glow = go.AddComponent<Light>();
+            f.glow.type = LightType.Point; f.glow.color = MagicFx.Fire; f.glow.intensity = 2.6f; f.glow.range = 6f; f.glow.shadows = LightShadows.None;
+            Stealth.SetLightLayers(f.glow, 1u);
+            if (MagicVfx.On) return f;
             var core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             Destroy(core.GetComponent<Collider>());
             core.transform.SetParent(go.transform, false);
@@ -213,10 +253,27 @@ namespace PryingEyes
             m.SetColor("_BaseColor", new Color(1f, 0.78f, 0.42f));
             core.GetComponent<MeshRenderer>().sharedMaterial = m;
             core.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            f.glow = go.AddComponent<Light>();
-            f.glow.type = LightType.Point; f.glow.color = MagicFx.Fire; f.glow.intensity = 2.6f; f.glow.range = 6f; f.glow.shadows = LightShadows.None;
-            Stealth.SetLightLayers(f.glow, 1u);
             return f;
+        }
+
+        /// <summary>La palla vista da vicino: il nucleo (due bagliori, bianco caldo dentro e arancio fuori, rinnovati a ogni fotogramma),
+        /// lingue di fuoco tutt'intorno che restano indietro e si consumano (la scia), fumo scuro e braci.</summary>
+        void Look(Vector3 p, float step)
+        {
+            MagicVfx.Emit(MagicVfx.Kind.Glow, p, Vector3.zero, 0.62f, 0.05f, new Color(1f, 0.5f, 0.16f, 0.85f));
+            MagicVfx.Emit(MagicVfx.Kind.Glow, p, Vector3.zero, 0.22f, 0.04f, new Color(1f, 0.93f, 0.78f, 1f));
+            for (int i = 0; i < 5; i++)
+            {
+                Vector3 q = p - dir * (step * i / 5f) + Random.insideUnitSphere * 0.065f;
+                MagicVfx.Emit(MagicVfx.Kind.FireBig, q, -dir * Random.Range(0.5f, 1.8f) + Random.insideUnitSphere * 0.55f + Vector3.up * 0.25f,
+                              Random.Range(0.17f, 0.3f), Random.Range(0.16f, 0.32f), Color.white, Random.Range(0f, 360f));
+            }
+            if (Random.value < 0.8f)
+                MagicVfx.Emit(MagicVfx.Kind.Smoke, p - dir * 0.2f, Random.insideUnitSphere * 0.15f + Vector3.up * 0.25f, Random.Range(0.13f, 0.22f),
+                              Random.Range(0.7f, 1.1f), new Color(0.09f, 0.08f, 0.075f, 0.42f));
+            if (Random.value < 0.9f)
+                MagicVfx.Emit(MagicVfx.Kind.Ember, p + Random.insideUnitSphere * 0.08f, -dir * Random.Range(1f, 3f) + Random.insideUnitSphere * 1.2f,
+                              Random.Range(0.008f, 0.014f), Random.Range(0.4f, 0.9f), MagicFx.Fire);
         }
 
         void Update()
@@ -225,7 +282,8 @@ namespace PryingEyes
             float dt = Time.deltaTime;
             Vector3 p = transform.position;
             float step = speed * dt;
-            for (int i = 0; i < 3; i++) MagicFx.Flame(p - dir * (step * i / 3f), -dir, 2.4f);
+            if (MagicVfx.On) Look(p, step);
+            else for (int i = 0; i < 3; i++) MagicFx.Flame(p - dir * (step * i / 3f), -dir, 2.4f);
             if (glow != null) glow.intensity = 2.6f + Mathf.Sin(Time.time * 37f) * 0.5f;
             if (Physics.SphereCast(p, 0.1f, dir, out RaycastHit hit, step, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
             { Explode(hit.point + hit.normal * 0.1f); return; }
@@ -375,7 +433,11 @@ namespace PryingEyes
             {
                 fxT = 0.06f;
                 Vector3 c = e.AimPoint;
-                if (burnT > 0f) for (int i = 0; i < 2; i++) MagicFx.Flame(c + Random.insideUnitSphere * 0.3f + Vector3.down * 0.3f, Vector3.up, 3.2f);
+                if (burnT > 0f)
+                {
+                    for (int i = 0; i < 2; i++) MagicFx.Flame(c + Random.insideUnitSphere * 0.3f + Vector3.down * 0.3f, Vector3.up, 3.2f);
+                    if (Random.value < 0.3f) MagicVfx.Emit(MagicVfx.Kind.Smoke, c + Vector3.up * 0.4f + Random.insideUnitSphere * 0.2f, Vector3.up * 0.6f, 0.3f, 1.6f, new Color(0.07f, 0.065f, 0.06f, 0.5f));
+                }
                 if (bleedT > 0f && Random.value < 0.5f) MagicFx.Drip(c + Random.insideUnitSphere * 0.25f, new Color(0.3f, 0.01f, 0.01f), 0.012f);
                 if (acidT > 0f && Random.value < 0.45f) MagicFx.Mist(c + Random.insideUnitSphere * 0.3f, Vector3.up * 0.25f, MagicFx.Acid, 0.08f, 0.6f, 0.25f);
                 if (stunT > 0f && Random.value < 0.6f) MagicFx.Arc(c + Random.insideUnitSphere * 0.35f, c + Random.insideUnitSphere * 0.35f, MagicFx.Shock, 0.008f, 4, 0.5f);
@@ -538,6 +600,13 @@ namespace PryingEyes
                 case 13: if (Random.value < 0.3f) MagicFx.Drip(p - Vector3.up * 0.02f, new Color(0.35f, 0.01f, 0.01f), 0.004f); break;
                 case 12: if (Random.value < 0.25f) MagicFx.Glow(p, MagicFx.Crit, 0.01f, 0.25f, 0.5f); break;
                 default:
+                    if (MagicVfx.On)
+                    {
+                        MagicVfx.Flame(p, Vector3.up, 0.45f, MagicVfx.CursedFire);
+                        if (Random.value < 0.3f) MagicVfx.Emit(MagicVfx.Kind.Smoke, p, Vector3.up * 0.18f, 0.03f, 0.9f, new Color(0.06f, 0.01f, 0.01f, 0.4f));
+                        if (Random.value < 0.12f) MagicVfx.Emit(MagicVfx.Kind.Rune, p + Vector3.up * 0.02f, Vector3.up * 0.03f, 0.018f, 0.7f, MagicFx.Cursed, 0f);
+                        break;
+                    }
                     MagicFx.Flame(p, Vector3.up, 0.45f);
                     if (Random.value < 0.5f) Fx.Particle(0, false, p, Vector3.up * 0.2f, Vector3.zero, 0.02f, 0.09f, 0.9f, new Color(0.08f, 0.02f, 0.02f), 0.35f);
                     break;

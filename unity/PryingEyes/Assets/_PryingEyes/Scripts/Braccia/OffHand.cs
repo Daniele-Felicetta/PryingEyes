@@ -55,6 +55,9 @@ namespace PryingEyes
             public Ev[] events;
             /// <summary>Velocita' (Gesto rapido la alza): la durata vera e' duration / speed.</summary>
             public float speed = 1f;
+            /// <summary>Spostamento del punto di lavoro rispetto a ReachTarget per questo gesto (camera; solo armi a due mani): un gesto
+            /// che lavora sotto l'arma, sul caricatore, la vuole piu' alta perche' la mano resti in vista.</summary>
+            public Vector3 reachOffset;
         }
 
         // ------------------------------------------------------------------ stato costruito con il modello
@@ -63,11 +66,11 @@ namespace PryingEyes
         readonly WeaponRig rig;
         readonly HandRig free;
         readonly Renderer[] wrapped;
-        readonly Vector3 handLRestPos;
-        readonly Quaternion handLRestRot;
+        Vector3 handLRestPos;
+        Quaternion handLRestRot;
         readonly Vector3 palmRelPos;            // il palmo della mano libera nel riferimento di mano_s
         readonly Quaternion palmRelRot;
-        readonly HandPose gripPose;
+        HandPose gripPose;
         readonly bool oneHanded;
         readonly WeaponSurface surface;
         public readonly string WeaponId;
@@ -102,6 +105,8 @@ namespace PryingEyes
             handLRestRot = handL.localRotation;
             surface = new WeaponSurface(viewRoot, rig);
             LastPose = gripPose;
+            // il palmo della mano libera nel riferimento di mano_s: LookRotation(dita, dorso), quindi x = pollice per la sinistra
+            if (armL != null) { armL.ThumbLocal = palmRelRot * Vector3.right; armL.FingersLocal = palmRelRot * Vector3.forward; }
         }
 
         static GameObject prefab;
@@ -151,17 +156,6 @@ namespace PryingEyes
             inst.transform.localRotation = qR;
             inst.transform.localPosition = wristL - qR * pPR;
 
-            // la manichetta come nelle mani su misura: a meta' tra l'asse della mano e quello dell'avambraccio di riposo
-            Quaternion cuffBend = Quaternion.identity;
-            var ej = Child(handL, "gomito_s");
-            var wj = Child(handL, "polso_s");
-            if (ej != null && wj != null)
-            {
-                Vector3 back = -(handL.rotation * wrapRot * Vector3.forward);
-                Vector3 fore = (ej.position - wj.position).normalized;
-                Vector3 g = (back + fore).normalized;
-                if (g.sqrMagnitude > 0.5f) cuffBend = Quaternion.FromToRotation(back, g);
-            }
             // i materiali del guanto avvolto: la stessa mano
             Material glove = null, guard = null;
             foreach (var r in handL.GetComponentsInChildren<Renderer>(true))
@@ -170,7 +164,7 @@ namespace PryingEyes
                 if (glove == null && r.name.Contains("_guanto")) glove = r.sharedMaterial;
                 if (guard == null && r.name.Contains("_rinforzo")) guard = r.sharedMaterial;
             }
-            var hand = HandRig.Build(inst.transform, glove, guard, cuffBend);
+            var hand = HandRig.Build(inst.transform, glove, guard);
             if (hand == null) { UnityEngine.Object.Destroy(inst); return null; }
             foreach (var r in hand.Renderers) r.renderingLayerMask = Weapon.ViewLayer;
 
@@ -204,14 +198,27 @@ namespace PryingEyes
             if (a == null || a.keys == null || a.keys.Length < 2) return false;
             if (anim != null) Cancel();
             anim = a; time = 0f; nextEvent = 0; onEvent = events;
-            reach = ReachFor(a);
+            reach = RealHold ? RealHoldPresent(a) : ReachFor(a);
+            if (armL != null) armL.ClampHand = true;           // nel gesto la mano rispetta i campi articolari
             return true;
         }
 
+        /// <summary>Presa realistica (Weapon.RealHold): l'arma e' gia' a distanza umana, quindi offrendola alla sinistra non viene
+        /// avvicinata ancora (lo scarto della presentazione la tirerebbe 11 cm verso la faccia): si annulla quella parte.</summary>
+        public bool RealHold;
+
+        static Vector3 RealHoldPresent(Anim a)
+        {
+            if (a.weapon == null) return Vector3.zero;
+            foreach (var wk in a.weapon) if (wk.pull > 0f) return new Vector3(0.03f, 0.005f, 0.11f);
+            return Vector3.zero;
+        }
+
         /// <summary>Dove il punto di lavoro dell'arma (un terzo della canna) deve stare, nello spazio della camera, mentre la sinistra ci
-        /// lavora sopra: 44 cm davanti all'occhio, 15 sotto e quasi al centro. Al fianco un fucile sta a 62 cm e la sua canna arriva a
-        /// oltre un metro: un braccio umano (spalla a 19 cm di lato e 24 sotto l'occhio, 30 + 27 cm) non ci arriva.</summary>
-        public static readonly Vector3 ReachTarget = new Vector3(-0.04f, -0.15f, 0.44f);
+        /// lavora sopra: 44 cm davanti all'occhio, 11 sotto e quasi al centro (cosi' castello e mano restano in vista). Al fianco un
+        /// fucile sta a 62 cm e la sua canna arriva a oltre un metro: un braccio umano (spalla a 19 cm di lato e 24 sotto l'occhio,
+        /// 30 + 27 cm) non ci arriva.</summary>
+        public static readonly Vector3 ReachTarget = new Vector3(-0.04f, -0.11f, 0.44f);
         Vector3 reach;
         /// <summary>L'avvicinamento dell'arma per il gesto in corso (spazio della camera), pesato dalle chiavi con pull.</summary>
         public Vector3 Reach => reach;
@@ -224,7 +231,7 @@ namespace PryingEyes
                 if (wk.pull <= 0f) continue;
                 // dove finirebbe il punto di lavoro con lo scarto scritto nel gesto (Weapon somma pos e moltiplica la rotazione)
                 Vector3 at = viewRoot.localPosition + wk.pos + viewRoot.localRotation * (Quaternion.Euler(wk.rot) * surface.AlongBarrel(0.3f));
-                Vector3 r = ReachTarget - at;
+                Vector3 r = ReachTarget + a.reachOffset - at;
                 r.z = Mathf.Min(0f, r.z);           // solo verso chi guarda: un'arma corta resta dov'e'
                 return Vector3.ClampMagnitude(r, 0.45f);
             }
@@ -243,11 +250,66 @@ namespace PryingEyes
 
         void ShowFree(bool on)
         {
-            if (on == freeShown) return;
-            freeShown = on;
-            free.SetVisible(on);
-            if (wrapped != null) foreach (var r in wrapped) if (r != null && r is MeshRenderer) r.enabled = !on && !oneHanded;
-            if (!on && armL != null) { armL.Free = 0f; armL.PoleWeight = 0f; armL.ShoulderOffset = Vector3.zero; }
+            // con la presa di sostegno naturale la mano articolata resta sempre (il guanto modellato per la spalla finta non torna)
+            bool show = on || NaturalRest;
+            if (show != freeShown)
+            {
+                freeShown = show;
+                free.SetVisible(show);
+                if (wrapped != null) foreach (var r in wrapped) if (r != null && r is MeshRenderer) r.enabled = !show && !oneHanded;
+            }
+            if (armL != null) armL.ClampHand = on;
+            // con la mano articolata in vista l'orlo della manica segue l'avambraccio (come la manichetta del guanto), non la mano
+            if (armL != null) armL.FreeSleeve = show ? 1f : 0f;
+            if (!on && armL != null) { armL.Free = 0f; armL.PoleWeight = 0f; armL.ShoulderOffset = Vector3.zero; armL.PoleHint = armL.RestPole; }
+        }
+
+        /// <summary>Dopo armL.Solve (il gomito e' al suo posto e la mano e' stata riportata nei campi articolari): la manichetta del guanto
+        /// si allinea all'avambraccio.</summary>
+        public void AfterArmSolve()
+        {
+            if (!freeShown) return;
+            free.UpdateCuff(armL != null ? armL.LastWristW - armL.LastElbowW : Vector3.zero);
+        }
+
+        /// <summary>Presa di sostegno naturale (presa realistica, armi a due mani): il guanto sinistro di ogni arma e' modellato per la
+        /// spalla finta (avambraccio che arriva da sinistra, perpendicolare all'arma: mano sotto l'astina col pollice lungo la canna e le
+        /// dita di traverso). Con un braccio vero il gomito pende e l'avambraccio sale da sotto: quella mano chiederebbe 120-180 gradi
+        /// di rotazione dell'avambraccio (il limite umano e' ~85). Qui la mano articolata prende il suo posto per sempre, come la tiene un
+        /// tiratore: palmo sotto l'astina, mano in diagonale avanti a destra (l'astina attraversa il palmo dalla base dell'indice al
+        /// tallone), dita che salgono sul lato destro, pollice lungo il lato sinistro, polso dietro e sotto. Diventa la posa di riposo di
+        /// mano_s (anche per i gesti, che partono e tornano qui). Restituisce la nuova posizione di riposo di mano_s nello spazio
+        /// dell'arma (Weapon la usa come handLRest per le ricariche).</summary>
+        public bool NaturalRest { get; private set; }
+
+        public Vector3 SetNaturalRest()
+        {
+            Transform parent = handL.parent;
+            // il palmo della presa modellata, nello spazio dell'arma: si tiene il punto lungo l'astina
+            Vector3 oldPalm = viewRoot.InverseTransformPoint(parent.TransformPoint(handLRestPos) + (parent.rotation * handLRestRot) * palmRelPos);
+            float z = oldPalm.z;
+            // l'astina gira attorno all'asse della canna (la quota della bocca); il palmo modellato le stava a fianco: la sua distanza
+            // dall'asse da' il raggio dell'astina piu' lo spessore del palmo. Il fondo dei riquadri qui non serve: sotto l'astina c'e'
+            // spesso un pezzo che scende fino al caricatore
+            float boreY = rig.MuzzleLocal.y;
+            float r = Mathf.Clamp(new Vector2(oldPalm.x, oldPalm.y - boreY).magnitude, 0.02f, 0.06f);
+            Vector3 c = new Vector3(0.004f, boreY - r + 0.004f, z);
+            Vector3 F = new Vector3(0.62f, 0.18f, 0.76f).normalized;                                   // dita: avanti a destra, un poco in su
+            Vector3 D = Vector3.ProjectOnPlane(new Vector3(-0.55f, -0.83f, 0f), F).normalized;         // dorso: in basso a sinistra
+            Quaternion rotW = Quaternion.LookRotation(F, D);
+            HandPose pose = HandPose.Lerp(HandPoses.Grip, HandPoses.Fist, 0.12f);
+            Vector3 wristW = c - rotW * free.ContactInPalm(pose, (int)Contact.Palm);
+            Quaternion hq = viewRoot.rotation * rotW * Quaternion.Inverse(palmRelRot);
+            handL.rotation = hq;
+            handL.position = viewRoot.TransformPoint(wristW) - hq * palmRelPos;
+            handLRestPos = handL.localPosition;
+            handLRestRot = handL.localRotation;
+            gripPose = pose;
+            NaturalRest = true;
+            free.Tremor = 0f;
+            free.Apply(pose);
+            ShowFree(false);
+            return viewRoot.InverseTransformPoint(handL.position);
         }
 
         void RestoreRest()
@@ -407,7 +469,7 @@ namespace PryingEyes
                 armL.Free = fr;
                 Vector3 pole = Vector3.Lerp(k0.pole, k1.pole, u);
                 if (pole.sqrMagnitude > 1e-4f) { armL.PoleHint = pole.normalized; armL.PoleWeight = 1f; }
-                else { armL.PoleHint = new Vector3(-0.55f, -0.83f, -0.1f); armL.PoleWeight = 0f; }
+                else { armL.PoleHint = armL.RestPole; armL.PoleWeight = 0f; }
                 armL.ShoulderOffset = Vector3.Lerp(k0.shoulder, k1.shoulder, u);
             }
             // eventi

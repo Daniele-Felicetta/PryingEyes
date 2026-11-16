@@ -104,15 +104,19 @@ of an enemy (a vertical capsule from the feet to the head, `MagicFx.Body`), not 
 During a spell the weapon is held by the right hand only (lowered and tilted); during a seal it is turned to show its left side and
 brought closer, so the hand works on it in view. At the hip a rifle sits 62 cm from the eye and its barrel ends past a metre, out of
 reach of a human arm: two-handed weapons are also brought within reach of the shoulder (the point a third along the barrel goes 44 cm
-in front of the eye, `OffHand.ReachTarget`, and turned 36 degrees to show the left side), so the elbow bends while the hand works. A weapon with a seal glows in the element's colour (per-part emission, so frost and
+in front of and 11 cm below the eye, `OffHand.ReachTarget`, higher for the magazine seal, and turned 36 degrees to show the
+left side), so the elbow bends while the hand works. A weapon with a seal glows in the element's colour (per-part emission, so frost and
 runes run from the hand outwards) and emits its particles.
 
 ## Arms and hands
 
 - **Free hand** (`HandRig`): the left glove of the per-weapon hands, rebuilt by `modelli/hotel/genera_braccia.py -- libera` in a
-  neutral pose with a pivot at every joint (4 per finger, 4 on the thumb, wrist, palm, back). At runtime the glove is skinned on 16
-  bones (palm, 15 phalanges) with weights from the distance to the phalanx capsules, blended at the joints and between neighbouring
-  fingers. Poses are anatomical angles (`HandPose`: spread, MCP, PIP, DIP; thumb abduction, opposition, MCP, IP) limited to human
+  neutral pose with a pivot at every joint (4 per finger, 4 on the thumb, wrist, palm, back). At runtime the glove is skinned on 17
+  bones (palm, 15 phalanges, cuff) with weights from the distance to the phalanx capsules, blended at the joints and between
+  neighbouring fingers. The cuff behind the wrist belongs to the forearm, not to the hand: its bone sits on the wrist, along the
+  forearm and turned with the hand around it (`HandRig.UpdateCuff`, after the arm solve), and the skin passes from palm to cuff
+  across 3 cm around the wrist, so the hand bends at the wrist. Before, the cuff was rigid with the palm and the sleeve hem followed
+  the hand: the bend happened 6 cm back inside the sleeve and the hand looked like it had a long neck. Poses are anatomical angles (`HandPose`: spread, MCP, PIP, DIP; thumb abduction, opposition, MCP, IP) limited to human
   ranges (MCP -30..92, PIP 0..110, DIP never more than PIP + 12, no fanning with a closed fist). Fifteen named poses: relaxed, open,
   flat, fist, claw, cup, point, horns, snap-ready, snapped, pinch, grip, blessing, thrust.
 - **Invisible swap**: `genera_braccia.py -- pose` writes, weapon by weapon, where the joints of the left hand wrapped on the handguard
@@ -120,19 +124,57 @@ runes run from the hand outwards) and emits its particles.
   empties and puts the free hand exactly on the wrapped glove, with the same finger angles, before switching.
 - **Arm** (`ArmRig`): a forearm twist bone takes half of the hand's roll around the forearm, so supination no longer wrings the cuff;
   the elbow stays between 28 and 176 degrees; with the free arm the elbow swivels around the shoulder-wrist axis to keep the wrist
-  within about 32 degrees of the forearm (spring-damped). The free arm has human proportions: the shoulder 19 cm to the side of and
-  24 cm below the eye, protracting up to 12 cm on long reaches, and a 30 cm upper arm (the sleeve's upper bone is scaled to it). At
-  rest, on the weapon, the arm is exactly the one of before.
+  comfortable, scored with the real joint ranges when the hand's frame is known (pro-supination, flexion-extension and radial-ulnar
+  deviation of the wrist) and kept low: an elbow higher than 8 cm below the shoulder or closer than 27 cm to the eye costs, because a
+  real arm turns the forearm before it lifts the elbow in front of the face. The swivel follows a critically damped spring integrated
+  exactly, stable at any frame time (the explicit one diverged past 0.13 s and a hitch threw the elbow in front of the eyes). During
+  gestures the hand is brought back within human ranges by turning it about the wrist (`ClampHand`: pro-supination 85, flexion 75,
+  deviation 30 degrees), as a Humanoid's muscle limits do. While the articulated hand is shown the sleeve hem follows the forearm and
+  does not twist (`FreeSleeve`); with the modelled glove it follows the hand, whose rigid cuff it must cover. The free arm has human
+  proportions: the shoulder 19 cm to the side of and 24 cm below the eye, protracting up to 12 cm on long reaches, and a 30 cm upper
+  arm (the sleeve's upper bone is scaled to it).
+- **Realistic hold** (prototype on `ar9_malleus` and `p9_pieta`, `Weapon.RealHoldTable`; `-presavecchia` brings back the old one):
+  the weapon at human distance (the rifle's right hand 31 cm from the eye instead of 63), the torso turned like a shooter's (35
+  degrees with the rifle, 10 with the pistol; it straightens while the left hand works), body shoulders and hanging elbows on both
+  arms. The per-weapon left glove was modelled for the old fake shoulder (forearm arriving horizontally from the left) and on a real
+  arm would need 120-180 degrees of forearm rotation, so on two-handed weapons the articulated hand replaces it for good
+  (`OffHand.SetNaturalRest`): palm under the handguard, hand diagonal with the thumb along the left side, forearm rising from below
+  (at rest pro-supination 73, flexion -11, deviation -9 degrees). The other 28 weapons keep the old hold for now.
 - **Gestures** (`OffHand`, `OffHandAnims`): keys of a contact point of the hand (wrist, palm, index, middle, thumb, little finger) in
   camera space, weapon space with its parts (muzzle, magazine and its base, ejection port, sight, handguard, receiver, a point along the
   barrel or on the left side, measured from the parts' bounds by `WeaponSurface`), the rest grip, or below the frame; the wrist follows
   a Catmull-Rom curve, rotations and poses blend with each key's easing; weapon keys and timed events.
 
+## Effects (`MagicVfx`, `VfxTextures`)
+
+Spell and seal effects are Unity particle systems shared by kind, in world space, drawn by `Resources/Shaders/MagicParticle.shader`
+(in `Resources` so that `Shader.Find` finds it in a build). One premultiplied blend does both additive light (fire, sparks, frost)
+and covering matter (smoke, blood); colours above 1 go to the bloom; flipbooks blend between frames; alpha erosion (the vertex alpha
+is the threshold under which the texture disappears) makes a flame burn away from its edges instead of fading; particles are soft
+against the scene depth and fade next to the eye; Unity's fog is applied by hand (`_PEMagicFog`), so the shader has no keyword
+variants to keep. The textures are made at run time in a worker thread when the player is created (`VfxTextures.Begin`): an
+animated flame and an animated smoke puff (64 frames of 128 px each, looping, from a periodic Perlin noise), glow, spark, shock
+ring, ice shard, droplet, sixteen runes, the circle of the Dodecahedron (rings, ticks, a band of twelve glyphs, the {12/5} star, the
+inner dodecagon and the Tower's eye), the lightning profile and the blood ribbon.
+
+Kinds: small fire (hand and weapon) and big fire (fireball, explosions, burning enemies), smoke, sparks that bounce off walls,
+wandering embers, glows, frost mist, ice shards, droplets that die where they land, runes, facing and ground shock rings. Lightning is
+a jagged polyline (midpoint displacement) with branches, redrawn every 35-55 ms while it lives, white core and coloured halo, thin
+where it leaves the finger. The circle of the Dodecahedron opens in front of the hand for the frost cone, the blood seal, the wave,
+the Cursed Essence and every seal; the finger that traces a seal leaves a glowing trail; the Blood Sigil draws a ribbon of blood
+flowing from the enemy to the palm. While a gesture glows, a flickering light lights the world around the hand and a second, small
+one reaches only the view model, so the fire in the palm lights the glove and the weapon. The fireball is a white-hot core in an orange glow wrapped in flame tongues that trail behind,
+with smoke and embers, and explodes in a flash, a swelling fireball, rising black smoke, sparks, embers and a ground ring. Cursed fire
+uses its own red-orange tint (`MagicVfx.CursedFire`): the interface crimson has some blue and made the fire pink. `MagicFx` keeps its
+API (flame, glow, sparks, mist, drip, arc, burst, ring), so weapon auras and enemy statuses use the new particles too; without the
+shader (a scripts-only build over an old player) it falls back to the `Fx` quads.
+
 ## Code map
 
 `Scripts/Braccia/`: `HandPose.cs`, `HandRig.cs`, `GripPoses.cs`, `OffHand.cs` (and `WeaponSurface`). `Scripts/ArmRig.cs`.
 `Scripts/Magia/`: `Grimoire.cs`, `MagicState.cs`, `MagicCaster.cs` (input, effects, the `Magic` facade), `OffHandAnims.cs`, `MagicFx.cs`
-(effects, `Fireball`, `EnemyStatus`, `WeaponAura`), `SoundMagia.cs`, `HUD.Magia.cs`, `GrimoireIcons.cs`, `GrimoirePage.cs`,
+(effects, `Fireball`, `EnemyStatus`, `WeaponAura`), `MagicVfx.cs` and `VfxTextures.cs` (particles, lightning, circles, textures),
+`Resources/Shaders/MagicParticle.shader`, `SoundMagia.cs`, `HUD.Magia.cs`, `GrimoireIcons.cs`, `GrimoirePage.cs`,
 `GrimoireUI.cs`, `GrimoireAltar.cs`, `MagiaTest.cs`. `Scripts/Weapon.Sigilli.cs` (seals on hits). `Scripts/Proc/PlanAnnex.cs`
 (placement), `Proc/FloorBuilder.Sacrario.cs` (geometry), `Proc/AnnexRuntime.cs` (the secret wall). Assets:
 `Models/Mani/libera/mano_libera.fbx`, `Resources/ManoLibera.prefab` (`ManiImport.Run`), `Resources/ManiArmi/presa_sinistra.json`.
@@ -155,11 +197,17 @@ because it blocks every player's commands.
 - `-batchmode -autotest -nofire -noenemies -magiatest [-magiashots] -seed S -floor F` (`MagiaTest.cs`): the secret room (one per
   floor, wall usable with F, closed and standing it cannot be crossed, crouched it can, no enemy path, the book of the floor), both
   books (rules, prices, all 38 nodes), the seven spells and seven seals on a rifle and a pistol (they start, the free hand takes the
-  wrapped glove's place and gives it back, effects arrive, the elbow stays in range) and the left-hand throw. Results in
-  `hotel_build/magia/magia.txt`, photos with `-magiashots`.
+  wrapped glove's place and gives it back, effects arrive, the elbow stays in range, the wrist and forearm stay within human
+  ranges) and the left-hand throw. Results in `hotel_build/magia/magia.txt`, photos with `-magiashots`.
+- Diagnostic flags of the same test: `-magiaside` (with every photo a side and a top view of the arms with the solved joints, and
+  their measures in the report), `-magiazoom` (two close-ups of the left hand with the real scene and effects: from the eye with a
+  telephoto lens and three-quarters from the left), `-vfxdump` (the effect textures as images), `-armview [-armids a,b]
+  [-presavecchia]` (only the rest and aiming pose of every weapon, with arm measures).
 
 ## Known limits
 
 - Balance (essence, prices, damage, durations) is untested by a human player.
 - Spell and seal effects are not replicated to the other co-op players' screens.
 - The gestures were authored by numbers and checked on photographs, not motion-captured.
+- The realistic hold covers two weapons; the view model shares the world camera's field of view (75 degrees by default), so a
+  forearm reaching forward 30 cm from the eye looks large.

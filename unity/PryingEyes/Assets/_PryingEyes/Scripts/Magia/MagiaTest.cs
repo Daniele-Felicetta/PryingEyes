@@ -26,6 +26,12 @@ namespace PryingEyes
         int checks, failed;
         readonly StringBuilder report = new StringBuilder();
         bool shots;
+        // -magiaside: con ogni foto anche la vista di lato e dall'alto delle braccia; -armview: solo la posa di riposo di tutte le armi,
+        // con le misure di spalla, gomito e polso (diagnosi della biomeccanica)
+        bool side, armView;
+        // -magiazoom: con ogni foto dei gesti due primi piani della mano sinistra con la scena e gli effetti veri (dall'occhio col
+        // teleobiettivo, e di tre quarti a 30 cm): per giudicare pelle, polso e magie da vicino. -vfxdump: le trame degli effetti
+        bool zoom;
         string outDir;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -48,8 +54,15 @@ namespace PryingEyes
         IEnumerator Start()
         {
             shots = HasArg("-magiashots");
+            armView = HasArg("-armview");
+            side = HasArg("-magiaside") || armView;
+            zoom = HasArg("-magiazoom");
+            if (armView || zoom) shots = true;
             outDir = TestPaths.Out("magia");
             System.IO.Directory.CreateDirectory(outDir);
+            if (HasArg("-vfxdump") && MagicVfx.On)
+                foreach (VfxTextures.Id id in Enum.GetValues(typeof(VfxTextures.Id)))
+                    if (id != VfxTextures.Id.Count) DumpTex(VfxTextures.Get(id), "vfx_" + id);
             var seq = Run();
             while (true)
             {
@@ -104,6 +117,176 @@ namespace PryingEyes
             }
         }
 
+        // ------------------------------------------------------------------ vista di lato e dall'alto (diagnosi della biomeccanica)
+        // solo arma e braccia (lo strato dell'arma) su fondo scuro; segnati l'occhio (giallo), la testa, la spina, le spalle anatomiche
+        // (blu) e i giunti di ogni braccio come li ha risolti ArmRig: spalla rossa, gomito arancio, polso verde
+        void SideShot(string name, Weapon w)
+        {
+            if (!shots || !side) return;
+            var main = Camera.main;
+            if (main == null || w == null || w.ViewRootT == null) return;
+            int layer = w.ViewRootT.gameObject.layer;
+            Transform eye = main.transform;
+            var tmp = new List<GameObject>();
+            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
+            GameObject Mark(Vector3 p, float r, Color c, PrimitiveType t = PrimitiveType.Sphere)
+            {
+                var g = GameObject.CreatePrimitive(t);
+                Destroy(g.GetComponent<Collider>());
+                g.layer = layer; g.transform.position = p; g.transform.localScale = Vector3.one * (2f * r);
+                var m = new Material(unlit); m.SetColor("_BaseColor", c);
+                var mr = g.GetComponent<MeshRenderer>(); mr.sharedMaterial = m; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                tmp.Add(g); return g;
+            }
+            void Bar(Vector3 a, Vector3 b, float r, Color c)
+            {
+                if ((b - a).sqrMagnitude < 1e-6f) return;
+                var g = Mark((a + b) * 0.5f, r, c, PrimitiveType.Cylinder);
+                g.transform.up = (b - a).normalized;
+                g.transform.localScale = new Vector3(2f * r, (b - a).magnitude * 0.5f, 2f * r);
+            }
+            var body = new Color(0.42f, 0.42f, 0.48f);
+            Mark(eye.position, 0.018f, Color.yellow);
+            Mark(eye.TransformPoint(new Vector3(0f, 0.03f, -0.075f)), 0.095f, new Color(0.26f, 0.26f, 0.3f));
+            Vector3 neck = eye.TransformPoint(new Vector3(0f, -0.15f, -0.07f)), pelvis = eye.TransformPoint(new Vector3(0f, -0.78f, -0.05f));
+            Bar(neck, pelvis, 0.012f, body);
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                Vector3 sh = eye.TransformPoint(new Vector3(sx * ArmRig.ShoulderSide, -ArmRig.ShoulderDown, -ArmRig.ShoulderBack));
+                Bar(neck, sh, 0.01f, body);
+                Mark(sh, 0.03f, new Color(0.3f, 0.5f, 1f));
+            }
+            foreach (var arm in new[] { ArmOf(w, "armL"), ArmOf(w, "armR") })
+            {
+                if (arm == null) continue;
+                Mark(arm.LastShoulderW, 0.022f, Color.red);
+                Mark(arm.LastElbowW, 0.02f, new Color(1f, 0.55f, 0.1f));
+                Mark(arm.LastWristW, 0.016f, Color.green);
+                Bar(arm.LastShoulderW, arm.LastElbowW, 0.006f, Color.red);
+                Bar(arm.LastElbowW, arm.LastWristW, 0.006f, new Color(1f, 0.55f, 0.1f));
+            }
+            Vector3 focus = eye.TransformPoint(new Vector3(0f, -0.25f, 0.33f));
+            Render2(name + "_lato", focus - eye.right * 2.2f + eye.up * 0.05f, focus, eye.up, layer);
+            Render2(name + "_alto", focus + eye.up * 2.2f, focus, eye.forward, layer);
+            foreach (var g in tmp) { var m = g.GetComponent<MeshRenderer>().sharedMaterial; Destroy(g); Destroy(m); }
+        }
+
+        /// <summary>Primi piani della mano sinistra (con -magiazoom): dall'occhio col teleobiettivo e di tre quarti da sinistra.</summary>
+        void ZoomShot(string name, OffHand hand)
+        {
+            if (!shots || !zoom || hand == null || hand.Hand == null) return;
+            var main = Camera.main;
+            if (main == null) return;
+            Vector3 palm = hand.PalmWorld;
+            Transform eye = main.transform;
+            RenderLike(main, name + "_zoom", eye.position, Quaternion.LookRotation(palm - eye.position, eye.up), 22f);
+            Vector3 from = palm - eye.right * 0.26f + eye.forward * 0.10f + eye.up * 0.07f;
+            RenderLike(main, name + "_tre4", from, Quaternion.LookRotation(palm - from, eye.up), 50f);
+        }
+
+        /// <summary>Una foto con una camera come quella del gioco (strati, post-produzione) messa altrove.</summary>
+        void RenderLike(Camera main, string name, Vector3 pos, Quaternion rot, float fov)
+        {
+            const int W = 960, H = 720;
+            var go = new GameObject("CameraPrimoPiano");
+            var c = go.AddComponent<Camera>();
+            c.CopyFrom(main);
+            go.transform.SetPositionAndRotation(pos, rot);
+            c.fieldOfView = fov; c.nearClipPlane = 0.01f;
+            var src = main.GetUniversalAdditionalCameraData();
+            var dst = c.GetUniversalAdditionalCameraData();
+            dst.renderPostProcessing = src.renderPostProcessing;
+            dst.antialiasing = UnityEngine.Rendering.Universal.AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+            dst.volumeLayerMask = src.volumeLayerMask;
+            var rt = RenderTexture.GetTemporary(W, H, 24);
+            c.targetTexture = rt; c.aspect = (float)W / H;
+            c.Render();
+            var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+            var old = RenderTexture.active;
+            RenderTexture.active = rt;
+            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+            tex.Apply();
+            RenderTexture.active = old;
+            c.targetTexture = null;
+            RenderTexture.ReleaseTemporary(rt);
+            Destroy(go);
+            byte[] png = tex.EncodeToPNG();
+            Destroy(tex);
+            try { System.IO.File.WriteAllBytes(System.IO.Path.Combine(outDir, name + ".png"), png); }
+            catch (Exception ex) { Debug.LogWarning($"[PryingEyes] magiatest: primo piano {name} non scritto ({ex.Message})"); }
+        }
+
+        /// <summary>Una trama degli effetti su fondo scuro (-vfxdump).</summary>
+        void DumpTex(Texture2D t, string name)
+        {
+            if (t == null) return;
+            var rt = RenderTexture.GetTemporary(t.width, t.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            Graphics.Blit(t, rt);
+            var tex = new Texture2D(t.width, t.height, TextureFormat.RGBA32, false);
+            var old = RenderTexture.active;
+            RenderTexture.active = rt;
+            tex.ReadPixels(new Rect(0, 0, t.width, t.height), 0, 0);
+            tex.Apply();
+            RenderTexture.active = old;
+            RenderTexture.ReleaseTemporary(rt);
+            var px = tex.GetPixels32();
+            for (int i = 0; i < px.Length; i++)
+            {
+                float a = px[i].a / 255f;
+                px[i] = new Color32((byte)(px[i].r * a + 24 * (1f - a)), (byte)(px[i].g * a + 24 * (1f - a)), (byte)(px[i].b * a + 28 * (1f - a)), 255);
+            }
+            tex.SetPixels32(px); tex.Apply();
+            byte[] png = tex.EncodeToPNG();
+            Destroy(tex);
+            try { System.IO.File.WriteAllBytes(System.IO.Path.Combine(outDir, name + ".png"), png); } catch (Exception) { }
+        }
+
+        void Render2(string name, Vector3 from, Vector3 at, Vector3 up, int layer)
+        {
+            const int W = 960, H = 720;
+            var go = new GameObject("CameraDiagnosi");
+            var c = go.AddComponent<Camera>();
+            c.clearFlags = CameraClearFlags.SolidColor; c.backgroundColor = new Color(0.07f, 0.07f, 0.08f);
+            c.cullingMask = 1 << layer; c.fieldOfView = 34f; c.nearClipPlane = 0.05f; c.farClipPlane = 8f;
+            go.transform.SetPositionAndRotation(from, Quaternion.LookRotation(at - from, up));
+            var rt = RenderTexture.GetTemporary(W, H, 24);
+            c.targetTexture = rt; c.aspect = (float)W / H;
+            c.Render();
+            var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+            var old = RenderTexture.active;
+            RenderTexture.active = rt;
+            tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+            tex.Apply();
+            RenderTexture.active = old;
+            c.targetTexture = null;
+            RenderTexture.ReleaseTemporary(rt);
+            Destroy(go);
+            byte[] png = tex.EncodeToPNG();
+            Destroy(tex);
+            try { System.IO.File.WriteAllBytes(System.IO.Path.Combine(outDir, name + ".png"), png); }
+            catch (Exception ex) { Debug.LogWarning($"[PryingEyes] magiatest: vista {name} non scritta ({ex.Message})"); }
+        }
+
+        /// <summary>Spalla, gomito e polso di tutte e due le braccia nello spazio della camera, con lunghezze e angoli.</summary>
+        void DumpArms(string id, Weapon w, string when)
+        {
+            var main = Camera.main;
+            if (main == null || w == null) return;
+            var eye = main.transform;
+            foreach (var (tag, arm) in new[] { ("sinistro", ArmOf(w, "armL")), ("destro", ArmOf(w, "armR")) })
+            {
+                if (arm == null) continue;
+                Vector3 S = eye.InverseTransformPoint(arm.LastShoulderW), E = eye.InverseTransformPoint(arm.LastElbowW), Wr = eye.InverseTransformPoint(arm.LastWristW);
+                string line = $"{id} {when} braccio {tag}: spalla {V3(S)} gomito {V3(E)} polso {V3(Wr)}; omero {(E - S).magnitude:F2} m, " +
+                              $"avambraccio {(Wr - E).magnitude:F2} m, polso-spalla {(Wr - S).magnitude:F2} m, gomito {arm.LastElbowDeg:F0}, polso {arm.LastWristDeg:F0}, torsione {arm.LastRollDeg:F0}" +
+                              (arm.HasHandFrame ? $", prono-sup {arm.LastProSupDeg:F0}, flessione {arm.LastFlexDeg:F0}, deviazione {arm.LastDevDeg:F0}" : "");
+                report.AppendLine("   " + line);
+                Debug.Log("[PryingEyes] braccia " + line);
+            }
+        }
+
+        static string V3(Vector3 v) => $"({v.x:F2}, {v.y:F2}, {v.z:F2})";
+
         // ------------------------------------------------------------------ percorso
         IEnumerator Run()
         {
@@ -113,6 +296,37 @@ namespace PryingEyes
             Enemy.ClearAll(); Enemy.debugFreeze = Enemy.debugNoSense = true;
             player.invulnerable = true; PlayerController.holdLook = true;
             yield return new WaitForSeconds(0.5f);
+
+            if (armView)
+            {
+                // solo la posa di riposo di ogni arma: foto, viste di lato e dall'alto, misure
+                // -armids a,b: solo quelle armi; con -presavecchia le foto si chiamano vecchia_* (per il confronto)
+                Vector3 o = OpenSpot(fi, out float oy);
+                string only = null, tagv = HasArg("-presavecchia") ? "vecchia" : "vista";
+                var args = Environment.GetCommandLineArgs();
+                int ai = Array.IndexOf(args, "-armids");
+                if (ai >= 0 && ai + 1 < args.Length) only = "," + args[ai + 1] + ",";
+                for (int i = 0; i < WeaponDefs.All.Length; i++)
+                {
+                    string id = WeaponDefs.All[i].id;
+                    if (only != null && only.IndexOf("," + id + ",", StringComparison.Ordinal) < 0) continue;
+                    player.weapon.Equip(i);
+                    player.Teleport(o); player.yaw = oy; player.pitch = 0f;
+                    yield return new WaitForSeconds(1.0f);
+                    DumpArms(id, player.weapon, "riposo");
+                    Shot($"{tagv}_{id}");
+                    SideShot($"{tagv}_{id}", player.weapon);
+                    // in mira: com'e' il braccio quando l'arma sale all'occhio
+                    Weapon.debugAds = true;
+                    yield return new WaitForSeconds(0.8f);
+                    DumpArms(id, player.weapon, "mira");
+                    Shot($"{tagv}_{id}_mira");
+                    SideShot($"{tagv}_{id}_mira", player.weapon);
+                    Weapon.debugAds = false;
+                    yield return new WaitForSeconds(0.5f);
+                }
+                yield break;
+            }
 
             // ---- 1. il sacrario
             var sacs = fi.annexSites.FindAll(x => x.data.kind == AnnexKind.Sacrario);
@@ -287,6 +501,7 @@ namespace PryingEyes
             player.yaw = openYaw; player.pitch = 0f;
             yield return new WaitForSeconds(0.3f);
             Shot($"{weaponId}_riposo");
+            ZoomShot($"{weaponId}_riposo", hand);
             // magie: un bersaglio fermo davanti
             for (int node = 12; node <= 18; node++)
             {
@@ -380,7 +595,8 @@ namespace PryingEyes
         /// palmo non attraversa la camera; foto a 6 tempi.</summary>
         IEnumerator Gesture(OffHand hand, string name, Weapon w)
         {
-            float minElbow = 999f, maxElbow = 0f, maxWrist = 0f;
+            float minElbow = 999f, maxElbow = 0f, maxWrist = 0f, maxRoll = 0f, maxPS = 0f, maxFlex = 0f, maxDev = 0f;
+            bool anat = false;
             bool sawFree = false;
             float[] at = { 0.12f, 0.28f, 0.44f, 0.6f, 0.76f, 0.92f };
             int next = 0;
@@ -393,22 +609,54 @@ namespace PryingEyes
                 {
                     minElbow = Mathf.Min(minElbow, arm.LastElbowDeg); maxElbow = Mathf.Max(maxElbow, arm.LastElbowDeg);
                     maxWrist = Mathf.Max(maxWrist, arm.LastWristDeg);
+                    maxRoll = Mathf.Max(maxRoll, Mathf.Abs(arm.LastRollDeg));
+                    if (arm.HasHandFrame)
+                    {
+                        anat = true;
+                        maxPS = Mathf.Max(maxPS, Mathf.Abs(arm.LastProSupDeg)); maxFlex = Mathf.Max(maxFlex, Mathf.Abs(arm.LastFlexDeg));
+                        maxDev = Mathf.Max(maxDev, Mathf.Abs(arm.LastDevDeg));
+                    }
                 }
-                if (next < at.Length && hand.Progress >= at[next]) { Shot($"{name}_{next}"); next++; }
+                if (next < at.Length && hand.Progress >= at[next])
+                {
+                    Shot($"{name}_{next}");
+                    ZoomShot($"{name}_{next}", hand);
+                    if (side) { SideShot($"{name}_{next}", w); DumpArms(name, w, $"foto {next}"); }
+                    next++;
+                }
                 yield return null;
             }
             Check($"{name}: il gesto finisce", hand != null && !hand.Busy);
             Check($"{name}: la mano libera ha preso il posto del guanto", sawFree);
-            Check($"{name}: e poi lo ha restituito", hand != null && !hand.FreeVisible);
+            // con la presa naturale la mano articolata e' la mano di riposo: resta, ed e' tornata alla presa
+            Check($"{name}: e poi lo ha restituito", hand != null && (hand.NaturalRest || !hand.FreeVisible));
             if (maxElbow > 0f) Check($"{name}: gomito tra 28 e 176 gradi", minElbow >= ArmRig.MinElbowDeg - 0.5f && maxElbow <= ArmRig.MaxElbowDeg + 0.5f, $"{minElbow:F0}..{maxElbow:F0}, polso fino a {maxWrist:F0}");
             // un gesto col braccio sempre teso vuol dire che l'arma o la mano stanno oltre la portata della spalla
             if (maxElbow > 0f) Check($"{name}: il gomito si piega (sotto 150 gradi)", minElbow < 150f, $"minimo {minElbow:F0}");
-            report.AppendLine($"   {name}: gomito {minElbow:F0}..{maxElbow:F0} gradi, polso fino a {maxWrist:F0}");
+            // limiti umani: il polso non si spezza, l'avambraccio non si attorciglia, il braccio non si ripiega contro la spalla
+            if (maxElbow > 0f)
+            {
+                if (anat)
+                {
+                    // campi articolari veri (con 5-10 gradi di margine): prono-supinazione 90, flessione-estensione 85, deviazione 35
+                    Check($"{name}: prono-supinazione entro 90 gradi", maxPS <= 90f, $"massima {maxPS:F0}");
+                    Check($"{name}: polso: flessione-estensione entro 85 gradi", maxFlex <= 85f, $"massima {maxFlex:F0}");
+                    Check($"{name}: polso: deviazione entro 35 gradi", maxDev <= 35f, $"massima {maxDev:F0}");
+                }
+                else
+                {
+                    Check($"{name}: polso entro 80 gradi dall'avambraccio", maxWrist <= 80f, $"massimo {maxWrist:F0}");
+                    Check($"{name}: torsione dell'avambraccio entro 100 gradi", maxRoll <= 100f, $"massima {maxRoll:F0}");
+                }
+                Check($"{name}: gomito mai chiuso sotto 32 gradi", minElbow >= 32f, $"minimo {minElbow:F0}");
+            }
+            report.AppendLine($"   {name}: gomito {minElbow:F0}..{maxElbow:F0} gradi, polso fino a {maxWrist:F0}, torsione fino a {maxRoll:F0}" +
+                              (anat ? $"; anatomia: prono-supinazione {maxPS:F0}, flessione {maxFlex:F0}, deviazione {maxDev:F0}" : ""));
         }
 
-        static ArmRig ArmOf(Weapon w)
+        static ArmRig ArmOf(Weapon w, string field = "armL")
         {
-            var f = typeof(Weapon).GetField("armL", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var f = typeof(Weapon).GetField(field, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             return f != null ? f.GetValue(w) as ArmRig : null;
         }
 

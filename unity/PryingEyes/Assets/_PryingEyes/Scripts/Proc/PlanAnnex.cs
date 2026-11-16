@@ -125,8 +125,9 @@ namespace PryingEyes.Proc
         public const float SacWallH = 3.3f, SacVaultH = 4.4f;
 
         /// <summary>Cerca dove mettere il sacrario: un tratto di muro esterno di una sala (non la partenza, non un ascensore, non una sala
-        /// col giardino) abbastanza lungo e senza aperture ne' finestre davanti alla camera, che non tocchi stanze ne' altri annessi
-        /// all'aperto. Prima senza finestre sul tratto, poi ammettendole; per ultimo anche la partenza. Ne sceglie uno a caso.</summary>
+        /// col giardino, mai una stanza all'aperto: i suoi muri esterni sono parapetti sul vuoto) abbastanza lungo e senza aperture ne'
+        /// finestre davanti alla camera, che non tocchi stanze ne' altri annessi all'aperto. Prima senza finestre sul tratto, poi
+        /// ammettendole; per ultimo anche la partenza. Ne sceglie uno a caso.</summary>
         static Annex TrySacrario(Plan plan, Rng rng)
         {
             for (int pass = 0; pass < 4; pass++)
@@ -136,7 +137,7 @@ namespace PryingEyes.Proc
                 var found = new List<Annex>();
                 foreach (var r in plan.rooms)
                 {
-                    if (r.IsLift || r.cornerRadius > 0f || r.type == RoomType.Segreta) continue;
+                    if (r.IsLift || r.cornerRadius > 0f || r.type == RoomType.Segreta || r.Open) continue;
                     if (pass < 2 && r.type == RoomType.Partenza) continue;
                     if (pass < 3 && plan.annexes.Exists(x => x.host == r.id && x.Outside)) continue;
                     foreach (Side s in new[] { Side.S, Side.N, Side.W, Side.E })
@@ -456,7 +457,7 @@ namespace PryingEyes.Proc
                 {
                     // il sacrario sta fuori dal muro: puo' avere per sala madre una sala che ha gia' una torre o una cripta
                     if (++sacrari > 1) { why = "piu' di un sacrario nel piano"; return false; }
-                    if (r.IsLift || r.type == RoomType.Segreta) { why = "sala madre non adatta " + a + " " + r; return false; }
+                    if (r.IsLift || r.type == RoomType.Segreta || r.Open) { why = "sala madre non adatta " + a + " " + r; return false; }
                     if (a.gate != GateKind.Segreto) { why = "sacrario con un cancello " + a; return false; }
                     if (!ValidateOutside(plan, a, out why)) return false;
                     continue;

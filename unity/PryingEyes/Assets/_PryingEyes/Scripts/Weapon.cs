@@ -98,6 +98,8 @@ namespace PryingEyes
         // mani
         Transform handL, handR;
         Vector3 handLRest;
+        /// <summary>I pezzi del guanto sinistro avvolto (presa naturale: restano spenti).</summary>
+        Renderer[] wrappedL;
         Renderer[] handLRend;
         bool handLOnMag;
         GameObject handsGo;
@@ -126,6 +128,31 @@ namespace PryingEyes
         /// <summary>Posa al fianco del modello in prima persona (riferimento della camera) per classe d'arma. Le pistole, anche quelle
         /// urbane, stanno piu' in alto e piu' vicine al centro: dal fianco sporgerebbe solo uno spigolo del carrello. Usata anche da
         /// ArmiShots e, con gli stessi numeri, da modelli/hotel/genera_braccia.py per scegliere la posa delle braccia.</summary>
+        // ------------------------------------------------------------------ presa realistica (prototipo, 2026-11-16)
+        /// <summary>Armi tenute a distanza umana, con braccia vere (ArmRig.Body): al fianco le armi stavano a 50-62 cm dall'occhio
+        /// con l'astina del fucile a un metro, e il braccio del modello era un tubo virtuale lungo quasi un metro. Per ora e' il prototipo
+        /// su fucile e pistola; -presavecchia le riporta alla presa di prima (per confrontare). Per ognuna: dove sta l'arma al fianco
+        /// (camera), di quanto e' girata e di quanto il tiratore gira il busto (la spalla sinistra avanti: e' cosi' che la sinistra arriva
+        /// all'astina col gomito piegato).</summary>
+        static readonly Dictionary<string, (Vector3 hip, float yaw, float stance, float slideL)> RealHoldTable = new Dictionary<string, (Vector3, float, float, float)>
+        {
+            // fucile: la destra a 30 cm davanti all'occhio (era a 63) e 5 sotto la spalla, la sinistra sull'astina a circa 65 (era a 99); busto girato di 35 gradi
+            // la sinistra era modellata 37 cm davanti all'impugnatura, vicino al mirino: scorre 9 cm indietro sul binario dell'astina
+            { "ar9_malleus", (new Vector3(0.12f, -0.19f, 0.29f), -8f, 35f, 0.09f) },
+            // pistola: la destra a 34 cm (era a 51), busto quasi frontale
+            { "p9_pieta", (new Vector3(0.095f, -0.15f, 0.33f), -3.5f, 10f, 0f) },
+        };
+        static int oldHold = -1;
+        /// <summary>Rotazione del busto della presa realistica di quest'arma (0 = presa vecchia).</summary>
+        float holdStance;
+        public static bool RealHold(WeaponDef d)
+        {
+            if (oldHold < 0) oldHold = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-presavecchia") >= 0 ? 1 : 0;
+            return d != null && oldHold == 0 && RealHoldTable.ContainsKey(d.id);
+        }
+        /// <summary>La posa al fianco di quest'arma: quella della presa realistica se c'e', se no quella della sua classe.</summary>
+        static Vector3 HipOf(WeaponDef d) => RealHold(d) ? RealHoldTable[d.id].hip : HipFor(d.cls);
+
         public static Vector3 HipFor(string cls)
         {
             if (cls == "PISTOLA MITRAGLIATRICE" || cls == "MICRO-MITRA") return new Vector3(0.21f, -0.19f, 0.54f);
@@ -587,9 +614,11 @@ namespace PryingEyes
         /// genera_mani.py): destra sull'impugnatura, sinistra spostata su grip_l. Le armi a una mano nascondono la sinistra.</summary>
         void AddHands(GameObject root, WeaponDef d)
         {
-            handL = handR = null; handLRend = null; handsGo = null;
+            handL = handR = null; handLRend = null; handsGo = null; wrappedL = null;
             handRRend = null; handRHideAds = false; handRVis = true;
             armR = armL = null;
+            hipYaw = RealHold(d) ? RealHoldTable[d.id].yaw : -3.5f;
+            holdStance = RealHold(d) ? RealHoldTable[d.id].stance : 0f;
             trigFinger = null;
             offHand = null;
             var prefab = Resources.Load<GameObject>("ManiArmi/" + d.id);
@@ -614,7 +643,7 @@ namespace PryingEyes
                 armR = ArmRig.Build(g.transform, handR, "d");
                 armL = ArmRig.Build(g.transform, handL, "s");
                 // spalle attaccate al corpo: nella posa al fianco coincidono con quelle modellate (la radice delle mani e' il viewRoot)
-                Vector3 hipP = HipFor(d.cls);
+                Vector3 hipP = HipOf(d);
                 Quaternion hipQ = Quaternion.Euler(0f, hipYaw, 0f);
                 armR?.AnchorTo(cam, hipP + hipQ * armR.ShoulderLocal);
                 armL?.AnchorTo(cam, hipP + hipQ * armL.ShoulderLocal);
@@ -622,6 +651,13 @@ namespace PryingEyes
                 trigBlend = 0f;
                 if (armR != null) armR.AdsDrop = 0.20f;
                 if (armL != null) armL.AdsDrop = 0.04f;
+                if (RealHold(d))
+                {
+                    // braccia vere: spalle del corpo col busto girato, omero di 30 cm, gomiti in giu' e in fuori
+                    float st = RealHoldTable[d.id].stance;
+                    if (armR != null) { armR.Body = true; armR.Stance = st; armR.AdsDrop = 0f; armR.RestPole = armR.PoleHint = new Vector3(0.30f, -0.93f, -0.20f); }
+                    if (armL != null) { armL.Body = true; armL.Stance = st; armL.AdsDrop = 0f; armL.RestPole = armL.PoleHint = new Vector3(-0.35f, -0.92f, -0.15f); }
+                }
             }
             if (handL != null)
             {
@@ -631,11 +667,18 @@ namespace PryingEyes
                     Vector3 target = rig.gripL != null ? root.transform.InverseTransformPoint(rig.gripL.position) : hg;
                     handL.position += root.transform.TransformVector(target - hg);
                 }
+                // presa realistica: la sinistra piu' vicina all'impugnatura, lungo l'astina (asse dell'arma)
+                if (RealHold(d) && RealHoldTable[d.id].slideL != 0f)
+                    handL.position += root.transform.TransformVector(new Vector3(0f, 0f, -RealHoldTable[d.id].slideL));
                 handLRest = root.transform.InverseTransformPoint(handL.position);
                 var wrappedLeft = handL.GetComponentsInChildren<Renderer>(true);
                 handLRend = WithSkin(wrappedLeft, armL);
                 // la mano libera nasce qui, sotto mano_s, dove sta il guanto avvolto (OffHand)
                 if (onMeasure) offHand = OffHand.Build(cam, root.transform, g.transform, handL, armL, rig, d, wrappedLeft);
+                if (offHand != null) offHand.RealHold = RealHold(d);
+                // presa realistica a due mani: la sinistra sotto l'astina come la tiene un tiratore (la mano articolata al posto del guanto
+                // modellato per la spalla finta); il nuovo riposo vale anche per le ricariche
+                if (offHand != null && RealHold(d) && d.hand > 0.5f) { handLRest = offHand.SetNaturalRest(); wrappedL = wrappedLeft; }
             }
             if (handR != null)
             {
@@ -1116,7 +1159,7 @@ namespace PryingEyes
         {
             if (viewRoot == null || rig == null) return;
             var d = Def;
-            Vector3 hip = HipFor(d.cls);
+            Vector3 hip = HipOf(d);
             Vector3 a = rig.AdsLocal;
             Vector3 adsP = new Vector3(0f, 0f, d.adsDist) - a;
             Vector3 pos = Vector3.Lerp(hip, adsP, ads);
@@ -1234,6 +1277,15 @@ namespace PryingEyes
             viewRoot.localPosition = pos;
             viewRoot.localRotation = rot;
             AnimateParts(rp, d);
+            if (holdStance > 0f)
+            {
+                // presa realistica: mentre la sinistra lavora libera (magie, sigilli, lanci) il busto torna frontale e la spalla sinistra
+                // torna dove i gesti la aspettano; le spalle girano insieme
+                float fb = armL != null ? Mathf.Clamp01(armL.Free) : 0f;
+                float st = holdStance * (1f - fb);
+                if (armR != null) armR.Stance = st;
+                if (armL != null) armL.Stance = st;
+            }
             armR?.Solve(ads);
             if (trigFinger != null)
             {
@@ -1244,6 +1296,7 @@ namespace PryingEyes
             }
             offHand?.Tick(dt);
             armL?.Solve(ads, dt);
+            offHand?.AfterArmSolve();
         }
 
         void AnimateParts(float rp, WeaponDef d)
@@ -1322,6 +1375,7 @@ namespace PryingEyes
             {
                 bool vis = d.hand > 0.5f || (rp >= 0f && rp > 0.04f && rp < 0.96f);
                 if (handLRend != null) foreach (var r in handLRend) if (r != null) r.enabled = vis;
+                if (wrappedL != null && offHand != null && offHand.NaturalRest) foreach (var r in wrappedL) if (r != null && r is MeshRenderer) r.enabled = false;
                 if (d.hand > 0.5f)
                 {
                     Vector3 target = handLRest;
