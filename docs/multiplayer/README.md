@@ -160,7 +160,7 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 
 | Flag | Cosa prova |
 | --- | --- |
-| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, ferite dall'ospite, area comprata dall'ospitato (e richiesta da lontano rifiutata, con i punti restituiti), ondata con nascite solo nelle aree aperte e premio per tutti, altre due ondate che aprono l'ascensore, gocce, uscita, discesa insieme e piano nuovo da capo (col ciclo a candele: candela semplice e di zona, round con serrande e premio) |
+| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, la ricarica a vuoto fatta dalla mano sinistra su ogni processo e la Catena del Fulmine lanciata dall'ospitato su un nemico fermo dell'ospite, nato dove l'ospitato lo vede (il colpo, fonte Magia, arriva all'ospite come `HitClaim`), ferite dall'ospite, area comprata dall'ospitato (e richiesta da lontano rifiutata, con i punti restituiti), ondata con nascite solo nelle aree aperte e premio per tutti, altre due ondate che aprono l'ascensore, gocce, uscita, discesa insieme e piano nuovo da capo (col ciclo a candele: candela semplice e di zona, round con serrande e premio) |
 | `-cooplate` | entrata a ondata in corso: aree comprate, porte su e giu', numero dell'ondata e nemici arrivano al nuovo (col ciclo a candele: serrande e round) |
 | `-coopleave` / `-coopcrash` | uscita pulita / processo ucciso: l'ospite se ne accorge e prosegue da solo (un nemico lo caccia, poi un'ondata intera) |
 | `-coophostleave` | se ne va l'ospite: l'ospitato prosegue da solo con Role spento |

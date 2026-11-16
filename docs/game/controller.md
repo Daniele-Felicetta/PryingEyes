@@ -23,20 +23,33 @@ Switch controller needs an XInput wrapper such as Steam Input or DS4Windows (not
 
 ## Playing
 
-| Control | Action |
+The mapping was reviewed on 16 November 2026 for comfort, on the pattern of wave shooters: no two-button chords; a button that does two
+things does the first when tapped (on release, under 0.3 s: `PadControls.Mapper.HoldTime`) and the second when held (once, as soon as
+0.3 s pass). Before, LB was a second layer (LB + a button), the left-hand magic needed LB + RB, use and buy sat on RB, the holy water on
+the D-pad (the thumb left the right stick to throw it) and crouching meant holding B (the same thumb, so you could not look around while
+crouched).
+
+| Control | Action (held: second action) |
 | --- | --- |
-| Left stick | Move (pressed: run on/off; it also stops when you stop, aim or fire) |
-| Right stick | Look (pressed: knife) |
+| Left stick | Move; pressed: run on/off (it also stops when you stop, aim or fire) |
+| Right stick | Look; pressed: knife |
 | RT / LT | Fire / aim |
-| A / B / X / Y | Jump / crouch (hold) / reload / change weapon |
-| RB | Use, buy, pick up (`F`) |
-| D-pad left, right | Lean |
-| D-pad up / down | Torch / holy water |
-| LB + A, B, X, Y | Veil / fire mode / music box / reliquary mine |
-| LB + D-pad up, down, left | Map / ping the doors / replace the battery |
-| LB + RB (tap / hold) | Left-hand spell / seal on the weapon (`3` tapped / held); with LB held RB does not use |
-| LB + D-pad right / LB + R3 | Next spell / next seal (`6` / `7`); with LB held R3 is not the knife |
-| Start / Back (hold) | Pause / scoreboard |
+| L3 / R3 while aiming | Lean left / right (`Q` / `E`): a press leans, a second one or letting go of the aim straightens |
+| A | Jump (it also stands you up) |
+| B | Crouch on/off (`C`); jumping or running stands you up |
+| X | Reload (`R`); held: use, buy, pick up (`F`; the prompts say *tieni X*) |
+| Y | Change weapon; held: fire mode (`B`) |
+| LB | Left hand: spell when tapped, seal on the weapon when held (`3`) |
+| RB | Holy water (`Z`) |
+| D-pad up | Torch (`T`); held: replace the battery (`Y`) |
+| D-pad down | Music box (`4`); held: reliquary mine (`5`) |
+| D-pad left | Ping the doors (`V`); held: veil (`H`) |
+| D-pad right | Next spell (`6`); held: next seal (`7`) |
+| Back | Map (`M`); held: scoreboard, while held (`Tab`) |
+| Start | Pause |
+
+Crouching and leaning are switches in the controller translator (`Mapper.Crouching`): a menu opened in between does not change them (B
+going back in a menu does not crouch, L3 does not start running), they are restored by `SuppressGameplay`.
 
 The sticks have dead zones (7849 and 8689 of 32767), the triggers switch on at half a stroke and off at 30%; look speed follows a curve, so
 small movements are fine and a full push turns fast (3.2 rad/s at most horizontally at sensitivity 1). The controller goes through the same
@@ -95,6 +108,8 @@ Code (`Assets/_PryingEyes/Scripts/`): `PadControls.cs`, `PadMenuInput.cs`, `Game
   `Screenmanager` values were restored afterwards.
 - On 16 November 2026, after the split screen became one game in one window: `-splittest` 63 of 63; `-seatstest` (each player's controller walks,
   fires and jumps on its own, Start on any controller pauses and resumes everyone) 55 to 57 of 57 for 2 to 4 players; `MenuReview.Run` 665 checks.
+- The mapping of 16 November 2026 is checked by the pure part of `-splittest` (each button and its held action once, no tap after a hold,
+  crouch on and off, jump and run standing you up, lean only while aiming, R3 not the knife while aiming).
 - **Not verified**: a physical controller (none was available; the real XInput read answers without errors and the rest runs on fake
-  states), PlayStation and Switch controllers through a wrapper, several controllers in the normal game (the first one pressed wins),
+  states), the feel of the new mapping in a real game, PlayStation and Switch controllers through a wrapper, several controllers in the normal game (the first one pressed wins),
   Steam Input, controller hot-plug during a real game, and the look of the menus at resolutions other than 1024x720.

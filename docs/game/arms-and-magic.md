@@ -10,16 +10,16 @@ dell'Arsenale Maledetto".
 
 | Key | Controller | Action |
 | --- | --- | --- |
-| `3` (tap) or middle mouse | LB + RB (tap) | Cast the selected spell with the left hand. |
-| `3` (hold 0.35 s) | LB + RB (hold) | Trace the selected seal on the weapon in hand (lasts 45 s on that weapon). |
-| `6` / `7` | LB + D-pad right / LB + R3 | Next spell / next seal. |
-| `F` at the secret wall, then `C` | RB, then B | Open the secret wall (an eye carved in the stone, whispering), crawl through the 1.3 m tunnel. |
-| `F` at the grimoire | RB | Read the book: mouse or arrows/WASD or D-pad to choose a node, click/Enter/F/A to buy (or to make an owned spell or seal the active one), Esc/B to close. |
+| `3` (tap) or middle mouse | LB (tap) | Cast the selected spell with the left hand. |
+| `3` (hold 0.35 s) | LB (hold) | Trace the selected seal on the weapon in hand (lasts 45 s on that weapon). |
+| `6` / `7` | D-pad right / D-pad right held | Next spell / next seal. |
+| `F` at the secret wall, then `C` | X held, then B | Open the secret wall (an eye carved in the stone, whispering), crawl through the 1.3 m tunnel. |
+| `F` at the grimoire | X held | Read the book: mouse or arrows/WASD or D-pad to choose a node, click/Enter/F/A to buy (or to make an owned spell or seal the active one), Esc/B to close. |
 
 The left hand pays with **essence**: 60 at the start, 100 maximum, 2 per second back, 3 per kill. Spells and seals cannot start while
-reloading, swapping, sprinting, with the knife out, or during another gesture. With LB held on the controller, RB and R3 belong to the
-left hand (they no longer use or stab). Holy water and the music box are now thrown with the left hand too (it takes the object, winds
-back and throws; the object leaves from the palm).
+reloading, swapping, sprinting, with the knife out, or during another gesture. On the controller the left hand is LB alone (the whole
+mapping is in [controller.md](controller.md)). Holy water and the music box are now thrown with the left hand too (it takes the object,
+winds back and throws; the object leaves from the palm).
 
 To try arms, gestures and effects by hand without finding the books, launch the game with `-provamagia`: every spell and seal with
 their outer nodes (except Gesto Rapido and Maneggevolezza, which speed the gestures up), full essence, 10,000 points and the AR-9

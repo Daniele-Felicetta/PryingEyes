@@ -15,15 +15,17 @@ namespace PryingEyes
         float splitRefreshAt;
 
         static readonly string PadSheet =
-            "CONTROLLER\n" +
+            "CONTROLLER  (tra parentesi: tenendo premuto)\n" +
             "Stick sinistro: muovi (premuto: corsa)\n" +
             "Stick destro: guarda (premuto: coltello)\n" +
-            "RT spara · LT mira\n" +
-            "A salta · B abbassati · X ricarica · Y cambia arma\n" +
-            "RB usa e compra · croce: sporgersi, torcia (su), acquasanta (giù)\n" +
-            "LB + A velo · LB + B modo di fuoco · LB + X carillon · LB + Y mina\n" +
-            "LB + su mappa · LB + giù indica le porte · LB + sinistra pila\n" +
-            "Back tabellone · Start pausa";
+            "RT spara · LT mira (con la mira L3 e R3 ti sporgi)\n" +
+            "A salta · B abbassati · Y cambia arma (modo di fuoco)\n" +
+            "X ricarica (usa e compra) · RB acquasanta\n" +
+            "LB magia della mano sinistra (sigillo sull'arma)\n" +
+            "Croce su: torcia (cambia pila)\n" +
+            "Croce giù: carillon (mina) · sinistra: porte (velo)\n" +
+            "Croce destra: magia seguente (sigillo seguente)\n" +
+            "Back mappa (tabellone) · Start pausa";
 
         void BuildSplit()
         {

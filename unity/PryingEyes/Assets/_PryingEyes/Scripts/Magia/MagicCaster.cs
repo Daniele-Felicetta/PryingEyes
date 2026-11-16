@@ -13,7 +13,7 @@ namespace PryingEyes
     /// <summary>La mano sinistra del giocatore: magie (Libro della Stregoneria) e sigilli sull'arma (Libro dell'Arsenale), con i loro
     /// gesti (OffHandAnims) e i loro effetti.
     /// Comandi: 3 toccato = la magia scelta, 3 tenuto (0,35 s) = il sigillo scelto sull'arma in mano; rotella premuta = la magia;
-    /// 6 / 7 = magia / sigillo seguente. Controller: LB + RB (toccato o tenuto), LB + destra, LB + R3.
+    /// 6 / 7 = magia / sigillo seguente. Controller: LB (toccato o tenuto), croce a destra (toccata o tenuta).
     /// L'essenza torna da sola (2 al secondo) e con le uccisioni. Le magie non si possono lanciare ricaricando, cambiando arma, col
     /// coltello, correndo o con un altro gesto in corso. Senza la mano libera (modello mancante) la magia parte subito dalla camera.</summary>
     [DefaultExecutionOrder(200)]

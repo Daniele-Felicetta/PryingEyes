@@ -352,7 +352,7 @@ namespace PryingEyes
             Label(helpPanel, "Risorse", new Vector2(0, -130), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
                 "ESPLORA E SCEGLI\nCompra armi ai muri, cerca pile e libri nei santuari. Se muori perdi metà dei punti e l'ultimo perk acquistato.", Dim, FontStyle.Normal);
             helpPad = Label(helpPanel, "Controller", new Vector2(0, -190), new Vector2(1120, 26), 16, TextAnchor.MiddleCenter,
-                "CONTROLLER  ·  RT spara  ·  LT mira  ·  A salta  ·  B abbassati  ·  X ricarica  ·  Y arma  ·  RB usa e compra  ·  Start pausa", Brass, FontStyle.Normal);
+                "CONTROLLER  ·  RT spara  ·  LT mira  ·  A salta  ·  B abbassati  ·  X ricarica (tienilo: usa)  ·  Y arma  ·  LB magia  ·  RB acquasanta", Brass, FontStyle.Normal);
             helpPad.gameObject.SetActive(false);
             MakeButton(helpPanel, "Indietro", new Vector2(0, -240), () => Show(helpFrom));
             BuildPadUi();
