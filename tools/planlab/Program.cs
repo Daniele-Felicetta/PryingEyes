@@ -16,7 +16,18 @@ static class Program
     {
         // "old" in qualunque posizione: le ali d'albergo e di chiesa di prima, al posto della griglia
         if (Array.IndexOf(a, "old") >= 0) { PlanGen.UseGrid = false; a = Array.FindAll(a, x => x != "old"); }
+        // "theme=guardaroba" (o albergo, teatro, sanatorio): tutti i piani di quel tema; "guardaroba=N": percentuale dei piani dal terzo in su
+        // (0 = spento); "salt=N": il sale della seconda estrazione. Valgono per ogni comando.
+        foreach (var x in a)
+        {
+            if (x.StartsWith("theme=")) PlanGen.ForceTheme = Enum.Parse<Theme>(x.Substring(6), true);
+            else if (x.StartsWith("guardaroba=")) PlanGen.GuardarobaPercent = int.Parse(x.Substring(11));
+            else if (x.StartsWith("salt=")) PlanGen.GuardarobaSalt = int.Parse(x.Substring(5));
+            else if (x == "waves") PlanGen.SurvivalLayout = true;      // the layout of the wave cycle (the game's default), for dump/map/stats
+        }
+        a = Array.FindAll(a, x => !x.StartsWith("theme=") && !x.StartsWith("guardaroba=") && !x.StartsWith("salt=") && x != "waves");
         string cmd = a.Length > 0 ? a[0] : "stats";
+        if (cmd == "themes") return Themes(a);
         if (cmd == "room") return Room(a);
         if (cmd == "city") return City(a);
         if (cmd == "survival") return Survival(a.Length > 1 ? int.Parse(a[1]) : 1000);
@@ -29,6 +40,40 @@ static class Program
         if (cmd == "map") { Map(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         if (cmd == "sheet") { Sheet(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         return 1;
+    }
+
+    // themes <seme>/<piano> ...        the theme of each plan with the current settings;
+    // themes scan <seme>/<piano> ...   the first salts for which none of those plans changes theme when the Guardaroba is on.
+    static int Themes(string[] a)
+    {
+        bool scan = a.Length > 1 && a[1] == "scan";
+        var list = new List<(int seed, int floor)>();
+        for (int i = scan ? 2 : 1; i < a.Length; i++)
+        {
+            var p = a[i].Split('/');
+            list.Add((int.Parse(p[0]), p.Length > 1 ? int.Parse(p[1]) : 3));
+        }
+        if (!scan)
+        {
+            foreach (var (seed, floor) in list) Console.WriteLine($"seme {seed} piano {floor}: {PlanGen.ThemeFor(seed, floor)}");
+            return 0;
+        }
+        int keep = PlanGen.GuardarobaPercent, found = 0;
+        PlanGen.GuardarobaPercent = 0;
+        var before = list.ConvertAll(t => PlanGen.ThemeFor(t.seed, t.floor));
+        PlanGen.GuardarobaPercent = keep;
+        for (int salt = 0; salt < 5000 && found < 8; salt++)
+        {
+            PlanGen.GuardarobaSalt = salt;
+            bool same = true;
+            for (int i = 0; i < list.Count && same; i++) same = PlanGen.ThemeFor(list[i].seed, list[i].floor) == before[i];
+            if (!same) continue;
+            int g = 0;
+            for (int s = 1; s <= 4000; s++) if (PlanGen.ThemeFor(s, 3 + s % 6) == Theme.Guardaroba) g++;
+            Console.WriteLine($"salt {salt}: i {list.Count} piani non cambiano; Guardaroba su {g} piani di 4000 ({g / 40.0:F1}%)");
+            found++;
+        }
+        return 0;
     }
 
     // room <catalog> <id> <plan.json> [width depth]   plans one room;

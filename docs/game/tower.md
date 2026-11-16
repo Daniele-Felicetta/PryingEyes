@@ -40,8 +40,9 @@ Sections 2 to 4 describe the floor. Sections 5 and 6 describe the two cycles. Se
 - **Hotel with church** (`Albergo`): always on floors 1 and 2 (`PlanThemes.PickTheme`).
 - **Theatre** (`Teatro`): an auditorium with boxes and a foyer, a stage with dressing rooms, joined by the proscenium arch.
 - **Sanatorium** (`Sanatorio`): an institute with reception, wards, cells and services, plus the chapel.
+- **Guardaroba** (`Guardaroba`): the Count's castle of wardrobes, vampires, scissors and lava, with open-air terraces; see [guardaroba.md](guardaroba.md). Off by default: `-guardaroba N` makes N floors in a hundred, from the third up, Guardaroba (`PlanGen.GuardarobaPercent`, default 0), and `-theme guardaroba` forces it.
 
-From floor 3 the theme is drawn with equal weight among the three.
+From floor 3 the theme is drawn with equal weight among the first three, and the Guardaroba replaces it on the floors the second draw picks (none by default).
 
 Theatre and sanatorium have their own plans, materials, lights, fog, sounds, furniture and models (phases 1 to 3 of the themes). The models are:
 
@@ -332,6 +333,7 @@ The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namesp
 - **Procedural PBR textures**: `modelli/hotel/genera_texture_chiesa.py` (wall stone, slabs, crypt stone, vault brick, parquet, tiles, concrete, four stained glass windows). Theatre and sanatorium: the `ruggine` (rust) texture in `modelli/hotel/genera_texture.py` (role `A_ruggine`: painted iron that chips and shows rust).
 - **Blender models**: `modelli/chiesa/genera_chiesa.py` (bench, altar, reredos, candelabrum, candle stand, confessional, pulpit, font, statue, organ, sarcophagus, chandelier, stall, kneeler) and `modelli/hotel/genera_arredi2.py` (bed, bedside table, wardrobe, desk, chair, table, piano, stove, steel table, shelf).
 - **Theatre and sanatorium models**: `modelli/hotel/genera_arredi3.py` (12 models; `blender -b -P genera_arredi3.py -- render [names]` makes CPU previews without touching the GPU, `-- build` makes the FBX files in `arredi3/`).
+- **Guardaroba models**: `modelli/hotel/genera_arredi4.py` (17 props, `gu_*`; commands, materials and the photo tool `PropShots` in [guardaroba.md](guardaroba.md)).
 - **Themed enemy accessories**: `modelli/temi/genera_accessori.py` (`blender -b -P genera_accessori.py -- build` makes the FBX; with `maschera`, `direttore`, `infermiere` or `primario` it makes CPU previews in `render/`). Costumes: `modelli/temi/genera_costumi_tex.py` (the design is evaluated in 3D at each pixel's position on the atlas; the normal map is the monk's). `Editor/NemiciTemiImport.cs` makes the prefabs in `Resources/` (`-executeMethod PryingEyes.EditorTools.NemiciTemiImport.RunAndShot`; photos in the hall in `hotel_build/shot_temi_*.png`).
 - **Knife**: `modelli/armi/armi_coltello.py`, then `ArmiImport`/`ManiImport` with `-armi kn_coltello -mani kn_coltello`.
 - **Destinations**: the FBX files are copied to `Assets/_PryingEyes/Models/{Chiesa,Arredi}`, and `TorreBuilder.FillKit` makes the prefabs from them.

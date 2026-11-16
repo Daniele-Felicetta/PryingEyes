@@ -151,7 +151,16 @@ namespace PryingEyes.Proc
                 case RoomKind.Archivio: Archivio(c); break;
                 case RoomKind.Obitorio: Obitorio(c); break;
                 case RoomKind.SalaMedici: SalaMedici(c); break;
+                // guardaroba
+                case RoomKind.SalaArmadi: SalaArmadi(c); break;
+                case RoomKind.Sartoria: Sartoria(c); break;
+                case RoomKind.Spogliatoio: Spogliatoio(c); break;
+                case RoomKind.Sepolcreto: Sepolcreto(c); break;
+                case RoomKind.Forgia: Forgia(c); break;
+                case RoomKind.Terrazza: Terrazza(c); break;
             }
+            // all'aperto la ricetta mette gia' arredi e luci: niente riempimento da soffitto, lampadario, panche e ripari generici
+            if (r.Open) { Spawns(c); Census(c); return null; }
             if (!objectiveFirst && !r.IsLift && c.plan.objectives.Contains(r.id)) Objective(c);
             if (r.GalleryLevels==2)
             {
@@ -549,7 +558,8 @@ namespace PryingEyes.Proc
                     bool church = o.style == OpenStyle.Lancetta;
                     bool key = o == keyOpening;
                     Color col = church ? Color.Lerp(new Color(0.73f, 0.82f, 1f), GlassColor(o.variant), 0.22f)
-                        : c.plan.theme == Theme.Sanatorio ? new Color(0.62f, 0.84f, 0.80f) : new Color(0.62f, 0.74f, 1f);
+                        : c.plan.theme == Theme.Sanatorio ? new Color(0.62f, 0.84f, 0.80f)
+                        : c.plan.theme == Theme.Guardaroba ? new Color(0.80f, 0.46f, 0.60f) : new Color(0.62f, 0.74f, 1f);
                     float inten = church ? (o.oneSided ? 21f : 31f) : 6f;
                     float range = church ? 17f : 8.5f;
                     var direction = inw + Vector3.down * (o.oneSided ? 1.5f : 0.7f);
@@ -675,6 +685,13 @@ namespace PryingEyes.Proc
             // teatro: un fondo rossastro e fioco (la sala e' quasi al buio); sanatorio: verdastro e freddo, come i neon
             if (!r.church && c.plan.theme == Theme.Teatro) { col = new Color(0.95f, 0.64f, 0.50f); base_ = r.wallH > 5.2f ? 11f : r.kind == RoomKind.Palco ? 9f : 4.6f; }
             else if (!r.church && c.plan.theme == Theme.Sanatorio) { col = new Color(0.72f, 0.88f, 0.82f); base_ = 2.7f; }
+            // Guardaroba: un fondo caldo e rossastro come brace; la forgia e' arancione, la cripta quasi al buio e violacea
+            else if (c.plan.theme == Theme.Guardaroba)
+            {
+                col = new Color(0.95f, 0.62f, 0.52f); base_ = 3.0f;
+                if (r.kind == RoomKind.Forgia) { col = new Color(1f, 0.52f, 0.26f); base_ = 4.2f; }
+                else if (r.kind == RoomKind.Sepolcreto) { col = new Color(0.82f, 0.46f, 0.60f); base_ = 2.3f; }
+            }
             // sopra il soffitto nelle stanze basse (niente macchia calda sull'intonaco: la faccia del soffitto guarda in basso e non la prende),
             // a mezza altezza in quelle alte
             float y = r.wallH < 5.2f ? r.wallH + 1.2f : 5.0f;

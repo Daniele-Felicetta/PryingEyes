@@ -23,6 +23,7 @@ namespace PryingEyes.EditorTools
         {
             int n = int.TryParse(Arg("-seeds"), out int v) ? v : 20;
             int seed0 = int.TryParse(Arg("-seed0"), out int s0) ? s0 : 3000;
+            ThemeFlag.Apply();                       // -theme guardaroba, -guardaroba N
             EditorSceneManager.OpenScene(TorreBuilder.ScenePath);
             var player = GameObject.Find("Player");
             if (player != null) player.SetActive(false);
@@ -177,7 +178,7 @@ namespace PryingEyes.EditorTools
             sb.AppendLine($"[PryingEyes] CHECK balconate: {upperAll} punti superiori, {upperBad} irraggiungibili dall'arrivo");
             sb.AppendLine($"[PryingEyes] CHECK sale curve: {curvedAll}, angoli esclusi attraversabili {curvedBad}");
             Debug.Log(sb.ToString());
-            System.IO.File.WriteAllText("C:/Users/danie/Desktop/prying-eyes/hotel_build/proccheck.txt", sb.ToString());
+            System.IO.File.WriteAllText(TestPaths.Out("proccheck.txt"), sb.ToString());
             if (propStats != null)
             {
                 var ps = new StringBuilder();
@@ -190,7 +191,7 @@ namespace PryingEyes.EditorTools
                     foreach (var k2 in kv.Value) { tot += k2.Value; parts.Add($"{k2.Key} {k2.Value}"); }
                     ps.AppendLine($"{kv.Key,-18} {tot,6}  [{string.Join(", ", parts)}]");
                 }
-                System.IO.File.WriteAllText("C:/Users/danie/Desktop/prying-eyes/hotel_build/propstats.txt", ps.ToString());
+                System.IO.File.WriteAllText(TestPaths.Out("propstats.txt"), ps.ToString());
             }
         }
 
@@ -248,7 +249,7 @@ namespace PryingEyes.EditorTools
                 }
             }
             Debug.Log(sb.ToString());
-            System.IO.File.WriteAllText("C:/Users/danie/Desktop/prying-eyes/hotel_build/procascii.txt", sb.ToString());
+            System.IO.File.WriteAllText(TestPaths.Out("procascii.txt"), sb.ToString());
         }
 
         static void Cleanup(FloorInstance fi)

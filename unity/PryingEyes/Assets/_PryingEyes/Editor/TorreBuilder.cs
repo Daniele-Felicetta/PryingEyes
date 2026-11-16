@@ -134,7 +134,9 @@ namespace PryingEyes.EditorTools
         {
             var m = Flat(asset, baseCol, 0f, 0.3f);
             m.SetColor("_EmissionColor", hdr);
-            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            // con None il postprocessore di URP (Unity 6: _EMISSION = flag GI emissivi accesi) rispegne la parola chiave al salvataggio e le
+            // fiamme, le braci e i neon escono neri; BakedEmissive la lascia accesa (il gioco non cuoce luci: nessun altro effetto)
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;
             m.EnableKeyword("_EMISSION");
             EditorUtility.SetDirty(m);
             return m;
@@ -150,7 +152,7 @@ namespace PryingEyes.EditorTools
             m.SetFloat("_Smoothness", 0.75f);
             m.SetTexture("_EmissionMap", tex);
             m.SetColor("_EmissionColor", emission);
-            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;       // come in Emit: con None si spegne al salvataggio
             m.EnableKeyword("_EMISSION");
             EditorUtility.SetDirty(m);
             return m;
@@ -248,6 +250,13 @@ namespace PryingEyes.EditorTools
                 { "A_specchio", Flat("kit_specchio", new Color(0.30f, 0.34f, 0.36f), 1f, 0.9f) },
                 { "A_lampadina", Existing("Bulb") },
                 { "A_neon", Emit("kit_neon", new Color(0.78f, 0.86f, 0.82f), new Color(2.1f, 2.5f, 2.3f)) },
+                // guardaroba del conte (modelli/hotel/genera_arredi4.py): carbone ardente, seta viola delle bare, panno nero dei mantelli
+                { "A_brace", Emit("kit_brace", new Color(0.06f, 0.02f, 0.01f), new Color(2.6f, 0.62f, 0.08f)) },
+                // il nome comincia per "fiamma": Candle() riconosce cosi' le fiamme da spegnere e da far tremare
+                { "A_fuoco", Emit("fiamma_grande", new Color(0.06f, 0.02f, 0.005f), new Color(2.4f, 0.5f, 0.05f)) },
+                { "A_seta", Pbr("kit_seta", "velluto", new Color(0.24f, 0.05f, 0.32f), 0.3f, 1.2f) },
+                { "A_panno", Pbr("kit_panno", "velluto", new Color(0.055f, 0.048f, 0.055f), 0.3f) },
+                { "A_basalto", Pbr("kit_basalto", "pietra_massello", new Color(0.46f, 0.48f, 0.55f), 1.0f, 0.9f) },
             };
             var prefabs = new List<ProcKit.PrefabRef>();
             if (!AssetDatabase.IsValidFolder("Assets/_PryingEyes/Prefabs")) AssetDatabase.CreateFolder("Assets/_PryingEyes", "Prefabs");

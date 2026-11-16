@@ -75,6 +75,25 @@ namespace PryingEyes.Proc
             A("san_sedia_ruote", 0.72f, 0.95f, 1.0f);
             A("san_scialitica", 0.8f, 1.1f, 0.8f, false);       // origine sul fondo del disco; l'asta fino al soffitto la fa il kit
             A("san_paravento", 1.3f, 1.7f, 0.45f);
+            // guardaroba del conte (modelli/hotel/genera_arredi4.py)
+            // misure prese dai bordi degli FBX (armadio e bara comprendono cornici e coperchio spostato solo in parte: il collider e' quello del corpo)
+            A("gu_armadio", 1.5f, 2.67f, 0.76f);
+            A("gu_armadio_aperto", 1.5f, 2.67f, 0.76f);          // le ante spalancate non hanno collider: il corpo e' quello del chiuso
+            A("gu_forbici", 0.9f, 2.5f, 0.9f);
+            A("gu_bara", 2.34f, 1.02f, 0.96f);
+            A("gu_bara_chiusa", 2.34f, 1.07f, 0.96f);
+            A("gu_tavolo_sarto", 2.3f, 1.0f, 1.15f);
+            A("gu_macchina_cucire", 0.95f, 1.14f, 0.48f);
+            A("gu_stoffe", 1.25f, 1.94f, 0.49f);
+            A("gu_attaccapanni", 0.66f, 1.9f, 0.66f);
+            A("gu_braciere", 0.76f, 1.05f, 0.7f);
+            A("gu_incudine", 1.04f, 0.83f, 0.6f);
+            A("gu_crogiolo", 1.66f, 1.95f, 0.91f);
+            A("gu_gargoyle", 1.0f, 1.81f, 0.94f);
+            A("gu_albero_secco", 1.56f, 3.14f, 1.56f);
+            A("gu_specchio", 1.13f, 2.05f, 0.56f);
+            A("gu_lampione", 0.5f, 2.97f, 0.5f);
+            A("gu_urna", 0.6f, 1.42f, 0.58f);
         }
 
         public static Def Get(string name)

@@ -70,6 +70,7 @@ namespace PryingEyes.Proc
             fi.roomGo = new GameObject[plan.rooms.Count];
             foreach (var r in plan.rooms) BuildRoom(fi, r);
             BuildGardens(fi);
+            if (plan.theme == Theme.Guardaroba) BuildGuardarobaSky(fi);
             RoomKits.PlaceWindowBounce(fi);
             // la navmesh deve coprire anche i giardini fuori dai muri e, in altezza, dalla camera della cripta (-4,4 m) alle celle delle torri e alle volte delle cattedrali
             plan.WalkBounds(out int wx0, out int wz0, out int wx1, out int wz1);
@@ -91,6 +92,12 @@ namespace PryingEyes.Proc
                     default: return 0;                                                       // marmo, cemento
                 }
             if (!r.church && theme == Theme.Sanatorio) return r.kind == RoomKind.Archivio || r.kind == RoomKind.SalaMedici ? 2 : 0;
+            if (theme == Theme.Guardaroba)
+                switch (r.kind)
+                {
+                    case RoomKind.SalaArmadi: case RoomKind.Sartoria: case RoomKind.Spogliatoio: return 2;      // assi e parquet
+                    default: return 0;                                                                           // cripta, forgia, terrazza: pietra
+                }
             switch (r.kind)
             {
                 case RoomKind.Corridoio: case RoomKind.Galleria: return 1;
@@ -186,10 +193,25 @@ namespace PryingEyes.Proc
                 case RoomKind.Archivio:
                 case RoomKind.SalaMedici:
                     s.floor = Mat("pav_parquet"); s.wall = Mat("mur_intonaco_freddo"); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); break;
+                // Guardaroba: il castello del conte. Armadi di noce su damasco verde, stoffe e legno nella sartoria, la cripta di pietra,
+                // la forgia di pietra nera con la lava, la terrazza all'aperto (senza soffitto: Ceiling non disegna niente)
+                case RoomKind.SalaArmadi:
+                    s.floor = Mat("pav_parquet"); s.wall = Mat(damask[1]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.6f; s.ceil = Mat("sof_legno"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
+                case RoomKind.Sartoria:
+                    s.floor = Mat("pav_parquet"); s.wall = Mat("mur_intonaco"); s.dado = Mat("mur_boiserie"); s.dadoH = 1.2f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
+                case RoomKind.Spogliatoio:
+                    s.floor = Mat("pav_marmo"); s.wall = Mat(damask[2]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.5f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); break;
+                case RoomKind.Sepolcreto:
+                    s.floor = Mat("pav_cripta"); s.wall = Mat("mur_cripta"); s.ceil = Mat("sof_volta"); s.trim = Mat("cornice_pietra"); s.beam = Mat("cornice_pietra"); break;
+                case RoomKind.Forgia:
+                    s.floor = Mat("pav_lastre"); s.wall = Mat("mur_pietra"); s.ceil = Mat("sof_scuro"); s.trim = Mat("cornice_pietra"); s.beam = Mat("trave"); break;
+                case RoomKind.Terrazza:
+                    s.floor = Mat("pav_lastre"); s.wall = Mat("mur_pietra"); s.trim = Mat("cornice_pietra"); break;
                 case RoomKind.Ascensore:
                     s.floor = Mat("pav_servizio"); s.wall = Mat("mur_boiserie"); s.ceil = Mat("mur_boiserie"); s.trim = Mat("ottone"); break;
             }
-            s.outer = r.church ? Mat("mur_pietra") : theme == Theme.Sanatorio ? Mat("mur_intonaco_freddo") : theme == Theme.Teatro ? Mat("mur_intonaco_nero") : Mat("mur_intonaco");
+            s.outer = r.church ? Mat("mur_pietra") : theme == Theme.Sanatorio ? Mat("mur_intonaco_freddo") : theme == Theme.Teatro ? Mat("mur_intonaco_nero")
+                : theme == Theme.Guardaroba ? Mat("mur_pietra") : Mat("mur_intonaco");
             return s;
         }
 
@@ -423,6 +445,8 @@ namespace PryingEyes.Proc
                 case CeilKind.BarrelPointed:
                     BarrelCeiling(mb, r, st, ix0, ix1, iz0, iz1);
                     break;
+                case CeilKind.Open:
+                    break;                                              // all'aperto: sopra c'e' il cielo
             }
         }
 
@@ -563,6 +587,7 @@ namespace PryingEyes.Proc
             }
             float faceStart = ax ? ix0 : iz0;
             TopFunc(r, ax, len, out var top, out var breaks);
+            if (r.Open) OpenTop(plan, r, s, faceStart, out top, out breaks);       // terrazza: parapetto sul vuoto, muro alto quanto il vicino
 
             var holes = new List<Hole>();
             foreach (var o in plan.OpeningsOn(r, s))
@@ -588,8 +613,10 @@ namespace PryingEyes.Proc
                 }
                 float shift = sa - faceStart;
                 TopFunc(r, ax, len, out var top0, out var br0);
+                if (r.Open) OpenTop(plan, r, s, faceStart, out top0, out br0);
                 Func<float, float> topShifted = x => top0(x + shift);
                 DrawFace(mb, st.outer, null, 0f, o2, u, outward, sb - sa, topShifted, null, hs, sa);
+                if (r.Open) OpenCrown(mb, st, r, ax, Plan.Line(r, s) * 0.1f, sa, sb);
             }
         }
 

@@ -55,8 +55,17 @@ namespace PryingEyes.Proc
             new Cover("chi_confessionale", 1f, 1), new Cover("chi_inginocchiatoio", 0.7f, 2), new Cover("chi_fonte", 0.5f, 1),
         };
 
+        // Guardaroba: armadi (il pezzo del tema, anche in barricata da tre), manichini e attaccapanni, rotoli di stoffa, bare, gargoyle, tavoli da sarto e incudini
+        static readonly Cover[] CoverGuardaroba =
+        {
+            new Cover("gu_armadio", 3.4f, 3), new Cover("gu_armadio_aperto", 0.9f, 1), new Cover("tea_manichino", 1.2f, 1), new Cover("gu_attaccapanni", 0.8f, 1),
+            new Cover("gu_stoffe", 1.2f, 3), new Cover("gu_bara", 0.8f, 1), new Cover("gu_bara_chiusa", 0.6f, 1), new Cover("gu_gargoyle", 0.9f, 1),
+            new Cover("gu_tavolo_sarto", 1.2f, 2), new Cover("gu_incudine", 0.6f, 1), new Cover("chi_panca", 0.8f, 2), new Cover("arr_carrello", 0.8f, 1),
+        };
+
         static Cover[] CoverKit(Ctx c) =>
-            c.r.church ? CoverChiesa : c.plan.theme == Theme.Teatro ? CoverTeatro : c.plan.theme == Theme.Sanatorio ? CoverSanatorio : CoverAlbergo;
+            c.r.church ? CoverChiesa : c.plan.theme == Theme.Teatro ? CoverTeatro : c.plan.theme == Theme.Sanatorio ? CoverSanatorio
+            : c.plan.theme == Theme.Guardaroba ? CoverGuardaroba : CoverAlbergo;
 
         /// <summary>Che parte del pavimento deve essere coperta da arredi solidi (0 = la stanza non riceve ripari).</summary>
         static float CoverTarget(Room r)

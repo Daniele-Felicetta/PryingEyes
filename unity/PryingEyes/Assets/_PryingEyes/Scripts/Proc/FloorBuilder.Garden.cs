@@ -12,7 +12,7 @@ namespace PryingEyes.Proc
         static Texture2D grass, leaf, hedge, flowers, sky;
         static Material mGrass, mLeaf, mHedge, mBed, mSky, mBark;
 
-        static float H(int x, int y, int seed)
+        internal static float H(int x, int y, int seed)
         {
             unchecked
             {
@@ -24,7 +24,7 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Rumore a valori, periodico (la texture si ripete senza giunture).</summary>
-        static float VN(float x, float y, int period, int seed)
+        internal static float VN(float x, float y, int period, int seed)
         {
             int xi = Mathf.FloorToInt(x), yi = Mathf.FloorToInt(y);
             float fx = x - xi, fy = y - yi;
@@ -33,7 +33,7 @@ namespace PryingEyes.Proc
             return Mathf.Lerp(Mathf.Lerp(H(x0, y0, seed), H(x1, y0, seed), fx), Mathf.Lerp(H(x0, y1, seed), H(x1, y1, seed), fx), fy);
         }
 
-        static float Fbm(float u, float v, int baseP, int seed)
+        internal static float Fbm(float u, float v, int baseP, int seed)
         {
             float sum = 0f, amp = 0.55f, norm = 0f;
             int p = baseP;
@@ -45,7 +45,7 @@ namespace PryingEyes.Proc
             return sum / norm;
         }
 
-        static Texture2D Make(string name, int w, int h, Func<int, int, Color> px, bool mips = true)
+        internal static Texture2D Make(string name, int w, int h, Func<int, int, Color> px, bool mips = true)
         {
             var t = new Texture2D(w, h, TextureFormat.RGBA32, mips) { name = name, wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 4 };
             var c = new Color32[w * h];
@@ -80,7 +80,7 @@ namespace PryingEyes.Proc
             }
         }
 
-        static Material LitMat(string name, Texture2D tex, float tile, float smooth)
+        internal static Material LitMat(string name, Texture2D tex, float tile, float smooth)
         {
             var m = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = name };
             m.SetTexture("_BaseMap", tex);

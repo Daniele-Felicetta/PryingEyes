@@ -73,7 +73,8 @@ namespace PryingEyes.Proc
         /// degli ingombri e i tracciati riservati.</summary>
         static void ArenaBenches(Ctx c)
         {
-            string bench = c.r.church ? "chi_panca" : c.plan.theme == Theme.Teatro ? "tea_fila" : c.plan.theme == Theme.Sanatorio ? "san_letto" : "arr_divano";
+            string bench = c.r.church ? "chi_panca" : c.plan.theme == Theme.Teatro ? "tea_fila" : c.plan.theme == Theme.Sanatorio ? "san_letto"
+                : c.plan.theme == Theme.Guardaroba ? (c.r.kind == RoomKind.Sepolcreto ? "gu_bara" : "chi_panca") : "arr_divano";
             int want = Mathf.Clamp(Mathf.RoundToInt(c.W*c.D/65f),3,14), made = 0;
             for (int i = 0; i < 120 && made < want; i++)
             {

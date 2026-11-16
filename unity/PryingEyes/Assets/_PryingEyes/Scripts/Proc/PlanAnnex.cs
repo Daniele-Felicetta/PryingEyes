@@ -139,7 +139,7 @@ namespace PryingEyes.Proc
         }
 
         static bool Eligible(Room r, HashSet<int> used) =>
-            !r.IsLift && r.type != RoomType.Segreta && r.type != RoomType.Partenza && r.cornerRadius <= 0f && !used.Contains(r.id);
+            !r.IsLift && r.type != RoomType.Segreta && r.type != RoomType.Partenza && r.cornerRadius <= 0f && !used.Contains(r.id) && !r.Open;
 
         static void Shuffle<T>(List<T> l, Rng rng)
         {
