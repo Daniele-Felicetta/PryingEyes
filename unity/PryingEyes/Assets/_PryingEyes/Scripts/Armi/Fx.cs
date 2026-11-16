@@ -24,6 +24,9 @@ namespace PryingEyes
         static Fx I;
         static Mesh quadMesh;
         public static Material PuffMat, SparkMat, TracerMat, BeamMat, HoleMat, FlashMat, BrassMat, ShellMat, ChipMat;
+        /// <summary>I materiali dei bossoli (ottone, plastica della cartuccia) anche prima del primo colpo: le cartucce in mano.</summary>
+        public static Material Brass { get { Ensure(); return BrassMat; } }
+        public static Material ShellPlastic { get { Ensure(); return ShellMat; } }
         static Texture2D puffTex, sparkTex, tracerTex, beamTex, holeTex, starTex, chipTex;
 
         class Item
@@ -761,6 +764,16 @@ namespace PryingEyes
             // con l'ombra: senza, il lampo passava i muri e accendeva la stanza accanto (dura un terzo di secondo, il costo e' breve)
             l.type = LightType.Point; l.color = Color.Lerp(tint, Color.white, 0.4f); l.intensity = 9f; l.range = 10f; l.shadows = LightShadows.Hard;
             go.AddComponent<LightFade>().Begin(l, 0.35f);
+        }
+
+        /// <summary>Una particella per gli effetti delle magie e dei sigilli (MagicFx): kind 0 sbuffo che cresce e sfuma, 1 scintilla
+        /// allungata sulla velocita', 4 lingua di fuoco (dal giallo al rosso). additive: si somma alla luce (bagliori, fuoco, gelo).</summary>
+        public static void Particle(int kind, bool additive, Vector3 pos, Vector3 vel, Vector3 grav, float size0, float size1, float life, Color col, float alpha = 1f)
+        {
+            Ensure();
+            var it = I.Spawn(additive ? SparkMat : PuffMat, life);
+            it.kind = kind; it.t.position = pos; it.vel = vel; it.grav = grav;
+            it.size0 = size0; it.size1 = size1; it.a0 = alpha; it.col = col;
         }
 
         /// <summary>Uno sbuffo della nube tossica: sale lento e si allarga.</summary>

@@ -121,35 +121,63 @@ namespace PryingEyes
             m.Step(Pad());
             Check("A rilasciato", !IsHeld(m, TouchControls.Action.Jump));
 
-            var normal = new (ushort button, TouchControls.Action action, string name)[]
+            // un tasto, una cosa (mappa del 2026-11-16): al primo giro
+            var press = new (ushort button, TouchControls.Action action, string name)[]
             {
-                (PadControls.X, TouchControls.Action.Reload, "X ricarica"), (PadControls.Y, TouchControls.Action.Swap, "Y cambia arma"),
-                (PadControls.B, TouchControls.Action.Crouch, "B abbassati"), (PadControls.RightShoulder, TouchControls.Action.Use, "RB usa"),
-                (PadControls.RightStick, TouchControls.Action.Knife, "R3 coltello"), (PadControls.StartBtn, TouchControls.Action.Pause, "Start pausa"),
-                (PadControls.DpadUp, TouchControls.Action.Torch, "croce su: torcia"), (PadControls.DpadDown, TouchControls.Action.Grenade, "croce giu': acquasanta"),
-                (PadControls.DpadLeft, TouchControls.Action.Left, "croce sinistra: sporgersi a sinistra"), (PadControls.DpadRight, TouchControls.Action.Right, "croce destra: sporgersi a destra"),
+                (PadControls.RightShoulder, TouchControls.Action.Grenade, "RB acquasanta"), (PadControls.RightStick, TouchControls.Action.Knife, "R3 coltello"),
+                (PadControls.LeftShoulder, TouchControls.Action.Spell, "LB mano sinistra (magia)"), (PadControls.StartBtn, TouchControls.Action.Pause, "Start pausa"),
             };
-            foreach (var c in normal)
+            foreach (var c in press)
             {
                 m.Reset(); m.Step(Pad(c.button));
                 Check(c.name, IsDown(m, c.action) || IsHeld(m, c.action));
             }
-            m.Reset(); m.Step(Pad(PadControls.BackBtn));
-            Check("Back tenuto: tabellone", IsHeld(m, TouchControls.Action.Scoreboard));
+            m.Reset(); m.Step(Pad(PadControls.LeftShoulder)); m.Step(Pad(PadControls.LeftShoulder));
+            Check("LB tenuto resta tenuto (MagicCaster ne fa il sigillo)", IsHeld(m, TouchControls.Action.Spell) && !IsDown(m, TouchControls.Action.Spell));
 
-            var alt = new (ushort button, TouchControls.Action action, TouchControls.Action plain, string name)[]
+            // tocco (al rilascio) e tenuto (dopo HoldTime, una volta sola, e niente tocco al rilascio)
+            var twoWay = new (ushort button, TouchControls.Action tap, TouchControls.Action hold, string name)[]
             {
-                (PadControls.A, TouchControls.Action.Velo, TouchControls.Action.Jump, "LB + A: velo"), (PadControls.B, TouchControls.Action.Mode, TouchControls.Action.Crouch, "LB + B: modo di fuoco"),
-                (PadControls.X, TouchControls.Action.Lure, TouchControls.Action.Reload, "LB + X: carillon"), (PadControls.Y, TouchControls.Action.Mine, TouchControls.Action.Swap, "LB + Y: mina"),
-                (PadControls.DpadUp, TouchControls.Action.Map, TouchControls.Action.Torch, "LB + su: mappa"), (PadControls.DpadDown, TouchControls.Action.Ping, TouchControls.Action.Grenade, "LB + giu': indica le porte"),
-                (PadControls.DpadLeft, TouchControls.Action.Battery, TouchControls.Action.Left, "LB + sinistra: pila"),
+                (PadControls.X, TouchControls.Action.Reload, TouchControls.Action.Use, "X: ricarica, tenuto usa e compra"),
+                (PadControls.Y, TouchControls.Action.Swap, TouchControls.Action.Mode, "Y: cambia arma, tenuto modo di fuoco"),
+                (PadControls.DpadUp, TouchControls.Action.Torch, TouchControls.Action.Battery, "croce su: torcia, tenuta pila"),
+                (PadControls.DpadDown, TouchControls.Action.Lure, TouchControls.Action.Mine, "croce giu': carillon, tenuta mina"),
+                (PadControls.DpadLeft, TouchControls.Action.Ping, TouchControls.Action.Velo, "croce sinistra: porte, tenuta velo"),
+                (PadControls.DpadRight, TouchControls.Action.SpellNext, TouchControls.Action.InfusionNext, "croce destra: magia seguente, tenuta sigillo seguente"),
+                (PadControls.BackBtn, TouchControls.Action.Map, TouchControls.Action.Scoreboard, "Back: mappa, tenuto tabellone"),
             };
-            foreach (var c in alt)
+            int holdSteps = Mathf.CeilToInt(PadControls.Mapper.HoldTime * 60f) + 1;
+            foreach (var c in twoWay)
             {
-                m.Reset(); m.Step(Pad(PadControls.LeftShoulder));          // LB da solo non fa niente
-                m.Step(Pad((ushort)(PadControls.LeftShoulder | c.button)));
-                Check(c.name + " (e non il comando normale dello stesso tasto)", IsDown(m, c.action) && !IsDown(m, c.plain) && !IsHeld(m, c.plain));
+                m.Reset(); m.Step(Pad(c.button));
+                bool none = !IsDown(m, c.tap) && !IsDown(m, c.hold);
+                m.Step(Pad());
+                Check(c.name + ": toccato fa la prima al rilascio", none && IsDown(m, c.tap) && !IsDown(m, c.hold));
+                m.Reset();
+                bool holdOnce = false, tapAfter = false; int holdCount = 0;
+                for (int k = 0; k < holdSteps + 3; k++) { m.Step(Pad(c.button)); if (IsDown(m, c.hold)) holdCount++; }
+                holdOnce = holdCount == 1;
+                m.Step(Pad());
+                tapAfter = IsDown(m, c.tap);
+                Check(c.name + ": tenuto fa la seconda una volta, e lasciandolo non fa la prima", holdOnce && !tapAfter);
             }
+            m.Reset();
+            for (int k = 0; k < holdSteps + 1; k++) m.Step(Pad(PadControls.BackBtn));
+            Check("Back tenuto: il tabellone resta finche' lo si tiene", IsHeld(m, TouchControls.Action.Scoreboard));
+
+            // B a interruttore, A e la corsa rialzano; con la mira L3 e R3 sporgono, senza mira R3 e' il coltello
+            m.Reset(); m.Step(Pad(PadControls.B)); m.Step(Pad());
+            Check("B toccato: abbassati e resta abbassato", IsHeld(m, TouchControls.Action.Crouch));
+            m.Step(Pad(PadControls.B)); m.Step(Pad());
+            Check("B di nuovo: in piedi", !IsHeld(m, TouchControls.Action.Crouch));
+            m.Step(Pad(PadControls.B)); m.Step(Pad(PadControls.A));
+            Check("A da abbassato: salta e si rialza", IsDown(m, TouchControls.Action.Jump) && !IsHeld(m, TouchControls.Action.Crouch));
+            m.Reset(); m.Step(Pad(lt: 255)); m.Step(Pad(PadControls.LeftStick, lt: 255));
+            Check("con la mira L3: sporgersi a sinistra (e non correre)", IsHeld(m, TouchControls.Action.Left) && !IsHeld(m, TouchControls.Action.Sprint));
+            m.Step(Pad(lt: 255)); m.Step(Pad(PadControls.RightStick, lt: 255));
+            Check("con la mira R3: sporgersi a destra (e non il coltello)", IsHeld(m, TouchControls.Action.Right) && !IsHeld(m, TouchControls.Action.Left) && !IsDown(m, TouchControls.Action.Knife));
+            m.Step(Pad());
+            Check("lasciando la mira si torna dritti", !IsHeld(m, TouchControls.Action.Right) && !IsHeld(m, TouchControls.Action.Left));
 
             m.Reset();
             m.Step(Pad(rt: 100));
@@ -253,14 +281,18 @@ namespace PryingEyes
             for (float t = 0f; t < 0.8f; t += Time.deltaTime) { yMax = Mathf.Max(yMax, player.transform.position.y); yield return null; }
             Check($"A: il giocatore salta (+{yMax - yBase:F2} m)", yMax - yBase > 0.25f);
 
-            // B: abbassati finche' e' premuto
+            // B: abbassati a interruttore (un tocco abbassa e si resta giu', il secondo rialza)
             yield return new WaitForSeconds(0.6f);
             PadControls.Inject(Pad(PadControls.B));
-            yield return new WaitForSeconds(0.5f);
-            bool crouched = player.IsCrouching;
+            yield return null; yield return null;
             PadControls.Inject(Pad());
             yield return new WaitForSeconds(0.8f);
-            Check("B tenuto: abbassato; rilasciato: di nuovo in piedi", crouched && !player.IsCrouching);
+            bool crouched = player.IsCrouching;
+            PadControls.Inject(Pad(PadControls.B));
+            yield return null; yield return null;
+            PadControls.Inject(Pad());
+            yield return new WaitForSeconds(0.8f);
+            Check("B toccato: abbassato e resta giu'; toccato di nuovo: in piedi", crouched && !player.IsCrouching);
 
             // L3: corsa
             Back();

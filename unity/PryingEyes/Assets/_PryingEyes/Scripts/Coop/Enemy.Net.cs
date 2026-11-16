@@ -280,13 +280,16 @@ namespace PryingEyes
         }
 
         /// <summary>Un colpo a un pupazzo: qui il lampo, il segnalino e il suono (previsione), il verdetto e i punti li da' l'ospite.</summary>
-        void PuppetDamage(float dmg, Vector3 point, bool headshot, bool awardPoints, DamageSource src)
+        void PuppetDamage(float dmg, Vector3 point, bool headshot, bool awardPoints, DamageSource src, bool quiet = false)
         {
             hp -= dmg;
-            BeginHitFlash();
-            GameManager.I.hud?.Hitmarker(hp <= 0f, headshot);
-            GameManager.shotsHit++;
-            Synth.Hit();
+            if (!quiet || hp <= 0f)
+            {
+                BeginHitFlash();
+                GameManager.I.hud?.Hitmarker(hp <= 0f, headshot);
+                if (!quiet) GameManager.shotsHit++;
+                Synth.Hit();
+            }
             Coop.Game?.SendHitClaim(this, dmg, point, headshot, awardPoints, src);
         }
     }

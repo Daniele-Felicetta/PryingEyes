@@ -4,15 +4,16 @@ using System.Collections.Generic;
 namespace PryingEyes.Proc
 {
     // Gli annessi sono le stanze di difficile accesso dei piani a pianta a griglia: una torre con una cella in alto (scala a chiocciola,
-    // nascosta in una parete finta oppure no), una cripta sotto il pavimento (si scende da una botola) e un giardino segreto all'aperto,
-    // fuori dai muri del piano. Come la pianta, sono pura geometria intera (decimetri) e si generano e si provano fuori da Unity
+    // nascosta in una parete finta oppure no), una cripta sotto il pavimento (si scende da una botola), un giardino segreto all'aperto,
+    // fuori dai muri del piano, e (2026-11-16) il sacrario del grimorio: una sola stanza segreta per piano, fuori da un muro esterno,
+    // dietro una parete che sembra muro e un cunicolo basso, con il libro della Stregoneria o dell'Arsenale. Come la pianta, sono pura geometria intera (decimetri) e si generano e si provano fuori da Unity
     // (tools/planlab). Il costruttore runtime e' FloorBuilder.Annex.cs; la sorte dei cancelli (leve, tributo, chiave) e' AnnexRuntime.cs.
 
-    public enum AnnexKind { Torre, Cripta, Giardino }
+    public enum AnnexKind { Torre, Cripta, Giardino, Sacrario }
 
     /// <summary>Come si apre un annesso: Sigilli (leve da tirare in giro per la sala madre, in alto e in basso), Tributo (un'ara che chiede
-    /// molti punti) o Chiave (la custodisce un altro annesso dello stesso piano).</summary>
-    public enum GateKind { Sigilli, Tributo, Chiave }
+    /// molti punti), Chiave (la custodisce un altro annesso dello stesso piano) o Segreto (il sacrario: basta trovare la parete).</summary>
+    public enum GateKind { Sigilli, Tributo, Chiave, Segreto }
 
     public sealed class Annex
     {
@@ -28,9 +29,12 @@ namespace PryingEyes.Proc
         public int x0, z0, x1, z1;          // la stanza dell'annesso: cella in alto, camera della cripta, giardino (dm)
         public Side side;                   // giardino: il lato del muro dove si apre la porta
         public int line, center, width;     // giardino: la porta nel muro della sala madre (dm)
-        public int px0, pz0, px1, pz1;      // giardino: il passaggio fra il muro e il giardino (dm)
+        public int px0, pz0, px1, pz1;      // giardino e sacrario: il passaggio fra il muro e la stanza (dm)
+        public int book;                    // sacrario: 0 libro della Stregoneria, 1 libro dell'Arsenale (dal seme del piano)
 
-        public bool HasShaft => kind != AnnexKind.Giardino;
+        public bool HasShaft => kind == AnnexKind.Torre || kind == AnnexKind.Cripta;
+        /// <summary>Sta fuori dai muri della sala madre, al livello del pavimento (giardino, sacrario).</summary>
+        public bool Outside => kind == AnnexKind.Giardino || kind == AnnexKind.Sacrario;
 
         public float CenterX => (x0 + x1) * 0.05f;
         public float CenterZ => (z0 + z1) * 0.05f;
@@ -41,7 +45,7 @@ namespace PryingEyes.Proc
         /// <summary>Il punto (m) e' dentro il giardino o il suo passaggio: lo spazio fuori dai muri che appartiene alla sala madre.</summary>
         public bool OutsideContains(float x, float z)
         {
-            if (kind != AnnexKind.Giardino) return false;
+            if (!Outside) return false;
             return In(x, z, x0, z0, x1, z1) || In(x, z, px0, pz0, px1, pz1);
         }
 
@@ -92,7 +96,122 @@ namespace PryingEyes.Proc
                     plan.annexDoors.Add(MakeGardenDoor(plan.rooms[a.host], a));
             }
             AssignGates(plan, rng);
+            // il sacrario del grimorio: uno per piano, con un generatore suo (le torri, le cripte e i giardini restano quelli di prima)
+            var sac = TrySacrario(plan, new Rng(SacrarioSeed(plan.seed, plan.floor)));
+            if (sac != null)
+            {
+                sac.id = plan.annexes.Count;
+                plan.annexes.Add(sac);
+                plan.annexDoors.Add(MakeSacrarioDoor(plan.rooms[sac.host], sac));
+            }
             plan.ComputeBounds();
+        }
+
+        static int SacrarioSeed(int seed, int floor)
+        {
+            unchecked
+            {
+                uint h = (uint)seed * 2654435761u ^ (uint)(floor + 1) * 40503u ^ 0x5AC2A210u;
+                h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16;
+                return (int)(h & 0x3FFFFFFF);
+            }
+        }
+
+        // ------------------------------------------------------------------ sacrario del grimorio
+        /// <summary>Il cunicolo (lungo dal filo del muro, largo; alto 1,3 m: OpenStyle.Passaggio) e la camera (profonda verso fuori, larga
+        /// lungo il muro, muri compresi), dm.</summary>
+        public const int SacPassLen = 15, SacPassW = 12, SacDepth = 66, SacWidth = 58, SacWall = 3, SacDepthSmall = 54, SacWidthSmall = 46;
+        /// <summary>Altezza interna della camera all'imposta della volta e in chiave (m).</summary>
+        public const float SacWallH = 3.3f, SacVaultH = 4.4f;
+
+        /// <summary>Cerca dove mettere il sacrario: un tratto di muro esterno di una sala (non la partenza, non un ascensore, non una sala
+        /// col giardino, mai una stanza all'aperto: i suoi muri esterni sono parapetti sul vuoto) abbastanza lungo e senza aperture ne'
+        /// finestre davanti alla camera, che non tocchi stanze ne' altri annessi all'aperto. Prima senza finestre sul tratto, poi
+        /// ammettendole; per ultimo anche la partenza. Ne sceglie uno a caso.</summary>
+        static Annex TrySacrario(Plan plan, Rng rng)
+        {
+            for (int pass = 0; pass < 4; pass++)
+            {
+                // l'ultimo tentativo: camera piu' piccola (4,6 x 5,4 m) e anche le sale col giardino (su un altro tratto di muro)
+                int width = pass < 3 ? SacWidth : SacWidthSmall, depth = pass < 3 ? SacDepth : SacDepthSmall;
+                var found = new List<Annex>();
+                foreach (var r in plan.rooms)
+                {
+                    if (r.IsLift || r.cornerRadius > 0f || r.type == RoomType.Segreta || r.Open) continue;
+                    if (pass < 2 && r.type == RoomType.Partenza) continue;
+                    if (pass < 3 && plan.annexes.Exists(x => x.host == r.id && x.Outside)) continue;
+                    foreach (Side s in new[] { Side.S, Side.N, Side.W, Side.E })
+                    {
+                        bool ax = Plan.AlongX(s);
+                        int line = Plan.Line(r, s);
+                        foreach (var seg in plan.Segments(r, s))
+                        {
+                            if (seg.other >= 0 || seg.a1 - seg.a0 < width + 16) continue;
+                            for (int c = seg.a0 + width / 2 + 8; c <= seg.a1 - width / 2 - 8; c += 8)
+                            {
+                                bool clear = true;
+                                foreach (var o in plan.openings)
+                                {
+                                    if (o.alongX != ax || o.line != line) continue;
+                                    // il cunicolo non tocca un'apertura (40 cm di muro tra i due: il muro non sa fare due vani uno sopra l'altro);
+                                    // la camera lontana dalle finestre (le loro luci stanno fuori dal muro)
+                                    if (c + SacPassW / 2 + 4 > o.Lo && c - SacPassW / 2 - 4 < o.Hi) { clear = false; break; }
+                                    if (pass == 0 && c + width / 2 + 10 > o.Lo && c - width / 2 - 10 < o.Hi) { clear = false; break; }
+                                }
+                                foreach (var o in plan.annexDoors)
+                                    if (o.alongX == ax && o.line == line && Math.Abs(c - o.center) < width) { clear = false; break; }
+                                if (!clear) continue;
+                                var a = SacrarioAt(plan, r, s, c, width, depth);
+                                if (a != null) found.Add(a);
+                            }
+                        }
+                    }
+                }
+                if (found.Count == 0) continue;
+                var pick = found[rng.Range(0, found.Count)];
+                pick.seed = rng.Range(1, 1 << 30);
+                pick.book = rng.Chance(0.5) ? 0 : 1;
+                return pick;
+            }
+            return null;
+        }
+
+        static Annex SacrarioAt(Plan plan, Room r, Side s, int center, int width, int depth)
+        {
+            bool ax = Plan.AlongX(s);
+            int line = Plan.Line(r, s);
+            int dir = s == Side.N || s == Side.E ? 1 : -1;          // verso l'esterno
+            int pa = line, pb = line + dir * SacPassLen;
+            int ga = pb, gb = ga + dir * depth;                      // la camera comincia dove finisce il cunicolo (il suo muro e' dentro depth)
+            int gl = center - width / 2, gh = center + width / 2;
+            int cl = center - SacPassW / 2, ch = center + SacPassW / 2;
+            int px0, pz0, px1, pz1, x0, z0, x1, z1;
+            if (ax) { px0 = cl; px1 = ch; pz0 = Math.Min(pa, pb); pz1 = Math.Max(pa, pb); x0 = gl; x1 = gh; z0 = Math.Min(ga, gb); z1 = Math.Max(ga, gb); }
+            else { pz0 = cl; pz1 = ch; px0 = Math.Min(pa, pb); px1 = Math.Max(pa, pb); z0 = gl; z1 = gh; x0 = Math.Min(ga, gb); x1 = Math.Max(ga, gb); }
+            foreach (var other in plan.rooms)
+            {
+                if (Overlap(x0, z0, x1, z1, other.x0, other.z0, other.x1, other.z1, 8)) return null;
+                if (other != r && Overlap(px0, pz0, px1, pz1, other.x0, other.z0, other.x1, other.z1, 8)) return null;
+            }
+            foreach (var other in plan.annexes)
+            {
+                if (!other.Outside) continue;
+                if (Overlap(x0, z0, x1, z1, other.x0, other.z0, other.x1, other.z1, 12) || Overlap(x0, z0, x1, z1, other.px0, other.pz0, other.px1, other.pz1, 12)) return null;
+                if (Overlap(px0, pz0, px1, pz1, other.x0, other.z0, other.x1, other.z1, 12)) return null;
+            }
+            return new Annex
+            {
+                kind = AnnexKind.Sacrario, host = r.id, side = s, line = line, center = center, width = SacPassW, floorY = 0,
+                px0 = px0, pz0 = pz0, px1 = px1, pz1 = pz1, x0 = x0, z0 = z0, x1 = x1, z1 = z1,
+                yaw = s == Side.N ? 0 : s == Side.E ? 90 : s == Side.S ? 180 : 270, secret = true, gate = GateKind.Segreto
+            };
+        }
+
+        static Opening MakeSacrarioDoor(Room host, Annex a)
+        {
+            var o = new Opening { a = host.id, b = -2, alongX = Plan.AlongX(a.side), line = a.line, center = a.center, width = a.width, style = OpenStyle.Passaggio, variant = a.id };
+            Opening.Defaults(o);
+            return o;
         }
 
         // ------------------------------------------------------------------ cancelli
@@ -329,11 +448,21 @@ namespace PryingEyes.Proc
         {
             why = "";
             var seen = new HashSet<int>();
+            int sacrari = 0;
             foreach (var a in plan.annexes)
             {
                 if (a.host < 0 || a.host >= plan.rooms.Count) { why = "annesso senza sala madre " + a; return false; }
-                if (!seen.Add(a.host)) { why = "due annessi nella stessa sala " + a; return false; }
                 var r = plan.rooms[a.host];
+                if (a.kind == AnnexKind.Sacrario)
+                {
+                    // il sacrario sta fuori dal muro: puo' avere per sala madre una sala che ha gia' una torre o una cripta
+                    if (++sacrari > 1) { why = "piu' di un sacrario nel piano"; return false; }
+                    if (r.IsLift || r.type == RoomType.Segreta || r.Open) { why = "sala madre non adatta " + a + " " + r; return false; }
+                    if (a.gate != GateKind.Segreto) { why = "sacrario con un cancello " + a; return false; }
+                    if (!ValidateOutside(plan, a, out why)) return false;
+                    continue;
+                }
+                if (!seen.Add(a.host)) { why = "due annessi nella stessa sala " + a; return false; }
                 if (r.IsLift || r.type == RoomType.Segreta || r.type == RoomType.Partenza) { why = "sala madre non adatta " + a + " " + r; return false; }
                 switch (a.kind)
                 {
@@ -349,21 +478,33 @@ namespace PryingEyes.Proc
                             if (o != a && o.kind == AnnexKind.Cripta && Overlap(a.x0, a.z0, a.x1, a.z1, o.x0, o.z0, o.x1, o.z1, 10)) { why = "due cripte si toccano"; return false; }
                         break;
                     default:
-                        foreach (var other in plan.rooms)
-                        {
-                            if (Overlap(a.x0, a.z0, a.x1, a.z1, other.x0, other.z0, other.x1, other.z1, 6)) { why = "giardino dentro una stanza " + a + " " + other; return false; }
-                            if (other.id != a.host && Overlap(a.px0, a.pz0, a.px1, a.pz1, other.x0, other.z0, other.x1, other.z1, 6)) { why = "passaggio del giardino dentro una stanza " + a + " " + other; return false; }
-                        }
-                        foreach (var o in plan.annexes)
-                            if (o != a && o.kind == AnnexKind.Giardino && Overlap(a.x0, a.z0, a.x1, a.z1, o.x0, o.z0, o.x1, o.z1, 10)) { why = "due giardini si toccano"; return false; }
-                        foreach (var o in plan.openings)
-                            if (o.alongX == Plan.AlongX(a.side) && o.line == a.line && a.center + a.width / 2 + 10 > o.Lo && a.center - a.width / 2 - 10 < o.Hi) { why = "porta del giardino su un'apertura " + a; return false; }
+                        if (!ValidateOutside(plan, a, out why)) return false;
                         break;
                 }
                 if (a.gate == GateKind.Sigilli && a.levers < 2) { why = "sigilli senza leve " + a; return false; }
                 if (a.gate == GateKind.Tributo && a.price <= 0) { why = "tributo gratis " + a; return false; }
                 if (a.gate == GateKind.Chiave && (a.keyHolder < 0 || a.keyHolder >= plan.annexes.Count || a.keyHolder == a.id)) { why = "chiave senza custode " + a; return false; }
             }
+            return true;
+        }
+
+        /// <summary>Un annesso all'aperto (giardino, sacrario): fuori da ogni stanza, il passaggio dentro la sola sala madre, non tocca gli
+        /// altri annessi all'aperto, la porta non cade su un'apertura del muro.</summary>
+        static bool ValidateOutside(Plan plan, Annex a, out string why)
+        {
+            why = "";
+            string what = a.kind == AnnexKind.Sacrario ? "sacrario" : "giardino";
+            foreach (var other in plan.rooms)
+            {
+                if (Overlap(a.x0, a.z0, a.x1, a.z1, other.x0, other.z0, other.x1, other.z1, 6)) { why = what + " dentro una stanza " + a + " " + other; return false; }
+                if (other.id != a.host && Overlap(a.px0, a.pz0, a.px1, a.pz1, other.x0, other.z0, other.x1, other.z1, 6)) { why = "passaggio del " + what + " dentro una stanza " + a + " " + other; return false; }
+            }
+            foreach (var o in plan.annexes)
+                if (o != a && o.Outside && (Overlap(a.x0, a.z0, a.x1, a.z1, o.x0, o.z0, o.x1, o.z1, 10) || Overlap(a.px0, a.pz0, a.px1, a.pz1, o.x0, o.z0, o.x1, o.z1, 10)))
+                { why = "due annessi all'aperto si toccano " + a + " " + o; return false; }
+            int gap = a.kind == AnnexKind.Sacrario ? 4 : 10;
+            foreach (var o in plan.openings)
+                if (o.alongX == Plan.AlongX(a.side) && o.line == a.line && a.center + a.width / 2 + gap > o.Lo && a.center - a.width / 2 - gap < o.Hi) { why = "porta del " + what + " su un'apertura " + a; return false; }
             return true;
         }
     }

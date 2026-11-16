@@ -122,6 +122,7 @@ namespace PryingEyes
             BuildCoopUI();
             BuildBossUI();           // HUD.Boss.cs: nome e vita del Cardinale in alto al centro
             BuildEquipUI();          // HUD.Equip.cs: acquasanta e carillon sopra le armi, la Prova dell'ondata in basso al centro
+            BuildMagicUI();          // Magia/HUD.Magia.cs: essenza, magia e sigillo della mano sinistra, sopra l'equipaggiamento
             BuildMedalUI();          // HUD.Medals.cs: la medaglia in alto al centro
             BuildScoreUI();          // HUD.Score.cs: tabellone tenendo premuto Tab (sopra a tutto il resto)
 
@@ -437,6 +438,7 @@ namespace PryingEyes
             UpdateRoundUI(dt);
             UpdatePuntiUI(dt);
             UpdatePerksUI(dt);
+            UpdateMagicUI(dt);
             UpdateCoopUI();
             UpdateBossUI(dt);
             UpdateMedalUI(dt);

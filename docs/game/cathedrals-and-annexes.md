@@ -20,7 +20,10 @@ Scope: the procedural survival floors ("La Torre", `PlanGen.SurvivalLayout`, the
 ## Annexes
 
 Three kinds, generated per floor by `PlanAnnexGen` (`PlanAnnex.cs`) and built by `FloorBuilder.Annex.cs` (tower, crypt) and
-`FloorBuilder.Garden.cs` (garden). At most one annex per host room. Floor 1: crypt and tower. Floor 2: tower and garden.
+`FloorBuilder.Garden.cs` (garden), plus (16 November 2026) the secret book room on every floor (`Sacrario`, built by
+`FloorBuilder.Sacrario.cs`; it holds a grimoire instead of a chest and opens by finding its wall: see
+[arms-and-magic.md](arms-and-magic.md)). At most one annex per host room (the secret book room, outside a wall, may share a hall with
+a tower or a crypt). Floor 1: crypt and tower. Floor 2: tower and garden.
 Floor 3 and beyond: all three, when the floor has the rooms for them.
 
 | Kind | Reached by | Notes |

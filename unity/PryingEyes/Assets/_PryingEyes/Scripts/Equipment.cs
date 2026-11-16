@@ -59,8 +59,8 @@ namespace PryingEyes
                 GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
             }
             if (GameMenu.Blocked || player == null || player.hp <= 0f || throwCd > 0f) return;
-            if ((SeatInput.GetKeyDown(KeyCode.Z) || TouchControls.Down(TouchControls.Action.Grenade)) && grenades > 0) Throw(0);
-            else if ((SeatInput.GetKeyDown(KeyCode.Alpha4) || TouchControls.Down(TouchControls.Action.Lure)) && lures > 0) Throw(1);
+            if ((SeatInput.GetKeyDown(KeyCode.Z) || TouchControls.Down(TouchControls.Action.Grenade)) && grenades > 0) ThrowWithHand(0);
+            else if ((SeatInput.GetKeyDown(KeyCode.Alpha4) || TouchControls.Down(TouchControls.Action.Lure)) && lures > 0) ThrowWithHand(1);
             else if ((SeatInput.GetKeyDown(KeyCode.Alpha5) || TouchControls.Down(TouchControls.Action.Mine)) && mines > 0) PlaceMine();
         }
 
@@ -77,19 +77,36 @@ namespace PryingEyes
             return m;
         }
 
+        /// <summary>Lancio di mano sinistra (2026-11-16): la mano lascia l'arma, carica e scaglia (OffHandAnims.Throw); l'oggetto parte dal
+        /// palmo quando la mano lo lascia. Se la mano non e' libera (coltello, ricarica, altro gesto) si lancia come prima.</summary>
+        void ThrowWithHand(int kind)
+        {
+            if (player == null) player = GetComponent<PlayerController>();
+            var mc = player != null ? player.GetComponent<MagicCaster>() : null;     // il lanciatore di questo giocatore (schermo condiviso)
+            if (mc != null && mc.Throw(origin => ThrowFrom(kind, origin, false))) { throwCd = 0.9f; return; }
+            Throw(kind);
+        }
+
         /// <summary>Lancio dalla mano destra, un po' sotto e a destra della visuale, a 13 m/s piu' una spinta verso l'alto e la velocita'
         /// di chi lancia. 0 = granata, 1 = carillon. Pubblico per le prove.</summary>
         public void Throw(int kind)
         {
             if (player == null) player = GetComponent<PlayerController>();
             var cam = player.cam;
+            ThrowFrom(kind, cam.position + cam.right * 0.18f - cam.up * 0.10f + cam.forward * 0.40f, true);
+        }
+
+        void ThrowFrom(int kind, Vector3 origin, bool dip)
+        {
+            if (player == null) player = GetComponent<PlayerController>();
+            if (player == null || (kind == 0 ? grenades : lures) <= 0) return;
+            var cam = player.cam;
             throwCd = 0.75f;
-            Vector3 origin = cam.position + cam.right * 0.18f - cam.up * 0.10f + cam.forward * 0.40f;
             var cc = player.GetComponent<CharacterController>();
             Vector3 vel = cam.forward * 13f + Vector3.up * 3.0f + (cc != null ? cc.velocity * 0.6f : Vector3.zero);
             Thrown.Spawn(kind, origin, vel, cc);
             if (kind == 0) grenades--; else lures--;
-            player.GetComponent<Weapon>()?.ThrowDip();
+            if (dip) player.GetComponent<Weapon>()?.ThrowDip();
             Sfx.At(SoundBank.KnifeSwish, origin, 0.7f, kind == 0 ? 0.85f : 0.7f, 1.5f, 12f);
             GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
         }

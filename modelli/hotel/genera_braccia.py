@@ -15,6 +15,12 @@ di un braccio vero) dietro la camera; il braccio sinistro scende in basso a sini
 Uso (Blender 4.5 headless, dalla cartella del file):
   blender -b -P genera_braccia.py -- prova [giocatore,destra,sinistra,sotto] id [id ...]   anteprime in braccia/render/
   blender -b -P genera_braccia.py -- build [id ...]                                       braccia/<id>.fbx (tutte se non indicate)
+  blender -b -P genera_braccia.py -- libera                 braccia/mano_libera.fbx (la mano articolata: Unity la usa per tutte e due)
+  blender -b -P genera_braccia.py -- manica                 braccia/manica_libera.fbx (la manica in posa neutra con le proporzioni vere)
+    (mano libera e manica neutra hanno le UV di un atlante e scrivono anche braccia/<nome>_uv.npz: le superfici per le texture uniche
+    di genera_texture_braccia.py)
+  blender -b -P genera_braccia.py -- pose [id ...]          braccia/presa_sinistra.json e presa_destra.json (dove stanno le dita)
+  blender -b -P genera_braccia.py -- vedi                   anteprime di mano e manica in braccia/render/ (Cycles su CPU)
 """
 import bpy, bmesh, math, os, sys, json, time
 from math import sin, cos, pi, radians, degrees, acos, exp, atan2
@@ -106,6 +112,13 @@ def pose_key(wid, cls):
 LAST_INDEX = {}
 CURRENT_WID = ''
 LAST_INFO = {}
+LAST_SLEEVE = {}          # sleeve_bm (v2): angoli e lunghezze della manica neutra, per le texture
+SLEEVE_CIRC = 2 * pi * 0.05
+# le articolazioni dell'ultima mano costruita (coordinate canoniche): in hands_for la sinistra si costruisce per ultima, quindi dopo
+# hands_for qui ci sono le dita della sinistra avvolte all'astina (stage_pose le scrive per la mano libera di Unity)
+LAST_HAND = {}
+# tutte le mani costruite da build_hand_bm, nell'ordine (in hands_for: prima la destra, poi la sinistra): stage_pose le scrive tutte e due
+HAND_LOG = []
 _load_weapon = H.load_weapon
 
 
@@ -146,6 +159,8 @@ def build_hand_bm(poly, thumb_zc, idx_curls=(4, 3, 0), idx_spread=0.0, thumb=Non
     cap(bm, (0, -0.050, 0), (0, -0.006, 0), 0.0300, 0.0255, seg=18)
     sph(bm, (0.022, -0.004, 0.007), 0.0065 * g)
     report = []
+    LAST_HAND.clear()
+    LAST_HAND['fingers'] = []
     for fi, (nm, k, sp0, lens, radii) in enumerate(M.FINGERS):
         if fi == 0 and idx_curls is not None:
             curls, sp = idx_curls, idx_spread
@@ -154,6 +169,7 @@ def build_hand_bm(poly, thumb_zc, idx_curls=(4, 3, 0), idx_spread=0.0, thumb=Non
             curls = H.wrap_curls_poly(k, sp, lens, radii, poly)
         report.append(curls)
         pts, dirs, a = M.finger_chain(k, sp, lens, curls)
+        LAST_HAND['fingers'].append([p.copy() for p in pts])
         cap(bm, (k[0] * 0.35, 0.004, 0.0075), (k[0], k[1] - 0.01, 0.0085), 0.003 * GS, 0.003 * GS, seg=8)
         if fi == 0 and idx_curls is not None and CURRENT_WID != KNIFE:
             # destra: la nocca resta nel guanto, le tre falangi diventano pezzi a parte con i perni alle articolazioni
@@ -171,6 +187,8 @@ def build_hand_bm(poly, thumb_zc, idx_curls=(4, 3, 0), idx_spread=0.0, thumb=Non
         tip = pts[3] - d3 * radii[3] * 0.6
         ell(bm, tuple(tip), (radii[3] * GS * 1.04, radii[3] * GS * 1.10, radii[3] * GS * 1.04), seg=12)
     tj = thumb if thumb is not None else H.thumb_joints(thumb_zc)
+    LAST_HAND['thumb'] = [p.copy() for p in tj]
+    HAND_LOG.append({'fingers': [[p.copy() for p in f] for f in LAST_HAND['fingers']], 'thumb': [p.copy() for p in tj]})
     for i in range(3):
         cap(bm, tj[i], tj[i + 1], H.THUMB_R[i], H.THUMB_R[i + 1], seg=16)
     sph(bm, tj[1], H.THUMB_R[1] * 1.06, seg=14)
@@ -362,8 +380,10 @@ def resample(pts, arc, sE, short_upper):
     return out
 
 
-def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False):
-    """Manica di giacca: anelli ellittici lungo l'asse (trasporto parallelo del riferimento: niente torsioni), pieghe."""
+def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False, v2=False):
+    """Manica di giacca: anelli ellittici lungo l'asse (trasporto parallelo del riferimento: niente torsioni), pieghe. v2 (la
+    manica neutra): pieghe di compressione storte e spezzate a diamante invece che ad anello, spirali e pieghe del gomito piu'
+    marcate, l'avambraccio un po' piu' stretto verso il polso."""
     pts, arc, sE = centerline(W, G, D, E, S)
     samples = resample(pts, arc, sE, short_upper)
     total = samples[-1][0]
@@ -390,8 +410,17 @@ def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False):
     fE = min(frames, key=lambda f: abs(f[0] - sE))
     th_in = atan2(vin.dot(fE[4]), vin.dot(fE[3]))
     th_seam = th_in + 0.35
+    # la manica neutra comincia gli anelli sulla cucitura interna: il taglio delle UV (u = 0 e u = 1) cade sotto la cucitura vera
+    th0 = th_seam if v2 else 0.0
+    if v2:
+        LAST_SLEEVE.clear()
+        LAST_SLEEVE.update(th_in=th_in, th_seam=th_seam, th0=th0, sE=sE, total=total)
 
     def radii(s):
+        if v2:
+            a = interp([(0.0, 0.0410), (0.06, 0.0412), (sE - 0.09, 0.0470), (sE, 0.0490), (sE + 0.10, 0.0515), (total, 0.0530)], s)
+            b = interp([(0.0, 0.0360), (0.06, 0.0366), (sE - 0.09, 0.0430), (sE, 0.0465), (sE + 0.10, 0.0495), (total, 0.0510)], s)
+            return a, b
         a = interp([(0.0, 0.0426), (0.05, 0.0428), (sE - 0.05, 0.0472), (sE, 0.0498), (sE + 0.10, 0.0525), (total, 0.0540)], s)
         b = interp([(0.0, 0.0372), (0.05, 0.0378), (sE - 0.05, 0.0428), (sE, 0.0470), (sE + 0.10, 0.0505), (total, 0.0520)], s)
         return a, b
@@ -406,20 +435,32 @@ def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False):
         f += 0.050 * band
         f -= 0.018 * exp(-((s - 0.036) / 0.0022) ** 2)
         # pieghe di compressione sopra il polsino (la manica e' spinta giu' e si accumula): anelli storti e spezzati
-        for k, sk in enumerate((0.050, 0.074, 0.099, 0.126)):
-            tilt = 0.010 * cos(th - 1.3 * k - seed)
-            wob = 0.0060 * noise.noise(V(ct * 1.3 + k * 2.1, st * 1.3, seed + 0.7 * k))
-            amp = (0.120 - 0.020 * k) * (0.35 + 0.65 * (noise.noise(V(ct * 2.2 + seed, st * 2.2, 3.0 + k)) * 0.5 + 0.5))
-            f += amp * exp(-((s - sk - wob - tilt) / 0.0095) ** 2)
+        if not v2:
+            for k, sk in enumerate((0.050, 0.074, 0.099, 0.126)):
+                tilt = 0.010 * cos(th - 1.3 * k - seed)
+                wob = 0.0060 * noise.noise(V(ct * 1.3 + k * 2.1, st * 1.3, seed + 0.7 * k))
+                amp = (0.120 - 0.020 * k) * (0.35 + 0.65 * (noise.noise(V(ct * 2.2 + seed, st * 2.2, 3.0 + k)) * 0.5 + 0.5))
+                f += amp * exp(-((s - sk - wob - tilt) / 0.0095) ** 2)
+        else:
+            # a diamante: ogni piega gira di traverso (fino a 3 cm di dislivello sul giro) e si spegne su un lato, come la stoffa
+            # che si accartoccia davvero; tra una piega e l'altra la stoffa e' tesa
+            for k, sk in enumerate((0.052, 0.080, 0.112)):
+                tilt = 0.016 * cos(th * 1.0 - 1.9 * k - seed) + 0.006 * cos(2.0 * th + k)
+                wob = 0.0070 * noise.noise(V(ct * 1.6 + k * 2.1, st * 1.6, seed + 0.7 * k))
+                side = smoothstep(-0.35, 0.45, noise.noise(V(ct * 1.4 + seed + k, st * 1.4, 7.0 + k)))
+                amp = (0.150 - 0.030 * k) * side
+                f += amp * exp(-((s - sk - wob - tilt) / 0.0105) ** 2)
+                f -= 0.025 * side * exp(-((s - sk - wob - tilt - 0.014) / 0.006) ** 2)
         # pieghe a spirale sull'avambraccio (due frequenze)
         tw = smoothstep(0.11, 0.18, s) * (1.0 - smoothstep(sE - 0.07, sE - 0.02, s))
-        f += 0.040 * tw * sin(3.0 * th + 19.0 * s + 1.8 * noise.noise(V(s * 5.0, seed, 0.2)))
-        f += 0.018 * tw * sin(5.0 * th - 31.0 * s + seed)
+        ksp = 1.7 if v2 else 1.0
+        f += 0.040 * ksp * tw * sin(3.0 * th + 19.0 * s + 1.8 * noise.noise(V(s * 5.0, seed, 0.2)))
+        f += 0.018 * ksp * tw * sin(5.0 * th - 31.0 * s + seed)
         # interno del gomito: pieghe fitte; fuori: tessuto tirato
         dth = ang_diff(th, th_in)
         inner = exp(-(dth / 0.95) ** 2)
         g = exp(-((s - sE) / 0.065) ** 2)
-        f += 0.115 * inner * g * (0.50 + 0.50 * sin(52.0 * (s - sE) + 2.4 * noise.noise(V(ct, st, seed + 5.0))))
+        f += (0.16 if v2 else 0.115) * inner * g * (0.50 + 0.50 * sin(52.0 * (s - sE) + 2.4 * noise.noise(V(ct, st, seed + 5.0))))
         f -= 0.015 * (1.0 - inner) * g
         # la stoffa pende sotto l'avambraccio
         if down_th is not None:
@@ -448,7 +489,7 @@ def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False):
         dth = down_angle(T, N_, B_)
         ring = []
         for i in range(M_ + 1):
-            th = 2 * pi * i / M_
+            th = th0 + 2 * pi * i / M_
             f = folds(s, th, dth)
             ring.append(p + N_ * (a * f * cos(th)) + B_ * (b * f * sin(th)))
         grid.append(ring)
@@ -461,13 +502,13 @@ def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False):
     for (ds, dr) in ((0.016, -0.0055), (0.0025, -0.0050), (-0.0012, -0.0022)):
         ring = []
         for i in range(M_ + 1):
-            th = 2 * pi * i / M_
+            th = th0 + 2 * pi * i / M_
             f = folds(0.0, th, d0)
             ring.append(p0 + T0_ * ds + N0 * ((a0 * f + dr) * cos(th)) + B0 * ((b0 * f + dr) * sin(th)))
         lip.append(ring)
     allrings = lip + grid
     allv = [-0.016, -0.0025, 0.0012] + vcoord
-    circ = 2 * pi * 0.05
+    circ = SLEEVE_CIRC
     vs = [[bm.verts.new(q) for q in ring] for ring in allrings]
     for k in range(len(allrings) - 1):
         for i in range(M_):
@@ -491,6 +532,80 @@ def sleeve_bm(W, G, D, E, S, X, seed=0.0, short_upper=False):
     if fmid is not None and fmid.normal.dot(fmid.calc_center_median() - cmid) < 0:
         bmesh.ops.reverse_faces(bm, faces=bm.faces)
     return bm, sE, total
+
+
+def atlas_uv(objs, margin=0.004, angle=62.0):
+    """Le UV di un atlante per texture uniche: proiezione 'smart' di tutti gli oggetti insieme (isole spezzate dove la superficie gira
+    di piu' di 'angle' gradi) e impacchettamento con la stessa scala per tutte le isole: densita' di texel uniforme."""
+    vl = bpy.context.view_layer
+    if vl.objects.active is not None and vl.objects.active.mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+    for o in vl.objects:
+        o.select_set(False)
+    for o in objs:
+        while len(o.data.uv_layers):
+            o.data.uv_layers.remove(o.data.uv_layers[0])
+        o.data.uv_layers.new(name='UVMap')
+        o.select_set(True)
+    vl.objects.active = objs[0]
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=radians(angle), island_margin=margin, area_weight=0.0, correct_aspect=True,
+                             scale_to_bounds=False)
+    bpy.ops.uv.select_all(action='SELECT')
+    bpy.ops.uv.pack_islands(rotate=True, margin=margin)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    for o in objs:
+        o.select_set(False)
+
+
+def dump_surface(path, parts, to_canon, meta=None):
+    """Le superfici per genera_texture_braccia.py (braccia/<nome>_uv.npz): per ogni triangolo i tre angoli con punto e normale
+    (riferimento 'to_canon'), coordinate UV dell'atlante, la parte (l'indice in 'parts'), la cavita' (curvatura media per vertice,
+    positiva nei solchi, smussata due volte) e gli attributi per angolo di ogni parte (parts: (oggetto, {nome: valori per angolo})).
+    meta: valori in piu' (le articolazioni, gli angoli della manica)."""
+    import numpy as np
+    R = np.array(to_canon.to_3x3())
+    out = {'P': [], 'N': [], 'UV': [], 'part': [], 'cav': []}
+    per_part = []
+    for pid, (ob, attrs) in enumerate(parts):
+        me = ob.data
+        me.calc_loop_triangles()
+        nv, nl, ne, nt = len(me.vertices), len(me.loops), len(me.edges), len(me.loop_triangles)
+        co = np.empty(nv * 3); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+        vn = np.empty(nv * 3); me.vertices.foreach_get('normal', vn); vn = vn.reshape(-1, 3)
+        ed = np.empty(ne * 2, dtype=np.int64); me.edges.foreach_get('vertices', ed); ed = ed.reshape(-1, 2)
+        acc = np.zeros((nv, 3)); cnt = np.zeros(nv)
+        np.add.at(acc, ed[:, 0], co[ed[:, 1]]); np.add.at(acc, ed[:, 1], co[ed[:, 0]])
+        np.add.at(cnt, ed[:, 0], 1.0); np.add.at(cnt, ed[:, 1], 1.0)
+        cnt = np.maximum(cnt, 1.0)
+        elen = float(np.linalg.norm(co[ed[:, 0]] - co[ed[:, 1]], axis=1).mean())
+        cav = ((acc / cnt[:, None] - co) * vn).sum(1) / max(1e-9, elen)
+        for _ in range(2):
+            a2 = np.zeros(nv); np.add.at(a2, ed[:, 0], cav[ed[:, 1]]); np.add.at(a2, ed[:, 1], cav[ed[:, 0]])
+            cav = 0.5 * cav + 0.5 * a2 / cnt
+        lv = np.empty(nl, dtype=np.int64); me.loops.foreach_get('vertex_index', lv)
+        tl = np.empty(nt * 3, dtype=np.int64); me.loop_triangles.foreach_get('loops', tl); tl = tl.reshape(-1, 3)
+        uv = np.empty(nl * 2); me.uv_layers.active.data.foreach_get('uv', uv); uv = uv.reshape(-1, 2)
+        cn = np.empty(nl * 3); me.corner_normals.foreach_get('vector', cn); cn = cn.reshape(-1, 3)
+        Mw = np.array(ob.matrix_world)
+        A = R @ Mw[:3, :3]
+        pw = (co @ A.T) + R @ Mw[:3, 3]
+        nw = cn @ A.T
+        nw /= np.maximum(1e-12, np.linalg.norm(nw, axis=1))[:, None]
+        out['P'].append(pw[lv[tl]])
+        out['N'].append(nw[tl])
+        out['UV'].append(uv[tl])
+        out['part'].append(np.full(nt, pid, dtype=np.int8))
+        out['cav'].append(cav[lv[tl]])
+        per_part.append((nt, {k: np.asarray(v, dtype=np.float64)[tl] for k, v in (attrs or {}).items()}))
+    arrays = {k: np.concatenate(v) for k, v in out.items()}
+    for k in sorted({k for _, d in per_part for k in d}):
+        arrays[k] = np.concatenate([d.get(k, np.zeros((nt, 3))) for nt, d in per_part])
+    for k, v in (meta or {}).items():
+        arrays['meta_' + k] = np.asarray(v, dtype=np.float64)
+    np.savez_compressed(path, **arrays)
+    print(f'[uv] {os.path.basename(path)}: {len(arrays["P"])} triangoli')
 
 
 def mesh_obj(name, bm, mat, smooth=True):
@@ -592,7 +707,16 @@ def index_finger(Mx, mat, wid):
         H.box_uv(ob)
         ob.location += OFFSET
         pieces.append(ob)
-    # posa sul grilletto
+    best = trigger_pose(Mx, wid, k, sp, lens)
+    tp = best[3]
+    joints = {f'indice_d_{i + 1}': Mx @ pts[i] for i in range(4)}
+    trigger = {f'grilletto_d_{i + 1}': Mx @ tp[i] for i in range(1, 4)}
+    return {'pieces': pieces, 'joints': joints, 'trigger': trigger}
+
+
+def trigger_pose(Mx, wid, k, sp, lens):
+    """La posa dell'indice destro sul grilletto (coordinate canoniche della mano): il polpastrello davanti al centro del grilletto
+    vero dell'arma; (scarto, pieghe, apertura, articolazioni)."""
     trig = LAST_INFO.get('trigger_c')
     best = None
     if trig is not None:
@@ -618,10 +742,7 @@ def index_finger(Mx, mat, wid):
         print(f'  [{wid}] indice: grilletto {"non misurato" if trig is None else "non raggiunto"}, posa di ripiego')
     else:
         print(f'  [{wid}] indice: sul grilletto con pieghe {tuple(round(c) for c in best[1])}, scarto {best[0] * 1000:.1f} mm')
-    tp = best[3]
-    joints = {f'indice_d_{i + 1}': Mx @ pts[i] for i in range(4)}
-    trigger = {f'grilletto_d_{i + 1}': Mx @ tp[i] for i in range(1, 4)}
-    return {'pieces': pieces, 'joints': joints, 'trigger': trigger}
+    return best
 
 
 def material(name, color, rough, metal=0.0):
@@ -784,6 +905,452 @@ def stage_build(ids, cat):
         print(f'[build] {wid}: {time.time() - t0:.1f} s')
 
 
+# ----------------------------------------------------------------------------- mano libera (magie, potenziamenti, lanci)
+# La sinistra che lascia l'arma: lo stesso guanto, ma in posa neutra (dita appena piegate e aperte a ventaglio, pollice staccato dal
+# palmo) e con un perno a ogni articolazione. In Unity HandRig le da' la pelle (pesi per distanza dalle falangi) e la piega in qualunque
+# posa; per passare senza scatto dalla mano avvolta all'astina a questa, stage_pose scrive arma per arma dove stanno le articolazioni
+# della sinistra avvolta (presa_sinistra.json): Unity porta le falangi della mano libera esattamente li' e poi le muove.
+FREE_CURLS = ((8, 12, 7), (10, 14, 8), (12, 16, 9), (14, 18, 10))
+FREE_SPREAD = (-13.0, -3.0, 8.0, 19.0)          # ventaglio piu' aperto della mano rilassata: il remesh non fonde le dita tra loro
+FINGER_NAMES = ('indice', 'medio', 'anulare', 'mignolo')
+# assi della sinistra, gli stessi di genera_mani2.hands_for: dita verso +x d'autore, dorso verso -z, pollice verso +y (e' uno specchio)
+XL, YL, ZL = V(0, -1, 0), V(1, 0, 0), V(0, 0, -1)
+
+
+def free_thumb():
+    """Pollice rilassato, staccato dal palmo di ~40 gradi (dalla nocca carpo-metacarpale CMC di genera_mani2)."""
+    d1 = V(-0.62, 0.62, -0.48).normalized()
+    d2 = V(-0.36, 0.86, -0.36).normalized()
+    d3 = V(-0.22, 0.94, -0.26).normalized()
+    mcp = H.CMC + d1 * 0.046
+    ip = mcp + d2 * 0.035
+    tip = ip + d3 * 0.029
+    return [H.CMC.copy(), mcp, ip, tip]
+
+
+def build_free_bm():
+    """Mano destra canonica in posa neutra (come build_hand_bm, senza impugnatura): mesh, articolazioni delle dita e del pollice.
+    Versione 2 (2026-11-16): guanto di cuoio senza paranocche di gomma (la placca ovale sul dorso sembrava una zampa): le nocche
+    hanno un'imbottitura cucita nel guanto; giunture appena accennate (un guanto tirato non fa i rigonfiamenti del dito nudo);
+    i tendini del dorso appena visibili. Pieghe e cuciture le fa free_details dopo il remesh."""
+    bm = bmesh.new()
+    ell, cap, sph = M.bm_ellipsoid, M.bm_capsule, M.bm_sphere
+    GS = H.GS
+    g = 1.08
+    ell(bm, (0.003, 0.046, -0.002), (0.036 * g, 0.047, 0.0125 * g), seg=28)
+    ell(bm, (-0.021, 0.026, -0.009), (0.016 * g, 0.027, 0.012 * g), Matrix.Rotation(radians(-25), 3, 'Z'))
+    ell(bm, (0.025, 0.034, -0.007), (0.012 * g, 0.030, 0.010 * g))
+    ell(bm, (0.0, -0.004, 0.0), (0.027 * g, 0.020, 0.016 * g))
+    cap(bm, (0, -0.050, 0), (0, -0.006, 0), 0.0300, 0.0255, seg=18)
+    sph(bm, (0.022, -0.004, 0.007), 0.0065 * g)
+    fingers = []
+    for fi, (nm, k, sp0, lens, radii) in enumerate(M.FINGERS):
+        pts, dirs, a = M.finger_chain(k, FREE_SPREAD[fi], lens, FREE_CURLS[fi])
+        fingers.append(pts)
+        # tendine del dorso: dal polso alla nocca, sottile
+        cap(bm, (k[0] * 0.35, 0.004, 0.0075), (k[0], k[1] - 0.01, 0.0085), 0.0026 * GS, 0.0026 * GS, seg=8)
+        for i in range(3):
+            cap(bm, pts[i], pts[i + 1], radii[i] * GS, radii[i + 1] * GS, seg=16)
+        sph(bm, pts[0], radii[0] * GS * 1.04, seg=16)
+        sph(bm, pts[1], radii[1] * GS * 1.01, seg=14)
+        d3 = (pts[3] - pts[2]).normalized()
+        tip = pts[3] - d3 * radii[3] * 0.6
+        ell(bm, tuple(tip), (radii[3] * GS * 1.02, radii[3] * GS * 1.08, radii[3] * GS * 1.0), seg=12)
+        # imbottitura della nocca: un cuscinetto basso sul dorso, dentro il guanto
+        d0 = (pts[1] - pts[0]).normalized()
+        up = V(0, 0, 1) - d0 * d0.z
+        up = up.normalized() if up.length > 1e-6 else V(0, 0, 1)
+        ell(bm, tuple(pts[0] + up * radii[0] * GS * 0.55 - d0 * 0.002), (radii[0] * GS * 0.95, 0.0085, radii[0] * GS * 0.62), seg=14)
+    tj = free_thumb()
+    for i in range(3):
+        cap(bm, tj[i], tj[i + 1], H.THUMB_R[i], H.THUMB_R[i + 1], seg=16)
+    sph(bm, tj[1], H.THUMB_R[1] * 1.06, seg=14)
+    sph(bm, tj[2], H.THUMB_R[2] * 1.04, seg=14)
+    return bm, fingers, tj
+
+
+def free_details(ob, Mf, fingers, tj):
+    """Il cuoio dopo il remesh: pieghe trasversali sul dorso delle articolazioni (MCP, PIP, DIP: due o tre solchi sottili,
+    piu' marcati sulla prima) e la cucitura lungo i fianchi di ogni dito (il solco con un filo rialzato accanto), come i guanti veri,
+    che sono cuciti a fette. Tutto nel riferimento canonico della mano (dita +y, dorso +z), spostando i vertici lungo la normale."""
+    Mi = Mf.inverted()
+    R3 = Mf.to_3x3()
+    segs = []
+    for fi, f in enumerate(fingers):
+        radii = M.FINGERS[fi][4]
+        for i in range(3):
+            a, b = f[i], f[i + 1]
+            d = (b - a).normalized()
+            dor = V(0, 0, 1) - d * d.z
+            dor = dor.normalized() if dor.length > 1e-6 else V(0, 0, 1)
+            segs.append((a, b, d, dor, i, radii[i] * H.GS, radii[i + 1] * H.GS))
+    joints = []
+    for f in fingers:
+        for i in range(3):
+            d = (f[i + 1] - f[max(0, i - 1)]).normalized()
+            dor = V(0, 0, 1) - d * d.z
+            dor = dor.normalized() if dor.length > 1e-6 else V(0, 0, 1)
+            joints.append((f[i], d, dor, (0.00042, 0.00030, 0.00024)[i], (3, 3, 2)[i]))
+    me = ob.data
+    for v in me.vertices:
+        p = Mi @ v.co
+        n = (R3.transposed() @ v.normal).normalized()
+        disp = 0.0
+        # pieghe sul dorso delle articolazioni
+        for (J, d, dor, amp, nlines) in joints:
+            r = p - J
+            t = r.dot(d)
+            if abs(t) > 0.0055:
+                continue
+            rad = r - d * t
+            if rad.length > 0.016:
+                continue
+            c = rad.normalized().dot(dor) if rad.length > 1e-6 else 0.0
+            if c < 0.15:
+                continue
+            half = 0.0016 * nlines * 0.5
+            env = smoothstep(half + 0.0012, half, abs(t)) * smoothstep(0.15, 0.6, c)
+            disp -= amp * env * (0.5 + 0.5 * cos(2 * pi * t / 0.0016))
+        # cucitura sui fianchi: dove la normale e' di traverso al dito (ne' dorso ne' palmo)
+        best = None
+        for (a, b, d, dor, i, ra, rb) in segs:
+            ab = b - a
+            t = max(0.0, min(1.0, (p - a).dot(ab) / max(1e-9, ab.length_squared)))
+            q = a + ab * t
+            dd = (p - q).length
+            if best is None or dd < best[0]:
+                best = (dd, a, b, d, dor, t, ra + (rb - ra) * t, i)
+        # solo sul dito vero: dentro 1,3 raggi dall'asse e, sulla prima falange, oltre la membrana tra le dita
+        if best is not None and best[0] < best[6] * 1.3 and not (best[7] == 0 and best[5] < 0.30):
+            _, a, b, d, dor, t, _, _ = best
+            lat = n - d * n.dot(d)
+            if lat.length > 1e-6:
+                c = lat.normalized().dot(dor)
+                groove = exp(-(c / 0.10) ** 2)
+                ridge = exp(-((abs(c) - 0.17) / 0.06) ** 2)
+                disp += -0.00030 * groove + 0.00012 * ridge
+        if disp != 0.0:
+            v.co = v.co + v.normal * disp
+    me.update()
+
+
+def stage_libera():
+    """braccia/mano_libera.fbx: radice mano_libera nell'origine canonica, guanto (mano + manichetta) e rinforzo (il cinturino) e
+    le articolazioni come Empty L_<dito>_1..4, L_pollice_0..3, L_polso, L_palmo, L_dorso, L_manichetta. Versione 2: senza
+    paranocche, piu' fitta (voxel 1,3 mm, niente decimazione), pieghe e cuciture del cuoio (free_details)."""
+    t0 = time.time()
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    mats = make_mats()
+    bm, fingers, tj = build_free_bm()
+    Mf = H.frame_matrix(XL, YL, ZL, V(0, 0, 0))
+    W = V(0, -0.006, 0)                  # il polso della sinistra di genera_mani2 (WL = OL + YL * -0.006)
+    G = V(0, -1, 0)                      # la manichetta prolunga la mano: Unity la piega tra palmo e avambraccio col polso
+    X = V(1, 0, 0)
+    gb = gauntlet_bm(W, G, X)
+    tmp = bpy.data.meshes.new('tmp')
+    gb.to_mesh(tmp)
+    gb.free()
+    bm.from_mesh(tmp)
+    bpy.data.meshes.remove(tmp)
+    bmesh.ops.transform(bm, matrix=Mf, verts=bm.verts)
+    bmesh.ops.reverse_faces(bm, faces=bm.faces)
+    glove = H.make_obj('libera_guanto', bm, voxel=0.0013, sm_iter=4, folds=0.00025, seed=5.0, decimate=1.0)
+    # free_details (pieghe e cuciture a spostamento di vertici) per ora no: dopo la decimazione i solchi da 0,3 mm diventavano
+    # puntini scuri; il dettaglio del cuoio lo da' la normal map del materiale
+    dm = glove.modifiers.new('decima', 'DECIMATE')
+    dm.ratio = 0.5
+    M.apply_all(glove)
+    glove.data.shade_smooth()
+    kb = strap_bm(W, G, X)
+    bmesh.ops.transform(kb, matrix=Mf, verts=kb.verts)
+    bmesh.ops.reverse_faces(kb, faces=kb.faces)
+    guard = H.make_obj('libera_rinforzo', kb, voxel=0.0012, sm_iter=2, folds=0.0, decimate=0.6)
+    for o, mt in ((glove, mats['guanto']), (guard, mats['rinforzo'])):
+        o.data.materials.clear()
+        o.data.materials.append(mt)
+    # texture uniche (genera_texture_braccia.py): guanto e cinturino nello stesso atlante
+    atlas_uv([glove, guard])
+    joints = {'L_polso': W, 'L_palmo': V(0.003, 0.046, -0.002), 'L_dorso': V(0.003, 0.046, 0.030), 'L_manichetta': W + G * 0.070}
+    for fi, nm in enumerate(FINGER_NAMES):
+        for i in range(4):
+            joints[f'L_{nm}_{i + 1}'] = fingers[fi][i]
+    for i in range(4):
+        joints[f'L_pollice_{i}'] = tj[i]
+    # le superfici nel riferimento canonico della mano (dita +y, dorso +z, pollice -x) con le articolazioni
+    meta = {'fingers': [[tuple(p) for p in f] for f in fingers], 'thumb': [tuple(p) for p in tj], 'wrist': tuple(W),
+            'cuff': tuple(W + G * 0.070), 'radii': [list(M.FINGERS[fi][4]) for fi in range(4)], 'gs': H.GS,
+            'thumb_r': list(H.THUMB_R)}
+    dump_surface(os.path.join(OUT, 'mano_libera_uv.npz'), [(glove, None), (guard, None)], Mf.inverted(), meta)
+    sc = bpy.context.scene
+    top = bpy.data.objects.new('mano_libera', None)
+    sc.collection.objects.link(top)
+    keep = [top]
+    for o in (glove, guard):
+        o.parent = top
+        keep.append(o)
+    for nm, p in joints.items():
+        e = bpy.data.objects.new(nm, None)
+        e.empty_display_size = 0.01
+        sc.collection.objects.link(e)
+        e.location = Mf @ p
+        e.parent = top
+        keep.append(e)
+    for o in bpy.context.view_layer.objects:
+        o.select_set(False)
+    for o in keep:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = top
+    os.makedirs(OUT, exist_ok=True)
+    bpy.ops.export_scene.fbx(filepath=os.path.join(OUT, 'mano_libera.fbx'), use_selection=True, object_types={'EMPTY', 'MESH'}, apply_unit_scale=True,
+                             apply_scale_options='FBX_SCALE_UNITS', axis_forward='-Z', axis_up='Y', mesh_smooth_type='FACE', use_tspace=True,
+                             add_leaf_bones=False, bake_anim=False, path_mode='RELATIVE', embed_textures=False)
+    nv = len(glove.data.vertices) + len(guard.data.vertices)
+    print(f'[libera] mano_libera.fbx: {nv} vertici, {len(joints)} articolazioni, {time.time() - t0:.1f} s')
+
+
+def stage_pose(ids, cat):
+    """braccia/presa_sinistra.json: per ogni arma, le articolazioni della sinistra avvolta all'astina (o a coppa sul caricatore per le
+    armi a una mano) in coordinate d'autore relative a mano_s, piu' polso, gomito e spalla (con questi tre Unity ricava da solo come
+    gli assi d'autore finiscono nei suoi). Nessuna mesh: non si riesporta nessun FBX."""
+    global CURRENT_WID
+    out = []
+    out_d = []
+    for wid in ids:
+        if wid == KNIFE:
+            continue
+        t0 = time.time()
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        CURRENT_WID = wid
+        LAST_INDEX.clear()
+        HAND_LOG.clear()
+        res = H.hands_for(wid)
+        hand = {'fingers': [list(f) for f in LAST_HAND['fingers']], 'thumb': list(LAST_HAND['thumb'])}
+        # la destra (la prima mano costruita): dita avvolte all'impugnatura e indice disteso lungo il telaio, piu' la posa sul
+        # grilletto; giunti polso/gomito/spalla come quelli dell'FBX dell'arma (servono a Unity per ritrovare gli assi d'autore)
+        if HAND_LOG and LAST_INDEX:
+            hd = HAND_LOG[0]
+            bmr, Mxr, Wr, _, _ = res['right']
+            clsr = (cat.get(wid) or {}).get('cls')
+            hipr = hip_for(clsr)
+            dR_, sR_, _, _ = POSES[pose_key(wid, clsr)]
+            backr = (Mxr.to_3x3() @ V(0, -1, 0)).normalized()
+            limr = min(62.0, 40.0 + 1.2 * max(0.0, res['T'] - 12.0))
+            Dr, _ = H.limit_bend(backr, cam_dir_to_author(dR_), limr)
+            Er = Wr + Dr * LF
+            Sr = cam_to_author(sR_, hipr)
+            anchor_d = res['anchor_d']
+            tb = trigger_pose(Mxr, wid, LAST_INDEX['k'], LAST_INDEX['sp'], LAST_INDEX['lens'])
+
+            def reld(p):
+                return [round(c, 6) for c in (p - anchor_d)]
+
+            out_d.append({
+                'id': wid,
+                'polso': reld(Wr), 'gomito': reld(Er), 'spalla': reld(Sr),
+                'dita': [c for f in hd['fingers'] for p in f for c in reld(Mxr @ p)],
+                'pollice': [c for p in hd['thumb'] for c in reld(Mxr @ p)],
+                'palmo': reld(Mxr @ V(0.003, 0.046, -0.002)),
+                'dorso': reld(Mxr @ V(0.003, 0.046, 0.030)),
+                'grilletto': [c for p in tb[3][1:] for c in reld(Mxr @ p)],
+            })
+        bm, Mx, W, D_old, mirrored = res['left']
+        cls = (cat.get(wid) or {}).get('cls')
+        hip = hip_for(cls)
+        dR, sR, dL, sL = POSES[pose_key(wid, cls)]
+        back = (Mx.to_3x3() @ V(0, -1, 0)).normalized()
+        D, bend = H.limit_bend(back, cam_dir_to_author(dL), 40.0)
+        E = W + D * LF
+        S = cam_to_author(sL, hip)
+        anchor = res['anchor_s']
+
+        def rel(p):
+            return [round(c, 6) for c in (p - anchor)]
+
+        def canon(c):
+            return Mx @ (c if isinstance(c, Vector) else V(*c))
+
+        # vettori piatti (x, y, z, x, y, z...): li legge JsonUtility di Unity, che non conosce gli array annidati
+        out.append({
+            'id': wid,
+            'polso': rel(W), 'gomito': rel(E), 'spalla': rel(S),
+            'dita': [c for f in hand['fingers'] for p in f for c in rel(canon(p))],
+            'pollice': [c for p in hand['thumb'] for c in rel(canon(p))],
+            'palmo': rel(canon((0.003, 0.046, -0.002))),
+            'dorso': rel(canon((0.003, 0.046, 0.030))),
+        })
+        res['left'][0].free()
+        res['right'][0].free()
+        print(f'[pose] {wid}: {time.time() - t0:.1f} s')
+    os.makedirs(OUT, exist_ok=True)
+    with open(os.path.join(OUT, 'presa_sinistra.json'), 'w', encoding='utf-8') as f:
+        json.dump({'versione': 1, 'armi': out}, f, indent=1)
+    with open(os.path.join(OUT, 'presa_destra.json'), 'w', encoding='utf-8') as f:
+        json.dump({'versione': 1, 'armi': out_d}, f, indent=1)
+    print(f'[pose] presa_sinistra.json: {len(out)} armi, presa_destra.json: {len(out_d)} armi')
+
+
+# ----------------------------------------------------------------------------- manica in posa neutra
+# Una manica sola per tutte le armi e tutte e due le braccia (Unity la specchia per la destra e la piega con le ossa del braccio):
+# modellata con le proporzioni vere del braccio di ArmRig (omero 30 cm, avambraccio 26,2 cm) e il gomito piegato di 40 gradi, come
+# lo tiene chi imbraccia un'arma. Prima ogni arma aveva la sua manica modellata sulla spalla finta (omero virtuale fino a 75 cm):
+# col braccio vero ArmRig la stirava e la girava molto, e la manica si deformava (pieghe schiacciate, gomito che si svuota).
+UPPER = 0.30
+
+
+def stage_manica():
+    """braccia/manica_libera.fbx: radice manica_libera, la manica (materiale G_manica) e i giunti polso_s, gomito_s, spalla_s
+    (braccio sinistro, coordinate d'autore: avambraccio lungo -y dal polso, gomito piegato verso -z)."""
+    t0 = time.time()
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    mats = make_mats()
+    W = V(0, 0, 0)
+    D = V(0, -1, 0)                                   # dal polso al gomito
+    E = W + D * LF
+    flex = radians(40.0)
+    U = V(0, -cos(flex), -sin(flex))                  # dal gomito alla spalla: angolo al gomito 140 gradi
+    S = E + U * UPPER
+    G = D                                             # la manichetta segue l'avambraccio (HandRig.UpdateCuff)
+    X = V(1, 0, 0)
+    slb, sE, total = sleeve_bm(W, G, D, E, S, X, seed=9.0, v2=True)
+    sleeve = mesh_obj('manica_libera_manica', slb, mats['manica'])
+    # le UV 'tessuto' sono in metri (giro, lunghezza): diventano l'atlante 0..1 delle texture uniche; giro e lunghezza vanno alle
+    # texture come attributi (phi = frazione del giro dalla cucitura interna, s = metri dall'orlo)
+    import numpy as np
+    me = sleeve.data
+    uvd = me.uv_layers['tessuto']
+    raw = np.empty(len(me.loops) * 2)
+    uvd.data.foreach_get('uv', raw)
+    raw = raw.reshape(-1, 2)
+    phi, sl = raw[:, 0] / SLEEVE_CIRC, raw[:, 1]
+    s0, s1 = float(sl.min()), float(sl.max())
+    uvd.data.foreach_set('uv', np.stack([phi, (sl - s0) / (s1 - s0)], 1).ravel())
+    uvd.name = 'UVMap'
+    meta = dict(LAST_SLEEVE)
+    meta.update(s0=s0, s1=s1, wrist=tuple(W), elbow=tuple(E), shoulder=tuple(S))
+    dump_surface(os.path.join(OUT, 'manica_libera_uv.npz'), [(sleeve, {'s': sl, 'phi': phi})], Matrix.Identity(4), meta)
+    sc = bpy.context.scene
+    top = bpy.data.objects.new('manica_libera', None)
+    sc.collection.objects.link(top)
+    keep = [top, sleeve]
+    sleeve.parent = top
+    for nm, p in (('polso_s', W), ('gomito_s', E), ('spalla_s', S)):
+        e = bpy.data.objects.new(nm, None)
+        e.empty_display_size = 0.01
+        sc.collection.objects.link(e)
+        e.location = p
+        e.parent = top
+        keep.append(e)
+    for o in bpy.context.view_layer.objects:
+        o.select_set(False)
+    for o in keep:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = top
+    os.makedirs(OUT, exist_ok=True)
+    bpy.ops.export_scene.fbx(filepath=os.path.join(OUT, 'manica_libera.fbx'), use_selection=True, object_types={'EMPTY', 'MESH'}, apply_unit_scale=True,
+                             apply_scale_options='FBX_SCALE_UNITS', axis_forward='-Z', axis_up='Y', mesh_smooth_type='FACE', use_tspace=True,
+                             add_leaf_bones=False, bake_anim=False, path_mode='RELATIVE', embed_textures=False)
+    print(f'[manica] manica_libera.fbx: {len(sleeve.data.vertices)} vertici, gomito a {degrees((W - E).angle(S - E)):.0f} gradi, '
+          f'lunga {total:.2f} m, {time.time() - t0:.1f} s')
+
+
+TEX_DIR = os.path.normpath(os.path.join(DIR, '..', '..', 'unity', 'PryingEyes', 'Assets', '_PryingEyes', 'Textures', 'Braccia'))
+TEX_SET = {'mano_libera': 'guanto_libero', 'manica_libera': 'manica_libera'}
+
+
+def textured_preview(o, tex):
+    """Materiale d'anteprima con le texture uniche: colore, normal map, lucidita' (alfa della maschera) e occlusione (verde)."""
+    mt = bpy.data.materials.new('vedi_' + o.name)
+    mt.use_nodes = True
+    nt = mt.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+
+    def img(kind, colorspace):
+        n = nt.nodes.new('ShaderNodeTexImage')
+        n.image = bpy.data.images.load(os.path.join(TEX_DIR, f'{tex}_{kind}.png'))
+        n.image.colorspace_settings.name = colorspace
+        return n
+    base, nrm, mask = img('base', 'sRGB'), img('normal', 'Non-Color'), img('mask', 'Non-Color')
+    mask.image.alpha_mode = 'CHANNEL_PACKED'
+    mix = nt.nodes.new('ShaderNodeMix')
+    mix.data_type = 'RGBA'
+    mix.blend_type = 'MULTIPLY'
+    mix.inputs['Factor'].default_value = 1.0
+    sep = nt.nodes.new('ShaderNodeSeparateColor')
+    nt.links.new(mask.outputs['Color'], sep.inputs['Color'])
+    nt.links.new(base.outputs['Color'], mix.inputs[6])
+    nt.links.new(sep.outputs['Green'], mix.inputs[7])
+    nt.links.new(mix.outputs[2], bsdf.inputs['Base Color'])
+    inv = nt.nodes.new('ShaderNodeMath')
+    inv.operation = 'SUBTRACT'
+    inv.inputs[0].default_value = 1.0
+    nt.links.new(mask.outputs['Alpha'], inv.inputs[1])
+    nt.links.new(inv.outputs[0], bsdf.inputs['Roughness'])
+    nm = nt.nodes.new('ShaderNodeNormalMap')
+    nm.uv_map = o.data.uv_layers.active.name if o.data.uv_layers.active else 'UVMap'
+    nt.links.new(nrm.outputs['Color'], nm.inputs['Color'])
+    nt.links.new(nm.outputs['Normal'], bsdf.inputs['Normal'])
+    o.data.materials.clear()
+    o.data.materials.append(mt)
+
+
+def stage_vedi():
+    """Anteprime (Cycles su CPU) di mano libera e manica neutra, da tre lati, con una luce morbida: braccia/render/vedi_*.png."""
+    for nm in ('mano_libera', 'manica_libera'):
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        bpy.ops.import_scene.fbx(filepath=os.path.join(OUT, nm + '.fbx'))
+        obs = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+        pts = [o.matrix_world @ Vector(c) for o in obs for c in o.bound_box]
+        mn = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
+        mx = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+        ctr = (mn + mx) / 2
+        size = max((mx - mn).x, (mx - mn).y, (mx - mn).z)
+        sc = bpy.context.scene
+        sc.render.engine = 'CYCLES'
+        sc.cycles.device = 'CPU'
+        sc.cycles.samples = 24
+        sc.cycles.use_denoising = False
+        sc.render.resolution_x, sc.render.resolution_y = 900, 700
+        w = bpy.data.worlds.new('w')
+        w.use_nodes = True
+        w.node_tree.nodes['Background'].inputs[0].default_value = (0.18, 0.18, 0.2, 1)
+        sc.world = w
+        tex = TEX_SET.get(nm)
+        tex_ok = tex is not None and os.path.exists(os.path.join(TEX_DIR, tex + '_base.png'))
+        for o in obs:
+            if tex_ok:
+                textured_preview(o, tex)
+                continue
+            # materiali d'anteprima: cuoio scuro lucido per il guanto, tela chiara opaca per la manica, gomma per il cinturino
+            nm_o = o.name.lower()
+            col, rough = ((0.20, 0.17, 0.15, 1), 0.38) if 'guanto' in nm_o else ((0.10, 0.10, 0.11, 1), 0.6) if 'rinforzo' in nm_o else ((0.42, 0.36, 0.28, 1), 0.85)
+            mt = bpy.data.materials.new('vedi_' + o.name)
+            mt.use_nodes = True
+            bsdf = next((n for n in mt.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+            if bsdf is not None:
+                bsdf.inputs['Base Color'].default_value = col
+                bsdf.inputs['Roughness'].default_value = rough
+            o.data.materials.clear()
+            o.data.materials.append(mt)
+        ld = bpy.data.lights.new('key', 'AREA')
+        ld.energy, ld.size = 60.0, 0.6
+        lk = bpy.data.objects.new('key', ld)
+        sc.collection.objects.link(lk)
+        cd = bpy.data.cameras.new('cam')
+        cd.lens = 50
+        cam = bpy.data.objects.new('cam', cd)
+        sc.collection.objects.link(cam)
+        sc.camera = cam
+        for tag, dvec in (('a', Vector((0.6, -0.8, 0.5))), ('b', Vector((-0.7, 0.3, 0.6))), ('c', Vector((0.1, 0.4, -0.9)))):
+            dvec = dvec.normalized()
+            cam.location = ctr + dvec * size * 2.2
+            cam.rotation_euler = (ctr - cam.location).to_track_quat('-Z', 'Y').to_euler()
+            lk.location = ctr + (dvec + Vector((0.3, 0.3, 0.8))).normalized() * size * 2.0
+            lk.rotation_euler = (ctr - lk.location).to_track_quat('-Z', 'Y').to_euler()
+            sc.render.filepath = os.path.join(OUT, 'render', f'vedi_{nm}_{tag}.png')
+            bpy.ops.render.render(write_still=True)
+        print(f'[vedi] {nm}: 3 viste')
+
+
 if __name__ == '__main__':
     cat = catalog()
     all_ids = H.weapon_ids()
@@ -792,3 +1359,11 @@ if __name__ == '__main__':
         stage_prova(ids, cat)
     if 'build' in ARGS:
         stage_build(ids, cat)
+    if 'libera' in ARGS:
+        stage_libera()
+    if 'manica' in ARGS:
+        stage_manica()
+    if 'pose' in ARGS:
+        stage_pose(ids, cat)
+    if 'vedi' in ARGS:
+        stage_vedi()

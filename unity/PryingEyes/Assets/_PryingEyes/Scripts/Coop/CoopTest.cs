@@ -46,6 +46,8 @@ namespace PryingEyes
 
         // dati passati da un passo all'altro
         Enemy spawned;
+        Enemy magicTarget;          // M3: il bersaglio della magia dell'ospitato (sull'ospite)
+        float magicHp0;
         int hostScore, hostKills;
         int roundNo;
 
@@ -274,6 +276,42 @@ namespace PryingEyes
             return false;
         }
 
+        /// <summary>Un punto navigabile a 2-7 m da 'center' (i piedi del compagno), raggiungibile, da cui il petto e la testa di un nemico si
+        /// vedono dall'occhio del compagno (niente mobili ne' muri in mezzo; i compagni non hanno collider e non chiudono la vista). Le magie
+        /// a bersaglio colpiscono solo cio' che si vede (MagicFx.Target): PlaceNear, che chiede solo un percorso, non basta.</summary>
+        bool PlaceInSight(Vector3 center, out Vector3 p)
+        {
+            p = center;
+            if (!NavMesh.SamplePosition(center, out var origin, 2f, HotelNav.EnemyMask)) { Log($"info: nessuna navmesh sotto il compagno ({center.x:F1} {center.y:F1} {center.z:F1})"); return false; }
+            Vector3 eye = center + Vector3.up * 1.6f;
+            var path = new NavMeshPath();
+            int noNav = 0, near = 0, hidden = 0, noPath = 0;
+            string firstBlock = "";
+            foreach (float d in new[] { 4f, 3f, 5f, 2.5f, 6f, 2f, 7f })
+                for (int k = 0; k < 24; k++)
+                {
+                    float a = k * Mathf.PI * 2f / 24f;
+                    var q = center + new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * d;
+                    if (!NavMesh.SamplePosition(q, out var h, 0.8f, HotelNav.EnemyMask)) { noNav++; continue; }
+                    if (Flat(h.position - center) < d * 0.7f) { near++; continue; }
+                    Vector3 chest = h.position + Vector3.up * 0.8f, head = h.position + Vector3.up * 1.5f;
+                    if (!HotelNav.ClearLine(eye, chest) || !HotelNav.ClearLine(eye, head))
+                    {
+                        hidden++;
+                        if (firstBlock.Length == 0 && Physics.Linecast(eye, chest, out RaycastHit bh, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                            firstBlock = $"{bh.collider.name} (strato {LayerMask.LayerToName(bh.collider.gameObject.layer)}) a {bh.distance:F1} m";
+                        continue;
+                    }
+                    if (!NavMesh.CalculatePath(h.position, origin.position, HotelNav.EnemyMask, path) || path.status != NavMeshPathStatus.PathComplete) { noPath++; continue; }
+                    p = h.position;
+                    Log($"info: bersaglio a {Flat(p - center):F1} m dal compagno, scartati prima: senza navmesh {noNav}, troppo vicini {near}, nascosti {hidden}, senza percorso {noPath}");
+                    return true;
+                }
+            Log($"info: nessun punto in vista del compagno ({center.x:F1} {center.y:F1} {center.z:F1}, stanza {FloorDirector.I.cur.RoomAt(center)?.ToString() ?? "nessuna"}): " +
+                $"senza navmesh {noNav}, troppo vicini {near}, nascosti {hidden} (il primo da {firstBlock}), senza percorso {noPath}");
+            return false;
+        }
+
         /// <summary>Il centro navigabile della stanza piu' lontana da 'from' (almeno una ventina di metri, se il piano li ha).</summary>
         static Vector3 FarPoint(Vector3 from)
         {
@@ -354,8 +392,8 @@ namespace PryingEyes
                 HostLeave ? new System.Func<IEnumerator>[] { S0, S1, H2 } :
                 Pics ? new System.Func<IEnumerator>[] { S0, S1, P0 } :
                 Late ? (survival ? new System.Func<IEnumerator>[] { L0s, L1s, L2s } : new System.Func<IEnumerator>[] { L0, L1, L2 }) :
-                survival ? new System.Func<IEnumerator>[] { S0, S1, S2, S3, S4, S4Flight, V5, V6, S7, V7, S8 } :
-                new System.Func<IEnumerator>[] { S0, S1, S2, S3, S4, S4Flight, S5, S6, S7, S8 };
+                survival ? new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, S4, S4Flight, V5, V6, S7, V7, S8 } :
+                new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, S4, S4Flight, S5, S6, S7, S8 };
             var it = Scenario(steps);
             while (true)
             {
@@ -546,6 +584,90 @@ namespace PryingEyes
             yield return new WaitForSeconds(1.0f);
             Check("il colpo mortale: il pupazzo muore (lo dice l'ospite)", target == null || target.IsDead);
             Check("l'uccisione alla testa paga 100 a chi ha sparato e conta", gm.score - s0 == 3 * Punti.Colpo + Punti.Testa && gm.kills == k0 + 1, $"+{gm.score - s0} punti, uccisioni +{gm.kills - k0}");
+        }
+
+        // M ------------------------------------------------------------------ le mani in cooperativa (2026-11-16)
+        /// <summary>Ogni giocatore fa una ricarica a vuoto, fatta dalla mano sinistra (ReloadAnims: locale, niente rete). Poi l'ospitato
+        /// principale lancia la Catena del Fulmine su un nemico fermo dell'ospite: il gesto parte, il colpo (fonte Magia) va all'ospite come
+        /// i proiettili (HitClaim) e l'ospite vede il suo nemico ferito o morto.</summary>
+        IEnumerator M3()
+        {
+            Safe();
+            var gm = GameManager.I;
+            var pl = gm.player;
+            var wp = pl.weapon;
+            // i pupazzi che ci sono gia', annotati prima che l'ospite crei il bersaglio: con 3-4 processi il pupazzo nuovo poteva arrivare
+            // prima della fine della ricarica e finire tra quelli 'gia' visti'
+            var known = new HashSet<int>();
+            foreach (var kv in G.EnemyMap) known.Add(kv.Key);
+            if (wp != null)
+            {
+                wp.mag = 0;
+                wp.reserve = Mathf.Max(wp.reserve, 60);
+                wp.Reload();
+                bool byHand = wp.ReloadByHand;
+                yield return Until(() => !wp.reloading, 10f);
+                Check("ricarica a vuoto fatta dalla mano sinistra", byHand && !wp.reloading && wp.mag > 0, $"mano {byHand}, caricatore {wp.mag}");
+            }
+            if (Coop.IsHost)
+            {
+                Enemy.debugFreeze = true;
+                magicTarget = PlaceInSight(PeerPos(), out Vector3 at) ? Enemy.Spawn(Enemy.EnemyType.Monaco, at) : null;
+                Check("bersaglio della magia piazzato in vista del compagno", magicTarget != null);
+                magicHp0 = magicTarget != null ? magicTarget.hp : 0f;
+                yield return new WaitForSeconds(1.5f);
+                SendEnemies();
+                bool had = magicTarget != null;
+                if (had) yield return Until(() => magicTarget == null || magicTarget.IsDead || magicTarget.hp < magicHp0 - 1f, 14f);
+                Check("la magia del compagno ferisce il nemico anche sull'ospite (fonte Magia)",
+                      had && (magicTarget == null || magicTarget.IsDead || magicTarget.hp < magicHp0 - 1f),
+                      !had ? "nessun bersaglio" : magicTarget != null ? $"vita {magicHp0:F0} -> {magicTarget.hp:F0}" : "morto");
+                Enemy.debugFreeze = false;
+                if (magicTarget != null && !magicTarget.IsDead) Enemy.Remove(magicTarget);
+                magicTarget = null;
+                yield return new WaitForSeconds(1f);
+            }
+            else if (Primary)
+            {
+                Enemy target = null;
+                yield return Until(() =>
+                {
+                    foreach (var kv in G.EnemyMap) if (!known.Contains(kv.Key) && kv.Value != null && !kv.Value.IsDead) { target = kv.Value; return true; }
+                    return false;
+                }, 12f);
+                Check("il bersaglio dell'ospite compare qui come pupazzo", target != null);
+                if (target == null) yield break;
+                yield return new WaitForSeconds(0.5f);
+                Vector3 to = target.AimPoint - pl.cam.position;
+                pl.yaw = Mathf.Atan2(to.x, to.z);
+                pl.pitch = -Mathf.Asin(Mathf.Clamp(to.normalized.y, -1f, 1f));
+                yield return new WaitForSeconds(0.3f);
+                if (target == null) yield break;
+                {
+                    // cosa vede la magia da qui: distanza, scarto della mira, linea libera (e cosa la chiude), bersaglio scelto
+                    Vector3 eye = pl.cam.position, chest = target.AimPoint;
+                    bool clear = HotelNav.ClearLine(eye, chest);
+                    string block = !clear && Physics.Linecast(eye, chest, out RaycastHit bh, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)
+                        ? $" (chiusa da {bh.collider.name} a {bh.distance:F1} m)" : "";
+                    var seen = MagicFx.Target(eye, pl.cam.forward, 25f, 10f);
+                    Log($"info: mira sul pupazzo {Vector3.Distance(eye, chest):F1} m, scarto {Vector3.Angle(pl.cam.forward, chest - eye):F1} gradi, " +
+                        $"linea {(clear ? "libera" : "chiusa")}{block}, bersaglio della magia: {(seen == target ? "il pupazzo" : seen == null ? "nessuno" : "un altro")}");
+                }
+                var s = pl.Arcana;
+                s.Witch |= 1u << 13;
+                s.Select(Grimoire.Book.Stregoneria, 13);
+                s.Essence = s.EssenceMax;
+                var mc = pl.GetComponent<MagicCaster>();
+                bool started = mc != null && mc.TryCast(13);
+                Check("la Catena del Fulmine parte col gesto della mano sinistra", started && wp != null && wp.OffHand != null && wp.OffHand.Busy);
+                float hp0 = target.hp;
+                yield return Until(() => target == null || target.IsDead || target.hp < hp0 - 1f, 6f);
+                Check("il fulmine colpisce il pupazzo", target == null || target.IsDead || target.hp < hp0 - 1f, target != null ? $"vita {hp0:F0} -> {target.hp:F0}" : "morto");
+                s.Witch &= ~(1u << 13);
+                s.SelectedSpell = -1;
+                yield return new WaitForSeconds(4f);
+            }
+            else yield return new WaitForSeconds(9f);
         }
 
         // 4 ------------------------------------------------------------------ un nemico dell'ospite ferisce l'ospitato

@@ -62,7 +62,7 @@ namespace PryingEyes
     public static class CoopProtocol
     {
         /// <summary>Versione del protocollo + contenuto: da alzare a ogni cambio di formato dei messaggi o delle regole del piano.</summary>
-        public const string Revision = "pe-coop-25";       // 25: lampade che si rompono; 24: lampadari che crollano; 23: corrente del piano
+        public const string Revision = "pe-coop-26";       // 26: sacrario del grimorio nel piano, fonte di danno Magia; 25: lampade che si rompono; 24: lampadari che crollano
         public static string ContentRevision => Revision + "-" + WeaponDefs.ContentHash;
         public const ushort DefaultPort = 7807;
         public const int MaxPlayers = 4;

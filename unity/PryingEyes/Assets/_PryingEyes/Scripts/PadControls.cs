@@ -15,12 +15,16 @@ namespace PryingEyes
     /// (o con lo stick che non torna al centro) non muove nessuno. Quando un menu e' aperto il controller non da' comandi di gioco ma
     /// naviga (PadMenuInput): croce o stick sinistro muovono la selezione, A conferma, B torna indietro, Start apre e chiude la pausa.
     ///
-    /// Mappa (LB tenuto = secondo livello):
+    /// Mappa (rivista il 2026-11-16 per l'uso col controller, sullo schema dei giochi a ondate: niente combinazioni di due tasti; dove un
+    /// tasto fa due cose il tocco parte al rilascio e il tenuto dopo Mapper.HoldTime):
     ///   stick sinistro muove, L3 corsa (a scatti: si annulla fermandosi, mirando o sparando); stick destro guarda, R3 coltello (G)
-    ///   RT fuoco, LT mira; A salto, B abbassati (tenuto), X ricarica, Y cambia arma, RB usa e compra (F)
-    ///   croce: sinistra e destra sporgersi (Q, E), su torcia (T), giu' acquasanta (Z)
-    ///   LB + A velo (H), LB + B modo di fuoco (B), LB + X carillon (4), LB + Y mina (5), LB + su mappa (M), LB + giu' indica le porte (V),
-    ///   LB + sinistra cambio pila (Y); Start pausa, Back tabellone (tenuto, Tab).</summary>
+    ///   RT fuoco, LT mira; con la mira L3 e R3 sporgono a sinistra e a destra (Q, E: un tocco sporge, il secondo o lasciare la mira raddrizza)
+    ///   A salto; B abbassati (a interruttore, come C tenuto: il pollice destro resta sullo stick; saltare o correre rialzano)
+    ///   X ricarica (R), tenuto usa e compra (F); Y cambia arma, tenuto modo di fuoco (B)
+    ///   LB mano sinistra: tocco la magia, tenuto il sigillo sull'arma (3); RB acquasanta (Z)
+    ///   croce: su torcia (T), tenuto cambio pila (Y); giu' carillon (4), tenuto mina (5); sinistra indica le porte (V), tenuto velo (H);
+    ///   destra magia seguente (6), tenuto sigillo seguente (7)
+    ///   Back mappa (M), tenuto tabellone (Tab); Start pausa.</summary>
     [DefaultExecutionOrder(-10001)]
     public sealed class PadControls : MonoBehaviour
     {
@@ -48,6 +52,8 @@ namespace PryingEyes
             /// <summary>Lo stick sinistro naviga i menu oltre il 60% della corsa e smette sotto il 40% (isteresi: niente tremolio sulla soglia).</summary>
             public const float NavOn = 0.6f, NavOff = 0.4f;
 
+            /// <summary>Un tasto che fa due cose: sotto questo tempo (s) e' un tocco (parte al rilascio), oltre e' tenuto (parte una volta).</summary>
+            public const float HoldTime = 0.30f;
             public readonly bool[] Held = new bool[TouchControls.Slots];
             public readonly bool[] Down = new bool[TouchControls.Slots];
             public Vector2 Move, LookRate;
@@ -56,16 +62,21 @@ namespace PryingEyes
             /// <summary>Menu: fronte di salita di A (conferma) e di B (indietro).</summary>
             public bool Confirm, Cancel;
             public bool Sprinting => sprint;
-            ushort prev;
-            bool rtOn, ltOn, sprint;
+            public bool Crouching => crouch;
+            ushort prev, holdDone;
+            bool rtOn, ltOn, sprint, crouch, leanL, leanR;
+            bool sprint0, crouch0, leanL0, leanR0;          // gli interruttori all'inizio del giro (un menu aperto non li cambia)
             int stickX, stickY;
+            float clock;
+            readonly float[] pressAt = new float[16];
 
             public void Reset()
             {
                 Array.Clear(Held, 0, Held.Length); Array.Clear(Down, 0, Down.Length);
                 Move = LookRate = Vector2.zero;
                 NavX = NavY = 0; Confirm = Cancel = false;
-                prev = 0; rtOn = ltOn = sprint = false; stickX = stickY = 0;
+                prev = holdDone = 0; rtOn = ltOn = sprint = crouch = leanL = leanR = false; stickX = stickY = 0;
+                clock = 0f; Array.Clear(pressAt, 0, pressAt.Length);
             }
 
             /// <summary>Un menu e' aperto: i comandi di gioco non devono uscire (A su "Gioca" non fa saltare, X non ricarica, lo stick non
@@ -76,6 +87,8 @@ namespace PryingEyes
                 Array.Clear(Held, 0, Held.Length); Array.Clear(Down, 0, Down.Length);
                 Move = LookRate = Vector2.zero;
                 Down[(int)TouchControls.Action.Pause] = pause;
+                // B che torna indietro nel menu non abbassa, L3 non accende la corsa
+                sprint = sprint0; crouch = crouch0; leanL = leanL0; leanR = leanR0;
             }
 
             /// <summary>Il gioco non ha il fuoco: nessun comando, ma lo stato dei tasti resta aggiornato (tornando non nasce un fronte finto).</summary>
@@ -113,12 +126,34 @@ namespace PryingEyes
                 if (pressed) Down[(int)a] = true;
             }
 
-            public void Step(Raw s)
+            static int Bit(ushort mask)
             {
+                int i = 0;
+                while (i < 15 && (mask & (1 << i)) == 0) i++;
+                return i;
+            }
+
+            /// <summary>Un tasto, due azioni: toccato (rilasciato prima di HoldTime) fa 'tap' al rilascio, tenuto fa 'hold' una volta appena
+            /// passa HoldTime (e con holdHeld resta tenuto finche' lo si tiene: il tabellone).</summary>
+            void TapHold(ushort b, ushort mask, TouchControls.Action tap, TouchControls.Action hold, bool holdHeld = false)
+            {
+                int i = Bit(mask);
+                bool now = (b & mask) != 0, was = (prev & mask) != 0;
+                if (now && !was) { pressAt[i] = clock; holdDone = (ushort)(holdDone & ~mask); }
+                if (now && (holdDone & mask) == 0 && clock - pressAt[i] >= HoldTime) { holdDone = (ushort)(holdDone | mask); Down[(int)hold] = true; }
+                if (now && holdHeld && (holdDone & mask) != 0) Held[(int)hold] = true;
+                if (!now && was && (holdDone & mask) == 0) Down[(int)tap] = true;
+            }
+
+            /// <summary>dt: il tempo dal giro prima (s), per distinguere i tocchi dai tasti tenuti.</summary>
+            public void Step(Raw s, float dt = 1f / 60f)
+            {
+                clock += Mathf.Max(0f, dt);
+                sprint0 = sprint; crouch0 = crouch; leanL0 = leanL; leanR0 = leanR;
                 Array.Clear(Down, 0, Down.Length);
                 Array.Clear(Held, 0, Held.Length);
                 NavX = NavY = 0; Confirm = Cancel = false;
-                if (!s.connected) { Move = LookRate = Vector2.zero; prev = 0; rtOn = ltOn = sprint = false; stickX = stickY = 0; return; }
+                if (!s.connected) { Move = LookRate = Vector2.zero; prev = holdDone = 0; rtOn = ltOn = sprint = crouch = leanL = leanR = false; stickX = stickY = 0; return; }
 
                 ushort b = s.buttons;
                 bool Is(ushort m) => (b & m) != 0;
@@ -151,39 +186,39 @@ namespace PryingEyes
                 NavX = nx; NavY = ny;
                 Confirm = Pressed(A); Cancel = Pressed(B);
 
-                // sempre uguali, in tutti e due i livelli
-                Set(TouchControls.Action.Use, Is(RightShoulder), Pressed(RightShoulder));
-                Set(TouchControls.Action.Knife, false, Pressed(RightStick));
+                // un tasto, una cosa (e dove serve, tenuto, la seconda): niente combinazioni di due tasti in combattimento
                 Set(TouchControls.Action.Pause, false, Pressed(StartBtn));
-                Set(TouchControls.Action.Scoreboard, Is(BackBtn), false);
+                Set(TouchControls.Action.Jump, Is(A), Pressed(A));
+                Set(TouchControls.Action.Spell, Is(LeftShoulder), Pressed(LeftShoulder));          // la mano sinistra: MagicCaster distingue tocco e tenuto
+                Set(TouchControls.Action.Grenade, false, Pressed(RightShoulder));
+                Set(TouchControls.Action.Knife, false, !ltOn && Pressed(RightStick));
+                TapHold(b, X, TouchControls.Action.Reload, TouchControls.Action.Use);
+                TapHold(b, Y, TouchControls.Action.Swap, TouchControls.Action.Mode);
+                TapHold(b, DpadUp, TouchControls.Action.Torch, TouchControls.Action.Battery);
+                TapHold(b, DpadDown, TouchControls.Action.Lure, TouchControls.Action.Mine);
+                TapHold(b, DpadLeft, TouchControls.Action.Ping, TouchControls.Action.Velo);
+                TapHold(b, DpadRight, TouchControls.Action.SpellNext, TouchControls.Action.InfusionNext);
+                TapHold(b, BackBtn, TouchControls.Action.Map, TouchControls.Action.Scoreboard, true);
 
-                if (Is(LeftShoulder))
+                // abbassati a interruttore: tenere B col pollice destro vorrebbe dire non guardare; saltare rialza
+                if (Pressed(B)) crouch = !crouch;
+                if (Pressed(A)) crouch = false;
+                // con la mira L3 e R3 sporgono (un tocco sporge, il secondo raddrizza; lasciando la mira si torna dritti)
+                if (ltOn)
                 {
-                    // secondo livello: tutto quello che non sta sui tasti principali
-                    Set(TouchControls.Action.Velo, false, Pressed(A));
-                    Set(TouchControls.Action.Mode, false, Pressed(B));
-                    Set(TouchControls.Action.Lure, false, Pressed(X));
-                    Set(TouchControls.Action.Mine, false, Pressed(Y));
-                    Set(TouchControls.Action.Map, false, Pressed(DpadUp));
-                    Set(TouchControls.Action.Ping, false, Pressed(DpadDown));
-                    Set(TouchControls.Action.Battery, false, Pressed(DpadLeft));
+                    if (Pressed(LeftStick)) { leanL = !leanL; leanR = false; }
+                    if (Pressed(RightStick)) { leanR = !leanR; leanL = false; }
                 }
-                else
-                {
-                    Set(TouchControls.Action.Jump, Is(A), Pressed(A));
-                    Set(TouchControls.Action.Crouch, Is(B), Pressed(B));
-                    Set(TouchControls.Action.Reload, false, Pressed(X));
-                    Set(TouchControls.Action.Swap, false, Pressed(Y));
-                    Set(TouchControls.Action.Left, Is(DpadLeft), Pressed(DpadLeft));
-                    Set(TouchControls.Action.Right, Is(DpadRight), Pressed(DpadRight));
-                    Set(TouchControls.Action.Torch, false, Pressed(DpadUp));
-                    Set(TouchControls.Action.Grenade, false, Pressed(DpadDown));
-                }
+                else leanL = leanR = false;
+                Set(TouchControls.Action.Left, leanL, false);
+                Set(TouchControls.Action.Right, leanR, false);
 
-                // corsa: L3 la accende e la spegne; si spegne da sola se ci si ferma o si prende la mira o il grilletto
-                if (Pressed(LeftStick)) sprint = !sprint;
+                // corsa: L3 (senza mira) la accende e la spegne; si spegne da sola se ci si ferma o si prende la mira o il grilletto;
+                // correre rialza
+                if (!ltOn && Pressed(LeftStick)) { sprint = !sprint; if (sprint) crouch = false; }
                 if (Move.sqrMagnitude < 0.25f * 0.25f || (ltOn && !aimWas) || (rtOn && !fireWas)) sprint = false;
                 Set(TouchControls.Action.Sprint, sprint, false);
+                Set(TouchControls.Action.Crouch, crouch, Pressed(B));
 
                 prev = b;
             }
@@ -235,8 +270,8 @@ namespace PryingEyes
         /// <summary>Si sta giocando col controller: e' stato adottato e l'ultimo comando e' venuto da lui (non dalla tastiera). Decide quali
         /// tasti nominano i suggerimenti a schermo.</summary>
         public static bool Preferred => ch.connected && ch.preferred;
-        /// <summary>Il tasto per usare e comprare, nel nome che gli da' chi gioca (F con la tastiera, RB col controller).</summary>
-        public static string UseKey => Preferred ? "RB" : "F";
+        /// <summary>Il tasto per usare e comprare, nel nome che gli da' chi gioca (F con la tastiera, X tenuto col controller).</summary>
+        public static string UseKey => Preferred ? "tieni X" : "F";
 
         public static Vector2 Move => ch.mapper.Move;
         /// <summary>Rotazione richiesta dallo stick destro, in radianti al secondo a sensibilita' 1 (x a destra, y verso l'alto).</summary>
@@ -372,7 +407,7 @@ namespace PryingEyes
         static void Apply(Channel c, Raw s, bool fromTest)
         {
             c.wasConnected = s.connected; c.connected = s.connected;
-            c.mapper.Step(s);
+            c.mapper.Step(s, Time.unscaledDeltaTime);
             if (s.connected && Activity(s)) { c.lastActivity = Time.unscaledTime; c.preferred = true; }
             else if (c.auto && c.preferred && c == primary && Input.anyKeyDown && Time.unscaledTime - c.lastActivity > 0.3f) c.preferred = false;     // ha preso tastiera o mouse
             if (!fromTest && !Listening) c.mapper.Silence();                                     // un controller non da' ordini a un gioco in secondo piano

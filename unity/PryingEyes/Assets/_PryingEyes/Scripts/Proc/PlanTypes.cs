@@ -274,7 +274,7 @@ namespace PryingEyes.Proc
             x0 = minX; z0 = minZ; x1 = maxX; z1 = maxZ;
             foreach (var a in annexes)
             {
-                if (a.kind != AnnexKind.Giardino) continue;
+                if (!a.Outside) continue;
                 x0 = Math.Min(x0, Math.Min(a.x0, a.px0)); z0 = Math.Min(z0, Math.Min(a.z0, a.pz0));
                 x1 = Math.Max(x1, Math.Max(a.x1, a.px1)); z1 = Math.Max(z1, Math.Max(a.z1, a.pz1));
             }

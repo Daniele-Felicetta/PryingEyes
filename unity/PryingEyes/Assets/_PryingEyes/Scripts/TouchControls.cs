@@ -7,8 +7,9 @@ namespace PryingEyes
     public class TouchControls : MonoBehaviour
     {
         // dopo Map: azioni che il touch non disegna (nessun bottone) ma che il controller (PadControls) puo' dare
-        public enum Action { Fire, Aim, Jump, Crouch, Sprint, Use, Reload, Swap, Mode, Torch, Battery, Ping, Left, Right, Pause, Knife, Velo, Map, Grenade, Lure, Mine, Scoreboard }
-        public const int Slots = 24;
+        public enum Action { Fire, Aim, Jump, Crouch, Sprint, Use, Reload, Swap, Mode, Torch, Battery, Ping, Left, Right, Pause, Knife, Velo, Map, Grenade, Lure, Mine, Scoreboard,
+            Spell, SpellNext, InfusionNext }
+        public const int Slots = 26;
         static readonly bool[] held = new bool[Slots], down = new bool[Slots];
         static readonly string[] labels = { "FUOCO", "MIRA", "SALTA", "GIU", "CORRI", "USA", "RICARICA", "ARMA", "MODO", "TORCIA", "PILA", "PING", "<", ">", "II", "COLTELLO", "VELO", "MAPPA" };
         static readonly Rect[] buttons = {

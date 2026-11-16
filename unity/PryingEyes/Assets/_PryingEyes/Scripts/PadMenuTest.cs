@@ -291,7 +291,7 @@ namespace PryingEyes
             yield return Tap(PadControls.DpadUp);
             yield return Tap(PadControls.A);
             Check($"A su 'Come si gioca': si apre ({SelName})", PanelOpen("helpPanel") && SelName == "Pulsante Indietro");
-            Check("la guida nomina i tasti del controller", Get<Text>("helpRound").text.Contains("RB") && Get<Text>("helpPad").gameObject.activeSelf);
+            Check("la guida nomina i tasti del controller", Get<Text>("helpRound").text.Contains("X tenuto") && Get<Text>("helpPad").gameObject.activeSelf);
             yield return Tap(PadControls.B);
             Check($"B: indietro, sul pulsante da cui si era partiti ({SelName})", PanelOpen("mainPanel") && SelName == "Pulsante Come si gioca");
 

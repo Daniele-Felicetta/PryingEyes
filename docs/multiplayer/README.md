@@ -1,6 +1,6 @@
 # Cooperativa online (fino a 4 giocatori)
 
-Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
+Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md)). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
 gira con la propria copia, uno **ospita** e gli altri si collegano al suo indirizzo. Rete: FishNet 4.7.3 (trasporto
 Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 
@@ -88,7 +88,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-25`** (`CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
+Revisione **`pe-coop-26`** (dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
 del catalogo delle armi in coda): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
@@ -160,7 +160,7 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 
 | Flag | Cosa prova |
 | --- | --- |
-| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, ferite dall'ospite, area comprata dall'ospitato (e richiesta da lontano rifiutata, con i punti restituiti), ondata con nascite solo nelle aree aperte e premio per tutti, altre due ondate che aprono l'ascensore, gocce, uscita, discesa insieme e piano nuovo da capo (col ciclo a candele: candela semplice e di zona, round con serrande e premio) |
+| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, la ricarica a vuoto fatta dalla mano sinistra su ogni processo e la Catena del Fulmine lanciata dall'ospitato su un nemico fermo dell'ospite, nato dove l'ospitato lo vede (il colpo, fonte Magia, arriva all'ospite come `HitClaim`), ferite dall'ospite, area comprata dall'ospitato (e richiesta da lontano rifiutata, con i punti restituiti), ondata con nascite solo nelle aree aperte e premio per tutti, altre due ondate che aprono l'ascensore, gocce, uscita, discesa insieme e piano nuovo da capo (col ciclo a candele: candela semplice e di zona, round con serrande e premio) |
 | `-cooplate` | entrata a ondata in corso: aree comprate, porte su e giu', numero dell'ondata e nemici arrivano al nuovo (col ciclo a candele: serrande e round) |
 | `-coopleave` / `-coopcrash` | uscita pulita / processo ucciso: l'ospite se ne accorge e prosegue da solo (un nemico lo caccia, poi un'ondata intera) |
 | `-coophostleave` | se ne va l'ospite: l'ospitato prosegue da solo con Role spento |

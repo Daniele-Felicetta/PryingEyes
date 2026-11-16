@@ -135,18 +135,19 @@ static class Program
         catch (Exception e) { Console.Error.WriteLine("CITY_LAYOUT_INVALID: " + e.Message); return 1; }
     }
 
-    // annex <quanti> [list]: genera piani del ciclo a ondate e controlla torri, cripte e giardini (PlanAnnex.cs): validita', determinismo, statistiche.
+    // annex <quanti> [list]: genera piani del ciclo a ondate e controlla torri, cripte, giardini e il sacrario del grimorio (PlanAnnex.cs):
+    // validita', determinismo, statistiche. Ogni piano deve avere esattamente un sacrario.
     // Con "list" stampa una riga per piano con annessi (seme, piano, tipi, cancelli): serve a scegliere i semi da fotografare.
     static int AnnexStats(int count, bool list = false)
     {
         PlanGen.SurvivalLayout = true;
-        int planned = 0, failed = 0, withAny = 0, secret = 0, gardenKey = 0, minTowerSlack = int.MaxValue;
-        var kinds = new int[3]; var gates = new int[3]; var perFloor = new int[13]; var plansPerFloor = new int[13];
+        int planned = 0, failed = 0, withAny = 0, secret = 0, gardenKey = 0, minTowerSlack = int.MaxValue, noSacrario = 0, sacStregoneria = 0, sacArsenale = 0;
+        var kinds = new int[4]; var gates = new int[4]; var perFloor = new int[13]; var plansPerFloor = new int[13];
         var hostKinds = new Dictionary<string, int>();
         string Describe(Plan p)
         {
             var sb = new System.Text.StringBuilder();
-            foreach (var x in p.annexes) sb.Append(x.kind).Append(x.host).Append(':').Append(x.cx).Append(',').Append(x.cz).Append(',').Append(x.floorY).Append(',').Append(x.gate).Append(x.secret).Append(';');
+            foreach (var x in p.annexes) sb.Append(x.kind).Append(x.host).Append(':').Append(x.cx).Append(',').Append(x.cz).Append(',').Append(x.floorY).Append(',').Append(x.gate).Append(x.secret).Append(',').Append(x.x0).Append(',').Append(x.z0).Append(',').Append(x.book).Append(';');
             foreach (var o in p.annexDoors) sb.Append(o.line).Append(',').Append(o.center).Append(';');
             return sb.ToString();
         }
@@ -161,6 +162,9 @@ static class Program
             if (again == null || Describe(plan) != Describe(again)) { failed++; Console.WriteLine("ANNEX NONDETERMINISTIC seed=" + seed + " floor=" + floor); continue; }
             if (plan.annexes.Count > 0) withAny++;
             perFloor[floor] += plan.annexes.Count;
+            var sac = plan.annexes.Find(x => x.kind == AnnexKind.Sacrario);
+            if (sac == null) { noSacrario++; failed++; Console.WriteLine("ANNEX NOSACRARIO seed=" + seed + " floor=" + floor); }
+            else if (sac.book == 0) sacStregoneria++; else sacArsenale++;
             if (list && plan.annexes.Count > 0)
             {
                 var parts = new List<string>();
@@ -179,7 +183,8 @@ static class Program
             }
         }
         Console.WriteLine($"ANNEX: {planned} piani, {withAny} con annessi, {failed} guasti");
-        Console.WriteLine($"  torri {kinds[0]} (nascoste {secret}), cripte {kinds[1]}, giardini {kinds[2]}; cancelli: sigilli {gates[0]}, tributo {gates[1]}, chiave {gates[2]}");
+        Console.WriteLine($"  torri {kinds[0]} (nascoste {secret}), cripte {kinds[1]}, giardini {kinds[2]}, sacrari {kinds[3]}; cancelli: sigilli {gates[0]}, tributo {gates[1]}, chiave {gates[2]}, segreto {gates[3]}");
+        Console.WriteLine($"  sacrario del grimorio: piani senza {noSacrario}; libro della Stregoneria {sacStregoneria}, dell'Arsenale {sacArsenale}");
         Console.WriteLine("  per piano (media annessi): " + string.Join(" ", Array.ConvertAll(new[] { 1, 2, 3, 4, 6, 8, 12 }, f => f + "=" + (plansPerFloor[f] == 0 ? "-" : (perFloor[f] / (double)plansPerFloor[f]).ToString("F1")))));
         Console.WriteLine("  spazio sopra la cella (dm, minimo): " + (minTowerSlack == int.MaxValue ? "-" : minTowerSlack.ToString()));
         foreach (var kv in new SortedDictionary<string, int>(hostKinds)) Console.WriteLine("  " + kv.Key + " = " + kv.Value);

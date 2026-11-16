@@ -271,7 +271,8 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Sigillo luminoso del colore del cancello: anelli e raggi.</summary>
-        public static Color GateColor(GateKind g) => g == GateKind.Sigilli ? new Color(0.75f, 0.30f, 1.0f) : g == GateKind.Tributo ? new Color(1.0f, 0.74f, 0.20f) : new Color(0.30f, 1.0f, 0.55f);
+        public static Color GateColor(GateKind g) => g == GateKind.Sigilli ? new Color(0.75f, 0.30f, 1.0f) : g == GateKind.Tributo ? new Color(1.0f, 0.74f, 0.20f)
+            : g == GateKind.Segreto ? new Color(0.30f, 0.016f, 0.012f) : new Color(0.30f, 1.0f, 0.55f);
 
         // ------------------------------------------------------------------ costruzione per sala
         /// <summary>Costruisce gli annessi che stanno dentro la sala (torre, cripta); il giardino sta fuori e lo fa BuildGardens.</summary>

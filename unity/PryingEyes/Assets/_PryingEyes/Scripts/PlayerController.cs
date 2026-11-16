@@ -44,6 +44,8 @@ namespace PryingEyes
         float lastDamage = -99f, respawnT = 0f;
         /// <summary>Vita massima: 100, 150 con Pelle di pietra (Perks.cs). I secondi che restano di tregua dopo una Rinascita sul posto.</summary>
         public PlayerPerks PerkState { get; } = new PlayerPerks();
+        /// <summary>I due grimori della stanza segreta: magie, sigilli, essenza (MagicState; MagicCaster li usa).</summary>
+        public MagicState Arcana { get; } = new MagicState();
         public float MaxHp => PerkState.MaxHp;
         float reviveInv;
         public bool Reviving => reviveInv > 0f;
@@ -206,6 +208,7 @@ namespace PryingEyes
         void StartBody()
         {
             Equipment.Ensure(this);          // acquasanta e carillon (Z, 4)
+            MagicCaster.Ensure(this);        // la mano sinistra: magie (3, rotella) e sigilli sull'arma (3 tenuto)
             Prove.Ensure(gameObject);        // le prove delle ondate
             Debug.Log("[PryingEyes] player boot: cam=" + (cam != null) + " weapon=" + (weapon != null)
                 + " hud=" + (hud != null) + " gunBound=" + (weapon != null && weapon.IsBound));
@@ -496,7 +499,7 @@ namespace PryingEyes
             // in cooperativa la pausa non ferma il mondo, quindi non rende nemmeno immuni
             if (!alive || (GameMenu.Blocked && !Coop.Active) || invulnerable || reviveInv > 0f) return;
             lastDamage = Time.time;
-            dmg *= 1.5f;
+            dmg *= 1.5f * Arcana.DamageTakenMult;          // Pelle di Runa: -35% per 2,5 s dopo una magia
             float absorbed = Mathf.Min(shield, dmg * 0.6f);
             shield -= absorbed;
             hp -= dmg - absorbed;
@@ -521,6 +524,7 @@ namespace PryingEyes
             {
                 hp = 0f; alive = false; respawnT = 2.5f;
                 GameManager.deaths++;
+                Arcana.OnDeath();
                 // si perde meta' dei punti e l'ultimo perk comprato (FloorDirector.DeathPenalty): la morte pesa, ma non e' la fine
                 string pen = GameManager.proc ? Proc.FloorDirector.I?.DeathPenalty() : null;
                 hud?.Banner("Sei morto", string.IsNullOrEmpty(pen) ? "L'hotel ti riporta all'ingresso." : pen);
