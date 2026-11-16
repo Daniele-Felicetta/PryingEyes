@@ -5,7 +5,7 @@ Several people play **in the same game and the same window**: main menu, **Scher
 hotel, the enemies, the waves and the lift are the same for everyone. There is no network and no second process: it is the single-player
 game with more players in it.
 
-This is the second version. The first one (15 November 2026, releases 0.6.0 and 0.6.1, which still contain it) opened one borderless window
+This is the second version, first released in 0.6.2. The first one (15 November 2026, releases 0.6.0 and 0.6.1, which contain it) opened one borderless window
 per player and joined them with the online co-op over loopback. It was replaced on 16 November 2026 because several windows are not one
 game: the keyboard and the mouse follow the focus of the windows, the windows have to be kept in place, and each one simulates its own copy
 of the hotel. The files of that design (`SplitScreen.Win.cs`, the window launcher, `-padsim`) are gone; `Coop.Active` stays false in a

@@ -48,11 +48,24 @@ Esc and B go back, Start toggles the pause. A brass frame marks the selected ite
 text name the keys of the device in use, the two settings tabs are chosen with left and right, sliders are adjusted with left and right, and a
 text field is entered only with Enter, A or a click. Details and checks: [controller.md](controller.md).
 
+## Version label
+
+Every menu panel (main menu, pause, settings, co-op, split screen, guide) shows **VERSIONE x.y.z** at the bottom right, on the line of the key
+hints (`GameMenu.VersionText`, built in `BuildAtmosphere` in `GameMenu.Design.cs`). The number is `Application.version`, which Unity fills from
+Player Settings > Version, that is `bundleVersion` in `unity/PryingEyes/ProjectSettings/ProjectSettings.asset`: the only place to change it.
+A release bumps it in a commit before the build, so the number in the menu, the tag (`vX.Y.Z`) and the zip name agree
+([../engineering/building-and-shipping.md](../engineering/building-and-shipping.md#releases)). The menu also writes `[PryingEyes] VERSIONE x.y.z`
+to the player log when it is built, which tells which version a log comes from. The builds that `tools/ship.ps1` makes between two releases
+carry the number of the last bump, not one of their own. The label was added on 16 November 2026, for release 0.6.2; before that the game
+showed no version anywhere.
+
 ## Verification
 
 - `PryingEyes.EditorTools.MenuReview.Run` renders main menu, display, comfort, guide, co-op and split-screen panels at 1280×720,
   1920×1080, 3440×1440 and 1024×768; also checks pause/resume, leave confirmation, text bounds and real engraving meshes.
-  It checks ultrawide presets, filtering, input validation and the seven existing comfort controls. Output:
+  It checks ultrawide presets, filtering, input validation and the seven existing comfort controls, that the version is `x.y.z` and the
+  label says it, and that on every panel the label stays at least 24 units to the right of the longer of the two key-hint lines (keyboard and
+  controller, measured with the real font). Output:
   `unity_logs/menu-review`. This runs in an empty editor scene without changing player display preferences.
 - `python tools/check_display.py`: explicit Windows acceptance check against `Builds/Audit`. Exercises actual window
   resolution changes, timeout rollback while paused, explicit cancellation, confirmation/persistence and audio muting.
@@ -63,5 +76,9 @@ text field is entered only with Enter, A or a click. Details and checks: [contro
 Verified on 15 November 2026: all editor layout/mesh checks passed at the four sizes, the rebuilt player's display
 acceptance check passed 9/9 with registry restoration confirmed, suite boundaries passed with zero findings, and all
 73 hermetic Python tests passed. No presentation test that changes the player's settings was run.
+
+On 16 November 2026, with the version label: `MenuReview.Run` passed 757 of 757 checks (665 before; the new ones are the label's own and 60 that
+measure its gap from the key hints, never below 253 units at the four sizes) and the photos of the main menu (1280×720) and of the pause
+screen (1024×768) were looked at. The label was not checked in a real player window.
 
 Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Split.cs`, `MenuEngraving.cs`, `VideoSettings.cs`.

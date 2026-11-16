@@ -10,6 +10,10 @@ namespace PryingEyes
             utilityFont = Font.CreateDynamicFontFromOSFont(new[] { "Bahnschrift", "Segoe UI", "Arial" }, 24);
         static readonly Color Brass = new Color(0.69f, 0.53f, 0.30f);
 
+        /// <summary>"VERSIONE 0.6.2": <c>Application.version</c>, che Unity ricava da Player Settings (<c>bundleVersion</c> in ProjectSettings.asset).
+        /// E' lo stesso numero del tag e dello zip di una release: si cambia in un posto solo, prima di costruire la release.</summary>
+        public static string VersionText => "VERSIONE " + Application.version;
+
         static Image Plate(Transform parent, string name, Vector2 pos, Vector2 size, Color color)
         {
             var image = Rect(parent, name, size, pos).gameObject.AddComponent<Image>();
@@ -28,6 +32,9 @@ namespace PryingEyes
             Plate(backdrop, "Fregio superiore", new Vector2(0, 298), new Vector2(1170, 1), new Color(0.69f, 0.53f, 0.30f, 0.4f));
             Plate(backdrop, "Fregio inferiore", new Vector2(0, -298), new Vector2(1170, 1), new Color(0.69f, 0.53f, 0.30f, 0.4f));
             footer = Label(backdrop, "Footer", new Vector2(0, -324), new Vector2(1120, 24), 12, TextAnchor.MiddleCenter, FooterKeys, Dim, FontStyle.Normal);
+            // la versione, in basso a destra sulla riga dei suggerimenti e al fondo del fregio: su ogni pannello del menu, pausa compresa
+            // (a destra dei suggerimenti piu' lunghi restano oltre 100 unita': lo controlla MenuReview)
+            Label(backdrop, "Versione", new Vector2(505, -324), new Vector2(160, 24), 12, TextAnchor.MiddleRight, VersionText, Dim, FontStyle.Normal);
         }
 
         void BuildMainMenu()

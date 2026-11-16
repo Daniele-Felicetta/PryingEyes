@@ -287,6 +287,7 @@ namespace PryingEyes
 
             BuildAtmosphere();
             BuildMainMenu();
+            Debug.Log("[PryingEyes] " + VersionText);       // nel log del giocatore: dice quale versione e' stata costruita
 
             pausePanel = Stretch(backdrop, "Pausa");
             Label(pausePanel, "Titolo", new Vector2(0, 170), new Vector2(1000, 80), 60, TextAnchor.MiddleCenter, "In pausa", Ink, FontStyle.Normal);

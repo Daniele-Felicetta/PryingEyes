@@ -10,8 +10,8 @@ namespace PryingEyes
     /// di testo senza tastiera, il ritorno al pulsante da cui si era partiti. L'input vero e' in PadMenuInput.</summary>
     public partial class GameMenu
     {
-        const string FooterKeys = "WASD / FRECCE   NAVIGA       ·       INVIO   SCEGLI       ·       ESC   INDIETRO";
-        const string FooterPad = "CROCE / STICK   NAVIGA       ·       A   SCEGLI       ·       B   INDIETRO       ·       START   PAUSA";
+        public const string FooterKeys = "WASD / FRECCE   NAVIGA       ·       INVIO   SCEGLI       ·       ESC   INDIETRO";
+        public const string FooterPad = "CROCE / STICK   NAVIGA       ·       A   SCEGLI       ·       B   INDIETRO       ·       START   PAUSA";
 
         RectTransform currentPanel, focusRing;
         Image[] ringBars;

@@ -32,6 +32,9 @@ namespace PryingEyes.EditorTools
             menu.GetComponent<CanvasScaler>().enabled = false;
             canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1f;
 
+            var version = menu.transform.Find("Velo/Versione")?.GetComponent<Text>();
+            Check("version is x.y.z (" + Application.version + ")", System.Text.RegularExpressions.Regex.IsMatch(Application.version, @"^\d+\.\d+\.\d+$"));
+            Check("version label says " + Application.version, version != null && version.text == GameMenu.VersionText);
             var wide = VideoSettings.Modes(FullScreenMode.Windowed, 2);
             Check("QHD ultrawide preset", wide.Contains(new Vector2Int(3440, 1440)));
             Check("ultrawide filter", wide.TrueForAll(r => VideoSettings.Aspect(r.x, r.y) == "21:9 ULTRAWIDE"));
@@ -76,6 +79,24 @@ namespace PryingEyes.EditorTools
             go.GetComponent<Button>().onClick.Invoke();
         }
 
+        /// <summary>La versione sta a destra sulla riga dei suggerimenti dei tasti: non deve toccare quelli della tastiera ne' quelli del controller
+        /// (il piu' lungo dei due decide). Le larghezze sono quelle vere del testo nel carattere del menu.</summary>
+        static void CheckVersionClear(string name, GameMenu menu)
+        {
+            var version = menu.transform.Find("Velo/Versione")?.GetComponent<Text>();
+            var footer = menu.transform.Find("Velo/Footer")?.GetComponent<Text>();
+            if (version == null || footer == null) { Check(name + " version label and footer exist", false); return; }
+            string shown = footer.text;
+            float versionLeft = version.rectTransform.anchoredPosition.x + version.rectTransform.rect.width * 0.5f - version.preferredWidth;
+            foreach (string hints in new[] { GameMenu.FooterKeys, GameMenu.FooterPad })
+            {
+                footer.text = hints;
+                float footerRight = footer.rectTransform.anchoredPosition.x + footer.preferredWidth * 0.5f;
+                Check(name + " version clear of footer by " + (versionLeft - footerRight).ToString("0") + " units", versionLeft - footerRight >= 24f);
+            }
+            footer.text = shown;
+        }
+
         static void Render(string name, Vector2Int size, Camera camera, GameMenu menu, string output)
         {
             foreach (var art in menu.GetComponentsInChildren<MenuEngraving>()) { art.SetAllDirty(); }
@@ -94,6 +115,7 @@ namespace PryingEyes.EditorTools
                     { Check(name + " text in screen " + text.name, false); break; }
                 }
             }
+            CheckVersionClear(name, menu);
             camera.Render();
             var before = RenderTexture.active; RenderTexture.active = camera.targetTexture;
             var image = new Texture2D(size.x, size.y, TextureFormat.RGB24, false);
