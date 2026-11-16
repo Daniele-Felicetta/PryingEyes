@@ -70,6 +70,12 @@ namespace PryingEyes
         };
 
         public Vector3 Feet => transform.position;
+        /// <summary>La mano sinistra del pupazzo, protesa in avanti: le magie degli altri partono da qui (MagicReplay).</summary>
+        public Vector3 HandPoint => visual != null ? visual.TransformPoint(new Vector3(-0.20f, 1.28f, 0.44f)) : transform.position + Vector3.up * 1.3f;
+        /// <summary>La mano destra (quella della torcia): li' brilla il sigillo sull'arma di un compagno.</summary>
+        public Vector3 GunPoint => torchT != null ? torchT.position : transform.position + Vector3.up * 1.3f;
+        /// <summary>Dove guarda (orizzontale e in alto/basso, come la sua visuale).</summary>
+        public Vector3 Forward => Quaternion.Euler(last.pitch * Mathf.Rad2Deg, transform.eulerAngles.y, 0f) * Vector3.forward;
         /// <summary>Vivo e nel mio stesso piano (un compagno su un altro piano non e' un bersaglio per i miei nemici).</summary>
         public bool Alive => this != null && shown && last.alive;
         /// <summary>Il pupazzo e' disegnato (compagno nello stesso piano, gia' costruito).</summary>
@@ -112,7 +118,7 @@ namespace PryingEyes
             return rp;
         }
 
-        static Material Lit(Color c, float smooth = 0.2f)
+        internal static Material Lit(Color c, float smooth = 0.2f)
         {
             var m = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             m.color = c;
@@ -120,7 +126,7 @@ namespace PryingEyes
             return m;
         }
 
-        Transform Part(PrimitiveType t, string n, Transform parent, Vector3 pos, Vector3 scale, Material mat)
+        static Transform Part(PrimitiveType t, string n, Transform parent, Vector3 pos, Vector3 scale, Material mat)
         {
             var g = GameObject.CreatePrimitive(t);
             g.name = n;
@@ -134,8 +140,17 @@ namespace PryingEyes
 
         void Build()
         {
-            visual = new GameObject("Corpo").transform;
-            visual.SetParent(transform, false);
+            visual = BuildBody(transform, slot, out legL, out legR, out headT, out torchT);
+            BuildBeamAndName();
+        }
+
+        /// <summary>Il manichino (gambe che oscillano, busto, testa, braccia in avanti, torcia in mano) sotto 'parent', col cappotto del
+        /// colore dello slot: lo usano i compagni della cooperativa e, dalla 0.7.1, i giocatori dello schermo condiviso visti dagli altri
+        /// (SeatAvatar). Senza collider.</summary>
+        internal static Transform BuildBody(Transform parent, int slot, out Transform legL, out Transform legR, out Transform headT, out Transform torchT)
+        {
+            var visual = new GameObject("Corpo").transform;
+            visual.SetParent(parent, false);
             var coat = Lit(Coats[slot % Coats.Length]);
             var dark = Lit(new Color(0.08f, 0.08f, 0.09f));
             var skin = Lit(new Color(0.62f, 0.50f, 0.42f), 0.35f);
@@ -153,7 +168,11 @@ namespace PryingEyes
             armR.localRotation = Quaternion.Euler(70f, 0f, -8f);
             torchT = Part(PrimitiveType.Cylinder, "Torcia", visual, new Vector3(0.20f, 1.28f, 0.42f), new Vector3(0.06f, 0.11f, 0.06f), dark);
             torchT.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            return visual;
+        }
 
+        void BuildBeamAndName()
+        {
             // il fascio parte dalla testa e guarda dove guarda lui (come la torcia vera, senza le ombre: ne bastano quelle del giocatore)
             var bg = new GameObject("Fascio");
             bg.transform.SetParent(transform, false);

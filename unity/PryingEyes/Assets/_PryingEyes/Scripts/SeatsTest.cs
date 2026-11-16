@@ -38,6 +38,8 @@ namespace PryingEyes
 
         void Log(string message, string stack, LogType type)
         {
+            // senza finestra (batchmode con la GPU, per le foto dei corpi) la foto automatica del gioco non puo' riuscire: non e' un errore del gioco
+            if (type == LogType.Error && Application.isBatchMode && message != null && message.StartsWith("Failed to capture screen shot")) return;
             if (type == LogType.Exception) exceptions++;
             else if (type == LogType.Error || type == LogType.Assert) errors++;
             else return;
@@ -107,6 +109,55 @@ namespace PryingEyes
             return res;
         }
 
+        /// <summary>0.7.1: il giocatore 2 a tre metri davanti al giocatore 1. La camera del 1 lo disegna davvero (stessa immagine con e senza
+        /// lo strato del corpo del 2: devono cambiare abbastanza pixel) e la foto resta in hotel_build/seats/ per guardarla. Senza grafica
+        /// (-nographics) solo una riga nel rapporto.</summary>
+        IEnumerator SeeEachOther(Seat[] seats)
+        {
+            if (seats.Length < 2 || !MeleeTest.FindArena(out Vector3 arena, out Vector3 forward)) { Debug.Log("[PryingEyes] seatstest: nessuno spazio per la foto dei corpi"); yield break; }
+            Place(seats[0], arena - forward * 1.5f, Mathf.Atan2(forward.x, forward.z));
+            Place(seats[1], arena + forward * 1.5f, Mathf.Atan2(-forward.x, -forward.z));
+            for (int i = 2; i < seats.Length; i++) Place(seats[i], arena - forward * 4f + Vector3.Cross(Vector3.up, forward) * (i * 1.2f), Mathf.Atan2(forward.x, forward.z));
+            yield return new WaitForSeconds(0.6f);
+            yield return new WaitForEndOfFrame();
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) { Debug.Log("[PryingEyes] seatstest: senza grafica niente foto dei corpi"); yield break; }
+            var cam = seats[0].camera;
+            int other = 1 << (Seats.FirstAvatarLayer + 1);
+            var with = RenderOnce(cam, cam.cullingMask, 640, 360);
+            var without = RenderOnce(cam, cam.cullingMask & ~other, 640, 360);
+            int changed = 0;
+            var a = with.GetPixels32(); var b = without.GetPixels32();
+            for (int k = 0; k < a.Length; k++)
+                if (Mathf.Abs(a[k].r - b[k].r) + Mathf.Abs(a[k].g - b[k].g) + Mathf.Abs(a[k].b - b[k].b) > 24) changed++;
+            float frac = changed / (float)a.Length;
+            try
+            {
+                string dir = TestPaths.Out("seats");
+                Directory.CreateDirectory(dir);
+                File.WriteAllBytes(Path.Combine(dir, $"vedersi_{seats.Length}.png"), with.EncodeToPNG());
+            }
+            catch (Exception ex) { Debug.Log("[PryingEyes] seatstest: foto dei corpi non scritta: " + ex.Message); }
+            Destroy(with); Destroy(without);
+            Check($"il giocatore 1 vede il giocatore 2 davanti a se' (il suo corpo cambia il {frac * 100f:F1}% dei pixel)", frac > 0.01f);
+        }
+
+        static Texture2D RenderOnce(Camera cam, int mask, int w, int h)
+        {
+            var rt = RenderTexture.GetTemporary(w, h, 24);
+            Rect oldRect = cam.rect; int oldMask = cam.cullingMask; var oldTarget = cam.targetTexture;
+            cam.cullingMask = mask; cam.rect = new Rect(0f, 0f, 1f, 1f); cam.targetTexture = rt;
+            cam.Render();
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            tex.Apply();
+            RenderTexture.active = prev;
+            cam.targetTexture = oldTarget; cam.cullingMask = oldMask; cam.rect = oldRect;
+            RenderTexture.ReleaseTemporary(rt);
+            return tex;
+        }
+
         IEnumerator Photo(string name)
         {
             if (!shots) yield break;
@@ -137,6 +188,7 @@ namespace PryingEyes
             Structure(seats, n);
             ContextSwap(seats);
             yield return Photo("1-arrivo");
+            yield return SeeEachOther(seats);
 
             // ---- spazio per la prova
             if (!Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward))) yield break;
@@ -427,6 +479,26 @@ namespace PryingEyes
                         && s.pad != seats[j].pad && s.stealth != seats[j].stealth && s.medals != seats[j].medals && s.interact != seats[j].interact && s.wallBuy != seats[j].wallBuy;
             }
             Check("ogni posto ha corpo, camera, HUD, bersaglio e controller, e il suo stato (furtivita', medaglie, interazioni, acquisti)", parts && distinct);
+
+            // 0.7.1: ognuno vede il corpo degli altri (SeatAvatar) e non il proprio
+            bool avatars = true, seeOthers = true, nearBody = true;
+            for (int i = 0; i < n; i++)
+            {
+                var s = seats[i];
+                int layer = Seats.FirstAvatarLayer + i;
+                avatars &= s.avatar != null && s.avatar.Seat == s;
+                if (s.avatar != null) foreach (var r in s.avatar.GetComponentsInChildren<Renderer>(true)) avatars &= r.gameObject.layer == layer;
+                if (s.avatar != null && s.player != null) nearBody &= Vector3.Distance(s.avatar.transform.position, s.player.transform.position) < 0.5f;
+                if (s.camera == null) { seeOthers = false; continue; }
+                for (int j = 0; j < n; j++)
+                {
+                    bool sees = (s.camera.cullingMask & (1 << (Seats.FirstAvatarLayer + j))) != 0;
+                    seeOthers &= j == i ? !sees : sees;
+                }
+            }
+            Check("ognuno ha un corpo che gli altri vedono, su uno strato suo (manichino del posto)", avatars);
+            Check("la camera di ognuno disegna i corpi degli altri e non il proprio", seeOthers);
+            Check("il corpo visto dagli altri sta dove sta il giocatore", nearBody);
             Check("solo il posto 1 riceve tastiera e mouse", seats[0].keyboard && Count(seats, s => s.keyboard) == 1);
 
             // camere: ognuna nella sua porzione, senza buchi e senza sovrapposizioni
@@ -449,15 +521,17 @@ namespace PryingEyes
             Check($"un solo AudioListener attivo ({on}), sulla camera del giocatore 1", on == 1 && active.gameObject == seats[0].camera.gameObject);
             Check("la camera principale e' quella del giocatore 1", main == seats[0].camera);
 
-            // strati: ognuno vede il proprio arma e le proprie mani, non quelle degli altri
+            // strati: ognuno vede il proprio arma e le proprie mani, non quelle degli altri; i corpi degli altri si', il proprio no (0.7.1)
             bool masks = true;
-            int baseMask = seats[0].camera.cullingMask & ~Seats.AllViewLayersMask;
+            int special = Seats.AllViewLayersMask | Seats.AllAvatarLayersMask;
+            int baseMask = seats[0].camera.cullingMask & ~special;
             for (int i = 0; i < n; i++)
             {
-                int mask = seats[i].camera.cullingMask, own = 1 << seats[i].viewLayer;
-                masks &= (mask & own) != 0 && (mask & Seats.AllViewLayersMask & ~own) == 0 && (mask & ~Seats.AllViewLayersMask) == baseMask;
+                int mask = seats[i].camera.cullingMask, own = 1 << seats[i].viewLayer, ownBody = 1 << (Seats.FirstAvatarLayer + i);
+                masks &= (mask & own) != 0 && (mask & Seats.AllViewLayersMask & ~own) == 0 && (mask & ~special) == baseMask
+                         && (mask & ownBody) == 0 && (mask & Seats.AllAvatarLayersMask) == (Seats.AllAvatarLayersMask & ~ownBody);
             }
-            Check("maschera di ogni camera: il resto del mondo e solo il proprio strato di arma e mani", masks);
+            Check("maschera di ogni camera: il resto del mondo, il proprio strato di arma e mani e i corpi degli altri", masks);
             bool layers = true, any = true;
             for (int i = 0; i < n; i++)
             {

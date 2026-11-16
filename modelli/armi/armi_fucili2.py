@@ -172,7 +172,9 @@ def lv_predicatore():
     g.box('acciaio', (0.0000, 0.060, ZB + 0.0275), (0.0130, 0.050, 0.0030), cut=True)                       # finestra di espulsione in alto
     wrist_stock(g, 'legno', ZB, -0.318, 0.040, y_front=0.030, hw=0.0172)
     # canna ottagonale, serbatoio, fascette, asta della leva
-    g.lathe('acciaio', (0, 0, ZB), [(0.158, 0.0128), (0.578, 0.0118)], segs=8, rot=(0, 0, 22.5))
+    # la canna ottagonale gira di 22,5 gradi attorno al proprio asse (y) per avere un piatto in alto; fino alla 0.7.0 girava attorno
+    # alla verticale (rot=(0, 0, 22.5)) e usciva di traverso dalla carcassa: l'asta scura accanto alla mano sinistra
+    g.lathe('acciaio', (0, 0, ZB), [(0.158, 0.0128), (0.578, 0.0118)], segs=8, rot=(0, 22.5, 0))
     g.cyl('acciaio', 0, ZB - 0.0225, 0.158, 0.520, 0.0086, ch=0.0006)
     g.loft('legno', [(0.158, rrect(0.0172, 0.0235, 0.0090, 3, 0, ZB - 0.0140)), (0.345, rrect(0.0150, 0.0200, 0.0090, 3, 0, ZB - 0.0145))], r=0.0012)
     for y in (0.300, 0.470):

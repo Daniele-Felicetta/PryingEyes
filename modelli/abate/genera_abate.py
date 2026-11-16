@@ -24,7 +24,7 @@ EXPORT_DIR = os.path.join(DIR, 'export')
 RENDER_DIR = os.path.join(DIR, 'render')
 TRIS = os.path.join(DIR, 'stoffa_tris.npz')
 RIG_BLEND = os.path.join(DIR, 'abate_animato.blend')
-TEX = r"C:\Users\danie\Desktop\prying-eyes\unity\PryingEyes\Assets\_PryingEyes\Models\Abate\Textures"
+TEX = os.path.normpath(os.path.join(DIR, "..", "..", "unity", "PryingEyes", "Assets", "_PryingEyes", "Models", "Abate", "Textures"))
 
 
 def V(*a):

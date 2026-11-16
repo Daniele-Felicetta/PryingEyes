@@ -233,14 +233,15 @@ namespace PryingEyes
         Vector3 dir;
         float speed = 22f, life = 2.2f, radius, damage;
         Light glow;
-        bool done;
+        bool done, visual;
 
-        public static Fireball Launch(Vector3 from, Vector3 dir, float damage, float radius)
+        /// <summary>'visual': la palla di un compagno vista qui (MagicReplay): vola ed esplode uguale, ma non ferisce e non incendia.</summary>
+        public static Fireball Launch(Vector3 from, Vector3 dir, float damage, float radius, bool visual = false)
         {
             var go = new GameObject("FiammaSacrilega");
             go.transform.position = from;
             var f = go.AddComponent<Fireball>();
-            f.dir = dir.normalized; f.damage = damage; f.radius = radius;
+            f.dir = dir.normalized; f.damage = damage; f.radius = radius; f.visual = visual;
             f.glow = go.AddComponent<Light>();
             f.glow.type = LightType.Point; f.glow.color = MagicFx.Fire; f.glow.intensity = 2.6f; f.glow.range = 6f; f.glow.shadows = LightShadows.None;
             Stealth.SetLightLayers(f.glow, 1u);
@@ -308,6 +309,7 @@ namespace PryingEyes
             MagicFx.Flash(at, MagicFx.Fire, 8f, 9f, 0.45f);
             Sfx.At(SoundBank.MagiaBoom, at, 0.9f, Random.Range(0.92f, 1.06f), 2.5f, 40f);
             GameManager.I?.player?.Shake(at, 0.6f, 10f);
+            if (visual) { Destroy(gameObject, 0.05f); return; }
             var hit = new List<Enemy>();
             foreach (var e in Enemy.All) if (e != null && e.hp > 0f) hit.Add(e);
             foreach (var e in hit)
@@ -326,8 +328,10 @@ namespace PryingEyes
     /// <summary>Gli stati che magie e sigilli lasciano su un nemico: fuoco ed emorragia (danno nel tempo), corrosione (subisce di piu' da
     /// tutto), stordimento (si ferma, l'animazione rallenta), freddo (rallenta; abbastanza freddo congela: fermo, azzurro, l'animazione
     /// si blocca), rallentamento di Luna Calante. Danni ogni mezzo secondo, silenziosi (Enemy.Damage quiet), con la fonte Magia.
-    /// Sugli ospitati della cooperativa i nemici sono pupazzi mossi dall'ospite: il danno passa (richiesta all'ospite), stordimento
-    /// e rallentamenti no (li decide chi simula).</summary>
+    /// In cooperativa gli stati li tiene l'ospite, che simula i nemici: un ospitato che mette uno stato su un pupazzo lo chiede
+    /// all'ospite (StatusClaim; il danno nel tempo va a nome suo: 'claimer') e intanto ne vede l'aspetto; l'ospite racconta a tutti gli
+    /// stati di ogni nemico (EnemyNet.status) e i pupazzi li mostrano, senza danni ne' soste (dal 2026-11-16, prima stordimento e
+    /// rallentamenti degli ospitati si perdevano).</summary>
     public sealed class EnemyStatus : MonoBehaviour
     {
         Enemy e;
@@ -336,15 +340,81 @@ namespace PryingEyes
         float baseSpeed, baseAnim = 1f;
         float burnDps, burnT, bleedDps, bleedT, acidT, stunT, slowK, slowT, chill, freezeT, tickT;
         int bleedStacks;
+        // pupazzo: solo l'aspetto (lo stato vero lo tiene l'ospite): un attimo subito per chi lo mette, poi lo rinnova EnemyNet.status
+        float vBurn, vBleed, vAcid, vStun, vSlow, vFreeze;
+        int netFlags;
+        /// <summary>Ospite: chi ha messo l'ultimo fuoco, sangue o acido (slot; 0 = io): a lui l'uccisione del danno nel tempo.</summary>
+        public int claimer;
+        /// <summary>Ospite: lo slot dell'ospitato di cui si sta applicando la richiesta (ApplyClaim); 0 fuori.</summary>
+        static int claimFrom;
+        /// <summary>Per -cooptest: stati chiesti dagli ospitati e applicati qui (ospite) e stati visti arrivare sui pupazzi (ospitato).</summary>
+        public static int ClaimsApplied, NetSeen;
+        public const int FBurn = 1, FBleed = 2, FAcid = 4, FStun = 8, FSlow = 16, FFreeze = 32;
         bool held;
         readonly List<Material> tinted = new List<Material>();
         readonly List<Color> tintBase = new List<Color>();
         float fxT;
 
-        public float DamageTakenMult => acidT > 0f ? 1.3f : 1f;
-        public bool Frozen => freezeT > 0f;
-        public bool Stunned => stunT > 0f || freezeT > 0f;
+        public float DamageTakenMult => acidT > 0f || vAcid > 0f ? 1.3f : 1f;
+        public bool Frozen => freezeT > 0f || vFreeze > 0f;
+        public bool Stunned => stunT > 0f || freezeT > 0f || vStun > 0f || vFreeze > 0f;
         public float ChillLevel => chill;
+
+        /// <summary>Gli stati da raccontare agli altri (ospite).</summary>
+        public int NetFlags => (burnT > 0f ? FBurn : 0) | (bleedT > 0f ? FBleed : 0) | (acidT > 0f ? FAcid : 0) | (stunT > 0f ? FStun : 0)
+                               | (slowT > 0f ? FSlow : 0) | (freezeT > 0f ? FFreeze : 0);
+        public static int FlagsOf(Enemy e) { var s = Of(e); return s != null ? s.NetFlags : 0; }
+
+        /// <summary>Ospitato: gli stati di un nemico come li racconta l'ospite (solo l'aspetto sul pupazzo).</summary>
+        public static void NetApply(Enemy e, int flags)
+        {
+            if (e == null || !e.puppet) return;
+            var s = flags != 0 ? Ensure(e) : Of(e);
+            if (s == null) return;
+            if (flags != 0 && s.netFlags == 0) NetSeen++;
+            s.netFlags = flags;
+            const float hold = 0.4f;            // lo stato arriva ~10 volte al secondo, non affidabile: l'aspetto regge qualche pacchetto perso
+            if ((flags & FBurn) != 0) s.vBurn = Mathf.Max(s.vBurn, hold);
+            if ((flags & FBleed) != 0) s.vBleed = Mathf.Max(s.vBleed, hold);
+            if ((flags & FAcid) != 0) s.vAcid = Mathf.Max(s.vAcid, hold);
+            if ((flags & FStun) != 0) s.vStun = Mathf.Max(s.vStun, hold);
+            if ((flags & FSlow) != 0) s.vSlow = Mathf.Max(s.vSlow, hold);
+            if ((flags & FFreeze) != 0) s.vFreeze = Mathf.Max(s.vFreeze, hold);
+        }
+
+        /// <summary>Ospite: uno stato chiesto da un ospitato su un suo pupazzo (StatusClaim), con i valori tenuti nei limiti delle magie.</summary>
+        public static void ApplyClaim(Enemy e, int from, int kind, float a, float b, float c)
+        {
+            if (e == null || e.puppet) return;
+            var s = Ensure(e);
+            if (s == null) return;
+            a = Mathf.Clamp(a, 0f, 200f); b = Mathf.Clamp(b, 0f, 30f); c = Mathf.Clamp(c, 0f, 8f);
+            claimFrom = from;
+            try
+            {
+                switch (kind)
+                {
+                    case 1: s.Burn(a, b); break;
+                    case 2: s.Bleed(a, b); break;
+                    case 3: s.Corrode(Mathf.Min(a, 30f)); break;
+                    case 4: s.Stun(Mathf.Min(a, 6f)); break;
+                    case 5: s.Slow(Mathf.Min(a, 0.9f), b); break;
+                    case 6: s.Chill(Mathf.Min(a, 2f), b, c); break;
+                    default: return;
+                }
+                ClaimsApplied++;
+            }
+            finally { claimFrom = 0; }
+        }
+
+        /// <summary>Sul pupazzo uno stato non si applica: lo si chiede all'ospite e se ne mostra subito l'aspetto per un attimo.</summary>
+        bool Claim(int kind, float a, float b, float c, ref float look, float t)
+        {
+            if (e == null || !e.puppet) return false;
+            Coop.Game?.SendStatusClaim(e, kind, a, b, c);
+            look = Mathf.Max(look, Mathf.Min(t, 1f));
+            return true;
+        }
 
         public static EnemyStatus Of(Enemy e) => e != null ? e.GetComponent<EnemyStatus>() : null;
 
@@ -364,16 +434,16 @@ namespace PryingEyes
             return s;
         }
 
-        public void Burn(float dps, float t) { burnDps = Mathf.Max(burnDps, dps); burnT = Mathf.Max(burnT, t); }
-        public void Bleed(float dps, float t) { bleedStacks = Mathf.Min(3, bleedStacks + 1); bleedDps = dps; bleedT = Mathf.Max(bleedT, t); }
-        public void Corrode(float t) { acidT = Mathf.Max(acidT, t); }
-        public void Stun(float t) { if (!e.puppet) stunT = Mathf.Max(stunT, t); }
-        public void Slow(float k, float t) { if (e.puppet) return; slowK = Mathf.Max(slowK, k); slowT = Mathf.Max(slowT, t); }
+        public void Burn(float dps, float t) { if (Claim(1, dps, t, 0f, ref vBurn, t)) return; burnDps = Mathf.Max(burnDps, dps); burnT = Mathf.Max(burnT, t); claimer = claimFrom; }
+        public void Bleed(float dps, float t) { if (Claim(2, dps, t, 0f, ref vBleed, t)) return; bleedStacks = Mathf.Min(3, bleedStacks + 1); bleedDps = dps; bleedT = Mathf.Max(bleedT, t); claimer = claimFrom; }
+        public void Corrode(float t) { if (Claim(3, t, 0f, 0f, ref vAcid, t)) return; acidT = Mathf.Max(acidT, t); claimer = claimFrom; }
+        public void Stun(float t) { if (Claim(4, t, 0f, 0f, ref vStun, t)) return; stunT = Mathf.Max(stunT, t); }
+        public void Slow(float k, float t) { if (Claim(5, k, t, 0f, ref vSlow, t)) return; slowK = Mathf.Max(slowK, k); slowT = Mathf.Max(slowT, t); }
 
         /// <summary>Freddo: 'amount' si somma (un colpo gelido 0,25, la Morsa 1); da 1 in su congela per 'freeze' secondi.</summary>
         public void Chill(float amount, float slowFor, float freeze)
         {
-            if (e.puppet) return;
+            if (Claim(6, amount, slowFor, freeze, ref vSlow, slowFor)) return;
             chill = Mathf.Min(1.5f, chill + amount);
             Slow(0.45f, slowFor);
             if (chill >= 1f && freezeT <= 0f) { freezeT = freeze; chill = 0f; SetTint(MagicFx.Frost * 1.6f); Sfx.At(SoundBank.MagiaGelo, transform.position + Vector3.up, 0.5f, 1.3f, 2f, 20f); }
@@ -417,33 +487,43 @@ namespace PryingEyes
             if (e.hp <= 0f) { ClearTint(); Destroy(this); return; }
             float dt = Time.deltaTime;
             burnT -= dt; bleedT -= dt; acidT -= dt; stunT -= dt; slowT -= dt; freezeT -= dt;
+            vBurn -= dt; vBleed -= dt; vAcid -= dt; vStun -= dt; vSlow -= dt; vFreeze -= dt;
             chill = Mathf.Max(0f, chill - dt * 0.25f);
             if (bleedT <= 0f) bleedStacks = 0;
-            // danno nel tempo, ogni mezzo secondo
+            // danno nel tempo, ogni mezzo secondo (a nome di chi ha messo lo stato: in cooperativa l'uccisione va a lui)
             tickT -= dt;
-            if (tickT <= 0f)
+            if (tickT <= 0f && !e.puppet)
             {
                 tickT = 0.5f;
                 float dmg = (burnT > 0f ? burnDps : 0f) + (bleedT > 0f ? bleedDps * bleedStacks : 0f) + (acidT > 0f ? 4f : 0f);
-                if (dmg > 0f) { e.Damage(dmg * 0.5f * DamageTakenMult, e.AimPoint, false, false, DamageSource.Magia, 0, true); if (e == null || e.hp <= 0f) return; }
+                if (dmg > 0f) { e.Damage(dmg * 0.5f * DamageTakenMult, e.AimPoint, false, false, DamageSource.Magia, claimer, true); if (e == null || e.hp <= 0f) return; }
             }
+            bool burning = burnT > 0f || vBurn > 0f, bleeding = bleedT > 0f || vBleed > 0f, corroded = acidT > 0f || vAcid > 0f;
+            bool stunned = stunT > 0f || vStun > 0f, cold = slowT > 0f || freezeT > 0f || vSlow > 0f || vFreeze > 0f;
             // effetti sul corpo
             fxT -= dt;
             if (fxT <= 0f)
             {
                 fxT = 0.06f;
                 Vector3 c = e.AimPoint;
-                if (burnT > 0f)
+                if (burning)
                 {
                     for (int i = 0; i < 2; i++) MagicFx.Flame(c + Random.insideUnitSphere * 0.3f + Vector3.down * 0.3f, Vector3.up, 3.2f);
                     if (Random.value < 0.3f) MagicVfx.Emit(MagicVfx.Kind.Smoke, c + Vector3.up * 0.4f + Random.insideUnitSphere * 0.2f, Vector3.up * 0.6f, 0.3f, 1.6f, new Color(0.07f, 0.065f, 0.06f, 0.5f));
                 }
-                if (bleedT > 0f && Random.value < 0.5f) MagicFx.Drip(c + Random.insideUnitSphere * 0.25f, new Color(0.3f, 0.01f, 0.01f), 0.012f);
-                if (acidT > 0f && Random.value < 0.45f) MagicFx.Mist(c + Random.insideUnitSphere * 0.3f, Vector3.up * 0.25f, MagicFx.Acid, 0.08f, 0.6f, 0.25f);
-                if (stunT > 0f && Random.value < 0.6f) MagicFx.Arc(c + Random.insideUnitSphere * 0.35f, c + Random.insideUnitSphere * 0.35f, MagicFx.Shock, 0.008f, 4, 0.5f);
-                if ((slowT > 0f || freezeT > 0f) && Random.value < 0.35f) MagicFx.Mist(c + Random.insideUnitSphere * 0.35f, Vector3.down * 0.1f, MagicFx.Frost, 0.07f, 0.8f, 0.22f);
+                if (bleeding && Random.value < 0.5f) MagicFx.Drip(c + Random.insideUnitSphere * 0.25f, new Color(0.3f, 0.01f, 0.01f), 0.012f);
+                if (corroded && Random.value < 0.45f) MagicFx.Mist(c + Random.insideUnitSphere * 0.3f, Vector3.up * 0.25f, MagicFx.Acid, 0.08f, 0.6f, 0.25f);
+                if (stunned && Random.value < 0.6f) MagicFx.Arc(c + Random.insideUnitSphere * 0.35f, c + Random.insideUnitSphere * 0.35f, MagicFx.Shock, 0.008f, 4, 0.5f);
+                if (cold && Random.value < 0.35f) MagicFx.Mist(c + Random.insideUnitSphere * 0.35f, Vector3.down * 0.1f, MagicFx.Frost, 0.07f, 0.8f, 0.22f);
             }
-            if (e.puppet) return;
+            if (e.puppet)
+            {
+                // il pupazzo congelato diventa azzurro come sull'ospite; finito tutto, il componente se ne va
+                if (vFreeze > 0f) { if (tinted.Count == 0) SetTint(MagicFx.Frost * 1.6f); }
+                else if (tinted.Count > 0) ClearTint();
+                if (!burning && !bleeding && !corroded && !stunned && !cold && netFlags == 0) Destroy(this);
+                return;
+            }
             // movimento: congelato e stordito si fermano, il freddo e Luna Calante rallentano
             if (freezeT > 0f) Hold(true, 0f);
             else if (stunT > 0f) Hold(true, 0.18f);

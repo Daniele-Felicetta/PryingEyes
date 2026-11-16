@@ -28,13 +28,14 @@ namespace PryingEyes
                 case CoopKind.RoomsState: case CoopKind.TrapsState: case CoopKind.BarrelGone: case CoopKind.PowerState: case CoopKind.ChandelierDrop: case CoopKind.LampBroken:
                 case CoopKind.CandleLit: case CoopKind.ExitState: case CoopKind.RoundState:
                 case CoopKind.DropSpawn: case CoopKind.DropTaken: case CoopKind.Bolt: case CoopKind.Teleport:
+                case CoopKind.SpellFx: case CoopKind.AnnexState:
                     return true;
             }
             return false;
         }
 
         /// <summary>Quelli che se arrivano troppo presto si tengono da parte (gli altri, effimeri, si buttano).</summary>
-        static bool Keep(CoopKind k) => k != CoopKind.EnemyState && k != CoopKind.Bolt;
+        static bool Keep(CoopKind k) => k != CoopKind.EnemyState && k != CoopKind.Bolt && k != CoopKind.SpellFx;
 
         /// <summary>0 vale adesso; 1 riguarda un piano che non ho ancora costruito (da tenere da parte); -1 e' vecchio (da buttare).</summary>
         int EpochState(int epByte)
@@ -145,6 +146,7 @@ namespace PryingEyes
             SendPowerTo(slot);
             SendChandeliersTo(slot);
             SendLampsTo(slot);
+            SendAnnexesTo(slot);
             var rd = RoundDirector.I;
             if (SurvivalMode.Enabled && rd != null)
             {
@@ -439,6 +441,9 @@ namespace PryingEyes
                 case CoopKind.UsePower: HostUsePower(from, ref r); break;
                 case CoopKind.ChandelierHit: HostChandelierHit(from, ref r); break;
                 case CoopKind.LampHit: HostLampHit(from, ref r); break;
+                case CoopKind.SpellCast: HostSpellCast(from, ref r); break;
+                case CoopKind.StatusClaim: HostStatusClaim(from, ref r); break;
+                case CoopKind.AnnexUse: HostAnnexUse(from, ref r); break;
                 case CoopKind.UseExit:
                 {
                     int ep = r.U16();
@@ -506,6 +511,8 @@ namespace PryingEyes
                 case CoopKind.PowerState: ReceivePower(ref r); break;
                 case CoopKind.ChandelierDrop: ReceiveChandelierDrop(ref r); break;
                 case CoopKind.LampBroken: ReceiveLampBroken(ref r); break;
+                case CoopKind.SpellFx: ReceiveSpellFx(ref r); break;
+                case CoopKind.AnnexState: ReceiveAnnexState(ref r); break;
                 case CoopKind.TrapReply:
                 { int trapReq = r.U16(); bool trapOk = r.Bool(); if (r.Ok) SettleTrap(trapReq, trapOk); break; }
                 case CoopKind.RoomReply:

@@ -416,7 +416,7 @@ namespace PryingEyes.EditorTools
                 tex.Apply();
                 RenderTexture.active = null;
                 var name = $"monaco_anim_{s.clip}_{(int)s.frame:00}";
-                System.IO.File.WriteAllBytes("C:/Users/danie/Desktop/prying-eyes/hotel_build/shot_" + name + ".png", tex.EncodeToPNG());
+                System.IO.File.WriteAllBytes(TestPaths.Out("shot_" + name + ".png"), tex.EncodeToPNG());
                 Object.DestroyImmediate(tex);
                 Debug.Log("[Monaco] foto salvata: " + name);
             }

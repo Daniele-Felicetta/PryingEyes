@@ -322,7 +322,7 @@ namespace PryingEyes.EditorTools
                 tex.ReadPixels(new Rect(0, 0, 960, 720), 0, 0);
                 tex.Apply();
                 RenderTexture.active = null;
-                System.IO.File.WriteAllBytes("C:/Users/danie/Desktop/prying-eyes/hotel_build/shot_occhio_" + s.name + ".png", tex.EncodeToPNG());
+                System.IO.File.WriteAllBytes(TestPaths.Out("shot_occhio_" + s.name + ".png"), tex.EncodeToPNG());
                 Object.DestroyImmediate(tex);
                 Debug.Log("[Occhio] foto salvata: " + s.name);
             }

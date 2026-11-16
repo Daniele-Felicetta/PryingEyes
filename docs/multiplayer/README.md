@@ -1,6 +1,6 @@
 # Cooperativa online (fino a 4 giocatori)
 
-Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md)). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
+Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md); con la 0.7.1 `pe-coop-27`: magie e sigilli visibili agli altri, stati dei nemici decisi dall'ospite, annessi di tutti). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
 gira con la propria copia, uno **ospita** e gli altri si collegano al suo indirizzo. Rete: FishNet 4.7.3 (trasporto
 Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 
@@ -48,6 +48,21 @@ In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tu
   applica il danno, paga i punti al richiedente (`AwardPoints`) e gli accredita l'uccisione (`KillCredit`, che fa il suo
   `GameManager.CreditKill`: conteggio, cura, perk). Per ora l'ospite si fida dei colpi dichiarati (nessun controllo di
   distanza o cadenza).
+- **Magie e sigilli** (0.7.1, `Coop/CoopGame.Magic.cs`, `Magia/MagicReplay.cs`). Chi lancia una magia o traccia un sigillo lo
+  racconta (`SpellCast` all'ospite, che lo gira come `SpellFx` agli altri; l'ospite lo manda direttamente): nodo, mano, mira e i
+  nemici colpiti in ordine (per id di rete). Chi lo riceve lo vede partire dalla mano sinistra del pupazzo di chi lancia (fuoco,
+  catena di fulmini sugli stessi nemici, cono di gelo, filo di sangue, ombra, onda, Essenza), senza danni: i danni passano gia'
+  da `HitClaim`. Un sigillo lascia una luce del suo colore sulla mano destra del pupazzo finche' dura e finche' ha in mano
+  quell'arma (`PlayerNet.weapon`, che prima restava a 0).
+- **Stati dei nemici** (fuoco, sangue, acido, stordito, lento, freddo, congelato). Li tiene l'ospite, che simula i nemici: un
+  ospitato che ne mette uno su un pupazzo lo chiede con `StatusClaim` (nemico, tipo, valori, tenuti nei limiti delle magie) e
+  intanto ne vede l'aspetto; il danno nel tempo va a nome suo (l'uccisione e' sua). L'ospite racconta gli stati di ogni nemico
+  in un byte di `EnemyNet` (`status`) e i pupazzi li mostrano a tutti, senza danni ne' soste. Fino alla 0.7.0 stordimento,
+  rallentamento e gelo di un ospitato non fermavano i nemici veri, e gli effetti sui nemici si vedevano solo su chi li causava.
+- **Annessi** (sacrario, torri, cripte, giardini). Cancelli e leve sono di tutti: chi apre un annesso o tira una leva lo dice
+  all'ospite (`AnnexUse`), che lo applica e lo racconta (`AnnexState`); chi entra tardi riceve gli annessi gia' aperti. La
+  chiave d'oro e lo scrigno antico dentro restano di ognuno (come lo Scrigno del negozio). Fino alla 0.7.0 ognuno apriva i
+  suoi: un compagno vedeva l'altro passare attraverso un muro chiuso.
 - **Bersagli multipli.** I nemici scelgono tra tutti i giocatori vivi dello stesso piano (`ITarget`: `LocalTarget` per
   chi gioca qui, `RemotePlayer` per i compagni; `Targets.Nearest/AnyAlive`). Se un compagno se ne va i nemici passano agli
   altri bersagli (provato: l'ospite resta solo e la caccia e il round continuano).
@@ -88,7 +103,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-26`** (dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
+Revisione **`pe-coop-27`** (0.7.1: magie e sigilli, `StatusClaim`, stati in `EnemyNet`, annessi; `pe-coop-26` dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
 del catalogo delle armi in coda): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
@@ -145,8 +160,8 @@ Ogni cambio di revisione richiede la stessa build su tutte le macchine.
 
 | Direzione | Messaggi |
 | --- | --- |
-| giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `BuyRoom`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent`, `UseTrap`, `BarrelHit`, `UsePower`, `ChandelierHit`, `LampHit` |
-| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `RoomsState`, `RoomReply`, `TrapsState`, `TrapReply`, `BarrelGone`, `PowerState`, `ChandelierDrop`, `LampBroken`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport` |
+| giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `BuyRoom`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent`, `UseTrap`, `BarrelHit`, `UsePower`, `ChandelierHit`, `LampHit`, `SpellCast`, `StatusClaim`, `AnnexUse` |
+| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `RoomsState`, `RoomReply`, `TrapsState`, `TrapReply`, `BarrelGone`, `PowerState`, `ChandelierDrop`, `LampBroken`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport`, `SpellFx`, `AnnexState` |
 | entrambe | `Test` (solo `-cooptest`, altrimenti scartato) |
 
 ## Prove
@@ -160,8 +175,8 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 
 | Flag | Cosa prova |
 | --- | --- |
-| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, la ricarica a vuoto fatta dalla mano sinistra su ogni processo e la Catena del Fulmine lanciata dall'ospitato su un nemico fermo dell'ospite, nato dove l'ospitato lo vede (il colpo, fonte Magia, arriva all'ospite come `HitClaim`), ferite dall'ospite, area comprata dall'ospitato (e richiesta da lontano rifiutata, con i punti restituiti), ondata con nascite solo nelle aree aperte e premio per tutti, altre due ondate che aprono l'ascensore, gocce, uscita, discesa insieme e piano nuovo da capo (col ciclo a candele: candela semplice e di zona, round con serrande e premio) |
-| `-cooplate` | entrata a ondata in corso: aree comprate, porte su e giu', numero dell'ondata e nemici arrivano al nuovo (col ciclo a candele: serrande e round) |
+| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, la ricarica a vuoto fatta dalla mano sinistra su ogni processo e la Catena del Fulmine lanciata dall'ospitato su un nemico fermo dell'ospite, nato dove l'ospitato lo vede (il colpo, fonte Magia, arriva all'ospite come `HitClaim`; la magia si vede sull'ospite e sugli altri ospitati, lo stordimento arriva al nemico vero con `StatusClaim` e torna sui pupazzi nello stato del nemico), il muro del sacrario aperto dall'ospitato che si apre su tutti, ferite dall'ospite, area comprata dall'ospitato (e richiesta da lontano rifiutata, con i punti restituiti), ondata con nascite solo nelle aree aperte e premio per tutti, altre due ondate che aprono l'ascensore, gocce, uscita, discesa insieme e piano nuovo da capo (col ciclo a candele: candela semplice e di zona, round con serrande e premio) |
+| `-cooplate` | entrata a ondata in corso: aree comprate, porte su e giu', il sacrario aperto dall'ospite prima, numero dell'ondata e nemici arrivano al nuovo (col ciclo a candele: serrande e round) |
 | `-coopleave` / `-coopcrash` | uscita pulita / processo ucciso: l'ospite se ne accorge e prosegue da solo (un nemico lo caccia, poi un'ondata intera) |
 | `-coophostleave` | se ne va l'ospite: l'ospitato prosegue da solo con Role spento |
 | `-coopplayers N` | numero di giocatori attesi (con 3 processi) |

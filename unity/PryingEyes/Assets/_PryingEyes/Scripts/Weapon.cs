@@ -181,7 +181,7 @@ namespace PryingEyes
         /// <summary>Calcio dritto, senza impugnatura a pistola (leva, otturatore, doppietta, pompa): la destra stringe il collo del calcio
         /// col palmo girato in giu', e il gomito destro sta piu' in fuori (come chi imbraccia una doppietta), se no l'avambraccio
         /// dovrebbe ruotare oltre i 90 gradi.</summary>
-        static bool StraightStock(WeaponDef d)
+        internal static bool StraightStock(WeaponDef d)
         {
             string cls = d?.cls;
             return cls != null && (cls.Contains("LEVA") || cls.Contains("OTTURATORE") || cls == "DOPPIETTA" || cls.Contains("POMPA"));
@@ -702,6 +702,27 @@ namespace PryingEyes
                     Vector3 poleR = StraightStock(d) ? new Vector3(0.74f, -0.62f, -0.20f) : new Vector3(0.58f, -0.78f, -0.20f);
                     if (armR != null) { armR.Body = true; armR.Stance = st; armR.AdsDrop = 0f; armR.RestPole = armR.PoleHint = poleR; }
                     if (armL != null) { armL.Body = true; armL.Stance = st; armL.AdsDrop = 0f; armL.RestPole = armL.PoleHint = new Vector3(-0.35f, -0.92f, -0.15f); }
+                    // in mira (0.7.1, scelti con la sonda di -armview -adsprobe su tutte le 30 armi, che pesa i campi articolari e il braccio
+                    // davanti alla vista): col calcio la spalla destra va sotto il calcio (6 cm verso il centro, 16 su con la testa che scende
+                    // sul calcio, 6 avanti) e il gomito gira liberamente attorno all'asse spalla-polso; la sinistra avanza verso l'astina (12 cm
+                    // avanti e 10 su; sui fucili a calcio dritto resta dov'e': piu' su l'avambraccio sinistro copriva mezza vista, piu' avanti
+                    // sulla carabina a leva il braccio si ripiegava del tutto). Le pistole non hanno calcio: le spalle restano dove sono (alzate,
+                    // il braccio passava davanti agli occhi). Prima in mira il gomito restava giu' come a riposo e il polso destro usciva dai
+                    // campi articolari su tutte le armi. Sulle quattro armi a calcio dritto (leva, otturatore, pompe) la mano destra modellata sul
+                    // calcio chiede all'avambraccio 110-140 gradi di torsione: nessun gomito tiene insieme polso e vista libera, quindi il braccio
+                    // destro resta quello della 0.7.0 (limite noto: va rifatta la presa)
+                    bool pistol = d.hand <= 0.5f, straight = StraightStock(d);
+                    if (armR != null)
+                    {
+                        armR.AdsSwivel = straight ? 40f : pistol ? 140f : 180f;
+                        armR.AdsElbowRise = straight ? 0f : 0.20f;
+                        armR.AdsShoulder = pistol || straight ? Vector3.zero : new Vector3(-0.06f, 0.16f, 0.06f);
+                    }
+                    if (armL != null)
+                    {
+                        armL.AdsSwivel = 140f; armL.AdsElbowRise = 0.20f;
+                        armL.AdsShoulder = pistol || straight ? Vector3.zero : new Vector3(0f, 0.10f, 0.12f);
+                    }
                 }
             }
             if (handL != null)
@@ -1371,7 +1392,7 @@ namespace PryingEyes
             if (armR != null) armR.BodyMotion = bodyR;
             if (armL != null) armL.BodyMotion = bodyL;
             WorkHandTick();
-            armR?.Solve(ads);
+            armR?.Solve(ads, dt);                // con la molla: in mira il gomito destro si apre di lato senza scatti
             gripHand?.AfterArmSolve();
             if (trigFinger != null || gripHand != null)
             {

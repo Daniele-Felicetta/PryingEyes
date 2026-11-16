@@ -101,5 +101,7 @@ Verification on 15 November 2026:
 - Difficulty, prices and the lever time limit are untested by a human player.
 - The garden is lit by one moon spot and four lamps; the sky is a dome, not a skybox.
 - No minimap marker for annexes, gates or keys; the F prompt names what the gate needs.
-- Annex progress is not replicated in co-op. The plan rules changed (cathedral heights, annexes), so the protocol revision
-  moved to `pe-coop-18` and builds from before this change cannot join.
+- In co-op the gates and the levers are shared since 0.7.1 (`AnnexUse`/`AnnexState`, the host decides and tells late joiners
+  which annexes are open; see [../multiplayer/README.md](../multiplayer/README.md)); the golden key and the ancient chest inside
+  stay per player. The lever time limit runs on each machine from its first pull, so a reset can differ by a few hundredths of
+  a second between players.

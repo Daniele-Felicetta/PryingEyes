@@ -5,7 +5,8 @@ namespace PryingEyes
     /// <summary>Cose che l'ospite racconta degli attacchi di un nemico, perche' gli altri ne mostrino animazione e suono.</summary>
     public enum EnemyEvt : byte { Attack = 1, Strike, Cast, Hit, Whistle, Help }
 
-    /// <summary>Lo stato di un nemico come viaggia in rete (non affidabile, ~10 Hz): 17 byte piu' l'id.</summary>
+    /// <summary>Lo stato di un nemico come viaggia in rete (non affidabile, ~10 Hz): 18 byte piu' l'id. 'status' sono gli stati di magie e
+    /// sigilli (EnemyStatus.NetFlags: fuoco, sangue, acido, stordito, lento, congelato), perche' i pupazzi li mostrino.</summary>
     public struct EnemyNet
     {
         public Vector3 pos;
@@ -15,13 +16,15 @@ namespace PryingEyes
         public Alert alert;
         public bool seeing, relentless;
         public int tgt;                // slot di chi sta guardando
+        public int status;             // EnemyStatus.NetFlags
 
         public void Write(NetWriter w)
         {
             w.V3(pos).U8(CoopProtocol.QuantYaw(yaw)).U8(CoopProtocol.QuantPitch(pitch))
              .U8(Mathf.Clamp(Mathf.RoundToInt(speed * 20f), 0, 255))
              .U8(Mathf.Clamp(Mathf.CeilToInt(hp * 255f), 1, 255))
-             .U8((int)alert | (seeing ? 4 : 0) | (relentless ? 8 : 0) | ((tgt & 3) << 4));
+             .U8((int)alert | (seeing ? 4 : 0) | (relentless ? 8 : 0) | ((tgt & 3) << 4))
+             .U8(status & 0xFF);
         }
 
         public static EnemyNet Read(ref NetReader r)
@@ -36,6 +39,7 @@ namespace PryingEyes
             s.seeing = (f & 4) != 0;
             s.relentless = (f & 8) != 0;
             s.tgt = (f >> 4) & 3;
+            s.status = r.U8();
             return s;
         }
     }
@@ -68,6 +72,7 @@ namespace PryingEyes
                 hp = maxHp > 0f ? Mathf.Clamp01(hp / maxHp) : 1f,
                 alert = alert, seeing = seeing, relentless = relentless,
                 tgt = tgt != null ? tgt.Slot : 0,
+                status = EnemyStatus.FlagsOf(this),
             };
             return s;
         }
@@ -117,6 +122,7 @@ namespace PryingEyes
             relentless = s.relentless;
             seeing = s.seeing;
             netTgt = s.tgt;
+            EnemyStatus.NetApply(this, s.status);
             if (snap || !netInit)
             {
                 transform.position = s.pos;

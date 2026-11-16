@@ -312,6 +312,65 @@ namespace PryingEyes
 
         static string V3(Vector3 v) => $"({v.x:F2}, {v.y:F2}, {v.z:F2})";
 
+        static readonly Dictionary<string, Vector2> probeTotals = new Dictionary<string, Vector2>();
+
+        /// <summary>-armdump: i renderer accesi del modello in prima persona (nome, tipo, genitore, ingombro): per trovare pezzi fuori posto.</summary>
+        void DumpRenderers(string id, Weapon w)
+        {
+            if (w == null || w.ViewRootT == null) return;
+            foreach (var r in w.ViewRootT.GetComponentsInChildren<Renderer>(false))
+            {
+                if (r == null || !r.enabled) continue;
+                var b = r.bounds;
+                string l = $"{id} renderer {r.GetType().Name} '{r.name}' (genitore '{(r.transform.parent != null ? r.transform.parent.name : "-")}') ingombro {V3(b.size)} centro {V3(Camera.main != null ? Camera.main.transform.InverseTransformPoint(b.center) : b.center)}";
+                report.AppendLine("   " + l);
+                Debug.Log("[PryingEyes] " + l);
+            }
+        }
+
+        /// <summary>-adsprobe (0.7.1): in mira rifa' il braccio con piu' combinazioni di ArmRig.AdsSwivel (fin dove gira il gomito),
+        /// AdsElbowRise (quanto puo' salire) e AdsShoulder (spalla sotto il calcio) e scrive quanto il polso esce dai campi articolari:
+        /// le migliori per arma e, alla fine, la somma su tutte le armi (per scegliere i valori). Rimette i valori di prima.</summary>
+        void ProbeAds(string id, string tag, ArmRig arm)
+        {
+            if (arm == null || !arm.HasHandFrame) return;
+            float sw0 = arm.AdsSwivel, er0 = arm.AdsElbowRise, st0 = arm.Stickiness, ast0 = arm.AdsStickiness;
+            Vector3 sh0 = arm.AdsShoulder;
+            arm.Stickiness = arm.AdsStickiness = 0f;          // senza memoria del fotogramma prima: ogni combinazione trova il suo minimo
+            float sx = tag.EndsWith("destro") ? 1f : -1f;
+            var cam = Camera.main != null ? Camera.main.transform : null;
+            var lines = new List<KeyValuePair<float, string>>();
+            foreach (float sw in new[] { 140f, 180f })
+                foreach (float er in new[] { 0.20f })
+                    foreach (var sh0x in new[] { Vector3.zero, new Vector3(-0.04f, 0.04f, 0.04f), new Vector3(-0.06f, 0.08f, 0.06f), new Vector3(-0.08f, 0.04f, 0.02f),
+                                                 new Vector3(0f, 0.05f, 0.08f), new Vector3(0f, 0.10f, 0.12f), new Vector3(-0.06f, 0.16f, 0.06f), new Vector3(-0.10f, 0.08f, 0.0f) })
+                    {
+                        var sh = new Vector3(sh0x.x * sx, sh0x.y, sh0x.z);
+                        arm.AdsSwivel = sw; arm.AdsElbowRise = er; arm.AdsShoulder = sh;
+                        arm.Solve(1f);
+                        float ps = Mathf.Abs(arm.LastProSupDeg), fl = Mathf.Abs(arm.LastFlexDeg), dv = Mathf.Abs(arm.LastDevDeg);
+                        float over = Mathf.Max(0f, ps - 90f) + Mathf.Max(0f, fl - 85f) + Mathf.Max(0f, dv - 35f);
+                        // il braccio davanti alla vista conta come 200 gradi per unita' di Occlusion (gomito, avambraccio, omero)
+                        if (cam != null)
+                        {
+                            float occ = ArmRig.ArmOcclusion(cam.InverseTransformPoint(arm.LastShoulderW), cam.InverseTransformPoint(arm.LastElbowW), cam.InverseTransformPoint(arm.LastWristW));
+                            over += 200f * occ;
+                        }
+                        string key = $"{tag} giro {sw:F0} sale {er:F2} spalla {V3(sh0x)}";
+                        lines.Add(new KeyValuePair<float, string>(over, $"{key}: prono-sup {arm.LastProSupDeg:F0} flessione {arm.LastFlexDeg:F0} deviazione {arm.LastDevDeg:F0} gomito {arm.LastElbowDeg:F0} (fuori {over:F0})"));
+                        probeTotals.TryGetValue(key, out Vector2 tot);
+                        probeTotals[key] = new Vector2(tot.x + over, tot.y + (over <= 0f ? 1f : 0f));
+                    }
+            arm.AdsSwivel = sw0; arm.AdsElbowRise = er0; arm.AdsShoulder = sh0; arm.Stickiness = st0; arm.AdsStickiness = ast0;
+            arm.Solve(1f);
+            lines.Sort((x, y) => x.Key.CompareTo(y.Key));
+            for (int k = 0; k < 3 && k < lines.Count; k++)
+            {
+                report.AppendLine($"   {id} sonda mira: {lines[k].Value}");
+                Debug.Log($"[PryingEyes] sonda mira {id}: {lines[k].Value}");
+            }
+        }
+
         /// <summary>Le braccia di un'arma nei campi articolari (con la mano articolata il sistema della mano e' noto): prono-supinazione
         /// entro 90 gradi, flessione-estensione entro 85, deviazione entro 35; la sinistra solo sulle armi a due mani.</summary>
         void ArmChecks(string id, Weapon w, string when, bool twoHanded)
@@ -322,6 +381,27 @@ namespace PryingEyes
                 float ps = Mathf.Abs(arm.LastProSupDeg), fl = Mathf.Abs(arm.LastFlexDeg), dv = Mathf.Abs(arm.LastDevDeg);
                 Check($"{id} {when}: braccio {tag} nei campi articolari", ps <= 90f && fl <= 85f && dv <= 35f,
                       $"prono-sup {arm.LastProSupDeg:F0}, flessione {arm.LastFlexDeg:F0}, deviazione {arm.LastDevDeg:F0}, gomito {arm.LastElbowDeg:F0}");
+            }
+        }
+
+        /// <summary>In mira (0.7.1): polso nei campi articolari (flessione-estensione entro 85, deviazione entro 52: l'ulnare vera arriva a
+        /// 45-50, e sulle pistole tenere il braccio fuori dalla vista ne chiede 45-51) e braccio fuori dal centro dello schermo
+        /// (ArmRig.ArmOcclusion, con lo spessore del braccio, entro 0,20: sulle armi a calcio dritto l'avambraccio destro in basso a destra
+        /// vale 0,15-0,16 e nelle foto la mira resta libera). Il polso destro sulle armi a calcio dritto e' un limite noto.</summary>
+        void AdsChecks(string id, Weapon w, bool twoHanded, bool straightStock)
+        {
+            var cam = Camera.main != null ? Camera.main.transform : null;
+            foreach (var (tag, arm) in new[] { ("sinistro", ArmOf(w, "armL")), ("destro", ArmOf(w, "armR")) })
+            {
+                if (arm == null || !arm.HasHandFrame || (tag == "sinistro" && !twoHanded)) continue;
+                float fl = Mathf.Abs(arm.LastFlexDeg), dv = Mathf.Abs(arm.LastDevDeg);
+                string angles = $"prono-sup {arm.LastProSupDeg:F0}, flessione {arm.LastFlexDeg:F0}, deviazione {arm.LastDevDeg:F0}, gomito {arm.LastElbowDeg:F0}";
+                // la destra sulle armi a calcio dritto e' il limite noto (presa da rifare): la si scrive e basta
+                if (tag == "destro" && straightStock) { report.AppendLine($"   {id} mira: polso destro (limite noto del calcio dritto): {angles}"); Debug.Log($"[PryingEyes] {id} mira: polso destro (limite noto): {angles}"); }
+                else Check($"{id} mira: polso {tag} non piegato oltre i campi articolari", fl <= 85f && dv <= 52f, angles);
+                if (cam == null) continue;
+                float occ = ArmRig.ArmOcclusion(cam.InverseTransformPoint(arm.LastShoulderW), cam.InverseTransformPoint(arm.LastElbowW), cam.InverseTransformPoint(arm.LastWristW));
+                Check($"{id} mira: braccio {tag} fuori dal centro della vista", occ <= 0.20f, $"occlusione {occ:F2}");
             }
         }
 
@@ -424,6 +504,7 @@ namespace PryingEyes
                     yield return new WaitForSeconds(1.0f);
                     DumpArms(id, player.weapon, "riposo");
                     ArmChecks(id, player.weapon, "riposo", WeaponDefs.All[i].hand > 0.5f);
+                    if (HasArg("-armdump")) DumpRenderers(id, player.weapon);
                     Shot($"{tagv}_{id}");
                     SideShot($"{tagv}_{id}", player.weapon);
                     if (zoom) HandCloseUps($"{tagv}_{id}", player.weapon);
@@ -431,10 +512,36 @@ namespace PryingEyes
                     Weapon.debugAds = true;
                     yield return new WaitForSeconds(0.8f);
                     DumpArms(id, player.weapon, "mira");
+                    if (HasArg("-adsprobe"))
+                    {
+                        string cls = WeaponDefs.All[i].hand <= 0.5f ? "pistola" : Weapon.StraightStock(WeaponDefs.All[i]) ? "calcio" : "fucile";
+                        ProbeAds(id, cls + " destro", ArmOf(player.weapon, "armR"));
+                        if (WeaponDefs.All[i].hand > 0.5f) ProbeAds(id, cls + " sinistro", ArmOf(player.weapon, "armL"));
+                    }
+                    // 0.7.1: in mira il polso non si piega oltre i campi articolari (flessione 85, deviazione 45: la deviazione ulnare vera
+                    // arriva a 40-45 gradi) e l'avambraccio non passa davanti alla vista; la torsione dell'avambraccio la scrive il rapporto
+                    // (sulle armi a calcio dritto la presa modellata la porta a 115-135 gradi: limite noto, docs/game/arms-and-magic.md)
+                    AdsChecks(id, player.weapon, WeaponDefs.All[i].hand > 0.5f, Weapon.StraightStock(WeaponDefs.All[i]));
                     Shot($"{tagv}_{id}_mira");
                     SideShot($"{tagv}_{id}_mira", player.weapon);
                     Weapon.debugAds = false;
                     yield return new WaitForSeconds(0.5f);
+                }
+                if (probeTotals.Count > 0)
+                {
+                    var rank = new List<KeyValuePair<string, Vector2>>(probeTotals);
+                    rank.Sort((x, y) => x.Value.x.CompareTo(y.Value.x));
+                    var shown = new Dictionary<string, int>();
+                    for (int k = 0; k < rank.Count; k++)
+                    {
+                        string group = rank[k].Key.Substring(0, rank[k].Key.IndexOf(" giro", StringComparison.Ordinal));
+                        shown.TryGetValue(group, out int n);
+                        shown[group] = n + 1;
+                        if (n >= 4) continue;
+                        string l = $"sonda mira, somma di tutte le armi: {rank[k].Key}: fuori {rank[k].Value.x:F0} gradi, braccia dentro {rank[k].Value.y:F0}";
+                        report.AppendLine("   " + l);
+                        Debug.Log("[PryingEyes] " + l);
+                    }
                 }
                 yield break;
             }

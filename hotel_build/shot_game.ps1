@@ -26,6 +26,6 @@ $g = [Drawing.Graphics]::FromImage($bmp)
 $dc = $g.GetHdc()
 [WinCap]::PrintWindow($h, $dc, 0) | Out-Null
 $g.ReleaseHdc($dc)
-$bmp.Save("C:\Users\danie\Desktop\prying-eyes\hotel_build\unity_run1.png", [Drawing.Imaging.ImageFormat]::Png)
+$bmp.Save((Join-Path $PSScriptRoot "unity_run1.png"), [Drawing.Imaging.ImageFormat]::Png)
 $g.Dispose(); $bmp.Dispose()
 Write-Output "SAVED"

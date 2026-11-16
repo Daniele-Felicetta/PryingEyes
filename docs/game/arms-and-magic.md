@@ -182,6 +182,15 @@ runes run from the hand outwards) and emits its particles.
   degrees of forearm rotation, so on two-handed weapons the articulated hand replaces it for good (`OffHand.SetNaturalRest`): palm
   under the handguard, hand diagonal with the thumb along the left side, forearm rising from below. At rest all 30 weapons keep both
   wrists within human ranges (`-armview`: pro-supination up to 90, flexion-extension up to 85, deviation up to 35 degrees).
+- **Aiming** (0.7.1, `ArmRig.AdsSwivel`, `AdsElbowRise`, `AdsShoulder`, set per weapon class in `Weapon.cs`): before, the right elbow
+  stayed low as at rest while the weapon rose to the eye, and the right wrist went out of human ranges on every weapon (deviation up to
+  120 degrees). Now, on weapons with a stock, the right shoulder goes under the stock (6 cm towards the centre, 16 up as the head
+  drops onto the stock, 6 forward) and the elbow may turn freely around the shoulder-wrist axis, out to the side if needed; the left
+  shoulder moves 12 cm forward and 10 up towards the handguard. Pistols keep their shoulders. The elbow search weighs the joint ranges
+  and, while aiming, how much of the arm enters the middle of the screen (`ArmRig.ArmOcclusion`, which counts the sleeve's thickness:
+  a forearm a few centimetres from the eye fills the screen even when its axis is off to the side). The search remembers the last
+  elbow only lightly while aiming (`AdsStickiness`), otherwise the elbow stayed stuck low in a local minimum, and the right arm now
+  has the same critically damped spring as the left. The values were chosen with `-armview -adsprobe` on all 30 weapons.
 - **Gestures** (`OffHand`, `OffHandAnims`): keys of a contact point of the hand (wrist, palm, index, middle, thumb, little finger) in
   camera space, weapon space with its parts (muzzle, magazine and its base, ejection port, sight, handguard, receiver, a point along the
   barrel or on the left side, measured from the parts' bounds by `WeaponSurface`), the rest grip, or below the frame; the wrist follows
@@ -273,8 +282,11 @@ because it blocks every player's commands.
 - Diagnostic flags of the same test: `-magiaside` (with every photo a side and a top view of the arms with the solved joints, a
   close-up of the left wrist where sleeve and glove cuff meet, and the measures in the report), `-magiazoom` (two close-ups of the
   left hand with the real scene and effects: from the eye with a telephoto lens and three-quarters from the left), `-vfxdump` (the
-  effect textures as images), `-armview [-armids a,b] [-presavecchia]` (only the rest and aiming pose of every weapon, with arm
-  measures; at rest it checks both wrists against the joint ranges; with `-magiazoom` also a close-up of each hand from the eye),
+  effect textures as images), `-armview [-armids a,b] [-presavecchia] [-adsprobe] [-armdump]` (only the rest and aiming pose of
+  every weapon, with arm measures; at rest it checks both wrists against the joint ranges, in aim that the wrist does not bend out of
+  range (flexion 85, deviation 52) and that no arm covers the middle of the view; `-adsprobe` re-solves the aiming arm with many
+  combinations of the aiming parameters and ranks them per weapon class, `-armdump` lists the renderers of the first-person model;
+  with `-magiazoom` also a close-up of each hand from the eye),
   `-reloadview [-armids a,b]` (for every weapon an empty and a tactical reload done by the hand, photographed at thirteen fixed points
   with side and top views when empty, then the manual cycle after it; the report has, for every photo, the key the hand is going to,
   where the palm should be and where it is). `-seed 1000` gives the lit hall used for the photos.
@@ -285,16 +297,20 @@ because it blocks every player's commands.
 ## Known limits
 
 - Balance (essence, prices, damage, durations) is untested by a human player.
-- Spell and seal effects are not replicated to the other co-op players' screens.
+- In co-op the other players' spells start from the left hand of their mannequin, which has no weapon: a seal shows as a glow of
+  its colour on the mannequin's right hand while it lasts and that weapon is in hand (see
+  [../multiplayer/README.md](../multiplayer/README.md)).
 - The gestures were authored by numbers and checked on photographs, not motion-captured.
 - The view model shares the world camera's field of view (75 degrees by default), so a forearm reaching forward 30 cm from the eye
   looks large.
-- Aiming down the sights keeps the old geometry (each weapon's sight at its eye distance): on many weapons the right wrist is then
-  well outside human ranges (`-armview` logs it but does not check it), most visibly on straight stocks and pistols.
-- The lever-action `lv_predicatore` has a dark rod sticking out of its model next to the left hand (it was there before the
-  realistic hold).
-- The reloads were checked on photographs of seven weapons (rifle, AK, pistol, pump, double barrel, revolver, belt-fed; bolt and lever
-  for the right hand), not on every weapon; on weapons with unusual magazines (the flamethrower, the alien spine launcher, the eye
-  rifle) the hand goes where the magazine's bounds say. In first person the left forearm of a pistol reload and of the double barrel
-  passes close to the eye and fills part of the screen.
+- Aiming on the four straight-stock weapons (`lv_predicatore`, `bolt_rosario`, `sg_cappellano`, `sg_breacher12`): the right hand's
+  modelled hold on the stock asks the forearm for 130-170 degrees of rotation (a real one gives about 90), and no elbow keeps both the
+  wrist in range and the view clear, so their right arm keeps the 0.7.0 aiming pose; the fix is a new hold for those four in
+  `genera_braccia.py`. On pistols the aiming wrist deviation is 45-51 degrees (the real ulnar limit is about 45), the price of keeping
+  the arms out of the view.
+- The reloads of all 30 weapons were checked on photographs (0.7.1). The double barrel's breech and the machine gun's feed cover are
+  brought lower than before, so the left forearm works in the lower part of the screen; on the belt-fed `lmg_campana249` it still
+  crosses the lower left while lifting the cover. Big models (the flamethrower's tank, the scoped rifles) fill one side of the screen
+  while they are at the chest. On weapons with unusual magazines (the flamethrower, the alien spine launcher, the eye rifle) the hand
+  goes where the magazine's bounds say.
 - With a scripts-only build over an older player the new textures and materials are missing: they need a full build.

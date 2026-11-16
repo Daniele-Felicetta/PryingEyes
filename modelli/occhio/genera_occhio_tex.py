@@ -22,7 +22,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "hotel"))
 import genera_texture as T  # noqa: E402  (perlin, fbm, warped, voronoi, blur, normals, smooth, sample)
 
-OUT = Path(r"C:\Users\danie\Desktop\prying-eyes\unity\PryingEyes\Assets\_PryingEyes\Textures\Occhio")
+OUT = Path(__file__).resolve().parents[2] / "unity" / "PryingEyes" / "Assets" / "_PryingEyes" / "Textures" / "Occhio"
 F = np.float32
 THETA_SPLIT = 1.745          # 100 gradi: dove l'emisfero anteriore lascia il posto a quello posteriore
 EDGE_COL = np.array([0.80, 0.68, 0.55], np.float32)   # colore comune ai bordi dei due dischi (cucitura)

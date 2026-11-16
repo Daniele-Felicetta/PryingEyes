@@ -26,7 +26,7 @@ Notes on the flags (`Proc/SurvivalMode.cs`):
 
 - `-zombies` forces the wave cycle, even together with the legacy flags. It is checked first.
 - There is no game setting for the cycle. The choice is read from the command line only, once per process.
-- `-nowaves` and `-noenemies` hold the waves still, but the new floor, doors and points stay as in the wave cycle. `-cooptest` also holds them at start (`SurvivalMode.HoldWaves` is true) until the test script releases them with `Hold(false)`. The comment in `SurvivalMode.cs` says the opposite ("parte attivo"); the code holds them.
+- `-nowaves` and `-noenemies` hold the waves still, but the new floor, doors and points stay as in the wave cycle. `-cooptest` also holds them at start (`SurvivalMode.HoldWaves` is true) until the test script releases them with `Hold(false)`.
 - The classic hall (`Hotel.unity`, `HotelBuilder`) stays in the project and is said to be out of the build (not verified).
 
 Sections 2 to 4 describe the floor. Sections 5 and 6 describe the two cycles. Sections 7 onward apply to both cycles unless stated.

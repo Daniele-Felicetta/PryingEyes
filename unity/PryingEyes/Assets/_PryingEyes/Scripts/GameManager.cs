@@ -46,6 +46,23 @@ namespace PryingEyes
         bool wallTestDone, magicTestDone, enemyShotDone, gunTestStarted, leanTestStarted;
         /// <summary>Rapporto delle prove (-autotest). Con -report FILE ogni processo scrive il suo: piu' prove in parallelo non si pestano i piedi.</summary>
         static string REPORT => ReportPath();
+
+        /// <summary>Il rapporto di -autotest. Scriverlo non deve mai fermare il gioco: nella prova in cooperativa piu' processi scrivono lo
+        /// stesso file e Windows a volte rifiuta l'accesso (IOException 1224); prima l'Awake si interrompeva li', l'ospite non apriva la
+        /// partita e l'ospitato restava senza collegamento (0.7.1).</summary>
+        static void Report(string text, bool append = true)
+        {
+            try
+            {
+                if (append) System.IO.File.AppendAllText(REPORT, text);
+                else System.IO.File.WriteAllText(REPORT, text);
+            }
+            catch (System.Exception ex)
+            {
+                if (!reportWarned) { reportWarned = true; Debug.LogWarning($"[PryingEyes] rapporto {REPORT} non scritto: {ex.Message}"); }
+            }
+        }
+        static bool reportWarned;
         static string ReportPath()
         {
             var a = System.Environment.GetCommandLineArgs();
@@ -92,7 +109,7 @@ namespace PryingEyes
             if (autoTest && (HasArg("-procbot") || HasArg("-stealthtest"))) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
             camShots = HasArg("-camshots");
             if (autoTest)
-                System.IO.File.WriteAllText(REPORT, "t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n");
+                Report("t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n", false);
             proc = FindFirstObjectByType<Proc.FloorDirector>() != null;
             GameSettings.BindBrightness(FindAnyObjectByType<UnityEngine.Rendering.Volume>());
             if (!proc)
@@ -204,7 +221,7 @@ namespace PryingEyes
                     string epos = "";
                     for (int i = 0; i < Mathf.Min(3, list.Count); i++)
                         epos += $" e{i}({list[i].transform.position.x:F0},{list[i].transform.position.y:F0},{list[i].transform.position.z:F0})";
-                    System.IO.File.AppendAllText(REPORT,
+                    Report(
                         $"{autoT:F0} {wave} {kills} {score} {player.hp:F0} {player.shield:F0} {player.weapon.mag} {player.weapon.reserve} {list.Count} {shotsFired} {shotsHit} {damageTaken} {walkerMaxY:F1}" +
                         $" p({player.transform.position.x:F0},{player.transform.position.y:F0},{player.transform.position.z:F0}){epos}\n");
                 }
@@ -217,7 +234,7 @@ namespace PryingEyes
                     HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || trailer;
                 if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
-                    System.IO.File.AppendAllText(REPORT, $"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
+                    Report($"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
                     Application.Quit();
                 }
             }

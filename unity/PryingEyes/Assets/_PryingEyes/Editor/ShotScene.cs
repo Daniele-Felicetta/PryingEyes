@@ -94,7 +94,7 @@ namespace PryingEyes.EditorTools
                 tex.Apply();
                 RenderTexture.active = null;
                 System.IO.File.WriteAllBytes(
-                    "C:/Users/danie/Desktop/prying-eyes/hotel_build/shot_" + p.name + tag + ".png",
+                    TestPaths.Out("shot_" + p.name + tag + ".png"),
                     tex.EncodeToPNG());
                 Object.DestroyImmediate(tex);
                 Debug.Log("[PryingEyes] shot saved: " + p.name + tag);
