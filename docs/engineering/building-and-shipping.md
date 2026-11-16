@@ -130,27 +130,41 @@ Touch controls (iOS, Android, and the Web build when it detects a mobile browser
 A release is a zip of a full **distribution** build attached to a GitHub release. It is made only on request. The version is
 `bundleVersion` in `unity/PryingEyes/ProjectSettings/ProjectSettings.asset` (Player Settings > Version, `x.y.z`): the menu shows it
 ([../game/display-and-menu.md](../game/display-and-menu.md#version-label)), the tag is `v<version>` and the zip is
-`PryingEyes-v<version>-Windows-x64.zip`. Steps, in the order they were run for 0.6.2:
+`PryingEyes-v<version>-Windows-x64.zip`.
 
-1. Bump `bundleVersion` in a commit and ship it with `tools/ship.ps1` (a project setting changed, so the build is a full one). Wait for the
-   green run of the gate on GitHub: the tag goes on that commit.
-2. Build from a tree with no uncommitted source, outside `Audit` and with the flag `ship.ps1` does not pass:
-   `Unity.exe -batchmode -projectPath unity/PryingEyes -executeMethod PryingEyes.EditorTools.BuildPlayer.Windows -buildOut unity/PryingEyes/Builds/Release-v<version> -distribution -quit`
-   (about a minute, 900 MB). The source test is the one of `ship.ps1 -RequireClean`: no file under `Assets`, `Packages` or `ProjectSettings`
-   differs from `HEAD` before and after, derived files and line-ending-only changes aside. The log must say `Build result: Succeeded` and
-   `0 still contain the checkout path` (`BuildScrub`).
-3. Try the package itself. It has no test classes (`-distribution`), so the in-game suites run on the `Audit` build of the same commit, not
-   here. On the package: it starts without graphics (`-batchmode -nographics`), the player log has `[PryingEyes] VERSIONE <version>` and no
-   exception, and a split screen starts at 2, 3 and 4 players (`-splitscreen N`, with `-menureview -nowaves` so that the saved display
-   setting is not applied and no wave starts). A window run would take the screen and the display registry values, so say in the notes
-   when it was not done on the package. Also search every file of the build for the user folder and the checkout path, in UTF-8 and in
-   UTF-16: `BuildScrub` covers only the managed assemblies. For 0.6.2 the only file that named them was `lib_burst_generated.txt` in the
-   `*_BackUpThisFolder_ButDontShipItWithYourGame` folder, which the zip leaves out.
-4. Zip the folder with the files at the root of the zip, add `LEGGIMI.txt`, leave out `*_BackUpThisFolder_ButDontShipItWithYourGame` and
-   `*_BurstDebugInformation_DoNotShip`, write `SHA256SUMS.txt` and compare the hash of every entry with its source. Zips and checksums are kept
-   in `Builds/Releases`.
-5. `gh release create v<version> <zip> <sums> --target <full sha of origin/preview> --title ... --notes-file ... --draft`, check the size and
-   digest of the assets on the draft, then publish it as the latest release with
-   `gh api -X PATCH repos/<owner>/<repo>/releases/<id> -F draft=false -f make_latest=true`. The notes, in Italian, say what changed and what was
-   and was not tested.
-6. Delete `Builds/Release-v<version>` once the zip is verified: it can be rebuilt and the zip holds its content.
+1. Bump `bundleVersion` in a commit and ship it with `tools/ship.ps1 -Mode full` (a project setting changed, and a scripts-only build would keep
+   the old number inside the player). Wait for the green run of the gate on GitHub: the tag goes on that commit.
+2. `powershell -NoProfile -ExecutionPolicy Bypass -File tools\release.ps1 -Version <version>` does the mechanical part (about five minutes) and
+   stops at the first problem. The steps can be run alone with `-Step`; the header of the script is the full reference.
+   - `check`: `bundleVersion` equals the version asked for; the branch is `preview` and `HEAD` is `origin/preview` (a release is made from a
+     pushed commit); no uncommitted source under `Assets`, `Packages` or `ProjectSettings` (the test of `ship.ps1 -RequireClean`: derived files and
+     line-ending-only changes do not count); Unity is installed and not open on the project; `tools/release/LEGGIMI.txt` exists;
+     `Builds/Release-v<version>` does not exist yet.
+   - `build`: Unity in batch mode at low priority, `BuildPlayer.Windows -distribution` into `Builds/Release-v<version>` (outside `Audit`;
+     `ship.ps1` never passes `-distribution`). It needs `Build result: Succeeded`, no compile error, `0 still contain the checkout path` from
+     `BuildScrub`, and still no uncommitted source. It leaves `unity_logs/release_v<version>.json` with the commit it built; the other steps start
+     from there.
+   - `scan`: searches every file that will be zipped for the repository folder and the user folder of this PC, with both kinds of slash, in
+     UTF-8 and in UTF-16. `BuildScrub` covers only the managed assemblies. For 0.6.2 the only file that named them was `lib_burst_generated.txt` in
+     the `*_BackUpThisFolder_ButDontShipItWithYourGame` folder, which the zip leaves out.
+   - `zip`: `Builds/Releases/PryingEyes-v<version>-Windows-x64.zip` with the files at its root and `LEGGIMI.txt` added (from
+     `tools/release/LEGGIMI.txt`, with `{VERSION}` and `{COMMIT}` filled in), without the `*_BackUpThisFolder_ButDontShipItWithYourGame` and
+     `*_BurstDebugInformation_DoNotShip` folders; then the hash of every entry against its source file, and
+     `Builds/Releases/v<version>/SHA256SUMS.txt`. It never overwrites a zip.
+   - `smoke`: the packaged player without graphics (`-batchmode -nographics`), 35 seconds each: the menu, the menu with `-padauto`, and the split
+     screen at 2, 3 and 4 players (`-splitscreen N -menureview -nowaves`, so that the saved display setting is not applied and no wave starts).
+     The player log must have `[PryingEyes] VERSIONE <version>`, for the split screen `[PryingEyes] split: N giocatori`, and no exception. It runs
+     after the zip because running the player can add files to the folder. It opens no window, and `-batchmode` and `-menureview` both keep the
+     game from applying or saving the display settings (`VideoSettings.Automated`).
+
+   The package has no test classes (`-distribution`), so the in-game suites run on the `Audit` build of the same commit, not on the package. A
+   window run would take the screen and the display registry values: say in the notes when it was not done on the package.
+3. Write the notes (Italian, without accents, like the previous ones): what changed, what was tested and on which build, and what was not. Then
+   `gh release create v<version> <zip> <sums> --target <full sha of the built commit> --title ... --notes-file ... --draft`, check the name, size
+   and digest of both assets on the draft, and publish it as the latest release with
+   `gh api -X PATCH repos/<owner>/<repo>/releases/<id> -F draft=false -f make_latest=true`.
+4. Delete `Builds/Release-v<version>` once the zip is verified: it can be rebuilt and the zip holds its content.
+
+`tools/release.ps1` publishes nothing: the draft and the publication stay manual on purpose. `tools/test_release.py` runs the real script on
+throwaway repositories and fake build folders (the checks, the search for paths and the zip); the build and smoke steps are acceptance checks on
+the real project, which is what running the script is. The scripts of the 0.6.2 release were the first version of this tool.
