@@ -637,6 +637,8 @@ namespace PryingEyes
                 Check("la magia del compagno si vede anche sull'ospite (MagicReplay)", MagicReplay.Count > replay0, $"{MagicReplay.Count - replay0} effetti");
                 Check("lo stordimento del fulmine del compagno arriva al nemico dell'ospite (StatusClaim)", EnemyStatus.ClaimsApplied > claims0,
                       $"{EnemyStatus.ClaimsApplied - claims0} stati applicati");
+                // il nemico resta ancora un po': lo stato deve partire negli stati dei nemici (ogni 0,1 s) prima che il nemico sparisca
+                if (had) yield return new WaitForSeconds(1.5f);
                 Enemy.debugFreeze = false;
                 if (magicTarget != null && !magicTarget.IsDead) Enemy.Remove(magicTarget);
                 magicTarget = null;
