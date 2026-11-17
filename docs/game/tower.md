@@ -231,7 +231,7 @@ They drop from kills with a 4.5% chance (double with the knife, four times with 
 
 - **Veglia**: a candle hung in a torn votive veil. Fragile and fast, it shows its weak point as two embers in its wax face.
 - **Portachiavi**: the reception key cabinet turned into a small walking reliquary: tarnished brass, four articulated keys and a bell that warns before the blow. The glowing lock is its weak point.
-- **Medusa**: a slower flying presence with cyan tentacles.
+- **Medusa**: a flying jellyfish with a torn translucent bell lit green from inside, a ring of fangs and dozens of dripping tentacles. Slower than the Veglia (speed 1.9 against 3.5) and sturdier (140 hit points). Its mouth is its weak point. Before the blow its tentacles curl up, the bell flares and the organs blaze, then it lunges with a jet of mucus. See [medusa.md](medusa.md).
 
 ## 10. Themed enemies
 

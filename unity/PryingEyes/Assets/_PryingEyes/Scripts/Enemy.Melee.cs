@@ -85,7 +85,8 @@ namespace PryingEyes
         void PlayMeleeContact(Vector3 position, bool hit)
         {
             if (!hit) return; // il colpo a vuoto ha soltanto il fruscio del gesto, nessun falso impatto a terra.
-            if (Archetype == EnemyType.Occhio)
+            if (type == EnemyType.Medusa) JellyFx.Contact(position, -transform.forward);       // schizzo di muco, anello d'urto, luce verde
+            else if (Archetype == EnemyType.Occhio)
             {
                 if (glowMat != null) Fx.EnemyImpact(position, -transform.forward, glowMat.GetColor("_EmissionColor"));
             }

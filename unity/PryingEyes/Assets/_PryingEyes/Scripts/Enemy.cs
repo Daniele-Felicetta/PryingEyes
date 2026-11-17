@@ -44,6 +44,7 @@ namespace PryingEyes
         Color[] flashBase;
         public Material glowMat;
         EyeRig eye;                           // occhio volante: palpebre, sguardo e tentacoli
+        JellyRig jelly;                       // medusa: campana che pulsa, funi simulate, bocca, effetti dei colpi (Scripts/Jelly)
 
         static readonly List<Enemy> all = new List<Enemy>();
         public static IReadOnlyList<Enemy> All => all;
@@ -112,6 +113,7 @@ namespace PryingEyes
             EnemyType archetype = BaseType(t);
             GameObject go = IsVariant(t) ? BuildVariant(t, out glow, out flashes)
                 : IsThemed(t) ? BuildThemed(t, out glow, out flashes)
+                : t == EnemyType.Medusa ? BuildMedusa(out glow, out flashes)
                 : IsAlien(t) ? BuildAlien(t, out glow, out flashes)
                 : t == EnemyType.Occhio ? BuildOcchio(out glow, out flashes)
                 : t == EnemyType.Abate ? BuildAbate(out glow, out flashes) : BuildMonaco(out glow, out flashes);
@@ -140,6 +142,7 @@ namespace PryingEyes
             e.glowMat = glow;
             foreach (var m in flashes) m.EnableKeyword("_EMISSION");
             e.eye = go.GetComponent<EyeRig>();
+            e.jelly = go.GetComponent<JellyRig>();
             if (e.eye != null) e.eye.lookAt = Stealth.Enabled ? null : GameManager.I.player.cam;
             if (!puppet && archetype != EnemyType.Occhio && HotelNav.Ready) e.AddAgent();
             // suoni attaccati: il monaco lo senti prima di vederlo, l'occhio ha un ronzio umido (con effetto Doppler)
@@ -277,6 +280,7 @@ namespace PryingEyes
             else if (Archetype == EnemyType.Monaco) UpdateMonaco(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
             else UpdateAbate(dt, gp, feet, chest, toP, hd, dy, sep, enraged);
             if (alienRig != null) alienRig.Animate(phase, vel.magnitude, alert == Alert.Hunting, strikeAt >= 0f, FlightElapsed);
+            if (jelly != null) jelly.Drive(phase, vel.magnitude, alert == Alert.Hunting, strikeAt >= 0f, FlightElapsed);
         }
 
         // ---------- chi cammina ----------
@@ -592,6 +596,7 @@ namespace PryingEyes
                 flinchT = 1.5f;
             }
             if (Archetype == EnemyType.Occhio && eye != null) eye.Hit();
+            if (jelly != null && hp > 0f) jelly.Hit(point);
             if (hp <= 0f) Die(headshot, src, claimer);
         }
 
@@ -648,6 +653,7 @@ namespace PryingEyes
                 // cade flaccido: palpebre calate, iride spenta, tentacoli penzolanti; poi sparisce
                 dead = true;
                 if (eye != null) eye.Die();
+                if (jelly != null) jelly.Die();
                 Sfx.At(type == EnemyType.Veglia ? SoundBank.Whisper : SoundBank.EyeBurst, transform.position, 0.8f, basePitch, 2f, 30f);
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
                 foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
@@ -718,6 +724,23 @@ namespace PryingEyes
             return g;
         }
 
+        /// <summary>Prefab fatto da Editor/MedusaImport.cs (Resources/Medusa), animato da JellyRig. Il lampo del colpo agisce sulla carne
+        /// (copie per istanza); gli organi, l'interno e il gel li gestisce JellyRig con le sue emissioni.</summary>
+        static GameObject BuildMedusa(out Material glow, out List<Material> flashes)
+        {
+            var prefab = Resources.Load<GameObject>("Medusa");
+            var g = Object.Instantiate(prefab);
+            g.name = "Medusa";
+            flashes = new List<Material>();
+            foreach (var r in g.GetComponentsInChildren<Renderer>())
+                if (r.name == "m_carne") flashes.AddRange(r.materials);
+            // onda d'urto alla morte: verde acido come gli organi
+            glow = Lit(new Color(0.12f, 0.30f, 0.02f), 0f, 0.4f);
+            glow.EnableKeyword("_EMISSION");
+            glow.SetColor("_EmissionColor", new Color(0.55f, 1f, 0.15f) * 3f);
+            return g;
+        }
+
         /// <summary>Prefab fatto da Editor/AbateImport.cs (Resources/Abate). Come il monaco: i materiali del lampo sono copie
         /// per istanza (occhio e occhietto restano fuori); onda d'urto del bastone in oro.</summary>
         static GameObject BuildAbate(out Material glow, out List<Material> flashes)
@@ -759,7 +782,7 @@ namespace PryingEyes
         {
             EnemyType.Statua => new Color(0.62f, 0.60f, 0.56f, 0f),
             EnemyType.Veglia => new Color(0.55f, 0.48f, 0.34f, 0f),
-            EnemyType.Medusa => new Color(0.05f, 0.30f, 0.32f, 1f),
+            EnemyType.Medusa => new Color(0.30f, 0.52f, 0.05f, 1f),      // muco e bile verde acido
             EnemyType.Portachiavi => new Color(0.16f, 0.08f, 0.03f, 1f),
             EnemyType.Appestato => new Color(0.20f, 0.24f, 0.04f, 1f),
             _ => new Color(0.30f, 0.012f, 0.010f, 1f),
