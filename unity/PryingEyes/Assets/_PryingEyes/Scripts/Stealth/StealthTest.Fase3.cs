@@ -182,6 +182,34 @@ namespace PryingEyes
                 Log("prompt scrigno: " + gm.hud.CurrentPrompt);
                 Check("prompt dello Scrigno con il prezzo", gm.hud.CurrentPrompt.Contains("SCRIGNO") && gm.hud.CurrentPrompt.Contains("950"), gm.hud.CurrentPrompt);
                 if (shots) Shot("libri_scrigno_chiuso");
+                Check("l'occhio dello Scrigno e' serrato a baule chiuso", chest.EyeOpen < 0.25f, $"{chest.EyeOpen:F2}");
+                Check("lo Scrigno disegna pochi oggetti", chest.RendererCount > 0 && chest.RendererCount <= 40, chest.RendererCount.ToString());
+                if (shots)
+                {
+                    // da vicino l'occhio si socchiude e ti guarda; di tre quarti si leggono legno e ferro; al buio resta solo la brace dell'occhio
+                    if (StandNear(chest.EyePoint, chest.transform.forward, 1.25f, out Vector3 eyeStand))
+                    {
+                        yield return Face(eyeStand, chest.EyePoint);
+                        yield return new WaitForSeconds(0.9f);
+                        GameManager.CamShot(Dir + "/scrigno_occhio_chiuso.png", null, false);
+                    }
+                    if (StandNear(chest.Point + Vector3.up * 0.8f, Quaternion.Euler(0f, 42f, 0f) * chest.transform.forward, 2.3f, out Vector3 q3))
+                    {
+                        yield return Face(q3, chest.Point);
+                        yield return new WaitForSeconds(0.3f);
+                        GameManager.CamShot(Dir + "/scrigno_tre_quarti.png", null, false);
+                    }
+                    if (torch != null && torch.on)
+                    {
+                        torch.Toggle();
+                        yield return Face(chestStand, chest.Point);
+                        yield return new WaitForSeconds(0.6f);
+                        GameManager.CamShot(Dir + "/scrigno_buio.png", null, false);
+                        torch.Toggle();
+                    }
+                    yield return Face(chestStand, chest.Point);
+                    yield return new WaitForSeconds(0.3f);
+                }
             }
             if (hasAltar)
             {
@@ -502,10 +530,26 @@ namespace PryingEyes
             int offered = chest.OfferedWeapon;
             Check("l'arma offerta e' una che non hai", offered >= 0 && !wp.Owns(offered) && offered != WeaponDefs.IndexOf("p9_pieta"), offered >= 0 ? WeaponDefs.All[offered].name : "-");
             Log("prompt offerta: " + (chest.Prompt ?? "null"));
+            float eyeMax = 0f;
+            for (float te = 0f; te < 0.6f; te += Time.deltaTime) { eyeMax = Mathf.Max(eyeMax, chest.EyeOpen); yield return null; }
+            Check("l'occhio dello Scrigno si spalanca con il coperchio", eyeMax > 0.9f, $"{eyeMax:F2}");
             if (shots)
             {
                 yield return new WaitForSeconds(0.6f);
                 Shot("libri_scrigno_arma");
+                if (StandNear(chest.EyePoint, chest.transform.forward, 1.25f, out Vector3 eyeStand2))
+                {
+                    yield return Face(eyeStand2, chest.EyePoint);
+                    yield return new WaitForSeconds(0.2f);
+                    GameManager.CamShot(Dir + "/scrigno_occhio_aperto.png", null, false);
+                }
+                if (StandNear(chest.Point + Vector3.up * 0.8f, Quaternion.Euler(0f, -42f, 0f) * chest.transform.forward, 2.3f, out Vector3 q3b))
+                {
+                    yield return Face(q3b, chest.Point);
+                    yield return new WaitForSeconds(0.2f);
+                    GameManager.CamShot(Dir + "/scrigno_tre_quarti_aperto.png", null, false);
+                }
+                yield return Face(chestStand, chest.Point);
                 // di fianco: la volta, il fermo e il tesoro di profilo; poi si torna davanti
                 if (StandNear(chest.transform.position + Vector3.up * 1.4f, chest.transform.right, 1.9f, out Vector3 sideStand))
                 {
@@ -529,6 +573,8 @@ namespace PryingEyes
             tw0 = Time.time;
             while (chest.phase != Scrigno.Phase.Closed && Time.time - tw0 < 5f) yield return null;
             Check("lo Scrigno si richiude", chest.phase == Scrigno.Phase.Closed);
+            yield return new WaitForSeconds(1.2f);
+            Check("l'occhio dello Scrigno si richiude", chest.EyeOpen < 0.25f, $"{chest.EyeOpen:F2}");
             // tempo scaduto: l'arma si perde, i punti restano persi
             chest.rollTime = 0.8f; chest.offerTime = 2.0f;
             SetScore(2000);

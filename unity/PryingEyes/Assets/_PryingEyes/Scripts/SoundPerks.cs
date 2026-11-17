@@ -81,34 +81,54 @@ namespace PryingEyes
             return s;
         }
 
-        /// <summary>Lo Scrigno si apre: scatto della serratura, il legno che geme sui cardini, il coperchio che batte e due note di vetro. 2,5 s.</summary>
+        /// <summary>Lo Scrigno si apre: scatto della serratura, il legno che geme sui cardini, il coperchio che batte sul fermo, poi un rintocco
+        /// funebre (una campana bassa con una seconda, un semitono sopra, che le batte contro) e un respiro che esce dalla cassa con un
+        /// sussurro sopra. Il tonfo e' a 1,32 s: e' li' che il coperchio arriva al fermo (Scrigno.cs). 2,5 s.</summary>
         public static float[] ChestOpen()
         {
             var r = new System.Random(75);
             var s = Buf(2.5f);
-            Burst(s, 0f, 1800f, 2.5f, 0.004f, 1.0f, r);
-            Burst(s, 0.035f, 2900f, 2.5f, 0.004f, 0.8f, r);
+            Burst(s, 0f, 1500f, 2.2f, 0.005f, 1.0f, r);                           // lo scatto: ferro, non vetro
+            Burst(s, 0.035f, 2300f, 2.2f, 0.005f, 0.75f, r);
             var bp = new Biquad();
             for (int i = 0; i < s.Length; i++)
             {
                 float t = (float)i / Rate - 0.18f;
                 if (t < 0f || t > 1.1f) continue;
-                if ((i & 15) == 0) bp.SetBandPass(Mathf.Lerp(170f, 430f, SmoothEdge(0f, 0.6f, t)) * (1f + 0.07f * Mathf.Sin(t * 31f)), 5f, Rate);
+                if ((i & 15) == 0) bp.SetBandPass(Mathf.Lerp(140f, 360f, SmoothEdge(0f, 0.6f, t)) * (1f + 0.07f * Mathf.Sin(t * 31f)), 5f, Rate);
                 float stick = Mathf.Repeat(t * 36f, 1f);                      // il gemito del legno: un dente di sega, attacco e scatto
                 float env = SmoothEdge(0f, 0.12f, t) * (1f - SmoothEdge(0.85f, 1.1f, t)) * (0.35f + 0.65f * stick);
-                s[i] += bp.Run(N(r)) * env * 1.6f;
+                s[i] += bp.Run(N(r)) * env * 1.7f;
             }
-            Thump(s, 1.32f, 122f, 52f, 0.05f, 0.13f, 0.95f);
-            Burst(s, 1.32f, 900f, 0.9f, 0.02f, 0.7f, r);
-            float[] ratios = { 1f, 2.76f, 5.4f }, amps = { 1f, 0.38f, 0.14f };
-            Chime(s, 1.45f, 1046.5f, 0.9f, ratios, amps, 0.5f);
-            Chime(s, 1.58f, 1568f, 1.0f, ratios, amps, 0.42f);
+            Thump(s, 1.32f, 118f, 46f, 0.05f, 0.14f, 1.0f);
+            Burst(s, 1.32f, 850f, 0.9f, 0.02f, 0.7f, r);
+            float[] ratios = { 1f, 2.4f, 3.9f, 5.7f }, amps = { 1f, 0.55f, 0.30f, 0.16f };
+            Chime(s, 1.38f, 98f, 1.9f, ratios, amps, 0.62f);                   // il rintocco
+            Chime(s, 1.40f, 103.8f, 1.6f, ratios, amps, 0.40f);                // il semitono sopra: batte a circa 6 Hz
+            var br = new Biquad();
+            for (int i = 0; i < s.Length; i++)                                // il respiro: rumore in una banda che scende da 380 a 170 Hz
+            {
+                float t = (float)i / Rate - 1.34f;
+                if (t < 0f || t > 1.15f) continue;
+                if ((i & 15) == 0) br.SetBandPass(Mathf.Lerp(380f, 170f, SmoothEdge(0f, 1.1f, t)), 1.4f, Rate);
+                float env = SmoothEdge(0f, 0.30f, t) * (1f - SmoothEdge(0.55f, 1.15f, t));
+                s[i] += br.Run(N(r)) * env * 0.55f;
+            }
+            var wh = new Biquad();
+            for (int i = 0; i < s.Length; i++)                                // il sussurro: aria tra i denti, a 7 Hz circa
+            {
+                float t = (float)i / Rate - 1.45f;
+                if (t < 0f || t > 1.0f) continue;
+                if ((i & 31) == 0) wh.SetBandPass(Mathf.Lerp(3200f, 2300f, SmoothEdge(0f, 1f, t)), 2.2f, Rate);
+                float env = SmoothEdge(0f, 0.25f, t) * (1f - SmoothEdge(0.5f, 1.0f, t)) * (0.55f + 0.45f * Mathf.Sin(t * 44f));
+                s[i] += wh.Run(N(r)) * env * 0.30f;
+            }
             Normalize(s, 0.7f);
             return s;
         }
 
         /// <summary>Lo Scrigno si richiude: il legno geme appena mentre il coperchio cala, batte sul bordo a 0,62 s (la durata della caduta),
-        /// rimbalza e il fermaglio scatta due volte. 1,2 s.</summary>
+        /// rimbalza e il fermaglio scatta due volte (ferro opaco). 1,2 s.</summary>
         public static float[] ChestClose()
         {
             var r = new System.Random(78);
@@ -118,28 +138,47 @@ namespace PryingEyes
             {
                 float t = (float)i / Rate;
                 if (t > 0.6f) break;
-                if ((i & 15) == 0) bp.SetBandPass(Mathf.Lerp(430f, 240f, t / 0.6f), 5f, Rate);
+                if ((i & 15) == 0) bp.SetBandPass(Mathf.Lerp(360f, 200f, t / 0.6f), 5f, Rate);
                 float env = SmoothEdge(0f, 0.08f, t) * (1f - SmoothEdge(0.35f, 0.6f, t)) * 0.45f;
                 s[i] += bp.Run(N(r)) * env * 1.2f;
             }
-            Thump(s, 0.62f, 125f, 48f, 0.05f, 0.12f, 1.0f);
-            Burst(s, 0.62f, 950f, 0.9f, 0.02f, 0.75f, r);
-            Thump(s, 0.763f, 92f, 55f, 0.04f, 0.07f, 0.35f);
-            Burst(s, 0.80f, 1900f, 2.5f, 0.004f, 0.8f, r);
-            Burst(s, 0.835f, 2800f, 2.5f, 0.004f, 0.6f, r);
+            Thump(s, 0.62f, 118f, 44f, 0.05f, 0.13f, 1.0f);
+            Burst(s, 0.62f, 850f, 0.9f, 0.02f, 0.75f, r);
+            Thump(s, 0.763f, 88f, 52f, 0.04f, 0.07f, 0.35f);
+            Burst(s, 0.80f, 1400f, 2.2f, 0.004f, 0.8f, r);
+            Burst(s, 0.835f, 2100f, 2.2f, 0.004f, 0.6f, r);
             Normalize(s, 0.65f);
             return s;
         }
 
-        /// <summary>L'arma estratta dallo Scrigno: arpeggio che sale e scintille. 1,8 s.</summary>
+        /// <summary>L'arma estratta dallo Scrigno: due battiti di cuore, un boato basso e stonato (mi e fa, con le ottave) che cresce e si
+        /// spegne, aria che sale con lui e un tintinnio fuori accordo in cima. 1,9 s.</summary>
         public static float[] ChestReveal()
         {
             var r = new System.Random(76);
             var s = Buf(1.9f);
-            float[] ratios = { 1f, 2f, 3.01f }, amps = { 1f, 0.4f, 0.15f };
-            float[] notes = { 523.25f, 659.25f, 784f, 1046.5f, 1318.5f };
-            for (int k = 0; k < notes.Length; k++) Chime(s, k * 0.075f, notes[k], 1.0f, ratios, amps, 0.5f);
-            for (int k = 0; k < 7; k++) Chime(s, 0.2f + k * 0.1f + U(r, 0f, 0.04f), U(r, 2400f, 4600f), 0.3f, new[] { 1f, 2.76f }, new[] { 1f, 0.3f }, U(r, 0.12f, 0.22f));
+            Thump(s, 0f, 72f, 40f, 0.06f, 0.14f, 1.0f);
+            Thump(s, 0.24f, 66f, 38f, 0.06f, 0.12f, 0.8f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float env = SmoothEdge(0.15f, 0.85f, t) * (1f - SmoothEdge(1.1f, 1.9f, t));
+                if (env <= 0f) continue;
+                double a = 2.0 * System.Math.PI * t;
+                s[i] += (float)(System.Math.Sin(a * 82.41) + System.Math.Sin(a * 87.31) + 0.5 * System.Math.Sin(a * 164.81) + 0.45 * System.Math.Sin(a * 174.61) + 0.2 * System.Math.Sin(a * 246.9 + 1.0)) * env * 0.22f;
+            }
+            var bp = new Biquad();
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate - 0.2f;
+                if (t < 0f || t > 1.4f) continue;
+                if ((i & 31) == 0) bp.SetBandPass(Mathf.Lerp(500f, 1800f, SmoothEdge(0f, 1.2f, t)), 1.6f, Rate);
+                float env = SmoothEdge(0f, 0.6f, t) * (1f - SmoothEdge(0.8f, 1.4f, t));
+                s[i] += bp.Run(N(r)) * env * 0.35f;
+            }
+            float[] ratios = { 1f, 2.76f, 5.4f }, amps = { 1f, 0.4f, 0.15f };
+            Chime(s, 0.50f, 466.2f, 1.1f, ratios, amps, 0.22f);
+            Chime(s, 0.56f, 493.9f, 0.9f, ratios, amps, 0.16f);
             Normalize(s, 0.65f);
             return s;
         }
