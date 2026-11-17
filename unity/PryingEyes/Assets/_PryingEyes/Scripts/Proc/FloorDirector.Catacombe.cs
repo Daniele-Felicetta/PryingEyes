@@ -35,8 +35,11 @@ namespace PryingEyes.Proc
         {
             int t = Rami.Tutti[Rami.RamoDi(floor)].tema;
             if (t < 0) return null;
-            // il Guardaroba vuole i suoi arredi nel kit della scena (TorreBuilder.FillKit): con una scena che non li ha ancora, al posto dei
-            // blocchi grigi il ramo usa a turno uno dei tre temi completi (stesso piano, stesso tema su ogni macchina della cooperativa)
+            // Safety net, not the normal path. The Guardaroba props (gu_*) reach the game through the kit saved in Torre.unity
+            // (TorreBuilder.FillKit, run by BuildPlayer.Torre without -scriptsOnly), and the committed scene lists them. A scene saved
+            // before they existed would make RoomKits.Prop draw grey boxes, so the branch then uses one of the three complete themes in
+            // turn (same floor, same theme on every machine of a co-op game). If a test shows this fallback, the scene is stale:
+            // regenerate it; PerfProbe -perfprops on a Guardaroba floor reports any prop that is still a grey box (SEGNAPOSTO).
             if ((Theme)t == Theme.Guardaroba && ProcKit.Prefab("gu_armadio") == null) return (Theme)(floor % 3);
             return (Theme)t;
         }
