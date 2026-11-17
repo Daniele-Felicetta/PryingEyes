@@ -325,6 +325,13 @@ class NT:
         n = self.node('ShaderNodeAttribute', attribute_name=name)
         return n.outputs['Color']
 
+    def attr4(self, name):
+        """The four channels (r, g, b, a) of a colour attribute: masks painted per vertex by the generators."""
+        n = self.node('ShaderNodeAttribute', attribute_name=name)
+        sep = self.node('ShaderNodeSeparateColor')
+        self.nt.links.new(n.outputs['Color'], sep.inputs[0])
+        return sep.outputs[0], sep.outputs[1], sep.outputs[2], n.outputs['Alpha']
+
     def uv(self, name):
         n = self.node('ShaderNodeUVMap', uv_map=name)
         return n.outputs['UV']

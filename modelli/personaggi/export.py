@@ -16,10 +16,10 @@ TEX_DIR = os.path.join(UNITY_DIR, 'Textures')
 WORK_DIR = os.path.join(DIR, 'work')
 RENDER_DIR = os.path.join(DIR, 'render')
 
-RES = {'skin': 1024, 'outfit': 2048, 'hair': 512, 'eyes': 256}
+RES = {'skin': 1024, 'outfit': 2048, 'hair': 1024, 'eyes': 256}
 # target triangle counts of the low-poly parts (a part not listed is kept as it is)
 BUDGET = {
-    'head': 5200, 'neck': 700, 'jacket': 7000, 'trousers': 5200, 'boots': 3000, 'glove_L': 1500, 'glove_R': 1500, 'cap': 1100,
+    'head': 5200, 'ears': 900, 'neck': 700, 'jacket': 7000, 'trousers': 5200, 'boots': 3000, 'glove_L': 1500, 'glove_R': 1500, 'cap': 1100,
     'scarf': 1800, 'hair': 1800, 'moustache': 700, 'brows': 500, 'hood': 2200, 'bag': 1500, 'coat': 7500, 'vest': 5000, 'braid': 1100,
 }
 RIGID_HEAD = {'head', 'ears', 'eye', 'hair', 'moustache', 'brows', 'cap', 'peak', 'glasses', 'hood', 'beanie', 'bun', 'mask', 'goggles'}
@@ -47,7 +47,17 @@ def copy_object(ob, name=None):
 
 
 def low_part(ob):
-    """Decimated copy of a part (no materials); flat parts keep their flat shading."""
+    """Low-poly copy of a part (no materials). A part that carries a proxy in its 'lowproxy' property (hair sheets and plaits, whose
+    shape the decimation would wreck) gets a copy of that; any other is decimated to its budget; flat parts keep their flat shading."""
+    proxy = ob.get('lowproxy')
+    if proxy:
+        src = bpy.data.objects[proxy]
+        lp = copy_object(src, ob.name + '_low')
+        lp.hide_render = False
+        lp.pop('group', None)
+        lp.data.materials.clear()
+        bake_transform(lp)
+        return lp
     lp = copy_object(ob, ob.name + '_low')
     n = tri_count(lp)
     smooth = len(lp.data.polygons) > 0 and lp.data.polygons[0].use_smooth

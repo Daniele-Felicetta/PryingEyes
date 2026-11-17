@@ -31,6 +31,9 @@ def eye_material(name='olho', iris=(0.22, 0.14, 0.07), sclera=(0.80, 0.77, 0.72)
     red = nt.math('MULTIPLY', nt.mr(theta, 0.9, 1.5, 0.0, 1.0), nt.mr(veins, 0.45, 0.62, 0.0, 0.55), clamp=True)
     scl = nt.mix(red, sclera, (0.62, 0.30, 0.27))
     base = nt.mix(in_iris, scl, iris_col)
+    # the lids shade the ball: darker under the upper lid and towards the corners (baked, so the eye sits in its socket at any distance)
+    shade = nt.math('ADD', nt.math('MULTIPLY', nt.mr(z, 0.20, 0.85, 0.0, 1.0), 0.42), nt.math('MULTIPLY', nt.mr(theta, 0.95, 1.5, 0.0, 1.0), 0.40), clamp=True)
+    base = nt.mix(shade, base, (0.0, 0.0, 0.0))
     nt.bsdf({'Base Color': base, 'Roughness': 0.12, 'Coat Weight': 1.0, 'Coat Roughness': 0.02, 'Specular IOR Level': 0.7})
     return m
 
@@ -112,69 +115,93 @@ def metal(name, color=(0.55, 0.5, 0.38), rough=0.38, **kw):
 
 # ----------------------------------------------------------------------------- skin and hair
 def skin(name, tone=(0.50, 0.33, 0.25), lip=(0.38, 0.14, 0.12), stubble=0.0, stubble_col=(0.06, 0.05, 0.045),
-         brow_col=(0.05, 0.04, 0.032), ruddy=0.25, weather=0.0):
-    """Skin in head-local coordinates (eye line at z = 0): lips, brows, flushed cheeks and nose, eye bags, stubble."""
+         hair_col=(0.05, 0.04, 0.03), ruddy=0.25, weather=0.0, age=0.0):
+    """Skin in head-local coordinates (eye line z = 0). The features that depend on the shape of this face (lips, mouth line, brow
+    zone, lash line, nostrils, eye sockets, flush, beard, the tint under the hairline) are not computed here: face.paint writes them on
+    the vertices as the colour attributes fa, fb and fc, so that they always sit on the sculpted features."""
     m = bpy.data.materials.new(name)
     nt = NT(m)
     p = nt.vmath('SUBTRACT', nt.obj, tuple(sk.HEAD_C))
     x, y, z = nt.xyz(p)
-    ax = nt.math('ABSOLUTE', x)
-    big = nt.noise(nt.obj, 16.0, 5.0, 0.55)
+    big = nt.noise(nt.obj, 14.0, 5.0, 0.55)
+    mid = nt.noise(nt.obj, 90.0, 4.0, 0.6)
     fine = nt.noise(nt.obj, 420.0, 5.0, 0.6)
+    lips, mline, brow, lash = nt.attr4('fa')
+    nostril, socket, flush, beard = nt.attr4('fb')
+    hairl, lidt, _c, _d = nt.attr4('fc')
     col = nt.mix(nt.mr(big, 0.3, 0.7, 0.0, 1.0), _scale(tone, 0.93), _scale(tone, 1.07))
-    flush = tuple(min(1.0, c) for c in (tone[0] * 1.12, tone[1] * 0.78, tone[2] * 0.72))
-    # cheeks and nose are redder
-    cheek = nt.math('MULTIPLY', nt.mr(ax, 0.02, 0.05, 0.0, 1.0), nt.mr(z, -0.055, -0.02, 0.0, 1.0))
-    cheek = nt.math('MULTIPLY', cheek, nt.mr(y, -0.02, -0.07, 0.0, 1.0))
-    nose = nt.math('MULTIPLY', nt.mr(ax, 0.02, 0.008, 0.0, 1.0), nt.mr(z, -0.044, -0.030, 0.0, 1.0))
-    col = nt.mix(nt.math('MULTIPLY', nt.math('ADD', cheek, nose, clamp=True), ruddy), col, flush)
-    # eye bags
-    bag = nt.math('MULTIPLY', nt.mr(z, -0.024, -0.012, 0.0, 1.0), nt.mr(z, -0.003, -0.010, 1.0, 0.0))
-    bag = nt.math('MULTIPLY', bag, nt.math('MULTIPLY', nt.mr(ax, 0.016, 0.024, 0.0, 1.0), nt.mr(ax, 0.050, 0.040, 0.0, 1.0)))
-    col = nt.mix(nt.math('MULTIPLY', bag, 0.35), col, _scale(tone, 0.55))
-    # lips
-    lz = nt.math('MULTIPLY', nt.mr(z, -0.091, -0.0855, 0.0, 1.0), nt.mr(z, -0.0665, -0.060, 1.0, 0.0))
-    lz = nt.math('MULTIPLY', lz, nt.mr(ax, 0.027, 0.020, 0.0, 1.0))
-    lz = nt.math('MULTIPLY', lz, nt.mr(y, -0.079, -0.088, 0.0, 1.0))
-    col = nt.mix(nt.math('MULTIPLY', lz, 0.9), col, lip)
-    # mouth line
-    ml = nt.math('MULTIPLY', nt.mr(z, -0.0805, -0.0768, 1.0, 0.0), nt.mr(z, -0.0720, -0.0768, 0.0, 1.0))
-    ml = nt.math('MULTIPLY', ml, nt.mr(ax, 0.030, 0.022, 0.0, 1.0))
-    col = nt.mix(nt.math('MULTIPLY', ml, 0.8), col, _scale(lip, 0.22))
-    # brows
-    bz = nt.math('MULTIPLY', nt.mr(z, 0.014, 0.020, 0.0, 1.0), nt.mr(z, 0.040, 0.033, 1.0, 0.0))
-    bx = nt.math('MULTIPLY', nt.mr(ax, 0.008, 0.016, 0.0, 1.0), nt.mr(ax, 0.058, 0.046, 1.0, 0.0))
-    br = nt.math('MULTIPLY', nt.math('MULTIPLY', bz, bx), nt.mr(y, -0.078, -0.086, 0.0, 1.0))
-    br = nt.math('MULTIPLY', br, nt.mr(fine, 0.3, 0.6, 0.35, 1.0))
-    col = nt.mix(nt.math('MULTIPLY', br, 0.85), col, brow_col)
+    # a little more colour in the large blotches (capillaries, sun): the flush colour at low strength
+    flush_col = tuple(min(1.0, c) for c in (tone[0] * 1.14, tone[1] * 0.72, tone[2] * 0.66))
+    col = nt.mix(nt.math('MULTIPLY', nt.mr(mid, 0.35, 0.75, 0.0, 0.22), 1.0), col, flush_col)
+    col = nt.mix(nt.math('MULTIPLY', flush, ruddy, clamp=True), col, flush_col)
+    # eyelids: thinner, darker and redder skin; sockets: shadowed
+    lid_col = tuple(min(1.0, c) for c in (tone[0] * 0.80, tone[1] * 0.52, tone[2] * 0.47))
+    col = nt.mix(nt.math('MULTIPLY', lidt, 0.60), col, lid_col)
+    sock_col = (tone[0] * 0.55, tone[1] * 0.33, tone[2] * 0.29)
+    col = nt.mix(nt.math('MULTIPLY', socket, 0.42), col, sock_col)
+    # the shade of the beard zone: stubble is a darkening with dots, never a flat colour
     if stubble > 0.0:
-        sz = nt.mr(z, -0.0, -0.045, 0.0, 1.0)
-        sy = nt.mr(y, 0.02, -0.04, 0.0, 1.0)
-        dots = nt.mr(nt.noise(nt.obj, 1500.0, 1.0, 0.5), 0.55, 0.7, 0.0, 1.0)
-        sm = nt.math('MULTIPLY', nt.math('MULTIPLY', sz, sy), nt.math('MULTIPLY', dots, stubble))
-        col = nt.mix(sm, col, stubble_col)
+        dots = nt.mr(nt.noise(nt.obj, 1700.0, 1.0, 0.5), 0.50, 0.66, 0.0, 1.0)
+        shade = nt.math('MULTIPLY', beard, nt.math('ADD', nt.math('MULTIPLY', dots, 0.65 * stubble), 0.30 * stubble))
+        col = nt.mix(nt.math('MULTIPLY', shade, 1.0, clamp=True), col, stubble_col)
     if weather > 0.0:
         wr = nt.math('MULTIPLY', nt.mr(nt.noise(nt.obj, 60.0, 4.0, 0.6), 0.5, 0.75, 0.0, 1.0), weather)
-        col = nt.mix(wr, col, _scale(tone, 0.7))
+        col = nt.mix(wr, col, _scale(tone, 0.72))
+    # hair roots under the edge of the hair (a soft shade, so the hairline is never a hard line)
+    col = nt.mix(nt.math('MULTIPLY', hairl, 0.55), col, hair_col)
+    # lips (the vermilion is lighter at the border and darker along the mouth), mouth line, nostrils, brow shade, lashes
+    lip_lines = nt.noise(nt.vmath('MULTIPLY', nt.obj, (900.0, 180.0, 60.0)), 2.0, 2.0, 0.6)
+    lipc = nt.mix(nt.mr(lip_lines, 0.4, 0.7, 0.0, 0.25), lip, _scale(lip, 0.6))
+    col = nt.mix(nt.math('MULTIPLY', lips, 0.95), col, lipc)
+    col = nt.mix(nt.math('MULTIPLY', mline, 0.85), col, _scale(lip, 0.20))
+    col = nt.mix(nt.math('MULTIPLY', nostril, 0.92), col, (0.050, 0.020, 0.018))
+    brow_shade = tuple(0.55 * c + 0.45 * h for c, h in zip(_scale(tone, 0.72), hair_col))
+    col = nt.mix(nt.math('MULTIPLY', brow, 0.60), col, brow_shade)
+    col = nt.mix(nt.math('MULTIPLY', lash, 0.90), col, (0.014, 0.009, 0.007))
+    # relief: pores everywhere, fine lines on the lips, creases of the forehead and the outer corners of the eyes with age
     pores = nt.noise(nt.obj, 900.0, 5.0, 0.65)
-    nrm = nt.bump(pores, 0.35, 0.0008)
-    b = nt.bsdf({'Base Color': col, 'Roughness': 0.46, 'Normal': nrm, 'Specular IOR Level': 0.45,
+    mic = nt.noise(nt.obj, 260.0, 4.0, 0.55)
+    height = nt.math('ADD', nt.math('MULTIPLY', pores, 0.55), nt.math('MULTIPLY', mic, 0.45))
+    height = nt.math('ADD', height, nt.math('MULTIPLY', nt.math('MULTIPLY', lips, nt.math('SUBTRACT', lip_lines, 0.5)), 1.4))
+    if age > 0.0:
+        fz = nt.math('MULTIPLY', nt.mr(z, 0.040, 0.052, 0.0, 1.0), nt.mr(z, 0.086, 0.074, 0.0, 1.0))
+        fz = nt.math('MULTIPLY', fz, nt.mr(y, -0.050, -0.072, 0.0, 1.0))
+        wob = nt.math('MULTIPLY', nt.noise(nt.obj, 55.0, 2.0, 0.5), 0.012)
+        lines = nt.wave(nt.comb(0.0, 0.0, nt.math('ADD', z, wob)), 520.0, 'Z', 'SIN')
+        height = nt.math('ADD', height, nt.math('MULTIPLY', nt.math('MULTIPLY', fz, nt.math('SUBTRACT', lines, 0.5)), 2.2 * age))
+    nrm = nt.bump(height, 0.38, 0.0009)
+    rough = nt.mixf(nt.mr(fine, 0.35, 0.65, 0.0, 1.0), 0.40, 0.56)
+    rough = nt.mixf(nt.math('MULTIPLY', lips, 1.0, clamp=True), rough, 0.32)
+    b = nt.bsdf({'Base Color': col, 'Roughness': rough, 'Normal': nrm, 'Specular IOR Level': 0.45,
                  'Subsurface Weight': 0.12, 'Subsurface Scale': 0.01})
     b.inputs['Subsurface Radius'].default_value = (1.0, 0.35, 0.22)
     return m
 
 
-def hair(name, color=(0.30, 0.30, 0.31), light=(0.55, 0.55, 0.56), rough=0.5, flow=(520.0, 520.0, 60.0), spec=0.5):
-    """Hair: streaks along the object z axis (falling hair), darker in the depth."""
+def hair(name, color=(0.30, 0.30, 0.31), light=(0.55, 0.55, 0.56), rough=0.48, spec=0.5, gloss=0.2):
+    """Hair: strands that follow the flow stored on the vertices (`hflow`), locks that differ in tone (`hf`: lock id, distance from the
+    root), a darker depth between the locks and a fine relief along the strands. Where there is no flow the strands fall along z."""
     m = bpy.data.materials.new(name)
     nt = NT(m)
-    st = nt.noise(nt.vmath('MULTIPLY', nt.obj, flow), 1.0, 3.0, 0.65)
-    st2 = nt.noise(nt.vmath('MULTIPLY', nt.obj, (flow[0] * 0.25, flow[1] * 0.25, flow[2] * 0.4)), 1.0, 2.0, 0.5)
-    mixv = nt.math('ADD', nt.math('MULTIPLY', st, 0.65), nt.math('MULTIPLY', st2, 0.35), clamp=True)
-    col = nt.mix(nt.mr(mixv, 0.35, 0.7, 0.0, 1.0), color, light)
-    ao = nt.ao(0.012)
-    col = nt.mix(nt.mr(ao, 0.2, 1.0, 0.25, 1.0), _scale(color, 0.4), col)
-    nrm = nt.bump(st, 0.8, 0.0012)
-    nt.bsdf({'Base Color': col, 'Roughness': rough, 'Normal': nrm, 'Specular IOR Level': spec,
-             'Sheen Weight': 0.2, 'Sheen Roughness': 0.4})
+    idc, along, _b, _a = nt.attr4('hf')
+    fl = nt.attr('hflow')
+    d = nt.vmath('SUBTRACT', nt.vmath('MULTIPLY', fl, (2.0, 2.0, 2.0)), (1.0, 1.0, 1.0))
+    dn = nt.vmath('NORMALIZE', d)
+    dist = nt.vmath('DOT_PRODUCT', nt.obj, dn)
+    q = nt.vmath('SUBTRACT', nt.obj, nt.vmath('SCALE', dn, scale=dist))
+    s1 = nt.noise(q, 1300.0, 2.0, 0.55)
+    s2 = nt.noise(q, 260.0, 3.0, 0.6)
+    s3 = nt.noise(q, 60.0, 2.0, 0.5)
+    tone = nt.math('ADD', nt.math('ADD', nt.math('MULTIPLY', s1, 0.40), nt.math('MULTIPLY', s2, 0.35)),
+                   nt.math('ADD', nt.math('MULTIPLY', s3, 0.15), nt.math('MULTIPLY', idc, 0.30)), clamp=True)
+    col = nt.mix(nt.mr(tone, 0.30, 0.75, 0.0, 1.0), color, light)
+    ao = nt.ao(0.010)
+    col = nt.mix(nt.mr(ao, 0.2, 1.0, 0.30, 1.0), _scale(color, 0.35), col)
+    # the ends of the locks are a little lighter and drier
+    col = nt.mix(nt.math('MULTIPLY', nt.mr(along, 0.80, 1.0, 0.0, 1.0), 0.25), col, _scale(light, 1.15))
+    h = nt.math('ADD', nt.math('MULTIPLY', s1, 0.55), nt.math('MULTIPLY', s2, 0.45))
+    nrm = nt.bump(h, 0.9, 0.0010)
+    r = nt.mixf(nt.mr(s2, 0.3, 0.7, 0.0, 1.0), max(0.05, rough - 0.10), min(1.0, rough + 0.10))
+    nt.bsdf({'Base Color': col, 'Roughness': r, 'Normal': nrm, 'Specular IOR Level': spec,
+             'Sheen Weight': gloss, 'Sheen Roughness': 0.4})
     return m
