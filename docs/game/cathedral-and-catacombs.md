@@ -44,9 +44,10 @@ first branch has the difficulty of floors 1-3 of the old Tower, the second of fl
 | IV. Il Guardaroba del Conte | Guardaroba | Il Conte (the Cardinale in crimson and black) | Gemme | Il Cancello del Conte (1 Cristallo di fede) |
 | L'Abisso | any, drawn per level | the four in turn, one every three levels | that boss's | Il Rosone (the last work) |
 
-The Guardaroba uses its own props (`gu_*`). The scene kit committed today does not register them (the scene predates the theme), so until
-the kit is regenerated with `TorreBuilder` the fourth branch draws one of the three complete themes instead of showing grey boxes
-(`FloorDirector.ThemeOfFloor`).
+The Guardaroba uses its own props (`gu_*`). They reach the game through the kit saved in `Torre.unity`, which lists all 17 since the
+scene was regenerated with `BuildPlayer.Torre` (how that works, and why the scene is committed again whenever a prop is added, is in
+[guardaroba.md](guardaroba.md#how-the-props-reach-the-game)). `FloorDirector.ThemeOfFloor` keeps a safety net: if a scene without them is
+loaded, the fourth branch draws one of the three complete themes instead of showing grey boxes.
 
 **The boss.** On a third level, after the three waves that would open the gate, the next wave opens with the boss and half the usual
 escort. The boss has at least the hit points of the Cardinale of the eighth waves, plus 25% per branch, and its name on the top bar. The gate
@@ -184,7 +185,15 @@ clients for the Cardinale; resources are drawn per machine, so no new network me
   the trophy already in the store, the gate leading up, the return. Finally the save is reloaded and compared. With `-cattedraleshots`
   it writes photos to `hotel_build/cattedrale/` (git-ignored).
 - `python tools/check_suite.py` and the Python unit tests pass with the new package, lab and suite.
+- The fourth branch with the regenerated scene kit (17 November 2026, a full `BuildPlayer.Torre` build): `-catacombe -floor 10` builds the
+  first level of the branch with the Guardaroba theme and the 17 `gu_*` props as models (`-perfprops`, seed 3068: all 17 photographed, none a
+  grey box; photos in [guardaroba.md](guardaroba.md#verification)). A control player built from the old scene shows grey boxes when the
+  theme is forced and, in the catacombs, falls back to another theme (the theatre on the first level). The strict navigation bot,
+  `python tools/check_navigation.py --extra=-catacombe --floor 10 --floors 2`, walks the first two levels of the branch: 6 of 6 seeds
+  (1000, 2961, 3046, 777, 114, 4242), 2 of 2 levels each, every level `tema=Guardaroba`, 0 warnings, 8 doors bought per level.
+  `-cattedraletest` stayed 49/49 on that build. `-survivaltest` is not deterministic (a random Prova, not the kit):
+  see [../engineering/testing.md](../engineering/testing.md).
 
 Not verified: a human playthrough (pace, prices, the balance), the cathedral with a controller, the LayoutDemo consumer
-(`EconomyDemo.cs` and its five checks in `DistrictDemo.cs` were written but that project was not opened), co-op and split screen with
-the catacombs (the code paths are shared with the waves and were not run), and the Guardaroba branch with a regenerated kit.
+(`EconomyDemo.cs` and its five checks in `DistrictDemo.cs` were written but that project was not opened), and co-op and split screen with
+the catacombs (the code paths are shared with the waves and were not run).
