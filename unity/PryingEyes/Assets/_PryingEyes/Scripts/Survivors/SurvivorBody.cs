@@ -34,6 +34,8 @@ namespace PryingEyes
             for (int s = 0; s < Slots; s++) if (s != slot) m |= 4u << s;
             return m;
         }
+        /// <summary>La luce di riempimento della terza persona: solo il bit del posto, cioe' solo quel corpo (non il mondo, non le mani della prima persona).</summary>
+        public static uint FillMask(int slot) => 4u << Mathf.Clamp(slot, 0, Slots - 1);
     }
 
     /// <summary>Il corpo di un sopravvissuto (modelli/personaggi, Resources/Survivors/&lt;id&gt;): scheletro animato interamente da

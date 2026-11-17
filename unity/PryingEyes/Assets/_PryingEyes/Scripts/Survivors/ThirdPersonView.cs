@@ -31,9 +31,19 @@ namespace PryingEyes
         // la camera mentre si disegna
         bool swapped;
         Vector3 savedPos; Quaternion savedRot; int savedMask;
+        // la luce di riempimento del corpo (vedi UpdateFill)
+        const float FillIntensity = 1f, FillRange = 7f;
+        static readonly Vector3 FillOffset = new Vector3(0.5f, 0.9f, -2.1f);
+        Light fill;
+        uint fillMask;
+
+        /// <summary>Solo per le prove: spegne la luce di riempimento (le foto al buio con e senza).</summary>
+        public static bool fillOff;
 
         /// <summary>Quanto e' in terza persona adesso (0..1): la HUD o altri possono adattarsi.</summary>
         public float Blend => blend;
+        /// <summary>La luce di riempimento del proprio corpo (nulla finche' non serve).</summary>
+        public Light Fill => fill;
 
         public static ThirdPersonView Of(PlayerController p) => p != null && p.TryGetComponent(out ThirdPersonView v) ? v : null;
 
@@ -74,6 +84,8 @@ namespace PryingEyes
             RenderPipelineManager.endCameraRendering -= EndCamera;
             if (swapped && cam != null) Restore(cam);
             DropAvatar();
+            if (fill != null) Destroy(fill.gameObject);
+            fill = null; fillMask = 0;
         }
 
         void DropAvatar()
@@ -122,6 +134,7 @@ namespace PryingEyes
             blend = Mathf.MoveTowards(blend, want ? 1f : 0f, dt * 5f);
             if (blend <= 0.001f)
             {
+                if (fill != null) fill.enabled = false;
                 if (!GameSettings.ThirdPerson || !p.alive) { DropAvatar(); if (!GameSettings.ThirdPerson) { Destroy(this); } }
                 else if (ownAvatar && avatar != null) avatar.gameObject.SetActive(false);
                 return;
@@ -159,6 +172,32 @@ namespace PryingEyes
             renderPos = Vector3.Lerp(eye, pos, blend);
             renderRot = look;
             computedFrame = Time.frameCount;
+            UpdateFill(eye);
+        }
+
+        /// <summary>La torcia non illumina il proprio corpo (SurvivorLight.TorchMask: dalla testa brucerebbe l'arma), quindi dove le lampade
+        /// mancano o sono al 40% la schiena del personaggio sarebbe una macchia nera. Una luce debole, che illumina SOLO lo strato del suo
+        /// corpo (mai il mondo), lo segue due metri dietro e un metro sopra la testa; senza ombre.</summary>
+        void UpdateFill(Vector3 eye)
+        {
+            bool on = !fillOff && blend > 0.3f && avatar != null && avatar.Body != null;
+            if (!on) { if (fill != null) fill.enabled = false; return; }
+            if (fill == null)
+            {
+                var go = new GameObject("RiempimentoTerzaPersona");
+                go.transform.SetParent(transform, false);
+                fill = go.AddComponent<Light>();
+                fill.type = LightType.Point;
+                fill.range = FillRange;
+                fill.color = new Color(1f, 0.94f, 0.84f);
+                fill.shadows = LightShadows.None;
+                fill.bounceIntensity = 0f;
+            }
+            uint mask = SurvivorLight.FillMask(avatar.Body.Slot);
+            if (mask != fillMask) { fillMask = mask; Stealth.SetLightLayers(fill, mask); }
+            fill.intensity = FillIntensity * Mathf.InverseLerp(0.3f, 1f, blend);
+            fill.transform.position = eye + Quaternion.Euler(0f, player.yaw * Mathf.Rad2Deg, 0f) * FillOffset;
+            fill.enabled = true;
         }
 
         void BeginCamera(ScriptableRenderContext ctx, Camera c)
