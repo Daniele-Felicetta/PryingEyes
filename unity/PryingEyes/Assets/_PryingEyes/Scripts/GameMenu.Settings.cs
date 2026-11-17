@@ -146,7 +146,7 @@ namespace PryingEyes
         void BuildGamePage(SettingsPage p)
         {
             // 0.8.0: prima o terza persona; la visuale cambia subito, anche in partita (docs/game/third-person.md)
-            AddToggle(p, "Prospettiva", "Prima persona: vedi dagli occhi del tuo personaggio. Terza persona: la camera sta dietro la spalla e vedi il sopravvissuto che sei.",
+            AddToggle(p, "Prospettiva", "Prima persona: dagli occhi del personaggio. Terza persona: camera dietro la spalla, lo vedi per intero.",
                 () => GameSettings.ThirdPerson, GameSettings.SetThirdPerson, "Prima persona", "Terza persona");
             AddChoice(p, "Mirino", "Il segno al centro dello schermo.",
                 () => CrosshairNames[GameSettings.Crosshair], d => GameSettings.SetCrosshair(Wrap(GameSettings.Crosshair + d, CrosshairNames.Length)));
