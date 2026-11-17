@@ -17,7 +17,7 @@ watching the statue; clients replay the visible effects (`Enemy.VariantPuppetTic
 ## Blood
 
 `Fx.Blood` sprays droplets and mist in the enemy's blood colour (`Enemy.BloodTint`: dark red for flesh, green bile for the
-Appestato, teal for the Medusa, dust only for the statue and the moths) at every bullet hit, and places a splat on the wall
+Appestato, acid green mucus for the Medusa, dust only for the statue and the moths) at every bullet hit, and places a splat on the wall
 or floor behind the target along the bullet direction (2.4 m). `Fx.BloodPool` grows a pool under monks and abbots when they
 die. Decals reuse the bullet-hole material with their own texture through a property block (no new shader variant), live
 40-45 s and fade over the last 6 s; 72 at most, recycled.

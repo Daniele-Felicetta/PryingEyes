@@ -21,6 +21,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [tower.md](game/tower.md) | The Tower: procedural floors and themes, the wave cycle (default) and the candle cycle (legacy), points, perks, shops, shrines, power-ups, themed enemies, controls, code map. |
 | [weapons.md](game/weapons.md) | The 28 weapons in 5 grades, per-weapon numbers, gunplay, sights, and the Blender to Unity pipeline. |
 | [guardaroba.md](game/guardaroba.md) | The fourth theme (wardrobes, vampires, scissors, lava): its 17 new props, materials, how to make and photograph them again, where the rooms place them, traps and what is verified. |
+| [medusa.md](game/medusa.md) | The flying jellyfish: the Blender model (66,000 triangles, 240 bones), its textures, the code that animates it, the effects of its attack, how to make it again and what is checked. |
 | [horde-variants.md](game/horde-variants.md) | The plague bearer, flagellant, statue and cardinal; blood. |
 | [equipment-and-trials.md](game/equipment-and-trials.md) | Holy water and the music box, the trial of each wave, the glass eyes, the reliquary mine. |
 | [door-traps.md](game/door-traps.md) | Fire and lightning levers on bought doorways. |

@@ -20,8 +20,8 @@ namespace PryingEyes
         public static void Warmup()
         {
             Template(Enemy.EnemyType.Veglia);
-            Template(Enemy.EnemyType.Medusa);
             Template(Enemy.EnemyType.Portachiavi);
+            JellyRig.Warmup();                       // la medusa e' un prefab (Resources/Medusa): si carica adesso, non al primo spawn
         }
 
         public static AlienRig Create(Enemy.EnemyType kind)

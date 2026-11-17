@@ -50,6 +50,11 @@ modelli/hotel/arredi4/*.fbx
 modelli/armi/tex/
 modelli/armi/export/
 modelli/armi/render/
+# Medusa volante: intermedi, FBX di esportazione e anteprime; la FBX che conta e le texture stanno in unity/.../Models/Medusa e Textures/Medusa. Si rigenerano con modelli/medusa/genera_medusa.py e genera_medusa_tex.py
+modelli/medusa/medusa.blend
+modelli/medusa/holes.json
+modelli/medusa/export/
+modelli/medusa/render/
 # foto di verifica delle armi: si tengono solo i fogli di contatto (jpg) e la foto degli espositori; le singole foto si rifanno con ArmiShots / -guntest
 hotel_build/armi/*.png
 hotel_build/armi_gioco/*.png

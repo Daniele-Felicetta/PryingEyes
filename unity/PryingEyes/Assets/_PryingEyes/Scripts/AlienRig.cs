@@ -76,7 +76,6 @@ namespace PryingEyes
             var colors = kind switch
             {
                 Enemy.EnemyType.Veglia => (new Color(0.68f, 0.59f, 0.42f), new Color(1f, 0.64f, 0.24f)),
-                Enemy.EnemyType.Medusa => (new Color(0.08f, 0.22f, 0.26f), new Color(0.23f, 0.90f, 1f)),
                 _ => (new Color(0.23f, 0.16f, 0.10f), new Color(1f, 0.62f, 0.22f))
             };
             Shell = MaterialFor(colors.Item1 * 0.46f, 0.42f);
@@ -97,39 +96,13 @@ namespace PryingEyes
                 membrane.SetFloat("_Metallic", 0.8f);
                 membrane.SetFloat("_Smoothness", 0.38f);
             }
-            if (kind != Enemy.EnemyType.Medusa) DressRelic();
+            DressRelic();
 
-            Vector3 weakPoint;
-            switch (kind)
-            {
-                case Enemy.EnemyType.Veglia: weakPoint = Vigil(); break;
-                case Enemy.EnemyType.Medusa: weakPoint = Jelly(); break;
-                default: weakPoint = KeyKeeper(); break;
-            }
+            Vector3 weakPoint = kind == Enemy.EnemyType.Veglia ? Vigil() : KeyKeeper();
             var head = Joint(model, "Nucleo", weakPoint);
             head.tag = "Head";
             var weak = head.gameObject.AddComponent<SphereCollider>();
             weak.radius = 0.16f;
-        }
-
-        Vector3 Jelly()
-        {
-            Piece(model, Vector3.up * 0.12f, new Vector3(0.79f, 0.52f, 0.77f), Shell);
-            Piece(model, new Vector3(0f, -0.03f, 0f), new Vector3(0.87f, 0.12f, 0.85f), membrane);
-            Piece(model, new Vector3(0f, -0.08f, 0f), new Vector3(0.61f, 0.09f, 0.61f), Glow);
-            for (int i = 0; i < 8; i++)
-            {
-                float angle = i * Mathf.PI / 4f;
-                Vector3 radial = new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle));
-                var tentacle = Limb(radial * 0.25f - Vector3.up * 0.09f, Vector3.Cross(Vector3.up, radial), angle, 28f);
-                float length = i % 2 == 0 ? 0.76f : 0.55f;
-                Piece(tentacle, -Vector3.up * length * 0.24f, new Vector3(0.095f, length * 0.62f, 0.095f), membrane);
-                Piece(tentacle, -Vector3.up * length * 0.68f, new Vector3(0.06f, length * 0.43f, 0.06f), Shell);
-                Piece(tentacle, -Vector3.up * length * 0.87f, new Vector3(0.038f, 0.09f, 0.038f), Glow);
-            }
-            var face = new Vector3(0f, 0.11f, 0.37f);
-            Piece(model, face, new Vector3(0.17f, 0.17f, 0.10f), Glow);
-            return face;
         }
 
         Transform Limb(Vector3 position, Vector3 axis, float offset, float amplitude)
@@ -149,20 +122,13 @@ namespace PryingEyes
 
         public void Animate(float phase, float speed, bool hunting, bool striking, float flightTime = -1)
         {
-            float rate = kind == Enemy.EnemyType.Veglia ? (hunting ? 5.5f : 2.5f) : kind == Enemy.EnemyType.Medusa ? 3.8f : 7f;
+            float rate = kind == Enemy.EnemyType.Veglia ? (hunting ? 5.5f : 2.5f) : 7f;
             float strength = kind == Enemy.EnemyType.Portachiavi ? Mathf.Clamp01(speed) : 1f;
             float t = Time.time * rate + phase;
             foreach (var limb in limbs)
                 limb.joint.localRotation = Quaternion.AngleAxis(Mathf.Sin(t + limb.phase) * limb.amplitude * strength +
-                    (flightTime >= 0 ? FlightTension(flightTime) * (kind == Enemy.EnemyType.Medusa ? 25 : 8) : 0), limb.axis);
+                    (flightTime >= 0 ? FlightTension(flightTime) * 8 : 0), limb.axis);
             if (kind == Enemy.EnemyType.Veglia) AnimateVigil(t, striking, flightTime);
-            else if (kind == Enemy.EnemyType.Medusa && flightTime >= 0)
-            {
-                float tension=FlightTension(flightTime);
-                model.localScale=new Vector3(1-tension*0.14f,1+tension*0.16f,1-tension*0.14f);
-                model.localRotation=Quaternion.Euler(FlightPitch(flightTime),0,0);
-            }
-            else if (kind == Enemy.EnemyType.Medusa) { model.localScale = Vector3.one * (1f + (striking ? 0.09f : 0.028f) * Mathf.Sin(t)); model.localRotation=Quaternion.identity; }
             else model.localRotation = Quaternion.Euler(striking ? 12f : Mathf.Sin(t * 0.5f) * 2f, 0f, Mathf.Sin(t * 0.7f) * 2f);
         }
 
