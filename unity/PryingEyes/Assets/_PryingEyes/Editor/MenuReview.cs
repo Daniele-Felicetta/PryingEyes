@@ -74,7 +74,7 @@ namespace PryingEyes.EditorTools
                 Click("Immagine"); CheckPage(menu, "Immagine", 5, 3, 8); Render("image", size, camera, menu, output);
                 Click("Audio"); CheckPage(menu, "Audio", 5, 1, 6); Render("audio", size, camera, menu, output);
                 Click("Comandi"); CheckPage(menu, "Comandi", 2, 5, 8); Render("controls", size, camera, menu, output);
-                Click("Gioco"); CheckPage(menu, "Gioco", 2, 3, 5); Render("game", size, camera, menu, output);
+                Click("Gioco"); CheckPage(menu, "Gioco", 2, 4, 6); Render("game", size, camera, menu, output);
                 Click("Schermo");
                 Choice("Formato").Step(1); Choice("Formato").Step(1);
                 Check("ultrawide choice", GameObject.Find("Formato valore").GetComponent<Text>().text.Contains("21:9"));
@@ -180,6 +180,10 @@ namespace PryingEyes.EditorTools
                 && !GameSettings.SprintToggle && GameSettings.PadSensitivity == 1f && Choice("Mira").Value == "Tieni premuto");
 
             Click("Gioco");
+            var perspective = Choice("Prospettiva");
+            Check("the perspective starts in first person (" + perspective.Value + ")", !GameSettings.ThirdPerson && perspective.Value == "Prima persona");
+            perspective.Step(1);
+            Check("the perspective row switches to the third person (" + perspective.Value + ")", GameSettings.ThirdPerson && perspective.Value == "Terza persona");
             Choice("Mirino").Step(1);
             Check("crosshair steps to the dot (" + Choice("Mirino").Value + ")", GameSettings.Crosshair == GameSettings.CrosshairDot && Choice("Mirino").Value == "Solo il punto");
             Choice("Mirino").Step(1); Choice("Mirino").Step(1);
@@ -189,7 +193,8 @@ namespace PryingEyes.EditorTools
             menu.GetComponentsInChildren<Slider>()[0].value = 0.5f;
             Check("visual motion writes the setting", Mathf.Abs(GameSettings.Motion - 0.5f) < 0.001f);
             Click("Ripristina scheda");
-            Check("game reset restores the defaults", !GameSettings.ShowFps && GameSettings.PauseOnFocusLoss && GameSettings.Motion == 1f && GameSettings.CoopHudScale == 1f);
+            Check("game reset restores the defaults", !GameSettings.ShowFps && GameSettings.PauseOnFocusLoss && GameSettings.Motion == 1f && GameSettings.CoopHudScale == 1f
+                && !GameSettings.ThirdPerson && Choice("Prospettiva").Value == "Prima persona");
 
             Click("Schermo");
             Check("the display tab has no reset button", GameObject.Find("Pulsante Ripristina scheda") == null);
