@@ -76,7 +76,7 @@ namespace PryingEyes
             var expect = new (string name, Surface s)[]
             {
                 ("pav_parquet", Surface.Wood), ("pav_palco", Surface.Wood), ("mur_boiserie", Surface.Wood), ("sof_legno", Surface.Wood), ("cornice_legno", Surface.Wood),
-                ("pav_marmo", Surface.Stone), ("pav_lastre", Surface.Stone), ("mur_pietra", Surface.Stone), ("sof_volta", Surface.Stone), ("pav_servizio", Surface.Stone),
+                ("pav_marmo", Surface.Stone), ("pav_marmo_venato", Surface.Stone), ("pav_lastre", Surface.Stone), ("mur_pietra", Surface.Stone), ("colonna_pietra", Surface.Stone), ("sof_volta", Surface.Stone), ("pav_servizio", Surface.Stone),
                 ("pav_piastrelle", Surface.Tile), ("mur_piastrelle", Surface.Tile),
                 ("pav_moquette", Surface.Fabric), ("mur_velluto", Surface.Fabric), ("tenda_nera", Surface.Fabric), ("pav_linoleo", Surface.Fabric),
                 ("mur_intonaco", Surface.Plaster), ("sof_intonaco", Surface.Plaster), ("mur_damasco_verde", Surface.Plaster), ("mur_vernice_verde", Surface.Plaster),

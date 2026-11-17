@@ -243,7 +243,7 @@ namespace PryingEyes.EditorTools
             darkMat = LitMat("Dark", new Color(0.09f, 0.11f, 0.15f), 0.8f, 0.5f);
             steelMat = pbr ? PbrMat("Steel", "acciaio", Color.white, 1f) : LitMat("Steel", new Color(0.42f, 0.44f, 0.47f), 0.9f, 0.6f);
             // marmo liscio per colonne/scale/banco (prima usavano la scacchiera del pavimento: effetto codice a barre)
-            marbleMat = pbr ? PbrMat("Marble", "marmo_bianco", Color.white, 1f) : LitMat("Marble", new Color(0.78f, 0.76f, 0.71f), 0f, 0.72f);
+            marbleMat = pbr ? PbrMat("Marble", "marmo_bianco", Color.white, 2f) : LitMat("Marble", new Color(0.78f, 0.76f, 0.71f), 0f, 0.72f);
             carpetMat = pbr ? PbrMat("Carpet", "moquette", Color.white, 1f) : LitMat("Carpet", new Color(0.37f, 0.07f, 0.13f), 0f, 0.02f);
             // velluto: la texture e' grigia, il colore lo da' la tinta
             velvetR = pbr ? PbrMat("VelvetR", "velluto", new Color(0.46f, 0.15f, 0.20f), 0.3f) : LitMat("VelvetR", new Color(0.35f, 0.12f, 0.16f), 0f, 0.05f);
