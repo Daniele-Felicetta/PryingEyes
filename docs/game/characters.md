@@ -7,7 +7,7 @@ and since 0.8.0 they are also the player's own body in the [third-person view](t
 | Slot | Id | Who | What sets them apart |
 | --- | --- | --- | --- |
 | 1 (host, player 1) | `custode` | The Custode | stocky, grey hair and moustache, olive canvas jacket, navy trousers, red wool scarf, tweed cap |
-| 2 | `dottoressa` | The Dottoressa | slight, brown hair in a bob, cream coat, charcoal trousers, teal scarf |
+| 2 | `dottoressa` | The Dottoressa | slight, brown hair cut to a bob (as a smooth close shell, see the limits below), cream coat, charcoal trousers, teal scarf |
 | 3 | `reporter` | The Reporter | fair, short blond hair, mustard jacket, blue trousers, grey scarf |
 | 4 | `cacciatrice` | The Cacciatrice | strong legs, auburn hair in a long braid under a dark cap, oxblood jacket, olive trousers, amber scarf |
 
@@ -97,7 +97,9 @@ and from behind. The own survivor in the third person is in [third-person.md](th
 
 Known limits:
 
-- The hair of the Dottoressa and of the Reporter is a smooth shell without volume: it reads as a cap of the right colour, not as a bob.
+- The hair of the Dottoressa and of the Reporter is a smooth shell without volume: on the Dottoressa it reads as a cap of the right colour, not as
+  a bob, and the Reporter's pale blond is so close to the skin tone in the game's warm light that from behind (the view of the third person) it can
+  pass for a shaved head. A darker blond and some volume are the next thing to do to the Reporter.
 - The four faces share one base head with a handful of proportions, and the face textures are 1024 pixels, so a face seen from a metre is soft.
 - The animation was only judged on still images (the contact sheets and the photos), never watched in motion on a monitor.
 - The torch of a player lights the bodies of the others but nobody checked a partner who aims with the torch on, close to a wall.

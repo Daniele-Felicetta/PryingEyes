@@ -72,10 +72,16 @@ On 2026-11-17, on the `Builds\Audit` player of the branch, with no window (`-bat
 | Test | Result |
 | --- | --- |
 | `-autotest -nofire -noenemies -tptest -tpshots` | 19/19: the camera 2.18 m behind the eye (1.20 m aiming, 0.58 m with a wall 90 cm behind), eye ray and camera ray 0 cm apart on a wall, 2.3 m/s of walking reaches the body, switching off restores everything, the fill light lights only the body's layer, every light layer is defined |
-| `tools/coop/run_split.ps1 -Players 4` | 64/64 (the four survivors in one split screen) |
+| `tools/coop/run_split.ps1 -Players 4` | 64/64 in 13 of 14 runs (the four survivors in one split screen); one run ended 63/64, see below |
 | `-splittest` | 71/71 |
 | `tools/coop/run_all.ps1 -Only a,h` | all passed: two processes (62/62 and 49/49) and four (62/62, 48/48, 48/48, 49/49) on loopback, protocol `pe-coop-29` |
 | `tools/coop/run_coop.ps1 -Name foto -HostGraphics ... -cooppics` | 13/13, with photos of a partner from the side, close and from behind |
+
+The one run that did not pass was the first on the final build: the check *senza aiuto il giocatore 2 si dissangua* of `SeatsTest` (the third
+time player 2 goes down nobody helps, so they bleed out and die once while the others stay up with their points) failed, 63/64. It did not repeat in
+the 13 runs that followed (three on the same build, ten on one that only adds a diagnostic to that check), the third person is off in that test, and
+the log of the failing run did not say which condition of the check had fallen, so the cause is not known. The check now logs a `seatstest diagnosi`
+line with every condition when it fails.
 
 The photos show the Custode behind the shoulder in the theatre hall (`ferma`, `mira`, `muro-dietro`) and, with every lamp off and the torch on,
 a black silhouette without the fill light (`buio-senza`) and a readable character with it (`buio-con`); at intensity 10 and above the body starts to look
