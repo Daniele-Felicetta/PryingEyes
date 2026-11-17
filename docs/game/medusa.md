@@ -9,6 +9,8 @@ knows the Medusa (floors from 2 up, the waves, co-op, the stealth alert) works a
 This page covers the model, the textures, the animation, the effects of the attack, how to make it all again and what is checked.
 The enemy itself (flight, windup, contact) is described with the other flying presences in [tower.md](tower.md).
 
+![The Medusa photographed in the player, left to right and top to bottom: at rest, gathering, thrusting, at the moment of contact (the red screen is the hit of the player), hit by a shot, and bursting](images/medusa-poses.jpg)
+
 ## What it is
 
 | | |
@@ -148,8 +150,7 @@ a hit with one). With `-jellyshots` the photos go to `unity_logs/jelly/`.
 
 Last run (17 November 2026, a full build of the branch after the merge with `preview`): `-jellytest` 32/32 in about 25 s, one
 animation step 0.13 to 0.14 ms, and `-flyingmeleetest` 117/117. The photos of the six main moments (rest, gather, thrust, contact,
-hit, burst) are on one contact sheet, `hotel_build/medusa/foglio_pose.jpg`. It is named, not linked: the CI checkout does not
-download `hotel_build`, so a link would fail the documentation check there.
+hit, burst) are the contact sheet at the top of this page, made from the pictures that `-jellyshots` writes to `unity_logs/jelly/`.
 
 Not verified: co-op between real processes (only the replica inside one process is tested), several Medusas at once and the cost
 of the 24 m and 40 m throttling in a real wave, and the look on the other themes (the photos are all of the cathedral hall).
