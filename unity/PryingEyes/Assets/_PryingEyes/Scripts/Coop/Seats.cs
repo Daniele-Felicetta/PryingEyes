@@ -28,6 +28,9 @@ namespace PryingEyes
         public Proc.Interact.State interact = new Proc.Interact.State();
         public WallBuy.State wallBuy = new WallBuy.State();
         public PadControls.Channel pad;
+        /// <summary>Ha un'interfaccia aperta sopra il gioco (il grimorio): blocca i comandi di questo giocatore e basta. Vale quando il
+        /// posto non e' installato; quando gira, il valore vivo e' GameMenu.Overlay (Seats.OverlayOf sceglie).</summary>
+        public bool overlay;
         /// <summary>Come lo vedono i nemici (il posto 0 e' Targets.Local, gli altri un SeatTarget).</summary>
         public ITarget target;
 
@@ -150,6 +153,7 @@ namespace PryingEyes
             s.shotsFired = GameManager.shotsFired; s.shotsHit = GameManager.shotsHit; s.damageTaken = GameManager.damageTaken;
             s.headshots = GameManager.headshots; s.deaths = GameManager.deaths;
             s.equipment = Equipment.I; s.knife = Knife.I; s.torch = Torch.I; s.guide = Guide.I; s.rig = StealthRig.I; s.prove = Prove.I;
+            s.overlay = GameMenu.Overlay;
         }
 
         static void Load(Seat s, GameManager gm)
@@ -160,6 +164,25 @@ namespace PryingEyes
             Equipment.I = s.equipment; Knife.I = s.knife; Torch.I = s.torch; Guide.I = s.guide; StealthRig.I = s.rig; Prove.I = s.prove;
             Stealth.Use(s.stealth); Medals.Use(s.medals); Proc.Interact.Use(s.interact); WallBuy.Use(s.wallBuy);
             PadControls.Use(s.pad);
+            GameMenu.Overlay = s.overlay;
+        }
+
+        /// <summary>Apre o chiude l'interfaccia sopra il gioco di un posto (il grimorio): da quel momento i comandi di quel giocatore sono
+        /// bloccati e gli altri no. Con null o con il posto che gira e' il flag vivo di GameMenu, altrimenti quello salvato nel posto
+        /// (lo rimette Load quando il posto gira).</summary>
+        public static void SetOverlay(Seat s, bool open)
+        {
+            if (s == null || s == cur) GameMenu.Overlay = open; else s.overlay = open;
+        }
+
+        /// <summary>Quel posto ha un'interfaccia aperta sopra il gioco? (null: chi gira.)</summary>
+        public static bool OverlayOf(Seat s) => s == null || s == cur ? GameMenu.Overlay : s.overlay;
+
+        /// <summary>Il posto che ascolta quel controller (null fuori dallo schermo condiviso).</summary>
+        public static Seat OfPad(PadControls.Channel c)
+        {
+            for (int i = 0; i < All.Count; i++) if (All[i].pad == c) return All[i];
+            return null;
         }
 
         /// <summary>Rimette nei globali i dati del posto che gira (dopo averne cambiato il giocatore o l'HUD a mano).</summary>

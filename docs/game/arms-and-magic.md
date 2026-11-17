@@ -14,7 +14,7 @@ dell'Arsenale Maledetto".
 | `3` (hold 0.35 s) | LB (hold) | Trace the selected seal on the weapon in hand (lasts 45 s on that weapon). |
 | `6` / `7` | D-pad right / D-pad right held | Next spell / next seal. Since 0.7.2 a line under the spell and seal icons says so (`CAMBIA: 6 magia · 7 sigillo`, or the controller version), and changing says which one is now active, or that the book has only one. |
 | `F` at the secret wall, then `C` | X held, then B | Open the secret wall (an eye carved in the stone, whispering), crawl through the 1.3 m tunnel. |
-| `F` at the grimoire | X held | Read the book: mouse or arrows/WASD or D-pad to choose a node, click/Enter/F/A to buy (or to make an owned spell or seal the active one), Esc/B to close. |
+| `F` at the grimoire | X held | Read the book: mouse or arrows/WASD or D-pad to choose a node, click/Enter/F/A to buy (or to make an owned spell or seal the active one), Esc/B (or right click) to close. The game does not stop while you read: only you stand still. |
 
 The left hand pays with **essence**: 60 at the start, 100 maximum, 2 per second back, 3 per kill. Spells and seals cannot start while
 reloading, swapping, sprinting, with the knife out, or during another gesture. On the controller the left hand is LB alone (the whole
@@ -42,7 +42,7 @@ smaller chamber and halls that already have a garden. `planlab annex 4000`: 4,00
 
 ## The two grimoires (`Grimoire.cs`, `MagicState.cs`)
 
-Each book is a dodecahedron of 19 nodes, drawn like the plates: 12 outer nodes on a ring, 6 inner nodes on a hexagon (each touching
+Each book is a dodecahedron of 19 nodes, as in the plates: 12 outer nodes on a ring, 6 inner nodes on a hexagon (each touching
 the two outer nodes beside it), the supreme in the centre. Outer nodes can always be bought; an inner node needs one of its two
 neighbouring outer nodes; the supreme needs four inner nodes. Prices: outer 1,250 + 250 per outer node already owned in that book,
 inner 3,000 + 500 per inner node owned, supreme 9,000. Purchases are kept for the whole run (death empties the essence and turns off
@@ -119,6 +119,33 @@ reach of a human arm: two-handed weapons are also brought within reach of the sh
 in front of and 11 cm below the eye, `OffHand.ReachTarget`, higher for the magazine seal, and turned 36 degrees to show the
 left side), so the elbow bends while the hand works. A weapon with a seal glows in the element's colour (per-part emission, so frost and
 runes run from the hand outwards) and emits its particles.
+
+### The open book (`GrimoireUI`)
+
+Since 17 November 2026 the open book is the maintainer's plate itself: `Resources/Grimori/tavola_arsenale.bytes` and
+`tavola_stregoneria.bytes`, PNGs stored as text assets and decoded by `GrimoirePage` (Unity leaves them alone), prepared from the two
+sources in `modelli/grimori/sorgenti/` by `modelli/grimori/prepara_tavole.py`. The script empties the 19 medallions (the icons baked
+into the art did not match the game's nodes), rebuilds the three inner medallions of the Witchcraft plate that the ram-headed demon hides
+(six identical thorn wreaths on a hexagon around it) and feathers the border into transparency. `tavole.json` keeps the centre and the
+radius of every slot in plate pixels: outer 0..11 clockwise from the medallion left of the top one, inner 0..5 clockwise from the top,
+the supreme at the centre, where the plate already has its emblem (the skull with the rifles, the demon). Without the files the book
+still works, on a dark placeholder with the same layout.
+
+On the plate the game draws, for every node, the icon engraved in gilded bronze (`GrimoireIcons.Engraved`: the signed-distance shapes of
+the HUD icons with a bevel lit from the top left, a highlight and a soft shadow), a glow and a ring for its state (owned: red; one you can
+buy: amber; closed: dark and dim; the active spell or seal: a gold ring), a gold ring that breathes on the chosen node, and thin lines
+between nodes: red between two owned ones, amber between an owned one and one you can buy (the rest is the plate's own art). The supreme
+has no icon: its emblem is dimmed until you own it. Beside the plate a parchment card (`GrimoirePage.Card`) shows the chosen node: icon,
+name, class, effect, motto, price or what is missing, the key to press, the message after a purchase and, at the foot, points, essence
+and keys.
+
+The book is a child of the reader's HUD, so it lives inside the reader's part of the screen and scales with it. It takes at most 88% of
+the height and arranges itself in the room it has: plate and card side by side in a wide area (1280x720: an 844x633 plate and a 330 wide
+card), one above the other in a tall one (each half of a two-player split screen). The game stays visible around it, only dimmed. `Esc`,
+`Tab`, `Backspace`, right click or B close it; the pause, a hit or the reader's death close it too.
+
+The 3D book on the altar uses the same art: `altare_*.bytes` (the open book of the plate, cropped, as a JPEG) and `luce_*.bytes` (a mask
+of its hot reds, which glow).
 
 ## Arms and hands
 
@@ -259,7 +286,9 @@ shader (a scripts-only build over an old player) it falls back to the `Fx` quads
 (effects, `Fireball`, `EnemyStatus`, `WeaponAura`), `MagicVfx.cs` and `VfxTextures.cs` (particles, lightning, circles, textures),
 `Resources/Shaders/MagicParticle.shader`, `SoundMagia.cs`, `HUD.Magia.cs`, `GrimoireIcons.cs`, `GrimoirePage.cs`,
 `GrimoireUI.cs`, `GrimoireAltar.cs`, `MagiaTest.cs`. `Scripts/Weapon.Sigilli.cs` (seals on hits). `Scripts/Proc/PlanAnnex.cs`
-(placement), `Proc/FloorBuilder.Sacrario.cs` (geometry), `Proc/AnnexRuntime.cs` (the secret wall). Assets:
+(placement), `Proc/FloorBuilder.Sacrario.cs` (geometry), `Proc/AnnexRuntime.cs` (the secret wall). The book art: `Resources/Grimori/`
+(`tavola_*.bytes`, `altare_*.bytes`, `luce_*.bytes`, `tavole.json`), made by `python -I modelli/grimori/prepara_tavole.py` (needs numpy,
+opencv-python and Pillow; the sources are in `modelli/grimori/sorgenti/`; run it again only if a plate changes). Assets:
 `Models/Mani/libera/mano_libera.fbx` and `manica_libera.fbx`, `Resources/ManoLibera.prefab` and `ManicaLibera.prefab` (`ManiImport.Run`,
 `-mani libera` / `-mani manica`), `Resources/ManiArmi/presa_sinistra.json` and `presa_destra.json`, `Textures/Braccia/` (the atlases
 and the detail) with the materials `Models/Mani/Materials/Mani_GuantoLibero.mat` and `Mani_ManicaLibera.mat`. The Blender stages of
@@ -275,9 +304,13 @@ enemies. Spell effects are not shown on the other players' screens. The plan gai
 revision is `pe-coop-26`.
 
 Split screen ([split-screen.md](../multiplayer/split-screen.md)): every player has its own caster and grimoire state, and the
-caster runs inside its player's seat (`Seats.Enter`, keys through `SeatInput`). The grimoire page covers the whole window and
-belongs to the player who opened it (purchases, essence and points are theirs); while it is open the game pauses for everybody,
-because it blocks every player's commands.
+caster runs inside its player's seat (`Seats.Enter`, keys through `SeatInput`). Every player has their own open book (`GrimoireUI` keeps
+one per seat, under that seat's HUD), drawn inside that player's part of the screen. It blocks only the reader's commands:
+`GameMenu.Overlay` belongs to the seat (`Seat.overlay`, saved and restored by `Seats.Install`, set with `Seats.SetOverlay`) and the
+reader's controller is the only one silenced (`PadControls.BlockedFor`). The others keep playing, time does not stop, and their HUDs
+and maps are untouched; the reader's own map is hidden under the book. Purchases, essence and points are the reader's; the reader's
+controller (or the keyboard and the mouse, for player 1) drives the book. In the online co-op the book works the same way: it does not
+stop the game and takes at most 88% of the window.
 
 ## Verification
 
@@ -287,6 +320,16 @@ because it blocks every player's commands.
   books (rules, prices, all 38 nodes), the seven spells and seven seals on a rifle and a pistol (they start, the free hand takes the
   wrapped glove's place and gives it back, effects arrive, the elbow stays in range, the wrist and forearm stay within human
   ranges) and the left-hand throw. Results in `hotel_build/magia/magia.txt`, photos with `-magiashots`.
+- `-magiabooks` (with the flags above) stops after the room and the two books, about two minutes instead of the full run. For each
+  book it opens the real `GrimoireUI` and checks: the real plate and its 19 slots are loaded (the report gives its size and mip levels), the book stays inside its
+  area and leaves the game visible, time keeps running, an inner node cannot be bought without an outer neighbour, the supreme is closed
+  until four inner nodes are owned, the prices (1,250, 1,500, 3,000 and 9,000), the purchase of all 19 nodes and that closing the book
+  gives the commands back (44 of 44 on 17 November 2026). Photos `libro_<book>_{vuoto,quasi,pieno}.png` (nothing owned, all but the
+  supreme, everything) and `sacrario_altare.png` go to `hotel_build/magia/`.
+- The book of one player in the split screen is covered by `-seatstest`
+  ([split-screen.md](../multiplayer/split-screen.md#verification)): only the reader's book is open, only the reader is blocked, time
+  runs, the book fits inside the reader's part, another player walks while the reader stays still, and a controller drives only its
+  own player's book.
 - Diagnostic flags of the same test: `-magiaside` (with every photo a side and a top view of the arms with the solved joints, a
   close-up of the left wrist where sleeve and glove cuff meet, and the measures in the report), `-magiazoom` (two close-ups of the
   left hand with the real scene and effects: from the eye with a telephoto lens and three-quarters from the left), `-vfxdump` (the

@@ -1187,14 +1187,16 @@ namespace PryingEyes.Proc
 
         void OnGUI()
         {
-            if (cur == null || gm == null || gm.player == null || GameMenu.Blocked || transitioning) return;
+            // schermo condiviso: il menu e la pausa coprono tutti, il grimorio solo chi lo legge (sotto, nel ciclo dei posti)
+            if (cur == null || gm == null || gm.player == null || transitioning) return;
+            if (Seats.Split ? GameMenu.InMenu || GameMenu.Paused : GameMenu.Blocked) return;
             if (Event.current.type != EventType.Repaint) return;      // la mappa si disegna e basta: niente liste e stringhe a ogni evento di layout/mouse
             if (Seats.Split)
             {
                 // schermo condiviso: ogni giocatore ha la sua mappa e la sua minimappa, dentro la sua porzione di schermo
                 foreach (var s in Seats.All)
                 {
-                    if (s.player == null) continue;
+                    if (s.player == null || Seats.OverlayOf(s)) continue;     // chi legge il grimorio non ha la mappa sopra il libro
                     var v = s.view;
                     var area = new Rect(v.x * Screen.width, (1f - v.yMax) * Screen.height, v.width * Screen.width, v.height * Screen.height);
                     DrawSeatMaps(s.index, s.player.transform.position, s.hud, area);

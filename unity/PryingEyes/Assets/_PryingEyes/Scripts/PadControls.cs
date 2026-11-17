@@ -411,7 +411,17 @@ namespace PryingEyes
             if (s.connected && Activity(s)) { c.lastActivity = Time.unscaledTime; c.preferred = true; }
             else if (c.auto && c.preferred && c == primary && Input.anyKeyDown && Time.unscaledTime - c.lastActivity > 0.3f) c.preferred = false;     // ha preso tastiera o mouse
             if (!fromTest && !Listening) c.mapper.Silence();                                     // un controller non da' ordini a un gioco in secondo piano
-            else if (GameMenu.Blocked) c.mapper.SuppressGameplay();                              // menu aperto: il controller naviga, non gioca
+            else if (BlockedFor(c)) c.mapper.SuppressGameplay();                                 // menu aperto: il controller naviga, non gioca
+        }
+
+        /// <summary>Un menu o un libro usa i comandi di questo controller? Il menu e la pausa sono di tutti; nello schermo condiviso il grimorio
+        /// aperto e' di un posto solo, e gli altri controller continuano a giocare.</summary>
+        static bool BlockedFor(Channel c)
+        {
+            if (GameMenu.InMenu || GameMenu.Paused) return true;
+            if (!Seats.Split) return GameMenu.Blocked;
+            var s = Seats.OfPad(c);
+            return s != null && Seats.OverlayOf(s);
         }
 
         void OnDestroy()
