@@ -61,6 +61,9 @@ namespace PryingEyes.Proc
         // di vista libero sulla navmesh e una linea di vista pulita, di fronte se possibile). Con -perftorch la torcia e' accesa.
         static readonly string[] PropNames = { "tea_toeletta", "tea_manichino", "tea_faro", "tea_fila", "tea_fila_b", "tea_fila_c", "san_letto", "san_carrello", "san_flebo", "san_sedia_ruote", "san_scialitica", "san_paravento", "arr_carrello", "arr_armadio", "arr_scaffale" };
         static readonly float[] PropDist = { 2.0f, 2.3f, 2.8f, 2.6f, 2.6f, 2.6f, 3.0f, 2.0f, 2.4f, 2.2f, 3.2f, 2.6f, 2.6f, 3.0f, 2.8f };
+        // on a Guardaroba floor -perfprops photographs the 17 props of the theme (modelli/hotel/genera_arredi4.py) instead of the list above
+        static readonly string[] GuardarobaNames = { "gu_armadio", "gu_armadio_aperto", "gu_forbici", "gu_bara", "gu_bara_chiusa", "gu_tavolo_sarto", "gu_macchina_cucire", "gu_stoffe", "gu_attaccapanni", "gu_braciere", "gu_incudine", "gu_crogiolo", "gu_gargoyle", "gu_albero_secco", "gu_specchio", "gu_lampione", "gu_urna" };
+        static readonly float[] GuardarobaDist = { 3.6f, 3.6f, 3.6f, 3.2f, 3.2f, 3.2f, 2.2f, 2.8f, 2.8f, 2.4f, 2.4f, 3.2f, 2.8f, 4.2f, 3.0f, 4.2f, 2.4f };
         static readonly float[] Azim = { 0f, 30f, -30f, 60f, -60f, 90f, -90f, 140f, -140f, 180f };
 
         static IEnumerator RunProps(Plan plan, PlayerController pl, Camera cam, RenderTexture rt, string tag)
@@ -73,10 +76,13 @@ namespace PryingEyes.Proc
             var cw = new List<string>();
             foreach (var r in plan.rooms) if (r.kind == RoomKind.Corridoio) cw.Add($"{System.Math.Min(r.W, r.D) / 10f:F1}");
             sb.AppendLine($"  corridoi (lato corto, m): {string.Join(" ", cw)}");
-            for (int k = 0; k < PropNames.Length; k++)
+            bool gu = plan.theme == Theme.Guardaroba;
+            var names = gu ? GuardarobaNames : PropNames;
+            var dists = gu ? GuardarobaDist : PropDist;
+            for (int k = 0; k < names.Length; k++)
             {
-                string n = PropNames[k];
-                int bestRank = int.MaxValue, found = 0;
+                string n = names[k];
+                int bestRank = int.MaxValue, found = 0, boxes = 0;
                 Vector3 bestPos = default, bestTarget = default;
                 var perKind = new SortedDictionary<string, int>();
                 foreach (var t in all)
@@ -86,6 +92,7 @@ namespace PryingEyes.Proc
                     for (var up = t.parent; up != null && !nested; up = up.parent) nested = up.name == n;
                     if (nested) continue;
                     found++;
+                    if (t.Find("Segnaposto") != null) boxes++;                           // RoomKits.Prop draws a grey box when the kit has no prefab
                     string kind = "?";
                     foreach (var r in plan.rooms)
                         if (!r.IsLift && t.position.x >= r.x0 * 0.1f && t.position.x <= r.x1 * 0.1f && t.position.z >= r.z0 * 0.1f && t.position.z <= r.z1 * 0.1f) { kind = r.kind.ToString(); break; }
@@ -98,7 +105,7 @@ namespace PryingEyes.Proc
                     for (int ai = 0; ai < Azim.Length && ai < bestRank; ai++)
                     {
                         Vector3 dir = Quaternion.Euler(0f, t.eulerAngles.y + Azim[ai], 0f) * Vector3.forward;
-                        Vector3 ideal = new Vector3(t.position.x, 0f, t.position.z) + dir * PropDist[k];
+                        Vector3 ideal = new Vector3(t.position.x, 0f, t.position.z) + dir * dists[k];
                         if (!NavMesh.SamplePosition(ideal, out var hit, 0.5f, NavMesh.AllAreas)) continue;
                         Vector3 eye = hit.position + Vector3.up * 1.6f, to = target - eye;
                         if (Physics.Raycast(eye, to.normalized, out var rh, to.magnitude + 0.1f, ~0, QueryTriggerInteraction.Ignore) && !rh.transform.IsChildOf(t)) continue;
@@ -108,7 +115,8 @@ namespace PryingEyes.Proc
                 }
                 var where = new List<string>();
                 foreach (var kv in perKind) where.Add($"{kv.Key} {kv.Value}");
-                if (bestRank == int.MaxValue) { sb.AppendLine($"  {n}: {(found == 0 ? "nessuna istanza in questo piano" : $"{found} istanze ma nessun punto di vista libero")} [{string.Join(", ", where)}]"); continue; }
+                string boxNote = boxes > 0 ? $" SEGNAPOSTO: {boxes} scatole grigie, il kit non ha il modello" : "";
+                if (bestRank == int.MaxValue) { sb.AppendLine($"  {n}: {(found == 0 ? "nessuna istanza in questo piano" : $"{found} istanze ma nessun punto di vista libero")} [{string.Join(", ", where)}]{boxNote}"); continue; }
                 Enemy.ClearAll();
                 pl.Teleport(bestPos);
                 yield return null;
@@ -120,7 +128,7 @@ namespace PryingEyes.Proc
                 yield return null;
                 cam.Render();
                 SavePng(rt, ShotDir + tag + "_prop_" + n + ".png");
-                sb.AppendLine($"  {n}: foto fatta ({found} istanze, vista a {Azim[bestRank]:F0} gradi dal fronte, distanza {PropDist[k]:F1} m) [{string.Join(", ", where)}]");
+                sb.AppendLine($"  {n}: foto fatta ({found} istanze, vista a {Azim[bestRank]:F0} gradi dal fronte, distanza {dists[k]:F1} m) [{string.Join(", ", where)}]{boxNote}");
             }
             File.AppendAllText(LogPath, sb.ToString());
             Debug.Log("[PryingEyes] perfprops: " + sb);
