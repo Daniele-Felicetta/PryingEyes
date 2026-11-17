@@ -463,6 +463,8 @@ namespace PryingEyes
                 transform.position.z - bobX * sin + right.z * latOff);
             float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll + (Downed ? 9f : 0f);
             cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP + mantlePitch, yaw * Mathf.Rad2Deg + recY, roll + mantleRoll);
+            // terza persona (impostazione del menu): la camera si sposta dietro la spalla solo mentre disegna; qui l'occhio si gira verso il mirino
+            if (GameSettings.ThirdPerson || ThirdPersonView.Count > 0) ThirdPersonView.AfterEyePose(this);
 
             // perk attivabile: il tempo degli effetti scorre in TickSurvival, anche nel menu cooperativo
             if (alive && !Downed && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (SeatInput.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())

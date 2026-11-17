@@ -529,6 +529,18 @@ namespace PryingEyes
                 ok = down3 && !p1.alive && !p1.Downed && !Targets.At(1).Alive && DeathsOf(seats[1]) == d1 + 1 && DeathsOf(seats[0]) == d0 && ScoreOf(seats[0]) == s0 && ScoreOf(seats[1]) < s1;
                 for (int i = 0; i < n; i++) if (i != 1) ok &= seats[i].player.alive && Targets.At(i).Alive;
                 Check($"senza aiuto il giocatore 2 si dissangua: muore solo lui, una morte sua ({DeathsOf(seats[1])}), punti {s1} -> {ScoreOf(seats[1])}, gli altri vivi e coi loro punti", ok);
+                if (!ok)
+                {
+                    // il controllo e' caduto una volta su quattro giri della build 0.8.0 (mai piu' nei tre successivi) senza dire quale condizione: ora la dice
+                    var why = new List<string>
+                    {
+                        $"a terra dopo il colpo={down3} vivo={p1.alive} a terra ora={p1.Downed} bersaglio vivo={Targets.At(1).Alive} sangue={p1.BleedLeft:F2} morti={DeathsOf(seats[1])}/{d1} punti={ScoreOf(seats[1])}/{s1}",
+                        $"giocatore 1: morti={DeathsOf(seats[0])}/{d0} punti={ScoreOf(seats[0])}/{s0}",
+                        $"nemici={Enemy.All.Count}"
+                    };
+                    for (int i = 0; i < n; i++) if (i != 1) why.Add($"giocatore {i + 1}: vivo={seats[i].player.alive} a terra={seats[i].player.Downed} bersaglio vivo={Targets.At(i).Alive}");
+                    Debug.Log("[PryingEyes] seatstest diagnosi: " + string.Join("; ", why));
+                }
                 Check("con un giocatore morto c'e' ancora chi e' vivo per i nemici", Targets.AnyAlive);
                 if (shots) { yield return new WaitForSeconds(0.7f); yield return Photo("4b-giocatore-2-morto"); }
                 yield return new WaitForSeconds(3.0f);

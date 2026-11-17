@@ -35,7 +35,7 @@ namespace PryingEyes
             "Luminosità, ombre, nitidezza e gli effetti della pellicola. Sinistra e destra cambiano scheda, giù entra nell'elenco.",
             "Volumi, tema del menu e suoni dell'interfaccia. Sinistra e destra cambiano scheda, giù entra nell'elenco.",
             "Sensibilità, assi invertiti e comandi a interruttore. Sinistra e destra cambiano scheda, giù entra nell'elenco.",
-            "Mirino, effetti della visuale, HUD dei compagni, contatore dei fotogrammi e pausa. Sinistra e destra cambiano scheda, giù entra nell'elenco.",
+            "Prospettiva, mirino, effetti della visuale, HUD dei compagni, contatore dei fotogrammi e pausa. Sinistra e destra cambiano scheda, giù entra nell'elenco.",
         };
         static readonly string[] ShadowNames = { "Bassa", "Media", "Alta" };
         static readonly string[] CrosshairNames = { "Classico", "Solo il punto", "Nessuno" };
@@ -145,6 +145,9 @@ namespace PryingEyes
 
         void BuildGamePage(SettingsPage p)
         {
+            // 0.8.0: prima o terza persona; la visuale cambia subito, anche in partita (docs/game/third-person.md)
+            AddToggle(p, "Prospettiva", "Prima persona: vedi dagli occhi del tuo personaggio. Terza persona: la camera sta dietro la spalla e vedi il sopravvissuto che sei.",
+                () => GameSettings.ThirdPerson, GameSettings.SetThirdPerson, "Prima persona", "Terza persona");
             AddChoice(p, "Mirino", "Il segno al centro dello schermo.",
                 () => CrosshairNames[GameSettings.Crosshair], d => GameSettings.SetCrosshair(Wrap(GameSettings.Crosshair + d, CrosshairNames.Length)));
             sMotion = AddSlider(p, "Oscillazione visuale", "Il dondolio dell'immagine quando cammini e il movimento del menu. A zero tutto resta fermo.",

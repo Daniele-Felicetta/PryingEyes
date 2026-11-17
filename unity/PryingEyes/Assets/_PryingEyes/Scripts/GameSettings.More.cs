@@ -143,7 +143,7 @@ namespace PryingEyes
 
         public static void ResetGame()
         {
-            SetCrosshair(CrosshairClassic); SetMotion(1f); SetCoopHudScale(1f); SetShowFps(false); SetPauseOnFocusLoss(true);
+            SetThirdPerson(false); SetCrosshair(CrosshairClassic); SetMotion(1f); SetCoopHudScale(1f); SetShowFps(false); SetPauseOnFocusLoss(true);
         }
 
         // ---- qualita' dell'immagine: l'asset della pipeline URP (si cambia in memoria, nel gioco vero)

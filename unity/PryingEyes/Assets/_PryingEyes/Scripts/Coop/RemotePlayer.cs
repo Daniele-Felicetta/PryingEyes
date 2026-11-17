@@ -16,6 +16,8 @@ namespace PryingEyes
         public int weapon;
         public float lean;                      // -1 sinistra .. +1 destra
         public float sight;                     // moltiplicatore della vista dei nemici (Perks.SightMult: 1, o 0.7 col Velo)
+        public int gun;                         // arma in mano: indice in WeaponDefs.All (255 = nessuna), la impugna il corpo dei compagni (pe-coop-29)
+        public bool ads, reloading;             // in mira, in ricarica (idem)
 
         public void Write(NetWriter w)
         {
@@ -24,7 +26,7 @@ namespace PryingEyes
              .U8(Mathf.Clamp(Mathf.RoundToInt(speedH * 20f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(lum * 255f), 0, 255))
              .U8(Mathf.Clamp(Mathf.RoundToInt(shotAge * 100f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(hp * 255f), 0, 255)).U8(weapon)
              .U8(Mathf.Clamp(Mathf.RoundToInt((Mathf.Clamp(lean, -1f, 1f) + 1f) * 127.5f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(sight * 100f), 0, 255))
-             .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255));
+             .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0));
         }
 
         public static PlayerNet Read(ref NetReader r)
@@ -45,6 +47,9 @@ namespace PryingEyes
             s.lean = r.U8() / 127.5f - 1f;
             s.sight = r.U8() / 100f;
             s.bleed = r.U8() / 8f;
+            s.gun = r.U8();
+            int f2 = r.U8();
+            s.ads = (f2 & 1) != 0; s.reloading = (f2 & 2) != 0;
             return s;
         }
     }
@@ -62,7 +67,8 @@ namespace PryingEyes
         Vector3 netPos;
         float netYaw, netPitch;
         Transform visual, legL, legR, headT, torchT;
-        new TextMesh tag;                       // il nome sopra la testa (nasconde Component.tag: qui non serve quello di Unity)
+        SurvivorBody body;                      // il corpo vero (modelli/personaggi); null senza i modelli: resta il manichino
+        new TextMesh tag;                      // il nome sopra la testa (nasconde Component.tag: qui non serve quello di Unity)
         Light beam;
         float torchNear = 1f;
         Proc.PoolLight pooled;
@@ -76,9 +82,9 @@ namespace PryingEyes
 
         public Vector3 Feet => transform.position;
         /// <summary>La mano sinistra del pupazzo, protesa in avanti: le magie degli altri partono da qui (MagicReplay).</summary>
-        public Vector3 HandPoint => visual != null ? visual.TransformPoint(new Vector3(-0.20f, 1.28f, 0.44f)) : transform.position + Vector3.up * 1.3f;
+        public Vector3 HandPoint => body != null ? body.LeftHand.position : visual != null ? visual.TransformPoint(new Vector3(-0.20f, 1.28f, 0.44f)) : transform.position + Vector3.up * 1.3f;
         /// <summary>La mano destra (quella della torcia): li' brilla il sigillo sull'arma di un compagno.</summary>
-        public Vector3 GunPoint => torchT != null ? torchT.position : transform.position + Vector3.up * 1.3f;
+        public Vector3 GunPoint => body != null ? body.RightHand.position : torchT != null ? torchT.position : transform.position + Vector3.up * 1.3f;
         /// <summary>Dove guarda (orizzontale e in alto/basso, come la sua visuale).</summary>
         public Vector3 Forward => Quaternion.Euler(last.pitch * Mathf.Rad2Deg, transform.eulerAngles.y, 0f) * Vector3.forward;
         /// <summary>Vivo e nel mio stesso piano (un compagno su un altro piano non e' un bersaglio per i miei nemici).</summary>
@@ -145,7 +151,9 @@ namespace PryingEyes
 
         void Build()
         {
-            visual = BuildBody(transform, slot, out legL, out legR, out headT, out torchT);
+            body = SurvivorBody.Create(transform, slot, gameObject.layer);
+            if (body != null) { visual = body.transform; headT = body.Eye; torchT = body.RightHand; }
+            else visual = BuildBody(transform, slot, out legL, out legR, out headT, out torchT);
             BuildBeamAndName();
         }
 
@@ -190,7 +198,7 @@ namespace PryingEyes
             beam.cookie = Torch.Cookie();
             beam.bounceIntensity = 0f;
             pooled = Proc.LightPool.Register(beam, false, false);
-            Stealth.SetLightLayers(beam, 1u);
+            Stealth.SetLightLayers(beam, SurvivorLight.TorchMask(slot));      // il mondo e i corpi degli altri, non il suo (la torcia dalla testa brucerebbe l'arma)
 
             var tg = new GameObject("Nome");
             tg.transform.SetParent(transform, false);
@@ -218,7 +226,7 @@ namespace PryingEyes
             if (beam == null) return;
             DropLight();
             pooled = Proc.LightPool.Register(beam, false, last.torch && last.alive && shown);
-            Stealth.SetLightLayers(beam, 1u);
+            Stealth.SetLightLayers(beam, SurvivorLight.TorchMask(slot));
         }
 
         public void SetName(string n)
@@ -265,21 +273,11 @@ namespace PryingEyes
             float yawDeg = Mathf.LerpAngle(transform.eulerAngles.y, netYaw * Mathf.Rad2Deg, 1f - Mathf.Exp(-16f * dt));
             transform.rotation = Quaternion.Euler(0f, yawDeg, 0f);
             float v = dt > 0f ? new Vector2(transform.position.x - before.x, transform.position.z - before.z).magnitude / dt : 0f;
-            walkPhase += dt * (3f + v * 1.6f);
-            float swing = Mathf.Sin(walkPhase) * 32f * Mathf.Clamp01(v / 2.5f);
-            if (legL != null) { legL.localRotation = Quaternion.Euler(swing, 0f, 0f); legR.localRotation = Quaternion.Euler(-swing, 0f, 0f); }
-            // accovacciato: piu' basso; morto: a terra
-            float targetScale = last.crouch ? 0.72f : 1f;
-            var vs = visual.localScale;
-            visual.localScale = new Vector3(1f, Mathf.Lerp(vs.y, targetScale, 1f - Mathf.Exp(-10f * dt)), 1f);
-            // a terra: semisdraiato sul fianco, il busto ancora su; morto: disteso
-            Quaternion pose = !last.alive ? Quaternion.Euler(-88f, 0f, 0f) : last.downed ? Quaternion.Euler(-62f, 0f, 14f) : Quaternion.identity;
-            Vector3 lift = !last.alive ? new Vector3(0f, 0.18f, 0f) : last.downed ? new Vector3(0f, 0.12f, -0.15f) : Vector3.zero;
-            visual.localRotation = Quaternion.Slerp(visual.localRotation, pose, 1f - Mathf.Exp(-8f * dt));
-            visual.localPosition = Vector3.Lerp(visual.localPosition, lift, 1f - Mathf.Exp(-8f * dt));
+            if (body != null) DriveBody(dt, before);
+            else AnimateMannequin(dt, v);
             if (beam != null)
             {
-                Vector3 head = transform.position + Vector3.up * (last.crouch ? 1.2f : 1.62f);
+                Vector3 head = body != null ? body.EyeWorld : transform.position + Vector3.up * (last.crouch ? 1.2f : 1.62f);
                 beam.transform.position = head + transform.forward * 0.25f;
                 beam.transform.rotation = Quaternion.Euler(netPitch * Mathf.Rad2Deg, yawDeg, 0f);      // come la camera di PlayerController: pitch positivo = guarda in basso
                 if (beam.enabled)
@@ -303,6 +301,41 @@ namespace PryingEyes
                     tag.color = last.downed ? new Color(1f, 0.42f, 0.36f, 1f) : new Color(0.95f, 0.92f, 0.82f, 0.95f);
                 }
             }
+        }
+
+        /// <summary>Il corpo vero (SurvivorBody): gli si dice dove va, dove guarda e cosa fa; passo, braccia e arma li fa lui.</summary>
+        void DriveBody(float dt, Vector3 before)
+        {
+            Vector3 vel = dt > 0f ? (transform.position - before) / dt : Vector3.zero;
+            if (vel.sqrMagnitude > 64f) vel = Vector3.zero;          // un salto di posizione (cambio piano, teletrasporto) non fa correre il corpo
+            var inp = body.input;
+            inp.velocity = vel;
+            inp.pitch = netPitch; inp.lean = last.lean;
+            inp.crouch = last.crouch; inp.sprint = last.sprint;
+            inp.alive = last.alive; inp.downed = last.downed;
+            inp.grounded = Mathf.Abs(vel.y) < 2.5f;
+            inp.weapon = last.gun < WeaponDefs.All.Length ? last.gun : -1;
+            inp.shotAge = last.shotAge + (Time.unscaledTime - lastStateTime);
+            inp.ads = last.ads ? 1f : 0f;
+            inp.reloading = last.reloading;
+            body.input = inp;
+        }
+
+        /// <summary>Il manichino di riserva (senza i modelli dei personaggi): gambe che oscillano, accovacciato, a terra, morto.</summary>
+        void AnimateMannequin(float dt, float v)
+        {
+            walkPhase += dt * (3f + v * 1.6f);
+            float swing = Mathf.Sin(walkPhase) * 32f * Mathf.Clamp01(v / 2.5f);
+            if (legL != null) { legL.localRotation = Quaternion.Euler(swing, 0f, 0f); legR.localRotation = Quaternion.Euler(-swing, 0f, 0f); }
+            // accovacciato: piu' basso; morto: a terra
+            float targetScale = last.crouch ? 0.72f : 1f;
+            var vs = visual.localScale;
+            visual.localScale = new Vector3(1f, Mathf.Lerp(vs.y, targetScale, 1f - Mathf.Exp(-10f * dt)), 1f);
+            // a terra: semisdraiato sul fianco, il busto ancora su; morto: disteso
+            Quaternion pose = !last.alive ? Quaternion.Euler(-88f, 0f, 0f) : last.downed ? Quaternion.Euler(-62f, 0f, 14f) : Quaternion.identity;
+            Vector3 lift = !last.alive ? new Vector3(0f, 0.18f, 0f) : last.downed ? new Vector3(0f, 0.12f, -0.15f) : Vector3.zero;
+            visual.localRotation = Quaternion.Slerp(visual.localRotation, pose, 1f - Mathf.Exp(-8f * dt));
+            visual.localPosition = Vector3.Lerp(visual.localPosition, lift, 1f - Mathf.Exp(-8f * dt));
         }
 
         void OnDestroy()

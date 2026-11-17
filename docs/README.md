@@ -34,6 +34,8 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [map.md](game/map.md) | The map: a hand-inked dossier (minimap and big sheet), what each mark means, how a floor is revealed, the painter and its lab, the checks. |
 | [cathedrals-and-annexes.md](game/cathedrals-and-annexes.md) | Cathedral halls and annexes of the survival layout. |
 | [arms-and-magic.md](game/arms-and-magic.md) | The biomechanical arms and articulated left hand, the spells and weapon seals of the second hand, the secret book room and its two 19-node grimoires. |
+| [characters.md](game/characters.md) | The four survivors (Custode, Dottoressa, Reporter, Cacciatrice): who is who, how the code animates them (legs, gait, weapon in hand, fingers), how Blender makes them and how to make one more, where they show (co-op partners, split screen, your own body). |
+| [third-person.md](game/third-person.md) | The third-person view (setting *Prospettiva*): the camera behind the shoulder, why shots still land on the crosshair, how it is rendered, its check and what is not verified. |
 | [feel-and-reflections.md](game/feel-and-reflections.md) | Room reflections, scoreboard, inspection, ragdolls, vaulting, hit reactions, light shafts, empty magazines, medals, adaptive music, surface impacts. |
 | [display-and-menu.md](game/display-and-menu.md) | The hotel-register main menu, the five settings tabs (display, image, audio, controls, game), the guide, the tips and the pause screen. |
 | [menu-music.md](game/menu-music.md) | The main-menu theme (a generated waltz for music box and organ) and the menu tones: how they are made, when they play, their loudness, what was measured and what was not listened to. |

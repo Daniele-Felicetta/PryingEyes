@@ -327,6 +327,9 @@ namespace PryingEyes
             s.lean = pl.lean; s.sight = Perks.SightMult; s.velo = Perks.VeloOn;
             s.weapon = pl.weapon != null ? Mathf.Clamp(pl.weapon.SlotIndex, 0, 255) : 0;
             s.downed = pl.Downed; s.bleed = pl.Downed ? pl.BleedLeft : 0f;
+            var gun = pl.weapon;
+            s.gun = gun != null ? Mathf.Clamp(gun.CurrentIndex, 0, 254) : 255;
+            s.ads = gun != null && gun.ads > 0.5f; s.reloading = gun != null && gun.reloading;
             return s;
         }
 
