@@ -16,8 +16,11 @@ namespace PryingEyes
         public Camera camera;
         /// <summary>Contenitore degli oggetti del posto (null per il posto 0): tutto quello che vi sta sotto "e' suo".</summary>
         public Transform root;
-        /// <summary>La sua porzione dello schermo, 0..1 (y dal basso, come Camera.rect).</summary>
+        /// <summary>La sua porzione dello schermo, 0..1 (y dal basso, come Camera.rect). E' dentro il SUO monitor (display).</summary>
         public Rect view = new Rect(0f, 0f, 1f, 1f);
+        /// <summary>Il monitor su cui sta: 0 e' la finestra del gioco, 1 e oltre i monitor accesi con SplitScreen.ActivateDisplays (camera e HUD ci
+        /// vanno con Camera.targetDisplay e il canvas del monitor). Con un monitor solo e' sempre 0.</summary>
+        public int display;
         /// <summary>Lo strato di Unity di arma e mani di questo giocatore: le camere degli altri non lo disegnano.</summary>
         public int viewLayer;
         // quello che il resto del gioco legge come globale (GameManager.I.score, Equipment.I...): Seats.Install lo mette al suo posto
@@ -28,6 +31,9 @@ namespace PryingEyes
         public Proc.Interact.State interact = new Proc.Interact.State();
         public WallBuy.State wallBuy = new WallBuy.State();
         public PadControls.Channel pad;
+        /// <summary>Ha un'interfaccia aperta sopra il gioco (il grimorio): blocca i comandi di questo giocatore e basta. Vale quando il
+        /// posto non e' installato; quando gira, il valore vivo e' GameMenu.Overlay (Seats.OverlayOf sceglie).</summary>
+        public bool overlay;
         /// <summary>Come lo vedono i nemici (il posto 0 e' Targets.Local, gli altri un SeatTarget).</summary>
         public ITarget target;
 
@@ -150,6 +156,7 @@ namespace PryingEyes
             s.shotsFired = GameManager.shotsFired; s.shotsHit = GameManager.shotsHit; s.damageTaken = GameManager.damageTaken;
             s.headshots = GameManager.headshots; s.deaths = GameManager.deaths;
             s.equipment = Equipment.I; s.knife = Knife.I; s.torch = Torch.I; s.guide = Guide.I; s.rig = StealthRig.I; s.prove = Prove.I;
+            s.overlay = GameMenu.Overlay;
         }
 
         static void Load(Seat s, GameManager gm)
@@ -160,6 +167,25 @@ namespace PryingEyes
             Equipment.I = s.equipment; Knife.I = s.knife; Torch.I = s.torch; Guide.I = s.guide; StealthRig.I = s.rig; Prove.I = s.prove;
             Stealth.Use(s.stealth); Medals.Use(s.medals); Proc.Interact.Use(s.interact); WallBuy.Use(s.wallBuy);
             PadControls.Use(s.pad);
+            GameMenu.Overlay = s.overlay;
+        }
+
+        /// <summary>Apre o chiude l'interfaccia sopra il gioco di un posto (il grimorio): da quel momento i comandi di quel giocatore sono
+        /// bloccati e gli altri no. Con null o con il posto che gira e' il flag vivo di GameMenu, altrimenti quello salvato nel posto
+        /// (lo rimette Load quando il posto gira).</summary>
+        public static void SetOverlay(Seat s, bool open)
+        {
+            if (s == null || s == cur) GameMenu.Overlay = open; else s.overlay = open;
+        }
+
+        /// <summary>Quel posto ha un'interfaccia aperta sopra il gioco? (null: chi gira.)</summary>
+        public static bool OverlayOf(Seat s) => s == null || s == cur ? GameMenu.Overlay : s.overlay;
+
+        /// <summary>Il posto che ascolta quel controller (null fuori dallo schermo condiviso).</summary>
+        public static Seat OfPad(PadControls.Channel c)
+        {
+            for (int i = 0; i < All.Count; i++) if (All[i].pad == c) return All[i];
+            return null;
         }
 
         /// <summary>Rimette nei globali i dati del posto che gira (dopo averne cambiato il giocatore o l'HUD a mano).</summary>

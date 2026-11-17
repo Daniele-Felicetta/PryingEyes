@@ -282,6 +282,7 @@ namespace PryingEyes
                 eye.lookAt = a == Alert.Patrol || a == Alert.Searching ? null : (tgt ?? Targets.Local).LookAt;
                 eye.glowBoost = a == Alert.Hunting ? 1.9f : a == Alert.Suspicious ? 1.35f : 0.85f;
             }
+            if (jelly != null) jelly.glowBoost = a == Alert.Hunting ? 1.4f : a == Alert.Suspicious ? 1.15f : 0.85f;
         }
 
         void SetGoalNear(Vector3 p)

@@ -5,8 +5,8 @@ using PryingEyes.Proc;
 namespace PryingEyes
 {
     /// <summary>Il grimorio sull'altare del sacrario: un leggio di pietra scura con il piano inclinato e sopra il libro aperto, coperta di
-    /// cuoio con gli angoli d'ottone e le due pagine dipinte (GrimoirePage.Page3D: pergamena, sangue, il dodecaedro coi suoi 19 nodi) le
-    /// cui rune brillano di rosso. Braci che salgono, la luce rossa che respira. F apre il libro (GrimoireUI).</summary>
+    /// cuoio con gli angoli d'ottone e le due pagine con l'arte della tavola (GrimoirePage.Page3D: il libro aperto dell'immagine, con i
+    /// vani del dodecaedro) le cui parti rosse brillano. Braci che salgono, la luce rossa che respira. F apre il libro (GrimoireUI).</summary>
     public sealed class GrimoireAltar : MonoBehaviour, IInteract
     {
         public Grimoire.Book book;
@@ -94,11 +94,8 @@ namespace PryingEyes
             var tex = GrimoirePage.Page3D(book, out var glowTex);
             pageMat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "Pagine del grimorio" };
             pageMat.SetTexture("_BaseMap", tex);
-            pageMat.SetColor("_BaseColor", new Color(0.72f, 0.68f, 0.64f));
+            pageMat.SetColor("_BaseColor", new Color(0.92f, 0.88f, 0.84f));
             pageMat.SetFloat("_Smoothness", 0.18f);
-            pageMat.SetFloat("_AlphaClip", 1f);
-            pageMat.SetFloat("_Cutoff", 0.45f);
-            pageMat.EnableKeyword("_ALPHATEST_ON");
             pageMat.SetFloat("_Cull", 0f);
             pageMat.EnableKeyword("_EMISSION");
             pageMat.SetTexture("_EmissionMap", glowTex);
@@ -141,7 +138,7 @@ namespace PryingEyes
         void Update()
         {
             float dt = Time.deltaTime;
-            bool reading = GrimoireUI.Open;
+            bool reading = GrimoireUI.AnyOpen;
             float pulse = 0.85f + 0.15f * Mathf.Sin(Time.time * 1.7f + phase);
             if (pageMat != null) pageMat.SetColor("_EmissionColor", glowColor * ((reading ? 1.3f : 0.65f) * pulse));
             if (glow != null) ShrineKit.SetGlow(glow, (reading ? 1.5f : 0.9f) * LightPool.Dim);

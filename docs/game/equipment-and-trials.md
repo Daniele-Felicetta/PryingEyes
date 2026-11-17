@@ -35,6 +35,10 @@ Completing it pays 400 + 60 per wave points and, solo or on the host, drops a Ma
 player's feet. If the wave ends first the trial is lost. Each player has their own trial and counts their own kills
 (`GameManager.CreditKill` runs on clients too).
 
+The trial of a wave is drawn at random among the kinds above. An automatic test can fix it with `Prove.pinned` (null in the
+game, like `Drops.disabled` for the random drops): `-survivaltest` pins Testa, because its kills are never headshots and Furia, by
+contrast, would complete itself and pay.
+
 ## Verification
 
 `PryingEyes.exe -batchmode -autotest -nofire -noenemies -equiptest [-equipshots] -seed 1000 -floor 1`

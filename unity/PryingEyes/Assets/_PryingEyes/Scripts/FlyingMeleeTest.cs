@@ -74,6 +74,7 @@ namespace PryingEyes
             foreach(var renderer in root.GetComponentsInChildren<Renderer>())
             {
                 if(!renderer.enabled||(renderer.sharedMaterial!=Fx.SparkMat&&renderer.sharedMaterial!=Fx.PuffMat))continue;
+                if(Vector3.Distance(renderer.transform.position,Camera.main.transform.position)>20)continue;   // le faville d'ambiente lontane (a 55-60 m) non sono impatti
                 Vector3 screen=Camera.main.WorldToViewportPoint(renderer.transform.position);
                 if(!visible||(screen.z>Camera.main.nearClipPlane&&screen.x>0&&screen.x<1&&screen.y>0&&screen.y<1&&renderer.transform.localScale.x>0.001f))count++;
             }

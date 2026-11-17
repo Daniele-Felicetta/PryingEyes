@@ -101,7 +101,7 @@ namespace PryingEyes
         }
 
         public void SetPingCooldown(float fraction) { pingCd = fraction; }
-        public void PingPulse() { pingRingT = 0f; }
+        public void PingPulse() { pingRingT = 0f; if (mapView != null) mapView.Ping(); }
 
         // ------------------------------------------------------------------ aggiornamento
         void UpdateStealthUI(float dt)
@@ -151,7 +151,7 @@ namespace PryingEyes
             torchCount.text = torchSpares > 0 ? "× " + torchSpares : "";
             string cooldown = pingCd > 0f ? "  (" + Mathf.CeilToInt(pingCd * Guide.Cooldown) + " s)" : "";
             string hint = PadControls.Preferred
-                ? "Su torcia (tienilo: pila)  ·  sinistra ping" + cooldown + "  ·  R3 coltello"
+                ? "Su torcia (tienilo: pila)  ·  tieni destra: ping" + cooldown + "  ·  R3 coltello"
                 : "T torcia  ·  Y cambia pila  ·  V ping" + cooldown + "  ·  G coltello";
             if (hint != lastHint) { lastHint = hint; keyHint.text = hint; }
         }

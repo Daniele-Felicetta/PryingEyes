@@ -11,7 +11,11 @@ namespace PryingEyes
     /// <summary>-autotest -survivaltest [-seed N]: il ciclo a ondate della Torre da soli. La prima ondata parte da sola, nasce solo nelle aree
     /// aperte (e solo in quelle comprate dopo), mai addosso al giocatore e col tetto dei vivi; il premio arriva una volta; tre ondate aprono
     /// l'ascensore; la morte annulla l'ondata e rimette il numero; la quinta e' la Processione dei Lumi (solo Veglie, piu' numerose, regalo).
-    /// I nemici li uccide la prova (senza punti: il premio si misura da solo).</summary>
+    /// I nemici li uccide la prova (senza punti: il premio si misura da solo).
+    /// Il risultato non dipende da cosa esce a sorte (due cose lo facevano): la Prova dell'ondata e' fissata (Prove.pinned, vedi Run:
+    /// Furia si completa da sola con le uccisioni a raffica e paga +520/+640 piu' un potenziamento) e il conto del premio somma i punti dei
+    /// colpi che non uccidono (Punti.paidForHits: lo scoppio di un Appestato ferisce chi gli sta accanto e lo lascia vivo, +10 l'uno).
+    /// Quel caso, che nelle ondate capita solo a volte, qui e' forzato a ogni giro (BurstPays).</summary>
     public sealed class SurvivalTest : MonoBehaviour
     {
         int checks, failed;
@@ -73,7 +77,7 @@ namespace PryingEyes
             if (!rd.Fighting) yield break;
             Check(tag + "numero di nemici previsto", rd.Target == expectedTarget, $"{rd.Target} invece di {expectedTarget}");
             Check(tag + (moth ? "e' una Processione" : "non e' una Processione"), rd.Moth == moth);
-            int scoreBefore = gm.score, statBefore = Drops.statSpawned, medalsBefore = Medals.Points;
+            int scoreBefore = gm.score, statBefore = Drops.statSpawned, medalsBefore = Medals.Points, hitsBefore = Punti.paidForHits;
             var seen = new HashSet<Enemy>();
             int outside = 0, notHunting = 0, tooClose = 0, wrongType = 0, wrongSpeed = 0, maxAlive = 0;
             float killT = 0f, started = Time.time;
@@ -108,12 +112,44 @@ namespace PryingEyes
             Check(tag + "tetto dei vivi rispettato", maxAlive <= expectedCap, $"massimo {maxAlive}, tetto {expectedCap}");
             if (moth) Check(tag + "solo Veglie", wrongType == 0, $"{wrongType} di altro tipo");
             // ogni uccisione paga comunque (awardPoints=false toglie solo i 10 per colpo) e le medaglie delle serie (Medals.cs: KillAll ne fa
-            // a raffica) pagano a parte: il resto e' il premio dell'ondata, versato una volta sola
-            int kills = seen.Count * Punti.PerUccisione(DamageSource.Gun, false), medals = Medals.Points - medalsBefore;
-            int expectScore = RoundRules.Reward(round) + kills + medals;
-            Check(tag + "premio una volta sola", gm.score - scoreBefore == expectScore, $"+{gm.score - scoreBefore}, atteso +{expectScore} (premio {RoundRules.Reward(round)} + uccisioni {kills} + medaglie {medals})");
+            // a raffica) pagano a parte; pagano a parte anche i colpi che non uccidono ma non vengono da KillAll: lo scoppio di un Appestato
+            // ferisce chi gli sta accanto (+10 l'uno, Punti.paidForHits). Il resto e' il premio dell'ondata, versato una volta sola
+            int kills = seen.Count * Punti.PerUccisione(DamageSource.Gun, false), medals = Medals.Points - medalsBefore, hits = Punti.paidForHits - hitsBefore;
+            int expectScore = RoundRules.Reward(round) + kills + medals + hits;
+            Check(tag + "premio una volta sola", gm.score - scoreBefore == expectScore, $"+{gm.score - scoreBefore}, atteso +{expectScore} (premio {RoundRules.Reward(round)} + uccisioni {kills} + medaglie {medals} + colpi {hits})");
             Check(tag + (moth ? "il regalo della Processione cade" : "nessun regalo"), Drops.statSpawned - statBefore == (moth ? 1 : 0), $"{Drops.statSpawned - statBefore} potenziamenti");
             Check(tag + "pausa prima della successiva", !rd.Fighting && rd.NextWave > 8.5f && rd.NextWave <= RoundDirector.WaveBreak, $"{rd.NextWave:F1} s");
+        }
+
+        /// <summary>Lo scoppio di un Appestato, a mano e fra un'ondata e l'altra. Chi gli sta accanto e sopravvive prende un colpo che paga
+        /// Punti.Colpo (10); l'uccisione di ognuno paga a parte (60). E' il +10 che KillAll fa a volte senza volerlo nelle ondate dalla
+        /// quarta (ogni ondata ha in media tre Appestati): se uno muore con un monaco a pochi metri, lo scoppio lo ferisce e lui
+        /// sopravvive, e 'premio una volta sola' deve contarlo (86/87 del 17 novembre 2026: un Appestato e un monaco nati a 3,3 m l'uno
+        /// dall'altro, uccisi nello stesso passaggio). Qui il caso c'e' a ogni giro: a 3 m si e' dentro il raggio dello scoppio (3,6 m)
+        /// ma il danno (320 al centro, 90 al bordo) non basta a uccidere un monaco di 200 di vita (ci riesce fino a 1,9 m).</summary>
+        IEnumerator BurstPays()
+        {
+            var gm = GameManager.I;
+            bool found = MeleeTest.FindArena(out Vector3 spot, out Vector3 forward);
+            Check("scoppio: c'e' un tratto libero sulla navmesh", found);
+            if (!found) yield break;
+            var plague = Enemy.Spawn(Enemy.EnemyType.Appestato, spot);
+            var monk = Enemy.Spawn(Enemy.EnemyType.Monaco, spot + forward * 3f);
+            int score0 = gm.score, hits0 = Punti.paidForHits, medals0 = Medals.Points;
+            float apart = Vector3.Distance(plague.transform.position, monk.transform.position);
+            plague.Damage(plague.hp + 5f, plague.AimPoint, false, false);          // come KillAll: senza i 10 per colpo
+            Check("scoppio: l'Appestato ucciso ferisce il monaco a 3 m e lo lascia vivo", plague.IsDead && !monk.IsDead && monk.hp < monk.maxHp - 1f,
+                $"a {apart:F1} m, vita {monk.hp:F0}/{monk.maxHp:F0}");
+            int hits = Punti.paidForHits - hits0;
+            Check("scoppio: il colpo che non uccide paga 10 e l'uccisione dell'Appestato 60",
+                hits == Punti.Colpo && gm.score - score0 == Punti.Uccisione + Punti.Colpo + (Medals.Points - medals0),
+                $"+{gm.score - score0}, colpi {hits}, medaglie {Medals.Points - medals0}");
+            monk.Damage(monk.hp + 5f, monk.AimPoint, false, false);
+            Check("scoppio: il monaco ferito paga 60 uccidendolo e non altri 10", monk.IsDead && Punti.paidForHits - hits0 == Punti.Colpo &&
+                gm.score - score0 == 2 * Punti.Uccisione + Punti.Colpo + (Medals.Points - medals0),
+                $"+{gm.score - score0}, colpi {Punti.paidForHits - hits0}, medaglie {Medals.Points - medals0}");
+            foreach (var cloud in FindObjectsByType<ToxicCloud>(FindObjectsSortMode.None)) Destroy(cloud.gameObject);     // la nube non deve ferire chi nasce nell'ondata dopo
+            yield return null;
         }
 
         IEnumerator Run()
@@ -125,6 +161,7 @@ namespace PryingEyes
             Check("piano pronto", fd != null && fd.cur != null && rd != null && access != null);
             if (fd == null || fd.cur == null || rd == null || access == null) yield break;
             Drops.disabled = true;                        // niente cadute a caso: il regalo della Processione si conta da solo
+            Prove.pinned = Prove.Kind.Testa;              // niente Prova a caso: KillAll non uccide alla testa, quindi non la completa (Furia si')
             pl.invulnerable = true;
             Check("ciclo a ondate attivo", SurvivalMode.Enabled && RoundDirector.Enabled && !SurvivalMode.HoldWaves);
             Check("stealth spento", !Stealth.Enabled);
@@ -170,6 +207,7 @@ namespace PryingEyes
             // ---- ondata 3: l'ascensore si apre alla fine
             yield return PlayWave(3, false, RoundDirector.SurvivalTarget(3, 1), RoundDirector.SurvivalCap(3, 1));
             Check("tre ondate aprono l'ascensore", rd.FloorWaves == 3 && fd.ExitOpen);
+            yield return BurstPays();
 
             // ---- la morte annulla l'ondata
             rd.SurvivalNextWaveIn(0f);

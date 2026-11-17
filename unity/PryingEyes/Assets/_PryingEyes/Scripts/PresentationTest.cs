@@ -190,13 +190,23 @@ namespace PryingEyes
             Check("HUD nascosto nel menu", !gm.hud.GetComponent<Canvas>().enabled);
             Layout("principale");
             Click("Come si gioca"); Layout("guida"); Click("Indietro");
-            Click("Impostazioni"); Layout("impostazioni");
-            Click("Audio e comandi"); Layout("audio e comandi");
+            Click("Impostazioni"); Click("Schermo"); Layout("impostazioni");
+            Click("Immagine"); Layout("immagine");
             var sliders = GameMenu.I.GetComponentsInChildren<Slider>();
-            Check("sette impostazioni disponibili", sliders.Length == 7);
+            Check("cinque cursori nella scheda Immagine", sliders.Length == 5);
             Check("maniglie contenute nei cursori", Array.TrueForAll(sliders,
                 s => s.handleRect.rect.height <= s.GetComponent<RectTransform>().rect.height));
-            sliders[1].value = 90f; sliders[2].value = 1.5f; sliders[3].value = 0f;
+            sliders[1].value = 90f;
+            Click("Comandi"); Layout("comandi");
+            sliders = GameMenu.I.GetComponentsInChildren<Slider>();
+            Check("due cursori nella scheda Comandi", sliders.Length == 2);
+            sliders[0].value = 1.5f;
+            Click("Audio"); Layout("audio");
+            Check("cinque cursori nella scheda Audio", GameMenu.I.GetComponentsInChildren<Slider>().Length == 5);
+            Click("Gioco"); Layout("gioco");
+            sliders = GameMenu.I.GetComponentsInChildren<Slider>();
+            Check("due cursori nella scheda Gioco", sliders.Length == 2);
+            sliders[0].value = 0f;
             Check("cursori applicano FOV, sensibilità e comfort", GameSettings.Fov == 90f && GameSettings.Sensitivity == 1.5f && GameSettings.Motion == 0f);
             GameSettings.SetFov(999f); GameSettings.SetSensitivity(-1f); GameSettings.SetMotion(float.NaN);
             Check("valori non validi contenuti", GameSettings.Fov == 105f && GameSettings.Sensitivity == 0.25f && GameSettings.Motion == 0.5f);

@@ -146,6 +146,7 @@ namespace PryingEyes
 
         void PuppetAlertVisual()
         {
+            if (jelly != null) jelly.glowBoost = alert == Alert.Hunting ? 1.4f : alert == Alert.Suspicious ? 1.15f : 0.85f;
             if (eye == null) return;
             eye.lookAt = alert == Alert.Patrol || alert == Alert.Searching ? null : PuppetLookAt();
             eye.glowBoost = alert == Alert.Hunting ? 1.9f : alert == Alert.Suspicious ? 1.35f : 0.85f;
@@ -226,6 +227,7 @@ namespace PryingEyes
             else if (loop != null) loop.pitch = basePitch * (0.85f + vel.magnitude / 14f);   // l'occhio accelera: il ronzio sale
             if (eye != null && IsFlying(type)) eye.lookAt = atkLock > 0 ? null : PuppetLookAt();
             if (alienRig != null) alienRig.Animate(phase, v, alert == Alert.Hunting, strikeAt >= 0f, FlightElapsed);
+            if (jelly != null) jelly.Drive(phase, v, alert == Alert.Hunting, strikeAt >= 0f, FlightElapsed);
         }
 
         /// <summary>Un attacco, un lancio o un grido sull'ospite: qui l'animazione e il suono.</summary>
@@ -268,6 +270,7 @@ namespace PryingEyes
                     if (Archetype == EnemyType.Monaco && atkLock <= 0f && anim != null) anim.SetTrigger("Colpito");
                     if (Archetype == EnemyType.Abate && atkLock <= 0f && anim != null && flinchT <= 0f) { anim.SetTrigger("Colpito"); flinchT = 1.5f; }
                     if (Archetype == EnemyType.Occhio && eye != null) eye.Hit();
+                    if (jelly != null) jelly.Hit(pos);
                     break;
                 case EnemyEvt.Whistle:
                     Sfx.At(SoundBank.Whistle, transform.position + Vector3.up * 1.6f, 1f, Random.Range(0.96f, 1.06f), 4f, 60f);

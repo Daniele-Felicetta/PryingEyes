@@ -231,7 +231,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot(TestPaths.Out("auto_cam1.png")); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot(TestPaths.Out("auto_cam2.png")); }
-                bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-meleetest") ||
+                bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-jellytest") || HasArg("-meleetest") ||
                     HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || HasArg("-cattedraletest") || trailer;
                 if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
@@ -690,6 +690,7 @@ namespace PryingEyes
                 if (claimer == 0) CreditKill(src, headshot);
                 else Coop.Game?.KillCredit(claimer, src, headshot);
                 Drops.OnKill(e, src);
+                if (e != null) Proc.FloorMap.NoteKill(e.transform.position);      // il sangue sulla mappa (Proc/Map/FloorMap.cs)
                 return;
             }
             alive--;

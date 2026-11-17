@@ -79,7 +79,7 @@ Each room has a role (`RoomType`). The colour of its door frames tells the role 
 
 The two halves of a floor (the arrival zone and the boss zone) are the two "wings" of the theme, each with its own furniture palette: church and hotel, or auditorium and stage for the theatre.
 
-**Map.** `M` opens the map and `N` shows the minimap. Rooms are drawn as nodes: visited rooms in the colour of their role, with their name. Rooms beyond an open door are drawn as `?`, doors as notches. The secret room appears only after you have entered it (`FloorDirector.GridMapItems`).
+**Map.** `M` opens the map and `N` shows the minimap. The map is a hand-inked dossier that fills in as you explore: visited rooms are drawn with their furniture, role and name; rooms beyond an open door are ink stains with a `?` and eyes that follow you; sealed doors are wax seals with their price. The secret room appears only after you have entered it. Everything it shows and how it is drawn is on [map.md](map.md).
 
 **Generator.** `PlanGrid.cs` (integer geometry, like `PlanGen`). Speed claims from the original text, 2,000 plans in half a second, none failed, eight in ten on the first try, are not verified. To get statistics (roles, doors, sizes, arenas, shutters): `cd tools/planlab; dotnet run -c Release -- grid 2000` (the `grid` argument is not verified).
 
@@ -208,7 +208,7 @@ the stained glass of the churches 25% stronger, and the ambient light of every t
 
 Velo is not offered in the wave cycle, so `H` is effectively candle-cycle only.
 
-**Scrigno** (the mystery box). For **950** points the clasp clicks, the barrel lid rises to its stop, and the treasure lights up. A column of light rises from the chest, and weapons of all five grades rise out of it, more and more slowly. It stops on one at random (the higher grades weigh more the deeper you are, never the starting pistol, never ones you already have). You have nine seconds to take it with `F`. Otherwise the weapon sinks back, the lid drops, and the points are lost. With full pockets it replaces the weapon in your hands. The opening timing follows the sound (`SoundGen.ChestOpen`): the click at 0 s, the hinge creak from 0.18 s, the thud at 1.32 s, two glass notes at 1.45 s. The five grades are as stated in the source (not verified).
+**Scrigno** (the mystery box). A chest of blackened, rotten planks and rusted iron, locked by an iron eye (`Scrigno.cs`; the look is in `ScrignoArt.cs`: textures painted at run time, merged meshes, no assets). While it is closed the eyelids are shut and nothing glows; come within four metres and they part a crack, a red glow shows on the wood, and the eye follows you. For **950** points the eyelids open wide, the clasp clicks, the barrel lid rises to its stop, and a cold, pale light comes up from the chest among tarnished coins, bones and a skull, with a slow mist and a thin column. Weapons of all five grades rise out of it, more and more slowly. It stops on one at random (the higher grades weigh more the deeper you are, never the starting pistol, never ones you already have). The eye keeps watching you and blinks now and then. You have nine seconds to take the weapon with `F`. Otherwise the weapon sinks back, the lid drops, and the points are lost. With full pockets it replaces the weapon in your hands. The opening timing follows the sound (`SoundGen.ChestOpen`): the click at 0 s, the hinge creak from 0.18 s, the thud at 1.32 s, then a funeral toll (a low bell and a second one a semitone above it) and a breath from 1.38 s. The five grades are as stated in the source (not verified).
 
 **Altare della Consacrazione** (the Pack-a-Punch). For **3,000** points it consecrates the weapon in your hands, once per weapon: damage ×1.7, magazine and reserve ×1.5, golden metal and a golden name in the HUD (`Consacrazione.cs`). The altar is in the Segreta on candle-cycle grids. In the wave cycle the Segreta does not exist, so the altar is placed elsewhere.
 
@@ -231,7 +231,7 @@ They drop from kills with a 4.5% chance (double with the knife, four times with 
 
 - **Veglia**: a candle hung in a torn votive veil. Fragile and fast, it shows its weak point as two embers in its wax face.
 - **Portachiavi**: the reception key cabinet turned into a small walking reliquary: tarnished brass, four articulated keys and a bell that warns before the blow. The glowing lock is its weak point.
-- **Medusa**: a slower flying presence with cyan tentacles.
+- **Medusa**: a flying jellyfish with a torn translucent bell lit green from inside, a ring of fangs and dozens of dripping tentacles. Slower than the Veglia (speed 1.9 against 3.5) and sturdier (140 hit points). Its mouth is its weak point. Before the blow its tentacles curl up, the bell flares and the organs blaze, then it lunges with a jet of mucus. See [medusa.md](medusa.md).
 
 ## 10. Themed enemies
 
@@ -282,7 +282,7 @@ The map reveals rooms you have visited and marks weapons, candelabra and the exi
 An XInput controller plays the normal game, the online co-op and the split screen, and drives every menu: left stick to move (pressed: run),
 right stick to look (pressed: knife), RT to fire, LT to aim (with the aim, L3 and R3 lean), A to jump, B to crouch (on and off), X to reload
 and, held, to use and buy, Y to change weapon (held: fire mode), LB for the left hand's spell (held: the seal), RB for the holy water, and the
-D-pad for torch, music box, ping and the next spell (each with a second action when held). In the menus the D-pad or the left stick moves, A
+D-pad for torch, music box, the next seal and the next spell (each with a second action when held: battery, mine, veil, ping). In the menus the D-pad or the left stick moves, A
 confirms, B goes back and Start pauses. The game finds the controller by itself (press a button). The full tables, the rules and the limits are
 in [controller.md](controller.md).
 
@@ -315,7 +315,8 @@ The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namesp
 
 **Floor and cycle logic**
 
-- `FloorDirector.cs`: floor direction (hordes, weapons, bots), shrine validation (`ValidateShrines`), death penalty, the grid map (`GridMapItems`). Also `FloorDirector.Bot.cs`, `Look.cs`, `Trailer.cs`.
+- `FloorDirector.cs`: floor direction (hordes, weapons, bots), shrine validation (`ValidateShrines`), death penalty, the map hooks (`MapOpen`, `MiniOn`, what each player discovers). Also `FloorDirector.Bot.cs`, `Look.cs`, `Trailer.cs`.
+- `Map/` (`FloorMap.cs`, `MapView*.cs`, `MapPainter*.cs`, `MapPen.cs`, `MapScene.cs`, ...) and `HUD.Map.cs`: the floor map ([map.md](map.md)).
 - `SurvivalMode.cs`: the cycle selection (section 1) and the speed multiplier.
 - `RoundDirector.cs`: the round rules in `RoundRules`, the `Shutter`, and the round director (shutters, spawns, reward, cancellation).
 - `RoundDirector.Survival.cs`: the wave cycle.
@@ -355,7 +356,7 @@ The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namesp
 
 ## 14. Assets
 
-- **Procedural PBR textures**: `modelli/hotel/genera_texture_chiesa.py` (wall stone, slabs, crypt stone, vault brick, parquet, tiles, concrete, four stained glass windows). Theatre and sanatorium: the `ruggine` (rust) texture in `modelli/hotel/genera_texture.py` (role `A_ruggine`: painted iron that chips and shows rust).
+- **Procedural PBR textures**: `modelli/hotel/genera_texture_chiesa.py` (wall stone, slabs, crypt stone, vault brick, parquet, tiles, concrete, four stained glass windows). Theatre and sanatorium: the `ruggine` (rust) texture in `modelli/hotel/genera_texture.py` (role `A_ruggine`: painted iron that chips and shows rust). The stone, brick, tile, concrete, plaster, linoleum and white marble sets were redone on 17 November 2026 with the shared toolkit `modelli/hotel/texlib.py`, and the hotel has a second, veined checkerboard floor that alternates with the classic one: see [textures.md](textures.md).
 - **Blender models**: `modelli/chiesa/genera_chiesa.py` (bench, altar, reredos, candelabrum, candle stand, confessional, pulpit, font, statue, organ, sarcophagus, chandelier, stall, kneeler) and `modelli/hotel/genera_arredi2.py` (bed, bedside table, wardrobe, desk, chair, table, piano, stove, steel table, shelf).
 - **Theatre and sanatorium models**: `modelli/hotel/genera_arredi3.py` (12 models; `blender -b -P genera_arredi3.py -- render [names]` makes CPU previews without touching the GPU, `-- build` makes the FBX files in `arredi3/`).
 - **Guardaroba models**: `modelli/hotel/genera_arredi4.py` (17 props, `gu_*`; commands, materials and the photo tool `PropShots` in [guardaroba.md](guardaroba.md)).
@@ -392,4 +393,4 @@ Not confirmed: the knife's "within one metre" rule from the original text (not v
 - **`planlab grid` and `planlab regions`** command names (the folder `tools/planlab` exists; the arguments were not checked).
 - **Classic hall not in the build** (`Hotel.unity` and `HotelBuilder` exist in the project, the build contents were not checked).
 - **Occhio della Torre duration:** `PlayerPerks.EyeTime` is 6 s, but whether it is the ping's duration was not checked.
-- **Map rule** ('?' for rooms beyond an open door, secret room shown only after entry) and **the 97% Segreta** share: not checked in `GridMapItems`.
+- **The 97% Segreta** share: not checked. (The map rule, `?` for rooms beyond an open door and the secret room shown only after entry, is checked by `-stealthtest -gridtest` through `FloorMap`.)

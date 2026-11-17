@@ -16,16 +16,13 @@ namespace PryingEyes
         public static bool Paused { get; private set; }
         static bool overlay;
         /// <summary>Un'interfaccia sopra il gioco (il grimorio della stanza segreta): blocca i comandi come la pausa e libera il mouse, ma
-        /// non ferma il tempo, non nasconde l'HUD e Esc la chiude lei (GrimoireUI).</summary>
+        /// non ferma il tempo, non nasconde l'HUD e Esc la chiude lei (GrimoireUI). E' di chi gira: nello schermo condiviso ogni posto ha il
+        /// suo (Seats lo salva e lo rimette a ogni cambio di posto, Seats.SetOverlay lo da' a un posto qualsiasi), quindi chi legge si
+        /// ferma e gli altri giocano.</summary>
         public static bool Overlay
         {
             get => overlay;
-            set
-            {
-                overlay = value; Blocked = InMenu || Paused || overlay;
-                // schermo condiviso: il libro blocca i comandi di tutti, quindi ferma anche il tempo (vedi Refresh)
-                if (Seats.Split && !Coop.Active && !InMenu && !Paused) Time.timeScale = overlay ? 0f : 1f;
-            }
+            set { overlay = value; Blocked = InMenu || Paused || overlay; }
         }
 
         static readonly Color Ink = new Color(0.93f, 0.89f, 0.80f);
@@ -34,7 +31,7 @@ namespace PryingEyes
 
         RectTransform backdrop, mainPanel, pausePanel, settingsPanel, settingsFrom, coopPanel, helpPanel, helpFrom, leavePanel;
         Slider sMaster, sEffects, sMusic, sBrightness, sSensitivity, sFov, sMotion, sCoopHud;
-        Text vMaster, vEffects, vMusic, vBrightness, vSensitivity, vFov, vMotion, vCoopHud, coopStatus, pauseNet, pauseHint;
+        Text vMaster, vEffects, vMusic, vBrightness, vSensitivity, vFov, vMotion, vCoopHud, coopStatus, pauseNet, pauseHint, pauseStats;
         InputField coopName, coopAddr;
         Button hostButton, joinButton, bellButton;
         Text leaveNote;
@@ -52,6 +49,7 @@ namespace PryingEyes
             Build();
             InMenu = true;
             SyncSliders();
+            MenuMusic.Create();             // il tema del menu: si calcola in un thread e parte appena e' pronto
             Show(mainPanel);
             Refresh();
         }
@@ -86,27 +84,36 @@ namespace PryingEyes
                 hostButton.interactable = joinButton.interactable = Coop.Available && !Coop.Active;
             }
             SplitUpdate();
-            bool toggle = Input.GetKeyDown(KeyCode.Escape) || TouchControls.Down(TouchControls.Action.Pause) || PadControls.PausePressed;     // Esc e Start (di qualunque controller) aprono e chiudono la pausa
+            if (Blocked) UpdateTips();
+            if (settingsPanel.gameObject.activeSelf)        // PagSu e PagGiu: da una scheda all'altra, da qualunque riga
+            {
+                int step = Input.GetKeyDown(KeyCode.PageDown) ? 1 : Input.GetKeyDown(KeyCode.PageUp) ? -1 : 0;
+                if (step != 0) CyclePage(step);
+            }
+            // Esc e Start (di qualunque controller) aprono e chiudono la pausa; l'Esc che ha appena chiuso il grimorio no
+            bool toggle = (Input.GetKeyDown(KeyCode.Escape) && !GrimoireUI.ClosedThisFrame) || TouchControls.Down(TouchControls.Action.Pause) || PadControls.PausePressed;
             if (!toggle && !padBack) return;                                                                         // B torna solo indietro: in gioco e' "abbassati"
-            if (settingsPanel.gameObject.activeSelf) { Back(); return; }
-            if (leavePanel.gameObject.activeSelf) { Show(pausePanel); return; }
-            if (helpPanel.gameObject.activeSelf) { Show(helpFrom); return; }
-            if (splitPanel.gameObject.activeSelf) { Show(mainPanel); return; }
-            if (coopPanel.gameObject.activeSelf) { CoopBack(); return; }
+            if (settingsPanel.gameObject.activeSelf) { MenuSound.Back(); Back(); return; }
+            if (leavePanel.gameObject.activeSelf) { MenuSound.Back(); Show(pausePanel); return; }
+            if (helpPanel.gameObject.activeSelf) { MenuSound.Back(); Show(helpFrom); return; }
+            if (splitPanel.gameObject.activeSelf) { MenuSound.Back(); Show(mainPanel); return; }
+            if (coopPanel.gameObject.activeSelf) { MenuSound.Back(); CoopBack(); return; }
             if (InMenu) return;
             if (Paused) Resume(); else if (toggle) Pause();
         }
 
         // ---------- stato ----------
 
+        // 0.8.0: "Pausa a finestra inattiva" (Impostazioni > Gioco) la si spegne per giocare con un'altra finestra accanto
         void OnApplicationFocus(bool focused)
         {
-            if (!focused && !GameManager.autoTest) Pause();
+            if (focused) SplitScreen.OnFocusGained();          // le finestre dei monitor accesi che un altro programma copriva tornano davanti
+            if (!focused && !GameManager.autoTest && GameSettings.PauseOnFocusLoss && !SplitScreen.JustActivated) Pause();      // JustActivated: Windows da' il fuoco alla finestra del monitor appena acceso
         }
 
         void OnApplicationPause(bool paused)
         {
-            if (paused && !GameManager.autoTest) Pause();
+            if (paused && !GameManager.autoTest && GameSettings.PauseOnFocusLoss) Pause();
         }
 
         void OnDestroy()
@@ -117,8 +124,6 @@ namespace PryingEyes
             Blocked = InMenu = Paused = false;
             Time.timeScale = 1f;
         }
-
-        void OpenHelp(RectTransform from) { helpFrom = from; Show(helpPanel); }
 
         void AskLeave()
         {
@@ -168,7 +173,7 @@ namespace PryingEyes
         }
 
         /// <summary>Che cosa dire agli amici (ospite) o a chi gioca (ospitato), per il menu di pausa.</summary>
-        static string NetInfo(int maxAddr = 4) => SplitScreen.Active ? "Split screen a " + SplitScreen.Count + " giocatori. " + SplitScreen.Hint : NetInfoOnline(maxAddr);
+        static string NetInfo(int maxAddr = 4) => SplitScreen.Active ? "Split screen a " + SplitScreen.Count + " giocatori" + (Seats.Monitors > 1 ? " su " + Seats.Monitors + " monitor" : "") + ". " + SplitScreen.Hint : NetInfoOnline(maxAddr);
         static string NetInfoOnline(int maxAddr)
         {
             if (Coop.IsHost)
@@ -193,10 +198,23 @@ namespace PryingEyes
             Show(mainPanel);
         }
 
+        /// <summary>La riga sotto "In pausa": ondata, piano, punti, uccisioni e tempo di gioco (le stesse cifre del tabellone, Tab).</summary>
+        static string PauseStatsText()
+        {
+            var gm = GameManager.I;
+            if (gm == null) return "";
+            int round = Proc.RoundDirector.Round, floor = Proc.FloorDirector.I != null ? Proc.FloorDirector.I.floor : 0;
+            int secs = Mathf.FloorToInt(Time.timeSinceLevelLoad);
+            var it = System.Globalization.CultureInfo.GetCultureInfo("it-IT");
+            return (round > 0 ? "ONDATA " + HUD.Roman(round) + "  ·  PIANO " + floor : "PIANO " + floor) + "   ·   " + gm.score.ToString("N0", it) + " PUNTI   ·   "
+                + gm.kills + " UCCISIONI   ·   " + secs / 60 + ":" + (secs % 60).ToString("00");
+        }
+
         void Pause()
         {
             if (InMenu || Paused) return;
             Paused = true;
+            if (pauseStats != null) pauseStats.text = PauseStatsText();
             if (pauseNet != null) pauseNet.text = NetInfo(); SplitPauseText();
             var fd = Proc.FloorDirector.I;
             if (bellButton != null) bellButton.gameObject.SetActive(Cattedrale.Fabbrica.CampanellaPronta && fd != null && !fd.InHub && fd.floor >= 1);
@@ -222,10 +240,11 @@ namespace PryingEyes
         void OpenSettings(RectTransform from)
         {
             settingsFrom = from;
-            SyncSliders();
-            SyncDisplay();
-            SettingsTab(true);
+            SyncSettings();
+            var open = page ?? pages[0];            // si riapre sull'ultima scheda usata
             Show(settingsPanel);
+            SelectPage(open);
+            EventSystem.current?.SetSelectedGameObject(open.tab.gameObject);
         }
 
         void Back()
@@ -246,6 +265,7 @@ namespace PryingEyes
             else if (panelStack.Count > 0 && panelStack.Peek().panel == p) restore = panelStack.Pop().selected;
             else if (currentPanel != null && currentPanel != p) panelStack.Push((currentPanel, system != null ? system.currentSelectedGameObject : null));
             currentPanel = p;
+            showFrame = Time.frameCount;            // la scelta automatica del primo pulsante non fa il tic
             mainPanel.gameObject.SetActive(p == mainPanel);
             pausePanel.gameObject.SetActive(p == pausePanel);
             settingsPanel.gameObject.SetActive(p == settingsPanel);
@@ -264,9 +284,9 @@ namespace PryingEyes
         {
             Blocked = InMenu || Paused || overlay;
             bool menuUp = InMenu || Paused;
-            // in cooperativa gli altri non si fermano: la pausa blocca solo i comandi. Nello schermo condiviso anche il grimorio aperto
-            // ferma il tempo: blocca i comandi di tutti, e gli altri resterebbero indifesi
-            Time.timeScale = (menuUp || (overlay && Seats.Split)) && !Coop.Active ? 0f : 1f;
+            // in cooperativa gli altri non si fermano: la pausa blocca solo i comandi. Il grimorio aperto non ferma il tempo (blocca solo
+            // chi legge)
+            Time.timeScale = menuUp && !Coop.Active ? 0f : 1f;
             backdrop.gameObject.SetActive(menuUp);
             if (Seats.Split) Seats.SetHudsVisible(!menuUp);         // schermo condiviso: gli HUD di tutti
             else
@@ -278,28 +298,23 @@ namespace PryingEyes
             if (!Blocked && alive) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
         }
 
-        void SyncSliders()
-        {
-            SetSlider(sMaster, vMaster, GameSettings.Master);
-            SetSlider(sEffects, vEffects, GameSettings.Effects);
-            SetSlider(sMusic, vMusic, GameSettings.Music);
-            SetSlider(sBrightness, vBrightness, GameSettings.Brightness);
-            SetSlider(sSensitivity, vSensitivity, GameSettings.Sensitivity, SensText);
-            SetSlider(sFov, vFov, GameSettings.Fov, FovText);
-            SetSlider(sMotion, vMotion, GameSettings.Motion);
-            SetSlider(sCoopHud, vCoopHud, GameSettings.CoopHudScale);
-        }
+        // ---------- suggerimenti e suoni ----------
 
-        static void SetSlider(Slider s, Text v, float x, System.Func<float, string> format = null)
-        {
-            if (s == null) return;
-            s.SetValueWithoutNotify(x);
-            v.text = (format ?? Pct)(x);
-        }
+        int showFrame = -1;
+        MenuFeedback lastTicked;
+        float lastTickedAt = -9f;
 
-        static string Pct(float v) => Mathf.RoundToInt(v * 100f) + "%";
-        static string SensText(float v) => v.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "×";
-        static string FovText(float v) => Mathf.RoundToInt(v) + "°";
+        /// <summary>Una voce del menu e' stata scelta (con la tastiera, il controller o un clic) o il puntatore ci e' arrivato sopra: sulle
+        /// impostazioni il suggerimento sotto l'elenco dice cosa fa, e la voce fa il suo tic (una volta sola per voce se i due arrivano insieme).</summary>
+        internal void Feedback(MenuFeedback feedback, bool selected)
+        {
+            if (feedback == null) return;
+            if (settingsHint != null && settingsPanel != null && feedback.transform.IsChildOf(settingsPanel)) settingsHint.text = feedback.Hint ?? "";
+            if (feedback.quiet || Time.frameCount == showFrame) return;
+            if (feedback == lastTicked && Time.unscaledTime - lastTickedAt < 0.6f) return;
+            lastTicked = feedback; lastTickedAt = Time.unscaledTime;
+            MenuSound.Tick();
+        }
 
         // ---------- costruzione ----------
 
@@ -324,8 +339,9 @@ namespace PryingEyes
             Debug.Log("[PryingEyes] " + VersionText);       // nel log del giocatore: dice quale versione e' stata costruita
 
             pausePanel = Stretch(backdrop, "Pausa");
-            Label(pausePanel, "Titolo", new Vector2(0, 170), new Vector2(1000, 80), 60, TextAnchor.MiddleCenter, "In pausa", Ink, FontStyle.Normal);
-            pauseHint = Label(pausePanel, "Sottotitolo", new Vector2(0, 100), new Vector2(1000, 34), 22, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+            Label(pausePanel, "Titolo", new Vector2(0, 198), new Vector2(1000, 80), 60, TextAnchor.MiddleCenter, "In pausa", Ink, FontStyle.Normal);
+            pauseStats = Label(pausePanel, "Riepilogo", new Vector2(0, 144), new Vector2(1000, 26), 17, TextAnchor.MiddleCenter, "", Brass, FontStyle.Normal);
+            pauseHint = Label(pausePanel, "Sottotitolo", new Vector2(0, 104), new Vector2(1000, 34), 22, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
             MakeButton(pausePanel, "Riprendi", new Vector2(0, 10), Resume);
             MakeButton(pausePanel, "Impostazioni", new Vector2(0, -60), () => OpenSettings(pausePanel));
             MakeButton(pausePanel, "Come si gioca", new Vector2(0, -130), () => OpenHelp(pausePanel));
@@ -334,7 +350,7 @@ namespace PryingEyes
             // la campanella del ritorno (il Campanile della cattedrale): c'e' solo nelle catacombe, una volta per spedizione
             bellButton = MakeButton(pausePanel, "Suona la campanella del ritorno", new Vector2(0, -332), RingBell);
             bellButton.gameObject.SetActive(false);
-            pauseNet = Label(pausePanel, "Rete", new Vector2(0, 62), new Vector2(1100, 36), 16, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+            pauseNet = Label(pausePanel, "Rete", new Vector2(0, 66), new Vector2(1100, 36), 16, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
 
             leavePanel = Stretch(backdrop, "LasciaPartita");
             Label(leavePanel, "Titolo", new Vector2(0, 150), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Tornare al menu?", Ink, FontStyle.Normal);
@@ -358,32 +374,11 @@ namespace PryingEyes
 
             BuildSplit();
             BuildSettings();
-
-            helpPanel = Stretch(backdrop, "Guida");
-            Label(helpPanel, "Titolo", new Vector2(0, 235), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "La Torre", Ink, FontStyle.Normal);
-            Label(helpPanel, "Obiettivo", new Vector2(0, 150), new Vector2(1000, 60), 23, TextAnchor.MiddleCenter,
-                "Sopravvivi alle ondate. Dopo tre ondate puoi raggiungere l’ascensore e scendere.", Ink, FontStyle.Normal);
-            helpMove = Label(helpPanel, "Furtivo", new Vector2(0, 60), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft, HelpMoveText(false), Dim, FontStyle.Normal);
-            helpRound = Label(helpPanel, "Round", new Vector2(0, -35), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft, HelpRoundText(false), Dim, FontStyle.Normal);
-            Label(helpPanel, "Risorse", new Vector2(0, -130), new Vector2(1000, 76), 21, TextAnchor.MiddleLeft,
-                "ESPLORA E SCEGLI\nCompra armi ai muri, cerca pile e libri nei santuari. Se muori perdi metà dei punti e l'ultimo perk acquistato.", Dim, FontStyle.Normal);
-            helpPad = Label(helpPanel, "Controller", new Vector2(0, -190), new Vector2(1120, 26), 16, TextAnchor.MiddleCenter,
-                "CONTROLLER  ·  RT spara  ·  LT mira  ·  A salta  ·  B abbassati  ·  X ricarica (tienilo: usa)  ·  Y arma  ·  LB magia  ·  RB acquasanta", Brass, FontStyle.Normal);
-            helpPad.gameObject.SetActive(false);
-            MakeButton(helpPanel, "Indietro", new Vector2(0, -240), () => Show(helpFrom));
+            BuildHelp();
             BuildPadUi();
-        }
-
-        Slider Row(Transform parent, float y, string name, float init, UnityAction<float> set, out Text value,
-            float min = 0f, float max = 1f, System.Func<float, string> format = null)
-        {
-            format = format ?? Pct;
-            Label(parent, name, new Vector2(-50, y + 36), new Vector2(320, 32), 22, TextAnchor.MiddleLeft, name, Ink, FontStyle.Normal);
-            var vt = Label(parent, name + " valore", new Vector2(160, y + 36), new Vector2(100, 32), 22, TextAnchor.MiddleRight, format(init), Ink, FontStyle.Normal);
-            value = vt;
-            var sl = MakeSlider(parent, new Vector2(0, y), init, min, max);
-            sl.onValueChanged.AddListener(v => { set(v); vt.text = format(v); });
-            return sl;
+            // ogni schermata entra con una dissolvenza breve (MenuPanelFade)
+            foreach (var panel in new[] { mainPanel, pausePanel, settingsPanel, coopPanel, helpPanel, leavePanel, splitPanel })
+                panel.gameObject.AddComponent<MenuPanelFade>();
         }
 
         static RectTransform Rect(Transform parent, string name, Vector2 size, Vector2 pos)
@@ -452,21 +447,28 @@ namespace PryingEyes
             edge.effectDistance = new Vector2(1f, -1f);
             var b = rt.gameObject.AddComponent<Button>();
             b.targetGraphic = img;
-            var cb = b.colors;
-            cb.normalColor = Color.white;
-            cb.highlightedColor = new Color(2.0f, 2.3f, 2.0f, 1f);
-            cb.pressedColor = new Color(0.7f, 0.6f, 0.5f, 1f);
-            cb.selectedColor = new Color(1.7f, 2.0f, 1.8f, 1f);
-            b.colors = cb;
+            b.colors = ButtonColors();
             b.onClick.AddListener(click);
+            bool goesBack = label == "Indietro" || label == "Annulla";
+            b.onClick.AddListener(() => { if (goesBack) MenuSound.Back(); else MenuSound.Confirm(); });
             Label(rt, "Testo", Vector2.zero, new Vector2(340, 54), 24, TextAnchor.MiddleCenter, label, Ink, FontStyle.Normal);
             return b;
         }
 
-        /// <summary>Cursore orizzontale in stile hotel: binario scuro, riempimento ottone, maniglia avorio.</summary>
-        static Slider MakeSlider(Transform parent, Vector2 pos, float init, float min, float max)
+        /// <summary>Cambia la misura di un pulsante gia' costruito (e del suo testo, che lo segue).</summary>
+        static void ResizeButton(Button button, Vector2 size, int fontSize)
         {
-            var root = Rect(parent, "Cursore", new Vector2(420, 32), pos);
+            button.GetComponent<RectTransform>().sizeDelta = size;
+            var text = button.GetComponentInChildren<Text>();
+            if (text == null) return;
+            text.rectTransform.sizeDelta = size;
+            text.fontSize = fontSize;
+        }
+
+        /// <summary>Cursore orizzontale in stile hotel: binario scuro, riempimento ottone, maniglia avorio.</summary>
+        static Slider MakeSlider(Transform parent, Vector2 pos, float init, float min, float max, float width = 420f)
+        {
+            var root = Rect(parent, "Cursore", new Vector2(width, 32), pos);
             var track = root.gameObject.AddComponent<Image>();
             track.color = new Color(0f, 0f, 0f, 0.6f);
 

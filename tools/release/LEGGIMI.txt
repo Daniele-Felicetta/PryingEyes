@@ -11,5 +11,8 @@ UDP 7807. Per Internet occorre un ospite raggiungibile o una VPN tra amici.
 Controller (Xbox e compatibili, XInput): funziona nel gioco normale, in cooperativa e in tutti i menu.
 Basta premere un tasto: il gioco lo trova da solo. Croce o stick sinistro muovono, A conferma, B torna indietro, Start e' la pausa.
 
-Schermo condiviso (stesso PC, una sola finestra): dal menu Schermo condiviso, da 2 a 4 giocatori.
+Schermo condiviso (stesso PC): dal menu Schermo condiviso, da 2 a 4 giocatori.
 Giocatore 1: tastiera e mouse (o un controller). Gli altri: un controller Xbox (XInput) a testa.
+Con piu' di un monitor collegato, il bottone Monitor del menu divide i giocatori tra gli schermi (2 giocatori = uno per monitor).
+
+Terza persona: Impostazioni, scheda Gioco, riga Prospettiva (di base e' la prima persona).

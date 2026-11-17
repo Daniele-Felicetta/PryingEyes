@@ -98,7 +98,7 @@ namespace PryingEyes
                 shownPad = pad ? 1 : 0;
                 spellKey.text = pad ? "LB" : "3";
                 infKey.text = pad ? "LB ▮" : "3 ▮";
-                cycleHint.text = pad ? "CAMBIA: \u2192 magia  \u00b7  tieni \u2192 sigillo" : "CAMBIA: 6 magia  \u00b7  7 sigillo";
+                cycleHint.text = pad ? "CAMBIA: \u2190 sigillo  \u00b7  magia \u2192" : "CAMBIA: 6 magia  \u00b7  7 sigillo";
             }
             essenceBar.value = s.EssenceMax > 0f ? s.Essence / s.EssenceMax : 0f;
             essenceText.text = $"ESSENZA {Mathf.FloorToInt(s.Essence)}";

@@ -5,6 +5,9 @@ using System.Collections.Generic;
 
 namespace PryingEyes
 {
+    /// <summary>La scheda Schermo delle impostazioni: modalita', formato, risoluzione, frequenza, VSync e limite dei fotogrammi, con la prova di
+    /// quindici secondi prima di tenere la nuova immagine (se non si conferma torna quella di prima). A differenza delle altre schede non salva
+    /// a ogni passo: le scelte restano in una bozza (displayDraft) finche' non si preme "Applica schermo".</summary>
     public partial class GameMenu
     {
         VideoSettings.Config displayDraft, displayPrevious;
@@ -12,73 +15,70 @@ namespace PryingEyes
         bool displayPending;
         float displayDeadline;
         RectTransform displayConfirm;
-        Text modeValue, resolutionValue, aspectValue, refreshValue, vsyncValue, fpsValue, displayNote, previewCountdown;
+        Text displayNote, previewCountdown, displayActual;
+        MenuChoice modeChoice, aspectChoice, resolutionChoice, rateChoice, vsyncChoice, fpsChoice;
         Button applyDisplayButton;
-        Button ratePrevious, rateNext, fpsPrevious, fpsNext, modePrevious, aspectPrevious;
-        Text displayActual;
 
-        void BuildDisplayControls()
+        static string ModeName(FullScreenMode mode) =>
+            mode == FullScreenMode.Windowed ? "Finestra" : mode == FullScreenMode.ExclusiveFullScreen ? "Schermo intero esclusivo" : "Schermo intero senza bordi";
+        static readonly string[] AspectNames = { "Tutti i formati", "16:9 · panoramico", "21:9 · ultrawide", "16:10" };
+
+        void BuildDisplayPage(SettingsPage p)
         {
-            Choice(videoTab, "Modalità schermo", -285, 120, d =>
-            {
-                var modes = new[] { FullScreenMode.FullScreenWindow, FullScreenMode.ExclusiveFullScreen, FullScreenMode.Windowed };
-                displayDraft.mode = modes[Wrap(System.Array.IndexOf(modes, displayDraft.mode) + d, modes.Length)];
-                displayDraft.hz = 0; NormalizeDisplay();
-            }, out modeValue, out modePrevious, out _);
-            Choice(videoTab, "Formato", 285, 120, d => { aspectFilter = Wrap(aspectFilter + d, 4); NormalizeDisplay(); }, out aspectValue, out aspectPrevious, out _);
-            Choice(videoTab, "Risoluzione", -285, 30, d =>
-            {
-                var modes = VideoSettings.Modes(displayDraft.mode, aspectFilter);
-                if (modes.Count == 0) return;
-                int i = modes.IndexOf(new Vector2Int(displayDraft.width, displayDraft.height));
-                var r = modes[Wrap(i + d, modes.Count)]; displayDraft.width = r.x; displayDraft.height = r.y;
-                displayDraft.hz = 0; RefreshDisplayLabels();
-            }, out resolutionValue);
-            Choice(videoTab, "Frequenza monitor", 285, 30, d =>
-            {
-                var rates = VideoSettings.Rates(displayDraft);
-                displayDraft.hz = rates[Wrap(rates.IndexOf(displayDraft.hz) + d, rates.Count)]; RefreshDisplayLabels();
-            }, out refreshValue, out ratePrevious, out rateNext);
-            Choice(videoTab, "Sincronizzazione verticale", -285, -60, d => { displayDraft.vsync = 1 - displayDraft.vsync; RefreshDisplayLabels(); }, out vsyncValue);
-            Choice(videoTab, "Limite fotogrammi", 285, -60, d =>
-            {
-                var caps = VideoSettings.FrameLimits;
-                displayDraft.fps = caps[Wrap(System.Array.IndexOf(caps, displayDraft.fps) + d, caps.Length)]; RefreshDisplayLabels();
-            }, out fpsValue, out fpsPrevious, out fpsNext);
-            displayNote = Label(videoTab, "Nota schermo", new Vector2(0, -135), new Vector2(1040, 42), 16,
-                TextAnchor.MiddleLeft, "", Dim, FontStyle.Normal);
-            displayActual = Label(videoTab, "Schermo attuale", new Vector2(-285, -174), new Vector2(490, 42), 15,
-                TextAnchor.MiddleLeft, "", Brass, FontStyle.Normal);
-            applyDisplayButton = MakeButton(videoTab, "Applica schermo", new Vector2(285, -225), PreviewDisplay);
-            applyDisplayButton.GetComponent<RectTransform>().sizeDelta = new Vector2(420, 42);
+            modeChoice = AddChoice(p, "Modalità schermo", "Schermo intero senza bordi è il più comodo; l'esclusivo permette di scegliere la frequenza del monitor.",
+                () => ModeName(displayDraft.mode), d =>
+                {
+                    var modes = new[] { FullScreenMode.FullScreenWindow, FullScreenMode.ExclusiveFullScreen, FullScreenMode.Windowed };
+                    displayDraft.mode = modes[Wrap(System.Array.IndexOf(modes, displayDraft.mode) + d, modes.Length)];
+                    displayDraft.hz = 0; NormalizeDisplay();
+                });
+            aspectChoice = AddChoice(p, "Formato", "Restringe l'elenco delle risoluzioni alle proporzioni dello schermo.",
+                () => AspectNames[aspectFilter], d => { aspectFilter = Wrap(aspectFilter + d, AspectNames.Length); NormalizeDisplay(); });
+            resolutionChoice = AddChoice(p, "Risoluzione", "Le dimensioni dell'immagine, in punti.",
+                () => displayDraft.width + " × " + displayDraft.height, d =>
+                {
+                    var modes = VideoSettings.Modes(displayDraft.mode, aspectFilter);
+                    if (modes.Count == 0) return;
+                    int i = modes.IndexOf(new Vector2Int(displayDraft.width, displayDraft.height));
+                    var r = modes[Wrap(i + d, modes.Count)]; displayDraft.width = r.x; displayDraft.height = r.y;
+                    displayDraft.hz = 0; RefreshDisplayLabels();
+                });
+            rateChoice = AddChoice(p, "Frequenza monitor", "Solo nello schermo intero esclusivo si sceglie la frequenza; negli altri modi segue quella del desktop.",
+                () => displayDraft.mode != FullScreenMode.ExclusiveFullScreen ? "Desktop · " + VideoSettings.Current.hz + " Hz"
+                    : displayDraft.hz == 0 ? "Automatica" : displayDraft.hz + " Hz", d =>
+                {
+                    var rates = VideoSettings.Rates(displayDraft);
+                    displayDraft.hz = rates[Wrap(rates.IndexOf(displayDraft.hz) + d, rates.Count)]; RefreshDisplayLabels();
+                });
+            vsyncChoice = AddChoice(p, "Sincronizzazione verticale", "Evita lo strappo dell'immagine. Se è attiva, il limite dei fotogrammi non conta.",
+                () => displayDraft.vsync == 1 ? "Attiva" : "Disattiva", d => { displayDraft.vsync = 1 - displayDraft.vsync; RefreshDisplayLabels(); });
+            fpsChoice = AddChoice(p, "Limite fotogrammi", "Con la VSync spenta limita il lavoro della scheda video.",
+                () => displayDraft.vsync == 1 ? "Controllato dal VSync" : displayDraft.fps < 0 ? "Senza limite" : displayDraft.fps + " FPS", d =>
+                {
+                    var caps = VideoSettings.FrameLimits;
+                    displayDraft.fps = caps[Wrap(System.Array.IndexOf(caps, displayDraft.fps) + d, caps.Length)]; RefreshDisplayLabels();
+                });
+            float y = RowY(p.next++);
+            displayActual = Label(p.root, "Schermo attuale", new Vector2(LabelX, y), new Vector2(LabelWidth, 30), 15, TextAnchor.MiddleLeft, "", Brass, FontStyle.Normal);
+            applyDisplayButton = MakeButton(p.root, "Applica schermo", new Vector2(ControlX, y), PreviewDisplay);
+            ResizeButton(applyDisplayButton, new Vector2(ControlWidth, 36), 21);
+            AddFeedback(applyDisplayButton, "Prova subito le impostazioni: hai quindici secondi per confermarle, poi tornano quelle di prima.");
+            p.rows.Add(applyDisplayButton);
+            displayNote = Label(p.root, "Nota schermo", new Vector2(0, RowY(p.next++) - 4f), new Vector2(1000, 44), 16, TextAnchor.UpperCenter, "", Dim, FontStyle.Normal);
+            SyncDisplay();
         }
 
         static int Wrap(int i, int n) => n <= 0 ? 0 : (i % n + n) % n;
-        void Choice(Transform parent, string title, float x, float y, System.Action<int> change, out Text value)
-        { Choice(parent, title, x, y, change, out value, out _, out _); }
-        void Choice(Transform parent, string title, float x, float y, System.Action<int> change, out Text value, out Button previous, out Button next)
-        {
-            Label(parent, title, new Vector2(x, y + 31), new Vector2(460, 28), 17, TextAnchor.MiddleLeft, title.ToUpperInvariant(), Dim, FontStyle.Normal);
-            Plate(parent, title + " fondo", new Vector2(x, y - 3), new Vector2(460, 44), BtnColor);
-            value = Label(parent, title + " valore", new Vector2(x, y - 3), new Vector2(342, 40), 21, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
-            previous = MakeButton(parent, title + " ‹", new Vector2(x - 209, y - 3), () => change(-1));
-            next = MakeButton(parent, title + " ›", new Vector2(x + 209, y - 3), () => change(1));
-            foreach (var b in new[] { previous, next })
-            {
-                b.GetComponent<RectTransform>().sizeDelta = new Vector2(42, 44);
-                var t = b.GetComponentInChildren<Text>(); t.rectTransform.sizeDelta = new Vector2(40, 40);
-                t.text = b == previous ? "‹" : "›"; t.fontSize = 25;
-            }
-        }
 
         void SyncDisplay()
         {
-            if (modeValue == null) return;
+            if (modeChoice == null) return;
             displayDraft = VideoSettings.Current;
             if (displayDraft.mode != FullScreenMode.ExclusiveFullScreen) displayDraft.hz = 0;
             aspectFilter = 0;
             RefreshDisplayLabels();
         }
+
         void NormalizeDisplay()
         {
             var modes = VideoSettings.Modes(displayDraft.mode, aspectFilter);
@@ -88,22 +88,20 @@ namespace PryingEyes
             }
             RefreshDisplayLabels();
         }
+
         void RefreshDisplayLabels()
         {
-            modeValue.text = displayDraft.mode == FullScreenMode.Windowed ? "Finestra" : displayDraft.mode == FullScreenMode.ExclusiveFullScreen ? "Schermo intero esclusivo" : "Schermo intero senza bordi";
-            aspectValue.text = new[] { "Tutti i formati", "16:9 · panoramico", "21:9 · ultrawide", "16:10" }[aspectFilter];
-            resolutionValue.text = displayDraft.width + " × " + displayDraft.height;
-            refreshValue.text = displayDraft.mode != FullScreenMode.ExclusiveFullScreen ? "Desktop · " + VideoSettings.Current.hz + " Hz" : displayDraft.hz == 0 ? "Automatica" : displayDraft.hz + " Hz";
-            vsyncValue.text = displayDraft.vsync == 1 ? "Attiva" : "Disattiva";
-            fpsValue.text = displayDraft.vsync == 1 ? "Controllato dal VSync" : displayDraft.fps < 0 ? "Senza limite" : displayDraft.fps + " FPS";
-            ratePrevious.interactable = rateNext.interactable = displayDraft.mode == FullScreenMode.ExclusiveFullScreen && VideoSettings.Rates(displayDraft).Count > 1;
-            fpsPrevious.interactable = fpsNext.interactable = displayDraft.vsync == 0;
+            if (modeChoice == null || pages.Count == 0) return;
+            foreach (var refresh in pages[0].refresh) refresh();
+            rateChoice.interactable = displayDraft.mode == FullScreenMode.ExclusiveFullScreen && VideoSettings.Rates(displayDraft).Count > 1;
+            fpsChoice.interactable = displayDraft.vsync == 0;
             bool available = VideoSettings.Modes(displayDraft.mode, aspectFilter).Count > 0;
             applyDisplayButton.interactable = available;
             displayNote.text = !available ? "Il monitor non offre risoluzioni per questo formato in modalità esclusiva." :
                 displayDraft.mode == FullScreenMode.ExclusiveFullScreen ? "Modalità e frequenze rilevate dal monitor. Hai 15 secondi per confermare la nuova immagine." :
                 "In finestra e senza bordi la frequenza segue il desktop. Le finestre troppo grandi vengono adattate allo schermo.";
             displayActual.text = "ATTUALE  " + Screen.width + " × " + Screen.height + "  /  " + VideoSettings.Aspect(Screen.width, Screen.height);
+            RebuildNav();
         }
 
         void BuildDisplayConfirmation()
@@ -116,6 +114,7 @@ namespace PryingEyes
             MakeButton(displayConfirm, "Ripristina", new Vector2(220, -70), CancelDisplayPreview);
             displayConfirm.gameObject.SetActive(false);
         }
+
         void PreviewDisplay()
         {
             if (displayPending) return;
@@ -128,6 +127,7 @@ namespace PryingEyes
             displayConfirm.gameObject.SetActive(true); displayConfirm.SetAsLastSibling();
             EventSystem.current?.SetSelectedGameObject(displayConfirm.GetComponentInChildren<Button>().gameObject);
         }
+
         void ConfirmDisplay()
         {
             if (!displayPending) return;
@@ -138,6 +138,7 @@ namespace PryingEyes
             settingsPanel.GetComponent<CanvasGroup>().interactable = true;
             EventSystem.current?.SetSelectedGameObject(applyDisplayButton.gameObject);
         }
+
         void CancelDisplayPreview()
         {
             if (!displayPending) return;
@@ -148,6 +149,7 @@ namespace PryingEyes
             SyncDisplay();
             if (applyDisplayButton != null) EventSystem.current?.SetSelectedGameObject(applyDisplayButton.gameObject);
         }
+
         void UpdateDisplayPreview()
         {
             if (!displayPending) return;

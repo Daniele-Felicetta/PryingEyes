@@ -22,6 +22,10 @@ namespace PryingEyes
         int furyCount;
         float hudT;
         public static int completed;          // per le prove automatiche
+        /// <summary>Per le prove automatiche (come Drops.disabled): la Prova di ogni ondata non si tira a sorte ma e' sempre questa. null =
+        /// a sorte, come nel gioco. -survivaltest la fissa su Testa: le sue uccisioni non sono mai alla testa e non la completano mai, mentre
+        /// Furia si completa da sola con le uccisioni a raffica, paga +520/+640 e lascia cadere un potenziamento.</summary>
+        public static Kind? pinned;
 
         public static Prove Ensure(GameObject host)
         {
@@ -57,7 +61,7 @@ namespace PryingEyes
         {
             var choices = new System.Collections.Generic.List<Kind> { Kind.Testa, Kind.Esplosivi, Kind.Intatto, Kind.Furia };
             if (round >= 3) choices.Add(Kind.Coltello);
-            var k = choices[Random.Range(0, choices.Count)];
+            var k = pinned ?? choices[Random.Range(0, choices.Count)];
             int target = k switch
             {
                 Kind.Testa => Mathf.Min(14, 6 + round / 2),

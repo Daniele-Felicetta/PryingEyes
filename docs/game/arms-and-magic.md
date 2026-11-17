@@ -12,9 +12,9 @@ dell'Arsenale Maledetto".
 | --- | --- | --- |
 | `3` (tap) or middle mouse | LB (tap) | Cast the selected spell with the left hand. |
 | `3` (hold 0.35 s) | LB (hold) | Trace the selected seal on the weapon in hand (lasts 45 s on that weapon). |
-| `6` / `7` | D-pad right / D-pad right held | Next spell / next seal. Since 0.7.2 a line under the spell and seal icons says so (`CAMBIA: 6 magia · 7 sigillo`, or the controller version), and changing says which one is now active, or that the book has only one. |
+| `6` / `7` | D-pad right / D-pad left | Next spell / next seal (the seal icon is the left one in the HUD, like the D-pad button; until 16 November 2026 the seal was *D-pad right held*). Since 0.7.2 a line under the spell and seal icons says so (`CAMBIA: 6 magia · 7 sigillo`, or `CAMBIA: ← sigillo · magia →` on the controller), and changing says which one is now active, or that the book has only one. |
 | `F` at the secret wall, then `C` | X held, then B | Open the secret wall (an eye carved in the stone, whispering), crawl through the 1.3 m tunnel. |
-| `F` at the grimoire | X held | Read the book: mouse or arrows/WASD or D-pad to choose a node, click/Enter/F/A to buy (or to make an owned spell or seal the active one), Esc/B to close. |
+| `F` at the grimoire | X held | Read the book: mouse or arrows/WASD or D-pad to choose a node, click/Enter/F/A to buy (or to make an owned spell or seal the active one), Esc/B (or right click) to close. The game does not stop while you read: only you stand still. |
 
 The left hand pays with **essence**: 60 at the start, 100 maximum, 2 per second back, 3 per kill. Spells and seals cannot start while
 reloading, swapping, sprinting, with the knife out, or during another gesture. On the controller the left hand is LB alone (the whole
@@ -42,7 +42,7 @@ smaller chamber and halls that already have a garden. `planlab annex 4000`: 4,00
 
 ## The two grimoires (`Grimoire.cs`, `MagicState.cs`)
 
-Each book is a dodecahedron of 19 nodes, drawn like the plates: 12 outer nodes on a ring, 6 inner nodes on a hexagon (each touching
+Each book is a dodecahedron of 19 nodes, as in the plates: 12 outer nodes on a ring, 6 inner nodes on a hexagon (each touching
 the two outer nodes beside it), the supreme in the centre. Outer nodes can always be bought; an inner node needs one of its two
 neighbouring outer nodes; the supreme needs four inner nodes. Prices: outer 1,250 + 250 per outer node already owned in that book,
 inner 3,000 + 500 per inner node owned, supreme 9,000. Purchases are kept for the whole run (death empties the essence and turns off
@@ -94,13 +94,13 @@ the seals on the weapons, it does not take nodes).
 
 | Seal (40 essence, 45 s) | Effect on hits | Gesture on the weapon |
 | --- | --- | --- |
-| Danni Critici | one hit in four is critical (x2.5) | the index finger traces a circle with an eye on the left of the receiver, the red trail stays, then taps the sight twice |
-| Sanguinamento | bleeding, 8/s per stack, up to 3 | the hand grips the barrel and slides back to the receiver, then opens above it and blood drips |
-| Incendiario | burning 10/s for 4 s | a snap over the ejection port lights the palm, which slides along the top of the barrel towards the muzzle (36 cm at most, as far as the arm reaches); the barrel glows |
-| Corrosivo | +30% damage taken from everything for 5 s, 4/s | the cupped palm fills with green ichor, tilts and pours it into the receiver, shakes off the drops |
-| Elettrificato | stun 0.4 s and an arc to two neighbours at 40% | the hand grips the magazine, the fingers splay with arcs, then slaps the base up |
-| Gelido | slow; four hits freeze 2 s | the flat palm presses on the left side; frost runs over the weapon from the palm |
-| Arma Maledetta (60 essence, 90 s cooldown) | 15 s: double damage, all six effects, infinite ammunition | the hand grips the barrel, the weapon shudders while runes light from the muzzle back, the hand is thrown off smoking |
+| Danni Critici | one hit in four is critical (x2.5) | the index finger, under the weapon, stabs the metal three times (receiver, middle, barrel); each stab lights a red crack under the fingertip that climbs the flank, then the cracks spread over the whole weapon and beat |
+| Sanguinamento | bleeding, 8/s per stack, up to 3 | the hand grips the barrel from below and wrings it back towards the receiver: dark glossy blood rises from the metal where it passes and drips from the underside; under the receiver the hand cups the drops |
+| Incendiario | burning 10/s for 4 s | a snap under the receiver lights the palm (facing up); the flat palm touches the underside and slides forward under the barrel (26 cm at most, as far as the arm reaches): the metal heats from below behind it and the heat climbs the flanks in tongues |
+| Corrosivo | +30% damage taken from everything for 5 s, 4/s | the cupped palm rises under the receiver and fills with green ichor; the acid climbs the flanks from the cup (bubbling sludge) and drips from the underside while the hand slides under the barrel |
+| Elettrificato | stun 0.4 s and an arc to two neighbours at 40% | the hand grips the magazine, the fingers splay with arcs, then slaps the base up: veins of current climb the weapon from the magazine base |
+| Gelido | slow; four hits freeze 2 s | the flat palm presses up under the receiver and slides forward under the barrel: frost grows from the underside up the flanks in tongues, cold mist falls from below |
+| Arma Maledetta (60 essence, 90 s cooldown) | 15 s: double damage, all six effects, infinite ammunition | the hand grips the barrel from below, the weapon shudders while black fire with red cracks climbs from the bottom, the hand is thrown off smoking |
 
 **Feel (0.7.2).** The charge is easier to see: the fire grows in the palm with a hot halo and embers that circle it and tighten, the
 lightning gathers in a crackling ball held between the claws (above the fingers, where the hand does not hide it), the frost condenses in a
@@ -117,8 +117,55 @@ During a spell the weapon is held by the right hand only (lowered and tilted); d
 brought closer, so the hand works on it in view. At the hip a rifle sits 62 cm from the eye and its barrel ends past a metre, out of
 reach of a human arm: two-handed weapons are also brought within reach of the shoulder (the point a third along the barrel goes 44 cm
 in front of and 11 cm below the eye, `OffHand.ReachTarget`, higher for the magazine seal, and turned 36 degrees to show the
-left side), so the elbow bends while the hand works. A weapon with a seal glows in the element's colour (per-part emission, so frost and
-runes run from the hand outwards) and emits its particles.
+left side), so the elbow bends while the hand works.
+
+**The seal on the weapon and on the shots (17 November 2026).** Until then a sealed weapon took one flat tint of the element's colour on
+every metal part, with a few flames floating above it, and the bullets looked like the bullets of any weapon. Now the seal acts from
+below and shows on every shot:
+
+- *From below.* The hand works under the weapon (`Part.Under`: palm up, a few millimetres under the underside, in front of the magazine)
+  and the element is lit there: the metal heats from the underside and the heat climbs the flanks, so a weapon ends hottest at the
+  bottom and coolest on top. You see the front of the heat go up (a bright, ragged edge with tongues), not a colour switch: fire is
+  glowing metal with a flowing flame pattern (white-yellow at the bottom, orange, dull red on top), frost is a creeping coat of
+  crystals with glints, lightning is flickering veins with pulses running up them, acid is bubbling green sludge, blood is a glossy dark
+  coat, the critical seal is red cracks that beat, the Cursed Weapon is black fire with red cracks. Particles come from the underside
+  too: flames lick the flanks and embers rise, cold mist and drops fall, arcs jump along the bottom edge. A weak light of the element's
+  colour sits below and to the left of the weapon and lights the glove (only the view-model layer).
+- *Where the heat comes from.* While the hand slides under the weapon it deposits heat where the palm is (`WeaponAura.Deposit`, every
+  frame); at the end of the gesture the heat rises everywhere (`Flood`, 0.7 s), so the front reaches the top. The magazine seal starts
+  at the magazine base when the palm slaps it, the critical seal at the fingertip at each stab.
+- *The shots.* A sealed weapon shows its element on every shot, not one in three: a flash of the element at the muzzle (the weapon's own
+  muzzle flash and its light take the colour, and the weapon flares for a moment), a short thick dart of the element's colour along the
+  line with what the element leaves where the bullet passed (flame tongues and embers, ice shards and mist, arcs of current, drops of
+  acid or blood, red sparks, black fire), a burst of the element where it lands and its mark on the wall (scorch, frost, green stain,
+  blood, black fire). Shotgun pellets thin the effects out. The statuses on the enemy are still `Weapon.SigilHit`'s.
+
+### The open book (`GrimoireUI`)
+
+Since 17 November 2026 the open book is the maintainer's plate itself: `Resources/Grimori/tavola_arsenale.bytes` and
+`tavola_stregoneria.bytes`, PNGs stored as text assets and decoded by `GrimoirePage` (Unity leaves them alone), prepared from the two
+sources in `modelli/grimori/sorgenti/` by `modelli/grimori/prepara_tavole.py`. The script empties the 19 medallions (the icons baked
+into the art did not match the game's nodes), rebuilds the three inner medallions of the Witchcraft plate that the ram-headed demon hides
+(six identical thorn wreaths on a hexagon around it) and feathers the border into transparency. `tavole.json` keeps the centre and the
+radius of every slot in plate pixels: outer 0..11 clockwise from the medallion left of the top one, inner 0..5 clockwise from the top,
+the supreme at the centre, where the plate already has its emblem (the skull with the rifles, the demon). Without the files the book
+still works, on a dark placeholder with the same layout.
+
+On the plate the game draws, for every node, the icon engraved in gilded bronze (`GrimoireIcons.Engraved`: the signed-distance shapes of
+the HUD icons with a bevel lit from the top left, a highlight and a soft shadow), a glow and a ring for its state (owned: red; one you can
+buy: amber; closed: dark and dim; the active spell or seal: a gold ring), a gold ring that breathes on the chosen node, and thin lines
+between nodes: red between two owned ones, amber between an owned one and one you can buy (the rest is the plate's own art). The supreme
+has no icon: its emblem is dimmed until you own it. Beside the plate a parchment card (`GrimoirePage.Card`) shows the chosen node: icon,
+name, class, effect, motto, price or what is missing, the key to press, the message after a purchase and, at the foot, points, essence
+and keys.
+
+The book is a child of the reader's HUD, so it lives inside the reader's part of the screen and scales with it. It takes at most 88% of
+the height and arranges itself in the room it has: plate and card side by side in a wide area (1280x720: an 844x633 plate and a 330 wide
+card), one above the other in a tall one (each half of a two-player split screen). The game stays visible around it, only dimmed. `Esc`,
+`Tab`, `Backspace`, right click or B close it; the pause, a hit or the reader's death close it too.
+
+The 3D book on the altar uses the same art: `altare_*.bytes` (the open book of the plate, cropped, as a JPEG) and `luce_*.bytes` (a mask
+of its hot reds, which glow).
 
 ## Arms and hands
 
@@ -251,15 +298,56 @@ uses its own red-orange tint (`MagicVfx.CursedFire`): the interface crimson has 
 API (flame, glow, sparks, mist, drip, arc, burst, ring), so weapon auras and enemy statuses use the new particles too; without the
 shader (a scripts-only build over an old player) it falls back to the `Fx` quads.
 
+## The seal on the weapon (`WeaponAura`, `WeaponInfusion.shader`, `SigilFx`)
+
+Every lit piece of the first-person weapon gets a second renderer (a child called `Sigillo`, the same mesh; glass and scope
+submeshes get a blank material) drawn 0.6 mm off the surface by `Resources/Shaders/WeaponInfusion.shader` (in `Resources` for
+`Shader.Find`, so it needs a full build). Its blend is premultiplied and it writes no depth: one output does both additive light (fire,
+cracks, veins) and covering matter (frost, sludge, blood). The shader does not know the weapon: `WeaponAura` gives it, every frame, a
+48-texel half-float profile along the weapon's length (R: height of the underside, G: height of the top, both from `WeaponSurface`;
+B: the heat level) and the world-to-weapon matrix. For each fragment `h` says how high it is between underside and top at that point
+of the length (0 under, 1 on top), `front = level - h` is positive where the heat has arrived, and every element is a function of
+`front` and `h` plus noise in weapon space (so the pattern sticks to the metal): fire is a temperature (dark red on top, amber at the
+bottom, a bright thin line on the front, hot pockets low down), frost a coat that is thicker at the bottom and ends in ragged tongues,
+lightning veins with pulses running up, acid dark mud with glowing drips and bubbles, blood a dark wet coat with streaks and gloss,
+the critical seal and the Cursed Weapon cracks on the edges of a cellular (Voronoi) pattern. The coatings (blood, acid, frost) are lit
+by one fixed light in the eye's space (up, left and towards the viewer) with a narrow highlight that breaks up in patches, so the
+weapon keeps its shape and looks wet instead of a flat silhouette; fire, cracks and veins are their own light and ignore it. The scene
+is HDR with ACES, a bloom threshold of 1 and a high exposure in the lit halls (about 2.5 times, measured on the photographs), so
+colours above 0.5 already fade towards yellow-white and a coat of 0.1 already looks bright: the body of each look stays between 0.02
+and 0.6 and only the thin lines (front, veins, cracks) go over 1. Green weighs three times red in brightness, so the acid wants about
+a third of the blood's value for the same look.
+
+The level is written by the left hand: while the palm slides under the weapon `MagicCaster.HeatTick` calls `WeaponAura.Deposit` at the
+palm every frame (a Gaussian along the length), the contact events (`stab`, `cut`, `trail`, `pour`, `press`, `runes`, `slap`) start the
+element at the touched point (`WeaponAura.Set`), and the `cast` event calls `Flood` (0.7 s; 0.9 s for the Cursed Weapon) so the front
+climbs the flanks to the top. At rest (`Set` without a point) the weapon is lit at the steady level, hotter at the bottom than on top.
+`WeaponAura.Emit` sends the particles from the underside and the lower flank where the heat is (small flame tongues and embers that
+hug the metal, mist and shards falling, arcs along the bottom edge, drips), and one weak point light of the element's colour below
+and to the left lights the glove (view-model layer only). `Weapon.DropMag` removes the skin from the dropped magazine copy.
+
+`SigilFx` is what a sealed weapon shows on each shot (`Weapon.SigilShot`, `Weapon.ShootRay`): the element's flash at the muzzle, the
+weapon's own flash and light tinted, a short thick dart plus a thin line of the element's colour that fades in 0.2 s and the trail
+particles of the element (`Tracer`), and at the end point a burst, a short coloured light on the world and the mark on the wall
+(`Impact`). Shotgun pellets draw the effects on a third of the pellets.
+
+The gestures that work under the weapon (`Part.Under`, `WeaponSurface.UnderAlong`, `OffHandAnims.Un`) use their own presentation of
+the weapon (`UnderP`, `UnderR`: turned on its side and raised so that the underside, the hand and the climbing heat are in view; with
+the realistic hold the reach target is not used, only this offset). `-sigilpose roll,yaw,pitch,x,y,z` and `-sigilreach x,y,z`
+change them from the command line for tuning without a rebuild.
+
 ## Code map
 
 `Scripts/Braccia/`: `HandPose.cs`, `HandRig.cs`, `GripPoses.cs`, `GripHand.cs`, `HandMirror.cs`, `OffHand.cs` (and `WeaponSurface`),
 `ReloadAnims.cs`. `Scripts/ArmRig.cs`, `Scripts/Weapon.ReloadHands.cs`, `Scripts/Weapon.WorkHand.cs`.
 `Scripts/Magia/`: `Grimoire.cs`, `MagicState.cs`, `MagicCaster.cs` (input, effects, the `Magic` facade), `OffHandAnims.cs`, `MagicFx.cs`
-(effects, `Fireball`, `EnemyStatus`, `WeaponAura`), `MagicVfx.cs` and `VfxTextures.cs` (particles, lightning, circles, textures),
+(effects, `Fireball`, `EnemyStatus`), `WeaponAura.cs` (the weapon's skin and its particles), `SigilFx.cs` (muzzle, tracer and impact of
+a sealed shot), `Resources/Shaders/WeaponInfusion.shader`, `MagicVfx.cs` and `VfxTextures.cs` (particles, lightning, circles, textures),
 `Resources/Shaders/MagicParticle.shader`, `SoundMagia.cs`, `HUD.Magia.cs`, `GrimoireIcons.cs`, `GrimoirePage.cs`,
 `GrimoireUI.cs`, `GrimoireAltar.cs`, `MagiaTest.cs`. `Scripts/Weapon.Sigilli.cs` (seals on hits). `Scripts/Proc/PlanAnnex.cs`
-(placement), `Proc/FloorBuilder.Sacrario.cs` (geometry), `Proc/AnnexRuntime.cs` (the secret wall). Assets:
+(placement), `Proc/FloorBuilder.Sacrario.cs` (geometry), `Proc/AnnexRuntime.cs` (the secret wall). The book art: `Resources/Grimori/`
+(`tavola_*.bytes`, `altare_*.bytes`, `luce_*.bytes`, `tavole.json`), made by `python -I modelli/grimori/prepara_tavole.py` (needs numpy,
+opencv-python and Pillow; the sources are in `modelli/grimori/sorgenti/`; run it again only if a plate changes). Assets:
 `Models/Mani/libera/mano_libera.fbx` and `manica_libera.fbx`, `Resources/ManoLibera.prefab` and `ManicaLibera.prefab` (`ManiImport.Run`,
 `-mani libera` / `-mani manica`), `Resources/ManiArmi/presa_sinistra.json` and `presa_destra.json`, `Textures/Braccia/` (the atlases
 and the detail) with the materials `Models/Mani/Materials/Mani_GuantoLibero.mat` and `Mani_ManicaLibera.mat`. The Blender stages of
@@ -275,9 +363,13 @@ enemies. Spell effects are not shown on the other players' screens. The plan gai
 revision is `pe-coop-26`.
 
 Split screen ([split-screen.md](../multiplayer/split-screen.md)): every player has its own caster and grimoire state, and the
-caster runs inside its player's seat (`Seats.Enter`, keys through `SeatInput`). The grimoire page covers the whole window and
-belongs to the player who opened it (purchases, essence and points are theirs); while it is open the game pauses for everybody,
-because it blocks every player's commands.
+caster runs inside its player's seat (`Seats.Enter`, keys through `SeatInput`). Every player has their own open book (`GrimoireUI` keeps
+one per seat, under that seat's HUD), drawn inside that player's part of the screen. It blocks only the reader's commands:
+`GameMenu.Overlay` belongs to the seat (`Seat.overlay`, saved and restored by `Seats.Install`, set with `Seats.SetOverlay`) and the
+reader's controller is the only one silenced (`PadControls.BlockedFor`). The others keep playing, time does not stop, and their HUDs
+and maps are untouched; the reader's own map is hidden under the book. Purchases, essence and points are the reader's; the reader's
+controller (or the keyboard and the mouse, for player 1) drives the book. In the online co-op the book works the same way: it does not
+stop the game and takes at most 88% of the window.
 
 ## Verification
 
@@ -286,7 +378,24 @@ because it blocks every player's commands.
   floor, wall usable with F, closed and standing it cannot be crossed, crouched it can, no enemy path, the book of the floor), both
   books (rules, prices, all 38 nodes), the seven spells and seven seals on a rifle and a pistol (they start, the free hand takes the
   wrapped glove's place and gives it back, effects arrive, the elbow stays in range, the wrist and forearm stay within human
-  ranges) and the left-hand throw. Results in `hotel_build/magia/magia.txt`, photos with `-magiashots`.
+  ranges) and the left-hand throw. Results in `hotel_build/magia/magia.txt`, photos with `-magiashots`. For every seal it also checks
+  that the weapon is lit (`WeaponAura`: the element, its skins, the heat above 0.75 once the gesture ends) and that the shots drew
+  their muzzle flash, tracer and impact (`SigilFx.Shots`, `Tracers`, `Impacts`).
+- `-sigilliview [-sigilliweapons a,b] [-sigillinodes 14,17] [-sigillishots N] [-magiazoom]` with the same flags (`MagiaTest.SigilView`):
+  only the seven seals, to judge how they look. For each seal the gesture in six photos, the weapon from the side and from below (close
+  ups), a burst on a target with photos two frames after a shot, and four shots at a wall 3-9 m away (an enemy-free dark backdrop), the
+  second in slow motion (`Time.timeScale` 0.04) with one photo of the dart in flight and one at the impact. Photos in
+  `hotel_build/magia/sg_<weapon>_<node>_*.png`. A good set is `-sigilliweapons ar9_malleus,p9_pieta` (a rifle and a one-handed pistol).
+- `-magiabooks` (with the flags above) stops after the room and the two books, about two minutes instead of the full run. For each
+  book it opens the real `GrimoireUI` and checks: the real plate and its 19 slots are loaded (the report gives its size and mip levels), the book stays inside its
+  area and leaves the game visible, time keeps running, an inner node cannot be bought without an outer neighbour, the supreme is closed
+  until four inner nodes are owned, the prices (1,250, 1,500, 3,000 and 9,000), the purchase of all 19 nodes and that closing the book
+  gives the commands back (44 of 44 on 17 November 2026). Photos `libro_<book>_{vuoto,quasi,pieno}.png` (nothing owned, all but the
+  supreme, everything) and `sacrario_altare.png` go to `hotel_build/magia/`.
+- The book of one player in the split screen is covered by `-seatstest`
+  ([split-screen.md](../multiplayer/split-screen.md#verification)): only the reader's book is open, only the reader is blocked, time
+  runs, the book fits inside the reader's part, another player walks while the reader stays still, and a controller drives only its
+  own player's book.
 - Diagnostic flags of the same test: `-magiaside` (with every photo a side and a top view of the arms with the solved joints, a
   close-up of the left wrist where sleeve and glove cuff meet, and the measures in the report), `-magiazoom` (two close-ups of the
   left hand with the real scene and effects: from the eye with a telephoto lens and three-quarters from the left), `-vfxdump` (the
@@ -321,4 +430,15 @@ because it blocks every player's commands.
   crosses the lower left while lifting the cover. Big models (the flamethrower's tank, the scoped rifles) fill one side of the screen
   while they are at the chest. On weapons with unusual magazines (the flamethrower, the alien spine launcher, the eye rifle) the hand
   goes where the magazine's bounds say.
-- With a scripts-only build over an older player the new textures and materials are missing: they need a full build.
+- With a scripts-only build over an older player the new textures and materials are missing: they need a full build. The seal
+  shader (`WeaponInfusion.shader`) is in `Resources`, so without it the weapon simply shows no skin.
+- The seven looks of the seals were tuned on photographs of two weapons (the rifle `ar9_malleus` and the pistol `p9_pieta`) in one
+  lit hall (`-seed 1000`), by eye, and not played by a human. Other weapons use the same shader with the profile of their own shape
+  (`WeaponSurface`), so a weapon whose top and underside are far from the rifle's (the flamethrower's tank, the scoped rifles) may
+  show the climbing front less cleanly.
+- The exposure of the looks is tuned for the hotel's ACES tonemapping and bloom threshold 1 (`HotelVolume.asset`); if either changes
+  the bodies of the looks (0.05 to 0.6) and the thin lines (over 1) need to be tuned again.
+- The cost of the skin was not measured: it adds one draw per lit piece of the weapon, with noise in the fragment shader (the critical
+  and Cursed looks use a 27-cell cellular pattern) on the pixels of the weapon only.
+- The seal on the weapon and on the shots is drawn by the shooter's own game: in co-op the other players do not see the skin or the
+  coloured shots of a remote player, only the glow on the mannequin's hand.

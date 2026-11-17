@@ -94,9 +94,9 @@ namespace PryingEyes.Proc
             { ca.saturation.Override(look.saturation + LookTune.Saturation); ca.contrast.Override(look.contrast + LookTune.Contrast); }
             if (prof.TryGet(out UnityEngine.Rendering.Universal.SplitToning st))
             { st.shadows.Override(look.shadows); st.highlights.Override(look.highlights); st.balance.Override(look.balance); }
-            if (prof.TryGet(out UnityEngine.Rendering.Universal.Bloom bl)) bl.intensity.Override(look.bloom * LookTune.Bloom);
-            if (prof.TryGet(out UnityEngine.Rendering.Universal.Vignette vg)) { vg.intensity.Override(look.vignette); vg.smoothness.Override(look.vignetteSmooth); }
-            if (prof.TryGet(out UnityEngine.Rendering.Universal.FilmGrain fg)) fg.intensity.Override(look.grain);
+            if (prof.TryGet(out UnityEngine.Rendering.Universal.Vignette vg)) vg.smoothness.Override(look.vignetteSmooth);
+            // bagliore, vignettatura e grana del tema, scalati da quanto ne vuole il giocatore (Impostazioni > Immagine; al 100% com'erano)
+            GameSettings.SetThemeEffects(vol, look.grain, look.vignette, look.bloom * LookTune.Bloom);
         }
     }
 

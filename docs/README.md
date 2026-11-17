@@ -22,20 +22,26 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [tower.md](game/tower.md) | The Tower: procedural floors and themes, the wave cycle (default) and the candle cycle (legacy), points, perks, shops, shrines, power-ups, themed enemies, controls, code map. The floors are now the levels of the catacombs. |
 | [weapons.md](game/weapons.md) | The 28 weapons in 5 grades, per-weapon numbers, gunplay, sights, and the Blender to Unity pipeline. |
 | [guardaroba.md](game/guardaroba.md) | The fourth theme (wardrobes, vampires, scissors, lava): its 17 new props, materials, how to make and photograph them again, how they reach the game (the kit saved in `Torre.unity`), where the rooms place them, traps and what is verified. |
+| [textures.md](game/textures.md) | The wall, column and floor textures redone on 17 November 2026: the two checkerboard marble floors that alternate room by room, the stone column mesh, the luminance kept, how to make them again and check them. |
 | [props-phase5.md](game/props-phase5.md) | Sixteen hotel and church props rebuilt in detail (chair, table, wardrobe, desk, shelf, pew, sarcophagus, hooded statue, range cooker, floor lamp, altar, font, choir stall and more): what each is, the modelling tools, the three levels of detail and how Unity groups them, how to make them again and what is verified. |
+| [medusa.md](game/medusa.md) | The flying jellyfish: the Blender model (66,000 triangles, 240 bones), its textures, the code that animates it, the effects of its attack, how to make it again and what is checked. |
 | [horde-variants.md](game/horde-variants.md) | The plague bearer, flagellant, statue and cardinal; blood. |
 | [equipment-and-trials.md](game/equipment-and-trials.md) | Holy water and the music box, the trial of each wave, the glass eyes, the reliquary mine. |
 | [door-traps.md](game/door-traps.md) | Fire and lightning levers on bought doorways. |
 | [barrels-and-rising.md](game/barrels-and-rising.md) | Holy oil barrels, and enemies rising from the floor. |
 | [chandeliers.md](game/chandeliers.md) | Chandeliers that fall when shot, and breakable lamps. |
 | [power.md](game/power.md) | Floor power: emergency lights, the switchboard and its lever. |
+| [map.md](game/map.md) | The map: a hand-inked dossier (minimap and big sheet), what each mark means, how a floor is revealed, the painter and its lab, the checks. |
 | [cathedrals-and-annexes.md](game/cathedrals-and-annexes.md) | Cathedral halls and annexes of the survival layout. |
 | [arms-and-magic.md](game/arms-and-magic.md) | The biomechanical arms and articulated left hand, the spells and weapon seals of the second hand, the secret book room and its two 19-node grimoires. |
+| [characters.md](game/characters.md) | The four survivors (Custode, Dottoressa, Reporter, Cacciatrice): who is who, how the code animates them (legs, gait, weapon in hand, fingers), how Blender makes them and how to make one more, where they show (co-op partners, split screen, your own body). |
+| [third-person.md](game/third-person.md) | The third-person view (setting *Prospettiva*): the camera behind the shoulder, why shots still land on the crosshair, how it is rendered, its check and what is not verified. |
 | [feel-and-reflections.md](game/feel-and-reflections.md) | Room reflections, scoreboard, inspection, ragdolls, vaulting, hit reactions, light shafts, empty magazines, medals, adaptive music, surface impacts. |
-| [display-and-menu.md](game/display-and-menu.md) | Display settings and the hotel-register main menu. |
+| [display-and-menu.md](game/display-and-menu.md) | The hotel-register main menu, the five settings tabs (display, image, audio, controls, game), the guide, the tips and the pause screen. |
+| [menu-music.md](game/menu-music.md) | The main-menu theme (a generated waltz for music box and organ) and the menu tones: how they are made, when they play, their loudness, what was measured and what was not listened to. |
 | [controller.md](game/controller.md) | The XInput controller: how the game finds it, the mapping, menu navigation with it, the on-screen hints, the checks and what is not verified. |
 | [multiplayer/README.md](multiplayer/README.md) | Online co-op for up to four players: how it plays, the protocol, the tests, the limits (Italian). |
-| [multiplayer/split-screen.md](multiplayer/split-screen.md) | Split screen on one PC for two to four players, in one game and one window: layout, controllers, what is shared, how it works, the checks and what is not verified. |
+| [multiplayer/split-screen.md](multiplayer/split-screen.md) | Split screen on one PC for two to four players, in one game, in one window or over several monitors: layout, controllers, what is shared, how it works, the checks and what is not verified. |
 
 ## Engineering (`engineering/`)
 

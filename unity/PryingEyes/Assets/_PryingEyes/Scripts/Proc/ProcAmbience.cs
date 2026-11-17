@@ -66,13 +66,15 @@ namespace PryingEyes.Proc
             }
             else if (clinic)
                 buzzT = r.kind == RoomKind.Corridoio ? 0.22f : (r.kind == RoomKind.SalaOperatoria || r.kind == RoomKind.Obitorio) ? 0.24f : 0.13f;
-            float duck = 1f - 0.6f * MusicDirector.Duck;          // la musica del combattimento copre organo e toni (MusicDirector)
+            float duck = 1f - 0.6f * Mathf.Max(MusicDirector.Duck, MenuMusic.Duck);          // la musica del combattimento e il tema del menu coprono organo e toni
+            // 0.8.0: ronzio, vento, brusio e neon seguono il volume "Ambiente" (prima gli Effetti); gli Effetti restano per gli spari e il resto
+            float amb = GameSettings.Ambience;
             Blend(organ, orgT * GameSettings.Music * duck, dt * 0.5f);
-            Blend(room, roomT * GameSettings.Effects, dt * 0.8f);
-            Blend(wind, windT * GameSettings.Effects, dt * 0.6f);
+            Blend(room, roomT * amb, dt * 0.8f);
+            Blend(wind, windT * amb, dt * 0.6f);
             Blend(pad, padT * GameSettings.Music * duck, dt * 0.5f);
-            Blend(murmur, murT * GameSettings.Effects, dt * 0.6f);
-            Blend(buzz, buzzT * GameSettings.Effects, dt * 0.8f);
+            Blend(murmur, murT * amb, dt * 0.6f);
+            Blend(buzz, buzzT * amb, dt * 0.8f);
 
             // eco: pietra e volte alte in chiesa, stanze piccole in albergo, grandi sale e piastrelle nei temi nuovi
             if (r != null)
@@ -105,13 +107,13 @@ namespace PryingEyes.Proc
             {
                 creakT = Random.Range(7f, 17f);
                 Vector2 o = Random.insideUnitCircle.normalized * Random.Range(6f, 22f);
-                Sfx.At(SoundBank.Creak, cam.transform.position + new Vector3(o.x, Random.Range(0.5f, 3f), o.y), Random.Range(0.25f, 0.5f), Random.Range(0.85f, 1.15f), 4f, 36f);
+                Sfx.At(SoundBank.Creak, cam.transform.position + new Vector3(o.x, Random.Range(0.5f, 3f), o.y), Random.Range(0.25f, 0.5f) * amb, Random.Range(0.85f, 1.15f), 4f, 36f);
             }
             tollT -= Time.deltaTime;
             if (tollT <= 0f)
             {
                 tollT = Random.Range(55f, 110f);
-                Sfx.At(SoundBank.Toll, cam.transform.position + new Vector3(Random.Range(-1f, 1f), 0.2f, Random.Range(-1f, 1f)).normalized * 45f, 0.35f, 1f, 8f, 120f);
+                Sfx.At(SoundBank.Toll, cam.transform.position + new Vector3(Random.Range(-1f, 1f), 0.2f, Random.Range(-1f, 1f)).normalized * 45f, 0.35f * amb, 1f, 8f, 120f);
             }
             if (theme == Theme.Teatro)
             {
@@ -148,7 +150,7 @@ namespace PryingEyes.Proc
         static void Far(Camera cam, AudioClip clip, float dmin, float dmax, float vol, float pitch, float maxDist)
         {
             Vector2 o = Random.insideUnitCircle.normalized * Random.Range(dmin, dmax);
-            Sfx.At(clip, cam.transform.position + new Vector3(o.x, Random.Range(0.5f, 2.5f), o.y), vol, pitch, 6f, maxDist);
+            Sfx.At(clip, cam.transform.position + new Vector3(o.x, Random.Range(0.5f, 2.5f), o.y), vol * GameSettings.Ambience, pitch, 6f, maxDist);
         }
 
         static void Blend(AudioSource s, float target, float k)

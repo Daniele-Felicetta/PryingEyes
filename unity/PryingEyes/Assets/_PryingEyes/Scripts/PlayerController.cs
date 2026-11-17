@@ -233,9 +233,11 @@ namespace PryingEyes
 
             // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
             float ms = sens * GameSettings.Sensitivity * weapon.SensMult;
-            float touchSens = 4f * GameSettings.Sensitivity * weapon.SensMult, padSens = GameSettings.Sensitivity * weapon.SensMult * dt;
+            float touchSens = 4f * GameSettings.Sensitivity * weapon.SensMult, padSens = GameSettings.PadSensitivity * weapon.SensMult * dt;
+            float mouseY = SeatInput.GetAxis("Mouse Y") * (GameSettings.InvertMouseY ? -1f : 1f);          // Impostazioni > Comandi: asse Y invertito
+            float padY = PadControls.LookRate.y * (GameSettings.InvertPadY ? -1f : 1f);
             float dYaw = inputEnabled ? SeatInput.GetAxis("Mouse X") * ms + TouchControls.Look.x * touchSens + PadControls.LookRate.x * padSens : 0f;
-            float dPitch = inputEnabled ? -SeatInput.GetAxis("Mouse Y") * ms - TouchControls.Look.y * touchSens - PadControls.LookRate.y * padSens : 0f;
+            float dPitch = inputEnabled ? -mouseY * ms - TouchControls.Look.y * touchSens - padY * padSens : 0f;
             yaw += dYaw;
             pitch += dPitch;
             pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
@@ -267,8 +269,11 @@ namespace PryingEyes
                     s = Vector3.Dot(botDir, new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)));
                 }
             }
-            bool wantCrouch = inputEnabled ? SeatInput.GetKey(KeyCode.C) || SeatInput.GetKey(KeyCode.LeftControl) || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch) : crouch;
-            bool sprintInput = inputEnabled && (SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift) || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0;
+            bool crouchKey = SeatInput.GetKey(KeyCode.C) || SeatInput.GetKey(KeyCode.LeftControl);
+            bool sprintKey = SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift);
+            ToggleKeys(inputEnabled, f, ref crouchKey, ref sprintKey);        // Impostazioni > Comandi: tenendo premuto o a interruttore
+            bool wantCrouch = inputEnabled ? crouchKey || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch) : crouch;
+            bool sprintInput = inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0;
             bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
             if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;
@@ -439,7 +444,7 @@ namespace PryingEyes
             eyeH += (targetEye - eyeH) * Mathf.Min(1f, 11f * dt);
 
             Camera c = cam.GetComponent<Camera>();
-            float baseFov = SplitScreen.Active ? SplitScreen.FovFor(GameSettings.Fov, c.aspect) : GameSettings.Fov;     // nelle finestre larghe dello split screen il campo orizzontale non esagera
+            float baseFov = SplitScreen.Active ? SplitScreen.FovFor(GameSettings.Fov, Seats.ViewAspect(Seats.Current, c.aspect)) : GameSettings.Fov;     // nelle finestre larghe dello split screen il campo orizzontale non esagera (su piu' monitor: l'aspetto della porzione sul SUO monitor)
             float targetFov = baseFov + ((wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + fovKick) * motion
                 - weapon.ads * (baseFov - wd.adsFov);
             fovKick *= Mathf.Max(0f, 1f - 6f * dt);
@@ -458,6 +463,8 @@ namespace PryingEyes
                 transform.position.z - bobX * sin + right.z * latOff);
             float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll + (Downed ? 9f : 0f);
             cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP + mantlePitch, yaw * Mathf.Rad2Deg + recY, roll + mantleRoll);
+            // terza persona (impostazione del menu): la camera si sposta dietro la spalla solo mentre disegna; qui l'occhio si gira verso il mirino
+            if (GameSettings.ThirdPerson || ThirdPersonView.Count > 0) ThirdPersonView.AfterEyePose(this);
 
             // perk attivabile: il tempo degli effetti scorre in TickSurvival, anche nel menu cooperativo
             if (alive && !Downed && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (SeatInput.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())

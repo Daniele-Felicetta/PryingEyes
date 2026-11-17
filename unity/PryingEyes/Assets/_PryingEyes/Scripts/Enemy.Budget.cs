@@ -39,6 +39,9 @@ namespace PryingEyes
         /// oltre la soglia, cosi' uno fermo sul confine non cambia mesh a ogni giro del budget.</summary>
         const float LodHysteresis = 0.6f;
 
+        /// <summary>Distanza dal punto di vista piu' vicino all'ultimo giro del budget (la usano le animazioni a codice per dosare il costo).</summary>
+        public float LastViewDistance { get; private set; }
+
         ShadowCastingMode[] shadowModes;
         Part[] partRoles;
         short[] partLods;
@@ -113,6 +116,7 @@ namespace PryingEyes
         /// pieni sono tanti.</summary>
         void SetDetail(float distance, float scale)
         {
+            LastViewDistance = distance;
             CacheRenderParts();
             for (int i = 0; i < partRoles.Length; i++)
             {

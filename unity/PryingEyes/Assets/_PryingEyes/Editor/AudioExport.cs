@@ -53,6 +53,19 @@ namespace PryingEyes.EditorTools
             Save("sanatorio_carrello", SoundGen.TrolleySqueak(), r);
             Save("sanatorio_monitor", SoundGen.MonitorBeep(), r);
             Save("sanatorio_portone", SoundGen.IronClang(), r);
+            Save("scrigno_apre", SoundGen.ChestOpen(), r);
+            Save("scrigno_chiude", SoundGen.ChestClose(), r);
+            Save("scrigno_arma", SoundGen.ChestReveal(), r);
+        }
+
+        /// <summary>Solo i suoni dello Scrigno (hotel_build/audio/scrigno_*.wav): per sentirli e misurarli senza rifare tutto l'elenco.</summary>
+        public static void Chest()
+        {
+            Directory.CreateDirectory(Dir);
+            int r = SoundGen.Rate;
+            Save("scrigno_apre", SoundGen.ChestOpen(), r);
+            Save("scrigno_chiude", SoundGen.ChestClose(), r);
+            Save("scrigno_arma", SoundGen.ChestReveal(), r);
         }
 
         static void Save(string name, float[] s, int rate)

@@ -1,7 +1,8 @@
 # Split screen on one PC (2 to 4 players)
 
-Several people play **in the same game and the same window**: main menu, **Schermo condiviso**, then **2 giocatori**, **3 giocatori** or
-**4 giocatori**. The screen is divided into equal parts. Every player has their own view, HUD, body, weapons, points and controller; the
+Several people play **in the same game**: main menu, **Schermo condiviso**, then **2 giocatori**, **3 giocatori** or
+**4 giocatori**. The screen is divided into equal parts, in the game window or, with more than one monitor connected, **over the monitors**
+(see [Several monitors](#several-monitors)). Every player has their own view, HUD, body, weapons, points and controller; the
 hotel, the enemies, the waves and the lift are the same for everyone. There is no network and no second process: it is the single-player
 game with more players in it.
 
@@ -15,12 +16,17 @@ split screen.
 
 1. Main menu, **Schermo condiviso**, then the number of players. The button **Giocatore 1** switches player 1 between *tastiera e mouse*
    and *controller (e tastiera)*. The panel shows how many controllers the game sees and how many two players need.
+   With two or more monitors connected the same row has a second button, **Monitor**, that picks how many monitors to use (see below).
 2. The run starts at once. Everyone arrives side by side in the cabin of floor 1, and the screen is divided as in the table below.
 3. Everybody can play with a controller; player 1 can also use the keyboard and the mouse. See [Controls](#controls).
 4. **Pause**: Esc, or Start on any controller. It stops the whole world for everyone and hides every HUD; Esc, Start on any controller or
    **Riprendi** resumes. The pause menu names who uses what (*G1: tastiera e mouse   G2: controller 1 ...*). **Torna al menu** ends the
    split screen for everyone (the confirmation says so). The number of players is chosen at the start: nobody joins or leaves in the
    middle, and a player who stops playing stays in the game. If the window loses focus the game pauses, as it does for one player.
+5. **Grimoires** (the secret room's two books): a player who opens one reads it inside their own part of the screen, never over the whole
+   window, and nobody else is stopped: time keeps running, the others keep walking and shooting, and only the reader's commands (and
+   their controller) go to the book. Esc, Backspace, right click or B closes it. See
+   [arms-and-magic.md](../game/arms-and-magic.md#the-open-book-grimoireui).
 
 ## Layout
 
@@ -35,6 +41,36 @@ get 960x1080 each, three get 960x540, 960x540 and 1920x540, four get 960x540 eac
 the normal one, laid out for 1280x720 and scaled to fit its part (`min(width / 1280, height / 720)`), so the reading size follows the part and
 not the window. The vertical field of view is the player's setting; in a part much wider than tall it is shortened so that the horizontal
 angle never passes 125 degrees (`SplitScreen.FovFor`). The window can be resized; the parts follow.
+
+## Several monitors
+
+With more than one monitor connected the panel shows **Monitor: uno solo / due / ...** next to the player-1 switch. It cycles from one
+monitor up to the number connected (at most four), the choice is remembered between runs, and the first time it uses all the connected ones. With
+one monitor the button is not there and nothing changes. The players are divided over the chosen monitors as evenly as possible, the first
+monitors taking the extra ones, and each monitor shows its players with the same layout as a whole screen (`SplitScreen.PlayersOn`,
+`DisplayOf`, `ViewOn`):
+
+| Players | 2 monitors | 3 monitors | 4 monitors |
+| --- | --- | --- | --- |
+| 2 | one each, full screen | (2 are enough) | (2 are enough) |
+| 3 | 1 and 2 side by side on monitor 1, 3 full screen on monitor 2 | one each | (3 are enough) |
+| 4 | 1 and 2 side by side on monitor 1, 3 and 4 side by side on monitor 2 | 1 and 2 on monitor 1, 3 on monitor 2, 4 on monitor 3 | one each |
+
+Monitor 1 is the monitor of the game window: it keeps the menu, the pause menu and player 1, who has the keyboard and the mouse. A player's
+HUD, camera and the book of a grimoire they open are on their own monitor. In the pause the other monitors show the frozen world under an
+**IN PAUSA** veil (the menu is on monitor 1, and its line that says who uses what also says how many monitors: *Split screen a 2 giocatori su 2
+monitor ...*). Every monitor is used at its own size and the HUD scales to the part it fills, as in one window. The map (M) and the minimap
+(N) of a player on another monitor are drawn with uGUI under their HUD, because Unity shows IMGUI, which the map of the first monitor uses,
+only on the first monitor.
+
+How the windows behave (seen on Windows 11, D3D12, Unity 6000.6): turning a monitor on makes Unity open a borderless window on it at its
+native size, and the game window itself takes the size of its own monitor (borderless) as soon as that happens. A program in front of the new
+window would hide the game from the player on that monitor, so for the first three seconds the game raises a covered window of an extra
+monitor, without taking the keyboard from the game window (`WinWindows.RaiseSecondary`), and gives the keyboard back to the game window if
+Windows gave it to the new one (`FocusMainIfStolen`; losing it also pauses the game, except during those three seconds). The covered windows
+are raised again whenever the game gets its focus back, because coming back from another program brings forward only the window that was
+clicked (`SplitScreen.OnFocusGained`). Unity cannot close the window of a monitor it has opened: when the split screen ends the windows of
+the extra monitors are hidden, and they come back with the next one.
 
 ## Controls
 
@@ -80,22 +116,28 @@ Rules for code that touches players (the reasons are in the comments of `Seats.c
 4. A new per-player value that the game reads as a global belongs in `Seat` and in `Seats.Save` / `Seats.Load`.
 
 **How the players see each other** (0.7.1; before, every player had only their first-person arms and nobody saw anybody). Each seat has
-a `SeatAvatar`: the same mannequin as the online co-op partners (`RemotePlayer.BuildBody`: coat in the seat's colour, head, arms forward,
-torch in hand) with the name above the head, turned towards each camera just before it renders. It follows the seat's body at the end of
-the frame (walking legs, crouching, lying down when dead) and sits on the seat's own avatar layer (`Seats.FirstAvatarLayer` + index,
+a `SeatAvatar`: since 0.8.0 the same survivor as the online co-op partners ([../game/characters.md](../game/characters.md): one of four looks by seat,
+walking legs, the weapon in hand, aiming, shooting, reloading, sitting when downed and lying when dead; before, a capsule mannequin made by
+`RemotePlayer.BuildBody`, still the fallback when the models are missing) with the name above the head, turned towards each camera just before it
+renders. It is driven by the seat's body at the end of the frame and sits on the seat's own avatar layer (`Seats.FirstAvatarLayer` + index,
 layers 20 to 23): `Seats.Layout` gives every camera its own weapon layer and the avatar layers of the others, never its own, so nobody
-sees their own body in front of the eyes. The mannequin has no collider (bullets and enemies ignore it) and no light (each seat's real
-torch already lights the world).
+sees their own body in front of the eyes (unless that player chose the [third-person view](../game/third-person.md), which adds their own
+layer back to their own camera). The survivor has no collider (bullets and enemies ignore it) and no light of its own (each seat's real
+torch lights the world and the others' bodies, never its own weapon: `SurvivorLight`).
 
 How the screen is made: each seat camera is a copy of the main one (URP settings included) with its own `Camera.rect`. The weapon and hands of
 seat n live on layer 24 + n, and a camera draws only its own, so nobody sees another player's gun. There is one `AudioListener`, on player 1's
 camera. The HUDs hang under one overlay canvas, each in its rectangle. Lights, shadows, level of detail and billboards that depend on "the
 camera" use the nearest player's eye (`Seats.NearestEye`). `SeatInput` gives the keyboard and the mouse only to the seat that has them, and each
 seat reads its own `PadControls.Channel`. The pause freezes time for everyone (`Time.timeScale`, as in single player, unlike the online co-op).
+A grimoire does not: `GameMenu.Overlay` belongs to the seat (`Seat.overlay`, swapped by `Seats.Install`), `PadControls.BlockedFor(channel)`
+silences only the reader's controller, `GrimoireUI` keeps one book per seat under that seat's HUD (so it is drawn, scaled and kept inside
+that seat's rectangle), and the reader's IMGUI minimap is hidden while the others' stay.
 
 Code (`Assets/_PryingEyes/Scripts/`): `Coop/Seats.cs` (seat, context swap, helpers), `Coop/Seats.Rig.cs` (birth of seats 2 to 4, layout, HUD
 placement, borders), `Coop/SeatInput.cs`, `Coop/SeatTarget.cs`, `Coop/SplitScreen.cs` (pure rules: layout, controller assignment, field of view,
-start), `PadControls.cs` (XInput and the channels), `GameMenu.Split.cs` (panel, pause and leave texts), `SeatsTest.cs` and `SplitScreenTest.cs`.
+start), `Coop/SplitScreen.Monitors.cs` and `Coop/WinWindows.cs` (monitors and the Windows windows), `PadControls.cs` (XInput and the
+channels), `GameMenu.Split.cs` (panel, pause and leave texts), `SeatsTest.cs` and `SplitScreenTest.cs`.
 About fifty other files wrap an entry point or ask for "every player": `Enemy*`, `FloorDirector`, `RoundDirector`, `Drops`, `DropPickup`,
 `Equipment`, `Mine`, `Barrels`, `Chandeliers`, `HUD*`, `PlayerController`, `Weapon*`, `Fx`, `LightPool`, `Power` and others. The split screen
 exists only in the Windows player (XInput) and only on the hotel floors; elsewhere the menu button is off.
@@ -106,6 +148,7 @@ exists only in the Windows player (XInput) and only on the hotel floors; elsewhe
 | --- | --- |
 | `-splitscreen N` | Start a split screen of N players (2 to 4) by itself, as if the menu button had been pressed |
 | `-splitpad1` | With `-splitscreen`, player 1 uses a controller too |
+| `-splitmonitors N` | Use N monitors (1 to 4) instead of the choice saved by the menu. With fewer real monitors the extra ones are pretend ones: cameras, canvases and HUDs are placed all the same and nothing is shown (this is what the tests use). Without the flag, `-autotest` and the tests use one monitor |
 | `-seatstest` | The in-process test below (not in distribution builds) |
 | `-seatsshots` | With `-seatstest` in a real window (no `-batchmode`), save photos of the whole screen in `unity_logs/seats/` |
 
@@ -132,6 +175,10 @@ It checks:
   ignored by enemies, no death counted), player 1 holds Use next to them and they get up with half health, then they go down again and get
   up by themselves (once per floor), then they bleed out and die and respawn. Each HUD lists the other players in its teammates panel
   (number, colour, health, distance and direction, downed state).
+- **Grimoire** (17 November 2026): player 2 opens the arsenal book: only their book is open, only their overlay flag is set, time is
+  not stopped, and the book's rectangle on the screen is inside their part (the log prints both sizes); player 1
+  walks with their controller while the reader, even with the stick held, does not move; the D-pad of player 1 does not move the reader's
+  choice and the reader's does; B of the reader's controller closes the book and gives the commands back.
 - **Pause**: Start on any controller pauses everyone (time stopped, HUDs hidden, no walking or shooting even with the sticks held); Start on
   another controller resumes.
 - **End**: back to one player, one body, one listener, full-screen camera, and the controller still works.
@@ -155,6 +202,28 @@ with a fake XInput state) and `PryingEyes.EditorTools.MenuReview.Run` (665 check
 overlaps the footer). The parameters of the script and the other checks are in
 [testing.md](../engineering/testing.md#51-split-screen-one-game-one-window).
 
+Results on 17 November 2026 for several monitors (Windows 11, RTX 5060 Ti, a 3440x1440 monitor at 175% scale and a 3840x2160 one at 300%):
+`-splittest` 79 of 79 (the rules of who stands on which monitor added 16 checks); `-seatstest` from the menu without a window: 3 players on
+one monitor 70 of 70 (the old path, unchanged), 2 players on 2 monitors 72 of 72, 3 on 2 74 of 74, 4 on 2 78 of 78, 4 on 4 80 of 80 (the extra
+monitors are pretend ones: cameras, canvases, HUDs and the maps of the other monitors are built and checked, nothing is shown);
+`MenuReview.Run` 921 checks with no failure (the panel with one, two and four monitors). With a window on the two real monitors, 2 players,
+80 of 80 checks in 58 seconds: Unity opened a window on the second monitor at its native size, no other program covered either window, the
+game held 60 frames per second (its limit) on an idle floor, the map of player 2 on the second monitor drew the six visited rooms with their
+labels, the door marks and the markers, a window put over the one of the second monitor (a window of the game's own process that takes no
+focus) was noticed and the covered window was raised again with the game still running, and the extra window was hidden at the end. The
+photos taken from the system at eight moments (`unity_logs/seats/NAME-monitor1.png`, `NAME-monitor2.png`) show player 1 filling the first
+monitor and player 2 the second, each with their own HUD scaled to the monitor, the open map and the minimap of player 2 on the second
+monitor, player 2 downed (red view, *A terra*, 30 seconds) on the second monitor, the pause menu on the first and the **IN PAUSA** veil on
+the second.
+
+On the integrated tree of 0.8.0 (the split screen together with the map in each player's HUD, the grimoire of each player, the third person
+and the survivors' bodies, the new menu and the seals), on the evening of the same day, from the verification build and with no window:
+`-splittest` 79 of 79; `-seatstest` from the menu on one monitor 82 of 82 with two players, 87 of 87 with three and 92 of 92 with four; with
+pretend monitors 84 of 84 (two players on two monitors) and 94 of 94 (four players on two, and on four). The counts are higher than the ones
+above because the pieces of work merged here added checks to the same test (the map of each seat, the grimoire of each player, the bodies of
+the survivors). `-padtest -nowaves` 83 of 83. What was not repeated on the integrated tree: the run with a window on the two real monitors
+and the photos taken from the system (they need the screen and the maintainer's attention).
+
 The refactor touched about fifty files of the single-player game, so the default (wave) cycle was checked again the same day, from the same
 build: `-padtest` 73 of 73, `tools/check_gunplay.py` 297 of 297, `-barreltest` 19, `-lampadaritest` 15, `-equiptest` 19, `-minetest` 12,
 `-flinchtest` 9, `-shafttest` 9, `-powertest` 16, `-survivaltest` 86, `-ragdolltest` 16, and scenario `a` of the online co-op
@@ -175,7 +244,19 @@ and stealth cycle (`-stealthtest`, `-roundtest`, `-knifetest`, `-droptest`, `-bo
   a window or in 1280x720. Four cameras draw the world four times; lights and shadows follow the nearest eye to keep it down.
 - The keyboard and the mouse belong to player 1 and cannot be handed to another player. There is no joining or leaving in the middle of a run
   and no lobby ("press A to join"); the number of players is chosen on the panel.
-- One window, one monitor; the players cannot have different display settings. The guest-style choices of the online co-op (names,
-  addresses) do not exist here.
+- **Several monitors**: the map and the minimap are drawn by `Proc/Map/MapView` inside the HUD of every player, and the HUD of each seat
+  sits on the canvas of its own monitor, so a player on another monitor has the same map as the others (no second copy: the uGUI stop-gap
+  that drew it for the monitors after the first, `SeatMapUi`, was removed when the map moved into the HUD). The register of the Factory in the
+  cathedral hub (`HubInteract`) is IMGUI, and Unity draws IMGUI only on the first monitor: it is drawn over the whole first monitor, whoever
+  opened it, and it closes by the distance of
+  player 1 (on one monitor too, for the players after the first). The extra windows take the monitor's native size and the display settings
+  of the menu (resolution, quality) apply to the game window only. The players cannot have different display settings. The guest-style
+  choices of the online co-op (names, addresses) do not exist here.
+- **Several monitors, not tried for real**: three and four monitors (tested only with pretend ones); a program of another process covering a
+  game window (the test puts a window of the game's own process over it; on the first real run a browser covered the window of the second
+  monitor, before the raising existed); clicking in the window of the second monitor and what happens to the keyboard there (the test
+  drives controllers, not the keyboard and the mouse); a monitor that is switched off in the middle of a run; the speed with four players on
+  two large monitors (the 60 frames per second above are one idle floor with two players).
+- The windows of the extra monitors stay open (hidden) after the split screen ends: Unity cannot close the window of a monitor it has opened.
 - It cannot be combined with the online co-op: the button is off while a co-op game is on, and `-splitscreen` with `-coophost` does not start.
 - The old candle cycle (`-candles`) works but is the less used path; the wave cycle is the default.

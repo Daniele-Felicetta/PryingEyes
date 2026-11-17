@@ -22,8 +22,8 @@ namespace PryingEyes
     ///   A salto; B abbassati (a interruttore, come C tenuto: il pollice destro resta sullo stick; saltare o correre rialzano)
     ///   X ricarica (R), tenuto usa e compra (F); Y cambia arma, tenuto modo di fuoco (B)
     ///   LB mano sinistra: tocco la magia, tenuto il sigillo sull'arma (3); RB acquasanta (Z)
-    ///   croce: su torcia (T), tenuto cambio pila (Y); giu' carillon (4), tenuto mina (5); sinistra indica le porte (V), tenuto velo (H);
-    ///   destra magia seguente (6), tenuto sigillo seguente (7)
+    ///   croce: su torcia (T), tenuto cambio pila (Y); giu' carillon (4), tenuto mina (5); sinistra sigillo seguente (7), tenuto velo (H);
+    ///   destra magia seguente (6), tenuto indica le porte (V) (fino al 2026-11-16 era al contrario: sigillo tenuto a destra, porte a sinistra)
     ///   Back mappa (M), tenuto tabellone (Tab); Start pausa.</summary>
     [DefaultExecutionOrder(-10001)]
     public sealed class PadControls : MonoBehaviour
@@ -196,8 +196,8 @@ namespace PryingEyes
                 TapHold(b, Y, TouchControls.Action.Swap, TouchControls.Action.Mode);
                 TapHold(b, DpadUp, TouchControls.Action.Torch, TouchControls.Action.Battery);
                 TapHold(b, DpadDown, TouchControls.Action.Lure, TouchControls.Action.Mine);
-                TapHold(b, DpadLeft, TouchControls.Action.Ping, TouchControls.Action.Velo);
-                TapHold(b, DpadRight, TouchControls.Action.SpellNext, TouchControls.Action.InfusionNext);
+                TapHold(b, DpadLeft, TouchControls.Action.InfusionNext, TouchControls.Action.Velo);       // il sigillo e' a sinistra come la sua icona nell'HUD
+                TapHold(b, DpadRight, TouchControls.Action.SpellNext, TouchControls.Action.Ping);
                 TapHold(b, BackBtn, TouchControls.Action.Map, TouchControls.Action.Scoreboard, true);
 
                 // abbassati a interruttore: tenere B col pollice destro vorrebbe dire non guardare; saltare rialza
@@ -411,7 +411,17 @@ namespace PryingEyes
             if (s.connected && Activity(s)) { c.lastActivity = Time.unscaledTime; c.preferred = true; }
             else if (c.auto && c.preferred && c == primary && Input.anyKeyDown && Time.unscaledTime - c.lastActivity > 0.3f) c.preferred = false;     // ha preso tastiera o mouse
             if (!fromTest && !Listening) c.mapper.Silence();                                     // un controller non da' ordini a un gioco in secondo piano
-            else if (GameMenu.Blocked) c.mapper.SuppressGameplay();                              // menu aperto: il controller naviga, non gioca
+            else if (BlockedFor(c)) c.mapper.SuppressGameplay();                                 // menu aperto: il controller naviga, non gioca
+        }
+
+        /// <summary>Un menu o un libro usa i comandi di questo controller? Il menu e la pausa sono di tutti; nello schermo condiviso il grimorio
+        /// aperto e' di un posto solo, e gli altri controller continuano a giocare.</summary>
+        static bool BlockedFor(Channel c)
+        {
+            if (GameMenu.InMenu || GameMenu.Paused) return true;
+            if (!Seats.Split) return GameMenu.Blocked;
+            var s = Seats.OfPad(c);
+            return s != null && Seats.OverlayOf(s);
         }
 
         void OnDestroy()

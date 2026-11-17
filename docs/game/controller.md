@@ -12,7 +12,7 @@ Switch controller needs an XInput wrapper such as Steam Input or DS4Windows (not
   button is pressed, a trigger is pulled or a stick is pushed past 55%. A controller that is only plugged in, or one whose stick does not
   return to the centre, therefore moves nobody. If the controller is gone for more than two seconds the slot is let go and the search
   starts again (another controller can take over). Nothing is read while the game window has no focus.
-- **Split screen** (one game, one window, [split-screen.md](../multiplayer/split-screen.md)): the slots are given out when the game starts
+- **Split screen** (one game, [split-screen.md](../multiplayer/split-screen.md)): the slots are given out when the game starts
   (player 2 gets the first connected controller, and so on, and the missing ones the first free slots). Player 1 keeps the keyboard and the
   mouse and adopts the first free controller on which a button is pressed, or takes one at once if the panel says *controller*. Every
   controller drives the menus and can pause and resume for everyone.
@@ -43,10 +43,15 @@ crouched).
 | RB | Holy water (`Z`) |
 | D-pad up | Torch (`T`); held: replace the battery (`Y`) |
 | D-pad down | Music box (`4`); held: reliquary mine (`5`) |
-| D-pad left | Ping the doors (`V`); held: veil (`H`) |
-| D-pad right | Next spell (`6`); held: next seal (`7`) |
+| D-pad left | Next seal (`7`); held: veil (`H`) |
+| D-pad right | Next spell (`6`); held: ping the doors (`V`) |
 | Back | Map (`M`); held: scoreboard, while held (`Tab`) |
 | Start | Pause |
+
+On 17 November 2026 the seal and the doors changed places. The seal (the enhancement of the weapon in hand) was *D-pad right held*, which
+nobody found, while the D-pad left seemed to do nothing (the ping needs doors still to buy, the veil needs its perk). The seal is now a plain
+tap on the D-pad left, in the same order as the two icons of the HUD (seal on the left, spell on the right: `CAMBIA: ← sigillo · magia →`),
+the ping took the held right, and the veil stays on the held left.
 
 Crouching and leaning are switches in the controller translator (`Mapper.Crouching`): a menu opened in between does not change them (B
 going back in a menu does not crouch, L3 does not start running), they are restored by `SuppressGameplay`.
@@ -70,7 +75,9 @@ sticks do not move you); only Start, which the menu uses, gets through.
 
 - A brass frame marks the selected item whenever you navigate with the controller or the keyboard.
 - Going back lands on the button that opened the screen, not on the first one.
-- The two tabs of the settings are chosen with left and right and lead down to the first control of the open tab.
+- The five tabs of the settings (Schermo, Immagine, Audio, Comandi, Gioco) are chosen with left and right (selecting one opens it) and down
+  leads to the first row of the open tab; up and down walk the rows, left and right on a row change its value, and the last row leads to
+  **Indietro** and **Ripristina scheda**. The guide's three tabs open the same way, and down leads to **Indietro**.
 - After a click in empty space nothing is selected; the first controller or keyboard command then only selects a button, and the next one moves.
 - Selecting a text field does not start typing (a mouse click, Enter or A does), so the controller cannot get stuck in a field.
 - The mouse pointer is hidden while you navigate with the controller or the keyboard, and the buttons ignore a resting pointer; moving the mouse
@@ -110,6 +117,10 @@ Code (`Assets/_PryingEyes/Scripts/`): `PadControls.cs`, `PadMenuInput.cs`, `Game
   fires and jumps on its own, Start on any controller pauses and resumes everyone) 55 to 57 of 57 for 2 to 4 players; `MenuReview.Run` 665 checks.
 - The mapping of 16 November 2026 is checked by the pure part of `-splittest` (each button and its held action once, no tap after a hold,
   crouch on and off, jump and run standing you up, lean only while aiming, R3 not the knife while aiming).
+- On 17 November 2026, with the five-tab settings (0.8.0), `-padtest -nowaves` on the player built from commit `696b16f` passed **83 of 83**
+  (batch mode, exit 0): selecting a tab with the D-pad opens it and writes its hint, down enters the first row, left and right move a slider
+  or step a choice row (*Suoni dell'interfaccia*), down from the last row reaches *Indietro* and right from it *Ripristina scheda*, the guide opens on
+  *Obiettivo* and names the controller's keys; the test puts back the volume and the interface sounds it changed.
 - **Not verified**: a physical controller (none was available; the real XInput read answers without errors and the rest runs on fake
   states), the feel of the new mapping in a real game, PlayStation and Switch controllers through a wrapper, several controllers in the normal game (the first one pressed wins),
   Steam Input, controller hot-plug during a real game, and the look of the menus at resolutions other than 1024x720.

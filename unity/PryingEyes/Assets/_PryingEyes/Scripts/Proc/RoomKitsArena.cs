@@ -45,23 +45,29 @@ namespace PryingEyes.Proc
             var go = new GameObject("Colonna");
             go.transform.SetParent(c.props, false);
             go.transform.position = pos;
-            var stone = ProcKit.Mat("mur_pietra");
+            var shaft = ProcKit.HasMat("colonna_pietra") ? ProcKit.Mat("colonna_pietra") : ProcKit.Mat("mur_pietra");
             var trim = ProcKit.Mat("cornice_pietra");
-            void Part(PrimitiveType t, Vector3 lp, Vector3 sc, Material m)
+            // One mesh with metric UVs. The shaft takes the 2.4 m column texture once around (three drums of 80 cm, no seam) and its height in
+            // metres; the blocks use box projection. The Unity primitives this replaces had one 0..1 square of UV per face, so the 4.2 m wall
+            // texture was smeared over the whole shaft.
+            var mb = new MeshBuilder();
+            const int sides = 28;
+            const float wrap = 2.4f;
+            for (int i = 0; i < sides; i++)
             {
-                var p = GameObject.CreatePrimitive(t);
-                Util.Kill(p.GetComponent<Collider>());
-                p.name = t == PrimitiveType.Cylinder ? "Fusto" : "Blocco";
-                p.transform.SetParent(go.transform, false);
-                p.transform.localPosition = lp; p.transform.localScale = sc;
-                var mr = p.GetComponent<MeshRenderer>();
-                mr.sharedMaterial = m;
+                float a0 = i * 2f * Mathf.PI / sides, a1 = (i + 1) * 2f * Mathf.PI / sides;
+                var n0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0));
+                var n1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
+                float u0 = wrap * i / sides, u1 = wrap * (i + 1) / sides;
+                mb.QuadSmooth(shaft, n0 * radius, n1 * radius, n1 * radius + Vector3.up * H, n0 * radius + Vector3.up * H, n0, n1, n1, n0,
+                              new Vector2(u0, 0f), new Vector2(u1, 0f), new Vector2(u1, H), new Vector2(u0, H));
             }
-            Part(PrimitiveType.Cylinder, new Vector3(0f, H * 0.5f, 0f), new Vector3(radius * 2f, H * 0.5f, radius * 2f), stone);
-            Part(PrimitiveType.Cube, new Vector3(0f, 0.16f, 0f), new Vector3(w, 0.32f, w), trim);
-            Part(PrimitiveType.Cube, new Vector3(0f, 0.38f, 0f), new Vector3(w * 0.82f, 0.12f, w * 0.82f), trim);
-            Part(PrimitiveType.Cube, new Vector3(0f, H - 0.16f, 0f), new Vector3(w, 0.32f, w), trim);
-            Part(PrimitiveType.Cube, new Vector3(0f, H - 0.38f, 0f), new Vector3(w * 0.82f, 0.12f, w * 0.82f), trim);
+            mb.Box(trim, new Vector3(0f, 0.16f, 0f), new Vector3(w, 0.32f, w));
+            mb.Box(trim, new Vector3(0f, 0.38f, 0f), new Vector3(w * 0.82f, 0.12f, w * 0.82f));
+            mb.Box(trim, new Vector3(0f, H - 0.16f, 0f), new Vector3(w, 0.32f, w));
+            mb.Box(trim, new Vector3(0f, H - 0.38f, 0f), new Vector3(w * 0.82f, 0.12f, w * 0.82f));
+            go.AddComponent<MeshFilter>().sharedMesh = mb.ToMesh("Colonna", out var mats);
+            go.AddComponent<MeshRenderer>().sharedMaterials = mats;
             var cc = go.AddComponent<CapsuleCollider>();
             cc.radius = radius + 0.04f; cc.height = H; cc.center = new Vector3(0f, H * 0.5f, 0f);
             Occupy(c, pos, w, w, 0f);

@@ -91,6 +91,21 @@ namespace PryingEyes.EditorTools
             // -skyshot: l'edificio visto da fuori (da nord-est, 70 m di distanza), con il cielo e, sotto l'orizzonte, il lago di lava
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-skyshot") >= 0)
                 shots.Add(new Shot { name = "cielo", pos = mid + new Vector3(70f, 7f, 70f), look = mid + Vector3.up * 16f, fov = 78f });
+            // -colshot: a close look at an arena column, from a side nothing blocks (the shaft texture, the drums, the blocks)
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-colshot") >= 0)
+                foreach (var col in Object.FindObjectsByType<Transform>(FindObjectsSortMode.InstanceID))
+                {
+                    if (col.name != "Colonna" || col.GetComponentInChildren<MeshFilter>() == null) continue;
+                    var at = col.position + Vector3.up * 1.9f;
+                    foreach (var dir in new[] { Vector3.right, Vector3.back, Vector3.left, Vector3.forward })
+                    {
+                        var from = col.position + dir * 3.4f + Vector3.up * 1.6f;
+                        if (Physics.Linecast(from, at, out var block) && block.transform != col) continue;
+                        shots.Add(new Shot { name = "colonna", pos = from, look = at, fov = 62f });
+                        break;
+                    }
+                    if (shots.Exists(s => s.name == "colonna")) break;
+                }
             string only = Arg("-only");
             if (only != null) shots = shots.FindAll(s => s.name == only);
 
