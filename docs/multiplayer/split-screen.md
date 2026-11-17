@@ -21,6 +21,10 @@ split screen.
    **Riprendi** resumes. The pause menu names who uses what (*G1: tastiera e mouse   G2: controller 1 ...*). **Torna al menu** ends the
    split screen for everyone (the confirmation says so). The number of players is chosen at the start: nobody joins or leaves in the
    middle, and a player who stops playing stays in the game. If the window loses focus the game pauses, as it does for one player.
+5. **Grimoires** (the secret room's two books): a player who opens one reads it inside their own part of the screen, never over the whole
+   window, and nobody else is stopped: time keeps running, the others keep walking and shooting, and only the reader's commands (and
+   their controller) go to the book. Esc, Backspace, right click or B closes it. See
+   [arms-and-magic.md](../game/arms-and-magic.md#the-open-book-grimoireui).
 
 ## Layout
 
@@ -92,6 +96,9 @@ seat n live on layer 24 + n, and a camera draws only its own, so nobody sees ano
 camera. The HUDs hang under one overlay canvas, each in its rectangle. Lights, shadows, level of detail and billboards that depend on "the
 camera" use the nearest player's eye (`Seats.NearestEye`). `SeatInput` gives the keyboard and the mouse only to the seat that has them, and each
 seat reads its own `PadControls.Channel`. The pause freezes time for everyone (`Time.timeScale`, as in single player, unlike the online co-op).
+A grimoire does not: `GameMenu.Overlay` belongs to the seat (`Seat.overlay`, swapped by `Seats.Install`), `PadControls.BlockedFor(channel)`
+silences only the reader's controller, `GrimoireUI` keeps one book per seat under that seat's HUD (so it is drawn, scaled and kept inside
+that seat's rectangle), and the reader's IMGUI minimap is hidden while the others' stay.
 
 Code (`Assets/_PryingEyes/Scripts/`): `Coop/Seats.cs` (seat, context swap, helpers), `Coop/Seats.Rig.cs` (birth of seats 2 to 4, layout, HUD
 placement, borders), `Coop/SeatInput.cs`, `Coop/SeatTarget.cs`, `Coop/SplitScreen.cs` (pure rules: layout, controller assignment, field of view,
@@ -132,6 +139,10 @@ It checks:
   ignored by enemies, no death counted), player 1 holds Use next to them and they get up with half health, then they go down again and get
   up by themselves (once per floor), then they bleed out and die and respawn. Each HUD lists the other players in its teammates panel
   (number, colour, health, distance and direction, downed state).
+- **Grimoire** (17 November 2026): player 2 opens the arsenal book: only their book is open, only their overlay flag is set, time is
+  not stopped, and the book's rectangle on the screen is inside their part (the log prints both sizes); player 1
+  walks with their controller while the reader, even with the stick held, does not move; the D-pad of player 1 does not move the reader's
+  choice and the reader's does; B of the reader's controller closes the book and gives the commands back.
 - **Pause**: Start on any controller pauses everyone (time stopped, HUDs hidden, no walking or shooting even with the sticks held); Start on
   another controller resumes.
 - **End**: back to one player, one body, one listener, full-screen camera, and the controller still works.

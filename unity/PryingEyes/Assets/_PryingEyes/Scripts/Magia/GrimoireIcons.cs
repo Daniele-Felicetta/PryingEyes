@@ -15,7 +15,7 @@ namespace PryingEyes
     {
         const int S = 128;
         static readonly Dictionary<int, Sprite> cache = new Dictionary<int, Sprite>();
-        static Sprite medal, disc, ring;
+        static Sprite disc, ring, ringThin;
 
         // ------------------------------------------------------------------ distanze con segno (negative dentro), spazio [-1,1]
         static float Circle(Vector2 p, float x, float y, float r) => (p - new Vector2(x, y)).magnitude - r;
@@ -248,20 +248,104 @@ namespace PryingEyes
             return s;
         }
 
-        /// <summary>Il medaglione a spine delle tavole: anello con dodici spine in fuori e un filo di spine in dentro.</summary>
-        public static Sprite Medal()
+        // ------------------------------------------------------------------ icone incise (le tavole dell'utente)
+        static readonly Dictionary<int, Sprite> engraved = new Dictionary<int, Sprite>();
+        static Sprite glow;
+
+        /// <summary>L'icona di un nodo come sta nei medaglioni delle tavole: bronzo dorato in rilievo (smusso illuminato da in alto a sinistra,
+        /// riflesso sul bordo, grana) con l'ombra morbida che cade in basso a destra. Si tinge con Image.color (bianco = come e' stata
+        /// incisa; piu' scuro per i nodi ancora chiusi).</summary>
+        public static Sprite Engraved(int icon)
         {
-            if (medal != null) return medal;
-            medal = Render(p =>
+            if (engraved.TryGetValue(icon, out var s) && s != null) return s;
+            s = RenderEngraved(p => Shape(icon, p), "Inciso" + icon);
+            engraved[icon] = s;
+            return s;
+        }
+
+        static float Grain(int x, int y)
+        {
+            unchecked
             {
-                float ringD = Ring(p, 0, 0, 0.74f, 0.075f);
-                float a = Mathf.Atan2(p.y, p.x), r = p.magnitude;
-                float spikesOut = r - (0.80f + 0.20f * Mathf.Pow(Mathf.Max(0f, Mathf.Cos(a * 12f)), 18f));
-                float spikesIn = (0.64f - 0.10f * Mathf.Pow(Mathf.Max(0f, Mathf.Cos(a * 12f + Mathf.PI / 12f * 12f)), 24f)) - r;
-                float outer = Mathf.Max(spikesOut, 0.66f - r);
-                return U(ringD, outer, Mathf.Max(spikesIn, r - 0.75f));
-            }, "Medaglione", 160);
-            return medal;
+                uint h = (uint)(x * 73856093) ^ (uint)(y * 19349663);
+                h = (h ^ (h >> 13)) * 1274126177u;
+                return ((h ^ (h >> 16)) & 0xFF) / 255f;
+            }
+        }
+
+        static Sprite RenderEngraved(System.Func<Vector2, float> f, string name)
+        {
+            const int size = S;
+            int G = size + 2;                                         // un pixel in piu' per lato: serve al gradiente
+            float pix = 2f / size * 1.08f;                            // lato di un pixel nello spazio del simbolo
+            var d = new float[G * G];
+            for (int y = 0; y < G; y++)
+                for (int x = 0; x < G; x++)
+                    d[y * G + x] = f(new Vector2((x - 1 + 0.5f) / size * 2f - 1f, (y - 1 + 0.5f) / size * 2f - 1f) * 1.08f);
+            float Dist(int x, int y) => x < 0 || y < 0 || x >= size || y >= size ? 1f : d[(y + 1) * G + (x + 1)];
+
+            var light = new Vector3(-0.55f, 0.66f, 0.52f).normalized;
+            var half = (light + new Vector3(0f, 0f, 1f)).normalized;
+            var lo = new Color(0.50f, 0.29f, 0.11f); var hi = new Color(0.98f, 0.80f, 0.50f); var shade = new Color(0.03f, 0.008f, 0.006f);
+            const float bevel = 0.085f;
+            const int sx = 2, sy = -3;                                // l'ombra cade in basso a destra (y verso l'alto)
+            var px = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float dc = Dist(x, y);
+                    float cov = Mathf.Clamp01(0.5f - dc / pix);
+                    float sh = Mathf.Clamp01(0.5f - Dist(x - sx, y - sy) / (pix * 4.5f)) * 0.7f;
+                    float sa = (1f - cov) * sh;
+                    float outA = cov + sa;
+                    if (outA <= 0.002f) { px[y * size + x] = new Color32(0, 0, 0, 0); continue; }
+                    Color col = shade;
+                    if (cov > 0f)
+                    {
+                        var g = new Vector2(Dist(x + 1, y) - Dist(x - 1, y), Dist(x, y + 1) - Dist(x, y - 1));
+                        float gl = g.magnitude;
+                        g = gl > 1e-5f ? g / gl : Vector2.zero;                       // verso l'esterno del simbolo
+                        float t = Mathf.Clamp01(-dc / bevel);
+                        float slope = (1f - t); slope *= slope * 1.8f;
+                        var n = new Vector3(g.x * slope, g.y * slope, 1f).normalized;
+                        float diff = Mathf.Clamp01(Vector3.Dot(n, light));
+                        float spec = Mathf.Pow(Mathf.Clamp01(Vector3.Dot(n, half)), 26f) * 0.85f * (1f - 0.5f * t);
+                        float vy = Mathf.Clamp01(((y + 0.5f) / size) * 1.1f);
+                        Color albedo = Color.Lerp(lo, hi, vy * 0.9f);
+                        float grain = 0.92f + 0.16f * Grain(x, y);
+                        float rim = Mathf.Lerp(0.5f, 1f, Mathf.Clamp01(t / 0.18f));       // filo scuro sul contorno
+                        col = albedo * ((0.30f + 0.95f * diff) * grain * rim) + new Color(1f, 0.92f, 0.75f) * spec;
+                        col.a = 1f;
+                        if (sa > 0f) col = (col * cov + shade * sa) / outA;
+                    }
+                    px[y * size + x] = new Color(Mathf.Clamp01(col.r), Mathf.Clamp01(col.g), Mathf.Clamp01(col.b), outA);
+                }
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, true) { name = name, wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear };
+            tex.SetPixels32(px);
+            tex.Apply(true, true);
+            return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+        }
+
+        /// <summary>Alone morbido (gradiente radiale bianco che sfuma a zero sul bordo): rosso dietro i nodi posseduti, ambra su quelli
+        /// che puoi comprare.</summary>
+        public static Sprite Glow()
+        {
+            if (glow != null) return glow;
+            const int n = 64;
+            var px = new Color32[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float r = new Vector2(x + 0.5f - n * 0.5f, y + 0.5f - n * 0.5f).magnitude / (n * 0.5f);
+                    float a = Mathf.Clamp01(1f - r);
+                    a = a * a * (3f - 2f * a);
+                    px[y * n + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { name = "Alone morbido", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            glow = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
+            return glow;
         }
 
         public static Sprite Disc()
@@ -271,9 +355,14 @@ namespace PryingEyes
             return disc;
         }
 
-        /// <summary>Un anello sottile (alone del nodo scelto, cornice delle icone dell'HUD).</summary>
-        public static Sprite Halo()
+        /// <summary>Un anello sottile (alone del nodo scelto, cornice delle icone dell'HUD). thin: ancora piu' sottile, per i nodi grandi.</summary>
+        public static Sprite Halo(bool thin = false)
         {
+            if (thin)
+            {
+                if (ringThin == null) ringThin = Render(p => Ring(p, 0, 0, 0.86f, 0.016f), "Alone sottile", 256);
+                return ringThin;
+            }
             if (ring != null) return ring;
             ring = Render(p => Ring(p, 0, 0, 0.86f, 0.04f), "Alone", 128);
             return ring;

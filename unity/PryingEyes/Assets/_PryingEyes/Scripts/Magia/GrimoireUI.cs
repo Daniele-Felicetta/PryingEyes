@@ -1,215 +1,335 @@
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace PryingEyes
 {
-    /// <summary>Il grimorio aperto (2026-11-16), come le due tavole dell'utente: la doppia pagina di pergamena bruciata (GrimoirePage) a
-    /// tutto schermo, i nastri dei titoli ("Perk del Dodecaedro Arcano Maledetto / Le 19 Virtu' della Stregoneria", "Potenziamenti delle
-    /// Armi / I 19 Sigilli dell'Arsenale Maledetto"), a sinistra le tre classi di nodi (esterni, interni, supremo) e la scheda del nodo
-    /// scelto, al centro-destra il dodecaedro: dodici medaglioni a spine sull'anello esterno, sei sull'esagono interno, il supremo al
-    /// centro, collegati da linee che si accendono di rosso quando li possiedi.
-    /// Comandi: mouse (passa sopra e clicca), frecce o WASD e Invio/F, controller (croce o stick, A, B); Esc chiude. Comprare costa
-    /// punti (Grimoire.Price); su un nodo interno gia' tuo il clic lo rende la magia (o il sigillo) attiva. Non ferma il tempo: la stanza
-    /// segreta e' al riparo (i nemici non passano dal cunicolo). Blocca i comandi del gioco con GameMenu.Overlay.</summary>
+    /// <summary>Il grimorio aperto (2026-11-17), come le due tavole dell'utente: la tavola stessa ("Potenziamenti delle Armi" / "Perk del
+    /// Dodecaedro Arcano Maledetto", GrimoirePage) con sopra, nei diciannove vani, le icone di bronzo dei nodi e il loro stato (posseduto:
+    /// rosso acceso; da comprare: ambra; chiuso: spento; scelto: anello d'oro), le linee che si accendono tra i nodi, e accanto una scheda di
+    /// pergamena col nodo scelto (nome, effetto, prezzo o cosa manca) e il piede con punti, essenza e comandi.
+    /// Un libro per giocatore (nello schermo condiviso ogni posto ha il suo), figlio dell'HUD di chi legge: sta dentro la sua porzione di
+    /// schermo e si adatta alla sua forma (tavola e scheda affiancate in una finestra larga, una sopra l'altra in una alta), occupa al
+    /// massimo l'88% dell'altezza e lascia vedere il gioco attorno. Non ferma il tempo e non blocca gli altri: blocca solo i comandi di chi
+    /// legge (GameMenu.Overlay e' del posto: Seats.SetOverlay), che finche' legge non si muove e non puo' essere colpito. La stanza segreta
+    /// e' al riparo (i nemici non passano dal cunicolo); se chi legge e' ferito o muore, o parte la pausa, il libro si chiude.
+    /// Comandi: mouse (passa sopra e clicca; il destro chiude), frecce o WASD e Invio/F, controller di chi legge (croce o stick, A, B);
+    /// Esc chiude. Comprare costa punti (Grimoire.Price); su un nodo interno gia' tuo il clic lo rende la magia (o il sigillo) attiva.</summary>
     public sealed class GrimoireUI : MonoBehaviour
     {
-        public static GrimoireUI I;
-        public static bool Open => I != null && I.visible;
+        static readonly Dictionary<int, GrimoireUI> books = new Dictionary<int, GrimoireUI>();
+        static int closedFrame = -1;
+        static Font sans;
+
+        /// <summary>Il libro di chi gira (null se non ne ha mai aperto uno).</summary>
+        public static GrimoireUI I { get { books.TryGetValue(Seats.SeatIndex, out var u); return u; } }
+        /// <summary>Chi gira sta leggendo.</summary>
+        public static bool Open { get { var u = I; return u != null && u.visible; } }
+        /// <summary>Qualcuno sta leggendo (luce del libro sull'altare).</summary>
+        public static bool AnyOpen { get { foreach (var u in books.Values) if (u != null && u.visible) return true; return false; } }
+        /// <summary>Quel posto sta leggendo (null: il giocatore singolo).</summary>
+        public static bool OpenFor(Seat s) { books.TryGetValue(s != null ? s.index : 0, out var u); return u != null && u.visible; }
+        /// <summary>Un libro si e' chiuso in questo fotogramma: l'Esc che l'ha chiuso non deve aprire anche la pausa (GameMenu).</summary>
+        public static bool ClosedThisFrame => closedFrame == Time.frameCount;
         /// <summary>Per le prove: nodi comprati da quando il gioco e' partito.</summary>
         public static int statBought;
 
         sealed class NodeUi
         {
             public RectTransform root;
-            public Image glow, medal, disc, icon, halo;
-            public float size, pop = 1f;
+            public Image glow, veil, icon, ring;
+            public float r, pop = 1f;
+            public Vector2 pos;              // nello spazio della tavola (pixel, y verso l'alto, origine al centro)
         }
 
         sealed class LineUi { public int a, b; public Image line, glow; }
 
-        Canvas canvas;
-        CanvasGroup group;
-        RectTransform bookRect;
-        RawImage spread;
-        Text titleL, titleR, tiers, infoName, infoTier, infoEffect, infoLore, infoStatus, infoAction, footer, toast;
-        Image infoMedal, infoDisc, infoIcon;
+        RectTransform self, content, group, plateRt, cardRt, linesRoot;
+        CanvasGroup cg;
+        Image dim, selRing, cardDisc, cardRim, cardIcon, sep;
+        RawImage plateImg, cardImg;
+        Text cardName, cardTier, cardBody, cardToast, cardFoot;
         readonly NodeUi[] nodes = new NodeUi[Grimoire.Count];
         readonly List<LineUi> lines = new List<LineUi>();
+        readonly Grimoire.Lock[] status = new Grimoire.Lock[Grimoire.Count];
+        GrimoirePage.Plate plate;
         Grimoire.Book book;
         GrimoireAltar altar;
-        /// <summary>Schermo condiviso: chi legge. Comandi, acquisti, essenza e punti sono i suoi (Seats.Enter); il libro copre tutto lo
-        /// schermo e, finche' e' aperto, il tempo si ferma per tutti (GameMenu.Refresh).</summary>
+        /// <summary>Chi legge: comandi, acquisti, essenza e punti sono i suoi (Seats.Enter). Null fuori dallo schermo condiviso.</summary>
         Seat reader;
-        int sel = Grimoire.FirstInner;
+        int key, sel = Grimoire.FirstInner;
         bool visible;
-        float openT, toastT, lastHp;
+        float openT, toastT, lastHp, cardW;
+        Vector2 laidFor;
         Vector3 lastMouse;
         int lastNavX, lastNavY;
-        const float BookW = 1240f, BookH = BookW * GrimoirePage.H / GrimoirePage.W;
+        // l'ultimo stato scritto nella scheda: i testi si rifanno solo se qualcosa cambia
+        int shownSel = -1, shownScore = int.MinValue, shownEss = -1, shownActive = -2;
+        uint shownMask = uint.MaxValue;
+        bool shownPad, shownDirty = true;
 
-        static readonly Color InkC = new Color(0.17f, 0.07f, 0.04f), RedInkC = new Color(0.45f, 0.04f, 0.03f), Faded = new Color(0.30f, 0.18f, 0.11f);
+        const float Pad = 14f, Gap = 10f, CardWSide = 330f, CardWMax = 560f, CardH = 350f, MaxFrac = 0.88f, Margin = 22f;
+        static readonly Color InkC = new Color(0.17f, 0.07f, 0.04f), RedInkC = new Color(0.50f, 0.04f, 0.03f), Faded = new Color(0.30f, 0.18f, 0.11f);
 
         public static void Show(Grimoire.Book b, GrimoireAltar a)
         {
-            if (I == null) I = new GameObject("GrimoireUI").AddComponent<GrimoireUI>();
-            I.OpenBook(b, a);
+            var u = I;
+            if (u == null)
+            {
+                var go = new GameObject("Grimorio", typeof(RectTransform));
+                var hud = GameManager.I != null ? GameManager.I.hud : null;
+                if (hud != null) go.transform.SetParent(hud.transform, false);
+                u = go.AddComponent<GrimoireUI>();
+                books[Seats.SeatIndex] = u;
+            }
+            u.OpenBook(b, a);
         }
 
-        public static void Hide() { if (I != null) I.Close(); }
+        /// <summary>Chiude il libro di chi gira.</summary>
+        public static void Hide() { var u = I; if (u != null) u.Close(); }
 
-        void Awake() { I = this; Build(); gameObject.SetActive(true); canvas.enabled = false; }
-        void OnDestroy() { if (I == this) { I = null; if (visible) GameMenu.Overlay = false; } }
+        /// <summary>Chiude tutti i libri aperti (fine del piano, ritorno al menu).</summary>
+        public static void HideAll() { foreach (var u in new List<GrimoireUI>(books.Values)) if (u != null) u.Close(); }
+
+        void Awake() { key = Seats.SeatIndex; Build(); }
+
+        void OnDestroy()
+        {
+            if (books.TryGetValue(key, out var me) && me == this) books.Remove(key);
+            if (visible) { visible = false; Seats.SetOverlay(reader, false); }
+        }
 
         // ------------------------------------------------------------------ costruzione
-        static Text MakeText(Transform parent, string name, Vector2 pos, Vector2 size, int fs, TextAnchor a, Color c, FontStyle st, bool serif = true)
+        static RectTransform NewRect(string name, Transform parent)
         {
-            var go = new GameObject(name);
+            var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
-            var rt = go.AddComponent<RectTransform>();
+            var rt = (RectTransform)go.transform;
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = pos; rt.sizeDelta = size;
-            var t = go.AddComponent<Text>();
-            t.font = serif ? HUD.Serif() : Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI", "Arial" }, 32);
-            t.fontSize = fs; t.alignment = a; t.color = c; t.fontStyle = st;
+            rt.anchoredPosition = Vector2.zero; rt.sizeDelta = Vector2.zero;
+            return rt;
+        }
+
+        static void Stretch(RectTransform rt) { rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = rt.offsetMax = Vector2.zero; }
+
+        static Image NewImage(Transform parent, string name, Sprite s, Color c)
+        {
+            var rt = NewRect(name, parent);
+            var img = rt.gameObject.AddComponent<Image>();
+            img.sprite = s; img.color = c; img.raycastTarget = false; img.preserveAspect = true;
+            return img;
+        }
+
+        static void Size(Image img, float s) { img.rectTransform.sizeDelta = new Vector2(s, s); }
+
+        /// <summary>Un riquadro ancorato in alto a sinistra della scheda: x, y dal suo angolo (y verso il basso), larghezza e altezza.</summary>
+        static void SetTL(RectTransform rt, float x, float y, float w, float h)
+        {
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f); rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(x, -y); rt.sizeDelta = new Vector2(w, h);
+        }
+
+        static Text NewText(Transform parent, string name, int fs, TextAnchor a, Color c, FontStyle st, bool serif = true)
+        {
+            var rt = NewRect(name, parent);
+            var t = rt.gameObject.AddComponent<Text>();
+            if (!serif && sans == null) sans = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI", "Arial" }, 32);
+            t.font = serif ? HUD.Serif() : sans;
+            t.fontSize = fs; t.alignment = a; t.color = c; t.fontStyle = st; t.lineSpacing = 1.04f;
             t.horizontalOverflow = HorizontalWrapMode.Wrap; t.verticalOverflow = VerticalWrapMode.Truncate;
             t.raycastTarget = false; t.supportRichText = true;
             return t;
         }
 
-        static Image MakeImage(Transform parent, string name, Sprite s, Vector2 pos, float size, Color c)
+        static RectTransform Segment(Transform parent, string name, out Image img)
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = pos; rt.sizeDelta = new Vector2(size, size);
-            var i = go.AddComponent<Image>();
-            i.sprite = s; i.color = c; i.raycastTarget = false; i.preserveAspect = true;
-            return i;
+            var rt = NewRect(name, parent);
+            rt.pivot = new Vector2(0f, 0.5f);
+            img = rt.gameObject.AddComponent<Image>();
+            img.sprite = PerkIcons.White(); img.raycastTarget = false;
+            return rt;
         }
-
-        /// <summary>Da coordinate della pagina (u da sinistra, v dall'alto) a punto nel libro (unita' del canvas, centro del libro = 0).</summary>
-        static Vector2 BookPoint(float u, float v) => new Vector2((u - 0.5f) * BookW, (0.5f - v) * BookH);
-        static Vector2 BookPoint(Vector2 uv) => BookPoint(uv.x, uv.y);
 
         void Build()
         {
-            canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 60;
-            var scaler = gameObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280, 720);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
-            group = gameObject.AddComponent<CanvasGroup>();
-            // fondo scuro con la vignetta
-            var bg = new GameObject("Fondo");
-            bg.transform.SetParent(transform, false);
-            var brt = bg.AddComponent<RectTransform>();
-            brt.anchorMin = Vector2.zero; brt.anchorMax = Vector2.one; brt.offsetMin = brt.offsetMax = Vector2.zero;
-            var bimg = bg.AddComponent<Image>(); bimg.color = new Color(0.02f, 0.005f, 0.005f, 0.86f); bimg.raycastTarget = false;
-            // il libro
-            var bk = new GameObject("Libro");
-            bk.transform.SetParent(transform, false);
-            bookRect = bk.AddComponent<RectTransform>();
-            bookRect.anchorMin = bookRect.anchorMax = new Vector2(0.5f, 0.5f);
-            bookRect.sizeDelta = new Vector2(BookW, BookH);
-            spread = bk.AddComponent<RawImage>(); spread.raycastTarget = false;
-            // le linee (sotto i nodi)
-            var linesRoot = new GameObject("Linee").AddComponent<RectTransform>();
-            linesRoot.SetParent(bookRect, false);
+            self = (RectTransform)transform;
+            if (GetComponentInParent<Canvas>() == null)
+            {
+                // senza HUD (prove, scena vuota): un canvas suo
+                var canvas = gameObject.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.sortingOrder = 60;
+                var scaler = gameObject.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1280, 720);
+                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+            }
+            else Stretch(self);
+            gameObject.AddComponent<RectMask2D>();                   // niente esce dalla porzione di schermo di chi legge
+
+            content = NewRect("Contenuto", self);
+            Stretch(content);
+            cg = content.gameObject.AddComponent<CanvasGroup>();
+            cg.blocksRaycasts = false; cg.interactable = false;
+            // il gioco resta visibile attorno al libro, appena scurito
+            var dimRt = NewRect("Velo", content);
+            Stretch(dimRt);
+            dim = dimRt.gameObject.AddComponent<Image>();
+            dim.color = new Color(0.02f, 0.005f, 0.005f, 0.74f); dim.raycastTarget = false;
+            group = NewRect("Libro", content);
+
+            // la tavola: lo spazio locale e' quello dei suoi pixel (la scala la da' Relayout)
+            plateRt = NewRect("Tavola", group);
+            plateImg = plateRt.gameObject.AddComponent<RawImage>();
+            plateImg.raycastTarget = false;
+            linesRoot = NewRect("Linee", plateRt);
             for (int i = 0; i < Grimoire.Count; i++)
                 foreach (int j in Grimoire.Neighbors(i))
                 {
                     if (j < i) continue;
                     var L = new LineUi { a = i, b = j };
-                    L.glow = Segment(linesRoot, "Alone", BookPoint(GrimoirePage.NodePos(i)), BookPoint(GrimoirePage.NodePos(j)), 9f);
-                    L.line = Segment(linesRoot, "Linea", BookPoint(GrimoirePage.NodePos(i)), BookPoint(GrimoirePage.NodePos(j)), 3f);
+                    Segment(linesRoot, "Alone", out L.glow);
+                    Segment(linesRoot, "Linea", out L.line);
                     lines.Add(L);
                 }
-            // i nodi
             for (int i = 0; i < Grimoire.Count; i++)
             {
-                var t = Grimoire.TierOf(i);
-                float size = t == Grimoire.Tier.Supremo ? 104f : t == Grimoire.Tier.Interno ? 74f : 60f;
-                var n = new NodeUi { size = size };
-                var go = new GameObject("Nodo" + i);
-                go.transform.SetParent(bookRect, false);
-                n.root = go.AddComponent<RectTransform>();
-                n.root.anchorMin = n.root.anchorMax = new Vector2(0.5f, 0.5f);
-                n.root.anchoredPosition = BookPoint(GrimoirePage.NodePos(i));
-                n.root.sizeDelta = new Vector2(size, size);
-                n.glow = MakeImage(n.root, "Bagliore", GrimoireIcons.Disc(), Vector2.zero, size * 1.65f, new Color(1f, 0.1f, 0.05f, 0f));
-                n.medal = MakeImage(n.root, "Medaglione", GrimoireIcons.Medal(), Vector2.zero, size * 1.18f, new Color(0.55f, 0.33f, 0.16f, 1f));
-                n.disc = MakeImage(n.root, "Disco", GrimoireIcons.Disc(), Vector2.zero, size * 0.98f, new Color(0.10f, 0.025f, 0.025f, 0.97f));
-                n.icon = MakeImage(n.root, "Icona", null, Vector2.zero, size * 0.66f, Color.white);
-                n.halo = MakeImage(n.root, "Scelto", GrimoireIcons.Halo(), Vector2.zero, size * 1.45f, new Color(1f, 0.82f, 0.45f, 0f));
+                var n = new NodeUi { root = NewRect("Nodo" + i, plateRt) };
+                n.glow = NewImage(n.root, "Bagliore", GrimoireIcons.Glow(), new Color(1f, 0.1f, 0.05f, 0f));
+                if (i == Grimoire.Supreme) n.veil = NewImage(n.root, "Velo", GrimoireIcons.Disc(), new Color(0.03f, 0.005f, 0.005f, 0.6f));
+                n.icon = NewImage(n.root, "Icona", null, Color.white);
+                if (i == Grimoire.Supreme) n.icon.enabled = false;   // il supremo ha gia' il suo emblema nella tavola (il teschio, il caprone)
+                n.ring = NewImage(n.root, "Anello", GrimoireIcons.Halo(i == Grimoire.Supreme), new Color(1f, 0.2f, 0.1f, 0f));
                 nodes[i] = n;
             }
-            // titoli nei nastri
-            var tl = GrimoirePage.TitleLeft; var tr = GrimoirePage.TitleRight;
-            titleL = MakeText(bookRect, "TitoloSinistra", BookPoint(tl.center), new Vector2(tl.width * BookW * 0.92f, tl.height * BookH), 22, TextAnchor.MiddleCenter, InkC, FontStyle.BoldAndItalic);
-            titleR = MakeText(bookRect, "TitoloDestra", BookPoint(tr.center), new Vector2(tr.width * BookW * 0.92f, tr.height * BookH), 22, TextAnchor.MiddleCenter, InkC, FontStyle.BoldAndItalic);
-            // le tre classi di nodi
-            tiers = MakeText(bookRect, "Classi", BookPoint(0.235f, 0.375f), new Vector2(0.34f * BookW, 0.33f * BookH), 14, TextAnchor.UpperLeft, InkC, FontStyle.Italic);
-            tiers.lineSpacing = 1.05f;
+            selRing = NewImage(plateRt, "Scelto", GrimoireIcons.Halo(), new Color(1f, 0.88f, 0.55f, 0f));
+
             // la scheda del nodo scelto
-            Vector2 card = BookPoint(0.235f, 0.715f);
-            infoMedal = MakeImage(bookRect, "SchedaMedaglione", GrimoireIcons.Medal(), card + new Vector2(-0.125f * BookW, 0.035f * BookH), 92f, new Color(0.55f, 0.33f, 0.16f, 1f));
-            infoDisc = MakeImage(bookRect, "SchedaDisco", GrimoireIcons.Disc(), card + new Vector2(-0.125f * BookW, 0.035f * BookH), 78f, new Color(0.10f, 0.025f, 0.025f, 0.97f));
-            infoIcon = MakeImage(bookRect, "SchedaIcona", null, card + new Vector2(-0.125f * BookW, 0.035f * BookH), 52f, Color.white);
-            infoName = MakeText(bookRect, "SchedaNome", card + new Vector2(0.035f * BookW, 0.075f * BookH), new Vector2(0.25f * BookW, 34f), 21, TextAnchor.MiddleLeft, RedInkC, FontStyle.Bold);
-            infoTier = MakeText(bookRect, "SchedaClasse", card + new Vector2(0.035f * BookW, 0.035f * BookH), new Vector2(0.25f * BookW, 20f), 12, TextAnchor.MiddleLeft, Faded, FontStyle.Italic);
-            infoEffect = MakeText(bookRect, "SchedaEffetto", card + new Vector2(0.035f * BookW, -0.025f * BookH), new Vector2(0.25f * BookW, 44f), 14, TextAnchor.UpperLeft, InkC, FontStyle.Normal);
-            infoLore = MakeText(bookRect, "SchedaMotto", card + new Vector2(-0.01f * BookW, -0.085f * BookH), new Vector2(0.34f * BookW, 34f), 12, TextAnchor.UpperLeft, Faded, FontStyle.Italic);
-            infoStatus = MakeText(bookRect, "SchedaStato", card + new Vector2(-0.01f * BookW, -0.13f * BookH), new Vector2(0.34f * BookW, 22f), 14, TextAnchor.MiddleLeft, RedInkC, FontStyle.Bold);
-            infoAction = MakeText(bookRect, "SchedaAzione", card + new Vector2(-0.01f * BookW, -0.165f * BookH), new Vector2(0.34f * BookW, 20f), 12, TextAnchor.MiddleLeft, InkC, FontStyle.Italic);
-            // piede: punti, essenza, comandi
-            footer = MakeText(transform, "Piede", new Vector2(0f, -BookH * 0.5f - 2f), new Vector2(1100f, 24f), 14, TextAnchor.MiddleCenter, new Color(0.92f, 0.84f, 0.70f), FontStyle.Normal, false);
-            var sh = footer.gameObject.AddComponent<Shadow>(); sh.effectColor = Color.black; sh.effectDistance = new Vector2(1.5f, -1.5f);
-            footer.rectTransform.anchoredPosition = new Vector2(0f, -BookH * 0.5f + 10f);
-            toast = MakeText(bookRect, "Avviso", BookPoint(0.235f, 0.905f), new Vector2(0.40f * BookW, 40f), 14, TextAnchor.MiddleCenter, RedInkC, FontStyle.BoldAndItalic);
+            cardRt = NewRect("Scheda", group);
+            cardImg = cardRt.gameObject.AddComponent<RawImage>();
+            cardImg.texture = GrimoirePage.Card(); cardImg.raycastTarget = false;
+            cardDisc = NewImage(cardRt, "MedaglioneFondo", GrimoireIcons.Disc(), new Color(0.10f, 0.025f, 0.025f, 0.97f));
+            cardRim = NewImage(cardRt, "MedaglioneAnello", GrimoireIcons.Halo(), new Color(0.62f, 0.38f, 0.16f, 1f));
+            cardIcon = NewImage(cardRt, "MedaglioneIcona", null, Color.white);
+            cardName = NewText(cardRt, "Nome", 20, TextAnchor.UpperLeft, RedInkC, FontStyle.Bold);
+            cardTier = NewText(cardRt, "Classe", 11, TextAnchor.UpperLeft, Faded, FontStyle.Italic);
+            cardBody = NewText(cardRt, "Corpo", 14, TextAnchor.UpperLeft, InkC, FontStyle.Normal);
+            cardToast = NewText(cardRt, "Avviso", 13, TextAnchor.MiddleCenter, RedInkC, FontStyle.BoldAndItalic);
+            sep = NewImage(cardRt, "Filo", PerkIcons.White(), new Color(0.30f, 0.12f, 0.07f, 0.55f));
+            cardFoot = NewText(cardRt, "Piede", 13, TextAnchor.UpperLeft, InkC, FontStyle.Normal, false);
+            content.gameObject.SetActive(false);
         }
 
-        static Image Segment(Transform parent, string name, Vector2 a, Vector2 b, float w)
+        // ------------------------------------------------------------------ disposizione
+        /// <summary>Il centro del vano i nello spazio della tavola (pixel, y verso l'alto, origine al centro).</summary>
+        Vector2 Local(int i) => new Vector2(plate.slot[i].x - plate.w * 0.5f, plate.h * 0.5f - plate.slot[i].y);
+
+        /// <summary>Mette sui vani della tavola le icone, gli aloni e le linee (si rifa a ogni apertura: i due libri hanno tavole diverse).</summary>
+        void ApplyPlate()
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-            var rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0f, 0.5f);
-            rt.anchoredPosition = a;
-            Vector2 d = b - a;
-            rt.sizeDelta = new Vector2(d.magnitude, w);
-            rt.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-            var img = go.AddComponent<Image>();
-            img.sprite = PerkIcons.White(); img.raycastTarget = false;
-            return img;
+            plateRt.sizeDelta = new Vector2(plate.w, plate.h);
+            for (int i = 0; i < Grimoire.Count; i++)
+            {
+                var n = nodes[i];
+                n.r = plate.radius[i]; n.pos = Local(i);
+                n.root.anchoredPosition = n.pos; n.root.sizeDelta = new Vector2(2f * n.r, 2f * n.r);
+                Size(n.glow, n.r * 3.3f); Size(n.ring, n.r * 2.62f);
+                if (n.veil != null) Size(n.veil, n.r * 2.0f);
+                Size(n.icon, n.r * 2.0f);
+            }
+            foreach (var L in lines)
+            {
+                Vector2 a = nodes[L.a].pos, b = nodes[L.b].pos, d = b - a;
+                float len = d.magnitude;
+                if (len < 1f) continue;
+                Vector2 u = d / len;
+                // dal bordo di un vano al bordo dell'altro: dentro i vani le linee non passano
+                Vector2 p0 = a + u * (nodes[L.a].r * 1.2f), p1 = b - u * (nodes[L.b].r * 1.2f);
+                float l = Mathf.Max(0f, (p1 - p0).magnitude);
+                float ang = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
+                foreach (var pair in new[] { (L.glow, 13f), (L.line, 4.5f) })
+                {
+                    var rt = pair.Item1.rectTransform;
+                    rt.anchoredPosition = p0; rt.sizeDelta = new Vector2(l, pair.Item2);
+                    rt.localRotation = Quaternion.Euler(0f, 0f, ang);
+                }
+            }
+        }
+
+        /// <summary>Tavola e scheda nello spazio che c'e': affiancate se la finestra e' larga, una sopra l'altra se e' alta; la tavola
+        /// non supera mai l'88% dell'altezza, cosi' attorno si vede ancora il gioco.</summary>
+        void Relayout()
+        {
+            Vector2 area = self.rect.size;
+            if (area.x < 80f || area.y < 80f || plate == null) return;
+            laidFor = area;
+            float pw = plate.w, ph = plate.h;
+            float cap = MaxFrac * area.y / ph;
+            float fitSide = Mathf.Min((area.x - CardWSide - Gap - 2f * Pad) / pw, (area.y - 2f * Pad) / ph, cap);
+            float fitStack = Mathf.Min((area.x - 2f * Pad) / pw, (area.y - CardH - Gap - 2f * Pad) / ph, cap);
+            bool side = fitSide >= fitStack;
+            float fit = Mathf.Max(0.05f, side ? fitSide : fitStack);
+            float cw = side ? CardWSide : Mathf.Clamp(area.x - 2f * Pad, 240f, CardWMax);
+            plateRt.localScale = new Vector3(fit, fit, 1f);
+            if (side)
+            {
+                float total = pw * fit + Gap + cw, x0 = -total * 0.5f;
+                plateRt.anchoredPosition = new Vector2(x0 + pw * fit * 0.5f, 0f);
+                cardRt.anchoredPosition = new Vector2(x0 + pw * fit + Gap + cw * 0.5f, 0f);
+            }
+            else
+            {
+                float total = ph * fit + Gap + CardH, top = total * 0.5f;
+                plateRt.anchoredPosition = new Vector2(0f, top - ph * fit * 0.5f);
+                cardRt.anchoredPosition = new Vector2(0f, -top + CardH * 0.5f);
+            }
+            if (!Mathf.Approximately(cw, cardW)) { cardW = cw; LayoutCard(cw); }
+        }
+
+        void LayoutCard(float cw)
+        {
+            cardRt.sizeDelta = new Vector2(cw, CardH);
+            float m = Margin, inner = cw - 2f * m;
+            SetTL(cardDisc.rectTransform, m, m, 62f, 62f);
+            SetTL(cardRim.rectTransform, m - 4f, m - 4f, 70f, 70f);
+            SetTL(cardIcon.rectTransform, m + 7f, m + 7f, 48f, 48f);
+            float tx = m + 62f + 12f, tw = cw - tx - m;
+            SetTL(cardName.rectTransform, tx, m + 1f, tw, 26f);
+            SetTL(cardTier.rectTransform, tx, m + 29f, tw, 34f);
+            SetTL(cardBody.rectTransform, m, m + 76f, inner, 154f);
+            SetTL(cardToast.rectTransform, m, 252f, inner, 34f);
+            SetTL(sep.rectTransform, m, 288f, inner, 1.5f);
+            SetTL(cardFoot.rectTransform, m, 292f, inner, 46f);
         }
 
         // ------------------------------------------------------------------ apertura e chiusura
         void OpenBook(Grimoire.Book b, GrimoireAltar a)
         {
             book = b; altar = a; reader = Seats.Current;
-            spread.texture = GrimoirePage.Spread(b);
-            string t = Grimoire.Title(b), sub = Grimoire.Subtitle(b);
-            titleL.text = b == Grimoire.Book.Stregoneria ? "Perk del Dodecaedro\nArcano Maledetto" : t;
-            titleR.text = b == Grimoire.Book.Stregoneria ? "Le 19 Virtù\ndella Stregoneria" : "I 19 Sigilli\ndell'Arsenale Maledetto";
+            var hud = GameManager.I != null ? GameManager.I.hud : null;
+            if (hud != null && transform.parent != hud.transform) { transform.SetParent(hud.transform, false); Stretch(self); }
+            transform.SetAsLastSibling();                            // sopra tutto il resto dell'HUD
+            plate = GrimoirePage.Get(b);
+            plateImg.texture = plate.tex;
+            ApplyPlate();
             var ns = Grimoire.Of(b);
-            for (int i = 0; i < Grimoire.Count; i++) nodes[i].icon.sprite = GrimoireIcons.Get(ns[i].icon);
-            // la prima scelta: il primo nodo che puoi comprare, o la magia attiva
+            for (int i = 0; i < Grimoire.Count; i++) if (i != Grimoire.Supreme) nodes[i].icon.sprite = GrimoireIcons.Engraved(ns[i].icon);
+            // la prima scelta: la magia (o il sigillo) attiva, o il primo nodo che puoi comprare
             var s = Magic.State;
             int active = b == Grimoire.Book.Stregoneria ? s.SelectedSpell : s.SelectedInfusion;
             sel = active >= 0 ? active : FirstBuyable(s);
-            visible = true; openT = 0f; toastT = 0f;
-            canvas.enabled = true;
-            GameMenu.Overlay = true;
+            visible = true; openT = 0f; toastT = 0f; cardToast.text = "";
+            laidFor = Vector2.zero; shownDirty = true;
+            cg.alpha = 0f; group.localScale = Vector3.one * 0.95f;   // parte dall'inizio dell'apertura anche se il fotogramma finisce prima di Update
+            content.gameObject.SetActive(true);
+            Seats.SetOverlay(reader, true);
             lastMouse = Input.mousePosition;
+            lastNavX = lastNavY = 0;
             lastHp = GameManager.I != null && GameManager.I.player != null ? GameManager.I.player.hp : 0f;
             Sfx.UI(SoundBank.GrimorioApre, 0.75f);
+            Relayout();
             Refresh();
         }
 
@@ -223,9 +343,10 @@ namespace PryingEyes
         {
             if (!visible) return;
             visible = false;
-            canvas.enabled = false;
-            GameMenu.Overlay = false;
-            if (!GameManager.autoTest) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
+            content.gameObject.SetActive(false);
+            closedFrame = Time.frameCount;
+            Seats.SetOverlay(reader, false);
+            if ((reader == null || reader.keyboard) && !GameManager.autoTest) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
             Sfx.UI(SoundBank.BookSeal, 0.5f);
         }
 
@@ -241,8 +362,9 @@ namespace PryingEyes
             float dt = Time.unscaledDeltaTime;
             openT += dt;
             float k = Mathf.Clamp01(openT / 0.25f);
-            group.alpha = k;
-            bookRect.localScale = Vector3.one * Mathf.Lerp(0.95f, 1f, 1f - (1f - k) * (1f - k));
+            cg.alpha = k;
+            group.localScale = Vector3.one * Mathf.Lerp(0.95f, 1f, 1f - (1f - k) * (1f - k));
+            if (self.rect.size != laidFor) Relayout();
             var gm = GameManager.I;
             var pl = gm != null ? gm.player : null;
             // ferito o morto (non dovrebbe succedere nel sacrario): il libro si chiude
@@ -250,24 +372,25 @@ namespace PryingEyes
             lastHp = pl.hp;
             if (GameMenu.InMenu || GameMenu.Paused) { Close(); return; }
 
-            // mouse: il nodo sotto il puntatore
+            // mouse: il vano sotto il puntatore (solo per chi ha tastiera e mouse)
             Vector3 mouse = Input.mousePosition;
             int hover = -1;
-            if (Seats.Keyboard && RectTransformUtility.ScreenPointToLocalPointInRectangle(bookRect, mouse, null, out Vector2 local))
+            if (Seats.Keyboard && RectTransformUtility.ScreenPointToLocalPointInRectangle(plateRt, mouse, null, out Vector2 local))
             {
                 float best = float.MaxValue;
                 for (int i = 0; i < Grimoire.Count; i++)
                 {
-                    float d = (nodes[i].root.anchoredPosition - local).magnitude;
-                    if (d < nodes[i].size * 0.6f && d < best) { best = d; hover = i; }
+                    float d = (nodes[i].pos - local).magnitude;
+                    if (d < nodes[i].r * 1.2f && d < best) { best = d; hover = i; }
                 }
             }
             if ((mouse - lastMouse).sqrMagnitude > 4f && hover >= 0 && hover != sel) { sel = hover; Sfx.UI(SoundBank.MagiaScelta, 0.25f, 1.4f); }
             lastMouse = mouse;
             if (SeatInput.GetMouseButtonDown(0) && hover >= 0) { sel = hover; Activate(sel); }
 
-            // tastiera e controller
-            int nx = PadControls.NavX, ny = PadControls.NavY;
+            // tastiera e controller (solo quello di chi legge: nello split screen gli altri continuano a giocare)
+            var pad = PadControls.Mine.mapper;
+            int nx = pad.NavX, ny = pad.NavY;
             Vector2 nav = Vector2.zero;
             if (SeatInput.GetKeyDown(KeyCode.LeftArrow) || SeatInput.GetKeyDown(KeyCode.A) || (nx < 0 && lastNavX >= 0)) nav = Vector2.left;
             else if (SeatInput.GetKeyDown(KeyCode.RightArrow) || SeatInput.GetKeyDown(KeyCode.D) || (nx > 0 && lastNavX <= 0)) nav = Vector2.right;
@@ -275,22 +398,22 @@ namespace PryingEyes
             else if (SeatInput.GetKeyDown(KeyCode.DownArrow) || SeatInput.GetKeyDown(KeyCode.S) || (ny < 0 && lastNavY >= 0)) nav = Vector2.down;
             lastNavX = nx; lastNavY = ny;
             if (nav != Vector2.zero) Navigate(nav);
-            if (SeatInput.GetKeyDown(KeyCode.Return) || SeatInput.GetKeyDown(KeyCode.KeypadEnter) || SeatInput.GetKeyDown(KeyCode.Space) || (openT > 0.3f && SeatInput.GetKeyDown(KeyCode.F)) || PadControls.Confirm) Activate(sel);
-            if (SeatInput.GetKeyDown(KeyCode.Escape) || SeatInput.GetKeyDown(KeyCode.Tab) || SeatInput.GetKeyDown(KeyCode.Backspace) || PadControls.Cancel || TouchControls.Down(TouchControls.Action.Pause)) { Close(); return; }
+            if (SeatInput.GetKeyDown(KeyCode.Return) || SeatInput.GetKeyDown(KeyCode.KeypadEnter) || SeatInput.GetKeyDown(KeyCode.Space) || (openT > 0.3f && SeatInput.GetKeyDown(KeyCode.F)) || pad.Confirm) Activate(sel);
+            if (SeatInput.GetKeyDown(KeyCode.Escape) || SeatInput.GetKeyDown(KeyCode.Tab) || SeatInput.GetKeyDown(KeyCode.Backspace) || SeatInput.GetMouseButtonDown(1) || pad.Cancel || TouchControls.Down(TouchControls.Action.Pause)) { Close(); return; }
 
-            if (toastT > 0f) { toastT -= dt; toast.color = new Color(RedInkC.r, RedInkC.g, RedInkC.b, Mathf.Clamp01(toastT / 0.6f)); if (toastT <= 0f) toast.text = ""; }
+            if (toastT > 0f) { toastT -= dt; cardToast.color = new Color(RedInkC.r, RedInkC.g, RedInkC.b, Mathf.Clamp01(toastT / 0.6f)); if (toastT <= 0f) cardToast.text = ""; }
             Refresh();
         }
 
-        /// <summary>Il nodo piu' vicino nella direzione data (entro 70 gradi), pesando la distanza.</summary>
+        /// <summary>Il vano piu' vicino nella direzione data (entro 70 gradi), pesando la distanza.</summary>
         void Navigate(Vector2 dir)
         {
-            Vector2 from = nodes[sel].root.anchoredPosition;
+            Vector2 from = nodes[sel].pos;
             int best = -1; float bestScore = float.MaxValue;
             for (int i = 0; i < Grimoire.Count; i++)
             {
                 if (i == sel) continue;
-                Vector2 d = nodes[i].root.anchoredPosition - from;
+                Vector2 d = nodes[i].pos - from;
                 float len = d.magnitude;
                 if (len < 1f) continue;
                 float ang = Vector2.Angle(dir, d);
@@ -303,6 +426,11 @@ namespace PryingEyes
 
         /// <summary>Compra il nodo, o (se e' gia' tuo e' interno) lo rende la magia / il sigillo attivo. Pubblico per le prove.</summary>
         public bool Activate(int i)
+        {
+            using (Seats.Enter(reader)) return ActivateBody(i);
+        }
+
+        bool ActivateBody(int i)
         {
             var s = Magic.State;
             var gm = GameManager.I;
@@ -321,7 +449,7 @@ namespace PryingEyes
             if (st != Grimoire.Lock.Libero) { Say(Grimoire.LockText(book, s.Mask(book), i, st)); Sfx.UI(SoundBank.BookNo, 0.5f); return false; }
             int price = s.Price(book, i);
             int have = gm != null ? gm.score : 0;
-            if (have < price) { Say($"Servono {price} punti: ti mancano {price - have}."); Sfx.UI(SoundBank.BookNo, 0.5f); return false; }
+            if (have < price) { Say($"Servono {Num(price)} punti: ti mancano {Num(price - have)}."); Sfx.UI(SoundBank.BookNo, 0.5f); return false; }
             gm?.AddPoints(-price);
             s.Buy(book, i);
             statBought++;
@@ -334,82 +462,123 @@ namespace PryingEyes
             return true;
         }
 
-        void Say(string s) { toast.text = s; toastT = 3.2f; }
+        void Say(string s) { cardToast.text = s; cardToast.color = RedInkC; toastT = 3.2f; }
 
         // ------------------------------------------------------------------ disegno
         static string Hex(Color c) => ColorUtility.ToHtmlStringRGB(c);
+        static string Num(int n) => n.ToString("N0", CultureInfo.InvariantCulture).Replace(',', '.');
 
         void Refresh()
         {
+            var gm = GameManager.I;
+            if (gm == null || gm.player == null) return;
             var s = Magic.State;
             uint mask = s.Mask(book);
             float t = Time.unscaledTime;
             int activeSel = book == Grimoire.Book.Stregoneria ? s.SelectedSpell : s.SelectedInfusion;
+            for (int i = 0; i < Grimoire.Count; i++) status[i] = s.Status(book, i);
             for (int i = 0; i < Grimoire.Count; i++)
             {
                 var n = nodes[i];
-                var st = s.Status(book, i);
-                bool owned = st == Grimoire.Lock.Posseduto, free = st == Grimoire.Lock.Libero, isSel = i == sel;
+                var st = status[i];
+                bool owned = st == Grimoire.Lock.Posseduto, free = st == Grimoire.Lock.Libero, active = i == activeSel;
                 n.pop = Mathf.Min(1f, n.pop + Time.unscaledDeltaTime / 0.5f);
-                float popK = n.pop < 1f ? 1f + 0.45f * Mathf.Sin((1f - n.pop) * Mathf.PI) : 1f;
-                n.root.localScale = Vector3.one * (popK * (isSel ? 1.08f : 1f));
-                n.icon.color = owned ? new Color(1f, 0.90f, 0.74f) : free ? new Color(0.86f, 0.74f, 0.56f) : new Color(0.42f, 0.33f, 0.26f, 0.85f);
-                n.medal.color = owned ? new Color(0.78f, 0.22f, 0.12f) : free ? new Color(0.60f, 0.38f, 0.18f) : new Color(0.30f, 0.20f, 0.13f);
+                n.root.localScale = Vector3.one * (n.pop < 1f ? 1f + 0.35f * Mathf.Sin((1f - n.pop) * Mathf.PI) : 1f);
                 float breathe = 0.5f + 0.5f * Mathf.Sin(t * 2.2f + i);
-                n.glow.color = owned ? new Color(1f, 0.12f, 0.06f, (i == activeSel ? 0.55f : 0.32f) + 0.12f * breathe) : new Color(1f, 0.12f, 0.06f, 0f);
-                n.halo.color = isSel ? new Color(1f, 0.85f, 0.5f, 0.55f + 0.35f * breathe) : (i == activeSel ? new Color(1f, 0.25f, 0.12f, 0.6f) : new Color(1f, 0.85f, 0.5f, 0f));
+                // le sfumature sono poche: l'interfaccia fonde i colori in spazio lineare, quindi un alfa di 0,1 su un vano nero si vede gia'
+                if (n.veil != null) n.veil.color = new Color(0.03f, 0.005f, 0.005f, owned ? 0f : free ? 0.45f : 0.74f);
+                else n.icon.color = owned ? Color.white : free ? new Color(0.80f, 0.72f, 0.62f, 1f) : new Color(0.34f, 0.30f, 0.30f, 0.85f);
+                float g = n.veil != null ? 0.4f : 1f;                  // il supremo ha gia' il suo emblema: l'alone e' appena un velo
+                n.glow.color = owned ? new Color(1f, 0.10f, 0.05f, ((active ? 0.17f : 0.10f) + 0.05f * breathe) * g)
+                             : free ? new Color(1f, 0.62f, 0.18f, (0.045f + 0.03f * breathe) * g) : new Color(1f, 0.1f, 0.05f, 0f);
+                n.ring.color = active ? new Color(1f, 0.78f, 0.32f, 0.80f + 0.20f * breathe)
+                             : owned ? new Color(1f, 0.20f, 0.10f, 0.80f)
+                             : free ? new Color(0.88f, 0.62f, 0.26f, 0.42f) : new Color(0f, 0f, 0f, 0f);
             }
+            // il nodo scelto: anello d'oro che respira
+            var sn = nodes[sel];
+            selRing.rectTransform.anchoredPosition = sn.pos;
+            Size(selRing, sn.r * 3.0f);
+            selRing.color = new Color(1f, 0.88f, 0.55f, 0.55f + 0.35f * (0.5f + 0.5f * Mathf.Sin(t * 4f)));
+            // le linee: rosse tra due nodi tuoi, ambra tra un tuo e uno che puoi comprare; il resto lo fa la tavola
             foreach (var L in lines)
             {
-                bool oa = Grimoire.Has(mask, L.a), ob = Grimoire.Has(mask, L.b);
-                bool fa = s.Status(book, L.a) == Grimoire.Lock.Libero, fb = s.Status(book, L.b) == Grimoire.Lock.Libero;
-                Color c = oa && ob ? new Color(0.95f, 0.16f, 0.10f, 0.95f) : (oa && fb) || (ob && fa) ? new Color(0.80f, 0.48f, 0.16f, 0.8f) : new Color(0.30f, 0.12f, 0.07f, 0.55f);
-                L.line.color = c;
-                L.glow.color = oa && ob ? new Color(1f, 0.1f, 0.05f, 0.28f + 0.08f * Mathf.Sin(t * 2f + L.a)) : new Color(0f, 0f, 0f, 0f);
+                bool oa = status[L.a] == Grimoire.Lock.Posseduto, ob = status[L.b] == Grimoire.Lock.Posseduto;
+                bool fa = status[L.a] == Grimoire.Lock.Libero, fb = status[L.b] == Grimoire.Lock.Libero;
+                if (oa && ob)
+                {
+                    L.line.color = new Color(0.98f, 0.16f, 0.10f, 0.95f);
+                    L.glow.color = new Color(1f, 0.10f, 0.05f, 0.30f + 0.10f * Mathf.Sin(t * 2f + L.a));
+                }
+                else if ((oa && fb) || (ob && fa))
+                {
+                    L.line.color = new Color(0.90f, 0.56f, 0.18f, 0.80f);
+                    L.glow.color = new Color(0.95f, 0.5f, 0.1f, 0.16f);
+                }
+                else { L.line.color = new Color(0f, 0f, 0f, 0f); L.glow.color = new Color(0f, 0f, 0f, 0f); }
             }
-            // le tre classi
-            int no = Grimoire.CountTier(mask, Grimoire.Tier.Esterno), ni = Grimoire.CountTier(mask, Grimoire.Tier.Interno), nsu = Grimoire.CountTier(mask, Grimoire.Tier.Supremo);
-            string red = Hex(RedInkC);
-            tiers.text =
-                $"<b><color=#{red}>· {Grimoire.TierName(book, Grimoire.Tier.Esterno)} (12)</color></b>   <size=11>{no} tuoi</size>\n{Grimoire.TierText(book, Grimoire.Tier.Esterno)}\n\n" +
-                $"<b><color=#{red}>· {Grimoire.TierName(book, Grimoire.Tier.Interno)} (6)</color></b>   <size=11>{ni} tuoi</size>\n{Grimoire.TierText(book, Grimoire.Tier.Interno)}\n\n" +
-                $"<b><color=#{red}>· {Grimoire.TierName(book, Grimoire.Tier.Supremo)} (1)</color></b>   <size=11>{(nsu > 0 ? "tuo" : "")}</size>\n{Grimoire.TierText(book, Grimoire.Tier.Supremo)}";
-            // la scheda
+            RefreshCard(gm, s, mask, activeSel);
+        }
+
+        void RefreshCard(GameManager gm, MagicState s, uint mask, int activeSel)
+        {
+            int score = gm.score;
+            var pl = gm.player;
+            int ess = Mathf.FloorToInt(pl.Arcana.Essence), essMax = Mathf.FloorToInt(pl.Arcana.EssenceMax);
+            bool pad = PadControls.Preferred;
+            if (!shownDirty && sel == shownSel && mask == shownMask && score == shownScore && ess == shownEss && activeSel == shownActive && pad == shownPad) return;
+            shownDirty = false; shownSel = sel; shownMask = mask; shownScore = score; shownEss = ess; shownActive = activeSel; shownPad = pad;
             var node = Grimoire.Of(book)[sel];
-            var sst = s.Status(book, sel);
-            infoIcon.sprite = GrimoireIcons.Get(node.icon);
-            infoIcon.color = sst == Grimoire.Lock.Posseduto ? new Color(1f, 0.90f, 0.74f) : new Color(0.86f, 0.74f, 0.56f);
-            infoMedal.color = sst == Grimoire.Lock.Posseduto ? new Color(0.78f, 0.22f, 0.12f) : new Color(0.60f, 0.38f, 0.18f);
-            infoName.text = node.name;
-            infoTier.text = Grimoire.TierName(book, node.tier) + (node.tier == Grimoire.Tier.Interno ? (book == Grimoire.Book.Stregoneria ? " — una magia della mano sinistra" : " — un sigillo da tracciare sull'arma") : "");
-            infoEffect.text = char.ToUpper(node.effect[0]) + node.effect.Substring(1) + ".";
-            infoLore.text = "«" + node.lore + "»";
+            var sst = status[sel];
+            bool owned = sst == Grimoire.Lock.Posseduto;
+            cardIcon.sprite = GrimoireIcons.Engraved(node.icon);
+            cardIcon.color = owned ? Color.white : new Color(0.84f, 0.76f, 0.66f, 1f);
+            cardRim.color = owned ? new Color(0.85f, 0.20f, 0.10f, 1f) : new Color(0.62f, 0.38f, 0.16f, 1f);
+            cardName.text = node.name;
+            cardTier.text = Grimoire.TierName(book, node.tier) + (node.tier == Grimoire.Tier.Interno ? (book == Grimoire.Book.Stregoneria ? " — una magia della mano sinistra" : " — un sigillo da tracciare sull'arma") : "");
+            string red = Hex(RedInkC), faded = Hex(Faded);
             int price = s.Price(book, sel);
             bool active = sel == activeSel;
+            string stat, act = "";
             switch (sst)
             {
                 case Grimoire.Lock.Posseduto:
-                    infoStatus.text = active ? "Già tuo — è quello attivo" : "Già tuo";
-                    infoAction.text = sel >= Grimoire.FirstInner && !active ? "[Clic / F / A] rendilo attivo" : "";
+                    stat = active ? "Già tuo — è quello attivo" : "Già tuo";
+                    if (sel >= Grimoire.FirstInner && !active) act = pad ? "[A] rendilo attivo" : "[Clic / F] rendilo attivo";
                     break;
                 case Grimoire.Lock.Libero:
-                    int have = GameManager.I != null ? GameManager.I.score : 0;
-                    infoStatus.text = have >= price ? $"Libero — {price:N0} punti".Replace(',', '.') : $"Libero — {price:N0} punti (ti mancano {price - have:N0})".Replace(',', '.');
-                    infoAction.text = "[Clic / F / A] acquista";
+                    stat = score >= price ? $"Libero — {Num(price)} punti" : $"Libero — {Num(price)} punti (ti mancano {Num(price - score)})";
+                    act = pad ? "[A] acquista" : "[Clic / F] acquista";
                     break;
                 default:
-                    infoStatus.text = "Chiuso — " + Grimoire.LockText(book, mask, sel, sst);
-                    infoAction.text = "";
+                    stat = "Chiuso — " + Grimoire.LockText(book, mask, sel, sst);
                     break;
             }
-            var pl = GameManager.I != null ? GameManager.I.player : null;
-            int score = GameManager.I != null ? GameManager.I.score : 0;
-            footer.text = $"PUNTI {score:N0}".Replace(',', '.') + (pl != null ? $"     ESSENZA {Mathf.FloorToInt(pl.Arcana.Essence)}/{Mathf.FloorToInt(pl.Arcana.EssenceMax)}" : "") +
-                          (PadControls.Preferred ? "     croce: scegli   A: acquista   B: chiudi" : "     frecce o mouse: scegli   Invio o clic: acquista   Esc: chiudi");
+            cardBody.text = char.ToUpper(node.effect[0]) + node.effect.Substring(1) + ".\n" +
+                            $"<i><size=12><color=#{faded}>«{node.lore}»</color></size></i>\n\n" +
+                            $"<b><color=#{red}>{stat}</color></b>" + (act.Length > 0 ? $"\n<i><size=12>{act}</size></i>" : "");
+            cardFoot.text = $"<b>PUNTI {Num(score)}</b>" + (essMax > 0 ? $"      <b>ESSENZA {ess}/{essMax}</b>" : "") + "\n" +
+                            "<size=11>" + (pad ? "croce: scegli   A: acquista   B: chiudi" : "frecce o mouse: scegli   Invio o clic: acquista   Esc: chiudi") + "</size>";
         }
 
-        /// <summary>Per le prove: il nodo scelto e il libro aperto.</summary>
-        public int Selected { get => sel; set => sel = Mathf.Clamp(value, 0, Grimoire.Count - 1); }
+        // ------------------------------------------------------------------ per le prove
+        /// <summary>Il nodo scelto.</summary>
+        public int Selected { get => sel; set { sel = Mathf.Clamp(value, 0, Grimoire.Count - 1); shownDirty = true; } }
         public Grimoire.Book BookShown => book;
+        /// <summary>Il rettangolo del libro (tavola e scheda) e quello dell'area in cui sta, in pixel dello schermo (per controllare che
+        /// stia dentro la porzione di chi legge).</summary>
+        public Rect ScreenRectOfBook()
+        {
+            var pc = new Vector3[4]; plateRt.GetWorldCorners(pc);
+            var cc = new Vector3[4]; cardRt.GetWorldCorners(cc);
+            float x0 = Mathf.Min(pc[0].x, cc[0].x), y0 = Mathf.Min(pc[0].y, cc[0].y), x1 = Mathf.Max(pc[2].x, cc[2].x), y1 = Mathf.Max(pc[2].y, cc[2].y);
+            return Rect.MinMaxRect(x0, y0, x1, y1);
+        }
+        public Rect ScreenRectOfArea()
+        {
+            var c = new Vector3[4];
+            self.GetWorldCorners(c);
+            return Rect.MinMaxRect(c[0].x, c[0].y, c[2].x, c[2].y);
+        }
     }
 }

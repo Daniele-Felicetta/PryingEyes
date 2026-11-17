@@ -433,6 +433,73 @@ namespace PryingEyes
 
             yield return Photo("5-dopo-la-rinascita");
 
+            // ---- il grimorio di un giocatore: sta nella sua porzione di schermo, blocca solo lui e gli altri giocano (2026-11-17)
+            {
+                const int reader = 1;
+                for (int i = 0; i < n; i++) Place(seats[i], far[i], 0f);
+                yield return new WaitForSeconds(0.4f);
+                GrimoireUI ui;
+                using (Seats.Enter(seats[reader])) { GrimoireUI.Show(Grimoire.Book.Arsenale, null); ui = GrimoireUI.I; }
+                yield return new WaitForSeconds(0.4f);
+                bool onlyHim = ui != null && GrimoireUI.OpenFor(seats[reader]);
+                for (int i = 0; i < n; i++) if (i != reader) onlyHim &= !GrimoireUI.OpenFor(seats[i]);
+                Check($"il giocatore {reader + 1} apre il grimorio: e' aperto solo il suo", onlyHim);
+                bool blocks = Seats.OverlayOf(seats[reader]);
+                for (int i = 0; i < n; i++) if (i != reader) blocks &= !Seats.OverlayOf(seats[i]);
+                Check("il libro blocca solo i comandi di chi legge, e il tempo non si ferma", blocks && !GameMenu.Blocked && Time.timeScale == 1f);
+                if (ui != null)
+                {
+                    var v = seats[reader].view;
+                    var part = new Rect(v.x * Screen.width, v.y * Screen.height, v.width * Screen.width, v.height * Screen.height);
+                    var book = ui.ScreenRectOfBook();
+                    Check($"il libro sta dentro la porzione di chi legge (libro {book.width:F0}x{book.height:F0} in {part.width:F0}x{part.height:F0})",
+                        book.xMin >= part.xMin - 1f && book.xMax <= part.xMax + 1f && book.yMin >= part.yMin - 1f && book.yMax <= part.yMax + 1f);
+                }
+                yield return Photo("5b-grimorio-giocatore-2");
+
+                // il giocatore 1 cammina col suo controller mentre chi legge, anche con lo stick spinto, resta dov'e'
+                Place(seats[0], start, yaw);
+                yield return new WaitForSeconds(0.4f);
+                Vector3 r0 = seats[reader].player.transform.position, w0 = seats[0].player.transform.position;
+                PadControls.Inject(seats[0].pad, Pad(ly: 32767));
+                PadControls.Inject(seats[reader].pad, Pad(ly: 32767));
+                yield return new WaitForSeconds(0.8f);
+                PadControls.Inject(seats[0].pad, null);
+                PadControls.Inject(seats[reader].pad, null);
+                yield return null; yield return null;
+                float along = Vector3.Dot(seats[0].player.transform.position - w0, forward);
+                float stayed = Flat(seats[reader].player.transform.position, r0);
+                Check($"mentre il giocatore {reader + 1} legge il 1 cammina col suo controller ({along:F1} m) e chi legge resta fermo ({stayed:F2} m)", along > 1.2f && stayed < 0.1f);
+
+                // la croce di un altro giocatore non sceglie nel libro di chi legge, la sua si'
+                int sel0 = ui != null ? ui.Selected : -1;
+                PadControls.Inject(seats[0].pad, Pad(PadControls.DpadRight));
+                yield return null; yield return null; yield return null;
+                PadControls.Inject(seats[0].pad, null);
+                yield return null; yield return null;
+                Check("la croce del controller del giocatore 1 non muove la scelta di chi legge", ui != null && ui.Selected == sel0);
+                PadControls.Inject(seats[reader].pad, Pad(PadControls.DpadRight));
+                yield return null; yield return null; yield return null;
+                PadControls.Inject(seats[reader].pad, null);
+                yield return null; yield return null;
+                Check("la croce del suo controller sceglie un altro nodo", ui != null && ui.Selected != sel0);
+
+                // B del suo controller chiude il libro e gli rende i comandi
+                PadControls.Inject(seats[reader].pad, Pad(PadControls.B));
+                yield return null; yield return null; yield return null;
+                PadControls.Inject(seats[reader].pad, null);
+                yield return null; yield return null;
+                Check("B del suo controller chiude il libro e gli rende i comandi", !GrimoireUI.OpenFor(seats[reader]) && !Seats.OverlayOf(seats[reader]));
+                ParkAllBut(reader);
+                Place(seats[reader], start, yaw);
+                yield return new WaitForSeconds(0.4f);
+                Vector3 b0 = seats[reader].player.transform.position;
+                PadControls.Inject(seats[reader].pad, Pad(ly: 32767));
+                yield return new WaitForSeconds(0.6f);
+                PadControls.Inject(seats[reader].pad, null);
+                Check("chiuso il libro il giocatore 2 cammina di nuovo", Flat(seats[reader].player.transform.position, b0) > 0.8f);
+            }
+
             // ---- pausa: Start di un controller qualunque ferma il mondo per tutti e un altro Start lo rimette in moto (serve il menu: con -autotest non c'e')
             if (GameMenu.I != null)
             {

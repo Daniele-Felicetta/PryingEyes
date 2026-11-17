@@ -16,16 +16,13 @@ namespace PryingEyes
         public static bool Paused { get; private set; }
         static bool overlay;
         /// <summary>Un'interfaccia sopra il gioco (il grimorio della stanza segreta): blocca i comandi come la pausa e libera il mouse, ma
-        /// non ferma il tempo, non nasconde l'HUD e Esc la chiude lei (GrimoireUI).</summary>
+        /// non ferma il tempo, non nasconde l'HUD e Esc la chiude lei (GrimoireUI). E' di chi gira: nello schermo condiviso ogni posto ha il
+        /// suo (Seats lo salva e lo rimette a ogni cambio di posto, Seats.SetOverlay lo da' a un posto qualsiasi), quindi chi legge si
+        /// ferma e gli altri giocano.</summary>
         public static bool Overlay
         {
             get => overlay;
-            set
-            {
-                overlay = value; Blocked = InMenu || Paused || overlay;
-                // schermo condiviso: il libro blocca i comandi di tutti, quindi ferma anche il tempo (vedi Refresh)
-                if (Seats.Split && !Coop.Active && !InMenu && !Paused) Time.timeScale = overlay ? 0f : 1f;
-            }
+            set { overlay = value; Blocked = InMenu || Paused || overlay; }
         }
 
         static readonly Color Ink = new Color(0.93f, 0.89f, 0.80f);
@@ -86,7 +83,8 @@ namespace PryingEyes
                 hostButton.interactable = joinButton.interactable = Coop.Available && !Coop.Active;
             }
             SplitUpdate();
-            bool toggle = Input.GetKeyDown(KeyCode.Escape) || TouchControls.Down(TouchControls.Action.Pause) || PadControls.PausePressed;     // Esc e Start (di qualunque controller) aprono e chiudono la pausa
+            // Esc e Start (di qualunque controller) aprono e chiudono la pausa; l'Esc che ha appena chiuso il grimorio no
+            bool toggle = (Input.GetKeyDown(KeyCode.Escape) && !GrimoireUI.ClosedThisFrame) || TouchControls.Down(TouchControls.Action.Pause) || PadControls.PausePressed;
             if (!toggle && !padBack) return;                                                                         // B torna solo indietro: in gioco e' "abbassati"
             if (settingsPanel.gameObject.activeSelf) { Back(); return; }
             if (leavePanel.gameObject.activeSelf) { Show(pausePanel); return; }
@@ -264,9 +262,9 @@ namespace PryingEyes
         {
             Blocked = InMenu || Paused || overlay;
             bool menuUp = InMenu || Paused;
-            // in cooperativa gli altri non si fermano: la pausa blocca solo i comandi. Nello schermo condiviso anche il grimorio aperto
-            // ferma il tempo: blocca i comandi di tutti, e gli altri resterebbero indifesi
-            Time.timeScale = (menuUp || (overlay && Seats.Split)) && !Coop.Active ? 0f : 1f;
+            // in cooperativa gli altri non si fermano: la pausa blocca solo i comandi. Il grimorio aperto non ferma il tempo (blocca solo
+            // chi legge)
+            Time.timeScale = menuUp && !Coop.Active ? 0f : 1f;
             backdrop.gameObject.SetActive(menuUp);
             if (Seats.Split) Seats.SetHudsVisible(!menuUp);         // schermo condiviso: gli HUD di tutti
             else

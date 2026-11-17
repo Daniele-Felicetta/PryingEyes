@@ -93,7 +93,9 @@ namespace PryingEyes
             cam.targetTexture = rt;
             var canvases = new List<Canvas>();
             if (GameManager.I != null && GameManager.I.hud != null) canvases.Add(GameManager.I.hud.GetComponent<Canvas>());
-            if (GrimoireUI.Open) canvases.Add(GrimoireUI.I.GetComponent<Canvas>());
+            // il libro e' figlio dell'HUD (stesso canvas); solo senza HUD ha un canvas suo
+            var bookCanvas = GrimoireUI.Open ? GrimoireUI.I.GetComponent<Canvas>() : null;
+            if (bookCanvas != null) canvases.Add(bookCanvas);
             foreach (var c in canvases) { if (c == null) continue; c.renderMode = RenderMode.ScreenSpaceCamera; c.worldCamera = cam; c.planeDistance = 0.2f; }
             Canvas.ForceUpdateCanvases();
             cam.Render();
@@ -560,6 +562,7 @@ namespace PryingEyes
             // ---- 2. i grimori
             gm.score = 200000;
             yield return Books(gm, player);
+            if (HasArg("-magiabooks")) yield break;         // solo la stanza e i libri (il resto dura minuti)
 
             // ---- 3. la seconda mano: fucile, poi pistola, in un punto aperto (9 m liberi davanti)
             Vector3 open = OpenSpot(fi, out float openYaw);
@@ -652,6 +655,17 @@ namespace PryingEyes
         {
             var s = player.Arcana;
             s.ResetRun();
+            {
+                // le icone incise di tutti i 38 nodi si disegnano (e quanto costa la prima volta)
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                int drawn = 0;
+                foreach (var set in new[] { Grimoire.Witch, Grimoire.Arsenal })
+                    foreach (var n in set) if (GrimoireIcons.Engraved(n.icon) != null) drawn++;
+                long ms = sw.ElapsedMilliseconds;
+                sw.Restart();
+                var card = GrimoirePage.Card();
+                Check($"le icone incise dei 38 nodi ({drawn}) e la pergamena della scheda ({(card != null ? card.width + "x" + card.height : "-")}) si disegnano", drawn == 38 && card != null, $"icone {ms} ms, scheda {sw.ElapsedMilliseconds} ms");
+            }
             foreach (Grimoire.Book b in new[] { Grimoire.Book.Stregoneria, Grimoire.Book.Arsenale })
             {
                 string tag = b == Grimoire.Book.Stregoneria ? "Stregoneria" : "Arsenale";
@@ -659,6 +673,13 @@ namespace PryingEyes
                 yield return new WaitForSeconds(0.4f);
                 Check($"{tag}: il libro si apre e blocca i comandi", GrimoireUI.Open && GameMenu.Blocked);
                 var ui = GrimoireUI.I;
+                // 2026-11-17: la tavola dell'utente, dentro l'area dell'HUD di chi legge, senza fermare il tempo
+                var plate = GrimoirePage.Get(b);
+                Check($"{tag}: la tavola vera e i diciannove vani ({plate.w}x{plate.h}, {(plate.tex != null ? plate.tex.mipmapCount : 0)} livelli di mip)", plate.real && plate.w > 1000 && plate.h > 800);
+                Rect area = ui.ScreenRectOfArea(), bookRect = ui.ScreenRectOfBook();
+                Check($"{tag}: il libro sta dentro la sua area e lascia vedere il gioco", bookRect.xMin >= area.xMin - 1f && bookRect.xMax <= area.xMax + 1f && bookRect.yMin >= area.yMin - 1f && bookRect.yMax <= area.yMax + 1f
+                      && (area.width / area.height < 1.5f || bookRect.height <= area.height * 0.9f), $"libro {bookRect.width:F0}x{bookRect.height:F0} in {area.width:F0}x{area.height:F0}");
+                Check($"{tag}: il tempo non si ferma mentre si legge", Time.timeScale == 1f);
                 ui.Selected = 0;
                 yield return null;
                 Shot($"libro_{tag}_vuoto");
