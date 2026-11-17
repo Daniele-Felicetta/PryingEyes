@@ -191,7 +191,7 @@ clients for the Cardinale; resources are drawn per machine, so no new network me
   theme is forced and, in the catacombs, falls back to another theme (the theatre on the first level). The strict navigation bot,
   `python tools/check_navigation.py --extra=-catacombe --floor 10 --floors 2`, walks the first two levels of the branch: 6 of 6 seeds
   (1000, 2961, 3046, 777, 114, 4242), 2 of 2 levels each, every level `tema=Guardaroba`, 0 warnings, 8 doors bought per level.
-  `-cattedraletest` stayed 49/49 on that build. `-survivaltest` is not deterministic (a random Prova and a toxic cloud, not the kit):
+  `-cattedraletest` stayed 49/49 on that build. `-survivaltest` is not deterministic (a random Prova, not the kit):
   see [../engineering/testing.md](../engineering/testing.md).
 
 Not verified: a human playthrough (pace, prices, the balance), the cathedral with a controller, the LayoutDemo consumer
