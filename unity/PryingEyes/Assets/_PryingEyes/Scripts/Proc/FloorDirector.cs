@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using PryingEyes.Cattedrale;
 
 namespace PryingEyes.Proc
 {
@@ -96,6 +97,10 @@ namespace PryingEyes.Proc
             RoundDirector.ResetRun();
             Drops.ResetRun();
             Seats.EachOrOnce(_ => { Perks.ResetRun(); Medals.Reset(); });
+            // due zone: da soli si parte dalla cattedrale (FloorDirector.Catacombe.cs); in cooperativa e nello schermo condiviso si scende subito,
+            // e il bottino va diretto nel magazzino (la spedizione resta aperta finche' non si torna al menu)
+            if (Catacombe.Hub && startFloor <= 0 && ArgInt("-floor", 0) <= 0) { StartCoroutine(GoToHub(null, true)); return; }
+            if (Catacombe.Attive) Cattedrale.Fabbrica.Inizia(Rami.RamoDi(startFloor > 0 ? startFloor : ArgInt("-floor", 1)), !Catacombe.Hub);
             StartCoroutine(GoTo(startFloor > 0 ? startFloor : ArgInt("-floor", 1), true));
         }
 
@@ -152,8 +157,10 @@ namespace PryingEyes.Proc
                 WallBuy.ClearAll();
                 Interact.Clear();
                 LightPool.Clear();
+                RisorsaPickup.ClearAll();
                 yield return null;
             }
+            InHub = false;
             floor = n;
             Seats.EachOrOnce(_ => Perks.NewFloor());      // la Rinascita e' di nuovo pronta, il Velo e l'Occhio si spengono (per ogni giocatore)
             Biblioteca.Clear();
@@ -161,8 +168,10 @@ namespace PryingEyes.Proc
             // piu' si scende, piu' buio: la scala di tutte le luci del piano, letta da RoomKits.AddLight mentre costruisce
             LightPool.Dim = LightDim(n);
             PlanGen.SurvivalLayout = SurvivalMode.Enabled;
+            PlanGen.RamoTheme = Catacombe.Attive ? ThemeOfFloor(n) : null;      // catacombe: il tema e' quello del ramo (stessa pianta del seme)
             var plan = PlanGen.Generate(runSeed + n * 1013, n);
             if (plan == null) { Debug.LogError("[PryingEyes] piano non generabile: " + PlanGen.LastFailure); yield break; }
+            plan.catacombe = Catacombe.Attive;
             units = plan.units;
             float t0 = Time.realtimeSinceStartup;
             cur = FloorBuilder.Build(plan, null);
@@ -198,15 +207,22 @@ namespace PryingEyes.Proc
             if (cur.exit != null)
             {
                 cur.exit.unlocked = false;
-                cur.exit.lockedText = () => SurvivalMode.Enabled ? "L'ASCENSORE È SIGILLATO" : $"L'ASCENSORE È SIGILLATO — CANDELE {lit}/{total}";
+                cur.exit.lockedText = () => Catacombe.Attive ? (Rami.LivelloDelBoss(floor) ? $"IL CANCELLO È SIGILLATO — LO TIENE CHIUSO {Rami.BossDi(floor).bossTitolo.ToUpperInvariant()}" : "IL CANCELLO È SIGILLATO")
+                    : SurvivalMode.Enabled ? "L'ASCENSORE È SIGILLATO" : $"L'ASCENSORE È SIGILLATO — CANDELE {lit}/{total}";
+                cur.exit.openText = () => !Catacombe.Attive ? "SCENDI CON L'ASCENSORE"
+                    : ReturnsUp ? "RISALI ALLA CATTEDRALE — la spedizione è compiuta"
+                    : Rami.RamoDi(floor + 1) != Rami.RamoDi(floor) ? $"SCENDI: {Rami.Tutti[Rami.RamoDi(floor + 1)].nome.ToUpperInvariant()}"
+                    : $"SCENDI AL LIVELLO {HUD.Roman(Rami.LivelloDi(floor + 1))}";
                 cur.exit.onEnter = () =>
                 {
                     if (transitioning) return;
+                    if (ReturnsUp) { ReturnToCathedral(); return; }       // il boss del ramo e' caduto: si risale con il bottino
                     if (Coop.IsClient) Coop.Game?.RequestDescend();      // cooperativa: decide l'ospite
                     else StartCoroutine(Descend());
                 };
             }
             PlaceWallBuys(plan);
+            if (Catacombe.Attive) SetupCatacombLevel(plan);   // scala di risalita, cassetta delle elemosine, spoglie, acqua santa della Fonte
             LightShafts.Build(cur);                           // fasci di luce visibili dalle finestre e dalle vetrate (LightShafts.cs)
             BreakableLamps.Build(cur);                        // lampade che si rompono sparandoci (BreakableLamps.cs)
             StartCoroutine(Gramophone(plan));
@@ -236,9 +252,20 @@ namespace PryingEyes.Proc
                 lift.SetOpenInstant(false);
             }
             playerRoom = cur.RoomAt(pl.transform.position);
-            Seats.ForHuds(h => { h.SetWaveLabel("piano"); h.SetWave(n); });
-            RefreshObjective();
-            Seats.ForHuds(h => { h.Banner("Piano " + n, plan.epithet); h.Toast(FloorLines[(n - 1) % FloorLines.Length]); });
+            if (Catacombe.Attive)
+            {
+                int lv = Rami.LivelloDi(n);
+                string head = Rami.NomeLivello(n), sub = Rami.LivelloDelBoss(n) ? $"In fondo a questo livello ti aspetta {Rami.BossDi(n).bossTitolo}." : plan.epithet;
+                Seats.ForHuds(h => { h.SetWaveLabel("livello"); h.SetWave(lv); h.SetScoreLabel("PUNTI"); h.SetScore(gm.score); });
+                RefreshObjective();
+                Seats.ForHuds(h => { h.Banner(head, sub); h.Toast(CatacombLines[(n - 1) % CatacombLines.Length]); });
+            }
+            else
+            {
+                Seats.ForHuds(h => { h.SetWaveLabel("piano"); h.SetWave(n); });
+                RefreshObjective();
+                Seats.ForHuds(h => { h.Banner("Piano " + n, plan.epithet); h.Toast(FloorLines[(n - 1) % FloorLines.Length]); });
+            }
             if (Coop.Active) Debug.Log($"[PryingEyes] coop: firma del piano {n}: {FloorSignature():X8}");
             Coop.OnFloorBuilt();                 // cooperativa: piano costruito (la torcia dei compagni torna nel pool, l'ospite saluta chi aspettava)
             Debug.Log($"[PryingEyes] piano {n} seme {runSeed + n * 1013}: {plan.rooms.Count} stanze in {plan.units} ali, {cur.candles.Count} candele, {LightPool.Count} luci, " +
@@ -457,7 +484,17 @@ namespace PryingEyes.Proc
             exitOpen = true;
             if (announce) Coop.Game?.ExitOpened();
             if (cur.exit != null) { cur.exit.unlocked = true; cur.exit.Open(); }
-            Seats.ForHuds(h => h.Toast(SurvivalMode.Enabled ? "Tre ondate superate. Ascensore aperto: resta a combattere o scendi." : "Tutte le candele sono accese. Le porte dell'ascensore si aprono."));
+            if (Catacombe.Attive && Rami.LivelloDelBoss(floor) && SurvivalMode.Enabled)
+            {
+                // il boss del livello e' caduto (l'uscita si apre solo cosi'): il suo trofeo va subito nella cattedrale, anche su ogni macchina della cooperativa
+                var trophy = Cattedrale.Fabbrica.Trofeo(floor);
+                var boss = Rami.BossDi(floor);
+                string tail = ReturnsUp ? "La scala risale alla cattedrale." : "Il cancello si apre verso il basso.";
+                Seats.ForHuds(h => { h.Banner($"{boss.bossTitolo} è caduto", "Al sicuro nella cattedrale: " + Cattedrale.Risorse.Testo(trophy) + ". " + tail); });
+                Sfx.UI(SoundBank.BossRoar, 0.6f, 0.7f);
+            }
+            else if (Catacombe.Attive) Seats.ForHuds(h => h.Toast("Tre ondate superate. Il cancello si apre: resta a combattere o scendi."));
+            else Seats.ForHuds(h => h.Toast(SurvivalMode.Enabled ? "Tre ondate superate. Ascensore aperto: resta a combattere o scendi." : "Tutte le candele sono accese. Le porte dell'ascensore si aprono."));
             Sfx.UI(SoundBank.Toll, 0.7f);
             if (announce && !SurvivalMode.Enabled && !lastHorde && cur.exit != null) { lastHorde = true; Summon(3 + floor / 2, cur.exit.frontPoint); }
             // faro verde sulla porta dell'ascensore: nel buio si vede da lontano
@@ -486,7 +523,19 @@ namespace PryingEyes.Proc
         {
             if (gm.hud == null) return;
             string text;
-            if (SurvivalMode.Enabled)
+            if (InHub)
+            {
+                int able = 0;
+                foreach (var w in Cattedrale.Fabbrica.Albero.All) if (Cattedrale.Fabbrica.Albero.CanBuild(w.Id, Cattedrale.Fabbrica.Banca) == Production.Economy.WorkTree.Check.Ok) able++;
+                text = "Ricostruisci la cattedrale con le risorse delle catacombe  ·  Scendi dalla cripta" + (able > 0 ? $"  ·  {able} opere si possono costruire" : "");
+                Seats.ForHuds(h => h.SetObjective(text));
+                return;
+            }
+            if (SurvivalMode.Enabled && Catacombe.Attive)
+            {
+                text = CatacombObjective(RoundDirector.I != null ? RoundDirector.I.Status() : "Preparati alla prima ondata");
+            }
+            else if (SurvivalMode.Enabled)
             {
                 string power = Power.Panel != null && !Power.On ? "  ·  Trova il quadro elettrico" : "";
                 text = (RoundDirector.I != null ? RoundDirector.I.Status() : "Preparati alla prima ondata") + (exitOpen ? "  ·  Ascensore disponibile" : "  ·  3 ondate per l’ascensore") + power;
@@ -506,9 +555,9 @@ namespace PryingEyes.Proc
             {
                 gm.AddPoints(100 + 50 * floor);
                 gm.player.weapon.AddAmmoFraction(0.4f);
-                gm.hud?.Toast($"Piano {floor} superato. +{100 + 50 * floor} punti, munizioni recuperate");
+                gm.hud?.Toast(Catacombe.Attive ? $"Livello {Rami.LivelloDi(floor)} superato. +{100 + 50 * floor} punti, munizioni recuperate" : $"Piano {floor} superato. +{100 + 50 * floor} punti, munizioni recuperate");
             });
-            Sfx.UI(SoundBank.LiftRide, 0.55f);
+            Sfx.UI(Catacombe.Attive ? SoundBank.StoneGrind : SoundBank.LiftRide, 0.55f);
             if (cur.exit != null) cur.exit.Close();
             for (float k = 0f; k < 1f; k += Time.deltaTime / 1.2f) { FadeAll(k); yield return null; }
             FadeAll(1f);
@@ -519,6 +568,7 @@ namespace PryingEyes.Proc
         /// <summary>Chiamato dal giocatore quando rinasce: l'ascensore di arrivo lo aspetta aperto.</summary>
         public void OnRespawn()
         {
+            if (Catacombe.Hub && !InHub && deathOutcome != null) { SetInvulnerable(true); StartCoroutine(DeathReturnCo()); return; }   // morto nelle catacombe: si torna alla cattedrale
             deaths++;
             ghostMark = Stealth.Spotted;         // dopo la morte si ricomincia a contare
             Drops.OnPlayerDied();
@@ -928,6 +978,11 @@ namespace PryingEyes.Proc
         {
             var g = GameManager.I != null ? GameManager.I : gm;
             if (g == null) return null;
+            if (Catacombe.Hub && !InHub && Cattedrale.Fabbrica.Spedizione.Active)
+            {
+                deathOutcome = Cattedrale.Fabbrica.Fallisce(g.score);
+                return "Le catacombe ti hanno preso. " + deathOutcome.Riga();
+            }
             int lost = g.score / 20 * 10;
             if (lost > 0) g.AddPoints(-lost);
             var parts = new List<string>();
@@ -1188,7 +1243,7 @@ namespace PryingEyes.Proc
         void OnGUI()
         {
             // schermo condiviso: il menu e la pausa coprono tutti, il grimorio solo chi lo legge (sotto, nel ciclo dei posti)
-            if (cur == null || gm == null || gm.player == null || transitioning) return;
+            if (cur == null || gm == null || gm.player == null || transitioning || InHub) return;
             if (Seats.Split ? GameMenu.InMenu || GameMenu.Paused : GameMenu.Blocked) return;
             if (Event.current.type != EventType.Repaint) return;      // la mappa si disegna e basta: niente liste e stringhe a ogni evento di layout/mouse
             if (Seats.Split)

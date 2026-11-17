@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Catalog.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.economy/Runtime/Bundle.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.economy/Runtime/Ledger.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.economy/Runtime/WorkTree.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.economy/Runtime/Market.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.economy/Runtime/LootTable.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.economy/Runtime/Expedition.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs" />
+  </ItemGroup>
+</Project>

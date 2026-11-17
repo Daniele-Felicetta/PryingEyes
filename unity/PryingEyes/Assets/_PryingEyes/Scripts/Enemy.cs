@@ -150,7 +150,7 @@ namespace PryingEyes
             if (IsAlien(t)) e.SetAlienStats();
             else if (IsThemed(t)) e.SetThemedStats();
             else if (IsVariant(t)) e.SetVariantStats();
-            if (IsBoss(t) && !puppet) Boss = e;
+            if (IsBoss(t) && !puppet) { Boss = e; BossTitle = null; }     // il Cardinale delle ondate ottave; il boss di un ramo lo rinomina (MakeBranchBoss)
             if (Proc.SurvivalMode.Enabled) e.speed *= Proc.SurvivalMode.SpeedMultiplier(Proc.RoundDirector.Round, IsFlying(t));
             if (t == EnemyType.Portachiavi) e.loop = Sfx.Loop(go, SoundBank.KeeperKeys, 0.38f, 1.5f, 22f, 1f);
             else if (t == EnemyType.Veglia) e.loop = Sfx.Loop(go, SoundBank.VigilBreath, 0.30f, 1.5f, 24f, 1f);
@@ -611,6 +611,7 @@ namespace PryingEyes
                 GameManager.I.OnEnemyKilled(this, headshot, src, claimer);
                 Coop.Game?.EnemyDied(this, headshot, src, claimer);
             }
+            Cattedrale.Catacombe.OnKill(this, src);     // le risorse a terra: ogni macchina tira a sorte le sue, anche per i pupazzi
             GameManager.I.SetAlive(all.Count);
             Synth.Kill();
             Vector3 carried = agent != null && agent.enabled && agent.isOnNavMesh ? agent.velocity : vel;

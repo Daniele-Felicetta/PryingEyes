@@ -1,0 +1,7 @@
+{
+  "name": "com.pryingeyes.economy",
+  "version": "0.1.0",
+  "displayName": "Production Economy",
+  "description": "Engine-independent resource ledger, one-off constructions, market exchanges, weighted loot and extraction rules.",
+  "unity": "6000.0"
+}

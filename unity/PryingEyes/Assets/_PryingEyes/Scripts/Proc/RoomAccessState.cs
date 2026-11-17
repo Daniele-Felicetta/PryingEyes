@@ -40,8 +40,10 @@ namespace PryingEyes.Proc
         public bool IsOpen(int room) => open.Contains(room);
         /// <summary>Porte dall'area iniziale (0 per quella iniziale).</summary>
         public int Depth(int room) => room >= 0 && room < depth.Length ? depth[room] : -1;
+        /// <summary>Le opere e la benedizione della cattedrale abbassano il prezzo delle porte (1 = prezzo pieno; arrotondato a 10 punti).</summary>
+        public static float PriceMul = 1f;
         public int Price(int room) => room < 0 || room >= links.Length || plan.rooms[room].IsLift || IsOpen(room) ? 0 :
-            500 + Math.Min(4, Math.Max(0, depth[room] - 1)) * 250;
+            (int)Math.Round((500 + Math.Min(4, Math.Max(0, depth[room] - 1)) * 250) * PriceMul / 10.0) * 10;
 
         public bool CanBuy(int from, int room) => from >= 0 && from < links.Length && room >= 0 && room < links.Length &&
             IsOpen(from) && !IsOpen(room) && !plan.rooms[room].IsLift && links[from].Contains(room);

@@ -45,7 +45,9 @@ namespace PryingEyes
         public static PerkId At(int i) => State.At(i);
         public static bool Has(PerkId p) => State.Has(p);
         public static bool Full => State.Full;
-        public static int NextPrice => State.NextPrice;
+        /// <summary>La vetrata del Conte abbassa il prezzo dei libri (1 = prezzo pieno; arrotondato a 10 punti).</summary>
+        public static float PriceMul = 1f;
+        public static int NextPrice => State.NextPrice < 0 ? -1 : Mathf.RoundToInt(State.NextPrice * PriceMul / 10f) * 10;
         public static bool Add(PerkId p) => State.Add(p);
         public static bool LoseLast(out PerkId lost) => State.LoseLast(out lost);
         public static void ResetRun() { State.ResetRun(); Biblioteca.ResetRun(); Magic.State.ResetRun(); }
