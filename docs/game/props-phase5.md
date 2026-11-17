@@ -35,10 +35,24 @@ Front on +Z, origin at the centre of the base, like the rest of the kit. The col
 | `chi_altare` | Stone altar: plinth and moulded base, an ashlar body with a blind arcade of five pointed arches (relief frames, dark niches, colonnettes; in the middle one the golden Eye in a medallion with sixteen rays), a cornice, a slab with consecration crosses, a velvet cloth hanging in folds from both short ends with a gold border and fringe (a closed thin shell), a missal on a cushion, a chalice and a paten, and a monstrance with the Eye and twenty rays. | 2.47 x 1.35 x 1.00 | 1,152 | 11,758 / 3,286 / 1,052 | 347 |
 | `chi_fonte` | Octagonal baptismal font: stepped plinth with a moulded base, a pier with eight colonnettes and a band, a capital, a lofted bowl with a rim and eight quatrefoil reliefs, black water, and a pyramidal oak lid (concave faces, eight corner ribs, a brass band, rods and a finial) hinged at the back and propped open at 30 degrees by a brass stay. | 0.90 x 1.47 x 0.92 | 470 | 5,648 / 1,712 / 924 | 36 |
 
-The photos in the game's own look (kit materials, theme fog, a lamp and the player's torch), the old FBX on the left and the new on the right, are
-`hotel_build/props5_1.jpg` to `props5_4.jpg` for the first eleven and `props5_6.jpg` and `props5_7.jpg` for the second round; `props5_5.jpg` is the pew
-in a photo of the hotel's nave taken by the performance probe (see "Verification"), the old build on the left and the new one on the right. The Blender
-previews are `modelli/hotel/arredi5/render/<name>.png`.
+The photos in the game's own look (kit materials, theme fog, a lamp and the player's torch), the old FBX on the left and the new on the right, were
+taken with `PropShots` (see "Making them again"); the Blender previews are `modelli/hotel/arredi5/render/<name>.png`.
+
+![Chair, table and bedside table: the old model (left) and the rebuilt one (right)](images/props-phase5-chair-table-bedside.jpg)
+
+![Wardrobe, shelf and desk: the old model (left) and the rebuilt one (right)](images/props-phase5-wardrobe-shelf-desk.jpg)
+
+![Steel work table and pew: the old model (left) and the rebuilt one (right)](images/props-phase5-steel-table-pew.jpg)
+
+![Sarcophagus, hooded statue and prie-dieu: the old model (left) and the rebuilt one (right)](images/props-phase5-sarcophagus-statue-prie-dieu.jpg)
+
+![Second round, floor lamp, range cooker and altar: the old model (left) and the rebuilt one (right)](images/props-phase5-lamp-cooker-altar.jpg)
+
+![Second round, font and choir stall: the old model (left) and the rebuilt one (right)](images/props-phase5-font-stall.jpg)
+
+The pew again, in a photo of the hotel's nave taken by the performance probe (see "Verification"), the old build on the left and the new one on the right:
+
+![The pew in the hotel's nave, photographed in the player: the old build (left) and the new one (right)](images/props-phase5-pew-in-game.jpg)
 
 On average a floor places 45,900 triangles of these sixteen props before, 380,000 if every one of them is drawn at level 0, and 106,000 at level 1
 (counted from the placements above; a floor is never drawn all at once).
@@ -180,18 +194,18 @@ The wardrobe, the cloth and the font's open lid are the three props worth a look
 
 ## Verification
 
-- The first eleven FBX were imported and photographed in the game's look, before and after replacing them (`PropShots`, `hotel_build/props5_1.jpg` to
-  `props5_4.jpg`), and the eight hotel props again after the wardrobe's lining and the level ratios changed. No "ruolo senza materiale" warning, no compile
-  error.
+- The first eleven FBX were imported and photographed in the game's look, before and after replacing them (`PropShots`, the first four photos above), and
+  the eight hotel props again after the wardrobe's lining and the level ratios changed. No "ruolo senza materiale" warning, no compile error.
 - The prefabs carry a `LODGroup` with three levels (checked in the prefab files). All eleven were photographed with each level forced (`-lod 0`, `1`,
   `2`) in the game's look: level 1 is indistinguishable from level 0 at the distances where it is used; level 2 shows darker shading on the sarcophagus's
   plinth and the pew's tracery and loses thin parts (the shelf's uprights), which is below a pixel at 15 m and more.
-- **Second round (the five)**: imported and photographed in the game's look before and after replacing them (`hotel_build/props5_6.jpg` and `props5_7.jpg`),
+- **Second round (the five)**: imported and photographed in the game's look before and after replacing them (the two "second round" photos above),
   and with each level forced (`-lod 1`, `2`). Level 1 reads like level 0; level 2 flattens the stall's niches and the font's reliefs, below about 46 px of
   screen height (0.085 over the `lodBias` of 2, at 1080p). No "ruolo senza materiale" warning and no compile error in the four Unity runs; each prefab has the
   `LODGroup` with the three thresholds and as many renderers as the FBX has meshes (10, 13, 18, 15 and 9). The Blender previews and the Unity photos agree on
-  every part; the lid of the font is cut by the frame of the standard photo (the camera is placed from the 1.1 m box), so `props5_7.jpg` uses `-dist 1.35`.
-- The player build passed the navigation smoke of `tools/ship.ps1` (the bot, seed 1000, two floors) and ran the performance probe below with no error in the log.
+  every part; the lid of the font is cut by the frame of the standard photo (the camera is placed from the 1.1 m box), so the font photo uses `-dist 1.35`.
+- The player build of each round passed the navigation smoke of `tools/ship.ps1` (the bot, seed 1000, two floors, no warning), and the builds ran the
+  performance probe below with no error in the log.
 - **Frame time in the player, first round (the eleven props)** (`-autotest -perftest -perfshots`, 1920x1080, RTX 5060 Ti, floor 3 of seeds 2995, 2961 and 3046): the same plans were timed in the
   new build and in a copy of the game build the maintainer had been playing (the same code plus the rebuilt flying jellyfish, with its own models, textures
   and scripts, and the old props; the probe clears the enemies before every view). Plans, rooms and lights are identical in both (9 rooms, 228, 156 and
@@ -200,6 +214,16 @@ The wardrobe, the cloth and the font's open lid are the three props worth a look
   theatre and 4.76 to 4.80 ms in the sanatorium (old build to new build): **-0.03 ms** on average over the 16 views with a standard error of 0.04 ms, so no
   measurable difference. The mean frame is 0.36 ms lower in the new build, but only because the old runs met more one-frame hitches (100 to 260 ms in five
   views of the old runs and one of the new; the hitch of the hotel's atrium is in both) which the props do not cause. CPU render time -0.16 ms, GPU wait -0.03 ms.
+- **Frame time in the player, second round (the sixteen props)**: only partly measured. The probe was run twice more and both attempts were spoiled by
+  other sessions using the same PC (Blender and Unity editors at 90 to 100 % CPU, a game started by another session during a run). The first attempt (new build
+  against a copy of the maintainer's game, one run each) gave a median frame +0.58 ms in the hotel and -0.94 and -1.10 ms in the theatre and the sanatorium,
+  and in every theme the run that started with the busier machine was the slower one, so those numbers say nothing about the props (the same build took 5.6
+  ms in the hotel on an idle machine and 8.2 ms on a busy one). The second attempt (three alternating pairs per theme, each run waiting for a quiet machine) was
+  stopped after one clean run: the new build in the hotel, the CPU idle at the start, median frame 5.07 ms averaged over the six views, against 5.18 ms for the
+  eleven-prop build and 5.15 ms for the old build in the first round (the same code, plans and rooms, an idle machine in both, measured at different times; the
+  per-view differences are within 0.3 ms, the usual spread between runs). So in the hotel, where most of these props are placed, no cost shows up; the theatre and
+  the sanatorium were not measured with the five new props. For scale, the first round's nave already drew its pews (8,500 triangles each at level 0) with no
+  measurable cost, and a view shows one to three of the new props.
 - What the probe shows and what it does not: it looks at the biggest room of each kind from its main doorway, and in the current layouts those are halls up
   to 45 x 40 m, so the props are a small part of each picture (the hotel's nave shows its pews, most other views none close up). It shows that the
   new props and their level-of-detail groups did not slow these views down; it does not time a room packed with them. Differences under 0.1 ms are noise: one
@@ -208,11 +232,12 @@ The wardrobe, the cloth and the font's open lid are the three props worth a look
   a copy of an older build in a disposable folder inside the checkout (`TestPaths` finds `hotel_build/` by walking up from the data folder), the same `-seed`
   and `-floor`, one after the other with no other game running, and compare the p50 of each view.
 - The photos of the same views are `hotel_build/perf/ab_old_*.png` and `ab_new_*.png` (git-ignored; they differ mostly by the muzzle flash of the bot's
-  shots). The pew of the nave in the game's own light and at playing distance, old and new, is `hotel_build/props5_5.jpg`: the curved side, the raised arches
+  shots). The pew of the nave in the game's own light and at playing distance, old and new, is the last photo above: the curved side, the raised arches
   and the tracery of the back that the Blender previews show are there.
 - The switch distances above are computed from the thresholds, the quality level's `lodBias` and the field of view; they were not measured in a playing
   game.
 
 Not verified: any playtest by a person, co-op; the look of the levels' switch in motion (popping); the look under the other themes' fog; the cost of a room packed
-with these props; the font's open lid and the kitchens in a real game; whether a shot floor lamp goes dark (probably not, see "Traps"). The Blender previews and
-the Unity photos differ in tone mapping: the Unity photos are the reference.
+with these props; the frame time of the theatre and the sanatorium with the five props of the second round; the font's open lid and the kitchens in a real game;
+whether a shot floor lamp goes dark (probably not, see "Traps"). The Blender previews and the Unity photos differ in tone mapping: the Unity photos are the
+reference.
