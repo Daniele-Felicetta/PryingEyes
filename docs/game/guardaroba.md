@@ -3,8 +3,9 @@
 Added on 16 November 2026. The fourth theme of the Tower after the hotel, the theatre and the sanatorium: wardrobes, vampires,
 scissors and lava, with open-air terraces over a lake of lava. It started from a request for new assets, and the asset set is the part
 that was asked for first, so it comes first here: 17 hand-modelled props (`modelli/hotel/genera_arredi4.py`). The theme's level
-code is summarised at the end. **The theme is off by default** (no floor is a Guardaroba unless you ask, see below), so the game plays as before;
-the props and the code are in the repository for whoever turns it on. New enemies and new weapons are not done.
+code is summarised at the end. **In the Tower the theme is off by default** (no floor is a Guardaroba unless you ask, see below), so the
+Tower plays as before. In the catacombs it is the fourth branch, *Il Guardaroba del Conte*, on all three of its levels (see
+[cathedral-and-catacombs.md](cathedral-and-catacombs.md)). New enemies and new weapons are not done.
 
 ## The 17 props
 
@@ -76,6 +77,37 @@ Each prop sits in a small dark room with the theme's fog, ambient light and grad
 torch. Output: `hotel_build/props/<name>_3q<tag>.png` and `<name>_fronte<tag>.png` (derived, not committed). The Blender previews are
 for modelling only: they use a different tone mapper and make the flames look pale; the Unity photos are the reference.
 
+## How the props reach the game
+
+The player never reads the FBX or the prefabs on disk. It reads the **kit saved inside `Torre.unity`**: one `ProcKit` component whose
+`prefabs` list pairs a name with a prefab, and `RoomKits.Prop` asks `ProcKit.Prefab(name)` for it. A name missing from that list is
+drawn as a grey box of the right size (a child called `Segnaposto`). So a player built from a scene saved before the props existed shows
+grey boxes for every `gu_*` piece, whatever the prefabs in the project say, and the editor tools (which run `FillKit` first) look fine.
+`Torre.unity` listed none of the 17 until it was regenerated for the catacombs' fourth branch, which meanwhile drew one of the other
+three themes instead (the safety net in `FloorDirector.ThemeOfFloor`, still there for a stale scene).
+
+![Four props of one floor, photographed in the player: grey boxes with the old Torre.unity (left), the models with the regenerated one (right)](images/guardaroba-kit-before-after.jpg)
+
+*The same floor (seed 3068, floor 3, `-theme guardaroba`) photographed by `-perfprops` in two players that differ only in `Torre.unity`.*
+
+`BuildPlayer.Torre` without `-scriptsOnly` is the one build that regenerates the scene and its kit (`TorreBuilder.Build`, then `FillKit`);
+`-scriptsOnly` keeps the scene it finds, and `BuildPlayer.Windows` never regenerates it. After adding or renaming a prop:
+
+1. Run the full `BuildPlayer.Torre` into `Builds/Audit` (see [../engineering/building-and-shipping.md](../engineering/building-and-shipping.md)).
+2. Check the `prefabs:` list of `Torre.unity`: one `name` / `prefab` pair for every FBX in `Models/Arredi` and `Models/Chiesa` (62 now, 45
+   before the Guardaroba). The kit part of the diff is exactly the added pairs, because the ids of the prefabs do not change.
+3. Commit `Torre.unity` on purpose and say why in the pull request: the rest of its diff is churn (a regenerated scene gives every object a
+   new random id, so most of the file reads as changed, and it carries the fields the scripts gained since the last save).
+4. Restore by path what the run rewrote and you did not mean to change: the `.mat` files that really differ, and the prefabs and settings that
+   differ only in line endings (`git diff --ignore-cr-at-eol --stat` lists the real ones).
+5. Look at the result in the player: `-perfprops` on a Guardaroba floor photographs the 17 props (commands in
+   [../engineering/testing.md](../engineering/testing.md), section 6) and says in `hotel_build/perf.txt` which rooms hold them. A prop that is
+   still a grey box ends its line with `SEGNAPOSTO`. Not every prop is in every floor (the sewing machine and the mirror need a tailor's
+   shop or a changing room, the dead tree a terrace): try another seed.
+
+Whoever updates a checkout whose `Torre.unity` is modified locally (every full build leaves it so) must restore that file first, or the
+update stops at it: `git checkout -- unity/PryingEyes/Assets/_PryingEyes/Scenes/Torre.unity`. The next full build writes it again.
+
 ## How the rooms use them
 
 `Scripts/Proc/RoomKitsGuardaroba.cs` chooses the pieces by name. Ceiling heights come from `PlanThemes.cs`.
@@ -124,6 +156,9 @@ Written before the assets, summarised from the sources (it is not the subject of
   materials show as modified after any Unity run (derived noise, see `AGENTS.md` rule 4). Stage only the new `gu_*` prefabs, FBX and `.meta`
   files, the five new kit materials and the emissive materials whose flag really changed.
 - **The tracked FBX are the ones in `Models/Arredi`**; `modelli/hotel/arredi4/*.fbx` is git-ignored like the other sets. After a Blender `build`, copy them.
+- **The props live in two places.** The FBX and prefabs are in `Models/Arredi` and `Prefabs/Props`; the list the player reads is inside
+  `Torre.unity`. Adding the first without regenerating the second fails silently: the editor tools look right and the player draws grey
+  boxes (see [How the props reach the game](#how-the-props-reach-the-game)).
 
 ## Verification
 
@@ -140,6 +175,20 @@ Written before the assets, summarised from the sources (it is not the subject of
   timing line differs); with `guardaroba=25` the same comparison does differ, so it can tell. The changes to `FloorBuilder`, `RoomKits`
   and `FloorDirector.Look` are all behind `theme == Theme.Guardaroba`, a new `RoomKind` or `CeilKind.Open`. Commands in [../engineering/testing.md](../engineering/testing.md) (2.4).
 
-Not verified: frame time in the player with the new props (only editor photos and the editor connectivity check), the player build,
-any playtest, co-op with the theme on (every machine needs the same `-guardaroba N`; a mismatch is refused by the digest check, not tried),
-the light balance of the fire baskets in the player. Enemies, weapons and sounds of the theme are not done.
+- **In the player, with the kit saved in `Torre.unity`** (17 November 2026, a full `BuildPlayer.Torre` build: `Build result: Succeeded errors=0`).
+  - `-perfprops -theme guardaroba -noenemies -floor 3` photographs 14 props on seed 3068 (no sewing machine, dead tree or mirror), 16 on
+    seed 1000 (no dead tree) and 16 on seed 3046 (no scissors): all 17 between them, with no `SEGNAPOSTO`. On the fourth branch of the
+    catacombs, without forcing the theme (`-catacombe -floor 10`), the floor of seed 3068 holds and photographs all 17 (seed 1000: 16, no
+    scissors), again with no grey box.
+  - Control: a player built from the old scene (same code, `BuildPlayer.Windows` with the committed `Torre.unity` of before) prints
+    `SEGNAPOSTO` for every `gu_*` it finds on the same floor, and on `-catacombe -floor 10` the safety net draws the theatre (`floor % 3`).
+  - `-perftest -perfshots` over the rooms of the floors above (the player's own view, no torch): 4.2 to 7.8 ms per view at 1080p, 5.7 to
+    7.3 ms on average per floor, taken while other jobs were using the CPU (the hotel was 4.8 to 5.3 ms on a free machine), so an upper bound.
+
+  ![The 17 props in one floor of the fourth branch, photographed in the player](images/guardaroba-props-in-game.jpg)
+
+  ![The six room kinds of the theme as the player sees them: five from the first level of the fourth branch (seed 1000), the crypt from a forced-theme floor (seed 3068, floor 3)](images/guardaroba-rooms-in-game.jpg)
+
+Not verified: frame time in the player on an idle machine, any playtest, co-op with the theme on (every machine needs the same
+`-guardaroba N`; a mismatch is refused by the digest check, not tried), the light balance of the fire baskets in the player. Enemies,
+weapons and sounds of the theme are not done.
