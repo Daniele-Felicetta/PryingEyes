@@ -89,9 +89,18 @@ namespace PryingEyes
             float k = dt > 0f ? 1f - Mathf.Exp(-10f * dt) : 1f, k8 = dt > 0f ? 1f - Mathf.Exp(-8f * dt) : 1f;
             var vs = visual.localScale;
             visual.localScale = new Vector3(1f, Mathf.Lerp(vs.y, p.IsCrouching ? 0.72f : 1f, k), 1f);
-            visual.localRotation = Quaternion.Slerp(visual.localRotation, p.alive ? Quaternion.identity : Quaternion.Euler(-88f, 0f, 0f), k8);
-            visual.localPosition = Vector3.Lerp(visual.localPosition, p.alive ? Vector3.zero : new Vector3(0f, 0.18f, 0f), k8);
-            if (label != null && label.gameObject.activeSelf != p.alive) label.gameObject.SetActive(p.alive);
+            // a terra: semisdraiato sul fianco (0.7.2); morto: disteso
+            Quaternion pose = !p.alive ? Quaternion.Euler(-88f, 0f, 0f) : p.Downed ? Quaternion.Euler(-62f, 0f, 14f) : Quaternion.identity;
+            Vector3 lift = !p.alive ? new Vector3(0f, 0.18f, 0f) : p.Downed ? new Vector3(0f, 0.12f, -0.15f) : Vector3.zero;
+            visual.localRotation = Quaternion.Slerp(visual.localRotation, pose, k8);
+            visual.localPosition = Vector3.Lerp(visual.localPosition, lift, k8);
+            if (label != null)
+            {
+                if (label.gameObject.activeSelf != p.alive) label.gameObject.SetActive(p.alive);
+                string want = p.Downed ? seat.Name + "\nA TERRA " + Mathf.CeilToInt(p.BleedLeft) + " s" : seat.Name;
+                if (label.text != want) label.text = want;
+                label.color = p.Downed ? new Color(1f, 0.42f, 0.36f, 1f) : new Color(0.95f, 0.92f, 0.82f, 0.95f);
+            }
         }
     }
 }

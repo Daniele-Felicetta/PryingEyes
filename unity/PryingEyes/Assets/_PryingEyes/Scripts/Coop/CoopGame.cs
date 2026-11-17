@@ -326,6 +326,7 @@ namespace PryingEyes
             s.invulnerable = pl.invulnerable;
             s.lean = pl.lean; s.sight = Perks.SightMult; s.velo = Perks.VeloOn;
             s.weapon = pl.weapon != null ? Mathf.Clamp(pl.weapon.SlotIndex, 0, 255) : 0;
+            s.downed = pl.Downed; s.bleed = pl.Downed ? pl.BleedLeft : 0f;
             return s;
         }
 

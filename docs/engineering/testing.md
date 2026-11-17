@@ -177,7 +177,7 @@ Use `-nographics` for logic only. Drop it for the tests that take photos (the on
 
 | Command | What it checks | Output |
 |---|---|---|
-| `-batchmode -nographics -autotest -survivaltest -seed 1000` | Wave cycle: first wave after 8 s with 20 enemies and the alive cap; enemies spawn only in open areas, never closer than 3 m, always attacking; the score rises by the wave prize once plus the kills and the medals (`Medals.Points`); three waves open the lift; death cancels the wave; the fifth is the Processione. | Unity log only; exit 0 ok, 1 failed |
+| `-batchmode -nographics -autotest -survivaltest -seed 1000` | Wave cycle: first wave after 8 s with 20 enemies and the alive cap; enemies spawn only in open areas, never closer than 3 m, always attacking; the score rises by the wave prize once plus the kills and the medals (`Medals.Points`); three waves open the lift; going down does not cancel the wave, death (bleeding out) does; the fifth is the Processione. | Unity log only; exit 0 ok, 1 failed |
 | `-batchmode -autotest -architecturetest [-architectureaccess]` | Paid doors through the real controller: colliders, enemy navmesh, selection with F, insufficient points, purchase once, passing through. | `unity_logs/architecture/` |
 | `-architecturesupply` | A candle-cycle test (it implies that cycle). Its checks are described in its test class header. | `unity_logs/supply/` |
 
@@ -204,7 +204,7 @@ Mode flags used by these tests and the bot:
 | `-ragdolltest [-ragdollshots]` (16) | Dead monks and abbots become ragdolls pushed by the killing hit; they stop and sink; at most 10 at once. `-noragdoll` compares. | `unity_logs/ragdoll/` |
 | `-padtest -nowaves` (73) | The controller in the menus and the normal game, without `-autotest` (the menu must exist; usually `-batchmode`): the XInput to menu translation, the automatic search for a controller with a fake XInput (`PadControls.TestPoll`), the real menu driven with a fake state (selection, frame, tabs, sliders, back to the button of origin, text field, first command with nothing selected), and in the game A on *Gioca* not jumping, Start and B and the pause. With `-padshots FOLDER` (a real window, plus `-menureview` so the saved display is not applied) it saves screenshots of the menus instead. | the log |
 | `-splittest` (63) | The parts of the split screen that need no second player: the layout of the parts for 2 to 4 players, controller assignment, the field-of-view cap, the XInput mapping, and the real player driven by a fake XInput state. Needs `-autotest -nofire -noenemies`. | the log (`-report FILE` keeps the result out of `hotel_build/autotest.txt`) |
-| `-seatstest -splitscreen N` (55 to 58) | The split screen itself, in one process and one window, from the menu or with `-autotest`: see section 5.1. | the log; `unity_logs/seats/` with `-seatsshots` |
+| `-seatstest -splitscreen N` (62 with two players) | The split screen itself, in one process and one window, from the menu or with `-autotest`: see section 5.1. | the log; `unity_logs/seats/` with `-seatsshots` |
 
 ### 3.5 Further flags in the code
 
@@ -283,7 +283,8 @@ The split screen on one PC is not a co-op any more: it is one process with one w
   -noenemies` it starts without a menu and skips the pause. It checks structure (a body, camera, HUD, target and controller per player; cameras
   in their parts; one `AudioListener`; weapon layers; HUD rectangles), the context swap of `Seats.Enter`, each controller walking, firing and
   jumping alone, points, kills and hits per player, enemy targeting (nearest at spawn, switching to a closer player; with `-candles` also
-  `Provoke` and sight), damage, death and respawn of one player, the pause with Start on any controller, and the return to one player.
+  `Provoke` and sight), damage, going down, revive by a teammate, self-revive, bleed-out death and respawn of one player, the pause with
+  Start on any controller, and the return to one player.
   `-seatsshots` (a real window, no `-batchmode`) saves photos of the whole screen in `unity_logs/seats/`.
 - **`tools/coop/run_split.ps1`** runs it from the verification build and reads the result. Parameters: `-Exe` (default `Builds\Audit`),
   `-LogDir` (default `$env:TEMP\pryingeyes-split`), `-Players` (2 to 4, default 3), `-Graphics` (a 1280x720 window and the photos), `-Candles`,

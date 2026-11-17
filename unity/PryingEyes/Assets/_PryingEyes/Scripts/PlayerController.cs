@@ -169,6 +169,9 @@ namespace PryingEyes
             fovKick += 4f * k;
         }
 
+        /// <summary>Un colpo di campo visivo (gradi in piu' che rientrano da soli): il lancio di una magia, il Passo d'Ombra.</summary>
+        public void FovPunch(float deg) { fovKick += deg * GameSettings.Motion; }
+
         public void Kick(float v, float h, float recover)
         {
             recTargetP += v;
@@ -226,6 +229,7 @@ namespace PryingEyes
                 return;
             }
             bool inputEnabled = !GameMenu.Blocked;
+            if (Downed) { DownedTick(dt, inputEnabled); if (!alive || !Downed) return; }
 
             // --- mouse look (camera faces +z at yaw 0; movement basis must match) ---
             float ms = sens * GameSettings.Sensitivity * weapon.SensMult;
@@ -268,6 +272,7 @@ namespace PryingEyes
             bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
             if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;
+            if (Downed) { wantCrouch = true; sprintInput = false; wantSprint = false; jumpBuf = 0f; }      // a terra: niente corsa ne' salto
 
             float hSpeed = new Vector2(vel.x, vel.z).magnitude;
             if (!slide && !crouch && sprintInput && wantCrouch && hSpeed > 4.4f && cc.isGrounded)
@@ -298,6 +303,7 @@ namespace PryingEyes
             maxSpeed *= Mathf.Lerp(1f, wd.adsMoveMult, weapon.ads);
             if (weapon.reloading && wd.style != ReloadStyle.Tube) maxSpeed *= 0.92f;
             if (sedT > 0f) maxSpeed *= 0.55f;       // sedativo dell'infermiere
+            if (Downed) maxSpeed = Mathf.Min(maxSpeed, CrawlSpeed);
 
             // wish dir (yaw plane): forward = (sin yaw, 0, cos yaw) to match camera
             float sin = Mathf.Sin(yaw), cos = Mathf.Cos(yaw);
@@ -368,7 +374,7 @@ namespace PryingEyes
                 coyote = 0f; jumpBuf = 0f; slide = false;
                 mantleWindow = 0.4f;
             }
-            else if (!Mantling && mantleWindow > 0f)
+            else if (!Mantling && mantleWindow > 0f && !Downed)
             {
                 mantleWindow -= dt;
                 if (!cc.isGrounded && f > 0.1f) TryMantle(facing);
@@ -384,7 +390,7 @@ namespace PryingEyes
 
             // --- lean: Q a sinistra, E a destra; non in corsa ne' in scivolata, non nei muri ---
             float leanWant = 0f;
-            if (inputEnabled && !slide && !wantSprint) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
+            if (inputEnabled && !slide && !wantSprint && !Downed) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
             float room = leanWant != 0f ? LeanRoom(leanWant) : 1f;
             float leanTarget = leanWant * room;
             // se la testa e' gia' contro un muro rientra piu' in fretta
@@ -429,7 +435,7 @@ namespace PryingEyes
             }
             float bobY = Mathf.Sin(bobPhase * 2f) * 0.032f * bobAmp;
             float bobX = Mathf.Cos(bobPhase) * 0.026f * bobAmp;
-            float targetEye = (crouch || slide ? eyeCrouch : eyeStand) + (slide ? -0.12f : 0f);
+            float targetEye = Downed ? EyeDowned : (crouch || slide ? eyeCrouch : eyeStand) + (slide ? -0.12f : 0f);
             eyeH += (targetEye - eyeH) * Mathf.Min(1f, 11f * dt);
 
             Camera c = cam.GetComponent<Camera>();
@@ -450,11 +456,11 @@ namespace PryingEyes
                 transform.position.x + bobX * cos + right.x * latOff,
                 transform.position.y + eyeH + bobY - drop - mantleDrop,
                 transform.position.z - bobX * sin + right.z * latOff);
-            float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll;
+            float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll + (Downed ? 9f : 0f);
             cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP + mantlePitch, yaw * Mathf.Rad2Deg + recY, roll + mantleRoll);
 
             // perk attivabile: il tempo degli effetti scorre in TickSurvival, anche nel menu cooperativo
-            if (alive && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (SeatInput.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())
+            if (alive && !Downed && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (SeatInput.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())
             {
                 hud?.Toast("Il Velo ti avvolge: per cinque secondi ti vedono solo da vicino.");
                 Sfx.UI(SoundBank.PerkVelo, 0.65f);
@@ -464,14 +470,19 @@ namespace PryingEyes
             hud?.SetBars(hp, shield);
 
             // --- armi sui muri: prompt + acquisto con F ---
-            if (inputEnabled && !GameManager.autoTest && cam != null)
+            if (inputEnabled && !GameManager.autoTest && cam != null && !Downed)
             {
                 bool onWall = WallBuy.Tick(cam);
                 bool onThing = !onWall && Proc.Interact.Tick(cam);
-                if ((SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use))) { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
+                // con un compagno a terra qui vicino Usa serve a rialzarlo: niente acquisti per sbaglio
+                if ((SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use)) && FindDownedMate(out _, out _) == null)
+                { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
                 // dopo gli altri prompt (che cancellano la riga a ogni fotogramma): la presa alle spalle
                 if (!onWall && !onThing) Knife.I?.PromptTick();
             }
+            // un compagno a terra qui vicino: tenendo Usa lo si rialza (la sua riga vince sugli altri prompt)
+            if (!Downed && inputEnabled && (!GameManager.autoTest || testHoldUse))
+                ReviveOthersTick(dt, testHoldUse || SeatInput.GetKey(KeyCode.F) || TouchControls.Held(TouchControls.Action.Use));
         }
 
         /// <summary>Secondi di sedativo rimasti: finché dura ti muovi al 55%. Lo dà la puntura dell'infermiere.</summary>
@@ -482,7 +493,7 @@ namespace PryingEyes
             PerkState.Tick(dt);
             reviveInv = Mathf.Max(0f, reviveInv - dt);
             sedT = Mathf.Max(0f, sedT - dt);
-            if (!alive) return;
+            if (!alive || Downed) return;
             if (Time.time - lastDamage > 6f && shield < 50f) shield = Mathf.Min(50f, shield + 8f * dt);
             if (Time.time - lastDamage > 10f && hp < MaxHp) hp = Mathf.Min(MaxHp, hp + 3f * PerkState.MaxHpMult * dt);
         }
@@ -497,7 +508,7 @@ namespace PryingEyes
         public void Hurt(float dmg, Vector3? origin = null)
         {
             // in cooperativa la pausa non ferma il mondo, quindi non rende nemmeno immuni
-            if (!alive || (GameMenu.Blocked && !Coop.Active) || invulnerable || reviveInv > 0f) return;
+            if (!alive || Downed || (GameMenu.Blocked && !Coop.Active) || invulnerable || reviveInv > 0f) return;
             lastDamage = Time.time;
             dmg *= 1.5f * Arcana.DamageTakenMult;          // Pelle di Runa: -35% per 2,5 s dopo una magia
             float absorbed = Mathf.Min(shield, dmg * 0.6f);
@@ -520,17 +531,8 @@ namespace PryingEyes
                 Sfx.UI(SoundBank.PerkRevive, 0.85f);
                 return;
             }
-            if (hp <= 0f)
-            {
-                hp = 0f; alive = false; respawnT = 2.5f;
-                GameManager.deaths++;
-                Arcana.OnDeath();
-                // si perde meta' dei punti e l'ultimo perk comprato (FloorDirector.DeathPenalty): la morte pesa, ma non e' la fine
-                string pen = GameManager.proc ? Proc.FloorDirector.I?.DeathPenalty() : null;
-                hud?.Banner("Sei morto", string.IsNullOrEmpty(pen) ? "L'hotel ti riporta all'ingresso." : pen);
-                hud?.SetPrompt("");
-                if (!Seats.Split) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }     // nello split screen il mouse e' di tutti: non si sblocca per uno che muore
-            }
+            // a zero non si muore subito: si va a terra (PlayerController.Downed.cs) e un compagno, o tu stesso una volta per piano, ti rialza
+            if (hp <= 0f) GoDown();
         }
 
         /// <summary>Un perk e' arrivato o e' andato perso: la vita massima puo' essere cambiata. Pelle di pietra riempie la vita nuova.</summary>
@@ -550,7 +552,7 @@ namespace PryingEyes
 
         void Respawn()
         {
-            alive = true; hp = MaxHp; shield = 50f; reviveInv = sedT = 0f;
+            alive = true; Downed = false; hp = MaxHp; shield = 50f; reviveInv = sedT = 0f;
             SetSpawn(spawnPos);
             if (GameManager.proc) Proc.FloorDirector.I?.OnRespawn(); else yaw = Mathf.PI;
             pitch = 0f;

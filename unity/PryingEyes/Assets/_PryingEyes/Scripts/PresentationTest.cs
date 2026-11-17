@@ -288,6 +288,7 @@ namespace PryingEyes
                 player.Hurt(10f);
                 Check("la protezione scaduta lascia passare il danno nel menu", player.hp < beforeHit);
                 player.Sedate(12f); player.Hurt(9999f);
+                player.BleedOutNow();           // 0.7.2: a zero si va a terra; qui serve la morte vera
                 Check("morte nel menu cooperativo", !player.alive);
                 yield return new WaitForSecondsRealtime(2.8f);
                 Check("rinascita prosegue senza chiudere il menu cooperativo", player.alive && GameMenu.Paused && GameMenu.Blocked);

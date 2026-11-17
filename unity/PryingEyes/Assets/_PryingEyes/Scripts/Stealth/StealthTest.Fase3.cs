@@ -546,7 +546,10 @@ namespace PryingEyes
             {
                 int a = Scrigno.PickWeapon(wp, 1), b = Scrigno.PickWeapon(wp, 7);
                 if (a == WeaponDefs.IndexOf("p9_pieta") || b == WeaponDefs.IndexOf("p9_pieta") || wp.Owns(a) || wp.Owns(b)) bad = true;
-                g1[WeaponDefs.All[a].grade]++; g7[WeaponDefs.All[b].grade]++;
+                // i gradi senza contare le armi che hai: le armi di grado 1 sono poche (la VIGILIA .45 e la TARANTOLA) e se lo Scrigno qui
+                // sopra ha dato proprio una di quelle, con le tue escluse il grado 1 poteva restare vuoto e il controllo falliva a caso
+                int ga = Scrigno.PickWeapon(null, 1), gb = Scrigno.PickWeapon(null, 7);
+                g1[WeaponDefs.All[ga].grade]++; g7[WeaponDefs.All[gb].grade]++;
             }
             Log($"gradi al piano 1: {g1[1]} {g1[2]} {g1[3]} {g1[4]} {g1[5]}   al piano 7: {g7[1]} {g7[2]} {g7[3]} {g7[4]} {g7[5]}");
             Check("lo Scrigno non offre la pistola di partenza ne' armi che hai", !bad);
@@ -560,6 +563,7 @@ namespace PryingEyes
             pl.invulnerable = false;
             Enemy.ClearAll();
             pl.Hurt(9999f);
+            pl.BleedOutNow();                   // 0.7.2: a zero si va a terra; qui serve la morte vera
             Check("morire costa meta' dei punti e l'ultimo perk", !pl.alive && gm.score == 1500 && Perks.Count == 1 && Perks.Has(PerkId.PelleDiPietra) && !Perks.Has(PerkId.DoppioColpo), $"vivo {pl.alive}, punti {gm.score}, perk {Perks.Count}");
             yield return new WaitForSeconds(4.0f);
             Check("rinasci con la vita massima del momento", pl.alive && Mathf.Approximately(pl.hp, pl.MaxHp), $"hp {pl.hp:F0}/{pl.MaxHp:F0}");

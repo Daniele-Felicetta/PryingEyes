@@ -192,7 +192,7 @@ namespace PryingEyes
                 Set(TouchControls.Action.Spell, Is(LeftShoulder), Pressed(LeftShoulder));          // la mano sinistra: MagicCaster distingue tocco e tenuto
                 Set(TouchControls.Action.Grenade, false, Pressed(RightShoulder));
                 Set(TouchControls.Action.Knife, false, !ltOn && Pressed(RightStick));
-                TapHold(b, X, TouchControls.Action.Reload, TouchControls.Action.Use);
+                TapHold(b, X, TouchControls.Action.Reload, TouchControls.Action.Use, true);       // Usa resta tenuto: rialzare un compagno vuole 3 s
                 TapHold(b, Y, TouchControls.Action.Swap, TouchControls.Action.Mode);
                 TapHold(b, DpadUp, TouchControls.Action.Torch, TouchControls.Action.Battery);
                 TapHold(b, DpadDown, TouchControls.Action.Lure, TouchControls.Action.Mine);

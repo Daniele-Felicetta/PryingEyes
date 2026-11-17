@@ -399,10 +399,10 @@ namespace PryingEyes
             System.Func<IEnumerator>[] steps =
                 Leave || Crash ? new System.Func<IEnumerator>[] { S0, S1, E2 } :
                 HostLeave ? new System.Func<IEnumerator>[] { S0, S1, H2 } :
-                Pics ? new System.Func<IEnumerator>[] { S0, S1, P0 } :
+                Pics ? new System.Func<IEnumerator>[] { S0, S1, P0, P1 } :
                 Late ? (survival ? new System.Func<IEnumerator>[] { L0s, L1s, L2s } : new System.Func<IEnumerator>[] { L0, L1, L2 }) :
-                survival ? new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, A3, S4, S4Flight, V5, V6, S7, V7, S8 } :
-                new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, A3, S4, S4Flight, S5, S6, S7, S8 };
+                survival ? new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, A3, S4, S4Flight, R4, R5, V5, V6, S7, V7, S8 } :
+                new System.Func<IEnumerator>[] { S0, S1, S2, S3, M3, A3, S4, S4Flight, R4, R5, S5, S6, S7, S8 };
             var it = Scenario(steps);
             while (true)
             {
@@ -483,6 +483,39 @@ namespace PryingEyes
             yield return Photo(StandAt(peer, Vector3.Cross(Vector3.up, fwd), 3f), peer + Vector3.up * 1.2f, "lato");
             yield return Photo(StandAt(peer, fwd + Vector3.Cross(Vector3.up, fwd) * 0.3f, 1.6f), peer + Vector3.up * 1.55f, "vicino");
             yield return Photo(StandAt(peer, -fwd, 2.6f), peer + Vector3.up * 1.3f, "dietro");
+        }
+
+        /// <summary>Foto dell'HUD dei compagni sull'ospite (-cooppics): il compagno in piedi, poi a terra, poi il pannello al 160%.</summary>
+        IEnumerator P1()
+        {
+            Safe();
+            var pl = GameManager.I.player;
+            if (!Coop.IsHost)
+            {
+                yield return new WaitForSeconds(3f);            // prima la foto col compagno in piedi
+                pl.Heal(1000f); Safe(false); pl.Hurt(5000f); Safe();
+                yield return Until(() => !pl.Downed, 14f);
+                pl.Heal(1000f);
+                yield break;
+            }
+            yield return new WaitForSeconds(0.5f);
+            G.Players.TryGetValue(1, out var rp);
+            if (rp == null || !rp.Shown) { Check("il compagno e' in vista per le foto dell'HUD", false); yield break; }
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) { Log("info: senza grafica niente foto dell'HUD"); yield break; }
+            Vector3 peer = rp.transform.position;
+            Vector3 fwd = rp.transform.forward; fwd.y = 0f; fwd.Normalize();
+            Vector3 stand = StandAt(peer, fwd, 4f);
+            yield return Photo(stand, peer + Vector3.up * 1.1f, "hud");
+            yield return Until(() => rp.last.downed, 8f);
+            Check("per la foto il compagno e' a terra", rp.last.downed);
+            yield return new WaitForSeconds(0.7f);
+            yield return Photo(stand, peer + Vector3.up * 0.5f, "hud_a_terra");
+            HUD.coopScaleOverride = 1.6f;
+            yield return Photo(stand, peer + Vector3.up * 0.5f, "hud_160");
+            HUD.coopScaleOverride = -1f;
+            G.ReviveRemote(1);
+            yield return Until(() => !rp.last.downed, 6f);
+            Check("dopo le foto il compagno si rialza", !rp.last.downed);
         }
 
         /// <summary>Un punto navigabile a 'dist' metri da 'center' verso 'dir' (o il piu' vicino a quella direzione che si possa raggiungere).</summary>
@@ -765,6 +798,71 @@ namespace PryingEyes
                 yield return new WaitForSeconds(2f);
             }
             if (Coop.IsHost && biter != null) Enemy.Remove(biter);
+        }
+
+        // 4b ------------------------------------------------------------------ a terra e rianimazione in rete (0.7.2)
+        /// <summary>L'ospitato primario va a terra: tutti lo vedono a terra (PlayerNet.downed) e l'ospite lo rialza (Revived).</summary>
+        IEnumerator R4()
+        {
+            var pl = GameManager.I.player;
+            Safe();
+            yield return new WaitForSeconds(0.5f);
+            if (!Coop.IsHost && Primary)
+            {
+                pl.Heal(1000f);
+                Safe(false);
+                pl.Hurt(5000f);
+                Check("l'ospitato a zero vita va a terra, non muore", pl.alive && pl.Downed);
+                Safe();
+                yield return Until(() => !pl.Downed, 10f);
+                Check("l'ospite lo rialza attraverso la rete (Revived)", pl.alive && !pl.Downed && pl.hp > 1f, $"vita {pl.hp:F0}");
+                pl.Heal(1000f);
+            }
+            else
+            {
+                RemotePlayer peer = null;
+                yield return Until(() => G.Players.TryGetValue(1, out peer) && peer != null && peer.last.downed, 6f);
+                bool sawDown = peer != null && peer.last.downed && peer.last.alive && !peer.Alive;
+                Check("l'ospitato primario si vede a terra (vivo, ma i nemici lo ignorano)", sawDown);
+                if (Coop.IsHost && sawDown) G.ReviveRemote(1);
+                yield return Until(() => peer != null && !peer.last.downed, 8f);
+                Check("dopo la rianimazione si vede in piedi", peer != null && !peer.last.downed && peer.last.alive);
+            }
+            yield return new WaitForSeconds(0.5f);
+        }
+
+        /// <summary>L'ospite va a terra: l'ospitato primario gli si avvicina e lo rialza (ReviveClaim all'ospite, che controlla la distanza).</summary>
+        IEnumerator R5()
+        {
+            var pl = GameManager.I.player;
+            Safe();
+            yield return new WaitForSeconds(0.5f);
+            if (Coop.IsHost)
+            {
+                pl.Heal(1000f);
+                Safe(false);
+                pl.Hurt(5000f);
+                Check("l'ospite a zero vita va a terra, non muore", pl.alive && pl.Downed);
+                Safe();
+                yield return Until(() => !pl.Downed, 12f);
+                Check("l'ospitato lo rialza (ReviveClaim)", pl.alive && !pl.Downed && pl.hp > 1f, $"vita {pl.hp:F0}");
+                pl.Heal(1000f);
+            }
+            else
+            {
+                RemotePlayer peer = null;
+                yield return Until(() => G.Players.TryGetValue(0, out peer) && peer != null && peer.last.downed, 6f);
+                Check("l'ospite si vede a terra", peer != null && peer.last.downed && !peer.Alive);
+                if (Primary && peer != null && peer.last.downed)
+                {
+                    if (PlaceNear(peer.transform.position, 1.2f, out Vector3 at)) pl.Teleport(at);
+                    yield return new WaitForSeconds(0.6f);           // la mia posizione nuova arriva all'ospite
+                    G.ReviveRemote(0);
+                }
+                yield return Until(() => peer != null && !peer.last.downed, 8f);
+                Check("dopo la rianimazione l'ospite si vede in piedi", peer != null && !peer.last.downed && peer.last.alive);
+            }
+            yield return new WaitForSeconds(0.5f);
         }
 
         IEnumerator S4Flight()

@@ -560,8 +560,10 @@ namespace PryingEyes.Proc
                     Color col = church ? Color.Lerp(new Color(0.73f, 0.82f, 1f), GlassColor(o.variant), 0.22f)
                         : c.plan.theme == Theme.Sanatorio ? new Color(0.62f, 0.84f, 0.80f)
                         : c.plan.theme == Theme.Guardaroba ? new Color(0.80f, 0.46f, 0.60f) : new Color(0.62f, 0.74f, 1f);
-                    float inten = church ? (o.oneSided ? 21f : 31f) : 6f;
-                    float range = church ? 17f : 8.5f;
+                    // 0.7.2 ("dalle finestre puo' entrare luce"): la luna dalle finestre piu' forte e piu' larga (era 6, 8,5 m, cono
+                    // interno 20 gradi), le vetrate +25%
+                    float inten = church ? (o.oneSided ? 26f : 38f) : 14f;
+                    float range = church ? 17f : 12f;
                     var direction = inw + Vector3.down * (o.oneSided ? 1.5f : 0.7f);
                     // vetrate delle sale-cattedrale: la luce parte molto piu' in alto, quindi piu' forte, piu' lunga e piu' inclinata
                     if (church && c.plan.grid && origin.y > 6f)
@@ -585,7 +587,7 @@ namespace PryingEyes.Proc
                     var pl = AddLight(c, origin, col, inten, range, church, true, c.parent, LightType.Spot, electric: false);   // luce dalle finestre
                     var l = pl.l;
                     l.spotAngle = key ? 75f : church ? 86f : 90f;
-                    l.innerSpotAngle = key ? 41f : church ? 47f : 20f;
+                    l.innerSpotAngle = key ? 41f : church ? 47f : 50f;
                     l.transform.rotation = Quaternion.LookRotation(direction);
                     if (!church) { l.name = "Luce della finestra"; continue; }       // il nome lo cercano i fasci di luce (LightShafts)
                     l.name = key ? "Chiarore del nartece" : "Luce della vetrata";

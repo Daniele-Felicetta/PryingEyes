@@ -33,8 +33,8 @@ namespace PryingEyes
         static readonly Color BtnColor = new Color(0.055f, 0.12f, 0.12f, 0.98f);
 
         RectTransform backdrop, mainPanel, pausePanel, settingsPanel, settingsFrom, coopPanel, helpPanel, helpFrom, leavePanel;
-        Slider sMaster, sEffects, sMusic, sBrightness, sSensitivity, sFov, sMotion;
-        Text vMaster, vEffects, vMusic, vBrightness, vSensitivity, vFov, vMotion, coopStatus, pauseNet, pauseHint;
+        Slider sMaster, sEffects, sMusic, sBrightness, sSensitivity, sFov, sMotion, sCoopHud;
+        Text vMaster, vEffects, vMusic, vBrightness, vSensitivity, vFov, vMotion, vCoopHud, coopStatus, pauseNet, pauseHint;
         InputField coopName, coopAddr;
         Button hostButton, joinButton;
         Text leaveNote;
@@ -275,6 +275,7 @@ namespace PryingEyes
             SetSlider(sSensitivity, vSensitivity, GameSettings.Sensitivity, SensText);
             SetSlider(sFov, vFov, GameSettings.Fov, FovText);
             SetSlider(sMotion, vMotion, GameSettings.Motion);
+            SetSlider(sCoopHud, vCoopHud, GameSettings.CoopHudScale);
         }
 
         static void SetSlider(Slider s, Text v, float x, System.Func<float, string> format = null)

@@ -359,7 +359,7 @@ namespace PryingEyes
                 Enemy.ClearAll();
             }
 
-            // ---- ferite, morte e rinascita di un solo giocatore
+            // ---- ferite, a terra, rianimazione e morte di un solo giocatore (0.7.2: a zero si va a terra, non si muore subito)
             {
                 ParkAllBut(-1);
                 for (int i = 0; i < n; i++) Place(seats[i], far[i], 0f);
@@ -373,15 +373,57 @@ namespace PryingEyes
                 for (int i = 0; i < n; i++) if (i != 1) ok &= Mathf.Approximately(seats[i].player.hp, hp[i]);
                 Check($"un colpo al bersaglio del giocatore 2: perde vita solo lui ({hp[1]:F0} -> {seats[1].player.hp:F0})", ok);
 
-                // la morte del giocatore 2 e' sua: punti dimezzati, una morte, gli altri vivi
+                var p1 = seats[1].player;
                 int s1 = ScoreOf(seats[1]), s0 = ScoreOf(seats[0]), d0 = DeathsOf(seats[0]), d1 = DeathsOf(seats[1]);
+                // a zero il giocatore 2 va a terra: vivo, ignorato dai nemici, nessuna morte e nessun punto perso
                 Targets.At(1).Hurt(5000f);
                 yield return null;
-                ok = !seats[1].player.alive && !Targets.At(1).Alive && DeathsOf(seats[1]) == d1 + 1 && DeathsOf(seats[0]) == d0 && ScoreOf(seats[0]) == s0 && ScoreOf(seats[1]) < s1;
+                ok = p1.alive && p1.Downed && !Targets.At(1).Alive && DeathsOf(seats[1]) == d1 && ScoreOf(seats[1]) == s1;
+                for (int i = 0; i < n; i++) if (i != 1) ok &= seats[i].player.alive && !seats[i].player.Downed && Targets.At(i).Alive;
+                Check($"a zero il giocatore 2 va a terra ({p1.BleedLeft:F0} s per rialzarlo): i nemici lo ignorano, nessuna morte, gli altri in piedi", ok);
+                Check("con un giocatore a terra c'e' ancora chi e' vivo per i nemici", Targets.AnyAlive);
+
+                // il giocatore 1 gli si mette accanto e tiene Usa: in tre secondi lo rialza (nello schermo condiviso senza rete)
+                Place(seats[1], start, yaw);
+                Place(seats[0], start + forward * 1.1f, yaw + Mathf.PI);
+                yield return new WaitForSeconds(0.2f);
+                if (shots) yield return Photo("4-giocatore-2-a-terra");
+                float mid = -1f;
+                seats[0].player.testHoldUse = true;                 // come se tenesse premuto Usa: lo legge il suo Update
+                for (float t = 0f; t < PlayerController.ReviveTime + 0.8f && p1.Downed; t += Time.deltaTime)
+                {
+                    if (mid < 0f && t > PlayerController.ReviveTime * 0.5f) mid = p1.RisingProgress;
+                    yield return null;
+                }
+                seats[0].player.testHoldUse = false;
+                ok = p1.alive && !p1.Downed && Targets.At(1).Alive && Mathf.Abs(p1.hp - p1.MaxHp * 0.5f) < 1f && mid > 0.3f && DeathsOf(seats[1]) == d1;
+                Check($"il giocatore 1 tiene Usa {PlayerController.ReviveTime:F0} s accanto al giocatore 2 e lo rialza (a meta' tempo {mid:P0}, vita {p1.hp:F0})", ok);
+
+                // da solo, una volta per piano: tenendo Usa per cinque secondi
+                yield return new WaitForSeconds(2.7f);              // la tregua dopo essersi rialzati
+                ParkAllBut(1);
+                yield return new WaitForSeconds(0.2f);
+                Targets.At(1).Hurt(5000f);
+                yield return null;
+                bool down2 = p1.Downed && p1.SelfReviveAvailable;
+                p1.testHoldUse = true;
+                for (float t = 0f; t < PlayerController.SelfReviveTime + 1f && p1.Downed; t += Time.deltaTime) yield return null;
+                p1.testHoldUse = false;
+                Check("di nuovo a terra, il giocatore 2 si rialza da solo tenendo Usa (una volta per piano)", down2 && !p1.Downed && p1.alive && !p1.SelfReviveAvailable);
+
+                // la terza volta nessuno lo rialza: si dissangua e muore come prima (punti dimezzati, una morte), gli altri restano in piedi
+                yield return new WaitForSeconds(2.7f);
+                PlayerController.bleedOutOverride = 1.0f;
+                Targets.At(1).Hurt(5000f);
+                yield return null;
+                bool down3 = p1.Downed;
+                yield return new WaitForSeconds(1.6f);
+                PlayerController.bleedOutOverride = -1f;
+                ok = down3 && !p1.alive && !p1.Downed && !Targets.At(1).Alive && DeathsOf(seats[1]) == d1 + 1 && DeathsOf(seats[0]) == d0 && ScoreOf(seats[0]) == s0 && ScoreOf(seats[1]) < s1;
                 for (int i = 0; i < n; i++) if (i != 1) ok &= seats[i].player.alive && Targets.At(i).Alive;
-                Check($"morte del giocatore 2: muore solo lui, una morte sua ({DeathsOf(seats[1])}), punti {s1} -> {ScoreOf(seats[1])}, gli altri vivi e coi loro punti", ok);
+                Check($"senza aiuto il giocatore 2 si dissangua: muore solo lui, una morte sua ({DeathsOf(seats[1])}), punti {s1} -> {ScoreOf(seats[1])}, gli altri vivi e coi loro punti", ok);
                 Check("con un giocatore morto c'e' ancora chi e' vivo per i nemici", Targets.AnyAlive);
-                if (shots) { yield return new WaitForSeconds(0.7f); yield return Photo("4-giocatore-2-morto"); }
+                if (shots) { yield return new WaitForSeconds(0.7f); yield return Photo("4b-giocatore-2-morto"); }
                 yield return new WaitForSeconds(3.0f);
                 ok = seats[1].player.alive && Targets.At(1).Alive && seats[1].player.hp > 50f;
                 for (int i = 0; i < n; i++) if (i != 1) ok &= seats[i].player.alive;

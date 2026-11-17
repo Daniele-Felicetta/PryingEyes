@@ -17,8 +17,10 @@ namespace PryingEyes
         public const float FullSeconds = 210f;
         public float drainMul = 1f;
 
-        internal const float BeamIntensity = 88f;
-        const float SpillIntensity = 1.5f;
+        // 0.7.2 ("piu' luce con le torce"): fascio +34% (era 88), portata 42 m, cono piu' largo e alone attorno quasi doppio
+        internal const float BeamIntensity = 118f;
+        internal const float BeamRange = 42f, BeamFullAngle = 78f;
+        const float SpillIntensity = 2.6f;
         const float NearD0 = 8f, NearMin = 0.0001f;
         float near = 1f, power, baseAngle = 72f;
 
@@ -84,8 +86,8 @@ namespace PryingEyes
             bg.transform.SetParent(rig, false);
             beam = bg.AddComponent<Light>();
             beam.type = LightType.Spot;
-            beam.range = 36f;
-            beam.spotAngle = 72f;
+            beam.range = BeamRange;
+            beam.spotAngle = BeamFullAngle;
             beam.innerSpotAngle = 52f;
             beam.color = new Color(1f, 0.93f, 0.80f);
             beam.intensity = BeamIntensity;
@@ -100,7 +102,7 @@ namespace PryingEyes
             sg.transform.SetParent(rig, false);
             spill = sg.AddComponent<Light>();
             spill.type = LightType.Spot;
-            spill.range = 7f;
+            spill.range = 9f;
             spill.spotAngle = 125f;
             spill.innerSpotAngle = 60f;
             spill.color = new Color(1f, 0.90f, 0.74f);
@@ -275,8 +277,8 @@ namespace PryingEyes
                 float warm = Mathf.Clamp01(charge / 0.45f);
                 beam.color = Color.Lerp(new Color(1f, 0.58f, 0.26f), new Color(1f, 0.93f, 0.80f), warm);
                 float full = Mathf.Clamp01(charge / 0.4f);
-                beam.range = Mathf.Lerp(17f, 36f, full);
-                baseAngle = Mathf.Lerp(56f, 72f, full);
+                beam.range = Mathf.Lerp(20f, BeamRange, full);
+                baseAngle = Mathf.Lerp(60f, BeamFullAngle, full);
                 spill.color = beam.color;
             }
             gm?.hud?.SetTorch(on, charge, spares, swapT > 0f, SwapProgress);

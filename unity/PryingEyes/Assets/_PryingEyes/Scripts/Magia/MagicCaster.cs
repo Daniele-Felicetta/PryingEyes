@@ -71,7 +71,7 @@ namespace PryingEyes
             ProvaMagia(s);
             bool still = player.SpeedH < 0.3f || player.IsCrouching;
             s.Tick(dt, still);
-            if (!player.alive) { if (castHand != null) castHand.Cancel(); return; }
+            if (!player.alive || player.Downed) { if (castHand != null) castHand.Cancel(); return; }       // a terra niente magie
             EssenzaTick(dt, s);
             UpdateAura();
             if (GameMenu.Blocked || GrimoireUI.Open) { holdT = -1f; return; }
@@ -127,11 +127,18 @@ namespace PryingEyes
         {
             var s = S;
             uint m = s.Mask(b);
-            if ((m >> Grimoire.FirstInner) == 0) { player.hud?.Toast(b == Grimoire.Book.Stregoneria ? "Non conosci ancora nessuna magia: cerca la stanza segreta del libro." : "Non conosci ancora nessun sigillo: cerca la stanza segreta del libro."); return; }
-            s.Cycle(b);
-            int sel = b == Grimoire.Book.Stregoneria ? s.SelectedSpell : s.SelectedInfusion;
-            if (sel >= 0) player.hud?.Toast((b == Grimoire.Book.Stregoneria ? "Magia: " : "Sigillo: ") + Grimoire.Of(b)[sel].name);
-            Sfx.UI(SoundBank.MagiaScelta, 0.45f, b == Grimoire.Book.Stregoneria ? 1f : 0.8f);
+            bool spell = b == Grimoire.Book.Stregoneria;
+            if ((m >> Grimoire.FirstInner) == 0) { player.hud?.Toast(spell ? "Non conosci ancora nessuna magia: cerca la stanza segreta del libro." : "Non conosci ancora nessun sigillo: cerca la stanza segreta del libro."); return; }
+            bool changed = s.Cycle(b);
+            int sel = spell ? s.SelectedSpell : s.SelectedInfusion;
+            if (sel >= 0)
+            {
+                // con uno solo il tasto sembrava non fare niente: lo si dice
+                string name = Grimoire.Of(b)[sel].name;
+                player.hud?.Toast(changed ? (spell ? "Magia: " : "Sigillo: ") + name
+                                          : (spell ? "Conosci una sola magia: " : "Conosci un solo sigillo: ") + name + ". Gli altri sono nel libro.");
+            }
+            Sfx.UI(SoundBank.MagiaScelta, 0.45f, spell ? 1f : 0.8f);
         }
 
         /// <summary>La mano sinistra e' libera per un gesto? (niente ricarica, cambio, coltello, corsa, altro gesto)</summary>
@@ -271,6 +278,7 @@ namespace PryingEyes
             LastCast = Grimoire.Witch[node].name;
             float dmgK = s.SpellDamage, rangeK = s.SpellRange;
             Vector3 aim = AimPoint();
+            CastPunch(node);
             switch (node)
             {
                 case 12:
@@ -281,10 +289,16 @@ namespace PryingEyes
                     MagicReplay.Send(MagicReplay.Spell, 12, from, aim);
                     // la fiamma lascia la mano con uno sbuffo di fuoco
                     if (MagicVfx.On) MagicVfx.Explosion(palm + (aim - palm).normalized * 0.07f, MagicFx.Fire, 0.1f, Color.white);
+                    MagicFx.Flash(palm, MagicFx.Fire, 3.2f, 6f, 0.18f);           // il lancio accende la stanza per un attimo
                     Sfx.At(SoundBank.MagiaFuoco, palm, 0.8f, 0.9f, 1.5f, 20f);
+                    SetPhase("burn");                                              // le dita fumano dopo il lancio
                     break;
                 }
-                case 13: MagicReplay.Send(MagicReplay.Spell, 13, palm, aim, CastLightning(hand, dmgK, rangeK)); SetPhase(null); break;
+                case 13:
+                    MagicReplay.Send(MagicReplay.Spell, 13, palm, aim, CastLightning(hand, dmgK, rangeK));
+                    MagicFx.Flash(palm, MagicFx.Shock, 4f, 7f, 0.1f);
+                    SetPhase("residual", MagicFx.Shock, 0.6f);                     // la corrente resta tra le dita per un attimo
+                    break;
                 case 14:
                     CastFrost(palm, dmgK, rangeK); SetPhase("cone", MagicFx.Frost, 1.0f);
                     MagicReplay.Send(MagicReplay.Spell, 14, palm, palm + Cam.forward * (7f * rangeK));
@@ -315,10 +329,28 @@ namespace PryingEyes
                     else MagicFx.Burst(palm, MagicFx.Essence, 0.6f);
                     MagicFx.Flash(palm, MagicFx.Essence, 6f, 8f, 0.6f);
                     player.hud?.Banner("Essenza Maledetta", "Per dodici secondi la magia non conosce prezzo.");
-                    player.hud?.Flash(MagicFx.Essence, 0.7f, 0.5f);
+                    player.hud?.Flash(MagicFx.Essence, 0.6f, 0.28f);              // 0.7.2: prima copriva lo schermo di rosa (0,5)
                     Sfx.UI(SoundBank.MagiaEssenza, 0.8f, 0.8f);
                     SetPhase(null);
                     break;
+            }
+        }
+
+        /// <summary>Il contraccolpo del lancio (0.7.2): la visuale scatta un poco e il campo visivo si allarga e rientra, diverso per ogni
+        /// magia (il fuoco spinge, il fulmine strattona, il gelo appena, l'onda e l'essenza molto, il passo d'ombra e' un risucchio).
+        /// Pesa come l'oscillazione scelta nelle impostazioni.</summary>
+        void CastPunch(int node)
+        {
+            float m = GameSettings.Motion;
+            switch (node)
+            {
+                case 12: player.Kick(1.4f * m, -0.4f * m, 9f); player.FovPunch(2.5f); break;
+                case 13: player.Kick(1.0f * m, Random.Range(-0.7f, 0.7f) * m, 14f); player.FovPunch(1.5f); player.hud?.Flash(MagicFx.Shock, 0.1f, 0.05f); break;
+                case 14: player.Kick(0.5f * m, 0f, 8f); player.FovPunch(1.2f); break;
+                case 15: player.Kick(0.4f * m, 0f, 6f); break;
+                case 16: player.FovPunch(9f); break;
+                case 17: player.Kick(1.8f * m, 0f, 7f); player.FovPunch(4f); break;
+                default: player.Kick(1.2f * m, 0f, 6f); player.FovPunch(3f); break;
             }
         }
 
@@ -665,9 +697,12 @@ namespace PryingEyes
                     // la fiamma nella coppa della mano: lingue che salgono dal palmo, piu' alte man mano che si carica, e il cuore acceso
                     float ch = Mathf.Min(1f, phaseT * 3f);
                     Vector3 rise = (n * 0.3f + up * 0.7f).normalized;
-                    MagicFx.Flame(palm + n * 0.015f + Random.insideUnitSphere * 0.01f, rise, 0.95f + 0.85f * ch);
-                    if (Random.value < 0.5f) MagicFx.Flame(palm + n * 0.015f + Random.insideUnitSphere * 0.012f, rise, 0.65f + 0.55f * ch);
-                    MagicFx.Glow(palm + n * 0.022f, MagicFx.Fire, 0.022f + 0.026f * ch, 0.06f, 0.6f);
+                    MagicFx.Flame(palm + n * 0.015f + Random.insideUnitSphere * 0.01f, rise, 1.05f + 1.05f * ch);
+                    if (Random.value < 0.6f) MagicFx.Flame(palm + n * 0.015f + Random.insideUnitSphere * 0.012f, rise, 0.7f + 0.7f * ch);
+                    MagicFx.Glow(palm + n * 0.022f, MagicFx.Fire, 0.026f + 0.034f * ch, 0.06f, 0.65f);
+                    // 0.7.2: un alone caldo attorno alla mano e braci che le girano intorno stringendosi man mano che la fiamma si carica
+                    MagicFx.Glow(palm + n * 0.03f, MagicFx.Fire, 0.07f * ch, 0.06f, 0.18f);
+                    if (MagicVfx.On) OrbitMotes(palm + n * 0.025f, n, Mathf.Lerp(0.065f, 0.035f, ch), 2, MagicFx.Fire, 0.006f, 0.22f);
                     break;
                 }
                 case "spark":
@@ -676,6 +711,28 @@ namespace PryingEyes
                     if (Random.value < 0.3f) MagicFx.Arc(palm, h.TipWorld(Random.Range(0, 5)), MagicFx.Shock, 0.0035f, 3, 0.45f);
                     for (int i = 0; i < 2; i++) MagicFx.Glow(h.TipWorld(Random.Range(0, 5)), MagicFx.Shock, 0.01f, 0.05f, 0.8f);
                     if (Random.value < 0.4f) MagicFx.Sparks(h.TipWorld(Random.Range(0, 5)), MagicFx.Shock, 2, 0.8f, 0.004f);
+                    // 0.7.2: una sfera di corrente tenuta tra gli artigli, appena sopra le dita (davanti al palmo la mano la nasconderebbe a
+                    // chi guarda): crepita, cresce e le dita le scaricano dentro
+                    {
+                        float ch = Mathf.Min(1f, phaseT * 2.5f);
+                        Vector3 tips = Vector3.zero;
+                        for (int f = 0; f < 5; f++) tips += h.TipWorld(f);
+                        Vector3 core = tips / 5f + n * 0.02f + up * 0.018f;
+                        if (Random.value < 0.6f) MagicFx.Arc(h.TipWorld(Random.Range(0, 5)), core, MagicFx.Shock, 0.0032f, 3, 0.5f);
+                        if (Random.value < 0.5f) MagicFx.Arc(core, core + Random.onUnitSphere * (0.03f + 0.035f * ch), MagicFx.Shock, 0.0034f, 3, 0.55f);
+                        MagicFx.Glow(core, MagicFx.Shock, 0.026f + 0.03f * ch * (0.7f + 0.3f * Mathf.PerlinNoise(Time.time * 20f, 0.5f)), 0.05f, 0.9f);
+                    }
+                    break;
+                case "residual":
+                    // dopo il fulmine la corrente resta tra le dita e si spegne
+                    if (Random.value < 0.5f) MagicFx.Arc(h.TipWorld(Random.Range(0, 5)), h.TipWorld(Random.Range(0, 5)), MagicFx.Shock, 0.0024f, 3, 0.5f);
+                    if (Random.value < 0.3f) MagicFx.Sparks(h.TipWorld(Random.Range(0, 5)), MagicFx.Shock, 1, 0.6f, 0.003f);
+                    if (phaseT > 0.35f) SetPhase(null);
+                    break;
+                case "thaw":
+                    // dopo il cono la brina si scioglie: vapore freddo che cade dalle dita
+                    if (Random.value < 0.6f) MagicFx.Mist(h.TipWorld(Random.Range(0, 5)), Vector3.down * 0.06f + Random.insideUnitSphere * 0.02f, MagicFx.Frost, 0.016f, 0.8f, 0.22f);
+                    if (phaseT > 0.6f) SetPhase(null);
                     break;
                 case "frost":
                     // la brina che si condensa: vapore freddo, cristalli che si formano verso il palmo, luccichii
@@ -686,7 +743,8 @@ namespace PryingEyes
                         MagicVfx.Emit(MagicVfx.Kind.Shard, o, (palm - o) * 0.8f, Random.Range(0.005f, 0.009f), 0.35f, new Color(0.8f, 0.93f, 1f));
                     }
                     if (Random.value < 0.6f) MagicVfx.Emit(MagicVfx.Kind.Ember, palm + Random.insideUnitSphere * 0.04f, Random.insideUnitSphere * 0.05f, 0.004f, Random.Range(0.3f, 0.6f), new Color(0.8f, 0.93f, 1f));
-                    MagicFx.Glow(palm + n * 0.02f, MagicFx.Frost, 0.03f, 0.06f, 0.4f);
+                    MagicFx.Glow(palm + n * 0.02f, MagicFx.Frost, 0.03f + 0.02f * Mathf.Min(1f, phaseT * 2.5f), 0.06f, 0.45f);
+                    if (MagicVfx.On) OrbitMotes(palm + n * 0.02f, n, 0.05f, 1, new Color(0.85f, 0.95f, 1f), 0.004f, 0.3f);
                     break;
                 case "cone":
                     if (phaseT < 0.32f)
@@ -706,7 +764,7 @@ namespace PryingEyes
                         if (!MagicVfx.On) for (int i = 0; i < 3; i++) Fx.Particle(1, true, palm, (Cam.forward + Random.insideUnitSphere * 0.38f).normalized * Random.Range(5f, 9f), Vector3.down * 2f, 0.01f, 0.003f, 0.6f, Color.white);
                         MagicFx.Glow(palm + Cam.forward * 0.05f, MagicFx.Frost, 0.12f, 0.06f, 0.7f);
                     }
-                    else SetPhase(null);
+                    else SetPhase("thaw", MagicFx.Frost, 0.4f);
                     break;
                 case "blood":
                     for (int f = 0; f < 5; f += 3) MagicFx.Glow(h.TipWorld(f), MagicFx.Blood, 0.012f, 0.08f, 0.7f);
@@ -799,6 +857,23 @@ namespace PryingEyes
                         }
                     if (phaseT > 0.8f) SetPhase(null);
                     break;
+            }
+        }
+
+        /// <summary>Braci o cristalli che girano attorno a 'c' nel piano del palmo ('n' la sua normale), a 'radius' metri: si muovono di
+        /// lato e un poco verso il centro, cosi' disegnano un vortice che si stringe.</summary>
+        static void OrbitMotes(Vector3 c, Vector3 n, float radius, int count, Color col, float size, float life)
+        {
+            Vector3 a = Vector3.Cross(n, Vector3.up);
+            if (a.sqrMagnitude < 1e-4f) a = Vector3.Cross(n, Vector3.right);
+            a.Normalize();
+            Vector3 b = Vector3.Cross(n, a);
+            for (int i = 0; i < count; i++)
+            {
+                float t = Random.value * Mathf.PI * 2f;
+                Vector3 r = a * Mathf.Cos(t) + b * Mathf.Sin(t);
+                Vector3 tangent = Vector3.Cross(n, r);
+                MagicVfx.Emit(MagicVfx.Kind.Ember, c + r * radius, tangent * (radius * 9f) - r * (radius * 2.5f), size * Random.Range(0.7f, 1.3f), life, col);
             }
         }
 

@@ -138,7 +138,7 @@ namespace PryingEyes
                 if (e.alert == Alert.Hunting) { hunters++; hd = Mathf.Min(hd, d); }
                 if (e.alert != Alert.Patrol) aware++;
             }
-            if (!gm.player.alive) best = 0f;
+            if (!gm.player.alive || gm.player.Downed) best = 0f;
             Level = Mathf.MoveTowards(Level, best, dt * (best > Level ? 1.2f : 0.35f));
             HunterDist = hd;
             Hunters = hunters;

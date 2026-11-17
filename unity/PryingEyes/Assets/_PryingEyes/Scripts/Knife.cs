@@ -222,7 +222,7 @@ namespace PryingEyes
         /// se si puo' fare la presa lo dice.</summary>
         public void PromptTick()
         {
-            if (!ready || playing || cool > 0f || GameMenu.Blocked || player == null || !player.alive) return;
+            if (!ready || playing || cool > 0f || GameMenu.Blocked || player == null || !player.alive || player.Downed) return;
             if (FindTarget(true, out _, out _) != null) GameManager.I.hud?.SetPrompt("PRESA ALLE SPALLE   [G]");
         }
 
@@ -233,7 +233,7 @@ namespace PryingEyes
         {
             if (!ready) { Init(cam); if (!ready) return; }          // l'arma puo' non essere ancora legata alla visuale quando parte il rig
             float dt = Time.deltaTime;
-            bool alive = player.alive;
+            bool alive = player.alive && !player.Downed;             // a terra niente coltello
             if (cool > 0f) cool -= dt;
             if (playing)
             {
