@@ -257,6 +257,9 @@ namespace PryingEyes.EditorTools
                 { "A_seta", Pbr("kit_seta", "velluto", new Color(0.24f, 0.05f, 0.32f), 0.3f, 1.2f) },
                 { "A_panno", Pbr("kit_panno", "velluto", new Color(0.055f, 0.048f, 0.055f), 0.3f) },
                 { "A_basalto", Pbr("kit_basalto", "pietra_massello", new Color(0.46f, 0.48f, 0.55f), 1.0f, 0.9f) },
+                // fase 5 (modelli/hotel/genera_arredi5.py): scatole di cartone e fogli dello scaffale e della scrivania
+                { "A_cartone", Flat("kit_cartone", new Color(0.58f, 0.44f, 0.28f), 0f, 0.10f) },
+                { "A_carta", Flat("kit_carta", new Color(0.74f, 0.71f, 0.62f), 0f, 0.08f) },
             };
             var prefabs = new List<ProcKit.PrefabRef>();
             if (!AssetDatabase.IsValidFolder("Assets/_PryingEyes/Prefabs")) AssetDatabase.CreateFolder("Assets/_PryingEyes", "Prefabs");
@@ -303,6 +306,26 @@ namespace PryingEyes.EditorTools
             }
         }
 
+        /// <summary>Livelli di dettaglio degli arredi della fase 5 (modelli/hotel/genera_arredi5.py): il FBX porta, accanto alle mesh <c>arredo_ruolo</c>,
+        /// due copie decimate <c>arredo_LOD1_ruolo</c> (28% dei triangoli) e <c>arredo_LOD2_ruolo</c> (9%). Il nome non finisce per _LODn, quindi
+        /// l'importatore non le raggruppa: qui diventano un LODGroup. Le soglie sono altezze sullo schermo (frazione dell'altezza della vista) e
+        /// Unity le divide per il lodBias del livello di qualita': il gioco gira su Ultra (lodBias 2) con 75 gradi di campo, quindi un arredo alto un metro
+        /// resta al livello 0 fino a 5 m, passa al livello 1 fino a 15 m e al 2 fino a 100 m, poi sparisce; uno largo due metri e mezzo (la panca) il doppio.
+        /// Un FBX senza livelli resta com'e'.</summary>
+        static void AddLods(GameObject root)
+        {
+            var l0 = new List<Renderer>();
+            var l1 = new List<Renderer>();
+            var l2 = new List<Renderer>();
+            foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
+                (r.name.Contains("_LOD2_") ? l2 : r.name.Contains("_LOD1_") ? l1 : l0).Add(r);
+            if (l1.Count == 0 || l2.Count == 0) return;
+            var g = root.AddComponent<LODGroup>();
+            g.fadeMode = LODFadeMode.None;
+            g.SetLODs(new[] { new LOD(0.25f, l0.ToArray()), new LOD(0.085f, l1.ToArray()), new LOD(0.013f, l2.ToArray()) });
+            g.RecalculateBounds();
+        }
+
         static GameObject MakePropPrefab(string name, string fbxPath, Dictionary<string, Material> roles)
         {
             var fbx = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
@@ -326,6 +349,7 @@ namespace PryingEyes.EditorTools
                 }
                 r.sharedMaterials = ms;
             }
+            AddLods(root);
             string path = PropDir + name + ".prefab";
             var saved = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
