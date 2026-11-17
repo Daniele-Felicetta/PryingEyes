@@ -129,6 +129,16 @@ Unity -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.NavMap
 - Both read `-theme albergo|teatro|sanatorio|guardaroba` (forces the theme of every grid floor), `-guardaroba N` (percentage of Guardaroba floors from the third up) and `-survivallayout` (the room plans of the wave cycle, which is the game's default; without it the editor tools build the candle-cycle plan). See [../game/guardaroba.md](../game/guardaroba.md).
 - **`NavMap`**: navmesh of one floor in PPM, walkable area, the component of the arrival, and the doors that separate it from the rest. Output: the `-out` file (default `hotel_build/navmap.ppm`).
 
+### 2.6 Menu and menu music (Unity editor, edit mode)
+
+```powershell
+Unity -batchmode -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.MenuReview.Run
+Unity -batchmode -nographics -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.MenuMusicReview.Run
+```
+
+- **`MenuReview`**: builds the menu in an empty scene and checks it at four sizes (1280×720, 1920×1080, 3440×1440, 1024×768): the five settings tabs (rows, hints, navigation chains, what each row writes, the reset of each tab), the three guide pages, the tips, the pause summary, the split-screen panel and the version label. It photographs the panels, so it needs graphics (no `-nographics`); about 15 s; it exits by itself and puts the settings it changed back. Output: `unity_logs/menu-review/` (the photos and `result.txt`). 2187 checks passed on 17 November 2026. What it checks, in full: [../game/display-and-menu.md](../game/display-and-menu.md#verification).
+- **`MenuMusicReview`**: computes the menu theme and the four menu tones, checks them (24 checks: length, finiteness, level, stereo, the loop seam, the score against its chords, the clip the game builds) and writes the WAV files and `result.txt` to `unity_logs/menu-music/`. About 25 s. It cannot say that the music sounds good: nobody has listened to it ([../game/menu-music.md](../game/menu-music.md)).
+
 ## 3. In-game headless tests
 
 The in-game tests run the real game with the autopilot. Common form:
@@ -209,6 +219,7 @@ Mode flags used by these tests and the bot:
 | `-ragdolltest [-ragdollshots]` (16) | Dead monks and abbots become ragdolls pushed by the killing hit; they stop and sink; at most 10 at once. `-noragdoll` compares. | `unity_logs/ragdoll/` |
 | `-jellytest [-jellyshots]` | The flying jellyfish in the real game: skeleton, bell pulse, ropes, gather, thrust and contact effects, hit, death, co-op replica, cost of one animation step. Needs `-autotest -nofire -noenemies`. See [medusa.md](../game/medusa.md). | `unity_logs/jelly/` |
 | `-padtest -nowaves` (73) | The controller in the menus and the normal game, without `-autotest` (the menu must exist; usually `-batchmode`): the XInput to menu translation, the automatic search for a controller with a fake XInput (`PadControls.TestPoll`), the real menu driven with a fake state (selection, frame, tabs, sliders, back to the button of origin, text field, first command with nothing selected), and in the game A on *Gioca* not jumping, Start and B and the pause. With `-padshots FOLDER` (a real window, plus `-menureview` so the saved display is not applied) it saves screenshots of the menus instead. | the log |
+| `-padtest -nowaves` (83) | The controller in the menus and the normal game, without `-autotest` (the menu must exist; usually `-batchmode`): the XInput to menu translation, the automatic search for a controller with a fake XInput (`PadControls.TestPoll`), the real menu driven with a fake state (selection, frame, the five settings tabs that open on selection, sliders and choice rows, back to the button of origin, text field, first command with nothing selected), and in the game A on *Gioca* not jumping, Start and B and the pause. With `-padshots FOLDER` (a real window, plus `-menureview` so the saved display is not applied) it saves screenshots of the menus instead. | the log |
 | `-splittest` (63) | The parts of the split screen that need no second player: the layout of the parts for 2 to 4 players, controller assignment, the field-of-view cap, the XInput mapping, and the real player driven by a fake XInput state. Needs `-autotest -nofire -noenemies`. | the log (`-report FILE` keeps the result out of `hotel_build/autotest.txt`) |
 | `-seatstest -splitscreen N` (70 with two players, 71 with three, 72 with four) | The split screen itself, in one process and one window, from the menu or with `-autotest`: see section 5.1. | the log; `unity_logs/seats/` with `-seatsshots` |
 

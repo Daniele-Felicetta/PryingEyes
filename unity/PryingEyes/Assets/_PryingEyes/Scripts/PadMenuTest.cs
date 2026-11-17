@@ -265,16 +265,20 @@ namespace PryingEyes
             yield return Tap(PadControls.DpadDown);
             Check("la cornice segue anche dopo i passi", RingOnSelection());
 
-            // ---- impostazioni: schede e cursori
+            // ---- impostazioni: cinque schede, cursori e scelte
+            bool uiSounds0 = GameSettings.UiSounds;
             yield return Tap(PadControls.A);
             Check($"A su 'Impostazioni': si apre, scelta la scheda 'Schermo' ({SelName})", PanelOpen("settingsPanel") && SelName == "Pulsante Schermo");
             yield return Tap(PadControls.DpadRight);
-            Check($"croce a destra: 'Audio e comandi' ({SelName})", SelName == "Pulsante Audio e comandi");
-            yield return Tap(PadControls.A);
+            Check($"croce a destra: la scheda 'Immagine', che si apre da sola ({SelName})", SelName == "Pulsante Immagine" && GameObject.Find("Scheda Immagine") != null && GameObject.Find("Scheda Schermo") == null);
+            yield return Tap(PadControls.DpadRight);
+            Check($"croce a destra: la scheda 'Audio' ({SelName})", SelName == "Pulsante Audio" && GameObject.Find("Scheda Audio") != null);
+            Check("sulla scheda il suggerimento dice cosa contiene", Get<Text>("settingsHint").text.Contains("Volumi"));
             yield return Tap(PadControls.DpadDown);
             var master = Get<Slider>("sMaster");
             Check($"croce in basso dalla scheda: il primo cursore audio ({SelName})", Selected != null && Selected.GetComponent<Slider>() == master);
             Check("la cornice sta anche sul cursore", RingOnSelection());
+            Check("il cursore ha il suo suggerimento sotto l'elenco", Get<Text>("settingsHint").text == "Il volume di tutto il gioco.");
             master.SetValueWithoutNotify(0.5f);
             yield return Tap(PadControls.DpadLeft);
             Check($"croce a sinistra sul cursore: lo regola ({master.value:F2}) e resta li'", master.value < 0.45f && Selected != null && Selected.GetComponent<Slider>() == master);
@@ -282,16 +286,32 @@ namespace PryingEyes
             Check($"croce a destra due volte: lo rialza ({master.value:F2})", master.value > 0.55f && Selected.GetComponent<Slider>() == master);
             yield return Tap(PadControls.DpadDown);
             Check($"croce in basso: il cursore sotto ({(Selected != null ? Selected.transform.parent.name : "-")})", Selected != null && Selected.GetComponent<Slider>() == Get<Slider>("sEffects"));
+            for (int i = 0; i < 4; i++) yield return Tap(PadControls.DpadDown);
+            var sounds = Selected != null ? Selected.GetComponent<MenuChoice>() : null;
+            Check($"croce in basso quattro volte: la scelta 'Suoni dell'interfaccia' ({SelName})", sounds != null && Selected.name == "Scelta Suoni dell'interfaccia");
+            Check("la cornice sta anche sulla scelta", RingOnSelection());
+            yield return Tap(PadControls.DpadRight);
+            Check($"croce a destra sulla scelta: cambia valore e resta li' ({sounds?.Value})", sounds != null && !GameSettings.UiSounds && sounds.Value == "Disattivati" && Selected == sounds.gameObject);
+            yield return Tap(PadControls.A);
+            Check($"A sulla scelta: cambia di nuovo ({sounds?.Value})", sounds != null && GameSettings.UiSounds && sounds.Value == "Attivi");
+            GameSettings.SetUiSounds(uiSounds0);
+            yield return Tap(PadControls.DpadDown);
+            Check($"croce in basso dall'ultima riga: 'Indietro' ({SelName})", SelName == "Pulsante Indietro");
+            yield return Tap(PadControls.DpadRight);
+            Check($"croce a destra: 'Ripristina scheda' ({SelName})", SelName == "Pulsante Ripristina scheda");
+            yield return Tap(PadControls.DpadLeft);
             yield return Tap(PadControls.B);
             Check($"B: torna al menu principale e ritrova 'Impostazioni' ({SelName})", PanelOpen("mainPanel") && SelName == "Pulsante Impostazioni");
             yield return Tap(PadControls.B);
             Check("B nel menu principale: non fa niente", PanelOpen("mainPanel") && GameMenu.InMenu);
 
-            // ---- guida
+            // ---- guida: tre pagine
             yield return Tap(PadControls.DpadUp);
             yield return Tap(PadControls.A);
-            Check($"A su 'Come si gioca': si apre ({SelName})", PanelOpen("helpPanel") && SelName == "Pulsante Indietro");
-            Check("la guida nomina i tasti del controller", Get<Text>("helpRound").text.Contains("X tenuto") && Get<Text>("helpPad").gameObject.activeSelf);
+            Check($"A su 'Come si gioca': si apre, scelta la pagina 'Obiettivo' ({SelName})", PanelOpen("helpPanel") && SelName == "Pulsante Obiettivo");
+            Check("la guida nomina i tasti del controller", Get<Text>("helpRound").text.Contains("X tenuto"));
+            yield return Tap(PadControls.DpadRight); yield return Tap(PadControls.DpadRight);
+            Check($"croce a destra due volte: la pagina 'Controller', che si apre da sola ({SelName})", SelName == "Pulsante Controller" && GameObject.Find("Pagina Controller") != null && GameObject.Find("Pagina Obiettivo") == null);
             yield return Tap(PadControls.B);
             Check($"B: indietro, sul pulsante da cui si era partiti ({SelName})", PanelOpen("mainPanel") && SelName == "Pulsante Come si gioca");
 

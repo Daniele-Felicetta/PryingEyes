@@ -8,7 +8,7 @@ namespace PryingEyes
     /// <summary>Volumi del gioco (0..1), salvati in PlayerPrefs. Generale agisce su tutto (AudioListener);
     /// Effetti su spari, passi, nemici e ambiente; Musica sul grammofono che suona il valzer.
     /// I loop gia' in riproduzione si aggiornano subito quando si cambia un volume.</summary>
-    public static class GameSettings
+    public static partial class GameSettings
     {
         const string KeyMaster = "vol_master", KeyEffects = "vol_effects", KeyMusic = "vol_music";
         const string KeyBrightness = "video_brightness";
@@ -57,6 +57,7 @@ namespace PryingEyes
             fov = Valid(PlayerPrefs.GetFloat(KeyFov, 75f), 60f, 105f, 75f);
             motion = Clamp01(PlayerPrefs.GetFloat(KeyMotion, 1f));
             coopHud = Valid(PlayerPrefs.GetFloat(KeyCoopHud, 1f), CoopHudMin, CoopHudMax, 1f);
+            LoadMore();            // le altre impostazioni: GameSettings.More.cs
             Apply();
         }
 

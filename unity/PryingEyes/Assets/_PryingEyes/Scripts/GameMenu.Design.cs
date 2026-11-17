@@ -37,6 +37,55 @@ namespace PryingEyes
             Label(backdrop, "Versione", new Vector2(505, -324), new Vector2(160, 24), 12, TextAnchor.MiddleRight, VersionText, Dim, FontStyle.Normal);
         }
 
+        // ---------- i consigli sotto la frase ----------
+
+        /// <summary>Un consiglio ogni 8 secondi sotto "Voi guardate. Lui vi vede.": ogni voce e' una frase vera sul gioco; se nomina un tasto, la
+        /// seconda e' quella per il controller. Sono tutte cose scritte altrove nel gioco (guida, tabellone, commenti dei sistemi).</summary>
+        static readonly string[][] Tips =
+        {
+            new[] { "I nemici ti inseguono subito: scale, balconate e ripari ti aprono una via di fuga." },
+            new[] { "Le ondate partono da sole. Spendi i punti alle porte: le aree comprate restano aperte per tutti." },
+            new[] { "Compra le armi ai muri e cerca pile e libri nei santuari." },
+            new[] { "Se muori perdi metà dei punti e l'ultimo perk acquistato." },
+            new[] { "Alle spalle di chi non ti ha visto il coltello (G) è silenzioso e uccide sul colpo.",
+                    "Alle spalle di chi non ti ha visto il coltello (R3) è silenzioso e uccide sul colpo." },
+            new[] { "La torcia (T) ti rende visibile da lontano: accendila solo quando serve.",
+                    "La torcia (croce su) ti rende visibile da lontano: accendila solo quando serve." },
+            new[] { "La pila della torcia si scarica: Y la cambia con una di scorta.",
+                    "La pila della torcia si scarica: tieni premuta la croce su per cambiarla con una di scorta." },
+            new[] { "Tieni premuto F per rialzare un compagno a terra.", "Tieni premuto X per rialzare un compagno a terra." },
+            new[] { "Ogni cinque ondate arriva la Processione dei lumi." },
+            new[] { "V mostra dove sono le porte quando non sai dove andare.", "La croce a sinistra mostra dove sono le porte quando non sai dove andare." },
+            new[] { "Sporgiti con Q ed E per guardare oltre gli angoli.", "Mira con LT e premi L3 o R3 per sporgerti oltre gli angoli." },
+            new[] { "M apre la mappa, N accende e spegne la minimappa.", "Back apre la mappa; tenuto premuto, il tabellone." },
+            new[] { "Z lancia l'acquasanta, 4 il carillon, 5 piazza una mina.", "RB lancia l'acquasanta, la croce giù il carillon (tenuta, una mina)." },
+        };
+
+        public const float TipSeconds = 8f;
+        Text tipLabel;
+        int tipIndex = -1;
+        float tipAt;
+        bool tipPad;
+
+        public static int TipCount => Tips.Length;
+        /// <summary>Il consiglio <paramref name="index"/>, nella forma per tastiera o per controller (se ne ha una).</summary>
+        public static string TipFor(int index, bool pad) { var t = Tips[index]; return pad && t.Length > 1 ? t[1] : t[0]; }
+        string TipText(int index) => TipFor(index, PadControls.Preferred);
+
+        /// <summary>Un consiglio alla volta, con una dissolvenza di mezzo secondo all'inizio e alla fine (ferma con l'oscillazione a zero).</summary>
+        void UpdateTips()
+        {
+            if (tipLabel == null || !mainPanel.gameObject.activeSelf) return;
+            float now = Time.unscaledTime;
+            bool pad = PadControls.Preferred;
+            if (tipIndex < 0) { tipIndex = (int)(Time.realtimeSinceStartup * 1000f) % Tips.Length; tipAt = now; tipLabel.text = TipText(tipIndex); tipPad = pad; }
+            if (now - tipAt >= TipSeconds) { tipIndex = (tipIndex + 1) % Tips.Length; tipAt = now; tipLabel.text = TipText(tipIndex); tipPad = pad; }
+            else if (pad != tipPad) { tipPad = pad; tipLabel.text = TipText(tipIndex); }
+            float age = now - tipAt;
+            float alpha = !Application.isPlaying || GameSettings.Motion < 0.01f ? 1f : Mathf.Clamp01(Mathf.Min(age, TipSeconds - age) / 0.5f);
+            var color = tipLabel.color; color.a = 0.92f * alpha; tipLabel.color = color;
+        }
+
         void BuildMainMenu()
         {
             mainPanel = Stretch(backdrop, "Principale");
@@ -55,8 +104,10 @@ namespace PryingEyes
                 button.GetComponent<RectTransform>().sizeDelta = new Vector2(420, 42);
                 var text = button.GetComponentInChildren<Text>();
                 text.alignment = TextAnchor.MiddleLeft; text.rectTransform.sizeDelta = new Vector2(368, 40); text.fontSize = 21;
-                Label(button.transform, "Invito", new Vector2(180, 0), new Vector2(24, 36), 20, TextAnchor.MiddleCenter,
+                var arrow = Label(button.transform, "Invito", new Vector2(180, 0), new Vector2(24, 36), 20, TextAnchor.MiddleCenter,
                     "›", Brass, FontStyle.Normal);
+                var fx = button.gameObject.AddComponent<MenuButtonFx>();
+                fx.label = text; fx.arrow = arrow;
                 if (i == 0)
                 {
                     button.GetComponent<Image>().color = new Color(0.29f, 0.23f, 0.13f);
@@ -65,51 +116,11 @@ namespace PryingEyes
             }
             var eye = Rect(mainPanel, "L'occhio dell'albergo", new Vector2(580, 470), new Vector2(278, 26));
             var engraving = eye.gameObject.AddComponent<MenuEngraving>(); engraving.hero = true; engraving.raycastTarget = false;
-            Label(mainPanel, "Presenza", new Vector2(280, -236), new Vector2(480, 66), 25, TextAnchor.MiddleCenter,
-                "Voi guardate.\nLui vi vede.", Ink, FontStyle.Italic);
-        }
-
-        RectTransform videoTab, comfortTab;
-        Button videoTabButton, comfortTabButton, settingsBackButton;
-
-        void BuildSettings()
-        {
-            settingsPanel = Stretch(backdrop, "Impostazioni");
-            Label(settingsPanel, "Titolo", new Vector2(-330, 239), new Vector2(440, 66), 43, TextAnchor.MiddleLeft,
-                "Il vostro soggiorno", Ink, FontStyle.Normal);
-            Label(settingsPanel, "Sottotitolo", new Vector2(330, 233), new Vector2(440, 42), 17, TextAnchor.MiddleRight,
-                "IMPOSTAZIONI  /  REGISTRO PERSONALE", Dim, FontStyle.Normal);
-            videoTabButton = MakeButton(settingsPanel, "Schermo", new Vector2(-285, 164), () => SettingsTab(true));
-            comfortTabButton = MakeButton(settingsPanel, "Audio e comandi", new Vector2(285, 164), () => SettingsTab(false));
-            videoTab = Rect(settingsPanel, "Schermo avanzato", new Vector2(1080, 330), new Vector2(0, -35));
-            comfortTab = Rect(settingsPanel, "Comfort", new Vector2(1080, 370), new Vector2(0, -42));
-            BuildDisplayControls();
-            var view = Rect(comfortTab, "Visuale", new Vector2(460, 340), new Vector2(-285, 0));
-            var audio = Rect(comfortTab, "Audio", new Vector2(460, 340), new Vector2(285, 0));
-            sBrightness = Row(view, 100, "Luminosità", GameSettings.Brightness, GameSettings.SetBrightness, out vBrightness);
-            sFov = Row(view, 18, "Campo visivo", GameSettings.Fov, GameSettings.SetFov, out vFov, 60f, 105f, FovText);
-            sSensitivity = Row(view, -64, "Sensibilità mira", GameSettings.Sensitivity, GameSettings.SetSensitivity, out vSensitivity, 0.25f, 3f, SensText);
-            sMotion = Row(view, -146, "Oscillazione visuale", GameSettings.Motion, GameSettings.SetMotion, out vMotion);
-            sMaster = Row(audio, 100, "Volume generale", GameSettings.Master, GameSettings.SetMaster, out vMaster);
-            sEffects = Row(audio, 18, "Effetti sonori", GameSettings.Effects, GameSettings.SetEffects, out vEffects);
-            sMusic = Row(audio, -64, "Musica", GameSettings.Music, GameSettings.SetMusic, out vMusic);
-            // 0.7.2: il pannello dei compagni (cooperativa e schermo condiviso) si ingrandisce o si rimpicciolisce; si vede subito
-            sCoopHud = Row(audio, -146, "HUD dei compagni", GameSettings.CoopHudScale, GameSettings.SetCoopHudScale, out vCoopHud,
-                GameSettings.CoopHudMin, GameSettings.CoopHudMax);
-            settingsBackButton = MakeButton(settingsPanel, "Indietro", new Vector2(-285, -260), Back);
-            BuildDisplayConfirmation();
-        }
-
-        void SettingsTab(bool video)
-        {
-            videoTab.gameObject.SetActive(video); comfortTab.gameObject.SetActive(!video);
-            settingsBackButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(video ? -285 : 0, -260);
-            videoTabButton.GetComponent<Image>().color = video ? new Color(0.26f, 0.21f, 0.13f) : BtnColor;
-            comfortTabButton.GetComponent<Image>().color = !video ? new Color(0.26f, 0.21f, 0.13f) : BtnColor;
-            // con tastiera e controller le due schede si scelgono con sinistra e destra e portano in basso al primo comando della scheda aperta
-            // (la navigazione automatica sceglierebbe il comando piu' vicino, non l'altra scheda)
-            videoTabButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = comfortTabButton, selectOnDown = video ? (Selectable)modePrevious : sBrightness };
-            comfortTabButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnLeft = videoTabButton.interactable ? videoTabButton : null, selectOnDown = video ? (Selectable)aspectPrevious : sMaster };
+            Label(mainPanel, "Presenza", new Vector2(280, -208), new Vector2(480, 40), 25, TextAnchor.MiddleCenter,
+                "Voi guardate. Lui vi vede.", Ink, FontStyle.Italic);
+            Plate(mainPanel, "Filetto dei consigli", new Vector2(280, -231), new Vector2(120, 1), new Color(0.69f, 0.53f, 0.30f, 0.5f));
+            Label(mainPanel, "Consiglio titolo", new Vector2(280, -243), new Vector2(480, 18), 12, TextAnchor.MiddleCenter, "CONSIGLIO", Brass, FontStyle.Normal);
+            tipLabel = Label(mainPanel, "Consiglio", new Vector2(280, -274), new Vector2(520, 44), 15, TextAnchor.UpperCenter, "", Dim, FontStyle.Italic);
         }
     }
 }

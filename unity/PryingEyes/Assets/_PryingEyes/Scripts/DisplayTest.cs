@@ -20,6 +20,8 @@ namespace PryingEyes
         static FieldInfo Field(string name) => typeof(GameMenu).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
         void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("DISPLAYTEST " + (ok ? "PASS " : "FAIL ") + name); }
         static void Click(string label) => GameObject.Find("Pulsante " + label).GetComponent<Button>().onClick.Invoke();
+        /// <summary>A row of the Schermo tab (0.8.0: choices with ‹ value ›, no longer two buttons).</summary>
+        static MenuChoice Choice(string title) => GameObject.Find("Scelta " + title).GetComponent<MenuChoice>();
         IEnumerator Start()
         {
             var original = VideoSettings.Current;
@@ -49,9 +51,9 @@ namespace PryingEyes
             Check("menu available and silent", menu != null && AudioListener.volume == 0f);
             int width = Screen.width, height = Screen.height;
             int saved = PlayerPrefs.GetInt("display_confirmed_v1", 0);
-            Click("Impostazioni");
-            for (int i = 0; i < 3 && GameObject.Find("Modalità schermo valore").GetComponent<Text>().text != "Finestra"; i++) Click("Modalità schermo ›");
-            for (int i = 0; i < 100 && GameObject.Find("Risoluzione valore").GetComponent<Text>().text != "1600 × 900"; i++) Click("Risoluzione ›");
+            Click("Impostazioni"); Click("Schermo");
+            for (int i = 0; i < 3 && GameObject.Find("Modalità schermo valore").GetComponent<Text>().text != "Finestra"; i++) Choice("Modalità schermo").Step(1);
+            for (int i = 0; i < 100 && GameObject.Find("Risoluzione valore").GetComponent<Text>().text != "1600 × 900"; i++) Choice("Risoluzione").Step(1);
             Click("Applica schermo");
             yield return WaitForSize(1600, 900);
             Check("preview changes real render resolution", Screen.width == 1600 && Screen.height == 900);
@@ -61,11 +63,11 @@ namespace PryingEyes
             yield return WaitForSize(width, height);
             Check("timeout restores resolution while paused", Screen.width == width && Screen.height == height && Time.timeScale == 0f);
             Check("timeout closes confirmation", !(bool)Field("displayPending").GetValue(menu));
-            for (int i = 0; i < 100 && GameObject.Find("Risoluzione valore").GetComponent<Text>().text != "1600 × 900"; i++) Click("Risoluzione ›");
+            for (int i = 0; i < 100 && GameObject.Find("Risoluzione valore").GetComponent<Text>().text != "1600 × 900"; i++) Choice("Risoluzione").Step(1);
             Click("Applica schermo"); yield return WaitForSize(1600, 900);
             Click("Ripristina"); yield return WaitForSize(width, height);
             Check("explicit cancel restores resolution", Screen.width == width && Screen.height == height);
-            for (int i = 0; i < 100 && GameObject.Find("Risoluzione valore").GetComponent<Text>().text != "1600 × 900"; i++) Click("Risoluzione ›");
+            for (int i = 0; i < 100 && GameObject.Find("Risoluzione valore").GetComponent<Text>().text != "1600 × 900"; i++) Choice("Risoluzione").Step(1);
             Click("Applica schermo"); yield return WaitForSize(1600, 900);
             Click("Mantieni impostazioni");
             Check("confirm persists applied resolution", PlayerPrefs.GetInt("display_confirmed_v1", 0) == 1 && PlayerPrefs.GetInt("display_width", 0) == Screen.width && PlayerPrefs.GetInt("display_height", 0) == Screen.height);
