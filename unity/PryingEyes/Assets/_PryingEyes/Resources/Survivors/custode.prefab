@@ -82,7 +82,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7739161956690806001, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.x
-      value: 0.6442
+      value: 0.64320004
       objectReference: {fileID: 0}
     - target: {fileID: -7739161956690806001, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.y
@@ -98,15 +98,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1226659830643472156, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.x
-      value: 0.6838101
+      value: 0.6859745
       objectReference: {fileID: 0}
     - target: {fileID: 1226659830643472156, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.y
-      value: 0.68285686
+      value: 0.68214345
       objectReference: {fileID: 0}
     - target: {fileID: 1226659830643472156, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.z
-      value: 0.70997125
+      value: 0.7120872
       objectReference: {fileID: 0}
     - target: {fileID: 6747620570584181541, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.x
@@ -114,11 +114,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6747620570584181541, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.y
-      value: 0.8469317
+      value: 0.8459221
       objectReference: {fileID: 0}
     - target: {fileID: 6747620570584181541, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.z
-      value: 0.7137921
+      value: 0.7087079
       objectReference: {fileID: 0}
     - target: {fileID: 8465809136702240192, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.x
@@ -126,7 +126,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8465809136702240192, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.y
-      value: 1.5206243
+      value: 1.5206257
       objectReference: {fileID: 0}
     - target: {fileID: 8465809136702240192, guid: 642edf08571bfe74b931584b2007f597, type: 3}
       propertyPath: m_AABB.m_Extent.z

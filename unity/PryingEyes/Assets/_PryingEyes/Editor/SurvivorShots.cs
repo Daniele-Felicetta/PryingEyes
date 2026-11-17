@@ -78,7 +78,7 @@ namespace PryingEyes.EditorTools
         public static void Poses()
         {
             ShaderUtil.allowAsyncCompilation = false;
-            int slot = int.Parse(Arg("-slot", "0"));
+            string slotArg = Arg("-slot", "0");        // un numero, oppure 'all' per i quattro in fila
             string only = Arg("-only", "");
             var list = All();
             if (only.Length > 0)
@@ -111,7 +111,8 @@ namespace PryingEyes.EditorTools
             var ad = cam.GetUniversalAdditionalCameraData();
             ad.renderPostProcessing = false;
             ad.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
-            const int W = 330, H = 462, cols = 6;
+            const int W = 330, H = 462;
+            int cols = Mathf.Clamp(list.Count, 1, 6);
             int rows = (list.Count + cols - 1) / cols;
             var rt = new RenderTexture(W, H, 24);
             cam.targetTexture = rt;
@@ -120,12 +121,18 @@ namespace PryingEyes.EditorTools
                 ("lato", new Vector3(3.3f, 0.95f, 0.15f), new Vector3(0f, 0.92f, 0.1f), 36f),
                 ("fronte", new Vector3(1.6f, 1.25f, 3.1f), new Vector3(0f, 0.92f, 0f), 36f),
                 ("dietro", new Vector3(-1.5f, 1.45f, -3.0f), new Vector3(0f, 0.9f, 0f), 36f),
+                // il viso a un metro (come lo vede un compagno da vicino), di tre quarti, e la nuca da dietro: per giudicare volti e capelli
+                ("faccia", new Vector3(0.08f, 1.64f, 1.05f), new Vector3(0f, 1.62f, 0f), 24f),
+                ("faccia3q", new Vector3(0.62f, 1.66f, 0.86f), new Vector3(0f, 1.62f, 0f), 24f),
+                ("nuca", new Vector3(-0.30f, 1.70f, -1.05f), new Vector3(0f, 1.60f, 0f), 26f),
             };
-            string viewsArg = Arg("-views", "lato,fronte");
+            var viewSet = new HashSet<string>(Arg("-views", "lato,fronte").Split(','));
             var cell = new Texture2D(W, H, TextureFormat.RGB24, false);
+            var slots = slotArg == "all" ? new[] { 0, 1, 2, 3 } : new[] { int.Parse(slotArg) };
+            foreach (int slot in slots)
             foreach (var v in views)
             {
-                if (!viewsArg.Contains(v.name)) continue;
+                if (!viewSet.Contains(v.name)) continue;
                 var sheet = new Texture2D(W * cols, H * rows, TextureFormat.RGB24, false);
                 int n = 0;
                 foreach (var p in list)

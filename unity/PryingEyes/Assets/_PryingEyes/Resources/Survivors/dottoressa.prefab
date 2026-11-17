@@ -94,7 +94,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7989803665740868518, guid: a35ea30d10761ed4482feadd3b3d00da, type: 3}
       propertyPath: m_AABB.m_Extent.x
-      value: 0.6442
+      value: 0.64320004
       objectReference: {fileID: 0}
     - target: {fileID: -7989803665740868518, guid: a35ea30d10761ed4482feadd3b3d00da, type: 3}
       propertyPath: m_AABB.m_Extent.y
@@ -106,15 +106,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -5798291118106725618, guid: a35ea30d10761ed4482feadd3b3d00da, type: 3}
       propertyPath: m_AABB.m_Extent.x
-      value: 0.67710304
+      value: 0.68698955
       objectReference: {fileID: 0}
     - target: {fileID: -5798291118106725618, guid: a35ea30d10761ed4482feadd3b3d00da, type: 3}
       propertyPath: m_AABB.m_Extent.y
-      value: 0.70222425
+      value: 0.7099668
       objectReference: {fileID: 0}
     - target: {fileID: -5798291118106725618, guid: a35ea30d10761ed4482feadd3b3d00da, type: 3}
       propertyPath: m_AABB.m_Extent.z
-      value: 0.70390373
+      value: 0.7054392
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: a35ea30d10761ed4482feadd3b3d00da, type: 3}
       propertyPath: m_Name
@@ -126,11 +126,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7835990541897188292, guid: a35ea30d10761ed4482feadd3b3d00da, type: 3}
       propertyPath: m_AABB.m_Extent.y
-      value: 0.8405765
+      value: 0.83955896
       objectReference: {fileID: 0}
     - target: {fileID: 7835990541897188292, guid: a35ea30d10761ed4482feadd3b3d00da, type: 3}
       propertyPath: m_AABB.m_Extent.z
-      value: 0.7101433
+      value: 0.7065765
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

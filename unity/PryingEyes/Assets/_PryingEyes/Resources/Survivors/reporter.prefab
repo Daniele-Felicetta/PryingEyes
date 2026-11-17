@@ -94,15 +94,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -4454103209160513604, guid: 25b7f6758f372074cab167e040eae4e0, type: 3}
       propertyPath: m_AABB.m_Extent.x
-      value: 0.6800516
+      value: 0.6801183
       objectReference: {fileID: 0}
     - target: {fileID: -4454103209160513604, guid: 25b7f6758f372074cab167e040eae4e0, type: 3}
       propertyPath: m_AABB.m_Extent.y
-      value: 0.6823933
+      value: 0.6915433
       objectReference: {fileID: 0}
     - target: {fileID: -4454103209160513604, guid: 25b7f6758f372074cab167e040eae4e0, type: 3}
       propertyPath: m_AABB.m_Extent.z
-      value: 0.7039036
+      value: 0.70006037
       objectReference: {fileID: 0}
     - target: {fileID: -3204728397901944355, guid: 25b7f6758f372074cab167e040eae4e0, type: 3}
       propertyPath: m_AABB.m_Extent.x
@@ -110,11 +110,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -3204728397901944355, guid: 25b7f6758f372074cab167e040eae4e0, type: 3}
       propertyPath: m_AABB.m_Extent.y
-      value: 0.84226495
+      value: 0.84127414
       objectReference: {fileID: 0}
     - target: {fileID: -3204728397901944355, guid: 25b7f6758f372074cab167e040eae4e0, type: 3}
       propertyPath: m_AABB.m_Extent.z
-      value: 0.7110947
+      value: 0.70689327
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 25b7f6758f372074cab167e040eae4e0, type: 3}
       propertyPath: m_Name
@@ -122,7 +122,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2589589043286367913, guid: 25b7f6758f372074cab167e040eae4e0, type: 3}
       propertyPath: m_AABB.m_Extent.x
-      value: 0.6442
+      value: 0.64320004
       objectReference: {fileID: 0}
     - target: {fileID: 2589589043286367913, guid: 25b7f6758f372074cab167e040eae4e0, type: 3}
       propertyPath: m_AABB.m_Extent.y
