@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
+using PryingEyes.Proc.MapArt;
 
 namespace PryingEyes
 {
@@ -228,7 +229,7 @@ namespace PryingEyes
             // ----- 8b) foto dei ruoli (solo con la grafica)
             if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null) yield return GridPhotos(fd, plan);
 
-            // ----- 9) la mappa: quello che si vede (le stanze visitate, i "?" oltre le porte aperte, la segreta solo dopo) si dipinge in un PNG
+            // ----- 9) la mappa (Proc/Map/FloorMap.cs): quello che si vede (le stanze visitate, le macchie ignote oltre le porte aperte, la segreta solo dopo)
             Log("--- mappa");
             var around = new HashSet<int>();
             foreach (var o in plan.openings)
@@ -237,28 +238,27 @@ namespace PryingEyes
                 if (o.a == startRoom.id) around.Add(o.b);
                 if (o.b == startRoom.id) around.Add(o.a);
             }
+            bool gfx = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
             fd.DebugSetExplored(new[] { startRoom.id });
-            int q0 = PaintMap(fd, plan, Dir + "/griglia_mappa_inizio.png");
-            Check("all'inizio si vedono la partenza e, come '?', le stanze oltre le sue porte", q0 == around.Count && q0 >= 1, $"{q0} stanze '?', porte aperte verso {around.Count}");
+            int q0 = fd.map.RumorCount;
+            Check("all'inizio si vedono la partenza e, come macchie ignote, le stanze oltre le sue porte", q0 == around.Count && q0 >= 1, $"{q0} stanze ignote, porte aperte verso {around.Count}");
+            if (gfx) yield return MapPhoto("griglia_mappa_inizio_ui", true);
             var all = new List<int>();
             foreach (var r in plan.rooms) if (!r.IsLift && r.type != RoomType.Segreta) all.Add(r.id);
             fd.DebugSetExplored(all);
-            int q1 = PaintMap(fd, plan, Dir + "/griglia_mappa_tutta.png");
-            Check("visitate tutte le stanze non resta nessun '?'", q1 == 0, $"{q1} stanze '?'");
-            Check("la stanza segreta non compare sulla mappa finche' non ci si entra", !hasSecret || !PaintMapHas(fd, plan, plan.OfType(RoomType.Segreta)[0]));
+            int q1 = fd.map.RumorCount;
+            Check("visitate tutte le stanze non resta nessuna macchia ignota", q1 == 0, $"{q1} stanze ignote");
+            Check("la stanza segreta non compare sulla mappa finche' non ci si entra", !hasSecret || fd.map.StateOf(plan.OfType(RoomType.Segreta)[0].id) == RoomSeen.Hidden);
             if (hasSecret)
             {
                 fd.DebugExplore(plan.OfType(RoomType.Segreta)[0].id);
-                Check("...e dopo esserci entrati compare", PaintMapHas(fd, plan, plan.OfType(RoomType.Segreta)[0]));
-                PaintMap(fd, plan, Dir + "/griglia_mappa_con_segreta.png");
+                Check("...e dopo esserci entrati compare", fd.map.StateOf(plan.OfType(RoomType.Segreta)[0].id) == RoomSeen.Seen);
             }
-            bool gfx = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
-            fd.DebugShowMap(true, false);
-            yield return new WaitForSeconds(0.4f);
-            if (gfx) GameManager.CamShot(Dir + "/griglia_mappa_ui.png", null, true);          // la mappa a tutto schermo com'e' nel gioco, con l'HUD
-            fd.DebugShowMap(false, true);
-            yield return new WaitForSeconds(0.3f);
-            if (gfx) GameManager.CamShot(Dir + "/griglia_minimappa_ui.png", null, true);
+            if (gfx)
+            {
+                yield return MapPhoto("griglia_mappa_ui", true);                 // il foglio grande com'e' nel gioco, con l'HUD
+                yield return MapPhoto("griglia_minimappa_ui", false);
+            }
             fd.DebugShowMap(false, false);
 
             Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
@@ -439,57 +439,14 @@ namespace PryingEyes
             if (torch != null && torch.on) torch.Toggle();
         }
 
-        /// <summary>Dipinge in un PNG (10 px al metro) gli elementi della mappa a griglia; ritorna quante stanze sono mostrate come '?'. Le etichette vanno nel log.</summary>
-        int PaintMap(FloorDirector fd, Plan plan, string file)
+        /// <summary>Apre il foglio grande (o la minimappa), aspetta che le stanze affiorino dalla carta e fotografa l'HUD (solo con la grafica).</summary>
+        IEnumerator MapPhoto(string name, bool big)
         {
-            const float scale = 10f; const int margin = 20;
-            float x0 = plan.minX * 0.1f, z1 = plan.maxZ * 0.1f;
-            int W = Mathf.CeilToInt((plan.maxX - plan.minX) * 0.1f * scale) + margin * 2, H = Mathf.CeilToInt((plan.maxZ - plan.minZ) * 0.1f * scale) + margin * 2;
-            var px = new Color[W * H];
-            for (int i = 0; i < px.Length; i++) px[i] = new Color(0.025f, 0.035f, 0.045f, 1f);
-            float PX(float x) => margin + (x - x0) * scale;
-            float PY(float z) => margin + (z1 - z) * scale;
-            void Fill(Rect r, Color c)
-            {
-                int xa = Mathf.Max(0, Mathf.FloorToInt(r.x)), xb = Mathf.Min(W - 1, Mathf.CeilToInt(r.xMax) - 1);
-                int ya = Mathf.Max(0, Mathf.FloorToInt(r.y)), yb = Mathf.Min(H - 1, Mathf.CeilToInt(r.yMax) - 1);
-                for (int y = ya; y <= yb; y++)
-                    for (int x = xa; x <= xb; x++)
-                    {
-                        int k = (H - 1 - y) * W + x;             // lo schermo ha y verso il basso, la texture verso l'alto
-                        px[k] = Color.Lerp(px[k], new Color(c.r, c.g, c.b, 1f), c.a);
-                    }
-            }
-            int unknown = 0;
-            foreach (var it in fd.GridMapItems(plan, true, PX, PY, scale))
-            {
-                switch (it.kind)
-                {
-                    case FloorDirector.MapItem.Kind.Fill: Fill(it.r, it.c); break;
-                    case FloorDirector.MapItem.Kind.Box:
-                        Fill(new Rect(it.r.x, it.r.y, it.r.width, it.t), it.c); Fill(new Rect(it.r.x, it.r.yMax - it.t, it.r.width, it.t), it.c);
-                        Fill(new Rect(it.r.x, it.r.y, it.t, it.r.height), it.c); Fill(new Rect(it.r.xMax - it.t, it.r.y, it.t, it.r.height), it.c);
-                        break;
-                    default:
-                        if (it.text == "?") unknown++;
-                        Log($"   mappa: '{it.text}' a ({it.r.center.x:F0},{it.r.center.y:F0})");
-                        break;
-                }
-            }
-            var tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
-            tex.SetPixels(px);
-            tex.Apply();
-            File.WriteAllBytes(file, tex.EncodeToPNG());
-            Object.Destroy(tex);
-            return unknown;
-        }
-
-        /// <summary>Vero se la stanza compare nella mappa (come riquadro).</summary>
-        bool PaintMapHas(FloorDirector fd, Plan plan, Room room)
-        {
-            foreach (var it in fd.GridMapItems(plan, true, x => x, z => -z, 1f))
-                if (it.kind == FloorDirector.MapItem.Kind.Label && it.r.Contains(new Vector2(room.CenterX, -room.CenterZ))) return true;
-            return false;
+            var fd = FloorDirector.I;
+            fd.DebugShowMap(big, !big);
+            yield return new WaitForSeconds(1.8f);
+            GameManager.CamShot(Dir + "/" + name + ".png", null, true);
+            yield return null;
         }
     }
 }

@@ -68,7 +68,7 @@ namespace PryingEyes.Proc
             floor = 0;
             Fabbrica.Carica();
             Biblioteca.Clear();
-            explored.Clear(); foundWeapons.Clear(); foundCandles.Clear(); foundShrines.Clear(); foundExit = false; System.Array.Clear(mapOpenA, 0, mapOpenA.Length);
+            FloorMap.Clear(); map = null; System.Array.Clear(mapOpenA, 0, mapOpenA.Length);      // la cattedrale non ha la mappa (Proc/Map/FloorMap.cs)
             LightPool.Dim = 1f;
             exitOpen = false; lit = total = 0;
             var plan = HubPlan.Build(Fabbrica.Costruita);
@@ -273,7 +273,7 @@ namespace PryingEyes.Proc
             ApplyCathedralPrices();
             var eq = gm.player != null ? Equipment.Ensure(gm.player) : null;
             if (eq != null && Fabbrica.AcquasantaMinima > eq.grenades) { eq.grenades = Fabbrica.AcquasantaMinima; gm.hud?.SetEquipment(eq.grenades, eq.lures, eq.mines); }
-            if (revealMaps && Catacombe.Hub) foreach (var r in plan.rooms) explored.Add(r.id);
+            // la Mappa del cartografo (revealMaps) la applica GoTo appena nasce la mappa del piano (FloorMap.Create)
             var lift = cur.arrival;
             if (lift == null || !Catacombe.Hub) return;
             // la scala d'ingresso: si risale da qui, tra un'ondata e l'altra

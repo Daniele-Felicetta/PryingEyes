@@ -79,7 +79,7 @@ Each room has a role (`RoomType`). The colour of its door frames tells the role 
 
 The two halves of a floor (the arrival zone and the boss zone) are the two "wings" of the theme, each with its own furniture palette: church and hotel, or auditorium and stage for the theatre.
 
-**Map.** `M` opens the map and `N` shows the minimap. Rooms are drawn as nodes: visited rooms in the colour of their role, with their name. Rooms beyond an open door are drawn as `?`, doors as notches. The secret room appears only after you have entered it (`FloorDirector.GridMapItems`).
+**Map.** `M` opens the map and `N` shows the minimap. The map is a hand-inked dossier that fills in as you explore: visited rooms are drawn with their furniture, role and name; rooms beyond an open door are ink stains with a `?` and eyes that follow you; sealed doors are wax seals with their price. The secret room appears only after you have entered it. Everything it shows and how it is drawn is on [map.md](map.md).
 
 **Generator.** `PlanGrid.cs` (integer geometry, like `PlanGen`). Speed claims from the original text, 2,000 plans in half a second, none failed, eight in ten on the first try, are not verified. To get statistics (roles, doors, sizes, arenas, shutters): `cd tools/planlab; dotnet run -c Release -- grid 2000` (the `grid` argument is not verified).
 
@@ -315,7 +315,8 @@ The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namesp
 
 **Floor and cycle logic**
 
-- `FloorDirector.cs`: floor direction (hordes, weapons, bots), shrine validation (`ValidateShrines`), death penalty, the grid map (`GridMapItems`). Also `FloorDirector.Bot.cs`, `Look.cs`, `Trailer.cs`.
+- `FloorDirector.cs`: floor direction (hordes, weapons, bots), shrine validation (`ValidateShrines`), death penalty, the map hooks (`MapOpen`, `MiniOn`, what each player discovers). Also `FloorDirector.Bot.cs`, `Look.cs`, `Trailer.cs`.
+- `Map/` (`FloorMap.cs`, `MapView*.cs`, `MapPainter*.cs`, `MapPen.cs`, `MapScene.cs`, ...) and `HUD.Map.cs`: the floor map ([map.md](map.md)).
 - `SurvivalMode.cs`: the cycle selection (section 1) and the speed multiplier.
 - `RoundDirector.cs`: the round rules in `RoundRules`, the `Shutter`, and the round director (shutters, spawns, reward, cancellation).
 - `RoundDirector.Survival.cs`: the wave cycle.
@@ -392,4 +393,4 @@ Not confirmed: the knife's "within one metre" rule from the original text (not v
 - **`planlab grid` and `planlab regions`** command names (the folder `tools/planlab` exists; the arguments were not checked).
 - **Classic hall not in the build** (`Hotel.unity` and `HotelBuilder` exist in the project, the build contents were not checked).
 - **Occhio della Torre duration:** `PlayerPerks.EyeTime` is 6 s, but whether it is the ping's duration was not checked.
-- **Map rule** ('?' for rooms beyond an open door, secret room shown only after entry) and **the 97% Segreta** share: not checked in `GridMapItems`.
+- **The 97% Segreta** share: not checked. (The map rule, `?` for rooms beyond an open door and the secret room shown only after entry, is checked by `-stealthtest -gridtest` through `FloorMap`.)
