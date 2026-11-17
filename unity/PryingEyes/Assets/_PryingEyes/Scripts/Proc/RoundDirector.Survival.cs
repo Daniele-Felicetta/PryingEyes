@@ -29,6 +29,24 @@ namespace PryingEyes.Proc
         void ArmSurvival()
         {
             floorWaves = 0; nextWave = FirstWaveDelay; stallT = 0f; lastAlive = 0; teamDown = false;
+            branchBossNext = branchBossWave = branchBossPending = branchBossDone = false;
+        }
+
+        // ---- catacombe: il boss del ramo (Cattedrale/Catalogo.cs, Rami). Sul terzo livello di ogni ramo, dopo le tre ondate, l'ondata dopo si apre
+        // con il boss (il Cardinale, il Direttore, il Primario, il Conte) e una scorta piu' piccola; finita quella, l'uscita si apre e il trofeo va
+        // nella cattedrale (FloorDirector.OpenExit). Se l'ondata salta (tutti morti, stallo) si ripete.
+        bool branchBossNext, branchBossWave, branchBossPending, branchBossDone;
+        static bool BranchBossLevel => Cattedrale.Catacombe.Attive && FloorDirector.I != null && Cattedrale.Rami.LivelloDelBoss(FloorDirector.I.floor);
+        /// <summary>Il boss del ramo e' in campo (per l'obiettivo e le prove).</summary>
+        public bool BranchBossFighting => branchBossWave && phase == Phase.Fighting;
+
+        void MarkBranchBoss(Enemy e)
+        {
+            var def = Cattedrale.Rami.BossDi(FloorDirector.I.floor);
+            int ramo = Cattedrale.Rami.RamoDi(FloorDirector.I.floor);
+            // tutti i boss con la vita del Cardinale delle ondate ottave, che cresce col ramo
+            float hp = (3200f + 1300f * (Targets.Count - 1) + 120f * Round) * (1f + 0.25f * ramo);
+            Enemy.MakeBranchBoss(e, def.bossTitolo, hp, ramo == 3);
         }
 
         /// <summary>Per le prove: la prossima ondata parte tra 'seconds' secondi invece che al suo turno.</summary>
@@ -48,7 +66,19 @@ namespace PryingEyes.Proc
             phase = Phase.Fighting;
             // ogni otto ondate scende il Cardinale (non nelle Processioni: quelle sono delle falene)
             bossPending = Round % 8 == 0 && !moth;
+            if (branchBossNext)
+            {
+                // il boss del ramo: niente Processione e niente Cardinale delle ottave in questa ondata, una scorta di meta'
+                branchBossNext = false; branchBossWave = true; branchBossPending = true; bossPending = false; moth = false;
+                target = Mathf.Max(10, target / 2);
+            }
             ShowSurvivalWave();
+            if (branchBossWave)
+            {
+                var def = Cattedrale.Rami.BossDi(FloorDirector.I.floor);
+                Seats.ForHuds(h => h.Banner(def.bossTitolo.ToUpperInvariant(), "Il signore di questo ramo è sceso a cercarti."));
+                Sfx.UI(SoundBank.BossRoar, 0.9f, 0.8f);
+            }
             if (bossPending)
             {
                 Seats.ForHuds(h => h.Banner("IL CARDINALE", "Il capo dell'ordine e' sceso nel piano."));
@@ -124,6 +154,7 @@ namespace PryingEyes.Proc
                 if (e == null) continue;
                 if (!Enemy.IsFlying(type)) e.RiseFromGround(Random.Range(1.0f, 1.35f));     // sale dal pavimento
                 Scale(e); e.MakeRelentless(); mine.Add(e); RoundFlare.At(q);
+                if (branchBossPending) { branchBossPending = false; MarkBranchBoss(e); }
                 return true;
             }
             return false;
@@ -134,6 +165,7 @@ namespace PryingEyes.Proc
         /// piano (monaci, abati, volanti, costumi a tema). La Processione resta delle falene.</summary>
         Enemy.EnemyType PickSurvivalType(Room room)
         {
+            if (branchBossPending && System.Enum.TryParse(Cattedrale.Rami.BossDi(FloorDirector.I.floor).bossTipo, out Enemy.EnemyType bt)) return bt;
             if (bossPending) { bossPending = false; return Enemy.EnemyType.Cardinale; }
             if (moth) return Enemy.EnemyType.Veglia;
             float r = Random.value;
@@ -241,11 +273,25 @@ namespace PryingEyes.Proc
             if (reward)
             {
                 // il premio dell'ondata e' di ogni giocatore (schermo condiviso o cooperativa): i suoi punti, il suo scudo, le sue munizioni
-                Seats.EachOrOnce(_ => { gm.AddPoints(points); gm.player.shield = 50; gm.player.weapon.AddAmmoFraction(0.25f); });
+                // l'Organo della cattedrale: ogni ondata superata cura del tutto e porta lo scudo a 100
+                bool inno = Cattedrale.Catacombe.Attive && Cattedrale.Fabbrica.Inno;
+                Seats.EachOrOnce(_ => { gm.AddPoints(points); gm.player.shield = inno ? 100 : 50; if (inno) gm.player.Heal(9999f); gm.player.weapon.AddAmmoFraction(0.25f); });
                 floorWaves++; MusicDirector.WaveCleared();
             }
+            bool wasBoss = branchBossWave;
+            branchBossWave = false; branchBossPending = false;
+            if (wasBoss && reward) branchBossDone = true;
             phase = Phase.Idle; nextWave = WaveBreak; mine.Clear(); stallT = 0f; lastAlive = 0;
-            if (floorWaves >= WavesForExit) FloorDirector.I?.SurvivalExitReady();
+            if (floorWaves >= WavesForExit)
+            {
+                if (!BranchBossLevel || branchBossDone) FloorDirector.I?.SurvivalExitReady();
+                else
+                {
+                    branchBossNext = true;
+                    var def = Cattedrale.Rami.BossDi(FloorDirector.I.floor);
+                    Seats.ForHuds(h => h.Toast($"Il pavimento trema: {def.bossTitolo} scenderà con la prossima ondata."));
+                }
+            }
             string head = (moth ? "PROCESSIONE DEI LUMI " : "ONDATA ") + Round + " SUPERATA";
             string sub = reward ? $"+{points} punti  ·  {WaveBreak:0} secondi per rifornirti e aprire nuove aree" + (moth ? "  ·  un Reliquiario è caduto" : "") : "Le presenze si sono dissolte.";
             Seats.ForHuds(h => { h.Banner(head, sub); h.SetRound(Round); });
@@ -258,6 +304,7 @@ namespace PryingEyes.Proc
             bool active = phase == Phase.Fighting || mine.Count > 0;
             foreach (var e in mine) if (e != null && !e.IsDead) Enemy.Remove(e);
             mine.Clear();
+            if (branchBossWave) { branchBossWave = false; branchBossPending = false; branchBossNext = true; }      // il boss tornera' con la prossima
             if (phase == Phase.Fighting) Round = Mathf.Max(0, Round - 1);
             phase = Phase.Idle; nextWave = FirstWaveDelay; stallT = 0f; lastAlive = 0;
             if (!active) return;

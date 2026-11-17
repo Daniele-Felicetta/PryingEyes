@@ -62,8 +62,12 @@ namespace PryingEyes.Proc
             public float dadoH;
         }
 
+        /// <summary>Il piano in costruzione e' un livello delle catacombe (Plan.catacombe): StyleOf lo legge per le cabine.</summary>
+        static bool catacombStyle;
+
         public static FloorInstance Build(Plan plan, Transform parent = null)
         {
+            catacombStyle = plan.catacombe;
             var fi = new FloorInstance { plan = plan };
             fi.root = new GameObject(plan.name);
             if (parent != null) fi.root.transform.SetParent(parent, false);
@@ -209,7 +213,12 @@ namespace PryingEyes.Proc
                 case RoomKind.Terrazza:
                     s.floor = Mat("pav_lastre"); s.wall = Mat("mur_pietra"); s.trim = Mat("cornice_pietra"); break;
                 case RoomKind.Ascensore:
-                    s.floor = Mat("pav_servizio"); s.wall = Mat("mur_boiserie"); s.ceil = Mat("mur_boiserie"); s.trim = Mat("ottone"); break;
+                    // nelle catacombe la cabina e' il pianerottolo di una scala di pietra (ProcLift.BuildGate)
+                    if (catacombStyle) { s.floor = Mat("pav_cripta"); s.wall = Mat("mur_cripta"); s.ceil = Mat("sof_volta"); s.trim = Mat("cornice_pietra"); s.beam = Mat("cornice_pietra"); }
+                    else { s.floor = Mat("pav_servizio"); s.wall = Mat("mur_boiserie"); s.ceil = Mat("mur_boiserie"); s.trim = Mat("ottone"); }
+                    break;
+                case RoomKind.Sagrato:
+                    s.floor = Mat("pav_lastre"); s.wall = Mat("mur_pietra"); s.trim = Mat("cornice_pietra"); break;
             }
             s.outer = r.church ? Mat("mur_pietra") : theme == Theme.Sanatorio ? Mat("mur_intonaco_freddo") : theme == Theme.Teatro ? Mat("mur_intonaco_nero")
                 : theme == Theme.Guardaroba ? Mat("mur_pietra") : Mat("mur_intonaco");
@@ -430,6 +439,7 @@ namespace PryingEyes.Proc
 
         static void Ceiling(MeshBuilder mb, Room r, Style st, float ix0, float ix1, float iz0, float iz1)
         {
+            if (r.ruined) return;            // la navata senza tetto: sopra c'e' il cielo
             float H = r.wallH;
             switch (r.ceil)
             {

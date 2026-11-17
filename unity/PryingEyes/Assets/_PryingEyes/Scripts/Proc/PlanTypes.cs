@@ -28,7 +28,9 @@ namespace PryingEyes.Proc
         Accettazione, Degenza, Corsia, Cella, Refettorio, SalaOperatoria, Lavanderia, Archivio, Obitorio, SalaMedici,
         Rotonda, Galleria, GiardinoInverno,
         // guardaroba: la sala degli armadi, la sartoria, lo spogliatoio, il sepolcreto dei vampiri, la forgia con la lava e la terrazza all'aperto
-        SalaArmadi, Sartoria, Spogliatoio, Sepolcreto, Forgia, Terrazza
+        SalaArmadi, Sartoria, Spogliatoio, Sepolcreto, Forgia, Terrazza,
+        // la cattedrale da ricostruire (FloorDirector.Catacombe.cs): il sagrato all'aperto, con il mercato
+        Sagrato
     }
 
     /// <summary>Il ruolo di una stanza nella pianta a griglia (PlanGrid.cs), come i tipi di stanza di The Binding of Isaac: Partenza
@@ -59,6 +61,8 @@ namespace PryingEyes.Proc
         public bool upperGallery;           // doppia altezza e percorso superiore con due scale indipendenti
         public int GalleryLevels => upperGallery ? (W >= 240 && D >= 240 ? 2 : 1) : 0;
         public float cornerRadius;          // metri: raggio della pianta interna arrotondata, zero = rettangolare
+        /// <summary>Senza tetto: i muri salgono interi ma sopra c'e' il cielo (la navata della cattedrale prima delle volte).</summary>
+        public bool ruined;
         public int wing;                    // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
         public int unit;                    // ala-coppia di appartenenza (0 per la prima): vedi PlanGen.Compound
 
@@ -154,6 +158,10 @@ namespace PryingEyes.Proc
         public List<int> objectives = new List<int>();
         /// <summary>Pianta a griglia (PlanGrid.cs): poche stanze grandi con un ruolo (RoomType), da una a quattro porte ciascuna.</summary>
         public bool grid;
+        /// <summary>Il piano e' un livello delle catacombe: cancelli e scale di pietra al posto degli ascensori (ProcLift).</summary>
+        public bool catacombe;
+        /// <summary>La pianta e' la cattedrale da ricostruire (HubPlan.cs): niente arredi a caso, li mette RoomKits.Hub.cs secondo le opere.</summary>
+        public bool hub;
 
         /// <summary>Le stanze di difficile accesso (PlanAnnex.cs): torri, cripte e giardini segreti. Non sono stanze della pianta: stanno
         /// dentro la sala madre (torre, botola) o fuori dai suoi muri (giardino), e la visita del piano non le conta.</summary>

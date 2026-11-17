@@ -3,14 +3,14 @@
 The goal of the engineering work is a suite that outlives Prying Eyes. This page is the map: which parts are already
 independent of the game, what enforces that, and what is still game-specific. It is written to be checked, not admired:
 `python tools/check_suite.py` fails when a boundary below is crossed; `tools/ship.ps1` runs it, with the Python unit tests, before every
-commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the two .NET rule labs, on every push to `preview` and every
+commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the three .NET rule labs, on every push to `preview` and every
 pull request against it. How a change is built, shipped and gated is in [building-and-shipping.md](building-and-shipping.md).
 
 ## Layers
 
 | Layer | Where | Depends on | Proof it is independent |
 | --- | --- | --- | --- |
-| Rule packages (C#) | `unity/PryingEyes/Packages/com.pryingeyes.{layout,weapons,survival}` | nothing: `noEngineReferences`, no assembly references, no `UnityEngine`/`PryingEyes` in code | the same `.cs` files are compiled by the .NET labs `tools/{planlab,weaponslab,survivallab}` (no editor) and consumed by `unity/LayoutDemo` through `file:` references |
+| Rule packages (C#) | `unity/PryingEyes/Packages/com.pryingeyes.{layout,weapons,survival,economy}` | nothing: `noEngineReferences`, no assembly references, no `UnityEngine`/`PryingEyes` in code | the same `.cs` files are compiled by the .NET labs `tools/{planlab,weaponslab,survivallab,economylab}` (no editor) and consumed by `unity/LayoutDemo` through `file:` references |
 | Production engine (Python) | `tools/studio_engine.py`, `studio_process.py`, `studio_queue.py`, `asset_graph.py` | the standard library | `test_studio_engine.py` runs it on a toy project; a test imports it with `python -I` and asserts no game module, `jsonschema` or Pillow is loaded |
 | Project profile | `tools/studio_pryingeyes.py` + the catalogs under `Resources/Production` | the engine, the game | this is the *only* place that knows weapons, rooms, Blender, Unity, the city recipe |
 | Guard | `tools/check_suite.py`, `tools/test_check_suite.py` | the repository layout | the guard is itself tested against a fixture repository with every kind of violation |
@@ -26,7 +26,7 @@ path of one machine in a page as a defect, like a broken link.
 | Where | What | Needs |
 | --- | --- | --- |
 | `tools/ship.ps1`, before every commit | `check_suite.py` and the Python unit tests | Python, no Unity |
-| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state` and `studio.py test survival`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of a few MB |
+| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival` and `studio.py test economy`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of a few MB |
 
 The labs are not part of `ship.ps1`: they take the project lock and would fail with `PROJECT_BUSY` whenever another agent has a
 production running on the same checkout. The runner is Windows because the engine owns process trees with Job Objects and its POSIX

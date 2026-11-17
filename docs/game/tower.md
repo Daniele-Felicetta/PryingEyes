@@ -15,6 +15,12 @@ Related pages, for what this one does not repeat:
 - [display-and-menu.md](display-and-menu.md): display settings and the menu. [../multiplayer/README.md](../multiplayer/README.md): online co-op.
 - [../engineering/testing.md](../engineering/testing.md): how each of these is verified. [../history/zombies-redesign.md](../history/zombies-redesign.md): how the wave cycle came about.
 
+**Since 17 November 2026 the floors are the levels of the catacombs** under the player's cathedral: the lifts are iron gates on stone
+stairs, each branch of three levels has one theme and a boss on its third level, enemies drop resources, and alone you start and come
+back to the cathedral. That layer is described in [cathedral-and-catacombs.md](cathedral-and-catacombs.md); this page still describes
+each level. The automated tests keep the Tower as it was unless they pass `-catacombe` or `-cattedrale`, and `-torre` brings the Tower
+back when playing.
+
 ## 1. Status: two cycles
 
 | Cycle | Status | Selected by |

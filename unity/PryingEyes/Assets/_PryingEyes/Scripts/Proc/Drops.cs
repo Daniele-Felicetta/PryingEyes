@@ -60,6 +60,7 @@ namespace PryingEyes
             if (disabled && !forceNext) return;
             if (onFloor >= PerFloor && !forceNext) return;
             float p = KillChance * (src == DamageSource.Takedown ? TakedownMul : src == DamageSource.Knife ? KnifeMul : 1f);
+            if (Cattedrale.Catacombe.Attive) p *= Cattedrale.Fabbrica.CadutaMul;          // la Provvidenza dell'altare
             if (forceNext) { p = 1f; forceNext = false; }
             if (Random.value >= p) return;
             Spawn(NextKind(), lastKillPos);
