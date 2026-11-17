@@ -125,6 +125,7 @@ namespace PryingEyes
             BuildMagicUI();          // Magia/HUD.Magia.cs: essenza, magia e sigillo della mano sinistra, sopra l'equipaggiamento
             BuildMedalUI();          // HUD.Medals.cs: la medaglia in alto al centro
             BuildScoreUI();          // HUD.Score.cs: tabellone tenendo premuto Tab (sopra a tutto il resto)
+            BuildRisorseUI();        // Cattedrale/HUD.Risorse.cs: lo zaino (o il magazzino) a destra sotto la minimappa
 
             // Navigazione in alto; risorse di combattimento ai due angoli inferiori.
             waveLabel = MakeText("WaveLabel", new Vector2(0, 1), new Vector2(28, -26), new Vector2(100, 22), 13, TextAnchor.UpperLeft, "ONDATA", Dim, FontStyle.Bold);
@@ -444,6 +445,7 @@ namespace PryingEyes
             UpdateBossUI(dt);
             UpdateMedalUI(dt);
             UpdateScoreUI(dt);
+            UpdateRisorseUI(dt);
             if (bannerT > 0f)
             {
                 bannerT -= dt;

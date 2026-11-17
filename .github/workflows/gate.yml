@@ -97,9 +97,9 @@ jobs:
 
       # Compiled here, once, so the Python tests that run `dotnet run` (90-120 s limits) do not spend them restoring and compiling.
       # Several native commands in one PowerShell step: only the last exit code would count, so each one is checked.
-      - name: Compile the three .NET labs
+      - name: Compile the four .NET labs
         run: |
-          foreach ($lab in 'planlab', 'weaponslab', 'survivallab') {
+          foreach ($lab in 'planlab', 'weaponslab', 'survivallab', 'economylab') {
             dotnet build "tools/$lab" -c Release --nologo
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
@@ -117,10 +117,15 @@ jobs:
           STUDIO_OUTPUT: unity_logs/lab-reports/survival
         run: python tools/studio.py test survival
 
+      - name: Economy rules lab
+        env:
+          STUDIO_OUTPUT: unity_logs/lab-reports/economy
+        run: python tools/studio.py test economy
+
       - name: Lab results in the run summary
         if: ${{ !cancelled() }}
         run: |
-          $rows = foreach ($lab in 'weapon-state', 'survival') {
+          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy') {
             $found = Get-ChildItem "unity_logs/lab-reports/$lab" -Recurse -Filter report.json -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $found) { "| $lab | no report | | |"; continue }
             $r = Get-Content $found.FullName -Raw | ConvertFrom-Json

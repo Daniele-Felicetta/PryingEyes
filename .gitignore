@@ -42,6 +42,9 @@ tools/weaponslab/obj/
 !tools/survivallab/SurvivalLab.csproj
 tools/survivallab/bin/
 tools/survivallab/obj/
+!tools/economylab/EconomyLab.csproj
+tools/economylab/bin/
+tools/economylab/obj/
 modelli/chiesa/export/*.fbx
 modelli/hotel/arredi2/*.fbx
 modelli/hotel/arredi3/*.fbx
@@ -58,6 +61,8 @@ hotel_build/armi_gioco/*.png
 hotel_build/perf/
 # prova delle magie e dei sigilli (-magiatest -magiashots): risultati e circa 190 foto a ogni giro, si rifanno
 hotel_build/magia/
+# prova della cattedrale e delle catacombe (-cattedraletest -cattedraleshots): foto a ogni giro, si rifanno
+hotel_build/cattedrale/
 hotel_build/seats/
 
 # Isolated multiplayer checks; never use the main worktree build output.

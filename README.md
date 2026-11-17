@@ -1,8 +1,10 @@
 # Prying Eyes
 
-A first-person survival horror game set in **the Tower**: a descent through floors of hotel wings, churches, theatres and sanatoria,
-generated again on every run. Open new areas with the points you earn, hold out against waves of monks, abbots and things that float,
-and take the lift down to the next floor. Play alone, in online co-op with up to four players, or in split screen on one PC.
+A first-person survival horror game in two zones: **your cathedral**, a ruin to rebuild with what you bring back, with a market in the
+square outside; and **the catacombs** beneath it, branches of levels made of hotel wings, churches, theatres and sanatoria, generated again
+on every descent. Open new areas with the points you earn, hold out against waves of monks, abbots and things that float, gather bones,
+steel, embers and the trophies of the bosses, and climb back before the catacombs take you. Play alone, in online co-op with up to four
+players, or in split screen on one PC.
 
 Unity 6 (6000.6.7f1), Windows player, co-op over FishNet (UDP port 7807). The main scene is
 `unity/PryingEyes/Assets/_PryingEyes/Scenes/Torre.unity`.
@@ -23,8 +25,11 @@ Unity 6 (6000.6.7f1), Windows player, co-op over FishNet (UDP port 7807). The ma
 
 ## What is in the game
 
-- A procedural tower: every floor has a theme (hotel with church, theatre, sanatorium), a room grid with roles, and waves that start on their
-  own. Areas behind steel shutters are bought with points. Three waves open the lift, and you can stay to fight and shop.
+- A cathedral to rebuild: twenty works (vaults, altar, organ, forge, bell tower, chapels, the bosses' stained glass, the rose window) that
+  change what the descents give you, a market of supplies and resources, blessings, and a save that keeps it all.
+- Procedural catacombs: four branches (hotel with church, theatre, sanatorium, the Count's wardrobe) and the Abyss, each level with a room
+  grid, roles and waves that start on their own, areas bought with points, and a boss on the third level of each branch. Enemies drop
+  resources; points left when you climb back become coins; dying leaves your remains below.
 - 28 weapons in five grades, modelled in Blender, with real sights, recoil, lean, a knife, throwables and a mine.
 - Perks in magic books, a mystery chest, a consecration altar, power-ups, trials, medals, door traps, falling chandeliers, exploding oil
   barrels and enemies that rise from the floor.
@@ -32,7 +37,8 @@ Unity 6 (6000.6.7f1), Windows player, co-op over FishNet (UDP port 7807). The ma
   later waves add the Appestato, the Flagellante, the Statua and the Cardinale. Dead bodies fall as ragdolls.
 - Adaptive music, surface-specific impacts, light shafts through the windows and lamps and chandeliers you can shoot out.
 
-Everything is described, with the numbers checked against the code, in [The Tower](docs/game/tower.md) and
+Everything is described, with the numbers checked against the code, in [The cathedral and the catacombs](docs/game/cathedral-and-catacombs.md),
+[The Tower](docs/game/tower.md) and
 [Weapons](docs/game/weapons.md); the other feature pages are in the [documentation index](docs/README.md).
 
 ## Repository map
@@ -40,9 +46,9 @@ Everything is described, with the numbers checked against the code, in [The Towe
 | Path | What it holds |
 | --- | --- |
 | `unity/PryingEyes` | The game: the Unity project. Code in `Assets/_PryingEyes/Scripts` (`Proc/` floors and waves, `Coop/` co-op, `Armi/` weapons), editor tools in `Assets/_PryingEyes/Editor`. |
-| `unity/PryingEyes/Packages` | Engine-independent C# packages: `layout`, `weapons`, `survival`. No Unity, no game names. |
+| `unity/PryingEyes/Packages` | Engine-independent C# packages: `layout`, `weapons`, `survival`, `economy`. No Unity, no game names. |
 | `unity/LayoutDemo` | An independent Unity project that consumes the packages: the proof they are reusable. |
-| `tools/` | The production suite and the checks: the Python engine and its project profile, the .NET rule labs (`planlab`, `weaponslab`, `survivallab`), `check_suite.py`, `ship.ps1`, the co-op and trailer scripts, the unit tests. |
+| `tools/` | The production suite and the checks: the Python engine and its project profile, the .NET rule labs (`planlab`, `weaponslab`, `survivallab`, `economylab`), `check_suite.py`, `ship.ps1`, the co-op and trailer scripts, the unit tests. |
 | `modelli/` | The Blender scripts that generate the weapons, furniture, church, themed props, hands and enemies. |
 | `hotel_build/` | Screenshots and result files written by the editor tools and the in-game tests, older committed evidence, and the scripts of the Unreal prototype. |
 | `index.html`, `js/`, `style.css` | The first prototype, a Three.js page. |

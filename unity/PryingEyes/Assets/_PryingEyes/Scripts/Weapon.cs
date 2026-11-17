@@ -1233,6 +1233,7 @@ namespace PryingEyes
                 float dist = h.distance;
                 float fall = dist <= d.rangeNear ? 1f : Mathf.Lerp(1f, d.farMult, Mathf.Clamp01((dist - d.rangeNear) / Mathf.Max(0.1f, d.rangeFar - d.rangeNear)));
                 float dmg = d.damage * fall * dmgMul * (head ? d.headMult * OwnerPerks.HeadMult : 1f) * (slots[cur].upg ? UpgDamage : 1f);
+                if (Cattedrale.Catacombe.Attive) dmg *= Cattedrale.Fabbrica.DannoMul * (e == Enemy.Boss ? Cattedrale.Fabbrica.DannoBossMul : 1f);   // la Forgia, la Furia, la vetrata del Cardinale
                 dmg = SigilDamage(e, dmg, h.point);
                 bool first = hitSet.Add(e);
                 Fx.Blood(h.point, dir, e.BloodTint, head);

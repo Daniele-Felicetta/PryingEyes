@@ -37,6 +37,14 @@ namespace PryingEyes
 
         void Start() { using (Seats.Enter(this)) GameManager.I?.hud?.SetEquipment(grenades, lures, mines); }
 
+        /// <summary>Una spedizione nuova (le catacombe): le scorte di partenza e i rifornimenti a ogni ondata che ripartono dalla prima.</summary>
+        public void ResetRun(int holyWater, int musicBoxes, int reliquaryMines)
+        {
+            grenades = holyWater; lures = musicBoxes; mines = reliquaryMines;
+            seenRound = -1;
+            using (Seats.Enter(this)) GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
+        }
+
         void Update() { using (Seats.Enter(this)) UpdateBody(); }
 
         void UpdateBody()

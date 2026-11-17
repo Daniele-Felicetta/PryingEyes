@@ -97,6 +97,7 @@ namespace PryingEyes.Proc
             pg.transform.SetParent(parent, false);
             c.props = pg.transform;
             fi.propRoots.Add(pg.transform);
+            if (c.plan.hub) return HubDress(c);            // la cattedrale da ricostruire: arredi e cantieri secondo le opere (RoomKits.Hub.cs)
 
             ReserveOpenings(c);
             ReserveAnnexes(c);

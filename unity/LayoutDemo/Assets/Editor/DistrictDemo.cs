@@ -101,9 +101,18 @@ public static class DistrictDemo
         access.Earn(); access.Earn();
         if (!access.Buy("roof") || access.Balance != 0) throw new Exception("Independent access progression failed");
         access.ResetDemo();
+        var economy = new GameObject("IndependentEconomy").AddComponent<EconomyDemo>(); economy.ResetDemo();
+        if (economy.Build("wall") || economy.Stash.Get("coin") != 50) throw new Exception("Independent economy built without paying");
+        if (!economy.Buy() || !economy.Buy() || economy.Buy() || economy.Stash.Get("stone") != 10 || economy.Stash.Get("coin") != 30) throw new Exception("Independent market stock failed");
+        if (!economy.Build("wall") || economy.Stash.Get("stone") != 0 || economy.Build("tower")) throw new Exception("Independent build tree failed");
+        economy.Raid(false);
+        if (economy.Stash.Get("stone") != 1 || economy.Stash.Get("gem") != 0) throw new Exception("Independent failed raid policy failed");
+        economy.Raid(true);
+        if (economy.Stash.Get("stone") != 4 || economy.Stash.Get("gem") != 1) throw new Exception("Independent extraction failed");
+        economy.ResetDemo();
         EditorSceneManager.SaveScene(roomScene, "Assets/RoomDemo.unity");
         File.WriteAllText(Path.Combine(folder, "room.json"), JsonUtility.ToJson(room, true));
-        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_stairs_flight\",\"room_floating_route\",\"room_steep_stairs\",\"room_blocked_exit\",\"room_scene_generation\",\"weapon_firing\",\"weapon_cadence\",\"weapon_reload_lock\",\"weapon_ammo_conservation\",\"wave_population_cap\",\"wave_population_resume\",\"access_adjacency\",\"access_charge_once\",\"access_progression\"]}");
-        Debug.Log("[LayoutDemo] PASS: independent layout, weapon, wave and access state, interactive scene, 20 checks");
+        File.WriteAllText(Path.Combine(folder, "report.json"), "{\"ok\":true,\"checks\":[\"determinism\",\"variant\",\"invalid_dimensions\",\"overflow\",\"scene_generation\",\"room_variant\",\"room_stairs_flight\",\"room_floating_route\",\"room_steep_stairs\",\"room_blocked_exit\",\"room_scene_generation\",\"weapon_firing\",\"weapon_cadence\",\"weapon_reload_lock\",\"weapon_ammo_conservation\",\"wave_population_cap\",\"wave_population_resume\",\"access_adjacency\",\"access_charge_once\",\"access_progression\",\"economy_charge\",\"economy_market_stock\",\"economy_build_tree\",\"economy_failed_raid\",\"economy_extraction\"]}");
+        Debug.Log("[LayoutDemo] PASS: independent layout, weapon, wave, access and economy state, interactive scene, 25 checks");
     }
 }
