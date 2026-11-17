@@ -51,7 +51,7 @@ namespace PryingEyes
             bossA = Mathf.MoveTowards(bossA, on ? 1f : 0f, dt * (on ? 1.5f : 0.8f));
             if (on)
             {
-                bossName.text = "Il Cardinale";
+                bossName.text = Enemy.BossTitle ?? "Il Cardinale";
                 bossShown = Mathf.Clamp01(b.hp / b.maxHp);
             }
             else if (b == null) bossShown = Mathf.MoveTowards(bossShown, 0f, dt * 2f);

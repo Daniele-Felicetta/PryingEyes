@@ -47,7 +47,9 @@ namespace PryingEyes
         }
         public void NewFloor() { reviveUsed = false; veloLeft = eyeLeft = 0; }
         public float MaxHpMult => Has(PerkId.PelleDiPietra) ? 1.5f : 1;
-        public float MaxHp => 100 * MaxHpMult;
+        /// <summary>Vita in piu' per tutti i giocatori di questa macchina (le opere e la benedizione della cattedrale), prima del moltiplicatore.</summary>
+        public static float BonusHp;
+        public float MaxHp => (100 + BonusHp) * MaxHpMult;
         public float ReloadTime => Has(PerkId.ManiSvelte) ? .6f : 1;
         public float RateMult => Has(PerkId.DoppioColpo) ? 1.33f : 1;
         public float StepNoise => Has(PerkId.PassiDiCenere) ? .6f : 1;

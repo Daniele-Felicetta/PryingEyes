@@ -12,6 +12,9 @@ namespace PryingEyes.Proc
         /// <summary>Forza il tema di tutti i piani a pianta a griglia (prove, menu, -theme): null = estrazione normale. Il generatore
         /// vecchio (-oldplan) non sa comporre il Guardaroba e lo legge come albergo.</summary>
         public static Theme? ForceTheme;
+        /// <summary>Il tema del ramo delle catacombe (lo imposta FloorDirector a ogni livello; null nell'Abisso e nella Torre di prima):
+        /// conta dopo ForceTheme e prima delle estrazioni, che restano le stesse (la pianta del seme non cambia, solo il tema).</summary>
+        public static Theme? RamoTheme;
 
         /// <summary>Su cento piani dal terzo in su, quanti sono il Guardaroba. 0 (il predefinito) lo spegne: i piani sono quelli di prima, sullo stesso
         /// seme, e la cooperativa non cambia. Si accende con <c>-guardaroba N</c> (ThemeFlag.cs; con la cooperativa lo stesso N su ogni
@@ -26,6 +29,7 @@ namespace PryingEyes.Proc
             Theme t = floor <= 2 ? Theme.Albergo : (Theme)r.Range(0, 3);
             if (!grid) return t;
             if (ForceTheme.HasValue) return ForceTheme.Value;
+            if (RamoTheme.HasValue) return RamoTheme.Value;
             if (floor >= 3 && GuardarobaPercent > 0 && new Rng(unchecked(seed * 211 + floor * 7919 + GuardarobaSalt)).Range(0, 100) < GuardarobaPercent)
                 return Theme.Guardaroba;
             return t;

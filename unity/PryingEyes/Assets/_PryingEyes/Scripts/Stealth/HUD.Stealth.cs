@@ -168,7 +168,8 @@ namespace PryingEyes
             c.a = arrowAlpha;
             arrowImg.color = c;
             arrowText.color = new Color(c.r, c.g, c.b, arrowAlpha * 0.9f);
-            arrowText.text = arrowAlpha < 0.02f ? "" : (arrowSealed ? "ascensore  ·  sigillato  ·  " : "ascensore  ·  ") + Mathf.RoundToInt(arrowMeters) + " m";
+            string exitName = Cattedrale.Catacombe.Attive ? "cancello" : "ascensore";
+            arrowText.text = arrowAlpha < 0.02f ? "" : (arrowSealed ? exitName + "  ·  sigillato  ·  " : exitName + "  ·  ") + Mathf.RoundToInt(arrowMeters) + " m";
         }
 
         void UpdatePingRing(float dt)
@@ -312,7 +313,7 @@ namespace PryingEyes
                     t.icon.color = col;
                     t.rt.localScale = Vector3.one * (1f + 0.4f * pulse);
                     float dist = Vector3.Distance(mk.pos, cam.transform.position);
-                    t.label.text = mk.kind == 0 ? Mathf.RoundToInt(dist) + " m" : "ascensore " + Mathf.RoundToInt(dist) + " m";
+                    t.label.text = mk.kind == 0 ? Mathf.RoundToInt(dist) + " m" : (Cattedrale.Catacombe.Attive ? "cancello " : "ascensore ") + Mathf.RoundToInt(dist) + " m";
                     t.label.color = new Color(col.r, col.g, col.b, col.a);
                     AimArrow(t, dir, off);
                 }
