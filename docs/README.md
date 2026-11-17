@@ -8,7 +8,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 
 | If you want to... | Read |
 | --- | --- |
-| understand the game | [The Tower](game/tower.md), then [Weapons](game/weapons.md) |
+| understand the game | [The cathedral and the catacombs](game/cathedral-and-catacombs.md), [The Tower](game/tower.md) (the levels), then [Weapons](game/weapons.md) |
 | build it, ship a change, understand CI | [Building, shipping and CI](engineering/building-and-shipping.md) |
 | know what is verified and how to run each check | [Testing and verification](engineering/testing.md) |
 | reuse the production suite for another project | [Production suite](engineering/suite-architecture.md) |
@@ -18,7 +18,8 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 
 | Page | What it covers |
 | --- | --- |
-| [tower.md](game/tower.md) | The Tower: procedural floors and themes, the wave cycle (default) and the candle cycle (legacy), points, perks, shops, shrines, power-ups, themed enemies, controls, code map. |
+| [cathedral-and-catacombs.md](game/cathedral-and-catacombs.md) | The two zones: the cathedral to rebuild (works, market, blessings) and the catacombs below (branches, bosses, resources, satchel, extraction, death and remains, oboli). |
+| [tower.md](game/tower.md) | The Tower: procedural floors and themes, the wave cycle (default) and the candle cycle (legacy), points, perks, shops, shrines, power-ups, themed enemies, controls, code map. The floors are now the levels of the catacombs. |
 | [weapons.md](game/weapons.md) | The 28 weapons in 5 grades, per-weapon numbers, gunplay, sights, and the Blender to Unity pipeline. |
 | [guardaroba.md](game/guardaroba.md) | The fourth theme (wardrobes, vampires, scissors, lava): its 17 new props, materials, how to make and photograph them again, where the rooms place them, traps and what is verified. |
 | [medusa.md](game/medusa.md) | The flying jellyfish: the Blender model (66,000 triangles, 240 bones), its textures, the code that animates it, the effects of its attack, how to make it again and what is checked. |
@@ -51,7 +52,8 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 The reusable C# packages have their own READMEs:
 [layout](../unity/PryingEyes/Packages/com.pryingeyes.layout/README.md),
 [weapons](../unity/PryingEyes/Packages/com.pryingeyes.weapons/README.md),
-[survival](../unity/PryingEyes/Packages/com.pryingeyes.survival/README.md).
+[survival](../unity/PryingEyes/Packages/com.pryingeyes.survival/README.md),
+[economy](../unity/PryingEyes/Packages/com.pryingeyes.economy/README.md).
 
 ## History (`history/`)
 

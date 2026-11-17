@@ -21,6 +21,23 @@ namespace PryingEyes
         public static bool IsBoss(EnemyType t) => t == EnemyType.Cardinale;
         /// <summary>Il capo vivo sul piano (uno alla volta), per la barra della vita dell'HUD.</summary>
         public static Enemy Boss { get; private set; }
+        /// <summary>Il nome del capo nella barra in alto (null: il Cardinale delle ondate ottave).</summary>
+        public static string BossTitle { get; private set; }
+
+        /// <summary>Catacombe: questo nemico e' il boss del ramo. Vita da capo, la barra in alto con il suo nome; 'count' tinge di cremisi e nero il
+        /// Cardinale che fa da Conte nel Guardaroba.</summary>
+        public static void MakeBranchBoss(Enemy e, string title, float hp, bool count)
+        {
+            if (e == null) return;
+            e.maxHp = Mathf.Max(e.maxHp, hp);
+            e.hp = e.maxHp;
+            Boss = e;
+            BossTitle = title;
+            if (count)
+                foreach (var r in e.GetComponentsInChildren<Renderer>())
+                    foreach (var m in r.materials)
+                        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", m.GetColor("_BaseColor") * new Color(0.75f, 0.32f, 0.36f));
+        }
 
         // stato delle varianti
         bool bursted;

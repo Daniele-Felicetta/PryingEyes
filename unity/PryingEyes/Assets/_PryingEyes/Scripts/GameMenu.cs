@@ -36,7 +36,7 @@ namespace PryingEyes
         Slider sMaster, sEffects, sMusic, sBrightness, sSensitivity, sFov, sMotion, sCoopHud;
         Text vMaster, vEffects, vMusic, vBrightness, vSensitivity, vFov, vMotion, vCoopHud, coopStatus, pauseNet, pauseHint;
         InputField coopName, coopAddr;
-        Button hostButton, joinButton;
+        Button hostButton, joinButton, bellButton;
         Text leaveNote;
 
         public static void Create()
@@ -122,7 +122,10 @@ namespace PryingEyes
 
         void AskLeave()
         {
-            leaveNote.text = "La partita attuale verrà chiusa. Progressi, armi e punti di questa discesa andranno persi." +
+            var fd = Proc.FloorDirector.I;
+            bool expedition = Cattedrale.Catacombe.Hub && fd != null && !fd.InHub && Cattedrale.Fabbrica.Spedizione.Active;
+            leaveNote.text = (expedition ? "Abbandoni la spedizione: perdi lo zaino come se fossi morto (le spoglie restano nel ramo). La cattedrale e il magazzino restano."
+                : fd != null && fd.InHub ? "La cattedrale, il magazzino e le opere restano salvati." : "La partita attuale verrà chiusa. Progressi, armi e punti di questa discesa andranno persi.") +
                 (Coop.IsHost ? "\nI compagni verranno scollegati e potranno proseguire da soli." : "");
             SplitLeaveText();
             Show(leavePanel);
@@ -195,6 +198,8 @@ namespace PryingEyes
             if (InMenu || Paused) return;
             Paused = true;
             if (pauseNet != null) pauseNet.text = NetInfo(); SplitPauseText();
+            var fd = Proc.FloorDirector.I;
+            if (bellButton != null) bellButton.gameObject.SetActive(Cattedrale.Fabbrica.CampanellaPronta && fd != null && !fd.InHub && fd.floor >= 1);
             Show(pausePanel);
             shownHints = null; RefreshHints();       // la frase "per riprendere" nomina i tasti del dispositivo in uso
             Refresh();
@@ -205,6 +210,13 @@ namespace PryingEyes
             Paused = false;
             Show(null);
             Refresh();
+        }
+
+        /// <summary>La campanella del Campanile: si chiude la pausa e si torna alla cattedrale con tutto lo zaino.</summary>
+        void RingBell()
+        {
+            Resume();
+            Proc.FloorDirector.I?.UseReturnBell();
         }
 
         void OpenSettings(RectTransform from)
@@ -319,6 +331,9 @@ namespace PryingEyes
             MakeButton(pausePanel, "Come si gioca", new Vector2(0, -130), () => OpenHelp(pausePanel));
             MakeButton(pausePanel, "Torna al menu", new Vector2(0, -200), AskLeave);
             MakeButton(pausePanel, "Esci dal gioco", new Vector2(0, -270), Quit);
+            // la campanella del ritorno (il Campanile della cattedrale): c'e' solo nelle catacombe, una volta per spedizione
+            bellButton = MakeButton(pausePanel, "Suona la campanella del ritorno", new Vector2(0, -332), RingBell);
+            bellButton.gameObject.SetActive(false);
             pauseNet = Label(pausePanel, "Rete", new Vector2(0, 62), new Vector2(1100, 36), 16, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
 
             leavePanel = Stretch(backdrop, "LasciaPartita");

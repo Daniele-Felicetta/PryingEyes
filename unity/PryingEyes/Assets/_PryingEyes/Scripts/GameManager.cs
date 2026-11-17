@@ -76,6 +76,7 @@ namespace PryingEyes
         {
             if (returningToMenu) return;
             returningToMenu = true;
+            Cattedrale.Fabbrica.Chiudi(score);      // una spedizione abbandonata conta come persa (lo zaino); il gioco diretto ha gia' tutto in magazzino
             Coop.Stop("");
             Seats.End();                  // schermo condiviso: via i giocatori in piu' e le porzioni, resta il posto 0 (quello della scena)
             StopAllCoroutines();
@@ -105,7 +106,7 @@ namespace PryingEyes
             score = 500;
             autoTest = HasArg("-autotest") || HasArg("-guntest");
             gunTest = HasArg("-guntest");
-            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest");
+            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-cattedraletest");
             if (autoTest && (HasArg("-procbot") || HasArg("-stealthtest"))) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
             camShots = HasArg("-camshots");
             if (autoTest)
@@ -231,7 +232,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot(TestPaths.Out("auto_cam1.png")); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot(TestPaths.Out("auto_cam2.png")); }
                 bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-jellytest") || HasArg("-meleetest") ||
-                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || trailer;
+                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || HasArg("-cattedraletest") || trailer;
                 if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
                     Report($"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
@@ -664,7 +665,9 @@ namespace PryingEyes
         public void CreditKill(DamageSource src, bool headshot)
         {
             kills++;
-            AddPoints(Punti.PerUccisione(src, headshot));
+            int pts = Punti.PerUccisione(src, headshot);
+            if (Cattedrale.Catacombe.Attive) pts = Mathf.RoundToInt(pts * Cattedrale.Fabbrica.PuntiUccisioneMul);      // la Decima dell'altare
+            AddPoints(pts);
             if (headshot) headshots++;
             player?.Arcana.OnKill();                        // essenza della mano sinistra e Clessidra di Piombo
             Prove.OnKill(src, headshot);

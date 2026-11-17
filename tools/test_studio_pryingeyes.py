@@ -16,7 +16,8 @@ from room_catalog import validate_rooms
 TOOLS = {"blender": Path("blender.exe"), "unity": Path("Unity.exe")}
 # What the real tools leave behind and the profile then verifies.
 LEFT_BEHIND = {"gunplay": ("gunplay-player.log", "gunplaytest RISULTATO SUPERATA"), "room-materials": ("room-materials-unity.log", "MATERIAL_IMPORT_PASS"),
-               "weapon-state": ("weapon-state.json", '{"ok": true, "findings": []}'), "survival-state": ("survival-state.json", '{"ok": true, "findings": []}')}
+               "weapon-state": ("weapon-state.json", '{"ok": true, "findings": []}'), "survival-state": ("survival-state.json", '{"ok": true, "findings": []}'),
+               "economy-state": ("economy-state.json", '{"ok": true, "findings": []}')}
 
 
 class RecordingJob:
@@ -69,12 +70,12 @@ class PryingEyesProfile(unittest.TestCase):
         with patch.object(pe, "check_editor_closed"): kind.preview(ctx, entry)
         self.assertEqual([label for label, _ in self.job.steps], ["room-preview", "room-materials"])
 
-    def test_before_build_checks_the_editor_then_runs_both_rule_labs(self):
+    def test_before_build_checks_the_editor_then_runs_the_rule_labs(self):
         kind, entry, ctx = self.context("p45_argine")
         with patch.object(pe, "check_editor_closed") as check:
             pe.PRYING_EYES.before_build(ctx)
         check.assert_called_once()
-        self.assertEqual([label for label, _ in self.job.steps], ["weapon-state", "survival-state"])
+        self.assertEqual([label for label, _ in self.job.steps], ["weapon-state", "survival-state", "economy-state"])
 
     def test_after_build_runs_gunplay_then_city_acceptance_with_assets_required(self):
         kind, entry, ctx = self.context("p45_argine")
@@ -87,7 +88,7 @@ class PryingEyesProfile(unittest.TestCase):
     def test_registry_matches_the_command_line_the_docs_describe(self):
         self.assertEqual(list(pe.PRYING_EYES.kinds), ["weapon", "room"])
         self.assertEqual({name: suite.runtime for name, suite in pe.PRYING_EYES.suites.items()},
-                         {"gunplay": True, "weapon-state": False, "survival": False})
+                         {"gunplay": True, "weapon-state": False, "survival": False, "economy": False})
         self.assertEqual(pe.PRYING_EYES.publish_dir, pe.EXE.parent)
 
     def test_lock_file_is_the_one_the_tool_used_before_it_was_split(self):
