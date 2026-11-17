@@ -101,7 +101,7 @@ namespace PryingEyes
 
         void OnApplicationFocus(bool focused)
         {
-            if (!focused && !GameManager.autoTest) Pause();
+            if (!focused && !GameManager.autoTest && !SplitScreen.JustActivated) Pause();      // JustActivated: Windows da' il fuoco alla finestra del monitor appena acceso
         }
 
         void OnApplicationPause(bool paused)
@@ -168,7 +168,7 @@ namespace PryingEyes
         }
 
         /// <summary>Che cosa dire agli amici (ospite) o a chi gioca (ospitato), per il menu di pausa.</summary>
-        static string NetInfo(int maxAddr = 4) => SplitScreen.Active ? "Split screen a " + SplitScreen.Count + " giocatori. " + SplitScreen.Hint : NetInfoOnline(maxAddr);
+        static string NetInfo(int maxAddr = 4) => SplitScreen.Active ? "Split screen a " + SplitScreen.Count + " giocatori" + (Seats.Monitors > 1 ? " su " + Seats.Monitors + " monitor" : "") + ". " + SplitScreen.Hint : NetInfoOnline(maxAddr);
         static string NetInfoOnline(int maxAddr)
         {
             if (Coop.IsHost)

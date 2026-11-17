@@ -55,7 +55,20 @@ namespace PryingEyes.EditorTools
                 Click("Indietro"); Click("Come si gioca"); Render("help", size, camera, menu, output);
                 Click("Indietro"); Click("Cooperativa"); Render("coop", size, camera, menu, output); Click("Indietro");
                 GameManager.proc = true;        // ai piani dell'hotel i bottoni dello schermo condiviso sono accesi e il pannello dice quanti controller servono
-                Click("Schermo condiviso"); Render("split", size, camera, menu, output); Click("Indietro");
+                Click("Schermo condiviso"); Render("split", size, camera, menu, output);
+                Check("one monitor: no monitor button on the split-screen panel", !HasMonitorButton(menu));
+                Click("Indietro");
+                // con piu' monitor collegati la riga ha due bottoni e il pannello dice come si dividono i giocatori (due monitor, poi il massimo: quattro)
+                SplitScreen.TestConnected = 2; SplitScreen.TestWanted = 2;
+                Click("Schermo condiviso"); Render("split-2-monitor", size, camera, menu, output);
+                Check("two monitors: the monitor button is on the panel", HasMonitorButton(menu));
+                Check("two monitors: the panel says how the players are divided", HasText(menu, "Su 2 monitor: 2 giocatori 1+1"));
+                Click("Indietro");
+                SplitScreen.TestConnected = 4; SplitScreen.TestWanted = 4;
+                Click("Schermo condiviso"); Render("split-4-monitor", size, camera, menu, output);
+                Check("four monitors: the panel says how the players are divided", HasText(menu, "Su 4 monitor: 2 giocatori 1+1"));
+                Click("Indietro");
+                SplitScreen.TestConnected = 0; SplitScreen.TestWanted = 0;
                 GameManager.proc = false;
                 if (size.x == 1024)
                 {
@@ -71,6 +84,14 @@ namespace PryingEyes.EditorTools
             File.WriteAllText(Path.Combine(output, "result.txt"), failures == 0 ? "PASS" : "FAIL " + failures);
             EditorApplication.Exit(failures == 0 ? 0 : 1);
         }
+
+        static bool HasText(GameMenu menu, string start)
+        {
+            foreach (var t in menu.GetComponentsInChildren<Text>()) if (t.text.StartsWith(start, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        static bool HasMonitorButton(GameMenu menu) => HasText(menu, "Monitor: ");
 
         static void Click(string label)
         {

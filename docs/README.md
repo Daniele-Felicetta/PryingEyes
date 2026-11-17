@@ -34,7 +34,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [display-and-menu.md](game/display-and-menu.md) | Display settings and the hotel-register main menu. |
 | [controller.md](game/controller.md) | The XInput controller: how the game finds it, the mapping, menu navigation with it, the on-screen hints, the checks and what is not verified. |
 | [multiplayer/README.md](multiplayer/README.md) | Online co-op for up to four players: how it plays, the protocol, the tests, the limits (Italian). |
-| [multiplayer/split-screen.md](multiplayer/split-screen.md) | Split screen on one PC for two to four players, in one game and one window: layout, controllers, what is shared, how it works, the checks and what is not verified. |
+| [multiplayer/split-screen.md](multiplayer/split-screen.md) | Split screen on one PC for two to four players, in one game, in one window or over several monitors: layout, controllers, what is shared, how it works, the checks and what is not verified. |
 
 ## Engineering (`engineering/`)
 

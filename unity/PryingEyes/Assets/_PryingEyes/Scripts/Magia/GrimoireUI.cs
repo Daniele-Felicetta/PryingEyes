@@ -194,6 +194,7 @@ namespace PryingEyes
         void OpenBook(Grimoire.Book b, GrimoireAltar a)
         {
             book = b; altar = a; reader = Seats.Current;
+            canvas.targetDisplay = reader != null ? reader.display : 0;          // su piu' monitor il libro si apre sul monitor di chi legge
             spread.texture = GrimoirePage.Spread(b);
             string t = Grimoire.Title(b), sub = Grimoire.Subtitle(b);
             titleL.text = b == Grimoire.Book.Stregoneria ? "Perk del Dodecaedro\nArcano Maledetto" : t;

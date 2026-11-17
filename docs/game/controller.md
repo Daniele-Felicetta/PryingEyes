@@ -12,7 +12,7 @@ Switch controller needs an XInput wrapper such as Steam Input or DS4Windows (not
   button is pressed, a trigger is pulled or a stick is pushed past 55%. A controller that is only plugged in, or one whose stick does not
   return to the centre, therefore moves nobody. If the controller is gone for more than two seconds the slot is let go and the search
   starts again (another controller can take over). Nothing is read while the game window has no focus.
-- **Split screen** (one game, one window, [split-screen.md](../multiplayer/split-screen.md)): the slots are given out when the game starts
+- **Split screen** (one game, [split-screen.md](../multiplayer/split-screen.md)): the slots are given out when the game starts
   (player 2 gets the first connected controller, and so on, and the missing ones the first free slots). Player 1 keeps the keyboard and the
   mouse and adopts the first free controller on which a button is pressed, or takes one at once if the panel says *controller*. Every
   controller drives the menus and can pause and resume for everyone.
