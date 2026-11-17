@@ -30,7 +30,8 @@ Front on +Z, origin at the centre of the base, like the rest of the kit. The col
 | `chi_inginocchiatoio` | Prie-dieu: moulded plinth, side cheeks with a curved profile, a padded kneeler with piping and studs under a panel front, a back with a raised pointed arch and a brass cross, a sloped lectern with a lip, an open book. | 0.56 x 0.96 x 0.46 | 604 | 3,358 / 936 / 296 | 412 |
 
 The photos in the game's own look (kit materials, theme fog, a lamp and the player's torch), the old FBX on the left and the new on the right, are
-`hotel_build/props5_1.jpg` to `props5_4.jpg`. The Blender previews are `modelli/hotel/arredi5/render/<name>.png`.
+`hotel_build/props5_1.jpg` to `props5_4.jpg`; `props5_5.jpg` is the pew in a photo of the hotel's nave taken by the performance probe (see "Verification"),
+the old build on the left and the new one on the right. The Blender previews are `modelli/hotel/arredi5/render/<name>.png`.
 
 On average a floor places 40,500 triangles of these eleven props before, 340,000 if every one of them is drawn at level 0, and 95,000 at level 1
 (counted from the placements above; a floor is never drawn all at once).
@@ -139,8 +140,27 @@ The wardrobe and the cloth are the two props worth a look in a real playtest (no
 - The prefabs carry a `LODGroup` with three levels (checked in the prefab files). All eleven were photographed with each level forced (`-lod 0`, `1`,
   `2`) in the game's look: level 1 is indistinguishable from level 0 at the distances where it is used; level 2 shows darker shading on the sarcophagus's
   plinth and the pew's tracery and loses thin parts (the shelf's uprights), which is below a pixel at 15 m and more.
+- The player build passed the navigation smoke of `tools/ship.ps1` (the bot, seed 1000, two floors) and ran the performance probe below with no error in the log.
+- **Frame time in the player** (`-autotest -perftest -perfshots`, 1920x1080, RTX 5060 Ti, floor 3 of seeds 2995, 2961 and 3046): the same plans were timed in the
+  new build and in a copy of the game build the maintainer had been playing (the same code plus the rebuilt flying jellyfish, with its own models, textures
+  and scripts, and the old props; the probe clears the enemies before every view). Plans, rooms and lights are identical in both (9 rooms, 228, 156 and
+  175 lights; the older `g4_*` blocks of `hotel_build/perf.txt` are from the previous layout and cannot be compared). 16 views, one run per build and theme
+  (`ab_old_*` and `ab_new_*` in `hotel_build/perf.txt`). The median frame (p50, mean over the views) is 5.15 to 5.18 ms in the hotel, 4.86 to 4.70 ms in the
+  theatre and 4.76 to 4.80 ms in the sanatorium (old build to new build): **-0.03 ms** on average over the 16 views with a standard error of 0.04 ms, so no
+  measurable difference. The mean frame is 0.36 ms lower in the new build, but only because the old runs met more one-frame hitches (100 to 260 ms in five
+  views of the old runs and one of the new; the hitch of the hotel's atrium is in both) which the props do not cause. CPU render time -0.16 ms, GPU wait -0.03 ms.
+- What the probe shows and what it does not: it looks at the biggest room of each kind from its main doorway, and in the current layouts those are halls up
+  to 45 x 40 m, so the eleven props are a small part of each picture (the hotel's nave shows its pews, most other views none close up). It shows that the
+  new props and their level-of-detail groups did not slow these views down; it does not time a room packed with them. Differences under 0.1 ms are noise: one
+  run per build and theme, the sanatorium run of the new build started with the CPU 94 % busy with another session's work, and one run of the old build was
+  repeated because another session started a game. To repeat it, run the probe (see [testing.md](../engineering/testing.md)) from the Audit build and from
+  a copy of an older build in a disposable folder inside the checkout (`TestPaths` finds `hotel_build/` by walking up from the data folder), the same `-seed`
+  and `-floor`, one after the other with no other game running, and compare the p50 of each view.
+- The photos of the same views are `hotel_build/perf/ab_old_*.png` and `ab_new_*.png` (git-ignored; they differ mostly by the muzzle flash of the bot's
+  shots). The pew of the nave in the game's own light and at playing distance, old and new, is `hotel_build/props5_5.jpg`: the curved side, the raised arches
+  and the tracery of the back that the Blender previews show are there.
 - The switch distances above are computed from the thresholds, the quality level's `lodBias` and the field of view; they were not measured in a playing
   game.
 
-Not verified: any playtest, co-op, or the player build; the look of the levels' switch in motion (popping); the look under the other themes' fog. The Blender
-previews and the Unity photos differ in tone mapping: the Unity photos are the reference.
+Not verified: any playtest by a person, co-op; the look of the levels' switch in motion (popping); the look under the other themes' fog; the cost of a room packed
+with these props. The Blender previews and the Unity photos differ in tone mapping: the Unity photos are the reference.
