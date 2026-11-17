@@ -11,7 +11,8 @@ namespace PryingEyes.EditorTools
     /// <summary>Foto degli arredi del kit come li vede il giocatore, senza giocare: ogni arredo (-props a,b,c oppure tutti quelli con un prefisso,
     /// -prefix gu_ e' il predefinito) sta in una piccola sala buia con i materiali del kit, la luce calda di una lampada e, con -torch, il cono
     /// della torcia; nebbia, luce ambiente e grading sono quelli del tema (-theme guardaroba, albergo, teatro, sanatorio). Due viste per arredo:
-    /// tre quarti da destra e frontale. Uscita: hotel_build/props/&lt;nome&gt;_3q.png e _fronte.png (-tag x li marca).</summary>
+    /// tre quarti da destra e frontale. Uscita: hotel_build/props/&lt;nome&gt;_3q.png e _fronte.png (-tag x li marca). -lod N forza il livello di
+    /// dettaglio N (0, 1, 2) negli arredi che ne hanno (fase 5); -dist m scala la distanza della camera.</summary>
     public static class PropShots
     {
         static string Arg(string name)
@@ -95,6 +96,9 @@ namespace PryingEyes.EditorTools
                 if (prefab == null) { Debug.LogWarning("[PryingEyes] arredio non nel kit: " + name); continue; }
                 var go = (GameObject)Object.Instantiate(prefab);
                 go.name = name;
+                // -lod N forza il livello di dettaglio N degli arredi che hanno un LODGroup (per vedere come sono i livelli lontani, da vicino)
+                if (int.TryParse(Arg("-lod"), out int forcedLod))
+                    foreach (var lg in go.GetComponentsInChildren<LODGroup>()) lg.ForceLOD(forcedLod);
                 go.transform.position = Vector3.zero;
                 go.transform.rotation = Quaternion.identity;          // il davanti guarda +Z
                 var b = new Bounds(Vector3.zero, Vector3.zero); bool first = true;

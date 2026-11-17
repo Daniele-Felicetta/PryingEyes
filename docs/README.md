@@ -23,6 +23,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [weapons.md](game/weapons.md) | The 28 weapons in 5 grades, per-weapon numbers, gunplay, sights, and the Blender to Unity pipeline. |
 | [guardaroba.md](game/guardaroba.md) | The fourth theme (wardrobes, vampires, scissors, lava): its 17 new props, materials, how to make and photograph them again, how they reach the game (the kit saved in `Torre.unity`), where the rooms place them, traps and what is verified. |
 | [textures.md](game/textures.md) | The wall, column and floor textures redone on 17 November 2026: the two checkerboard marble floors that alternate room by room, the stone column mesh, the luminance kept, how to make them again and check them. |
+| [props-phase5.md](game/props-phase5.md) | Sixteen hotel and church props rebuilt in detail (chair, table, wardrobe, desk, shelf, pew, sarcophagus, hooded statue, range cooker, floor lamp, altar, font, choir stall and more): what each is, the modelling tools, the three levels of detail and how Unity groups them, how to make them again and what is verified. |
 | [horde-variants.md](game/horde-variants.md) | The plague bearer, flagellant, statue and cardinal; blood. |
 | [equipment-and-trials.md](game/equipment-and-trials.md) | Holy water and the music box, the trial of each wave, the glass eyes, the reliquary mine. |
 | [door-traps.md](game/door-traps.md) | Fire and lightning levers on bought doorways. |
