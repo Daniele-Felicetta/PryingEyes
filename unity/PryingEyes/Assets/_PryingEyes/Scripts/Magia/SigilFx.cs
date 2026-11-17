@@ -12,6 +12,8 @@ namespace PryingEyes
     {
         /// <summary>Per le prove: colpi, tracce e impatti disegnati.</summary>
         public static int Shots, Tracers, Impacts;
+        /// <summary>Per le prove: dove e' stato disegnato l'ultimo lampo alla bocca.</summary>
+        public static Vector3 LastMuzzle;
 
         /// <summary>Il colore della traccia: l'elemento, sovraesposto (i valori oltre 1 vanno al bloom).</summary>
         public static Color TracerColor(int el)
@@ -34,6 +36,7 @@ namespace PryingEyes
         public static void Muzzle(int el, Vector3 at, Vector3 fwd)
         {
             Shots++;
+            LastMuzzle = at;
             Color c = MagicFx.OfInfusion(el);
             MagicFx.Glow(at, c, 0.08f, 0.07f, 0.9f);
             Vector3 up = Vector3.up;

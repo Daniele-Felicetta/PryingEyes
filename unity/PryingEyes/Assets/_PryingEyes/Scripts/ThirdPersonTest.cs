@@ -13,8 +13,8 @@ namespace PryingEyes
     /// <summary>-autotest -nofire -noenemies -tptest [-tpshots]: la terza persona (ThirdPersonView, SeatAvatar, SurvivorBody). Si guarda cosa
     /// vede la camera mentre disegna: in prima persona sta all'occhio e il corpo non c'e'; in terza persona sta a due metri dietro la
     /// spalla, non disegna arma e mani della prima persona e disegna il corpo con l'arma in mano; il raggio dell'occhio e quello della
-    /// camera cadono sullo stesso punto del muro; in mira la camera si avvicina; un muro dietro le spalle la ferma; spenta, tutto torna
-    /// com'era. Con -tpshots foto in unity_logs/terza-persona. Non tocca le preferenze del giocatore (GameSettings.thirdPersonOverride).</summary>
+    /// camera cadono sullo stesso punto del muro; con un sigillo sull'arma il lampo alla bocca esce dall'arma del corpo; in mira la camera
+    /// si avvicina; un muro dietro le spalle la ferma; spenta, tutto torna com'era. Con -tpshots foto in unity_logs/terza-persona. Non tocca le preferenze del giocatore (GameSettings.thirdPersonOverride).</summary>
     public sealed class ThirdPersonTest : MonoBehaviour
     {
         int checks, failed, exceptions;
@@ -207,6 +207,27 @@ namespace PryingEyes
             View("muro");
             DestroyImmediate(wall); Physics.SyncTransforms();
             yield return DarkShots();
+
+            // 3b) il sigillo sull'arma: il lampo alla bocca esce dall'arma del corpo che si vede, non da quella nascosta della prima persona
+            // (che in terza persona sta a un palmo dall'occhio, cioe' dietro la spalla); e' il punto in cui il lavoro dei sigilli e quello
+            // della terza persona si toccano, nato in due rami diversi
+            var wpn = player.weapon;
+            if (wpn != null && avatar != null && avatar.Body != null && avatar.Body.HasWeapon)
+            {
+                wpn.MaxAmmo();
+                player.Arcana.ApplyInfusion(14, wpn.SlotIndex);
+                int sigilShots = SigilFx.Shots;
+                SigilFx.LastMuzzle = new Vector3(float.NaN, float.NaN, float.NaN);
+                Vector3 mzBody = avatar.Body.Muzzle.position;       // nello stesso fotogramma del colpo: niente si e' ancora mosso
+                wpn.DebugFire();
+                bool sigilOk = SigilFx.Shots > sigilShots && !float.IsNaN(SigilFx.LastMuzzle.x);
+                float dMuzzle = sigilOk ? Vector3.Distance(SigilFx.LastMuzzle, mzBody) : -1f;
+                float dEyeMuzzle = sigilOk ? Vector3.Distance(SigilFx.LastMuzzle, player.cam.position) : -1f;
+                Check($"terza persona: il lampo del sigillo esce dall'arma del corpo ({dMuzzle * 100f:F1} cm dalla sua bocca, {dEyeMuzzle:F2} m dall'occhio)", sigilOk && dMuzzle < 0.02f);
+                player.Arcana.SlotInfusionLeft[wpn.SlotIndex] = 0f;
+                yield return Frames(2);
+            }
+            else Check("terza persona: ci sono l'arma e il corpo per la prova del sigillo", false);
 
             // 4) in mira la camera si avvicina
             Weapon.debugAds = true;

@@ -96,6 +96,7 @@ namespace PryingEyes
             flashTinted = sig >= 0;
             if (sig < 0) return;
             Vector3 mz = rig != null && rig.muzzle != null ? rig.muzzle.position : cam.position + cam.forward * 0.6f;
+            if (ThirdPersonView.MuzzleOf(player, out var bodyMuzzle)) mz = bodyMuzzle;      // terza persona: il lampo esce dall'arma del corpo che si vede
             SigilFx.Muzzle(sig, mz, cam.forward);
             var aura = viewRoot != null ? viewRoot.GetComponent<WeaponAura>() : null;
             if (aura != null) aura.Pulse(0.85f);

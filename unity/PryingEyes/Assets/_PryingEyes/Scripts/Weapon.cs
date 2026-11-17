@@ -1131,7 +1131,12 @@ namespace PryingEyes
             }
             if (d.soundEvery <= 1 || streak % d.soundEvery == 1 || streak <= 1)
                 Synth.Gun(d.snd, d.suppressed ? 0.35f : 0.62f, Random.Range(0.96f, 1.04f));
-            if (d.fx == "flame" && rig.muzzle != null) Fx.Flame(rig.muzzle.position, cam.forward);
+            if (d.fx == "flame" && rig.muzzle != null)
+            {
+                Vector3 flamePos = rig.muzzle.position;
+                if (ThirdPersonView.MuzzleOf(player, out var bodyFlame)) flamePos = bodyFlame;      // terza persona: la fiamma esce dall'arma del corpo che si vede
+                Fx.Flame(flamePos, cam.forward);
+            }
             SigilShot(d);       // il sigillo si vede anche alla bocca: lampo e fiammata del colore dell'elemento
 
             // bossolo
