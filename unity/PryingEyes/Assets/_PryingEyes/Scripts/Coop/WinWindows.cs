@@ -25,12 +25,16 @@ namespace PryingEyes
         [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Pt point);
         [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
         [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr CreateWindowEx(uint exStyle, string className, string windowName, uint style,
+            int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
+        [DllImport("user32.dll")] static extern bool DestroyWindow(IntPtr hWnd);
 
         [StructLayout(LayoutKind.Sequential)] struct Rc { public int left, top, right, bottom; }
         [StructLayout(LayoutKind.Sequential)] struct Pt { public int x, y; }
 
         const int SwHide = 0, SwShowNoActivate = 4;
-        const uint GaRoot = 2, SwpNoSize = 0x0001, SwpNoMove = 0x0002, SwpNoActivate = 0x0010;
+        const uint GaRoot = 2, SwpNoSize = 0x0001, SwpNoMove = 0x0002, SwpNoActivate = 0x0010, WsPopup = 0x80000000;
+        const uint WsExToolWindow = 0x00000080, WsExNoActivate = 0x08000000, SsNotify = 0x00000100;
         static readonly IntPtr HwndTop = IntPtr.Zero;
 
         struct Win { public IntPtr handle; public int x, y, w, h; public bool visible; public string cls, title; }
@@ -114,6 +118,34 @@ namespace PryingEyes
             return n;
         }
 
+        /// <summary>Solo per le prove: una finestra senza bordi, di questo processo, messa sopra la prima finestra di un monitor acceso, come un programma
+        /// a tutto schermo che la copre. Zero se non c'e' nessuna finestra da coprire. Non prende il fuoco (WS_EX_NOACTIVATE, mostrata senza attivarla:
+        /// altrimenti il gioco la prenderebbe per un cambio di programma e andrebbe in pausa) e risponde al puntatore (SS_NOTIFY: una finestra "Static"
+        /// senza e' trasparente per WindowFromPoint e non coprirebbe niente).</summary>
+        public static IntPtr TestCover()
+        {
+            if (main == IntPtr.Zero) return IntPtr.Zero;
+            string cls = ClassOf(main);
+            foreach (var w in Own(true))
+            {
+                if (w.handle == main || w.cls != cls || !IsBig(w)) continue;
+                var cover = CreateWindowEx(WsExToolWindow | WsExNoActivate, "Static", "", WsPopup | SsNotify, w.x, w.y, w.w, w.h, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+                if (cover != IntPtr.Zero)
+                {
+                    ShowWindow(cover, SwShowNoActivate);
+                    SetWindowPos(cover, HwndTop, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+                }
+                return cover;
+            }
+            return IntPtr.Zero;
+        }
+
+        /// <summary>Solo per le prove: toglie la finestra messa da TestCover.</summary>
+        public static void TestUncover(IntPtr cover)
+        {
+            if (cover != IntPtr.Zero) DestroyWindow(cover);
+        }
+
         /// <summary>Se il fuoco e' a un'altra finestra del gioco (quella del monitor appena acceso), lo rimette sulla principale.</summary>
         public static bool FocusMainIfStolen()
         {
@@ -135,10 +167,13 @@ namespace PryingEyes
             return sb.ToString();
         }
 
+        /// <summary>Una finestra grande del gioco vero e proprio: della classe della finestra principale (non conta quella messa da TestCover).</summary>
+        static bool IsGameWindow(Win w) => IsBig(w) && (main == IntPtr.Zero || w.cls == ClassOf(main));
+
         public static int VisibleCount()
         {
             int n = 0;
-            foreach (var w in Own(true)) if (IsBig(w)) n++;
+            foreach (var w in Own(true)) if (IsGameWindow(w)) n++;
             return n;
         }
 
@@ -146,7 +181,7 @@ namespace PryingEyes
         public static int OnTopCount()
         {
             int n = 0;
-            foreach (var w in Own(true)) if (IsBig(w) && OnTop(w)) n++;
+            foreach (var w in Own(true)) if (IsGameWindow(w) && OnTop(w)) n++;
             return n;
         }
 #else
@@ -154,6 +189,8 @@ namespace PryingEyes
         public static void ShowSecondary() { }
         public static void HideSecondary() { }
         public static int RaiseSecondary() => 0;
+        public static IntPtr TestCover() => IntPtr.Zero;
+        public static void TestUncover(IntPtr cover) { }
         public static bool FocusMainIfStolen() => false;
         public static string Report() => "";
         public static int VisibleCount() => 0;

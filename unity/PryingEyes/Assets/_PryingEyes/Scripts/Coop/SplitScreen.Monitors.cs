@@ -134,6 +134,16 @@ namespace PryingEyes
             }
         }
 
+        /// <summary>Il gioco ha ripreso il fuoco (si e' tornati da un altro programma): le finestre dei monitor accesi che quel programma copre tornano
+        /// in primo piano, senza prendere il fuoco. Windows porta davanti solo la finestra cliccata, non le altre del gioco: senza questo il giocatore
+        /// del secondo monitor resterebbe dietro al programma che era li.</summary>
+        public static void OnFocusGained()
+        {
+            if (Seats.Monitors < 2) return;
+            int raised = WinWindows.RaiseSecondary();
+            if (raised > 0) Debug.Log("[PryingEyes] split: " + raised + " finestra dei monitor portata in primo piano (il gioco ha ripreso il fuoco)");
+        }
+
         /// <summary>Alla fine dello schermo condiviso: le finestre dei monitor accesi si nascondono (Unity non le chiude: resterebbero nere sul
         /// secondo monitor fino alla chiusura del gioco).</summary>
         public static void Release()
@@ -149,5 +159,14 @@ namespace PryingEyes
 
         /// <summary>Per le prove: quante di quelle finestre si vedono per intero al centro, cioe' non sono coperte da un altro programma.</summary>
         public static int WindowsOnTop() => WinWindows.OnTopCount();
+
+        /// <summary>Per le prove: una finestra di questo processo messa sopra quella di un monitor acceso (come un programma che la copre); zero se non c'e'.</summary>
+        public static IntPtr TestCover() => WinWindows.TestCover();
+
+        /// <summary>Per le prove: toglie la finestra di TestCover.</summary>
+        public static void TestUncover(IntPtr cover) => WinWindows.TestUncover(cover);
+
+        /// <summary>Per le prove: porta subito in primo piano le finestre dei monitor accesi che sono coperte (lo fa anche Tick nei primi secondi); quante ne ha mosse.</summary>
+        public static int RaiseWindows() => WinWindows.RaiseSecondary();
     }
 }

@@ -1250,7 +1250,7 @@ namespace PryingEyes.Proc
                 foreach (var s in Seats.All)
                 {
                     if (s.player == null) continue;
-                    if (s.display != 0) continue;       // IMGUI disegna solo sul primo monitor: ai giocatori sugli altri monitor mancano (per ora) mappa e minimappa
+                    if (s.display != 0) continue;       // IMGUI disegna solo sul primo monitor: i giocatori sugli altri hanno la mappa in uGUI (Coop/SeatMapUi.cs)
                     var v = s.view;
                     var area = new Rect(v.x * Screen.width, (1f - v.yMax) * Screen.height, v.width * Screen.width, v.height * Screen.height);
                     DrawSeatMaps(s.index, s.player.transform.position, s.hud, area);

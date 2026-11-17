@@ -101,6 +101,7 @@ namespace PryingEyes
 
         void OnApplicationFocus(bool focused)
         {
+            if (focused) SplitScreen.OnFocusGained();          // le finestre dei monitor accesi che un altro programma copriva tornano davanti
             if (!focused && !GameManager.autoTest && !SplitScreen.JustActivated) Pause();      // JustActivated: Windows da' il fuoco alla finestra del monitor appena acceso
         }
 

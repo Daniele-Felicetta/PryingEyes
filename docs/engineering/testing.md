@@ -283,7 +283,7 @@ The split screen on one PC is not a co-op any more: it is one process, with one 
   so the saved display settings are not applied and no wave starts): this covers the real path and the pause. With `-autotest -nofire
   -noenemies` it starts without a menu and skips the pause. It checks structure (a body, camera, HUD, target and controller per player; cameras
   in their parts of their monitors, `Camera.targetDisplay` and `Canvas.targetDisplay` per monitor; one `AudioListener`; weapon layers; HUD
-  rectangles), the context swap of `Seats.Enter`, each controller walking, firing and
+  rectangles; the map and the minimap of a player on another monitor, opened, closed and switched off), the context swap of `Seats.Enter`, each controller walking, firing and
   jumping alone, points, kills and hits per player, enemy targeting (nearest at spawn, switching to a closer player; with `-candles` also
   `Provoke` and sight), damage, going down, revive by a teammate, self-revive, bleed-out death and respawn of one player, the pause with
   Start on any controller (with several monitors also the **IN PAUSA** veil on the other monitors), and the return to one player.
@@ -291,7 +291,9 @@ The split screen on one PC is not a co-op any more: it is one process, with one 
   `-splitmonitors N` makes the test use N monitors (without the flag a test always uses one, whatever the menu saved on this PC): if the PC has
   fewer, the extra monitors are pretend ones (cameras, canvases and HUDs are placed all the same, nothing is shown), so the placement is
   checked without a second monitor. With `-seatsshots` on a PC with N real monitors the game also checks that Unity opened a window per
-  monitor and that no other program covers it, and at every photo moment it asks for the photos below and waits for them.
+  monitor and that no other program covers it, near the end it puts a window of its own process (one that takes no focus) over the window of
+  an extra monitor to see that the cover is noticed and that the window is raised again with the game still running, and at every photo
+  moment it asks for the photos below and waits for them.
 - **`tools/coop/run_split.ps1`** runs it from the verification build and reads the result. Parameters: `-Exe` (default `Builds\Audit`),
   `-LogDir` (default `$env:TEMP\pryingeyes-split`), `-Players` (2 to 4, default 3), `-Graphics` (a 1280x720 window and the photos), `-Candles`,
   `-NoMenu`, `-Monitors` (1 to 4, default 1: passes `-splitmonitors`), `-TimeoutSec` (240). Exit `0` only if the result is `SUPERATA`, `1` if a check fails or time runs out, `3` if a copy of the same

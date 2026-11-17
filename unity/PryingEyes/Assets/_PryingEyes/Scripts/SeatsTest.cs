@@ -177,6 +177,80 @@ namespace PryingEyes
             Debug.Log($"[PryingEyes] seatstest: fotogrammi al secondo con {Seats.Monitors} monitor ({SplitScreen.DescribeDisplays(Seats.Monitors)}): {fps:F0} (vsync {QualitySettings.vSyncCount}, limite {Application.targetFrameRate})");
         }
 
+        /// <summary>Un altro programma copre la finestra di un monitor acceso: il gioco la riconosce coperta e la riporta in primo piano, senza prendere
+        /// il fuoco (se lo prendesse il gioco andrebbe in pausa). La finestra che copre e' di questo stesso processo e non prende il fuoco. Si fa verso
+        /// la fine della prova, cosi' se qualcosa va storto non rovina il resto.</summary>
+        IEnumerator CoveredWindow()
+        {
+            if (!shots || Seats.Monitors < 2 || SplitScreen.RealMonitors < Seats.Monitors) yield break;
+            var cover = SplitScreen.TestCover();
+            if (cover == IntPtr.Zero) { Debug.Log("[PryingEyes] seatstest: finestra coperta: non c'e' una finestra da coprire, niente prova"); yield break; }
+            yield return new WaitForSecondsRealtime(0.5f);
+            int covered = SplitScreen.WindowsOnTop();
+            bool paused = GameMenu.Paused;
+            Debug.Log($"[PryingEyes] seatstest: finestra coperta: in primo piano {covered}, in pausa {paused}, con il fuoco {Application.isFocused}");
+            Check($"una finestra di un altro programma sopra quella del monitor acceso la copre ({covered} in primo piano su {Seats.Monitors})", covered < Seats.Monitors);
+            Check("la finestra messa sopra non prende il fuoco: il gioco non va in pausa", !paused);
+            int raised = SplitScreen.RaiseWindows();
+            yield return new WaitForSecondsRealtime(0.5f);
+            Check($"il gioco riporta in primo piano la finestra coperta ({raised} mossa, {SplitScreen.WindowsOnTop()} in primo piano su {Seats.Monitors})", SplitScreen.WindowsOnTop() >= Seats.Monitors);
+            SplitScreen.TestUncover(cover);
+            yield return new WaitForSecondsRealtime(0.3f);
+            Check("tolta la finestra messa sopra il gioco gira ancora (nessuna pausa)", !GameMenu.Paused && Time.timeScale == 1f);
+        }
+
+        /// <summary>Chi sta su un monitor oltre il primo ha la sua mappa in uGUI (l'IMGUI si vede solo sul primo monitor): la grande e la minimappa si
+        /// aprono e si chiudono con i segnalini e le scritte giuste; chi sta sul primo monitor non ne ha una seconda.</summary>
+        IEnumerator SeatMaps(Seat[] seats)
+        {
+            var fd = FloorDirector.I;
+            float until = Time.realtimeSinceStartup + 5f;
+            while (fd != null && !fd.MapsShown && Time.realtimeSinceStartup < until) yield return new WaitForSecondsRealtime(0.1f);
+            if (!Check($"il piano e' in vista per la prova delle mappe (bloccato {GameMenu.Blocked}, in pausa {GameMenu.Paused}, scala del tempo {Time.timeScale})", fd != null && fd.MapsShown)) yield break;
+            // all'arrivo i giocatori sono ancora nell'ascensore, che la mappa non disegna: se qualcuno sta su un altro monitor si segnano visitate le
+            // sei stanze piu' vicine, perche' ci sia qualcosa da vedere (e da fotografare) oltre ai segnalini
+            int visited = 0;
+            bool otherMonitor = false;
+            foreach (var s in seats) otherMonitor |= s.display != 0;
+            if (otherMonitor)
+            {
+                var origin = seats[0].player.transform.position;
+                var near = new List<KeyValuePair<float, int>>();
+                foreach (var room in fd.cur.plan.rooms)
+                {
+                    if (room.IsLift) continue;
+                    float dx = (room.x0 + room.x1) * 0.05f - origin.x, dz = (room.z0 + room.z1) * 0.05f - origin.z;
+                    near.Add(new KeyValuePair<float, int>(dx * dx + dz * dz, room.id));
+                }
+                near.Sort((a, b) => a.Key.CompareTo(b.Key));
+                var ids = new List<int>();
+                for (int i = 0; i < near.Count && i < 6; i++) ids.Add(near[i].Value);
+                fd.DebugSetExplored(ids);
+                visited = ids.Count;
+            }
+            foreach (var s in seats)
+            {
+                var ui = s.hud != null ? s.hud.GetComponent<SeatMapUi>() : null;
+                if (s.display == 0)
+                {
+                    Check($"il giocatore {s.index + 1} (monitor 1) ha la mappa dell'IMGUI e non una seconda in uGUI", ui == null);
+                    continue;
+                }
+                fd.DebugShowMapFor(s.index, true, true);
+                yield return null; yield return null; yield return null;
+                Check($"il giocatore {s.index + 1} (monitor {s.display + 1}) vede la mappa grande ({(ui != null ? ui.BigItems : 0)} elementi, con 'Tu', la legenda e le {visited} stanze visitate) e la minimappa ({(ui != null ? ui.MiniItems : 0)})",
+                    ui != null && ui.BigShown && ui.MiniShown && ui.BigItems >= 5 + visited && ui.MiniItems >= 2 && ui.BigHasText("Tu"));
+                yield return Photo($"1b-mappa-del-giocatore-{s.index + 1}");
+                fd.DebugShowMapFor(s.index, false, true);
+                yield return null; yield return null; yield return null;
+                Check($"il giocatore {s.index + 1}: chiusa la mappa grande resta la minimappa", ui != null && !ui.BigShown && ui.MiniShown);
+                fd.DebugShowMapFor(s.index, false, false);
+                yield return null; yield return null; yield return null;
+                Check($"il giocatore {s.index + 1}: spenta anche la minimappa non si vede niente", ui != null && !ui.BigShown && !ui.MiniShown);
+                fd.DebugShowMapFor(s.index, false, true);          // com'era
+            }
+        }
+
         /// <summary>Una foto di questo momento. Con una finestra sola e' ScreenCapture. Con piu' monitor veri ScreenCapture vedrebbe solo l'ultimo
         /// monitor disegnato (e alla misura della finestra principale): si chiede a run_split.ps1 -Graphics -Monitors N di fotografare ogni monitor
         /// dal sistema (tools/coop/capture_monitors.ps1: &lt;nome&gt;-monitor1.png, &lt;nome&gt;-monitor2.png ...) e si aspetta il suo "fatto" (&lt;nome&gt;.done,
@@ -224,6 +298,7 @@ namespace PryingEyes
             ContextSwap(seats);
             yield return MonitorWindows();
             yield return Photo("1-arrivo");
+            yield return SeatMaps(seats);
             yield return SeeEachOther(seats);
 
             // ---- spazio per la prova
@@ -521,6 +596,8 @@ namespace PryingEyes
                 }
             }
             else Debug.Log("[PryingEyes] seatstest: partita avviata senza menu (-autotest): niente prova della pausa");
+
+            yield return CoveredWindow();
 
             // ---- fine dello schermo condiviso: si torna a un giocatore solo e funziona
             {

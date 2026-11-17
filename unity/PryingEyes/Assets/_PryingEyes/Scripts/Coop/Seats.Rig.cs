@@ -155,6 +155,7 @@ namespace PryingEyes
                 hudGo.transform.SetParent(RootOf(display).go.transform, false);
                 var hud = hudGo.AddComponent<HUD>();
                 hud.seat = seat;
+                if (display != 0) hudGo.AddComponent<SeatMapUi>().seat = seat;     // l'IMGUI (la mappa) si vede solo sul primo monitor: chi sta su un altro ha la sua, in uGUI
 
                 // corpo: inattivo finche' non e' montato, cosi' gli Awake vedono tutto al loro posto
                 var p = new GameObject("Giocatore " + (index + 1));
