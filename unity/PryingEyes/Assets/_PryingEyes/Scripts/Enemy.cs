@@ -599,7 +599,7 @@ namespace PryingEyes
         static void PayPoints(int slot, int pts)
         {
             if (slot > 0 && Coop.Game != null) Coop.Game.AwardPoints(slot, pts);
-            else GameManager.I.AddPoints(pts);
+            else { GameManager.I.AddPoints(pts); Punti.paidForHits += pts; }
         }
 
         void Die(bool headshot, DamageSource src, int claimer = 0)
