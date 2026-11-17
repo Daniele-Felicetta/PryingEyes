@@ -166,6 +166,7 @@ namespace PryingEyes.EditorTools
 
             // pavimenti
             M("pav_marmo", Existing("Floor"));
+            M("pav_marmo_venato", Pbr("kit_pav_marmo_venato", "marmo_pavimento_venato", Color.white, 2.4f));       // alternates with pav_marmo from room to room
             M("pav_moquette", Existing("Carpet"));
             M("pav_parquet", Pbr("kit_parquet", "parquet", Color.white, 1.2f));
             M("pav_piastrelle", Pbr("kit_piastrelle_pav", "piastrelle_pav", Color.white, 1.2f));
@@ -178,6 +179,7 @@ namespace PryingEyes.EditorTools
             M("mur_damasco_ocra", Pbr("kit_damasco_ocra", "damasco", new Color(1.0f, 0.82f, 0.45f), 0.64f));
             M("mur_intonaco", Pbr("kit_intonaco", "intonaco", new Color(0.72f, 0.70f, 0.66f), 2.0f));
             M("mur_pietra", Pbr("kit_pietra", "pietra_muro", Color.white, 4.2f));
+            M("colonna_pietra", Pbr("kit_colonna_pietra", "pietra_colonna", Color.white, 2.4f));       // the shaft of the arena columns: wraps once around
             M("mur_cripta", Pbr("kit_cripta_muro", "pietra_cripta", new Color(0.8f, 0.8f, 0.8f), 2.0f));
             M("mur_piastrelle", Pbr("kit_piastrelle", "piastrelle", Color.white, 1.2f));
             M("mur_boiserie", Existing("Wood"));

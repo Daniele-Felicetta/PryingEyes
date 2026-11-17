@@ -355,7 +355,7 @@ The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namesp
 
 ## 14. Assets
 
-- **Procedural PBR textures**: `modelli/hotel/genera_texture_chiesa.py` (wall stone, slabs, crypt stone, vault brick, parquet, tiles, concrete, four stained glass windows). Theatre and sanatorium: the `ruggine` (rust) texture in `modelli/hotel/genera_texture.py` (role `A_ruggine`: painted iron that chips and shows rust).
+- **Procedural PBR textures**: `modelli/hotel/genera_texture_chiesa.py` (wall stone, slabs, crypt stone, vault brick, parquet, tiles, concrete, four stained glass windows). Theatre and sanatorium: the `ruggine` (rust) texture in `modelli/hotel/genera_texture.py` (role `A_ruggine`: painted iron that chips and shows rust). The stone, brick, tile, concrete, plaster, linoleum and white marble sets were redone on 17 November 2026 with the shared toolkit `modelli/hotel/texlib.py`, and the hotel has a second, veined checkerboard floor that alternates with the classic one: see [textures.md](textures.md).
 - **Blender models**: `modelli/chiesa/genera_chiesa.py` (bench, altar, reredos, candelabrum, candle stand, confessional, pulpit, font, statue, organ, sarcophagus, chandelier, stall, kneeler) and `modelli/hotel/genera_arredi2.py` (bed, bedside table, wardrobe, desk, chair, table, piano, stove, steel table, shelf).
 - **Theatre and sanatorium models**: `modelli/hotel/genera_arredi3.py` (12 models; `blender -b -P genera_arredi3.py -- render [names]` makes CPU previews without touching the GPU, `-- build` makes the FBX files in `arredi3/`).
 - **Guardaroba models**: `modelli/hotel/genera_arredi4.py` (17 props, `gu_*`; commands, materials and the photo tool `PropShots` in [guardaroba.md](guardaroba.md)).

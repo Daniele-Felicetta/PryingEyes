@@ -127,7 +127,7 @@ namespace PryingEyes.Proc
                 case RoomKind.Atrio:
                 case RoomKind.Rotonda:
                 case RoomKind.GiardinoInverno:
-                    s.floor = Mat("pav_marmo"); s.wall = Mat(damask[0]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
+                    s.floor = MarbleFloor(r); s.wall = Mat(damask[0]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
                 case RoomKind.Corridoio:
                 case RoomKind.Galleria:
                     if (theme == Theme.Sanatorio)       // corsia dell'istituto: linoleum e vernice verde
@@ -145,7 +145,7 @@ namespace PryingEyes.Proc
                     s.floor = Mat(v % 3 == 0 ? "pav_moquette" : "pav_parquet"); s.wall = Mat(damask[(v / 3) % 3]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.0f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); break;
                 case RoomKind.Ristorante:
                 case RoomKind.SalaBallo:
-                    s.floor = Mat(r.kind == RoomKind.SalaBallo ? "pav_marmo" : "pav_parquet"); s.wall = Mat(damask[(v / 3) % 3]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
+                    s.floor = r.kind == RoomKind.SalaBallo ? MarbleFloor(r) : Mat("pav_parquet"); s.wall = Mat(damask[(v / 3) % 3]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
                 case RoomKind.Cucina:
                     s.floor = Mat("pav_piastrelle"); s.wall = Mat("mur_intonaco"); s.dado = Mat("mur_piastrelle"); s.dadoH = 1.9f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("mur_intonaco"); break;
                 case RoomKind.Servizio:
@@ -169,7 +169,7 @@ namespace PryingEyes.Proc
                 case RoomKind.Palco:
                     s.floor = Mat("pav_moquetta"); s.wall = Mat("mur_velluto"); s.dado = Mat("mur_boiserie"); s.dadoH = 1.0f; s.ceil = Mat("sof_scuro"); s.trim = Mat("cornice_legno"); break;
                 case RoomKind.Foyer:
-                    s.floor = Mat("pav_marmo"); s.wall = Mat(damask[0]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
+                    s.floor = MarbleFloor(r); s.wall = Mat(damask[0]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.3f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
                 case RoomKind.Palcoscenico:
                     s.floor = Mat("pav_palco"); s.wall = Mat("mur_intonaco_nero"); s.ceil = Mat("sof_scuro"); s.trim = Mat("mur_intonaco_nero"); s.beam = Mat("trave"); break;
                 case RoomKind.Camerino:
@@ -205,7 +205,7 @@ namespace PryingEyes.Proc
                 case RoomKind.Sartoria:
                     s.floor = Mat("pav_parquet"); s.wall = Mat("mur_intonaco"); s.dado = Mat("mur_boiserie"); s.dadoH = 1.2f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); s.beam = Mat("trave"); break;
                 case RoomKind.Spogliatoio:
-                    s.floor = Mat("pav_marmo"); s.wall = Mat(damask[2]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.5f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); break;
+                    s.floor = MarbleFloor(r); s.wall = Mat(damask[2]); s.dado = Mat("mur_boiserie"); s.dadoH = 1.5f; s.ceil = Mat("sof_intonaco"); s.trim = Mat("cornice_legno"); break;
                 case RoomKind.Sepolcreto:
                     s.floor = Mat("pav_cripta"); s.wall = Mat("mur_cripta"); s.ceil = Mat("sof_volta"); s.trim = Mat("cornice_pietra"); s.beam = Mat("cornice_pietra"); break;
                 case RoomKind.Forgia:
@@ -226,6 +226,12 @@ namespace PryingEyes.Proc
         }
 
         static Material Mat(string n) => ProcKit.Mat(n);
+
+        /// <summary>The marble floor of a room. Two checkerboards alternate from room to room: the classic one (2 x 2 tiles to the
+        /// repetition) and the veined one (4 x 4 tiles, each cut from its own stone). The choice depends on the room alone, so what is
+        /// built inside another room (StyleOf(site.host)) agrees with it; a kit without the veined floor gives the classic one.</summary>
+        public static Material MarbleFloor(Room r) =>
+            ((r.id + r.variant) & 1) == 1 && ProcKit.HasMat("pav_marmo_venato") ? Mat("pav_marmo_venato") : Mat("pav_marmo");
 
         // ------------------------------------------------------------------ una stanza
         static void BuildRoom(FloorInstance fi, Room r)
