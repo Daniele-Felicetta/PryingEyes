@@ -2,20 +2,50 @@
 
 The main menu is a brass-and-patina hotel register with a procedural cathedral/eye engraving. Artwork is native UI mesh
 geometry, not a fixed-size bitmap. Display type uses the existing Georgia/Palatino fallback stack; utility text uses
-Bahnschrift/Segoe UI. The iris drifts using unscaled time and stops when visual motion is disabled. Keyboard focus,
-mouse, pause, guide and co-op flows use the existing Unity UI/EventSystem controls.
+Bahnschrift/Segoe UI. Keyboard focus, mouse, pause, guide and co-op flows use the existing Unity UI/EventSystem controls.
+
+Since 0.8.0 the engraving's iris looks at the mouse pointer (or at the entry picked with the keyboard or the controller), blinks every few
+seconds and a little dust drifts in the room; every panel fades in and rises 14 units in 0.2 s (`MenuPanelFade`); the six main buttons slide
+their text a few units when hovered or selected (`MenuButtonFx`). Everything that moves uses unscaled time and stands still when
+**Oscillazione visuale** is at zero.
+
+## Settings (0.8.0)
+
+Settings has five tabs: **Schermo**, **Immagine**, **Audio**, **Comandi** and **Gioco**. Each tab is a list of rows (the label on the left,
+the control on the right); a row is a slider or a choice with its values in a line (`MenuChoice`: ‹ value ›, left and right step it, Enter or A
+steps it forward, a click steps back on its left edge and forward elsewhere). Moving onto a row writes a sentence about it in the line under the list, so nothing needs a manual. Every row saves at once
+in `PlayerPrefs` (only the display is tried and confirmed, below); **Indietro** asks nothing and **Ripristina scheda** puts the open tab's
+rows back to their defaults (the Schermo tab has no such button: it is confirmed with **Applica schermo**). A tab opens by selecting it (the
+mouse, left and right, **PagSu** and **PagGiu** from any row), and the settings reopen on the tab last used. Code: `GameMenu.Settings.cs` (the rows and the tabs), `GameMenu.Display.cs` (the Schermo tab),
+`MenuWidgets.cs` (`MenuChoice`, `MenuFeedback`), `GameSettings.cs` and `GameSettings.More.cs` (the stored values and what they do).
+
+| Tab | Rows (default) |
+| --- | --- |
+| Schermo | Modalità schermo, Formato, Risoluzione, Frequenza monitor (exclusive fullscreen only), Sincronizzazione verticale, Limite fotogrammi (only without VSync), **Applica schermo** |
+| Immagine | Luminosità, Campo visivo, Qualità delle ombre (Alta), Risoluzione di rendering (100%, 50% to 100%), Anti-aliasing (4×, off / 2× / 4×), Grana della pellicola, Vignettatura, Bagliore (the last three 100% of each theme's own amount, down to 0) |
+| Audio | Volume generale, Effetti sonori, Musica, **Ambiente** (the hum, wind, murmurs, creaks and distant bells, which used to follow the effects), **Tema del menu** ([menu-music.md](menu-music.md)), Suoni dell'interfaccia (on) |
+| Comandi | Sensibilità mira (mouse), Sensibilità controller (right stick, 0.25× to 3×), Asse Y del mouse and Asse Y del controller (normal or inverted), Mira, Abbassarsi and Corsa (held, or one tap switches), **Elenco dei comandi** (opens the guide on the keys of the device in use) |
+| Gioco | Mirino (classic, dot only, none), Oscillazione visuale, HUD dei compagni (60% to 180%), Contatore fotogrammi (top left: frames per second and ms per frame; off), Pausa a finestra inattiva (on; it stops the game by itself when you switch window) |
+
+The Immagine settings touch the render pipeline asset only in the player: not in the editor and not in the automated runs, because a
+modified asset would stay modified. The defaults are what the asset held, so a game that never opens the tab looks as it did. The effect
+rows scale what the theme asks for (`GameSettings.SetThemeEffects`, applied by `FloorDirector.Look`); the toggles for aim, crouch and
+sprint live in `PlayerController.Toggles.cs` and `Weapon.cs` (aim down sights), the crosshair in `HUD.cs`, the frame counter in
+`FpsCounter.cs`.
 
 ## Display behavior
 
-Settings has separate **Schermo** and **Audio e comandi** tabs. Display controls include:
+The **Schermo** tab is six choice rows (`GameMenu.Display.cs`), then **Applica schermo** with a line saying what is applied now. Display
+controls include:
 
 - Borderless fullscreen, exclusive fullscreen and windowed mode.
 - Resolution selection and aspect filters for all formats, 16:9, 21:9 and 16:10.
 - Common windowed/borderless presets through 3440×1440 QHD ultrawide (including 2560×1080 and 2560×1440), plus resolutions
   reported by the connected monitor. Native monitor modes above QHD are preserved rather than artificially capped.
 - Refresh rates reported by the monitor for exclusive fullscreen. Other modes use the desktop refresh rate. Fractional
-  refresh rates retain Unity's native numerator/denominator when applied.
-- VSync and frame caps: unlimited, 30, 60, 90, 120, 144, 165 and 240 FPS. VSync takes precedence over the frame cap.
+  refresh rates retain Unity's native numerator/denominator when applied. The row is dimmed in the other modes.
+- VSync and frame caps: unlimited, 30, 60, 90, 120, 144, 165 and 240 FPS. VSync takes precedence over the frame cap, and the cap row is
+  dimmed while VSync is on.
 
 Exclusive fullscreen offers only monitor-reported resolutions. Other modes may be constrained by the desktop/window
 manager; the confirmation persists the resolution Unity actually applied. See the official
@@ -25,8 +55,8 @@ manager; the confirmation persists the resolution Unity actually applied. See th
 **Applica schermo** starts a 15-second preview measured in real time, including while the game is paused. Underlying
 settings controls are disabled until confirmation. **Mantieni impostazioni** persists the applied configuration;
 **Ripristina**, Escape, timeout and menu destruction restore the preceding configuration. Leaving settings without
-applying discards the draft. Comfort/audio controls retain their existing immediate behavior. Since 0.7.2 the *Audio e comandi* tab also
-has **HUD dei compagni** (60% to 180%, saved as `hud_coop_scale`), the size of the teammates panel in co-op and split screen; it applies at once.
+applying discards the draft. The rows of the other four tabs keep their immediate behavior. **HUD dei compagni** (Gioco tab, since 0.7.2: 60% to
+180%, saved as `hud_coop_scale`) is the size of the teammates panel in co-op and split screen; it applies at once.
 
 The first ordinary launch uses native desktop resolution in borderless mode, overriding stale Unity Screenmanager
 values left by earlier tests. Later launches apply the last explicitly confirmed display configuration. Automated runs
@@ -46,8 +76,30 @@ when a controller is in use, and **Torna al menu** warns that the split screen c
 
 The menu input is `PadMenuInput`, not Unity's default: arrows, WASD, D-pad and the left stick move the selection, Enter, Space and A confirm,
 Esc and B go back, Start toggles the pause. A brass frame marks the selected item when you navigate without the mouse, the footer and the pause
-text name the keys of the device in use, the two settings tabs are chosen with left and right, sliders are adjusted with left and right, and a
-text field is entered only with Enter, A or a click. Details and checks: [controller.md](controller.md).
+text name the keys of the device in use, and a text field is entered only with Enter, A or a click. In the settings (explicit chains, rebuilt
+by `RebuildNav` for the open tab and skipping dimmed rows) left and right on the tab strip pick a tab and down enters its first row; up and
+down walk the rows, the last one leads to **Indietro** and **Ripristina scheda**; left and right on a row change its value. Details and
+checks: [controller.md](controller.md).
+
+## Guide, tips and the pause screen
+
+**Come si gioca** opens the guide, now three pages with tabs (`GameMenu.Help.cs`): **Obiettivo** (what the game asks), **Tastiera** and
+**Controller** (a three-column list of keys and actions each, written from the bindings found in the code). From the settings, **Elenco dei
+comandi** opens it on the page of the device in use. Under the quote *Voi guardate. Lui vi vede.* the main menu shows a **CONSIGLIO**: one of
+13 sentences about the game, changed every 8 seconds with a half-second fade (still when the visual motion is at zero), in its controller
+wording when a controller is the device in use (`Tips`, `TipFor` in `GameMenu.Design.cs`; every sentence restates something the game says
+elsewhere: the guide, the scoreboard, the systems' comments). The pause screen has a line under *In pausa* with the wave, floor, points,
+kills and playing time, the same figures as the scoreboard (`PauseStatsText`).
+
+## Menu sounds
+
+The menu makes four short tones (`MenuSound`): a tick when an entry is lit or chosen, a step when a choice changes value (the same tone,
+higher towards the maximum, while a slider moves), a confirm and a back. They follow **Effetti sonori**, are switched off by **Suoni
+dell'interfaccia**, and moving **Volume generale**, **Effetti sonori** or **Ambiente** plays a sample of what is being set (a bell, or a
+creak for the ambience; at most one every 0.35 s). The tones are generated (`SoundMenu.cs`, peaks −4 to −7 dBFS, 80 to 700 ms). The main
+menu also has a theme: [menu-music.md](menu-music.md). Neither plays in the automated runs (`GameSettings.QuietRun`: any `-*test` argument,
+or `-nomusic`), so an agent testing the game does not make noise on the maintainer's computer; the requests are still counted, which is how
+the checks know a slider or a button "speaks".
 
 ## Version label
 
@@ -62,12 +114,17 @@ showed no version anywhere.
 
 ## Verification
 
-- `PryingEyes.EditorTools.MenuReview.Run` renders main menu, display, comfort, guide, co-op and split-screen panels at 1280×720,
-  1920×1080, 3440×1440 and 1024×768; also checks pause/resume, leave confirmation, text bounds and real engraving meshes.
-  It checks ultrawide presets, filtering, input validation and the eight comfort controls, that the version is `x.y.z` and the
-  label says it, and that on every panel the label stays at least 24 units to the right of the longer of the two key-hint lines (keyboard and
-  controller, measured with the real font). Output:
-  `unity_logs/menu-review`. This runs in an empty editor scene without changing player display preferences.
+- `PryingEyes.EditorTools.MenuReview.Run` renders the main menu, the five settings tabs, the three guide pages, the co-op and split-screen
+  panels and the pause screen at 1280×720, 1920×1080, 3440×1440 and 1024×768; also checks pause/resume, leave confirmation, text bounds and
+  real engraving meshes. It checks ultrawide presets, filtering and input validation; for each tab that every row exists, has a hint, fits
+  its column and sits on an explicit navigation chain (dimmed rows skipped) from the tab to **Indietro**; that each row writes the value it
+  names (steps, wraps at both ends, sliders reach their limits) and that **Ripristina scheda** restores the defaults of that tab; that the
+  guide's keys fit their column and line up with their actions; the 13 tips (each, in both wordings, longer than 20 characters and within two
+  lines of its label); the pause summary; that the menu tones are requested (and not with **Suoni dell'interfaccia** off); that the version is
+  `x.y.z` and the label says it, and that on every panel the label stays at least 24 units to the right of the longer of the two key-hint lines
+  (keyboard and controller, measured with the real font). Output: `unity_logs/menu-review`. This runs in an empty editor scene without
+  changing player display preferences; the settings it changes are put back at the end.
+- `PryingEyes.EditorTools.MenuMusicReview.Run`: the theme and the tones, in numbers ([menu-music.md](menu-music.md)).
 - `python tools/check_display.py`: explicit Windows acceptance check against `Builds/Audit`. Exercises actual window
   resolution changes, timeout rollback while paused, explicit cancellation, confirmation/persistence and audio muting.
   The harness restores the exact preceding `display_*`, Screenmanager and monitor-selection registry values in `finally`.
@@ -82,4 +139,11 @@ On 16 November 2026, with the version label: `MenuReview.Run` passed 757 of 757 
 measure its gap from the key hints, never below 253 units at the four sizes) and the photos of the main menu (1280×720) and of the pause
 screen (1024×768) were looked at. The label was not checked in a real player window.
 
-Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Split.cs`, `MenuEngraving.cs`, `VideoSettings.cs`.
+On 17 November 2026, with the 0.8.0 rework: `MenuReview.Run` passed 2187 of 2187 checks and the photos it saves were looked at in the
+editor. `DisplayTest.cs`, `PadMenuTest.cs` and `PresentationTest.cs` were adapted to the new rows (`SplitScreenTest.cs` to the controller
+sensitivity) and compile; `tools/check_display.py` and the presentation test were not run (they change the real screen mode and the game's
+registry values: they are for the maintainer to ask for). **Not verified**: the look and the animation in a real player window, how the new
+tabs feel with a physical controller, and the music and the tones by ear ([menu-music.md](menu-music.md)).
+
+Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Settings.cs`, `GameMenu.Help.cs`, `GameMenu.Split.cs`,
+`MenuWidgets.cs`, `MenuSound.cs`, `MenuMusic.cs`, `MenuEngraving.cs`, `GameSettings.cs`, `GameSettings.More.cs`, `VideoSettings.cs`.

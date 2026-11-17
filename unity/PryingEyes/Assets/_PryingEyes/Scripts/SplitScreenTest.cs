@@ -254,7 +254,7 @@ namespace PryingEyes
             yield return new WaitForSeconds(0.5f);
             PadControls.Inject(Pad());
             float dyaw = player.yaw - y0;
-            expected = PadControls.Mapper.YawRate * GameSettings.Sensitivity * player.weapon.SensMult * 0.5f;
+            expected = PadControls.Mapper.YawRate * GameSettings.PadSensitivity * player.weapon.SensMult * 0.5f;
             Check($"stick destro a destra: la visuale gira a destra (+{dyaw:F2} rad, attesi circa {expected:F2})", dyaw > expected * 0.7f && dyaw < expected * 1.3f);
             float pitch0 = player.pitch;
             PadControls.Inject(Pad(ry: 32767));

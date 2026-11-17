@@ -331,16 +331,17 @@ namespace PryingEyes
             if (adsVig != null) adsVig.color = new Color(1f, 1f, 1f, Mathf.Clamp01(adsVigTarget));
             float len = xShot ? 10f : 6f;
             float a = 0.85f * Mathf.Clamp01(1f - xAds * 1.6f);
+            int style = GameSettings.Crosshair;          // Impostazioni > Gioco: classico, solo il punto, nessuno
             for (int i = 0; i < 4; i++)
             {
                 bool vert = i < 2;
                 xDash[i].sizeDelta = vert ? new Vector2(2f, len) : new Vector2(len, 2f);
                 float d = xGap;
                 xDash[i].anchoredPosition = i == 0 ? new Vector2(0, d) : i == 1 ? new Vector2(0, -d) : i == 2 ? new Vector2(d, 0) : new Vector2(-d, 0);
-                var c = xDashImg[i].color; c.a = a; xDashImg[i].color = c;
+                var c = xDashImg[i].color; c.a = style == GameSettings.CrosshairClassic ? a : 0f; xDashImg[i].color = c;
             }
-            xDot.rectTransform.sizeDelta = Vector2.one * 2f;
-            var dc = xDot.color; dc.a = 0.7f * a; xDot.color = dc;
+            xDot.rectTransform.sizeDelta = Vector2.one * (style == GameSettings.CrosshairDot ? 3f : 2f);
+            var dc = xDot.color; dc.a = style == GameSettings.CrosshairNone ? 0f : (style == GameSettings.CrosshairDot ? a : 0.7f * a); xDot.color = dc;
         }
 
         const int TexelsPerUnit = 8;       // risoluzione dello sprite della tacca

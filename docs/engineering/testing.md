@@ -127,6 +127,16 @@ Unity -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.NavMap
 - Both read `-theme albergo|teatro|sanatorio|guardaroba` (forces the theme of every grid floor), `-guardaroba N` (percentage of Guardaroba floors from the third up) and `-survivallayout` (the room plans of the wave cycle, which is the game's default; without it the editor tools build the candle-cycle plan). See [../game/guardaroba.md](../game/guardaroba.md).
 - **`NavMap`**: navmesh of one floor in PPM, walkable area, the component of the arrival, and the doors that separate it from the rest. Output: the `-out` file (default `hotel_build/navmap.ppm`).
 
+### 2.6 Menu and menu music (Unity editor, edit mode)
+
+```powershell
+Unity -batchmode -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.MenuReview.Run
+Unity -batchmode -nographics -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.MenuMusicReview.Run
+```
+
+- **`MenuReview`**: builds the menu in an empty scene and checks it at four sizes (1280×720, 1920×1080, 3440×1440, 1024×768): the five settings tabs (rows, hints, navigation chains, what each row writes, the reset of each tab), the three guide pages, the tips, the pause summary, the split-screen panel and the version label. It photographs the panels, so it needs graphics (no `-nographics`); about 15 s; it exits by itself and puts the settings it changed back. Output: `unity_logs/menu-review/` (the photos and `result.txt`). 2187 checks passed on 17 November 2026. What it checks, in full: [../game/display-and-menu.md](../game/display-and-menu.md#verification).
+- **`MenuMusicReview`**: computes the menu theme and the four menu tones, checks them (24 checks: length, finiteness, level, stereo, the loop seam, the score against its chords, the clip the game builds) and writes the WAV files and `result.txt` to `unity_logs/menu-music/`. About 25 s. It cannot say that the music sounds good: nobody has listened to it ([../game/menu-music.md](../game/menu-music.md)).
+
 ## 3. In-game headless tests
 
 The in-game tests run the real game with the autopilot. Common form:

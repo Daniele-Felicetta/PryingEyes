@@ -16,7 +16,7 @@ namespace PryingEyes
         RectTransform currentPanel, focusRing;
         Image[] ringBars;
         readonly Stack<(RectTransform panel, GameObject selected)> panelStack = new Stack<(RectTransform panel, GameObject selected)>();
-        Text footer, helpMove, helpRound, helpPad;
+        Text footer, helpMove, helpRound;
         string shownHints;
         int prevNavX, prevNavY;
         readonly Vector3[] ringCorners = new Vector3[4];
@@ -68,6 +68,8 @@ namespace PryingEyes
             var system = EventSystem.current;
             if (system == null) return;
             var pick = FirstSelectable(displayPending ? displayConfirm : currentPanel);
+            if (!displayPending && currentPanel == settingsPanel && page != null) pick = page.tab.gameObject;          // la scheda aperta, non la prima
+            else if (!displayPending && currentPanel == helpPanel && helpTabs != null) pick = helpTabs[helpPage].gameObject;
             if (pick != null) system.SetSelectedGameObject(pick);
         }
 
@@ -126,7 +128,6 @@ namespace PryingEyes
             if (pauseHint != null)      // nello schermo condiviso riprende anche Start di un altro controller (la pausa e' di tutti)
                 pauseHint.text = (Coop.Active ? "Gli altri continuano a giocare. " : "La partita è sospesa. ") + (pad ? "Start o B per riprendere." : split ? "Esc o Start per riprendere." : "Esc per riprendere.");
             if (padHelp != null) padHelp.gameObject.SetActive(pad);
-            helpPad.gameObject.SetActive(pad);
             helpMove.text = HelpMoveText(pad);
             helpRound.text = HelpRoundText(pad);
         }

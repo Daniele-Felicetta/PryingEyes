@@ -94,6 +94,7 @@ namespace PryingEyes
         float swapT, equipT, lastShot = -99f, flashT;
         int burstLeft, streak;
         bool triggerHeld, dryPlayed, sprintHeld;
+        bool adsToggled;       // la mira a interruttore (GameSettings.AimToggle)
         float sprintBlend, kickBack, kickPitch, kickRoll, swayX, swayY, swayVx, swayVy, breath;
         float cycleAnim = -1f, cycleLen = 0.6f;
         float pendingSlotTime;
@@ -905,7 +906,16 @@ namespace PryingEyes
             if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
 
             // ----- mira
-            bool adsWant = inputEnabled && (SeatInput.GetMouseButton(1) || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !sprinting && swapT <= 0f && !knifeOut && !OffBusy && (!reloading || Def.style == ReloadStyle.Tube);
+            bool adsBlocked = sprinting || swapT > 0f || knifeOut || OffBusy || (reloading && Def.style != ReloadStyle.Tube);
+            bool adsKey = SeatInput.GetMouseButton(1);
+            if (GameSettings.AimToggle)       // Impostazioni > Comandi: la mira a interruttore; corsa, cambio, coltello e ricarica la abbassano e non riprende da sola
+            {
+                if (!inputEnabled || adsBlocked) adsToggled = false;
+                else if (SeatInput.GetMouseButtonDown(1)) adsToggled = !adsToggled;
+                adsKey = adsToggled;
+            }
+            else adsToggled = false;
+            bool adsWant = inputEnabled && (adsKey || TouchControls.Held(TouchControls.Action.Aim) || debugAds) && !adsBlocked;
             adsRaw = Mathf.MoveTowards(adsRaw, adsWant ? 1f : 0f, dt * OwnerMagic.HandlingMult / Mathf.Max(0.05f, d.adsTime));
             ads = adsRaw * adsRaw * (3f - 2f * adsRaw);
 

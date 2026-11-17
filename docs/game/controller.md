@@ -70,7 +70,9 @@ sticks do not move you); only Start, which the menu uses, gets through.
 
 - A brass frame marks the selected item whenever you navigate with the controller or the keyboard.
 - Going back lands on the button that opened the screen, not on the first one.
-- The two tabs of the settings are chosen with left and right and lead down to the first control of the open tab.
+- The five tabs of the settings (Schermo, Immagine, Audio, Comandi, Gioco) are chosen with left and right (selecting one opens it) and down
+  leads to the first row of the open tab; up and down walk the rows, left and right on a row change its value, and the last row leads to
+  **Indietro** and **Ripristina scheda**. The guide's three tabs open the same way, and down leads to **Indietro**.
 - After a click in empty space nothing is selected; the first controller or keyboard command then only selects a button, and the next one moves.
 - Selecting a text field does not start typing (a mouse click, Enter or A does), so the controller cannot get stuck in a field.
 - The mouse pointer is hidden while you navigate with the controller or the keyboard, and the buttons ignore a resting pointer; moving the mouse
