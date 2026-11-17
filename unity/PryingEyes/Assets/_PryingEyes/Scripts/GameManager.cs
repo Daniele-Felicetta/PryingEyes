@@ -690,6 +690,7 @@ namespace PryingEyes
                 if (claimer == 0) CreditKill(src, headshot);
                 else Coop.Game?.KillCredit(claimer, src, headshot);
                 Drops.OnKill(e, src);
+                if (e != null) Proc.FloorMap.NoteKill(e.transform.position);      // il sangue sulla mappa (Proc/Map/FloorMap.cs)
                 return;
             }
             alive--;

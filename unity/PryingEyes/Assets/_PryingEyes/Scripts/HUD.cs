@@ -160,9 +160,11 @@ namespace PryingEyes
             objectiveText.fontStyle = FontStyle.Normal;
             objectiveText.rectTransform.anchoredPosition = new Vector2(28, -60);
             promptText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            BuildMapUI();            // Proc/HUD.Map.cs: la mappa del piano (minimappa in alto a destra, foglio grande con M), sopra il resto dell'HUD e sotto la dissolvenza
             fadeImg = MakeImage("Fade", Color.clear);
             var fr = fadeImg.GetComponent<RectTransform>();
             fr.anchorMin = Vector2.zero; fr.anchorMax = Vector2.one; fr.offsetMin = Vector2.zero; fr.offsetMax = Vector2.zero;
+            fadeImg.transform.SetAsLastSibling();      // la dissolvenza copre anche la mappa
             // scritte della versione precedente rimaste nella scena: spente
             foreach (var old in new[] { "Kills", "Cross", "KillConfirm" })
             {
@@ -445,6 +447,7 @@ namespace PryingEyes
             UpdateMedalUI(dt);
             UpdateScoreUI(dt);
             UpdateRisorseUI(dt);
+            UpdateMapUI();
             if (bannerT > 0f)
             {
                 bannerT -= dt;

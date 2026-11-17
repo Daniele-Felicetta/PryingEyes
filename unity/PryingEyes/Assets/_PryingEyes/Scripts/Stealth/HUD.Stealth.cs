@@ -101,7 +101,7 @@ namespace PryingEyes
         }
 
         public void SetPingCooldown(float fraction) { pingCd = fraction; }
-        public void PingPulse() { pingRingT = 0f; }
+        public void PingPulse() { pingRingT = 0f; if (mapView != null) mapView.Ping(); }
 
         // ------------------------------------------------------------------ aggiornamento
         void UpdateStealthUI(float dt)

@@ -37,6 +37,8 @@ static class Program
         if (cmd == "passages") return Passages();
         if (cmd == "regions") return Regions(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "stats") return Stats(a.Length > 1 ? int.Parse(a[1]) : 1000);
+        if (cmd == "mapart") return MapLab.Run(a);
+        if (cmd == "maptex") return MapLab.DumpTextures(a[1]);
         if (cmd == "map") { Map(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         if (cmd == "sheet") { Sheet(int.Parse(a[1]), int.Parse(a[2]), a[3]); return 0; }
         return 1;

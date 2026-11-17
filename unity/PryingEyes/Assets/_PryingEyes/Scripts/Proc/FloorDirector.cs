@@ -24,14 +24,12 @@ namespace PryingEyes.Proc
         float trickleT, floorTime, hudT, probeT;
         bool perfStarted;                    // -perftest: la sonda dei fotogrammi gira una volta sola per partita
         Room playerRoom;
-        readonly HashSet<int> explored = new HashSet<int>();
-        readonly HashSet<WallBuy> foundWeapons = new HashSet<WallBuy>();
-        readonly HashSet<Candelabro> foundCandles = new HashSet<Candelabro>();
-        readonly HashSet<int> foundShrines = new HashSet<int>();      // 0 Biblioteca, 1 Scrigno, 2 altare: segnati sulla mappa quando li hai visti da vicino
-        bool foundExit;
-        // la mappa e' di ogni giocatore (apre e chiude la sua, nella sua porzione di schermo); quello che si e' scoperto e' di tutti
+        /// <summary>La mappa del piano (Proc/Map/FloorMap.cs): cosa si e' scoperto e come si dipinge. E' di tutti; ogni giocatore la guarda dal suo HUD (MapView).</summary>
+        public FloorMap map;
+        // ogni giocatore apre e chiude la sua mappa (e la sua minimappa), nella sua porzione di schermo
         readonly bool[] mapOpenA = new bool[Seats.MaxSeats], miniMapOff = new bool[Seats.MaxSeats];
         readonly float[] mapScanA = new float[Seats.MaxSeats];
+        float mapRefreshT;
         GameManager gm;
         static string BotLog => TestPaths.Out("proctest.txt");
 
@@ -152,6 +150,7 @@ namespace PryingEyes.Proc
                 RoundDirector.I?.Disarm();       // le serrande sono figlie del piano: vanno via con lui
                 Destroy(cur.root);
                 cur = null;
+                FloorMap.Clear(); map = null;
                 Enemy.ClearAll();
                 Drops.NewFloor();
                 WallBuy.ClearAll();
@@ -164,7 +163,7 @@ namespace PryingEyes.Proc
             floor = n;
             Seats.EachOrOnce(_ => Perks.NewFloor());      // la Rinascita e' di nuovo pronta, il Velo e l'Occhio si spengono (per ogni giocatore)
             Biblioteca.Clear();
-            explored.Clear(); foundWeapons.Clear(); foundCandles.Clear(); foundShrines.Clear(); foundExit = false; System.Array.Clear(mapOpenA, 0, mapOpenA.Length);
+            System.Array.Clear(mapOpenA, 0, mapOpenA.Length);
             // piu' si scende, piu' buio: la scala di tutte le luci del piano, letta da RoomKits.AddLight mentre costruisce
             LightPool.Dim = LightDim(n);
             PlanGen.SurvivalLayout = SurvivalMode.Enabled;
@@ -252,6 +251,8 @@ namespace PryingEyes.Proc
                 lift.SetOpenInstant(false);
             }
             playerRoom = cur.RoomAt(pl.transform.position);
+            map = FloorMap.Create(cur);                        // la mappa del piano: tutto da scoprire (Proc/Map/FloorMap.cs)
+            if (revealMaps && Catacombe.Hub) { foreach (var r in plan.rooms) map.Explore(r.id); map.Refresh(true); }      // la Mappa del cartografo (FloorDirector.Catacombe.cs): il livello si vede tutto
             if (Catacombe.Attive)
             {
                 int lv = Rami.LivelloDi(n);
@@ -1165,22 +1166,24 @@ namespace PryingEyes.Proc
                 if (SeatInput.GetKeyDown(KeyCode.M) || TouchControls.Down(TouchControls.Action.Map)) mapOpenA[si] = !mapOpenA[si];
                 if (SeatInput.GetKeyDown(KeyCode.N)) miniMapOff[si] = !miniMapOff[si];
                 var room = cur.RoomAt(pl.transform.position);
-                if (room != null) explored.Add(room.id);
+                if (room != null && map != null && map.Explore(room.id)) map.Refresh();       // una stanza nuova: la carta la inchiostra subito
                 mapScanA[si] -= dt;
-                if (mapScanA[si] <= 0f)
+                if (mapScanA[si] <= 0f && map != null)
                 {
                     mapScanA[si] = 0.5f;
                     Vector3 here = pl.transform.position;
                     foreach (var w in FindObjectsOfType<WallBuy>())
-                        if ((w.transform.position - here).sqrMagnitude < 64f && cur.RoomAt(w.transform.position)?.id == room?.id) foundWeapons.Add(w);
+                        if ((w.transform.position - here).sqrMagnitude < 64f && cur.RoomAt(w.transform.position)?.id == room?.id) map.foundWeapons.Add(w);
                     foreach (var c in cur.candles)
-                        if (c != null && (c.transform.position - here).sqrMagnitude < 64f && cur.RoomAt(c.transform.position)?.id == room?.id) foundCandles.Add(c);
-                    if (cur.exit != null && (cur.exit.transform.position - here).sqrMagnitude < 64f) foundExit = true;
+                        if (c != null && (c.transform.position - here).sqrMagnitude < 64f && cur.RoomAt(c.transform.position)?.id == room?.id) map.foundCandles.Add(c);
+                    if (cur.exit != null && (cur.exit.transform.position - here).sqrMagnitude < 64f) map.foundExit = true;
                     for (int k = 0; k < 3; k++)
                     {
-                        var sp = ShrinePos(k);
-                        if (sp.HasValue && (sp.Value - here).sqrMagnitude < 100f && cur.RoomAt(sp.Value)?.id == room?.id) foundShrines.Add(k);
+                        var sp = FloorMap.ShrinePos(k);
+                        if (sp.HasValue && (sp.Value - here).sqrMagnitude < 100f && cur.RoomAt(sp.Value)?.id == room?.id) map.foundShrines.Add(k);
                     }
+                    var panel = Power.Panel;
+                    if (panel != null && (panel.transform.position - here).sqrMagnitude < 100f && panel.RoomId == room?.id) map.foundPanel = true;
                 }
             }
             if (!transitioning && pl.alive) FallGuard(dt);
@@ -1211,6 +1214,13 @@ namespace PryingEyes.Proc
                 if (!exitOpen) RefreshObjective();
                 playerRoom = cur.RoomAt(gm.player.transform.position);
             }
+            mapRefreshT -= dt;
+            if (mapRefreshT <= 0f && map != null)
+            {
+                mapRefreshT = 0.3f;
+                map.exitOpen = exitOpen;
+                map.Refresh();
+            }
             // col nuovo ciclo (niente candele) il vecchio bot non avrebbe bersagli: ci pensa quello rigoroso, che compra le porte
             if (GameManager.autoTest && HasArg("-procbot")) { if (HasArg("-botstrict") || SurvivalMode.Enabled) BotStrictTick(dt); else BotTick(dt); }
             if (GameManager.autoTest && HasArg("-procshots")) ShotTick();
@@ -1224,6 +1234,12 @@ namespace PryingEyes.Proc
 #endif
         }
 
+        /// <summary>La mappa grande di questo posto e' aperta? (la sua vista, MapView, lo chiede ogni fotogramma)</summary>
+        public bool MapOpen(int seat) => !InHub && seat >= 0 && seat < mapOpenA.Length && mapOpenA[seat];
+
+        /// <summary>La minimappa di questo posto e' accesa? (si spegne con N)</summary>
+        public bool MiniOn(int seat) => !InHub && seat >= 0 && seat < miniMapOff.Length && !miniMapOff[seat];
+
         /// <summary>Solo per le prove: apre la mappa grande o la minimappa (e chiude l'altra).</summary>
         public void DebugShowMap(bool full, bool mini)
         {
@@ -1231,199 +1247,15 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Solo per le prove: segna una stanza come visitata (la mappa mostra solo quello che hai visto).</summary>
-        public void DebugExplore(int roomId) => explored.Add(roomId);
+        public void DebugExplore(int roomId) { if (map != null && map.Explore(roomId)) map.Refresh(true); }
 
         /// <summary>Solo per le prove: le stanze visitate diventano esattamente queste.</summary>
         public void DebugSetExplored(IEnumerable<int> ids)
         {
-            explored.Clear();
-            foreach (int id in ids) explored.Add(id);
-        }
-
-        void OnGUI()
-        {
-            if (cur == null || gm == null || gm.player == null || GameMenu.Blocked || transitioning || InHub) return;
-            if (Event.current.type != EventType.Repaint) return;      // la mappa si disegna e basta: niente liste e stringhe a ogni evento di layout/mouse
-            if (Seats.Split)
-            {
-                // schermo condiviso: ogni giocatore ha la sua mappa e la sua minimappa, dentro la sua porzione di schermo
-                foreach (var s in Seats.All)
-                {
-                    if (s.player == null) continue;
-                    var v = s.view;
-                    var area = new Rect(v.x * Screen.width, (1f - v.yMax) * Screen.height, v.width * Screen.width, v.height * Screen.height);
-                    DrawSeatMaps(s.index, s.player.transform.position, s.hud, area);
-                }
-                return;
-            }
-            DrawSeatMaps(0, gm.player.transform.position, gm.hud, new Rect(0f, 0f, Screen.width, Screen.height));
-        }
-
-        /// <summary>Minimappa e mappa grande di un giocatore dentro la sua porzione di schermo (in pixel, y dall'alto).</summary>
-        void DrawSeatMaps(int si, Vector3 player, HUD hud, Rect view)
-        {
-            if (!miniMapOff[si])
-            {
-                float scale = hud != null ? hud.transform.lossyScale.x : 1f;       // pixel per unita' della sua interfaccia (quella piena o quella ridotta)
-                DrawMap(new Rect(view.xMax - 220 * scale, view.y + 18 * scale, 202 * scale, 202 * scale), false, player, si);
-            }
-            if (mapOpenA[si]) DrawMap(new Rect(view.x + view.width * 0.12f, view.y + view.height * 0.1f, view.width * 0.76f, view.height * 0.8f), true, player, si);
-        }
-
-        static readonly Color OtherPlayerColor = new Color(1f, 0.42f, 0.78f);
-
-        void DrawMap(Rect area, bool full, Vector3 player, int si)
-        {
-            var plan = cur.plan;
-            float span = full ? Mathf.Max((plan.maxX - plan.minX) * 0.1f, (plan.maxZ - plan.minZ) * 0.1f) + 8f : 34f;
-            float scale = Mathf.Min(area.width, area.height - (full ? 45f : 0f)) / Mathf.Max(span, 1f);
-            float cx = full ? (plan.minX + plan.maxX) * 0.05f : player.x;
-            float cz = full ? (plan.minZ + plan.maxZ) * 0.05f : player.z;
-            GUI.BeginGroup(area);
-            GUI.color = new Color(0.025f, 0.035f, 0.045f, 0.92f); GUI.DrawTexture(new Rect(0, 0, area.width, area.height), Texture2D.whiteTexture);
-            float px(float x) => area.width * 0.5f + (x - cx) * scale;
-            float py(float z) => (area.height - (full ? 35f : 0f)) * 0.5f - (z - cz) * scale;
-            if (plan.grid) DrawGridRooms(plan, full, px, py, scale);
-            else
-            foreach (var r in plan.rooms)
-            {
-                if (!explored.Contains(r.id)) continue;
-                GUI.color = r.church ? new Color(0.36f, 0.40f, 0.43f) : new Color(0.40f, 0.36f, 0.32f);
-                GUI.DrawTexture(new Rect(px(r.x0 * 0.1f), py(r.z1 * 0.1f), (r.x1-r.x0)*0.1f*scale, (r.z1-r.z0)*0.1f*scale), Texture2D.whiteTexture);
-            }
-            void Mark(Vector3 p, Color color, string label)
-            {
-                float x = px(p.x), y = py(p.z);
-                GUI.color = color; GUI.DrawTexture(new Rect(x-3, y-3, 6, 6), Texture2D.whiteTexture);
-                if (full) { GUI.color = Color.white; GUI.Label(new Rect(x+5, y-10, 100, 20), label); }
-            }
-            foreach (var w in foundWeapons) if (w != null) Mark(w.transform.position, Color.cyan, full ? w.displayName : "");
-            foreach (var c in foundCandles) if (c != null) Mark(c.transform.position, Color.yellow, c.lit ? "Candela accesa" : "Candela");
-            if (foundExit && cur.exit != null) Mark(cur.exit.transform.position, Color.green, "Uscita");
-            foreach (int k in foundShrines)
-            {
-                var sp = ShrinePos(k);
-                if (sp.HasValue) Mark(sp.Value, k == 0 ? new Color(0.72f, 0.48f, 1f) : k == 1 ? new Color(1f, 0.58f, 0.16f) : new Color(1f, 0.86f, 0.35f), k == 0 ? "Biblioteca" : k == 1 ? "Scrigno" : "Altare");
-            }
-            if (Seats.Split)
-                foreach (var o in Seats.All)
-                    if (o.index != si && o.player != null && o.player.alive) Mark(o.player.transform.position, OtherPlayerColor, o.Name);
-            Mark(player, Color.red, "Tu");
-            GUI.color = Color.white;
-            if (full) GUI.Label(new Rect(12, area.height - 42, area.width - 24, 40), "M: chiudi   N: minimappa   • rosso: tu" + (Seats.Split ? "   • rosa: compagni" : "") + "   • azzurro: armi   • giallo: candele   • verde: uscita\n• viola: biblioteca dei perk   • arancio: scrigno delle armi   • oro: altare della consacrazione" +
-                (plan.grid ? "\nStanze: fuoco arena (candela) · oro negozio · viola biblioteca · cremisi guardiano · turchese segreta · acciaio guardie" : ""));
-            GUI.EndGroup();
-        }
-
-        static GUIStyle mapLabel;
-
-        /// <summary>Un elemento della mappa a griglia: un riquadro pieno, un bordo (di spessore t) o un'etichetta, gia' in coordinate schermo.</summary>
-        public struct MapItem
-        {
-            public enum Kind { Fill, Box, Label }
-            public Kind kind;
-            public Rect r;
-            public Color c;
-            public float t, radius;
-            public string text;
-        }
-
-        /// <summary>Pianta a griglia: le stanze sono i nodi della mappa, tinte col loro ruolo (FloorBuilder.FrameColor, lo stesso colore degli
-        /// stipiti delle porte); le porte sono tacche sul muro in comune. Si vede quello che hai visitato e, come in Isaac, le stanze oltre le
-        /// porte aperte delle stanze visitate, come "?"; la stanza segreta solo dopo che ci sei stato. Qui si decide cosa disegnare e dove (e'
-        /// la parte che le prove guardano); DrawGridRooms lo disegna con IMGUI.</summary>
-        public List<MapItem> GridMapItems(Plan plan, bool full, System.Func<float, float> px, System.Func<float, float> py, float scale)
-        {
-            var items = new List<MapItem>();
-            var known = new HashSet<int>();
-            foreach (var o in plan.openings)
-            {
-                if (o.b < 0 || o.oneSided || o.style == OpenStyle.Ascensore || o.style == OpenStyle.Passaggio) continue;
-                if (explored.Contains(o.a)) known.Add(o.b);
-                if (explored.Contains(o.b)) known.Add(o.a);
-            }
-            Color Tint(Room r) => r.type == RoomType.Normale ? new Color(0.62f, 0.62f, 0.62f) : FloorBuilder.FrameColor(r.type);
-            foreach (var r in plan.rooms)
-            {
-                if (r.IsLift) continue;
-                bool seen = explored.Contains(r.id);
-                if (!seen && (!known.Contains(r.id) || r.type == RoomType.Segreta)) continue;
-                var q = new Rect(px(r.x0 * 0.1f) + 1.5f, py(r.z1 * 0.1f) + 1.5f, (r.x1 - r.x0) * 0.1f * scale - 3f, (r.z1 - r.z0) * 0.1f * scale - 3f);
-                int firstItem = items.Count;
-                if (seen)
-                {
-                    Color t = Tint(r);
-                    items.Add(new MapItem { kind = MapItem.Kind.Fill, r = q, c = new Color(t.r * 0.26f + 0.07f, t.g * 0.26f + 0.07f, t.b * 0.26f + 0.07f, 1f) });
-                    items.Add(new MapItem { kind = MapItem.Kind.Box, r = q, c = new Color(t.r, t.g, t.b, 0.9f), t = 2f });
-                    if (full)
-                        items.Add(new MapItem { kind = MapItem.Kind.Label, r = q, c = new Color(1f, 1f, 1f, 0.75f),
-                            text = r.kind == RoomKind.Rotonda ? "Rotonda" : r.kind == RoomKind.Galleria ? "Galleria" : r.kind == RoomKind.GiardinoInverno ? "Giardino d'inverno" :
-                                r.type == RoomType.Normale ? r.kind.ToString() : r.type == RoomType.Candela ? "Arena" : r.type == RoomType.Boss ? "Guardiano" : r.type.ToString() });
-                }
-                else
-                {
-                    items.Add(new MapItem { kind = MapItem.Kind.Fill, r = q, c = new Color(0.11f, 0.12f, 0.14f, 1f) });
-                    items.Add(new MapItem { kind = MapItem.Kind.Box, r = q, c = new Color(0.30f, 0.33f, 0.38f, 1f), t = 1.5f });
-                    items.Add(new MapItem { kind = MapItem.Kind.Label, r = q, c = new Color(1f, 1f, 1f, 0.55f), text = "?" });
-                }
-                for (int i = firstItem; i < items.Count; i++)
-                {
-                    var item = items[i]; item.radius = Mathf.Max(0f, r.cornerRadius * scale - 1.5f); items[i] = item;
-                }
-            }
-            foreach (var o in plan.openings)
-            {
-                if (o.b < 0 || o.oneSided || o.style == OpenStyle.Ascensore) continue;
-                var ra = plan.rooms[o.a]; var rb = plan.rooms[o.b];
-                bool secret = o.style == OpenStyle.Passaggio;
-                if (secret ? !(explored.Contains(o.a) && explored.Contains(o.b)) : !(explored.Contains(o.a) || explored.Contains(o.b))) continue;
-                Color ca = Tint(ra), cb = Tint(rb);
-                bool aSpecial = ra.type != RoomType.Guardia && ra.type != RoomType.Normale, bSpecial = rb.type != RoomType.Guardia && rb.type != RoomType.Normale;
-                Color c = bSpecial && !aSpecial ? cb : ca;
-                float ox = o.alongX ? o.center * 0.1f : o.line * 0.1f, oz = o.alongX ? o.line * 0.1f : o.center * 0.1f;
-                float w = Mathf.Max(5f, o.width * 0.1f * scale * (secret ? 0.7f : 0.85f));
-                var col = secret ? new Color(0.30f, 0.95f, 0.85f) : new Color(c.r, c.g, c.b, 1f);
-                var rect = o.alongX ? new Rect(px(ox) - w * 0.5f, py(oz) - 2.5f, w, 5f) : new Rect(px(ox) - 2.5f, py(oz) - w * 0.5f, 5f, w);
-                items.Add(new MapItem { kind = MapItem.Kind.Fill, r = rect, c = col });
-            }
-            return items;
-        }
-
-        void DrawGridRooms(Plan plan, bool full, System.Func<float, float> px, System.Func<float, float> py, float scale)
-        {
-            if (mapLabel == null) mapLabel = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 13 };
-            foreach (var it in GridMapItems(plan, full, px, py, scale))
-            {
-                GUI.color = it.c;
-                switch (it.kind)
-                {
-                    case MapItem.Kind.Fill:
-                        GUI.DrawTexture(it.r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0f, Color.white, 0f, it.radius);
-                        break;
-                    case MapItem.Kind.Box:
-                        if (it.radius > 0f)
-                        {
-                            GUI.DrawTexture(it.r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0f, Color.white, it.t, it.radius);
-                            break;
-                        }
-                        GUI.DrawTexture(new Rect(it.r.x, it.r.y, it.r.width, it.t), Texture2D.whiteTexture);
-                        GUI.DrawTexture(new Rect(it.r.x, it.r.yMax - it.t, it.r.width, it.t), Texture2D.whiteTexture);
-                        GUI.DrawTexture(new Rect(it.r.x, it.r.y, it.t, it.r.height), Texture2D.whiteTexture);
-                        GUI.DrawTexture(new Rect(it.r.xMax - it.t, it.r.y, it.t, it.r.height), Texture2D.whiteTexture);
-                        break;
-                    default:
-                        GUI.Label(it.r, it.text, mapLabel);
-                        break;
-                }
-            }
-        }
-
-        /// <summary>Dove sta il santuario k (0 Biblioteca, 1 Scrigno, 2 altare), se c'e' in questo piano.</summary>
-        static Vector3? ShrinePos(int k)
-        {
-            if (k == 0) return Biblioteca.Current != null && Biblioteca.Current.stands.Count > 0 && Biblioteca.Current.root != null ? Biblioteca.Current.root.transform.position : (Vector3?)null;
-            if (k == 1) return Scrigno.Current != null ? Scrigno.Current.transform.position : (Vector3?)null;
-            return Altare.Current != null ? Altare.Current.transform.position : (Vector3?)null;
+            if (map == null) return;
+            map.explored.Clear();
+            foreach (int id in ids) map.explored.Add(id);
+            map.Refresh(true);
         }
 
         // ---- foto dal punto di vista del giocatore (con HUD), una per tipo di stanza in cui entra: -autotest -procshots (senza -nographics)
