@@ -21,6 +21,9 @@ namespace PryingEyes
         public const int Colpo = 10, Uccisione = 60, Testa = 100, Coltello = 130;
         /// <summary>Bonus per una candela accesa senza che nessun prete ti abbia visto dall'ultima (FloorDirector.OnCandle).</summary>
         public const int Fantasma = 200;
+        /// <summary>Per le prove automatiche (-survivaltest): i punti pagati a questa macchina per i colpi che non uccidono (Colpo l'uno),
+        /// compresi quelli che lo scoppio di un Appestato fa a chi gli sta accanto e sopravvive.</summary>
+        public static int paidForHits;
 
         public static int PerUccisione(DamageSource src, bool headshot)
         {
