@@ -80,18 +80,37 @@ namespace PryingEyes
             }
             bool torchWasLit = Torch.I != null && Torch.I.Lit;
             if (Torch.I != null && !torchWasLit) Torch.I.Toggle();
+            Stealth.lumOverride = 0f;                   // la misura della luce (ogni 0,2 s) deve dire buio anche se le lampade si spengono solo per la foto
             yield return new WaitForSeconds(1.2f);
-            foreach (bool fillOn in new[] { false, true })
+            // senza la luce di riempimento, poi con la luce com'e'
+            foreach (var (tag, scale) in new[] { ("buio-senza", 0f), ("buio-con", 1f) })
             {
-                ThirdPersonView.fillOff = !fillOn;
-                yield return Frames(4);
+                ThirdPersonView.fillScale = scale;
+                yield return new WaitForSeconds(0.3f);
                 foreach (var l in lamps) if (l != null) l.enabled = false;         // la riserva di luci le riaccende ogni 0,2 s: si spengono subito prima di fotografare
-                View(fillOn ? "buio-con-riempimento" : "buio-senza-riempimento", false);
+                FillReport(tag);
+                View(tag, false);
                 foreach (var l in lamps) if (l != null) l.enabled = true;
             }
-            ThirdPersonView.fillOff = false;
+            ThirdPersonView.fillScale = 1f;
+            Stealth.lumOverride = float.NaN;
             if (Torch.I != null && Torch.I.Lit && !torchWasLit) Torch.I.Toggle();
             yield return Frames(2);
+        }
+
+        /// <summary>Una riga di diagnosi sulla luce di riempimento e sul corpo (dove sono, che strati hanno): le foto al buio devono tornare con questi numeri.</summary>
+        void FillReport(string tag)
+        {
+            var player = GameManager.I.player;
+            var v = ThirdPersonView.Of(player);
+            var f = v != null ? v.Fill : null;
+            var av = FindFirstObjectByType<SeatAvatar>();
+            var r = av != null ? av.GetComponentInChildren<Renderer>() : null;
+            string lightInfo = f == null ? "nessuna luce" :
+                $"en={f.enabled} int={f.intensity:F1} range={f.range:F1} pos={f.transform.position} datiStrati={(uint)f.GetUniversalAdditionalLightData().renderingLayers} luceStrati={f.renderingLayerMask}";
+            string bodyInfo = r == null ? "nessun corpo" :
+                $"strati={r.renderingLayerMask} centro={r.bounds.center} d={(f != null ? Vector3.Distance(f.transform.position, r.bounds.center) : 0f):F2}";
+            Debug.Log($"[PryingEyes] tptest info {tag}: {lightInfo}; corpo {bodyInfo}; lum={Stealth.PlayerLum:F2}");
         }
 
         static GameObject Box(string name, Vector3 baseCenter, Vector3 size, Vector3 forward)
@@ -130,6 +149,12 @@ namespace PryingEyes
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward));
             if (failed > 0) yield break;
+            // URP azzera nella maschera di una luce i livelli che il progetto non definisce (TagManager.asset, RenderingLayerUtils.ToValidRenderingLayers):
+            // tutti i bit che SurvivorLight usa devono avere un nome, altrimenti le luci per posto non illuminano niente
+            uint used = 0u;
+            for (int s = 0; s < SurvivorLight.Slots; s++) used |= SurvivorLight.BodyMask(s) | SurvivorLight.TorchMask(s) | SurvivorLight.FillMask(s);
+            uint defined = RenderingLayerMask.GetDefinedRenderingLayersCombinedMaskValue();
+            Check($"i livelli di luce dei corpi sono tutti definiti nel progetto (usati {used}, definiti {defined})", (defined & used) == used);
             player.invulnerable = true;
             float yawF = Mathf.Atan2(forward.x, forward.z);
             player.Teleport(arena + Vector3.up * 0.05f);

@@ -45,4 +45,8 @@ TagManager:
   m_RenderingLayers:
   - Default
   - Arma
+  - Corpo 1
+  - Corpo 2
+  - Corpo 3
+  - Corpo 4
   m_MigratedRenderPipelines: []

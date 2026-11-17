@@ -32,13 +32,14 @@ namespace PryingEyes
         bool swapped;
         Vector3 savedPos; Quaternion savedRot; int savedMask;
         // la luce di riempimento del corpo (vedi UpdateFill)
-        const float FillIntensity = 1f, FillRange = 7f;
+        const float FillIntensity = 5f, FillRange = 7f;
+        const float FillLitFrom = 0.04f, FillLitTo = 0.4f;       // Stealth.PlayerLum: sotto il primo valore la luce e' piena, sopra il secondo e' spenta
         static readonly Vector3 FillOffset = new Vector3(0.5f, 0.9f, -2.1f);
         Light fill;
         uint fillMask;
 
-        /// <summary>Solo per le prove: spegne la luce di riempimento (le foto al buio con e senza).</summary>
-        public static bool fillOff;
+        /// <summary>Solo per le prove: moltiplica la luce di riempimento (0 = spenta; le foto al buio con e senza).</summary>
+        public static float fillScale = 1f;
 
         /// <summary>Quanto e' in terza persona adesso (0..1): la HUD o altri possono adattarsi.</summary>
         public float Blend => blend;
@@ -177,10 +178,12 @@ namespace PryingEyes
 
         /// <summary>La torcia non illumina il proprio corpo (SurvivorLight.TorchMask: dalla testa brucerebbe l'arma), quindi dove le lampade
         /// mancano o sono al 40% la schiena del personaggio sarebbe una macchia nera. Una luce debole, che illumina SOLO lo strato del suo
-        /// corpo (mai il mondo), lo segue due metri dietro e un metro sopra la testa; senza ombre.</summary>
+        /// corpo (mai il mondo), lo segue due metri dietro e un metro sopra la testa; senza ombre. Dove le lampade gia' illuminano il giocatore
+        /// (Stealth.PlayerLum, la stessa misura del furtivo, che non conta la sua torcia) si attenua fino a spegnersi, cosi' il corpo non
+        /// brilla piu' dell'ambiente; passando dalla luce al buio cambia piano piano, come la misura.</summary>
         void UpdateFill(Vector3 eye)
         {
-            bool on = !fillOff && blend > 0.3f && avatar != null && avatar.Body != null;
+            bool on = fillScale > 0f && blend > 0.3f && avatar != null && avatar.Body != null;
             if (!on) { if (fill != null) fill.enabled = false; return; }
             if (fill == null)
             {
@@ -195,7 +198,8 @@ namespace PryingEyes
             }
             uint mask = SurvivorLight.FillMask(avatar.Body.Slot);
             if (mask != fillMask) { fillMask = mask; Stealth.SetLightLayers(fill, mask); }
-            fill.intensity = FillIntensity * Mathf.InverseLerp(0.3f, 1f, blend);
+            float dark = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(FillLitFrom, FillLitTo, Stealth.PlayerLum));
+            fill.intensity = FillIntensity * fillScale * dark * Mathf.InverseLerp(0.3f, 1f, blend);
             fill.transform.position = eye + Quaternion.Euler(0f, player.yaw * Mathf.Rad2Deg, 0f) * FillOffset;
             fill.enabled = true;
         }

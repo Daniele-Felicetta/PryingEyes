@@ -43,9 +43,12 @@ index of the weapon in `WeaponDefs.All` (-1 for none), seconds since the last sh
   a shot. Aiming puts the weapon's sight line (`WeaponRig.AdsLocal`) on the eye line at the weapon's `adsDist`. A shot kicks the weapon back
   with the same `shotAge` curve as the firing. A reload moves the free hand from the belt pouch to the magazine well and back to the grip.
 - **Downed and dead.** Downed sits the survivor on the ground (an IK blend of the legs and the torso); dead lays the whole model down.
-- **Light layers.** `SurvivorLight.BodyMask(slot)` is rendering layer 2 (the one of arms and weapons, lit by the lamps of the world, `3u`) plus a
-  bit per slot (`4u << slot`); `TorchMask(slot)` is every torch bit but the slot's own. A torch lights the other players' bodies, never the
+- **Light layers.** The project defines six rendering layers (`ProjectSettings/TagManager.asset`): `Default` (bit 0, the world), `Arma` (bit 1, arms
+  and weapons, lit by the lamps of the world, `3u`) and `Corpo 1` to `Corpo 4` (bits 2 to 5, one per slot).
+  `SurvivorLight.BodyMask(slot)` is `Arma` plus the slot's `Corpo` bit (`4u << slot`); `TorchMask(slot)` is every torch bit but the slot's own. A torch lights the other players' bodies, never the
   player's own weapon from a few centimetres. `Torch` applies it to its beam and spill each frame, and the beam of a partner too.
+  `FillMask(slot)` is the slot's bit alone: the [third-person view](third-person.md) uses it for a weak light that lights only the player's
+  own survivor.
 
 ## How they are made (`modelli/personaggi/`)
 
@@ -86,7 +89,18 @@ downed, dead) to `hotel_build/survivors/`, which is not in git.
 
 ## Verification
 
-SURVIVORS_PLACEHOLDER
+`Editor/SurvivorShots.cs` renders the four characters in every pose of its contact sheets (stand, walk, run, crouch, aim with several weapons, shoot, reload,
+downed, dead) from the side, the front and the back: every pose works with every character, the weapon sits in both hands and the feet stay on the
+ground. In the game, `tools/coop/run_split.ps1 -Players 4` (64/64) builds the four survivors in one split screen, and `tools/coop/run_all.ps1 -Only a,h`
+(two and four processes) and `run_coop.ps1 -Name foto -HostGraphics ... -cooppics` (13/13) show a partner with the weapon in hand, from the side, close
+and from behind. The own survivor in the third person is in [third-person.md](third-person.md).
+
+Known limits:
+
+- The hair of the Dottoressa and of the Reporter is a smooth shell without volume: it reads as a cap of the right colour, not as a bob.
+- The four faces share one base head with a handful of proportions, and the face textures are 1024 pixels, so a face seen from a metre is soft.
+- The animation was only judged on still images (the contact sheets and the photos), never watched in motion on a monitor.
+- The torch of a player lights the bodies of the others but nobody checked a partner who aims with the torch on, close to a wall.
 
 ## Traps
 
@@ -96,5 +110,9 @@ SURVIVORS_PLACEHOLDER
   grey.
 - A body on layer `Seats.FirstAvatarLayer + slot` is lit only by lights whose rendering layers include its bits: a test light needs
   `Stealth.SetLightLayers(light, 3u)`, a plain `Light` lights nothing of the survivors.
+- **A light layer that the project does not define does not exist.** URP clears from a light's mask every layer without a name in
+  `ProjectSettings/TagManager.asset` (`RenderingLayerUtils.ToValidRenderingLayers`), so a light that only carries an undefined bit lights
+  nothing, with no warning: the first version of the per-slot bits did exactly that (dark photos identical at every intensity). A new bit
+  needs a new name there and a full build, not a scripts-only one, because it is a ProjectSettings change. `-tptest` checks it.
 - The roughness maps baked for the previews are deleted at the end of `export`: Unity reads smoothness from the alpha of the mask.
 - `PlayerNet.weapon` is the weapon *slot* (the magic replay uses it), not the index in `WeaponDefs`: the body reads `PlayerNet.gun`.
