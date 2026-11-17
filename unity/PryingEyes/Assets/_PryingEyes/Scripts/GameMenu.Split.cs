@@ -59,6 +59,8 @@ namespace PryingEyes
         void OpenSplit()
         {
             splitStatus.text = "";
+            monitorHintUntil = 0f;
+            Debug.Log("[PryingEyes] split: pannello aperto, monitor: " + SplitScreen.MonitorReport());
             RefreshSplitPanel(true);
             Show(splitPanel);
         }
@@ -71,15 +73,17 @@ namespace PryingEyes
             int mask = PadControls.ConnectedMask(), pads = 0;
             for (int i = 0; i < 4; i++) if ((mask & (1 << i)) != 0) pads++;
             int connected = SplitScreen.ConnectedMonitors, wanted = SplitScreen.WantedMonitors;
-            bool multi = connected > 1;
-            splitPads.text = "Controller collegati: " + pads + (multi ? "   ·   Monitor collegati: " + connected : "");
+            bool multi = connected > 1, late = SplitScreen.MonitorsAddedAfterStart;
+            // il numero di monitor si dice sempre (anche uno solo): chi ne ha due e non vede la scelta capisce che il gioco ne vede uno
+            splitPads.text = "Controller collegati: " + pads + "   ·   Monitor collegati: " + connected + (late ? " (Windows ne vede " + SplitScreen.SystemMonitors + ")" : "");
             splitSubtitle.text = multi && wanted > 1 ? SplitScreen.Arrangement(wanted) : SplitSubtitle;      // su piu' monitor la riga dice come si dividono i giocatori
             var label = splitP1Button.GetComponentInChildren<Text>();
             if (label != null) label.text = "Giocatore 1: " + (splitP1Pad ? "controller (e tastiera)" : "tastiera e mouse");
-            splitMonitorButton.gameObject.SetActive(multi);
-            ((RectTransform)splitP1Button.transform).anchoredPosition = new Vector2(multi ? -190f : 0f, -110f);
+            // il bottone c'e' sempre: con piu' monitor li sceglie, con uno solo (o se Windows ne ha di piu') spiega che cosa fare
+            splitMonitorButton.gameObject.SetActive(true);
+            ((RectTransform)splitP1Button.transform).anchoredPosition = new Vector2(-190f, -110f);
             var monitorLabel = splitMonitorButton.GetComponentInChildren<Text>();
-            if (monitorLabel != null) monitorLabel.text = "Monitor: " + MonitorWord(wanted);
+            if (monitorLabel != null) monitorLabel.text = !multi && late ? "Monitor: riavvia il gioco" : "Monitor: " + MonitorWord(wanted);
             bool ok = SplitScreen.Available;
             foreach (var b in splitCountButtons) b.interactable = ok;
             splitP1Button.interactable = ok;
@@ -92,14 +96,36 @@ namespace PryingEyes
                 return;
             }
             int need = splitP1Pad ? 2 : 1;      // il minimo per due giocatori
-            splitStatus.text = pads >= need ? "" : "Per due giocatori servono " + need + " controller: ne vedo " + pads + ". Chi non ne ha uno aspetta, e entra col primo che si collega.";
+            splitStatus.text = Time.unscaledTime < monitorHintUntil ? monitorHint
+                : late ? MonitorsLateText()
+                : pads >= need ? "" : "Per due giocatori servono " + need + " controller: ne vedo " + pads + ". Chi non ne ha uno aspetta, e entra col primo che si collega.";
         }
 
         static string MonitorWord(int n) => n <= 1 ? "uno solo" : n == 2 ? "due" : n == 3 ? "tre" : "quattro";
 
-        /// <summary>Scelta dei monitor: uno solo, poi due, e cosi' fino a quanti ne sono collegati, poi di nuovo uno. Si ricorda fra una partita e l'altra.</summary>
+        string monitorHint = "";
+        float monitorHintUntil;
+
+        /// <summary>Unity conta i monitor all'avvio del gioco: se un monitor si accende o si estende dopo, Windows ne vede di piu' del gioco.</summary>
+        static string MonitorsLateText() =>
+            "Windows vede " + SplitScreen.SystemMonitors + " monitor, il gioco ne ha visti " + SplitScreen.RealMonitors + " all'avvio: chiudilo e riaprilo per usarli.";
+
+        const string OneMonitorText = "Il gioco vede un solo monitor. Per giocare su due: collegalo in modalità Estendi (Win+P), poi riavvia il gioco.";
+
+        /// <summary>Scelta dei monitor: uno solo, poi due, e cosi' fino a quanti ne sono collegati, poi di nuovo uno. Si ricorda fra una partita e l'altra.
+        /// Con un monitor solo non c'e' niente da scegliere: il bottone dice che cosa fare (accendere il secondo in modalita' Estendi, o riavviare il
+        /// gioco se Windows ne vede piu' del gioco), invece di non esserci. Con piu' monitor sceglie sempre; l'avviso dei monitor arrivati dopo
+        /// l'avvio sta nella riga di stato.</summary>
         void SplitCycleMonitors()
         {
+            if (SplitScreen.ConnectedMonitors < 2)
+            {
+                monitorHint = SplitScreen.MonitorsAddedAfterStart ? MonitorsLateText() : OneMonitorText;
+                monitorHintUntil = Time.unscaledTime + 10f;
+                Debug.Log("[PryingEyes] split: bottone Monitor: " + SplitScreen.MonitorReport());
+                RefreshSplitPanel(true);
+                return;
+            }
             int next = SplitScreen.WantedMonitors + 1;
             if (next > SplitScreen.ConnectedMonitors) next = 1;
             SplitScreen.ChooseMonitors(next);

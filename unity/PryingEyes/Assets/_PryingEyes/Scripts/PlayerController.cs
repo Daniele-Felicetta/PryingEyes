@@ -210,11 +210,15 @@ namespace PryingEyes
 
         void StartBody()
         {
+            StartupTrace.Mark("giocatore: Start");
             Equipment.Ensure(this);          // acquasanta e carillon (Z, 4)
+            StartupTrace.Mark("giocatore: equipaggiamento");
             MagicCaster.Ensure(this);        // la mano sinistra: magie (3, rotella) e sigilli sull'arma (3 tenuto)
+            StartupTrace.Mark("giocatore: magie");
             Prove.Ensure(gameObject);        // le prove delle ondate
             Debug.Log("[PryingEyes] player boot: cam=" + (cam != null) + " weapon=" + (weapon != null)
                 + " hud=" + (hud != null) + " gunBound=" + (weapon != null && weapon.IsBound));
+            StartupTrace.Mark("giocatore pronto");
         }
 
         void UpdateBody()

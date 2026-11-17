@@ -38,6 +38,7 @@ namespace PryingEyes
                 c.mode = FullScreenMode.FullScreenWindow; c.vsync = 1; c.fps = -1;
             }
             Apply(c);
+            StartupTrace.Mark("finestra: " + c.width + "x" + c.height + " " + c.mode + " applicata");
         }
 
         public static Config Validate(Config c)

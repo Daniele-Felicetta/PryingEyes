@@ -101,9 +101,8 @@ namespace PryingEyes
             int i = (int)s;
             if (surfaceHits[i] == null)
             {
-                var set = new AudioClip[3];
-                for (int k = 0; k < 3; k++) set[k] = Clip("impatto_" + s + k, SoundGen.SurfaceHit(s, 500 + i * 10 + k));
-                surfaceHits[i] = set;
+                if (prefetching) { PrefetchSet("impatto_" + s, 3, k => SoundGen.SurfaceHit(s, 500 + i * 10 + k)); return null; }
+                surfaceHits[i] = MakeSet("impatto_" + s, 3, k => SoundGen.SurfaceHit(s, 500 + i * 10 + k));
             }
             return surfaceHits[i][UnityEngine.Random.Range(0, 3)];
         }

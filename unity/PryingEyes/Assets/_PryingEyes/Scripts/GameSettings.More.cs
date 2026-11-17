@@ -169,7 +169,7 @@ namespace PryingEyes
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void InitializeGraphics() => ApplyGraphics();
+        static void InitializeGraphics() { ApplyGraphics(); if (GraphicsLive) StartupTrace.Mark("grafica: impostazioni applicate"); }
 
         static void ApplyGraphics()
         {

@@ -16,3 +16,8 @@ Giocatore 1: tastiera e mouse (o un controller). Gli altri: un controller Xbox (
 Con piu' di un monitor collegato, il bottone Monitor del menu divide i giocatori tra gli schermi (2 giocatori = uno per monitor).
 
 Terza persona: Impostazioni, scheda Gioco, riga Prospettiva (di base e' la prima persona).
+
+Se la finestra tarda a comparire (PC lento, antivirus che controlla i file la prima volta): aspettare qualche secondo.
+Per capire dove si ferma, il file %USERPROFILE%\AppData\LocalLow\DefaultCompany\PryingEyes\Player.log ha le righe "avvio:" con i tempi di ogni tappa.
+Se i monitor sono due: accendili in modalita' Estendi (Win+P) PRIMA di avviare il gioco, che li conta alla partenza.
+Il menu Schermo condiviso scrive quanti monitor vede; se Windows ne vede di piu', il bottone Monitor dice di riavviare il gioco.

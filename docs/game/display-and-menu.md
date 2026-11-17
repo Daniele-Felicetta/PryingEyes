@@ -66,10 +66,16 @@ skip startup display changes and remain silent; they retain any requested comman
 
 The main menu has **Schermo condiviso** between **Cooperativa** and **Come si gioca** (`GameMenu.Split.cs`). Its panel offers **2 giocatori**,
 **3 giocatori** and **4 giocatori**, a switch for player 1 (**tastiera e mouse** or **controller (e tastiera)**), the number of controllers it
-sees and how many two players need, and a note on who uses what. With more than one monitor connected the row of the player-1 switch gets a
-second button, **Monitor: uno solo / due / ...** (it cycles up to the number of connected monitors, is remembered between runs, and starts at
-all of them), and the line under the title says how the players are divided (*Su 2 monitor: 2 giocatori 1+1 · 3 giocatori 2+1 · 4 giocatori 2+2*); with
-one monitor the button is not there and the line keeps its usual sentence. The buttons are off, with the reason, outside the Windows player or while a
+sees and how many two players need, and a note on who uses what. The line of controllers also counts the **monitors** (*Controller collegati: 0 ·
+Monitor collegati: 2*), and the row of the player-1 switch always has a second button, **Monitor: uno solo / due / ...**. With more than one
+monitor connected it cycles up to the number of connected monitors, is remembered between runs and starts at all of them, and the line under
+the title says how the players are divided (*Su 2 monitor: 2 giocatori 1+1 · 3 giocatori 2+1 · 4 giocatori 2+2*). With one monitor it says
+**uno solo** and, pressed, the status line explains how to get two (*collegalo in modalità Estendi (Win+P), poi riavvia il gioco*). Unity
+counts the monitors when the game starts (`Display.displays`; the extra windows exist only for monitors present then), so a monitor that is
+switched on or extended afterwards is not usable until the game is restarted: when Windows reports more monitors than the game saw
+(`SplitScreen.MonitorsAddedAfterStart`, from `Screen.GetDisplayLayout`) the line shows *(Windows ne vede N)* and the status line says to
+close and reopen the game (with a single monitor seen, the button reads **Monitor: riavvia il gioco** and says the same when pressed). The log has the same facts (`monitor all'avvio: Unity ne vede 1 (...),
+Windows 1`, and again when the panel is opened). The buttons are off, with the reason, outside the Windows player or while a
 game is already running. A split screen is one game, so the display settings are the ordinary ones (they apply to the game window; any further
 monitor is opened by Unity at its own size). The pause menu names who
 uses what (*G1: tastiera e mouse   G2: controller 1 ...*), says that Esc or Start on any controller resumes, lists the controller's buttons
@@ -154,6 +160,14 @@ On the integrated tree of 0.8.0 (this rework together with the third person, the
 several monitors) the **Prospettiva** row of the third person ([third-person.md](third-person.md)) is the first row of the **Gioco** tab,
 with its hint and its reset (`ResetGame` turns the third person off), and `MenuReview.Run` checks it with the rest of the tab: the tab now
 has 2 sliders, 4 choices and 6 rows. Result: 2369 of 2369 checks; `MenuMusicReview.Run` 24 of 24.
+
+On 17 November 2026, after the first report of 0.8.0 on another PC (the second monitor was not seen): the monitor count line, the always-present
+**Monitor** button and the explanation behind it are checked by `MenuReview.Run` (it passed, with one, two and four monitors pretended
+connected; the photos at 1280×720 and 1024×768 were looked at and the explanation fits its line at the four sizes), and `-seatstest` passed
+82 of 82 with two players and 94 of 94 with four players on four pretend monitors, `-splittest` 79 of 79. **Not verified**: a monitor
+switched on after the game started (the `late` case needs a PC where that can be done; it is read from `Screen.GetDisplayLayout`, which
+was not exercised against a real change), and what Unity does on its own when the display list changes (`Display.onDisplaysUpdated` is only
+logged).
 
 Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Settings.cs`, `GameMenu.Help.cs`, `GameMenu.Split.cs`,
 `MenuWidgets.cs`, `MenuSound.cs`, `MenuMusic.cs`, `MenuEngraving.cs`, `GameSettings.cs`, `GameSettings.More.cs`, `VideoSettings.cs`.

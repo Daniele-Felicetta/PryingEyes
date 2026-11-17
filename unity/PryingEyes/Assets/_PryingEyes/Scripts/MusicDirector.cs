@@ -480,10 +480,10 @@ namespace PryingEyes
             tensionTask = Task.FromResult(SoundGen.MusicTension());
             clearedTask = Task.FromResult(SoundGen.MusicCleared());
 #else
-            drumsTask = Task.Run(() => SoundGen.MusicDrums());
-            bassTask = Task.Run(() => SoundGen.MusicBass());
-            tensionTask = Task.Run(() => SoundGen.MusicTension());
-            clearedTask = Task.Run(() => SoundGen.MusicCleared());
+            drumsTask = BackgroundWork.Run(() => SoundGen.MusicDrums(), afterFirstFrame: true);
+            bassTask = BackgroundWork.Run(() => SoundGen.MusicBass(), afterFirstFrame: true);
+            tensionTask = BackgroundWork.Run(() => SoundGen.MusicTension(), afterFirstFrame: true);
+            clearedTask = BackgroundWork.Run(() => SoundGen.MusicCleared(), afterFirstFrame: true);
 #endif
         }
 

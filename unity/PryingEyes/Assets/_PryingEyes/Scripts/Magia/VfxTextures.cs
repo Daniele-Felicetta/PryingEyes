@@ -22,7 +22,7 @@ namespace PryingEyes
         /// <summary>Fa partire il calcolo dei pixel in un thread a parte (si puo' chiamare quante volte si vuole).</summary>
         public static void Begin()
         {
-            if (job == null && tex == null) job = Task.Run(() => MakeAll());
+            if (job == null && tex == null) job = BackgroundWork.Run(() => MakeAll());
         }
 
         /// <summary>Le trame sono pronte senza aspettare?</summary>

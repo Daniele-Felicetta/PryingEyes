@@ -30,6 +30,41 @@ namespace PryingEyes
         /// <summary>Quanti monitor si possono usare (al massimo MaxMonitors).</summary>
         public static int ConnectedMonitors => Mathf.Clamp(Mathf.Max(RealMonitors, Mathf.Max(MonitorsArg, TestConnected)), 1, MaxMonitors);
 
+        static readonly List<DisplayInfo> layout = new List<DisplayInfo>();
+
+        /// <summary>Quanti monitor vede Windows adesso (Screen.GetDisplayLayout lo chiede al sistema a ogni chiamata). Unity invece apre le finestre
+        /// solo sui monitor che c'erano quando il gioco e' partito (Display.displays): se il secondo monitor si accende o si estende dopo,
+        /// questo numero e' maggiore di <see cref="RealMonitors"/> e per usarlo bisogna riavviare il gioco. Nell'editor e nelle prove (monitor
+        /// finti) vale quanto RealMonitors.</summary>
+        public static int SystemMonitors
+        {
+            get
+            {
+                if (Application.isEditor || TestConnected > 0 || MonitorsArg > 0) return RealMonitors;
+                try
+                {
+                    layout.Clear();
+                    Screen.GetDisplayLayout(layout);
+                    return Mathf.Max(layout.Count, 1);
+                }
+                catch (Exception) { return RealMonitors; }
+            }
+        }
+
+        /// <summary>Windows vede piu' monitor di quelli che il gioco ha visto all'avvio: il bottone del menu dice di riavviarlo.</summary>
+        public static bool MonitorsAddedAfterStart => SystemMonitors > RealMonitors;
+
+        /// <summary>Una riga per il log: quanti monitor vede Unity (con la misura) e quanti Windows. Serve a capire dal Player.log di un altro PC
+        /// perche' il menu offre o no la scelta dei monitor.</summary>
+        public static string MonitorReport() => "Unity ne vede " + RealMonitors + " (" + DescribeDisplays(RealMonitors) + "), Windows " + SystemMonitors;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void LogMonitorsAtStart()
+        {
+            Debug.Log("[PryingEyes] monitor all'avvio: " + MonitorReport());
+            Display.onDisplaysUpdated += () => Debug.Log("[PryingEyes] monitor: l'elenco e' cambiato: " + MonitorReport());
+        }
+
         /// <summary>Quanti monitor vuole il giocatore per la prossima partita: la scelta del menu (la prima volta, tutti quelli collegati), mai piu'
         /// di quelli collegati. Le prove automatiche ne usano uno solo, salvo -splitmonitors: non dipendono da cio' che e' salvato su questo PC.</summary>
         public static int WantedMonitors

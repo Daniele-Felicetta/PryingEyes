@@ -55,7 +55,7 @@ namespace PryingEyes
         void Update()
         {
             float dt = Time.unscaledDeltaTime;
-            if (source.clip == null) source.clip = SoundBank.MenuTheme;
+            if (source.clip == null) { source.clip = SoundBank.MenuTheme; if (source.clip != null) StartupTrace.Mark("musica del menu pronta"); }
             bool want = debugOverride ? debugWant : GameMenu.InMenu && !GameMenu.Paused;
             bool ready = source.clip != null;
             fade = Mathf.MoveTowards(fade, want && ready ? 1f : 0f, dt / (want ? FadeIn : FadeOut));
@@ -86,7 +86,7 @@ namespace PryingEyes
 #if UNITY_WEBGL && !UNITY_EDITOR
             menuThemeTask = Task.FromResult(SoundGen.MenuTheme());
 #else
-            menuThemeTask = Task.Run(() => SoundGen.MenuTheme());
+            menuThemeTask = BackgroundWork.Run(() => SoundGen.MenuTheme(), afterFirstFrame: true);
 #endif
         }
 
