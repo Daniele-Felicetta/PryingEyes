@@ -44,7 +44,7 @@ namespace PryingEyes
                 splitCountButtons[i] = MakeButton(splitPanel, n + " giocatori", new Vector2(0, 76 - i * 62), () => SplitStart(n));
             }
             splitP1Button = MakeButton(splitPanel, "", new Vector2(0, -110), () => { splitP1Pad = !splitP1Pad; RefreshSplitPanel(true); });
-            // con piu' di un monitor collegato la riga ha due bottoni (RefreshSplitPanel li mette uno accanto all'altro); con uno solo il secondo non c'e'
+            // la riga ha sempre due bottoni, uno accanto all'altro (RefreshSplitPanel); con un monitor solo il secondo non sceglie: spiega che cosa fare
             splitMonitorButton = MakeButton(splitPanel, "", new Vector2(190, -110), SplitCycleMonitors);
             splitStatus = Label(splitPanel, "Stato", new Vector2(0, -158), new Vector2(1100, 30), 20, TextAnchor.MiddleCenter, "", Ink, FontStyle.Italic);
             Label(splitPanel, "Nota", new Vector2(0, -194), new Vector2(1100, 44), 16, TextAnchor.MiddleCenter,
