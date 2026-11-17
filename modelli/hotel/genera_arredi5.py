@@ -20,7 +20,7 @@ sys.path.insert(0, HERE)
 import arredi5_lib as L
 from arredi5_lib import (ga, g3, g4, gc, V, bx, part, spline, rr_profile, round_profile, sweep, mould_bead, mould_ogee, mould_cove, frame_rect,
                          panel_field, stud, stud_row, knob, bail_pull, keyhole_plate, hinge, cushion, rect_loop, piping, tablecloth, Asset5,
-                         crown_profile, base_profile, rect_path, prism_bevel)
+                         crown_profile, base_profile, rect_path, prism_bevel, lathe_fn, ell)
 from genera_arredi import box, lathe, sphere, cyl, tube, rounded_grid, smoothstep
 from genera_chiesa import poly_prism, gothic_pts, torus
 
@@ -406,13 +406,199 @@ def panca():
     return A
 
 
+# ----------------------------------------------------------------------------- lampada da terra
+def _tri(u):
+    """Onda triangolare in [-1, 1] di periodo 1: pieghe a fisarmonica (picchi e valli netti)."""
+    t = u % 1.0
+    return 1.0 - 4.0 * abs(t - 0.5)
+
+
+def lampada():
+    """Lampada da terra d'ottone tornito: base appesantita a gradini col cordone, fusto con nodi e collari e un tratto a corda ritorta (tre trefoli),
+    portalampada con la rotella dell'interruttore, lampadina, arpa e finale, paralume impero a pieghe con l'anello d'ottone e il ragno, cavo e spina
+    a terra. Paralume e lampadina stanno nello stesso ruolo (A_paralume): in Unity brillano insieme, e la luce della stanza e' a 1,25 m
+    (BreakableLamps) cioe' dentro il paralume. 0,42 x 1,45 x 0,42 m."""
+    A = Asset5('arr_lampada')
+    brass, shade, dark, steel = A.bm('A_ottone'), A.bm('A_paralume'), A.bm('A_scuro'), A.bm('A_acciaio')
+    base = [(0.0, 0.0), (0.198, 0.0), (0.206, 0.003), (0.206, 0.011), (0.197, 0.017), (0.199, 0.022), (0.190, 0.028), (0.170, 0.036), (0.146, 0.050),
+            (0.118, 0.068), (0.092, 0.090), (0.072, 0.112), (0.058, 0.130), (0.050, 0.142), (0.040, 0.148), (0.044, 0.153), (0.044, 0.160), (0.034, 0.166),
+            (0.024, 0.172), (0.0215, 0.184)]
+    lathe(brass, base, c=V(0, 0, 0), segs=36)
+    # fusto: nodo basso, corda ritorta, nodo di mezzo, tratto liscio con un anello, collo e portalampada
+    lathe(brass, [(0.0215, 0.180), (0.026, 0.195), (0.034, 0.212), (0.038, 0.228), (0.033, 0.245), (0.024, 0.258), (0.019, 0.268), (0.0225, 0.274),
+                  (0.0225, 0.282), (0.019, 0.288), (0.0165, 0.296), (0.0165, 0.312)], segs=20)
+    z0, per = 0.31, 0.10
+    lathe_fn(brass, [(0.0165, z0 + 0.0125 * i) for i in range(32)], lambda r, z, a: r * (1.0 + 0.20 * cos(3 * a - 2 * pi * (z - z0) / per)), segs=24)
+    for z in (z0, 0.7025):
+        lathe(brass, [(0.0200, z - 0.008), (0.0235, z - 0.004), (0.0235, z + 0.004), (0.0200, z + 0.008)], segs=20)
+    lathe(brass, [(0.0165, 0.695), (0.0225, 0.704), (0.028, 0.712), (0.030, 0.726), (0.026, 0.738), (0.0175, 0.748), (0.0155, 0.756), (0.0155, 0.84),
+                  (0.019, 0.848), (0.019, 0.856), (0.0155, 0.864), (0.0145, 1.0)], segs=20)
+    lathe(brass, [(0.0145, 1.0), (0.020, 1.012), (0.030, 1.026), (0.036, 1.042), (0.034, 1.056), (0.026, 1.066), (0.0235, 1.074), (0.0235, 1.092), (0.030, 1.100),
+                  (0.032, 1.110), (0.030, 1.120), (0.0275, 1.128), (0.0275, 1.170), (0.030, 1.178), (0.030, 1.188), (0.026, 1.196), (0.0135, 1.200)], segs=24)
+    # rotella dell'interruttore (alberino d'ottone e manopola scura) sul davanti del portalampada
+    cyl(brass, V(0, 0.0225, 1.083), V(0, 0.040, 1.083), 0.0035, 8)
+    lathe(dark, [(0.0, 0.040), (0.012, 0.040), (0.0135, 0.043), (0.0135, 0.052), (0.010, 0.056), (0.0, 0.057)], c=V(0, 0, 1.083), segs=14, axis='Y')
+    # lampadina: attacco a vite d'ottone e bulbo (stesso ruolo del paralume, quindi brilla con lui)
+    lathe(brass, [(0.0135, 1.196), (0.0138, 1.200), (0.0138, 1.222), (0.0125, 1.226)], segs=18)
+    lathe(shade, [(0.0125, 1.222), (0.0135, 1.234), (0.020, 1.248), (0.029, 1.266), (0.0335, 1.285), (0.034, 1.300), (0.031, 1.318), (0.022, 1.334),
+                  (0.0105, 1.343), (0.0, 1.346)], segs=20)
+    # arpa: due bracci a filo che salgono ai lati della lampadina e si incontrano sotto il finale
+    for sx in (-1, 1):
+        arm = [V(sx * 0.030, 0.0, 1.192), V(sx * 0.058, 0.0, 1.228), V(sx * 0.072, 0.0, 1.300), V(sx * 0.064, 0.0, 1.370), V(sx * 0.036, 0.0, 1.414),
+               V(sx * 0.010, 0.0, 1.428)]
+        tube(brass, arm, (0.0036, 0.0033, 0.0030), segs=6, n=20)
+        cyl(brass, V(sx * 0.030, 0.0, 1.184), V(sx * 0.030, 0.0, 1.198), 0.0068, 8)
+    # paralume impero a pieghe a fisarmonica: doppio foglio (guscio chiuso), 24 pieghe, appena a campana
+    segs = 96
+    prof = [(0.255 - 0.105 * (k / 3) + 0.006 * sin(pi * k / 3), 1.105 + 0.30 * k / 3) for k in range(4)]
+    prof += [(r - 0.0035, z) for r, z in reversed(prof)]
+    rings = lathe_fn(shade, prof, lambda r, z, a: r * (1.0 + 0.035 * _tri(24 * a / (2 * pi))), segs=segs, closed_top=False, closed_bottom=False)
+    for j in range(segs):
+        k = (j + 1) % segs
+        shade.faces.new((rings[-1][j], rings[-1][k], rings[0][k], rings[0][j]))
+    # anello d'ottone in cima, ragno a tre razze e finale
+    torus(brass, V(0, 0, 1.4045), 0.1485, 0.0030, 36, 5)
+    lathe(brass, [(0.0, 1.403), (0.013, 1.403), (0.013, 1.412), (0.0, 1.412)], segs=14)
+    for k in range(3):
+        a = pi / 2 + 2 * pi * k / 3
+        cyl(brass, V(0, 0, 1.4075), V(0.1485 * cos(a), 0.1485 * sin(a), 1.4045), 0.0022, 5)
+    lathe(brass, [(0.0125, 1.418), (0.0155, 1.424), (0.0125, 1.432), (0.0105, 1.438), (0.019, 1.449), (0.0195, 1.456), (0.0105, 1.466), (0.005, 1.472),
+                  (0.0, 1.476)], segs=16)
+    # cavo che esce dalla base e si adagia a terra, con la spina
+    tube(dark, [V(0.185, -0.045, 0.011), V(0.232, -0.058, 0.0050), V(0.282, -0.085, 0.0040), V(0.316, -0.130, 0.0040), V(0.325, -0.170, 0.0040)],
+         (0.0037,) * 5, segs=6, n=16)
+    bx(dark, V(0.325, -0.1955, 0.0125), V(0.037, 0.046, 0.025), 0.006, 2)
+    for dx in (-0.0095, 0.0095):
+        cyl(steel, V(0.325 + dx, -0.2185, 0.0125), V(0.325 + dx, -0.2365, 0.0125), 0.0021, 6)
+    return A
+
+
+# ----------------------------------------------------------------------------- fornello da cucina
+def fornello():
+    """Cucina a gas d'acciaio da albergo: zoccolo scuro, corpo arrotondato col piano di cottura e il bordo, fascia dei comandi con sei manopole e
+    l'orologio, due porte con oblo' (vetro su fondo scuro), cornici e maniglie a barra su sostegni; sei fuochi (vaschetta, corona d'ottone, coperchio,
+    griglia di ghisa) con una pentola col coperchio, un bollitore, un pentolino di rame e una padella; alzata col bordo, cappa a tronco di
+    piramide con l'orlo arrotolato e i filtri, camino, e una guida con i mestoli e una mannaia appesi. 1,7 x 0,85 x 2,2 m."""
+    A = Asset5('arr_fornello')
+    st, dk, br, gl, ir = A.bm('A_acciaio'), A.bm('A_scuro'), A.bm('A_ottone'), A.bm('A_vetro'), A.bm('A_ferro')
+    W, D = 1.7, 0.85
+    hx, hy = W / 2, D / 2
+    zt = 0.942                  # piano di cottura
+    zg = zt + 0.045             # sommo delle griglie: dove poggiano le pentole
+    bx(dk, V(0, 0, 0.05), V(W - 0.10, D - 0.08, 0.10), 0.0, 1)
+    bx(st, V(0, 0, 0.505), V(W, D, 0.81), 0.014, 3)
+    bx(st, V(0, 0.004, 0.925), V(W + 0.014, D + 0.016, 0.034), 0.009, 2)
+    # fascia dei comandi: sei manopole scure con la ghiera d'ottone e l'indice, orologio al centro
+    bx(st, V(0, hy + 0.004, 0.835), V(W - 0.08, 0.014, 0.13), 0.004, 2)
+    yk = hy + 0.011
+    for i in range(6):
+        kx = -0.70 + 0.28 * i
+        lathe(dk, [(0.0, 0.0), (0.0235, 0.0), (0.0235, 0.004), (0.0185, 0.007), (0.0185, 0.030), (0.0215, 0.033), (0.0215, 0.040), (0.0, 0.040)],
+              c=V(kx, yk, 0.835), segs=14, axis='Y')
+        lathe(br, [(0.0245, 0.0), (0.0285, 0.0), (0.0285, 0.0035), (0.0245, 0.0035)], c=V(kx, yk, 0.835), segs=18, axis='Y',
+              closed_top=False, closed_bottom=False, loop=True)
+        bx(br, V(kx, yk + 0.0412, 0.8505), V(0.004, 0.0025, 0.014), 0.0, 1)
+    bx(dk, V(0, yk - 0.0005, 0.835), V(0.19, 0.003, 0.075), 0.0, 1)
+    frame_rect(br, -0.100, 0.100, 0.793, 0.877, yk, mould_bead(0.008, 0.004), +1)
+    # due porte: lastra con lo spigolo smussato, oblo' (fondo scuro, vetro, cornice a tondino), maniglia a barra su due sostegni
+    for cx in (-0.41, 0.41):
+        yd = hy + 0.023
+        bx(st, V(cx, hy + 0.0105, 0.445), V(0.76, 0.025, 0.59), 0.006, 2)
+        bx(dk, V(cx, yd, 0.43), V(0.52, 0.002, 0.33), 0.0, 1)
+        bx(gl, V(cx, yd + 0.0015, 0.43), V(0.52, 0.002, 0.33), 0.0, 1)
+        frame_rect(st, cx - 0.265, cx + 0.265, 0.43 - 0.170, 0.43 + 0.170, yd, mould_bead(0.022, 0.010), +1)
+        for sx in (-1, 1):
+            cyl(st, V(cx + sx * 0.31, yd, 0.672), V(cx + sx * 0.31, yd + 0.040, 0.672), 0.0072, 8)
+            sphere(st, V(cx + sx * 0.345, yd + 0.040, 0.672), 0.0125, 8)
+        cyl(st, V(cx - 0.345, yd + 0.040, 0.672), V(cx + 0.345, yd + 0.040, 0.672), 0.0125, 12)
+    # fuochi: vaschetta scura, corona d'ottone, coperchio, griglia di ghisa (cornice, quattro dita verso il centro, quattro piedi)
+    burners = [(-0.56, -0.14), (0.0, -0.14), (0.56, -0.14), (-0.56, 0.19), (0.0, 0.19), (0.56, 0.19)]
+    for bx_, by_ in burners:
+        lathe(dk, [(0.0, 0.0), (0.100, 0.0), (0.113, 0.004), (0.1175, 0.0125), (0.108, 0.0128), (0.060, 0.0055), (0.0, 0.0055)], c=V(bx_, by_, zt), segs=22)
+        lathe(br, [(0.0, 0.0055), (0.040, 0.0055), (0.043, 0.012), (0.043, 0.020), (0.036, 0.024), (0.0, 0.024)], c=V(bx_, by_, zt), segs=16)
+        lathe(dk, [(0.0, 0.0238), (0.031, 0.0238), (0.031, 0.0268), (0.0, 0.0268)], c=V(bx_, by_, zt), segs=20)
+        h = 0.135
+        for sy in (-1, 1):
+            bx(ir, V(bx_, by_ + sy * h, zt + 0.034), V(2 * h + 0.016, 0.016, 0.022), 0.0, 1)
+            bx(ir, V(bx_, by_ + sy * (h - 0.0425), zt + 0.0385), V(0.016, 0.085, 0.013), 0.0, 1)
+        for sx in (-1, 1):
+            bx(ir, V(bx_ + sx * h, by_, zt + 0.034), V(0.016, 2 * h - 0.016, 0.022), 0.0, 1)
+            bx(ir, V(bx_ + sx * (h - 0.0425), by_, zt + 0.0385), V(0.085, 0.016, 0.013), 0.0, 1)
+            for sy in (-1, 1):
+                cyl(ir, V(bx_ + sx * h, by_ + sy * h, zt), V(bx_ + sx * h, by_ + sy * h, zt + 0.024), 0.0075, 6)
+    # pentola col coperchio sul fuoco di dietro a sinistra
+    cx, cy = burners[0]
+    lathe(st, [(0.0, 0.0), (0.107, 0.0), (0.116, 0.007), (0.118, 0.014), (0.1185, 0.19), (0.1195, 0.1915), (0.0, 0.1915)], c=V(cx, cy, zg), segs=28)
+    lathe(st, [(0.0, 0.1915), (0.121, 0.1915), (0.124, 0.196), (0.1235, 0.201), (0.116, 0.205), (0.092, 0.212), (0.040, 0.217), (0.0, 0.2185)],
+          c=V(cx, cy, zg), segs=28)
+    lathe(br, [(0.0, 0.2185), (0.008, 0.2185), (0.0075, 0.226), (0.014, 0.231), (0.0135, 0.241), (0.008, 0.246), (0.0, 0.247)], c=V(cx, cy, zg), segs=12)
+    for sx in (-1, 1):
+        tube(dk, [V(cx + sx * 0.117, cy, zg + 0.150), V(cx + sx * 0.147, cy, zg + 0.158), V(cx + sx * 0.158, cy, zg + 0.144), V(cx + sx * 0.143, cy, zg + 0.128),
+                  V(cx + sx * 0.118, cy, zg + 0.130)], (0.0075,) * 5, segs=7, n=14)
+    # bollitore sul fuoco di dietro a destra: corpo, becco, coperchio con pomolo, manico ad arco
+    cx, cy = burners[2]
+    M = Matrix.Translation(V(cx, cy, zg)) @ Matrix.Rotation(radians(35), 4, 'Z')
+    part(st, lambda t: (lathe(t, [(0.0, 0.0), (0.086, 0.0), (0.099, 0.012), (0.104, 0.050), (0.098, 0.090), (0.080, 0.126), (0.062, 0.142), (0.052, 0.150),
+                                  (0.0, 0.152)], c=V(0, 0, 0), segs=26),
+                        g4.cone(t, V(0.080, 0, 0.040), V(0.165, 0, 0.140), 0.030, 10, 0.0105)), M)
+    part(dk, lambda t: (tube(t, [V(-0.082, 0, 0.112), V(-0.098, 0, 0.180), V(-0.040, 0, 0.222), V(0.034, 0, 0.206), V(0.058, 0, 0.150)], (0.0075,) * 5,
+                             segs=7, n=16),
+                        lathe(t, [(0.0, 0.152), (0.012, 0.152), (0.011, 0.162), (0.016, 0.170), (0.0, 0.176)], c=V(0, 0, 0), segs=10)), M)
+    # pentolino di rame davanti a sinistra, con il manico scuro rivolto in fuori
+    cx, cy = burners[3]
+    part(br, lambda t: lathe(t, [(0.0, 0.0), (0.078, 0.0), (0.085, 0.008), (0.0865, 0.082), (0.089, 0.088), (0.0865, 0.091), (0.0835, 0.086), (0.0835, 0.012),
+                                 (0.0, 0.0115)], c=V(0, 0, 0), segs=28), Matrix.Translation(V(cx, cy, zg)))
+    part(dk, lambda t: tube(t, [V(0.084, 0, 0.078), V(0.15, 0, 0.082), V(0.25, 0, 0.088), V(0.30, 0, 0.090)], (0.0085, 0.0075, 0.0070, 0.0072), segs=8, n=10),
+         Matrix.Translation(V(cx, cy, zg)) @ Matrix.Rotation(radians(200), 4, 'Z'))
+    # padella di ghisa davanti a destra
+    cx, cy = burners[5]
+    M = Matrix.Translation(V(cx, cy, zg)) @ Matrix.Rotation(radians(-25), 4, 'Z')
+    part(ir, lambda t: (lathe(t, [(0.0, 0.0), (0.082, 0.0), (0.102, 0.012), (0.120, 0.036), (0.1255, 0.046), (0.1225, 0.0475), (0.116, 0.040), (0.098, 0.018),
+                                  (0.0, 0.007)], c=V(0, 0, 0), segs=28),
+                        tube(t, [V(0.118, 0, 0.040), V(0.19, 0, 0.044), V(0.285, 0, 0.049)], (0.0105, 0.0085, 0.0075), segs=8, n=10)), M)
+    # alzata dietro il piano e bordo sporgente
+    bx(st, V(0, -hy + 0.025, 1.225), V(W, 0.05, 0.57), 0.006, 2)
+    bx(st, V(0, -hy + 0.045, 1.503), V(W, 0.09, 0.022), 0.007, 2)
+    # cappa a tronco di piramide, camino, orlo arrotolato, filtri sotto
+    lo = [V(-hx, -hy, 1.56), V(hx, -hy, 1.56), V(hx, 0.40, 1.56), V(-hx, 0.40, 1.56)]
+    up = [V(-0.32, -hy, 2.02), V(0.32, -hy, 2.02), V(0.32, -0.14, 2.02), V(-0.32, -0.14, 2.02)]
+    g4.loft(st, [lo, up, [V(p.x, p.y, 2.20) for p in up]], True, True)
+    bx(st, V(0, -0.2825, 2.205), V(0.70, 0.34, 0.012), 0.004, 1)
+    sweep(st, rect_path(0, (0.40 - hy) / 2, 1.56, hx + 0.004, (0.40 + hy) / 2 + 0.004), rr_profile(0.030, 0.026, 0.009, 2), ref=V(0, 0, 1), closed=True)
+    bx(dk, V(0, -0.0125, 1.5585), V(1.56, 0.74, 0.003), 0.0, 1)
+    for i in range(9):
+        bx(st, V(-0.64 + 0.16 * i, -0.0125, 1.5525), V(0.010, 0.70, 0.007), 0.0, 1)
+    # guida per gli utensili sull'alzata: ramponi, mestolo, spatola, mannaia
+    yr, zr = -0.315, 1.37
+    cyl(st, V(-0.66, yr, zr), V(0.66, yr, zr), 0.0085, 10)
+    for sx in (-1, 1):
+        cyl(st, V(sx * 0.66, -hy + 0.05, zr), V(sx * 0.66, yr, zr), 0.0065, 8)
+        sphere(st, V(sx * 0.66, yr, zr), 0.0115, 10)
+
+    def hook(x, zb):
+        pts = [V(x, yr + 0.0115 * sin(radians(a)), zr + 0.0115 * cos(radians(a))) for a in (-100, -50, 0, 50, 100)] + [V(x, yr + 0.0113, zr - 0.02), V(x, yr + 0.0113, zb)]
+        tube(st, pts, (0.0025,) * len(pts), segs=4, n=14)
+    hook(-0.30, 1.31)
+    cyl(st, V(-0.30, yr + 0.0113, 1.31), V(-0.30, yr + 0.0113, 1.10), 0.0042, 6)
+    ell(st, (-0.30, yr + 0.032, 1.082), (0.040, 0.024, 0.040), 12)
+    hook(-0.05, 1.31)
+    cyl(dk, V(-0.05, yr + 0.0113, 1.31), V(-0.05, yr + 0.0113, 1.19), 0.0085, 8)
+    cyl(st, V(-0.05, yr + 0.0113, 1.19), V(-0.05, yr + 0.0113, 1.12), 0.0035, 6)
+    bx(st, V(-0.05, yr + 0.016, 1.075), V(0.075, 0.003, 0.10), 0.0015, 1, rot=Matrix.Rotation(radians(-6), 3, 'X'))
+    hook(0.38, 1.345)
+    bx(dk, V(0.38, yr + 0.0113, 1.285), V(0.024, 0.022, 0.11), 0.005, 2)
+    bx(st, V(0.38, yr + 0.0113, 1.145), V(0.085, 0.003, 0.17), 0.001, 1)
+    return A
+
+
 ASSETS = {'arr_sedia': sedia, 'arr_tavolo': tavolo, 'arr_comodino': comodino, 'arr_armadio': armadio, 'arr_scaffale': scaffale,
-          'arr_tavolo_acciaio': tavolo_acciaio, 'arr_scrivania': scrivania, 'chi_panca': panca}
+          'arr_tavolo_acciaio': tavolo_acciaio, 'arr_scrivania': scrivania, 'chi_panca': panca, 'arr_lampada': lampada, 'arr_fornello': fornello}
 VIEWS = {
     'arr_sedia': ((1.15, 1.5, 1.1), (0, 0, 0.47), 38), 'arr_tavolo': ((1.8, 2.0, 1.5), (0, 0, 0.45), 38),
     'arr_comodino': ((1.1, 1.4, 0.9), (0, 0, 0.3), 40), 'arr_armadio': ((2.9, 3.6, 2.2), (0, 0, 1.05), 40),
     'arr_scaffale': ((2.0, 2.8, 1.7), (0, 0, 0.9), 40), 'arr_tavolo_acciaio': ((2.6, 3.0, 1.7), (0, 0, 0.45), 40),
     'arr_scrivania': ((1.9, 2.3, 1.5), (0, 0, 0.4), 40), 'chi_panca': ((3.6, 3.6, 1.9), (0, 0, 0.5), 40),
+    'arr_lampada': ((1.3, 2.0, 1.2), (0, 0, 0.73), 38), 'arr_fornello': ((3.1, 3.4, 2.0), (0, 0, 1.05), 40),
 }
 
 

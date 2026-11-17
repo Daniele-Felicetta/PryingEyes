@@ -41,6 +41,43 @@ def part(dst, builder, M=None):
     g3.merge(dst, tmp, M)
 
 
+def lathe_fn(bm, profile, fn, c=V(0, 0, 0), segs=32, closed_top=True, closed_bottom=True):
+    """Solido di rivoluzione con il raggio modulato: fn(raggio, quota, angolo) -> raggio (pieghe di una tonaca, coste di un bacino, corda ritorta,
+    pieghe a fisarmonica di un paralume). Ritorna gli anelli, cosi' chi lo usa puo' chiudere o collegare i bordi come preferisce."""
+    rings = []
+    for r, h in profile:
+        if r < 1e-6:
+            rings.append([bm.verts.new(Vector(c) + V(0, 0, h))])
+            continue
+        rings.append([bm.verts.new(Vector(c) + V(cos(2 * pi * j / segs) * fn(r, h, 2 * pi * j / segs), sin(2 * pi * j / segs) * fn(r, h, 2 * pi * j / segs), h))
+                      for j in range(segs)])
+    for i in range(len(rings) - 1):
+        a, b = rings[i], rings[i + 1]
+        for j in range(segs):
+            k = (j + 1) % segs
+            if len(a) == 1 and len(b) == 1:
+                continue
+            if len(a) == 1:
+                bm.faces.new((a[0], b[k], b[j]))
+            elif len(b) == 1:
+                bm.faces.new((a[j], a[k], b[0]))
+            else:
+                bm.faces.new((a[j], a[k], b[k], b[j]))
+    if closed_bottom and len(rings[0]) > 1:
+        bm.faces.new(rings[0][::-1])
+    if closed_top and len(rings[-1]) > 1:
+        bm.faces.new(rings[-1])
+    return rings
+
+
+def ell(dst, p, size, seg=14, rot=None):
+    """Ellissoide con i tre semiassi 'size', centrato in p, ruotato dalla matrice 3x3 'rot' se data."""
+    t = bmesh.new()
+    sphere(t, V(0, 0, 0), 1.0, seg)
+    bmesh.ops.transform(t, matrix=Matrix.Diagonal((size[0], size[1], size[2], 1.0)), verts=t.verts)
+    g3.merge(dst, t, Matrix.Translation(V(*p)) @ (rot.to_4x4() if rot is not None else Matrix.Identity(4)))
+
+
 def spline(pts, n=6):
     """Catmull-Rom attraverso pts: n campioni per tratto, ritorna una lista di Vector."""
     pts = [Vector(p) for p in pts]
@@ -407,6 +444,7 @@ class Asset5(ga.Asset):
     OPEN = {'A_foglia'}
     LODS = ((1, 0.28), (2, 0.09))          # (livello, quota dei triangoli del livello 0)
     LOD_MIN_TRIS = 60                      # sotto questa soglia una mesh non ha bisogno di versioni piu' povere
+    KEEP_LOD = frozenset()                 # ruoli che devono restare visibili a ogni livello anche se piccoli (l'acqua di una fonte): copiati interi
     WITH_LODS = False
     SHOW_LOD = 0
 
@@ -456,8 +494,8 @@ class Asset5(ga.Asset):
             if self.WITH_LODS or self.SHOW_LOD:
                 tris = sum(len(p.vertices) - 2 for p in me.polygons)
                 for level, ratio in self.LODS:
-                    if tris >= self.LOD_MIN_TRIS:
-                        d = self._decimated(root, ob, role, level, ratio)
+                    if tris >= self.LOD_MIN_TRIS or role in self.KEEP_LOD:
+                        d = self._decimated(root, ob, role, level, ratio if tris >= self.LOD_MIN_TRIS else 1.0)
                         if d is not None:
                             lods.append((level, d))
             if self.SHOW_LOD:

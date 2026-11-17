@@ -17,7 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import arredi5_lib as L
 from arredi5_lib import (ga, g3, g4, gc, V, bx, part, spline, rr_profile, sweep, crown_profile, base_profile, rect_path, prism_bevel,
-                         cushion, piping, rect_loop, stud_row, knob, Asset5)
+                         cushion, piping, rect_loop, stud_row, knob, Asset5, lathe_fn, ell, mould_bead, frame_rect, panel_field, stud)
 from genera_arredi import box, lathe, sphere, cyl, tube, rounded_grid, smoothstep
 from genera_chiesa import poly_prism, gothic_pts, torus
 
@@ -43,34 +43,6 @@ def stone(bm, c, s, r=0.012, cell=0.08, amp=0.0035, seed=1):
     for v in vs:
         v.co += noise.noise_vector(v.co * 7.0 + off) * amp
     return vs
-
-
-def lathe_fn(bm, profile, fn, c=V(0, 0, 0), segs=32, closed_top=True, closed_bottom=True):
-    """Solido di rivoluzione con il raggio modulato: fn(raggio, quota, angolo) -> raggio (pieghe di una tonaca, coste di un bacino)."""
-    rings = []
-    for r, h in profile:
-        if r < 1e-6:
-            rings.append([bm.verts.new(Vector(c) + V(0, 0, h))])
-            continue
-        rings.append([bm.verts.new(Vector(c) + V(cos(2 * pi * j / segs) * fn(r, h, 2 * pi * j / segs), sin(2 * pi * j / segs) * fn(r, h, 2 * pi * j / segs), h))
-                      for j in range(segs)])
-    for i in range(len(rings) - 1):
-        a, b = rings[i], rings[i + 1]
-        for j in range(segs):
-            k = (j + 1) % segs
-            if len(a) == 1 and len(b) == 1:
-                continue
-            if len(a) == 1:
-                bm.faces.new((a[0], b[k], b[j]))
-            elif len(b) == 1:
-                bm.faces.new((a[j], a[k], b[0]))
-            else:
-                bm.faces.new((a[j], a[k], b[k], b[j]))
-    if closed_bottom and len(rings[0]) > 1:
-        bm.faces.new(rings[0][::-1])
-    if closed_top and len(rings[-1]) > 1:
-        bm.faces.new(rings[-1])
-    return rings
 
 
 def ring_frame(bm, outer, inner, y0, y1, ch=0.010):
@@ -113,14 +85,6 @@ def rib(bone, c, r_arc, ang, r=0.0068, span=2.2):
         a = -span / 2 + span * t
         pts.append(c + Vector((cos(ang) * sin(a) * r_arc, sin(ang) * sin(a) * r_arc, (1 - cos(a)) * r_arc * 0.55)))
     tube(bone, pts, (r, r * 0.9, r * 0.45), segs=6, n=12)
-
-
-def ell(dst, p, size, seg=14, rot=None):
-    """Ellissoide con i tre semiassi 'size', centrato in p, ruotato dalla matrice 3x3 'rot' se data."""
-    t = bmesh.new()
-    sphere(t, V(0, 0, 0), 1.0, seg)
-    bmesh.ops.transform(t, matrix=Matrix.Diagonal((size[0], size[1], size[2], 1.0)), verts=t.verts)
-    g3.merge(dst, t, Matrix.Translation(V(*p)) @ (rot.to_4x4() if rot is not None else Matrix.Identity(4)))
 
 
 def skull(bone, dark, c, yaw=0.0, s=1.0):
@@ -364,11 +328,280 @@ def statua():
     return A
 
 
-ASSETS = {'chi_sarcofago': sarcofago, 'chi_inginocchiatoio': inginocchiatoio, 'chi_statua': statua}
+# ----------------------------------------------------------------------------- altare
+def shell(bm, pos, ni, nj, th, nrm):
+    """Lastra sottile chiusa su una griglia (tessuti appesi con lo spessore vero e i bordi chiusi): pos(i, j) = punto della faccia esterna
+    (i da 0 a ni, j da 0 a nj), nrm(i, j) = normale uscente; la faccia interna e' spostata di th all'indietro."""
+    out = [[bm.verts.new(pos(i, j)) for j in range(nj + 1)] for i in range(ni + 1)]
+    inn = [[bm.verts.new(pos(i, j) - nrm(i, j) * th) for j in range(nj + 1)] for i in range(ni + 1)]
+    for i in range(ni):
+        for j in range(nj):
+            bm.faces.new((out[i][j], out[i + 1][j], out[i + 1][j + 1], out[i][j + 1]))
+            bm.faces.new((inn[i][j], inn[i][j + 1], inn[i + 1][j + 1], inn[i + 1][j]))
+        bm.faces.new((out[i][0], inn[i][0], inn[i + 1][0], out[i + 1][0]))
+        bm.faces.new((out[i][nj], out[i + 1][nj], inn[i + 1][nj], inn[i][nj]))
+    for j in range(nj):
+        bm.faces.new((out[0][j], out[0][j + 1], inn[0][j + 1], inn[0][j]))
+        bm.faces.new((out[ni][j], inn[ni][j], inn[ni][j + 1], out[ni][j + 1]))
+
+
+def altare():
+    """Altare di pietra: zoccolo e base modanata, corpo di conci con un'arcata cieca sul davanti (cinque arcate a sesto acuto, colonnine, nicchie
+    scure, e nella centrale l'Occhio d'oro a medaglione con i raggi), cimasa, mensa con le croci di consacrazione, un drappo di velluto steso sulla
+    mensa che pende dai due lati corti con la bordura e le frange d'oro, e sopra messale su cuscino, calice con patena e ostensorio a raggi con
+    l'Occhio. 2,4 x 1,0 x 1,05 m (i raggi dell'ostensorio arrivano a 1,35 m)."""
+    A = Asset5('chi_altare')
+    st, dk, gold, cl = A.bm('A_pietra'), A.bm('A_scuro'), A.bm('A_oro'), A.bm('A_tessuto')
+    lea, pg = A.bm('A_cuoio'), A.bm('A_carta')
+    yf = 0.38                                   # filo del fronte del corpo
+    stone(st, V(0, 0, 0.07), V(2.34, 0.94, 0.14), 0.012, 0.12, seed=41)
+    sweep(st, rect_path(0, 0, 0.14, 1.02, yf), base_profile(0.05, 0.08), ref=V(0, 0, 1), closed=True)
+    stone(st, V(0, 0, 0.50), V(2.04, 2 * yf, 0.72), 0.010, 0.12, seed=42)
+    sweep(st, rect_path(0, 0, 0.795, 1.02, yf), crown_profile(0.06, 0.065), ref=V(0, 0, 1), closed=True)
+    stone(st, V(0, 0, 0.93), V(2.40, 1.00, 0.14), 0.014, 0.12, seed=43)
+    # arcata cieca: cornici di rilievo a sesto acuto con la nicchia scura, colonnine tra le arcate, cordolo sopra
+    for cx, w, h in ((-0.775, 0.25, 0.50), (-0.46, 0.25, 0.50), (0.0, 0.53, 0.52), (0.46, 0.25, 0.50), (0.775, 0.25, 0.50)):
+        ring_frame(st, gothic_pts(cx, 0.20, w, h, n=7), gothic_pts(cx, 0.235, w - 0.07, h - 0.06, n=7), yf, yf + 0.022, 0.009)
+        poly_prism(dk, gothic_pts(cx, 0.235, w - 0.07, h - 0.06, n=7), 'y', yf + 0.003, yf + 0.011)
+    col = [(0.0, 0.0), (0.030, 0.0), (0.032, 0.010), (0.021, 0.018), (0.017, 0.030), (0.017, 0.374), (0.022, 0.388), (0.034, 0.400), (0.0, 0.400)]
+    for x in (-0.93, -0.62, -0.30, 0.30, 0.62, 0.93):
+        part(st, lambda m: lathe(m, col, c=V(0, 0, 0), segs=10), Matrix.Translation(V(x, yf + 0.030, 0.215)))
+    bx(st, V(0, yf + 0.008, 0.745), V(1.90, 0.016, 0.026), 0.004, 1)
+    # l'Occhio nella nicchia centrale: anello, palpebre, iride, pupilla e sedici raggi
+    ey, ez = yf + 0.018, 0.455
+    part(gold, lambda t: torus(t, V(0, 0, 0), 0.118, 0.0105, 32, 6), Matrix.Translation(V(0, ey, ez)) @ Matrix.Rotation(radians(90), 4, 'X'))
+    for s in (-1, 1):
+        tube(gold, [V(0.082 * cos(pi * i / 14), ey, ez + s * 0.036 * sin(pi * i / 14)) for i in range(15)], (0.0055, 0.0055), segs=6, n=16)
+    lathe(gold, [(0.0, 0.0), (0.030, 0.0), (0.032, 0.004), (0.0, 0.008)], c=V(0, ey - 0.002, ez), segs=20, axis='Y')
+    sphere(dk, V(0, ey + 0.010, ez), 0.0135, 8)
+    for k in range(16):
+        th = 2 * pi * k / 16
+        rl = 0.050 if k % 2 == 0 else 0.030
+        rm = 0.140 + rl / 2
+        bx(gold, V(sin(th) * rm, ey, ez + cos(th) * rm), V(0.009, 0.006, rl), 0.0, 1, rot=Matrix.Rotation(th, 3, 'Y'))
+    # croci di consacrazione incise agli angoli della mensa
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            bx(gold, V(sx * 1.0, sy * 0.40, 1.0015), V(0.060, 0.010, 0.003), 0.0, 1)
+            bx(gold, V(sx * 1.0, sy * 0.40, 1.0015), V(0.010, 0.060, 0.003), 0.0, 1)
+    # drappo di velluto sulla mensa, con i due lembi che pendono dai lati corti (pieghe, bordura e frange d'oro)
+    rnd = random.Random(7)
+    bx(cl, V(0, 0, 1.003), V(2.412, 0.62, 0.006), 0.003, 2)
+
+    def cloth_pos(sx, ph, s, t, lift=0.0):
+        fold = 0.60 * sin(2 * pi * 4.5 * s + ph[0]) + 0.40 * sin(2 * pi * 9.7 * s + ph[1])
+        return V(sx * (1.209 + 0.004 * t + 0.022 * fold * (0.25 + 0.75 * t) ** 1.2 + lift), -0.31 + 0.62 * s,
+                 1.0 - 0.50 * t * (1.0 + 0.03 * sin(2 * pi * 3 * s + ph[0])))
+    ni, nj = 22, 8
+    for sx in (-1, 1):
+        ph = (rnd.uniform(0, 6.28), rnd.uniform(0, 6.28))
+        nrm = lambda i, j, sx=sx: V(sx, 0, 0)
+        shell(cl, lambda i, j: cloth_pos(sx, ph, i / ni, j / nj), ni, nj, 0.006, nrm)
+        shell(gold, lambda i, j: cloth_pos(sx, ph, i / ni, 0.86 + 0.10 * j, 0.0025), ni, 1, 0.003, nrm)
+        for i in range(ni + 1):
+            p = cloth_pos(sx, ph, i / ni, 1.0)
+            cyl(gold, V(p.x, p.y, p.z + 0.004), V(p.x, p.y, p.z - rnd.uniform(0.040, 0.062)), 0.0026, 4)
+    # messale aperto su un cuscino, calice e patena, ostensorio a raggi con l'Occhio
+    cushion(cl, V(-0.52, 0.08, 1.033), V(0.36, 0.26, 0.054), 0.02, nx=10, ny=8, nz=3, crown=0.010, sag=0.0, wrinkle=0.0008, seed=3)
+    bx(lea, V(-0.52, 0.08, 1.0635), V(0.31, 0.22, 0.010), 0.003, 2)
+    for sg in (-1, 1):
+        bx(pg, V(-0.52 + sg * 0.072, 0.08, 1.0725), V(0.140, 0.200, 0.0075), 0.001, 1, rot=Matrix.Rotation(sg * radians(-2.5), 3, 'Y'))
+    lathe(gold, [(0.0, 0.0), (0.040, 0.0), (0.042, 0.004), (0.036, 0.010), (0.014, 0.020), (0.011, 0.030), (0.020, 0.042), (0.012, 0.052), (0.011, 0.075),
+                 (0.016, 0.082), (0.030, 0.098), (0.036, 0.125), (0.0375, 0.138), (0.0355, 0.140), (0.034, 0.134), (0.026, 0.106), (0.0, 0.100)],
+          c=V(0.52, 0.04, 1.0055), segs=22)
+    lathe(gold, [(0.0, 0.0), (0.050, 0.0), (0.057, 0.003), (0.0575, 0.0055), (0.0535, 0.0045), (0.040, 0.0025), (0.0, 0.0025)], c=V(0.50, 0.22, 1.0055), segs=24)
+    mx, my, mz = 0.0, -0.27, 1.0055
+    lathe(gold, [(0.0, 0.0), (0.075, 0.0), (0.080, 0.006), (0.066, 0.016), (0.040, 0.026), (0.020, 0.036), (0.014, 0.052), (0.028, 0.064), (0.0145, 0.078),
+                 (0.0125, 0.150), (0.026, 0.160), (0.014, 0.170), (0.0, 0.172)], c=V(mx, my, mz), segs=22)
+    zl = mz + 0.225
+    part(gold, lambda t: torus(t, V(0, 0, 0), 0.052, 0.0065, 26, 6), Matrix.Translation(V(mx, my, zl)) @ Matrix.Rotation(radians(90), 4, 'X'))
+    lathe(dk, [(0.0, 0.0), (0.048, 0.0), (0.048, 0.004), (0.0, 0.004)], c=V(mx, my - 0.002, zl), segs=24, axis='Y')
+    for s in (-1, 1):
+        tube(gold, [V(mx + 0.040 * cos(pi * i / 10), my + 0.004, zl + s * 0.016 * sin(pi * i / 10)) for i in range(11)], (0.0035, 0.0035), segs=5, n=12)
+    lathe(gold, [(0.0, 0.0), (0.0145, 0.0), (0.0155, 0.003), (0.0, 0.006)], c=V(mx, my + 0.002, zl), segs=16, axis='Y')
+    sphere(dk, V(mx, my + 0.0095, zl), 0.0065, 8)
+    for k in range(20):
+        th = 2 * pi * k / 20
+        rl = 0.060 if k % 2 == 0 else 0.034
+        rm = 0.062 + rl / 2
+        bx(gold, V(mx + sin(th) * rm, my, zl + cos(th) * rm), V(0.008, 0.005, rl), 0.0, 1, rot=Matrix.Rotation(th, 3, 'Y'))
+    return A
+
+
+# ----------------------------------------------------------------------------- fonte battesimale
+def _oct(ap):
+    """Ottagono regolare di apotema ap con un lato piano rivolto a +Y: lista di (x, y) in senso antiorario."""
+    R = ap / cos(pi / 8)
+    return [(R * cos(pi / 8 + k * pi / 4), R * sin(pi / 8 + k * pi / 4)) for k in range(8)]
+
+
+def _oct_ring(ap, z):
+    return [V(x, y, z) for x, y in _oct(ap)]
+
+
+def _quatrefoil(n=16, d=0.030, a=0.036):
+    """Contorno di un quadrilobo (n punti antiorari, centrato nell'origine): quattro cerchi di raggio a a distanza d dal centro, uniti da cuspidi."""
+    pts = []
+    for k in range(n):
+        th = 2 * pi * k / n
+        dl = th - round(th / (pi / 2)) * (pi / 2)
+        r = d * cos(dl) + sqrt(max(0.0, a * a - (d * sin(dl)) ** 2))
+        pts.append((r * cos(th), r * sin(th)))
+    return pts
+
+
+def fonte():
+    """Fonte battesimale ottagonale: zoccolo a gradini con la base modanata, fusto con otto colonnine e una fascia, capitello, vasca di pietra con
+    il bordo e otto quadrilobi in rilievo, l'acqua nera, e il coperchio di quercia a piramide ottagonale (nervature agli spigoli, fascia e razze
+    d'ottone, pomo) cerniera sul retro e tenuto aperto di 30 gradi da un'asta d'ottone. 0,9 x 0,9 x 1,1 m (il coperchio aperto arriva a 1,45 m)."""
+    A = Asset5('chi_fonte')
+    A.KEEP_LOD = {'A_lacca'}                # l'acqua (28 triangoli) non deve sparire ai livelli lontani: resterebbe il fondo di pietra
+    A.LODS = ((1, 0.30), (2, 0.16))         # le colonnine sottili reggono meno la decimazione: il livello 2 tiene il 16 % invece del 9 %
+    st, wd, br, dk, lq = A.bm('A_pietra'), A.bm('A_legno'), A.bm('A_ottone'), A.bm('A_scuro'), A.bm('A_lacca')
+    prism_bevel(st, _oct(0.45), 'z', 0.0, 0.085, 0.007, 1)
+    prism_bevel(st, _oct(0.40), 'z', 0.085, 0.165, 0.007, 1)
+    sweep(st, [V(x, y, 0.165) for x, y in _oct(0.34)], base_profile(0.045, 0.075), ref=V(0, 0, 1), closed=True)
+    prism_bevel(st, _oct(0.115), 'z', 0.165, 0.60, 0.004, 1)
+    sweep(st, [V(x, y, 0.38) for x, y in _oct(0.117)], rr_profile(0.045, 0.034, 0.012, 2), ref=V(0, 0, 1), closed=True)
+    colf = [(0.0, 0.0), (0.030, 0.0), (0.032, 0.010), (0.022, 0.020), (0.0175, 0.034), (0.0175, 0.33), (0.022, 0.346), (0.034, 0.358), (0.0, 0.358)]
+    for k in range(8):
+        a = k * pi / 4
+        part(st, lambda m: lathe(m, colf, c=V(0, 0, 0), segs=10), Matrix.Translation(V(cos(a) * 0.152, sin(a) * 0.152, 0.245)))
+    prism_bevel(st, _oct(0.205), 'z', 0.598, 0.680, 0.006, 1)
+    # vasca: sezioni ottagonali (apotema, quota) dal collo al bordo e giu' fino al pelo dell'acqua
+    prof = [(0.190, 0.675), (0.215, 0.695), (0.265, 0.725), (0.330, 0.752), (0.388, 0.775), (0.409, 0.795), (0.409, 0.935), (0.430, 0.945), (0.430, 0.957),
+            (0.395, 0.962), (0.382, 0.945), (0.372, 0.905)]
+    g4.loft(st, [_oct_ring(ap, z) for ap, z in prof], True, True)
+    poly_prism(lq, _oct(0.371), 'z', 0.903, 0.907)
+    # otto quadrilobi in rilievo sulla fascia verticale della vasca (costruiti sul lato +Y e ruotati)
+    qf = _quatrefoil(16)
+    ap, zc = 0.409, 0.865
+
+    def rel_s(t):
+        ring_frame(t, [(x, zc + y) for x, y in qf], [(0.60 * x, zc + 0.60 * y) for x, y in qf], ap, ap + 0.016, 0.006)
+
+    def rel_d(t):
+        poly_prism(t, [(0.60 * x, zc + 0.60 * y) for x, y in qf], 'y', ap + 0.0015, ap + 0.006)
+    for k in range(8):
+        part(st, rel_s, Matrix.Rotation(k * pi / 4, 4, 'Z'))
+        part(dk, rel_d, Matrix.Rotation(k * pi / 4, 4, 'Z'))
+    # coperchio: piramide ottagonale concava di quercia, nervature agli otto spigoli, fascia d'ottone alla gronda, razze sulle facce e pomo
+    hyy, zh = -0.452, 0.962
+    Mlid = Matrix.Translation(V(0, hyy, zh)) @ Matrix.Rotation(radians(30), 4, 'X') @ Matrix.Translation(V(0, -hyy, -zh))
+    secs = [(0.438, 0.957), (0.438, 0.990), (0.412, 1.004), (0.330, 1.045), (0.215, 1.105), (0.115, 1.152), (0.055, 1.182), (0.040, 1.192), (0.040, 1.200)]
+
+    def lid_wood(t):
+        g4.loft(t, [_oct_ring(ap_, z) for ap_, z in secs], True, True)
+        for k in range(8):
+            a = pi / 8 + k * pi / 4
+            pts = [V((ap_ / cos(pi / 8) + 0.004) * cos(a), (ap_ / cos(pi / 8) + 0.004) * sin(a), z + 0.002) for ap_, z in secs[1:-2]]
+            tube(t, pts, (0.0105, 0.0095, 0.0080, 0.0065, 0.0050, 0.0040), segs=5, n=9)
+
+    def lid_brass(t):
+        ring = []
+        for k in range(8):
+            ring.append(V(0.444 / cos(pi / 8) * cos(pi / 8 + k * pi / 4), 0.444 / cos(pi / 8) * sin(pi / 8 + k * pi / 4), 0.972))
+            ring.append(V(0.444 * cos((k + 1) * pi / 4), 0.444 * sin((k + 1) * pi / 4), 0.972))
+        g4.loop_tube(t, ring, 0.012, V(0, 0, 1), segs=6, r_in=0.0035)
+        for k in range(8):
+            d = V(cos(k * pi / 4), sin(k * pi / 4), 0)
+            cyl(t, d * 0.409 + V(0, 0, 1.0075), d * 0.080 + V(0, 0, 1.172), 0.0042, 5)
+        lathe(t, [(0.0, 1.198), (0.032, 1.198), (0.034, 1.204), (0.020, 1.212), (0.013, 1.220), (0.0, 1.220)], c=V(0, 0, 0), segs=14)
+        sphere(t, V(0, 0, 1.246), 0.026, 12)
+        lathe(t, [(0.0, 1.268), (0.011, 1.268), (0.0, 1.292)], c=V(0, 0, 0), segs=8)
+        for x in (-0.20, 0.20):
+            bx(t, V(x, -0.4405, 0.975), V(0.085, 0.004, 0.05), 0.0008, 1)
+    part(wd, lid_wood, Mlid)
+    part(br, lid_brass, Mlid)
+    # cerniere sul retro e asta che tiene aperto il coperchio
+    for x in (-0.20, 0.20):
+        cyl(br, V(x - 0.05, hyy, zh), V(x + 0.05, hyy, zh), 0.0095, 10)
+        bx(br, V(x, -0.428, 0.9645), V(0.085, 0.05, 0.004), 0.0008, 1)
+    p_lid = Mlid @ V(-0.12, 0.10, 0.957)
+    p_rim = V(-0.12, 0.412, 0.9655)
+    cyl(br, p_rim, p_lid, 0.0065, 8)
+    sphere(br, p_rim, 0.0105, 8)
+    sphere(br, p_lid, 0.0105, 8)
+    return A
+
+
+# ----------------------------------------------------------------------------- stallo del coro
+def stallo():
+    """Stallo del coro a tre posti: quattro fianchi di quercia (lastra unica con il bracciolo che sale in una curva concava fino al montante alto,
+    pomo a testa tonda e pannelli sulle facce), basamento con i pannelli sul fronte, tre sedili, schienale a pannelli con due nicchie a sesto acuto
+    e una colonnina per posto, trave di fregio, baldacchino con la balza di piccoli archi acuti, cimasa, cresta con pinnacoli e una fascia d'oro.
+    2,8 x 0,9 x 2,3 m."""
+    A = Asset5('chi_stallo')
+    w, gold, dk = A.bm('A_legno'), A.bm('A_oro'), A.bm('A_scuro')
+    xs = [-1.35, -0.45, 0.45, 1.35]
+    sweep_pts = [(p.x, p.y) for p in spline([V(0.28, 0.80, 0), V(0.20, 0.775, 0), V(0.10, 0.790, 0), V(0.02, 0.850, 0), V(-0.06, 0.990, 0), V(-0.11, 1.230, 0),
+                                              V(-0.14, 1.560, 0), V(-0.15, 1.92, 0)], 4)]
+    outline = [(0.40, 0.0), (0.40, 0.70), (0.425, 0.74), (0.435, 0.79), (0.415, 0.835), (0.365, 0.848), (0.32, 0.828)] + sweep_pts + [(-0.45, 1.92), (-0.45, 0.0)]
+    for x in xs:
+        prism_bevel(w, outline, 'x', x - 0.05, x + 0.05, 0.004, 1)
+        sphere(gold, V(x, 0.372, 0.866), 0.012, 8)
+        for sg in (-1, 1):
+            part(w, lambda t: panel_field(t, -0.27, 0.27, 0.10, 0.62, 0.0, 0.008, +1, mould=0.024),
+                 Matrix.Translation(V(x + sg * 0.05, 0, 0)) @ Matrix.Rotation(sg * radians(-90), 4, 'Z'))
+    # basamento con i pannelli sul fronte e tre sedili
+    bx(w, V(0, 0.0, 0.25), V(2.70, 0.78, 0.50), 0.004, 1)
+    for k in range(3):
+        xa, xb = xs[k] + 0.05, xs[k + 1] - 0.05
+        cx = (xa + xb) / 2
+        panel_field(w, xa + 0.04, xb - 0.04, 0.06, 0.42, 0.39, 0.010, +1, mould=0.026)
+        bx(w, V(cx, 0.03, 0.51), V(xb - xa - 0.02, 0.74, 0.04), 0.012, 2)
+        # schienale: tavola, specchio a pannello, traversa, due nicchie a sesto acuto con la colonnina in mezzo, trave di fregio
+        bx(w, V(cx, -0.425, 1.21), V(xb - xa, 0.05, 1.42), 0.004, 1)
+        panel_field(w, xa + 0.03, xb - 0.03, 0.56, 0.76, -0.40, 0.008, +1, mould=0.022)
+        bx(w, V(cx, -0.392, 0.80), V(xb - xa, 0.032, 0.04), 0.006, 2)
+        for sg in (-1, 1):
+            nx_ = cx + sg * 0.20
+            ring_frame(w, gothic_pts(nx_, 0.86, 0.30, 0.74, n=7), gothic_pts(nx_, 0.89, 0.24, 0.68, n=7), -0.40, -0.378, 0.007)
+            poly_prism(dk, gothic_pts(nx_, 0.89, 0.24, 0.68, n=7), 'y', -0.399, -0.390)
+        colt = [(0.0, 0.0), (0.026, 0.0), (0.028, 0.010), (0.019, 0.018), (0.0155, 0.030), (0.0155, 0.60), (0.020, 0.614), (0.030, 0.626), (0.0, 0.626)]
+        part(w, lambda t: lathe(t, colt, c=V(0, 0, 0), segs=10), Matrix.Translation(V(cx, -0.386, 0.88)))
+        bx(w, V(cx, -0.378, 1.675), V(xb - xa, 0.05, 0.05), 0.008, 2)
+    # baldacchino: cassa, balza di archi acuti pendenti (lastra sagomata), cimasa sul fronte, cresta con i coni e la fascia d'oro
+    bx(w, V(0, -0.215, 1.94), V(2.80, 0.47, 0.08), 0.006, 2)
+    pts = [(-1.40, 1.905), (-1.40, 1.775)]
+    na, wa_ = 24, 2.70 / 24
+    for i in range(na):
+        x0 = -1.35 + i * wa_
+        xl, xr = x0 + 0.006, x0 + wa_ - 0.006
+        wa = xr - xl
+        zs = 1.775
+        pts.append((x0, zs))
+        pts.append((xl, zs))
+        for ph in (15, 30, 45):                    # arco di sinistra: centro nell'imposta di destra
+            pts.append((xr - wa * cos(radians(ph)), zs + wa * sin(radians(ph))))
+        pts.append(((xl + xr) / 2, zs + wa * sin(radians(60))))
+        for ph in (45, 30, 15):                    # arco di destra: centro nell'imposta di sinistra
+            pts.append((xl + wa * cos(radians(ph)), zs + wa * sin(radians(ph))))
+        pts.append((xr, zs))
+    pts += [(1.40, 1.775), (1.40, 1.905)]
+    poly_prism(w, pts, 'y', 0.0, 0.026)
+    sweep(w, [V(1.40, -0.02, 1.925), V(-1.40, -0.02, 1.925)], crown_profile(0.06, 0.055), ref=V(0, 0, 1), cap=True)
+    bx(w, V(0, -0.28, 2.005), V(2.80, 0.12, 0.05), 0.006, 2)
+    bx(gold, V(0, -0.2185, 2.005), V(2.76, 0.003, 0.014), 0.0008, 1)
+    for i in range(11):
+        x = -1.25 + 0.25 * i
+        g4.cone(w, V(x, -0.28, 2.03), V(x, -0.28, 2.105), 0.022, 6, 0.0)
+    for x in xs:
+        bx(w, V(x, -0.26, 2.095), V(0.075, 0.075, 0.23), 0.006, 1)
+        part(w, lambda t: lathe(t, [(0.058, 2.205), (0.040, 2.245), (0.0, 2.310)], c=V(0, 0, 0), segs=4), Matrix.Translation(V(x, -0.26, 0)) @ Matrix.Rotation(radians(45), 4, 'Z'))
+        sphere(gold, V(x, -0.26, 2.318), 0.014, 8)
+    return A
+
+
+ASSETS = {'chi_sarcofago': sarcofago, 'chi_inginocchiatoio': inginocchiatoio, 'chi_statua': statua, 'chi_altare': altare, 'chi_fonte': fonte,
+          'chi_stallo': stallo}
 VIEWS = {
     'chi_sarcofago': ((-3.0, 3.1, 2.4), (-0.35, 0, 0.45), 40),
     'chi_inginocchiatoio': ((1.2, 1.5, 1.2), (0, 0, 0.45), 40),
     'chi_statua': ((1.9, 2.5, 2.2), (0, 0, 1.15), 40),
+    'chi_altare': ((3.8, 3.4, 2.3), (0, 0, 0.55), 40),
+    'chi_fonte': ((1.5, 1.9, 1.7), (0, 0, 0.65), 40),
+    'chi_stallo': ((3.6, 3.4, 2.1), (0, 0, 1.1), 40),
 }
 
 
