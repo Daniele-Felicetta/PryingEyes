@@ -140,9 +140,10 @@ measure its gap from the key hints, never below 253 units at the four sizes) and
 screen (1024×768) were looked at. The label was not checked in a real player window.
 
 On 17 November 2026, with the 0.8.0 rework: `MenuReview.Run` passed 2187 of 2187 checks and the photos it saves were looked at in the
-editor. `DisplayTest.cs`, `PadMenuTest.cs` and `PresentationTest.cs` were adapted to the new rows (`SplitScreenTest.cs` to the controller
-sensitivity) and compile; `tools/check_display.py` and the presentation test were not run (they change the real screen mode and the game's
-registry values: they are for the maintainer to ask for). **Not verified**: the look and the animation in a real player window, how the new
+editor, and `-padtest -nowaves` on the built player passed 83 of 83 ([controller.md](controller.md#verification)). `DisplayTest.cs` and
+`PresentationTest.cs` were adapted to the new rows (`SplitScreenTest.cs` to the controller sensitivity) and compile; `tools/check_display.py`
+and the presentation test were not run (they change the real screen mode and the game's registry values: they are for the maintainer to
+ask for). **Not verified**: the look and the animation in a real player window, how the new
 tabs feel with a physical controller, and the music and the tones by ear ([menu-music.md](menu-music.md)).
 
 Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Settings.cs`, `GameMenu.Help.cs`, `GameMenu.Split.cs`,

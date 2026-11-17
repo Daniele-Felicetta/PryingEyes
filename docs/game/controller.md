@@ -112,6 +112,10 @@ Code (`Assets/_PryingEyes/Scripts/`): `PadControls.cs`, `PadMenuInput.cs`, `Game
   fires and jumps on its own, Start on any controller pauses and resumes everyone) 55 to 57 of 57 for 2 to 4 players; `MenuReview.Run` 665 checks.
 - The mapping of 16 November 2026 is checked by the pure part of `-splittest` (each button and its held action once, no tap after a hold,
   crouch on and off, jump and run standing you up, lean only while aiming, R3 not the knife while aiming).
+- On 17 November 2026, with the five-tab settings (0.8.0), `-padtest -nowaves` on the player built from commit `696b16f` passed **83 of 83**
+  (batch mode, exit 0): selecting a tab with the D-pad opens it and writes its hint, down enters the first row, left and right move a slider
+  or step a choice row (*Suoni dell'interfaccia*), down from the last row reaches *Indietro* and right from it *Ripristina scheda*, the guide opens on
+  *Obiettivo* and names the controller's keys; the test puts back the volume and the interface sounds it changed.
 - **Not verified**: a physical controller (none was available; the real XInput read answers without errors and the rest runs on fake
   states), the feel of the new mapping in a real game, PlayStation and Switch controllers through a wrapper, several controllers in the normal game (the first one pressed wins),
   Steam Input, controller hot-plug during a real game, and the look of the menus at resolutions other than 1024x720.
