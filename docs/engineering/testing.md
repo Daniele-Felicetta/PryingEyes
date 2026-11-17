@@ -66,7 +66,7 @@ Unity steps (`Unity -batchmode -projectPath unity\PryingEyes -executeMethod ... 
 | `PryingEyes.EditorTools.ArmiShots.Run -armi p9_pieta` | Photographs one weapon in hand, aimed, from the side. | `hotel_build/armi/` |
 | `PryingEyes.EditorTools.ManiImport.RunAndShots [-armi p9_pieta] [-viste mano,mira,ricarica]` | Imports `mani.fbx` and the per-weapon FBX (prefabs in `Resources/Mani` and `Resources/ManiArmi/<id>`), photographs the requested views without building the player. | `hotel_build/armi/` |
 | `PryingEyes.EditorTools.NemiciTemiImport.RunAndShot` | Builds the theme enemy prefabs (`Resources/`) and photographs them in the hall. | `hotel_build/shot_temi_*.png` |
-| `PryingEyes.EditorTools.PropShots.Run [-prefix gu_] [-props a,b] [-tag v1] [-torch] [-theme guardaroba] [-dist 1.0]` | Imports the kit (`TorreBuilder.FillKit`) and photographs each prop, three-quarter and front, in a small dark room with the theme's look; `-torch` adds the player's torch. | `hotel_build/props/<name>_3q<tag>.png`, `_fronte<tag>.png` |
+| `PryingEyes.EditorTools.PropShots.Run [-prefix gu_] [-props a,b] [-tag v1] [-torch] [-theme guardaroba] [-dist 1.0] [-lod 0\|1\|2]` | Imports the kit (`TorreBuilder.FillKit`) and photographs each prop, three-quarter and front, in a small dark room with the theme's look; `-torch` adds the player's torch; `-lod N` forces a level of detail in the props that have a group ([props-phase5.md](../game/props-phase5.md)). | `hotel_build/props/<name>_3q<tag>.png`, `_fronte<tag>.png` |
 
 ### 2.2 Builds
 

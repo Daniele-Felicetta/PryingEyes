@@ -313,3 +313,48 @@ non tocca, usciva a 15-20 ms invece di 5. Prima di misurare: nvidia-smi a scheda
   Lavanderia     4,8x7,4  m  luci 72/574: medio   3,3 ms (logica  0,3 + render CPU  1,1 + attesa GPU  1,9)  p50   3,2  p95   3,6  p99   4,2  max   7,6
   Cappella       5,4x5,0  m  luci 98/574: medio   5,4 ms (logica  0,4 + render CPU  1,9 + attesa GPU  3,1)  p50   5,2  p95   6,2  p99   7,1  max   7,1
   >> 14 inquadrature: medio 4,7 ms (215 fps), peggior p99 7,3 ms
+######## FASE 5 arredi (props5), confronto sul piano identico: ab_old = copia del gioco di prima (vecchi arredi), ab_new = questo ramo; un giro per build e tema, scheda libera ########
+== [ab_old_alb] piano 3 tema Albergo seme 6034: 9 stanze, 228 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  GiardinoInverno 44,8x40,0 m  luci 53/228: medio   5,7 ms (logica  0,8 + render CPU  2,1 + attesa GPU  2,8)  p50   4,9  p95   5,5  p99   7,3  max  98,2
+  Suite         43,2x35,2 m  luci 67/228: medio   5,6 ms (logica  0,8 + render CPU  1,3 + attesa GPU  3,5)  p50   5,4  p95   5,9  p99   6,8  max  23,9
+  Navata        40,0x35,2 m  luci 66/228: medio   6,8 ms (logica  1,0 + render CPU  2,6 + attesa GPU  3,2)  p50   6,8  p95   7,3  p99   7,5  max   7,9
+  Atrio         20,8x40,0 m  luci 45/228: medio   7,7 ms (logica  3,0 + render CPU  2,2 + attesa GPU  2,5)  p50   3,9  p95   5,6  p99 154,3  max 259,1
+  Cappella      20,8x22,4 m  luci 61/228: medio   4,4 ms (logica  0,8 + render CPU  1,6 + attesa GPU  2,1)  p50   4,4  p95   4,9  p99   5,1  max   6,0
+  Cucina        22,4x17,6 m  luci 64/228: medio   5,5 ms (logica  0,9 + render CPU  1,8 + attesa GPU  2,8)  p50   5,5  p95   6,1  p99   6,4  max   7,1
+  >> 6 inquadrature: medio 6,0 ms (167 fps), peggior p99 154,3 ms
+== [ab_new_alb] piano 3 tema Albergo seme 6034: 9 stanze, 228 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  GiardinoInverno 44,8x40,0 m  luci 53/228: medio   4,9 ms (logica  0,8 + render CPU  1,4 + attesa GPU  2,7)  p50   4,8  p95   5,3  p99   5,7  max   8,0
+  Suite         43,2x35,2 m  luci 67/228: medio   5,5 ms (logica  0,8 + render CPU  1,3 + attesa GPU  3,4)  p50   5,3  p95   5,8  p99   6,8  max  23,3
+  Navata        40,0x35,2 m  luci 66/228: medio   6,6 ms (logica  0,9 + render CPU  2,6 + attesa GPU  3,2)  p50   6,6  p95   7,0  p99   7,6  max   7,8
+  Atrio         20,8x40,0 m  luci 45/228: medio   7,5 ms (logica  2,8 + render CPU  2,1 + attesa GPU  2,5)  p50   4,2  p95   5,3  p99 153,6  max 224,6
+  Cappella      20,8x22,4 m  luci 61/228: medio   4,5 ms (logica  0,8 + render CPU  1,6 + attesa GPU  2,1)  p50   4,5  p95   4,8  p99   5,4  max   6,0
+  Cucina        22,4x17,6 m  luci 64/228: medio   5,7 ms (logica  0,9 + render CPU  1,9 + attesa GPU  2,8)  p50   5,7  p95   6,2  p99   7,0  max   7,3
+  >> 6 inquadrature: medio 5,8 ms (173 fps), peggior p99 153,6 ms
+== [ab_new_tea] piano 3 tema Teatro seme 6000: 9 stanze, 156 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Foyer         40,0x38,4 m  luci 57/156: medio   4,7 ms (logica  0,8 + render CPU  1,5 + attesa GPU  2,4)  p50   4,7  p95   5,1  p99   5,4  max   5,5
+  Palcoscenico  36,8x40,0 m  luci 39/156: medio   5,0 ms (logica  0,8 + render CPU  1,8 + attesa GPU  2,3)  p50   4,9  p95   5,6  p99   6,1  max   6,6
+  Ridotto       40,0x20,8 m  luci 42/156: medio   3,9 ms (logica  0,8 + render CPU  1,2 + attesa GPU  1,9)  p50   3,8  p95   4,3  p99   5,0  max   5,3
+  Rotonda       19,2x38,4 m  luci 46/156: medio   4,1 ms (logica  0,7 + render CPU  1,4 + attesa GPU  2,0)  p50   4,1  p95   4,6  p99   5,1  max   5,7
+  Platea        17,6x22,4 m  luci 53/156: medio   6,1 ms (logica  0,9 + render CPU  1,8 + attesa GPU  3,5)  p50   6,0  p95   6,7  p99   8,8  max  11,4
+  >> 5 inquadrature: medio 4,8 ms (210 fps), peggior p99 8,8 ms
+== [ab_old_tea] piano 3 tema Teatro seme 6000: 9 stanze, 156 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Foyer         40,0x38,4 m  luci 57/156: medio   4,9 ms (logica  0,9 + render CPU  1,6 + attesa GPU  2,5)  p50   4,9  p95   5,3  p99   5,6  max   5,7
+  Palcoscenico  36,8x40,0 m  luci 39/156: medio   5,0 ms (logica  0,9 + render CPU  1,8 + attesa GPU  2,3)  p50   4,9  p95   5,4  p99   6,0  max   6,2
+  Ridotto       40,0x20,8 m  luci 42/156: medio   5,7 ms (logica  0,8 + render CPU  3,0 + attesa GPU  1,9)  p50   3,9  p95   4,5  p99   6,2  max 212,3
+  Rotonda       19,2x38,4 m  luci 46/156: medio   5,6 ms (logica  2,1 + render CPU  1,5 + attesa GPU  2,0)  p50   4,3  p95   5,1  p99  10,0  max 152,3
+  Platea        17,6x22,4 m  luci 53/156: medio   6,4 ms (logica  1,0 + render CPU  1,9 + attesa GPU  3,6)  p50   6,3  p95   6,9  p99   9,4  max  13,4
+  >> 5 inquadrature: medio 5,5 ms (181 fps), peggior p99 10,0 ms
+== [ab_old_san] piano 3 tema Sanatorio seme 6085: 9 stanze, 175 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Sacrestia     41,6x43,2 m  luci 50/175: medio   5,8 ms (logica  0,8 + render CPU  1,2 + attesa GPU  3,8)  p50   5,6  p95   6,1  p99   8,6  max  21,6
+  Corsia        36,8x40,0 m  luci 57/175: medio   5,0 ms (logica  0,8 + render CPU  1,4 + attesa GPU  2,8)  p50   5,0  p95   5,4  p99   6,2  max   6,6
+  Rotonda       19,2x40,0 m  luci 23/175: medio   3,1 ms (logica  0,7 + render CPU  0,9 + attesa GPU  1,4)  p50   3,0  p95   3,4  p99   3,9  max   4,6
+  Accettazione  22,4x20,8 m  luci 63/175: medio   7,1 ms (logica  2,1 + render CPU  2,0 + attesa GPU  3,0)  p50   5,7  p95   6,5  p99  11,9  max 154,6
+  SalaOperatoria 19,2x20,8 m  luci 61/175: medio   4,6 ms (logica  0,8 + render CPU  1,0 + attesa GPU  2,9)  p50   4,5  p95   5,0  p99   5,4  max  11,6
+  >> 5 inquadrature: medio 5,1 ms (196 fps), peggior p99 11,9 ms
+== [ab_new_san] piano 3 tema Sanatorio seme 6085: 9 stanze, 175 luci, NVIDIA GeForce RTX 5060 Ti, 1920x1080
+  Sacrestia     41,6x43,2 m  luci 50/175: medio   6,0 ms (logica  0,9 + render CPU  1,4 + attesa GPU  3,8)  p50   5,8  p95   6,2  p99  10,0  max  25,4
+  Corsia        36,8x40,0 m  luci 57/175: medio   5,0 ms (logica  0,8 + render CPU  1,4 + attesa GPU  2,8)  p50   4,9  p95   5,2  p99   6,4  max   6,5
+  Rotonda       19,2x40,0 m  luci 23/175: medio   3,0 ms (logica  0,7 + render CPU  0,9 + attesa GPU  1,4)  p50   2,9  p95   3,3  p99   3,6  max   4,2
+  Accettazione  22,4x20,8 m  luci 63/175: medio   6,0 ms (logica  0,8 + render CPU  2,1 + attesa GPU  3,0)  p50   5,9  p95   6,4  p99   6,6  max   7,3
+  SalaOperatoria 19,2x20,8 m  luci 61/175: medio   4,6 ms (logica  0,7 + render CPU  1,0 + attesa GPU  2,8)  p50   4,5  p95   5,1  p99   5,5  max  15,2
+  >> 5 inquadrature: medio 4,9 ms (204 fps), peggior p99 10,0 ms
