@@ -69,7 +69,7 @@ Then Unity (`TorreBuilder.FillKit` imports the FBX, builds the prefabs in `Prefa
 before every Build, `PropShots`, `ProcShots` and `ProcCheck`). To see the props as the player sees them, without playing:
 
 ```powershell
-Unity -batchmode -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.PropShots.Run -quit -logFile unity_logs\propshots.log -tag v1 -torch [-props gu_braciere,gu_crogiolo] [-prefix gu_] [-theme guardaroba] [-dist 1.0]
+Unity -batchmode -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.PropShots.Run -quit -logFile unity_logs\propshots.log -tag v1 -torch [-props gu_braciere,gu_crogiolo] [-prefix gu_] [-theme guardaroba] [-dist 1.0] [-lod 0|1|2]
 ```
 
 Each prop sits in a small dark room with the theme's fog, ambient light and grading, a warm lamp and, with `-torch`, the cone of the player's
