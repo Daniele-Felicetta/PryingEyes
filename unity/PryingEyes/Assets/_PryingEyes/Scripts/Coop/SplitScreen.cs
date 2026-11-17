@@ -13,10 +13,14 @@ namespace PryingEyes
     ///
     /// Comandi: ogni giocatore puo' usare un controller (PadControls: XInput, uno slot per posto). Il giocatore 1 ha anche tastiera e mouse.
     /// Questa classe tiene solo le regole pure: la disposizione delle porzioni, l'assegnazione dei controller e l'angolo di campo.
+    /// Con piu' di un monitor collegato i giocatori si dividono fra i monitor (SplitScreen.Monitors.cs: quanti ce ne sono e quanti se ne usano;
+    /// qui, PlayersOn / DisplayOf / ViewOn, chi sta su quale).
     /// Documentazione: docs/multiplayer/split-screen.md.</summary>
-    public static class SplitScreen
+    public static partial class SplitScreen
     {
         public const int MinPlayers = 2, MaxPlayers = 4;
+        /// <summary>Quanti monitor si usano al massimo insieme: uno per giocatore.</summary>
+        public const int MaxMonitors = 4;
         /// <summary>Oltre questo campo visivo orizzontale (gradi) la visuale si deforma troppo: nelle porzioni larghe si riduce quello verticale.</summary>
         public const float MaxHorizontalFov = 125f;
 
@@ -69,6 +73,59 @@ namespace PryingEyes
             if (tile == 1) return new Rect(0.5f, 0.5f, 0.5f, 0.5f);
             if (count == 3) return new Rect(0f, 0f, 1f, 0.5f);
             return tile == 2 ? new Rect(0f, 0f, 0.5f, 0.5f) : new Rect(0.5f, 0f, 0.5f, 0.5f);
+        }
+
+        // ------------------------------------------------------------------ monitor (puro: la prova lo controlla senza finestre)
+
+        /// <summary>Quanti monitor si usano davvero: quelli voluti, ma non piu' di uno per giocatore ne' di MaxMonitors, e almeno uno.</summary>
+        public static int MonitorsFor(int count, int monitors) => Mathf.Clamp(monitors, 1, Mathf.Min(MaxMonitors, Mathf.Max(1, count)));
+
+        /// <summary>Quanti giocatori stanno sul monitor 'display' (0 e' quello della finestra del gioco): i giocatori si dividono in parti uguali e
+        /// quelli che avanzano vanno sui primi monitor (3 giocatori su 2 monitor: 2 + 1; 4 su 3: 2 + 1 + 1). Fuori dai monitor usati, 0.</summary>
+        public static int PlayersOn(int display, int count, int monitors)
+        {
+            monitors = MonitorsFor(count, monitors);
+            if (display < 0 || display >= monitors) return 0;
+            return Mathf.Max(0, count) / monitors + (display < Mathf.Max(0, count) % monitors ? 1 : 0);
+        }
+
+        /// <summary>Il monitor del giocatore 'player' (0..count-1): i monitor si riempiono in ordine, il giocatore 1 sta sul primo (sul monitor
+        /// della finestra del gioco, quello dove ha tastiera e mouse).</summary>
+        public static int DisplayOf(int player, int count, int monitors)
+        {
+            monitors = MonitorsFor(count, monitors);
+            int upTo = 0;
+            for (int d = 0; d < monitors; d++)
+            {
+                upTo += PlayersOn(d, count, monitors);
+                if (player < upTo) return d;
+            }
+            return monitors - 1;
+        }
+
+        /// <summary>La porzione del giocatore dentro il SUO monitor (frazioni del monitor, origine in basso a sinistra, come Camera.rect): da
+        /// solo su un monitor lo riempie, in due sta uno a sinistra e uno a destra, e cosi' via (ViewOf, con i giocatori di quel monitor).
+        /// Con un monitor solo e' identica a ViewOf(player, count).</summary>
+        public static Rect ViewOn(int player, int count, int monitors)
+        {
+            monitors = MonitorsFor(count, monitors);
+            int d = DisplayOf(player, count, monitors), before = 0;
+            for (int k = 0; k < d; k++) before += PlayersOn(k, count, monitors);
+            return ViewOf(player - before, PlayersOn(d, count, monitors));
+        }
+
+        /// <summary>Come vengono divisi i giocatori su 'monitors' monitor, per il menu ("Su 2 monitor: 2 giocatori 1+1 · 3 giocatori 2+1 · ...").</summary>
+        public static string Arrangement(int monitors)
+        {
+            var sb = new System.Text.StringBuilder("Su " + Mathf.Max(1, monitors) + " monitor: ");
+            for (int n = MinPlayers; n <= MaxPlayers; n++)
+            {
+                if (n > MinPlayers) sb.Append("   ·   ");
+                sb.Append(n).Append(" giocatori ");
+                int used = MonitorsFor(n, monitors);
+                for (int d = 0; d < used; d++) { if (d > 0) sb.Append('+'); sb.Append(PlayersOn(d, n, monitors)); }
+            }
+            return sb.ToString();
         }
 
         /// <summary>Quale controller (slot XInput) dare a ciascun giocatore, -1 = nessuno (tastiera e mouse). 'mask' dice quali slot hanno un

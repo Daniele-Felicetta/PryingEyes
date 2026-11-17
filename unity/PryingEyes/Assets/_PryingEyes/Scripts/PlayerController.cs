@@ -444,7 +444,7 @@ namespace PryingEyes
             eyeH += (targetEye - eyeH) * Mathf.Min(1f, 11f * dt);
 
             Camera c = cam.GetComponent<Camera>();
-            float baseFov = SplitScreen.Active ? SplitScreen.FovFor(GameSettings.Fov, c.aspect) : GameSettings.Fov;     // nelle finestre larghe dello split screen il campo orizzontale non esagera
+            float baseFov = SplitScreen.Active ? SplitScreen.FovFor(GameSettings.Fov, Seats.ViewAspect(Seats.Current, c.aspect)) : GameSettings.Fov;     // nelle finestre larghe dello split screen il campo orizzontale non esagera (su piu' monitor: l'aspetto della porzione sul SUO monitor)
             float targetFov = baseFov + ((wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + fovKick) * motion
                 - weapon.ads * (baseFov - wd.adsFov);
             fovKick *= Mathf.Max(0f, 1f - 6f * dt);

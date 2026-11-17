@@ -39,7 +39,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [menu-music.md](game/menu-music.md) | The main-menu theme (a generated waltz for music box and organ) and the menu tones: how they are made, when they play, their loudness, what was measured and what was not listened to. |
 | [controller.md](game/controller.md) | The XInput controller: how the game finds it, the mapping, menu navigation with it, the on-screen hints, the checks and what is not verified. |
 | [multiplayer/README.md](multiplayer/README.md) | Online co-op for up to four players: how it plays, the protocol, the tests, the limits (Italian). |
-| [multiplayer/split-screen.md](multiplayer/split-screen.md) | Split screen on one PC for two to four players, in one game and one window: layout, controllers, what is shared, how it works, the checks and what is not verified. |
+| [multiplayer/split-screen.md](multiplayer/split-screen.md) | Split screen on one PC for two to four players, in one game, in one window or over several monitors: layout, controllers, what is shared, how it works, the checks and what is not verified. |
 
 ## Engineering (`engineering/`)
 

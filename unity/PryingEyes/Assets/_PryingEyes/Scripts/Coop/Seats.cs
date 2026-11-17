@@ -16,8 +16,11 @@ namespace PryingEyes
         public Camera camera;
         /// <summary>Contenitore degli oggetti del posto (null per il posto 0): tutto quello che vi sta sotto "e' suo".</summary>
         public Transform root;
-        /// <summary>La sua porzione dello schermo, 0..1 (y dal basso, come Camera.rect).</summary>
+        /// <summary>La sua porzione dello schermo, 0..1 (y dal basso, come Camera.rect). E' dentro il SUO monitor (display).</summary>
         public Rect view = new Rect(0f, 0f, 1f, 1f);
+        /// <summary>Il monitor su cui sta: 0 e' la finestra del gioco, 1 e oltre i monitor accesi con SplitScreen.ActivateDisplays (camera e HUD ci
+        /// vanno con Camera.targetDisplay e il canvas del monitor). Con un monitor solo e' sempre 0.</summary>
+        public int display;
         /// <summary>Lo strato di Unity di arma e mani di questo giocatore: le camere degli altri non lo disegnano.</summary>
         public int viewLayer;
         // quello che il resto del gioco legge come globale (GameManager.I.score, Equipment.I...): Seats.Install lo mette al suo posto

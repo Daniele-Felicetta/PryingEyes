@@ -8,11 +8,13 @@ namespace PryingEyes
     public partial class GameMenu
     {
         RectTransform splitPanel;
-        Text splitStatus, splitPads, padHelp;
-        Button splitP1Button;
+        Text splitStatus, splitPads, splitSubtitle, padHelp;
+        Button splitP1Button, splitMonitorButton;
         Button[] splitCountButtons;
         bool splitP1Pad;
         float splitRefreshAt;
+
+        const string SplitSubtitle = "Da due a quattro giocatori sullo stesso PC, nello stesso gioco: lo schermo si divide in parti uguali.";
 
         static readonly string PadSheet =
             "CONTROLLER  (tra parentesi: tenendo premuto)\n" +
@@ -33,8 +35,7 @@ namespace PryingEyes
             splitPanel = Stretch(backdrop, "SplitScreen");
             // sei righe di bottoni da 56 e tre di testo: "Indietro" deve finire sopra la riga dei comandi in fondo (a -298), come negli altri pannelli
             Label(splitPanel, "Titolo", new Vector2(0, 214), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Schermo condiviso", Ink, FontStyle.Normal);
-            Label(splitPanel, "Sottotitolo", new Vector2(0, 164), new Vector2(1100, 30), 20, TextAnchor.MiddleCenter,
-                "Da due a quattro giocatori sullo stesso PC, nello stesso gioco: lo schermo si divide in parti uguali.", Dim, FontStyle.Italic);
+            splitSubtitle = Label(splitPanel, "Sottotitolo", new Vector2(0, 164), new Vector2(1100, 30), 20, TextAnchor.MiddleCenter, SplitSubtitle, Dim, FontStyle.Italic);
             splitPads = Label(splitPanel, "Controller", new Vector2(0, 126), new Vector2(1000, 30), 20, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
             splitCountButtons = new Button[3];
             for (int i = 0; i < 3; i++)
@@ -43,6 +44,8 @@ namespace PryingEyes
                 splitCountButtons[i] = MakeButton(splitPanel, n + " giocatori", new Vector2(0, 76 - i * 62), () => SplitStart(n));
             }
             splitP1Button = MakeButton(splitPanel, "", new Vector2(0, -110), () => { splitP1Pad = !splitP1Pad; RefreshSplitPanel(true); });
+            // con piu' di un monitor collegato la riga ha due bottoni (RefreshSplitPanel li mette uno accanto all'altro); con uno solo il secondo non c'e'
+            splitMonitorButton = MakeButton(splitPanel, "", new Vector2(190, -110), SplitCycleMonitors);
             splitStatus = Label(splitPanel, "Stato", new Vector2(0, -158), new Vector2(1100, 30), 20, TextAnchor.MiddleCenter, "", Ink, FontStyle.Italic);
             Label(splitPanel, "Nota", new Vector2(0, -194), new Vector2(1100, 44), 16, TextAnchor.MiddleCenter,
                 "Ogni giocatore usa un controller Xbox (o compatibile). Il giocatore 1 ha anche tastiera e mouse; un controller libero lo adotta premendo un tasto.",
@@ -67,12 +70,20 @@ namespace PryingEyes
             splitRefreshAt = Time.unscaledTime + 0.5f;
             int mask = PadControls.ConnectedMask(), pads = 0;
             for (int i = 0; i < 4; i++) if ((mask & (1 << i)) != 0) pads++;
-            splitPads.text = "Controller collegati: " + pads;
+            int connected = SplitScreen.ConnectedMonitors, wanted = SplitScreen.WantedMonitors;
+            bool multi = connected > 1;
+            splitPads.text = "Controller collegati: " + pads + (multi ? "   ·   Monitor collegati: " + connected : "");
+            splitSubtitle.text = multi && wanted > 1 ? SplitScreen.Arrangement(wanted) : SplitSubtitle;      // su piu' monitor la riga dice come si dividono i giocatori
             var label = splitP1Button.GetComponentInChildren<Text>();
             if (label != null) label.text = "Giocatore 1: " + (splitP1Pad ? "controller (e tastiera)" : "tastiera e mouse");
+            splitMonitorButton.gameObject.SetActive(multi);
+            ((RectTransform)splitP1Button.transform).anchoredPosition = new Vector2(multi ? -190f : 0f, -110f);
+            var monitorLabel = splitMonitorButton.GetComponentInChildren<Text>();
+            if (monitorLabel != null) monitorLabel.text = "Monitor: " + MonitorWord(wanted);
             bool ok = SplitScreen.Available;
             foreach (var b in splitCountButtons) b.interactable = ok;
             splitP1Button.interactable = ok;
+            splitMonitorButton.interactable = ok;
             if (!ok)
             {
                 splitStatus.text = !SplitScreen.Supported ? "Lo schermo condiviso c'è solo nel gioco per Windows."
@@ -82,6 +93,17 @@ namespace PryingEyes
             }
             int need = splitP1Pad ? 2 : 1;      // il minimo per due giocatori
             splitStatus.text = pads >= need ? "" : "Per due giocatori servono " + need + " controller: ne vedo " + pads + ". Chi non ne ha uno aspetta, e entra col primo che si collega.";
+        }
+
+        static string MonitorWord(int n) => n <= 1 ? "uno solo" : n == 2 ? "due" : n == 3 ? "tre" : "quattro";
+
+        /// <summary>Scelta dei monitor: uno solo, poi due, e cosi' fino a quanti ne sono collegati, poi di nuovo uno. Si ricorda fra una partita e l'altra.</summary>
+        void SplitCycleMonitors()
+        {
+            int next = SplitScreen.WantedMonitors + 1;
+            if (next > SplitScreen.ConnectedMonitors) next = 1;
+            SplitScreen.ChooseMonitors(next);
+            RefreshSplitPanel(true);
         }
 
         /// <summary>Avvia lo schermo condiviso con n giocatori e comincia la partita: sono tutti nello stesso gioco, quindi parte tutto insieme.</summary>

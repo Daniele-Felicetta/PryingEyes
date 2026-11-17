@@ -24,6 +24,7 @@ namespace PryingEyes
         int checks, failed, exceptions, errors;
         readonly List<string> samples = new List<string>();
         bool shots;
+        bool systemPhotos = true;      // con piu' monitor veri: finche' il copione run_split.ps1 risponde alle richieste di foto
         static readonly FieldInfo TgtField = typeof(Enemy).GetField("tgt", BindingFlags.Instance | BindingFlags.NonPublic);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -158,11 +159,115 @@ namespace PryingEyes
             return tex;
         }
 
+        /// <summary>Con piu' monitor veri e la finestra (-seatsshots): ogni monitor acceso ha la sua finestra e nessun altro programma la copre
+        /// (altrimenti il giocatore che sta li' non vedrebbe il gioco). Si scrive nel registro l'elenco delle finestre del gioco.</summary>
+        IEnumerator MonitorWindows()
+        {
+            if (!shots || Seats.Monitors < 2 || SplitScreen.RealMonitors < Seats.Monitors) yield break;
+            float until = Time.realtimeSinceStartup + 4f;
+            while ((SplitScreen.VisibleWindows() < Seats.Monitors || SplitScreen.WindowsOnTop() < Seats.Monitors) && Time.realtimeSinceStartup < until)
+                yield return new WaitForSecondsRealtime(0.25f);          // le finestre dei monitor accesi si aprono e vengono in primo piano
+            Debug.Log("[PryingEyes] seatstest: finestre del gioco: " + SplitScreen.WindowsReport().Replace("\n", " | "));
+            Check($"ogni monitor acceso ha la sua finestra ({SplitScreen.VisibleWindows()} visibili, {Seats.Monitors} monitor)", SplitScreen.VisibleWindows() >= Seats.Monitors);
+            Check($"nessun altro programma copre le finestre del gioco ({SplitScreen.WindowsOnTop()} in primo piano su {Seats.Monitors})", SplitScreen.WindowsOnTop() >= Seats.Monitors);
+            // quanto pesa avere piu' monitor: fotogrammi al secondo in due secondi (il mondo e' fermo, i nemici tolti); solo un'informazione
+            int f0 = Time.frameCount; float t0 = Time.realtimeSinceStartup;
+            yield return new WaitForSecondsRealtime(2f);
+            float fps = (Time.frameCount - f0) / Mathf.Max(0.01f, Time.realtimeSinceStartup - t0);
+            Debug.Log($"[PryingEyes] seatstest: fotogrammi al secondo con {Seats.Monitors} monitor ({SplitScreen.DescribeDisplays(Seats.Monitors)}): {fps:F0} (vsync {QualitySettings.vSyncCount}, limite {Application.targetFrameRate})");
+        }
+
+        /// <summary>Un altro programma copre la finestra di un monitor acceso: il gioco la riconosce coperta e la riporta in primo piano, senza prendere
+        /// il fuoco (se lo prendesse il gioco andrebbe in pausa). La finestra che copre e' di questo stesso processo e non prende il fuoco. Si fa verso
+        /// la fine della prova, cosi' se qualcosa va storto non rovina il resto.</summary>
+        IEnumerator CoveredWindow()
+        {
+            if (!shots || Seats.Monitors < 2 || SplitScreen.RealMonitors < Seats.Monitors) yield break;
+            var cover = SplitScreen.TestCover();
+            if (cover == IntPtr.Zero) { Debug.Log("[PryingEyes] seatstest: finestra coperta: non c'e' una finestra da coprire, niente prova"); yield break; }
+            yield return new WaitForSecondsRealtime(0.5f);
+            int covered = SplitScreen.WindowsOnTop();
+            bool paused = GameMenu.Paused;
+            Debug.Log($"[PryingEyes] seatstest: finestra coperta: in primo piano {covered}, in pausa {paused}, con il fuoco {Application.isFocused}");
+            Check($"una finestra di un altro programma sopra quella del monitor acceso la copre ({covered} in primo piano su {Seats.Monitors})", covered < Seats.Monitors);
+            Check("la finestra messa sopra non prende il fuoco: il gioco non va in pausa", !paused);
+            int raised = SplitScreen.RaiseWindows();
+            yield return new WaitForSecondsRealtime(0.5f);
+            Check($"il gioco riporta in primo piano la finestra coperta ({raised} mossa, {SplitScreen.WindowsOnTop()} in primo piano su {Seats.Monitors})", SplitScreen.WindowsOnTop() >= Seats.Monitors);
+            SplitScreen.TestUncover(cover);
+            yield return new WaitForSecondsRealtime(0.3f);
+            Check("tolta la finestra messa sopra il gioco gira ancora (nessuna pausa)", !GameMenu.Paused && Time.timeScale == 1f);
+        }
+
+        /// <summary>Ogni posto ha la sua mappa nell'HUD (Proc/Map/MapView, il dossier in uGUI) e l'HUD sta sul canvas del monitor del posto: anche chi sta su un
+        /// monitor oltre il primo la vede. La grande e la minimappa si aprono e si chiudono per posto, senza toccare quelle degli altri.</summary>
+        IEnumerator SeatMaps(Seat[] seats)
+        {
+            var fd = FloorDirector.I;
+            float until = Time.realtimeSinceStartup + 5f;
+            while (fd != null && (fd.cur == null || fd.transitioning || GameMenu.Blocked) && Time.realtimeSinceStartup < until) yield return new WaitForSecondsRealtime(0.1f);
+            bool inView = fd != null && fd.cur != null && !fd.transitioning && !GameMenu.Blocked;
+            if (!Check($"il piano e' in vista per la prova delle mappe (bloccato {GameMenu.Blocked}, in pausa {GameMenu.Paused}, scala del tempo {Time.timeScale})", inView)) yield break;
+            // all'arrivo i giocatori sono ancora nell'ascensore, che la mappa non disegna: si segnano visitate le sei stanze piu' vicine,
+            // perche' ci sia qualcosa da vedere (e da fotografare) oltre ai segnalini
+            int visited = 0;
+            bool otherMonitor = false;
+            foreach (var s in seats) otherMonitor |= s.display != 0;
+            if (otherMonitor)
+            {
+                var origin = seats[0].player.transform.position;
+                var near = new List<KeyValuePair<float, int>>();
+                foreach (var room in fd.cur.plan.rooms)
+                {
+                    if (room.IsLift) continue;
+                    float dx = (room.x0 + room.x1) * 0.05f - origin.x, dz = (room.z0 + room.z1) * 0.05f - origin.z;
+                    near.Add(new KeyValuePair<float, int>(dx * dx + dz * dz, room.id));
+                }
+                near.Sort((a, b) => a.Key.CompareTo(b.Key));
+                var ids = new List<int>();
+                for (int i = 0; i < near.Count && i < 6; i++) ids.Add(near[i].Value);
+                fd.DebugSetExplored(ids);
+                visited = ids.Count;
+            }
+            foreach (var s in seats)
+            {
+                var map = s.hud != null ? s.hud.Map : null;
+                if (!Check($"il giocatore {s.index + 1} (monitor {s.display + 1}) ha la mappa nel suo HUD", map != null)) continue;
+                fd.DebugShowMapFor(s.index, true, true);
+                yield return new WaitForSecondsRealtime(0.8f);                 // il foglio si apre in 0,36 s
+                Check($"il giocatore {s.index + 1} (monitor {s.display + 1}) vede la mappa grande ({visited} stanze visitate)", map.Visible && map.Bigness > 0.95f);
+                yield return Photo($"1b-mappa-del-giocatore-{s.index + 1}");
+                fd.DebugShowMapFor(s.index, false, true);
+                yield return new WaitForSecondsRealtime(0.8f);
+                Check($"il giocatore {s.index + 1}: chiusa la mappa grande resta la minimappa", map.Visible && map.Bigness < 0.05f);
+                fd.DebugShowMapFor(s.index, false, false);
+                yield return new WaitForSecondsRealtime(0.3f);
+                Check($"il giocatore {s.index + 1}: spenta anche la minimappa non si vede niente", !map.Visible);
+                fd.DebugShowMapFor(s.index, false, true);          // com'era
+            }
+        }
+
+        /// <summary>Una foto di questo momento. Con una finestra sola e' ScreenCapture. Con piu' monitor veri ScreenCapture vedrebbe solo l'ultimo
+        /// monitor disegnato (e alla misura della finestra principale): si chiede a run_split.ps1 -Graphics -Monitors N di fotografare ogni monitor
+        /// dal sistema (tools/coop/capture_monitors.ps1: &lt;nome&gt;-monitor1.png, &lt;nome&gt;-monitor2.png ...) e si aspetta il suo "fatto" (&lt;nome&gt;.done,
+        /// al massimo 20 s); se nessuno risponde, le foto di questa prova si saltano.</summary>
         IEnumerator Photo(string name)
         {
             if (!shots) yield break;
             string folder = Path.GetFullPath("unity_logs/seats");
             Directory.CreateDirectory(folder);
+            if (Seats.Monitors > 1 && SplitScreen.RealMonitors >= Seats.Monitors)
+            {
+                if (!systemPhotos) yield break;
+                string done = Path.Combine(folder, name + ".done");
+                try { File.Delete(done); } catch (Exception) { }
+                yield return null; yield return null;                    // il fotogramma e' gia' sullo schermo
+                Debug.Log("[PryingEyes] seatstest: foto-richiesta: " + name);
+                float until = Time.realtimeSinceStartup + 20f;
+                while (!File.Exists(done) && Time.realtimeSinceStartup < until) yield return new WaitForSecondsRealtime(0.1f);
+                if (!File.Exists(done)) { systemPhotos = false; Debug.Log("[PryingEyes] seatstest: foto-monitor: nessuno le fa (serve run_split.ps1 -Graphics -Monitors N): niente foto"); }
+                yield break;
+            }
             yield return new WaitForEndOfFrame();
             ScreenCapture.CaptureScreenshot(Path.Combine(folder, name + ".png"));
             yield return null; yield return null;
@@ -187,7 +292,9 @@ namespace PryingEyes
 
             Structure(seats, n);
             ContextSwap(seats);
+            yield return MonitorWindows();
             yield return Photo("1-arrivo");
+            yield return SeatMaps(seats);
             yield return SeeEachOther(seats);
 
             // ---- spazio per la prova
@@ -519,6 +626,12 @@ namespace PryingEyes
                 foreach (var s in seats) { var c = s.hud.GetComponent<Canvas>(); huds &= c != null && !c.enabled; }
                 Check($"Start sul controller del giocatore {n}: la pausa e' di tutti (mondo fermo, comandi bloccati)", GameMenu.Paused && GameMenu.Blocked && Time.timeScale == 0f);
                 Check("in pausa gli HUD di tutti i giocatori sono nascosti", huds);
+                if (Seats.Monitors > 1)
+                {
+                    bool covers = true;
+                    for (int d = 1; d < Seats.Monitors; d++) covers &= Seats.PauseCoverShown(d);
+                    Check($"in pausa i monitor oltre il primo mostrano il velo (IN PAUSA): {Seats.Monitors - 1}", covers);
+                }
                 yield return Photo("6-pausa");
 
                 // in pausa i controller non danno comandi di gioco: nessuno cammina, nessuno spara
@@ -538,22 +651,33 @@ namespace PryingEyes
                 huds = true;
                 foreach (var s in seats) { var c = s.hud.GetComponent<Canvas>(); huds &= c != null && c.enabled; }
                 Check("Start di un altro giocatore riprende la partita per tutti (mondo in moto, HUD di nuovo visibili)", !GameMenu.Paused && !GameMenu.Blocked && Time.timeScale == 1f && huds);
+                if (Seats.Monitors > 1)
+                {
+                    bool gone = true;
+                    for (int d = 1; d < Seats.Monitors; d++) gone &= !Seats.PauseCoverShown(d);
+                    Check("ripreso il gioco il velo dei monitor oltre il primo e' tolto", gone);
+                }
             }
             else Debug.Log("[PryingEyes] seatstest: partita avviata senza menu (-autotest): niente prova della pausa");
+
+            yield return CoveredWindow();
 
             // ---- fine dello schermo condiviso: si torna a un giocatore solo e funziona
             {
                 var player0 = seats[0].player;
                 var cam0 = seats[0].camera;
                 var eq0 = Equipment.I; var torch0 = Torch.I; var knife0 = Knife.I; var rig0 = StealthRig.I;
+                int monitorsBefore = Seats.Monitors;
                 Seats.End();
                 yield return null; yield return null;
+                if (shots && monitorsBefore > 1 && SplitScreen.RealMonitors >= monitorsBefore)
+                    Check($"fine: le finestre dei monitor accesi sono nascoste ({SplitScreen.VisibleWindows()} finestra visibile)", SplitScreen.VisibleWindows() == 1);
                 int bodies = FindObjectsByType<PlayerController>(FindObjectsSortMode.None).Length;
                 int listeners = 0;
                 foreach (var l in FindObjectsByType<AudioListener>(FindObjectsSortMode.None)) if (l.enabled) listeners++;
                 Check("fine: non c'e' piu' lo schermo condiviso e c'e' un solo bersaglio", !Seats.Split && Seats.Count == 0 && Targets.Count == 1);
                 Check($"fine: resta un solo giocatore ({bodies} corpi) e un solo AudioListener ({listeners})", bodies == 1 && listeners == 1 && gm.player == player0);
-                Check("fine: la camera del giocatore 1 e' di nuovo a tutto schermo", Same(cam0.rect, new Rect(0f, 0f, 1f, 1f)));
+                Check("fine: la camera del giocatore 1 e' di nuovo a tutto schermo, sul monitor della finestra del gioco", Same(cam0.rect, new Rect(0f, 0f, 1f, 1f)) && cam0.targetDisplay == 0 && Seats.Monitors == 1);
                 Check("fine: gli oggetti del giocatore 1 sono ancora i suoi (equipaggiamento, torcia, coltello, rete di furtivita')",
                     Equipment.I == eq0 && Torch.I == torch0 && Knife.I == knife0 && StealthRig.I == rig0 && eq0 != null && rig0 != null);
 
@@ -610,17 +734,25 @@ namespace PryingEyes
             Check("il corpo visto dagli altri sta dove sta il giocatore", nearBody);
             Check("solo il posto 1 riceve tastiera e mouse", seats[0].keyboard && Count(seats, s => s.keyboard) == 1);
 
-            // camere: ognuna nella sua porzione, senza buchi e senza sovrapposizioni
-            bool rects = true, disjoint = true; float area = 0f;
+            // camere: ognuna nella sua porzione del suo monitor, senza buchi e senza sovrapposizioni (su ogni monitor)
+            int monitors = Seats.Monitors;
+            Check($"{monitors} monitor in uso (voluti {SplitScreen.WantedMonitors}, fra quelli collegati {SplitScreen.ConnectedMonitors} e al piu' uno per giocatore)", monitors == SplitScreen.MonitorsFor(n, SplitScreen.WantedMonitors));
+            bool rects = true, disjoint = true, onDisplays = true;
+            var area = new float[monitors];
             for (int i = 0; i < n; i++)
             {
                 var cam = seats[i].camera;
-                rects &= cam != null && Same(cam.rect, SplitScreen.ViewOf(i, n)) && Same(seats[i].view, SplitScreen.ViewOf(i, n));
-                if (cam != null) area += cam.rect.width * cam.rect.height;
-                for (int j = 0; j < i; j++) if (seats[j].camera != null && cam != null) disjoint &= Overlap(cam.rect, seats[j].camera.rect) < 1e-5f;
+                int d = SplitScreen.DisplayOf(i, n, monitors);
+                rects &= cam != null && Same(cam.rect, SplitScreen.ViewOn(i, n, monitors)) && Same(seats[i].view, SplitScreen.ViewOn(i, n, monitors));
+                onDisplays &= cam != null && cam.targetDisplay == d && seats[i].display == d;
+                if (cam != null) area[d] += cam.rect.width * cam.rect.height;
+                for (int j = 0; j < i; j++) if (seats[j].camera != null && cam != null && seats[j].camera.targetDisplay == cam.targetDisplay) disjoint &= Overlap(cam.rect, seats[j].camera.rect) < 1e-5f;
             }
-            Check($"{n} camere ognuna nella sua porzione (SplitScreen.ViewOf)", rects);
-            Check($"le porzioni non si sovrappongono e coprono lo schermo (area {area:F3})", disjoint && Mathf.Abs(area - 1f) < 1e-3f);
+            bool covered = true; string areas = "";
+            for (int d = 0; d < monitors; d++) { covered &= Mathf.Abs(area[d] - 1f) < 1e-3f; areas += (d > 0 ? " + " : "") + area[d].ToString("F3"); }
+            Check($"{n} camere ognuna nella sua porzione (SplitScreen.ViewOn)", rects);
+            Check($"ogni camera disegna sul monitor del suo giocatore (Camera.targetDisplay da {SplitScreen.DisplayOf(0, n, monitors)} a {SplitScreen.DisplayOf(n - 1, n, monitors)})", onDisplays);
+            Check($"le porzioni non si sovrappongono e coprono ogni monitor (area {areas})", disjoint && covered);
 
             // audio: un solo ascoltatore, sul giocatore 1
             Camera main = Camera.main;
@@ -655,22 +787,37 @@ namespace PryingEyes
             }
             Check("arma e mani di ogni giocatore stanno sul suo strato (e su nessun altro)", layers && any);
 
-            // HUD: ognuno nel suo rettangolo di schermo (in pixel, canvas condiviso)
-            if (Screen.width > 0 && Screen.height > 0)
+            // un canvas per monitor, e l'HUD di ogni giocatore sotto quello del suo monitor
+            bool canvases = true;
+            for (int i = 0; i < n; i++)
             {
-                bool huds = true; string detail = "";
+                var own = seats[i].hud.GetComponentInParent<Canvas>();
+                var root = own != null ? own.rootCanvas : null;
+                canvases &= root != null && root.renderMode == RenderMode.ScreenSpaceOverlay && root.targetDisplay == seats[i].display;
+            }
+            Check($"l'HUD di ogni giocatore sta sotto il canvas del suo monitor (Canvas.targetDisplay = monitor del giocatore, {monitors} canvas)", canvases);
+
+            // HUD: ognuno nel suo rettangolo di schermo (in pixel del suo monitor)
+            bool sized = true;
+            for (int d = 0; d < monitors; d++) { var sz = SplitScreen.DisplaySize(d); sized &= sz.x > 0 && sz.y > 0; }
+            if (sized)
+            {
+                bool huds = true; string detail = ""; int pretend = 0;
                 var corners = new Vector3[4];
                 for (int i = 0; i < n; i++)
                 {
+                    // un monitor finto (-splitmonitors N su un PC con meno monitor) ha il canvas della misura che Unity gli da' (4K), non quella di DisplaySize:
+                    // li' si guardano solo struttura e assegnazioni, la misura si controlla sui monitor veri
+                    if (seats[i].display >= SplitScreen.RealMonitors) { pretend++; continue; }
                     var rt = seats[i].hud.GetComponent<RectTransform>();
                     rt.GetWorldCorners(corners);
-                    var v = seats[i].view;
-                    float x0 = v.x * Screen.width, y0 = v.y * Screen.height, x1 = v.xMax * Screen.width, y1 = v.yMax * Screen.height;
+                    var v = seats[i].view; var size = SplitScreen.DisplaySize(seats[i].display);
+                    float x0 = v.x * size.x, y0 = v.y * size.y, x1 = v.xMax * size.x, y1 = v.yMax * size.y;
                     bool ok = Mathf.Abs(corners[0].x - x0) < 2f && Mathf.Abs(corners[0].y - y0) < 2f && Mathf.Abs(corners[2].x - x1) < 2f && Mathf.Abs(corners[2].y - y1) < 2f;
                     if (!ok) detail += $" [{i + 1}: ({corners[0].x:F0},{corners[0].y:F0})-({corners[2].x:F0},{corners[2].y:F0}) attesi ({x0:F0},{y0:F0})-({x1:F0},{y1:F0})]";
                     huds &= ok;
                 }
-                Check($"l'HUD di ogni giocatore sta nel rettangolo della sua porzione (schermo {Screen.width}x{Screen.height}){detail}", huds);
+                Check($"l'HUD di ogni giocatore sta nel rettangolo della sua porzione (monitor: {SplitScreen.DescribeDisplays(monitors)}{(pretend > 0 ? $"; {pretend} su monitor finti, non misurati" : "")}){detail}", huds);
             }
             else Debug.Log("[PryingEyes] seatstest: schermo senza misura (prova senza finestra), niente controllo dei rettangoli degli HUD");
 

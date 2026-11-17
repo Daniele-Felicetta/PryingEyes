@@ -76,6 +76,57 @@ namespace PryingEyes
                 q[0].xMin == 0f && q[0].yMin > 0f && q[1].xMin > 0f && q[1].yMin == q[0].yMin && q[2].xMin == 0f && q[2].yMin == 0f && q[3].xMin == q[1].xMin && q[3].yMin == 0f && q[0].width == q[2].width && q[0].height == q[2].height);
         }
 
+        /// <summary>Piu' monitor (0.8.0): chi sta su quale monitor e in quale porzione. Con un monitor solo tutto come prima.</summary>
+        void Monitors()
+        {
+            bool Eq(Rect a, Rect b) => Mathf.Abs(a.x - b.x) < 1e-5f && Mathf.Abs(a.y - b.y) < 1e-5f && Mathf.Abs(a.width - b.width) < 1e-5f && Mathf.Abs(a.height - b.height) < 1e-5f;
+            bool same = true;
+            for (int n = 2; n <= 4; n++) for (int i = 0; i < n; i++) same &= Eq(SplitScreen.ViewOn(i, n, 1), SplitScreen.ViewOf(i, n)) && SplitScreen.DisplayOf(i, n, 1) == 0;
+            Check("un monitor solo: ogni giocatore sta dove stava (ViewOn = ViewOf, tutti sul monitor 0)", same);
+
+            // per ogni numero di giocatori e di monitor: ognuno sta su un monitor usato, le porzioni di ogni monitor lo coprono tutto senza sovrapporsi
+            bool all = true, ordered = true, even = true, tile = true; string detail = "";
+            for (int n = 2; n <= 4; n++)
+                for (int m = 1; m <= 4; m++)
+                {
+                    int used = SplitScreen.MonitorsFor(n, m), total = 0;
+                    var area = new float[used]; var onDisplay = new int[used];
+                    for (int i = 0; i < n; i++)
+                    {
+                        int d = SplitScreen.DisplayOf(i, n, m);
+                        var v = SplitScreen.ViewOn(i, n, m);
+                        all &= d >= 0 && d < used && v.width > 0f && v.height > 0f && v.xMin >= 0f && v.yMin >= 0f && v.xMax <= 1f && v.yMax <= 1f;
+                        if (i > 0) ordered &= d >= SplitScreen.DisplayOf(i - 1, n, m);
+                        if (d < used) { area[d] += v.width * v.height; onDisplay[d]++; }
+                        for (int j = 0; j < i; j++)
+                            if (SplitScreen.DisplayOf(j, n, m) == d)
+                            {
+                                var u = SplitScreen.ViewOn(j, n, m);
+                                tile &= v.xMax <= u.xMin + 1e-5f || u.xMax <= v.xMin + 1e-5f || v.yMax <= u.yMin + 1e-5f || u.yMax <= v.yMin + 1e-5f;
+                            }
+                    }
+                    for (int d = 0; d < used; d++)
+                    {
+                        total += onDisplay[d];
+                        even &= onDisplay[d] == SplitScreen.PlayersOn(d, n, m) && onDisplay[d] >= 1 && Mathf.Abs(area[d] - 1f) < 1e-4f && (d == 0 || onDisplay[d] <= onDisplay[d - 1]) && onDisplay[d] >= onDisplay[0] - 1;
+                    }
+                    if (total != n || SplitScreen.PlayersOn(used, n, m) != 0) { even = false; detail += $" [{n} giocatori su {m}: {total}]"; }
+                }
+            Check("2-4 giocatori su 1-4 monitor: ognuno su un monitor usato, in ordine, e le porzioni di ogni monitor lo coprono tutto" + detail, all && ordered && tile && even);
+
+            Check("due giocatori, due monitor: uno per monitor, a schermo intero", SplitScreen.DisplayOf(0, 2, 2) == 0 && SplitScreen.DisplayOf(1, 2, 2) == 1
+                && Eq(SplitScreen.ViewOn(0, 2, 2), new Rect(0, 0, 1, 1)) && Eq(SplitScreen.ViewOn(1, 2, 2), new Rect(0, 0, 1, 1)));
+            Check("tre giocatori, due monitor: due sul primo (meta' e meta') e il terzo da solo sul secondo", SplitScreen.PlayersOn(0, 3, 2) == 2 && SplitScreen.PlayersOn(1, 3, 2) == 1
+                && SplitScreen.DisplayOf(2, 3, 2) == 1 && Eq(SplitScreen.ViewOn(0, 3, 2), new Rect(0, 0, 0.5f, 1)) && Eq(SplitScreen.ViewOn(1, 3, 2), new Rect(0.5f, 0, 0.5f, 1)) && Eq(SplitScreen.ViewOn(2, 3, 2), new Rect(0, 0, 1, 1)));
+            Check("quattro giocatori, due monitor: due e due, meta' e meta' su ciascuno", SplitScreen.PlayersOn(0, 4, 2) == 2 && SplitScreen.PlayersOn(1, 4, 2) == 2
+                && SplitScreen.DisplayOf(1, 4, 2) == 0 && SplitScreen.DisplayOf(2, 4, 2) == 1 && Eq(SplitScreen.ViewOn(2, 4, 2), new Rect(0, 0, 0.5f, 1)) && Eq(SplitScreen.ViewOn(3, 4, 2), new Rect(0.5f, 0, 0.5f, 1)));
+            Check("il giocatore 1 sta sempre sul monitor 0 (quello con tastiera e mouse)", SplitScreen.DisplayOf(0, 2, 2) == 0 && SplitScreen.DisplayOf(0, 3, 2) == 0 && SplitScreen.DisplayOf(0, 4, 4) == 0);
+            Check("i monitor in piu' dei giocatori non servono: 2 giocatori su 4 monitor ne usano 2, 4 su 9 ne usano 4, da 0 se ne usa 1",
+                SplitScreen.MonitorsFor(2, 4) == 2 && SplitScreen.MonitorsFor(4, 9) == 4 && SplitScreen.MonitorsFor(3, 0) == 1 && SplitScreen.MonitorsFor(4, 3) == 3);
+            Check("il testo del menu dice come si dividono: 2 giocatori 1+1, 3 giocatori 2+1, 4 giocatori 2+2 su 2 monitor",
+                SplitScreen.Arrangement(2).Contains("2 giocatori 1+1") && SplitScreen.Arrangement(2).Contains("3 giocatori 2+1") && SplitScreen.Arrangement(2).Contains("4 giocatori 2+2"));
+        }
+
         void Pads()
         {
             bool Same(int[] a, params int[] b) { if (a.Length != b.Length) return false; for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false; return true; }
@@ -219,7 +270,7 @@ namespace PryingEyes
 
         IEnumerator Run()
         {
-            Layouts(); Pads(); Fov(); Mapping(); Api();
+            Layouts(); Monitors(); Pads(); Fov(); Mapping(); Api();
 
             float deadline = Time.realtimeSinceStartup + 90;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;

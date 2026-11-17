@@ -107,7 +107,8 @@ namespace PryingEyes
         // 0.8.0: "Pausa a finestra inattiva" (Impostazioni > Gioco) la si spegne per giocare con un'altra finestra accanto
         void OnApplicationFocus(bool focused)
         {
-            if (!focused && !GameManager.autoTest && GameSettings.PauseOnFocusLoss) Pause();
+            if (focused) SplitScreen.OnFocusGained();          // le finestre dei monitor accesi che un altro programma copriva tornano davanti
+            if (!focused && !GameManager.autoTest && GameSettings.PauseOnFocusLoss && !SplitScreen.JustActivated) Pause();      // JustActivated: Windows da' il fuoco alla finestra del monitor appena acceso
         }
 
         void OnApplicationPause(bool paused)
@@ -172,7 +173,7 @@ namespace PryingEyes
         }
 
         /// <summary>Che cosa dire agli amici (ospite) o a chi gioca (ospitato), per il menu di pausa.</summary>
-        static string NetInfo(int maxAddr = 4) => SplitScreen.Active ? "Split screen a " + SplitScreen.Count + " giocatori. " + SplitScreen.Hint : NetInfoOnline(maxAddr);
+        static string NetInfo(int maxAddr = 4) => SplitScreen.Active ? "Split screen a " + SplitScreen.Count + " giocatori" + (Seats.Monitors > 1 ? " su " + Seats.Monitors + " monitor" : "") + ". " + SplitScreen.Hint : NetInfoOnline(maxAddr);
         static string NetInfoOnline(int maxAddr)
         {
             if (Coop.IsHost)

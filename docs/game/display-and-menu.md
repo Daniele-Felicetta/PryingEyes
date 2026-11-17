@@ -66,8 +66,12 @@ skip startup display changes and remain silent; they retain any requested comman
 
 The main menu has **Schermo condiviso** between **Cooperativa** and **Come si gioca** (`GameMenu.Split.cs`). Its panel offers **2 giocatori**,
 **3 giocatori** and **4 giocatori**, a switch for player 1 (**tastiera e mouse** or **controller (e tastiera)**), the number of controllers it
-sees and how many two players need, and a note on who uses what. The buttons are off, with the reason, outside the Windows player or while a
-game is already running. A split screen is one game in one window, so the display settings are the ordinary ones. The pause menu names who
+sees and how many two players need, and a note on who uses what. With more than one monitor connected the row of the player-1 switch gets a
+second button, **Monitor: uno solo / due / ...** (it cycles up to the number of connected monitors, is remembered between runs, and starts at
+all of them), and the line under the title says how the players are divided (*Su 2 monitor: 2 giocatori 1+1 · 3 giocatori 2+1 · 4 giocatori 2+2*); with
+one monitor the button is not there and the line keeps its usual sentence. The buttons are off, with the reason, outside the Windows player or while a
+game is already running. A split screen is one game, so the display settings are the ordinary ones (they apply to the game window; any further
+monitor is opened by Unity at its own size). The pause menu names who
 uses what (*G1: tastiera e mouse   G2: controller 1 ...*), says that Esc or Start on any controller resumes, lists the controller's buttons
 when a controller is in use, and **Torna al menu** warns that the split screen closes for every player. Layout, controls and checks:
 [../multiplayer/split-screen.md](../multiplayer/split-screen.md).

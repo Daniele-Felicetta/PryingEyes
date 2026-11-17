@@ -1246,6 +1246,13 @@ namespace PryingEyes.Proc
             mapOpenA[0] = full; miniMapOff[0] = !mini;
         }
 
+        /// <summary>Solo per le prove: apre o chiude la mappa grande e la minimappa di un posto (nello schermo condiviso ognuno ha le sue).</summary>
+        public void DebugShowMapFor(int seat, bool full, bool mini)
+        {
+            if (seat < 0 || seat >= mapOpenA.Length) return;
+            mapOpenA[seat] = full; miniMapOff[seat] = !mini;
+        }
+
         /// <summary>Solo per le prove: segna una stanza come visitata (la mappa mostra solo quello che hai visto).</summary>
         public void DebugExplore(int roomId) { if (map != null && map.Explore(roomId)) map.Refresh(true); }
 
