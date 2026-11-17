@@ -142,8 +142,8 @@ namespace PryingEyes
                 (PadControls.Y, TouchControls.Action.Swap, TouchControls.Action.Mode, "Y: cambia arma, tenuto modo di fuoco"),
                 (PadControls.DpadUp, TouchControls.Action.Torch, TouchControls.Action.Battery, "croce su: torcia, tenuta pila"),
                 (PadControls.DpadDown, TouchControls.Action.Lure, TouchControls.Action.Mine, "croce giu': carillon, tenuta mina"),
-                (PadControls.DpadLeft, TouchControls.Action.Ping, TouchControls.Action.Velo, "croce sinistra: porte, tenuta velo"),
-                (PadControls.DpadRight, TouchControls.Action.SpellNext, TouchControls.Action.InfusionNext, "croce destra: magia seguente, tenuta sigillo seguente"),
+                (PadControls.DpadLeft, TouchControls.Action.InfusionNext, TouchControls.Action.Velo, "croce sinistra: sigillo seguente, tenuta velo"),
+                (PadControls.DpadRight, TouchControls.Action.SpellNext, TouchControls.Action.Ping, "croce destra: magia seguente, tenuta porte"),
                 (PadControls.BackBtn, TouchControls.Action.Map, TouchControls.Action.Scoreboard, "Back: mappa, tenuto tabellone"),
             };
             int holdSteps = Mathf.CeilToInt(PadControls.Mapper.HoldTime * 60f) + 1;

@@ -43,10 +43,15 @@ crouched).
 | RB | Holy water (`Z`) |
 | D-pad up | Torch (`T`); held: replace the battery (`Y`) |
 | D-pad down | Music box (`4`); held: reliquary mine (`5`) |
-| D-pad left | Ping the doors (`V`); held: veil (`H`) |
-| D-pad right | Next spell (`6`); held: next seal (`7`) |
+| D-pad left | Next seal (`7`); held: veil (`H`) |
+| D-pad right | Next spell (`6`); held: ping the doors (`V`) |
 | Back | Map (`M`); held: scoreboard, while held (`Tab`) |
 | Start | Pause |
+
+On 17 November 2026 the seal and the doors changed places. The seal (the enhancement of the weapon in hand) was *D-pad right held*, which
+nobody found, while the D-pad left seemed to do nothing (the ping needs doors still to buy, the veil needs its perk). The seal is now a plain
+tap on the D-pad left, in the same order as the two icons of the HUD (seal on the left, spell on the right: `CAMBIA: ← sigillo · magia →`),
+the ping took the held right, and the veil stays on the held left.
 
 Crouching and leaning are switches in the controller translator (`Mapper.Crouching`): a menu opened in between does not change them (B
 going back in a menu does not crouch, L3 does not start running), they are restored by `SuppressGameplay`.

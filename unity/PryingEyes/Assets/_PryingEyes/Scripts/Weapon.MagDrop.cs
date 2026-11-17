@@ -50,6 +50,8 @@ namespace PryingEyes
             copy.name = "Caricatore vuoto";
             copy.transform.localScale = src.lossyScale;
             foreach (var mb in copy.GetComponentsInChildren<MonoBehaviour>(true)) Destroy(mb);
+            // la pelle del sigillo (WeaponAura) e' calcolata sull'arma in mano: il caricatore che cade non se la porta dietro
+            foreach (var ov in copy.GetComponentsInChildren<MeshRenderer>(true)) if (ov != null && ov.name == WeaponAura.OverlayName) DestroyImmediate(ov.gameObject);
             foreach (var t in copy.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = 0;
             Bounds b = default;
             bool any = false;

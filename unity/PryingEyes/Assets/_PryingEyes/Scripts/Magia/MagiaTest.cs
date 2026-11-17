@@ -546,6 +546,12 @@ namespace PryingEyes
                 yield break;
             }
 
+            if (HasArg("-sigilliview"))
+            {
+                yield return SigilView(fi, gm, player);
+                yield break;
+            }
+
             // ---- 1. il sacrario
             var sacs = fi.annexSites.FindAll(x => x.data.kind == AnnexKind.Sacrario);
             Check("un solo sacrario del grimorio nel piano", sacs.Count == 1, $"{sacs.Count}");
@@ -768,9 +774,12 @@ namespace PryingEyes
                 bool on = node == 18 ? s.CursedOn(slot) : s.InfusionOn(slot) == node;
                 Check($"{weaponId}: {name} resta sull'arma", on);
                 var aura = w.ViewRootT != null ? w.ViewRootT.GetComponent<WeaponAura>() : null;
-                Check($"{weaponId}: {name} accende l'arma", aura != null);
+                Check($"{weaponId}: {name} accende l'arma", aura != null && aura.Element == node && aura.OverlayCount > 0,
+                      aura != null ? $"elemento {aura.Element}, pelli {aura.OverlayCount}" : "nessuna aura");
                 var dummy = Dummy(player, 4f);
                 yield return new WaitForSeconds(0.2f);
+                // il calore e' salito dal basso verso la cima (la risalita dura 0,7 s dal gesto di chiusura, e Maneggevolezza accorcia il gesto)
+                Check($"{weaponId}: {name}: il calore sale su tutta l'arma", aura != null && aura.Heat > 0.75f, aura != null ? $"{aura.Heat:F2}" : "");
                 if (dummy != null)
                 {
                     player.yaw = Mathf.Atan2(dummy.AimPoint.x - player.cam.position.x, dummy.AimPoint.z - player.cam.position.z);
@@ -779,6 +788,7 @@ namespace PryingEyes
                     yield return new WaitForSeconds(0.15f);
                     int magBefore = w.mag;
                     float hpd = dummy.hp;
+                    int sh0 = SigilFx.Shots, tr0 = SigilFx.Tracers, im0 = SigilFx.Impacts;
                     // l'elettricita scatta a caso (un colpo su tre circa): si spara finche arriva lo stato, al massimo 12 colpi
                     int shots = node == 16 ? 12 : 3;
                     for (int k = 0; k < shots && dummy != null && dummy.hp > 0f; k++)
@@ -791,6 +801,9 @@ namespace PryingEyes
                     var st = dummy != null ? dummy.GetComponent<EnemyStatus>() : null;
                     bool effect = node == 12 ? (dummy == null || dummy.hp < hpd) : (dummy == null || st != null);
                     Check($"{weaponId}: {name} sui colpi", effect, st != null ? "stato presente" : "");
+                    // il proiettile dice qual e' l'elemento: lampo alla bocca, traccia e impatto a ogni colpo (SigilFx)
+                    Check($"{weaponId}: {name}: ogni colpo ha lampo, traccia e impatto del suo elemento",
+                          SigilFx.Shots > sh0 && SigilFx.Tracers > tr0 && SigilFx.Impacts > im0, $"lampi {SigilFx.Shots - sh0}, tracce {SigilFx.Tracers - tr0}, impatti {SigilFx.Impacts - im0}");
                     if (node == 18) Check($"{weaponId}: Arma Maledetta non consuma munizioni", w.mag >= magBefore, $"{magBefore}->{w.mag}");
                     Enemy.ClearAll();
                 }
@@ -807,6 +820,140 @@ namespace PryingEyes
                 if (thrown) yield return Gesture(hand, $"{weaponId}_lancio", w);
             }
             w.Refresh();
+        }
+
+        // ------------------------------------------------------------------ -sigilliview (2026-11-17)
+        /// <summary>-sigilliview [-sigilliweapons a,b] [-sigillinodes 14,17] [-magiazoom] [-sigillishots N]: solo i sette sigilli, per giudicare
+        /// l'aspetto dell'arma e dei proiettili senza il resto della prova. Per ogni sigillo: il gesto (foto a 6 tempi), l'arma accesa vista
+        /// da vicino (di lato e da sotto) e una raffica sul bersaglio con le foto dei proiettili. Foto in hotel_build/magia/sg_&lt;arma&gt;_&lt;nodo&gt;_*.png.</summary>
+        IEnumerator SigilView(FloorInstance fi, GameManager gm, PlayerController player)
+        {
+            shots = true;
+            var s = player.Arcana;
+            s.ResetRun();
+            const uint all = (1u << Grimoire.Count) - 1u;
+            s.Witch = all; s.Arsenal = all;
+            Vector3 open = OpenSpot(fi, out float openYaw);
+            var args = Environment.GetCommandLineArgs();
+            int wi = Array.IndexOf(args, "-sigilliweapons");
+            string[] ids = wi >= 0 && wi + 1 < args.Length ? args[wi + 1].Split(',') : new[] { "ar9_malleus" };
+            int ni = Array.IndexOf(args, "-sigillinodes");
+            string nodes = ni >= 0 && ni + 1 < args.Length ? "," + args[ni + 1] + "," : null;
+            int bursts = 8;
+            int bi = Array.IndexOf(args, "-sigillishots");
+            if (bi >= 0 && bi + 1 < args.Length) int.TryParse(args[bi + 1], out bursts);
+            foreach (string id in ids)
+            {
+                int idx = WeaponDefs.IndexOf(id);
+                if (idx < 0) { Check($"arma {id} esiste", false); continue; }
+                player.weapon.Equip(idx);
+                player.Teleport(open); player.yaw = openYaw; player.pitch = 0f;
+                yield return new WaitForSeconds(1.2f);
+                var w = player.weapon;
+                var hand = w.OffHand;
+                var mc = MagicCaster.I;
+                Check($"{id}: seconda mano e lanciatore", hand != null && hand.Hand != null && mc != null);
+                if (hand == null || mc == null) continue;
+                yield return new WaitForEndOfFrame();
+                Shot($"sg_{id}_riposo");
+                WeaponShots($"sg_{id}_riposo", w);
+                for (int node = 12; node <= 18; node++)
+                {
+                    if (nodes != null && nodes.IndexOf("," + node + ",", StringComparison.Ordinal) < 0) continue;
+                    // il sigillo di prima si spegne
+                    s.SlotInfusionLeft[0] = s.SlotInfusionLeft[1] = 0f; s.CursedLeft = 0f;
+                    s.Essence = s.EssenceMax; s.ClearCooldowns();
+                    player.yaw = openYaw; player.pitch = 0f;
+                    yield return new WaitForSeconds(0.5f);
+                    string name = Grimoire.Arsenal[node].name, tag = $"sg_{id}_{node}";
+                    bool started = mc.TryInfusion(node);
+                    Check($"{id}: il sigillo {name} parte", started);
+                    if (!started) continue;
+                    yield return Gesture(hand, tag, w);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return new WaitForEndOfFrame();
+                    Shot(tag + "_fine");
+                    WeaponShots(tag + "_fine", w);
+                    // una raffica sul bersaglio: la traccia dei proiettili, gli impatti, lo stato sul nemico
+                    var dummy = Dummy(player, 7f);
+                    if (dummy == null) continue;
+                    Vector3 to = dummy.AimPoint - player.cam.position;
+                    player.yaw = Mathf.Atan2(to.x, to.z);
+                    player.pitch = -Mathf.Asin(Mathf.Clamp(to.normalized.y, -1f, 1f));
+                    yield return new WaitForSeconds(0.4f);
+                    for (int k = 0; k < bursts && dummy != null && dummy.hp > 0f; k++)
+                    {
+                        if (w.mag <= 0) w.MaxAmmo();
+                        w.DebugFire();
+                        if (k == 1 || k == 4)
+                        {
+                            // due fotogrammi dopo il colpo: la traccia e' a meta' strada, non ancora sul bersaglio
+                            yield return null; yield return null;
+                            yield return new WaitForEndOfFrame();
+                            Shot($"{tag}_tiro{k}");
+                            if (k == 1) WeaponShots($"{tag}_tiro", w);
+                        }
+                        yield return new WaitForSeconds(0.11f);
+                    }
+                    Enemy.ClearAll();
+                    // una parete a 3-8 m (sfondo scuro: sul pavimento a scacchi la traccia e l'impatto si perdono), senza bersaglio: il secondo
+                    // colpo va al rallentatore (il dardo vola a 130-170 m/s e a tempo normale e' gia' arrivato), con una foto in volo e una
+                    // all'urto con la macchia che lascia
+                    float wallYaw = openYaw, wallBest = float.MaxValue; bool wall = false;
+                    for (int a = 0; a < 24; a++)
+                    {
+                        float yw = a * Mathf.PI * 2f / 24f;
+                        Vector3 wd = new Vector3(Mathf.Sin(yw), 0f, Mathf.Cos(yw));
+                        if (Physics.Raycast(player.cam.position, wd, out RaycastHit hw, 12f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore) && hw.distance > 3.5f && hw.distance < 9f
+                            && Mathf.Abs(hw.distance - 5.5f) < wallBest)
+                        { wallBest = Mathf.Abs(hw.distance - 5.5f); wallYaw = yw; wall = true; }
+                    }
+                    player.yaw = wallYaw; player.pitch = wall ? 0.02f : 0.42f;
+                    yield return new WaitForSeconds(0.3f);
+                    for (int k = 0; k < 4; k++)
+                    {
+                        if (w.mag <= 0) w.MaxAmmo();
+                        if (k == 1) Time.timeScale = 0.04f;
+                        w.DebugFire();
+                        if (k == 1)
+                        {
+                            for (int f = 0; f < 16; f++) yield return null;
+                            yield return new WaitForEndOfFrame();
+                            Shot($"{tag}_colpo_volo");
+                            for (int f = 0; f < 60; f++) yield return null;
+                            yield return new WaitForEndOfFrame();
+                            Shot($"{tag}_colpo_urto");
+                            Time.timeScale = 1f;
+                        }
+                        yield return new WaitForSeconds(0.11f);
+                    }
+                    yield return new WaitForSeconds(0.3f);
+                }
+                s.SlotInfusionLeft[0] = s.SlotInfusionLeft[1] = 0f; s.CursedLeft = 0f;
+                yield return new WaitForSeconds(0.5f);
+            }
+        }
+
+        /// <summary>Due primi piani dell'arma in mano (di lato da destra e da sotto a tre quarti), per giudicare da vicino il calore che sale,
+        /// la brina o le rune sulle superfici (con -magiashots / -sigilliview).</summary>
+        void WeaponShots(string name, Weapon w)
+        {
+            var main = Camera.main;
+            if (!shots || main == null || w == null || w.ViewRootT == null || w.Rig == null || w.Rig.renderers == null) return;
+            Bounds b = default; bool any = false;
+            foreach (var r in w.Rig.renderers)
+            {
+                if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
+            }
+            if (!any) return;
+            Transform vr = w.ViewRootT;
+            Vector3 c = b.center;
+            float ext = Mathf.Max(0.18f, b.extents.magnitude);
+            Vector3 p1 = c + vr.right * (ext * 2.4f) + vr.up * (ext * 0.15f);
+            RenderLike(main, name + "_lato", p1, Quaternion.LookRotation(c - p1, vr.up), 32f);
+            Vector3 p2 = c + vr.right * (ext * 1.4f) - vr.up * (ext * 1.5f) - vr.forward * (ext * 0.6f);
+            RenderLike(main, name + "_sotto", p2, Quaternion.LookRotation(c - p2, vr.up), 34f);
         }
 
         /// <summary>Segue un gesto fino alla fine: la mano libera prende il posto del guanto avvolto, il gomito resta nei suoi gradi, il

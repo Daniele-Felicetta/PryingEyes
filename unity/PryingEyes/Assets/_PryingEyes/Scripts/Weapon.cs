@@ -1122,6 +1122,7 @@ namespace PryingEyes
             if (d.soundEvery <= 1 || streak % d.soundEvery == 1 || streak <= 1)
                 Synth.Gun(d.snd, d.suppressed ? 0.35f : 0.62f, Random.Range(0.96f, 1.04f));
             if (d.fx == "flame" && rig.muzzle != null) Fx.Flame(rig.muzzle.position, cam.forward);
+            SigilShot(d);       // il sigillo si vede anche alla bocca: lampo e fiammata del colore dell'elemento
 
             // bossolo
             if (d.casing != "none" && rig.eject != null && d.cycle <= 0f)
@@ -1159,7 +1160,8 @@ namespace PryingEyes
             // la prima pallottola dopo una pausa, in mira e fermi, e' precisa (fucili di precisione)
             if (Time.time - lastShotPrev > 0.4f && ads > 0.8f && moveNow < 0.1f) spread *= 0.35f;
             lastShotPrev = Time.time;
-            bool tracer = d.tracerEvery <= 1f || (streak % Mathf.Max(1, Mathf.RoundToInt(d.tracerEvery))) == 0;
+            // col sigillo ogni colpo ha la sua traccia (SigilFx): il proiettile dice qual e' l'elemento
+            bool tracer = d.tracerEvery <= 1f || (streak % Mathf.Max(1, Mathf.RoundToInt(d.tracerEvery))) == 0 || SigilElement() >= 0;
             Vector3 origin = cam.position;
             Vector3 muzzlePos = rig.muzzle != null ? rig.muzzle.position : origin + cam.forward * 0.6f;
             var hitSet = new HashSet<Enemy>();
@@ -1194,6 +1196,8 @@ namespace PryingEyes
             float dmgMul = 1f;
             int pierced = 0;
             Vector3 end = origin + dir * Mathf.Min(d.rangeFar * 2f, 250f);
+            Vector3 endN = -dir;                 // dove e come finisce il colpo (per l'impatto del sigillo)
+            bool endEnemy = false, hitAny = false;
             var seen = new HashSet<Enemy>();
             for (int i = 0; i < n; i++)
             {
@@ -1201,7 +1205,7 @@ namespace PryingEyes
                 Enemy e = h.collider.GetComponentInParent<Enemy>();
                 if (e == null)
                 {
-                    end = h.point;
+                    end = h.point; endN = h.normal; hitAny = true;
                     var shootable = h.collider.GetComponentInParent<IShootable>();     // botti d'olio santo
                     if (shootable != null) shootable.Shot(d.damage * dmgMul, h.point, dir);
                     else Fx.Impact(h, d.pellets > 1 ? 0.6f : 1f, dir);         // polvere, schegge, foro e suono della superficie (Surfaces)
@@ -1229,15 +1233,18 @@ namespace PryingEyes
                 Fx.Blood(h.point, dir, e.BloodTint, head);
                 e.Damage(dmg, h.point, head, first);
                 SigilHit(e, dmg, h.point, d);
-                end = h.point;
+                end = h.point; endN = -dir; endEnemy = true; hitAny = true;
                 if (pierced >= d.pierce + OwnerMagic.ExtraPierce) break;
                 pierced++;
                 dmgMul *= d.pierceMult;
             }
             if (detonationShot && (end - origin).sqrMagnitude < 150f * 150f) { Detonate(end, d.damage); detonationShot = false; }
+            int sig = SigilElement();
+            if (sig >= 0 && hitAny) SigilFx.Impact(sig, end, endN, endEnemy, d.pellets > 1);
             if (tracer)
             {
-                if (d.beam) Fx.Beam(muzzlePos, end, d.tracerWidth, d.tracerColor);
+                if (sig >= 0 && !d.beam) SigilFx.Tracer(sig, muzzlePos, end, d.tracerWidth, d.pellets > 1);
+                else if (d.beam) Fx.Beam(muzzlePos, end, d.tracerWidth, sig >= 0 ? SigilFx.TracerColor(sig) : d.tracerColor);
                 else Fx.Tracer(muzzlePos, end, 300f + d.damage * 0.5f, d.tracerWidth, d.tracerColor);
             }
         }

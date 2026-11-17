@@ -69,6 +69,38 @@ namespace PryingEyes
             }
         }
 
+        /// <summary>L'elemento che l'arma in mano porta sui colpi: 12..17 il sigillo, 18 l'Arma Maledetta, -1 nessuno.</summary>
+        int SigilElement()
+        {
+            var m = OwnerMagic;
+            return m.CursedOn(cur) ? 18 : m.InfusionOn(cur);
+        }
+
+        MaterialPropertyBlock flashMpb;
+        bool flashTinted;
+
+        /// <summary>Il colpo col sigillo (2026-11-17): alla bocca il lampo dell'elemento (SigilFx.Muzzle), la fiammata dell'arma e la
+        /// sua luce si tingono del suo colore, l'arma si accende un attimo di piu'. Senza sigillo rimette il colore dell'arma, se l'aveva
+        /// cambiato.</summary>
+        void SigilShot(WeaponDef d)
+        {
+            int sig = SigilElement();
+            if (sig < 0 && !flashTinted) return;
+            if (flashA == null || flashB == null || flashLight == null) return;
+            Color fc = sig >= 0 ? Color.Lerp(MagicFx.OfInfusion(sig), Color.white, 0.2f) : Color.Lerp(Color.white, d.flashColor, 0.7f);
+            if (flashMpb == null) flashMpb = new MaterialPropertyBlock();
+            flashMpb.SetColor("_BaseColor", fc);
+            flashA.GetComponent<MeshRenderer>().SetPropertyBlock(flashMpb);
+            flashB.GetComponent<MeshRenderer>().SetPropertyBlock(flashMpb);
+            flashLight.color = sig >= 0 ? MagicFx.OfInfusion(sig) : d.flashColor;
+            flashTinted = sig >= 0;
+            if (sig < 0) return;
+            Vector3 mz = rig != null && rig.muzzle != null ? rig.muzzle.position : cam.position + cam.forward * 0.6f;
+            SigilFx.Muzzle(sig, mz, cam.forward);
+            var aura = viewRoot != null ? viewRoot.GetComponent<WeaponAura>() : null;
+            if (aura != null) aura.Pulse(0.85f);
+        }
+
         /// <summary>Detonazione: un colpo su sedici esplode dove arriva (2,5 m, 60% del danno dell'arma che cala col raggio).</summary>
         void Detonate(Vector3 at, float baseDmg)
         {

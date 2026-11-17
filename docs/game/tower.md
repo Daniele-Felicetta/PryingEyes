@@ -282,7 +282,7 @@ The map reveals rooms you have visited and marks weapons, candelabra and the exi
 An XInput controller plays the normal game, the online co-op and the split screen, and drives every menu: left stick to move (pressed: run),
 right stick to look (pressed: knife), RT to fire, LT to aim (with the aim, L3 and R3 lean), A to jump, B to crouch (on and off), X to reload
 and, held, to use and buy, Y to change weapon (held: fire mode), LB for the left hand's spell (held: the seal), RB for the holy water, and the
-D-pad for torch, music box, ping and the next spell (each with a second action when held). In the menus the D-pad or the left stick moves, A
+D-pad for torch, music box, the next seal and the next spell (each with a second action when held: battery, mine, veil, ping). In the menus the D-pad or the left stick moves, A
 confirms, B goes back and Start pauses. The game finds the controller by itself (press a button). The full tables, the rules and the limits are
 in [controller.md](controller.md).
 
