@@ -176,9 +176,10 @@ Written before the assets, summarised from the sources (it is not the subject of
   and `FloorDirector.Look` are all behind `theme == Theme.Guardaroba`, a new `RoomKind` or `CeilKind.Open`. Commands in [../engineering/testing.md](../engineering/testing.md) (2.4).
 
 - **In the player, with the kit saved in `Torre.unity`** (17 November 2026, a full `BuildPlayer.Torre` build: `Build result: Succeeded errors=0`).
-  - `-perfprops -theme guardaroba -noenemies -floor 3` on seeds 3068, 1000 and 3046 photographs all 17 props, with no `SEGNAPOSTO`. On the
-    fourth branch of the catacombs, without forcing the theme (`-catacombe -floor 10`), the floor of seed 3068 holds and photographs all 17
-    (seed 1000: 16, no scissors), again with no grey box.
+  - `-perfprops -theme guardaroba -noenemies -floor 3` photographs 14 props on seed 3068 (no sewing machine, dead tree or mirror), 16 on
+    seed 1000 (no dead tree) and 16 on seed 3046 (no scissors): all 17 between them, with no `SEGNAPOSTO`. On the fourth branch of the
+    catacombs, without forcing the theme (`-catacombe -floor 10`), the floor of seed 3068 holds and photographs all 17 (seed 1000: 16, no
+    scissors), again with no grey box.
   - Control: a player built from the old scene (same code, `BuildPlayer.Windows` with the committed `Torre.unity` of before) prints
     `SEGNAPOSTO` for every `gu_*` it finds on the same floor, and on `-catacombe -floor 10` the safety net draws the theatre (`floor % 3`).
   - `-perftest -perfshots` over the rooms of the floors above (the player's own view, no torch): 4.2 to 7.8 ms per view at 1080p, 5.7 to
