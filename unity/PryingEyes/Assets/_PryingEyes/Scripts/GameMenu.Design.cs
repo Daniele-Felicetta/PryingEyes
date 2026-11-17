@@ -70,7 +70,13 @@ namespace PryingEyes
         }
 
         RectTransform videoTab, comfortTab;
-        Button videoTabButton, comfortTabButton, settingsBackButton;
+        Button videoTabButton, comfortTabButton, settingsBackButton, perspectivePrevious;
+        Text vPerspective;
+
+        void RefreshPerspective()
+        {
+            if (vPerspective != null) vPerspective.text = GameSettings.ThirdPerson ? "Terza persona" : "Prima persona";
+        }
 
         void BuildSettings()
         {
@@ -86,10 +92,13 @@ namespace PryingEyes
             BuildDisplayControls();
             var view = Rect(comfortTab, "Visuale", new Vector2(460, 340), new Vector2(-285, 0));
             var audio = Rect(comfortTab, "Audio", new Vector2(460, 340), new Vector2(285, 0));
-            sBrightness = Row(view, 100, "Luminosità", GameSettings.Brightness, GameSettings.SetBrightness, out vBrightness);
-            sFov = Row(view, 18, "Campo visivo", GameSettings.Fov, GameSettings.SetFov, out vFov, 60f, 105f, FovText);
-            sSensitivity = Row(view, -64, "Sensibilità mira", GameSettings.Sensitivity, GameSettings.SetSensitivity, out vSensitivity, 0.25f, 3f, SensText);
-            sMotion = Row(view, -146, "Oscillazione visuale", GameSettings.Motion, GameSettings.SetMotion, out vMotion);
+            // 0.8.0: la prospettiva (prima o terza persona) sta in cima alla colonna; le altre quattro righe si stringono di poco
+            Choice(view, "Prospettiva", 0, 122, d => { GameSettings.SetThirdPerson(!GameSettings.ThirdPerson); RefreshPerspective(); }, out vPerspective, out perspectivePrevious, out _);
+            RefreshPerspective();
+            sBrightness = Row(view, 44, "Luminosità", GameSettings.Brightness, GameSettings.SetBrightness, out vBrightness);
+            sFov = Row(view, -20, "Campo visivo", GameSettings.Fov, GameSettings.SetFov, out vFov, 60f, 105f, FovText);
+            sSensitivity = Row(view, -84, "Sensibilità mira", GameSettings.Sensitivity, GameSettings.SetSensitivity, out vSensitivity, 0.25f, 3f, SensText);
+            sMotion = Row(view, -148, "Oscillazione visuale", GameSettings.Motion, GameSettings.SetMotion, out vMotion);
             sMaster = Row(audio, 100, "Volume generale", GameSettings.Master, GameSettings.SetMaster, out vMaster);
             sEffects = Row(audio, 18, "Effetti sonori", GameSettings.Effects, GameSettings.SetEffects, out vEffects);
             sMusic = Row(audio, -64, "Musica", GameSettings.Music, GameSettings.SetMusic, out vMusic);
@@ -108,7 +117,7 @@ namespace PryingEyes
             comfortTabButton.GetComponent<Image>().color = !video ? new Color(0.26f, 0.21f, 0.13f) : BtnColor;
             // con tastiera e controller le due schede si scelgono con sinistra e destra e portano in basso al primo comando della scheda aperta
             // (la navigazione automatica sceglierebbe il comando piu' vicino, non l'altra scheda)
-            videoTabButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = comfortTabButton, selectOnDown = video ? (Selectable)modePrevious : sBrightness };
+            videoTabButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = comfortTabButton, selectOnDown = video ? (Selectable)modePrevious : perspectivePrevious };
             comfortTabButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnLeft = videoTabButton.interactable ? videoTabButton : null, selectOnDown = video ? (Selectable)aspectPrevious : sMaster };
         }
     }

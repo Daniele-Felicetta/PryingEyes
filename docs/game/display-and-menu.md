@@ -27,6 +27,8 @@ settings controls are disabled until confirmation. **Mantieni impostazioni** per
 **Ripristina**, Escape, timeout and menu destruction restore the preceding configuration. Leaving settings without
 applying discards the draft. Comfort/audio controls retain their existing immediate behavior. Since 0.7.2 the *Audio e comandi* tab also
 has **HUD dei compagni** (60% to 180%, saved as `hud_coop_scale`), the size of the teammates panel in co-op and split screen; it applies at once.
+Since 0.8.0 the left column of that tab starts with **Prospettiva** (*Prima persona* or *Terza persona*, saved as `video_thirdperson`, first person
+by default): a choice row like the display ones that switches the camera at once, in a game too. What it does is in [third-person.md](third-person.md).
 
 The first ordinary launch uses native desktop resolution in borderless mode, overriding stale Unity Screenmanager
 values left by earlier tests. Later launches apply the last explicitly confirmed display configuration. Automated runs

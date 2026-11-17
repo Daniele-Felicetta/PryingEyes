@@ -69,6 +69,19 @@ namespace PryingEyes
         public float SwapProgress => swapT > 0f ? 1f - swapT / swapTotal : 0f;
         public Light Beam => beam;
 
+        [System.NonSerialized] uint bodyMask;
+        /// <summary>Strati di luce dei due fari: il mondo e i corpi degli altri sopravvissuti (compagni, posti dello schermo condiviso), non
+        /// il proprio: la luce che parte dalla testa brucerebbe l'arma tenuta a mezzo metro. Lo slot puo' cambiare dopo la costruzione
+        /// (in rete lo assegna l'ospite), quindi si controlla a ogni fotogramma.</summary>
+        void ApplyBodyMask(int slot)
+        {
+            uint m = SurvivorLight.TorchMask(slot);
+            if (m == bodyMask || beam == null) return;
+            bodyMask = m;
+            Stealth.SetLightLayers(beam, m);
+            Stealth.SetLightLayers(spill, m);
+        }
+
         void Awake() { I = this; }
         void OnDestroy() { if (I == this) I = null; }
 
@@ -203,6 +216,7 @@ namespace PryingEyes
         void UpdateBody()
         {
             if (!inited) return;
+            ApplyBodyMask(Seats.Slot);
             var gm = GameManager.I;
             float dt = Time.deltaTime;
             bool alive = gm == null || gm.player == null || gm.player.alive;

@@ -1162,6 +1162,7 @@ namespace PryingEyes
             bool tracer = d.tracerEvery <= 1f || (streak % Mathf.Max(1, Mathf.RoundToInt(d.tracerEvery))) == 0;
             Vector3 origin = cam.position;
             Vector3 muzzlePos = rig.muzzle != null ? rig.muzzle.position : origin + cam.forward * 0.6f;
+            if (ThirdPersonView.MuzzleOf(player, out var bodyMuzzle)) muzzlePos = bodyMuzzle;      // terza persona: la traccia esce dall'arma del corpo che si vede
             var hitSet = new HashSet<Enemy>();
             for (int p = 0; p < d.pellets; p++)
             {

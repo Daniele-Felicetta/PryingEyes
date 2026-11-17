@@ -80,12 +80,14 @@ Rules for code that touches players (the reasons are in the comments of `Seats.c
 4. A new per-player value that the game reads as a global belongs in `Seat` and in `Seats.Save` / `Seats.Load`.
 
 **How the players see each other** (0.7.1; before, every player had only their first-person arms and nobody saw anybody). Each seat has
-a `SeatAvatar`: the same mannequin as the online co-op partners (`RemotePlayer.BuildBody`: coat in the seat's colour, head, arms forward,
-torch in hand) with the name above the head, turned towards each camera just before it renders. It follows the seat's body at the end of
-the frame (walking legs, crouching, lying down when dead) and sits on the seat's own avatar layer (`Seats.FirstAvatarLayer` + index,
+a `SeatAvatar`: since 0.8.0 the same survivor as the online co-op partners ([../game/characters.md](../game/characters.md): one of four looks by seat,
+walking legs, the weapon in hand, aiming, shooting, reloading, sitting when downed and lying when dead; before, a capsule mannequin made by
+`RemotePlayer.BuildBody`, still the fallback when the models are missing) with the name above the head, turned towards each camera just before it
+renders. It is driven by the seat's body at the end of the frame and sits on the seat's own avatar layer (`Seats.FirstAvatarLayer` + index,
 layers 20 to 23): `Seats.Layout` gives every camera its own weapon layer and the avatar layers of the others, never its own, so nobody
-sees their own body in front of the eyes. The mannequin has no collider (bullets and enemies ignore it) and no light (each seat's real
-torch already lights the world).
+sees their own body in front of the eyes (unless that player chose the [third-person view](../game/third-person.md), which adds their own
+layer back to their own camera). The survivor has no collider (bullets and enemies ignore it) and no light of its own (each seat's real
+torch lights the world and the others' bodies, never its own weapon: `SurvivorLight`).
 
 How the screen is made: each seat camera is a copy of the main one (URP settings included) with its own `Camera.rect`. The weapon and hands of
 seat n live on layer 24 + n, and a camera draws only its own, so nobody sees another player's gun. There is one `AudioListener`, on player 1's

@@ -288,6 +288,7 @@ namespace PryingEyes
             SetSlider(sFov, vFov, GameSettings.Fov, FovText);
             SetSlider(sMotion, vMotion, GameSettings.Motion);
             SetSlider(sCoopHud, vCoopHud, GameSettings.CoopHudScale);
+            RefreshPerspective();
         }
 
         static void SetSlider(Slider s, Text v, float x, System.Func<float, string> format = null)

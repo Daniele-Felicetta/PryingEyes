@@ -1,0 +1,171 @@
+#if !PE_DISTRIBUTION_BUILD
+using System;
+using System.Collections;
+using System.IO;
+using UnityEngine;
+using UnityEngine.Rendering;
+using PryingEyes.Proc;
+
+namespace PryingEyes
+{
+    /// <summary>-autotest -nofire -noenemies -tptest [-tpshots]: la terza persona (ThirdPersonView, SeatAvatar, SurvivorBody). Si guarda cosa
+    /// vede la camera mentre disegna: in prima persona sta all'occhio e il corpo non c'e'; in terza persona sta a due metri dietro la
+    /// spalla, non disegna arma e mani della prima persona e disegna il corpo con l'arma in mano; il raggio dell'occhio e quello della
+    /// camera cadono sullo stesso punto del muro; in mira la camera si avvicina; un muro dietro le spalle la ferma; spenta, tutto torna
+    /// com'era. Con -tpshots foto in unity_logs/terza-persona. Non tocca le preferenze del giocatore (GameSettings.thirdPersonOverride).</summary>
+    public sealed class ThirdPersonTest : MonoBehaviour
+    {
+        int checks, failed, exceptions;
+        bool shots;
+        Camera watched;
+        Vector3 seenPos; Quaternion seenRot; int seenMask, seenFrame = -1;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Install()
+        {
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-tptest") >= 0) new GameObject("ThirdPersonTest").AddComponent<ThirdPersonTest>();
+        }
+
+        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] tptest " + (ok ? "ok " : "FALLITO ") + name); }
+        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
+
+        // quello che la camera ha davanti mentre disegna: ThirdPersonView si e' iscritto prima, quindi qui la posa e' gia' quella di disegno
+        void OnBegin(ScriptableRenderContext ctx, Camera c)
+        {
+            if (c != watched) return;
+            seenPos = c.transform.position; seenRot = c.transform.rotation; seenMask = c.cullingMask; seenFrame = Time.frameCount;
+        }
+
+        IEnumerator Start()
+        {
+            Application.logMessageReceived += Log;
+            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-tpshots") >= 0;
+            var sequence = Run();
+            while (true)
+            {
+                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
+                if (!more) break; yield return sequence.Current;
+            }
+            RenderPipelineManager.beginCameraRendering -= OnBegin;
+            GameSettings.thirdPersonOverride = -1;
+            Weapon.debugAds = false;
+            PlayerController.botDir = Vector3.zero;
+            Check("nessuna eccezione runtime", exceptions == 0);
+            Debug.Log($"[PryingEyes] tptest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
+            Application.Quit(failed == 0 ? 0 : 1);
+        }
+
+        void View(string name)
+        {
+            if (!shots) return;
+            string folder = Path.GetFullPath("unity_logs/terza-persona"); Directory.CreateDirectory(folder);
+            LightPool.Tick(false, Camera.main.transform.position);
+            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
+        }
+
+        static GameObject Box(string name, Vector3 baseCenter, Vector3 size, Vector3 forward)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            go.transform.position = baseCenter + Vector3.up * size.y * 0.5f;
+            go.transform.rotation = Quaternion.LookRotation(forward, Vector3.up);
+            go.transform.localScale = size;
+            Physics.SyncTransforms();
+            return go;
+        }
+
+        IEnumerator Frames(int n) { for (int i = 0; i < n; i++) yield return null; }
+
+        IEnumerator Run()
+        {
+            float deadline = Time.realtimeSinceStartup + 60;
+            while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
+            yield return null;
+            Enemy.ClearAll(); Enemy.debugFreeze = false; Enemy.debugNoSense = false;
+            var gm = GameManager.I; var player = gm.player;
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
+            Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward));
+            if (failed > 0) yield break;
+            player.invulnerable = true;
+            float yawF = Mathf.Atan2(forward.x, forward.z);
+            player.Teleport(arena + Vector3.up * 0.05f);
+            player.yaw = yawF; player.pitch = 0.05f;
+            watched = player.cam.GetComponent<Camera>();
+            GameSettings.thirdPersonOverride = 0;
+            yield return Frames(3);
+            RenderPipelineManager.beginCameraRendering += OnBegin;
+            yield return Frames(3);
+
+            // 1) prima persona: la camera disegna dall'occhio, nessun corpo
+            Check("prima persona: la camera disegna dall'occhio", seenFrame >= Time.frameCount - 2 && (seenPos - player.cam.position).magnitude < 0.01f);
+            Check("prima persona: niente componente ne' corpo in terza persona", ThirdPersonView.Of(player) == null && FindObjectsByType<SeatAvatar>(FindObjectsSortMode.None).Length == 0);
+            Check("prima persona: arma e mani si disegnano", (seenMask & (1 << Seats.ViewLayer)) != 0);
+
+            // 2) terza persona
+            GameSettings.thirdPersonOverride = 1;
+            yield return new WaitForSeconds(0.7f);
+            var view = ThirdPersonView.Of(player);
+            Check("terza persona: c'e' il componente e la visuale e' tutta dietro la spalla", view != null && view.Blend > 0.99f);
+            RenderPipelineManager.beginCameraRendering -= OnBegin;
+            RenderPipelineManager.beginCameraRendering += OnBegin;      // dopo ThirdPersonView, che si e' iscritto ora: qui la posa e' gia' quella di disegno
+            yield return Frames(3);
+            float away = (seenPos - player.cam.position).magnitude;
+            Check($"la camera disegna {away:F2} m lontano dall'occhio", away > 1.2f && away < 2.7f);
+            var avatar = FindFirstObjectByType<SeatAvatar>();
+            Check("c'e' un corpo sopravvissuto e l'arma e' in mano", avatar != null && avatar.Body != null && avatar.Body.HasWeapon);
+            Check("la camera non disegna arma e mani della prima persona e disegna il corpo",
+                  avatar != null && (seenMask & (1 << Seats.ViewLayer)) == 0 && (seenMask & (1 << avatar.Layer)) != 0);
+            Check("il corpo sta ai piedi del giocatore e guarda dove guarda lui",
+                  avatar != null && Vector3.Distance(avatar.transform.position, player.transform.position) < 0.1f &&
+                  Mathf.Abs(Mathf.DeltaAngle(avatar.transform.eulerAngles.y, player.yaw * Mathf.Rad2Deg)) < 2f);
+            View("ferma");
+
+            // 3) i colpi cadono dove sta il mirino: il raggio dalla camera e quello dall'occhio arrivano allo stesso punto del muro
+            var wall = Box("Muro di prova", arena + forward * 3.4f, new Vector3(4f, 3f, 0.3f), forward);
+            yield return Frames(4);
+            Vector3 camDir = seenRot * Vector3.forward;
+            bool hitCam = Physics.Raycast(seenPos, camDir, out var h1, 50f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+            bool hitEye = Physics.Raycast(player.cam.position, player.cam.forward, out var h2, 50f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+            Check($"il mirino e l'occhio inquadrano lo stesso punto (scarto {(h1.point - h2.point).magnitude * 100f:F0} cm)", hitCam && hitEye && (h1.point - h2.point).magnitude < 0.12f);
+            View("muro");
+            DestroyImmediate(wall); Physics.SyncTransforms();
+
+            // 4) in mira la camera si avvicina
+            Weapon.debugAds = true;
+            yield return new WaitForSeconds(0.7f);
+            float awayAds = (seenPos - player.cam.position).magnitude;
+            Check($"in mira la camera si avvicina ({away:F2} -> {awayAds:F2} m)", awayAds < away - 0.3f);
+            View("mira");
+            Weapon.debugAds = false;
+            yield return new WaitForSeconds(0.5f);
+
+            // 5) in cammino: il corpo corre con le gambe, la camera lo segue
+            PlayerController.botDir = forward * 0.6f;
+            yield return new WaitForSeconds(0.9f);
+            float speed = avatar != null && avatar.Body != null ? avatar.Body.input.velocity.magnitude : 0f;
+            Check($"in cammino il corpo riceve la velocita' ({speed:F1} m/s)", speed > 1.2f);
+            View("cammino");
+            PlayerController.botDir = Vector3.zero;
+            yield return new WaitForSeconds(0.4f);
+
+            // 6) un muro dietro le spalle ferma la camera
+            Vector3 back = -(player.cam.rotation * Vector3.forward); back.y = 0f; back = back.normalized;
+            var behind = Box("Muro dietro", player.transform.position + back * 0.9f, new Vector3(4f, 3f, 0.2f), back);
+            yield return Frames(4);
+            float awayWall = (seenPos - player.cam.position).magnitude;
+            Check($"con un muro a 90 cm dietro la camera si ferma prima ({awayWall:F2} m)", awayWall < 1.05f);
+            View("muro-dietro");
+            DestroyImmediate(behind); Physics.SyncTransforms();
+
+            // 7) spenta: la camera torna all'occhio, il corpo e il componente spariscono
+            GameSettings.thirdPersonOverride = 0;
+            yield return new WaitForSeconds(0.7f);
+            yield return Frames(3);
+            Check("spenta: la camera torna all'occhio", (seenPos - player.cam.position).magnitude < 0.01f);
+            Check("spenta: il componente e il corpo spariscono", ThirdPersonView.Of(player) == null && FindObjectsByType<SeatAvatar>(FindObjectsSortMode.None).Length == 0);
+            Check("spenta: arma e mani tornano", (seenMask & (1 << Seats.ViewLayer)) != 0);
+            player.invulnerable = false;
+        }
+    }
+}
+#endif

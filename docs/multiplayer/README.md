@@ -1,6 +1,6 @@
 # Cooperativa online (fino a 4 giocatori)
 
-Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md); con la 0.7.1 `pe-coop-27`: magie e sigilli visibili agli altri, stati dei nemici decisi dall'ospite, annessi di tutti; con la 0.7.2 `pe-coop-28`: a terra e rianimazione). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
+Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md); con la 0.7.1 `pe-coop-27`: magie e sigilli visibili agli altri, stati dei nemici decisi dall'ospite, annessi di tutti; con la 0.7.2 `pe-coop-28`: a terra e rianimazione; con la 0.8.0 `pe-coop-29`: i compagni sono i quattro sopravvissuti con l'arma in mano, vedi [characters.md](../game/characters.md)). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
 gira con la propria copia, uno **ospita** e gli altri si collegano al suo indirizzo. Rete: FishNet 4.7.3 (trasporto
 Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 
@@ -29,7 +29,7 @@ le candele accese, le serrande e i round, l'uscita e la discesa (si scende tutti
 potenziamento raccolto vale per tutti). Ognuno ha **per conto suo** punti, armi, perk, libri, scrigno e altare, muri
 d'armi, pile e torcia. Una candela da' i suoi 60 punti (e munizioni, e il bonus Fantasma) a chi l'accende; il premio di
 un round va a tutti; un'uccisione paga solo chi ha sparato. Un round si annulla solo se muoiono tutti.
-I compagni si vedono come pupazzi con la loro torcia e il nome sopra la testa; i nemici cacciano il piu' vicino.
+I compagni si vedono come sopravvissuti (dal 0.8.0 uno per slot: Custode, Dottoressa, Reporter, Cacciatrice, con corpo, gambe che camminano e arma in mano, vedi [characters.md](../game/characters.md)), con la loro torcia e il nome sopra la testa; i nemici cacciano il piu' vicino.
 In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tuoi comandi.
 
 ## Come funziona
@@ -92,7 +92,7 @@ In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tu
 | `HUD.Coop.cs` | Pannello dei compagni nell'HUD (dalla 0.7.2 a sinistra, sotto i perk): una scheda per compagno col numero nel cerchio del suo colore, nome, vita in percentuale e barra spessa, distanza e freccia verso di lui; a terra la scheda pulsa di rosso e la barra diventa il tempo per rialzarlo; dimensione nelle impostazioni (*HUD dei compagni*, 60%-180%). Vale anche per lo schermo condiviso |
 | `CoopGame.Revive.cs` | Rianimazione in rete (0.7.2): `ReviveRemote`, `ReviveClaim` all'ospite (controlla che chi rialza sia pronto e a meno di 4 m), `Revived` a chi era a terra |
 | `Enemy.Net.cs` | Pupazzi dei nemici e stato di rete |
-| `Targets.cs`, `RemotePlayer.cs` | Bersagli multipli e compagni (pupazzo con torcia, nome, posa interpolata) |
+| `Targets.cs`, `RemotePlayer.cs` | Bersagli multipli e compagni (un `SurvivorBody` con torcia, nome e posa interpolata; il pupazzo di capsule resta solo se manca il modello) |
 | `CoopTest.cs`, `CoopTest.Survival.cs` | Prova automatica a piu' processi (solo con `-cooptest`); la seconda ha i passi del ciclo a ondate |
 
 L'ammissione (revisione del protocollo, capienza, tempo massimo) la fa `FishNetSeatAuthenticator`, scritto da ChatGPT nella
@@ -104,7 +104,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-28`** (0.7.2: `PlayerNet.downed` nel bit 128 dei flag e `bleed` in un byte da 1/8 di secondo, `ReviveClaim`, `Revived`; `pe-coop-27` con la 0.7.1: magie e sigilli, `StatusClaim`, stati in `EnemyNet`, annessi; `pe-coop-26` dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
+Revisione **`pe-coop-29`** (0.8.0: `PlayerNet` finisce con `gun`, l'indice dell'arma in mano in `WeaponDefs.All` (255 = nessuna), e un byte con `ads` e `reloading`; `PlayerNet.weapon` resta lo slot dell'arma, che serve alle magie; i sopravvissuti li usano per tenere l'arma in mano, mirare e ricaricare; `pe-coop-28`: `PlayerNet.downed` nel bit 128 dei flag e `bleed` in un byte da 1/8 di secondo, `ReviveClaim`, `Revived`; `pe-coop-27` con la 0.7.1: magie e sigilli, `StatusClaim`, stati in `EnemyNet`, annessi; `pe-coop-26` dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
 del catalogo delle armi in coda): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
