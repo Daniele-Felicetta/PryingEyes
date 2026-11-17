@@ -146,9 +146,10 @@ up, motes, tentacles curl up), the thrust (mouth and ropes go forward), the cont
 recovery, a hit (organs flash, drops), the death (burst, ring, organs out) and the co-op replica (gather, a miss without impact,
 a hit with one). With `-jellyshots` the photos go to `unity_logs/jelly/`.
 
-Last run (17 November 2026, a full build of the branch): `-jellytest` 32/32 in about 25 s, one animation step 0.13 to 0.14 ms, and
-`-flyingmeleetest` 117/117. The photos of the six main moments (rest, gather, thrust, contact, hit, burst) are in
-[hotel_build/medusa/foglio_pose.jpg](../../hotel_build/medusa/foglio_pose.jpg).
+Last run (17 November 2026, a full build of the branch after the merge with `preview`): `-jellytest` 32/32 in about 25 s, one
+animation step 0.13 to 0.14 ms, and `-flyingmeleetest` 117/117. The photos of the six main moments (rest, gather, thrust, contact,
+hit, burst) are on one contact sheet, `hotel_build/medusa/foglio_pose.jpg`. It is named, not linked: the CI checkout does not
+download `hotel_build`, so a link would fail the documentation check there.
 
 Not verified: co-op between real processes (only the replica inside one process is tested), several Medusas at once and the cost
 of the 24 m and 40 m throttling in a real wave, and the look on the other themes (the photos are all of the cathedral hall).
