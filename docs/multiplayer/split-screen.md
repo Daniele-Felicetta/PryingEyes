@@ -56,7 +56,7 @@ The mapping, the menus and the on-screen hints are on [the controller page](../g
 | The floor (seed, rooms, doors, shutters, power, lights), the waves and the enemies | Body, health, shield, camera, HUD and map |
 | The lift: when any player uses it, everyone goes down together; everyone arrives side by side | Points, kills, shots, medals; what is bought at walls and doors is paid with the buyer's points |
 | Pickups: whoever walks into a drop takes it, and its effect applies to everyone | Weapons, ammunition, equipment, perks (books), knife, torch, stealth state, guide arrow and ping |
-| Barrels, chandeliers, lamps, traps and mines in the world (the points of a kill go to whoever caused it) | Death and respawn: a dead player returns to the entrance after 2.5 s and loses half the points and the last perk; the others go on |
+| Barrels, chandeliers, lamps, traps and mines in the world (the points of a kill go to whoever caused it) | Going down at zero health (since 0.7.2; a teammate revives by holding Use for 3 s next to the body), and death after bleeding out: a dead player returns to the entrance after 2.5 s and loses half the points and the last perk; the others go on |
 | The round and the pause | The reward for lighting a candle goes to who lit it; the reward for a floor, a wave or a round goes to everyone |
 
 Enemies use the multi-target behaviour of the online co-op (`Targets`): they appear on the nearest player and, in the wave cycle (where they
@@ -128,7 +128,10 @@ It checks:
   player walks while another jumps, with no command crossing over.
 - **Points and enemies**: points, hits and kills of one player are only theirs; an enemy appears on the nearest player and switches to a
   closer one; with `-candles` also `Provoke` and sight.
-- **Damage, death and respawn** of one player, with the others untouched.
+- **Damage, going down, revive, death and respawn** of one player, with the others untouched: at zero health player 2 goes down (alive,
+  ignored by enemies, no death counted), player 1 holds Use next to them and they get up with half health, then they go down again and get
+  up by themselves (once per floor), then they bleed out and die and respawn. Each HUD lists the other players in its teammates panel
+  (number, colour, health, distance and direction, downed state).
 - **Pause**: Start on any controller pauses everyone (time stopped, HUDs hidden, no walking or shooting even with the sticks held); Start on
   another controller resumes.
 - **End**: back to one player, one body, one listener, full-screen camera, and the controller still works.

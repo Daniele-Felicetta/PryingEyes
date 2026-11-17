@@ -159,9 +159,9 @@ namespace PryingEyes.Proc
         {
             if (fi == null || FloorDirector.I == null || FloorDirector.I.transitioning || !Enabled || SurvivalMode.HoldWaves) return;
             if (Coop.IsClient) { clock += dt; nextWave = Mathf.Max(0, nextWave - dt); return; }
-            if (!Targets.AnyAlive)
+            if (!Targets.AnyLiving)
             {
-                // sono a terra tutti: una volta sola l'ondata salta (a ogni fotogramma sarebbe un messaggio di rete per fotogramma)
+                // sono morti tutti (a terra non basta: ci si puo' ancora rialzare): una volta sola l'ondata salta (a ogni fotogramma sarebbe un messaggio di rete per fotogramma)
                 if (!teamDown) { teamDown = true; AbortSurvival(); }
                 return;
             }

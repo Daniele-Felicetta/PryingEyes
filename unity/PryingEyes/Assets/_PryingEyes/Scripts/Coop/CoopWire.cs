@@ -28,6 +28,7 @@ namespace PryingEyes
         SpellCast,            // ho lanciato una magia o tracciato un sigillo (agli altri solo grafica: nodo, mano, mira, bersagli)
         StatusClaim,          // ho messo uno stato su un pupazzo (fuoco, sangue, acido, stordito, lento, freddo): lo applica l'ospite
         AnnexUse,             // ho aperto un annesso o tirato una sua leva (indice dell'annesso, cosa)
+        ReviveClaim,          // ho rialzato il compagno a terra nello slot indicato (0.7.2)
         // ---- ospite -> giocatore
         Welcome = 64,         // slot, seme, piano, epoca
         PlayerJoined,
@@ -60,6 +61,7 @@ namespace PryingEyes
         LampBroken,           // una lampada si rompe (indice a 16 bit; 'silent' = gia' rotta, per chi entra tardi)
         SpellFx,              // la magia o il sigillo di un altro giocatore (solo grafica: chi, nodo, mano, mira, bersagli)
         AnnexState,           // un annesso aperto o una sua leva tirata (indice, cosa; 'instant' per chi entra tardi)
+        Revived,              // un compagno ti ha rialzato (chi; 0.7.2)
         // ---- in tutte e due le direzioni
         Test = 120,           // solo per la prova a due processi (CoopTest, con -cooptest): senza quel flag chi lo riceve lo butta
     }
@@ -67,7 +69,7 @@ namespace PryingEyes
     public static class CoopProtocol
     {
         /// <summary>Versione del protocollo + contenuto: da alzare a ogni cambio di formato dei messaggi o delle regole del piano.</summary>
-        public const string Revision = "pe-coop-27";       // 27: magie e sigilli visibili agli altri, stati dei nemici chiesti dagli ospitati, stato nei nemici, annessi di tutti; 26: sacrario del grimorio nel piano, fonte di danno Magia; 25: lampade che si rompono; 24: lampadari che crollano
+        public const string Revision = "pe-coop-28";       // 28: a terra e rianimazione (PlayerNet.downed/bleed, ReviveClaim, Revived); 27: magie e sigilli visibili agli altri, stati dei nemici chiesti dagli ospitati, stato nei nemici, annessi di tutti; 26: sacrario del grimorio nel piano, fonte di danno Magia; 25: lampade che si rompono; 24: lampadari che crollano
         public static string ContentRevision => Revision + "-" + WeaponDefs.ContentHash;
         public const ushort DefaultPort = 7807;
         public const int MaxPlayers = 4;

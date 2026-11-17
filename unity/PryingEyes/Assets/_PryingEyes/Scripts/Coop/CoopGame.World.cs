@@ -444,6 +444,7 @@ namespace PryingEyes
                 case CoopKind.SpellCast: HostSpellCast(from, ref r); break;
                 case CoopKind.StatusClaim: HostStatusClaim(from, ref r); break;
                 case CoopKind.AnnexUse: HostAnnexUse(from, ref r); break;
+                case CoopKind.ReviveClaim: HostReviveClaim(from, ref r); break;
                 case CoopKind.UseExit:
                 {
                     int ep = r.U16();
@@ -513,6 +514,7 @@ namespace PryingEyes
                 case CoopKind.LampBroken: ReceiveLampBroken(ref r); break;
                 case CoopKind.SpellFx: ReceiveSpellFx(ref r); break;
                 case CoopKind.AnnexState: ReceiveAnnexState(ref r); break;
+                case CoopKind.Revived: ReceiveRevived(ref r); break;
                 case CoopKind.TrapReply:
                 { int trapReq = r.U16(); bool trapOk = r.Bool(); if (r.Ok) SettleTrap(trapReq, trapOk); break; }
                 case CoopKind.RoomReply:

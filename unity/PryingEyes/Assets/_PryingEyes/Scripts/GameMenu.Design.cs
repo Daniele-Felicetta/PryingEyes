@@ -93,8 +93,9 @@ namespace PryingEyes
             sMaster = Row(audio, 100, "Volume generale", GameSettings.Master, GameSettings.SetMaster, out vMaster);
             sEffects = Row(audio, 18, "Effetti sonori", GameSettings.Effects, GameSettings.SetEffects, out vEffects);
             sMusic = Row(audio, -64, "Musica", GameSettings.Music, GameSettings.SetMusic, out vMusic);
-            Label(audio, "Comfort", new Vector2(0, -132), new Vector2(440, 66), 17, TextAnchor.MiddleLeft,
-                "Riduci l'oscillazione per una visuale più stabile. Audio e comandi si applicano subito.", Dim, FontStyle.Normal);
+            // 0.7.2: il pannello dei compagni (cooperativa e schermo condiviso) si ingrandisce o si rimpicciolisce; si vede subito
+            sCoopHud = Row(audio, -146, "HUD dei compagni", GameSettings.CoopHudScale, GameSettings.SetCoopHudScale, out vCoopHud,
+                GameSettings.CoopHudMin, GameSettings.CoopHudMax);
             settingsBackButton = MakeButton(settingsPanel, "Indietro", new Vector2(-285, -260), Back);
             BuildDisplayConfirmation();
         }

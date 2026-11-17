@@ -12,7 +12,7 @@ dell'Arsenale Maledetto".
 | --- | --- | --- |
 | `3` (tap) or middle mouse | LB (tap) | Cast the selected spell with the left hand. |
 | `3` (hold 0.35 s) | LB (hold) | Trace the selected seal on the weapon in hand (lasts 45 s on that weapon). |
-| `6` / `7` | D-pad right / D-pad right held | Next spell / next seal. |
+| `6` / `7` | D-pad right / D-pad right held | Next spell / next seal. Since 0.7.2 a line under the spell and seal icons says so (`CAMBIA: 6 magia · 7 sigillo`, or the controller version), and changing says which one is now active, or that the book has only one. |
 | `F` at the secret wall, then `C` | X held, then B | Open the secret wall (an eye carved in the stone, whispering), crawl through the 1.3 m tunnel. |
 | `F` at the grimoire | X held | Read the book: mouse or arrows/WASD or D-pad to choose a node, click/Enter/F/A to buy (or to make an owned spell or seal the active one), Esc/B to close. |
 
@@ -101,6 +101,14 @@ the seals on the weapons, it does not take nodes).
 | Elettrificato | stun 0.4 s and an arc to two neighbours at 40% | the hand grips the magazine, the fingers splay with arcs, then slaps the base up |
 | Gelido | slow; four hits freeze 2 s | the flat palm presses on the left side; frost runs over the weapon from the palm |
 | Arma Maledetta (60 essence, 90 s cooldown) | 15 s: double damage, all six effects, infinite ammunition | the hand grips the barrel, the weapon shudders while runes light from the muzzle back, the hand is thrown off smoking |
+
+**Feel (0.7.2).** The charge is easier to see: the fire grows in the palm with a hot halo and embers that circle it and tighten, the
+lightning gathers in a crackling ball held between the claws (above the fingers, where the hand does not hide it), the frost condenses in a
+pale core with circling crystals. Each release kicks the view and widens the field of view for a moment, differently per spell
+(`MagicCaster.CastPunch`, scaled by the *Oscillazione visuale* setting; the Passo d'Ombra is a strong field-of-view pull). Fire and
+lightning light the room for a moment as they leave the hand. After the gesture the hand keeps a trace: smoke from the fingers after the
+fire, current jumping between the fingertips after the lightning, cold vapour falling from the fingers after the frost. The red flash of
+the Essenza Maledetta covers the screen less than before. Checked by eye on the `-magiatest -magiashots` photos (`hotel_build/magia/`).
 
 Spells sent from the hand go where the crosshair points: the first enemy under it or the wall behind. A fireball hits the whole body
 of an enemy (a vertical capsule from the feet to the head, `MagicFx.Body`), not only its centre.

@@ -48,7 +48,7 @@ namespace PryingEyes.EditorTools
                 Render("main", size, camera, menu, output);
                 Click("Impostazioni"); Render("display", size, camera, menu, output);
                 Click("Audio e comandi"); Render("comfort", size, camera, menu, output);
-                Check("seven comfort sliders", menu.GetComponentsInChildren<Slider>().Length == 7);
+                Check("eight comfort sliders (0.7.2: HUD dei compagni)", menu.GetComponentsInChildren<Slider>().Length == 8);
                 Click("Schermo"); Click("Formato ›"); Click("Formato ›");
                 Check("ultrawide choice", GameObject.Find("Formato valore").GetComponent<Text>().text.Contains("21:9"));
                 Render("ultrawide-options", size, camera, menu, output);

@@ -117,7 +117,8 @@ The procedural mode works like Call of Duty: Zombies. There are no candles to li
 - Every fifth wave is the **Processione dei Lumi** (section 9).
 - Every eighth wave opens with the **Cardinale** (not in the original text; code: `RoundDirector.BeginSurvivalWave`).
 - Three waves cleared open the exit lift, in the boss area. You can keep fighting and buying after that.
-- If the player dies (in co-op, if everyone dies) the wave is cancelled with no reward, and the wave number goes back by one.
+- If the player dies (in co-op, if everyone dies) the wave is cancelled with no reward, and the wave number goes back by one. Going down
+  is not dying: while someone is down but alive the wave goes on (`Targets.AnyLiving`).
 - If enemies stall for 120 s with none spawning or dying, the wave times out with no reward.
 
 **Enemy variants in the wave cycle** (not in the original text; code: `RoundDirector.PickSurvivalType`):
@@ -183,6 +184,21 @@ There are four slots and four prices, depending on how many perks you already ha
 | **Sete di sangue** (blood thirst) | Knife kills heal 25 points, takedowns 40. |
 
 **Death** costs half of your points (rounded down to tens) and the last perk you bought (`FloorDirector.DeathPenalty`, `PlayerPerks.LoseLast`).
+
+**Downed and revive** (0.7.2). At zero health, unless the Rinascita book lifts you, you do not die at once: you go down. Down, you crawl
+at 0.85 m/s with the view low and tilted, you can still fire the weapon in hand, and you cannot run, jump, vault, use the knife, cast,
+throw, buy or use things; enemies ignore you (`ITarget.Alive` is false) and look for someone else. A teammate standing within 1.8 m
+revives you by holding Use (`F`, controller X held) for 3 s; once per floor you can get up by yourself by holding Use for 5 s. You get up
+with half your health and 2.5 s of grace. If nobody can revive you (alone with the floor's self-revive spent, or every teammate down or
+dead) you die at once; otherwise after 30 s you bleed out and die as described above. Going down to the next floor puts a downed player
+back on their feet. The HUD line says how long is left and what to hold; teammates see a red card in their HUD, a red name with the
+seconds over your body, and a message when you fall. Code: `PlayerController.Downed.cs`; the network part is `Coop/CoopGame.Revive.cs`.
+Checked by `-seatstest` (downed, revived by a teammate, self-revive, bleed-out death and respawn) and by the `-cooptest` steps R4 and R5.
+
+**Light** (0.7.2). The torch beam is 34% brighter (intensity 118, was 88), reaches 42 m (was 36) with a 78 degree cone (was 72), and the
+soft spill around the player is brighter and wider (2.6 over 9 m, was 1.5 over 7 m); teammates' torches use the same numbers. The moonlight
+through ordinary windows is more than twice as strong and wider (14 over 12 m with a 50 degree inner cone, was 6 over 8.5 m and 20 degrees),
+the stained glass of the churches 25% stronger, and the ambient light of every theme 25% higher (`FloorDirector.Look.cs`).
 
 Velo is not offered in the wave cycle, so `H` is effectively candle-cycle only.
 

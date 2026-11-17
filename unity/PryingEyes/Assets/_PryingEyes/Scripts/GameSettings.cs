@@ -13,8 +13,11 @@ namespace PryingEyes
         const string KeyMaster = "vol_master", KeyEffects = "vol_effects", KeyMusic = "vol_music";
         const string KeyBrightness = "video_brightness";
         const string KeySensitivity = "input_sensitivity", KeyFov = "video_fov", KeyMotion = "video_motion";
+        const string KeyCoopHud = "hud_coop_scale";
         static float master = 1f, effects = 1f, music = 1f;
-        static float sensitivity = 1f, fov = 75f, motion = 1f;
+        static float sensitivity = 1f, fov = 75f, motion = 1f, coopHud = 1f;
+        /// <summary>Dimensione del pannello dei compagni (HUD.Coop.cs): da 60% a 180%.</summary>
+        public const float CoopHudMin = 0.6f, CoopHudMax = 1.8f;
         static float brightness, baseExposure;
         static ColorAdjustments grading;
         static bool loaded;
@@ -37,6 +40,7 @@ namespace PryingEyes
         public static float Sensitivity { get { Load(); return sensitivity; } }
         public static float Fov { get { Load(); return fov; } }
         public static float Motion { get { Load(); return motion; } }
+        public static float CoopHudScale { get { Load(); return coopHud; } }
 
         static float Valid(float v, float min, float max, float fallback) =>
             float.IsNaN(v) || float.IsInfinity(v) ? fallback : Mathf.Clamp(v, min, max);
@@ -52,6 +56,7 @@ namespace PryingEyes
             sensitivity = Valid(PlayerPrefs.GetFloat(KeySensitivity, 1f), 0.25f, 3f, 1f);
             fov = Valid(PlayerPrefs.GetFloat(KeyFov, 75f), 60f, 105f, 75f);
             motion = Clamp01(PlayerPrefs.GetFloat(KeyMotion, 1f));
+            coopHud = Valid(PlayerPrefs.GetFloat(KeyCoopHud, 1f), CoopHudMin, CoopHudMax, 1f);
             Apply();
         }
 
@@ -61,6 +66,7 @@ namespace PryingEyes
         public static void SetSensitivity(float v) { Load(); sensitivity = Valid(v, 0.25f, 3f, 1f); PlayerPrefs.SetFloat(KeySensitivity, sensitivity); }
         public static void SetFov(float v) { Load(); fov = Valid(v, 60f, 105f, 75f); PlayerPrefs.SetFloat(KeyFov, fov); }
         public static void SetMotion(float v) { Load(); motion = Clamp01(v); PlayerPrefs.SetFloat(KeyMotion, motion); }
+        public static void SetCoopHudScale(float v) { Load(); coopHud = Valid(v, CoopHudMin, CoopHudMax, 1f); PlayerPrefs.SetFloat(KeyCoopHud, coopHud); }
 
         /// <summary>EV in piu' sul profilo nella partita a piani. Era +0,60 in spazio colore Gamma; in Linear (HDR + ACES) la stessa
         /// luminosita' media chiede +0,70: la gamma non schiarisce piu' le ombre di nascosto, il contrasto ora lo fanno luci e ambiente

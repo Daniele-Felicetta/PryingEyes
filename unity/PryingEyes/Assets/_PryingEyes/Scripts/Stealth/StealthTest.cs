@@ -476,6 +476,7 @@ namespace PryingEyes
             }
             pl.invulnerable = false;
             pl.Hurt(10000f);
+            pl.BleedOutNow();                   // 0.7.2: a zero si va a terra; qui serve la morte vera
             yield return new WaitForSeconds(0.6f);
             int relentlessLeft = 0;
             foreach (var e in Enemy.All) if (e != null && e.relentless) relentlessLeft++;

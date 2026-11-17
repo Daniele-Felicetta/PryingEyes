@@ -78,7 +78,8 @@ namespace PryingEyes.Proc
             var fogColor = look.fog * LookTune.FogColor;
             fogColor.a = 1f;
             RenderSettings.fogColor = fogColor;
-            float amb = Mathf.Lerp(0.48f, 0.31f, deep) * look.ambient * LookTune.Ambient;
+            // 0.7.2: un po' piu' di luce nelle stanze (+25% di ambiente)
+            float amb = Mathf.Lerp(0.48f, 0.31f, deep) * look.ambient * LookTune.Ambient * 1.25f;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = look.sky * amb;
             RenderSettings.ambientEquatorColor = look.equator * amb;

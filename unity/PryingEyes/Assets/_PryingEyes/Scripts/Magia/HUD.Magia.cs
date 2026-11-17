@@ -10,7 +10,8 @@ namespace PryingEyes
     {
         Slider essenceBar;
         Image spellIcon, spellCool, spellFrame, infIcon, infCool, infFrame;
-        Text spellKey, infKey, magicLine, essenceText;
+        Text spellKey, infKey, magicLine, essenceText, cycleHint;
+        int shownPad = -1;               // il dispositivo dei suggerimenti scritti (si riscrivono quando cambia; -1 = mai scritti)
         RectTransform infTimer;
         Image infTimerFill;
         GameObject magicRoot;
@@ -32,6 +33,9 @@ namespace PryingEyes
             MakeSlot("Sigillo", new Vector2(-28f - MagicIcon * 2f - 14f, y), out infFrame, out infIcon, out infCool, out infKey, "3 ▮");
             magicLine = MakeText("MagiaRiga", new Vector2(1, 0), new Vector2(-28f - MagicIcon * 2f - 26f, y + 10f), new Vector2(420, 18), 12, TextAnchor.LowerRight, "", Bone, FontStyle.Normal);
             magicLine.transform.SetParent(magicRoot.transform, true);
+            // 0.7.1: come si cambiano magia e sigillo (prima non lo diceva niente: "non c'e' un modo per cambiare i sigilli")
+            cycleHint = MakeText("MagiaCambio", new Vector2(1, 0), new Vector2(-28f, y - 30f), new Vector2(300, 14), 10, TextAnchor.UpperRight, "", Dim, FontStyle.Bold);
+            cycleHint.transform.SetParent(magicRoot.transform, true);
             var tgo = Child("SigilloTempo");
             tgo.transform.SetParent(magicRoot.transform, false);
             infTimer = Comp<RectTransform>(tgo);
@@ -87,6 +91,15 @@ namespace PryingEyes
             bool show = s.Witch != 0 || s.Arsenal != 0;
             if (magicRoot.activeSelf != show) magicRoot.SetActive(show);
             if (!show) return;
+            // i tasti sotto le icone e il cambio, per la tastiera o per il controller
+            bool pad = PadControls.Preferred;
+            if ((pad ? 1 : 0) != shownPad)
+            {
+                shownPad = pad ? 1 : 0;
+                spellKey.text = pad ? "LB" : "3";
+                infKey.text = pad ? "LB ▮" : "3 ▮";
+                cycleHint.text = pad ? "CAMBIA: \u2192 magia  \u00b7  tieni \u2192 sigillo" : "CAMBIA: 6 magia  \u00b7  7 sigillo";
+            }
             essenceBar.value = s.EssenceMax > 0f ? s.Essence / s.EssenceMax : 0f;
             essenceText.text = $"ESSENZA {Mathf.FloorToInt(s.Essence)}";
             // magia

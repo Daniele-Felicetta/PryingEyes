@@ -11,17 +11,20 @@ namespace PryingEyes
         public float yaw, pitch;                // radianti, come PlayerController
         public float speedH, lum, shotAge, hp;  // m/s, luce 0..1, secondi dall'ultimo sparo, vita 0..1
         public bool alive, crouch, sprint, torch, shotQuiet, invulnerable, velo;
+        public bool downed;                     // a terra (0.7.2): vivo ma fuori combattimento, da rialzare
+        public float bleed;                     // a terra: secondi prima di morire dissanguato
         public int weapon;
         public float lean;                      // -1 sinistra .. +1 destra
         public float sight;                     // moltiplicatore della vista dei nemici (Perks.SightMult: 1, o 0.7 col Velo)
 
         public void Write(NetWriter w)
         {
-            int flags = (alive ? 1 : 0) | (crouch ? 2 : 0) | (sprint ? 4 : 0) | (torch ? 8 : 0) | (shotQuiet ? 16 : 0) | (invulnerable ? 32 : 0) | (velo ? 64 : 0);
+            int flags = (alive ? 1 : 0) | (crouch ? 2 : 0) | (sprint ? 4 : 0) | (torch ? 8 : 0) | (shotQuiet ? 16 : 0) | (invulnerable ? 32 : 0) | (velo ? 64 : 0) | (downed ? 128 : 0);
             w.U8(epoch).V3(pos).U8(CoopProtocol.QuantYaw(yaw)).U8(CoopProtocol.QuantPitch(pitch)).U8(flags)
              .U8(Mathf.Clamp(Mathf.RoundToInt(speedH * 20f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(lum * 255f), 0, 255))
              .U8(Mathf.Clamp(Mathf.RoundToInt(shotAge * 100f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(hp * 255f), 0, 255)).U8(weapon)
-             .U8(Mathf.Clamp(Mathf.RoundToInt((Mathf.Clamp(lean, -1f, 1f) + 1f) * 127.5f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(sight * 100f), 0, 255));
+             .U8(Mathf.Clamp(Mathf.RoundToInt((Mathf.Clamp(lean, -1f, 1f) + 1f) * 127.5f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(sight * 100f), 0, 255))
+             .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255));
         }
 
         public static PlayerNet Read(ref NetReader r)
@@ -33,6 +36,7 @@ namespace PryingEyes
             s.pitch = CoopProtocol.DequantPitch((byte)r.U8());
             int f = r.U8();
             s.alive = (f & 1) != 0; s.crouch = (f & 2) != 0; s.sprint = (f & 4) != 0; s.torch = (f & 8) != 0; s.shotQuiet = (f & 16) != 0; s.invulnerable = (f & 32) != 0; s.velo = (f & 64) != 0;
+            s.downed = (f & 128) != 0;
             s.speedH = r.U8() / 20f;
             s.lum = r.U8() / 255f;
             s.shotAge = r.U8() / 100f;
@@ -40,6 +44,7 @@ namespace PryingEyes
             s.weapon = r.U8();
             s.lean = r.U8() / 127.5f - 1f;
             s.sight = r.U8() / 100f;
+            s.bleed = r.U8() / 8f;
             return s;
         }
     }
@@ -77,7 +82,7 @@ namespace PryingEyes
         /// <summary>Dove guarda (orizzontale e in alto/basso, come la sua visuale).</summary>
         public Vector3 Forward => Quaternion.Euler(last.pitch * Mathf.Rad2Deg, transform.eulerAngles.y, 0f) * Vector3.forward;
         /// <summary>Vivo e nel mio stesso piano (un compagno su un altro piano non e' un bersaglio per i miei nemici).</summary>
-        public bool Alive => this != null && shown && last.alive;
+        public bool Alive => this != null && shown && last.alive && !last.downed;        // a terra i nemici lo ignorano
         /// <summary>Il pupazzo e' disegnato (compagno nello stesso piano, gia' costruito).</summary>
         public bool Shown => shown;
 
@@ -178,7 +183,7 @@ namespace PryingEyes
             bg.transform.SetParent(transform, false);
             beam = bg.AddComponent<Light>();
             beam.type = LightType.Spot;
-            beam.range = 36f; beam.spotAngle = 72f; beam.innerSpotAngle = 52f;
+            beam.range = Torch.BeamRange; beam.spotAngle = Torch.BeamFullAngle; beam.innerSpotAngle = Torch.BeamFullAngle * 0.72f;
             beam.color = new Color(1f, 0.93f, 0.80f);
             beam.intensity = Torch.BeamIntensity;
             beam.shadows = LightShadows.None;
@@ -267,8 +272,11 @@ namespace PryingEyes
             float targetScale = last.crouch ? 0.72f : 1f;
             var vs = visual.localScale;
             visual.localScale = new Vector3(1f, Mathf.Lerp(vs.y, targetScale, 1f - Mathf.Exp(-10f * dt)), 1f);
-            visual.localRotation = Quaternion.Slerp(visual.localRotation, last.alive ? Quaternion.identity : Quaternion.Euler(-88f, 0f, 0f), 1f - Mathf.Exp(-8f * dt));
-            visual.localPosition = Vector3.Lerp(visual.localPosition, last.alive ? Vector3.zero : new Vector3(0f, 0.18f, 0f), 1f - Mathf.Exp(-8f * dt));
+            // a terra: semisdraiato sul fianco, il busto ancora su; morto: disteso
+            Quaternion pose = !last.alive ? Quaternion.Euler(-88f, 0f, 0f) : last.downed ? Quaternion.Euler(-62f, 0f, 14f) : Quaternion.identity;
+            Vector3 lift = !last.alive ? new Vector3(0f, 0.18f, 0f) : last.downed ? new Vector3(0f, 0.12f, -0.15f) : Vector3.zero;
+            visual.localRotation = Quaternion.Slerp(visual.localRotation, pose, 1f - Mathf.Exp(-8f * dt));
+            visual.localPosition = Vector3.Lerp(visual.localPosition, lift, 1f - Mathf.Exp(-8f * dt));
             if (beam != null)
             {
                 Vector3 head = transform.position + Vector3.up * (last.crouch ? 1.2f : 1.62f);
@@ -278,7 +286,7 @@ namespace PryingEyes
                 {
                     torchNear = Torch.AdaptProximity(torchNear, Torch.ProximityScale(beam.transform), dt);
                     beam.intensity = Torch.BeamIntensity * torchNear;
-                    beam.spotAngle = Torch.BeamAngle(72, torchNear); beam.innerSpotAngle = beam.spotAngle * 0.72f;
+                    beam.spotAngle = Torch.BeamAngle(Torch.BeamFullAngle, torchNear); beam.innerSpotAngle = beam.spotAngle * 0.72f;
                 }
                 else torchNear = 1f;
             }
@@ -289,7 +297,10 @@ namespace PryingEyes
                 {
                     tag.transform.rotation = Quaternion.LookRotation(tag.transform.position - pc.position);
                     float d = Vector3.Distance(pc.position, tag.transform.position);
-                    tag.gameObject.SetActive(d < 28f && last.alive);
+                    tag.gameObject.SetActive(last.alive && (d < 28f || (last.downed && d < 60f)));     // chi e' a terra si trova da piu' lontano
+                    string want = last.downed ? playerName + "\nA TERRA " + Mathf.CeilToInt(last.bleed) + " s" : playerName;
+                    if (tag.text != want) tag.text = want;
+                    tag.color = last.downed ? new Color(1f, 0.42f, 0.36f, 1f) : new Color(0.95f, 0.92f, 0.82f, 0.95f);
                 }
             }
         }

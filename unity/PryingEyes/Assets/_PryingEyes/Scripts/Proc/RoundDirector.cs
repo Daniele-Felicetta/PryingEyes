@@ -557,7 +557,7 @@ namespace PryingEyes.Proc
             if (gm == null || gm.player == null) return;
             float dt = Time.deltaTime;
             if (Coop.IsClient) { ClientTick(dt); return; }        // sugli ospitati il round lo gioca l'ospite: qui si vede soltanto
-            if (!Targets.AnyAlive) { Abort(); return; }           // da solo: il giocatore e' morto; in cooperativa: sono morti tutti
+            if (!Targets.AnyLiving) { Abort(); return; }          // da solo: il giocatore e' morto; in cooperativa: sono morti tutti (a terra non conta)
             if (phase == Phase.Fighting)
             {
                 statusT -= dt;

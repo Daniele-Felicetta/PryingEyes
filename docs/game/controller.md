@@ -37,7 +37,7 @@ crouched).
 | L3 / R3 while aiming | Lean left / right (`Q` / `E`): a press leans, a second one or letting go of the aim straightens |
 | A | Jump (it also stands you up) |
 | B | Crouch on/off (`C`); jumping or running stands you up |
-| X | Reload (`R`); held: use, buy, pick up (`F`; the prompts say *tieni X*) |
+| X | Reload (`R`); held: use, buy, pick up (`F`; the prompts say *tieni X*); kept held for 3 s next to a downed teammate: revive them (since 0.7.2) |
 | Y | Change weapon; held: fire mode (`B`) |
 | LB | Left hand: spell when tapped, seal on the weapon when held (`3`) |
 | RB | Holy water (`Z`) |

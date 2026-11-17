@@ -1,6 +1,6 @@
 # Cooperativa online (fino a 4 giocatori)
 
-Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md); con la 0.7.1 `pe-coop-27`: magie e sigilli visibili agli altri, stati dei nemici decisi dall'ospite, annessi di tutti). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
+Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md); con la 0.7.1 `pe-coop-27`: magie e sigilli visibili agli altri, stati dei nemici decisi dall'ospite, annessi di tutti; con la 0.7.2 `pe-coop-28`: a terra e rianimazione). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
 gira con la propria copia, uno **ospita** e gli altri si collegano al suo indirizzo. Rete: FishNet 4.7.3 (trasporto
 Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 
@@ -89,7 +89,8 @@ In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tu
 | `CoopGame.Traps.cs` | Trappole delle soglie (`DoorTraps`): il client riserva i punti e chiede, l'ospite accende e manda lo stato |
 | `CoopGame.Power.cs` | Corrente del piano (leva del quadro): il client chiede, l'ospite accende e lo dice a tutti |
 | `CoopGame.Barrels.cs`, `CoopGame.Chandeliers.cs`, `CoopGame.Lamps.cs` | Botti d'olio santo, lampadari e lampade che si rompono: il colpo del client va all'ospite, che decide e racconta a tutti |
-| `HUD.Coop.cs` | Elenco dei compagni nell'HUD (vita relativa, distanza, attesa/rinascita) |
+| `HUD.Coop.cs` | Pannello dei compagni nell'HUD (dalla 0.7.2 a sinistra, sotto i perk): una scheda per compagno col numero nel cerchio del suo colore, nome, vita in percentuale e barra spessa, distanza e freccia verso di lui; a terra la scheda pulsa di rosso e la barra diventa il tempo per rialzarlo; dimensione nelle impostazioni (*HUD dei compagni*, 60%-180%). Vale anche per lo schermo condiviso |
+| `CoopGame.Revive.cs` | Rianimazione in rete (0.7.2): `ReviveRemote`, `ReviveClaim` all'ospite (controlla che chi rialza sia pronto e a meno di 4 m), `Revived` a chi era a terra |
 | `Enemy.Net.cs` | Pupazzi dei nemici e stato di rete |
 | `Targets.cs`, `RemotePlayer.cs` | Bersagli multipli e compagni (pupazzo con torcia, nome, posa interpolata) |
 | `CoopTest.cs`, `CoopTest.Survival.cs` | Prova automatica a piu' processi (solo con `-cooptest`); la seconda ha i passi del ciclo a ondate |
@@ -103,7 +104,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-27`** (0.7.1: magie e sigilli, `StatusClaim`, stati in `EnemyNet`, annessi; `pe-coop-26` dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
+Revisione **`pe-coop-28`** (0.7.2: `PlayerNet.downed` nel bit 128 dei flag e `bleed` in un byte da 1/8 di secondo, `ReviveClaim`, `Revived`; `pe-coop-27` con la 0.7.1: magie e sigilli, `StatusClaim`, stati in `EnemyNet`, annessi; `pe-coop-26` dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
 del catalogo delle armi in coda): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
@@ -160,8 +161,8 @@ Ogni cambio di revisione richiede la stessa build su tutte le macchine.
 
 | Direzione | Messaggi |
 | --- | --- |
-| giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `BuyRoom`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent`, `UseTrap`, `BarrelHit`, `UsePower`, `ChandelierHit`, `LampHit`, `SpellCast`, `StatusClaim`, `AnnexUse` |
-| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `RoomsState`, `RoomReply`, `TrapsState`, `TrapReply`, `BarrelGone`, `PowerState`, `ChandelierDrop`, `LampBroken`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport`, `SpellFx`, `AnnexState` |
+| giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `BuyRoom`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent`, `UseTrap`, `BarrelHit`, `UsePower`, `ChandelierHit`, `LampHit`, `SpellCast`, `StatusClaim`, `AnnexUse`, `ReviveClaim` |
+| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `RoomsState`, `RoomReply`, `TrapsState`, `TrapReply`, `BarrelGone`, `PowerState`, `ChandelierDrop`, `LampBroken`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport`, `SpellFx`, `AnnexState`, `Revived` |
 | entrambe | `Test` (solo `-cooptest`, altrimenti scartato) |
 
 ## Prove
@@ -175,12 +176,12 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 
 | Flag | Cosa prova |
 | --- | --- |
-| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, la ricarica a vuoto fatta dalla mano sinistra su ogni processo e la Catena del Fulmine lanciata dall'ospitato su un nemico fermo dell'ospite, nato dove l'ospitato lo vede (il colpo, fonte Magia, arriva all'ospite come `HitClaim`; la magia si vede sull'ospite e sugli altri ospitati, lo stordimento arriva al nemico vero con `StatusClaim` e torna sui pupazzi nello stato del nemico), il muro del sacrario aperto dall'ospitato che si apre su tutti, ferite dall'ospite, area comprata dall'ospitato (e richiesta da lontano rifiutata, con i punti restituiti), ondata con nascite solo nelle aree aperte e premio per tutti, altre due ondate che aprono l'ascensore, gocce, uscita, discesa insieme e piano nuovo da capo (col ciclo a candele: candela semplice e di zona, round con serrande e premio) |
+| `-cooptest` | collegamento, piano uguale (firma), pupazzi dei nemici, colpi dell'ospitato con punti solo a lui, la ricarica a vuoto fatta dalla mano sinistra su ogni processo e la Catena del Fulmine lanciata dall'ospitato su un nemico fermo dell'ospite, nato dove l'ospitato lo vede (il colpo, fonte Magia, arriva all'ospite come `HitClaim`; la magia si vede sull'ospite e sugli altri ospitati, lo stordimento arriva al nemico vero con `StatusClaim` e torna sui pupazzi nello stato del nemico), il muro del sacrario aperto dall'ospitato che si apre su tutti, ferite dall'ospite, a terra e rianimazione in rete (dalla 0.7.2: l'ospitato a terra rialzato dall'ospite con `Revived`, l'ospite a terra rialzato dall'ospitato con `ReviveClaim`, tutti che li vedono a terra e poi in piedi), area comprata dall'ospitato (e richiesta da lontano rifiutata, con i punti restituiti), ondata con nascite solo nelle aree aperte e premio per tutti, altre due ondate che aprono l'ascensore, gocce, uscita, discesa insieme e piano nuovo da capo (col ciclo a candele: candela semplice e di zona, round con serrande e premio) |
 | `-cooplate` | entrata a ondata in corso: aree comprate, porte su e giu', il sacrario aperto dall'ospite prima, numero dell'ondata e nemici arrivano al nuovo (col ciclo a candele: serrande e round) |
 | `-coopleave` / `-coopcrash` | uscita pulita / processo ucciso: l'ospite se ne accorge e prosegue da solo (un nemico lo caccia, poi un'ondata intera) |
 | `-coophostleave` | se ne va l'ospite: l'ospitato prosegue da solo con Role spento |
 | `-coopplayers N` | numero di giocatori attesi (con 3 processi) |
-| `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`; senza, `persistentDataPath/coop`; con `run_coop.ps1 -HostGraphics` e' `%TEMP%\pryingeyes-coop\foto`) |
+| `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`; senza, `persistentDataPath/coop`; con `run_coop.ps1 -HostGraphics` e' `%TEMP%\pryingeyes-coop\foto`); dalla 0.7.2 anche il pannello dei compagni nell'HUD dell'ospite: col compagno in piedi (`coop_hud.png`), a terra (`coop_hud_a_terra.png`) e ingrandito al 160% (`coop_hud_160.png`), poi lo rialza |
 
 Con `-cooptest` le ondate partono ferme (`SurvivalMode.HoldWaves`; il copione le libera con `SurvivalMode.Hold`): le avvia il copione, perche' i passi che contano punti e nemici uno per uno non devono
 trovarsele in mezzo. Il ciclo a candele si prova con `-candles` su tutti i processi (la pianta ad ali, `-oldplan`, lo implica).

@@ -180,6 +180,10 @@ namespace PryingEyes
             pl.invulnerable = false;
             pl.Hurt(99999f);
             yield return null; yield return null;
+            // 0.7.2: a zero si va a terra e l'ondata continua (ci si puo' ancora rialzare); la morte vera arriva col dissanguamento
+            Check("a terra: l'ondata continua", pl.alive && pl.Downed && rd.Fighting, $"vivo {pl.alive}, a terra {pl.Downed}");
+            pl.BleedOutNow();
+            yield return null; yield return null;
             Check("morte: l'ondata e' annullata e i nemici spariscono", !pl.alive && !rd.Fighting && Alive() == 0, $"vivi {Alive()}");
             Check("morte: il numero dell'ondata torna indietro", RoundDirector.Round == before - 1, $"round {RoundDirector.Round}");
             w = Time.time;

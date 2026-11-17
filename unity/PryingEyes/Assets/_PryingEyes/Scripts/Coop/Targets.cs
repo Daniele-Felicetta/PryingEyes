@@ -31,10 +31,12 @@ namespace PryingEyes
     /// <summary>Il giocatore di questa macchina (nello split screen il primo: gli altri sono SeatTarget).</summary>
     public sealed class LocalTarget : ITarget
     {
-        static PlayerController P { get { var s = Seats.Primary; return s != null ? s.player : (GameManager.I != null ? GameManager.I.player : null); } }
+        internal static PlayerController P { get { var s = Seats.Primary; return s != null ? s.player : (GameManager.I != null ? GameManager.I.player : null); } }
+        /// <summary>Vivo, anche se a terra (Alive invece e' falso a terra: i nemici lo ignorano).</summary>
+        public bool Living { get { var p = P; return p != null && p.alive; } }
         public int Slot => Coop.Slot;
         public Vector3 Feet { get { var p = P; return p != null ? p.transform.position : Vector3.zero; } }
-        public bool Alive { get { var p = P; return p != null && p.alive; } }
+        public bool Alive { get { var p = P; return p != null && p.alive && !p.Downed; } }      // a terra i nemici ti ignorano
         public float BodyHeight => P != null ? P.BodyHeight : 1.75f;
         public float Lean { get { var p = P; return p != null ? p.lean : 0f; } }
         public Vector3 LeanedPoint(float h) { var p = P; return p != null ? p.LeanedPoint(h) : Vector3.up * h; }
@@ -78,6 +80,25 @@ namespace PryingEyes
             get
             {
                 for (int i = 0, n = Count; i < n; i++) if (At(i).Alive) return true;
+                return false;
+            }
+        }
+
+        /// <summary>Qualcuno e' ancora vivo, anche solo a terra (0.7.2). L'ondata salta quando sono morti tutti, non quando sono tutti a
+        /// terra: chi e' a terra puo' ancora rialzarsi da solo o essere rialzato (AnyAlive, che conta solo chi sta in piedi, resta per i
+        /// nemici: senza nessuno in piedi perdono la pista).</summary>
+        public static bool AnyLiving
+        {
+            get
+            {
+                for (int i = 0, n = Count; i < n; i++)
+                {
+                    var t = At(i);
+                    if (t.Alive) return true;
+                    if (t is LocalTarget lt && lt.Living) return true;
+                    if (t is SeatTarget st && st.Living) return true;
+                    if (t is RemotePlayer rp && rp.Shown && rp.last.alive) return true;
+                }
                 return false;
             }
         }

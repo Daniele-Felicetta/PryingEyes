@@ -670,7 +670,7 @@ namespace PryingEyes
             Prove.OnKill(src, headshot);
             Medals.OnKill(src, headshot);                   // imprese istantanee (Medals.cs)
             float heal = Perks.BloodHeal(src);
-            if (heal > 0f && player != null && player.alive)
+            if (heal > 0f && player != null && player.alive && !player.Downed)      // a terra la Sete di sangue non ti rialza
             {
                 player.Heal(heal);
                 hud?.Flash(Perks.Of(PerkId.SeteDiSangue).color, 0.35f, 0.18f);

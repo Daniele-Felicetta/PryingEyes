@@ -25,7 +25,8 @@ manager; the confirmation persists the resolution Unity actually applied. See th
 **Applica schermo** starts a 15-second preview measured in real time, including while the game is paused. Underlying
 settings controls are disabled until confirmation. **Mantieni impostazioni** persists the applied configuration;
 **Ripristina**, Escape, timeout and menu destruction restore the preceding configuration. Leaving settings without
-applying discards the draft. Comfort/audio controls retain their existing immediate behavior.
+applying discards the draft. Comfort/audio controls retain their existing immediate behavior. Since 0.7.2 the *Audio e comandi* tab also
+has **HUD dei compagni** (60% to 180%, saved as `hud_coop_scale`), the size of the teammates panel in co-op and split screen; it applies at once.
 
 The first ordinary launch uses native desktop resolution in borderless mode, overriding stale Unity Screenmanager
 values left by earlier tests. Later launches apply the last explicitly confirmed display configuration. Automated runs
@@ -63,7 +64,7 @@ showed no version anywhere.
 
 - `PryingEyes.EditorTools.MenuReview.Run` renders main menu, display, comfort, guide, co-op and split-screen panels at 1280×720,
   1920×1080, 3440×1440 and 1024×768; also checks pause/resume, leave confirmation, text bounds and real engraving meshes.
-  It checks ultrawide presets, filtering, input validation and the seven existing comfort controls, that the version is `x.y.z` and the
+  It checks ultrawide presets, filtering, input validation and the eight comfort controls, that the version is `x.y.z` and the
   label says it, and that on every panel the label stays at least 24 units to the right of the longer of the two key-hint lines (keyboard and
   controller, measured with the real font). Output:
   `unity_logs/menu-review`. This runs in an empty editor scene without changing player display preferences.
