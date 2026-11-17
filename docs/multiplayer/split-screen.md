@@ -216,6 +216,14 @@ monitor and player 2 the second, each with their own HUD scaled to the monitor, 
 monitor, player 2 downed (red view, *A terra*, 30 seconds) on the second monitor, the pause menu on the first and the **IN PAUSA** veil on
 the second.
 
+On the integrated tree of 0.8.0 (the split screen together with the map in each player's HUD, the grimoire of each player, the third person
+and the survivors' bodies, the new menu and the seals), on the evening of the same day, from the verification build and with no window:
+`-splittest` 79 of 79; `-seatstest` from the menu on one monitor 82 of 82 with two players, 87 of 87 with three and 92 of 92 with four; with
+pretend monitors 84 of 84 (two players on two monitors) and 94 of 94 (four players on two, and on four). The counts are higher than the ones
+above because the pieces of work merged here added checks to the same test (the map of each seat, the grimoire of each player, the bodies of
+the survivors). `-padtest -nowaves` 83 of 83. What was not repeated on the integrated tree: the run with a window on the two real monitors
+and the photos taken from the system (they need the screen and the maintainer's attention).
+
 The refactor touched about fifty files of the single-player game, so the default (wave) cycle was checked again the same day, from the same
 build: `-padtest` 73 of 73, `tools/check_gunplay.py` 297 of 297, `-barreltest` 19, `-lampadaritest` 15, `-equiptest` 19, `-minetest` 12,
 `-flinchtest` 9, `-shafttest` 9, `-powertest` 16, `-survivaltest` 86, `-ragdolltest` 16, and scenario `a` of the online co-op

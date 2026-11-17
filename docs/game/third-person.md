@@ -17,7 +17,10 @@ split screen.
 - **The crosshair is the truth.** Shots, prompts and the torch start at the eye, not at the camera. Each frame, right after the eye is placed,
   it is turned (by at most 25 degrees) towards the point the camera's own centre ray hits, so a bullet lands where the crosshair is at every
   distance. Without this the crosshair would be a hand's breadth off. The tracers start at the muzzle of the weapon the survivor holds
-  (`ThirdPersonView.MuzzleOf`, used by `Weapon.FireRays`), not at the hidden weapon of the first person.
+  (`ThirdPersonView.MuzzleOf`, used by `Weapon.FireRays`), not at the hidden weapon of the first person. Since 0.8.0 so do the flash of a
+  seal on the weapon (`Weapon.SigilShot`, see [arms-and-magic.md](arms-and-magic.md)) and the flame of a flamethrower: the two pieces of work
+  were made apart and met at this point, where both still used the hidden weapon, which in the third person sits at a hand's breadth from the
+  eye, behind the survivor's shoulder.
 - **Scoped optics return to the first person.** While aiming with a weapon that zooms (`WeaponDef.zoom` of 1.4 or more) the view goes back to the
   eye, because the magnified sight is a second camera of the weapon; the view returns when the aim is released. A dead player also looks
   from the eye. The change takes about a fifth of a second (5 per second).
@@ -55,7 +58,9 @@ setting is off and the blend is back to zero. The game does not know it exists: 
 `-autotest -nofire -noenemies -tptest [-tpshots]` (`ThirdPersonTest.cs`, not in distribution builds) checks, from what the camera really has in
 front of it while it draws: the first person is untouched (camera at the eye, no avatar, weapon layer drawn); the third person
 (component, camera 1.2 to 2.7 m from the eye, own avatar with the weapon, weapon layer not drawn, avatar layer drawn, avatar at the player's
-feet and facing the same way); the eye ray and the camera ray hit the same point of a wall (less than 12 cm apart); aiming brings the camera
+feet and facing the same way); the eye ray and the camera ray hit the same point of a wall (less than 12 cm apart); with a seal on the
+weapon, the flash at the muzzle (`SigilFx.LastMuzzle`, a field that exists for the tests) falls within 2 cm of the muzzle of the body's weapon
+and not at the hidden weapon of the first person; aiming brings the camera
 closer by more than 30 cm; walking sends the velocity to the body; a wall 90 cm behind keeps the camera within 1.05 m; switching off restores
 the camera, removes the avatar and the fill light, and draws the weapon again; the fill light exists and lights only the body's layers.
 A game started with `-batchmode` and no window does not draw its main camera by itself, so the test makes the camera draw (`RenderNow`, onto
@@ -76,6 +81,17 @@ On 2026-11-17, on the `Builds\Audit` player of the branch, with no window (`-bat
 | `-splittest` | 71/71 |
 | `tools/coop/run_all.ps1 -Only a,h` | all passed: two processes (62/62 and 49/49) and four (62/62, 48/48, 48/48, 49/49) on loopback, protocol `pe-coop-29` |
 | `tools/coop/run_coop.ps1 -Name foto -HostGraphics ... -cooppics` | 13/13, with photos of a partner from the side, close and from behind |
+
+On the integrated tree of 0.8.0 (this branch together with the seals, the grimoires, the map, the new menu and the split screen over several
+monitors), on the same evening, `-tptest` passed 20/20: the 19 checks above and the new one, where a seal on the weapon sends its flash to
+0.0 cm from the muzzle of the body's weapon, 0.79 m from the eye. Also passing there: `-seatstest` 82, 87 and 92 checks with two, three and
+four players (84 and 94 with the extra monitors pretended), `-splittest` 79/79 and `-padtest` 83/83.
+
+**Not done in the third person** (found while integrating, not fixed in 0.8.0): the left hand of the spells and of the seal gesture, and the
+skin of heat that a seal puts on the weapon (`WeaponAura`), belong to the first-person view, which the third person hides; the survivor's
+body does not play the gesture and its weapon does not glow. The effects still happen: a seal sends its flash, tracer and impact, and the
+spells their effects and damage, but the spells start from the position of the hidden first-person palm (`OffHand.PalmWorld`), near the eye,
+not from the body's hand. This comes from reading the code (`MagicCaster`); nobody has looked at a spell cast in the third person in a running game.
 
 The one run that did not pass was the first on the final build: the check *senza aiuto il giocatore 2 si dissangua* of `SeatsTest` (the third
 time player 2 goes down nobody helps, so they bleed out and die once while the others stay up with their points) failed, 63/64. It did not repeat in

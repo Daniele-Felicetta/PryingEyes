@@ -210,6 +210,12 @@ scacciavano a ogni fotogramma, a volte oltre un muro sottile o sotto il paviment
 anche sui piani 2961/3 e 3046/3, e la cooperativa (griglia, tre giocatori) dopo la correzione. La prova `-cooppics` ha mostrato un compagno con il nome leggibile sopra la testa e
 la torcia accesa; ha anche fatto trovare un'inversione (il fascio del compagno saliva quando lui guardava in basso: corretta).
 
+**Esiti del 17 novembre 2026** (albero integrato della 0.8.0, protocollo `pe-coop-29`, build di verifica, tutti i processi su loopback):
+`run_all.ps1` supera tutti e otto gli scenari in 623 secondi, senza eccezioni nei log: griglia 62 verifiche sull'ospitato e 49 sull'ospite, ali
+43 e 29, entrata tardiva 11 e 7, uscita pulita 4 e 8, processo ucciso 4 e 8 (il processo ucciso esce con -1, come previsto), uscita
+dell'ospite 7 e 2, tre giocatori 62, 48 e 49, quattro giocatori 62, 48, 48 e 49. Sull'albero integrato non e' stata rifatta la prova con le foto
+(`-cooppics`, serve la grafica) e, come sempre, nessuna prova e' stata fatta tra macchine diverse.
+
 ## Cosa non e' ancora verificato (e limiti)
 
 - **Gioco tra macchine e reti diverse**: tutte le prove sono su loopback, quindi latenza, perdita di pacchetti e porta aperta

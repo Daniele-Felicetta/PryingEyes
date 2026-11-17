@@ -150,5 +150,10 @@ and the presentation test were not run (they change the real screen mode and the
 ask for). **Not verified**: the look and the animation in a real player window, how the new
 tabs feel with a physical controller, and the music and the tones by ear ([menu-music.md](menu-music.md)).
 
+On the integrated tree of 0.8.0 (this rework together with the third person, the seals, the grimoires, the map and the split screen over
+several monitors) the **Prospettiva** row of the third person ([third-person.md](third-person.md)) is the first row of the **Gioco** tab,
+with its hint and its reset (`ResetGame` turns the third person off), and `MenuReview.Run` checks it with the rest of the tab: the tab now
+has 2 sliders, 4 choices and 6 rows. Result: 2369 of 2369 checks; `MenuMusicReview.Run` 24 of 24.
+
 Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Settings.cs`, `GameMenu.Help.cs`, `GameMenu.Split.cs`,
 `MenuWidgets.cs`, `MenuSound.cs`, `MenuMusic.cs`, `MenuEngraving.cs`, `GameSettings.cs`, `GameSettings.More.cs`, `VideoSettings.cs`.
