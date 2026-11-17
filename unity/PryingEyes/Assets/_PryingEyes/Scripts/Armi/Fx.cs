@@ -685,6 +685,14 @@ namespace PryingEyes
                 I.PlaceStain(BloodTex(), fh.point, fh.normal, dir, Random.Range(0.22f, 0.4f), Random.Range(1.0f, 1.3f), tint, 40f, 0f);
         }
 
+        /// <summary>Una macchia sul muro o sul pavimento nel colore di un elemento (bruciatura, brina, icore, sangue): i colpi coi sigilli
+        /// lasciano il loro segno (SigilFx). 'along' e' l'asse lungo cui si stira.</summary>
+        public static void Splat(Vector3 p, Vector3 n, Vector3 along, Color tint, float size, float life = 28f)
+        {
+            Ensure();
+            I.PlaceStain(BloodTex(), p, n, along, size, Random.Range(1.0f, 1.3f), tint, life, 0f);
+        }
+
         /// <summary>Pozza di sangue sotto chi muore: cresce in un secondo e mezzo, resta, sfuma.</summary>
         public static void BloodPool(Vector3 pos, Color tint, float scale = 1f)
         {
@@ -802,15 +810,16 @@ namespace PryingEyes
             }
         }
 
-        /// <summary>Traccia luminosa da 'from' a 'to', a velocita' finita.</summary>
-        public static void Tracer(Vector3 from, Vector3 to, float speed = 280f, float width = 0.010f, Color? color = null)
+        /// <summary>Traccia luminosa da 'from' a 'to', a velocita' finita. 'length' (> 0): la lunghezza del dardo in metri (i proiettili
+        /// coi sigilli: un dardo corto e spesso invece della lunga striscia).</summary>
+        public static void Tracer(Vector3 from, Vector3 to, float speed = 280f, float width = 0.010f, Color? color = null, float length = -1f)
         {
             Ensure();
             float d = Vector3.Distance(from, to);
             if (d < 1.5f) return;
             var it = I.Spawn(TracerMat, d / speed + 0.12f);
             if (color.HasValue) it.col = color.Value;
-            it.kind = 2; it.from = from; it.to = to; it.len = Mathf.Min(5f + speed * 0.015f, d);
+            it.kind = 2; it.from = from; it.to = to; it.len = Mathf.Min(length > 0f ? length : 5f + speed * 0.015f, d);
             it.vel = (to - from) / Mathf.Max(0.001f, d) * speed;
             it.size0 = width; it.a0 = 1f;
             it.t.position = from;

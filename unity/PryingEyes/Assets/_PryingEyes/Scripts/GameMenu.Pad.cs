@@ -24,7 +24,7 @@ namespace PryingEyes
         static string HelpMoveText(bool pad) => "TIENITI IN MOVIMENTO\nI nemici ti inseguono subito. Usa scale, balconate e ripari per creare una via di fuga. " +
             (pad ? "R3 per il corpo a corpo." : "G per il corpo a corpo.");
         static string HelpRoundText(bool pad) => "APRI NUOVE AREE\nLe ondate partono da sole. Spendi i punti alle porte con " + (pad ? "X tenuto" : "F") +
-            ": le aree acquistate restano aperte per tutti. " + (pad ? "La croce a sinistra indica le porte." : "V indica le porte.");
+            ": le aree acquistate restano aperte per tutti. " + (pad ? "Tieni la croce a destra per indicare le porte." : "V indica le porte.");
 
         /// <summary>La cornice che segue la voce scelta: quattro liste sottili in un rettangolo che si adatta a quello che e' selezionato.</summary>
         void BuildPadUi()

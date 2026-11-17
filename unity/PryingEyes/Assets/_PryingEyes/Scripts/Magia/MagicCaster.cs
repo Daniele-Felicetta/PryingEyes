@@ -13,7 +13,7 @@ namespace PryingEyes
     /// <summary>La mano sinistra del giocatore: magie (Libro della Stregoneria) e sigilli sull'arma (Libro dell'Arsenale), con i loro
     /// gesti (OffHandAnims) e i loro effetti.
     /// Comandi: 3 toccato = la magia scelta, 3 tenuto (0,35 s) = il sigillo scelto sull'arma in mano; rotella premuta = la magia;
-    /// 6 / 7 = magia / sigillo seguente. Controller: LB (toccato o tenuto), croce a destra (toccata o tenuta).
+    /// 6 / 7 = magia / sigillo seguente. Controller: LB (toccato o tenuto), croce a destra = magia seguente, croce a sinistra = sigillo seguente.
     /// L'essenza torna da sola (2 al secondo) e con le uccisioni. Le magie non si possono lanciare ricaricando, cambiando arma, col
     /// coltello, correndo o con un altro gesto in corso. Senza la mano libera (modello mancante) la magia parte subito dalla camera.</summary>
     [DefaultExecutionOrder(200)]
@@ -37,6 +37,9 @@ namespace PryingEyes
         Color phaseColor = Color.white;
         MagicVfx.Trail fingerTrail;
         float auraTick;
+        // il calore che la mano mette sotto l'arma mentre scorre (sigilli, WeaponAura.Deposit a ogni fotogramma)
+        bool heating;
+        int heatNode;
         /// <summary>Per le prove: magie e sigilli andati a segno.</summary>
         public static int statCasts, statInfusions, statHits;
         public static string LastCast;
@@ -204,7 +207,7 @@ namespace PryingEyes
         void EndGesture()
         {
             fingerTrail?.End();
-            castNode = -1; castHand = null; phase = null;
+            castNode = -1; castHand = null; phase = null; heating = false;
             if (handLight != null) { Destroy(handLight.gameObject); handLight = null; handGlow = null; }
         }
 
@@ -595,29 +598,43 @@ namespace PryingEyes
                     }
                     return;
                 case "grab": Sfx.At(SoundBank.MagiaPresa, palm, 0.5f, node == 18 ? 0.7f : 1f, 1f, 8f); if (node == 16) SetPhase("hold", c, 0.5f); return;
-                case "cut": SetPhase("cut", c, 0.6f); aura?.Set(13, false, palm, 0.5f); Sfx.At(SoundBank.MagiaSangue, palm, 0.5f, 1.2f, 1f, 8f); return;
+                case "stab":
+                    // Danni Critici: la punta dell'indice colpisce il sotto dell'arma e una crepa rossa si accende e sale sul fianco
+                    if (hand != null)
+                    {
+                        Vector3 tip = hand.TipWorld(0);
+                        if (aura != null && aura.Element != 12) aura.Set(12, false, tip);
+                        aura?.Deposit(tip, 0.8f, 0.05f);
+                        MagicFx.Sparks(tip, c, 10, 1.4f, 0.007f);
+                        MagicFx.Glow(tip, c, 0.06f, 0.14f, 0.9f);
+                        MagicVfx.Emit(MagicVfx.Kind.Ring, tip, Vector3.zero, 0.06f, 0.18f, c);
+                        Sfx.At(SoundBank.MagiaTocco, tip, 0.5f, Random.Range(0.9f, 1.15f), 1f, 6f);
+                    }
+                    return;
+                case "cut": SetPhase("cut", c, 0.6f); BeginHeat(aura, 13, palm); Sfx.At(SoundBank.MagiaSangue, palm, 0.5f, 1.2f, 1f, 8f); return;
                 case "drip": SetPhase("drip", c, 0.5f); return;
-                case "ignite": SetPhase("flame", MagicFx.Fire, 1.4f); MagicFx.Burst(palm, MagicFx.Fire, 0.12f); Sfx.At(SoundBank.MagiaFuoco, palm, 0.55f, 1.2f, 1f, 10f); return;
-                case "trail": SetPhase("trail", MagicFx.Fire, 1.5f); aura?.Set(14, false, palm, 0.55f); return;
+                case "ignite": SetPhase("palmfire", MagicFx.Fire, 0.8f); MagicFx.Burst(palm, MagicFx.Fire, 0.06f); Sfx.At(SoundBank.MagiaFuoco, palm, 0.55f, 1.2f, 1f, 10f); return;
+                case "trail": SetPhase("trail", MagicFx.Fire, 0.9f); BeginHeat(aura, 14, palm); return;
                 case "ichor": SetPhase("ichor", c, 0.8f); Sfx.At(SoundBank.MagiaIcore, palm, 0.5f, 1f, 1f, 8f); return;
-                case "pour": SetPhase("pour", c, 0.8f); aura?.Set(15, false, palm, 0.4f); return;
+                case "pour": SetPhase("pour", c, 0.8f); BeginHeat(aura, 15, palm); return;
                 case "arcs": SetPhase("arcs", c, 1.2f); Sfx.At(SoundBank.MagiaScintille, palm, 0.6f, 1.1f, 1f, 10f); return;
                 case "slap":
+                    // il palmo schiaffeggia il fondello da sotto: la corrente parte dal basso e sale lungo l'arma
                     if (hand != null)
                     {
                         Vector3 b = hand.PartWorld(OffHand.Part.MagBase);
                         MagicFx.Sparks(b, c, 26, 3.5f, 0.012f); MagicFx.Flash(b, c, 3f, 3f, 0.25f);
                         MagicVfx.Emit(MagicVfx.Kind.Ring, b, Vector3.zero, 0.25f, 0.2f, c);
                         for (int i = 0; i < 3; i++) MagicFx.Arc(b, b + Random.onUnitSphere * 0.12f, c, 0.004f, 4, 0.5f);
+                        if (aura != null) { aura.Set(16, false, b); aura.Deposit(b, 1.1f, 0.08f); aura.Pulse(1f); }
                     }
-                    aura?.Set(16, false, palm, 0.35f);
                     Sfx.At(SoundBank.MagiaSchiaffo, palm, 0.8f, 1f, 1f, 12f);
                     SetPhase(null);
                     return;
-                case "press": SetPhase("frost", MagicFx.Frost, 0.8f); aura?.Set(17, false, palm, 0.6f); Sfx.At(SoundBank.MagiaGelo, palm, 0.55f, 1.3f, 1f, 10f); return;
+                case "press": SetPhase("frost", MagicFx.Frost, 0.8f); BeginHeat(aura, 17, palm); Sfx.At(SoundBank.MagiaGelo, palm, 0.55f, 1.3f, 1f, 10f); return;
                 case "runes":
                     SetPhase("runes", MagicFx.Cursed, 1.6f);
-                    if (hand != null) aura?.Set(18, true, hand.PartWorld(OffHand.Part.Muzzle), 0.9f);
+                    BeginHeat(aura, 18, palm);
                     Sfx.At(SoundBank.MagiaRune, palm, 0.9f, 1f, 1.5f, 15f);
                     return;
                 case "burn": SetPhase("burn"); return;
@@ -631,8 +648,15 @@ namespace PryingEyes
             MagicReplay.Send(MagicReplay.Seal, node, palm, palm, null, slot);
             if (node == 18) { player.hud?.Banner("Arma Maledetta", "Quindici secondi: danno doppio, ogni sigillo insieme, munizioni infinite."); player.hud?.Flash(MagicFx.Cursed, 0.6f, 0.4f); }
             else player.hud?.Toast($"{Grimoire.Arsenal[node].name}: l'arma porta il sigillo per {MagicState.InfusionTime:F0} s.");
-            // gli altri sigilli hanno gia' acceso l'arma nel gesto (taglio, scia, icore, schiaffo, brina, rune): Critici si accende ora
-            if (aura != null && node == 12) aura.Set(12, false, hand != null ? hand.TipWorld(0) : palm, 0.5f);
+            // il gesto ha gia' acceso l'arma dal punto in cui la mano la tocca (colpi dell'indice, taglio, scia, icore, schiaffo, brina,
+            // rune); ora il calore sale ovunque fino alla cima. Se il gesto non l'aveva acceso (nessun evento di contatto) parte dalla mano
+            heating = false;
+            if (aura != null)
+            {
+                if (aura.Element != (node == 18 ? 18 : node)) aura.Set(node, node == 18, palm);
+                aura.Flood(node == 18 ? 0.9f : 0.7f);
+                aura.Pulse(1f);
+            }
             MagicFx.Flash(palm, c, 2.5f, 3f, 0.35f);
             // il sigillo si chiude: un piccolo cerchio del Dodecaedro sul palmo e tre rune che salgono
             if (hand != null && MagicVfx.On)
@@ -642,6 +666,23 @@ namespace PryingEyes
                 for (int i = 0; i < 3; i++) MagicVfx.Emit(MagicVfx.Kind.Rune, palm + Random.insideUnitSphere * 0.05f, Vector3.up * 0.06f, 0.025f, 0.7f, c, 0f);
             }
             Sfx.At(SoundBank.MagiaSigillo, palm, 0.7f, node == 18 ? 0.7f : 1f, 1f, 12f);
+        }
+
+        /// <summary>La mano tocca l'arma da sotto: l'elemento si accende li' e, finche' dura 'heating', il palmo mette calore a ogni
+        /// fotogramma dove passa (HeatTick); a fine gesto il calore sale ovunque (evento "cast").</summary>
+        void BeginHeat(WeaponAura aura, int node, Vector3 at)
+        {
+            if (aura == null) return;
+            aura.Set(node, node == 18, at);
+            heating = true; heatNode = node;
+        }
+
+        void HeatTick(float dt)
+        {
+            var aura = weapon != null ? WeaponAura.For(weapon.ViewRootT, weapon.Rig) : null;
+            if (aura == null || castHand == null) return;
+            float rate = heatNode switch { 13 => 2.3f, 14 => 2.5f, 15 => 1.9f, 17 => 2.0f, 18 => 2.4f, _ => 2.0f };
+            aura.Deposit(castHand.PalmWorld, rate * dt, 0.065f);
         }
 
         /// <summary>L'aspetto dell'arma in mano secondo lo stato (sigillo e Arma Maledetta), dopo un cambio d'arma o alla fine di un sigillo.</summary>
@@ -679,6 +720,7 @@ namespace PryingEyes
         void PhaseTick(float dt)
         {
             if (drainTarget != null) DrainTick(dt);
+            if (heating && castInfusion) HeatTick(dt);
             if (castHand == null || phase == null) { if (handLight != null && castHand == null) { Destroy(handLight.gameObject); handLight = null; handGlow = null; } return; }
             phaseT += dt;
             var h = castHand;
@@ -821,8 +863,22 @@ namespace PryingEyes
                 case "drip":
                     if (Random.value < 0.6f) MagicFx.Drip(palm + n * 0.01f + Random.insideUnitSphere * 0.01f, new Color(0.38f, 0.01f, 0.01f), 0.007f);
                     break;
+                case "palmfire":
+                {
+                    // Incendiario, lo schiocco: la fiammella di un accendino nel palmo, sotto l'arma (il fuoco grosso lo fa il metallo)
+                    float ch = Mathf.Min(1f, phaseT * 4f);
+                    Vector3 rise = (n * 0.5f + up * 0.5f).normalized;
+                    MagicFx.Flame(palm + n * 0.012f + Random.insideUnitSphere * 0.006f, rise, 0.30f + 0.16f * ch);
+                    MagicFx.Glow(palm + n * 0.02f, MagicFx.Fire, 0.012f + 0.010f * ch, 0.06f, 0.4f);
+                    if (MagicVfx.On && Random.value < 0.4f)
+                        MagicVfx.Emit(MagicVfx.Kind.Ember, palm + n * 0.015f + Random.insideUnitSphere * 0.015f, rise * Random.Range(0.1f, 0.3f) + Random.insideUnitSphere * 0.05f,
+                                      Random.Range(0.0025f, 0.0045f), Random.Range(0.4f, 0.8f), MagicFx.Fire);
+                    break;
+                }
                 case "trail":
-                    for (int i = 0; i < 2; i++) MagicFx.Flame(palm + n * 0.01f + Random.insideUnitSphere * 0.015f, up, 0.8f);
+                    // il palmo scorre sotto la canna: la fiamma piccola resta sul metallo che si sta arroventando
+                    MagicFx.Flame(palm + n * 0.012f + Random.insideUnitSphere * 0.012f, up, 0.28f);
+                    if (Random.value < 0.5f) MagicFx.Flame(palm + n * 0.012f + Random.insideUnitSphere * 0.02f, up, 0.2f);
                     break;
                 case "ichor":
                     MagicFx.Glow(palm + n * 0.012f + Random.insideUnitSphere * 0.01f, MagicFx.Acid, 0.01f, 0.1f, 0.45f);

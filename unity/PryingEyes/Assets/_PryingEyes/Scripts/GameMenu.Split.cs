@@ -23,8 +23,9 @@ namespace PryingEyes
             "X ricarica (usa e compra) · RB acquasanta\n" +
             "LB magia della mano sinistra (sigillo sull'arma)\n" +
             "Croce su: torcia (cambia pila)\n" +
-            "Croce giù: carillon (mina) · sinistra: porte (velo)\n" +
-            "Croce destra: magia seguente (sigillo seguente)\n" +
+            "Croce giù: carillon (mina)\n" +
+            "Croce sinistra: sigillo seguente (velo)\n" +
+            "Croce destra: magia seguente (indica le porte)\n" +
             "Back mappa (tabellone) · Start pausa";
 
         void BuildSplit()

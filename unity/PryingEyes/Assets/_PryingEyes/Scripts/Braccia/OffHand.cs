@@ -26,7 +26,7 @@ namespace PryingEyes
         /// il pozzetto) e Port la finestra di caricamento sotto il castello: punti fermi dell'arma. Charge, SlideRear, Cover, Breech,
         /// Forend e Cylinder stanno sulle parti che si muovono (leva d'armamento, carrello, coperchio, canne, astina della doppietta,
         /// tamburo): la mano che ci sta sopra le segue (ReloadAnims).</summary>
-        public enum Part { None, Muzzle, Mag, Eject, Sight, GripL, Receiver, Barrel, MagBase, LeftSide, MagGrip, Charge, SlideRear, Cover, Breech, Forend, Cylinder, Port }
+        public enum Part { None, Muzzle, Mag, Eject, Sight, GripL, Receiver, Barrel, MagBase, LeftSide, MagGrip, Charge, SlideRear, Cover, Breech, Forend, Cylinder, Port, Under }
 
         public struct Key
         {
@@ -491,6 +491,7 @@ namespace PryingEyes
                 case Part.Receiver: return surface.Receiver;
                 case Part.Barrel: return surface.AlongBarrel(barrel);
                 case Part.LeftSide: return surface.LeftAlong(barrel);
+                case Part.Under: return surface.UnderAlong(barrel);
                 default: return Vector3.zero;
             }
         }
@@ -750,6 +751,17 @@ namespace PryingEyes
         float BarrelEnd => Mathf.Min(Mathf.Min(muzzle.z - 0.02f, 0.62f), Receiver.z + 0.36f);
         public Vector3 Below(float z) => new Vector3(0f, Bottom(z), z);
         public Vector3 LeftPoint(float z, float yFrac = 0.5f) => new Vector3(Left(z), Mathf.Lerp(Bottom(z), Top(z), yFrac), z);
+
+        /// <summary>Un punto sul sotto dell'arma davanti al caricatore: 0 poco oltre il pozzetto, 1 verso la bocca (o fin dove arriva il
+        /// braccio, BarrelEnd). Dove un palmo rivolto in su scorre sotto l'arma (i sigilli scaldano l'arma dal basso). Sulle armi corte
+        /// il tratto si accorcia ma resta di una decina di centimetri.</summary>
+        public Vector3 UnderAlong(float t)
+        {
+            float end = BarrelEnd;
+            float start = Mathf.Min(Receiver.z + 0.10f, end - 0.08f);
+            float z = Mathf.Lerp(start, end, Mathf.Clamp01(t));
+            return new Vector3(0f, Bottom(z), z);
+        }
 
         /// <summary>Un punto sul dorso della canna: 0 sopra il castello, 1 alla bocca (o fin dove arriva il braccio, BarrelEnd).</summary>
         public Vector3 AlongBarrel(float t)
