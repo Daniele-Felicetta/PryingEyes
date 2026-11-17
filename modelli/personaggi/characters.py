@@ -57,7 +57,7 @@ LOOKS = {
     ),
     'reporter': dict(
         skin=(0.55, 0.38, 0.29), stubble=0.25, stubble_col=(0.22, 0.16, 0.10), weather=0.10, ruddy=0.30,
-        hair=(0.35, 0.25, 0.10), hair_light=(0.60, 0.45, 0.20),
+        hair=(0.20, 0.13, 0.045), hair_light=(0.46, 0.32, 0.11),     # dark blond: the paler one read as a shaved head against the skin
         hair_style=('do', dict(z_back=-0.040, hairline=0.060, side_drop=0.036)), moustache=False, cap=False,
         iris=(0.10, 0.15, 0.25),
         jacket=(0.34, 0.20, 0.030), cuff=(0.20, 0.12, 0.025), trousers=(0.060, 0.100, 0.200), patch=(0.05, 0.08, 0.16),
