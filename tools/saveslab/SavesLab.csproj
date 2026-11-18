@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- LangVersion 9: the newest C# Unity compiles; the lab refuses what the game could not build -->
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><LangVersion>9.0</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="JsonChecks.cs" />
+    <Compile Include="FormatChecks.cs" />
+    <Compile Include="StoreChecks.cs" />
+    <Compile Include="CharacterChecks.cs" />
+    <Compile Include="RunChecks.cs" />
+    <Compile Include="FakeFiles.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.saves/Runtime/Json.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.saves/Runtime/SaveFormat.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.saves/Runtime/SaveStore.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/CharacterLooks.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/Leveling.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/CharacterRecord.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/CathedralJson.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/RunRecord.cs" />
+  </ItemGroup>
+</Project>

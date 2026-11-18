@@ -104,6 +104,35 @@ namespace PryingEyes.EditorTools
                 Check("four monitors: the panel says how the players are divided", HasText(menu, "Su 4 monitor: 2 giocatori 1+1"));
                 Click("Indietro");
                 SplitScreen.TestConnected = 0; SplitScreen.TestWanted = 0;
+                // i personaggi (0.9): l'elenco, il nuovo, l'eliminazione e la scelta di chi gioca ai posti dello schermo condiviso
+                Click("Personaggi"); Render("characters", size, camera, menu, output);
+                Click("Nuovo personaggio"); Render("character-new", size, camera, menu, output); Click("Annulla");
+                Click("Elimina"); Render("character-delete", size, camera, menu, output); Click("Annulla");
+                Click("Indietro");
+                Check("the main menu names the character that plays", HasText(menu, "Prova") || HasText(menu, "crea il tuo personaggio"));
+                var tester = Characters.Roster.Local;
+                if (tester != null)
+                {
+                    var worst = new Characters.RunRecord { branch = 3, floor = 12, seed = 11, score = 1234567, savedAt = "2026-11-18T10:00:00Z" };
+                    worst.carried = Characters.RunSave.FromBundle(Production.Economy.Bundle.Of((Cattedrale.Risorse.Ossa, 9999), (Cattedrale.Risorse.Legno, 9999), (Cattedrale.Risorse.Acciaio, 9999),
+                        (Cattedrale.Risorse.Brace, 9999), (Cattedrale.Risorse.Cuori, 9999), (Cattedrale.Risorse.Sangue, 9999), (Cattedrale.Risorse.Reliquie, 9999),
+                        (Cattedrale.Risorse.Oscurita, 9999), (Cattedrale.Risorse.Fede, 9999), (Cattedrale.Risorse.Gemme, 9999), (Cattedrale.Risorse.Oboli, 9999)));
+                    Check("a suspended expedition is written", Characters.Roster.SaveRun(tester, worst) && Characters.Roster.HasRun(tester));
+                    Click("Personaggi");
+                    Check("the character list names the suspended expedition", Field<Text>(menu, "charBody").text.Contains("Spedizione sospesa"));
+                    Render("characters-run", size, camera, menu, output);
+                    Click("Indietro");
+                    Click("Gioca"); Render("run", size, camera, menu, output);
+                    Check("Gioca asks what to do with a suspended expedition", HasText(menu, "Una spedizione ti aspetta") && GameObject.Find("Pulsante Riprendi la spedizione") != null && GameObject.Find("Pulsante Ricomincia dalla cattedrale") != null);
+                    Check("the suspended expedition panel tells what the backpack holds", HasText(menu, "Nello zaino: 9999 Ossa"));
+                    Click("Indietro");
+                    Check("Indietro returns to the main menu", GameObject.Find("Pulsante Gioca") != null);
+                    Characters.Roster.ClearRun(tester);
+                    Check("the suspended expedition is gone", !Characters.Roster.HasRun(tester));
+                }
+                Click("Schermo condiviso"); Click("3 giocatori"); Render("split-cast", size, camera, menu, output);
+                Check("the cast panel lists three seats", HasText(menu, "Giocatore 3:"));
+                Click("Indietro"); Click("Indietro");
                 GameManager.proc = false;
                 if (size.x == 1024)
                 {
@@ -113,6 +142,11 @@ namespace PryingEyes.EditorTools
                     stats.text = "ONDATA XXIII  ·  PIANO 12  ·  1.234.567 PUNTI  ·  12345 UCCISIONI  ·  123:45";      // il caso peggiore
                     Render("pause", size, camera, menu, output);
                     Click("Torna al menu"); Render("leave", size, camera, menu, output); Click("Annulla");
+                    GameMenu.TestCanSave = true;                // con il salvataggio i bottoni sono tre
+                    Click("Torna al menu"); Render("leave-save", size, camera, menu, output);
+                    Check("the leave panel offers to save", GameObject.Find("Pulsante Salva e torna al menu") != null);
+                    Click("Annulla");
+                    GameMenu.TestCanSave = null;
                     Click("Riprendi"); Check("resume releases input", !GameMenu.Blocked && Time.timeScale == 1f);
                 }
                 camera.targetTexture = null; UnityEngine.Object.DestroyImmediate(rt);

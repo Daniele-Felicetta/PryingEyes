@@ -29,7 +29,8 @@ areas, perks, shops) are those of [tower.md](tower.md); this page only lists wha
 7. **Dying** ends the expedition: you wake in the cathedral with half of the common resources (rounded down) and none of the rare ones.
    The rest stays as **your remains** on the first level of that branch, marked by a column of light; reach them on the next descent into
    the same branch and they go back into the satchel. Dying again before that loses them for good. Returning to the main menu during an
-   expedition counts as dying.
+   expedition counts as dying, unless a player alone chooses **Salva e torna al menu** between two waves: the expedition is then suspended in a
+   file of the character and resumed from *Gioca* ([saves-and-characters.md](saves-and-characters.md#a-suspended-expedition)).
 
 ## The branches
 
@@ -145,9 +146,10 @@ starting point, not a tuning.
 
 ## Co-op and split screen
 
-The cathedral belongs to one player for now. In online co-op and in split screen the game starts in the catacombs as before and goes
-down level after level across the branches (floors 1-3 are the Ossario, 4-6 the Teatro, ...). Everything picked up, and the boss trophies,
-go straight into the store of the machine that picked them, with no risk; works, the market and blessings are used when playing alone.
+The cathedral belongs to a character (one each, [saves-and-characters.md](saves-and-characters.md)), and works, the market and blessings are used when
+playing alone. In online co-op and in split screen the game starts in the catacombs as before and goes down level after level across the
+branches (floors 1-3 are the Ossario, 4-6 the Teatro, ...). Everything picked up, and the boss trophies, go straight into the store of the
+character that picked them (each machine's own online, each seat's own in split screen), with no risk.
 Doors keep everybody's price in co-op (the host checks purchases). The boss of a branch shows its health bar only on the host and on
 clients for the Cardinale; resources are drawn per machine, so no new network messages were needed.
 
@@ -157,7 +159,7 @@ clients for the Cardinale; resources are drawn per machine, so no new network me
 | --- | --- |
 | Engine-independent rules (ledger, constructions, market, loot, expedition) | `unity/PryingEyes/Packages/com.pryingeyes.economy` ([README](../../unity/PryingEyes/Packages/com.pryingeyes.economy/README.md)) |
 | The catalog: resources, branches, works, blessings, supplies, market, drop tables | `Scripts/Cattedrale/Catalogo.cs` (no `UnityEngine`: the lab compiles it) |
-| State and save (`persistentDataPath/cattedrale.json`; `-profilo NAME` for another file; automated runs use a test profile) | `Scripts/Cattedrale/Fabbrica.cs` |
+| State, one per character, saved in the character's file (`persistentDataPath/characters/<id>.json`; the old `cattedrale.json` is imported once as the first character; `-profilo NAME` for another folder; automated runs use a test profile); suspending and resuming an expedition (`Riprendi`, `Sospendi`) | `Scripts/Cattedrale/Fabbrica.cs`, `Scripts/Characters/` |
 | Modes: catacombs (default in the game; tests keep the Tower unless `-catacombe`/`-cattedrale`; `-torre` forces the Tower) and cathedral (alone) | `Scripts/Cattedrale/Catacombe.cs` |
 | Drops on the floor, the satchel HUD | `Scripts/Cattedrale/RisorsaPickup.cs`, `HUD.Risorse.cs` |
 | Construction sites, market objects, candles, gates, register | `Scripts/Cattedrale/HubInteract.cs` |
@@ -185,6 +187,9 @@ clients for the Cardinale; resources are drawn per machine, so no new network me
   the trophy already in the store, the gate leading up, the return. Finally the save is reloaded and compared. With `-cattedraleshots`
   it writes photos to `hotel_build/cattedrale/` (git-ignored).
 - `python tools/check_suite.py` and the Python unit tests pass with the new package, lab and suite.
+- With the characters (18 November 2026, 0.9): `-cattedraletest` is 72 checks, 72 passed. The 23 new ones are the suspended expedition (equipment, points,
+  satchel, an area bought, the file consumed, no extra descent) and the abandoned one; what they check is in
+  [saves-and-characters.md](saves-and-characters.md#verification).
 - The fourth branch with the regenerated scene kit (17 November 2026, a full `BuildPlayer.Torre` build): `-catacombe -floor 10` builds the
   first level of the branch with the Guardaroba theme and the 17 `gu_*` props as models (`-perfprops`, seed 3068: all 17 photographed, none a
   grey box; photos in [guardaroba.md](guardaroba.md#verification)). A control player built from the old scene shows grey boxes when the

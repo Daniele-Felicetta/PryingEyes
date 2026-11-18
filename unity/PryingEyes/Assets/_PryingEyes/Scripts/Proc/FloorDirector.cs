@@ -95,10 +95,17 @@ namespace PryingEyes.Proc
             RoundDirector.ResetRun();
             Drops.ResetRun();
             Seats.EachOrOnce(_ => { Perks.ResetRun(); Medals.Reset(); });
+            if (TakeResume(out var resume)) { StartCoroutine(ResumeCo(resume)); return; }      // "Gioca" con una spedizione sospesa: si riprende (FloorDirector.Run.cs)
             // due zone: da soli si parte dalla cattedrale (FloorDirector.Catacombe.cs); in cooperativa e nello schermo condiviso si scende subito,
             // e il bottino va diretto nel magazzino (la spedizione resta aperta finche' non si torna al menu)
             if (Catacombe.Hub && startFloor <= 0 && ArgInt("-floor", 0) <= 0) { StartCoroutine(GoToHub(null, true)); return; }
-            if (Catacombe.Attive) Cattedrale.Fabbrica.Inizia(Rami.RamoDi(startFloor > 0 ? startFloor : ArgInt("-floor", 1)), !Catacombe.Hub);
+            if (Catacombe.Attive)
+            {
+                // ogni giocatore comincia la sua spedizione, con la cattedrale del suo personaggio (nello schermo condiviso una per posto)
+                int startBranch = Rami.RamoDi(startFloor > 0 ? startFloor : ArgInt("-floor", 1));
+                bool direct = !Catacombe.Hub;
+                Seats.EachOrOnce(_ => Cattedrale.Fabbrica.Inizia(startBranch, direct));
+            }
             StartCoroutine(GoTo(startFloor > 0 ? startFloor : ArgInt("-floor", 1), true));
         }
 
@@ -488,7 +495,9 @@ namespace PryingEyes.Proc
             if (Catacombe.Attive && Rami.LivelloDelBoss(floor) && SurvivalMode.Enabled)
             {
                 // il boss del livello e' caduto (l'uscita si apre solo cosi'): il suo trofeo va subito nella cattedrale, anche su ogni macchina della cooperativa
-                var trophy = Cattedrale.Fabbrica.Trofeo(floor);
+                // un trofeo per ogni personaggio in campo (nello schermo condiviso, il magazzino di ognuno); il banner dice il primo
+                Production.Economy.Bundle trophy = null;
+                Seats.EachOrOnce(_ => { var t = Cattedrale.Fabbrica.Trofeo(floor); if (trophy == null) trophy = t; });
                 var boss = Rami.BossDi(floor);
                 string tail = ReturnsUp ? "La scala risale alla cattedrale." : "Il cancello si apre verso il basso.";
                 Seats.ForHuds(h => { h.Banner($"{boss.bossTitolo} è caduto", "Al sicuro nella cattedrale: " + Cattedrale.Risorse.Testo(trophy) + ". " + tail); });

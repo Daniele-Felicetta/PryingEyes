@@ -17,7 +17,8 @@ split screen.
 1. Main menu, **Schermo condiviso**, then the number of players. The button **Giocatore 1** switches player 1 between *tastiera e mouse*
    and *controller (e tastiera)*. The panel shows how many controllers the game sees and how many two players need.
    With two or more monitors connected the same row has a second button, **Monitor**, that picks how many monitors to use (see below).
-2. The run starts at once. Everyone arrives side by side in the cabin of floor 1, and the screen is divided as in the table below.
+2. **Chi gioca?** asks which character plays in each seat ([../game/saves-and-characters.md](../game/saves-and-characters.md#playing-together)), and
+   **Comincia** starts the run at once. Everyone arrives side by side in the cabin of floor 1, and the screen is divided as in the table below.
 3. Everybody can play with a controller; player 1 can also use the keyboard and the mouse. See [Controls](#controls).
 4. **Pause**: Esc, or Start on any controller. It stops the whole world for everyone and hides every HUD; Esc, Start on any controller or
    **Riprendi** resumes. The pause menu names who uses what (*G1: tastiera e mouse   G2: controller 1 ...*). **Torna al menu** ends the
@@ -95,6 +96,12 @@ The mapping, the menus and the on-screen hints are on [the controller page](../g
 | Barrels, chandeliers, lamps, traps and mines in the world (the points of a kill go to whoever caused it) | Going down at zero health (since 0.7.2; a teammate revives by holding Use for 3 s next to the body), and death after bleeding out: a dead player returns to the entrance after 2.5 s and loses half the points and the last perk; the others go on |
 | The round and the pause | The reward for lighting a candle goes to who lit it; the reward for a floor, a wave or a round goes to everyone |
 
+**Characters** (0.9). Each seat plays its own character: its experience, kills, play time and the loot it picks up go to that character's own file,
+and its cathedral state is part of the seat (`Seat.cathedral`, put in place by `Seats.Enter` with the other per-player values; `Progress.Mine` and
+`Fabbrica` follow the seat that is installed). Two characters never share a look in one game. A suspended expedition (*Salva e torna al menu*) is
+for the single player: with several players *Torna al menu* closes the game for everyone, as before
+([../game/saves-and-characters.md](../game/saves-and-characters.md#a-suspended-expedition)).
+
 Enemies use the multi-target behaviour of the online co-op (`Targets`): they appear on the nearest player and, in the wave cycle (where they
 know where everyone is), switch to a player who is clearly closer; in the old candle cycle they follow whoever they see, hear or provoke.
 
@@ -167,6 +174,9 @@ It checks:
   2, 3 and 4 players) and the picture is saved as `hotel_build/seats/vedersi_N.png`.
 - **Context swap**: inside a seat the globals are that seat's; equipment, knife, torch, guide and stealth net are different per seat; seat 1
   is installed again afterwards.
+- **Characters** (0.9, 7 checks): every seat has its own character, cathedral and look, all different; seat 1 is the local character and has its
+  cathedral at rest; the name of a seat is its character's; inside a seat the cathedral is that seat's; 3 bones picked up by one seat land only in the
+  store of its character; afterwards the cathedral of seat 1 is installed again.
 - **Controllers**: each player walks with their own controller while the others stand still; a trigger fires only that player's weapon; one
   player walks while another jumps, with no command crossing over.
 - **Points and enemies**: points, hits and kills of one player are only theirs; an enemy appears on the nearest player and switches to a
@@ -233,6 +243,10 @@ by chance because the ragdoll froze a monk's body while its staff was still fall
 and stealth cycle (`-stealthtest`, `-roundtest`, `-knifetest`, `-droptest`, `-booktest`, `-gridtest`, `-holescan`, `-pushtest`,
 `check_navigation.py --legacy`) were not run again: that cycle is off unless `-candles` is given.
 
+On 18 November 2026, with the characters of 0.9 (the build of that day, from the menu, no window): `-seatstest` passed 89 of 89 with two players and
+99 of 99 with four, among them the 7 checks on the characters of the seats; `Chi gioca?` was checked by `MenuReview` (2790 checks, the panel at
+the four sizes and its photograph at 1280x720). Not run on that build: three players, `-splittest`, several monitors.
+
 ## Not verified, limits
 
 - A **physical controller**: none was connected. The XInput calls answer without errors and everything else ran on injected states.
@@ -251,7 +265,7 @@ and stealth cycle (`-stealthtest`, `-roundtest`, `-knifetest`, `-droptest`, `-bo
   opened it, and it closes by the distance of
   player 1 (on one monitor too, for the players after the first). The extra windows take the monitor's native size and the display settings
   of the menu (resolution, quality) apply to the game window only. The players cannot have different display settings. The guest-style
-  choices of the online co-op (names, addresses) do not exist here.
+  choice of the online co-op (an address) does not exist here: the players' names are those of their characters.
 - **Several monitors, not tried for real**: three and four monitors (tested only with pretend ones); a program of another process covering a
   game window (the test puts a window of the game's own process over it; on the first real run a browser covered the window of the second
   monitor, before the raising existed); clicking in the window of the second monitor and what happens to the keyboard there (the test

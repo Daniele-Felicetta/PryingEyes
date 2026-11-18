@@ -1,7 +1,8 @@
 # Tutte le prove della cooperativa in fila (una riga di esito per prova), con run_coop.ps1 e la build di prova.
 #   .\tools\coop\run_all.ps1                  tutte (circa 12 minuti)
 #   .\tools\coop\run_all.ps1 -Only a,c        solo quelle che iniziano con a e c: a griglia, b pianta ad ali, c entrata tardiva,
-#                                             d uscita pulita, e processo ucciso, f esce l'ospite, g tre giocatori, h quattro giocatori
+#                                             d uscita pulita, e processo ucciso, f esce l'ospite, g tre giocatori, h quattro giocatori,
+#                                             i aspetti e livelli dei personaggi (due processi con lo stesso aspetto chiesto)
 # Esce con 0 solo se tutte sono superate.
 param([string[]]$Only = @(), [int]$Seed = 2961, [int]$TimeoutSec = 420, [string]$LogDir = (Join-Path $env:TEMP 'pryingeyes-coop'))
 $run = Join-Path $PSScriptRoot 'run_coop.ps1'
@@ -15,6 +16,7 @@ $tests = [ordered]@{
     f_ospite  = @{ Clients = 1; H = @('-cooptest', '-coophostleave', '-seed', $S); C = @('-cooptest', '-coophostleave') }
     g_tre     = @{ Clients = 2; H = @('-cooptest', '-coopplayers', '3', '-seed', $S); C = @('-cooptest', '-coopplayers', '3') }
     h_quattro = @{ Clients = 3; H = @('-cooptest', '-coopplayers', '4', '-seed', $S); C = @('-cooptest', '-coopplayers', '4') }
+    i_aspetti = @{ Clients = 1; H = @('-cooptest', '-cooplook', 'custode', '-cooplevel', '7', '-seed', $S); C = @('-cooptest', '-cooplook', 'custode', '-cooplevel', '3') }
 }
 # con 'powershell -File' l'elenco -Only a,c arriva come una stringa sola: la si spezza sulle virgole
 $Only = @($Only | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })

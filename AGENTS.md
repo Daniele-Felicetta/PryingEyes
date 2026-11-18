@@ -18,8 +18,8 @@ documentation is `docs/README.md`; building, shipping and CI are in `docs/engine
    explicit flag (for example `citylab.py --require-assets`).
 6. Do not run `tools/check_presentation.py` or the player's `-uitest` unprompted: they change the game's registry settings.
 7. The maintainer writes in Italian; reply to them in Italian. Keep code, identifiers and docs in English.
-8. **CI** (`.github/workflows/gate.yml`): every push to `preview` and every pull request against it runs the rule-3 gate plus the two
-   .NET rule labs (`python tools/studio.py test weapon-state`, `... test survival` and `... test economy`) on a sparse checkout. Before starting work look at
+8. **CI** (`.github/workflows/gate.yml`): every push to `preview` and every pull request against it runs the rule-3 gate plus the
+   .NET rule labs (`python tools/studio.py test weapon-state`, `... test survival`, `... test economy` and `... test saves`) on a sparse checkout. Before starting work look at
    the latest run on `preview` (`gh run list --branch preview --limit 1`); if it is red, fix that before anything else.
 9. **One writer per Unity checkout**: in the checkout the editor opens, one agent writes at a time. Anyone who does not need the editor
    works in a separate git worktree on its own branch and reaches `preview` through a pull request.
@@ -40,3 +40,8 @@ documentation is `docs/README.md`; building, shipping and CI are in `docs/engine
 13. **Documentation** (`README.md`, `docs/`): one topic per page, written in English, every page listed in `docs/README.md`, paths
     relative to the repository root (never this machine's). `python tools/check_suite.py` fails on a broken link, a page missing from
     the index and a machine-specific path. When a change alters what a page says, update the page in the same commit.
+14. **Saves** (`unity/PryingEyes/Packages/com.pryingeyes.saves`, `unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/`): the characters and the
+    suspended expedition of a player must survive every version. A change to the shape or the meaning of what a save holds bumps its `Version` and
+    adds one tested migration (never edit a released step); new data usually needs none. The recipe, the files and the version history are in
+    `docs/engineering/save-system.md`; `python tools/studio.py test saves` is part of the CI gate. Automated runs never touch the player's characters
+    (`Roster.IsTest`: `characters-prova/`).

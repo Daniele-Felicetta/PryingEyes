@@ -45,6 +45,9 @@ tools/survivallab/obj/
 !tools/economylab/EconomyLab.csproj
 tools/economylab/bin/
 tools/economylab/obj/
+!tools/saveslab/SavesLab.csproj
+tools/saveslab/bin/
+tools/saveslab/obj/
 modelli/chiesa/export/*.fbx
 modelli/hotel/arredi2/*.fbx
 modelli/hotel/arredi3/*.fbx

@@ -1,5 +1,5 @@
 # The gate on GitHub: the checks that used to run only inside tools/ship.ps1 on one PC (suite boundaries, Python unit tests)
-# plus the two .NET rule labs, whose reports are kept as an artifact. No Unity, no Blender, no secrets: the paths below are
+# plus the .NET rule labs, whose reports are kept as an artifact. No Unity, no Blender, no secrets: the paths below are
 # everything the gate reads, so the checkout is a few MB instead of the 900 MB of the full tree.
 name: gate
 
@@ -97,9 +97,9 @@ jobs:
 
       # Compiled here, once, so the Python tests that run `dotnet run` (90-120 s limits) do not spend them restoring and compiling.
       # Several native commands in one PowerShell step: only the last exit code would count, so each one is checked.
-      - name: Compile the four .NET labs
+      - name: Compile the five .NET labs
         run: |
-          foreach ($lab in 'planlab', 'weaponslab', 'survivallab', 'economylab') {
+          foreach ($lab in 'planlab', 'weaponslab', 'survivallab', 'economylab', 'saveslab') {
             dotnet build "tools/$lab" -c Release --nologo
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
@@ -122,10 +122,15 @@ jobs:
           STUDIO_OUTPUT: unity_logs/lab-reports/economy
         run: python tools/studio.py test economy
 
+      - name: Save rules lab
+        env:
+          STUDIO_OUTPUT: unity_logs/lab-reports/saves
+        run: python tools/studio.py test saves
+
       - name: Lab results in the run summary
         if: ${{ !cancelled() }}
         run: |
-          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy') {
+          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy', 'saves') {
             $found = Get-ChildItem "unity_logs/lab-reports/$lab" -Recurse -Filter report.json -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $found) { "| $lab | no report | | |"; continue }
             $r = Get-Content $found.FullName -Raw | ConvertFrom-Json

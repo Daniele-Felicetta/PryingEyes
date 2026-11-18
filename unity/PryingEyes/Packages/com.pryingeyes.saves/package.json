@@ -1,0 +1,7 @@
+{
+  "name": "com.pryingeyes.saves",
+  "version": "0.1.0",
+  "displayName": "Production Saves",
+  "description": "Engine-independent save documents: a JSON tree, versioned formats with a chain of migrations that upgrades old saves step by step, and a file store with atomic writes, backups and quarantine.",
+  "unity": "6000.0"
+}
