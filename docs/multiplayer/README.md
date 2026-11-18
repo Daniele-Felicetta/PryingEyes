@@ -217,12 +217,14 @@ la torcia accesa; ha anche fatto trovare un'inversione (il fascio del compagno s
 dell'ospite 7 e 2, tre giocatori 62, 48 e 49, quattro giocatori 62, 48, 48 e 49. Sull'albero integrato non e' stata rifatta la prova con le foto
 (`-cooppics`, serve la grafica) e, come sempre, nessuna prova e' stata fatta tra macchine diverse.
 
-**Esiti del 18 novembre 2026** (0.9, protocollo `pe-coop-30`, build di verifica, due processi su loopback, `run_all.ps1 -Only a,i`): la griglia
+**Esiti del 18 novembre 2026** (0.9, protocollo `pe-coop-30`, build di verifica, tutti i processi su loopback, `run_all.ps1 -Only a,i` e poi `-Only g,h`): la griglia
 supera 62 verifiche sull'ospitato e 49 sull'ospite (come prima) e la nuova prova degli aspetti, `i_aspetti`, 66 e 53, cioe' le quattro verifiche
 dei personaggi in piu' su ogni processo: l'ospite chiede il Custode di livello 7, l'ospitato lo stesso aspetto a livello 3; l'ospite tiene il Custode,
-l'ospitato riceve la Dottoressa, entrambi vedono gli stessi aspetti e livelli e il pupazzo di ogni compagno e' costruito cosi'. Non sono stati
-rifatti gli scenari con tre e quattro giocatori ne' le prove di uscita, di entrata tardiva e di processo ucciso su questo protocollo, e la
-prova non ha toccato ne' la rete vera ne' i personaggi veri di chi gioca (i processi di prova usano `characters-prova/`).
+l'ospitato riceve la Dottoressa, entrambi vedono gli stessi aspetti e livelli e il pupazzo di ogni compagno e' costruito cosi'. Anche tre e quattro
+giocatori (`g_tre`, `h_quattro`: con loro il saluto nuovo arriva anche a chi era gia' dentro, con `PlayerJoined`) superano le stesse verifiche di
+prima: tre giocatori 62, 48 e 49, quattro giocatori 62, 48, 48 e 49. Non sono stati rifatti gli scenari delle ali, dell'entrata tardiva, dell'uscita
+pulita, del processo ucciso e dell'uscita dell'ospite su questo protocollo, e le prove non hanno toccato ne' la rete vera ne' i personaggi veri di chi
+gioca (i processi di prova usano `characters-prova/`).
 
 ## Cosa non e' ancora verificato (e limiti)
 

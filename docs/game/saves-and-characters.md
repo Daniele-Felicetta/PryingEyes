@@ -151,10 +151,12 @@ On 18 November 2026, on the build of that day (`Builds/Audit`), with every proce
   perk, both weapons with their ammunition, the equipment, the magic and the bought area with its doors up all come back, the file is consumed and the
   resume counts neither a descent nor a trip; then an abandoned expedition counts as a death and its file goes to `runs/consumed`.
 - `-seatstest -splitscreen N` from the menu: 89 of 89 with two players and 99 of 99 with four, among them 7 checks on the characters of the seats.
-- Co-op, two processes, `tools/coop/run_all.ps1 -Only a,i`: the usual grid scenario `a_griglia` passed (62 checks on the guest and 49 on the host,
+- Co-op, `tools/coop/run_all.ps1 -Only a,i` (two processes) and `-Only g,h` (three and four): the usual grid scenario `a_griglia` passed (62 checks on the guest and 49 on the host,
   as before); the new `i_aspetti` passed (66 and 53: the four new checks of each process are the characters). In it the host asks for the Custode
   at level 7 and the guest for the same look at level 3 (`-cooplook`, `-cooplevel`): the host keeps the Custode, the guest is given the Dottoressa,
-  both see the same looks and levels, and each partner's body is built with the look and the level declared.
+  both see the same looks and levels, and each partner's body is built with the look and the level declared. The three- and four-player scenarios
+  passed with the same numbers as on 17 November (62, 48 and 49; 62, 48, 48 and 49), so the greeting sent to players who are already in is exercised
+  too. Not run on this protocol: the wing plan, the late join, the clean exit, the killed process and the host's exit.
 - `PryingEyes.EditorTools.MenuReview.Run` (the editor, with graphics): 2790 checks, 0 failed. The photographs of the list with a suspended expedition,
   the creation panel, *Chi gioca?* and the expedition panel with the worst numbers (1,234,567 points and eleven resources of 9999) were looked at at
   1280x720, the leave panel with its three buttons at 1024x768; the other sizes only through the checks that every text fits its box and stays on
