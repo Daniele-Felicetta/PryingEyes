@@ -73,8 +73,19 @@ one monitor the button is not there and the line keeps its usual sentence. The b
 game is already running. A split screen is one game, so the display settings are the ordinary ones (they apply to the game window; any further
 monitor is opened by Unity at its own size). The pause menu names who
 uses what (*G1: tastiera e mouse   G2: controller 1 ...*), says that Esc or Start on any controller resumes, lists the controller's buttons
-when a controller is in use, and **Torna al menu** warns that the split screen closes for every player. Layout, controls and checks:
+when a controller is in use, and **Torna al menu** warns that the split screen closes for every player. After the number of players,
+**Chi gioca?** asks which character plays in each seat ([saves-and-characters.md](saves-and-characters.md#playing-together)). Layout, controls and checks:
 [../multiplayer/split-screen.md](../multiplayer/split-screen.md).
+
+## Characters and the suspended expedition
+
+Since 0.9 (not released when this was written) the main menu has **Personaggi** (`GameMenu.Characters.cs`): the list of the characters, the selected
+one with its level bar and its figures, **Nuovo personaggio** (a name and the look chosen with **Aspetto**; with no character, **Gioca** and the
+co-op panel open it first), and **Elimina** with a confirmation that says where the file goes. The character in use shows under **Gioca** and in the
+co-op panel (*Il tuo personaggio*). In the pause menu **Torna al menu** opens *Tornare al menu?*, which offers **Salva e torna al menu** beside
+**Annulla** and **Lascia la partita** when saving is possible (`GameMenu.Run.cs`; the panel says why not when it is not), and **Gioca** with a
+suspended expedition asks *Una spedizione ti aspetta* with **Riprendi la spedizione** and **Ricomincia dalla cattedrale**. What is kept and the rules:
+[saves-and-characters.md](saves-and-characters.md).
 
 ## Keyboard and controller navigation
 
@@ -155,5 +166,11 @@ several monitors) the **Prospettiva** row of the third person ([third-person.md]
 with its hint and its reset (`ResetGame` turns the third person off), and `MenuReview.Run` checks it with the rest of the tab: the tab now
 has 2 sliders, 4 choices and 6 rows. Result: 2369 of 2369 checks; `MenuMusicReview.Run` 24 of 24.
 
+On 18 November 2026, with the characters of 0.9: `MenuReview.Run` passed 2790 of 2790 checks. The new ones cover the list of the characters (also with a
+suspended expedition), the creation and deletion panels, *Chi gioca?*, the suspended-expedition panel with the worst-case figures (1,234,567 points and
+eleven resources of 9999) and the leave panel with its three buttons: at the four sizes every text fits its box and sits on the screen, the buttons that
+must exist exist, and **Indietro** returns to the main menu. The photographs of the list, the expedition panel, the creation panel and *Chi gioca?*
+(1280x720) and of the leave panel (1024x768) were looked at. **Not verified**: these panels with a controller, and their look in a real player window.
+
 Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Settings.cs`, `GameMenu.Help.cs`, `GameMenu.Split.cs`,
-`MenuWidgets.cs`, `MenuSound.cs`, `MenuMusic.cs`, `MenuEngraving.cs`, `GameSettings.cs`, `GameSettings.More.cs`, `VideoSettings.cs`.
+`GameMenu.Characters.cs`, `GameMenu.Run.cs`, `MenuWidgets.cs`, `MenuSound.cs`, `MenuMusic.cs`, `MenuEngraving.cs`, `GameSettings.cs`, `GameSettings.More.cs`, `VideoSettings.cs`.

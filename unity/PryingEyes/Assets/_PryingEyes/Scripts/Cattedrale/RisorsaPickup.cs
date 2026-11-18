@@ -195,7 +195,7 @@ namespace PryingEyes.Cattedrale
                 Vector3 target = near.transform.position + Vector3.up * 0.9f;
                 body.position = Vector3.MoveTowards(body.position, target, (3f + flight * 14f) * Time.deltaTime);
                 if (beam != null) beam.gameObject.SetActive(false);
-                if (Vector3.Distance(body.position, target) < Presa) { Take(); return; }
+                if (Vector3.Distance(body.position, target) < Presa) { Take(near); return; }
             }
             else
             {
@@ -204,14 +204,20 @@ namespace PryingEyes.Cattedrale
             }
         }
 
-        void Take()
+        /// <summary>'by' e' chi lo raccoglie: nello schermo condiviso va nel magazzino del SUO personaggio e sul suo HUD.</summary>
+        void Take(PlayerController by)
         {
             statTaken++;
-            if (spoglie) Fabbrica.SpoglieRiprese(); else Fabbrica.Raccogli(loot);
+            var seat = Seats.OfPlayer(by);
+            using (Seats.Enter(seat))
+            {
+                if (spoglie) Fabbrica.SpoglieRiprese(); else Fabbrica.Raccogli(loot);
+            }
             var def = Risorse.Of(Main());
             var col = def != null ? new Color(def.r, def.g, def.b) : Color.white;
             string text = (spoglie ? "Le tue spoglie: " : "+ ") + Risorse.Testo(loot);
-            Seats.ForHuds(h => h.RisorsaFeed(text, col));
+            if (seat != null && seat.hud != null) seat.hud.RisorsaFeed(text, col);
+            else Seats.ForHuds(h => h.RisorsaFeed(text, col));
             Sfx.UI(SoundBank.PickCoins, def != null && def.grado >= Grado.Rara ? 0.42f : 0.22f, def != null && def.grado >= Grado.Rara ? 0.8f : 1.25f);
             Destroy(gameObject);
         }

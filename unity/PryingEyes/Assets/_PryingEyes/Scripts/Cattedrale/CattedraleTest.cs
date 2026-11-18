@@ -2,7 +2,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using Production.Economy;
+using PryingEyes.Characters;
 using PryingEyes.Proc;
 using UnityEngine;
 
@@ -191,6 +193,11 @@ namespace PryingEyes.Cattedrale
             var carried = Fabbrica.Spedizione.Carried.Snapshot();
             Check("le risorse finiscono nello zaino, non nel magazzino", RisorsaPickup.statTaken > taken0 && !carried.IsEmpty, carried.ToString());
 
+            // ---- la spedizione sospesa: si salva, si riprende nello stesso posto e si ritrova tutto (zaino, punti, armi, perk, magie, lanci)
+            yield return RunSaveChecks(fd, gm);
+            stair = Find<ScalaRisalita>(_ => true);          // il livello e' stato ricostruito: le cose di prima non ci sono piu'
+            alms = Find<CassettaElemosine>(_ => true);
+
             // ---- la cassetta delle elemosine
             gm.AddPoints(600);
             int scoreBefore = gm.score, oboliBefore = Fabbrica.Banca.Get(Risorse.Oboli);
@@ -267,12 +274,98 @@ namespace PryingEyes.Cattedrale
             yield return WaitHub();
             Check("risalita dal boss: spedizione compiuta", fd.InHub && Fabbrica.D.estrazioni == 2 && !Fabbrica.Spedizione.Active);
 
+            // ---- una spedizione sospesa che non si riprende vale una morte
+            yield return DiscardChecks();
+
             // ---- il salvataggio: ricaricato da capo, dice le stesse cose
             var bank = Fabbrica.Banca.Snapshot(); var built = string.Join(",", Fabbrica.Albero.BuiltIds());
             Fabbrica.Carica(true);
             Check("il salvataggio ricaricato e' identico", Fabbrica.Banca.Snapshot().Equals(bank) && string.Join(",", Fabbrica.Albero.BuiltIds()) == built, $"[{Fabbrica.Banca.Snapshot()}] {built}");
             Check("il cancello del Teatro si puo' costruire con le reliquie", Fabbrica.Albero.Unlocked("cancello_teatro"));
             Shot("05_ritorno");
+        }
+
+        /// <summary>Salva a meta' del primo livello con un equipaggiamento riconoscibile, azzera tutto come in una sessione nuova e riprende: ogni cosa
+        /// deve tornare com'era, il file si consuma e la ripresa non conta un livello sceso ne' una spedizione in piu'.</summary>
+        IEnumerator RunSaveChecks(FloorDirector fd, GameManager gm)
+        {
+            var owner = Fabbrica.Proprietario;
+            Check("la spedizione ha un personaggio a cui salvarsi", owner != null);
+            if (owner == null) yield break;
+            var pl = gm.player;
+            int ar = WeaponDefs.IndexOf("ar9_malleus"), pistol = WeaponDefs.IndexOf("p9_pieta");
+            pl.PerkState.Add(PerkId.DoppioColpo);
+            pl.weapon.Equip(ar);
+            pl.weapon.mag = 5; pl.weapon.reserve = 42;
+            Equipment.Ensure(pl);
+            Equipment.I.grenades = 3; Equipment.I.lures = 2; Equipment.I.mines = 0;
+            pl.Arcana.Witch = 1u << 12; pl.Arcana.SelectedSpell = 12; pl.Arcana.Essence = 77f;
+            int score = gm.score, seed = fd.runSeed, floor = fd.floor, branch = Fabbrica.Ramo;
+            int descended = Fabbrica.D.livelliScesi, trips = Fabbrica.D.spedizioni, deaths = Fabbrica.D.morti;
+            var pack = Fabbrica.Spedizione.Carried.Snapshot();
+
+            // un'area comprata in questo livello: le porte pagate non devono richiudersi con la ripresa (i punti spesi non tornano)
+            var doors = RoomAccessDoors.I;
+            int bought = -1, openBefore = 0;
+            if (doors != null)
+            {
+                foreach (var room in fd.cur.plan.rooms) if (bought < 0 && doors.Access.CanBuy(doors.Access.StartRoom, room.id)) bought = room.id;
+                if (bought >= 0) doors.ApplySnapshot(new List<int>(doors.Access.OpenRooms) { bought }, true);
+                openBefore = doors.Access.OpenRooms.Count;
+            }
+            Check("un'area di questo livello e' comprata (le sue porte sono su)", doors != null && bought >= 0 && doors.Access.IsOpen(bought) && openBefore >= 2, $"area {bought}, {openBefore} aperte");
+
+            Check("tra un'ondata e l'altra si puo' salvare", fd.CanSuspend, fd.SuspendProblem ?? "");
+            bool saved = fd.SuspendExpedition(out string problem);
+            Check("la spedizione si salva nel file del personaggio", saved && Roster.HasRun(owner), problem ?? "");
+            Check("salvare non e' morire: nessuna spedizione aperta, nessuna morte, nessuna risalita", !Fabbrica.Spedizione.Active && Fabbrica.D.morti == deaths && Fabbrica.D.estrazioni == 0);
+            var run = Roster.SuspendedRun(owner);
+            Check("il file dice dove, con cosa e con quanti punti", run != null && run.floor == floor && run.seed == seed && run.branch == branch && run.score == score &&
+                RunSave.ToBundle(run.carried).Equals(pack), run != null ? $"livello {run.floor}, seme {run.seed}, {run.score} punti, zaino [{RunSave.ToBundle(run.carried)}]" : "nessun file");
+            Check("armi, perk, magie e lanci sono nel file", run != null && run.state.Has("weapons") && run.state.Has("perks") && run.state.Has("magic") && run.state.Has("equipment"));
+            var savedAreas = run != null ? run.state.Get("areas") : null;
+            Check("le aree comprese sono nel file", savedAreas != null && savedAreas.Get("open") != null && savedAreas.Get("open").Count == openBefore && savedAreas.Int("rooms") == fd.cur.plan.rooms.Count,
+                savedAreas != null && savedAreas.Get("open") != null ? $"{savedAreas.Get("open").Count} aperte su {savedAreas.Int("rooms")} stanze" : "nessuna chiave");
+            if (run == null) yield break;
+
+            // come in una sessione nuova: pistola di partenza, niente perk ne' magie, niente punti, niente lanci
+            pl.weapon.ResetLoadout(); pl.PerkState.ResetRun(); pl.Arcana.ResetRun(); Equipment.I.ResetRun(0, 0, 0); gm.score = 0;
+            Check("prima di riprendere e' tutto da capo", pl.weapon.CurrentIndex == pistol && !pl.weapon.Owns(ar) && Perks.Count == 0 && !pl.Arcana.HasW(12) && gm.score == 0);
+            Check("la ripresa parte", fd.ResumeExpedition(run));
+            yield return new WaitForSeconds(0.2f);
+            yield return WaitLevel(floor);
+
+            Check("si e' allo stesso livello, con lo stesso seme", fd.floor == floor && fd.runSeed == seed && !fd.InHub && fd.cur != null, $"livello {fd.floor}, seme {fd.runSeed}");
+            Check("lo zaino e' quello di prima e la spedizione e' aperta", Fabbrica.Spedizione.Active && Fabbrica.Spedizione.Carried.Snapshot().Equals(pack) && Fabbrica.Ramo == branch,
+                Fabbrica.Spedizione.Carried.Snapshot().ToString());
+            Check("i punti sono quelli di prima", gm.score == score, $"{gm.score} invece di {score}");
+            Check("il perk e' tornato", Perks.Has(PerkId.DoppioColpo));
+            Check("le due armi sono tornate, con le munizioni dell'arma in mano", pl.weapon.Owns(ar) && pl.weapon.Owns(pistol) && pl.weapon.CurrentIndex == ar && pl.weapon.mag == 5 && pl.weapon.reserve == 42,
+                $"in mano {pl.weapon.Def.id}, {pl.weapon.mag}/{pl.weapon.reserve}");
+            Check("i lanci sono contati come prima", Equipment.I.grenades == 3 && Equipment.I.lures == 2 && Equipment.I.mines == 0, $"{Equipment.I.grenades}/{Equipment.I.lures}/{Equipment.I.mines}");
+            Check("la magia scelta e l'essenza sono tornate", pl.Arcana.HasW(12) && pl.Arcana.SelectedSpell == 12 && pl.Arcana.Essence > 70f, $"essenza {pl.Arcana.Essence:F1}");
+            var after = RoomAccessDoors.I;
+            bool doorsUp = after != null;
+            if (after != null) foreach (var d in after.Doors) if (after.Access.IsOpen(d.Opening.a) && after.Access.IsOpen(d.Opening.b) && !d.Shutter.IsUp) doorsUp = false;
+            Check("l'area comprata e' ancora aperta, con le sue porte su", after != null && bought >= 0 && after.Access.IsOpen(bought) && after.Access.OpenRooms.Count == openBefore && doorsUp,
+                $"{(after != null ? after.Access.OpenRooms.Count : -1)} aperte (erano {openBefore}), area {bought}, porte su {doorsUp}");
+            Check("il file e' stato consumato: si riprende una volta sola", !Roster.HasRun(owner));
+            Check("riprendere non conta una discesa ne' una spedizione in piu'", Fabbrica.D.livelliScesi == descended && Fabbrica.D.spedizioni == trips, $"scese {Fabbrica.D.livelliScesi} (erano {descended}), spedizioni {Fabbrica.D.spedizioni} (erano {trips})");
+        }
+
+        /// <summary>"Ricomincia dalla cattedrale" (RunSave.Discard): lo zaino sospeso conta come una morte, il file non si distrugge.</summary>
+        IEnumerator DiscardChecks()
+        {
+            var owner = Fabbrica.Proprietario;
+            if (owner == null) { Check("c'e' un personaggio a cui abbandonare la spedizione", false); yield break; }
+            var made = new RunRecord { branch = 0, floor = 2, score = 900, carried = RunSave.FromBundle(Bundle.Of((Risorse.Ossa, 10), (Risorse.Legno, 4))) };
+            Check("una spedizione sospesa a mano si scrive", Roster.SaveRun(owner, made) && Roster.HasRun(owner));
+            int deaths = Fabbrica.D.morti, ossa = Fabbrica.Banca.Get(Risorse.Ossa);
+            RunSave.Discard(owner, Roster.SuspendedRun(owner));
+            var lost = Fabbrica.Spoglie(0);
+            Check("abbandonarla vale una morte: meta' delle comuni salve, il resto nelle spoglie", Fabbrica.D.morti == deaths + 1 && Fabbrica.Banca.Get(Risorse.Ossa) == ossa + 5 && lost[Risorse.Ossa] == 5 && !Fabbrica.Spedizione.Active,
+                $"morti {deaths}->{Fabbrica.D.morti}, ossa in magazzino {ossa}->{Fabbrica.Banca.Get(Risorse.Ossa)}, spoglie [{lost}]");
+            Check("il file non c'e' piu' e ne resta una copia in consumed", !Roster.HasRun(owner) && File.Exists(Path.Combine(Roster.Folder, "runs", "consumed", owner.id + ".json")));
         }
 
         IEnumerator ShotFrom(Vector3 from, Vector3 target, string name)

@@ -272,7 +272,8 @@ namespace PryingEyes.Proc
         /// primo livello del ramo, l'acqua santa della Fonte, la mappa del cartografo, i prezzi. Solo nelle catacombe.</summary>
         void SetupCatacombLevel(Plan plan)
         {
-            Fabbrica.LivelloSceso();
+            if (resumedLevel) resumedLevel = false;       // una spedizione ripresa non conta il livello due volte (FloorDirector.Run.cs)
+            else Fabbrica.LivelloSceso();
             ApplyCathedralPrices();
             var eq = gm.player != null ? Equipment.Ensure(gm.player) : null;
             if (eq != null && Fabbrica.AcquasantaMinima > eq.grenades) { eq.grenades = Fabbrica.AcquasantaMinima; gm.hud?.SetEquipment(eq.grenades, eq.lures, eq.mines); }

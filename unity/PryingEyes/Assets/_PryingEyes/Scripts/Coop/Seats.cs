@@ -37,10 +37,17 @@ namespace PryingEyes
         /// <summary>Come lo vedono i nemici (il posto 0 e' Targets.Local, gli altri un SeatTarget).</summary>
         public ITarget target;
 
+        /// <summary>Il personaggio che gioca in questo posto (Characters.Roster): nome, livello, aspetto e la sua cattedrale. Null solo nelle prove senza personaggi.</summary>
+        public PryingEyes.Characters.CharacterRecord character;
+        /// <summary>La cattedrale del suo personaggio (Fabbrica la rimette a ogni cambio di posto, come i punti e le armi).</summary>
+        public Cattedrale.Fabbrica.Stato cathedral;
+        /// <summary>L'aspetto che ha in questa partita: quello del personaggio, o il primo libero se un altro posto ha gia' preso lo stesso.</summary>
+        public string look;
+
         public Seat(int index) { this.index = index; viewLayer = Seats.FirstViewLayer + index; }
         /// <summary>Il corpo di questo posto come lo vedono gli altri (0.7.1).</summary>
         public SeatAvatar avatar;
-        public string Name => "Giocatore " + (index + 1);
+        public string Name => character != null ? character.name : "Giocatore " + (index + 1);
         public Transform Eye => player != null ? player.cam : null;
         /// <summary>La torcia di questo posto (se il posto gira adesso, quella installata).</summary>
         public Torch TorchNow => Seats.Current == this ? Torch.I : torch;
@@ -157,6 +164,7 @@ namespace PryingEyes
             s.headshots = GameManager.headshots; s.deaths = GameManager.deaths;
             s.equipment = Equipment.I; s.knife = Knife.I; s.torch = Torch.I; s.guide = Guide.I; s.rig = StealthRig.I; s.prove = Prove.I;
             s.overlay = GameMenu.Overlay;
+            s.cathedral = Cattedrale.Fabbrica.Corrente;
         }
 
         static void Load(Seat s, GameManager gm)
@@ -168,6 +176,7 @@ namespace PryingEyes
             Stealth.Use(s.stealth); Medals.Use(s.medals); Proc.Interact.Use(s.interact); WallBuy.Use(s.wallBuy);
             PadControls.Use(s.pad);
             GameMenu.Overlay = s.overlay;
+            Cattedrale.Fabbrica.Usa(s.cathedral);
         }
 
         /// <summary>Apre o chiude l'interfaccia sopra il gioco di un posto (il grimorio): da quel momento i comandi di quel giocatore sono

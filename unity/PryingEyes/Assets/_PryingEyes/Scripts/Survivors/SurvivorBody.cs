@@ -114,9 +114,10 @@ namespace PryingEyes
 
         // ------------------------------------------------------------------ creazione
         /// <summary>Un corpo sotto 'parent' (coordinate locali azzerate), sullo strato 'layer'. Nullo se il prefab manca (build senza i modelli).</summary>
-        public static SurvivorBody Create(Transform parent, int slot, int layer)
+        public static SurvivorBody Create(Transform parent, int slot, int layer, string look = null)
         {
-            string id = IdOf(slot);
+            // 'look': l'aspetto del personaggio (Characters.CharacterLooks); senza, o se non esiste, quello dello slot
+            string id = !string.IsNullOrEmpty(look) && System.Array.IndexOf(Ids, look) >= 0 ? look : IdOf(slot);
             var prefab = Resources.Load<GameObject>("Survivors/" + id);
             if (prefab == null) { id = Ids[0]; prefab = Resources.Load<GameObject>("Survivors/" + id); }
             if (prefab == null) return null;

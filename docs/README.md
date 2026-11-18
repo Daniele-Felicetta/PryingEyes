@@ -8,10 +8,11 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 
 | If you want to... | Read |
 | --- | --- |
-| understand the game | [The cathedral and the catacombs](game/cathedral-and-catacombs.md), [The Tower](game/tower.md) (the levels), then [Weapons](game/weapons.md) |
+| understand the game | [The cathedral and the catacombs](game/cathedral-and-catacombs.md), [The Tower](game/tower.md) (the levels), then [Weapons](game/weapons.md); [Characters, levels and saves](game/saves-and-characters.md) for who plays and what is kept |
 | build it, ship a change, understand CI | [Building, shipping and CI](engineering/building-and-shipping.md) |
 | know what is verified and how to run each check | [Testing and verification](engineering/testing.md) |
 | reuse the production suite for another project | [Production suite](engineering/suite-architecture.md) |
+| add something to a save without breaking old saves | [Save system](engineering/save-system.md) |
 | see what changed and why | [Quality audit](history/quality-audit.md), [Survival redesign](history/zombies-redesign.md), [Earlier versions](history/legacy-versions.md) |
 
 ## The game (`game/`)
@@ -19,6 +20,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | Page | What it covers |
 | --- | --- |
 | [cathedral-and-catacombs.md](game/cathedral-and-catacombs.md) | The two zones: the cathedral to rebuild (works, market, blessings) and the catacombs below (branches, bosses, resources, satchel, extraction, death and remains, oboli). |
+| [saves-and-characters.md](game/saves-and-characters.md) | The characters a player makes and chooses (name, look, levels, counters, one cathedral each), how they are chosen in split screen and online, the expedition that can be suspended and resumed, old saves that are upgraded, the test profile, the checks. |
 | [tower.md](game/tower.md) | The Tower: procedural floors and themes, the wave cycle (default) and the candle cycle (legacy), points, perks, shops, shrines, power-ups, themed enemies, controls, code map. The floors are now the levels of the catacombs. |
 | [weapons.md](game/weapons.md) | The 28 weapons in 5 grades, per-weapon numbers, gunplay, sights, and the Blender to Unity pipeline. |
 | [guardaroba.md](game/guardaroba.md) | The fourth theme (wardrobes, vampires, scissors, lava): its 17 new props, materials, how to make and photograph them again, how they reach the game (the kit saved in `Torre.unity`), where the rooms place them, traps and what is verified. |
@@ -50,6 +52,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [building-and-shipping.md](engineering/building-and-shipping.md) | Build methods, the `Builds/` layout, `tools/ship.ps1`, the gate and the CI workflow, branches, other platforms, releases. |
 | [testing.md](engineering/testing.md) | Every verification: the hermetic checks, the Unity acceptance checks, the in-game headless tests, navigation, co-op, the performance probe. |
 | [suite-architecture.md](engineering/suite-architecture.md) | The reusable production suite: layers, the boundary guard, how a second project plugs in. |
+| [save-system.md](engineering/save-system.md) | The save library and the rules for saves: the files on disk, what happens when one is read (nine states), how to change what a save contains without breaking old ones (the recipe and the version history), how it is checked. |
 | [production-studio.md](engineering/production-studio.md) | The content pipeline: one source for weapon data, furnished rooms, the weapon-state module, the persistent queue, the evidence gallery. |
 | [city-prototype.md](engineering/city-prototype.md) | The station district: the first project built on the suite beyond the hotel, its labs and verified results (Italian). |
 | [trailer.md](engineering/trailer.md) | How the trailer is recorded from the game itself and edited, and how to make it again. |
@@ -59,7 +62,8 @@ The reusable C# packages have their own READMEs:
 [layout](../unity/PryingEyes/Packages/com.pryingeyes.layout/README.md),
 [weapons](../unity/PryingEyes/Packages/com.pryingeyes.weapons/README.md),
 [survival](../unity/PryingEyes/Packages/com.pryingeyes.survival/README.md),
-[economy](../unity/PryingEyes/Packages/com.pryingeyes.economy/README.md).
+[economy](../unity/PryingEyes/Packages/com.pryingeyes.economy/README.md),
+[saves](../unity/PryingEyes/Packages/com.pryingeyes.saves/README.md).
 
 ## History (`history/`)
 

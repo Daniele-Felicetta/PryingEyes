@@ -1,6 +1,6 @@
 # Cooperativa online (fino a 4 giocatori)
 
-Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md); con la 0.7.1 `pe-coop-27`: magie e sigilli visibili agli altri, stati dei nemici decisi dall'ospite, annessi di tutti; con la 0.7.2 `pe-coop-28`: a terra e rianimazione; con la 0.8.0 `pe-coop-29`: i compagni sono i quattro sopravvissuti con l'arma in mano, vedi [characters.md](../game/characters.md)). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
+Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md); con la 0.7.1 `pe-coop-27`: magie e sigilli visibili agli altri, stati dei nemici decisi dall'ospite, annessi di tutti; con la 0.7.2 `pe-coop-28`: a terra e rianimazione; con la 0.8.0 `pe-coop-29`: i compagni sono i quattro sopravvissuti con l'arma in mano, vedi [characters.md](../game/characters.md); con la 0.9 `pe-coop-30`: il personaggio di ognuno, aspetto e livello, nel saluto, vedi [saves-and-characters.md](../game/saves-and-characters.md)). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
 gira con la propria copia, uno **ospita** e gli altri si collegano al suo indirizzo. Rete: FishNet 4.7.3 (trasporto
 Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 
@@ -10,9 +10,9 @@ Per giocare in piu' persone sullo stesso PC (da due a quattro giocatori nello st
 i controller) non serve niente di tutto questo: menu iniziale, **Schermo condiviso**. Vedi [split-screen.md](split-screen.md). Qui sotto
 si gioca tra macchine diverse.
 
-1. Chi ospita: menu iniziale, **Cooperativa**, scrive il proprio nome e preme **Ospita una partita**. La sua partita
+1. Chi ospita: menu iniziale, **Cooperativa**, guarda il proprio personaggio (la riga *Il tuo personaggio*: nome e livello; si crea o si cambia da **Personaggi**) e preme **Ospita una partita**. La sua partita
    parte subito; gli altri entrano quando vogliono (anche a piano iniziato, con un round in corso).
-2. Gli altri: **Cooperativa**, nome, indirizzo dell'ospite, **Unisciti all'indirizzo**. Il menu si toglie da solo
+2. Gli altri: **Cooperativa**, il proprio personaggio, indirizzo dell'ospite, **Unisciti all'indirizzo**. Il menu si toglie da solo
    appena l'ospite li saluta. Se la versione del gioco non e' la stessa, l'albergo e' pieno o l'ospite non risponde, il
    menu scrive "Connessione rifiutata o senza risposta" (il motivo non viaggia in rete: l'ospite ne scrive una riga nel log).
 3. Nella stessa rete basta l'indirizzo locale dell'ospite: il gioco lo scrive in alto appena si ospita e nel menu di pausa
@@ -21,15 +21,15 @@ si gioca tra macchine diverse.
    raggiungibile (inoltro sul router); non c'e' ancora nessun relay, quindi dietro CGNAT non e' raggiungibile. In quel caso
    funziona una VPN tra amici (Tailscale, ZeroTier, Radmin VPN: ognuno riceve un indirizzo privato, e si scrive quello).
    Il gioco non tocca router e firewall.
-4. Nomi e ultimo indirizzo restano nelle preferenze del gioco (nome vuoto: "Giocatore N"). Non si usa mai il nome
-   dell'utente di Windows.
+4. Il nome in rete e' quello del personaggio (i personaggi stanno in `characters/`, vedi [saves-and-characters.md](../game/saves-and-characters.md));
+   l'ultimo indirizzo resta nelle preferenze del gioco. Non si usa mai il nome dell'utente di Windows.
 
 **Cosa si condivide.** Un solo albergo per tutti: i nemici (li simula l'ospite, gli altri ne vedono i pupazzi),
 le candele accese, le serrande e i round, l'uscita e la discesa (si scende tutti insieme), le gocce a terra (un
 potenziamento raccolto vale per tutti). Ognuno ha **per conto suo** punti, armi, perk, libri, scrigno e altare, muri
 d'armi, pile e torcia. Una candela da' i suoi 60 punti (e munizioni, e il bonus Fantasma) a chi l'accende; il premio di
 un round va a tutti; un'uccisione paga solo chi ha sparato. Un round si annulla solo se muoiono tutti.
-I compagni si vedono come sopravvissuti (dal 0.8.0 uno per slot: Custode, Dottoressa, Reporter, Cacciatrice, con corpo, gambe che camminano e arma in mano, vedi [characters.md](../game/characters.md)), con la loro torcia e il nome sopra la testa; i nemici cacciano il piu' vicino.
+I compagni si vedono come sopravvissuti (Custode, Dottoressa, Reporter, Cacciatrice, con corpo, gambe che camminano e arma in mano, vedi [characters.md](../game/characters.md): dal 0.8.0 uno per slot, dal 0.9 quello del personaggio che ognuno ha scelto, mai due uguali), con la loro torcia e il nome sopra la testa (col livello, se supera 1); i nemici cacciano il piu' vicino.
 In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tuoi comandi.
 
 ## Come funziona
@@ -104,7 +104,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-29`** (0.8.0: `PlayerNet` finisce con `gun`, l'indice dell'arma in mano in `WeaponDefs.All` (255 = nessuna), e un byte con `ads` e `reloading`; `PlayerNet.weapon` resta lo slot dell'arma, che serve alle magie; i sopravvissuti li usano per tenere l'arma in mano, mirare e ricaricare; `pe-coop-28`: `PlayerNet.downed` nel bit 128 dei flag e `bleed` in un byte da 1/8 di secondo, `ReviveClaim`, `Revived`; `pe-coop-27` con la 0.7.1: magie e sigilli, `StatusClaim`, stati in `EnemyNet`, annessi; `pe-coop-26` dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
+Revisione **`pe-coop-30`** (0.9: il saluto porta il personaggio di ognuno: `Hello` = nome, aspetto (testo, vuoto nelle prove) e livello (`U16`); `Welcome` = slot, seme, piano, epoca e, per ogni giocatore presente, slot, nome, aspetto e livello, poi l'aspetto che l'ospite da' al nuovo arrivato; `PlayerJoined` = slot, nome, aspetto, livello; l'ospite tiene l'aspetto chiesto e da' il primo libero a chi ne chiede uno gia' preso, `CharacterLooks.Resolve`; `pe-coop-29`, 0.8.0: `PlayerNet` finisce con `gun`, l'indice dell'arma in mano in `WeaponDefs.All` (255 = nessuna), e un byte con `ads` e `reloading`; `PlayerNet.weapon` resta lo slot dell'arma, che serve alle magie; i sopravvissuti li usano per tenere l'arma in mano, mirare e ricaricare; `pe-coop-28`: `PlayerNet.downed` nel bit 128 dei flag e `bleed` in un byte da 1/8 di secondo, `ReviveClaim`, `Revived`; `pe-coop-27` con la 0.7.1: magie e sigilli, `StatusClaim`, stati in `EnemyNet`, annessi; `pe-coop-26` dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
 del catalogo delle armi in coda): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
@@ -181,6 +181,7 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 | `-coopleave` / `-coopcrash` | uscita pulita / processo ucciso: l'ospite se ne accorge e prosegue da solo (un nemico lo caccia, poi un'ondata intera) |
 | `-coophostleave` | se ne va l'ospite: l'ospitato prosegue da solo con Role spento |
 | `-coopplayers N` | numero di giocatori attesi (con 3 processi) |
+| `-cooplook ID` / `-cooplevel N` | il personaggio che il processo dichiara nel saluto (senza, le prove mandano un aspetto vuoto e livello 1): con l'ospite `custode` di livello 7 e l'ospitato `custode` di livello 3 (`run_all.ps1 -Only i`, scenario `i_aspetti`) si controlla che l'ospite tenga l'aspetto, che il secondo riceva la dottoressa, che tutti vedano gli stessi livelli e che il pupazzo di ogni compagno sia costruito con l'aspetto e il livello dichiarati |
 | `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`; senza, `persistentDataPath/coop`; con `run_coop.ps1 -HostGraphics` e' `%TEMP%\pryingeyes-coop\foto`); dalla 0.7.2 anche il pannello dei compagni nell'HUD dell'ospite: col compagno in piedi (`coop_hud.png`), a terra (`coop_hud_a_terra.png`) e ingrandito al 160% (`coop_hud_160.png`), poi lo rialza |
 
 Con `-cooptest` le ondate partono ferme (`SurvivalMode.HoldWaves`; il copione le libera con `SurvivalMode.Hold`): le avvia il copione, perche' i passi che contano punti e nemici uno per uno non devono
@@ -195,7 +196,7 @@ Lo script `tools/coop/run_coop.ps1` avvia l'ospite e gli ospitati dalla build di
 ```
 
 `tools/coop/run_all.ps1` le fa girare tutte in fila (griglia, ali, entrata tardiva, uscita pulita, processo ucciso, uscita
-dell'ospite, tre e quattro giocatori; circa 12 minuti) e dice quali sono fallite. Aggiungere `-oldplan` a entrambi i
+dell'ospite, tre e quattro giocatori, aspetti e livelli dei personaggi; circa 12 minuti per i primi otto) e dice quali sono fallite. Aggiungere `-oldplan` a entrambi i
 processi prova anche la pianta ad ali. La build di prova si fa con `BuildPlayer.Torre -buildOut` come
 per le altre prove (vedi `docs/engineering/building-and-shipping.md`); lo script non parte se una copia di quell'exe e' gia' aperta.
 
@@ -215,6 +216,15 @@ la torcia accesa; ha anche fatto trovare un'inversione (il fascio del compagno s
 43 e 29, entrata tardiva 11 e 7, uscita pulita 4 e 8, processo ucciso 4 e 8 (il processo ucciso esce con -1, come previsto), uscita
 dell'ospite 7 e 2, tre giocatori 62, 48 e 49, quattro giocatori 62, 48, 48 e 49. Sull'albero integrato non e' stata rifatta la prova con le foto
 (`-cooppics`, serve la grafica) e, come sempre, nessuna prova e' stata fatta tra macchine diverse.
+
+**Esiti del 18 novembre 2026** (0.9, protocollo `pe-coop-30`, build di verifica, tutti i processi su loopback, `run_all.ps1 -Only a,i` e poi `-Only g,h`): la griglia
+supera 62 verifiche sull'ospitato e 49 sull'ospite (come prima) e la nuova prova degli aspetti, `i_aspetti`, 66 e 53, cioe' le quattro verifiche
+dei personaggi in piu' su ogni processo: l'ospite chiede il Custode di livello 7, l'ospitato lo stesso aspetto a livello 3; l'ospite tiene il Custode,
+l'ospitato riceve la Dottoressa, entrambi vedono gli stessi aspetti e livelli e il pupazzo di ogni compagno e' costruito cosi'. Anche tre e quattro
+giocatori (`g_tre`, `h_quattro`: con loro il saluto nuovo arriva anche a chi era gia' dentro, con `PlayerJoined`) superano le stesse verifiche di
+prima: tre giocatori 62, 48 e 49, quattro giocatori 62, 48, 48 e 49. Non sono stati rifatti gli scenari delle ali, dell'entrata tardiva, dell'uscita
+pulita, del processo ucciso e dell'uscita dell'ospite su questo protocollo, e le prove non hanno toccato ne' la rete vera ne' i personaggi veri di chi
+gioca (i processi di prova usano `characters-prova/`).
 
 ## Cosa non e' ancora verificato (e limiti)
 

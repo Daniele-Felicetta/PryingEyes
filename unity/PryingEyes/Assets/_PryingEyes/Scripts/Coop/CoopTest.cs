@@ -15,7 +15,8 @@ namespace PryingEyes
     /// dell'ospitato (punti a chi spara); 4 un nemico dell'ospite ferisce l'ospitato; 5 candela accesa dall'ospitato; 6 round (serrande,
     /// nemici, premio per tutti); 7 goccia presa dall'ospitato (effetto per tutti); 8 uscita e discesa insieme (stessa firma del piano).
     /// Altri copioni: -cooplate (entrata a round in corso), -coopleave / -coopcrash (un ospitato se ne va, pulito o ucciso), -coophostleave (se ne va
-    /// l'ospite), -cooppics (foto del compagno, solo con la grafica), -coopplayers N (N giocatori in tutto).</summary>
+    /// l'ospite), -cooppics (foto del compagno, solo con la grafica), -coopplayers N (N giocatori in tutto), -cooplook ID -cooplevel N (il personaggio
+    /// che ogni processo dichiara: la prova "aspetti", vedi CheckCharacters).</summary>
     public sealed partial class CoopTest : MonoBehaviour
     {
         public static CoopTest I;
@@ -438,10 +439,27 @@ namespace PryingEyes
             bool ok = g.FloorBuilt && ShownCount() >= Expected - 1;
             Check("piano costruito e compagni in vista", ok, $"{Time.time - t0:F1} s, piano {FloorDirector.I.floor}, epoca {g.Epoch}, vedo {ShownCount()} compagni su {Expected - 1}");
             if (!ok) { aborted = true; yield break; }
+            if (HasArg("-cooplook")) CheckCharacters();
             if (Coop.IsHost) { string a = Coop.LocalAddresses(); Log($"info: indirizzi che il menu di pausa mostra agli amici: {(a.Length == 0 ? 0 : a.Split(',').Length)}"); }
             Safe();
             Drops.disabled = true;
             yield return new WaitForSeconds(2f);
+        }
+
+        /// <summary>La prova "aspetti" (a due processi: l'ospite con -cooplook custode -cooplevel 7, l'ospitato con -cooplook custode -cooplevel 3): ognuno
+        /// dichiara un personaggio, l'ospite tiene il suo aspetto e da' il primo libero a chi chiede lo stesso, e aspetto e livello arrivano a tutti,
+        /// sulla tabella di CoopGame e sui pupazzi dei compagni. Senza questa prova i processi di prova mandano un aspetto vuoto e il percorso non gira.</summary>
+        void CheckCharacters()
+        {
+            var g = G;
+            string look0 = g.LookOf(0), look1 = g.LookOf(1);
+            Check("l'ospite tiene l'aspetto chiesto e l'altro riceve il primo libero", look0 == "custode" && look1 == "dottoressa", $"slot 0 '{look0}', slot 1 '{look1}'");
+            Check("ognuno vede il livello degli altri", g.LevelOf(0) == 7 && g.LevelOf(1) == 3, $"slot 0 livello {g.LevelOf(0)}, slot 1 livello {g.LevelOf(1)}");
+            Check("il mio aspetto in partita e' quello che mi hanno dato", !string.IsNullOrEmpty(Coop.MyLook) && Coop.MyLook == g.LookOf(Coop.Slot), $"'{Coop.MyLook}'");
+            int other = Coop.IsHost ? 1 : 0;
+            g.Players.TryGetValue(other, out var rp);
+            Check("il compagno e' costruito con l'aspetto e il livello dichiarati", rp != null && rp.look == g.LookOf(other) && rp.level == g.LevelOf(other),
+                rp != null ? $"aspetto '{rp.look}', livello {rp.level}" : "nessun compagno");
         }
 
         // P ------------------------------------------------------------------ foto del compagno (-cooppics; l'ospite dev'essere senza -nographics)

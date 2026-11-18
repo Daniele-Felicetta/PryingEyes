@@ -12,8 +12,8 @@ Senza -Detach lo script gira in primo piano. Per provare senza cambiare nulla: -
 Passi, nell'ordine:
   controlli  ramo, Unity non aperto sul progetto, nessuna copia del gioco in esecuzione dalla cartella della build
   cancello   tools\check_suite.py (i pacchetti riusabili non dipendono dal gioco ne' da Unity) e i test Python di tools\
-             (~30 s, senza Unity); se falliscono non si committa nulla. -NoGate lo salta. I due laboratori .NET delle regole
-             (studio.py test weapon-state e survival) non ci sono: prendono il lock del progetto e qui fallirebbero con PROJECT_BUSY
+             (~30 s, senza Unity); se falliscono non si committa nulla. -NoGate lo salta. I laboratori .NET delle regole
+             (studio.py test weapon-state, survival, economy e saves) non ci sono: prendono il lock del progetto e qui fallirebbero con PROJECT_BUSY
              quando un altro agente ha una produzione in corso; li esegue la CI (.github/workflows/gate.yml)
   commit     solo i percorsi di -Paths (mai git add -A), messaggio da -MessageFile, indice vuoto in partenza;
              senza -Paths non si committa nulla

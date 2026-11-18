@@ -37,7 +37,7 @@ namespace PryingEyes
         /// l'indice dello slot (quello di rete in cooperativa, 0 da soli).</summary>
         public static SeatAvatar CreateOwn(PlayerController p, int slot)
         {
-            var seat = Seats.OfSlot(slot) ?? new Seat(Mathf.Clamp(slot, 0, Seats.MaxSeats - 1)) { player = p, stealth = Stealth.Current };
+            var seat = Seats.OfSlot(slot) ?? new Seat(Mathf.Clamp(slot, 0, Seats.MaxSeats - 1)) { player = p, stealth = Stealth.Current, character = PryingEyes.Characters.Roster.Local, look = Coop.MyLook };
             if (seat.player == null) seat.player = p;
             return Create(seat, false);
         }
@@ -47,7 +47,7 @@ namespace PryingEyes
             var go = new GameObject((named ? "Corpo visto dagli altri " : "Corpo in terza persona ") + (seat.index + 1));
             var a = go.AddComponent<SeatAvatar>();
             a.seat = seat;
-            a.body = SurvivorBody.Create(go.transform, seat.index, a.Layer);
+            a.body = SurvivorBody.Create(go.transform, seat.index, a.Layer, seat.look);
             if (a.body != null) a.visual = a.body.transform;
             else a.visual = RemotePlayer.BuildBody(go.transform, seat.index, out a.legL, out a.legR, out a.headT, out a.torchT);
             if (named)

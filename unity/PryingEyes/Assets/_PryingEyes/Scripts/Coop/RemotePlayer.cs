@@ -60,6 +60,10 @@ namespace PryingEyes
     {
         public int slot;
         public string playerName;
+        /// <summary>Il personaggio del compagno: l'aspetto (vuoto = quello dello slot, come nelle prove) e il livello, che si legge sotto il nome.</summary>
+        [System.NonSerialized] public string look;         // NonSerialized: la build solo-script rifiuta campi nuovi serializzati in un MonoBehaviour esistente
+        [System.NonSerialized] public int level = 1;
+        string Label => level > 1 ? playerName + " · liv. " + level : playerName;
         public PlayerNet last;                  // ultimo stato ricevuto
         public bool hasState;
         public float lastStateTime;
@@ -118,11 +122,12 @@ namespace PryingEyes
         public void Hurt(float dmg, Vector3? origin = null) { if (!last.invulnerable) CoopGame.I?.HurtRemote(slot, dmg, origin); }
         public void Sedate(float seconds) { CoopGame.I?.SedateRemote(slot, seconds); }
 
-        public static RemotePlayer Create(int slot, string name)
+        public static RemotePlayer Create(int slot, string name, string look = null, int level = 1)
         {
             var go = new GameObject("Compagno " + slot);
             var rp = go.AddComponent<RemotePlayer>();
             rp.slot = slot; rp.playerName = string.IsNullOrEmpty(name) ? "Giocatore " + (slot + 1) : name;
+            rp.look = look; rp.level = Mathf.Max(1, level);
             rp.Build();
             PlayerAvoidance.Bind(go, rp);
             if (Coop.IsHost) Targets.Add(rp);       // solo l'ospite fa girare i nemici: gli altri non hanno bisogno di bersagli
@@ -151,7 +156,7 @@ namespace PryingEyes
 
         void Build()
         {
-            body = SurvivorBody.Create(transform, slot, gameObject.layer);
+            body = SurvivorBody.Create(transform, slot, gameObject.layer, look);
             if (body != null) { visual = body.transform; headT = body.Eye; torchT = body.RightHand; }
             else visual = BuildBody(transform, slot, out legL, out legR, out headT, out torchT);
             BuildBeamAndName();
@@ -206,7 +211,7 @@ namespace PryingEyes
             tag = tg.AddComponent<TextMesh>();
             tag.font = HUD.Serif();
             tg.GetComponent<MeshRenderer>().sharedMaterial = tag.font.material;
-            tag.text = playerName; tag.fontSize = 64; tag.characterSize = 0.045f;
+            tag.text = Label; tag.fontSize = 64; tag.characterSize = 0.045f;
             tag.anchor = TextAnchor.MiddleCenter; tag.alignment = TextAlignment.Center;
             tag.color = new Color(0.95f, 0.92f, 0.82f, 0.95f);
             SetShown(false);
@@ -232,7 +237,7 @@ namespace PryingEyes
         public void SetName(string n)
         {
             playerName = string.IsNullOrEmpty(n) ? "Giocatore " + (slot + 1) : n;
-            if (tag != null) tag.text = playerName;
+            if (tag != null) tag.text = Label;
         }
 
         void SetShown(bool on)
@@ -296,7 +301,7 @@ namespace PryingEyes
                     tag.transform.rotation = Quaternion.LookRotation(tag.transform.position - pc.position);
                     float d = Vector3.Distance(pc.position, tag.transform.position);
                     tag.gameObject.SetActive(last.alive && (d < 28f || (last.downed && d < 60f)));     // chi e' a terra si trova da piu' lontano
-                    string want = last.downed ? playerName + "\nA TERRA " + Mathf.CeilToInt(last.bleed) + " s" : playerName;
+                    string want = last.downed ? Label + "\nA TERRA " + Mathf.CeilToInt(last.bleed) + " s" : Label;
                     if (tag.text != want) tag.text = want;
                     tag.color = last.downed ? new Color(1f, 0.42f, 0.36f, 1f) : new Color(0.95f, 0.92f, 0.82f, 0.95f);
                 }

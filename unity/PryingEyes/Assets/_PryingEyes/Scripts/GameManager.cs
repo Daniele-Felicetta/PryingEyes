@@ -76,7 +76,9 @@ namespace PryingEyes
         {
             if (returningToMenu) return;
             returningToMenu = true;
-            Cattedrale.Fabbrica.Chiudi(score);      // una spedizione abbandonata conta come persa (lo zaino); il gioco diretto ha gia' tutto in magazzino
+            Seats.EachOrOnce(_ => Cattedrale.Fabbrica.Chiudi(score));      // una spedizione abbandonata conta come persa (lo zaino); il gioco diretto ha gia' tutto in magazzino
+            Characters.Progress.CommitTime();
+            Characters.Roster.Flush();      // il menu riparte con tutto scritto su disco
             Coop.Stop("");
             Seats.End();                  // schermo condiviso: via i giocatori in piu' e le porzioni, resta il posto 0 (quello della scena)
             StopAllCoroutines();
@@ -666,6 +668,7 @@ namespace PryingEyes
         {
             kills++;
             int pts = Punti.PerUccisione(src, headshot);
+            if (pts > 0) Characters.Progress.Kill(headshot, src == DamageSource.Knife || src == DamageSource.Takedown);       // l'esperienza del personaggio di chi gira
             if (Cattedrale.Catacombe.Attive) pts = Mathf.RoundToInt(pts * Cattedrale.Fabbrica.PuntiUccisioneMul);      // la Decima dell'altare
             AddPoints(pts);
             if (headshot) headshots++;

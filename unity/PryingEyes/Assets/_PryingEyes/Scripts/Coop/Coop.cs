@@ -45,10 +45,30 @@ namespace PryingEyes
         static bool fromArgs;
         static string argName;
 
+        /// <summary>Il nome con cui si entra in rete: quello del personaggio scelto nel menu (Characters.Roster). Con -coopname (le prove) quello dato;
+        /// senza personaggi (non succede nel gioco vero) l'ultimo nome scritto a mano.</summary>
         public static string PlayerName
         {
-            get => fromArgs && argName != null ? argName : PlayerPrefs.GetString("coopName", "");
+            get
+            {
+                if (fromArgs && argName != null) return argName;
+                var pg = Characters.Roster.Local;
+                return pg != null ? pg.name : PlayerPrefs.GetString("coopName", "");
+            }
             set { if (!fromArgs) PlayerPrefs.SetString("coopName", (value ?? "").Trim()); }
+        }
+
+        static string myLook;
+        /// <summary>L'aspetto di questo giocatore nella partita in rete: quello che l'ospite gli ha dato (toglie i doppioni), per il corpo in terza persona.
+        /// Fuori da una partita in rete, e nelle prove automatiche, e' quello del personaggio (o null: il corpo dello slot).</summary>
+        public static string MyLook
+        {
+            get
+            {
+                if (Active && !string.IsNullOrEmpty(myLook)) return myLook;
+                return Characters.Roster.IsTest ? null : Characters.Roster.Local?.look;
+            }
+            internal set { myLook = value; }
         }
         public static string LastAddress
         {
