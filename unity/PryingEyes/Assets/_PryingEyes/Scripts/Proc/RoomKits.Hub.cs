@@ -112,6 +112,7 @@ namespace PryingEyes.Proc
         /// <summary>Un lampione di ferro: base di pietra, palo, braccio e lanterna accesa.</summary>
         static void HubLampPost(Ctx c, Vector3 at)
         {
+            if (Deserto.DesertMode.Active) { HubLampPostDeserto(c, at); return; }       // nel deserto e' un lampione di ferro tornito (RoomKits.HubDeserto.cs)
             var root = new GameObject("Lampione");
             root.transform.SetParent(c.props, false);
             root.transform.position = at;
@@ -227,8 +228,12 @@ namespace PryingEyes.Proc
             foreach (float a in new[] { 0.05f, len - 0.05f })
                 foreach (float d in new[] { -0.6f, 0.45f })
                     ShrineKit.Prim(t, PrimitiveType.Cube, "Palo", ShrineKit.Wood, L(a, 1.25f, d), new Vector3(0.07f, 2.5f, 0.07f), default, true);
-            var awning = ShrineKit.Prim(t, PrimitiveType.Cube, "Tenda", cloth, L(len * 0.5f, 2.45f, -0.05f), new Vector3(len + 0.3f, 0.03f, 1.5f), new Vector3(-12f, 0f, 0f));
-            awning.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.TwoSided;
+            if (Deserto.DesertMode.Active) Deserto.DesertAwning.Build(t, len, sideSign, cloth.color);       // nel deserto: un telo a strisce con la balza a scalloppi (RoomKits.HubDeserto / DesertAwning)
+            else
+            {
+                var awning = ShrineKit.Prim(t, PrimitiveType.Cube, "Tenda", cloth, L(len * 0.5f, 2.45f, -0.05f), new Vector3(len + 0.3f, 0.03f, 1.5f), new Vector3(-12f, 0f, 0f));
+                awning.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.TwoSided;
+            }
             HubLight(c, t.TransformPoint(L(len * 0.5f, 2.1f, 0.25f)), Lantern, 2.2f, 6.5f);
             ShrineKit.Prim(t, PrimitiveType.Cube, "Lanterna", ShrineKit.Iron, L(len * 0.5f, 2.2f, 0.3f), new Vector3(0.14f, 0.2f, 0.14f));
             for (int i = 0; i < n; i++)

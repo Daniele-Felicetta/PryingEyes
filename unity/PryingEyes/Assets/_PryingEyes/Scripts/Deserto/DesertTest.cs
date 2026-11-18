@@ -408,13 +408,27 @@ namespace PryingEyes.Deserto
             Check("sulla sabbia le cose sono mandate alla scheda: il taglio da sottoterra non scatta in superficie", scat != null && !scat.Underground, scat == null ? "manca il regista delle cose" : $"giocatore a {pl.transform.position.y:F1}, la sabbia a {DesertWorld.Height(pl.transform.position.x, pl.transform.position.z):F1}");
             Check("le cose pesanti (sassi, massi, cactus, cespugli) lontane hanno la versione ridotta (sono molte di piu' di quelle entro 70 m)", scat != null && scat.ReducedDetail > 0 && scat.ReducedDetail > scat.FullDetail, scat == null ? "manca" : $"{scat.FullDetail} con tutti i triangoli, {scat.ReducedDetail} ridotte");
             // i due bracieri in cima alla scalinata hanno il fuoco (fiamma, nucleo, fumo e brace: DesertCathedral.BrazierFire), non solo un disco acceso sopra una coppa nera
-            int braziers = 0, burning = 0;
+            int braziers = 0, burning = 0, tripods = 0;
             foreach (var bf in FindObjectsByType<DesertCathedral.BrazierFire>(FindObjectsSortMode.None))
             {
                 braziers++;
                 foreach (var ps in bf.GetComponentsInChildren<ParticleSystem>()) if (ps.isPlaying && ps.emission.rateOverTime.constant > 0f) burning++;
+                // il cesto sta su un treppiede: la mesh e' larga piu' di 1,2 m (il calice di prima, col piede svasato, era 0,94) e alta tra 1 e 1,1 m
+                foreach (var mf in bf.GetComponentsInChildren<MeshFilter>())
+                    if (mf.sharedMesh != null && mf.sharedMesh.name == "Braciere" && mf.sharedMesh.bounds.size.x > 1.2f && mf.sharedMesh.bounds.size.y > 1.0f && mf.sharedMesh.bounds.size.y < 1.1f) tripods++;
             }
             Check("i due bracieri in cima alla scalinata hanno il fuoco: fiamma, nucleo, fumo e brace", braziers == 2 && burning == 2 * DesertCathedral.BrazierFire.Systems, $"{braziers} bracieri, {burning} sistemi di particelle accesi su {2 * DesertCathedral.BrazierFire.Systems}");
+            Check("i bracieri sono cesti su un treppiede (larghi piu' di 1,2 m al piede, alti 1 m), non calici su uno stelo", braziers == 2 && tripods == 2, $"{tripods} treppiedi su {braziers} bracieri");
+            // i due stendardi con l'occhio ai lati dello scalone: il telo sta fermo alla traversa e il vento ne muove l'orlo (DesertBanner)
+            yield return new WaitForSeconds(1.0f);
+            int hubBanners = 0; float topMoved = 0f, hemMoved = 0f;
+            foreach (var bn in FindObjectsByType<DesertBanner>(FindObjectsSortMode.None))
+            {
+                if (bn.transform.position.sqrMagnitude > 60f * 60f) continue;               // quelli sul tetto delle torri (si vedono da lontano) non contano qui
+                hubBanners++; topMoved = Mathf.Max(topMoved, bn.TopOffset); hemMoved = Mathf.Max(hemMoved, bn.HemOffset);
+            }
+            Check("i due stendardi con l'occhio stanno ai lati dello scalone: il telo e' fermo alla traversa e il vento ne muove l'orlo", hubBanners == 2 && topMoved < 0.001f && hemMoved > 0.05f,
+                $"{hubBanners} stendardi, la riga alta si e' mossa di {topMoved * 100f:F1} cm, l'orlo di {hemMoved * 100f:F0} cm");
             // risalire
             yield return Snap("02_sabbia_cattedrale", 7.2f, new Vector3(cx, 3.2f, 0f));
             yield return GoTo(cx, -22f);
@@ -427,6 +441,13 @@ namespace PryingEyes.Deserto
                 var fire = new Vector3(HubPlan.StairX0 + 0.6f, 1.3f, 0.6f);
                 yield return Snap("02c_braciere_giorno", 12.0f, fire, 1.6f);
                 yield return Snap("02d_braciere_sera", 18.4f, fire, 1.6f);
+                // un banco del mercato da vicino (di giorno) e un lampione acceso di notte, sempre dal sagrato
+                pl.Teleport(new Vector3(9.0f, 0.06f, 5.0f));
+                yield return new WaitForSeconds(0.8f);
+                yield return Snap("02e_banco", 10.0f, new Vector3(3.4f, 1.9f, 4.9f), 1.2f);
+                pl.Teleport(new Vector3(14.5f, 0.06f, 9.5f));
+                yield return new WaitForSeconds(0.8f);
+                yield return Snap("02f_lampione_notte", 22.5f, new Vector3(11.2f, 2.9f, 5.2f), 1.2f);
                 yield return GoTo(cx, -22f);
             }
         }
@@ -735,6 +756,39 @@ namespace PryingEyes.Deserto
             var rt = RtOf(s);
             Check("tutti i piani della torre hanno il guscio", AllBuilt(rt), rt == null ? "non caricata" : "");
             if (!AllBuilt(rt)) yield break;
+            // una torre intera ha sul tetto un albero con lo stendardo con l'occhio e, sotto la cornice, uno stendardo appeso a ogni muro lungo; il vento li muove, e quelli di muro non li spinge mai
+            // dentro il muro (sono della pelle di chi sta lontano: ci sono prima del guscio); una torre in rovina non ne ha
+            int mast = 0, walls = 0; float mastHem = 0f, wallHem = float.MaxValue, wallGap = float.MaxValue;
+            foreach (var bn in FindObjectsByType<DesertBanner>(FindObjectsSortMode.None))
+            {
+                var bp = bn.transform.position;
+                if (Mathf.Abs(bp.x - s.CentreX) < 40f && Mathf.Abs(bp.z - s.CentreZ) < 40f && bp.y > s.padY + s.Height * 0.7f)
+                {
+                    if (bn.OnWall) { walls++; wallHem = Mathf.Min(wallHem, bn.HemOffset); wallGap = Mathf.Min(wallGap, bn.MinGap); }
+                    else { mast++; mastHem = Mathf.Max(mastHem, bn.HemOffset); }
+                }
+            }
+            bool bannersOk = s.state == BuildingState.Intact ? mast == 1 && mastHem > 0.05f && walls >= 3 && walls <= 4 && wallHem > 0.03f && wallGap >= 0.25f : mast == 0 && walls == 0;
+            Check("una torre intera ha sul tetto l'albero con lo stendardo con l'occhio e uno stendardo appeso a ogni muro lungo, che il vento muove senza spingerli dentro il muro (una in rovina non ne ha)", bannersOk,
+                $"{s.state}: {mast} sul tetto, {walls} di muro" + (mast > 0 ? $", l'orlo del tetto si e' mosso di {mastHem * 100f:F0} cm" : "") + (walls > 0 ? $", il piu' fermo di muro di {wallHem * 100f:F0} cm, il telo non e' mai stato a meno di {wallGap * 100f:F0} cm dal muro" : ""));
+            if (shots)
+            {
+                // la torre da 90 m dal lato dell'ingresso (l'albero sul tetto e il profilo), dal lato della cattedrale e da est (gli stendardi di muro), poi di nuovo al piede
+                float gz = s.fz0 - 90f;
+                Pl.Teleport(new Vector3(s.CentreX, DesertWorld.Height(s.CentreX, gz) + 0.06f, gz));
+                yield return new WaitForSeconds(0.6f);
+                yield return Snap("13_torre_stendardo", 12f, new Vector3(s.CentreX, s.padY + s.Height - 1f, s.CentreZ), 1.2f);
+                float nz = s.fz1 + 75f;
+                Pl.Teleport(new Vector3(s.CentreX, DesertWorld.Height(s.CentreX, nz) + 0.06f, nz));
+                yield return new WaitForSeconds(0.6f);
+                yield return Snap("13b_torre_stendardi_nord", 12f, new Vector3(s.CentreX, s.padY + s.Height - 9f, s.fz1), 1.2f);
+                float ex = s.fx1 + 60f;
+                Pl.Teleport(new Vector3(ex, DesertWorld.Height(ex, s.CentreZ) + 0.06f, s.CentreZ));
+                yield return new WaitForSeconds(0.6f);
+                yield return Snap("13c_torre_stendardi_est", 12f, new Vector3(s.fx1, s.padY + s.Height - 9f, s.CentreZ), 1.2f);
+                Pl.Teleport(new Vector3(s.CentreX, DesertWorld.Height(s.CentreX, s.fz0 - 12f) + 0.06f, s.fz0 - 12f));
+                yield return new WaitForSeconds(0.4f);
+            }
             yield return WaitFor(() => rt.DressedRooms > 3 && DesertNav.ReadyAround(new Vector3(s.CentreX, s.padY, s.CentreZ), 20f) && !DesertNav.Busy, 60f);
             Check("la torre e' alta quanto i suoi piani", s.Height >= 7 * PlanGen.LevelHeight, $"{s.Height:F0} m");
             Vector3 hall0 = Centre(PlanGen.HallRoom(s.levels[0]), s.LevelY(0) + 0.1f);

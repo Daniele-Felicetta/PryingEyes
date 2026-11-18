@@ -21,6 +21,8 @@ namespace PryingEyes.Deserto
         readonly List<(int unit, int from, int to)> pieces = new List<(int, int, int)>();
         int next;
         bool shown = true;
+        readonly List<GameObject> banners = new List<GameObject>();          // l'albero sul tetto di una torre intera e i suoi stendardi di muro: non stanno sotto 'root' (la pelle si spegne quando c'e' il guscio, loro restano)
+        bool bannersDone;
 
         public bool Done => next >= pieces.Count;
         public bool Shown => shown;
@@ -55,6 +57,13 @@ namespace PryingEyes.Deserto
             bool top = !site.IsStack || (site.IsTower ? pc.unit == site.LevelCount - 1 : pc.unit == site.entrance);
             var mb = new MeshBuilder();
             FloorBuilder.FacadeBuild(plan, YOf(pc.unit), site.palette, top, site.IsStack && top, true, false, mb, mb, pc.from, pc.to);
+            if (top && site.IsTower && !bannersDone && pc.to >= plan.rooms.Count)
+            {
+                bannersDone = true;
+                var bn = DesertBanner.OnTower(root.transform.parent, site);
+                if (bn != null) banners.Add(bn.transform.parent.gameObject);
+                foreach (var w in DesertBanner.OnTowerWalls(root.transform.parent, site)) banners.Add(w.transform.parent.gameObject);
+            }
             if (mb.Empty) return true;
             var mesh = mb.ToMesh($"Lontano_{site.cx}_{site.cz}_{pc.unit}_{pc.from}", out var mats, false);
             mesh.UploadMeshData(true);
@@ -82,6 +91,8 @@ namespace PryingEyes.Deserto
         public void Destroy()
         {
             if (root != null) Object.Destroy(root);
+            foreach (var b in banners) if (b != null) Object.Destroy(b);
+            banners.Clear();
             foreach (var m in meshes) if (m != null) Object.Destroy(m);
             meshes.Clear();
         }

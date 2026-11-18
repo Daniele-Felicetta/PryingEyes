@@ -5,6 +5,25 @@ namespace PryingEyes.Proc
 {
     public static partial class RoomKits
     {
+        /// <summary>Un lampione del sagrato del deserto: base di pietra, un fusto di ferro tornito (piede svasato, due anelli, un collare) e in cima una lanterna a sei facce con i suoi montanti,
+        /// il vetro che brilla, il piatto, il tetto a cono e il puntale. Prima era un palo nero con una scatola. Il ferro e' una mesh sola, il vetro un'altra (e' l'unico pezzo che brilla di suo);
+        /// la luce e' quella di sempre.</summary>
+        static void HubLampPostDeserto(Ctx c, Vector3 at)
+        {
+            var root = new GameObject("Lampione");
+            root.transform.SetParent(c.props, false);
+            root.transform.position = at;
+            var t = root.transform;
+            ShrineKit.Prim(t, PrimitiveType.Cube, "Base", ShrineKit.Stone, new Vector3(0f, 0.2f, 0f), new Vector3(0.42f, 0.4f, 0.42f), default, true);
+            ShrineKit.Prim(t, PrimitiveType.Cube, "Cimasa", ShrineKit.Stone, new Vector3(0f, 0.41f, 0f), new Vector3(0.50f, 0.05f, 0.50f));
+            var iron = Deserto.DesertLamps.IronMesh();
+            var post = ShrineKit.LatheObj(t, "Ferro", ShrineKit.Iron, iron);
+            post.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            var cap = post.AddComponent<CapsuleCollider>(); cap.center = new Vector3(0f, 1.7f, 0f); cap.radius = 0.09f; cap.height = 3.0f;
+            var glass = ShrineKit.LatheObj(t, "Vetro", ShrineKit.EmitOwn(Lantern, 2.4f), Deserto.DesertLamps.GlassMesh());
+            HubLight(c, at + Vector3.up * 3.2f, Lantern, 3.2f, 11f);
+        }
+
         /// <summary>Nel deserto le armi buone si comprano solo qui, nella cattedrale, e costano il doppio dei punti.</summary>
         public const int ArmoryPriceMul = 2;
 
