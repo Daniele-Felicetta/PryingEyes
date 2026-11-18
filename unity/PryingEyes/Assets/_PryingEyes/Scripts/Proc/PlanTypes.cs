@@ -63,6 +63,9 @@ namespace PryingEyes.Proc
         public float cornerRadius;          // metri: raggio della pianta interna arrotondata, zero = rettangolare
         /// <summary>Senza tetto: i muri salgono interi ma sopra c'e' il cielo (la navata della cattedrale prima delle volte).</summary>
         public bool ruined;
+        /// <summary>Il deserto (PlanGen.Building.cs): una stanza senza pavimento o senza soffitto e' il vano di una scala che attraversa piu' piani
+        /// (le rampe le costruisce DesertStairs). Nei piani di sempre restano false.</summary>
+        public bool noFloor, noCeil;
         public int wing;                    // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
         public int unit;                    // ala-coppia di appartenenza (0 per la prima): vedi PlanGen.Compound
 
@@ -99,6 +102,8 @@ namespace PryingEyes.Proc
         public OpenStyle style;
         public float sill, top;         // metri; per le porte sill = 0, top e' il punto piu' alto (apice dell'arco)
         public bool oneSided;           // solo la faccia di 'a' (finestre alte, sopra il tetto della stanza accanto)
+        /// <summary>Senza vetro: un'apertura sul vuoto che e' un varco (la breccia di un muro, la porta verso il deserto) o una finestra rotta.</summary>
+        public bool noGlass;
         public int variant;
 
         public bool Pointed => style == OpenStyle.Arco || style == OpenStyle.Arcata || style == OpenStyle.Lancetta;

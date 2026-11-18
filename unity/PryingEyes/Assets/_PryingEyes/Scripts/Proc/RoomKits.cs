@@ -87,6 +87,7 @@ namespace PryingEyes.Proc
         // ---------------------------------------------------------------- ingresso
         public static Light Dress(FloorInstance fi, Room r, Transform parent)
         {
+            if (r.noFloor || r.noCeil) return null;        // il vano di una scala del deserto: le rampe le fa Deserto/DesertStairs
             var c = new Ctx
             {
                 fi = fi, plan = fi.plan, r = r, parent = parent, rng = new Rng(r.seed),

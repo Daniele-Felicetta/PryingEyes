@@ -247,7 +247,7 @@ namespace PryingEyes.Cattedrale
             GUILayout.Label($"Il registro della Fabbrica — {Fabbrica.Albero.BuiltCount}/{Fabbrica.Albero.All.Count} opere", head);
             GUILayout.Label("<color=#c8b48a>Magazzino:</color> " + Risorse.Testo(Fabbrica.Banca.Snapshot(), "vuoto"), small);
             GUILayout.Space(6 * s);
-            foreach (var d in Opere.Tutte)
+            foreach (var d in Opere.Elenco)
             {
                 bool fatta = Fabbrica.Costruita(d.id);
                 bool sbloccata = Fabbrica.Albero.Unlocked(d.id);

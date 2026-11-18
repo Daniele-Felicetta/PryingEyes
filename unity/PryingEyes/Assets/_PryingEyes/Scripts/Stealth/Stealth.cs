@@ -15,7 +15,7 @@ namespace PryingEyes
     /// Nella hall classica (niente piani) tutto questo e' spento e i nemici restano onniscienti come prima.</summary>
     public static class Stealth
     {
-        public static bool Enabled => GameManager.proc && !Proc.SurvivalMode.Enabled;
+        public static bool Enabled => GameManager.proc && (!Proc.SurvivalMode.Enabled || Deserto.DesertMode.Active);       // il deserto e' a furtivita': i nemici ti vedono e ti sentono, non sanno dove sei
 
         /// <summary>Smoothstep alla GLSL: 0 sotto a, 1 sopra b, morbido in mezzo. (Mathf.SmoothStep fa altro: interpola tra due valori con t in 0..1.)</summary>
         public static float Smooth(float a, float b, float x)

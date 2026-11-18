@@ -63,9 +63,12 @@ Shader "PryingEyes/ChurchHaze"
                 exit = min(exit, depth / max(dot(ray, -UNITY_MATRIX_V[2].xyz), 1e-5));
                 if (exit <= entry) return 0;
 
-                // Integra esattamente il profilo esponenziale lungo il tratto visibile.
-                float y0 = origin.y + ray.y * entry;
-                float y1 = origin.y + ray.y * exit;
+                // Integra esattamente il profilo esponenziale lungo il tratto visibile. L'altezza e' quella sopra il fondo del volume (il pavimento
+                // della stanza), non quella nel mondo: nei piani della catacomba del deserto, a -19 m, l'altezza assoluta rendeva la nebbia nove
+                // mila volte piu' densa (exp(19 * 0.48)) e la sala del boss spariva in un grigio pieno. Nel gioco di sempre il fondo e' a zero.
+                float baseY = TransformObjectToWorld(float3(0.0, -0.5, 0.0)).y;
+                float y0 = origin.y + ray.y * entry - baseY;
+                float y1 = origin.y + ray.y * exit - baseY;
                 float k = abs(y1 - y0) * _HeightFalloff;
                 float meanDensity = exp(-min(y0, y1) * _HeightFalloff) * (k < 1e-3 ? 1.0 : (1.0 - exp(-k)) / k);
                 float opacity = 1.0 - exp(-_Density * meanDensity * (exit - entry) * length(ray));

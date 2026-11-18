@@ -255,7 +255,7 @@ namespace PryingEyes.Proc
             Annex cryptHere = null;
             foreach (var an in plan.annexes) if (an.host == r.id && an.kind == AnnexKind.Cripta) cryptHere = an;
             if (cryptHere != null) CryptHostFloor(shell, st, r, cryptHere);
-            else
+            else if (!r.noFloor)        // il vano di una scala del deserto non ha pavimento (le rampe passano di li')
                 shell.Quad(st.floor, new Vector3(x0, 0, z0), new Vector3(x0, 0, z1), new Vector3(x1, 0, z1), new Vector3(x1, 0, z0),
                            new Vector2(x0, z0), new Vector2(x0, z1), new Vector2(x1, z1), new Vector2(x1, z0), Vector3.up);
 
@@ -300,7 +300,7 @@ namespace PryingEyes.Proc
 
             // il collider del pavimento e' un blocco: niente caduta tra i triangoli
             // (con la botola della cripta il pavimento e' la lastra forata del Guscio, che ha il suo collider di mesh)
-            if (cryptHere == null)
+            if (cryptHere == null && !r.noFloor)
             {
                 var floorGo = new GameObject("Pavimento");
                 floorGo.transform.SetParent(go.transform, false);
@@ -312,6 +312,23 @@ namespace PryingEyes.Proc
             if (r.upperGallery) BuildGallery(fi, r, go);
             BuildAnnexesIn(fi, r);
             if (r.cornerRadius > TH) BuildRoundedCorners(r, st, go);
+            if (SkipDress) return;
+            var window = RoomKits.Dress(fi, r, go.transform);
+            if (r.church && ProcKit.HasMat("foschia_chiesa")) ChurchHaze(go.transform, x0, x1, z0, z1, r.wallH, window);
+        }
+
+        /// <summary>Il deserto costruisce prima il guscio dei luoghi lontani (muri, pavimenti, soffitti) e arreda solo le stanze vicine al giocatore
+        /// (<see cref="DressRoom"/>): con questo vero, Build non arreda ne' illumina.</summary>
+        public static bool SkipDress;
+
+        /// <summary>Arreda e illumina una stanza gia' costruita (dopo Build con SkipDress). Gli arredi stanno in coordinate assolute: la radice del piano
+        /// deve essere dove era quando e' stata costruita (alla quota zero); chi chiama la sposta e la rimette.</summary>
+        public static void DressRoom(FloorInstance fi, Room r)
+        {
+            catacombStyle = fi.plan.catacombe;
+            var go = fi.roomGo[r.id];
+            if (go == null) return;
+            float x0 = M(r.x0), x1 = M(r.x1), z0 = M(r.z0), z1 = M(r.z1);
             var window = RoomKits.Dress(fi, r, go.transform);
             if (r.church && ProcKit.HasMat("foschia_chiesa")) ChurchHaze(go.transform, x0, x1, z0, z1, r.wallH, window);
         }
@@ -445,7 +462,7 @@ namespace PryingEyes.Proc
 
         static void Ceiling(MeshBuilder mb, Room r, Style st, float ix0, float ix1, float iz0, float iz1)
         {
-            if (r.ruined) return;            // la navata senza tetto: sopra c'e' il cielo
+            if (r.ruined || r.noCeil) return;            // la navata senza tetto: sopra c'e' il cielo (noCeil: il vano di una scala che sale al piano di sopra)
             float H = r.wallH;
             switch (r.ceil)
             {
@@ -633,7 +650,20 @@ namespace PryingEyes.Proc
                 if (r.Open) OpenTop(plan, r, s, faceStart, out top0, out br0);
                 Func<float, float> topShifted = x => top0(x + shift);
                 DrawFace(mb, st.outer, null, 0f, o2, u, outward, sb - sa, topShifted, null, hs, sa);
-                if (r.Open) OpenCrown(mb, st, r, ax, Plan.Line(r, s) * 0.1f, sa, sb);
+                if (r.Open)
+                {
+                    // il coronamento salta le aperture che arrivano a terra (la scalinata del deserto): una trave sopra una porta la chiuderebbe
+                    var cuts = new List<Vector2>();
+                    foreach (var h in hs) if (h.o.sill < 0.01f) cuts.Add(new Vector2(sa + h.c - h.hw, sa + h.c + h.hw));
+                    cuts.Sort((p, q) => p.x.CompareTo(q.x));
+                    float at = sa;
+                    foreach (var cut in cuts)
+                    {
+                        if (cut.x - at > 0.05f) OpenCrown(mb, st, r, ax, Plan.Line(r, s) * 0.1f, at, cut.x);
+                        at = Mathf.Max(at, cut.y);
+                    }
+                    if (sb - at > 0.05f) OpenCrown(mb, st, r, ax, Plan.Line(r, s) * 0.1f, at, sb);
+                }
             }
         }
 
@@ -716,7 +746,7 @@ namespace PryingEyes.Proc
                 }
             }
             // vetro al centro dello spessore (solo le finestre sul vuoto; la porta di un giardino, b = -2, e' un varco aperto)
-            if (o.b == -1) Glass(mb, o, A, P, nOut);
+            if (o.b == -1 && !o.noGlass) Glass(mb, o, A, P, nOut);        // noGlass: un varco o una finestra rotta (il deserto)
         }
 
         static void LancetFrame(MeshBuilder mesh, Room room, Opening opening, Material stone)

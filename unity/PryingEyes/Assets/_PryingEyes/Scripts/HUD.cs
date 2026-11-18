@@ -12,7 +12,8 @@ namespace PryingEyes
         Text ammoText, reserveText, reloadText, waveLabel, waveText, enemiesText, scoreText, bannerText, bannerSub, toastText;
         Text promptText, weaponNameText, objectiveText, healthText;
         Image fadeImg;
-        Image vignette, adsVig;
+        Image vignette, adsVig, topShade;
+        bool desertLook; float desertSweep;
         RectTransform hitRoot;      // hit marker: X di 4 tacche attorno al mirino
         Image[] hitTicks;
         RectTransform[] xDash;      // mirino: quattro trattini attorno al centro
@@ -113,6 +114,7 @@ namespace PryingEyes
 
             BuildHudShade("FondoVita", false);
             BuildHudShade("FondoArma", true);
+            BuildTopShade();
 
             // componente furtiva (HUD.Stealth.cs): torcia, segnalini dei preti, freccia dell'ascensore, ping
             BuildStealthUI();
@@ -193,6 +195,51 @@ namespace PryingEyes
             rt.pivot = Vector2.zero; rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta = new Vector2(right ? 560 : 410, 270);
             rt.localScale = new Vector3(right ? -1 : 1, 1, 1);
+        }
+
+        static Sprite topShadeSprite;
+
+        /// <summary>Un'ombra morbida lungo il bordo alto dello schermo, accesa solo nel deserto (SetDesertLook): le scritte chiare del HUD, pensate per i piani
+        /// bui, si leggono anche sul cielo di giorno.</summary>
+        void BuildTopShade()
+        {
+            if (topShadeSprite == null)
+            {
+                const int h = 32;
+                var tex = new Texture2D(4, h, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+                var px = new Color[4 * h];
+                for (int y = 0; y < h; y++)
+                    for (int x = 0; x < 4; x++)
+                        px[y * 4 + x] = new Color(0f, 0f, 0f, 0.62f * Mathf.Pow(y / (h - 1f), 1.6f));
+                tex.SetPixels(px); tex.Apply();
+                topShadeSprite = Sprite.Create(tex, new Rect(0, 0, 4, h), new Vector2(0.5f, 0.5f));
+            }
+            topShade = MakeImage("OmbraInAlto", Color.white);
+            topShade.sprite = topShadeSprite;
+            var rt = topShade.rectTransform;
+            rt.anchorMin = new Vector2(0, 1); rt.anchorMax = new Vector2(1, 1);
+            rt.pivot = new Vector2(0.5f, 1); rt.anchoredPosition = Vector2.zero; rt.sizeDelta = new Vector2(0, 250);
+            topShade.enabled = false;
+        }
+
+        /// <summary>Nel deserto l'ombra in alto si accende e ogni scritta ha un contorno scuro (anche quelle nate dopo: il giro si ripete ogni tanto).</summary>
+        void SetDesertLook(bool on)
+        {
+            desertLook = on;
+            if (topShade != null) topShade.enabled = on;
+            // l'obiettivo del deserto e' su due righe (il luogo vicino e la strada di casa, poi il consiglio) e piu' largo
+            if (objectiveText != null) objectiveText.rectTransform.sizeDelta = on ? new Vector2(780f, 46f) : new Vector2(560f, 24f);
+            foreach (var t in GetComponentsInChildren<Text>(true))
+            {
+                var o = t.GetComponent<Outline>();
+                if (on && o == null)
+                {
+                    o = t.gameObject.AddComponent<Outline>();
+                    o.effectColor = new Color(0f, 0f, 0f, 0.7f);
+                    o.effectDistance = new Vector2(1.1f, -1.1f);
+                }
+                else if (o != null) o.enabled = on;
+            }
         }
 
         Slider MakeBar(string name, Vector2 anchor, Vector2 pos, Vector2 size, Color c)
@@ -435,6 +482,8 @@ namespace PryingEyes
         void UpdateBody()
         {
             float dt = Time.deltaTime;
+            bool desert = Deserto.DesertMode.Active;
+            if (desert != desertLook || (desert && Time.unscaledTime > desertSweep)) { SetDesertLook(desert); desertSweep = Time.unscaledTime + 1.5f; }
             UpdateHitmarker(dt);
             UpdateDamageDirections(dt);
             UpdateCrosshair(dt);

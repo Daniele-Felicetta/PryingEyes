@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Cattedrale;
+using PryingEyes.Deserto;
 
 namespace PryingEyes.Proc
 {
@@ -55,6 +56,7 @@ namespace PryingEyes.Proc
         {
             if (I != this) return;
             HotelNav.Clear();
+            if (DesertMode.Active) StopDesert();
             I = null;
         }
 
@@ -96,6 +98,7 @@ namespace PryingEyes.Proc
             Drops.ResetRun();
             Seats.EachOrOnce(_ => { Perks.ResetRun(); Medals.Reset(); });
             if (TakeResume(out var resume)) { StartCoroutine(ResumeCo(resume)); return; }      // "Gioca" con una spedizione sospesa: si riprende (FloorDirector.Run.cs)
+            if (DesertWanted && startFloor <= 0 && ArgInt("-floor", 0) <= 0) { StartCoroutine(StartDesertCo()); return; }      // la modalita' del deserto (FloorDirector.Desert.cs)
             // due zone: da soli si parte dalla cattedrale (FloorDirector.Catacombe.cs); in cooperativa e nello schermo condiviso si scende subito,
             // e il bottino va diretto nel magazzino (la spedizione resta aperta finche' non si torna al menu)
             if (Catacombe.Hub && startFloor <= 0 && ArgInt("-floor", 0) <= 0) { StartCoroutine(GoToHub(null, true)); return; }
@@ -533,6 +536,11 @@ namespace PryingEyes.Proc
         {
             if (gm.hud == null) return;
             string text;
+            if (InHub && DesertMode.Active)
+            {
+                Seats.ForHuds(h => { h.SetObjective(DesertObjective()); h.SetWave(DesertMode.Clock.day + 1); });
+                return;
+            }
             if (InHub)
             {
                 int able = 0;
@@ -998,7 +1006,7 @@ namespace PryingEyes.Proc
             var parts = new List<string>();
             if (lost > 0) parts.Add(lost + " punti");
             if (Perks.LoseLast(out var p)) parts.Add("il perk " + Perks.Of(p).name);
-            return parts.Count == 0 ? null : "Perdi " + string.Join(" e ", parts) + ". L'hotel ti riporta all'ingresso.";
+            return parts.Count == 0 ? null : "Perdi " + string.Join(" e ", parts) + (DesertMode.Active ? ". Il deserto ti restituisce alla cattedrale." : ". L'hotel ti riporta all'ingresso.");
         }
 
         // ------------------------------------------------------------------ armi sui muri
@@ -1148,6 +1156,7 @@ namespace PryingEyes.Proc
         /// cadere per sempre. Lascia una riga CADUTA nel log del gioco. Gira a nome del giocatore (gm.player e' il suo).</summary>
         void FallGuard(float dt)
         {
+            if (DesertMode.Active) { DesertFallGuard(dt); return; }
             int si = Seats.SeatIndex;
             var pl = gm.player;
             Vector3 p = pl.transform.position;

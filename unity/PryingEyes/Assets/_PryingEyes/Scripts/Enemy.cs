@@ -528,10 +528,14 @@ namespace PryingEyes
         /// <summary>Quota massima di un occhio sopra il punto: nei piani procedurali il soffitto della stanza, altrimenti quello della hall.</summary>
         static float FloorDirectorCeiling(Vector3 p)
         {
+            if (Deserto.DesertMode.Active) return Mathf.Max(p.y, Deserto.DesertWorld.Height(p.x, p.z) + 11f);      // all'aperto: undici metri sopra la sabbia; dentro ci pensano i muri
             var d = Proc.FloorDirector.I;
             if (d == null || d.cur == null) return 8.3f;
             return Mathf.Max(1.3f, d.cur.CeilingAt(p) - 0.7f);
         }
+
+        /// <summary>Quota minima di chi vola: 95 cm sopra il pavimento dei piani; nel deserto 95 cm sopra la sabbia (e mai sotto un pavimento: ci pensano i muri).</summary>
+        static float FloorDirectorFloor(Vector3 p) => Deserto.DesertMode.Active ? Mathf.Min(p.y, Deserto.DesertWorld.Height(p.x, p.z) + 0.95f) : 0.95f;
 
         void RePath(Vector3 gp, Vector3 dest)
         {

@@ -57,6 +57,7 @@ namespace PryingEyes.Proc
                 case HubPlan.Presbiterio: HubChoir(c); break;
                 case HubPlan.Sacrestia: HubSacristy(c); break;
                 case HubPlan.Cripta: HubCrypt(c); break;
+                case HubPlan.Armeria: HubArmory(c); break;
             }
             var window = WindowLights(c);
             Census(c);
@@ -183,17 +184,21 @@ namespace PryingEyes.Proc
                     HubLampPost(c, new Vector3(x, 0f, z));
             HubWell(c, new Vector3(c.Center.x, 0f, c.iz0 + 7.5f));
             // la luna dall'alto, come nel giardino segreto (un faro che copre tutto il sagrato), e il cielo stellato attorno a tutta la cattedrale
-            var moon = AddLight(c, c.Center + Vector3.up * 14f, Moon, 260f, 32f, false, true, c.parent, LightType.Spot, false, false);
-            moon.l.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            moon.l.spotAngle = 116f; moon.l.innerSpotAngle = 70f;
-            moon.l.name = "Luce di luna";
-            var dome = new GameObject("Cielo");
-            dome.transform.SetParent(c.parent, false);
-            dome.transform.position = new Vector3(18f, -6f, 33f);
-            dome.AddComponent<MeshFilter>().sharedMesh = GardenKit.SkyDome(78f);
-            var dr = dome.AddComponent<MeshRenderer>();
-            dr.sharedMaterial = GardenKit.Sky();
-            dr.shadowCastingMode = ShadowCastingMode.Off; dr.receiveShadows = false;
+            // (nel deserto il cielo vero c'e' gia': la cupola finta nasconderebbe la sabbia e il faro della luna darebbe luce al giorno)
+            if (!Deserto.DesertMode.Active)
+            {
+                var moon = AddLight(c, c.Center + Vector3.up * 14f, Moon, 260f, 32f, false, true, c.parent, LightType.Spot, false, false);
+                moon.l.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                moon.l.spotAngle = 116f; moon.l.innerSpotAngle = 70f;
+                moon.l.name = "Luce di luna";
+                var dome = new GameObject("Cielo");
+                dome.transform.SetParent(c.parent, false);
+                dome.transform.position = new Vector3(18f, -6f, 33f);
+                dome.AddComponent<MeshFilter>().sharedMesh = GardenKit.SkyDome(78f);
+                var dr = dome.AddComponent<MeshRenderer>();
+                dr.sharedMaterial = GardenKit.Sky();
+                dr.shadowCastingMode = ShadowCastingMode.Off; dr.receiveShadows = false;
+            }
             // i quattro banchi: due a ovest, due a est, il bancone parallelo al lato lungo, i clienti dal centro
             var banchi = Listino.Banchi;
             HubStall(c, banchi[0], new Vector3(c.ix0 + 3.2f, 0f, c.iz0 + 3.0f), Vector3.forward, Vector3.right);
@@ -302,9 +307,10 @@ namespace PryingEyes.Proc
             else if (volte) HubSite(c, "organo", new Vector3(c.ix0 + 2.4f, 0f, c.iz0 + 2.2f), Vector3.forward);
             if (altare)
             {
-                for (float z = c.iz0 + 6f; z < c.iz1 - 4f; z += 2.2f)
-                    foreach (float x in new[] { c.Center.x - 3.1f, c.Center.x + 3.1f })
-                        HubProp(c, "chi_panca", new Vector3(x, 0f, z), Vector3.forward, 1f);
+                if (!Deserto.DesertMode.Active)         // nel deserto la navata e' libera per i leggii della Biblioteca
+                    for (float z = c.iz0 + 6f; z < c.iz1 - 4f; z += 2.2f)
+                        foreach (float x in new[] { c.Center.x - 3.1f, c.Center.x + 3.1f })
+                            HubProp(c, "chi_panca", new Vector3(x, 0f, z), Vector3.forward, 1f);
                 HubProp(c, "chi_lampadario", new Vector3(c.Center.x, 0f, c.Center.z + 5f), Vector3.forward, 2f);
                 HubLight(c, new Vector3(c.Center.x, c.r.wallH - 2.8f, c.Center.z + 5f), Warm, 9f, 18f, true);
                 HubProp(c, "chi_lampadario", new Vector3(c.Center.x, 0f, c.Center.z - 6f), Vector3.forward, 2f);
@@ -312,10 +318,13 @@ namespace PryingEyes.Proc
             }
             else
             {
-                for (int i = 0; i < 5; i++)
+                for (int i = 0; i < (Deserto.DesertMode.Active ? 0 : 5); i++)
                     HubProp(c, "chi_panca", new Vector3(c.rng.Range(c.ix0 + 1.5f, c.ix1 - 1.5f), 0f, c.rng.Range(c.iz0 + 5f, c.iz1 - 3f)), new Vector3(c.rng.Range(-1f, 1f), 0f, c.rng.Range(-1f, 1f)).normalized + Vector3.forward * 0.01f);
                 HubLight(c, new Vector3(c.Center.x, 3.5f, c.Center.z), Warm, 2.0f, 12f);
             }
+            // il deserto: la Biblioteca dei Voti si costruisce qui (finita, i leggii li mette DesertStations dopo la costruzione della cattedrale)
+            if (Deserto.DesertMode.Active && !Fabbrica.Costruita("biblioteca_voti"))
+                HubSite(c, "biblioteca_voti", new Vector3(c.ix1 - 1.4f, 0f, c.Center.z + 2f), Vector3.left, 2.4f);
             // i cartoni del vetraio sotto le vetrate dei boss non ancora fatte (il cleristorio ovest), e il rosone sopra il portale
             for (int i = 0; i < HubPlan.VetrateOpere.Length; i++)
             {
@@ -356,6 +365,9 @@ namespace PryingEyes.Proc
                     cero.flame = pl.l; cero.flameMesh = flame.GetComponent<MeshRenderer>();
                 }
                 HubLight(c, new Vector3(c.Center.x, c.r.wallH - 3f, c.Center.z), Warm, 7f, 16f, true);
+                // il deserto: l'altare della consacrazione (le armi si potenziano) si costruisce a sinistra dell'altare maggiore
+                if (Deserto.DesertMode.Active && !Fabbrica.Costruita("consacrazione"))
+                    HubSite(c, "consacrazione", new Vector3(c.ix0 + 2.2f, 0f, c.Center.z - 1.5f), Vector3.right, 2.2f);
             }
             else
             {
@@ -429,8 +441,12 @@ namespace PryingEyes.Proc
         static void HubCrypt(Ctx c)
         {
             // tre cancelli sul muro nord (Ossario, Teatro, Sanatorio), due su quello ovest (Guardaroba, Abisso)
-            for (int i = 0; i < 3; i++) HubGate(c, i, new Vector3(c.ix0 + 1.9f + i * 2.7f, 0f, c.iz1), Vector3.back);
-            for (int i = 3; i < 5; i++) HubGate(c, i, new Vector3(c.ix0, 0f, c.iz0 + 6.1f - (i - 3) * 2.8f), Vector3.right);
+            // (nel deserto non ci sono: le catacombe si raggiungono dai mausolei sulla sabbia)
+            if (!Deserto.DesertMode.Active)
+            {
+                for (int i = 0; i < 3; i++) HubGate(c, i, new Vector3(c.ix0 + 1.9f + i * 2.7f, 0f, c.iz1), Vector3.back);
+                for (int i = 3; i < 5; i++) HubGate(c, i, new Vector3(c.ix0, 0f, c.iz0 + 6.1f - (i - 3) * 2.8f), Vector3.right);
+            }
             var oss = new Vector3(c.ix1 - 1.4f, 0f, c.iz0 + 1.2f);
             if (Fabbrica.Costruita("ossario"))
             {

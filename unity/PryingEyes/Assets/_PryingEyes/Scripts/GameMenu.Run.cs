@@ -66,7 +66,7 @@ namespace PryingEyes
         {
             if (Roster.Local != null && runShown != null) RunSave.Discard(Roster.Local, runShown);
             runShown = null;
-            Play();
+            ShowModes();            // si ricomincia dalla cattedrale: standard o deserto (GameMenu.Mode.cs)
         }
 
         /// <summary>Dalla pausa: salva la spedizione e torna al menu. Se non riesce la partita resta com'e' e il pannello dice perche'.</summary>

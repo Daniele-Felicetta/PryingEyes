@@ -214,7 +214,7 @@ namespace PryingEyes
             Click("Indietro"); Click("Cooperativa"); Layout("cooperativa"); Click("Indietro");
             TouchControls.ProcessTouches(new[] { Finger(1, TouchPhase.Began, 1200, 520) });
             Check("fuoco touch bloccato dal menu", !TouchControls.Held(TouchControls.Action.Fire));
-            Click("Gioca");
+            Click("Gioca"); Click("Standard");       // "Gioca" chiede come giocare (GameMenu.Mode.cs): la modalita' standard
             float deadline = Time.realtimeSinceStartup + 60f;
             while ((FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
             Check("prima discesa completa dal pulsante Gioca", FloorDirector.I.cur != null && !FloorDirector.I.transitioning && !GameMenu.Blocked);
@@ -337,7 +337,7 @@ namespace PryingEyes
                 Check("trasporto distrutto anche col menu in pausa", FindObjectsByType<CoopNet>(FindObjectsSortMode.None).Length == 0);
                 Check("nessun elenco prefab di rete abbandonato", !Array.Exists(Resources.FindObjectsOfTypeAll<ScriptableObject>(), so => so.name == "CoopSpawnables"));
                 Check("nessuna navmesh della partita lasciata nel menu", Resources.FindObjectsOfTypeAll<UnityEngine.AI.NavMeshData>().Length == 0 && !HotelNav.Ready);
-                Click("Gioca");
+                Click("Gioca"); Click("Standard");
                 until = Time.realtimeSinceStartup + 60f;
                 while ((FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < until) yield return null;
                 Check("nuova partita con piano identico e round azzerato", FloorDirector.I.FloorSignature() == signature && RoundDirector.Round == 0);

@@ -28,6 +28,7 @@ namespace PryingEyes.Proc
             get
             {
                 if (!Catacombe.Hub) return "Il salvataggio della spedizione c'è solo giocando da soli.";
+                if (Deserto.DesertMode.Active) return "Il deserto si rigenera a ogni partita: non c'è una spedizione da salvare.";
                 if (InHub || floor < 1 || !Fabbrica.Spedizione.Active) return "Non c'è nessuna spedizione da salvare.";
                 if (transitioning) return "Aspetta che il livello sia pronto.";
                 if (gm == null || gm.player == null || !gm.player.alive) return "Da morto non si salva.";

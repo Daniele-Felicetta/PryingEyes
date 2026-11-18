@@ -46,6 +46,9 @@ tools/survivallab/obj/
 tools/economylab/bin/
 tools/economylab/obj/
 !tools/saveslab/SavesLab.csproj
+!tools/desertlab/DesertLab.csproj
+tools/desertlab/bin/
+tools/desertlab/obj/
 tools/saveslab/bin/
 tools/saveslab/obj/
 modelli/chiesa/export/*.fbx
@@ -72,6 +75,8 @@ hotel_build/perf/
 hotel_build/magia/
 # prova della cattedrale e delle catacombe (-cattedraletest -cattedraleshots): foto a ogni giro, si rifanno
 hotel_build/cattedrale/
+# prova del deserto (-desertotest -desertshots): foto a ogni giro, si rifanno
+hotel_build/deserto/
 hotel_build/seats/
 
 # Isolated multiplayer checks; never use the main worktree build output.

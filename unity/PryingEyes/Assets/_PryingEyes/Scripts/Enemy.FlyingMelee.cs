@@ -89,7 +89,7 @@ namespace PryingEyes
                 else step=step/length*Mathf.Max(0,hit.distance-0.02f);
             }
             position+=step;
-            position.y=Mathf.Clamp(position.y,0.95f,FloorDirectorCeiling(position));
+            position.y=Mathf.Clamp(position.y,FloorDirectorFloor(position),FloorDirectorCeiling(position));
             transform.position=position;
         }
     }

@@ -129,6 +129,13 @@ namespace PryingEyes.EditorTools
                     Check("Indietro returns to the main menu", GameObject.Find("Pulsante Gioca") != null);
                     Characters.Roster.ClearRun(tester);
                     Check("the suspended expedition is gone", !Characters.Roster.HasRun(tester));
+                    // la scelta della modalita': Gioca, senza spedizione sospesa, chiede standard o deserto (non si preme nessuno dei due: partirebbe la partita
+                    // e la scelta si scriverebbe nelle preferenze di chi gioca)
+                    Click("Gioca"); Render("mode", size, camera, menu, output);
+                    Check("Gioca asks how to play: standard or the desert", HasText(menu, "Come vuoi giocare?") && GameObject.Find("Pulsante Standard") != null && GameObject.Find("Pulsante Il deserto") != null);
+                    Check("the mode panel describes both ways", HasText(menu, "I piani sotto la cattedrale") && HasText(menu, "Un deserto enorme"));
+                    Click("Indietro");
+                    Check("Indietro returns from the mode choice to the main menu", GameObject.Find("Pulsante Gioca") != null && !HasText(menu, "Come vuoi giocare?"));
                 }
                 Click("Schermo condiviso"); Click("3 giocatori"); Render("split-cast", size, camera, menu, output);
                 Check("the cast panel lists three seats", HasText(menu, "Giocatore 3:"));

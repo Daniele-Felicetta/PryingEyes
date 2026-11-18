@@ -108,7 +108,7 @@ namespace PryingEyes
             score = 500;
             autoTest = HasArg("-autotest") || HasArg("-guntest");
             gunTest = HasArg("-guntest");
-            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-cattedraletest");
+            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-cattedraletest") || HasArg("-desertotest");
             if (autoTest && (HasArg("-procbot") || HasArg("-stealthtest"))) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
             camShots = HasArg("-camshots");
             if (autoTest)
@@ -234,7 +234,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot(TestPaths.Out("auto_cam1.png")); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot(TestPaths.Out("auto_cam2.png")); }
                 bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-jellytest") || HasArg("-meleetest") ||
-                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || HasArg("-cattedraletest") || trailer;
+                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || HasArg("-cattedraletest") || HasArg("-desertotest") || trailer;
                 if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
                     Report($"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");

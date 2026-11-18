@@ -18,10 +18,10 @@ namespace PryingEyes.Cattedrale
             return false;
         }
 
-        public static bool Attive => attive ??= !Arg("-torre") && (!(GameManager.autoTest || VideoSettings.Automated) || Arg("-catacombe") || Arg("-cattedrale") || Arg("-cattedraletest"));
+        public static bool Attive => attive ??= !Arg("-torre") && (!(GameManager.autoTest || VideoSettings.Automated) || Arg("-catacombe") || Arg("-cattedrale") || Arg("-cattedraletest") || Arg("-desertotest"));
 
         /// <summary>Si parte dalla cattedrale (deciso all'inizio della partita: la cooperativa e lo schermo condiviso si sanno solo allora).</summary>
-        public static bool Hub => Attive && !Coop.Active && !Seats.Split && (cattedrale ??= !Arg("-nocattedrale") && (!(GameManager.autoTest || VideoSettings.Automated) || Arg("-cattedrale") || Arg("-cattedraletest")));
+        public static bool Hub => Attive && !Coop.Active && !Seats.Split && (cattedrale ??= !Arg("-nocattedrale") && (!(GameManager.autoTest || VideoSettings.Automated) || Arg("-cattedrale") || Arg("-cattedraletest") || Arg("-desertotest")));
 
         /// <summary>Per le prove: dimentica le scelte lette dalla riga di comando.</summary>
         public static void Reset() { attive = null; cattedrale = null; }
@@ -34,8 +34,14 @@ namespace PryingEyes.Cattedrale
         {
             if (!Attive || !GameManager.proc || e == null || src == DamageSource.Scoppio) return;
             var fd = Proc.FloorDirector.I;
-            if (fd == null || fd.InHub || fd.floor < 1) return;
-            int ramo = Rami.RamoDi(fd.floor);
+            if (fd == null) return;
+            int ramo;
+            if (Deserto.DesertMode.Active) ramo = Deserto.DesertMode.DropBranch(e.transform.position);      // nel deserto: il ramo del luogo vicino, o quello della distanza
+            else
+            {
+                if (fd.InHub || fd.floor < 1) return;
+                ramo = Rami.RamoDi(fd.floor);
+            }
             bool knife = src == DamageSource.Knife || src == DamageSource.Takedown;
             var loot = Bottino.Uccisione(e.type.ToString(), ramo, knife, Fabbrica.BottinoMul, Uniform);
             if (forceNext && loot.IsEmpty) loot = Production.Economy.Bundle.One(Risorse.Ossa, 1);

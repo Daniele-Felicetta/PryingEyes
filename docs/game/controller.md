@@ -121,6 +121,11 @@ Code (`Assets/_PryingEyes/Scripts/`): `PadControls.cs`, `PadMenuInput.cs`, `Game
   (batch mode, exit 0): selecting a tab with the D-pad opens it and writes its hint, down enters the first row, left and right move a slider
   or step a choice row (*Suoni dell'interfaccia*), down from the last row reaches *Indietro* and right from it *Ripristina scheda*, the guide opens on
   *Obiettivo* and names the controller's keys; the test puts back the volume and the interface sounds it changed.
+- On 18 November 2026, with the desert's mode panel: `-padtest -nowaves` passed **89 of 89** on the player built from the working tree of the desert branch
+  (exit 0). Two things changed in the test. *Gioca* now opens **Come vuoi giocare?**: A on it, the focus on the mode played last time, right and
+  left between **Il deserto** and **Standard**, the frame following, B back to *Gioca*, and A on **Standard** starting the usual game without a jump
+  (the test puts the remembered mode back). And the main menu has **Personaggi** since 0.9, which the steps had not counted: before the update the
+  run failed 49 of 89, from the first step that counted the buttons down to *Impostazioni* (four presses from *Cooperativa*, not three) onwards.
 - **Not verified**: a physical controller (none was available; the real XInput read answers without errors and the rest runs on fake
   states), the feel of the new mapping in a real game, PlayStation and Switch controllers through a wrapper, several controllers in the normal game (the first one pressed wins),
   Steam Input, controller hot-plug during a real game, and the look of the menus at resolutions other than 1024x720.

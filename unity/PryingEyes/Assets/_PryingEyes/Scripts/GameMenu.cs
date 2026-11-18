@@ -99,6 +99,7 @@ namespace PryingEyes
             if (splitPanel.gameObject.activeSelf) { MenuSound.Back(); Show(mainPanel); return; }
             if (CharactersBack()) return;
             if (RunBack()) return;
+            if (ModeBack()) return;
             if (coopPanel.gameObject.activeSelf) { MenuSound.Back(); CoopBack(); return; }
             if (InMenu) return;
             if (Paused) Resume(); else if (toggle) Pause();
@@ -135,6 +136,7 @@ namespace PryingEyes
             string saveLine = canSave ? "\nSe la salvi, la riprendi da questo livello con zaino, punti e armi."
                 : expedition && fd.SuspendProblem != null ? "\n" + fd.SuspendProblem : "";
             leaveNote.text = (expedition ? "Abbandoni la spedizione: perdi lo zaino come se fossi morto (le spoglie restano nel ramo). La cattedrale e il magazzino restano."
+                : Deserto.DesertMode.Active ? "La cattedrale, il magazzino e le opere restano salvati. Il deserto si rigenera a ogni partita: punti, armi e perk di questa andranno persi."
                 : fd != null && fd.InHub ? "La cattedrale, il magazzino e le opere restano salvati." : "La partita attuale verrà chiusa. Progressi, armi e punti di questa discesa andranno persi.") + saveLine +
                 (Coop.IsHost ? "\nI compagni verranno scollegati e potranno proseguire da soli." : "");
             LeaveLayout(canSave);
@@ -147,7 +149,7 @@ namespace PryingEyes
         {
             if (NeedCharacter(mainPanel)) return;
             if (RunWaiting()) return;       // una spedizione sospesa: riprenderla o ricominciare (GameMenu.Run.cs)
-            Play();
+            ShowModes();                    // standard o deserto (GameMenu.Mode.cs)
         }
 
         void Play()
@@ -287,6 +289,7 @@ namespace PryingEyes
             leavePanel.gameObject.SetActive(p == leavePanel); splitPanel.gameObject.SetActive(p == splitPanel);
             CharactersShow(p);
             RunShow(p);
+            ModeShow(p);
             if (system != null)
             {
                 system.SetSelectedGameObject(null);
@@ -390,6 +393,7 @@ namespace PryingEyes
             BuildSplit();
             BuildCharacters();
             BuildRun();
+            BuildMode();
             BuildSettings();
             BuildHelp();
             BuildPadUi();

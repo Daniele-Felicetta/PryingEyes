@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Production.Economy;
 using PryingEyes.Cattedrale;
+using PryingEyes.Deserto;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -58,13 +59,24 @@ namespace PryingEyes.Proc
             {
                 RoundDirector.I?.Disarm();
                 Destroy(cur.root);
+                var gone = cur.bounds;
                 cur = null;
-                Enemy.ClearAll();
-                Drops.NewFloor();
-                WallBuy.ClearAll();
-                Interact.Clear();
-                LightPool.Clear();
-                RisorsaPickup.ClearAll();
+                if (DesertMode.Active)
+                {
+                    // la cattedrale si rifa' (un'opera costruita) ma il deserto resta com'e': via solo i pannelli senza padre (quelli dell'armeria;
+                    // quelli dei luoghi sono figli del luogo). Le luci morte le toglie da sola la LightPool.
+                    WallBuy.ClearUnparented();
+                    DesertNav.Dirty(gone);
+                }
+                else
+                {
+                    Enemy.ClearAll();
+                    Drops.NewFloor();
+                    WallBuy.ClearAll();
+                    Interact.Clear();
+                    LightPool.Clear();
+                    RisorsaPickup.ClearAll();
+                }
                 yield return null;
             }
             InHub = true;
@@ -74,15 +86,19 @@ namespace PryingEyes.Proc
             FloorMap.Clear(); map = null; System.Array.Clear(mapOpenA, 0, mapOpenA.Length);      // la cattedrale non ha la mappa (Proc/Map/FloorMap.cs)
             LightPool.Dim = 1f;
             exitOpen = false; lit = total = 0;
-            var plan = HubPlan.Build(Fabbrica.Costruita);
+            bool desert = DesertMode.Active;
+            var plan = HubPlan.Build(Fabbrica.Costruita, desert);
             var faults = HubPlan.Validate(plan);
             if (faults.Count > 0) Debug.LogWarning("[PryingEyes] cattedrale: " + string.Join("; ", faults));
             float t0 = Time.realtimeSinceStartup;
             cur = FloorBuilder.Build(plan, null);
+            if (desert) { DesertCathedral.Build(cur); DesertCathedral.PlaceStations(cur); }      // basamento, scalinata, leggii e altare (Scripts/Deserto)
             Physics.SyncTransforms();
             yield return null;
-            HotelNav.Rebuild(cur.bounds, cur.propRoots);
+            if (desert) { DesertNav.Dirty(cur.bounds); Desert?.SetCathedral(cur); }      // la navmesh del deserto segue il giocatore e comprende la cattedrale (DesertNav.cs)
+            else HotelNav.Rebuild(cur.bounds, cur.propRoots);
             ApplyLook(plan, 1);
+            if (desert) DesertSky.I?.Resync();          // ApplyLook ha scritto l'esposizione di una stanza: il cielo la riscrive
             Power.Reset(null);
             LightShafts.Build(cur);
             StartCoroutine(RoomProbes.Bake(cur));
@@ -90,9 +106,16 @@ namespace PryingEyes.Proc
             for (int i = 0; i < everyone.Count; i++)
             {
                 var one = everyone[i];
-                Vector3 spot = keepAt ?? new Vector3(HubPlan.SpawnX, 0.06f, HubPlan.SpawnZ);
-                one.SetSpawn(SideBySide(spot, Vector3.forward, i, everyone.Count));
-                one.yaw = keepAt.HasValue ? keepYaw : 0f;
+                // nel deserto si nasce in cima alla scalinata, a guardare la sabbia (yaw e' in radianti: pi greco = verso -z)
+                Vector3 spot = keepAt ?? (desert ? new Vector3(18f, 0.06f, 2.2f) : new Vector3(HubPlan.SpawnX, 0.06f, HubPlan.SpawnZ));
+                if (desert && keepAt.HasValue)
+                {
+                    // una ricostruzione lascia dove si era, ma la rinascita resta in cima alla scalinata: dopo una morte non ci si ritrova in fondo alla navata
+                    one.SetSpawn(SideBySide(new Vector3(18f, 0.06f, 2.2f), Vector3.forward, i, everyone.Count));
+                    one.Teleport(SideBySide(spot, Vector3.forward, i, everyone.Count));
+                }
+                else one.SetSpawn(SideBySide(spot, Vector3.forward, i, everyone.Count));
+                one.yaw = keepAt.HasValue ? keepYaw : desert ? Mathf.PI : 0f;
                 one.pitch = 0f;
             }
             playerRoom = cur.RoomAt(gm.player.transform.position);
@@ -102,6 +125,7 @@ namespace PryingEyes.Proc
             else Seats.ForHuds(h => h.Banner("La Cattedrale", Fabbrica.Albero.BuiltCount == 0 ? "Un rudere sopra le catacombe. Ricostruiscila con quello che trovi laggiù." : "La tua cattedrale"));
             RefreshObjective();
             Debug.Log($"[PryingEyes] cattedrale costruita in {(Time.realtimeSinceStartup - t0) * 1000f:F0} ms: {Fabbrica.Albero.BuiltCount}/{Fabbrica.Albero.All.Count} opere, {LightPool.Count} luci");
+            if (desert) yield return DesertWaitReady();         // si resta al nero finche' la sabbia sotto la scalinata non c'e'
             for (float k = 1f; k > 0f; k -= Time.deltaTime / 0.9f) { FadeAll(k); yield return null; }
             FadeAll(0f);
             SetInvulnerable(false);
@@ -110,6 +134,7 @@ namespace PryingEyes.Proc
 
         void ShowHubHud()
         {
+            if (DesertMode.Active) { ShowDesertHud(); return; }
             int oboli = Fabbrica.Banca.Get(Risorse.Oboli);
             Seats.ForHuds(h =>
             {
@@ -149,7 +174,7 @@ namespace PryingEyes.Proc
         /// <summary>Dal cancello di un ramo: si scende al suo primo livello.</summary>
         public void BeginExpedition(int ramo)
         {
-            if (!InHub || transitioning || !Fabbrica.RamoAperto(ramo)) return;
+            if (!InHub || transitioning || DesertMode.Active || !Fabbrica.RamoAperto(ramo)) return;
             StartCoroutine(ExpeditionCo(ramo));
         }
 
