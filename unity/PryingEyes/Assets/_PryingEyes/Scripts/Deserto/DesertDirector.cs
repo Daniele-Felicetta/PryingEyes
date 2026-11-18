@@ -18,7 +18,7 @@ namespace PryingEyes.Deserto
         public static DesertDirector I { get; private set; }
 
         /// <summary>Quanto lontano (m) un luogo si costruisce e quanto vicino si arreda. Le torri sono alte: si vedono e si caricano da piu' lontano.</summary>
-        public const float LoadBuilding = 280f, LoadTower = 520f, Unhook = 90f;
+        public const float LoadBuilding = 280f, LoadTower = 340f, Unhook = 90f;
         public const float DressInBuilding = 85f, DressOutBuilding = 135f, DressInStack = 75f, DressOutStack = 120f;
         /// <summary>La zona attorno alla cattedrale dove non nasce nessun nemico all'aperto (l'arrivo e' sicuro).</summary>
         const float SafeRadius = 42f;
@@ -27,13 +27,26 @@ namespace PryingEyes.Deserto
         DesertTerrain terrain;
         FloorInstance cathedral;
         readonly Dictionary<long, SiteRt> rts = new Dictionary<long, SiteRt>();
+        // la pelle di chi sta lontano (SiteFacade): ogni luogo entro 760 m ne ha una, finche' il suo guscio vero non e' costruito
+        readonly Dictionary<long, SiteFacade> farOf = new Dictionary<long, SiteFacade>();
+        readonly List<Site> farNear = new List<Site>();
+        readonly List<long> farGone = new List<long>();
+        readonly Stopwatch farWatch = new Stopwatch();
+        Transform farRoot;
+        public int FarSkins => farOf.Count;
+        public int FarSkinsDone { get { int n = 0; foreach (var f in farOf.Values) if (f.Done) n++; return n; } }
+        public int FarSkinsShown { get { int n = 0; foreach (var f in farOf.Values) if (f.Shown) n++; return n; } }
+        /// <summary>Le pelle accese (il guscio vero non c'e') non ancora finite: quelle spente non si costruiscono.</summary>
+        public int FarSkinsPending { get { int n = 0; foreach (var f in farOf.Values) if (f.Shown && !f.Done) n++; return n; } }
+        public int FarVertices { get { int n = 0; foreach (var f in farOf.Values) n += f.Vertices; return n; } }
+        public SiteFacade FarSkinOf(Site s) => farOf.TryGetValue(Key(s), out var f) ? f : null;
         readonly List<SiteRt> order = new List<SiteRt>();
         readonly List<Site> near = new List<Site>();
         readonly List<Site> tmp = new List<Site>();
         readonly List<long> gone = new List<long>();
         readonly List<Enemy> wanderers = new List<Enemy>();
         readonly Stopwatch watch = new Stopwatch();
-        float planT, spawnT, patrolT, lootT, nearT;
+        float planT, spawnT, lootT, nearT;
         string nearText = "";
         int day = -1;
 
@@ -61,6 +74,14 @@ namespace PryingEyes.Deserto
             var d = go.AddComponent<DesertDirector>();
             d.player = followed;
             d.terrain = ground;
+            DesertScatter.Create(go, followed);           // sassi, cactus, alberi morti, ossa, colonne, tende, pozzi, mulini...
+            DesertFires.Create(go, followed);             // la luce e il fumo dei fuochi dei campi, di notte
+            DesertLife.Create(go, followed);              // sterpaglie, lucertole, scorpioni, avvoltoi e pipistrelli
+            DesertDust.Create(go, followed);              // la sabbia che vola col vento e nelle tempeste
+            DesertSpindrift.Create(go, followed);         // i veli di sabbia che il vento stacca dalle creste delle dune
+            DesertDevils.Create(go, followed);            // i diavoli di sabbia, di giorno col tempo buono
+            DesertPrints.Create(go);                      // le orme sulla sabbia, cancellate dal vento in un minuto
+            DesertSound.Create(go, followed);             // sibilo della sabbia, grilli, gracchi, ululati e il crepitio dei fuochi
             return d;
         }
 
@@ -68,6 +89,7 @@ namespace PryingEyes.Deserto
         {
             I = this;
             DesertNav.Blockers = BlockersIn;
+            farRoot = new GameObject("DesertFar").transform;
         }
 
         void OnDestroy()
@@ -76,6 +98,9 @@ namespace PryingEyes.Deserto
             DesertNav.Blockers = null;
             foreach (var rt in rts.Values) rt.Unload();
             rts.Clear();
+            foreach (var f in farOf.Values) f.Destroy();
+            farOf.Clear();
+            if (farRoot != null) Destroy(farRoot.gameObject);
             foreach (var e in wanderers) if (e != null) Enemy.Remove(e);
             wanderers.Clear();
             foreach (var c in caches.Values) FreeCache(c);
@@ -108,6 +133,7 @@ namespace PryingEyes.Deserto
             if (!GameMenu.Blocked && Time.timeScale > 0f)
             {
                 TickWanderers(p, Time.deltaTime);
+                WakeTick(p, Time.deltaTime);
                 BossWatch();
             }
             lootT -= Time.unscaledDeltaTime;
@@ -244,6 +270,28 @@ namespace PryingEyes.Deserto
             order.Clear();
             order.AddRange(rts.Values);
             order.Sort((a, b) => a.dist.CompareTo(b.dist));
+            PlanFar(p);
+        }
+
+        /// <summary>Le pelle di chi sta lontano: nascono per i luoghi entro il raggio (poche per volta), si spengono quando il guscio vero e' completo, si buttano oltre il raggio di tenuta.</summary>
+        void PlanFar(Vector3 p)
+        {
+            DesertWorld.SitesNearKnown(p.x, p.z, SiteFacade.BuildRadius, farNear);
+            int made = 0;
+            foreach (var s in farNear)
+            {
+                long k = Key(s);
+                if (farOf.ContainsKey(k) || made >= 4) continue;
+                farOf[k] = new SiteFacade(s, farRoot);
+                made++;
+            }
+            farGone.Clear();
+            foreach (var kv in farOf)
+            {
+                if (FootDist(kv.Value.site, p) > SiteFacade.KeepRadius) { farGone.Add(kv.Key); continue; }
+                kv.Value.SetVisible(!rts.TryGetValue(kv.Key, out var rt) || !rt.ShellComplete);
+            }
+            foreach (long k in farGone) { farOf[k].Destroy(); farOf.Remove(k); }
         }
 
         void Work(Vector3 p)
@@ -253,6 +301,19 @@ namespace PryingEyes.Deserto
             {
                 while (watch.ElapsedMilliseconds < 7 && rt.Step(p)) { }
                 if (watch.ElapsedMilliseconds >= 7) break;
+            }
+            // poi, con poco tempo, le pelle lontane: la piu' vicina non finita per prima
+            farWatch.Restart();
+            while (farWatch.ElapsedMilliseconds < 3)
+            {
+                SiteFacade pick = null; float best = float.MaxValue;
+                foreach (var f in farOf.Values)
+                {
+                    if (f.Done || !f.Shown) continue;              // chi ha il guscio vero non ha bisogno della pelle (si fa quando serve)
+                    float d = FootDist(f.site, p);
+                    if (d < best) { best = d; pick = f; }
+                }
+                if (pick == null || !pick.Step()) break;
             }
         }
 
@@ -332,6 +393,49 @@ namespace PryingEyes.Deserto
             }
         }
 
+        // ------------------------------------------------------------------ chi riposa e chi si sveglia (niente furtivita': Enemy.Desert.cs)
+        /// <summary>A che distanza (m) si svegliano i nemici di giorno e di notte (misurata con il dislivello pesato: un nemico due piani sopra non sente chi e' fuori).
+        /// Oltre <see cref="LeashDist"/> per <see cref="LeashSeconds"/> secondi chi e' sveglio rinuncia e torna a riposare dov'era.</summary>
+        public const float WakeDay = 30f, WakeNight = 48f, LeashDist = 130f, LeashBoss = 220f, LeashSeconds = 7f, VerticalWeight = 2.2f;
+        float wakeT;
+        readonly List<Enemy> wakeList = new List<Enemy>(), dozeList = new List<Enemy>();
+
+        static float Reach(Vector3 from, Vector3 to)
+        {
+            Vector3 d = to - from;
+            float v = d.y * VerticalWeight;
+            return Mathf.Sqrt(d.x * d.x + d.z * d.z + v * v);
+        }
+
+        /// <summary>Quattro volte al secondo: sveglia chi riposa vicino al giocatore e rimanda a riposo chi lo ha perso. Le liste sono copie: svegliarne uno puo' far nascere altri.</summary>
+        void WakeTick(Vector3 p, float dt)
+        {
+            wakeT -= dt;
+            if (wakeT > 0f) return;
+            float step = 0.25f;
+            wakeT = step;
+            float baseWake = DesertMode.Clock.IsNight ? WakeNight : WakeDay;
+            wakeList.Clear(); dozeList.Clear();
+            foreach (var e in Enemy.All)
+            {
+                if (e == null || e.IsDead || e.relentless) continue;
+                float d = Reach(p, e.transform.position);
+                if (e.dormant)
+                {
+                    float wake = baseWake * (Enemy.IsFlying(e.type) ? 1.25f : 1f) * (Enemy.IsBoss(e.type) ? 0.85f : 1f);
+                    if (d < wake) wakeList.Add(e);
+                }
+                else
+                {
+                    float leash = Enemy.IsBoss(e.type) ? LeashBoss : LeashDist;
+                    if (d > leash) { e.farT += step; if (e.farT >= LeashSeconds) dozeList.Add(e); }
+                    else e.farT = 0f;
+                }
+            }
+            foreach (var e in wakeList) if (e != null) e.WakeUp();
+            foreach (var e in dozeList) if (e != null) e.Doze();
+        }
+
         // ------------------------------------------------------------------ i nemici all'aperto
         void TickWanderers(Vector3 p, float dt)
         {
@@ -339,25 +443,26 @@ namespace PryingEyes.Deserto
             {
                 var e = wanderers[i];
                 if (e == null || e.IsDead) { wanderers.RemoveAt(i); continue; }
-                if ((e.transform.position - p).sqrMagnitude > 115f * 115f || InSanctuary(e.transform.position)) { Enemy.Remove(e); wanderers.RemoveAt(i); }
+                float far = e.dormant ? 150f : 115f;
+                if ((e.transform.position - p).sqrMagnitude > far * far || InSanctuary(e.transform.position)) { Enemy.Remove(e); wanderers.RemoveAt(i); }
             }
-            patrolT -= dt;
-            if (patrolT <= 0f) { patrolT = 7f; RefreshPatrol(p); }
             spawnT -= dt;
             if (spawnT > 0f || !HotelNav.Ready) return;
             float danger = DesertMode.Danger(p.x, p.z);
             bool night = DesertMode.Clock.IsNight;
-            int target = Mathf.Min(12, night ? 4 + Mathf.RoundToInt(2f * danger) : 1 + Mathf.RoundToInt(0.8f * danger));
-            spawnT = night ? 3.2f : 7f;
-            if (wanderers.Count >= target || Enemy.All.Count >= 24) return;
+            int target = Mathf.Min(night ? 14 : 8, night ? 5 + Mathf.RoundToInt(2f * danger) : 2 + Mathf.RoundToInt(1.0f * danger));
+            spawnT = night ? 3.0f : 5f;
+            if (wanderers.Count >= target || Enemy.All.Count >= 28) return;
             var cam = Camera.main;
             Vector3 back = cam != null ? -cam.transform.forward : Vector3.back;
             back.y = 0f;
             if (back.sqrMagnitude < 0.01f) back = Vector3.back;
             for (int attempt = 0; attempt < 8; attempt++)
             {
-                Vector3 dir = Quaternion.Euler(0f, Random.Range(-115f, 115f), 0f) * back.normalized;
-                Vector3 c = p + dir * Random.Range(36f, 54f);
+                // di giorno gruppi fermi in giro (li si incontra davanti come dietro); di notte chi caccia arriva da dietro e di lato
+                bool awake = night && Random.value < 0.6f;
+                Vector3 dir = awake ? Quaternion.Euler(0f, Random.Range(-115f, 115f), 0f) * back.normalized : Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
+                Vector3 c = p + dir * (awake ? Random.Range(46f, 64f) : Random.Range(40f, 72f));
                 if (DesertWorld.DistToCathedral(c.x, c.z) < SafeRadius) continue;
                 if (InSiteFootprint(c.x, c.z, 7f)) continue;
                 c.y = DesertWorld.Height(c.x, c.z);
@@ -371,7 +476,11 @@ namespace PryingEyes.Deserto
                 if (e == null) return;
                 e.maxHp *= 0.85f + 0.30f * danger; e.hp = e.maxHp; e.speed *= 1f + 0.06f * (danger - 1f);
                 if (!fly) e.RiseFromGround(1.4f);
-                if (night) e.Investigate(p);
+                if (!awake)
+                {
+                    e.Doze();
+                    if (!fly) e.SetHome(new Vector2(hit.position.x - 11f, hit.position.z - 11f), new Vector2(hit.position.x + 11f, hit.position.z + 11f));
+                }
                 wanderers.Add(e);
                 return;
             }
@@ -381,19 +490,6 @@ namespace PryingEyes.Deserto
         {
             DesertWorld.SitesNearKnown(x, z, margin, tmp);
             return tmp.Count > 0;
-        }
-
-        /// <summary>Punti di pattuglia attorno al giocatore: chi non ti ha ancora visto gira dove sei tu.</summary>
-        void RefreshPatrol(Vector3 p)
-        {
-            Enemy.PatrolPoints.Clear();
-            for (int i = 0; i < 14 && Enemy.PatrolPoints.Count < 9; i++)
-            {
-                Vector2 o = Random.insideUnitCircle.normalized * Random.Range(16f, 46f);
-                var c = new Vector3(p.x + o.x, DesertWorld.Height(p.x + o.x, p.z + o.y), p.z + o.y);
-                if (!DesertNav.Covers(c)) continue;
-                if (NavMesh.SamplePosition(c + Vector3.up * 1.5f, out NavMeshHit hit, 3f, NavMesh.AllAreas)) Enemy.PatrolPoints.Add(hit.position);
-            }
         }
 
         // ------------------------------------------------------------------ i boss

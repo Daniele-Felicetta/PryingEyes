@@ -66,7 +66,9 @@ namespace PryingEyes.Proc
         /// <summary>Il deserto (PlanGen.Building.cs): una stanza senza pavimento o senza soffitto e' il vano di una scala che attraversa piu' piani
         /// (le rampe le costruisce DesertStairs). Nei piani di sempre restano false.</summary>
         public bool noFloor, noCeil;
-        public int wing;                    // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
+        /// <summary>Il deserto: una stanza in rovina che e' crollata (non solo senza tetto): i muri finiscono a denti e ai piedi ci sono i sassi (FloorBuilder.TopFunc, Facade).</summary>
+        public bool crumble;
+        public int wing;                   // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
         public int unit;                    // ala-coppia di appartenenza (0 per la prima): vedi PlanGen.Compound
 
         public int W => x1 - x0;
@@ -109,6 +111,14 @@ namespace PryingEyes.Proc
         public bool Pointed => style == OpenStyle.Arco || style == OpenStyle.Arcata || style == OpenStyle.Lancetta;
         public int Lo => center - width / 2;
         public int Hi => center + width / 2;
+
+        /// <summary>L'architrave piu' basso (m) sotto cui si passa a piedi: l'agente della navmesh e' alto 1,9 m (DesertNav, HotelNav).</summary>
+        public const float WalkTop = 2.0f;
+        /// <summary>Un varco senza architrave: un'apertura a livello del pavimento che il muro abbassato di una rovina (PlanGen.Decay) ha tagliato sotto l'altezza di una persona.
+        /// Niente la chiude dall'alto: non si disegnano ne' il muro sopra, ne' l'intradosso, ne' la traversa della cornice; il muro si interrompe e basta. (Un intradosso
+        /// a 1,5 m chiudeva alla navmesh e al giocatore la porta di mezzi edifici crollati: il collaudo 'varieta' del deserto non entrava piu' in tre.)
+        /// Un Passaggio e' basso apposta e tiene il suo architrave.</summary>
+        public bool Gap => sill < 0.01f && top < WalkTop && style != OpenStyle.Passaggio;
 
         /// <summary>Altezza dell'arco sopra l'imposta, in multipli della semiluce: archi acuti piu' o meno slanciati.</summary>
         public float RiseFactor => style == OpenStyle.Lancetta ? 2.3f : style == OpenStyle.Arcata ? 1.45f : 1.3f;

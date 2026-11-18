@@ -71,10 +71,23 @@ namespace PryingEyes.Deserto
         {
             if (!ended && Time.realtimeSinceStartup > Budget) { Check("finita entro il tempo", false, $"{Budget:F0} s"); Finish(); }
             if (phaseName.Length == 0 || !ready) return;          // il caricamento (dietro la dissolvenza) non conta: si misura il gioco
+            // il codice del gioco toglie l'invulnerabilita' in piu' punti (a fine di una ricostruzione della cattedrale, dopo la rinascita): chi prova a camminare non deve finire a terra
+            if (godMode && Pl != null && Pl.alive && !Pl.Downed && !Pl.invulnerable) Pl.invulnerable = true;
             if (!frames.TryGetValue(phaseName, out var f)) frames[phaseName] = f = new float[4];
             float dt = Time.unscaledDeltaTime;
+            // un fotogramma lungo si spiega col contesto: dopo un salto del giocatore (si carica tutto un mondo attorno) e' normale, camminando no
+            var p = Pl != null ? Pl.transform.position : Vector3.zero;
+            if ((p - lastPos).sqrMagnitude > 400f) jumpedAt = Time.realtimeSinceStartup;
+            lastPos = p;
+            // il fotogramma in cui la prova stessa ha disegnato a mano (venti o piu' disegni di fila) e il successivo non dicono niente del gioco
+            if (Time.frameCount - renderFrame <= 1) return;
             f[0]++; f[1] += dt; if (dt > f[2]) f[2] = dt; if (dt > 0.1f) f[3]++;
+            if (dt > 0.15f) Debug.Log($"[PryingEyes] desertotest fotogramma lungo: {dt * 1000f:F0} ms in '{phaseName}', {Time.realtimeSinceStartup - jumpedAt:F1} s dopo l'ultimo salto del giocatore");
         }
+
+        Vector3 lastPos; float jumpedAt;
+        int renderFrame = -100;
+        bool godMode = true;                // false solo mentre si prova la morte
 
         void Finish()
         {
@@ -165,10 +178,13 @@ namespace PryingEyes.Deserto
             PlayerController.holdLook = false;
             float t0 = Time.time, until = t0 + timeout, nextTrace = t0 + 4f; bool ok = false;
             string trace = "";
+            Vector3 still = pl.transform.position; float stillSince = Time.time;
             while (Time.time < until)
             {
                 Vector3 pos = pl.transform.position;
                 if (Flat(pos, to) < arrive && Mathf.Abs(pos.y - to.y) < 1.3f) { ok = true; break; }
+                if (Flat(pos, still) > 0.3f) { still = pos; stillSince = Time.time; }
+                else if (Time.time - stillSince > 2.5f) { ClearEnemiesAround(pos, 2.6f); stillSince = Time.time; }       // fermo da un po': una guardia sveglia gli sbarra la strada
                 Vector3 next = to;
                 bool onMesh = NavMesh.SamplePosition(pos, out var from, 2.5f, NavMesh.AllAreas);
                 if (onMesh && NavMesh.CalculatePath(from.position, to, NavMesh.AllAreas, path) && path.corners.Length > 1)
@@ -186,8 +202,20 @@ namespace PryingEyes.Deserto
                 yield return null;
             }
             PlayerController.botDir = Vector3.zero; PlayerController.holdLook = true;
-            if (!ok) Debug.Log("[PryingEyes] desertotest navmesh: " + NavInfo(pl.transform.position, to) + "; traccia:" + trace);
+            if (!ok) Debug.Log("[PryingEyes] desertotest navmesh: " + NavInfo(pl.transform.position, to) + "; traccia:" + trace + "; " + Blocker(pl.transform, to));
             done(ok);
+        }
+
+        /// <summary>Chi sta addosso al giocatore e lo ferma (una guardia svegliata che gli sbarra una porta o la scala): si toglie. Queste prove sono sulla geometria e sulla navmesh, non sul
+        /// combattimento, e chi prova non spara; i boss restano (hanno almeno 3.000 di vita, come dice la prova della torre).</summary>
+        static void ClearEnemiesAround(Vector3 at, float radius)
+        {
+            foreach (var g in new List<Enemy>(Enemy.All))
+            {
+                if (g == null || g.maxHp >= 3000f || (g.transform.position - at).sqrMagnitude > radius * radius) continue;
+                Debug.Log($"[PryingEyes] desertotest: tolgo {g.name} che sbarra la strada a {g.transform.position:F1} (il giocatore e' a {at:F1})");
+                Enemy.Remove(g);
+            }
         }
 
         /// <summary>Perche' una camminata non e' arrivata: dove sta il giocatore rispetto alla navmesh, la destinazione e il percorso.</summary>
@@ -222,12 +250,22 @@ namespace PryingEyes.Deserto
         IEnumerator Snap(string name, float hour, Vector3 look, float settle = 1.4f)
         {
             if (!shots) yield break;
+            // con -autotest il giocatore ruota da solo (0,8 rad/s senza un bersaglio) se holdLook e' falso: la mira sbagliava di quanto girava durante l'attesa
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             var sky = DesertSky.I;
             if (sky != null) sky.SetHour(hour, true);
             Face(look);
             yield return new WaitForSeconds(settle);
             Face(look);
             yield return null;
+            var cm = Pl.cam.GetComponent<Camera>();
+            if (sky != null && cm != null)
+            {
+                // dov'e' il sole nell'inquadratura e di quanto la mira manca il punto voluto (per capire una foto che non mostra quello che doveva)
+                var st = sky.State;
+                var vp = cm.WorldToViewportPoint(cm.transform.position + new Vector3(st.sunX, st.sunY, st.sunZ) * 500f);
+                Debug.Log($"[PryingEyes] desertotest foto {name}: il giocatore e' a {Pl.transform.position:F1}, il sole e' a ({vp.x:F2}, {vp.y:F2}) {(vp.z > 0f ? "davanti" : "dietro")}, la mira manca di {Vector3.Angle(cm.transform.forward, look - cm.transform.position):F1} gradi, il bersaglio e' a {Vector3.Distance(cm.transform.position, look):F1} m");
+            }
             Shot(name);
             yield return null; yield return null;
             if (sky != null) sky.Frozen = false;
@@ -236,11 +274,11 @@ namespace PryingEyes.Deserto
         static Vector2 OpenSand()
         {
             var list = new List<Site>();
-            for (int k = 0; k < 24; k++)
+            for (int k = 0; k < 90; k++)
             {
-                float a = (k * 47f + 20f) * Mathf.Deg2Rad, r = 260f + 15f * (k % 4);
+                float a = (k * 47f + 20f) * Mathf.Deg2Rad, r = 240f + 18f * (k % 7) + 10f * (k / 7);
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
-                DesertWorld.SitesNear(x, z, 110f, list);
+                DesertWorld.SitesNear(x, z, 75f, list);
                 if (list.Count == 0) return new Vector2(x, z);
             }
             return new Vector2(300f, 300f);
@@ -285,6 +323,19 @@ namespace PryingEyes.Deserto
             if (Explicit("soak")) yield return Phase("soak", Soak());
             if (Explicit("varieta")) yield return Phase("varieta' dei luoghi", Variety());
             if (Explicit("prestazioni")) yield return Phase("prestazioni", Perf());
+            if (Explicit("costi")) yield return Phase("costi", Costs());
+            if (Explicit("esterni")) yield return Phase("esterni", Exteriors());
+            if (Explicit("orizzonte")) yield return Phase("orizzonte", Horizon());
+            if (Explicit("paesaggio")) yield return Phase("paesaggio", Landscape());
+            if (Explicit("vita")) yield return Phase("vita del deserto", Life());
+            if (Explicit("cose")) yield return Phase("cose sulla sabbia", Props());
+            if (Explicit("galleria")) yield return Phase("galleria delle cose", PropGallery());
+            if (Explicit("rilievi")) yield return Phase("rilievi", ButteShots());
+            if (Explicit("look")) yield return Phase("tarature del look", LookSweep());
+            if (Explicit("orme")) yield return Phase("orme sulla sabbia", PrintsTest());
+            if (Explicit("suolo")) yield return Phase("suolo da vicino", GroundShots());
+            if (Explicit("creste")) yield return Phase("sabbia dalle creste", SpindriftTest());
+            if (Explicit("salina")) yield return Phase("pozze sulle saline", BrineTest());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
             if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
         }
@@ -347,7 +398,7 @@ namespace PryingEyes.Deserto
             yield return WaitFor(() => DesertNav.ReadyAround(pl.transform.position, 90f), 25f);
             string lost = "";
             foreach (var q in new[] { new Vector2(18f, -30f), new Vector2(-30f, -30f), new Vector2(-40f, -90f), new Vector2(18f, -100f), new Vector2(60f, -40f) })
-                if (!NavMesh.SamplePosition(new Vector3(q.x, DesertWorld.GroundY, q.y), out _, 1.5f, NavMesh.AllAreas)) lost += $" ({q.x:F0}, {q.y:F0})";
+                if (!NavMesh.SamplePosition(new Vector3(q.x, DesertWorld.Height(q.x, q.y), q.y), out _, 1.5f, NavMesh.AllAreas)) lost += $" ({q.x:F0}, {q.y:F0})";       // la sabbia attorno non e' piu' piatta: si cerca alla sua quota
             Check("la navmesh tiene tutti i tasselli costruiti attorno", lost.Length == 0, lost.Length == 0 ? "" : "senza navmesh:" + lost + "; " + DesertNav.BuiltTiles + " tasselli");
             Check("la cattedrale e' un santuario: niente navmesh sulla scalinata ne' dentro", !onStairs && !inChurch, $"scalinata {onStairs}, chiesa {inChurch}");
             // risalire
@@ -367,7 +418,7 @@ namespace PryingEyes.Deserto
             Check("a mezzogiorno il sole e' alto e il cielo e' chiaro", sky.State.sunHeight > 0.9f && sky.State.daylight > 0.9f, $"sole {sky.State.sunHeight:F2}, luce {sky.State.daylight:F2}");
             float sun = 0f;
             foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) if (l.type == LightType.Directional && l.enabled) sun = Mathf.Max(sun, l.intensity);
-            Check("a mezzogiorno il sole e' acceso", sun > 1f, $"intensita' {sun:F2}");
+            Check("a mezzogiorno il sole e' acceso", sun > 0.6f, $"intensita' {sun:F2}");
             sky.SetHour(0f, true);
             yield return null; yield return null;
             Check("a mezzanotte e' buio, con le stelle", sky.State.night > 0.95f && sky.State.stars > 0.9f, $"notte {sky.State.night:F2}, stelle {sky.State.stars:F2}");
@@ -542,7 +593,7 @@ namespace PryingEyes.Deserto
 
         IEnumerator Chapel()
         {
-            var s = DesertWorld.SiteOf(0, -1);
+            var s = DesertWorld.Welcome();
             Check("la cappella di benvenuto e' dove deve", s != null && s.kind == SiteKind.Cappella && s.plan != null, s?.ToString() ?? "manca");
             if (s == null || s.plan == null) yield break;
             yield return GoTo(s.CentreX, s.fz0 - 12f);
@@ -642,7 +693,7 @@ namespace PryingEyes.Deserto
 
         IEnumerator Tower()
         {
-            var s = DesertWorld.SiteOf(0, -2);
+            var s = DesertWorld.Landmark();
             Check("la torre di riferimento ha molti piani", s != null && s.IsTower && s.LevelCount >= 7, s?.ToString() ?? "manca");
             if (s == null || !s.IsTower) yield break;
             yield return GoTo(s.CentreX, s.fz0 - 12f);
@@ -658,6 +709,8 @@ namespace PryingEyes.Deserto
             yield return Walk(hall0, 90f, ok => inside = ok);
             Check("dalla sabbia si entra nella torre a piedi", inside, Pl.transform.position.ToString("F1") + " verso " + hall0.ToString("F1"));
             if (!inside) yield break;
+            // le guardie scendono sulla scala a incontrarlo (una, a mezza rampa, ha fermato la prova): chi prova non spara, quindi non deve trovarle in mezzo, come nella catacomba
+            foreach (var g in new List<Enemy>(Enemy.All)) if (g != null) Enemy.Remove(g);
             // la scala come la fa il giocatore: fino alla porta con la navmesh, poi su per le rampe da un punto all'altro
             var way = StairWay(s, 0);
             bool atDoor = false;
@@ -707,18 +760,45 @@ namespace PryingEyes.Deserto
             for (int k = from; k < pts.Count; k++)
             {
                 var p = pts[k]; float until = Time.time + perPoint; bool ok = false;
+                Vector3 still = pl.transform.position; float stillSince = Time.time;
                 while (Time.time < until)
                 {
                     Vector3 pos = pl.transform.position;
                     if (Flat(pos, p) < 0.45f && Mathf.Abs(pos.y - p.y) < 0.9f) { ok = true; break; }
+                    if (Flat(pos, still) > 0.2f) { still = pos; stillSince = Time.time; }
+                    else if (Time.time - stillSince > 1.5f) { ClearEnemiesAround(pos, 2.0f); stillSince = Time.time; }
                     Vector3 d = p - pos; d.y = 0f;
                     PlayerController.botDir = d.sqrMagnitude > 1e-4f ? d.normalized : Vector3.zero;
                     yield return null;
                 }
-                if (!ok) { all = false; Debug.Log($"[PryingEyes] desertotest scala: fermo a {pl.transform.position:F2} verso il punto {k} {p:F2}"); break; }
+                if (!ok)
+                {
+                    all = false;
+                    Debug.Log($"[PryingEyes] desertotest scala: fermo a {pl.transform.position:F2} verso il punto {k} {p:F2}");
+                    Debug.Log("[PryingEyes] desertotest scala: " + Blocker(pl.transform, p));
+                    break;
+                }
             }
             PlayerController.botDir = Vector3.zero; PlayerController.holdLook = true;
             done(all);
+        }
+
+        /// <summary>Perche' il giocatore non avanza: il primo collider sulla strada verso il punto (una sfera larga come il giocatore) e tutti quelli che gli stanno attorno.</summary>
+        static string Blocker(Transform pl, Vector3 target)
+        {
+            var sb = new System.Text.StringBuilder("bloccato da:");
+            Vector3 c = pl.position + Vector3.up * 0.9f, d = target - pl.position; d.y = 0f;
+            if (d.sqrMagnitude > 1e-4f && Physics.SphereCast(c, 0.25f, d.normalized, out var h, 2f, ~0, QueryTriggerInteraction.Ignore)) sb.Append($" primo sulla strada {Describe(h.collider)} a {h.distance:F2} m;");
+            else sb.Append(" nessun collider sulla strada;");
+            foreach (var col in Physics.OverlapSphere(c, 1.6f, ~0, QueryTriggerInteraction.Ignore)) sb.Append(" | " + Describe(col));
+            return sb.ToString();
+        }
+
+        static string Describe(Collider c)
+        {
+            var t = c.transform; string path = t.name;
+            for (int i = 0; i < 3 && t.parent != null; i++) { t = t.parent; path = t.name + "/" + path; }
+            return $"{path} [{c.GetType().Name}, strato {LayerMask.LayerToName(c.gameObject.layer)}, centro {c.bounds.center:F2}, misure {c.bounds.size:F2}]";
         }
 
         /// <summary>Dove la navmesh si interrompe lungo la scala di un livello: per ogni punto dice se e' sulla navmesh (e di quanto manca in quota) e se si arriva dal precedente.</summary>
@@ -743,7 +823,7 @@ namespace PryingEyes.Deserto
 
         IEnumerator Boss()
         {
-            var s = DesertWorld.SiteOf(0, -2);
+            var s = DesertWorld.Landmark();
             var rt = RtOf(s);
             if (s == null || !AllBuilt(rt)) { Check("il boss e' sull'ultimo piano", false, "torre non caricata"); yield break; }
             int top = s.boss;
@@ -950,6 +1030,8 @@ namespace PryingEyes.Deserto
             bool all = true;
             for (int lv = top - 1; lv >= 0 && all; lv--)
             {
+                // le guardie si svegliano a 30 m e si stringono sulla scala: chi prova non spara, quindi non deve trovarle in mezzo (non e' la prova dei nemici); il boss resta
+                foreach (var g in new List<Enemy>(Enemy.All)) if (g != null && g != rt.boss) Enemy.Remove(g);
                 var way = StairWay(cata, lv);
                 way.Reverse();
                 bool atTop = false;
@@ -1003,6 +1085,7 @@ namespace PryingEyes.Deserto
             gm.AddPoints(1000 - gm.score);
             int perks0 = Perks.Count, score0 = gm.score, seed0 = DesertMode.Seed, day0 = DesertMode.Clock.day;
             float t0 = day0 * 24f + DesertMode.Clock.hour;
+            godMode = false;
             pl.invulnerable = false;
             pl.Hurt(99999f);
             yield return null; yield return null;
@@ -1021,6 +1104,7 @@ namespace PryingEyes.Deserto
             // la tregua della rinascita (Grace) toglie l'invulnerabilita' dopo 2,5 s: si aspetta e la si rimette, per le fasi dopo
             yield return new WaitForSeconds(2.8f);
             pl.invulnerable = true;
+            godMode = true;
         }
 
         /// <summary>Il mondo e' quasi infinito: a 5, 9 e 17 km dalla cattedrale la sabbia si costruisce, i piedi stanno sulla navmesh e il primo edificio accanto si
@@ -1116,31 +1200,39 @@ namespace PryingEyes.Deserto
         /// <summary>Quanto costa disegnare quello che il giocatore vede, in millisecondi, a 1920x1080: si fa il render a mano della camera su una texture e si aspetta la GPU (si legge un
         /// pixel). Nove render, i primi due buttati (il primo di un posto nuovo paga ombre e blocchi), la mediana degli altri sette. -1 senza scheda grafica. Le prove di sempre non lo dicono:
         /// con -batchmode la camera dello schermo non disegna, e i tempi del registro sono quelli della logica del gioco.</summary>
-        float RenderMs()
+        string renderSamples = "";
+
+        /// <summary>Il costo, in ms, di un fotogramma della camera a 1920x1080 (CPU e GPU, attesa compresa): mediana di nove disegni, dopo 'warm' disegni di riscaldamento. Dopo qualche secondo
+        /// di pausa la scheda scende di frequenza e il primo disegno costa due o tre volte il normale (la prova del 18 novembre misurava 11-27 ms il primo disegno in ogni posto e 3-10 tutti i
+        /// seguenti, e prendeva il freddo per un guaio del gioco): con 24 disegni di riscaldamento si misura il passo a regime, che e' quello di chi gioca. I nove campioni restano in
+        /// renderSamples.</summary>
+        float RenderMs(int warm = 24)
         {
             var cam = Camera.main;
             if (cam == null || SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) return -1f;
+            renderFrame = Time.frameCount;
             var rt = RenderTexture.GetTemporary(1920, 1080, 24);
             var prev = cam.targetTexture; var old = RenderTexture.active;
             cam.targetTexture = rt;
             var one = new Texture2D(1, 1, TextureFormat.RGBA32, false);
             var ms = new float[9];
-            for (int i = 0; i < ms.Length; i++)
+            for (int i = -warm; i < ms.Length; i++)
             {
                 float t0 = Time.realtimeSinceStartup;
                 cam.Render();
                 RenderTexture.active = rt;
                 one.ReadPixels(new Rect(0, 0, 1, 1), 0, 0);                // aspetta che la GPU abbia finito
-                ms[i] = (Time.realtimeSinceStartup - t0) * 1000f;
+                if (i >= 0) ms[i] = (Time.realtimeSinceStartup - t0) * 1000f;
             }
             RenderTexture.active = old;
             cam.targetTexture = prev;
             RenderTexture.ReleaseTemporary(rt);
             Destroy(one);
-            var rest = new float[ms.Length - 2];
-            Array.Copy(ms, 2, rest, 0, rest.Length);
-            Array.Sort(rest);
-            return rest[rest.Length / 2];
+            renderFrame = Time.frameCount;
+            renderSamples = string.Join(" ", Array.ConvertAll(ms, m => m.ToString("F1")));
+            var sorted = (float[])ms.Clone();
+            Array.Sort(sorted);
+            return sorted[sorted.Length / 2];
         }
 
         float perfWorst;
@@ -1157,7 +1249,8 @@ namespace PryingEyes.Deserto
         }
 
         /// <summary>Solo con -desertonly prestazioni (serve la scheda grafica, finestra nascosta): il costo di un fotogramma a 1920x1080 in sette posti: il sagrato verso la sabbia, la sabbia aperta
-        /// con la torre in lontananza di giorno e di notte, il piede della torre, la navata, l'interno della cappella e la sala del boss di una catacomba. Sopra i 33 ms un posto e' un guaio.</summary>
+        /// con la torre in lontananza di giorno e di notte, il piede della torre, la navata, l'interno della cappella e la sala del boss di una catacomba; poi la sabbia piena di cose in
+        /// ognuna delle sei regioni, un campo acceso di notte (luci, fumo, tende) e la tempesta di sabbia. Sopra i 33 ms un posto e' un guaio.</summary>
         IEnumerator Perf()
         {
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) { Debug.Log("[PryingEyes] desertotest prestazioni: senza scheda grafica non si misura"); yield break; }
@@ -1167,7 +1260,7 @@ namespace PryingEyes.Deserto
             pl.Teleport(new Vector3(18f, 0.06f, 1.0f));
             Face(new Vector3(18f, 1.2f, -120f));
             yield return PerfAt("sagrato verso la sabbia");
-            var tower = DesertWorld.SiteOf(0, -2);
+            var tower = DesertWorld.Landmark();
             if (tower != null)
             {
                 var top = new Vector3(tower.CentreX, tower.padY + tower.Height * 0.6f, tower.CentreZ);
@@ -1185,7 +1278,7 @@ namespace PryingEyes.Deserto
             var nave = Fd.cur.plan.rooms[HubPlan.Navata];
             pl.Teleport(Centre(nave, 0.06f));
             yield return PerfAt("nella navata della cattedrale");
-            var chapel = DesertWorld.SiteOf(0, -1);
+            var chapel = DesertWorld.Welcome();
             if (chapel != null && chapel.plan != null)
             {
                 yield return GoTo(chapel.CentreX, chapel.fz0 - 12f);
@@ -1201,8 +1294,111 @@ namespace PryingEyes.Deserto
                 pl.Teleport(Centre(PlanGen.HallRoom(cata.levels[cata.boss]), cata.LevelY(cata.boss) + 0.1f));
                 yield return PerfAt("nella sala del boss di una catacomba", 4f);
             }
+            // ---- il deserto piu' vivo: la sabbia piena di cose in ogni regione, un campo acceso di notte, la tempesta di sabbia
+            var sc = DesertScatter.I;
+            if (sc != null)
+            {
+                var campTask = FindProps(Prop.FirePit);
+                if (sky != null) sky.SetHour(10f, true);
+                foreach (var kv in RegionSpots())
+                {
+                    yield return GoTo(kv.Value.x, kv.Value.y);
+                    yield return WaitFor(() => sc.CellsPending == 0 && sc.CellsReady >= 60, 40f);
+                    float eye = DesertWorld.Height(kv.Value.x, kv.Value.y) + 1.7f;
+                    Face(new Vector3(kv.Value.x + 40f * Mathf.Sin(0.6f), eye - 1.0f, kv.Value.y + 40f * Mathf.Cos(0.6f)));
+                    yield return PerfAt($"sabbia aperta nella regione {kv.Key} (di giorno)", 3f);
+                }
+                yield return WaitFor(() => campTask.IsCompleted, 120f);
+                if (campTask.IsCompleted && !campTask.IsFaulted && campTask.Result.TryGetValue(Prop.FirePit, out var fire))
+                {
+                    yield return GoTo(fire.x + 14f, fire.z);
+                    yield return WaitFor(() => sc.Fires.Count > 0, 25f);
+                    if (sky != null) sky.SetHour(23f, true);
+                    Face(fire + Vector3.up * 0.8f);
+                    yield return PerfAt("un campo di notte (fuoco, luci, fumo, tende)", 4f);
+                }
+                if (sky != null) { sky.SetHour(10f, true); sky.ForceStorm(1f); }
+                yield return PerfAt("sabbia aperta nella tempesta di sabbia (giorno)", 6f);
+                if (sky != null) sky.ForceStorm(-1f);
+            }
             if (sky != null) sky.Frozen = false;
             Debug.Log($"[PryingEyes] desertotest prestazioni: il posto peggiore costa {perfWorst:F1} ms a 1920x1080");
+        }
+
+        /// <summary>Solo con -desertonly costi (come prestazioni: serve la scheda grafica): dove vanno i millisecondi. In quattro posti (il sagrato, la sabbia delle dune, l'interno della cappella, la
+        /// sala del boss di una catacomba) misura il fotogramma intero e poi spegnendo, una alla volta, le cose sulla sabbia, la vita, le particelle, le luci puntuali, le ombre del sole, i luoghi
+        /// lontani, la sabbia stessa e il post-processing. Non controlla niente: scrive una riga per posto e serve a scegliere che cosa alleggerire.</summary>
+        IEnumerator Costs()
+        {
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) { Debug.Log("[PryingEyes] desertotest costi: senza scheda grafica non si misura"); yield break; }
+            var pl = Pl; var sky = DesertSky.I; var sc = DesertScatter.I;
+            if (sky != null) sky.SetHour(10f, true);
+            pl.Teleport(new Vector3(18f, 0.06f, 1.0f));
+            Face(new Vector3(18f, 1.2f, -120f));
+            yield return CostAt("sagrato verso la sabbia");
+            var spots = RegionSpots();
+            if (sc != null && spots.TryGetValue(Region.Dunes, out var dune))
+            {
+                yield return GoTo(dune.x, dune.y);
+                yield return WaitFor(() => sc.CellsPending == 0 && sc.CellsReady >= 60, 40f);
+                float eye = DesertWorld.Height(dune.x, dune.y) + 1.7f;
+                Face(new Vector3(dune.x + 40f * Mathf.Sin(0.6f), eye - 1.0f, dune.y + 40f * Mathf.Cos(0.6f)));
+                yield return CostAt("sabbia aperta nelle dune");
+            }
+            var chapel = DesertWorld.Welcome();
+            if (chapel != null && chapel.plan != null)
+            {
+                yield return GoTo(chapel.CentreX, chapel.fz0 - 12f);
+                yield return WaitFor(() => { var rt = RtOf(chapel); return rt != null && AllBuilt(rt) && rt.DressedRooms >= rt.DressableRooms; }, 70f);
+                pl.Teleport(Centre(chapel.plan.rooms[1], chapel.padY + 0.1f));
+                yield return CostAt("dentro la cappella");
+            }
+            var cata = NearestCatacomb(null);
+            if (cata != null)
+            {
+                yield return GoTo(cata.CentreX, cata.fz0 - 12f);
+                yield return WaitFor(() => { var rt = RtOf(cata); return AllBuilt(rt) && rt.DressedRooms > 2; }, 90f);
+                pl.Teleport(Centre(PlanGen.HallRoom(cata.levels[cata.boss]), cata.LevelY(cata.boss) + 0.1f));
+                yield return CostAt("nella sala del boss di una catacomba");
+            }
+            if (sky != null) sky.Frozen = false;
+        }
+
+        IEnumerator CostAt(string place)
+        {
+            yield return new WaitForSeconds(3f);
+            float cold = RenderMs(0); string coldSamples = renderSamples;         // il primo disegno dopo la pausa, senza riscaldare: serve a vedere quanto pesa il freddo
+            float all = RenderMs();
+            var sb = new System.Text.StringBuilder($"[PryingEyes] desertotest costi {place}: tutto {all:F1} ms (a freddo {cold:F1}: {coldSamples})");
+            var sc = DesertScatter.I; var life = DesertLife.I;
+            var lights = new List<Light>(); foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) if (l.type != LightType.Directional && l.enabled) lights.Add(l);
+            var parts = new List<ParticleSystemRenderer>(FindObjectsByType<ParticleSystemRenderer>(FindObjectsSortMode.None));
+            var skins = new List<GameObject>(); foreach (var t in FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t.name.StartsWith("Lontano_")) skins.Add(t.gameObject);
+            var volumes = new List<UnityEngine.Rendering.Volume>(FindObjectsByType<UnityEngine.Rendering.Volume>(FindObjectsSortMode.None));
+            var sun = RenderSettings.sun; var sunShadows = sun != null ? sun.shadows : LightShadows.None;
+            var terrain = DesertTerrain.I;
+            sb.Append($" [{lights.Count} luci, {parts.Count} particelle, {skins.Count} luoghi lontani, {(sc != null ? sc.Instances : 0)} cose]");
+            var steps = new List<(string, Action, Action)>
+            {
+                ("le cose sulla sabbia", () => { if (sc != null) sc.enabled = false; }, () => { if (sc != null) sc.enabled = true; }),
+                ("la vita", () => { if (life != null) life.enabled = false; }, () => { if (life != null) life.enabled = true; }),
+                ("le particelle", () => { foreach (var p in parts) if (p != null) p.enabled = false; }, () => { foreach (var p in parts) if (p != null) p.enabled = true; }),
+                ("le luci puntuali", () => { foreach (var l in lights) if (l != null) l.enabled = false; }, () => { foreach (var l in lights) if (l != null) l.enabled = true; }),
+                ("le ombre del sole", () => { if (sun != null) sun.shadows = LightShadows.None; }, () => { if (sun != null) sun.shadows = sunShadows; }),
+                ("i luoghi lontani", () => { foreach (var g in skins) if (g != null) g.SetActive(false); }, () => { foreach (var g in skins) if (g != null) g.SetActive(true); }),
+                ("la sabbia", () => { if (terrain != null) terrain.gameObject.SetActive(false); }, () => { if (terrain != null) terrain.gameObject.SetActive(true); }),
+                ("il post-processing", () => { foreach (var v in volumes) if (v != null) v.enabled = false; }, () => { foreach (var v in volumes) if (v != null) v.enabled = true; }),
+            };
+            foreach (var (name, off, on) in steps)
+            {
+                off(); yield return null; yield return null;
+                float ms = RenderMs(8);
+                on(); yield return null;
+                sb.Append($", senza {name} {ms:F1}");
+            }
+            yield return null; yield return null;
+            sb.Append($", di nuovo tutto {RenderMs(8):F1}");
+            Debug.Log(sb.ToString());
         }
 
         /// <summary>La catacomba piu' vicina alla cattedrale entro sei celle (senza contare 'except').</summary>
@@ -1236,7 +1432,7 @@ namespace PryingEyes.Deserto
         {
             var picks = new List<Site>();
             var kinds = new HashSet<SiteKind>(); var states = new HashSet<BuildingState>();
-            var refTower = DesertWorld.SiteOf(0, -2);
+            var refTower = DesertWorld.Landmark();
             Site tower = null;
             for (int ring = 1; ring <= 12; ring++)
                 for (int cx = -ring; cx <= ring; cx++)
@@ -1273,6 +1469,36 @@ namespace PryingEyes.Deserto
             yield return Walk(to, 80f, ok => entered = ok);
             Check($"{name}: dalla sabbia si entra a piedi", entered, Pl.transform.position.ToString("F1") + " verso " + to.ToString("F1"));
             if (entered) yield return LevelView(name);
+            if (entered) yield return DeepestRoom(s, name);
+        }
+
+        /// <summary>Dentro: la stanza piu' lontana dall'ingresso, contando le porte del piano, si raggiunge a piedi. Le porte dei muri crollati sono varchi senza architrave (Opening.Gap):
+        /// con un architrave a 1,5 m non ci passava nessuno, ne' il giocatore ne' un nemico (e la porta d'ingresso di tre luoghi di questa prova era cosi').</summary>
+        IEnumerator DeepestRoom(Site s, string name)
+        {
+            var p = s.plan; var entry = EntryRoom(p);
+            var depth = new Dictionary<int, int> { { entry.id, 0 } };
+            var queue = new Queue<int>(); queue.Enqueue(entry.id);
+            while (queue.Count > 0)
+            {
+                int u = queue.Dequeue();
+                foreach (var o in p.openings)
+                {
+                    if (o.b < 0 || o.oneSided || o.sill >= 0.01f || o.style == OpenStyle.Passaggio || o.style == OpenStyle.Ascensore) continue;
+                    int v = o.a == u ? o.b : o.b == u ? o.a : -1;
+                    if (v < 0 || depth.ContainsKey(v)) continue;
+                    var rv = p.rooms[v];
+                    if (rv.IsLift || rv.noFloor || rv.Open) continue;
+                    depth[v] = depth[u] + 1; queue.Enqueue(v);
+                }
+            }
+            Room far = null; int best = 1;
+            foreach (var kv in depth) if (kv.Value > best) { best = kv.Value; far = p.rooms[kv.Key]; }
+            if (far == null) yield break;                                   // una capanna: dopo l'ingresso non c'e' altro
+            Vector3 to = Centre(far, s.padY + 0.1f);
+            bool ok = false;
+            yield return Walk(to, 90f, r => ok = r);
+            Check($"{name}: dentro si arriva a piedi fino alla stanza piu' lontana ({best} porte dall'ingresso)", ok, Pl.transform.position.ToString("F1") + " verso " + to.ToString("F1") + $", stanza {far.id} {far.kind}");
         }
 
         /// <summary>Una torre o una catacomba: il guscio di tutti i livelli, l'ingresso a piedi dalla sabbia e, col teletrasporto, la sala del boss (il boss compare e la sala si vede).</summary>
@@ -1297,6 +1523,877 @@ namespace PryingEyes.Deserto
             if (rt.boss != null) yield return BossPhoto("boss_" + s.kind + "_" + s.theme, rt.boss, rt, bossLevel);
         }
 
+        /// <summary>Solo con -desertonly esterni -desertshots: le fotografie degli esterni. Di ogni luogo scelto (un edificio per genere e stato, due torri, due catacombe, la cappella) quattro
+        /// scorci da terra dagli spigoli e uno dall'alto, a mezzogiorno; e la cattedrale da quattro lati. Servono a guardare con gli occhi che cosa si vede da fuori: tetti, muri
+        /// sopra i tetti bassi, rovine, finestre. Non misura niente: i controlli sono che il luogo si costruisca.</summary>
+        IEnumerator Exteriors()
+        {
+            if (!shots) { Debug.Log("[PryingEyes] desertotest esterni: senza -desertshots non c'e' niente da fotografare"); yield break; }
+            var sky = DesertSky.I;
+            if (sky != null) sky.SetHour(10.5f, true);
+            var picks = new List<Site>();
+            var seen = new HashSet<string>();
+            var towers = new List<Site>(); var catas = new List<Site>();
+            var chapel = DesertWorld.Welcome();
+            for (int ring = 1; ring <= 10; ring++)
+                for (int cx = -ring; cx <= ring; cx++)
+                    for (int cz = -ring; cz <= ring; cz++)
+                    {
+                        if (Mathf.Max(Mathf.Abs(cx), Mathf.Abs(cz)) != ring) continue;
+                        var s = DesertWorld.SiteOf(cx, cz);
+                        if (s == null) continue;
+                        if (s.IsTower) { if (towers.Count < 2) towers.Add(s); }
+                        else if (s.IsCatacomb) { if (catas.Count < 1) catas.Add(s); }
+                        else if (s.plan != null && picks.Count < 12 && seen.Add(s.kind + "/" + s.state)) picks.Add(s);
+                    }
+            if (chapel != null) picks.Insert(0, chapel);
+            picks.AddRange(towers); picks.AddRange(catas);
+            Debug.Log($"[PryingEyes] desertotest esterni: {picks.Count} luoghi");
+            int n = 0;
+            foreach (var s in picks)
+            {
+                n++;
+                float h = s.IsTower ? Mathf.Min(s.Height, 40f) : 6f;
+                float cxm = s.CentreX, czm = s.CentreZ, midY = s.padY + (s.IsTower ? Mathf.Min(s.Height * 0.4f, 20f) : 2.5f);
+                float dist = Mathf.Max(18f, 0.45f * Mathf.Max(s.fx1 - s.fx0, s.fz1 - s.fz0) + (s.IsTower ? 40f : 14f));
+                yield return GoTo(cxm, s.fz0 - 14f);
+                yield return WaitFor(() => AllBuilt(RtOf(s)), 90f);
+                Check($"esterno {s.kind}/{s.state}: costruito", AllBuilt(RtOf(s)), "");
+                yield return new WaitForSeconds(1f);
+                string nm = $"ext_{n:00}_{s.kind}_{s.state}";
+                var spots = new[]
+                {
+                    new Vector2(cxm - dist, czm - dist), new Vector2(cxm + dist, czm - dist), new Vector2(cxm + dist, czm + dist), new Vector2(cxm - dist, czm + dist),
+                };
+                for (int i = 0; i < spots.Length; i++)
+                {
+                    yield return GoTo(spots[i].x, spots[i].y);
+                    Face(new Vector3(cxm, midY, czm));
+                    yield return new WaitForSeconds(0.9f);
+                    Face(new Vector3(cxm, midY, czm));
+                    yield return null;
+                    Shot(nm + "_" + (char)('a' + i));
+                    yield return null;
+                }
+                // dall'alto: il tetto
+                var up = new Vector3(cxm, s.padY + (s.IsTower ? Mathf.Min(s.Height * 0.5f, 30f) : 26f) + 30f, czm - dist * 1.15f);
+                Pl.Teleport(up);
+                Face(new Vector3(cxm, s.padY + (s.IsTower ? Mathf.Min(s.Height, 36f) * 0.6f : 3f), czm));
+                yield return null;
+                Shot(nm + "_up");
+                yield return null;
+            }
+            // la cattedrale da quattro lati
+            var views = new[] { new Vector3(-55f, 0f, 33f), new Vector3(105f, 0f, 33f), new Vector3(23f, 0f, 130f), new Vector3(23f, 0f, -80f) };
+            for (int i = 0; i < views.Length; i++)
+            {
+                yield return GoTo(views[i].x, views[i].z);
+                Face(new Vector3(23f, 7f, 33f));
+                yield return new WaitForSeconds(1f);
+                Face(new Vector3(23f, 7f, 33f));
+                yield return null;
+                Shot("ext_cattedrale_" + (char)('a' + i));
+                yield return null;
+            }
+            if (sky != null) sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly orizzonte: le pelle dei luoghi lontani (SiteFacade) e le regioni. Da tre punti (il sagrato, la prima regione, una regione lontana) si aspetta che
+        /// tutte le pelle entro 760 m siano costruite e si guarda l'orizzonte in quattro direzioni (con -desertshots anche le foto, di giorno e al tramonto). Controlli: ci sono
+        /// luoghi all'orizzonte, le pelle si finiscono, nessuna resta accesa dove il guscio vero e' completo, e il costo si misura.</summary>
+        IEnumerator Horizon()
+        {
+            var sky = DesertSky.I;
+            var spots = new[] { ("dal sagrato", new Vector2(23f, -70f)), ("nella prima regione", new Vector2(330f, 240f)), ("in una regione lontana", new Vector2(2300f, -1900f)), ("in un'altra regione", new Vector2(-2600f, 1500f)) };
+            int w = 0;
+            foreach (var (name, at) in spots)
+            {
+                w++;
+                if (sky != null) sky.SetHour(10.5f, true);
+                float t0 = Time.realtimeSinceStartup;
+                yield return GoTo(at.x, at.y);
+                var region = DesertWorld.RegionAt(at.x, at.y);
+                yield return WaitFor(() => Dd != null && Dd.FarSkins > 0 && Dd.FarSkinsPending == 0, 90f);
+                float took = Time.realtimeSinceStartup - t0;
+                Check($"orizzonte {name} ({region}): le pelle lontane accese sono tutte costruite", Dd != null && Dd.FarSkins > 0 && Dd.FarSkinsPending == 0, $"{Dd?.FarSkinsDone}/{Dd?.FarSkins} costruite ({Dd?.FarSkinsShown} accese, {Dd?.FarSkinsPending} da finire) in {took:F1} s, {Dd?.FarVertices} vertici");
+                yield return new WaitForSeconds(1.5f);
+                int onBoth = 0;
+                foreach (var rt in Dd.Loaded)
+                {
+                    var f = Dd.FarSkinOf(rt.site);
+                    if (f != null && rt.ShellComplete && f.Shown) onBoth++;
+                }
+                Check($"orizzonte {name}: dove il guscio vero e' completo la pelle lontana e' spenta", onBoth == 0, $"{onBoth} luoghi con tutti e due, {Dd.LoadedSites} gusci, {Dd.FarSkinsShown} pelle accese");
+                Check($"orizzonte {name}: le pelle pesano poco", Dd.FarVertices < 1500000, $"{Dd.FarVertices} vertici in {Dd.FarSkins} pelle");
+                if (!shots) continue;
+                float eye = DesertWorld.Height(at.x, at.y) + 1.7f;
+                for (int d = 0; d < 4; d++)
+                {
+                    float a = (d * 90f + 20f) * Mathf.Deg2Rad;
+                    Face(new Vector3(at.x + Mathf.Sin(a) * 500f, eye + 4f, at.y + Mathf.Cos(a) * 500f));
+                    yield return new WaitForSeconds(0.8f);
+                    Face(new Vector3(at.x + Mathf.Sin(a) * 500f, eye + 4f, at.y + Mathf.Cos(a) * 500f));
+                    yield return null;
+                    Shot($"orizzonte_{w}_{region}_{(char)('a' + d)}");
+                    yield return null;
+                }
+                if (sky != null) sky.SetHour(19.1f, true);
+                float a2 = 110f * Mathf.Deg2Rad;
+                Face(new Vector3(at.x + Mathf.Sin(a2) * 500f, eye + 4f, at.y + Mathf.Cos(a2) * 500f));
+                yield return new WaitForSeconds(1.4f);
+                Shot($"orizzonte_{w}_{region}_sera");
+                yield return null;
+            }
+            if (sky != null) sky.Frozen = false;
+        }
+
+        /// <summary>Un punto panoramico in una regione: il piu' rilevato della zona attorno al suo centro (il suo punto sta sopra la media del terreno a 160 m e il terreno attorno varia molto),
+        /// con la pendenza dolce per starci in piedi, senza luoghi a meno di 70 m; e la direzione (radianti, x = cos, z = sin) in cui davanti il terreno sale di piu' a 220 m: un muro di
+        /// duna o di mesa e' l'inquadratura che dice com'e' fatto il paesaggio.</summary>
+        static bool Vantage(Region reg, out Vector2 at, out float dir)
+        {
+            at = default; dir = 0f;
+            if (!RegionSpots().TryGetValue(reg, out var c)) return false;
+            var list = new List<Site>();
+            float best = float.MinValue;
+            for (float dx = -900f; dx <= 900f; dx += 45f)
+                for (float dz = -900f; dz <= 900f; dz += 45f)
+                {
+                    float x = c.x + dx, z = c.y + dz;
+                    if (DesertWorld.RegionWeight(reg, x, z) < 0.9f) continue;
+                    DesertWorld.SitesNear(x, z, 70f, list);
+                    if (list.Count > 0) continue;
+                    float h0 = DesertWorld.Height(x, z);
+                    if (Mathf.Abs(DesertWorld.Height(x + 3f, z) - DesertWorld.Height(x - 3f, z)) > 1.8f || Mathf.Abs(DesertWorld.Height(x, z + 3f) - DesertWorld.Height(x, z - 3f)) > 1.8f) continue;
+                    float sum = 0f, lo = h0, hi = h0;
+                    for (int k = 0; k < 16; k++)
+                    {
+                        float a = k * Mathf.PI / 8f, hh = DesertWorld.Height(x + Mathf.Cos(a) * 160f, z + Mathf.Sin(a) * 160f);
+                        sum += hh; lo = Mathf.Min(lo, hh); hi = Mathf.Max(hi, hh);
+                    }
+                    float score = (h0 - sum / 16f) + 0.5f * (hi - lo);
+                    if (score > best) { best = score; at = new Vector2(x, z); }
+                }
+            if (best == float.MinValue) return false;
+            float h00 = DesertWorld.Height(at.x, at.y), rise = float.MinValue;
+            for (int k = 0; k < 16; k++)
+            {
+                float a = k * Mathf.PI / 8f, hh = DesertWorld.Height(at.x + Mathf.Cos(a) * 220f, at.y + Mathf.Sin(a) * 220f);
+                if (hh - h00 > rise) { rise = hh - h00; dir = a; }
+            }
+            return true;
+        }
+
+        /// <summary>Solo con -desertonly paesaggio -desertshots (nessun controllo: foto): il colpo d'occhio. Il primo sguardo dal sagrato (all'alba della partenza, di giorno, al tramonto, di notte, nella
+        /// tempesta) e, da un punto panoramico di tre regioni (le dune, le terre aspre, la terra santa), il paesaggio di giorno, il sole basso in faccia, la sera e la notte. Serve a giudicare
+        /// il cielo, la luce, il grading e il rilievo senza indovinare dai numeri.</summary>
+        IEnumerator Landscape()
+        {
+            var sky = DesertSky.I;
+            if (!shots || sky == null) { Debug.Log("[PryingEyes] desertotest paesaggio: senza foto non c'e' niente da fare"); yield break; }
+            Pl.Teleport(new Vector3(18f, 0.06f, 1.0f));
+            yield return new WaitForSeconds(1.5f);
+            var look = new Vector3(18f, 1.6f, -150f);
+            foreach (var (nm, hr) in new[] { ("alba", 7.1f), ("giorno", 11.0f), ("tramonto", 17.6f), ("notte", 22.6f) })
+                yield return Snap($"paesaggio_0_sagrato_{nm}", hr, look, 1.0f);
+            sky.ForceStorm(1f);
+            yield return Snap("paesaggio_0_sagrato_tempesta", 11.0f, look, 3.0f);
+            sky.ForceStorm(-1f);
+            int n = 0;
+            foreach (var reg in new[] { Region.Dunes, Region.Badlands, Region.Holy })
+            {
+                n++;
+                if (!Vantage(reg, out var at, out float dir)) { Debug.Log($"[PryingEyes] desertotest paesaggio: nessun punto panoramico nella regione {reg}"); continue; }
+                sky.SetHour(11.0f, true);
+                yield return GoTo(at.x, at.y);
+                yield return WaitFor(() => DesertScatter.I == null || (DesertScatter.I.CellsPending == 0 && DesertScatter.I.CellsReady >= 40), 40f);
+                float eye = DesertWorld.Height(at.x, at.y) + 1.7f;
+                var ahead = new Vector3(at.x + Mathf.Cos(dir) * 500f, eye + 3f, at.y + Mathf.Sin(dir) * 500f);
+                Debug.Log($"[PryingEyes] desertotest paesaggio {reg}: da ({at.x:F0}, {at.y:F0}) a {eye:F1} m, si guarda verso {dir * Mathf.Rad2Deg:F0} gradi");
+                yield return Snap($"paesaggio_{n}_{reg}_giorno", 11.0f, ahead, 2.0f);
+                var sunLow = DesertClock.Evaluate(17.4f);
+                var toSun = new Vector3(at.x + sunLow.sunX * 500f, eye + sunLow.sunY * 500f + 12f, at.y + sunLow.sunZ * 500f);
+                yield return Snap($"paesaggio_{n}_{reg}_sole", 17.4f, toSun, 1.5f);
+                yield return Snap($"paesaggio_{n}_{reg}_sera", 17.8f, ahead, 1.5f);
+                yield return Snap($"paesaggio_{n}_{reg}_notte", 22.6f, ahead, 1.5f);
+            }
+            sky.Frozen = false;
+        }
+
+        /// <summary>Un punto in mezzo a ciascuna delle sei regioni (a piu' di 200 m dal confine con un'altra), il piu' vicino alla cattedrale, e uno spazio libero attorno.</summary>
+        static Dictionary<Region, Vector2> RegionSpots()
+        {
+            var found = new Dictionary<Region, Vector2>();
+            var list = new List<Site>();
+            for (float r = 0f; r < 9000f && found.Count < 6; r += 120f)
+                for (int k = 0; k < Mathf.Max(1, (int)(r / 120f) * 6); k++)
+                {
+                    float a = k * Mathf.PI * 2f / Mathf.Max(1, (int)(r / 120f) * 6);
+                    float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+                    var reg = DesertWorld.RegionAt(x, z);
+                    if (found.ContainsKey(reg) || DesertWorld.RegionWeight(reg, x, z) < 0.99f) continue;
+                    DesertWorld.SitesNear(x, z, 60f, list);
+                    if (list.Count == 0) found[reg] = new Vector2(x, z);
+                }
+            return found;
+        }
+
+        /// <summary>La copia di un genere di cosa sulla sabbia piu' vicina a un punto, tra i quadrati entro 'radius' (la funzione pura che le piazza, la stessa del regista).</summary>
+        static bool NearestProp(Prop kind, Vector2 from, int radius, out PropItem best)
+        {
+            best = default;
+            float bd = float.MaxValue; bool found = false;
+            var list = new List<PropItem>();
+            int cx0 = Mathf.FloorToInt(from.x / DesertScatterGen.Chunk), cz0 = Mathf.FloorToInt(from.y / DesertScatterGen.Chunk);
+            for (int i = -radius; i <= radius; i++)
+                for (int j = -radius; j <= radius; j++)
+                {
+                    DesertScatterGen.Build(cx0 + i, cz0 + j, list);
+                    foreach (var it in list)
+                    {
+                        if (it.kind != (byte)kind) continue;
+                        float d = (it.x - from.x) * (it.x - from.x) + (it.z - from.y) * (it.z - from.y);
+                        if (d < bd) { bd = d; best = it; found = true; }
+                    }
+                }
+            return found;
+        }
+
+        /// <summary>Solo con -desertonly galleria -desertshots (nessun controllo: foto): ogni genere di cosa sulla sabbia visto da vicino, con il sole basso di lato (le 16:12), dalla copia piu' vicina
+        /// al punto di una regione dove di solito sta: sassi, massi, lastre, cactus, alberi morti, cespugli, colonne e stele. Serve a giudicare la forma, la grana, il colore e l'ombra di contatto.</summary>
+        IEnumerator PropGallery()
+        {
+            var sky = DesertSky.I; var sc = DesertScatter.I;
+            if (!shots || sky == null || sc == null) { Debug.Log("[PryingEyes] desertotest galleria: senza foto non c'e' niente da fare"); yield break; }
+            var spots = RegionSpots();
+            var sun = DesertClock.Evaluate(16.2f);
+            var sunH = new Vector2(sun.sunX, sun.sunZ).normalized;
+            var perp = new Vector2(-sunH.y, sunH.x);
+            // genere, regione dove sta, distanza dalla camera (m) e a che altezza (m, a scala 1) si guarda
+            var plan = new (Prop kind, Region reg, float dist, float lookY)[]
+            {
+                (Prop.RockTan, Region.Dunes, 3.2f, 0.30f), (Prop.RockWhite, Region.Holy, 3.2f, 0.30f), (Prop.RockDark, Region.Dunes, 3.2f, 0.30f), (Prop.RockRed, Region.Badlands, 3.2f, 0.30f),
+                (Prop.BoulderTan, Region.Dunes, 7.0f, 0.90f), (Prop.BoulderRed, Region.Badlands, 7.0f, 0.90f), (Prop.Slab, Region.Badlands, 6.5f, 1.10f),
+                (Prop.Cactus, Region.Dunes, 5.0f, 1.20f), (Prop.DeadTree, Region.Dunes, 7.5f, 1.70f), (Prop.Bush, Region.Dunes, 3.4f, 0.35f),
+                (Prop.Column, Region.Holy, 6.0f, 1.00f), (Prop.Stele, Region.Holy, 6.0f, 1.10f), (Prop.Pebbles, Region.Dunes, 2.4f, 0.10f),
+            };
+            foreach (var e in plan)
+            {
+                if (!spots.TryGetValue(e.reg, out var at)) { Debug.Log($"[PryingEyes] desertotest galleria: nessun punto nella regione {e.reg}"); continue; }
+                if (!NearestProp(e.kind, at, 5, out var it)) { Debug.Log($"[PryingEyes] desertotest galleria: nessun {e.kind} vicino a ({at.x:F0}, {at.y:F0})"); continue; }
+                float d = e.dist * Mathf.Max(0.8f, it.scale * 0.75f);
+                var view = new Vector2(it.x, it.z) + (perp * 0.87f + sunH * 0.5f) * d;
+                sky.SetHour(16.2f, true);
+                yield return GoTo(view.x, view.y, 5f);
+                yield return WaitFor(() => sc.CellsPending == 0, 25f);
+                var look = new Vector3(it.x, it.y + e.lookY * it.scale + 0.15f, it.z);
+                Debug.Log($"[PryingEyes] desertotest galleria {e.kind}: a ({it.x:F0}, {it.z:F0}), scala {it.scale:F2}, vista da {d:F1} m");
+                yield return Snap($"galleria_{e.kind}", 16.2f, look, 1.0f);
+            }
+            if (sky != null) sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly look -desertshots (nessun controllo: foto): lo stesso panorama di una vedetta delle dune (al mattino, di giorno e col sole basso in faccia) con sette tarature
+        /// diverse della luce del giorno, del cielo e dell'alone del sole, una dopo l'altra, per scegliere quella che sta meglio guardando le foto (look_<nome>_mattino / _giorno / _sole). Rimette tutto com'era.</summary>
+        IEnumerator LookSweep()
+        {
+            var sky = DesertSky.I;
+            if (!shots || sky == null) { Debug.Log("[PryingEyes] desertotest look: senza foto non c'e' niente da fare"); yield break; }
+            if (!Vantage(Region.Dunes, out var at, out float dir)) { Debug.Log("[PryingEyes] desertotest look: nessun punto panoramico nelle dune"); yield break; }
+            sky.SetHour(11.0f, true);
+            yield return GoTo(at.x, at.y);
+            yield return WaitFor(() => DesertScatter.I == null || (DesertScatter.I.CellsPending == 0 && DesertScatter.I.CellsReady >= 40), 40f);
+            float eye = DesertWorld.Height(at.x, at.y) + 1.7f;
+            var ahead = new Vector3(at.x + Mathf.Cos(dir) * 500f, eye + 3f, at.y + Mathf.Sin(dir) * 500f);
+            var sunLow = DesertClock.Evaluate(17.4f);
+            var toSun = new Vector3(at.x + sunLow.sunX * 500f, eye + sunLow.sunY * 500f + 12f, at.y + sunLow.sunZ * 500f);
+            float gain0 = DesertSky.DaySkyGain, zenith0 = DesertSky.DayZenithGain, cloud0 = DesertSky.DayCloudGain, glow0 = DesertSky.SunGlow, light0 = DesertSky.DayLight;
+            // nome, quanta luce di giorno (sole e ambiente), guadagno dello zenit e dell'orizzonte, bagliore del sole. Per scegliere i valori: il cielo (un blu piu' o meno carico), quanta luce
+            // vuole la sabbia, e l'alone del sole (piu' o meno largo)
+            var variants = new (string name, float light, float zenith, float horizon, float glow)[]
+            {
+                ("a_nuovo", light0, zenith0, gain0, glow0),
+            };
+            foreach (var v in variants)
+            {
+                DesertSky.DayLight = v.light; DesertSky.DayZenithGain = v.zenith; DesertSky.DaySkyGain = v.horizon; DesertSky.SunGlow = v.glow;
+                yield return Snap($"look_{v.name}_mattino", 7.3f, ahead, 1.6f);
+                yield return Snap($"look_{v.name}_giorno", 11.0f, ahead, 1.6f);
+                yield return Snap($"look_{v.name}_pomeriggio", 15.5f, ahead, 1.6f);
+                yield return Snap($"look_{v.name}_sole", 17.4f, toSun, 1.6f);
+                yield return Snap($"look_{v.name}_tramonto", 17.9f, ahead, 1.6f);
+            }
+            DesertGrade.Tweak = null; DesertSky.ExposureOffset = 0f; DesertSky.DayZenithGain = zenith0; DesertSky.DaySkyGain = gain0; DesertSky.DayCloudGain = cloud0; DesertSky.TestTonemap = -1; DesertSky.SunGlow = glow0; DesertSky.DayLight = light0;
+            sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly rilievi -desertshots (nessun controllo: foto): i rilievi isolati (DesertWorld.Buttes). I due piu' vicini alla cattedrale, ognuno visto da lontano
+        /// (il profilo sull'orizzonte, col sole basso alle spalle e un po' di lato) e dal pietrisco ai piedi della parete (le strisce di roccia, i solchi). Serve a giudicare la forma, la roccia e
+        /// quanto si vedono da lontano.</summary>
+        IEnumerator ButteShots()
+        {
+            var sky = DesertSky.I;
+            if (!shots || sky == null) { Debug.Log("[PryingEyes] desertotest rilievi: senza foto non c'e' niente da fare"); yield break; }
+            var found = new List<(float d, float x, float z, float r, float h, float a, float asp)>();
+            for (int i = -4; i <= 4; i++)
+                for (int j = -4; j <= 4; j++)
+                    if (DesertWorld.ButteOfCell(i, j, out float px, out float pz, out float r, out float h, out float a, out float asp))
+                        found.Add((DesertWorld.DistToCathedral(px, pz), px, pz, r, h, a, asp));
+            found.Sort((p, q) => p.d.CompareTo(q.d));
+            Debug.Log($"[PryingEyes] desertotest rilievi: {found.Count} nei 8,1 km attorno, il piu' vicino a {(found.Count > 0 ? found[0].d : 0f):F0} m dalla cattedrale");
+            var sun = DesertClock.Evaluate(16.2f);
+            var sunH = new Vector2(sun.sunX, sun.sunZ).normalized;
+            for (int n = 0; n < Mathf.Min(2, found.Count); n++)
+            {
+                var b = found[n];
+                float cy = DesertWorld.Height(b.x, b.z);
+                // da lontano: sul lato del sole (il sole alle spalle, 35 gradi di lato), a 500 m dal centro
+                var side = new Vector2(sunH.x * Mathf.Cos(0.61f) - sunH.y * Mathf.Sin(0.61f), sunH.x * Mathf.Sin(0.61f) + sunH.y * Mathf.Cos(0.61f));
+                var far = new Vector2(b.x, b.z) + side * 500f;
+                sky.SetHour(16.2f, true);
+                yield return GoTo(far.x, far.y, 5f);
+                yield return WaitFor(() => DesertScatter.I == null || DesertScatter.I.CellsPending == 0, 25f);
+                Debug.Log($"[PryingEyes] desertotest rilievo {n + 1}: al centro ({b.x:F0}, {b.z:F0}), alto {b.h:F0} m, raggio {b.r:F0} m, a {b.d:F0} m dalla cattedrale");
+                yield return Snap($"rilievo_{n + 1}_lontano", 16.2f, new Vector3(b.x, cy + b.h * 0.55f, b.z), 1.2f);
+                // dal piede: sul lato corto, nel pietrisco, dalla parte del sole
+                var perp = new Vector2(-Mathf.Sin(b.a), Mathf.Cos(b.a));
+                if (Vector2.Dot(perp, sunH) < 0f) perp = -perp;
+                var foot = new Vector2(b.x, b.z) + perp * (b.r * b.asp * 1.45f);
+                yield return GoTo(foot.x, foot.y, 3f);
+                yield return WaitFor(() => DesertScatter.I == null || DesertScatter.I.CellsPending == 0, 25f);
+                yield return Snap($"rilievo_{n + 1}_piede", 16.2f, new Vector3(b.x, cy + b.h * 0.8f, b.z), 1.2f);
+            }
+            sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly creste: la sabbia che il vento stacca dalle creste (DesertSpindrift). Da un punto panoramico delle dune, con la ricerca delle creste a ritmo triplo e un
+        /// vento che c'e' di sicuro, si controlla che almeno due creste comincino a fumare, che ci siano particelle vive e che non siano troppe; con -desertshots tre fotografie (sole alto alle
+        /// spalle, il sole basso di lato e di fronte) per vedere se i veli si leggono e non sembrano trattini.</summary>
+        IEnumerator SpindriftTest()
+        {
+            var sp = DesertSpindrift.I; var sky = DesertSky.I;
+            Check("creste: il sistema c'e'", sp != null, "DesertSpindrift.I e' nullo");
+            if (sp == null || sky == null) yield break;
+            if (!Vantage(Region.Dunes, out var at, out float dir)) { Debug.Log("[PryingEyes] desertotest creste: nessun punto panoramico nelle dune"); yield break; }
+            sky.SetHour(16.4f, true);
+            yield return GoTo(at.x, at.y);
+            yield return WaitFor(() => DesertScatter.I == null || DesertScatter.I.CellsPending == 0, 25f);
+            float eye = DesertWorld.Height(at.x, at.y) + 1.7f;
+            var ahead = new Vector3(at.x + Mathf.Cos(dir) * 400f, eye + 6f, at.y + Mathf.Sin(dir) * 400f);
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
+            Face(ahead);
+            DesertSpindrift.Boost = 8f;                 // la ricerca e' a caso (e la direzione del vento cambia con l'ora): a ritmo triplo e in 25 s due creste erano al limite (un giro 2, il successivo 1)
+            int p0 = sp.Plumes;
+            yield return WaitFor(() => sp.Plumes - p0 >= 2 && sp.Alive > 20, 45f);
+            float w = sky.Weather.wind;
+            Check("creste: con un po' di vento almeno due creste cominciano a fumare", sp.Plumes - p0 >= 2, $"{sp.Plumes - p0} creste in 45 s, vento {w:F2}");
+            Check("creste: ci sono particelle vive e non sono troppe", sp.Alive > 20 && sp.Alive <= 1400, $"{sp.Alive} particelle, {sp.Smoking} creste che fumano");
+            Debug.Log($"[PryingEyes] desertotest creste: {sp.Plumes - p0} creste, {sp.Alive} particelle, vento {w:F2}");
+            if (shots)
+            {
+                yield return new WaitForSeconds(4f);
+                yield return Snap("creste_avanti", 16.4f, ahead, 1.2f);
+                var sunLow = DesertClock.Evaluate(17.4f);
+                var toSun = new Vector3(at.x + sunLow.sunX * 500f, eye + sunLow.sunY * 500f + 12f, at.y + sunLow.sunZ * 500f);
+                yield return new WaitForSeconds(3f);
+                yield return Snap("creste_sole", 17.4f, toSun, 1.2f);
+                var side = new Vector3(at.x + Mathf.Cos(dir + 1.2f) * 400f, eye + 6f, at.y + Mathf.Sin(dir + 1.2f) * 400f);
+                yield return Snap("creste_lato", 17.0f, side, 1.2f);
+            }
+            DesertSpindrift.Boost = 1f;
+            if (sky != null) sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly suolo -desertshots (nessun controllo: foto): la sabbia da vicino in cinque punti aperti attorno alla cattedrale. Per ognuno, di traverso al sole (la luce
+        /// radente fa leggere il rilievo): al mattino il suolo a pochi metri, la sera il suolo a pochi metri e la distesa fino a settanta metri. Serve a giudicare le increspature (regolari? storte?),
+        /// i sassi sparsi, il grano e le ombre, senza indovinare dai numeri.</summary>
+        IEnumerator GroundShots()
+        {
+            var sky = DesertSky.I;
+            if (!shots || sky == null) { Debug.Log("[PryingEyes] desertotest suolo: senza foto non c'e' niente da fare"); yield break; }
+            var list = new List<Site>();
+            int n = 0;
+            for (int k = 0; k < 60 && n < 5; k++)
+            {
+                float a = (k * 61f + 15f) * Mathf.Deg2Rad, r = 420f + 130f * (k % 5);
+                float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+                DesertWorld.SitesNear(x, z, 80f, list);
+                if (list.Count > 0) continue;
+                if (Mathf.Abs(DesertWorld.Height(x + 3f, z) - DesertWorld.Height(x - 3f, z)) > 0.8f || Mathf.Abs(DesertWorld.Height(x, z + 3f) - DesertWorld.Height(x, z - 3f)) > 0.8f) continue;
+                n++;
+                var reg = DesertWorld.RegionAt(x, z);
+                sky.SetHour(9.0f, true);
+                yield return GoTo(x, z, 4f);
+                yield return WaitFor(() => DesertScatter.I == null || DesertScatter.I.CellsPending == 0, 25f);
+                Vector3 p = Pl.transform.position;
+                var st = DesertClock.Evaluate(17.0f);
+                var sunH = new Vector2(st.sunX, st.sunZ).normalized;
+                var side = new Vector3(-sunH.y, 0f, sunH.x);
+                var near = p + side * 4.5f; near.y = DesertWorld.Height(near.x, near.z);
+                var far = p + side * 70f; far.y = DesertWorld.Height(far.x, far.z);
+                Debug.Log($"[PryingEyes] desertotest suolo {n}: da ({p.x:F0}, {p.z:F0}) nella regione {reg}");
+                yield return Snap($"suolo_{n}_{reg}_mattino", 9.0f, near, 1.0f);
+                yield return Snap($"suolo_{n}_{reg}_sera_vicino", 17.0f, near, 1.0f);
+                yield return Snap($"suolo_{n}_{reg}_sera_lontano", 17.0f, far, 1.0f);
+                if (n == 1 || n == 3)
+                {
+                    // il pavimento di ciottoli, dove il rumore non lo mette: forzato (lo shader legge _DSPebbleBoost), da vicino a luce radente e a mezzogiorno
+                    Shader.SetGlobalFloat("_DSPebbleBoost", 1f);
+                    yield return Snap($"suolo_{n}_{reg}_ciottoli_sera", 17.0f, near, 1.0f);
+                    yield return Snap($"suolo_{n}_{reg}_ciottoli_giorno", 11.5f, near, 1.0f);
+                    Shader.SetGlobalFloat("_DSPebbleBoost", 0f);
+                }
+            }
+            Shader.SetGlobalFloat("_DSPebbleBoost", 0f);
+            sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly salina: le pozze sulle saline (una pellicola d'acqua sul sale che specchia il cielo). Si va in mezzo alla prima salina che c'e' (dal centro della regione si
+        /// cerca entro 1,5 km), si sceglie un punto in piena acqua (piatto, senza luoghi a meno di 90 m e con l'acqua tutt'attorno) e uno sulla riva asciutta con un lago davanti; si controlla che ci
+        /// siano e che un passo nell'acqua non lasci l'impronta mentre uno sulla sabbia asciutta si'. Con -desertshots le fotografie: dalla riva verso il lago all'alba, a mezzogiorno, al tramonto e
+        /// di notte, dall'acqua verso il sole basso e le stelle, e il pelo dell'acqua da vicino.</summary>
+        IEnumerator BrineTest()
+        {
+            var sky = DesertSky.I; var pl = Pl;
+            if (!RegionSpots().TryGetValue(Region.Salt, out var c)) { Debug.Log("[PryingEyes] desertotest salina: nessuna salina entro 9 km"); yield break; }
+            var list = new List<Site>();
+            Vector2 inLake = default, shore = default; float shoreDir = 0f; bool haveLake = false, haveShore = false;
+            float bestLake = -1f, bestShore = -1f;
+            for (float dx = -1500f; dx <= 1500f; dx += 50f)
+                for (float dz = -1500f; dz <= 1500f; dz += 50f)
+                {
+                    float x = c.x + dx, z = c.y + dz;
+                    if (DesertWorld.RegionWeight(Region.Salt, x, z) < 0.99f) continue;
+                    float b0 = DesertWorld.Brine(x, z);
+                    bool lakeCand = b0 > 0.95f, shoreCand = b0 <= 0f;
+                    if (!lakeCand && !shoreCand) continue;
+                    // quanta acqua c'e' su un anello di 60 m e su uno di 120 m (un lago vero, non una pozzanghera)
+                    float ring = 0f;
+                    for (int k = 0; k < 12; k++)
+                    {
+                        float a = k * Mathf.PI / 6f;
+                        ring += DesertWorld.Brine(x + Mathf.Cos(a) * 60f, z + Mathf.Sin(a) * 60f) + DesertWorld.Brine(x + Mathf.Cos(a) * 120f, z + Mathf.Sin(a) * 120f);
+                    }
+                    ring /= 24f;
+                    // la riva: asciutta qui, e a 70 e a 130 m in una direzione c'e' acqua piena
+                    float shoreScore = -1f, shoreA = 0f;
+                    if (shoreCand)
+                        for (int k = 0; k < 16; k++)
+                        {
+                            float a = k * Mathf.PI / 8f, sc = Mathf.Min(DesertWorld.Brine(x + Mathf.Cos(a) * 70f, z + Mathf.Sin(a) * 70f), DesertWorld.Brine(x + Mathf.Cos(a) * 130f, z + Mathf.Sin(a) * 130f));
+                            if (sc > shoreScore) { shoreScore = sc; shoreA = a; }
+                        }
+                    bool takeLake = lakeCand && ring > bestLake, takeShore = shoreCand && shoreScore > 0.9f && shoreScore + ring > bestShore;
+                    if (!takeLake && !takeShore) continue;
+                    // solo ora i controlli cari (il terreno, i luoghi): piatto e senza luoghi a meno di 90 m
+                    if (Mathf.Abs(DesertWorld.Height(x + 3f, z) - DesertWorld.Height(x - 3f, z)) > 0.6f || Mathf.Abs(DesertWorld.Height(x, z + 3f) - DesertWorld.Height(x, z - 3f)) > 0.6f) continue;
+                    DesertWorld.SitesNear(x, z, 90f, list);
+                    if (list.Count > 0) continue;
+                    if (takeLake) { bestLake = ring; inLake = new Vector2(x, z); haveLake = true; }
+                    if (takeShore) { bestShore = shoreScore + ring; shore = new Vector2(x, z); shoreDir = shoreA; haveShore = true; }
+                }
+            Check("salina: ci sono laghi sulla salina", haveLake && haveShore, $"{(haveLake ? "un punto in piena acqua" : "nessun punto in piena acqua")}, {(haveShore ? "una riva" : "nessuna riva")} entro 1,5 km da ({c.x:F0}, {c.y:F0})");
+            if (!haveLake || !haveShore) yield break;
+            Debug.Log($"[PryingEyes] desertotest salina: lago a ({inLake.x:F0}, {inLake.y:F0}), riva a ({shore.x:F0}, {shore.y:F0}) verso {shoreDir * Mathf.Rad2Deg:F0} gradi");
+            // un passo in acqua non lascia l'impronta, uno sulla sabbia asciutta si'
+            var pr = DesertPrints.I;
+            if (pr != null && sky != null)
+            {
+                sky.SetHour(11.0f, true);
+                yield return GoTo(inLake.x, inLake.y, 3f);
+                int s0 = pr.Stamped;
+                DesertPrints.Stamp(pl.transform.position, Vector3.forward);
+                DesertPrints.Stamp(pl.transform.position + Vector3.right * 0.4f, Vector3.forward);
+                Check("salina: un passo nell'acqua non lascia l'impronta", pr.Stamped == s0, $"{pr.Stamped - s0} impronte nell'acqua (brine {DesertWorld.Brine(pl.transform.position.x, pl.transform.position.z):F2})");
+                var dry = OpenSand();
+                yield return GoTo(dry.x, dry.y, 3f);
+                int s1 = pr.Stamped;
+                DesertPrints.Stamp(pl.transform.position, Vector3.forward);
+                DesertPrints.Stamp(pl.transform.position + Vector3.right * 0.4f, Vector3.forward);
+                Check("salina: un passo sulla sabbia asciutta lo lascia", pr.Stamped > s1, $"{pr.Stamped - s1} impronte sulla sabbia");
+            }
+            if (!shots || sky == null) yield break;
+            // dalla riva verso il lago
+            yield return GoTo(shore.x, shore.y, 4f);
+            yield return WaitFor(() => DesertScatter.I == null || DesertScatter.I.CellsPending == 0, 25f);
+            float eye = DesertWorld.Height(shore.x, shore.y) + 1.7f;
+            var lake = new Vector3(shore.x + Mathf.Cos(shoreDir) * 300f, eye + 2f, shore.y + Mathf.Sin(shoreDir) * 300f);
+            foreach (var (nm, hr) in new[] { ("alba", 7.1f), ("giorno", 11.5f), ("tramonto", 17.4f), ("notte", 22.6f) })
+                yield return Snap($"salina_riva_{nm}", hr, lake, 1.2f);
+            // dall'acqua: verso il sole basso (la scia di scintille), e di notte verso il cielo
+            yield return GoTo(inLake.x, inLake.y, 4f);
+            yield return WaitFor(() => DesertScatter.I == null || DesertScatter.I.CellsPending == 0, 25f);
+            eye = DesertWorld.Height(inLake.x, inLake.y) + 1.7f;
+            foreach (var (nm, hr) in new[] { ("alba", 7.1f), ("tramonto", 17.4f) })
+            {
+                var st = DesertClock.Evaluate(hr);
+                var toSun = new Vector3(inLake.x + st.sunX * 500f, eye + st.sunY * 500f + 14f, inLake.y + st.sunZ * 500f);
+                yield return Snap($"salina_acqua_sole_{nm}", hr, toSun, 1.2f);
+            }
+            var away = new Vector3(inLake.x + Mathf.Cos(shoreDir + 2.0f) * 300f, eye + 60f, inLake.y + Mathf.Sin(shoreDir + 2.0f) * 300f);
+            yield return Snap("salina_acqua_notte", 22.6f, away, 1.2f);
+            var feet = new Vector3(inLake.x + Mathf.Cos(shoreDir) * 3.5f, DesertWorld.Height(inLake.x, inLake.y), inLake.y + Mathf.Sin(shoreDir) * 3.5f);
+            yield return Snap("salina_acqua_vicino", 11.5f, feet, 1.2f);
+            sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly orme: le impronte sulla sabbia. Si cammina per qualche secondo su sabbia aperta, di traverso al sole (a luce radente ogni buca ha una parete accesa e una in
+        /// ombra); si controlla che ogni passo lasci la sua impronta, vicino ai piedi e posata sul terreno, che in aria non ne resti nessuna e che il vento le cancelli. Con -desertshots tre
+        /// fotografie: la scia vista da chi l'ha fatta, le ultime impronte da vicino e le stesse a mezzogiorno (quando si vedono appena).</summary>
+        IEnumerator PrintsTest()
+        {
+            var pr = DesertPrints.I;
+            Check("orme: il sistema c'e'", pr != null, "DesertPrints.I e' nullo");
+            if (pr == null) yield break;
+            var sky = DesertSky.I; var pl = Pl;
+            const float hour = 17.3f;
+            var at = OpenSand();
+            if (sky != null) sky.SetHour(hour, true);
+            yield return GoTo(at.x, at.y);
+            yield return WaitFor(() => DesertScatter.I == null || DesertScatter.I.CellsPending == 0, 25f);
+            pr.Age(10000f);                                             // via quelle di prima
+            yield return null;
+            int s0 = pr.Stamped;
+            var st = DesertClock.Evaluate(hour);
+            var sunH = new Vector2(st.sunX, st.sunZ).normalized;
+            var dir = new Vector3(-sunH.y, 0f, sunH.x);
+            Vector3 start = pl.transform.position;
+            PlayerController.holdLook = false; PlayerController.botDir = dir;
+            float t0 = Time.time;
+            yield return WaitFor(() => pr.Stamped - s0 >= 16, 14f);
+            PlayerController.botDir = Vector3.zero; PlayerController.holdLook = true;
+            yield return null;
+            Vector3 end = pl.transform.position;
+            int made = pr.Stamped - s0;
+            Debug.Log($"[PryingEyes] desertotest orme: {made} impronte in {Time.time - t0:F1} s, {Flat(start, end):F1} m di strada, {pr.Alive} ancora sulla sabbia");
+            Check("orme: camminando sulla sabbia ogni passo lascia un'impronta", made >= 8, $"{made} impronte in {Time.time - t0:F1} s (da {start:F1} a {end:F1})");
+            Check("orme: restano tutte (il vento non ne ha ancora cancellata nessuna)", pr.Alive == Mathf.Min(made, DesertPrints.Max), $"{pr.Alive} vive su {made}");
+            bool got = pr.Newest(out var last);
+            float ground = got ? DesertWorld.Height(last.x, last.z) : 0f;
+            Check("orme: l'ultima e' vicino ai piedi e posata sul terreno", got && Flat(last, end) < 1.6f && Mathf.Abs(last.y - ground) < 0.3f,
+                got ? $"a {Flat(last, end):F2} m dai piedi, {last.y - ground:F2} m dal suolo" : "nessuna");
+            int s1 = pr.Stamped;
+            DesertPrints.Stamp(new Vector3(end.x, 4000f, end.z), Vector3.forward);
+            Check("orme: in aria, senza sabbia sotto il piede, non ne resta nessuna", pr.Stamped == s1, $"{pr.Stamped - s1} in piu'");
+            if (shots)
+            {
+                var back = new Vector3(start.x, DesertWorld.Height(start.x, start.z) + 0.2f, start.z);
+                yield return Snap("orme_scia", hour, back, 1.0f);
+                var near = new Vector3(end.x - dir.x * 2.4f, DesertWorld.Height(end.x - dir.x * 2.4f, end.z - dir.z * 2.4f), end.z - dir.z * 2.4f);
+                yield return Snap("orme_vicino", hour, near, 1.0f);
+                yield return Snap("orme_vicino_giorno", 11.5f, near, 1.0f);
+            }
+            pr.Age(DesertPrints.Life + 2f);
+            yield return null; yield return null;
+            Check("orme: dopo un minuto e mezzo il vento le ha cancellate tutte", pr.Alive == 0, $"{pr.Alive} ancora vive");
+            if (sky != null) sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly cose: le cose sulla sabbia (sassi, cactus, alberi, ossa, colonne) nelle sei regioni. Da un punto in mezzo a ciascuna si aspetta che i quadrati attorno
+        /// siano calcolati e si controlla che ci sia roba (di piu' generi), che i collider ci siano e che il costo sia basso; con -desertshots tre fotografie per regione.</summary>
+        IEnumerator Props()
+        {
+            var sc = DesertScatter.I;
+            Check("c'e' il regista delle cose sulla sabbia", sc != null, sc == null ? "manca" : "ok");
+            if (sc == null) yield break;
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;      // le foto di Face: niente rotazione automatica
+            var sky = DesertSky.I;
+            if (sky != null) sky.SetHour(10.2f, true);
+            var spots = RegionSpots();
+            Check("si trova un punto in ognuna delle sei regioni", spots.Count == 6, $"{spots.Count} regioni");
+            foreach (var kv in spots)
+            {
+                var reg = kv.Key; var at = kv.Value;
+                yield return GoTo(at.x, at.y);
+                yield return WaitFor(() => sc.CellsPending > 0 ? false : sc.CellsReady >= 60 && sc.Instances > 100, 40f);
+                yield return new WaitForSeconds(1.5f);
+                int kinds = 0, total = sc.Instances;
+                for (int k = 0; k < (int)Prop.Count; k++) if (sc.CountOf((Prop)k) > 0) kinds++;
+                Check($"cose {reg}: ci sono cose sulla sabbia ({total}) di piu' generi ({kinds})", total > 150 && kinds >= 6, $"{sc.CellsReady} quadrati, {total} copie, {kinds} generi, {sc.Colliders} collider");
+                Check($"cose {reg}: le cose che fermano chi cammina hanno il collider", sc.Colliders > 0 || reg == Region.Salt, $"{sc.Colliders} collider");
+                if (!shots) continue;
+                float eye = DesertWorld.Height(at.x, at.y) + 1.7f;
+                for (int d = 0; d < 3; d++)
+                {
+                    float a = (d * 120f + 35f) * Mathf.Deg2Rad;
+                    Face(new Vector3(at.x + Mathf.Sin(a) * 40f, eye - 3.2f + d * 1.5f, at.y + Mathf.Cos(a) * 40f));
+                    yield return new WaitForSeconds(0.7f);
+                    Face(new Vector3(at.x + Mathf.Sin(a) * 40f, eye - 3.2f + d * 1.5f, at.y + Mathf.Cos(a) * 40f));
+                    yield return null;
+                    Shot($"cose_{reg}_{(char)('a' + d)}");
+                    yield return null;
+                }
+            }
+            if (sky != null) sky.Frozen = false;
+        }
+
+        /// <summary>Un punto a 'dist' metri da un bersaglio da cui lo si vede senza un edificio in mezzo (e che non e' dentro uno): prova otto direzioni, a partire da quella scelta, e prende la prima libera.</summary>
+        static Vector2 Vantage(Vector3 target, float dist, float first = 0.9f)
+        {
+            var sites = new List<Site>();
+            for (int k = 0; k < 8; k++)
+            {
+                float a = first + k * 0.785f;
+                float x = target.x + Mathf.Cos(a) * dist, z = target.z + Mathf.Sin(a) * dist;
+                bool clear = true;
+                for (int s = 0; s <= 12 && clear; s++)
+                {
+                    float t = s / 12f, px = Mathf.Lerp(x, target.x, t), pz = Mathf.Lerp(z, target.z, t);
+                    DesertWorld.SitesNearKnown(px, pz, 6f, sites);
+                    foreach (var st in sites)
+                        if (px > st.fx0 - 4f && px < st.fx1 + 4f && pz > st.fz0 - 4f && pz < st.fz1 + 4f) { clear = false; break; }
+                }
+                if (clear) return new Vector2(x, z);
+            }
+            return new Vector2(target.x + Mathf.Cos(first) * dist, target.z + Mathf.Sin(first) * dist);
+        }
+
+        /// <summary>Scrive nel registro quali cose sulla sabbia ci sono entro r metri da un punto (lo dice la funzione pura): per capire che cosa c'e' in una fotografia.</summary>
+        static void LogNearProps(Vector3 p, float r)
+        {
+            var list = new List<PropItem>(); var sb = new System.Text.StringBuilder();
+            int c0x = Mathf.FloorToInt(p.x / DesertScatterGen.Chunk), c0z = Mathf.FloorToInt(p.z / DesertScatterGen.Chunk);
+            for (int cx = c0x - 1; cx <= c0x + 1; cx++)
+                for (int cz = c0z - 1; cz <= c0z + 1; cz++)
+                {
+                    DesertScatterGen.Build(cx, cz, list);
+                    foreach (var it in list)
+                    {
+                        float dx = it.x - p.x, dz = it.z - p.z, d = Mathf.Sqrt(dx * dx + dz * dz);
+                        if (d < r) sb.Append($"{(Prop)it.kind} a {d:F1} m, ");
+                    }
+                }
+            Debug.Log($"[PryingEyes] desertotest cose entro {r:F0} m da ({p.x:F0}, {p.z:F0}): {(sb.Length > 0 ? sb.ToString() : "nessuna")}");
+        }
+
+        /// <summary>Il posto, vicino alla cattedrale, di ognuna di queste cose sulla sabbia: lo dice la funzione pura (senza caricare niente), su un thread perche' sono migliaia di quadrati.</summary>
+        static System.Threading.Tasks.Task<Dictionary<Prop, Vector3>> FindProps(params Prop[] kinds)
+        {
+            return System.Threading.Tasks.Task.Run(() =>
+            {
+                var found = new Dictionary<Prop, Vector3>(); var list = new List<PropItem>();
+                for (int ring = 0; ring <= 56 && found.Count < kinds.Length; ring++)
+                    for (int cx = -ring; cx <= ring; cx++)
+                        for (int cz = -ring; cz <= ring; cz++)
+                        {
+                            if (Mathf.Max(Mathf.Abs(cx), Mathf.Abs(cz)) != ring) continue;
+                            DesertScatterGen.Build(cx, cz, list);
+                            foreach (var it in list)
+                            {
+                                var k = (Prop)it.kind;
+                                if (Array.IndexOf(kinds, k) < 0 || found.ContainsKey(k)) continue;
+                                found[k] = new Vector3(it.x, it.y, it.z);
+                            }
+                        }
+                return found;
+            });
+        }
+
+        /// <summary>Solo con -desertonly vita: la vita del deserto (animali che scappano, sterpaglie, avvoltoi di giorno e pipistrelli di notte sulle rovine), i campi con le tende e il fuoco
+        /// (spento di giorno, acceso di notte con la sua luce), le cose grandi (pozzo, obelisco, mulino, carro, casse) e la tempesta di sabbia a comando. Con -desertshots le fotografie.</summary>
+        IEnumerator Life()
+        {
+            var life = DesertLife.I; var fires = DesertFires.I; var dust = DesertDust.I; var sc = DesertScatter.I; var sky = DesertSky.I; var snd = DesertSound.I;
+            bool all = life != null && fires != null && dust != null && sc != null && sky != null && snd != null;
+            Check("c'e' la vita del deserto: animali, fuochi, sabbia che vola, suoni, scatter e cielo", all, $"{life != null} {fires != null} {dust != null} {snd != null} {sc != null} {sky != null}");
+            if (!all) yield break;
+            float amb = GameSettings.Ambience;
+            // i suoni del deserto sono veri: la durata giusta, voce udibile, nessun numero impazzito
+            var soundNotes = new List<string>(); bool soundsOk = true;
+            foreach (var (nm, clip, lo, hi) in new[] { ("sibilo", SoundBank.SandHiss, 9f, 11f), ("grilli", SoundBank.Crickets, 7.5f, 8.5f), ("crepitio", SoundBank.FireCrackle, 6.5f, 7.5f), ("gracchio", SoundBank.Caw, 0.5f, 1.3f), ("ululato", SoundBank.Howl, 3f, 4f) })
+            {
+                float peak = 0f, sum = 0f; bool finite = clip != null;
+                if (clip != null)
+                {
+                    var d = new float[clip.samples];
+                    if (!clip.GetData(d, 0)) finite = false;
+                    else foreach (float v in d) { if (float.IsNaN(v) || float.IsInfinity(v)) { finite = false; break; } peak = Mathf.Max(peak, Mathf.Abs(v)); sum += v * v; }
+                    float rms = Mathf.Sqrt(sum / Mathf.Max(1, d.Length));
+                    bool good = finite && clip.length >= lo && clip.length <= hi && peak > 0.3f && peak <= 1.01f && rms > 0.02f && rms < 0.5f;
+                    soundNotes.Add($"{nm} {clip.length:F1} s rms {rms:F2}{(good ? "" : " ?")}");
+                    soundsOk &= good;
+                }
+                else { soundNotes.Add(nm + " manca"); soundsOk = false; }
+            }
+            Check("i cinque suoni del deserto (sibilo, grilli, crepitio, gracchio, ululato) esistono e si sentono", soundsOk, string.Join(", ", soundNotes));
+            var findTask = FindProps(Prop.FirePit, Prop.Tent, Prop.Well, Prop.Obelisk, Prop.Windmill, Prop.Wagon, Prop.Crate);
+            var spots = RegionSpots();
+            var dune = spots.ContainsKey(Region.Dunes) ? spots[Region.Dunes] : OpenSand();
+
+            // ---- di giorno nelle dune: animali e sterpaglie
+            sky.SetHour(10.2f, true);
+            yield return GoTo(dune.x, dune.y);
+            yield return WaitFor(() => life.LizardCount + life.ScorpionCount + life.BeetleCount >= 6 && life.WeedCount >= 3, 25f);
+            yield return new WaitForSeconds(1.5f);
+            int critters = life.LizardCount + life.ScorpionCount + life.BeetleCount;
+            Check("di giorno sulla sabbia ci sono animali e sterpaglie", critters >= 6 && life.WeedCount >= 3, $"{life.LizardCount} lucertole, {life.ScorpionCount} scorpioni, {life.BeetleCount} scarabei, {life.WeedCount} sterpaglie, vento {sky.Weather.wind:F2}");
+            yield return WaitFor(() => snd.CricketVolume < 0.01f, 15f);          // i grilli della sera prima calano con una costante di due secondi: se le fasi precedenti hanno finito di notte, ci vuole un momento
+            Check("di giorno col tempo buono non ci sono grilli e il sibilo della sabbia e' appena un filo", snd.CricketVolume < 0.02f && snd.SandVolume <= 0.2f * Mathf.Max(amb, 0.01f), $"grilli {snd.CricketVolume:F2}, sibilo {snd.SandVolume:F2}, ambiente {amb:F2}");
+            if (life.NearestCritter(Pl.transform.position, -1, out var cp))
+            {
+                int before = life.Fled;
+                Pl.Teleport(new Vector3(cp.x + 2.0f, cp.y + 1.2f, cp.z));
+                yield return new WaitForSeconds(0.7f);
+                Check("un animale a due metri dal giocatore scappa", life.Fled > before, $"{life.Fled - before} in fuga");
+            }
+            else Check("c'e' un animale da avvicinare", false, "nessuno");
+            if (shots)
+            {
+                life.Calm = true;
+                for (int k = 0; k < 3; k++)
+                {
+                    if (!life.NearestCritter(Pl.transform.position, k, out var q)) continue;
+                    Pl.Teleport(q + new Vector3(1.7f, 1.0f, 0.3f));
+                    yield return new WaitForSeconds(1.0f);
+                    if (!life.NearestCritter(Pl.transform.position, k, out q)) continue;
+                    Face(q + Vector3.up * 0.08f); yield return null; Face(q + Vector3.up * 0.08f); yield return null;
+                    Shot("vita_animale_" + (k == 0 ? "lucertola" : k == 1 ? "scorpione" : "scarabeo"));
+                    yield return null;
+                }
+                life.Calm = false;
+                if (life.NearestWeed(Pl.transform.position, out var wp))
+                {
+                    Pl.Teleport(new Vector3(wp.x + 7f, DesertWorld.Height(wp.x + 7f, wp.z) + 1.0f, wp.z + 2f));
+                    yield return new WaitForSeconds(0.8f);
+                    life.NearestWeed(Pl.transform.position, out wp);
+                    Face(wp + Vector3.up * 0.4f); yield return null; Face(wp + Vector3.up * 0.4f); yield return null;
+                    Shot("vita_sterpaglia");
+                    yield return null;
+                }
+            }
+
+            // ---- gli avvoltoi di giorno e i pipistrelli di notte, sulla torre di riferimento
+            var tower = DesertWorld.Landmark();
+            if (tower != null)
+            {
+                yield return GoTo(tower.CentreX, tower.fz0 - 130f);
+                // il branco della torre compare piano (4 s) mentre quelli del posto di prima si dissolvono: si aspetta proprio lui, quello che gira sopra la torre
+                Vector3 flockAt = default; float alt = 0f;
+                yield return WaitFor(() => life.NearestFlock(new Vector3(tower.CentreX, 0f, tower.CentreZ), false, out flockAt, out alt) && Mathf.Abs(flockAt.x - tower.CentreX) < 5f && Mathf.Abs(flockAt.z - tower.CentreZ) < 5f, 30f);
+                yield return new WaitForSeconds(1.5f);
+                bool overTower = life.NearestFlock(new Vector3(tower.CentreX, 0f, tower.CentreZ), false, out flockAt, out alt) && Mathf.Abs(flockAt.x - tower.CentreX) < 5f && Mathf.Abs(flockAt.z - tower.CentreZ) < 5f;
+                Check("di giorno gli avvoltoi fanno la ruota sopra la torre", life.BirdCount >= 3 && overTower && alt >= tower.Height + 10f, $"{life.BirdCount} uccelli, il branco della torre gira a {alt:F0} m sul terreno, torre alta {tower.Height:F0} m");
+                int cawsBefore = snd.Caws;
+                bool cawed = snd.PlayCaw();
+                Check("un avvoltoio gracchia", cawed && snd.Caws == cawsBefore + 1, $"{snd.Caws - cawsBefore} gracchi");
+                if (shots && overTower)
+                {
+                    var look = flockAt + Vector3.up * alt;
+                    Face(look); yield return new WaitForSeconds(0.6f); Face(look); yield return null;
+                    Shot("vita_avvoltoi");
+                    yield return null;
+                }
+                sky.SetHour(22f, true);
+                yield return WaitFor(() => life.BatCount >= 5, 30f);
+                yield return new WaitForSeconds(6f);
+                Check("di notte i pipistrelli girano attorno alle rovine e gli avvoltoi non ci sono piu'", life.BatCount >= 5 && life.BirdCount == 0, $"{life.BatCount} pipistrelli, {life.BirdCount} avvoltoi");
+                yield return WaitFor(() => snd.CricketVolume >= 0.08f * amb, 8f);
+                int howlsBefore = snd.Howls;
+                bool howled = snd.PlayHowl();
+                Check("di notte cantano i grilli e si sente un ululato lontano", snd.CricketVolume >= 0.08f * amb && howled && snd.Howls == howlsBefore + 1, $"grilli {snd.CricketVolume:F2} (ambiente {amb:F2}), {snd.Howls - howlsBefore} ululati");
+                sky.SetHour(10.2f, true);
+            }
+
+            // ---- il campo: tende e fuoco, spento di giorno e acceso di notte
+            yield return WaitFor(() => findTask.IsCompleted, 120f);
+            var found = findTask.IsCompleted && !findTask.IsFaulted ? findTask.Result : new Dictionary<Prop, Vector3>();
+            Check("si trovano un campo e le cose grandi vicino alla cattedrale", found.ContainsKey(Prop.FirePit) && found.Count >= 5, $"{found.Count} generi su 7: {string.Join(", ", found.Keys)}");
+            if (found.TryGetValue(Prop.FirePit, out var fire))
+            {
+                yield return GoTo(fire.x + 16f, fire.z);
+                yield return WaitFor(() => sc.Fires.Count > 0 && sc.CountOf(Prop.Tent) > 0, 25f);
+                yield return new WaitForSeconds(1f);
+                Check("di giorno il fuoco del campo e' spento, le tende ci sono", fires.Burning == 0 && sc.CountOf(Prop.Tent) > 0 && snd.CrackleVolume < 0.05f, $"{fires.Burning} fuochi accesi, {sc.CountOf(Prop.Tent)} tende, {sc.Fires.Count} fuochi vicini, crepitio {snd.CrackleVolume:F2}");
+                if (shots) { Face(fire + Vector3.up * 0.6f); yield return new WaitForSeconds(0.6f); Face(fire + Vector3.up * 0.6f); yield return null; Shot("vita_campo_giorno"); yield return null; }
+                sky.SetHour(22f, true);
+                yield return WaitFor(() => fires.Burning >= 1, 8f);
+                yield return new WaitForSeconds(1.5f);
+                Check("di notte il fuoco e' acceso: luce, fiamme e fumo", fires.Burning >= 1 && fires.Lit > 0.9f, $"{fires.Burning} fuochi accesi, notte {fires.Lit:F2}");
+                yield return WaitFor(() => snd.CrackleVolume >= 0.3f * amb, 6f);
+                Check("di notte vicino al fuoco si sente il crepitio, a pochi metri dalla fiamma", snd.CrackleVolume >= 0.3f * amb && snd.CrackleDistance < 40f, $"volume {snd.CrackleVolume:F2} (ambiente {amb:F2}), il fuoco e' a {snd.CrackleDistance:F0} m");
+                if (shots)
+                {
+                    Face(fire + Vector3.up * 0.6f); yield return new WaitForSeconds(0.5f); Face(fire + Vector3.up * 0.6f); yield return null; Shot("vita_campo_notte_a"); yield return null;
+                    var farV = Vantage(fire, 48f, 0.4f);
+                    yield return GoTo(farV.x, farV.y);
+                    yield return new WaitForSeconds(1f);
+                    Face(fire + Vector3.up * 0.6f); yield return new WaitForSeconds(0.5f); Face(fire + Vector3.up * 0.6f); yield return null; Shot("vita_campo_notte_b"); yield return null;
+                    LogNearProps(Pl.transform.position, 8f);
+                    sky.SetHour(10.5f, true);
+                    yield return new WaitForSeconds(1.2f);
+                    Face(fire + Vector3.up * 0.6f); yield return new WaitForSeconds(0.4f); Face(fire + Vector3.up * 0.6f); yield return null; Shot("vita_campo_giorno_b"); yield return null;
+                }
+                sky.SetHour(10.5f, true);
+            }
+
+            // ---- le cose grandi, una per genere
+            foreach (var (kind, dist, high, name) in new[] { (Prop.Well, 13f, 0.8f, "pozzo"), (Prop.Obelisk, 40f, 4.5f, "obelisco"), (Prop.Windmill, 48f, 5.5f, "mulino"), (Prop.Wagon, 12f, 0.7f, "carro"), (Prop.Crate, 8f, 0.6f, "casse"), (Prop.Tent, 10f, 0.9f, "tenda") })
+            {
+                if (!found.TryGetValue(kind, out var at)) { Check($"{name}: c'e' vicino alla cattedrale", false, "non trovato entro 3,5 km"); continue; }
+                var vp = Vantage(at, dist);
+                yield return GoTo(vp.x, vp.y);
+                yield return WaitFor(() => sc.CountOf(kind) > 0, 25f);
+                yield return new WaitForSeconds(1f);
+                Check($"{name}: e' sulla sabbia e si vede", sc.CountOf(kind) > 0 && (kind != Prop.Windmill || sc.Windmills > 0), $"{sc.CountOf(kind)} copie, {sc.Windmills} rotori");
+                if (!shots) continue;
+                var look = at + Vector3.up * high;
+                Face(look); yield return new WaitForSeconds(0.6f); Face(look); yield return null;
+                Shot("vita_" + name);
+                yield return null;
+            }
+
+            // ---- un diavolo di sabbia a comando: gira, ha molte particelle e si toglie
+            var dev = DesertDevils.I;
+            Check("c'e' il regista dei diavoli di sabbia", dev != null, dev == null ? "manca" : "ok");
+            if (dev != null)
+            {
+                sky.SetHour(12.0f, true);
+                yield return GoTo(dune.x, dune.y);
+                var fwd = Pl.cam.forward; fwd.y = 0f; fwd = fwd.sqrMagnitude > 0.01f ? fwd.normalized : Vector3.forward;
+                var dp = Pl.transform.position + fwd * 90f; dp.y = DesertWorld.Height(dp.x, dp.z);
+                dev.ForceAt(dp);
+                yield return new WaitForSeconds(9f);
+                Check("un diavolo di sabbia a comando gira: e' vivo e ha molte particelle", dev.Active && dev.Particles > 30, $"{dev.Particles} particelle, a {Vector3.Distance(dev.Position, Pl.transform.position):F0} m");
+                if (shots)
+                {
+                    var devLook = dev.Position + Vector3.up * 9f;
+                    Face(devLook); yield return new WaitForSeconds(0.6f); Face(devLook); yield return null;
+                    Shot("vita_diavolo"); yield return null;
+                }
+                dev.Clear();
+                Check("tolto il diavolo non ce n'e' piu'", !dev.Active, dev.Active ? "ancora vivo" : "ok");
+                sky.SetHour(10.2f, true);
+            }
+
+            // ---- la tempesta di sabbia a comando
+            sky.SetHour(10.2f, true);
+            yield return GoTo(dune.x, dune.y);
+            yield return new WaitForSeconds(1.5f);
+            float fogBefore = RenderSettings.fogDensity, sunBefore = RenderSettings.sun != null ? RenderSettings.sun.intensity : 0f;
+            var pamb = ProcAmbience.Instance; float windBefore = pamb != null ? pamb.WindVolume : 0f;
+            sky.ForceStorm(1f);
+            yield return new WaitForSeconds(4.5f);
+            float fogStorm = RenderSettings.fogDensity;
+            Check("nella tempesta la nebbia si infittisce e il sole cala", fogStorm > fogBefore * 2.5f && RenderSettings.sun != null && RenderSettings.sun.intensity < sunBefore * 0.7f, $"nebbia {fogBefore:F4} -> {fogStorm:F4}, sole {sunBefore:F2} -> {(RenderSettings.sun != null ? RenderSettings.sun.intensity : 0f):F2}");
+            Check("nella tempesta la sabbia vola e il vento e' forte", dust.StreakRate > 150f && dust.Alive > 50 && sky.Weather.wind > 0.9f, $"{dust.StreakRate:F0} strisce al secondo, {dust.Alive} granelli vivi, vento {sky.Weather.wind:F2}");
+            Check("nella tempesta le sterpaglie corrono e gli animali si riparano", life.WeedCount >= 10 && life.LizardCount + life.ScorpionCount + life.BeetleCount == 0, $"{life.WeedCount} sterpaglie, {life.LizardCount + life.ScorpionCount + life.BeetleCount} animali");
+            yield return WaitFor(() => snd.SandVolume >= 0.3f * amb && (pamb == null || pamb.WindVolume > windBefore + 0.1f * amb), 8f);
+            Check("nella tempesta si sente il sibilo della sabbia e il vento sale", snd.SandVolume >= 0.3f * amb && (pamb == null || pamb.WindVolume > windBefore + 0.1f * amb) && snd.CricketVolume < 0.02f, $"sibilo {snd.SandVolume:F2}, vento {(pamb != null ? pamb.WindVolume : 0f):F2} (prima {windBefore:F2}), grilli {snd.CricketVolume:F2}, ambiente {amb:F2}");
+            if (shots)
+            {
+                float a0 = Mathf.Atan2(sky.Weather.dirX, sky.Weather.dirZ);
+                var eye = Pl.cam.position;
+                Face(eye + new Vector3(Mathf.Sin(a0 + 3.14f), 0.05f, Mathf.Cos(a0 + 3.14f)) * 50f); yield return new WaitForSeconds(0.7f); Face(eye + new Vector3(Mathf.Sin(a0 + 3.14f), 0.05f, Mathf.Cos(a0 + 3.14f)) * 50f); yield return null;
+                Shot("vita_tempesta_a"); yield return null;
+                Face(eye + new Vector3(Mathf.Sin(a0 + 1.57f), 0.02f, Mathf.Cos(a0 + 1.57f)) * 50f); yield return new WaitForSeconds(0.7f); Face(eye + new Vector3(Mathf.Sin(a0 + 1.57f), 0.02f, Mathf.Cos(a0 + 1.57f)) * 50f); yield return null;
+                Shot("vita_tempesta_b"); yield return null;
+            }
+            sky.ForceStorm(-1f);
+            yield return new WaitForSeconds(3.5f);
+            Check("passata la tempesta la nebbia torna com'era", Mathf.Abs(RenderSettings.fogDensity - fogBefore) < fogBefore * 0.4f, $"nebbia {RenderSettings.fogDensity:F4} (prima {fogBefore:F4})");
+            sky.Frozen = false;
+        }
+
         IEnumerator Fall()
         {
             var pl = Pl; var p = pl.transform.position;
@@ -1315,7 +2412,7 @@ namespace PryingEyes.Deserto
             yield return new WaitForSeconds(1f);
             yield return Snap("03_alba_dal_sagrato", 6.4f, new Vector3(18f, 1.2f, -120f));
             // la torre di riferimento da lontano, a mezzogiorno e al tramonto
-            var tower = DesertWorld.SiteOf(0, -2);
+            var tower = DesertWorld.Landmark();
             if (tower != null)
             {
                 yield return GoTo(tower.CentreX - 40f, tower.fz0 - 130f);

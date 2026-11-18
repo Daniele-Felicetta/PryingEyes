@@ -67,10 +67,14 @@ namespace PryingEyes.Proc
             // il deserto: sulla sabbia, sotto il cielo aperto, non c'e' nessuna stanza attorno. Niente ronzio di stanza ne' organo: il vento, a raffiche lente.
             bool desert = Deserto.DesertMode.Active;
             bool open = desert && r == null && (Deserto.DesertSky.I == null || Deserto.DesertSky.I.Indoor < 0.5f);
+            float windPitch = 1f;
             if (open)
             {
+                // il vento segue il tempo (DesertWeather): una brezza a raffiche lente, forte e piu' acuto nella tempesta (a cui DesertSound aggiunge il sibilo della sabbia)
+                var wx = Deserto.DesertSky.I != null ? Deserto.DesertSky.I.Weather : default(Deserto.WeatherState);
                 float g = 0.5f + 0.5f * Mathf.Sin(Time.time * 0.11f) * Mathf.Sin(Time.time * 0.29f + 1.3f);
-                windT = Mathf.Lerp(0.15f, 0.36f, g);
+                windT = Mathf.Lerp(0.14f, 0.36f, Mathf.Clamp01(0.35f * g + 0.65f * wx.wind)) + 0.22f * wx.storm;
+                windPitch = 0.92f + 0.22f * wx.wind;
                 orgT = 0f; roomT = 0f;
             }
             float padT = 0f, murT = 0f, buzzT = 0f;
@@ -88,6 +92,7 @@ namespace PryingEyes.Proc
             Blend(organ, orgT * GameSettings.Music * duck, dt * 0.5f);
             Blend(room, roomT * amb, dt * 0.8f);
             Blend(wind, windT * amb, dt * 0.6f);
+            if (wind != null) wind.pitch = Mathf.Lerp(wind.pitch, windPitch, Mathf.Clamp01(dt * 0.6f));
             Blend(pad, padT * GameSettings.Music * duck, dt * 0.5f);
             Blend(murmur, murT * amb, dt * 0.6f);
             Blend(buzz, buzzT * amb, dt * 0.8f);

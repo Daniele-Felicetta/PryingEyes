@@ -146,7 +146,7 @@ namespace PryingEyes.Proc
         {
             id = q.id, kind = q.kind, type = q.type, church = q.church, x0 = q.x0, z0 = q.z0, x1 = q.x1, z1 = q.z1, wallH = q.wallH, ridgeH = q.ridgeH,
             ceil = q.ceil, ridgeAlongX = q.ridgeAlongX, seed = q.seed, label = q.label, variant = q.variant, upperGallery = q.upperGallery,
-            cornerRadius = q.cornerRadius, ruined = q.ruined, noFloor = q.noFloor, noCeil = q.noCeil, wing = q.wing, unit = q.unit,
+            cornerRadius = q.cornerRadius, ruined = q.ruined, crumble = q.crumble, noFloor = q.noFloor, noCeil = q.noCeil, wing = q.wing, unit = q.unit,
         };
 
         static Opening CloneOpening(Opening o) => new Opening
@@ -301,6 +301,7 @@ namespace PryingEyes.Proc
                 if (room.IsLift || room.noFloor || room.noCeil || !r.Chance(pRuin)) continue;
                 room.ruined = true;
                 if (state == BuildingState.Intact) continue;                                    // only the roof is gone
+                room.crumble = true;                                                           // the walls end in teeth and the stones lie at their feet
                 float k = state == BuildingState.Collapse ? r.Range(0.34f, 0.8f) : r.Range(0.6f, 1f);
                 float rise = Math.Max(0f, room.ridgeH - room.wallH);
                 room.wallH = Math.Max(1.5f, room.wallH * k);

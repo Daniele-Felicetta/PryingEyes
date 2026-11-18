@@ -192,7 +192,24 @@ namespace PryingEyes
             urp.mainLightShadowmapResolution = shadows == 2 ? baseMainRes : Mathf.Min(baseMainRes, res[shadows]);
             urp.additionalLightsShadowmapResolution = shadows == 2 ? baseLightRes : Mathf.Min(baseLightRes, res[shadows]);
             urp.shadowCascadeCount = shadows == 2 ? baseCascades : Mathf.Min(baseCascades, cascades[shadows]);
-            urp.shadowDistance = shadows == 2 ? baseDistance : Mathf.Min(baseDistance, distance[shadows]);
+            urp.shadowDistance = (shadows == 2 ? baseDistance : Mathf.Min(baseDistance, distance[shadows])) * shadowRange;
+        }
+
+        static float shadowRange = 1f, rangeBase = -1f;
+        public static float ShadowRange => shadowRange;
+
+        /// <summary>Il deserto vuole le ombre del sole lontane (le dune, le torri: oltre i 70 m dell'asset non c'e' ombra e il taglio si vede, soprattutto col sole basso): un fattore sulla distanza
+        /// scelta dalla qualita' dell'immagine. Vale anche nelle prove (in memoria, nel giocatore; nell'editor l'asset non si tocca). Si rimette a 1 uscendo dal deserto.</summary>
+        public static void SetShadowRange(float scale)
+        {
+            scale = Mathf.Clamp(scale, 1f, 6f);
+            if (Mathf.Abs(scale - shadowRange) < 0.01f) return;
+            shadowRange = scale;
+            if (GraphicsLive) { ApplyGraphics(); return; }
+            var urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+            if (urp == null || Application.isEditor) return;
+            if (rangeBase < 0f) rangeBase = urp.shadowDistance;        // il primo valore dell'asset, prima del nostro
+            urp.shadowDistance = rangeBase * shadowRange;
         }
 
         // ---- grana, vignettatura e bagliore: il tema decide quanto, la scelta del giocatore lo scala
@@ -208,6 +225,9 @@ namespace PryingEyes
             themeGrain = grainBase; themeVignette = vignetteBase; themeBloom = bloomBase;
             ApplyEffects();
         }
+
+        /// <summary>Grana, vignettatura e bagliore di riferimento del look in corso (prima della scelta del giocatore): il deserto li prende per sfumare tra l'aria aperta e le stanze.</summary>
+        public static void ThemeEffects(out float grain, out float vignette, out float bloom) { grain = themeGrain; vignette = themeVignette; bloom = themeBloom; }
 
         static void ApplyEffects()
         {

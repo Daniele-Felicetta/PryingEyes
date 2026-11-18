@@ -43,6 +43,17 @@ namespace PryingEyes.Deserto
         }
 
         public int Units => site.IsStack ? site.LevelCount : 1;
+
+        /// <summary>Il guscio di tutto cio' che sta sopra la sabbia c'e' (di una catacomba basta l'ingresso): la pelle di chi sta lontano (SiteFacade) puo' spegnersi.</summary>
+        public bool ShellComplete
+        {
+            get
+            {
+                if (site.IsCatacomb) return fis[site.entrance] != null;
+                for (int u = 0; u < Units; u++) if (fis[u] == null) return false;
+                return true;
+            }
+        }
         public Plan PlanOf(int u) => site.IsStack ? site.levels[u] : site.plan;
         public float YOf(int u) => site.IsStack ? site.LevelY(u) : site.padY;
         public Bounds Area => new Bounds(new Vector3(site.CentreX, site.padY + (site.IsTower ? site.Height * 0.5f : 3f), site.CentreZ),
@@ -129,8 +140,19 @@ namespace PryingEyes.Deserto
             var plan = PlanOf(u);
             FloorInstance fi;
             FloorBuilder.SkipDress = true;
+            FloorBuilder.FacadePalette = site.palette;
+            // l'esterno: i tetti sull'ultimo livello (la cima di una torre, l'ingresso di una catacomba) e i merli sul parapetto di chi e' alto; i livelli sotto la sabbia non ne hanno
+            bool topLevel = !site.IsStack || (site.IsTower ? u == Units - 1 : u == site.entrance);
+            FloorBuilder.FacadeRoofs = topLevel;
+            FloorBuilder.FacadeCrown = site.IsStack && topLevel;
+            FloorBuilder.SkipFacade = site.IsCatacomb && u != site.entrance;
+            FloorBuilder.FacadeDrift = !site.IsStack || u == site.entrance;          // la sabbia accumulata alla base dei muri: solo dove i muri toccano il suolo
             try { fi = FloorBuilder.Build(plan, root); }
-            finally { FloorBuilder.SkipDress = false; }
+            finally
+            {
+                FloorBuilder.SkipDress = false; FloorBuilder.SkipFacade = false;
+                FloorBuilder.FacadePalette = 0; FloorBuilder.FacadeRoofs = true; FloorBuilder.FacadeCrown = false; FloorBuilder.FacadeDrift = false;
+            }
             fis[u] = fi;
             if (site.IsStack) DesertStairs.Build(fi.root.transform, plan, u, Units, site.church);
             fi.root.transform.position = new Vector3(0f, YOf(u), 0f);
@@ -346,6 +368,7 @@ namespace PryingEyes.Deserto
                 var e = Enemy.Spawn(g.type, pos);
                 if (e == null) return true;
                 e.maxHp *= g.hpMul; e.hp = e.maxHp; e.speed *= g.speedMul;
+                e.Doze();                       // riposa nella sua stanza finche' il giocatore non e' vicino (DesertDirector.WakeTick)
                 if (!fly) e.SetHome(g.hmin, g.hmax);
                 guards[u].Add(e);
                 if (g.boss)

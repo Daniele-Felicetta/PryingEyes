@@ -17,6 +17,8 @@ static class Program
 
     static int Main(string[] args)
     {
+        int map = Array.IndexOf(args, "--map");
+        if (map >= 0) return Map(args, map);
         bool quick = Array.IndexOf(args, "--quick") >= 0;
         Noise();
         Clock();
@@ -24,10 +26,81 @@ static class Program
         Terrain();
         Buildings(quick ? 120 : 600);
         Stacks(quick ? 40 : 200);
-        World(quick ? 6 : 14);
+        World(quick ? 9 : 20);
+        Regions();
+        Buttes();
+        Scatter(quick ? 14 : 30);
+        Weather();
+        Grading();
         Compass();
         Console.WriteLine(ok ? "ALL PASS" : "FAILED");
         return ok ? 0 : 1;
+    }
+
+    // ------------------------------------------------------------------ a picture of the ground
+    /// <summary>--map out.ppm x z size pixels [seed]: a hill-shaded picture of the ground (the sun low in the north-west) with the sites as dots, to look at the landforms without Unity.
+    /// The colour is the region's sand, rock where the ground is steep; red dots are the sites.</summary>
+    static int Map(string[] a, int i)
+    {
+        string path = a[i + 1];
+        float x0 = float.Parse(a[i + 2], System.Globalization.CultureInfo.InvariantCulture), z0 = float.Parse(a[i + 3], System.Globalization.CultureInfo.InvariantCulture);
+        float size = float.Parse(a[i + 4], System.Globalization.CultureInfo.InvariantCulture); int px = int.Parse(a[i + 5]);
+        DesertWorld.Reset(a.Length > i + 6 ? int.Parse(a[i + 6]) : 1000);
+        bool heights = a.Length > i + 7 && a[i + 7] == "h";
+        float step = size / px;
+        var h = new float[px + 2, px + 2];
+        for (int r = 0; r < px + 2; r++)
+            for (int c = 0; c < px + 2; c++) h[c, r] = DesertWorld.Height(x0 + (c - 1) * step, z0 + (r - 1) * step);
+        var bytes = new byte[px * px * 3];
+        float[] lightDir = { -0.6f, 0.45f, 0.66f };
+        for (int r = 0; r < px; r++)
+            for (int c = 0; c < px; c++)
+            {
+                float dx = (h[c + 2, r + 1] - h[c, r + 1]) / (2f * step), dz = (h[c + 1, r + 2] - h[c + 1, r]) / (2f * step);
+                float nx = -dx, ny = 1f, nz = -dz, len = (float)Math.Sqrt(nx * nx + ny * ny + nz * nz);
+                nx /= len; ny /= len; nz /= len;
+                float shade = Math.Max(0f, nx * lightDir[0] + ny * lightDir[1] + nz * lightDir[2]);
+                float slope = (float)Math.Sqrt(dx * dx + dz * dz);
+                DesertWorld.TintAt(x0 + c * step, z0 + r * step, out float tr, out float tg, out float tb, out float des);
+                float rock = Math.Min(1f, Math.Max(0f, (slope - 0.6f) / 0.5f));
+                float cr = 0.80f * tr, cg = 0.64f * tg, cb = 0.42f * tb;
+                cr = cr * (1f - rock) + 0.45f * rock; cg = cg * (1f - rock) + 0.33f * rock; cb = cb * (1f - rock) + 0.24f * rock;
+                float lum = 0.3f * cr + 0.59f * cg + 0.11f * cb;
+                cr += (lum - cr) * des; cg += (lum - cg) * des; cb += (lum - cb) * des;
+                float k = 0.28f + 0.95f * shade;
+                int o = (r * px + c) * 3;
+                bytes[o] = (byte)Math.Min(255, cr * k * 255f); bytes[o + 1] = (byte)Math.Min(255, cg * k * 255f); bytes[o + 2] = (byte)Math.Min(255, cb * k * 255f);
+                if (heights)
+                {
+                    // elevation: a colour ramp every 40 m of height above the flat sand, with a contour line every 4 m, over the shading
+                    float e = h[c + 1, r + 1] - DesertWorld.GroundY;
+                    float t = Math.Min(1f, e / 40f);
+                    float rr = t < 0.5f ? 0.15f + 1.2f * t : 0.75f + 0.5f * (t - 0.5f), gg = t < 0.5f ? 0.35f + 1.0f * t : 0.85f - 1.4f * (t - 0.5f), bb = t < 0.5f ? 0.60f - 1.1f * t : 0.05f + 0.3f * (t - 0.5f);
+                    float cont = Math.Abs(e / 4f - (float)Math.Round(e / 4f)) < 0.5f * step / 4f * Math.Max(0.5f, slope * 2f) ? 0.55f : 1f;
+                    float sh = 0.55f + 0.6f * shade;
+                    bytes[o] = (byte)Math.Min(255, rr * sh * cont * 255f); bytes[o + 1] = (byte)Math.Min(255, gg * sh * cont * 255f); bytes[o + 2] = (byte)Math.Min(255, bb * sh * cont * 255f);
+                }
+            }
+        var list = new List<Site>();
+        DesertWorld.SitesNear(x0 + size * 0.5f, z0 + size * 0.5f, size * 0.75f, list);
+        foreach (var s in list)
+        {
+            int cx = (int)((s.CentreX - x0) / step), cz = (int)((s.CentreZ - z0) / step);
+            for (int dz2 = -1; dz2 <= 1; dz2++)
+                for (int dx2 = -1; dx2 <= 1; dx2++)
+                {
+                    int c = cx + dx2, r = cz + dz2;
+                    if (c < 0 || r < 0 || c >= px || r >= px) continue;
+                    int o = (r * px + c) * 3; bytes[o] = 230; bytes[o + 1] = 30; bytes[o + 2] = 30;
+                }
+        }
+        using (var f = System.IO.File.Create(path))
+        {
+            var head = System.Text.Encoding.ASCII.GetBytes("P6\n" + px + " " + px + "\n255\n");
+            f.Write(head, 0, head.Length); f.Write(bytes, 0, bytes.Length);
+        }
+        Console.WriteLine($"{path}: {px}x{px}, {size} m, from ({x0}, {z0}), seed {DesertWorld.Seed}");
+        return 0;
     }
 
     // ------------------------------------------------------------------ noise
@@ -109,9 +182,66 @@ static class Program
         Check("GROUND_MOSTLY_WALKABLE", steep < n * 0.02f, $"{steep} of {n} samples steeper than 42 degrees (worst {Math.Atan(worst) * 57.3f:F0} deg), highest {tall:F1} m");
         // far away the dunes are taller than near the cathedral
         float nearMax = 0f, farMax = 0f;
-        for (float x = 100f; x < 700f; x += 9f) nearMax = Math.Max(nearMax, DesertWorld.Raw(x, 150f) - DesertWorld.GroundY);
-        for (float x = 8000f; x < 8600f; x += 9f) farMax = Math.Max(farMax, DesertWorld.Raw(x, 150f) - DesertWorld.GroundY);
+        for (float x = 100f; x < 700f; x += 9f) nearMax = Math.Max(nearMax, DesertWorld.Raw(x, 150f) - DesertWorld.Buttes(x, 150f) - DesertWorld.GroundY);      // the dunes, not the buttes
+        for (float x = 8000f; x < 8600f; x += 9f) farMax = Math.Max(farMax, DesertWorld.Raw(x, 150f) - DesertWorld.Buttes(x, 150f) - DesertWorld.GroundY);
         Check("GROUND_DUNES_GROW_WITH_DISTANCE", farMax > nearMax * 1.2f, $"{nearMax:F1} m near, {farMax:F1} m far");
+        // the dunes have a long gentle windward face and a steep slip face: along the wind (u) the sand rises slowly and falls fast
+        double up = 0, down = 0; int nu = 0, nd = 0, cliffs = 0, badSamples = 0;
+        for (float x = -7000f; x <= 7000f; x += 41.3f)
+            for (float z = -7000f; z <= 7000f; z += 43.7f)
+            {
+                if (DesertWorld.DistToCathedral(x, z) < 500f) continue;
+                if (DesertWorld.RegionWeight(Region.Dunes, x, z) > 0.99f)
+                {
+                    float s0 = (DesertWorld.Height(x + 2.2f, z + 1.25f) - DesertWorld.Height(x - 2.2f, z - 1.25f)) / 5.06f;       // along the wind (0.87, 0.5)
+                    if (s0 > 0.04f) { up += s0; nu++; } else if (s0 < -0.04f) { down -= s0; nd++; }
+                }
+                if (DesertWorld.RegionWeight(Region.Badlands, x, z) > 0.99f)
+                {
+                    badSamples++;
+                    float g = Math.Max(Math.Abs(DesertWorld.Height(x + 2f, z) - DesertWorld.Height(x, z)), Math.Abs(DesertWorld.Height(x, z + 2f) - DesertWorld.Height(x, z))) / 2f;
+                    if (g > 1.0f) cliffs++;
+                }
+            }
+        double meanUp = nu > 0 ? up / nu : 0, meanDown = nd > 0 ? down / nd : 0;
+        Check("GROUND_DUNES_HAVE_SLIP_FACES", nu > 200 && nd > 200 && meanDown > meanUp * 1.25, $"along the wind the sand rises at {meanUp:F2} on average ({nu} samples) and falls at {meanDown:F2} ({nd} samples): {(meanUp > 0 ? meanDown / meanUp : 0):F2} times steeper");
+        Check("GROUND_BADLANDS_HAVE_CLIFFS", badSamples > 1000 && cliffs >= 8 && cliffs < badSamples * 0.15, $"{cliffs} of {badSamples} badlands samples are steeper than 45 degrees (walls of mesas, not most of the land)");
+
+        // the brine on the salt flats: a film of water in lakes, only in the middle of the flats, riding on the top fifth of the vertex alpha
+        DesertWorld.Reset(12345);
+        int flats = 0, flooded = 0, stray = 0, badAlpha = 0, badDecode = 0, brineSamples = 0;
+        for (float x = -9000f; x <= 9000f; x += 37.1f)
+            for (float z = -9000f; z <= 9000f; z += 41.3f)
+            {
+                float bn = DesertWorld.Brine(x, z), sw = DesertWorld.RegionWeight(Region.Salt, x, z);
+                if (bn > 0f && sw < 0.9f) stray++;
+                if (sw > 0.99f) { flats++; if (bn > 0.5f) flooded++; }
+                DesertWorld.TintAt(x, z, out _, out _, out _, out float td);
+                float al = DesertWorld.BrineAlpha(x, z, td);
+                if (bn <= 0f) { if (Math.Abs(al - td) > 1e-6f) badAlpha++; }
+                else
+                {
+                    brineSamples++;
+                    if (al < 0.8f || al > 1.0001f) badAlpha++;
+                    if (sw > 0.99f && Math.Abs((al - 0.8f) * 5f - bn) > 0.01f) badDecode++;
+                }
+            }
+        Check("BRINE_ONLY_IN_THE_FLATS", stray == 0 && brineSamples > 500, $"{stray} samples with water where the flats are less than 90 % of the ground, {brineSamples} samples with water in all");
+        Check("BRINE_COVERS_ABOUT_A_THIRD_OF_THE_FLATS", flats > 2000 && flooded > flats * 0.15f && flooded < flats * 0.40f, $"{flooded} of {flats} samples in the middle of the flats are more than half under water ({100.0 * flooded / Math.Max(1, flats):F0} %)");
+        Check("BRINE_RIDES_ON_THE_TINT_ALPHA", badAlpha == 0 && badDecode == 0, $"{badAlpha} vertices whose alpha does not say what the water does (dry ones keep the region's alpha, wet ones sit between 0.8 and 1), {badDecode} where the shader would decode another depth");
+        // the same seed gives the same lakes, whenever and in whatever order they are asked for (a worker thread makes the sand)
+        int moved = 0;
+        var wet = new List<(float x, float z, float b)>();
+        for (float x = -9000f; x <= 9000f && wet.Count < 40; x += 211f)
+            for (float z = -9000f; z <= 9000f && wet.Count < 40; z += 233f)
+            {
+                float bn = DesertWorld.Brine(x, z);
+                if (bn > 0.5f) wet.Add((x, z, bn));
+            }
+        DesertWorld.Reset(999);
+        DesertWorld.Reset(12345);
+        for (int k = wet.Count - 1; k >= 0; k--) if (DesertWorld.Brine(wet[k].x, wet[k].z) != wet[k].b) moved++;
+        Check("BRINE_DETERMINISTIC", wet.Count >= 10 && moved == 0, $"{wet.Count} wet places asked again after another seed and a reset, in reverse order: {moved} changed");
     }
 
     // ------------------------------------------------------------------ the sand mesh
@@ -188,6 +318,39 @@ static class Program
                         }
             }
         Check("TERRAIN_WELL_CUT_EXACTLY", wells > 0 && bad == 0, wells == 0 ? "no catacomb found" : bad == 0 ? $"{wells} wells, {chunks} chunks at three steps, worst error {worst:F4} m2" : bad + " bad chunks, first: " + first);
+
+        // ... and nothing of the chunk hangs inside it either: a well that straddles the edge of two chunks must not have the skirt of that edge across it (in the game the player of the
+        // catacomb of cell (0,-2), seed 1000, stopped on the stair landing against that wall of sand). Two synthetic holes, one over an edge and one over a corner, and the real wells.
+        int across = 0, wallTris = 0, wallHoles = 0; string wallFirst = "";
+        void NoWall(HoleRect r, string what)
+        {
+            int cx0 = (int)Math.Floor(r.x0 / DesertTerrainGen.ChunkSize), cx1 = (int)Math.Floor((r.x1 - 1e-3f) / DesertTerrainGen.ChunkSize);
+            int cz0 = (int)Math.Floor(r.z0 / DesertTerrainGen.ChunkSize), cz1 = (int)Math.Floor((r.z1 - 1e-3f) / DesertTerrainGen.ChunkSize);
+            wallHoles++;
+            if (cx1 > cx0 || cz1 > cz0) across++;
+            foreach (float step in new[] { 1.5f, 4f, 8f })
+                for (int px = cx0; px <= cx1; px++)
+                    for (int pz = cz0; pz <= cz1; pz++)
+                    {
+                        var d = DesertTerrainGen.Build(px, pz, step, new[] { r });
+                        float ox = px * DesertTerrainGen.ChunkSize, oz = pz * DesertTerrainGen.ChunkSize;
+                        for (int t = 0; t < d.tris.Length; t += 3)
+                        {
+                            int a = d.tris[t] * 3, b = d.tris[t + 1] * 3, c = d.tris[t + 2] * 3;
+                            float mx = ox + (d.pos[a] + d.pos[b] + d.pos[c]) / 3f, mz = oz + (d.pos[a + 2] + d.pos[b + 2] + d.pos[c + 2]) / 3f;
+                            if (r.Contains(mx, mz)) { wallTris++; if (wallFirst.Length == 0) wallFirst = $"{what}, chunk ({px},{pz}) step {step}"; }
+                        }
+                    }
+        }
+        NoWall(new HoleRect(40f, -195f, 46f, -189f), "a hole over the edge z = -192");
+        NoWall(new HoleRect(61f, -195f, 67f, -189f), "a hole over the corner (64, -192)");
+        for (int cx = -14; cx <= 14; cx++)
+            for (int cz = -14; cz <= 14; cz++)
+            {
+                var s = DesertWorld.SiteOf(cx, cz);
+                if (s != null && s.WellRect(out var r)) NoWall(r, s.ToString());
+            }
+        Check("TERRAIN_NO_WALL_ACROSS_A_WELL", across >= 2 && wallTris == 0, wallTris == 0 ? $"{wallHoles} holes ({across} over a chunk edge) at three steps: no triangle of the sand or of a skirt inside any" : $"{wallTris} triangles inside a hole, first: {wallFirst}");
     }
 
     // ------------------------------------------------------------------ the building generator
@@ -196,7 +359,8 @@ static class Program
         var rng = new Random(11);
         var kinds = (BuildingKind[])Enum.GetValues(typeof(BuildingKind));
         var states = (BuildingState[])Enum.GetValues(typeof(BuildingState));
-        int built = 0, faults = 0, noDoor = 0, tooBig = 0, none = 0;
+        int built = 0, faults = 0, noDoor = 0, tooBig = 0, none = 0, gaps = 0, gapStrays = 0, gapBuildings = 0, lowWholeDoors = 0;
+        string firstStray = "";
         var perKind = new Dictionary<BuildingKind, int>();
         var rooms = new Dictionary<BuildingKind, int>();
         var firstFault = "";
@@ -222,6 +386,24 @@ static class Program
             bool door = false;
             foreach (var o in p.openings) if (o.b < 0 && o.sill < 0.01f && !o.oneSided) door = true;
             if (!door) noDoor++;
+            // a floor-level opening lower than a person (Opening.Gap) is a doorway whose lintel a lowered wall took away: its head is that wall and a room of it crumbled.
+            // Anything else low would be closed from above by a soffit, which the navmesh agent (1.9 m) cannot pass.
+            int gapsHere = 0;
+            foreach (var o in p.openings)
+            {
+                if (o.sill >= 0.01f || o.style == OpenStyle.Passaggio || o.style == OpenStyle.Ascensore || o.top >= Opening.WalkTop) continue;
+                gapsHere++;
+                float hMax = p.rooms[o.a].wallH; bool crumbled = p.rooms[o.a].crumble;
+                if (o.b >= 0) { hMax = Math.Min(hMax, p.rooms[o.b].wallH); crumbled |= p.rooms[o.b].crumble; }
+                if (!o.Gap || !crumbled || Math.Abs(o.top - hMax) > 0.002f)
+                {
+                    gapStrays++;
+                    if (firstStray.Length == 0) firstStray = $"{kind}/{state}: opening {o.a}-{o.b} head {o.top:F2} m, wall {hMax:F2} m, crumbled {crumbled}";
+                }
+            }
+            gaps += gapsHere;
+            if (gapsHere > 0) gapBuildings++;
+            if (state == BuildingState.Intact) lowWholeDoors += gapsHere;
             if (p.maxX - p.minX > PlanGen.BuildingSpan || p.maxZ - p.minZ > PlanGen.BuildingSpan) tooBig++;
             // every rotation and mirror keeps the plan valid
             var turned = PlanGen.Place(p, i % 4, i % 2 == 0, 40, -60);
@@ -232,6 +414,8 @@ static class Program
         Check("BUILDING_PLANS_VALID", faults == 0, faults == 0 ? "every plan passes BuildingFault, also turned and mirrored" : faults + " faults, first: " + firstFault);
         Check("BUILDING_HAS_A_DOOR_TO_THE_SAND", noDoor == 0, noDoor + " buildings without an entrance");
         Check("BUILDING_FITS_THE_CELL", tooBig == 0, tooBig + " buildings wider than " + PlanGen.BuildingSpan + " dm");
+        Check("BUILDING_LOW_DOORWAYS_ARE_GAPS", gaps > 50 && gapStrays == 0 && lowWholeDoors == 0,
+              gapStrays == 0 ? $"{gaps} doorways lower than {Opening.WalkTop} m in {gapBuildings} buildings, every one is a lintel-less gap cut down to a crumbled wall ({lowWholeDoors} in whole buildings)" : $"{gapStrays} low doorways that are not gaps, first: {firstStray}");
         foreach (var kv in giveUps) Console.WriteLine($"     gave up {kv.Value,3}x  {kv.Key}");
         foreach (var k in kinds)
             if (perKind.TryGetValue(k, out int n)) Console.WriteLine($"     {k,-10} {n,4} plans, {rooms[k] / (float)n:F1} rooms on average");
@@ -336,30 +520,33 @@ static class Program
             }
         sw.Stop();
         int cells = (2 * radius + 1) * (2 * radius + 1);
-        Check("WORLD_SITE_DENSITY", all.Count > cells * 0.45f && all.Count < cells * 0.75f, $"{all.Count} sites in {cells} cells, made in {sw.ElapsedMilliseconds} ms");
+        Check("WORLD_SITE_DENSITY", all.Count > cells * 0.30f && all.Count < cells * 0.85f, $"{all.Count} sites in {cells} cells of {DesertWorld.Cell} m ({all.Count * 100 / cells} %), made in {sw.ElapsedMilliseconds} ms");
         foreach (var kv in counts) Console.WriteLine($"     {kv.Key,-10} {kv.Value,4}");
         foreach (var kv in states) Console.WriteLine($"     state {kv.Key,-9} {kv.Value,4}");
         bool inCell = true, noOverlap = true, clearOfCathedral = true, padsOk = true;
+        string whyCell = "", whyPad = "", whyOverlap = "";
         for (int i = 0; i < all.Count; i++)
         {
             var s = all[i];
-            if (s.fx0 < s.cx * DesertWorld.Cell + 12f || s.fx1 > (s.cx + 1) * DesertWorld.Cell - 12f || s.fz0 < s.cz * DesertWorld.Cell + 12f || s.fz1 > (s.cz + 1) * DesertWorld.Cell - 12f) inCell = false;
+            if (s.fx0 < s.cx * DesertWorld.Cell + 12f || s.fx1 > (s.cx + 1) * DesertWorld.Cell - 12f || s.fz0 < s.cz * DesertWorld.Cell + 12f || s.fz1 > (s.cz + 1) * DesertWorld.Cell - 12f)
+            { inCell = false; if (whyCell.Length == 0) whyCell = $" ({s}: x {s.fx0:F1}..{s.fx1:F1} z {s.fz0:F1}..{s.fz1:F1} in the cell x {s.cx * DesertWorld.Cell}..{(s.cx + 1) * DesertWorld.Cell} z {s.cz * DesertWorld.Cell}..{(s.cz + 1) * DesertWorld.Cell})"; }
             if (DesertWorld.DistToCathedral(s.CentreX, s.CentreZ) < 100f) clearOfCathedral = false;
             for (int j = i + 1; j < all.Count; j++)
             {
                 var t = all[j];
-                if (s.fx0 < t.fx1 + 20f && t.fx0 < s.fx1 + 20f && s.fz0 < t.fz1 + 20f && t.fz0 < s.fz1 + 20f) noOverlap = false;
+                if (s.fx0 < t.fx1 + 20f && t.fx0 < s.fx1 + 20f && s.fz0 < t.fz1 + 20f && t.fz0 < s.fz1 + 20f) { noOverlap = false; if (whyOverlap.Length == 0) whyOverlap = $" ({s} and {t})"; }
             }
             // the ground under a site is flat at its pad height
             float cxm = (s.fx0 + s.fx1) * 0.5f, czm = (s.fz0 + s.fz1) * 0.5f;
-            if (Math.Abs(DesertWorld.Height(cxm, czm) - (s.padY - 0.08f)) > 0.01f || Math.Abs(DesertWorld.Height(s.fx0 + 1f, s.fz1 - 1f) - (s.padY - 0.08f)) > 0.01f) padsOk = false;
+            float e1 = Math.Abs(DesertWorld.Height(cxm, czm) - (s.padY - 0.08f)), e2 = Math.Abs(DesertWorld.Height(s.fx0 + 1f, s.fz1 - 1f) - (s.padY - 0.08f));
+            if (e1 > 0.01f || e2 > 0.01f) { padsOk = false; if (whyPad.Length == 0) whyPad = $" ({s}: {e1:F3} m at the middle, {e2:F3} m at a corner)"; }
         }
-        Check("WORLD_SITES_INSIDE_THEIR_CELL", inCell, "every footprint keeps 12 m from the edge of its cell");
-        Check("WORLD_SITES_DO_NOT_OVERLAP", noOverlap, "no two footprints within 20 m of each other");
+        Check("WORLD_SITES_INSIDE_THEIR_CELL", inCell, "every footprint keeps 12 m from the edge of its cell" + whyCell);
+        Check("WORLD_SITES_DO_NOT_OVERLAP", noOverlap, "no two footprints within 20 m of each other" + whyOverlap);
         Check("WORLD_CLEAR_AROUND_CATHEDRAL", clearOfCathedral, "no site within 100 m of the cathedral");
-        Check("WORLD_PADS_ARE_FLAT", padsOk, "the sand under every footprint is at its pad height");
-        var welcome = DesertWorld.SiteOf(0, -1);
-        var landmark = DesertWorld.SiteOf(0, -2);
+        Check("WORLD_PADS_ARE_FLAT", padsOk, "the sand under every footprint is at its pad height" + whyPad);
+        var welcome = DesertWorld.Welcome();
+        var landmark = DesertWorld.Landmark();
         Check("WORLD_WELCOME_CHAPEL", welcome != null && welcome.kind == SiteKind.Cappella && welcome.state == BuildingState.Ruin, welcome == null ? "missing" : welcome.ToString());
         Check("WORLD_LANDMARK_TOWER", landmark != null && landmark.IsTower && landmark.LevelCount >= 7, landmark == null ? "missing" : landmark.ToString());
         int stacks = 0, tallest = 0, bossOk = 0;
@@ -380,6 +567,324 @@ static class Program
         DesertWorld.Reset(20261118);
         for (int cx = -3; cx <= 3; cx++) for (int cz = -3; cz <= 3; cz++) { var s = DesertWorld.SiteOf(cx, cz); first.Add(s == null ? "-" : s.ToString()); }
         Check("WORLD_REPRODUCIBLE", string.Join("|", again) == string.Join("|", first), "two worlds with the same seed list the same sites");
+    }
+
+    // ------------------------------------------------------------------ the regions
+    static void Regions()
+    {
+        DesertWorld.Reset(20261118);
+        Check("REGION_CATHEDRAL_IS_HAMLETS", DesertWorld.RegionAt(23f, 33f) == Region.Hamlets && DesertWorld.RegionAt(60f, 80f) == Region.Hamlets, "the region the player starts in is the Hamlets, whatever the seed");
+        bool hamlets = true;
+        for (int seed = 1; seed <= 40; seed++) { DesertWorld.Reset(seed * 7919); hamlets &= DesertWorld.RegionAt(23f, 33f) == Region.Hamlets; }
+        Check("REGION_CATHEDRAL_IS_HAMLETS_EVERY_SEED", hamlets, "forty seeds, forty times the Hamlets at the steps");
+        DesertWorld.Reset(20261118);
+        var seen = new Dictionary<Region, int>();
+        int samples = 0; bool blendOk = true, tintOk = true, ampOk = true;
+        for (float x = -7000f; x <= 7000f; x += 97f)
+            for (float z = -7000f; z <= 7000f; z += 101f)
+            {
+                var r = DesertWorld.RegionAt(x, z);
+                seen[r] = (seen.TryGetValue(r, out int c) ? c : 0) + 1;
+                samples++;
+                DesertWorld.RegionBlend(x, z, out var a, out var b, out float wa);
+                if (wa < 0.5f - 1e-4f || wa > 1f + 1e-4f || a != r) blendOk = false;
+                DesertWorld.TintAt(x, z, out float tr, out float tg, out float tb, out float td);
+                if (tr < 0.6f || tr > 1.4f || tg < 0.6f || tg > 1.4f || tb < 0.5f || tb > 1.4f || td < 0f || td > 1f) tintOk = false;
+                float amp = DesertWorld.RegionAmp(x, z);
+                if (amp < 0.2f || amp > 1.6f) ampOk = false;
+            }
+        var parts = new List<string>();
+        foreach (var kv in seen) parts.Add($"{kv.Key} {kv.Value * 100 / samples} %");
+        Check("REGION_ALL_SIX_EXIST", seen.Count == 6, string.Join(", ", parts));
+        Check("REGION_BLEND_WEIGHTS", blendOk, "the first region counts between one half and all, and is the one RegionAt names");
+        Check("REGION_TINT_IN_RANGE", tintOk, "the sand colour multiplier stays between 0.5 and 1.4 and the loss of colour between 0 and 1");
+        Check("REGION_DUNE_AMPLITUDE_IN_RANGE", ampOk, "the dune height multiplier stays between 0.2 and 1.6");
+        // the places of a region are the region's: the dead town has hotels and theatres, the hamlets have houses
+        int hamletHouses = 0, hamletBig = 0, deadBig = 0, deadHouses = 0;
+        for (int cx = -40; cx <= 40; cx++)
+            for (int cz = -40; cz <= 40; cz++)
+            {
+                var s = DesertWorld.SiteOf(cx, cz);
+                if (s == null || s.forced) continue;
+                bool big = s.kind == SiteKind.Albergo || s.kind == SiteKind.Teatro || s.kind == SiteKind.Sanatorio || s.kind == SiteKind.Complesso;
+                if (s.region == Region.Hamlets) { if (s.kind == SiteKind.Casa) hamletHouses++; if (big) hamletBig++; }
+                if (s.region == Region.DeadTown) { if (s.kind == SiteKind.Casa) deadHouses++; if (big) deadBig++; }
+            }
+        Check("REGION_SITES_FOLLOW_THEIR_REGION", hamletHouses > hamletBig * 2 && deadBig > deadHouses, $"hamlets: {hamletHouses} houses, {hamletBig} big buildings; dead town: {deadHouses} houses, {deadBig} big buildings");
+        // a site names its own region and a palette
+        bool names = true;
+        for (int cx = -8; cx <= 8; cx++)
+            for (int cz = -8; cz <= 8; cz++)
+            {
+                var s = DesertWorld.SiteOf(cx, cz);
+                if (s == null) continue;
+                if (s.palette < 0 || s.palette > 63 || s.region != DesertWorld.RegionAt((cx + 0.5f) * DesertWorld.Cell, (cz + 0.5f) * DesertWorld.Cell)) names = false;
+            }
+        Check("REGION_SITE_FIELDS", names, "every site has a region (that of its cell) and a palette 0..63");
+    }
+
+    // ------------------------------------------------------------------ the buttes
+    static void Buttes()
+    {
+        DesertWorld.Reset(1000);
+        int total = 0, count = 0, badlands = 0, badlandsCells = 0; float tallest = 0f, shortest = float.MaxValue, nearest = float.MaxValue;
+        for (int i = -5; i <= 5; i++)
+            for (int j = -5; j <= 5; j++)
+            {
+                total++;
+                float px0, pz0;
+                bool has = DesertWorld.ButteOfCell(i, j, out px0, out pz0, out float r, out float h, out _, out _);
+                if (DesertWorld.RegionAt(px0, pz0) == Region.Badlands) badlandsCells++;
+                if (!has) continue;
+                count++; tallest = Math.Max(tallest, h); shortest = Math.Min(shortest, h);
+                nearest = Math.Min(nearest, DesertWorld.DistToCathedral(px0, pz0) - DesertWorld.ButteReachRadii * r);
+                if (DesertWorld.RegionAt(px0, pz0) == Region.Badlands) badlands++;
+            }
+        Check("BUTTES_EXIST", count >= 12 && count <= total * 0.5, $"{count} buttes in {total} squares of {DesertWorld.ButteCell:F0} m (a few in each region, never one in every square)");
+        Check("BUTTES_HEIGHTS", shortest >= 28f - 0.01f && tallest <= 95.01f && tallest > 60f, $"from {shortest:F0} to {tallest:F0} m");
+        Check("BUTTES_MOSTLY_IN_THE_BADLANDS", badlandsCells > 5 && badlands > count * 0.3, $"{badlands} of {count} buttes stand in the badlands ({badlandsCells} squares have their middle there)");
+        Check("BUTTES_KEEP_AWAY_FROM_HOME", nearest >= DesertWorld.ButteKeepOut - 0.5f, $"the nearest skirt is {nearest:F0} m from the cathedral");
+        // the height itself, not just the table: nothing round the cathedral, the welcome chapel and the landmark tower, and the nearest butte has a flat top and a steep wall
+        float near = 0f;
+        for (float x = -250f; x <= 350f; x += 11f)
+            for (float z = -450f; z <= 300f; z += 11f)
+                if (DesertWorld.DistToCathedral(x, z) < 240f || Math.Abs(x - DesertWorld.LandmarkX) + Math.Abs(z - DesertWorld.LandmarkZ) < 100f) near = Math.Max(near, DesertWorld.Buttes(x, z));
+        Check("BUTTES_NOT_AROUND_THE_LANDMARKS", near < 1e-4f, $"largest butte height round home and the landmark tower {near:F3} m");
+        float bx = 0, bz = 0, br = 0, bh = 0, ba = 0, bs = 0; float bd = float.MaxValue;
+        for (int i = -4; i <= 4; i++)
+            for (int j = -4; j <= 4; j++)
+                if (DesertWorld.ButteOfCell(i, j, out float px, out float pz, out float r, out float h, out float ang, out float asp))
+                {
+                    float d = DesertWorld.DistToCathedral(px, pz);
+                    if (d < bd) { bd = d; bx = px; bz = pz; br = r; bh = h; ba = ang; bs = asp; }
+                }
+        float top = 0f, steepest = 0f, topSpread = 0f, minTop = float.MaxValue, maxTop = 0f;
+        for (float t = 0f; t <= 2.2f; t += 0.01f)
+        {
+            float cx = bx + (float)Math.Cos(ba) * br * t, cz = bz + (float)Math.Sin(ba) * br * t;
+            float h0 = DesertWorld.Buttes(cx, cz), gx = DesertWorld.Buttes(cx + 0.5f, cz) - DesertWorld.Buttes(cx - 0.5f, cz), gz = DesertWorld.Buttes(cx, cz + 0.5f) - DesertWorld.Buttes(cx, cz - 0.5f);
+            steepest = Math.Max(steepest, (float)Math.Sqrt(gx * gx + gz * gz));
+            if (t < 0.5f) { minTop = Math.Min(minTop, h0); maxTop = Math.Max(maxTop, h0); }
+            if (t == 0f) top = h0;
+        }
+        topSpread = maxTop - minTop;
+        Check("BUTTES_FLAT_TOP_STEEP_WALL", top > bh * 0.85f && topSpread < bh * 0.2f && steepest > 1.4f, $"butte of {bh:F0} m at {bd:F0} m from home: top {top:F0} m, spread {topSpread:F1} m over its middle, steepest wall {Math.Atan(steepest) * 57.3f:F0} degrees");
+        // no place under a butte: a pad cut into a wall would be a cliff with a floor
+        int sites = 0, touching = 0;
+        var near2 = new List<Site>();
+        DesertWorld.SitesNear(0f, 0f, 2500f, near2);
+        foreach (var s in near2) { sites++; if (!s.forced && DesertWorld.ButteTouches(s.fx0, s.fz0, s.fx1, s.fz1, 44f)) touching++; }
+        Check("BUTTES_NEVER_UNDER_A_PLACE", sites > 100 && touching == 0, $"{touching} of {sites} places within 2.5 km touch a butte");
+    }
+
+    // ------------------------------------------------------------------ what lies on the sand
+    static void Scatter(int radius)
+    {
+        DesertWorld.Reset(20261118);
+        var items = new List<PropItem>(); var again = new List<PropItem>();
+        int chunks = 0, inFootprint = 0, outOfChunk = 0, same = 0, tooMany = 0, badScale = 0, onCathedral = 0, total = 0;
+        var byRegion = new Dictionary<Region, int[]>();
+        var squares = new Dictionary<Region, int>();
+        var sites = new List<Site>();
+        int maxPer = 0;
+        for (int cx = -radius; cx <= radius; cx++)
+            for (int cz = -radius; cz <= radius; cz++)
+            {
+                DesertScatterGen.Build(cx, cz, items);
+                DesertScatterGen.Build(cx, cz, again);
+                chunks++;
+                bool eq = items.Count == again.Count;
+                for (int i = 0; eq && i < items.Count; i++) eq = items[i].kind == again[i].kind && items[i].x == again[i].x && items[i].z == again[i].z && items[i].y == again[i].y;
+                if (eq) same++;
+                maxPer = Math.Max(maxPer, items.Count);
+                if (items.Count > 400) tooMany++;
+                total += items.Count;
+                float ox = cx * DesertScatterGen.Chunk, oz = cz * DesertScatterGen.Chunk;
+                foreach (var it in items)
+                {
+                    float lk = DesertScatterGen.Leak;
+                    if (it.x < ox - lk || it.x > ox + DesertScatterGen.Chunk + lk || it.z < oz - lk || it.z > oz + DesertScatterGen.Chunk + lk) outOfChunk++;
+                    if (it.scale < 0.4f || it.scale > 2.6f) badScale++;
+                    if (DesertWorld.DistToCathedral(it.x, it.z) < 14f) onCathedral++;
+                    DesertWorld.SitesNear(it.x, it.z, 2f, sites);
+                    foreach (var s in sites) if (it.x > s.fx0 && it.x < s.fx1 && it.z > s.fz0 && it.z < s.fz1) inFootprint++;
+                }
+            }
+        Check("SCATTER_DETERMINISTIC", same == chunks, $"{same} of {chunks} squares give the same props twice");
+        Check("SCATTER_NOT_ON_SITES", inFootprint == 0, $"{inFootprint} props inside a footprint, {total} props in {chunks} squares");
+        Check("SCATTER_NOT_ON_THE_CATHEDRAL", onCathedral == 0, $"{onCathedral} props within 14 m of the cathedral");
+        Check("SCATTER_STAYS_NEAR_ITS_SQUARE", outOfChunk == 0, $"{outOfChunk} props more than {DesertScatterGen.Leak:F0} m outside their square");
+        Check("SCATTER_COUNT_IN_RANGE", tooMany == 0 && badScale == 0, $"{maxPer} props at most in a square, {badScale} out of scale");
+        // per square, by the region of its middle: each region has its own look (a lattice over a few thousand metres, so that every region shows up)
+        int span = radius > 14 ? 110 : 70;
+        for (int cx = -span; cx <= span; cx += 7)
+            for (int cz = -span; cz <= span; cz += 7)
+            {
+                DesertScatterGen.Build(cx, cz, items);
+                var reg = DesertWorld.RegionAt(cx * DesertScatterGen.Chunk + 32f, cz * DesertScatterGen.Chunk + 32f);
+                if (!byRegion.TryGetValue(reg, out var counts)) byRegion[reg] = counts = new int[(int)Prop.Count];
+                squares[reg] = (squares.TryGetValue(reg, out int sq) ? sq : 0) + 1;
+                foreach (var it in items) counts[it.kind]++;
+            }
+        float Per(Region r, params Prop[] ps)
+        {
+            if (!byRegion.TryGetValue(r, out var c) || !squares.TryGetValue(r, out int n) || n == 0) return 0f;
+            int t = 0; foreach (var p in ps) t += c[(int)p];
+            return (float)t / n;
+        }
+        var reds = new[] { Prop.RockRed, Prop.BoulderRed };
+        float badReds = Per(Region.Badlands, reds), saltReds = Per(Region.Salt, reds);
+        float saltCacti = Per(Region.Salt, Prop.Cactus, Prop.Barrel), dunesCacti = Per(Region.Dunes, Prop.Cactus, Prop.Barrel);
+        float holyStone = Per(Region.Holy, Prop.Column, Prop.Stele), dunesStone = Per(Region.Dunes, Prop.Column, Prop.Stele);
+        float hamletBush = Per(Region.Hamlets, Prop.Bush), saltBush = Per(Region.Salt, Prop.Bush);
+        bool every = squares.Count == 6;
+        Check("SCATTER_FOLLOWS_THE_REGION", every && badReds > 3f * saltReds + 1f && saltCacti < 0.5f * dunesCacti && holyStone > 3f * dunesStone && hamletBush > 3f * saltBush,
+              $"per square: red rocks {badReds:F1} in badlands vs {saltReds:F1} in salt; cacti {saltCacti:F1} in salt vs {dunesCacti:F1} in dunes; columns and steles {holyStone:F1} in holy land vs {dunesStone:F1} in dunes; bushes {hamletBush:F1} in hamlets vs {saltBush:F1} in salt ({squares.Count} regions seen)");
+        // the solid ones have a size, the others none
+        bool solidOk = true;
+        for (int k = 0; k < (int)Prop.Count; k++)
+        {
+            DesertScatterGen.Solid((Prop)k, out float r, out float h);
+            var p = (Prop)k;
+            bool big = p == Prop.BoulderTan || p == Prop.BoulderDark || p == Prop.BoulderRed || p == Prop.Slab || p == Prop.Cactus || p == Prop.DeadTree || p == Prop.Column || p == Prop.Stele
+                       || p == Prop.Tent || p == Prop.FirePit || p == Prop.Crate || p == Prop.Well || p == Prop.Obelisk || p == Prop.Windmill || p == Prop.Wagon;
+            if (big != (r > 0f) || (r > 0f && h <= 0f)) solidOk = false;
+        }
+        Check("SCATTER_SOLID_SHAPES", solidOk, "boulders, slabs, cacti, dead trees, columns, steles, tents, fires, crates, wells, obelisks, windmills and wagons are solid (a capsule with a radius and a height), the rest are not");
+        // a camp: a fire with one to three tents round it, doors to the fire, and supplies
+        int camps = 0, campsOk = 0, tentsTotal = 0, orphanTents = 0;
+        for (int cx = -radius; cx <= radius; cx++)
+            for (int cz = -radius; cz <= radius; cz++)
+            {
+                DesertScatterGen.Build(cx, cz, items);
+                var fireList = new List<PropItem>(); var tentList = new List<PropItem>();
+                foreach (var it in items) { if (it.kind == (byte)Prop.FirePit) fireList.Add(it); else if (it.kind == (byte)Prop.Tent) tentList.Add(it); }
+                camps += fireList.Count; tentsTotal += tentList.Count;
+                foreach (var f in fireList)
+                {
+                    int tents = 0; bool facing = true;
+                    foreach (var t in tentList)
+                    {
+                        float dx = t.x - f.x, dz = t.z - f.z, d = (float)Math.Sqrt(dx * dx + dz * dz);
+                        if (d > 6.2f) continue;
+                        tents++;
+                        // the door looks at the fire: the tent's local -x, turned by its yaw, points towards the fire
+                        double yr = t.yaw * Math.PI / 180.0;
+                        double fx = -Math.Cos(yr), fz = Math.Sin(yr);       // local -x after Euler(0, yaw, 0): (-cos yaw, 0, +sin yaw)
+                        if (fx * (-dx / d) + fz * (-dz / d) < 0.95) facing = false;
+                    }
+                    if (tents >= 1 && tents <= 3 && facing) campsOk++;
+                }
+                foreach (var t in tentList) { bool near = false; foreach (var f in fireList) { float dx = t.x - f.x, dz = t.z - f.z; if (dx * dx + dz * dz < 6.3f * 6.3f) near = true; } if (!near) orphanTents++; }
+            }
+        Check("SCATTER_CAMPS", camps >= 3 && campsOk >= camps - 2 && orphanTents <= camps, $"{camps} fires in {radius * 2 + 1}x{radius * 2 + 1} squares, {campsOk} with one to three tents with their doors to the fire, {tentsTotal} tents ({orphanTents} cut off from their fire by the edge of a square)");
+    }
+
+    // ------------------------------------------------------------------ the air
+    static void Weather()
+    {
+        bool det = true, range = true, firstClear = true, unit = true, smooth = true;
+        float maxStep = 0f;
+        for (int seed = 1; seed <= 40; seed++)
+        {
+            for (int day = 0; day < 12; day++)
+                for (float h = 0f; h < 24f; h += 0.25f)
+                {
+                    float dl = DesertClock.Evaluate(h).daylight;
+                    var a = DesertWeather.Evaluate(seed, day, h, dl);
+                    var b = DesertWeather.Evaluate(seed, day, h, dl);
+                    if (a.wind != b.wind || a.storm != b.storm || a.dirX != b.dirX) det = false;
+                    if (a.wind < 0f || a.wind > 1f || a.gust < 0f || a.gust > 1f || a.storm < 0f || a.storm > 1f || a.fogMul < 1f || a.fogMul > 4f || a.sunMul < 0.4f || a.sunMul > 1f || a.sand < 0f || a.sand > 1f) range = false;
+                    if (Math.Abs(a.dirX * a.dirX + a.dirZ * a.dirZ - 1f) > 1e-3f) unit = false;
+                    if (day == 0 && h < DesertWeather.FirstClear && a.storm > 0f) firstClear = false;
+                }
+            // a storm grows and fades smoothly: no jump bigger than a few percent in a quarter of a game hour
+            float prev = 0f;
+            for (float t = 0f; t < 12f * 24f; t += 0.1f)
+            {
+                var s = DesertWeather.Evaluate(seed, (int)(t / 24f), t % 24f, 1f);
+                if (t > 0f) maxStep = Math.Max(maxStep, Math.Abs(s.storm - prev));
+                prev = s.storm;
+            }
+        }
+        smooth = maxStep < 0.45f;
+        Check("WEATHER_DETERMINISTIC", det, "the same seed, day and hour give the same weather");
+        Check("WEATHER_RANGES", range && unit, "wind, gust, storm and sand stay in 0..1, the fog grows at most four times, the sun loses at most 60 %, the wind direction is a unit vector");
+        Check("WEATHER_FIRST_MORNING_CLEAR", firstClear, "no storm before 12:00 of the first day, on forty worlds");
+        Check("WEATHER_STORM_IS_SMOOTH", smooth, $"the storm never changes by more than {maxStep:F2} in a tenth of a game hour");
+        int days = 0, stormy = 0; float peak = 0f, wettest = 0f;
+        for (int day = 0; day < 200; day++)
+        {
+            if (DesertWeather.Storm(77, day, out float s0, out float len, out float str))
+            {
+                stormy++;
+                if (len < 1.6f || len > 3.21f || str < 0.7f || str > 1.001f || s0 < day * 24f + 7.99f || s0 > day * 24f + 22.01f) peak = -99f;
+            }
+            days++;
+        }
+        for (float t = 0f; t < 24f * 200f; t += 0.2f)
+        {
+            var s = DesertWeather.Evaluate(77, (int)(t / 24f), t % 24f, 1f);
+            peak = Math.Max(peak, s.storm);
+            wettest = Math.Max(wettest, s.fogMul);
+        }
+        float rate = (float)stormy / days;
+        Check("WEATHER_STORMS_HAPPEN", rate > 0.4f && rate < 0.7f && peak >= 0.7f, $"{stormy} of {days} days have a storm ({rate * 100f:F0} %), the strongest reaches {peak:F2} and thickens the day's fog {wettest:F1} times");
+        var noon = DesertWeather.Evaluate(77, 0, 12f, 1f);
+        float tStorm = 0f; bool found = false;
+        for (int day = 1; day < 40 && !found; day++)
+            if (DesertWeather.Storm(77, day, out float s0, out float len, out float str)) { tStorm = s0 + len * 0.5f; found = true; }
+        var mid = DesertWeather.Evaluate(77, (int)(tStorm / 24f), tStorm % 24f, 1f);
+        var dark = DesertWeather.Evaluate(77, (int)(tStorm / 24f), tStorm % 24f, 0f);
+        Check("WEATHER_STORM_BLOWS_AND_DARKENS", found && mid.storm > 0.69f && mid.wind > 0.9f && mid.fogMul > 2.3f && mid.sunMul < 0.7f && dark.fogMul < mid.fogMul && noon.storm == 0f,
+              $"in the middle of a storm: wind {mid.wind:F2}, fog x{mid.fogMul:F1} by day and x{dark.fogMul:F1} by night, sun x{mid.sunMul:F2}");
+    }
+
+    // ------------------------------------------------------------------ the picture's grading
+    static void Grading()
+    {
+        bool range = true;
+        float maxStep = 0f, minSat = 999f, maxSat = -999f;
+        for (int seed = 1; seed <= 12; seed++)
+            for (int day = 0; day < 4; day++)
+            {
+                Grade prev = default; bool havePrev = false;
+                for (float h = 0f; h < 24f; h += 0.05f)
+                {
+                    var s = DesertClock.Evaluate(h);
+                    var w = DesertWeather.Evaluate(seed, day, h, s.daylight);
+                    var g = DesertGrade.Outdoors(s, w);
+                    minSat = Math.Min(minSat, g.saturation); maxSat = Math.Max(maxSat, g.saturation);
+                    if (g.saturation < -40f || g.saturation > 40f || g.contrast < 0f || g.contrast > 40f || g.bloom < 0.2f || g.bloom > 1.6f || g.bloomThreshold < 0.8f || g.bloomThreshold > 3.2f || g.vignette < 0.1f || g.vignette > 0.5f || g.grain < 0.05f || g.grain > 0.35f
+                        || g.balance < -50f || g.balance > 50f) range = false;
+                    foreach (var c in new[] { g.filter, g.shadows, g.highlights })
+                        if (c.r < 0f || c.g < 0f || c.b < 0f || c.r > 1.5f || c.g > 1.5f || c.b > 1.5f) range = false;
+                    // the clock alone (no weather) moves the grade smoothly: a storm has its own pace (the weather's, checked above)
+                    var calm = DesertGrade.Outdoors(s, DesertWeather.WithStorm(w, 0f, s.daylight));
+                    if (havePrev) maxStep = Math.Max(maxStep, Math.Max(Math.Abs(calm.saturation - prev.saturation), Math.Max(Math.Abs(calm.bloom - prev.bloom) * 20f, Math.Abs(calm.bloomThreshold - prev.bloomThreshold) * 3f)));
+                    prev = calm; havePrev = true;
+                }
+            }
+        bool smooth = maxStep < 3.0f;
+        Check("GRADE_RANGES", range, $"saturation {minSat:F0}..{maxSat:F0}; contrast, bloom, vignette, grain, balance and the three tints stay in sane ranges for 12 worlds x 4 days x 24 hours");
+        Check("GRADE_IS_SMOOTH", smooth, $"between two samples 3 game minutes apart the saturation changes by at most {maxStep:F1} points (and the bloom by a twentieth of that scale)");
+        var none = DesertWeather.WithStorm(DesertWeather.Evaluate(1, 0, 12f, 1f), 0f, 1f);
+        var noon = DesertGrade.Outdoors(DesertClock.Evaluate(12f), none);
+        var gold = DesertGrade.Outdoors(DesertClock.Evaluate(17.9f), DesertWeather.WithStorm(DesertWeather.Evaluate(1, 0, 17.9f, DesertClock.Evaluate(17.9f).daylight), 0f, DesertClock.Evaluate(17.9f).daylight));
+        var night = DesertGrade.Outdoors(DesertClock.Evaluate(0.5f), DesertWeather.WithStorm(DesertWeather.Evaluate(1, 0, 0.5f, 0f), 0f, 0f));
+        var sand = DesertGrade.Outdoors(DesertClock.Evaluate(12f), DesertWeather.WithStorm(none, 1f, 1f));
+        Check("GRADE_GOLDEN_HOUR_IS_WARM", gold.highlights.r - gold.highlights.b > noon.highlights.r - noon.highlights.b && gold.saturation > noon.saturation && gold.bloom > noon.bloom,
+              $"at 17:54 the highlights are redder ({gold.highlights.r - gold.highlights.b:F2} vs {noon.highlights.r - noon.highlights.b:F2} at noon), the colours stronger ({gold.saturation:F0} vs {noon.saturation:F0}) and the bloom bigger ({gold.bloom:F2} vs {noon.bloom:F2})");
+        Check("GRADE_NIGHT_IS_COOL", night.highlights.b > night.highlights.r && night.shadows.b > night.shadows.r && night.saturation < noon.saturation && night.grain > noon.grain,
+              $"at midnight the lights and shadows lean blue, the colour is lower ({night.saturation:F0} vs {noon.saturation:F0} at noon) and the grain higher ({night.grain:F2} vs {noon.grain:F2})");
+        Check("GRADE_STORM_IS_DUSTY", sand.saturation < noon.saturation - 15f && sand.filter.r > sand.filter.b + 0.1f && sand.vignette > noon.vignette,
+              $"in a full sandstorm the colour drops ({sand.saturation:F0} vs {noon.saturation:F0}), the picture is filtered orange and the corners darken more");
+        Check("GRADE_BLOOM_IS_HIGH_IN_THE_SUN", noon.bloomThreshold >= 2.2f && night.bloomThreshold <= 1.3f && gold.bloomThreshold < noon.bloomThreshold && gold.bloomThreshold > night.bloomThreshold,
+              $"the bloom picks up only the very bright parts by day (threshold {noon.bloomThreshold:F1} at noon, {gold.bloomThreshold:F1} at golden hour, {night.bloomThreshold:F1} at night): the sand is above 1 almost everywhere in the sun, and with the rooms' threshold of 1 the whole picture glowed milky");
+        Check("GRADE_DAY_PUSHES_COLOUR", noon.saturation > 5f && noon.contrast > 10f, $"a clear noon is graded with saturation {noon.saturation:F0} and contrast {noon.contrast:F0}: the rooms' grey look (-26) does not reach the sand");
+        // URP's split toning is a 'soft light' blend: a warm tint on the highlights lifts the red of everything bright, the sky included, and a blue sky turns grey-lilac (it did, with 0.98 / 0.80 / 0.58)
+        Check("GRADE_DAY_HIGHLIGHTS_KEEP_THE_SKY_BLUE", noon.highlights.r - noon.highlights.b < 0.20f && noon.highlights.r - noon.highlights.b >= 0f,
+              $"by day the highlights are only a touch warm (red - blue = {noon.highlights.r - noon.highlights.b:F2}, golden hour {gold.highlights.r - gold.highlights.b:F2}): a strong tint made the blue sky grey-lilac");
     }
 
     // ------------------------------------------------------------------ the way home, said in words

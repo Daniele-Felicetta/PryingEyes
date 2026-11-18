@@ -191,7 +191,8 @@ sub-mesh of the hit triangle on the merged room shells (floor, wall, dado and ce
 its nearest part, or, for colliders without a renderer (the floor blocks), the visible surface at the same point. The name is read
 as the generator asks for it (the ProcKit keys: `pav_parquet`, `mur_pietra`...) or else as the material and object are called,
 against keyword lists in Italian and English (chosen so that they do not hide inside other words: `_osso` and not `osso`, which is
-in `rosso`; `vetro` and not `vetr`, which is in `VelvetR`; `_oro$` only at the end). Seven families:
+in `rosso`; `vetro` and not `vetr`, which is in `VelvetR`; `_oro$` only at the end). Eight families (the eighth, sand, was added on 18 November 2026 for the desert: it is
+recognised by the material `DesertSand` and the blocks `Sabbia_x_z` of `DesertTerrain`, and no floor has it; its numbers are not in the census below):
 
 | family | particles | hole | sound |
 |---|---|---|---|
@@ -202,6 +203,7 @@ in `rosso`; `vetro` and not `vetr`, which is in `VelvetR`; `_oro$` only at the e
 | Metal | dense sparks, a flash, a wisp of smoke, ricochets (25%) | dent with a bright ring and scorch | ring of the metal |
 | Fabric | a puff in the cloth colour, floating fibres | small frayed hole | dull thump |
 | Glass | glinting shards | star crack | crack and falling tinkle |
+| Sand | a wide, slow cloud of sand-coloured dust, twelve grains that fly up and fall; no ricochet | a soft dimple with a lighter ring of loose sand, no crack | a muffled thud, the hiss of the grains |
 
 Chips fly off the wall, fall, bounce twice on the floor found under the impact and rest there until they fade. Dust and chips are
 Unlit and take the colour of the light at the point (`Surfaces.LightAt`: ambient, pool lights with inverse square and the URP range

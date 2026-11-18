@@ -22,6 +22,8 @@ namespace PryingEyes.Proc
             public readonly List<Vector3> n = new List<Vector3>();
             public readonly List<Vector2> uv = new List<Vector2>();
             public readonly List<int> t = new List<int>();
+            /// <summary>Colori dei vertici: solo per i materiali che li leggono (la sabbia del deserto, QuadSmoothC); gli altri restano senza e la mesh finale li riempie di bianco.</summary>
+            public readonly List<Color32> c = new List<Color32>();
         }
 
         readonly Dictionary<Material, Sub> subs = new Dictionary<Material, Sub>();
@@ -80,6 +82,29 @@ namespace PryingEyes.Proc
             s.v.Add(a); s.v.Add(b); s.v.Add(c); s.v.Add(d);
             s.n.Add(na); s.n.Add(nb); s.n.Add(nc); s.n.Add(nd);
             s.uv.Add(ua); s.uv.Add(ub); s.uv.Add(uc); s.uv.Add(ud);
+            s.t.Add(i); s.t.Add(i + 1); s.t.Add(i + 2);
+            s.t.Add(i); s.t.Add(i + 2); s.t.Add(i + 3);
+        }
+
+        /// <summary>Come QuadSmooth, con un colore per vertice (la tinta della regione per la sabbia accumulata contro i muri). Un materiale che usa questa funzione la usa per tutti i suoi quadri.</summary>
+        public void QuadSmoothC(Material m, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 na, Vector3 nb, Vector3 nc, Vector3 nd,
+                                Color32 ca, Color32 cb, Color32 cc, Color32 cd)
+        {
+            var n = Vector3.Cross(b - a, c - a);
+            if (n.sqrMagnitude < 1e-12f) n = Vector3.Cross(c - a, d - a);
+            if (n.sqrMagnitude < 1e-12f) return;
+            if (Vector3.Dot(n, na + nb + nc + nd) < 0f)
+            {
+                var tv = b; b = d; d = tv;
+                var tn = nb; nb = nd; nd = tn;
+                var tc = cb; cb = cd; cd = tc;
+            }
+            var s = S(m);
+            int i = s.v.Count;
+            s.v.Add(a); s.v.Add(b); s.v.Add(c); s.v.Add(d);
+            s.n.Add(na); s.n.Add(nb); s.n.Add(nc); s.n.Add(nd);
+            s.uv.Add(Vector2.zero); s.uv.Add(Vector2.zero); s.uv.Add(Vector2.zero); s.uv.Add(Vector2.zero);
+            s.c.Add(ca); s.c.Add(cb); s.c.Add(cc); s.c.Add(cd);
             s.t.Add(i); s.t.Add(i + 1); s.t.Add(i + 2);
             s.t.Add(i); s.t.Add(i + 2); s.t.Add(i + 3);
         }
@@ -175,9 +200,9 @@ namespace PryingEyes.Proc
                 // sotto la soglia
                 float la = Mathf.Min(sill, ta), lb = Mathf.Min(sill, tb);
                 if (la > yMin + 1e-4f || lb > yMin + 1e-4f) Slab(m, origin, u, facing, xa, xb, yMin, yMin, Mathf.Max(la, yMin), Mathf.Max(lb, yMin), uOff);
-                // sopra la testa
+                // sopra la testa (un varco senza architrave, Opening.Gap, non ha il muro sopra)
                 float ua2 = Mathf.Max(ha, yMin), ub2 = Mathf.Max(hb, yMin);
-                if (ta > ua2 + 1e-4f || tb > ub2 + 1e-4f) Slab(m, origin, u, facing, xa, xb, ua2, ub2, ta, tb, uOff);
+                if (!hl.o.Gap && (ta > ua2 + 1e-4f || tb > ub2 + 1e-4f)) Slab(m, origin, u, facing, xa, xb, ua2, ub2, ta, tb, uOff);
             }
         }
 
@@ -190,7 +215,7 @@ namespace PryingEyes.Proc
         }
 
         // ---------------------------------------------------------------- mesh finale
-        public Mesh ToMesh(string name, out Material[] mats)
+        public Mesh ToMesh(string name, out Material[] mats, bool tangents = true)
         {
             var mesh = new Mesh { name = name };
             int total = 0;
@@ -199,11 +224,15 @@ namespace PryingEyes.Proc
             var v = new List<Vector3>(total); var n = new List<Vector3>(total); var uv = new List<Vector2>(total);
             var tris = new List<int[]>();
             mats = order.ToArray();
+            bool anyColor = false;
+            foreach (var m in order) if (subs[m].c.Count > 0) anyColor = true;
+            var colors = anyColor ? new List<Color32>(total) : null;
             foreach (var m in order)
             {
                 var s = subs[m];
                 int off = v.Count;
                 v.AddRange(s.v); n.AddRange(s.n); uv.AddRange(s.uv);
+                if (colors != null) for (int i = 0; i < s.v.Count; i++) colors.Add(i < s.c.Count ? s.c[i] : new Color32(255, 255, 255, 255));
                 var t = new int[s.t.Count];
                 for (int i = 0; i < t.Length; i++) t[i] = s.t[i] + off;
                 tris.Add(t);
@@ -211,10 +240,11 @@ namespace PryingEyes.Proc
             mesh.SetVertices(v);
             mesh.SetNormals(n);
             mesh.SetUVs(0, uv);
+            if (colors != null) mesh.SetColors(colors);
             mesh.subMeshCount = tris.Count;
             for (int i = 0; i < tris.Count; i++) mesh.SetTriangles(tris[i], i);
             mesh.RecalculateBounds();
-            mesh.RecalculateTangents();
+            if (tangents) mesh.RecalculateTangents();
             return mesh;
         }
     }

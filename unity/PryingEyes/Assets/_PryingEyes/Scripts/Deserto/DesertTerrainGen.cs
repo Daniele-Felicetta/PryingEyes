@@ -21,6 +21,7 @@ namespace PryingEyes.Deserto
         public float step;
         public float[] pos;        // x, y, z per vertex
         public float[] nrm;        // x, y, z per vertex
+        public byte[] tint;        // r, g, b, a per vertex: the colour of the region's sand as a multiplier of 0..2 (in 0..255), and how much colour it loses (0..255)
         public int[] tris;
         public int vertexCount;
         public float minY, maxY;
@@ -63,6 +64,12 @@ namespace PryingEyes.Deserto
             return v.ToArray();
         }
 
+        static bool InHole(IList<HoleRect> holes, float x, float z)
+        {
+            foreach (var h in holes) if (h.Contains(x, z)) return true;
+            return false;
+        }
+
         /// <summary>The sand of chunk (cx, cz) with the given grid step. 'holes' are the rectangles (world metres) that are left open.</summary>
         public static ChunkData Build(int cx, int cz, float step, IList<HoleRect> holes)
         {
@@ -89,7 +96,7 @@ namespace PryingEyes.Deserto
             var d = new ChunkData { cx = cx, cz = cz, step = step, minY = minY - SkirtDepth, maxY = maxY };
             int skirtVerts = 2 * (nx + nz);
             int vc = nx * nz + skirtVerts;
-            d.pos = new float[vc * 3]; d.nrm = new float[vc * 3];
+            d.pos = new float[vc * 3]; d.nrm = new float[vc * 3]; d.tint = new byte[vc * 4];
             d.vertexCount = vc;
             const float e = 0.6f;
             for (int j = 0; j < nz; j++)
@@ -98,6 +105,11 @@ namespace PryingEyes.Deserto
                     int k = (j * nx + i) * 3;
                     float wx = ox + ax[i], wz = oz + az[j];
                     d.pos[k] = ax[i]; d.pos[k + 1] = hgt[j * nx + i]; d.pos[k + 2] = az[j];
+                    DesertWorld.TintAt(wx, wz, out float tr, out float tg, out float tb, out float td);
+                    td = DesertWorld.BrineAlpha(wx, wz, td);                // the water on the salt flats rides on the top fifth of the alpha
+                    int tk = (j * nx + i) * 4;
+                    d.tint[tk] = (byte)Math.Max(0, Math.Min(255, (int)(tr * 127.5f))); d.tint[tk + 1] = (byte)Math.Max(0, Math.Min(255, (int)(tg * 127.5f)));
+                    d.tint[tk + 2] = (byte)Math.Max(0, Math.Min(255, (int)(tb * 127.5f))); d.tint[tk + 3] = (byte)Math.Max(0, Math.Min(255, (int)(td * 255f)));
                     float hx = DesertWorld.Height(wx + e, wz) - DesertWorld.Height(wx - e, wz);
                     float hz = DesertWorld.Height(wx, wz + e) - DesertWorld.Height(wx, wz - e);
                     float nxv = -hx / (2f * e), nzv = -hz / (2f * e);
@@ -126,11 +138,16 @@ namespace PryingEyes.Deserto
                     int src = edge[q] * 3, dst = s * 3;
                     d.pos[dst] = d.pos[src]; d.pos[dst + 1] = d.pos[src + 1] - SkirtDepth; d.pos[dst + 2] = d.pos[src + 2];
                     d.nrm[dst] = d.nrm[src]; d.nrm[dst + 1] = d.nrm[src + 1]; d.nrm[dst + 2] = d.nrm[src + 2];
+                    int ts = edge[q] * 4, td = s * 4;
+                    d.tint[td] = d.tint[ts]; d.tint[td + 1] = d.tint[ts + 1]; d.tint[td + 2] = d.tint[ts + 2]; d.tint[td + 3] = d.tint[ts + 3];
                     s++;
                 }
                 for (int q = 0; q < edge.Length - 1; q++)
                 {
                     int t0 = edge[q], t1 = edge[q + 1], b0 = first + q, b1 = first + q + 1;
+                    // inside a hole (a well that straddles the edge of two chunks) the neighbour has no sand either, so there is no crack to hide, and a wall of sand hanging across the
+                    // well would stop whoever walks down the stairs (the catacomb of cell (0,-2) of the seed 1000: the player stood on the landing against the skirt of the chunk's edge)
+                    if (holes != null && InHole(holes, ox + (d.pos[t0 * 3] + d.pos[t1 * 3]) * 0.5f, oz + (d.pos[t0 * 3 + 2] + d.pos[t1 * 3 + 2]) * 0.5f)) continue;
                     if (!flip) { tris.Add(t0); tris.Add(t1); tris.Add(b0); tris.Add(t1); tris.Add(b1); tris.Add(b0); }
                     else { tris.Add(t0); tris.Add(b0); tris.Add(t1); tris.Add(t1); tris.Add(b0); tris.Add(b1); }
                 }

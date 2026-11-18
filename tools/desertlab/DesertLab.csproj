@@ -21,5 +21,8 @@
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertClock.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertWorld.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertTerrainGen.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertScatterGen.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertWeather.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertGrade.cs" />
   </ItemGroup>
 </Project>

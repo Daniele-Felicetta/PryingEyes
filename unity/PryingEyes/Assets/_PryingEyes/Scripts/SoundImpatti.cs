@@ -56,6 +56,17 @@ namespace PryingEyes
                     for (int k = 0; k < 9; k++)                                                                 // le schegge che cadono
                         Chime(s, (float)r.NextDouble() * 0.35f, U(r, 2800f, 7200f), U(r, 0.03f, 0.09f), new[] { 1f, 2.32f, 4.25f }, new[] { 1f, 0.4f, 0.2f }, U(r, 0.15f, 0.4f));
                     break;
+                case Surface.Sand:
+                {
+                    // sabbia: un tonfo sordo che si inghiotte da solo, il fruscio dei granelli smossi e qualche granello che ricade
+                    s = Buf(0.4f);
+                    Thump(s, 0f, 110f, 70f, 0.03f, 0.07f, 0.9f);
+                    var lpSand = Biquad.LowPass(900f, 0.7f);
+                    int nSand = (int)(0.22f * Rate);
+                    for (int i = 0; i < nSand; i++) { float t = (float)i / Rate; s[i] += lpSand.Run(N(r)) * Mathf.Exp(-t / 0.07f) * 1.6f; }
+                    for (int k = 0; k < 8; k++) Burst(s, 0.02f + (float)r.NextDouble() * 0.2f, U(r, 3000f, 6500f), 3f, 0.0025f, U(r, 0.04f, 0.14f), r);
+                    break;
+                }
                 default:                                                                                        // intonaco
                     s = Buf(0.45f);
                     Burst(s, 0f, U(r, 1500f, 2200f), 0.8f, 0.03f, 0.9f, r);
@@ -92,7 +103,7 @@ namespace PryingEyes
 
     public static partial class SoundBank
     {
-        static readonly AudioClip[][] surfaceHits = new AudioClip[7][];
+        static readonly AudioClip[][] surfaceHits = new AudioClip[8][];
         static AudioClip[] ricochets;
 
         /// <summary>Uno dei tre colpi della superficie.</summary>

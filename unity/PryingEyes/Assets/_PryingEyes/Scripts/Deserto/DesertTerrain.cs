@@ -227,13 +227,14 @@ namespace PryingEyes.Deserto
             }
             var mesh = new Mesh { name = "Sabbia" };
             int n = data.vertexCount;
-            var v = new Vector3[n]; var nm = new Vector3[n];
+            var v = new Vector3[n]; var nm = new Vector3[n]; var col = new Color32[n];
             for (int i = 0; i < n; i++)
             {
                 v[i] = new Vector3(data.pos[i * 3], data.pos[i * 3 + 1], data.pos[i * 3 + 2]);
                 nm[i] = new Vector3(data.nrm[i * 3], data.nrm[i * 3 + 1], data.nrm[i * 3 + 2]);
+                col[i] = new Color32(data.tint[i * 4], data.tint[i * 4 + 1], data.tint[i * 4 + 2], data.tint[i * 4 + 3]);
             }
-            mesh.vertices = v; mesh.normals = nm; mesh.triangles = data.tris;
+            mesh.vertices = v; mesh.normals = nm; mesh.colors32 = col; mesh.triangles = data.tris;
             mesh.bounds = new Bounds(new Vector3(DesertTerrainGen.ChunkSize * 0.5f, (data.minY + data.maxY) * 0.5f, DesertTerrainGen.ChunkSize * 0.5f),
                                      new Vector3(DesertTerrainGen.ChunkSize, data.maxY - data.minY + 1f, DesertTerrainGen.ChunkSize));
             var old = c.mesh;

@@ -43,8 +43,10 @@ namespace PryingEyes.Deserto
 
         public bool IsNight => Evaluate(hour).daylight < 0.12f;
 
-        static readonly Rgb NoonHorizon = new Rgb(0.80f, 0.72f, 0.58f), NoonZenith = new Rgb(0.17f, 0.39f, 0.86f);
-        static readonly Rgb DuskHorizon = new Rgb(0.95f, 0.50f, 0.26f), DuskZenith = new Rgb(0.20f, 0.24f, 0.46f);
+        static readonly Rgb NoonHorizon = new Rgb(0.76f, 0.73f, 0.64f), NoonZenith = new Rgb(0.13f, 0.34f, 0.84f);
+        // l'orizzonte al tramonto e' pesca polverosa, non arancio pieno (0,95 / 0,50 / 0,26 faceva tutto lontano, la nebbia compresa, una sola macchia arancione): l'arancio lo mette il sole,
+        // dalla sua parte (l'alone della nebbia e della cupola prende il colore del sole)
+        static readonly Rgb DuskHorizon = new Rgb(0.90f, 0.60f, 0.44f), DuskZenith = new Rgb(0.20f, 0.24f, 0.46f);
         static readonly Rgb NightHorizon = new Rgb(0.050f, 0.060f, 0.100f), NightZenith = new Rgb(0.008f, 0.012f, 0.035f);
 
         /// <summary>The sky at an hour (0..24). Sun height is in -1..1 (sine of the elevation); the horizontal path goes from the east at sunrise
@@ -80,12 +82,13 @@ namespace PryingEyes.Deserto
             s.moonIntensity = DesertNoise.Smooth(0.02f, 0.30f, -sinEl) * 0.16f;
             s.stars = DesertNoise.Clamp01(1f - s.daylight * 2.2f - s.twilight * 0.25f);
 
-            s.ambientSky = Rgb.Lerp(new Rgb(0.030f, 0.040f, 0.075f), new Rgb(0.46f, 0.58f, 0.82f), s.daylight);
-            s.ambientEquator = Rgb.Lerp(new Rgb(0.022f, 0.028f, 0.050f), new Rgb(0.50f, 0.46f, 0.38f), s.daylight);
-            s.ambientGround = Rgb.Lerp(new Rgb(0.012f, 0.012f, 0.020f), new Rgb(0.34f, 0.27f, 0.19f), s.daylight);
-            s.ambientSky = Rgb.Lerp(s.ambientSky, new Rgb(0.42f, 0.34f, 0.40f), s.twilight * 0.45f);
+            // la notte non e' nera: la luna e la volta del cielo riempiono le ombre di un blu cupo (un cassone di legno all'ombra si vede ancora)
+            s.ambientSky = Rgb.Lerp(new Rgb(0.050f, 0.066f, 0.120f), new Rgb(0.46f, 0.58f, 0.82f), s.daylight);
+            s.ambientEquator = Rgb.Lerp(new Rgb(0.038f, 0.048f, 0.088f), new Rgb(0.60f, 0.54f, 0.43f), s.daylight);          // di giorno i muri all'ombra prendono il rimbalzo della sabbia al sole (caldo, e un quinto piu' chiaro di prima)
+            s.ambientGround = Rgb.Lerp(new Rgb(0.020f, 0.022f, 0.038f), new Rgb(0.34f, 0.27f, 0.19f), s.daylight);
+            s.ambientSky = Rgb.Lerp(s.ambientSky, new Rgb(0.34f, 0.32f, 0.50f), s.twilight * 0.45f);          // il cielo che riempie le ombre al tramonto e' violetto, non rosa: ombre fredde contro la sabbia calda
 
-            s.fogDensity = DesertNoise.Lerp(0.0100f, 0.0030f, s.daylight);                 // the night closes in, the day opens up (0.003 still hides the edge of the sand at 800 m)
+            s.fogDensity = DesertNoise.Lerp(0.0090f, 0.0016f, s.daylight);                 // the night closes in, the day opens up (0.0016 leaves 31 % of the sand at the edge of the terrain, 740 m, and 9 % at 1500 m: the horizon blends into the sky and the far places show in colour)
             s.exposure = DesertNoise.Lerp(0.15f, -0.90f, s.daylight);                      // EV on top of the game's base: eyes adapt to the dark
             return s;
         }

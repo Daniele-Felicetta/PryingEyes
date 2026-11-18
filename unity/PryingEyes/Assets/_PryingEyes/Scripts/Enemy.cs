@@ -564,6 +564,7 @@ namespace PryingEyes
         public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true, DamageSource src = DamageSource.Gun, int claimer = 0, bool quiet = false)
         {
             if (dead) return;
+            if (dormant) WakeUp();          // nel deserto un colpo sveglia chi riposa (Enemy.Desert.cs)
             var shooter = claimer == 0 ? Seats.MyTarget : Targets.OfSlot(claimer);     // nello schermo condiviso chi spara e' il posto che gira
             NoteHit(dmg, point, shooter);                       // come cadra' se questo colpo uccide (Enemy.Ragdoll.cs)
             // il colpo che non uccide piega busto e testa via dal colpo (EnemyFlinch, sopra l'animazione)

@@ -437,9 +437,15 @@ namespace PryingEyes
                 if (cc.isGrounded && hs > 1.2f)
                 {
                     int surf = Surface();
-                    Synth.Step(surf, Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f));
+                    float stepVol = Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f);
+                    // nelle pozze delle saline (un velo d'acqua sul sale) il passo e' uno sciacquio: niente polvere e niente impronte
+                    bool wading = surf == 3 && Deserto.DesertWorld.Brine(transform.position.x, transform.position.z) > 0.5f;
+                    if (wading) Sfx.UI(SoundBank.Splash, stepVol * 1.6f, Random.Range(0.92f, 1.08f));
+                    else Synth.Step(surf, stepVol);
+                    if (surf == 3 && !crouch && !wading) Deserto.DesertDust.Footstep(transform.position, hs, wantSprint);       // sulla sabbia ogni passo alza un po' di polvere
+                    if (surf == 3 && !wading) Deserto.DesertPrints.Stamp(transform.position, new Vector3(vel.x, 0f, vel.z));      // e lascia la sua impronta, che il vento cancella in un minuto
                     // i preti sentono i passi: piu' lontano di corsa, quasi niente accovacciati o sulla moquette
-                    float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : surf == 3 ? 0.8f : 1.15f;      // la sabbia attutisce (poco meno della moquette)
+                    float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : surf == 3 ? 1.0f : 1.15f;
                     float loud = crouch || slide ? 0.4f : wantSprint ? 1.6f : 0.95f;
                     Noise.Emit(transform.position, 6.8f * loud * surfK * PerkState.StepNoise, NoiseKind.Step);     // Passi di cenere: -40%
                 }

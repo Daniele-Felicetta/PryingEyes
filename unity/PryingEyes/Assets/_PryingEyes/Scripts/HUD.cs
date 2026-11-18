@@ -588,7 +588,7 @@ namespace PryingEyes
         {
             if (enemiesText == null) return;
             // nei piani il numero esatto delle presenze sarebbe un indizio gratis: al buio non lo si sa
-            if (Stealth.Enabled) { enemiesText.text = ""; return; }
+            if (Stealth.Enabled || Deserto.DesertMode.Active) { enemiesText.text = ""; return; }      // nel deserto il conto di tutti i nemici caricati non dice niente
             enemiesText.text = n <= 0 ? "" : n == 1 ? "una presenza" : n + " presenze";
         }
 

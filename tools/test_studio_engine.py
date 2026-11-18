@@ -31,7 +31,7 @@ def run(project, *argv):
 
 class EngineOnAToyProject(unittest.TestCase):
     def test_catalog_inspect_and_unknown_asset(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             project = toy(folder)
             code, out, _ = run(project, "catalog", "list")
             self.assertEqual(code, 0); self.assertIn("spark", out); self.assertIn("ember", out)
@@ -42,7 +42,7 @@ class EngineOnAToyProject(unittest.TestCase):
             self.assertEqual(run(project, "doctor")[1].splitlines()[1], "STUDIO: 2 sprites")
 
     def test_build_records_steps_sources_and_artifacts(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             project = toy(folder)
             code, _, report = run(project, "asset", "build", "ember")
             self.assertEqual((code, report["state"], report["ok"]), (0, "complete", True))
@@ -62,26 +62,26 @@ class EngineOnAToyProject(unittest.TestCase):
             def __init__(self, root):
                 super().__init__(root); self.content_types = (Rewriting(self.root),); self.kinds = {"sprite": self.content_types[0]}
 
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             code, _, report = run(toy(folder, Project), "asset", "build", "spark")
             self.assertEqual(code, 1); self.assertEqual(report["state"], "failed")
             self.assertEqual(report["findings"][0]["code"], "SOURCE_CHANGED_DURING_JOB")
             self.assertEqual(report["sourceChanges"], ["sprites.json"])
 
     def test_publish_copies_the_build_and_proves_every_file(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             project = toy(folder)
             code, _, report = run(project, "asset", "build", "spark", "--publish")
             self.assertEqual(code, 0); self.assertEqual(report["published"]["filesVerified"], 1)
             self.assertEqual((Path(folder) / "published/spark.pixels").read_text(), "###")
 
     def test_suite_runs_under_the_lock_and_records_its_step(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             code, _, report = run(toy(folder), "test", "smoke")
             self.assertEqual(code, 0); self.assertEqual([s["name"] for s in report["steps"]], ["smoke"])
 
     def test_queue_runs_requests_and_rejects_stale_sources_before_any_step(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             project = toy(folder)
             queued = json.loads(run(project, "queue", "add", "asset", "build", "spark")[1])["result"]["id"]
             self.assertEqual(run(project, "queue", "run")[0], 0)
@@ -93,7 +93,7 @@ class EngineOnAToyProject(unittest.TestCase):
             self.assertEqual((report["state"], report["findings"][0]["code"], report["steps"]), ("failed", "QUEUED_SOURCES_CHANGED", []))
 
     def test_unsupported_operations_fail_with_a_code_not_a_traceback(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             project = toy(folder)
             self.assertEqual(run(project, "gallery", "build")[2]["findings"][0]["code"], "GALLERY_NOT_SUPPORTED")
             self.assertEqual(run(project, "asset", "preview", "spark")[2]["findings"][0]["code"], "PREVIEW_NOT_SUPPORTED")
@@ -102,14 +102,14 @@ class EngineOnAToyProject(unittest.TestCase):
     def test_entry_ids_must_be_unique_across_content_types(self):
         class Clone(Sprites):
             name = "clone"
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             project = toy(folder); project.content_types = (*project.content_types, Clone(folder))
             with self.assertRaisesRegex(ValueError, "CONTENT_ID_COLLISION: spark"): engine.load_catalogs(project)
 
     def test_project_lock_excludes_another_process_and_releases(self):
         script = ("import sys; sys.path.insert(0, sys.argv[2]); from fixtures.toy_project import ToyProject; import studio_engine as engine\n"
                   "with engine.project_lock(ToyProject(sys.argv[1], output=sys.argv[3])): pass")
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             project = toy(folder)
             command = [sys.executable, "-c", script, folder, str(TOOLS), str(Path(folder) / "other-output")]
             with engine.project_lock(project):
@@ -118,14 +118,14 @@ class EngineOnAToyProject(unittest.TestCase):
             self.assertEqual(subprocess.run(command, cwd=TOOLS, capture_output=True).returncode, 0)
 
     def test_step_timeout_is_reported(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             job = engine.Job(toy(folder), "test", "timeout")
             with self.assertRaisesRegex(RuntimeError, "STEP_TIMEOUT"):
                 job.run("slow", [sys.executable, "-c", "import time; time.sleep(10)"], timeout=.1)
             self.assertEqual(json.loads((job.folder / "report.json").read_text())["steps"][0]["error"], "STEP_TIMEOUT")
 
     def test_new_source_file_during_resource_wait_is_rejected(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             project = toy(folder); job = engine.Job(project, "test", "sources"); job.report["sources"] = {"existing.cs": "old"}
             job.source_guard = lambda: {"existing.cs": "old", "added.cs": "new"}
             with self.assertRaisesRegex(RuntimeError, "SOURCE_CHANGED_DURING_JOB"):
@@ -133,7 +133,7 @@ class EngineOnAToyProject(unittest.TestCase):
             self.assertEqual(job.report["sourceChanges"], ["added.cs"]); self.assertEqual(job.report["steps"], [])
 
     def test_command_line_of_another_project_works_end_to_end(self):
-        with tempfile.TemporaryDirectory() as folder:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             toy(folder)
             result = subprocess.run([sys.executable, TOOLS / "fixtures/toy_project.py", folder, "catalog", "list"], capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr); self.assertIn("Ember", result.stdout)
