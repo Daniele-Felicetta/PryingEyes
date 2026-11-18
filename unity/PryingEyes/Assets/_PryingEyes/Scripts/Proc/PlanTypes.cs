@@ -120,6 +120,11 @@ namespace PryingEyes.Proc
         /// Un Passaggio e' basso apposta e tiene il suo architrave.</summary>
         public bool Gap => sill < 0.01f && top < WalkTop && style != OpenStyle.Passaggio;
 
+        /// <summary>L'altezza (m) del parapetto di una stanza all'aperto (CeilKind.Open) dove da' sul vuoto (FloorBuilder.Parapet): sopra non c'e' muro, quindi nemmeno un'apertura.
+        /// Un'apertura piu' alta lasciava in aria le sue spalle e l'intradosso (la porta larga del sagrato della cattedrale, nel deserto, alta tre metri: una trave nera di 14 m
+        /// sospesa sopra la scalinata, vista dal basso come una diagonale scura nel cielo). Sotto i 2 m un'apertura a terra e' un varco senza architrave (Gap): niente intradosso.</summary>
+        public const float ParapetTop = 1.55f;
+
         /// <summary>Altezza dell'arco sopra l'imposta, in multipli della semiluce: archi acuti piu' o meno slanciati.</summary>
         public float RiseFactor => style == OpenStyle.Lancetta ? 2.3f : style == OpenStyle.Arcata ? 1.45f : 1.3f;
 

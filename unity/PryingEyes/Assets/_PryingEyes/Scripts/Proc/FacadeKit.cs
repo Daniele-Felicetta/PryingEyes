@@ -42,7 +42,7 @@ namespace PryingEyes.Proc
         const float DarkGain = 2.0f;
         static readonly Color[] Dark =
         {
-            new Color(1.00f * DarkGain, 1.00f * DarkGain, 1.00f * DarkGain), new Color(1.9f * DarkGain, 0.9f * DarkGain, 0.9f * DarkGain), new Color(0.9f * DarkGain, 1.3f * DarkGain, 1.6f * DarkGain),
+            new Color(1.00f * DarkGain, 1.00f * DarkGain, 1.00f * DarkGain), new Color(1.9f * DarkGain, 0.9f * DarkGain, 0.9f * DarkGain), new Color(0.95f * DarkGain, 1.12f * DarkGain, 1.30f * DarkGain),
         };
 
         static Material Tinted(string kitName, Color tint, string suffix)

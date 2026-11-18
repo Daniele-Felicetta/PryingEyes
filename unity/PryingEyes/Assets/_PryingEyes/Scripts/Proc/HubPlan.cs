@@ -91,7 +91,7 @@ namespace PryingEyes.Proc
                 Open(NavatellaE, Armeria, false, 300, 310, 14, OpenStyle.Arco);
                 var exit = new Opening { a = Sagrato, b = -1, alongX = true, line = 0, center = (int)((StairX0 + StairX1) * 5f), width = (int)((StairX1 - StairX0) * 10f), style = OpenStyle.PortaLarga, noGlass = true };
                 Opening.Defaults(exit);
-                exit.top = 3f;
+                exit.top = Opening.ParapetTop;      // il sagrato ha un parapetto, non un muro di tre metri: piu' in alto l'intradosso e le spalle restavano in aria sopra la scalinata
                 p.openings.Add(exit);
             }
 

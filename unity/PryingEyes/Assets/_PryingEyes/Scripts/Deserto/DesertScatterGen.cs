@@ -90,7 +90,7 @@ namespace PryingEyes.Deserto
             DesertWorld.RegionBlend(ox + Chunk * 0.5f, oz + Chunk * 0.5f, out var ra, out var rb, out float wa);
             var rng = new Rng(unchecked(cx * 73856093 ^ cz * 19349663 ^ (DesertWorld.Seed + 101) * 83492791));
             // the footprints that can touch this square, or the groups that spill out of it (a colonnade reaches 16 m past the square's edge)
-            var feet = new List<Foot>();
+            var feet = new List<Foot>(); var bare = new List<Foot>(); var near = new List<Site>();
             for (int i = DesertWorld.CellOf(ox - Leak) - 1; i <= DesertWorld.CellOf(ox + Chunk + Leak) + 1; i++)
                 for (int j = DesertWorld.CellOf(oz - Leak) - 1; j <= DesertWorld.CellOf(oz + Chunk + Leak) + 1; j++)
                 {
@@ -99,6 +99,8 @@ namespace PryingEyes.Deserto
                     const float m = 7f;
                     if (s.fx1 + m < ox - Leak || s.fx0 - m > ox + Chunk + Leak || s.fz1 + m < oz - Leak || s.fz0 - m > oz + Chunk + Leak) continue;
                     feet.Add(new Foot { x0 = s.fx0 - m, z0 = s.fz0 - m, x1 = s.fx1 + m, z1 = s.fz1 + m });
+                    bare.Add(new Foot { x0 = s.fx0 - 0.9f, z0 = s.fz0 - 0.9f, x1 = s.fx1 + 0.9f, z1 = s.fz1 + 0.9f });
+                    near.Add(s);
                 }
             for (int k = 0; k < (int)Prop.Count; k++)
             {
@@ -108,6 +110,89 @@ namespace PryingEyes.Deserto
                 if (rng.Value() < lam - n) n++;
                 for (int i = 0; i < n; i++) Place((Prop)k, ox, oz, rng, feet, into);
             }
+            // the yards of the buildings near this square: each square keeps the props that fall inside it
+            var yard = new List<YardItem>();
+            foreach (var s in near)
+            {
+                Yard(s, yard);
+                for (int n = 0; n < yard.Count; n++)
+                    if (yard[n].x >= ox && yard[n].x < ox + Chunk && yard[n].z >= oz && yard[n].z < oz + Chunk) AddYard(yard[n], s, n, bare, into);
+            }
+        }
+
+        /// <summary>One prop of a yard: what and where. The rest (height, size, turn) is drawn by the square that holds it.</summary>
+        public struct YardItem { public Prop kind; public float x, z; }
+
+        /// <summary>The points (m) where a building opens to the outside on the ground: its doors, not its windows.</summary>
+        public static void Doors(Site s, List<(float x, float z)> into)
+        {
+            into.Clear();
+            var p = s.plan;
+            if (p == null) return;
+            foreach (var o in p.openings)
+                if (o.b < 0 && o.sill < 0.01f && !o.oneSided) into.Add(o.alongX ? (o.center * 0.1f, o.line * 0.1f) : (o.line * 0.1f, o.center * 0.1f));
+        }
+
+        /// <summary>The yard of a building: the sand by its walls is not bare. Three to seven props (two to four for a house or a chapel) 1.4 to 4 m outside the footprint, by the walls: crates and
+        /// barrels, a wagon now and then, a dead tree or a bush, tufts, bones, and by a church steles, cairns and a broken column. None within 4.2 m of a door that opens to the outside (a walker has
+        /// to get in). A pure function of the place's own seed: every 64 m square that the yard touches asks for the same list and keeps the props that fall in it.</summary>
+        public static void Yard(Site s, List<YardItem> into)
+        {
+            into.Clear();
+            if (s.plan == null || s.IsTower || s.IsCatacomb) return;
+            var rng = new Rng(unchecked(s.seed * 1103515245 ^ 0x2F6B1D3));
+            var doors = new List<(float x, float z)>();
+            Doors(s, doors);
+            float w = s.fx1 - s.fx0, d = s.fz1 - s.fz0;
+            int target = s.kind == SiteKind.Casa || s.kind == SiteKind.Cappella ? rng.Range(2, 5) : rng.Range(3, 8);
+            for (int tries = 0; tries < 48 && into.Count < target; tries++)
+            {
+                int side = rng.Range(0, 4);
+                float t = (float)rng.Value(), off = rng.Range(1.4f, 4.0f);
+                var kind = PickYard(s, rng);
+                float x, z;
+                switch (side)
+                {
+                    case 0: x = s.fx0 + t * w; z = s.fz0 - off; break;
+                    case 1: x = s.fx0 + t * w; z = s.fz1 + off; break;
+                    case 2: x = s.fx0 - off; z = s.fz0 + t * d; break;
+                    default: x = s.fx1 + off; z = s.fz0 + t * d; break;
+                }
+                bool atADoor = false;
+                foreach (var dr in doors) { float dx = x - dr.x, dz = z - dr.z; if (dx * dx + dz * dz < 4.2f * 4.2f) { atADoor = true; break; } }
+                if (!atADoor) into.Add(new YardItem { kind = kind, x = x, z = z });
+            }
+        }
+
+        static Prop PickYard(Site s, Rng rng)
+        {
+            float r = (float)rng.Value(), r2 = (float)rng.Value();          // always drawn: the list must not depend on the branch taken
+            bool worn = s.state != BuildingState.Intact;
+            Prop k;
+            switch (s.kind)
+            {
+                case SiteKind.Chiesa: case SiteKind.Cappella:
+                    k = r < 0.28f ? Prop.Stele : r < 0.50f ? Prop.Cairn : r < 0.68f ? Prop.Bones : r < 0.82f ? Prop.DeadTree : r < 0.92f ? Prop.Column : Prop.Bush; break;
+                case SiteKind.Casa: case SiteKind.Locanda:
+                    k = r < 0.24f ? Prop.Barrel : r < 0.46f ? Prop.Crate : r < 0.60f ? Prop.Bush : r < 0.72f ? Prop.DeadTree : r < 0.84f ? Prop.Tuft : r < 0.92f ? Prop.Bones : Prop.Wagon; break;
+                default:
+                    k = r < 0.22f ? Prop.Crate : r < 0.40f ? Prop.Barrel : r < 0.52f ? Prop.Wagon : r < 0.66f ? Prop.DeadTree : r < 0.78f ? Prop.Bush : r < 0.90f ? Prop.Tuft : Prop.Bones; break;
+            }
+            if (worn && (k == Prop.Crate || k == Prop.Barrel) && r2 < 0.35f) k = Prop.Bones;           // in a ruin the stores have long been looted
+            return k;
+        }
+
+        static void AddYard(YardItem y, Site s, int n, List<Foot> bare, List<PropItem> into)
+        {
+            int k = (int)y.kind;
+            if (DesertWorld.DistToCathedral(y.x, y.z) < 14f) return;
+            foreach (var f in bare) if (y.x > f.x0 && y.x < f.x1 && y.z > f.z0 && y.z < f.z1) return;            // never on another place
+            var rng = new Rng(unchecked(s.seed * 40503 + (n + 1) * 2654435));
+            float scale = rng.Range(MinScale[k], MaxScale[k]), yaw = rng.Range(0f, 360f);
+            const float e = 1.2f;
+            float sx = Math.Abs(DesertWorld.Height(y.x + e, y.z) - DesertWorld.Height(y.x - e, y.z)) / (2f * e), sz = Math.Abs(DesertWorld.Height(y.x, y.z + e) - DesertWorld.Height(y.x, y.z - e)) / (2f * e);
+            if (Math.Max(sx, sz) > MaxSlope[k] + 0.25f) return;             // the sand by a wall was levelled for the building, but its ramps can be steep
+            into.Add(new PropItem { kind = (byte)k, x = y.x, y = DesertWorld.Height(y.x, y.z) - Sink[k] * scale, z = y.z, yaw = yaw, scale = scale });
         }
 
         static bool Free(float x, float z, List<Foot> feet)

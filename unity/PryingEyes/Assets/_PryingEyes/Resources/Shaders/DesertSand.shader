@@ -200,6 +200,13 @@ Shader "PryingEyes/DesertSand"
                 return s;
             }
 
+            // il campo delle nuvole basse: grandi masse (celle di circa due unita' di cuv) con un dettaglio piu' fine. La densita' e' un'altezza: dove sta sopra la soglia c'e' nuvola
+            // (e quanto sta sopra e' lo spessore); la luce e' la pendenza verso il sole.
+            float SkyCloudField(float2 uv, float2 w)
+            {
+                return SkyFbm3(float3(uv * 0.45 + w, 3.0)) * 0.66 + SkyFbm3(float3(uv * 1.53 + w * 1.6, 8.0)) * 0.34;
+            }
+
             half3 MirrorSky(float3 d)
             {
                 float h = d.y, t = saturate(h);
@@ -224,24 +231,28 @@ Shader "PryingEyes/DesertSand"
                     float star = step(0.9962, r) * core * core * (0.45 + 0.55 * SkyHash3(cell + 1.9)) * (0.78 + 0.22 * sin(_DSParams.y * 2.0 + r * 60.0));
                     col += half3(0.9, 0.93, 1.0) * star * _DSParams.x * saturate(h * 4.0 + 0.2) * 1.6;
                 }
-                float cover = 0.0;
+                float cover = 0.0;                                   // quanto le nuvole coprono questa direzione (per il sole)
                 if (h > 0.005)
                 {
                     float2 w = float2(_DSParams.y * 0.004, _DSParams.y * 0.0016);
                     float2 cuv = d.xz / (h + 0.10);
-                    float n2 = SkyFbm3(float3(cuv * 1.7 + w * 1.6, 8.0));
-                    float nn = SkyFbm3(float3(cuv * 0.45 + w, 3.0)) * 0.72 + n2 * 0.28;
-                    float centre = 0.69 - _DSCloud.a * 0.62;
-                    float dens = smoothstep(centre - 0.06, centre + 0.06, nn);
+                    float centre = 0.69 - _DSCloud.a * 0.62;                 // la copertura 0,1 e' circa il 6% del cielo, 0,2 il 22%, 0,3 il 38% (il rumore sta attorno a 0,47)
+                    float f0 = SkyCloudField(cuv, w);
+                    float er = SkyNoise3(float3(cuv * 4.05 + w * 2.2, 14.0)) - 0.5;      // l'erosione dei bordi: gli orli si sfilacciano
+                    float body = f0 + er * 0.09;
+                    float dens = smoothstep(centre - 0.05, centre + 0.07, body);
                     float fadeH = smoothstep(0.0, 0.16, h);
                     if (dens > 0.003)
                     {
                         float2 toSun = normalize(_DSSunDir.xz + float2(1e-4, 0.0));
-                        float nS = SkyFbm3(float3((cuv + toSun * 0.10) * 0.45 + w, 3.0)) * 0.72 + n2 * 0.28;
-                        float lit = saturate(0.55 + (nn - nS) * 5.0);
-                        half3 shadowCol = lerp(_DSCloud.rgb * 0.55, _DSZenith.rgb * 0.9, 0.25);
-                        half3 cc = lerp(shadowCol, _DSCloud.rgb, lit);
-                        cc += _DSSunColor.rgb * pow(sdp, 8.0) * 0.45 * _DSSunDir.w * (1.0 - dens * 0.5);
+                        float thick = saturate((body - centre) / 0.22);          // 0 sull'orlo, 1 nel cuore della massa
+                        float f1 = SkyCloudField(cuv + toSun * 0.06, w);
+                        float f2 = SkyCloudField(cuv + toSun * 0.16, w);
+                        float lit = saturate(0.60 + (f0 - f1) * 6.0 + (f0 - f2) * 2.5);        // dove il campo cala verso il sole il bordo e' illuminato
+                        half3 shadowCol = lerp(_DSCloud.rgb * 0.46, _DSZenith.rgb * 0.95 + _DSCloud.rgb * 0.15, 0.35);
+                        float k = saturate(lit * (1.0 - 0.55 * thick) + 0.33 * (1.0 - thick));
+                        half3 cc = lerp(shadowCol, _DSCloud.rgb * 1.04, k);
+                        cc += _DSSunColor.rgb * (pow(sdp, 6.0) * (1.0 - thick) * 0.9 + pow(sdp, 8.0) * 0.30 * (1.0 - dens * 0.5)) * _DSSunDir.w;       // il filo d'argento sugli orli verso il sole
                         col = lerp(col, cc, dens * fadeH * 0.92);
                         cover = dens * fadeH;
                     }
@@ -368,17 +379,26 @@ Shader "PryingEyes/DesertSand"
                         // un sasso non e' un disco: allungato in una direzione a caso, con il bordo che ondeggia (tre e cinque lobi), ognuno diverso dall'altro
                         float rr = H21(gi + 11.3);
                         float ang = atan2(dv.y, dv.x);
-                        float wob = 1.0 + 0.20 * sin(ang * 3.0 + rr * 6.283) + 0.10 * sin(ang * 5.0 + rr * 17.0);
-                        float stretch = lerp(1.0, 1.7, H21(gi + 13.1));
+                        float wob = 1.0 + 0.12 * sin(ang * 3.0 + rr * 6.283) + 0.07 * sin(ang * 5.0 + rr * 17.0);
+                        float stretch = lerp(1.0, 1.35, H21(gi + 13.1));
                         float cr = cos(rr * 6.283), sr = sin(rr * 6.283);
                         float2 dr = float2(cr * dv.x + sr * dv.y, -sr * dv.x + cr * dv.y);
                         float d2 = length(float2(dr.x / stretch, dr.y * sqrt(stretch))) / wob;
-                        float body = has * (1.0 - smoothstep(rad * 0.75, rad, d2));
+                        float body = has * (1.0 - smoothstep(rad * 0.82, rad, d2));
                         float k = pebbleMask * pebbleFade;
-                        half3 stoneCol = lerp(half3(0.09, 0.075, 0.065), half3(0.32, 0.24, 0.17), H21(gi + 7.7) * H21(gi + 7.7));        // per lo piu' scuri della sabbia, qualcuno chiaro
-                        sand = lerp(sand, stoneCol, body * k * 0.88);
-                        sand *= 1.0 - 0.20 * has * k * smoothstep(rad * 1.40, rad * 0.95, d2) * (1.0 - body);
-                        Np.xz += (dv / rad) * (saturate(1.0 - d2 / rad) * 0.5 * body * k);
+                        // la tinta: bruno scuro, ruggine, grigio o selce chiara (il bruno e' la meta' dei sassi); prima erano tutti quasi neri, e a sole dietro le spalle, senza ombra da una parte, si
+                        // leggevano come chiazze d'olio piatte sulla sabbia
+                        float tone = H21(gi + 7.7), hue = H21(gi + 19.3);
+                        half3 stoneCol;
+                        if (hue < 0.45) stoneCol = lerp(half3(0.16, 0.12, 0.09), half3(0.27, 0.19, 0.13), tone);
+                        else if (hue < 0.72) stoneCol = lerp(half3(0.26, 0.15, 0.10), half3(0.40, 0.22, 0.13), tone);
+                        else if (hue < 0.92) stoneCol = lerp(half3(0.20, 0.19, 0.18), half3(0.33, 0.31, 0.28), tone);
+                        else stoneCol = lerp(half3(0.40, 0.34, 0.26), half3(0.58, 0.51, 0.40), tone);
+                        float topK = saturate(1.0 - d2 / rad);
+                        stoneCol *= lerp(0.78, 1.18, topK);                                           // piu' chiaro in cima, scuro al bordo: un sasso tondo, non un disco
+                        sand = lerp(sand, stoneCol, body * k * 0.92);
+                        sand *= 1.0 - 0.26 * has * k * smoothstep(rad * 1.45, rad * 0.95, d2) * (1.0 - body);
+                        Np.xz += (dv / rad) * (topK * 0.85 * body * k);
                     }
                 }
                 Np = normalize(Np);

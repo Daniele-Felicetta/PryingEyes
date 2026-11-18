@@ -16,6 +16,12 @@ namespace PryingEyes.Deserto
 
         const float ColliderIn = 140f, ColliderOut = 190f;
         const int MaxJobs = 3;
+        /// <summary>Quanti sono i generi: i sassi e i massi lontani (PropMeshes.HasLow) stanno in una seconda serie di liste, dopo i generi, con la mesh ridotta.</summary>
+        const int Kinds = (int)Prop.Count;
+        /// <summary>Entro questa distanza (m) un sasso o un masso ha tutti i suoi triangoli; piu' in la' ha la versione ridotta, con la stessa sagoma (da 70 m un sasso di un metro e' una quindicina di punti sullo schermo a 1080p).</summary>
+        const float LodNear = 70f;
+        /// <summary>Sotto la sabbia piu' di tanto (m) non si disegna nessuna delle cose che ci stanno sopra: da una catacomba non si vedono e le loro ombre cadono sul tetto.</summary>
+        const float UndergroundDepth = 2.5f;
 
         sealed class Cell
         {
@@ -30,10 +36,10 @@ namespace PryingEyes.Deserto
         readonly Dictionary<(long, int), CapsuleCollider> live = new Dictionary<(long, int), CapsuleCollider>();
         readonly List<CapsuleCollider> free = new List<CapsuleCollider>();
         readonly List<(long, int)> drop = new List<(long, int)>();
-        readonly List<Matrix4x4>[] gather = new List<Matrix4x4>[(int)Prop.Count];
-        readonly Matrix4x4[][] agg = new Matrix4x4[(int)Prop.Count][];
-        readonly int[] aggCount = new int[(int)Prop.Count];
-        readonly bool[] casts = new bool[(int)Prop.Count];
+        readonly List<Matrix4x4>[] gather = new List<Matrix4x4>[2 * Kinds];
+        readonly Matrix4x4[][] agg = new Matrix4x4[2 * Kinds][];
+        readonly int[] aggCount = new int[2 * Kinds];
+        readonly bool[] casts = new bool[Kinds];
         Transform player, colRoot;
         Material mat;
         Vector3 lastPlan = new Vector3(1e9f, 0f, 0f), lastAgg = new Vector3(1e9f, 0f, 0f);
@@ -54,7 +60,12 @@ namespace PryingEyes.Deserto
         public int CellsPending => pending.Count;
         public int Instances { get { int n = 0; foreach (var c in aggCount) n += c; return n; } }
         public int Colliders => live.Count;
-        public int CountOf(Prop p) => aggCount[(int)p];
+        public int CountOf(Prop p) => aggCount[(int)p] + aggCount[Kinds + (int)p];
+        /// <summary>Di sassi e massi: quanti hanno tutti i triangoli (entro 70 m) e quanti la versione ridotta (oltre).</summary>
+        public int RocksNear { get { int n = 0; for (int k = 0; k < Kinds; k++) if (PropMeshes.HasLow((Prop)k)) n += aggCount[k]; return n; } }
+        public int RocksFar { get { int n = 0; for (int k = 0; k < Kinds; k++) if (PropMeshes.HasLow((Prop)k)) n += aggCount[Kinds + k]; return n; } }
+        /// <summary>Vero se l'ultimo fotogramma non ha mandato alla scheda niente perche' il giocatore e' sotto la sabbia (una catacomba): da li' le cose sopra non si vedono.</summary>
+        public bool Underground { get; private set; }
 
         public static DesertScatter Create(GameObject host, Transform followed)
         {
@@ -189,7 +200,14 @@ namespace PryingEyes.Deserto
                 for (int k = 0; k < c.mats.Length; k++)
                 {
                     if (c.mats[k] == null || d > DesertScatterGen.TierRadius[DesertScatterGen.Tier((Prop)k)]) continue;
-                    gather[k].AddRange(c.mats[k]);
+                    if (!PropMeshes.HasLow((Prop)k)) { gather[k].AddRange(c.mats[k]); continue; }
+                    if (d > LodNear) { gather[Kinds + k].AddRange(c.mats[k]); continue; }
+                    // un quadrato che arriva dentro l'anello vicino: ogni copia sceglie dalla sua distanza
+                    foreach (var m in c.mats[k])
+                    {
+                        float dx = m.m03 - p.x, dz = m.m23 - p.z;
+                        gather[dx * dx + dz * dz > LodNear * LodNear ? Kinds + k : k].Add(m);
+                    }
                 }
             }
             for (int k = 0; k < gather.Length; k++)
@@ -225,14 +243,18 @@ namespace PryingEyes.Deserto
 
         void Draw(Vector3 p)
         {
-            if (!CanDraw) return;
+            // sotto la sabbia (una catacomba) non si manda niente alla scheda: da li' le cose sopra non si vedono, e i loro sassi pesavano 2,5 ms nella sala del boss
+            Underground = p.y < DesertWorld.Height(p.x, p.z) - UndergroundDepth;
+            if (!CanDraw || Underground) return;
             var bounds = new Bounds(p, new Vector3(1300f, 400f, 1300f));
             for (int k = 0; k < agg.Length; k++)
             {
                 int n = aggCount[k];
                 if (n == 0) continue;
-                var mesh = PropMeshes.Get((Prop)k);
-                var rp = new RenderParams(mat) { shadowCastingMode = casts[k] ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, worldBounds = bounds, layer = 0 };
+                bool far = k >= Kinds;
+                int kind = far ? k - Kinds : k;
+                var mesh = far ? PropMeshes.GetLow((Prop)kind) : PropMeshes.Get((Prop)kind);
+                var rp = new RenderParams(mat) { shadowCastingMode = casts[kind] ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, worldBounds = bounds, layer = 0 };
                 for (int s = 0; s < n; s += 1000) Graphics.RenderMeshInstanced(rp, mesh, 0, agg[k], Mathf.Min(1000, n - s), s);
             }
             // i rotori dei mulini: girano piu' in fretta col vento

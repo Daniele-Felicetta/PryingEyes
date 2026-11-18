@@ -75,6 +75,13 @@ Shader "PryingEyes/DesertSky"
                 return s;
             }
 
+            // il campo delle nuvole basse: grandi masse (celle di circa due unita' di cuv) con un dettaglio piu' fine. La densita' e' un'altezza: dove sta sopra la soglia c'e' nuvola
+            // (e quanto sta sopra e' lo spessore); la luce e' la pendenza verso il sole.
+            float CloudField(float2 uv, float2 w)
+            {
+                return Fbm3(float3(uv * 0.45 + w, 3.0)) * 0.66 + Fbm3(float3(uv * 1.53 + w * 1.6, 8.0)) * 0.34;
+            }
+
             half4 frag(Varyings i) : SV_Target
             {
                 float3 d = normalize(i.dir);
@@ -100,6 +107,22 @@ Shader "PryingEyes/DesertSky"
                 col = lerp(col, _DSSunColor.rgb, saturate(haloW));
                 // all'alba e al tramonto l'orizzonte dalla parte del sole si accende
                 col += _DSSunColor.rgb * pow(sdp, 2.0) * exp(-t * 7.0) * _DSParams.z * 0.45 * vis * _DSSunGlow;
+
+                // i raggi di sole: strisce che partono dal sole (rumore sulla direzione dello scarto dal sole), piu' evidenti col sole basso; non aggiungono luce lontano dal sole
+                {
+                    float3 sT = normalize(cross(_DSSunDir.xyz, float3(0.0, 1.0, 0.0)) + float3(1e-5, 0.0, 0.0));
+                    float3 sB = cross(_DSSunDir.xyz, sT);
+                    float3 rel = d - _DSSunDir.xyz * sd;
+                    float2 u2 = float2(dot(rel, sT), dot(rel, sB));
+                    float2 dir2 = u2 / (length(u2) + 1e-5);
+                    float tt = _DSParams.y * 0.01;
+                    float b1 = Noise3(float3(dir2 * 3.2 + float2(5.0, 0.0), tt));
+                    float b2 = Noise3(float3(dir2 * 8.5 + float2(1.0, 9.0), tt * 1.7 + 4.0));
+                    float beams = smoothstep(0.42, 0.88, b1 * 0.6 + b2 * 0.4);
+                    float fall = pow(saturate((sd - 0.50) / 0.50), 2.0);
+                    float low = 1.0 - saturate(_DSSunDir.y * 1.6);
+                    col += _DSSunColor.rgb * (beams * fall * (0.035 + 0.15 * low) * _DSSunDir.w * (0.35 + 0.65 * vis) * _DSSunGlow);
+                }
 
                 // le catene lontane: due creste di montagne azzurrine sull'orizzonte (la cresta e' il seno dell'elevazione, fino a sei gradi), perse nella foschia
                 float2 circ = normalize(d.xz + float2(1e-5, 0.0));
@@ -163,25 +186,29 @@ Shader "PryingEyes/DesertSky"
                 {
                     float2 w = float2(_DSParams.y * 0.004, _DSParams.y * 0.0016);
                     float2 cuv = d.xz / (h + 0.10);
-                    float n2 = Fbm3(float3(cuv * 1.7 + w * 1.6, 8.0));
-                    float nn = Fbm3(float3(cuv * 0.45 + w, 3.0)) * 0.72 + n2 * 0.28;
                     float centre = 0.69 - _DSCloud.a * 0.62;                 // la copertura 0,1 e' circa il 6% del cielo, 0,2 il 22%, 0,3 il 38% (il rumore sta attorno a 0,47)
-                    float dens = smoothstep(centre - 0.06, centre + 0.06, nn);
+                    float f0 = CloudField(cuv, w);
+                    float er = Noise3(float3(cuv * 4.05 + w * 2.2, 14.0)) - 0.5;      // l'erosione dei bordi: gli orli si sfilacciano
+                    float body = f0 + er * 0.09;
+                    float dens = smoothstep(centre - 0.05, centre + 0.07, body);
                     float fadeH = smoothstep(0.0, 0.16, h);
                     if (dens > 0.003)
                     {
                         float2 toSun = normalize(_DSSunDir.xz + float2(1e-4, 0.0));
-                        float nS = Fbm3(float3((cuv + toSun * 0.10) * 0.45 + w, 3.0)) * 0.72 + n2 * 0.28;
-                        float lit = saturate(0.55 + (nn - nS) * 5.0);
-                        half3 shadowCol = lerp(_DSCloud.rgb * 0.55, _DSZenith.rgb * 0.9, 0.25);
-                        half3 cc = lerp(shadowCol, _DSCloud.rgb, lit);
-                        cc += _DSSunColor.rgb * pow(sdp, 8.0) * 0.45 * _DSSunDir.w * (1.0 - dens * 0.5);
+                        float thick = saturate((body - centre) / 0.22);          // 0 sull'orlo, 1 nel cuore della massa
+                        float f1 = CloudField(cuv + toSun * 0.06, w);
+                        float f2 = CloudField(cuv + toSun * 0.16, w);
+                        float lit = saturate(0.60 + (f0 - f1) * 6.0 + (f0 - f2) * 2.5);        // dove il campo cala verso il sole il bordo e' illuminato
+                        half3 shadowCol = lerp(_DSCloud.rgb * 0.46, _DSZenith.rgb * 0.95 + _DSCloud.rgb * 0.15, 0.35);
+                        float k = saturate(lit * (1.0 - 0.55 * thick) + 0.33 * (1.0 - thick));
+                        half3 cc = lerp(shadowCol, _DSCloud.rgb * 1.04, k);
+                        cc += _DSSunColor.rgb * (pow(sdp, 6.0) * (1.0 - thick) * 0.9 + pow(sdp, 8.0) * 0.30 * (1.0 - dens * 0.5)) * _DSSunDir.w;       // il filo d'argento sugli orli verso il sole
                         col = lerp(col, cc, dens * fadeH * 0.92);
                         cover = dens * fadeH;
                     }
                     float2 cu2 = d.xz / (h + 0.45) * float2(0.35, 2.4) + w * 0.5;
                     float cirrus = smoothstep(0.50, 0.78, Fbm3(float3(cu2, 21.0))) * smoothstep(0.02, 0.25, h) * (1.0 - 0.6 * _DSCloud.a);
-                    col = lerp(col, lerp(_DSCloud.rgb, col, 0.35), cirrus * 0.45 * vis);
+                    col = lerp(col, lerp(_DSCloud.rgb, col, 0.35), cirrus * 0.22 * vis);
                 }
                 col += _DSSunColor.rgb * (sunCore * _DSSunDir.w * vis * (1.0 - 0.85 * cover) * (1.0 - occl));
                 return half4(col, 1);

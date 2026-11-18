@@ -9,7 +9,7 @@ namespace PryingEyes.Deserto
     /// ciuffi d'erba e ciottoli. L'ombreggiatura e' morbida (le normali si mediano) tranne dove ci vuole uno spigolo (le lastre, le stele).</summary>
     public static partial class PropMeshes
     {
-        static Mesh[] meshes;
+        static Mesh[] meshes, lowMeshes;
 
         public static Mesh Get(Prop p)
         {
@@ -17,10 +17,31 @@ namespace PryingEyes.Deserto
             return meshes[(int)p];
         }
 
+        /// <summary>I sassi e i massi hanno due versioni: quella piena (Get) per quelli vicini e questa per quelli lontani, con gli stessi piani (quindi la stessa sagoma) e gli stessi colori
+        /// ma un quinto circa dei triangoli. Le altre cose ne hanno una sola e questa restituisce quella.</summary>
+        public static Mesh GetLow(Prop p)
+        {
+            if (!HasLow(p)) return Get(p);
+            lowMeshes ??= new Mesh[(int)Prop.Count];
+            return lowMeshes[(int)p] ??= Stone(p, true);
+        }
+
+        /// <summary>Se il genere ha la versione per la distanza (GetLow): i sassi e i massi, le sole cose che pesano (circa 1.670 e 3.580 triangoli la copia, contro i 480 e i 980 di prima).</summary>
+        public static bool HasLow(Prop p)
+        {
+            switch (p)
+            {
+                case Prop.RockTan: case Prop.RockDark: case Prop.RockRed: case Prop.RockWhite:
+                case Prop.BoulderTan: case Prop.BoulderDark: case Prop.BoulderRed: return true;
+                default: return false;
+            }
+        }
+
         public static void Clear()
         {
             if (meshes != null) foreach (var m in meshes) if (m != null) UnityEngine.Object.Destroy(m);
-            meshes = null;
+            if (lowMeshes != null) foreach (var m in lowMeshes) if (m != null) UnityEngine.Object.Destroy(m);
+            meshes = null; lowMeshes = null;
             ClearExtra();
         }
 
@@ -128,7 +149,7 @@ namespace PryingEyes.Deserto
         static float RockRadius(Vector3 dir, Vector4[] pl, out int which)
         {
             float sum = 0f, best = 99f; which = 0;
-            const float s = 10f;
+            const float s = 20f;
             for (int i = 0; i < pl.Length; i++)
             {
                 float d = pl[i].x * dir.x + pl[i].y * dir.y + pl[i].z * dir.z;
@@ -150,7 +171,7 @@ namespace PryingEyes.Deserto
                 float y = Mathf.Max(Mathf.Sin(phi), -flat), rr = Mathf.Cos(phi);
                 var dir = new Vector3(Mathf.Cos(th) * rr, y, Mathf.Sin(th) * rr);
                 float k;
-                if (planes != null) k = RockRadius(dir.normalized, planes, out _) * (1f + rough * (Nz(dir, seed) - 0.5f));
+                if (planes != null) k = RockRadius(dir.normalized, planes, out _) * (1f + rough * ((Nz(dir, seed) - 0.5f) + 0.55f * (Nz(dir * 2.7f, seed + 31) - 0.5f)));      // the second octave chips the faces
                 else k = 1f + rough * (Nz(dir, seed) - 0.5f) * 2f;
                 return c + Vector3.Scale(dir * k, r);
             };
@@ -167,6 +188,9 @@ namespace PryingEyes.Deserto
                     float tint = 0.90f + 0.20f * (float)((which * 37 + seed * 11) % 17) / 16f;
                     colr.r *= tint; colr.g *= tint; colr.b *= tint;
                 }
+                float band = Mathf.Sin(p.y * 9.5f + (Nz(p, seed + 9) - 0.5f) * 5f) * 0.5f + 0.5f;      // layered stone: bands that wander with the noise
+                float shade = 0.90f + 0.20f * band;
+                colr.r *= shade; colr.g *= shade; colr.b *= shade;
                 return colr;
             };
             m.Grid(rings, segs, pos, col, i => c, sway > 0f ? (Func<int, int, float>)((i, j) => sway) : null);
@@ -233,13 +257,13 @@ namespace PryingEyes.Deserto
             meshes[(int)Prop.Tuft] = Tuft();
             meshes[(int)Prop.Pebbles] = Pebbles();
             // le tinte stanno basse (il sole pieno e il cielo le schiariscono molto): la pietra al sole di mezzogiorno non e' bianca, e' beige, ocra, bruna, rossa o grigio fumo
-            meshes[(int)Prop.RockTan] = Rock("RockTan", 1, C(0.27f, 0.20f, 0.13f), C(0.52f, 0.41f, 0.28f));
-            meshes[(int)Prop.RockDark] = Rock("RockDark", 2, C(0.12f, 0.115f, 0.115f), C(0.32f, 0.295f, 0.27f));
-            meshes[(int)Prop.RockRed] = Rock("RockRed", 3, C(0.31f, 0.14f, 0.095f), C(0.58f, 0.32f, 0.20f));
-            meshes[(int)Prop.RockWhite] = Rock("RockWhite", 4, C(0.30f, 0.285f, 0.255f), C(0.56f, 0.53f, 0.47f));
-            meshes[(int)Prop.BoulderTan] = Boulder("BoulderTan", 5, C(0.24f, 0.18f, 0.115f), C(0.50f, 0.39f, 0.26f));
-            meshes[(int)Prop.BoulderDark] = Boulder("BoulderDark", 6, C(0.105f, 0.10f, 0.10f), C(0.30f, 0.275f, 0.25f));
-            meshes[(int)Prop.BoulderRed] = Boulder("BoulderRed", 7, C(0.28f, 0.125f, 0.085f), C(0.56f, 0.30f, 0.19f));
+            meshes[(int)Prop.RockTan] = Stone(Prop.RockTan, false);
+            meshes[(int)Prop.RockDark] = Stone(Prop.RockDark, false);
+            meshes[(int)Prop.RockRed] = Stone(Prop.RockRed, false);
+            meshes[(int)Prop.RockWhite] = Stone(Prop.RockWhite, false);
+            meshes[(int)Prop.BoulderTan] = Stone(Prop.BoulderTan, false);
+            meshes[(int)Prop.BoulderDark] = Stone(Prop.BoulderDark, false);
+            meshes[(int)Prop.BoulderRed] = Stone(Prop.BoulderRed, false);
             meshes[(int)Prop.Slab] = Slabs();
             meshes[(int)Prop.Cactus] = Cactus();
             meshes[(int)Prop.Barrel] = Barrel();
@@ -283,23 +307,39 @@ namespace PryingEyes.Deserto
             return m.Done("Pebbles");
         }
 
-        static Mesh Rock(string name, int seed, Color dark, Color light)
+        /// <summary>Un sasso o un masso: la tinta e il seme di ognuno stanno qui, e 'low' dice se e' la versione per la distanza (GetLow).</summary>
+        static Mesh Stone(Prop p, bool low)
         {
-            var m = new PM(Surf.Stone);
-            Blob(m, new Vector3(0f, 0.30f, 0f), new Vector3(0.62f, 0.46f, 0.55f), seed, 0.20f, dark, light, 15, 10, 0.4f, 0f, 9);
-            Blob(m, new Vector3(0.50f, 0.13f, 0.16f), new Vector3(0.28f, 0.2f, 0.26f), seed + 1, 0.2f, dark, light, 10, 7, 0.4f, 0f, 7);
-            Blob(m, new Vector3(-0.36f, 0.10f, -0.34f), new Vector3(0.22f, 0.16f, 0.2f), seed + 2, 0.2f, dark, light, 9, 6, 0.4f, 0f, 7);
-            return m.Done(name);
+            switch (p)
+            {
+                case Prop.RockTan: return Rock("RockTan", 1, C(0.27f, 0.20f, 0.13f), C(0.52f, 0.41f, 0.28f), low);
+                case Prop.RockDark: return Rock("RockDark", 2, C(0.12f, 0.115f, 0.115f), C(0.32f, 0.295f, 0.27f), low);
+                case Prop.RockRed: return Rock("RockRed", 3, C(0.31f, 0.14f, 0.095f), C(0.58f, 0.32f, 0.20f), low);
+                case Prop.RockWhite: return Rock("RockWhite", 4, C(0.30f, 0.285f, 0.255f), C(0.56f, 0.53f, 0.47f), low);
+                case Prop.BoulderTan: return Boulder("BoulderTan", 5, C(0.24f, 0.18f, 0.115f), C(0.50f, 0.39f, 0.26f), low);
+                case Prop.BoulderDark: return Boulder("BoulderDark", 6, C(0.105f, 0.10f, 0.10f), C(0.30f, 0.275f, 0.25f), low);
+                default: return Boulder("BoulderRed", 7, C(0.28f, 0.125f, 0.085f), C(0.56f, 0.30f, 0.19f), low);
+            }
         }
 
-        static Mesh Boulder(string name, int seed, Color dark, Color light)
+        /// <summary>Un sasso: tre blob (il corpo e due sassolini accanto). La versione 'low' ha gli stessi piani (la stessa sagoma) ma meno anelli e segmenti: il rumore piu' fine non si vede da lontano.</summary>
+        static Mesh Rock(string name, int seed, Color dark, Color light, bool low)
         {
             var m = new PM(Surf.Stone);
-            Blob(m, new Vector3(0f, 0.85f, 0f), new Vector3(1.25f, 1.0f, 1.1f), seed, 0.22f, dark, light, 20, 13, 0.5f, 0f, 11);
-            Blob(m, new Vector3(0.95f, 0.38f, 0.45f), new Vector3(0.6f, 0.5f, 0.55f), seed + 1, 0.22f, dark, light, 13, 8, 0.5f, 0f, 8);
-            Blob(m, new Vector3(-0.7f, 0.42f, -0.65f), new Vector3(0.62f, 0.55f, 0.5f), seed + 2, 0.22f, dark, light, 13, 8, 0.5f, 0f, 8);
-            Blob(m, new Vector3(0.2f, 1.62f, -0.1f), new Vector3(0.5f, 0.38f, 0.46f), seed + 3, 0.24f, dark, light, 11, 7, 0.5f, 0f, 8);
-            return m.Done(name);
+            Blob(m, new Vector3(0f, 0.30f, 0f), new Vector3(0.62f, 0.46f, 0.55f), seed, 0.20f, dark, light, low ? 15 : 28, low ? 10 : 18, 0.4f, 0f, 12);
+            Blob(m, new Vector3(0.50f, 0.13f, 0.16f), new Vector3(0.28f, 0.2f, 0.26f), seed + 1, 0.2f, dark, light, low ? 10 : 18, low ? 7 : 12, 0.4f, 0f, 9);
+            Blob(m, new Vector3(-0.36f, 0.10f, -0.34f), new Vector3(0.22f, 0.16f, 0.2f), seed + 2, 0.2f, dark, light, low ? 9 : 16, low ? 6 : 11, 0.4f, 0f, 9);
+            return m.Done(low ? name + "Low" : name);
+        }
+
+        static Mesh Boulder(string name, int seed, Color dark, Color light, bool low)
+        {
+            var m = new PM(Surf.Stone);
+            Blob(m, new Vector3(0f, 0.85f, 0f), new Vector3(1.25f, 1.0f, 1.1f), seed, 0.22f, dark, light, low ? 20 : 36, low ? 13 : 24, 0.5f, 0f, 15);
+            Blob(m, new Vector3(0.95f, 0.38f, 0.45f), new Vector3(0.6f, 0.5f, 0.55f), seed + 1, 0.22f, dark, light, low ? 13 : 24, low ? 8 : 16, 0.5f, 0f, 11);
+            Blob(m, new Vector3(-0.7f, 0.42f, -0.65f), new Vector3(0.62f, 0.55f, 0.5f), seed + 2, 0.22f, dark, light, low ? 13 : 24, low ? 8 : 16, 0.5f, 0f, 11);
+            Blob(m, new Vector3(0.2f, 1.62f, -0.1f), new Vector3(0.5f, 0.38f, 0.46f), seed + 3, 0.24f, dark, light, low ? 11 : 20, low ? 7 : 13, 0.5f, 0f, 11);
+            return m.Done(low ? name + "Low" : name);
         }
 
         /// <summary>Una lastra di roccia stratificata: un parallelepipedo che parte da terra con le facce ondulate dal rumore (nessuna e' un piano: la roccia si scheggia), gli strati di colore con il bordo
@@ -399,13 +439,16 @@ namespace PryingEyes.Deserto
         static Mesh Bush()
         {
             var m = new PM(Surf.Organic); var rng = new System.Random(21);
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 16; i++)
             {
                 float a = (float)rng.NextDouble() * 6.283f, lean = 0.25f + (float)rng.NextDouble() * 0.5f, hgt = 0.55f + (float)rng.NextDouble() * 0.45f;
                 var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
                 var p0 = dir * 0.02f; var p1 = dir * lean * 0.4f + Vector3.up * hgt * 0.5f; var p2 = dir * lean + Vector3.up * hgt;
                 Tube(m, new[] { p0, p1, p2 }, new[] { 0.022f, 0.016f, 0.008f }, 4, (k, j) => Color.Lerp(C(0.30f, 0.22f, 0.13f), C(0.46f, 0.38f, 0.22f), k * 0.5f), 0f, 0.8f);
-                Blob(m, p2 + Vector3.up * 0.02f, new Vector3(0.17f, 0.1f, 0.17f), 50 + i, 0.3f, C(0.30f, 0.30f, 0.14f), C(0.62f, 0.58f, 0.28f), 6, 4, 0.5f, 1f);
+                // three tufts of leaves along each stem (the tip, the middle and one at the side), in a sage green: the old single yellow ball on each stem read as a lollipop
+                Blob(m, p2 + Vector3.up * 0.02f, new Vector3(0.15f, 0.09f, 0.15f), 50 + i, 0.3f, C(0.20f, 0.24f, 0.12f), C(0.50f, 0.54f, 0.29f), 6, 4, 0.5f, 1f);
+                Blob(m, Vector3.Lerp(p1, p2, 0.55f) + dir * 0.03f, new Vector3(0.11f, 0.07f, 0.11f), 70 + i, 0.3f, C(0.20f, 0.24f, 0.12f), C(0.46f, 0.50f, 0.27f), 6, 4, 0.5f, 0.8f);
+                Blob(m, p1 + Quaternion.AngleAxis(90f, Vector3.up) * dir * 0.07f, new Vector3(0.09f, 0.06f, 0.09f), 90 + i, 0.3f, C(0.18f, 0.22f, 0.11f), C(0.42f, 0.47f, 0.25f), 6, 4, 0.5f, 0.5f);
             }
             return m.Done("Bush");
         }

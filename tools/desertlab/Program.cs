@@ -30,6 +30,8 @@ static class Program
         Regions();
         Buttes();
         Scatter(quick ? 14 : 30);
+        Yards(quick ? 10 : 20);
+        Hub();
         Weather();
         Grading();
         Compass();
@@ -379,6 +381,7 @@ static class Program
                 continue;
             }
             built++;
+            OpenRoomCensus(p, kind + "/" + state);
             perKind[kind] = (perKind.TryGetValue(kind, out int c) ? c : 0) + 1;
             rooms[kind] = (rooms.TryGetValue(kind, out int r0) ? r0 : 0) + p.rooms.Count;
             string why = PlanGen.BuildingFault(p);
@@ -478,6 +481,7 @@ static class Program
             for (int l = 0; l < levels; l++)
             {
                 var p = PlanGen.StackLevel(seed, l, levels, entrance, boss, theme, church, false);
+                OpenRoomCensus(p, $"stack {i} level {l}");
                 string why = PlanGen.BuildingFault(p);
                 if (why != null) { bad++; if (first.Length == 0) first = why; }
                 var stair = PlanGen.StairRoom(p);
@@ -675,6 +679,118 @@ static class Program
         DesertWorld.SitesNear(0f, 0f, 2500f, near2);
         foreach (var s in near2) { sites++; if (!s.forced && DesertWorld.ButteTouches(s.fx0, s.fz0, s.fx1, s.fz1, 44f)) touching++; }
         Check("BUTTES_NEVER_UNDER_A_PLACE", sites > 100 && touching == 0, $"{touching} of {sites} places within 2.5 km touch a butte");
+    }
+
+    // ------------------------------------------------------------------ the cathedral's plan and the open-air rooms
+    static int openVoid, openTall;
+    static string openFirst = "";
+
+    /// <summary>An opening of an open-air room (CeilKind.Open) that looks onto the void is cut in a parapet (Opening.ParapetTop): above it there is no wall to hang a head on.</summary>
+    static void OpenRoomCensus(Plan p, string what)
+    {
+        foreach (var o in p.openings)
+        {
+            if (o.b >= 0 || !p.rooms[o.a].Open) continue;
+            openVoid++;
+            if (o.top <= Opening.ParapetTop + 0.01f) continue;
+            openTall++;
+            if (openFirst.Length == 0) openFirst = $"{what}: {p.rooms[o.a].label} {o.style} on {o.line}/{o.center}, head {o.top:F2} m";
+        }
+    }
+
+    /// <summary>The cathedral (HubPlan) with and without the desert, nothing built and everything built: it validates, and the wide door of the churchyard onto the stairs is a gap in the parapet.
+    /// It was three metres high over a parapet of 1.55 m, and its two reveals and its soffit hung in the air: a black beam of 14 m seen from below as a diagonal in the sky.</summary>
+    static void Hub()
+    {
+        int faults = 0, exits = 0, exitStrays = 0;
+        string first = "", exitFirst = "";
+        foreach (bool desert in new[] { false, true })
+            foreach (bool all in new[] { false, true })
+            {
+                var plan = HubPlan.Build(_ => all, desert);
+                var f = HubPlan.Validate(plan);
+                if (f.Count > 0) { faults += f.Count; if (first.Length == 0) first = $"desert {desert}, all built {all}: {f[0]}"; }
+                OpenRoomCensus(plan, $"hub (desert {desert}, all built {all})");
+                if (!desert) continue;
+                foreach (var o in plan.openings)
+                {
+                    if (o.b >= 0 || o.a != HubPlan.Sagrato || o.style != OpenStyle.PortaLarga) continue;
+                    exits++;
+                    bool onStairs = Math.Abs((o.Lo + o.Hi) * 0.05f - (HubPlan.StairX0 + HubPlan.StairX1) * 0.5f) < 0.06f && Math.Abs((o.Hi - o.Lo) * 0.1f - (HubPlan.StairX1 - HubPlan.StairX0)) < 0.11f;
+                    if (!o.Gap || !o.noGlass || o.sill > 0.001f || !onStairs)
+                    {
+                        exitStrays++;
+                        if (exitFirst.Length == 0) exitFirst = $"head {o.top:F2} m, gap {o.Gap}, no glass {o.noGlass}, sill {o.sill:F2}, as wide as the stairs {onStairs}";
+                    }
+                }
+            }
+        Check("HUB_PLANS_VALID", faults == 0, faults == 0 ? "the cathedral passes HubPlan.Validate with and without the desert, with nothing built and with everything" : faults + " faults, first: " + first);
+        Check("HUB_EXIT_IS_A_GAP_IN_THE_PARAPET", exits == 2 && exitStrays == 0,
+              exitStrays == 0 && exits == 2 ? $"the churchyard's door onto the stairs is as wide as the stairs, glassless, level with the floor and a lintel-less gap at the parapet ({Opening.ParapetTop:F2} m): no soffit, no reveals above the wall" : $"{exitStrays} of {exits} exits are wrong, first: {exitFirst}");
+        Check("OPEN_ROOMS_OPEN_ONTO_THE_VOID_UNDER_THE_PARAPET", openVoid > 0 && openTall == 0,
+              openTall == 0 ? $"{openVoid} openings of open-air rooms onto the void (the cathedral, buildings, towers) and none is higher than the parapet" : $"{openTall} of {openVoid} are higher than the parapet, first: {openFirst}");
+    }
+
+    // ------------------------------------------------------------------ the sand by the walls
+    static void Yards(int radius)
+    {
+        DesertWorld.Reset(20261118);
+        var yard = new List<DesertScatterGen.YardItem>(); var doors = new List<(float x, float z)>();
+        int sites = 0, withYard = 0, items = 0, atDoor = 0, onFootprint = 0, doorsSeen = 0, badDoors = 0, wanted = 0, found = 0, twice = 0, sampled = 0;
+        for (int i = -radius; i <= radius; i++)
+            for (int j = -radius; j <= radius; j++)
+            {
+                var s = DesertWorld.SiteOf(i, j);
+                if (s == null || s.plan == null || s.IsTower || s.IsCatacomb) continue;
+                sites++;
+                DesertScatterGen.Yard(s, yard);
+                DesertScatterGen.Doors(s, doors);
+                if (yard.Count > 0) withYard++;
+                items += yard.Count;
+                // a door sits on the wall of its room: for a wall along x the z is the room's edge and the x lies between its sides (and the other way round)
+                foreach (var o in s.plan.openings)
+                {
+                    if (!(o.b < 0 && o.sill < 0.01f && !o.oneSided)) continue;
+                    doorsSeen++;
+                    var r = s.plan.rooms[o.a];
+                    bool onEdge = o.alongX ? (Math.Abs(o.line - r.z0) <= 2 || Math.Abs(o.line - r.z1) <= 2) && o.center >= r.x0 && o.center <= r.x1
+                                           : (Math.Abs(o.line - r.x0) <= 2 || Math.Abs(o.line - r.x1) <= 2) && o.center >= r.z0 && o.center <= r.z1;
+                    if (!onEdge) badDoors++;
+                }
+                foreach (var y in yard)
+                {
+                    foreach (var dr in doors) if ((y.x - dr.x) * (y.x - dr.x) + (y.z - dr.z) * (y.z - dr.z) < 4f * 4f) atDoor++;
+                    if (y.x > s.fx0 && y.x < s.fx1 && y.z > s.fz0 && y.z < s.fz1) onFootprint++;
+                }
+                // each prop of a yard comes out of the square that holds it, and out of no other
+                if (sampled < 40 && (i + j) % 4 == 0 && yard.Count > 0)
+                {
+                    sampled++;
+                    var cache = new Dictionary<(int, int), List<PropItem>>();
+                    List<PropItem> Squares(int cx, int cz)
+                    {
+                        if (!cache.TryGetValue((cx, cz), out var l)) { l = new List<PropItem>(); DesertScatterGen.Build(cx, cz, l); cache[(cx, cz)] = l; }
+                        return l;
+                    }
+                    foreach (var y in yard)
+                    {
+                        wanted++;
+                        int hits = 0, mine = 0;
+                        int hx = (int)Math.Floor(y.x / DesertScatterGen.Chunk), hz = (int)Math.Floor(y.z / DesertScatterGen.Chunk);
+                        for (int a = -1; a <= 1; a++)
+                            for (int b = -1; b <= 1; b++)
+                                foreach (var it in Squares(hx + a, hz + b))
+                                    if (it.kind == (byte)y.kind && Math.Abs(it.x - y.x) < 1e-3f && Math.Abs(it.z - y.z) < 1e-3f) { hits++; if (a == 0 && b == 0) mine++; }
+                        if (hits > 1) twice++;
+                        if (mine == 1) found++;
+                    }
+                }
+            }
+        Check("YARDS_EXIST", sites > 100 && withYard >= 0.9 * sites && items >= 2.5 * sites, $"{withYard} of {sites} buildings have a yard, {items} props ({(sites > 0 ? items / (float)sites : 0f):F1} each)");
+        Check("YARDS_KEEP_THE_DOORS_CLEAR", doorsSeen > 100 && atDoor == 0, $"{atDoor} yard props within 4 m of one of {doorsSeen} doors");
+        Check("YARDS_DOORS_SIT_ON_THEIR_ROOM_WALL", badDoors == 0, $"{badDoors} of {doorsSeen} doors are not on the wall of their room (the yards read the wrong place)");
+        Check("YARDS_STAY_OFF_THE_BUILDINGS", onFootprint == 0, $"{onFootprint} yard props inside a footprint");
+        Check("YARDS_COME_OUT_ONCE", wanted > 80 && twice == 0 && found >= 0.75 * wanted, $"{found} of {wanted} yard props come out of their square, {twice} out of two");
     }
 
     // ------------------------------------------------------------------ what lies on the sand

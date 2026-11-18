@@ -27,6 +27,8 @@ namespace PryingEyes.Deserto
         /// <summary>Quanto e' forte il bagliore attorno al sole nella cupola (e nella nebbia verso il sole): 1 e' il massimo, meno e' piu' discreto e il disco si stacca meglio dal cielo.</summary>
         public static float SunGlow = 1f;
         /// <summary>Il look delle stanze del gioco (FloorDirector.ApplyLook per l'albergo), a cui si torna al chiuso.</summary>
+        /// <summary>Solo per le prove: la copertura delle nuvole (0..1) al posto di quella del giorno; -1 = quella normale (fase nuvole).</summary>
+        public static float CloudOverride = -1f;
         static readonly Color InFog = new Color(0.095f, 0.08f, 0.085f);
         static readonly Color InSky = new Color(0.065f, 0.075f, 0.105f), InEquator = new Color(0.047f, 0.047f, 0.055f), InGround = new Color(0.025f, 0.023f, 0.025f);
         const float InFogDensity = 0.030f, InExposure = -0.1f;
@@ -275,7 +277,7 @@ namespace PryingEyes.Deserto
                 Shader.SetGlobalVector("_DSSunColor", new Vector4(s.sunColor.r, s.sunColor.g, s.sunColor.b, 1f));
                 Shader.SetGlobalFloat("_DSSunGlow", SunGlow);
                 Shader.SetGlobalVector("_DSMoonDir", new Vector4(s.moonX, s.moonY, s.moonZ, Mathf.Clamp01(-s.sunHeight * 6f + 0.35f)));
-                float cloudy = 0.14f + 0.10f * Mathf.Sin(DesertMode.Clock.day * 1.7f + 0.6f);      // un cielo di deserto: per lo piu' sereno e profondo, ma con le sue nuvole (la copertura 0,1 e' circa il 6% del cielo, 0,2 il 22%): il primo giorno ne ha un po', il terzo e' quasi limpido
+                float cloudy = CloudOverride >= 0f ? CloudOverride : 0.27f + 0.08f * Mathf.Sin(DesertMode.Clock.day * 1.7f + 0.6f);      // un cielo di deserto: per lo piu' sereno e profondo, ma con le sue nuvole (la copertura 0,1 e' circa il 6% del cielo, 0,2 il 22%): il primo giorno ne ha un po', il terzo e' quasi limpido
                 var cloud = Rgb.Lerp(new Rgb(0.10f, 0.11f, 0.16f), new Rgb(0.95f, 0.93f, 0.90f), s.daylight);
                 cloud = Rgb.Lerp(cloud, new Rgb(1.0f, 0.62f, 0.45f), s.twilight * 0.7f);
                 Shader.SetGlobalVector("_DSCloud", new Vector4(cloud.r * cloudGain, cloud.g * cloudGain, cloud.b * cloudGain, cloudy));

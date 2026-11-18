@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanTypes.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\HubPlan.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanGen.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanGen.Building.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanThemes.cs" />

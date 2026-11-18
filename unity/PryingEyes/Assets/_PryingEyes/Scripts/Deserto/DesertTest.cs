@@ -327,6 +327,7 @@ namespace PryingEyes.Deserto
             if (Explicit("esterni")) yield return Phase("esterni", Exteriors());
             if (Explicit("orizzonte")) yield return Phase("orizzonte", Horizon());
             if (Explicit("paesaggio")) yield return Phase("paesaggio", Landscape());
+            if (Explicit("nuvole")) yield return Phase("nuvole", CloudsPhase());
             if (Explicit("vita")) yield return Phase("vita del deserto", Life());
             if (Explicit("cose")) yield return Phase("cose sulla sabbia", Props());
             if (Explicit("galleria")) yield return Phase("galleria delle cose", PropGallery());
@@ -401,8 +402,33 @@ namespace PryingEyes.Deserto
                 if (!NavMesh.SamplePosition(new Vector3(q.x, DesertWorld.Height(q.x, q.y), q.y), out _, 1.5f, NavMesh.AllAreas)) lost += $" ({q.x:F0}, {q.y:F0})";       // la sabbia attorno non e' piu' piatta: si cerca alla sua quota
             Check("la navmesh tiene tutti i tasselli costruiti attorno", lost.Length == 0, lost.Length == 0 ? "" : "senza navmesh:" + lost + "; " + DesertNav.BuiltTiles + " tasselli");
             Check("la cattedrale e' un santuario: niente navmesh sulla scalinata ne' dentro", !onStairs && !inChurch, $"scalinata {onStairs}, chiesa {inChurch}");
+            // le cose sulla sabbia: in superficie si disegnano (il taglio di quando si e' sottoterra non deve scattare), e i sassi e i massi lontani hanno la versione ridotta
+            var scat = DesertScatter.I;
+            if (scat != null) yield return WaitFor(() => scat.CellsReady >= 20 && scat.RocksNear + scat.RocksFar > 20, 40f);
+            Check("sulla sabbia le cose sono mandate alla scheda: il taglio da sottoterra non scatta in superficie", scat != null && !scat.Underground, scat == null ? "manca il regista delle cose" : $"giocatore a {pl.transform.position.y:F1}, la sabbia a {DesertWorld.Height(pl.transform.position.x, pl.transform.position.z):F1}");
+            Check("i sassi e i massi lontani hanno la versione ridotta (sono molti di piu' di quelli entro 70 m)", scat != null && scat.RocksFar > 0 && scat.RocksFar > scat.RocksNear, scat == null ? "manca" : $"{scat.RocksNear} con tutti i triangoli, {scat.RocksFar} ridotti");
+            // i due bracieri in cima alla scalinata hanno il fuoco (fiamma, nucleo, fumo e brace: DesertCathedral.BrazierFire), non solo un disco acceso sopra una coppa nera
+            int braziers = 0, burning = 0;
+            foreach (var bf in FindObjectsByType<DesertCathedral.BrazierFire>(FindObjectsSortMode.None))
+            {
+                braziers++;
+                foreach (var ps in bf.GetComponentsInChildren<ParticleSystem>()) if (ps.isPlaying && ps.emission.rateOverTime.constant > 0f) burning++;
+            }
+            Check("i due bracieri in cima alla scalinata hanno il fuoco: fiamma, nucleo, fumo e brace", braziers == 2 && burning == 2 * DesertCathedral.BrazierFire.Systems, $"{braziers} bracieri, {burning} sistemi di particelle accesi su {2 * DesertCathedral.BrazierFire.Systems}");
             // risalire
-            yield return Snap("02_sabbia_cattedrale", 7.2f, new Vector3(cx, 11f, 0f));
+            yield return Snap("02_sabbia_cattedrale", 7.2f, new Vector3(cx, 3.2f, 0f));
+            yield return GoTo(cx, -22f);
+            yield return Snap("02b_cattedrale_dalla_sabbia", 7.2f, new Vector3(cx, 2.4f, 0f));
+            if (shots)
+            {
+                // il fuoco di un braciere da quattro metri, di giorno e di sera, dal sagrato; poi di nuovo sulla sabbia (le prove dopo questa si aspettano di essere li')
+                pl.Teleport(new Vector3(HubPlan.StairX0 + 3.0f, 0.06f, 3.4f));
+                yield return new WaitForSeconds(1.0f);
+                var fire = new Vector3(HubPlan.StairX0 + 0.6f, 1.3f, 0.6f);
+                yield return Snap("02c_braciere_giorno", 12.0f, fire, 1.6f);
+                yield return Snap("02d_braciere_sera", 18.4f, fire, 1.6f);
+                yield return GoTo(cx, -22f);
+            }
         }
 
         IEnumerator SkyAndClock()
@@ -1052,6 +1078,10 @@ namespace PryingEyes.Deserto
             yield return WaitFor(() => rt.boss != null, 60f);
             Check("il boss della catacomba compare nella sala in fondo", rt.boss != null, rt.boss == null ? "non e' comparso" : "");
             if (rt.boss == null) yield break;
+            // da qui le cose che stanno sopra la sabbia non si vedono: non si mandano alla scheda (pesavano 2,5 ms nella sala del boss)
+            var scatUnder = DesertScatter.I;
+            yield return null;
+            Check("sotto la sabbia le cose che ci stanno sopra non si mandano alla scheda", scatUnder != null && scatUnder.Underground, scatUnder == null ? "manca il regista delle cose" : $"giocatore a {Pl.transform.position.y:F1}, la sabbia a {DesertWorld.Height(Pl.transform.position.x, Pl.transform.position.z):F1}");
             var e = rt.boss;
             yield return BossPhoto("11_catacomba_sala_del_boss", e, rt, cata.boss);
             int bank0 = Bank(), downs0 = DesertMode.BossesDown.Count;
@@ -1863,6 +1893,34 @@ namespace PryingEyes.Deserto
                 yield return WaitFor(() => DesertScatter.I == null || DesertScatter.I.CellsPending == 0, 25f);
                 yield return Snap($"rilievo_{n + 1}_piede", 16.2f, new Vector3(b.x, cy + b.h * 0.8f, b.z), 1.2f);
             }
+            sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly nuvole -desertshots (nessun controllo: foto): il cielo con tre coperture (DesertSky.CloudOverride 0,12 / 0,27 / 0,45) a tre ore (mezzogiorno, il
+        /// pomeriggio, il tramonto), una volta dalla parte opposta al sole e una verso di lui: la forma e la luce delle nuvole e i raggi di sole. Serve a giudicare il cielo a occhio.</summary>
+        IEnumerator CloudsPhase()
+        {
+            var sky = DesertSky.I;
+            if (!shots || sky == null) { Debug.Log("[PryingEyes] desertotest nuvole: senza foto non c'e' niente da fare"); yield break; }
+            Pl.Teleport(new Vector3(18f, 0.06f, 1.0f));
+            yield return new WaitForSeconds(1.5f);
+            Vector3 eye = new Vector3(18f, 1.6f, 1.0f);
+            foreach (float cover in new[] { 0.12f, 0.27f, 0.45f })
+            {
+                DesertSky.CloudOverride = cover;
+                foreach (var (nm, hr) in new[] { ("mezzogiorno", 12.0f), ("pomeriggio", 16.4f), ("tramonto", 17.9f) })
+                {
+                    var ev = DesertClock.Evaluate(hr);
+                    var flat = new Vector3(-ev.sunX, 0f, -ev.sunZ);
+                    flat = flat.sqrMagnitude > 1e-4f ? flat.normalized : Vector3.forward;
+                    var away = eye + flat * 300f + Vector3.up * 150f;                       // il cielo opposto al sole, a quasi trenta gradi
+                    var toSun = eye + new Vector3(ev.sunX, ev.sunY, ev.sunZ) * 300f;
+                    string tag = $"nuvole_{(int)(cover * 100):D2}_{nm}";
+                    yield return Snap(tag + "_lontano", hr, away, 1.2f);
+                    yield return Snap(tag + "_sole", hr, toSun, 1.2f);
+                }
+            }
+            DesertSky.CloudOverride = -1f;
             sky.Frozen = false;
         }
 
