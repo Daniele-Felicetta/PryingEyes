@@ -230,12 +230,13 @@ rebuilt identical every time you come back.
   the normal; stone gets large patches, fine grain, strata, a coat of sand on the faces that look up and at the foot, and a contact shadow; wood and plants
   get streaks along their height. Rocks are blobs cut by random planes (`RockPlanes`: a smoothed convex polyhedron, with a tint per face) instead of
   lumps (the edges are bevelled by about 5%, a second octave of noise chips the faces and the colour goes in strata that wander with the noise; a rock went from about
-  480 to 1,670 triangles and a boulder from about 980 to 3,580), the slabs are rough boxes with displaced faces and chipped tops, the dead trees fork, and a bush has sixteen stems with three tufts of
-  sage-green leaves on each (the old single yellow ball on a stem read as a lollipop). Small things are drawn out to 150 m, middle ones to 280 m, big ones to
-  520 m. Rocks and boulders, the only heavy ones, come in two versions: all the triangles within 70 m of the player and, beyond, the same planes (so the same outline) with
-  about a fifth of the triangles (`PropMeshes.GetLow`; each copy chooses by its own distance when the lists are made, every 20 m of walking). Nothing that lies on the sand is sent to the card
+  480 to 1,670 triangles and a boulder from about 980 to 3,580), the slabs are rough boxes with displaced faces and chipped tops, the dead trees fork, a bush has sixteen stems with three tufts of
+  sage-green leaves on each (the old single yellow ball on a stem read as a lollipop) and a cactus has eight flutes on the trunk and six on each arm, four sides to a flute, with the
+  shape and the colour following the same cosine and the tips rounded into domes (it had two sides to a flute and, with the normals averaged, looked smooth, like plastic). Small things are drawn out to 150 m, middle ones to 280 m, big ones to
+  520 m. Rocks, boulders, cacti and bushes, the heavy ones, come in two versions: all the triangles within 70 m of the player and, beyond, the same outline with fewer
+  (`PropMeshes.GetLow`: the same planes for the rocks, about a fifth of the triangles; fewer rings and sides for a cactus, a single bigger tuft on each stem of a bush; each copy chooses by its own distance when the lists are made, every 20 m of walking). Nothing that lies on the sand is sent to the card
   when the player is more than 2.5 m under it, in a catacomb, where it cannot be seen (`DesertScatter.Underground`: the props alone cost 2.5 ms in the boss hall of a
-  catacomb, and 6 ms with the heavier rocks before this). The solid ones have a capsule collider within 140 m of the player (pooled, named so that shots and steps sound right: stone, wood or cloth),
+  catacomb before, and 0.0 to 0.2 ms after). The solid ones have a capsule collider within 140 m of the player (pooled, named so that shots and steps sound right: stone, wood or cloth),
   which the navmesh sees. The two materials are assets in `Resources` because the build strips the instanced variant of a shader that no asset uses
   (`Graphics Settings > Instancing Variants: Strip Unused`), and a material made while playing would draw nothing.
 - **Weather and life** (`DesertWeather`, `DesertSky`, `DesertDust`, `DesertLife`, `DesertFires`). The weather is a pure function of the seed and the clock
@@ -395,34 +396,35 @@ Everything below was run on 18 November 2026 on the developer's PC (seed 1000), 
   around you; **death** takes half the points and the last perk, wakes you at the top of the stair and leaves the same seed, sand, sky and a running
   clock; at **5, 9 and 17 km** the sand holds, the navmesh is under your feet and the building next to you loads with every level, and past 18 km you
   are put back inside; whoever falls under the sand is brought back; no frame longer than 1.2 s and no error in the log.
-- **With a window** (`-desertshots`, 44 checks of the halls: the chapel, the tower, the catacomb): the contrast of what the camera sees is 0.30 to 0.78 in
-  the chapel (0.78), in the tower's boss hall (0.61), in the entrance hall of the catacomb (0.30, the darkest of all), in each of its three levels down to -14 m
-  (0.41 to 0.58) and in its boss hall (0.77); a solid fog or a black room gives under 0.05. This check exists because of a bug that no other check saw: the haze of
+- **With a window** (`-desertshots`, 44 checks of the halls: the chapel, the tower, the catacomb): the contrast of what the camera sees is 0.25 to 0.78 in
+  the chapel (0.77), in the tower's boss hall (0.52), in the entrance hall of the catacomb (0.25, the darkest of all), in each of its three levels down to -14 m
+  (0.43 to 0.61) and in its boss hall (0.78); a solid fog or a black room gives under 0.05. This check exists because of a bug that no other check saw: the haze of
   the church naves grew with the world height, so in the catacombs, below zero, every nave was a wall of grey and the boss hall a uniform blue picture; the
   photos were taken and the checks were green. Photos: 13 of the same run (arrival, dawn, noon, dusk, night, the chapel inside, the tower from far and from its
   foot, its first floor and its boss hall, a catacomb entrance and its boss hall), plus one per catacomb level, looked at one by one.
 - **The memory** (`-desertonly soak`, 9 checks, with a window). Three rounds of two far towers and two far catacombs, going home in between: live
-  meshes 1,683, 1,688 and 1,689, materials 972, 1,010 and 1,010 (the caches of the facade palettes fill up in the first rounds and then stop), textures 414
-  each time, memory 708, 763 and 776 MB. Before the sweep of unused assets was added the same test failed with 3,761, 5,545 and 7,317 meshes, 824, 1,328 and 1,688
+  meshes 1,685, 1,690 and 1,691, materials 983, 1,021 and 1,021 (the caches of the facade palettes fill up in the first rounds and then stop), textures 414
+  each time, memory 699, 751 and 771 MB. Before the sweep of unused assets was added the same test failed with 3,761, 5,545 and 7,317 meshes, 824, 1,328 and 1,688
   materials and 711, 860 and 983 MB: about 120 MB left behind by every four places. Four sweeps in the three rounds, the longest frame 1 ms and the last
-  sweep 7 ms; after them the sand and the nave still have their contrast (0.61 and 0.51).
+  sweep 6 ms; after them the sand and the nave still have their contrast (0.88 and 0.51).
 - **Every kind and state of place** (`-desertonly varieta -desertshots`, 40 checks). Eight buildings near the cathedral, seven kinds in four states
   (whole, ruined, split, collapsing; from a one-room house to a 24-room sanatorium): each is built, furnished, entered on foot from the sand through its door,
   walked through to the room that is farthest from the entrance (up to five doors away) and has a view with contrast (0.63 to 0.93 of the luminance range);
-  a tower of 9 levels (entrance hall 0.47, boss hall 0.65) and a catacomb of 5 (entrance hall 0.39, boss hall 0.63): the shell of every level, the walk in from
+  a tower of 9 levels (entrance hall 0.47, boss hall 0.61) and a catacomb of 5 (entrance hall 0.27, boss hall 0.63): the shell of every level, the walk in from
   the sand, the boss in its hall. Three of the places of an earlier run (a ruined complex, a collapsed inn, a collapsed hotel) could not be entered at all:
   the doors of their crumbled walls were 1.5 m slots under a slab of ceiling; that is what `Opening.Gap` and the check `BUILDING_LOW_DOORWAYS_ARE_GAPS` of the
   lab are for. The photos of the theatre and of the tower's hall were looked at.
-- **The cost of a frame** (`-desertonly prestazioni`, 15 checks) on an RTX 5060 Ti at 1920x1080: 8.0 ms on the churchyard facing the sand, 9.4 ms (day) and
-  8.9 ms (night) on the open sand with the tower in the distance, 6.2 ms at the foot of the tower looking up, 5.2 ms in the nave, 7.4 ms in the chapel, 7.7 ms
-  in the boss hall of a catacomb, 5.5 to 7.2 ms on the open sand of each of the six regions, 7.3 ms at a night camp with its fire and 7.2 ms in a sandstorm: the
-  worst place costs 9.4 ms, far from 33 ms. The heavier rocks and the new pebbles cost something, and it was measured: with the heavier rocks alone (every rock at all its triangles out to 280 m, every
+- **The cost of a frame** (`-desertonly prestazioni`, 15 checks) on an RTX 5060 Ti at 1920x1080: 7.4 ms on the churchyard facing the sand, 9.5 ms (day) and
+  9.2 ms (night) on the open sand with the tower in the distance, 6.8 ms at the foot of the tower looking up, 5.2 ms in the nave, 7.2 ms in the chapel, 6.6 ms
+  in the boss hall of a catacomb, 5.4 to 7.4 ms on the open sand of each of the six regions, 7.3 ms at a night camp with its fire and 7.2 ms in a sandstorm: the
+  worst place costs 9.5 ms, far from 33 ms. The heavier rocks and the new pebbles cost something, and it was measured: with the heavier rocks alone (every rock at all its triangles out to 280 m, every
   boulder out to 520 m, in every shadow map) the open sand was at 9.3 ms and the boss hall of a catacomb at 14.7 ms (11.1 ms before the rocks); the two versions of the rocks and the
-  cut under the sand brought the catacomb to 7.7 ms, 3.4 ms under what it was before. `costi` (a measure, no check) takes each part away in turn: at the churchyard (8.2 ms in this measure) the
-  sand itself is 2.5 ms, the sun's shadows 1.5, the props on the sand 1.1, the post-processing 1.1, the life 0.9, the point lights 0.9, the particles 0.9 and the far places 0.1 (it was 1.6 ms in the earlier measure; the sand's shader changed in this round, the pebbles with their own tint, dome and contact shadow and the clouds
-  that the brine pools mirror, and which of the two costs what was not isolated); in the boss hall of
-  a catacomb (8.6 ms) the point lights are 1.8 and the props on the sand 0.0 (they were 2.5); in the chapel (10.4 ms in this measure, with 99 lights) the point lights are 3.9 and the props on the sand,
-  that can be seen only through the windows, still 3.3.
+  cut under the sand brought the catacomb to 7.7 ms and, in the run after the cacti and the bushes got their two versions as well, to 6.6 (the cut leaves almost nothing of the props to draw there, so the
+  difference between those two is the noise of the measure: about a millisecond). `costi` (a measure, no check) takes each part away in turn, and the same part measured in two runs
+  differs by about a millisecond, sometimes more: at the churchyard (7.1 ms in the last run, 8.2 in the run before) the sand itself is 1.2 ms (2.5 before), the sun's shadows 1.1 (1.5), the props on the sand 0.8 (1.1),
+  the point lights 0.0 (0.9), and the post-processing, the life, the particles and the far places have nothing to show beyond the noise (it was 1.6 ms for the sand in the first measure, then 2.5, then 1.2:
+  the claim that the sand's shader got heavier was not shown); in the boss hall of
+  a catacomb (8.1 ms) the point lights are 1.5 and the props on the sand 0.2 (they were 2.5 before the cut); in the chapel (13.8 ms in the last run, 10.4 in the run before, with 99 lights, and 7.2 in `prestazioni`: the two measures of the same room disagree and why was not looked for) the point lights are 5.3 (3.9 before) and the props on the sand, that can be seen only through the windows, still 2.5 (3.3).
 - **Footprints, crests, salt flats** (`orme` 6 checks, `creste` 3, `salina` 5, with a window and photos): every step leaves a print (16 prints in 5.4 s over 21 m), a
   step in the air leaves none and the wind has erased them all after a minute and a half; at least two crests start to smoke and the particles alive are many but
   not too many (83); the salt flats have lakes, a step in the water leaves no print and one on dry sand does. The photos of the trail, of the crests and of the

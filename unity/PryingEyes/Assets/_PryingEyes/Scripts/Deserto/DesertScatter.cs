@@ -61,9 +61,9 @@ namespace PryingEyes.Deserto
         public int Instances { get { int n = 0; foreach (var c in aggCount) n += c; return n; } }
         public int Colliders => live.Count;
         public int CountOf(Prop p) => aggCount[(int)p] + aggCount[Kinds + (int)p];
-        /// <summary>Di sassi e massi: quanti hanno tutti i triangoli (entro 70 m) e quanti la versione ridotta (oltre).</summary>
-        public int RocksNear { get { int n = 0; for (int k = 0; k < Kinds; k++) if (PropMeshes.HasLow((Prop)k)) n += aggCount[k]; return n; } }
-        public int RocksFar { get { int n = 0; for (int k = 0; k < Kinds; k++) if (PropMeshes.HasLow((Prop)k)) n += aggCount[Kinds + k]; return n; } }
+        /// <summary>Delle cose pesanti (sassi, massi, cactus e cespugli, PropMeshes.HasLow): quante hanno tutti i triangoli (entro 70 m) e quante la versione ridotta (oltre).</summary>
+        public int FullDetail { get { int n = 0; for (int k = 0; k < Kinds; k++) if (PropMeshes.HasLow((Prop)k)) n += aggCount[k]; return n; } }
+        public int ReducedDetail { get { int n = 0; for (int k = 0; k < Kinds; k++) if (PropMeshes.HasLow((Prop)k)) n += aggCount[Kinds + k]; return n; } }
         /// <summary>Vero se l'ultimo fotogramma non ha mandato alla scheda niente perche' il giocatore e' sotto la sabbia (una catacomba): da li' le cose sopra non si vedono.</summary>
         public bool Underground { get; private set; }
 

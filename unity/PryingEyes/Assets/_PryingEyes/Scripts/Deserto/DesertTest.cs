@@ -402,11 +402,11 @@ namespace PryingEyes.Deserto
                 if (!NavMesh.SamplePosition(new Vector3(q.x, DesertWorld.Height(q.x, q.y), q.y), out _, 1.5f, NavMesh.AllAreas)) lost += $" ({q.x:F0}, {q.y:F0})";       // la sabbia attorno non e' piu' piatta: si cerca alla sua quota
             Check("la navmesh tiene tutti i tasselli costruiti attorno", lost.Length == 0, lost.Length == 0 ? "" : "senza navmesh:" + lost + "; " + DesertNav.BuiltTiles + " tasselli");
             Check("la cattedrale e' un santuario: niente navmesh sulla scalinata ne' dentro", !onStairs && !inChurch, $"scalinata {onStairs}, chiesa {inChurch}");
-            // le cose sulla sabbia: in superficie si disegnano (il taglio di quando si e' sottoterra non deve scattare), e i sassi e i massi lontani hanno la versione ridotta
+            // le cose sulla sabbia: in superficie si disegnano (il taglio di quando si e' sottoterra non deve scattare), e le cose pesanti lontane hanno la versione ridotta
             var scat = DesertScatter.I;
-            if (scat != null) yield return WaitFor(() => scat.CellsReady >= 20 && scat.RocksNear + scat.RocksFar > 20, 40f);
+            if (scat != null) yield return WaitFor(() => scat.CellsReady >= 20 && scat.FullDetail + scat.ReducedDetail > 20, 40f);
             Check("sulla sabbia le cose sono mandate alla scheda: il taglio da sottoterra non scatta in superficie", scat != null && !scat.Underground, scat == null ? "manca il regista delle cose" : $"giocatore a {pl.transform.position.y:F1}, la sabbia a {DesertWorld.Height(pl.transform.position.x, pl.transform.position.z):F1}");
-            Check("i sassi e i massi lontani hanno la versione ridotta (sono molti di piu' di quelli entro 70 m)", scat != null && scat.RocksFar > 0 && scat.RocksFar > scat.RocksNear, scat == null ? "manca" : $"{scat.RocksNear} con tutti i triangoli, {scat.RocksFar} ridotti");
+            Check("le cose pesanti (sassi, massi, cactus, cespugli) lontane hanno la versione ridotta (sono molte di piu' di quelle entro 70 m)", scat != null && scat.ReducedDetail > 0 && scat.ReducedDetail > scat.FullDetail, scat == null ? "manca" : $"{scat.FullDetail} con tutti i triangoli, {scat.ReducedDetail} ridotte");
             // i due bracieri in cima alla scalinata hanno il fuoco (fiamma, nucleo, fumo e brace: DesertCathedral.BrazierFire), non solo un disco acceso sopra una coppa nera
             int braziers = 0, burning = 0;
             foreach (var bf in FindObjectsByType<DesertCathedral.BrazierFire>(FindObjectsSortMode.None))
@@ -504,27 +504,35 @@ namespace PryingEyes.Deserto
         IEnumerator UseWithF(IInteract it, string what)
         {
             var pl = Pl;
-            Vector3 target = it.Point, from = target + Vector3.back * 1.3f;
+            Vector3 target = it.Point;
+            // i posti dove si sta in piedi (una capsula libera) per guardarla: davanti, dietro e di lato (i leggii sono a un metro e tre quarti l'uno dall'altro), a 1,3 m e poi piu' vicino e piu' lontano
+            var spots = new List<Vector3>();
             if (it is Component comp)
             {
                 var f = comp.transform.forward; f.y = 0f;
                 if (f.sqrMagnitude < 0.1f) f = Vector3.back;
                 f.Normalize();
-                // davanti, dietro o di lato: dove c'e' posto per stare in piedi (i leggii sono a un metro e tre quarti l'uno dall'altro)
-                foreach (var d in new[] { f, -f, Vector3.Cross(f, Vector3.up), -Vector3.Cross(f, Vector3.up) })
-                {
-                    var q = target + d * 1.3f; q.y = 0.06f;
-                    if (Physics.CheckCapsule(q + Vector3.up * 0.4f, q + Vector3.up * 1.5f, 0.3f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) continue;
-                    from = q; break;
-                }
+                foreach (float dist in new[] { 1.3f, 1.0f, 1.7f })
+                    foreach (var d in new[] { f, -f, Vector3.Cross(f, Vector3.up), -Vector3.Cross(f, Vector3.up) })
+                    {
+                        var q = target + d * dist; q.y = 0.06f;
+                        if (Physics.CheckCapsule(q + Vector3.up * 0.4f, q + Vector3.up * 1.5f, 0.3f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) continue;
+                        spots.Add(q);
+                    }
             }
-            from.y = 0.06f;
-            pl.Teleport(from);
-            yield return null;
-            Face(target);
-            yield return new WaitForSeconds(0.15f);
-            bool selected = Interact.Tick(pl.cam) && Interact.Current == it;
-            Check(what + ": si guarda e si usa con F", selected, selected ? "" : $"F userebbe {Interact.Current?.GetType().Name ?? "niente"}");
+            if (spots.Count == 0) spots.Add(new Vector3(target.x, 0.06f, target.z - 1.3f));
+            // il primo posto da cui F sceglie proprio questa cosa: un leggio piu' vicino all'occhio la puo' rubare (e' successo una volta, al cantiere delle volte, in una serie di giri tutti uguali), come a un giocatore, che si sposterebbe
+            bool selected = false;
+            foreach (var from in spots)
+            {
+                pl.Teleport(from);
+                yield return null;
+                Face(target);
+                yield return new WaitForSeconds(0.15f);
+                selected = Interact.Tick(pl.cam) && Interact.Current == it;
+                if (selected) break;
+            }
+            Check(what + ": si guarda e si usa con F", selected, selected ? "" : $"F userebbe {Interact.Current?.GetType().Name ?? "niente"} da tutti i {spots.Count} posti provati");
             if (selected) Interact.TryUse(); else it.Use();
             yield return new WaitForSeconds(0.2f);
         }

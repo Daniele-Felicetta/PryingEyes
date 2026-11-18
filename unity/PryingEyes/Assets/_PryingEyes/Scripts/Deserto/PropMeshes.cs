@@ -17,22 +17,24 @@ namespace PryingEyes.Deserto
             return meshes[(int)p];
         }
 
-        /// <summary>I sassi e i massi hanno due versioni: quella piena (Get) per quelli vicini e questa per quelli lontani, con gli stessi piani (quindi la stessa sagoma) e gli stessi colori
-        /// ma un quinto circa dei triangoli. Le altre cose ne hanno una sola e questa restituisce quella.</summary>
+        /// <summary>I sassi, i massi, i cactus e i cespugli hanno due versioni: quella piena (Get) per quelli vicini e questa per quelli lontani, con la stessa sagoma e gli stessi colori
+        /// ma meno triangoli (un quinto circa per i sassi). Le altre cose ne hanno una sola e questa restituisce quella.</summary>
         public static Mesh GetLow(Prop p)
         {
             if (!HasLow(p)) return Get(p);
             lowMeshes ??= new Mesh[(int)Prop.Count];
-            return lowMeshes[(int)p] ??= Stone(p, true);
+            return lowMeshes[(int)p] ??= p == Prop.Cactus ? Cactus(true) : p == Prop.Bush ? Bush(true) : Stone(p, true);
         }
 
-        /// <summary>Se il genere ha la versione per la distanza (GetLow): i sassi e i massi, le sole cose che pesano (circa 1.670 e 3.580 triangoli la copia, contro i 480 e i 980 di prima).</summary>
+        /// <summary>Se il genere ha la versione per la distanza (GetLow): le sole cose che pesano (circa 1.670 triangoli la roccia, 3.580 il masso, 2.300 il cactus e 2.000 il cespuglio, contro i
+        /// 480, 980, 350 e 520 di prima).</summary>
         public static bool HasLow(Prop p)
         {
             switch (p)
             {
                 case Prop.RockTan: case Prop.RockDark: case Prop.RockRed: case Prop.RockWhite:
-                case Prop.BoulderTan: case Prop.BoulderDark: case Prop.BoulderRed: return true;
+                case Prop.BoulderTan: case Prop.BoulderDark: case Prop.BoulderRed:
+                case Prop.Cactus: case Prop.Bush: return true;
                 default: return false;
             }
         }
@@ -265,9 +267,9 @@ namespace PryingEyes.Deserto
             meshes[(int)Prop.BoulderDark] = Stone(Prop.BoulderDark, false);
             meshes[(int)Prop.BoulderRed] = Stone(Prop.BoulderRed, false);
             meshes[(int)Prop.Slab] = Slabs();
-            meshes[(int)Prop.Cactus] = Cactus();
+            meshes[(int)Prop.Cactus] = Cactus(false);
             meshes[(int)Prop.Barrel] = Barrel();
-            meshes[(int)Prop.Bush] = Bush();
+            meshes[(int)Prop.Bush] = Bush(false);
             meshes[(int)Prop.DeadTree] = DeadTree();
             meshes[(int)Prop.Bones] = Bones();
             meshes[(int)Prop.Column] = Column();
@@ -407,19 +409,51 @@ namespace PryingEyes.Deserto
             return m.Done("Slab");
         }
 
-        static Mesh Cactus()
+        /// <summary>Un cactus saguaro: il fusto e due bracci a coste (otto sul fusto, sei sui bracci: una cresta e una gola ciascuna, e la forma e il colore seguono lo stesso coseno, quattro lati per costa),
+        /// percorsi morbidi e punte a cupola; la cima e' un po' piu' gialla. Prima le coste erano due lati e il fusto sembrava liscio, di plastica. La versione 'low' (da lontano) ha meno anelli e meno lati.</summary>
+        static Mesh Cactus(bool low)
         {
             var m = new PM(Surf.Organic);
-            // costolature: 8 coste sul fusto (16 lati: una cresta, una gola), 6 sulle braccia (12 lati); le coste sono piu' chiare delle gole
-            Func<int, int, Color> ribs = (i, j) => (j % 2 == 0) ? C(0.27f, 0.40f, 0.21f) : C(0.14f, 0.25f, 0.115f);
-            Func<float, float> trunkRib = a => 1f + 0.10f * Mathf.Cos(a * 8f), armRib = a => 1f + 0.11f * Mathf.Cos(a * 6f);
-            Tube(m, new[] { new Vector3(0f, 0f, 0f), new Vector3(0.02f, 0.7f, 0f), new Vector3(0f, 1.5f, 0.02f), new Vector3(-0.02f, 2.2f, 0f), new Vector3(-0.02f, 2.42f, 0f) },
-                 new[] { 0.25f, 0.23f, 0.22f, 0.19f, 0.07f }, 16, ribs, 0f, 0f, true, trunkRib);
-            Tube(m, new[] { new Vector3(0.1f, 1.0f, 0f), new Vector3(0.55f, 1.05f, 0f), new Vector3(0.78f, 1.35f, 0f), new Vector3(0.8f, 1.95f, 0f), new Vector3(0.8f, 2.12f, 0f) },
-                 new[] { 0.13f, 0.12f, 0.12f, 0.11f, 0.04f }, 12, ribs, 0f, 0f, true, armRib);
-            Tube(m, new[] { new Vector3(-0.1f, 1.45f, 0.02f), new Vector3(-0.5f, 1.5f, 0.1f), new Vector3(-0.68f, 1.75f, 0.12f), new Vector3(-0.7f, 2.2f, 0.12f), new Vector3(-0.7f, 2.34f, 0.12f) },
-                 new[] { 0.12f, 0.11f, 0.11f, 0.1f, 0.04f }, 12, ribs, 0f, 0f, true, armRib);
-            return m.Done("Cactus");
+            int rings = low ? 5 : 12, sides = low ? 16 : 32, armSides = low ? 12 : 24;
+            Func<float, float> trunkRib = a => 1f + 0.12f * Mathf.Cos(a * 8f), armRib = a => 1f + 0.13f * Mathf.Cos(a * 6f);
+            Limb(m, new[] { new Vector3(0f, 0f, 0f), new Vector3(0.02f, 0.7f, 0f), new Vector3(0f, 1.5f, 0.02f), new Vector3(-0.02f, 2.25f, 0f) },
+                 new[] { 0.25f, 0.23f, 0.22f, 0.19f }, rings, sides, 8, trunkRib);
+            Limb(m, new[] { new Vector3(0.1f, 1.0f, 0f), new Vector3(0.55f, 1.05f, 0f), new Vector3(0.78f, 1.35f, 0f), new Vector3(0.8f, 2.0f, 0f) },
+                 new[] { 0.13f, 0.12f, 0.12f, 0.11f }, rings, armSides, 6, armRib);
+            Limb(m, new[] { new Vector3(-0.1f, 1.45f, 0.02f), new Vector3(-0.5f, 1.5f, 0.1f), new Vector3(-0.68f, 1.75f, 0.12f), new Vector3(-0.7f, 2.2f, 0.12f) },
+                 new[] { 0.12f, 0.11f, 0.11f, 0.1f }, rings, armSides, 6, armRib);
+            return m.Done(low ? "CactusLow" : "Cactus");
+        }
+
+        /// <summary>Un ramo di cactus: un percorso morbido (Catmull-Rom) per i punti di controllo con il raggio che li segue, tre anelli in piu' che chiudono la punta a cupola (30, 60 e 85 gradi) e il colore a coste
+        /// (le creste piu' chiare delle gole, la cima un po' piu' gialla).</summary>
+        static void Limb(PM m, Vector3[] ctrl, float[] radius, int rings, int sides, int flutes, Func<float, float> rib)
+        {
+            int total = rings + 3;
+            var path = new Vector3[total]; var rad = new float[total];
+            for (int i = 0; i < rings; i++)
+            {
+                float t = i / (float)(rings - 1) * (ctrl.Length - 1);
+                int k = Mathf.Min((int)t, ctrl.Length - 2); float u = t - k;
+                Vector3 p0 = ctrl[Mathf.Max(k - 1, 0)], p1 = ctrl[k], p2 = ctrl[k + 1], p3 = ctrl[Mathf.Min(k + 2, ctrl.Length - 1)];
+                path[i] = 0.5f * (2f * p1 + (p2 - p0) * u + (2f * p0 - 5f * p1 + 4f * p2 - p3) * u * u + (3f * p1 - p0 - 3f * p2 + p3) * u * u * u);
+                rad[i] = Mathf.Lerp(radius[k], radius[k + 1], u);
+            }
+            Vector3 up = (path[rings - 1] - path[rings - 2]).normalized; float rTop = rad[rings - 1];
+            float[] dome = { 30f, 60f, 85f };
+            for (int d = 0; d < 3; d++)
+            {
+                float a = dome[d] * Mathf.Deg2Rad;
+                path[rings + d] = path[rings - 1] + up * (rTop * Mathf.Sin(a));
+                rad[rings + d] = rTop * Mathf.Cos(a);
+            }
+            Func<int, int, Color> col = (i, j) =>
+            {
+                float a = j * Mathf.PI * 2f / sides, ridge = 0.5f + 0.5f * Mathf.Cos(a * flutes), v = i / (float)(total - 1);
+                var c = Color.Lerp(C(0.13f, 0.24f, 0.11f), C(0.30f, 0.43f, 0.22f), ridge);
+                return Color.Lerp(c, C(0.46f, 0.52f, 0.27f), Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.78f, 1f, v)) * 0.55f);
+            };
+            Tube(m, path, rad, sides, col, 0f, 0f, true, rib);
         }
 
         static Mesh Barrel()
@@ -436,7 +470,8 @@ namespace PryingEyes.Deserto
             return m.Done("Barrel");
         }
 
-        static Mesh Bush()
+        /// <summary>Un cespuglio secco: sedici rami con tre ciuffi di foglie ciascuno. La versione 'low' (da lontano) ha lo stesso ingombro con un ciuffo solo, piu' largo, in punta a ogni ramo.</summary>
+        static Mesh Bush(bool low)
         {
             var m = new PM(Surf.Organic); var rng = new System.Random(21);
             for (int i = 0; i < 16; i++)
@@ -445,12 +480,17 @@ namespace PryingEyes.Deserto
                 var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
                 var p0 = dir * 0.02f; var p1 = dir * lean * 0.4f + Vector3.up * hgt * 0.5f; var p2 = dir * lean + Vector3.up * hgt;
                 Tube(m, new[] { p0, p1, p2 }, new[] { 0.022f, 0.016f, 0.008f }, 4, (k, j) => Color.Lerp(C(0.30f, 0.22f, 0.13f), C(0.46f, 0.38f, 0.22f), k * 0.5f), 0f, 0.8f);
+                if (low)
+                {
+                    Blob(m, p2 + Vector3.up * 0.02f, new Vector3(0.22f, 0.13f, 0.22f), 50 + i, 0.3f, C(0.20f, 0.24f, 0.12f), C(0.48f, 0.52f, 0.28f), 6, 4, 0.5f, 1f);
+                    continue;
+                }
                 // three tufts of leaves along each stem (the tip, the middle and one at the side), in a sage green: the old single yellow ball on each stem read as a lollipop
                 Blob(m, p2 + Vector3.up * 0.02f, new Vector3(0.15f, 0.09f, 0.15f), 50 + i, 0.3f, C(0.20f, 0.24f, 0.12f), C(0.50f, 0.54f, 0.29f), 6, 4, 0.5f, 1f);
                 Blob(m, Vector3.Lerp(p1, p2, 0.55f) + dir * 0.03f, new Vector3(0.11f, 0.07f, 0.11f), 70 + i, 0.3f, C(0.20f, 0.24f, 0.12f), C(0.46f, 0.50f, 0.27f), 6, 4, 0.5f, 0.8f);
                 Blob(m, p1 + Quaternion.AngleAxis(90f, Vector3.up) * dir * 0.07f, new Vector3(0.09f, 0.06f, 0.09f), 90 + i, 0.3f, C(0.18f, 0.22f, 0.11f), C(0.42f, 0.47f, 0.25f), 6, 4, 0.5f, 0.5f);
             }
-            return m.Done("Bush");
+            return m.Done(low ? "BushLow" : "Bush");
         }
 
         /// <summary>Un ramo che si piega a caso e si assottiglia, con rami figli che nascono a meta' e in punta: gli alberi morti del deserto sono nodosi e ramificati, non pali con degli stuzzicadenti.</summary>
