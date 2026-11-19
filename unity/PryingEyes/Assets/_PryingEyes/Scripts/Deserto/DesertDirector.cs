@@ -100,6 +100,7 @@ namespace PryingEyes.Deserto
             DesertDevils.Create(go, followed);            // i diavoli di sabbia, di giorno col tempo buono
             DesertPrints.Create(go);                      // le orme sulla sabbia, cancellate dal vento in un minuto
             DesertSound.Create(go, followed);             // sibilo della sabbia, grilli, gracchi, ululati e il crepitio dei fuochi
+            DesertBikes.Create(go.transform);             // le moto, ai piedi della scalinata: una per posto (si montano con Usa)
             // schermo condiviso (0.9.1): gli altri posti hanno la loro sabbia che vola, le loro sterpaglie e i loro animali, i loro veli e diavoli di sabbia (i fuochi li serve la stessa
             // istanza, che accende quelli vicini a ogni posto, e il suono e' uno solo: c'e' un solo ascoltatore)
             for (int i = 1; i < Seats.All.Count; i++)

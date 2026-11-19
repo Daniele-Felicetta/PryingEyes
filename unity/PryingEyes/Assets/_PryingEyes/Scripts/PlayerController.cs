@@ -228,6 +228,7 @@ namespace PryingEyes
             if (cam == null || weapon == null || (GameMenu.Blocked && !Coop.Active)) return;
             float dt = Time.deltaTime;
             TickSurvival(dt);
+            if (Riding && (!alive || Downed)) AbortRide();          // a terra o morti si lascia la moto dov'e' (PlayerController.Ride.cs)
             if (!alive)
             {
                 respawnT -= dt;
@@ -275,6 +276,8 @@ namespace PryingEyes
                     s = Vector3.Dot(botDir, new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)));
                 }
             }
+            // in sella (moto del deserto) il corpo non cammina: la guida, la camera e le collisioni stanno in PlayerController.Ride.cs
+            if (Riding) { RideTick(dt, f, s, inputEnabled); return; }
             bool crouchKey = SeatInput.GetKey(KeyCode.C) || SeatInput.GetKey(KeyCode.LeftControl);
             bool sprintKey = SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift);
             ToggleKeys(inputEnabled, f, ref crouchKey, ref sprintKey);        // Impostazioni > Comandi: tenendo premuto o a interruttore
@@ -579,6 +582,7 @@ namespace PryingEyes
             // mantieni le armi comprate, con caricatore pieno e riserva almeno quella di partenza
             weapon.RespawnAmmo();
             Torch.I?.OnRespawn();
+            Deserto.DesertBikes.ReturnHome(this);          // nel deserto la moto lasciata lontano torna dov'era nata
             hud?.SetBars(hp, shield);
             if (Seats.Split) return;
             Cursor.lockState = GameMenu.Blocked ? CursorLockMode.None : CursorLockMode.Locked;

@@ -107,10 +107,10 @@ namespace PryingEyes
             }
             placed = true;
             lastPos = pos;
-            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, p.yaw * Mathf.Rad2Deg, 0f));
+            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, (p.Riding ? p.RideHeading : p.yaw) * Mathf.Rad2Deg, 0f));          // in sella il corpo guarda dove punta la moto
             if (visual == null) return;
             if (body != null) DriveBody(p, vel);
-            else AnimateMannequin(p, dt, Mathf.Min(6f, new Vector2(vel.x, vel.z).magnitude));
+            else AnimateMannequin(p, dt, p.Riding ? 0f : Mathf.Min(6f, new Vector2(vel.x, vel.z).magnitude));
             if (label != null)
             {
                 if (label.gameObject.activeSelf != p.alive) label.gameObject.SetActive(p.alive);
@@ -125,9 +125,9 @@ namespace PryingEyes
         {
             var w = p.weapon;
             var inp = body.input;
-            inp.velocity = vel;
+            inp.velocity = p.Riding ? Vector3.zero : vel;                      // in sella le gambe non camminano
             inp.pitch = p.pitch; inp.lean = p.lean;
-            inp.crouch = p.IsCrouching; inp.sprint = p.IsSprinting;
+            inp.crouch = p.IsCrouching || p.Riding; inp.sprint = p.IsSprinting && !p.Riding;
             inp.alive = p.alive; inp.downed = p.Downed;
             inp.grounded = cc == null || cc.isGrounded || p.Mantling || Mathf.Abs(vel.y) < 1f;
             inp.climb = p.Mantling ? 1f : 0f;

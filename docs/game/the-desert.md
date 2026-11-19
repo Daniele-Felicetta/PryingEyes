@@ -368,7 +368,7 @@ floors: points, weapons, perks, the store and the cathedral, the loot on the san
 - **Who is asleep.** `Enemy.dormant` travels in a bit of `EnemyNet.status` (`Enemy.DormantBit`, 0x80; the magic and seal states use the low six), so that a companion's minimap does not show as a threat
   an enemy that is resting.
 
-Protocol `pe-coop-31` (the `Welcome` flag, `DesertBossDown`, `DesertClock`, the bit of `status`). The scenario `j_deserto` of `tools/coop/run_all.ps1` tests it with two processes (below).
+Protocol `pe-coop-31` (the `Welcome` flag, `DesertBossDown`, `DesertClock`, the bit of `status`); the motorbike raised it to `pe-coop-32` (see "The motorbike"). The scenario `j_deserto` of `tools/coop/run_all.ps1` tests it with two processes (below).
 
 **Split screen** (two to four players on one PC, over one or several monitors, 0.9.1; [../multiplayer/split-screen.md](../multiplayer/split-screen.md) has the rest). One process, one desert, one
 `Seat` per player (`Coop/Seats.cs`). After *Chi gioca?* (the characters) the menu asks *Che partita giocate?* (`GameMenu.Mode.cs`, the panel of the single player) and `SplitBegin` starts the run;
@@ -390,6 +390,50 @@ of the day and the weather, the places, the bosses, and the one audio listener (
 - **Per seat and not per machine**: the objective line (`DesertDirector.WhereText` keeps its cache for each seat and `RefreshObjective` writes the lines from inside each seat), the edge of the world, the pick-ups
   (`DesertPickup`), the minimap markers (`HUD.DesertMap`) and the falls (`DesertFallGuard` already was).
 
+## The motorbike
+
+Request of 19 November 2026, the day of release 0.9.1: *a motorbike near the cathedral, to get around*. The desert is 18 km wide and 400 m of it take a walker a minute: a bike that is already there, at the foot of the stair, is
+the first way for a player to cross the sand without the long walk. It exists only in the desert.
+
+**How it plays.**
+
+- A bike stands on its kickstand at the foot of the stair, a few metres south of the churchyard, pointing at the open sand: one for each player (`DesertBikes`; in a split screen one for each seat, side by side 1.8 m apart; in
+  co-op the one of the player's own slot). Look at it and the use prompt says *Sali in moto*: **F**, the key of every use (doors, books, the revival of a mate), puts you in the saddle.
+- **W** gas, **S** brake and, kept down, reverse; **A**/**D** steer; **Shift** turbo; **Space** handbrake (the rear slides: it is how a tight bend is taken); the mouse looks freely up to 100° each side, and after a second and a bit
+  without looking the view comes back to the front. **F** gets off: at once under 4 m/s (14 km/h), otherwise the bike brakes by itself and the rider steps off to its side as soon as it is under 3.5 m/s. On a pad the same actions as
+  walking are used (move, jump = handbrake, sprint = turbo, use); this was not tried with a real controller.
+- Top speed 23 m/s (83 km/h), turbo 31 m/s (112 km/h), reverse 5 m/s. The gas gives 50 km/h in 1.8 s (measured), the brake takes 17 m/s² (a stop from top speed in under two seconds and about 16 m); at speed the field of view opens by up to 17°, the view
+  follows half of the pitch and roll of the bike, bumps and landings shake it, and the sand rises behind the rear wheel. The rider is always seen from the first person (the third-person view is not used on the bike) and the bike
+  is the whole of your hands: the weapon, the knife, the equipment and the magic are off until you get off.
+- A bike is **loud**: while it moves (over 1.5 m/s) the engine emits, every 0.45 s, a noise (`Noise.Emit`, kind `Other`) of 7 m plus 0.85 m for each m/s of speed, up to 26 m, farther than any footstep; at a standstill it idles and makes none.
+- A wall taken at more than 8 m/s is a **crash** (a frame in which the speed along the heading drops by more than 8 m/s): the bike stops, the camera is thrown, a crack and a cloud of sand, and the rider is hurt for `(loss - 8) * 2.4`, at most 45 and nothing at all under 3 points (never
+  enough to kill at full health in one go), with 0.8 s before the next. A landing from more than 6.5 m/s downwards thumps, from more than 15 m/s it hurts too. Being hit by an enemy, going down and dying work as on foot; going down or dying throws the rider off.
+- **At night, and indoors, the headlight comes on** (a spot light, only while somebody rides: when the sky's `Night` is above 0.28 or its `Indoor` above 0.5) and the tail light shows the brake. Nothing stops the bike from going into the cathedral or a building (not tried).
+- **The sound** is made by code like the others (`SoundMoto.cs`): a 1.2 s loop of 41 engine pulses with their harmonics, valve noise and a rumble, played at a pitch of 0.62 to 2.3 through four gears (revs climb in a gear and fall at the change, a cut of gas lets them
+  drop, in the air they race), the hiss of the sand as wind rising with speed, and the crash. The volumes follow the *Effects* setting and the pause menu silences the engine (not in co-op, where the pause stops nothing).
+
+**How it works** (`Deserto/DesertBike.cs`, `DesertBikeMesh.cs`, `DesertBikes.cs`, `SoundMoto.cs`, `PlayerController.Ride.cs`).
+
+- **It is not a vehicle with wheel colliders: the rider is still the player's own `CharacterController`.** While riding, `PlayerController.UpdateBody` calls `RideTick` (`PlayerController.Ride.cs`) in place of the walking code, with the same
+  inputs (keys, pad and touch alike, and the seat's own input in a split screen), and the player moves with `cc.Move` as always (the step offset is raised to 0.5 m for the ride). So the sand's colliders, the slopes, the falls, the damage, the Downed state, the
+  hits of the enemies, the pose that co-op sends and the seats of the split screen keep working with nothing to change, and the bike is a body that follows the player (`DesertBike.Pose`). The price is that the handling is an *arcade* model, not
+  a simulation, and that two bikes do not push each other (a parked bike has a collider and nothing walks through it; one with a rider has none, as the rider's body is on it).
+- **The model of the ride**: heading and velocity are kept apart. The heading turns with the steering (a rate that falls from 2.3 rad/s at a crawl to 0.55 at top speed, 40 % more with the handbrake, and fades to nothing under 1.8 m/s: a bike does not turn on the spot); the velocity follows
+  the heading with a lateral grip that damps the sideways part by 9 per second (1.2 with the handbrake, 0.15 in the air), so a bend taken fast slides; gas accelerates by `12 * throttle * (1 - v / top)`, the brake takes 17 m/s², the engine alone `1.4 + 0.006 v²`, the handbrake 20;
+  gravity is the player's own (17.5) and a ground snap that grows with speed (`0.30 + 0.012 v` m) keeps the wheels on a downhill. The turbo's top speed eases in and out (5 and 9 m/s each second).
+- **The sand is not outrun**: if the ground ahead of the bike has no collider yet (`DesertTerrain.Ready` on a point 0.9 s of travel plus 8 m ahead), the speed is brought down to 7 m/s (14 m/s²) until it has, so the bike never rides out onto sand that is not there (the 150 m round the player
+  are always made with colliders, and at 31 m/s that is five seconds ahead).
+- **The look is made by code** (`DesertBikeMesh.cs`, with the lathe of `DesertLathe`): frame, engine with its fins, exhaust, tank, seat, fork on the inclined steering axis, handlebar with grips, wheels with spokes, the lens of the headlight and the tail light, a
+  number plate; the steering group is turned as a whole on the fork's axis; the rider's arms hold the bars and are seen only by the one who rides (and not in a split screen): leather gloves that turn with the fork and, for each side, a forearm (khaki canvas) that is a tube of length one that
+  `DesertBikeMesh.Rig.PoseArms` stretches every frame between an elbow fixed in the body of the bike (below the lower edge of the screen) and the fist on the grip, so that the arm bends towards the grip when steering instead of turning with the fork. The pitch comes from two rays, one for each wheel,
+  the roll from the steering and the speed, and the wheels turn with the distance. Everything is shared (one set of meshes and materials) among the bikes of a game; the paint is a dark red.
+- **Mounting** is a `Proc.IInteract` like the doors (radius 3.1 m; the bike has a box collider so that the sight line finds it). When a rider goes down or dies the bike is let go where it stands, and when that player is reborn at the stair the bike goes back to where it was born (`DesertBikes.ReturnHome`, called by `PlayerController.Respawn`); a bike that falls under the world goes back there too.
+
+**Co-op and split screen** (protocol `pe-coop-32`: `PlayerNet` carries a bit `riding` in the second flags byte and a byte of `heading`, the direction the bike points, which is not where the player looks). A companion who rides is seen on a bike (`RemotePlayer.TickBike` makes
+the puppet's bike when needed, poses it with the heading and the speed that the network gives, and puts the body in the saddle: legs bent, no walking), with the engine as a sound in space at the bike (not measured), and the way it leans comes from how fast it turns. Each machine builds the bike of its own slot
+only, so **a companion's parked bike is not seen by the others** (only while he rides it); a companion who gets off in front of you leaves no bike in your world. In a split screen the seat's body is the rider (`SeatAvatar`: looking where the bike points, crouched on it) and the bikes
+are one for each seat. There is no collision between a bike and an enemy that hurts the enemy: **nothing runs over**, since it would need a damage source of its own over the network.
+
 ## The code
 
 | File (`unity/PryingEyes/Assets/_PryingEyes/Scripts/`) | What it does |
@@ -410,16 +454,18 @@ of the day and the weather, the places, the bosses, and the one audio listener (
 | `Deserto/DesertAnchors.cs`, `Coop/CoopGame.World.cs`, `Coop/CoopTest.Desert.cs` | Co-op: the companions' points that the host builds the desert round (and, in a split screen, the other seats, which are also looked at); what each guest is sent (enemies near it, the clock, the boss); the two-process test. |
 | `Deserto/DesertDirector.cs`, `DesertSites.cs`, `DesertStairs.cs` | The director (places, walkers in the open, loot in the open, bosses, the edge of the world, the renewal of the Library, the sweep of unused assets, the compass words), a loaded place and the stairs of a stack. |
 | `Deserto/DesertPickup.cs` | Points, ammunition, medikit and essence. |
+| `Deserto/DesertBike.cs`, `DesertBikeMesh.cs`, `DesertBikes.cs`, `SoundMoto.cs`, `PlayerController.Ride.cs` | The motorbike: the bike (mount, pose, engine, lights, parking), its model made by code, one bike for each seat, the engine and crash sounds (`SoundGen`, `SoundBank`), and the ride itself inside the player's body (the dynamics, the camera, getting off). |
 | `Deserto/DesertCathedral.cs`, `Proc/RoomKits.HubDeserto.cs`, `Proc/HubPlan.cs` | The cathedral in the desert: plinth and stair (one stone mesh, physics in hidden boxes), the two braziers (a bowl, three legs and a ring in one mesh, `BrazierMesh`, built with `DesertLathe`) with their fire (`BrazierFire`), the two banners of the stair and those of the towers (`DesertBanner`), the lamp posts (`DesertLamps`) and the awnings, drapes and counters of the stalls (`DesertAwning`), the armoury and its prices, the places of the two works. |
 | `Proc/FloorDirector.Desert.cs`, `FloorDirector.Catacombe.cs` | Starting the game, the wait for the ground, the HUD and the objective, the fall guard, what a rebuilt cathedral must not wipe. |
 | `GameMenu.Mode.cs` | The choice *Standard* / *Il deserto*. |
-| `DesertTest.cs`, `SplitDesertTest.cs` | The in-game check (below) and the one of the split screen. |
+| `DesertTest.cs`, `DesertTest.Moto.cs`, `SplitDesertTest.cs` | The in-game check (below), its `moto` phase and the one of the split screen. |
 
 Changes elsewhere: `Stealth.Enabled` is off in the desert (no stealth: see `Enemy.Desert.cs`), `Enemy.FloorDirectorCeiling` and `MoveFlying` follow the ground, `WallBuy` has free
 panels, `Catacombe.OnKill` takes the branch of a drop from the place, the standard gates of the descent are not built, `HUD` has a shade at the top
 and outlined texts and a two-line objective while the desert is on, `ProcAmbience` and `PlayerController.Surface` give the wind, the dry echo and
 the sand steps (`SoundGen.Step` surface 3), the menu's *Gioca* asks first (`GameMenu.Mode.cs`; `PadMenuTest` and `PresentationTest` choose
-*Standard*), and `Shaders/ChurchHaze.shader` measures the height of its haze from the floor of the room instead of from the world's zero.
+*Standard*), and `Shaders/ChurchHaze.shader` measures the height of its haze from the floor of the room instead of from the world's zero. For the motorbike `PlayerController.UpdateBody` hands over to `RideTick`
+while `Riding` and lets go of the bike when the player goes down or dies, `Equipment`, `Knife` and `MagicCaster` do nothing while `Riding`, and `RemotePlayer`, `CoopGame.MyState` and `SeatAvatar` put the body in the saddle and send or follow the direction of the bike.
 
 ## Decisions that were left to the developer
 
@@ -451,6 +497,13 @@ Said here so they can be changed.
 - **Not saved**: the desert, its seed, the clock, what you took. The cathedral, the store and the works are saved as always.
 - **The split screen shares the look and the ears** (0.9.1): the fog, the ambient and the colour grading are global in this pipeline, so a seat inside a building beside a seat on the sand gets the outdoor look (a little bright for the
   one indoors), and there is one audio listener, seat 1's, so a seat kilometres away from it hears nothing of what happens round it. A volume per camera would fix the first and a custom audio mix the second; neither was done.
+- **The motorbike is an arcade ride on the player's body, not a vehicle** (19 November): the rider stays the `CharacterController` and everything that knows "the player" keeps working. A real vehicle (wheel colliders, a rigid body, suspension) would
+  have meant a second body to keep in step with the first in co-op, the split screen, the falls and the enemies' hits. The numbers (83 km/h, 112 with the turbo, a stop from top speed in about 16 m) are a guess at what feels like a bike on sand, since nobody has ridden it by hand; they are constants of `DesertBike` and `PlayerController.Ride.cs`.
+- **F both mounts and gets off** (it is the use key; the turbo is the sprint key and the handbrake the jump key, so a rider's hands never leave the keys they know). Getting off at speed is a brake first, not a jump.
+- **One bike for each player, at the stair, not saved**: a bike left in the desert stays where it was left (it is let go where it stands when its rider goes down or dies), and the one at the stair is the same bike, except that **a player who dies and is
+  reborn at the stair finds it back where it was born** (otherwise whoever died far away would have to walk back to it). A bike left on purpose is not called back: a button for that, or a second bike, is the obvious next step if walking back is a nuisance.
+- **The bike is loud, and nothing runs over**: the engine's noise while it moves (7 m plus 0.85 m for every m/s, up to 26 m) is the price of the speed, and the bike is no weapon (no damage to an enemy it hits, which would have needed a damage source and a message of its own).
+- **The first person only on the bike** (no third-person view while riding; the third-person view of 0.8.0 stays for walking), and no weapon: a rider with a gun on a fast bike would need a lot more (aiming from the saddle, the recoil on the handling, a hand taken off the bar).
 
 ## How to check
 
@@ -460,6 +513,8 @@ dotnet run --project tools/desertlab -c Release            # the pure code, no U
 & $exe -batchmode -autotest -desertotest -desertshots -seed 1000       # the same with a window and the photos of hotel_build/deserto
 & $exe -batchmode -autotest -desertotest -desertonly varieta -desertshots -seed 1000   # one of the long phases (below): soak, varieta or prestazioni
 .\tools\coop\run_all.ps1 -Only j                                       # the desert in co-op: a host and a guest, two processes, no graphics card (about three minutes)
+.\tools\coop\run_all.ps1 -Only m                                       # the motorbike in co-op: one rides and the other watches, then the other way round (two processes, no graphics card)
+& $exe -batchmode -autotest -desertotest -desertonly moto -desertshots -seed 1000   # the motorbike alone, with the ten photos (graphics card: not while another game runs)
 ```
 
 Three more flags help when something fails: `-desertonly scalinata,cappella` runs only those phases (the arrival always runs; the others are
@@ -469,8 +524,8 @@ a hall looks wrong: ambient light, fog, the six nearest lights, the nearest wall
 photos (towards the wall, at the floor). With a window the test also measures the contrast of what the camera sees in the chapel, in every level of the
 catacomb and in the two boss halls (`FrameSpread`: a fog or a black room gives almost none).
 
-Twenty phases are long (or are only photographs) and run only when asked by name (`-desertonly soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `rovine`, `orizzonte`,
-`paesaggio`, `nuvole`, `cose`, `galleria`, `rilievi`, `look`, `suolo`, `orme`, `creste`, `salina`, `cammino`, `percorso` or `vita`, one or more per run, separated by commas), since the default run would double in time. Most are the ones of the livelier desert,
+Twenty-one phases are long (or are only photographs) and run only when asked by name (`-desertonly soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `rovine`, `orizzonte`,
+`paesaggio`, `nuvole`, `cose`, `galleria`, `rilievi`, `look`, `suolo`, `orme`, `creste`, `salina`, `cammino`, `percorso`, `vita` or `moto`, one or more per run, separated by commas), since the default run would double in time. Most are the ones of the livelier desert,
 to be run with `-desertshots` and looked at: **`nuvole`** (photos only) shoots the sky from the churchyard with three covers (`DesertSky.CloudOverride`: 0.12, 0.27 and 0.45) at noon, 16:24 and
 17:54, once away from the sun and once into it: it is how the shape and the light of the clouds and the rays were judged; **`paesaggio`** (photos only) takes the first look from the churchyard at dawn, noon, dusk, night and in a storm and, from a
 vantage point of the dunes, the badlands and the holy land (the highest spot of the area with a gentle slope, looking where the ground rises most), the landscape by day, with
@@ -509,12 +564,29 @@ the door, then on foot to the room that is farthest from the entrance counting d
 in "The world": a head cut to 1.5 m under a soffit once shut the navmesh agent and every enemy out of three of these buildings), and with a window checks the
 contrast of the view; for the tower and the catacomb it also moves to the boss hall and checks that the boss appears and that the hall can be seen. **`prestazioni`** (needs a graphics card, the window stays hidden) renders the player's camera by hand at 1920x1080 into a
 texture, waits for the GPU and takes the median of seven frames in seven places: the churchyard facing the sand, the open sand with the landmark tower by day
-and by night, the foot of the tower looking up, the nave, inside the chapel and the boss hall of a catacomb; a place over 33 ms fails.
+and by night, the foot of the tower looking up, the nave, inside the chapel and the boss hall of a catacomb; a place over 33 ms fails. **`moto`** (37 checks, 47 with the arrival, the frame times and the log; headless in about a minute and a half,
+with `-desertshots` ten photos `moto_a_fronte` to `moto_l_compagno_in_corsa` in `hotel_build/deserto/`) rides the whole ride: the bike parked at the foot of the stair (on the sand, with a collider, light off, silent), the use prompt and the mount (collider off,
+weapon hidden, body on the bike), 50 km/h in under 4 s, the heading, the top speed (21 to 24.5 m/s) and the turbo (over 27 and under 32.5), a bend (turning, leaning, the steered wheel), the brake (a stop in under 4 s), reverse, a stop by itself when the gas is let go, the handbrake slide
+(the velocity leaves the heading by more than 6°), a wall at speed (the crash, the damage, no death at full health, the bike stopped), a lift into the void and the landing, the headlight (on at night, off by day), getting off (by itself when it stops, 0.7 to 2.4 m to the side in free
+space, the collider and the weapon back, a walking body), then **a ride of more than a kilometre**: three legs of 380 m (south, east, north) driven by an autopilot with three sphere casts to steer round obstacles, with the sand, the places and the navmesh made as it goes, which
+checks that the rider arrives, never goes below the sand and has no frame over half a second; and last a companion's bike (a puppet posed by hand: no prompt, no collider, wheels turning, leaning in a bend). The `-coopmoto` scenario (`run_all.ps1 -Only m`) tests the network half with two processes (below).
 
 ## What is verified
 
 Everything below was run on 18 and 19 November 2026 on the developer's PC (seed 1000); the numbers are those of the last run of each test, made on the working tree that was committed in the sixth round (`b9c6cd4`) or in the commit of the long-walk probe after it (`9eb7b60`), both on 19 November. The release battery of 19 November (everything but the photos and the cost of a frame) ran on the build of `9eb7b60`: `-desertotest` 127 of 127 in 171 s, `-desertonly soak,varieta,percorso` 48 of 48 in 733 s, `tools/desertlab` all pass.
 
+- **The motorbike** (19 November 2026, on the code of this change, seed 1000, no one rode it by hand: the controls were forced by the test). `-desertonly moto`: **49 of 49** with the arrival, headless in 103 s and with a hidden window and the graphics card in 114 s (ten
+  photographs, made again and looked at on the last build); the whole `-desertotest` after it **146 of 146** in 176 s (as before). What it measured: the bike stands 5.1 m from the foot of the stair, 0.00 m above the sand, with its collider, light off and silent; the use prompt picks it; in the saddle the body is on the bike
+  (0.00 m), the collider is off and the weapon hidden; 50 km/h in 1.8 s; 21.0 m/s (76 km/h) at the time of the check against a top speed of 23, 27.0 then 29.2 m/s (105 km/h) with the turbo; a bend taken at speed turned the heading by 55° with a roll of 22° and the wheel
+  steered by 28°; the brake took the speed of the test to 1.0 m/s in 1.3 s, reverse ran at -2.0 m/s, and without gas it stops by itself; with the handbrake the velocity left the heading by up to 90°; a wall taken at more than 50 km/h was a crash every time (the bike stopped, the camera was thrown) and cost 0 to 10 points of 150 from run to run (under 3 points nothing is taken; never a death); lifted 7 m into the void the wheels left the
+  ground and it landed 0.08 m from the sand; the headlight is on at 23:00 and off at 12:00; getting off by itself when it stopped put the rider 1.05 m to the side in free space, the collider and the weapon came back; **the ride**: three legs of 380 m (south, east, north), 3 of 3 arrived in 49 s
+  (about 1.1 km, 83 km/h on average), 340 to 360 blocks of sand and 11 places were made on the way, **0.0 m below the sand at worst**, the worst frame of the ride 147 ms in the headless run and 146 and 204 ms in the two runs with the graphics card (the check allows half a second; the longest frame of the headless run is 158 ms, two over 100 ms, in 97,428 frames); dying in the saddle 317 m from home threw the rider off with the bike left where it
+  was (0.0 m moved) and, once reborn, the bike was back at its place (0.0 m). A companion's bike posed by hand: no prompt, no collider, wheels turning, rolling 11° in a bend. The first run found one failure, of the test (the roll of the companion's bike was waited for in 30 frames and without a window a frame lasts a
+  millisecond: now a second and a bit of game time). **The photographs** (ten, looked at: the bike parked from four sides and from the stair, the saddle at a standstill, at 76 and 105 km/h, in a bend, at night with the headlight, and a companion's bike in the evening sun) found three real defects that no number had: the arms were black
+  slabs and in a bend the shoulder turned with the fork and crossed the view (now forearms between a fixed elbow and the fist, with leather gloves), the flat shrouds beside the tank looked like panels (removed) and the headlight, set at 9 when the game's own torch has 118, hardly lit the sand (now 105: a clear pool
+  on the sand ahead); a fourth came from the last pass: the sleeves, made lighter after the first, still looked black against the sand and are now khaki canvas (0.46 instead of 0.23). `run_all.ps1 -Only m` (two processes over loopback, no graphics card, 51 s): the guest rides while the host watches and then the other way round, **13 of 13 and 15 of 15**: the rider is seen riding, the bike appears under the puppet (0.00 m), runs in the direction it
+  points (10 of 10 intervals of half a second, up to 75 km/h), leans 13.9° in a bend, its wheels turn (116° in 30 ms) and it disappears when the rider gets off. **Not verified**: nobody has ridden it by hand (the feel of the controls, of the camera, of the 83 and 112 km/h is a guess), the sound has not been heard
+  (only its volume and pitch were measured), a real controller was not tried, the bike has not been ridden into the cathedral or into a place, nor with an enemy hunting the rider, and a companion's engine and parked bike were not checked in the game; seen from outside (the photograph of the split screen), the body of the rider is the crouch pose put at the centre of the bike, a little lower and further forward than the saddle.
 - **The walls of the places (0.9.1)** (`-desertonly rovine`, 6 checks, 16 of 16 with the arrival, no graphics card, 192 s with three places drawn before and after; seed 1000, the 33 places nearest the cathedral: 28 buildings, 3 towers, 2 catacombs, 862,000 triangles): flipped faces **624 to 0**; faces of a facade that fight for the same pixels and are seen from somewhere **18,884 to 334** (of 20,472 to 1,922 in all: the rest are the interiors of the rooms, ceiling beams on the floor of the level above and crown mouldings flush with ceilings, the same before and after); rays that see through a wall **1,578 to 506** of 79,200 (none of the 506 is known to be a bug: they are rays that enter by a door, a broken window or a collapse; on the partitions of two ruined rooms there is a band along the top where the taller face is not seen from the lower side, which was not repaired); window panes seen from behind **949 to 3**. The images drawn by the CPU of a church, a ruined house and a collapsed inn were looked at before and after: the slits at the corners, the empty arcs under the vaults, the see-through windows and the see-through top of a ruin are gone from the walls of the church and the house; thin lines remain at the end of the vaults and along the partitions of the collapsed inn. **No photo with the graphics card**: the developer's game was open on the same PC (the CPU image is a flat-colour map, it does not judge the look).
 - **Co-op in the desert (0.9.1)** (`tools/coop/run_all.ps1 -Only j,k,l`, 19 November 2026, protocol `pe-coop-31`, two processes over loopback on this PC, no graphics card, seed 2961, no exception in any log).
   `j_deserto` (46 s; guest 18 of 18, host 15 of 15): the desert is built on both machines (the guest in 2.9 s, the host in 9.9 s) and each sees the other; the guest has the host's seed and its hour of the day (7.25 h on both);
@@ -532,7 +604,9 @@ Everything below was run on 18 and 19 November 2026 on the developer's PC (seed 
   *cattedrale a 2550 m*); a seat sent past the edge of the world (18 km) is brought back to 17.9 km and the other does not move; brought back together, every minimap shows the others. With the graphics card each camera was rendered at noon (the top of
   the picture is sky, not the fog-coloured background: `split_posto1.png`, `split_posto2.png`) and the system photographed both monitors twice: the cathedral stair with the minimap, the objective and the companion at *2335 m* on one, a chapel
   2.3 km away with the golden arrow (*cattedrale · 2,3 km*) and the objective with the way home on the other; the sky of the two has the same colours from the top to the horizon (133,140,152 to 245,245,246 against 134,140,150 to 243,243,243);
-  the dot of the other seat is on both minimaps when they are together.
+  the dot of the other seat is on both minimaps when they are together. The motorbike (19 November 2026) added a step of 7 checks (one bike for each seat at its home; seat 2 gets on its own and rides it while the others stay on foot, with no arms
+  of the bike on the screen and its body seen crouched on it; the bike stays parked where it gets off): two seats **38 of 38**, three **40 of 40** and four **42 of 42** (about 28 s each) without a window, and two seats with the graphics card and no window **40 of 40**, with the photograph that
+  seat 1 takes of seat 2 riding away from the stair, its own bike parked beside it (`hotel_build/deserto/split_moto_posto2_in_sella.png`, looked at: the body of seat 2 is on the bike).
 - **The pure code**: `tools/desertlab`, 107 checks, all pass (the list is in [../engineering/testing.md](../engineering/testing.md), section 2.4).
 - **The real game**: `-desertotest`, 127 checks, all pass, in about three minutes without a window. In order: the game is in the desert and alone; the
   camera clears to a solid colour with a 1,500 m far plane (without it the scene's own sky is drawn over the dome); the cathedral is the usual plan with

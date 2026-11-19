@@ -17,7 +17,7 @@ namespace PryingEyes.Deserto
     /// un'arma libera, sale a piedi al primo piano della torre di riferimento (sette piani), si porta all'ultimo e ammazza il boss (il trofeo va nel
     /// magazzino), passa la notte su sabbia aperta (nemici che girano), e cade nel vuoto (la rete di sicurezza lo riporta su). Con -desertshots fa anche
     /// le fotografie di unity_logs/prove/deserto (alba, mezzogiorno, tramonto, notte, interni). Non tocca il salvataggio di chi gioca.</summary>
-    public sealed class DesertTest : MonoBehaviour
+    public sealed partial class DesertTest : MonoBehaviour
     {
         int checks, failed, errors;
         string firstError = "";
@@ -342,6 +342,7 @@ namespace PryingEyes.Deserto
             if (Explicit("salina")) yield return Phase("pozze sulle saline", BrineTest());
             if (Explicit("cammino")) yield return Phase("cammino", WalkProbe());
             if (Explicit("percorso")) yield return Phase("percorso", RouteProbe());
+            if (Explicit("moto")) yield return Phase("moto", Moto());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
             if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
         }

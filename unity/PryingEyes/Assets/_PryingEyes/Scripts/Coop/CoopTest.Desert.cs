@@ -15,7 +15,7 @@ namespace PryingEyes
     /// lontano compare e quello di prima sparisce dalla sua vista senza morire; 4 un colpo mortale a un pupazzo: muore sull'ospite e i punti vanno a chi ha sparato; 5 l'ora cambiata
     /// dall'ospite arriva a tutti; 6 un boss caduto sull'ospite cade per tutti e il trofeo va nel magazzino di ognuno; 7 (solo con -cooppics e l'ospite con la grafica) le foto del compagno sulla sabbia.
     /// Con -coopleave (esce) o -coopcrash (processo ucciso) i passi sono 0, 1, 2 e 8: il compagno lontano se ne va e l'ospite prosegue da solo (nessun punto attorno a lui, un solo bersaglio,
-    /// il luogo lontano si scarica, l'orologio va e un nemico gli da' la caccia).</summary>
+    /// il luogo lontano si scarica, l'orologio va e un nemico gli da' la caccia). Con -coopmoto (run_all.ps1 -Only m) i passi sono 0, 1, 9 e 10: la moto (pe-coop-32), vista dall'altro processo.</summary>
     public sealed partial class CoopTest
     {
         /// <summary>-coopdeserto: il copione del deserto al posto di quello dei piani.</summary>
@@ -367,6 +367,85 @@ namespace PryingEyes
             if (chaser != null) Enemy.Remove(chaser);
             float h1 = DesertMode.Clock.day * 24f + DesertMode.Clock.hour;
             Check("il gioco continua a girare e l'orologio del deserto va avanti", Time.frameCount > f0 + 10 && h1 > h0, $"ora {h0:F2} -> {h1:F2}");
+        }
+
+        // 9 e 10 -------------------------------------------------------------- (-coopmoto, 0.9.1+: la moto) chi guida si vede in sella, con la sua moto, dall'altro processo: prima l'ospitato, poi l'ospite
+        static readonly bool MotoRun = HasArg("-coopmoto");
+
+        IEnumerator D9() => MotoStep(!Coop.IsHost);
+
+        IEnumerator D10() => MotoStep(Coop.IsHost);
+
+        /// <summary>Un giro in moto di chi guida ('iDrive': sale sulla sua moto, accelera, curva da una parte e dall'altra, frena e scende) visto dall'altro processo: il compagno e' in sella (lo stato lo dice),
+        /// la sua moto compare sotto il pupazzo, avanza nel verso in cui punta, ha le ruote che girano, si inclina in curva e, quando scende, sparisce.</summary>
+        IEnumerator MotoStep(bool iDrive)
+        {
+            Safe();
+            var g = G;
+            var pl = GameManager.I.player;
+            int other = Coop.IsHost ? 1 : 0;
+            if (iDrive)
+            {
+                yield return new WaitForSeconds(2f);                               // l'altro ha il tempo di mettersi a guardare
+                var bike = DesertBikes.Nearest(pl.transform.position, 80f);
+                Check("la moto del mio posto e' parcheggiata ai piedi della scalinata", bike != null, bike != null ? $"a {FlatTo(bike.transform.position, pl.transform.position):F1} m" : "nessuna");
+                if (bike == null) { aborted = true; yield break; }
+                Vector3 start = bike.transform.position;
+                pl.Mount(bike);
+                Check("salgo in sella", pl.Riding && bike.rider == pl);
+                DesertBike.botThrottle = 1f; DesertBike.botSteer = 0.6f;
+                yield return new WaitForSeconds(4f);
+                DesertBike.botSteer = -0.6f;
+                yield return new WaitForSeconds(3f);
+                float went = FlatTo(pl.transform.position, start);
+                Check("ho corso: sono lontano dal posto di partenza", went > 30f && pl.RideSpeed > 8f, $"{went:F0} m, {pl.RideSpeed * 3.6f:F0} km/h");
+                DesertBike.botThrottle = -1f; DesertBike.botSteer = 0f;
+                yield return Until(() => Mathf.Abs(pl.RideSpeed) < 2f, 8f);
+                DesertBike.BotReset();
+                pl.RideRequestDismount();
+                yield return Until(() => !pl.Riding, 6f);
+                Check("scendo e la moto resta parcheggiata", !pl.Riding && bike.rider == null && bike.ColliderOn);
+                yield return new WaitForSeconds(3f);                               // l'altro vede che sono sceso
+                yield break;
+            }
+            RemotePlayer rp = null;
+            yield return Until(() => g.Players.TryGetValue(other, out rp) && rp != null && rp.last.riding, 25f);
+            Check("vedo il compagno in sella (il suo stato dice che guida)", rp != null && rp.last.riding);
+            if (rp == null || !rp.last.riding) { aborted = true; yield break; }
+            yield return Until(() => rp.Bike != null && rp.Bike.puppet && rp.Bike.gameObject.activeInHierarchy, 5f);
+            var pb = rp.Bike;
+            Check("la sua moto compare sotto il pupazzo", pb != null && pb.puppet && FlatTo(pb.transform.position, rp.transform.position) < 0.6f, pb != null ? $"scarto {FlatTo(pb.transform.position, rp.transform.position):F2} m" : "nessuna moto");
+            if (pb == null) { aborted = true; yield break; }
+            // sei secondi di corsa: la moto va nel verso in cui punta (a intervalli di mezzo secondo) e in curva si inclina
+            float maxRoll = 0f, maxSpeed = 0f, tEnd = Time.time + 6f, tNext = Time.time + 0.5f;
+            Vector3 prev = rp.transform.position;
+            int good = 0, samples = 0;
+            while (Time.time < tEnd)
+            {
+                maxRoll = Mathf.Max(maxRoll, Mathf.Abs(pb.RollVisual));
+                if (Time.time >= tNext)
+                {
+                    Vector3 mv = rp.transform.position - prev; mv.y = 0f;
+                    float sp = mv.magnitude / 0.5f;
+                    maxSpeed = Mathf.Max(maxSpeed, sp);
+                    if (sp > 4f)
+                    {
+                        samples++;
+                        Vector3 fwd = new Vector3(Mathf.Sin(pb.Heading), 0f, Mathf.Cos(pb.Heading));
+                        if (Vector3.Dot(mv.normalized, fwd) > 0.85f) good++;
+                    }
+                    prev = rp.transform.position; tNext = Time.time + 0.5f;
+                }
+                yield return null;
+            }
+            Check("la moto del compagno avanza nel verso in cui punta", samples >= 4 && good >= samples * 0.8f, $"{good} di {samples} intervalli, al massimo {maxSpeed * 3.6f:F0} km/h");
+            Check("in curva la sua moto si inclina", maxRoll > 3f, $"{maxRoll:F1} gradi");
+            float s0 = pb.WheelSpin;
+            yield return new WaitForSeconds(0.03f);
+            Check("le sue ruote girano", Mathf.Abs(Mathf.DeltaAngle(s0, pb.WheelSpin)) > 1f, $"{Mathf.DeltaAngle(s0, pb.WheelSpin):F0} gradi in 30 ms");
+            yield return Until(() => !rp.last.riding, 25f);
+            yield return new WaitForSeconds(0.6f);
+            Check("quando scende la sua moto sparisce dalla mia vista", !rp.last.riding && (rp.Bike == null || !rp.Bike.gameObject.activeSelf), rp.Bike != null ? $"attiva {rp.Bike.gameObject.activeSelf}" : "nessuna");
         }
     }
 }
