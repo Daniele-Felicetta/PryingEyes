@@ -87,7 +87,7 @@ or **Indietro** goes back to the main menu. The choice is kept in `PlayerPrefs` 
 
 ## Characters and the suspended expedition
 
-Since 0.9 (not released when this was written) the main menu has **Personaggi** (`GameMenu.Characters.cs`): the list of the characters, the selected
+Since 0.9.0 the main menu has **Personaggi** (`GameMenu.Characters.cs`): the list of the characters, the selected
 one with its level bar and its figures, **Nuovo personaggio** (a name and the look chosen with **Aspetto**; with no character, **Gioca** and the
 co-op panel open it first), and **Elimina** with a confirmation that says where the file goes. The character in use shows under **Gioca** and in the
 co-op panel (*Il tuo personaggio*). In the pause menu **Torna al menu** opens *Tornare al menu?*, which offers **Salva e torna al menu** beside

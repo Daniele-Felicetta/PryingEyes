@@ -1,6 +1,6 @@
 # Characters, levels and saves
 
-Since 0.9 (not released when this was written) a player is a **character**: a name and one of the four survivors' looks, chosen in the menu
+Since 0.9.0 a player is a **character**: a name and one of the four survivors' looks, chosen in the menu
 and kept for good. The character is who plays, alone, in online co-op and in split screen, and what it earns stays with it: experience and
 levels, its own cathedral (store, works, market, blessing, remains) and the counters of its history. Characters are saved one file each, an
 expedition in progress can be suspended and resumed, and a save written by an older game is upgraded when the new one reads it. The format, the

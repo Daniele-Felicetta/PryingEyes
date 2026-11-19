@@ -11,7 +11,8 @@ rooms, the buildings and out in the open there are only weapons, points, ammunit
 
 After the first playtest (the same day) the player asked for more buildings and more variety, outsides that are not buggy, no stealth mechanics (nobody
 had asked for them) and a livelier world, with serious optimisation of the graphics if needed at the same quality. Hence the six regions, the finished
-outsides and far silhouettes of the places, the things on the sand, the weather, the wildlife and the camps below.
+outsides and far silhouettes of the places, the things on the sand, the weather, the wildlife and the camps below. The mode is part of release 0.9.0 (19 November
+2026), together with the characters and the saves of [saves-and-characters.md](saves-and-characters.md).
 
 This page says how it plays, what is found where, how the world is made, the code, the decisions that were left to the developer, and what is
 verified. The cathedral, the works, the resources and the satchel are those of [cathedral-and-catacombs.md](cathedral-and-catacombs.md); the
@@ -401,7 +402,7 @@ and by night, the foot of the tower looking up, the nave, inside the chapel and 
 
 ## What is verified
 
-Everything below was run on 18 and 19 November 2026 on the developer's PC (seed 1000); the numbers are those of the last run, made on the working tree that was committed in the sixth round (19 November).
+Everything below was run on 18 and 19 November 2026 on the developer's PC (seed 1000); the numbers are those of the last run of each test, made on the working tree that was committed in the sixth round (`b9c6cd4`) or in the commit of the long-walk probe after it (`9eb7b60`), both on 19 November. The release battery of 19 November (everything but the photos and the cost of a frame) ran on the build of `9eb7b60`: `-desertotest` 127 of 127 in 171 s, `-desertonly soak,varieta,percorso` 48 of 48 in 733 s, `tools/desertlab` all pass.
 
 - **The pure code**: `tools/desertlab`, 98 checks, all pass (the list is in [../engineering/testing.md](../engineering/testing.md), section 2.4).
 - **The real game**: `-desertotest`, 127 checks, all pass, in about three minutes without a window. In order: the game is in the desert and alone; the
@@ -430,10 +431,11 @@ Everything below was run on 18 and 19 November 2026 on the developer's PC (seed 
   the church naves grew with the world height, so in the catacombs, below zero, every nave was a wall of grey and the boss hall a uniform blue picture; the
   photos were taken and the checks were green. Photos: 13 of the same run (arrival, dawn, noon, dusk, night, the chapel inside, the tower from far and from its
   foot, its first floor and its boss hall, a catacomb entrance and its boss hall), plus one per catacomb level and three of the tower's banners (from the entrance side, the cathedral side and the east), looked at one by one.
-- **The long walk** (`-desertonly percorso`, 13 checks with the arrival, no window): 1,289 m in 332 s towards (1311, -146) with the seed 1000, 15 places loaded (as planned) and 21 unloaded (those of the start included: up to a tower of 496 objects), 5 memory sweeps of
-  4 to 5 ms, 412,921 frames with a median of 0.8 ms (headless: nothing is drawn) and a 99th percentile of 1.4 ms. One step of the director in the whole walk lasted over 30 ms (32 ms: the shell of level 0 of a complex) and no frame over 33 ms coincided with it or with the unload of a place.
-  Three frames did pass 33 ms: 52 ms at 6 m (2 s into the walk, when the first enemies of the places were being born; not looked into), 147 ms at 159 m (41 s, with the navmesh being built) and one under 50 ms. The 147 ms frame came again, at the same place and the same second, in a second run
-  (148 and 147 ms): it belongs to the world and not to chance, and its cause was not found (the unload of a place was ruled out by instrumenting it). So the streaming of the places is smooth on this heading; one frame in 332 seconds is not.
+- **The long walk** (`-desertonly percorso`, 13 checks with the arrival, no window): 1,289 m in 332 s towards (1311, -146) with the seed 1000, 15 places loaded (as planned) and 21 or 22 unloaded (those of the start included: up to a tower of 496 objects), 5 memory sweeps of
+  4 to 5 ms and, in the first and in the third run, about 410,000 frames with a median of 0.8 ms (headless: nothing is drawn) and a 99th percentile of 1.4 ms. One step of the director in the whole walk lasted over 30 ms (32 and 33 ms: the shell of level 0 of a complex) and no frame over 33 ms coincided with it or with the unload of a place.
+  The first run had three frames over 33 ms: 52 ms at 6 m (2 s into the walk, when the first enemies of the places were being born; not looked into), 147 ms at 159 m (41 s, with the navmesh being built) and one under 50 ms. The second had the 147 ms frame again, at the same place and the same second
+  (148 and 147 ms), which looked like something of the world and not of chance. The third, made on the final tree, had one frame over 33 ms (35 ms) and nothing at 159 m: so that frame does not come at every run, and its cause was not found (the unload of a place was ruled out by instrumenting it).
+  The streaming of the places is smooth on this heading; an isolated frame of 50 to 150 ms in 332 seconds shows up in some runs and not in others.
 - **The memory** (`-desertonly soak`, 9 checks, with a window). Three rounds of two far towers and two far catacombs, going home in between: live
   meshes 1,713, 1,718 and 1,719, materials 974, 1,012 and 1,012 (the caches of the facade palettes fill up in the first rounds and then stop), textures 419
   each time, memory 709, 753 and 763 MB (the test fails above 50 MB of growth between the last two rounds: 10). Before the sweep of unused assets was added the same test failed with 3,761, 5,545 and 7,317 meshes, 824, 1,328 and 1,688
@@ -466,12 +468,11 @@ Everything below was run on 18 and 19 November 2026 on the developer's PC (seed 
   step in the air leaves none and the wind has erased them all after a minute and a half; at least two crests start to smoke and the particles alive are many but
   not too many (83); the salt flats have lakes, a step in the water leaves no print and one on dry sand does. The photos of the trail, of the crests and of the
   lakes at dawn, noon, dusk and night were looked at.
-- **The rest of the game**: `-cattedraletest` (the cathedral of the standard mode, built by the same hub file that the desert changed for its lamp posts and its awnings) was run on this tree, 72 of 72. The
-  other tests were last run on the tree of an earlier commit (`dca7799`), and since then the files shared with the standard mode changed only in the desert branch of the hub, in a constant that kept its
-  value, in one facade tint and in the awning and the lamp post (behind `DesertMode.Active`), so they were not run again: `-chartest` 23 of 23, `-survivaltest` 91 of 91, `-padtest` 89 of
-  89 (it goes through the mode panel), the split screen with two players `-seatstest` 89 of 89, three co-op scenarios (a, c, i: 62 and 49, 11 and 7, 66 and 53
-  checks), `MenuReview` 2874 of 2874, the four rule labs of the CI gate and the Python tests (see [../engineering/testing.md](../engineering/testing.md),
-  [display-and-menu.md](display-and-menu.md) and [controller.md](controller.md)).
+- **The rest of the game** (the standard mode shares files with the desert: the hub of the cathedral, the facade and the impact code), run again for the release on the build of commit `9eb7b60`, 19 November 2026, without a window except `-padtest`:
+  `-cattedraletest` 72 of 72, `-chartest` 23 of 23, `-survivaltest` 91 of 91, `-impacttest` 7 of 7 (the sand is its eighth surface), `-architecturetest` 74 of 74, `-padtest` 89 of 89 (it goes through the mode panel), the split screen with two
+  players `-seatstest` 89 of 89, three co-op scenarios (a, c, i: 62 and 49, 11 and 7, 66 and 53 checks) and `-maptest` 23 of 23. That last one has a check on time, the textures of the map on the main thread under 250 ms (238 ms in two runs): in the first run of the battery, made at low priority, they took
+  252 ms and the test failed 22 of 23; the map code did not change, the wait is the main thread's for the worker that paints them (about 500 ms) at the start of a headless test, and the player builds the HUD long after the start. `MenuReview` (2874 of 2874) was last run on the tree of `dca7799` and not again: no file of the menu has
+  changed since (a diff of the two commits says so), and the four rule labs of the CI gate and the Python tests were run by the gate (see [../engineering/testing.md](../engineering/testing.md), [display-and-menu.md](display-and-menu.md) and [controller.md](controller.md)).
 - **What the pictures found and the checks had not** (the third round of improvements, judged by looking at the photos of every phase): a black beam 14 m long that
   crossed the sky in every photo taken from the churchyard since the first day. The wide door of the churchyard was 3 m high on a parapet of 1.55 m, so its soffit and
   its two jambs hung in the air above the stair; nothing measured it. It is `Opening.ParapetTop` now (the opening is a gap in the parapet, with no lintel) and the lab has three checks that

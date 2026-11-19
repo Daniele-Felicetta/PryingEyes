@@ -104,8 +104,8 @@ version of the same `Version` would misread. If an older game could misread it, 
 
 | Kind | Version | Game | What it is |
 | --- | --- | --- | --- |
-| `pryingeyes.character` | 1 | 0.9 (not released when this was written) | The first character file. The old `cattedrale.json` of the versions before (the whole cathedral of the PC in one file, `"versione": 1`) is imported once as the character *Il Custode*, with the experience its history is worth, and stays where it is (an older game still reads it). |
-| `pryingeyes.run` | 1 | 0.9 (not released when this was written) | The first suspended-expedition file. |
+| `pryingeyes.character` | 1 | 0.9.0 | The first character file. The old `cattedrale.json` of the versions before (the whole cathedral of the PC in one file, `"versione": 1`) is imported once as the character *Il Custode*, with the experience its history is worth, and stays where it is (an older game still reads it). |
+| `pryingeyes.run` | 1 | 0.9.0 | The first suspended-expedition file. |
 
 ## Profiles and tests
 

@@ -11,7 +11,7 @@ and since 0.8.0 they are also the player's own body in the [third-person view](t
 | 3 | `reporter` | The Reporter | fair, short dark-blond hair with a fringe swept to the side, mustard jacket, blue trousers, grey scarf |
 | 4 | `cacciatrice` | The Cacciatrice | strong legs, auburn hair in a long braid under a dark cap, oxblood jacket, olive trousers, amber scarf |
 
-Since 0.9 (not released when this was written) the look is part of the player's **character** ([saves-and-characters.md](saves-and-characters.md)):
+Since 0.9.0 the look is part of the player's **character** ([saves-and-characters.md](saves-and-characters.md)):
 the player picks one of these four, with a name, when making the character, and it stays with the character. The slot only decides when there
 is no character to say (`SurvivorBody.IdOf(slot)`: the automated tests, whose processes send no look, and the body of a seat or partner with
 an unknown look); the slot is the seat of a split screen or the network slot of online co-op, and the table above is the order of the looks
