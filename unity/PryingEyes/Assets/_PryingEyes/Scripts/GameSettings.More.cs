@@ -30,7 +30,7 @@ namespace PryingEyes
         // valori correnti: i default sono il gioco com'era prima di queste impostazioni
         static float ambience = 1f, menuMusic = 1f, grain = 1f, vignette = 1f, bloom = 1f, padSensitivity = 1f;
         static int renderScalePct = 100, msaa = 4, shadows = 2, aimMode, crouchMode, sprintMode, crosshair;
-        static bool uiSounds = true, invertY, invertPadY, showFps, pauseOnFocusLoss = true;
+        static bool uiSounds = true, invertY, invertPadY, showFps = true, pauseOnFocusLoss = true;
 
         // ---- audio
         /// <summary>Ambiente: il ronzio delle stanze, il vento, il brusio, gli scricchiolii e i rintocchi lontani (prima seguivano gli Effetti).</summary>
@@ -96,7 +96,7 @@ namespace PryingEyes
             crouchMode = Mathf.Clamp(PlayerPrefs.GetInt(KeyCrouchMode, 0), 0, 1);
             sprintMode = Mathf.Clamp(PlayerPrefs.GetInt(KeySprintMode, 0), 0, 1);
             crosshair = Mathf.Clamp(PlayerPrefs.GetInt(KeyCrosshair, 0), 0, 2);
-            showFps = Flag(KeyFps, false);
+            showFps = Flag(KeyFps, true);          // acceso dalla 0.9.1 (nelle versioni prima era spento: chi l'ha spento a mano resta spento)
             pauseOnFocusLoss = Flag(KeyPauseFocus, true);
         }
 
@@ -143,7 +143,7 @@ namespace PryingEyes
 
         public static void ResetGame()
         {
-            SetThirdPerson(false); SetCrosshair(CrosshairClassic); SetMotion(1f); SetCoopHudScale(1f); SetShowFps(false); SetPauseOnFocusLoss(true);
+            SetThirdPerson(false); SetCrosshair(CrosshairClassic); SetMotion(1f); SetCoopHudScale(1f); SetShowFps(true); SetPauseOnFocusLoss(true);
         }
 
         // ---- qualita' dell'immagine: l'asset della pipeline URP (si cambia in memoria, nel gioco vero)

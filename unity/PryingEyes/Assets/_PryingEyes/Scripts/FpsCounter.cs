@@ -3,9 +3,9 @@ using UnityEngine.UI;
 
 namespace PryingEyes
 {
-    /// <summary>Il contatore dei fotogrammi (Impostazioni > Gioco): in alto a sinistra, piccolo, "144 FPS  6,9 ms", sopra ogni altra cosa (anche
+    /// <summary>Il contatore dei fotogrammi (Impostazioni > Gioco, o il tasto F3): in alto a sinistra, piccolo, "144 FPS  6,9 ms", sopra ogni altra cosa (anche
     /// del menu) e fuori dal mondo di gioco: ha un canvas suo e sopravvive al ritorno al menu. Si aggiorna quattro volte al secondo, sul tempo
-    /// reale, quindi funziona anche in pausa. Non c'e' nelle prove automatiche.</summary>
+    /// reale, quindi funziona anche in pausa. Dalla 0.9.1 e' acceso di default. Non c'e' nelle prove automatiche (-batchmode).</summary>
     public sealed class FpsCounter : MonoBehaviour
     {
         static FpsCounter I;
@@ -51,6 +51,7 @@ namespace PryingEyes
 
         void Update()
         {
+            if (Input.GetKeyDown(KeyCode.F3)) GameSettings.SetShowFps(!GameSettings.ShowFps);          // lo stesso interruttore di Impostazioni > Gioco, ricordato
             bool on = GameSettings.ShowFps;
             if (canvas.enabled != on) { canvas.enabled = on; elapsed = 0f; frames = 0; worst = 0f; }
             if (!on) return;

@@ -155,7 +155,7 @@ namespace PryingEyes
             // 0.7.2: il pannello dei compagni (cooperativa e schermo condiviso) si ingrandisce o si rimpicciolisce; si vede subito
             sCoopHud = AddSlider(p, "HUD dei compagni", "La dimensione del pannello dei compagni, in cooperativa e nello schermo condiviso.",
                 GameSettings.CoopHudScale, GameSettings.CoopHudMin, GameSettings.CoopHudMax, GameSettings.SetCoopHudScale, Pct, out vCoopHud);
-            AddToggle(p, "Contatore fotogrammi", "Mostra in alto a sinistra i fotogrammi al secondo e i millisecondi di ogni fotogramma.",
+            AddToggle(p, "Contatore fotogrammi", "Mostra in alto a sinistra i fotogrammi al secondo e i millisecondi di ogni fotogramma. Si accende e si spegne anche con il tasto F3.",
                 () => GameSettings.ShowFps, GameSettings.SetShowFps, "Nascosto", "Visibile");
             AddToggle(p, "Pausa a finestra inattiva", "Il gioco si ferma da solo quando passi a un'altra finestra. In cooperativa la pausa blocca solo i tuoi comandi.",
                 () => GameSettings.PauseOnFocusLoss, GameSettings.SetPauseOnFocusLoss, "Disattivata", "Attiva");

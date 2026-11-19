@@ -142,26 +142,34 @@ namespace PryingEyes.Deserto
                 root.position = Vector3.zero;
             }
             var plan = PlanOf(u);
-            FloorInstance fi;
+            var fi = BuildShellOf(site, u, root);
+            fis[u] = fi;
+            if (site.IsStack) DesertStairs.Build(fi.root.transform, plan, u, Units, site.church);
+            fi.root.transform.position = new Vector3(0f, YOf(u), 0f);
+            Physics.SyncTransforms();
+        }
+
+        /// <summary>Il guscio di un livello di un luogo, con le impostazioni dell'esterno di quel luogo (la tavolozza, i tetti, i merli, le torrette, la sabbia alla base). Lo usano il direttore e la
+        /// prova dei muri (DesertCensus), che costruisce gli stessi muri senza caricare il luogo: un posto solo per le impostazioni, cosi' la prova guarda quello che si gioca.</summary>
+        internal static FloorInstance BuildShellOf(Site site, int u, Transform root)
+        {
+            var plan = site.IsStack ? site.levels[u] : site.plan;
+            int units = site.IsStack ? site.LevelCount : 1;
             FloorBuilder.SkipDress = true;
             FloorBuilder.FacadePalette = site.palette;
             // l'esterno: i tetti sull'ultimo livello (la cima di una torre, l'ingresso di una catacomba) e i merli sul parapetto di chi e' alto; i livelli sotto la sabbia non ne hanno
-            bool topLevel = !site.IsStack || (site.IsTower ? u == Units - 1 : u == site.entrance);
+            bool topLevel = !site.IsStack || (site.IsTower ? u == units - 1 : u == site.entrance);
             FloorBuilder.FacadeRoofs = topLevel;
             FloorBuilder.FacadeCrown = site.IsStack && topLevel;
             FloorBuilder.FacadeTurrets = site.IsTower && topLevel;          // le torrette d'angolo sul tetto della torre
             FloorBuilder.SkipFacade = site.IsCatacomb && u != site.entrance;
             FloorBuilder.FacadeDrift = !site.IsStack || u == site.entrance;          // la sabbia accumulata alla base dei muri: solo dove i muri toccano il suolo
-            try { fi = FloorBuilder.Build(plan, root); }
+            try { return FloorBuilder.Build(plan, root); }
             finally
             {
                 FloorBuilder.SkipDress = false; FloorBuilder.SkipFacade = false;
                 FloorBuilder.FacadePalette = 0; FloorBuilder.FacadeRoofs = true; FloorBuilder.FacadeCrown = false; FloorBuilder.FacadeTurrets = false; FloorBuilder.FacadeDrift = false;
             }
-            fis[u] = fi;
-            if (site.IsStack) DesertStairs.Build(fi.root.transform, plan, u, Units, site.church);
-            fi.root.transform.position = new Vector3(0f, YOf(u), 0f);
-            Physics.SyncTransforms();
         }
 
         // ------------------------------------------------------------------ arredi

@@ -326,6 +326,7 @@ namespace PryingEyes.Deserto
             if (Explicit("prestazioni")) yield return Phase("prestazioni", Perf());
             if (Explicit("costi")) yield return Phase("costi", Costs());
             if (Explicit("esterni")) yield return Phase("esterni", Exteriors());
+            if (Explicit("rovine")) yield return Phase("rovine", Ruins());
             if (Explicit("orizzonte")) yield return Phase("orizzonte", Horizon());
             if (Explicit("paesaggio")) yield return Phase("paesaggio", Landscape());
             if (Explicit("nuvole")) yield return Phase("nuvole", CloudsPhase());
@@ -1706,6 +1707,119 @@ namespace PryingEyes.Deserto
                 yield return null;
             }
             if (sky != null) sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly rovine (senza GPU, anche con -nographics): la prova dei muri. Costruisce il guscio di una trentina di luoghi (edifici interi, in rovina, spezzati, in crollo; tre torri,
+        /// due catacombe) due volte, con i muri della 0.9.0 (FloorBuilder.LegacyWalls) e con quelli di adesso, e su ogni costruzione conta con DesertCensus i triangoli capovolti, le facce sovrapposte a filo e i
+        /// buchi visti da fuori (raggi dall'altezza degli occhi). La prova passa se i muri di adesso non hanno nessun difetto e se la stessa prova li trova nei muri della 0.9.0 (altrimenti non misura niente).</summary>
+        IEnumerator Ruins()
+        {
+            var sites = new List<Site>(); var seen = new HashSet<Site>();
+            int towers = 0, catas = 0, houses = 0;
+            void Take(Site s)
+            {
+                if (s == null || !seen.Add(s)) return;
+                if (s.IsTower) { if (towers >= 3) return; towers++; }
+                else if (s.IsCatacomb) { if (catas >= 2) return; catas++; }
+                else if (s.plan == null || houses >= 28) return;
+                else houses++;
+                sites.Add(s);
+            }
+            Take(DesertWorld.Welcome()); Take(DesertWorld.Landmark());
+            for (int ring = 1; ring <= 10; ring++)
+                for (int cx = -ring; cx <= ring; cx++)
+                    for (int cz = -ring; cz <= ring; cz++)
+                        if (Mathf.Max(Mathf.Abs(cx), Mathf.Abs(cz)) == ring) Take(DesertWorld.SiteOf(cx, cz));
+            Debug.Log($"[PryingEyes] desertotest rovine: {sites.Count} luoghi ({houses} edifici, {towers} torri, {catas} catacombe)");
+            Check("ci sono luoghi da guardare", sites.Count >= 10 && houses >= 8, $"{sites.Count} luoghi");
+            var flipped = new int[2]; var overlaps = new int[2]; var facadeOv = new int[2]; var leaks = new int[2]; var panes = new int[2]; var rays = new int[2]; var tris = new long[2]; var hiddenOv = new int[2];
+            var allKinds = new Dictionary<string, int>();         // le facce sovrapposte che si vedono, per coppia di materiali, sommate su tutti i luoghi (con i muri di adesso)
+            var rng = new System.Random(DesertWorld.Seed * 31 + 7);
+            // i fotogrammi di questa fase non dicono niente del gioco: costruisce gusci interi in un fotogramma, apposta
+            phaseName = "";
+            int pngSites = 0;
+            bool pngBoth = false;           // -rovineboth: disegna anche con i muri della 0.9.0 (il prima, da mettere accanto al dopo)
+            string pngMatch = null;         // -rovinematch Locanda/Collapse|Casa/Ruin: disegna i luoghi la cui etichetta (genere/stato) contiene uno dei testi, oltre ai primi N
+            { var args = Environment.GetCommandLineArgs(); for (int i = 0; i < args.Length - 1; i++) { if (args[i] == "-rovinepng") int.TryParse(args[i + 1], out pngSites); if (args[i] == "-rovinematch") pngMatch = args[i + 1]; } pngBoth = Array.IndexOf(args, "-rovineboth") >= 0; }
+            int siteIndex = 0;
+            try
+            {
+                foreach (var s in sites)
+                {
+                    siteIndex++;
+                    for (int pass = 0; pass < 2; pass++)
+                    {
+                        var census = new DesertCensus();
+                        var units = new List<int>();
+                        if (!s.IsStack) units.Add(0);
+                        else if (s.IsCatacomb) units.Add(s.entrance);
+                        else for (int u = 0; u < s.LevelCount; u++) units.Add(u);
+                        foreach (int u in units)
+                        {
+                            var holder = new GameObject("Rovine").transform;
+                            FloorBuilder.LegacyWalls = pass == 0;
+                            FloorInstance fi;
+                            try { fi = SiteRt.BuildShellOf(s, u, holder); }
+                            finally { FloorBuilder.LegacyWalls = false; }
+                            fi.root.transform.position = new Vector3(0f, s.IsStack ? s.LevelY(u) : s.padY, 0f);
+                            census.Add(fi.root);
+                            Scrap(holder.gameObject);
+                            yield return null;
+                        }
+                        census.CountFlips();
+                        yield return null;
+                        yield return census.CountOverlaps();
+                        yield return null;
+                        yield return census.ShootLeaks(rng, 2400, s.padY, 10f);
+                        string tag = pass == 0 ? "0.9.0" : "ora";
+                        Debug.Log($"[PryingEyes] desertotest rovine {s.kind}/{s.state} ({s.theme}, cella {s.cx},{s.cz}) {tag}: {census.Summary()}");
+                        foreach (var smp in census.Samples) Debug.Log("[PryingEyes] desertotest rovine     " + smp);
+                        foreach (var op in census.TopOverlapPairs(4)) Debug.Log("[PryingEyes] desertotest rovine     sovrapposte per coppia: " + op);
+                        bool wantPng = siteIndex <= pngSites;
+                        if (!wantPng && pngMatch != null) foreach (var part in pngMatch.Split('|')) if ($"{s.kind}/{s.state}".Contains(part)) wantPng = true;
+                        if (wantPng && (pass == 1 || pngBoth))
+                        {
+                            // quello che si vede da fuori, disegnato dalla CPU: da due angoli a un metro e settanta e da uno a sei metri (sulla duna); le torri da piu' lontano
+                            float rad = census.Radius, top = census.TopY - s.padY;
+                            float dist = s.IsTower ? Mathf.Min(70f, rad + top * 0.9f) : rad + 9f;
+                            Vector3 ctr = census.Centre; ctr.y = s.padY + (s.IsTower ? Mathf.Min(top * 0.4f, 16f) : Mathf.Min(top * 0.4f, 3.5f));
+                            var views = new[] { ("sw", 225f, 1.7f), ("ne", 45f, 1.7f), ("se", 135f, 6f) };
+                            foreach (var (vn, az, eyeH) in views)
+                            {
+                                float a = az * Mathf.Deg2Rad;
+                                var eye = new Vector3(ctr.x + Mathf.Sin(a) * dist, s.padY + eyeH, ctr.z + Mathf.Cos(a) * dist);
+                                yield return census.Render(TestPaths.Out($"deserto/census/{siteIndex:00}_{s.kind}_{s.state}_{tag}_{vn}.png"), eye, ctr, 640, 360, 70f, s.padY);
+                                foreach (var smp in census.Samples) if (smp.StartsWith("magenta")) Debug.Log($"[PryingEyes] desertotest rovine     {vn}: {smp}");
+                                census.Samples.RemoveAll(x => x.StartsWith("magenta"));
+                            }
+                        }
+                        flipped[pass] += census.Flipped; overlaps[pass] += census.Overlaps; facadeOv[pass] += census.OverlapsFacade; leaks[pass] += census.LeaksWall + census.LeaksFlat; panes[pass] += census.LeaksPane; rays[pass] += census.Rays; tris[pass] += census.Tris; hiddenOv[pass] += census.Hidden;
+                        if (pass == 1) foreach (var kv in census.OverlapKinds) { allKinds.TryGetValue(kv.Key, out int k0); allKinds[kv.Key] = k0 + kv.Value; }
+                    }
+                }
+            }
+            finally { FloorBuilder.LegacyWalls = false; }
+            for (int pass = 0; pass < 2; pass++)
+                Debug.Log($"[PryingEyes] desertotest rovine TOTALE {(pass == 0 ? "0.9.0" : "ora")}: {tris[pass]} triangoli, capovolti {flipped[pass]}, sovrapposti a filo {overlaps[pass]} ({facadeOv[pass]} di facciata; e {hiddenOv[pass]} nascosti, innocui), buchi {leaks[pass]} su {rays[pass]} raggi, vetri visti da dietro {panes[pass]}");
+            var kindList = new List<KeyValuePair<string, int>>(allKinds);
+            kindList.Sort((p, q) => q.Value.CompareTo(p.Value));
+            for (int k = 0; k < kindList.Count && k < 30; k++) Debug.Log($"[PryingEyes] desertotest rovine sovrapposte (ora) {kindList[k].Value} x {kindList[k].Key}");
+            // Le soglie sono la misura del prima e del dopo sugli stessi luoghi (e non zero): in una rovina un raggio entra legittimamente da una porta, da una finestra rotta o da un crollo e vede il retro
+            // di una faccia interna; sui tramezzi di due stanze crollate resta una fascia in cima dove si vede attraverso (documentato in docs/game/the-desert.md). Servono a vedere che i difetti tornino.
+            Check("muri di adesso: nessun triangolo capovolto", flipped[1] == 0, $"{flipped[1]} (0.9.0: {flipped[0]})");
+            Check("muri di adesso: le facce di facciata sovrapposte a filo (che si vedono) sono il 5% o meno di quelle della 0.9.0", facadeOv[1] * 20 <= facadeOv[0], $"{facadeOv[1]} (0.9.0: {facadeOv[0]}; in tutto, con gli interni che non si toccano: {overlaps[1]} contro {overlaps[0]})");
+            Check("muri di adesso: da fuori si vede dentro i muri il 40% delle volte della 0.9.0 o meno", leaks[1] * 100 <= leaks[0] * 40, $"{leaks[1]} buchi su {rays[1]} raggi (0.9.0: {leaks[0]} su {rays[0]})");
+            Check("muri di adesso: i vetri delle finestre si vedono anche da fuori (2% o meno dei raggi sui vetri visti da dietro)", panes[1] * 50 <= panes[0], $"{panes[1]} raggi su vetri visti da dietro (0.9.0: {panes[0]})");
+            Check("la prova dei muri vede i difetti della 0.9.0 (se no non misura niente)", flipped[0] > 0 && facadeOv[0] > 0 && leaks[0] > 0 && panes[0] > 0, $"capovolti {flipped[0]}, sovrapposti di facciata {facadeOv[0]}, buchi {leaks[0]}, vetri {panes[0]}");
+        }
+
+        /// <summary>Distrugge un guscio costruito solo per contarne i triangoli, con le sue mesh (non vanno via con l'oggetto).</summary>
+        static void Scrap(GameObject go)
+        {
+            var meshes = new List<Mesh>();
+            foreach (var mf in go.GetComponentsInChildren<MeshFilter>()) if (mf.sharedMesh != null) meshes.Add(mf.sharedMesh);
+            UnityEngine.Object.DestroyImmediate(go);
+            foreach (var m in meshes) UnityEngine.Object.DestroyImmediate(m);
         }
 
         /// <summary>Solo con -desertonly orizzonte: le pelle dei luoghi lontani (SiteFacade) e le regioni. Da tre punti (il sagrato, la prima regione, una regione lontana) si aspetta che

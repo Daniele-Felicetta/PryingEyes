@@ -220,6 +220,8 @@ namespace PryingEyes.EditorTools
             Check("controls reset restores the defaults", !GameSettings.InvertMouseY && !GameSettings.InvertPadY && !GameSettings.AimToggle && !GameSettings.CrouchToggle
                 && !GameSettings.SprintToggle && GameSettings.PadSensitivity == 1f && Choice("Mira").Value == "Tieni premuto");
 
+            // dalla 0.9.1 il contatore dei fotogrammi e' acceso di base: la scheda parte dai valori di base anche se questo PC ne ricorda altri (un Ripristina scheda di una versione prima scriveva 'spento')
+            GameSettings.SetShowFps(true); GameSettings.SetPauseOnFocusLoss(true);
             Click("Gioco");
             var perspective = Choice("Prospettiva");
             Check("the perspective starts in first person (" + perspective.Value + ")", !GameSettings.ThirdPerson && perspective.Value == "Prima persona");
@@ -230,11 +232,11 @@ namespace PryingEyes.EditorTools
             Choice("Mirino").Step(1); Choice("Mirino").Step(1);
             Check("crosshair wraps back to classic", GameSettings.Crosshair == GameSettings.CrosshairClassic);
             Choice("Contatore fotogrammi").Step(1); Choice("Pausa a finestra inattiva").Step(1);
-            Check("fps counter on, pause on focus loss off", GameSettings.ShowFps && !GameSettings.PauseOnFocusLoss);
+            Check("fps counter off (it starts on since 0.9.1), pause on focus loss off", !GameSettings.ShowFps && !GameSettings.PauseOnFocusLoss);
             menu.GetComponentsInChildren<Slider>()[0].value = 0.5f;
             Check("visual motion writes the setting", Mathf.Abs(GameSettings.Motion - 0.5f) < 0.001f);
             Click("Ripristina scheda");
-            Check("game reset restores the defaults", !GameSettings.ShowFps && GameSettings.PauseOnFocusLoss && GameSettings.Motion == 1f && GameSettings.CoopHudScale == 1f
+            Check("game reset restores the defaults", GameSettings.ShowFps && GameSettings.PauseOnFocusLoss && GameSettings.Motion == 1f && GameSettings.CoopHudScale == 1f
                 && !GameSettings.ThirdPerson && Choice("Prospettiva").Value == "Prima persona");
 
             Click("Schermo");

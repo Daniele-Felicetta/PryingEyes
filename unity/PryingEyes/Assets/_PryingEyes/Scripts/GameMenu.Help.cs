@@ -31,7 +31,7 @@ namespace PryingEyes
         static readonly string[] KeysOther =
         {
             "#ORIENTARSI", "V|Mostra le porte", "M|Mappa", "N|Minimappa", "Tab (tieni)|Tabellone",
-            "", "#ALTRO", "H|Velo, con il perk", "I|Osserva l'arma", "Esc|Pausa",
+            "", "#ALTRO", "H|Velo, con il perk", "I|Osserva l'arma", "Esc|Pausa", "F3|Contatore fotogrammi",
         };
 
         // il controller, tre colonne come la tastiera: "(tenuto)" e' tenendo premuto il tasto della riga sopra (lo stesso foglio del menu di pausa, PadSheet)
