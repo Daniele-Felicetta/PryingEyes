@@ -871,7 +871,8 @@ namespace PryingEyes
             sprintBlend = Mathf.MoveTowards(sprintBlend, sprinting ? 1f : 0f, dt / (sprinting ? 0.20f : 0.18f));
             // coltello: l'arma scende in 80 ms e sparisce; rientrando risale in 140 ms
             knifeBlend = Mathf.MoveTowards(knifeBlend, knifeOut ? 1f : 0f, dt / (knifeOut ? 0.08f : 0.14f));
-            bool shown = knifeBlend < 0.999f;
+            RideStowTick(dt);                // in sella (Weapon.Ride.cs) l'arma sta riposta finche' non serve
+            bool shown = knifeBlend < 0.999f && (!rideMode || rideStow < 0.999f);
             if (viewRoot.gameObject.activeSelf != shown) viewRoot.gameObject.SetActive(shown);
 
             // ----- cambio arma
@@ -899,14 +900,14 @@ namespace PryingEyes
             }
             d = Def; // il cambio può essersi concluso in questo stesso fotogramma
             // ispezione dell'arma: I a riposo; sparare, mirare, ricaricare, cambiare o il coltello la interrompono
-            if (inputEnabled && SeatInput.GetKeyDown(KeyCode.I) && inspectT <= 0f && !reloading && ads < 0.1f && swapT <= 0f && !knifeOut && !OffBusy) Inspect();
+            if (inputEnabled && SeatInput.GetKeyDown(KeyCode.I) && inspectT <= 0f && !reloading && ads < 0.1f && swapT <= 0f && !knifeOut && !OffBusy && !rideMode) Inspect();
             if (OffBusy) inspectT = 0f;
             AutoReloadHolstered(dt);
             if (inspectT > 0f && (triggerHeld || ads > 0.2f || reloading || swapT > 0f || knifeOut)) inspectT = 0f;
             if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.B) || TouchControls.Down(TouchControls.Action.Mode))) ToggleMode();
 
             // ----- mira
-            bool adsBlocked = sprinting || swapT > 0f || knifeOut || OffBusy || (reloading && Def.style != ReloadStyle.Tube);
+            bool adsBlocked = sprinting || swapT > 0f || knifeOut || OffBusy || rideMode || (reloading && Def.style != ReloadStyle.Tube);          // in sella (con una mano sola) niente mira
             bool adsKey = SeatInput.GetMouseButton(1);
             if (GameSettings.AimToggle)       // Impostazioni > Comandi: la mira a interruttore; corsa, cambio, coltello e ricarica la abbassano e non riprende da sola
             {
@@ -931,11 +932,13 @@ namespace PryingEyes
             // ----- fuoco
             // Conserva il ritardo del fotogramma quando parte il colpo, senza accumulare credito durante l'attesa.
             State.AdvanceCadence(dt);
-            bool autoBot = inputEnabled && GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire;
+            bool autoBot = inputEnabled && GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire && !rideMode;          // in sella il bot di -autotest sta zitto...
+            autoBot |= inputEnabled && rideMode && rideBotFire;                                                                      // ...tranne la prova che spara dalla sella (Weapon.rideBotFire, solo delle prove; -desertotest e -cooptest hanno noFire)
             bool press = inputEnabled && (SeatInput.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f));
             bool held = inputEnabled && (SeatInput.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot);
+            if (rideMode) press = RidePendingPress(press, dt);
             if (!held) { triggerHeld = false; dryPlayed = false; }
-            bool blocked = knifeOut || OffBusy || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube);
+            bool blocked = knifeOut || OffBusy || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube) || (rideMode && rideStow > 0.35f);
             if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || State.RoundsLoaded > 0))
             {
                 // sparare interrompe la ricarica a canna
@@ -1007,7 +1010,7 @@ namespace PryingEyes
                 float spread = CurrentSpread(speed, grounded, crouched);
                 float fov = cam.GetComponent<Camera>().fieldOfView;
                 float px = Mathf.Tan(spread * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad) * 360f;
-                hud.SetCrosshair(px, ads, d.cls, d.pellets > 1);
+                hud.SetCrosshair(px, Mathf.Max(ads, RideStow), d.cls, d.pellets > 1);          // il mirino sparisce con l'arma in mira o, in sella, riposta
                 hud.SetAdsVignette(ads * (d.zoom > 1.4f ? 0.80f : 0.42f));
             }
 
@@ -1028,7 +1031,7 @@ namespace PryingEyes
             float mv = 1f + d.moveSpread * moveNow * (1f - ads * 0.6f);
             float c = crouched ? 0.72f : 1f;
             float air = 1f + airNow * 1.6f;
-            return (baseDeg * mv * c * air + bloom * Mathf.Lerp(1f, 0.5f, ads)) * OwnerMagic.SpreadMult;
+            return (baseDeg * mv * c * air + bloom * Mathf.Lerp(1f, 0.5f, ads)) * OwnerMagic.SpreadMult * RideSpreadMult;
         }
 
         // ------------------------------------------------------------------ ricarica
@@ -1401,6 +1404,7 @@ namespace PryingEyes
                 pos += op;
                 rot *= Quaternion.Euler(orr);
             }
+            RidePose(ref pos, ref rot);
             viewRoot.localPosition = pos;
             viewRoot.localRotation = rot;
             AnimateParts(rp, d);
@@ -1434,6 +1438,7 @@ namespace PryingEyes
             armL?.Solve(ads, dt);
             offHand?.AfterArmSolve();
             ReloadPostSolve();
+            RideHideLeftHand();
         }
 
         void AnimateParts(float rp, WeaponDef d)

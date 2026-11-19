@@ -20,6 +20,7 @@ namespace PryingEyes
         void UpdateMapUI()
         {
             UpdateDesertMapUI();           // Deserto/HUD.DesertMap.cs: la minimappa del deserto
+            UpdateDesertSpeedUI();         // Deserto/HUD.DesertSpeed.cs: il tachimetro della moto (solo in sella)
             if (mapView == null) return;
             // il tempo vero: la mappa si apre e si chiude anche durante i rallentatori
             try { mapView.Tick(Time.unscaledDeltaTime); }

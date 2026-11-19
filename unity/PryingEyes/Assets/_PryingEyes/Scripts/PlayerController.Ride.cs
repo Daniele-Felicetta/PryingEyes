@@ -6,20 +6,23 @@ namespace PryingEyes
     /// <summary>Guidare la moto del deserto (DesertBike). Mentre si guida UpdateBody non muove il corpo a piedi: chiama RideTick, che usa lo stesso CharacterController (quindi terreno, muri, scale,
     /// salti e cadute sono quelli di sempre, e i nemici colpiscono lo stesso corpo) ma con la dinamica della moto: gas, freno, retromarcia, sterzo che dipende dalla velocita', aderenza laterale
     /// (il freno a mano la toglie: si derapa), turbo, volo quando il terreno sparisce sotto le ruote e urto contro i muri (la velocita' persa in una frenata da urto, sommando i fotogrammi di un decimo di secondo, e' il danno).
-    /// La camera e' sull'occhio del pilota (con lo sguardo libero fino a 100 gradi: il mouse gira solo la testa, la rotta la danno A e D). Il mirino dell'arma si nasconde: in sella non si spara.
+    /// La camera e' sull'occhio del pilota (con lo sguardo libero fino a 100 gradi: il mouse gira solo la testa, la rotta la danno A e D). L'arma sta riposta (Weapon.Ride.cs) e si alza con fuoco,
+    /// mira, ricarica o il cambio arma (RideGunTick): si spara con la destra, la sinistra resta sul manubrio.
     /// Si scende con Usa (F), da fermi o frenando da soli.</summary>
     public partial class PlayerController
     {
         DesertBike bike;
         float rideHeading, rideSteer, rideLook, rideLookPrev, rideLookIdle, rideTop = DesertBike.TopSpeed;
         float rideSpeedShown, rideCrashCool, rideNoiseT, rideBlend = 1f, rideDip, rideVyPrev, rideStepOffset, rideLandCool;
+        float rideGunIdle = 99f;                           // i secondi dall'ultima volta che l'arma e' servita (fuoco, mira, ricarica, cambio): oltre un secondo e mezzo torna giu'
         float rideHitLoss, rideHitFrom, rideHitT;          // la frenata da urto in corso: quanta velocita' ha tolto finora, da quale velocita' si arrivava, quanto tempo resta alla finestra
-        bool rideGrounded = true, rideDismount, rideHintDismount;
-        int rideKmh;
+        bool rideGrounded = true, rideDismount, rideHintDismount, rideBoosting;
         string rideHint;
         Vector3 rideCamFrom;
 
         public bool Riding => bike != null;
+        /// <summary>Il turbo e' inserito (Maiusc col gas, e la velocita' oltre il massimo normale): lo legge il tachimetro.</summary>
+        public bool RideBoosting => rideBoosting;
         public DesertBike Bike => bike;
         /// <summary>Velocita' lungo la rotta in m/s (negativa in retromarcia).</summary>
         public float RideSpeed => rideSpeedShown;
@@ -51,11 +54,12 @@ namespace PryingEyes
             }
             slide = false; crouch = false; lean = 0f; recP = recY = recTargetP = recTargetY = 0f;
             rideSteer = 0f; rideTop = DesertBike.TopSpeed; rideSpeedShown = 0f; rideCrashCool = 0f; rideDip = 0f; rideLandCool = 0f; rideHitLoss = rideHitFrom = rideHitT = 0f;
-            rideGrounded = true; rideDismount = false; rideNoiseT = 0f; rideVyPrev = 0f;
+            rideGrounded = true; rideDismount = false; rideNoiseT = 0f; rideVyPrev = 0f; rideBoosting = false;
             rideLook = Mathf.Clamp(Mathf.DeltaAngle(rideHeading * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg) * Mathf.Deg2Rad, -1.75f, 1.75f);
             rideLookPrev = rideLook; rideLookIdle = 0f;
             yaw = rideHeading + rideLook;
-            if (weapon != null) { weapon.ads = 0f; if (weapon.ViewRootT != null) weapon.ViewRootT.gameObject.SetActive(false); }       // in mira la sensibilita' del mouse sarebbe ridotta
+            rideGunIdle = 99f;
+            if (weapon != null) { weapon.SetRideMode(true); weapon.ads = 0f; if (weapon.ViewRootT != null) weapon.ViewRootT.gameObject.SetActive(false); }       // arma riposta: la si alza quando serve (in mira la sensibilita' del mouse sarebbe ridotta)
             rideHint = null;
             hud?.SetPrompt("");
             hud?.Toast("In sella: W gas, S freno e retromarcia, A e D sterzo, Maiusc turbo, Spazio freno a mano, " + PadControls.UseKey + " scendi.");
@@ -99,17 +103,18 @@ namespace PryingEyes
         void EndRide()
         {
             bike = null;
-            rideDismount = false;
+            rideDismount = false; rideBoosting = false;
             vel = Vector3.zero;
             SpeedH = 0f; IsSprinting = false; IsCrouching = false;
             if (cc != null) cc.stepOffset = rideStepOffset > 0f ? rideStepOffset : 0.3f;
+            weapon?.SetRideMode(false);
             if (weapon != null && weapon.ViewRootT != null) weapon.ViewRootT.gameObject.SetActive(true);
             hud?.SetPrompt("");
             DesertBike.BotReset();
         }
 
         /// <summary>Un fotogramma in sella (chiamato da UpdateBody al posto del movimento a piedi, con il mouse gia' sommato a yaw e i comandi di movimento gia' letti in 'f' e 's').</summary>
-        void RideTick(float dt, float f, float s, bool inputEnabled)
+        void RideTick(float dt, float f, float s, bool inputEnabled, Vector2 lookDelta)
         {
             var b = bike;
             dt = Mathf.Min(dt, 0.05f);
@@ -251,16 +256,17 @@ namespace PryingEyes
 
             // ---- la moto prende la posa, il corpo la segue
             bool boosting = boostKey && throttle > 0.1f && rideTop > DesertBike.TopSpeed + 1f;
+            rideBoosting = boosting;
             b.Pose(transform.position, rideHeading, rideGrounded, vel, rideSteer, Mathf.Clamp01(throttle), boosting, braking, handbrake, dt);
             SpeedH = hs;
             IsSprinting = hs > 7.5f;
             IsCrouching = false;
             hud?.SetBars(hp, shield);
-            int kmh = Mathf.RoundToInt(Mathf.Abs(rideSpeedShown) * 3.6f);
-            if (rideHint == null || kmh != rideKmh || rideDismount != rideHintDismount)
+            // la velocita' la dice il tachimetro (HUD.DesertSpeed.cs): il suggerimento dice solo come si scende
+            if (rideHint == null || rideDismount != rideHintDismount)
             {
-                rideKmh = kmh; rideHintDismount = rideDismount;
-                rideHint = kmh + " km/h" + (rideDismount ? "    frena per scendere" : "    [" + PadControls.UseKey + "] scendi");
+                rideHintDismount = rideDismount;
+                rideHint = rideDismount ? "frena per scendere" : "[" + PadControls.UseKey + "] scendi";
             }
             hud?.SetPrompt(rideHint);
 
@@ -299,6 +305,24 @@ namespace PryingEyes
             float fol = 1f - Mathf.Exp(-34f * dt);
             recP += (recTargetP - recP) * fol;
             recY += (recTargetY - recY) * fol;
+
+            RideGunTick(dt, hs, lookDelta, inputEnabled);
+        }
+
+        /// <summary>L'arma in sella: sta riposta finche' non si preme fuoco, mira, ricarica o si cambia arma; un secondo e mezzo dopo l'ultimo uso torna giu'. Dopo la camera: l'arma e' figlia dell'occhio.
+        /// Il resto (cadenza, munizioni, rinculo, rumore) e' Weapon.Tick come a piedi, con la dispersione allargata dalla velocita' della moto.</summary>
+        void RideGunTick(float dt, float speed, Vector2 lookDelta, bool inputEnabled)
+        {
+            var w = weapon;
+            if (w == null || !w.RideMode) return;
+            bool fire = inputEnabled && (SeatInput.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire));
+            bool other = inputEnabled && (SeatInput.GetMouseButton(1) || SeatInput.GetKeyDown(KeyCode.R) || SeatInput.GetKeyDown(KeyCode.Alpha1) || SeatInput.GetKeyDown(KeyCode.Alpha2) || SeatInput.GetKeyDown(KeyCode.X)
+                || Mathf.Abs(SeatInput.GetAxis("Mouse ScrollWheel")) > 0.01f || TouchControls.Held(TouchControls.Action.Aim) || TouchControls.Down(TouchControls.Action.Reload) || TouchControls.Down(TouchControls.Action.Swap));
+            if (Weapon.rideBotFire) fire = true;          // la prova che spara da sola (anche con la moto ferma: DesertBike.BotActive non c'entra; la alzano solo le prove)
+            if (fire || other || w.reloading) rideGunIdle = 0f; else rideGunIdle += dt;
+            w.RideUp(rideGunIdle < 1.5f, speed / DesertBike.BoostSpeed);
+            w.Tick(dt, false, 0f, rideGrounded, false, lookDelta);
+            if (bike != null) bike.ShowRightArm(!w.RideGunUp);          // la destra e' sull'arma: il suo braccio sulla moto non si vede (nel suo posto c'e' quello dell'arma)
         }
     }
 }

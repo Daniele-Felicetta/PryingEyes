@@ -399,6 +399,12 @@ namespace PryingEyes
                 yield return new WaitForSeconds(3f);
                 float went = FlatTo(pl.transform.position, start);
                 Check("ho corso: sono lontano dal posto di partenza", went > 30f && pl.RideSpeed > 8f, $"{went:F0} m, {pl.RideSpeed * 3.6f:F0} km/h");
+                // spara dalla sella, sempre in corsa (0.9.3): l'arma si alza e l'altro processo la vede nella destra del pilota (arma e tempo dell'ultimo sparo viaggiano gia' nello stato)
+                int shots0 = GameManager.shotsFired;
+                Weapon.rideBotFire = true;
+                yield return new WaitForSeconds(1.5f);
+                Weapon.rideBotFire = false;
+                Check("sparo dalla sella mentre corro (l'arma si alza e i colpi partono)", pl.weapon != null && pl.weapon.RideMode && GameManager.shotsFired - shots0 >= 2, $"{GameManager.shotsFired - shots0} colpi");
                 DesertBike.botThrottle = -1f; DesertBike.botSteer = 0f;
                 yield return Until(() => Mathf.Abs(pl.RideSpeed) < 2f, 8f);
                 DesertBike.BotReset();
@@ -427,8 +433,10 @@ namespace PryingEyes
             float maxRoll = 0f, maxSpeed = 0f, tEnd = Time.time + 6f, tNext = Time.time + 0.5f;
             Vector3 prev = rp.transform.position;
             int good = 0, samples = 0;
+            bool sawGun = false;                                        // l'arma nella destra del pilota seduto, dopo uno sparo (la guarda anche l'attesa della discesa, piu' sotto)
             while (Time.time < tEnd)
             {
+                if (rp.Body != null && rp.Body.input.seated && rp.Body.HasWeapon && rp.last.shotAge < 1.4f) sawGun = true;
                 maxRoll = Mathf.Max(maxRoll, Mathf.Abs(pb.RollVisual));
                 if (Time.time >= tNext)
                 {
@@ -450,7 +458,8 @@ namespace PryingEyes
             float s0 = pb.WheelSpin;
             yield return new WaitForSeconds(0.03f);
             Check("le sue ruote girano", Mathf.Abs(Mathf.DeltaAngle(s0, pb.WheelSpin)) > 1f, $"{Mathf.DeltaAngle(s0, pb.WheelSpin):F0} gradi in 30 ms");
-            yield return Until(() => !rp.last.riding, 25f);
+            yield return Until(() => { if (rp.Body != null && rp.Body.input.seated && rp.Body.HasWeapon && rp.last.shotAge < 1.4f) sawGun = true; return !rp.last.riding; }, 25f);
+            if (rp.Body != null) Check("lo vedo sparare dalla sella: l'arma e' nella sua destra mentre guida", sawGun, $"arma vista {sawGun}");
             yield return new WaitForSeconds(0.6f);
             Check("quando scende la sua moto sparisce dalla mia vista", !rp.last.riding && (rp.Bike == null || !rp.Bike.gameObject.activeSelf), rp.Bike != null ? $"attiva {rp.Bike.gameObject.activeSelf}" : "nessuna");
         }

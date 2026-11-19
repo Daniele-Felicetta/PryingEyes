@@ -8,7 +8,7 @@ namespace PryingEyes.Deserto
     /// tutte le moto; solo le due luci hanno il materiale proprio (si accendono una per una). Il sistema e' una piccola gerarchia:
     /// radice (posizione e rotta) -> corpo (beccheggio e rollio) -> telaio e motore, ruota dietro, sterzo (asse inclinato di 22 gradi) -> forcella, manubrio, faro, ruota davanti.
     /// Il perno dello sterzo e' inclinato, quindi il gruppo ha il proprio sistema: le parti dello sterzo si disegnano nel sistema della moto e si portano li' con la matrice inversa.</summary>
-    public static class DesertBikeMesh
+    public static partial class DesertBikeMesh
     {
         public const float WheelRadius = 0.34f, WheelBase = 1.38f;
         /// <summary>Quota dell'occhio del pilota nel sistema della moto (davanti alla sella, dietro il manubrio).</summary>
@@ -20,6 +20,9 @@ namespace PryingEyes.Deserto
         public sealed class Rig
         {
             public Transform root, body, steer, frontPivot, rearPivot, arms;
+            /// <summary>I guanti (figli dello sterzo, uno per lato: 0 sinistra, 1 destra): quello destro si spegne da solo quando la destra impugna l'arma.</summary>
+            public readonly Transform[] glove = new Transform[2];
+            bool rightHidden;
             public Light headlight;
             public Material lensMat, tailMat;
             public Quaternion steerRest;
@@ -34,6 +37,21 @@ namespace PryingEyes.Deserto
             {
                 if (arms != null && arms.gameObject.activeSelf != on) arms.gameObject.SetActive(on);
                 for (int i = 0; i < 2; i++) if (sleeve[i] != null && sleeve[i].gameObject.activeSelf != on) sleeve[i].gameObject.SetActive(on);
+                ApplyRight();
+            }
+
+            /// <summary>Il braccio destro (avambraccio e guanto) si vede o no, restando le braccia come sono: in sella con l'arma in mano la destra non e' sul manubrio e al suo posto c'e' il braccio dell'arma.</summary>
+            public void ShowRightArm(bool on)
+            {
+                rightHidden = !on;
+                ApplyRight();
+            }
+
+            void ApplyRight()
+            {
+                bool v = ArmsShown && !rightHidden;
+                if (glove[1] != null && glove[1].gameObject.activeSelf != v) glove[1].gameObject.SetActive(v);
+                if (sleeve[1] != null && sleeve[1].gameObject.activeSelf != v) sleeve[1].gameObject.SetActive(v);
             }
 
             /// <summary>Ogni avambraccio e' un tubo lungo uno (lungo z) che si allunga e si gira ogni volta dal gomito, fermo nel corpo, al pugno, che segue il manubrio: cosi' girando lo sterzo il braccio non gira
@@ -57,8 +75,9 @@ namespace PryingEyes.Deserto
 
         sealed class Kit
         {
-            public Mesh frame, engine, exhaust, paint, seat, fork, bars, grips, steerPaint, plate, lens, sleeve, gloves, tail, tyre, wheelMetal;
-            public Material mPaint, mFrame, mMetal, mSteel, mRubber, mSeat, mPlate, mCloth, mGlove;
+            public Mesh frame, engine, exhaust, paint, seat, fork, bars, grips, steerPaint, plate, lens, sleeve, tail, tyre, wheelMetalFront, wheelMetalRear, trim, trimSteer, plateRear, glass;
+            public readonly Mesh[] gloves = new Mesh[2];            // un guanto per lato (0 sinistra, 1 destra)
+            public Material mPaint, mFrame, mMetal, mSteel, mRubber, mSeat, mPlate, mCloth, mGlove, mBrass, mGlass;
             public Matrix4x4 steerM;
             public Quaternion steerRot;
             public readonly Vector3[] handPt = new Vector3[2], elbowPt = new Vector3[2];
@@ -170,6 +189,7 @@ namespace PryingEyes.Deserto
             k.steerM = Matrix4x4.TRS(Head, k.steerRot, Vector3.one);
             Matrix4x4 inv = k.steerM.inverse;
             float R = WheelRadius;
+            var det = MakeDetails(k.steerRot, inv);                          // i dettagli meccanici (DesertBikeMesh.Details.cs): ognuno finisce nella lista del suo materiale
 
             // ---- telaio (nero)
             var frame = new List<(Mesh mesh, Matrix4x4 at)>();
@@ -183,6 +203,7 @@ namespace PryingEyes.Deserto
             }
             frame.Add(Tube("trave", Smooth(P(0f, 0.975f, 0.40f, 0f, 0.985f, 0.12f, 0f, 0.90f, -0.12f), 4), 0.030f));
             frame.Add(Tube("asse", P(-0.12f, R, AxleRear.z, 0.12f, R, AxleRear.z), 0.018f));
+            frame.AddRange(det.frame);
             k.frame = DesertLathe.Join("Moto telaio", frame);
 
             // ---- motore (alluminio) e scarico (acciaio)
@@ -193,12 +214,14 @@ namespace PryingEyes.Deserto
                 (Cube("testa", new Vector3(0.14f, 0.09f, 0.15f)), At(new Vector3(0f, 0.775f, 0.175f), Quaternion.Euler(18f, 0f, 0f))),
                 (DesertLathe.Turn("coperchio", new[] { new Vector2(0f, -0.016f), new Vector2(0.095f, -0.016f), new Vector2(0.095f, 0.016f), new Vector2(0f, 0.016f) }, 14), At(new Vector3(0.115f, 0.43f, -0.01f), Quaternion.Euler(0f, 0f, 90f))),
             };
+            eng.AddRange(det.metal);
             k.engine = DesertLathe.Join("Moto motore", eng);
             var ex = new List<(Mesh mesh, Matrix4x4 at)>
             {
                 Tube("scarico", Smooth(P(0.075f, 0.66f, 0.22f, 0.13f, 0.56f, 0.31f, 0.165f, 0.42f, 0.28f, 0.175f, 0.36f, 0.10f, 0.18f, 0.38f, -0.25f, 0.18f, 0.50f, -0.60f, 0.17f, 0.56f, -0.92f), 5),
                     t => t < 0.62f ? 0.021f : Mathf.Lerp(0.021f, 0.047f, Mathf.SmoothStep(0f, 1f, (t - 0.62f) / 0.12f)), 8),
             };
+            ex.AddRange(det.steel);
             k.exhaust = DesertLathe.Join("Moto scarico", ex);
 
             // ---- vernice (rosso sbiadito dal sole): serbatoio e parafango dietro (i convogliatori piatti ai lati del serbatoio, nella prima prova, sembravano pannelli: tolti)
@@ -213,11 +236,15 @@ namespace PryingEyes.Deserto
             k.paint = DesertLathe.Join("Moto vernice", paint);
 
             // ---- sella
-            k.seat = DesertLathe.Join("Moto sella", new List<(Mesh mesh, Matrix4x4 at)>
+            var seat = new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (DesertLathe.Turn("sella", new[] { new Vector2(0f, -0.33f), new Vector2(0.04f, -0.32f), new Vector2(0.08f, -0.28f), new Vector2(0.10f, -0.18f), new Vector2(0.105f, 0f),
                     new Vector2(0.10f, 0.18f), new Vector2(0.085f, 0.27f), new Vector2(0.05f, 0.32f), new Vector2(0f, 0.34f) }, 12), At(new Vector3(0f, 0.885f, -0.28f), Lay, new Vector3(1.15f, 1f, 0.42f))),
-            });
+            };
+            seat.AddRange(det.seat);
+            k.seat = DesertLathe.Join("Moto sella", seat);
+            k.trim = DesertLathe.Join("Moto ottone", det.trim);
+            k.plateRear = DesertLathe.Join("Moto targa dietro", det.plateRear);
 
             // ---- fanalino (la mesh sola: il materiale e' di ogni moto)
             k.tail = Cube("fanalino", new Vector3(0.07f, 0.035f, 0.016f));
@@ -258,35 +285,65 @@ namespace PryingEyes.Deserto
                 (DesertLathe.Tube("parafango davanti", frontFender, Fill(frontFender.Length, 0.03f), 6), At(AxleFront, Quaternion.identity, new Vector3(2.2f, 1f, 1f))),
             };
             sp.AddRange(ToSteer(fenderBike, inv));
+            fork.AddRange(det.fork);
             k.fork = DesertLathe.Join("Moto forcella", fork);
+            bars.AddRange(det.bars);
             k.bars = DesertLathe.Join("Moto manubrio", bars);
+            grips.AddRange(det.grips);
             k.grips = DesertLathe.Join("Moto manopole", grips);
+            k.trimSteer = DesertLathe.Join("Moto ottone sterzo", det.trimSteer);
+            k.glass = DesertLathe.Join("Moto vetri", det.glass);
             k.steerPaint = DesertLathe.Join("Moto parafango", sp);
             k.plate = DesertLathe.Join("Moto targa", plate);
             k.lens = DesertLathe.Join("Moto lente", lens);
 
             // ---- le braccia del pilota (si vedono solo in prima persona, dal suo posto): l'avambraccio e' un tubo di lunghezza uno (Rig.PoseArms lo mette ogni volta tra il gomito e il pugno), il guanto
             // avvolge la manopola e gira con lo sterzo. Nella prima prova la manica era un tubo unico dalla spalla in un pezzo con la forcella: in curva la spalla girava con lo sterzo e attraversava la vista.
-            var gloves = new List<(Mesh mesh, Matrix4x4 at)>();
             int ai = 0;
             foreach (float s in new[] { -1f, 1f })
             {
                 Vector3 g0 = GripAt(k.steerRot, s, 0.285f), g1 = GripAt(k.steerRot, s, 0.395f);
                 var fist = new[] { g0, Vector3.Lerp(g0, g1, 0.5f), g1 };
-                gloves.AddRange(ToSteer(new List<(Mesh mesh, Matrix4x4 at)> { (DesertLathe.Tube("guanto", fist, new[] { 0.028f, 0.036f, 0.027f }, 8), I) }, inv));
+                k.gloves[ai] = DesertLathe.Join(ai == 0 ? "Moto guanto sinistro" : "Moto guanto destro", ToSteer(new List<(Mesh mesh, Matrix4x4 at)> { (DesertLathe.Tube("guanto", fist, new[] { 0.028f, 0.036f, 0.027f }, 8), I) }, inv));
                 k.handPt[ai] = inv.MultiplyPoint3x4(GripAt(k.steerRot, s, 0.34f));
                 k.elbowPt[ai] = new Vector3(s * 0.36f, 0.99f, -0.27f);
                 ai++;
             }
-            k.gloves = DesertLathe.Join("Moto guanti", gloves);
             k.sleeve = DesertLathe.Tube("Moto avambraccio", new[] { Vector3.zero, new Vector3(0f, 0f, 0.5f), Vector3.forward }, new[] { 0.040f, 0.037f, 0.031f }, 8);
 
             // ---- ruota (asse lungo x, nel piano yz): pneumatico, cerchio, mozzo e raggi
-            k.tyre = DesertLathe.Join("Moto gomma", new List<(Mesh mesh, Matrix4x4 at)>
+            var tyre = new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (DesertLathe.Turn("gomma", new[] { new Vector2(0.235f, -0.05f), new Vector2(0.29f, -0.058f), new Vector2(0.325f, -0.046f), new Vector2(0.340f, -0.022f),
                     new Vector2(0.340f, 0.022f), new Vector2(0.325f, 0.046f), new Vector2(0.29f, 0.058f), new Vector2(0.235f, 0.05f) }, 28), At(Vector3.zero, Quaternion.Euler(0f, 0f, 90f))),
-            });
+            };
+            tyre.AddRange(det.tread);
+            k.tyre = DesertLathe.Join("Moto gomma", tyre);
+            var wmFront = WheelMetal(); wmFront.AddRange(det.discFront);
+            var wmRear = WheelMetal(); wmRear.AddRange(det.discRear);
+            k.wheelMetalFront = DesertLathe.Join("Moto raggi davanti", wmFront);
+            k.wheelMetalRear = DesertLathe.Join("Moto raggi dietro", wmRear);
+
+            // ---- materiali condivisi (la luce di sole, a mezzogiorno, brucia i colori chiari: tinte sobrie)
+            k.mPaint = Lit("Vernice", new Color(0.46f, 0.14f, 0.09f), 0.12f, 0.50f);
+            k.mFrame = Lit("Telaio", new Color(0.035f, 0.035f, 0.04f), 0.30f, 0.55f);
+            k.mMetal = Lit("Alluminio", new Color(0.40f, 0.40f, 0.42f), 0.30f, 0.50f);
+            k.mSteel = Lit("Acciaio", new Color(0.26f, 0.24f, 0.23f), 0.30f, 0.45f);
+            k.mRubber = Lit("Gomma", new Color(0.025f, 0.025f, 0.027f), 0f, 0.12f);
+            k.mSeat = Lit("Sella", new Color(0.05f, 0.044f, 0.040f), 0f, 0.30f);
+            k.mPlate = Lit("Targa", new Color(0.50f, 0.48f, 0.40f), 0f, 0.30f);
+            k.mCloth = Lit("Manica", new Color(0.46f, 0.41f, 0.28f), 0f, 0.15f);          // un giubbotto di tela cachi consumata; nero nella prima prova (in ombra non si distingueva dai guanti) e ancora quasi nero a 0,23 (avambracci pesanti contro la sabbia)
+            k.mGlove = Lit("Guanto", new Color(0.20f, 0.12f, 0.07f), 0f, 0.35f);          // cuoio
+            k.mGlass = Lit("Vetro", new Color(0.50f, 0.55f, 0.60f), 0.5f, 0.92f);          // il vetro degli specchietti: il cielo che riflette, di giorno, e' un'emissione (SetGlassLight)
+            k.mGlass.EnableKeyword("_EMISSION");
+            k.mGlass.SetColor("_EmissionColor", new Color(0.30f, 0.37f, 0.45f));
+            k.mBrass = Lit("Ottone", new Color(0.62f, 0.46f, 0.20f), 0.75f, 0.55f);        // i filetti del serbatoio, il tappo, le pinze dei freni e la cornice del faro
+            kit = k;
+        }
+
+        /// <summary>Cerchio, mozzo e sedici raggi di una ruota (asse lungo x): una lista nuova a ogni chiamata, perche' Join consuma i pezzi (davanti e dietro aggiungono ognuna il proprio disco).</summary>
+        static List<(Mesh mesh, Matrix4x4 at)> WheelMetal()
+        {
             var wm = new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (DesertLathe.Turn("cerchio", new[] { new Vector2(0.245f, -0.045f), new Vector2(0.245f, 0.045f), new Vector2(0.228f, 0.045f), new Vector2(0.228f, -0.045f) }, 28), At(Vector3.zero, Quaternion.Euler(0f, 0f, 90f))),
@@ -299,19 +356,7 @@ namespace PryingEyes.Deserto
                     var rot = Quaternion.Euler(a, 0f, 0f);
                     wm.Add((Cube("raggio", new Vector3(0.010f, 0.19f, 0.010f)), At(rot * new Vector3(side == 0 ? -0.022f : 0.022f, 0.135f, 0f), rot)));
                 }
-            k.wheelMetal = DesertLathe.Join("Moto raggi", wm);
-
-            // ---- materiali condivisi (la luce di sole, a mezzogiorno, brucia i colori chiari: tinte sobrie)
-            k.mPaint = Lit("Vernice", new Color(0.46f, 0.14f, 0.09f), 0.12f, 0.50f);
-            k.mFrame = Lit("Telaio", new Color(0.035f, 0.035f, 0.04f), 0.30f, 0.55f);
-            k.mMetal = Lit("Alluminio", new Color(0.40f, 0.40f, 0.42f), 0.30f, 0.50f);
-            k.mSteel = Lit("Acciaio", new Color(0.26f, 0.24f, 0.23f), 0.30f, 0.45f);
-            k.mRubber = Lit("Gomma", new Color(0.025f, 0.025f, 0.027f), 0f, 0.12f);
-            k.mSeat = Lit("Sella", new Color(0.05f, 0.044f, 0.040f), 0f, 0.30f);
-            k.mPlate = Lit("Targa", new Color(0.50f, 0.48f, 0.40f), 0f, 0.30f);
-            k.mCloth = Lit("Manica", new Color(0.46f, 0.41f, 0.28f), 0f, 0.15f);          // un giubbotto di tela cachi consumata; nero nella prima prova (in ombra non si distingueva dai guanti) e ancora quasi nero a 0,23 (avambracci pesanti contro la sabbia)
-            k.mGlove = Lit("Guanto", new Color(0.20f, 0.12f, 0.07f), 0f, 0.35f);          // cuoio
-            kit = k;
+            return wm;
         }
 
         /// <summary>Un cilindro con le alette di raffreddamento (asse y).</summary>
@@ -374,13 +419,13 @@ namespace PryingEyes.Deserto
             return g.transform;
         }
 
-        static Transform Wheel(Transform parent, string name, Vector3 at)
+        static Transform Wheel(Transform parent, string name, Vector3 at, bool front)
         {
             var pivot = new GameObject(name).transform;
             pivot.SetParent(parent, false);
             pivot.localPosition = at;
             Part(pivot, "Gomma", kit.tyre, kit.mRubber);
-            Part(pivot, "Cerchio e raggi", kit.wheelMetal, kit.mMetal);
+            Part(pivot, front ? "Cerchio, raggi e disco" : "Cerchio, raggi, disco e corona", front ? kit.wheelMetalFront : kit.wheelMetalRear, kit.mMetal);
             return pivot;
         }
 
@@ -396,7 +441,9 @@ namespace PryingEyes.Deserto
             Part(rig.body, "Scarico", kit.exhaust, kit.mSteel);
             Part(rig.body, "Vernice", kit.paint, kit.mPaint);
             Part(rig.body, "Sella", kit.seat, kit.mSeat);
-            rig.rearPivot = Wheel(rig.body, "Ruota dietro", AxleRear);
+            Part(rig.body, "Ottone", kit.trim, kit.mBrass);
+            Part(rig.body, "Targa dietro", kit.plateRear, kit.mPlate);
+            rig.rearPivot = Wheel(rig.body, "Ruota dietro", AxleRear, false);
 
             rig.tailMat = Glow("Fanalino", new Color(1f, 0.08f, 0.04f), 1.2f);
             var tl = Part(rig.body, "Fanalino", kit.tail, rig.tailMat, false);
@@ -412,15 +459,17 @@ namespace PryingEyes.Deserto
             Part(rig.steer, "Manopole", kit.grips, kit.mRubber);
             Part(rig.steer, "Parafango", kit.steerPaint, kit.mPaint);
             Part(rig.steer, "Targa", kit.plate, kit.mPlate);
+            Part(rig.steer, "Ottone sterzo", kit.trimSteer, kit.mBrass);
+            Part(rig.steer, "Vetri", kit.glass, kit.mGlass, false);
             rig.lensMat = Glow("Faro", new Color(1f, 0.93f, 0.78f), 0.9f);
             Part(rig.steer, "Lente", kit.lens, rig.lensMat, false);
-            rig.frontPivot = Wheel(rig.steer, "Ruota davanti", kit.steerM.inverse.MultiplyPoint3x4(AxleFront));
+            rig.frontPivot = Wheel(rig.steer, "Ruota davanti", kit.steerM.inverse.MultiplyPoint3x4(AxleFront), true);
 
             rig.arms = new GameObject("Guanti").transform;
             rig.arms.SetParent(rig.steer, false);
-            Part(rig.arms, "Guanti", kit.gloves, kit.mGlove, false);
             for (int i = 0; i < 2; i++)
             {
+                rig.glove[i] = Part(rig.arms, i == 0 ? "Guanto sinistro" : "Guanto destro", kit.gloves[i], kit.mGlove, false);
                 rig.sleeve[i] = Part(rig.body, i == 0 ? "Avambraccio sinistro" : "Avambraccio destro", kit.sleeve, kit.mCloth, false);
                 rig.handPt[i] = kit.handPt[i];
                 rig.elbowPt[i] = kit.elbowPt[i];
@@ -442,6 +491,12 @@ namespace PryingEyes.Deserto
             l.enabled = false;
             rig.headlight = l;
             return rig;
+        }
+
+        /// <summary>Il vetro degli specchietti riflette il cielo: di giorno un grigio-azzurro chiaro, di notte (o al chiuso) quasi niente. Il materiale e' uno solo per tutte le moto: lo aggiorna chi le accende.</summary>
+        public static void SetGlassLight(float day)
+        {
+            if (kit != null && kit.mGlass != null) kit.mGlass.SetColor("_EmissionColor", new Color(0.30f, 0.37f, 0.45f) * Mathf.Clamp01(day));
         }
 
         /// <summary>Dove tocca terra ognuna delle due ruote (nel sistema della moto), per i raggi che ne misurano la quota.</summary>

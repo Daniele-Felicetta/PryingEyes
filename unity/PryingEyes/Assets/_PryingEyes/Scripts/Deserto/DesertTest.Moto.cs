@@ -132,6 +132,9 @@ namespace PryingEyes.Deserto
             yield return WaitFor(() => hudM != null && !hudM.DesertMapBikeShown, 3f);
             Check("moto: in sella il tondo della minimappa si spegne (sei la freccia rossa)", hudM != null && hudM.DesertMapShown && !hudM.DesertMapBikeShown, hudM == null ? "nessun HUD" : $"mappa accesa {hudM.DesertMapShown}, tondo {hudM.DesertMapBikeShown}");
             Check("moto: da ferma non si muove", Mathf.Abs(pl.RideSpeed) < 0.3f);
+            yield return WaitFor(() => hudM != null && hudM.SpeedoShown, 3f);
+            Check("moto: in sella c'e' il tachimetro, a zero, con la lancetta a inizio scala e la spia del turbo spenta", hudM != null && hudM.SpeedoShown && hudM.SpeedoKmh == 0 && Mathf.Abs(hudM.SpeedoNeedleDeg - HUD.SpeedoDegFor(0f)) < 3f && !hudM.SpeedoTurboLit && !hudM.SpeedoReverseShown,
+                hudM == null ? "nessun HUD" : $"acceso {hudM.SpeedoShown}, numero {hudM.SpeedoKmh}, lancetta {hudM.SpeedoNeedleDeg:F0} gradi, turbo {hudM.SpeedoTurboLit}, retromarcia {hudM.SpeedoReverseShown}");
             pl.yaw = pl.RideHeading; pl.pitch = 0.16f;
             yield return new WaitForSeconds(0.8f);          // il passaggio della camera sull'occhio del pilota
             if (shots) Shot("moto_e_cabina");
@@ -142,6 +145,9 @@ namespace PryingEyes.Deserto
             yield return RideUntil(() => pl.RideSpeed > 14f, 10f, south);
             float tAcc = Time.time - t0;
             Check("moto: col gas a tavoletta arriva a 50 km/h in meno di 4 s", pl.RideSpeed > 14f && tAcc < 4f, $"{pl.RideSpeed * 3.6f:F0} km/h in {tAcc:F1} s");
+            int speedoNow = hudM != null ? hudM.SpeedoKmh : -1, speedoWant = Mathf.RoundToInt(Mathf.Abs(pl.RideSpeed) * 3.6f);
+            Check("moto: il tachimetro dice la velocita' vera (il numero in km/h e la lancetta sul numero)", hudM != null && Mathf.Abs(speedoNow - speedoWant) <= 3 && Mathf.Abs(hudM.SpeedoNeedleDeg - HUD.SpeedoDegFor(speedoNow)) < 10f,
+                hudM == null ? "nessun HUD" : $"numero {speedoNow} km/h, velocita' vera {speedoWant}, lancetta {hudM.SpeedoNeedleDeg:F0} gradi (per {speedoNow} km/h: {HUD.SpeedoDegFor(speedoNow):F0})");
             Vector3 fwd = new Vector3(Mathf.Sin(pl.RideHeading), 0f, Mathf.Cos(pl.RideHeading));
             Vector3 moved = pl.transform.position - p0; moved.y = 0f;
             Check("moto: va nel verso in cui punta", moved.sqrMagnitude > 4f && Vector3.Dot(moved.normalized, fwd) > 0.9f, $"spostata di {moved.magnitude:F1} m, coseno {Vector3.Dot(moved.normalized, fwd):F2}");
@@ -149,14 +155,19 @@ namespace PryingEyes.Deserto
             yield return RideUntil(() => pl.RideSpeed > 21f, 14f, south);
             float vTop = pl.RideSpeed;
             Check("moto: raggiunge la velocita' massima (21-24,5 m/s)", vTop > 21f && vTop < 24.5f, $"{vTop:F1} m/s = {vTop * 3.6f:F0} km/h");
+            Check("moto: alla velocita' massima il tachimetro e' tra 72 e 90 km/h e la spia del turbo e' spenta", hudM != null && hudM.SpeedoKmh >= 72 && hudM.SpeedoKmh <= 90 && !hudM.SpeedoTurboLit,
+                hudM == null ? "nessun HUD" : $"numero {hudM.SpeedoKmh} km/h, turbo {hudM.SpeedoTurboLit}");
             if (shots) Shot("moto_f_in_marcia");
             DesertBike.botBoost = true;
             yield return RideUntil(() => pl.RideSpeed > 27f, 14f, south);
             float vBoost = pl.RideSpeed;
             yield return RideUntil(() => false, 2.0f, south);
             Check("moto: col turbo supera i 27 m/s senza arrivare a 32,5", vBoost > 27f && pl.RideSpeed < 32.5f, $"{vBoost:F1} poi {pl.RideSpeed:F1} m/s");
+            Check("moto: col turbo il tachimetro passa i 97 km/h e la spia del turbo e' accesa", hudM != null && hudM.SpeedoKmh > 97 && hudM.SpeedoTurboLit, hudM == null ? "nessun HUD" : $"numero {hudM.SpeedoKmh} km/h, turbo {hudM.SpeedoTurboLit}");
             if (shots) Shot("moto_g_turbo");
             DesertBike.botBoost = false;
+            yield return null; yield return null;
+            Check("moto: lasciato il turbo la spia si spegne", hudM != null && !hudM.SpeedoTurboLit);
 
             // ---- sterzo: la moto gira e si inclina dalla parte della curva
             float h0 = pl.RideHeading, bestRoll = 0f;
@@ -181,6 +192,8 @@ namespace PryingEyes.Deserto
             Check("moto: frenando si ferma in meno di 4 s", pl.RideSpeed < 1f && Time.time - t0 < 4f, $"{pl.RideSpeed:F1} m/s dopo {Time.time - t0:F1} s");
             yield return RideUntil(() => pl.RideSpeed < -2f, 5f, new Vector3(Mathf.Sin(pl.RideHeading), 0f, Mathf.Cos(pl.RideHeading)));
             Check("moto: tenendo il freno va in retromarcia", pl.RideSpeed < -2f, $"{pl.RideSpeed:F1} m/s");
+            yield return null; yield return null;
+            Check("moto: in retromarcia il tachimetro lo dice (R) e conta la velocita' senza segno", hudM != null && hudM.SpeedoReverseShown && hudM.SpeedoKmh >= 6, hudM == null ? "nessun HUD" : $"numero {hudM.SpeedoKmh} km/h, R {hudM.SpeedoReverseShown}");
             DesertBike.botThrottle = 0f;
             yield return RideUntil(() => Mathf.Abs(pl.RideSpeed) < 0.5f, 6f, south);
             Check("moto: lasciato il gas si ferma da sola", Mathf.Abs(pl.RideSpeed) < 0.5f, $"{pl.RideSpeed:F2} m/s");
@@ -284,6 +297,8 @@ namespace PryingEyes.Deserto
             Check("moto: il pilota scende di lato, a un metro o poco piu', in uno spazio libero", away > 0.7f && away < 2.4f && !Physics.CheckCapsule(pl.transform.position + Vector3.up * 0.45f, pl.transform.position + Vector3.up * 1.3f, 0.3f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore), $"{away:F2} m");
             Check("moto: da parcheggiata torna ad avere il collider, l'arma torna in mano", bike.ColliderOn && pl.weapon.ViewRootT.gameObject.activeSelf);
             Check("moto: da scesi si cammina di nuovo (velocita' del corpo zero)", pl.SpeedH < 0.5f);
+            yield return null; yield return null;
+            Check("moto: scesi, il tachimetro sparisce", hudM != null && !hudM.SpeedoShown);
             yield return WaitFor(() => hudM != null && hudM.DesertMapBikeShown, 3f);
             yield return null; yield return null;
             var dotWant2 = BikeDotWant(pl, bike);
