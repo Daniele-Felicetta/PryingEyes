@@ -328,6 +328,8 @@ namespace PryingEyes.Deserto
             if (Explicit("costi")) yield return Phase("costi", Costs());
             if (Explicit("esterni")) yield return Phase("esterni", Exteriors());
             if (Explicit("rovine")) yield return Phase("rovine", Ruins());
+            if (Explicit("muri")) yield return Phase("muri da vicino", CloseWalls());
+            if (Explicit("portale")) yield return Phase("portale della cattedrale", CathedralDoor());
             if (Explicit("orizzonte")) yield return Phase("orizzonte", Horizon());
             if (Explicit("paesaggio")) yield return Phase("paesaggio", Landscape());
             if (Explicit("nuvole")) yield return Phase("nuvole", CloudsPhase());
@@ -1849,6 +1851,129 @@ namespace PryingEyes.Deserto
                 Shot("ext_cattedrale_" + (char)('a' + i));
                 yield return null;
             }
+            if (sky != null) sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly muri -desertshots (nessun controllo sulle foto: si guardano): i muri da vicino, da fuori. Di sette luoghi (la cappella e un edificio per genere e stato) e di una torre, per ognuno
+        /// dei quattro lati: un raggio dall'esterno verso il centro, all'altezza degli occhi, trova la prima superficie (la pelle del muro) e si fanno due foto: una a due metri guardando il muro di fronte e una a due
+        /// metri dal muro ma due metri e mezzo piu' in la', di sbieco (a luce radente si vedono le facce che lampeggiano, le fessure e i pezzi mancanti). A mezzogiorno e mezza. Il solo controllo e' che di ogni luogo
+        /// si trovi il muro da almeno due lati su quattro: altrimenti la fase non avrebbe fotografato niente.</summary>
+        IEnumerator CloseWalls()
+        {
+            if (!shots) { Debug.Log("[PryingEyes] desertotest muri: senza -desertshots non c'e' niente da fotografare"); yield break; }
+            var sky = DesertSky.I;
+            if (sky != null) sky.SetHour(11.5f, true);
+            var picks = new List<Site>();
+            var seen = new HashSet<string>();
+            Site tower = null;
+            var chapel = DesertWorld.Welcome();
+            for (int ring = 1; ring <= 10; ring++)
+                for (int cx = -ring; cx <= ring; cx++)
+                    for (int cz = -ring; cz <= ring; cz++)
+                    {
+                        if (Mathf.Max(Mathf.Abs(cx), Mathf.Abs(cz)) != ring) continue;
+                        var s = DesertWorld.SiteOf(cx, cz);
+                        if (s == null) continue;
+                        if (s.IsTower) { if (tower == null) tower = s; }
+                        else if (!s.IsCatacomb && s.plan != null && picks.Count < 6 && seen.Add(s.kind + "/" + s.state)) picks.Add(s);
+                    }
+            if (chapel != null) picks.Insert(0, chapel);
+            if (tower != null) picks.Add(tower);
+            Debug.Log($"[PryingEyes] desertotest muri: {picks.Count} luoghi");
+            int n = 0, photos = 0;
+            foreach (var s in picks)
+            {
+                n++;
+                float cxm = s.CentreX, czm = s.CentreZ;
+                yield return GoTo(cxm, s.fz0 - 14f);
+                yield return WaitFor(() => AllBuilt(RtOf(s)), 90f);
+                Check($"muri {s.kind}/{s.state}: costruito", AllBuilt(RtOf(s)), "");
+                yield return new WaitForSeconds(1.5f);                      // i collider dei muri entrano nella fisica al prossimo passo
+                string nm = $"muro_{n:00}_{s.kind}_{s.state}";
+                // prima si cercano i quattro muri (i raggi partono da fuori, 10 m oltre il bordo), poi si fanno le foto
+                var wall = new Vector3[4]; var dirs = new Vector3[4]; var found = new bool[4];
+                for (int side = 0; side < 4; side++)
+                {
+                    Vector3 dir = side == 0 ? Vector3.forward : side == 1 ? Vector3.right : side == 2 ? Vector3.back : Vector3.left;      // da fuori verso il centro
+                    Vector3 along = Vector3.Cross(Vector3.up, dir);
+                    float half = (side % 2 == 0 ? s.fz1 - s.fz0 : s.fx1 - s.fx0) * 0.5f, wide = side % 2 == 0 ? s.fx1 - s.fx0 : s.fz1 - s.fz0;
+                    dirs[side] = dir;
+                    foreach (float off in new[] { 0.2f, -0.2f, 0f })
+                    {
+                        var origin = new Vector3(cxm, 0f, czm) - dir * (half + 10f) + along * (off * wide);
+                        origin.y = DesertWorld.Height(origin.x, origin.z) + 1.6f;
+                        if (Physics.Raycast(origin, dir, out var hit, 14f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) { wall[side] = hit.point; found[side] = true; break; }
+                    }
+                }
+                int hits = 0;
+                foreach (bool f in found) if (f) hits++;
+                Check($"muri {s.kind}/{s.state}: il muro si trova da almeno due lati su quattro", hits >= 2, $"trovato da {hits}");
+                for (int side = 0; side < 4; side++)
+                {
+                    if (!found[side]) continue;
+                    Vector3 dir = dirs[side], along = Vector3.Cross(Vector3.up, dir), w = wall[side];
+                    string tag = nm + "_" + "SWNE"[side];
+                    for (int view = 0; view < 2; view++)
+                    {
+                        Vector3 stand = w - dir * 2f + (view == 1 ? along * 2.5f : Vector3.zero);
+                        yield return GoTo(stand.x, stand.z);
+                        PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
+                        var look = new Vector3(w.x, Pl.cam.position.y, w.z);
+                        Face(look);
+                        yield return new WaitForSeconds(0.4f);
+                        Face(look);
+                        yield return null;
+                        Shot(tag + (view == 0 ? "_f" : "_o"));
+                        photos++;
+                        yield return null;
+                    }
+                }
+            }
+            Debug.Log($"[PryingEyes] desertotest muri: {photos} foto");
+            if (sky != null) sky.Frozen = false;
+        }
+
+        /// <summary>Solo con -desertonly portale -desertshots (nessun controllo sulle foto: si guardano): il muro della cattedrale dove c'e' il portale, da vicino. Il giocatore riferiva che e' "un po' buggato"
+        /// e la fase dei muri da vicino non passa dalla cattedrale (non e' un luogo del mondo ma la pianta della zona sicura, HubPlan). Si va nel sagrato (x 0-36, z 0-18 m; il muro della facciata e' a z = 18, il portale
+        /// a x = 18, largo 3,2 e alto 4,6) e si fotografa da otto punti: dalla nascita, a sei metri, a due, di sbieco da sinistra e da destra, in su verso l'architrave, il muro del battistero e il tratto di
+        /// muro fuori dalla chiesa; poi due dall'interno, dal nartece verso la porta. A tre ore: l'alba (alle sette si nasce, il sole radente fa vedere le facce che lampeggiano e le ombre sbagliate),
+        /// mezzogiorno e mezza e il tramonto.</summary>
+        IEnumerator CathedralDoor()
+        {
+            if (!shots) { Debug.Log("[PryingEyes] desertotest portale: senza -desertshots non c'e' niente da fotografare"); yield break; }
+            var sky = DesertSky.I;
+            const float wallZ = 18f, doorX = 18f;
+            var views = new (string name, float x, float z, Vector3 look)[]
+            {
+                ("a_nascita", HubPlan.SpawnX, HubPlan.SpawnZ, new Vector3(doorX, 3.0f, wallZ)),
+                ("b_sei_metri", doorX, wallZ - 6f, new Vector3(doorX, 2.6f, wallZ)),
+                ("c_due_metri", doorX, wallZ - 2.2f, new Vector3(doorX, 2.4f, wallZ)),
+                ("d_sinistra", doorX - 6.5f, wallZ - 2.2f, new Vector3(doorX - 3.5f, 2.6f, wallZ)),
+                ("e_destra", doorX + 6.5f, wallZ - 2.2f, new Vector3(doorX + 3.5f, 2.6f, wallZ)),
+                ("f_architrave", doorX, wallZ - 3.2f, new Vector3(doorX, 6.4f, wallZ)),
+                ("g_battistero", 9f, wallZ - 2.5f, new Vector3(9f, 2.8f, wallZ)),
+                ("h_fuori_chiesa", 3f, wallZ - 2.5f, new Vector3(3f, 2.5f, wallZ)),
+                ("i_dentro_porta", doorX, wallZ + 4.2f, new Vector3(doorX, 2.4f, wallZ)),
+                ("j_dentro_sbieco", doorX - 3.5f, wallZ + 2.0f, new Vector3(doorX, 2.6f, wallZ)),
+            };
+            int photos = 0;
+            foreach (float hour in new[] { 7.3f, 11.5f, 17.3f })
+            {
+                if (sky != null) sky.SetHour(hour, true);
+                foreach (var v in views)
+                {
+                    yield return GoTo(v.x, v.z);
+                    PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
+                    Face(v.look);
+                    yield return new WaitForSeconds(0.5f);
+                    Face(v.look);
+                    yield return null;
+                    Shot($"portale_{(int)hour:00}_{v.name}");
+                    photos++;
+                    yield return null;
+                }
+            }
+            Debug.Log($"[PryingEyes] desertotest portale: {photos} foto");
             if (sky != null) sky.Frozen = false;
         }
 

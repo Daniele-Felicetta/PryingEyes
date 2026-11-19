@@ -234,7 +234,11 @@ namespace PryingEyes.Proc
                     else { s.floor = Mat("pav_servizio"); s.wall = Mat("mur_boiserie"); s.ceil = Mat("mur_boiserie"); s.trim = Mat("ottone"); }
                     break;
                 case RoomKind.Sagrato:
-                    s.floor = Mat("pav_lastre"); s.wall = Mat("mur_pietra"); s.trim = Mat("cornice_pietra"); break;
+                    s.floor = Mat("pav_lastre"); s.wall = Mat("mur_pietra"); s.trim = Mat("cornice_pietra");
+                    // nel deserto il sagrato e' all'aperto, al sole: i suoi muri sono la facciata della cattedrale vista da dentro il recinto, e con la pietra scura del kit (albedo 0,12, fatta per le stanze
+                    // al buio) erano quasi neri accanto alla pietra schiarita di fuori. Stessa pietra della chiesa (FacadeKit.StoneGain), come la scalinata e il basamento (DesertCathedral)
+                    if (exteriorBuild) { var fk = FacadeKit.For(theme, true, 0); s.wall = fk.wall; s.trim = fk.trim; }
+                    break;
             }
             s.outer = r.church ? Mat("mur_pietra") : theme == Theme.Sanatorio ? Mat("mur_intonaco_freddo") : theme == Theme.Teatro ? Mat("mur_intonaco_nero")
                 : theme == Theme.Guardaroba ? Mat("mur_pietra") : Mat("mur_intonaco");
