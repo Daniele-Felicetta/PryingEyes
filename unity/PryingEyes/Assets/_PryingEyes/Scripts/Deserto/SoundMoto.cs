@@ -21,9 +21,11 @@ namespace PryingEyes
             var s = new float[loop + seam];
             int n = s.Length;
             float f0 = pulses / dur;
-            // le armoniche del tubo: la fondamentale e le prime sei, con un'accentuazione sulla seconda e sulla quarta (il suono "pieno" di un bicilindrico) e fase fissa
-            float[] amp = { 1.00f, 0.82f, 0.46f, 0.55f, 0.24f, 0.30f, 0.12f };
-            float[] ph = { 0.0f, 1.1f, 2.3f, 0.7f, 1.9f, 2.8f, 0.4f };
+            // le armoniche del tubo: venti, con un'accentuazione sulla seconda e sulla quarta (il suono "pieno" di un bicilindrico) e fase fissa. La prima versione ne aveva sette e una fondamentale
+            // alta: misurata sui campioni, il 66 % dell'energia stava sotto gli 80 Hz (il 42 % sotto i 40) e quasi niente sopra i 300, quindi al minimo (tono 0,82) un altoparlante piccolo o una
+            // cuffia non ne restituivano quasi niente. Ora la fondamentale e la seconda pesano meno e le armoniche dalla terza alla dodicesima (100-400 Hz) portano il corpo del suono.
+            float[] amp = { 0.55f, 0.70f, 0.62f, 0.72f, 0.52f, 0.55f, 0.38f, 0.42f, 0.30f, 0.30f, 0.22f, 0.24f, 0.17f, 0.17f, 0.13f, 0.13f, 0.10f, 0.10f, 0.08f, 0.08f };
+            float[] ph = { 0.0f, 1.1f, 2.3f, 0.7f, 1.9f, 2.8f, 0.4f, 1.6f, 2.5f, 0.9f, 2.0f, 3.0f, 0.3f, 1.4f, 2.6f, 0.8f, 1.8f, 2.9f, 0.5f, 1.3f };
             var valves = Biquad.BandPass(2600f, 1.6f);
             var rumble = Biquad.LowPass(180f, 0.8f);
             for (int i = 0; i < n; i++)
@@ -43,6 +45,10 @@ namespace PryingEyes
             for (int k = 0; k < 5; k++) Burst(s, U(r, 0.05f, dur - 0.12f), U(r, 380f, 900f), 1.4f, 0.012f, 0.16f, r);
             SoftClip(s, 1.6f);
             var o = LoopSeamless(s, seam);
+            // niente componente continua (misurata: 2,6 % del fondo scala, spreca margine e fa un clic quando il suono parte o si ferma)
+            double mean = 0; for (int i = 0; i < o.Length; i++) mean += o[i];
+            float dc = (float)(mean / o.Length);
+            for (int i = 0; i < o.Length; i++) o[i] -= dc;
             Normalize(o, 0.75f);
             return o;
         }
@@ -52,11 +58,14 @@ namespace PryingEyes
         {
             var r = new System.Random(seed);
             var s = Buf(0.9f);
-            Thump(s, 0f, 120f, 42f, 0.14f, 0.11f, 0.95f);
-            Burst(s, 0.00f, 900f, 0.9f, 0.05f, 0.55f, r);
-            Burst(s, 0.02f, 2200f, 1.2f, 0.035f, 0.35f, r);
-            Burst(s, 0.09f, 420f, 1.0f, 0.10f, 0.30f, r);
-            Burst(s, 0.21f, 1500f, 1.4f, 0.04f, 0.18f, r);
+            // misurato sui campioni: nella prima versione il 94 % dell'energia era il tonfo a 40-80 Hz (un altoparlante piccolo lo perde) e le schegge di lamiera quasi niente: ora il tonfo pesa
+            // meno (0,45 invece di 0,95) e c'e' uno scricchiolio di lamiera piu' lungo a 700 Hz
+            Thump(s, 0f, 120f, 42f, 0.14f, 0.11f, 0.45f);
+            Burst(s, 0.00f, 900f, 0.9f, 0.05f, 0.85f, r);
+            Burst(s, 0.02f, 2200f, 1.2f, 0.035f, 0.55f, r);
+            Burst(s, 0.05f, 700f, 1.0f, 0.12f, 0.45f, r);
+            Burst(s, 0.09f, 420f, 1.0f, 0.10f, 0.50f, r);
+            Burst(s, 0.21f, 1500f, 1.4f, 0.04f, 0.30f, r);
             SoftClip(s, 1.5f);
             Normalize(s, 0.85f);
             return s;

@@ -416,6 +416,13 @@ namespace PryingEyes
             var pb = rp.Bike;
             Check("la sua moto compare sotto il pupazzo", pb != null && pb.puppet && FlatTo(pb.transform.position, rp.transform.position) < 0.6f, pb != null ? $"scarto {FlatTo(pb.transform.position, rp.transform.position):F2} m" : "nessuna moto");
             if (pb == null) { aborted = true; yield break; }
+            // il corpo vero del compagno (se ci sono i modelli) sta seduto sulla moto con le mani sulle manopole
+            if (rp.Body != null)
+            {
+                yield return Until(() => rp.Body.SeatAmount > 0.99f, 4f);
+                Check("il corpo del compagno e' seduto in sella con le mani sulle manopole", rp.Body.input.seated && rp.Body.SeatAmount > 0.99f && rp.Body.RideHandsOff < 0.12f,
+                    $"seduto {rp.Body.input.seated}, posa {rp.Body.SeatAmount:F2}, mani a {rp.Body.RideHandsOff * 100f:F1} cm in tutto");
+            }
             // sei secondi di corsa: la moto va nel verso in cui punta (a intervalli di mezzo secondo) e in curva si inclina
             float maxRoll = 0f, maxSpeed = 0f, tEnd = Time.time + 6f, tNext = Time.time + 0.5f;
             Vector3 prev = rp.transform.position;

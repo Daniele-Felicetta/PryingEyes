@@ -343,6 +343,8 @@ namespace PryingEyes.Deserto
             if (Explicit("cammino")) yield return Phase("cammino", WalkProbe());
             if (Explicit("percorso")) yield return Phase("percorso", RouteProbe());
             if (Explicit("moto")) yield return Phase("moto", Moto());
+            if (Explicit("motosuono")) yield return Phase("motosuono", MotoSound());
+            if (Explicit("motourto")) yield return Phase("motourto", MotoCrashes());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
             if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
         }
@@ -787,6 +789,11 @@ namespace PryingEyes.Deserto
             bool gold = hud.DesertMapPaper.TryGetPixel(18f, -3f, out var cg) && cg.r > 190 && cg.r > cg.g + 20 && cg.g > cg.b + 35;
             Check("sulla carta la scalinata del sagrato e' d'oro", gold, $"colore {cg}");
             Check("con la cattedrale nella finestra non c'e' la freccia di casa sul bordo", !hud.DesertMapHomeShown, "");
+            // la tua moto, parcheggiata ai piedi della scalinata a una dozzina di metri: un tondo turchese sulla carta, dove sta davvero
+            var ownBike = DesertBikes.Own(pl);
+            var bikeWant = ownBike != null ? BikeDotWant(pl, ownBike) : Vector2.zero;
+            Check("la minimappa segna la tua moto parcheggiata, dove sta (a una dozzina di metri: alcuni pixel dal centro)", ownBike != null && hud.DesertMapBikeShown && (hud.DesertMapBikeAt - bikeWant).magnitude < 0.6f && bikeWant.magnitude > 2f,
+                $"visibile {hud.DesertMapBikeShown}, a {hud.DesertMapBikeAt}, attesa a {bikeWant}");
 
             // i nemici: svegli e vicini si segnano, chi dorme no
             // (chi dorme sta fuori dai 30 m, 48 di notte, in cui il regista lo sveglierebbe: a 51 m e' ancora dentro la minimappa, che per questo deve escluderlo da sola)
@@ -834,6 +841,36 @@ namespace PryingEyes.Deserto
             float edge = Mathf.Max(Mathf.Abs(homeAt.x), Mathf.Abs(homeAt.y));
             Check("lontano la freccia d'oro sta sul bordo della carta e guarda verso la cattedrale", hud.DesertMapHomeShown && edge > 78f && edge < 92f && Vector2.Angle(homeAt, toHome) < 4f,
                 $"visibile {hud.DesertMapHomeShown}, a {homeAt} (bordo {edge:F0}), casa a {toHome} (angolo {Vector2.Angle(homeAt, toHome):F1})");
+            // la moto e' ancora a casa, vicino alla cattedrale: la freccia d'oro dice gia' da che parte sta, un secondo segno ci finirebbe sotto
+            Check("lontano, con la moto ancora a casa, il tondo non si sovrappone alla freccia d'oro", ownBike != null && !hud.DesertMapBikeShown, $"visibile {hud.DesertMapBikeShown}");
+            if (ownBike != null)
+            {
+                var side = new Vector2(-toHome.y, toHome.x).normalized;
+                // lasciata a 120 m di fianco (nella finestra, che arriva a 256 m): il tondo sta dov'e', a 45 px dal centro; con -desertshots lo si guarda
+                var bikeNear = new Vector3(far.x + side.x * 120f, 0f, far.z + side.y * 120f); bikeNear.y = DesertWorld.Height(bikeNear.x, bikeNear.z);
+                ownBike.Park(bikeNear, ownBike.Heading);
+                yield return WaitFor(() => hud.DesertMapBikeShown, 3f);
+                yield return null; yield return null;
+                var wantNear = BikeDotWant(pl, ownBike);
+                Check("lasciata a 120 m di fianco, nella finestra, il tondo della moto sta dov'e' (a 45 px dal centro)", hud.DesertMapBikeShown && (hud.DesertMapBikeAt - wantNear).magnitude < 0.6f && wantNear.magnitude > 40f,
+                    $"visibile {hud.DesertMapBikeShown}, a {hud.DesertMapBikeAt}, attesa a {wantNear}");
+                if (shots)
+                {
+                    var homeDirB = new Vector3(hx - far.x, 0f, hz - far.z).normalized;
+                    yield return Snap("23_minimappa_moto", 14f, far + Quaternion.Euler(0f, 55f, 0f) * homeDirB * 90f + Vector3.up * 1.5f);
+                    clock.hour = hour0; clock.speed = speed0;
+                }
+                // lasciata a 330 m di fianco (fuori dalla finestra e lontano dalla freccia): il tondo sta sul bordo, dalla sua parte
+                var bikeFar = new Vector3(far.x + side.x * 330f, 0f, far.z + side.y * 330f); bikeFar.y = DesertWorld.Height(bikeFar.x, bikeFar.z);
+                ownBike.Park(bikeFar, ownBike.Heading);
+                yield return WaitFor(() => hud.DesertMapBikeShown, 3f);
+                yield return null; yield return null;
+                var bikeAt = hud.DesertMapBikeAt;
+                float bikeEdge = Mathf.Max(Mathf.Abs(bikeAt.x), Mathf.Abs(bikeAt.y));
+                Check("lasciata lontano, fuori dalla finestra, il tondo della moto sta sul bordo e guarda dalla sua parte", hud.DesertMapBikeShown && bikeEdge > 84f && bikeEdge < 92f && Vector2.Angle(bikeAt, side) < 4f,
+                    $"visibile {hud.DesertMapBikeShown}, a {bikeAt} (bordo {bikeEdge:F0}), moto a {side * 330f} (angolo {Vector2.Angle(bikeAt, side):F1})");
+                ownBike.Park(ownBike.home, ownBike.homeHeading);
+            }
             bool far2 = hud.DesertMapPaper.TryGetPixel(far.x, far.z, out var cf);
             Check("lontano la carta e' carta di sabbia e non la scura dei posti non esplorati", far2 && (cf.r > 120 || cf.g > 100), $"colore {cf}");
             if (shots)

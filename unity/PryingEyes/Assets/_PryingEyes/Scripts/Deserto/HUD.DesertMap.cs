@@ -8,7 +8,8 @@ namespace PryingEyes
     /// <summary>La minimappa del deserto (0.9.1), in alto a destra come quella dei piani (N la accende e la spegne): una finestra di 512 m di sabbia centrata su chi gioca, con
     /// il nord in alto (DesertMapGen la dipinge, DesertMapTiles la tiene aggiornata) e sopra, ridisegnati a ogni fotogramma, te (la freccia rossa, che gira con lo sguardo), i compagni
     /// (nel colore del loro posto, con un anello rosso che pulsa se sono a terra), i nemici svegli entro 90 m (puntini rossi, un anello scuro per i boss) e, quando la cattedrale e' fuori
-    /// dalla finestra, una freccia d'oro sul bordo che dice da che parte e'. Di notte la carta si fa blu e scura; sottoterra (le catacombe) si spegne a meta'. E' un di piu': se
+    /// dalla finestra, una freccia d'oro sul bordo che dice da che parte e'. La tua moto, quando e' parcheggiata, e' un tondo turchese dove l'hai lasciata (sul bordo, dalla sua parte, se e'
+    /// fuori dalla finestra e non sotto la freccia d'oro). Di notte la carta si fa blu e scura; sottoterra (le catacombe) si spegne a meta'. E' un di piu': se
     /// inciampa tre volte si spegne per sempre e il resto dell'HUD va avanti.</summary>
     public partial class HUD
     {
@@ -17,11 +18,13 @@ namespace PryingEyes
         const float DmScale = DmWindow / DesertMapGen.WindowSize;
         const float DmEnemyRange = 90f;
         static readonly Color DmBrass = new Color(0.76f, 0.60f, 0.30f, 0.95f), DmBoard = new Color(0.082f, 0.064f, 0.050f, 0.96f), DmInk = new Color(0.20f, 0.13f, 0.08f),
-            DmRed = new Color(0.93f, 0.16f, 0.12f), DmRim = new Color(0.07f, 0.05f, 0.04f, 0.92f);
+            DmRed = new Color(0.93f, 0.16f, 0.12f), DmRim = new Color(0.07f, 0.05f, 0.04f, 0.92f),
+            // la moto: turchese, un colore che nessun altro segno della carta ha (rosso i nemici e te, d'oro la cattedrale, verde/azzurro/corallo/ambra i compagni)
+            DmBike = new Color(0.30f, 0.80f, 0.82f);
 
         RectTransform dmRoot, dmWin;
         RawImage dmImage;
-        Image dmArrowRim, dmArrow, dmHomeRim, dmHome;
+        Image dmArrowRim, dmArrow, dmHomeRim, dmHome, dmBikeRim;
         readonly List<Image> dmEnemyRims = new List<Image>(), dmEnemyCores = new List<Image>();
         readonly Image[] dmMateRims = new Image[3], dmMateCores = new Image[3];
         DesertMapTiles dmTiles;
@@ -38,6 +41,10 @@ namespace PryingEyes
         public Rect DesertMapUv => dmImage != null ? dmImage.uvRect : default;
         public bool DesertMapHomeShown => dmHome != null && dmHome.gameObject.activeSelf;
         public Vector2 DesertMapHomeAt => dmHome != null ? dmHome.rectTransform.anchoredPosition : Vector2.zero;
+        /// <summary>Per le prove: c'e' il tondo della tua moto parcheggiata, dove sta sulla carta (pixel dal centro, nord in alto) e quanti pixel dell'HUD fa un metro.</summary>
+        public bool DesertMapBikeShown => dmBikeRim != null && dmBikeRim.gameObject.activeSelf;
+        public Vector2 DesertMapBikeAt => dmBikeRim != null ? dmBikeRim.rectTransform.anchoredPosition : Vector2.zero;
+        public const float DesertMapPixelsPerMetre = DmScale;
         public int DesertMapEnemyDots { get { int n = 0; foreach (var d in dmEnemyRims) if (d != null && d.gameObject.activeSelf) n++; return n; } }
         public int DesertMapMateDots { get { int n = 0; foreach (var d in dmMateRims) if (d != null && d.gameObject.activeSelf) n++; return n; } }
         /// <summary>Per le prove: la riga dell'obiettivo come la vede il giocatore.</summary>
@@ -160,6 +167,23 @@ namespace PryingEyes
                 dmHomeRim.rectTransform.anchoredPosition = at; dmHome.rectTransform.anchoredPosition = at;
                 dmHomeRim.rectTransform.localRotation = hr; dmHome.rectTransform.localRotation = hr;
             }
+
+            // la tua moto, parcheggiata: un tondo turchese dove l'hai lasciata (in sella sei la freccia rossa, e a terra la ritrovi dal puntino). Fuori dalla finestra sta sul bordo, dalla sua
+            // parte, a meno che finisca sotto la freccia d'oro di casa: la moto appena nata, ai piedi della scalinata, non ha bisogno di un secondo segno
+            bool bikeDot = false;
+            var ownBike = pl.alive ? DesertBikes.Own(pl) : null;
+            if (ownBike != null && ownBike.rider == null)
+            {
+                var bat = DmLocal(ownBike.transform.position, p);
+                bikeDot = true;
+                if (!InDmWindow(bat))
+                {
+                    bat *= (DmWindow * 0.5f - 8f) / Mathf.Max(Mathf.Abs(bat.x), Mathf.Abs(bat.y));
+                    if (dmHome.gameObject.activeSelf && (bat - dmHome.rectTransform.anchoredPosition).sqrMagnitude < 18f * 18f) bikeDot = false;
+                }
+                if (bikeDot) dmBikeRim.rectTransform.anchoredPosition = bat;
+            }
+            if (dmBikeRim.gameObject.activeSelf != bikeDot) dmBikeRim.gameObject.SetActive(bikeDot);
         }
 
         static Vector2 DmLocal(Vector3 world, Vector3 centre) => new Vector2((world.x - centre.x) * DmScale, (world.z - centre.z) * DmScale);
@@ -245,6 +269,9 @@ namespace PryingEyes
                 dmMateCores[i] = DmDisc("Colore", dmMateRims[i].transform, 7f, Color.white);
                 dmMateRims[i].gameObject.SetActive(false);
             }
+            dmBikeRim = DmDisc("MotoOrlo", dmWin, 13f, DmRim);
+            DmDisc("Moto", dmBikeRim.transform, 9f, DmBike);
+            dmBikeRim.gameObject.SetActive(false);
             dmHomeRim = DmArrowImg("CasaOrlo", dmWin, 19f, DmRim);
             dmHome = DmArrowImg("Casa", dmWin, 13f, DesertHome.Gold);
             dmHomeRim.gameObject.SetActive(false); dmHome.gameObject.SetActive(false);

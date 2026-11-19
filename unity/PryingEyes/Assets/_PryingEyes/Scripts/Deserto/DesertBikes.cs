@@ -30,18 +30,30 @@ namespace PryingEyes.Deserto
         public static void ReturnHome(PlayerController p)
         {
             if (p == null || DesertBike.All.Count == 0) return;
-            int slot = Mathf.Clamp(Coop.Slot, 0, Seats.MaxSeats - 1);
-            if (Seats.Split)
-            {
-                slot = -1;
-                foreach (var s in Seats.All) if (s.player == p) { slot = s.index; break; }
-            }
+            int slot = SlotOf(p);
             foreach (var b in DesertBike.All)
             {
                 if (b == null || b.puppet || b.rider != null || b.slot != slot) continue;
                 Vector3 d = b.transform.position - b.home; d.y = 0f;
                 if (d.sqrMagnitude > 1f) b.Park(b.home, b.homeHeading);
             }
+        }
+
+        /// <summary>Lo slot di un giocatore: il suo posto nello schermo condiviso, lo slot della cooperativa, 0 da soli (-1 se e' un giocatore che non siede a nessun posto).</summary>
+        public static int SlotOf(PlayerController p)
+        {
+            if (!Seats.Split) return Mathf.Clamp(Coop.Slot, 0, Seats.MaxSeats - 1);
+            foreach (var s in Seats.All) if (s.player == p) return s.index;
+            return -1;
+        }
+
+        /// <summary>La moto di un giocatore: quella nata per il suo slot (mai quella di un compagno in cooperativa, che e' un pupazzo), null se non ne ha. Ci sia o no qualcuno in sella.</summary>
+        public static DesertBike Own(PlayerController p)
+        {
+            int slot = SlotOf(p);
+            if (slot < 0) return null;
+            foreach (var b in DesertBike.All) if (b != null && !b.puppet && b.slot == slot) return b;
+            return null;
         }
 
         /// <summary>Toglie le moto dei posti (non quelle dei compagni, che appartengono al loro pupazzo).</summary>

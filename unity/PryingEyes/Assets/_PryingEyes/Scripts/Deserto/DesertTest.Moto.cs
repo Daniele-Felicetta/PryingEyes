@@ -1,6 +1,7 @@
 #if !PE_DISTRIBUTION_BUILD
 using System;
 using System.Collections;
+using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
 
@@ -60,6 +61,10 @@ namespace PryingEyes.Deserto
             DesertBike.botSteer = steer;
         }
 
+        /// <summary>Dove la minimappa deve mettere il tondo di una moto parcheggiata, in pixel dal centro (est a destra, nord in alto), guardando dal giocatore.</summary>
+        static Vector2 BikeDotWant(PlayerController pl, DesertBike bike) =>
+            new Vector2((bike.transform.position.x - pl.transform.position.x) * HUD.DesertMapPixelsPerMetre, (bike.transform.position.z - pl.transform.position.z) * HUD.DesertMapPixelsPerMetre);
+
         /// <summary>Guida con il pilota automatico verso 'dir' finche' 'until' e' vero (o scade 'timeout').</summary>
         IEnumerator RideUntil(Func<bool> until, float timeout, Vector3 dir)
         {
@@ -95,6 +100,11 @@ namespace PryingEyes.Deserto
             Check("moto: poggia sul terreno", bike.Settled && Mathf.Abs(gap) < 0.2f, $"scarto {gap:F2} m, posata {bike.Settled}");
             Check("moto: da parcheggiata ha il collider", bike.ColliderOn);
             Check("moto: i fari sono spenti, il motore e' muto", !bike.HeadlightOn && bike.EngineVolume < 0.02f, $"volume {bike.EngineVolume:F3}");
+            var hudM = Gm.hud;
+            yield return WaitFor(() => hudM != null && hudM.DesertMapShown && hudM.DesertMapBikeShown, 6f);
+            var dotWant = BikeDotWant(pl, bike);
+            Check("moto: parcheggiata e' un tondo sulla minimappa, dove sta (a 2 m: meno di 3 px dal centro, non nel centro)", hudM != null && hudM.DesertMapBikeShown && (hudM.DesertMapBikeAt - dotWant).magnitude < 0.3f && dotWant.magnitude > 0.4f,
+                hudM == null ? "nessun HUD" : $"visibile {hudM.DesertMapBikeShown}, a {hudM.DesertMapBikeAt}, attesa a {dotWant}");
             if (shots)
             {
                 yield return Snap("moto_a_fronte", 10.5f, bike.Point + Vector3.up * 0.05f, 1.0f);
@@ -119,6 +129,8 @@ namespace PryingEyes.Deserto
             Check("moto: Usa mette in sella", pl.Riding && bike.rider == pl && pl.Bike == bike);
             Check("moto: in sella il collider si spegne e l'arma sparisce", !bike.ColliderOn && !pl.weapon.ViewRootT.gameObject.activeSelf);
             Check("moto: il corpo del giocatore sta sulla moto", Flat(pl.transform.position, bike.transform.position) < 0.3f, $"{Flat(pl.transform.position, bike.transform.position):F2} m");
+            yield return WaitFor(() => hudM != null && !hudM.DesertMapBikeShown, 3f);
+            Check("moto: in sella il tondo della minimappa si spegne (sei la freccia rossa)", hudM != null && hudM.DesertMapShown && !hudM.DesertMapBikeShown, hudM == null ? "nessun HUD" : $"mappa accesa {hudM.DesertMapShown}, tondo {hudM.DesertMapBikeShown}");
             Check("moto: da ferma non si muove", Mathf.Abs(pl.RideSpeed) < 0.3f);
             pl.yaw = pl.RideHeading; pl.pitch = 0.16f;
             yield return new WaitForSeconds(0.8f);          // il passaggio della camera sull'occhio del pilota
@@ -198,16 +210,21 @@ namespace PryingEyes.Deserto
             pl.AbortRide();
             GroundAt(14.2f, 4.0f, out float wy);
             bike.Park(new Vector3(14.2f, wy, 4.0f), 0f);              // verso nord, contro il muro del nartece (z = 17,85)
+            // la sabbia davanti deve avere il suo collider: altrimenti il governatore della moto (per progetto, DesertTerrain.Ready) la tiene a 7 m/s e l'urto non c'e' da misurare. Dopo la gita
+            // lontana della fase minimappa (che precede questa) i blocchi attorno alla cattedrale si stanno rifacendo: la prima volta che le due fasi giravano insieme il controllo e' fallito cosi'
+            yield return WaitFor(() => DesertTerrain.I == null || DesertTerrain.I.Ready(new Vector3(14.2f, 0f, 30f), 20f), 30f);
             godMode = false; pl.invulnerable = false;
             yield return null;
             float hpBefore = pl.hp + pl.shield;
             pl.Mount(bike);
             yield return null;
             DesertBike.botThrottle = 1f;
-            yield return WaitFor(() => !pl.Riding || pl.RideCrashCooldown > 0f, 9f);
+            float vWall = 0f, tWall = Time.time;
+            while (pl.Riding && pl.RideCrashCooldown <= 0f && Time.time - tWall < 9f) { vWall = Mathf.Max(vWall, pl.RideSpeed); yield return null; }
             DesertBike.botThrottle = 0f;
             yield return new WaitForSeconds(0.4f);
-            Check("moto: contro il muro a piu' di 50 km/h c'e' l'urto, che ferisce", pl.RideCrashCooldown > 0f || pl.hp + pl.shield < hpBefore - 3f, $"vita {hpBefore:F0} -> {pl.hp + pl.shield:F0}");
+            bool wallReady = DesertTerrain.I == null || DesertTerrain.I.Ready(new Vector3(14.2f, 0f, 30f), 20f);
+            Check("moto: contro il muro a piu' di 50 km/h c'e' l'urto, che ferisce", pl.RideCrashCooldown > 0f || pl.hp + pl.shield < hpBefore - 3f, $"vita {hpBefore:F0} -> {pl.hp + pl.shield:F0}, al massimo {vWall * 3.6f:F0} km/h, sabbia davanti pronta {wallReady}");
             Check("moto: dopo l'urto la moto e' ferma o quasi", Mathf.Abs(pl.RideSpeed) < 6f, $"{pl.RideSpeed:F1} m/s");
             Check("moto: l'urto non uccide con la vita piena", pl.alive && !pl.Downed, $"vita {pl.hp:F0}");
             godMode = true; pl.invulnerable = true;
@@ -267,6 +284,10 @@ namespace PryingEyes.Deserto
             Check("moto: il pilota scende di lato, a un metro o poco piu', in uno spazio libero", away > 0.7f && away < 2.4f && !Physics.CheckCapsule(pl.transform.position + Vector3.up * 0.45f, pl.transform.position + Vector3.up * 1.3f, 0.3f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore), $"{away:F2} m");
             Check("moto: da parcheggiata torna ad avere il collider, l'arma torna in mano", bike.ColliderOn && pl.weapon.ViewRootT.gameObject.activeSelf);
             Check("moto: da scesi si cammina di nuovo (velocita' del corpo zero)", pl.SpeedH < 0.5f);
+            yield return WaitFor(() => hudM != null && hudM.DesertMapBikeShown, 3f);
+            yield return null; yield return null;
+            var dotWant2 = BikeDotWant(pl, bike);
+            Check("moto: scesi, il tondo e' di nuovo sulla minimappa, dove l'hai lasciata", hudM != null && hudM.DesertMapBikeShown && (hudM.DesertMapBikeAt - dotWant2).magnitude < 0.3f, hudM == null ? "nessun HUD" : $"visibile {hudM.DesertMapBikeShown}, a {hudM.DesertMapBikeAt}, attesa a {dotWant2}");
 
             // ---- il percorso lungo: il deserto si costruisce davanti, la moto non cade nel vuoto e non si blocca
             yield return GoTo(home.x, home.z - 4f, 2f);
@@ -353,6 +374,148 @@ namespace PryingEyes.Deserto
             yield return null;
             DesertBike.BotReset();
             godMode = true;
+        }
+
+        bool crashSeen; float crashSpeed;
+
+        /// <summary>Una corsa contro il muro del nartece (z = 17,85, a x 14,2) partendo da 'runUp' metri: dice se l'urto e' stato contato (crashSeen) e la velocita' massima prima del muro (crashSpeed).</summary>
+        IEnumerator WallRun(DesertBike bike, float runUp)
+        {
+            var pl = Pl;
+            if (pl.Riding) pl.AbortRide();
+            float z0 = 17.85f - runUp;
+            GroundAt(14.2f, z0, out float y0);
+            bike.Park(new Vector3(14.2f, y0, z0), 0f);
+            yield return null;
+            pl.Mount(bike);
+            yield return null;
+            crashSeen = false; crashSpeed = 0f;
+            DesertBike.botThrottle = 1f;
+            float t0 = Time.time;
+            while (pl.Riding && Time.time - t0 < 5f)
+            {
+                crashSpeed = Mathf.Max(crashSpeed, pl.RideSpeed);
+                if (pl.RideCrashCooldown > 0f) { crashSeen = true; break; }
+                if (Time.time - t0 > 0.6f && pl.RideSpeed < 0.3f) break;                       // si e' fermata contro il muro senza urto
+                yield return null;
+            }
+            DesertBike.botThrottle = 0f;
+            yield return new WaitForSeconds(0.25f);
+            if (pl.Riding) pl.AbortRide();
+        }
+
+        /// <summary>-desertonly motourto: lo stesso muro preso piu' volte a tre velocita'. L'urto non deve dipendere da come i fotogrammi spezzano la frenata: il corpo tocca il muro a meta' di un fotogramma e si
+        /// ferma nel successivo, e una perdita di velocita' contata un fotogramma alla volta mancava l'urto in una corsa su sei a 50 km/h (e piu' spesso a 36). Sotto gli 8 m/s, invece, un muro e' solo un
+        /// muro: nessun urto.</summary>
+        IEnumerator MotoCrashes()
+        {
+            var pl = Pl;
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero; DesertBike.BotReset();
+            DesertBike bike = null;
+            yield return WaitFor(() => { bike = FirstBike(); return bike != null; }, 10f);
+            Check("urti: c'e' una moto", bike != null);
+            if (bike == null) yield break;
+            yield return WaitFor(() => DesertTerrain.I == null || DesertTerrain.I.Ready(new Vector3(14.2f, 0f, 20f), 24f), 30f);
+            // partenze (m dal muro) e velocita' attese al muro (m/s): 2,5 -> 6,9 | 5,9 -> 10 | 13,85 -> 13,6
+            float[] runUps = { 2.5f, 5.9f, 13.85f };
+            string[] names = { "25 km/h", "36 km/h", "49 km/h" };
+            const int n = 6;
+            var hits = new int[3]; var vmin = new[] { 99f, 99f, 99f }; var vmax = new float[3];
+            for (int k = 0; k < 3; k++)
+                for (int i = 0; i < n; i++)
+                {
+                    yield return WallRun(bike, runUps[k]);
+                    if (crashSeen) hits[k]++;
+                    vmin[k] = Mathf.Min(vmin[k], crashSpeed); vmax[k] = Mathf.Max(vmax[k], crashSpeed);
+                }
+            DesertBike.BotReset();
+            Check($"urti: a {names[0]} contro il muro (da {vmin[0]:F1} a {vmax[0]:F1} m/s) non c'e' urto, in nessuna delle {n} corse", hits[0] == 0, $"{hits[0]} urti contati su {n}");
+            Check($"urti: a {names[1]} (da {vmin[1]:F1} a {vmax[1]:F1} m/s) l'urto c'e' in tutte le {n} corse", hits[1] == n, $"{hits[1]} urti contati su {n}");
+            Check($"urti: a {names[2]} (da {vmin[2]:F1} a {vmax[2]:F1} m/s) l'urto c'e' in tutte le {n} corse", hits[2] == n, $"{hits[2]} urti contati su {n}");
+            Debug.Log($"[PryingEyes] desertotest motourto: urti contati {hits[0]}/{n} a {names[0]}, {hits[1]}/{n} a {names[1]}, {hits[2]}/{n} a {names[2]}");
+            godMode = true;
+        }
+
+        /// <summary>-desertonly motosuono: i suoni a codice della moto (il loop del motore, l'urto, il vento di corsa) scritti come WAV in unity_logs/moto per misurarli e ascoltarli fuori dal gioco.</summary>
+        IEnumerator MotoSound()
+        {
+            yield return null;
+            var eng = SoundGen.Engine(31); var crash = SoundGen.BikeCrash(32); var wind = SoundGen.SandHiss(21);
+            WriteWav("unity_logs/moto/motore.wav", eng); WriteWav("unity_logs/moto/urto.wav", crash); WriteWav("unity_logs/moto/vento.wav", wind);
+            Check("moto: i tre suoni a codice (motore, urto, vento) hanno i campioni", eng.Length > 40000 && crash.Length > 20000 && wind.Length > 40000, $"{eng.Length} / {crash.Length} / {wind.Length}");
+            // misure sui campioni (non ho ascoltato niente: queste sono le cose che un orecchio noterebbe subito e un numero vede)
+            float peak = 0f; double sum = 0;
+            foreach (var v in eng) { peak = Mathf.Max(peak, Mathf.Abs(v)); sum += v; }
+            float dc = (float)(sum / eng.Length);
+            Check("moto: il motore non satura e non ha componente continua", peak <= 0.95f && peak > 0.3f && Mathf.Abs(dc) < 0.005f, $"picco {peak:F2}, continua {dc:F4}");
+            var steps = new float[eng.Length - 1];
+            for (int i = 0; i < steps.Length; i++) steps[i] = Mathf.Abs(eng[i + 1] - eng[i]);
+            Array.Sort(steps);
+            float typical = steps[(int)(steps.Length * 0.995f)], seam = Mathf.Abs(eng[0] - eng[eng.Length - 1]);
+            Check("moto: il loop del motore si chiude senza scatti (il salto alla giuntura non supera il passo tipico)", seam <= typical * 1.5f, $"giuntura {seam:F4}, passo tipico {typical:F4}");
+            float e80 = EnergyAbove(eng, 80f), e150 = EnergyAbove(eng, 150f);
+            Check("moto: il motore si sente da un altoparlante piccolo (oltre il 55 % dell'energia sopra gli 80 Hz e il 25 % sopra i 150, al tono nativo: la prima versione aveva il 34 % e il 7 %)", e80 > 0.55f && e150 > 0.25f, $"sopra 80 Hz {e80 * 100f:F0} %, sopra 150 Hz {e150 * 100f:F0} %");
+            float c150 = EnergyAbove(crash, 150f);
+            Check("moto: l'urto non e' solo un tonfo grave (oltre il 18 % dell'energia sopra i 150 Hz: la prima versione aveva il 2 %)", c150 > 0.18f, $"sopra 150 Hz {c150 * 100f:F0} %");
+        }
+
+        /// <summary>Quanta parte dell'energia sta sopra 'hz' (spettro di potenza di una finestra di Hann sui campioni, FFT a 2^17 punti).</summary>
+        static float EnergyAbove(float[] s, float hz)
+        {
+            int n = 1 << 17, m = Mathf.Min(s.Length, n);
+            var re = new double[n]; var im = new double[n];
+            for (int i = 0; i < m; i++) re[i] = s[i] * (0.5 - 0.5 * Math.Cos(2.0 * Math.PI * i / (m - 1)));
+            Fft(re, im);
+            double tot = 0, above = 0;
+            for (int k = 1; k < n / 2; k++)
+            {
+                double p = re[k] * re[k] + im[k] * im[k];
+                tot += p;
+                if (k * (double)SoundGen.Rate / n >= hz) above += p;
+            }
+            return tot > 0 ? (float)(above / tot) : 0f;
+        }
+
+        /// <summary>FFT iterativa a base 2 sul posto.</summary>
+        static void Fft(double[] re, double[] im)
+        {
+            int n = re.Length;
+            for (int i = 1, j = 0; i < n; i++)
+            {
+                int bit = n >> 1;
+                for (; (j & bit) != 0; bit >>= 1) j ^= bit;
+                j ^= bit;
+                if (i < j) { double t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+            }
+            for (int len = 2; len <= n; len <<= 1)
+            {
+                double ang = -2.0 * Math.PI / len, wr = Math.Cos(ang), wi = Math.Sin(ang);
+                for (int i = 0; i < n; i += len)
+                {
+                    double cr = 1, ci = 0;
+                    for (int k = 0; k < len / 2; k++)
+                    {
+                        int a = i + k, b = i + k + len / 2;
+                        double tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+                        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+                        double ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;
+                    }
+                }
+            }
+        }
+
+        static void WriteWav(string path, float[] s)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            using (var f = new BinaryWriter(File.Create(path)))
+            {
+                var ascii = System.Text.Encoding.ASCII;
+                int bytes = s.Length * 2;
+                f.Write(ascii.GetBytes("RIFF")); f.Write(36 + bytes); f.Write(ascii.GetBytes("WAVEfmt "));
+                f.Write(16); f.Write((short)1); f.Write((short)1); f.Write(SoundGen.Rate); f.Write(SoundGen.Rate * 2); f.Write((short)2); f.Write((short)16);
+                f.Write(ascii.GetBytes("data")); f.Write(bytes);
+                foreach (var v in s) f.Write((short)Mathf.Clamp(Mathf.RoundToInt(v * 32767f), -32768, 32767));
+            }
         }
     }
 }

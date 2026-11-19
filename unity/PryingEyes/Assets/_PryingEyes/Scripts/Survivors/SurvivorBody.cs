@@ -17,6 +17,8 @@ namespace PryingEyes
         public float ads;                   // 0..1 in mira
         public bool reloading;
         public float climb;                 // 0..1 mentre si arrampica
+        public bool seated;                 // in sella a una moto: bacino sulla sella, piedi sulle pedane, mani sulle manopole (la radice del corpo sta sulla moto, girata come il suo telaio)
+        public Vector3 gripLeft, gripRight; // nel mondo: le manopole, a sinistra e a destra di chi guarda avanti (valgono se seated)
 
         public static SurvivorInput Idle => new SurvivorInput { alive = true, grounded = true, weapon = -1, shotAge = 99f };
     }
@@ -67,6 +69,9 @@ namespace PryingEyes
         public Transform WeaponRoot => weaponGo != null ? weaponGo.transform : null;
         public bool HasWeapon => weaponGo != null;
         public Vector3 EyeWorld => head != null ? head.TransformPoint(eyeLocal) : transform.position + Vector3.up * 1.6f;
+        /// <summary>Per le prove: quanto la posa in sella e' completa (0 a piedi, 1 seduto) e di quanto le due mani (somma) mancano le manopole, in metri: l'IK non arriva se il braccio e' troppo corto.</summary>
+        public float SeatAmount => seatAmt;
+        public float RideHandsOff { get; private set; }
 
         Transform model, hips, spine, chest, uchest, neck, head, eyeT;
         Transform thighL, shinL, footL, thighR, shinR, footR;
@@ -87,6 +92,11 @@ namespace PryingEyes
         Vector3 velLocal;
         float phase, gait, crouchAmt, sprintAmt, adsAmt, leanAmt, airAmt, hipDrop, pitchSmooth, reloadT;
         float lieAmt, downAmt;               // 0..1: disteso (morto), seduto a terra (ferito)
+        float seatAmt;                       // 0..1: in sella a una moto
+        // in sella (sistema della radice = quello della moto: avanti +z, la sella a 0,885 m e z -0,28, le pedane a x 0,20, y 0,36): il bacino sopra la sella, il busto molto in avanti (le manopole
+        // stanno a 0,45 m davanti: con meno busto il braccio non ci arriva), le caviglie sulle pedane
+        static readonly Vector3 SeatHips = new Vector3(0f, 1.06f, -0.24f);
+        const float SeatLean = 52f, PegX = 0.20f, PegY = 0.45f, PegZ = -0.15f;
         readonly float[] footY = new float[2];
         readonly Vector3[] footN = { Vector3.up, Vector3.up };
         readonly Vector3[] legTarget = new Vector3[2];
@@ -325,7 +335,7 @@ namespace PryingEyes
         {
             if (hips == null) return;
             var inp = input;
-            SetWeapon(inp.alive && !inp.downed ? inp.weapon : -1);
+            SetWeapon(inp.alive && !inp.downed && !inp.seated ? inp.weapon : -1);          // in sella le mani sono sul manubrio
             Vector3 vLoc = Quaternion.Inverse(transform.rotation) * new Vector3(inp.velocity.x, 0f, inp.velocity.z);
             velLocal = Vector3.Lerp(velLocal, vLoc, K(14f, dt));
             float spd = velLocal.magnitude;
@@ -336,6 +346,7 @@ namespace PryingEyes
             airAmt = Mathf.Lerp(airAmt, inp.grounded ? 0f : 1f, K(10f, dt));
             lieAmt = Mathf.Lerp(lieAmt, !inp.alive ? 1f : 0f, K(7f, dt));
             downAmt = Mathf.Lerp(downAmt, inp.alive && inp.downed ? 1f : 0f, K(7f, dt));
+            seatAmt = Mathf.Lerp(seatAmt, inp.seated && inp.alive && !inp.downed ? 1f : 0f, K(12f, dt));
             pitchSmooth = Mathf.Lerp(pitchSmooth, inp.pitch, K(18f, dt));
             float gaitGoal = inp.grounded && inp.alive && !inp.downed ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.15f, 0.7f, spd)) : 0f;
             gait = Mathf.Lerp(gait, gaitGoal, K(10f, dt));
@@ -360,12 +371,12 @@ namespace PryingEyes
         {
             float cyc = phase * 2f * Mathf.PI;
             float pitch = Mathf.Clamp(pitchSmooth * Mathf.Rad2Deg, -75f, 70f);
-            float fwdLean = Mathf.Lerp(4f * sprintAmt + 14f * crouchAmt + 2f * gait, -34f, downAmt);
+            float fwdLean = Mathf.Lerp(Mathf.Lerp(4f * sprintAmt + 14f * crouchAmt + 2f * gait, -34f, downAmt), SeatLean, seatAmt);
             float drop = 0.012f + 0.42f * crouchAmt + 0.05f * airAmt;
             hipDrop = Mathf.Lerp(hipDrop, drop, 0.5f);
             Vector3 stand = rest[hips].prs + new Vector3(Mathf.Sin(cyc) * 0.012f * gait, -hipDrop, -0.09f * crouchAmt);
             Vector3 sit = new Vector3(0f, 0.15f, -0.20f);
-            hips.position = transform.TransformPoint(Vector3.Lerp(stand, sit, downAmt));
+            hips.position = transform.TransformPoint(Vector3.Lerp(Vector3.Lerp(stand, sit, downAmt), SeatHips, seatAmt));
             Vector3 r = Right, fw = transform.forward;
             Bend(hips, Mathf.Sin(cyc) * 5f * gait, Vector3.up);
             Bend(hips, Mathf.Cos(cyc) * 2.5f * gait, fw);
@@ -412,13 +423,16 @@ namespace PryingEyes
                 // seduto: gambe distese in avanti sul pavimento, un po' aperte
                 Vector3 sit = new Vector3(rest[ft].prs.x * 1.25f, 0.09f, 0.52f + (left ? 0f : 0.07f));
                 target = Vector3.Lerp(target, sit, downAmt);
+                // in sella: la caviglia sulla pedana della moto (nel riferimento della radice, che sta sulla moto)
+                target = Vector3.Lerp(target, new Vector3(Mathf.Sign(rest[ft].prs.x) * PegX, PegY, PegZ), seatAmt);
                 // terreno sotto il piede: scale e dislivelli
                 float gy = 0f; Vector3 n = Vector3.up;
-                if (inp.grounded && Physics.Raycast(transform.TransformPoint(target) + Vector3.up * 0.6f, Vector3.down, out var hit, 1.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                if (inp.grounded && seatAmt < 0.5f && Physics.Raycast(transform.TransformPoint(target) + Vector3.up * 0.6f, Vector3.down, out var hit, 1.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
                 {
                     gy = Mathf.Clamp(hit.point.y - transform.position.y, -0.5f, 0.45f);
                     n = hit.normal;
                 }
+                if (seatAmt > 0.5f) n = transform.up;          // in sella il piede segue la moto, non il terreno
                 footY[side] = Mathf.Lerp(footY[side], gy, K(22f, dt));
                 footN[side] = Vector3.Slerp(footN[side], n, K(14f, dt));
                 target.y += footY[side];
@@ -429,7 +443,7 @@ namespace PryingEyes
                 float maxY = tw.y + Mathf.Sqrt(Mathf.Max(0f, L * L - dh * dh));
                 lowerBy = Mathf.Max(lowerBy, thW.y - maxY);
             }
-            if (lowerBy > 0f) hips.position -= Vector3.up * lowerBy;
+            if (lowerBy > 0f && seatAmt < 0.5f) hips.position -= Vector3.up * lowerBy;
             SolveLeg(thighL, shinL, footL, 0, true);
             SolveLeg(thighR, shinR, footR, 1, false);
         }
@@ -485,11 +499,37 @@ namespace PryingEyes
                 }
                 return;
             }
+            if (seatAmt > 0.02f && inp.alive) { PoseRideArms(inp); return; }
             if (weaponGo != null && inp.alive) { PoseWeapon(inp, dt); return; }
             float swing = 26f * gait * Mathf.Lerp(1f, 0.5f, crouchAmt) * Mathf.Lerp(1f, 1.35f, sprintAmt);
             // le braccia contro le gambe: la sinistra va avanti quando e' avanti il piede destro
             SwingArm(true, legOff[1] * swing, inp);
             SwingArm(false, legOff[0] * swing, inp);
+        }
+
+        /// <summary>In sella: le due mani sulle manopole (che gli passa chi possiede il corpo, in coordinate del mondo), il gomito in fuori e un po' in basso, le dita in un pugno morbido. Dentro e fuori
+        /// dalla sella si sfuma con seatAmt (le rotazioni della posa libera sono gia' state date dal ciclo del passo).</summary>
+        void PoseRideArms(SurvivorInput inp)
+        {
+            SwingArm(true, 0f, inp); SwingArm(false, 0f, inp);
+            float off = 0f;
+            for (int side = 0; side < 2; side++)
+            {
+                bool left = side == 0;
+                Transform u = left ? uarmL : uarmR, l = left ? larmL : larmR, h = left ? handL : handR;
+                Quaternion u0 = u.rotation, l0 = l.rotation, h0 = h.rotation;
+                // la manopola del lato in cui sta la spalla (nel sistema della radice, che guarda avanti come la moto)
+                Vector3 grip = rest[u].prs.x < 0f ? inp.gripLeft : inp.gripRight;
+                SolveLimb(u, l, h, grip, Out(left) * 0.8f + Vector3.down * 0.45f - transform.forward * 0.2f, armL1, armL2);
+                AimHand(h, transform.rotation * Quaternion.Euler(8f, 0f, 0f), left ? frameRsL : frameRsR);
+                u.rotation = Quaternion.Slerp(u0, u.rotation, seatAmt);
+                l.rotation = Quaternion.Slerp(l0, l.rotation, seatAmt);
+                h.rotation = Quaternion.Slerp(h0, h.rotation, seatAmt);
+                off += Vector3.Distance(h.position, grip);
+            }
+            RideHandsOff = off;
+            AimFingers(fingR, fingDirR, handR, curlAxisR, null, null, null, null);
+            AimFingers(fingL, fingDirL, handL, curlAxisL, null, null, null, null);
         }
 
         /// <summary>Braccio libero lungo il fianco: oscilla avanti/indietro (gradi, avanti positivo), gomito mezzo piegato, piu' chiuso di corsa.</summary>

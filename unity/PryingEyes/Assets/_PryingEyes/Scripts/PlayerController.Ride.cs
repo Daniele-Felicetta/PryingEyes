@@ -5,7 +5,7 @@ namespace PryingEyes
 {
     /// <summary>Guidare la moto del deserto (DesertBike). Mentre si guida UpdateBody non muove il corpo a piedi: chiama RideTick, che usa lo stesso CharacterController (quindi terreno, muri, scale,
     /// salti e cadute sono quelli di sempre, e i nemici colpiscono lo stesso corpo) ma con la dinamica della moto: gas, freno, retromarcia, sterzo che dipende dalla velocita', aderenza laterale
-    /// (il freno a mano la toglie: si derapa), turbo, volo quando il terreno sparisce sotto le ruote e urto contro i muri (la velocita' persa in un fotogramma e' il danno).
+    /// (il freno a mano la toglie: si derapa), turbo, volo quando il terreno sparisce sotto le ruote e urto contro i muri (la velocita' persa in una frenata da urto, sommando i fotogrammi di un decimo di secondo, e' il danno).
     /// La camera e' sull'occhio del pilota (con lo sguardo libero fino a 100 gradi: il mouse gira solo la testa, la rotta la danno A e D). Il mirino dell'arma si nasconde: in sella non si spara.
     /// Si scende con Usa (F), da fermi o frenando da soli.</summary>
     public partial class PlayerController
@@ -13,6 +13,7 @@ namespace PryingEyes
         DesertBike bike;
         float rideHeading, rideSteer, rideLook, rideLookPrev, rideLookIdle, rideTop = DesertBike.TopSpeed;
         float rideSpeedShown, rideCrashCool, rideNoiseT, rideBlend = 1f, rideDip, rideVyPrev, rideStepOffset, rideLandCool;
+        float rideHitLoss, rideHitFrom, rideHitT;          // la frenata da urto in corso: quanta velocita' ha tolto finora, da quale velocita' si arrivava, quanto tempo resta alla finestra
         bool rideGrounded = true, rideDismount, rideHintDismount;
         int rideKmh;
         string rideHint;
@@ -49,7 +50,7 @@ namespace PryingEyes
                 cc.height = heightStand; cc.center = new Vector3(0f, heightStand * 0.5f, 0f);
             }
             slide = false; crouch = false; lean = 0f; recP = recY = recTargetP = recTargetY = 0f;
-            rideSteer = 0f; rideTop = DesertBike.TopSpeed; rideSpeedShown = 0f; rideCrashCool = 0f; rideDip = 0f; rideLandCool = 0f;
+            rideSteer = 0f; rideTop = DesertBike.TopSpeed; rideSpeedShown = 0f; rideCrashCool = 0f; rideDip = 0f; rideLandCool = 0f; rideHitLoss = rideHitFrom = rideHitT = 0f;
             rideGrounded = true; rideDismount = false; rideNoiseT = 0f; rideVyPrev = 0f;
             rideLook = Mathf.Clamp(Mathf.DeltaAngle(rideHeading * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg) * Mathf.Deg2Rad, -1.75f, 1.75f);
             rideLookPrev = rideLook; rideLookIdle = 0f;
@@ -203,17 +204,27 @@ namespace PryingEyes
             if (rideCrashCool > 0f) rideCrashCool -= dt;
             if (rideLandCool > 0f) rideLandCool -= dt;
 
-            // ---- urto: la velocita' che il muro ha tolto in un fotogramma. Il resto (salite, sfregamenti) non conta.
+            // ---- urto: la velocita' che il muro toglie. Il corpo tocca il muro a meta' di un fotogramma e si ferma nel successivo (o nei successivi): contando la perdita un fotogramma alla volta, un muro
+            // preso a 50 km/h non era un urto una volta su sei (e a 36 km/h quasi sempre), a seconda di dove cadeva il fotogramma. Si sommano quindi le perdite di una frenata da urto (oltre 60 m/s2, il
+            // triplo del freno a mano) dell'ultimo decimo di secondo: oltre gli 8 m/s, arrivando a piu' di 8 m/s, e' un urto qualunque sia la durata dei fotogrammi. Il resto (salite, sfregamenti, il freno) non conta.
             float afterAlong = Vector3.Dot(av, fwd);
             float loss = along - afterAlong;
-            if (along > 8f && loss > 8f && rideCrashCool <= 0f)
+            if (rideHitT > 0f) { rideHitT -= dt; if (rideHitT <= 0f) rideHitLoss = 0f; }
+            if (loss > 60f * dt)
             {
+                if (rideHitLoss <= 0f) rideHitFrom = along;
+                rideHitLoss += loss; rideHitT = 0.1f;
+            }
+            if (rideHitFrom > 8f && rideHitLoss > 8f && rideCrashCool <= 0f)
+            {
+                float lost = rideHitLoss;
+                rideHitLoss = 0f; rideHitFrom = 0f; rideHitT = 0f;
                 rideCrashCool = 0.8f;
-                b.Impact((loss - 8f) / 14f);
+                b.Impact((lost - 8f) / 14f);
                 Kick(2.6f, Random.Range(-1f, 1f) * 2.2f, 7f);
                 fovKick -= 5f;
                 rideDip = Mathf.Max(rideDip, 0.14f);
-                float dmg = Mathf.Min(45f, (loss - 8f) * 2.4f);
+                float dmg = Mathf.Min(45f, (lost - 8f) * 2.4f);
                 if (dmg > 3f) Hurt(dmg, transform.position - fwd * 2f);
                 if (bike == null) return;
             }

@@ -71,6 +71,8 @@ namespace PryingEyes
         public PlayerNet last;                  // ultimo stato ricevuto
         /// <summary>La moto del compagno quando e' in sella (null prima della prima volta): per le prove.</summary>
         public Deserto.DesertBike Bike => bike;
+        /// <summary>Il corpo vero del compagno (null senza i modelli: resta il manichino): per le prove.</summary>
+        public SurvivorBody Body => body;
         public bool hasState;
         public float lastStateTime;
         /// <summary>Dove deve stare (ricevuto) e dove lo si disegna (liscio).</summary>
@@ -293,7 +295,14 @@ namespace PryingEyes
             TickBike(dt, before);
             // in sella il corpo guarda dove punta la moto (lo sguardo, e con lui il fascio della torcia, puo' essere altrove)
             transform.rotation = Quaternion.Euler(0f, last.riding && bikeHeadingInit ? bikeHeadingDeg : yawDeg, 0f);
-            if (body != null) DriveBody(dt, before);
+            if (body != null)
+            {
+                // in sella la radice dello scheletro segue il telaio della sua moto (rollio e beccheggio compresi): bacino, piedi e mani sono relativi alla moto
+                var pb = last.riding && bike != null && bike.puppet ? bike : null;
+                if (pb != null) visual.SetPositionAndRotation(pb.Body.position, pb.BodyRotation);
+                else { visual.localPosition = Vector3.zero; visual.localRotation = Quaternion.identity; }
+                DriveBody(dt, before);
+            }
             else AnimateMannequin(dt, last.riding ? 0f : v);
             if (beam != null)
             {
@@ -353,7 +362,10 @@ namespace PryingEyes
             var inp = body.input;
             inp.velocity = vel;
             inp.pitch = netPitch; inp.lean = last.lean;
-            inp.crouch = last.crouch || last.riding; inp.sprint = last.sprint && !last.riding;
+            var pb = last.riding && bike != null && bike.puppet ? bike : null;
+            inp.seated = pb != null;                                          // in sella: seduto, i piedi sulle pedane e le mani sulle manopole (SurvivorBody)
+            if (pb != null) { inp.gripLeft = pb.GripWorld(0); inp.gripRight = pb.GripWorld(1); }
+            inp.crouch = last.crouch && !last.riding; inp.sprint = last.sprint && !last.riding;
             inp.alive = last.alive; inp.downed = last.downed;
             inp.grounded = Mathf.Abs(vel.y) < 2.5f;
             inp.weapon = last.gun < WeaponDefs.All.Length ? last.gun : -1;

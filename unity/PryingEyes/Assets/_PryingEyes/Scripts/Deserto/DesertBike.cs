@@ -42,6 +42,10 @@ namespace PryingEyes.Deserto
         public float Heading => heading;
         public bool InUse => rider != null || puppet;
         public Transform Body => rig != null ? rig.body : transform;
+        /// <summary>L'assetto del telaio (direzione, rollio e beccheggio): il corpo del pilota visto da fuori lo segue.</summary>
+        public Quaternion BodyRotation => Body.rotation;
+        /// <summary>Il pugno di un lato sulla manopola, nel mondo (0 la sinistra, 1 la destra di chi guarda avanti; gira con lo sterzo): dove il corpo visto da fuori mette la mano.</summary>
+        public Vector3 GripWorld(int side) => rig != null ? rig.steer.TransformPoint(rig.handPt[Mathf.Clamp(side, 0, 1)]) : transform.position + Vector3.up;
         public Vector3 EyeWorld => rig != null ? rig.body.TransformPoint(DesertBikeMesh.Eye) : transform.position + Vector3.up * 1.4f;
         public float WheelSpin => spin;
         public float SteerVisual => steerVis;
