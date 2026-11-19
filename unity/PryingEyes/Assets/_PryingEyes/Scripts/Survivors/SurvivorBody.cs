@@ -335,7 +335,7 @@ namespace PryingEyes
         {
             if (hips == null) return;
             var inp = input;
-            SetWeapon(inp.alive && !inp.downed && !inp.seated ? inp.weapon : -1);          // in sella le mani sono sul manubrio
+            SetWeapon(inp.alive && !inp.downed && (!inp.seated || inp.shotAge < 1.4f) ? inp.weapon : -1);          // in sella le mani sono sul manubrio, finche' la destra non impugna l'arma (appena sparato)
             Vector3 vLoc = Quaternion.Inverse(transform.rotation) * new Vector3(inp.velocity.x, 0f, inp.velocity.z);
             velLocal = Vector3.Lerp(velLocal, vLoc, K(14f, dt));
             float spd = velLocal.magnitude;
@@ -508,14 +508,17 @@ namespace PryingEyes
         }
 
         /// <summary>In sella: le due mani sulle manopole (che gli passa chi possiede il corpo, in coordinate del mondo), il gomito in fuori e un po' in basso, le dita in un pugno morbido. Dentro e fuori
-        /// dalla sella si sfuma con seatAmt (le rotazioni della posa libera sono gia' state date dal ciclo del passo).</summary>
+        /// dalla sella si sfuma con seatAmt (le rotazioni della posa libera sono gia' state date dal ciclo del passo). Se ha appena sparato (c'e' l'arma in mano) la destra impugna l'arma e la sinistra
+        /// resta sul manubrio.</summary>
         void PoseRideArms(SurvivorInput inp)
         {
             SwingArm(true, 0f, inp); SwingArm(false, 0f, inp);
             float off = 0f;
+            bool gun = weaponGo != null && inp.shotAge < 1.4f;
             for (int side = 0; side < 2; side++)
             {
                 bool left = side == 0;
+                if (gun && !left) continue;                    // la destra sta sull'arma (PoseRideGun)
                 Transform u = left ? uarmL : uarmR, l = left ? larmL : larmR, h = left ? handL : handR;
                 Quaternion u0 = u.rotation, l0 = l.rotation, h0 = h.rotation;
                 // la manopola del lato in cui sta la spalla (nel sistema della radice, che guarda avanti come la moto)
@@ -528,8 +531,37 @@ namespace PryingEyes
                 off += Vector3.Distance(h.position, grip);
             }
             RideHandsOff = off;
-            AimFingers(fingR, fingDirR, handR, curlAxisR, null, null, null, null);
+            if (gun) PoseRideGun(inp); else AimFingers(fingR, fingDirR, handR, curlAxisR, null, null, null, null);
             AimFingers(fingL, fingDirL, handL, curlAxisL, null, null, null, null);
+        }
+
+        /// <summary>Seduto con l'arma in mano: la destra la impugna davanti a se', un poco in basso, puntata dove punta la moto e alta o bassa come guarda il giocatore (l'imbardata dello sguardo non
+        /// arriva agli altri, il beccheggio si'). La sinistra e' sul manubrio e non la tocca.</summary>
+        void PoseRideGun(SurvivorInput inp)
+        {
+            var g = grips;
+            float pitchDeg = Mathf.Clamp(pitchSmooth * Mathf.Rad2Deg, -60f, 50f);
+            float kick = Mathf.Exp(-Mathf.Max(0f, inp.shotAge) * 13f);
+            Vector3 flat = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+            Quaternion yawQ = Quaternion.LookRotation(flat.sqrMagnitude > 1e-4f ? flat.normalized : Vector3.forward, Vector3.up);
+            Quaternion aimQ = yawQ * Quaternion.Euler(pitchDeg - kick * 4f, 0f, 0f);
+            Quaternion bodyQ = yawQ * Quaternion.Euler(pitchDeg * 0.45f, 0f, 0f);
+            Vector3 shR = uarmR.position;
+            Vector3 hipOff = new Vector3(-0.03f * -xLeft, -0.27f, 0.36f);
+            Vector3 wPos = shR + bodyQ * hipOff - aimQ * g.wristR - aimQ * Vector3.forward * (kick * 0.04f);
+            Vector3 toWrist = wPos + aimQ * g.wristR - shR;
+            float maxReach = (armL1 + armL2) * 0.97f;
+            if (toWrist.magnitude > maxReach) wPos -= toWrist.normalized * (toWrist.magnitude - maxReach);
+            weaponGo.transform.SetPositionAndRotation(wPos, aimQ);
+            Transform wt = weaponGo.transform;
+            Quaternion u0 = uarmR.rotation, l0 = larmR.rotation, h0 = handR.rotation;
+            SolveLimb(uarmR, larmR, handR, wt.TransformPoint(g.wristR), Out(false) * 0.55f + Vector3.down * 0.75f - transform.forward * 0.1f, armL1, armL2);
+            AimHand(handR, wt.rotation * g.frameR, frameRsR);
+            uarmR.rotation = Quaternion.Slerp(u0, uarmR.rotation, seatAmt);
+            larmR.rotation = Quaternion.Slerp(l0, larmR.rotation, seatAmt);
+            handR.rotation = Quaternion.Slerp(h0, handR.rotation, seatAmt);
+            bool trig = g.triggerR != null && inp.shotAge < 0.35f;
+            AimFingers(fingR, fingDirR, handR, curlAxisR, g.fingR, g.thumbR, trig ? g.triggerR : null, wt);
         }
 
         /// <summary>Braccio libero lungo il fianco: oscilla avanti/indietro (gradi, avanti positivo), gomito mezzo piegato, piu' chiuso di corsa.</summary>

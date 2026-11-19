@@ -27,7 +27,7 @@ namespace PryingEyes
         {
             reloadAnim = false; magCarry = 0; pendingDrop = false;
             ClearProp();
-            if (offHand == null || rig == null || !RealHold(d) || offHand.Busy || OldReload) return false;
+            if (offHand == null || rig == null || !RealHold(d) || offHand.Busy || OldReload || rideMode) return false;          // in sella la sinistra e' sul manubrio: l'arma si inclina e basta
             int rounds = Mathf.Min(magSize - mag, reserve);
             var a = ReloadAnims.Build(d, offHand, rig, reloadEmpty, State.ReloadDuration, rounds, timing.Opening, timing.RoundInterval, timing.InsertFraction);
             if (a == null) return false;

@@ -277,7 +277,7 @@ namespace PryingEyes
                 }
             }
             // in sella (moto del deserto) il corpo non cammina: la guida, la camera e le collisioni stanno in PlayerController.Ride.cs
-            if (Riding) { RideTick(dt, f, s, inputEnabled); return; }
+            if (Riding) { RideTick(dt, f, s, inputEnabled, lookDelta); return; }
             bool crouchKey = SeatInput.GetKey(KeyCode.C) || SeatInput.GetKey(KeyCode.LeftControl);
             bool sprintKey = SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift);
             ToggleKeys(inputEnabled, f, ref crouchKey, ref sprintKey);        // Impostazioni > Comandi: tenendo premuto o a interruttore

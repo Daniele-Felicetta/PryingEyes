@@ -246,6 +246,13 @@ namespace PryingEyes.Deserto
             yield return null;
         }
 
+        /// <summary>L'avatar (il corpo che vedono gli altri posti) di un posto.</summary>
+        static SeatAvatar AvatarOf(Seat s)
+        {
+            foreach (var a in FindObjectsByType<SeatAvatar>(FindObjectsSortMode.None)) if (a.Seat == s) return a;
+            return null;
+        }
+
         /// <summary>Il posto 'from' guarda il posto 'to' e lo fotografa dal suo punto di vista (hotel_build/deserto/&lt;file&gt;, 1920x1080).</summary>
         IEnumerator SnapRider(Seat from, Seat to, string file)
         {
@@ -304,11 +311,30 @@ namespace PryingEyes.Deserto
                 // con la grafica i fotogrammi sono lunghi e la guida va a passi di 0,05 s al massimo: si aspetta la strada fatta, non i secondi
                 yield return WaitFor(() => Flat(Pos(s1), mine.home) > 3.5f, 8f);
                 yield return SnapRider(s0, s1, "split_moto_posto2_in_sella.png");
+                var avFire = AvatarOf(s1);
                 // e in curva (a sinistra, lontano dal posto 1): il corpo si inclina con la moto
                 DesertBike.botThrottle = 0.5f; DesertBike.botSteer = -0.8f;
                 yield return WaitFor(() => Mathf.Abs(mine.RollVisual) > 10f, 6f);
                 yield return SnapRider(s0, s1, "split_moto_posto2_in_curva.png");
-                DesertBike.botSteer = 0f; DesertBike.botThrottle = 1f;
+                // e fermo, col fucile e col posto 1 davanti a destra: la destra impugna l'arma, che gli altri posti gli vedono in mano (dal lato sinistro il corpo la nasconderebbe)
+                DesertBike.botSteer = 0f; DesertBike.botThrottle = 0f;
+                yield return WaitFor(() => Mathf.Abs(p1.RideSpeed) < 0.6f, 10f);
+                float hd = p1.RideHeading;
+                Vector3 spot = Pos(s1) + new Vector3(Mathf.Sin(hd), 0f, Mathf.Cos(hd)) * 2.0f + new Vector3(Mathf.Cos(hd), 0f, -Mathf.Sin(hd)) * 2.6f;
+                s0.player.Teleport(new Vector3(spot.x, DesertWorld.Height(spot.x, spot.z) + 0.2f, spot.z));
+                yield return null;
+                yield return WaitFor(() => Grounded(s0), 5f);
+                p1.weapon.Equip(WeaponDefs.IndexOf("ar9_malleus"));
+                p1.weapon.mag = p1.weapon.magSize; p1.weapon.reserve = 120;
+                Weapon.rideBotFire = true;
+                yield return WaitFor(() => avFire != null && avFire.Body != null && avFire.Body.HasWeapon && p1.weapon.RideGunUp, 3f);
+                yield return new WaitForSeconds(0.25f);
+                yield return SnapRider(s0, s1, "split_moto_posto2_spara.png");
+                Weapon.rideBotFire = false;
+                s0.player.Teleport(home0);
+                yield return null;
+                yield return WaitFor(() => Grounded(s0), 5f);
+                DesertBike.botThrottle = 1f;
             }
             yield return WaitFor(() => Flat(Pos(s1), mine.home) > 20f && p1.RideSpeed > 5f, 12f);
             DesertBike.botThrottle = 0f;
@@ -316,16 +342,31 @@ namespace PryingEyes.Deserto
             Check("il posto 2 ha corso con la sua moto", went > 15f && p1.RideSpeed > 5f, $"{went:F0} m, {p1.RideSpeed * 3.6f:F0} km/h");
             Check("il posto 1 non si e' mosso", Flat(Pos(s0), home0) < 3f && !s0.player.Riding);
             Check("in sella la minimappa del posto 2 non segna la sua moto (il pilota e' la freccia rossa)", s1.hud.DesertMapShown && !s1.hud.DesertMapBikeShown, $"mappa accesa {s1.hud.DesertMapShown}, tondo {s1.hud.DesertMapBikeShown}");
-            SeatAvatar av = null;
-            foreach (var a in FindObjectsByType<SeatAvatar>(FindObjectsSortMode.None)) if (a.Seat == s1) av = a;
+            Check("in sella il posto 2 ha il suo tachimetro sulla sua porzione di schermo, e gli altri posti no", s1.hud.SpeedoShown && s1.hud.SpeedoKmh >= 12 && !s0.hud.SpeedoShown && !(n > 2 && seats[2].hud.SpeedoShown),
+                $"posto 2: acceso {s1.hud.SpeedoShown}, {s1.hud.SpeedoKmh} km/h; posto 1 acceso {s0.hud.SpeedoShown}");
+            SeatAvatar av = AvatarOf(s1);
             // il corpo vero (con i modelli) sta seduto: bacino sulla sella, piedi sulle pedane, mani sulle manopole (SurvivorBody, posa 'seated'); senza i modelli resta il manichino accovacciato
             bool seatedOk = av != null && av.Body != null && av.Body.input.seated && av.Body.input.velocity.sqrMagnitude < 0.01f;
             if (av != null && av.Body != null) yield return WaitFor(() => av.Body.SeatAmount > 0.99f, 3f);
             Check("il corpo del posto 2 visto dagli altri e' seduto in sella, con le gambe ferme", seatedOk && av.Body.SeatAmount > 0.99f, av != null ? (av.Body != null ? $"seduto {av.Body.input.seated}, posa {av.Body.SeatAmount:F2}" : "senza corpo") : "nessun avatar");
             Check("e le sue mani arrivano alle manopole (le due mani a meno di 12 cm dalle manopole, in tutto)", seatedOk && av.Body.RideHandsOff < 0.12f, seatedOk ? $"{av.Body.RideHandsOff * 100f:F1} cm in tutto" : "non seduto");
+            // spara dalla sella: la destra impugna l'arma, la sinistra resta sul manubrio; lasciato fuoco l'arma sparisce
+            if (seatedOk)
+            {
+                Weapon.rideBotFire = true;
+                yield return WaitFor(() => av.Body.HasWeapon && p1.weapon.RideGunUp, 3f);
+                Check("il posto 2 spara dalla sella e gli altri posti gli vedono l'arma in mano (e la destra non e' piu' sul manubrio)", av.Body.HasWeapon && p1.weapon.RideGunUp && p1.weapon.mag >= 0, $"arma in mano {av.Body.HasWeapon}, alzata {p1.weapon.RideGunUp}");
+                Weapon.rideBotFire = false;
+                yield return WaitFor(() => !av.Body.HasWeapon, 5f);
+                Check("lasciato fuoco l'arma sparisce dalla sua mano e le sue mani tornano sulle manopole", !av.Body.HasWeapon, $"arma in mano {av.Body.HasWeapon}");
+                yield return WaitFor(() => av.Body.RideHandsOff < 0.12f, 2f);
+                Check("e le due mani sono di nuovo a meno di 12 cm dalle manopole", av.Body.RideHandsOff < 0.12f, $"{av.Body.RideHandsOff * 100f:F1} cm in tutto");
+            }
             p1.RideRequestDismount();
             yield return WaitFor(() => !p1.Riding, 20f);
             Check("il posto 2 scende e la sua moto resta parcheggiata dov'e'", !p1.Riding && mine.rider == null && mine.ColliderOn);
+            yield return null; yield return null;
+            Check("scesi, il tachimetro del posto 2 si spegne", !s1.hud.SpeedoShown);
             // la minimappa di ogni posto segna la moto di quel posto, non quella di un altro (nate a 1,8 m una dall'altra, sulla carta sono 0,7 px: la tolleranza e' 0,25)
             yield return WaitFor(() => s1.hud.DesertMapBikeShown, 3f);
             yield return null; yield return null;

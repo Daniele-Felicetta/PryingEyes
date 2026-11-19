@@ -149,7 +149,7 @@ sees their own body in front of the eyes (unless that player chose the [third-pe
 layer back to their own camera). The survivor has no collider (bullets and enemies ignore it) and no light of its own (each seat's real
 torch lights the world and the others' bodies, never its own weapon: `SurvivorLight`). On the desert's motorbike ([../game/the-desert.md](../game/the-desert.md), "The motorbike") the
 avatar looks where the bike points (`PlayerController.RideHeading`) and is seated on it (pelvis on the saddle, feet on the footrests, hands on the grips, leaning with the bike: the `seated` pose of
-`SurvivorBody`), and the first-person arms of the bike are not shown (the others would see them floating beside the avatar).
+`SurvivorBody`), and the first-person arms of the bike are not shown (the others would see them floating beside the avatar). The weapon stays hidden while the rider only rides and is in the right hand when it fires from the saddle (`SurvivorBody.PoseRideGun`, the arm aimed where the bike points, the left hand on the grip).
 
 How the screen is made: each seat camera is a copy of the main one (URP settings included) with its own `Camera.rect`. The weapon and hands of
 seat n live on layer 24 + n, and a camera draws only its own, so nobody sees another player's gun. There is one `AudioListener`, on player 1's
@@ -280,6 +280,8 @@ system photos of every monitor (`unity_logs/seats/deserto-lontano-monitor1.png` 
 motorbike: two seats 38 of 38, three 40 of 40 and four 42 of 42 (about 28 s each) without a window, and two seats 40 of 40 with the graphics card and no window, which also photographs seat 2 riding away from the stair as seat 1 sees it
 (`hotel_build/deserto/split_moto_posto2_in_sella.png`, looked at). The same day a second round (the rider seated with its hands on the grips, the disc of each seat's own bike on its minimap) made the step 10 checks: two seats **41 of 41**, three **43 of 43** and
 four **45 of 45** (28 to 30 s each) without a window, and two seats **43 of 43** with the graphics card and no window, which photographs seat 2 straight and in a bend (`split_moto_posto2_in_sella.png`, `split_moto_posto2_in_curva.png`, looked at: seated, banking with the bike);
+a third round (0.9.3: each seat's own speedometer, and seat 2 firing from the saddle while the others see the weapon in its right hand) made the step 15 checks: two seats **46 of 46**, three **48 of 48** and four **50 of 50** (28 to 31 s each) without a window, and two seats **48 of 48** with the graphics card (a 1280x720 window, 37 s),
+which also photographs seat 2 at a standstill firing the rifle, seen by seat 1 from the front on the right (`split_moto_posto2_spara.png`, looked at: the rifle is in the right hand and points where the bike points; the first version of that photograph, with the pistol and from the left while riding, showed no weapon at all, since the pistol is small and the right hand was on the far side, so it was replaced);
 the other counts above are those of 0.9.1, before the step.
 
 ## Not verified, limits

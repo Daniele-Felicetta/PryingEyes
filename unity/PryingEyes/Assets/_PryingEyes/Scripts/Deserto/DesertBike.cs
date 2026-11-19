@@ -17,7 +17,7 @@ namespace PryingEyes.Deserto
         public static float botThrottle, botSteer;
         public static bool botBoost, botHandbrake;
         public static bool BotActive => botThrottle != 0f || botSteer != 0f || botBoost || botHandbrake;
-        public static void BotReset() { botThrottle = botSteer = 0f; botBoost = botHandbrake = false; }
+        public static void BotReset() { botThrottle = botSteer = 0f; botBoost = botHandbrake = false; Weapon.rideBotFire = false; }
 
         /// <summary>Chi la guida (null: parcheggiata, o la moto di un compagno).</summary>
         [System.NonSerialized] public PlayerController rider;
@@ -55,6 +55,10 @@ namespace PryingEyes.Deserto
         public bool ColliderOn => box != null && box.enabled;
         /// <summary>Per le prove: si vedono le braccia del pilota sul manubrio (non in uno schermo condiviso).</summary>
         public bool ArmsShown => rig != null && rig.ArmsShown;
+        /// <summary>Per le prove: si vede il braccio destro sul manubrio (non quando la destra impugna l'arma, ne' in uno schermo condiviso).</summary>
+        public bool RightArmShown => rig != null && rig.glove[1] != null && rig.glove[1].gameObject.activeSelf;
+        /// <summary>La destra lascia il manubrio per l'arma (o ci torna): il braccio destro della moto sparisce (o riappare).</summary>
+        public void ShowRightArm(bool on) { if (rig != null) rig.ShowRightArm(on); }
         public float EngineVolume => engine != null ? engine.volume : 0f;
         public float EnginePitch => engine != null ? engine.pitch : 0f;
 
@@ -140,7 +144,7 @@ namespace PryingEyes.Deserto
         {
             rider = p;
             if (box != null) box.enabled = false;
-            if (rig != null) rig.ShowArms(!Seats.Split);          // in uno schermo condiviso le braccia sulla moto le vedrebbero anche gli altri posti: li' il pilota e' il suo corpo (SeatAvatar)
+            if (rig != null) { rig.ShowRightArm(true); rig.ShowArms(!Seats.Split); }          // in uno schermo condiviso le braccia sulla moto le vedrebbero anche gli altri posti: li' il pilota e' il suo corpo (SeatAvatar)
             lastGrounded = true;
         }
 
@@ -319,6 +323,7 @@ namespace PryingEyes.Deserto
                 outT = 0.1f;
                 float k = use ? (lastBrake ? 2.6f : dark ? 1.3f : 0.7f) : 0.12f;
                 rig.tailMat.SetColor("_EmissionColor", new Color(1f, 0.08f, 0.04f) * k);
+                DesertBikeMesh.SetGlassLight(sky != null ? (1f - sky.Night) * (1f - 0.6f * sky.Indoor) : 1f);
             }
         }
     }
