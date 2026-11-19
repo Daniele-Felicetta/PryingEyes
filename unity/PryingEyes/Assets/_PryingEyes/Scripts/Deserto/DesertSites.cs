@@ -27,6 +27,8 @@ namespace PryingEyes.Deserto
         readonly bool[] populated;
         public Enemy boss;
         public float dist, hdist;
+        /// <summary>Il giocatore piu' vicino al luogo (da soli il suo; sull'ospite di una partita in cooperativa puo' essere un compagno): dalla sua posizione si decide cosa arredare e dove nascono le guardie.</summary>
+        public Vector3 anchor;
         bool navMarked;
         public bool dressedAny;
         /// <summary>Che pezzo di lavoro ha fatto l'ultimo Step e su quale livello: il direttore li scrive nel registro quando un passo dura troppo.</summary>
@@ -301,7 +303,8 @@ namespace PryingEyes.Deserto
                 }
             }
 
-            // le guardie, e il boss: nascono quando la navmesh c'e' (SpawnPending)
+            // le guardie, e il boss: nascono quando la navmesh c'e' (SpawnPending). Le fa chi simula (da soli o l'ospite): sull'ospitato i nemici sono i pupazzi che l'ospite manda
+            if (!Coop.Sim) return;
             var grng = new Rng(site.seed * 17 + u * 7919 + (int)(Time.realtimeSinceStartup * 10f));
             int guardsN = site.IsStack ? 3 + Mathf.RoundToInt(danger) + (bossUnit ? 1 : 0) : Mathf.Clamp(Mathf.RoundToInt(rooms.Count * 0.4f * Mathf.Sqrt(danger)), 1, 9);
             for (int i = 0; i < guardsN; i++)
@@ -376,7 +379,7 @@ namespace PryingEyes.Deserto
                     pos = hit.position;
                 }
                 else pos = g.pos + Vector3.up * 1.7f;
-                if ((player - pos).sqrMagnitude < 25f) continue;            // non a due passi dal giocatore appena entrato
+                if ((player - pos).sqrMagnitude < 25f || DesertAnchors.NearOther(pos, 5f)) continue;            // non a due passi da un giocatore appena entrato
                 list.RemoveAt(i);
                 var e = Enemy.Spawn(g.type, pos);
                 if (e == null) return true;
@@ -392,8 +395,14 @@ namespace PryingEyes.Deserto
                     float danger = DesertMode.Danger(site.x, site.z);
                     float hp = (3200f + 700f * (danger - 1f)) * (1f + 0.25f * ramo);
                     Enemy.MakeBranchBoss(e, def.bossTitolo, hp, ramo == 3);
-                    Seats.ForHuds(h => h.Banner(def.bossTitolo.ToUpperInvariant(), "Il signore di questo luogo ti ha sentito arrivare."));
-                    Sfx.UI(SoundBank.BossRoar, 0.8f, 0.85f);
+                    // il signore del luogo si annuncia a chi gli e' piu' vicino: a un compagno lontano dall'ospite lo dice l'ospite (e non a tutti: il boss e' laggiu')
+                    int heard = DesertAnchors.NearestSlot(pos);
+                    if (heard == Coop.Slot || !Coop.Active)
+                    {
+                        Seats.ForHuds(h => h.Banner(def.bossTitolo.ToUpperInvariant(), "Il signore di questo luogo ti ha sentito arrivare."));
+                        Sfx.UI(SoundBank.BossRoar, 0.8f, 0.85f);
+                    }
+                    else Coop.Game?.Announce(heard, 1, def.bossTitolo.ToUpperInvariant(), "Il signore di questo luogo ti ha sentito arrivare.");
                 }
                 return true;
             }

@@ -72,10 +72,13 @@ namespace PryingEyes
                 hp = maxHp > 0f ? Mathf.Clamp01(hp / maxHp) : 1f,
                 alert = alert, seeing = seeing, relentless = relentless,
                 tgt = tgt != null ? tgt.Slot : 0,
-                status = EnemyStatus.FlagsOf(this),
+                status = EnemyStatus.FlagsOf(this) | (dormant ? DormantBit : 0),
             };
             return s;
         }
+
+        /// <summary>Un bit di EnemyNet.status (gli stati di magie e sigilli ne usano sei): nel deserto chi riposa lo e' anche per i compagni, che sulla minimappa non lo vedono come minaccia.</summary>
+        public const int DormantBit = 0x80;
 
         /// <summary>Chi caccia per round (onnisciente) insegue il piu' vicino, ma senza saltare da uno all'altro: cambia solo se l'altro e'
         /// molto piu' vicino. Da solo non c'e' niente da scegliere.</summary>
@@ -122,7 +125,8 @@ namespace PryingEyes
             relentless = s.relentless;
             seeing = s.seeing;
             netTgt = s.tgt;
-            EnemyStatus.NetApply(this, s.status);
+            dormant = (s.status & DormantBit) != 0;
+            EnemyStatus.NetApply(this, s.status & ~DormantBit);
             if (snap || !netInit)
             {
                 transform.position = s.pos;

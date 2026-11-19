@@ -14,8 +14,9 @@ namespace PryingEyes.Proc
         /// <summary>Il regista del deserto in corso (null fuori dal deserto).</summary>
         public DesertDirector Desert { get; private set; }
 
-        /// <summary>Questa partita deve essere nel deserto: scelto nel menu (o -deserto), da soli e con le due zone attive.</summary>
-        static bool DesertWanted => DesertMode.Requested && !Coop.Active && !Seats.Split && (Catacombe.Attive || HasArg("-deserto") || HasArg("-desertotest"));
+        /// <summary>Questa partita deve essere nel deserto: scelto nel menu (o -deserto), da soli, come ospite (0.9.1: in cooperativa fino a quattro) o a schermo condiviso (0.9.1: da due a
+        /// quattro posti, anche su piu' monitor) e con le due zone attive. Un ospitato non sceglie: parte dove gioca l'ospite (StartRun con coopDesert).</summary>
+        static bool DesertWanted => DesertMode.Requested && (!Coop.Active || Coop.IsHost) && (Catacombe.Attive || HasArg("-deserto") || HasArg("-desertotest"));
 
         IEnumerator StartDesertCo()
         {
@@ -24,12 +25,16 @@ namespace PryingEyes.Proc
             SetInvulnerable(true);
             FadeAll(1f);
             DesertMode.Begin(runSeed);
-            // il bottino va subito nel magazzino (la spedizione resta aperta finche' non si torna al menu) e non ci sono rifornimenti da portare
-            var supplies = Fabbrica.Inizia(0, true);
-            ResetForExpedition(supplies);
-            Debug.Log($"[PryingEyes] deserto: seme {DesertMode.Seed}, si parte alle {DesertMode.Clock.hour:F1}");
+            Coop.OnFloorStart(0);          // cooperativa: l'ospite annuncia il deserto (la prima epoca), l'ospitato si prepara a dire che ha costruito il suo
+            // il bottino va subito nel magazzino (la spedizione resta aperta finche' non si torna al menu) e non ci sono rifornimenti da portare;
+            // nello schermo condiviso ogni posto comincia la sua, con la cattedrale e il magazzino del suo personaggio
+            if (Seats.Split) BeginSeatExpeditions();
+            else ResetForExpedition(Fabbrica.Inizia(0, true));
+            Debug.Log($"[PryingEyes] deserto: seme {DesertMode.Seed}, si parte alle {DesertMode.Clock.hour:F1}" + (Seats.Split ? $", schermo condiviso a {Seats.Count} posti" : ""));
             var terrain = DesertTerrain.Create(gm.player.transform);
-            DesertSky.Create(Camera.main);
+            var sky = DesertSky.Create(Camera.main);
+            for (int i = 1; i < Seats.All.Count; i++)
+                if (Seats.All[i].camera != null) sky.AttachExtra(Seats.All[i].camera);      // ogni posto ha il suo sfondo e la sua cupola (DesertSky)
             Desert = DesertDirector.Create(gm.player.transform, terrain);
             yield return null;
             yield return GoToHub(null, true, null, 0f, "IL DESERTO", "Scendi la scalinata: là fuori il giorno è appena cominciato.");
@@ -53,14 +58,24 @@ namespace PryingEyes.Proc
 
         void ShowDesertHud()
         {
-            Seats.ForHuds(h =>
+            void One(HUD h)
             {
                 h.SetWaveLabel("giorno");
                 h.SetWave(DesertMode.Clock.day + 1);
                 h.SetRound(0, false);
                 h.SetScoreLabel("PUNTI");
-                h.SetScore(gm.score);
-            });
+                h.SetScore(gm.score);       // nello schermo condiviso si chiama a nome di ogni posto: sono i suoi punti
+            }
+            if (Seats.Split) Seats.ForEach(_ => { if (gm.hud != null) One(gm.hud); });
+            else Seats.ForHuds(One);
+        }
+
+        /// <summary>Nello schermo condiviso ogni posto comincia la sua spedizione, a nome suo: la cattedrale e il magazzino del personaggio, i punti di partenza, i perk delle cappelle e
+        /// l'equipaggiamento (le ondate e i premi sono di tutti e si azzerano una volta sola).</summary>
+        void BeginSeatExpeditions()
+        {
+            ResetRunCommon();
+            Seats.ForEach(_ => ResetSeatForExpedition(Fabbrica.Inizia(0, true)));
         }
 
         /// <summary>L'obiettivo nel deserto, su due righe (la scritta e' larga una riga: quello che conta sta prima, il resto a capo): l'ora, il luogo piu' vicino e la

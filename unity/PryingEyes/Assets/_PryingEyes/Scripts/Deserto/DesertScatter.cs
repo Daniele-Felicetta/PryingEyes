@@ -116,13 +116,44 @@ namespace PryingEyes.Deserto
         {
             if (player == null) return;
             Vector3 p = player.position;
+            var others = DesertAnchors.OtherPositions;
+            var views = DesertAnchors.ViewerPositions;          // schermo condiviso: gli altri posti, che si guardano da questa macchina
+            // chi guarda si e' mosso abbastanza da rifare le liste? (il primo punto e quelli degli altri posti)
+            float moved = (p - lastPlan).sqrMagnitude;
+            for (int i = 0; i < views.Count; i++)
+                moved = Mathf.Max(moved, i < lastViews.Count ? (views[i] - lastViews[i]).sqrMagnitude : 1e9f);
             planT -= Time.unscaledDeltaTime;
-            if (planT <= 0f || (p - lastPlan).sqrMagnitude > 16f * 16f) { planT = 0.4f; lastPlan = p; Plan(p); }
+            if (planT <= 0f || moved > 16f * 16f) { planT = 0.4f; lastPlan = p; lastViews.Clear(); lastViews.AddRange(views); Plan(p, others, views); }
             Collect();
-            if (dirty || (p - lastAgg).sqrMagnitude > 20f * 20f) { Aggregate(p); dirty = false; lastAgg = p; }
+            float movedAgg = (p - lastAgg).sqrMagnitude;
+            for (int i = 0; i < views.Count; i++)
+                movedAgg = Mathf.Max(movedAgg, i < lastAggViews.Count ? (views[i] - lastAggViews[i]).sqrMagnitude : 1e9f);
+            if (dirty || movedAgg > 20f * 20f) { Aggregate(p, views); dirty = false; lastAgg = p; lastAggViews.Clear(); lastAggViews.AddRange(views); }
             colT -= Time.unscaledDeltaTime;
-            if (colT <= 0f) { colT = 0.35f; Colliders_(p); }
-            Draw(p);
+            if (colT <= 0f) { colT = 0.35f; Colliders_(p, others); }
+            Draw(p, views);
+        }
+
+        readonly List<Vector3> lastViews = new List<Vector3>(), lastAggViews = new List<Vector3>();
+
+        /// <summary>La distanza dalla cella al piu' vicino tra il giocatore e gli altri posti che guardano (nello schermo condiviso).</summary>
+        static float DistToViews(Vector3 p, List<Vector3> views, int cx, int cz)
+        {
+            float best = DistTo(p, cx, cz);
+            for (int i = 0; i < views.Count; i++) best = Mathf.Min(best, DistTo(views[i], cx, cz));
+            return best;
+        }
+
+        /// <summary>La distanza al quadrato dal punto al piu' vicino tra il giocatore e gli altri posti.</summary>
+        static float NearestViewSqr(Vector3 p, List<Vector3> views, float x, float z)
+        {
+            float dx = x - p.x, dz = z - p.z, best = dx * dx + dz * dz;
+            for (int i = 0; i < views.Count; i++)
+            {
+                dx = x - views[i].x; dz = z - views[i].z;
+                best = Mathf.Min(best, dx * dx + dz * dz);
+            }
+            return best;
         }
 
         static float DistTo(Vector3 p, int cx, int cz)
@@ -132,26 +163,57 @@ namespace PryingEyes.Deserto
             return Mathf.Sqrt(dx * dx + dz * dz);
         }
 
+        /// <summary>La distanza dal compagno piu' vicino al quadrato (molto grande se non ce ne sono).</summary>
+        static float DistToOthers(List<Vector3> others, int cx, int cz)
+        {
+            float best = 1e9f;
+            for (int i = 0; i < others.Count; i++) best = Mathf.Min(best, DistTo(others[i], cx, cz));
+            return best;
+        }
+
         // ------------------------------------------------------------------ quali quadrati
-        void Plan(Vector3 p)
+        /// <summary>I quadrati attorno a chi gioca fino al raggio piu' largo; in cooperativa l'ospite ne tiene anche attorno ai compagni quanto basta ai collider (i sassi si incontrano
+        /// anche li': chi insegue un compagno non deve attraversarli, e la navmesh li vede). Non si disegnano: il disegno e' solo attorno a chi guarda.</summary>
+        void Plan(Vector3 p, List<Vector3> others, List<Vector3> views)
         {
             float far = DesertScatterGen.TierRadius[2];
-            int pcx = Mathf.FloorToInt(p.x / DesertScatterGen.Chunk), pcz = Mathf.FloorToInt(p.z / DesertScatterGen.Chunk);
             int r = Mathf.CeilToInt(far / DesertScatterGen.Chunk) + 1;
             pending.Clear();
-            for (int i = -r; i <= r; i++)
-                for (int j = -r; j <= r; j++)
-                {
-                    int cx = pcx + i, cz = pcz + j;
-                    if (DistTo(p, cx, cz) > far) continue;
-                    long k = Key(cx, cz);
-                    if (cells.ContainsKey(k)) continue;
-                    pending.Add(new Cell { cx = cx, cz = cz, key = k });
-                }
-            pending.Sort((a, b) => DistTo(p, a.cx, a.cz).CompareTo(DistTo(p, b.cx, b.cz)));
+            for (int v = 0; v <= views.Count; v++)              // il giocatore e, nello schermo condiviso, ognuno degli altri posti
+            {
+                Vector3 q = v == 0 ? p : views[v - 1];
+                int pcx = Mathf.FloorToInt(q.x / DesertScatterGen.Chunk), pcz = Mathf.FloorToInt(q.z / DesertScatterGen.Chunk);
+                for (int i = -r; i <= r; i++)
+                    for (int j = -r; j <= r; j++)
+                    {
+                        int cx = pcx + i, cz = pcz + j;
+                        if (DistTo(q, cx, cz) > far) continue;
+                        long k = Key(cx, cz);
+                        if (cells.ContainsKey(k) || (v > 0 && pending.Exists(c => c.key == k))) continue;
+                        pending.Add(new Cell { cx = cx, cz = cz, key = k });
+                    }
+            }
+            pending.Sort((a, b) => DistToViews(p, views, a.cx, a.cz).CompareTo(DistToViews(p, views, b.cx, b.cz)));
+            const float OtherReach = ColliderIn + 30f;
+            for (int o = 0; o < others.Count; o++)
+            {
+                Vector3 q = others[o];
+                int qcx = Mathf.FloorToInt(q.x / DesertScatterGen.Chunk), qcz = Mathf.FloorToInt(q.z / DesertScatterGen.Chunk);
+                int ro = Mathf.CeilToInt(OtherReach / DesertScatterGen.Chunk) + 1;
+                for (int i = -ro; i <= ro; i++)
+                    for (int j = -ro; j <= ro; j++)
+                    {
+                        int cx = qcx + i, cz = qcz + j;
+                        if (DistTo(q, cx, cz) > OtherReach) continue;
+                        long k = Key(cx, cz);
+                        if (cells.ContainsKey(k) || pending.Exists(c => c.key == k)) continue;
+                        pending.Add(new Cell { cx = cx, cz = cz, key = k });
+                    }
+            }
             // quelli che sono rimasti troppo indietro si buttano
             var gone = new List<long>();
-            foreach (var kv in cells) if (DistTo(p, kv.Value.cx, kv.Value.cz) > far + 90f) gone.Add(kv.Key);
+            foreach (var kv in cells)
+                if (DistToViews(p, views, kv.Value.cx, kv.Value.cz) > far + 90f && (others.Count == 0 || DistToOthers(others, kv.Value.cx, kv.Value.cz) > OtherReach + 60f)) gone.Add(kv.Key);
             foreach (long k in gone) { cells.Remove(k); dirty = true; }
             int jobs = 0;
             foreach (var c in cells.Values) if (c.task != null && c.items == null) jobs++;
@@ -190,13 +252,13 @@ namespace PryingEyes.Deserto
         }
 
         /// <summary>Le matrici di ogni genere dei quadrati che stanno entro il raggio del genere.</summary>
-        void Aggregate(Vector3 p)
+        void Aggregate(Vector3 p, List<Vector3> views)
         {
             foreach (var l in gather) l.Clear();
             foreach (var c in cells.Values)
             {
                 if (c.mats == null) continue;
-                float d = DistTo(p, c.cx, c.cz);
+                float d = DistToViews(p, views, c.cx, c.cz);
                 for (int k = 0; k < c.mats.Length; k++)
                 {
                     if (c.mats[k] == null || d > DesertScatterGen.TierRadius[DesertScatterGen.Tier((Prop)k)]) continue;
@@ -205,8 +267,7 @@ namespace PryingEyes.Deserto
                     // un quadrato che arriva dentro l'anello vicino: ogni copia sceglie dalla sua distanza
                     foreach (var m in c.mats[k])
                     {
-                        float dx = m.m03 - p.x, dz = m.m23 - p.z;
-                        gather[dx * dx + dz * dz > LodNear * LodNear ? Kinds + k : k].Add(m);
+                        gather[NearestViewSqr(p, views, m.m03, m.m23) > LodNear * LodNear ? Kinds + k : k].Add(m);
                     }
                 }
             }
@@ -222,14 +283,13 @@ namespace PryingEyes.Deserto
             foreach (var c in cells.Values)
             {
                 if (c.items == null) continue;
-                float d = DistTo(p, c.cx, c.cz);
+                float d = DistToViews(p, views, c.cx, c.cz);
                 if (d > far) continue;
                 foreach (var it in c.items)
                 {
                     if (it.kind == (byte)Prop.FirePit)
                     {
-                        float dx = it.x - p.x, dz = it.z - p.z;
-                        if (dx * dx + dz * dz < FireRange * FireRange) fires.Add(new Vector3(it.x, it.y, it.z));
+                        if (NearestViewSqr(p, views, it.x, it.z) < FireRange * FireRange) fires.Add(new Vector3(it.x, it.y, it.z));
                     }
                     else if (it.kind == (byte)Prop.Windmill && windmills.Count < rotorMats.Length)
                         windmills.Add(Matrix4x4.TRS(new Vector3(it.x, it.y, it.z), Quaternion.Euler(0f, it.yaw, 0f), Vector3.one * it.scale));
@@ -241,12 +301,19 @@ namespace PryingEyes.Deserto
         /// chiamata: le cose si contano e si piazzano lo stesso, ma non si disegnano.</summary>
         public static bool CanDraw => SystemInfo.supportsInstancing && SystemInfo.graphicsDeviceType != GraphicsDeviceType.Null;
 
-        void Draw(Vector3 p)
+        void Draw(Vector3 p, List<Vector3> views)
         {
             // sotto la sabbia (una catacomba) non si manda niente alla scheda: da li' le cose sopra non si vedono, e i loro sassi pesavano 2,5 ms nella sala del boss
+            // (nello schermo condiviso solo se tutti sono sotto: basta uno all'aperto perche' le cose si disegnino per la sua camera)
             Underground = p.y < DesertWorld.Height(p.x, p.z) - UndergroundDepth;
-            if (!CanDraw || Underground) return;
             var bounds = new Bounds(p, new Vector3(1300f, 400f, 1300f));
+            for (int i = 0; i < views.Count; i++)
+            {
+                var v = views[i];
+                if (v.y >= DesertWorld.Height(v.x, v.z) - UndergroundDepth) Underground = false;
+                bounds.Encapsulate(new Bounds(v, new Vector3(1300f, 400f, 1300f)));
+            }
+            if (!CanDraw || Underground) return;
             for (int k = 0; k < agg.Length; k++)
             {
                 int n = aggCount[k];
@@ -270,13 +337,28 @@ namespace PryingEyes.Deserto
         }
 
         // ------------------------------------------------------------------ i collider
-        void Colliders_(Vector3 p)
+        /// <summary>Il punto 'at' (xz) e' entro 'radius' dal giocatore o da un compagno?</summary>
+        static bool NearAny(Vector3 p, List<Vector3> others, float x, float z, float radius)
+        {
+            float r2 = radius * radius, dx = x - p.x, dz = z - p.z;
+            if (dx * dx + dz * dz <= r2) return true;
+            for (int i = 0; i < others.Count; i++)
+            {
+                dx = x - others[i].x; dz = z - others[i].z;
+                if (dx * dx + dz * dz <= r2) return true;
+            }
+            return false;
+        }
+
+        void Colliders_(Vector3 p, List<Vector3> others)
         {
             drop.Clear();
             foreach (var kv in live)
             {
                 var col = kv.Value;
-                if (col == null || (col.transform.position - p).sqrMagnitude > ColliderOut * ColliderOut) drop.Add(kv.Key);
+                if (col == null) { drop.Add(kv.Key); continue; }
+                var cp = col.transform.position;
+                if (!NearAny(p, others, cp.x, cp.z, ColliderOut)) drop.Add(kv.Key);
             }
             foreach (var k in drop)
             {
@@ -286,14 +368,13 @@ namespace PryingEyes.Deserto
             int made = 0;
             foreach (var c in cells.Values)
             {
-                if (c.items == null || DistTo(p, c.cx, c.cz) > ColliderIn) continue;
+                if (c.items == null || (DistTo(p, c.cx, c.cz) > ColliderIn && DistToOthers(others, c.cx, c.cz) > ColliderIn)) continue;
                 for (int i = 0; i < c.items.Count; i++)
                 {
                     var it = c.items[i];
                     DesertScatterGen.Solid((Prop)it.kind, out float r, out float h);
                     if (r <= 0f) continue;
-                    float dx = it.x - p.x, dz = it.z - p.z;
-                    if (dx * dx + dz * dz > ColliderIn * ColliderIn || live.ContainsKey((c.key, i))) continue;
+                    if (!NearAny(p, others, it.x, it.z, ColliderIn) || live.ContainsKey((c.key, i))) continue;
                     CapsuleCollider col;
                     if (free.Count > 0) { col = free[free.Count - 1]; free.RemoveAt(free.Count - 1); }
                     else { var go = new GameObject("PropCol"); go.transform.SetParent(colRoot, false); col = go.AddComponent<CapsuleCollider>(); }

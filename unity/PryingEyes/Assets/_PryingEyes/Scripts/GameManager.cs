@@ -141,10 +141,10 @@ namespace PryingEyes
         }
 
         /// <summary>Cooperativa, ospitato: l'ospite ha detto seme e piano, si parte da li' (e il menu si toglie di mezzo).</summary>
-        public void BeginCoopRun(int seed, int floor)
+        public void BeginCoopRun(int seed, int floor, bool desert = false)
         {
             GameMenu.I?.CoopEnter();
-            if (proc && Proc.FloorDirector.I != null && Proc.FloorDirector.I.floor == 0) Proc.FloorDirector.I.StartRun(seed, floor);
+            if (proc && Proc.FloorDirector.I != null && Proc.FloorDirector.I.floor == 0) Proc.FloorDirector.I.StartRun(seed, floor, desert);      // desert: l'ospite gioca nel deserto (0.9.1)
         }
 
         /// <summary>Punti (tabella in Punti.cs): +10 per colpo che non uccide, 60 per uccisione, 100 alla testa, 130 col coltello.

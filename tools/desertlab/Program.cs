@@ -19,6 +19,10 @@ static class Program
     {
         int map = Array.IndexOf(args, "--map");
         if (map >= 0) return Map(args, map);
+        int mini = Array.IndexOf(args, "--minimap");
+        if (mini >= 0) return Minimap(args, mini);
+        int probe = Array.IndexOf(args, "--probe");
+        if (probe >= 0) return Probe(args, probe);
         bool quick = Array.IndexOf(args, "--quick") >= 0;
         Noise();
         Clock();
@@ -27,6 +31,7 @@ static class Program
         Buildings(quick ? 120 : 600);
         Stacks(quick ? 40 : 200);
         World(quick ? 9 : 20);
+        MapPaint();
         Regions();
         Buttes();
         Scatter(quick ? 14 : 30);
@@ -103,6 +108,114 @@ static class Program
         }
         Console.WriteLine($"{path}: {px}x{px}, {size} m, from ({x0}, {z0}), seed {DesertWorld.Seed}");
         return 0;
+    }
+
+    /// <summary>--probe x0 z0 x1 z1 [n] [seed]: the ground and the regions along a line (height, the two regions that meet, how much the first counts, the sand tint), to see what a picture shows.</summary>
+    static int Probe(string[] a, int i)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        float x0 = float.Parse(a[i + 1], inv), z0 = float.Parse(a[i + 2], inv), x1 = float.Parse(a[i + 3], inv), z1 = float.Parse(a[i + 4], inv);
+        int n = a.Length > i + 5 ? int.Parse(a[i + 5]) : 20;
+        DesertWorld.Reset(a.Length > i + 6 ? int.Parse(a[i + 6]) : 1000);
+        for (int k = 0; k <= n; k++)
+        {
+            float t = (float)k / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
+            DesertWorld.RegionBlend(x, z, out var ra, out var rb, out float wa);
+            DesertWorld.TintAt(x, z, out float r, out float g, out float b, out float d);
+            Console.WriteLine(string.Format(inv, "({0,7:F1},{1,7:F1}) h {2,6:F2}  {3}/{4} {5:F2}  tint {6:F2} {7:F2} {8:F2} desat {9:F2}", x, z, DesertWorld.Height(x, z), ra, rb, wa, r, g, b, d));
+        }
+        return 0;
+    }
+
+    // ------------------------------------------------------------------ the minimap
+    /// <summary>--minimap out.ppm cx cz [size] [seed]: the minimap of the game (DesertMapGen, 2 m a pixel) around a point, north up, to look at the paper without Unity.</summary>
+    static int Minimap(string[] a, int i)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        string path = a[i + 1];
+        float cx = float.Parse(a[i + 2], inv), cz = float.Parse(a[i + 3], inv), size = a.Length > i + 4 ? float.Parse(a[i + 4], inv) : DesertMapGen.WindowSize;
+        DesertWorld.Reset(a.Length > i + 5 ? int.Parse(a[i + 5]) : 1000);
+        int t0x = DesertMapGen.TileOf(cx - size * 0.5f), t1x = DesertMapGen.TileOf(cx + size * 0.5f - 0.01f);
+        int t0z = DesertMapGen.TileOf(cz - size * 0.5f), t1z = DesertMapGen.TileOf(cz + size * 0.5f - 0.01f);
+        int T = DesertMapGen.TilePx, W = (t1x - t0x + 1) * T, H = (t1z - t0z + 1) * T;
+        var img = new byte[W * H * 3];
+        var tile = new byte[T * T * 4];
+        var list = new List<Site>();
+        var sw = Stopwatch.StartNew();
+        int n = 0;
+        for (int tz = t0z; tz <= t1z; tz++)
+            for (int tx = t0x; tx <= t1x; tx++)
+            {
+                DesertWorld.SitesNear((tx + 0.5f) * DesertMapGen.TileSize, (tz + 0.5f) * DesertMapGen.TileSize, DesertMapGen.SiteReach, list);
+                DesertMapGen.Paint(tx, tz, list, tile);
+                n++;
+                for (int j = 0; j < T; j++)
+                    for (int c = 0; c < T; c++)
+                    {
+                        int X = (tx - t0x) * T + c, Y = H - 1 - ((tz - t0z) * T + j);
+                        int o = (Y * W + X) * 3, s = (j * T + c) * 4;
+                        img[o] = tile[s]; img[o + 1] = tile[s + 1]; img[o + 2] = tile[s + 2];
+                    }
+            }
+        using (var f = System.IO.File.Create(path))
+        {
+            var head = System.Text.Encoding.ASCII.GetBytes("P6\n" + W + " " + H + "\n255\n");
+            f.Write(head, 0, head.Length); f.Write(img, 0, img.Length);
+        }
+        Console.WriteLine($"{path}: {W}x{H} px, {n} tiles in {sw.ElapsedMilliseconds} ms ({(double)sw.ElapsedMilliseconds / n:F1} ms each), centre ({cx}, {cz}), seed {DesertWorld.Seed}");
+        return 0;
+    }
+
+    static int Dark(byte[] px, int from = 0) { int n = 0; for (int k = from; k < px.Length; k += 4) if (px[k] < 70 && px[k + 1] < 70 && px[k + 2] < 70) n++; return n; }
+
+    /// <summary>The pure painter of the minimap: same tile, same bytes; opaque; the cathedral, its golden stairs, a chapel and a tower show; the cost of a tile.</summary>
+    static void MapPaint()
+    {
+        DesertWorld.Reset(1000);
+        int T = DesertMapGen.TilePx;
+        var a = new byte[T * T * 4]; var b = new byte[T * T * 4]; var list = new List<Site>();
+        void PaintAt(int tx, int tz, byte[] into)
+        {
+            DesertWorld.SitesNear((tx + 0.5f) * DesertMapGen.TileSize, (tz + 0.5f) * DesertMapGen.TileSize, DesertMapGen.SiteReach, list);
+            DesertMapGen.Paint(tx, tz, list, into);
+        }
+        PaintAt(-3, 4, a); PaintAt(-3, 4, b);
+        Check("MAP_TILE_IS_DETERMINISTIC", a.AsSpan().SequenceEqual(b), "the same tile painted twice gives the same bytes");
+        bool opaque = true; int tiles = 0; var sw = Stopwatch.StartNew();
+        for (int tz = -2; tz <= 2; tz++)
+            for (int tx = -2; tx <= 2; tx++)
+            {
+                PaintAt(tx, tz, a); tiles++;
+                for (int k = 3; k < a.Length; k += 4) if (a[k] != 255) opaque = false;
+            }
+        double ms = (double)sw.ElapsedMilliseconds / tiles;
+        Check("MAP_TILES_ARE_OPAQUE", opaque, tiles + " tiles around the cathedral, every pixel alpha 255");
+        Check("MAP_TILE_COST", ms < 60.0, $"{ms:F1} ms a tile on one thread (the game paints them on workers, three at a time)");
+        // the cathedral: pale stone under a cross, and the stairs in gold
+        PaintAt(0, 0, a);
+        int stone = 0;
+        for (int k = 0; k < a.Length; k += 4) if (Math.Abs(a[k] - 214) <= 4 && Math.Abs(a[k + 1] - 207) <= 4 && Math.Abs(a[k + 2] - 189) <= 4) stone++;
+        Check("MAP_CATHEDRAL_IS_STONE", stone >= 150, stone + " pale stone pixels in the tile of the cathedral (a nave, aisles, tower and armoury of about 2000 m2 are 500 pixels)");
+        Check("MAP_CATHEDRAL_HAS_ITS_WALLS", Dark(a) >= 100, Dark(a) + " ink pixels in the tile of the cathedral");
+        PaintAt(0, -1, a);
+        int gold = 0;
+        for (int j = 0; j < T; j++)
+            for (int c = 0; c < T; c++)
+            {
+                float wx = (c + 0.5f) * DesertMapGen.Mpp, wz = -DesertMapGen.TileSize + (j + 0.5f) * DesertMapGen.Mpp;
+                int o = (j * T + c) * 4;
+                if (wx >= HubPlan.StairX0 && wx <= HubPlan.StairX1 && wz >= -6f && wz <= 0f && a[o] > 190 && a[o] > a[o + 1] + 25 && a[o + 1] > a[o + 2] + 40) gold++;
+            }
+        Check("MAP_STAIRS_ARE_GOLD", gold >= 14, gold + " golden pixels on the stairs of the churchyard (14 m x 6 m: 21 pixels)");
+        // a ruined chapel and the tower on the horizon
+        var chapel = DesertWorld.Welcome(); var tower = DesertWorld.Landmark();
+        PaintAt(DesertMapGen.TileOf(chapel.CentreX), DesertMapGen.TileOf(chapel.CentreZ), a);
+        Check("MAP_CHAPEL_SHOWS", Dark(a) >= 25, Dark(a) + " ink pixels where the welcome chapel stands");
+        PaintAt(DesertMapGen.TileOf(tower.CentreX), DesertMapGen.TileOf(tower.CentreZ), a);
+        Check("MAP_TOWER_SHOWS", Dark(a) >= 40, Dark(a) + " ink pixels where the landmark tower stands");
+        // the sand away from everything: no ink at all, only paper and contour lines
+        PaintAt(40, 40, a);
+        Check("MAP_BARE_SAND_HAS_NO_INK", Dark(a) == 0 || list.Count > 0, "far sand: " + Dark(a) + " ink pixels, " + list.Count + " sites near");
     }
 
     // ------------------------------------------------------------------ noise

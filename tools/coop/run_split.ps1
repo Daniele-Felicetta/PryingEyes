@@ -9,6 +9,9 @@
 #                                                      (usa la GPU e occupa lo schermo per circa un minuto: non lanciarlo mentre si gioca)
 #   .\tools\coop\run_split.ps1 -Players 2 -Candles     col vecchio ciclo a candele: prova anche Provoke e la vista dei nemici
 #   .\tools\coop\run_split.ps1 -Players 3 -NoMenu      la partita parte senza menu (-autotest): salta la pausa
+#   .\tools\coop\run_split.ps1 -Players 2 -Desert      il deserto a schermo condiviso (0.9.1, Scripts/Deserto/SplitDesertTest.cs): cielo, sabbia, luoghi, bottino,
+#                                                      obiettivo e minimappa per posto, il posto 2 a due chilometri dal primo; senza menu (-autotest). Con -Graphics
+#                                                      (e -Monitors 2) anche le foto del cielo di ogni camera e dei monitor
 #   .\tools\coop\run_split.ps1 -Players 2 -Monitors 2  su due monitor: senza finestra i monitor sono finti (camere, canvas e HUD per monitor);
 #                                                      con -Graphics e un secondo monitor vero il gioco apre la sua finestra e lo script
 #                                                      fotografa ogni monitor dal sistema a ogni momento della prova (capture_monitors.ps1):
@@ -26,6 +29,7 @@ param(
     [switch]$Graphics,
     [switch]$Candles,
     [switch]$NoMenu,
+    [switch]$Desert,
     [int]$TimeoutSec = 240
 )
 $ErrorActionPreference = 'Continue'
@@ -34,12 +38,14 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 if (Get-Process PryingEyes -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe }) { 'una copia di questo exe e'' aperta: non parto'; exit 3 }
 if ($Graphics -and (Get-Process PryingEyes -ErrorAction SilentlyContinue)) { 'un altro PryingEyes e'' aperto: con -Graphics non parto (GPU e schermo)'; exit 3 }
 New-Item -ItemType Directory -Force $LogDir | Out-Null
-$log = Join-Path $LogDir "seats$Players.log"
+$tag = if ($Desert) { 'splitdesertotest' } else { 'seatstest' }
+$log = Join-Path $LogDir $(if ($Desert) { "splitdesert$Players.log" } else { "seats$Players.log" })
 Remove-Item $log -ErrorAction SilentlyContinue
 
 # argomenti: dal menu (come il bottone) oppure, con -NoMenu, dal gancio di GameManager.Start; sempre il seme 1000 al piano 1
 $argv = @('-seed', '1000', '-floor', '1', '-seatstest', '-splitscreen', "$Players", '-logFile', "`"$log`"")
-if ($NoMenu) { $argv += @('-autotest', '-nofire', '-noenemies') } else { $argv += @('-menureview', '-nowaves') }
+if ($Desert) { $argv = @('-seed', '1000', '-splitdesertotest', '-splitscreen', "$Players", '-deserto', '-catacombe', '-autotest', '-nofire', '-logFile', "`"$log`"") }      # il deserto non ha piani: niente -floor, e parte senza menu
+elseif ($NoMenu) { $argv += @('-autotest', '-nofire', '-noenemies') } else { $argv += @('-menureview', '-nowaves') }
 if ($Candles) { $argv += '-candles' }
 if ($Monitors -gt 1) { $argv += @('-splitmonitors', "$Monitors") }
 if ($Graphics) { $argv += @('-screen-fullscreen', '0', '-screen-width', '1280', '-screen-height', '720', '-seatsshots') }
@@ -58,7 +64,7 @@ $timedOut = $false
 $sw = [Diagnostics.Stopwatch]::StartNew()
 try {
     $p = Start-Process -FilePath $exe -ArgumentList $argv -WorkingDirectory $repo -PassThru -WindowStyle $(if ($Graphics) { 'Normal' } else { 'Hidden' })
-    "partito (pid $($p.Id)): $Players giocatori, $(if ($Graphics) { 'con la finestra' } else { 'senza grafica' }), $(if ($NoMenu) { 'senza menu' } else { 'dal menu' })$(if ($Candles) { ', ciclo a candele' })$(if ($Monitors -gt 1) { ", $Monitors monitor" })"
+    "partito (pid $($p.Id)): $Players giocatori, $(if ($Graphics) { 'con la finestra' } else { 'senza grafica' }), $(if ($NoMenu -or $Desert) { 'senza menu' } else { 'dal menu' })$(if ($Desert) { ', nel deserto' })$(if ($Candles) { ', ciclo a candele' })$(if ($Monitors -gt 1) { ", $Monitors monitor" })"
     # su piu' monitor con la finestra vera: a ogni "foto-richiesta: NOME" del gioco si fotografano i monitor dal sistema (NOME-monitor1.png,
     # NOME-monitor2.png ...) e si crea NOME.done, che il gioco aspetta
     $capture = $Graphics -and $Monitors -gt 1
@@ -74,7 +80,7 @@ try {
                 $sr = New-Object IO.StreamReader($fs)
                 $text = $sr.ReadToEnd()
             } catch { $text = '' } finally { if ($fs) { $fs.Dispose() } }
-            foreach ($m in [regex]::Matches($text, 'seatstest: foto-richiesta: (\S+)')) {
+            foreach ($m in [regex]::Matches($text, "${tag}: foto-richiesta: (\S+)")) {
                 $name = $m.Groups[1].Value
                 if ($taken.ContainsKey($name)) { continue }
                 $taken[$name] = $true
@@ -92,11 +98,11 @@ finally {
 }
 
 $text = if (Test-Path $log) { [IO.File]::ReadAllText($log) } else { '' }
-$ok = ([regex]::Matches($text, 'seatstest ok ')).Count
-foreach ($m in [regex]::Matches($text, '\[PryingEyes\] seatstest (FALLITO|registro:)[^\r\n]*')) { $m.Value }
+$ok = ([regex]::Matches($text, "$tag ok ")).Count
+foreach ($m in [regex]::Matches($text, "\[PryingEyes\] $tag (FALLITO|registro:)[^\r\n]*")) { $m.Value }
 "controlli superati: $ok, tempo $([int]$sw.Elapsed.TotalSeconds) s, log $log"
 if ($timedOut) { "TIMEOUT: nessun risultato entro $TimeoutSec s"; exit 1 }
-$result = [regex]::Match($text, 'seatstest RISULTATO (SUPERATA|FALLITA): (\d+)/(\d+)')
+$result = [regex]::Match($text, "$tag RISULTATO (SUPERATA|FALLITA): (\d+)/(\d+)")
 if (-not $result.Success) { 'il gioco non ha scritto il risultato: vedi il log'; exit 1 }
 $result.Value
 if ($result.Groups[1].Value -eq 'SUPERATA' -and $p.ExitCode -eq 0) { exit 0 }

@@ -272,12 +272,12 @@ namespace PryingEyes.Deserto
             if (sky != null) sky.Frozen = false;
         }
 
-        static Vector2 OpenSand()
+        static Vector2 OpenSand(float minRadius = 240f)
         {
             var list = new List<Site>();
             for (int k = 0; k < 90; k++)
             {
-                float a = (k * 47f + 20f) * Mathf.Deg2Rad, r = 240f + 18f * (k % 7) + 10f * (k / 7);
+                float a = (k * 47f + 20f) * Mathf.Deg2Rad, r = minRadius + 18f * (k % 7) + 10f * (k / 7);
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
                 DesertWorld.SitesNear(x, z, 75f, list);
                 if (list.Count == 0) return new Vector2(x, z);
@@ -315,6 +315,7 @@ namespace PryingEyes.Deserto
             if (Wants("cappella")) yield return Phase("cappella", Chapel());
             if (Wants("oggetti")) yield return Phase("oggetti e armi libere", Loot());
             if (Wants("suono")) yield return Phase("suono e strada di casa", SoundAndCompass());
+            if (Wants("minimappa")) yield return Phase("minimappa", MiniMap());
             if (Wants("torre")) yield return Phase("torre", Tower());
             if (Wants("boss")) yield return Phase("boss", Boss());
             if (Wants("catacomba")) yield return Phase("catacomba", Catacomb());
@@ -718,6 +719,8 @@ namespace PryingEyes.Deserto
         IEnumerator SoundAndCompass()
         {
             var pl = Pl; var gm = Gm;
+            // con -autotest il giocatore ruota da solo se holdLook e' falso: chi guarda in una direzione deve tenerla (da solo, senza le fasi che la fermano prima, la prova girava con lui)
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             var spot = OpenSand();
             yield return GoTo(spot.x, spot.y);
             Check("sulla sabbia i passi sono quelli della sabbia", pl.FootSurface == 3, "superficie " + pl.FootSurface);
@@ -734,11 +737,17 @@ namespace PryingEyes.Deserto
             yield return new WaitForSeconds(1.8f);
             string ahead = Dd != null ? Dd.WhereText() : "";
             Check("lontano da casa si legge a che distanza e da che parte e' la cattedrale (guardandola: davanti)", ahead.Contains("cattedrale a ") && ahead.EndsWith(", " + DesertDirector.Where8[0]), ahead);
+            // la freccia di casa (0.9.1): in alto, punta alla cattedrale rispetto a dove si guarda e dice quanto manca
+            var hud = gm.hud;
+            Check("la freccia di casa e' accesa, punta davanti (guardando la cattedrale) e dice la distanza", hud != null && hud.GuideArrowShown && Mathf.Abs(Mathf.DeltaAngle(hud.GuideArrowAngle, 0f)) < 10f && hud.GuideArrowText.StartsWith("cattedrale  ·  ") && hud.GuideArrowText.EndsWith("m"),
+                hud == null ? "nessun HUD" : $"accesa {hud.GuideArrowShown}, {hud.GuideArrowAngle:F0} gradi, '{hud.GuideArrowText}'");
+            Check("le distanze a parole: 140 m, 800 m e 1,4 km", DesertHome.Distance(140f) == "140 m" && DesertHome.Distance(820f) == "800 m" && DesertHome.Distance(1440f) == "1,4 km", DesertHome.Distance(140f) + ", " + DesertHome.Distance(820f) + ", " + DesertHome.Distance(1440f));
             var p = pl.transform.position;
             Face(new Vector3(2f * p.x - cx, pl.cam.position.y, 2f * p.z - cz));
             yield return new WaitForSeconds(1.8f);
             string behind = Dd != null ? Dd.WhereText() : "";
             Check("voltandole le spalle la cattedrale e' dietro", behind.Contains("cattedrale a ") && behind.EndsWith(", " + DesertDirector.Where8[4]), behind);
+            Check("voltandole le spalle la freccia di casa punta dietro", hud != null && hud.GuideArrowShown && Mathf.Abs(Mathf.DeltaAngle(hud.GuideArrowAngle, 180f)) < 10f, hud == null ? "nessun HUD" : $"accesa {hud.GuideArrowShown}, {hud.GuideArrowAngle:F0} gradi");
             string obj = Fd.DesertObjective();
             Check("l'obiettivo e' su due righe: prima l'ora e la strada, poi il consiglio", obj.Contains("\n") && obj.Substring(0, obj.IndexOf('\n')).Contains("cattedrale a ") && obj.Substring(obj.IndexOf('\n')).Contains("Torri e catacombe"), obj.Replace("\n", " / "));
             Check("la prima riga dell'obiettivo sta nella larghezza della scritta", obj.IndexOf('\n') <= 110, obj.IndexOf('\n') + " caratteri");
@@ -748,6 +757,101 @@ namespace PryingEyes.Deserto
             yield return new WaitForSeconds(5.5f);
             Check("nella navata l'eco e' quello della chiesa", amb != null && amb.ReverbDecay > 2.0f, amb == null ? "nessun ambiente" : $"decadimento {amb.ReverbDecay:F2} s");
             Check("nella navata i passi non sono quelli della sabbia", pl.FootSurface != 3, "superficie " + pl.FootSurface);
+            Check("in cattedrale la freccia di casa e' spenta", hud != null && !hud.GuideArrowShown, hud == null ? "nessun HUD" : $"accesa {hud.GuideArrowShown}");
+        }
+
+        /// <summary>La minimappa (0.9.1): accesa dall'arrivo, la carta si dipinge tutta ed e' centrata su chi gioca, mostra la cattedrale e le sue scale d'oro, segna i nemici svegli vicini e
+        /// non quelli che dormono, mette la freccia di casa sul bordo quando la cattedrale e' fuori dalla finestra, cambia quando ci si sposta di un chilometro, N la spegne e la notte la fa blu.</summary>
+        IEnumerator MiniMap()
+        {
+            var pl = Pl; var hud = Gm.hud;
+            Check("c'e' l'HUD", hud != null, hud == null ? "nessun HUD" : "");
+            if (hud == null) yield break;
+            var clock = DesertMode.Clock; float hour0 = clock.hour, speed0 = clock.speed;
+            Fd.DebugShowMap(false, true);
+            pl.Teleport(new Vector3(HubPlan.SpawnX, 0.12f, HubPlan.SpawnZ));
+            yield return null;
+            yield return WaitFor(() => pl.GetComponent<CharacterController>().isGrounded, 8f);
+            yield return WaitFor(() => hud.DesertMapShown && hud.DesertMapWanted > 0 && hud.DesertMapReady >= hud.DesertMapWanted, 40f);
+            Check("la minimappa e' accesa dall'arrivo", hud.DesertMapShown, "");
+            Check("la carta si dipinge tutta (da 81 a 100 quadrati da 64 m attorno a chi gioca)", hud.DesertMapWanted >= 81 && hud.DesertMapReady == hud.DesertMapWanted, $"{hud.DesertMapReady} pronti su {hud.DesertMapWanted}, {hud.DesertMapPaper?.Painted} dipinti, {hud.DesertMapPaper?.Failed} falliti");
+            Check("nessun quadrato ha dato errore", hud.DesertMapPaper != null && hud.DesertMapPaper.Failed == 0, hud.DesertMapPaper == null ? "nessuna carta" : hud.DesertMapPaper.Failed + " falliti");
+            var uv = hud.DesertMapUv; float tw = DesertMapGen.Slots * DesertMapGen.TileSize;
+            float ucx = (uv.x + uv.width * 0.5f) * tw, ucz = (uv.y + uv.height * 0.5f) * tw;
+            Vector3 pp = pl.transform.position;
+            Check("la finestra e' centrata su chi gioca e mostra 512 m", Mathf.Abs(Mathf.Repeat(ucx - pp.x + tw * 0.5f, tw) - tw * 0.5f) < 1f && Mathf.Abs(Mathf.Repeat(ucz - pp.z + tw * 0.5f, tw) - tw * 0.5f) < 1f && Mathf.Abs(uv.width * tw - DesertMapGen.WindowSize) < 0.5f,
+                $"centro ({ucx:F1}, {ucz:F1}) mod {tw:F0}, giocatore ({pp.x:F1}, {pp.z:F1}), larghezza {uv.width * tw:F1} m");
+            bool stone = hud.DesertMapPaper.TryGetPixel(18f, 30f, out var cs) && Mathf.Abs(cs.r - 214) <= 6 && Mathf.Abs(cs.g - 207) <= 6 && Mathf.Abs(cs.b - 189) <= 6;
+            Check("sulla carta la navata della cattedrale e' pietra chiara", stone, $"colore {cs}");
+            bool gold = hud.DesertMapPaper.TryGetPixel(18f, -3f, out var cg) && cg.r > 190 && cg.r > cg.g + 20 && cg.g > cg.b + 35;
+            Check("sulla carta la scalinata del sagrato e' d'oro", gold, $"colore {cg}");
+            Check("con la cattedrale nella finestra non c'e' la freccia di casa sul bordo", !hud.DesertMapHomeShown, "");
+
+            // i nemici: svegli e vicini si segnano, chi dorme no
+            // (chi dorme sta fuori dai 30 m, 48 di notte, in cui il regista lo sveglierebbe: a 51 m e' ancora dentro la minimappa, che per questo deve escluderlo da sola)
+            var snap1 = NavMesh.SamplePosition(pp + new Vector3(24f, 0f, -14f), out var s1, 12f, NavMesh.AllAreas) ? s1.position : pp + new Vector3(24f, 0f, -14f);
+            var snap2 = NavMesh.SamplePosition(pp + new Vector3(-38f, 0f, -34f), out var s2, 12f, NavMesh.AllAreas) ? s2.position : pp + new Vector3(-38f, 0f, -34f);
+            var awake = Enemy.Spawn(Enemy.EnemyType.Monaco, snap1); var asleep = Enemy.Spawn(Enemy.EnemyType.Monaco, snap2);
+            if (asleep != null) asleep.Doze();
+            yield return null; yield return null; yield return new WaitForSeconds(0.2f);
+            int expect = 0;
+            foreach (var e in Enemy.All) { if (e == null || e.IsDead || e.dormant) continue; var d = e.transform.position - pl.transform.position; d.y = 0f; if (d.sqrMagnitude <= 90f * 90f) expect++; }
+            Check("la minimappa segna i nemici svegli entro 90 m e non quelli che dormono", awake != null && asleep != null && expect >= 1 && hud.DesertMapEnemyDots == expect, $"segnati {hud.DesertMapEnemyDots}, svegli vicini {expect}");
+            // con -desertshots: il colpo d'occhio dal sagrato, con la carta, il puntino del nemico sveglio e il resto dell'HUD (nessun controllo: si guarda)
+            yield return Snap("20_minimappa_scalinata", 10.5f, new Vector3(HubPlan.SpawnX, 1.6f, HubPlan.SpawnZ - 60f));
+            if (awake != null) Enemy.Remove(awake);
+            if (asleep != null) Enemy.Remove(asleep);
+
+            // la notte e il giorno
+            clock.speed = 0f; clock.hour = 12f;
+            yield return new WaitForSeconds(0.6f);
+            var dayTint = hud.DesertMapTint;
+            clock.hour = 1f;
+            yield return new WaitForSeconds(0.6f);
+            var nightTint = hud.DesertMapTint;
+            clock.hour = hour0; clock.speed = speed0;
+            Check("a mezzogiorno la carta e' chiara, di notte blu e scura", dayTint.r > 0.92f && nightTint.r < 0.50f && nightTint.b > nightTint.r, $"giorno {dayTint}, notte {nightTint}");
+
+            // N la spegne e la riaccende
+            Fd.DebugShowMap(false, false);
+            yield return null; yield return null;
+            bool offWhenOff = !hud.DesertMapShown;
+            Fd.DebugShowMap(false, true);
+            yield return null; yield return null;
+            Check("N spegne la minimappa e la riaccende", offWhenOff && hud.DesertMapShown, $"spenta {offWhenOff}, riaccesa {hud.DesertMapShown}");
+
+            // seicento metri piu' in la (su sabbia libera): la carta si rifa' tutta, e la cattedrale resta indicata sul bordo, dalla parte giusta
+            var spot = OpenSand(600f);
+            yield return GoTo(spot.x, spot.y);
+            yield return WaitFor(() => hud.DesertMapWanted > 0 && hud.DesertMapReady >= hud.DesertMapWanted, 40f);
+            Vector3 far = pl.transform.position;
+            Check("lontano la carta si e' rifatta tutta attorno a chi gioca", hud.DesertMapWanted >= 81 && hud.DesertMapReady == hud.DesertMapWanted && hud.DesertMapPaper.IsReady(DesertMapGen.TileOf(far.x), DesertMapGen.TileOf(far.z)), $"{hud.DesertMapReady} pronti su {hud.DesertMapWanted} a ({far.x:F0}, {far.z:F0}), {hud.DesertMapPaper.Failed} falliti");
+            DesertWorld.CathedralCentre(out float hx, out float hz);
+            var toHome = new Vector2(hx - far.x, hz - far.z);
+            var homeAt = hud.DesertMapHomeAt;
+            // sul bordo della carta (a 85 px dal centro sull'asse piu' lungo), con la stessa direzione di casa (il nord e' in alto: x a est, y a nord)
+            float edge = Mathf.Max(Mathf.Abs(homeAt.x), Mathf.Abs(homeAt.y));
+            Check("lontano la freccia d'oro sta sul bordo della carta e guarda verso la cattedrale", hud.DesertMapHomeShown && edge > 78f && edge < 92f && Vector2.Angle(homeAt, toHome) < 4f,
+                $"visibile {hud.DesertMapHomeShown}, a {homeAt} (bordo {edge:F0}), casa a {toHome} (angolo {Vector2.Angle(homeAt, toHome):F1})");
+            bool far2 = hud.DesertMapPaper.TryGetPixel(far.x, far.z, out var cf);
+            Check("lontano la carta e' carta di sabbia e non la scura dei posti non esplorati", far2 && (cf.r > 120 || cf.g > 100), $"colore {cf}");
+            if (shots)
+            {
+                // lontano da casa si guarda un po' di lato: la freccia d'oro in alto non e' al centro e quella sul bordo della carta e' ben distinta (di notte e di giorno)
+                var homeDir = new Vector3(hx - far.x, 0f, hz - far.z).normalized;
+                var lookAt = far + Quaternion.Euler(0f, 55f, 0f) * homeDir * 90f + Vector3.up * 1.5f;
+                yield return Snap("21_minimappa_lontano_notte", 22.5f, lookAt);
+                yield return Snap("22_minimappa_lontano_giorno", 14f, lookAt);
+                clock.hour = hour0; clock.speed = speed0;
+            }
+
+            // il costo di un fotogramma di minimappa quando tutto e' pronto
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            for (int i = 0; i < 300; i++) hud.DesertMapPaper.Update(far.x, far.z);
+            double us = sw.Elapsed.TotalMilliseconds / 300.0 * 1000.0;
+            Check($"un fotogramma di minimappa a carta pronta costa {us:F0} microsecondi", us < 500.0, "");
+            pl.Teleport(new Vector3(HubPlan.SpawnX, 0.12f, HubPlan.SpawnZ));
+            yield return null;
         }
 
         IEnumerator Tower()
@@ -2659,9 +2763,13 @@ namespace PryingEyes.Deserto
         {
             var pl = Pl; var p = pl.transform.position;
             pl.Teleport(new Vector3(p.x, DesertWorld.Height(p.x, p.z) - 60f, p.z));
+            // il giocatore e' riportato all'ultimo punto sicuro; se la prova precedente lo aveva spostato lontano (qui di 29 km) quel pezzo di sabbia e' stato scaricato (dal 0.9.1 la sabbia
+            // fuori da ogni finestra si butta: prima restava in memoria per sempre) e va ricostruito, quindi il rientro vero puo' richiedere qualche secondo e un secondo giro della rete di sicurezza
+            float t0 = Time.time;
             yield return new WaitForSeconds(1.6f);
+            yield return WaitFor(() => { var s = pl.transform.position; return s.y > DesertWorld.Height(s.x, s.z) - 6f && pl.GetComponent<CharacterController>().isGrounded; }, 15f);
             var q = pl.transform.position;
-            Check("chi cade sotto la sabbia torna sopra", q.y > DesertWorld.Height(q.x, q.z) - 6f, q.ToString("F1"));
+            Check("chi cade sotto la sabbia torna sopra", q.y > DesertWorld.Height(q.x, q.z) - 6f, $"{q.ToString("F1")} dopo {Time.time - t0:F1} s, {FloorDirector.statFalls} cadute in tutto");
         }
 
         /// <summary>Il risultato di una camminata misurata (WalkMeasure): i fotogrammi di chi cammina, senza quelli che l'harness stesso rende lunghi con le sue foto.</summary>

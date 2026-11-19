@@ -116,8 +116,9 @@ namespace PryingEyes.Deserto
             return s;
         }
 
-        /// <summary>Una volta a fotogramma: chiude il tassello finito e ne avvia un altro (il piu' vicino al giocatore tra quelli da fare).</summary>
-        public static void Tick(Vector3 p)
+        /// <summary>Una volta a fotogramma: chiude il tassello finito e ne avvia un altro (il piu' vicino al giocatore tra quelli da fare). In cooperativa l'ospite passa anche i compagni
+        /// ('others'): i nemici che li inseguono camminano sulla stessa navmesh, quindi anche attorno a loro i tasselli si costruiscono e solo quelli lontani da tutti si svuotano.</summary>
+        public static void Tick(Vector3 p, List<Vector3> others = null)
         {
             if (op != null)
             {
@@ -132,33 +133,45 @@ namespace PryingEyes.Deserto
                 }
             }
             Begin();
-            int pt = TileOf(p.x), pz = TileOf(p.z);
             int r = Mathf.CeilToInt(WantRadius / Tile);
             long best = 0; int bx = 0, bz = 0; float bd = float.MaxValue; bool found = false;
-            for (int i = -r; i <= r; i++)
-                for (int j = -r; j <= r; j++)
-                {
-                    int tx = pt + i, tz = pz + j;
-                    var b = TileBounds(tx, tz);
-                    float dx = Mathf.Max(Mathf.Max(b.min.x - p.x, p.x - b.max.x), 0f), dz = Mathf.Max(Mathf.Max(b.min.z - p.z, p.z - b.max.z), 0f);
-                    float d2 = dx * dx + dz * dz;
-                    if (d2 > WantRadius * WantRadius) continue;
-                    long k = Key(tx, tz);
-                    if (built.ContainsKey(k) && !dirty.Contains(k)) continue;
-                    if (d2 >= bd) continue;
-                    // senza la sabbia sotto (con il collider) il tassello nascerebbe vuoto: si aspetta (la sabbia vicina arriva in pochi fotogrammi)
-                    if (DesertTerrain.I != null && !DesertTerrain.I.GroundReady(new Bounds(b.center, new Vector3(Tile + 6f, 1f, Tile + 6f)))) continue;
-                    bd = d2; best = k; bx = tx; bz = tz; found = true;
-                }
+            int anchors = 1 + (others != null ? others.Count : 0);
+            for (int a = 0; a < anchors; a++)
+            {
+                // il giocatore di questa macchina per primo, poi i compagni: vince il tassello da fare piu' vicino a uno qualunque
+                Vector3 q = a == 0 ? p : others[a - 1];
+                int pt = TileOf(q.x), pz = TileOf(q.z);
+                for (int i = -r; i <= r; i++)
+                    for (int j = -r; j <= r; j++)
+                    {
+                        int tx = pt + i, tz = pz + j;
+                        var b = TileBounds(tx, tz);
+                        float dx = Mathf.Max(Mathf.Max(b.min.x - q.x, q.x - b.max.x), 0f), dz = Mathf.Max(Mathf.Max(b.min.z - q.z, q.z - b.max.z), 0f);
+                        float d2 = dx * dx + dz * dz;
+                        if (d2 > WantRadius * WantRadius) continue;
+                        long k = Key(tx, tz);
+                        if (built.ContainsKey(k) && !dirty.Contains(k)) continue;
+                        if (d2 >= bd) continue;
+                        // senza la sabbia sotto (con il collider) il tassello nascerebbe vuoto: si aspetta (la sabbia vicina arriva in pochi fotogrammi)
+                        if (DesertTerrain.I != null && !DesertTerrain.I.GroundReady(new Bounds(b.center, new Vector3(Tile + 6f, 1f, Tile + 6f)))) continue;
+                        bd = d2; best = k; bx = tx; bz = tz; found = true;
+                    }
+            }
             if (found) { StartTile(best, bx, bz, false); return; }
-            // niente da fare vicino: si svuota un tassello lontano (la memoria non cresce con la strada fatta)
+            // niente da fare vicino: si svuota un tassello lontano da tutti (la memoria non cresce con la strada fatta)
             far.Clear();
             foreach (var k in built.Keys)
             {
                 int tx = (int)(k >> 32), tz = (int)(k & 0xffffffffL);
                 var b = TileBounds(tx, tz);
-                float dx = b.center.x - p.x, dz = b.center.z - p.z;
-                if (dx * dx + dz * dz > KeepRadius * KeepRadius) far.Add(k);
+                bool kept = false;
+                for (int a = 0; a < anchors && !kept; a++)
+                {
+                    Vector3 q = a == 0 ? p : others[a - 1];
+                    float dx = b.center.x - q.x, dz = b.center.z - q.z;
+                    if (dx * dx + dz * dz <= KeepRadius * KeepRadius) kept = true;
+                }
+                if (!kept) far.Add(k);
             }
             if (far.Count > 0)
             {

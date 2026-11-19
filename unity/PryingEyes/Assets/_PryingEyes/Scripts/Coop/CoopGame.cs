@@ -217,10 +217,11 @@ namespace PryingEyes
                     }
                     string myLook = r.Str();          // l'aspetto che l'ospite mi ha dato (il mio, se nessuno lo aveva gia')
                     if (r.Ok) Coop.MyLook = myLook;
+                    bool desert = r.Ok && r.Left > 0 && r.Bool();          // il modo di gioco dell'ospite: il deserto (0.9.1) o i piani
                     foreach (int s in others) GetPlayer(s);
                     Started = true;
-                    Debug.Log($"[PryingEyes] coop: ammesso come slot {slot} ({MyName}), piano {floor} seme {seed} epoca {ep}, {n} giocatori");
-                    GameManager.I?.BeginCoopRun(seed, floor);
+                    Debug.Log($"[PryingEyes] coop: ammesso come slot {slot} ({MyName}), {(desert ? "deserto" : "piano " + floor)} seme {seed} epoca {ep}, {n} giocatori");
+                    GameManager.I?.BeginCoopRun(seed, floor, desert);
                     break;
                 }
                 case CoopKind.PlayerJoined:
@@ -275,7 +276,8 @@ namespace PryingEyes
         void TryWelcome(int slot)
         {
             var fd = FloorDirector.I;
-            if (fd == null || fd.floor == 0 || Epoch == 0)
+            bool desert = Deserto.DesertMode.Active;          // il deserto sta tutto nel piano 0 (la cattedrale): e' la partita dell'ospite, che deve essere partita (epoca)
+            if (fd == null || (fd.floor == 0 && !desert) || Epoch == 0)
             {
                 if (!pendingWelcome.Contains(slot)) pendingWelcome.Add(slot);      // la partita dell'ospite non e' ancora partita
                 return;
@@ -286,6 +288,7 @@ namespace PryingEyes
             w.U8(list.Count);
             foreach (int s in list) w.U8(s).Str(NameOf(s)).Str(LookOf(s)).U16(LevelOf(s));
             w.Str(LookOf(slot));                      // l'aspetto del nuovo arrivato, tolti i doppioni
+            w.Bool(desert);                           // il modo di gioco (0.9.1): chi entra parte nel deserto o nel piano
             net.SendToSlot(slot, CoopKind.Welcome, w.ToArray());
             net.SendToAll(CoopKind.PlayerJoined, w.Reset().U8(slot).Str(NameOf(slot)).Str(LookOf(slot)).U16(LevelOf(slot)).ToArray(), true, slot);
             GetPlayer(slot);
@@ -300,7 +303,7 @@ namespace PryingEyes
         {
             builtLocal = false; readySent = false;
             foreach (var rp in Players.Values) if (rp != null) rp.DropLight();
-            if (host && epochFloor != floor) AnnounceFloor(floor);
+            if (host && (epochFloor != floor || Epoch == 0)) AnnounceFloor(floor);       // Epoch 0: il deserto comincia nel piano 0, e la prima epoca non c'e' ancora
             OnFloorStartWorld();
         }
 

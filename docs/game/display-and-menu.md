@@ -82,8 +82,10 @@ when a controller is in use, and **Torna al menu** warns that the split screen c
 **Gioca** (and **Ricomincia dalla cattedrale** after the suspended-expedition question) opens the panel **Come vuoi giocare?** with two buttons,
 **Standard** and **Il deserto**, and **Indietro** (`GameMenu.Mode.cs`). The focus starts on the mode played last time, so Enter or A repeats it; B
 or **Indietro** goes back to the main menu. The choice is kept in `PlayerPrefs` (`PryingEyes.GameMode`; the automated tests never write it) and
-`-deserto` forces the desert. Co-op and split screen have no such question: they are always standard. The desert itself is in
-[the-desert.md](the-desert.md).
+`-deserto` forces the desert. Since 0.9.1 **Ospita una partita** (Cooperativa) asks it too: the same panel, titled **Che partita ospiti?**, whose choice opens the door
+(`GameMenu.HostNow`) and whose **Indietro** and B go back to the co-op panel; a guest is never asked, it starts where the host plays. Split screen asks it too (0.9.1): after
+**Chi gioca?** (the characters of the seats) **Comincia** opens the same panel, titled **Che partita giocate?**, whose choice starts the run for every seat (`GameMenu.SplitBegin`, which says
+if it did not start and then **Chi gioca?** shows the reason); **Indietro** and B go back to **Chi gioca?**. The desert itself is in [the-desert.md](the-desert.md).
 
 ## Characters and the suspended expedition
 

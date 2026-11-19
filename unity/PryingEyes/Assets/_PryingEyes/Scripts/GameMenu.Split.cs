@@ -113,18 +113,19 @@ namespace PryingEyes
             OpenCast(n);                    // prima ognuno sceglie il suo personaggio (Chi gioca?), poi "Comincia" avvia (SplitBegin)
         }
 
-        /// <summary>Avvia davvero lo schermo condiviso, con i personaggi dei posti ('cast' puo' mancare: -splitscreen N sceglie da solo).</summary>
-        void SplitBegin(int n, System.Collections.Generic.IList<Characters.CharacterRecord> cast)
+        /// <summary>Avvia davvero lo schermo condiviso, con i personaggi dei posti ('cast' puo' mancare: -splitscreen N sceglie da solo). Falso se non parte (l'errore e' scritto).</summary>
+        bool SplitBegin(int n, System.Collections.Generic.IList<Characters.CharacterRecord> cast)
         {
             if (!SplitScreen.Begin(n, splitP1Pad, out string error, cast))
             {
                 if (splitStatus != null) splitStatus.text = error;
                 if (castStatus != null) castStatus.text = error;
                 Debug.Log("[PryingEyes] split: non parte: " + error);
-                return;
+                return false;
             }
             Play();
             GameManager.I?.hud?.Toast("Schermo condiviso a " + n + " giocatori");
+            return true;
         }
 
         /// <summary>All'avvio: con -splitscreen N il gioco parte da solo con N giocatori, come dal bottone del menu.</summary>

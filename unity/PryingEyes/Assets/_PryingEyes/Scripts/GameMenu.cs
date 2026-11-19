@@ -179,12 +179,18 @@ namespace PryingEyes
         void CoopHost()
         {
             if (NeedCharacter(coopPanel)) return;
+            ShowModes(true);                         // 0.9.1: chi ospita sceglie la partita (standard o deserto, GameMenu.Mode.cs); la scelta chiama HostNow
+        }
+
+        /// <summary>Cooperativa: la modalita' e' scelta, si apre la porta.</summary>
+        void HostNow()
+        {
             if (Coop.StartHost())
             {
                 Play();                              // la partita dell'ospite parte subito: gli altri entrano quando vogliono
                 GameManager.I?.hud?.Toast(NetInfo(2) + " - lo ritrovi in pausa");
             }
-            else coopStatus.text = Coop.Status;
+            else { Show(coopPanel); coopStatus.text = Coop.Status; }
         }
 
         /// <summary>Che cosa dire agli amici (ospite) o a chi gioca (ospitato), per il menu di pausa.</summary>

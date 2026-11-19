@@ -2,7 +2,9 @@
 #   .\tools\coop\run_all.ps1                  tutte (circa 12 minuti)
 #   .\tools\coop\run_all.ps1 -Only a,c        solo quelle che iniziano con a e c: a griglia, b pianta ad ali, c entrata tardiva,
 #                                             d uscita pulita, e processo ucciso, f esce l'ospite, g tre giocatori, h quattro giocatori,
-#                                             i aspetti e livelli dei personaggi (due processi con lo stesso aspetto chiesto)
+#                                             i aspetti e livelli dei personaggi (due processi con lo stesso aspetto chiesto),
+#                                             j il deserto in cooperativa (0.9.1: nemici per vicinanza, luoghi attorno al compagno, ora e boss),
+#                                             k il deserto e il compagno lontano esce, l processo ucciso (l'ospite prosegue da solo)
 # Esce con 0 solo se tutte sono superate.
 param([string[]]$Only = @(), [int]$Seed = 2961, [int]$TimeoutSec = 420, [string]$LogDir = (Join-Path $env:TEMP 'pryingeyes-coop'))
 $run = Join-Path $PSScriptRoot 'run_coop.ps1'
@@ -17,6 +19,11 @@ $tests = [ordered]@{
     g_tre     = @{ Clients = 2; H = @('-cooptest', '-coopplayers', '3', '-seed', $S); C = @('-cooptest', '-coopplayers', '3') }
     h_quattro = @{ Clients = 3; H = @('-cooptest', '-coopplayers', '4', '-seed', $S); C = @('-cooptest', '-coopplayers', '4') }
     i_aspetti = @{ Clients = 1; H = @('-cooptest', '-cooplook', 'custode', '-cooplevel', '7', '-seed', $S); C = @('-cooptest', '-cooplook', 'custode', '-cooplevel', '3') }
+    # il deserto: l'ospite lo sceglie (come dal menu), l'ospitato non ha -deserto e parte dove gioca lui
+    j_deserto = @{ Clients = 1; H = @('-cooptest', '-coopdeserto', '-deserto', '-catacombe', '-seed', $S); C = @('-cooptest', '-coopdeserto', '-catacombe') }
+    # il deserto, e il compagno lontano se ne va (chiusura normale, processo ucciso): l'ospite prosegue da solo
+    k_deserto_esce   = @{ Clients = 1; H = @('-cooptest', '-coopdeserto', '-coopleave', '-deserto', '-catacombe', '-seed', $S); C = @('-cooptest', '-coopdeserto', '-coopleave', '-catacombe') }
+    l_deserto_ucciso = @{ Clients = 1; H = @('-cooptest', '-coopdeserto', '-coopcrash', '-deserto', '-catacombe', '-seed', $S); C = @('-cooptest', '-coopdeserto', '-coopcrash', '-catacombe') }
 }
 # con 'powershell -File' l'elenco -Only a,c arriva come una stringa sola: la si spezza sulle virgole
 $Only = @($Only | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })

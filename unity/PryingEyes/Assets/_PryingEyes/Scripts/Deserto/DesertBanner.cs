@@ -213,8 +213,8 @@ namespace PryingEyes.Deserto
         void Update()
         {
             // da lontano (oltre 150 m) si aggiorna un fotogramma su tre, sfalsati da uno stendardo all'altro: il movimento si vede lo stesso e costa un terzo
-            var cam = Camera.main;
-            if (cam != null && (cam.transform.position - transform.position).sqrMagnitude > 150f * 150f && (Time.frameCount + slot) % 3 != 0) return;
+            // (150 m da ogni giocatore: nello schermo condiviso conta l'occhio piu' vicino)
+            if (Seats.EyeDistanceSqr(transform.position) > 150f * 150f && Camera.main != null && (Time.frameCount + slot) % 3 != 0) return;
             var sky = DesertSky.I;
             Animate(Time.time, sky != null ? sky.Weather : default);
         }

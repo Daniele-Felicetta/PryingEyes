@@ -134,6 +134,7 @@ namespace PryingEyes
                 int open = r.U8(), bought = r.U8();
                 if (r.Ok) { peerOpenRooms = open; peerBoughtRoom = bought - 1; roomsSeq++; }
             }
+            else if (sub == 6 || sub == 7) DesertReceive(sub, ref r);       // il deserto in cooperativa (CoopTest.Desert.cs): seme e ora, id dei nemici della prova
         }
 
         /// <summary>Sull'ospite: tutti gli ospitati collegati sono arrivati alla sincronia 'step'.</summary>
@@ -398,6 +399,7 @@ namespace PryingEyes
             // col ciclo a ondate (predefinito) le candele non ci sono: al posto di candela e round (S5, S6) si compra un'area e si giocano tre ondate
             bool survival = SurvivalMode.Enabled;
             System.Func<IEnumerator>[] steps =
+                DesertRun ? (Leave || Crash ? new System.Func<IEnumerator>[] { D0, D1, D2, D8 } : Pics ? new System.Func<IEnumerator>[] { D0, D1, D2, D3, D4, D5, D6, D7 } : new System.Func<IEnumerator>[] { D0, D1, D2, D3, D4, D5, D6 }) :
                 Leave || Crash ? new System.Func<IEnumerator>[] { S0, S1, E2 } :
                 HostLeave ? new System.Func<IEnumerator>[] { S0, S1, H2 } :
                 Pics ? new System.Func<IEnumerator>[] { S0, S1, P0, P1 } :

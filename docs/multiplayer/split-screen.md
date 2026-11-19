@@ -18,7 +18,8 @@ split screen.
    and *controller (e tastiera)*. The panel shows how many controllers the game sees and how many two players need.
    With two or more monitors connected the same row has a second button, **Monitor**, that picks how many monitors to use (see below).
 2. **Chi gioca?** asks which character plays in each seat ([../game/saves-and-characters.md](../game/saves-and-characters.md#playing-together)), and
-   **Comincia** starts the run at once. Everyone arrives side by side in the cabin of floor 1, and the screen is divided as in the table below.
+   **Comincia** opens **Che partita giocate?** (0.9.1): *Standard* (the floors: everyone arrives side by side in the cabin of floor 1) or *Il deserto* ([../game/the-desert.md](../game/the-desert.md):
+   everyone arrives on the churchyard of the cathedral). The choice holds for every seat and is remembered for the next time; **Indietro** goes back to **Chi gioca?**. The screen is divided as in the table below.
 3. Everybody can play with a controller; player 1 can also use the keyboard and the mouse. See [Controls](#controls).
 4. **Pause**: Esc, or Start on any controller. It stops the whole world for everyone and hides every HUD; Esc, Start on any controller or
    **Riprendi** resumes. The pause menu names who uses what (*G1: tastiera e mouse   G2: controller 1 ...*). **Torna al menu** ends the
@@ -72,6 +73,22 @@ Windows gave it to the new one (`FocusMainIfStolen`; losing it also pauses the g
 are raised again whenever the game gets its focus back, because coming back from another program brings forward only the window that was
 clicked (`SplitScreen.OnFocusGained`). Unity cannot close the window of a monitor it has opened: when the split screen ends the windows of
 the extra monitors are hidden, and they come back with the next one.
+
+## The desert (0.9.1)
+
+The desert mode can be played in split screen, on one monitor or several. After *Chi gioca?* the menu asks *Che partita giocate?* (`GameMenu.Mode.cs`, the same panel as the single player's);
+`-splitscreen N -deserto -catacombe` starts it without the menu. Everyone arrives on the churchyard of the cathedral, side by side, and then each seat walks where it wants: one can be two kilometres
+from another. What the desert makes for that:
+
+- **A world round every seat**: the sand with its collider and the navmesh, the places and their guards, the props, the loot on the sand and the far skins of the buildings are made round each seat and
+  dropped only when far from all of them (`DesertAnchors` lists the other seats as *viewers*).
+- **A sky for each camera**: the fog, the ambient and the grading are global, so the look is one (outdoors if any seat is outdoors); every seat's camera has its own background and far plane, and the one dome
+  moves to the camera that is rendering (`DesertSky.AttachExtra`, `beginCameraRendering`).
+- **Effects, objective, minimap and pick-ups per seat**: flying sand, animals, veils off the crests and dust devils once per seat; the objective line says where *that* seat is and the way home; the minimap
+  shows the other seats as coloured dots when they are inside its window; the golden arrow points at the cathedral; what a seat picks up from the sand is that seat's (points, ammunition, health).
+- **Shared**: the enemies, the hour and the weather, the places, the bosses and the one audio listener.
+
+How it works and what was checked are in [../game/the-desert.md](../game/the-desert.md) (section *Split screen*).
 
 ## Controls
 
@@ -158,6 +175,7 @@ exists only in the Windows player (XInput) and only on the hotel floors; elsewhe
 | `-splitmonitors N` | Use N monitors (1 to 4) instead of the choice saved by the menu. With fewer real monitors the extra ones are pretend ones: cameras, canvases and HUDs are placed all the same and nothing is shown (this is what the tests use). Without the flag, `-autotest` and the tests use one monitor |
 | `-seatstest` | The in-process test below (not in distribution builds) |
 | `-seatsshots` | With `-seatstest` in a real window (no `-batchmode`), save photos of the whole screen in `unity_logs/seats/` |
+| `-splitdesertotest` | The in-process test of the desert in split screen (below; with `-splitscreen N -deserto -catacombe -autotest`; not in distribution builds). `tools/coop/run_split.ps1 -Desert` passes it |
 
 ## Verification
 
@@ -247,6 +265,16 @@ On 18 November 2026, with the characters of 0.9 (the build of that day, from the
 99 of 99 with four, among them the 7 checks on the characters of the seats; `Chi gioca?` was checked by `MenuReview` (2790 checks, the panel at
 the four sizes and its photograph at 1280x720). Not run on that build: three players, `-splittest`, several monitors.
 
+### The desert in split screen (0.9.1)
+
+`-splitdesertotest` (`Scripts/Deserto/SplitDesertTest.cs`, started by `tools/coop/run_split.ps1 -Players N -Desert [-Graphics] [-Monitors M]`) starts the desert with N seats and checks that every seat camera has the 1,500 m far plane
+and the solid background; that there is one instance of the sand, the animals, the veils and the dust devils per seat and one of the fires; that the seats arrive 0.36 m apart and each HUD has the desert objective; that **seat 2, taken 2.6 km
+away** (to a real chapel), stands on sand with a collider, has navmesh round it and round seat 1, has props and loot, has the chapel next to it built with its skin and an outdoor sky, and is not on seat 1's minimap (the seats that stayed home are); that 70 points picked up
+by seat 2 are seat 2's and not seat 1's; that the objective lines differ (seat 2's says *cattedrale a 2550 m*); that a seat sent beyond the edge of the world is brought back and the other does not move; and that, brought back together, each minimap shows the
+others. With a graphics card it renders each camera at noon and checks that the top of the picture is sky and not the fog-coloured background (`hotel_build/deserto/split_posto1.png`, `split_posto2.png`), and with `-seatsshots` over real monitors it asks the script for the
+system photos of every monitor (`unity_logs/seats/deserto-lontano-monitor1.png` and so on). Results of 19 November 2026 on the tree that became 0.9.1: two seats 31 of 31, three 33 of 33, four 35 of 35 without a window (about 25 s each); two seats on two real monitors
+(the 3440x1440 primary and the 4K one) 33 of 33 in 30 s at 60 frames per second, with the four photos looked at.
+
 ## Not verified, limits
 
 - A **physical controller**: none was connected. The XInput calls answer without errors and everything else ran on injected states.
@@ -254,6 +282,9 @@ the four sizes and its photograph at 1280x720). Not run on that build: three pla
 - **Audio**: there is one listener, on player 1's camera, so every sound is heard from where player 1 stands; far from player 1 the
   others' shots and steps are faint. Music and interface sounds are not affected. A fair mix needs a custom mixer (one listener per scene
   is a Unity rule).
+- **The desert in split screen** ran with real windows only for two seats on two real monitors; three and four ran without a window. Nobody played it with a second person. The sound is the single listener's (a seat
+  kilometres from player 1 hears nothing of what happens round it), the look is global (a seat indoors beside one outdoors gets the outdoor look) and the cost of a frame with four seats looking at four different parts of the
+  desert was not measured.
 - **Performance** with four views on a large monitor (for example 3440x1440, four parts of 1720x720) is not measured: the tests ran without
   a window or in 1280x720. Four cameras draw the world four times; lights and shadows follow the nearest eye to keep it down.
 - The keyboard and the mouse belong to player 1 and cannot be handed to another player. There is no joining or leaving in the middle of a run

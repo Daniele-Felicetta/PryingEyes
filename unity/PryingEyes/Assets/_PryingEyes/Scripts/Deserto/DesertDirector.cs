@@ -45,11 +45,15 @@ namespace PryingEyes.Deserto
         readonly List<SiteRt> order = new List<SiteRt>();
         readonly List<Site> near = new List<Site>();
         readonly List<Site> tmp = new List<Site>();
+        readonly HashSet<long> seenNear = new HashSet<long>();
+        int spawnRound;
         readonly List<long> gone = new List<long>();
         readonly List<Enemy> wanderers = new List<Enemy>();
         readonly Stopwatch watch = new Stopwatch();
-        float planT, spawnT, lootT, nearT;
-        string nearText = "";
+        float planT, spawnT, lootT;
+        // la scritta dell'obiettivo (WhereText) si calcola ogni tanto, per ogni posto
+        readonly float[] nearAt = new float[Seats.MaxSeats];
+        readonly string[] nearTexts = new string[Seats.MaxSeats];
         int day = -1;
 
         /// <summary>Secondi tra il libro preso e i tre libri nuovi sui leggii: nel deserto non ci sono altri piani con un'altra Biblioteca, quindi la stessa si rinnova
@@ -96,6 +100,20 @@ namespace PryingEyes.Deserto
             DesertDevils.Create(go, followed);            // i diavoli di sabbia, di giorno col tempo buono
             DesertPrints.Create(go);                      // le orme sulla sabbia, cancellate dal vento in un minuto
             DesertSound.Create(go, followed);             // sibilo della sabbia, grilli, gracchi, ululati e il crepitio dei fuochi
+            // schermo condiviso (0.9.1): gli altri posti hanno la loro sabbia che vola, le loro sterpaglie e i loro animali, i loro veli e diavoli di sabbia (i fuochi li serve la stessa
+            // istanza, che accende quelli vicini a ogni posto, e il suono e' uno solo: c'e' un solo ascoltatore)
+            for (int i = 1; i < Seats.All.Count; i++)
+            {
+                var seat = Seats.All[i];
+                if (seat.player == null) continue;
+                var host = new GameObject("Posto " + (i + 1));
+                host.transform.SetParent(go.transform, false);
+                var t = seat.player.transform;
+                var life = DesertLife.Create(host, t); life.view = seat.camera; life.Reseed(i);
+                DesertDust.Create(host, t).view = seat.camera;
+                DesertSpindrift.Create(host, t).view = seat.camera;
+                var devils = DesertDevils.Create(host, t); devils.view = seat.camera; devils.Reseed(i);
+            }
             return d;
         }
 
@@ -139,12 +157,15 @@ namespace PryingEyes.Deserto
             var gm = GameManager.I;
             if (gm == null || gm.player == null || player == null) return;
             Vector3 p = player.position;
-            DesertNav.Tick(p);
+            // cooperativa: l'ospite serve anche i compagni (DesertAnchors); da soli e sugli ospitati 'others' e' vuoto e tutto va come prima
+            var others = DesertAnchors.OtherPositions;
+            DesertNav.Tick(p, others);
             planT -= Time.unscaledDeltaTime;
-            if (planT <= 0f) { planT = 0.25f; Plan(p); }
+            if (planT <= 0f) { planT = 0.25f; Plan(p, others); }
             Work(p);
-            EdgeTick(p);
-            if (!GameMenu.Blocked && Time.timeScale > 0f)
+            EdgeTicks();
+            // chi simula (da soli o l'ospite) fa girare i nemici e guarda i boss; l'ospitato li vede arrivare dalla rete. In cooperativa il gioco non si ferma col menu di uno
+            if (Coop.Sim && (!GameMenu.Blocked || Coop.Active) && Time.timeScale > 0f)
             {
                 TickWanderers(p, Time.deltaTime);
                 WakeTick(p, Time.deltaTime);
@@ -158,22 +179,31 @@ namespace PryingEyes.Deserto
         }
 
         // ------------------------------------------------------------------ il bordo del mondo
-        float edgeT;
+        readonly float[] edgeT = new float[Seats.MaxSeats];
+
+        /// <summary>Il bordo del mondo per ogni giocatore: nello schermo condiviso ogni posto per conto suo, sul proprio HUD.</summary>
+        void EdgeTicks()
+        {
+            if (!Seats.Split) { EdgeTick(GameManager.I.player, GameManager.I.hud, 0); return; }
+            for (int i = 0; i < Seats.All.Count && i < edgeT.Length; i++) EdgeTick(Seats.All[i].player, Seats.All[i].hud, i);
+        }
 
         /// <summary>Il mondo finisce a <see cref="DesertWorld.WorldRadius"/> dalla cattedrale (oltre, i float perdono precisione e nessuno ha disegnato niente): mezzo
         /// chilometro prima un avviso, oltre il bordo il giocatore e' riportato cento metri dentro, verso casa.</summary>
-        void EdgeTick(Vector3 p)
+        void EdgeTick(PlayerController pl, HUD hud, int seat)
         {
+            if (pl == null) return;
+            Vector3 p = pl.transform.position;
             float r = Mathf.Sqrt(p.x * p.x + p.z * p.z), limit = DesertWorld.WorldRadius;
             if (r < limit - 500f) return;
             if (r < limit)
             {
-                if (Time.unscaledTime > edgeT) { edgeT = Time.unscaledTime + 30f; Seats.ForHuds(h => h.Toast("Più avanti il deserto finisce.")); }
+                if (Time.unscaledTime > edgeT[seat]) { edgeT[seat] = Time.unscaledTime + 30f; if (hud != null) hud.Toast("Più avanti il deserto finisce."); }
                 return;
             }
             float k = (limit - 100f) / r, x = p.x * k, z = p.z * k;
-            GameManager.I.player.Teleport(new Vector3(x, DesertWorld.Height(x, z) + 1.5f, z));
-            Seats.ForHuds(h => h.Banner("IL DESERTO FINISCE QUI", "L'orizzonte si chiude: torna verso la cattedrale."));
+            pl.Teleport(new Vector3(x, DesertWorld.Height(x, z) + 1.5f, z));
+            if (hud != null) hud.Banner("IL DESERTO FINISCE QUI", "L'orizzonte si chiude: torna verso la cattedrale.");
             Debug.Log($"[PryingEyes] deserto: oltre il bordo del mondo ({r:F0} m), riportato a ({x:F0}, {z:F0})");
         }
 
@@ -196,13 +226,23 @@ namespace PryingEyes.Deserto
             else if (lib.chosen)
             {
                 if (libTakenAt < 0f) libTakenAt = Time.time;
-                else if (Time.time - libTakenAt >= LibraryRenewDelay && lib.root != null && Flat(lib.root.transform.position, p) > 5f) renew = true;
+                else if (Time.time - libTakenAt >= LibraryRenewDelay && lib.root != null && DesertAnchors.NearestViewFlat(lib.root.transform.position, p) > 5f) renew = true;
             }
             if (!renew) return;
             DesertCathedral.RefreshLibrary(cathedral);
             libWatched = Biblioteca.Current; libTakenAt = -1f; libPerks = Perks.Count;
-            if (libWatched != null && DesertWorld.DistToCathedral(p.x, p.z) < 80f)
-                GameManager.I?.hud?.Toast("La Biblioteca ha tre libri nuovi sui leggii.");
+            if (libWatched != null)
+            {
+                const string msg = "La Biblioteca ha tre libri nuovi sui leggii.";
+                if (!Seats.Split) { if (DesertWorld.DistToCathedral(p.x, p.z) < 80f) GameManager.I?.hud?.Toast(msg); }
+                else
+                    foreach (var s in Seats.All)
+                    {
+                        if (s.player == null || s.hud == null) continue;
+                        var q = s.player.transform.position;
+                        if (DesertWorld.DistToCathedral(q.x, q.z) < 80f) s.hud.Toast(msg);
+                    }
+            }
         }
 
         static float Flat(Vector3 a, Vector3 b) { a.y = 0f; b.y = 0f; return Vector3.Distance(a, b); }
@@ -257,15 +297,23 @@ namespace PryingEyes.Deserto
         }
 
         // ------------------------------------------------------------------ i luoghi
-        void Plan(Vector3 p)
+        void Plan(Vector3 p, List<Vector3> others)
         {
-            DesertWorld.SitesNearKnown(p.x, p.z, LoadTower, near);
+            // i luoghi attorno a chi gioca e, sull'ospite, attorno a ogni compagno (senza doppioni)
+            near.Clear();
+            seenNear.Clear();
+            for (int a = 0; a <= others.Count; a++)
+            {
+                Vector3 q = a == 0 ? p : others[a - 1];
+                DesertWorld.SitesNearKnown(q.x, q.z, LoadTower, tmp);
+                foreach (var s in tmp) if (seenNear.Add(Key(s))) near.Add(s);
+            }
             int made = 0;
             foreach (var s in near)
             {
                 long k = Key(s);
                 if (rts.ContainsKey(k) || made >= 2) continue;
-                if (FootDist(s, p) > LoadRadius(s)) continue;
+                if (DesertAnchors.NearestFootprint(s, p, out _) > LoadRadius(s)) continue;
                 rts[k] = new SiteRt(s);
                 SitesLoadedTotal++;
                 made++;
@@ -274,11 +322,12 @@ namespace PryingEyes.Deserto
             foreach (var kv in rts)
             {
                 var rt = kv.Value;
-                rt.hdist = FootDist(rt.site, p);
+                // la distanza e il punto che contano sono quelli del giocatore piu' vicino al luogo (da soli: il suo)
+                rt.hdist = DesertAnchors.NearestFootprint(rt.site, p, out rt.anchor);
                 rt.dist = rt.hdist;
                 if (rt.hdist > LoadRadius(rt.site) + Unhook) { gone.Add(kv.Key); continue; }
                 bool stack = rt.site.IsStack;
-                rt.UpdateWant(p, stack ? DressInStack : DressInBuilding, stack ? DressOutStack : DressOutBuilding);
+                rt.UpdateWant(rt.anchor, stack ? DressInStack : DressInBuilding, stack ? DressOutStack : DressOutBuilding);
             }
             foreach (long k in gone)
             {
@@ -303,19 +352,25 @@ namespace PryingEyes.Deserto
         /// <summary>Le pelle di chi sta lontano: nascono per i luoghi entro il raggio (poche per volta), si spengono quando il guscio vero e' completo, si buttano oltre il raggio di tenuta.</summary>
         void PlanFar(Vector3 p)
         {
-            DesertWorld.SitesNearKnown(p.x, p.z, SiteFacade.BuildRadius, farNear);
+            // le pelle servono a chi guarda: il giocatore e, nello schermo condiviso, ogni altro posto (non i compagni di rete, che il loro deserto se lo guardano da se')
+            var views = DesertAnchors.ViewerPositions;
             int made = 0;
-            foreach (var s in farNear)
+            for (int v = 0; v <= views.Count; v++)
             {
-                long k = Key(s);
-                if (farOf.ContainsKey(k) || made >= 4) continue;
-                farOf[k] = new SiteFacade(s, farRoot);
-                made++;
+                Vector3 q = v == 0 ? p : views[v - 1];
+                DesertWorld.SitesNearKnown(q.x, q.z, SiteFacade.BuildRadius, farNear);
+                foreach (var s in farNear)
+                {
+                    long k = Key(s);
+                    if (farOf.ContainsKey(k) || made >= 4) continue;
+                    farOf[k] = new SiteFacade(s, farRoot);
+                    made++;
+                }
             }
             farGone.Clear();
             foreach (var kv in farOf)
             {
-                if (FootDist(kv.Value.site, p) > SiteFacade.KeepRadius) { farGone.Add(kv.Key); continue; }
+                if (DesertAnchors.NearestViewFootprint(kv.Value.site, p) > SiteFacade.KeepRadius) { farGone.Add(kv.Key); continue; }
                 kv.Value.SetVisible(!rts.TryGetValue(kv.Key, out var rt) || !rt.ShellComplete);
             }
             foreach (long k in farGone) { farOf[k].Destroy(); farOf.Remove(k); }
@@ -329,7 +384,7 @@ namespace PryingEyes.Deserto
                 while (watch.ElapsedMilliseconds < 7)
                 {
                     long t0 = watch.ElapsedMilliseconds;
-                    if (!rt.Step(p)) break;
+                    if (!rt.Step(rt.anchor)) break;
                     long dt = watch.ElapsedMilliseconds - t0;
                     if (dt >= SlowStepMs)
                     {
@@ -349,7 +404,7 @@ namespace PryingEyes.Deserto
                 foreach (var f in farOf.Values)
                 {
                     if (f.Done || !f.Shown) continue;              // chi ha il guscio vero non ha bisogno della pelle (si fa quando serve)
-                    float d = FootDist(f.site, p);
+                    float d = DesertAnchors.NearestViewFootprint(f.site, p);
                     if (d < best) { best = d; pick = f; }
                 }
                 if (pick == null || !pick.Step()) break;
@@ -396,10 +451,11 @@ namespace PryingEyes.Deserto
         {
             var gm = GameManager.I;
             if (gm == null || gm.player == null) return "";
-            if (Time.unscaledTime < nearT) return nearText;      // nearT e' l'ora del prossimo calcolo (la scritta si rinfresca ogni mezzo secondo: un conto alla rovescia a fotogrammi non scenderebbe mai)
-            nearT = Time.unscaledTime + 1.5f;
+            int si = Mathf.Clamp(Seats.SeatIndex, 0, nearAt.Length - 1);       // nello schermo condiviso ogni posto ha la sua scritta (chi gira adesso e' Seats.Current)
+            if (Time.unscaledTime < nearAt[si]) return nearTexts[si] ?? "";      // nearAt e' l'ora del prossimo calcolo (la scritta si rinfresca ogni mezzo secondo: un conto alla rovescia a fotogrammi non scenderebbe mai)
+            nearAt[si] = Time.unscaledTime + 1.5f;
             Vector3 p = gm.player.transform.position;
-            var cam = Camera.main;
+            var cam = Seats.Split && Seats.Current != null && Seats.Current.camera != null ? Seats.Current.camera : Camera.main;
             Vector3 look = cam != null ? cam.transform.forward : Vector3.forward;
             DesertWorld.SitesNearKnown(p.x, p.z, 500f, tmp);
             Site best = null; float bd = float.MaxValue;
@@ -411,8 +467,8 @@ namespace PryingEyes.Deserto
                 DesertWorld.CathedralCentre(out float cx, out float cz);
                 text += $"  ·  cattedrale a {Rounded(dc)} m{DirText(p, look, cx, cz)}";
             }
-            nearText = text;
-            return nearText;
+            nearTexts[si] = text;
+            return text;
         }
 
         public static string KindName(Site s)
@@ -455,10 +511,13 @@ namespace PryingEyes.Deserto
             wakeT = step;
             float baseWake = DesertMode.Clock.IsNight ? WakeNight : WakeDay;
             wakeList.Clear(); dozeList.Clear();
+            var others = DesertAnchors.OtherPositions;
             foreach (var e in Enemy.All)
             {
                 if (e == null || e.IsDead || e.relentless) continue;
+                // chi e' piu' vicino: il giocatore di questa macchina o, sull'ospite, un compagno (un nemico si sveglia per il piu' vicino e rinuncia solo se li ha persi tutti)
                 float d = Reach(p, e.transform.position);
+                for (int i = 0; i < others.Count; i++) d = Mathf.Min(d, Reach(others[i], e.transform.position));
                 if (e.dormant)
                 {
                     float wake = baseWake * (Enemy.IsFlying(e.type) ? 1.25f : 1f) * (Enemy.IsBoss(e.type) ? 0.85f : 1f);
@@ -483,17 +542,29 @@ namespace PryingEyes.Deserto
                 var e = wanderers[i];
                 if (e == null || e.IsDead) { wanderers.RemoveAt(i); continue; }
                 float far = e.dormant ? 150f : 115f;
-                if ((e.transform.position - p).sqrMagnitude > far * far || InSanctuary(e.transform.position)) { Enemy.Remove(e); wanderers.RemoveAt(i); }
+                // sparisce solo se e' lontano da tutti (da soli: dal giocatore)
+                if (DesertAnchors.NearestFlat(e.transform.position) > far || InSanctuary(e.transform.position)) { Enemy.Remove(e); wanderers.RemoveAt(i); }
             }
             spawnT -= dt;
             if (spawnT > 0f || !HotelNav.Ready) return;
-            float danger = DesertMode.Danger(p.x, p.z);
+            // chi simula serve ogni giocatore: i nemici in giro nascono attorno a uno per volta, a turno, e il loro numero cresce con i compagni
+            var others = DesertAnchors.Others;
+            int players = 1 + others.Count;
+            int turn = spawnRound++ % players;
+            Vector3 centre = turn == 0 ? p : others[turn - 1].pos;
+            float danger = DesertMode.Danger(centre.x, centre.z);
             bool night = DesertMode.Clock.IsNight;
             int target = Mathf.Min(night ? 14 : 8, night ? 5 + Mathf.RoundToInt(2f * danger) : 2 + Mathf.RoundToInt(1.0f * danger));
-            spawnT = night ? 3.0f : 5f;
-            if (wanderers.Count >= target || Enemy.All.Count >= 28) return;
-            var cam = Camera.main;
-            Vector3 back = cam != null ? -cam.transform.forward : Vector3.back;
+            target = Mathf.RoundToInt(target * (1f + 0.7f * (players - 1)));
+            spawnT = (night ? 3.0f : 5f) / players;
+            if (wanderers.Count >= target || Enemy.All.Count >= 28 + 12 * (players - 1)) return;
+            Vector3 back;
+            if (turn == 0)
+            {
+                var cam = Camera.main;
+                back = cam != null ? -cam.transform.forward : Vector3.back;
+            }
+            else back = new Vector3(-Mathf.Sin(others[turn - 1].yaw), 0f, -Mathf.Cos(others[turn - 1].yaw));       // dietro le spalle del compagno (yaw: 0 verso +z)
             back.y = 0f;
             if (back.sqrMagnitude < 0.01f) back = Vector3.back;
             for (int attempt = 0; attempt < 8; attempt++)
@@ -501,7 +572,8 @@ namespace PryingEyes.Deserto
                 // di giorno gruppi fermi in giro (li si incontra davanti come dietro); di notte chi caccia arriva da dietro e di lato
                 bool awake = night && Random.value < 0.6f;
                 Vector3 dir = awake ? Quaternion.Euler(0f, Random.Range(-115f, 115f), 0f) * back.normalized : Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
-                Vector3 c = p + dir * (awake ? Random.Range(46f, 64f) : Random.Range(40f, 72f));
+                Vector3 c = centre + dir * (awake ? Random.Range(46f, 64f) : Random.Range(40f, 72f));
+                if (players > 1 && DesertAnchors.NearestFlat(c) < 36f) continue;             // non sotto il naso di un altro giocatore
                 if (DesertWorld.DistToCathedral(c.x, c.z) < SafeRadius) continue;
                 if (InSiteFootprint(c.x, c.z, 7f)) continue;
                 c.y = DesertWorld.Height(c.x, c.z);
@@ -543,8 +615,15 @@ namespace PryingEyes.Deserto
             }
         }
 
-        /// <summary>Il boss di un luogo e' caduto: il trofeo del suo ramo va subito nel magazzino della cattedrale, e il luogo non lo rimette.</summary>
+        /// <summary>Il boss di un luogo e' caduto (lo vede l'ospite, o chi gioca da solo): il trofeo va nel magazzino, e in cooperativa l'ospite lo dice a tutti (CoopKind.DesertBossDown).</summary>
         public void OnBossDown(Site s)
+        {
+            ApplyBossDown(s);
+            if (Coop.IsHost) Coop.Game?.DesertBossDown(s.cx, s.cz);
+        }
+
+        /// <summary>Il boss di un luogo e' caduto: il trofeo del suo ramo va subito nel magazzino della cattedrale (di ognuno: ogni giocatore ha il suo), e il luogo non lo rimette.</summary>
+        public void ApplyBossDown(Site s)
         {
             int ramo = DesertMode.BranchOf(s);
             DesertMode.BossesDown.Add(DesertMode.Pack(s, s.boss, 0));
@@ -560,6 +639,14 @@ namespace PryingEyes.Deserto
         static long CellKey(int cx, int cz) => ((long)(cx + 100000) << 32) ^ (uint)(cz + 100000);
 
         void OutdoorLoot(Vector3 p)
+        {
+            // attorno a ogni giocatore (nello schermo condiviso: ogni posto); si buttano solo quelli lontani da tutti
+            var views = DesertAnchors.ViewerPositions;
+            for (int v = 0; v <= views.Count; v++) OutdoorLootAround(v == 0 ? p : views[v - 1]);
+            CullLoot(p, views);
+        }
+
+        void OutdoorLootAround(Vector3 p)
         {
             int pcx = Mathf.FloorToInt(p.x / CellSize), pcz = Mathf.FloorToInt(p.z / CellSize);
             const int R = 2;
@@ -595,14 +682,20 @@ namespace PryingEyes.Deserto
                     }
                     caches[k] = c;
                 }
-            // si buttano quelli rimasti indietro (e si riproveranno se il giocatore torna: quelli presi non rinascono)
+        }
+
+        /// <summary>Si buttano quelli rimasti indietro (e si riproveranno se il giocatore torna: quelli presi non rinascono), lontani da tutti i giocatori.</summary>
+        void CullLoot(Vector3 p, List<Vector3> views)
+        {
             gone.Clear();
             foreach (var kv in caches)
             {
                 int cx = (int)(kv.Key >> 32) - 100000, cz = (int)(kv.Key & 0xffffffffL) - 100000;
-                float dx = (cx + 0.5f) * CellSize - p.x, dz = (cz + 0.5f) * CellSize - p.z;
+                float x = (cx + 0.5f) * CellSize, z = (cz + 0.5f) * CellSize;
+                float dx = x - p.x, dz = z - p.z, d2 = dx * dx + dz * dz;
+                for (int i = 0; i < views.Count; i++) { dx = x - views[i].x; dz = z - views[i].z; d2 = Mathf.Min(d2, dx * dx + dz * dz); }
                 bool taken = kv.Value.pickup == null && kv.Value.rack == null;
-                if (taken || dx * dx + dz * dz > 260f * 260f) gone.Add(kv.Key);
+                if (taken || d2 > 260f * 260f) gone.Add(kv.Key);
             }
             foreach (long k in gone) { FreeCache(caches[k]); caches.Remove(k); }
         }

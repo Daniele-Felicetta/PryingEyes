@@ -27,6 +27,8 @@ catacombs, and the photos it takes were looked at. Not tried: a real second play
 - Each player has their own map in their own part of the screen (split screen); what is discovered belongs to everyone.
 - **Cathedral and catacombs.** The cathedral (the hub) has no map. In the catacombs it is the same map: the subtitle names the level ("L'Ossario ·
   livello III"), the legend calls the exit a gate (`Cancello`), and the Cartographer's Map (`revealMaps`) shows every room of the level from the start.
+- **The desert** has no sheet (`M` does nothing) but, since 0.9.1, a minimap of its own in the same corner, which `N` shows and hides: a cartographer's chart of 512 m of sand
+  round you, painted by the code (not this map's code): see "Co-op, the minimap and the way home (0.9.1)" in [the-desert.md](the-desert.md).
 
 ## What is revealed
 

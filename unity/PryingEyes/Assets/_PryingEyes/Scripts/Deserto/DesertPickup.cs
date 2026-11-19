@@ -154,11 +154,27 @@ namespace PryingEyes.Deserto
             body.localPosition = new Vector3(0f, Hover + Mathf.Sin(t * 2.2f) * 0.05f, 0f);
             body.localRotation = Quaternion.Euler(0f, t * 70f % 360f, 0f);
             if (GameMenu.Blocked) return;
+            if (Seats.Split)
+            {
+                // schermo condiviso: lo prende chi gli e' a portata (il primo dei posti) e il premio e' suo (punti, munizioni e vita sono del posto)
+                foreach (var seat in Seats.All)
+                {
+                    var one = seat.player;
+                    if (one == null || !one.alive || !InReach(one)) continue;
+                    using (Seats.Enter(seat)) Take(one);
+                    return;
+                }
+                return;
+            }
             var pl = gm.player;
             if (!pl.alive) return;
+            if (InReach(pl)) Take(pl);
+        }
+
+        bool InReach(PlayerController pl)
+        {
             Vector3 d = pl.transform.position + Vector3.up * 0.9f - body.position;
-            if (d.sqrMagnitude > Reach * Reach) return;
-            Take(pl);
+            return d.sqrMagnitude <= Reach * Reach;
         }
 
         void Take(PlayerController pl)
