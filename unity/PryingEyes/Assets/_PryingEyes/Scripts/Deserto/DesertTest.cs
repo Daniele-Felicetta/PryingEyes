@@ -345,6 +345,7 @@ namespace PryingEyes.Deserto
             if (Explicit("moto")) yield return Phase("moto", Moto());
             if (Explicit("motosuono")) yield return Phase("motosuono", MotoSound());
             if (Explicit("motourto")) yield return Phase("motourto", MotoCrashes());
+            if (Explicit("motocattedrale")) yield return Phase("motocattedrale", MotoCathedral());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
             if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
         }

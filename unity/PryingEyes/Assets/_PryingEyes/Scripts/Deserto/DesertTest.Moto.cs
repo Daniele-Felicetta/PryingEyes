@@ -436,6 +436,104 @@ namespace PryingEyes.Deserto
             godMode = true;
         }
 
+        /// <summary>Guida verso un punto, senza schivare niente (dentro la cattedrale le antenne dell'autopilota vedrebbero sempre un muro): il manubrio punta al bersaglio e il gas tiene 'speed' m/s.</summary>
+        IEnumerator RideTo(Vector3 target, float tol, float timeout, float speed)
+        {
+            var pl = Pl;
+            float t0 = Time.time;
+            while (pl.Riding && Time.time - t0 < timeout)
+            {
+                Vector3 want = target - pl.transform.position; want.y = 0f;
+                if (want.magnitude < tol) break;
+                float diff = Mathf.DeltaAngle(pl.RideHeading * Mathf.Rad2Deg, Mathf.Atan2(want.x, want.z) * Mathf.Rad2Deg);
+                DesertBike.botSteer = Mathf.Clamp(diff / 25f, -1f, 1f);
+                float v = Mathf.Abs(diff) > 45f ? Mathf.Min(speed, 3f) : speed;
+                DesertBike.botThrottle = pl.RideSpeed < v ? 1f : (pl.RideSpeed > v + 2f ? -0.3f : 0f);
+                motoWorst = Mathf.Max(motoWorst, Time.unscaledDeltaTime);
+                yield return null;
+            }
+            DesertBike.botThrottle = 0f; DesertBike.botSteer = 0f;
+        }
+
+        /// <summary>-desertonly motocattedrale: la moto dentro la cattedrale (il documento diceva 'non provato'): a mezzogiorno, dalla moto parcheggiata si sale la scalinata del sagrato, si passa dal portale (x 16,4-19,6, z 18) nel nartece,
+        /// dove il tetto accende il faro anche di giorno, e si percorre la navata (senza le Volte non ha tetto) fino a quello che la sbarra, si fa dietrofront, si esce e si scende sul sagrato. Con -desertshots, quattro foto dalla sella.</summary>
+        IEnumerator MotoCathedral()
+        {
+            var pl = Pl;
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero; DesertBike.BotReset();
+            motoWorst = 0f;
+            var sk = DesertSky.I;
+            if (sk != null) sk.SetHour(12f, true);          // di giorno: se il faro si accende nel nartece e' per il tetto, non per la notte
+            DesertBike bike = null;
+            yield return WaitFor(() => { bike = FirstBike(); return bike != null; }, 10f);
+            Check("cattedrale in moto: c'e' la moto", bike != null);
+            if (bike == null) yield break;
+            Vector3 home = bike.transform.position;
+            yield return GoTo(home.x - 2.0f, home.z + 0.2f, 2f);
+            yield return new WaitForSeconds(0.4f);
+            pl.Mount(bike);
+            yield return new WaitForSeconds(0.7f);
+            string trail = "";
+            void Mark(string what) { var p = pl.transform.position; trail += $" {what}({p.x:F1},{p.y:F1},{p.z:F1})"; }
+            // la scalinata (x 11-25, dal piede a z -5,8 al sagrato a z 0) e il sagrato
+            yield return RideTo(new Vector3(21.5f, 0f, -2f), 3f, 15f, 9f); Mark("scala");
+            yield return RideTo(new Vector3(18f, 0f, 9f), 3f, 20f, 9f); Mark("sagrato");
+            Vector3 pos = pl.transform.position;
+            Check("cattedrale in moto: sale la scalinata e arriva sul sagrato (z oltre 6, a quota del sagrato)", pl.Riding && pos.z > 6f && pos.y > -0.8f, $"a ({pos.x:F1}, {pos.y:F1}, {pos.z:F1}):{trail}");
+            if (shots) Shot("moto_cat_a_sagrato");
+            // il portale e il nartece (x 12-24, z 18-24)
+            yield return RideTo(new Vector3(18f, 0f, 21f), 1.2f, 15f, 5f); Mark("nartece");
+            pos = pl.transform.position;
+            Check("cattedrale in moto: passa dal portale ed entra nel nartece", pl.Riding && pos.z > 19f && Mathf.Abs(pos.x - 18f) < 4f, $"a ({pos.x:F1}, {pos.y:F1}, {pos.z:F1}):{trail}");
+            // ferma sotto il tetto a botte del nartece (c'e' sempre, con o senza le opere): il faro si accende anche a mezzogiorno
+            float tb = Time.time;
+            while (pl.Riding && Time.time - tb < 4f && pl.RideSpeed > 0.4f) { DesertBike.botThrottle = -1f; DesertBike.botSteer = 0f; yield return null; }
+            DesertBike.botThrottle = 0f;
+            yield return WaitFor(() => sk != null && sk.Indoor > 0.5f, 3f);
+            yield return new WaitForSeconds(0.2f);
+            Check("cattedrale in moto: sotto il tetto del nartece, a mezzogiorno, il faro e' acceso", sk != null && sk.Indoor > 0.5f && sk.Night < 0.28f && bike.HeadlightOn, $"faro {bike.HeadlightOn}, al chiuso {(sk != null ? sk.Indoor : -1f):F2}, notte {(sk != null ? sk.Night : -1f):F2}");
+            if (shots) Shot("moto_cat_b_nartece");
+            // la navata (x 12-24, z 24-54): oltre l'arco a z 24 e fin dove una cosa in mezzo la sbarra (per chiunque, a piedi come in moto): la prova dice cosa
+            yield return RideTo(new Vector3(18f, 0f, 44f), 2f, 25f, 6f); Mark("navata");
+            pos = pl.transform.position;
+            Check("cattedrale in moto: percorre la navata dopo l'arco (z oltre 33)", pl.Riding && pos.z > 33f, $"a ({pos.x:F1}, {pos.y:F1}, {pos.z:F1}):{trail}");
+            {
+                // cosa ha davanti, a pochi metri: il nome dell'oggetto e dei suoi genitori
+                float yaw = pl.RideHeading * Mathf.Rad2Deg;
+                Vector3 fwd = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward, from = pl.transform.position + Vector3.up * 0.8f;
+                string blocker = "niente a 2,5 m";
+                if (Physics.SphereCast(from, 0.25f, fwd, out var ahead, 2.5f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    blocker = ahead.collider.name; var tr = ahead.collider.transform.parent;
+                    for (int up = 0; up < 3 && tr != null; up++, tr = tr.parent) blocker += " < " + tr.name;
+                    blocker += $" a {ahead.distance:F1} m";
+                }
+                Debug.Log($"[PryingEyes] desertotest motocattedrale: in navata la moto e' ferma a z {pos.z:F1}, davanti: {blocker}");
+            }
+            // la navata senza le Volte non ha tetto (al chiuso 0): di giorno il faro si spegne; con le Volte seguirebbe il tetto. Qui vale la regola, qualunque sia la pianta
+            yield return WaitFor(() => sk == null || sk.Indoor < 0.5f, 3f);
+            yield return new WaitForSeconds(0.3f);
+            bool dark = sk != null && (sk.Night > 0.28f || sk.Indoor > 0.5f);
+            Check("cattedrale in moto: in navata il faro segue il tetto (acceso solo se c'e' o se e' notte)", bike.HeadlightOn == dark, $"faro {bike.HeadlightOn}, al chiuso {(sk != null ? sk.Indoor : -1f):F2}, notte {(sk != null ? sk.Night : -1f):F2}");
+            if (shots) Shot("moto_cat_c_navata");
+            // dietrofront (si gira in un punto largo: i 12 m della navata) e fuori
+            yield return RideTo(new Vector3(18f, 0f, 28f), 3f, 20f, 4f); Mark("ritorno_navata");
+            yield return RideTo(new Vector3(18f, 0f, 21f), 2.5f, 15f, 5f); Mark("ritorno_nartece");
+            if (shots) Shot("moto_cat_d_ritorno");
+            yield return RideTo(new Vector3(18f, 0f, 12f), 3f, 15f, 6f); Mark("ritorno_sagrato");
+            pos = pl.transform.position;
+            Check("cattedrale in moto: dopo il dietrofront esce dal portale sul sagrato", pl.Riding && pos.z < 16f, $"a ({pos.x:F1}, {pos.y:F1}, {pos.z:F1}):{trail}");
+            DesertBike.botThrottle = 0f; DesertBike.botSteer = 0f;
+            yield return RideUntil(() => Mathf.Abs(pl.RideSpeed) < 0.6f, 6f, new Vector3(0f, 0f, -1f));
+            pl.RideRequestDismount();
+            yield return WaitFor(() => !pl.Riding, 10f);
+            Check("cattedrale in moto: scende sul sagrato e la moto resta li' parcheggiata", !pl.Riding && bike.rider == null && bike.ColliderOn, $"in sella {pl.Riding}");
+            Check("cattedrale in moto: nessun fotogramma oltre mezzo secondo", motoWorst < 0.5f, $"{motoWorst * 1000f:F0} ms");
+            if (sk != null) sk.Frozen = false;
+            DesertBike.BotReset();
+            godMode = true;
+        }
+
         /// <summary>-desertonly motosuono: i suoni a codice della moto (il loop del motore, l'urto, il vento di corsa) scritti come WAV in unity_logs/moto per misurarli e ascoltarli fuori dal gioco.</summary>
         IEnumerator MotoSound()
         {
