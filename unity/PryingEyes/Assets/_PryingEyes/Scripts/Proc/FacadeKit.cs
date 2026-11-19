@@ -21,10 +21,21 @@ namespace PryingEyes.Proc
         static readonly List<Object> owned = new List<Object>();
 
         // le tinte dei muri (si moltiplicano al colore del materiale del kit): sabbia, ocra, terracotta, calce, azzurro slavato, oliva
+        // L'intonaco del kit ha lo stesso difetto della pietra (albedo di 0.1, fatto per il buio degli alberghi) e non era stato schiarito: al sole del deserto una casa o una torre era color cioccolato
+        // scuro accanto alla sabbia (misurato sulle foto dei muri da vicino, -desertonly muri: 37-54 su 255 sui muri a sud a mezzogiorno e mezza, contro 135-182 delle chiese). Il colore di un materiale
+        // si moltiplica in spazio sRGB e arriva allo shader elevato a 2,2: un guadagno di 2,6 sul colore sono circa otto volte in luce lineare. L'interno non cambia.
+        // Col guadagno pieno (2,6) sulle tinte di prima l'ocra diventava arancione e l'oliva giallo limone (il sole e' caldo e l'albedo ora e' alto): le tinte si portano di un terzo verso il grigio e il
+        // guadagno scende a 2,3.
+        const float PlasterGain = 2.3f;
+        static Color Wash(float r, float g, float b)
+        {
+            float m = (r + g + b) / 3f;
+            return new Color(Mathf.Lerp(r, m, 0.35f) * PlasterGain, Mathf.Lerp(g, m, 0.35f) * PlasterGain, Mathf.Lerp(b, m, 0.35f) * PlasterGain);
+        }
         static readonly Color[] Plaster =
         {
-            new Color(1.00f, 0.88f, 0.70f), new Color(0.96f, 0.78f, 0.52f), new Color(0.94f, 0.66f, 0.56f),
-            new Color(1.05f, 1.02f, 0.97f), new Color(0.72f, 0.82f, 0.92f), new Color(0.82f, 0.84f, 0.62f),
+            Wash(1.00f, 0.88f, 0.70f), Wash(0.96f, 0.78f, 0.52f), Wash(0.94f, 0.66f, 0.56f),
+            Wash(1.05f, 1.02f, 0.97f), Wash(0.72f, 0.82f, 0.92f), Wash(0.82f, 0.84f, 0.62f),
         };
         // la pietra del kit e' scura (albedo 0.12 in lineare, fatta per il buio dei corridoi): al sole del deserto una chiesa era un blocco nero accanto alla sabbia. Qui si schiarisce
         // (circa 2 volte: pietra calcarea sbiadita, 0.25) con le stesse tinte di prima; l'interno usa il materiale del kit com'e'.
@@ -34,9 +45,11 @@ namespace PryingEyes.Proc
             new Color(1.10f * StoneGain, 1.00f * StoneGain, 0.88f * StoneGain), new Color(0.90f * StoneGain, 0.95f * StoneGain, 1.00f * StoneGain),
             new Color(0.68f * StoneGain, 0.68f * StoneGain, 0.72f * StoneGain), new Color(1.20f * StoneGain, 1.02f * StoneGain, 0.78f * StoneGain),
         };
+        // lo stesso per l'intonaco freddo del sanatorio (39-69 su 255 al sole): schiarito un po' meno, perche' il suo colore di base e' gia' piu' chiaro
+        const float ColdGain = 2.3f;
         static readonly Color[] Cold =
         {
-            new Color(1.00f, 1.00f, 1.00f), new Color(1.10f, 1.06f, 0.82f), new Color(0.86f, 0.96f, 1.08f),
+            new Color(1.00f * ColdGain, 1.00f * ColdGain, 1.00f * ColdGain), new Color(1.10f * ColdGain, 1.06f * ColdGain, 0.82f * ColdGain), new Color(0.86f * ColdGain, 0.96f * ColdGain, 1.08f * ColdGain),
         };
         // l'intonaco nero del teatro ha un albedo di 0.12: all'aperto una casa o un teatro erano scatole nere. Raddoppiato: carbone, non buio (l'interno non cambia)
         const float DarkGain = 2.0f;
@@ -94,8 +107,8 @@ namespace PryingEyes.Proc
             {
                 var t = Cold[palette % Cold.Length];
                 st.wall = Tinted("mur_intonaco_freddo", t, sfx);
-                st.trim = Tinted("cornice_pietra", new Color(1.1f, 1.1f, 1.08f), sfx);
-                st.plinth = Tinted("mur_pietra", new Color(0.55f, 0.58f, 0.58f), sfx + "z");
+                st.trim = Tinted("cornice_pietra", new Color(1.1f * StoneGain, 1.1f * StoneGain, 1.08f * StoneGain), sfx);
+                st.plinth = Tinted("mur_pietra", new Color(0.55f * StoneGain, 0.58f * StoneGain, 0.58f * StoneGain), sfx + "z");
                 st.parapet = st.trim;
                 st.roofPitch = Tiles(new Color(0.55f, 0.30f, 0.24f), palette);
                 st.roofFlat = Tar();
@@ -105,8 +118,8 @@ namespace PryingEyes.Proc
             {
                 var t = Plaster[palette % Plaster.Length];
                 st.wall = Tinted("mur_intonaco", t, sfx);
-                st.trim = Tinted("cornice_pietra", new Color(1.1f, 1.04f, 0.92f), sfx);
-                st.plinth = Tinted("mur_pietra", new Color(0.62f, 0.55f, 0.48f), sfx + "z");
+                st.trim = Tinted("cornice_pietra", new Color(1.1f * StoneGain, 1.04f * StoneGain, 0.92f * StoneGain), sfx);
+                st.plinth = Tinted("mur_pietra", new Color(0.62f * StoneGain, 0.55f * StoneGain, 0.48f * StoneGain), sfx + "z");
                 st.parapet = Tinted("mur_intonaco", t * 0.94f, sfx + "p");
                 st.roofPitch = Tiles(new Color(0.72f, 0.36f, 0.24f), palette);
                 st.roofFlat = Tar();
