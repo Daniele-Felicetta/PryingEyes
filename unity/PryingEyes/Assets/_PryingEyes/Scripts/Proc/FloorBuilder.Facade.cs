@@ -457,8 +457,15 @@ namespace PryingEyes.Proc
                 lowBreaks = ShiftBreaks(nbBreaks, shiftNb, w.len);
                 yMin = 0.2f;
             }
-            dress.WallFace(st.wall, w.o, w.u, w.n, w.len, yMin, w.top, holes, w.sa, w.breaks, low, lowBreaks);
-            foreach (var h in holes) Flat(dress, st.glass, w, h.c - h.hw, h.c + h.hw, h.o.sill, Mathf.Min(h.o.top, w.top(h.c)), -0.06f);
+            // un vicino all'aperto (il sagrato della cattedrale) disegna da se' la sua faccia fino al tetto di chi gli sta accanto (OpenTop): questa sarebbe una seconda faccia sullo stesso piano e verso lo stesso
+            // lato (z = 17,85 per il nartece), con un altro materiale: le due si contendevano i pixel (strisce a scacchi sulla facciata) e, dove la faccia del sagrato ha un'apertura, questa restava a tappare
+            // il portale da fuori (da dentro era aperto: i fogli si vedono da un lato solo). Si salta il muro e si tiene il cornicione, che sporge e non fa a pugni con niente
+            bool faceDrawnByNeighbour = nb.Open && !LegacyWalls;
+            if (!faceDrawnByNeighbour)
+            {
+                dress.WallFace(st.wall, w.o, w.u, w.n, w.len, yMin, w.top, holes, w.sa, w.breaks, low, lowBreaks);
+                foreach (var h in holes) Flat(dress, st.glass, w, h.c - h.hw, h.c + h.hw, h.o.sill, Mathf.Min(h.o.top, w.top(h.c)), -0.06f);
+            }
             if (detail && w.breaks == null && Mathf.Abs(w.top(0f) - w.top(w.len)) < 0.01f && HasRoof(r))
                 Blk(dress, st.trim, w, -0.12f, w.len + 0.12f, w.top(0f) - 0.26f, w.top(0f) + 0.05f, 0f, 0.22f, false);
         }
