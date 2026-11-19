@@ -11,16 +11,21 @@ namespace PryingEyes.Deserto
     {
         public static DesertFires I { get; private set; }
 
-        const int Slots = 4;
+        /// <summary>Quattro fuochi accesi per ogni punto di vista (il giocatore e, nello schermo condiviso, ognuno degli altri posti: fino a sedici).</summary>
+        const int Slots = 4, MaxSlots = 16;
         const float LightRange = 26f, LightIntensity = 3.4f;
 
         Transform player;
-        readonly Light[] lights = new Light[Slots];
-        readonly ParticleSystem[] smoke = new ParticleSystem[Slots], sparks = new ParticleSystem[Slots];
-        readonly Vector3[] at = new Vector3[Slots];
-        readonly bool[] used = new bool[Slots];
+        int slots;                      // quanti fuochi hanno gia' il loro attacco (le luci e il fumo si fanno quando servono)
+        readonly Light[] lights = new Light[MaxSlots];
+        readonly ParticleSystem[] smoke = new ParticleSystem[MaxSlots], sparks = new ParticleSystem[MaxSlots];
+        readonly Vector3[] at = new Vector3[MaxSlots];
+        readonly bool[] used = new bool[MaxSlots];
         readonly List<Vector3> near = new List<Vector3>();
-        readonly bool[] taken = new bool[Slots];
+        readonly bool[] taken = new bool[MaxSlots];
+        readonly List<Vector3> views = new List<Vector3>();
+        readonly List<List<Vector3>> pools = new List<List<Vector3>>();
+        readonly int[] cursor = new int[4];
         Vector3 sortFrom;
         System.Comparison<Vector3> byDistance;
         Material smokeMat, sparkMat;
@@ -33,7 +38,7 @@ namespace PryingEyes.Deserto
         public bool NearestBurning(Vector3 from, out Vector3 pos)
         {
             pos = default; float best = float.MaxValue; bool found = false;
-            for (int s = 0; s < Slots; s++)
+            for (int s = 0; s < slots; s++)
             {
                 if (!used[s] || !lights[s].enabled) continue;
                 float d = (at[s] - from).sqrMagnitude;
@@ -55,7 +60,44 @@ namespace PryingEyes.Deserto
             byDistance = (a, b) => (a - sortFrom).sqrMagnitude.CompareTo((b - sortFrom).sqrMagnitude);
             smokeMat = Fx.Unlit(Fx.PuffTex(), false);
             sparkMat = Fx.Unlit(Fx.SparkTex(), true);
-            for (int i = 0; i < Slots; i++) Make(i);
+            for (; slots < Slots; slots++) Make(slots);
+        }
+
+        /// <summary>I fuochi da accendere: i piu' vicini al giocatore; nello schermo condiviso uno alla volta per ogni posto, dal piu' vicino a lui, cosi' chi sta lontano dagli altri non resta al buio
+        /// e un fuoco in mezzo a due non si accende due volte.</summary>
+        void PickNear(IEnumerable<Vector3> fires, int want)
+        {
+            near.Clear();
+            if (views.Count <= 1)
+            {
+                sortFrom = views[0];
+                foreach (var f in fires) near.Add(f);
+                near.Sort(byDistance);
+                if (near.Count > want) near.RemoveRange(want, near.Count - want);
+                return;
+            }
+            for (int v = 0; v < views.Count; v++)
+            {
+                while (pools.Count <= v) pools.Add(new List<Vector3>());
+                var l = pools[v];
+                l.Clear();
+                foreach (var f in fires) l.Add(f);
+                sortFrom = views[v];
+                l.Sort(byDistance);
+                cursor[v] = 0;
+            }
+            for (bool any = true; any && near.Count < want;)
+            {
+                any = false;
+                for (int v = 0; v < views.Count && near.Count < want; v++)
+                {
+                    var l = pools[v];
+                    int c = cursor[v];
+                    while (c < l.Count && near.Contains(l[c])) c++;
+                    if (c < l.Count) { near.Add(l[c]); c++; any = true; }
+                    cursor[v] = c;
+                }
+            }
         }
 
         void OnDestroy()
@@ -115,16 +157,18 @@ namespace PryingEyes.Deserto
             var sky = DesertSky.I;
             if (player == null || sc == null) return;
             Lit = sky != null ? sky.Night : 0f;
-            Vector3 p = player.position;
+            // i punti di vista: il giocatore e, nello schermo condiviso, gli altri posti (quattro fuochi per ognuno)
+            views.Clear();
+            views.Add(player.position);
+            var vp = DesertAnchors.ViewerPositions;
+            for (int i = 0; i < vp.Count && views.Count < 4; i++) views.Add(vp[i]);
+            int want = Slots * views.Count;
+            for (; slots < want; slots++) Make(slots);
             // i piu' vicini
-            near.Clear();
-            foreach (var f in sc.Fires) near.Add(f);
-            sortFrom = p;
-            near.Sort(byDistance);
-            if (near.Count > Slots) near.RemoveRange(Slots, near.Count - Slots);
+            PickNear(sc.Fires, want);
             // chi gia' c'e' resta nel suo posto
             System.Array.Clear(taken, 0, taken.Length);
-            for (int s = 0; s < Slots; s++)
+            for (int s = 0; s < slots; s++)
             {
                 bool keep = false;
                 if (used[s])
@@ -135,13 +179,13 @@ namespace PryingEyes.Deserto
             for (int k = 0; k < near.Count; k++)
             {
                 if (taken[k]) continue;
-                for (int s = 0; s < Slots; s++)
+                for (int s = 0; s < slots; s++)
                     if (!used[s]) { used[s] = true; at[s] = near[k]; lights[s].transform.position = near[k] + new Vector3(0f, 0.8f, 0f); break; }
             }
             var w = sky != null ? sky.Weather : new WeatherState { dirX = 1f };
             float t = Time.time;
             Burning = 0;
-            for (int s = 0; s < Slots; s++)
+            for (int s = 0; s < slots; s++)
             {
                 bool on = used[s] && Lit > 0.03f;
                 var l = lights[s];

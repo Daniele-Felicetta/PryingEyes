@@ -31,8 +31,10 @@ namespace PryingEyes.Deserto
         }
 
         Transform player;
+        /// <summary>La camera del giocatore attorno a cui vivono (schermo condiviso: una per posto); senza, quella principale.</summary>
+        [System.NonSerialized] public Camera view;
         Material mat;
-        readonly System.Random rng = new System.Random(20261118);
+        System.Random rng = new System.Random(20261118);
         readonly List<Site> sites = new List<Site>();
         readonly Weed[] weeds = new Weed[MaxWeeds];
         readonly Critter[] crit = new Critter[MaxCritters];
@@ -120,7 +122,7 @@ namespace PryingEyes.Deserto
 
         void Awake()
         {
-            I = this;
+            if (I == null) I = this;          // con piu' posti ce n'e' uno per ognuno: I e' il primo (il posto 0)
             mat = DesertScatter.PropMaterial(true);
         }
 
@@ -131,6 +133,9 @@ namespace PryingEyes.Deserto
         }
 
         float R() => (float)rng.NextDouble();
+
+        /// <summary>Un altro posto dello schermo condiviso ha il suo: un seme diverso, perche' gli animali dei due non nascano uguali.</summary>
+        public void Reseed(int salt) { rng = new System.Random(20261118 + 7919 * salt); }
         float R(float a, float b) => a + (b - a) * (float)rng.NextDouble();
 
         /// <summary>Il branco di avvoltoi (o di pipistrelli) piu' vicino a un punto, sul piano: il suo centro a terra e la quota a cui gira. Per il suono dei gracchi e per le prove.
@@ -153,7 +158,7 @@ namespace PryingEyes.Deserto
             var sky = DesertSky.I;
             var w = sky != null ? sky.Weather : new WeatherState { dirX = 1f, wind = 0.2f };
             float day = sky != null ? sky.State.daylight : 1f;
-            Hidden = sky != null && sky.Indoor > 0.6f;
+            Hidden = sky != null && sky.IndoorFor(view) > 0.6f;
             Vector3 p = player.position;
             float dt = Mathf.Min(Time.deltaTime, 0.1f);
             bounds = new Bounds(p, new Vector3(1800f, 700f, 1800f));

@@ -25,7 +25,7 @@ mouse, left and right, **PagSu** and **PagGiu** from any row), and the settings 
 | Immagine | Luminosità, Campo visivo, Qualità delle ombre (Alta), Risoluzione di rendering (100%, 50% to 100%), Anti-aliasing (4×, off / 2× / 4×), Grana della pellicola, Vignettatura, Bagliore (the last three 100% of each theme's own amount, down to 0) |
 | Audio | Volume generale, Effetti sonori, Musica, **Ambiente** (the hum, wind, murmurs, creaks and distant bells, which used to follow the effects), **Tema del menu** ([menu-music.md](menu-music.md)), Suoni dell'interfaccia (on) |
 | Comandi | Sensibilità mira (mouse), Sensibilità controller (right stick, 0.25× to 3×), Asse Y del mouse and Asse Y del controller (normal or inverted), Mira, Abbassarsi and Corsa (held, or one tap switches), **Elenco dei comandi** (opens the guide on the keys of the device in use) |
-| Gioco | **Prospettiva** (*Prima persona*; *Terza persona* puts the camera behind the shoulder, see [third-person.md](third-person.md), and switches at once, in a game too; saved as `video_thirdperson`), Mirino (classic, dot only, none), Oscillazione visuale, HUD dei compagni (60% to 180%), Contatore fotogrammi (top left: frames per second and ms per frame; off), Pausa a finestra inattiva (on; it stops the game by itself when you switch window) |
+| Gioco | **Prospettiva** (*Prima persona*; *Terza persona* puts the camera behind the shoulder, see [third-person.md](third-person.md), and switches at once, in a game too; saved as `video_thirdperson`), Mirino (classic, dot only, none), Oscillazione visuale, HUD dei compagni (60% to 180%), Contatore fotogrammi (top left: frames per second, ms per frame and the worst frame of the last quarter of a second; **on** since 0.9.1, and the **F3** key turns it on and off anywhere, menu included, remembering the choice), Pausa a finestra inattiva (on; it stops the game by itself when you switch window) |
 
 The Immagine settings touch the render pipeline asset only in the player: not in the editor and not in the automated runs, because a
 modified asset would stay modified. The defaults are what the asset held, so a game that never opens the tab looks as it did. The effect
@@ -82,8 +82,10 @@ when a controller is in use, and **Torna al menu** warns that the split screen c
 **Gioca** (and **Ricomincia dalla cattedrale** after the suspended-expedition question) opens the panel **Come vuoi giocare?** with two buttons,
 **Standard** and **Il deserto**, and **Indietro** (`GameMenu.Mode.cs`). The focus starts on the mode played last time, so Enter or A repeats it; B
 or **Indietro** goes back to the main menu. The choice is kept in `PlayerPrefs` (`PryingEyes.GameMode`; the automated tests never write it) and
-`-deserto` forces the desert. Co-op and split screen have no such question: they are always standard. The desert itself is in
-[the-desert.md](the-desert.md).
+`-deserto` forces the desert. Since 0.9.1 **Ospita una partita** (Cooperativa) asks it too: the same panel, titled **Che partita ospiti?**, whose choice opens the door
+(`GameMenu.HostNow`) and whose **Indietro** and B go back to the co-op panel; a guest is never asked, it starts where the host plays. Split screen asks it too (0.9.1): after
+**Chi gioca?** (the characters of the seats) **Comincia** opens the same panel, titled **Che partita giocate?**, whose choice starts the run for every seat (`GameMenu.SplitBegin`, which says
+if it did not start and then **Chi gioca?** shows the reason); **Indietro** and B go back to **Chi gioca?**. The desert itself is in [the-desert.md](the-desert.md).
 
 ## Characters and the suspended expedition
 

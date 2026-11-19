@@ -390,7 +390,8 @@ namespace PryingEyes
                 chosen.Add(c);
                 takenLooks.Add(c.look);
             }
-            SplitBegin(castCount, chosen);
+            modeSplitCount = castCount; modeSplitCast = chosen;
+            ShowModes(false, true);         // 0.9.1: poi si sceglie la partita per tutti (standard o deserto, GameMenu.Mode.cs); la scelta avvia (SplitBegin)
         }
 
         // ------------------------------------------------------------------ Esc e B

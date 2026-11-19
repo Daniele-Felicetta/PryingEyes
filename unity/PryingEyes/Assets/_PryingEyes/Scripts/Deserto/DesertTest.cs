@@ -272,12 +272,12 @@ namespace PryingEyes.Deserto
             if (sky != null) sky.Frozen = false;
         }
 
-        static Vector2 OpenSand()
+        static Vector2 OpenSand(float minRadius = 240f)
         {
             var list = new List<Site>();
             for (int k = 0; k < 90; k++)
             {
-                float a = (k * 47f + 20f) * Mathf.Deg2Rad, r = 240f + 18f * (k % 7) + 10f * (k / 7);
+                float a = (k * 47f + 20f) * Mathf.Deg2Rad, r = minRadius + 18f * (k % 7) + 10f * (k / 7);
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
                 DesertWorld.SitesNear(x, z, 75f, list);
                 if (list.Count == 0) return new Vector2(x, z);
@@ -315,6 +315,7 @@ namespace PryingEyes.Deserto
             if (Wants("cappella")) yield return Phase("cappella", Chapel());
             if (Wants("oggetti")) yield return Phase("oggetti e armi libere", Loot());
             if (Wants("suono")) yield return Phase("suono e strada di casa", SoundAndCompass());
+            if (Wants("minimappa")) yield return Phase("minimappa", MiniMap());
             if (Wants("torre")) yield return Phase("torre", Tower());
             if (Wants("boss")) yield return Phase("boss", Boss());
             if (Wants("catacomba")) yield return Phase("catacomba", Catacomb());
@@ -326,6 +327,7 @@ namespace PryingEyes.Deserto
             if (Explicit("prestazioni")) yield return Phase("prestazioni", Perf());
             if (Explicit("costi")) yield return Phase("costi", Costs());
             if (Explicit("esterni")) yield return Phase("esterni", Exteriors());
+            if (Explicit("rovine")) yield return Phase("rovine", Ruins());
             if (Explicit("orizzonte")) yield return Phase("orizzonte", Horizon());
             if (Explicit("paesaggio")) yield return Phase("paesaggio", Landscape());
             if (Explicit("nuvole")) yield return Phase("nuvole", CloudsPhase());
@@ -717,6 +719,8 @@ namespace PryingEyes.Deserto
         IEnumerator SoundAndCompass()
         {
             var pl = Pl; var gm = Gm;
+            // con -autotest il giocatore ruota da solo se holdLook e' falso: chi guarda in una direzione deve tenerla (da solo, senza le fasi che la fermano prima, la prova girava con lui)
+            PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             var spot = OpenSand();
             yield return GoTo(spot.x, spot.y);
             Check("sulla sabbia i passi sono quelli della sabbia", pl.FootSurface == 3, "superficie " + pl.FootSurface);
@@ -733,11 +737,17 @@ namespace PryingEyes.Deserto
             yield return new WaitForSeconds(1.8f);
             string ahead = Dd != null ? Dd.WhereText() : "";
             Check("lontano da casa si legge a che distanza e da che parte e' la cattedrale (guardandola: davanti)", ahead.Contains("cattedrale a ") && ahead.EndsWith(", " + DesertDirector.Where8[0]), ahead);
+            // la freccia di casa (0.9.1): in alto, punta alla cattedrale rispetto a dove si guarda e dice quanto manca
+            var hud = gm.hud;
+            Check("la freccia di casa e' accesa, punta davanti (guardando la cattedrale) e dice la distanza", hud != null && hud.GuideArrowShown && Mathf.Abs(Mathf.DeltaAngle(hud.GuideArrowAngle, 0f)) < 10f && hud.GuideArrowText.StartsWith("cattedrale  ·  ") && hud.GuideArrowText.EndsWith("m"),
+                hud == null ? "nessun HUD" : $"accesa {hud.GuideArrowShown}, {hud.GuideArrowAngle:F0} gradi, '{hud.GuideArrowText}'");
+            Check("le distanze a parole: 140 m, 800 m e 1,4 km", DesertHome.Distance(140f) == "140 m" && DesertHome.Distance(820f) == "800 m" && DesertHome.Distance(1440f) == "1,4 km", DesertHome.Distance(140f) + ", " + DesertHome.Distance(820f) + ", " + DesertHome.Distance(1440f));
             var p = pl.transform.position;
             Face(new Vector3(2f * p.x - cx, pl.cam.position.y, 2f * p.z - cz));
             yield return new WaitForSeconds(1.8f);
             string behind = Dd != null ? Dd.WhereText() : "";
             Check("voltandole le spalle la cattedrale e' dietro", behind.Contains("cattedrale a ") && behind.EndsWith(", " + DesertDirector.Where8[4]), behind);
+            Check("voltandole le spalle la freccia di casa punta dietro", hud != null && hud.GuideArrowShown && Mathf.Abs(Mathf.DeltaAngle(hud.GuideArrowAngle, 180f)) < 10f, hud == null ? "nessun HUD" : $"accesa {hud.GuideArrowShown}, {hud.GuideArrowAngle:F0} gradi");
             string obj = Fd.DesertObjective();
             Check("l'obiettivo e' su due righe: prima l'ora e la strada, poi il consiglio", obj.Contains("\n") && obj.Substring(0, obj.IndexOf('\n')).Contains("cattedrale a ") && obj.Substring(obj.IndexOf('\n')).Contains("Torri e catacombe"), obj.Replace("\n", " / "));
             Check("la prima riga dell'obiettivo sta nella larghezza della scritta", obj.IndexOf('\n') <= 110, obj.IndexOf('\n') + " caratteri");
@@ -747,6 +757,101 @@ namespace PryingEyes.Deserto
             yield return new WaitForSeconds(5.5f);
             Check("nella navata l'eco e' quello della chiesa", amb != null && amb.ReverbDecay > 2.0f, amb == null ? "nessun ambiente" : $"decadimento {amb.ReverbDecay:F2} s");
             Check("nella navata i passi non sono quelli della sabbia", pl.FootSurface != 3, "superficie " + pl.FootSurface);
+            Check("in cattedrale la freccia di casa e' spenta", hud != null && !hud.GuideArrowShown, hud == null ? "nessun HUD" : $"accesa {hud.GuideArrowShown}");
+        }
+
+        /// <summary>La minimappa (0.9.1): accesa dall'arrivo, la carta si dipinge tutta ed e' centrata su chi gioca, mostra la cattedrale e le sue scale d'oro, segna i nemici svegli vicini e
+        /// non quelli che dormono, mette la freccia di casa sul bordo quando la cattedrale e' fuori dalla finestra, cambia quando ci si sposta di un chilometro, N la spegne e la notte la fa blu.</summary>
+        IEnumerator MiniMap()
+        {
+            var pl = Pl; var hud = Gm.hud;
+            Check("c'e' l'HUD", hud != null, hud == null ? "nessun HUD" : "");
+            if (hud == null) yield break;
+            var clock = DesertMode.Clock; float hour0 = clock.hour, speed0 = clock.speed;
+            Fd.DebugShowMap(false, true);
+            pl.Teleport(new Vector3(HubPlan.SpawnX, 0.12f, HubPlan.SpawnZ));
+            yield return null;
+            yield return WaitFor(() => pl.GetComponent<CharacterController>().isGrounded, 8f);
+            yield return WaitFor(() => hud.DesertMapShown && hud.DesertMapWanted > 0 && hud.DesertMapReady >= hud.DesertMapWanted, 40f);
+            Check("la minimappa e' accesa dall'arrivo", hud.DesertMapShown, "");
+            Check("la carta si dipinge tutta (da 81 a 100 quadrati da 64 m attorno a chi gioca)", hud.DesertMapWanted >= 81 && hud.DesertMapReady == hud.DesertMapWanted, $"{hud.DesertMapReady} pronti su {hud.DesertMapWanted}, {hud.DesertMapPaper?.Painted} dipinti, {hud.DesertMapPaper?.Failed} falliti");
+            Check("nessun quadrato ha dato errore", hud.DesertMapPaper != null && hud.DesertMapPaper.Failed == 0, hud.DesertMapPaper == null ? "nessuna carta" : hud.DesertMapPaper.Failed + " falliti");
+            var uv = hud.DesertMapUv; float tw = DesertMapGen.Slots * DesertMapGen.TileSize;
+            float ucx = (uv.x + uv.width * 0.5f) * tw, ucz = (uv.y + uv.height * 0.5f) * tw;
+            Vector3 pp = pl.transform.position;
+            Check("la finestra e' centrata su chi gioca e mostra 512 m", Mathf.Abs(Mathf.Repeat(ucx - pp.x + tw * 0.5f, tw) - tw * 0.5f) < 1f && Mathf.Abs(Mathf.Repeat(ucz - pp.z + tw * 0.5f, tw) - tw * 0.5f) < 1f && Mathf.Abs(uv.width * tw - DesertMapGen.WindowSize) < 0.5f,
+                $"centro ({ucx:F1}, {ucz:F1}) mod {tw:F0}, giocatore ({pp.x:F1}, {pp.z:F1}), larghezza {uv.width * tw:F1} m");
+            bool stone = hud.DesertMapPaper.TryGetPixel(18f, 30f, out var cs) && Mathf.Abs(cs.r - 214) <= 6 && Mathf.Abs(cs.g - 207) <= 6 && Mathf.Abs(cs.b - 189) <= 6;
+            Check("sulla carta la navata della cattedrale e' pietra chiara", stone, $"colore {cs}");
+            bool gold = hud.DesertMapPaper.TryGetPixel(18f, -3f, out var cg) && cg.r > 190 && cg.r > cg.g + 20 && cg.g > cg.b + 35;
+            Check("sulla carta la scalinata del sagrato e' d'oro", gold, $"colore {cg}");
+            Check("con la cattedrale nella finestra non c'e' la freccia di casa sul bordo", !hud.DesertMapHomeShown, "");
+
+            // i nemici: svegli e vicini si segnano, chi dorme no
+            // (chi dorme sta fuori dai 30 m, 48 di notte, in cui il regista lo sveglierebbe: a 51 m e' ancora dentro la minimappa, che per questo deve escluderlo da sola)
+            var snap1 = NavMesh.SamplePosition(pp + new Vector3(24f, 0f, -14f), out var s1, 12f, NavMesh.AllAreas) ? s1.position : pp + new Vector3(24f, 0f, -14f);
+            var snap2 = NavMesh.SamplePosition(pp + new Vector3(-38f, 0f, -34f), out var s2, 12f, NavMesh.AllAreas) ? s2.position : pp + new Vector3(-38f, 0f, -34f);
+            var awake = Enemy.Spawn(Enemy.EnemyType.Monaco, snap1); var asleep = Enemy.Spawn(Enemy.EnemyType.Monaco, snap2);
+            if (asleep != null) asleep.Doze();
+            yield return null; yield return null; yield return new WaitForSeconds(0.2f);
+            int expect = 0;
+            foreach (var e in Enemy.All) { if (e == null || e.IsDead || e.dormant) continue; var d = e.transform.position - pl.transform.position; d.y = 0f; if (d.sqrMagnitude <= 90f * 90f) expect++; }
+            Check("la minimappa segna i nemici svegli entro 90 m e non quelli che dormono", awake != null && asleep != null && expect >= 1 && hud.DesertMapEnemyDots == expect, $"segnati {hud.DesertMapEnemyDots}, svegli vicini {expect}");
+            // con -desertshots: il colpo d'occhio dal sagrato, con la carta, il puntino del nemico sveglio e il resto dell'HUD (nessun controllo: si guarda)
+            yield return Snap("20_minimappa_scalinata", 10.5f, new Vector3(HubPlan.SpawnX, 1.6f, HubPlan.SpawnZ - 60f));
+            if (awake != null) Enemy.Remove(awake);
+            if (asleep != null) Enemy.Remove(asleep);
+
+            // la notte e il giorno
+            clock.speed = 0f; clock.hour = 12f;
+            yield return new WaitForSeconds(0.6f);
+            var dayTint = hud.DesertMapTint;
+            clock.hour = 1f;
+            yield return new WaitForSeconds(0.6f);
+            var nightTint = hud.DesertMapTint;
+            clock.hour = hour0; clock.speed = speed0;
+            Check("a mezzogiorno la carta e' chiara, di notte blu e scura", dayTint.r > 0.92f && nightTint.r < 0.50f && nightTint.b > nightTint.r, $"giorno {dayTint}, notte {nightTint}");
+
+            // N la spegne e la riaccende
+            Fd.DebugShowMap(false, false);
+            yield return null; yield return null;
+            bool offWhenOff = !hud.DesertMapShown;
+            Fd.DebugShowMap(false, true);
+            yield return null; yield return null;
+            Check("N spegne la minimappa e la riaccende", offWhenOff && hud.DesertMapShown, $"spenta {offWhenOff}, riaccesa {hud.DesertMapShown}");
+
+            // seicento metri piu' in la (su sabbia libera): la carta si rifa' tutta, e la cattedrale resta indicata sul bordo, dalla parte giusta
+            var spot = OpenSand(600f);
+            yield return GoTo(spot.x, spot.y);
+            yield return WaitFor(() => hud.DesertMapWanted > 0 && hud.DesertMapReady >= hud.DesertMapWanted, 40f);
+            Vector3 far = pl.transform.position;
+            Check("lontano la carta si e' rifatta tutta attorno a chi gioca", hud.DesertMapWanted >= 81 && hud.DesertMapReady == hud.DesertMapWanted && hud.DesertMapPaper.IsReady(DesertMapGen.TileOf(far.x), DesertMapGen.TileOf(far.z)), $"{hud.DesertMapReady} pronti su {hud.DesertMapWanted} a ({far.x:F0}, {far.z:F0}), {hud.DesertMapPaper.Failed} falliti");
+            DesertWorld.CathedralCentre(out float hx, out float hz);
+            var toHome = new Vector2(hx - far.x, hz - far.z);
+            var homeAt = hud.DesertMapHomeAt;
+            // sul bordo della carta (a 85 px dal centro sull'asse piu' lungo), con la stessa direzione di casa (il nord e' in alto: x a est, y a nord)
+            float edge = Mathf.Max(Mathf.Abs(homeAt.x), Mathf.Abs(homeAt.y));
+            Check("lontano la freccia d'oro sta sul bordo della carta e guarda verso la cattedrale", hud.DesertMapHomeShown && edge > 78f && edge < 92f && Vector2.Angle(homeAt, toHome) < 4f,
+                $"visibile {hud.DesertMapHomeShown}, a {homeAt} (bordo {edge:F0}), casa a {toHome} (angolo {Vector2.Angle(homeAt, toHome):F1})");
+            bool far2 = hud.DesertMapPaper.TryGetPixel(far.x, far.z, out var cf);
+            Check("lontano la carta e' carta di sabbia e non la scura dei posti non esplorati", far2 && (cf.r > 120 || cf.g > 100), $"colore {cf}");
+            if (shots)
+            {
+                // lontano da casa si guarda un po' di lato: la freccia d'oro in alto non e' al centro e quella sul bordo della carta e' ben distinta (di notte e di giorno)
+                var homeDir = new Vector3(hx - far.x, 0f, hz - far.z).normalized;
+                var lookAt = far + Quaternion.Euler(0f, 55f, 0f) * homeDir * 90f + Vector3.up * 1.5f;
+                yield return Snap("21_minimappa_lontano_notte", 22.5f, lookAt);
+                yield return Snap("22_minimappa_lontano_giorno", 14f, lookAt);
+                clock.hour = hour0; clock.speed = speed0;
+            }
+
+            // il costo di un fotogramma di minimappa quando tutto e' pronto
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            for (int i = 0; i < 300; i++) hud.DesertMapPaper.Update(far.x, far.z);
+            double us = sw.Elapsed.TotalMilliseconds / 300.0 * 1000.0;
+            Check($"un fotogramma di minimappa a carta pronta costa {us:F0} microsecondi", us < 500.0, "");
+            pl.Teleport(new Vector3(HubPlan.SpawnX, 0.12f, HubPlan.SpawnZ));
+            yield return null;
         }
 
         IEnumerator Tower()
@@ -1708,6 +1813,119 @@ namespace PryingEyes.Deserto
             if (sky != null) sky.Frozen = false;
         }
 
+        /// <summary>Solo con -desertonly rovine (senza GPU, anche con -nographics): la prova dei muri. Costruisce il guscio di una trentina di luoghi (edifici interi, in rovina, spezzati, in crollo; tre torri,
+        /// due catacombe) due volte, con i muri della 0.9.0 (FloorBuilder.LegacyWalls) e con quelli di adesso, e su ogni costruzione conta con DesertCensus i triangoli capovolti, le facce sovrapposte a filo e i
+        /// buchi visti da fuori (raggi dall'altezza degli occhi). La prova passa se i muri di adesso non hanno nessun difetto e se la stessa prova li trova nei muri della 0.9.0 (altrimenti non misura niente).</summary>
+        IEnumerator Ruins()
+        {
+            var sites = new List<Site>(); var seen = new HashSet<Site>();
+            int towers = 0, catas = 0, houses = 0;
+            void Take(Site s)
+            {
+                if (s == null || !seen.Add(s)) return;
+                if (s.IsTower) { if (towers >= 3) return; towers++; }
+                else if (s.IsCatacomb) { if (catas >= 2) return; catas++; }
+                else if (s.plan == null || houses >= 28) return;
+                else houses++;
+                sites.Add(s);
+            }
+            Take(DesertWorld.Welcome()); Take(DesertWorld.Landmark());
+            for (int ring = 1; ring <= 10; ring++)
+                for (int cx = -ring; cx <= ring; cx++)
+                    for (int cz = -ring; cz <= ring; cz++)
+                        if (Mathf.Max(Mathf.Abs(cx), Mathf.Abs(cz)) == ring) Take(DesertWorld.SiteOf(cx, cz));
+            Debug.Log($"[PryingEyes] desertotest rovine: {sites.Count} luoghi ({houses} edifici, {towers} torri, {catas} catacombe)");
+            Check("ci sono luoghi da guardare", sites.Count >= 10 && houses >= 8, $"{sites.Count} luoghi");
+            var flipped = new int[2]; var overlaps = new int[2]; var facadeOv = new int[2]; var leaks = new int[2]; var panes = new int[2]; var rays = new int[2]; var tris = new long[2]; var hiddenOv = new int[2];
+            var allKinds = new Dictionary<string, int>();         // le facce sovrapposte che si vedono, per coppia di materiali, sommate su tutti i luoghi (con i muri di adesso)
+            var rng = new System.Random(DesertWorld.Seed * 31 + 7);
+            // i fotogrammi di questa fase non dicono niente del gioco: costruisce gusci interi in un fotogramma, apposta
+            phaseName = "";
+            int pngSites = 0;
+            bool pngBoth = false;           // -rovineboth: disegna anche con i muri della 0.9.0 (il prima, da mettere accanto al dopo)
+            string pngMatch = null;         // -rovinematch Locanda/Collapse|Casa/Ruin: disegna i luoghi la cui etichetta (genere/stato) contiene uno dei testi, oltre ai primi N
+            { var args = Environment.GetCommandLineArgs(); for (int i = 0; i < args.Length - 1; i++) { if (args[i] == "-rovinepng") int.TryParse(args[i + 1], out pngSites); if (args[i] == "-rovinematch") pngMatch = args[i + 1]; } pngBoth = Array.IndexOf(args, "-rovineboth") >= 0; }
+            int siteIndex = 0;
+            try
+            {
+                foreach (var s in sites)
+                {
+                    siteIndex++;
+                    for (int pass = 0; pass < 2; pass++)
+                    {
+                        var census = new DesertCensus();
+                        var units = new List<int>();
+                        if (!s.IsStack) units.Add(0);
+                        else if (s.IsCatacomb) units.Add(s.entrance);
+                        else for (int u = 0; u < s.LevelCount; u++) units.Add(u);
+                        foreach (int u in units)
+                        {
+                            var holder = new GameObject("Rovine").transform;
+                            FloorBuilder.LegacyWalls = pass == 0;
+                            FloorInstance fi;
+                            try { fi = SiteRt.BuildShellOf(s, u, holder); }
+                            finally { FloorBuilder.LegacyWalls = false; }
+                            fi.root.transform.position = new Vector3(0f, s.IsStack ? s.LevelY(u) : s.padY, 0f);
+                            census.Add(fi.root);
+                            Scrap(holder.gameObject);
+                            yield return null;
+                        }
+                        census.CountFlips();
+                        yield return null;
+                        yield return census.CountOverlaps();
+                        yield return null;
+                        yield return census.ShootLeaks(rng, 2400, s.padY, 10f);
+                        string tag = pass == 0 ? "0.9.0" : "ora";
+                        Debug.Log($"[PryingEyes] desertotest rovine {s.kind}/{s.state} ({s.theme}, cella {s.cx},{s.cz}) {tag}: {census.Summary()}");
+                        foreach (var smp in census.Samples) Debug.Log("[PryingEyes] desertotest rovine     " + smp);
+                        foreach (var op in census.TopOverlapPairs(4)) Debug.Log("[PryingEyes] desertotest rovine     sovrapposte per coppia: " + op);
+                        bool wantPng = siteIndex <= pngSites;
+                        if (!wantPng && pngMatch != null) foreach (var part in pngMatch.Split('|')) if ($"{s.kind}/{s.state}".Contains(part)) wantPng = true;
+                        if (wantPng && (pass == 1 || pngBoth))
+                        {
+                            // quello che si vede da fuori, disegnato dalla CPU: da due angoli a un metro e settanta e da uno a sei metri (sulla duna); le torri da piu' lontano
+                            float rad = census.Radius, top = census.TopY - s.padY;
+                            float dist = s.IsTower ? Mathf.Min(70f, rad + top * 0.9f) : rad + 9f;
+                            Vector3 ctr = census.Centre; ctr.y = s.padY + (s.IsTower ? Mathf.Min(top * 0.4f, 16f) : Mathf.Min(top * 0.4f, 3.5f));
+                            var views = new[] { ("sw", 225f, 1.7f), ("ne", 45f, 1.7f), ("se", 135f, 6f) };
+                            foreach (var (vn, az, eyeH) in views)
+                            {
+                                float a = az * Mathf.Deg2Rad;
+                                var eye = new Vector3(ctr.x + Mathf.Sin(a) * dist, s.padY + eyeH, ctr.z + Mathf.Cos(a) * dist);
+                                yield return census.Render(TestPaths.Out($"deserto/census/{siteIndex:00}_{s.kind}_{s.state}_{tag}_{vn}.png"), eye, ctr, 640, 360, 70f, s.padY);
+                                foreach (var smp in census.Samples) if (smp.StartsWith("magenta")) Debug.Log($"[PryingEyes] desertotest rovine     {vn}: {smp}");
+                                census.Samples.RemoveAll(x => x.StartsWith("magenta"));
+                            }
+                        }
+                        flipped[pass] += census.Flipped; overlaps[pass] += census.Overlaps; facadeOv[pass] += census.OverlapsFacade; leaks[pass] += census.LeaksWall + census.LeaksFlat; panes[pass] += census.LeaksPane; rays[pass] += census.Rays; tris[pass] += census.Tris; hiddenOv[pass] += census.Hidden;
+                        if (pass == 1) foreach (var kv in census.OverlapKinds) { allKinds.TryGetValue(kv.Key, out int k0); allKinds[kv.Key] = k0 + kv.Value; }
+                    }
+                }
+            }
+            finally { FloorBuilder.LegacyWalls = false; }
+            for (int pass = 0; pass < 2; pass++)
+                Debug.Log($"[PryingEyes] desertotest rovine TOTALE {(pass == 0 ? "0.9.0" : "ora")}: {tris[pass]} triangoli, capovolti {flipped[pass]}, sovrapposti a filo {overlaps[pass]} ({facadeOv[pass]} di facciata; e {hiddenOv[pass]} nascosti, innocui), buchi {leaks[pass]} su {rays[pass]} raggi, vetri visti da dietro {panes[pass]}");
+            var kindList = new List<KeyValuePair<string, int>>(allKinds);
+            kindList.Sort((p, q) => q.Value.CompareTo(p.Value));
+            for (int k = 0; k < kindList.Count && k < 30; k++) Debug.Log($"[PryingEyes] desertotest rovine sovrapposte (ora) {kindList[k].Value} x {kindList[k].Key}");
+            // Le soglie sono la misura del prima e del dopo sugli stessi luoghi (e non zero): in una rovina un raggio entra legittimamente da una porta, da una finestra rotta o da un crollo e vede il retro
+            // di una faccia interna; sui tramezzi di due stanze crollate resta una fascia in cima dove si vede attraverso (documentato in docs/game/the-desert.md). Servono a vedere che i difetti tornino.
+            Check("muri di adesso: nessun triangolo capovolto", flipped[1] == 0, $"{flipped[1]} (0.9.0: {flipped[0]})");
+            Check("muri di adesso: le facce di facciata sovrapposte a filo (che si vedono) sono il 5% o meno di quelle della 0.9.0", facadeOv[1] * 20 <= facadeOv[0], $"{facadeOv[1]} (0.9.0: {facadeOv[0]}; in tutto, con gli interni che non si toccano: {overlaps[1]} contro {overlaps[0]})");
+            Check("muri di adesso: da fuori si vede dentro i muri il 40% delle volte della 0.9.0 o meno", leaks[1] * 100 <= leaks[0] * 40, $"{leaks[1]} buchi su {rays[1]} raggi (0.9.0: {leaks[0]} su {rays[0]})");
+            Check("muri di adesso: i vetri delle finestre si vedono anche da fuori (2% o meno dei raggi sui vetri visti da dietro)", panes[1] * 50 <= panes[0], $"{panes[1]} raggi su vetri visti da dietro (0.9.0: {panes[0]})");
+            Check("la prova dei muri vede i difetti della 0.9.0 (se no non misura niente)", flipped[0] > 0 && facadeOv[0] > 0 && leaks[0] > 0 && panes[0] > 0, $"capovolti {flipped[0]}, sovrapposti di facciata {facadeOv[0]}, buchi {leaks[0]}, vetri {panes[0]}");
+        }
+
+        /// <summary>Distrugge un guscio costruito solo per contarne i triangoli, con le sue mesh (non vanno via con l'oggetto).</summary>
+        static void Scrap(GameObject go)
+        {
+            var meshes = new List<Mesh>();
+            foreach (var mf in go.GetComponentsInChildren<MeshFilter>()) if (mf.sharedMesh != null) meshes.Add(mf.sharedMesh);
+            UnityEngine.Object.DestroyImmediate(go);
+            foreach (var m in meshes) UnityEngine.Object.DestroyImmediate(m);
+        }
+
         /// <summary>Solo con -desertonly orizzonte: le pelle dei luoghi lontani (SiteFacade) e le regioni. Da tre punti (il sagrato, la prima regione, una regione lontana) si aspetta che
         /// tutte le pelle entro 760 m siano costruite e si guarda l'orizzonte in quattro direzioni (con -desertshots anche le foto, di giorno e al tramonto). Controlli: ci sono
         /// luoghi all'orizzonte, le pelle si finiscono, nessuna resta accesa dove il guscio vero e' completo, e il costo si misura.</summary>
@@ -2545,9 +2763,13 @@ namespace PryingEyes.Deserto
         {
             var pl = Pl; var p = pl.transform.position;
             pl.Teleport(new Vector3(p.x, DesertWorld.Height(p.x, p.z) - 60f, p.z));
+            // il giocatore e' riportato all'ultimo punto sicuro; se la prova precedente lo aveva spostato lontano (qui di 29 km) quel pezzo di sabbia e' stato scaricato (dal 0.9.1 la sabbia
+            // fuori da ogni finestra si butta: prima restava in memoria per sempre) e va ricostruito, quindi il rientro vero puo' richiedere qualche secondo e un secondo giro della rete di sicurezza
+            float t0 = Time.time;
             yield return new WaitForSeconds(1.6f);
+            yield return WaitFor(() => { var s = pl.transform.position; return s.y > DesertWorld.Height(s.x, s.z) - 6f && pl.GetComponent<CharacterController>().isGrounded; }, 15f);
             var q = pl.transform.position;
-            Check("chi cade sotto la sabbia torna sopra", q.y > DesertWorld.Height(q.x, q.z) - 6f, q.ToString("F1"));
+            Check("chi cade sotto la sabbia torna sopra", q.y > DesertWorld.Height(q.x, q.z) - 6f, $"{q.ToString("F1")} dopo {Time.time - t0:F1} s, {FloorDirector.statFalls} cadute in tutto");
         }
 
         /// <summary>Il risultato di una camminata misurata (WalkMeasure): i fotogrammi di chi cammina, senza quelli che l'harness stesso rende lunghi con le sue foto.</summary>

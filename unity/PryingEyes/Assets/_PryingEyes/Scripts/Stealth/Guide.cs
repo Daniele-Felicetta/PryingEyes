@@ -196,6 +196,7 @@ namespace PryingEyes
         {
             var gm = GameManager.I;
             var pl = gm.player;
+            if (Deserto.DesertMode.Active) { Deserto.DesertHome.Tick(pl, hud); return; }        // nel deserto la freccia porta a casa (Deserto/DesertHome.cs)
             var exit = fd.cur.exit;
             if (exit == null || fd.transitioning || !pl.alive) { hud.SetExitArrow(false, 0f, 0f, true); return; }
             pathT -= dt;

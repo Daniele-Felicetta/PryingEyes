@@ -27,6 +27,8 @@ namespace PryingEyes.Deserto
         readonly bool[] populated;
         public Enemy boss;
         public float dist, hdist;
+        /// <summary>Il giocatore piu' vicino al luogo (da soli il suo; sull'ospite di una partita in cooperativa puo' essere un compagno): dalla sua posizione si decide cosa arredare e dove nascono le guardie.</summary>
+        public Vector3 anchor;
         bool navMarked;
         public bool dressedAny;
         /// <summary>Che pezzo di lavoro ha fatto l'ultimo Step e su quale livello: il direttore li scrive nel registro quando un passo dura troppo.</summary>
@@ -142,26 +144,34 @@ namespace PryingEyes.Deserto
                 root.position = Vector3.zero;
             }
             var plan = PlanOf(u);
-            FloorInstance fi;
+            var fi = BuildShellOf(site, u, root);
+            fis[u] = fi;
+            if (site.IsStack) DesertStairs.Build(fi.root.transform, plan, u, Units, site.church);
+            fi.root.transform.position = new Vector3(0f, YOf(u), 0f);
+            Physics.SyncTransforms();
+        }
+
+        /// <summary>Il guscio di un livello di un luogo, con le impostazioni dell'esterno di quel luogo (la tavolozza, i tetti, i merli, le torrette, la sabbia alla base). Lo usano il direttore e la
+        /// prova dei muri (DesertCensus), che costruisce gli stessi muri senza caricare il luogo: un posto solo per le impostazioni, cosi' la prova guarda quello che si gioca.</summary>
+        internal static FloorInstance BuildShellOf(Site site, int u, Transform root)
+        {
+            var plan = site.IsStack ? site.levels[u] : site.plan;
+            int units = site.IsStack ? site.LevelCount : 1;
             FloorBuilder.SkipDress = true;
             FloorBuilder.FacadePalette = site.palette;
             // l'esterno: i tetti sull'ultimo livello (la cima di una torre, l'ingresso di una catacomba) e i merli sul parapetto di chi e' alto; i livelli sotto la sabbia non ne hanno
-            bool topLevel = !site.IsStack || (site.IsTower ? u == Units - 1 : u == site.entrance);
+            bool topLevel = !site.IsStack || (site.IsTower ? u == units - 1 : u == site.entrance);
             FloorBuilder.FacadeRoofs = topLevel;
             FloorBuilder.FacadeCrown = site.IsStack && topLevel;
             FloorBuilder.FacadeTurrets = site.IsTower && topLevel;          // le torrette d'angolo sul tetto della torre
             FloorBuilder.SkipFacade = site.IsCatacomb && u != site.entrance;
             FloorBuilder.FacadeDrift = !site.IsStack || u == site.entrance;          // la sabbia accumulata alla base dei muri: solo dove i muri toccano il suolo
-            try { fi = FloorBuilder.Build(plan, root); }
+            try { return FloorBuilder.Build(plan, root); }
             finally
             {
                 FloorBuilder.SkipDress = false; FloorBuilder.SkipFacade = false;
                 FloorBuilder.FacadePalette = 0; FloorBuilder.FacadeRoofs = true; FloorBuilder.FacadeCrown = false; FloorBuilder.FacadeTurrets = false; FloorBuilder.FacadeDrift = false;
             }
-            fis[u] = fi;
-            if (site.IsStack) DesertStairs.Build(fi.root.transform, plan, u, Units, site.church);
-            fi.root.transform.position = new Vector3(0f, YOf(u), 0f);
-            Physics.SyncTransforms();
         }
 
         // ------------------------------------------------------------------ arredi
@@ -293,7 +303,8 @@ namespace PryingEyes.Deserto
                 }
             }
 
-            // le guardie, e il boss: nascono quando la navmesh c'e' (SpawnPending)
+            // le guardie, e il boss: nascono quando la navmesh c'e' (SpawnPending). Le fa chi simula (da soli o l'ospite): sull'ospitato i nemici sono i pupazzi che l'ospite manda
+            if (!Coop.Sim) return;
             var grng = new Rng(site.seed * 17 + u * 7919 + (int)(Time.realtimeSinceStartup * 10f));
             int guardsN = site.IsStack ? 3 + Mathf.RoundToInt(danger) + (bossUnit ? 1 : 0) : Mathf.Clamp(Mathf.RoundToInt(rooms.Count * 0.4f * Mathf.Sqrt(danger)), 1, 9);
             for (int i = 0; i < guardsN; i++)
@@ -368,7 +379,7 @@ namespace PryingEyes.Deserto
                     pos = hit.position;
                 }
                 else pos = g.pos + Vector3.up * 1.7f;
-                if ((player - pos).sqrMagnitude < 25f) continue;            // non a due passi dal giocatore appena entrato
+                if ((player - pos).sqrMagnitude < 25f || DesertAnchors.NearOther(pos, 5f)) continue;            // non a due passi da un giocatore appena entrato
                 list.RemoveAt(i);
                 var e = Enemy.Spawn(g.type, pos);
                 if (e == null) return true;
@@ -384,8 +395,14 @@ namespace PryingEyes.Deserto
                     float danger = DesertMode.Danger(site.x, site.z);
                     float hp = (3200f + 700f * (danger - 1f)) * (1f + 0.25f * ramo);
                     Enemy.MakeBranchBoss(e, def.bossTitolo, hp, ramo == 3);
-                    Seats.ForHuds(h => h.Banner(def.bossTitolo.ToUpperInvariant(), "Il signore di questo luogo ti ha sentito arrivare."));
-                    Sfx.UI(SoundBank.BossRoar, 0.8f, 0.85f);
+                    // il signore del luogo si annuncia a chi gli e' piu' vicino: a un compagno lontano dall'ospite lo dice l'ospite (e non a tutti: il boss e' laggiu')
+                    int heard = DesertAnchors.NearestSlot(pos);
+                    if (heard == Coop.Slot || !Coop.Active)
+                    {
+                        Seats.ForHuds(h => h.Banner(def.bossTitolo.ToUpperInvariant(), "Il signore di questo luogo ti ha sentito arrivare."));
+                        Sfx.UI(SoundBank.BossRoar, 0.8f, 0.85f);
+                    }
+                    else Coop.Game?.Announce(heard, 1, def.bossTitolo.ToUpperInvariant(), "Il signore di questo luogo ti ha sentito arrivare.");
                 }
                 return true;
             }

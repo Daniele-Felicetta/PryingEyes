@@ -11,6 +11,8 @@ namespace PryingEyes.Deserto
         public static DesertDust I { get; private set; }
 
         Transform player;
+        /// <summary>La camera del giocatore attorno a cui nasce la sabbia (schermo condiviso: una per posto); senza, vale quella del posto 0.</summary>
+        [System.NonSerialized] public Camera view;
         ParticleSystem streaks, clouds;
         Material streakMat, cloudMat;
 
@@ -44,7 +46,7 @@ namespace PryingEyes.Deserto
 
         void Awake()
         {
-            I = this;
+            if (I == null) I = this;          // con piu' posti ce n'e' uno per ognuno: I e' il primo (il posto 0)
             streakMat = Fx.Unlit(Fx.BeamTex(), false);
             cloudMat = Fx.Unlit(Fx.PuffTex(), false);
             streaks = Make("Striscie di sabbia", streakMat, true);
@@ -101,7 +103,7 @@ namespace PryingEyes.Deserto
             var sky = DesertSky.I;
             if (sky == null || player == null) return;
             var w = sky.Weather;
-            float outdoor = 1f - sky.Indoor;
+            float outdoor = 1f - sky.IndoorFor(view);
             var wd = new Vector3(w.dirX, 0f, w.dirZ);
             float speed = 3f + 26f * w.wind;
             Vector3 p = player.position;

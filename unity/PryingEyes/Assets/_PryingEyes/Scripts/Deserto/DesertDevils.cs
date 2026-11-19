@@ -13,9 +13,11 @@ namespace PryingEyes.Deserto
         const float MinDist = 160f, MaxDist = 420f, GoneDist = 760f;
 
         Transform player;
+        /// <summary>La camera del giocatore attorno a cui nasce (schermo condiviso: una per posto); senza, quella principale.</summary>
+        [System.NonSerialized] public Camera view;
         ParticleSystem ps;
         Material mat;
-        readonly System.Random rng = new System.Random(20261119);
+        System.Random rng = new System.Random(20261119);
         bool alive, forced;
         Vector3 pos;
         float heading, speed, age, life, hotK, nextT, siteT, strength;
@@ -35,9 +37,12 @@ namespace PryingEyes.Deserto
 
         float R() => (float)rng.NextDouble();
 
+        /// <summary>Un altro posto dello schermo condiviso ha il suo: un seme diverso, perche' i diavoli dei due non nascano uguali.</summary>
+        public void Reseed(int salt) { rng = new System.Random(20261119 + 7919 * salt); nextT = 25f + R() * 35f; }
+
         void Awake()
         {
-            I = this;
+            if (I == null) I = this;          // con piu' posti ce n'e' uno per ognuno: I e' il primo (il posto 0)
             mat = Fx.Unlit(Fx.PuffTex(), false);
             nextT = 25f + R() * 35f;
             Build();
@@ -105,7 +110,7 @@ namespace PryingEyes.Deserto
             if (sky == null || player == null || ps == null) return;
             var st = sky.State; var wx = sky.Weather;
             // nelle ore col sole alto, con poco vento e senza tempesta; al chiuso non si cerca nemmeno
-            bool hot = st.sunHeight > 0.42f && wx.storm < 0.25f && wx.wind < 0.75f && sky.Indoor < 0.5f;
+            bool hot = st.sunHeight > 0.42f && wx.storm < 0.25f && wx.wind < 0.75f && sky.IndoorFor(view) < 0.5f;
             float dt = Time.deltaTime;
             hotK = Mathf.MoveTowards(hotK, hot || forced ? 1f : 0f, dt * 0.25f);
             // il colore non e' illuminato: si accorda alla luce del giorno (e al sole basso diventa quello della luce)

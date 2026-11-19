@@ -102,6 +102,7 @@ namespace PryingEyes
         {
             RefundPendingRoom();
             enemies.Clear(); spawnQueue.Clear(); drops.Clear(); readyPending.Clear();
+            known.Clear(); bossLog.Clear();
         }
 
         void OnFloorBuiltWorld()
@@ -115,7 +116,7 @@ namespace PryingEyes
 
         void HostWorldWelcome(int slot) { }
 
-        void HostPlayerGone(int slot) { readyPending.Remove(slot); }
+        void HostPlayerGone(int slot) { readyPending.Remove(slot); known.Remove(slot); }
 
         /// <summary>Un ospitato ha costruito il piano dell'epoca corrente.</summary>
         void HostWorldReady(int from)
@@ -128,6 +129,7 @@ namespace PryingEyes
         /// <summary>Tutto lo stato del piano per chi e' appena pronto: nemici, candele, uscita, round in corso, gocce a terra.</summary>
         void HostWorldClientReady(int slot)
         {
+            if (Desert) { HostDesertClientReady(slot); return; }
             var fd = FloorDirector.I;
             int n = 0;
             foreach (var e in enemies.Values)
@@ -195,7 +197,10 @@ namespace PryingEyes
             if (!host || spawnQueue.Count == 0) return;
             bool any = AnyReady();
             foreach (var e in spawnQueue)
-                if (any && e != null && !e.IsDead && enemies.ContainsKey(e.netId)) SendEnemySpawn(-1, e);
+                if (any && e != null && !e.IsDead && enemies.ContainsKey(e.netId))
+                {
+                    if (Desert) DesertSpawnTo(e); else SendEnemySpawn(-1, e);
+                }
             spawnQueue.Clear();
         }
 
@@ -203,7 +208,8 @@ namespace PryingEyes
         public void EnemyEvent(Enemy e, EnemyEvt evt, Vector3 pos, float extra = 0f)
         {
             if (!host || e == null || e.netId < 0 || !AnyReady()) return;
-            SendToReady(CoopKind.EnemyEvent, w.Reset().U8(EpochByte).U16(e.netId).U8((int)evt).V3(pos).F32(extra).ToArray());
+            var data = w.Reset().U8(EpochByte).U16(e.netId).U8((int)evt).V3(pos).F32(extra).ToArray();
+            if (Desert) SendToKnowing(e.netId, CoopKind.EnemyEvent, data); else SendToReady(CoopKind.EnemyEvent, data);
         }
 
         /// <summary>Ospite: un nemico e' morto (i punti li ha gia' dati Enemy.Damage).</summary>
@@ -211,7 +217,12 @@ namespace PryingEyes
         {
             if (!host || e == null || e.netId < 0) return;
             enemies.Remove(e.netId);
-            if (AnyReady()) SendToReady(CoopKind.EnemyGone, w.Reset().U8(EpochByte).U16(e.netId).U8(1).Bool(headshot).U8((int)src).ToArray());
+            if (AnyReady())
+            {
+                var data = w.Reset().U8(EpochByte).U16(e.netId).U8(1).Bool(headshot).U8((int)src).ToArray();
+                if (Desert) SendToKnowing(e.netId, CoopKind.EnemyGone, data); else SendToReady(CoopKind.EnemyGone, data);
+            }
+            ForgetEnemy(e.netId);
         }
 
         /// <summary>Ospite: un nemico sparisce senza morire (round annullato o scaduto).</summary>
@@ -219,33 +230,156 @@ namespace PryingEyes
         {
             if (!host || e == null || e.netId < 0) return;
             enemies.Remove(e.netId);
-            if (AnyReady()) SendToReady(CoopKind.EnemyGone, w.Reset().U8(EpochByte).U16(e.netId).U8(0).Bool(false).U8(0).ToArray());
+            if (AnyReady())
+            {
+                var data = w.Reset().U8(EpochByte).U16(e.netId).U8(0).Bool(false).U8(0).ToArray();
+                if (Desert) SendToKnowing(e.netId, CoopKind.EnemyGone, data); else SendToReady(CoopKind.EnemyGone, data);
+            }
+            ForgetEnemy(e.netId);
         }
 
         /// <summary>Via tutti i nemici (cambio piano): vale su ogni macchina.</summary>
-        public void OnEnemiesCleared() { enemies.Clear(); spawnQueue.Clear(); }
+        public void OnEnemiesCleared() { enemies.Clear(); spawnQueue.Clear(); known.Clear(); }
 
-        /// <summary>Ospite: ~10 volte al secondo la posa di tutti i nemici vivi, in pacchetti non affidabili da 40.</summary>
+        /// <summary>Ospite: ~10 volte al secondo la posa di tutti i nemici vivi, in pacchetti non affidabili da 40. Nel deserto ognuno riceve solo quelli che conosce (i vicini).</summary>
         void SendEnemyStates()
         {
             if (net == null || enemies.Count == 0 || !AnyReady()) return;
+            if (Desert)
+            {
+                foreach (int s in net.RemoteSlots)
+                {
+                    if (!IsReady(s) || !known.TryGetValue(s, out var set) || set.Count == 0) continue;
+                    tmpEnemies.Clear();
+                    foreach (int id in set) if (enemies.TryGetValue(id, out var e) && e != null && !e.IsDead) tmpEnemies.Add(e);
+                    PackEnemyStates(s);
+                }
+                return;
+            }
             tmpEnemies.Clear();
             foreach (var e in enemies.Values) if (e != null && !e.IsDead) tmpEnemies.Add(e);
+            PackEnemyStates(-1);
+        }
+
+        /// <summary>Le pose dei nemici di tmpEnemies, a pacchetti da 40, a un ospitato (slot) o a tutti i pronti (-1).</summary>
+        void PackEnemyStates(int slot)
+        {
             const int Per = 40;
             for (int i = 0; i < tmpEnemies.Count; i += Per)
             {
                 int n = Mathf.Min(Per, tmpEnemies.Count - i);
                 w.Reset().U8(EpochByte).U8(n);
                 for (int k = 0; k < n; k++) { var e = tmpEnemies[i + k]; w.U16(e.netId); e.NetState().Write(w); }
-                SendToReady(CoopKind.EnemyState, w.ToArray(), false);
+                if (slot < 0) SendToReady(CoopKind.EnemyState, w.ToArray(), false);
+                else net.SendToSlot(slot, CoopKind.EnemyState, w.ToArray(), false);
             }
         }
 
-        /// <summary>Ospite: un dardo magico e' partito (agli altri solo grafica).</summary>
+        /// <summary>Ospite: un dardo magico e' partito (agli altri solo grafica; nel deserto solo a chi e' li' vicino).</summary>
         public void BoltLaunched(Vector3 origin, Vector3 target, float dmg)
         {
             if (!host || !AnyReady()) return;
-            SendToReady(CoopKind.Bolt, w.Reset().U8(EpochByte).V3(origin).V3(target).F32(dmg).ToArray());
+            var data = w.Reset().U8(EpochByte).V3(origin).V3(target).F32(dmg).ToArray();
+            if (!Desert) { SendToReady(CoopKind.Bolt, data); return; }
+            foreach (int s in net.RemoteSlots)
+                if (IsReady(s) && TryPos(s, out var pp) && FlatDist(pp, origin) < InterestIn) net.SendToSlot(s, CoopKind.Bolt, data);
+        }
+
+        // ------------------------------------------------------------------ il deserto: ognuno vede i nemici che gli stanno vicino, l'orologio e' dell'ospite (0.9.1)
+        // Nel deserto i giocatori si allontanano a centinaia di metri: l'ospite fa girare tutti i nemici attorno a tutti, ma a ognuno manda (e fa disegnare) solo quelli entro InterestIn
+        // metri da lui (e li toglie oltre InterestOut). Chi un nemico non lo ha non riceve nemmeno i suoi attacchi, ne' la sua morte.
+        static bool Desert => Deserto.DesertMode.Active;
+        const float InterestIn = 190f, InterestOut = 230f;
+        readonly Dictionary<int, HashSet<int>> known = new Dictionary<int, HashSet<int>>();       // ospite: slot -> id dei nemici di cui quell'ospitato ha il pupazzo
+        readonly List<(int cx, int cz)> bossLog = new List<(int, int)>();                         // ospite: i boss caduti (per chi entra tardi)
+        float interestT, clockT;
+
+        HashSet<int> KnownOf(int slot)
+        {
+            if (!known.TryGetValue(slot, out var set)) known[slot] = set = new HashSet<int>();
+            return set;
+        }
+
+        /// <summary>Per le prove: i nemici che questo ospitato conosce (id), sull'ospite.</summary>
+        internal IReadOnlyCollection<int> KnownEnemies(int slot) => known.TryGetValue(slot, out var set) ? (IReadOnlyCollection<int>)set : System.Array.Empty<int>();
+
+        /// <summary>Dove sta un ospitato (l'ultimo stato che ha mandato).</summary>
+        bool TryPos(int slot, out Vector3 pos)
+        {
+            if (states.TryGetValue(slot, out var st)) { pos = st.pos; return true; }
+            pos = default;
+            return false;
+        }
+
+        static float FlatDist(Vector3 a, Vector3 b) { float dx = a.x - b.x, dz = a.z - b.z; return Mathf.Sqrt(dx * dx + dz * dz); }
+
+        bool WantKnown(Enemy e, int slot, bool already) => TryPos(slot, out var p) && FlatDist(e.transform.position, p) <= (already ? InterestOut : InterestIn);
+
+        /// <summary>Un nemico appena nato va a chi lo ha vicino.</summary>
+        void DesertSpawnTo(Enemy e)
+        {
+            foreach (int s in net.RemoteSlots)
+                if (IsReady(s) && WantKnown(e, s, false)) { SendEnemySpawn(s, e); KnownOf(s).Add(e.netId); }
+        }
+
+        /// <summary>Un messaggio su un nemico, solo a chi ne ha il pupazzo.</summary>
+        void SendToKnowing(int id, CoopKind kind, byte[] data, bool reliable = true)
+        {
+            foreach (int s in net.RemoteSlots)
+                if (IsReady(s) && known.TryGetValue(s, out var set) && set.Contains(id)) net.SendToSlot(s, kind, data, reliable);
+        }
+
+        void ForgetEnemy(int id) { foreach (var set in known.Values) set.Remove(id); }
+
+        /// <summary>Ogni ~0.3 s: chi si e' avvicinato a un nemico ne riceve il pupazzo, chi si e' allontanato lo perde (spariscono in silenzio, senza morte).</summary>
+        void DesertInterest()
+        {
+            foreach (int s in net.RemoteSlots)
+            {
+                if (!IsReady(s)) continue;
+                var set = KnownOf(s);
+                foreach (var kv in enemies)
+                {
+                    var e = kv.Value;
+                    if (e == null || e.IsDead) continue;
+                    bool has = set.Contains(kv.Key), want = WantKnown(e, s, has);
+                    if (want && !has) { SendEnemySpawn(s, e); set.Add(kv.Key); }
+                    else if (!want && has) { set.Remove(kv.Key); net.SendToSlot(s, CoopKind.EnemyGone, w.Reset().U8(EpochByte).U16(kv.Key).U8(0).Bool(false).U8(0).ToArray()); }
+                }
+            }
+        }
+
+        /// <summary>Un ospitato ha costruito il suo deserto: i nemici che ha vicino, l'ora, i boss gia' caduti.</summary>
+        void HostDesertClientReady(int slot)
+        {
+            var set = KnownOf(slot);
+            set.Clear();
+            int n = 0;
+            foreach (var kv in enemies)
+            {
+                var e = kv.Value;
+                if (e == null || e.IsDead || !WantKnown(e, slot, false)) continue;
+                SendEnemySpawn(slot, e); set.Add(kv.Key); n++;
+            }
+            SendClockTo(slot);
+            foreach (var (cx, cz) in bossLog) net.SendToSlot(slot, CoopKind.DesertBossDown, w.Reset().I32(cx).I32(cz).ToArray());
+            Debug.Log($"[PryingEyes] coop: deserto a {NameOf(slot)}: {n} nemici vicini su {enemies.Count}, {bossLog.Count} boss caduti");
+        }
+
+        void SendClockTo(int slot)
+        {
+            var c = Deserto.DesertMode.Clock;
+            var data = w.Reset().F32(c.hour).I32(c.day).ToArray();
+            if (slot < 0) SendToReady(CoopKind.DesertClock, data, false);
+            else net.SendToSlot(slot, CoopKind.DesertClock, data, false);
+        }
+
+        /// <summary>Ospite: un boss e' caduto (cella del suo luogo): lo dice a tutti, che mettono il trofeo nel loro magazzino.</summary>
+        public void DesertBossDown(int cx, int cz)
+        {
+            if (!host || net == null) return;
+            bossLog.Add((cx, cz));
+            if (AnyReady()) SendToReady(CoopKind.DesertBossDown, w.Reset().I32(cx).I32(cz).ToArray());
         }
 
         // ------------------------------------------------------------------ danni, punti, rumori
@@ -414,6 +548,13 @@ namespace PryingEyes
         void WorldUpdate()
         {
             if (!host) return;
+            if (Desert && AnyReady())
+            {
+                interestT -= Time.unscaledDeltaTime;
+                if (interestT <= 0f) { interestT = 0.3f; DesertInterest(); }
+                clockT -= Time.unscaledDeltaTime;
+                if (clockT <= 0f) { clockT = 2f; SendClockTo(-1); }
+            }
             enemyStateT -= Time.unscaledDeltaTime;
             if (enemyStateT <= 0f) { enemyStateT = 0.1f; SendEnemyStates(); }
             pruneT -= Time.unscaledDeltaTime;
@@ -575,6 +716,25 @@ namespace PryingEyes
                     Vector3 a = r.V3(), b = r.V3();
                     float dmg = r.F32();
                     if (r.Ok) MagicBolt.Launch(a, b, dmg, true);
+                    break;
+                }
+                case CoopKind.DesertBossDown:
+                {
+                    int cx = r.I32(), cz = r.I32();
+                    if (!r.Ok || !Desert) return;
+                    var site = Deserto.DesertWorld.SiteOf(cx, cz);
+                    var dd = fd != null ? fd.Desert : null;
+                    if (site != null && dd != null) dd.ApplyBossDown(site);         // il trofeo nel mio magazzino, il banner, il ruggito
+                    break;
+                }
+                case CoopKind.DesertClock:
+                {
+                    float hour = r.F32();
+                    int day = r.I32();
+                    if (!r.Ok || !Desert || float.IsNaN(hour)) return;
+                    var c = Deserto.DesertMode.Clock;
+                    c.hour = Mathf.Repeat(hour, 24f);
+                    c.day = Mathf.Clamp(day, 0, 100000);          // l'ora e' dell'ospite: ogni due secondi la mia si riallinea alla sua
                     break;
                 }
                 case CoopKind.AwardPoints:

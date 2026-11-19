@@ -86,7 +86,7 @@ namespace PryingEyes.Proc
 
         /// <summary>Avvia la partita: primo piano. Lo chiama il GameManager su "Gioca". In cooperativa un ospitato la avvia con il seme e il
         /// piano dell'ospite.</summary>
-        public void StartRun(int seed = 0, int startFloor = 0)
+        public void StartRun(int seed = 0, int startFloor = 0, bool coopDesert = false)
         {
             gm = GameManager.I;
             Seats.EachOrOnce(_ => StealthRig.Install());      // torcia, ping, freccia, cuore di ogni giocatore (Scripts/Stealth)
@@ -98,7 +98,7 @@ namespace PryingEyes.Proc
             Drops.ResetRun();
             Seats.EachOrOnce(_ => { Perks.ResetRun(); Medals.Reset(); });
             if (TakeResume(out var resume)) { StartCoroutine(ResumeCo(resume)); return; }      // "Gioca" con una spedizione sospesa: si riprende (FloorDirector.Run.cs)
-            if (DesertWanted && startFloor <= 0 && ArgInt("-floor", 0) <= 0) { StartCoroutine(StartDesertCo()); return; }      // la modalita' del deserto (FloorDirector.Desert.cs)
+            if ((DesertWanted || coopDesert) && startFloor <= 0 && ArgInt("-floor", 0) <= 0) { StartCoroutine(StartDesertCo()); return; }      // la modalita' del deserto (FloorDirector.Desert.cs); un ospitato ci entra se l'ospite gioca li'
             // due zone: da soli si parte dalla cattedrale (FloorDirector.Catacombe.cs); in cooperativa e nello schermo condiviso si scende subito,
             // e il bottino va diretto nel magazzino (la spedizione resta aperta finche' non si torna al menu)
             if (Catacombe.Hub && startFloor <= 0 && ArgInt("-floor", 0) <= 0) { StartCoroutine(GoToHub(null, true)); return; }
@@ -538,7 +538,9 @@ namespace PryingEyes.Proc
             string text;
             if (InHub && DesertMode.Active)
             {
-                Seats.ForHuds(h => { h.SetObjective(DesertObjective()); h.SetWave(DesertMode.Clock.day + 1); });
+                // nello schermo condiviso la riga dice dove sta ognuno (il luogo piu' vicino, la strada di casa): si calcola a nome di ogni posto
+                if (Seats.Split) Seats.ForEach(_ => { if (gm.hud != null) { gm.hud.SetObjective(DesertObjective()); gm.hud.SetWave(DesertMode.Clock.day + 1); } });
+                else Seats.ForHuds(h => { h.SetObjective(DesertObjective()); h.SetWave(DesertMode.Clock.day + 1); });
                 return;
             }
             if (InHub)
@@ -1255,8 +1257,9 @@ namespace PryingEyes.Proc
         /// <summary>La mappa grande di questo posto e' aperta? (la sua vista, MapView, lo chiede ogni fotogramma)</summary>
         public bool MapOpen(int seat) => !InHub && seat >= 0 && seat < mapOpenA.Length && mapOpenA[seat];
 
-        /// <summary>La minimappa di questo posto e' accesa? (si spegne con N)</summary>
-        public bool MiniOn(int seat) => !InHub && seat >= 0 && seat < miniMapOff.Length && !miniMapOff[seat];
+        /// <summary>La minimappa di questo posto e' accesa? (si spegne con N). Nella cattedrale dei piani non c'e'; nel deserto si'
+        /// (la sua e' un'altra, Deserto/HUD.DesertMap.cs: la vista dei piani resta spenta perche' non c'e' un FloorMap).</summary>
+        public bool MiniOn(int seat) => (!InHub || DesertMode.Active) && seat >= 0 && seat < miniMapOff.Length && !miniMapOff[seat];
 
         /// <summary>Solo per le prove: apre la mappa grande o la minimappa (e chiude l'altra).</summary>
         public void DebugShowMap(bool full, bool mini)

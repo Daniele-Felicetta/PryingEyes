@@ -13,6 +13,13 @@ namespace PryingEyes.Proc
     public static partial class FloorBuilder
     {
         static bool exteriorBuild;
+#if !PE_DISTRIBUTION_BUILD
+        /// <summary>Solo per la prova dei muri del deserto (DesertCensus): costruisce i muri come nella 0.9.0, senza i profili sulla pelle esterna, senza il taglio delle fette dove il profilo
+        /// scende sotto un'apertura e senza il bordo basso a denti dei muri sopra un vicino crollato, per misurare prima e dopo la stessa pianta.</summary>
+        public static bool LegacyWalls;
+#else
+        public const bool LegacyWalls = false;
+#endif
         /// <summary>Il deserto costruisce l'esterno dei luoghi a parte (SiteFacade): Build non lo fa per loro.</summary>
         public static bool SkipFacade;
         /// <summary>La tavolozza dei muri del luogo che si sta costruendo (0..63): vedi FacadeKit.For.</summary>
@@ -122,6 +129,15 @@ namespace PryingEyes.Proc
             public Vector3 P(float x, float y, float d) => o + u * x + Vector3.up * y + n * d;
         }
 
+        /// <summary>I punti in cui il profilo di una faccia cambia pendenza, spostati nelle ascisse di un tratto che comincia 'shift' metri dopo l'inizio della faccia: solo quelli dentro il tratto (lungo 'len').</summary>
+        static float[] ShiftBreaks(float[] breaks, float shift, float len)
+        {
+            if (breaks == null) return null;
+            var l = new List<float>();
+            foreach (var b in breaks) { float x = b - shift; if (x > 0.01f && x < len - 0.01f) l.Add(x); }
+            return l.Count > 0 ? l.ToArray() : null;
+        }
+
         static bool MakeRun(Room r, Side s, Seg seg, float y0, out Run run)
         {
             run = default;
@@ -136,13 +152,7 @@ namespace PryingEyes.Proc
             Vector3 o2 = (ax ? new Vector3(sa, y0, Plan.Line(r, s) * 0.1f) : new Vector3(Plan.Line(r, s) * 0.1f, y0, sa)) + outward * TH;
             TopFunc(r, ax, faceLen, out var top0, out var br0, (int)s);
             float shift = sa - faceStart;
-            float[] br = null;
-            if (br0 != null)
-            {
-                var l = new List<float>();
-                foreach (var b in br0) { float x = b - shift; if (x > 0.01f && x < sb - sa - 0.01f) l.Add(x); }
-                br = l.Count > 0 ? l.ToArray() : null;
-            }
+            float[] br = ShiftBreaks(br0, shift, sb - sa);
             run = new Run { r = r, s = s, o = o2, u = ax ? Vector3.right : Vector3.forward, n = outward, len = sb - sa, top = x => top0(x + shift), breaks = br, faceStart = faceStart, sa = sa };
             return true;
         }
@@ -162,6 +172,10 @@ namespace PryingEyes.Proc
             if (x1 - x0 < 0.005f || y1 - y0 < 0.005f) return;
             mb.Quad(m, w.P(x0, y0, d), w.P(x1, y0, d), w.P(x1, y1, d), w.P(x0, y1, d), new Vector2(x0, y0), new Vector2(x1, y0), new Vector2(x1, y1), new Vector2(x0, y1), w.n);
         }
+
+        /// <summary>Dove comincia, verso dentro, un pezzo che sta nello spessore del muro (cornice, parapetto, merli): la sua faccia verso la stanza stava esattamente sulla faccia interna del muro (-2 x TH) e le
+        /// due si contendevano i pixel nella fascia in cima al muro che hanno in comune; 6 mm piu' in fuori la faccia interna del muro le sta davanti e quelle sopra il muro restano come sono.</summary>
+        static float InnerFlush => LegacyWalls ? -2f * TH : -2f * TH + 0.006f;
 
         static bool HasRoof(Room r) => !(r.ruined || r.noCeil || r.Open || r.IsLift || r.ceil == CeilKind.Open);
 
@@ -253,7 +267,7 @@ namespace PryingEyes.Proc
                 {
                     // la soglia: un gradino basso davanti alla porta, e la porta incorniciata
                     Blk(dress, st.plinth, w, d.x - 0.25f, d.y + 0.25f, 0f, 0.12f, 0f, 0.85f, false);
-                    float h = Mathf.Min(2.5f, topY - 0.2f);
+                    float h = Mathf.Min(2.5f, (crumble && !LegacyWalls ? MinTop(w, d.x - 0.22f, d.y + 0.22f) : topY) - 0.2f);
                     bool gap = false;
                     foreach (var g in gaps)
                         if (Mathf.Abs(g.x - d.x) < 0.001f) { gap = true; h = Mathf.Max(0.3f, Mathf.Min(g.z, Mathf.Min(w.top(d.x), w.top(d.y))) - 0.06f); }
@@ -266,7 +280,7 @@ namespace PryingEyes.Proc
             if (detail && FacadeDrift) Drift(dress, w, len, doors);
 
             if (flat && roofed) FlatEdge(dress, st, w, topY, crown, detail);
-            else if (flat && detail) { Blk(dress, st.trim, w, -0.12f, len + 0.12f, topY - 0.04f, topY + 0.07f, -0.30f, 0.09f); }      // il coronamento di un muro senza tetto
+            else if (flat && detail) { Blk(dress, st.trim, w, -0.12f, len + 0.12f, topY - 0.04f, topY + 0.07f, InnerFlush, 0.09f); }      // il coronamento di un muro senza tetto
             else if (!flat && !crumble && detail && w.breaks != null && w.breaks.Length < 6)
             {
                 // la testata di una capriata: un'asse lungo i due spioventi
@@ -280,8 +294,9 @@ namespace PryingEyes.Proc
             // lesene d'angolo (e a passo nei lunghi tratti) o contrafforti
             if (len > 1.6f && topY > 2.2f)
             {
-                float ph = flat ? topY - 0.02f : Mathf.Min(topY, w.top(0f));
+                float ph0 = flat ? topY - 0.02f : Mathf.Min(topY, w.top(0f));
                 float depth = ax ? 0.075f : 0.085f;           // due profondita': agli spigoli le due lesene non si toccano sullo stesso piano
+                // su un muro crollato una lesena non e' piu' alta del muro nel suo punto (altrimenti spunta in aria sopra un dente piu' basso, o resta senza muro dietro)
                 if (st.buttresses && r.church && topY > 3f)
                 {
                     float pitch = 4.5f;
@@ -291,6 +306,8 @@ namespace PryingEyes.Proc
                         float c = n == 0 ? len * 0.5f : len * i / n;
                         c = Mathf.Clamp(c, 0.35f, len - 0.35f);
                         if (Overlaps(cuts, c, 0.5f)) continue;
+                        float ph = PillarTop(w, crumble, ph0, c - 0.6f, c + 0.6f);
+                        if (ph < 1.3f) continue;
                         float h = Mathf.Max(1.2f, ph - 0.7f);
                         Blk(dress, st.wall, w, c - 0.3f, c + 0.3f, 0f, h, 0f, 0.55f, false);
                         Blk(dress, st.trim, w, c - 0.34f, c + 0.34f, h, h + 0.14f, 0f, 0.6f);
@@ -299,8 +316,9 @@ namespace PryingEyes.Proc
                 }
                 else if (st.pilasters)
                 {
-                    if (!Overlaps(cuts, 0.28f, 0.28f)) Blk(dress, st.trim, w, -0.1f, 0.5f, 0f, ph, 0f, depth, false);
-                    if (!Overlaps(cuts, len - 0.28f, 0.28f)) Blk(dress, st.trim, w, len - 0.5f, len + 0.1f, 0f, ph, 0f, depth, false);
+                    float p0 = PillarTop(w, crumble, ph0, -0.1f, 0.5f), p1 = PillarTop(w, crumble, ph0, len - 0.5f, len + 0.1f);
+                    if (!Overlaps(cuts, 0.28f, 0.28f) && p0 > 0.5f) Blk(dress, st.trim, w, -0.1f, 0.5f, 0f, p0, 0f, depth, false);
+                    if (!Overlaps(cuts, len - 0.28f, 0.28f) && p1 > 0.5f) Blk(dress, st.trim, w, len - 0.5f, len + 0.1f, 0f, p1, 0f, depth, false);
                     if (len > 7.5f)
                     {
                         int n = Mathf.FloorToInt(len / 4.5f);
@@ -308,7 +326,8 @@ namespace PryingEyes.Proc
                         {
                             float c = len * i / n;
                             if (Overlaps(cuts, c, 0.5f)) continue;
-                            Blk(dress, st.trim, w, c - 0.22f, c + 0.22f, 0f, ph, 0f, depth * 0.8f, false);
+                            float pc = PillarTop(w, crumble, ph0, c - 0.22f, c + 0.22f);
+                            if (pc > 0.5f) Blk(dress, st.trim, w, c - 0.22f, c + 0.22f, 0f, pc, 0f, depth * 0.8f, false);
                         }
                     }
                 }
@@ -318,7 +337,7 @@ namespace PryingEyes.Proc
             foreach (var o in wins)
             {
                 float c = M(o.center) - sa, hw = o.width * 0.05f;
-                float hTop = Mathf.Min(o.top, topY - 0.05f);
+                float hTop = Mathf.Min(o.top, (crumble && !LegacyWalls ? MinTop(w, c - hw - 0.14f, c + hw + 0.14f) : topY) - 0.05f);
                 if (hTop - o.sill < 0.3f) continue;
                 Blk(dress, st.trim, w, c - hw - 0.12f, c + hw + 0.12f, o.sill - 0.1f, o.sill + 0.02f, 0f, 0.18f);
                 Blk(dress, st.trim, w, c - hw - 0.12f, c - hw + 0.01f, o.sill, hTop, 0f, 0.07f, false);
@@ -371,6 +390,18 @@ namespace PryingEyes.Proc
             }
         }
 
+        /// <summary>L'altezza piu' bassa del profilo alto di un tratto tra x0 e x1 (il profilo e' fatto di tratti dritti tra i punti di svolta). Su un muro crollato le rifiniture non possono essere piu' alte del muro li'.</summary>
+        static float MinTop(in Run w, float x0, float x1)
+        {
+            x0 = Mathf.Clamp(x0, 0f, w.len); x1 = Mathf.Clamp(x1, 0f, w.len);
+            float m = Mathf.Min(w.top(x0), w.top(x1));
+            if (w.breaks != null) foreach (var b in w.breaks) if (b > x0 && b < x1) m = Mathf.Min(m, w.top(b));
+            return m;
+        }
+
+        /// <summary>L'altezza di una lesena o di un contrafforte tra x0 e x1: quella voluta, e su un muro crollato non piu' del muro li'.</summary>
+        static float PillarTop(in Run w, bool crumble, float wanted, float x0, float x1) => crumble && !LegacyWalls ? Mathf.Min(wanted, MinTop(w, x0, x1) - 0.02f) : wanted;
+
         static bool Overlaps(List<Vector2> cuts, float c, float half)
         {
             foreach (var k in cuts) if (c + half > k.x && c - half < k.y) return true;
@@ -382,7 +413,7 @@ namespace PryingEyes.Proc
         {
             float len = w.len;
             float par = crown ? 0.95f : 0.55f;
-            Blk(mb, st.parapet, w, -0.17f, len + 0.17f, topY - 0.06f, topY + 0.14f + par, -0.30f, 0.10f);
+            Blk(mb, st.parapet, w, -0.17f, len + 0.17f, topY - 0.06f, topY + 0.14f + par, InnerFlush, 0.10f);
             if (!detail) return;
             Blk(mb, st.trim, w, -0.2f, len + 0.2f, topY - 0.30f, topY - 0.04f, 0f, 0.22f, false);                      // la cornice sotto
             Blk(mb, st.trim, w, -0.2f, len + 0.2f, topY + 0.14f + par, topY + 0.14f + par + 0.09f, -0.34f, 0.14f);        // il coronamento
@@ -393,7 +424,7 @@ namespace PryingEyes.Proc
                 for (int i = 0; i < n; i++)
                 {
                     float c = pitch * (i + 0.5f);
-                    Blk(mb, st.parapet, w, c - pitch * 0.28f, c + pitch * 0.28f, topY + 0.23f + par, topY + 0.23f + par + 0.5f, -0.30f, 0.10f);
+                    Blk(mb, st.parapet, w, c - pitch * 0.28f, c + pitch * 0.28f, topY + 0.23f + par, topY + 0.23f + par + 0.5f, InnerFlush, 0.10f);
                 }
             }
         }
@@ -412,7 +443,21 @@ namespace PryingEyes.Proc
                 if (c - hw < 0f || c + hw > w.len) continue;
                 holes.Add(new Hole { c = c, hw = hw, o = o });
             }
-            dress.WallFace(st.wall, w.o, w.u, w.n, w.len, yMin, w.top, holes, w.sa, w.breaks);
+            // la faccia dal nostro lato comincia dove finisce quella del vicino, a ogni ascissa: al suo profilo alto (il dente di un muro crollato, il timpano o l'arco di una navata) e, se ha il tetto, sopra
+            // il tetto. Cominciare piu' in basso la sovrapporrebbe, a filo (stesso piano, stesso verso), alla faccia che il vicino ha dentro la sua stanza: le due si contendono i pixel e lampeggiano;
+            // cominciare al punto piu' alto del profilo lascerebbe un buco tra i denti, da cui si vede dentro il muro
+            Func<float, float> low = null; float[] lowBreaks = null;
+            if (!LegacyWalls && exteriorBuild && !nb.Open)
+            {
+                bool ax = Plan.AlongX(s);
+                float nbStart = (ax ? M(nb.x0) : M(nb.z0)) + TH, nbLen = (ax ? M(nb.x1) - M(nb.x0) : M(nb.z1) - M(nb.z0)) - 2f * TH;
+                TopFunc(nb, ax, nbLen, out var nbTopAt, out var nbBreaks, (int)Plan.Opposite(s));
+                float shiftNb = w.sa - nbStart, roofOff = HasRoof(nb) ? 0.12f : 0f;
+                low = x => Mathf.Max(0.2f, nbTopAt(Mathf.Clamp(x + shiftNb, 0f, nbLen))) + roofOff;
+                lowBreaks = ShiftBreaks(nbBreaks, shiftNb, w.len);
+                yMin = 0.2f;
+            }
+            dress.WallFace(st.wall, w.o, w.u, w.n, w.len, yMin, w.top, holes, w.sa, w.breaks, low, lowBreaks);
             foreach (var h in holes) Flat(dress, st.glass, w, h.c - h.hw, h.c + h.hw, h.o.sill, Mathf.Min(h.o.top, w.top(h.c)), -0.06f);
             if (detail && w.breaks == null && Mathf.Abs(w.top(0f) - w.top(w.len)) < 0.01f && HasRoof(r))
                 Blk(dress, st.trim, w, -0.12f, w.len + 0.12f, w.top(0f) - 0.26f, w.top(0f) + 0.05f, 0f, 0.22f, false);
@@ -468,6 +513,24 @@ namespace PryingEyes.Proc
             return false;
         }
 
+        /// <summary>Il lato 's' della stanza comincia (o finisce) in un angolo convesso e in fuori: anche l'altro lato che vi si incontra da' sul vuoto per il tratto accanto all'angolo, e in diagonale non c'e'
+        /// nessuna stanza. E' l'unico angolo dove le due pelle esterne lasciano un vuoto (negli altri una si allunga dentro il muro dell'altra).</summary>
+        static bool ConvexCorner(Plan plan, Room r, Side s, bool atStart)
+        {
+            Side perp; bool perpAtStart; int cx, cz, sx, sz;
+            switch (s)
+            {
+                case Side.S: perp = atStart ? Side.W : Side.E; perpAtStart = true; cx = atStart ? r.x0 : r.x1; cz = r.z0; sx = atStart ? -1 : 1; sz = -1; break;
+                case Side.N: perp = atStart ? Side.W : Side.E; perpAtStart = false; cx = atStart ? r.x0 : r.x1; cz = r.z1; sx = atStart ? -1 : 1; sz = 1; break;
+                case Side.W: perp = atStart ? Side.S : Side.N; perpAtStart = true; cx = r.x0; cz = atStart ? r.z0 : r.z1; sx = -1; sz = atStart ? -1 : 1; break;
+                default: perp = atStart ? Side.S : Side.N; perpAtStart = false; cx = r.x1; cz = atStart ? r.z0 : r.z1; sx = 1; sz = atStart ? -1 : 1; break;
+            }
+            var segs = plan.Segments(r, perp);
+            if (segs.Count == 0) return false;
+            var edge = perpAtStart ? segs[0] : segs[segs.Count - 1];
+            return edge.other < 0 && !Covered(plan, cx + sx, cz + sz);
+        }
+
         /// <summary>Le torrette agli angoli in fuori del tetto piano di una stanza dell'ultimo piano di una torre. Una torre era una scatola con i merli: dall'orizzonte non aveva nessuna sagoma. Un
         /// angolo e' in fuori se non c'e' nessuna stanza ne' di fronte all'angolo ne' accanto ai due muri che vi s'incontrano (si guardano tre punti a un decimetro da fuori); una stanza piu'
         /// stretta di 6 m non ne ha. Ogni torretta e' una scatola di pietra di 2,8-3,4 m che sporge di 25 cm dalla faccia dei muri (con il fondo: si vede da sotto), una cornice, un tetto a
@@ -500,6 +563,13 @@ namespace PryingEyes.Proc
                     mb.Quad(st.roofPitch, b, c, apex, apex, u0, u1, u2, u2, new Vector3(1, 1, 0));
                     mb.Quad(st.roofPitch, c, d, apex, apex, u0, u1, u2, u2, new Vector3(0, 1, 1));
                     mb.Quad(st.roofPitch, d, a, apex, apex, u0, u1, u2, u2, new Vector3(-1, 1, 0));
+                    if (!LegacyWalls)
+                    {
+                        mb.Quad(st.roofPitch, a, b, apex, apex, u0, u1, u2, u2, new Vector3(0, -1, 1));
+                        mb.Quad(st.roofPitch, b, c, apex, apex, u0, u1, u2, u2, new Vector3(-1, -1, 0));
+                        mb.Quad(st.roofPitch, c, d, apex, apex, u0, u1, u2, u2, new Vector3(0, -1, -1));
+                        mb.Quad(st.roofPitch, d, a, apex, apex, u0, u1, u2, u2, new Vector3(1, -1, 0));
+                    }
                     if (detail) mb.Box(st.metal, apex + Vector3.up * 0.45f, new Vector3(0.1f, 0.9f, 0.1f));
                     // una feritoia su ognuna delle due facce in fuori
                     float y0 = roofY + 1.5f, y1 = roofY + Mathf.Min(hb - 0.6f, 3.0f);
@@ -528,6 +598,12 @@ namespace PryingEyes.Proc
             float sl0 = Mathf.Sqrt((cm - cE0) * (cm - cE0) + (yRidge - yE0) * (yRidge - yE0)), sl1 = Mathf.Sqrt((cE1 - cm) * (cE1 - cm) + (yRidge - yE1) * (yRidge - yE1));
             mb.Quad(st.roofPitch, W(aA, cE0, yE0), W(aB, cE0, yE0), W(aB, cm, yRidge), W(aA, cm, yRidge), new Vector2(0, 0), new Vector2(len, 0), new Vector2(len, sl0), new Vector2(0, sl0), lowSide);
             mb.Quad(st.roofPitch, W(aA, cE1, yE1), W(aB, cE1, yE1), W(aB, cm, yRidge), W(aA, cm, yRidge), new Vector2(0, 0), new Vector2(len, 0), new Vector2(len, sl1), new Vector2(0, sl1), highSide);
+            if (!LegacyWalls)
+            {
+                // il sotto del tetto: una falda e' una sola faccia, da sotto non si disegna e tra il bordo del muro e la gronda (o lungo il timpano) si vede dentro l'edificio
+                mb.Quad(st.roofPitch, W(aA, cE0, yE0), W(aB, cE0, yE0), W(aB, cm, yRidge), W(aA, cm, yRidge), new Vector2(0, 0), new Vector2(len, 0), new Vector2(len, sl0), new Vector2(0, sl0), -lowSide);
+                mb.Quad(st.roofPitch, W(aA, cE1, yE1), W(aB, cE1, yE1), W(aB, cm, yRidge), W(aA, cm, yRidge), new Vector2(0, 0), new Vector2(len, 0), new Vector2(len, sl1), new Vector2(0, sl1), -highSide);
+            }
             if (!detail) return;
             mb.Beam(st.trim, W(aA - 0.02f, cm, yRidge + 0.05f), W(aB + 0.02f, cm, yRidge + 0.05f), 0.32f, 0.2f, Vector3.up);
             mb.Beam(st.trim, W(aA, cE0, yE0 + 0.02f), W(aB, cE0, yE0 + 0.02f), 0.1f, 0.22f, Vector3.up);
@@ -553,6 +629,10 @@ namespace PryingEyes.Proc
                 float len = aHi - aLo;
                 mb.QuadSmooth(st.roofFlat, W(aLo, cm + d0, yb + h0), W(aHi, cm + d0, yb + h0), W(aHi, cm + d1, yb + h1), W(aLo, cm + d1, yb + h1), n0, n0, n1, n1,
                               new Vector2(0, d0 + half), new Vector2(len, d0 + half), new Vector2(len, d1 + half), new Vector2(0, d1 + half));
+                // il sotto della volta (da sotto si vedrebbe attraverso, dentro la chiesa): la stessa faccia rivolta in giu'
+                if (!LegacyWalls)
+                    mb.QuadSmooth(st.roofFlat, W(aLo, cm + d0, yb + h0), W(aHi, cm + d0, yb + h0), W(aHi, cm + d1, yb + h1), W(aLo, cm + d1, yb + h1), -n0, -n0, -n1, -n1,
+                                  new Vector2(0, d0 + half), new Vector2(len, d0 + half), new Vector2(len, d1 + half), new Vector2(0, d1 + half));
             }
         }
 
@@ -578,6 +658,14 @@ namespace PryingEyes.Proc
             mb.Quad(st.roofPitch, b, c, apex, apex, new Vector2(0, 0), new Vector2(wz, 0), new Vector2(wz * 0.5f, sz), new Vector2(wz * 0.5f, sz), new Vector3(1, 1, 0));
             mb.Quad(st.roofPitch, c, d, apex, apex, new Vector2(0, 0), new Vector2(wx, 0), new Vector2(wx * 0.5f, sx), new Vector2(wx * 0.5f, sx), new Vector3(0, 1, 1));
             mb.Quad(st.roofPitch, d, a, apex, apex, new Vector2(0, 0), new Vector2(wz, 0), new Vector2(wz * 0.5f, sz), new Vector2(wz * 0.5f, sz), new Vector3(-1, 1, 0));
+            if (!LegacyWalls)
+            {
+                // il sotto della guglia: da sotto si vedrebbe dentro la piramide
+                mb.Quad(st.roofPitch, a, b, apex, apex, new Vector2(0, 0), new Vector2(wx, 0), new Vector2(wx * 0.5f, sx), new Vector2(wx * 0.5f, sx), new Vector3(0, -1, 1));
+                mb.Quad(st.roofPitch, b, c, apex, apex, new Vector2(0, 0), new Vector2(wz, 0), new Vector2(wz * 0.5f, sz), new Vector2(wz * 0.5f, sz), new Vector3(-1, -1, 0));
+                mb.Quad(st.roofPitch, c, d, apex, apex, new Vector2(0, 0), new Vector2(wx, 0), new Vector2(wx * 0.5f, sx), new Vector2(wx * 0.5f, sx), new Vector3(0, -1, -1));
+                mb.Quad(st.roofPitch, d, a, apex, apex, new Vector2(0, 0), new Vector2(wz, 0), new Vector2(wz * 0.5f, sz), new Vector2(wz * 0.5f, sz), new Vector3(1, -1, 0));
+            }
             if (detail)
             {
                 mb.Box(st.metal, apex + Vector3.up * 0.5f, new Vector3(0.1f, 1.0f, 0.1f));

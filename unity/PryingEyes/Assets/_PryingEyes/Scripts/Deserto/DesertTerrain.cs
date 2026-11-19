@@ -124,34 +124,69 @@ namespace PryingEyes.Deserto
             {
                 planTimer = 0.4f;
                 lastPlanPos = p;
-                Plan(p);
+                Plan(p, DesertAnchors.OtherPositions, DesertAnchors.ViewerPositions);
             }
             Collect();
         }
 
-        void Plan(Vector3 p)
+        /// <summary>La distanza dal compagno piu' vicino al blocco (molto grande se non ce ne sono: da soli non conta niente).</summary>
+        static float DistToOthers(List<Vector3> others, int cx, int cz)
+        {
+            float best = 1e9f;
+            for (int i = 0; i < others.Count; i++) best = Mathf.Min(best, DistTo(others[i], cx, cz));
+            return best;
+        }
+
+        readonly HashSet<long> visited = new HashSet<long>();
+        readonly List<long> sweep = new List<long>();
+
+        /// <summary>Quali blocchi servono. Chi gioca su questa macchina vede la sabbia fino a Lod2 (e, nello schermo condiviso, ognuno dei posti: 'views'); in cooperativa l'ospite tiene anche
+        /// attorno a ogni compagno la sabbia con il collider (Lod0): i nemici che lo inseguono ci camminano sopra e la navmesh nasce da li'. 'others' comprende anche gli altri posti.</summary>
+        void Plan(Vector3 p, List<Vector3> others, List<Vector3> views)
         {
             wanted.Clear();
-            int pcx = Mathf.FloorToInt(p.x / DesertTerrainGen.ChunkSize), pcz = Mathf.FloorToInt(p.z / DesertTerrainGen.ChunkSize);
-            int r = Mathf.CeilToInt((Lod2 + Hyst) / DesertTerrainGen.ChunkSize) + 1;
-            for (int i = -r; i <= r; i++)
-                for (int j = -r; j <= r; j++)
-                {
-                    int cx = pcx + i, cz = pcz + j;
-                    float d = DistTo(p, cx, cz);
-                    long k = Key(cx, cz);
-                    chunks.TryGetValue(k, out var have);
-                    int want = LodFor(d);
-                    if (have != null)
+            visited.Clear();
+            int anchors = 1 + others.Count;
+            for (int a = 0; a < anchors; a++)
+            {
+                Vector3 q = a == 0 ? p : others[a - 1];
+                bool seen = a == 0 || views.Contains(q);            // lo guarda qualcuno su questa macchina: la sabbia fino all'orizzonte
+                float reach = seen ? Lod2 + Hyst : Lod0 + Hyst;
+                int pcx = Mathf.FloorToInt(q.x / DesertTerrainGen.ChunkSize), pcz = Mathf.FloorToInt(q.z / DesertTerrainGen.ChunkSize);
+                int r = Mathf.CeilToInt(reach / DesertTerrainGen.ChunkSize) + 1;
+                for (int i = -r; i <= r; i++)
+                    for (int j = -r; j <= r; j++)
                     {
-                        // si tiene il livello che ha finche' non si e' allontanato di piu' dell'isteresi (niente andirivieni al confine)
-                        if (want == have.lod || LodFor(d - Hyst) == have.lod || (want == -1 && d < Lod2 + Hyst)) continue;
-                        if (want == -1) { Free(have); chunks.Remove(k); continue; }
+                        int cx = pcx + i, cz = pcz + j;
+                        long k = Key(cx, cz);
+                        if (!visited.Add(k)) continue;
+                        float d = Mathf.Min(DistTo(p, cx, cz), views.Count > 0 ? DistToOthers(views, cx, cz) : 1e9f), dOther = others.Count > 0 ? DistToOthers(others, cx, cz) : 1e9f;
+                        chunks.TryGetValue(k, out var have);
+                        bool need0 = dOther < Lod0;             // un compagno e' vicino: li' ci vuole la sabbia con il collider, qualunque sia il livello che la vista dell'ospite gli dava
+                        int want = need0 ? 0 : LodFor(d);
+                        if (have != null)
+                        {
+                            // si tiene il livello che ha finche' non si e' allontanato di piu' dell'isteresi (niente andirivieni al confine); l'isteresi della vista dell'ospite non
+                            // deve pero' impedire di portare a Lod0 un blocco che prima era lontano e adesso ha un compagno vicino (0.9.1: restava senza collider e senza navmesh)
+                            bool keep = need0 ? have.lod == 0
+                                : want == have.lod || LodFor(d - Hyst) == have.lod || (have.lod == 0 && dOther < Lod0 + Hyst) || (want == -1 && (d < Lod2 + Hyst || dOther < Lod0 + Hyst));
+                            if (keep) continue;
+                            if (want == -1) { Free(have); chunks.Remove(k); continue; }
+                        }
+                        else if (want == -1) continue;
+                        if (jobs.ContainsKey(k)) continue;
+                        wanted.Add((Mathf.Min(d, dOther), cx, cz, want));
                     }
-                    else if (want == -1) continue;
-                    if (jobs.ContainsKey(k)) continue;
-                    wanted.Add((d, cx, cz, want));
-                }
+            }
+            // i blocchi rimasti fuori da ogni finestra (un compagno che si e' allontanato, un salto lontano) si buttano
+            sweep.Clear();
+            foreach (var kv in chunks)
+            {
+                if (visited.Contains(kv.Key)) continue;
+                var c = kv.Value;
+                if (DistTo(p, c.cx, c.cz) >= Lod2 + Hyst && (views.Count == 0 || DistToOthers(views, c.cx, c.cz) >= Lod2 + Hyst) && (others.Count == 0 || DistToOthers(others, c.cx, c.cz) >= Lod0 + Hyst)) sweep.Add(kv.Key);
+            }
+            foreach (long k in sweep) { Free(chunks[k]); chunks.Remove(k); }
             wanted.Sort((a, b) => a.d.CompareTo(b.d));
             watch.Restart();
             foreach (var w in wanted)

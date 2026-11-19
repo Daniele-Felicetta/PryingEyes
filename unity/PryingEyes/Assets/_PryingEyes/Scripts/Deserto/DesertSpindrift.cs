@@ -19,6 +19,8 @@ namespace PryingEyes.Deserto
         public static float Boost = 1f;
 
         Transform player;
+        /// <summary>La camera del giocatore attorno a cui nasce (schermo condiviso: una per posto); senza, quella principale.</summary>
+        [System.NonSerialized] public Camera view;
         ParticleSystem ps;
         Material mat;
         Texture2D veil;
@@ -60,7 +62,7 @@ namespace PryingEyes.Deserto
 
         void Awake()
         {
-            I = this;
+            if (I == null) I = this;          // con piu' posti ce n'e' uno per ognuno: I e' il primo (il posto 0)
             veil = MakeVeil();
             mat = Fx.Unlit(veil, false);
             var go = new GameObject("Sabbia dalle creste");
@@ -104,7 +106,7 @@ namespace PryingEyes.Deserto
             Color sc = sunLight != null && sunLight.enabled ? sunLight.color : new Color(0.7f, 0.78f, 1f);
             mat.SetColor("_BaseColor", new Color(0.98f * sc.r * lit, 0.74f * sc.g * lit, 0.44f * sc.b * lit, 1f));
             // all'aperto, con un po' di vento e senza tempesta (che ha le sue strisce)
-            bool on = (1f - sky.Indoor) > 0.9f && w.wind > 0.10f && w.storm < 0.5f;
+            bool on = (1f - sky.IndoorFor(view)) > 0.9f && w.wind > 0.10f && w.storm < 0.5f;
             float dt = Time.deltaTime;
             for (int i = crests.Count - 1; i >= 0; i--)
             {
@@ -147,7 +149,7 @@ namespace PryingEyes.Deserto
         /// punti ne trova una nel 65 % dei casi (10 % dei posti: 44 %), e il passo tra le ricerche, un secondo e mezzo, la rende rara. Non si sceglie una cresta a meno di venti metri da una che gia' fuma.</summary>
         void TryCrest(WeatherState w)
         {
-            var cam = Camera.main;
+            var cam = view != null ? view : Camera.main;
             Vector3 fwd = cam != null ? cam.transform.forward : player.forward;
             fwd.y = 0f;
             if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;

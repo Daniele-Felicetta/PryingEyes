@@ -652,7 +652,13 @@ namespace PryingEyes.Proc
             Vector3 outward = -facing;
             foreach (var seg in plan.Segments(r, s))
             {
-                if (seg.other >= 0) continue;
+                if (seg.other >= 0)
+                {
+                    // un tramo che la stanza divide con un'altra: senza tetto ne' soffitto (una stanza in rovina) le due facce, a 30 cm l'una dall'altra, hanno in mezzo un vuoto aperto in cima, e da sopra si
+                    // vede giu' fino alla sabbia (una riga che attraversa le rovine lungo ogni tramezzo). Un coperchio lo chiude all'altezza di questa stanza (quello dell'altra, a quella dell'altra)
+                    if (exteriorBuild && !LegacyWalls && r.ruined && !r.Open) SharedCap(mb, st, plan, r, s, seg, u, outward, faceStart, len, holes);
+                    continue;
+                }
                 float sa = M(seg.a0), sb = M(seg.a1);
                 Vector3 o2 = ax ? new Vector3(sa, 0, Plan.Line(r, s) * 0.1f) : new Vector3(Plan.Line(r, s) * 0.1f, 0, sa);
                 o2 += outward * TH;
@@ -666,7 +672,33 @@ namespace PryingEyes.Proc
                 TopFunc(r, ax, len, out var top0, out var br0, (int)s);
                 if (r.Open) OpenTop(plan, r, s, faceStart, out top0, out br0);
                 Func<float, float> topShifted = x => top0(x + shift);
-                DrawFace(mb, st.outer, null, 0f, o2, u, outward, sb - sa, topShifted, null, hs, sa);
+                // la pelle esterna ha lo stesso profilo della faccia dentro: i denti di un muro crollato, il timpano di una capriata, l'arco di una volta. Senza i punti di svolta il profilo si
+                // campiona solo agli estremi del tratto e alle aperture, e lo sostituisce una retta: da fuori il timpano e i denti mancano e si vede dentro l'edificio (solo nel deserto: nel piano
+                // normale l'esterno dei muri non si vede, e le sue mesh restano com'erano)
+                float ext0 = 0f, ext1 = 0f;
+                if (exteriorBuild && !LegacyWalls && !r.Open)
+                {
+                    Plan.Span(r, s, out int lo, out int hi);
+                    if (seg.a0 == lo && ConvexCorner(plan, r, s, true)) ext0 = TH;
+                    if (seg.a1 == hi && ConvexCorner(plan, r, s, false)) ext1 = TH;
+                }
+                Vector3 faceO = o2; float faceLen = sb - sa, faceU = sa; Func<float, float> faceTop = topShifted;
+                float[] faceBr = exteriorBuild && !LegacyWalls ? ShiftBreaks(br0, shift, sb - sa) : null;
+                var faceHoles = hs;
+                if (ext0 > 0f || ext1 > 0f)
+                {
+                    // un angolo in fuori: la pelle di questo lato e quella del lato che vi si incontra finiscono sulla linea del muro, e tra le due, nell'angolo, resta un vuoto di mezzo spessore (15 cm): da fuori
+                    // e' una fessura che va da terra al tetto e fa vedere dentro l'edificio. Qui si allunga di mezzo spessore, e le due pelle si toccano nello spigolo vero
+                    faceHoles = new List<Hole>();
+                    foreach (var h in hs) faceHoles.Add(new Hole { c = h.c + ext0, hw = h.hw, o = h.o });
+                    float shiftX = shift - ext0;
+                    faceO = o2 - u * ext0; faceLen = sb - sa + ext0 + ext1; faceU = sa - ext0;
+                    faceTop = x => top0(x + shiftX);
+                    faceBr = ShiftBreaks(br0, shiftX, faceLen);
+                }
+                DrawFace(mb, st.outer, null, 0f, faceO, u, outward, faceLen, faceTop, faceBr, faceHoles, faceU);
+                // un muro crollato non ha il tetto ne' il coronamento: tra la faccia dentro e la pelle fuori c'e' il vuoto di 30 cm, e da sopra (da una duna, da una torre, da chi e' piu' basso del muro) si vede dentro
+                if (exteriorBuild && !LegacyWalls && r.crumble && r.ruined && !r.Open) WallCap(mb, st.outer, faceO, u, outward, faceLen, faceTop, faceBr, faceHoles);
                 if (r.Open)
                 {
                     // il coronamento salta le aperture che arrivano a terra (la scalinata del deserto): una trave sopra una porta la chiuderebbe
@@ -681,6 +713,53 @@ namespace PryingEyes.Proc
                     }
                     if (sb - at > 0.05f) OpenCrown(mb, st, r, ax, Plan.Line(r, s) * 0.1f, at, sb);
                 }
+            }
+        }
+
+        /// <summary>Il coperchio di un tramezzo in rovina: il piano in cima al tratto 'seg' che la stanza divide con un'altra, per tutto lo spessore, all'altezza del profilo alto di questa stanza.</summary>
+        static void SharedCap(MeshBuilder mb, Style st, Plan plan, Room r, Side s, Seg seg, Vector3 u, Vector3 outward, float faceStart, float faceLen, List<Hole> holes)
+        {
+            bool ax = Plan.AlongX(s);
+            float sa = M(seg.a0), sb = M(seg.a1);
+            if (sb - sa < 0.05f) return;
+            Vector3 o2 = (ax ? new Vector3(sa, 0, Plan.Line(r, s) * 0.1f) : new Vector3(Plan.Line(r, s) * 0.1f, 0, sa)) + outward * TH;
+            float shift = sa - faceStart;
+            TopFunc(r, ax, faceLen, out var top0, out var br0, (int)s);
+            var hs = new List<Hole>();
+            foreach (var h in holes)
+            {
+                float c = h.c + faceStart - sa;
+                if (c - h.hw >= -0.001f && c + h.hw <= sb - sa + 0.001f) hs.Add(new Hole { c = c, hw = h.hw, o = h.o });
+            }
+            WallCap(mb, st.outer, o2, u, outward, sb - sa, x => top0(x + shift), ShiftBreaks(br0, shift, sb - sa), hs);
+        }
+
+        /// <summary>Il piano in cima a un muro (il suo spessore, 2 x TH, dalla pelle fuori verso dentro), che segue il profilo alto della faccia. Dove c'e' un'apertura il piano c'e' solo se il muro arriva
+        /// sopra la testa o non arriva alla soglia: nel mezzo non c'e' muro, e il piano resterebbe in aria.</summary>
+        static void WallCap(MeshBuilder mb, Material m, Vector3 origin, Vector3 u, Vector3 outward, float len, Func<float, float> top, float[] breaks, List<Hole> holes)
+        {
+            var xs = new List<float> { 0f, len };
+            if (breaks != null) foreach (var b in breaks) if (b > 0.001f && b < len - 0.001f) xs.Add(b);
+            if (holes != null) foreach (var h in holes) { xs.Add(Mathf.Max(0f, h.c - h.hw)); xs.Add(Mathf.Min(len, h.c + h.hw)); }
+            xs.Sort();
+            for (int i = 0; i + 1 < xs.Count; i++)
+            {
+                float xa = xs[i], xb = xs[i + 1];
+                if (xb - xa < 0.01f) continue;
+                float mid = (xa + xb) * 0.5f, ta = top(xa), tb = top(xb);
+                if (holes != null)
+                    foreach (var h in holes)
+                    {
+                        if (!(mid > h.c - h.hw && mid < h.c + h.hw)) continue;
+                        bool above = !h.o.Gap && ta >= h.o.Head(xa - h.c, h.hw) - 1e-3f && tb >= h.o.Head(xb - h.c, h.hw) - 1e-3f;
+                        bool below = ta <= h.o.sill + 1e-3f && tb <= h.o.sill + 1e-3f;
+                        if (!above && !below) { xb = xa; }
+                        break;
+                    }
+                if (xb - xa < 0.01f) continue;
+                Vector3 pa = origin + u * xa + Vector3.up * ta, pb = origin + u * xb + Vector3.up * tb;
+                Vector3 inward = outward * (-2f * TH);
+                mb.QuadW(m, pa, pb, pb + inward, pa + inward, Vector3.up);
             }
         }
 
@@ -1038,7 +1117,14 @@ namespace PryingEyes.Proc
             var mat = o.style == OpenStyle.Lancetta
                 ? Mat(A.kind == RoomKind.Nartece ? "vetrata_chiara" : "vetrata" + (o.variant & 3))
                 : Mat(o.style == OpenStyle.Feritoia ? "vetro_buio" : "vetro_albergo");
-            Vector3 facing = -nOut;
+            Pane(mb, mat, o, P, -nOut);
+            // il deserto si guarda anche da fuori: lo stesso vetro, rivolto in fuori (si sovrappone di spalle: dei due si vede quello giusto, non lampeggiano). Una finestra senza vetro da fuori e' un buco
+            // dentro cui si vede la stanza; con il vetro e' scura e il dentro non si vede (come le finestre dipinte della pelle di chi sta lontano)
+            if (exteriorBuild && !LegacyWalls) Pane(mb, mat, o, P, nOut);
+        }
+
+        static void Pane(MeshBuilder mb, Material mat, Opening o, Func<float, float, float, Vector3> P, Vector3 facing)
+        {
             float sLo = M(o.Lo), sHi = M(o.Hi), hw = (sHi - sLo) * 0.5f, c = (sLo + sHi) * 0.5f;
             float w = sHi - sLo, hgt = o.top - o.sill;
             if (!o.Pointed)

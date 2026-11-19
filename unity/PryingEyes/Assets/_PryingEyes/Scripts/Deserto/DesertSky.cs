@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PryingEyes.Proc;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -56,6 +57,72 @@ namespace PryingEyes.Deserto
         Transform dome;
         Camera cam;
         float indoor, exposureSent = 99f, exposureT, coveredT;
+        bool coveredPrimary;
+        float primaryIndoor;
+
+        /// <summary>Schermo condiviso (0.9.1): una camera per posto. 'cam' e' quella del posto 0 e decide la direzione del sole negli occhi; le altre sono qui, ognuna col suo sfondo, il suo
+        /// piano lontano e la sua cupola (la cupola e' una sola: si sposta sulla camera che sta per disegnare). La nebbia, l'ambiente e il volume dei colori sono globali, quindi il look e'
+        /// uno solo per tutti: all'aperto se almeno un posto e' all'aperto, al chiuso solo se lo sono tutti.</summary>
+        sealed class Extra
+        {
+            public Camera cam; public float far; public CameraClearFlags flags; public Color back;
+            public bool covered; public float indoor;
+        }
+        readonly List<Extra> extras = new List<Extra>();
+
+        /// <summary>Un'altra camera da servire (il posto di un altro giocatore): sfondo a colore pieno e piano lontano a 1500 m come per la prima. Si rimette tutto in OnDestroy.</summary>
+        public void AttachExtra(Camera camera)
+        {
+            if (camera == null || camera == cam) return;
+            foreach (var e in extras) if (e.cam == camera) return;
+            extras.Add(new Extra { cam = camera, far = camera.farClipPlane, flags = camera.clearFlags, back = camera.backgroundColor });
+            camera.farClipPlane = 1500f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = ToColor(State.fog);
+        }
+
+        /// <summary>Quanto la camera di un posto e' al chiuso (0 all'aperto, 1 al chiuso, sfumato): per gli effetti che nascono attorno a un giocatore e si spengono nelle stanze. Senza camera,
+        /// o con una che non e' di nessun posto, il valore del look di tutti.</summary>
+        public float IndoorFor(Camera camera)
+        {
+            if (camera == null || camera == cam) return extras.Count == 0 ? indoor : primaryIndoor;
+            foreach (var e in extras) if (e.cam == camera) return e.indoor;
+            return indoor;
+        }
+
+        /// <summary>La cupola e il colore della nebbia vanno alla camera che sta per disegnare (solo con piu' camere: da sola la cupola segue la sua in LateUpdate e la nebbia e' quella di Apply).</summary>
+        void OnBeginCamera(ScriptableRenderContext ctx, Camera c)
+        {
+            if (extras.Count == 0 || dome == null || c == null) return;
+            bool mine = c == cam;
+            if (!mine) foreach (var e in extras) if (e.cam == c) { mine = true; break; }
+            if (!mine) return;
+            dome.position = c.transform.position;
+            var f = TintFog(fogBase, c.transform.forward);
+            RenderSettings.fogColor = f;
+            c.backgroundColor = f;
+        }
+
+        // la nebbia di base (senza il colore del sole) e quello che serve a tingerla verso la direzione di una camera
+        Color fogBase; SkyState fogS; float fogSand, fogK;
+
+        /// <summary>La nebbia prende il colore del cielo nella direzione in cui si guarda: sull'orizzonte dalla parte del sole il cielo ha il suo bagliore (lo stesso della cupola, DesertSky.shader), e se la
+        /// nebbia non lo avesse la sabbia lontana si staccherebbe dal cielo, scura contro il sole. Vale per tutte le cose, anche per le facciate, che hanno la nebbia di URP.</summary>
+        Color TintFog(Color fog, Vector3 fwd)
+        {
+            var s = fogS; float k = fogK;
+            float hl = Mathf.Sqrt(fwd.x * fwd.x + fwd.z * fwd.z);
+            if (hl <= 0.05f) return fog;
+            float sd = Mathf.Clamp01((fwd.x * s.sunX + fwd.z * s.sunZ) / hl), clear = 1f - fogSand;
+            // la stessa formula della cupola (DesertSky.shader): l'alone si mescola al colore del sole, poi sull'orizzonte del tramonto si somma il chiarore
+            float hiSun = Mathf.Clamp01(s.sunHeight * 2.2f);
+            float haloW = (Mathf.Pow(sd, Mathf.Lerp(5f, 9f, hiSun)) * 0.50f + Mathf.Pow(sd, 36f) * 0.40f) * Mathf.Clamp01(s.sunHeight * 6f + 0.35f) * (0.35f + 0.65f * clear) * (1f - k) * SunGlow;
+            haloW = Mathf.Clamp01(haloW);
+            fog.r = Mathf.Lerp(fog.r, s.sunColor.r, haloW); fog.g = Mathf.Lerp(fog.g, s.sunColor.g, haloW); fog.b = Mathf.Lerp(fog.b, s.sunColor.b, haloW);
+            float rim = sd * sd * s.twilight * 0.45f * clear * (1f - k) * SunGlow;
+            fog.r += s.sunColor.r * rim; fog.g += s.sunColor.g * rim; fog.b += s.sunColor.b * rim;
+            return fog;
+        }
         bool covered;
         // il grading dello schermo: il volume del gioco, le due voci che il deserto riscrive, e il grading della stanza (quello scritto da ApplyLook) a cui si torna al chiuso
         Volume gradeVol; ColorAdjustments gradeCa; SplitToning gradeSt; Bloom gradeBl; Tonemapping gradeTm;
@@ -92,6 +159,9 @@ namespace PryingEyes.Deserto
             cam.backgroundColor = ToColor(State.fog);
         }
 
+        void OnEnable() { RenderPipelineManager.beginCameraRendering += OnBeginCamera; }
+        void OnDisable() { RenderPipelineManager.beginCameraRendering -= OnBeginCamera; }
+
         void Awake()
         {
             I = this;
@@ -127,6 +197,8 @@ namespace PryingEyes.Deserto
         {
             if (I == this) I = null;
             if (cam != null && camSaved) { cam.farClipPlane = savedFar; cam.clearFlags = savedFlags; cam.backgroundColor = savedBack; }
+            foreach (var e in extras) if (e.cam != null) { e.cam.farClipPlane = e.far; e.cam.clearFlags = e.flags; e.cam.backgroundColor = e.back; }
+            extras.Clear();
             RenderSettings.fog = savedFog; RenderSettings.fogMode = savedFogMode; RenderSettings.fogDensity = savedDensity; RenderSettings.fogColor = savedFogColor;
             RenderSettings.ambientMode = savedAmbient;
             if (RenderSettings.sun == sun) RenderSettings.sun = null;
@@ -177,7 +249,15 @@ namespace PryingEyes.Deserto
             coveredT -= Time.deltaTime;
             if (coveredT > 0f || cam == null) return;
             coveredT = 0.12f;
-            covered = Physics.Raycast(cam.transform.position, Vector3.up, 12f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+            coveredPrimary = Physics.Raycast(cam.transform.position, Vector3.up, 12f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+            bool all = coveredPrimary;
+            foreach (var e in extras)
+            {
+                if (e.cam == null) continue;
+                e.covered = Physics.Raycast(e.cam.transform.position, Vector3.up, 12f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+                all &= e.covered;
+            }
+            covered = all;          // il look e' uno solo: al chiuso solo se lo sono tutte le camere
         }
 
         void Apply(float dt, bool immediate)
@@ -189,6 +269,8 @@ namespace PryingEyes.Deserto
             Weather = wx;
             Night = 1f - Stealth.Smooth(0.05f, 0.45f, s.daylight);
             indoor = immediate ? (covered ? 1f : 0f) : Mathf.MoveTowards(indoor, covered ? 1f : 0f, dt / 0.75f);
+            primaryIndoor = immediate ? (coveredPrimary ? 1f : 0f) : Mathf.MoveTowards(primaryIndoor, coveredPrimary ? 1f : 0f, dt / 0.75f);
+            foreach (var e in extras) e.indoor = immediate ? (e.covered ? 1f : 0f) : Mathf.MoveTowards(e.indoor, e.covered ? 1f : 0f, dt / 0.75f);
             float k = indoor * indoor * (3f - 2f * indoor);
 
             // luce direzionale: il sole se e' piu' forte della luna, altrimenti la luna (la sabbia nell'aria li oscura)
@@ -215,23 +297,9 @@ namespace PryingEyes.Deserto
             var fogRgb = Rgb.Lerp(s.fog, dust * 0.92f, wx.sand * 0.8f);
             var zenith = Rgb.Lerp(s.zenith, dust * 0.8f, wx.sand * 0.55f);
             var fog = Color.Lerp(Scaled(fogRgb, gain), InFog, k); fog.a = 1f;
-            // la nebbia prende il colore del cielo nella direzione in cui si guarda: sull'orizzonte dalla parte del sole il cielo ha il suo bagliore (lo stesso della cupola, DesertSky.shader), e se la
-            // nebbia non lo avesse la sabbia lontana si staccherebbe dal cielo, scura contro il sole. Vale per tutte le cose, anche per le facciate, che hanno la nebbia di URP.
-            if (cam != null)
-            {
-                var fwd = cam.transform.forward; float hl = Mathf.Sqrt(fwd.x * fwd.x + fwd.z * fwd.z);
-                if (hl > 0.05f)
-                {
-                    float sd = Mathf.Clamp01((fwd.x * s.sunX + fwd.z * s.sunZ) / hl), clear = 1f - wx.sand;
-                    // la stessa formula della cupola (DesertSky.shader): l'alone si mescola al colore del sole, poi sull'orizzonte del tramonto si somma il chiarore
-                    float hiSun = Mathf.Clamp01(s.sunHeight * 2.2f);
-                    float haloW = (Mathf.Pow(sd, Mathf.Lerp(5f, 9f, hiSun)) * 0.50f + Mathf.Pow(sd, 36f) * 0.40f) * Mathf.Clamp01(s.sunHeight * 6f + 0.35f) * (0.35f + 0.65f * clear) * (1f - k) * SunGlow;
-                    haloW = Mathf.Clamp01(haloW);
-                    fog.r = Mathf.Lerp(fog.r, s.sunColor.r, haloW); fog.g = Mathf.Lerp(fog.g, s.sunColor.g, haloW); fog.b = Mathf.Lerp(fog.b, s.sunColor.b, haloW);
-                    float rim = sd * sd * s.twilight * 0.45f * clear * (1f - k) * SunGlow;
-                    fog.r += s.sunColor.r * rim; fog.g += s.sunColor.g * rim; fog.b += s.sunColor.b * rim;
-                }
-            }
+            // la nebbia prende il colore del cielo nella direzione in cui si guarda (TintFog); con piu' camere (lo schermo condiviso) ognuna ha la sua, scelta quando sta per disegnare
+            fogBase = fog; fogS = s; fogSand = wx.sand; fogK = k;
+            if (cam != null) fog = TintFog(fogBase, cam.transform.forward);
             RenderSettings.fogColor = fog;
             RenderSettings.fogDensity = Mathf.Lerp(s.fogDensity * wx.fogMul, InFogDensity, k);
             RenderSettings.ambientSkyColor = Color.Lerp(ToColor(s.ambientSky) * dayLight, InSky, k);
@@ -239,6 +307,7 @@ namespace PryingEyes.Deserto
             RenderSettings.ambientGroundColor = Color.Lerp(ToColor(s.ambientGround) * dayLight, InGround, k);
             LightLevel = Mathf.Clamp01(RenderSettings.ambientEquatorColor.grayscale * 1.7f + (sun.enabled ? sun.intensity : 0f) * 0.3f);
             if (cam != null) cam.backgroundColor = fog;
+            foreach (var e in extras) if (e.cam != null) e.cam.backgroundColor = fog;
 
             // l'occhio si abitua: guardando verso il sole (alto o basso, in aria pulita) l'immagine si scurisce di un po' e il cielo attorno al disco resta colorato invece di sbiancare; guardando
             // altrove l'occhio si riapre piano. Col tempo fermo (le prove, le foto) e' gia' abituato.

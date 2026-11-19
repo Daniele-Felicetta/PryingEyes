@@ -455,6 +455,9 @@ namespace PryingEyes
 
         static Raw PollReal(int slot)
         {
+            // 0.9.1: un processo senza finestra (-batchmode: le prove) non e' giocato da nessuno e non legge i controller veri: uno collegato e usato da chi
+            // gioca in quel momento finiva nei posti simulati e faceva fallire le prove dello schermo condiviso (i movimenti dei posti fermi, il rialzare)
+            if (Application.isBatchMode) return default;
             if (slot < 0 || slot > 3 || GetState(slot, out XState s) != 0) return default;
             return new Raw { connected = true, buttons = s.buttons, leftTrigger = s.lt, rightTrigger = s.rt, lx = s.lx, ly = s.ly, rx = s.rx, ry = s.ry };
         }

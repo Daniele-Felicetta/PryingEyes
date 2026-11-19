@@ -12,7 +12,10 @@ rooms, the buildings and out in the open there are only weapons, points, ammunit
 After the first playtest (the same day) the player asked for more buildings and more variety, outsides that are not buggy, no stealth mechanics (nobody
 had asked for them) and a livelier world, with serious optimisation of the graphics if needed at the same quality. Hence the six regions, the finished
 outsides and far silhouettes of the places, the things on the sand, the weather, the wildlife and the camps below. The mode is part of release 0.9.0 (19 November
-2026), together with the characters and the saves of [saves-and-characters.md](saves-and-characters.md).
+2026), together with the characters and the saves of [saves-and-characters.md](saves-and-characters.md). Release 0.9.1 (19 November 2026) repaired the walls of the places the day after
+(the player saw the inside of some buildings from the sand and walls that flickered up close): see "The walls of the near shell, measured" below. The same release added a frame counter
+(on in every mode, see [display-and-menu.md](display-and-menu.md)) and, at the player's request, **co-op in the desert** (up to four players), **a minimap** and **an arrow home to the cathedral**:
+see "Co-op, the minimap and the way home (0.9.1)" below.
 
 This page says how it plays, what is found where, how the world is made, the code, the decisions that were left to the developer, and what is
 verified. The cathedral, the works, the resources and the satchel are those of [cathedral-and-catacombs.md](cathedral-and-catacombs.md); the
@@ -22,7 +25,9 @@ rooms are those of the floors ([tower.md](tower.md)).
 
 1. *Gioca* (and *Ricomincia dalla cattedrale*) opens **Come vuoi giocare?**: **Standard** or **Il deserto**. The choice is remembered for the
    next time (`PlayerPrefs` key `PryingEyes.GameMode`; the automated tests never write it). The command line `-deserto` forces the desert.
-   Co-op and split screen stay in the standard mode (the desert is for one player).
+   Since 0.9.1 the desert can also be played **in co-op, up to four**: *Ospita una partita* opens the same choice (*Che partita ospiti?*), the host picks, and the guests start where
+   the host plays (they do not choose). It can also be played in **split screen**, two to four players on one PC over one or several monitors: after *Chi gioca?* the same choice comes
+   (*Che partita giocate?*) and holds for every seat (see *Split screen* below).
 2. You wake on the churchyard (*il sagrato*) of the cathedral, at **07:00**. The cathedral stands on a plinth of the same stone as the church facades
    (a darker base under a cornice, a lighter course at the foot); from a 14 m gap in the churchyard's parapet a wide stair of twelve steps goes down to the sand
    (a stone riser and a lighter slab with a nosing for each step, a sloping wall with a coping on each side and a pier at the foot), and a brazier burns on
@@ -35,7 +40,8 @@ rooms are those of the floors ([tower.md](tower.md)).
    exposure follow the clock; indoors (anything within 12 m above the head) the look goes back to that of the rooms. The top of the screen
    counts the days, and the objective is on two lines: first the hour, the phase (dawn, day, dusk, night), the nearest place and, when you are
    more than 60 m from the cathedral, the way home, each with the side it lies on as seen from where you look (*davanti*, *a destra*, *dietro a
-   sinistra*...: sectors of 45 degrees, `DesertWorld.Sector`); then, dimmer, what to look for.
+   sinistra*...: sectors of 45 degrees, `DesertWorld.Sector`); then, dimmer, what to look for. Since 0.9.1 there is also a **minimap** at the top right and, from 90 m
+   out, a golden **arrow** at the top centre that points at the cathedral and says how far it is (below).
 4. **The places** stand on the sand, in cells of 140 m (one place per cell at most) at least 170 m from the cathedral: houses, chapels, inns,
    churches, hotels, theatres, sanatoria and complexes, made of the same rooms as the floors, but **whole, ruined, split in pieces or
    collapsing** (the shares depend on the region: 42% whole in the hamlets, 16% in the dead town); **towers** of 7 to 14 floors (up to 76 m) and
@@ -221,6 +227,36 @@ rebuilt identical every time you come back.
   entrance level), drawn with the sand's own shader and the region's colour in the vertex colours (`FacadeKit.Sand`, `MeshBuilder.QuadSmoothC`): the walls no longer stand on the
   ground like a model on a table. The stone of the churches is lightened about twice (`FacadeKit.StoneGain`: the kit's stone has an albedo of 0.12, made for dark corridors, and next to the
   sand a church was a black block); the inside keeps the kit's material as it is.
+- **The walls of the near shell, measured** (0.9.1: `FloorBuilder.WallSide`, `WallCap`, `SharedCap`, `FloorBuilder.Facade.cs`, `MeshBuilder.Slab`, `Deserto/DesertCensus.cs`). The day after 0.9.0 the player wrote that "the missing pieces of the structures are
+  broken and from outside you can see the inside of some buildings", and then that "some walls glitch up close". The first diagnosis was by eye and found only part of it, so the check became a probe that
+  needs no graphics card (`-desertonly rovine`, see "How to check"): it builds the shell of 33 places twice, with the walls of 0.9.0 (`FloorBuilder.LegacyWalls`, a static compiled out of the
+  distribution builds) and with the new ones, and counts on the real triangles of each: faces whose winding is the opposite of their normals (**flipped**), pairs of faces of different materials on
+  the same plane facing the same way that somebody can see (**fighting**: the pixels flicker; the back faces of two trims leaning on the skin of a wall face into the wall and are not counted, and a
+  point of view in the air in front of the pair decides), rays from the sand at eye height whose first surface is seen from behind (**holes**: the eye goes through, and sees inside), and window panes seen from behind. What it found, all in the
+  near shell (the far skins were right), and what was done:
+  1. *The outer skin of a wall had no breaks in its profile.* A gable end, the arch of a vault end and the teeth of a broken wall were drawn as a straight line from end to end on the outside, so the
+     triangle between the line and the real profile was a window onto the inside (the inside face followed the profile). The skin now gets the breaks (`WallSide`).
+  2. *Flipped slices.* Where the top profile of a wall cuts the head of a door or a window, the slab above it was a bow-tie of two triangles, one of them upside down (624 in 33 places).
+     `MeshBuilder.Slab` clips it where the two edges cross.
+  3. *A slit at every outward corner.* The two skins that meet at a corner stop on the line of the wall and their planes are half a thickness (15 cm) off it: a slit from the ground to the roof. The skins are extended by
+     half a thickness at the corners that no room covers (`ConvexCorner`, the same three-point test as the turrets).
+  4. *Roofs with one face.* Pitches, vaults, spires and the pyramids of the turrets are looked at from below as well, and were see-through: each now has its underside.
+  5. *Panes that look only inward.* From outside a window was a hole (950 rays in the 33 places went through one): the outer pane is the same quad facing out (`Glass`, `Pane`).
+  6. *The wall above a lower neighbour started at the wrong height.* `StepRun` began at the lowest possible top of the neighbour (its wall height, or the lowest tooth of a crumbled one), so over a gable end, a vault or a
+     jagged wall it lay on the face the neighbour has inside its own room, on the same plane and facing the same way (the two fight, the biggest source of flicker: 10,000 pairs), or left a hole between the teeth. It now begins on the profile of the
+     neighbour and, if it has a roof, 12 cm above it.
+  7. *Tops with no lid.* A broken wall (and the partition between two ruined rooms) is two faces 30 cm apart with nothing between them at the top: from a dune or a tower you looked down into the gap, to the sand. `WallCap` and `SharedCap` close it
+     at the height of the room's own profile.
+  8. *Trims taller than the wall.* On a crumbled wall the frames of doors and windows, the pilasters and the buttresses were as tall as the wall at its start, and stood in the air over a lower tooth: each is now limited to the wall
+     at its place (`MinTop`, `PillarTop`).
+  9. *Parapets and cornices flush with the inside.* The boxes that sit in the thickness of a wall (the parapet and merlons of a flat roof, the crown of a roofless wall) had their inner face exactly on the inner face of the wall, a strip along the top of every
+     flat-roofed wall: they now stop 6 mm short (`InnerFlush`).
+
+  The numbers, with seed 1000, in the same 33 places (`rovine TOTALE` in the log): **flipped faces 624 to 0; fighting faces of a facade 18,884 to 334; rays that see through a wall 1,578 to 506 of 79,200; panes seen from behind 949 to 3.** They are not zero, and
+  the page says what the rest is. The holes that remain are rays that enter by a door, a broken window or a collapse of a ruin and see the back of an inner face (a ruin is open, that is not a defect), and, on the partitions of two ruined rooms,
+  a band along the top where the taller of the two faces is not seen from the side of the lower one. Of the fights, about 1,500 are *inside* the rooms and were left alone: in the towers the top of the ceiling beams is on the plane of the floor of the level above (`FlatBeams` puts it at the ceiling height, and the levels
+  are stacked with no slab between them) and a crown moulding is flush with a ceiling; they are the same in 0.9.0 and in the standard game. The checks are guards against going back, not a claim of zero: see "How to check". The probe draws, with the CPU, what an eye
+  sees (`-rovinepng`, `-rovinematch`, `-rovineboth`; magenta where it sees into a wall, yellow into a pane): those images were looked at, and they are flat colours, not the game: **no photo with the graphics card was taken, because the developer's own game was running on the same PC.**
 - **The banners of an intact tower** (`DesertBanner.OnTower` and `OnTowerWalls`, made by `SiteFacade` with the last piece of the far skin and kept when the real shell takes its place;
   a ruined tower has none). A mast with a banner twice the size of those of the stair stands in the middle of the largest flat roof of the top floor (the beamed ceiling inside is
   a flat slab from outside), and under the cornice a **banner hangs down each long wall**: one per side, on the longest stretch of outer wall of the top floor if it is at least 7.5 m (up to four; 4.2 m
@@ -288,6 +324,72 @@ rebuilt identical every time you come back.
   once every 60 seconds, and not with an enemy within 30 m: `CleanDelay`, `CleanInterval`, `CleanCalm`; only what nothing refers to goes). A sweep
   took 4 to 6 ms here and the log says how long each one took and the longest frame in it.
 
+## Co-op, the minimap and the way home (0.9.1)
+
+The player asked for all three the day after 0.9.0 ("co-op, the minimap and the arrow to go back to the cathedral"). They share a rule with the rest of the desert: nothing about the world
+is sent over the wire but the seed, because the world is a pure function of it.
+
+**The minimap** (`Deserto/DesertMapGen.cs`, `DesertMapTiles.cs`, `HUD.DesertMap.cs`; `N` shows and hides it, as in the floors; `M` still does nothing in the desert). It sits at the top
+right, a window of 512 m of sand centred on you, north up, and it is a cartographer's chart: parchment-coloured sand shaded as if lit from the north-west, contour lines every 3 m (stronger
+every 15), hatched cliffs, the pale pans of the salt flats, the footprints of the rooms of every place with their walls in ink (filled if they have a roof, hatched if they are open to the sky),
+a cross on the chapels and churches, a diamond on the towers, an arc on the catacombs, and the cathedral with its golden stair and the circle (42 m) where no enemy is born. Over it the HUD
+draws, every frame, **you** (a red arrow that turns with the view), **your companions** (in the colour of their seat, a red ring that pulses if they are down), the **awake enemies within 90 m**
+(red dots, a dark ring for a boss; whoever rests is not a threat and is not drawn) and, when the cathedral is outside the window, a **golden arrow on the edge** that says where it is. At night the
+chart turns blue and dark; underground (the catacombs) it is dimmer still. The painter is pure (`DesertMapGen`: a 64 m square is 32 x 32 pixels, 2 m each, the same square always comes out
+the same, so neighbours meet without seams, and `tools/desertlab` compiles it and can draw it to an image); the chart is a wrapping texture of 10 x 10 squares that the window reads
+(`DesertMapTiles`: a square lives in the slot `tile mod 10`, so walking only replaces the squares left behind; three painting jobs at a time on worker threads, 2 to 3 ms each, and at most four
+uploads per frame on the main thread; a square is painted only when the places round it are known). Beyond the painted squares there is the dark paper of the unexplored. It is a
+nice-to-have: if its code throws three times it switches itself off and the rest of the HUD goes on.
+
+**The way home** (`Deserto/DesertHome.cs`). From 90 m from the cathedral's perimeter a golden arrow appears at the top centre of the screen (the one the floors use for the lift, `HUD.SetGuideArrow`,
+driven by `Guide.TickArrow`), turns to point at the cathedral relative to where you look and says how far (*cattedrale · 1,4 km*: tens of metres under 300, fifties up to a kilometre, then
+kilometres with one digit). It is a straight line, because on the sand there are no roads to follow, and it goes off when you are down, dead or in a transition. The minimap shows the same bearing
+on its edge.
+
+**Co-op** (up to four; the split screen is the next section). The host picks the mode in the menu (*Ospita una partita* opens *Che partita ospiti?*, `GameMenu.Mode.cs`) and the guests go where the
+host plays: `Welcome` carries a flag for the desert, the guest builds its own desert from the host's seed (`FloorDirector.StartRun(coopDesert)`), and it uses the same handshake as the floors,
+with the first epoch (`Coop.OnFloorStart(0)` at the start, `OnFloorBuilt()` once the sand round the arrival is ready, `FloorReady` back). Everybody arrives on the churchyard, 0.9 m apart by slot.
+What is **everybody's**: the enemies (the host simulates them all and the guests see puppets), the hour of the day, the places, the boss that falls. What is **each player's own**, as in the
+floors: points, weapons, perks, the store and the cathedral, the loot on the sand (every machine keeps its own list of what it took) and the trophies. How it works (`Coop/CoopGame.World.cs`,
+`Deserto/DesertAnchors.cs`):
+
+- **The host builds round every player.** The sand with its collider, the navmesh tiles, the places with their guards and the props' colliders are made on the host not only round its own
+  player but round each living companion that has built the desert (`DesertAnchors`, the feet of the companions, once per frame), so whoever chases a companion who is a kilometre away walks on
+  sand, on navmesh and past walls. The guests are passive: no wandering enemies, no guards, no waking and no boss to watch on their side (the boss's trophy comes by message). Wandering enemies are born
+  round one player at a time, in turns, and their target and the cap on the sand grow by 70 % for every companion; an enemy wakes for the nearest player and gives up only if it has lost them all.
+  (A bug found by the co-op test: a sand block that the host's own view had already made at the low level of detail, without a collider, was never raised when a companion came near,
+  because the hysteresis of the host's view said to keep it; the sand under the companion had no collider and no navmesh. `DesertTerrain.Plan` now raises it whatever the host's hysteresis says.)
+- **Each guest sees the enemies near it.** Over a kilometre of desert a guest cannot have every puppet of the host: the host keeps, for each guest, the set of the enemies it has sent (`known`) and
+  every 0.3 s sends the ones that came within **190 m** and quietly takes away (a removal, not a death) the ones that went beyond **230 m**; attacks, shouts, bolts and the death of an enemy go only to whoever has
+  its puppet; the poses (10 times a second) only for the known ones. A guest that finishes building receives at once the enemies round it.
+- **The clock is the host's**: every two seconds (unreliably) the hour and the day; the guest's own clock keeps going in between, and is put right.
+- **A boss that falls falls for everybody** (`DesertBossDown`, reliable; the host keeps the list for whoever arrives late): every player's store receives the trophy of the branch, the place does not put
+  the boss back, and the banner and the roar are heard by all.
+- **Who is asleep.** `Enemy.dormant` travels in a bit of `EnemyNet.status` (`Enemy.DormantBit`, 0x80; the magic and seal states use the low six), so that a companion's minimap does not show as a threat
+  an enemy that is resting.
+
+Protocol `pe-coop-31` (the `Welcome` flag, `DesertBossDown`, `DesertClock`, the bit of `status`). The scenario `j_deserto` of `tools/coop/run_all.ps1` tests it with two processes (below).
+
+**Split screen** (two to four players on one PC, over one or several monitors, 0.9.1; [../multiplayer/split-screen.md](../multiplayer/split-screen.md) has the rest). One process, one desert, one
+`Seat` per player (`Coop/Seats.cs`). After *Chi gioca?* (the characters) the menu asks *Che partita giocate?* (`GameMenu.Mode.cs`, the panel of the single player) and `SplitBegin` starts the run;
+`FloorDirector.DesertWanted` no longer refuses a split screen and `StartDesertCo` begins one expedition for each seat (`BeginSeatExpeditions`: the cathedral, the store, the points, the perks and the equipment of
+its character, as in the floors). Everybody arrives on the churchyard 0.36 m apart and then walks where they want: one seat can be kilometres from another. What each seat has **of its own**: its camera (and the part of
+the monitor the split screen gives it), its HUD (the objective line with the place nearest to *that seat* and the way home, the minimap with the other seats as coloured dots, the golden arrow, the points), what it picks
+up from the sand (a pick-up is taken by whoever comes within reach, and the reward is that seat's), the edge of the world and its falls. What the seats **share**: the enemies (each targets the nearest seat), the hour
+of the day and the weather, the places, the bosses, and the one audio listener (seat 1's). How it works (`Deserto/DesertAnchors.cs` and the files named):
+
+- **The world is made round every seat and seen from every seat.** `DesertAnchors` lists the other seats beside the companions of a co-op game and marks them as *viewers* (`ViewerPositions`): a companion across the network is
+  *served* (sand with a collider, navmesh, places and guards on the host) and not looked at, while a seat is also *looked at*, so round it the sand goes out to the horizon (`DesertTerrain.Plan`: a viewer has the reach of the
+  player's own, and the sweep keeps what any of them needs), the props are drawn and given colliders (`DesertScatter`: cells, level of detail and fires are chosen by the nearest of the viewers, one draw per kind over the union),
+  the far skins of the places are made for each (`DesertDirector.PlanFar`) and the loot lies on the sand round each (`OutdoorLoot`, thrown away only when far from all).
+- **One sky, a dome for each camera.** The fog, the ambient and the colour grading are global, so the look is one: outdoors if *any* seat is outdoors, indoors only when all are. Every seat's camera gets its own solid background and
+  its 1,500 m far plane (`DesertSky.AttachExtra`, restored when the sky is destroyed); the dome is a single object that moves to the camera that is about to render (`RenderPipelineManager.beginCameraRendering`), and the fog colour toward the sun
+  is set there too for that camera's heading (`TintFog`). `DesertSky.IndoorFor(camera)` says how indoors one seat is.
+- **Effects round each seat.** The flying sand, the weeds and animals, the veils off the crests and the dust devils exist once per seat (`DesertDirector.Create` makes the instances of seats 2 to 4, each with its camera and
+  its own random seed; `I` stays the first one's); the fires are one component that lights the four nearest fires of each seat in turn (`DesertFires.PickNear`).
+- **Per seat and not per machine**: the objective line (`DesertDirector.WhereText` keeps its cache for each seat and `RefreshObjective` writes the lines from inside each seat), the edge of the world, the pick-ups
+  (`DesertPickup`), the minimap markers (`HUD.DesertMap`) and the falls (`DesertFallGuard` already was).
+
 ## The code
 
 | File (`unity/PryingEyes/Assets/_PryingEyes/Scripts/`) | What it does |
@@ -303,13 +405,15 @@ rebuilt identical every time you come back.
 | `Deserto/Enemy.Desert.cs` | The enemy of the desert: rests, wakes, gives up. |
 | `Deserto/DesertSky.cs`, `Resources/Shaders/DesertSand.shader`, `DesertSky.shader` | The sun and moon light, fog, exposure and the sky dome (stars, clouds, the sun's disc); the sand with its grain and ripples. |
 | `Deserto/DesertGrade.cs` | The colour grade of the open desert by sky and weather (pure, also in the lab); `DesertSky` applies it and gives the room's look back indoors. |
-| `Deserto/DesertNav.cs` | The sliding navmesh. |
+| `Deserto/DesertNav.cs` | The sliding navmesh (0.9.1: in co-op the host also builds the tiles round every companion). |
+| `Deserto/DesertMapGen.cs`, `DesertMapTiles.cs`, `HUD.DesertMap.cs`, `DesertHome.cs` | The minimap (the pure painter, also in the lab; the wrapping texture and its painting jobs; the HUD with the markers) and the way home (the golden arrow). |
+| `Deserto/DesertAnchors.cs`, `Coop/CoopGame.World.cs`, `Coop/CoopTest.Desert.cs` | Co-op: the companions' points that the host builds the desert round (and, in a split screen, the other seats, which are also looked at); what each guest is sent (enemies near it, the clock, the boss); the two-process test. |
 | `Deserto/DesertDirector.cs`, `DesertSites.cs`, `DesertStairs.cs` | The director (places, walkers in the open, loot in the open, bosses, the edge of the world, the renewal of the Library, the sweep of unused assets, the compass words), a loaded place and the stairs of a stack. |
 | `Deserto/DesertPickup.cs` | Points, ammunition, medikit and essence. |
 | `Deserto/DesertCathedral.cs`, `Proc/RoomKits.HubDeserto.cs`, `Proc/HubPlan.cs` | The cathedral in the desert: plinth and stair (one stone mesh, physics in hidden boxes), the two braziers (a bowl, three legs and a ring in one mesh, `BrazierMesh`, built with `DesertLathe`) with their fire (`BrazierFire`), the two banners of the stair and those of the towers (`DesertBanner`), the lamp posts (`DesertLamps`) and the awnings, drapes and counters of the stalls (`DesertAwning`), the armoury and its prices, the places of the two works. |
 | `Proc/FloorDirector.Desert.cs`, `FloorDirector.Catacombe.cs` | Starting the game, the wait for the ground, the HUD and the objective, the fall guard, what a rebuilt cathedral must not wipe. |
 | `GameMenu.Mode.cs` | The choice *Standard* / *Il deserto*. |
-| `DesertTest.cs` | The in-game check (below). |
+| `DesertTest.cs`, `SplitDesertTest.cs` | The in-game check (below) and the one of the split screen. |
 
 Changes elsewhere: `Stealth.Enabled` is off in the desert (no stealth: see `Enemy.Desert.cs`), `Enemy.FloorDirectorCeiling` and `MoveFlying` follow the ground, `WallBuy` has free
 panels, `Catacombe.OnKill` takes the branch of a drop from the place, the standard gates of the descent are not built, `HUD` has a shade at the top
@@ -337,10 +441,16 @@ Said here so they can be changed.
   another work rebuilds the cathedral and so also draws three new books.
 - **Sand quiets the steps** (0.8 of what marble sounds like to the monks), so that sneaking over dunes is a little easier than over tiles.
 - **Death** uses the penalty of the floors and a respawn at the stair.
-- **No map**: the cathedral has never had one (`M` does nothing there) and the desert does not add one; the objective names the nearest place and the
-  way home instead. A map of the places already seen is the obvious next step if the compass words are not enough.
+- **No sheet of the places seen, but a minimap** (0.9.1): the cathedral has never had a map (`M` does nothing there or in the desert); the objective names the nearest place and the way home, and
+  since 0.9.1 the minimap (`N`) and the golden arrow do the same job better. A map of the places already seen is still the obvious next step if they are not enough.
+- **Co-op shares the enemies, the hour and the fall of a boss, not the loot** (0.9.1): what lies on the sand and the trophies are each player's own, like the points and the store; the
+  alternative (one list of what was taken for everybody) would have meant every pick-up crossing the wire and a player who walks ahead emptying the sand for the others.
+- **190 m and 230 m**: the distances at which the host starts and stops sending an enemy to a guest (the sand is flat and the sight line long, so a monk at 190 m is already a threat; the 40 m
+  between the two keep an enemy on the edge from appearing and disappearing). They are `InterestIn` and `InterestOut` in `CoopGame.World.cs`.
+- **The more players, the more enemies on the sand**: +70 % of the wandering target and +12 of the cap for every companion, and the wandering enemies are born one player at a time. It is a guess.
 - **Not saved**: the desert, its seed, the clock, what you took. The cathedral, the store and the works are saved as always.
-- **Not in the desert**: co-op, split screen (they stay standard).
+- **The split screen shares the look and the ears** (0.9.1): the fog, the ambient and the colour grading are global in this pipeline, so a seat inside a building beside a seat on the sand gets the outdoor look (a little bright for the
+  one indoors), and there is one audio listener, seat 1's, so a seat kilometres away from it hears nothing of what happens round it. A volume per camera would fix the first and a custom audio mix the second; neither was done.
 
 ## How to check
 
@@ -349,16 +459,17 @@ dotnet run --project tools/desertlab -c Release            # the pure code, no U
 & $exe -batchmode -nographics -autotest -desertotest -seed 1000        # the real game, from the cathedral
 & $exe -batchmode -autotest -desertotest -desertshots -seed 1000       # the same with a window and the photos of hotel_build/deserto
 & $exe -batchmode -autotest -desertotest -desertonly varieta -desertshots -seed 1000   # one of the long phases (below): soak, varieta or prestazioni
+.\tools\coop\run_all.ps1 -Only j                                       # the desert in co-op: a host and a guest, two processes, no graphics card (about three minutes)
 ```
 
 Three more flags help when something fails: `-desertonly scalinata,cappella` runs only those phases (the arrival always runs; the others are
-`cielo`, `cattedrale`, `opere`, `oggetti`, `suono`, `torre`, `boss`, `catacomba`, `notte`, `morte`, `lontano`, `caduta`, `foto`), `-desertnavlog` writes, for
+`cielo`, `cattedrale`, `opere`, `oggetti`, `suono`, `minimappa`, `torre`, `boss`, `catacomba`, `notte`, `morte`, `lontano`, `caduta`, `foto`), `-desertnavlog` writes, for
 every navmesh tile, how many sources it collected and how many triangles the navmesh has when it is done, and `-desertdiag` (with `-desertshots`) says why
 a hall looks wrong: ambient light, fog, the six nearest lights, the nearest wall and what it is made of, how many renderers are around, and three more
 photos (towards the wall, at the floor). With a window the test also measures the contrast of what the camera sees in the chapel, in every level of the
 catacomb and in the two boss halls (`FrameSpread`: a fog or a black room gives almost none).
 
-Nineteen phases are long (or are only photographs) and run only when asked by name (`-desertonly soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `orizzonte`,
+Twenty phases are long (or are only photographs) and run only when asked by name (`-desertonly soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `rovine`, `orizzonte`,
 `paesaggio`, `nuvole`, `cose`, `galleria`, `rilievi`, `look`, `suolo`, `orme`, `creste`, `salina`, `cammino`, `percorso` or `vita`, one or more per run, separated by commas), since the default run would double in time. Most are the ones of the livelier desert,
 to be run with `-desertshots` and looked at: **`nuvole`** (photos only) shoots the sky from the churchyard with three covers (`DesertSky.CloudOverride`: 0.12, 0.27 and 0.45) at noon, 16:24 and
 17:54, once away from the sun and once into it: it is how the shape and the light of the clouds and the rays were judged; **`paesaggio`** (photos only) takes the first look from the churchyard at dawn, noon, dusk, night and in a storm and, from a
@@ -384,7 +495,7 @@ frame log of the test now leave out. Without them, in the last run: 60,715 frame
 that crosses the loading boundaries, which the one of 309 m does not (everything within reach is built on arrival): from the foot of the stair it picks, among 24 headings towards the south, the one that makes the most places load (they enter the radius of 280 m, or 340 for a tower, on the way and were not there at the start)
 without touching any place (18 m), any mesa (40 m) or the cathedral, waits for the director to have built everything within reach, stops the clock at 9:00 and walks 1,300 m on foot, measuring every frame as `cammino` does and counting the slow steps of the director, the places loaded and unloaded
 and the memory sweeps; for every frame over 33 ms it says whether a slow step or the unload of a place fell in it. It does not draw (with `-batchmode` the camera does not), so it measures the hitches of the logic and not the card; **`costi`** measures what each part of the picture costs in one place (see "The cost of a frame" below); **`esterni`** takes photos of the outside of one building of every kind and state, two towers, two catacombs and the chapel (four views from the
-corners and one from above) and the cathedral from four sides; **`orizzonte`** waits, from three points, for every far skin within 760 m to be built, checks that
+corners and one from above) and the cathedral from four sides; **`rovine`** (six checks, no photos by itself, headless, **needs no graphics card**) builds the shell of up to 33 places (28 buildings of every kind and state, three towers, two catacombs, the nearest to the cathedral first) twice, with the walls of 0.9.0 (`FloorBuilder.LegacyWalls`) and with the new ones, and counts on the real triangles (`DesertCensus`): the flipped faces, the faces of different materials that fight on the same plane and are seen from somewhere (the back faces that face into a wall are not counted, and the number is split into facade faces and the interiors, which are not touched), the 2,400 rays per place from the sand at eye height (a tenth from higher up, a quarter from farther) whose first surface is seen from behind, and the window panes seen from behind; it fails if there is any flipped face, if the facade fights are more than 5 % of those of 0.9.0, the holes more than 40 % and the panes more than 2 %, or if the same probe finds no defect in the walls of 0.9.0 (then it measures nothing). It takes about 50 seconds. `-rovinepng 6` also draws the first six places with the CPU (three views each, 640 x 360, into `hotel_build/deserto/census/`: magenta where the eye goes through a wall, yellow through a pane), `-rovinematch Chiesa/Intact|Casa/Ruin` the places whose kind/state contains one of the words, and `-rovineboth` the ones with the walls of 0.9.0 too, to put them side by side; **`orizzonte`** waits, from three points, for every far skin within 760 m to be built, checks that
 none stays lit where the real shell is complete and measures their weight, and photographs the horizon in four directions by day and at dusk; **`cose`**
 goes to a point in the middle of each of the six regions and checks that the squares around have thousands of props of at least six kinds and the colliders,
 with three photos each; **`vita`** checks the animals (they are there and one runs away at two metres), the tumbleweeds, the vultures over the landmark tower by
@@ -404,7 +515,25 @@ and by night, the foot of the tower looking up, the nave, inside the chapel and 
 
 Everything below was run on 18 and 19 November 2026 on the developer's PC (seed 1000); the numbers are those of the last run of each test, made on the working tree that was committed in the sixth round (`b9c6cd4`) or in the commit of the long-walk probe after it (`9eb7b60`), both on 19 November. The release battery of 19 November (everything but the photos and the cost of a frame) ran on the build of `9eb7b60`: `-desertotest` 127 of 127 in 171 s, `-desertonly soak,varieta,percorso` 48 of 48 in 733 s, `tools/desertlab` all pass.
 
-- **The pure code**: `tools/desertlab`, 98 checks, all pass (the list is in [../engineering/testing.md](../engineering/testing.md), section 2.4).
+- **The walls of the places (0.9.1)** (`-desertonly rovine`, 6 checks, 16 of 16 with the arrival, no graphics card, 192 s with three places drawn before and after; seed 1000, the 33 places nearest the cathedral: 28 buildings, 3 towers, 2 catacombs, 862,000 triangles): flipped faces **624 to 0**; faces of a facade that fight for the same pixels and are seen from somewhere **18,884 to 334** (of 20,472 to 1,922 in all: the rest are the interiors of the rooms, ceiling beams on the floor of the level above and crown mouldings flush with ceilings, the same before and after); rays that see through a wall **1,578 to 506** of 79,200 (none of the 506 is known to be a bug: they are rays that enter by a door, a broken window or a collapse; on the partitions of two ruined rooms there is a band along the top where the taller face is not seen from the lower side, which was not repaired); window panes seen from behind **949 to 3**. The images drawn by the CPU of a church, a ruined house and a collapsed inn were looked at before and after: the slits at the corners, the empty arcs under the vaults, the see-through windows and the see-through top of a ruin are gone from the walls of the church and the house; thin lines remain at the end of the vaults and along the partitions of the collapsed inn. **No photo with the graphics card**: the developer's game was open on the same PC (the CPU image is a flat-colour map, it does not judge the look).
+- **Co-op in the desert (0.9.1)** (`tools/coop/run_all.ps1 -Only j,k,l`, 19 November 2026, protocol `pe-coop-31`, two processes over loopback on this PC, no graphics card, seed 2961, no exception in any log).
+  `j_deserto` (46 s; guest 18 of 18, host 15 of 15): the desert is built on both machines (the guest in 2.9 s, the host in 9.9 s) and each sees the other; the guest has the host's seed and its hour of the day (7.25 h on both);
+  put 499 m from the stair beside a ruined inn, the guest makes the host build that inn's shell, the sand with its collider and the navmesh under it (3.4 s); of two enemies born on the host, one beside each
+  player, the guest gets the near one as a puppet and not the one 500 m away (the farthest puppet it sees is 89 m from it); when the guest comes back the two swap, and the one that went out of its sight is removed without dying (it is alive on the
+  host); a lethal hit on a puppet kills the real enemy and pays the shooter (+100 points, +1 kill); the hour set on the host (day 2, 15.5 h) arrives (15.53 h); a boss that falls on the host (the host's `OnBossDown` is called
+  directly: nobody fought it; a tower of 12 levels 1.5 km away) falls for the guest too and its trophy goes into both stores (39 to 60 resources). `k_deserto_esce` (41 s) and `l_deserto_ucciso` (57 s, the guest's process killed, exit -1 as expected; guest 10 of 10,
+  host 16 of 16 in both): the guest, half a kilometre away, leaves; the host drops its puppet, has no anchor left to build round, has one target for the enemies, throws away the list of what that guest saw, unloads the far place
+  (434 m from the host, threshold 370 m) and goes on alone (the clock runs 7.48 h to 7.60 h and an enemy born 14 m from it comes to 9.5 m in 6 s). The nine standard scenarios (a to i, 737 s) pass on the same protocol with the same
+  numbers as on 17 November (see [../multiplayer/README.md](../multiplayer/README.md)).
+- **Split screen in the desert (0.9.1)** (`-splitdesertotest` through `tools/coop/run_split.ps1 -Players N -Desert`, 19 November 2026, seed 1000): two seats 31 checks of 31, three 33 of 33, four 35 of 35, without a window (about 25 s each);
+  two seats over **two real monitors** (the 3440x1440 primary and the 4K one) 33 of 33 in 30 s, 60 frames per second. The checks: every seat's camera has the far plane and the solid background; the sand, animals, veils and dust devils have one
+  instance per seat and the fires one; the seats arrive 0.36 m apart; each HUD has the objective; seat 2, taken 2.6 km from seat 1 to a real chapel, stands on sand with a collider, with navmesh round it and still round seat 1, with props, loot
+  and the chapel built next to it and its skin, and its sky is outdoors; it is not on seat 1's minimap (the seats that stayed home are); 70 points picked up by seat 2 are seat 2's and not seat 1's; the two objective lines differ (seat 2's says
+  *cattedrale a 2550 m*); a seat sent past the edge of the world (18 km) is brought back to 17.9 km and the other does not move; brought back together, every minimap shows the others. With the graphics card each camera was rendered at noon (the top of
+  the picture is sky, not the fog-coloured background: `split_posto1.png`, `split_posto2.png`) and the system photographed both monitors twice: the cathedral stair with the minimap, the objective and the companion at *2335 m* on one, a chapel
+  2.3 km away with the golden arrow (*cattedrale · 2,3 km*) and the objective with the way home on the other; the sky of the two has the same colours from the top to the horizon (133,140,152 to 245,245,246 against 134,140,150 to 243,243,243);
+  the dot of the other seat is on both minimaps when they are together.
+- **The pure code**: `tools/desertlab`, 107 checks, all pass (the list is in [../engineering/testing.md](../engineering/testing.md), section 2.4).
 - **The real game**: `-desertotest`, 127 checks, all pass, in about three minutes without a window. In order: the game is in the desert and alone; the
   camera clears to a solid colour with a 1,500 m far plane (without it the scene's own sky is drawn over the dome); the cathedral is the usual plan with
   its armoury; the sand, the sky and the navmesh exist and the navmesh keeps every tile it has built; you start on the churchyard; no enemy in the
@@ -507,7 +636,19 @@ What is **not** verified:
   on hundreds of seeds, but the game itself was run on one world. The soak test is three rounds of four places (minutes), not an hour of walking, and the
   far places (5 to 17 km) are reached by teleport, so the streaming along a walk is known for one heading and 1.3 km (`percorso`, with every frame measured, but without drawing: a real frame also pays for the card; `cammino` does 309 m). The cost of a frame is a
   manual render of the camera without the HUD, not a game played: real frames cost a little more.
-- No controller in the desert, no multi-monitor, no co-op or split screen (they stay standard).
+- No physical controller in the desert. **The split screen in the desert** ran with real windows only for two seats (on two real monitors); three and four ran without a window. Nobody has played it with a second person: the sound of a seat
+  kilometres from seat 1 (one listener), the cost of a frame with four seats looking at four different parts of the desert (not measured), a seat indoors beside one outdoors (the look is the outdoor one) and the night fires of two seats
+  (`DesertFires.PickNear`, which fires to light for each seat, has no check of its own) were not looked at.
+- **Co-op in the desert was tried with two processes on this PC over loopback and one guest**: never between two machines (latency, lost packets), never with three or four players in the desert
+  (the floors were, with the same code), and the guest was never seen *moving*: the one photo of the pair (taken by the host with the graphics card, `-cooppics`) has the companion standing 23 m from it,
+  with his body, his name and the light of his torch on the sand, the *Compagni* panel and his blue dot on the minimap. Nobody has seen a puppet appear at 190 m or a companion run across the sand.
+  The distances of 190 and 230 m, the +70 % of enemies per companion and the way the host's frame grows with the players (it simulates and builds round every one of them) are guesses: the cost of a frame with
+  four players was never measured. A guest who joins in the middle of a game was not tried in the desert (the code is the one of the floors and the guest's `FloorReady` hands it the enemies round it, which the
+  scenario does exercise at the start: the guest joins 8 s after the host). A guest who leaves, closing the game or killed, was tried half a kilometre away (`k_deserto_esce`, `l_deserto_ucciso`); nothing was tried with a guest who dies in the desert.
+- **The minimap and the arrow were seen in five screenshots of the game** (graphics card, 1600 x 900: `-desertonly minimappa -desertshots` takes `20_minimappa_scalinata`, `21_minimappa_lontano_notte` and `22_minimappa_lontano_giorno`, and the two co-op photos have it too), and they
+  were judged by eye: the brass frame, the parchment with its contour lines and the footprints of the places, the red arrow that is you, the dot of an awake enemy (the one that sleeps is not there), the blue dot of the companion, the compass, the
+  scale, the golden arrow on the edge pointing at the cathedral and, at the top of the screen, the arrow with *cattedrale · 550 m*. What the first photos found: the night chart was too dark (the inked footprints disappeared), and its tint was lightened (0.34, 0.40, 0.62 to
+  0.46, 0.55, 0.85); it is still much darker than the day's. Not seen: the chart underground, in a storm, with four companions, at 4K or on an ultra-wide screen, or by someone who has never seen a map: whether it is easy to read at a glance is a judgement the developer has not made.
 - Of the places in the open the test walks in and looks at one of each kind and state, a second tower and a second catacomb, but it climbs the stairs only
   of the landmark tower (to its first floor) and of the nearest catacomb (all the way down); the boss halls of the other two are reached by teleport, and the
   rooms between the entrance and the boss hall of the other towers have not been seen.

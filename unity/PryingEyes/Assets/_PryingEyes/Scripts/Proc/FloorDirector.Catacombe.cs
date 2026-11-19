@@ -103,15 +103,17 @@ namespace PryingEyes.Proc
             LightShafts.Build(cur);
             StartCoroutine(RoomProbes.Bake(cur));
             Seats.Players(everyone);
+            // in cooperativa nel deserto ognuno nasce al suo posto sulla scalinata, a fianco degli altri (non sulla stessa mattonella)
+            float slotShift = desert && Coop.Active ? (Coop.Slot - 1.5f) * 0.9f : 0f;
             for (int i = 0; i < everyone.Count; i++)
             {
                 var one = everyone[i];
                 // nel deserto si nasce in cima alla scalinata, a guardare la sabbia (yaw e' in radianti: pi greco = verso -z)
-                Vector3 spot = keepAt ?? (desert ? new Vector3(18f, 0.06f, 2.2f) : new Vector3(HubPlan.SpawnX, 0.06f, HubPlan.SpawnZ));
+                Vector3 spot = keepAt ?? (desert ? new Vector3(18f + slotShift, 0.06f, 2.2f) : new Vector3(HubPlan.SpawnX, 0.06f, HubPlan.SpawnZ));
                 if (desert && keepAt.HasValue)
                 {
                     // una ricostruzione lascia dove si era, ma la rinascita resta in cima alla scalinata: dopo una morte non ci si ritrova in fondo alla navata
-                    one.SetSpawn(SideBySide(new Vector3(18f, 0.06f, 2.2f), Vector3.forward, i, everyone.Count));
+                    one.SetSpawn(SideBySide(new Vector3(18f + slotShift, 0.06f, 2.2f), Vector3.forward, i, everyone.Count));
                     one.Teleport(SideBySide(spot, Vector3.forward, i, everyone.Count));
                 }
                 else one.SetSpawn(SideBySide(spot, Vector3.forward, i, everyone.Count));
@@ -126,6 +128,7 @@ namespace PryingEyes.Proc
             RefreshObjective();
             Debug.Log($"[PryingEyes] cattedrale costruita in {(Time.realtimeSinceStartup - t0) * 1000f:F0} ms: {Fabbrica.Albero.BuiltCount}/{Fabbrica.Albero.All.Count} opere, {LightPool.Count} luci");
             if (desert) yield return DesertWaitReady();         // si resta al nero finche' la sabbia sotto la scalinata non c'e'
+            if (desert && Coop.Active) Coop.OnFloorBuilt();     // cooperativa: il deserto attorno all'arrivo c'e' (l'ospitato lo dice all'ospite, l'ospite saluta chi aspettava)
             for (float k = 1f; k > 0f; k -= Time.deltaTime / 0.9f) { FadeAll(k); yield return null; }
             FadeAll(0f);
             SetInvulnerable(false);
@@ -200,12 +203,25 @@ namespace PryingEyes.Proc
         /// i rifornimenti del mercato, prezzi delle opere. Le armi restano quelle prese nella cattedrale (la rastrelliera della sacrestia).</summary>
         void ResetForExpedition(Bundle supplies)
         {
+            ResetRunCommon();
+            ResetSeatForExpedition(supplies);
+        }
+
+        /// <summary>Quello che vale per tutta la partita all'inizio di una spedizione: le ondate, i premi, i perk e le medaglie di ogni posto.</summary>
+        void ResetRunCommon()
+        {
             RoundDirector.ResetRun();
             Drops.ResetRun();
             deaths = 0;
             Seats.EachOrOnce(_ => { Perks.ResetRun(); Medals.Reset(); });
+        }
+
+        /// <summary>Quello che e' del giocatore che gira adesso (nello schermo condiviso si chiama a nome di ogni posto): punti di partenza, perk delle cappelle, equipaggiamento.</summary>
+        void ResetSeatForExpedition(Bundle supplies)
+        {
             gm.score = Fabbrica.PuntiIniziali + 500 * supplies[Rifornimenti.Lettera];
-            Seats.ForHuds(h => { h.SetScoreLabel("PUNTI"); h.SetScore(gm.score); h.SetWaveLabel("livello"); });
+            var scoreHud = gm.hud;
+            if (scoreHud != null) { scoreHud.SetScoreLabel("PUNTI"); scoreHud.SetScore(gm.score); scoreHud.SetWaveLabel("livello"); }
             if (Fabbrica.Costruita("cappella_pietra")) Perks.Add(PerkId.PelleDiPietra);
             if (Fabbrica.Costruita("cappella_mani")) Perks.Add(PerkId.ManiSvelte);
             if (supplies[Rifornimenti.Cero] > 0) Perks.Add(PerkId.Rinascita);
