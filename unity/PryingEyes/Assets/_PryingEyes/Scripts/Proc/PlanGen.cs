@@ -456,7 +456,7 @@ namespace PryingEyes.Proc
             else { xf.Apply(o.line, o.Lo, out ax, out az); xf.Apply(o.line, o.Hi, out bx, out bz); }
             var t = new Opening
             {
-                a = o.a, b = o.b, style = o.style, sill = o.sill, top = o.top, oneSided = o.oneSided, variant = o.variant, width = o.width,
+                a = o.a, b = o.b, style = o.style, sill = o.sill, top = o.top, oneSided = o.oneSided, variant = o.variant, width = o.width, noGlass = o.noGlass,
             };
             if (ax == bx) { t.alongX = false; t.line = ax; t.center = (az + bz) / 2; }
             else { t.alongX = true; t.line = az; t.center = (ax + bx) / 2; }

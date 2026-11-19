@@ -8,7 +8,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 
 | If you want to... | Read |
 | --- | --- |
-| understand the game | [The cathedral and the catacombs](game/cathedral-and-catacombs.md), [The Tower](game/tower.md) (the levels), then [Weapons](game/weapons.md); [Characters, levels and saves](game/saves-and-characters.md) for who plays and what is kept |
+| understand the game | [The cathedral and the catacombs](game/cathedral-and-catacombs.md), [The Tower](game/tower.md) (the levels), then [Weapons](game/weapons.md); [The desert](game/the-desert.md) for the second way to play; [Characters, levels and saves](game/saves-and-characters.md) for who plays and what is kept |
 | build it, ship a change, understand CI | [Building, shipping and CI](engineering/building-and-shipping.md) |
 | know what is verified and how to run each check | [Testing and verification](engineering/testing.md) |
 | reuse the production suite for another project | [Production suite](engineering/suite-architecture.md) |
@@ -20,6 +20,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | Page | What it covers |
 | --- | --- |
 | [cathedral-and-catacombs.md](game/cathedral-and-catacombs.md) | The two zones: the cathedral to rebuild (works, market, blessings) and the catacombs below (branches, bosses, resources, satchel, extraction, death and remains, oboli). |
+| [the-desert.md](game/the-desert.md) | The second way to play, chosen in the menu: an open, procedural desert with a day and night sky, buildings and towers made of the rooms of the floors, catacombs, bosses on the last floor, the cathedral as the base (armoury at twice the price, perk books and consecration as works), what is found where, how the world, the sand, the navmesh and the places are made, the decisions left to the developer, the checks. |
 | [saves-and-characters.md](game/saves-and-characters.md) | The characters a player makes and chooses (name, look, levels, counters, one cathedral each), how they are chosen in split screen and online, the expedition that can be suspended and resumed, old saves that are upgraded, the test profile, the checks. |
 | [tower.md](game/tower.md) | The Tower: procedural floors and themes, the wave cycle (default) and the candle cycle (legacy), points, perks, shops, shrines, power-ups, themed enemies, controls, code map. The floors are now the levels of the catacombs. |
 | [weapons.md](game/weapons.md) | The 28 weapons in 5 grades, per-weapon numbers, gunplay, sights, and the Blender to Unity pipeline. |

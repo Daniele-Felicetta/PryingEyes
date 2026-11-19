@@ -9,6 +9,9 @@ faith-imbued crystals, gems). The use of points and what the cathedral gives bac
 This page says how it plays, then the numbers, then the code and how it was verified. The rules of each catacomb level (waves, paid
 areas, perks, shops) are those of [tower.md](tower.md); this page only lists what changes.
 
+Since 18 November 2026 *Gioca* first asks how to play: **Standard** is everything on this page, **Il deserto** keeps this cathedral (the
+store, the market, the works) as the base of an open desert, with an armoury and two more works: see [the-desert.md](the-desert.md).
+
 ## How it plays (alone)
 
 1. *Gioca* starts in the **cathedral square** (*il sagrato*), at night, in front of the façade. Nothing attacks there: no waves, no enemies.

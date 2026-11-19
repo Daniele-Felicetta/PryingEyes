@@ -9,7 +9,7 @@ namespace PryingEyes.Proc
     public static partial class FloorBuilder
     {
         /// <summary>Altezza del parapetto: piu' del massimo che la presa del giocatore scavalca, cosi' dalla terrazza non si cade nel vuoto.</summary>
-        public const float Parapet = 1.55f;
+        public const float Parapet = Opening.ParapetTop;
         const float Eps = 0.0015f;
 
         /// <summary>Il profilo alto di una faccia di muro di una stanza all'aperto: parapetto dove si da' sul vuoto, tetto del vicino (piu' un

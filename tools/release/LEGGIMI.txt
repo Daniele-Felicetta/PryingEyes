@@ -16,3 +16,7 @@ Giocatore 1: tastiera e mouse (o un controller). Gli altri: un controller Xbox (
 Con piu' di un monitor collegato, il bottone Monitor del menu divide i giocatori tra gli schermi (2 giocatori = uno per monitor).
 
 Terza persona: Impostazioni, scheda Gioco, riga Prospettiva (di base e' la prima persona).
+
+Il deserto: dal menu, Gioca, poi Il deserto (la scelta viene ricordata). Un mondo aperto da esplorare da soli, con tastiera e mouse; il controller non e' stato provato nel deserto. Un giorno dura venti minuti. Cooperativa e schermo condiviso restano nella modalita' Standard.
+
+Personaggi: la prima volta Gioca chiede un nome e un aspetto; il menu Personaggi li elenca. Per giocare in cooperativa serve la stessa versione per tutti.

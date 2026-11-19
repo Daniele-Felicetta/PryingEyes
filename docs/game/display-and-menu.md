@@ -77,9 +77,17 @@ when a controller is in use, and **Torna al menu** warns that the split screen c
 **Chi gioca?** asks which character plays in each seat ([saves-and-characters.md](saves-and-characters.md#playing-together)). Layout, controls and checks:
 [../multiplayer/split-screen.md](../multiplayer/split-screen.md).
 
+## Choosing how to play
+
+**Gioca** (and **Ricomincia dalla cattedrale** after the suspended-expedition question) opens the panel **Come vuoi giocare?** with two buttons,
+**Standard** and **Il deserto**, and **Indietro** (`GameMenu.Mode.cs`). The focus starts on the mode played last time, so Enter or A repeats it; B
+or **Indietro** goes back to the main menu. The choice is kept in `PlayerPrefs` (`PryingEyes.GameMode`; the automated tests never write it) and
+`-deserto` forces the desert. Co-op and split screen have no such question: they are always standard. The desert itself is in
+[the-desert.md](the-desert.md).
+
 ## Characters and the suspended expedition
 
-Since 0.9 (not released when this was written) the main menu has **Personaggi** (`GameMenu.Characters.cs`): the list of the characters, the selected
+Since 0.9.0 the main menu has **Personaggi** (`GameMenu.Characters.cs`): the list of the characters, the selected
 one with its level bar and its figures, **Nuovo personaggio** (a name and the look chosen with **Aspetto**; with no character, **Gioca** and the
 co-op panel open it first), and **Elimina** with a confirmation that says where the file goes. The character in use shows under **Gioca** and in the
 co-op panel (*Il tuo personaggio*). In the pause menu **Torna al menu** opens *Tornare al menu?*, which offers **Salva e torna al menu** beside
@@ -172,5 +180,11 @@ eleven resources of 9999) and the leave panel with its three buttons: at the fou
 must exist exist, and **Indietro** returns to the main menu. The photographs of the list, the expedition panel, the creation panel and *Chi gioca?*
 (1280x720) and of the leave panel (1024x768) were looked at. **Not verified**: these panels with a controller, and their look in a real player window.
 
+On 18 November 2026, with the mode panel of the desert (`GameMenu.Mode.cs`): `MenuReview.Run` passed 2874 of 2874 checks (84 more than with the characters): at the
+four sizes every text of **Come vuoi giocare?** fits its box and the version label keeps its gap from the key hints, *Gioca* opens the panel, the panel
+describes both ways, and **Indietro** returns to the main menu. The photograph (1280x720) was looked at: it showed the two descriptions touching the lower edge of the
+buttons, so they were moved 14 units down and the review was run again (same result, and the photograph was looked at again). `-padtest -nowaves` 89 of 89
+([controller.md](controller.md#verification)). **Not verified**: the panel with a physical controller, and its look in a real player window.
+
 Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Settings.cs`, `GameMenu.Help.cs`, `GameMenu.Split.cs`,
-`GameMenu.Characters.cs`, `GameMenu.Run.cs`, `MenuWidgets.cs`, `MenuSound.cs`, `MenuMusic.cs`, `MenuEngraving.cs`, `GameSettings.cs`, `GameSettings.More.cs`, `VideoSettings.cs`.
+`GameMenu.Characters.cs`, `GameMenu.Mode.cs`, `GameMenu.Run.cs`, `MenuWidgets.cs`, `MenuSound.cs`, `MenuMusic.cs`, `MenuEngraving.cs`, `GameSettings.cs`, `GameSettings.More.cs`, `VideoSettings.cs`.

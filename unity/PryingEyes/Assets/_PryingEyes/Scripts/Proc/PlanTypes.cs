@@ -63,7 +63,12 @@ namespace PryingEyes.Proc
         public float cornerRadius;          // metri: raggio della pianta interna arrotondata, zero = rettangolare
         /// <summary>Senza tetto: i muri salgono interi ma sopra c'e' il cielo (la navata della cattedrale prima delle volte).</summary>
         public bool ruined;
-        public int wing;                    // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
+        /// <summary>Il deserto (PlanGen.Building.cs): una stanza senza pavimento o senza soffitto e' il vano di una scala che attraversa piu' piani
+        /// (le rampe le costruisce DesertStairs). Nei piani di sempre restano false.</summary>
+        public bool noFloor, noCeil;
+        /// <summary>Il deserto: una stanza in rovina che e' crollata (non solo senza tetto): i muri finiscono a denti e ai piedi ci sono i sassi (FloorBuilder.TopFunc, Facade).</summary>
+        public bool crumble;
+        public int wing;                   // ala del piano: 0 la principale (albergo, sala, istituto), 1 la secondaria (chiesa, palcoscenico)
         public int unit;                    // ala-coppia di appartenenza (0 per la prima): vedi PlanGen.Compound
 
         public int W => x1 - x0;
@@ -99,11 +104,26 @@ namespace PryingEyes.Proc
         public OpenStyle style;
         public float sill, top;         // metri; per le porte sill = 0, top e' il punto piu' alto (apice dell'arco)
         public bool oneSided;           // solo la faccia di 'a' (finestre alte, sopra il tetto della stanza accanto)
+        /// <summary>Senza vetro: un'apertura sul vuoto che e' un varco (la breccia di un muro, la porta verso il deserto) o una finestra rotta.</summary>
+        public bool noGlass;
         public int variant;
 
         public bool Pointed => style == OpenStyle.Arco || style == OpenStyle.Arcata || style == OpenStyle.Lancetta;
         public int Lo => center - width / 2;
         public int Hi => center + width / 2;
+
+        /// <summary>L'architrave piu' basso (m) sotto cui si passa a piedi: l'agente della navmesh e' alto 1,9 m (DesertNav, HotelNav).</summary>
+        public const float WalkTop = 2.0f;
+        /// <summary>Un varco senza architrave: un'apertura a livello del pavimento che il muro abbassato di una rovina (PlanGen.Decay) ha tagliato sotto l'altezza di una persona.
+        /// Niente la chiude dall'alto: non si disegnano ne' il muro sopra, ne' l'intradosso, ne' la traversa della cornice; il muro si interrompe e basta. (Un intradosso
+        /// a 1,5 m chiudeva alla navmesh e al giocatore la porta di mezzi edifici crollati: il collaudo 'varieta' del deserto non entrava piu' in tre.)
+        /// Un Passaggio e' basso apposta e tiene il suo architrave.</summary>
+        public bool Gap => sill < 0.01f && top < WalkTop && style != OpenStyle.Passaggio;
+
+        /// <summary>L'altezza (m) del parapetto di una stanza all'aperto (CeilKind.Open) dove da' sul vuoto (FloorBuilder.Parapet): sopra non c'e' muro, quindi nemmeno un'apertura.
+        /// Un'apertura piu' alta lasciava in aria le sue spalle e l'intradosso (la porta larga del sagrato della cattedrale, nel deserto, alta tre metri: una trave nera di 14 m
+        /// sospesa sopra la scalinata, vista dal basso come una diagonale scura nel cielo). Sotto i 2 m un'apertura a terra e' un varco senza architrave (Gap): niente intradosso.</summary>
+        public const float ParapetTop = 1.55f;
 
         /// <summary>Altezza dell'arco sopra l'imposta, in multipli della semiluce: archi acuti piu' o meno slanciati.</summary>
         public float RiseFactor => style == OpenStyle.Lancetta ? 2.3f : style == OpenStyle.Arcata ? 1.45f : 1.3f;

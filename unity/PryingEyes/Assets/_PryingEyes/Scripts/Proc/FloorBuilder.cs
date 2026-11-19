@@ -68,14 +68,30 @@ namespace PryingEyes.Proc
         public static FloorInstance Build(Plan plan, Transform parent = null)
         {
             catacombStyle = plan.catacombe;
+            exteriorBuild = Deserto.DesertMode.Active;           // nel deserto i muri hanno un esterno vero (FloorBuilder.Facade.cs)
             var fi = new FloorInstance { plan = plan };
             fi.root = new GameObject(plan.name);
             if (parent != null) fi.root.transform.SetParent(parent, false);
             fi.roomGo = new GameObject[plan.rooms.Count];
+            var swBuild = System.Diagnostics.Stopwatch.StartNew();
             foreach (var r in plan.rooms) BuildRoom(fi, r);
+            long msRooms = swBuild.ElapsedMilliseconds;
             BuildGardens(fi);
             if (plan.theme == Theme.Guardaroba) BuildGuardarobaSky(fi);
             BuildSacrari(fi);
+            long msExtras = swBuild.ElapsedMilliseconds - msRooms;
+            if (exteriorBuild && !SkipFacade)
+            {
+                // la cattedrale (i luoghi hanno la loro facciata, SiteFacade): tetti, zoccolo, cornici, finestre
+                var dress = new MeshBuilder();
+                long t0 = swBuild.ElapsedMilliseconds;
+                FacadeBuild(plan, 0f, FacadePalette, FacadeRoofs, FacadeCrown, false, true, dress, null, 0, int.MaxValue, FacadeTurrets);
+                long t1 = swBuild.ElapsedMilliseconds;
+                Flush(fi.root, "Facciata", dress, false, null);
+                long t2 = swBuild.ElapsedMilliseconds;
+                if (t2 - t0 > 40 || msRooms > 400)
+                    Debug.Log($"[PryingEyes] piano {plan.name}: {plan.rooms.Count} stanze in {msRooms} ms, giardini e santuari {msExtras} ms, facciata {t1 - t0} ms + mesh {t2 - t1} ms");
+            }
             RoomKits.PlaceWindowBounce(fi);
             // la navmesh deve coprire anche i giardini fuori dai muri e, in altezza, dalla camera della cripta (-4,4 m) alle celle delle torri e alle volte delle cattedrali
             plan.WalkBounds(out int wx0, out int wz0, out int wx1, out int wz1);
@@ -222,6 +238,7 @@ namespace PryingEyes.Proc
             }
             s.outer = r.church ? Mat("mur_pietra") : theme == Theme.Sanatorio ? Mat("mur_intonaco_freddo") : theme == Theme.Teatro ? Mat("mur_intonaco_nero")
                 : theme == Theme.Guardaroba ? Mat("mur_pietra") : Mat("mur_intonaco");
+            if (exteriorBuild && theme != Theme.Guardaroba) s.outer = FacadeKit.For(theme, r.church, FacadePalette).wall;      // la pelle esterna del deserto, tinta per luogo
             return s;
         }
 
@@ -255,7 +272,7 @@ namespace PryingEyes.Proc
             Annex cryptHere = null;
             foreach (var an in plan.annexes) if (an.host == r.id && an.kind == AnnexKind.Cripta) cryptHere = an;
             if (cryptHere != null) CryptHostFloor(shell, st, r, cryptHere);
-            else
+            else if (!r.noFloor)        // il vano di una scala del deserto non ha pavimento (le rampe passano di li')
                 shell.Quad(st.floor, new Vector3(x0, 0, z0), new Vector3(x0, 0, z1), new Vector3(x1, 0, z1), new Vector3(x1, 0, z0),
                            new Vector2(x0, z0), new Vector2(x0, z1), new Vector2(x1, z1), new Vector2(x1, z0), Vector3.up);
 
@@ -300,7 +317,7 @@ namespace PryingEyes.Proc
 
             // il collider del pavimento e' un blocco: niente caduta tra i triangoli
             // (con la botola della cripta il pavimento e' la lastra forata del Guscio, che ha il suo collider di mesh)
-            if (cryptHere == null)
+            if (cryptHere == null && !r.noFloor)
             {
                 var floorGo = new GameObject("Pavimento");
                 floorGo.transform.SetParent(go.transform, false);
@@ -312,6 +329,23 @@ namespace PryingEyes.Proc
             if (r.upperGallery) BuildGallery(fi, r, go);
             BuildAnnexesIn(fi, r);
             if (r.cornerRadius > TH) BuildRoundedCorners(r, st, go);
+            if (SkipDress) return;
+            var window = RoomKits.Dress(fi, r, go.transform);
+            if (r.church && ProcKit.HasMat("foschia_chiesa")) ChurchHaze(go.transform, x0, x1, z0, z1, r.wallH, window);
+        }
+
+        /// <summary>Il deserto costruisce prima il guscio dei luoghi lontani (muri, pavimenti, soffitti) e arreda solo le stanze vicine al giocatore
+        /// (<see cref="DressRoom"/>): con questo vero, Build non arreda ne' illumina.</summary>
+        public static bool SkipDress;
+
+        /// <summary>Arreda e illumina una stanza gia' costruita (dopo Build con SkipDress). Gli arredi stanno in coordinate assolute: la radice del piano
+        /// deve essere dove era quando e' stata costruita (alla quota zero); chi chiama la sposta e la rimette.</summary>
+        public static void DressRoom(FloorInstance fi, Room r)
+        {
+            catacombStyle = fi.plan.catacombe;
+            var go = fi.roomGo[r.id];
+            if (go == null) return;
+            float x0 = M(r.x0), x1 = M(r.x1), z0 = M(r.z0), z1 = M(r.z1);
             var window = RoomKits.Dress(fi, r, go.transform);
             if (r.church && ProcKit.HasMat("foschia_chiesa")) ChurchHaze(go.transform, x0, x1, z0, z1, r.wallH, window);
         }
@@ -445,7 +479,7 @@ namespace PryingEyes.Proc
 
         static void Ceiling(MeshBuilder mb, Room r, Style st, float ix0, float ix1, float iz0, float iz1)
         {
-            if (r.ruined) return;            // la navata senza tetto: sopra c'e' il cielo
+            if (r.ruined || r.noCeil) return;            // la navata senza tetto: sopra c'e' il cielo (noCeil: il vano di una scala che sale al piano di sopra)
             float H = r.wallH;
             switch (r.ceil)
             {
@@ -603,7 +637,7 @@ namespace PryingEyes.Proc
                 default: origin = new Vector3(ix1, 0, iz0); u = Vector3.forward; facing = Vector3.left; len = iz1 - iz0; break;
             }
             float faceStart = ax ? ix0 : iz0;
-            TopFunc(r, ax, len, out var top, out var breaks);
+            TopFunc(r, ax, len, out var top, out var breaks, (int)s);
             if (r.Open) OpenTop(plan, r, s, faceStart, out top, out breaks);       // terrazza: parapetto sul vuoto, muro alto quanto il vicino
 
             var holes = new List<Hole>();
@@ -629,11 +663,24 @@ namespace PryingEyes.Proc
                     if (h.o.b < 0 && c - h.hw >= -0.001f && c + h.hw <= sb - sa + 0.001f && !h.o.oneSided) hs.Add(new Hole { c = c, hw = h.hw, o = h.o });
                 }
                 float shift = sa - faceStart;
-                TopFunc(r, ax, len, out var top0, out var br0);
+                TopFunc(r, ax, len, out var top0, out var br0, (int)s);
                 if (r.Open) OpenTop(plan, r, s, faceStart, out top0, out br0);
                 Func<float, float> topShifted = x => top0(x + shift);
                 DrawFace(mb, st.outer, null, 0f, o2, u, outward, sb - sa, topShifted, null, hs, sa);
-                if (r.Open) OpenCrown(mb, st, r, ax, Plan.Line(r, s) * 0.1f, sa, sb);
+                if (r.Open)
+                {
+                    // il coronamento salta le aperture che arrivano a terra (la scalinata del deserto): una trave sopra una porta la chiuderebbe
+                    var cuts = new List<Vector2>();
+                    foreach (var h in hs) if (h.o.sill < 0.01f) cuts.Add(new Vector2(sa + h.c - h.hw, sa + h.c + h.hw));
+                    cuts.Sort((p, q) => p.x.CompareTo(q.x));
+                    float at = sa;
+                    foreach (var cut in cuts)
+                    {
+                        if (cut.x - at > 0.05f) OpenCrown(mb, st, r, ax, Plan.Line(r, s) * 0.1f, at, cut.x);
+                        at = Mathf.Max(at, cut.y);
+                    }
+                    if (sb - at > 0.05f) OpenCrown(mb, st, r, ax, Plan.Line(r, s) * 0.1f, at, sb);
+                }
             }
         }
 
@@ -650,11 +697,12 @@ namespace PryingEyes.Proc
         }
 
         /// <summary>Profilo alto del muro lungo una faccia: costante, oppure triangolo/arco sulle testate delle capriate e delle volte.</summary>
-        static void TopFunc(Room r, bool faceAlongX, float len, out Func<float, float> top, out float[] breaks)
+        static void TopFunc(Room r, bool faceAlongX, float len, out Func<float, float> top, out float[] breaks, int salt = 0)
         {
             float H = r.wallH;
             breaks = null;
             top = x => H;
+            if (exteriorBuild && r.crumble && r.ruined) { Jag(r, len, salt, out top, out breaks); return; }       // un muro crollato finisce a denti
             bool parallel = r.ridgeAlongX == faceAlongX;
             if (parallel) return;
             if (r.ceil == CeilKind.Gable)
@@ -696,8 +744,12 @@ namespace PryingEyes.Proc
                 mb.Quad(mat, P(sLo, sill, dA), P(sHi, sill, dA), P(sHi, sill, dB), P(sLo, sill, dB),
                         new Vector2(sLo, 0), new Vector2(sHi, 0), new Vector2(sHi, 0.3f), new Vector2(sLo, 0.3f), Vector3.up);
             if (!o.Pointed)
-                mb.Quad(mat, P(sLo, o.top, dA), P(sHi, o.top, dA), P(sHi, o.top, dB), P(sLo, o.top, dB),
-                        new Vector2(sLo, 0), new Vector2(sHi, 0), new Vector2(sHi, 0.3f), new Vector2(sLo, 0.3f), Vector3.down);
+            {
+                // l'intradosso: chiude l'apertura dall'alto, tranne in un varco senza architrave (Opening.Gap)
+                if (!o.Gap)
+                    mb.Quad(mat, P(sLo, o.top, dA), P(sHi, o.top, dA), P(sHi, o.top, dB), P(sLo, o.top, dB),
+                            new Vector2(sLo, 0), new Vector2(sHi, 0), new Vector2(sHi, 0.3f), new Vector2(sLo, 0.3f), Vector3.down);
+            }
             else
             {
                 int n = Mathf.Max(8, Mathf.CeilToInt(2f * hw / 0.12f));
@@ -716,7 +768,7 @@ namespace PryingEyes.Proc
                 }
             }
             // vetro al centro dello spessore (solo le finestre sul vuoto; la porta di un giardino, b = -2, e' un varco aperto)
-            if (o.b == -1) Glass(mb, o, A, P, nOut);
+            if (o.b == -1 && !o.noGlass) Glass(mb, o, A, P, nOut);        // noGlass: un varco o una finestra rotta (il deserto)
         }
 
         static void LancetFrame(MeshBuilder mesh, Room room, Opening opening, Material stone)

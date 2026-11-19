@@ -4,7 +4,7 @@ using UnityEngine;
 namespace PryingEyes
 {
     /// <summary>Le famiglie di superficie che un proiettile puo' colpire: decidono polvere, schegge, scintille, foro e suono (Fx.Impact).</summary>
-    public enum Surface : byte { Plaster, Stone, Tile, Wood, Metal, Fabric, Glass }
+    public enum Surface : byte { Plaster, Stone, Tile, Wood, Metal, Fabric, Glass, Sand }
 
     /// <summary>Di che cosa e' fatto il punto colpito (2026-11-15). Il materiale si prende dal triangolo colpito (i gusci delle stanze sono
     /// una mesh con un materiale per pavimento, muro, zoccolo, soffitto...), dal renderer dell'oggetto o, per i blocchi di collisione senza
@@ -23,6 +23,7 @@ namespace PryingEyes
         // "_osso" e non "osso", che sta in "rosso"; "_oro" e non "oro", che sta in "coro")
         static readonly (Surface s, string[] words)[] rules =
         {
+            (Surface.Sand,   new[] { "desertsand", "sabbia_" }),
             (Surface.Glass,  new[] { "vetro", "vetrat", "glass", "specchio", "mirror", "neon", "lampadin", "bulb", "cornea", "window", "uscita", "pannello_luce" }),
             (Surface.Metal,  new[] { "ferro", "acciaio", "steel", "ottone", "brass", "_oro$", "gold", "dorat", "metal", "ruggine", "rust",
                                      "ghisa", "_rame", "rame_", "copper", "serrand", "shutter", "griglia", "grata", "armi_", "canne", "lamiera",

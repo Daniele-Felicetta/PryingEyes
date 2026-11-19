@@ -66,12 +66,24 @@ namespace PryingEyes.Cattedrale
                 albero = Opere.Albero();
                 albero.Restore(d.opere ?? new List<string>());
                 sconosciute.Clear();
-                foreach (string id in d.opere ?? new List<string>()) if (Opere.Of(id) == null) sconosciute.Add(id);
+                // fuori dall'albero di questa modalita' (una versione piu' nuova, o le opere del deserto in una partita senza deserto): restano nel file
+                foreach (string id in d.opere ?? new List<string>()) if (!albero.Exists(id)) sconosciute.Add(id);
                 mercato = Listino.Nuovo();
                 foreach (var s in d.scorte ?? new List<Voce>()) if (mercato.Exists(s.id)) mercato.RestoreLeft(s.id, s.n);
                 spedizione = new Expedition(banca);
                 banca.Changed += _ => { if (st == this) Cambiata?.Invoke(); };
                 if (sconosciute.Count > 0) Debug.Log($"[PryingEyes] cattedrale: {sconosciute.Count} opere di una versione piu' nuova ({string.Join(", ", sconosciute)}) restano nel file");
+            }
+
+            /// <summary>L'albero si rifa' con le opere della modalita' di adesso (il deserto le aggiunge) senza perdere quelle costruite.</summary>
+            public void RifaiAlbero()
+            {
+                var built = albero.BuiltIds();
+                foreach (string id in sconosciute) if (!built.Contains(id)) built.Add(id);
+                albero = Opere.Albero();
+                albero.Restore(built);
+                sconosciute.Clear();
+                foreach (string id in built) if (!albero.Exists(id)) sconosciute.Add(id);
             }
 
             /// <summary>Mette lo stato nella cattedrale del personaggio (senza scrivere il file: lo fa Roster). I campi che questa versione
@@ -125,6 +137,14 @@ namespace PryingEyes.Cattedrale
 
         /// <summary>Da qui legge e scrive questa cattedrale.</summary>
         public static void Usa(Stato s) { if (s != null) st = s; }
+
+        /// <summary>Le opere della modalita' sono cambiate (Opere.IncludeDesert): l'albero di ogni cattedrale aperta si rifa' (le opere costruite restano).</summary>
+        public static void AggiornaOpere()
+        {
+            foreach (var s in aperti.Values) s.RifaiAlbero();
+            nessuno.RifaiAlbero();
+            if (st != null && !aperti.ContainsValue(st) && st != nessuno) st.RifaiAlbero();
+        }
 
         /// <summary>La cattedrale di questo personaggio, da qui in avanti (il menu: "Gioca" con un altro personaggio).</summary>
         public static void Seleziona(CharacterRecord pg) { var s = Apri(pg); if (s != null) st = s; }

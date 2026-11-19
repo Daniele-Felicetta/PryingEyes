@@ -74,13 +74,19 @@ namespace PryingEyes
             {
                 var fd = Proc.FloorDirector.I;
                 var room = fd != null && fd.cur != null ? fd.cur.RoomAt(p) : null;
-                return room != null ? Proc.FloorBuilder.Surface(room, fd.cur.plan.theme) : 0;
+                if (room != null) return Proc.FloorBuilder.Surface(room, fd.cur.plan.theme);
+                // nel deserto, fuori dalla cattedrale: sulla sabbia i passi sono quelli della sabbia (3), nei luoghi quelli della pietra
+                if (Deserto.DesertMode.Active && Physics.Raycast(p + Vector3.up * 0.4f, Vector3.down, out var under, 1.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore) && Deserto.DesertTerrain.IsSand(under.collider)) return 3;
+                return 0;
             }
             if (p.y > 3.5f) return 2;
             bool In(float x0, float x1, float z0, float z1) => p.x > x0 && p.x < x1 && p.z > z0 && p.z < z1;
             if (In(-18f, -2f, -11f, 19f) || In(21f, 27f, -14f, 6f)) return 1;
             return 0;
         }
+
+        /// <summary>Su che cosa cammina adesso: 0 marmo, 1 moquette, 2 legno, 3 sabbia (lo leggono le prove).</summary>
+        public int FootSurface => Surface();
 
         /// <summary>Sposta il giocatore senza cambiare il punto di rinascita.</summary>
         public void Teleport(Vector3 p)
@@ -431,9 +437,15 @@ namespace PryingEyes
                 if (cc.isGrounded && hs > 1.2f)
                 {
                     int surf = Surface();
-                    Synth.Step(surf, Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f));
+                    float stepVol = Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f);
+                    // nelle pozze delle saline (un velo d'acqua sul sale) il passo e' uno sciacquio: niente polvere e niente impronte
+                    bool wading = surf == 3 && Deserto.DesertWorld.Brine(transform.position.x, transform.position.z) > 0.5f;
+                    if (wading) Sfx.UI(SoundBank.Splash, stepVol * 1.6f, Random.Range(0.92f, 1.08f));
+                    else Synth.Step(surf, stepVol);
+                    if (surf == 3 && !crouch && !wading) Deserto.DesertDust.Footstep(transform.position, hs, wantSprint);       // sulla sabbia ogni passo alza un po' di polvere
+                    if (surf == 3 && !wading) Deserto.DesertPrints.Stamp(transform.position, new Vector3(vel.x, 0f, vel.z));      // e lascia la sua impronta, che il vento cancella in un minuto
                     // i preti sentono i passi: piu' lontano di corsa, quasi niente accovacciati o sulla moquette
-                    float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : 1.15f;
+                    float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : surf == 3 ? 1.0f : 1.15f;
                     float loud = crouch || slide ? 0.4f : wantSprint ? 1.6f : 0.95f;
                     Noise.Emit(transform.position, 6.8f * loud * surfK * PerkState.StepNoise, NoiseKind.Step);     // Passi di cenere: -40%
                 }
