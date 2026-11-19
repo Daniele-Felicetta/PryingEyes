@@ -35,6 +35,7 @@ namespace PryingEyes.Deserto
         float lastSpeed, lastThrottle, lastHs;
         bool lastBoost, lastBrake, lastGrounded = true, settled, lit;
         Vector3 lastVel;
+        DesertTracks.Pen penRear, penFront;                 // i nastri di traccia delle due ruote (DesertTracks): si spezzano quando la moto si ferma, si stacca o si parcheggia
 
         /// <summary>Inclinazioni visive in gradi (beccheggio positivo = muso in basso, rollio positivo = a sinistra): la camera del pilota ne segue una parte.</summary>
         public float PitchVisual { get; private set; }
@@ -125,6 +126,7 @@ namespace PryingEyes.Deserto
         public void Park(Vector3 feet, float heading)
         {
             rider = null;
+            penRear?.Lift(); penFront?.Lift();
             this.heading = heading;
             transform.SetPositionAndRotation(feet, Quaternion.Euler(0f, heading * Mathf.Rad2Deg, 0f));
             PitchVisual = 0f; RollVisual = 7f; steerVis = -12f; spin = Mathf.Repeat(spin, 360f);
@@ -143,6 +145,7 @@ namespace PryingEyes.Deserto
         public void Take(PlayerController p)
         {
             rider = p;
+            penRear?.Lift(); penFront?.Lift();
             if (box != null) box.enabled = false;
             if (rig != null) { rig.ShowRightArm(true); rig.ShowArms(!Seats.Split); }          // in uno schermo condiviso le braccia sulla moto le vedrebbero anche gli altri posti: li' il pilota e' il suo corpo (SeatAvatar)
             lastGrounded = true;
@@ -200,6 +203,16 @@ namespace PryingEyes.Deserto
                 rig.frontPivot.localRotation = wheel;
                 rig.PoseArms();
             }
+            // le tracce delle ruote sulla sabbia (DesertTracks): un nastro per ruota; si interrompe quando la moto e' in aria o ferma. Chi lo allunga decide da solo se sotto la ruota c'e' sabbia.
+            if (grounded && hs > 1.2f)
+            {
+                float kTrack = Mathf.Clamp01(hs / TopSpeed);
+                float deepTrack = Mathf.Clamp01(0.35f + 0.35f * kTrack + (handbrake ? 0.35f : 0f) + (boost ? 0.15f : 0f));
+                Vector3 halfBase = fwd * (DesertBikeMesh.WheelBase * 0.5f);
+                DesertTracks.Lay(penRear ?? (penRear = new DesertTracks.Pen(0.15f)), feet - halfBase, deepTrack);
+                DesertTracks.Lay(penFront ?? (penFront = new DesertTracks.Pen(0.12f)), feet + halfBase, deepTrack * 0.8f);
+            }
+            else { penRear?.Lift(); penFront?.Lift(); }
             // la polvere che la ruota di dietro tira su sulla sabbia
             if (grounded && sand && hs > 3.2f)
             {

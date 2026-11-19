@@ -456,8 +456,14 @@ namespace PryingEyes.Deserto
         {
             var pl = Pl;
             float t0 = Time.time;
+            Vector3 prevPos = pl.transform.position;
             while (pl.Riding && Time.time - t0 < timeout)
             {
+                // un corpo in sella che salta di piu' di quindici metri in un fotogramma non e' una corsa: lo si scrive (una volta, in una catena di otto fasi, il pilota e' stato trovato a 190 m dal portale)
+                Vector3 nowPos = pl.transform.position;
+                if ((nowPos - prevPos).sqrMagnitude > 225f)
+                    Debug.Log($"[PryingEyes] desertotest SALTO in sella: da {prevPos:F1} a {nowPos:F1} in un fotogramma (dt {Time.unscaledDeltaTime * 1000f:F0} ms, {pl.RideSpeed:F1} m/s, scala del tempo {Time.timeScale:F2}, verso {target:F1}, a {Time.time - t0:F1} s)");
+                prevPos = nowPos;
                 Vector3 want = target - pl.transform.position; want.y = 0f;
                 if (want.magnitude < tol) break;
                 float diff = Mathf.DeltaAngle(pl.RideHeading * Mathf.Rad2Deg, Mathf.Atan2(want.x, want.z) * Mathf.Rad2Deg);

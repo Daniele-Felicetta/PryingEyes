@@ -99,6 +99,7 @@ namespace PryingEyes.Deserto
             DesertSpindrift.Create(go, followed);         // i veli di sabbia che il vento stacca dalle creste delle dune
             DesertDevils.Create(go, followed);            // i diavoli di sabbia, di giorno col tempo buono
             DesertPrints.Create(go);                      // le orme sulla sabbia, cancellate dal vento in un minuto
+            DesertTracks.Create(go);                      // le tracce delle gomme della moto, anche loro cancellate dal vento in un minuto
             DesertSound.Create(go, followed);             // sibilo della sabbia, grilli, gracchi, ululati e il crepitio dei fuochi
             DesertBikes.Create(go.transform);             // le moto, ai piedi della scalinata: una per posto (si montano con Usa)
             // schermo condiviso (0.9.1): gli altri posti hanno la loro sabbia che vola, le loro sterpaglie e i loro animali, i loro veli e diavoli di sabbia (i fuochi li serve la stessa

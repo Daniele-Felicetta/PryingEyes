@@ -433,6 +433,7 @@ namespace PryingEyes
             float maxRoll = 0f, maxSpeed = 0f, tEnd = Time.time + 6f, tNext = Time.time + 0.5f;
             Vector3 prev = rp.transform.position;
             int good = 0, samples = 0;
+            var trk = DesertTracks.I; int laid0 = trk != null ? trk.Stamped : 0;      // le tracce delle gomme: la moto del compagno e' posata dallo stesso codice e le lascia anche qui
             bool sawGun = false;                                        // l'arma nella destra del pilota seduto, dopo uno sparo (la guarda anche l'attesa della discesa, piu' sotto)
             while (Time.time < tEnd)
             {
@@ -455,6 +456,8 @@ namespace PryingEyes
             }
             Check("la moto del compagno avanza nel verso in cui punta", samples >= 4 && good >= samples * 0.8f, $"{good} di {samples} intervalli, al massimo {maxSpeed * 3.6f:F0} km/h");
             Check("in curva la sua moto si inclina", maxRoll > 3f, $"{maxRoll:F1} gradi");
+            int laid = trk != null ? trk.Stamped - laid0 : -1;
+            Check("la sua moto lascia le tracce delle gomme sulla sabbia (i pezzi aumentano mentre la guardo, almeno venti in sei secondi)", laid >= 20, $"{laid} pezzi in sei secondi");
             float s0 = pb.WheelSpin;
             yield return new WaitForSeconds(0.03f);
             Check("le sue ruote girano", Mathf.Abs(Mathf.DeltaAngle(s0, pb.WheelSpin)) > 1f, $"{Mathf.DeltaAngle(s0, pb.WheelSpin):F0} gradi in 30 ms");
