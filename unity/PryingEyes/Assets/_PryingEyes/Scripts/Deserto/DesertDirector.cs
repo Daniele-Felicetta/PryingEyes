@@ -22,6 +22,8 @@ namespace PryingEyes.Deserto
         public const float DressInBuilding = 85f, DressOutBuilding = 135f, DressInStack = 75f, DressOutStack = 120f;
         /// <summary>La zona attorno alla cattedrale dove non nasce nessun nemico all'aperto (l'arrivo e' sicuro).</summary>
         const float SafeRadius = 42f;
+        /// <summary>Un passo di lavoro di un luogo (un guscio, una stanza arredata, una guardia) che dura di piu' si scrive nel registro con il suo nome: e' un fotogramma lungo che chi cammina sente.</summary>
+        const long SlowStepMs = 30;
 
         Transform player;
         DesertTerrain terrain;
@@ -299,7 +301,13 @@ namespace PryingEyes.Deserto
             watch.Restart();
             foreach (var rt in order)
             {
-                while (watch.ElapsedMilliseconds < 7 && rt.Step(p)) { }
+                while (watch.ElapsedMilliseconds < 7)
+                {
+                    long t0 = watch.ElapsedMilliseconds;
+                    if (!rt.Step(p)) break;
+                    long dt = watch.ElapsedMilliseconds - t0;
+                    if (dt >= SlowStepMs) Debug.Log($"[PryingEyes] deserto: un passo di lavoro ({rt.lastKind}, livello {rt.lastUnit}, {rt.site.kind} a {rt.site.cx},{rt.site.cz}) ha impiegato {dt} ms");
+                }
                 if (watch.ElapsedMilliseconds >= 7) break;
             }
             // poi, con poco tempo, le pelle lontane: la piu' vicina non finita per prima

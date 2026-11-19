@@ -80,7 +80,8 @@ namespace PryingEyes.Deserto
             if ((p - lastPos).sqrMagnitude > 400f) jumpedAt = Time.realtimeSinceStartup;
             lastPos = p;
             // il fotogramma in cui la prova stessa ha disegnato a mano (venti o piu' disegni di fila) e il successivo non dicono niente del gioco
-            if (Time.frameCount - renderFrame <= 1) return;
+            // lo stesso per le foto che scatta la prova automatica da sola (GameManager.HarnessShotFrame: 150-650 ms l'una; il fotogramma lungo a 3 s e a 42 s della camminata era quello)
+            if (Time.frameCount - renderFrame <= 1 || Time.frameCount - GameManager.HarnessShotFrame <= 2) return;
             f[0]++; f[1] += dt; if (dt > f[2]) f[2] = dt; if (dt > 0.1f) f[3]++;
             if (dt > 0.15f) Debug.Log($"[PryingEyes] desertotest fotogramma lungo: {dt * 1000f:F0} ms in '{phaseName}', {Time.realtimeSinceStartup - jumpedAt:F1} s dopo l'ultimo salto del giocatore");
         }
@@ -337,6 +338,7 @@ namespace PryingEyes.Deserto
             if (Explicit("suolo")) yield return Phase("suolo da vicino", GroundShots());
             if (Explicit("creste")) yield return Phase("sabbia dalle creste", SpindriftTest());
             if (Explicit("salina")) yield return Phase("pozze sulle saline", BrineTest());
+            if (Explicit("cammino")) yield return Phase("cammino", WalkProbe());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
             if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
         }
@@ -771,6 +773,17 @@ namespace PryingEyes.Deserto
             bool bannersOk = s.state == BuildingState.Intact ? mast == 1 && mastHem > 0.05f && walls >= 3 && walls <= 4 && wallHem > 0.03f && wallGap >= 0.25f : mast == 0 && walls == 0;
             Check("una torre intera ha sul tetto l'albero con lo stendardo con l'occhio e uno stendardo appeso a ogni muro lungo, che il vento muove senza spingerli dentro il muro (una in rovina non ne ha)", bannersOk,
                 $"{s.state}: {mast} sul tetto, {walls} di muro" + (mast > 0 ? $", l'orlo del tetto si e' mosso di {mastHem * 100f:F0} cm" : "") + (walls > 0 ? $", il piu' fermo di muro di {wallHem * 100f:F0} cm, il telo non e' mai stato a meno di {wallGap * 100f:F0} cm dal muro" : ""));
+            // le torrette d'angolo: la facciata dell'ultimo piano sale oltre i merli (1,7 m sopra il tetto) fino ai tetti a piramide (6 m e piu')
+            float roofTop = s.padY + s.Height, turretTop = 0f; int facades = 0;
+            foreach (var fr in FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            {
+                if (fr.name != "Facciata") continue;
+                var bc = fr.bounds.center;
+                if (Mathf.Abs(bc.x - s.CentreX) > 40f || Mathf.Abs(bc.z - s.CentreZ) > 40f) continue;
+                facades++; turretTop = Mathf.Max(turretTop, fr.bounds.max.y);
+            }
+            Check("la torre ha le torrette ai suoi angoli: la facciata sale oltre i merli fino ai tetti a piramide", s.state == BuildingState.Intact ? facades > 0 && turretTop >= roofTop + 5f : true,
+                $"{facades} facciate, la piu' alta sta {turretTop - roofTop:F1} m sopra il tetto");
             if (shots)
             {
                 // la torre da 90 m dal lato dell'ingresso (l'albero sul tetto e il profilo), dal lato della cattedrale e da est (gli stendardi di muro), poi di nuovo al piede
@@ -786,6 +799,10 @@ namespace PryingEyes.Deserto
                 Pl.Teleport(new Vector3(ex, DesertWorld.Height(ex, s.CentreZ) + 0.06f, s.CentreZ));
                 yield return new WaitForSeconds(0.6f);
                 yield return Snap("13c_torre_stendardi_est", 12f, new Vector3(s.fx1, s.padY + s.Height - 9f, s.CentreZ), 1.2f);
+                float tz = s.fz0 - 40f, tx = s.fx0 - 18f;
+                Pl.Teleport(new Vector3(tx, DesertWorld.Height(tx, tz) + 0.06f, tz));
+                yield return new WaitForSeconds(0.6f);
+                yield return Snap("13d_torre_torretta", 12f, new Vector3(s.fx0 + 6f, s.padY + s.Height + 2f, s.fz0 + 6f), 1.2f);
                 Pl.Teleport(new Vector3(s.CentreX, DesertWorld.Height(s.CentreX, s.fz0 - 12f) + 0.06f, s.fz0 - 12f));
                 yield return new WaitForSeconds(0.4f);
             }
@@ -2371,13 +2388,22 @@ namespace PryingEyes.Deserto
                     yield return null;
                 }
                 life.Calm = false;
-                if (life.NearestWeed(Pl.transform.position, out var wp))
+                // una sterpaglia messa apposta davanti alla camera, a 7 m (la sagoma da lontano) e a 2,6 m (i fusti, i mazzi e le punte): quelle vere rotolano col vento e al momento della foto
+                // possono essere altrove (le prime foto della sterpaglia mostravano un sasso, perche' la mira seguiva una che era gia' sparita)
+                PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
+                var weedCam = Pl.cam.GetComponent<Camera>();
+                var weedFwd = Pl.cam.forward; weedFwd.y = 0f;
+                weedFwd = weedFwd.sqrMagnitude < 0.01f ? Vector3.forward : weedFwd.normalized;
+                foreach (var (weedDist, weedShot) in new[] { (7f, "vita_sterpaglia"), (2.6f, "vita_sterpaglia_da_vicino") })
                 {
-                    Pl.Teleport(new Vector3(wp.x + 7f, DesertWorld.Height(wp.x + 7f, wp.z) + 1.0f, wp.z + 2f));
-                    yield return new WaitForSeconds(0.8f);
-                    life.NearestWeed(Pl.transform.position, out wp);
-                    Face(wp + Vector3.up * 0.4f); yield return null; Face(wp + Vector3.up * 0.4f); yield return null;
-                    Shot("vita_sterpaglia");
+                    var weedAt = Pl.transform.position + weedFwd * weedDist; weedAt.y = DesertWorld.Height(weedAt.x, weedAt.z);
+                    life.PlaceWeed(weedAt, 1.1f);
+                    yield return null;
+                    if (!life.NearestWeed(Pl.transform.position, out var weedNow)) continue;
+                    Face(weedNow + Vector3.up * 0.35f); yield return null; Face(weedNow + Vector3.up * 0.35f); yield return null;
+                    var weedVp = weedCam.WorldToViewportPoint(weedNow + Vector3.up * 0.35f);
+                    Debug.Log($"[PryingEyes] desertotest sterpaglia {weedShot}: a {Vector3.Distance(weedCam.transform.position, weedNow):F1} m, nel quadro a ({weedVp.x:F2}, {weedVp.y:F2}), {life.WeedCount} sterpaglie");
+                    Shot(weedShot);
                     yield return null;
                 }
             }
@@ -2521,6 +2547,53 @@ namespace PryingEyes.Deserto
             yield return new WaitForSeconds(1.6f);
             var q = pl.transform.position;
             Check("chi cade sotto la sabbia torna sopra", q.y > DesertWorld.Height(q.x, q.z) - 6f, q.ToString("F1"));
+        }
+
+        /// <summary>Camminare sulla sabbia dal piede della scalinata fino alla torre di riferimento (350 m), come chi gioca e senza foto, misurando i fotogrammi: i singhiozzi di chi cammina (un luogo che
+        /// si costruisce, un tassello della navmesh, un quadrato di sabbia, la pulizia della memoria) sono la peggior sensazione in un gioco e nessun'altra prova li vede (le altre teletrasportano o
+        /// scattano foto, e una foto da sola costa 150-650 ms). Dice la mediana, il 95% e il 99% dei fotogrammi, il piu' lungo, quanti superano 33, 50, 100 e 250 ms, e per i piu' lunghi dove erano
+        /// e cosa faceva il direttore. Se una cosa blocca la strada (un sasso, un cactus) fa un passo di lato.</summary>
+        IEnumerator WalkProbe()
+        {
+            var s = DesertWorld.Landmark();
+            yield return GoTo(18f, -10f);
+            var pl = Pl;
+            var target = new Vector3(s.CentreX, 0f, s.fz1 + 25f);
+            var dts = new List<float>(); var worst = new List<string>();
+            float t0 = Time.time, until = t0 + 170f, stillSince = Time.time, turnUntil = 0f, turnSign = 1f, walked = 0f;
+            Vector3 start = pl.transform.position, still = start, last = start;
+            bool arrived = false;
+            PlayerController.holdLook = false;
+            while (Time.time < until)
+            {
+                Vector3 pos = pl.transform.position;
+                walked += Flat(pos, last); last = pos;
+                if (Flat(pos, target) < 8f) { arrived = true; break; }
+                if (Flat(pos, still) > 0.5f) { still = pos; stillSince = Time.time; }
+                else if (Time.time - stillSince > 1.0f) { turnUntil = Time.time + 1.4f; turnSign = -turnSign; stillSince = Time.time; ClearEnemiesAround(pos, 2.0f); }
+                Vector3 d = target - pos; d.y = 0f; d.Normalize();
+                if (Time.time < turnUntil) d = Quaternion.Euler(0f, 75f * turnSign, 0f) * d;
+                PlayerController.botDir = d;
+                float dt = Time.unscaledDeltaTime;
+                if (Time.frameCount - renderFrame > 1 && Time.frameCount - GameManager.HarnessShotFrame > 2)
+                {
+                    dts.Add(dt);
+                    var dir = DesertDirector.I;
+                    if (dt > 0.05f && worst.Count < 12)
+                        worst.Add($"{dt * 1000f:F0} ms a {walked:F0} m ({Time.time - t0:F0} s), luoghi caricati {(dir != null ? dir.LoadedSites : -1)}, pelli in costruzione {(dir != null ? dir.FarSkinsPending : -1)}, pulizie {(dir != null ? dir.Sweeps : -1)}, navmesh occupata {DesertNav.Busy}");
+                }
+                yield return null;
+            }
+            PlayerController.botDir = Vector3.zero; PlayerController.holdLook = true;
+            dts.Sort();
+            int n = dts.Count;
+            float Pc(float f) => n == 0 ? 0f : dts[Mathf.Min(n - 1, Mathf.FloorToInt(n * f))] * 1000f;
+            int over33 = 0, over50 = 0, over100 = 0, over250 = 0;
+            foreach (var x in dts) { if (x > 0.033f) over33++; if (x > 0.05f) over50++; if (x > 0.1f) over100++; if (x > 0.25f) over250++; }
+            Debug.Log($"[PryingEyes] desertotest cammino: {walked:F0} m in {Time.time - t0:F0} s, {n} fotogrammi, mediana {Pc(0.5f):F1} ms, 95% {Pc(0.95f):F1} ms, 99% {Pc(0.99f):F1} ms, piu' lungo {Pc(1f):F0} ms; oltre 33 ms {over33}, 50 ms {over50}, 100 ms {over100}, 250 ms {over250}");
+            foreach (var w in worst) Debug.Log("[PryingEyes] desertotest cammino, fotogramma lungo: " + w);
+            Check("si cammina fino alla torre di riferimento sulla sabbia", arrived, $"{walked:F0} m in {Time.time - t0:F0} s, a {Flat(pl.transform.position, target):F0} m dal punto");
+            Check("camminando nessun fotogramma e' un blocco visibile (oltre mezzo secondo)", n > 300 && Pc(1f) < 500f, $"{n} fotogrammi, il piu' lungo {Pc(1f):F0} ms, oltre 100 ms {over100}");
         }
 
         IEnumerator Photos()

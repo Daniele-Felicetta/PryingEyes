@@ -223,12 +223,12 @@ namespace PryingEyes.Proc
             Vector3 L(float a, float y, float d) => new Vector3(sideSign * a, y, d);
             var cloth = ShrineKit.Lit("Tenda_" + banco.id, banco.id == "speziale" ? new Color(0.25f, 0.32f, 0.20f) : banco.id == "armaiolo" ? new Color(0.30f, 0.10f, 0.08f)
                 : banco.id == "ossaio" ? new Color(0.36f, 0.30f, 0.20f) : new Color(0.18f, 0.12f, 0.26f), 0f, 0.2f, true);
-            ShrineKit.Prim(t, PrimitiveType.Cube, "Bancone", ShrineKit.Wood, L(len * 0.5f, 0.47f, 0f), new Vector3(len, 0.94f, 0.72f), default, true);
-            ShrineKit.Prim(t, PrimitiveType.Cube, "Piano", ShrineKit.Wood, L(len * 0.5f, 0.96f, 0.02f), new Vector3(len + 0.06f, 0.05f, 0.8f), default, true);
+            var counterWood = Deserto.DesertMode.Active ? Deserto.DesertAwning.Wood() : ShrineKit.Wood; ShrineKit.Prim(t, PrimitiveType.Cube, "Bancone", counterWood, L(len * 0.5f, 0.47f, 0f), new Vector3(len, 0.94f, 0.72f), default, true);
+            ShrineKit.Prim(t, PrimitiveType.Cube, "Piano", counterWood, L(len * 0.5f, 0.96f, 0.02f), new Vector3(len + 0.06f, 0.05f, 0.8f), default, true);
             foreach (float a in new[] { 0.05f, len - 0.05f })
                 foreach (float d in new[] { -0.6f, 0.45f })
                     ShrineKit.Prim(t, PrimitiveType.Cube, "Palo", ShrineKit.Wood, L(a, 1.25f, d), new Vector3(0.07f, 2.5f, 0.07f), default, true);
-            if (Deserto.DesertMode.Active) Deserto.DesertAwning.Build(t, len, sideSign, cloth.color);       // nel deserto: un telo a strisce con la balza a scalloppi (RoomKits.HubDeserto / DesertAwning)
+            if (Deserto.DesertMode.Active) { Deserto.DesertAwning.Build(t, len, sideSign, cloth.color); Deserto.DesertAwning.Drape(t, len, sideSign, cloth.color); }       // nel deserto: un telo a strisce con la balza a scalloppi (RoomKits.HubDeserto / DesertAwning)
             else
             {
                 var awning = ShrineKit.Prim(t, PrimitiveType.Cube, "Tenda", cloth, L(len * 0.5f, 2.45f, -0.05f), new Vector3(len + 0.3f, 0.03f, 1.5f), new Vector3(-12f, 0f, 0f));

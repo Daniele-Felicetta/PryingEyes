@@ -36,6 +36,11 @@ namespace PryingEyes.Deserto
                 mb.Box(st.trim, new Vector3(c.x, top - 0.14f, c.z), new Vector3(sz.x + 0.24f, 0.28f, sz.z + 0.24f), 0f, true, true);
                 mb.Box(st.trim, new Vector3(c.x, DesertWorld.GroundY + 0.19f, c.z), new Vector3(sz.x + 0.16f, 0.38f, sz.z + 0.16f), 0f, true, false);
             }
+            // le torrette d'angolo del sagrato: dalla sabbia la cattedrale era un recinto basso con i merli e nessuna sagoma (le torri del deserto hanno le loro, FloorBuilder.Turrets). Una per angolo
+            // in fuori del recinto di 36 x 18 m, di 2,6 m di lato (piu' strette di quelle delle torri: i banchi del mercato stanno a 3,2 m dal muro), di pietra piena: ci si sbatte contro
+            var turrets = new List<(Vector3 centre, Vector3 size)>();
+            FloorBuilder.Turrets(fi.plan, fi.plan.rooms[HubPlan.Sagrato], 0f, st, mb, true, 2.6f, turrets);
+            foreach (var tt in turrets) Solid(root, "Torretta", tt.centre, tt.size);
             // la scalinata: pianerottolo davanti al parapetto, poi dodici gradini da 20 cm di alzata e 40 di pedata, con le guance di pietra ai lati
             float xa = HubPlan.StairX0, xb = HubPlan.StairX1, cx = (xa + xb) * 0.5f, w = xb - xa;
             float floorBot = DesertWorld.GroundY - 0.3f;

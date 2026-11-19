@@ -56,7 +56,7 @@ namespace PryingEyes.Deserto
             // i tetti e i merli solo sull'ultimo livello (la cima di una torre, l'ingresso di una catacomba), come per il guscio
             bool top = !site.IsStack || (site.IsTower ? pc.unit == site.LevelCount - 1 : pc.unit == site.entrance);
             var mb = new MeshBuilder();
-            FloorBuilder.FacadeBuild(plan, YOf(pc.unit), site.palette, top, site.IsStack && top, true, false, mb, mb, pc.from, pc.to);
+            FloorBuilder.FacadeBuild(plan, YOf(pc.unit), site.palette, top, site.IsStack && top, true, false, mb, mb, pc.from, pc.to, site.IsTower && top);
             if (top && site.IsTower && !bannersDone && pc.to >= plan.rooms.Count)
             {
                 bannersDone = true;

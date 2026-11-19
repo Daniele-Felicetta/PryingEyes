@@ -159,24 +159,49 @@ namespace PryingEyes.Deserto
         }
 
         // ------------------------------------------------------------------ la sterpaglia
+        /// <summary>Una sterpaglia: una palla di fusti secchi che girano in archi attorno a un nucleo scuro, con mazzi di foglie secche sulla scorza e punte che sporgono. La prima erano dieci anelli
+        /// sottili e ventidue ramoscelli: nelle foto era una palla di filo spinato, con il cielo che si vedeva attraverso. La seconda aveva pochi mazzi grossi di color bruno: a 7 m era un masso (le
+        /// punte, sottili un pixel, non si vedevano e la sagoma era a tre lobi). Ora i mazzi sono piu' piccoli e molti, cosi' la sagoma e' sfrangiata, di paglia grigia e chiara (sulla sabbia
+        /// arancione stacca per tono, non per scuro), i fusti sono piu' grossi per vedersi e il nucleo e' scuro per dare profondita' e ombra dentro. La materia e' 'liscio' e non 'organico':
+        /// l'organico (DesertProp.shader) scurisce tutto cio' che e' sotto 40 cm dall'origine dell'oggetto (l'ombra di contatto al piede dei cespugli e dei sassi), e la sterpaglia ha l'origine
+        /// al centro e rotola, quindi risultava nera.</summary>
         static Mesh Tumbleweed()
         {
-            var m = new PM(Surf.Organic); var rng = new System.Random(200);
-            Func<int, int, Color> twig = (i, j) => Color.Lerp(C(0.46f, 0.37f, 0.22f), C(0.74f, 0.64f, 0.42f), ((i * 7 + j * 3) % 5) / 4f);
-            for (int k = 0; k < 10; k++)
+            var m = new PM(Surf.Plain); var rng = new System.Random(200);
+            float R() => (float)rng.NextDouble();
+            Func<int, int, Color> stem = (i, j) => Color.Lerp(C(0.42f, 0.35f, 0.22f), C(0.80f, 0.72f, 0.54f), ((i * 7 + j * 3) % 5) / 4f);
+            // il nucleo scuro: dietro i fusti non si vede il cielo e dentro c'e' ombra
+            Blob(m, Vector3.zero, new Vector3(0.20f, 0.20f, 0.20f), 210, 0.15f, C(0.27f, 0.21f, 0.13f), C(0.40f, 0.32f, 0.20f), 9, 6, 1f);
+            // i mazzi di foglie secche sulla scorza: tanti e piccoli, di paglia chiara e grigia
+            for (int k = 0; k < 32; k++)
             {
-                var axis = new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f).normalized;
-                var u = Vector3.Cross(axis, Mathf.Abs(axis.y) < 0.9f ? Vector3.up : Vector3.right).normalized; var v = Vector3.Cross(axis, u);
-                float r = 0.36f + (float)rng.NextDouble() * 0.14f;
-                const int n = 12;
-                var ring = new Vector3[n + 1]; var rad = new float[n + 1];
-                for (int i = 0; i <= n; i++) { float a = i * Mathf.PI * 2f / n; ring[i] = (u * Mathf.Cos(a) + v * Mathf.Sin(a)) * r * (0.92f + 0.16f * (float)rng.NextDouble()); rad[i] = 0.017f; }
-                Tube(m, ring, rad, 4, twig);
+                var d = new Vector3(R() - 0.5f, R() - 0.5f, R() - 0.5f).normalized;
+                float rr = 0.05f + R() * 0.045f, t = R();
+                Blob(m, d * (0.22f + R() * 0.12f), new Vector3(rr * (1f + R() * 0.5f), rr, rr * (1f + R() * 0.5f)), 220 + k, 0.5f,
+                     Color.Lerp(C(0.50f, 0.42f, 0.27f), C(0.64f, 0.56f, 0.38f), t), Color.Lerp(C(0.78f, 0.69f, 0.50f), C(0.88f, 0.80f, 0.60f), t), 6, 4, 1f);
             }
-            for (int k = 0; k < 22; k++)
+            // gli archi: fusti che girano attorno al nucleo
+            for (int k = 0; k < 40; k++)
             {
-                var d = new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f).normalized;
-                Tube(m, new[] { d * 0.1f, d * (0.22f + (float)rng.NextDouble() * 0.3f) }, new[] { 0.014f, 0.006f }, 3, twig);
+                var axis = new Vector3(R() - 0.5f, R() - 0.5f, R() - 0.5f).normalized;
+                var u = Vector3.Cross(axis, Mathf.Abs(axis.y) < 0.9f ? Vector3.up : Vector3.right).normalized; var v = Vector3.Cross(axis, u);
+                float r = 0.28f + R() * 0.14f, a0 = R() * Mathf.PI * 2f, sweep = Mathf.PI * (0.8f + R() * 1.0f);
+                const int n = 8;
+                var path = new Vector3[n + 1]; var rad = new float[n + 1];
+                for (int i = 0; i <= n; i++)
+                {
+                    float a = a0 + sweep * i / n;
+                    path[i] = (u * Mathf.Cos(a) + v * Mathf.Sin(a)) * r * (0.9f + 0.2f * R()) + axis * ((R() - 0.5f) * 0.05f);
+                    rad[i] = 0.017f + 0.010f * Mathf.Sin(Mathf.PI * i / n);
+                }
+                Tube(m, path, rad, 3, stem);
+            }
+            // le punte che sporgono dalla scorza
+            for (int k = 0; k < 70; k++)
+            {
+                var d = new Vector3(R() - 0.5f, R() - 0.5f, R() - 0.5f).normalized;
+                var bend = new Vector3(R() - 0.5f, R() - 0.5f, R() - 0.5f) * 0.12f;
+                Tube(m, new[] { d * 0.25f, d * (0.35f + R() * 0.06f) + bend, d * (0.42f + R() * 0.06f) + bend * 1.5f }, new[] { 0.014f, 0.008f, 0.003f }, 3, stem);
             }
             return m.Done("Tumbleweed");
         }

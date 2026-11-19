@@ -19,6 +19,8 @@ namespace PryingEyes.Proc
         public static int FacadePalette;
         /// <summary>Il piano che si costruisce ha i tetti (l'ultimo livello di una torre, un edificio) e i merli sul parapetto.</summary>
         public static bool FacadeRoofs = true, FacadeCrown;
+        /// <summary>Il piano che si costruisce e' l'ultimo di una torre: ai suoi angoli in fuori il tetto ha una torretta con la punta a piramide (Turrets).</summary>
+        public static bool FacadeTurrets;
         /// <summary>Quanto la pelle di chi sta lontano sporge dal muro vero (m).</summary>
         public const float FarInflate = 0.04f;
         /// <summary>Il piano che si costruisce e' al livello del suolo (un edificio, il piano terra di una torre, l'ingresso di una catacomba): i suoi muri hanno la sabbia accumulata alla base (Drift).</summary>
@@ -175,7 +177,7 @@ namespace PryingEyes.Proc
         // ------------------------------------------------------------------ l'esterno di una pianta
         /// <summary>Disegna l'esterno di una pianta. 'y0' e' la quota del suo pavimento; 'roofs' mette i tetti (l'ultimo livello di una torre, tutti i piani di un edificio basso);
         /// 'crown' mette i merli sul parapetto; 'farSkin' disegna anche la pelle dei muri in 'skin'; 'detail' = false salta le rifiniture piccole (la facciata di chi e' lontano).</summary>
-        internal static void FacadeBuild(Plan plan, float y0, int palette, bool roofs, bool crown, bool farSkin, bool detail, MeshBuilder dress, MeshBuilder skin, int from = 0, int to = int.MaxValue)
+        internal static void FacadeBuild(Plan plan, float y0, int palette, bool roofs, bool crown, bool farSkin, bool detail, MeshBuilder dress, MeshBuilder skin, int from = 0, int to = int.MaxValue, bool turrets = false)
         {
             for (int ri = from; ri < plan.rooms.Count && ri < to; ri++)
             {
@@ -193,7 +195,7 @@ namespace PryingEyes.Proc
                         else StepRun(plan, r, s, seg, w, st, plan.rooms[seg.other], dress, detail);
                     }
                 }
-                if (roofed) AddRoof(plan, r, y0, st, crown, detail, dress);
+                if (roofed) AddRoof(plan, r, y0, st, crown, detail, dress, turrets);
             }
         }
 
@@ -417,7 +419,7 @@ namespace PryingEyes.Proc
         }
 
         // ------------------------------------------------------------------ i tetti
-        static void AddRoof(Plan plan, Room r, float y0, FacadeStyle st, bool crown, bool detail, MeshBuilder mb)
+        static void AddRoof(Plan plan, Room r, float y0, FacadeStyle st, bool crown, bool detail, MeshBuilder mb, bool turrets = false)
         {
             float x0 = M(r.x0), x1 = M(r.x1), z0 = M(r.z0), z1 = M(r.z1);
             if (r.kind == RoomKind.Campanile) { Spire(mb, st, r, y0, detail); return; }
@@ -435,6 +437,7 @@ namespace PryingEyes.Proc
             float y = y0 + r.wallH + 0.14f;
             Vector3 a = new Vector3(x0, y, z0), b = new Vector3(x0, y, z1), c = new Vector3(x1, y, z1), d = new Vector3(x1, y, z0);
             mb.Quad(st.roofFlat, a, b, c, d, new Vector2(x0, z0), new Vector2(x0, z1), new Vector2(x1, z1), new Vector2(x1, z0), Vector3.up);
+            if (turrets) Turrets(plan, r, y, st, mb, detail);
             if (detail && r.kind != RoomKind.Corridoio && r.W * r.D > 2400)
             {
                 var rng = new Rng(unchecked(r.seed * 31 + r.variant * 17 + 5));
@@ -454,6 +457,57 @@ namespace PryingEyes.Proc
                             Vector2.zero, Vector2.up, Vector2.one, Vector2.right, Vector3.up);
                 }
             }
+        }
+
+        // ------------------------------------------------------------------ le torrette d'angolo di una torre
+        /// <summary>Il punto (in decimetri) cade dentro una stanza del piano (quelle all'aperto non contano).</summary>
+        static bool Covered(Plan plan, int x, int z)
+        {
+            foreach (var o in plan.rooms)
+                if (!o.Open && x > o.x0 && x < o.x1 && z > o.z0 && z < o.z1) return true;
+            return false;
+        }
+
+        /// <summary>Le torrette agli angoli in fuori del tetto piano di una stanza dell'ultimo piano di una torre. Una torre era una scatola con i merli: dall'orizzonte non aveva nessuna sagoma. Un
+        /// angolo e' in fuori se non c'e' nessuna stanza ne' di fronte all'angolo ne' accanto ai due muri che vi s'incontrano (si guardano tre punti a un decimetro da fuori); una stanza piu'
+        /// stretta di 6 m non ne ha. Ogni torretta e' una scatola di pietra di 2,8-3,4 m che sporge di 25 cm dalla faccia dei muri (con il fondo: si vede da sotto), una cornice, un tetto a
+        /// piramide di ardesia alto 2,6-3,6 m con una punta di ferro, e una feritoia scura su ognuna delle due facce in fuori (una su tre, accesa di notte). Misure e feritoie dipendono dal luogo e
+        /// dall'angolo, quindi due torri non hanno le stesse torrette. Anche nella pelle di chi sta lontano: e' la parte grande della sagoma.</summary>
+        internal static void Turrets(Plan plan, Room r, float roofY, FacadeStyle st, MeshBuilder mb, bool detail, float fixedSide = 0f, List<(Vector3 centre, Vector3 size)> solids = null)
+        {
+            if (r.W < 60 || r.D < 60) return;
+            int[] xs = { r.x0, r.x1 }, zs = { r.z0, r.z1 };
+            for (int i = 0; i < 2; i++)
+                for (int j = 0; j < 2; j++)
+                {
+                    int cx = xs[i], cz = zs[j], sx = i == 0 ? -1 : 1, sz = j == 0 ? -1 : 1;
+                    if (Covered(plan, cx + sx, cz + sz) || Covered(plan, cx + sx, cz - sz) || Covered(plan, cx - sx, cz + sz)) continue;
+                    var rng = new Rng(unchecked(r.seed * 37 + cx * 7 + cz * 13 + 3));
+                    float side = rng.Range(2.8f, 3.4f), hb = rng.Range(3.2f, 4.4f), hr = rng.Range(2.6f, 3.6f);
+                    if (fixedSide > 0f) side = fixedSide;              // il sagrato della cattedrale (DesertCathedral): torrette strette, per non toccare i banchi del mercato
+                    float px = M(cx) - sx * (side * 0.5f - 0.40f), pz = M(cz) - sz * (side * 0.5f - 0.40f);          // la faccia in fuori sta 40 cm oltre la linea del muro (25 oltre la faccia)
+                    mb.Box(st.wall, new Vector3(px, roofY + hb * 0.5f, pz), new Vector3(side, hb, side), 0f, false, true);
+                    solids?.Add((new Vector3(px, roofY + hb * 0.5f, pz), new Vector3(side, hb, side)));          // chi cammina sul pavimento (il sagrato) non ci passa attraverso
+                    float yc = roofY + hb + 0.15f;
+                    mb.Box(st.trim, new Vector3(px, yc, pz), new Vector3(side + 0.5f, 0.3f, side + 0.5f), 0f, true, true);
+                    // il tetto a piramide
+                    float hw = (side + 0.5f) * 0.5f + 0.05f, yb = roofY + hb + 0.30f;
+                    var apex = new Vector3(px, yb + hr, pz);
+                    var a = new Vector3(px - hw, yb, pz - hw); var b = new Vector3(px + hw, yb, pz - hw); var c = new Vector3(px + hw, yb, pz + hw); var d = new Vector3(px - hw, yb, pz + hw);
+                    float w2 = hw * 2f, sl = Mathf.Sqrt(hr * hr + hw * hw);
+                    Vector2 u0 = new Vector2(0f, 0f), u1 = new Vector2(w2, 0f), u2 = new Vector2(w2 * 0.5f, sl);
+                    mb.Quad(st.roofPitch, a, b, apex, apex, u0, u1, u2, u2, new Vector3(0, 1, -1));
+                    mb.Quad(st.roofPitch, b, c, apex, apex, u0, u1, u2, u2, new Vector3(1, 1, 0));
+                    mb.Quad(st.roofPitch, c, d, apex, apex, u0, u1, u2, u2, new Vector3(0, 1, 1));
+                    mb.Quad(st.roofPitch, d, a, apex, apex, u0, u1, u2, u2, new Vector3(-1, 1, 0));
+                    if (detail) mb.Box(st.metal, apex + Vector3.up * 0.45f, new Vector3(0.1f, 0.9f, 0.1f));
+                    // una feritoia su ognuna delle due facce in fuori
+                    float y0 = roofY + 1.5f, y1 = roofY + Mathf.Min(hb - 0.6f, 3.0f);
+                    var gx = rng.Chance(0.3) ? st.glassLit : st.glass; var gz = rng.Chance(0.3) ? st.glassLit : st.glass;
+                    float fx = px + sx * (side * 0.5f + 0.02f), fz = pz + sz * (side * 0.5f + 0.02f);
+                    mb.Quad(gx, new Vector3(fx, y0, pz - 0.2f), new Vector3(fx, y1, pz - 0.2f), new Vector3(fx, y1, pz + 0.2f), new Vector3(fx, y0, pz + 0.2f), Vector2.zero, Vector2.up, Vector2.one, Vector2.right, new Vector3(sx, 0f, 0f));
+                    mb.Quad(gz, new Vector3(px - 0.2f, y0, fz), new Vector3(px - 0.2f, y1, fz), new Vector3(px + 0.2f, y1, fz), new Vector3(px + 0.2f, y0, fz), Vector2.zero, Vector2.up, Vector2.one, Vector2.right, new Vector3(0f, 0f, sz));
+                }
         }
 
         static void GableRoof(Plan plan, MeshBuilder mb, FacadeStyle st, Room r, float y0, bool detail)

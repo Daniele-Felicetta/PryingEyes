@@ -72,6 +72,21 @@ namespace PryingEyes.Deserto
             return found;
         }
 
+        /// <summary>Per le prove: mette una sterpaglia in un punto (al posto di una libera, o della piu' lontana dal punto), cosi' una foto non dipende da dove sono andate a finire quelle vere.</summary>
+        public void PlaceWeed(Vector3 at, float size)
+        {
+            int pick = -1; float far = -1f;
+            for (int i = 0; i < MaxWeeds; i++)
+            {
+                if (!weeds[i].on) { pick = i; break; }
+                float d = (weeds[i].pos - at).sqrMagnitude;
+                if (d > far) { far = d; pick = i; }
+            }
+            if (pick < 0) return;
+            ref var k = ref weeds[pick];
+            k.on = true; k.size = size; k.phase = 0f; k.speed = 1f; k.pos = at; k.rot = Quaternion.identity; k.checkT = 0.5f;
+        }
+
         /// <summary>La sterpaglia viva piu' vicina a un punto (per le prove).</summary>
         public bool NearestWeed(Vector3 from, out Vector3 pos)
         {

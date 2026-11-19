@@ -25,9 +25,10 @@ rooms are those of the floors ([tower.md](tower.md)).
 2. You wake on the churchyard (*il sagrato*) of the cathedral, at **07:00**. The cathedral stands on a plinth of the same stone as the church facades
    (a darker base under a cornice, a lighter course at the foot); from a 14 m gap in the churchyard's parapet a wide stair of twelve steps goes down to the sand
    (a stone riser and a lighter slab with a nosing for each step, a sloping wall with a coping on each side and a pier at the foot), and a brazier burns on
-   each side at the top (a wide shallow bowl of cast iron on a tripod held by a ring, with the coals inside): flames, a hot core, smoke and embers. Two banners of crimson cloth with the
-   golden eye of the game hang from iron poles beside the stair and the wind moves them; the lamp posts (turned iron, a six-sided lantern with its glass) and the stalls of the market (a striped
-   awning with a scalloped valance) are made for the desert too. Nothing attacks in the cathedral: the walkers have no navmesh there (they stay at the foot of
+   each side at the top (a wide shallow bowl of cast iron on a tripod held by a ring, with the coals inside): flames, a hot core, smoke and embers. The wall that closes the churchyard has a turret at
+   each of its four corners (a box of the same stone with a cornice, a pyramid roof of slate and a slit window on its outward faces; they are solid) and from the sand the cathedral has the outline of a castle. Two banners of crimson cloth with the
+   golden eye of the game hang from iron poles beside the stair and the wind moves them; the lamp posts (turned iron, a six-sided lantern with its glass) and the stalls of the market (a counter of warm brown wood, a striped
+   awning with a scalloped valance and a drape of the same cloth hanging from the edge of the counter) are made for the desert too. Nothing attacks in the cathedral: the walkers have no navmesh there (they stay at the foot of
    the stair) and whatever flies over the cathedral disappears.
 3. **A day lasts twenty minutes** (about twelve of daylight, eight of night; `DesertClock`). The sun, the moon, the stars, the fog and the
    exposure follow the clock; indoors (anything within 12 m above the head) the look goes back to that of the rooms. The top of the screen
@@ -91,7 +92,8 @@ rooms are those of the floors ([tower.md](tower.md)).
     one day in two has a **sandstorm** between 08:00 and 22:00 (never before noon of the first day) that lasts 75 to 160 seconds of play: the fog gets up to
     3.8 times thicker by day, the sun loses half its strength, the sky and the fog turn the colour of sand, streaks and clouds of sand fly past
     (`DesertWeather`, `DesertDust`) and the animals take shelter. By day **lizards, scorpions and beetles** live on the sand and run away when you
-    come near (6.5 m, 3.8 for the scorpions), **tumbleweeds** roll downwind, **vultures** circle over the ruins and the towers (up to five flocks within
+    come near (6.5 m, 3.8 for the scorpions), **tumbleweeds** roll downwind (a tangled ball of pale grey straw: 40 stems that curve round a dark core, 32 small clumps of dry leaves on the shell and 70 spikes sticking out, about 4,000
+    triangles. They used to be ten thin rings and 22 twigs, and in the photos a ball of barbed wire with the sky showing through it; the first rebuild had a few big brown clumps and from 7 m it was a boulder), **vultures** circle over the ruins and the towers (up to five flocks within
     700 m, always over the same ruins) and at night **bats** take their place (`DesertLife`). Here and there are **camps**: a fire ringed with stones, one to
     three tents with their doors to it and a pile of supplies; by day the fire is out, at night it burns with a flickering light, smoke and sparks
     (`DesertFires`). And **landmarks** that can be seen from afar: wells, obelisks (8 to 14 m), ruined windmills whose sails turn with the wind, broken
@@ -226,6 +228,14 @@ rebuilt identical every time you come back.
   crown was the cloth, cut by the parapet). The wall banners are seen from every side and close up, the mast from far away. The wind moves them all (`DesertSky.Weather`: strength, gusts,
   direction), but a wall banner is never pushed into the wall: its displacement toward the wall is cut to a quarter and stops 45 cm out, so the cloth stays at least 35 cm from the facade (80 cm at rest; the cornice juts 22 cm).
   That bound holds by construction; the test measured the nearest it came in the light wind it met (46 cm at the tower's banners, when the limit is 25).
+- **The corner turrets of a tower** (`FloorBuilder.Turrets`, switched on for the top floor of a tower by `FloorBuilder.FacadeTurrets`, in the real shell and in the far skin). A tower was a box with
+  battlements and, from the horizon, no outline at all. At every outward corner of a flat roof of the top floor there is now a stone box 2.8 to 3.4 m wide and 3.2 to 4.4 m tall (it juts 25 cm out of the
+  face of the walls and has a bottom, so it is seen from below), a cornice, a pyramid roof of slate 2.6 to 3.6 m high and, in the near shell only, an iron finial; each of its two outward faces has a dark slit window
+  (three in ten are lit at night). A corner is outward when no room stands in front of it nor beside either of the two walls that meet there (three points a decimetre outside are looked at: `Covered`),
+  and a room narrower than 6 m has none. The sizes and the slits come from the room and the corner, so two towers do not have the same turrets. The check asks that the tallest facade of the tower stands more
+  than 5 m above the roof (the battlements are 1.7 m); the photo `13d_torre_torretta` is the view from the foot. The churchyard of the cathedral has the same four
+  (`DesertCathedral.Build` calls `FloorBuilder.Turrets` for the churchyard, standing on its floor, with a fixed side of 2.6 m so that they do not touch the stalls, which stand 3.2 m from the wall, and with hidden box
+  colliders that the function hands back): before them, from the sand, the cathedral was a low enclosure with battlements and nothing above it (`02b_cattedrale_dalla_sabbia`, before and after).
 - **Things on the sand** (`DesertScatterGen`, `DesertScatter`, `PropMeshes*.cs`, `DesertProp.shader`). Every 64 m square (the sand's own grid) has its
   props, computed from the square's coordinates and its region only, on a worker thread: tufts, pebbles, rocks of four tints, boulders, standing slabs,
   cacti, bushes, dead trees, bones, columns, steles, cairns, tents, fires, crates, wells, obelisks, windmills and wagons; none on a place's footprint
@@ -288,14 +298,14 @@ rebuilt identical every time you come back.
 | `Deserto/DesertLife.cs`, `DesertDust.cs`, `DesertSpindrift.cs`, `DesertFires.cs`, `DesertDevils.cs` | Tumbleweeds, animals and flocks; the sand that flies; the veils of sand off the dune crests; the lights, smoke and sparks of the camps; the dust devils. |
 | `Deserto/DesertPrints.cs`, `Resources/Shaders/DesertPrint.shader` | The footprints on the sand: one mesh, the boot and its light made by the shader. |
 | `Deserto/DesertSound.cs`, `Deserto/SoundDeserto.cs` | The hiss of the sand, the crickets, the vultures' caws, the howl and the crackle of the fires: what plays when, and the generators of the five sounds (`SoundGen`, `SoundBank`). |
-| `Deserto/SiteFacade.cs`, `Proc/FloorBuilder.Facade.cs`, `Proc/FacadeKit.cs` | The outside of the places (roofs, cornices, windows, ruins) and their far skins. |
+| `Deserto/SiteFacade.cs`, `Proc/FloorBuilder.Facade.cs`, `Proc/FacadeKit.cs` | The outside of the places (roofs, cornices, windows, ruins, the corner turrets of the towers) and their far skins. |
 | `Deserto/Enemy.Desert.cs` | The enemy of the desert: rests, wakes, gives up. |
 | `Deserto/DesertSky.cs`, `Resources/Shaders/DesertSand.shader`, `DesertSky.shader` | The sun and moon light, fog, exposure and the sky dome (stars, clouds, the sun's disc); the sand with its grain and ripples. |
 | `Deserto/DesertGrade.cs` | The colour grade of the open desert by sky and weather (pure, also in the lab); `DesertSky` applies it and gives the room's look back indoors. |
 | `Deserto/DesertNav.cs` | The sliding navmesh. |
 | `Deserto/DesertDirector.cs`, `DesertSites.cs`, `DesertStairs.cs` | The director (places, walkers in the open, loot in the open, bosses, the edge of the world, the renewal of the Library, the sweep of unused assets, the compass words), a loaded place and the stairs of a stack. |
 | `Deserto/DesertPickup.cs` | Points, ammunition, medikit and essence. |
-| `Deserto/DesertCathedral.cs`, `Proc/RoomKits.HubDeserto.cs`, `Proc/HubPlan.cs` | The cathedral in the desert: plinth and stair (one stone mesh, physics in hidden boxes), the two braziers (a bowl, three legs and a ring in one mesh, `BrazierMesh`, built with `DesertLathe`) with their fire (`BrazierFire`), the two banners of the stair and those of the towers (`DesertBanner`), the lamp posts (`DesertLamps`) and the awnings of the stalls (`DesertAwning`), the armoury and its prices, the places of the two works. |
+| `Deserto/DesertCathedral.cs`, `Proc/RoomKits.HubDeserto.cs`, `Proc/HubPlan.cs` | The cathedral in the desert: plinth and stair (one stone mesh, physics in hidden boxes), the two braziers (a bowl, three legs and a ring in one mesh, `BrazierMesh`, built with `DesertLathe`) with their fire (`BrazierFire`), the two banners of the stair and those of the towers (`DesertBanner`), the lamp posts (`DesertLamps`) and the awnings, drapes and counters of the stalls (`DesertAwning`), the armoury and its prices, the places of the two works. |
 | `Proc/FloorDirector.Desert.cs`, `FloorDirector.Catacombe.cs` | Starting the game, the wait for the ground, the HUD and the objective, the fall guard, what a rebuilt cathedral must not wipe. |
 | `GameMenu.Mode.cs` | The choice *Standard* / *Il deserto*. |
 | `DesertTest.cs` | The in-game check (below). |
@@ -347,8 +357,8 @@ a hall looks wrong: ambient light, fog, the six nearest lights, the nearest wall
 photos (towards the wall, at the floor). With a window the test also measures the contrast of what the camera sees in the chapel, in every level of the
 catacomb and in the two boss halls (`FrameSpread`: a fog or a black room gives almost none).
 
-Seventeen phases are long (or are only photographs) and run only when asked by name (`-desertonly soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `orizzonte`,
-`paesaggio`, `nuvole`, `cose`, `galleria`, `rilievi`, `look`, `suolo`, `orme`, `creste`, `salina` or `vita`, one or more per run, separated by commas), since the default run would double in time. Most are the ones of the livelier desert,
+Eighteen phases are long (or are only photographs) and run only when asked by name (`-desertonly soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `orizzonte`,
+`paesaggio`, `nuvole`, `cose`, `galleria`, `rilievi`, `look`, `suolo`, `orme`, `creste`, `salina`, `cammino` or `vita`, one or more per run, separated by commas), since the default run would double in time. Most are the ones of the livelier desert,
 to be run with `-desertshots` and looked at: **`nuvole`** (photos only) shoots the sky from the churchyard with three covers (`DesertSky.CloudOverride`: 0.12, 0.27 and 0.45) at noon, 16:24 and
 17:54, once away from the sun and once into it: it is how the shape and the light of the clouds and the rays were judged; **`paesaggio`** (photos only) takes the first look from the churchyard at dawn, noon, dusk, night and in a storm and, from a
 vantage point of the dunes, the badlands and the holy land (the highest spot of the area with a gentle slope, looking where the ground rises most), the landscape by day, with
@@ -364,7 +374,12 @@ test happens to stand, and the stones must be seen); **`orme`** (six checks, thr
 with `-desertshots`) walks across the sun on open sand until the feet have made 16 prints, checks that every step leaves one, that all are still there, that the last lies by the
 feet and on the ground, that a step in the air leaves none and that the wind has erased them all after 82 s, and shoots the trail from its end, the last prints from 2.4 m and the same
 at 11:30 (when they hardly show); **`creste`** (three checks, three photos with `-desertshots`) goes to a vantage point of the dunes with the search for crests at eight times the speed
-and checks that at least two crests start to smoke within 45 s, that there are live particles and that they are not too many, then shoots ahead, into the low sun and to the side; **`salina`** (three checks, eight photos with `-desertshots`) goes to the first salt flat, finds a flat spot in the middle of a lake and a dry shore with a lake ahead, checks that there are lakes and that a step in the water leaves no print while one on dry sand does, and shoots from the shore over the lake at dawn, noon, dusk and night, from the water towards the low sun at dawn and at dusk (the path of glints), at the stars and at the water's surface from 3.5 m; **`costi`** measures what each part of the picture costs in one place (see "The cost of a frame" below); **`esterni`** takes photos of the outside of one building of every kind and state, two towers, two catacombs and the chapel (four views from the
+and checks that at least two crests start to smoke within 45 s, that there are live particles and that they are not too many, then shoots ahead, into the low sun and to the side; **`salina`** (three checks, eight photos with `-desertshots`) goes to the first salt flat, finds a flat spot in the middle of a lake and a dry shore with a lake ahead, checks that there are lakes and that a step in the water leaves no print while one on dry sand does, and shoots from the shore over the lake at dawn, noon, dusk and night, from the water towards the low sun at dawn and at dusk (the path of glints), at the stars and at the water's surface from 3.5 m; **`cammino`** (two checks, no photos) walks on foot from the foot of the stair to the landmark tower, 309 m of open sand, as a player does (the bot steps aside when
+something blocks the way), and measures every frame: the median, the 95th and 99th percentile, the longest and how many pass 33, 50, 100 and 250 ms; it fails on a frame of half a second. Every other check
+teleports or takes photos, and a photo costs 150 to 650 ms by itself, so none of them could see the hitches of a walk (a place that builds, a navmesh tile, a square of sand, the memory sweep). Its first run
+said 150 ms twice, at 3 s and at 42 s: they were the test harness's own photos (`GameManager.HarnessShotFrame`: `auto_cam1`, `auto_cam2`, `auto_shot1` and `auto_shot2`, taken at fixed times), which the probe and the
+frame log of the test now leave out. Without them, in the last run: 60,715 frames in 91 s, median 1.5 ms, 95 % 2.0, 99 % 2.6, the longest 23 ms and none over 33 (the run before: 62,477 frames, the longest 25 ms). The director also writes into the log every step of building a place that takes
+30 ms or more, with its kind (shell, furnishing, loot, guard, removal) and its level: there is none in the walk, but the tests that teleport show the shells of level 0 at 30 to 36 ms and the one of the welcome chapel at 61 ms: a step is not split, so it can exceed the 7 ms that the loop of the director allows itself in a frame (a place that appears while you walk could show it as one slow frame, and no run has measured that); **`costi`** measures what each part of the picture costs in one place (see "The cost of a frame" below); **`esterni`** takes photos of the outside of one building of every kind and state, two towers, two catacombs and the chapel (four views from the
 corners and one from above) and the cathedral from four sides; **`orizzonte`** waits, from three points, for every far skin within 760 m to be built, checks that
 none stays lit where the real shell is complete and measures their weight, and photographs the horizon in four directions by day and at dusk; **`cose`**
 goes to a point in the middle of each of the six regions and checks that the squares around have thousands of props of at least six kinds and the colliders,
@@ -383,14 +398,14 @@ and by night, the foot of the tower looking up, the nave, inside the chapel and 
 
 ## What is verified
 
-Everything below was run on 18 November 2026 on the developer's PC (seed 1000), on the working tree that was committed.
+Everything below was run on 18 and 19 November 2026 on the developer's PC (seed 1000); the numbers are those of the last run, made on the working tree that was committed in the sixth round (19 November).
 
 - **The pure code**: `tools/desertlab`, 98 checks, all pass (the list is in [../engineering/testing.md](../engineering/testing.md), section 2.4).
-- **The real game**: `-desertotest`, 126 checks, all pass, in about three minutes without a window. In order: the game is in the desert and alone; the
+- **The real game**: `-desertotest`, 127 checks, all pass, in about three minutes without a window. In order: the game is in the desert and alone; the
   camera clears to a solid colour with a 1,500 m far plane (without it the scene's own sky is drawn over the dome); the cathedral is the usual plan with
   its armoury; the sand, the sky and the navmesh exist and the navmesh keeps every tile it has built; you start on the churchyard; no enemy in the
   cathedral; the stair has twelve steps of 20 cm, the sand at its foot is at the right height and does not cover the steps, you walk down it
-  and the walkers get a navmesh on the sand but not on the stair or inside the cathedral; the two braziers at the head of the stair burn (four particle systems each) and stand on a tripod; the two banners hang from their bars and the wind moves their hem; an intact tower has a banner on a mast on its roof and one hanging on each long wall (four on the landmark), the wind moves them without ever pushing a wall banner into the wall, and a ruined tower has none;
+  and the walkers get a navmesh on the sand but not on the stair or inside the cathedral; the two braziers at the head of the stair burn (four particle systems each) and stand on a tripod; the two banners hang from their bars and the wind moves their hem; an intact tower has a banner on a mast on its roof and one hanging on each long wall (four on the landmark), the wind moves them without ever pushing a wall banner into the wall, and a ruined tower has none, and the landmark tower has its corner turrets (its tallest facade rises 9.0 m over the roof, the battlements are 1.7);
   on the sand the props are sent to the card and the rocks far away have the reduced mesh; the clock starts at 07:00 and runs, noon is bright, midnight
   is dark with stars, the sun is low at dusk and under the horizon after it; the armoury sells every good weapon at twice the price and not the
   starting pistol; **the Library of Vows and the Altar of Consecration are built with the resources** (the exact payment), the Library offers three
@@ -406,36 +421,40 @@ Everything below was run on 18 November 2026 on the developer's PC (seed 1000), 
   around you; **death** takes half the points and the last perk, wakes you at the top of the stair and leaves the same seed, sand, sky and a running
   clock; at **5, 9 and 17 km** the sand holds, the navmesh is under your feet and the building next to you loads with every level, and past 18 km you
   are put back inside; whoever falls under the sand is brought back; no frame longer than 1.2 s and no error in the log.
-- **With a window** (`-desertshots`, 45 checks of the halls: the chapel, the tower, the catacomb): the contrast of what the camera sees is 0.26 to 0.78 in
-  the chapel (0.78), in the tower's boss hall (0.71), in the entrance hall of the catacomb (0.26, the darkest of all), in each of its three levels down to -14 m
-  (0.40 to 0.49) and in its boss hall (0.68); a solid fog or a black room gives under 0.05. This check exists because of a bug that no other check saw: the haze of
+- **With a window** (`-desertshots`, 46 checks of the halls: the chapel, the tower, the catacomb): the contrast of what the camera sees is 0.26 to 0.78 in
+  the chapel (0.78), in the tower's boss hall (0.72), in the entrance hall of the catacomb (0.26, the darkest of all), in each of its three levels down to -14 m
+  (0.38 to 0.58) and in its boss hall (0.53); a solid fog or a black room gives under 0.05. This check exists because of a bug that no other check saw: the haze of
   the church naves grew with the world height, so in the catacombs, below zero, every nave was a wall of grey and the boss hall a uniform blue picture; the
   photos were taken and the checks were green. Photos: 13 of the same run (arrival, dawn, noon, dusk, night, the chapel inside, the tower from far and from its
   foot, its first floor and its boss hall, a catacomb entrance and its boss hall), plus one per catacomb level and three of the tower's banners (from the entrance side, the cathedral side and the east), looked at one by one.
 - **The memory** (`-desertonly soak`, 9 checks, with a window). Three rounds of two far towers and two far catacombs, going home in between: live
-  meshes 1,709, 1,714 and 1,715, materials 994, 1,032 and 1,032 (the caches of the facade palettes fill up in the first rounds and then stop), textures 419
-  each time, memory 696, 721 and 737 MB. Before the sweep of unused assets was added the same test failed with 3,761, 5,545 and 7,317 meshes, 824, 1,328 and 1,688
+  meshes 1,713, 1,718 and 1,719, materials 974, 1,012 and 1,012 (the caches of the facade palettes fill up in the first rounds and then stop), textures 419
+  each time, memory 709, 753 and 763 MB (the test fails above 50 MB of growth between the last two rounds: 10). Before the sweep of unused assets was added the same test failed with 3,761, 5,545 and 7,317 meshes, 824, 1,328 and 1,688
   materials and 711, 860 and 983 MB: about 120 MB left behind by every four places. Four sweeps in the three rounds, the longest frame 1 ms and the last
-  sweep 6 ms; after them the sand and the nave still have their contrast (0.55 and 0.51).
+  sweep 7 ms; after them the sand and the nave still have their contrast (0.52 and 0.51).
 - **Every kind and state of place** (`-desertonly varieta -desertshots`, 40 checks). Eight buildings near the cathedral, seven kinds in four states
   (whole, ruined, split, collapsing; from a one-room house to a 24-room sanatorium): each is built, furnished, entered on foot from the sand through its door,
-  walked through to the room that is farthest from the entrance (up to five doors away) and has a view with contrast (0.62 to 0.93 of the luminance range);
-  a tower of 9 levels (entrance hall 0.48, boss hall 0.62) and a catacomb of 5 (entrance hall 0.25, boss hall 0.64): the shell of every level, the walk in from
+  walked through to the room that is farthest from the entrance (up to five doors away) and has a view with contrast (0.70 to 0.93 of the luminance range);
+  a tower of 9 levels (entrance hall 0.47, boss hall 0.66) and a catacomb of 5 (entrance hall 0.40, boss hall 0.40): the shell of every level, the walk in from
   the sand, the boss in its hall. Three of the places of an earlier run (a ruined complex, a collapsed inn, a collapsed hotel) could not be entered at all:
   the doors of their crumbled walls were 1.5 m slots under a slab of ceiling; that is what `Opening.Gap` and the check `BUILDING_LOW_DOORWAYS_ARE_GAPS` of the
   lab are for. The photos of the theatre and of the tower's hall were looked at.
-- **The cost of a frame** (`-desertonly prestazioni`, 15 checks) on an RTX 5060 Ti at 1920x1080: 7.5 ms on the churchyard facing the sand, 9.2 ms (day) and
-  9.3 ms (night) on the open sand with the tower in the distance, 6.8 ms at the foot of the tower looking up, 5.0 ms in the nave, 7.0 ms in the chapel, 7.0 ms
-  in the boss hall of a catacomb, 5.5 to 7.0 ms on the open sand of each of the six regions, 6.6 ms at a night camp with its fire and 6.9 ms in a sandstorm: the
-  worst place costs 9.3 ms, far from 33 ms. The tripod braziers, the banners, the lamp posts and the awnings of this round cost nothing that the measure can see (the worst place was 9.5 ms in the run before and the
-  difference is inside the noise of about a millisecond between two runs). The heavier rocks and the new pebbles cost something, and it was measured: with the heavier rocks alone (every rock at all its triangles out to 280 m, every
+- **The cost of a frame** (`-desertonly prestazioni`, 15 checks) on an RTX 5060 Ti at 1920x1080, measured twice on the code of the sixth round (two runs about half an hour apart; the tumbleweed's
+  surface changed in between, which this measure cannot see). First and second run: 8.2 and 6.7 ms on the churchyard facing the sand, 10.9 and 11.0 ms (day) and 9.6 and 8.8 ms (night) on the open sand with the
+  tower in the distance, 6.4 and 13.0 ms at the foot of the tower looking up, 5.3 and 7.6 ms in the nave, 10.0 and 14.7 ms in the chapel, 8.4 and 9.0 ms in the boss hall of a catacomb, 6.0 to 7.2 and 5.5 to 9.6 ms on
+  the open sand of each of the six regions, 7.5 and 7.0 ms at a night camp with its fire and 8.9 and 7.0 ms in a sandstorm. The worst place costs 10.9 and 14.7 ms: every place of both runs is under 16.7 ms
+  (60 frames a second) and far from the 33 ms that the check allows. Two things are not explained. The open sand by day is 1.7 ms above the round before (9.3 ms) in both runs: the turrets of the far towers and the
+  heavier tumbleweeds (about 4,000 triangles each, six or twelve on screen) are the only changes in that view, and neither looks big enough to cost that much, but no run isolated them. And the noise between two runs of
+  the same code is much larger than the "about a millisecond" this page used to claim: the foot of the tower and the chapel differ by 6.6 and 4.7 ms, with nothing in those views that changed (the cause was not looked for: other programs of the PC use the card and the processor and the card
+  changes its frequency, but none of that was checked). So the measure says "well below 33 ms" and cannot tell a change of two. The tripod braziers, the banners, the lamp posts and the awnings of the fifth
+  round cost nothing that the measure could see (the worst place was 9.5 ms in the run before that and the difference was inside the noise). The heavier rocks and the new pebbles cost something, and it was measured: with the heavier rocks alone (every rock at all its triangles out to 280 m, every
   boulder out to 520 m, in every shadow map) the open sand was at 9.3 ms and the boss hall of a catacomb at 14.7 ms (11.1 ms before the rocks); the two versions of the rocks and the
   cut under the sand brought the catacomb to 7.7 ms and, in the run after the cacti and the bushes got their two versions as well, to 6.6 (the cut leaves almost nothing of the props to draw there, so the
   difference between those two is the noise of the measure: about a millisecond). `costi` (a measure, no check) takes each part away in turn, and the same part measured in two runs
-  differs by about a millisecond, sometimes more. In the last run: at the churchyard (7.5 ms) the sun's shadows are 1.5 ms, the sand itself 1.9, the props on the sand 1.1, the far places 0.8, and the point
-  lights, the life, the particles and the post-processing have nothing to show beyond the noise (the sand alone has measured 1.6, 2.5, 1.2 and 1.9 ms in four runs with the same code: the claim that the sand's shader got heavier was not shown); on the open sand of the dunes (5.7 ms) the props are 1.4,
-  the sand 1.9 and the shadows 1.0; in the boss hall of a catacomb (7.6 ms) the point lights are 1.4 and the props on the sand nothing (the cut under the sand); in the chapel (10.0 ms with 97 lights, and 7.0 ms in `prestazioni`: the two measures of the same
-  room disagree and why was not looked for) the point lights are 3.3, the props on the sand, that can be seen only through the windows, 2.1 and the sun's shadows 1.2.
+  differs by about a millisecond, sometimes more. In the last run: at the churchyard (8.8 ms) the sun's shadows are 1.4 ms, the sand itself 1.1, the props on the sand 0.7, the life (animals and tumbleweeds) 0.7, the particles 0.6, and the point
+  lights, the post-processing and the far places have nothing to show beyond the noise (the sand alone has measured 1.6, 2.5, 1.2, 1.9 and 1.1 ms in five runs with the same code: the claim that the sand's shader got heavier was not shown); on the open sand of the dunes (6.0 ms) the props are 1.4,
+  the sand 1.9, the shadows 1.0 and the life 0.4; in the boss hall of a catacomb (9.2 ms) the point lights are 2.4, the shadows 1.1, the post-processing 1.1 and the props on the sand nothing (the cut under the sand); in the chapel (11.2 ms with 98 lights, and 10.0 and 14.7 ms in `prestazioni`: the measures of the same
+  room disagree and why was not looked for) the point lights are 3.9, the props on the sand, that can be seen only through the windows, 2.1 and the sun's shadows 1.5.
 - **Footprints, crests, salt flats** (`orme` 6 checks, `creste` 3, `salina` 5, with a window and photos): every step leaves a print (16 prints in 5.4 s over 21 m), a
   step in the air leaves none and the wind has erased them all after a minute and a half; at least two crests start to smoke and the particles alive are many but
   not too many (83); the salt flats have lakes, a step in the water leaves no print and one on dry sand does. The photos of the trail, of the crests and of the
@@ -460,6 +479,14 @@ Everything below was run on 18 November 2026 on the developer's PC (seed 1000), 
   edge climbs past everything lying behind it (the banner stood in the middle of a wing's roof, 10 m behind the edge, so the parapet hid about half of the cloth in the photo). The answer was to hang
   banners down the walls, where they are seen (three photos, `13_torre_stendardo`, `13b_torre_stendardi_nord`, `13c_torre_stendardi_est`, from the entrance side, the cathedral side and the east), and to
   keep the mast, moved to the middle of the largest roof, for the horizon.
+- **The sixth round** (the same request, judged by photos): a tower was a box with battlements and, from the horizon, no outline; the cathedral, seen from the sand, a low enclosure with nothing above it. Both got
+  corner turrets (a stone box, a cornice, a pyramid roof of slate, slit windows): the towers at the corners of their top floor, the cathedral at the four corners of the churchyard wall. By day the stalls of the market were black boxes
+  under a coloured awning (the wood of the kit has an albedo of 0.1, made for dark corridors); they have a warm brown wood and a drape now. The tumbleweed was a ball of barbed wire; it took three versions (a dense one that the shader's contact shadow turned black, because the shadow is
+  meant for things that stand on the ground and the tumbleweed rolls; then a brown boulder from 7 m; then the pale tangle of today), and two of the photos that judged them were of the wrong thing: the test aimed at a real
+  tumbleweed that had already rolled away, so it photographed a rock. The test now puts one in front of the camera, at 7 m and at 2.6 m, and logs where it falls in the frame (the centre, 0.50 and 0.50). The probe `cammino` exists because
+  no check could see the hitches of a walk, and its first run seemed to find two of 150 ms: they were the harness's own photos, and without them the longest frame of 309 m of walking is 23 to 25 ms. One battery of the round
+  was interrupted: another game was started on the PC during its graphics step (a 26 s frame and regions two or three times slower in the measure, a failed check that was not the game's); the graphics steps were run again
+  with the GPU free, and the runner now waits, and stops the run, while a Steam game is on.
 - **Two checks that were fragile and were made robust**: the climb of the tower's stair failed once because a Monaco woken by the test stood on the first
   ramp (the test now removes the guards around the player while it walks, as the catacomb phase already did), and `creste` asked for two smoking crests in 25 s
   from a random search that gave 2 in one run and 1 in the next at the same wind (now eight times faster and 45 s).
@@ -470,7 +497,7 @@ What is **not** verified:
   bosses, how long a day should be) are guesses. The sound (steps, wind, echo) was measured, never listened to.
 - Only this PC was measured (one graphics card, a window in some runs and none in the others), and only with the seed 1000: the lab checks the generators
   on hundreds of seeds, but the game itself was run on one world. The soak test is three rounds of four places (minutes), not an hour of walking, and the
-  far places (5 to 17 km) are reached by teleport, so the streaming along a long walk is known only up to a few hundred metres. The cost of a frame is a
+  far places (5 to 17 km) are reached by teleport, so the streaming along a long walk is known only up to a few hundred metres (the walk probe, `cammino`, does 309 m on foot with every frame measured). The cost of a frame is a
   manual render of the camera without the HUD, not a game played: real frames cost a little more.
 - No controller in the desert, no multi-monitor, no co-op or split screen (they stay standard).
 - Of the places in the open the test walks in and looks at one of each kind and state, a second tower and a second catacomb, but it climbs the stairs only

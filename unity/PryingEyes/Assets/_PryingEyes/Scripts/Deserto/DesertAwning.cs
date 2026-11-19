@@ -76,6 +76,56 @@ namespace PryingEyes.Deserto
             return go;
         }
 
+        static Material wood;
+
+        /// <summary>Il legno dei banconi nel deserto: il legno del kit (albedo 0,1, fatto per i corridoi bui) di giorno e' quasi nero, e i banchi erano scatole nere sotto una tenda colorata. Qui e' un bruno caldo.</summary>
+        public static Material Wood()
+        {
+            if (wood != null) return wood;
+            var m = new Material(Shader.Find("Universal Render Pipeline/Lit")) { name = "BancoLegno", color = new Color(0.43f, 0.29f, 0.16f) };
+            m.SetFloat("_Metallic", 0f);
+            m.SetFloat("_Smoothness", 0.22f);
+            return wood = m;
+        }
+
+        /// <summary>Un drappo dello stesso telo della tenda davanti al bancone: scende dal bordo del piano per 35-45 cm e finisce a scalloppi, a strisce come la tenda, due facce. Da' al banco il colore
+        /// anche sotto il piano (prima era una parete scura) e ne spezza la scatola.</summary>
+        public static GameObject Drape(Transform stall, float len, float sideSign, Color cloth)
+        {
+            const float yTop = 0.98f, d = 0.44f;
+            float a0 = -0.03f, a1 = len + 0.03f;
+            int sc = Mathf.Max(3, Mathf.RoundToInt((a1 - a0) / 0.32f));
+            const int seg = 5;
+            var v = new List<Vector3>(); var uv = new List<Vector2>(); var tris = new List<int>();
+            for (int k = 0; k <= sc * seg; k++)
+            {
+                float u = k / (float)(sc * seg), a = Mathf.Lerp(a0, a1, u), within = (k % seg) / (float)seg;
+                float drop = 0.35f + 0.10f * Mathf.Sqrt(Mathf.Max(0f, 1f - (2f * within - 1f) * (2f * within - 1f)));
+                if (k > 0 && k % seg == 0) drop = 0.35f;
+                v.Add(new Vector3(sideSign * a, yTop, d)); uv.Add(new Vector2((a - a0) / Stripe / 2f, 0.5f));
+                v.Add(new Vector3(sideSign * a, yTop - drop, d + 0.015f)); uv.Add(new Vector2((a - a0) / Stripe / 2f, 0.5f));
+            }
+            for (int k = 0; k < sc * seg; k++)
+            {
+                int p = k * 2, q = p + 2, r = p + 1, s = p + 3;
+                Quad(tris, v, p, q, s, r, false);
+            }
+            int n0 = v.Count, t0 = tris.Count;
+            for (int i = 0; i < n0; i++) { v.Add(v[i]); uv.Add(uv[i]); }
+            for (int i = 0; i < t0; i += 3) { tris.Add(n0 + tris[i]); tris.Add(n0 + tris[i + 2]); tris.Add(n0 + tris[i + 1]); }
+            var mesh = new Mesh { name = "Drappo" };
+            mesh.SetVertices(v); mesh.SetUVs(0, uv); mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            var go = new GameObject("Drappo");
+            go.transform.SetParent(stall, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var rend = go.AddComponent<MeshRenderer>();
+            rend.sharedMaterial = Material(cloth);
+            rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            return go;
+        }
+
         /// <summary>Un quadrilatero (p, q, s, r in giro) con la faccia verso l'alto (o verso fuori, la balza): il giro si sceglie dalla normale che esce dal telo.</summary>
         static void Quad(List<int> tris, List<Vector3> v, int p, int q, int s, int r, bool up)
         {

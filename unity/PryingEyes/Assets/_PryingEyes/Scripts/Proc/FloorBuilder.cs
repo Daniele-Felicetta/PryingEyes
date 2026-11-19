@@ -85,7 +85,7 @@ namespace PryingEyes.Proc
                 // la cattedrale (i luoghi hanno la loro facciata, SiteFacade): tetti, zoccolo, cornici, finestre
                 var dress = new MeshBuilder();
                 long t0 = swBuild.ElapsedMilliseconds;
-                FacadeBuild(plan, 0f, FacadePalette, FacadeRoofs, FacadeCrown, false, true, dress, null);
+                FacadeBuild(plan, 0f, FacadePalette, FacadeRoofs, FacadeCrown, false, true, dress, null, 0, int.MaxValue, FacadeTurrets);
                 long t1 = swBuild.ElapsedMilliseconds;
                 Flush(fi.root, "Facciata", dress, false, null);
                 long t2 = swBuild.ElapsedMilliseconds;

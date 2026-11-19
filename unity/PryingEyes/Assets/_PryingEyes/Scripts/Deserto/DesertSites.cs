@@ -29,6 +29,9 @@ namespace PryingEyes.Deserto
         public float dist, hdist;
         bool navMarked;
         public bool dressedAny;
+        /// <summary>Che pezzo di lavoro ha fatto l'ultimo Step e su quale livello: il direttore li scrive nel registro quando un passo dura troppo.</summary>
+        public string lastKind = "";
+        public int lastUnit;
 
         /// <summary>Quante stanze sono arredate adesso, e quante se ne possono arredare in tutto (le stanze delle scale no): per le prove e per l'attesa.</summary>
         public int DressedRooms { get { int n = 0; foreach (var m in marks) n += m.Count; return n; } }
@@ -107,7 +110,7 @@ namespace PryingEyes.Deserto
             int best = -1;
             for (int u = 0; u < Units; u++)
                 if (fis[u] == null && (best < 0 || Mathf.Abs(u - prefer) < Mathf.Abs(best - prefer))) best = u;
-            if (best >= 0) { BuildShell(best); return true; }
+            if (best >= 0) { lastKind = "guscio"; lastUnit = best; BuildShell(best); return true; }
             if (!navMarked) { navMarked = true; DesertNav.Dirty(Area); }
             // 2. arredi e bottino delle unita' volute (dalla piu' vicina), svuotamento delle altre
             for (int k = 0; k < Units; k++)
@@ -117,13 +120,14 @@ namespace PryingEyes.Deserto
                     int u = prefer + sgn * k;
                     if (k == 0 && sgn == 1) continue;
                     if (u < 0 || u >= Units) continue;
+                    lastUnit = u;
                     if (want[u])
                     {
-                        if (DressNext(u)) return true;
-                        if (!populated[u]) { Populate(u); return true; }
-                        if (SpawnPending(u, p)) return true;
+                        if (DressNext(u)) { lastKind = "arredo"; return true; }
+                        if (!populated[u]) { lastKind = "bottino"; Populate(u); return true; }
+                        if (SpawnPending(u, p)) { lastKind = "guardia"; return true; }
                     }
-                    else if (marks[u].Count > 0 || populated[u]) { Undress(u); return true; }
+                    else if (marks[u].Count > 0 || populated[u]) { lastKind = "svuotamento"; Undress(u); return true; }
                 }
             }
             return false;
@@ -145,13 +149,14 @@ namespace PryingEyes.Deserto
             bool topLevel = !site.IsStack || (site.IsTower ? u == Units - 1 : u == site.entrance);
             FloorBuilder.FacadeRoofs = topLevel;
             FloorBuilder.FacadeCrown = site.IsStack && topLevel;
+            FloorBuilder.FacadeTurrets = site.IsTower && topLevel;          // le torrette d'angolo sul tetto della torre
             FloorBuilder.SkipFacade = site.IsCatacomb && u != site.entrance;
             FloorBuilder.FacadeDrift = !site.IsStack || u == site.entrance;          // la sabbia accumulata alla base dei muri: solo dove i muri toccano il suolo
             try { fi = FloorBuilder.Build(plan, root); }
             finally
             {
                 FloorBuilder.SkipDress = false; FloorBuilder.SkipFacade = false;
-                FloorBuilder.FacadePalette = 0; FloorBuilder.FacadeRoofs = true; FloorBuilder.FacadeCrown = false; FloorBuilder.FacadeDrift = false;
+                FloorBuilder.FacadePalette = 0; FloorBuilder.FacadeRoofs = true; FloorBuilder.FacadeCrown = false; FloorBuilder.FacadeTurrets = false; FloorBuilder.FacadeDrift = false;
             }
             fis[u] = fi;
             if (site.IsStack) DesertStairs.Build(fi.root.transform, plan, u, Units, site.church);
