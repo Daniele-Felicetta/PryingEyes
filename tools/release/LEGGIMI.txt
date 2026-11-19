@@ -25,6 +25,6 @@ In cooperativa (fino a quattro) il deserto lo sceglie chi ospita: Cooperativa, O
 Anche lo schermo condiviso gioca nel deserto: dopo Chi gioca? e Comincia si sceglie Standard o Il deserto per tutti. Con due monitor, uno per giocatore.
 
 La moto (nel deserto, ai piedi della scalinata della cattedrale; una a testa anche in cooperativa e nello schermo condiviso): F sale e scende, W gas, S freno e retromarcia, A e D sterzo, Maiusc turbo, Spazio freno a mano. In basso a sinistra c'e' il tachimetro in km/h.
-In sella l'arma sta riposta: Fuoco, mira, ricarica o cambio arma la alzano e dopo un secondo e mezzo torna giu' (la mira con l'ottica e' bloccata e la dispersione cresce con la velocita'); coltello, equipaggiamento, mina e magia restano spenti finche' non si scende.
+In sella l'arma sta riposta: Fuoco, mira, ricarica o cambio arma la alzano e dopo un secondo e mezzo torna giu' (la mira con l'ottica e' bloccata e la dispersione cresce con la velocita'); coltello, equipaggiamento, mina e magia restano spenti finche' non si scende. Sulla sabbia le gomme lasciano le tracce, che il vento cancella in un minuto.
 
 Personaggi: la prima volta Gioca chiede un nome e un aspetto; il menu Personaggi li elenca. Per giocare in cooperativa serve la stessa versione per tutti.
