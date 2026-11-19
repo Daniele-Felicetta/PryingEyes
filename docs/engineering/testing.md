@@ -311,7 +311,9 @@ The split screen on one PC is not a co-op any more: it is one process, with one 
 [../multiplayer/split-screen.md](../multiplayer/split-screen.md)). It has two checks besides `-splittest` (section 3.4):
 
 - **`-seatstest -splitscreen N`** (N = 2 to 4) runs inside the game, with a fake XInput state injected per player, and exits `0` only if
-  every check passes. Without `-autotest` the game starts from the menu (the menu presses *N giocatori* by itself; use `-menureview -nowaves`
+  every check passes. A process started with `-batchmode` never reads a physical controller (`PadControls.PollReal` returns nothing): a pad in use by
+  whoever was playing at the same moment (an Xbox controller, 19 November 2026) moved the parked seats and failed the controller, the walk-and-jump and
+  the revive checks at 3 and 4 players. Without `-autotest` the game starts from the menu (the menu presses *N giocatori* by itself; use `-menureview -nowaves`
   so the saved display settings are not applied and no wave starts): this covers the real path and the pause. With `-autotest -nofire
   -noenemies` it starts without a menu and skips the pause. It checks structure (a body, camera, HUD, target and controller per player; cameras
   in their parts of their monitors, `Camera.targetDisplay` and `Canvas.targetDisplay` per monitor; one `AudioListener`; weapon layers; HUD
