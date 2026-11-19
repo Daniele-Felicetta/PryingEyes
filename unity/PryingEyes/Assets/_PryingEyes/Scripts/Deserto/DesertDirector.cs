@@ -66,6 +66,18 @@ namespace PryingEyes.Deserto
         const float CellSize = 70f;
 
         public int LoadedSites => rts.Count;
+        /// <summary>Per le prove: i luoghi caricati e scaricati in tutto, i passi di lavoro che hanno superato SlowStepMs e il peggiore (quanto e cosa era).</summary>
+        public int SitesLoadedTotal { get; private set; }
+        public int SitesUnloadedTotal { get; private set; }
+        public int SlowSteps { get; private set; }
+        public long WorstStepMs { get; private set; }
+        public string WorstStepWhat { get; private set; } = "";
+        /// <summary>Per le prove: l'ultimo scarico di un luogo (fotogramma, quanti oggetti aveva, che luogo era): un luogo grande che si distrugge costa a fine fotogramma e si vede solo li'.</summary>
+        public int LastUnloadFrame { get; private set; } = -100;
+        public int LastUnloadObjects { get; private set; }
+        public string LastUnloadWhat { get; private set; } = "";
+        /// <summary>Per le prove: azzera il conto dei passi lenti (per misurare una camminata sola).</summary>
+        public void ResetStepStats() { SlowSteps = 0; WorstStepMs = 0; WorstStepWhat = ""; }
         public int Wanderers => wanderers.Count;
         public int OutdoorCaches => caches.Count;
         public IEnumerable<SiteRt> Loaded => rts.Values;
@@ -255,6 +267,7 @@ namespace PryingEyes.Deserto
                 if (rts.ContainsKey(k) || made >= 2) continue;
                 if (FootDist(s, p) > LoadRadius(s)) continue;
                 rts[k] = new SiteRt(s);
+                SitesLoadedTotal++;
                 made++;
             }
             gone.Clear();
@@ -267,7 +280,19 @@ namespace PryingEyes.Deserto
                 bool stack = rt.site.IsStack;
                 rt.UpdateWant(p, stack ? DressInStack : DressInBuilding, stack ? DressOutStack : DressOutBuilding);
             }
-            foreach (long k in gone) { rts[k].Unload(); rts.Remove(k); }
+            foreach (long k in gone)
+            {
+                // Object.Destroy lavora a fine fotogramma: il costo di un luogo grande non si vede attorno alla chiamata ma nel fotogramma (lo dice la camminata di prova, con LastUnloadFrame)
+                LastUnloadFrame = Time.frameCount;
+                LastUnloadWhat = $"{rts[k].site.kind} a {rts[k].site.cx},{rts[k].site.cz}";
+                if (Application.isBatchMode)            // contare gli oggetti costa: lo si fa solo nelle prove
+                {
+                    LastUnloadObjects = rts[k].root != null ? rts[k].root.GetComponentsInChildren<Transform>(true).Length : 0;
+                    Debug.Log($"[PryingEyes] deserto: scarico di {LastUnloadWhat} ({LastUnloadObjects} oggetti)");
+                }
+                rts[k].Unload(); rts.Remove(k);
+            }
+            SitesUnloadedTotal += gone.Count;
             if (gone.Count > 0 && cleanAt < 0f) cleanAt = Mathf.Max(Time.unscaledTime + CleanDelay, cleanLast + CleanInterval);
             order.Clear();
             order.AddRange(rts.Values);
@@ -306,7 +331,13 @@ namespace PryingEyes.Deserto
                     long t0 = watch.ElapsedMilliseconds;
                     if (!rt.Step(p)) break;
                     long dt = watch.ElapsedMilliseconds - t0;
-                    if (dt >= SlowStepMs) Debug.Log($"[PryingEyes] deserto: un passo di lavoro ({rt.lastKind}, livello {rt.lastUnit}, {rt.site.kind} a {rt.site.cx},{rt.site.cz}) ha impiegato {dt} ms");
+                    if (dt >= SlowStepMs)
+                    {
+                        string what = $"{rt.lastKind}, livello {rt.lastUnit}, {rt.site.kind} a {rt.site.cx},{rt.site.cz}";
+                        SlowSteps++;
+                        if (dt > WorstStepMs) { WorstStepMs = dt; WorstStepWhat = what; }
+                        Debug.Log($"[PryingEyes] deserto: un passo di lavoro ({what}) ha impiegato {dt} ms");
+                    }
                 }
                 if (watch.ElapsedMilliseconds >= 7) break;
             }

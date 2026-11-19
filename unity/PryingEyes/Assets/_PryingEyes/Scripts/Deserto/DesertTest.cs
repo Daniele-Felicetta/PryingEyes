@@ -339,6 +339,7 @@ namespace PryingEyes.Deserto
             if (Explicit("creste")) yield return Phase("sabbia dalle creste", SpindriftTest());
             if (Explicit("salina")) yield return Phase("pozze sulle saline", BrineTest());
             if (Explicit("cammino")) yield return Phase("cammino", WalkProbe());
+            if (Explicit("percorso")) yield return Phase("percorso", RouteProbe());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
             if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
         }
@@ -2549,51 +2550,158 @@ namespace PryingEyes.Deserto
             Check("chi cade sotto la sabbia torna sopra", q.y > DesertWorld.Height(q.x, q.z) - 6f, q.ToString("F1"));
         }
 
-        /// <summary>Camminare sulla sabbia dal piede della scalinata fino alla torre di riferimento (350 m), come chi gioca e senza foto, misurando i fotogrammi: i singhiozzi di chi cammina (un luogo che
-        /// si costruisce, un tassello della navmesh, un quadrato di sabbia, la pulizia della memoria) sono la peggior sensazione in un gioco e nessun'altra prova li vede (le altre teletrasportano o
-        /// scattano foto, e una foto da sola costa 150-650 ms). Dice la mediana, il 95% e il 99% dei fotogrammi, il piu' lungo, quanti superano 33, 50, 100 e 250 ms, e per i piu' lunghi dove erano
-        /// e cosa faceva il direttore. Se una cosa blocca la strada (un sasso, un cactus) fa un passo di lato.</summary>
-        IEnumerator WalkProbe()
+        /// <summary>Il risultato di una camminata misurata (WalkMeasure): i fotogrammi di chi cammina, senza quelli che l'harness stesso rende lunghi con le sue foto.</summary>
+        sealed class WalkResult
         {
-            var s = DesertWorld.Landmark();
-            yield return GoTo(18f, -10f);
-            var pl = Pl;
-            var target = new Vector3(s.CentreX, 0f, s.fz1 + 25f);
-            var dts = new List<float>(); var worst = new List<string>();
-            float t0 = Time.time, until = t0 + 170f, stillSince = Time.time, turnUntil = 0f, turnSign = 1f, walked = 0f;
+            public float walked, seconds, p50, p95, p99, max;
+            public int n, over33, over50, over100, over250, hitchesFromSteps, hitchesFromUnloads, hitchesOther;
+            public bool arrived;
+            public readonly List<string> worst = new List<string>();
+        }
+
+        /// <summary>Cammina a piedi (botDir, come con la levetta; se una cosa blocca la strada fa un passo di lato) da dove sta fino a 'target' e misura ogni fotogramma: i singhiozzi di chi cammina
+        /// (un luogo che si costruisce, un tassello della navmesh, un quadrato di sabbia, la pulizia della memoria) sono la peggior sensazione in un gioco e nessun'altra prova li vede (le altre
+        /// teletrasportano o scattano foto, e una foto da sola costa 150-650 ms). Non conta i fotogrammi che l'harness rende lunghi con le sue foto (renderFrame, HarnessShotFrame). Per ogni
+        /// fotogramma sopra i 33 ms dice se in quel fotogramma il direttore ha fatto un passo lento (30 ms o piu'), e per i piu' lunghi dove erano e cosa faceva il direttore.</summary>
+        IEnumerator WalkMeasure(Vector3 target, float timeout, WalkResult r)
+        {
+            var pl = Pl; var dirc = DesertDirector.I;
+            var dts = new List<float>();
+            float t0 = Time.time, until = t0 + timeout, stillSince = Time.time, turnUntil = 0f, turnSign = 1f, walked = 0f;
             Vector3 start = pl.transform.position, still = start, last = start;
-            bool arrived = false;
+            int slowSeen = dirc != null ? dirc.SlowSteps : 0;
             PlayerController.holdLook = false;
             while (Time.time < until)
             {
                 Vector3 pos = pl.transform.position;
                 walked += Flat(pos, last); last = pos;
-                if (Flat(pos, target) < 8f) { arrived = true; break; }
+                if (Flat(pos, target) < 8f) { r.arrived = true; break; }
                 if (Flat(pos, still) > 0.5f) { still = pos; stillSince = Time.time; }
                 else if (Time.time - stillSince > 1.0f) { turnUntil = Time.time + 1.4f; turnSign = -turnSign; stillSince = Time.time; ClearEnemiesAround(pos, 2.0f); }
                 Vector3 d = target - pos; d.y = 0f; d.Normalize();
                 if (Time.time < turnUntil) d = Quaternion.Euler(0f, 75f * turnSign, 0f) * d;
                 PlayerController.botDir = d;
                 float dt = Time.unscaledDeltaTime;
+                int slowNow = dirc != null ? dirc.SlowSteps : 0;
+                bool fromStep = slowNow > slowSeen; slowSeen = slowNow;
+                bool fromUnload = dirc != null && Time.frameCount - dirc.LastUnloadFrame <= 1;       // dt e' la durata del fotogramma di prima: se il direttore ha scaricato un luogo li', Destroy ha lavorato a fine fotogramma
                 if (Time.frameCount - renderFrame > 1 && Time.frameCount - GameManager.HarnessShotFrame > 2)
                 {
                     dts.Add(dt);
-                    var dir = DesertDirector.I;
-                    if (dt > 0.05f && worst.Count < 12)
-                        worst.Add($"{dt * 1000f:F0} ms a {walked:F0} m ({Time.time - t0:F0} s), luoghi caricati {(dir != null ? dir.LoadedSites : -1)}, pelli in costruzione {(dir != null ? dir.FarSkinsPending : -1)}, pulizie {(dir != null ? dir.Sweeps : -1)}, navmesh occupata {DesertNav.Busy}");
+                    if (dt > 0.033f)
+                    {
+                        if (fromStep) r.hitchesFromSteps++; else if (fromUnload) r.hitchesFromUnloads++; else r.hitchesOther++;
+                        if (dt > 0.05f && r.worst.Count < 30)
+                            r.worst.Add($"{dt * 1000f:F0} ms a {walked:F0} m ({Time.time - t0:F0} s){(fromStep ? ", nel fotogramma di un passo lento del direttore" : "")}{(fromUnload ? $", nel fotogramma dello scarico di {dirc.LastUnloadWhat} ({dirc.LastUnloadObjects} oggetti)" : "")}, luoghi caricati {(dirc != null ? dirc.LoadedSites : -1)}, pelli in costruzione {(dirc != null ? dirc.FarSkinsPending : -1)}, pulizie {(dirc != null ? dirc.Sweeps : -1)}, navmesh occupata {DesertNav.Busy}");
+                    }
                 }
                 yield return null;
             }
             PlayerController.botDir = Vector3.zero; PlayerController.holdLook = true;
             dts.Sort();
-            int n = dts.Count;
-            float Pc(float f) => n == 0 ? 0f : dts[Mathf.Min(n - 1, Mathf.FloorToInt(n * f))] * 1000f;
-            int over33 = 0, over50 = 0, over100 = 0, over250 = 0;
-            foreach (var x in dts) { if (x > 0.033f) over33++; if (x > 0.05f) over50++; if (x > 0.1f) over100++; if (x > 0.25f) over250++; }
-            Debug.Log($"[PryingEyes] desertotest cammino: {walked:F0} m in {Time.time - t0:F0} s, {n} fotogrammi, mediana {Pc(0.5f):F1} ms, 95% {Pc(0.95f):F1} ms, 99% {Pc(0.99f):F1} ms, piu' lungo {Pc(1f):F0} ms; oltre 33 ms {over33}, 50 ms {over50}, 100 ms {over100}, 250 ms {over250}");
-            foreach (var w in worst) Debug.Log("[PryingEyes] desertotest cammino, fotogramma lungo: " + w);
-            Check("si cammina fino alla torre di riferimento sulla sabbia", arrived, $"{walked:F0} m in {Time.time - t0:F0} s, a {Flat(pl.transform.position, target):F0} m dal punto");
-            Check("camminando nessun fotogramma e' un blocco visibile (oltre mezzo secondo)", n > 300 && Pc(1f) < 500f, $"{n} fotogrammi, il piu' lungo {Pc(1f):F0} ms, oltre 100 ms {over100}");
+            r.n = dts.Count; r.walked = walked; r.seconds = Time.time - t0;
+            float Pc(float f) => r.n == 0 ? 0f : dts[Mathf.Min(r.n - 1, Mathf.FloorToInt(r.n * f))] * 1000f;
+            r.p50 = Pc(0.5f); r.p95 = Pc(0.95f); r.p99 = Pc(0.99f); r.max = Pc(1f);
+            foreach (var x in dts) { if (x > 0.033f) r.over33++; if (x > 0.05f) r.over50++; if (x > 0.1f) r.over100++; if (x > 0.25f) r.over250++; }
+        }
+
+        static string WalkLine(string label, WalkResult r) =>
+            $"[PryingEyes] desertotest {label}: {r.walked:F0} m in {r.seconds:F0} s, {r.n} fotogrammi, mediana {r.p50:F1} ms, 95% {r.p95:F1} ms, 99% {r.p99:F1} ms, piu' lungo {r.max:F0} ms; oltre 33 ms {r.over33} (di cui {r.hitchesFromSteps} nel fotogramma di un passo lento del direttore e {r.hitchesFromUnloads} in quello dello scarico di un luogo), 50 ms {r.over50}, 100 ms {r.over100}, 250 ms {r.over250}";
+
+        /// <summary>Camminare sulla sabbia dal piede della scalinata fino alla torre di riferimento (309 m), come chi gioca e senza foto, misurando i fotogrammi (WalkMeasure). Se una cosa blocca la
+        /// strada (un sasso, un cactus) fa un passo di lato. Tutto cio' che e' a portata si costruisce all'arrivo, quindi su questa strada quasi nessun luogo si carica: lo fa il percorso lungo.</summary>
+        IEnumerator WalkProbe()
+        {
+            var s = DesertWorld.Landmark();
+            yield return GoTo(18f, -10f);
+            var target = new Vector3(s.CentreX, 0f, s.fz1 + 25f);
+            var r = new WalkResult();
+            yield return WalkMeasure(target, 170f, r);
+            Debug.Log(WalkLine("cammino", r));
+            foreach (var w in r.worst) Debug.Log("[PryingEyes] desertotest cammino, fotogramma lungo: " + w);
+            Check("si cammina fino alla torre di riferimento sulla sabbia", r.arrived, $"{r.walked:F0} m in {r.seconds:F0} s, a {Flat(Pl.transform.position, target):F0} m dal punto");
+            Check("camminando nessun fotogramma e' un blocco visibile (oltre mezzo secondo)", r.n > 300 && r.max < 500f, $"{r.n} fotogrammi, il piu' lungo {r.max:F0} ms, oltre 100 ms {r.over100}");
+        }
+
+        /// <summary>Una direzione da percorrere a piedi per 'len' metri dal punto 'from' (solo verso sud: la cattedrale sta a nord), scelta perche' fa caricare il piu' possibile di luoghi (che
+        /// entrano nel raggio di caricamento strada facendo e non erano gia' li' al via) e non ne tocca nessuno (a meno di 18 m), ne' una mesa (a meno di 40 m), ne' la cattedrale. Dice il punto
+        /// d'arrivo e quanti luoghi si caricheranno; falso se ogni direzione tocca qualcosa.</summary>
+        static bool PickRoute(Vector3 from, float len, out Vector3 end, out int loads)
+        {
+            end = from; loads = -1;
+            var list = new List<Site>(); var seen = new Dictionary<Site, float>();
+            for (int k = 0; k < 24; k++)
+            {
+                float a = (96f + k * 7f) * Mathf.Deg2Rad;
+                var dir = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
+                bool bad = false; seen.Clear();
+                for (float d = 0f; d <= len && !bad; d += 20f)
+                {
+                    float qx = from.x + dir.x * d, qz = from.z + dir.z * d;
+                    if (d > 40f && DesertWorld.DistToCathedral(qx, qz) < 25f) { bad = true; break; }
+                    if (d > 0f && DesertWorld.ButteTouches(qx - 20f, qz - 20f, qx + 20f, qz + 20f, 40f)) { bad = true; break; }
+                    DesertWorld.SitesNear(qx, qz, DesertDirector.LoadTower, list);
+                    foreach (var s in list)
+                    {
+                        float dx = Mathf.Max(Mathf.Max(s.fx0 - qx, qx - s.fx1), 0f), dz = Mathf.Max(Mathf.Max(s.fz0 - qz, qz - s.fz1), 0f);
+                        float dist = Mathf.Sqrt(dx * dx + dz * dz);
+                        if (dist < 18f) { bad = true; break; }
+                        if (!seen.TryGetValue(s, out float least) || dist < least) seen[s] = dist;
+                    }
+                }
+                if (bad) continue;
+                int n = 0;
+                foreach (var kv in seen)
+                {
+                    var s = kv.Key;
+                    float dx = Mathf.Max(Mathf.Max(s.fx0 - from.x, from.x - s.fx1), 0f), dz = Mathf.Max(Mathf.Max(s.fz0 - from.z, from.z - s.fz1), 0f);
+                    float atStart = Mathf.Sqrt(dx * dx + dz * dz);
+                    float radius = s.IsTower ? DesertDirector.LoadTower : DesertDirector.LoadBuilding;
+                    if (atStart > radius + 10f && kv.Value <= radius - 10f) n++;
+                }
+                if (n > loads) { loads = n; end = from + dir * len; }
+            }
+            return loads >= 0;
+        }
+
+        /// <summary>Il direttore ha finito di costruire cio' che e' a portata: tutti i gusci dei luoghi caricati e tutte le pelli lontane accese.</summary>
+        static bool LoadQuiet(DesertDirector d)
+        {
+            if (d == null || d.FarSkinsPending > 0) return false;
+            foreach (var rt in d.Loaded) if (!rt.ShellComplete) return false;
+            return true;
+        }
+
+        /// <summary>Solo con -desertonly percorso: il cammino vero, lungo (1300 m dal piede della scalinata, nella direzione che fa caricare piu' luoghi senza toccarne nessuno). Quello di
+        /// 309 m (cammino) non attraversa quasi nessun confine di caricamento, perche' tutto cio' che e' a portata si costruisce all'arrivo: qui i luoghi entrano nel raggio e ne escono mentre
+        /// si cammina, e si vede cosa costa a chi gioca. Il tempo e' fermo alle 9 (a meta' strada non fa notte e non arrivano i vagabondi). Dice i fotogrammi, i luoghi caricati e scaricati e i passi
+        /// di lavoro lenti del direttore; non disegna (con -batchmode la camera non disegna): misura la logica, non la scheda.</summary>
+        IEnumerator RouteProbe()
+        {
+            const float len = 1300f;
+            var from = new Vector3(18f, 0f, -10f);
+            bool picked = PickRoute(from, len, out var end, out int planned);
+            Check("c'e' una strada di 1300 m dal piede della scalinata che passa vicino a dei luoghi senza toccarne nessuno", picked && planned >= 1, picked ? $"verso ({end.x:F0}, {end.z:F0}), {planned} luoghi si caricheranno strada facendo" : "ogni direzione tocca qualcosa");
+            if (!picked) yield break;
+            var sky = DesertSky.I;
+            if (sky != null) sky.SetHour(9f, true);
+            yield return GoTo(from.x, from.z);
+            var dirc = DesertDirector.I;
+            yield return WaitFor(() => LoadQuiet(dirc), 45f);
+            yield return new WaitForSeconds(1f);
+            dirc.ResetStepStats();
+            int loads0 = dirc.SitesLoadedTotal, unloads0 = dirc.SitesUnloadedTotal, sweeps0 = dirc.Sweeps;
+            var r = new WalkResult();
+            var target = new Vector3(end.x, 0f, end.z);
+            yield return WalkMeasure(target, 640f, r);
+            if (sky != null) sky.Frozen = false;
+            int loads = dirc.SitesLoadedTotal - loads0, unloads = dirc.SitesUnloadedTotal - unloads0;
+            float left = Flat(Pl.transform.position, target);
+            Debug.Log(WalkLine("percorso", r));
+            Debug.Log($"[PryingEyes] desertotest percorso: luoghi caricati {loads} (previsti {planned}), scaricati {unloads}, passi di lavoro di 30 ms o piu' {dirc.SlowSteps}, il peggiore {dirc.WorstStepMs} ms ({dirc.WorstStepWhat}), pulizie della memoria {dirc.Sweeps - sweeps0}, a {left:F0} m dal punto");
+            foreach (var w in r.worst) Debug.Log("[PryingEyes] desertotest percorso, fotogramma lungo: " + w);
+            Check("si cammina per 1300 m caricando e scaricando luoghi strada facendo", r.arrived && loads >= 1, $"{r.walked:F0} m in {r.seconds:F0} s, a {left:F0} m dal punto, {loads} luoghi caricati e {unloads} scaricati");
+            Check("camminando per tutta la strada nessun fotogramma e' un blocco visibile (oltre mezzo secondo)", r.n > 1000 && r.max < 500f, $"{r.n} fotogrammi, il piu' lungo {r.max:F0} ms, oltre 100 ms {r.over100}");
         }
 
         IEnumerator Photos()
