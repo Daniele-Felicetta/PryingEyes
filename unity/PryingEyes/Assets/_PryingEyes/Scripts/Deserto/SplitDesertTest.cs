@@ -13,8 +13,9 @@ namespace PryingEyes.Deserto
     /// partita nel deserto con N posti (come dal menu: "Chi gioca?", poi la scelta della partita) e si controlla che ogni posto abbia il suo mondo attorno: la sua camera ha il cielo (piano
     /// lontano e sfondo), gli effetti (sabbia che vola, animali, veli di sabbia, diavoli) nascono per ognuno, il posto 2 portato a due chilometri dal primo trova la sabbia con il collider,
     /// la navmesh, le cose sulla sabbia, il luogo costruito e la sua pelle da lontano (e il primo non perde niente), il bottino che il posto raccoglie e' suo (punti suoi, non del primo),
-    /// l'obiettivo di ognuno dice dove sta lui, la minimappa di ciascuno mostra gli altri solo se sono nella finestra, il bordo del mondo riporta dentro solo chi lo oltrepassa. Con la
-    /// grafica fotografa il cielo di ogni camera (hotel_build/deserto/split_postoN.png: non deve essere lo sfondo vuoto) e, con -seatsshots su piu' monitor veri, chiede allo script
+    /// l'obiettivo di ognuno dice dove sta lui, la minimappa di ciascuno mostra gli altri solo se sono nella finestra, il bordo del mondo riporta dentro solo chi lo oltrepassa; ognuno ha la sua
+    /// moto e il posto 2 sale in sella mentre gli altri restano a piedi. Con la grafica (anche senza finestra: -batchmode senza -nographics) fotografa il posto 2 in sella visto dal posto 1
+    /// (hotel_build/deserto/split_moto_posto2_in_sella.png) e il cielo di ogni camera (hotel_build/deserto/split_postoN.png: non deve essere lo sfondo vuoto) e, con -seatsshots su piu' monitor veri, chiede allo script
     /// (tools/coop/run_split.ps1 -Desert -Graphics -Monitors N) le foto di sistema di ogni monitor. Lo lancia run_split.ps1 -Desert; documentazione in docs/multiplayer/split-screen.md.</summary>
     public sealed class SplitDesertTest : MonoBehaviour
     {
@@ -201,6 +202,7 @@ namespace PryingEyes.Deserto
             var seats = Seats.All.ToArray();
 
             yield return Arrival(seats);
+            yield return Bikes(seats);
             yield return FarSeat(seats);
             yield return Loot(seats);
             yield return Texts(seats);
@@ -241,6 +243,111 @@ namespace PryingEyes.Deserto
             bool alive = true; foreach (var s in seats) alive &= s.player.alive;
             Check("tutti i giocatori sono vivi e a terra", alive && Grounded(seats[0]));
             for (int i = 0; i < n; i++) Check($"il posto {i + 1} ha il suo HUD con l'obiettivo del deserto", seats[i].hud != null && seats[i].hud.DesertObjectiveShown.Contains("Torri e catacombe"), seats[i].hud != null ? seats[i].hud.DesertObjectiveShown : "senza HUD");
+            yield return null;
+        }
+
+        /// <summary>Il posto 'from' guarda il posto 'to' e lo fotografa dal suo punto di vista (hotel_build/deserto/&lt;file&gt;, 1920x1080).</summary>
+        IEnumerator SnapRider(Seat from, Seat to, string file)
+        {
+            for (int k = 0; k < 2; k++)
+            {
+                Vector3 look = Pos(to) + Vector3.up * 0.9f - from.player.cam.position;
+                from.player.yaw = Mathf.Atan2(look.x, look.z);
+                from.player.pitch = Mathf.Atan2(-look.y, new Vector2(look.x, look.z).magnitude);
+                yield return null;
+            }
+            yield return new WaitForEndOfFrame();
+            var shot = RenderOnce(from.camera, 1920, 1080);
+            string dir = TestPaths.Out("deserto");
+            Directory.CreateDirectory(dir);
+            try { File.WriteAllBytes(Path.Combine(dir, file), shot.EncodeToPNG()); } catch (Exception ex) { Debug.Log("[PryingEyes] splitdesertotest: foto non scritta: " + ex.Message); }
+            Destroy(shot);
+        }
+
+        /// <summary>La moto nello schermo condiviso: una per posto, ognuna al suo posto di nascita; il posto 2 sale e guida (comandi forzati dalla prova) mentre gli altri restano a piedi, il suo corpo
+        /// visto dagli altri e' in sella e senza le braccia della moto sul manubrio, e quando scende la moto resta li' parcheggiata.</summary>
+        IEnumerator Bikes(Seat[] seats)
+        {
+            Debug.Log("[PryingEyes] splitdesertotest --- moto");
+            int n = seats.Length;
+            var bikes = new List<DesertBike>();
+            foreach (var b in DesertBike.All) if (b != null && !b.puppet) bikes.Add(b);
+            bool oneEach = bikes.Count == n;
+            DesertBike mine = null;
+            for (int i = 0; i < n; i++)
+            {
+                bool has = false;
+                foreach (var b in bikes) if (b.slot == i && Flat(b.transform.position, DesertBikes.HomeFor(i)) < 0.5f) { has = true; if (i == 1) mine = b; }
+                oneEach &= has;
+            }
+            Check($"c'e' una moto per ognuno dei {n} posti, ognuna al suo posto di nascita", oneEach, $"{bikes.Count} moto");
+            if (mine == null) yield break;
+            var s0 = seats[0]; var s1 = seats[1]; var p1 = s1.player;
+            Vector3 origin0 = Pos(s0), home0 = origin0;
+            bool snap = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;          // con la scheda grafica (anche senza finestra) si fotografa il pilota visto dal posto 1
+            if (snap)
+            {
+                // con la grafica il posto 1 si mette sulla sabbia a sette metri dalla strada della moto, girato verso di lei: la foto di com'e' il posto 2 in sella visto da un altro posto
+                PlayerController.holdLook = true;
+                s0.player.Teleport(new Vector3(mine.home.x - 7f, DesertWorld.Height(mine.home.x - 7f, mine.home.z - 6f) + 0.2f, mine.home.z - 6f));
+                yield return null;
+                yield return WaitFor(() => Grounded(s0), 5f);
+                home0 = Pos(s0);
+            }
+            p1.Mount(mine);
+            yield return null;
+            Check("il posto 2 sale in sella e gli altri restano a piedi", p1.Riding && mine.rider == p1 && !s0.player.Riding && !(n > 2 && seats[2].player.Riding));
+            Check("in uno schermo condiviso la moto non mostra le braccia del pilota (le vedrebbero gli altri posti)", !mine.ArmsShown);
+            DesertBike.botThrottle = 1f;
+            if (snap)
+            {
+                // con la grafica i fotogrammi sono lunghi e la guida va a passi di 0,05 s al massimo: si aspetta la strada fatta, non i secondi
+                yield return WaitFor(() => Flat(Pos(s1), mine.home) > 3.5f, 8f);
+                yield return SnapRider(s0, s1, "split_moto_posto2_in_sella.png");
+                // e in curva (a sinistra, lontano dal posto 1): il corpo si inclina con la moto
+                DesertBike.botThrottle = 0.5f; DesertBike.botSteer = -0.8f;
+                yield return WaitFor(() => Mathf.Abs(mine.RollVisual) > 10f, 6f);
+                yield return SnapRider(s0, s1, "split_moto_posto2_in_curva.png");
+                DesertBike.botSteer = 0f; DesertBike.botThrottle = 1f;
+            }
+            yield return WaitFor(() => Flat(Pos(s1), mine.home) > 20f && p1.RideSpeed > 5f, 12f);
+            DesertBike.botThrottle = 0f;
+            float went = Flat(Pos(s1), mine.home);
+            Check("il posto 2 ha corso con la sua moto", went > 15f && p1.RideSpeed > 5f, $"{went:F0} m, {p1.RideSpeed * 3.6f:F0} km/h");
+            Check("il posto 1 non si e' mosso", Flat(Pos(s0), home0) < 3f && !s0.player.Riding);
+            Check("in sella la minimappa del posto 2 non segna la sua moto (il pilota e' la freccia rossa)", s1.hud.DesertMapShown && !s1.hud.DesertMapBikeShown, $"mappa accesa {s1.hud.DesertMapShown}, tondo {s1.hud.DesertMapBikeShown}");
+            SeatAvatar av = null;
+            foreach (var a in FindObjectsByType<SeatAvatar>(FindObjectsSortMode.None)) if (a.Seat == s1) av = a;
+            // il corpo vero (con i modelli) sta seduto: bacino sulla sella, piedi sulle pedane, mani sulle manopole (SurvivorBody, posa 'seated'); senza i modelli resta il manichino accovacciato
+            bool seatedOk = av != null && av.Body != null && av.Body.input.seated && av.Body.input.velocity.sqrMagnitude < 0.01f;
+            if (av != null && av.Body != null) yield return WaitFor(() => av.Body.SeatAmount > 0.99f, 3f);
+            Check("il corpo del posto 2 visto dagli altri e' seduto in sella, con le gambe ferme", seatedOk && av.Body.SeatAmount > 0.99f, av != null ? (av.Body != null ? $"seduto {av.Body.input.seated}, posa {av.Body.SeatAmount:F2}" : "senza corpo") : "nessun avatar");
+            Check("e le sue mani arrivano alle manopole (le due mani a meno di 12 cm dalle manopole, in tutto)", seatedOk && av.Body.RideHandsOff < 0.12f, seatedOk ? $"{av.Body.RideHandsOff * 100f:F1} cm in tutto" : "non seduto");
+            p1.RideRequestDismount();
+            yield return WaitFor(() => !p1.Riding, 20f);
+            Check("il posto 2 scende e la sua moto resta parcheggiata dov'e'", !p1.Riding && mine.rider == null && mine.ColliderOn);
+            // la minimappa di ogni posto segna la moto di quel posto, non quella di un altro (nate a 1,8 m una dall'altra, sulla carta sono 0,7 px: la tolleranza e' 0,25)
+            yield return WaitFor(() => s1.hud.DesertMapBikeShown, 3f);
+            yield return null; yield return null;
+            bool dotsOk = true; string dotsWhy = "";
+            for (int i = 0; i < n; i++)
+            {
+                var ob = DesertBikes.Own(seats[i].player);
+                if (ob == null || ob.rider != null) { dotsOk = false; dotsWhy += $" posto {i + 1}: nessuna moto parcheggiata;"; continue; }
+                Vector3 sp = Pos(seats[i]);
+                var want = new Vector2((ob.transform.position.x - sp.x) * HUD.DesertMapPixelsPerMetre, (ob.transform.position.z - sp.z) * HUD.DesertMapPixelsPerMetre);
+                var got = seats[i].hud.DesertMapBikeAt;
+                if (!seats[i].hud.DesertMapBikeShown || (got - want).magnitude > 0.25f) { dotsOk = false; dotsWhy += $" posto {i + 1}: {got} invece di {want};"; }
+            }
+            Check("sulla carta di ogni posto c'e' il tondo della sua moto parcheggiata, e non quello di un altro posto", dotsOk, dotsWhy);
+            DesertBike.BotReset();
+            if (snap)
+            {
+                PlayerController.holdLook = false;
+                s0.player.Teleport(origin0);
+                yield return null;
+                yield return WaitFor(() => Grounded(s0), 5f);
+            }
             yield return null;
         }
 

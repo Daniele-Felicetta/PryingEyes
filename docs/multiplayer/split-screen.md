@@ -147,7 +147,9 @@ renders. It is driven by the seat's body at the end of the frame and sits on the
 layers 20 to 23): `Seats.Layout` gives every camera its own weapon layer and the avatar layers of the others, never its own, so nobody
 sees their own body in front of the eyes (unless that player chose the [third-person view](../game/third-person.md), which adds their own
 layer back to their own camera). The survivor has no collider (bullets and enemies ignore it) and no light of its own (each seat's real
-torch lights the world and the others' bodies, never its own weapon: `SurvivorLight`).
+torch lights the world and the others' bodies, never its own weapon: `SurvivorLight`). On the desert's motorbike ([../game/the-desert.md](../game/the-desert.md), "The motorbike") the
+avatar looks where the bike points (`PlayerController.RideHeading`) and is seated on it (pelvis on the saddle, feet on the footrests, hands on the grips, leaning with the bike: the `seated` pose of
+`SurvivorBody`), and the first-person arms of the bike are not shown (the others would see them floating beside the avatar).
 
 How the screen is made: each seat camera is a copy of the main one (URP settings included) with its own `Camera.rect`. The weapon and hands of
 seat n live on layer 24 + n, and a camera draws only its own, so nobody sees another player's gun. There is one `AudioListener`, on player 1's
@@ -269,12 +271,16 @@ the four sizes and its photograph at 1280x720). Not run on that build: three pla
 ### The desert in split screen (0.9.1)
 
 `-splitdesertotest` (`Scripts/Deserto/SplitDesertTest.cs`, started by `tools/coop/run_split.ps1 -Players N -Desert [-Graphics] [-Monitors M]`) starts the desert with N seats and checks that every seat camera has the 1,500 m far plane
-and the solid background; that there is one instance of the sand, the animals, the veils and the dust devils per seat and one of the fires; that the seats arrive 0.36 m apart and each HUD has the desert objective; that **seat 2, taken 2.6 km
+and the solid background; that there is one instance of the sand, the animals, the veils and the dust devils per seat and one of the fires; that the seats arrive 0.36 m apart and each HUD has the desert objective; that there is one motorbike for each seat, each at its own home, and that seat 2 gets on its own and rides it while the others stay on foot (no arms of the bike on the screen, its body seen seated on it by the others with its hands on the grips) and leaves it parked where it gets off, each seat's minimap marking the parked bike of that seat and not another's; that **seat 2, taken 2.6 km
 away** (to a real chapel), stands on sand with a collider, has navmesh round it and round seat 1, has props and loot, has the chapel next to it built with its skin and an outdoor sky, and is not on seat 1's minimap (the seats that stayed home are); that 70 points picked up
 by seat 2 are seat 2's and not seat 1's; that the objective lines differ (seat 2's says *cattedrale a 2550 m*); that a seat sent beyond the edge of the world is brought back and the other does not move; and that, brought back together, each minimap shows the
 others. With a graphics card it renders each camera at noon and checks that the top of the picture is sky and not the fog-coloured background (`hotel_build/deserto/split_posto1.png`, `split_posto2.png`), and with `-seatsshots` over real monitors it asks the script for the
 system photos of every monitor (`unity_logs/seats/deserto-lontano-monitor1.png` and so on). Results of 19 November 2026 on the tree that became 0.9.1: two seats 31 of 31, three 33 of 33, four 35 of 35 without a window (about 25 s each); two seats on two real monitors
-(the 3440x1440 primary and the 4K one) 33 of 33 in 30 s at 60 frames per second, with the four photos looked at.
+(the 3440x1440 primary and the 4K one) 33 of 33 in 30 s at 60 frames per second, with the four photos looked at. The motorbike step (7 checks) was added on 19 November 2026, with the
+motorbike: two seats 38 of 38, three 40 of 40 and four 42 of 42 (about 28 s each) without a window, and two seats 40 of 40 with the graphics card and no window, which also photographs seat 2 riding away from the stair as seat 1 sees it
+(`hotel_build/deserto/split_moto_posto2_in_sella.png`, looked at). The same day a second round (the rider seated with its hands on the grips, the disc of each seat's own bike on its minimap) made the step 10 checks: two seats **41 of 41**, three **43 of 43** and
+four **45 of 45** (28 to 30 s each) without a window, and two seats **43 of 43** with the graphics card and no window, which photographs seat 2 straight and in a bend (`split_moto_posto2_in_sella.png`, `split_moto_posto2_in_curva.png`, looked at: seated, banking with the bike);
+the other counts above are those of 0.9.1, before the step.
 
 ## Not verified, limits
 

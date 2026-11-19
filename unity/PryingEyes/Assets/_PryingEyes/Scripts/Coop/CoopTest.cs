@@ -399,7 +399,7 @@ namespace PryingEyes
             // col ciclo a ondate (predefinito) le candele non ci sono: al posto di candela e round (S5, S6) si compra un'area e si giocano tre ondate
             bool survival = SurvivalMode.Enabled;
             System.Func<IEnumerator>[] steps =
-                DesertRun ? (Leave || Crash ? new System.Func<IEnumerator>[] { D0, D1, D2, D8 } : Pics ? new System.Func<IEnumerator>[] { D0, D1, D2, D3, D4, D5, D6, D7 } : new System.Func<IEnumerator>[] { D0, D1, D2, D3, D4, D5, D6 }) :
+                DesertRun ? (Leave || Crash ? new System.Func<IEnumerator>[] { D0, D1, D2, D8 } : Pics ? new System.Func<IEnumerator>[] { D0, D1, D2, D3, D4, D5, D6, D7 } : MotoRun ? new System.Func<IEnumerator>[] { D0, D1, D9, D10 } : new System.Func<IEnumerator>[] { D0, D1, D2, D3, D4, D5, D6 }) :
                 Leave || Crash ? new System.Func<IEnumerator>[] { S0, S1, E2 } :
                 HostLeave ? new System.Func<IEnumerator>[] { S0, S1, H2 } :
                 Pics ? new System.Func<IEnumerator>[] { S0, S1, P0, P1 } :

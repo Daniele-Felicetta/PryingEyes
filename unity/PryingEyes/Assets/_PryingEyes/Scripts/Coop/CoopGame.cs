@@ -355,7 +355,8 @@ namespace PryingEyes
             var s = new PlayerNet { epoch = FloorBuilt ? EpochByte : 0 };
             if (pl == null) return s;
             s.pos = pl.transform.position; s.yaw = pl.yaw; s.pitch = pl.pitch;
-            s.alive = pl.alive; s.crouch = pl.IsCrouching; s.sprint = pl.IsSprinting;
+            s.alive = pl.alive; s.crouch = pl.IsCrouching || pl.Riding; s.sprint = pl.IsSprinting;
+            s.riding = pl.Riding; s.heading = pl.Riding ? pl.RideHeading : pl.yaw;          // in sella: verso dove punta la moto (lo sguardo e' un altro angolo)
             s.torch = Torch.I != null && Torch.I.Lit;
             s.speedH = pl.SpeedH;
             s.lum = Mathf.Clamp01(Stealth.PlayerLum);
