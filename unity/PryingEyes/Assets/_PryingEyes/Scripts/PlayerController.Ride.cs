@@ -46,6 +46,7 @@ namespace PryingEyes
             rideCamFrom = cam != null ? cam.position : transform.position;
             rideBlend = 0f;
             Teleport(b.transform.position);
+            ridePlowed.Clear(); RidePlowCount = 0;              // il Teleport ha spento e riacceso il controller: le coppie da ignorare sono sparite con lui
             if (cc != null)
             {
                 rideStepOffset = cc.stepOffset;
@@ -102,6 +103,7 @@ namespace PryingEyes
 
         void EndRide()
         {
+            RidePlowEnd();
             bike = null;
             rideDismount = false; rideBoosting = false;
             vel = Vector3.zero;
@@ -187,14 +189,19 @@ namespace PryingEyes
             along = Vector3.Dot(hv, fwd); lat = Vector3.Dot(hv, right);
             lat *= Mathf.Exp(-(grounded ? (handbrake ? 1.2f : 9f) : 0.15f) * dt);              // l'aderenza: la velocita' di traverso svanisce, col freno a mano quasi no (si derapa)
             hv = fwd * along + right * lat;
+            // ---- investire: oltre i 20 km/h chi cammina sulla strada non e' un muro (PlayerController.Ride.Plow.cs): il corpo lo attraversa, il nemico prende il colpo, la moto perde un po' di velocita'
+            if (RidePlow(dt, ref hv, along)) { along = Vector3.Dot(hv, fwd); lat = Vector3.Dot(hv, right); }
 
             // ---- verticale e movimento (stessa capsula del giocatore a piedi)
             rideVyPrev = vel.y;
             vel.x = hv.x; vel.z = hv.z;
             vel.y = grounded ? -4f : Mathf.Max(vel.y - gravity * dt, -30f);
             bool wasGrounded = grounded;
+            Vector3 pBefore = transform.position;
             cc.Move(vel * dt);
-            Vector3 av = cc.velocity; av.y = 0f;                // quello che il corpo ha fatto davvero (prima dell'aggancio al suolo, che sovrascrive la velocita' del controller)
+            // quello che il corpo ha fatto davvero in questo spostamento (prima dell'aggancio al suolo). Non si legge cc.velocity: il controller divide lo spostamento per il tempo VERO del fotogramma, e 'dt' qui e' al piu'
+            // 50 ms: in un fotogramma lungo (148 ms alla prima medaglia, alla nascita di un blocco di sabbia) a 59 km/h dava 19 km/h, una frenata da urto contro il niente e fino a 45 punti di danno al pilota
+            Vector3 av = (transform.position - pBefore) / Mathf.Max(dt, 1e-4f); av.y = 0f;
             rideGrounded = cc.isGrounded;
             if (!rideGrounded && wasGrounded)
             {

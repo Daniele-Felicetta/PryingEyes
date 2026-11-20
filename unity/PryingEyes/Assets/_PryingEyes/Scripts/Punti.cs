@@ -10,6 +10,7 @@ namespace PryingEyes
         Esplosione, // scoppio dell'Appestato o la sua nube: paga come un'arma
         Scoppio,    // l'Appestato che scoppia da solo vicino a te: nessun premio
         Magia,      // magie della mano sinistra, sigilli sull'arma, danni nel tempo (fuoco, emorragia, corrosione): paga come un'arma
+        Moto,       // la moto del deserto che investe chi cammina (PlayerController.Ride.Plow.cs): paga mezza uccisione, senza rischio e senza munizioni
     }
 
     /// <summary>Tabella dei punti, quella dei Black Ops Zombies: 10 a ogni colpo che non uccide, 60 per l'uccisione, 100 se
@@ -17,8 +18,8 @@ namespace PryingEyes
     public static class Punti
     {
         /// <summary>L'ultima fonte di danno: la rete accetta le fonti fino a questa (i numeri viaggiano, le nuove vanno in fondo).</summary>
-        public const DamageSource LastSource = DamageSource.Magia;
-        public const int Colpo = 10, Uccisione = 60, Testa = 100, Coltello = 130;
+        public const DamageSource LastSource = DamageSource.Moto;
+        public const int Colpo = 10, Uccisione = 60, Testa = 100, Coltello = 130, Investito = 30;
         /// <summary>Bonus per una candela accesa senza che nessun prete ti abbia visto dall'ultima (FloorDirector.OnCandle).</summary>
         public const int Fantasma = 200;
         /// <summary>Per le prove automatiche (-survivaltest): i punti pagati a questa macchina per i colpi che non uccidono (Colpo l'uno),
@@ -29,6 +30,7 @@ namespace PryingEyes
         {
             if (src == DamageSource.Nuke || src == DamageSource.Scoppio) return 0;
             if (src == DamageSource.Knife || src == DamageSource.Takedown) return Coltello;
+            if (src == DamageSource.Moto) return Investito;           // la moto non spara alla testa e non ha rischio: la meta' di un'uccisione (le medaglie delle serie pagano a parte)
             return headshot ? Testa : Uccisione;
         }
     }

@@ -38,7 +38,19 @@ namespace PryingEyes
             bool blast = explosive && blastFrame == Time.frameCount;
             bool hit = lastHitFrame >= 0;
             float impulse;
-            if (src == DamageSource.Nuke || (explosive && !blast)) impulse = 0f;  // la Campana, il fuoco, la nube: si accascia
+            Vector3 tumbleDir = Vector3.zero; float tumbleSpeed = 0f;
+            if (src == DamageSource.Moto)
+            {
+                // la moto lo scaglia: tutto il corpo parte avanti, a poco piu' della meta' della sua velocita' (il danno e' PlowDamagePerMps per ogni m/s), e un po' in alto;
+                // poi le gambe prendono piu' velocita' della testa (EnemyRagdoll.Tumble) e il corpo si ribalta. Chi non ha visto il colpo (un compagno, che riceve solo la morte) non sa la velocita': v = 0, solo un saltello
+                float v = Mathf.Min(lastHitDmg, 300f) / PlowDamagePerMps;
+                Vector3 flat = new Vector3(lastHitDir.x, 0f, lastHitDir.z);
+                if (!hit || flat.sqrMagnitude < 1e-4f) flat = -transform.forward;
+                carried += flat.normalized * (0.55f * v) + Vector3.up * (2f + 0.15f * v);
+                tumbleDir = flat; tumbleSpeed = v;
+                impulse = 0f;
+            }
+            else if (src == DamageSource.Nuke || (explosive && !blast)) impulse = 0f;  // la Campana, il fuoco, la nube: si accascia
             else if (blast) impulse = 5.5f;                                         // m/s al centro, meno con la distanza
             else if (src == DamageSource.Takedown) impulse = 5f;
             else if (src == DamageSource.Knife) impulse = 18f;
@@ -46,7 +58,9 @@ namespace PryingEyes
             Vector3 point = blast ? blastCenter : hit ? lastHitPoint : transform.position + Vector3.up * 1.2f;
             var chaser = tgt ?? Targets.Local;                                        // chi inseguiva (a schermo condiviso non e' sempre il posto 0)
             Vector3 dir = hit ? lastHitDir : (chaser != null ? transform.position - chaser.Feet : -transform.forward);
-            return EnemyRagdoll.Begin(gameObject, anim, carried, point, dir, impulse, blast);
+            var rag = EnemyRagdoll.Begin(gameObject, anim, carried, point, dir, impulse, blast);
+            if (rag != null && tumbleSpeed > 0f) rag.Tumble(tumbleDir, tumbleSpeed);
+            return rag;
         }
     }
 }
