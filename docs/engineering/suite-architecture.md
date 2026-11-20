@@ -3,7 +3,7 @@
 The goal of the engineering work is a suite that outlives Prying Eyes. This page is the map: which parts are already
 independent of the game, what enforces that, and what is still game-specific. It is written to be checked, not admired:
 `python tools/check_suite.py` fails when a boundary below is crossed; `tools/ship.ps1` runs it, with the Python unit tests, before every
-commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the three .NET rule labs, on every push to `preview` and every
+commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the four .NET rule labs, on every push to `preview` and every
 pull request against it. How a change is built, shipped and gated is in [building-and-shipping.md](building-and-shipping.md).
 
 ## Layers
