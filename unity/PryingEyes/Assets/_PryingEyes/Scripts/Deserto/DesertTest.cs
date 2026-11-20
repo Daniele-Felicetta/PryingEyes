@@ -350,6 +350,8 @@ namespace PryingEyes.Deserto
             if (Explicit("motocattedrale")) yield return Phase("motocattedrale", MotoCathedral());
             if (Explicit("motofuoco")) yield return Phase("motofuoco", MotoFire());
             if (Explicit("motodettagli")) yield return Phase("motodettagli", MotoDetails());
+            if (Explicit("tracce")) yield return Phase("tracce", MotoTracks());
+            if (Explicit("motonemici")) yield return Phase("motonemici", MotoEnemies());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
             if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
         }

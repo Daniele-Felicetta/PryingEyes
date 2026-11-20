@@ -92,6 +92,11 @@ namespace PryingEyes
         public void Teleport(Vector3 p)
         {
             if (cc == null) cc = GetComponent<CharacterController>();
+#if !PE_DISTRIBUTION_BUILD
+            // diagnostica delle prove: un pilota gia' in sella da piu' di mezzo secondo non dovrebbe essere spostato di decine di metri; se succede, il registro dice da dove e chi l'ha chiamato
+            if (Riding && rideBlend >= 1f && (p - transform.position).sqrMagnitude > 225f)
+                Debug.Log($"[PryingEyes] teleporto in sella: da {transform.position:F1} a {p:F1}, chiamato da:\n{new System.Diagnostics.StackTrace(1, false)}");
+#endif
             CancelMantle();
             cc.enabled = false;
             transform.position = p;
