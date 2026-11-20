@@ -22,6 +22,10 @@ namespace PryingEyes.Proc
         const float CoverGap = 1.3f;
         /// <summary>Distanza minima (m) di un riparo dai muri: lungo il perimetro resta una corsia (gli arredi a muro li mettono le ricette).</summary>
         const float CoverWall = 1.2f;
+        /// <summary>Extra clearance (m) for a piece turned by hand (see the jitter in ArenaCover): turned, its box is a little wider than square.</summary>
+        const float CoverTurn = 0.1f;
+        /// <summary>Spots tried for one drawn group before it counts as blocked: a wall that is full at one place may still have room at another.</summary>
+        const int CoverSpots = 4;
 
         readonly struct Cover
         {
@@ -144,8 +148,63 @@ namespace PryingEyes.Proc
             return true;
         }
 
+        /// <summary>Why a group of covers stands where it does. Each reason has its own spot (see CoverSpot).</summary>
+        enum CoverReason { Wall, Door, Corner, Centre }
+
+        /// <summary>Picks the spot of a group of 'count' pieces of size 'size': a row parallel to a wall, CoverWall (plus CoverTurn) away from it and facing the room.
+        /// Wall: anywhere along the wall. Door: beside an opening, never in front of it (the reserved passage is in c.occ and CoverFree keeps off it).
+        /// Corner: the end of the row, in the corner. Centre: the middle third of the room, facing one of the four axes. False if the wall is too short.</summary>
+        static bool CoverSpot(Ctx c, Rng rng, Vector3 size, int count, out Vector3 pos, out Vector3 face, out CoverReason why)
+        {
+            float half = (count - 1) * (size.x + 0.08f) * 0.5f + size.x * 0.5f;   // half the length of the row
+            float dep = size.z * 0.5f;                                              // half the depth: the piece faces the room
+            pos = Vector3.zero;
+            face = Vector3.forward;
+            why = (CoverReason)rng.Weighted(new[] { 0.40, 0.25, 0.15, 0.20 });
+            if (why == CoverReason.Centre)
+            {
+                face = rng.Pick(Vector3.forward, Vector3.back, Vector3.right, Vector3.left);
+                pos = new Vector3(rng.Range(c.ix0 + c.W / 3f, c.ix1 - c.W / 3f), 0f, rng.Range(c.iz0 + c.D / 3f, c.iz1 - c.D / 3f));
+                return true;
+            }
+            var sides = new[] { Side.S, Side.N, Side.W, Side.E };
+            Side wall = sides[rng.Range(0, sides.Length)];
+            float along = float.NaN;                                                // where along the wall, when a door sets it
+            if (why == CoverReason.Door)
+            {
+                var doors = new System.Collections.Generic.List<(Side side, float at, float width)>();
+                foreach (var s in sides)
+                    foreach (var o in c.plan.OpeningsOn(c.r, s))
+                    {
+                        if (o.b < 0 && o.sill > 0.5f) continue;                     // windows: no constraint (as in ReserveOpenings)
+                        doors.Add((s, o.center * 0.1f, o.width * 0.1f + 0.7f));
+                    }
+                if (doors.Count > 0)
+                {
+                    var d = doors[rng.Range(0, doors.Count)];
+                    wall = d.side;
+                    // beside the opening: the near end of the row keeps 0.3 m clear of the passage that ReserveOpenings reserves (same width)
+                    along = d.at + (rng.Chance(0.5) ? -1f : 1f) * (d.width * 0.5f + 0.3f + half);
+                }
+                else why = CoverReason.Wall;
+            }
+            Vector3 inw = Inward(wall);                                             // from the wall into the room
+            bool alongX = Mathf.Abs(inw.z) > 0.5f;                                  // south and north walls: the row runs along x
+            float lo = alongX ? c.ix0 + CoverWall + CoverTurn + half : c.iz0 + CoverWall + CoverTurn + half;
+            float hi = alongX ? c.ix1 - CoverWall - CoverTurn - half : c.iz1 - CoverWall - CoverTurn - half;
+            if (hi < lo) return false;
+            float at = why == CoverReason.Corner ? (rng.Chance(0.5) ? lo : hi)
+                : float.IsNaN(along) ? rng.Range(lo, hi) : Mathf.Clamp(along, lo, hi);
+            float across = alongX ? (inw.z > 0 ? c.iz0 : c.iz1) + inw.z * (CoverWall + CoverTurn + dep)
+                                  : (inw.x > 0 ? c.ix0 : c.ix1) + inw.x * (CoverWall + CoverTurn + dep);
+            pos = alongX ? new Vector3(at, 0f, across) : new Vector3(across, 0f, at);
+            face = inw;
+            return true;
+        }
+
         static void ArenaCover(Ctx c)
         {
+            var clock = System.Diagnostics.Stopwatch.StartNew();    // for -roomcensus: what this pass costs per room
             var r = c.r;
             float area = c.W * c.D;
             if (noCover || area < 150f || r.IsLift) return;
@@ -164,22 +223,32 @@ namespace PryingEyes.Proc
             var rng = new Rng(r.seed ^ 0x3C6EF372);
             int placed = 0, cap = Mathf.Clamp(Mathf.RoundToInt(area / 9f), 6, 70), tries = 0, tooTall = 0, blocked = 0, under = 0;
             float before = c.propArea;
+            var byWhy = new int[4];                                                 // groups that fit, by CoverReason (for -roomcensus)
             for (; tries < 400 && c.propArea < want && placed < cap; tries++)
             {
                 var item = kit[rng.Weighted(weights)];
                 var def = PropDefs.Get(item.name);
                 if (def.size.y > r.wallH - 0.4f) { tooTall++; continue; }
                 int count = item.row > 1 ? (rng.Chance(0.6) ? item.row : rng.Range(1, item.row + 1)) : 1;
-                Vector3 face = rng.Pick(Vector3.forward, Vector3.back, Vector3.right, Vector3.left);
-                float jitter = count == 1 ? rng.Range(-14f, 14f) : 0f;
-                float yaw = YawOf(face) + jitter;
-                Vector3 side = Vector3.Cross(Vector3.up, face);
-                float step = def.size.x + 0.08f;
-                var pos = new Vector3(rng.Range(c.ix0 + CoverWall, c.ix1 - CoverWall), 0f, rng.Range(c.iz0 + CoverWall, c.iz1 - CoverWall));
-                bool low = def.size.y <= UnderSlabMax, fits = true;
-                for (int k = 0; k < count && fits; k++)
-                    fits = CoverFree(c, pos + side * ((k - (count - 1) * 0.5f) * step), def.size.x, def.size.z, yaw, low);
-                if (!fits) { blocked++; continue; }
+                // a few spots for the same drawn group: a wall that is full in one place may still have room in another
+                bool fitsAt = false;
+                Vector3 pos = Vector3.zero, face = Vector3.forward, side = Vector3.right;
+                CoverReason why = CoverReason.Wall;
+                float jitter = 0f, yaw = 0f, step = def.size.x + 0.08f;
+                bool low = def.size.y <= UnderSlabMax;
+                for (int spot = 0; spot < CoverSpots && !fitsAt; spot++)
+                {
+                    if (!CoverSpot(c, rng, def.size, count, out pos, out face, out why)) continue;
+                    // a single piece is set square to its room axis, give or take 2 degrees by hand; a row stays square
+                    jitter = count == 1 ? rng.Range(-2f, 2f) : 0f;
+                    yaw = YawOf(face) + jitter;
+                    side = Vector3.Cross(Vector3.up, face);
+                    fitsAt = true;
+                    for (int k = 0; k < count && fitsAt; k++)
+                        fitsAt = CoverFree(c, pos + side * ((k - (count - 1) * 0.5f) * step), def.size.x, def.size.z, yaw, low);
+                }
+                if (!fitsAt) { blocked++; continue; }
+                byWhy[(int)why]++;
                 for (int k = 0; k < count; k++)
                 {
                     var at = pos + side * ((k - (count - 1) * 0.5f) * step);
@@ -193,7 +262,7 @@ namespace PryingEyes.Proc
                 }
             }
             if (census)
-                Debug.Log($"[PryingEyes] COVER tema={c.plan.theme} stanza={r.kind} tipo={r.type} area={area:F0} voluto={want:F1} prima={before:F1} dopo={c.propArea:F1} pezzi={placed} tentativi={tries} troppo_alti={tooTall} bloccati={blocked} sotto_solaio={under} alto={r.wallH:F1}");
+                Debug.Log($"[PryingEyes] COVER tema={c.plan.theme} stanza={r.kind} tipo={r.type} area={area:F0} voluto={want:F1} prima={before:F1} dopo={c.propArea:F1} pezzi={placed} tentativi={tries} troppo_alti={tooTall} bloccati={blocked} sotto_solaio={under} alto={r.wallH:F1} muro={byWhy[0]} porta={byWhy[1]} angolo={byWhy[2]} centro={byWhy[3]} ms={clock.Elapsed.TotalMilliseconds:F2}");
         }
     }
 }
