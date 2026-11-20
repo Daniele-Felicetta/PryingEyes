@@ -48,13 +48,14 @@ jobs:
             /README.md
             /AGENTS.md
             /docs/
+            /wiki/
             /unity/PryingEyes/Packages/
             /unity/PryingEyes/Assets/_PryingEyes/**/*.cs
             /unity/PryingEyes/Assets/_PryingEyes/Resources/Production/*.json
             /unity/PryingEyes/Assets/_PryingEyes/City/citta.json
             /unity/PryingEyes/ProjectSettings/ProjectVersion.txt
             /unity/LayoutDemo/Packages/manifest.json
-            /modelli/armi/*.py
+            /modelli/**/*.py
 
       - name: What the checkout downloaded
         run: |

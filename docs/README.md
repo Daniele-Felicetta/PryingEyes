@@ -8,6 +8,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 
 | If you want to... | Read |
 | --- | --- |
+| browse the game and the project as a wiki: a card for every entity, a concept map, a static site | [The wiki](../wiki/README.md); its static site opens from `wiki/site/index.html` with no server |
 | understand the game | [The cathedral and the catacombs](game/cathedral-and-catacombs.md), [The Tower](game/tower.md) (the levels), then [Weapons](game/weapons.md); [The desert](game/the-desert.md) for the second way to play; [Characters, levels and saves](game/saves-and-characters.md) for who plays and what is kept |
 | build it, ship a change, understand CI | [Building, shipping and CI](engineering/building-and-shipping.md) |
 | know what is verified and how to run each check | [Testing and verification](engineering/testing.md) |
@@ -86,4 +87,4 @@ the code; the last version of that page is in git history (`git show b77eca5:REA
 - No machine-specific paths: write paths relative to the repository root.
 - When a change alters what a page says, update the page in the same commit.
 - A new page is added to this index. `python tools/check_suite.py` fails on a broken link, a page missing from this index and a
-  machine-specific path, and `tools/ship.ps1` and the CI gate run it.
+  machine-specific path, and `tools/ship.ps1` and the CI gate run it. The wiki has its own checks, which the same command runs: see [the wiki](../wiki/README.md).
