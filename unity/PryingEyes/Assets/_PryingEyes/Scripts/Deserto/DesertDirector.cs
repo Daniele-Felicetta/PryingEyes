@@ -329,7 +329,7 @@ namespace PryingEyes.Deserto
                 rt.dist = rt.hdist;
                 if (rt.hdist > LoadRadius(rt.site) + Unhook) { gone.Add(kv.Key); continue; }
                 bool stack = rt.site.IsStack;
-                rt.UpdateWant(rt.anchor, stack ? DressInStack : DressInBuilding, stack ? DressOutStack : DressOutBuilding);
+                rt.UpdateWant(p, others, stack ? DressInStack : DressInBuilding, stack ? DressOutStack : DressOutBuilding);
             }
             foreach (long k in gone)
             {

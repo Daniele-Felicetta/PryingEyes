@@ -277,7 +277,7 @@ namespace PryingEyes.Proc
                 RefreshObjective();
                 Seats.ForHuds(h => { h.Banner("Piano " + n, plan.epithet); h.Toast(FloorLines[(n - 1) % FloorLines.Length]); });
             }
-            if (Coop.Active) Debug.Log($"[PryingEyes] coop: firma del piano {n}: {FloorSignature():X8}");
+            if (Coop.Active) Debug.Log($"[PryingEyes] coop: firma del piano {n}: {FloorSignature():X8}, contenuto delle stanze {RoomContentSignature(out int sigRooms, out int sigBare):X8} ({sigRooms} stanze, {sigBare} senza arredi)");
             Coop.OnFloorBuilt();                 // cooperativa: piano costruito (la torcia dei compagni torna nel pool, l'ospite saluta chi aspettava)
             Debug.Log($"[PryingEyes] piano {n} seme {runSeed + n * 1013}: {plan.rooms.Count} stanze in {plan.units} ali, {cur.candles.Count} candele, {LightPool.Count} luci, " +
                       $"costruito in {tBuild * 1000f:F0} ms, partenza {(plan.startInChurch ? "chiesa" : "albergo")}, pianta {(plan.grid ? "a griglia" : "ad ali")}");
@@ -287,6 +287,31 @@ namespace PryingEyes.Proc
             yield return new WaitForSeconds(1.2f);
             SetInvulnerable(false);
             transitioning = false;
+        }
+
+        /// <summary>Il contenuto di ogni stanza del piano costruito: quanti oggetti, disegni, collider e luci ha. La firma del piano guarda le candele, le armi e le ali; questa guarda gli arredi (una stanza
+        /// svuotata dalla riparazione dei varchi, o arredata diversamente, la cambia). In cooperativa le macchine devono ottenere lo stesso numero (si legge nel log, accanto alla firma del piano;
+        /// la prova a due processi lo confronta): e' il modo di accorgersi di una stanza che da una parte c'e' e dall'altra no. 'bare' e' il numero delle stanze senza nessun oggetto.</summary>
+        public int RoomContentSignature(out int rooms, out int bare)
+        {
+            rooms = bare = 0;
+            if (cur == null || cur.roomGo == null) return 0;
+            unchecked
+            {
+                int h = 19;
+                foreach (var r in cur.plan.rooms)
+                {
+                    var go = r.id >= 0 && r.id < cur.roomGo.Length ? cur.roomGo[r.id] : null;
+                    int kids = go != null ? go.transform.childCount : 0;
+                    int rends = go != null ? go.GetComponentsInChildren<Renderer>(true).Length : 0;
+                    int cols = go != null ? go.GetComponentsInChildren<Collider>(true).Length : 0;
+                    int lights = go != null ? go.GetComponentsInChildren<Light>(true).Length : 0;
+                    rooms++;
+                    if (kids == 0) bare++;
+                    h = h * 31 + r.id; h = h * 31 + kids; h = h * 31 + rends; h = h * 31 + cols; h = h * 31 + lights;
+                }
+                return h;
+            }
         }
 
         /// <summary>Impronta del piano costruito (candele, uscita, arrivo, luci, armi a muro): in cooperativa le macchine devono ottenere lo stesso

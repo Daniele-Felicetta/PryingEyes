@@ -39,6 +39,8 @@ namespace PryingEyes
         public static Vector3 botLook;
         /// <summary>Solo per le prove (-autotest): tiene premuto il tasto per accovacciarsi (il passaggio basso della stanza segreta).</summary>
         public static bool botCrouch;
+        /// <summary>Solo per le prove (-autotest): tiene premuto il tasto della corsa (le scale della cattedrale di corsa: -desertonly scale).</summary>
+        public static bool botSprint;
         /// <summary>Solo per le prove: lean forzato (-1 sinistra, +1 destra); NaN = usa la tastiera.</summary>
         public static float debugLean = float.NaN;
         float lastDamage = -99f, respawnT = 0f;
@@ -287,7 +289,7 @@ namespace PryingEyes
             bool sprintKey = SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift);
             ToggleKeys(inputEnabled, f, ref crouchKey, ref sprintKey);        // Impostazioni > Comandi: tenendo premuto o a interruttore
             bool wantCrouch = inputEnabled ? crouchKey || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch) : crouch;
-            bool sprintInput = inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0;
+            bool sprintInput = inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint) || (GameManager.autoTest && botSprint)) && f > 0;
             bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
             if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;

@@ -163,7 +163,6 @@ namespace PryingEyes.Deserto
             yield return WaitFor(() => { bike = FirstBike(); return bike != null; }, 10f);
             Check("investire: c'e' una moto parcheggiata", bike != null);
             if (bike == null) { Drops.disabled = dropsWere; yield break; }
-            godMode = false; pl.invulnerable = false;                        // si misura anche il danno al pilota
             Vector3 home = bike.transform.position;
             Vector3 south = new Vector3(0f, 0f, -1f);
             yield return GoTo(home.x - 2.2f, home.z + 0.3f, 2f);
@@ -189,6 +188,8 @@ namespace PryingEyes.Deserto
             Vector3 farSpot = start + fwd * 75f;
             yield return WaitFor(() => (DesertTerrain.I == null || DesertTerrain.I.Ready(farSpot, 30f)) && DesertNav.ReadyAround(farSpot, 30f), 25f);
             ClearHorde();
+            // si misura anche il danno al pilota, ma solo da qui: prima (a freddo la navmesh davanti puo' farsi aspettare mezzo minuto) sette guardie dei luoghi vicini lo raggiungevano fermo e lo mandavano a terra
+            godMode = false; pl.invulnerable = false;
             var cc = pl.GetComponent<CharacterController>();
             Debug.Log($"[PryingEyes] desertotest motoinvesti: partenza in {start:F1}, rotta {heading * Mathf.Rad2Deg:F0} gradi, capsula del pilota raggio {(cc != null ? cc.radius : 0f):F2} m");
 

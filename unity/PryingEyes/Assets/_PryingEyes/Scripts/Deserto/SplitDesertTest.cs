@@ -207,6 +207,7 @@ namespace PryingEyes.Deserto
             yield return Loot(seats);
             yield return Texts(seats);
             yield return Skies(seats);
+            yield return TowerLevels(seats);
             yield return Edge(seats);
             yield return Together(seats);
         }
@@ -481,6 +482,52 @@ namespace PryingEyes.Deserto
             }
             yield return Photo("deserto-lontano");
             sky.Frozen = false;
+        }
+
+        static Vector3 Centre(Room r, float y) => new Vector3((r.x0 + r.x1) * 0.05f, y, (r.z0 + r.z1) * 0.05f);
+
+        static SiteRt RtOf(Site s)
+        {
+            if (Dd == null || s == null) return null;
+            foreach (var rt in Dd.Loaded) if (rt.site == s) return rt;
+            return null;
+        }
+
+        /// <summary>"In coop a volte al giocatore 2 scompaiono alcune stanze" (segnalazione del 20 novembre): due posti nella stessa torre, uno al piano terra e l'altro piu' su. L'arredo dei livelli
+        /// di una torre (SiteRt.UpdateWant) seguiva il solo giocatore piu' vicino: a pari distanza vinceva il primo posto, e i livelli dell'altro si svuotavano (arredi, bottino e guardie).</summary>
+        IEnumerator TowerLevels(Seat[] seats)
+        {
+            Debug.Log("[PryingEyes] splitdesertotest --- una torre, due posti su piani diversi");
+            var s0 = seats[0]; var s1 = seats[1];
+            var home0 = Pos(s0);
+            bool inv0 = s0.player.invulnerable, inv1 = s1.player.invulnerable;
+            var tower = DesertWorld.Landmark();
+            if (!Check("c'e' la torre di riferimento, con molti piani", tower != null && tower.IsTower && tower.LevelCount >= 7, tower?.ToString() ?? "manca")) yield break;
+            s0.player.invulnerable = s1.player.invulnerable = true;
+            // i due posti sulla sabbia davanti alla torre: il luogo si costruisce quando sono vicini (il guscio di tutti i piani)
+            float gz = tower.fz0 - 12f;
+            yield return Land(s0, tower.CentreX - 2f, gz, 0f);
+            yield return Land(s1, tower.CentreX + 2f, gz, 0f);
+            SiteRt rt = null;
+            yield return WaitFor(() => { rt = RtOf(tower); return rt != null && rt.ShellComplete; }, 90f);
+            if (!Check("la torre ha il guscio di tutti i piani", rt != null && rt.ShellComplete, rt == null ? "non caricata" : "")) { s0.player.invulnerable = inv0; s1.player.invulnerable = inv1; yield break; }
+            // il posto 1 nella sala dell'ingresso, il posto 2 cinque piani piu' su (non l'ultimo: li' sta il signore della torre)
+            int lo = tower.entrance, hi = Mathf.Min(lo + 5, tower.LevelCount - 2);
+            s0.player.Teleport(Centre(PlanGen.HallRoom(tower.levels[lo]), tower.LevelY(lo) + 0.1f));
+            s1.player.Teleport(Centre(PlanGen.HallRoom(tower.levels[hi]), tower.LevelY(hi) + 0.1f));
+            float t0 = Time.time;
+            yield return WaitFor(() => rt.UnitDressed(lo) && rt.UnitDressed(hi), 40f);
+            yield return new WaitForSeconds(2f);
+            bool dressLo = rt.UnitDressed(lo), dressHi = rt.UnitDressed(hi);
+            int dressedUnits = 0; for (int u = 0; u < rt.Units; u++) if (rt.UnitDressed(u)) dressedUnits++;
+            Debug.Log($"[PryingEyes] splitdesertotest: torre di {tower.LevelCount} piani, posto 1 al piano {lo} (y {Pos(s0).y:F1}), posto 2 al piano {hi} (y {Pos(s1).y:F1}); dopo {Time.time - t0:F0} s arredati {dressedUnits} piani, {rt.DressedRooms} stanze di {rt.DressableRooms}; il piano del posto 1 {(dressLo ? "si" : "NO")}, quello del posto 2 {(dressHi ? "si" : "NO")}");
+            Check($"il piano del posto 1 (il {lo}) e' arredato", dressLo);
+            Check($"il piano del posto 2 (il {hi}), lontano dal piano del primo, e' arredato anche lui", dressHi, $"arredati {dressedUnits} piani su {rt.Units}");
+            Check("e i due posti sono ancora ognuno al suo piano (nessuno e' stato ributtato fuori)", Pos(s0).y < tower.LevelY(lo) + 2f && Pos(s1).y > tower.LevelY(hi) - 1f && Pos(s1).y < tower.LevelY(hi) + 3f, $"{Pos(s0).y:F1} e {Pos(s1).y:F1}");
+            // tutti e due fuori: il posto 1 torna a casa in cima alla scalinata (gli altri passi lo contano li'), il posto 2 resta dov'e'
+            s0.player.invulnerable = inv0; s1.player.invulnerable = inv1;
+            s0.player.Teleport(home0);
+            yield return WaitFor(() => Grounded(s0), 15f);
         }
 
         IEnumerator Edge(Seat[] seats)

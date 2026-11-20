@@ -38,7 +38,7 @@ namespace PryingEyes
         readonly Dictionary<int, int> peerStep = new Dictionary<int, int>();
         readonly List<(int id, Vector3 pos)> report = new List<(int, Vector3)>();
         int reportSeq, expectSeq;
-        int sigValue, sigFloor, sigSeq;
+        int sigValue, sigFloor, sigContent, sigSeq;
         int checks, failed, exceptions;
         float startT;
         bool aborted, finished;
@@ -126,8 +126,8 @@ namespace PryingEyes
             }
             else if (sub == 3)
             {
-                int sig = r.I32(), fl = r.I32();
-                if (r.Ok) { sigValue = sig; sigFloor = fl; sigSeq++; }
+                int sig = r.I32(), fl = r.I32(), ct = r.I32();
+                if (r.Ok) { sigValue = sig; sigFloor = fl; sigContent = ct; sigSeq++; }
             }
             else if (sub == 5)                  // l'ospite racconta le aree aperte e l'ultima comprata (ciclo a ondate, SendRooms)
             {
@@ -1188,11 +1188,14 @@ namespace PryingEyes
             if (fd.floor != floor0 + 1) { aborted = true; yield break; }
             Safe();
             int mine = fd.FloorSignature();
-            if (Coop.IsHost) g.SendTest(w.Reset().U8(3).I32(mine).I32(fd.floor).ToArray());
+            int mineContent = fd.RoomContentSignature(out int myRooms, out int myBare);
+            if (Coop.IsHost) g.SendTest(w.Reset().U8(3).I32(mine).I32(fd.floor).I32(mineContent).ToArray());
             else
             {
                 yield return Until(() => sigSeq > 0 && sigFloor == fd.floor, 10f);
                 Check("il piano nuovo ha la stessa firma sull'ospite e sull'ospitato", sigSeq > 0 && sigValue == mine, $"mia {mine:X8}, dell'ospite {sigValue:X8}");
+                // le stanze: lo stesso numero di oggetti, disegni, collider e luci in ognuna (una stanza svuotata o arredata diversamente da una parte sola cambia questo numero)
+                Check("le stanze del piano nuovo hanno gli stessi arredi sull'ospite e sull'ospitato", sigSeq > 0 && sigContent == mineContent, $"mio {mineContent:X8} ({myRooms} stanze, {myBare} senza arredi), dell'ospite {sigContent:X8}");
             }
             yield return new WaitForSeconds(3f);
             Check("a destinazione i compagni sono vicini", Flat(PeerPos() - GameManager.I.player.transform.position) < 4f, $"{Flat(PeerPos() - GameManager.I.player.transform.position):F1} m");
