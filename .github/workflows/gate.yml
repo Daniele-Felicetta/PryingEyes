@@ -1,6 +1,7 @@
 # The gate on GitHub: the checks that used to run only inside tools/ship.ps1 on one PC (suite boundaries, Python unit tests)
 # plus the .NET rule labs, whose reports are kept as an artifact. No Unity, no Blender, no secrets: the paths below are
-# everything the gate reads, so the checkout is a few MB instead of the 900 MB of the full tree.
+# everything the gate reads, so the checkout is about 20 MiB of files, not the roughly 1.1 GiB the repository tracks.
+# The step "What the checkout downloaded" prints the exact figure of each run.
 name: gate
 
 on:
@@ -43,10 +44,13 @@ jobs:
           filter: blob:none
           persist-credentials: false
           sparse-checkout-cone-mode: false
+          # Every source a wiki page cites must be in this list, or check_suite fails with WIKI_SOURCE_MISSING: the CI page
+          # cites this workflow file, so it is listed here.
           sparse-checkout: |
             /tools/
             /README.md
             /AGENTS.md
+            /.github/workflows/gate.yml
             /docs/
             /wiki/
             /unity/PryingEyes/Packages/

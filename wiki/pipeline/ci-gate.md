@@ -23,7 +23,8 @@ The gate is the workflow `.github/workflows/gate.yml`. It runs on every push to 
 ## How it is built
 
 - It runs on a Windows runner, because the engine's process trees use Windows Job Objects.
-- Its checkout is sparse: only the paths the gate reads, a few megabytes instead of the whole tree. The list is the `sparse-checkout` block of the workflow.
+- Its checkout is sparse: only the paths the gate reads, about 20 MiB of files instead of the roughly 1.1 GiB the repository tracks. The list is the `sparse-checkout` block of the workflow.
+- Every source a wiki page cites must be in that list, or the gate fails with `WIKI_SOURCE_MISSING`. This page cites the workflow file, so the list includes it.
 - Its permissions are read-only.
 - There is no branch protection, so the gate reports a failure rather than blocking a merge. Rule 8 of `AGENTS.md` makes the fix of a red run on `preview` the first task of any work.
 

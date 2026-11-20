@@ -26,7 +26,7 @@
 </section>
 <section id="how-it-is-built">
 <h2 id="how-it-is-built">How it is built</h2>
-<ul><li>It runs on a Windows runner, because the engine's process trees use Windows Job Objects.</li><li>Its checkout is sparse: only the paths the gate reads, a few megabytes instead of the whole tree. The list is the <code>sparse-checkout</code> block of the workflow.</li><li>Its permissions are read-only.</li><li>There is no branch protection, so the gate reports a failure rather than blocking a merge. Rule 8 of <code>AGENTS.md</code> makes the fix of a red run on <code>preview</code> the first task of any work.</li></ul>
+<ul><li>It runs on a Windows runner, because the engine's process trees use Windows Job Objects.</li><li>Its checkout is sparse: only the paths the gate reads, about 20 MiB of files instead of the roughly 1.1 GiB the repository tracks. The list is the <code>sparse-checkout</code> block of the workflow.</li><li>Every source a wiki page cites must be in that list, or the gate fails with <code>WIKI_SOURCE_MISSING</code>. This page cites the workflow file, so the list includes it.</li><li>Its permissions are read-only.</li><li>There is no branch protection, so the gate reports a failure rather than blocking a merge. Rule 8 of <code>AGENTS.md</code> makes the fix of a red run on <code>preview</code> the first task of any work.</li></ul>
 </section>
 <section id="related">
 <h2 id="related">Related</h2>

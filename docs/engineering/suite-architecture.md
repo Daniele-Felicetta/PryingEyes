@@ -30,13 +30,14 @@ removing it breaks a link there instead.
 | Where | What | Needs |
 | --- | --- | --- |
 | `tools/ship.ps1`, before every commit | `check_suite.py` and the Python unit tests | Python, no Unity |
-| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival`, `studio.py test economy` and `studio.py test saves`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of a few MB |
+| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival`, `studio.py test economy` and `studio.py test saves`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of about 20 MiB |
 
 The labs are not part of `ship.ps1`: they take the project lock and would fail with `PROJECT_BUSY` whenever another agent has a
 production running on the same checkout. The runner is Windows because the engine owns process trees with Job Objects and its POSIX
 variant has never been verified. The checkout lists the only paths the gate reads (the `sparse-checkout` block of the workflow). It includes `wiki/`, which the wiki
-check reads, and the `.py` scripts of `modelli/`, which the wiki's pages name; to check
-that list after a change, make a throwaway sparse worktree with exactly those patterns and run the four commands there. There is no branch
+check reads, the `.py` scripts of `modelli/`, which the wiki's pages name, and `.github/workflows/gate.yml`, which the CI page cites.
+Every source a wiki page cites must be in that list, or the gate fails with `WIKI_SOURCE_MISSING`. To check the list after a change,
+make a throwaway sparse copy with exactly those patterns and run the gate's commands there. There is no branch
 protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: a red run on `preview` is fixed before
 anything else (rule 8 of `AGENTS.md`).
 
