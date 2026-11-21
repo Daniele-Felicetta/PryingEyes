@@ -30,7 +30,7 @@ removing it breaks a link there instead.
 | Where | What | Needs |
 | --- | --- | --- |
 | `tools/ship.ps1`, before every commit | `check_suite.py` and the Python unit tests | Python, no Unity |
-| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival`, `studio.py test economy` and `studio.py test saves`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of about 20 MiB |
+| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival`, `studio.py test economy`, `studio.py test saves` and `studio.py test track`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of about 20 MiB |
 
 The labs are not part of `ship.ps1`: they take the project lock and would fail with `PROJECT_BUSY` whenever another agent has a
 production running on the same checkout. The runner is Windows because the engine owns process trees with Job Objects and its POSIX

@@ -60,6 +60,11 @@ namespace PryingEyes.Proc
         {
             if (!sourcesUp && SoundBank.AmbienceReady) StartSources();
             float dt = Time.unscaledDeltaTime;
+            if (Pista.PistaMode.Active)         // su pista nessuna stanza attorno: il vento e i motori li fa PistaDirector, qui tutto tace
+            {
+                Blend(organ, 0f, dt * 2f); Blend(room, 0f, dt * 2f); Blend(wind, 0f, dt * 2f); Blend(pad, 0f, dt * 2f); Blend(murmur, 0f, dt * 2f); Blend(buzz, 0f, dt * 2f);
+                return;
+            }
             var fd = FloorDirector.I;
             Room r = fd != null ? fd.PlayerRoom : null;
             Theme theme = fd != null && fd.cur != null ? fd.cur.plan.theme : Theme.Albergo;

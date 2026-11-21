@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- LangVersion 9: the newest C# Unity compiles; the lab refuses what the game could not build -->
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><LangVersion>9.0</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="BikeChecks.cs" />
+    <Compile Include="CircuitChecks.cs" />
+    <Compile Include="RaceChecks.cs" />
+    <Compile Include="Picture.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/PistaMath.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/BikeSpec.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/BikeModel.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Circuit.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/CircuitGen.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/RacingLine.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/BikeDriver.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/RaceRules.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/PoseTape.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Catalogue.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Licences.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/BikeSheet.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Championship.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/EngineSynth.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/RaceReplay.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/KeyShaper.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Career.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Tuning.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/DrivingLine.cs" />
+    <Compile Include="RaceSimChecks.cs" />
+    <Compile Include="CoopChecks.cs" />
+    <Compile Include="RiderChecks.cs" />
+    <Compile Include="TimingChecks.cs" />
+    <Compile Include="RosterChecks.cs" />
+    <Compile Include="SoundChecks.cs" />
+    <Compile Include="ReplayChecks.cs" />
+    <Compile Include="LicenceChecks.cs" />
+    <Compile Include="GarageChecks.cs" />
+    <Compile Include="CupChecks.cs" />
+    <Compile Include="KeyboardChecks.cs" />
+    <Compile Include="ContactChecks.cs" />
+    <Compile Include="CareerChecks.cs" />
+    <Compile Include="TuningChecks.cs" />
+    <Compile Include="GuideChecks.cs" />
+    <Compile Include="CatalogueScan.cs" />
+  </ItemGroup>
+</Project>
