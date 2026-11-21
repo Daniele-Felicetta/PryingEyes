@@ -41,27 +41,58 @@ namespace PryingEyes.Pista
             d[7] = hw; d[8] = Mathf.Min(hw + kr, innerR); d[9] = innerR; d[10] = innerR + uR; d[11] = outR - uR; d[12] = outR; d[13] = hw + rr;
         }
 
+        /// <summary>Roughly where the bikes ride across the road at every sample: out wide before a corner, near the inside at the apex, wide again on the way out. It is only for the picture (the
+        /// rubber the bikes wear into the asphalt), so it comes from the curvature alone and is the same on every machine: the curvature at the sample says the apex, the curvature 60 to 100 m ahead
+        /// the swing to the outside before it, the curvature 60 to 100 m behind the drift out of it. Positive = right of the centre line, like the lateral offset of the circuit.</summary>
+        float[] RubberLine()
+        {
+            int n = c.n;
+            var off = new float[n];
+            int wApex = Mathf.Max(1, Mathf.RoundToInt(10f / c.spacing));
+            int a0 = Mathf.Max(1, Mathf.RoundToInt(60f / c.spacing)), a1 = Mathf.Max(a0 + 1, Mathf.RoundToInt(100f / c.spacing));
+            for (int i = 0; i < n; i++)
+            {
+                float kApex = MeanCurvature(i - wApex, i + wApex), kEntry = MeanCurvature(i + a0, i + a1), kExit = MeanCurvature(i - a1, i - a0);
+                float hw = c.halfW[i];
+                float o = hw * (0.62f * Tanh(45f * kApex) - 0.34f * Tanh(45f * kEntry) - 0.20f * Tanh(45f * kExit));
+                off[i] = Mathf.Clamp(o, -(hw - 1f), hw - 1f);
+            }
+            return off;
+        }
+
+        float MeanCurvature(int a, int b)
+        {
+            float s = 0f;
+            for (int k = a; k <= b; k++) s += c.curv[c.Wrap(k)];
+            return s / (b - a + 1);
+        }
+
+        static float Tanh(float x) { return (float)System.Math.Tanh(x); }
+
         IEnumerator BuildRoad()
         {
             var allRoad = new[] { mAsphalt, mKerbRed, mKerbWhite, mApron, mGravel, mGrass, mLine };
             var allRail = new[] { mArmco, mPost };
             var d = new float[Cols];
+            var lineOff = RubberLine();
             int chunk = 0;
             for (int i0 = 0; i0 < c.n; i0 += ChunkRows)
             {
                 int i1 = Mathf.Min(i0 + ChunkRows, c.n);
                 int rows = i1 - i0 + 1;
-                var b = new MB(7);
+                var b = new MB(7).UseSecondUv();
                 var vb = new int[rows];
                 for (int r = 0; r < rows; r++)
                 {
                     int i = c.Wrap(i0 + r);
                     Columns(i, d);
                     vb[r] = b.Count;
+                    float sRow = (i0 + r) * c.spacing;
                     for (int k = 0; k < Cols; k++)
                     {
                         var p = Pt(i, d[k]);
-                        b.Vert(p, NormalAt(i, d[k]), new Vector2(p.x / 4f, p.z / 4f));
+                        int vi = b.Vert(p, NormalAt(i, d[k]), new Vector2(p.x / 4f, p.z / 4f));
+                        b.uv1[vi] = new Vector4(d[k], sRow, lineOff[i], c.halfW[i]);        // what the ground shader needs: across, along, where the rubber is, how wide the asphalt
                     }
                     // the feet of the skirts, 2.6 m below the barrier line; the texture of a skirt runs along the wall and down it (a plan view smeared over a vertical face is a wall of streaks)
                     float along = (i0 + r) * c.spacing / 4f;
@@ -69,7 +100,8 @@ namespace PryingEyes.Pista
                     {
                         var top = b.v[vb[r] + (s == 0 ? 0 : 13)];
                         var outward = new Vector3(c.nx[i] * (s == 0 ? -1f : 1f), 0f, c.nz[i] * (s == 0 ? -1f : 1f));
-                        b.Vert(top + Vector3.down * 2.6f, outward, new Vector2(along, 2.6f / 4f));
+                        // a bank, not a wall: the foot is 1.6 m farther out, so the skirt slopes away like an embankment (and shows less of a black wall from the cameras outside the barrier)
+                        b.Vert(top + Vector3.down * 2.6f + outward * 1.6f, (outward + Vector3.up * 0.5f).normalized, new Vector2(along, 2.6f / 4f));
                     }
                     // the edge lines of the asphalt, 30 cm in from the edge, 14 cm wide
                     float hw = c.halfW[i];
@@ -85,7 +117,7 @@ namespace PryingEyes.Pista
                     {
                         var top = b.v[vb[r] + (s == 0 ? 0 : 13)];
                         var outward = new Vector3(c.nx[i] * (s == 0 ? -1f : 1f), 0f, c.nz[i] * (s == 0 ? -1f : 1f));
-                        b.Vert(top, outward, new Vector2(along, 0f));
+                        b.Vert(top, (outward + Vector3.up * 0.5f).normalized, new Vector2(along, 0f));
                     }
                 }
                 for (int r = 0; r + 1 < rows; r++)

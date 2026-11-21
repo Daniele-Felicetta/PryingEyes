@@ -100,6 +100,7 @@ namespace PryingEyes.Pista
             yield return null;
             Debug.Log($"[PryingEyes] pistatest circuito '{d.circuit.name}', {d.circuit.length:F0} m, {d.circuit.n} campioni, seme {d.seed}, {d.race.racers.Count} piloti, {d.race.laps} giri");
             if (PistaMode.HasArg("-pistaperf")) { yield return PerfRun(); yield break; }                      // only the cost of a frame (needs graphics)
+            if (PistaMode.HasArg("-pistaworldshots")) { yield return WorldShots(); yield break; }             // only photographs of the scenery (needs graphics)
             if (PistaMode.HasArg("-pistacuponly")) { yield return CupRace(); yield break; }          // only the championship part (to look at the table of a round and iterate on it)
 
             // ---- the scene
@@ -962,6 +963,81 @@ namespace PryingEyes.Pista
             string line = $"  {label}: {frame.Count} fotogrammi, media {avg:F1} ms ({1000f / avg:F0} FPS), p50 {P(0.5f):F1}, p95 {P(0.95f):F1}, p99 {P(0.99f):F1}, peggiore {sorted[sorted.Count - 1]:F1} ms; disegno {sumDraw / draw.Count:F1} ms; {visible} oggetti visibili, {tris / 1000} mila triangoli";
             report.AppendLine(line);
             Debug.Log("[PryingEyes] pistaperf" + line);
+        }
+
+        /// <summary>-pistaworldshots (needs a graphics device): the scenery alone, photographed from places chosen by hand, 1920x1080, without the interface, into hotel_build/prove/pista/mondo/. At noon from three
+        /// places along the lap, five views each (behind the player's line, the asphalt close up, from the kerb along the road, from the grass across the road, from above toward the horizon), and in the morning and
+        /// at dusk the first and the last of those from two places: it is what is looked at to judge the ground, the trees, the light and the sky, and to compare one round of work with the next.</summary>
+        IEnumerator WorldShots()
+        {
+            var d = Dir; var c = d.circuit;
+            d.freeCamera = true;
+            string sub = PistaLook.StrArg("-pistashotdir");                  // a name, to keep the photographs of one try of the look apart from the next
+            string dir = TestPaths.Out("prove/pista/mondo" + (string.IsNullOrEmpty(sub) ? "" : "/" + sub));
+            Directory.CreateDirectory(dir);
+            float[] hours = { 13f, 9f, 17.5f };
+            string[] hourName = { "mezzogiorno", "mattina", "sera" };
+            int[] places = { c.n / 12, c.n * 3 / 8, c.n * 5 / 8 };
+            Vector3 At(int idx, float lateral, float up)
+            {
+                int j = c.Wrap(idx);
+                float x = c.px[j] + c.nx[j] * lateral, z = c.pz[j] + c.nz[j] * lateral;
+                return new Vector3(x, d.world.GroundY(x, z) + up, z);
+            }
+            for (int h = 0; h < hours.Length; h++)
+            {
+                phase = "foto del mondo: " + hourName[h];
+                if (d.sky != null) d.sky.SetHour(hours[h], true);
+                yield return null; yield return null; yield return null;
+                int nPlaces = h == 0 ? places.Length : 2;
+                for (int a = 0; a < nPlaces; a++)
+                {
+                    int i = places[a];
+                    float hw = c.halfW[i];
+                    string tag = hourName[h] + "_" + a + "_";
+                    yield return WorldShot(dir, tag + "1_dietro", At(i - 4, 0.3f, 2.1f), At(i + 25, 0f, 0.5f), 62f);
+                    if (h == 0)
+                    {
+                        yield return WorldShot(dir, tag + "2_asfalto", At(i, 0.3f, 1.6f), At(i + 3, 0.3f, 0f), 55f);
+                        yield return WorldShot(dir, tag + "3_cordolo", At(i, hw + 3.5f, 1.3f), At(i + 30, hw - 1f, 0.2f), 60f);
+                        yield return WorldShot(dir, tag + "4_erba", At(i, hw + 28f, 1.5f), At(i + 10, 0f, 1f), 62f);
+                    }
+                    yield return WorldShot(dir, tag + "5_orizzonte", At(i, 0f, 8f), At(i + 120, 0f, 2f), 50f);
+                }
+            }
+            if (d.sky != null) d.sky.SetHour(PistaMode.Hour, true);
+            d.freeCamera = false;
+        }
+
+        IEnumerator WorldShot(string dir, string name, Vector3 pos, Vector3 look, float fov)
+        {
+            var cm = Dir.cam.cam;
+            cm.transform.position = pos;
+            cm.transform.rotation = Quaternion.LookRotation((look - pos).normalized, Vector3.up);
+            cm.fieldOfView = fov;
+            yield return null;
+            yield return new WaitForEndOfFrame();
+            try
+            {
+                const int W = 1920, H = 1080;
+                var rt = RenderTexture.GetTemporary(W, H, 24);
+                var prev = cm.targetTexture;
+                cm.targetTexture = rt;
+                cm.Render();
+                cm.targetTexture = prev;
+                var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+                var old = RenderTexture.active;
+                RenderTexture.active = rt;
+                tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+                tex.Apply();
+                RenderTexture.active = old;
+                RenderTexture.ReleaseTemporary(rt);
+                File.WriteAllBytes(dir + "/" + name + ".png", tex.EncodeToPNG());
+                Destroy(tex);
+                GameManager.HarnessShotFrame = Time.frameCount;
+                Debug.Log("[PryingEyes] pistatest foto " + dir + "/" + name + ".png");
+            }
+            catch (Exception e) { Debug.LogException(e); Check("foto " + name, false, e.Message); }
         }
 
         /// <summary>What the driving line says now, for the log next to a photograph: where the bike is, how fast, the advice under it, how far the first red is and the pieces of the stretch ahead.</summary>

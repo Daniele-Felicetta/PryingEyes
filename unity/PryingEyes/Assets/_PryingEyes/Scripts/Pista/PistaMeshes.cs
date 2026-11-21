@@ -12,6 +12,10 @@ namespace PryingEyes.Pista
         public readonly List<Vector3> n = new List<Vector3>();
         public readonly List<Vector2> uv = new List<Vector2>();
         public readonly List<int>[] tris;
+        /// <summary>An optional second set of four-component coordinates (the road ribbon keeps its lateral offset, its distance along the lap and the line of the rubber there). Null unless UseSecondUv was called.</summary>
+        public List<Vector4> uv1;
+        /// <summary>Optional vertex colours (the trees keep the tint of a tree and the wind weight of a leaf card in them). Null unless UseColors was called; vertices made with Vert are white.</summary>
+        public List<Color32> colors;
 
         public MB(int submeshes)
         {
@@ -19,12 +23,28 @@ namespace PryingEyes.Pista
             for (int i = 0; i < submeshes; i++) tris[i] = new List<int>();
         }
 
+        /// <summary>Give this builder the second set of coordinates (zero for every vertex that does not set its own).</summary>
+        public MB UseSecondUv() { uv1 = new List<Vector4>(); return this; }
+
+        /// <summary>Give this builder vertex colours (white for every vertex that does not set its own).</summary>
+        public MB UseColors() { colors = new List<Color32>(); return this; }
+
         public int Count => v.Count;
 
         public int Vert(Vector3 p, Vector3 nrm, Vector2 tex)
         {
             v.Add(p); n.Add(nrm); uv.Add(tex);
+            if (uv1 != null) uv1.Add(Vector4.zero);
+            if (colors != null) colors.Add(new Color32(255, 255, 255, 255));
             return v.Count - 1;
+        }
+
+        /// <summary>A vertex with its own colour (the builder must have been given colours with UseColors).</summary>
+        public int VertC(Vector3 p, Vector3 nrm, Vector2 tex, Color32 col)
+        {
+            int i = Vert(p, nrm, tex);
+            colors[i] = col;
+            return i;
         }
 
         public void Tri(int sub, int a, int b, int c) { var t = tris[sub]; t.Add(a); t.Add(b); t.Add(c); }
@@ -64,6 +84,8 @@ namespace PryingEyes.Pista
             var m = new Mesh { name = name };
             if (v.Count > 65000) m.indexFormat = IndexFormat.UInt32;
             m.SetVertices(v); m.SetNormals(n); m.SetUVs(0, uv);
+            if (uv1 != null) m.SetUVs(1, uv1);
+            if (colors != null) m.SetColors(colors);
             m.subMeshCount = Mathf.Max(1, tris.Length);
             for (int i = 0; i < tris.Length; i++) m.SetTriangles(tris[i], i);
             if (recalcNormals) m.RecalculateNormals();
@@ -79,6 +101,8 @@ namespace PryingEyes.Pista
             var m = new Mesh { name = name };
             if (b.v.Count > 65000) m.indexFormat = IndexFormat.UInt32;
             m.SetVertices(b.v); m.SetNormals(b.n); m.SetUVs(0, b.uv);
+            if (b.uv1 != null) m.SetUVs(1, b.uv1);
+            if (b.colors != null) m.SetColors(b.colors);
             m.subMeshCount = Mathf.Max(1, keep.Count);
             used = new Material[Mathf.Max(1, keep.Count)];
             for (int k = 0; k < keep.Count; k++) { m.SetTriangles(b.tris[keep[k]], k); used[k] = all[keep[k]]; }
@@ -115,6 +139,9 @@ namespace PryingEyes.Pista
                 return (h & 0xFFFFFF) / 16777216f;
             }
         }
+
+        /// <summary>The white noise of the lattice point (x, y): 0..1, the same for the same arguments on every machine.</summary>
+        public static float H2(int x, int y, int seed) { return Hash(x, y, seed); }
 
         /// <summary>Tileable smooth noise: a lattice of 'cells' x 'cells' random values, wrapped, interpolated with a smoothstep.</summary>
         public static float Noise(float u, float v, int cells, int seed)

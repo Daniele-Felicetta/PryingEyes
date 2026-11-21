@@ -204,18 +204,21 @@ namespace PryingEyes.Pista
         }
 
         // ------------------------------------------------------------------ trees, in belts along the road and in clumps
+        // A tree is a trunk with a few limbs (the Lit material) and cards cut out by a texture (PistaFoliage): clusters of leaves laid in a crown, or tiers of fir fronds around the stem. The mesh normals of the
+        // cards are those of the crown, not of the flat card, so a tree is lit like a ball of leaves; the mesh colour carries the tint of the tree and how dark it is inside the crown (rgb) and how much the
+        // card sways in the wind (alpha). All the trees of a block of 240 m are one mesh.
         IEnumerator BuildTrees()
         {
             var rng = new System.Random(seed * 7 + 3);
             const float cell = 15f;
             int cx0 = Mathf.FloorToInt(tx0 / cell), cx1 = Mathf.CeilToInt(tx1 / cell), cz0 = Mathf.FloorToInt(tz0 / cell), cz1 = Mathf.CeilToInt(tz1 / cell);
             const int block = 16;            // grid cells per mesh (240 m)
-            var mats = new[] { mTrunk, mLeafA, mLeafB, mLeafC, mPine };
+            var mats = new[] { mTrunk, mLeaf, mNeedle };
             int made0 = 0;
             for (int bz = cz0; bz < cz1; bz += block)
                 for (int bx = cx0; bx < cx1; bx += block)
                 {
-                    var b = new MB(5);
+                    var b = new MB(3).UseColors();
                     int count = 0;
                     for (int gz = bz; gz < Mathf.Min(bz + block, cz1); gz++)
                         for (int gx = bx; gx < Mathf.Min(bx + block, cx1); gx++)
@@ -240,7 +243,7 @@ namespace PryingEyes.Pista
                         Material[] used;
                         var mesh = MB.Compact(b, "Alberi", mats, out used);
                         made.Add(mesh);
-                        MB.Spawn("Alberi " + made0++, root, mesh, used, false, true);
+                        MB.Spawn("Alberi " + made0++, root, mesh, used, true, true);          // the trees throw their shadows across the road (the sky gives the shadows three times the usual reach)
                     }
                     Progress = 0.86f + 0.12f * ((bz - cz0) / (float)(cz1 - cz0));
                     yield return null;
@@ -249,81 +252,152 @@ namespace PryingEyes.Pista
 
         static float Rf(System.Random r, float a, float b) { return a + (float)r.NextDouble() * (b - a); }
 
+        static byte B8(float v) { return (byte)Mathf.Clamp(Mathf.RoundToInt(v * 255f), 0, 255); }
+
         void AddTree(MB b, Vector3 baseP, System.Random rng)
         {
-            float h = Rf(rng, 6f, 13f);
-            if (rng.NextDouble() < 0.35)
+            if (rng.NextDouble() < 0.35) AddFir(b, baseP, rng); else AddBroadleaf(b, baseP, rng);
+        }
+
+        /// <summary>A broadleaf: a leaning trunk, a few limbs into the crown, and a crown of 24 to 31 cards of leaves laid in a squashed ball, the inner ones darker.</summary>
+        void AddBroadleaf(MB b, Vector3 baseP, System.Random rng)
+        {
+            float h = Rf(rng, 7.5f, 14.5f);
+            float trunkH = h * Rf(rng, 0.36f, 0.48f);
+            float crownR = h * Rf(rng, 0.30f, 0.40f);
+            float lean = Rf(rng, 0f, 0.07f), leanA = Rf(rng, 0f, 6.2832f);
+            Vector3 top = baseP + new Vector3(Mathf.Cos(leanA) * lean * trunkH, trunkH, Mathf.Sin(leanA) * lean * trunkH);
+            Limb(b, 0, baseP - Vector3.up * 0.3f, top, 0.20f + h * 0.012f, 0.10f + h * 0.006f, 7);
+            Vector3 centre = top + Vector3.up * crownR * Rf(rng, 0.45f, 0.65f);
+            float ry = crownR * Rf(rng, 0.78f, 0.98f), yScale = crownR / ry;
+            // the colour of this tree: a green between yellowish and bluish, a little lighter or darker
+            float hue = Rf(rng, 0f, 1f), tone = Rf(rng, 0.80f, 1.0f);
+            float tr = Mathf.Lerp(0.70f, 1.0f, hue) * tone, tg = Mathf.Lerp(1.0f, 0.92f, hue) * tone, tb = Mathf.Lerp(0.95f, 0.60f, hue) * tone;
+            int cards = 24 + rng.Next(8);
+            for (int k = 0; k < cards; k++)
             {
-                // a pine: a trunk and three cones
-                Prism(b, 0, baseP, 0.22f, h * 0.35f, 6);
-                for (int k = 0; k < 3; k++)
-                {
-                    float y0 = h * (0.18f + 0.24f * k), rad = h * (0.30f - 0.07f * k), ch = h * (0.42f - 0.04f * k);
-                    Cone(b, 4, baseP + Vector3.up * y0, rad, ch, 9);
-                }
-            }
-            else
-            {
-                // a broadleaf: a trunk and two blobs of foliage in one of three greens
-                Prism(b, 0, baseP, 0.26f, h * 0.5f, 6);
-                int sub = 1 + rng.Next(3);
-                float rad = h * Rf(rng, 0.30f, 0.42f);
-                Blob(b, sub, baseP + Vector3.up * (h * 0.62f), rad, rad * Rf(rng, 0.85f, 1.1f), 9, 5, rng);
-                if (rng.NextDouble() < 0.7) Blob(b, sub, baseP + new Vector3(Rf(rng, -1.4f, 1.4f), h * Rf(rng, 0.55f, 0.85f), Rf(rng, -1.4f, 1.4f)), rad * 0.7f, rad * 0.65f, 8, 4, rng);
+                float u = Rf(rng, -0.25f, 1f), phi = Rf(rng, 0f, 6.2832f), sr = Mathf.Sqrt(1f - u * u);
+                Vector3 dir = new Vector3(sr * Mathf.Cos(phi), u, sr * Mathf.Sin(phi));
+                float dist = Mathf.Pow(Rf(rng, 0.10f, 1f), 0.65f);                                    // 0 at the middle, 1 on the surface
+                Vector3 pc = centre + new Vector3(dir.x * crownR * dist, dir.y * ry * dist, dir.z * crownR * dist);
+                float size = crownR * Rf(rng, 0.50f, 0.78f);
+                Vector3 fn = (dir + new Vector3(Rf(rng, -0.5f, 0.5f), Rf(rng, -0.4f, 0.6f), Rf(rng, -0.5f, 0.5f))).normalized;
+                Vector3 right = Vector3.Cross(fn, Vector3.up);
+                if (right.sqrMagnitude < 1e-4f) right = Vector3.right;
+                right.Normalize();
+                Vector3 upv = Vector3.Cross(right, fn);
+                float roll = Rf(rng, 0f, 6.2832f), cs = Mathf.Cos(roll), sn = Mathf.Sin(roll);
+                Vector3 r2 = (right * cs + upv * sn) * size, u2 = (-right * sn + upv * cs) * size;
+                float ao = Mathf.Lerp(0.55f, 1.0f, dist);
+                float wind = Mathf.Clamp01(0.25f + 0.75f * dist) * Mathf.Clamp01(0.5f + (pc.y - baseP.y) / h * 0.5f);
+                var col = new Color32(B8(tr * ao), B8(tg * ao), B8(tb * ao), B8(wind));
+                CrownCard(b, 1, pc, r2, u2, centre, yScale, col);
+                // a limb into a few of the clusters, seen through the gaps of the leaves
+                if (k < 4) Limb(b, 0, top, centre + (pc - centre) * 0.55f, 0.07f + h * 0.004f, 0.025f, 5);
             }
         }
 
-        static void Prism(MB b, int sub, Vector3 baseP, float r, float h, int seg)
+        /// <summary>A fir: a stem with nine tiers of fronds (ten cards around the bottom one, six around the top), each card a trough that droops from the stem to its tip so that it has a body seen from the side,
+        /// and a leader of three upright cards that ends the tree in a point.</summary>
+        void AddFir(MB b, Vector3 baseP, System.Random rng)
         {
+            float h = Rf(rng, 9f, 17f);
+            float rBase = h * Rf(rng, 0.17f, 0.23f);
+            Limb(b, 0, baseP - Vector3.up * 0.3f, baseP + Vector3.up * h * 0.90f, 0.17f + h * 0.010f, 0.05f, 6);
+            float tone = Rf(rng, 0.80f, 1.0f), hue = Rf(rng, 0f, 1f);
+            float tr = Mathf.Lerp(0.75f, 0.95f, hue) * tone, tg = Mathf.Lerp(0.95f, 1.0f, hue) * tone, tb = Mathf.Lerp(0.95f, 0.75f, hue) * tone;
+            const int tiers = 9;
+            float yaw0 = Rf(rng, 0f, 6.2832f);
+            for (int t = 0; t < tiers; t++)
+            {
+                float f = t / (float)(tiers - 1);                                                     // 0 low .. 1 at the top
+                float y = h * (0.10f + 0.72f * f);
+                float reach = rBase * Mathf.Pow(1f - f, 0.9f) + 0.6f;                                 // how far the fronds of this tier go out
+                int n = 10 - t / 2;
+                float ao = Mathf.Lerp(0.74f, 1.0f, f);
+                for (int k = 0; k < n; k++)
+                {
+                    float yaw = yaw0 + t * 0.9f + k * 6.2832f / n + Rf(rng, -0.2f, 0.2f);
+                    Vector3 dir = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw)), side = new Vector3(-dir.z, 0f, dir.x);
+                    float len = reach * Rf(rng, 1.05f, 1.3f), wid = Mathf.Max(0.5f, reach * 0.58f);
+                    Vector3 inner = baseP + Vector3.up * y + dir * 0.15f;
+                    Vector3 tip = inner + dir * len + Vector3.down * (len * Rf(rng, 0.45f, 0.75f));
+                    Vector3 nrm = (dir + Vector3.up * 0.55f).normalized;
+                    var cIn = new Color32(B8(tr * ao), B8(tg * ao), B8(tb * ao), B8(0.05f));
+                    var cTip = new Color32(B8(tr * ao), B8(tg * ao), B8(tb * ao), B8(0.55f * (0.4f + 0.6f * f)));
+                    // a trough: the middle line lower than the edges
+                    Vector3 sag = Vector3.down * (wid * 0.30f);
+                    int i = b.VertC(inner - side * wid, nrm, new Vector2(0f, 1f), cIn);
+                    b.VertC(inner + sag, nrm, new Vector2(0.5f, 1f), cIn);
+                    b.VertC(inner + side * wid, nrm, new Vector2(1f, 1f), cIn);
+                    b.VertC(tip - side * wid * 0.9f, nrm, new Vector2(0f, 0f), cTip);
+                    b.VertC(tip + sag, nrm, new Vector2(0.5f, 0f), cTip);
+                    b.VertC(tip + side * wid * 0.9f, nrm, new Vector2(1f, 0f), cTip);
+                    b.Quad(2, i, i + 1, i + 4, i + 3);
+                    b.Quad(2, i + 1, i + 2, i + 5, i + 4);
+                }
+            }
+            // the leader: three upright cards, the fronds of the top turned to the sky
+            for (int k = 0; k < 3; k++)
+            {
+                float yaw = yaw0 + k * 2.0944f;
+                Vector3 dir = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw)), side = new Vector3(-dir.z, 0f, dir.x);
+                Vector3 inner = baseP + Vector3.up * h * 0.86f, tip = baseP + Vector3.up * h;
+                float wid = 0.42f;
+                Vector3 nrm = (dir * 0.9f + Vector3.up * 0.5f).normalized;
+                var cIn = new Color32(B8(tr * 0.9f), B8(tg * 0.9f), B8(tb * 0.9f), B8(0.05f));
+                var cTip = new Color32(B8(tr * 0.9f), B8(tg * 0.9f), B8(tb * 0.9f), B8(0.30f));
+                int i = b.VertC(inner - side * wid, nrm, new Vector2(0f, 1f), cIn);
+                b.VertC(inner + side * wid, nrm, new Vector2(1f, 1f), cIn);
+                b.VertC(tip + side * wid * 0.25f, nrm, new Vector2(1f, 0f), cTip);
+                b.VertC(tip - side * wid * 0.25f, nrm, new Vector2(0f, 0f), cTip);
+                b.Quad(2, i, i + 1, i + 2, i + 3);
+            }
+        }
+
+        /// <summary>A card of leaves centred at 'c' with half-axes 'r' and 'u'; each corner takes the normal of the crown there (away from its middle, the vertical axis stretched back by 'yScale', and a little
+        /// toward the sky), so the light on a tree runs smoothly over it and not card by card.</summary>
+        static void CrownCard(MB b, int sub, Vector3 c, Vector3 r, Vector3 u, Vector3 crownC, float yScale, Color32 col)
+        {
+            Vector3 p0 = c - r - u, p1 = c + r - u, p2 = c + r + u, p3 = c - r + u;
+            int i = b.VertC(p0, CrownNormal(p0, crownC, yScale), new Vector2(0f, 0f), col);
+            b.VertC(p1, CrownNormal(p1, crownC, yScale), new Vector2(1f, 0f), col);
+            b.VertC(p2, CrownNormal(p2, crownC, yScale), new Vector2(1f, 1f), col);
+            b.VertC(p3, CrownNormal(p3, crownC, yScale), new Vector2(0f, 1f), col);
+            b.Quad(sub, i, i + 1, i + 2, i + 3);
+        }
+
+        static Vector3 CrownNormal(Vector3 p, Vector3 crownC, float yScale)
+        {
+            Vector3 d = p - crownC;
+            d.y *= yScale;
+            return (d.normalized + Vector3.up * 0.15f).normalized;
+        }
+
+        /// <summary>A tapered cylinder from a to c (radius r0 at a, r1 at c) with 'seg' sides: a trunk or a limb. The winding is checked once so that the outside is the front whatever the direction.</summary>
+        static void Limb(MB b, int sub, Vector3 a, Vector3 c, float r0, float r1, int seg)
+        {
+            Vector3 axis = c - a;
+            float len = axis.magnitude;
+            if (len < 1e-4f) return;
+            axis /= len;
+            Vector3 u = Vector3.Cross(axis, Mathf.Abs(axis.y) > 0.95f ? Vector3.right : Vector3.up).normalized, v = Vector3.Cross(axis, u);
             int i0 = b.Count;
+            var white = new Color32(255, 255, 255, 0);
             for (int j = 0; j <= seg; j++)
             {
-                float a = j * Mathf.PI * 2f / seg, cs = Mathf.Cos(a), sn = Mathf.Sin(a);
-                var n = new Vector3(cs, 0f, sn);
-                b.Vert(baseP + new Vector3(cs * r, 0f, sn * r), n, new Vector2(j / (float)seg, 0f));
-                b.Vert(baseP + new Vector3(cs * r * 0.6f, h, sn * r * 0.6f), n, new Vector2(j / (float)seg, 1f));
+                float ang = j * Mathf.PI * 2f / seg;
+                Vector3 radial = u * Mathf.Cos(ang) + v * Mathf.Sin(ang);
+                b.VertC(a + radial * r0, radial, new Vector2(j / (float)seg, 0f), white);
+                b.VertC(c + radial * r1, radial, new Vector2(j / (float)seg, 1f), white);
             }
+            bool flip = Vector3.Dot(Vector3.Cross(b.v[i0 + 1] - b.v[i0], b.v[i0 + 3] - b.v[i0]), b.n[i0]) < 0f;
             for (int j = 0; j < seg; j++)
             {
-                int a = i0 + j * 2;
-                b.Tri(sub, a, a + 1, a + 3); b.Tri(sub, a, a + 3, a + 2);
+                int k = i0 + j * 2;
+                if (!flip) { b.Tri(sub, k, k + 1, k + 3); b.Tri(sub, k, k + 3, k + 2); }
+                else { b.Tri(sub, k, k + 3, k + 1); b.Tri(sub, k, k + 2, k + 3); }
             }
-        }
-
-        static void Cone(MB b, int sub, Vector3 baseC, float r, float h, int seg)
-        {
-            int apex = b.Vert(baseC + Vector3.up * h, Vector3.up, new Vector2(0.5f, 1f));
-            int ring = b.Count;
-            for (int j = 0; j <= seg; j++)
-            {
-                float a = j * Mathf.PI * 2f / seg, cs = Mathf.Cos(a), sn = Mathf.Sin(a);
-                b.Vert(baseC + new Vector3(cs * r, 0f, sn * r), new Vector3(cs * h, r, sn * h).normalized, new Vector2(j / (float)seg, 0f));
-            }
-            for (int j = 0; j < seg; j++) b.Tri(sub, apex, ring + j + 1, ring + j);
-        }
-
-        static void Blob(MB b, int sub, Vector3 c, float rx, float ry, int seg, int rings, System.Random rng)
-        {
-            int i0 = b.Count;
-            for (int k = 0; k <= rings; k++)
-            {
-                float v = k / (float)rings, phi = Mathf.PI * v;
-                for (int j = 0; j <= seg; j++)
-                {
-                    float a = j * Mathf.PI * 2f / seg;
-                    float jitter = j == seg ? 1f : 1f;
-                    Vector3 dir = new Vector3(Mathf.Sin(phi) * Mathf.Cos(a), Mathf.Cos(phi), Mathf.Sin(phi) * Mathf.Sin(a));
-                    float bump = 0.88f + 0.24f * (float)((Mathf.Sin(a * 3f + k * 1.7f) * 0.5f + 0.5f)) * jitter;
-                    b.Vert(c + new Vector3(dir.x * rx * bump, dir.y * ry * (0.9f + 0.1f * bump), dir.z * rx * bump), dir, new Vector2(j / (float)seg, v));
-                }
-            }
-            int row = seg + 1;
-            for (int k = 0; k < rings; k++)
-                for (int j = 0; j < seg; j++)
-                {
-                    int a = i0 + k * row + j, bq = a + 1, cq = a + row + 1, d = a + row;
-                    b.Tri(sub, a, bq, cq); b.Tri(sub, a, cq, d);
-                }
         }
     }
 }

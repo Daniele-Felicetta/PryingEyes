@@ -32,6 +32,9 @@ namespace PryingEyes.Deserto
         public static float CloudOverride = -1f;
         /// <summary>Quanto e' fitta la nebbia rispetto a quella dell'orologio (1 = quella del deserto): la pista la vuole piu' rada, per vedere il circuito lontano.</summary>
         public static float FogScale = 1f;
+        /// <summary>Moltiplicatori del colore dell'orizzonte, della nebbia e dello zenit di giorno (bianchi: quelli del deserto): la pista li vuole azzurrini, perche' sulla campagna verde la foschia non e' sabbia. Spariscono verso l'alba e il tramonto, che tengono la loro tavolozza calda.</summary>
+        public static Rgb HorizonTint = new Rgb(1f, 1f, 1f), FogTint = new Rgb(1f, 1f, 1f), ZenithTint = new Rgb(1f, 1f, 1f);
+        static Rgb Tinted(Rgb c, Rgb t, float k) => new Rgb(c.r * (1f + (t.r - 1f) * k), c.g * (1f + (t.g - 1f) * k), c.b * (1f + (t.b - 1f) * k));
         static readonly Color InFog = new Color(0.095f, 0.08f, 0.085f);
         static readonly Color InSky = new Color(0.065f, 0.075f, 0.105f), InEquator = new Color(0.047f, 0.047f, 0.055f), InGround = new Color(0.025f, 0.023f, 0.025f);
         const float InFogDensity = 0.030f, InExposure = -0.1f;
@@ -297,9 +300,10 @@ namespace PryingEyes.Deserto
             float zenithGain = Mathf.Lerp(1f, DayZenithGain, s.daylight), cloudGain = Mathf.Lerp(1f, DayCloudGain, s.daylight);
             // in una tempesta l'aria e' sabbia: la nebbia, l'orizzonte e il cielo prendono il suo colore (scuro di notte), e la nebbia si infittisce
             var dust = new Rgb(0.80f, 0.58f, 0.36f) * (0.12f + 0.88f * s.daylight);
-            var horizon = Rgb.Lerp(s.horizon, dust, wx.sand * 0.8f);
-            var fogRgb = Rgb.Lerp(s.fog, dust * 0.92f, wx.sand * 0.8f);
-            var zenith = Rgb.Lerp(s.zenith, dust * 0.8f, wx.sand * 0.55f);
+            float tintK = s.daylight * (1f - s.twilight);
+            var horizon = Rgb.Lerp(Tinted(s.horizon, HorizonTint, tintK), dust, wx.sand * 0.8f);
+            var fogRgb = Rgb.Lerp(Tinted(s.fog, FogTint, tintK), dust * 0.92f, wx.sand * 0.8f);
+            var zenith = Rgb.Lerp(Tinted(s.zenith, ZenithTint, tintK), dust * 0.8f, wx.sand * 0.55f);
             var fog = Color.Lerp(Scaled(fogRgb, gain), InFog, k); fog.a = 1f;
             // la nebbia prende il colore del cielo nella direzione in cui si guarda (TintFog); con piu' camere (lo schermo condiviso) ognuna ha la sua, scelta quando sta per disegnare
             fogBase = fog; fogS = s; fogSand = wx.sand; fogK = k;
