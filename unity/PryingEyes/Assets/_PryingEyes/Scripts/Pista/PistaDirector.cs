@@ -78,6 +78,7 @@ namespace PryingEyes.Pista
         {
             if (!Ready || race == null || me == null || myView == null) return;
             float dt = Mathf.Min(Time.deltaTime, 0.1f);
+            if (replaying) { ReplayUpdate(dt); CoopUpdate(dt); return; }
             bool blocked = GameMenu.Blocked;
             float speed = me.bike != null ? Mathf.Max(me.bike.u, 0f) : 0f;
 
@@ -92,6 +93,7 @@ namespace PryingEyes.Pista
                 held = input.Read(dt, speed, blocked || race.phase == RacePhase.Over);
                 pendingShift += held.shift;
                 if (input.cameraPressed && !blocked) { cam.Cycle(); }
+                if (input.ghostPressed && !blocked) ToggleGhost();
                 if (input.resetPressed && !blocked) TryRespawn();
             }
             cam.lookBack = input.lookBackHeld && !blocked && !resultsShown;
@@ -122,6 +124,7 @@ namespace PryingEyes.Pista
             // ---- the picture
             bool mute = blocked && !Coop.Active;
             for (int i = 0; i < views.Count; i++) views[i].Render(alpha, dt, mute);
+            TimingRender(alpha, dt);
             if (!freeCamera) cam.Update(dt, myView.shown, myView.rig, world);
             myView.SetCockpit(cam.mode == CamMode.Cockpit);
             bool lampsShown = race.phase == RacePhase.Countdown || (race.phase == RacePhase.Racing && race.sinceGo < 1.6f);
@@ -152,6 +155,8 @@ namespace PryingEyes.Pista
                 var r = views[k].racer;
                 if (r.bike != null && !r.remote) views[k].Push(MakeView(r));
             }
+            TimingStep();
+            ReplayRecord();
             CoopStep();
         }
 
@@ -203,14 +208,17 @@ namespace PryingEyes.Pista
             };
             race.OnLap = r =>
             {
-                if (r != me || r.finished) return;
+                if (r != me) return;
+                bool record;
+                TimingLapDone(r, out record);
+                if (r.finished) return;
                 bool best = r.lastLap > 0f && Mathf.Approximately(r.lastLap, r.bestLap) && r.lap > 1;
-                hud.Banner("GIRO " + r.lap + " / " + race.laps, PistaHud.Clock(r.lastLap) + (best ? "   -   il migliore" : ""), 2.6f, best ? new Color(0.78f, 0.52f, 1f) : (Color?)null);
+                hud.Banner("GIRO " + r.lap + " / " + race.laps, PistaHud.Clock(r.lastLap) + (record ? "   -   NUOVO RECORD" : best ? "   -   il migliore" : ""), 2.6f, record || best ? new Color(0.78f, 0.52f, 1f) : (Color?)null);
             };
             race.OnFinish = r =>
             {
                 if (r != me) return;
-                hud.Banner("TRAGUARDO", me.position + "°  -  " + PistaHud.Clock(r.finishTime), 4f, new Color(1f, 0.74f, 0.18f));
+                hud.Banner("TRAGUARDO", me.position + "°  -  " + PistaHud.Clock(r.finishTime) + (LastLapWasRecord ? "   -   NUOVO RECORD DEL GIRO" : ""), 4f, new Color(1f, 0.74f, 0.18f));
                 Beep(true);
                 if (autopilot == null && me.bike != null)
                 {
@@ -234,14 +242,16 @@ namespace PryingEyes.Pista
         void ShowResults()
         {
             resultsShown = true;
+            ReplayFinish();
             bool host = CanRestart();
-            string hint = Coop.Active && !host ? "L'ospite decide la prossima   -   ESC  menu"
-                : (input.pad ? "A  ancora   -   X  nuova pista   -   START  menu" : "INVIO  ancora   -   N  nuova pista   -   ESC  menu");
+            string hint = Coop.Active && !host ? (input.pad ? "L'ospite decide la prossima   -   Y  replay   -   START  menu" : "L'ospite decide la prossima   -   T  replay   -   ESC  menu")
+                : (input.pad ? "A  ancora   -   X  nuova pista   -   Y  replay   -   START  menu" : "INVIO  ancora   -   N  nuova pista   -   T  replay   -   ESC  menu");
             hud.ShowResults(race, me, circuit.name, hint);
         }
 
         void ResultsKeys()
         {
+            if (input.menuReplay && StartReplay()) return;
             if (!CanRestart()) return;
             if (input.menuAgain) RestartRace(false);
             else if (input.menuNew) RestartRace(true);

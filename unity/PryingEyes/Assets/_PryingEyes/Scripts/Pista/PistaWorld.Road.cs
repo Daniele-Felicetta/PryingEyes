@@ -7,7 +7,7 @@ namespace PryingEyes.Pista
     /// Circuit.SurfaceY so that it is the very ground the physics rides on. White edge lines, the chequered start line, the painted grid boxes and the guard rails are drawn on top.</summary>
     public sealed partial class PistaWorld
     {
-        const int Cols = 14, Verts = 20;                // columns across, vertices per row (14 + two skirt feet + four for the edge lines)
+        const int Cols = 14, Verts = 22;                // columns across, vertices per row (14 + two skirt feet + four for the edge lines + two skirt tops of their own)
         const int SubAsphalt = 0, SubKerbRed = 1, SubKerbWhite = 2, SubApron = 3, SubGravel = 4, SubGrass = 5, SubLine = 6;
         static readonly int[] StripSub = { SubGrass, SubGravel, SubGravel, SubGravel, SubApron, -1, SubAsphalt, -1, SubApron, SubGravel, SubGravel, SubGravel, SubGrass };      // -1: kerb (red or white by row)
         const int ChunkRows = 100;
@@ -63,12 +63,13 @@ namespace PryingEyes.Pista
                         var p = Pt(i, d[k]);
                         b.Vert(p, NormalAt(i, d[k]), new Vector2(p.x / 4f, p.z / 4f));
                     }
-                    // the feet of the skirts, 2.6 m below the barrier line
+                    // the feet of the skirts, 2.6 m below the barrier line; the texture of a skirt runs along the wall and down it (a plan view smeared over a vertical face is a wall of streaks)
+                    float along = (i0 + r) * c.spacing / 4f;
                     for (int s = 0; s < 2; s++)
                     {
                         var top = b.v[vb[r] + (s == 0 ? 0 : 13)];
                         var outward = new Vector3(c.nx[i] * (s == 0 ? -1f : 1f), 0f, c.nz[i] * (s == 0 ? -1f : 1f));
-                        b.Vert(top + Vector3.down * 2.6f, outward, new Vector2(top.x / 4f, top.z / 4f));
+                        b.Vert(top + Vector3.down * 2.6f, outward, new Vector2(along, 2.6f / 4f));
                     }
                     // the edge lines of the asphalt, 30 cm in from the edge, 14 cm wide
                     float hw = c.halfW[i];
@@ -79,6 +80,13 @@ namespace PryingEyes.Pista
                             var p = Pt(i, dd); p.y += Lift;
                             b.Vert(p, Vector3.up, new Vector2(p.x, p.z));
                         }
+                    // the tops of the skirts: the barrier line again, with the texture of the wall
+                    for (int s = 0; s < 2; s++)
+                    {
+                        var top = b.v[vb[r] + (s == 0 ? 0 : 13)];
+                        var outward = new Vector3(c.nx[i] * (s == 0 ? -1f : 1f), 0f, c.nz[i] * (s == 0 ? -1f : 1f));
+                        b.Vert(top, outward, new Vector2(along, 0f));
+                    }
                 }
                 for (int r = 0; r + 1 < rows; r++)
                 {
@@ -89,8 +97,8 @@ namespace PryingEyes.Pista
                         int sub = StripSub[k] >= 0 ? StripSub[k] : ((row & 1) == 0 ? SubKerbRed : SubKerbWhite);
                         b.Quad(sub, a + k, bq + k, bq + k + 1, a + k + 1);
                     }
-                    b.Quad(SubGrass, a + 14, bq + 14, bq + 0, a + 0);
-                    b.Quad(SubGrass, a + 15, a + 13, bq + 13, bq + 15);
+                    b.Quad(SubGrass, a + 14, bq + 14, bq + 20, a + 20);
+                    b.Quad(SubGrass, a + 15, a + 21, bq + 21, bq + 15);
                     b.Quad(SubLine, a + 16, bq + 16, bq + 17, a + 17);
                     b.Quad(SubLine, a + 18, bq + 18, bq + 19, a + 19);
                 }

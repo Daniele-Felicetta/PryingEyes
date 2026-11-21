@@ -2,11 +2,13 @@
 
 The third way to play, chosen in the menu next to the standard game and the desert: a motorcycle race on a circuit that the game draws from a
 seed, against computer riders or with up to three friends, on a physics model that behaves like a real bike (it leans, slides, wheelies, runs wide
-and falls) and with a map of the circuit that shows every rider as a dot. The goal that started it was "the closest thing to Tourist Trophy":
-a simulation to be learned, not the arcade riding of the desert's motorbike, which is left as it is ([the-desert.md](the-desert.md#the-motorbike)).
+and falls), with a garage of nine bikes in six classes, three riding styles, a body that shifts on the seat, a slipstream, the best lap kept as a ghost, twelve
+named circuits, a map that shows every rider as a dot, and a television replay of the race with a camera for the photographs. The goal that started it was "the
+closest thing to Tourist Trophy": a simulation to be learned, not the arcade riding of the desert's motorbike, which is left as it is ([the-desert.md](the-desert.md#the-motorbike)).
 
-Written on 21 November 2026 on the branch `claude/moto-pista-mode-1435d9`. Nobody has ridden it by hand yet: every statement below comes from
-the code, from the rules lab and from the headless runs listed under "How it is checked", and what no run covers says "(not verified)".
+Written on 21 November 2026 on the branch `claude/moto-pista-mode-1435d9`, in two rounds the same day (the mode, then everything that came after it with the
+aim of being as close to Tourist Trophy as it can get). Nobody has ridden it by hand yet: every statement below comes from the code, from the rules lab and from the
+headless runs listed under "How it is checked", and what no run covers says "(not verified)".
 
 ## How to play
 
@@ -15,10 +17,12 @@ circuit that will be raced; `Altra pista` draws another one. The rows are rememb
 
 | Row | Choices |
 | --- | --- |
+| `Circuito` | `Casuale` (a circuit of one kind, from a seed: nothing about it is remembered) or one of the twelve named circuits (2.5 to 4.1 km, each with a line about its character: smooth, fast, technical, hilly) |
 | `Giri` | 1, 2, 3 (default), 5, 8 |
 | `Avversari` | 0 (a timed lap alone), 3, 7, 11 (default), 15 |
 | `Livello` | `Principiante`, `Esperto` (default), `Campione`: how fast the computer riders go and how often they overdo a corner |
-| `Moto` | Argo 1000 (superbike), Argo 600 (supersport), Vigile 750 (roadster) |
+| `Moto` | the nine bikes of "The garage" |
+| `Stile di guida` | `Peso fuori`, `Neutro` (default), `Moto in piega` |
 | `Aiuti alla guida` | `Completi` (ABS, traction control, anti-wheelie, anti-stoppie, automatic gears, lean assist), `Sportivi` (default: ABS, traction control, anti-wheelie, anti-stoppie, automatic gears; the lean is yours), `Nessuno` (only ABS; manual gears `E` / `Q`) |
 | `Ora del giorno` | `Mattino`, `Mezzogiorno` (default), `Pomeriggio`: the sky of the desert, frozen at that hour |
 
@@ -28,24 +32,49 @@ Split screen on one PC does not offer this mode: its button is disabled there.
 A race is: the grid and a flight of the camera, five red lights one second apart, then dark after a random hold; laps counted by timing loops every
 50 m; a fall that is cleared by itself (the rider is put back on the asphalt facing the race) or with `R`; the end when every person has finished,
 or at the latest 45 s after the first rider crossed the line (whoever is still out there is ranked by the distance ridden), then a table of results.
-`INVIO` / `A` races again on the same circuit, `N` / `X` on a new one, `ESC` / `START` goes back to the menu.
+On the results `INVIO` / `A` races again on the same circuit, `N` / `X` on a new one, `T` / `Y` watches the replay, `ESC` / `START` goes back to the menu.
 
 | Action | Keyboard | Controller |
 | --- | --- | --- |
 | Throttle | `W` / Up | right trigger |
 | Front brake / rear brake | `S` / Down, `Space` | left trigger, `X` |
 | Lean in and out of the corners | `A` `D` / Left Right | left stick |
-| Shift the body | (automatic) | right stick |
+| Shift the body (forward and back, left and right) | `I` `K`, `J` `L` | right stick |
 | Tuck behind the screen | `Shift` | `A` |
 | Gears (only with `Nessuno`) | `E` up, `Q` down | `RB`, `LB` |
 | Camera (behind, far, helmet) | `C` | `Y` |
 | Look back (held) | `V` | (none) |
+| The ghost, on and off | `G` | (none) |
 | Back on the track after a fall | `R` | `B` |
 
 The keys ramp the way a hand does (the throttle opens in a third of a second, the front brake builds up, the steering grows the longer the key is held
 and is slower the faster the bike goes), so a tap is a small correction and not a fall. The screen shows the speed in km/h with the gear and a bar of
-lights for the engine speed, the position, the lap and the times, the gap to the rider ahead and behind, the five lights, messages in the middle, and in a
-corner the map of the circuit with a dot per rider.
+lights for the engine speed, `SCIA` when another bike is sheltering you from the wind, the position, the lap and the times (the best and the last), the gap to the rider ahead and behind, the gap to the ghost,
+the five lights, messages in the middle (`CADUTO`, `CONTROMANO`, a new record), and in a corner the map of the circuit with a dot per rider.
+
+## The garage
+
+Nine machines, from a 125 two-stroke that weighs as much as its rider to a 1300 that tops 300 km/h. Their numbers are those of real bikes of the class (mass, power curve, gearing, tyres), not those of a game;
+the lab measured them on 21 November 2026 on the same physics, on flat asphalt, alone:
+
+| Bike | Class | Engine | Power | Mass (with rider) | Top speed | 0-100 km/h |
+| --- | --- | --- | --- | --- | --- | --- |
+| Argo 1000 | Superbike | inline four | 190 hp at 13,000 rpm | 275 kg | 296 km/h | 3.29 s |
+| Argo 600 | Supersport | inline four | 129 hp at 13,500 rpm | 262 kg | 265 km/h | 3.77 s |
+| Vigile 750 | Roadster | inline four | 112 hp at 10,500 rpm | 280 kg | 216 km/h | 4.05 s |
+| Scintilla 125 | 125 GP | two-stroke single | 50 hp at 11,500 rpm | 133 kg | 207 km/h | 4.23 s |
+| Tigre 675 | Supersport | triple | 126 hp at 11,500 rpm | 256 kg | 253 km/h | 3.48 s |
+| Duca 1200 | Superbike | V twin | 187 hp at 9,500 rpm | 267 kg | 283 km/h | 3.22 s |
+| Gigante 1300 | Hypersport | inline four | 195 hp at 9,800 rpm | 305 kg | 304 km/h | 3.17 s |
+| Rombo 500 | GP 500 | two-stroke V4 | 190 hp at 12,000 rpm | 198 kg | 297 km/h | 3.17 s |
+| Corsaro 1000 | Roadster | inline four | 161 hp at 11,000 rpm | 261 kg | 240 km/h | 3.43 s |
+
+Every bike has its own livery and one of three body shapes, and a size (the 125 is drawn at 90 %, the 1300 at 106 %). **The rivals ride the class of the player's bike**, so a race is between machines that are a match for each other,
+and the grid puts the quickest of the class in front. In the lab every bike rides two laps alone on two circuits without a fall.
+
+**The engines have voices.** The five kinds of engine sound different, and none is a recording: `EngineSynth` (pure code, measured in the lab) builds each as a train of firing pulses that excite a few resonances of the exhaust, plus
+a texture of growl, hiss and rumble, in a loop that closes on itself without a click; the game plays it faster or slower with the engine speed. The centres of the spectrum of the four made this way are 516 Hz (the twin: dark and fat), 846 (the triple), 1,787
+(the two-stroke single) and 2,673 Hz (the two-stroke V4: a rasp); the inline four is the sound of the first version. Whether they *sound* like those engines is not verified, because nobody listened.
 
 ## The bike
 
@@ -62,10 +91,20 @@ machine. The laws, in the order the code applies them:
 5. Weight moves from wheel to wheel with the acceleration, m a h / L: a light front rotates the bike about the rear tyre (wheelie), and the other way round for a stoppie.
 6. A crest unloads the tyres (u² times the vertical curvature) and a dip loads them; kerbs and gravel shake; barriers stop the bike and above a limit knock the rider off.
 
-The physics runs at a fixed 60 steps a second and the bikes are drawn between the last two steps, so any refresh rate looks smooth. What the rules lab measured on the Argo 1000
-on 21 November 2026: 190 hp at 13,000 rpm; 0-100 km/h in 3.29 s and 0-200 km/h in 8.35 s; 296 km/h at the top; 100 km/h to a stop in 39.8 m (1.35 g) and 200 km/h in 156 m; a steady
-turn at 90 km/h on a 70 m radius needs 42.3° of lean (36.7° the frame, 5.8° the body); the 600 and the 750 are slower (264 and 216 km/h). The numbers are those of a real machine of the class; whether they
-*feel* like Tourist Trophy is not verified.
+The physics runs at a fixed 60 steps a second and the bikes are drawn between the last two steps, so any refresh rate looks smooth. What the rules lab measured on the Argo 1000:
+100 km/h to a stop in 39.8 m (1.35 g) and 200 km/h in 156 m; a steady turn at 90 km/h on a 70 m radius needs 42.3° of lean (36.7° the frame, 5.8° the body). The numbers are those of a real machine of the class;
+whether they *feel* like Tourist Trophy is not verified.
+
+## The rider
+
+The body of the rider is part of the model, not a picture on top of it.
+
+- **The riding style** (`Stile di guida`, the way the weight sits in a corner): `Peso fuori` hangs the body out and keeps the bike more upright (25° of lean reached in 0.242 s, 32.4° of frame in the 70 m corner at 90 km/h, a bit more grip at full lock),
+  `Moto in piega` leans the bike under a body that stays on it (0.300 s, 42.3°, less grip at depth), `Neutro` is in between (0.267 s, 36.7°). The numbers are the lab's.
+- **The body shift** (`I J K L`, the right stick): forward loads the front wheel (the lightest the front gets in a launch: 498 N forward, 190 N in the middle, 41 N back) and back loads the rear under braking (409 N forward, 520 N middle, 620 N back); sideways moves the centre of gravity by up to 6.8 cm
+  of a 140 cm wheelbase. Without keys the rider does it by himself.
+- **The slipstream**: a bike within about 60 m behind another, in its line and not too slow, is sheltered from the wind (0.90 at 5 m, 0.62 at 18 m, nothing at 60 m, nothing from the side, from a rider who has fallen or head on) and up to a third comes off its drag; the
+  `SCIA` light shows it. In the lab a grid of ten for 140 s spends a third of its time sheltered (33 %), so packs form.
 
 ## The circuit
 
@@ -74,9 +113,20 @@ behind it, then seven to eleven groups of corners (a single corner from a kink t
 360°, with hills (flat at the grid), camber, kerbs, paved run-off, gravel traps and a barrier. Over 40 seeds the lab sees laps of 2.45 to 4.15 km, closed to under a centimetre, at most 8 % grade, at least 1.2 m
 of run-off everywhere and no two roads closer than 6 m; every one of the twenty grid places is on flat straight asphalt.
 
+**The named circuits** (`Catalogue`) are twelve seeds picked by scanning a range of them (`tools/tracklab --scan FROM TO`) for their character, from the 2,508 m short, fast and hilly one to the 4,139 m long one, so that a record, a ghost
+and a time mean something: a circuit is the same every time. The lab checks that every one still has the length listed (a change to the generator that moves one must be a decision, because it would orphan the records)
+and that the list covers fast, technical and hilly ones (5, 7 and 5). `Autodromo di Montesole`, seed 4242, 2,732 m, is the first, the one to begin with.
+
 The ground under the wheels is not the meshes of the scenery: the physics reads `Circuit.SurfaceY` and the surface (asphalt, kerb, apron, gravel, grass), and the ribbon of the road is drawn from the same
 function, so what the wheels touch is what the eye sees. Around it `PistaWorld` builds, a few pieces per frame behind the loading screen: the road, the guard rails, the countryside as a height field, belts
 of trees, the pit building, a grandstand, the starting gantry with its five lights, braking boards and a ring of hills; the sky is the desert's, frozen at the chosen hour.
+
+Two faults of that scenery were found only when the replay put a camera where the bikes are not (21 November 2026), and are fixed:
+
+- **A third of the lap was under the grass.** The plain that carries the countryside to the horizon was one flat sheet at a height of its own, under the whole terrain, and on a circuit with hills (the road of seed 4242 runs from -7.4 m to +10.3 m) every stretch of road lower than the average
+  height minus two metres, 549 of the 1,366 samples of that lap, was *under* the sheet: no asphalt, no kerbs, the wheels sunk in the lawn. The plain is now a frame around the terrain, level with its edge, and the in-game test asks that no point of the road (the middle and both edges)
+  lies under a piece of it. From above the whole ribbon is now there (`giro_0_dall_alto.png` of the photographs).
+- **A wall of green streaks along the barriers.** The skirt that closes the crack between the ribbon and the ground had a plan-view texture smeared down a vertical face; it has texture coordinates of its own, along the wall and down it.
 
 ## The riders
 
@@ -85,6 +135,43 @@ pure pursuit, holds the planned speed with throttle and brakes, moves over to pa
 alone with no fall and a lap within 3 % of the plan, and a grid of twelve finishing in order.
 
 Standings are by the same rules for everybody (`Race`): the finishers by their time, the others by the distance ridden, a rider who has left last. Gaps come from the timing loops.
+
+## Timing, the ghost and the records
+
+Every lap of the player is timed against itself: a trace (the clock against the distance, every ten metres) and a recording of the bike (a frame every 1/20 s). A lap that is over and clean (no fall, no cut) and is the best of this bike on this circuit becomes the
+**ghost**, kept apart for the lap that starts from the grid and for a flying lap; in a race the ghost rides translucent on the circuit and the screen shows the gap to it (`G` turns it off and on). On a named circuit the ghost is also written to a file of its own under the game's data
+folder (`pista/fantasma-<seed>-<bike>-<kind>.bin`), so it is still there tomorrow; a circuit of one kind remembers nothing. A damaged, truncated or foreign file is ignored (the lab feeds 213 truncated copies of a real one and none is accepted), and **the automated runs never read or write the
+player's files**. A lap that ends in a fall is not kept.
+
+## Replay and photographs
+
+When a race is over the results offer `T` (`Y`): the race is played back from a tape recorded while it was ridden (20 poses a second for every rider and the distance along the race as the rules saw it, at most 18,000 frames: fifteen minutes), and every bike stands where the tape says, at every frame, whatever the camera.
+`ReplayEdit` cuts it like a television director, from the same tape and the same seed to the same edit, in shots of 2.6 to 9 s: it opens on the grid, cuts to every fall (the bike is shown lying on the asphalt, the others riding past), to chosen overtakes and battles, to the player's laps, and ends with the winner and the
+player crossing the line. The cameras:
+
+| Camera | What it is |
+| --- | --- |
+| `inseguimento`, `lontana`, `casco` | the three views of the race camera, on any rider (the helmet is the rider's own eye) |
+| `panoramica` | a long lens beside the track that follows the rider past, from a metre or more beyond the barrier and high enough to see over it, the rider kept at a good size |
+| `a bordo pista` | a low camera on the verge, behind the nearest barrier and close to the line (never more than 30 m from the rider at the pass), that looks up the road at the place the rider will come from |
+| `elicottero` | a helicopter that trails the rider, circling slowly |
+| `partenza`, `traguardo` | the grid seen from past the line, and the line seen from past it |
+
+| Action | Keyboard | Controller |
+| --- | --- | --- |
+| Pause | `Space` | `A` |
+| Jump 5 s back or forward (30 s with `Shift`) | `A` `D` / Left Right | D-pad |
+| Wind back and forward | | triggers |
+| Speed: 0.25, 0.5, 1, 2, 4 | `W` `S` / Up Down | `RB`, `LB` |
+| Start, end | `Home`, `End` | |
+| The television, then each camera by hand on the rider on screen | `C` | `X` |
+| The next (previous) rider, in the order of the race at this moment | `Tab` (`Shift+Tab`) | `Y` |
+| Hide the interface | `H` | left stick |
+| A photograph, without the interface | `P` | right stick |
+| Back to the results | `T`, `Enter`, `Backspace` | `B` |
+
+The photograph is the camera of the moment drawn again into a picture of its own, twice the width of the window (at most 4K), so that it does not depend on the window, and written as a PNG in the game's photo folder (an automated run writes it in the cache, never in the player's folder).
+It was blank in the first version, which read the screen: the headless window has none.
 
 ## Co-op
 
@@ -102,44 +189,48 @@ times a second; the host relays everybody's pose to everybody, gives the go and 
 
 The map shows a dot for every rider; a friend has the colour of their bike and a white ring. The messages (protocol `pe-coop-35`) are `PistaPose` (a friend's pose, to the host), `PistaRoster`, `PistaStart`,
 `PistaPoses` (everybody's poses, unreliable) and `PistaOver` (the results), all in `Scripts/Pista/PistaNet.cs` and `Scripts/Coop/CoopWire.cs`. A pose is about 35 bytes, so the nineteen riders of a full grid
-(fifteen computer riders, the host and three friends) fit in one packet of 665 bytes; whatever arrives is checked by `NetReader` and a pose outside the world is thrown away.
+(fifteen computer riders, the host and three friends) fit in one packet of 665 bytes; whatever arrives is checked by `NetReader` and a pose outside the world is thrown away. The replay and the ghost belong to each machine: they are not sent.
 
 ## Where the code is
 
 | What | Where (`unity/PryingEyes/Assets/_PryingEyes/Scripts/`) |
 | --- | --- |
-| The pure core, with no `UnityEngine` (compiled by the lab from the same paths) | `Pista/PistaMath.cs`, `BikeSpec.cs`, `BikeModel.cs`, `Circuit.cs`, `CircuitGen.cs`, `RacingLine.cs`, `BikeDriver.cs`, `RaceRules.cs` |
-| The shell in the game | `Pista/PistaDirector*.cs` (the race, its setup, the co-op), `PistaWorld*.cs`, `PistaBikeMesh.cs`, `PistaBikeView.cs`, `PistaCamera.cs`, `PistaHud.cs`, `PistaMap.cs`, `PistaInput.cs`, `PistaSound.cs`, `PistaMode.cs`, `PistaNet.cs` |
+| The pure core, with no `UnityEngine` (compiled by the lab from the same paths) | `Pista/PistaMath.cs`, `BikeSpec.cs`, `BikeModel.cs`, `Circuit.cs`, `CircuitGen.cs`, `Catalogue.cs`, `RacingLine.cs`, `BikeDriver.cs`, `RaceRules.cs`, `PoseTape.cs` (the tapes and the ghost files), `EngineSynth.cs` (the voices), `RaceReplay.cs` (the recording, the edit and the cameras) |
+| The shell in the game | `Pista/PistaDirector*.cs` (the race, its setup, the co-op, the timing, the replay), `PistaWorld*.cs`, `PistaBikeMesh.cs`, `PistaBikeView.cs`, `PistaCamera.cs`, `PistaHud.cs`, `PistaReplayUi.cs`, `PistaMap.cs`, `PistaInput.cs`, `PistaSound.cs`, `PistaRecords.cs`, `PistaMode.cs`, `PistaNet.cs` |
 | The way in | `GameMenu.Mode.cs` (the three modes), `GameMenu.Pista.cs` (the setup panel), `Proc/FloorDirector.Pista.cs` (the start from the game's director), `Coop/CoopGame.Pista.cs` (the host's side) |
-| The checks | `tools/tracklab` (the rules lab), `Pista/PistaTest.cs`, `PistaMenuTest.cs`, `PistaCoopTest.cs` |
+| The checks | `tools/tracklab` (the rules lab: `Program.cs` and one file of checks per group), `Pista/PistaTest.cs`, `PistaMenuTest.cs`, `PistaCoopTest.cs` |
 
 ## How it is checked
 
 Run on 21 November 2026 on this PC, headless (`-batchmode`, and `-nographics` in the co-op runs), no exception in any log.
 
-- **The rules lab**, `python tools/studio.py test track` (also `dotnet run -c Release --project tools/tracklab`, and part of the CI gate): 59 of 59 checks in four groups: the bike (25: power, gearing,
-  acceleration, braking, ABS, wheelies and stoppies, steady turns, the grip limit, crests, surfaces, determinism), the circuit (13: forty seeds, closure, grade, run-off, the twenty grid places), the race (11: the racing line, the
-  riders, a full grid, the lights, falls, gaps, wrong way) and the co-op rules (10: a friend as a pose is ranked and awaited, the host's word ends the race and its order wins, a leaver does not block the end and is last, a newcomer
-  takes the next place, a lost connection ends the race).
-- **In the game, alone**: `-autotest -pistatest -pistabot -pistalaps 1 -pistarivals 5 -seed 777` (add `-nographics` to run it without a window): 35 of 35 in 60 s. It starts a race by the same path as the menu and checks the scene (the player on foot
-  and the usual HUD are off, the race camera and the sky are up), the grid, the five lights, the start, a whole race ridden by the computer on the player's bike, the finish, the table of results, a new race on the same circuit and one on a new
-  circuit, and the messages of the co-op (a pose, the roster and the results go through the wire unchanged, a short or hostile message is refused). With `-pistashots` (it needs a graphics device) it also photographs the grid, the start, the
-  three views and the results into `hotel_build/prove/pista`.
-- **From the menu**: `-pistamenutest` (without `-autotest`, which has no menu): 31 of 31 in 9 s: `Gioca`, the three modes, the setup panel with the circuit, the rows stepping, `Altra pista`, back and forward without losing the choices, `Via!` on
+- **The rules lab**, `python tools/studio.py test track` (also `dotnet run -c Release --project tools/tracklab`, and part of the CI gate): 119 of 119 checks in nine groups (`--only` takes the name of one): `bike` (25: power, gearing,
+  acceleration, braking, ABS, wheelies and stoppies, steady turns, the grip limit, crests, surfaces, determinism), `circuit` (13: forty seeds, closure, grade, run-off, the twenty grid places), `race` (11: the racing line, the
+  riders, a full grid, the lights, falls, gaps, wrong way), `coop` (10: a friend as a pose is ranked and awaited, the host's word ends the race and its order wins, a leaver does not block the end and is last, a newcomer
+  takes the next place, a lost connection ends the race), `rider` (10: the three riding styles, the body shift and the slipstream), `timing` (12: the trace and the delta, the tapes, the ghost files and the twelve circuits), `roster` (14: the nine
+  bikes, their classes, their numbers, their brakes, a clean lap each), `sound` (8: the voices are finite, loud, balanced, rich in harmonics, close without a click and different) and `replay` (16: the recording, the falls found, the
+  edit that covers the race without a gap, starts on the grid and ends at the line, cuts to every fall, never shows the same camera on the same rider twice in a row, is the same twice and different for another seed, and the cameras: beside the road and not on it, the rider at a good size, the low camera near and seeing the rider come, no NaN).
+- **In the game, alone**: `-autotest -pistatest -pistabot -pistalaps 1 -pistarivals 5 -seed 777` (add `-nographics` to run it without a window): 63 of 63 in about 80 s. It starts a race by the same path as the menu and checks the scene (the player on foot
+  and the usual HUD are off, the race camera and the sky are up, the road is not under the plain), the grid, the five lights, the start, a whole race ridden by the computer on the player's bike, the slipstream, the finish, the table of results, the ghost
+  of the lap just ridden in the race after, a new race on the same circuit and one on a new circuit, the replay (recorded, started, edited, cameras by hand, rider by rider, pause, jump, speed, the end, back to the results with every bike free again), the five engines and the nine bikes,
+  and the messages of the co-op (a pose, the roster and the results go through the wire unchanged, a short or hostile message is refused). With `-pistashots` (it needs a graphics device, 64 of 64) it also photographs the grid, the start, the
+  three views, the results, the nine bikes in the paddock, every camera of the replay and a lap of the television in eight places, with the circuit from above, into `hotel_build/prove/pista`, and saves one replay photograph in the cache.
+- **From the menu**: `-pistamenutest` (without `-autotest`, which has no menu): 38 of 38 in 6 s: `Gioca`, the three modes, the setup panel with the circuit, the rows stepping (the nine bikes, the styles, the named circuits), `Altra pista`, back and forward without losing the choices, `Via!` on
   that very circuit with the chosen laps, rivals and bike. It touches no preferences.
 - **Two processes, over loopback**, `tools/coop/run_coop.ps1` (host `-coophost`, friend `-coopjoin`; the host's arguments `-pistacooptest -pista -pistabot -pistalaps 1 -pistarivals 3 -pistacoopwait 1 -seed 4242 -pistacoopseed 4242 -pistacooplaps 1`, the friend's
   `-pistacooptest -pistabot -pistarivals 3 -pistacoopseed 4242 -pistacooplaps 1`, plus `-pistacoopscenario` and the name of a scenario on both):
   - `race` (default): the friend has the host's circuit, laps and roster (itself, the host, three computer riders), the go comes from the host, everybody moves, and the race ends with the host's results, in the same order on both sides.
-  - `again`: after the results the host starts another race, both build it, the friend takes its place on the grid, and the friend leaves while it is on: the host sees a retired rider, its bike gone from the scene and the race still running (friend 39 of 39, host 38 of 38, 128 s).
-  - `hostquits`: the host leaves in the middle of the race: the friend's race ends where it is with the results on the screen, and it can start a race of its own that starts by itself (24 of 24 and 16 of 16, 54 s).
+  - `again`: after the results the host starts another race, both build it, the friend takes its place on the grid, and the friend leaves while it is on: the host sees a retired rider, its bike gone from the scene and the race still running.
+  - `hostquits`: the host leaves in the middle of the race: the friend's race ends where it is with the results on the screen, and it can start a race of its own that starts by itself.
   Seed 4242 is the circuit *Autodromo di Montesole*, 2,732 m; the race of one lap takes 83 s.
 
 ## Not verified, and decisions left to the developer
 
-- Not played by hand: the feel of the physics, of the cameras and of the controls on a keyboard and on a controller is judged only by numbers and by pictures. The controller mapping has never been tried with a physical controller.
-- The sounds (engine, tyres, kerbs, wind, the start beeps) are made by code and were not listened to.
+- Not played by hand: the feel of the physics, of the cameras and of the controls on a keyboard and on a controller is judged only by numbers and by pictures. The controller mapping (the race and the replay) has never been tried with a physical controller.
+- The sounds (the nine engines, tyres, kerbs, wind, the start beeps) are made by code, measured in the lab and in the game, and never listened to.
+- The replay was judged from its photographs and the checks of the cameras, not watched in motion: how the cuts, the speed of a pan or the whip of the low camera *feel* is not verified.
 - The co-op was run only between two processes on one PC, never over a real network, and with the computer riding the bikes of both machines; three friends at once (a full table) is covered by the rules lab and the size of a packet, not by a run.
 - The way into a co-op race through the menu (`Ospita una partita`, `Su pista`, `Via!`) is read from the code but no test walks it: the co-op runs choose the mode with `-pista`.
 - Split screen on one PC does not offer this mode.
 - The desert's motorbike was not changed: the new bike model, mesh and sound belong to this mode alone. Whether the desert should use them is a decision for the developer.
-- The mode has no saves, no records and no points: a race leaves nothing behind.
+- What the mode keeps: the ghosts of the best laps on the named circuits, in files of their own. It has no saves of characters, no points and no unlocks; a licence test, a career or a tuning shop (Tourist Trophy has them) is not made.

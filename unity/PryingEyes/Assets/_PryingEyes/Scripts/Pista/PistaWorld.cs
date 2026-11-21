@@ -220,15 +220,26 @@ namespace PryingEyes.Pista
                     MB.Spawn("Terreno " + chunks++, root, mesh, new[] { mGrass }, false, true);
                     if (chunks % 3 == 0) yield return null;
                 }
-            // beyond the terrain: a flat plain to the horizon, just under the edge of the countryside
+            // beyond the terrain: a flat plain to the horizon, level with the edge of the countryside. It is a frame around the terrain, never a sheet under it: a sheet stands above every stretch of road that
+            // dips below the average height of the circuit (on a hilly circuit that is a third of the lap) and hides the road, the kerbs and the wheels of the bikes.
             var far = new MB(1);
             const float R = 9000f;
-            float cxm = (tx0 + tx1) * 0.5f, czm = (tz0 + tz1) * 0.5f, fy = baseY - 0.4f;
-            far.Face(0, new Vector3(cxm - R, fy, czm - R), new Vector3(cxm - R, fy, czm + R), new Vector3(cxm + R, fy, czm + R), new Vector3(cxm + R, fy, czm - R), Vector3.up, 1f, 1f);
+            float cxm = (tx0 + tx1) * 0.5f, czm = (tz0 + tz1) * 0.5f, fy = baseY;
+            float ex0 = tx0, ex1 = tx0 + nx * cs, ez0 = tz0, ez1 = tz0 + nz * cs;
+            float fx0 = cxm - R, fx1 = cxm + R, fz0 = czm - R, fz1 = czm + R;
+            FramePiece(far, fx0, fz0, ex0, fz1, fy);
+            FramePiece(far, ex1, fz0, fx1, fz1, fy);
+            FramePiece(far, ex0, fz0, ex1, ez0, fy);
+            FramePiece(far, ex0, ez1, ex1, fz1, fy);
             for (int k = 0; k < far.uv.Count; k++) far.uv[k] = new Vector2(far.v[k].x / 9f, far.v[k].z / 9f);
             var fm = far.ToMesh("Pianura");
             made.Add(fm);
             MB.Spawn("Pianura", root, fm, new[] { mGrass }, false, false);
+        }
+
+        static void FramePiece(MB b, float xa, float za, float xb, float zb, float y)
+        {
+            b.Face(0, new Vector3(xa, y, za), new Vector3(xa, y, zb), new Vector3(xb, y, zb), new Vector3(xb, y, za), Vector3.up, 1f, 1f);
         }
 
         // ------------------------------------------------------------------ the hills on the horizon

@@ -15,7 +15,17 @@
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/RacingLine.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/BikeDriver.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/RaceRules.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/PoseTape.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Catalogue.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/EngineSynth.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/RaceReplay.cs" />
     <Compile Include="RaceSimChecks.cs" />
     <Compile Include="CoopChecks.cs" />
+    <Compile Include="RiderChecks.cs" />
+    <Compile Include="TimingChecks.cs" />
+    <Compile Include="RosterChecks.cs" />
+    <Compile Include="SoundChecks.cs" />
+    <Compile Include="ReplayChecks.cs" />
+    <Compile Include="CatalogueScan.cs" />
   </ItemGroup>
 </Project>

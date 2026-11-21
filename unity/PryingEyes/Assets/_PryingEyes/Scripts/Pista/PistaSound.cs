@@ -1,3 +1,4 @@
+using PryingEyes.Pista;
 using UnityEngine;
 
 namespace PryingEyes
@@ -37,6 +38,36 @@ namespace PryingEyes
             for (int i = 0; i < o.Length; i++) o[i] -= dc;
             Normalize(o, 0.72f);
             return o;
+        }
+
+        /// <summary>The engines that are not a four are made by EngineSynth (pure code, so that the lab measures what the game plays): a train of firings that rings the resonances of the exhaust.
+        /// A 90-degree V-twin: two firings 270 and 450 degrees apart, a lopsided beat with a deep ring.</summary>
+        public static float[] TwinEngine(int seed) { return EngineSynth.Render(EngineSynth.Twin(seed)); }
+
+        /// <summary>An inline three: three even firings every two turns, a rasp between the four's scream and the twin's throb.</summary>
+        public static float[] TripleEngine(int seed) { return EngineSynth.Render(EngineSynth.Triple(seed)); }
+
+        /// <summary>A two-stroke single: a firing every turn, sharp and dry, with the ring of the expansion chamber high above the beat.</summary>
+        public static float[] TwoStrokeSingle(int seed) { return EngineSynth.Render(EngineSynth.TwoStrokeSingle(seed)); }
+
+        /// <summary>A two-stroke V4: four firings a turn, so close together that they blur into a buzz, with the same ring on top.</summary>
+        public static float[] TwoStrokeV4(int seed) { return EngineSynth.Render(EngineSynth.TwoStrokeV4(seed)); }
+
+        /// <summary>A pop in the exhaust as the throttle closes at high revs: a crack and a low thump, a fifth of a second.</summary>
+        public static float[] Pop(int seed)
+        {
+            var r = new System.Random(seed);
+            var s = Buf(0.2f);
+            var crack = Biquad.BandPass(1100f, 0.9f); var body = Biquad.LowPass(420f, 0.8f);
+            for (int i = 0; i < s.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float n = N(r);
+                float env = Mathf.Exp(-t * 26f) * Mathf.Clamp01(t / 0.002f);
+                s[i] = (crack.Run(n) * 1.0f + body.Run(n) * 0.9f + 0.5f * Mathf.Sin(TwoPi * 85f * t) * Mathf.Exp(-t * 30f)) * env;
+            }
+            Normalize(s, 0.8f);
+            return s;
         }
 
         /// <summary>The squeal of a tire at its limit: two bands of noise that waver, in a one-second loop.</summary>
@@ -139,9 +170,27 @@ namespace PryingEyes
 
     public static partial class SoundBank
     {
-        static AudioClip sportEngine, tyreSqueal, kerbRough, gravelRough, windRush, beepLow, beepHigh;
+        static AudioClip sportEngine, tyreSqueal, kerbRough, gravelRough, windRush, beepLow, beepHigh, twinEngine, tripleEngine, twoStrokeSingle, twoStrokeV4, pop;
 
         public static AudioClip SportEngine => One(ref sportEngine, "pistaMotore", () => SoundGen.SportEngine(41));
+        public static AudioClip TwinEngine => One(ref twinEngine, "pistaMotoreBicilindrico", () => SoundGen.TwinEngine(47));
+        public static AudioClip TripleEngine => One(ref tripleEngine, "pistaMotoreTre", () => SoundGen.TripleEngine(48));
+        public static AudioClip TwoStrokeSingle => One(ref twoStrokeSingle, "pistaMotoreDueTempi", () => SoundGen.TwoStrokeSingle(49));
+        public static AudioClip TwoStrokeV4 => One(ref twoStrokeV4, "pistaMotoreDueTempiV4", () => SoundGen.TwoStrokeV4(50));
+        public static AudioClip Pop => One(ref pop, "pistaScoppio", () => SoundGen.Pop(51));
+
+        /// <summary>The loop of an engine of this kind.</summary>
+        public static AudioClip ForEngine(EngineKind kind)
+        {
+            switch (kind)
+            {
+                case EngineKind.V2: return TwinEngine;
+                case EngineKind.Triple: return TripleEngine;
+                case EngineKind.TwoStroke125: return TwoStrokeSingle;
+                case EngineKind.TwoStroke500: return TwoStrokeV4;
+                default: return SportEngine;
+            }
+        }
         public static AudioClip TyreSqueal => One(ref tyreSqueal, "pistaGomme", () => SoundGen.TyreSqueal(43));
         public static AudioClip KerbRough => One(ref kerbRough, "pistaCordoli", () => SoundGen.Rough(true, 44));
         public static AudioClip GravelRough => One(ref gravelRough, "pistaGhiaia", () => SoundGen.Rough(false, 45));

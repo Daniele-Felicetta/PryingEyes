@@ -123,7 +123,7 @@ namespace PryingEyes.Pista
             int painted = tex != null ? Painted(tex) : 0;
             Check("la mappa del circuito e' disegnata nell'anteprima", tex != null && tex.width == 256 && painted > 600, tex == null ? "senza immagine" : painted + " punti");
             string name1 = Text("Nome del circuito");
-            Check("il nome e la lunghezza sono scritti", name1.Length > 3 && Text("Dati del circuito").EndsWith(" km"), name1 + " / " + Text("Dati del circuito"));
+            Check("il nome e la lunghezza sono scritti", name1.Length > 3 && Text("Dati del circuito").Contains(" km"), name1 + " / " + Text("Dati del circuito"));
             Check("il circuito dell'anteprima e' quello del seme che si correra'", CircuitGen.Generate(seed1).name == name1, name1);
             Check("le righe dicono i valori ricordati", Value("Giri") == (PistaMode.Laps == 1 ? "1 giro" : PistaMode.Laps + " giri") && Value("Livello") == PistaMode.RankNames[PistaMode.Rank] && Value("Moto") == Bikes.Get(PistaMode.Bike).name,
                 Value("Giri") + ", " + Value("Livello") + ", " + Value("Moto"));
@@ -152,6 +152,22 @@ namespace PryingEyes.Pista
             for (int i = 0; i < PistaMode.HourNames.Length; i++) Row("Ora del giorno").Step(1);
             for (int i = 0; i < PistaMode.AidNames.Length; i++) Row("Aiuti alla guida").Step(1);
             Check("dopo un giro intero i valori sono quelli di prima", Value("Ora del giorno") == PistaMode.HourNames[PistaMode.HourChoice]);
+            Row("Stile di guida").Step(1);
+            Check("'Stile di guida' passa a 'Moto in piega' e lo ricorda", PistaMode.Style == 2 && Value("Stile di guida") == "Moto in piega", Value("Stile di guida"));
+            for (int i = 0; i < PistaMode.StyleNames.Length; i++) Row("Stile di guida").Step(1);
+            Check("dopo un giro intero lo stile e' quello di prima", PistaMode.Style == 2 && Value("Stile di guida") == PistaMode.StyleNames[PistaMode.Style]);
+            while (PistaMode.Style != 1) Row("Stile di guida").Step(1);
+            Check("'Circuito' parte da 'Casuale' e dice che e' un circuito unico", PistaMode.CircuitIndex == -1 && Value("Circuito") == "Casuale" && Text("Dati del circuito").Contains("circuito unico") && Text("Record del circuito") == "", Value("Circuito") + " / " + Text("Dati del circuito"));
+            Row("Circuito").Step(1);
+            string first = CircuitGen.Generate(Catalogue.All[0].seed).name;
+            Check("'Circuito' passa al primo circuito con nome, lo disegna e ne dice il carattere", PistaMode.CircuitIndex == 0 && PistaMode.Chosen == Catalogue.All[0].seed && Value("Circuito") == first && Text("Nome del circuito") == first
+                && Text("Dati del circuito").Contains(Catalogue.All[0].tag) && Text("Record del circuito").StartsWith("Nessun record"), Value("Circuito") + " / " + Text("Dati del circuito") + " / " + Text("Record del circuito"));
+            Row("Circuito").Step(-1);
+            Check("e torna a 'Casuale'", PistaMode.CircuitIndex == -1 && Value("Circuito") == "Casuale", Value("Circuito"));
+            Row("Circuito").Step(-1);
+            Check("all'indietro da 'Casuale' si arriva all'ultimo circuito con nome", PistaMode.CircuitIndex == Catalogue.Count - 1 && PistaMode.Chosen == Catalogue.All[Catalogue.Count - 1].seed, Value("Circuito"));
+            Row("Circuito").Step(1);
+            Check("e avanti si riparte da 'Casuale'", PistaMode.CircuitIndex == -1 && Value("Circuito") == "Casuale");
 
             // ---- another circuit
             Find("Pulsante Altra pista").GetComponent<Button>().onClick.Invoke();
@@ -166,8 +182,8 @@ namespace PryingEyes.Pista
             var otherNav = Find("Pulsante Altra pista").GetComponent<Selectable>().navigation;
             Check("la croce in alto dal 'Via!' porta a 'Altra pista', e da li' all'ultima scelta", goNav.selectOnUp != null && goNav.selectOnUp.name == "Pulsante Altra pista" && otherNav.selectOnUp != null && otherNav.selectOnUp.name == "Scelta Ora del giorno",
                 (goNav.selectOnUp != null ? goNav.selectOnUp.name : "-") + ", " + (otherNav.selectOnUp != null ? otherNav.selectOnUp.name : "-"));
-            var giriNav = Row("Giri").navigation;
-            Check("e dalla prima scelta si scende alla seconda", giriNav.selectOnDown != null && giriNav.selectOnDown.name == "Scelta Avversari" && giriNav.selectOnUp == null);
+            var firstNav = Row("Circuito").navigation;
+            Check("e dalla prima scelta si scende alla seconda", firstNav.selectOnDown != null && firstNav.selectOnDown.name == "Scelta Giri" && firstNav.selectOnUp == null);
 
             // ---- back to the modes
             Call("PistaBack");

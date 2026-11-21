@@ -37,6 +37,8 @@ namespace PryingEyes.Pista
     public struct BikeView
     {
         public float x, y, z, heading, lean, pitch, steer, hang, tuck, speed, rpm, spinR, spinF, forkC, shockC, throttle, slipF, slipR;
+        /// <summary>The rider's weight along the bike (-1 back .. 1 forward); only for the bikes simulated here.</summary>
+        public float body;
         public int gear;
         public bool crashed, braking, slidingF, slidingR, scraping, absOn, tcsOn, shifting, limiter;
         public CrashKind crashKind;
@@ -45,7 +47,7 @@ namespace PryingEyes.Pista
         public static BikeView From(BikeModel b, float throttle, bool braking)
         {
             var v = new BikeView();
-            v.x = b.x; v.y = b.y; v.z = b.z; v.heading = b.heading; v.lean = b.lean; v.pitch = b.freePitch + b.pitch; v.steer = b.steerAngle; v.hang = b.hang; v.tuck = b.tuckAmt;
+            v.x = b.x; v.y = b.y; v.z = b.z; v.heading = b.heading; v.lean = b.lean; v.pitch = b.freePitch + b.pitch; v.steer = b.steerAngle; v.hang = b.hang; v.tuck = b.tuckAmt; v.body = b.body;
             v.speed = b.u; v.rpm = b.rpm; v.spinR = b.omegaR; v.spinF = b.omegaF; v.forkC = b.forkCompress; v.shockC = b.shockCompress; v.throttle = throttle; v.slipF = b.slipFront; v.slipR = b.slipRear;
             v.gear = b.gear; v.crashed = b.crashed; v.braking = braking; v.slidingF = b.frontSliding; v.slidingR = b.rearSliding; v.scraping = b.scraping; v.absOn = b.absActive; v.tcsOn = b.tcsActive;
             v.shifting = b.shifting; v.limiter = b.limiter; v.crashKind = b.crashKind; v.surface = b.surfaceR;
@@ -59,7 +61,7 @@ namespace PryingEyes.Pista
             v.x = a.x + (b.x - a.x) * t; v.y = a.y + (b.y - a.y) * t; v.z = a.z + (b.z - a.z) * t;
             v.heading = a.heading + PM.WrapPi(b.heading - a.heading) * t;
             v.lean = a.lean + (b.lean - a.lean) * t; v.pitch = a.pitch + (b.pitch - a.pitch) * t; v.steer = a.steer + (b.steer - a.steer) * t;
-            v.hang = a.hang + (b.hang - a.hang) * t; v.tuck = a.tuck + (b.tuck - a.tuck) * t; v.speed = a.speed + (b.speed - a.speed) * t; v.rpm = a.rpm + (b.rpm - a.rpm) * t;
+            v.hang = a.hang + (b.hang - a.hang) * t; v.tuck = a.tuck + (b.tuck - a.tuck) * t; v.body = a.body + (b.body - a.body) * t; v.speed = a.speed + (b.speed - a.speed) * t; v.rpm = a.rpm + (b.rpm - a.rpm) * t;
             v.spinR = a.spinR + (b.spinR - a.spinR) * t; v.spinF = a.spinF + (b.spinF - a.spinF) * t; v.forkC = a.forkC + (b.forkC - a.forkC) * t; v.shockC = a.shockC + (b.shockC - a.shockC) * t;
             v.throttle = a.throttle + (b.throttle - a.throttle) * t;
             return v;
@@ -111,9 +113,10 @@ namespace PryingEyes.Pista
 
             // the rider: shifts to the inside of the corner, folds behind the screen, the inside knee goes out
             float hang = Mathf.Clamp(v.hang, -1f, 1f);
-            hips.localPosition = hipBase + new Vector3(hang * 0.13f, -v.tuck * 0.04f, 0f);
+            float fwd = Mathf.Clamp(v.body, -1f, 1f);
+            hips.localPosition = hipBase + new Vector3(hang * 0.13f, -v.tuck * 0.04f - Mathf.Max(0f, fwd) * 0.015f, fwd * 0.08f);
             hips.localRotation = Quaternion.Euler(0f, 0f, -hang * 10f);
-            torso.localRotation = Quaternion.Euler(v.tuck * 24f, hang * 6f, 0f);
+            torso.localRotation = Quaternion.Euler(v.tuck * 24f + fwd * 7f, hang * 6f, 0f);
             head.localRotation = Quaternion.Euler(-v.tuck * 14f, hang * 14f, hang * 8f);
             legs[1].localRotation = Quaternion.Euler(0f, 0f, Mathf.Max(0f, hang) * 24f);
             legs[0].localRotation = Quaternion.Euler(0f, 0f, -Mathf.Max(0f, -hang) * 24f);
@@ -122,9 +125,10 @@ namespace PryingEyes.Pista
                 Vector3 s = torso.TransformPoint(shoulder[i]);
                 Vector3 h = steer.TransformPoint(grip[i]);
                 Vector3 d = h - s;
-                float len = Mathf.Clamp(d.magnitude, 0.05f, 0.595f);
+                float scale = Mathf.Max(0.5f, root.lossyScale.x);           // a 125 is a smaller bike than a 1300: the arms are the rider's, so they stay as long as they are
+                float len = Mathf.Clamp(d.magnitude, 0.05f, 0.595f * scale);
                 Vector3 dir = d.normalized;
-                const float L = 0.30f;
+                float L = 0.30f * scale;
                 float half = len * 0.5f;
                 float bend = Mathf.Sqrt(Mathf.Max(0f, L * L - half * half));
                 Vector3 side = Vector3.Cross(dir, body.up).normalized;
@@ -146,7 +150,8 @@ namespace PryingEyes.Pista
             float len = d.magnitude;
             if (len < 1e-4f) return;
             t.SetPositionAndRotation(a, Quaternion.LookRotation(d / len, Vector3.up));
-            t.localScale = new Vector3(1f, 1f, len);
+            float parentScale = t.parent != null ? Mathf.Max(0.01f, t.parent.lossyScale.z) : 1f;
+            t.localScale = new Vector3(1f, 1f, len / parentScale);
         }
 
         /// <summary>The brake light and the headlamp glow.</summary>

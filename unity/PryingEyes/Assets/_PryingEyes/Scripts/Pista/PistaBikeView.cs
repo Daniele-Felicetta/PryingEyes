@@ -10,11 +10,19 @@ namespace PryingEyes.Pista
         [System.NonSerialized] public PistaBikeRig rig;
         [System.NonSerialized] public Racer racer;
         public bool local;
+        /// <summary>The pose is given by somebody else every frame (SetScripted): the ghost of the best lap and the bikes of a replay.</summary>
+        [System.NonSerialized] public bool scripted;
+        /// <summary>A ghost: see-through, without sound, smoke or sparks, and without a shadow.</summary>
+        [System.NonSerialized] public bool ghost;
+        [System.NonSerialized] public BikeView scriptedPose;
+        static Material ghostMat;
         [System.NonSerialized] public BikeView prev, cur, shown, target;
         public bool hasState;
         [System.NonSerialized] public Livery livery;
 
         AudioSource engine, squeal, rough, wind;
+        BikeSpec spec;
+        float engVol, prevThrottle, liftT, popT;
         AudioLowPassFilter engineFilter;
         float sparkT, smokeT, dustT, packetAge, flashT;
         bool braking;
@@ -27,7 +35,9 @@ namespace PryingEyes.Pista
             var v = go.AddComponent<PistaBikeView>();
             v.racer = r; v.local = local; v.livery = liv;
             v.rig = PistaBikeMesh.Build(go.transform, style, liv);
-            v.engine = v.Voice(SoundBank.SportEngine, local ? 5f : 7f, local ? 120f : 170f, local ? 0.55f : 1f, 0f);
+            v.spec = Bikes.Get(r.bikeIndex);
+            v.rig.root.localScale = Vector3.one * v.spec.meshScale;
+            v.engine = v.Voice(SoundBank.ForEngine(v.spec.engine), local ? 5f : 7f, local ? 120f : 170f, local ? 0.55f : 1f, 0f);
             v.engineFilter = go.AddComponent<AudioLowPassFilter>();
             v.engineFilter.cutoffFrequency = 4000f;
             if (local)
@@ -37,6 +47,42 @@ namespace PryingEyes.Pista
                 v.wind = v.Voice(SoundBank.WindRush, 3f, 60f, 0f, 0f);
             }
             return v;
+        }
+
+        /// <summary>The see-through bike of the best lap: the same bike and rider as the others, drawn with one pale translucent material, no voices, no effects.</summary>
+        public static PistaBikeView CreateGhost(Transform parent, int style, Livery liv)
+        {
+            var go = new GameObject("Fantasma");
+            go.transform.SetParent(parent, false);
+            var v = go.AddComponent<PistaBikeView>();
+            v.ghost = true; v.scripted = true; v.livery = liv;
+            v.rig = PistaBikeMesh.Build(go.transform, style, liv);
+            v.rig.SetShadows(false);
+            var mat = GhostMaterial();
+            foreach (var r in go.GetComponentsInChildren<Renderer>())
+            {
+                var mats = new Material[Mathf.Max(1, r.sharedMaterials.Length)];
+                for (int i = 0; i < mats.Length; i++) mats[i] = mat;
+                r.sharedMaterials = mats;
+            }
+            return v;
+        }
+
+        static Material GhostMaterial()
+        {
+            if (ghostMat == null)
+            {
+                ghostMat = Fx.Unlit(Texture2D.whiteTexture, false);
+                ghostMat.name = "PistaFantasma";
+                ghostMat.SetColor("_BaseColor", new Color(0.52f, 0.84f, 1f, 0.30f));
+            }
+            return ghostMat;
+        }
+
+        /// <summary>Show the bike in this pose, exactly (no smoothing): the ghost and the replay know where the bike is at every moment.</summary>
+        public void SetScripted(in BikeView v)
+        {
+            scripted = true; scriptedPose = v; hasState = true;
         }
 
         AudioSource Voice(AudioClip clip, float minD, float maxD, float spatial, float vol)
@@ -66,7 +112,8 @@ namespace PryingEyes.Pista
         {
             if (!hasState) return;
             BikeView v;
-            if (racer != null && racer.remote)
+            if (scripted) v = scriptedPose;
+            else if (racer != null && racer.remote)
             {
                 packetAge += dt;
                 float lead = Mathf.Min(packetAge, 0.25f);
@@ -90,6 +137,7 @@ namespace PryingEyes.Pista
 
         void Audio(in BikeView v, float dt, bool mute)
         {
+            if (ghost) return;
             float fx = GameSettings.Effects * (mute ? 0f : 1f);
             float rpm01 = Mathf.Clamp01((v.rpm - 1200f) / 13000f);
             if (engine != null)
@@ -97,7 +145,24 @@ namespace PryingEyes.Pista
                 float pitchT = Mathf.Clamp(v.rpm / 4800f, 0.3f, 3.3f);
                 engine.pitch = Mathf.Lerp(engine.pitch, pitchT, 1f - Mathf.Exp(-24f * dt));
                 float volT = (v.crashed ? 0.25f : Mathf.Lerp(0.30f, 0.95f, Mathf.Clamp01(rpm01 * 0.55f + v.throttle * 0.45f))) * fx * (local ? 0.8f : 0.7f);
-                engine.volume = Mathf.Lerp(engine.volume, volT, 1f - Mathf.Exp(-12f * dt));
+                engVol = Mathf.Lerp(engVol, volT, 1f - Mathf.Exp(-12f * dt));
+                // the rev limiter cuts the engine in and out, a gearshift cuts it for a moment
+                float cut = 1f;
+                if (v.limiter && !v.crashed) cut *= Mathf.Repeat(Time.time * 17f + (racer != null ? racer.id * 0.37f : 0f), 1f) < 0.5f ? 0.25f : 1f;
+                if (v.shifting) cut *= 0.4f;
+                engine.volume = engVol * cut;
+                // a four-stroke lifting off at high revs pops and crackles in the exhaust for a second or so
+                if (spec != null && spec.engine != EngineKind.TwoStroke125 && spec.engine != EngineKind.TwoStroke500)
+                {
+                    if (prevThrottle > 0.4f && v.throttle < 0.12f && v.rpm > spec.redlineRpm * 0.55f) liftT = 1.3f;
+                    liftT = Mathf.Max(0f, liftT - dt); popT -= dt;
+                    if (!v.crashed && liftT > 0f && popT <= 0f && Random.value < 5f * dt && SoundBank.Pop != null)
+                    {
+                        engine.PlayOneShot(SoundBank.Pop, (local ? 0.45f : 0.30f) * fx * Random.Range(0.6f, 1f));
+                        popT = Random.Range(0.08f, 0.3f);
+                    }
+                }
+                prevThrottle = v.throttle;
                 if (engineFilter != null) engineFilter.cutoffFrequency = Mathf.Lerp(engineFilter.cutoffFrequency, Mathf.Lerp(1400f, 9000f, v.throttle * 0.8f + 0.2f * rpm01), 1f - Mathf.Exp(-8f * dt));
             }
             if (!local) return;
@@ -133,7 +198,7 @@ namespace PryingEyes.Pista
 
         void Effects(in BikeView v, float dt)
         {
-            if (Distance > 70f) return;
+            if (ghost || Distance > 70f) return;
             Vector3 pos = new Vector3(v.x, v.y, v.z);
             Vector3 fwd = new Vector3(Mathf.Sin(v.heading), 0f, Mathf.Cos(v.heading)), right = new Vector3(fwd.z, 0f, -fwd.x);
             float speed = Mathf.Abs(v.speed);

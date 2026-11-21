@@ -4,7 +4,7 @@ namespace PryingEyes.Pista
 {
     /// <summary>The state of the "moto su pista" mode (Scripts/Pista): whether the current game is a race, the seed of its circuit, and what the player chose in the setup panel (laps, rivals, how good they are,
     /// which bike, how many rider aids, the hour of the day). The choices are remembered in the preferences between sessions; automated runs never touch the preferences and take their values from the
-    /// command line (-pistalaps N, -pistarivals N, -pistabike N, -pistaaids N, -pistarank N, -pistahour N, -seed N).</summary>
+    /// command line (-pistalaps N, -pistarivals N, -pistabike N, -pistaaids N, -pistastyle N, -pistarank N, -pistahour N, -seed N).</summary>
     public static class PistaMode
     {
         const string K = "PryingEyes.Pista.";
@@ -40,6 +40,8 @@ namespace PryingEyes.Pista
         public static readonly string[] RankNames = { "Principiante", "Esperto", "Campione" };
         public static readonly string[] AidNames = { "Completi", "Sportivi", "Nessuno" };
         public static readonly string[] HourNames = { "Mattino", "Mezzogiorno", "Pomeriggio" };
+        /// <summary>How the rider sits in the corners (RiderStyle): hanging off the inside, balanced, or in line with the bike.</summary>
+        public static readonly string[] StyleNames = { "Peso fuori", "Neutro", "Moto in piega" };
         static readonly float[] Hours = { 9.2f, 12.8f, 17.2f };
 
         // In a cooperative game the host decides laps, bike, aids and hour for everybody: a friend's machine takes them from the roster (Override) instead of from its own choices.
@@ -52,6 +54,10 @@ namespace PryingEyes.Pista
         public static int Aids { get => oAids ?? ArgOr("-pistaaids", "Aids", 1, 0, 2); set => Save("Aids", Mathf.Clamp(value, 0, 2)); }
         /// <summary>How good the computer riders are: 0 beginner, 1 expert, 2 champion.</summary>
         public static int Rank { get => ArgOr("-pistarank", "Rank", 1, 0, 2); set => Save("Rank", Mathf.Clamp(value, 0, 2)); }
+        /// <summary>0 lean body, 1 neutral, 2 lean bike (RiderStyle). It is the rider's own way, not a rule of the race: in a cooperative game everybody keeps theirs.</summary>
+        public static int Style { get => ArgOr("-pistastyle", "Style", 1, 0, 2); set => Save("Style", Mathf.Clamp(value, 0, 2)); }
+        /// <summary>The named circuit (an index into Catalogue.All) chosen in the menu, or -1 for a random one each time.</summary>
+        public static int CircuitIndex { get => ArgOr("-pistacircuit", "Circuit", -1, -1, Catalogue.Count - 1); set => Save("Circuit", Mathf.Clamp(value, -1, Catalogue.Count - 1)); }
         public static int HourChoice { get => oHour ?? ArgOr("-pistahour", "Hour", 1, 0, 2); set => Save("Hour", Mathf.Clamp(value, 0, 2)); }
         public static float Hour => Hours[HourChoice];
 
@@ -69,6 +75,7 @@ namespace PryingEyes.Pista
         {
             b.abs = true; b.tcs = level < 2; b.antiWheelie = level < 2; b.antiStoppie = level < 2;
             b.leanAssist = level == 0; b.autoGears = level < 2; b.autoHang = true; b.autoTuck = level < 2;
+            b.style = (RiderStyle)Mathf.Clamp(Style, 0, 2);
         }
 
         /// <summary>A race begins: the seed of its circuit.</summary>
@@ -89,6 +96,13 @@ namespace PryingEyes.Pista
                 for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-seed" && int.TryParse(a[i + 1], out int v) && v != 0) return v;
             }
             if (Chosen != 0) { int c = Chosen; Chosen = 0; return c; }
+            // with a named circuit chosen the next one is the next on the list; otherwise any circuit
+            int ci = CircuitIndex;
+            if (ci >= 0)
+            {
+                if (!first) { ci = (ci + 1) % Catalogue.Count; CircuitIndex = ci; }
+                return Catalogue.All[ci].seed;
+            }
             return Random.Range(1, 1 << 28);
         }
 
@@ -105,7 +119,7 @@ namespace PryingEyes.Pista
 
         /// <summary>The automated runs (and -pistamenutest, which needs the menu and so cannot be -autotest) neither read nor write the preferences of the player: a value comes from the command line,
         /// from what the run itself has set (kept in memory) or from the default.</summary>
-        static bool Volatile => GameManager.autoTest || HasArg("-pistamenutest");
+        public static bool Volatile => GameManager.autoTest || HasArg("-pistamenutest");
         static readonly System.Collections.Generic.Dictionary<string, int> memory = new System.Collections.Generic.Dictionary<string, int>();
 
         static int ArgOr(string arg, string key, int def, int lo, int hi)

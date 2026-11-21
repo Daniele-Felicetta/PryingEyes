@@ -6,6 +6,10 @@ namespace PryingEyes.Pista
 
     public enum CrashKind : byte { None = 0, FrontTuck, FrontLock, Lowside, Highside, Wall, Loop, Endo }
 
+    /// <summary>How the rider sits on the bike in a corner. LeanBody hangs off the inside: the bike turns in quickly and stays more upright (more ground clearance and a little more grip at deep lean), at the
+    /// price of a rider who has more to do. Neutral is the balanced way. LeanBike keeps the body in line with the frame: the bike turns in slowly and steadily and leans further for the same corner.</summary>
+    public enum RiderStyle : byte { LeanBody = 0, Neutral = 1, LeanBike = 2 }
+
     /// <summary>What the ground is like under one wheel: height, how much it grips, how much it drags and shakes, and how it curves vertically along the way (a crest unloads the tires).</summary>
     public struct GroundSample
     {
@@ -52,6 +56,8 @@ namespace PryingEyes.Pista
         public float curvature;
         /// <summary>-1..1: the rider shifts his body (positive = right), on top of what the automatic body shift does.</summary>
         public float riderLean;
+        /// <summary>-1..1: the rider shifts his weight along the bike (positive = forward over the tank, negative = back on the seat).</summary>
+        public float riderFwd;
         public bool tuck;
         /// <summary>+1 / -1: shift up or down once (manual gearbox only).</summary>
         public int shift;
@@ -76,6 +82,10 @@ namespace PryingEyes.Pista
 
         // ---- the rider's aids (the AI uses all of them)
         public bool abs = true, tcs = true, antiWheelie = true, antiStoppie = true, leanAssist = true, autoGears = true, autoHang = true, autoTuck = true;
+        /// <summary>How the rider sits in the corners (see RiderStyle).</summary>
+        public RiderStyle style = RiderStyle.Neutral;
+        /// <summary>0..1, set by the race: how much of the wind this bike is sheltered from by a rider just ahead (the slipstream). It takes up to a third off the drag.</summary>
+        public float draft;
 
         // ---- state (read by the game to draw and to listen)
         /// <summary>The point on the ground halfway between the two tires, the heading (0 = +z, grows toward +x), the frame lean (positive = right) and the visual pitch (positive = nose up).</summary>
@@ -86,6 +96,8 @@ namespace PryingEyes.Pista
         public int gear = 1;
         /// <summary>The rider's body shift (-1..1, positive = right) and how tucked he is (0..1).</summary>
         public float hang, tuckAmt;
+        /// <summary>The rider's weight along the bike (-1 back .. 1 forward): it moves the whole centre of gravity by the rider's share of the mass.</summary>
+        public float body;
         public float omegaF, omegaR;
         public float forkCompress, shockCompress;
         /// <summary>The handlebar angle, for the picture (positive = right), and the wheelie (positive) or stoppie (negative) angle.</summary>
@@ -104,6 +116,8 @@ namespace PryingEyes.Pista
 
         // ---- internals
         const float MaxSub = 1f / 300f, U0 = 1.2f, BarrierRadius = 0.36f;
+        /// <summary>How far the rider moves his own body along the seat (m) and how much of the drag the slipstream can take away.</summary>
+        public const float BodyTravel = 0.25f, DraftDrag = 0.32f;
         const float CrashWallSpeed = 5.6f;
         int hintF, hintR, hintC, hintB1, hintB2, hintB3;
         float axSm, fxF, fxR, fyFrontPrev, fyRearPrev, capSm = 9000f;
@@ -127,7 +141,7 @@ namespace PryingEyes.Pista
         {
             x = px; z = pz; y = py; heading = head;
             lean = pitch = leanRate = 0f; u = vl = yawRate = 0f; vxWorld = vzWorld = 0f;
-            gear = 1; pendingGear = 1; rpm = spec.idleRpm; shiftT = 0f; hang = 0f; tuckAmt = 0f;
+            gear = 1; pendingGear = 1; rpm = spec.idleRpm; shiftT = 0f; hang = 0f; tuckAmt = 0f; body = 0f; draft = 0f;
             omegaF = omegaR = 0f; forkCompress = shockCompress = 0f; steerAngle = 0f; freePitch = freeRate = 0f;
             absActive = tcsActive = frontSliding = rearSliding = scraping = shifting = limiter = wheelieAssist = false;
             latG = longG = rough = throttleOut = 0f;
@@ -187,7 +201,8 @@ namespace PryingEyes.Pista
         void Sub(float h, IGround ground, ref BikeInputs inp)
         {
             var sp = spec;
-            float L = sp.wheelbase, lr = sp.cgFromRear, lf = L - lr, R = sp.wheelRadius, m = sp.Mass;
+            float L = sp.wheelbase, m = sp.Mass;
+            float lr = sp.cgFromRear + body * (sp.riderMass / m) * BodyTravel, lf = L - lr, R = sp.wheelRadius;
             float sinH = PM.Sin(heading), cosH = PM.Cos(heading), half = L * 0.5f;
 
             // ---- the ground under the two tires and the middle
@@ -199,7 +214,10 @@ namespace PryingEyes.Pista
             surfaceF = gF.surface; surfaceR = gR.surface;
             float groundPitch = PM.Atan2(gF.y - gR.y, L);
             float cosP = PM.Cos(groundPitch);
-            float muF = sp.muFront * gF.grip, muR = sp.muRear * gR.grip;
+            // hanging off keeps the tires nearer the middle of their profile, sitting in line with the bike pushes them to the shoulder: a few per cent of grip, only at deep lean
+            float leanEdge = PM.Clamp01((PM.Abs(lean) / sp.frameLeanMax - 0.6f) / 0.4f);
+            float styleMu = 1f + (style == RiderStyle.LeanBody ? 0.025f : style == RiderStyle.LeanBike ? -0.04f : 0f) * leanEdge;
+            float muF = sp.muFront * gF.grip * styleMu, muR = sp.muRear * gR.grip * styleMu;
             rough = PM.Max(gF.rough, gR.rough);
 
             float uu = PM.Max(u, 0f);
@@ -208,6 +226,7 @@ namespace PryingEyes.Pista
             bool wantTuck = inp.tuck || (autoTuck && uu > 48f && PM.Abs(lean) < 0.14f && inp.throttle > 0.7f && inp.brakeFront < 0.05f);
             tuckAmt += ((wantTuck ? 1f : 0f) - tuckAmt) * PM.Ease(4f, h);
             float hcg = PM.Lerp(sp.cgHeight, sp.cgHeightTuck, tuckAmt);
+            body += (PM.Clamp(inp.riderFwd, -1f, 1f) - body) * PM.Ease(4.5f, h);
 
             // ---- loads on the tires: the weight, a crest or a dip, and the transfer that the acceleration causes
             float loadF = PM.Clamp(1f + uu * uu * gC.vertCurv / PM.G, 0.06f, 2.2f);
@@ -354,7 +373,7 @@ namespace PryingEyes.Pista
             tcsActive = tcs && tcsFactor < 0.95f && thr > 0.05f;
 
             // ---- along the bike: drag, rolling, slope
-            float cda = PM.Lerp(sp.cdA, sp.cdATuck, tuckAmt);
+            float cda = PM.Lerp(sp.cdA, sp.cdATuck, tuckAmt) * (1f - DraftDrag * PM.Clamp01(draft));
             float drag = 0.5f * 1.2f * cda * uu * uu;
             float rollF = uu > 0.05f ? gC.rolling * nTot : 0f;
             float slopeF = -m * PM.G * PM.Sin(groundPitch);
@@ -373,19 +392,22 @@ namespace PryingEyes.Pista
             // the weight that tips the bike over (and that the tires feel) is the real one scaled by the slope and by crests and dips: gEff
             float gEff = PM.G * cosP * loadF;
             float uEff2 = uu * uu + U0 * U0;
-            float phiLimit = sp.frameLeanMax + PM.Abs(hang) * sp.hangMax;
+            float hangMaxEff = sp.hangMax * (style == RiderStyle.LeanBody ? 1.55f : style == RiderStyle.LeanBike ? 0.25f : 1f);
+            float phiLimit = sp.frameLeanMax + PM.Abs(hang) * hangMaxEff;
             float phiGrip = PM.Atan(0.96f * capSm / (nTot + 1f));
             float phiMax = leanAssist ? PM.Min(phiLimit, phiGrip) : phiLimit;
             float kappaMax = PM.Min(1f / sp.minTurnRadius, gEff * PM.Tan(phiMax) / uEff2);
             float kappaCmd = inp.useCurvature ? PM.Clamp(inp.curvature, -kappaMax, kappaMax) : PM.Clamp(inp.steer, -1f, 1f) * kappaMax;
             float phiCgCmd = PM.Atan(uEff2 * kappaCmd / gEff);
-            float hangT = PM.Clamp(inp.riderLean + (autoHang && uu > 9f ? PM.Clamp(phiCgCmd / 0.70f, -1f, 1f) * 0.9f : 0f), -1f, 1f);
+            float autoGain = style == RiderStyle.LeanBody ? 1.05f : style == RiderStyle.LeanBike ? 0.15f : 0.9f;
+            float hangT = PM.Clamp(inp.riderLean + (autoHang && uu > 9f ? PM.Clamp(phiCgCmd / 0.70f, -1f, 1f) * autoGain : 0f), -1f, 1f);
             hang += (hangT - hang) * PM.Ease(5.5f, h);
-            float dHang = hang * sp.hangMax;
+            float dHang = hang * hangMaxEff;
             float phiCmd = phiCgCmd - dHang;
             float vk = PM.Clamp01(uu / 80f);
-            float wn = PM.Lerp(sp.rollOmegaLow, sp.rollOmegaHigh, vk);
-            float rateMax = PM.Lerp(sp.rollRateLow, sp.rollRateHigh, vk);
+            // the body that goes over first makes the bike fall into the turn faster; the body that stays put makes it slow and steady
+            float wn = PM.Lerp(sp.rollOmegaLow, sp.rollOmegaHigh, vk) * (style == RiderStyle.LeanBody ? 1.10f : style == RiderStyle.LeanBike ? 0.90f : 1f);
+            float rateMax = PM.Lerp(sp.rollRateLow, sp.rollRateHigh, vk) * (style == RiderStyle.LeanBody ? 1.12f : style == RiderStyle.LeanBike ? 0.88f : 1f);
             leanRate += (wn * wn * (phiCmd - lean) - 2f * 0.85f * wn * leanRate) * h;
             leanRate = PM.Clamp(leanRate, -rateMax, rateMax);
             lean += leanRate * h;

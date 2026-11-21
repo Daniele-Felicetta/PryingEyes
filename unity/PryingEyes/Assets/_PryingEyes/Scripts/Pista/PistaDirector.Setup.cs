@@ -99,6 +99,7 @@ namespace PryingEyes.Pista
             world.SetLamps(0);
             hud.BuildMap(circuit, race.racers.Count, circuit.name + "  -  " + km);
             hud.HideResults();
+            TimingBegin();
             if (PistaMode.HasArg("-pistabot"))
             {
                 autopilot = new BikeDriver(me.bike, circuit, race.LineFor(me.bikeIndex), seed ^ 0x3131) { pace = 0.97f, mistakes = 0.02f };
@@ -124,8 +125,8 @@ namespace PryingEyes.Pista
         {
             string gears = PistaMode.Aids == 2 ? "   E / Q  marce" : "";
             string go = coopRace && Coop.IsHost ? "     INVIO / A  via" : "";
-            return "W  gas     S  freno anteriore     SPAZIO  freno posteriore     A / D  inclina e sterza     MAIUSC  nasconditi" + gears + "     C  camera     V  guarda dietro     R  rientra in pista" + go + "\n"
-                + "Pad:   RT gas   LT freno   stick sinistro sterza   stick destro sposta il peso   A  nasconditi   RB / LB  marce   Y  camera   B  rientra";
+            return "W  gas     S  freno anteriore     SPAZIO  freno posteriore     A / D  inclina e sterza     MAIUSC  nasconditi     I J K L  sposta il peso" + gears + "     C  camera     V  guarda dietro     G  fantasma     R  rientra in pista" + go + "\n"
+                + "Pad:   RT gas   LT freno   stick sinistro sterza   stick destro sposta il peso (anche avanti e indietro)   A  nasconditi   RB / LB  marce   Y  camera   B  rientra";
         }
 
         // ------------------------------------------------------------------ the riders
@@ -166,14 +167,18 @@ namespace PryingEyes.Pista
             for (int i = skins.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); var t = skins[i]; skins[i] = skins[j]; skins[j] = t; }
             var ais = new List<Racer>();
             var keys = new Dictionary<Racer, float>();
+            // the rivals ride the class of the player's bike: a race is between bikes that are a match for each other
+            string klass = Bikes.Get(bikeMe).klass;
+            int[] classMates = Bikes.OfClass(klass);
+            int quickest = Bikes.Quickest(klass);
             for (int i = 0; i < rivals; i++)
             {
                 double roll = rng.NextDouble();
-                int bike = roll < 0.5 ? 0 : roll < 0.8 ? 1 : 2;
+                int bike = classMates[Mathf.Min(classMates.Length - 1, (int)(roll * classMates.Length))];
                 float pace = basePace + spread * (float)(rng.NextDouble() - 0.5) * 2f;
                 var r = race.AddAi(names[i % names.Count], bike, skins[i % skins.Count], seed * 31 + i * 17 + 3, pace, mistakes);
                 ais.Add(r);
-                keys[r] = pace + (bike == 0 ? 0.02f : 0f) + (float)(rng.NextDouble() - 0.5) * 0.03f;
+                keys[r] = pace + (bike == quickest ? 0.02f : 0f) + (float)(rng.NextDouble() - 0.5) * 0.03f;
             }
             ais.Sort((a, b) => keys[b].CompareTo(keys[a]));
             // the grid: the faster riders in front, the player in the middle of the field
@@ -190,7 +195,7 @@ namespace PryingEyes.Pista
             race.PlaceAll(order);
         }
 
-        static int SkinForBike(int bike) { return bike == 0 ? 0 : bike == 1 ? 1 : 3; }
+        static int SkinForBike(int bike) { return Bikes.Get(bike).skin; }
 
         void BuildViews()
         {
@@ -201,7 +206,7 @@ namespace PryingEyes.Pista
         /// <summary>A bike in the scene for a rider: the one simulated here is pushed every step, the others wait for the poses that arrive.</summary>
         PistaBikeView AddView(Racer r)
         {
-            var v = PistaBikeView.Create(transform, r, r == me, r.bikeIndex, Livery.For(r.skin));
+            var v = PistaBikeView.Create(transform, r, r == me, Bikes.Get(r.bikeIndex).meshStyle, Livery.For(r.skin));
             views.Add(v);
             if (r == me) myView = v;
             if (r.bike != null) v.Push(MakeView(r));
@@ -225,6 +230,8 @@ namespace PryingEyes.Pista
             if (world != null) Destroy(world.gameObject);
             world = null; race = null; me = null; circuit = null; autopilot = null; autopilotIsBot = false;
             resultsShown = false;
+            TimingEnd();
+            ReplayClear();
             rosterDone = false; overSent = false; lastPose.Clear();
             if (hud != null) { hud.HideResults(); hud.SetStatus(""); }
         }

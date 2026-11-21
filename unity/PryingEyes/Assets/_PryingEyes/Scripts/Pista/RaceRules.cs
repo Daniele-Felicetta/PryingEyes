@@ -32,6 +32,8 @@ namespace PryingEyes.Pista
         public CrashKind crashKind;
         public float s, lateral, progress;
         public bool wrongWay;
+        /// <summary>0..1: how well this rider is sheltered from the wind by somebody just ahead (the slipstream). Worked out by the race for everybody from the poses.</summary>
+        public float draft;
         public int position;
 
         // timing
@@ -197,6 +199,7 @@ namespace PryingEyes.Pista
                 return;
             }
             time += dt; sinceGo += dt;
+            Drafts(dt);
             for (int i = 0; i < racers.Count; i++)
             {
                 var r = racers[i];
@@ -211,6 +214,41 @@ namespace PryingEyes.Pista
             Crashes(dt);
             Standings();
             if (phase == RacePhase.Racing) CheckEnd();
+        }
+
+        /// <summary>How far ahead and how wide a rider must be to shelter the one behind: a cone that opens a little with the distance.</summary>
+        public const float DraftRange = 36f, DraftWidth = 1.05f, DraftSpread = 0.03f, DraftMinGap = 1.2f;
+
+        /// <summary>The slipstream: a rider close behind another, in line and going the same way, rides in the hole in the air and loses up to a third of the drag. Worked out from the poses (so it is the
+        /// same for bikes simulated here and for friends' bikes seen as poses) and eased in and out over a third of a second.</summary>
+        void Drafts(float dt)
+        {
+            for (int i = 0; i < racers.Count; i++)
+            {
+                var r = racers[i];
+                float target = 0f;
+                if (!r.crashed && !r.finished && !r.dnf && r.speed > 20f)
+                {
+                    float sn = (float)Math.Sin(r.heading), cs = (float)Math.Cos(r.heading);
+                    for (int j = 0; j < racers.Count; j++)
+                    {
+                        var o = racers[j];
+                        if (o == r || o.crashed || o.dnf || o.speed < 12f) continue;
+                        float dx = o.x - r.x, dz = o.z - r.z;
+                        float fwd = dx * sn + dz * cs;
+                        if (fwd < DraftMinGap || fwd > DraftRange) continue;
+                        float side = Math.Abs(dx * cs - dz * sn);
+                        float half = DraftWidth + DraftSpread * fwd;
+                        if (side > half) continue;
+                        if (Math.Cos(r.heading - o.heading) < 0.6) continue;
+                        float v = (float)Math.Pow(1f - fwd / DraftRange, 0.7) * (1f - side / half);
+                        if (v > target) target = v;
+                    }
+                }
+                r.draft += (target - r.draft) * PM.Ease(3.5f, dt);
+                if (r.draft < 0.002f) r.draft = 0f;
+                if (r.bike != null) r.bike.draft = r.draft;
+            }
         }
 
         void Poses()

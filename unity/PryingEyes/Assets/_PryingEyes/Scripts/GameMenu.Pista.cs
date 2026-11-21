@@ -13,7 +13,9 @@ namespace PryingEyes
         RectTransform pistaPanel;
         RawImage pistaMap;
         Texture2D pistaMapTex;
-        Text pistaName, pistaFacts, pistaBike, pistaSubtitle;
+        Text pistaName, pistaFacts, pistaBike, pistaSubtitle, pistaRecord;
+        static string[] pistaNames;
+        Circuit pistaCircuit;
         Button pistaGoButton, pistaOtherButton, pistaBackButton;
         readonly List<System.Action> pistaRefresh = new List<System.Action>();
         readonly List<MenuChoice> pistaRows = new List<MenuChoice>();
@@ -29,16 +31,19 @@ namespace PryingEyes
             pistaSubtitle = Label(pistaPanel, "Sottotitolo", new Vector2(0, 214), new Vector2(1100, 30), 20, TextAnchor.MiddleCenter,
                 "Un circuito nuovo a ogni gara: quello che vedi qui e' quello che corri.", Dim, FontStyle.Italic);
 
-            float y = 150f;
-            PistaRow("Giri", y, () => PistaMode.Laps == 1 ? "1 giro" : PistaMode.Laps + " giri", d => PistaMode.Laps = StepIn(PistaMode.LapChoices, PistaMode.Laps, d)); y -= 46f;
-            PistaRow("Avversari", y, () => PistaMode.Rivals == 0 ? "Nessuno: giro a tempo" : PistaMode.Rivals + " avversari", d => PistaMode.Rivals = StepIn(PistaMode.RivalChoices, PistaMode.Rivals, d)); y -= 46f;
-            PistaRow("Livello", y, () => PistaMode.RankNames[PistaMode.Rank], d => PistaMode.Rank = Wrap(PistaMode.Rank + d, PistaMode.RankNames.Length)); y -= 46f;
-            PistaRow("Moto", y, () => Bikes.Get(PistaMode.Bike).name, d => PistaMode.Bike = Wrap(PistaMode.Bike + d, Bikes.Count)); y -= 46f;
-            PistaRow("Aiuti alla guida", y, () => PistaMode.AidNames[PistaMode.Aids], d => PistaMode.Aids = Wrap(PistaMode.Aids + d, PistaMode.AidNames.Length)); y -= 46f;
+            float y = 170f;
+            PistaRow("Circuito", y, () => PistaMode.CircuitIndex < 0 ? "Casuale" : PistaCircuitName(PistaMode.CircuitIndex), PistaCircuitStep); y -= 38f;
+            PistaRow("Giri", y, () => PistaMode.Laps == 1 ? "1 giro" : PistaMode.Laps + " giri", d => PistaMode.Laps = StepIn(PistaMode.LapChoices, PistaMode.Laps, d)); y -= 38f;
+            PistaRow("Avversari", y, () => PistaMode.Rivals == 0 ? "Nessuno: giro a tempo" : PistaMode.Rivals + " avversari", d => PistaMode.Rivals = StepIn(PistaMode.RivalChoices, PistaMode.Rivals, d)); y -= 38f;
+            PistaRow("Livello", y, () => PistaMode.RankNames[PistaMode.Rank], d => PistaMode.Rank = Wrap(PistaMode.Rank + d, PistaMode.RankNames.Length)); y -= 38f;
+            PistaRow("Moto", y, () => Bikes.Get(PistaMode.Bike).name, d => PistaMode.Bike = Wrap(PistaMode.Bike + d, Bikes.Count)); y -= 38f;
+            PistaRow("Stile di guida", y, () => PistaMode.StyleNames[PistaMode.Style], d => PistaMode.Style = Wrap(PistaMode.Style + d, PistaMode.StyleNames.Length)); y -= 38f;
+            PistaRow("Aiuti alla guida", y, () => PistaMode.AidNames[PistaMode.Aids], d => PistaMode.Aids = Wrap(PistaMode.Aids + d, PistaMode.AidNames.Length)); y -= 38f;
             PistaRow("Ora del giorno", y, () => PistaMode.HourNames[PistaMode.HourChoice], d => PistaMode.HourChoice = Wrap(PistaMode.HourChoice + d, PistaMode.HourNames.Length));
             pistaBike = Label(pistaPanel, "Scheda moto", new Vector2(PistaChoiceX + 70f, -134f), new Vector2(660, 28), 18, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
-            Label(pistaPanel, "Nota aiuti", new Vector2(PistaChoiceX + 70f, -192f), new Vector2(660, 52), 16, TextAnchor.UpperCenter,
-                "Completi: ABS, trazione, antimpennata, marce e aiuto in piega. Sportivi: tutti tranne l'aiuto in piega. Nessuno: solo l'ABS, marce a mano (E / Q).", Dim, FontStyle.Normal);
+            Label(pistaPanel, "Nota aiuti", new Vector2(PistaChoiceX + 70f, -197f), new Vector2(660, 70), 16, TextAnchor.UpperCenter,
+                "Aiuti. Completi: ABS, trazione, antimpennata, marce e aiuto in piega. Sportivi: tutti tranne l'aiuto in piega. Nessuno: solo l'ABS, marce a mano (E / Q)." + "\n"
+                + "Stile. Peso fuori: la moto entra in curva in fretta e resta piu' dritta. Moto in piega: lenta e stabile. Il peso si sposta anche a mano (I J K L).", Dim, FontStyle.Normal);
 
             // l'anteprima del circuito
             var frame = Rect(pistaPanel, "CorniceMappa", new Vector2(292, 292), new Vector2(300, 40));
@@ -50,8 +55,9 @@ namespace PryingEyes
             pistaMap = mapRect.gameObject.AddComponent<RawImage>();
             pistaMap.raycastTarget = false;
             pistaName = Label(pistaPanel, "Nome del circuito", new Vector2(300, -120), new Vector2(420, 30), 24, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
-            pistaFacts = Label(pistaPanel, "Dati del circuito", new Vector2(300, -148), new Vector2(420, 26), 17, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
-            pistaOtherButton = MakeButton(pistaPanel, "Altra pista", new Vector2(300, -194), PistaOther);
+            pistaFacts = Label(pistaPanel, "Dati del circuito", new Vector2(300, -146), new Vector2(460, 26), 17, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+            pistaRecord = Label(pistaPanel, "Record del circuito", new Vector2(300, -171), new Vector2(460, 26), 17, TextAnchor.MiddleCenter, "", new Color(0.78f, 0.52f, 1f), FontStyle.Normal);
+            pistaOtherButton = MakeButton(pistaPanel, "Altra pista", new Vector2(300, -208), PistaOther);
             pistaGoButton = MakeButton(pistaPanel, "Via!", new Vector2(-190, -262), PistaGo);
             pistaBackButton = MakeButton(pistaPanel, "Indietro", new Vector2(190, -262), () => Show(modePanel));
 
@@ -100,7 +106,7 @@ namespace PryingEyes
         void ChoosePista()
         {
             PistaMode.Requested = true;
-            if (PistaMode.Chosen == 0) PistaMode.Chosen = Random.Range(1, 1 << 28);
+            if (PistaMode.Chosen == 0) PistaMode.Chosen = PistaMode.CircuitIndex >= 0 ? Catalogue.All[PistaMode.CircuitIndex].seed : Random.Range(1, 1 << 28);
             pistaSeed = PistaMode.Chosen;
             pistaSubtitle.text = modeForCoop ? "Gli altri entrano nella tua gara, fino a quattro: la minimappa mostra tutti."
                 : "Un circuito nuovo a ogni gara: quello che vedi qui e' quello che corri.";
@@ -119,23 +125,60 @@ namespace PryingEyes
             float hp = spec.PeakPowerKw(out rpm) * 1.36f;
             pistaBike.text = spec.name + "  -  " + spec.klass + "  -  " + Mathf.RoundToInt(hp / 5f) * 5 + " CV  -  " + Mathf.RoundToInt(spec.Mass) + " kg con il pilota";
             if (newMap) RefreshPistaMap();
+            RefreshPistaRecord();
         }
 
         void RefreshPistaMap()
         {
             var circuit = CircuitGen.Generate(pistaSeed);
+            pistaCircuit = circuit;
             var fit = PistaMap.FitFor(circuit, 256, 14f);
             var tex = PistaMap.Paint(circuit, fit, 4.5f, "Anteprima della pista");
             if (pistaMapTex != null) Destroy(pistaMapTex);
             pistaMapTex = tex;
             pistaMap.texture = tex;
             pistaName.text = circuit.name;
-            pistaFacts.text = (circuit.length / 1000f).ToString("0.0", PistaIt) + " km";
+            int named = Catalogue.IndexOf(pistaSeed);
+            pistaFacts.text = (circuit.length / 1000f).ToString("0.0", PistaIt) + " km" + (named >= 0 ? "  -  " + Catalogue.All[named].tag : "  -  circuito unico");
+            RefreshPistaRecord();
+        }
+
+        /// <summary>The line under the circuit: the best lap of the bike chosen, on a named circuit (the record depends on the bike, so it is worked out again when the bike changes).</summary>
+        void RefreshPistaRecord()
+        {
+            if (pistaRecord == null || pistaCircuit == null) return;
+            var spec = Bikes.Get(PistaMode.Bike);
+            bool named = Catalogue.Named(pistaCircuit.seed);
+            Ghost record = null;
+            if (named) record = PistaRecords.Best(pistaCircuit, spec.id, 1) ?? PistaRecords.Best(pistaCircuit, spec.id, 0);
+            pistaRecord.text = !named ? "" : record != null ? "Record con " + spec.name + ":  " + PistaHud.Clock(record.lapTime) : "Nessun record con " + spec.name;
+        }
+
+        /// <summary>The name of a named circuit (the generator makes it from the seed; the names are worked out once).</summary>
+        static string PistaCircuitName(int index)
+        {
+            if (pistaNames == null)
+            {
+                pistaNames = new string[Catalogue.Count];
+                for (int i = 0; i < pistaNames.Length; i++) pistaNames[i] = CircuitGen.Generate(Catalogue.All[i].seed).name;
+            }
+            return pistaNames[Mathf.Clamp(index, 0, pistaNames.Length - 1)];
+        }
+
+        /// <summary>The row 'Circuito': Casuale, then the named circuits one after the other (and round again).</summary>
+        void PistaCircuitStep(int direction)
+        {
+            int index = Wrap(PistaMode.CircuitIndex + 1 + direction, Catalogue.Count + 1) - 1;
+            PistaMode.CircuitIndex = index;
+            PistaMode.Chosen = index >= 0 ? Catalogue.All[index].seed : Random.Range(1, 1 << 28);
+            pistaSeed = PistaMode.Chosen;
+            RefreshPistaMap();
         }
 
         /// <summary>"Altra pista": un circuito nuovo (il seme e' tutto quello che serve, la partita lo ridisegna uguale).</summary>
         void PistaOther()
         {
+            PistaMode.CircuitIndex = -1;
             PistaMode.Chosen = Random.Range(1, 1 << 28);
             pistaSeed = PistaMode.Chosen;
             RefreshPista(true);

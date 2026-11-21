@@ -11,7 +11,7 @@ namespace PryingEyes.Pista
     {
         const int MapTex = 384;
         const float MapSize = 236f;
-        static readonly Color Ink = new Color(0.96f, 0.95f, 0.91f), Dim = new Color(0.74f, 0.78f, 0.80f), Amber = new Color(1f, 0.74f, 0.18f), Red = new Color(0.96f, 0.24f, 0.18f), Green = new Color(0.38f, 0.88f, 0.46f);
+        internal static readonly Color Ink = new Color(0.96f, 0.95f, 0.91f), Dim = new Color(0.74f, 0.78f, 0.80f), Amber = new Color(1f, 0.74f, 0.18f), Red = new Color(0.96f, 0.24f, 0.18f), Green = new Color(0.38f, 0.88f, 0.46f);
 
         GameObject root, loadRoot;
         Canvas canvas, loadCanvas;
@@ -21,7 +21,9 @@ namespace PryingEyes.Pista
         // race
         Text posText, lapText, timeText, bestText, lastText, aheadText, behindText, kmhText, unitText, gearText, gearLabel, bannerText, bannerSub, warnText, hintText, aidAbs, aidTc, trackText, speedMeta, statusText;
         Image statusBack;
-        Image[] rpmSegs;
+        Image[] rpmSegs, draftSegs;
+        Text draftLabel, styleLabel, deltaText, recordText;
+        RectTransform weightDot;
         Image[] lamps;
         RectTransform lampRow;
         Image mapBack;
@@ -55,7 +57,7 @@ namespace PryingEyes.Pista
         }
 
         // ------------------------------------------------------------------ small builders
-        static RectTransform Node(Transform parent, string name, Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size)
+        internal static RectTransform Node(Transform parent, string name, Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size)
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
@@ -64,7 +66,7 @@ namespace PryingEyes.Pista
             return rt;
         }
 
-        static Text Label(Transform parent, string name, Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size, int fs, TextAnchor align, Color col, string text = "", FontStyle style = FontStyle.Bold, bool shadow = true, bool rich = false)
+        internal static Text Label(Transform parent, string name, Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size, int fs, TextAnchor align, Color col, string text = "", FontStyle style = FontStyle.Bold, bool shadow = true, bool rich = false)
         {
             var rt = Node(parent, name, anchor, pivot, pos, size);
             var t = rt.gameObject.AddComponent<Text>();
@@ -81,7 +83,7 @@ namespace PryingEyes.Pista
             return t;
         }
 
-        static Image Box(Transform parent, string name, Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size, Color col, Sprite sprite = null)
+        internal static Image Box(Transform parent, string name, Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size, Color col, Sprite sprite = null)
         {
             var rt = Node(parent, name, anchor, pivot, pos, size);
             var img = rt.gameObject.AddComponent<Image>();
@@ -132,7 +134,7 @@ namespace PryingEyes.Pista
             return arrowSprite = Sprite.Create(tex, new Rect(0, 0, N, N), new Vector2(0.5f, 0.5f), 100f);
         }
 
-        static Canvas MakeCanvas(string name, int order, out GameObject go)
+        internal static Canvas MakeCanvas(string name, int order, out GameObject go)
         {
             go = new GameObject(name);
             var c = go.AddComponent<Canvas>();
@@ -178,12 +180,14 @@ namespace PryingEyes.Pista
             var tl = new Vector2(0f, 1f); var tr = new Vector2(1f, 1f); var br = new Vector2(1f, 0f); var bl = new Vector2(0f, 0f); var tc = new Vector2(0.5f, 1f); var cc = new Vector2(0.5f, 0.5f);
 
             // top left: position, lap and times
-            Box(rt, "FondoSinistra", tl, tl, new Vector2(12f, -8f), new Vector2(330f, 262f), new Color(0.02f, 0.03f, 0.04f, 0.34f));
+            Box(rt, "FondoSinistra", tl, tl, new Vector2(12f, -8f), new Vector2(330f, 290f), new Color(0.02f, 0.03f, 0.04f, 0.34f));
             posText = Label(rt, "Posizione", tl, tl, new Vector2(26f, -14f), new Vector2(260f, 90f), 78, TextAnchor.UpperLeft, Ink, "", FontStyle.Bold, true, true);
             lapText = Label(rt, "Giro", tl, tl, new Vector2(28f, -108f), new Vector2(360f, 34f), 26, TextAnchor.UpperLeft, Amber, "", FontStyle.Bold);
             timeText = Label(rt, "Tempo", tl, tl, new Vector2(28f, -140f), new Vector2(360f, 50f), 42, TextAnchor.UpperLeft, Ink, "0:00.000", FontStyle.Bold);
             bestText = Label(rt, "Migliore", tl, tl, new Vector2(30f, -192f), new Vector2(360f, 26f), 20, TextAnchor.UpperLeft, Dim, "", FontStyle.Normal);
             lastText = Label(rt, "Ultimo", tl, tl, new Vector2(30f, -216f), new Vector2(360f, 26f), 20, TextAnchor.UpperLeft, Dim, "", FontStyle.Normal);
+            recordText = Label(rt, "Record", tl, tl, new Vector2(30f, -240f), new Vector2(360f, 26f), 20, TextAnchor.UpperLeft, new Color(0.78f, 0.52f, 1f), "", FontStyle.Normal);
+            deltaText = Label(rt, "Scarto", tl, tl, new Vector2(232f, -146f), new Vector2(110f, 40f), 32, TextAnchor.UpperLeft, Ink, "", FontStyle.Bold);
 
             // top centre: the lights of the start and the gaps
             lampRow = Node(rt, "Semaforo", tc, tc, new Vector2(0f, -22f), new Vector2(400f, 70f));
@@ -216,6 +220,19 @@ namespace PryingEyes.Pista
             gearText = Label(cluster, "Marcia", br, br, new Vector2(-8f, 14f), new Vector2(84f, 96f), 78, TextAnchor.MiddleCenter, Amber, "1", FontStyle.Bold);
             gearLabel = Label(cluster, "MarciaEtichetta", br, br, new Vector2(-8f, 94f), new Vector2(84f, 20f), 13, TextAnchor.MiddleCenter, Dim, "MARCIA", FontStyle.Normal);
             speedMeta = Label(cluster, "Meta", br, br, new Vector2(-128f, 0f), new Vector2(240f, 14f), 11, TextAnchor.LowerRight, Dim, "", FontStyle.Normal);
+
+            // over the engine-speed bar: the slipstream (six little bars that fill as the rider ahead shelters more of the wind)
+            draftLabel = Label(cluster, "ScieEtichetta", br, new Vector2(0f, 0f), new Vector2(-420f, 142f), new Vector2(60f, 20f), 15, TextAnchor.LowerLeft, new Color(Dim.r, Dim.g, Dim.b, 0.30f), "SCIA", FontStyle.Bold);
+            draftSegs = new Image[6];
+            for (int i = 0; i < draftSegs.Length; i++)
+                draftSegs[i] = Box(cluster, "Scia" + i, br, new Vector2(0f, 0f), new Vector2(-366f + i * 17.5f, 146f), new Vector2(14f, 7f), new Color(1f, 1f, 1f, 0.08f));
+
+            // left of the dashboard: where the rider's weight is (across = into the corner, up = forward over the tank) and how he sits
+            Box(rt, "PesoFondo", br, br, new Vector2(-494f, 30f), new Vector2(86f, 86f), new Color(0.02f, 0.03f, 0.04f, 0.34f));
+            Box(rt, "PesoAsseX", br, new Vector2(0.5f, 0.5f), new Vector2(-537f, 73f), new Vector2(76f, 1.5f), new Color(1f, 1f, 1f, 0.16f));
+            Box(rt, "PesoAsseY", br, new Vector2(0.5f, 0.5f), new Vector2(-537f, 73f), new Vector2(1.5f, 76f), new Color(1f, 1f, 1f, 0.16f));
+            weightDot = Box(rt, "PesoPunto", br, new Vector2(0.5f, 0.5f), new Vector2(-537f, 73f), new Vector2(13f, 13f), Amber, Dot()).rectTransform;
+            styleLabel = Label(rt, "PesoStile", br, br, new Vector2(-494f, 120f), new Vector2(160f, 20f), 14, TextAnchor.LowerRight, new Color(Dim.r, Dim.g, Dim.b, 0.8f), "", FontStyle.Bold);
 
             // bottom left: the rider aids and the hints
             aidAbs = Label(rt, "ABS", bl, bl, new Vector2(30f, 26f), new Vector2(70f, 30f), 22, TextAnchor.LowerLeft, new Color(Dim.r, Dim.g, Dim.b, 0.28f), "ABS");
@@ -360,6 +377,18 @@ namespace PryingEyes.Pista
 
         public void SetHints(string text, float seconds) { hintText.text = text; hintT = seconds; }
 
+        /// <summary>How far ahead (green, minus) or behind (red, plus) the lap of reference the rider is, in seconds; nothing when there is no reference.</summary>
+        public void SetDelta(bool valid, float delta)
+        {
+            if (deltaText == null) return;
+            if (!valid) { deltaText.text = ""; return; }
+            deltaText.text = (delta <= 0f ? "-" : "+") + Mathf.Abs(delta).ToString("0.00");
+            deltaText.color = delta <= 0f ? Green : Red;
+        }
+
+        /// <summary>The line under the times about the record the ghost is the picture of; empty hides it.</summary>
+        public void SetRecord(string text) { if (recordText != null) recordText.text = text ?? ""; }
+
         public static string Clock(float s)
         {
             if (s < 0f) return "-:--.---";
@@ -438,6 +467,14 @@ namespace PryingEyes.Pista
                 if (blink) { on = true; col = Red; }
                 rpmSegs[i].color = on ? col : new Color(1f, 1f, 1f, 0.09f);
             }
+            // the slipstream and the weight
+            float dr = Mathf.Clamp01(me.draft);
+            int litD = Mathf.CeilToInt(dr * draftSegs.Length - 0.001f);
+            Color sc = new Color(0.55f, 0.82f, 1f);
+            for (int i = 0; i < draftSegs.Length; i++) draftSegs[i].color = i < litD ? sc : new Color(1f, 1f, 1f, 0.08f);
+            draftLabel.color = litD > 0 ? sc : new Color(Dim.r, Dim.g, Dim.b, 0.30f);
+            weightDot.anchoredPosition = new Vector2(-537f + Mathf.Clamp(v.hang, -1f, 1f) * 34f, 73f + Mathf.Clamp(v.body, -1f, 1f) * 34f);
+            if (me.bike != null) styleLabel.text = PistaMode.StyleNames[(int)me.bike.style].ToUpperInvariant();
             aidAbs.color = v.absOn ? Amber : new Color(Dim.r, Dim.g, Dim.b, 0.28f);
             aidTc.color = v.tcsOn ? Amber : new Color(Dim.r, Dim.g, Dim.b, 0.28f);
 
