@@ -636,11 +636,12 @@ namespace PryingEyes
             int s0 = gm.score, k0 = gm.kills;
             for (int i = 0; i < 3; i++)
             {
-                target.Damage(10f, target.AimPoint, false, true, DamageSource.Gun);
+                // il secondo e' una moto che lo investe (fonte Moto, pe-coop-33): l'ospite deve accettare il byte nuovo, altrimenti il colpo si perde e i punti non arrivano
+                target.Damage(10f, target.AimPoint, false, true, i == 1 ? DamageSource.Moto : DamageSource.Gun);
                 yield return new WaitForSeconds(0.35f);
             }
             yield return new WaitForSeconds(1.0f);
-            Check("tre colpi a segno: +10 punti l'uno a chi spara", gm.score - s0 == 3 * Punti.Colpo, $"+{gm.score - s0} punti");
+            Check("tre colpi a segno (il secondo con la fonte Moto): +10 punti l'uno a chi spara", gm.score - s0 == 3 * Punti.Colpo, $"+{gm.score - s0} punti");
             target.Damage(100000f, target.AimPoint, true, true, DamageSource.Gun);
             yield return Until(() => target == null || target.IsDead, 5f);
             yield return new WaitForSeconds(1.0f);

@@ -591,6 +591,7 @@ namespace PryingEyes
             Vector3 push = transform.position - (shooter != null ? shooter.Feet : point);
             push.y = 0f;
             push = push.normalized * (Archetype == EnemyType.Occhio ? 2.2f : Archetype == EnemyType.Monaco ? 0.5f : 0.25f);
+            if (src == DamageSource.Moto) push *= 12f;           // una moto lo scaraventa: 6 m/s a un monaco, 3 a un abate (poi l'agente lo rallenta)
             if (OnNav) agent.velocity += push;
             else vel += push;
             // durante il colpo di bastone niente reazione: l'animazione dell'attacco non si interrompe
