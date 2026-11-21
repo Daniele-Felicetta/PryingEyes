@@ -57,7 +57,9 @@ namespace PryingEyes.Deserto
         Transform dome;
         Camera cam;
         float indoor, exposureSent = 99f, exposureT, coveredT;
-        bool coveredPrimary;
+        bool coveredPrimary, shadowIndoor;          // shadowIndoor: la distanza delle ombre e' quella della stanza (isteresi: dentro oltre 0,9 della dissolvenza, fuori sotto 0,5)
+        /// <summary>Solo per le prove (-legacyshadows): la distanza delle ombre passa da un valore all'altro a scatto, come prima del raccordo, per misurare com'era.</summary>
+        static readonly bool LegacyShadows = System.Array.Exists(System.Environment.GetCommandLineArgs(), a => a == "-legacyshadows");
         float primaryIndoor;
 
         /// <summary>Schermo condiviso (0.9.1): una camera per posto. 'cam' e' quella del posto 0 e decide la direzione del sole negli occhi; le altre sono qui, ognuna col suo sfondo, il suo
@@ -330,7 +332,15 @@ namespace PryingEyes.Deserto
             // grading dello schermo (a dieci scatti al secondo) e distanza delle ombre: all'aperto quelli del deserto, al chiuso quelli della stanza
             gradeT -= dt;
             if (immediate || gradeT <= 0f) { gradeT = 0.1f; ApplyGrade(k, s, wx); }
-            GameSettings.SetShadowRange(k > 0.5f ? 1f : OutdoorShadowRange);
+            // la distanza delle ombre: all'aperto quella del deserto, al chiuso (sotto un tetto da piu' di mezzo secondo) quella della stanza. Si passa dall'una all'altra piano piano e con isteresi: a scatto,
+            // a ogni porta e a ogni tettoia (una sola semina in alto ogni 0,12 s) le ombre lontane sparivano e ricomparivano di botto (-desertonly ombre)
+            if (LegacyShadows) GameSettings.SetShadowRange(k > 0.5f ? 1f : OutdoorShadowRange);          // com'era (solo con -legacyshadows, per misurare il prima)
+            else
+            {
+                if (k > 0.9f) shadowIndoor = true; else if (k < 0.5f) shadowIndoor = false;
+                if (immediate) { shadowIndoor = k > 0.5f; GameSettings.SetShadowRange(shadowIndoor ? 1f : OutdoorShadowRange); }
+                else GameSettings.EaseShadowRange(shadowIndoor ? 1f : OutdoorShadowRange, dt);
+            }
 
             FacadeKit.SetNight(Night);      // le finestre accese delle facciate si vedono al buio
             Shader.SetGlobalFloat("_DSNight", Night);       // e le fiamme dei fuochi

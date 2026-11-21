@@ -13,7 +13,7 @@ namespace PryingEyes.Deserto
     {
         /// <summary>Via tutte le guardie che non sono boss: le prove della moto misurano la moto e non il combattimento, e in una catena di fasi quelle svegliate dalle fasi di prima (i luoghi a un paio di
         /// centinaia di metri a sud si caricano ogni volta che si guida fin laggiu') arrivano a contatto con il pilota fermo e lo spingono, e una moto spinta lascia le tracce di una moto che corre.</summary>
-        static void ClearHorde()
+        static void ClearHorde(bool quiet = false)
         {
             int n = 0;
             foreach (var g in new List<Enemy>(Enemy.All))
@@ -21,7 +21,7 @@ namespace PryingEyes.Deserto
                 if (g == null || g.maxHp >= 3000f) continue;
                 Enemy.Remove(g); n++;
             }
-            if (n > 0) Debug.Log($"[PryingEyes] desertotest: tolgo {n} guardie prima della prova");
+            if (n > 0 && !quiet) Debug.Log($"[PryingEyes] desertotest: tolgo {n} guardie prima della prova");
         }
 
         IEnumerator MotoTracks()

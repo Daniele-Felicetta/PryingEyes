@@ -8,11 +8,13 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 
 | If you want to... | Read |
 | --- | --- |
+| browse the game and the project as a wiki: a card for every entity, a concept map, a static site | [The wiki](../wiki/README.md); its static site opens from `wiki/site/index.html` with no server |
 | understand the game | [The cathedral and the catacombs](game/cathedral-and-catacombs.md), [The Tower](game/tower.md) (the levels), then [Weapons](game/weapons.md); [The desert](game/the-desert.md) for the second way to play; [Characters, levels and saves](game/saves-and-characters.md) for who plays and what is kept |
 | build it, ship a change, understand CI | [Building, shipping and CI](engineering/building-and-shipping.md) |
 | know what is verified and how to run each check | [Testing and verification](engineering/testing.md) |
 | reuse the production suite for another project | [Production suite](engineering/suite-architecture.md) |
 | add something to a save without breaking old saves | [Save system](engineering/save-system.md) |
+| continue the work that makes the game modular, reusable and easy for AI agents | [Modular architecture: roadmap](engineering/modular-roadmap.md), which links the audit, the target, the tools and the tasks |
 | see what changed and why | [Quality audit](history/quality-audit.md), [Survival redesign](history/zombies-redesign.md), [Earlier versions](history/legacy-versions.md) |
 
 ## The game (`game/`)
@@ -57,6 +59,12 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [production-studio.md](engineering/production-studio.md) | The content pipeline: one source for weapon data, furnished rooms, the weapon-state module, the persistent queue, the evidence gallery. |
 | [city-prototype.md](engineering/city-prototype.md) | The station district: the first project built on the suite beyond the hotel, its labs and verified results (Italian). |
 | [trailer.md](engineering/trailer.md) | How the trailer is recorded from the game itself and edited, and how to make it again. |
+| [modular-roadmap.md](engineering/modular-roadmap.md) | The plan that makes the game modular, reusable and easy for AI agents to work on: the order of the work and why, the state of each task, what can run at the same time, how each phase ends, the decisions left to the maintainer. The page to open first. |
+| [architecture-audit.md](engineering/architecture-audit.md) | The code as it is at 0.9.4, measured: sizes, assemblies, who depends on whom, the files every change touches, the tests inside the player, the 271 flags, the engine-free code, the checks nothing runs, the hazards for agents working in parallel (findings F1 to F14), and how to take every number again with `tools/code_census.py`. |
+| [modularization.md](engineering/modularization.md) | The target: five boundaries (reusable packages, game rules, gameplay, in-player tests, editor tools), what each may depend on and what fails when it is crossed, one decision for every central list, the rules for new code, and what is deliberately not done. |
+| [package-extraction.md](engineering/package-extraction.md) | Which code can become a reusable Unity package and when: the ladder from gameplay to package, the packages the game does not use yet, the inventory of candidates with the event that triggers each, the recipes. |
+| [agent-tooling.md](engineering/agent-tooling.md) | The command line and the data formats for AI agents: one entry point, the list of suites, the manifest of the in-player tests, results as data, the compile check, the state of a checkout, worktrees, hazards declared and enforced. A design, with what exists marked. |
+| [modular-tasks.md](engineering/modular-tasks.md) | The 21 tasks of the plan, each with its reason, steps, acceptance criteria and verification, written to be carried out by an agent alone, and the rules for carrying one out. |
 | [unreal-prototype.md](engineering/unreal-prototype.md) | The Unreal Engine 5.8 feasibility prototype: one generated room exported from Unity and rebuilt in Unreal from the command line (no Blueprints), how the Unity look is matched, how frames are timed, results and traps. |
 
 The reusable C# packages have their own READMEs:
@@ -86,4 +94,4 @@ the code; the last version of that page is in git history (`git show b77eca5:REA
 - No machine-specific paths: write paths relative to the repository root.
 - When a change alters what a page says, update the page in the same commit.
 - A new page is added to this index. `python tools/check_suite.py` fails on a broken link, a page missing from this index and a
-  machine-specific path, and `tools/ship.ps1` and the CI gate run it.
+  machine-specific path, and `tools/ship.ps1` and the CI gate run it. The wiki has its own checks, which the same command runs: see [the wiki](../wiki/README.md).

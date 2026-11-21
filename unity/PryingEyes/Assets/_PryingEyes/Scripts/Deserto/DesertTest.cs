@@ -352,6 +352,12 @@ namespace PryingEyes.Deserto
             if (Explicit("motodettagli")) yield return Phase("motodettagli", MotoDetails());
             if (Explicit("tracce")) yield return Phase("tracce", MotoTracks());
             if (Explicit("motonemici")) yield return Phase("motonemici", MotoEnemies());
+            if (Explicit("motoinvesti")) yield return Phase("motoinvesti", MotoRoadkill());
+            if (Explicit("motopiano")) yield return Phase("motopiano", MotoFlat());
+            if (Explicit("scale")) yield return Phase("scale", CathedralStairsAudit());
+            if (Explicit("ombre")) yield return Phase("ombre", ShadowRangeAudit());
+            if (Explicit("pelle")) yield return Phase("pelle", SkinHandoverAudit());
+            if (Explicit("luci")) yield return Phase("luci", LightShadowAudit());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
             if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
         }
@@ -376,7 +382,10 @@ namespace PryingEyes.Deserto
             Check("l'opera dei libri e della consacrazione e' attiva solo nel deserto", Opere.IncludeDesert);
             var p = gm.player.transform.position;
             Check("si nasce sul sagrato, al piano della chiesa", Mathf.Abs(p.y) < 0.6f && DesertWorld.DistToCathedral(p.x, p.z) < 0.5f, p.ToString("F1"));
-            Check("nessun nemico nella cattedrale", Enemy.All.Count == 0 || Dd == null, Enemy.All.Count + " nemici");
+            // solo dentro la cattedrale: la guardia di un luogo vicino (una e' nata a 46 m a sud della scalinata) puo' nascere proprio in questo istante, e non e' un nemico nella cattedrale
+            int inChurch = 0;
+            foreach (var en in Enemy.All) if (en != null && DesertWorld.DistToCathedral(en.transform.position.x, en.transform.position.z) < 0.5f) inChurch++;
+            Check("nessun nemico nella cattedrale", inChurch == 0 || Dd == null, inChurch + " nemici dentro, " + Enemy.All.Count + " in tutto");
             Shot("01_arrivo");
         }
 

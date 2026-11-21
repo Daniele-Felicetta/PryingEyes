@@ -204,12 +204,30 @@ namespace PryingEyes
         {
             scale = Mathf.Clamp(scale, 1f, 6f);
             if (Mathf.Abs(scale - shadowRange) < 0.01f) return;
+            ApplyShadowRange(scale);
+        }
+
+        static void ApplyShadowRange(float scale)
+        {
             shadowRange = scale;
             if (GraphicsLive) { ApplyGraphics(); return; }
             var urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             if (urp == null || Application.isEditor) return;
             if (rangeBase < 0f) rangeBase = urp.shadowDistance;        // il primo valore dell'asset, prima del nostro
             urp.shadowDistance = rangeBase * shadowRange;
+        }
+
+        /// <summary>Costanti di tempo (s) con cui la distanza delle ombre del deserto si stringe (si entra in un edificio) e si allarga (se ne esce).</summary>
+        public const float ShadowShrinkTau = 0.7f, ShadowGrowTau = 0.35f;
+
+        /// <summary>Come SetShadowRange, ma ci si arriva piano piano (a ogni fotogramma, 'dt' secondi): a scatto, entrando in un edificio o sotto una tettoia, tutte le ombre oltre i 70 m (le dune, le torri,
+        /// la cattedrale) sparivano in un fotogramma e ricomparivano di botto uscendo (la prova -desertonly ombre misura 140 m in un fotogramma). Si stringe piu' piano di come si allarga: chi esce vuole
+        /// le ombre lontane presto, chi entra non le vede piu'.</summary>
+        public static void EaseShadowRange(float target, float dt)
+        {
+            target = Mathf.Clamp(target, 1f, 6f);
+            float next = Mathf.Abs(target - shadowRange) < 0.01f ? target : Mathf.Lerp(shadowRange, target, 1f - Mathf.Exp(-Mathf.Max(dt, 0f) / (target < shadowRange ? ShadowShrinkTau : ShadowGrowTau)));
+            if (Mathf.Abs(next - shadowRange) > 1e-5f) ApplyShadowRange(next);        // senza la zona morta di SetShadowRange: a 500 fotogrammi al secondo un passo e' di un millesimo
         }
 
         // ---- grana, vignettatura e bagliore: il tema decide quanto, la scelta del giocatore lo scala

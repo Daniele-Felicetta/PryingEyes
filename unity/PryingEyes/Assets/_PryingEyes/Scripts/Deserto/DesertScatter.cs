@@ -15,7 +15,7 @@ namespace PryingEyes.Deserto
         public static DesertScatter I { get; private set; }
 
         const float ColliderIn = 140f, ColliderOut = 190f;
-        const int MaxJobs = 3;
+        const int MaxJobs = 6;
         /// <summary>Quanti sono i generi: i sassi e i massi lontani (PropMeshes.HasLow) stanno in una seconda serie di liste, dopo i generi, con la mesh ridotta.</summary>
         const int Kinds = (int)Prop.Count;
         /// <summary>Entro questa distanza (m) un sasso o un masso ha tutti i suoi triangoli; piu' in la' ha la versione ridotta, con la stessa sagoma (da 70 m un sasso di un metro e' una quindicina di punti sullo schermo a 1080p).</summary>
@@ -58,6 +58,26 @@ namespace PryingEyes.Deserto
 
         public int CellsReady { get { int n = 0; foreach (var c in cells.Values) if (c.items != null) n++; return n; } }
         public int CellsPending => pending.Count;
+        /// <summary>Per le prove: la distanza (m) del quadrato di cose piu' vicino che manca ancora (in attesa, partito o no, e senza le sue cose), 9999 se non ne manca nessuno.</summary>
+        public float NearestMissingCell(Vector3 p)
+        {
+            float best = 9999f;
+            foreach (var c in pending) if (c.items == null) best = Mathf.Min(best, DistTo(p, c.cx, c.cz));
+            return best;
+        }
+        /// <summary>Per le prove: i primi quadrati in attesa che non sono ancora partiti, con la distanza dal punto e se i luoghi attorno ci sono (se no aspettano che il terreno li faccia: -desertonly motopiano).</summary>
+        public string PendingReport(Vector3 p)
+        {
+            var sb = new System.Text.StringBuilder(); int n = 0;
+            float s = DesertScatterGen.Chunk;
+            foreach (var c in pending)
+            {
+                if (c.task != null) continue;
+                if (n++ >= 4) { sb.Append(" ..."); break; }
+                sb.Append($" [{c.cx},{c.cz} a {DistTo(p, c.cx, c.cz):F0} m, luoghi attorno {(DesertWorld.KnownAround(c.cx * s, c.cz * s, (c.cx + 1) * s, (c.cz + 1) * s) ? "ci sono" : "NON ci sono")}]");
+            }
+            return sb.ToString();
+        }
         public int Instances { get { int n = 0; foreach (var c in aggCount) n += c; return n; } }
         public int Colliders => live.Count;
         public int CountOf(Prop p) => aggCount[(int)p] + aggCount[Kinds + (int)p];
@@ -125,6 +145,7 @@ namespace PryingEyes.Deserto
             planT -= Time.unscaledDeltaTime;
             if (planT <= 0f || moved > 16f * 16f) { planT = 0.4f; lastPlan = p; lastViews.Clear(); lastViews.AddRange(views); Plan(p, others, views); }
             Collect();
+            StartJobs();
             float movedAgg = (p - lastAgg).sqrMagnitude;
             for (int i = 0; i < views.Count; i++)
                 movedAgg = Mathf.Max(movedAgg, i < lastAggViews.Count ? (views[i] - lastAggViews[i]).sqrMagnitude : 1e9f);
@@ -215,12 +236,21 @@ namespace PryingEyes.Deserto
             foreach (var kv in cells)
                 if (DistToViews(p, views, kv.Value.cx, kv.Value.cz) > far + 90f && (others.Count == 0 || DistToOthers(others, kv.Value.cx, kv.Value.cz) > OtherReach + 60f)) gone.Add(kv.Key);
             foreach (long k in gone) { cells.Remove(k); dirty = true; }
+            StartJobs();
+        }
+
+        /// <summary>Avvia i lavori dei quadrati in attesa, dal piu' vicino, finche' ce ne sono MaxJobs in corso. Si chiama a ogni fotogramma (come DesertTerrain.Pump), non solo quando Plan rifa' l'elenco:
+        /// a tre quadrati per giro ogni 0,4 s le cose sulla sabbia nascevano a sette al secondo, e a 83 km/h ne servono otto.</summary>
+        void StartJobs()
+        {
+            if (pending.Count == 0) return;
             int jobs = 0;
             foreach (var c in cells.Values) if (c.task != null && c.items == null) jobs++;
+            float s = DesertScatterGen.Chunk;
             foreach (var c in pending)
             {
                 if (jobs >= MaxJobs) break;
-                float s = DesertScatterGen.Chunk;
+                if (c.task != null) continue;                           // e' gia' partito (l'elenco resta com'e' finche' Plan non lo rifa')
                 // i luoghi attorno devono esistere prima che un thread calcoli le quote (come per la sabbia)
                 if (!DesertWorld.KnownAround(c.cx * s, c.cz * s, (c.cx + 1) * s, (c.cz + 1) * s)) continue;
                 int cx = c.cx, cz = c.cz;

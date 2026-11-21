@@ -3,7 +3,7 @@
 The goal of the engineering work is a suite that outlives Prying Eyes. This page is the map: which parts are already
 independent of the game, what enforces that, and what is still game-specific. It is written to be checked, not admired:
 `python tools/check_suite.py` fails when a boundary below is crossed; `tools/ship.ps1` runs it, with the Python unit tests, before every
-commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the three .NET rule labs, on every push to `preview` and every
+commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the four .NET rule labs, on every push to `preview` and every
 pull request against it. How a change is built, shipped and gated is in [building-and-shipping.md](building-and-shipping.md).
 
 ## Layers
@@ -13,7 +13,7 @@ pull request against it. How a change is built, shipped and gated is in [buildin
 | Rule packages (C#) | `unity/PryingEyes/Packages/com.pryingeyes.{layout,weapons,survival,economy,saves}` | nothing: `noEngineReferences`, no assembly references, no `UnityEngine`/`PryingEyes` in code | the same `.cs` files are compiled by the .NET labs `tools/{planlab,weaponslab,survivallab,economylab,saveslab}` (no editor) and consumed by `unity/LayoutDemo` through `file:` references |
 | Production engine (Python) | `tools/studio_engine.py`, `studio_process.py`, `studio_queue.py`, `asset_graph.py` | the standard library | `test_studio_engine.py` runs it on a toy project; a test imports it with `python -I` and asserts no game module, `jsonschema` or Pillow is loaded |
 | Project profile | `tools/studio_pryingeyes.py` + the catalogs under `Resources/Production` | the engine, the game | this is the *only* place that knows weapons, rooms, Blender, Unity, the city recipe |
-| Guard | `tools/check_suite.py`, `tools/test_check_suite.py` | the repository layout | the guard is itself tested against a fixture repository with every kind of violation |
+| Guard | `tools/check_suite.py`, `tools/test_check_suite.py` | the repository layout, and the wiki generator `tools/wiki_site.py` for the wiki | the guard is itself tested against a fixture repository with every kind of violation |
 
 The C# packages already use neutral assembly and namespace names (`Production.*`); only the package ids carry the game name.
 
@@ -21,17 +21,23 @@ The guard also keeps the documentation honest: relative links and anchors must r
 `docs/README.md`, and no page may name a machine-specific path (rule 13 of `AGENTS.md`). The repository is public, so the guard treats a
 path of one machine in a page as a defect, like a broken link.
 
+The guard also builds the wiki in `wiki/` with `tools/wiki_site.py` and fails on any finding in its pages, links, images or concepts, and
+on any generated file that is out of date. A tree with no `wiki/` folder has nothing to check; `docs/README.md` links to the wiki, so
+removing it breaks a link there instead.
+
 ## Where the gate runs
 
 | Where | What | Needs |
 | --- | --- | --- |
 | `tools/ship.ps1`, before every commit | `check_suite.py` and the Python unit tests | Python, no Unity |
-| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival`, `studio.py test economy` and `studio.py test saves`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of a few MB |
+| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival`, `studio.py test economy` and `studio.py test saves`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of about 20 MiB |
 
 The labs are not part of `ship.ps1`: they take the project lock and would fail with `PROJECT_BUSY` whenever another agent has a
 production running on the same checkout. The runner is Windows because the engine owns process trees with Job Objects and its POSIX
-variant has never been verified. The checkout lists the only paths the gate reads (the `sparse-checkout` block of the workflow); to check
-that list after a change, make a throwaway sparse worktree with exactly those patterns and run the four commands there. There is no branch
+variant has never been verified. The checkout lists the only paths the gate reads (the `sparse-checkout` block of the workflow). It includes `wiki/`, which the wiki
+check reads, the `.py` scripts of `modelli/`, which the wiki's pages name, and `.github/workflows/gate.yml`, which the CI page cites.
+Every source a wiki page cites must be in that list, or the gate fails with `WIKI_SOURCE_MISSING`. To check the list after a change,
+make a throwaway sparse copy with exactly those patterns and run the gate's commands there. There is no branch
 protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: a red run on `preview` is fixed before
 anything else (rule 8 of `AGENTS.md`).
 
