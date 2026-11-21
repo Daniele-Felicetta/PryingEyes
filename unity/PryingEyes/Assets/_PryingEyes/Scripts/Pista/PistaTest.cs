@@ -99,6 +99,7 @@ namespace PryingEyes.Pista
             if (!Check2("la partita su pista parte e la gara e' pronta", d != null && d.Ready && PistaMode.Active, d == null ? "nessun regista" : "pronto " + d.Ready)) yield break;
             yield return null;
             Debug.Log($"[PryingEyes] pistatest circuito '{d.circuit.name}', {d.circuit.length:F0} m, {d.circuit.n} campioni, seme {d.seed}, {d.race.racers.Count} piloti, {d.race.laps} giri");
+            if (PistaMode.HasArg("-pistaperf")) { yield return PerfRun(); yield break; }                      // only the cost of a frame (needs graphics)
             if (PistaMode.HasArg("-pistacuponly")) { yield return CupRace(); yield break; }          // only the championship part (to look at the table of a round and iterate on it)
 
             // ---- the scene
@@ -795,6 +796,77 @@ namespace PryingEyes.Pista
         }
 
         /// <summary>A photograph of what the player sees, with the interface of the race (the canvas goes to screen-space camera for the moment).</summary>
+        /// <summary>-pistaperf (needs a graphics device, not -nographics): what a frame of a full race costs, at 1920x1080 with the race camera. In batchmode Unity does not draw the cameras by itself (the frame
+        /// rates it shows are made up), so every frame the probe draws the race camera into a texture and reads one pixel back, which waits for the GPU. The time is the game's logic plus the CPU work of
+        /// drawing plus the GPU's queue: a little pessimistic, since in the real game the CPU and the GPU overlap. Three windows: the grid before the lights, the first ten seconds of the race (the pack is
+        /// closest) and a stretch of the lap. The numbers are written to the log and to hotel_build/prove/pista/perf.txt.</summary>
+        IEnumerator PerfRun()
+        {
+            var d = Dir;
+            var cam = d.cam.cam;
+            const int W = 1920, H = 1080;
+            var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32) { name = "pistaperf" };
+            var px = new Texture2D(1, 1, TextureFormat.RGB24, false);
+            var prev = cam.targetTexture;
+            cam.targetTexture = rt;
+            var report = new System.Text.StringBuilder();
+            report.AppendLine($"== pista perf {DateTime.Now:yyyy-MM-dd HH:mm}: '{d.circuit.name}', {d.circuit.length:F0} m, {d.race.racers.Count} piloti, {W}x{H}");
+            phase = "perf: griglia";
+            yield return PerfWindow("griglia", () => d.race.phase == RacePhase.Grid || d.race.phase == RacePhase.Countdown, 3f, cam, rt, px, report);
+            yield return WaitFor(() => d.race.phase == RacePhase.Racing, 40f);
+            phase = "perf: partenza";
+            yield return PerfWindow("primi 10 s di gara", () => d.race.phase == RacePhase.Racing && d.race.time < 10f, 14f, cam, rt, px, report);
+            phase = "perf: giro";
+            yield return PerfWindow("tra i 10 e i 30 s di gara", () => d.race.phase == RacePhase.Racing && d.race.time < 30f, 24f, cam, rt, px, report);
+            cam.targetTexture = prev;
+            Destroy(rt); Destroy(px);
+            try
+            {
+                string dir = TestPaths.Out("prove/pista");
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(dir + "/perf.txt", report.ToString());
+            }
+            catch (Exception e) { Debug.LogException(e); }
+        }
+
+        IEnumerator PerfWindow(string label, Func<bool> keep, float cap, Camera cam, RenderTexture rt, Texture2D px, System.Text.StringBuilder report)
+        {
+            var frame = new List<float>(); var draw = new List<float>();
+            float t0 = Time.realtimeSinceStartup;
+            int skip = 3;                                     // the first frames after a change are not what the window is about
+            while (keep() && Time.realtimeSinceStartup - t0 < cap)
+            {
+                yield return new WaitForEndOfFrame();
+                float a = Time.realtimeSinceStartup;
+                cam.Render();
+                RenderTexture.active = rt;
+                px.ReadPixels(new Rect(rt.width / 2, rt.height / 2, 1, 1), 0, 0);
+                RenderTexture.active = null;
+                float b = Time.realtimeSinceStartup;
+                if (skip > 0) { skip--; continue; }
+                frame.Add(Time.unscaledDeltaTime * 1000f); draw.Add((b - a) * 1000f);
+            }
+            if (frame.Count == 0) { report.AppendLine($"  {label}: nessun fotogramma"); yield break; }
+            var sorted = new List<float>(frame); sorted.Sort();
+            float sum = 0f, sumDraw = 0f;
+            foreach (float f in frame) sum += f;
+            foreach (float f in draw) sumDraw += f;
+            float avg = sum / frame.Count;
+            float P(float q) { return sorted[Mathf.Clamp(Mathf.RoundToInt(q * (sorted.Count - 1)), 0, sorted.Count - 1)]; }
+            int visible = 0; long tris = 0;
+            foreach (var r in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            {
+                if (!r.enabled || !r.isVisible) continue;
+                visible++;
+                var mf = r.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) continue;
+                for (int s = 0; s < mf.sharedMesh.subMeshCount; s++) tris += mf.sharedMesh.GetIndexCount(s) / 3;
+            }
+            string line = $"  {label}: {frame.Count} fotogrammi, media {avg:F1} ms ({1000f / avg:F0} FPS), p50 {P(0.5f):F1}, p95 {P(0.95f):F1}, p99 {P(0.99f):F1}, peggiore {sorted[sorted.Count - 1]:F1} ms; disegno {sumDraw / draw.Count:F1} ms; {visible} oggetti visibili, {tris / 1000} mila triangoli";
+            report.AppendLine(line);
+            Debug.Log("[PryingEyes] pistaperf" + line);
+        }
+
         IEnumerator Shot(string name)
         {
             yield return new WaitForEndOfFrame();

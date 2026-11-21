@@ -400,6 +400,7 @@ namespace PryingEyes.Pista
             stage.SetSpin(300f);
             for (int i = 0; i < 4; i++) yield return null;
             if (shots) yield return Shot("menu_9_garage_125");
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-pistabikeshots") >= 0) yield return BikeShots(stage);
 
             var bikeNav = Row("Moto").navigation; var colourNav = Row("Colori").navigation; var outfitNav = Row("Pilota").navigation; var doneNav = Find("Pulsante Fatto").GetComponent<Selectable>().navigation;
             Check("la croce: da 'Moto' si scende a 'Colori', a 'Pilota' e a 'Fatto', e da 'Fatto' si risale a 'Pilota'", bikeNav.selectOnDown != null && bikeNav.selectOnDown.name == "Scelta Colori" && colourNav.selectOnUp != null && colourNav.selectOnUp.name == "Scelta Moto"
@@ -613,6 +614,46 @@ namespace PryingEyes.Pista
         }
 
         // ------------------------------------------------------------------ a picture of what the menu shows
+        /// <summary>-pistabikeshots (with -pistashots not needed): the bikes of the garage photographed close up from the side, the front, the tail and the rider, into hotel_build/prove/pista/bici_N_vista.png, to look at the models.
+        /// -pistabikes 0,2,3 picks the bikes (the default is one of each shape and the smallest).</summary>
+        IEnumerator BikeShots(GarageStage stage)
+        {
+            string dir = TestPaths.Out("prove/pista");
+            Directory.CreateDirectory(dir);
+            int[] bikes = { 0, 2, 3, 4 };
+            int skin0 = PistaMode.Skin, outfit0 = PistaMode.Outfit;
+            PistaMode.Skin = -1; PistaMode.Outfit = -1;                 // every bike in the livery it comes in, with its own rider
+            var a = Environment.GetCommandLineArgs();
+            for (int i = 0; i < a.Length - 1; i++)
+                if (a[i] == "-pistabikes")
+                {
+                    var parts = a[i + 1].Split(',');
+                    bikes = new int[parts.Length];
+                    for (int k = 0; k < parts.Length; k++) int.TryParse(parts[k], out bikes[k]);
+                }
+            var views = new (string name, float spin, float dist, float camY, float aim, float fov)[]
+            {
+                ("lato", 90f, 6.4f, 1.0f, 0.60f, 24f), ("davanti", 30f, 6.2f, 1.25f, 0.68f, 24f), ("dietro", 212f, 6.2f, 1.35f, 0.70f, 24f), ("pilota", 62f, 3.4f, 1.45f, 0.98f, 28f), ("motore", 90f, 3.6f, 0.55f, 0.46f, 28f),
+            };
+            foreach (int b in bikes)
+            {
+                PistaMode.Bike = Mathf.Clamp(b, 0, Bikes.Count - 1);
+                Call("RefreshGarage");
+                yield return null; yield return null;
+                foreach (var v in views)
+                {
+                    yield return new WaitForEndOfFrame();
+                    var tex = stage.Snapshot(v.spin, v.dist, v.camY, v.aim, v.fov, 1280, 800);
+                    File.WriteAllBytes(dir + "/bici_" + PistaMode.Bike + "_" + v.name + ".png", tex.EncodeToPNG());
+                    Destroy(tex);
+                }
+                Debug.Log("[PryingEyes] pistamenutest foto della moto " + PistaMode.Bike + " in " + dir);
+            }
+            PistaMode.Bike = 3; PistaMode.Skin = skin0; PistaMode.Outfit = outfit0;                      // the flow goes on from the Scintilla 125, as it found it
+            Call("RefreshGarage");
+            yield return null;
+        }
+
         IEnumerator Shot(string name)
         {
             yield return new WaitForEndOfFrame();

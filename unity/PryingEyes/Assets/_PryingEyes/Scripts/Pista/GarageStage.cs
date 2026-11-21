@@ -140,6 +140,30 @@ namespace PryingEyes.Pista
         /// <summary>Turn the plate to an angle at once (the tests photograph it from the side and from the front).</summary>
         public void SetSpin(float degrees) { Spin = Mathf.Repeat(degrees, 360f); Pose(0f); }
 
+        /// <summary>For the tests: a photograph of the bike on the plate, w x h pixels, drawn at once. The plate is turned to 'spin' degrees first (0 the bike faces the camera, 90 it shows its right side, 180 its tail), the
+        /// camera stands 'dist' metres away at the height 'camY' and looks at the height 'aim' above the plate. The camera goes back to where it was afterwards.</summary>
+        public Texture2D Snapshot(float spin, float dist, float camY, float aim, float fov, int w, int h)
+        {
+            SetSpin(spin);
+            var t = Cam.transform;
+            var p0 = t.localPosition; var r0 = t.localRotation; float f0 = Cam.fieldOfView; var rt0 = Cam.targetTexture;
+            var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Default, 4);
+            t.localPosition = new Vector3(0f, camY, dist);
+            t.LookAt(transform.position + new Vector3(0f, aim, 0f));
+            Cam.fieldOfView = fov;
+            Cam.targetTexture = rt;
+            Cam.Render();
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+            var old = RenderTexture.active;
+            RenderTexture.active = rt;
+            tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            tex.Apply();
+            RenderTexture.active = old;
+            Cam.targetTexture = rt0; t.localPosition = p0; t.localRotation = r0; Cam.fieldOfView = f0;
+            RenderTexture.ReleaseTemporary(rt);
+            return tex;
+        }
+
         void OnDestroy()
         {
             if (Picture != null) { Picture.Release(); Destroy(Picture); }

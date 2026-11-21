@@ -182,9 +182,9 @@ namespace PryingEyes.Pista
 
         sealed class Kit
         {
-            public Mesh frame, engine, exhaust, paint, paint2, seat, screen, fork, bars, swing, tyreF, tyreR, rimF, rimR, disc, mirrors, lens, tail, forkLow, fender;
-            public Mesh torso, helmet, visor, leg, boot, glove, rodUnit, thigh;
-            public Material mFrame, mMetal, mSteel, mRubber, mSeat, mGlass, mGold, mGlove, mBoot, mVisor;
+            public Mesh frame, engine, exhaust, paint, paint2, seat, screen, fork, bars, swing, tyreF, tyreR, rimF, rimR, disc, mirrors, lens, lensBody, nose, tail, forkLow, fender;
+            public Mesh torso, torsoTrim, kneeTrim, helmet, visor, leg, boot, glove, upperUnit, foreUnit;
+            public Material mFrame, mMetal, mSteel, mTitan, mRubber, mSeat, mGlass, mGold, mGlove, mBoot, mVisor;
             public Matrix4x4 steerM;
             public Quaternion steerRot;
         }
@@ -316,47 +316,58 @@ namespace PryingEyes.Pista
             var frame = new List<(Mesh mesh, Matrix4x4 at)>();
             foreach (float sd in new[] { -1f, 1f })
             {
-                frame.Add(Path(P(sd * 0.075f, 0.88f, 0.34f, sd * 0.10f, 0.74f, 0.05f, sd * 0.11f, 0.52f, -0.30f), 0.026f, 8));
-                frame.Add(Path(P(sd * 0.10f, 0.58f, -0.26f, sd * 0.09f, 0.78f, -0.40f, sd * 0.07f, 0.86f, -0.82f), 0.017f, 6));
-                frame.Add(Rod(new Vector3(sd * 0.10f, 0.48f, -0.30f), new Vector3(sd * 0.10f, 0.44f, 0.12f), 0.02f, 6));
+                frame.Add(Path(P(sd * 0.075f, 0.88f, 0.34f, sd * 0.10f, 0.74f, 0.05f, sd * 0.11f, 0.52f, -0.30f), 0.026f, 10));
+                frame.Add(Path(P(sd * 0.10f, 0.58f, -0.26f, sd * 0.09f, 0.78f, -0.40f, sd * 0.07f, 0.86f, -0.82f), 0.017f, 8));
+                frame.Add(Rod(new Vector3(sd * 0.10f, 0.48f, -0.30f), new Vector3(sd * 0.10f, 0.44f, 0.12f), 0.02f, 8));
                 frame.Add((Cube(new Vector3(0.05f, 0.02f, 0.12f)), At(new Vector3(sd * 0.24f, 0.40f, -0.22f), Quaternion.identity)));       // pegs
                 frame.Add((Cube(new Vector3(0.05f, 0.02f, 0.10f)), At(new Vector3(sd * 0.22f, 0.50f, 0.20f), Quaternion.identity)));
             }
             k.frame = Join("telaio", frame);
+            // the engine: crankcase, the cylinders leaning forward with their cooling fins, the head and its cover, the clutch and alternator covers, and the radiator in front
+            const float Tilt = 18f;
+            var axis = new Vector3(0f, Mathf.Cos(Tilt * Mathf.Deg2Rad), Mathf.Sin(Tilt * Mathf.Deg2Rad));
+            var tilt = Quaternion.Euler(Tilt, 0f, 0f);
+            Vector3 foot = new Vector3(0f, 0.47f, 0.10f);
             var eng = new List<(Mesh mesh, Matrix4x4 at)>
             {
-                (Cube(new Vector3(0.26f, 0.30f, 0.38f)), At(new Vector3(0f, 0.40f, 0.04f), Quaternion.identity)),
-                (Cube(new Vector3(0.24f, 0.28f, 0.22f)), At(new Vector3(0f, 0.62f, 0.20f), Quaternion.Euler(-14f, 0f, 0f))),
-                (Cube(new Vector3(0.20f, 0.07f, 0.20f)), At(new Vector3(0f, 0.78f, 0.22f), Quaternion.Euler(-14f, 0f, 0f))),
-                Turn(new[] { new Vector2(0f, -0.014f), new Vector2(0.085f, -0.014f), new Vector2(0.085f, 0.014f), new Vector2(0f, 0.014f) }, 14, At(new Vector3(0.135f, 0.40f, 0.0f), Quaternion.Euler(0f, 0f, 90f))),
-                Turn(new[] { new Vector2(0f, -0.014f), new Vector2(0.07f, -0.014f), new Vector2(0.07f, 0.014f), new Vector2(0f, 0.014f) }, 14, At(new Vector3(-0.135f, 0.43f, -0.10f), Quaternion.Euler(0f, 0f, 90f))),
+                (Loft("carter", new[] { new Ring(-0.20f, 0.07f, 0.28f, 0.42f, 3f), new Ring(-0.12f, 0.12f, 0.25f, 0.47f, 3f), new Ring(0.05f, 0.125f, 0.25f, 0.48f, 3f), new Ring(0.17f, 0.105f, 0.27f, 0.45f, 3f), new Ring(0.22f, 0.05f, 0.31f, 0.41f, 3f) }, 16), I),
+                (Cube(new Vector3(0.20f, 0.17f, 0.18f)), At(foot + axis * 0.115f, tilt)),
+                (Cube(new Vector3(0.21f, 0.06f, 0.20f)), At(foot + axis * 0.235f, tilt)),
+                (Cube(new Vector3(0.18f, 0.035f, 0.17f)), At(foot + axis * 0.285f, tilt)),
+                Turn(new[] { new Vector2(0f, -0.014f), new Vector2(0.085f, -0.014f), new Vector2(0.09f, 0f), new Vector2(0.085f, 0.014f), new Vector2(0f, 0.014f) }, 18, At(new Vector3(0.135f, 0.38f, 0.0f), Quaternion.Euler(0f, 0f, 90f))),
+                Turn(new[] { new Vector2(0f, -0.014f), new Vector2(0.07f, -0.014f), new Vector2(0.075f, 0f), new Vector2(0.07f, 0.014f), new Vector2(0f, 0.014f) }, 18, At(new Vector3(-0.135f, 0.42f, -0.10f), Quaternion.Euler(0f, 0f, 90f))),
+                (Cube(new Vector3(0.23f, 0.25f, 0.04f)), At(new Vector3(0f, 0.55f, 0.37f), Quaternion.Euler(-12f, 0f, 0f))),
             };
+            for (int i = 0; i < 5; i++) eng.Add((Cube(new Vector3(0.245f, 0.009f, 0.235f)), At(foot + axis * (0.03f + i * 0.036f), tilt)));
             k.engine = Join("motore", eng);
+            // the exhaust: two headers join into a collector under the engine and a silencer that rises toward the tail
             var ex = new List<(Mesh mesh, Matrix4x4 at)>();
-            ex.Add(Path(P(0.06f, 0.62f, 0.30f, 0.10f, 0.46f, 0.38f, 0.14f, 0.30f, 0.20f, 0.17f, 0.30f, -0.15f, 0.19f, 0.40f, -0.45f), 0.021f, 8));
-            ex.Add(Path(P(-0.02f, 0.62f, 0.30f, -0.05f, 0.46f, 0.36f, 0.02f, 0.28f, 0.14f, 0.12f, 0.27f, -0.05f), 0.019f, 8));
-            ex.Add(Turn(new[] { new Vector2(0f, -0.30f), new Vector2(0.048f, -0.30f), new Vector2(0.062f, -0.26f), new Vector2(0.066f, 0f), new Vector2(0.062f, 0.26f), new Vector2(0.05f, 0.30f), new Vector2(0f, 0.30f) }, 14,
-                At(new Vector3(0.20f, 0.48f, -0.62f), Quaternion.Euler(78f, 0f, 0f))));
+            ex.Add(Path(P(0.045f, 0.66f, 0.30f, 0.075f, 0.50f, 0.38f, 0.11f, 0.32f, 0.24f, 0.12f, 0.27f, 0.02f, 0.12f, 0.285f, -0.16f), 0.019f, 10));
+            ex.Add(Path(P(-0.045f, 0.66f, 0.30f, -0.07f, 0.49f, 0.37f, -0.03f, 0.30f, 0.22f, 0.09f, 0.26f, 0.0f, 0.12f, 0.285f, -0.16f), 0.019f, 10));
+            ex.Add(Limb(P(0.12f, 0.285f, -0.16f, 0.15f, 0.33f, -0.38f, 0.17f, 0.41f, -0.60f, 0.185f, 0.50f, -0.82f), new[] { 0.040f, 0.050f, 0.054f, 0.050f }, 16));
+            ex.Add(Turn(new[] { new Vector2(0f, -0.006f), new Vector2(0.044f, -0.006f), new Vector2(0.047f, 0f), new Vector2(0.044f, 0.006f), new Vector2(0f, 0.006f) }, 16,
+                At(new Vector3(0.1845f, 0.502f, -0.828f), Quaternion.FromToRotation(Vector3.up, new Vector3(0.015f, 0.09f, -0.22f).normalized))));
             k.exhaust = Join("scarico", ex);
 
-            // ---- bodywork (the livery colour): nose and side panels, tank, seat cover and tail
+            // ---- bodywork (the livery colour): the fairing ends before the knees, then tank, seat cover and tail
             var paint = new List<(Mesh mesh, Matrix4x4 at)>();
             if (fairing)
             {
                 paint.Add((Loft("carena", new[]
                 {
-                    new Ring(0.84f, 0.015f, 0.70f, 0.74f, 2.2f), new Ring(0.80f, 0.075f, 0.66f, 0.80f), new Ring(0.68f, 0.15f, 0.58f, 0.90f), new Ring(0.50f, 0.20f, 0.49f, 0.98f),
-                    new Ring(0.30f, 0.235f * s, 0.43f, 1.01f), new Ring(0.10f, 0.245f * s, 0.40f, 0.95f), new Ring(-0.08f, 0.225f * s, 0.40f, 0.86f), new Ring(-0.20f, 0.16f, 0.46f, 0.80f),
-                }), I));
+                    new Ring(0.86f, 0.012f, 0.73f, 0.77f, 2.4f), new Ring(0.80f, 0.075f, 0.68f, 0.82f, 2.8f), new Ring(0.68f, 0.14f * s, 0.60f, 0.92f, 3.0f), new Ring(0.52f, 0.19f * s, 0.52f, 0.99f, 3.0f),
+                    new Ring(0.36f, 0.225f * s, 0.47f, 1.00f, 3.0f), new Ring(0.22f, 0.235f * s, 0.46f, 0.96f, 3.0f), new Ring(0.10f, 0.225f * s, 0.46f, 0.88f, 3.0f), new Ring(0.02f, 0.19f * s, 0.48f, 0.80f, 2.8f),
+                    new Ring(-0.03f, 0.12f * s, 0.52f, 0.74f, 2.4f),
+                }, 24), I));
             }
             paint.Add((Loft("serbatoio", new[]
             {
-                new Ring(0.40f, 0.045f, 0.84f, 0.95f), new Ring(0.30f, 0.12f * s, 0.80f, 1.00f), new Ring(0.10f, 0.185f * s, 0.77f, 1.02f), new Ring(-0.10f, 0.17f * s, 0.78f, 0.99f), new Ring(-0.22f, 0.12f, 0.80f, 0.93f),
-            }), I));
+                new Ring(0.44f, 0.045f, 0.86f, 0.96f), new Ring(0.33f, 0.12f * s, 0.80f, 1.00f), new Ring(0.12f, 0.185f * s, 0.77f, 1.02f), new Ring(-0.10f, 0.17f * s, 0.78f, 0.99f), new Ring(-0.22f, 0.12f, 0.80f, 0.93f),
+            }, 20), I));
             paint.Add((Loft("codone", new[]
             {
-                new Ring(-0.50f, 0.09f, 0.82f, 0.93f), new Ring(-0.66f, 0.115f, 0.82f, 0.95f), new Ring(-0.84f, 0.10f, 0.84f, 0.99f), new Ring(-0.98f, 0.045f, 0.86f, 0.98f),
-            }), I));
+                new Ring(-0.46f, 0.09f, 0.81f, 0.925f), new Ring(-0.62f, 0.115f, 0.82f, 0.955f), new Ring(-0.78f, 0.10f, 0.85f, 0.985f), new Ring(-0.90f, 0.062f, 0.89f, 0.995f), new Ring(-0.96f, 0.02f, 0.925f, 0.985f),
+            }, 18), I));
             if (!fairing)
             {
                 // roadster: the headlamp pod and a small flyscreen
@@ -366,28 +377,37 @@ namespace PryingEyes.Pista
             k.paint = Join("vernice", paint);
             var paint2 = new List<(Mesh mesh, Matrix4x4 at)>();
             if (fairing)
-                paint2.Add((Loft("pancia", new[] { new Ring(0.55f, 0.07f, 0.26f, 0.42f), new Ring(0.30f, 0.17f * s, 0.24f, 0.45f), new Ring(0.0f, 0.20f * s, 0.25f, 0.46f), new Ring(-0.22f, 0.14f, 0.28f, 0.42f), new Ring(-0.40f, 0.05f, 0.32f, 0.40f) }), I));
+                paint.Add((Loft("pancia", new[] { new Ring(0.56f, 0.05f, 0.23f, 0.37f, 3f), new Ring(0.40f, 0.13f * s, 0.21f, 0.42f, 3f), new Ring(0.15f, 0.185f * s, 0.21f, 0.44f, 3f), new Ring(-0.10f, 0.175f * s, 0.23f, 0.42f, 3f), new Ring(-0.26f, 0.11f, 0.26f, 0.40f, 3f), new Ring(-0.34f, 0.04f, 0.29f, 0.37f, 3f) }, 20), I));
             paint2.Add((Cube(new Vector3(0.20f, 0.17f, 0.012f)), At(new Vector3(0f, fairing ? 0.80f : 0.99f, fairing ? 0.80f : 0.68f), Quaternion.Euler(-30f, 0f, 0f))));        // number plate
             // the side number plates of the tail: flush with the cowl (it is about 0.10 wide there) and raked like it
-            paint2.Add((Cube(new Vector3(0.010f, 0.105f, 0.17f)), At(new Vector3(0.099f, 0.915f, -0.74f), Quaternion.Euler(0f, 0f, -4f))));
-            paint2.Add((Cube(new Vector3(0.010f, 0.105f, 0.17f)), At(new Vector3(-0.099f, 0.915f, -0.74f), Quaternion.Euler(0f, 0f, 4f))));
+            paint2.Add((Cube(new Vector3(0.008f, 0.10f, 0.16f)), At(new Vector3(0.1135f, 0.89f, -0.64f), Quaternion.Euler(0f, 0f, -5f))));
+            paint2.Add((Cube(new Vector3(0.008f, 0.10f, 0.16f)), At(new Vector3(-0.1135f, 0.89f, -0.64f), Quaternion.Euler(0f, 0f, 5f))));
             k.paint2 = Join("vernice2", paint2);
 
             // ---- seat
-            k.seat = Join("sella", new List<(Mesh mesh, Matrix4x4 at)> { (Loft("sella", new[] { new Ring(-0.05f, 0.06f, 0.865f, 0.88f), new Ring(-0.20f, 0.13f, 0.85f, 0.905f), new Ring(-0.45f, 0.12f, 0.85f, 0.915f), new Ring(-0.62f, 0.09f, 0.86f, 0.90f) }), I) });
+            k.seat = Join("sella", new List<(Mesh mesh, Matrix4x4 at)> { (Loft("sella", new[] { new Ring(-0.05f, 0.06f, 0.865f, 0.88f), new Ring(-0.20f, 0.13f, 0.85f, 0.905f), new Ring(-0.45f, 0.12f, 0.85f, 0.915f), new Ring(-0.62f, 0.09f, 0.86f, 0.90f) }, 16), I) });
 
-            // ---- windscreen and mirrors (screen parts are hidden in the cockpit view)
+            // ---- windscreen (a tinted plate that follows the slope up from the fairing) and mirrors (screen parts are hidden in the cockpit view)
             var scr = new List<(Mesh mesh, Matrix4x4 at)>();
-            if (fairing) scr.Add((Cube(new Vector3(0.36f * s, 0.20f, 0.012f)), At(new Vector3(0f, 1.075f, 0.285f), Quaternion.Euler(-34f, 0f, 0f))));
+            if (fairing)
+                scr.Add((Loft("cupolino", new[] { new Ring(0f, 0.17f * s, -0.005f, 0.005f, 2.4f), new Ring(0.12f, 0.165f * s, -0.005f, 0.005f, 2.4f), new Ring(0.24f, 0.14f * s, -0.005f, 0.005f, 2.4f), new Ring(0.33f, 0.085f * s, -0.005f, 0.005f, 2.2f) }, 18),
+                    At(new Vector3(0f, 0.985f, 0.545f), Quaternion.LookRotation(new Vector3(0f, 0.55f, -0.83f), Vector3.up))));
             else scr.Add((Cube(new Vector3(0.22f, 0.12f, 0.010f)), At(new Vector3(0f, 1.10f, 0.52f), Quaternion.Euler(-36f, 0f, 0f))));
             k.screen = Join("cupolino", scr);
             var mir = new List<(Mesh mesh, Matrix4x4 at)>();
             foreach (float sd in new[] { -1f, 1f })
             {
-                mir.Add(Rod(new Vector3(sd * 0.20f, fairing ? 1.00f : 0.97f, 0.40f), new Vector3(sd * 0.31f, 1.07f, 0.34f), 0.008f, 5));
-                mir.Add((Cube(new Vector3(0.10f, 0.055f, 0.02f)), At(new Vector3(sd * 0.32f, 1.075f, 0.335f), Quaternion.Euler(0f, sd * -15f, 0f))));
+                mir.Add(Rod(new Vector3(sd * 0.20f, fairing ? 1.00f : 0.97f, 0.40f), new Vector3(sd * 0.30f, 1.065f, 0.35f), 0.008f, 6));
+                mir.Add(Ball(0.04f, new Vector3(sd * 0.32f, 1.075f, 0.335f), new Vector3(1.25f, 0.75f, 0.32f), Quaternion.Euler(0f, sd * -15f, 0f)));
             }
             k.mirrors = Join("specchi", mir);
+            var nose = new List<(Mesh mesh, Matrix4x4 at)>();
+            if (fairing)
+            {
+                nose.Add(Ball(0.05f, new Vector3(0f, 0.735f, 0.835f), new Vector3(1.5f, 0.5f, 0.55f), Quaternion.Euler(-20f, 0f, 0f)));
+                foreach (float sd in new[] { -1f, 1f }) nose.Add((Cube(new Vector3(0.012f, 0.05f, 0.14f)), At(new Vector3(sd * 0.205f, 0.66f, 0.34f), Quaternion.Euler(0f, sd * 8f, 0f))));
+            }
+            k.nose = fairing ? Join("prese", nose) : null;
 
             // ---- steering: upside-down fork, triple clamp and clip-on bars, in the frame of the steering axis
             var fork = new List<(Mesh mesh, Matrix4x4 at)>();
@@ -420,8 +440,12 @@ namespace PryingEyes.Pista
             k.fork = Join("forcella", fork); k.forkLow = Join("steli", forkLow); k.bars = Join("manubrio", bars);
             k.lens = Join("fari", new List<(Mesh mesh, Matrix4x4 at)>
             {
-                (Cube(new Vector3(0.10f, 0.035f, 0.02f)), At(inv.MultiplyPoint3x4(new Vector3(0.07f, fairing ? 0.80f : 0.97f, fairing ? 0.80f : 0.68f)), Quaternion.Euler(-12f, 0f, 0f))),
-                (Cube(new Vector3(0.10f, 0.035f, 0.02f)), At(inv.MultiplyPoint3x4(new Vector3(-0.07f, fairing ? 0.80f : 0.97f, fairing ? 0.80f : 0.68f)), Quaternion.Euler(-12f, 0f, 0f))),
+                Ball(0.07f, inv.MultiplyPoint3x4(new Vector3(0f, 0.97f, 0.715f)), new Vector3(1f, 1f, 0.5f), Quaternion.Inverse(k.steerRot)),
+            });
+            k.lensBody = Join("fari", new List<(Mesh mesh, Matrix4x4 at)>
+            {
+                Ball(0.05f, new Vector3(0.085f, 0.775f, 0.775f), new Vector3(1.35f, 0.62f, 0.45f), Quaternion.Euler(-14f, 18f, 0f)),
+                Ball(0.05f, new Vector3(-0.085f, 0.775f, 0.775f), new Vector3(1.35f, 0.62f, 0.45f), Quaternion.Euler(-14f, -18f, 0f)),
             });
             k.tail = Cube(new Vector3(0.14f, 0.03f, 0.015f));
 
@@ -449,6 +473,7 @@ namespace PryingEyes.Pista
             k.mFrame = PistaTex.Lit("Telaio", new Color(0.12f, 0.12f, 0.13f), 0.55f, 0.45f);
             k.mMetal = PistaTex.Lit("Alluminio", new Color(0.46f, 0.47f, 0.49f), 0.55f, 0.6f);
             k.mSteel = PistaTex.Lit("Acciaio", new Color(0.55f, 0.52f, 0.48f), 0.55f, 0.6f);
+            k.mTitan = PistaTex.Lit("Titanio", new Color(0.55f, 0.55f, 0.58f), 0.72f, 0.9f);
             k.mRubber = PistaTex.Lit("Gomma", new Color(0.035f, 0.035f, 0.038f), 0.12f, 0f);
             k.mSeat = PistaTex.Lit("Sella", new Color(0.06f, 0.06f, 0.065f), 0.18f, 0f);
             k.mGlass = PistaTex.Lit("Vetro", new Color(0.10f, 0.12f, 0.15f), 0.92f, 0.1f);
@@ -460,44 +485,94 @@ namespace PryingEyes.Pista
             return k;
         }
 
+        static Vector2[] BallProfile(float r, int n = 8)
+        {
+            var p = new Vector2[n + 1];
+            for (int i = 0; i <= n; i++) { float a = Mathf.PI * i / n; p[i] = new Vector2(r * Mathf.Sin(a), -r * Mathf.Cos(a)); }
+            return p;
+        }
+
+        /// <summary>A ball (a shoulder, a knee, an elbow) of radius r, squashed by 'scale', at a position.</summary>
+        static (Mesh mesh, Matrix4x4 at) Ball(float r, Vector3 pos, Vector3 scale, Quaternion rot) => (DesertLathe.Turn("palla", BallProfile(r), 14), At(pos, rot, scale));
+
+        /// <summary>A limb: a smooth tube through control points, with a radius at each of them.</summary>
+        static (Mesh mesh, Matrix4x4 at) Limb(Vector3[] ctrl, float[] r, int sides = 12)
+        {
+            var q = Smooth(ctrl, 4);
+            var rr = new float[q.Length];
+            for (int i = 0; i < q.Length; i++)
+            {
+                if (r.Length == 1) { rr[i] = r[0]; continue; }
+                float u = i / (float)(q.Length - 1) * (r.Length - 1);
+                int a = Mathf.Clamp((int)u, 0, r.Length - 2);
+                rr[i] = Mathf.Lerp(r[a], r[a + 1], u - a);
+            }
+            return (DesertLathe.Tube("arto", q, rr, sides), I);
+        }
+
+        static Mesh Unit(string name, float r0, float r1, float r2, float r3)
+        {
+            return DesertLathe.Tube(name, new[] { Vector3.zero, new Vector3(0f, 0f, 0.33f), new Vector3(0f, 0f, 0.66f), Vector3.forward }, new[] { r0, r1, r2, r3 }, 12);
+        }
+
         static void BuildRider(Kit k, Matrix4x4 inv)
         {
-            // torso: a chest that leans forward from the hip joint, with a hump on the back of the leathers
-            k.torso = Join("busto", new List<(Mesh mesh, Matrix4x4 at)>
+            var lean = Quaternion.Euler(-38f, 0f, 0f);
+            // torso: a chest that leans forward from the hip joint, with shoulders and a neck, and a hump on the back of the leathers
+            var torso = new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (Loft("busto", new[]
                 {
-                    new Ring(-0.10f, 0.10f, -0.07f, 0.07f, 2.4f), new Ring(0.03f, 0.15f, -0.10f, 0.10f, 2.4f), new Ring(0.18f, 0.18f, -0.12f, 0.12f, 2.4f),
-                    new Ring(0.33f, 0.20f, -0.12f, 0.13f, 2.4f), new Ring(0.46f, 0.12f, -0.07f, 0.09f, 2.4f),
-                }), At(Vector3.zero, Quaternion.Euler(-38f, 0f, 0f))),
-                (Loft("gobba", new[] { new Ring(0.0f, 0.05f, 0.08f, 0.11f), new Ring(0.12f, 0.10f, 0.11f, 0.20f), new Ring(0.28f, 0.08f, 0.13f, 0.19f), new Ring(0.38f, 0.03f, 0.12f, 0.16f) }), At(Vector3.zero, Quaternion.Euler(-38f, 0f, 0f))),
-            });
-            // helmet and visor (their own transform, the head turns into the corner)
+                    new Ring(-0.17f, 0.02f, -0.02f, 0.02f, 2.2f), new Ring(-0.15f, 0.095f, -0.06f, 0.07f, 2.4f), new Ring(-0.06f, 0.155f, -0.085f, 0.09f, 2.4f), new Ring(0.06f, 0.165f, -0.10f, 0.10f, 2.4f),
+                    new Ring(0.18f, 0.185f, -0.115f, 0.115f, 2.4f), new Ring(0.28f, 0.205f, -0.12f, 0.115f, 2.3f), new Ring(0.36f, 0.17f, -0.10f, 0.09f, 2.3f), new Ring(0.42f, 0.08f, -0.065f, 0.06f, 2.2f),
+                    new Ring(0.455f, 0.03f, -0.03f, 0.03f, 2.0f),
+                }, 20), At(Vector3.zero, lean)),
+            };
+            k.torso = Join("busto", torso);
+            var trim = new List<(Mesh mesh, Matrix4x4 at)>
+            {
+                (Loft("gobba", new[] { new Ring(0.02f, 0.05f, 0.08f, 0.11f), new Ring(0.13f, 0.10f, 0.10f, 0.19f), new Ring(0.27f, 0.095f, 0.12f, 0.20f), new Ring(0.37f, 0.05f, 0.11f, 0.16f) }, 16), At(Vector3.zero, lean)),
+            };
+            foreach (float sd in new[] { -1f, 1f }) trim.Add(Ball(0.068f, lean * new Vector3(sd * 0.20f, 0.0f, 0.31f), Vector3.one, Quaternion.identity));
+            k.torsoTrim = Join("gobba e spalle", trim);
+
+            // helmet and visor (their own transform, the head turns into the corner): a shell that is longer than wide, a chin bar and a low spoiler
             k.helmet = Join("casco", new List<(Mesh mesh, Matrix4x4 at)>
             {
-                (DesertLathe.Turn("casco", new[] { new Vector2(0f, -0.115f), new Vector2(0.075f, -0.105f), new Vector2(0.115f, -0.05f), new Vector2(0.125f, 0.03f), new Vector2(0.10f, 0.095f), new Vector2(0.05f, 0.125f), new Vector2(0f, 0.13f) }, 14),
-                    At(Vector3.zero, Quaternion.identity, new Vector3(0.95f, 1f, 1.18f))),
-                (Loft("spoiler", new[] { new Ring(-0.10f, 0.02f, 0.02f, 0.03f), new Ring(-0.16f, 0.08f, 0.03f, 0.06f), new Ring(-0.20f, 0.07f, 0.06f, 0.075f) }), At(Vector3.zero, Quaternion.identity)),
+                (Loft("casco", new[]
+                {
+                    new Ring(0.15f, 0.012f, -0.035f, 0.045f, 2.2f), new Ring(0.138f, 0.065f, -0.080f, 0.085f, 2.3f), new Ring(0.108f, 0.105f, -0.112f, 0.115f, 2.4f), new Ring(0.05f, 0.123f, -0.122f, 0.135f, 2.4f),
+                    new Ring(-0.03f, 0.127f, -0.122f, 0.145f, 2.4f), new Ring(-0.10f, 0.118f, -0.108f, 0.14f, 2.4f), new Ring(-0.15f, 0.088f, -0.078f, 0.115f, 2.3f), new Ring(-0.19f, 0.03f, -0.04f, 0.07f, 2.1f),
+                }, 22), I),
+                (Loft("spoiler", new[] { new Ring(-0.11f, 0.03f, 0.125f, 0.138f), new Ring(-0.17f, 0.065f, 0.108f, 0.125f), new Ring(-0.205f, 0.05f, 0.09f, 0.108f) }, 12), I),
             });
             k.visor = Join("visiera", new List<(Mesh mesh, Matrix4x4 at)>
             {
-                (Loft("visiera", new[] { new Ring(0.145f, 0.045f, -0.005f, 0.045f), new Ring(0.13f, 0.095f, -0.01f, 0.06f), new Ring(0.085f, 0.115f, -0.015f, 0.065f), new Ring(0.04f, 0.118f, -0.02f, 0.06f) }), At(new Vector3(0f, 0.025f, 0f), Quaternion.identity)),
+                (Loft("visiera", new[] { new Ring(0.148f, 0.056f, -0.012f, 0.05f), new Ring(0.128f, 0.108f, -0.015f, 0.066f), new Ring(0.08f, 0.129f, -0.018f, 0.072f), new Ring(0.02f, 0.133f, -0.02f, 0.068f) }, 16), At(new Vector3(0f, 0.012f, 0f), Quaternion.identity)),
             });
+
             // leg (thigh, knee, shin, boot), built for the right side and mirrored by scale
-            var leg = new List<(Mesh mesh, Matrix4x4 at)>
+            k.leg = Join("gamba", new List<(Mesh mesh, Matrix4x4 at)>
             {
-                Rod(new Vector3(0.02f, 0f, 0f), new Vector3(0.10f, -0.17f, 0.28f), 0.075f, 10),
-                Rod(new Vector3(0.10f, -0.17f, 0.28f), new Vector3(0.09f, -0.43f, 0.02f), 0.058f, 10),
-                (DesertLathe.Turn("ginocchio", new[] { new Vector2(0f, -0.05f), new Vector2(0.06f, -0.04f), new Vector2(0.075f, 0f), new Vector2(0.06f, 0.04f), new Vector2(0f, 0.05f) }, 10), At(new Vector3(0.115f, -0.17f, 0.28f), Quaternion.identity)),
-            };
-            k.leg = Join("gamba", leg);
+                Limb(P(0.02f, 0f, 0f, 0.06f, -0.09f, 0.14f, 0.10f, -0.17f, 0.28f), new[] { 0.094f, 0.082f, 0.066f }, 14),
+                Limb(P(0.10f, -0.17f, 0.28f, 0.10f, -0.30f, 0.15f, 0.09f, -0.43f, 0.02f), new[] { 0.064f, 0.057f, 0.045f }, 12),
+            });
+            k.kneeTrim = Join("ginocchio", new List<(Mesh mesh, Matrix4x4 at)> { Ball(0.064f, new Vector3(0.138f, -0.17f, 0.28f), new Vector3(0.65f, 0.95f, 1.05f), Quaternion.identity) });
             k.boot = Join("stivale", new List<(Mesh mesh, Matrix4x4 at)>
             {
-                (Cube(new Vector3(0.09f, 0.085f, 0.24f)), At(new Vector3(0.09f, -0.47f, 0.06f), Quaternion.identity)),
-                Rod(new Vector3(0.09f, -0.43f, 0.02f), new Vector3(0.09f, -0.50f, 0.00f), 0.052f, 8),
+                (Loft("stivale", new[]
+                {
+                    new Ring(-0.11f, 0.04f, -0.05f, 0.06f), new Ring(-0.06f, 0.054f, -0.062f, 0.09f), new Ring(0.04f, 0.052f, -0.052f, 0.06f), new Ring(0.13f, 0.043f, -0.046f, 0.036f), new Ring(0.185f, 0.02f, -0.036f, 0.02f),
+                }, 14), At(new Vector3(0.09f, -0.47f, 0.06f), Quaternion.identity)),
+                Limb(P(0.09f, -0.40f, 0.02f, 0.09f, -0.47f, 0.0f), new[] { 0.054f, 0.052f }, 10),
             });
-            k.glove = Join("guanto", new List<(Mesh mesh, Matrix4x4 at)> { (Cube(new Vector3(0.08f, 0.06f, 0.10f)), At(Vector3.zero, Quaternion.identity)) });
-            k.rodUnit = DesertLathe.Tube("braccio", new[] { Vector3.zero, new Vector3(0f, 0f, 0.5f), Vector3.forward }, new[] { 0.045f, 0.042f, 0.036f }, 8);
+            // the glove (a fist round the grip, in the frame of the steering) and the arms: a unit of length that the pose stretches from the shoulder to the elbow and from the elbow to the hand
+            k.glove = Join("guanto", new List<(Mesh mesh, Matrix4x4 at)>
+            {
+                (Loft("guanto", new[] { new Ring(-0.07f, 0.034f, -0.032f, 0.032f), new Ring(-0.035f, 0.052f, -0.042f, 0.042f), new Ring(0.015f, 0.058f, -0.048f, 0.048f), new Ring(0.06f, 0.048f, -0.042f, 0.036f), new Ring(0.082f, 0.022f, -0.024f, 0.022f) }, 12), At(Vector3.zero, Quaternion.identity)),
+            });
+            k.upperUnit = Unit("braccio", 0.056f, 0.052f, 0.047f, 0.043f);
+            k.foreUnit = Unit("avambraccio", 0.046f, 0.042f, 0.037f, 0.032f);
         }
 
         static Material Copy(Material src, Color c) { var m = new Material(src); m.SetColor("_BaseColor", c); return m; }
@@ -531,14 +606,15 @@ namespace PryingEyes.Pista
             rig.body.SetParent(parent, false);
             Part(rig.body, "Telaio", k.frame, k.mFrame);
             Part(rig.body, "Motore", k.engine, k.mMetal);
-            Part(rig.body, "Scarico", k.exhaust, k.mSteel);
+            Part(rig.body, "Scarico", k.exhaust, k.mTitan);
             Part(rig.body, "Vernice", k.paint, rig.paint);
             Part(rig.body, "Vernice2", k.paint2, rig.paint2);
             Part(rig.body, "Sella", k.seat, k.mSeat);
             rig.screenParts.Add(Part(rig.body, "Cupolino", k.screen, k.mGlass).GetComponent<Renderer>());
             Part(rig.body, "Specchi", k.mirrors, k.mGlass);
+            if (style < 2) Part(rig.body, "Prese", k.nose, k.mFrame);
             var tl = Part(rig.body, "Fanale", k.tail, rig.tailMat);
-            tl.localPosition = new Vector3(0f, 0.935f, -0.99f); tl.localRotation = Quaternion.Euler(-10f, 0f, 0f);
+            tl.localPosition = new Vector3(0f, 0.945f, -0.965f); tl.localRotation = Quaternion.Euler(-10f, 0f, 0f);
             rig.swing = new GameObject("Forcellone").transform;
             rig.swing.SetParent(rig.body, false);
             rig.swing.localPosition = new Vector3(0f, 0.45f, -0.30f);
@@ -559,7 +635,7 @@ namespace PryingEyes.Pista
             Part(rig.steer, "Steli", k.forkLow, k.mMetal);
             Part(rig.steer, "Manubrio", k.bars, k.mFrame);
             Part(rig.steer, "Parafango", k.fender, rig.paint2);
-            Part(rig.steer, "Fari", k.lens, rig.lensMat);
+            if (style < 2) Part(rig.body, "Fari", k.lensBody, rig.lensMat); else Part(rig.steer, "Fari", k.lens, rig.lensMat);
             rig.frontPivot = new GameObject("Ruota davanti").transform;
             rig.frontPivot.SetParent(rig.steer, false);
             rig.frontBase = k.steerM.inverse.MultiplyPoint3x4(AxleF);
@@ -576,6 +652,7 @@ namespace PryingEyes.Pista
             rig.torso = new GameObject("Busto").transform;
             rig.torso.SetParent(rig.hips, false);
             Part(rig.torso, "Tuta", k.torso, rig.suit, rig.riderParts);
+            Part(rig.torso, "Gobba e spalle", k.torsoTrim, rig.suit2, rig.riderParts);
             rig.head = new GameObject("Testa").transform;
             rig.head.SetParent(rig.torso, false);
             rig.head.localPosition = Quaternion.Euler(-38f, 0f, 0f) * new Vector3(0f, 0.06f, 0.56f);
@@ -591,12 +668,12 @@ namespace PryingEyes.Pista
                 leg.SetParent(rig.hips, false);
                 leg.localPosition = new Vector3(sd * 0.08f, 0f, 0f);
                 rig.legs[i] = leg;
-                var lm = Part(leg, "Coscia e stinco", k.leg, rig.suit2, rig.riderParts); var bm = Part(leg, "Stivale", k.boot, k.mBoot, rig.riderParts);
-                if (i == 0) { lm.localScale = new Vector3(-1f, 1f, 1f); bm.localScale = new Vector3(-1f, 1f, 1f); }
+                var lm = Part(leg, "Coscia e stinco", k.leg, rig.suit2, rig.riderParts); var bm = Part(leg, "Stivale", k.boot, k.mBoot, rig.riderParts); var km = Part(leg, "Ginocchio", k.kneeTrim, rig.suit, rig.riderParts);
+                if (i == 0) { lm.localScale = new Vector3(-1f, 1f, 1f); bm.localScale = new Vector3(-1f, 1f, 1f); km.localScale = new Vector3(-1f, 1f, 1f); }
                 rig.shoulder[i] = Quaternion.Euler(-38f, 0f, 0f) * new Vector3(sd * 0.19f, 0.03f, 0.33f);
                 rig.grip[i] = k.steerM.inverse.MultiplyPoint3x4(new Vector3(sd * 0.30f, style < 2 ? 0.905f : 1.00f, style < 2 ? 0.40f : 0.34f));
-                rig.upper[i] = Part(rig.body, "Braccio " + i, k.rodUnit, rig.suit);
-                rig.fore[i] = Part(rig.body, "Avambraccio " + i, k.rodUnit, rig.suit2);
+                rig.upper[i] = Part(rig.body, "Braccio " + i, k.upperUnit, rig.suit);
+                rig.fore[i] = Part(rig.body, "Avambraccio " + i, k.foreUnit, rig.suit2);
                 rig.gloves[i] = Part(rig.body, "Guanto " + i, k.glove, k.mGlove);
             }
             // a body of arms parented to the body (not to the steering): their transforms are set in world space every frame
