@@ -138,7 +138,8 @@ namespace PryingEyes.Deserto
 
         static float Flat2(Vector3 a, Vector3 b) { float dx = a.x - b.x, dz = a.z - b.z; return dx * dx + dz * dz; }
 
-        static float FootDist(Site s, Vector3 p)
+        /// <summary>La distanza orizzontale dal punto al bordo del luogo (0 dentro l'impronta).</summary>
+        public static float FootDist(Site s, Vector3 p)
         {
             float dx = Mathf.Max(Mathf.Max(s.fx0 - p.x, p.x - s.fx1), 0f), dz = Mathf.Max(Mathf.Max(s.fz0 - p.z, p.z - s.fz1), 0f);
             return Mathf.Sqrt(dx * dx + dz * dz);

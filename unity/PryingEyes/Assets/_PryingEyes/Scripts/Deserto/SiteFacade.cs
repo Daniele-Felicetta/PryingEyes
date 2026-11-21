@@ -27,6 +27,8 @@ namespace PryingEyes.Deserto
         public bool Done => next >= pieces.Count;
         public bool Shown => shown;
         public int Vertices { get; private set; }
+        /// <summary>Quanti pezzi (di 14 stanze l'uno) servono a costruirla: se ne fa uno per fotogramma.</summary>
+        public int Pieces => pieces.Count;
 
         Plan PlanOf(int u) => site.IsStack ? site.levels[u] : site.plan;
         float YOf(int u) => site.IsStack ? site.LevelY(u) : site.padY;

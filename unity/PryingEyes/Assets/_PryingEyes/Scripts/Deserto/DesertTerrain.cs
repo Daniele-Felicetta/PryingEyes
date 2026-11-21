@@ -127,6 +127,7 @@ namespace PryingEyes.Deserto
                 Plan(p, DesertAnchors.OtherPositions, DesertAnchors.ViewerPositions);
             }
             Collect();
+            Pump();
         }
 
         /// <summary>La distanza dal compagno piu' vicino al blocco (molto grande se non ce ne sono: da soli non conta niente).</summary>
@@ -188,13 +189,27 @@ namespace PryingEyes.Deserto
             }
             foreach (long k in sweep) { Free(chunks[k]); chunks.Remove(k); }
             wanted.Sort((a, b) => a.d.CompareTo(b.d));
+            wantedNext = 0;
+            Pump();
+        }
+
+        int wantedNext;
+
+        /// <summary>Avvia i lavori dei blocchi voluti, dal piu' vicino, finche' ce ne sono MaxJobs in corso. Si chiama a ogni fotogramma, non solo quando Plan rifa' l'elenco (ogni 0,4 s o 12 m): con
+        /// un giro di lavori per elenco la sabbia nasceva a non piu' di sei blocchi ogni 0,4 s (15 al secondo), e a 83 km/h ne servono 14 al secondo (tre per ogni blocco che entra nella vista: dettaglio
+        /// lontano, medio e vicino) e a 112 km/h 19: la sabbia oltre i 430 m mancava, e arrivava a blocchi interi quando la moto era a 400 m.</summary>
+        void Pump()
+        {
+            if (wantedNext >= wanted.Count) return;
             watch.Restart();
-            foreach (var w in wanted)
+            while (wantedNext < wanted.Count && jobs.Count < MaxJobs)
             {
-                if (jobs.Count >= MaxJobs) break;
                 if (watch.ElapsedMilliseconds > 6) break;               // i luoghi nuovi si generano sul thread principale: pochi per fotogramma
+                var w = wanted[wantedNext];
+                if (jobs.ContainsKey(Key(w.cx, w.cz))) { wantedNext++; continue; }
                 if (!EnsureSites(w.cx, w.cz)) break;
                 Queue(w.cx, w.cz, w.lod);
+                wantedNext++;
             }
         }
 

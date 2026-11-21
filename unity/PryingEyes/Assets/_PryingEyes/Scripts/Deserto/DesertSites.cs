@@ -77,24 +77,39 @@ namespace PryingEyes.Deserto
 
         // ------------------------------------------------------------------ quale unita' interessa
         /// <summary>L'unita' (livello) da curare per prima: quella del giocatore se e' dentro la torre, altrimenti la porta d'ingresso.</summary>
-        public int PreferredUnit(Vector3 p)
+        public int PreferredUnit(Vector3 p) => PreferredUnit(p, hdist);
+
+        /// <summary>Come <see cref="PreferredUnit(Vector3)"/> per un giocatore in 'p' che sta a 'h' metri dal bordo del luogo.</summary>
+        int PreferredUnit(Vector3 p, float h)
         {
             if (!site.IsStack) return 0;
-            bool inside = hdist < 6f;
+            bool inside = h < 6f;
             if (!inside) return site.entrance;
             return Mathf.Clamp(Mathf.RoundToInt((p.y - site.LevelY(0)) / PlanGen.LevelHeight), 0, Units - 1);
         }
 
+        /// <summary>Per le prove: -legacydress riporta l'arredo di come era fino al 20 novembre, deciso dal solo giocatore piu' vicino al luogo (-splitdesertotest, il passo della torre).</summary>
+        public static readonly bool LegacyDress = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-legacydress") >= 0;
+
         /// <summary>Quali unita' devono avere gli arredi adesso. 'dressIn' e 'dressOut' sono le distanze (m) per cominciare e per smettere: l'isteresi
-        /// evita che il confine faccia arredare e svuotare di continuo.</summary>
-        public void UpdateWant(Vector3 p, float dressIn, float dressOut)
+        /// evita che il confine faccia arredare e svuotare di continuo. Vale l'unione di quello che vuole ogni giocatore (il primo e gli altri punti: i posti dello schermo condiviso, sull'ospite i compagni
+        /// di rete): in una torre o in una catacomba due giocatori a piani diversi vogliono piani diversi, e prima, con un punto solo (il piu' vicino, a pari distanza il primo), i livelli dell'altro si
+        /// svuotavano di arredi, bottino e guardie.</summary>
+        public void UpdateWant(Vector3 primary, List<Vector3> others, float dressIn, float dressOut)
         {
             for (int u = 0; u < Units; u++) want[u] = false;
             float limit = dressedAny ? dressOut : dressIn;
-            if (hdist > limit) return;
+            if (LegacyDress) { WantFor(anchor, hdist, limit); return; }
+            WantFor(primary, DesertAnchors.FootDist(site, primary), limit);
+            for (int i = 0; i < others.Count; i++) WantFor(others[i], DesertAnchors.FootDist(site, others[i]), limit);
+        }
+
+        void WantFor(Vector3 q, float h, float limit)
+        {
+            if (h > limit) return;
             if (!site.IsStack) { want[0] = true; return; }
-            int pu = PreferredUnit(p);
-            if (hdist < 6f) { for (int u = pu - 1; u <= pu + 1; u++) if (u >= 0 && u < Units) want[u] = true; }
+            int pu = PreferredUnit(q, h);
+            if (h < 6f) { for (int u = pu - 1; u <= pu + 1; u++) if (u >= 0 && u < Units) want[u] = true; }
             else
             {
                 want[site.entrance] = true;

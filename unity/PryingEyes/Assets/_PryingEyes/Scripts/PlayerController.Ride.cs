@@ -15,7 +15,12 @@ namespace PryingEyes
         float rideHeading, rideSteer, rideLook, rideLookPrev, rideLookIdle, rideTop = DesertBike.TopSpeed;
         float rideSpeedShown, rideCrashCool, rideNoiseT, rideBlend = 1f, rideDip, rideVyPrev, rideStepOffset, rideLandCool;
         float rideGunIdle = 99f;                           // i secondi dall'ultima volta che l'arma e' servita (fuoco, mira, ricarica, cambio): oltre un secondo e mezzo torna giu'
-        float rideHitLoss, rideHitFrom, rideHitT;          // la frenata da urto in corso: quanta velocita' ha tolto finora, da quale velocita' si arrivava, quanto tempo resta alla finestra
+        // la velocita' fatta lungo la rotta negli ultimi istanti (tempo di guida, velocita'), in un anello: serve a riconoscere una frenata da urto
+        const int RideHistLen = 256;
+        const float RideHitWindow = 0.14f, RideHitDrop = 8f;
+        readonly float[] rideHistT = new float[RideHistLen], rideHistV = new float[RideHistLen];
+        int rideHistN, rideHistHead;
+        float rideSimT;
         bool rideGrounded = true, rideDismount, rideHintDismount, rideBoosting;
         string rideHint;
         Vector3 rideCamFrom;
@@ -34,6 +39,24 @@ namespace PryingEyes
         public bool RideGrounded => rideGrounded;
         /// <summary>Per le prove: come premere Usa in corsa (la moto frena da sola e il pilota scende appena si ferma).</summary>
         public void RideRequestDismount() { if (Riding) rideDismount = true; }
+
+        /// <summary>L'ultimo contatto laterale del controller in sella (la superficie e' piu' ripida di 45 gradi: non il suolo): contro che cosa, dove, con quale normale e in quale fotogramma. Lo leggono le
+        /// prove che cercano gli urti contro il niente (-desertonly motopiano): senza questo una frenata si vede ma non si sa a cosa dare la colpa.</summary>
+        public struct RideContact { public Collider collider; public Vector3 point, normal; public int frame; }
+        RideContact rideContact;
+        public RideContact RideLastContact => rideContact;
+
+        void OnControllerColliderHit(ControllerColliderHit hit)
+        {
+            if (bike == null || hit.normal.y > 0.7f) return;
+            rideContact = new RideContact { collider = hit.collider, point = hit.point, normal = hit.normal, frame = Time.frameCount };
+        }
+
+        /// <summary>Per le prove: gli ultimi 48 fotogrammi della guida (passo, velocita' comandata lungo la rotta, quella che il corpo ha fatto, la differenza e quanto ne ha accumulato la frenata da urto), per
+        /// capire un urto che non ha un contatto (RideTraceNext e' il prossimo posto da scrivere, in giro).</summary>
+        public struct RideFrame { public float dt, along, done, loss, acc; public bool grounded; }
+        public readonly RideFrame[] RideTrace = new RideFrame[48];
+        public int RideTraceNext { get; private set; }
 
         /// <summary>Sale in sella: il corpo va sulla moto, l'arma sparisce, la visuale resta dov'era e si trasferisce sull'occhio del pilota in mezzo secondo.</summary>
         public void Mount(DesertBike b)
@@ -54,7 +77,7 @@ namespace PryingEyes
                 cc.height = heightStand; cc.center = new Vector3(0f, heightStand * 0.5f, 0f);
             }
             slide = false; crouch = false; lean = 0f; recP = recY = recTargetP = recTargetY = 0f;
-            rideSteer = 0f; rideTop = DesertBike.TopSpeed; rideSpeedShown = 0f; rideCrashCool = 0f; rideDip = 0f; rideLandCool = 0f; rideHitLoss = rideHitFrom = rideHitT = 0f;
+            rideSteer = 0f; rideTop = DesertBike.TopSpeed; rideSpeedShown = 0f; rideCrashCool = 0f; rideDip = 0f; rideLandCool = 0f; rideHistN = 0;
             rideGrounded = true; rideDismount = false; rideNoiseT = 0f; rideVyPrev = 0f; rideBoosting = false;
             rideLook = Mathf.Clamp(Mathf.DeltaAngle(rideHeading * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg) * Mathf.Deg2Rad, -1.75f, 1.75f);
             rideLookPrev = rideLook; rideLookIdle = 0f;
@@ -217,20 +240,28 @@ namespace PryingEyes
             if (rideLandCool > 0f) rideLandCool -= dt;
 
             // ---- urto: la velocita' che il muro toglie. Il corpo tocca il muro a meta' di un fotogramma e si ferma nel successivo (o nei successivi): contando la perdita un fotogramma alla volta, un muro
-            // preso a 50 km/h non era un urto una volta su sei (e a 36 km/h quasi sempre), a seconda di dove cadeva il fotogramma. Si sommano quindi le perdite di una frenata da urto (oltre 60 m/s2, il
-            // triplo del freno a mano) dell'ultimo decimo di secondo: oltre gli 8 m/s, arrivando a piu' di 8 m/s, e' un urto qualunque sia la durata dei fotogrammi. Il resto (salite, sfregamenti, il freno) non conta.
+            // preso a 50 km/h non era un urto una volta su sei (e a 36 km/h quasi sempre), a seconda di dove cadeva il fotogramma. Si guarda quindi la velocita' fatta (lungo la rotta) negli ultimi 0,14 s di
+            // tempo di guida: se la piu' alta di allora supera gli 8 m/s e adesso ne e' stata tolta piu' di 8 (una frenata di oltre 57 m/s2, il triplo del freno a mano), e' un urto qualunque sia la durata
+            // dei fotogrammi. Il resto (salite, sfregamenti, il freno) non conta. Prima si sommavano le perdite di ogni fotogramma oltre 60 m/s2 (60 x passo): a mille fotogrammi al secondo il rumore dei decimali
+            // della posizione (a 500 m dall'origine 6 cm/s a fotogramma, quanto la soglia) le sommava senza fine, e ogni dieci-venti secondi di corsa a 83 km/h c'era un urto contro il niente.
             float afterAlong = Vector3.Dot(av, fwd);
             float loss = along - afterAlong;
-            if (rideHitT > 0f) { rideHitT -= dt; if (rideHitT <= 0f) rideHitLoss = 0f; }
-            if (loss > 60f * dt)
+            rideSimT += dt;
+            float vTop = afterAlong;
+            for (int i = 1; i <= rideHistN; i++)
             {
-                if (rideHitLoss <= 0f) rideHitFrom = along;
-                rideHitLoss += loss; rideHitT = 0.1f;
+                int hk = (rideHistHead - i + RideHistLen) % RideHistLen;
+                if (rideSimT - rideHistT[hk] > RideHitWindow) break;
+                if (rideHistV[hk] > vTop) vTop = rideHistV[hk];
             }
-            if (rideHitFrom > 8f && rideHitLoss > 8f && rideCrashCool <= 0f)
+            rideHistT[rideHistHead] = rideSimT; rideHistV[rideHistHead] = afterAlong;
+            rideHistHead = (rideHistHead + 1) % RideHistLen; if (rideHistN < RideHistLen) rideHistN++;
+            float drop = vTop - afterAlong;
+            RideTrace[RideTraceNext++ % RideTrace.Length] = new RideFrame { dt = dt, along = along, done = afterAlong, loss = loss, acc = drop, grounded = rideGrounded };
+            if (vTop > RideHitDrop && drop > RideHitDrop && rideCrashCool <= 0f)
             {
-                float lost = rideHitLoss;
-                rideHitLoss = 0f; rideHitFrom = 0f; rideHitT = 0f;
+                float lost = drop;
+                rideHistN = 0;
                 rideCrashCool = 0.8f;
                 b.Impact((lost - 8f) / 14f);
                 Kick(2.6f, Random.Range(-1f, 1f) * 2.2f, 7f);

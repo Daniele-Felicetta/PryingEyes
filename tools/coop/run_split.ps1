@@ -30,7 +30,8 @@ param(
     [switch]$Candles,
     [switch]$NoMenu,
     [switch]$Desert,
-    [int]$TimeoutSec = 240
+    [int]$TimeoutSec = 240,
+    [string[]]$Extra = @()          # altri argomenti per il gioco (per esempio -legacydress, per vedere com'era prima di una correzione)
 )
 $ErrorActionPreference = 'Continue'
 $exe = (Resolve-Path $Exe).Path
@@ -47,6 +48,7 @@ $argv = @('-seed', '1000', '-floor', '1', '-seatstest', '-splitscreen', "$Player
 if ($Desert) { $argv = @('-seed', '1000', '-splitdesertotest', '-splitscreen', "$Players", '-deserto', '-catacombe', '-autotest', '-nofire', '-logFile', "`"$log`"") }      # il deserto non ha piani: niente -floor, e parte senza menu
 elseif ($NoMenu) { $argv += @('-autotest', '-nofire', '-noenemies') } else { $argv += @('-menureview', '-nowaves') }
 if ($Candles) { $argv += '-candles' }
+if ($Extra.Count -gt 0) { $argv += $Extra }
 if ($Monitors -gt 1) { $argv += @('-splitmonitors', "$Monitors") }
 if ($Graphics) { $argv += @('-screen-fullscreen', '0', '-screen-width', '1280', '-screen-height', '720', '-seatsshots') }
 else { $argv = @('-batchmode', '-nographics') + $argv }
