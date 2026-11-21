@@ -60,6 +60,10 @@ namespace PryingEyes.Pista
         public static int CircuitIndex { get => ArgOr("-pistacircuit", "Circuit", -1, -1, Catalogue.Count - 1); set => Save("Circuit", Mathf.Clamp(value, -1, Catalogue.Count - 1)); }
         public static int HourChoice { get => oHour ?? ArgOr("-pistahour", "Hour", 1, 0, 2); set => Save("Hour", Mathf.Clamp(value, 0, 2)); }
         public static float Hour => Hours[HourChoice];
+        /// <summary>The colours of the player's own bike, chosen in the garage: -1 for the livery the bike comes in, or a skin of Livery (the twelve of the game). The computer riders never take it.</summary>
+        public static int Skin { get => ArgOr("-pistaskin", "Skin", -1, -1, Livery.Count - 1); set => Save("Skin", Mathf.Clamp(value, -1, Livery.Count - 1)); }
+        /// <summary>The skin the player's bike wears: the one chosen in the garage, or the bike's own.</summary>
+        public static int SkinFor(int bike) { int s = Skin; return s >= 0 ? s : Bikes.Get(bike).skin; }
 
         /// <summary>A friend's machine: the rules of the host's race (laps, bike, aids, hour) for as long as this game lasts.</summary>
         public static void Override(int laps, int bike, int aids, int hour)

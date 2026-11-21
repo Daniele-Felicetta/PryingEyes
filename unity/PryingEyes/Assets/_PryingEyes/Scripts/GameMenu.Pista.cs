@@ -60,11 +60,13 @@ namespace PryingEyes
             pistaOtherButton = MakeButton(pistaPanel, "Altra pista", new Vector2(300, -208), PistaOther);
             pistaGoButton = MakeButton(pistaPanel, "Via!", new Vector2(-190, -262), PistaGo);
             pistaBackButton = MakeButton(pistaPanel, "Indietro", new Vector2(190, -262), () => Show(modePanel));
-            licenceOpenButton = MakeButton(pistaPanel, "Patenti", new Vector2(458, 262), LicenceOpen);
-            ResizeButton(licenceOpenButton, new Vector2(240, 48), 22);
+            licenceOpenButton = MakeButton(pistaPanel, "Patenti", new Vector2(468, 270), LicenceOpen);
+            ResizeButton(licenceOpenButton, new Vector2(220, 42), 22);
+            garageOpenButton = MakeButton(pistaPanel, "Garage", new Vector2(468, 222), GarageOpen);
+            ResizeButton(garageOpenButton, new Vector2(220, 42), 22);
 
             // su e giu' scorrono tutta la schermata, dalle scelte al "Via!" (sinistra e destra cambiano il valore di una scelta)
-            var chain = new List<Selectable> { licenceOpenButton };
+            var chain = new List<Selectable> { licenceOpenButton, garageOpenButton };
             chain.AddRange(pistaRows);
             chain.Add(pistaOtherButton); chain.Add(pistaGoButton); chain.Add(pistaBackButton);
             for (int i = 0; i < chain.Count; i++)

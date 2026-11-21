@@ -153,7 +153,7 @@ namespace PryingEyes.Pista
             string myName = mine != null && !string.IsNullOrEmpty(mine.name) ? mine.name : "Tu";
             if (Coop.Active && Coop.Game != null) myName = Coop.Game.NameOf(Coop.Slot);
             int bikeMe = PistaMode.Bike;
-            me = race.AddHuman(myName, bikeMe, SkinForBike(bikeMe), seed + 5);
+            me = race.AddHuman(myName, bikeMe, PistaMode.SkinFor(bikeMe), seed + 5);
             me.netSlot = Coop.Active ? Coop.Slot : -1;
             PistaMode.ApplyAids(me.bike, PistaMode.Aids);
 

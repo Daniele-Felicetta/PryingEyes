@@ -131,6 +131,7 @@ namespace PryingEyes.Pista
                 Value("Giri") + ", " + Value("Livello") + ", " + Value("Moto"));
             if (shots) yield return Shot("menu_2_preparazione");
             if (licenceFlow) { yield return LicenceFlow(); yield break; }
+            if (PistaMode.HasArg("-pistamenugarage")) { yield return GarageFlow(); yield break; }
 
             // ---- the rows step
             int laps0 = PistaMode.Laps;
@@ -186,7 +187,7 @@ namespace PryingEyes.Pista
             Check("la croce in alto dal 'Via!' porta a 'Altra pista', e da li' all'ultima scelta", goNav.selectOnUp != null && goNav.selectOnUp.name == "Pulsante Altra pista" && otherNav.selectOnUp != null && otherNav.selectOnUp.name == "Scelta Ora del giorno",
                 (goNav.selectOnUp != null ? goNav.selectOnUp.name : "-") + ", " + (otherNav.selectOnUp != null ? otherNav.selectOnUp.name : "-"));
             var firstNav = Row("Circuito").navigation;
-            Check("e dalla prima scelta si scende alla seconda e si sale a 'Patenti'", firstNav.selectOnDown != null && firstNav.selectOnDown.name == "Scelta Giri" && firstNav.selectOnUp != null && firstNav.selectOnUp.name == "Pulsante Patenti");
+            Check("e dalla prima scelta si scende alla seconda e si sale a 'Garage'", firstNav.selectOnDown != null && firstNav.selectOnDown.name == "Scelta Giri" && firstNav.selectOnUp != null && firstNav.selectOnUp.name == "Pulsante Garage");
 
             // ---- back to the modes
             Call("PistaBack");
@@ -218,8 +219,9 @@ namespace PryingEyes.Pista
             // the player's own choices, all different from what the test will ask for: the test must win
             PistaMode.Bike = 1; PistaMode.Aids = 0; PistaMode.Laps = 5; PistaMode.Rivals = 7; PistaMode.HourChoice = 1;
             var open = Find("Pulsante Patenti");
-            var up = Row("Circuito").navigation.selectOnUp;
-            Check("la preparazione ha il pulsante 'Patenti' e la croce ci sale dalla prima scelta", open != null && up != null && up.gameObject == open, up != null ? up.name : "-");
+            var garage = Find("Pulsante Garage");
+            Check("la preparazione ha il pulsante 'Patenti' (sopra 'Garage': la croce ci sale due volte dalla prima scelta)", open != null && garage != null && Row("Circuito").navigation.selectOnUp == garage.GetComponent<Selectable>()
+                && garage.GetComponent<Selectable>().navigation.selectOnUp == open.GetComponent<Selectable>(), garage != null ? garage.name : "-");
             if (open == null) yield break;
             EventSystem.current.SetSelectedGameObject(open);           // a click or a press leaves the button selected, as here
             open.GetComponent<Button>().onClick.Invoke();
@@ -296,6 +298,106 @@ namespace PryingEyes.Pista
                 "aiuti " + PistaMode.Aids + " (prova " + test.aids + "), ora " + PistaMode.HourChoice + " (prova " + test.hour + ")");
             Check("il regista sa che e' la prova e il registro e' ancora quello della preparazione", d.Licence != null && d.Licence.test.id == test.id && PistaLicences.Book.MedalOf(0) == Medal.Gold, d.Licence != null ? d.Licence.test.id : "nessuna prova");
             if (shots) yield return Shot("menu_7_patente_gara");
+        }
+
+
+        /// <summary>The garage from the setup: the showroom and the bars, the choice of bike and of colours, back to the setup, and the colours worn in the race.</summary>
+        IEnumerator GarageFlow()
+        {
+            PistaMode.Bike = 0; PistaMode.Skin = -1; PistaMode.Aids = 1; PistaMode.Rivals = 3; PistaMode.Laps = 1;
+            var open = Find("Pulsante Garage");
+            var licences = Find("Pulsante Patenti");
+            var up = Row("Circuito").navigation.selectOnUp;
+            Check("la preparazione ha il pulsante 'Garage' sotto 'Patenti' e la croce ci sale dalla prima scelta",
+                open != null && licences != null && up != null && up.gameObject == open && licences.GetComponent<Selectable>().navigation.selectOnDown != null && licences.GetComponent<Selectable>().navigation.selectOnDown.gameObject == open, up != null ? up.name : "-");
+            if (open == null) yield break;
+            EventSystem.current.SetSelectedGameObject(open);           // a click or a press leaves the button selected, as here
+            open.GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null; yield return null;
+            Check("'Garage' apre il garage e chiude la preparazione, e la scelta della moto e' gia' scelta", Open("garagePanel") && !Open("pistaPanel") && Sel == "Scelta Moto", Sel);
+            var stage = menu.GarageStageForTest;
+            Check("la vetrina e' accesa: una camera sua, una texture sua, la moto 0 sul piatto", stage != null && stage.Picture != null && stage.Cam != null && stage.Active && stage.Bike == 0 && stage.Rig != null && Field<RawImage>("garagePicture").texture == stage.Picture,
+                stage == null ? "nessuna vetrina" : "moto " + stage.Bike);
+            var f0 = BikeSheet.Of(0);
+            Check("il nome, la frase e le sette cifre sono quelli della moto", Text("Nome moto") == Bikes.Get(0).name + "  -  " + Bikes.Get(0).klass && Text("Descrizione moto") == BikeSheet.Blurb(0)
+                && Text("Cifra Velocita'") == Mathf.RoundToInt(f0.topKmh) + " km/h" && Text("Cifra Potenza").EndsWith(" CV") && Text("Cifra Coppia") == Mathf.RoundToInt(f0.torque) + " Nm" && Text("Cifra Ripresa").Contains("0-100") && Text("Cifra Frenata").Contains("100-0")
+                && Text("Cifra Leggerezza") == Mathf.RoundToInt(f0.kg) + " kg" && Text("Cifra Maneggevolezza") == BikeSheet.HandlingWord(f0), Text("Nome moto") + " / " + Text("Cifra Velocita'") + " / " + Text("Cifra Ripresa"));
+            string bars = "";
+            for (int i = 0; i < BikeSheet.BarCount; i++)
+            {
+                var fill = Find("Riempimento " + BikeSheet.BikeBarNames[i]);
+                float w = fill != null ? fill.GetComponent<RectTransform>().sizeDelta.x : -1f, want = Mathf.Max(2f, 250f * BikeSheet.Value(f0, (BikeBar)i));
+                if (fill == null || Mathf.Abs(w - want) > 0.5f) bars += " " + BikeSheet.BikeBarNames[i] + ":" + w + "/" + want;
+            }
+            Check("le sette barre sono lunghe quanto dicono le cifre", bars.Length == 0, bars);
+            stage.SetSpin(38f);
+            for (int i = 0; i < 4; i++) yield return null;
+            string stats;
+            float lit = LitShare(stage.Picture, shots ? "garage_vetrina_" + PistaMode.Bike : null, out stats);
+            Check("la vetrina disegna la moto (non e' un riquadro vuoto)", lit > 0.03f && lit < 0.80f, "pixel accesi " + (lit * 100f).ToString("F1") + " %, " + stats);
+            if (shots) yield return Shot("menu_8_garage");
+
+            // the bike: the row steps, the showroom follows, the figures change
+            string speed0 = Text("Cifra Velocita'");
+            while (PistaMode.Bike != 3) Row("Moto").Step(1);
+            var f3 = BikeSheet.Of(3);
+            Check("'Moto' passa alla Scintilla 125: il nome, la frase, le cifre e la moto sul piatto cambiano", Text("Nome moto").StartsWith(Bikes.Get(3).name) && Text("Descrizione moto") == BikeSheet.Blurb(3) && Text("Cifra Velocita'") == Mathf.RoundToInt(f3.topKmh) + " km/h"
+                && Text("Cifra Velocita'") != speed0 && Text("Cifra Leggerezza") == Mathf.RoundToInt(f3.kg) + " kg" && stage.Bike == 3 && Value("Moto") == Bikes.Get(3).name, Text("Nome moto") + " / " + Text("Cifra Velocita'") + " / moto sul piatto " + stage.Bike);
+
+            // the colours: 'Di serie' first, then the twelve liveries, round again
+            Check("'Colori' parte da 'Di serie' e il campione e' quello della moto", Value("Colori") == "Di serie" && PistaMode.Skin == -1 && Find("Colore principale").GetComponent<Image>().color == Livery.For(Bikes.Get(3).skin).main, Value("Colori"));
+            Row("Colori").Step(1);
+            Check("avanti: la prima livrea, e la moto sul piatto la indossa", PistaMode.Skin == 0 && Value("Colori") == Livery.For(0).name && stage.Skin == 0 && Find("Colore principale").GetComponent<Image>().color == Livery.For(0).main
+                && Find("Colore secondario").GetComponent<Image>().color == Livery.For(0).accent, Value("Colori"));
+            Row("Colori").Step(-1); Row("Colori").Step(-1);
+            Check("all'indietro da 'Di serie' si arriva all'ultima livrea", PistaMode.Skin == Livery.Count - 1 && Value("Colori") == Livery.For(Livery.Count - 1).name, Value("Colori"));
+            PistaMode.Skin = 4; Call("RefreshGarage");
+            yield return null;
+            Check("la livrea scelta resta scelta anche cambiando moto", Value("Colori") == Livery.For(4).name && stage.Skin == 4, Value("Colori"));
+            stage.SetSpin(300f);
+            for (int i = 0; i < 4; i++) yield return null;
+            if (shots) yield return Shot("menu_9_garage_125");
+
+            var bikeNav = Row("Moto").navigation; var colourNav = Row("Colori").navigation; var doneNav = Find("Pulsante Fatto").GetComponent<Selectable>().navigation;
+            Check("la croce: da 'Moto' si scende a 'Colori', poi a 'Fatto', e da 'Fatto' si risale a 'Colori'", bikeNav.selectOnDown != null && bikeNav.selectOnDown.name == "Scelta Colori" && colourNav.selectOnUp != null && colourNav.selectOnUp.name == "Scelta Moto"
+                && colourNav.selectOnDown != null && colourNav.selectOnDown.name == "Pulsante Fatto" && doneNav.selectOnUp != null && doneNav.selectOnUp.name == "Scelta Colori");
+
+            // back to the setup: the button that opened the garage is the chosen one, the setup says the bike, the showroom is off
+            Call("GarageBack");
+            yield return null; yield return null;
+            Check("'Fatto' porta alla preparazione con 'Garage' ancora scelto, la moto nella riga e la vetrina spenta", Open("pistaPanel") && !Open("garagePanel") && Sel == "Pulsante Garage" && Value("Moto") == Bikes.Get(3).name && !stage.Active, Sel + " / " + Value("Moto"));
+
+            // the race wears the colours of the garage, and no computer rider has them
+            Find("Pulsante Via!").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
+            var d = PistaDirector.I;
+            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            yield return null;
+            bool borrowed = false;
+            foreach (var r in d.race.racers) if (r != d.me && r.skin == 4) borrowed = true;
+            Check("si corre con la moto e i colori del garage, e nessun avversario ha quei colori", d.me.bikeIndex == 3 && d.me.skin == 4 && !borrowed, "moto " + d.me.bikeIndex + ", livrea " + d.me.skin);
+        }
+
+        /// <summary>How much of a picture is lit (the stage has a nearly black background): the share of pixels clearly brighter than it.</summary>
+        static float LitShare(RenderTexture rt, string saveAs, out string stats)
+        {
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var copy = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
+            copy.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+            copy.Apply();
+            RenderTexture.active = prev;
+            int n = 0; long r = 0, g = 0, b = 0; var all = copy.GetPixels32();
+            foreach (var p in all) { r += p.r; g += p.g; b += p.b; if (p.r + p.g + p.b > 3 * 52) n++; }
+            var mid = all[all.Length / 2 + rt.width / 2];
+            stats = "media " + (r / all.Length) + "," + (g / all.Length) + "," + (b / all.Length) + ", centro " + mid.r + "," + mid.g + "," + mid.b;
+            if (saveAs != null)
+            {
+                try { string dir = TestPaths.Out("prove/pista"); Directory.CreateDirectory(dir); File.WriteAllBytes(Path.Combine(dir, saveAs + ".png"), copy.EncodeToPNG()); } catch { }
+            }
+            Destroy(copy);
+            return n / (float)(rt.width * rt.height);
         }
 
         static string CellText(GameObject cell, string child) { var t = cell.transform.Find(child); return t != null && t.GetComponent<Text>() != null ? t.GetComponent<Text>().text : "?"; }

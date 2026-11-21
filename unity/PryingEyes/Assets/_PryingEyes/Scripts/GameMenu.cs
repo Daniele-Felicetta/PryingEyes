@@ -102,6 +102,7 @@ namespace PryingEyes
             if (splitPanel.gameObject.activeSelf) { MenuSound.Back(); Show(mainPanel); return; }
             if (CharactersBack()) return;
             if (RunBack()) return;
+            if (GarageBackKey()) return;
             if (LicenceBack()) return;
             if (PistaBack()) return;
             if (ModeBack()) return;
@@ -305,6 +306,7 @@ namespace PryingEyes
             ModeShow(p);
             PistaShow(p);
             LicenceShow(p);
+            GarageShow(p);
             if (system != null)
             {
                 system.SetSelectedGameObject(null);
@@ -411,6 +413,7 @@ namespace PryingEyes
             BuildMode();
             BuildPista();
             BuildLicence();
+            BuildGarage();
             BuildSettings();
             BuildHelp();
             BuildPadUi();
