@@ -28,6 +28,6 @@ does not describe them. See [the desert](../modes/desert.md).
 
 ## Related
 
-- [Cristalli d'oscurità](../resources/cristalli-d-oscurita.md): the crystals it costs, which only the Direttore drops.
+- [Cristalli d'oscurità](../resources/cristalli-d-oscurita.md): the crystals it costs, which only the [Direttore](../enemies/direttore.md) drops.
 - [Il Teatro sepolto](../branches/teatro-sepolto.md): the branch of the Direttore.
 - [Il Cancello del Sanatorio](il-cancello-del-sanatorio.md): the gate that needs the crystals.

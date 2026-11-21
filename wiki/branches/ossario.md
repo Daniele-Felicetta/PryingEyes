@@ -31,6 +31,6 @@ with their own bosses. The Cardinale also appears in the standard waves, and the
 
 ## Related
 
-- [The catacombs](../zones/catacombs.md): the four branches and the Abyss.
+- [The catacombs](../zones/catacombs.md): the four branches and the [Abyss](../zones/abyss.md).
 - [Il Teatro sepolto](teatro-sepolto.md): the second branch, opened by the theatre gate.
 - [Levels](../levels/first-level.md): what each level of a branch holds.

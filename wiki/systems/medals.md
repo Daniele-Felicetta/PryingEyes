@@ -31,5 +31,5 @@ Both modes. Each medal counts the kills credited to the player who made them, so
 
 - [Points and oboli](points-and-oboli.md): a medal's points go into the score.
 - [The knife](knife.md): Lama santa counts knife kills.
-- [Perks](perks.md): Sete di sangue heals on each knife kill.
+- [Perks](perks.md): [Sete di sangue](../perks/sete-di-sangue.md) heals on each knife kill.
 - [The wave cycle](../cycles/wave-cycle.md): the trials that the medals complement.

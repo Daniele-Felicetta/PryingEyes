@@ -29,6 +29,6 @@ the +25% reaches them. See [the desert](../modes/desert.md).
 
 ## Related
 
-- [Reliquie](../resources/reliquie.md): the relics it costs, which only the Cardinale drops.
+- [Reliquie](../resources/reliquie.md): the relics it costs, which only the [Cardinale](../enemies/cardinale.md) drops.
 - [The Cardinale's branch](../branches/ossario.md): the boss of the first branch.
 - [Il Rosone](il-rosone.md): the work that needs all four windows.

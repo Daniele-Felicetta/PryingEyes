@@ -122,6 +122,8 @@ wording when a controller is the device in use (`Tips`, `TipFor` in `GameMenu.De
 elsewhere: the guide, the scoreboard, the systems' comments). The pause screen has a line under *In pausa* with the wave, floor, points,
 kills and playing time, the same figures as the scoreboard (`PauseStatsText`).
 
+**Wiki**, after **Come si gioca** in the main menu, opens the wiki of the game in the browser (`WikiLink.cs`). A built player has its own copy: `Editor/WikiBundle.cs` copies `wiki/site` and `wiki/img` after each build into `PryingEyes_Data\StreamingAssets\wiki`. Where there is no copy the entry is greyed out. In the editor it opens the wiki of the repository.
+
 ## Menu sounds
 
 The menu makes four short tones (`MenuSound`): a tick when an entry is lit or chosen, a step when a choice changes value (the same tone,

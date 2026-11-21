@@ -19,7 +19,7 @@ The theatre is a place of the dead town: the theatre of the standard floors, bui
 - **Its yard.** Its props are placed round the walls by the same rule as every other place.
 - **Its guards.** Like every place, it has guards by the same rule as the houses.
 - **Its enemies.** The desert page says that theatres and sanatoria have enemies of their own, and does not name them. The standard
-  theatre's enemies are the Maschera and the Direttore.
+  theatre's enemies are the Maschera and the [Direttore](../enemies/direttore.md).
 - **Its sound.** Inside a place the hum of a room and the room's echo come back, as in the standard floors.
 
 ## Standard and desert

@@ -21,7 +21,7 @@ was added on 16 November 2026, as the fourth theme after the hotel, the theatre 
   coffins and the terraces.
 - **Gate:** [Il Cancello del Conte](../works/il-cancello-del-conte.md), which needs the sanatorium gate and, among its costs, one
   faith crystal.
-- **Boss:** [Il Conte](../enemies/conte.md), the Cardinale in crimson and black, on the third level.
+- **Boss:** [Il Conte](../enemies/conte.md), the [Cardinale](../enemies/cardinale.md) in crimson and black, on the third level.
 - **Its resource:** gems, which only the Conte drops; the window [La Vetrata del Conte](../works/la-vetrata-del-conte.md) uses them.
 
 ## Standard and desert
@@ -31,5 +31,5 @@ Guardaroba unless it is asked for, so the Tower plays as it did before the theme
 
 ## Related
 
-- [The catacombs](../zones/catacombs.md): the four branches and the Abyss.
+- [The catacombs](../zones/catacombs.md): the four branches and the [Abyss](../zones/abyss.md).
 - [Il Sanatorio](sanatorio.md): the branch before this one.

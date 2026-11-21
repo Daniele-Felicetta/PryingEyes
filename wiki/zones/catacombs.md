@@ -30,10 +30,10 @@ and is the same every time you come back to it.
 
 | Branch | Theme | Boss on the third level |
 | --- | --- | --- |
-| [L'Ossario](../branches/ossario.md) | hotel and church | Il Cardinale |
-| [Il Teatro sepolto](../branches/teatro-sepolto.md) | theatre | Il Direttore |
-| [Il Sanatorio](../branches/sanatorio.md) | sanatorium | Il Primario |
-| [Il Guardaroba del Conte](../branches/guardaroba.md) | wardrobe | Il Conte |
+| [L'Ossario](../branches/ossario.md) | hotel and church | Il [Cardinale](../enemies/cardinale.md) |
+| [Il Teatro sepolto](../branches/teatro-sepolto.md) | theatre | Il [Direttore](../enemies/direttore.md) |
+| [Il Sanatorio](../branches/sanatorio.md) | sanatorium | Il [Primario](../enemies/primario.md) |
+| [Il Guardaroba del Conte](../branches/guardaroba.md) | wardrobe | Il [Conte](../enemies/conte.md) |
 
 After the fourth branch comes the [Abyss](abyss.md). The difficulty grows with the floor number, which is the branch number times
 three plus the level: the first branch is floors 1 to 3, the second floors 4 to 6, and so on.

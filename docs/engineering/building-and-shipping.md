@@ -48,7 +48,7 @@ The methods that build a player (`Torre`, `Windows`, `Web`, `City`) exit with 2 
 
 ## Where builds live
 
-`unity/PryingEyes/Builds` is git-ignored and holds:
+`unity/PryingEyes/Builds` is git-ignored and holds (every player build also gets a copy of the wiki in `PryingEyes_Data\StreamingAssets\wiki`, which the main menu's **Wiki** entry opens; `Editor/WikiBundle.cs`):
 
 | Path | Role |
 | --- | --- |

@@ -18,7 +18,7 @@ The sanatorium is a place of the dead town: the wards of the standard sanatorium
 - **Its state.** A sanatorium is whole, ruined, split or collapsing, like the other large places. The picture shows one that is whole.
 - **Its yard.** The yard holds the same kinds of props as the other large places.
 - **Its enemies.** The desert page says that sanatoria have their own enemies, as the theatres do. The standard sanatorium's enemies are the
-  Infermiere and the Primario. The desert page does not say which of them walk the sand.
+  Infermiere and the [Primario](../enemies/primario.md). The desert page does not say which of them walk the sand.
 
 ## Standard and desert
 

@@ -96,22 +96,24 @@ namespace PryingEyes
                 "PRYING\nEYES", Ink, FontStyle.Normal);
             Label(mainPanel, "Sottotitolo", new Vector2(-340, 26), new Vector2(420, 34), 21, TextAnchor.MiddleLeft,
                 "Il Grand Hotel non chiude mai.", Dim, FontStyle.Italic);
-            string[] names = { "Gioca", "Cooperativa", "Schermo condiviso", "Personaggi", "Come si gioca", "Impostazioni", "Esci" };
-            UnityEngine.Events.UnityAction[] actions = { PlayClicked, OpenCoop, OpenSplit, () => OpenCharacters(mainPanel), () => OpenHelp(mainPanel), () => OpenSettings(mainPanel), Quit };
+            string[] names = { "Gioca", "Cooperativa", "Schermo condiviso", "Personaggi", "Come si gioca", "Wiki", "Impostazioni", "Esci" };
+            UnityEngine.Events.UnityAction[] actions = { PlayClicked, OpenCoop, OpenSplit, () => OpenCharacters(mainPanel), () => OpenHelp(mainPanel), WikiLink.Open, () => OpenSettings(mainPanel), Quit };
             for (int i = 0; i < names.Length; i++)
             {
-                var button = MakeButton(mainPanel, names[i], new Vector2(-340, -28 - i * 40), actions[i]);      // sette voci: 40 di passo, da sotto la frase fino sopra il fregio
-                button.GetComponent<RectTransform>().sizeDelta = new Vector2(420, 37);
+                // eight entries, 37 apart and 33 high: from below the phrase down to above the lower ornament
+                var button = MakeButton(mainPanel, names[i], new Vector2(-340, -16 - i * 37), actions[i]);
+                if (names[i] == "Wiki") button.interactable = WikiLink.Available;   // off until the wiki is in the build (in the editor: in the repository)
+                button.GetComponent<RectTransform>().sizeDelta = new Vector2(420, 33);
                 var text = button.GetComponentInChildren<Text>();
-                text.alignment = TextAnchor.MiddleLeft; text.rectTransform.sizeDelta = new Vector2(368, 36); text.fontSize = 21;
-                var arrow = Label(button.transform, "Invito", new Vector2(180, 0), new Vector2(24, 34), 20, TextAnchor.MiddleCenter,
+                text.alignment = TextAnchor.MiddleLeft; text.rectTransform.sizeDelta = new Vector2(368, 32); text.fontSize = 21;
+                var arrow = Label(button.transform, "Invito", new Vector2(180, 0), new Vector2(24, 33), 20, TextAnchor.MiddleCenter,
                     "›", Brass, FontStyle.Normal);
                 var fx = button.gameObject.AddComponent<MenuButtonFx>();
                 fx.label = text; fx.arrow = arrow;
                 if (i == 0)
                 {
                     button.GetComponent<Image>().color = new Color(0.29f, 0.23f, 0.13f);
-                    Plate(button.transform, "Segnalibro", new Vector2(-207, 0), new Vector2(3, 36), Brass);
+                    Plate(button.transform, "Segnalibro", new Vector2(-207, 0), new Vector2(3, 33), Brass);
                 }
             }
             var eye = Rect(mainPanel, "L'occhio dell'albergo", new Vector2(580, 470), new Vector2(278, 26));

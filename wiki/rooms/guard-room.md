@@ -16,7 +16,7 @@ The guard room has a steel door frame. One or two guards patrol it, and they pat
 ## What it holds
 
 - **One or two guards**, the floor's usual types. Until they notice you they stay in the room.
-- **Stealth.** In the candle cycle the guards notice you by light, noise and the distance from which you are seen, and the knife can take
+- **[Stealth](../systems/stealth.md).** In the candle cycle the guards notice you by light, noise and the distance from which you are seen, and the knife can take
   them down from behind. The wave cycle has no stealth: there is no alert and no takedown, and the guards are the ordinary enemies of
   the floor.
 - **On the first floor** the rooms attached to the start are empty, so the guard rooms are never the first thing you meet.

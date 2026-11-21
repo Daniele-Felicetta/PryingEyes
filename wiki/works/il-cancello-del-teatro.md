@@ -18,7 +18,7 @@ The first of the three branch gates. Until it is built, the gate to [Il Teatro s
 
 - **Place:** the crypt.
 - **Cost:** 30 steel, 30 bones and 1 relic. No prerequisite.
-- **Effect:** opens branch II, Il Teatro sepolto, whose boss, the Direttore, gives the darkness crystals.
+- **Effect:** opens branch II, Il Teatro sepolto, whose boss, the [Direttore](../enemies/direttore.md), gives the darkness crystals.
 
 ## Standard and desert
 
@@ -28,5 +28,5 @@ branch to enter there; see [the desert](../modes/desert.md) and [the cathedral](
 ## Related
 
 - [Il Cancello del Sanatorio](il-cancello-del-sanatorio.md): the gate this one leads to.
-- [Reliquie](../resources/reliquie.md): the relic it costs, which only the Cardinale drops.
+- [Reliquie](../resources/reliquie.md): the relic it costs, which only the [Cardinale](../enemies/cardinale.md) drops.
 - [The catacombs](../zones/catacombs.md): the descent the gates open.

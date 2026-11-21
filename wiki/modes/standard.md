@@ -23,9 +23,9 @@ The [cathedral](../zones/cathedral.md) is the base: the square and its market ou
 The [catacombs](../zones/catacombs.md) are the way down. Each branch is three levels: the [first level](../levels/first-level.md), the middle floors, and the [boss level](../levels/boss-level.md), where the branch's boss waits behind its gate. The branches are:
 
 - [L'Ossario](../branches/ossario.md), the first, open from the start, with the Cardinale as its boss;
-- [Il Teatro sepolto](../branches/teatro-sepolto.md), the second, with the Direttore;
-- [Il Sanatorio](../branches/sanatorio.md), the third, with the Primario;
-- [Il Guardaroba del Conte](../branches/guardaroba.md), the fourth, with the Conte.
+- [Il Teatro sepolto](../branches/teatro-sepolto.md), the second, with the [Direttore](../enemies/direttore.md);
+- [Il Sanatorio](../branches/sanatorio.md), the third, with the [Primario](../enemies/primario.md);
+- [Il Guardaroba del Conte](../branches/guardaroba.md), the fourth, with the [Conte](../enemies/conte.md).
 
 Beyond them is the [Abyss](../zones/abyss.md), the fifth gate, opened by the Rosone. The gates close the stone landings: a [portcullis](../gates/portcullis.md) rises when the way is open, and the [shutters](../gates/shutter.md) close the lifts of the wave floors until three waves are cleared.
 

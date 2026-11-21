@@ -37,7 +37,7 @@ of the four branch bosses of the cathedral, the Cardinale, the Direttore, the Pr
   the [Primario](primario.md) and the [Conte](conte.md).
 - **Desert.** The lord of the place is the only way the four bosses appear in the open world. None of them walks the sand as a walker: the
   walkers of the desert are monks, abbots, flying eyes (at night), flagellants, plague bearers, statues, and the themed Maschere and
-  Infermiere in theatres, sanatoria and sanatorium-themed towers.
+  [Infermiere](infermiere.md) in theatres, sanatoria and sanatorium-themed towers.
 
 ## Related
 

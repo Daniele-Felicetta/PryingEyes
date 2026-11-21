@@ -21,7 +21,7 @@ tests: tools/test_wiki_site.py
 - `python tools/wiki_site.py --check` checks everything and exits `1` on any finding, including a generated file that is out of date.
 - `python tools/wiki_images.py` renders the cards and thumbnails of the pages from `tools/wiki_images.json`, with Pillow. Its `--only` option renders a part.
 
-`tools/wiki_site.py` uses only the standard library, so the [check suite](check-suite.md) and the CI gate run its check without Pillow; only the cards need Pillow.
+`tools/wiki_site.py` uses only the standard library, so the [check suite](check-suite.md) and the [CI gate](ci-gate.md) run its check without Pillow; only the cards need Pillow.
 
 ## What it checks
 
