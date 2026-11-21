@@ -168,12 +168,23 @@ namespace PryingEyes.Pista
             {
                 mLeaf = Foliage(fol, "Foglie", PistaFoliage.Leaf, Color.white, 0.10f, 0.10f);
                 mNeedle = Foliage(fol, "Aghi", PistaFoliage.Needle, Color.white, 0.08f, 0.06f);
+                if (PistaSigns.Ready)
+                {
+                    mCrowd = Foliage(fol, "Folla", PistaSigns.Crowd, Color.white, 0.04f, 0.04f);
+                    mCrowd.SetFloat("_Trans", 0f);                 // a crowd is not a leaf: no sun through it
+                }
             }
             else
             {
                 // the cards could not be made (or the shader is not there): flat colours, as before
                 mLeaf = Flat("Foglie", new Color(0.16f, 0.33f, 0.08f), 0.1f);
                 mNeedle = Flat("Aghi", new Color(0.05f, 0.16f, 0.08f), 0.1f);
+            }
+            // the advertising boards are an ordinary lit surface with a picture: they need no shader of their own, so they are there with or without the cards (the crowd needs the cut-out shader)
+            if (PistaSigns.Ready)
+            {
+                mBoards = PistaTex.Lit("Cartelloni", Color.white, 0.25f, 0f, PistaSigns.Boards);
+                made.Add(mBoards);
             }
             for (int i = 0; i < 5; i++)
             {
@@ -192,6 +203,9 @@ namespace PryingEyes.Pista
             PistaFoliage.Begin();
             while (!PistaFoliage.Done) yield return null;
             PistaFoliage.Finish();
+            PistaSigns.Begin();
+            while (!PistaSigns.Done) yield return null;
+            PistaSigns.Finish();
             MakeMaterials();
             // the ground rectangle: the track with a margin of 900 m
             tx0 = c.minX - 900f; tx1 = c.maxX + 900f; tz0 = c.minZ - 900f; tz1 = c.maxZ + 900f;

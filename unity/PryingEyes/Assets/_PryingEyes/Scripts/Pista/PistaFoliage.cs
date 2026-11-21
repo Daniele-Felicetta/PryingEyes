@@ -46,7 +46,7 @@ namespace PryingEyes.Pista
             return t;
         }
 
-        static Color32[][][] Compute() { return new[] { Mips(DrawLeafCluster(), LeafSize), Mips(DrawFrond(), NeedleSize) }; }
+        static Color32[][][] Compute() { return new[] { Mips(DrawLeafCluster(), LeafSize, LeafSize), Mips(DrawFrond(), NeedleSize, NeedleSize) }; }
 
         // ------------------------------------------------------------------ the mip chain that keeps its coverage
         static float Coverage(Color32[] px)
@@ -56,28 +56,28 @@ namespace PryingEyes.Pista
             return n / (float)px.Length;
         }
 
-        static Color32[][] Mips(Color32[] top, int size)
+        internal static Color32[][] Mips(Color32[] top, int width, int height)
         {
             var list = new List<Color32[]> { top };
             float target = Coverage(top);
             var cur = top;
-            int s = size;
-            while (s > 1)
+            int cw = width, ch = height;
+            while (cw > 1 || ch > 1)
             {
-                int h = s / 2;
-                var next = new Color32[h * h];
-                for (int y = 0; y < h; y++)
-                    for (int x = 0; x < h; x++)
+                int nw = Mathf.Max(1, cw / 2), nh = Mathf.Max(1, ch / 2);
+                var next = new Color32[nw * nh];
+                for (int y = 0; y < nh; y++)
+                    for (int x = 0; x < nw; x++)
                     {
                         float sa = 0f, sr = 0f, sg = 0f, sb = 0f;
                         for (int k = 0; k < 4; k++)
                         {
-                            var p = cur[(y * 2 + (k >> 1)) * s + x * 2 + (k & 1)];
+                            var p = cur[Mathf.Min(y * 2 + (k >> 1), ch - 1) * cw + Mathf.Min(x * 2 + (k & 1), cw - 1)];
                             float a = p.a / 255f;
                             sa += a; sr += p.r * a; sg += p.g * a; sb += p.b * a;
                         }
                         float w = sa > 1e-4f ? 1f / sa : 0f;
-                        next[y * h + x] = new Color32((byte)Mathf.Clamp(Mathf.RoundToInt(sr * w), 0, 255), (byte)Mathf.Clamp(Mathf.RoundToInt(sg * w), 0, 255), (byte)Mathf.Clamp(Mathf.RoundToInt(sb * w), 0, 255), (byte)Mathf.Clamp(Mathf.RoundToInt(sa * 0.25f * 255f), 0, 255));
+                        next[y * nw + x] = new Color32((byte)Mathf.Clamp(Mathf.RoundToInt(sr * w), 0, 255), (byte)Mathf.Clamp(Mathf.RoundToInt(sg * w), 0, 255), (byte)Mathf.Clamp(Mathf.RoundToInt(sb * w), 0, 255), (byte)Mathf.Clamp(Mathf.RoundToInt(sa * 0.25f * 255f), 0, 255));
                     }
                 // the smallest gain that puts the same share above the cutoff as the top level has
                 float lo = 1f, hi = 8f;
@@ -89,7 +89,7 @@ namespace PryingEyes.Pista
                     if (above / (float)next.Length >= target) hi = mid; else lo = mid;
                 }
                 for (int i = 0; i < next.Length; i++) { var p = next[i]; p.a = (byte)Mathf.Clamp(Mathf.RoundToInt(p.a * hi), 0, 255); next[i] = p; }
-                list.Add(next); cur = next; s = h;
+                list.Add(next); cur = next; cw = nw; ch = nh;
             }
             return list.ToArray();
         }

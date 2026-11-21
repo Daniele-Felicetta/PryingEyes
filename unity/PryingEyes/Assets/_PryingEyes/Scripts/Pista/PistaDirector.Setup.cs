@@ -27,6 +27,7 @@ namespace PryingEyes.Pista
             hud.SetLoading(0f, "Preparo la pista");
             PistaDetail.Begin();                // the textures of the ground are made on a worker thread while the rest loads
             PistaFoliage.Begin();               // so are the cards of the leaves and the fir fronds
+            PistaSigns.Begin();                 // and the boards and the crowd of the trackside
             yield return null;
             cam = PistaCamera.Create();
             sky = DesertSky.Create(cam.cam);

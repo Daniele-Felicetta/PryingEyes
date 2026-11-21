@@ -51,6 +51,10 @@ namespace PryingEyes.Pista
             var mats = new[] { mConcrete, mRoof, mGlass, mSteel, mBlack, mSeatRed, mSeatBlue, mSeatYellow };
             var white = new MB(2);       // boards: 0 red, 1 white
             var wmats = new[] { mSignRed, mSignWhite };
+            MB ads = PistaSigns.Ready && mBoards != null ? new MB(1) : null;                      // the advertising boards (the atlas of PistaSigns)
+            MB crowd = PistaSigns.Ready ? new MB(1).UseColors() : null;                          // the spectators: cards cut out by the crowd picture (built whenever the picture is there, shown only with the cut-out shader)
+            var crowdRng = new System.Random(seed * 13 + 5);
+            int boardNo = 0;
 
             // ---- the gantry over the start line: two pillars, a beam, and a panel of five lights facing the grid (back along the road)
             {
@@ -92,8 +96,17 @@ namespace PryingEyes.Pista
                     Vector3 p = OnRoad(s + 3f, -l);
                     if (!Clear(p.x, p.z, -2f, s + 3f, 60f)) continue;
                     steel.Box(0, p + Vector3.up * 0.55f, rr, Vector3.up, ff, new Vector3(0.28f, 0.55f, 3.05f));
-                    white.Box(0, p + Vector3.up * 0.45f + rr * 0.29f, rr, Vector3.up, ff, new Vector3(0.015f, 0.12f, 3.05f));
+                    if (ads != null)
+                    {
+                        // two boards on the face of every piece of the wall (the road is on the +r side of it), the designs of the atlas in an order that does not repeat for a lap
+                        for (int bsub = 0; bsub < 2; bsub++)
+                            BoardQuad(ads, 0, p + Vector3.up * 0.55f + rr * 0.29f + ff * ((bsub - 0.5f) * 3.05f), ff, Vector3.up, 1.5f, 0.54f, rr, (boardNo++) * 7 + 2);
+                    }
+                    else white.Box(0, p + Vector3.up * 0.45f + rr * 0.29f, rr, Vector3.up, ff, new Vector3(0.015f, 0.12f, 3.05f));
                 }
+                // two places to look at the wall from: down the straight from the middle of the road, and across it from close by
+                vantages.Add(new Vantage { kind = "muretto", from = OnRoad(-45f, 2.5f) + Vector3.up * 1.45f, look = OnRoad(25f, -(LimitAt(25f, 0) + 1.2f)) + Vector3.up * 0.6f, fov = 55f });
+                vantages.Add(new Vantage { kind = "muretto", from = OnRoad(5f, 3.5f) + Vector3.up * 1.3f, look = OnRoad(24f, -(LimitAt(24f, 0) + 1.2f)) + Vector3.up * 0.55f, fov = 60f });
             }
 
             // ---- the pit building behind the pit wall: a long low block with a glazed front and a flat roof, and the pit boxes
@@ -150,12 +163,16 @@ namespace PryingEyes.Pista
                             Vector3 p = baseP + r2 * (back + 0.75f);
                             steel.Box(0, p + Vector3.up * (height * 0.5f - 0.05f), r2, Vector3.up, f2, new Vector3(0.75f, height * 0.5f + 0.05f, 5.4f), false);
                             steel.Box(seatSub, p - r2 * 0.1f + Vector3.up * (height + 0.15f), r2, Vector3.up, f2, new Vector3(0.28f, 0.15f, 5.2f));
+                            if (crowd != null) CrowdCard(crowd, p - r2 * 0.12f + Vector3.up * (height + 0.30f), f2, -r2, 5.2f, 1.25f, (float)crowdRng.NextDouble() * 4f);
                         }
                         // roof and posts
                         for (int pi = 0; pi < 2; pi++)
                             steel.Box(3, baseP + r2 * (pi == 0 ? 1.5f : 9.0f) + f2 * 5.2f + Vector3.up * 4.6f, r2, Vector3.up, f2, new Vector3(0.10f, 4.6f, 0.10f), false);
                         steel.Box(1, baseP + r2 * 5.4f + Vector3.up * 9.3f, r2, Vector3.up, f2, new Vector3(5.6f, 0.14f, 5.5f));
                     }
+                    // from the road, across it at the terraces, and from its edge at the crowd
+                    vantages.Add(new Vantage { kind = "tribuna", from = OnRoad(-35f, -2f) + Vector3.up * 1.6f, look = OnRoad(35f, LimitAt(35f, 1) + 17f) + Vector3.up * 3.2f, fov = 55f });
+                    vantages.Add(new Vantage { kind = "tribuna", from = OnRoad(30f, LimitAt(30f, 1) + 2.5f) + Vector3.up * 1.4f, look = OnRoad(50f, LimitAt(50f, 1) + 16f) + Vector3.up * 3.6f, fov = 50f });
                 }
             }
 
@@ -193,6 +210,11 @@ namespace PryingEyes.Pista
                 }
             }
 
+            if (ads != null) BuildBillboards(ads, steel, 3);
+            if (crowd != null) BuildCornerStands(steel, crowd, new[] { 5, 6, 7 }, crowdRng);
+            BuildMarshalPosts(steel);
+            BuildTyreWalls();
+
             Material[] used;
             var mesh = MB.Compact(steel, "Strutture", mats, out used);
             made.Add(mesh);
@@ -201,6 +223,19 @@ namespace PryingEyes.Pista
             var wmesh = MB.Compact(white, "Insegne", wmats, out wused);
             made.Add(wmesh);
             MB.Spawn("Insegne", root, wmesh, wused, true, true);
+            if (ads != null && ads.Count > 0)
+            {
+                var am = ads.ToMesh("Cartelloni");
+                made.Add(am);
+                MB.Spawn("Cartelloni", root, am, new[] { mBoards }, true, true);
+            }
+            if (crowd != null && crowd.Count > 0 && mCrowd != null)
+            {
+                CrowdShown = true;
+                var cm = crowd.ToMesh("Folla");
+                made.Add(cm);
+                MB.Spawn("Folla", root, cm, new[] { mCrowd }, false, false);
+            }
         }
 
         // ------------------------------------------------------------------ trees, in belts along the road and in clumps

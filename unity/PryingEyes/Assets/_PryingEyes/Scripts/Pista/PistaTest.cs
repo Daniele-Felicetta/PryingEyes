@@ -139,6 +139,40 @@ namespace PryingEyes.Pista
                 }
                 Check("la pianura all'orizzonte sta fuori dal terreno: nessun punto della strada ci sta sotto", pm != null && pieces >= 8 && hidden == 0, $"{pieces} triangoli, {hidden} punti coperti");
             }
+            {
+                // the trackside: the pictures are drawn by code, so with them there the pit wall carries boards (with or without a graphics device); the spectators are in the scene only with the cut-out shader,
+                // and what is in the scene is what was counted, with the texture coordinates inside the atlas and no number gone wrong
+                var w = d.world;
+                bool good = true;
+                string what = "nessuna immagine (cartelloni e folla non fatti)";
+                if (PistaSigns.Ready)
+                {
+                    var bo = w.root.Find("Cartelloni");
+                    var bmesh = bo != null ? bo.GetComponent<MeshFilter>().sharedMesh : null;
+                    good = bmesh != null && w.BoardCount >= 10 && bmesh.vertexCount == 4 * w.BoardCount;
+                    if (good)
+                    {
+                        foreach (var t in bmesh.uv) if (t.x < 0f || t.x > 1f || t.y < 0f || t.y > 1f) { good = false; break; }
+                        var bs = bmesh.bounds.size;
+                        good &= !float.IsNaN(bs.x + bs.y + bs.z) && bs.x < 20000f && bs.z < 20000f;
+                    }
+                    var fo = w.root.Find("Folla");
+                    good &= (fo != null) == w.CrowdShown && (!w.CrowdShown || fo.GetComponent<MeshFilter>().sharedMesh.vertexCount == 4 * w.CrowdCards);
+                    what = $"{w.BoardCount} cartelloni ({w.BillboardCount} sui pali ai tornanti), {w.CrowdCards} schede di folla ({w.CornerStandCount} tribunette), folla " + (w.CrowdShown ? "nella scena" : "non mostrata (senza lo shader dei tagli)");
+                }
+                int gommeFound = 0;
+                foreach (Transform ch in w.root)
+                    if (ch.name.StartsWith("Gomme"))
+                    {
+                        gommeFound++;
+                        var gm = ch.GetComponent<MeshFilter>().sharedMesh;
+                        var gs = gm != null ? gm.bounds.size : new Vector3(float.NaN, 0f, 0f);
+                        good &= gm != null && gm.vertexCount > 0 && !float.IsNaN(gs.x + gs.y + gs.z) && gs.x < 200f && gs.z < 200f;
+                    }
+                good &= gommeFound == w.TyreWalls;
+                what += $"; {w.TyreWalls} muri di gomme ({w.TyreCount} gomme), {w.MarshalPosts} postazioni dei commissari";
+                Check("il bordo pista: cartelloni sul muretto dei box e ai tornanti, folla sui gradoni, muri di gomme e posti dei commissari, con coordinate nell'atlante e senza numeri sballati", good, what);
+            }
             Check("lo stile di guida scelto arriva alla moto del giocatore", d.me.bike.style == (RiderStyle)PistaMode.Style, d.me.bike.style + " (scelto " + PistaMode.Style + ")");
             {
                 int aidsNow = PistaMode.Aids;
@@ -943,6 +977,11 @@ namespace PryingEyes.Pista
                 float b = Time.realtimeSinceStartup;
                 if (skip > 0) { skip--; continue; }
                 frame.Add(Time.unscaledDeltaTime * 1000f); draw.Add((b - a) * 1000f);
+                if (Time.unscaledDeltaTime > 0.025f)                // a hitch is what a player sees first: say where on the lap it was (draw = the camera render alone)
+                {
+                    string at = $"[PryingEyes] pistaperf fotogramma lungo di {Time.unscaledDeltaTime * 1000f:F0} ms ({(b - a) * 1000f:F0} ms di disegno) a {Dir.me.s:F0} m, {Dir.race.time:F1} s di gara";
+                    Debug.Log(at); report.AppendLine("  " + at.Replace("[PryingEyes] pistaperf ", ""));
+                }
             }
             if (frame.Count == 0) { report.AppendLine($"  {label}: nessun fotogramma"); yield break; }
             var sorted = new List<float>(frame); sorted.Sort();
@@ -1003,6 +1042,18 @@ namespace PryingEyes.Pista
                         yield return WorldShot(dir, tag + "4_erba", At(i, hw + 28f, 1.5f), At(i + 10, 0f, 1f), 62f);
                     }
                     yield return WorldShot(dir, tag + "5_orizzonte", At(i, 0f, 8f), At(i + 120, 0f, 2f), 50f);
+                }
+                if (h == 0)
+                {
+                    // the trackside, from the places the world names for each kind of thing: the pit wall, the grandstand, the boards at the corners and the small stands
+                    phase = "foto del mondo: bordo pista";
+                    var perKind = new Dictionary<string, int>();
+                    foreach (var v in d.world.vantages)
+                    {
+                        int k; perKind.TryGetValue(v.kind, out k);
+                        perKind[v.kind] = k + 1;
+                        yield return WorldShot(dir, "bordo_" + v.kind + "_" + (k + 1), v.from, v.look, v.fov);
+                    }
                 }
             }
             if (d.sky != null) d.sky.SetHour(PistaMode.Hour, true);
