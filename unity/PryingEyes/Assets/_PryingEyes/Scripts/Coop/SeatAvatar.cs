@@ -37,7 +37,7 @@ namespace PryingEyes
         /// l'indice dello slot (quello di rete in cooperativa, 0 da soli).</summary>
         public static SeatAvatar CreateOwn(PlayerController p, int slot)
         {
-            var seat = Seats.OfSlot(slot) ?? new Seat(Mathf.Clamp(slot, 0, Seats.MaxSeats - 1)) { player = p, stealth = Stealth.Current };
+            var seat = Seats.OfSlot(slot) ?? new Seat(Mathf.Clamp(slot, 0, Seats.MaxSeats - 1)) { player = p, stealth = Stealth.Current, character = PryingEyes.Characters.Roster.Local, look = Coop.MyLook };
             if (seat.player == null) seat.player = p;
             return Create(seat, false);
         }
@@ -47,7 +47,7 @@ namespace PryingEyes
             var go = new GameObject((named ? "Corpo visto dagli altri " : "Corpo in terza persona ") + (seat.index + 1));
             var a = go.AddComponent<SeatAvatar>();
             a.seat = seat;
-            a.body = SurvivorBody.Create(go.transform, seat.index, a.Layer);
+            a.body = SurvivorBody.Create(go.transform, seat.index, a.Layer, seat.look);
             if (a.body != null) a.visual = a.body.transform;
             else a.visual = RemotePlayer.BuildBody(go.transform, seat.index, out a.legL, out a.legR, out a.headT, out a.torchT);
             if (named)
@@ -107,10 +107,17 @@ namespace PryingEyes
             }
             placed = true;
             lastPos = pos;
-            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, p.yaw * Mathf.Rad2Deg, 0f));
+            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, (p.Riding ? p.RideHeading : p.yaw) * Mathf.Rad2Deg, 0f));          // in sella il corpo guarda dove punta la moto
             if (visual == null) return;
+            if (body != null)
+            {
+                // in sella la radice dello scheletro segue il telaio, rollio e beccheggio compresi: bacino, piedi e mani sono relativi alla moto
+                var bk = p.Riding ? p.Bike : null;
+                if (bk != null) visual.SetPositionAndRotation(bk.Body.position, bk.BodyRotation);
+                else { visual.localPosition = Vector3.zero; visual.localRotation = Quaternion.identity; }
+            }
             if (body != null) DriveBody(p, vel);
-            else AnimateMannequin(p, dt, Mathf.Min(6f, new Vector2(vel.x, vel.z).magnitude));
+            else AnimateMannequin(p, dt, p.Riding ? 0f : Mathf.Min(6f, new Vector2(vel.x, vel.z).magnitude));
             if (label != null)
             {
                 if (label.gameObject.activeSelf != p.alive) label.gameObject.SetActive(p.alive);
@@ -125,9 +132,12 @@ namespace PryingEyes
         {
             var w = p.weapon;
             var inp = body.input;
-            inp.velocity = vel;
+            var bk = p.Riding ? p.Bike : null;
+            inp.seated = bk != null;                                           // in sella: seduto, i piedi sulle pedane e le mani sulle manopole (SurvivorBody)
+            if (bk != null) { inp.gripLeft = bk.GripWorld(0); inp.gripRight = bk.GripWorld(1); }
+            inp.velocity = p.Riding ? Vector3.zero : vel;                      // in sella le gambe non camminano
             inp.pitch = p.pitch; inp.lean = p.lean;
-            inp.crouch = p.IsCrouching; inp.sprint = p.IsSprinting;
+            inp.crouch = p.IsCrouching && !p.Riding; inp.sprint = p.IsSprinting && !p.Riding;
             inp.alive = p.alive; inp.downed = p.Downed;
             inp.grounded = cc == null || cc.isGrounded || p.Mantling || Mathf.Abs(vel.y) < 1f;
             inp.climb = p.Mantling ? 1f : 0f;

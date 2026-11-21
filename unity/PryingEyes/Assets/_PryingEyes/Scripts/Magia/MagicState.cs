@@ -189,6 +189,26 @@ namespace PryingEyes
             Changed?.Invoke();
         }
 
+        /// <summary>Per salvare una spedizione (RunRecord.state["magic"]): i nodi comprati nei due grimori, l'essenza e la scelta fatta. I tempi di
+        /// recupero e i sigilli accesi sulle armi non si salvano: ripartono da zero.</summary>
+        public Production.Saves.JsonItem Capture() => Production.Saves.JsonItem.Object()
+            .Set("witch", (long)Witch).Set("arsenal", (long)Arsenal).Set("essence", (double)Essence).Set("spell", SelectedSpell).Set("infusion", SelectedInfusion);
+
+        /// <summary>Rimette quello che Capture ha scritto, senza fidarsi: la scelta vale solo se il nodo e' comprato, l'essenza sta nei suoi limiti.</summary>
+        public void RestoreFrom(Production.Saves.JsonItem saved)
+        {
+            if (saved == null || !saved.IsObject) return;
+            ResetRun();
+            const uint known = (1u << Grimoire.Count) - 1u;      // un bit che questa versione non conosce non compra niente
+            Witch = (uint)Math.Min((long)uint.MaxValue, Math.Max(0L, saved.Long("witch"))) & known;
+            Arsenal = (uint)Math.Min((long)uint.MaxValue, Math.Max(0L, saved.Long("arsenal"))) & known;
+            Essence = (float)Math.Max(0.0, Math.Min((double)EssenceMax, saved.Num("essence", StartEssence)));
+            int spell = saved.Int("spell", -1), infusion = saved.Int("infusion", -1);
+            SelectedSpell = spell >= 0 && spell < Grimoire.Count && HasW(spell) ? spell : -1;
+            SelectedInfusion = infusion >= 0 && infusion < Grimoire.Count && HasA(infusion) ? infusion : -1;
+            Changed?.Invoke();
+        }
+
         /// <summary>Alla morte: l'essenza si svuota e i sigilli sulle armi si spengono; i nodi comprati restano (i grimori sono rari).</summary>
         public void OnDeath()
         {

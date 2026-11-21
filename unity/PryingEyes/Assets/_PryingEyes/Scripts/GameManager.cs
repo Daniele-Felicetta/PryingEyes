@@ -40,6 +40,8 @@ namespace PryingEyes
         // -botmezz: il bot gioca dal soppalco (y 4.2), dove i nemici colpivano attraverso il pavimento
         static readonly Vector3 MezzSpot = new Vector3(-20f, 4.3f, -17f);
         bool shot1done = false, shot2done = false;
+        /// <summary>Il fotogramma in cui la prova automatica ha scattato una foto da se' (auto_shot*, auto_cam*, WallShot): una foto costa 150-650 ms da sola, e le prove che misurano i fotogrammi (DesertTest) non devono contarla come un blocco del gioco.</summary>
+        public static int HarnessShotFrame = -100;
         // -camshots: foto dalla camera del giocatore su RenderTexture, funziona anche con -batchmode senza finestra
         // (ScreenCapture li' non ha uno schermo da copiare). Niente HUD: serve a controllare luce e materiali.
         bool camShots, cam1done, cam2done, wallShotDone;
@@ -76,7 +78,9 @@ namespace PryingEyes
         {
             if (returningToMenu) return;
             returningToMenu = true;
-            Cattedrale.Fabbrica.Chiudi(score);      // una spedizione abbandonata conta come persa (lo zaino); il gioco diretto ha gia' tutto in magazzino
+            Seats.EachOrOnce(_ => Cattedrale.Fabbrica.Chiudi(score));      // una spedizione abbandonata conta come persa (lo zaino); il gioco diretto ha gia' tutto in magazzino
+            Characters.Progress.CommitTime();
+            Characters.Roster.Flush();      // il menu riparte con tutto scritto su disco
             Coop.Stop("");
             Seats.End();                  // schermo condiviso: via i giocatori in piu' e le porzioni, resta il posto 0 (quello della scena)
             StopAllCoroutines();
@@ -108,7 +112,7 @@ namespace PryingEyes
             score = 500;
             autoTest = HasArg("-autotest") || HasArg("-guntest");
             gunTest = HasArg("-guntest");
-            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-cattedraletest");
+            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-cattedraletest") || HasArg("-desertotest");
             if (autoTest && (HasArg("-procbot") || HasArg("-stealthtest"))) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
             camShots = HasArg("-camshots");
             if (autoTest)
@@ -140,10 +144,10 @@ namespace PryingEyes
         }
 
         /// <summary>Cooperativa, ospitato: l'ospite ha detto seme e piano, si parte da li' (e il menu si toglie di mezzo).</summary>
-        public void BeginCoopRun(int seed, int floor)
+        public void BeginCoopRun(int seed, int floor, bool desert = false)
         {
             GameMenu.I?.CoopEnter();
-            if (proc && Proc.FloorDirector.I != null && Proc.FloorDirector.I.floor == 0) Proc.FloorDirector.I.StartRun(seed, floor);
+            if (proc && Proc.FloorDirector.I != null && Proc.FloorDirector.I.floor == 0) Proc.FloorDirector.I.StartRun(seed, floor, desert);      // desert: l'ospite gioca nel deserto (0.9.1)
         }
 
         /// <summary>Punti (tabella in Punti.cs): +10 per colpo che non uccide, 60 per uccisione, 100 alla testa, 130 col coltello.
@@ -229,13 +233,13 @@ namespace PryingEyes
                         $"{autoT:F0} {wave} {kills} {score} {player.hp:F0} {player.shield:F0} {player.weapon.mag} {player.weapon.reserve} {list.Count} {shotsFired} {shotsHit} {damageTaken} {walkerMaxY:F1}" +
                         $" p({player.transform.position.x:F0},{player.transform.position.y:F0},{player.transform.position.z:F0}){epos}\n");
                 }
-                if (autoT >= 15f && !shot1done && !trailer) { shot1done = true; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot1.png")); }
-                if (autoT >= 75f && !shot2done && !trailer) { shot2done = true; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot2.png")); }
-                if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; WallShot(); }
-                if (camShots && autoT >= 20f && !cam1done) { cam1done = true; CamShot(TestPaths.Out("auto_cam1.png")); }
-                if (camShots && autoT >= 60f && !cam2done) { cam2done = true; CamShot(TestPaths.Out("auto_cam2.png")); }
+                if (autoT >= 15f && !shot1done && !trailer) { shot1done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot1.png")); }
+                if (autoT >= 75f && !shot2done && !trailer) { shot2done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot2.png")); }
+                if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; HarnessShotFrame = Time.frameCount; WallShot(); }
+                if (camShots && autoT >= 20f && !cam1done) { cam1done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam1.png")); }
+                if (camShots && autoT >= 60f && !cam2done) { cam2done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam2.png")); }
                 bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-jellytest") || HasArg("-meleetest") ||
-                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || HasArg("-cattedraletest") || trailer;
+                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || HasArg("-cattedraletest") || HasArg("-desertotest") || trailer;
                 if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
                     Report($"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
@@ -669,6 +673,7 @@ namespace PryingEyes
         {
             kills++;
             int pts = Punti.PerUccisione(src, headshot);
+            if (pts > 0) Characters.Progress.Kill(headshot, src == DamageSource.Knife || src == DamageSource.Takedown);       // l'esperienza del personaggio di chi gira
             if (Cattedrale.Catacombe.Attive) pts = Mathf.RoundToInt(pts * Cattedrale.Fabbrica.PuntiUccisioneMul);      // la Decima dell'altare
             AddPoints(pts);
             if (headshot) headshots++;

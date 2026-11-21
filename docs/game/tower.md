@@ -254,7 +254,7 @@ Boss: the guardian in the boss room is the heavy version of the theme (`FloorDir
 
 Base light is higher, and the fog softens distance, with cooler tones in the church wing. The **Luminosità** (brightness) slider is in the settings of the start menu and the pause menu. It adjusts exposure immediately and saves the value for later runs.
 
-Stained-glass windows with the Occhio are real-time coloured lights that cast the shadows of the pews. Only nearby lights are on, and only the four nearest cast shadows (`LightPool`; not verified).
+Stained-glass windows with the Occhio are real-time coloured lights that cast the shadows of the pews. Only nearby lights are on, and only the four nearest cast shadows (`LightPool`; a lamp that already casts keeps its shadow until another is 1.5 m nearer, so that standing under a lamp the shadows of the two lamps at the same distance no longer blink: 48 changes in 10 s measured by `-desertonly luci`, none after; the look of the pews' shadows was not verified).
 
 The wings and rooms have their own ambience (`ProcAmbience.cs`): organ and a long reverb in the church, a hum and a short echo in the hotel, distant tolls, a gramophone waltz.
 
@@ -329,7 +329,7 @@ The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namesp
 - `ProcLift.cs`: lifts.
 - `Candelabro.cs`: candelabra. The decorative ones are lit; the objective ones are lit by the player.
 - `Interact.cs`: the `F` interaction.
-- `LightPool.cs`: pool of lights (only nearby ones on, only the four nearest cast shadows; not verified).
+- `LightPool.cs`: pool of lights (only nearby ones on, only the four nearest cast shadows, with a 1.5 m advantage for the ones that already do; see above).
 - `ProcAmbience.cs`: ambience (organ and long reverb in the church, hum and short echo in the hotel, distant tolls, gramophone waltz).
 - `Power.cs`: power. Books, altars and some other things work only with power.
 - `RoomAccessState.cs`, `RoomAccessDoors.cs`: the paid doors of the wave cycle.

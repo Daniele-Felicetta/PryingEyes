@@ -16,6 +16,8 @@ namespace PryingEyes.Proc
         public float baseI, delay;
         /// <summary>-1 da vedere; 1 se un tremolio (LampFlicker, LightPulse, NeonFlicker) la riscrive a ogni fotogramma.</summary>
         public int driven = -1;
+        /// <summary>Faceva ombra all'ultimo giro del pool: chi la fa gia' parte avvantaggiato (LightPool.ShadowKeep), cosi' due lampade a pari distanza non si danno il cambio a ogni giro.</summary>
+        public bool casting;
     }
 
     /// <summary>Con la luce in tempo reale ogni stanza ha le sue lampade, ma solo quelle vicine al giocatore servono:
@@ -29,6 +31,9 @@ namespace PryingEyes.Proc
         const float CullExtra = 14f;
         public static int MaxShadows = 4;
         public static float ShadowDist = 11f;
+        /// <summary>Quanto (m) una lampada che gia' fa ombra ha di vantaggio sulle altre, e di quanto puo' superare ShadowDist prima di perderla. Senza, chi sta sotto una lampada (due altre a pari distanza per il
+        /// quarto posto) o a un passo da ShadowDist vedeva accendersi e spegnersi le ombre a ogni giro del pool, cinque volte al secondo, per l'oscillazione della testa (-desertonly luci: 48 cambi in 10 s).</summary>
+        public const float ShadowKeep = 1.5f;
         /// <summary>Scala di tutte le luci del piano create dopo (le ricette di arredo la leggono in RoomKits.AddLight): piu' si scende, piu' buio.
         /// Con 1 i piani restano come nelle foto in editor.</summary>
         public static float Dim = 1f;
@@ -172,11 +177,12 @@ namespace PryingEyes.Proc
                 bool on = e.wanted && (d < e.range + CullExtra || (cam.HasValue && (lp - cam.Value).magnitude < e.range + CullExtra));
                 if (e.l.enabled != on) e.l.enabled = on;
                 e.l.shadows = LightShadows.None;
-                if (e.canShadow && on && d < ShadowDist) near.Add((d, i));
+                if (e.canShadow && on && d < ShadowDist + (e.casting ? ShadowKeep : 0f)) near.Add((e.casting ? d - ShadowKeep : d, i));
             }
             near.Sort((a, b) => a.d.CompareTo(b.d));
             int shadowMax = viewN > 1 ? MaxShadows + viewN - 1 : MaxShadows;       // a schermo condiviso un'ombra in piu' per giocatore
-            for (int k = 0; k < near.Count && k < shadowMax; k++) all[near[k].i].l.shadows = LightShadows.Soft;
+            for (int i = 0; i < all.Count; i++) all[i].casting = false;
+            for (int k = 0; k < near.Count && k < shadowMax; k++) { var e = all[near[k].i]; e.l.shadows = LightShadows.Soft; e.casting = true; }
             Enemy.UpdateBudgets(p);      // ombre e dettaglio dei corpi in base alla distanza e alla folla (Enemy.Budget.cs)
         }
 

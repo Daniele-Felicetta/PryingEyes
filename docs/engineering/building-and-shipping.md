@@ -96,12 +96,12 @@ The gate is the set of checks that must pass before a change counts as done:
 1. `python tools/check_suite.py`: the boundaries of the reusable packages and engine, and the documentation (links, index, no
    machine-specific paths).
 2. `python -m unittest discover -s tools -p "test_*.py"`: the hermetic unit suite.
-3. `python tools/studio.py test weapon-state`, `python tools/studio.py test survival` and `python tools/studio.py test economy`: the three .NET rule labs.
+3. `python tools/studio.py test weapon-state`, `python tools/studio.py test survival`, `python tools/studio.py test economy` and `python tools/studio.py test saves`: the four .NET rule labs.
 
 `ship.ps1` runs the first two before every commit. The third needs the project lock, which fails with `PROJECT_BUSY` while another
 agent has a production running, so it only runs on GitHub: `.github/workflows/gate.yml` runs all three on every push to `preview` and every
-pull request against it, on a Windows runner, from a sparse checkout of a few MB (the `sparse-checkout` block of the workflow lists the
-only paths the gate reads: add a path there when a check starts reading a new one). The lab reports are kept as the `lab-reports`
+pull request against it, on a Windows runner, from a sparse checkout of about 20 MiB (the `sparse-checkout` block of the workflow lists the
+only paths the gate reads: add a path there when a check starts reading a new one, and when a wiki page cites a new source). The lab reports are kept as the `lab-reports`
 artifact. There is no branch protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: look at the
 latest run before starting work (`gh run list --branch preview --limit 1`) and fix a red one first.
 

@@ -27,7 +27,12 @@ namespace PryingEyes.Proc
         /// <summary>Dove si nasce: in fondo al sagrato, guardando la facciata (m).</summary>
         public const float SpawnX = 18f, SpawnZ = 2.6f;
 
-        public static Plan Build(Func<string, bool> built)
+        /// <summary>Il deserto aggiunge l'armeria (le armi buone, a prezzo doppio) sul lato est della navatella.</summary>
+        public const int Armeria = 10;
+        /// <summary>Le scale del sagrato nel deserto: la porta larga nel parapetto sud, dove si scende sulla sabbia (m).</summary>
+        public const float StairX0 = 11f, StairX1 = 25f;
+
+        public static Plan Build(Func<string, bool> built, bool desert = false)
         {
             if (built == null) built = _ => false;
             var p = new Plan { seed = 1717, floor = 0, name = "La Cattedrale", epithet = "La tua cattedrale, da ricostruire", hub = true, theme = Theme.Albergo, startInChurch = true };
@@ -52,6 +57,7 @@ namespace PryingEyes.Proc
             R(RoomKind.Cripta, 30, 540, 120, 630, 5f, CeilKind.BarrelRound, true, 6.6f, "La discesa alle catacombe");
             R(RoomKind.Presbiterio, 120, 540, 240, 660, PlanGen.CathedralLow, CeilKind.BarrelPointed, true, PlanGen.CathedralLow + 5.2f, "Il presbiterio");
             R(RoomKind.Sacrestia, 240, 540, 330, 630, 5f, CeilKind.Beams, true, 5f, "La sacrestia");
+            if (desert) R(RoomKind.Sacrestia, 300, 240, 470, 380, 5f, CeilKind.Beams, true, 5f, "L'armeria");
 
             void Open(int a, int b, bool alongX, int line, int center, int width, OpenStyle style, float top = -1f)
             {
@@ -79,12 +85,27 @@ namespace PryingEyes.Proc
             Open(Presbiterio, Cripta, false, 120, 600, 12, OpenStyle.Porta);
             Open(NavatellaE, Sacrestia, true, 540, 270, 14, OpenStyle.Porta);
             Open(Presbiterio, Sacrestia, false, 240, 600, 12, OpenStyle.Porta);
+            if (desert)
+            {
+                // la porta dell'armeria (la lancetta della navatella che stava qui si toglie) e la porta larga del sagrato sulla sabbia
+                Open(NavatellaE, Armeria, false, 300, 310, 14, OpenStyle.Arco);
+                var exit = new Opening { a = Sagrato, b = -1, alongX = true, line = 0, center = (int)((StairX0 + StairX1) * 5f), width = (int)((StairX1 - StairX0) * 10f), style = OpenStyle.PortaLarga, noGlass = true };
+                Opening.Defaults(exit);
+                exit.top = Opening.ParapetTop;      // il sagrato ha un parapetto, non un muro di tre metri: piu' in alto l'intradosso e le spalle restavano in aria sopra la scalinata
+                p.openings.Add(exit);
+            }
 
             // finestre: le navatelle sul vuoto, le tre lancette dell'abside, le feritoie della cripta e della torre
             foreach (int z in VetrateZ)
             {
                 Window(NavatellaO, false, 60, z, 12, OpenStyle.Lancetta, 1.9f, 5.0f, false, 1);
-                Window(NavatellaE, false, 300, z, 12, OpenStyle.Lancetta, 1.9f, 5.0f, false, 2);
+                if (!desert || z > 400) Window(NavatellaE, false, 300, z, 12, OpenStyle.Lancetta, 1.9f, 5.0f, false, 2);      // sul muro dell'armeria non c'e' piu' il vuoto
+            }
+            if (desert)
+            {
+                // l'armeria vede il deserto da finestre alte (i pannelli delle armi stanno piu' in basso)
+                foreach (int x in new[] { 340, 385, 430 }) { Window(Armeria, true, 240, x, 12, OpenStyle.Lancetta, 2.7f, 4.5f, false, 2); Window(Armeria, true, 380, x, 12, OpenStyle.Lancetta, 2.7f, 4.5f, false, 2); }
+                foreach (int z in new[] { 280, 340 }) Window(Armeria, false, 470, z, 12, OpenStyle.Lancetta, 2.7f, 4.5f, false, 2);
             }
             foreach (int x in new[] { 150, 180, 210 }) Window(Presbiterio, true, 660, x, 14, OpenStyle.Lancetta, 2.6f, 10.2f, false, 3);
             Window(Sacrestia, false, 330, 585, 14, OpenStyle.Finestra, 0.95f, 2.45f);

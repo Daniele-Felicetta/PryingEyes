@@ -37,6 +37,10 @@ namespace PryingEyes
         static NavMeshData data;
         public static bool Ready { get; private set; }
 
+        /// <summary>Il deserto costruisce la sua navmesh a tasselli (Deserto/DesertNav.cs) e dice qui quando c'e': chi controlla Ready (la nascita
+        /// dei nemici) funziona come nei piani.</summary>
+        public static void SetExternalReady(bool ready) { Ready = ready; }
+
         public static void Build()
         {
             if (Ready) return;

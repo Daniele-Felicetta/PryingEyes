@@ -292,6 +292,7 @@ namespace PryingEyes
 
             Structure(seats, n);
             ContextSwap(seats);
+            CharacterChecks(seats);
             yield return MonitorWindows();
             yield return Photo("1-arrivo");
             yield return SeatMaps(seats);
@@ -852,6 +853,40 @@ namespace PryingEyes
             Check($"{n} bersagli per i nemici, uno per posto (slot 0..{n - 1}), il primo e' quello locale", targets);
             Check("Seats.Slot e' lo slot del posto che gira (a riposo il primo)", Seats.Slot == 0 && Seats.OfSlot(1) == seats[1] && Seats.OfSlot(n) == null);
             Check("lo schermo condiviso non e' la cooperativa in rete", !Coop.Active);
+        }
+
+        /// <summary>I personaggi dei posti (0.9): ognuno ha il suo personaggio, il suo aspetto e la sua cattedrale, e dentro un posto la Fabbrica e' la sua;
+        /// il bottino preso da un posto va nel magazzino del suo personaggio e in nessun altro.</summary>
+        void CharacterChecks(Seat[] seats)
+        {
+            int n = seats.Length;
+            var ids = new HashSet<string>(); var looks = new HashSet<string>(); var states = new HashSet<object>();
+            bool all = true;
+            foreach (var s in seats)
+            {
+                all &= s.character != null && s.cathedral != null && !string.IsNullOrEmpty(s.look);
+                if (s.character != null) ids.Add(s.character.id);
+                if (s.look != null) looks.Add(s.look);
+                if (s.cathedral != null) states.Add(s.cathedral);
+            }
+            Check($"{n} posti: ognuno ha un personaggio e una cattedrale, tutti diversi", all && ids.Count == n && states.Count == n);
+            Check("gli aspetti in partita sono tutti diversi", looks.Count == n);
+            Check("il posto 1 e' il personaggio locale e a riposo ha la sua cattedrale", seats[0].character == PryingEyes.Characters.Roster.Local && Cattedrale.Fabbrica.Corrente == seats[0].cathedral);
+            bool names = true;
+            foreach (var s in seats) names &= s.Name == s.character.name;
+            Check("il nome di ogni posto e' quello del suo personaggio", names);
+            bool inside = true;
+            foreach (var s in seats) using (Seats.Enter(s)) inside &= Cattedrale.Fabbrica.Corrente == s.cathedral && Cattedrale.Fabbrica.Proprietario == s.character;
+            Check("dentro un posto la Fabbrica e' quella del suo personaggio", inside);
+            var before = new int[n];
+            for (int i = 0; i < n; i++) using (Seats.Enter(seats[i])) before[i] = Cattedrale.Fabbrica.Totale(Cattedrale.Risorse.Ossa);
+            int taker = n - 1;
+            using (Seats.Enter(seats[taker])) Cattedrale.Fabbrica.Raccogli(Production.Economy.Bundle.One(Cattedrale.Risorse.Ossa, 3));
+            bool lands = true;
+            for (int i = 0; i < n; i++)
+                using (Seats.Enter(seats[i])) lands &= Cattedrale.Fabbrica.Totale(Cattedrale.Risorse.Ossa) == before[i] + (i == taker ? 3 : 0);
+            Check($"3 ossa raccolte dal posto {taker + 1} stanno solo nel suo magazzino", lands);
+            Check("finito il giro e' di nuovo installata la cattedrale del posto 1", Cattedrale.Fabbrica.Corrente == seats[0].cathedral);
         }
 
         void ContextSwap(Seat[] seats)

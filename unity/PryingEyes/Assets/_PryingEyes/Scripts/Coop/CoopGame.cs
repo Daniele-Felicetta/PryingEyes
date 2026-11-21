@@ -47,6 +47,33 @@ namespace PryingEyes
         public static string MyName => string.IsNullOrEmpty(Coop.PlayerName) ? "Giocatore " + (Coop.Slot + 1) : Coop.PlayerName;
         public string NameOf(int slot) => slot == Coop.Slot ? MyName : names.TryGetValue(slot, out var n) ? n : "Giocatore " + (slot + 1);
 
+        // il personaggio di ognuno: aspetto (l'ospite toglie i doppioni) e livello, scelti nel menu di chi gioca (Characters.Roster)
+        readonly Dictionary<int, string> looks = new Dictionary<int, string>();
+        readonly Dictionary<int, int> levels = new Dictionary<int, int>();
+        static string TestArg(string flag)
+        {
+            var a = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i < a.Length - 1; i++) if (a[i] == flag) return a[i + 1];
+            return null;
+        }
+
+        /// <summary>L'aspetto da mandare all'ospite: quello del personaggio. Le prove automatiche non hanno un personaggio vero: mandano "" (il corpo
+        /// resta quello dello slot) oppure quello dato con -cooplook ID (la prova "aspetti", CoopTest.CheckCharacters).</summary>
+        static string SentLook => Characters.Roster.IsTest ? (TestArg("-cooplook") ?? "") : Characters.Roster.Local == null ? "" : Characters.Roster.Local.look;
+        /// <summary>Il livello da mandare: quello del personaggio; nelle prove 1, o quello dato con -cooplevel N.</summary>
+        static int SentLevel => Characters.Roster.IsTest ? (int.TryParse(TestArg("-cooplevel"), out int lv) ? Mathf.Clamp(lv, 1, Characters.Leveling.MaxLevel) : 1) : Characters.Roster.Local == null ? 1 : Characters.Roster.Local.Level;
+        public string LookOf(int slot) => slot == Coop.Slot ? (Coop.MyLook ?? "") : looks.TryGetValue(slot, out var l) ? l : "";
+        public int LevelOf(int slot) => slot == Coop.Slot ? SentLevel : levels.TryGetValue(slot, out var v) ? v : 1;
+
+        /// <summary>Ospite: l'aspetto che 'slot' avra' in questa partita: quello che chiede se nessun altro lo ha gia', altrimenti il primo libero.</summary>
+        string ResolveLook(int slot, string wanted)
+        {
+            if (string.IsNullOrEmpty(wanted)) return "";
+            var taken = new HashSet<string>();
+            foreach (var kv in looks) if (kv.Key != slot && !string.IsNullOrEmpty(kv.Value)) taken.Add(kv.Value);
+            return Characters.CharacterLooks.Resolve(wanted, taken);
+        }
+
         public static CoopGame Begin(CoopNet net, bool host)
         {
             var go = new GameObject("CoopGame");
@@ -57,7 +84,7 @@ namespace PryingEyes
             net.Message += g.OnMessage;
             net.Authenticated += g.OnAuthenticated;
             net.Closed += g.OnClosed;
-            if (host) { g.Started = true; g.names[0] = MyName; }
+            if (host) { g.Started = true; g.names[0] = MyName; g.looks[0] = SentLook; g.levels[0] = SentLevel; Coop.MyLook = SentLook; }
             return g;
         }
 
@@ -87,7 +114,7 @@ namespace PryingEyes
         void OnAuthenticated()
         {
             // ammesso (versione compatibile, posto libero): dico chi sono, l'ospite risponde col saluto
-            net.SendToHost(CoopKind.Hello, w.Reset().Str(Coop.PlayerName).ToArray());
+            net.SendToHost(CoopKind.Hello, w.Reset().Str(Coop.PlayerName).Str(SentLook).U16(SentLevel).ToArray());
         }
 
         void OnClosed(string why)
@@ -106,14 +133,14 @@ namespace PryingEyes
             states.Remove(slot); readyEpoch.Remove(slot);
             net.SendToAll(CoopKind.PlayerLeft, w.Reset().U8(slot).ToArray());
             HostPlayerGone(slot);
-            names.Remove(slot);
+            names.Remove(slot); looks.Remove(slot); levels.Remove(slot);
         }
 
         RemotePlayer GetPlayer(int slot)
         {
             if (slot == Coop.Slot || slot < 0 || slot >= CoopProtocol.MaxPlayers) return null;
             if (Players.TryGetValue(slot, out var rp) && rp != null) return rp;
-            rp = RemotePlayer.Create(slot, NameOf(slot));
+            rp = RemotePlayer.Create(slot, NameOf(slot), LookOf(slot), LevelOf(slot));
             Players[slot] = rp;
             return rp;
         }
@@ -139,8 +166,11 @@ namespace PryingEyes
             {
                 case CoopKind.Hello:
                 {
-                    string n = r.Str();
+                    string n = r.Str(), wantedLook = r.Str();
+                    int level = r.U16();
                     names[from] = string.IsNullOrWhiteSpace(n) ? "Giocatore " + (from + 1) : n;
+                    looks[from] = ResolveLook(from, wantedLook);
+                    levels[from] = Mathf.Clamp(level, 1, Characters.Leveling.MaxLevel);
                     TryWelcome(from);
                     break;
                 }
@@ -177,23 +207,28 @@ namespace PryingEyes
                     if (!r.Ok || Started) return;
                     Coop.Slot = slot;
                     Epoch = ep; epochFloor = floor;
+                    var others = new List<int>();
                     for (int i = 0; i < n; i++)
                     {
-                        int s = r.U8(); string nm = r.Str();
+                        int s = r.U8(); string nm = r.Str(), lk = r.Str(); int lv = r.U16();
                         if (!r.Ok) break;
-                        names[s] = nm;
-                        if (s != slot) GetPlayer(s);
+                        names[s] = nm; looks[s] = lk; levels[s] = Mathf.Clamp(lv, 1, Characters.Leveling.MaxLevel);
+                        if (s != slot) others.Add(s);
                     }
+                    string myLook = r.Str();          // l'aspetto che l'ospite mi ha dato (il mio, se nessuno lo aveva gia')
+                    if (r.Ok) Coop.MyLook = myLook;
+                    bool desert = r.Ok && r.Left > 0 && r.Bool();          // il modo di gioco dell'ospite: il deserto (0.9.1) o i piani
+                    foreach (int s in others) GetPlayer(s);
                     Started = true;
-                    Debug.Log($"[PryingEyes] coop: ammesso come slot {slot} ({MyName}), piano {floor} seme {seed} epoca {ep}, {n} giocatori");
-                    GameManager.I?.BeginCoopRun(seed, floor);
+                    Debug.Log($"[PryingEyes] coop: ammesso come slot {slot} ({MyName}), {(desert ? "deserto" : "piano " + floor)} seme {seed} epoca {ep}, {n} giocatori");
+                    GameManager.I?.BeginCoopRun(seed, floor, desert);
                     break;
                 }
                 case CoopKind.PlayerJoined:
                 {
-                    int s = r.U8(); string nm = r.Str();
+                    int s = r.U8(); string nm = r.Str(), lk = r.Str(); int lv = r.U16();
                     if (!r.Ok || s == Coop.Slot) return;
-                    names[s] = nm;
+                    names[s] = nm; looks[s] = lk; levels[s] = Mathf.Clamp(lv, 1, Characters.Leveling.MaxLevel);
                     GetPlayer(s)?.SetName(nm);
                     GameManager.I?.hud?.Toast(nm + " e' entrato nella partita.");
                     break;
@@ -204,7 +239,7 @@ namespace PryingEyes
                     if (!r.Ok) return;
                     GameManager.I?.hud?.Toast(NameOf(s) + " ha lasciato la partita.");
                     RemovePlayer(s);
-                    names.Remove(s);
+                    names.Remove(s); looks.Remove(s); levels.Remove(s);
                     break;
                 }
                 case CoopKind.PlayersState:
@@ -241,7 +276,8 @@ namespace PryingEyes
         void TryWelcome(int slot)
         {
             var fd = FloorDirector.I;
-            if (fd == null || fd.floor == 0 || Epoch == 0)
+            bool desert = Deserto.DesertMode.Active;          // il deserto sta tutto nel piano 0 (la cattedrale): e' la partita dell'ospite, che deve essere partita (epoca)
+            if (fd == null || (fd.floor == 0 && !desert) || Epoch == 0)
             {
                 if (!pendingWelcome.Contains(slot)) pendingWelcome.Add(slot);      // la partita dell'ospite non e' ancora partita
                 return;
@@ -250,9 +286,11 @@ namespace PryingEyes
             var list = new List<int> { 0 };
             foreach (int s in net.RemoteSlots) if (s != slot && names.ContainsKey(s)) list.Add(s);
             w.U8(list.Count);
-            foreach (int s in list) w.U8(s).Str(NameOf(s));
+            foreach (int s in list) w.U8(s).Str(NameOf(s)).Str(LookOf(s)).U16(LevelOf(s));
+            w.Str(LookOf(slot));                      // l'aspetto del nuovo arrivato, tolti i doppioni
+            w.Bool(desert);                           // il modo di gioco (0.9.1): chi entra parte nel deserto o nel piano
             net.SendToSlot(slot, CoopKind.Welcome, w.ToArray());
-            net.SendToAll(CoopKind.PlayerJoined, w.Reset().U8(slot).Str(NameOf(slot)).ToArray(), true, slot);
+            net.SendToAll(CoopKind.PlayerJoined, w.Reset().U8(slot).Str(NameOf(slot)).Str(LookOf(slot)).U16(LevelOf(slot)).ToArray(), true, slot);
             GetPlayer(slot);
             GameManager.I?.hud?.Toast(NameOf(slot) + " e' entrato nella partita.");
             Debug.Log($"[PryingEyes] coop: {NameOf(slot)} (slot {slot}) salutato: piano {epochFloor} seme {fd.runSeed} epoca {Epoch}");
@@ -265,7 +303,7 @@ namespace PryingEyes
         {
             builtLocal = false; readySent = false;
             foreach (var rp in Players.Values) if (rp != null) rp.DropLight();
-            if (host && epochFloor != floor) AnnounceFloor(floor);
+            if (host && (epochFloor != floor || Epoch == 0)) AnnounceFloor(floor);       // Epoch 0: il deserto comincia nel piano 0, e la prima epoca non c'e' ancora
             OnFloorStartWorld();
         }
 
@@ -317,7 +355,8 @@ namespace PryingEyes
             var s = new PlayerNet { epoch = FloorBuilt ? EpochByte : 0 };
             if (pl == null) return s;
             s.pos = pl.transform.position; s.yaw = pl.yaw; s.pitch = pl.pitch;
-            s.alive = pl.alive; s.crouch = pl.IsCrouching; s.sprint = pl.IsSprinting;
+            s.alive = pl.alive; s.crouch = pl.IsCrouching || pl.Riding; s.sprint = pl.IsSprinting;
+            s.riding = pl.Riding; s.heading = pl.Riding ? pl.RideHeading : pl.yaw;          // in sella: verso dove punta la moto (lo sguardo e' un altro angolo)
             s.torch = Torch.I != null && Torch.I.Lit;
             s.speedH = pl.SpeedH;
             s.lum = Mathf.Clamp01(Stealth.PlayerLum);

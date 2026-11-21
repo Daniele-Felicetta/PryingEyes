@@ -39,6 +39,8 @@ namespace PryingEyes
         public static Vector3 botLook;
         /// <summary>Solo per le prove (-autotest): tiene premuto il tasto per accovacciarsi (il passaggio basso della stanza segreta).</summary>
         public static bool botCrouch;
+        /// <summary>Solo per le prove (-autotest): tiene premuto il tasto della corsa (le scale della cattedrale di corsa: -desertonly scale).</summary>
+        public static bool botSprint;
         /// <summary>Solo per le prove: lean forzato (-1 sinistra, +1 destra); NaN = usa la tastiera.</summary>
         public static float debugLean = float.NaN;
         float lastDamage = -99f, respawnT = 0f;
@@ -74,7 +76,10 @@ namespace PryingEyes
             {
                 var fd = Proc.FloorDirector.I;
                 var room = fd != null && fd.cur != null ? fd.cur.RoomAt(p) : null;
-                return room != null ? Proc.FloorBuilder.Surface(room, fd.cur.plan.theme) : 0;
+                if (room != null) return Proc.FloorBuilder.Surface(room, fd.cur.plan.theme);
+                // nel deserto, fuori dalla cattedrale: sulla sabbia i passi sono quelli della sabbia (3), nei luoghi quelli della pietra
+                if (Deserto.DesertMode.Active && Physics.Raycast(p + Vector3.up * 0.4f, Vector3.down, out var under, 1.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore) && Deserto.DesertTerrain.IsSand(under.collider)) return 3;
+                return 0;
             }
             if (p.y > 3.5f) return 2;
             bool In(float x0, float x1, float z0, float z1) => p.x > x0 && p.x < x1 && p.z > z0 && p.z < z1;
@@ -82,10 +87,18 @@ namespace PryingEyes
             return 0;
         }
 
+        /// <summary>Su che cosa cammina adesso: 0 marmo, 1 moquette, 2 legno, 3 sabbia (lo leggono le prove).</summary>
+        public int FootSurface => Surface();
+
         /// <summary>Sposta il giocatore senza cambiare il punto di rinascita.</summary>
         public void Teleport(Vector3 p)
         {
             if (cc == null) cc = GetComponent<CharacterController>();
+#if !PE_DISTRIBUTION_BUILD
+            // diagnostica delle prove: un pilota gia' in sella da piu' di mezzo secondo non dovrebbe essere spostato di decine di metri; se succede, il registro dice da dove e chi l'ha chiamato
+            if (Riding && rideBlend >= 1f && (p - transform.position).sqrMagnitude > 225f)
+                Debug.Log($"[PryingEyes] teleporto in sella: da {transform.position:F1} a {p:F1}, chiamato da:\n{new System.Diagnostics.StackTrace(1, false)}");
+#endif
             CancelMantle();
             cc.enabled = false;
             transform.position = p;
@@ -226,6 +239,7 @@ namespace PryingEyes
             if (cam == null || weapon == null || (GameMenu.Blocked && !Coop.Active)) return;
             float dt = Time.deltaTime;
             TickSurvival(dt);
+            if (Riding && (!alive || Downed)) AbortRide();          // a terra o morti si lascia la moto dov'e' (PlayerController.Ride.cs)
             if (!alive)
             {
                 respawnT -= dt;
@@ -273,11 +287,13 @@ namespace PryingEyes
                     s = Vector3.Dot(botDir, new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)));
                 }
             }
+            // in sella (moto del deserto) il corpo non cammina: la guida, la camera e le collisioni stanno in PlayerController.Ride.cs
+            if (Riding) { RideTick(dt, f, s, inputEnabled, lookDelta); return; }
             bool crouchKey = SeatInput.GetKey(KeyCode.C) || SeatInput.GetKey(KeyCode.LeftControl);
             bool sprintKey = SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift);
             ToggleKeys(inputEnabled, f, ref crouchKey, ref sprintKey);        // Impostazioni > Comandi: tenendo premuto o a interruttore
             bool wantCrouch = inputEnabled ? crouchKey || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch) : crouch;
-            bool sprintInput = inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint)) && f > 0;
+            bool sprintInput = inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint) || (GameManager.autoTest && botSprint)) && f > 0;
             bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
             if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;
@@ -435,9 +451,15 @@ namespace PryingEyes
                 if (cc.isGrounded && hs > 1.2f)
                 {
                     int surf = Surface();
-                    Synth.Step(surf, Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f));
+                    float stepVol = Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f);
+                    // nelle pozze delle saline (un velo d'acqua sul sale) il passo e' uno sciacquio: niente polvere e niente impronte
+                    bool wading = surf == 3 && Deserto.DesertWorld.Brine(transform.position.x, transform.position.z) > 0.5f;
+                    if (wading) Sfx.UI(SoundBank.Splash, stepVol * 1.6f, Random.Range(0.92f, 1.08f));
+                    else Synth.Step(surf, stepVol);
+                    if (surf == 3 && !crouch && !wading) Deserto.DesertDust.Footstep(transform.position, hs, wantSprint);       // sulla sabbia ogni passo alza un po' di polvere
+                    if (surf == 3 && !wading) Deserto.DesertPrints.Stamp(transform.position, new Vector3(vel.x, 0f, vel.z));      // e lascia la sua impronta, che il vento cancella in un minuto
                     // i preti sentono i passi: piu' lontano di corsa, quasi niente accovacciati o sulla moquette
-                    float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : 1.15f;
+                    float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : surf == 3 ? 1.0f : 1.15f;
                     float loud = crouch || slide ? 0.4f : wantSprint ? 1.6f : 0.95f;
                     Noise.Emit(transform.position, 6.8f * loud * surfK * PerkState.StepNoise, NoiseKind.Step);     // Passi di cenere: -40%
                 }
@@ -571,6 +593,7 @@ namespace PryingEyes
             // mantieni le armi comprate, con caricatore pieno e riserva almeno quella di partenza
             weapon.RespawnAmmo();
             Torch.I?.OnRespawn();
+            Deserto.DesertBikes.ReturnHome(this);          // nel deserto la moto lasciata lontano torna dov'era nata
             hud?.SetBars(hp, shield);
             if (Seats.Split) return;
             Cursor.lockState = GameMenu.Blocked ? CursorLockMode.None : CursorLockMode.Locked;

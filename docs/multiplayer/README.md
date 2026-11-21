@@ -1,6 +1,6 @@
 # Cooperativa online (fino a 4 giocatori)
 
-Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md); con la 0.7.1 `pe-coop-27`: magie e sigilli visibili agli altri, stati dei nemici decisi dall'ospite, annessi di tutti; con la 0.7.2 `pe-coop-28`: a terra e rianimazione; con la 0.8.0 `pe-coop-29`: i compagni sono i quattro sopravvissuti con l'arma in mano, vedi [characters.md](../game/characters.md)). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
+Aggiornato il 15 novembre 2026 (protocollo `pe-coop-25`; dal 16 novembre `pe-coop-26`: il sacrario del grimorio nel piano e la fonte di danno `Magia`, vedi [arms-and-magic.md](../game/arms-and-magic.md); con la 0.7.1 `pe-coop-27`: magie e sigilli visibili agli altri, stati dei nemici decisi dall'ospite, annessi di tutti; con la 0.7.2 `pe-coop-28`: a terra e rianimazione; con la 0.8.0 `pe-coop-29`: i compagni sono i quattro sopravvissuti con l'arma in mano, vedi [characters.md](../game/characters.md); con la 0.9 `pe-coop-30`: il personaggio di ognuno, aspetto e livello, nel saluto, vedi [saves-and-characters.md](../game/saves-and-characters.md); con la 0.9.1 `pe-coop-31`: il deserto in cooperativa, vedi [the-desert.md](../game/the-desert.md); con la moto del deserto `pe-coop-32`: i compagni in sella, vedi "The motorbike" nella stessa pagina; con la moto che investe chi cammina `pe-coop-33`: la fonte di danno `Moto`, stessa pagina). La cooperativa e' dentro il gioco vero (La Torre): ogni giocatore
 gira con la propria copia, uno **ospita** e gli altri si collegano al suo indirizzo. Rete: FishNet 4.7.3 (trasporto
 Tugboat, UDP, porta **7807**), pin al commit `73f30cf2` nel manifest.
 
@@ -10,9 +10,10 @@ Per giocare in piu' persone sullo stesso PC (da due a quattro giocatori nello st
 i controller) non serve niente di tutto questo: menu iniziale, **Schermo condiviso**. Vedi [split-screen.md](split-screen.md). Qui sotto
 si gioca tra macchine diverse.
 
-1. Chi ospita: menu iniziale, **Cooperativa**, scrive il proprio nome e preme **Ospita una partita**. La sua partita
-   parte subito; gli altri entrano quando vogliono (anche a piano iniziato, con un round in corso).
-2. Gli altri: **Cooperativa**, nome, indirizzo dell'ospite, **Unisciti all'indirizzo**. Il menu si toglie da solo
+1. Chi ospita: menu iniziale, **Cooperativa**, guarda il proprio personaggio (la riga *Il tuo personaggio*: nome e livello; si crea o si cambia da **Personaggi**) e preme **Ospita una partita**.
+   Dalla 0.9.1 gli viene chiesto anche che partita ospita (*Che partita ospiti?*: **Standard** o **Il deserto**, la stessa scelta di *Gioca*; la porta si apre dopo la scelta; Indietro e B tornano qui).
+   La sua partita parte subito; gli altri entrano quando vogliono (anche a piano iniziato, con un round in corso, o nel deserto) e partono dove gioca lui: chi entra non sceglie.
+2. Gli altri: **Cooperativa**, il proprio personaggio, indirizzo dell'ospite, **Unisciti all'indirizzo**. Il menu si toglie da solo
    appena l'ospite li saluta. Se la versione del gioco non e' la stessa, l'albergo e' pieno o l'ospite non risponde, il
    menu scrive "Connessione rifiutata o senza risposta" (il motivo non viaggia in rete: l'ospite ne scrive una riga nel log).
 3. Nella stessa rete basta l'indirizzo locale dell'ospite: il gioco lo scrive in alto appena si ospita e nel menu di pausa
@@ -21,16 +22,19 @@ si gioca tra macchine diverse.
    raggiungibile (inoltro sul router); non c'e' ancora nessun relay, quindi dietro CGNAT non e' raggiungibile. In quel caso
    funziona una VPN tra amici (Tailscale, ZeroTier, Radmin VPN: ognuno riceve un indirizzo privato, e si scrive quello).
    Il gioco non tocca router e firewall.
-4. Nomi e ultimo indirizzo restano nelle preferenze del gioco (nome vuoto: "Giocatore N"). Non si usa mai il nome
-   dell'utente di Windows.
+4. Il nome in rete e' quello del personaggio (i personaggi stanno in `characters/`, vedi [saves-and-characters.md](../game/saves-and-characters.md));
+   l'ultimo indirizzo resta nelle preferenze del gioco. Non si usa mai il nome dell'utente di Windows.
 
 **Cosa si condivide.** Un solo albergo per tutti: i nemici (li simula l'ospite, gli altri ne vedono i pupazzi),
 le candele accese, le serrande e i round, l'uscita e la discesa (si scende tutti insieme), le gocce a terra (un
 potenziamento raccolto vale per tutti). Ognuno ha **per conto suo** punti, armi, perk, libri, scrigno e altare, muri
 d'armi, pile e torcia. Una candela da' i suoi 60 punti (e munizioni, e il bonus Fantasma) a chi l'accende; il premio di
 un round va a tutti; un'uccisione paga solo chi ha sparato. Un round si annulla solo se muoiono tutti.
-I compagni si vedono come sopravvissuti (dal 0.8.0 uno per slot: Custode, Dottoressa, Reporter, Cacciatrice, con corpo, gambe che camminano e arma in mano, vedi [characters.md](../game/characters.md)), con la loro torcia e il nome sopra la testa; i nemici cacciano il piu' vicino.
+I compagni si vedono come sopravvissuti (Custode, Dottoressa, Reporter, Cacciatrice, con corpo, gambe che camminano e arma in mano, vedi [characters.md](../game/characters.md): dal 0.8.0 uno per slot, dal 0.9 quello del personaggio che ognuno ha scelto, mai due uguali), con la loro torcia e il nome sopra la testa (col livello, se supera 1); i nemici cacciano il piu' vicino.
 In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tuoi comandi.
+
+**Nel deserto** (0.9.1) un solo mondo per tutti, fatto dallo stesso seme: i nemici (ognuno vede quelli che ha entro 190 m), l'ora del giorno e il boss che cade sono di tutti; punti, armi, perk,
+cattedrale, magazzino, bottino sulla sabbia e trofei restano di ognuno. Come funziona e perche' e' nella pagina del deserto, [the-desert.md](../game/the-desert.md), sezione "Co-op, the minimap and the way home".
 
 ## Come funziona
 
@@ -63,6 +67,13 @@ In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tu
   all'ospite (`AnnexUse`), che lo applica e lo racconta (`AnnexState`); chi entra tardi riceve gli annessi gia' aperti. La
   chiave d'oro e lo scrigno antico dentro restano di ognuno (come lo Scrigno del negozio). Fino alla 0.7.0 ognuno apriva i
   suoi: un compagno vedeva l'altro passare attraverso un muro chiuso.
+- **Il deserto** (0.9.1, `CoopGame.World.cs` in fondo alla parte dei nemici, `Deserto/DesertAnchors.cs`). Il `Welcome` porta un flag col modo di gioco; l'ospitato costruisce il suo deserto dal seme
+  dell'ospite (`FloorDirector.StartRun(coopDesert)`) con la stessa stretta di mano dei piani (la prima epoca: `Coop.OnFloorStart(0)`, `OnFloorBuilt()`, `FloorReady`), e riceve da
+  `HostDesertClientReady` i nemici che ha vicino, l'ora e i boss gia' caduti. L'ospite fa girare i nemici attorno a tutti, e perche' camminino su sabbia, navmesh e luoghi anche lontano dal suo
+  giocatore costruisce il deserto attorno a ogni compagno vivo (`DesertAnchors`). A ogni ospitato manda solo i nemici entro **190 m** da lui e li toglie oltre **230 m** (un `EnemyGone` senza morte; `known[slot]`,
+  controllato ogni 0,3 s): attacchi, grida, dardi e morte vanno solo a chi ne ha il pupazzo, le pose (10 Hz) solo per quelli che conosce. L'ora (`DesertClock`: ore e giorno, non affidabile, ogni 2 s) e' dell'ospite;
+  un boss caduto (`DesertBossDown`: la cella del luogo) lo dice a tutti, che mettono il trofeo nel proprio magazzino, e l'ospite tiene l'elenco per chi arriva tardi. `Enemy.dormant` viaggia nel bit
+  0x80 di `EnemyNet.status`, perche' la minimappa del compagno non mostri come minaccia chi riposa. Fuori dal deserto niente di tutto questo cambia (`CoopGame.Desert` e' falso).
 - **Bersagli multipli.** I nemici scelgono tra tutti i giocatori vivi dello stesso piano (`ITarget`: `LocalTarget` per
   chi gioca qui, `RemotePlayer` per i compagni; `Targets.Nearest/AnyAlive`). Se un compagno se ne va i nemici passano agli
   altri bersagli (provato: l'ospite resta solo e la caccia e il round continuano).
@@ -84,7 +95,7 @@ In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tu
 | `CoopNet.cs`, `FishNetCoopNet.cs` | Trasporto astratto e realizzazione FishNet: ammissione, slot, un solo `CoopPacket` (tipo + byte) con `Broadcast` |
 | `CoopWire.cs` | Tipi di messaggio (`CoopKind`), `CoopProtocol` (revisione, porta, tempi), `NetWriter`/`NetReader` (il lettore non lancia mai) |
 | `CoopGame.cs` | Giocatori, piano ed epoca, saluto, stato di ciascuno, nomi |
-| `CoopGame.World.cs` | Il mondo condiviso: nemici, colpi, rumore, candele, uscita, round, gocce, annunci |
+| `CoopGame.World.cs` | Il mondo condiviso: nemici, colpi, rumore, candele, uscita, round, gocce, annunci; dalla 0.9.1 anche il deserto (nemici per vicinanza, ora, boss caduti) |
 | `CoopGame.Rooms.cs` | Acquisto delle aree: richiesta del client con i punti messi da parte, convalida e risposta dell'ospite, stato delle aree |
 | `CoopGame.Traps.cs` | Trappole delle soglie (`DoorTraps`): il client riserva i punti e chiede, l'ospite accende e manda lo stato |
 | `CoopGame.Power.cs` | Corrente del piano (leva del quadro): il client chiede, l'ospite accende e lo dice a tutti |
@@ -93,7 +104,8 @@ In pausa il gioco non si ferma (gli altri continuano): la pausa blocca solo i tu
 | `CoopGame.Revive.cs` | Rianimazione in rete (0.7.2): `ReviveRemote`, `ReviveClaim` all'ospite (controlla che chi rialza sia pronto e a meno di 4 m), `Revived` a chi era a terra |
 | `Enemy.Net.cs` | Pupazzi dei nemici e stato di rete |
 | `Targets.cs`, `RemotePlayer.cs` | Bersagli multipli e compagni (un `SurvivorBody` con torcia, nome e posa interpolata; il pupazzo di capsule resta solo se manca il modello) |
-| `CoopTest.cs`, `CoopTest.Survival.cs` | Prova automatica a piu' processi (solo con `-cooptest`); la seconda ha i passi del ciclo a ondate |
+| `CoopTest.cs`, `CoopTest.Survival.cs`, `CoopTest.Desert.cs` | Prova automatica a piu' processi (solo con `-cooptest`); la seconda ha i passi del ciclo a ondate, la terza quelli del deserto (`-coopdeserto`) |
+| `Deserto/DesertAnchors.cs` | I punti dei compagni attorno a cui l'ospite costruisce il deserto (sabbia, navmesh, luoghi, sassi); vuoto da soli e sugli ospitati |
 
 L'ammissione (revisione del protocollo, capienza, tempo massimo) la fa `FishNetSeatAuthenticator`, scritto da ChatGPT nella
 sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti toccati sono: `Enemy` (+`Stealth`, `Knife`,
@@ -104,7 +116,7 @@ sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti 
 
 ## Protocollo
 
-Revisione **`pe-coop-29`** (0.8.0: `PlayerNet` finisce con `gun`, l'indice dell'arma in mano in `WeaponDefs.All` (255 = nessuna), e un byte con `ads` e `reloading`; `PlayerNet.weapon` resta lo slot dell'arma, che serve alle magie; i sopravvissuti li usano per tenere l'arma in mano, mirare e ricaricare; `pe-coop-28`: `PlayerNet.downed` nel bit 128 dei flag e `bleed` in un byte da 1/8 di secondo, `ReviveClaim`, `Revived`; `pe-coop-27` con la 0.7.1: magie e sigilli, `StatusClaim`, stati in `EnemyNet`, annessi; `pe-coop-26` dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
+Revisione **`pe-coop-33`** (la moto che investe chi cammina: `DamageSource.Moto` e' la fonte numero 7 e `Punti.LastSource`; `HitClaim`, `EnemyDied` e `KillCredit` la portano come le altre, e una macchina con la revisione vecchia, che accetta le fonti fino alla `Magia` (6), scarterebbe in silenzio il colpo di un compagno in sella: per questo la revisione cambia e le due versioni non entrano nella stessa partita; chi investe manda un `HitClaim` per ogni corpo, l'ospite lo applica e lo paga come mezza uccisione (`Punti.Investito`, 30); il resto dei messaggi non cambia; il passo del colpo a un pupazzo di `CoopTest` usa la fonte `Moto` per il secondo dei tre colpi); `pe-coop-32` (la moto del deserto: nel secondo byte dei flag di `PlayerNet` il bit 4 e' `riding` (il giocatore e' in sella) e `PlayerNet` finisce con `heading`, un byte (`CoopProtocol.QuantYaw`) con la direzione verso cui punta la moto, che non e' quella in cui guarda il giocatore; chi la riceve fa nascere la moto sotto il pupazzo (`RemotePlayer.TickBike`), lo mette in sella e la inclina secondo quanto gira; la moto parcheggiata di un compagno non si vede, perche' ogni macchina costruisce solo quella del proprio slot); `pe-coop-31`, 0.9.1: il deserto in cooperativa: `Welcome` finisce con un `Bool`, il modo di gioco dell'ospite (deserto o piani); due messaggi nuovi dall'ospite, `DesertBossDown` (la cella del luogo, due `I32`: un boss e' caduto, per tutti) e `DesertClock` (ore `F32` e giorno `I32`, non affidabile, ogni 2 s); `EnemyNet.status` usa anche il bit `0x80` per `Enemy.dormant`; con il deserto `EnemySpawn`, `EnemyGone`, `EnemyEvent`, `EnemyState` e `Bolt` vanno solo a chi ha il nemico vicino; `pe-coop-30`, 0.9: il saluto porta il personaggio di ognuno: `Hello` = nome, aspetto (testo, vuoto nelle prove) e livello (`U16`); `Welcome` = slot, seme, piano, epoca e, per ogni giocatore presente, slot, nome, aspetto e livello, poi l'aspetto che l'ospite da' al nuovo arrivato; `PlayerJoined` = slot, nome, aspetto, livello; l'ospite tiene l'aspetto chiesto e da' il primo libero a chi ne chiede uno gia' preso, `CharacterLooks.Resolve`; `pe-coop-29`, 0.8.0: `PlayerNet` finisce con `gun`, l'indice dell'arma in mano in `WeaponDefs.All` (255 = nessuna), e un byte con `ads` e `reloading`; `PlayerNet.weapon` resta lo slot dell'arma, che serve alle magie; i sopravvissuti li usano per tenere l'arma in mano, mirare e ricaricare; `pe-coop-28`: `PlayerNet.downed` nel bit 128 dei flag e `bleed` in un byte da 1/8 di secondo, `ReviveClaim`, `Revived`; `pe-coop-27` con la 0.7.1: magie e sigilli, `StatusClaim`, stati in `EnemyNet`, annessi; `pe-coop-26` dal 16 novembre 2026: sacrario del grimorio e fonte di danno `Magia`; `CoopProtocol.Revision`; l'ammissione usa `CoopProtocol.ContentRevision`, cioe' la revisione con l'hash
 del catalogo delle armi in coda): da alzare a ogni cambio di formato dei messaggi o delle regole del piano;
 chi ne ha un'altra viene rifiutato all'ingresso. Un pacchetto non affidabile resta sotto 900 byte (l'MTU di Tugboat e' 1023).
 La revisione 3 mantiene i messaggi della 2 ma cambia la verifica del posizionamento dei santuari: controlla la linea
@@ -162,7 +174,7 @@ Ogni cambio di revisione richiede la stessa build su tutte le macchine.
 | Direzione | Messaggi |
 | --- | --- |
 | giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `BuyRoom`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent`, `UseTrap`, `BarrelHit`, `UsePower`, `ChandelierHit`, `LampHit`, `SpellCast`, `StatusClaim`, `AnnexUse`, `ReviveClaim` |
-| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `RoomsState`, `RoomReply`, `TrapsState`, `TrapReply`, `BarrelGone`, `PowerState`, `ChandelierDrop`, `LampBroken`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport`, `SpellFx`, `AnnexState`, `Revived` |
+| ospite -> giocatore | `Welcome`, `PlayerJoined/Left`, `PlayersState`, `FloorChange`, `EnemySpawn/Gone/State/Event`, `AwardPoints`, `HurtPlayer`, `SedatePlayer`, `CandleLit`, `RoomsState`, `RoomReply`, `TrapsState`, `TrapReply`, `BarrelGone`, `PowerState`, `ChandelierDrop`, `LampBroken`, `ExitState`, `RoundState`, `DropSpawn/Taken`, `Announce`, `Bolt`, `KillCredit`, `Teleport`, `SpellFx`, `AnnexState`, `Revived`, `DesertBossDown`, `DesertClock` |
 | entrambe | `Test` (solo `-cooptest`, altrimenti scartato) |
 
 ## Prove
@@ -181,6 +193,8 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 | `-coopleave` / `-coopcrash` | uscita pulita / processo ucciso: l'ospite se ne accorge e prosegue da solo (un nemico lo caccia, poi un'ondata intera) |
 | `-coophostleave` | se ne va l'ospite: l'ospitato prosegue da solo con Role spento |
 | `-coopplayers N` | numero di giocatori attesi (con 3 processi) |
+| `-coopdeserto` | il copione del deserto (`run_all.ps1 -Only j`, scenario `j_deserto`: l'ospite con `-deserto -catacombe`, l'ospitato senza `-deserto`, che segue l'ospite): il deserto e' costruito su tutti e due e i compagni si vedono; stesso seme e stessa ora; l'ospitato va a mezzo chilometro, accanto a un luogo, e l'ospite costruisce li' luogo, sabbia con collider e navmesh; un nemico nato vicino all'ospitato gli arriva, uno nato vicino all'ospite no (190 m); l'ospitato torna e i due si scambiano (quello di prima sparisce dalla sua vista ma resta vivo sull'ospite); un colpo mortale a un pupazzo uccide il nemico vero e paga chi ha sparato; l'ora messa dall'ospite arriva; un boss caduto sull'ospite cade anche per l'ospitato, con il trofeo nel suo magazzino; con `-coopleave` o `-coopcrash` (scenari `k_deserto_esce` e `l_deserto_ucciso`) i passi sono solo i primi tre e un ottavo, in cui l'ospitato lontano se ne va (chiusura o processo ucciso) e l'ospite prosegue da solo: nessun punto attorno a lui, un solo bersaglio per i nemici, l'elenco di quello che vedeva buttato, il luogo lontano scaricato, l'orologio che va e un nemico che gli da' la caccia; con `-cooppics` e la grafica sull'ospite, due foto del compagno sulla sabbia |
+| `-cooplook ID` / `-cooplevel N` | il personaggio che il processo dichiara nel saluto (senza, le prove mandano un aspetto vuoto e livello 1): con l'ospite `custode` di livello 7 e l'ospitato `custode` di livello 3 (`run_all.ps1 -Only i`, scenario `i_aspetti`) si controlla che l'ospite tenga l'aspetto, che il secondo riceva la dottoressa, che tutti vedano gli stessi livelli e che il pupazzo di ogni compagno sia costruito con l'aspetto e il livello dichiarati |
 | `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`; senza, `persistentDataPath/coop`; con `run_coop.ps1 -HostGraphics` e' `%TEMP%\pryingeyes-coop\foto`); dalla 0.7.2 anche il pannello dei compagni nell'HUD dell'ospite: col compagno in piedi (`coop_hud.png`), a terra (`coop_hud_a_terra.png`) e ingrandito al 160% (`coop_hud_160.png`), poi lo rialza |
 
 Con `-cooptest` le ondate partono ferme (`SurvivalMode.HoldWaves`; il copione le libera con `SurvivalMode.Hold`): le avvia il copione, perche' i passi che contano punti e nemici uno per uno non devono
@@ -195,7 +209,7 @@ Lo script `tools/coop/run_coop.ps1` avvia l'ospite e gli ospitati dalla build di
 ```
 
 `tools/coop/run_all.ps1` le fa girare tutte in fila (griglia, ali, entrata tardiva, uscita pulita, processo ucciso, uscita
-dell'ospite, tre e quattro giocatori; circa 12 minuti) e dice quali sono fallite. Aggiungere `-oldplan` a entrambi i
+dell'ospite, tre e quattro giocatori, aspetti e livelli dei personaggi, il deserto; circa 12 minuti per i primi otto e meno di un minuto per il deserto) e dice quali sono fallite. Aggiungere `-oldplan` a entrambi i
 processi prova anche la pianta ad ali. La build di prova si fa con `BuildPlayer.Torre -buildOut` come
 per le altre prove (vedi `docs/engineering/building-and-shipping.md`); lo script non parte se una copia di quell'exe e' gia' aperta.
 
@@ -215,6 +229,25 @@ la torcia accesa; ha anche fatto trovare un'inversione (il fascio del compagno s
 43 e 29, entrata tardiva 11 e 7, uscita pulita 4 e 8, processo ucciso 4 e 8 (il processo ucciso esce con -1, come previsto), uscita
 dell'ospite 7 e 2, tre giocatori 62, 48 e 49, quattro giocatori 62, 48, 48 e 49. Sull'albero integrato non e' stata rifatta la prova con le foto
 (`-cooppics`, serve la grafica) e, come sempre, nessuna prova e' stata fatta tra macchine diverse.
+
+**Esiti del 18 novembre 2026** (0.9, protocollo `pe-coop-30`, build di verifica, tutti i processi su loopback, `run_all.ps1 -Only a,i` e poi `-Only g,h`): la griglia
+supera 62 verifiche sull'ospitato e 49 sull'ospite (come prima) e la nuova prova degli aspetti, `i_aspetti`, 66 e 53, cioe' le quattro verifiche
+dei personaggi in piu' su ogni processo: l'ospite chiede il Custode di livello 7, l'ospitato lo stesso aspetto a livello 3; l'ospite tiene il Custode,
+l'ospitato riceve la Dottoressa, entrambi vedono gli stessi aspetti e livelli e il pupazzo di ogni compagno e' costruito cosi'. Anche tre e quattro
+giocatori (`g_tre`, `h_quattro`: con loro il saluto nuovo arriva anche a chi era gia' dentro, con `PlayerJoined`) superano le stesse verifiche di
+prima: tre giocatori 62, 48 e 49, quattro giocatori 62, 48, 48 e 49. Non sono stati rifatti gli scenari delle ali, dell'entrata tardiva, dell'uscita
+pulita, del processo ucciso e dell'uscita dell'ospite su questo protocollo, e le prove non hanno toccato ne' la rete vera ne' i personaggi veri di chi
+gioca (i processi di prova usano `characters-prova/`).
+
+**Esiti del 19 novembre 2026** (0.9.1, protocollo `pe-coop-31`, build di verifica, tutti i processi su loopback, senza scheda grafica): `run_all.ps1 -Only a,b,c,d,e,f,g,h,i` supera tutti e nove gli scenari
+standard in 737 secondi, senza eccezioni nei log e con le stesse cifre del 17 e del 18 novembre (griglia 62 verifiche sull'ospitato e 49 sull'ospite, ali 43 e 29, entrata tardiva 11 e 7, uscita pulita 4 e 8, processo
+ucciso 4 e 8 con uscita -1 come previsto, uscita dell'ospite 7 e 2, tre giocatori 62, 48 e 49, quattro giocatori 62, 48, 48 e 49, aspetti 66 e 53): fuori dal deserto il protocollo 31 non cambia niente.
+Nel deserto (`-Only j,k,l`, stessa build, 143 secondi): `j_deserto` 46 s, ospitato 18 verifiche su 18 e ospite 15 su 15; `k_deserto_esce` 41 s e `l_deserto_ucciso` 57 s (processo ucciso, esce con -1), ospitato 10 su 10 e ospite 16 su 16;
+nessuna eccezione. Dicono che l'ospitato ha seme e ora dell'ospite; che a 499 m da casa l'ospite gli costruisce attorno luogo, sabbia con collider e navmesh (3,4 s) e gli manda solo il nemico che ha vicino (il pupazzo piu' lontano che
+vede e' a 89 m) e lo scambia con quello vicino all'ospite quando torna; che un colpo mortale a un pupazzo uccide il nemico vero e paga chi ha sparato (+100 punti); che l'ora e il boss caduto arrivano a tutti, con il trofeo nel magazzino di ognuno; e che, se
+l'ospitato lontano se ne va, l'ospite smette di costruire attorno a lui, scarica il luogo lontano (434 m, soglia 370 m) e prosegue da solo. Con `-cooppics` e l'ospite con la grafica (61 s) la prova ha scattato due foto: il compagno sulla sabbia a 23 m,
+col nome sopra la testa e la luce della torcia, il pannello *Compagni* e il suo puntino blu sulla minimappa. **Mai provato**: tre o quattro giocatori nel deserto, tra macchine diverse, con un compagno che cammina (la foto lo mostra fermo), un ospitato che entra
+a meta' partita (entra 8 s dopo l'ospite) o che muore nel deserto.
 
 ## Cosa non e' ancora verificato (e limiti)
 

@@ -15,7 +15,8 @@ namespace PryingEyes
     /// dell'ospitato (punti a chi spara); 4 un nemico dell'ospite ferisce l'ospitato; 5 candela accesa dall'ospitato; 6 round (serrande,
     /// nemici, premio per tutti); 7 goccia presa dall'ospitato (effetto per tutti); 8 uscita e discesa insieme (stessa firma del piano).
     /// Altri copioni: -cooplate (entrata a round in corso), -coopleave / -coopcrash (un ospitato se ne va, pulito o ucciso), -coophostleave (se ne va
-    /// l'ospite), -cooppics (foto del compagno, solo con la grafica), -coopplayers N (N giocatori in tutto).</summary>
+    /// l'ospite), -cooppics (foto del compagno, solo con la grafica), -coopplayers N (N giocatori in tutto), -cooplook ID -cooplevel N (il personaggio
+    /// che ogni processo dichiara: la prova "aspetti", vedi CheckCharacters).</summary>
     public sealed partial class CoopTest : MonoBehaviour
     {
         public static CoopTest I;
@@ -37,7 +38,7 @@ namespace PryingEyes
         readonly Dictionary<int, int> peerStep = new Dictionary<int, int>();
         readonly List<(int id, Vector3 pos)> report = new List<(int, Vector3)>();
         int reportSeq, expectSeq;
-        int sigValue, sigFloor, sigSeq;
+        int sigValue, sigFloor, sigContent, sigSeq;
         int checks, failed, exceptions;
         float startT;
         bool aborted, finished;
@@ -125,14 +126,15 @@ namespace PryingEyes
             }
             else if (sub == 3)
             {
-                int sig = r.I32(), fl = r.I32();
-                if (r.Ok) { sigValue = sig; sigFloor = fl; sigSeq++; }
+                int sig = r.I32(), fl = r.I32(), ct = r.I32();
+                if (r.Ok) { sigValue = sig; sigFloor = fl; sigContent = ct; sigSeq++; }
             }
             else if (sub == 5)                  // l'ospite racconta le aree aperte e l'ultima comprata (ciclo a ondate, SendRooms)
             {
                 int open = r.U8(), bought = r.U8();
                 if (r.Ok) { peerOpenRooms = open; peerBoughtRoom = bought - 1; roomsSeq++; }
             }
+            else if (sub == 6 || sub == 7) DesertReceive(sub, ref r);       // il deserto in cooperativa (CoopTest.Desert.cs): seme e ora, id dei nemici della prova
         }
 
         /// <summary>Sull'ospite: tutti gli ospitati collegati sono arrivati alla sincronia 'step'.</summary>
@@ -397,6 +399,7 @@ namespace PryingEyes
             // col ciclo a ondate (predefinito) le candele non ci sono: al posto di candela e round (S5, S6) si compra un'area e si giocano tre ondate
             bool survival = SurvivalMode.Enabled;
             System.Func<IEnumerator>[] steps =
+                DesertRun ? (Leave || Crash ? new System.Func<IEnumerator>[] { D0, D1, D2, D8 } : Pics ? new System.Func<IEnumerator>[] { D0, D1, D2, D3, D4, D5, D6, D7 } : MotoRun ? new System.Func<IEnumerator>[] { D0, D1, D9, D10 } : new System.Func<IEnumerator>[] { D0, D1, D2, D3, D4, D5, D6 }) :
                 Leave || Crash ? new System.Func<IEnumerator>[] { S0, S1, E2 } :
                 HostLeave ? new System.Func<IEnumerator>[] { S0, S1, H2 } :
                 Pics ? new System.Func<IEnumerator>[] { S0, S1, P0, P1 } :
@@ -438,10 +441,27 @@ namespace PryingEyes
             bool ok = g.FloorBuilt && ShownCount() >= Expected - 1;
             Check("piano costruito e compagni in vista", ok, $"{Time.time - t0:F1} s, piano {FloorDirector.I.floor}, epoca {g.Epoch}, vedo {ShownCount()} compagni su {Expected - 1}");
             if (!ok) { aborted = true; yield break; }
+            if (HasArg("-cooplook")) CheckCharacters();
             if (Coop.IsHost) { string a = Coop.LocalAddresses(); Log($"info: indirizzi che il menu di pausa mostra agli amici: {(a.Length == 0 ? 0 : a.Split(',').Length)}"); }
             Safe();
             Drops.disabled = true;
             yield return new WaitForSeconds(2f);
+        }
+
+        /// <summary>La prova "aspetti" (a due processi: l'ospite con -cooplook custode -cooplevel 7, l'ospitato con -cooplook custode -cooplevel 3): ognuno
+        /// dichiara un personaggio, l'ospite tiene il suo aspetto e da' il primo libero a chi chiede lo stesso, e aspetto e livello arrivano a tutti,
+        /// sulla tabella di CoopGame e sui pupazzi dei compagni. Senza questa prova i processi di prova mandano un aspetto vuoto e il percorso non gira.</summary>
+        void CheckCharacters()
+        {
+            var g = G;
+            string look0 = g.LookOf(0), look1 = g.LookOf(1);
+            Check("l'ospite tiene l'aspetto chiesto e l'altro riceve il primo libero", look0 == "custode" && look1 == "dottoressa", $"slot 0 '{look0}', slot 1 '{look1}'");
+            Check("ognuno vede il livello degli altri", g.LevelOf(0) == 7 && g.LevelOf(1) == 3, $"slot 0 livello {g.LevelOf(0)}, slot 1 livello {g.LevelOf(1)}");
+            Check("il mio aspetto in partita e' quello che mi hanno dato", !string.IsNullOrEmpty(Coop.MyLook) && Coop.MyLook == g.LookOf(Coop.Slot), $"'{Coop.MyLook}'");
+            int other = Coop.IsHost ? 1 : 0;
+            g.Players.TryGetValue(other, out var rp);
+            Check("il compagno e' costruito con l'aspetto e il livello dichiarati", rp != null && rp.look == g.LookOf(other) && rp.level == g.LevelOf(other),
+                rp != null ? $"aspetto '{rp.look}', livello {rp.level}" : "nessun compagno");
         }
 
         // P ------------------------------------------------------------------ foto del compagno (-cooppics; l'ospite dev'essere senza -nographics)
@@ -616,11 +636,12 @@ namespace PryingEyes
             int s0 = gm.score, k0 = gm.kills;
             for (int i = 0; i < 3; i++)
             {
-                target.Damage(10f, target.AimPoint, false, true, DamageSource.Gun);
+                // il secondo e' una moto che lo investe (fonte Moto, pe-coop-33): l'ospite deve accettare il byte nuovo, altrimenti il colpo si perde e i punti non arrivano
+                target.Damage(10f, target.AimPoint, false, true, i == 1 ? DamageSource.Moto : DamageSource.Gun);
                 yield return new WaitForSeconds(0.35f);
             }
             yield return new WaitForSeconds(1.0f);
-            Check("tre colpi a segno: +10 punti l'uno a chi spara", gm.score - s0 == 3 * Punti.Colpo, $"+{gm.score - s0} punti");
+            Check("tre colpi a segno (il secondo con la fonte Moto): +10 punti l'uno a chi spara", gm.score - s0 == 3 * Punti.Colpo, $"+{gm.score - s0} punti");
             target.Damage(100000f, target.AimPoint, true, true, DamageSource.Gun);
             yield return Until(() => target == null || target.IsDead, 5f);
             yield return new WaitForSeconds(1.0f);
@@ -1167,11 +1188,14 @@ namespace PryingEyes
             if (fd.floor != floor0 + 1) { aborted = true; yield break; }
             Safe();
             int mine = fd.FloorSignature();
-            if (Coop.IsHost) g.SendTest(w.Reset().U8(3).I32(mine).I32(fd.floor).ToArray());
+            int mineContent = fd.RoomContentSignature(out int myRooms, out int myBare);
+            if (Coop.IsHost) g.SendTest(w.Reset().U8(3).I32(mine).I32(fd.floor).I32(mineContent).ToArray());
             else
             {
                 yield return Until(() => sigSeq > 0 && sigFloor == fd.floor, 10f);
                 Check("il piano nuovo ha la stessa firma sull'ospite e sull'ospitato", sigSeq > 0 && sigValue == mine, $"mia {mine:X8}, dell'ospite {sigValue:X8}");
+                // le stanze: lo stesso numero di oggetti, disegni, collider e luci in ognuna (una stanza svuotata o arredata diversamente da una parte sola cambia questo numero)
+                Check("le stanze del piano nuovo hanno gli stessi arredi sull'ospite e sull'ospitato", sigSeq > 0 && sigContent == mineContent, $"mio {mineContent:X8} ({myRooms} stanze, {myBare} senza arredi), dell'ospite {sigContent:X8}");
             }
             yield return new WaitForSeconds(3f);
             Check("a destinazione i compagni sono vicini", Flat(PeerPos() - GameManager.I.player.transform.position) < 4f, $"{Flat(PeerPos() - GameManager.I.player.transform.position):F1} m");

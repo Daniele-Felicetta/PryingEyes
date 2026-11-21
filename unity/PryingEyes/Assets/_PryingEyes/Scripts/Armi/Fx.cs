@@ -186,7 +186,7 @@ namespace PryingEyes
             return new Color(shade, shade, shade, a);
         });
 
-        static readonly Texture2D[] holeTexs = new Texture2D[7];
+        static readonly Texture2D[] holeTexs = new Texture2D[8];
 
         /// <summary>Il foro di ogni superficie (bianco = colore della superficie scheggiata, illuminato dalla scena): intonaco con cratere e
         /// alone di polvere, pietra con l'orlo chiaro scheggiato, piastrelle con le crepe, legno con le fibre strappate lungo la venatura,
@@ -251,6 +251,16 @@ namespace PryingEyes
                     float a = Mathf.Clamp01(Mathf.Max(Mathf.Max(radial, arcs) * 0.8f, core));
                     Color col = core > 0.5f ? new Color(0.05f, 0.05f, 0.06f) : new Color(0.92f, 0.96f, 1f);
                     return new Color(col.r, col.g, col.b, a);
+                }; break;
+                case Surface.Sand: f = (u, v) =>
+                {
+                    // sabbia: una fossetta morbida (centro scuro che sfuma) con un anello leggero di sabbia smossa piu' chiara; niente crepe, mai fino al bordo del quad
+                    float r = Mathf.Sqrt(u * u + v * v);
+                    float n = Mathf.PerlinNoise(u * 4f + 7f, v * 4f + 1f);
+                    float pit = Mathf.Clamp01((0.28f + 0.05f * n - r) * 4.5f) * 0.55f;
+                    float ring = Mathf.Clamp01(1f - Mathf.Abs(r - 0.45f - 0.07f * n) / 0.15f) * 0.30f * (1f - pit);
+                    var col = pit > ring ? new Color(0.36f, 0.25f, 0.15f) : new Color(0.90f, 0.76f, 0.54f);
+                    return new Color(col.r, col.g, col.b, Mathf.Max(pit, ring) * Mathf.Clamp01((1f - r) * 4f));
                 }; break;
                 default: f = (u, v) => Crater(u, v, 0.23f, 0.56f, 0.95f, new Color(0.80f, 0.78f, 0.74f), 7f); break;   // intonaco
             }
@@ -422,6 +432,11 @@ namespace PryingEyes
                          chip0 = new Color(0.86f, 0.90f, 0.95f), chip1 = new Color(0.52f, 0.58f, 0.64f),
                          sparks = 5, sparkSpeed = 2.6f, sparkLife = 0.16f, spark = new Color(0.85f, 0.92f, 1f),
                          hole0 = 0.13f, hole1 = 0.18f, vol = 0.45f },
+            // sabbia (il deserto): una nuvola larga e lenta color sabbia che sale e si disperde, granelli che schizzano e ricadono; nessun rimbalzo
+            new Recipe { puffs = 5, puffSize = 0.62f, puffLife = 1.5f, puffAlpha = 0.42f, dust = new Color(0.72f, 0.57f, 0.38f),
+                         chips = 12, chipSize = 0.006f, chipSpeed = 2.4f, chipStretch = 1f, chipLife = 0.9f, chipGrav = 9.8f, chipAlpha = 0.95f,
+                         chip0 = new Color(0.84f, 0.68f, 0.46f), chip1 = new Color(0.58f, 0.43f, 0.27f),
+                         hole0 = 0.07f, hole1 = 0.10f, vol = 0.30f },
         };
 
         /// <summary>Per le prove: impatti fatti, suoni partiti, rimbalzi, superficie e texture del foro dell'ultimo impatto.</summary>
@@ -1084,7 +1099,7 @@ namespace PryingEyes
         {
             if (I == null) return "Fx non creato";
             var sb = new System.Text.StringBuilder();
-            for (int s = 0; s < 7; s++)
+            for (int s = 0; s < 8; s++)
             {
                 var px = HoleTex((Surface)s).GetPixels32();
                 double a = 0; foreach (var c in px) a += c.a;

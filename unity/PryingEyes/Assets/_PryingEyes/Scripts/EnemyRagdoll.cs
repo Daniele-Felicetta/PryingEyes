@@ -183,6 +183,23 @@ namespace PryingEyes
             return rb;
         }
 
+        /// <summary>La moto prende il corpo alle gambe (Enemy.BeginRagdoll, fonte Moto): ogni pezzo ha gia' la velocita' di tutti, e qui ne prende un po' in piu' o in meno secondo la quota: le gambe partono piu'
+        /// avanti e piu' in alto, la testa resta indietro, e il corpo si ribalta sul manubrio invece di volare in piedi come una statua. 'dir' e' la direzione della spinta (si usa la parte piana), 'speed'
+        /// la velocita' della moto in m/s: a 17 m/s fra le gambe e la testa ci sono circa 5 m/s su un metro e sessanta, cioe' circa 3 radianti al secondo di rotazione.</summary>
+        public void Tumble(Vector3 dir, float speed)
+        {
+            dir.y = 0f;
+            if (speed <= 0.1f || dir.sqrMagnitude < 1e-6f) return;
+            dir.Normalize();
+            float baseY = transform.position.y;
+            foreach (var rb in bodies)
+            {
+                if (rb == null) continue;
+                float h = Mathf.Clamp01((rb.position.y - baseY) / 1.6f);            // 0 ai piedi, 1 alla testa
+                rb.linearVelocity += dir * (speed * 0.35f * (0.55f - h)) + Vector3.up * (speed * 0.08f * (1f - h));
+            }
+        }
+
         void Push(Vector3 point, Vector3 dir, float impulse, bool blast)
         {
             if (impulse <= 0f || bodies.Count == 0) return;

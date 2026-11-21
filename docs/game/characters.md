@@ -1,6 +1,6 @@
 # Survivors: the four characters
 
-The players are four rigged and textured survivors, one per slot, made procedurally in Blender (`modelli/personaggi/`) and animated entirely by
+The players are four rigged and textured survivors, made procedurally in Blender (`modelli/personaggi/`) and animated entirely by
 code (`Scripts/Survivors/SurvivorBody.cs`). They replace the capsule mannequin that every co-op partner and every split-screen player used to be,
 and since 0.8.0 they are also the player's own body in the [third-person view](third-person.md).
 
@@ -11,15 +11,21 @@ and since 0.8.0 they are also the player's own body in the [third-person view](t
 | 3 | `reporter` | The Reporter | fair, short dark-blond hair with a fringe swept to the side, mustard jacket, blue trousers, grey scarf |
 | 4 | `cacciatrice` | The Cacciatrice | strong legs, auburn hair in a long braid under a dark cap, oxblood jacket, olive trousers, amber scarf |
 
-There is no character selection: the slot decides (`SurvivorBody.IdOf(slot)`; the slot is the seat of a split screen or the network slot
-of online co-op), so on one screen nobody is taken for somebody else. A slot whose prefab is missing falls back to the Custode, and a
-build without any model falls back to the old mannequin (`RemotePlayer.BuildBody`).
+Since 0.9.0 the look is part of the player's **character** ([saves-and-characters.md](saves-and-characters.md)):
+the player picks one of these four, with a name, when making the character, and it stays with the character. The slot only decides when there
+is no character to say (`SurvivorBody.IdOf(slot)`: the automated tests, whose processes send no look, and the body of a seat or partner with
+an unknown look); the slot is the seat of a split screen or the network slot of online co-op, and the table above is the order of the looks
+(`CharacterLooks.Ids`) and what the slot gave before. Two characters never share a look in one game: whoever comes second takes the first free one
+(`CharacterLooks.Resolve`, done by the host for online co-op and when the seats are made for a split screen), so on one screen nobody is taken
+for somebody else; the character itself is not changed. A look whose prefab is missing falls back to the Custode, and a build without any model
+falls back to the old mannequin (`RemotePlayer.BuildBody`).
 
 ## Where they show
 
 - **Online co-op** (`RemotePlayer`): every partner is a survivor with their weapon in hand, aiming, shooting and reloading as they do. The
-  weapon, aiming and reload state travel in `PlayerNet` (`gun`, `ads`, `reloading`; protocol `pe-coop-29`), see
-  [../multiplayer/README.md](../multiplayer/README.md). The name stays above the head.
+  weapon, aiming and reload state travel in `PlayerNet` (`gun`, `ads`, `reloading`; protocol `pe-coop-29`), and each player's look and level
+  in the greeting (`Hello`, `Welcome`, `PlayerJoined`; protocol `pe-coop-30`), see [../multiplayer/README.md](../multiplayer/README.md). The
+  name stays above the head, with the level when it is above 1.
 - **Split screen** (`SeatAvatar`): every player sees the others' survivors, never their own body in front of the eyes
   ([../multiplayer/split-screen.md](../multiplayer/split-screen.md)).
 - **Third person** (`ThirdPersonView`): the player's own survivor, with the same code as the others.

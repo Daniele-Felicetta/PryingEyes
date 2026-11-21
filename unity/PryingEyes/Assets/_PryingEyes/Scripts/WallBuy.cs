@@ -40,10 +40,10 @@ namespace PryingEyes
         }
 
         /// <summary>Piazza un espositore (usato dai piani procedurali): indice dell'arma, prezzo, posizione e rotazione (il davanti guarda la stanza).</summary>
-        public static WallBuy Place(int index, int cost, Vector3 pos, Quaternion rot, Color tint)
+        public static WallBuy Place(int index, int cost, Vector3 pos, Quaternion rot, Color tint, bool free = false)
         {
             all.RemoveAll(w => w == null);
-            return Create(index, cost, pos, rot, tint);
+            return Create(index, cost, pos, rot, tint, free);
         }
 
         public static void ClearAll()
@@ -54,7 +54,25 @@ namespace PryingEyes
             st.lastCamera = null;
         }
 
-        static WallBuy Create(int index, int cost, Vector3 pos, Quaternion rot, Color tint)
+        /// <summary>Toglie solo i pannelli senza padre (quelli di una cattedrale che si rifa'): nel deserto i pannelli dei luoghi sono figli del luogo.</summary>
+        public static void ClearUnparented()
+        {
+            all.RemoveAll(w =>
+            {
+                if (w == null) return true;
+                if (w.transform.parent != null) return false;
+                Destroy(w.gameObject);
+                return true;
+            });
+            st.near = null;
+        }
+
+        /// <summary>Un pannello senza prezzo: l'arma si prende e basta (nel deserto, le armi comuni trovate in giro). Le munizioni, a chi ce l'ha gia',
+        /// costano come sempre.</summary>
+        public bool Free => freeFind;
+        [System.NonSerialized] public bool freeFind;
+
+        static WallBuy Create(int index, int cost, Vector3 pos, Quaternion rot, Color tint, bool free = false)
         {
             var def = WeaponDefs.All[index];
             var go = new GameObject("Muro_" + def.name);
@@ -109,7 +127,7 @@ namespace PryingEyes
 
             // nome e prezzo incisi sul pannello
             var t1 = MakeText(go.transform, def.name, Color.Lerp(new Color(0.93f, 0.89f, 0.80f), def.GradeColor, 0.55f), -0.300f, 0.055f, 0.0135f);
-            var t2 = MakeText(go.transform, (cost > 0 ? cost + " PUNTI" : "MUNIZIONI") + "  ·  GRADO " + HUD.Roman(def.grade), def.GradeColor, -0.385f, 0.055f, 0.0105f);
+            var t2 = MakeText(go.transform, (cost > 0 ? cost + " PUNTI" : free ? "DA PRENDERE" : "MUNIZIONI") + "  ·  GRADO " + HUD.Roman(def.grade), def.GradeColor, -0.385f, 0.055f, 0.0105f);
 
             var wb = go.AddComponent<WallBuy>();
             wb.texts = new[] { t1, t2 };
@@ -118,6 +136,7 @@ namespace PryingEyes
             wb.displayName = def.name;
             wb.tint = tint;
             wb.glow = light;
+            wb.freeFind = free;
             all.Add(wb);
             return wb;
         }
@@ -326,8 +345,11 @@ namespace PryingEyes
                 string extra = "";
                 if (!same && weapon.WeaponInSlot(0) >= 0 && weapon.WeaponInSlot(1) >= 0)
                     extra = "   (sostituisce " + WeaponDefs.All[weapon.weaponIndex].name + ")";
-                gm.hud.SetPrompt((same ? "MUNIZIONI " : "ACQUISTA ") + near.displayName
-                    + " — " + cost + " PUNTI   [" + PadControls.UseKey + "]" + extra);
+                if (!same && near.Free)
+                    gm.hud.SetPrompt("PRENDI " + near.displayName + " — gratis   [" + PadControls.UseKey + "]" + extra);
+                else
+                    gm.hud.SetPrompt((same ? "MUNIZIONI " : "ACQUISTA ") + near.displayName
+                        + " — " + cost + " PUNTI   [" + PadControls.UseKey + "]" + extra);
             }
             return true;
         }
@@ -358,7 +380,7 @@ namespace PryingEyes
             else
             {
                 weapon.Equip(near.weaponIndex);
-                gm.hud?.Toast(WeaponDefs.All[near.weaponIndex].name + " acquisita — −" + cost + " punti");
+                gm.hud?.Toast(WeaponDefs.All[near.weaponIndex].name + (near.Free ? " presa" : " acquisita — −" + cost + " punti"));
             }
             Synth.Buy();
         }

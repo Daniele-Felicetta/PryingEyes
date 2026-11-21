@@ -22,6 +22,8 @@ namespace PryingEyes.Proc
             public readonly List<Vector3> n = new List<Vector3>();
             public readonly List<Vector2> uv = new List<Vector2>();
             public readonly List<int> t = new List<int>();
+            /// <summary>Colori dei vertici: solo per i materiali che li leggono (la sabbia del deserto, QuadSmoothC); gli altri restano senza e la mesh finale li riempie di bianco.</summary>
+            public readonly List<Color32> c = new List<Color32>();
         }
 
         readonly Dictionary<Material, Sub> subs = new Dictionary<Material, Sub>();
@@ -80,6 +82,29 @@ namespace PryingEyes.Proc
             s.v.Add(a); s.v.Add(b); s.v.Add(c); s.v.Add(d);
             s.n.Add(na); s.n.Add(nb); s.n.Add(nc); s.n.Add(nd);
             s.uv.Add(ua); s.uv.Add(ub); s.uv.Add(uc); s.uv.Add(ud);
+            s.t.Add(i); s.t.Add(i + 1); s.t.Add(i + 2);
+            s.t.Add(i); s.t.Add(i + 2); s.t.Add(i + 3);
+        }
+
+        /// <summary>Come QuadSmooth, con un colore per vertice (la tinta della regione per la sabbia accumulata contro i muri). Un materiale che usa questa funzione la usa per tutti i suoi quadri.</summary>
+        public void QuadSmoothC(Material m, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 na, Vector3 nb, Vector3 nc, Vector3 nd,
+                                Color32 ca, Color32 cb, Color32 cc, Color32 cd)
+        {
+            var n = Vector3.Cross(b - a, c - a);
+            if (n.sqrMagnitude < 1e-12f) n = Vector3.Cross(c - a, d - a);
+            if (n.sqrMagnitude < 1e-12f) return;
+            if (Vector3.Dot(n, na + nb + nc + nd) < 0f)
+            {
+                var tv = b; b = d; d = tv;
+                var tn = nb; nb = nd; nd = tn;
+                var tc = cb; cb = cd; cd = tc;
+            }
+            var s = S(m);
+            int i = s.v.Count;
+            s.v.Add(a); s.v.Add(b); s.v.Add(c); s.v.Add(d);
+            s.n.Add(na); s.n.Add(nb); s.n.Add(nc); s.n.Add(nd);
+            s.uv.Add(Vector2.zero); s.uv.Add(Vector2.zero); s.uv.Add(Vector2.zero); s.uv.Add(Vector2.zero);
+            s.c.Add(ca); s.c.Add(cb); s.c.Add(cc); s.c.Add(cd);
             s.t.Add(i); s.t.Add(i + 1); s.t.Add(i + 2);
             s.t.Add(i); s.t.Add(i + 2); s.t.Add(i + 3);
         }
@@ -143,10 +168,11 @@ namespace PryingEyes.Proc
         /// 'len' metri; guarda verso 'facing'. Le aperture sono fette verticali: sopra e sotto di ognuna resta il muro,
         /// la testa puo' essere un arco acuto. 'breaks' sono ascisse in cui 'top' cambia pendenza.</summary>
         public void WallFace(Material m, Vector3 origin, Vector3 u, Vector3 facing, float len, float yMin, Func<float, float> top,
-                             List<Hole> holes, float uOff = 0f, float[] breaks = null)
+                             List<Hole> holes, float uOff = 0f, float[] breaks = null, Func<float, float> bottom = null, float[] bottomBreaks = null)
         {
             var xs = new List<float> { 0f, len };
             if (breaks != null) foreach (var b in breaks) if (b > 0.001f && b < len - 0.001f) xs.Add(b);
+            if (bottomBreaks != null) foreach (var b in bottomBreaks) if (b > 0.001f && b < len - 0.001f) xs.Add(b);
             if (holes != null)
                 foreach (var h in holes)
                 {
@@ -165,32 +191,52 @@ namespace PryingEyes.Proc
                 if (xb - xa < 0.002f) continue;
                 float mid = (xa + xb) * 0.5f;
                 float ta = top(xa), tb = top(xb);
+                // il bordo basso: costante, o (sopra un vicino crollato) a denti come il muro che gli sta sotto
+                float lowA = bottom == null ? yMin : Mathf.Max(yMin, bottom(xa)), lowB = bottom == null ? yMin : Mathf.Max(yMin, bottom(xb));
                 Hole? hit = null;
                 if (holes != null)
                     foreach (var h in holes) if (mid > h.c - h.hw && mid < h.c + h.hw) { hit = h; break; }
-                if (hit == null) { Slab(m, origin, u, facing, xa, xb, yMin, yMin, ta, tb, uOff); continue; }
+                if (hit == null) { Slab(m, origin, u, facing, xa, xb, lowA, lowB, ta, tb, uOff); continue; }
                 var hl = hit.Value;
                 float sill = hl.o.sill;
                 float ha = hl.o.Head(xa - hl.c, hl.hw), hb = hl.o.Head(xb - hl.c, hl.hw);
                 // sotto la soglia
                 float la = Mathf.Min(sill, ta), lb = Mathf.Min(sill, tb);
-                if (la > yMin + 1e-4f || lb > yMin + 1e-4f) Slab(m, origin, u, facing, xa, xb, yMin, yMin, Mathf.Max(la, yMin), Mathf.Max(lb, yMin), uOff);
-                // sopra la testa
-                float ua2 = Mathf.Max(ha, yMin), ub2 = Mathf.Max(hb, yMin);
-                if (ta > ua2 + 1e-4f || tb > ub2 + 1e-4f) Slab(m, origin, u, facing, xa, xb, ua2, ub2, ta, tb, uOff);
+                if (la > lowA + 1e-4f || lb > lowB + 1e-4f) Slab(m, origin, u, facing, xa, xb, lowA, lowB, Mathf.Max(la, lowA), Mathf.Max(lb, lowB), uOff);
+                // sopra la testa (un varco senza architrave, Opening.Gap, non ha il muro sopra)
+                float ua2 = Mathf.Max(ha, lowA), ub2 = Mathf.Max(hb, lowB);
+                if (!hl.o.Gap && (ta > ua2 + 1e-4f || tb > ub2 + 1e-4f)) Slab(m, origin, u, facing, xa, xb, ua2, ub2, ta, tb, uOff);
             }
         }
 
         // fetta di muro tra xa e xb: bordo basso (ya0 in xa, yb0 in xb), bordo alto (ya1, yb1)
         void Slab(Material m, Vector3 origin, Vector3 u, Vector3 facing, float xa, float xb, float ya0, float yb0, float ya1, float yb1, float uOff)
         {
+            float da = ya1 - ya0, db = yb1 - yb0;
+            if (!FloorBuilder.LegacyWalls)
+            {
+                // il profilo alto di un muro crollato (o il bordo basso sopra un vicino) taglia la testa di un'apertura dentro la fetta: un quadro con un lato sopra e uno sotto e' una farfalla,
+                // due triangoli che girano in versi opposti, e uno dei due sparisce (si vede dentro il muro). Resta solo il triangolo dove l'alto sta sopra il basso.
+                const float eps = 1e-4f;
+                if (da <= eps && db <= eps) return;
+                if (da < -eps || db < -eps)
+                {
+                    float k = da / (da - db);
+                    float xc = Mathf.Lerp(xa, xb, k), yc = Mathf.Lerp(ya0, yb0, k);
+                    Vector3 P(float x, float y) => origin + u * x + Vector3.up * y;
+                    Vector2 T(float x, float y) => new Vector2(uOff + x, y);
+                    if (da > eps) Quad(m, P(xa, ya0), P(xc, yc), P(xa, ya1), P(xa, ya1), T(xa, ya0), T(xc, yc), T(xa, ya1), T(xa, ya1), facing);
+                    else Quad(m, P(xc, yc), P(xb, yb0), P(xb, yb1), P(xb, yb1), T(xc, yc), T(xb, yb0), T(xb, yb1), T(xb, yb1), facing);
+                    return;
+                }
+            }
             Vector3 A = origin + u * xa + Vector3.up * ya0, B = origin + u * xb + Vector3.up * yb0;
             Vector3 C = origin + u * xb + Vector3.up * yb1, D = origin + u * xa + Vector3.up * ya1;
             Quad(m, A, B, C, D, new Vector2(uOff + xa, ya0), new Vector2(uOff + xb, yb0), new Vector2(uOff + xb, yb1), new Vector2(uOff + xa, ya1), facing);
         }
 
         // ---------------------------------------------------------------- mesh finale
-        public Mesh ToMesh(string name, out Material[] mats)
+        public Mesh ToMesh(string name, out Material[] mats, bool tangents = true)
         {
             var mesh = new Mesh { name = name };
             int total = 0;
@@ -199,11 +245,15 @@ namespace PryingEyes.Proc
             var v = new List<Vector3>(total); var n = new List<Vector3>(total); var uv = new List<Vector2>(total);
             var tris = new List<int[]>();
             mats = order.ToArray();
+            bool anyColor = false;
+            foreach (var m in order) if (subs[m].c.Count > 0) anyColor = true;
+            var colors = anyColor ? new List<Color32>(total) : null;
             foreach (var m in order)
             {
                 var s = subs[m];
                 int off = v.Count;
                 v.AddRange(s.v); n.AddRange(s.n); uv.AddRange(s.uv);
+                if (colors != null) for (int i = 0; i < s.v.Count; i++) colors.Add(i < s.c.Count ? s.c[i] : new Color32(255, 255, 255, 255));
                 var t = new int[s.t.Count];
                 for (int i = 0; i < t.Length; i++) t[i] = s.t[i] + off;
                 tris.Add(t);
@@ -211,10 +261,11 @@ namespace PryingEyes.Proc
             mesh.SetVertices(v);
             mesh.SetNormals(n);
             mesh.SetUVs(0, uv);
+            if (colors != null) mesh.SetColors(colors);
             mesh.subMeshCount = tris.Count;
             for (int i = 0; i < tris.Count; i++) mesh.SetTriangles(tris[i], i);
             mesh.RecalculateBounds();
-            mesh.RecalculateTangents();
+            if (tangents) mesh.RecalculateTangents();
             return mesh;
         }
     }

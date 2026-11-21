@@ -32,7 +32,7 @@ namespace PryingEyes
         RectTransform backdrop, mainPanel, pausePanel, settingsPanel, settingsFrom, coopPanel, helpPanel, helpFrom, leavePanel;
         Slider sMaster, sEffects, sMusic, sBrightness, sSensitivity, sFov, sMotion, sCoopHud;
         Text vMaster, vEffects, vMusic, vBrightness, vSensitivity, vFov, vMotion, vCoopHud, coopStatus, pauseNet, pauseHint, pauseStats;
-        InputField coopName, coopAddr;
+        InputField coopAddr;
         Button hostButton, joinButton, bellButton;
         Text leaveNote;
 
@@ -100,6 +100,9 @@ namespace PryingEyes
             if (leavePanel.gameObject.activeSelf) { MenuSound.Back(); Show(pausePanel); return; }
             if (helpPanel.gameObject.activeSelf) { MenuSound.Back(); Show(helpFrom); return; }
             if (splitPanel.gameObject.activeSelf) { MenuSound.Back(); Show(mainPanel); return; }
+            if (CharactersBack()) return;
+            if (RunBack()) return;
+            if (ModeBack()) return;
             if (coopPanel.gameObject.activeSelf) { MenuSound.Back(); CoopBack(); return; }
             if (InMenu) return;
             if (Paused) Resume(); else if (toggle) Pause();
@@ -132,11 +135,24 @@ namespace PryingEyes
         {
             var fd = Proc.FloorDirector.I;
             bool expedition = Cattedrale.Catacombe.Hub && fd != null && !fd.InHub && Cattedrale.Fabbrica.Spedizione.Active;
+            bool canSave = TestCanSave ?? (fd != null && fd.CanSuspend);
+            string saveLine = canSave ? "\nSe la salvi, la riprendi da questo livello con zaino, punti e armi."
+                : expedition && fd.SuspendProblem != null ? "\n" + fd.SuspendProblem : "";
             leaveNote.text = (expedition ? "Abbandoni la spedizione: perdi lo zaino come se fossi morto (le spoglie restano nel ramo). La cattedrale e il magazzino restano."
-                : fd != null && fd.InHub ? "La cattedrale, il magazzino e le opere restano salvati." : "La partita attuale verrà chiusa. Progressi, armi e punti di questa discesa andranno persi.") +
+                : Deserto.DesertMode.Active ? "La cattedrale, il magazzino e le opere restano salvati. Il deserto si rigenera a ogni partita: punti, armi e perk di questa andranno persi."
+                : fd != null && fd.InHub ? "La cattedrale, il magazzino e le opere restano salvati." : "La partita attuale verrà chiusa. Progressi, armi e punti di questa discesa andranno persi.") + saveLine +
                 (Coop.IsHost ? "\nI compagni verranno scollegati e potranno proseguire da soli." : "");
+            LeaveLayout(canSave);
             SplitLeaveText();
             Show(leavePanel);
+        }
+
+        /// <summary>"Gioca" del menu principale: serve un personaggio; se non c'e' si apre la creazione.</summary>
+        void PlayClicked()
+        {
+            if (NeedCharacter(mainPanel)) return;
+            if (RunWaiting()) return;       // una spedizione sospesa: riprenderla o ricominciare (GameMenu.Run.cs)
+            ShowModes();                    // standard o deserto (GameMenu.Mode.cs)
         }
 
         void Play()
@@ -158,7 +174,6 @@ namespace PryingEyes
 
         void OpenCoop()
         {
-            coopName.text = Coop.PlayerName;
             coopAddr.text = Coop.LastAddress;
             coopStatus.text = Coop.Available ? "" : "La cooperativa non c'è in questa versione.";
             Show(coopPanel);
@@ -166,13 +181,19 @@ namespace PryingEyes
 
         void CoopHost()
         {
-            Coop.PlayerName = coopName.text;
+            if (NeedCharacter(coopPanel)) return;
+            ShowModes(true);                         // 0.9.1: chi ospita sceglie la partita (standard o deserto, GameMenu.Mode.cs); la scelta chiama HostNow
+        }
+
+        /// <summary>Cooperativa: la modalita' e' scelta, si apre la porta.</summary>
+        void HostNow()
+        {
             if (Coop.StartHost())
             {
                 Play();                              // la partita dell'ospite parte subito: gli altri entrano quando vogliono
                 GameManager.I?.hud?.Toast(NetInfo(2) + " - lo ritrovi in pausa");
             }
-            else coopStatus.text = Coop.Status;
+            else { Show(coopPanel); coopStatus.text = Coop.Status; }
         }
 
         /// <summary>Che cosa dire agli amici (ospite) o a chi gioca (ospitato), per il menu di pausa.</summary>
@@ -189,7 +210,7 @@ namespace PryingEyes
 
         void CoopJoin()
         {
-            Coop.PlayerName = coopName.text;
+            if (NeedCharacter(coopPanel)) return;
             Coop.StartJoin(coopAddr.text);
             coopStatus.text = Coop.Status;
         }
@@ -275,6 +296,9 @@ namespace PryingEyes
             coopPanel.gameObject.SetActive(p == coopPanel);
             helpPanel.gameObject.SetActive(p == helpPanel);
             leavePanel.gameObject.SetActive(p == leavePanel); splitPanel.gameObject.SetActive(p == splitPanel);
+            CharactersShow(p);
+            RunShow(p);
+            ModeShow(p);
             if (system != null)
             {
                 system.SetSelectedGameObject(null);
@@ -357,15 +381,15 @@ namespace PryingEyes
 
             leavePanel = Stretch(backdrop, "LasciaPartita");
             Label(leavePanel, "Titolo", new Vector2(0, 150), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Tornare al menu?", Ink, FontStyle.Normal);
-            leaveNote = Label(leavePanel, "Conseguenze", new Vector2(0, 45), new Vector2(900, 110), 22, TextAnchor.MiddleCenter, "", Dim, FontStyle.Normal);
-            MakeButton(leavePanel, "Annulla", new Vector2(0, -60), () => Show(pausePanel));
-            MakeButton(leavePanel, "Lascia la partita", new Vector2(0, -130), () => GameManager.I?.ReturnToMenu());
+            leaveNote = Label(leavePanel, "Conseguenze", new Vector2(0, 38), new Vector2(900, 130), 22, TextAnchor.MiddleCenter, "", Dim, FontStyle.Normal);
+            leaveSaveButton = MakeButton(leavePanel, "Salva e torna al menu", new Vector2(0, -60), SaveAndLeave);
+            leaveCancelButton = MakeButton(leavePanel, "Annulla", new Vector2(0, -60), () => Show(pausePanel));
+            leaveGoButton = MakeButton(leavePanel, "Lascia la partita", new Vector2(0, -130), () => GameManager.I?.ReturnToMenu());
+            leaveSaveButton.gameObject.SetActive(false);
 
             coopPanel = Stretch(backdrop, "Cooperativa");
             Label(coopPanel, "Titolo", new Vector2(0, 200), new Vector2(1000, 70), 48, TextAnchor.MiddleCenter, "Cooperativa", Ink, FontStyle.Normal);
             Label(coopPanel, "Sottotitolo", new Vector2(0, 148), new Vector2(1000, 30), 20, TextAnchor.MiddleCenter, "Fino a quattro giocatori nello stesso albergo. L'ospite fa girare il mondo.", Dim, FontStyle.Italic);
-            Label(coopPanel, "EtichettaNome", new Vector2(-250, 98), new Vector2(200, 28), 20, TextAnchor.MiddleLeft, "Il tuo nome", Dim, FontStyle.Normal);
-            coopName = MakeInput(coopPanel, new Vector2(60, 98), new Vector2(340, 40), "Giocatore");
             Label(coopPanel, "EtichettaIndirizzo", new Vector2(-250, 44), new Vector2(200, 28), 20, TextAnchor.MiddleLeft, "Indirizzo", Dim, FontStyle.Normal);
             coopAddr = MakeInput(coopPanel, new Vector2(60, 44), new Vector2(340, 40), "192.168.1.10");
             hostButton = MakeButton(coopPanel, "Ospita una partita", new Vector2(0, -34), CoopHost);
@@ -376,6 +400,9 @@ namespace PryingEyes
             MakeButton(coopPanel, "Indietro", new Vector2(0, -250), CoopBack);
 
             BuildSplit();
+            BuildCharacters();
+            BuildRun();
+            BuildMode();
             BuildSettings();
             BuildHelp();
             BuildPadUi();

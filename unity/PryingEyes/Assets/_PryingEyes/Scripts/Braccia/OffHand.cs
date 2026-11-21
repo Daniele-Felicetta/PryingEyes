@@ -91,7 +91,7 @@ namespace PryingEyes
         bool external;
         int nextEvent;
         Action<string> onEvent;
-        bool freeShown;
+        bool freeShown, rideHidden;
         Vector3 curPalmCam;
         Quaternion curPalmRotCam;
         /// <summary>Posa e punto del palmo dell'ultimo fotogramma (per gli effetti che si attaccano alla mano).</summary>
@@ -113,7 +113,7 @@ namespace PryingEyes
         public bool OneHanded => oneHanded;
         public WeaponSurface Surface => surface;
         /// <summary>Quanto la mano libera ha preso il posto del guanto avvolto (per le prove).</summary>
-        public bool FreeVisible => freeShown;
+        public bool FreeVisible => freeShown && !rideHidden;
 
         OffHand(Transform cam, Transform viewRoot, Transform handL, ArmRig armL, WeaponRig rig, HandRig free, Renderer[] wrapped,
                 Vector3 palmRelPos, Quaternion palmRelRot, HandPose gripPose, bool oneHanded, string id)
@@ -312,6 +312,15 @@ namespace PryingEyes
             cb?.Invoke("annullata");
         }
 
+        /// <summary>In sella la sinistra e' sul manubrio: la mano libera non si vede (scendendo si riaccende com'era). Weapon la chiama a ogni fotogramma finche' si guida.</summary>
+        public void RideHidden(bool hide)
+        {
+            if (rideHidden == hide) return;
+            rideHidden = hide;
+            free.SetVisible(freeShown && !hide);
+            if (wrapped != null) foreach (var r in wrapped) if (r != null && r is MeshRenderer) r.enabled = !freeShown && !oneHanded && !hide;
+        }
+
         void ShowFree(bool on)
         {
             // con la presa di sostegno naturale la mano articolata resta sempre (il guanto modellato per la spalla finta non torna)
@@ -319,8 +328,8 @@ namespace PryingEyes
             if (show != freeShown)
             {
                 freeShown = show;
-                free.SetVisible(show);
-                if (wrapped != null) foreach (var r in wrapped) if (r != null && r is MeshRenderer) r.enabled = !show && !oneHanded;
+                free.SetVisible(show && !rideHidden);
+                if (wrapped != null) foreach (var r in wrapped) if (r != null && r is MeshRenderer) r.enabled = !show && !oneHanded && !rideHidden;
             }
             if (armL != null) armL.ClampHand = on;
             // con la mano articolata in vista l'orlo della manica segue l'avambraccio (come la manichetta del guanto), non la mano

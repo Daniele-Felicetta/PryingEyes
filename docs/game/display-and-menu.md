@@ -25,7 +25,7 @@ mouse, left and right, **PagSu** and **PagGiu** from any row), and the settings 
 | Immagine | Luminosità, Campo visivo, Qualità delle ombre (Alta), Risoluzione di rendering (100%, 50% to 100%), Anti-aliasing (4×, off / 2× / 4×), Grana della pellicola, Vignettatura, Bagliore (the last three 100% of each theme's own amount, down to 0) |
 | Audio | Volume generale, Effetti sonori, Musica, **Ambiente** (the hum, wind, murmurs, creaks and distant bells, which used to follow the effects), **Tema del menu** ([menu-music.md](menu-music.md)), Suoni dell'interfaccia (on) |
 | Comandi | Sensibilità mira (mouse), Sensibilità controller (right stick, 0.25× to 3×), Asse Y del mouse and Asse Y del controller (normal or inverted), Mira, Abbassarsi and Corsa (held, or one tap switches), **Elenco dei comandi** (opens the guide on the keys of the device in use) |
-| Gioco | **Prospettiva** (*Prima persona*; *Terza persona* puts the camera behind the shoulder, see [third-person.md](third-person.md), and switches at once, in a game too; saved as `video_thirdperson`), Mirino (classic, dot only, none), Oscillazione visuale, HUD dei compagni (60% to 180%), Contatore fotogrammi (top left: frames per second and ms per frame; off), Pausa a finestra inattiva (on; it stops the game by itself when you switch window) |
+| Gioco | **Prospettiva** (*Prima persona*; *Terza persona* puts the camera behind the shoulder, see [third-person.md](third-person.md), and switches at once, in a game too; saved as `video_thirdperson`), Mirino (classic, dot only, none), Oscillazione visuale, HUD dei compagni (60% to 180%), Contatore fotogrammi (top left: frames per second, ms per frame and the worst frame of the last quarter of a second; **on** since 0.9.1, and the **F3** key turns it on and off anywhere, menu included, remembering the choice), Pausa a finestra inattiva (on; it stops the game by itself when you switch window) |
 
 The Immagine settings touch the render pipeline asset only in the player: not in the editor and not in the automated runs, because a
 modified asset would stay modified. The defaults are what the asset held, so a game that never opens the tab looks as it did. The effect
@@ -79,8 +79,29 @@ Windows 1`, and again when the panel is opened). The buttons are off, with the r
 game is already running. A split screen is one game, so the display settings are the ordinary ones (they apply to the game window; any further
 monitor is opened by Unity at its own size). The pause menu names who
 uses what (*G1: tastiera e mouse   G2: controller 1 ...*), says that Esc or Start on any controller resumes, lists the controller's buttons
-when a controller is in use, and **Torna al menu** warns that the split screen closes for every player. Layout, controls and checks:
+when a controller is in use, and **Torna al menu** warns that the split screen closes for every player. After the number of players,
+**Chi gioca?** asks which character plays in each seat ([saves-and-characters.md](saves-and-characters.md#playing-together)). Layout, controls and checks:
 [../multiplayer/split-screen.md](../multiplayer/split-screen.md).
+
+## Choosing how to play
+
+**Gioca** (and **Ricomincia dalla cattedrale** after the suspended-expedition question) opens the panel **Come vuoi giocare?** with two buttons,
+**Standard** and **Il deserto**, and **Indietro** (`GameMenu.Mode.cs`). The focus starts on the mode played last time, so Enter or A repeats it; B
+or **Indietro** goes back to the main menu. The choice is kept in `PlayerPrefs` (`PryingEyes.GameMode`; the automated tests never write it) and
+`-deserto` forces the desert. Since 0.9.1 **Ospita una partita** (Cooperativa) asks it too: the same panel, titled **Che partita ospiti?**, whose choice opens the door
+(`GameMenu.HostNow`) and whose **Indietro** and B go back to the co-op panel; a guest is never asked, it starts where the host plays. Split screen asks it too (0.9.1): after
+**Chi gioca?** (the characters of the seats) **Comincia** opens the same panel, titled **Che partita giocate?**, whose choice starts the run for every seat (`GameMenu.SplitBegin`, which says
+if it did not start and then **Chi gioca?** shows the reason); **Indietro** and B go back to **Chi gioca?**. The desert itself is in [the-desert.md](the-desert.md).
+
+## Characters and the suspended expedition
+
+Since 0.9.0 the main menu has **Personaggi** (`GameMenu.Characters.cs`): the list of the characters, the selected
+one with its level bar and its figures, **Nuovo personaggio** (a name and the look chosen with **Aspetto**; with no character, **Gioca** and the
+co-op panel open it first), and **Elimina** with a confirmation that says where the file goes. The character in use shows under **Gioca** and in the
+co-op panel (*Il tuo personaggio*). In the pause menu **Torna al menu** opens *Tornare al menu?*, which offers **Salva e torna al menu** beside
+**Annulla** and **Lascia la partita** when saving is possible (`GameMenu.Run.cs`; the panel says why not when it is not), and **Gioca** with a
+suspended expedition asks *Una spedizione ti aspetta* with **Riprendi la spedizione** and **Ricomincia dalla cattedrale**. What is kept and the rules:
+[saves-and-characters.md](saves-and-characters.md).
 
 ## Keyboard and controller navigation
 
@@ -169,5 +190,17 @@ switched on after the game started (the `late` case needs a PC where that can be
 was not exercised against a real change), and what Unity does on its own when the display list changes (`Display.onDisplaysUpdated` is only
 logged).
 
+On 18 November 2026, with the characters of 0.9: `MenuReview.Run` passed 2790 of 2790 checks. The new ones cover the list of the characters (also with a
+suspended expedition), the creation and deletion panels, *Chi gioca?*, the suspended-expedition panel with the worst-case figures (1,234,567 points and
+eleven resources of 9999) and the leave panel with its three buttons: at the four sizes every text fits its box and sits on the screen, the buttons that
+must exist exist, and **Indietro** returns to the main menu. The photographs of the list, the expedition panel, the creation panel and *Chi gioca?*
+(1280x720) and of the leave panel (1024x768) were looked at. **Not verified**: these panels with a controller, and their look in a real player window.
+
+On 18 November 2026, with the mode panel of the desert (`GameMenu.Mode.cs`): `MenuReview.Run` passed 2874 of 2874 checks (84 more than with the characters): at the
+four sizes every text of **Come vuoi giocare?** fits its box and the version label keeps its gap from the key hints, *Gioca* opens the panel, the panel
+describes both ways, and **Indietro** returns to the main menu. The photograph (1280x720) was looked at: it showed the two descriptions touching the lower edge of the
+buttons, so they were moved 14 units down and the review was run again (same result, and the photograph was looked at again). `-padtest -nowaves` 89 of 89
+([controller.md](controller.md#verification)). **Not verified**: the panel with a physical controller, and its look in a real player window.
+
 Source: `GameMenu.cs`, `GameMenu.Design.cs`, `GameMenu.Display.cs`, `GameMenu.Settings.cs`, `GameMenu.Help.cs`, `GameMenu.Split.cs`,
-`MenuWidgets.cs`, `MenuSound.cs`, `MenuMusic.cs`, `MenuEngraving.cs`, `GameSettings.cs`, `GameSettings.More.cs`, `VideoSettings.cs`.
+`GameMenu.Characters.cs`, `GameMenu.Mode.cs`, `GameMenu.Run.cs`, `MenuWidgets.cs`, `MenuSound.cs`, `MenuMusic.cs`, `MenuEngraving.cs`, `GameSettings.cs`, `GameSettings.More.cs`, `VideoSettings.cs`.

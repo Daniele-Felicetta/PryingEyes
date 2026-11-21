@@ -97,6 +97,8 @@ namespace PryingEyes.Proc
             if (prof.TryGet(out UnityEngine.Rendering.Universal.Vignette vg)) vg.smoothness.Override(look.vignetteSmooth);
             // bagliore, vignettatura e grana del tema, scalati da quanto ne vuole il giocatore (Impostazioni > Immagine; al 100% com'erano)
             GameSettings.SetThemeEffects(vol, look.grain, look.vignette, look.bloom * LookTune.Bloom);
+            // nel deserto il grading di una stanza e' quello a cui si torna al chiuso: il cielo lo tiene (e riscrive l'esposizione)
+            if (PryingEyes.Deserto.DesertMode.Active) PryingEyes.Deserto.DesertSky.I?.Resync();
         }
     }
 

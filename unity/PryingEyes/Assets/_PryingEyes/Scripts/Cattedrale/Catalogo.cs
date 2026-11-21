@@ -201,11 +201,38 @@ namespace PryingEyes.Cattedrale
                 effetto = "La cattedrale è consacrata. Sotto la cripta si apre l'Abisso: le catacombe senza fondo." },
         };
 
+        /// <summary>Le due opere del deserto (la modalita' "il deserto"): in giro per la sabbia non si trovano ne' i libri dei perk ne' la consacrazione
+        /// delle armi, stanno nella cattedrale e si sbloccano qui, con le risorse che si portano dal deserto. Sono nell'albero e nel registro solo
+        /// quando <see cref="IncludeDesert"/> e' acceso (lo accende DesertMode.Begin): nelle altre modalita' le opere restano le venti di sempre.</summary>
+        public static readonly OperaDef[] Deserto =
+        {
+            new OperaDef { id = "biblioteca_voti", nome = "La Biblioteca dei Voti", luogo = "Navata",
+                costo = B((Risorse.Legno, 30), (Risorse.Ossa, 30), (Risorse.Sangue, 2)),
+                effetto = "Nel deserto: i libri dei perk tornano sui leggii della navata (si comprano a punti)." },
+            new OperaDef { id = "consacrazione", nome = "L'Altare della Consacrazione", luogo = "Presbiterio",
+                costo = B((Risorse.Acciaio, 40), (Risorse.Brace, 5), (Risorse.Cuori, 3), (Risorse.Reliquie, 1)), richiede = new[] { "altare" },
+                effetto = "Nel deserto: l'altare che consacra le armi, il pack-a-punch (si paga a punti)." },
+        };
+
+        /// <summary>Acceso dalla modalita' "il deserto": le sue opere entrano nell'albero e nel registro.</summary>
+        public static bool IncludeDesert;
+
+        /// <summary>Le opere di questa modalita': le venti di sempre, con quelle del deserto se la modalita' e' accesa.</summary>
+        public static IEnumerable<OperaDef> Elenco
+        {
+            get
+            {
+                foreach (var o in Tutte) yield return o;
+                if (IncludeDesert) foreach (var o in Deserto) yield return o;
+            }
+        }
+
         static readonly Dictionary<string, OperaDef> byId = Index();
         static Dictionary<string, OperaDef> Index()
         {
             var d = new Dictionary<string, OperaDef>(StringComparer.Ordinal);
             foreach (var o in Tutte) d[o.id] = o;
+            foreach (var o in Deserto) d[o.id] = o;
             return d;
         }
         public static OperaDef Of(string id) => id != null && byId.TryGetValue(id, out var o) ? o : null;
@@ -213,7 +240,7 @@ namespace PryingEyes.Cattedrale
         public static WorkTree Albero()
         {
             var list = new List<WorkTree.Work>();
-            foreach (var o in Tutte) list.Add(new WorkTree.Work(o.id, o.costo, o.richiede));
+            foreach (var o in Elenco) list.Add(new WorkTree.Work(o.id, o.costo, o.richiede));
             return new WorkTree(list);
         }
     }

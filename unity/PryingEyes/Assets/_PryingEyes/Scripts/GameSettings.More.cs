@@ -30,7 +30,7 @@ namespace PryingEyes
         // valori correnti: i default sono il gioco com'era prima di queste impostazioni
         static float ambience = 1f, menuMusic = 1f, grain = 1f, vignette = 1f, bloom = 1f, padSensitivity = 1f;
         static int renderScalePct = 100, msaa = 4, shadows = 2, aimMode, crouchMode, sprintMode, crosshair;
-        static bool uiSounds = true, invertY, invertPadY, showFps, pauseOnFocusLoss = true;
+        static bool uiSounds = true, invertY, invertPadY, showFps = true, pauseOnFocusLoss = true;
 
         // ---- audio
         /// <summary>Ambiente: il ronzio delle stanze, il vento, il brusio, gli scricchiolii e i rintocchi lontani (prima seguivano gli Effetti).</summary>
@@ -96,7 +96,7 @@ namespace PryingEyes
             crouchMode = Mathf.Clamp(PlayerPrefs.GetInt(KeyCrouchMode, 0), 0, 1);
             sprintMode = Mathf.Clamp(PlayerPrefs.GetInt(KeySprintMode, 0), 0, 1);
             crosshair = Mathf.Clamp(PlayerPrefs.GetInt(KeyCrosshair, 0), 0, 2);
-            showFps = Flag(KeyFps, false);
+            showFps = Flag(KeyFps, true);          // acceso dalla 0.9.1 (nelle versioni prima era spento: chi l'ha spento a mano resta spento)
             pauseOnFocusLoss = Flag(KeyPauseFocus, true);
         }
 
@@ -143,7 +143,7 @@ namespace PryingEyes
 
         public static void ResetGame()
         {
-            SetThirdPerson(false); SetCrosshair(CrosshairClassic); SetMotion(1f); SetCoopHudScale(1f); SetShowFps(false); SetPauseOnFocusLoss(true);
+            SetThirdPerson(false); SetCrosshair(CrosshairClassic); SetMotion(1f); SetCoopHudScale(1f); SetShowFps(true); SetPauseOnFocusLoss(true);
         }
 
         // ---- qualita' dell'immagine: l'asset della pipeline URP (si cambia in memoria, nel gioco vero)
@@ -192,7 +192,42 @@ namespace PryingEyes
             urp.mainLightShadowmapResolution = shadows == 2 ? baseMainRes : Mathf.Min(baseMainRes, res[shadows]);
             urp.additionalLightsShadowmapResolution = shadows == 2 ? baseLightRes : Mathf.Min(baseLightRes, res[shadows]);
             urp.shadowCascadeCount = shadows == 2 ? baseCascades : Mathf.Min(baseCascades, cascades[shadows]);
-            urp.shadowDistance = shadows == 2 ? baseDistance : Mathf.Min(baseDistance, distance[shadows]);
+            urp.shadowDistance = (shadows == 2 ? baseDistance : Mathf.Min(baseDistance, distance[shadows])) * shadowRange;
+        }
+
+        static float shadowRange = 1f, rangeBase = -1f;
+        public static float ShadowRange => shadowRange;
+
+        /// <summary>Il deserto vuole le ombre del sole lontane (le dune, le torri: oltre i 70 m dell'asset non c'e' ombra e il taglio si vede, soprattutto col sole basso): un fattore sulla distanza
+        /// scelta dalla qualita' dell'immagine. Vale anche nelle prove (in memoria, nel giocatore; nell'editor l'asset non si tocca). Si rimette a 1 uscendo dal deserto.</summary>
+        public static void SetShadowRange(float scale)
+        {
+            scale = Mathf.Clamp(scale, 1f, 6f);
+            if (Mathf.Abs(scale - shadowRange) < 0.01f) return;
+            ApplyShadowRange(scale);
+        }
+
+        static void ApplyShadowRange(float scale)
+        {
+            shadowRange = scale;
+            if (GraphicsLive) { ApplyGraphics(); return; }
+            var urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+            if (urp == null || Application.isEditor) return;
+            if (rangeBase < 0f) rangeBase = urp.shadowDistance;        // il primo valore dell'asset, prima del nostro
+            urp.shadowDistance = rangeBase * shadowRange;
+        }
+
+        /// <summary>Costanti di tempo (s) con cui la distanza delle ombre del deserto si stringe (si entra in un edificio) e si allarga (se ne esce).</summary>
+        public const float ShadowShrinkTau = 0.7f, ShadowGrowTau = 0.35f;
+
+        /// <summary>Come SetShadowRange, ma ci si arriva piano piano (a ogni fotogramma, 'dt' secondi): a scatto, entrando in un edificio o sotto una tettoia, tutte le ombre oltre i 70 m (le dune, le torri,
+        /// la cattedrale) sparivano in un fotogramma e ricomparivano di botto uscendo (la prova -desertonly ombre misura 140 m in un fotogramma). Si stringe piu' piano di come si allarga: chi esce vuole
+        /// le ombre lontane presto, chi entra non le vede piu'.</summary>
+        public static void EaseShadowRange(float target, float dt)
+        {
+            target = Mathf.Clamp(target, 1f, 6f);
+            float next = Mathf.Abs(target - shadowRange) < 0.01f ? target : Mathf.Lerp(shadowRange, target, 1f - Mathf.Exp(-Mathf.Max(dt, 0f) / (target < shadowRange ? ShadowShrinkTau : ShadowGrowTau)));
+            if (Mathf.Abs(next - shadowRange) > 1e-5f) ApplyShadowRange(next);        // senza la zona morta di SetShadowRange: a 500 fotogrammi al secondo un passo e' di un millesimo
         }
 
         // ---- grana, vignettatura e bagliore: il tema decide quanto, la scelta del giocatore lo scala
@@ -208,6 +243,9 @@ namespace PryingEyes
             themeGrain = grainBase; themeVignette = vignetteBase; themeBloom = bloomBase;
             ApplyEffects();
         }
+
+        /// <summary>Grana, vignettatura e bagliore di riferimento del look in corso (prima della scelta del giocatore): il deserto li prende per sfumare tra l'aria aperta e le stanze.</summary>
+        public static void ThemeEffects(out float grain, out float vignette, out float bloom) { grain = themeGrain; vignette = themeVignette; bloom = themeBloom; }
 
         static void ApplyEffects()
         {

@@ -31,7 +31,7 @@ namespace PryingEyes
         float moveMul = 1f;
 
         /// <summary>Onnisciente: nella hall classica, e per chi nasce in un round (Enemy.Rounds.cs): sa sempre dove sei e ti viene incontro.</summary>
-        bool Omniscient => !Stealth.Enabled || relentless;
+        bool Omniscient => !dormant && (!Stealth.Enabled || relentless);
 
         /// <summary>Dove sta il segnalino sopra la testa.</summary>
         public Vector3 MarkerPoint => transform.position + Vector3.up * (type == EnemyType.Portachiavi ? 1.65f : Archetype == EnemyType.Occhio ? 0.85f : Archetype == EnemyType.Abate ? 3.0f : type == EnemyType.Direttore ? 2.95f : 2.3f);
@@ -65,7 +65,7 @@ namespace PryingEyes
         /// <summary>Va a controllare un punto (candela accesa, uscita): cerca come se avesse perso una pista.</summary>
         public void Investigate(Vector3 pos)
         {
-            if (dead || puppet || Omniscient) return;
+            if (dead || puppet || Omniscient || dormant) return;
             lastKnown = pos;
             awareness = Mathf.Max(awareness, 0.6f);
             if (alert == Alert.Hunting) return;
@@ -79,7 +79,7 @@ namespace PryingEyes
         // ------------------------------------------------------------------ udito
         public void Hear(Vector3 pos, float radius, NoiseKind kind)
         {
-            if (dead || puppet || Omniscient) return;
+            if (dead || puppet || Omniscient || dormant) return;
             Vector3 ep = transform.position + Vector3.up * (type == EnemyType.Portachiavi ? EyeHeight : Archetype == EnemyType.Occhio ? 0f : 1.4f);
             float d = Vector3.Distance(ep, pos);
             float eff = radius * (Archetype == EnemyType.Occhio ? 0.55f : Archetype == EnemyType.Abate ? 1.2f : 1f);   // l'occhio non ha orecchie
@@ -191,6 +191,13 @@ namespace PryingEyes
 
         void SenseTick(float dt, Vector3 gp)
         {
+            if (dormant)
+            {
+                // il deserto: a riposo non vede e non sente niente, gira nella sua zona finche' il regista non lo sveglia (Enemy.Desert.cs)
+                seeing = false; seenCache = false; awareness = 0f; lostT = 0f;
+                if (alert != Alert.Patrol) alert = Alert.Patrol;
+                return;
+            }
             if (Omniscient)
             {
                 alert = Alert.Hunting; seeing = true; awareness = 1f; lostT = 0f;
@@ -332,6 +339,7 @@ namespace PryingEyes
             moveGoal = gp;
             if (debugFreeze) { moveHold = true; return; }
             if (Omniscient) { moveGoal = feet; return; }
+            if (dormant && !hasHome) { moveHold = true; Sweep(dt, 60f, 0.8f); return; }       // chi vola a riposo resta dov'e' e si guarda intorno
             alertT += dt;
             if (turnT > 0f) turnT -= dt;
             switch (alert)

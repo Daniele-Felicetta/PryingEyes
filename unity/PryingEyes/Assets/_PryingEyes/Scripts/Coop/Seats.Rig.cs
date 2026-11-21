@@ -31,7 +31,7 @@ namespace PryingEyes
         /// <summary>Avvia lo split screen con 'count' giocatori (2..4): il giocatore della scena diventa il posto 0 e nascono gli altri.
         /// Va chiamato dal menu, prima di "Gioca" (il piano non e' ancora cominciato). I monitor che si usano sono quelli voluti
         /// (SplitScreen.WantedMonitors: la scelta del menu, o -splitmonitors) fra quelli collegati.</summary>
-        public static bool Begin(int count, bool p1Pad, out string error)
+        public static bool Begin(int count, bool p1Pad, out string error, IList<PryingEyes.Characters.CharacterRecord> cast = null)
         {
             error = null;
             var gm = GameManager.I;
@@ -42,9 +42,15 @@ namespace PryingEyes
             if (Coop.Active || Coop.WaitingForHost) { error = "C'e' gia' una partita in rete"; return false; }
 
             All.Clear(); byRoot.Clear();
+            // chi gioca in ogni posto: i personaggi scelti (o, dove manca la scelta, il locale e poi i piu' recenti non ancora presi), con un
+            // aspetto diverso per ognuno; il posto 0 e' il personaggio locale e la sua cattedrale e' quella gia' in uso
+            var chosen = ChooseCast(count, cast, out var looks);
+            PryingEyes.Characters.Roster.SetLocal(chosen[0]);
+            Cattedrale.Fabbrica.Seleziona(chosen[0]);
             var proto = gm.player;
             var s0 = new Seat(0)
             {
+                character = chosen[0], look = looks[0], cathedral = Cattedrale.Fabbrica.Corrente,
                 keyboard = true, player = proto, hud = gm.hud, camera = proto.cam.GetComponent<Camera>(), pad = PadControls.Primary,
                 stealth = Stealth.Current, medals = Medals.Current, interact = Proc.Interact.Mine, wallBuy = WallBuy.Mine,
                 score = gm.score, kills = gm.kills,
@@ -64,7 +70,7 @@ namespace PryingEyes
             s0.display = 0;
             for (int i = 1; i < count; i++)
             {
-                var s = Build(i, s0, SplitScreen.DisplayOf(i, count, monitors));
+                var s = Build(i, s0, SplitScreen.DisplayOf(i, count, monitors), chosen[i], looks[i]);
                 if (s == null) { End(); error = "Non riesco a creare il giocatore " + (i + 1); return false; }
                 All.Add(s);
                 Targets.Add(s.target);
@@ -78,6 +84,33 @@ namespace PryingEyes
             else
                 Debug.Log($"[PryingEyes] split: {count} giocatori in una sola finestra, schermo {Screen.width}x{Screen.height}, controller " + PadSummary());
             return true;
+        }
+
+        /// <summary>I personaggi dei 'count' posti. 'cast' e' la scelta del menu (puo' mancare o avere buchi): il posto 0 senza scelta e' il
+        /// personaggio locale; gli altri che non hanno scelto prendono il piu' recente non ancora in campo, e se non ce ne sono si crea un
+        /// ospite ("Giocatore 3"). Nessun personaggio compare due volte. 'looks' sono gli aspetti in questa partita: mai due uguali.</summary>
+        static List<PryingEyes.Characters.CharacterRecord> ChooseCast(int count, IList<PryingEyes.Characters.CharacterRecord> cast, out List<string> looks)
+        {
+            var roster = PryingEyes.Characters.Roster.All;
+            var result = new List<PryingEyes.Characters.CharacterRecord>();
+            var taken = new HashSet<string>();
+            looks = new List<string>();
+            for (int i = 0; i < count; i++)
+            {
+                var pick = cast != null && i < cast.Count ? cast[i] : null;
+                if (pick == null && i == 0) pick = PryingEyes.Characters.Roster.Local;
+                if (pick != null && result.Contains(pick)) pick = null;
+                if (pick == null)
+                    foreach (var r in roster)
+                        if (!result.Contains(r) && (pick == null || string.CompareOrdinal(r.savedAt, pick.savedAt) > 0)) pick = r;
+                if (pick == null) pick = PryingEyes.Characters.Roster.CreateGuest(i, taken);
+                if (pick == null) pick = new PryingEyes.Characters.CharacterRecord { id = "ospite-" + i, name = "Giocatore " + (i + 1) };      // il disco non scrive: si gioca lo stesso, senza salvare
+                result.Add(pick);
+                string look = PryingEyes.Characters.CharacterLooks.Resolve(pick.look, taken);
+                taken.Add(look);
+                looks.Add(look);
+            }
+            return result;
         }
 
         static string DisplayCounts(int count, int monitors)
@@ -138,11 +171,11 @@ namespace PryingEyes
         }
 
         // ------------------------------------------------------------------ costruzione di un posto
-        static Seat Build(int index, Seat proto, int display)
+        static Seat Build(int index, Seat proto, int display, PryingEyes.Characters.CharacterRecord pg, string look)
         {
             var gm = GameManager.I;
             var pp = proto.player;
-            var seat = new Seat(index) { keyboard = false, score = 500, display = display };
+            var seat = new Seat(index) { keyboard = false, score = 500, display = display, character = pg, look = look, cathedral = Cattedrale.Fabbrica.Apri(pg) };
             var rootGo = new GameObject("Posto" + (index + 1));
             seat.root = rootGo.transform;
             byRoot[seat.root] = seat;

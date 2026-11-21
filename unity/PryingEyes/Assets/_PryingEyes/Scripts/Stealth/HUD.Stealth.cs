@@ -24,6 +24,11 @@ namespace PryingEyes
         Text arrowText;
         bool arrowShow, arrowSealed;
         float arrowTarget, arrowAngle, arrowAlpha, arrowMeters;
+        // la stessa freccia puo' guidare altrove (nel deserto verso la cattedrale, DesertHome): con un testo e un colore suoi, un po' piu' in basso
+        // (in alto a sinistra l'obiettivo del deserto e' su due righe larghe)
+        bool arrowCustom, arrowPlaced;
+        string arrowLabel = "";
+        Color arrowTint = Color.white;
         // ---- ping
         Image pingRingImg;
         float pingRingT = -1f, pingCd;
@@ -97,8 +102,20 @@ namespace PryingEyes
 
         public void SetExitArrow(bool show, float relAngleDeg, float meters, bool sealedNow)
         {
-            arrowShow = show; arrowTarget = relAngleDeg; arrowMeters = meters; arrowSealed = sealedNow;
+            arrowShow = show; arrowTarget = relAngleDeg; arrowMeters = meters; arrowSealed = sealedNow; arrowCustom = false;
         }
+
+        /// <summary>La freccia in alto al centro con un testo e un colore suoi: nel deserto punta alla cattedrale (Deserto/DesertHome.cs). Angolo relativo a dove si guarda, positivo a destra.</summary>
+        public void SetGuideArrow(bool show, float relAngleDeg, float meters, string label, Color tint)
+        {
+            arrowShow = show; arrowTarget = relAngleDeg; arrowMeters = meters; arrowSealed = false;
+            arrowCustom = true; arrowLabel = label ?? ""; arrowTint = tint;
+        }
+
+        /// <summary>Per le prove: la freccia guida e' accesa, che cosa dice e a che angolo punta (0 = davanti, positivo a destra).</summary>
+        public bool GuideArrowShown => arrowCustom && arrowAlpha > 0.5f;
+        public string GuideArrowText => arrowText != null ? arrowText.text : "";
+        public float GuideArrowAngle => arrowAngle;
 
         public void SetPingCooldown(float fraction) { pingCd = fraction; }
         public void PingPulse() { pingRingT = 0f; if (mapView != null) mapView.Ping(); }
@@ -164,12 +181,18 @@ namespace PryingEyes
             arrowAngle = Mathf.LerpAngle(arrowAngle, arrowTarget, 1f - Mathf.Exp(-14f * dt));
             arrowRoot.localRotation = Quaternion.Euler(0f, 0f, -arrowAngle);
             arrowRoot.localScale = Vector3.one * (arrowSealed ? 1f : 1f + 0.07f * Mathf.Sin(Time.time * 5f));
-            Color c = arrowSealed ? new Color(0.62f, 0.70f, 0.82f) : new Color(0.55f, 1f, 0.66f);
+            if (arrowCustom != arrowPlaced)
+            {
+                arrowPlaced = arrowCustom;
+                arrowRoot.anchoredPosition = new Vector2(0f, arrowCustom ? -142f : -50f);
+                arrowText.rectTransform.anchoredPosition = new Vector2(0f, arrowCustom ? -184f : -92f);
+            }
+            Color c = arrowCustom ? arrowTint : arrowSealed ? new Color(0.62f, 0.70f, 0.82f) : new Color(0.55f, 1f, 0.66f);
             c.a = arrowAlpha;
             arrowImg.color = c;
             arrowText.color = new Color(c.r, c.g, c.b, arrowAlpha * 0.9f);
             string exitName = Cattedrale.Catacombe.Attive ? "cancello" : "ascensore";
-            arrowText.text = arrowAlpha < 0.02f ? "" : (arrowSealed ? exitName + "  ·  sigillato  ·  " : exitName + "  ·  ") + Mathf.RoundToInt(arrowMeters) + " m";
+            arrowText.text = arrowAlpha < 0.02f ? "" : arrowCustom ? arrowLabel : (arrowSealed ? exitName + "  ·  sigillato  ·  " : exitName + "  ·  ") + Mathf.RoundToInt(arrowMeters) + " m";
         }
 
         void UpdatePingRing(float dt)

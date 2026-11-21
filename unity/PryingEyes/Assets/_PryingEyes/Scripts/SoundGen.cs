@@ -442,12 +442,21 @@ namespace PryingEyes
             return s;
         }
 
-        /// <summary>Passo: 0 marmo (tacco secco), 1 moquette (tonfo sordo), 2 legno del soppalco.</summary>
+        /// <summary>Passo: 0 marmo (tacco secco), 1 moquette (tonfo sordo), 2 legno del soppalco, 3 sabbia (sfregamento morbido e qualche granello).</summary>
         public static float[] Step(int surface, int seed)
         {
             var r = new System.Random(seed * 31 + surface);
             var s = Buf(0.2f);
-            if (surface == 1)
+            if (surface == 3)
+            {
+                // sabbia: il piede affonda (attacco lento, niente tacco), il rumore largo che si spegne e i granelli che si spostano
+                Burst(s, 0f, U(r, 1300f, 1800f), 0.7f, 0.05f, 1f, r);
+                Burst(s, 0.004f, U(r, 380f, 460f), 0.8f, 0.03f, 0.75f, r);
+                for (int g = 0; g < 7; g++) Burst(s, U(r, 0.01f, 0.12f), U(r, 2800f, 5200f), 2.5f, 0.0035f, U(r, 0.12f, 0.32f), r);
+                int ramp = (int)(0.007f * Rate);
+                for (int i = 0; i < ramp && i < s.Length; i++) s[i] *= (float)i / ramp;
+            }
+            else if (surface == 1)
             {
                 Burst(s, 0f, 300f, 0.7f, 0.045f, 1.4f, r);
                 Burst(s, 0f, 900f, 0.8f, 0.012f, 0.4f, r);

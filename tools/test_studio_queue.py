@@ -45,7 +45,7 @@ class QueueLifecycle(unittest.TestCase):
             until(lambda: process_identity(pid) != token)
 
     def test_persistent_fifo_queued_cancel_and_worker_exclusion(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             folder = Path(directory); queue = Queue(folder)
             first, second, third = [queue.submit(["complete"], {}) for _ in range(3)]
             queue.cancel(second)
@@ -61,7 +61,7 @@ class QueueLifecycle(unittest.TestCase):
             self.assertFalse((folder / second / "children.json").exists())
 
     def test_running_cancel_stops_nested_children_but_not_unrelated_process(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             folder = Path(directory); queue = Queue(folder); identity = queue.submit(["nested"], {})
             unrelated = subprocess.Popen([sys.executable, "-c", "import time;time.sleep(30)"])
             try:
@@ -73,7 +73,7 @@ class QueueLifecycle(unittest.TestCase):
                 if unrelated.poll() is None: unrelated.terminate(); unrelated.wait()
 
     def test_timeout_also_stops_grandchildren(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             folder = Path(directory); queue = Queue(folder); identity = queue.submit(["timeout"], {})
             worker = self.worker(folder); children = self.children(folder, identity)
             self.assertEqual(worker.wait(15), 0); self.assert_stopped(children)
@@ -81,7 +81,7 @@ class QueueLifecycle(unittest.TestCase):
             self.assertEqual(queue.report(identity)["steps"][0]["error"], "STEP_TIMEOUT")
 
     def test_abrupt_worker_exit_is_observed_and_remaining_queue_resumes(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             folder = Path(directory); queue = Queue(folder)
             identity = queue.submit(["nested"], {}); following = queue.submit(["complete"], {})
             worker = self.worker(folder); children = self.children(folder, identity)
@@ -94,7 +94,7 @@ class QueueLifecycle(unittest.TestCase):
 
     def test_atomic_json_replaces_a_report_that_a_poller_is_reading(self):
         # Windows refuses os.replace over a file another handle has open: a worker saving report.json must survive a poller reading it.
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             target = Path(directory) / "report.json"; atomic_json(target, {"n": -1})
             stop = threading.Event(); reads = []
             def poll():
@@ -111,7 +111,7 @@ class QueueLifecycle(unittest.TestCase):
             self.assertEqual(list(Path(directory).glob("*.tmp")), [])
 
     def test_waiting_for_project_lock_is_cancellable_without_starting_work(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             folder = Path(directory); queue = Queue(folder); identity = queue.submit(["complete"], {})
             with file_lock(project_lock_path(ToyProject(folder))):
                 worker = self.worker(folder)
@@ -121,7 +121,7 @@ class QueueLifecycle(unittest.TestCase):
                 self.assertEqual(queue.get(identity)["state"], "cancelled")
 
     def test_cli_rejects_stale_submitted_sources_before_any_step(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             folder = Path(directory); queue = Queue(folder); identity = queue.submit(["test", "weapon-state"], {})
             result = subprocess.run([sys.executable, TOOLS / "studio.py", "queue", "run"],
                 env={**os.environ, "STUDIO_OUTPUT": str(folder)}, capture_output=True, text=True, timeout=30)
@@ -132,14 +132,14 @@ class QueueLifecycle(unittest.TestCase):
             self.assertEqual(report["steps"], [])
 
     def test_completed_report_survives_worker_crash_before_queue_acknowledgement(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             folder = Path(directory); queue = Queue(folder); identity = queue.submit(["finish_crash"], {})
             worker = self.worker(folder); self.assertEqual(worker.wait(15), 9)
             self.assertEqual(queue.get(identity)["state"], "running")
             self.assertEqual(queue.status(identity)[0]["state"], "complete")
 
     def test_reused_pid_token_is_not_treated_as_the_recorded_owner(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             queue = Queue(directory); identity = queue.submit(["complete"], {})
             with queue.db() as db:
                 db.execute("UPDATE jobs SET state='running',owner_pid=?,owner_token='different-birth' WHERE id=?", (os.getpid(), identity))
@@ -147,7 +147,7 @@ class QueueLifecycle(unittest.TestCase):
             self.assertIsNotNone(process_identity(os.getpid()))
 
     def test_cli_cancel_and_invalid_queue_requests(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             queue = Queue(directory); identity = queue.submit(["test", "weapon-state"], {})
             env = {**os.environ, "STUDIO_OUTPUT": directory}
             def cli(*args):

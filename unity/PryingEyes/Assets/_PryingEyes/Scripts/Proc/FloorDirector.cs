@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Cattedrale;
+using PryingEyes.Deserto;
 
 namespace PryingEyes.Proc
 {
@@ -55,6 +56,7 @@ namespace PryingEyes.Proc
         {
             if (I != this) return;
             HotelNav.Clear();
+            if (DesertMode.Active) StopDesert();
             I = null;
         }
 
@@ -84,7 +86,7 @@ namespace PryingEyes.Proc
 
         /// <summary>Avvia la partita: primo piano. Lo chiama il GameManager su "Gioca". In cooperativa un ospitato la avvia con il seme e il
         /// piano dell'ospite.</summary>
-        public void StartRun(int seed = 0, int startFloor = 0)
+        public void StartRun(int seed = 0, int startFloor = 0, bool coopDesert = false)
         {
             gm = GameManager.I;
             Seats.EachOrOnce(_ => StealthRig.Install());      // torcia, ping, freccia, cuore di ogni giocatore (Scripts/Stealth)
@@ -95,10 +97,18 @@ namespace PryingEyes.Proc
             RoundDirector.ResetRun();
             Drops.ResetRun();
             Seats.EachOrOnce(_ => { Perks.ResetRun(); Medals.Reset(); });
+            if (TakeResume(out var resume)) { StartCoroutine(ResumeCo(resume)); return; }      // "Gioca" con una spedizione sospesa: si riprende (FloorDirector.Run.cs)
+            if ((DesertWanted || coopDesert) && startFloor <= 0 && ArgInt("-floor", 0) <= 0) { StartCoroutine(StartDesertCo()); return; }      // la modalita' del deserto (FloorDirector.Desert.cs); un ospitato ci entra se l'ospite gioca li'
             // due zone: da soli si parte dalla cattedrale (FloorDirector.Catacombe.cs); in cooperativa e nello schermo condiviso si scende subito,
             // e il bottino va diretto nel magazzino (la spedizione resta aperta finche' non si torna al menu)
             if (Catacombe.Hub && startFloor <= 0 && ArgInt("-floor", 0) <= 0) { StartCoroutine(GoToHub(null, true)); return; }
-            if (Catacombe.Attive) Cattedrale.Fabbrica.Inizia(Rami.RamoDi(startFloor > 0 ? startFloor : ArgInt("-floor", 1)), !Catacombe.Hub);
+            if (Catacombe.Attive)
+            {
+                // ogni giocatore comincia la sua spedizione, con la cattedrale del suo personaggio (nello schermo condiviso una per posto)
+                int startBranch = Rami.RamoDi(startFloor > 0 ? startFloor : ArgInt("-floor", 1));
+                bool direct = !Catacombe.Hub;
+                Seats.EachOrOnce(_ => Cattedrale.Fabbrica.Inizia(startBranch, direct));
+            }
             StartCoroutine(GoTo(startFloor > 0 ? startFloor : ArgInt("-floor", 1), true));
         }
 
@@ -267,7 +277,7 @@ namespace PryingEyes.Proc
                 RefreshObjective();
                 Seats.ForHuds(h => { h.Banner("Piano " + n, plan.epithet); h.Toast(FloorLines[(n - 1) % FloorLines.Length]); });
             }
-            if (Coop.Active) Debug.Log($"[PryingEyes] coop: firma del piano {n}: {FloorSignature():X8}");
+            if (Coop.Active) Debug.Log($"[PryingEyes] coop: firma del piano {n}: {FloorSignature():X8}, contenuto delle stanze {RoomContentSignature(out int sigRooms, out int sigBare):X8} ({sigRooms} stanze, {sigBare} senza arredi)");
             Coop.OnFloorBuilt();                 // cooperativa: piano costruito (la torcia dei compagni torna nel pool, l'ospite saluta chi aspettava)
             Debug.Log($"[PryingEyes] piano {n} seme {runSeed + n * 1013}: {plan.rooms.Count} stanze in {plan.units} ali, {cur.candles.Count} candele, {LightPool.Count} luci, " +
                       $"costruito in {tBuild * 1000f:F0} ms, partenza {(plan.startInChurch ? "chiesa" : "albergo")}, pianta {(plan.grid ? "a griglia" : "ad ali")}");
@@ -277,6 +287,31 @@ namespace PryingEyes.Proc
             yield return new WaitForSeconds(1.2f);
             SetInvulnerable(false);
             transitioning = false;
+        }
+
+        /// <summary>Il contenuto di ogni stanza del piano costruito: quanti oggetti, disegni, collider e luci ha. La firma del piano guarda le candele, le armi e le ali; questa guarda gli arredi (una stanza
+        /// svuotata dalla riparazione dei varchi, o arredata diversamente, la cambia). In cooperativa le macchine devono ottenere lo stesso numero (si legge nel log, accanto alla firma del piano;
+        /// la prova a due processi lo confronta): e' il modo di accorgersi di una stanza che da una parte c'e' e dall'altra no. 'bare' e' il numero delle stanze senza nessun oggetto.</summary>
+        public int RoomContentSignature(out int rooms, out int bare)
+        {
+            rooms = bare = 0;
+            if (cur == null || cur.roomGo == null) return 0;
+            unchecked
+            {
+                int h = 19;
+                foreach (var r in cur.plan.rooms)
+                {
+                    var go = r.id >= 0 && r.id < cur.roomGo.Length ? cur.roomGo[r.id] : null;
+                    int kids = go != null ? go.transform.childCount : 0;
+                    int rends = go != null ? go.GetComponentsInChildren<Renderer>(true).Length : 0;
+                    int cols = go != null ? go.GetComponentsInChildren<Collider>(true).Length : 0;
+                    int lights = go != null ? go.GetComponentsInChildren<Light>(true).Length : 0;
+                    rooms++;
+                    if (kids == 0) bare++;
+                    h = h * 31 + r.id; h = h * 31 + kids; h = h * 31 + rends; h = h * 31 + cols; h = h * 31 + lights;
+                }
+                return h;
+            }
         }
 
         /// <summary>Impronta del piano costruito (candele, uscita, arrivo, luci, armi a muro): in cooperativa le macchine devono ottenere lo stesso
@@ -488,7 +523,9 @@ namespace PryingEyes.Proc
             if (Catacombe.Attive && Rami.LivelloDelBoss(floor) && SurvivalMode.Enabled)
             {
                 // il boss del livello e' caduto (l'uscita si apre solo cosi'): il suo trofeo va subito nella cattedrale, anche su ogni macchina della cooperativa
-                var trophy = Cattedrale.Fabbrica.Trofeo(floor);
+                // un trofeo per ogni personaggio in campo (nello schermo condiviso, il magazzino di ognuno); il banner dice il primo
+                Production.Economy.Bundle trophy = null;
+                Seats.EachOrOnce(_ => { var t = Cattedrale.Fabbrica.Trofeo(floor); if (trophy == null) trophy = t; });
                 var boss = Rami.BossDi(floor);
                 string tail = ReturnsUp ? "La scala risale alla cattedrale." : "Il cancello si apre verso il basso.";
                 Seats.ForHuds(h => { h.Banner($"{boss.bossTitolo} è caduto", "Al sicuro nella cattedrale: " + Cattedrale.Risorse.Testo(trophy) + ". " + tail); });
@@ -524,6 +561,13 @@ namespace PryingEyes.Proc
         {
             if (gm.hud == null) return;
             string text;
+            if (InHub && DesertMode.Active)
+            {
+                // nello schermo condiviso la riga dice dove sta ognuno (il luogo piu' vicino, la strada di casa): si calcola a nome di ogni posto
+                if (Seats.Split) Seats.ForEach(_ => { if (gm.hud != null) { gm.hud.SetObjective(DesertObjective()); gm.hud.SetWave(DesertMode.Clock.day + 1); } });
+                else Seats.ForHuds(h => { h.SetObjective(DesertObjective()); h.SetWave(DesertMode.Clock.day + 1); });
+                return;
+            }
             if (InHub)
             {
                 int able = 0;
@@ -989,7 +1033,7 @@ namespace PryingEyes.Proc
             var parts = new List<string>();
             if (lost > 0) parts.Add(lost + " punti");
             if (Perks.LoseLast(out var p)) parts.Add("il perk " + Perks.Of(p).name);
-            return parts.Count == 0 ? null : "Perdi " + string.Join(" e ", parts) + ". L'hotel ti riporta all'ingresso.";
+            return parts.Count == 0 ? null : "Perdi " + string.Join(" e ", parts) + (DesertMode.Active ? ". Il deserto ti restituisce alla cattedrale." : ". L'hotel ti riporta all'ingresso.");
         }
 
         // ------------------------------------------------------------------ armi sui muri
@@ -1139,6 +1183,7 @@ namespace PryingEyes.Proc
         /// cadere per sempre. Lascia una riga CADUTA nel log del gioco. Gira a nome del giocatore (gm.player e' il suo).</summary>
         void FallGuard(float dt)
         {
+            if (DesertMode.Active) { DesertFallGuard(dt); return; }
             int si = Seats.SeatIndex;
             var pl = gm.player;
             Vector3 p = pl.transform.position;
@@ -1237,8 +1282,9 @@ namespace PryingEyes.Proc
         /// <summary>La mappa grande di questo posto e' aperta? (la sua vista, MapView, lo chiede ogni fotogramma)</summary>
         public bool MapOpen(int seat) => !InHub && seat >= 0 && seat < mapOpenA.Length && mapOpenA[seat];
 
-        /// <summary>La minimappa di questo posto e' accesa? (si spegne con N)</summary>
-        public bool MiniOn(int seat) => !InHub && seat >= 0 && seat < miniMapOff.Length && !miniMapOff[seat];
+        /// <summary>La minimappa di questo posto e' accesa? (si spegne con N). Nella cattedrale dei piani non c'e'; nel deserto si'
+        /// (la sua e' un'altra, Deserto/HUD.DesertMap.cs: la vista dei piani resta spenta perche' non c'e' un FloorMap).</summary>
+        public bool MiniOn(int seat) => (!InHub || DesertMode.Active) && seat >= 0 && seat < miniMapOff.Length && !miniMapOff[seat];
 
         /// <summary>Solo per le prove: apre la mappa grande o la minimappa (e chiude l'altra).</summary>
         public void DebugShowMap(bool full, bool mini)

@@ -18,6 +18,8 @@ namespace PryingEyes
         public float sight;                     // moltiplicatore della vista dei nemici (Perks.SightMult: 1, o 0.7 col Velo)
         public int gun;                         // arma in mano: indice in WeaponDefs.All (255 = nessuna), la impugna il corpo dei compagni (pe-coop-29)
         public bool ads, reloading;             // in mira, in ricarica (idem)
+        public bool riding;                     // in sella a una moto del deserto (pe-coop-32): bit 4 del secondo byte dei flag
+        public float heading;                   // verso dove punta la moto (radianti, come yaw); lo sguardo del pilota puo' essere altrove
 
         public void Write(NetWriter w)
         {
@@ -26,7 +28,8 @@ namespace PryingEyes
              .U8(Mathf.Clamp(Mathf.RoundToInt(speedH * 20f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(lum * 255f), 0, 255))
              .U8(Mathf.Clamp(Mathf.RoundToInt(shotAge * 100f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(hp * 255f), 0, 255)).U8(weapon)
              .U8(Mathf.Clamp(Mathf.RoundToInt((Mathf.Clamp(lean, -1f, 1f) + 1f) * 127.5f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(sight * 100f), 0, 255))
-             .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0));
+             .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0) | (riding ? 4 : 0))
+             .U8(CoopProtocol.QuantYaw(heading));
         }
 
         public static PlayerNet Read(ref NetReader r)
@@ -49,7 +52,8 @@ namespace PryingEyes
             s.bleed = r.U8() / 8f;
             s.gun = r.U8();
             int f2 = r.U8();
-            s.ads = (f2 & 1) != 0; s.reloading = (f2 & 2) != 0;
+            s.ads = (f2 & 1) != 0; s.reloading = (f2 & 2) != 0; s.riding = (f2 & 4) != 0;
+            s.heading = CoopProtocol.DequantYaw((byte)r.U8());
             return s;
         }
     }
@@ -60,7 +64,15 @@ namespace PryingEyes
     {
         public int slot;
         public string playerName;
+        /// <summary>Il personaggio del compagno: l'aspetto (vuoto = quello dello slot, come nelle prove) e il livello, che si legge sotto il nome.</summary>
+        [System.NonSerialized] public string look;         // NonSerialized: la build solo-script rifiuta campi nuovi serializzati in un MonoBehaviour esistente
+        [System.NonSerialized] public int level = 1;
+        string Label => level > 1 ? playerName + " · liv. " + level : playerName;
         public PlayerNet last;                  // ultimo stato ricevuto
+        /// <summary>La moto del compagno quando e' in sella (null prima della prima volta): per le prove.</summary>
+        public Deserto.DesertBike Bike => bike;
+        /// <summary>Il corpo vero del compagno (null senza i modelli: resta il manichino): per le prove.</summary>
+        public SurvivorBody Body => body;
         public bool hasState;
         public float lastStateTime;
         /// <summary>Dove deve stare (ricevuto) e dove lo si disegna (liscio).</summary>
@@ -74,6 +86,10 @@ namespace PryingEyes
         Proc.PoolLight pooled;
         float walkPhase;
         bool shown;
+        // la moto del compagno (deserto, pe-coop-32): la fa vedere sotto di lui finche' e' in sella; lo sguardo e la rotta sono due angoli diversi
+        Deserto.DesertBike bike;
+        float bikeHeadingDeg, lookYawDeg;
+        bool bikeHeadingInit, lookInit;
 
         static readonly Color[] Coats =
         {
@@ -118,11 +134,12 @@ namespace PryingEyes
         public void Hurt(float dmg, Vector3? origin = null) { if (!last.invulnerable) CoopGame.I?.HurtRemote(slot, dmg, origin); }
         public void Sedate(float seconds) { CoopGame.I?.SedateRemote(slot, seconds); }
 
-        public static RemotePlayer Create(int slot, string name)
+        public static RemotePlayer Create(int slot, string name, string look = null, int level = 1)
         {
             var go = new GameObject("Compagno " + slot);
             var rp = go.AddComponent<RemotePlayer>();
             rp.slot = slot; rp.playerName = string.IsNullOrEmpty(name) ? "Giocatore " + (slot + 1) : name;
+            rp.look = look; rp.level = Mathf.Max(1, level);
             rp.Build();
             PlayerAvoidance.Bind(go, rp);
             if (Coop.IsHost) Targets.Add(rp);       // solo l'ospite fa girare i nemici: gli altri non hanno bisogno di bersagli
@@ -151,7 +168,7 @@ namespace PryingEyes
 
         void Build()
         {
-            body = SurvivorBody.Create(transform, slot, gameObject.layer);
+            body = SurvivorBody.Create(transform, slot, gameObject.layer, look);
             if (body != null) { visual = body.transform; headT = body.Eye; torchT = body.RightHand; }
             else visual = BuildBody(transform, slot, out legL, out legR, out headT, out torchT);
             BuildBeamAndName();
@@ -206,7 +223,7 @@ namespace PryingEyes
             tag = tg.AddComponent<TextMesh>();
             tag.font = HUD.Serif();
             tg.GetComponent<MeshRenderer>().sharedMaterial = tag.font.material;
-            tag.text = playerName; tag.fontSize = 64; tag.characterSize = 0.045f;
+            tag.text = Label; tag.fontSize = 64; tag.characterSize = 0.045f;
             tag.anchor = TextAnchor.MiddleCenter; tag.alignment = TextAlignment.Center;
             tag.color = new Color(0.95f, 0.92f, 0.82f, 0.95f);
             SetShown(false);
@@ -232,12 +249,13 @@ namespace PryingEyes
         public void SetName(string n)
         {
             playerName = string.IsNullOrEmpty(n) ? "Giocatore " + (slot + 1) : n;
-            if (tag != null) tag.text = playerName;
+            if (tag != null) tag.text = Label;
         }
 
         void SetShown(bool on)
         {
             shown = on;
+            if (!on && bike != null && bike.puppet) bike.SetPuppet(false);
             if (visual != null) visual.gameObject.SetActive(on);
             if (tag != null) tag.gameObject.SetActive(on);
             if (beam != null) beam.enabled = on && last.torch && last.alive;
@@ -252,7 +270,7 @@ namespace PryingEyes
             netPos = s.pos; netYaw = s.yaw; netPitch = s.pitch;
             bool visible = CoopGame.I != null && CoopGame.I.FloorBuilt && s.epoch == CoopGame.I.EpochByte;
             if (visible != shown || first) SetShown(visible);
-            if (visible && (first || (transform.position - netPos).sqrMagnitude > 36f)) { transform.position = netPos; transform.rotation = Quaternion.Euler(0f, netYaw * Mathf.Rad2Deg, 0f); }
+            if (visible && (first || (transform.position - netPos).sqrMagnitude > 36f)) { transform.position = netPos; transform.rotation = Quaternion.Euler(0f, netYaw * Mathf.Rad2Deg, 0f); lookYawDeg = netYaw * Mathf.Rad2Deg; lookInit = true; bikeHeadingInit = false; }
             if (visible)
             {
                 if (beam != null) beam.enabled = s.torch && s.alive;
@@ -270,11 +288,22 @@ namespace PryingEyes
             float dt = Time.deltaTime;
             Vector3 before = transform.position;
             transform.position = Vector3.Lerp(before, netPos, 1f - Mathf.Exp(-14f * dt));
-            float yawDeg = Mathf.LerpAngle(transform.eulerAngles.y, netYaw * Mathf.Rad2Deg, 1f - Mathf.Exp(-16f * dt));
-            transform.rotation = Quaternion.Euler(0f, yawDeg, 0f);
+            if (!lookInit) { lookYawDeg = transform.eulerAngles.y; lookInit = true; }
+            lookYawDeg = Mathf.LerpAngle(lookYawDeg, netYaw * Mathf.Rad2Deg, 1f - Mathf.Exp(-16f * dt));
+            float yawDeg = lookYawDeg;
             float v = dt > 0f ? new Vector2(transform.position.x - before.x, transform.position.z - before.z).magnitude / dt : 0f;
-            if (body != null) DriveBody(dt, before);
-            else AnimateMannequin(dt, v);
+            TickBike(dt, before);
+            // in sella il corpo guarda dove punta la moto (lo sguardo, e con lui il fascio della torcia, puo' essere altrove)
+            transform.rotation = Quaternion.Euler(0f, last.riding && bikeHeadingInit ? bikeHeadingDeg : yawDeg, 0f);
+            if (body != null)
+            {
+                // in sella la radice dello scheletro segue il telaio della sua moto (rollio e beccheggio compresi): bacino, piedi e mani sono relativi alla moto
+                var pb = last.riding && bike != null && bike.puppet ? bike : null;
+                if (pb != null) visual.SetPositionAndRotation(pb.Body.position, pb.BodyRotation);
+                else { visual.localPosition = Vector3.zero; visual.localRotation = Quaternion.identity; }
+                DriveBody(dt, before);
+            }
+            else AnimateMannequin(dt, last.riding ? 0f : v);
             if (beam != null)
             {
                 Vector3 head = body != null ? body.EyeWorld : transform.position + Vector3.up * (last.crouch ? 1.2f : 1.62f);
@@ -296,22 +325,47 @@ namespace PryingEyes
                     tag.transform.rotation = Quaternion.LookRotation(tag.transform.position - pc.position);
                     float d = Vector3.Distance(pc.position, tag.transform.position);
                     tag.gameObject.SetActive(last.alive && (d < 28f || (last.downed && d < 60f)));     // chi e' a terra si trova da piu' lontano
-                    string want = last.downed ? playerName + "\nA TERRA " + Mathf.CeilToInt(last.bleed) + " s" : playerName;
+                    string want = last.downed ? Label + "\nA TERRA " + Mathf.CeilToInt(last.bleed) + " s" : Label;
                     if (tag.text != want) tag.text = want;
                     tag.color = last.downed ? new Color(1f, 0.42f, 0.36f, 1f) : new Color(0.95f, 0.92f, 0.82f, 0.95f);
                 }
             }
         }
 
+        /// <summary>La moto del compagno in sella: la si crea la prima volta, la si posa dove sta lui, inclinata e con le ruote che girano come la sua guida; a piedi sparisce.</summary>
+        void TickBike(float dt, Vector3 before)
+        {
+            if (!last.riding || !last.alive)
+            {
+                if (bike != null && bike.puppet) bike.SetPuppet(false);
+                bikeHeadingInit = false;
+                return;
+            }
+            float target = last.heading * Mathf.Rad2Deg;
+            if (!bikeHeadingInit) { bikeHeadingDeg = target; bikeHeadingInit = true; }
+            float prev = bikeHeadingDeg;
+            bikeHeadingDeg = Mathf.LerpAngle(bikeHeadingDeg, target, 1f - Mathf.Exp(-12f * dt));
+            if (bike == null) bike = Deserto.DesertBike.Create(transform, transform.position, bikeHeadingDeg * Mathf.Deg2Rad, "Moto di " + playerName);
+            if (!bike.puppet) bike.SetPuppet(true);
+            Vector3 vel = dt > 0f ? (transform.position - before) / dt : Vector3.zero;
+            if (vel.sqrMagnitude > 900f) vel = Vector3.zero;          // un teletrasporto non e' una corsa
+            float turnRate = dt > 0f ? Mathf.DeltaAngle(prev, bikeHeadingDeg) * Mathf.Deg2Rad / dt : 0f;
+            float hs = new Vector2(vel.x, vel.z).magnitude;
+            bike.Pose(transform.position, bikeHeadingDeg * Mathf.Deg2Rad, true, vel, Mathf.Clamp(turnRate * 0.8f, -1f, 1f), Mathf.Clamp01(hs / 8f), hs > 25f, false, false, dt);
+        }
+
         /// <summary>Il corpo vero (SurvivorBody): gli si dice dove va, dove guarda e cosa fa; passo, braccia e arma li fa lui.</summary>
         void DriveBody(float dt, Vector3 before)
         {
             Vector3 vel = dt > 0f ? (transform.position - before) / dt : Vector3.zero;
-            if (vel.sqrMagnitude > 64f) vel = Vector3.zero;          // un salto di posizione (cambio piano, teletrasporto) non fa correre il corpo
+            if (vel.sqrMagnitude > 64f || last.riding) vel = Vector3.zero;          // un salto di posizione (cambio piano, teletrasporto) non fa correre il corpo; in sella le gambe non camminano
             var inp = body.input;
             inp.velocity = vel;
             inp.pitch = netPitch; inp.lean = last.lean;
-            inp.crouch = last.crouch; inp.sprint = last.sprint;
+            var pb = last.riding && bike != null && bike.puppet ? bike : null;
+            inp.seated = pb != null;                                          // in sella: seduto, i piedi sulle pedane e le mani sulle manopole (SurvivorBody)
+            if (pb != null) { inp.gripLeft = pb.GripWorld(0); inp.gripRight = pb.GripWorld(1); }
+            inp.crouch = last.crouch && !last.riding; inp.sprint = last.sprint && !last.riding;
             inp.alive = last.alive; inp.downed = last.downed;
             inp.grounded = Mathf.Abs(vel.y) < 2.5f;
             inp.weapon = last.gun < WeaponDefs.All.Length ? last.gun : -1;

@@ -15,7 +15,8 @@ namespace PryingEyes
     /// fermo non si adotta, il primo su cui si preme si', dopo due secondi di assenza si lascia. Poi il menu vero con uno stato XInput finto
     /// (PadControls.Inject): croce e stick muovono la selezione, A apre, i cursori si regolano con sinistra e destra, B torna indietro e
     /// ritrova il pulsante di partenza, un campo di testo non intrappola, il primo comando senza selezione sceglie il pulsante, la cornice
-    /// sta sulla voce scelta. Infine in partita: A su "Gioca" non fa saltare, Start apre e chiude la pausa, B in pausa riprende e in gioco
+    /// sta sulla voce scelta, A su "Gioca" apre "Come vuoi giocare?" (croce a destra e a sinistra tra "Standard" e "Il deserto", B torna a "Gioca").
+    /// Infine in partita: A su "Standard" fa partire senza far saltare, Start apre e chiude la pausa, B in pausa riprende e in gioco
     /// non apre niente. Un controller fisico non c'e': la lettura vera di XInput la prova -splittest ("risponde senza errori").</summary>
     public sealed class PadMenuTest : MonoBehaviour
     {
@@ -206,7 +207,7 @@ namespace PryingEyes
             yield return Shot(dir, "01-menu-tastiera");
             yield return Tap(ly: -30000);
             yield return Shot(dir, "02-menu-controller");
-            yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
+            yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
             yield return Tap(PadControls.A);
             yield return Shot(dir, "03-impostazioni-schermo");
             yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
@@ -218,11 +219,13 @@ namespace PryingEyes
             yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.A);
             yield return Shot(dir, "06-guida");
             yield return Tap(PadControls.B);
-            yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.A);
+            yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.A);
             yield return Tap(PadControls.DpadUp);
             yield return Shot(dir, "07-cooperativa-campo");
             yield return Tap(PadControls.B); yield return Tap(PadControls.B);
             yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp);
+            yield return Tap(PadControls.A);                  // 'Gioca' chiede come giocare: la scelta e' 'Standard'
+            yield return Tap(PadControls.DpadLeft);
             yield return Tap(PadControls.A);
             deadline = Time.realtimeSinceStartup + 120f;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -258,8 +261,9 @@ namespace PryingEyes
             Check("dopo un comando col controller: modo navigazione, cursore nascosto, suggerimenti del controller", PadMenuInput.NavMode && !Cursor.visible && PadControls.Preferred
                 && Get<Text>("footer").text.Contains("CROCE"));
             Check("la cornice sta sulla voce scelta", RingOnSelection());
-            yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
-            Check($"croce in basso tre volte: 'Impostazioni' ({SelName})", SelName == "Pulsante Impostazioni");
+            // voci del principale: Gioca, Cooperativa, Schermo condiviso, Personaggi, Come si gioca, Impostazioni, Esci
+            yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
+            Check($"croce in basso quattro volte: 'Impostazioni' ({SelName})", SelName == "Pulsante Impostazioni");
             yield return Tap(PadControls.DpadUp);
             Check($"croce in alto: 'Come si gioca' ({SelName})", SelName == "Pulsante Come si gioca");
             yield return Tap(PadControls.DpadDown);
@@ -316,8 +320,8 @@ namespace PryingEyes
             Check($"B: indietro, sul pulsante da cui si era partiti ({SelName})", PanelOpen("mainPanel") && SelName == "Pulsante Come si gioca");
 
             // ---- cooperativa: un campo di testo non intrappola il controller
-            yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp);
-            Check($"croce in alto due volte: 'Cooperativa' ({SelName})", SelName == "Pulsante Cooperativa");
+            yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp);
+            Check($"croce in alto tre volte: 'Cooperativa' ({SelName})", SelName == "Pulsante Cooperativa");
             yield return Tap(PadControls.A);
             Check($"A su 'Cooperativa': si apre, scelto un pulsante ({SelName})", PanelOpen("coopPanel") && Selected != null && Selected.GetComponent<Button>() != null);
             yield return Tap(PadControls.DpadUp);
@@ -341,13 +345,30 @@ namespace PryingEyes
             yield return Tap(PadControls.DpadUp);
             GameSettings.SetMaster(master0);
 
+            // ---- la scelta della modalita': 'Gioca' chiede come giocare (standard o il deserto), col controller come col mouse
+            bool mode0 = Deserto.DesertMode.Requested;       // la scelta si ricorda nelle preferenze: questa prova la rimette com'era
+            yield return Tap(PadControls.A);
+            string remembered = mode0 ? "Pulsante Il deserto" : "Pulsante Standard";
+            Check($"A su 'Gioca': non parte, si apre 'Come vuoi giocare?' con la scelta dell'ultima volta ({SelName})", PanelOpen("modePanel") && !PanelOpen("mainPanel") && GameMenu.InMenu && SelName == remembered);
+            yield return Tap(PadControls.DpadRight);
+            Check($"croce a destra: 'Il deserto' ({SelName})", SelName == "Pulsante Il deserto");
+            Check("la cornice sta anche sulla scelta della modalita'", RingOnSelection());
+            yield return Tap(PadControls.DpadLeft);
+            Check($"croce a sinistra: 'Standard' ({SelName})", SelName == "Pulsante Standard");
+            yield return Tap(PadControls.B);
+            Check($"B: indietro, sul pulsante da cui si era partiti ({SelName})", PanelOpen("mainPanel") && !PanelOpen("modePanel") && SelName == "Pulsante Gioca" && GameMenu.InMenu);
+            yield return Tap(PadControls.A);
+            yield return Tap(PadControls.DpadLeft);
+            Check($"di nuovo 'Gioca', poi la croce a sinistra: 'Standard' ({SelName})", PanelOpen("modePanel") && SelName == "Pulsante Standard");
+
             // ---- in partita
             bool jumped = false;
             PadControls.Inject(Pad(PadControls.A));
             for (int i = 0; i < 6; i++) { jumped |= TouchControls.Down(TouchControls.Action.Jump); yield return null; }
             PadControls.Inject(Pad());
             for (int i = 0; i < 6; i++) { jumped |= TouchControls.Down(TouchControls.Action.Jump); yield return null; }
-            Check("A su 'Gioca': la partita parte e il giocatore non salta", !GameMenu.InMenu && !GameMenu.Blocked && !jumped);
+            Check("A su 'Standard': la partita parte nella modalita' standard e il giocatore non salta", !GameMenu.InMenu && !GameMenu.Blocked && !jumped && !Deserto.DesertMode.Requested);
+            Deserto.DesertMode.Requested = mode0;            // la scelta di chi gioca come prima (la partita e' gia' partita)
 
             deadline = Time.realtimeSinceStartup + 120f;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;

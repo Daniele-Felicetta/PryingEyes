@@ -17,7 +17,9 @@ split screen.
 1. Main menu, **Schermo condiviso**, then the number of players. The button **Giocatore 1** switches player 1 between *tastiera e mouse*
    and *controller (e tastiera)*. The panel shows how many controllers the game sees and how many two players need.
    With two or more monitors connected the same row has a second button, **Monitor**, that picks how many monitors to use (see below).
-2. The run starts at once. Everyone arrives side by side in the cabin of floor 1, and the screen is divided as in the table below.
+2. **Chi gioca?** asks which character plays in each seat ([../game/saves-and-characters.md](../game/saves-and-characters.md#playing-together)), and
+   **Comincia** opens **Che partita giocate?** (0.9.1): *Standard* (the floors: everyone arrives side by side in the cabin of floor 1) or *Il deserto* ([../game/the-desert.md](../game/the-desert.md):
+   everyone arrives on the churchyard of the cathedral). The choice holds for every seat and is remembered for the next time; **Indietro** goes back to **Chi gioca?**. The screen is divided as in the table below.
 3. Everybody can play with a controller; player 1 can also use the keyboard and the mouse. See [Controls](#controls).
 4. **Pause**: Esc, or Start on any controller. It stops the whole world for everyone and hides every HUD; Esc, Start on any controller or
    **Riprendi** resumes. The pause menu names who uses what (*G1: tastiera e mouse   G2: controller 1 ...*). **Torna al menu** ends the
@@ -76,6 +78,22 @@ are raised again whenever the game gets its focus back, because coming back from
 clicked (`SplitScreen.OnFocusGained`). Unity cannot close the window of a monitor it has opened: when the split screen ends the windows of
 the extra monitors are hidden, and they come back with the next one.
 
+## The desert (0.9.1)
+
+The desert mode can be played in split screen, on one monitor or several. After *Chi gioca?* the menu asks *Che partita giocate?* (`GameMenu.Mode.cs`, the same panel as the single player's);
+`-splitscreen N -deserto -catacombe` starts it without the menu. Everyone arrives on the churchyard of the cathedral, side by side, and then each seat walks where it wants: one can be two kilometres
+from another. What the desert makes for that:
+
+- **A world round every seat**: the sand with its collider and the navmesh, the places and their guards, the props, the loot on the sand and the far skins of the buildings are made round each seat and
+  dropped only when far from all of them (`DesertAnchors` lists the other seats as *viewers*).
+- **A sky for each camera**: the fog, the ambient and the grading are global, so the look is one (outdoors if any seat is outdoors); every seat's camera has its own background and far plane, and the one dome
+  moves to the camera that is rendering (`DesertSky.AttachExtra`, `beginCameraRendering`).
+- **Effects, objective, minimap and pick-ups per seat**: flying sand, animals, veils off the crests and dust devils once per seat; the objective line says where *that* seat is and the way home; the minimap
+  shows the other seats as coloured dots when they are inside its window; the golden arrow points at the cathedral; what a seat picks up from the sand is that seat's (points, ammunition, health).
+- **Shared**: the enemies, the hour and the weather, the places, the bosses and the one audio listener.
+
+How it works and what was checked are in [../game/the-desert.md](../game/the-desert.md) (section *Split screen*).
+
 ## Controls
 
 The mapping, the menus and the on-screen hints are on [the controller page](../game/controller.md); a split screen uses the same ones.
@@ -98,6 +116,12 @@ The mapping, the menus and the on-screen hints are on [the controller page](../g
 | Pickups: whoever walks into a drop takes it, and its effect applies to everyone | Weapons, ammunition, equipment, perks (books), knife, torch, stealth state, guide arrow and ping |
 | Barrels, chandeliers, lamps, traps and mines in the world (the points of a kill go to whoever caused it) | Going down at zero health (since 0.7.2; a teammate revives by holding Use for 3 s next to the body), and death after bleeding out: a dead player returns to the entrance after 2.5 s and loses half the points and the last perk; the others go on |
 | The round and the pause | The reward for lighting a candle goes to who lit it; the reward for a floor, a wave or a round goes to everyone |
+
+**Characters** (0.9). Each seat plays its own character: its experience, kills, play time and the loot it picks up go to that character's own file,
+and its cathedral state is part of the seat (`Seat.cathedral`, put in place by `Seats.Enter` with the other per-player values; `Progress.Mine` and
+`Fabbrica` follow the seat that is installed). Two characters never share a look in one game. A suspended expedition (*Salva e torna al menu*) is
+for the single player: with several players *Torna al menu* closes the game for everyone, as before
+([../game/saves-and-characters.md](../game/saves-and-characters.md#a-suspended-expedition)).
 
 Enemies use the multi-target behaviour of the online co-op (`Targets`): they appear on the nearest player and, in the wave cycle (where they
 know where everyone is), switch to a player who is clearly closer; in the old candle cycle they follow whoever they see, hear or provoke.
@@ -127,7 +151,9 @@ renders. It is driven by the seat's body at the end of the frame and sits on the
 layers 20 to 23): `Seats.Layout` gives every camera its own weapon layer and the avatar layers of the others, never its own, so nobody
 sees their own body in front of the eyes (unless that player chose the [third-person view](../game/third-person.md), which adds their own
 layer back to their own camera). The survivor has no collider (bullets and enemies ignore it) and no light of its own (each seat's real
-torch lights the world and the others' bodies, never its own weapon: `SurvivorLight`).
+torch lights the world and the others' bodies, never its own weapon: `SurvivorLight`). On the desert's motorbike ([../game/the-desert.md](../game/the-desert.md), "The motorbike") the
+avatar looks where the bike points (`PlayerController.RideHeading`) and is seated on it (pelvis on the saddle, feet on the footrests, hands on the grips, leaning with the bike: the `seated` pose of
+`SurvivorBody`), and the first-person arms of the bike are not shown (the others would see them floating beside the avatar). The weapon stays hidden while the rider only rides and is in the right hand when it fires from the saddle (`SurvivorBody.PoseRideGun`, the arm aimed where the bike points, the left hand on the grip).
 
 How the screen is made: each seat camera is a copy of the main one (URP settings included) with its own `Camera.rect`. The weapon and hands of
 seat n live on layer 24 + n, and a camera draws only its own, so nobody sees another player's gun. There is one `AudioListener`, on player 1's
@@ -155,11 +181,13 @@ exists only in the Windows player (XInput) and only on the hotel floors; elsewhe
 | `-splitmonitors N` | Use N monitors (1 to 4) instead of the choice saved by the menu. With fewer real monitors the extra ones are pretend ones: cameras, canvases and HUDs are placed all the same and nothing is shown (this is what the tests use). Without the flag, `-autotest` and the tests use one monitor |
 | `-seatstest` | The in-process test below (not in distribution builds) |
 | `-seatsshots` | With `-seatstest` in a real window (no `-batchmode`), save photos of the whole screen in `unity_logs/seats/` |
+| `-splitdesertotest` | The in-process test of the desert in split screen (below; with `-splitscreen N -deserto -catacombe -autotest`; not in distribution builds). `tools/coop/run_split.ps1 -Desert` passes it |
 
 ## Verification
 
 `-seatstest` runs inside the game, with a fake XInput state injected per player (`PadControls.Inject(channel, state)`), and exits `0` only when
-every check passes. It has two ways to start the game: from the menu (no `-autotest`, with `-menureview -nowaves`: the menu presses the
+every check passes. It never reads a physical controller: a process started with `-batchmode` skips XInput (`PadControls.PollReal`), so a pad in use at
+the same moment cannot move the seats (it did, 19 November 2026: the 3 and 4 player runs failed with an Xbox controller in someone's hands). It has two ways to start the game: from the menu (no `-autotest`, with `-menureview -nowaves`: the menu presses the
 button, so the real path *Schermo condiviso*, **Gioca** and the pause are covered) or with `-autotest -nofire -noenemies` (no menu, no pause test).
 It checks:
 
@@ -171,6 +199,9 @@ It checks:
   2, 3 and 4 players) and the picture is saved as `hotel_build/seats/vedersi_N.png`.
 - **Context swap**: inside a seat the globals are that seat's; equipment, knife, torch, guide and stealth net are different per seat; seat 1
   is installed again afterwards.
+- **Characters** (0.9, 7 checks): every seat has its own character, cathedral and look, all different; seat 1 is the local character and has its
+  cathedral at rest; the name of a seat is its character's; inside a seat the cathedral is that seat's; 3 bones picked up by one seat land only in the
+  store of its character; afterwards the cathedral of seat 1 is installed again.
 - **Controllers**: each player walks with their own controller while the others stand still; a trigger fires only that player's weapon; one
   player walks while another jumps, with no command crossing over.
 - **Points and enemies**: points, hits and kills of one player are only theirs; an enemy appears on the nearest player and switches to a
@@ -237,6 +268,26 @@ by chance because the ragdoll froze a monk's body while its staff was still fall
 and stealth cycle (`-stealthtest`, `-roundtest`, `-knifetest`, `-droptest`, `-booktest`, `-gridtest`, `-holescan`, `-pushtest`,
 `check_navigation.py --legacy`) were not run again: that cycle is off unless `-candles` is given.
 
+On 18 November 2026, with the characters of 0.9 (the build of that day, from the menu, no window): `-seatstest` passed 89 of 89 with two players and
+99 of 99 with four, among them the 7 checks on the characters of the seats; `Chi gioca?` was checked by `MenuReview` (2790 checks, the panel at
+the four sizes and its photograph at 1280x720). Not run on that build: three players, `-splittest`, several monitors.
+
+### The desert in split screen (0.9.1)
+
+`-splitdesertotest` (`Scripts/Deserto/SplitDesertTest.cs`, started by `tools/coop/run_split.ps1 -Players N -Desert [-Graphics] [-Monitors M]`) starts the desert with N seats and checks that every seat camera has the 1,500 m far plane
+and the solid background; that there is one instance of the sand, the animals, the veils and the dust devils per seat and one of the fires; that the seats arrive 0.36 m apart and each HUD has the desert objective; that there is one motorbike for each seat, each at its own home, and that seat 2 gets on its own and rides it while the others stay on foot (no arms of the bike on the screen, its body seen seated on it by the others with its hands on the grips) and leaves it parked where it gets off, each seat's minimap marking the parked bike of that seat and not another's; that **seat 2, taken 2.6 km
+away** (to a real chapel), stands on sand with a collider, has navmesh round it and round seat 1, has props and loot, has the chapel next to it built with its skin and an outdoor sky, and is not on seat 1's minimap (the seats that stayed home are); that 70 points picked up
+by seat 2 are seat 2's and not seat 1's; that the objective lines differ (seat 2's says *cattedrale a 2550 m*); that a seat sent beyond the edge of the world is brought back and the other does not move; and that, brought back together, each minimap shows the
+others. With a graphics card it renders each camera at noon and checks that the top of the picture is sky and not the fog-coloured background (`hotel_build/deserto/split_posto1.png`, `split_posto2.png`), and with `-seatsshots` over real monitors it asks the script for the
+system photos of every monitor (`unity_logs/seats/deserto-lontano-monitor1.png` and so on). Results of 19 November 2026 on the tree that became 0.9.1: two seats 31 of 31, three 33 of 33, four 35 of 35 without a window (about 25 s each); two seats on two real monitors
+(the 3440x1440 primary and the 4K one) 33 of 33 in 30 s at 60 frames per second, with the four photos looked at. The motorbike step (7 checks) was added on 19 November 2026, with the
+motorbike: two seats 38 of 38, three 40 of 40 and four 42 of 42 (about 28 s each) without a window, and two seats 40 of 40 with the graphics card and no window, which also photographs seat 2 riding away from the stair as seat 1 sees it
+(`hotel_build/deserto/split_moto_posto2_in_sella.png`, looked at). The same day a second round (the rider seated with its hands on the grips, the disc of each seat's own bike on its minimap) made the step 10 checks: two seats **41 of 41**, three **43 of 43** and
+four **45 of 45** (28 to 30 s each) without a window, and two seats **43 of 43** with the graphics card and no window, which photographs seat 2 straight and in a bend (`split_moto_posto2_in_sella.png`, `split_moto_posto2_in_curva.png`, looked at: seated, banking with the bike);
+a third round (0.9.3: each seat's own speedometer, and seat 2 firing from the saddle while the others see the weapon in its right hand) made the step 15 checks: two seats **46 of 46**, three **48 of 48** and four **50 of 50** (28 to 31 s each) without a window, and two seats **48 of 48** with the graphics card (a 1280x720 window, 37 s),
+which also photographs seat 2 at a standstill firing the rifle, seen by seat 1 from the front on the right (`split_moto_posto2_spara.png`, looked at: the rifle is in the right hand and points where the bike points; the first version of that photograph, with the pistol and from the left while riding, showed no weapon at all, since the pistol is small and the right hand was on the far side, so it was replaced);
+the other counts above are those of 0.9.1, before the step. On 20 November 2026 a step of 5 checks followed, *una torre*: the first two seats go to the landmark tower (8 floors), seat 1 to the entrance hall and seat 2 five floors up (29 m), and both floors must be furnished, since what is furnished in a tower or a catacomb is wanted by every seat and no longer only by the nearest one (`SiteRt.UpdateWant`): two seats **51 of 51** in 32 s, three **53 of 53** (33 s) and four **55 of 55** (34 s) without a window; with `-legacydress`, the old rule, two seats 50 of 51 (seat 2's floor still empty after 40 s, 2 floors furnished out of 8).
+
 ## Not verified, limits
 
 - A **physical controller**: none was connected. The XInput calls answer without errors and everything else ran on injected states.
@@ -244,6 +295,9 @@ and stealth cycle (`-stealthtest`, `-roundtest`, `-knifetest`, `-droptest`, `-bo
 - **Audio**: there is one listener, on player 1's camera, so every sound is heard from where player 1 stands; far from player 1 the
   others' shots and steps are faint. Music and interface sounds are not affected. A fair mix needs a custom mixer (one listener per scene
   is a Unity rule).
+- **The desert in split screen** ran with real windows only for two seats on two real monitors; three and four ran without a window. Nobody played it with a second person. The sound is the single listener's (a seat
+  kilometres from player 1 hears nothing of what happens round it), the look is global (a seat indoors beside one outdoors gets the outdoor look) and the cost of a frame with four seats looking at four different parts of the
+  desert was not measured.
 - **Performance** with four views on a large monitor (for example 3440x1440, four parts of 1720x720) is not measured: the tests ran without
   a window or in 1280x720. Four cameras draw the world four times; lights and shadows follow the nearest eye to keep it down.
 - The keyboard and the mouse belong to player 1 and cannot be handed to another player. There is no joining or leaving in the middle of a run
@@ -255,7 +309,7 @@ and stealth cycle (`-stealthtest`, `-roundtest`, `-knifetest`, `-droptest`, `-bo
   opened it, and it closes by the distance of
   player 1 (on one monitor too, for the players after the first). The extra windows take the monitor's native size and the display settings
   of the menu (resolution, quality) apply to the game window only. The players cannot have different display settings. The guest-style
-  choices of the online co-op (names, addresses) do not exist here.
+  choice of the online co-op (an address) does not exist here: the players' names are those of their characters.
 - **Several monitors, not tried for real**: three and four monitors (tested only with pretend ones); a program of another process covering a
   game window (the test puts a window of the game's own process over it; on the first real run a browser covered the window of the second
   monitor, before the raising existed); clicking in the window of the second monitor and what happens to the keyboard there (the test

@@ -8,10 +8,13 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 
 | If you want to... | Read |
 | --- | --- |
-| understand the game | [The cathedral and the catacombs](game/cathedral-and-catacombs.md), [The Tower](game/tower.md) (the levels), then [Weapons](game/weapons.md) |
+| browse the game and the project as a wiki: a card for every entity, a concept map, a static site | [The wiki](../wiki/README.md); its static site opens from `wiki/site/index.html` with no server |
+| understand the game | [The cathedral and the catacombs](game/cathedral-and-catacombs.md), [The Tower](game/tower.md) (the levels), then [Weapons](game/weapons.md); [The desert](game/the-desert.md) for the second way to play; [Characters, levels and saves](game/saves-and-characters.md) for who plays and what is kept |
 | build it, ship a change, understand CI | [Building, shipping and CI](engineering/building-and-shipping.md) |
 | know what is verified and how to run each check | [Testing and verification](engineering/testing.md) |
 | reuse the production suite for another project | [Production suite](engineering/suite-architecture.md) |
+| add something to a save without breaking old saves | [Save system](engineering/save-system.md) |
+| continue the work that makes the game modular, reusable and easy for AI agents | [Modular architecture: roadmap](engineering/modular-roadmap.md), which links the audit, the target, the tools and the tasks |
 | see what changed and why | [Quality audit](history/quality-audit.md), [Survival redesign](history/zombies-redesign.md), [Earlier versions](history/legacy-versions.md) |
 
 ## The game (`game/`)
@@ -19,6 +22,8 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | Page | What it covers |
 | --- | --- |
 | [cathedral-and-catacombs.md](game/cathedral-and-catacombs.md) | The two zones: the cathedral to rebuild (works, market, blessings) and the catacombs below (branches, bosses, resources, satchel, extraction, death and remains, oboli). |
+| [the-desert.md](game/the-desert.md) | The second way to play, chosen in the menu: an open, procedural desert with a day and night sky, buildings and towers made of the rooms of the floors, catacombs, bosses on the last floor, the cathedral as the base (armoury at twice the price, perk books and consecration as works), co-op, minimap and the way home, the motorbike, what is found where, how the world, the sand, the navmesh and the places are made, the decisions left to the developer, the checks. |
+| [saves-and-characters.md](game/saves-and-characters.md) | The characters a player makes and chooses (name, look, levels, counters, one cathedral each), how they are chosen in split screen and online, the expedition that can be suspended and resumed, old saves that are upgraded, the test profile, the checks. |
 | [tower.md](game/tower.md) | The Tower: procedural floors and themes, the wave cycle (default) and the candle cycle (legacy), points, perks, shops, shrines, power-ups, themed enemies, controls, code map. The floors are now the levels of the catacombs. |
 | [weapons.md](game/weapons.md) | The 28 weapons in 5 grades, per-weapon numbers, gunplay, sights, and the Blender to Unity pipeline. |
 | [guardaroba.md](game/guardaroba.md) | The fourth theme (wardrobes, vampires, scissors, lava): its 17 new props, materials, how to make and photograph them again, how they reach the game (the kit saved in `Torre.unity`), where the rooms place them, traps and what is verified. |
@@ -50,17 +55,25 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [building-and-shipping.md](engineering/building-and-shipping.md) | Build methods, the `Builds/` layout, `tools/ship.ps1`, the gate and the CI workflow, branches, other platforms, releases. |
 | [testing.md](engineering/testing.md) | Every verification: the hermetic checks, the Unity acceptance checks, the in-game headless tests, navigation, co-op, the performance probe. |
 | [suite-architecture.md](engineering/suite-architecture.md) | The reusable production suite: layers, the boundary guard, how a second project plugs in. |
+| [save-system.md](engineering/save-system.md) | The save library and the rules for saves: the files on disk, what happens when one is read (nine states), how to change what a save contains without breaking old ones (the recipe and the version history), how it is checked. |
 | [production-studio.md](engineering/production-studio.md) | The content pipeline: one source for weapon data, furnished rooms, the weapon-state module, the persistent queue, the evidence gallery. |
 | [city-prototype.md](engineering/city-prototype.md) | The station district: the first project built on the suite beyond the hotel, its labs and verified results (Italian). |
 | [startup-time.md](engineering/startup-time.md) | How long the player takes to show its menu, what held it up (sounds computed on the main thread), the background threads and the startup gate that fix it, how to read the `avvio:` lines of a `Player.log`. |
 | [trailer.md](engineering/trailer.md) | How the trailer is recorded from the game itself and edited, and how to make it again. |
+| [modular-roadmap.md](engineering/modular-roadmap.md) | The plan that makes the game modular, reusable and easy for AI agents to work on: the order of the work and why, the state of each task, what can run at the same time, how each phase ends, the decisions left to the maintainer. The page to open first. |
+| [architecture-audit.md](engineering/architecture-audit.md) | The code as it is at 0.9.4, measured: sizes, assemblies, who depends on whom, the files every change touches, the tests inside the player, the 271 flags, the engine-free code, the checks nothing runs, the hazards for agents working in parallel (findings F1 to F14), and how to take every number again with `tools/code_census.py`. |
+| [modularization.md](engineering/modularization.md) | The target: five boundaries (reusable packages, game rules, gameplay, in-player tests, editor tools), what each may depend on and what fails when it is crossed, one decision for every central list, the rules for new code, and what is deliberately not done. |
+| [package-extraction.md](engineering/package-extraction.md) | Which code can become a reusable Unity package and when: the ladder from gameplay to package, the packages the game does not use yet, the inventory of candidates with the event that triggers each, the recipes. |
+| [agent-tooling.md](engineering/agent-tooling.md) | The command line and the data formats for AI agents: one entry point, the list of suites, the manifest of the in-player tests, results as data, the compile check, the state of a checkout, worktrees, hazards declared and enforced. A design, with what exists marked. |
+| [modular-tasks.md](engineering/modular-tasks.md) | The 21 tasks of the plan, each with its reason, steps, acceptance criteria and verification, written to be carried out by an agent alone, and the rules for carrying one out. |
 | [unreal-prototype.md](engineering/unreal-prototype.md) | The Unreal Engine 5.8 feasibility prototype: one generated room exported from Unity and rebuilt in Unreal from the command line (no Blueprints), how the Unity look is matched, how frames are timed, results and traps. |
 
 The reusable C# packages have their own READMEs:
 [layout](../unity/PryingEyes/Packages/com.pryingeyes.layout/README.md),
 [weapons](../unity/PryingEyes/Packages/com.pryingeyes.weapons/README.md),
 [survival](../unity/PryingEyes/Packages/com.pryingeyes.survival/README.md),
-[economy](../unity/PryingEyes/Packages/com.pryingeyes.economy/README.md).
+[economy](../unity/PryingEyes/Packages/com.pryingeyes.economy/README.md),
+[saves](../unity/PryingEyes/Packages/com.pryingeyes.saves/README.md).
 
 ## History (`history/`)
 
@@ -82,4 +95,4 @@ the code; the last version of that page is in git history (`git show b77eca5:REA
 - No machine-specific paths: write paths relative to the repository root.
 - When a change alters what a page says, update the page in the same commit.
 - A new page is added to this index. `python tools/check_suite.py` fails on a broken link, a page missing from this index and a
-  machine-specific path, and `tools/ship.ps1` and the CI gate run it.
+  machine-specific path, and `tools/ship.ps1` and the CI gate run it. The wiki has its own checks, which the same command runs: see [the wiki](../wiki/README.md).

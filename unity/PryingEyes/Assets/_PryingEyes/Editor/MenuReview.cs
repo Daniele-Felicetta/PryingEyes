@@ -109,6 +109,42 @@ namespace PryingEyes.EditorTools
                 Check("four monitors: the panel says how the players are divided", HasText(menu, "Su 4 monitor: 2 giocatori 1+1"));
                 Click("Indietro");
                 SplitScreen.TestConnected = 0; SplitScreen.TestWanted = 0;
+                // i personaggi (0.9): l'elenco, il nuovo, l'eliminazione e la scelta di chi gioca ai posti dello schermo condiviso
+                Click("Personaggi"); Render("characters", size, camera, menu, output);
+                Click("Nuovo personaggio"); Render("character-new", size, camera, menu, output); Click("Annulla");
+                Click("Elimina"); Render("character-delete", size, camera, menu, output); Click("Annulla");
+                Click("Indietro");
+                Check("the main menu names the character that plays", HasText(menu, "Prova") || HasText(menu, "crea il tuo personaggio"));
+                var tester = Characters.Roster.Local;
+                if (tester != null)
+                {
+                    var worst = new Characters.RunRecord { branch = 3, floor = 12, seed = 11, score = 1234567, savedAt = "2026-11-18T10:00:00Z" };
+                    worst.carried = Characters.RunSave.FromBundle(Production.Economy.Bundle.Of((Cattedrale.Risorse.Ossa, 9999), (Cattedrale.Risorse.Legno, 9999), (Cattedrale.Risorse.Acciaio, 9999),
+                        (Cattedrale.Risorse.Brace, 9999), (Cattedrale.Risorse.Cuori, 9999), (Cattedrale.Risorse.Sangue, 9999), (Cattedrale.Risorse.Reliquie, 9999),
+                        (Cattedrale.Risorse.Oscurita, 9999), (Cattedrale.Risorse.Fede, 9999), (Cattedrale.Risorse.Gemme, 9999), (Cattedrale.Risorse.Oboli, 9999)));
+                    Check("a suspended expedition is written", Characters.Roster.SaveRun(tester, worst) && Characters.Roster.HasRun(tester));
+                    Click("Personaggi");
+                    Check("the character list names the suspended expedition", Field<Text>(menu, "charBody").text.Contains("Spedizione sospesa"));
+                    Render("characters-run", size, camera, menu, output);
+                    Click("Indietro");
+                    Click("Gioca"); Render("run", size, camera, menu, output);
+                    Check("Gioca asks what to do with a suspended expedition", HasText(menu, "Una spedizione ti aspetta") && GameObject.Find("Pulsante Riprendi la spedizione") != null && GameObject.Find("Pulsante Ricomincia dalla cattedrale") != null);
+                    Check("the suspended expedition panel tells what the backpack holds", HasText(menu, "Nello zaino: 9999 Ossa"));
+                    Click("Indietro");
+                    Check("Indietro returns to the main menu", GameObject.Find("Pulsante Gioca") != null);
+                    Characters.Roster.ClearRun(tester);
+                    Check("the suspended expedition is gone", !Characters.Roster.HasRun(tester));
+                    // la scelta della modalita': Gioca, senza spedizione sospesa, chiede standard o deserto (non si preme nessuno dei due: partirebbe la partita
+                    // e la scelta si scriverebbe nelle preferenze di chi gioca)
+                    Click("Gioca"); Render("mode", size, camera, menu, output);
+                    Check("Gioca asks how to play: standard or the desert", HasText(menu, "Come vuoi giocare?") && GameObject.Find("Pulsante Standard") != null && GameObject.Find("Pulsante Il deserto") != null);
+                    Check("the mode panel describes both ways", HasText(menu, "I piani sotto la cattedrale") && HasText(menu, "Un deserto enorme"));
+                    Click("Indietro");
+                    Check("Indietro returns from the mode choice to the main menu", GameObject.Find("Pulsante Gioca") != null && !HasText(menu, "Come vuoi giocare?"));
+                }
+                Click("Schermo condiviso"); Click("3 giocatori"); Render("split-cast", size, camera, menu, output);
+                Check("the cast panel lists three seats", HasText(menu, "Giocatore 3:"));
+                Click("Indietro"); Click("Indietro");
                 GameManager.proc = false;
                 if (size.x == 1024)
                 {
@@ -118,6 +154,11 @@ namespace PryingEyes.EditorTools
                     stats.text = "ONDATA XXIII  ·  PIANO 12  ·  1.234.567 PUNTI  ·  12345 UCCISIONI  ·  123:45";      // il caso peggiore
                     Render("pause", size, camera, menu, output);
                     Click("Torna al menu"); Render("leave", size, camera, menu, output); Click("Annulla");
+                    GameMenu.TestCanSave = true;                // con il salvataggio i bottoni sono tre
+                    Click("Torna al menu"); Render("leave-save", size, camera, menu, output);
+                    Check("the leave panel offers to save", GameObject.Find("Pulsante Salva e torna al menu") != null);
+                    Click("Annulla");
+                    GameMenu.TestCanSave = null;
                     Click("Riprendi"); Check("resume releases input", !GameMenu.Blocked && Time.timeScale == 1f);
                 }
                 camera.targetTexture = null; UnityEngine.Object.DestroyImmediate(rt);
@@ -184,6 +225,8 @@ namespace PryingEyes.EditorTools
             Check("controls reset restores the defaults", !GameSettings.InvertMouseY && !GameSettings.InvertPadY && !GameSettings.AimToggle && !GameSettings.CrouchToggle
                 && !GameSettings.SprintToggle && GameSettings.PadSensitivity == 1f && Choice("Mira").Value == "Tieni premuto");
 
+            // dalla 0.9.1 il contatore dei fotogrammi e' acceso di base: la scheda parte dai valori di base anche se questo PC ne ricorda altri (un Ripristina scheda di una versione prima scriveva 'spento')
+            GameSettings.SetShowFps(true); GameSettings.SetPauseOnFocusLoss(true);
             Click("Gioco");
             var perspective = Choice("Prospettiva");
             Check("the perspective starts in first person (" + perspective.Value + ")", !GameSettings.ThirdPerson && perspective.Value == "Prima persona");
@@ -194,11 +237,11 @@ namespace PryingEyes.EditorTools
             Choice("Mirino").Step(1); Choice("Mirino").Step(1);
             Check("crosshair wraps back to classic", GameSettings.Crosshair == GameSettings.CrosshairClassic);
             Choice("Contatore fotogrammi").Step(1); Choice("Pausa a finestra inattiva").Step(1);
-            Check("fps counter on, pause on focus loss off", GameSettings.ShowFps && !GameSettings.PauseOnFocusLoss);
+            Check("fps counter off (it starts on since 0.9.1), pause on focus loss off", !GameSettings.ShowFps && !GameSettings.PauseOnFocusLoss);
             menu.GetComponentsInChildren<Slider>()[0].value = 0.5f;
             Check("visual motion writes the setting", Mathf.Abs(GameSettings.Motion - 0.5f) < 0.001f);
             Click("Ripristina scheda");
-            Check("game reset restores the defaults", !GameSettings.ShowFps && GameSettings.PauseOnFocusLoss && GameSettings.Motion == 1f && GameSettings.CoopHudScale == 1f
+            Check("game reset restores the defaults", GameSettings.ShowFps && GameSettings.PauseOnFocusLoss && GameSettings.Motion == 1f && GameSettings.CoopHudScale == 1f
                 && !GameSettings.ThirdPerson && Choice("Prospettiva").Value == "Prima persona");
 
             Click("Schermo");

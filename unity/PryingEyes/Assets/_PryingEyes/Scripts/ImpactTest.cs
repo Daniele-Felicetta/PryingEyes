@@ -82,7 +82,7 @@ namespace PryingEyes
                 ("mur_intonaco", Surface.Plaster), ("sof_intonaco", Surface.Plaster), ("mur_damasco_verde", Surface.Plaster), ("mur_vernice_verde", Surface.Plaster),
                 ("ferro", Surface.Metal), ("ottone", Surface.Metal), ("acciaio", Surface.Metal), ("vetro_buio", Surface.Glass), ("vetrata_chiara", Surface.Glass),
                 ("velluto_rosso", Surface.Fabric), ("coro_legno", Surface.Wood), ("Abate_Oro", Surface.Metal), ("VelvetR (Instance)", Surface.Fabric),
-                ("pendolo_orologio", Surface.Plaster),
+                ("pendolo_orologio", Surface.Plaster), ("DesertSand", Surface.Sand), ("Sabbia_3_-4", Surface.Sand),
             };
             var wrong = new List<string>();
             foreach (var (name, s) in expect) if (Surfaces.OfName(name, out _) != s) wrong.Add($"{name}={Surfaces.OfName(name, out _)}");
@@ -91,7 +91,7 @@ namespace PryingEyes
             // censimento: raggi da ogni stanza
             var fi = FloorDirector.I.cur;
             var rnd = new System.Random(7);
-            var tally = new int[7];
+            var tally = new int[8];
             var unknown = new Dictionary<string, int>();
             var sample = new Dictionary<Surface, List<RaycastHit>>();
             var names = new Dictionary<Surface, Dictionary<string, int>>();

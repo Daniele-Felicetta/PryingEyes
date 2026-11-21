@@ -39,20 +39,21 @@ Unity 6 (6000.6.7f1), Windows player, co-op over FishNet (UDP port 7807). The ma
 
 Everything is described, with the numbers checked against the code, in [The cathedral and the catacombs](docs/game/cathedral-and-catacombs.md),
 [The Tower](docs/game/tower.md) and
-[Weapons](docs/game/weapons.md); the other feature pages are in the [documentation index](docs/README.md).
+[Weapons](docs/game/weapons.md); the other feature pages are in the [documentation index](docs/README.md), and the [wiki](wiki/README.md) describes every entity of the game with its own card.
 
 ## Repository map
 
 | Path | What it holds |
 | --- | --- |
 | `unity/PryingEyes` | The game: the Unity project. Code in `Assets/_PryingEyes/Scripts` (`Proc/` floors and waves, `Coop/` co-op, `Armi/` weapons), editor tools in `Assets/_PryingEyes/Editor`. |
-| `unity/PryingEyes/Packages` | Engine-independent C# packages: `layout`, `weapons`, `survival`, `economy`. No Unity, no game names. |
+| `unity/PryingEyes/Packages` | Engine-independent C# packages: `layout`, `weapons`, `survival`, `economy`, `saves`. No Unity, no game names. |
 | `unity/LayoutDemo` | An independent Unity project that consumes the packages: the proof they are reusable. |
-| `tools/` | The production suite and the checks: the Python engine and its project profile, the .NET rule labs (`planlab`, `weaponslab`, `survivallab`, `economylab`), `check_suite.py`, `ship.ps1`, the co-op and trailer scripts, the unit tests. |
+| `tools/` | The production suite and the checks: the Python engine and its project profile, the .NET rule labs (`planlab`, `weaponslab`, `survivallab`, `economylab`, `saveslab`), `check_suite.py`, `ship.ps1`, the co-op and trailer scripts, the unit tests. |
 | `modelli/` | The Blender scripts that generate the weapons, furniture, church, themed props, hands and enemies. |
 | `hotel_build/` | Screenshots and result files written by the editor tools and the in-game tests, older committed evidence, and the scripts of the Unreal prototype. |
 | `index.html`, `js/`, `style.css` | The first prototype, a Three.js page. |
 | `docs/` | The documentation. [docs/README.md](docs/README.md) is its index. |
+| `wiki/` | The wiki: a page for each entity of the game and of the project, each with its own card, a concept map and a static site (`wiki/site/index.html`). [wiki/README.md](wiki/README.md) is its home page. |
 | `.github/workflows/gate.yml` | The CI gate. |
 
 ## Working on it
@@ -60,7 +61,7 @@ Everything is described, with the numbers checked against the code, in [The cath
 [AGENTS.md](AGENTS.md) holds the working agreements for people and coding agents. In short:
 
 ```powershell
-python tools/check_suite.py                                  # package and engine boundaries, documentation links
+python tools/check_suite.py                                  # package and engine boundaries, documentation links, the wiki
 python -m unittest discover -s tools -p "test_*.py"          # hermetic unit suite, about a minute, no Unity
 ```
 

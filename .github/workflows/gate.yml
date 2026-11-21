@@ -1,6 +1,7 @@
 # The gate on GitHub: the checks that used to run only inside tools/ship.ps1 on one PC (suite boundaries, Python unit tests)
-# plus the two .NET rule labs, whose reports are kept as an artifact. No Unity, no Blender, no secrets: the paths below are
-# everything the gate reads, so the checkout is a few MB instead of the 900 MB of the full tree.
+# plus the .NET rule labs, whose reports are kept as an artifact. No Unity, no Blender, no secrets: the paths below are
+# everything the gate reads, so the checkout is about 20 MiB of files, not the roughly 1.1 GiB the repository tracks.
+# The step "What the checkout downloaded" prints the exact figure of each run.
 name: gate
 
 on:
@@ -43,18 +44,22 @@ jobs:
           filter: blob:none
           persist-credentials: false
           sparse-checkout-cone-mode: false
+          # Every source a wiki page cites must be in this list, or check_suite fails with WIKI_SOURCE_MISSING: the CI page
+          # cites this workflow file, so it is listed here.
           sparse-checkout: |
             /tools/
             /README.md
             /AGENTS.md
+            /.github/workflows/gate.yml
             /docs/
+            /wiki/
             /unity/PryingEyes/Packages/
             /unity/PryingEyes/Assets/_PryingEyes/**/*.cs
             /unity/PryingEyes/Assets/_PryingEyes/Resources/Production/*.json
             /unity/PryingEyes/Assets/_PryingEyes/City/citta.json
             /unity/PryingEyes/ProjectSettings/ProjectVersion.txt
             /unity/LayoutDemo/Packages/manifest.json
-            /modelli/armi/*.py
+            /modelli/**/*.py
 
       - name: What the checkout downloaded
         run: |
@@ -97,9 +102,9 @@ jobs:
 
       # Compiled here, once, so the Python tests that run `dotnet run` (90-120 s limits) do not spend them restoring and compiling.
       # Several native commands in one PowerShell step: only the last exit code would count, so each one is checked.
-      - name: Compile the four .NET labs
+      - name: Compile the five .NET labs
         run: |
-          foreach ($lab in 'planlab', 'weaponslab', 'survivallab', 'economylab') {
+          foreach ($lab in 'planlab', 'weaponslab', 'survivallab', 'economylab', 'saveslab') {
             dotnet build "tools/$lab" -c Release --nologo
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
@@ -122,10 +127,15 @@ jobs:
           STUDIO_OUTPUT: unity_logs/lab-reports/economy
         run: python tools/studio.py test economy
 
+      - name: Save rules lab
+        env:
+          STUDIO_OUTPUT: unity_logs/lab-reports/saves
+        run: python tools/studio.py test saves
+
       - name: Lab results in the run summary
         if: ${{ !cancelled() }}
         run: |
-          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy') {
+          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy', 'saves') {
             $found = Get-ChildItem "unity_logs/lab-reports/$lab" -Recurse -Filter report.json -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $found) { "| $lab | no report | | |"; continue }
             $r = Get-Content $found.FullName -Raw | ConvertFrom-Json

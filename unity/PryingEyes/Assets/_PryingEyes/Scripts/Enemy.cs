@@ -528,10 +528,14 @@ namespace PryingEyes
         /// <summary>Quota massima di un occhio sopra il punto: nei piani procedurali il soffitto della stanza, altrimenti quello della hall.</summary>
         static float FloorDirectorCeiling(Vector3 p)
         {
+            if (Deserto.DesertMode.Active) return Mathf.Max(p.y, Deserto.DesertWorld.Height(p.x, p.z) + 11f);      // all'aperto: undici metri sopra la sabbia; dentro ci pensano i muri
             var d = Proc.FloorDirector.I;
             if (d == null || d.cur == null) return 8.3f;
             return Mathf.Max(1.3f, d.cur.CeilingAt(p) - 0.7f);
         }
+
+        /// <summary>Quota minima di chi vola: 95 cm sopra il pavimento dei piani; nel deserto 95 cm sopra la sabbia (e mai sotto un pavimento: ci pensano i muri).</summary>
+        static float FloorDirectorFloor(Vector3 p) => Deserto.DesertMode.Active ? Mathf.Min(p.y, Deserto.DesertWorld.Height(p.x, p.z) + 0.95f) : 0.95f;
 
         void RePath(Vector3 gp, Vector3 dest)
         {
@@ -560,6 +564,7 @@ namespace PryingEyes
         public void Damage(float dmg, Vector3 point, bool headshot, bool awardPoints = true, DamageSource src = DamageSource.Gun, int claimer = 0, bool quiet = false)
         {
             if (dead) return;
+            if (dormant) WakeUp();          // nel deserto un colpo sveglia chi riposa (Enemy.Desert.cs)
             var shooter = claimer == 0 ? Seats.MyTarget : Targets.OfSlot(claimer);     // nello schermo condiviso chi spara e' il posto che gira
             NoteHit(dmg, point, shooter);                       // come cadra' se questo colpo uccide (Enemy.Ragdoll.cs)
             // il colpo che non uccide piega busto e testa via dal colpo (EnemyFlinch, sopra l'animazione)
@@ -586,6 +591,7 @@ namespace PryingEyes
             Vector3 push = transform.position - (shooter != null ? shooter.Feet : point);
             push.y = 0f;
             push = push.normalized * (Archetype == EnemyType.Occhio ? 2.2f : Archetype == EnemyType.Monaco ? 0.5f : 0.25f);
+            if (src == DamageSource.Moto) push *= 12f;           // una moto lo scaraventa: 6 m/s a un monaco, 3 a un abate (poi l'agente lo rallenta)
             if (OnNav) agent.velocity += push;
             else vel += push;
             // durante il colpo di bastone niente reazione: l'animazione dell'attacco non si interrompe

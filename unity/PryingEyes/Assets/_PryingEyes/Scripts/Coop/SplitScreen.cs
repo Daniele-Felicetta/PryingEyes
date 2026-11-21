@@ -164,14 +164,14 @@ namespace PryingEyes
 
         /// <summary>Avvia lo split screen con 'count' giocatori: nascono i corpi, le camere e gli HUD degli altri e lo schermo si divide. Lo chiama
         /// il menu prima di "Gioca". In caso di errore dice perche'.</summary>
-        public static bool Begin(int count, bool p1Pad, out string error)
+        public static bool Begin(int count, bool p1Pad, out string error, System.Collections.Generic.IList<PryingEyes.Characters.CharacterRecord> cast = null)
         {
             error = null;
             if (Active) { error = "Lo split screen e' gia' avviato"; return false; }
             if (!Supported) { error = "Lo split screen c'e' solo nel gioco per Windows"; return false; }
             if (!GameManager.proc) { error = "Lo split screen c'e' solo ai piani dell'hotel"; return false; }
             if (Coop.Active || Coop.WaitingForHost) { error = "C'e' gia' una partita in rete"; return false; }
-            return Seats.Begin(count, p1Pad, out error);
+            return Seats.Begin(count, p1Pad, out error, cast);
         }
 
         /// <summary>Una riga per il menu di pausa: chi usa cosa.</summary>

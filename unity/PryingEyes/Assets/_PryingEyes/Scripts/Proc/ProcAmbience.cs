@@ -23,6 +23,13 @@ namespace PryingEyes.Proc
             I = new GameObject("ProcAmbience").AddComponent<ProcAmbience>();
         }
 
+        // lo leggono le prove (il deserto: all'aperto il vento c'e' e la stanza no)
+        public static ProcAmbience Instance => I;
+        public float WindVolume => wind != null ? wind.volume : 0f;
+        public float RoomVolume => room != null ? room.volume : 0f;
+        public float OrganVolume => organ != null ? organ.volume : 0f;
+        public float ReverbDecay => curRev.x;
+
         AudioSource Mk(AudioClip c)
         {
             var s = gameObject.AddComponent<AudioSource>();
@@ -63,6 +70,19 @@ namespace PryingEyes.Proc
             float orgT = church ? (big ? 0.36f : 0.2f) : (stage || clinic ? 0.01f : 0.05f);
             float windT = r == null ? 0.1f : (big ? 0.26f : r.kind == RoomKind.Corridoio ? 0.07f : 0.12f);
             float roomT = church ? 0.12f : stage ? 0.12f : clinic ? 0.10f : 0.22f;
+            // il deserto: sulla sabbia, sotto il cielo aperto, non c'e' nessuna stanza attorno. Niente ronzio di stanza ne' organo: il vento, a raffiche lente.
+            bool desert = Deserto.DesertMode.Active;
+            bool open = desert && r == null && (Deserto.DesertSky.I == null || Deserto.DesertSky.I.Indoor < 0.5f);
+            float windPitch = 1f;
+            if (open)
+            {
+                // il vento segue il tempo (DesertWeather): una brezza a raffiche lente, forte e piu' acuto nella tempesta (a cui DesertSound aggiunge il sibilo della sabbia)
+                var wx = Deserto.DesertSky.I != null ? Deserto.DesertSky.I.Weather : default(Deserto.WeatherState);
+                float g = 0.5f + 0.5f * Mathf.Sin(Time.time * 0.11f) * Mathf.Sin(Time.time * 0.29f + 1.3f);
+                windT = Mathf.Lerp(0.14f, 0.36f, Mathf.Clamp01(0.35f * g + 0.65f * wx.wind)) + 0.22f * wx.storm;
+                windPitch = 0.92f + 0.22f * wx.wind;
+                orgT = 0f; roomT = 0f;
+            }
             float padT = 0f, murT = 0f, buzzT = 0f;
             if (stage)
             {
@@ -78,6 +98,7 @@ namespace PryingEyes.Proc
             Blend(organ, orgT * GameSettings.Music * duck, dt * 0.5f);
             Blend(room, roomT * amb, dt * 0.8f);
             Blend(wind, windT * amb, dt * 0.6f);
+            if (wind != null) wind.pitch = Mathf.Lerp(wind.pitch, windPitch, Mathf.Clamp01(dt * 0.6f));
             Blend(pad, padT * GameSettings.Music * duck, dt * 0.5f);
             Blend(murmur, murT * amb, dt * 0.6f);
             Blend(buzz, buzzT * amb, dt * 0.8f);
@@ -94,6 +115,9 @@ namespace PryingEyes.Proc
                 else if (r.kind == RoomKind.Atrio || r.kind == RoomKind.SalaBallo || r.kind == RoomKind.Ristorante) tgtRev = new Vector4(1.6f, -1200f, -1300f, -600f);
                 else tgtRev = new Vector4(0.9f, -1500f, -1400f, -900f);
             }
+            else if (desert)
+                tgtRev = open ? new Vector4(0.45f, -2600f, -2300f, -2000f)       // all'aperto quasi niente eco: la sabbia e il cielo non la rimandano
+                              : new Vector4(1.2f, -1300f, -1300f, -800f);        // dentro un luogo (muri di pietra, stanze come quelle dei piani)
             curRev = Vector4.Lerp(curRev, tgtRev, dt * 0.9f);
             if (rev == null)
             {
@@ -113,7 +137,8 @@ namespace PryingEyes.Proc
             {
                 creakT = Random.Range(7f, 17f);
                 Vector2 o = Random.insideUnitCircle.normalized * Random.Range(6f, 22f);
-                Sfx.At(SoundBank.Creak, cam.transform.position + new Vector3(o.x, Random.Range(0.5f, 3f), o.y), Random.Range(0.25f, 0.5f) * amb, Random.Range(0.85f, 1.15f), 4f, 36f);
+                if (!open)      // sulla sabbia aperta non c'e' niente che scricchioli
+                    Sfx.At(SoundBank.Creak, cam.transform.position + new Vector3(o.x, Random.Range(0.5f, 3f), o.y), Random.Range(0.25f, 0.5f) * amb, Random.Range(0.85f, 1.15f), 4f, 36f);
             }
             tollT -= Time.deltaTime;
             if (tollT <= 0f)
