@@ -118,6 +118,7 @@ namespace PryingEyes.Pista
             yield return null; yield return null;
             Check("'Su pista' apre la preparazione della gara", Open("pistaPanel") && !Open("modePanel"));
             Check("il pulsante 'Via!' e' gia' scelto: Invio parte", Sel == "Pulsante Via!", Sel);
+            Check("il pulsante di partenza si legge 'Via' (il carattere del menu disegna il punto esclamativo come una elle: 'Vial')", Find("Pulsante Via!").GetComponentInChildren<Text>().text == "Via");
             int seed1 = PistaMode.Chosen;
             Check("c'e' un circuito scelto", seed1 != 0, seed1.ToString());
             var map = Field<RawImage>("pistaMap");
@@ -132,6 +133,21 @@ namespace PryingEyes.Pista
             if (shots) yield return Shot("menu_2_preparazione");
             if (licenceFlow) { yield return LicenceFlow(); yield break; }
             if (PistaMode.HasArg("-pistamenugarage")) { yield return GarageFlow(); yield break; }
+            if (PistaMode.HasArg("-pistamenucup")) { yield return CupFlow(); yield break; }
+
+            // ---- the note about the aids and the style is read whole: four lines, and its box ends before the "Altra pista" button (it used to run 20 units under it and cut the last words of a line)
+            var note = Find("Nota aiuti"); var other = Find("Pulsante Altra pista");
+            bool clear = false; string where = "-";
+            if (note != null && other != null)
+            {
+                var a = new Vector3[4]; var b = new Vector3[4];
+                note.GetComponent<RectTransform>().GetWorldCorners(a);
+                other.GetComponent<RectTransform>().GetWorldCorners(b);
+                int lines = note.GetComponent<Text>().cachedTextGenerator.lineCount;
+                clear = (a[2].x <= b[0].x || a[2].y <= b[0].y || a[0].y >= b[2].y) && lines == 4;
+                where = "la nota arriva a x " + a[2].x.ToString("F0") + ", 'Altra pista' parte da x " + b[0].x.ToString("F0") + ", " + lines + " righe";
+            }
+            Check("la nota sugli aiuti sta in quattro righe e non finisce sotto 'Altra pista'", clear, where);
 
             // ---- the rows step
             int laps0 = PistaMode.Laps;
@@ -377,6 +393,152 @@ namespace PryingEyes.Pista
             bool borrowed = false;
             foreach (var r in d.race.racers) if (r != d.me && r.skin == 4) borrowed = true;
             Check("si corre con la moto e i colori del garage, e nessun avversario ha quei colori", d.me.bikeIndex == 3 && d.me.skin == 4 && !borrowed, "moto " + d.me.bikeIndex + ", livrea " + d.me.skin);
+        }
+
+        /// <summary>The championship from the setup: the three cups with their calendar and field, a season and a trophy written in the book, the standings, the two-step restart, back to the setup, the cup in progress
+        /// chosen again, and a click on a finished cup that starts a new season and its first round.</summary>
+        IEnumerator CupFlow()
+        {
+            PistaCups.ForgetAll();
+            PistaMode.Bike = 0; PistaMode.Skin = -1; PistaMode.Aids = 1; PistaMode.Rank = 1; PistaMode.Laps = 2; PistaMode.Rivals = 3;
+            var open = Find("Pulsante Campionato");
+            var licences = Find("Pulsante Patenti");
+            var above = licences != null ? licences.GetComponent<Selectable>().navigation.selectOnUp : null;
+            Check("la preparazione ha il pulsante 'Campionato' in cima alla croce, sopra 'Patenti'", open != null && above != null && above.gameObject == open, above != null ? above.name : "-");
+            if (open == null) yield break;
+            EventSystem.current.SetSelectedGameObject(open);           // a click or a press leaves the button selected, as here
+            open.GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            Check("'Campionato' apre il campionato e chiude la preparazione, e la prima coppa e' gia' scelta", Open("cupPanel") && !Open("pistaPanel") && Sel == "Coppa 1", Sel);
+
+            string bad = "";
+            for (int i = 0; i < Cups.Count; i++)
+            {
+                var cup = Cups.All[i];
+                var cell = Find("Coppa " + (i + 1));
+                if (cell == null) { bad += " manca" + (i + 1); continue; }
+                string name = CellText(cell, "Nome"), klass = CellText(cell, "Classe"), state = CellText(cell, "Stagione"), prize = CellText(cell, "Premio");
+                if (name != cup.name || !klass.Contains(cup.klass) || !klass.Contains(cup.Rounds + " gare") || state != "Stagione da cominciare" || prize != "Nessuna coppa vinta") bad += " " + (i + 1) + "[" + name + "|" + klass + "|" + state + "|" + prize + "]";
+            }
+            Check("ci sono tre coppe, ognuna con il suo nome, la sua classe e nessuna stagione ancora", bad.Length == 0, bad);
+            Check("il riepilogo dice i punti dei posti e che non c'e' nessuna coppa", Text("Riepilogo") == "Punti " + string.Join(" ", Cups.PointsTable) + "   -   Coppe: oro 0  argento 0  bronzo 0", Text("Riepilogo"));
+
+            // under the cup chosen: its line, the calendar, the field, the bike and the level, and what Invio does
+            var c0 = Cups.All[0];
+            int bike0 = Cups.BikesOf(c0)[0];
+            string circuit0 = CircuitGen.Generate(c0.CircuitSeed(0)).name;
+            string calendar = "";
+            for (int r = 0; r < c0.Rounds; r++) if (!Text("Gara " + (r + 1)).StartsWith((r + 1) + "  " + CircuitGen.Generate(c0.CircuitSeed(r)).name + "  -  ")) calendar += " " + (r + 1);
+            Check("sotto la coppa scelta si leggono la sua frase, il calendario (la prima gara e' la prossima) e cosa fa Invio",
+                Text("Sottotitolo") == c0.tagline && calendar.Length == 0 && Text("Gara 1 stato") == "prossima" && Text("Gara 2 stato") == "" && Text("Invio") == "Invio: gara 1 di " + c0.Rounds + " a " + circuit0 + "  -  " + c0.laps + " giri",
+                Text("Sottotitolo") + " / " + Text("Gara 1") + " / " + Text("Invio") + calendar);
+            var field0 = CupField.Make(c0, PistaMode.Rank, PistaMode.SkinFor(bike0), PistaDirector.Names, Livery.Count);
+            bool rows = Text("Intestazione classifica").StartsWith("Gli avversari");
+            for (int i = 0; i < Cups.Rivals; i++) rows &= Text("Pilota " + (i + 1)) == field0[i].name && Text("Pilota " + (i + 1) + " valore") == Bikes.Get(field0[i].bike).name;
+            rows &= Text("Pilota 12") == PistaDirector.CupPlayerName() && Text("Pilota 12 valore") == Bikes.Get(bike0).name;
+            Check("prima del via la tabella mostra gli undici avversari con la loro moto, e il giocatore con la sua", rows, Text("Intestazione classifica") + " / " + Text("Pilota 1") + " " + Text("Pilota 1 valore") + " / " + Text("Pilota 12") + " " + Text("Pilota 12 valore"));
+            string note = Text("Nota");
+            Check("la nota dice la moto (la prima della classe: quella della preparazione e' di un'altra) e il livello degli avversari",
+                note.StartsWith("In sella: " + Bikes.Get(bike0).name) && note.Contains("non e' di questa classe") && note.Contains("livello esperto, come nella preparazione"), note.Replace((char)10, '/'));
+            Check("senza una stagione 'Ricomincia' non c'e'", Find("Pulsante Ricomincia") == null);
+            if (shots) yield return Shot("menu_10_campionato_prima");
+
+            // the cross: right to the next cup, down to 'Indietro' (no season, no 'Ricomincia') and back up to the cup
+            var n1 = Find("Coppa 1").GetComponent<Selectable>().navigation; var n3 = Find("Coppa 3").GetComponent<Selectable>().navigation; var back = Find("Pulsante Indietro").GetComponent<Selectable>().navigation;
+            Check("la croce: destra passa alla coppa dopo, giu' va a 'Indietro' e da li' si risale alla coppa scelta",
+                n1.selectOnRight != null && n1.selectOnRight.name == "Coppa 2" && n1.selectOnLeft == null && n1.selectOnDown != null && n1.selectOnDown.name == "Pulsante Indietro" && n3.selectOnRight == null && n3.selectOnLeft != null && n3.selectOnLeft.name == "Coppa 2"
+                && back.selectOnUp != null && back.selectOnUp.name == "Coppa 1");
+            EventSystem.current.SetSelectedGameObject(Find("Coppa 2"));
+            yield return null;
+            var c1 = Cups.All[1];
+            Check("scegliere un'altra coppa cambia la frase, il calendario e la riga di Invio", Text("Sottotitolo") == c1.tagline && Text("Gara 1").Contains(CircuitGen.Generate(c1.CircuitSeed(0)).name) && Text("Invio").Contains(CircuitGen.Generate(c1.CircuitSeed(0)).name)
+                && Text("Intestazione calendario").EndsWith(c1.klass), Text("Sottotitolo") + " / " + Text("Invio"));
+
+            // the book: two rounds of the Supersport cup (the player third, then first) and a finished Superbike season with the player winning every round
+            PistaCups.Begin(1, 1, 0);
+            PistaCups.Record(1, new[] { 5, 6, 0, 1, 2, 3, 4, 7, 8, 9, 10, 11 }, 12);
+            PistaCups.Record(1, new[] { 0, 5, 6, 1, 2, 3, 4, 7, 8, 9, 10, 11 }, 12);
+            PistaCups.Begin(2, 0, 0);
+            for (int r = 0; r < 4; r++) PistaCups.Record(2, new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }, 12);
+            Call("RefreshCup");
+            yield return null;
+            var f1 = CupField.Make(c1, 1, 0, PistaDirector.Names, Livery.Count);
+            string you = PistaDirector.CupPlayerName();
+            Check("la stagione scritta nel libro si legge sulla coppa: la gara a cui si e' arrivati, il posto e i punti", CellText(Find("Coppa 2"), "Stagione") == "Gara 3 di 4  -  2° con 41 punti", CellText(Find("Coppa 2"), "Stagione"));
+            Check("la classifica e' quella dei punti (il giocatore secondo con 41) e il calendario segna le gare fatte e la prossima",
+                Text("Intestazione classifica") == "Classifica dopo 2 gare" && Text("Pilota 1") == "1  " + f1[4].name && Text("Pilota 1 valore") == "45 pt" && Text("Pilota 2") == "2  " + you && Text("Pilota 2 valore") == "41 pt"
+                && Text("Pilota 3") == "3  " + f1[5].name && Text("Pilota 3 valore") == "36 pt" && Text("Pilota 12 valore") == "8 pt" && Text("Gara 1 stato") == "fatta" && Text("Gara 2 stato") == "fatta" && Text("Gara 3 stato") == "prossima" && Text("Gara 4 stato") == "",
+                Text("Intestazione classifica") + " / " + Text("Pilota 1") + " " + Text("Pilota 1 valore") + " / " + Text("Pilota 2") + " " + Text("Pilota 2 valore") + " / " + Text("Gara 3 stato"));
+            Check("il giocatore e' in color ambra, la riga di Invio corre la terza gara e la nota dice che il livello e' fissato",
+                Find("Pilota 2").GetComponent<Text>().color == new Color(1f, 0.74f, 0.18f) && Text("Invio").StartsWith("Invio: gara 3 di 4 a " + CircuitGen.Generate(c1.CircuitSeed(2)).name) && Text("Nota").Contains("fissato all'inizio della stagione"),
+                Text("Invio") + " / " + Text("Nota").Replace((char)10, '/'));
+            var reset = Find("Pulsante Ricomincia");
+            Check("con una stagione in corso c'e' 'Ricomincia': la croce ci scende dalla coppa e da li' risale alla coppa o va a 'Indietro'",
+                reset != null && Find("Coppa 2").GetComponent<Selectable>().navigation.selectOnDown == reset.GetComponent<Selectable>() && reset.GetComponent<Selectable>().navigation.selectOnUp.name == "Coppa 2"
+                && reset.GetComponent<Selectable>().navigation.selectOnDown.name == "Pulsante Indietro" && Find("Pulsante Indietro").GetComponent<Selectable>().navigation.selectOnUp == reset.GetComponent<Selectable>());
+            if (shots) yield return Shot("menu_11_campionato_stagione");
+
+            // the finished season: the trophy on the cup and in the summary, the table says the season is over, Invio begins a new one, and there is nothing to restart
+            EventSystem.current.SetSelectedGameObject(Find("Coppa 3"));
+            yield return null;
+            var c2 = Cups.All[2];
+            Check("una stagione finita con la vittoria da' la coppa d'oro sulla coppa e nel riepilogo",
+                CellText(Find("Coppa 3"), "Stagione") == "Finita  -  1° con 100 punti" && CellText(Find("Coppa 3"), "Premio") == "Migliore: COPPA D'ORO" && Find("Coppa 3").transform.Find("Premio").GetComponent<Text>().color == PistaDirector.LicenceColor(Medal.Gold).Value
+                && Text("Riepilogo") == "Punti " + string.Join(" ", Cups.PointsTable) + "   -   Coppe: oro 1  argento 0  bronzo 0", CellText(Find("Coppa 3"), "Premio") + " / " + Text("Riepilogo"));
+            Check("sotto una stagione finita la tabella dice che e' finita, Invio comincia una stagione nuova e non c'e' 'Ricomincia'",
+                Text("Intestazione classifica") == "Classifica dopo 4 gare  -  stagione finita" && Text("Pilota 1") == "1  " + you && Text("Pilota 1 valore") == "100 pt" && Text("Invio") == "Invio: nuova stagione, gara 1 di 4 a " + CircuitGen.Generate(c2.CircuitSeed(0)).name + "  -  " + c2.laps + " giri" && Find("Pulsante Ricomincia") == null,
+                Text("Intestazione classifica") + " / " + Text("Invio"));
+            if (shots) yield return Shot("menu_12_campionato_coppa");
+
+            // 'Ricomincia' asks twice: the first press only asks, another cup chosen and back puts the question away, the second press throws the season away and begins one at the level of now
+            EventSystem.current.SetSelectedGameObject(Find("Coppa 2"));
+            yield return null;
+            PistaMode.Rank = 2;
+            reset = Find("Pulsante Ricomincia");
+            var label = reset.GetComponentInChildren<Text>();
+            reset.GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Check("'Ricomincia' chiede conferma e non butta ancora nulla", label.text == "Sicuro? Perdi i punti" && PistaCups.Book.Season(1).round == 2 && PistaCups.Book.Season(1).points[0] == 41, label.text + ", gare " + PistaCups.Book.Season(1).round);
+            EventSystem.current.SetSelectedGameObject(Find("Coppa 1"));
+            yield return null;
+            EventSystem.current.SetSelectedGameObject(Find("Coppa 2"));
+            yield return null;
+            Check("scegliendo un'altra coppa e tornando la domanda e' tolta (il pulsante dice di nuovo 'Ricomincia') e la stagione c'e' ancora", label.text == "Ricomincia" && PistaCups.Book.Season(1).round == 2, label.text);
+            reset.GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            reset.GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            var again = PistaCups.Book.Season(1);
+            Check("il secondo 'Ricomincia' butta la stagione e ne comincia una al livello di adesso: nessuna gara, nessun punto, la coppa d'oro dell'altra coppa resta, e la scelta torna alla coppa",
+                again.round == 0 && again.points[0] == 0 && again.rank == 2 && PistaCups.Book.BestTrophy(2) == Medal.Gold && Find("Pulsante Ricomincia") == null && Sel == "Coppa 2" && Text("Intestazione classifica").StartsWith("Gli avversari") && Text("Nota").Contains("come nella preparazione"),
+                "gare " + again.round + ", livello " + again.rank + ", " + Sel);
+
+            // back to the setup (the button that opened the championship is still the chosen one); a season in progress is the cup chosen when it is opened again
+            PistaCups.Record(1, new[] { 0, 5, 6, 1, 2, 3, 4, 7, 8, 9, 10, 11 }, 12);
+            bool handled = (bool)Call("CupBackKey");
+            yield return null; yield return null;
+            Check("indietro porta alla preparazione con il pulsante 'Campionato' ancora scelto", handled && Open("pistaPanel") && !Open("cupPanel") && Sel == "Pulsante Campionato", Sel);
+            EventSystem.current.SetSelectedGameObject(Find("Pulsante Campionato"));
+            Find("Pulsante Campionato").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            Check("riaprendolo e' scelta la coppa con la stagione in corso", Open("cupPanel") && Sel == "Coppa 2" && Text("Invio").StartsWith("Invio: gara 2 di 4 a " + CircuitGen.Generate(c1.CircuitSeed(1)).name), Sel + " / " + Text("Invio"));
+
+            // a click on the finished cup: a new season (the level of the setup now, the bike of the setup because it is of the class) and the first round of the calendar, with the cup's laps and the eleven riders
+            EventSystem.current.SetSelectedGameObject(Find("Coppa 3"));
+            Find("Coppa 3").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            Check("un clic su una coppa toglie il menu e la partita e' su pista, in quella coppa", !GameMenu.InMenu && PistaMode.Requested && PistaMode.Cup == 2, "coppa " + PistaMode.Cup);
+            yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
+            var d = PistaDirector.I;
+            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            yield return null;
+            var fresh = PistaCups.Book.Season(2);
+            Check("la stagione e' nuova (al livello della preparazione), la coppa d'oro resta nel libro e si corre la prima gara del calendario",
+                fresh != null && fresh.round == 0 && fresh.rank == 2 && d.CupSeason == fresh && PistaCups.Book.BestTrophy(2) == Medal.Gold && PistaCups.Book.SeasonsDone(2) == 1 && d.seed == c2.CircuitSeed(0), "gara " + (fresh != null ? fresh.round + 1 : 0) + ", seme " + d.seed);
+            Check("con i giri della coppa, i dodici piloti e la moto della preparazione (e' della classe), e gli aiuti sono quelli del giocatore",
+                d.race.laps == c2.laps && d.race.racers.Count == Cups.Riders && d.me.bikeIndex == 0 && d.me.bike.tcs == (PistaMode.Aids < 2) && d.me.bike.leanAssist == (PistaMode.Aids == 0), d.race.laps + " giri, " + d.race.racers.Count + " piloti, moto " + d.me.bikeIndex);
+            Check("il regista sa che e' la coppa e non c'e' nessuna patente", d.CupActive && d.Licence == null && PistaMode.Licence == -1, "");
+            if (shots) yield return Shot("menu_13_campionato_gara");
         }
 
         /// <summary>How much of a picture is lit (the stage has a nearly black background): the share of pixels clearly brighter than it.</summary>

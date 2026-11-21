@@ -99,6 +99,7 @@ namespace PryingEyes.Pista
             if (!Check2("la partita su pista parte e la gara e' pronta", d != null && d.Ready && PistaMode.Active, d == null ? "nessun regista" : "pronto " + d.Ready)) yield break;
             yield return null;
             Debug.Log($"[PryingEyes] pistatest circuito '{d.circuit.name}', {d.circuit.length:F0} m, {d.circuit.n} campioni, seme {d.seed}, {d.race.racers.Count} piloti, {d.race.laps} giri");
+            if (PistaMode.HasArg("-pistacuponly")) { yield return CupRace(); yield break; }          // only the championship part (to look at the table of a round and iterate on it)
 
             // ---- the scene
             phase = "scena";
@@ -228,6 +229,7 @@ namespace PryingEyes.Pista
             Check("anche la seconda gara parte e la moto avanza", Dir.race.phase == RacePhase.Racing && Dir.me.progress > progress1 + 25f, $"{Dir.me.progress - progress1:F0} m in 3 s");
             if (shots) yield return RosterGallery();
             yield return LicenceRace();
+            yield return CupRace();
         }
 
         /// <summary>A licence test by the real path, last because it leaves the game on a test: the rules of the test replace the choices (circuit, bike, three laps, nobody else, aids, hour), the computer rides
@@ -277,6 +279,145 @@ namespace PryingEyes.Pista
             Check("'riprova' e' la stessa prova da capo: stesse regole, un tentativo nuovo, e il tempo migliore resta nel registro",
                 Dir.seed == t.Seed && Dir.race.laps == Licences.Laps && Dir.race.racers.Count == 1 && Dir.Licence != null && Dir.Licence != run && Dir.Licence.counted == 0 && Dir.Licence.bestLap == 0f && !Dir.hud.ResultsShown && Dir.hud.LicenceGoalsText.Length > 0
                 && (run.counted == 0 || PistaLicences.Book.BestOf(index) > 0f), $"tentativo nuovo {Dir.Licence != null && Dir.Licence != run}, registro {PistaLicences.Book.BestOf(index):F2} s");
+        }
+
+        /// <summary>A cup by the real path, after the licence test (which leaves the game on its own rules too). Round one: the first circuit of the calendar, a bike of the class, twelve riders (the player and the eleven of the cup,
+        /// gridded by pace with the player in the middle); the computer rides it, the round counts once for the season (the replay and the way back to the table do not count it again) and four lines under the table say what it gave
+        /// and what comes next. The next round is the second circuit with the same eleven, gridded by the standings; the last one closes the season with its trophy and nothing comes after it; a finished season is not taken up
+        /// again: the cup starts a new one.</summary>
+        IEnumerator CupRace()
+        {
+            phase = "campionato";
+            PistaCups.ForgetAll();
+            const int index = 1;           // the Supersport cup
+            var cup = Cups.All[index];
+            int count = Dir.RaceCount;
+            PistaMode.BeginCup(index, 1);          // one lap each: the whole season in a few minutes
+            Dir.RestartRace(true);
+            yield return null;
+            yield return WaitFor(() => Dir.Ready && Dir.RaceCount == count + 1, 120f);
+            var d = Dir;
+            var season = PistaCups.Book.Season(index);
+            Check("la coppa parte con le sue regole: il primo circuito del calendario, una moto della classe, dodici piloti e nessuna patente",
+                d.Ready && d.CupActive && season != null && d.CupSeason == season && season.round == 0 && d.seed == cup.CircuitSeed(0) && Cups.Allows(cup, d.me.bikeIndex) && d.race.racers.Count == Cups.Riders && d.race.laps == 1 && d.Licence == null,
+                "seme " + d.seed + " (calendario " + cup.CircuitSeed(0) + "), moto " + d.me.bikeIndex + ", " + d.race.racers.Count + " piloti, " + d.race.laps + " giri");
+            if (season == null) yield break;
+            if (shots) { yield return new WaitForSeconds(0.6f); yield return Shot("11_campionato_griglia"); }          // the banner of the start (the cup and the round) is still up
+
+            var field = CupField.Make(cup, season.rank, season.freeSkin, PistaDirector.Names, Livery.Count);
+            string wrong = "";
+            foreach (var r in d.race.racers)
+            {
+                int k = d.CupRiderOf(r);
+                if (r == d.me) { if (k != 0) wrong += " io(" + k + ")"; continue; }
+                if (k < 1 || k > field.Length || r.name != field[k - 1].name || r.bikeIndex != field[k - 1].bike || r.skin == d.me.skin) wrong += " " + r.name + "(" + k + ")";
+            }
+            Check("gli avversari sono gli undici della coppa (stessi nomi e moto del campo) e nessuno ha i colori del giocatore", wrong.Length == 0, wrong);
+            int quickest = Bikes.Quickest(cup.klass);
+            float prev = float.MaxValue; bool byPace = true;
+            foreach (var r in d.race.standings)
+            {
+                if (r == d.me) continue;
+                float key = field[d.CupRiderOf(r) - 1].pace + (r.bikeIndex == quickest ? 0.02f : 0f);
+                if (key > prev + 1e-6f) byPace = false;
+                prev = key;
+            }
+            int slot = d.race.standings.IndexOf(d.me);
+            Check("la griglia del primo turno e' per ritmo (il piu' veloce in pole) con il giocatore a meta' schieramento", byPace && slot == Cups.Rivals / 2, "il giocatore e' al posto " + (slot + 1) + " della griglia");
+            Check("'nuova pista' resta sul calendario: il circuito del turno", PistaMode.NewSeed(false) == cup.CircuitSeed(0), PistaMode.Cup + "");
+
+            yield return WaitFor(() => d.race.phase == RacePhase.Racing, 40f);
+            Time.timeScale = 4f;
+            float t0 = Time.realtimeSinceStartup;
+            while (d.race.phase == RacePhase.Racing && Time.realtimeSinceStartup - t0 < 240f) yield return null;
+            Time.timeScale = 1f;
+            yield return WaitFor(() => d.hud.ResultsShown, 20f);
+            int finishers = 0, total = 0, expected = 0;
+            foreach (var r in d.race.racers) if (r.finished) finishers++;
+            for (int p = 0; p < finishers; p++) expected += Cups.PointsFor(p + 1, true);
+            foreach (int pt in season.points) total += pt;
+            int place = d.race.standings.IndexOf(d.me) + 1;
+            Check("il turno finisce da solo e i punti sono nel libro: una gara, tanti punti quanti ne danno i posti di chi ha tagliato il traguardo",
+                d.race.phase == RacePhase.Over && season.round == 1 && total == expected && season.points[0] == Cups.PointsFor(place, d.me.finished) && d.CupGained == season.points[0],
+                "fase " + d.race.phase + ", gare " + season.round + ", punti " + total + " (attesi " + expected + " per " + finishers + " arrivati), " + place + "° con " + season.points[0]);
+            Check("il turno non finisce quando il giocatore taglia il traguardo: arrivano quasi tutti, e i punti vanno a tutto il campo", d.race.waitForField && finishers >= Cups.Riders - 2, finishers + " arrivati su " + Cups.Riders);
+            string[] lines = d.hud.CupLinesText.Split((char)10);
+            Check("sotto la tabella ci sono le quattro righe: la coppa e la gara, cosa ha dato, i primi tre e la prossima gara",
+                lines.Length == 4 && lines[0].Contains(cup.name.ToUpperInvariant()) && lines[0].Contains("GARA 1 DI " + cup.Rounds) && lines[1].Contains(" punt") && lines[2].StartsWith("Classifica:") && lines[3].StartsWith("Prossima gara")
+                && lines[3].Contains(CircuitGen.Generate(cup.CircuitSeed(1)).name) && !d.CupSeasonOver, d.CupVerdict);
+            Check("in fondo alla tabella si legge 'prossima gara', non 'ancora' ne' 'nuova pista'", d.hud.ResultsHintText.Contains("prossima gara") && !d.hud.ResultsHintText.Contains("nuova pista") && !d.hud.ResultsHintText.Contains("ancora"), d.hud.ResultsHintText);
+            if (shots) { yield return new WaitForSeconds(1.0f); yield return Shot("11_campionato_risultati"); }
+
+            // the replay and the way back to the table: the round is not counted twice and the lines come back
+            bool replayed = d.CanReplay && d.StartReplay();
+            yield return null; yield return null;
+            if (replayed) { d.EndReplay(); yield return null; yield return null; }
+            int total2 = 0;
+            foreach (int pt in season.points) total2 += pt;
+            Check("il replay e il ritorno alla tabella non contano il turno due volte, e le quattro righe tornano", replayed && season.round == 1 && total2 == total && d.hud.ResultsShown && d.hud.CupLinesText.Split((char)10).Length == 4, "replay " + replayed + ", gare " + season.round + ", punti " + total2);
+
+            // the next round: the second circuit of the calendar, the same riders, the grid as the standings
+            var names1 = new System.Text.StringBuilder();
+            foreach (var r in d.race.racers) names1.Append(r.name).Append(',').Append(r.bikeIndex).Append(';');
+            int again = d.RaceCount;
+            bool went = d.CupNext();
+            yield return null;
+            yield return WaitFor(() => Dir.Ready && Dir.RaceCount == again + 1, 120f);
+            d = Dir;
+            var order = season.Order();
+            string gridWrong = "";
+            for (int k = 0; k < Cups.Riders; k++) { int rider = d.CupRiderOf(d.race.standings[k]); if (rider != order[k]) gridWrong += " " + (k + 1) + ":" + rider + "/" + order[k]; }
+            var names2 = new System.Text.StringBuilder();
+            foreach (var r in d.race.racers) names2.Append(r.name).Append(',').Append(r.bikeIndex).Append(';');
+            Check("'prossima gara' porta al secondo circuito del calendario, con gli stessi undici avversari e in griglia come in classifica",
+                went && d.Ready && d.CupSeason == season && season.round == 1 && d.seed == cup.CircuitSeed(1) && names2.ToString() == names1.ToString() && gridWrong.Length == 0 && !d.hud.ResultsShown && d.hud.CupLinesText.Length == 0,
+                "andata " + went + ", seme " + d.seed + " (calendario " + cup.CircuitSeed(1) + "), griglia sbagliata:" + gridWrong);
+
+            // two rounds written by hand (the player wins, then the field in order) bring the season to its last round, which the computer rides
+            var synthetic = new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+            PistaCups.Record(index, synthetic, Cups.Riders);
+            PistaCups.Record(index, synthetic, Cups.Riders);
+            again = d.RaceCount;
+            d.RestartRace(true);
+            yield return null;
+            yield return WaitFor(() => Dir.Ready && Dir.RaceCount == again + 1, 120f);
+            d = Dir;
+            Check("l'ultima gara e' sull'ultimo circuito del calendario", d.Ready && d.CupSeason == season && season.round == cup.Rounds - 1 && d.seed == cup.CircuitSeed(cup.Rounds - 1), "gara " + (season.round + 1) + ", seme " + d.seed + " (calendario " + cup.CircuitSeed(cup.Rounds - 1) + ")");
+            yield return WaitFor(() => d.race.phase == RacePhase.Racing, 40f);
+            Time.timeScale = 4f;
+            t0 = Time.realtimeSinceStartup;
+            while (d.race.phase == RacePhase.Racing && Time.realtimeSinceStartup - t0 < 240f) yield return null;
+            Time.timeScale = 1f;
+            yield return WaitFor(() => d.hud.ResultsShown, 20f);
+            var trophy = season.Trophy();
+            int standing = season.Position(0);
+            lines = d.hud.CupLinesText.Split((char)10);
+            Check("l'ultimo turno chiude la stagione: 'STAGIONE FINITA' con il posto in classifica e la coppa (se e' sul podio), e in fondo alla tabella non c'e' un turno dopo",
+                d.CupSeasonOver && season.Finished && lines.Length == 4 && lines[3].StartsWith("STAGIONE FINITA") && lines[3].Contains(standing + "° in classifica")
+                && (trophy == Medal.None ? !lines[3].Contains("COPPA") : lines[3].Contains(PistaDirector.TrophyName(trophy))) && !d.hud.ResultsHintText.Contains("prossima gara"),
+                "posto " + standing + ", coppa " + trophy + ", " + d.CupVerdict);
+            Check("il libro tiene la stagione fatta e il miglior posto, e dopo l'ultimo turno 'prossima gara' non porta da nessuna parte",
+                PistaCups.Book.SeasonsDone(index) == 1 && PistaCups.Book.BestPlace(index) == standing && PistaCups.Book.BestTrophy(index) == trophy && !d.CupNext(),
+                "stagioni " + PistaCups.Book.SeasonsDone(index) + ", miglior posto " + PistaCups.Book.BestPlace(index));
+            string saved = PistaCups.Book.Serialize();
+            Check("il libro scritto e riletto e' lo stesso", CupBook.Parse(saved).Serialize() == saved, saved.Length > 90 ? saved.Substring(0, 90) : saved);
+            if (shots) { yield return new WaitForSeconds(1.0f); yield return Shot("11_campionato_fine_stagione"); }
+
+            // a finished season is not taken up again: the cup begins a new one (the trophy stays in the book)
+            PistaMode.BeginCup(index, 1);
+            var fresh = PistaCups.Book.Season(index);
+            count = Dir.RaceCount;
+            Dir.RestartRace(true);
+            yield return null;
+            yield return WaitFor(() => Dir.Ready && Dir.RaceCount == count + 1, 120f);
+            Check("una stagione finita non si riprende: la coppa riparte da una stagione nuova e dalla prima gara, e la coppa vinta resta nel libro",
+                fresh != null && fresh != season && fresh.round == 0 && Dir.CupSeason == fresh && Dir.seed == cup.CircuitSeed(0) && PistaCups.Book.SeasonsDone(index) == 1 && PistaCups.Book.BestPlace(index) == standing,
+                "stagione nuova " + (fresh != null && fresh != season) + ", gara " + (fresh != null ? fresh.round + 1 : 0) + ", seme " + Dir.seed);
+
+            // leaving the mode clears the cup and the circuit that were chosen for the game: the next game started from the menu must not begin on them (it did, for a licence test)
+            PistaMode.End();
+            Check("uscire dalla modalita' libera la coppa e il circuito scelti, cosi' la partita dopo non parte su quelli", PistaMode.Cup == -1 && PistaMode.Licence == -1 && PistaMode.Chosen == 0 && PistaMode.NewSeed(false) != cup.CircuitSeed(0),
+                "coppa " + PistaMode.Cup + ", patente " + PistaMode.Licence + ", circuito scelto " + PistaMode.Chosen);
         }
 
         /// <summary>Every bike of the roster on the grid, from the side and from the front three-quarters, each at its own size with its rider: to look at the nine machines (only with -pistashots).</summary>

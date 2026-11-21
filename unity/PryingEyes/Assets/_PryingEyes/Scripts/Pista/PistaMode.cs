@@ -79,10 +79,38 @@ namespace PryingEyes.Pista
         {
             index = Mathf.Clamp(index, 0, Licences.Count - 1);
             var t = Licences.All[index];
-            Licence = index;
+            Licence = index; Cup = -1;
             Override(Licences.Laps, t.bike, t.aids, t.hour);
             oRivals = Licences.Rivals;
             Chosen = t.Seed;
+        }
+
+        /// <summary>The cup of the championship being raced (an index into Cups.All), or -1 for an ordinary race. Chosen in the championship panel of the menu for one game; a cooperative game has none.</summary>
+        public static int Cup { get; private set; } = -1;
+
+        /// <summary>A round of a cup is about to start: its laps (-pistacuplaps N in the automated runs, or 'laps' when a test asks for fewer), a bike of its class (the one of the setup panel if it is of the class, else the
+        /// first of the class), the eleven rivals of the season and the circuit of the round take the place of the player's choices until the game is over (End). The aids and the hour are the player's. A cup with no season,
+        /// or whose season is over, begins a new one here, at the level and in the colours of now (the trophies of the old ones stay in the book).</summary>
+        public static void BeginCup(int cup, int laps = 0)
+        {
+            cup = Mathf.Clamp(cup, 0, Cups.Count - 1);
+            var c = Cups.All[cup];
+            Cup = cup; Licence = -1;
+            int bike = Cups.Allows(c, Bike) ? Bike : Cups.BikesOf(c)[0];
+            var season = PistaCups.Book.Season(cup);
+            if (season == null || season.Finished) PistaCups.Begin(cup, Rank, SkinFor(bike));
+            int l = laps > 0 ? laps : TryArg("-pistacuplaps", out int v) ? Mathf.Clamp(v, 1, 20) : c.laps;
+            Override(l, bike, Aids, HourChoice);
+            oRivals = Cups.Rivals;
+            Chosen = CupSeed();
+        }
+
+        /// <summary>The seed of the circuit of the round to ride next in the cup being raced (the first round when the cup has no season yet).</summary>
+        public static int CupSeed()
+        {
+            if (Cup < 0) return 0;
+            var season = PistaCups.Book.Season(Cup);
+            return Cups.All[Cup].CircuitSeed(season != null ? season.NextRound : 0);
         }
 
         /// <summary>A cooperative game on the host's race is on its way (the host's welcome has said so, the race is not built yet): there are no walking friends to draw.</summary>
@@ -100,7 +128,7 @@ namespace PryingEyes.Pista
         public static void Begin(int seed) { Active = true; Seed = seed; }
 
         /// <summary>The race is over (menu, new scene).</summary>
-        public static void End() { Active = false; Incoming = false; oLaps = oBike = oAids = oHour = oRivals = null; Licence = -1; }
+        public static void End() { Active = false; Incoming = false; oLaps = oBike = oAids = oHour = oRivals = null; Licence = -1; Cup = -1; Chosen = 0; }
 
         /// <summary>The circuit picked in the setup panel for the next race (0 = none: a random one).</summary>
         public static int Chosen;
@@ -109,6 +137,7 @@ namespace PryingEyes.Pista
         public static int NewSeed(bool first = true)
         {
             if (Licence >= 0) return Licences.All[Licence].Seed;          // a licence test is always on its own circuit, again and again
+            if (Cup >= 0) return CupSeed();                                // a cup goes round its calendar: the circuit of the next round
             if (first)
             {
                 var a = System.Environment.GetCommandLineArgs();

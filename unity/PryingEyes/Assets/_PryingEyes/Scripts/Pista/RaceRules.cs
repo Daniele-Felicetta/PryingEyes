@@ -82,6 +82,10 @@ namespace PryingEyes.Pista
         /// <summary>On a friend's machine the end of the race is not decided here but by the host (ApplyResults): the local rules never say 'over'.</summary>
         public bool externalEnd;
 
+        /// <summary>Normally the race is over as soon as every person (the player, the friends) has crossed the line: the computer riders still out are ranked by the distance they have ridden. A championship scores the whole
+        /// field, so its race waits for every rider (the overtime after the first finish still ends it).</summary>
+        public bool waitForField;
+
         public Race(Circuit circuit, int laps, int seed)
         {
             this.circuit = circuit; this.laps = Math.Max(1, laps);
@@ -442,7 +446,7 @@ namespace PryingEyes.Pista
                 if (r.human || r.friend) { anyHuman = true; if (!r.finished) humansDone = false; }
             }
             bool timeout = firstFinish >= 0f && time > firstFinish + overtime;
-            if ((anyHuman ? humansDone : allDone) || (allDone) || timeout)
+            if (allDone || timeout || (anyHuman && humansDone && !waitForField))
             {
                 if (firstFinish >= 0f || racers.Count == 0)
                 {

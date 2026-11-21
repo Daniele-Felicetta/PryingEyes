@@ -19,6 +19,7 @@
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Catalogue.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Licences.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/BikeSheet.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Championship.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/EngineSynth.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/RaceReplay.cs" />
     <Compile Include="RaceSimChecks.cs" />
@@ -30,6 +31,7 @@
     <Compile Include="ReplayChecks.cs" />
     <Compile Include="LicenceChecks.cs" />
     <Compile Include="GarageChecks.cs" />
+    <Compile Include="CupChecks.cs" />
     <Compile Include="CatalogueScan.cs" />
   </ItemGroup>
 </Project>

@@ -37,6 +37,7 @@ namespace PryingEyes.Pista
         // results
         RectTransform results;
         Text resultsTitle, resultsSub, resultsHint, licenceTitle;
+        Text[] cupLines;
         Text[] licenceLines;
         Text[][] rows;
         const int MaxRows = 16;
@@ -299,7 +300,40 @@ namespace PryingEyes.Pista
                 licenceLines[i].gameObject.SetActive(false);
             }
             licenceTitle.gameObject.SetActive(false);
+            // the championship, under the table of a round (twelve riders end at -466): the cup and the round, what the round gave, the leaders, and what comes next (hidden in any other race)
+            cupLines = new Text[4];
+            for (int i = 0; i < cupLines.Length; i++)
+            {
+                cupLines[i] = Label(results, "CampionatoRiga" + i, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -474f - i * 29f), new Vector2(820f, 28f), i == 0 ? 23 : 19, TextAnchor.UpperCenter,
+                    i == 0 ? Ink : i == 3 ? Amber : Dim, "", i == 0 ? FontStyle.Bold : FontStyle.Normal, false);
+                cupLines[i].gameObject.SetActive(false);
+            }
             results.gameObject.SetActive(false);
+        }
+
+        /// <summary>The championship under the table of a round: up to four lines (null or empty hides them).</summary>
+        public void SetCup(string[] lines)
+        {
+            if (cupLines == null) return;
+            for (int i = 0; i < cupLines.Length; i++)
+            {
+                if (cupLines[i] == null) continue;            // the labels are gone when the game is being closed (the director hides the table from OnDestroy)
+                bool has = lines != null && i < lines.Length && !string.IsNullOrEmpty(lines[i]);
+                cupLines[i].gameObject.SetActive(has);
+                cupLines[i].text = has ? lines[i] : "";
+            }
+        }
+
+        /// <summary>For the tests: the lines of the championship that are showing, one per line.</summary>
+        public string CupLinesText
+        {
+            get
+            {
+                if (cupLines == null) return "";
+                var sb = new System.Text.StringBuilder();
+                foreach (var t in cupLines) if (t != null && t.gameObject.activeSelf) { if (sb.Length > 0) sb.Append('\n'); sb.Append(t.text); }
+                return sb.ToString();
+            }
         }
 
         /// <summary>The verdict of a licence test under the table of results: the medal (an empty title hides all of it) and up to four lines.</summary>
@@ -320,6 +354,7 @@ namespace PryingEyes.Pista
         /// <summary>For the tests: what the medal of the verdict and the title of the table of results say (the medal is empty when the verdict is hidden).</summary>
         public string LicenceTitleText { get { return licenceTitle != null && licenceTitle.gameObject.activeSelf ? licenceTitle.text : ""; } }
         public string ResultsTitleText { get { return resultsTitle != null ? resultsTitle.text : ""; } }
+        public string ResultsHintText { get { return resultsHint != null ? resultsHint.text : ""; } }
 
         /// <summary>The big line of the table of results ("HAI VINTO", "ARRIVO 3°"), replaced when the race is not a race (a licence test).</summary>
         public void SetResultsTitle(string text)
@@ -590,6 +625,7 @@ namespace PryingEyes.Pista
         {
             ResultsShown = false;
             SetLicence(null, Color.white);
+            SetCup(null);
             if (results != null) results.gameObject.SetActive(false);
             if (mapRect != null) mapRect.gameObject.SetActive(true);
             if (trackText != null) trackText.gameObject.SetActive(true);

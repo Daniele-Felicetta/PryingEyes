@@ -10,7 +10,7 @@ namespace PryingEyes.Pista
     /// are made from the seed, and the riders from the roster the host sends (PistaDirector.Coop.cs).</summary>
     public sealed partial class PistaDirector
     {
-        static readonly string[] Names =
+        internal static readonly string[] Names =
         {
             "Valli", "Ferri", "Bosi", "Riva", "Neri", "Serra", "Costa", "Longo", "Moro", "Fanti", "Gallo", "Conti", "Sala", "Lenzi", "Vitale", "Pace",
             "Orsi", "Greco", "Monti", "Rota", "Pellini", "Zanetti", "Barbieri", "Cattaneo", "Ruggeri",
@@ -101,6 +101,7 @@ namespace PryingEyes.Pista
             hud.HideResults();
             TimingBegin();
             LicenceBegin();
+            CupBegin();
             if (PistaMode.HasArg("-pistabot"))
             {
                 autopilot = new BikeDriver(me.bike, circuit, race.LineFor(me.bikeIndex), seed ^ 0x3131) { pace = 0.97f, mistakes = 0.02f };
@@ -116,7 +117,8 @@ namespace PryingEyes.Pista
             if (!again) hud.SetHints(HintText(), 16f);
             hud.HideLoading();
             hud.Banner(circuit.name, race.laps + (race.laps == 1 ? " giro" : " giri") + "   -   " + race.racers.Count + " piloti   -   " + Bikes.Get(me.bikeIndex).name, 3.4f);
-            if (licence != null) hud.Banner(Licences.Names[licence.test.licence] + "  -  " + licence.test.name, circuit.name + "   -   " + Bikes.Get(me.bikeIndex).name + "   -   per l'oro " + PistaHud.Clock(licence.test.gold), 4.2f, LicenceColor(Medal.Gold));
+            if (CupActive) CupBanner();
+            else if (licence != null) hud.Banner(Licences.Names[licence.test.licence] + "  -  " + licence.test.name, circuit.name + "   -   " + Bikes.Get(me.bikeIndex).name + "   -   per l'oro " + PistaHud.Clock(licence.test.gold), 4.2f, LicenceColor(Medal.Gold));
             RaceCount++;
             Ready = true;
             Debug.Log($"[PryingEyes] pista: seme {seed}, {circuit.name}, {circuit.length:F0} m, {race.racers.Count} piloti, {race.laps} giri" + (coopRace ? (Coop.IsHost ? ", ospite" : ", ospitato") : ""));
@@ -147,6 +149,8 @@ namespace PryingEyes.Pista
 
         void BuildRiders()
         {
+            cupIndex = -1; cupSeason = null; cupField = null; cupRider.Clear();
+            if (PistaMode.Cup >= 0 && PistaMode.Cup < Cups.Count && !Coop.Active) { cupIndex = PistaMode.Cup; BuildCupRiders(); return; }
             var rng = new System.Random(seed * 7 + 13);
             int rivals = PistaMode.Rivals, rank = PistaMode.Rank;
             var mine = Characters.Progress.Mine;

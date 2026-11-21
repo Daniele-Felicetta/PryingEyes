@@ -41,9 +41,12 @@ namespace PryingEyes
             PistaRow("Aiuti alla guida", y, () => PistaMode.AidNames[PistaMode.Aids], d => PistaMode.Aids = Wrap(PistaMode.Aids + d, PistaMode.AidNames.Length)); y -= 38f;
             PistaRow("Ora del giorno", y, () => PistaMode.HourNames[PistaMode.HourChoice], d => PistaMode.HourChoice = Wrap(PistaMode.HourChoice + d, PistaMode.HourNames.Length));
             pistaBike = Label(pistaPanel, "Scheda moto", new Vector2(PistaChoiceX + 70f, -134f), new Vector2(660, 28), 18, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
-            Label(pistaPanel, "Nota aiuti", new Vector2(PistaChoiceX + 70f, -197f), new Vector2(660, 70), 16, TextAnchor.UpperCenter,
-                "Aiuti. Completi: ABS, trazione, antimpennata, marce e aiuto in piega. Sportivi: tutti tranne l'aiuto in piega. Nessuno: solo l'ABS, marce a mano (E / Q)." + "\n"
-                + "Stile. Peso fuori: la moto entra in curva in fretta e resta piu' dritta. Moto in piega: lenta e stabile. Il peso si sposta anche a mano (I J K L).", Dim, FontStyle.Normal);
+            // four lines broken by hand, in a box that ends before the "Altra pista" button (the box was 660 wide and ended 20 units under the button: the last word of a line was cut)
+            Label(pistaPanel, "Nota aiuti", new Vector2(PistaChoiceX + 50f, -197f), new Vector2(640, 70), 16, TextAnchor.UpperCenter,
+                "Aiuti. Completi: ABS, trazione, antimpennata, marce e aiuto in piega." + "\n"
+                + "Sportivi: tutti tranne l'aiuto in piega. Nessuno: solo l'ABS, marce a mano (E / Q)." + "\n"
+                + "Stile. Peso fuori: la moto entra in curva in fretta e resta piu' dritta." + "\n"
+                + "Moto in piega: lenta e stabile. Il peso si sposta anche a mano (I J K L).", Dim, FontStyle.Normal);
 
             // l'anteprima del circuito
             var frame = Rect(pistaPanel, "CorniceMappa", new Vector2(292, 292), new Vector2(300, 40));
@@ -59,14 +62,17 @@ namespace PryingEyes
             pistaRecord = Label(pistaPanel, "Record del circuito", new Vector2(300, -171), new Vector2(460, 26), 17, TextAnchor.MiddleCenter, "", new Color(0.78f, 0.52f, 1f), FontStyle.Normal);
             pistaOtherButton = MakeButton(pistaPanel, "Altra pista", new Vector2(300, -208), PistaOther);
             pistaGoButton = MakeButton(pistaPanel, "Via!", new Vector2(-190, -262), PistaGo);
+            pistaGoButton.GetComponentInChildren<Text>().text = "Via";          // the object stays "Pulsante Via!": the menu font draws the exclamation mark like an "l" ("Vial")
             pistaBackButton = MakeButton(pistaPanel, "Indietro", new Vector2(190, -262), () => Show(modePanel));
             licenceOpenButton = MakeButton(pistaPanel, "Patenti", new Vector2(468, 270), LicenceOpen);
             ResizeButton(licenceOpenButton, new Vector2(220, 42), 22);
             garageOpenButton = MakeButton(pistaPanel, "Garage", new Vector2(468, 222), GarageOpen);
             ResizeButton(garageOpenButton, new Vector2(220, 42), 22);
+            cupOpenButton = MakeButton(pistaPanel, "Campionato", new Vector2(-468, 270), CupOpen);
+            ResizeButton(cupOpenButton, new Vector2(220, 42), 22);
 
             // su e giu' scorrono tutta la schermata, dalle scelte al "Via!" (sinistra e destra cambiano il valore di una scelta)
-            var chain = new List<Selectable> { licenceOpenButton, garageOpenButton };
+            var chain = new List<Selectable> { cupOpenButton, licenceOpenButton, garageOpenButton };
             chain.AddRange(pistaRows);
             chain.Add(pistaOtherButton); chain.Add(pistaGoButton); chain.Add(pistaBackButton);
             for (int i = 0; i < chain.Count; i++)
@@ -116,6 +122,7 @@ namespace PryingEyes
             pistaSeed = PistaMode.Chosen;
             pistaSubtitle.text = modeForCoop ? "Gli altri entrano nella tua gara, fino a quattro: la minimappa mostra tutti."
                 : "Un circuito nuovo a ogni gara: quello che vedi qui e' quello che corri.";
+            cupOpenButton.gameObject.SetActive(!modeForCoop);              // il campionato, come le patenti, si corre da soli
             licenceOpenButton.gameObject.SetActive(!modeForCoop);          // le patenti si fanno da soli
             RefreshPista(true);
             Show(pistaPanel);

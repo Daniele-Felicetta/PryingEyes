@@ -222,6 +222,7 @@ namespace PryingEyes.Pista
                 if (licence != null) hud.Banner("TRAGUARDO", PistaHud.Clock(r.lastLap) + LicenceLapText(LastLapWasRecord), 4f, LicenceColor(LastLapMedal) ?? new Color(1f, 0.74f, 0.18f));
                 else hud.Banner("TRAGUARDO", me.position + "°  -  " + PistaHud.Clock(r.finishTime) + (LastLapWasRecord ? "   -   NUOVO RECORD DEL GIRO" : ""), 4f, new Color(1f, 0.74f, 0.18f));
                 Beep(true);
+                if (CupActive) CupFinished();
                 if (autopilot == null && me.bike != null)
                 {
                     autopilot = new BikeDriver(me.bike, circuit, race.LineFor(me.bikeIndex), seed ^ 0x5151) { pace = 0.62f, mistakes = 0f };
@@ -246,7 +247,8 @@ namespace PryingEyes.Pista
             resultsShown = true;
             ReplayFinish();
             bool host = CanRestart();
-            string hint = licence != null ? (input.pad ? "A  riprova   -   Y  replay   -   START  menu" : "INVIO  riprova   -   T  replay   -   ESC  menu")
+            CupResults();                  // the round counts for the season as soon as the table is up, and the foot of the table depends on whether there is a next round
+            string hint = CupActive ? CupHint() : licence != null ? (input.pad ? "A  riprova   -   Y  replay   -   START  menu" : "INVIO  riprova   -   T  replay   -   ESC  menu")
                 : Coop.Active && !host ? (input.pad ? "L'ospite decide la prossima   -   Y  replay   -   START  menu" : "L'ospite decide la prossima   -   T  replay   -   ESC  menu")
                 : (input.pad ? "A  ancora   -   X  nuova pista   -   Y  replay   -   START  menu" : "INVIO  ancora   -   N  nuova pista   -   T  replay   -   ESC  menu");
             hud.ShowResults(race, me, circuit.name, hint);
@@ -257,6 +259,7 @@ namespace PryingEyes.Pista
         {
             if (input.menuReplay && StartReplay()) return;
             if (!CanRestart()) return;
+            if (CupActive) { if (input.menuAgain) CupNext(); return; }          // a cup goes round its calendar: no 'again' and no 'new circuit'
             if (input.menuAgain) RestartRace(false);
             else if (input.menuNew && licence == null) RestartRace(true);
         }
@@ -284,7 +287,8 @@ namespace PryingEyes.Pista
         /// <summary>The line under "In pausa": the circuit, the lap, the place and the time of the race.</summary>
         public string PauseText()
         {
-            string head = licence != null ? "PATENTE  ·  " + licence.test.name.ToUpperInvariant() : "GARA SU PISTA";
+            string head = CupActive ? Cups.All[cupIndex].name.ToUpperInvariant() + "  ·  GARA " + Mathf.Min(cupSeason.round + 1, Cups.All[cupIndex].Rounds) + "/" + Cups.All[cupIndex].Rounds
+                : licence != null ? "PATENTE  ·  " + licence.test.name.ToUpperInvariant() : "GARA SU PISTA";
             if (race == null || me == null || circuit == null) return head;
             string t = race.phase == RacePhase.Racing || race.phase == RacePhase.Over ? PistaHud.Clock(race.time) : "in griglia";
             return head + "  ·  " + circuit.name + "   ·   GIRO " + me.CurrentLap(race.laps) + "/" + race.laps + "   ·   " + me.position + "° SU " + race.racers.Count + "   ·   " + t;
