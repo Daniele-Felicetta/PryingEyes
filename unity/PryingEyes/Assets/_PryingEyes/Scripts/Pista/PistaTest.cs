@@ -165,6 +165,25 @@ namespace PryingEyes.Pista
             float progress0 = d.me.progress;
             yield return new WaitForSeconds(1.2f);
             Check("la moto del giocatore (guidata dal pilota automatico) parte", d.me.speed > 3f && d.me.progress > progress0 + 3f, $"{d.me.speed * 3.6f:F0} km/h, {d.me.progress - progress0:F1} m in 1,2 s");
+            // ---- two bikes touch: a computer rider is put alongside the player's bike, a little across, and the race must push them apart and the director must see it
+            {
+                Racer other = null; float nearest = 1e9f;
+                foreach (var r in d.race.racers) if (r != d.me && r.bike != null && !r.bike.crashed) { float gap = Mathf.Abs(r.progress - d.me.progress); if (gap < nearest) { nearest = gap; other = r; } }
+                bool ran = other != null && d.me.bike != null && !d.me.bike.crashed;
+                int seenBefore = d.ContactsSeen; float apart = 0f, closingSpeed = 0f;
+                if (ran)
+                {
+                    var mb = d.me.bike; var ob = other.bike;
+                    float sinH = Mathf.Sin(mb.heading), cosH = Mathf.Cos(mb.heading);
+                    ob.Reset(mb.x + cosH * 0.9f, mb.z - sinH * 0.9f, mb.heading - 0.25f, mb.y);
+                    ob.u = Mathf.Max(mb.u, 8f); ob.omegaF = ob.omegaR = ob.u / ob.spec.wheelRadius; ob.gear = mb.gear;
+                    closingSpeed = ob.u * Mathf.Sin(0.25f);
+                    yield return new WaitForSeconds(0.4f);
+                    apart = Mathf.Sqrt((mb.x - ob.x) * (mb.x - ob.x) + (mb.z - ob.z) * (mb.z - ob.z));
+                }
+                Check("una moto che arriva di traverso addosso al giocatore lo urta: il regista vede il contatto e le due moto non restano una dentro l'altra", ran && d.ContactsSeen > seenBefore && apart > 0.6f,
+                    ran ? "contatti visti " + (d.ContactsSeen - seenBefore) + " (si avvicinavano a circa " + closingSpeed.ToString("F1") + " m/s), distanza dei centri dopo 0,4 s " + apart.ToString("F2") + " m" : "nessuna moto vicina");
+            }
             if (shots) { yield return new WaitForSeconds(1.0f); yield return Shot("4_partenza"); }
 
             // ---- the race at speed
@@ -187,7 +206,8 @@ namespace PryingEyes.Pista
             int fin = 0; foreach (var r in d.race.racers) if (r.finished) fin++;
             Check("la classifica ha un ordine valido (posizioni 1..n tutte diverse)", ValidStandings(d.race), $"{fin} arrivati su {d.race.racers.Count}");
             float worstCrashes = 0f; foreach (var r in d.race.racers) worstCrashes = Mathf.Max(worstCrashes, r.crashes);
-            Debug.Log($"[PryingEyes] pistatest cadute: {Crashes(d.race)} in tutto, la peggiore {worstCrashes:F0}; posizione del giocatore {d.me.position}, miglior giro {d.me.bestLap:F2}");
+            string fell = ""; foreach (var r in d.race.racers) if (r.crashes > 0) fell += (fell.Length > 0 ? ", " : "") + (r.human ? "GIOCATORE" : r.name + " #" + r.id) + " x" + r.crashes;
+            Debug.Log($"[PryingEyes] pistatest cadute: {Crashes(d.race)} in tutto ({(fell.Length > 0 ? fell : "nessuno")}), la peggiore {worstCrashes:F0}; posizione del giocatore {d.me.position}, miglior giro {d.me.bestLap:F2}; contatti del giocatore {d.me.bumps}, visti dal regista {d.ContactsSeen}");
             Check("la tabella dei risultati e' sullo schermo", d.Resulting && d.hud.ResultsShown);
             Check("nessuna moto e' sparita nel nulla (quota e posizione finite)", AllFinite(d.race), "");
             if (shots) { yield return new WaitForSeconds(1.5f); yield return Shot("8_risultati"); }

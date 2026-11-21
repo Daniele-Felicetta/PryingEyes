@@ -4,7 +4,8 @@ namespace PryingEyes.Pista
 {
     public enum SurfaceKind : byte { Asphalt = 0, Kerb = 1, Apron = 2, Grass = 3, Gravel = 4 }
 
-    public enum CrashKind : byte { None = 0, FrontTuck, FrontLock, Lowside, Highside, Wall, Loop, Endo }
+    /// <summary>How a rider came off. Collision is a hit by another bike (Race.Contacts).</summary>
+    public enum CrashKind : byte { None = 0, FrontTuck, FrontLock, Lowside, Highside, Wall, Loop, Endo, Collision }
 
     /// <summary>How the rider sits on the bike in a corner. LeanBody hangs off the inside: the bike turns in quickly and stays more upright (more ground clearance and a little more grip at deep lean), at the
     /// price of a rider who has more to do. Neutral is the balanced way. LeanBike keeps the body in line with the frame: the bike turns in slowly and steadily and leans further for the same corner.</summary>
@@ -535,6 +536,22 @@ namespace PryingEyes.Pista
             }
             return false;
         }
+
+        /// <summary>Another bike touched this one (see Race.Contacts): the bike is moved out of the other by (dx, dz) metres, its velocity changes by (dvx, dvz) metres a second in the world, its heading is twisted by
+        /// 'twist' radians and the frame is shaken by 'wobble'. A bike that has fallen is left as it is.</summary>
+        public void Shove(float dx, float dz, float dvx, float dvz, float twist, float wobble)
+        {
+            if (crashed) return;
+            x += dx; z += dz;
+            float sinH = PM.Sin(heading), cosH = PM.Cos(heading);
+            u += dvx * sinH + dvz * cosH; vl += dvx * cosH - dvz * sinH;
+            if (u < 0f) u = 0f;
+            heading += twist;
+            leanRate += (rng.Value() - 0.5f) * wobble;
+        }
+
+        /// <summary>A hard hit by another bike: the rider is down, sliding on with the speed the hit left him.</summary>
+        public void ContactCrash() { BeginCrash(CrashKind.Collision, 0f); }
 
         void BeginCrash(CrashKind kind, float h)
         {

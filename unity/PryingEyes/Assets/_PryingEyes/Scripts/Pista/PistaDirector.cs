@@ -139,7 +139,7 @@ namespace PryingEyes.Pista
             {
                 if (autopilot != null)
                 {
-                    if (race.phase == RacePhase.Racing) me.input = autopilot.Drive(Dt);
+                    if (race.phase == RacePhase.Racing) { race.Avoid(me, autopilot, Dt); me.input = autopilot.Drive(Dt); }
                     else me.input = default(BikeInputs);
                 }
                 else if (race.phase == RacePhase.Racing && !me.finished)
@@ -232,9 +232,16 @@ namespace PryingEyes.Pista
             race.OnCrash = r =>
             {
                 if (r != me) return;
-                cam.Shake(r.crashKind == CrashKind.Wall || r.crashKind == CrashKind.Highside ? 0.35f : 0.18f);
+                cam.Shake(r.crashKind == CrashKind.Wall || r.crashKind == CrashKind.Highside || r.crashKind == CrashKind.Collision ? 0.35f : 0.18f);
             };
             race.OnRespawn = r => { if (r == me) cam.Snap(); };
+            race.OnContact = (a, b, speed) =>
+            {
+                if (a != me && b != me) return;
+                ContactsSeen++;
+                cam.Shake(Mathf.Clamp(0.04f + 0.02f * speed, 0.05f, 0.3f));
+                if (speed >= 2.5f && me.bike != null && !me.bike.crashed) hud.Banner("CONTATTO", "", 0.9f, new Color(1f, 0.62f, 0.2f));
+            };
             race.OnOver = () =>
             {
                 if (cam.mode == CamMode.Cockpit) cam.mode = CamMode.Chase;
@@ -297,6 +304,8 @@ namespace PryingEyes.Pista
         // ------------------------------------------------------------------ for the tests and the other scripts
         public bool Resulting => resultsShown;
         public BikeView ViewOfMe => myView != null ? myView.shown : default(BikeView);
+        /// <summary>How many times the player's bike was touched by another (a touch harder than a graze), for the checks.</summary>
+        public int ContactsSeen { get; private set; }
         public bool AutopilotOn => autopilot != null;
         public bool BotDriven => autopilot != null && autopilotIsBot;
     }

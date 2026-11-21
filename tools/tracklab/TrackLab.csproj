@@ -34,6 +34,7 @@
     <Compile Include="GarageChecks.cs" />
     <Compile Include="CupChecks.cs" />
     <Compile Include="KeyboardChecks.cs" />
+    <Compile Include="ContactChecks.cs" />
     <Compile Include="CatalogueScan.cs" />
   </ItemGroup>
 </Project>

@@ -43,10 +43,14 @@ namespace PryingEyes.Pista
         public int finishOrder;
         public int crashes;
         public float crashedFor;
+        /// <summary>How many times this rider's bike was touched by another bike harder than a graze.</summary>
+        public int bumps;
         public float[] cp;
         internal int cpLast = -1, hint = -1;
         internal float prevS;
         internal bool crashSeen;
+        /// <summary>Race time before which other bikes go through this one: after a fall and a respawn a rider has a few seconds to get going (nobody should be hit while standing in the racing line).</summary>
+        internal float ghostUntil;
 
         /// <summary>The lap being ridden (1-based), capped at the race length.</summary>
         public int CurrentLap(int laps) { return Math.Min(lap + 1, laps); }
@@ -68,6 +72,8 @@ namespace PryingEyes.Pista
         public readonly List<Racer> standings = new List<Racer>();
 
         public Action<Racer> OnLap, OnFinish, OnCrash, OnRespawn;
+        /// <summary>A touch harder than a graze: the two riders and how fast they came together (m/s).</summary>
+        public Action<Racer, Racer, float> OnContact;
         public Action OnGo, OnOver;
 
         /// <summary>After the first rider finishes the others have this long to finish too.</summary>
@@ -166,7 +172,7 @@ namespace PryingEyes.Pista
             r.lap = 0; r.lapStart = 0f; r.lastLap = r.bestLap = r.finishTime = -1f; r.finished = false; r.finishOrder = 0; r.crashes = 0; r.crashedFor = 0f; r.crashSeen = false;
             r.cpLast = -1;
             for (int i = 0; i < r.cp.Length; i++) r.cp[i] = -1f;
-            r.wrongWay = false;
+            r.wrongWay = false; r.bumps = 0; r.ghostUntil = 0f;
         }
 
         /// <summary>Fill the grid in the order given (the first racer takes pole).</summary>
@@ -213,6 +219,7 @@ namespace PryingEyes.Pista
                 else { Avoid(r, dt); inp = r.driver.Drive(dt); }
                 r.bike.Step(dt, circuit, inp);
             }
+            if (contacts) Contacts();
             Poses();
             Progress(dt);
             Crashes(dt);
@@ -351,13 +358,115 @@ namespace PryingEyes.Pista
             if (r.driver != null) r.driver.Reset();
             r.crashSeen = false; r.crashedFor = 0f; r.crashed = false;
             r.prevS = p.s; r.hint = -1;
+            r.ghostUntil = time + RespawnGrace;
             if (OnRespawn != null) OnRespawn(r);
         }
 
-        // ------------------------------------------------------------------ computer riders going around slower bikes
-        void Avoid(Racer r, float dt)
+        // ------------------------------------------------------------------ bikes touching
+        /// <summary>A bike is three discs of this radius (the two tires and the middle) that cannot overlap. What a touch does depends on how fast the two come together (m/s along the line between the discs, 'closing'):
+        /// up to <see cref="ScrapeSpeed"/> it is a nudge, from there to <see cref="StrikeSpeed"/> a bump that costs speed and shakes the frame, above <see cref="StrikeSpeed"/> the bike that rode into the other falls and
+        /// above <see cref="HardSpeed"/> both do. A rider who has just got up (<see cref="RespawnGrace"/> seconds) is not touched.</summary>
+        public const float ContactRadius = 0.40f, ContactRestitution = 0.15f, ScrapeSpeed = 1.2f, StrikeSpeed = 6f, HardSpeed = 9.5f, RespawnGrace = 3f;
+
+        /// <summary>Whether bikes touch at all. A bike is touched only by another bike when one of the two is a person's (the player's, or a friend's on another machine), and only the bikes simulated on this machine are moved by it
+        /// (each machine moves its own, with the share that the masses give it): two computer riders still go through each other (they steer around each other) and so do the poses of two friends.</summary>
+        public bool contacts = true;
+
+        static bool Person(Racer r) { return r.human || r.friend; }
+
+        bool CanTouch(Racer r)
         {
-            var d = r.driver;
+            bool down = r.bike != null ? r.bike.crashed : r.crashed;
+            return !down && !r.finished && !r.dnf && time >= r.ghostUntil;
+        }
+
+        void Contacts()
+        {
+            for (int i = 0; i < racers.Count; i++)
+            {
+                var a = racers[i];
+                if (!Person(a) || !CanTouch(a)) continue;
+                for (int j = 0; j < racers.Count; j++)
+                {
+                    if (j == i) continue;
+                    if (!CanTouch(a)) break;                          // down after the last touch: the rest of the pack goes by
+                    var b = racers[j];
+                    if (!CanTouch(b)) continue;
+                    if (Person(b) && j < i) continue;                 // two people are looked at once
+                    if (a.bike == null && b.bike == null) continue;   // two poses: nothing here to move
+                    Touch(a, b);
+                }
+            }
+        }
+
+        /// <summary>Where a rider is and how fast it moves, read from the bike if it is simulated here (it is a step ahead of the pose) and from the pose if it is not.</summary>
+        static void Motion(Racer r, out float x, out float z, out float heading, out float vx, out float vz)
+        {
+            if (r.bike != null) { var b = r.bike; x = b.x; z = b.z; heading = b.heading; vx = b.vxWorld; vz = b.vzWorld; }
+            else { x = r.x; z = r.z; heading = r.heading; vx = r.speed * (float)Math.Sin(r.heading); vz = r.speed * (float)Math.Cos(r.heading); }
+        }
+
+        /// <summary>The twist a push gives a bike: a push at the front to the right turns the nose to the right (heading grows toward +x).</summary>
+        static float Twist(float x, float z, float cx, float cz, float pushX, float pushZ, float closing)
+        {
+            float rx = cx - x, rz = cz - z;
+            return PM.Clamp(0.03f * closing * (pushX * rz - pushZ * rx), -0.06f, 0.06f);
+        }
+
+        void Touch(Racer a, Racer b)
+        {
+            float ax, az, ah, avx, avz, bx, bz, bh, bvx, bvz;
+            Motion(a, out ax, out az, out ah, out avx, out avz);
+            Motion(b, out bx, out bz, out bh, out bvx, out bvz);
+            var sa = Bikes.Get(a.bikeIndex); var sb = Bikes.Get(b.bikeIndex);
+            float reach = (sa.wheelbase + sb.wheelbase) * 0.5f + 2f * ContactRadius;
+            if ((ax - bx) * (ax - bx) + (az - bz) * (az - bz) > reach * reach) return;
+            float sinA = (float)Math.Sin(ah), cosA = (float)Math.Cos(ah), sinB = (float)Math.Sin(bh), cosB = (float)Math.Cos(bh);
+            float lim = 2f * ContactRadius, deepest = 0f, nx = 0f, nz = 0f, cx = 0f, cz = 0f;
+            for (int ka = -1; ka <= 1; ka++)
+            {
+                float oa = ka * sa.wheelbase * 0.5f;
+                float px = ax + sinA * oa, pz = az + cosA * oa;
+                for (int kb = -1; kb <= 1; kb++)
+                {
+                    float ob = kb * sb.wheelbase * 0.5f;
+                    float qx = bx + sinB * ob, qz = bz + cosB * ob;
+                    float dx = px - qx, dz = pz - qz, d2 = dx * dx + dz * dz;
+                    if (d2 >= lim * lim) continue;
+                    float d = (float)Math.Sqrt(d2), pen = lim - d;
+                    if (pen <= deepest) continue;
+                    deepest = pen;
+                    if (d > 1e-4f) { nx = dx / d; nz = dz / d; } else { nx = cosA; nz = -sinA; }          // on top of each other: out to the right of the first
+                    cx = (px + qx) * 0.5f; cz = (pz + qz) * 0.5f;
+                }
+            }
+            if (deepest <= 0f) return;
+            // (nx, nz) points from b to a; the two come together while a moves along -n relative to b
+            float closing = -((avx - bvx) * nx + (avz - bvz) * nz);
+            float ma = sa.Mass, mb = sb.Mass, total = ma + mb;
+            float shareA = mb / total, shareB = ma / total;                // the lighter bike gives way more
+            float kick = closing > 0f ? (1f + ContactRestitution) * closing : 0f;
+            bool localA = a.bike != null, localB = b.bike != null;
+            if (localA) a.bike.Shove(nx * deepest * shareA, nz * deepest * shareA, nx * kick * shareA, nz * kick * shareA, Twist(ax, az, cx, cz, nx, nz, closing), closing * 0.12f);
+            if (localB) b.bike.Shove(-nx * deepest * shareB, -nz * deepest * shareB, -nx * kick * shareB, -nz * kick * shareB, Twist(bx, bz, cx, cz, -nx, -nz, closing), closing * 0.12f);
+            if (closing < ScrapeSpeed) return;
+            a.bumps++; b.bumps++;
+            if (closing >= StrikeSpeed)
+            {
+                float intoB = -(avx * nx + avz * nz), intoA = bvx * nx + bvz * nz;      // how much of the closing is each bike's own motion
+                bool hard = closing >= HardSpeed, aStrikes = intoB >= intoA;
+                if (localA && (hard || aStrikes)) a.bike.ContactCrash();
+                if (localB && (hard || !aStrikes)) b.bike.ContactCrash();
+            }
+            if (OnContact != null) OnContact(a, b, closing);
+        }
+
+        // ------------------------------------------------------------------ computer riders going around slower bikes
+        void Avoid(Racer r, float dt) { Avoid(r, r.driver, dt); }
+
+        /// <summary>The same for a driver that is not the rider's own: the computer driver that stands for the player in the automated runs goes around slower bikes like the computer riders do.</summary>
+        public void Avoid(Racer r, BikeDriver d, float dt)
+        {
             float hw = circuit.HalfWidth(r.s);
             float lineOff = d.line.OffsetAt(r.s) + d.bias;
             Racer who = null;
