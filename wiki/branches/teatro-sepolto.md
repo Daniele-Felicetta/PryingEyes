@@ -32,4 +32,4 @@ Only the standard game has this branch. The desert has no branch, but its theatr
 
 - [L'Ossario](ossario.md): the first branch, which is open from the start.
 - [Il Sanatorio](sanatorio.md): the third branch, opened by the sanatorium gate.
-- [The catacombs](../zones/catacombs.md): the four branches and the Abyss.
+- [The catacombs](../zones/catacombs.md): the four branches and the [Abyss](../zones/abyss.md).

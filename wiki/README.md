@@ -11,6 +11,8 @@ summary: The guide to Prying Eyes: its two ways to play, its places, enemies, ob
 
 Prying Eyes is a game about a cathedral, what lies under it, and the sand around it. It has two ways to play. Both share the cathedral, its works and its market, the weapons, the saves and the menus; they differ in almost everything else. This wiki describes each part of the game and of the project that makes it. Every page has a picture, a one-line summary and links to the pages it names.
 
+The game has this wiki too: the main menu's **Wiki** entry, after **Come si gioca**, opens it in the browser.
+
 ## Start here
 
 - [Standard mode](modes/standard.md): the cathedral you rebuild, the catacombs under it, the waves and the trials.

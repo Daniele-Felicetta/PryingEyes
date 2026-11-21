@@ -25,7 +25,7 @@ sold or bought.
 ## Standard and desert
 
 - **Standard.** They come from the Conte of the [Guardaroba](../branches/guardaroba.md).
-- **Desert.** The Conte is one of the four desert bosses, the Cardinale in the Guardaroba's colours; its trophy goes to the store, see
+- **Desert.** The Conte is one of the four desert bosses, the [Cardinale](../enemies/cardinale.md) in the Guardaroba's colours; its trophy goes to the store, see
   [the lord of the place](../enemies/signore-del-luogo.md).
 
 ## Related

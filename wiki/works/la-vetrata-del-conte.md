@@ -29,6 +29,6 @@ those prices. See [the desert](../modes/desert.md).
 
 ## Related
 
-- [Gemme](../resources/gemme.md): the gems it costs, which only the Conte drops.
+- [Gemme](../resources/gemme.md): the gems it costs, which only the [Conte](../enemies/conte.md) drops.
 - [Il Guardaroba del Conte](../branches/guardaroba.md): the branch of the Conte.
 - [Perks](../perks/velo.md): the perks the books give.

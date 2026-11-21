@@ -28,6 +28,6 @@ The same work in both modes. In the desert the descent gates are not built, so t
 
 ## Related
 
-- [Cristalli d'oscurità](../resources/cristalli-d-oscurita.md): the darkness crystal it costs, which only the Direttore drops.
+- [Cristalli d'oscurità](../resources/cristalli-d-oscurita.md): the darkness crystal it costs, which only the [Direttore](../enemies/direttore.md) drops.
 - [Il Cancello del Conte](il-cancello-del-conte.md): the gate after this one.
 - [The catacombs](../zones/catacombs.md): the branches the gates open.

@@ -28,6 +28,6 @@ The same work in both modes. Maximum health is the player's own, so the bonus ap
 
 ## Related
 
-- [Cristalli di fede](../resources/cristalli-di-fede.md): the faith crystals it costs, which only the Primario drops.
+- [Cristalli di fede](../resources/cristalli-di-fede.md): the faith crystals it costs, which only the [Primario](../enemies/primario.md) drops.
 - [Il Sanatorio](../branches/sanatorio.md): the branch of the Primario.
 - [Blessings](../blessings/grazia.md): the altar's blessing that also gives health.

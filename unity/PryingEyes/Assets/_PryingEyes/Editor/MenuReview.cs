@@ -115,6 +115,7 @@ namespace PryingEyes.EditorTools
                 Click("Elimina"); Render("character-delete", size, camera, menu, output); Click("Annulla");
                 Click("Indietro");
                 Check("the main menu names the character that plays", HasText(menu, "Prova") || HasText(menu, "crea il tuo personaggio"));
+                Check("the main menu offers the wiki, and the wiki is there to open", HasText(menu, "Wiki") && WikiLink.Available);
                 var tester = Characters.Roster.Local;
                 if (tester != null)
                 {

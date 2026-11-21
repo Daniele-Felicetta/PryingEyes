@@ -32,4 +32,4 @@ Only the standard game has this branch. The desert has no branch, but its sanato
 
 - [Il Teatro sepolto](teatro-sepolto.md): the branch before this one.
 - [Il Guardaroba del Conte](guardaroba.md): the fourth branch, opened by the Count's gate.
-- [The catacombs](../zones/catacombs.md): the four branches and the Abyss.
+- [The catacombs](../zones/catacombs.md): the four branches and the [Abyss](../zones/abyss.md).

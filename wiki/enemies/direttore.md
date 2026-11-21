@@ -23,7 +23,7 @@ and it is the boss of the second branch, the buried theatre.
 ## Standard and desert
 
 - **Standard.** On the theatre floors it replaces the abbot. As a boss it guards branch II, the [Teatro sepolto](../branches/teatro-sepolto.md),
-  behind the Cancello del Teatro, which costs one Reliquia. Its resource is darkness crystals. In the Abyss the four bosses come in turn,
+  behind the Cancello del Teatro, which costs one Reliquia. Its resource is darkness crystals. In the [Abyss](../zones/abyss.md) the four bosses come in turn,
   one every three levels.
 - **Desert.** It never walks the open world, and the desert's theatres spawn [Maschere](maschera.md) instead. It is one of the four bosses
   the stacks draw by place: see [the lord of the place](signore-del-luogo.md).

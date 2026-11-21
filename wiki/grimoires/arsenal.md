@@ -40,8 +40,8 @@ you trace on the weapon with the left hand. It has the same 19-node shape as the
 
 ## The seals
 
-The six inner nodes are the seals: [Danni Critici](../seals/danni-critici.md), Sanguinamento, Incendiario, Corrosivo, Elettrificato and Gelido.
-Each seal lasts 45 seconds for 40 essence. The supreme node is Arma Maledetta.
+The six inner nodes are the seals: [Danni Critici](../seals/danni-critici.md), [Sanguinamento](../seals/sanguinamento.md), [Incendiario](../seals/incendiario.md), [Corrosivo](../seals/corrosivo.md), [Elettrificato](../seals/elettrificato.md) and [Gelido](../seals/gelido.md).
+Each seal lasts 45 seconds for 40 essence. The supreme node is [Arma Maledetta](../seals/arma-maledetta.md).
 
 ## Standard and desert
 

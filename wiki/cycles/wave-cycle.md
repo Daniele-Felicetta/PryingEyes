@@ -27,7 +27,7 @@ The wave cycle is the default way of playing the tower. It works like Call of Du
 ## Special waves and trials
 
 - Every fifth wave is the **Processione dei Lumi**, a procession of lights.
-- Every eighth wave opens with the **Cardinale**.
+- Every eighth wave opens with the **[Cardinale](../enemies/cardinale.md)**.
 - Each wave but the first offers a trial on every other wave from the second on, and not during the procession. See [the trials](../trials/testa.md).
 
 ## Areas
