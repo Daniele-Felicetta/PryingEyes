@@ -25,6 +25,7 @@ namespace PryingEyes.Proc
             public readonly List<Rect> underSlab = new List<Rect>();    // pavimento sotto i solai delle balconate: vietato alle ricette (Free), aperto ai soli ripari bassi di ArenaCover
             public int propCount;            // per il censimento (-roomcensus): quanti oggetti e che ingombro hanno messo le ricette
             public float propArea;
+            public readonly List<string> layout = new List<string>();   // for -roomcensus: name, position and facing of every prop (see Prop and Census)
             public float W => ix1 - ix0;
             public float D => iz1 - iz0;
             public Vector3 Center => new Vector3((ix0 + ix1) * 0.5f, 0f, (iz0 + iz1) * 0.5f);
@@ -348,17 +349,21 @@ namespace PryingEyes.Proc
             }
             if (check) Occupy(c, pos, def.size.x * sx, def.size.z, yaw);
             if (def.solid && def.size.y > 0.3f) { c.propCount++; c.propArea += def.size.x * sx * def.size.z; }
+            if (census) c.layout.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1:F1}:{2:F1}:{3:F0}", name, pos.x - c.ix0, pos.z - c.iz0, Mathf.Repeat(yaw, 360f)));
             return go;
         }
 
         static readonly bool census = System.Array.IndexOf(Environment.GetCommandLineArgs(), "-roomcensus") >= 0;
 
-        /// <summary>-roomcensus: una riga per stanza con quanti arredi solidi ci sono e che parte del pavimento coprono (per cercare le stanze vuote).</summary>
+        /// <summary>-roomcensus: one line per room with its solid props, the share of floor they cover, the room size (w, d) and every prop
+        /// (arredi=name:x:z:facing, metres from the inner corner, degrees). tools/room_variety.py reads these lines.</summary>
         static void Census(Ctx c)
         {
             if (!census) return;
             float area = c.W * c.D;
-            Debug.Log($"[PryingEyes] CENSUS tema={c.plan.theme} tipo={c.r.type} stanza={c.r.kind} area={area:F0} oggetti={c.propCount} copertura={c.propArea / Mathf.Max(1f, area):F3} quote={c.r.GalleryLevels}");
+            var ic = System.Globalization.CultureInfo.InvariantCulture;   // decimal point whatever the PC language is
+            Debug.Log(string.Format(ic, "[PryingEyes] CENSUS tema={0} tipo={1} stanza={2} area={3:F0} oggetti={4} copertura={5:F3} quote={6} w={7:F1} d={8:F1} arredi={9}",
+                c.plan.theme, c.r.type, c.r.kind, area, c.propCount, c.propArea / Mathf.Max(1f, area), c.r.GalleryLevels, c.W, c.D, string.Join("|", c.layout)));
         }
 
         /// <summary>Appoggia un arredo contro un muro: 'side' e' il muro, 't' la distanza lungo il muro dal suo inizio.</summary>
