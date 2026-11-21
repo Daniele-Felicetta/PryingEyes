@@ -132,6 +132,7 @@ namespace PryingEyes.Pista
             myView.SetCockpit(cam.mode == CamMode.Cockpit);
             bool lampsShown = race.phase == RacePhase.Countdown || (race.phase == RacePhase.Racing && race.sinceGo < 1.6f);
             hud.Tick(dt, race, me, myView.shown, input.pad, lampsShown);
+            hud.SetCue(guide != null && !me.finished && !(me.bike != null && me.bike.crashed) ? guide.cue : BrakeCue.None);          // the braking sign says what the red on the road says, from any camera
             if (resultsShown) hud.RefreshResults(race, me);
             CoopUpdate(dt);
         }

@@ -150,6 +150,33 @@ namespace PryingEyes.Pista
                 Check("sulla griglia la moto e' ferma: la linea di corsa e' tutta verde davanti (Completi), non ha rosso da mostrare (Sportivi) o non c'e' (Nessuno)",
                     guideOk, "aiuti " + aidsNow + ", " + (gd == null ? "nessuna linea" : gd.shown[0] + " verdi, " + gd.shown[1] + " gialli, " + gd.shown[2] + " rossi sui " + window + " campioni davanti"));
             }
+            // ---- the braking sign on the dashboard: silent on the grid; driven by hand from there it shows both of its states (a bike faster than the plan is on the red, one a little slower sees the red ahead) and goes away
+            {
+                var gs = d.guide;
+                Check("sulla griglia l'indicatore di frenata non dice niente (la moto e' ferma: niente da frenare)", d.hud.CueNow == CueKind.None && !d.hud.CueVisible, "segno " + d.hud.CueNow);
+                if (gs != null)
+                {
+                    float s0 = d.me.s, vApproach = -1f, vBrake = -1f;
+                    for (float v = 10f; v <= 110f && (vApproach < 0f || vBrake < 0f); v += 1f)
+                    {
+                        var pk = gs.Peek(s0, v);
+                        if (vApproach < 0f && pk.kind == CueKind.Approach && pk.metres >= 30f && pk.target > 0f) vApproach = v;
+                        if (vBrake < 0f && pk.kind == CueKind.Brake && pk.target > 0f) vBrake = v;
+                    }
+                    d.enabled = false;          // the director stops for a moment: it would put the real sign (silent on the grid) back at every frame
+                    string ta = "", sa = "", tb = "", sb = ""; bool upA = false, upB = false; float fa = -1f, fb = -1f;
+                    if (vApproach > 0f) { d.hud.SetCue(gs.Peek(s0, vApproach)); upA = d.hud.CueNow == CueKind.Approach && d.hud.CueVisible; ta = d.hud.CueTitleText; sa = d.hud.CueSubText; fa = d.hud.CueFill; if (shots) yield return Shot("15_segno_frenata_tra"); }
+                    if (vBrake > 0f) { d.hud.SetCue(gs.Peek(s0, vBrake)); upB = d.hud.CueNow == CueKind.Brake && d.hud.CueVisible; tb = d.hud.CueTitleText; sb = d.hud.CueSubText; fb = d.hud.CueFill; if (shots) yield return Shot("16_segno_frenata"); }
+                    d.hud.SetCue(BrakeCue.None);
+                    bool gone = d.hud.CueNow == CueKind.None && !d.hud.CueVisible;
+                    d.enabled = true;
+                    string goneText = gone ? "spento" : "ancora acceso";
+                    Check("l'indicatore di frenata, guidato a mano dalla griglia, mostra il conto alla rovescia e poi 'frena', con la velocita' da raggiungere, e poi sparisce",
+                        vApproach > 0f && upA && ta.StartsWith("FRENA TRA ") && sa.StartsWith("fino a ") && fa > 0f && fa < 1f && vBrake > 0f && upB && tb == "FRENA" && sb.StartsWith("fino a ") && fb > 0f && gone,
+                        $"conto alla rovescia con la moto a {vApproach:F0} m/s: '{ta}' / '{sa}', barra {fa:F2}; sul rosso a {vBrake:F0} m/s: '{tb}' / '{sb}', barra {fb:F2}; poi {goneText}");
+                }
+                else Check("senza linea (aiuti " + PistaMode.Aids + ") non c'e' nemmeno l'indicatore di frenata", PistaMode.Aids >= 2, "aiuti " + PistaMode.Aids);
+            }
             Check("senza la carriera la moto del giocatore e' quella di serie, senza livello e con la chiave della moto", !PistaMode.CareerApplies && d.me.bike.spec.id == Bikes.Get(d.me.bikeIndex).id && d.me.bike.spec.tune == 0 && d.BikeId == Bikes.Get(d.me.bikeIndex).id, d.me.bike.spec.id + ", livello " + d.me.bike.spec.tune);
             CodecChecks(d);
             EngineChecks();
@@ -204,6 +231,7 @@ namespace PryingEyes.Pista
             Time.timeScale = 4f;
             float maxSpeed = 0f, maxDraft = 0f, t1 = Time.realtimeSinceStartup;
             bool shotsRace = false, shotRedNear = false, shotRedUnder = false, shotYellow = false;
+            int cueFrame = 0, cueA = 0, cueB = 0, cueFirstA = -1, cueFirstB = -1, cueMismatch = 0, cueWrong = 0;          // the braking sign, at every frame of the race
             while (d.race.phase == RacePhase.Racing && Time.realtimeSinceStartup - t1 < 360f)
             {
                 maxSpeed = Mathf.Max(maxSpeed, d.me.speed);
@@ -216,9 +244,26 @@ namespace PryingEyes.Pista
                     else if (!shotRedUnder && gdShots.here == Advice.Brake) { shotRedUnder = true; Time.timeScale = 1f; Debug.Log("[PryingEyes] pistatest foto della linea di corsa 13, rosso sotto la moto: " + GuideNote(d)); yield return Shot("13_linea_rosso_sotto"); Time.timeScale = 4f; }
                     else if (!shotYellow && gdShots.here == Advice.Lift && gdShots.redAhead < 0f && d.me.speed < 50f) { shotYellow = true; Time.timeScale = 1f; Debug.Log("[PryingEyes] pistatest foto della linea di corsa 14, giallo sotto la moto: " + GuideNote(d)); yield return Shot("14_linea_gialla_in_curva"); Time.timeScale = 4f; }
                 }
+                var gq = d.guide;
+                if (gq != null)
+                {
+                    cueFrame++;
+                    var kq = d.hud.CueNow;
+                    bool silenced = d.me.finished || (d.me.bike != null && d.me.bike.crashed);
+                    if (kq != (silenced ? CueKind.None : gq.cue.kind)) cueMismatch++;
+                    bool fits = gq.cue.kind == CueKind.None ? !(gq.here == Advice.Brake && DrivingLine.Shows(PistaMode.Aids, Advice.Brake))
+                        : gq.cue.kind == CueKind.Brake ? gq.here == Advice.Brake : gq.here != Advice.Brake && gq.redAhead > 0f;
+                    if (!fits) cueWrong++;
+                    if (kq == CueKind.Approach) { cueA++; if (cueFirstA < 0) cueFirstA = cueFrame; }
+                    else if (kq == CueKind.Brake) { cueB++; if (cueFirstB < 0) cueFirstB = cueFrame; }
+                }
                 yield return null;
             }
             Time.timeScale = 1f;
+            if (d.guide == null) Check("senza linea (aiuti " + PistaMode.Aids + ") nemmeno l'indicatore di frenata ha mai detto qualcosa in gara", PistaMode.Aids >= 2 && cueA + cueB == 0, cueA + cueB + " fotogrammi");
+            else Check("durante la gara l'indicatore di frenata conta alla rovescia verso il rosso della linea e a ogni fotogramma dice quello che dice la linea",
+                cueMismatch == 0 && cueWrong == 0 && cueA > 500 && cueFirstA > 0 && (cueFirstB < 0 || cueFirstA < cueFirstB),
+                $"{cueFrame} fotogrammi: {cueA} con il conto alla rovescia, {cueB} con 'frena'; {cueMismatch} volte diverso dalla linea, {cueWrong} incoerente; il conto alla rovescia {(cueFirstB < 0 ? "non e' mai finito in 'frena'" : cueFirstA < cueFirstB ? "viene prima di 'frena'" : "NON viene prima di 'frena'")}");
             Check("la moto arriva oltre i 200 km/h sul rettilineo", maxSpeed * 3.6f > 200f, $"massima {maxSpeed * 3.6f:F0} km/h");
             Check("la gara finisce da sola", d.race.phase == RacePhase.Over && d.me.finished, $"fase {d.race.phase}, arrivato {d.me.finished}");
             Check("in gara si forma la scia (qualcuno e' stato riparato dal vento)", d.race.racers.Count < 4 || maxDraft > 0.3f, $"scia massima {maxDraft:F2} con {d.race.racers.Count} piloti");
@@ -533,6 +578,7 @@ namespace PryingEyes.Pista
                     gr == null || (gr.redFrames > 30 && gr.redFrames < gr.frames * 0.75f),
                     gr == null ? "nessuna linea (aiuti " + PistaMode.Aids + ")" : gr.redFrames + " fotogrammi con il rosso su " + gr.frames);
             }
+            Check("a fine gara l'indicatore di frenata e' spento", d.Resulting && d.hud.CueNow == CueKind.None && !d.hud.CueVisible, "segno " + d.hud.CueNow + (d.hud.CueVisible ? ", visibile" : ""));
             Check("a fine gara la linea di corsa si spegne (niente consigli sulla classifica ne' nel replay)", d.Resulting && (d.guide == null || !d.guide.Visible), d.guide == null ? "nessuna linea" : "visibile " + d.guide.Visible);
             bool started = d.StartReplay();
             yield return null; yield return null;
@@ -922,7 +968,7 @@ namespace PryingEyes.Pista
         static string GuideNote(PistaDirector d)
         {
             var g = d.guide;
-            return g == null ? "nessuna linea" : "a " + d.me.s.ToString("F0") + " m, " + (d.me.speed * 3.6f).ToString("F0") + " km/h, sotto la moto " + g.here + ", primo rosso " + (g.redAhead < 0f ? "-" : "a " + g.redAhead.ToString("F0") + " m") + ": " + g.Describe();
+            return g == null ? "nessuna linea" : "a " + d.me.s.ToString("F0") + " m, " + (d.me.speed * 3.6f).ToString("F0") + " km/h, sotto la moto " + g.here + ", primo rosso " + (g.redAhead < 0f ? "-" : "a " + g.redAhead.ToString("F0") + " m") + ": " + g.Describe() + " | segno '" + d.hud.CueTitleText + "' '" + d.hud.CueSubText + "'";
         }
 
         IEnumerator Shot(string name)

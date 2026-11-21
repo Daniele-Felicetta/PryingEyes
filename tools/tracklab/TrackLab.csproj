@@ -26,6 +26,7 @@
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Career.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Tuning.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/DrivingLine.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/BrakeCue.cs" />
     <Compile Include="RaceSimChecks.cs" />
     <Compile Include="CoopChecks.cs" />
     <Compile Include="RiderChecks.cs" />

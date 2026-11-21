@@ -20,6 +20,9 @@ namespace PryingEyes.Pista
         /// <summary>What the line says under the bike now, and how far ahead of it (m) the first red begins (-1: none in the stretch ahead): whatever the aids show.</summary>
         public Advice here { get; private set; }
         public float redAhead { get; private set; }
+        /// <summary>The first red of the stretch ahead (where it begins, how long it is, how low the plan goes in it) and what the braking sign on the dashboard says about it (BrakeCues): both whatever the aids show of the ribbon, the sign has its own rule.</summary>
+        public DrivingLine.Braking braking { get; private set; }
+        public BrakeCue cue { get; private set; }
         public int ShownTotal { get { return shown[0] + shown[1] + shown[2]; } }
         public bool Visible { get { return root != null && root.activeSelf; } }
 
@@ -92,11 +95,9 @@ namespace PryingEyes.Pista
             DrivingLine.Window(line, plan, i0, speed, behind, win);
             for (int k = 0; k < 3; k++) { lists[k].Clear(); shown[k] = 0; }
             here = win[behind];
-            int firstRed = -1;
             for (int q = 0; q < win.Length; q++)
             {
                 Advice a = win[q];
-                if (q >= behind && firstRed < 0 && a == Advice.Brake) firstRed = q - behind;
                 if (!DrivingLine.Shows(aids, a)) continue;
                 int i = c.Wrap(i0 + q - behind), j = i + 1 == n ? 0 : i + 1;
                 var t = lists[(int)a];
@@ -105,9 +106,21 @@ namespace PryingEyes.Pista
                 shown[(int)a]++;
             }
             for (int k = 0; k < 3; k++) mesh.SetTriangles(lists[k], k, false);
-            redAhead = firstRed < 0 ? -1f : firstRed * c.spacing;
+            braking = DrivingLine.FirstBraking(line, win, i0, behind);
+            redAhead = braking.ahead;
+            cue = BrakeCues.Make(aids, braking, speed);
             frames++;
             if (shown[(int)Advice.Brake] > 0) redFrames++;
+        }
+
+        /// <summary>What the braking sign would say for a bike at 's' metres along the lap with this speed (m/s): for the tests, which have no other way to put a bike at a speed it does not have. Nothing is drawn and nothing is counted.</summary>
+        public BrakeCue Peek(float s, float speed)
+        {
+            var c = line.c;
+            int i0 = c.Wrap((int)(c.WrapS(s) / c.spacing));
+            var tmp = new Advice[win.Length];
+            DrivingLine.Window(line, plan, i0, speed, behind, tmp);
+            return BrakeCues.Make(aids, DrivingLine.FirstBraking(line, tmp, i0, behind), speed);
         }
 
         /// <summary>The stretch ahead of the bike as pieces of advice with their lengths in metres, 'V40 G6 R12' (V verde, the green: Go; G giallo, the yellow: Lift; R rosso, the red: Brake): for the log of a test.</summary>

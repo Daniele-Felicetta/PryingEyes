@@ -170,6 +170,47 @@ namespace PryingEyes.Pista
             }
         }
 
+        /// <summary>How far down the plan is read for the bottom of a dip (m).</summary>
+        public const float ScanMetres = 800f;
+
+        /// <summary>What a stretch of the line holds for the brakes, as the player sees it (FirstBraking).</summary>
+        public struct Braking
+        {
+            /// <summary>Metres from the bike to where the first red begins (0: the bike is on it), or -1 when the stretch has no red.</summary>
+            public float ahead;
+            /// <summary>Metres of that red, from where it begins (or from the bike, when the bike is on it) to where it ends or to the far end of the stretch.</summary>
+            public float length;
+            /// <summary>The red runs to the far end of the stretch: how long it really is is not known yet.</summary>
+            public bool open;
+            /// <summary>The lowest speed of the plan (m/s) in the first dip from where the red begins: the speed of the corner the braking is for. It is read on the plan itself, down to ScanMetres from the start of the red, and is not cut by the stretch the player sees.</summary>
+            public float lowest;
+            /// <summary>The plan comes back up by 5 % from its lowest speed within ScanMetres: 'lowest' is the bottom of a dip. When it does not, the plan only keeps falling and the speed of the corner is not known.</summary>
+            public bool bottom;
+        }
+
+        /// <summary>The first red of a stretch of advice made by Window (the sample i0 + k goes to win[k + behind]), from the bike on: where it begins, how long it is and how low the plan goes in its first dip. 'ahead' is -1 when there is none.</summary>
+        public static Braking FirstBraking(RacingLine line, Advice[] win, int i0, int behind)
+        {
+            var b = new Braking { ahead = -1f };
+            int m = win.Length, n = line.c.n, q = behind;
+            while (q < m && win[q] != Advice.Brake) q++;
+            if (q >= m) return b;
+            int r = q;
+            while (r < m && win[r] == Advice.Brake) r++;
+            b.ahead = (q - behind) * line.c.spacing; b.length = (r - q) * line.c.spacing; b.open = r >= m;
+            // the speed the braking is for: the bottom of the first dip of the plan from the start of the red (the plan falls to its lowest speed, and the dip ends where it has climbed 5 % above it)
+            int from = (i0 + q - behind) % n; if (from < 0) from += n;
+            int scan = (int)Math.Round(ScanMetres / line.c.spacing);
+            float low = float.MaxValue; bool risen = false;
+            for (int k = 0; k < scan && !risen; k++)
+            {
+                float vv = line.vplan[(from + k) % n];
+                if (vv < low) low = vv; else if (vv > low * 1.05f) risen = true;
+            }
+            b.lowest = low; b.bottom = risen;
+            return b;
+        }
+
         /// <summary>How many separate stretches of this advice the lap has (the ring is closed: a stretch that crosses the start line is one).</summary>
         public static int Zones(Advice[] a, Advice kind)
         {

@@ -76,13 +76,46 @@ static partial class Program
 
     static int FirstRed(Advice[] a) { for (int k = 0; k < a.Length; k++) if (a[k] == Advice.Brake) return k; return -1; }
 
-    /// <summary>One step of a lap ridden by the computer rider: where it was, how fast, whether it was braking (slowing by more than a quarter of a g) or on the throttle, and whether the live advice showed any red in the
-    /// first 20, 40 and 70 m of the road ahead.</summary>
-    struct RideStep { public int i; public float v; public bool braking, driving; public int red20, red40, red70; }
+    /// <summary>The braking sign for a bike on sample i0 with this speed and an aids level: the stretch the player sees (Window, with 'behind' samples behind the bike), its first red (FirstBraking) and the sign made from it.</summary>
+    static BrakeCue CueAt(RacingLine line, Advice[] plan, int i0, float v, int aids, Advice[] win, int behind)
+    {
+        DrivingLine.Window(line, plan, i0, v, behind, win);
+        return BrakeCues.Make(aids, DrivingLine.FirstBraking(line, win, i0, behind), v);
+    }
+
+    /// <summary>The braking zones of a lap that the live checks use: the plan brakes hard for at least MinZoneMetres, on road free of other braking for 60 m before, and ends up 12 % or more under the speed it had at the start.
+    /// Each is the sample it starts on, the plan speed there and the lowest plan speed of the dip.</summary>
+    static List<(int z0, float v, float low)> DeepZones(RacingLine line)
+    {
+        var res = new List<(int, float, float)>();
+        var raw = PlanBrakes(line);
+        int n = line.c.n, count = (int)Math.Round(DrivingLine.AheadMetres / line.c.spacing), minRun = Math.Max(2, (int)Math.Round(DrivingLine.MinZoneMetres / line.c.spacing));
+        for (int z0 = 0; z0 < n; z0++)
+        {
+            if (!raw[z0] || raw[(z0 + n - 1) % n]) continue;
+            int len = 0; while (len < n && raw[(z0 + len) % n]) len++;
+            if (len < minRun) continue;
+            bool free = true; for (int k = 1; k <= 30 && free; k++) if (raw[((z0 - k) % n + n) % n]) free = false;
+            if (!free) continue;
+            float v = line.vplan[z0], low = v;
+            for (int k = 0; k < 2 * count; k++) { float vv = line.vplan[(z0 + k) % n]; if (vv < low) low = vv; else if (k > 2 && vv > low * 1.05f) break; }          // the bottom of the first dip: down to the lowest speed, until the plan has climbed 5 % above it
+            if (1.0 - low / v < 0.12) continue;
+            res.Add((z0, v, low));
+        }
+        return res;
+    }
+
+    /// <summary>One step of a lap ridden by the computer rider: where it was, how fast, whether it was braking (slowing by more than a quarter of a g) or on the throttle, whether the live advice showed any red in the
+    /// first 20, 40 and 70 m of the road ahead, and what the braking sign said.</summary>
+    struct RideStep { public int i; public float v; public bool braking, driving; public int red20, red40, red70; public CueKind sign; public float signM; }
+
+    static readonly Dictionary<string, List<RideStep>> rideCache = new Dictionary<string, List<RideStep>>();
 
     /// <summary>The second of three laps alone on a circuit with the computer rider, step by step.</summary>
     static List<RideStep> RideTheLine(Circuit c, int bike, int seed)
     {
+        string key = c.seed + "/" + bike + "/" + seed;
+        if (rideCache.TryGetValue(key, out var cached)) return cached;
         var spec = Bikes.Get(bike);
         var race = new Race(c, 3, seed);
         var r = race.AddAi("solo", bike, 0, seed, 0.96f, 0f);
@@ -104,8 +137,10 @@ static partial class Program
             float v = Math.Max(0f, r.bike.u);
             DrivingLine.Window(line, plan, i0, v, 0, win);
             int first = FirstRed(win);
-            steps.Add(new RideStep { i = i0, v = v, braking = r.bike.longG < -0.25f, driving = r.bike.longG > 0.15f, red20 = first >= 0 && first < n20 ? 1 : 0, red40 = first >= 0 && first < n40 ? 1 : 0, red70 = first >= 0 && first < n70 ? 1 : 0 });
+            var sign = BrakeCues.Make(0, DrivingLine.FirstBraking(line, win, i0, 0), v);
+            steps.Add(new RideStep { i = i0, v = v, braking = r.bike.longG < -0.25f, driving = r.bike.longG > 0.15f, red20 = first >= 0 && first < n20 ? 1 : 0, red40 = first >= 0 && first < n40 ? 1 : 0, red70 = first >= 0 && first < n70 ? 1 : 0, sign = sign.kind, signM = sign.metres });
         }
+        rideCache[key] = steps;
         return steps;
     }
 
@@ -417,6 +452,171 @@ static partial class Program
             Check("GUIDE_THE_STRETCH_THE_PLAYER_SEES_HAS_NO_SPECKS_AND_NO_SHALLOW_RED", windows > 5000 && tooShort == 0 && shallowRed == 0 && endRaw > 100 && endKept == endRaw,
                 windows + " stretches (" + seeds2.Count + " circuits, two bikes, eight speeds from 5 to 75 m/s, every 13th sample): " + tooShort + " pieces shorter than " + minRun + " samples in the middle, " + shallowRed + " red pieces in the middle that never get under " + (DrivingLine.DeepBelow * 100).ToString("F0") + " % of the speed, and of the " + endRaw + " stretches that are red at their far end the red is kept in " + endKept,
                 "none, none, kept");
+        }
+
+        // ---- the braking sign follows the aids: Completi and Sportivi show the very same sign (it is about the brakes, like the red of the ribbon), Nessuno shows none, and a bike that stands still sees none
+        {
+            bool same = true, none = true, still = true; int samples = 0, shown = 0;
+            foreach (int seed in new[] { 4242, 22, 53 })
+            {
+                var c = CircuitGen.Generate(seed);
+                foreach (int bk in new[] { 0, 3 })
+                {
+                    var line = new RacingLine(c, Bikes.Get(bk));
+                    var plan = DrivingLine.Classify(line);
+                    int behind = 4, count = (int)Math.Round(DrivingLine.AheadMetres / c.spacing);
+                    var win = new Advice[behind + count];
+                    for (int i0 = 0; i0 < c.n; i0 += 7)
+                        foreach (float v in new[] { 0f, 12f, 30f, 55f })
+                        {
+                            var full = CueAt(line, plan, i0, v, 0, win, behind);
+                            var sporty = CueAt(line, plan, i0, v, 1, win, behind);
+                            var bare = CueAt(line, plan, i0, v, 2, win, behind);
+                            samples++;
+                            if (full.kind != sporty.kind || full.metres != sporty.metres || full.fill != sporty.fill || full.target != sporty.target) same = false;
+                            if (bare.kind != CueKind.None) none = false;
+                            if (v == 0f && full.kind != CueKind.None) still = false;
+                            if (full.kind != CueKind.None) shown++;
+                        }
+                }
+            }
+            Check("CUE_THE_AIDS_DECIDE_WHETHER_THERE_IS_A_BRAKING_SIGN_AND_A_BIKE_THAT_STANDS_STILL_HAS_NONE", same && none && still && shown > 200,
+                samples + " places of 3 circuits and 2 bikes at 4 speeds: Completi and Sportivi show the very same sign (" + (same ? "yes" : "NO") + "), Nessuno never shows one (" + (none ? "yes" : "NO") + "), a bike at 0 km/h never sees one (" + (still ? "yes" : "NO") + "); the sign is up in " + shown + " of them",
+                "same for aids 0 and 1, none for 2, none at a standstill");
+        }
+
+        // ---- coming up to a braking zone at the speed the plan has at its start: nothing far off, a countdown that only goes down, the order to brake where the red begins, and the speed of the bottom of the zone
+        {
+            int zones = 0, ordered = 0, counted = 0, onRed = 0, nearRed = 0, worstNear = 0, bottomRight = 0, bottomUnknown = 0, noSign = 0; double nearSum = 0; string badBottom = "";
+            foreach (int bk in new[] { 3, 0, 6 })
+                foreach (int seed in seeds)
+                {
+                    var c = CircuitGen.Generate(seed);
+                    var line = new RacingLine(c, Bikes.Get(bk)); var plan = DrivingLine.Classify(line);
+                    int n = c.n, behind = 4, count = (int)Math.Round(DrivingLine.AheadMetres / c.spacing);
+                    var win = new Advice[behind + count];
+                    foreach (var z in DeepZones(line))
+                    {
+                        zones++;
+                        float window = BrakeCues.ApproachWindow(z.v);
+                        CueKind last = CueKind.None; bool order = true, down = true, firstApproach = true; float lastM = 0f, lastFill = 0f;
+                        for (int k = count; k >= 0; k--)
+                        {
+                            var cue = CueAt(line, plan, ((z.z0 - k) % n + n) % n, z.v, 0, win, behind);
+                            if (k < count && cue.kind == CueKind.Brake && last != CueKind.Brake && !(last == CueKind.Approach && lastM <= DrivingLine.LeadMetres + 0.01f)) order = false;          // the order to brake never comes out of nowhere: a countdown that has run down to within the lead of the red (the red shows 12 m before the plan brakes) comes before it
+                            if (cue.kind == CueKind.Approach)
+                            {
+                                if (firstApproach) { firstApproach = false; if (cue.metres > window + 0.01f) down = false; }
+                                else if (last == CueKind.Approach && (cue.metres > lastM + 0.01f || cue.fill < lastFill - 0.0001f)) down = false;
+                                lastM = cue.metres; lastFill = cue.fill;
+                            }
+                            last = cue.kind;
+                            if (k != 0) continue;
+                            // the bike is on the first sample of the zone
+                            if (cue.kind == CueKind.Brake) onRed++;
+                            else if (cue.kind == CueKind.Approach) { nearRed++; nearSum += cue.metres; if (cue.metres > worstNear) worstNear = (int)cue.metres; }
+                            else noSign++;
+                            if (cue.kind == CueKind.None) continue;
+                            if (cue.target <= 0f) bottomUnknown++;
+                            else if (BrakeCues.TargetKmh(cue.target) == BrakeCues.TargetKmh(z.low)) bottomRight++;
+                            else if (badBottom.Length < 150) badBottom += " [" + c.seed + " " + Bikes.Get(bk).name + " zone " + z.z0 + ": " + BrakeCues.TargetKmh(cue.target) + " km/h against " + BrakeCues.TargetKmh(z.low) + "]";
+                        }
+                        if (order) ordered++;
+                        if (down && !firstApproach) counted++;
+                    }
+                }
+            Check("CUE_COMING_UP_TO_A_BRAKING_ZONE_THE_SIGN_COUNTS_DOWN_AND_THEN_SAYS_BRAKE", zones > 100 && ordered == zones && counted == zones && noSign == 0 && onRed >= 0.9 * zones && worstNear <= 40,
+                zones + " braking zones (" + seeds.Count + " circuits, three bikes), the bike coming up to each at the speed the plan has at its start, from 300 m before: the order to brake is always preceded by a countdown that has run down to within the lead of the red (" + DrivingLine.LeadMetres.ToString("F0") + " m) in " + ordered + ", it counts down from no further than five seconds of road (never under 60 m) and the metres and the bar only go one way in " + counted + "; on the first sample of the zone it says brake in " + onRed + " and counts down the last " + (nearRed == 0 ? 0 : (int)(nearSum / nearRed)) + " m on average (at most " + worstNear + " m) in " + nearRed + (noSign > 0 ? ", says NOTHING in " + noSign : ""),
+                "a countdown, then brake, in every zone; brake at the start of nine zones of ten");
+            Check("CUE_THE_SIGN_NAMES_THE_SPEED_OF_THE_BOTTOM_OF_THE_ZONE_IN_STEPS_OF_FIVE", bottomRight >= 0.9 * (onRed + nearRed) && bottomUnknown == 0,
+                "on the first sample of each of the " + zones + " zones the speed on the sign is the lowest speed of the plan in the dip, to the nearest 5 km/h, in " + bottomRight + " of " + (onRed + nearRed) + " (" + bottomUnknown + " zones have no bottom to the plan within " + DrivingLine.ScanMetres.ToString("F0") + " m)" + badBottom,
+                "the speed the braking is for");
+        }
+
+        // ---- the numbers and the words of the sign, from a table made by hand
+        {
+            Func<float, float, bool, float, DrivingLine.Braking> brk = (ahead, length, open, lowest) => new DrivingLine.Braking { ahead = ahead, length = length, open = open, lowest = lowest, bottom = lowest > 0f };          // a speed of 0 means the plan only keeps falling: no bottom
+            var cases = new[]
+            {
+                new { aids = 0, b = brk(100f, 80f, false, 22.9f), v = 50f, kind = CueKind.Approach, metres = 100f, fill = 0.6f, target = 22.9f, title = "FRENA TRA 100 m", sub = "fino a 80 km/h" },
+                new { aids = 1, b = brk(100f, 80f, false, 22.9f), v = 50f, kind = CueKind.Approach, metres = 100f, fill = 0.6f, target = 22.9f, title = "FRENA TRA 100 m", sub = "fino a 80 km/h" },
+                new { aids = 2, b = brk(100f, 80f, false, 22.9f), v = 50f, kind = CueKind.None, metres = 0f, fill = 0f, target = 0f, title = "", sub = "" },
+                new { aids = 0, b = brk(300f, 80f, false, 22.9f), v = 50f, kind = CueKind.None, metres = 0f, fill = 0f, target = 0f, title = "", sub = "" },
+                new { aids = 0, b = brk(0f, 120f, false, 20f), v = 50f, kind = CueKind.Brake, metres = 120f, fill = 0.48f, target = 20f, title = "FRENA", sub = "fino a 70 km/h" },
+                new { aids = 0, b = brk(50f, 80f, false, 15f), v = 10f, kind = CueKind.Approach, metres = 50f, fill = 1f / 6f, target = 15f, title = "FRENA TRA 50 m", sub = "fino a 55 km/h" },
+                new { aids = 0, b = brk(70f, 80f, false, 15f), v = 10f, kind = CueKind.None, metres = 0f, fill = 0f, target = 0f, title = "", sub = "" },
+                new { aids = 0, b = brk(-1f, 0f, false, 0f), v = 50f, kind = CueKind.None, metres = 0f, fill = 0f, target = 0f, title = "", sub = "" },
+                new { aids = 0, b = brk(50f, 80f, false, 15f), v = 0.5f, kind = CueKind.None, metres = 0f, fill = 0f, target = 0f, title = "", sub = "" },
+                new { aids = 0, b = brk(100f, 200f, true, 22.9f), v = 50f, kind = CueKind.Approach, metres = 100f, fill = 0.6f, target = 22.9f, title = "FRENA TRA 100 m", sub = "fino a 80 km/h" },
+                new { aids = 0, b = brk(100f, 200f, true, 0f), v = 50f, kind = CueKind.Approach, metres = 100f, fill = 0.6f, target = 0f, title = "FRENA TRA 100 m", sub = "" },
+                new { aids = 0, b = brk(250f, 50f, false, 30f), v = 80f, kind = CueKind.Approach, metres = 250f, fill = 1f / 6f, target = 30f, title = "FRENA TRA 250 m", sub = "fino a 110 km/h" },
+                new { aids = 0, b = brk(63f, 40f, false, 23.5f), v = 40f, kind = CueKind.Approach, metres = 63f, fill = 1f - 63f / 200f, target = 23.5f, title = "FRENA TRA 65 m", sub = "fino a 85 km/h" },
+                new { aids = 0, b = brk(2f, 40f, false, 23.5f), v = 40f, kind = CueKind.Approach, metres = 2f, fill = 1f - 2f / 200f, target = 23.5f, title = "FRENA TRA 5 m", sub = "fino a 85 km/h" },
+                new { aids = 0, b = brk(104f, 40f, false, 23.5f), v = 40f, kind = CueKind.Approach, metres = 104f, fill = 1f - 104f / 200f, target = 23.5f, title = "FRENA TRA 100 m", sub = "fino a 85 km/h" },
+                new { aids = 0, b = brk(105f, 40f, false, 23.5f), v = 40f, kind = CueKind.Approach, metres = 105f, fill = 1f - 105f / 200f, target = 23.5f, title = "FRENA TRA 110 m", sub = "fino a 85 km/h" },
+                new { aids = 0, b = brk(0f, 400f, true, 20f), v = 50f, kind = CueKind.Brake, metres = 400f, fill = 1f, target = 20f, title = "FRENA", sub = "fino a 70 km/h" },
+            };
+            bool ok = true; string bad = "";
+            for (int t = 0; t < cases.Length; t++)
+            {
+                var k = cases[t];
+                var cue = BrakeCues.Make(k.aids, k.b, k.v);
+                bool good = cue.kind == k.kind && Math.Abs(cue.metres - k.metres) < 0.01f && Math.Abs(cue.fill - k.fill) < 0.001f && Math.Abs(cue.target - k.target) < 0.01f && BrakeCues.Title(cue) == k.title && BrakeCues.Sub(cue) == k.sub;
+                if (!good) { ok = false; if (bad.Length < 300) bad += " [case " + t + ": " + cue.kind + " " + cue.metres.ToString("F1") + " m, fill " + cue.fill.ToString("F3") + ", target " + cue.target.ToString("F1") + ", '" + BrakeCues.Title(cue) + "' / '" + BrakeCues.Sub(cue) + "']"; }
+            }
+            bool window = BrakeCues.ApproachWindow(0f) == 60f && BrakeCues.ApproachWindow(10f) == 60f && Math.Abs(BrakeCues.ApproachWindow(30f) - 150f) < 0.01f && BrakeCues.ApproachWindow(80f) == DrivingLine.AheadMetres;
+            Check("CUE_THE_NUMBERS_AND_THE_WORDS_OF_THE_SIGN_FOLLOW_THE_RULES", ok && window,
+                cases.Length + " hand-made cases (aids, the first red, the speed): the countdown is five seconds of road, never under 60 m and never over 300 m (the window is " + BrakeCues.ApproachWindow(10f).ToString("F0") + " m at 10 m/s, " + BrakeCues.ApproachWindow(30f).ToString("F0") + " at 30 and " + BrakeCues.ApproachWindow(80f).ToString("F0") + " at 80), the bar fills as the red comes and empties as it goes, the metres are written to 5 m under 100 and to 10 m over it and the speed to 5 km/h, and a plan that only keeps falling names no speed" + bad,
+                "the rules of the sign");
+        }
+
+        // ---- ridden by the computer rider (it brakes on the plan, a little before the red reaches it): the sign has a countdown for it while it brakes, no order to brake while it accelerates, and nothing near the nose when it has braked enough
+        {
+            int brakingSteps = 0, brakingSign = 0, brakingOnRed = 0, drivingSteps = 0, drivingBrake = 0, drivingNear = 0, runs = 0, runsSign = 0, runsGone = 0; double nearSum = 0; int nearCount = 0;
+            foreach (int seed in new[] { 4242, 22, 53 })
+            {
+                var c = CircuitGen.Generate(seed);
+                foreach (int b in new[] { 0, 3 })
+                {
+                    var steps = RideTheLine(c, b, 11);
+                    foreach (var s in steps)
+                    {
+                        if (s.braking)
+                        {
+                            brakingSteps++;
+                            if (s.sign != CueKind.None) brakingSign++;
+                            if (s.sign == CueKind.Brake) brakingOnRed++;
+                            if (s.sign == CueKind.Approach && s.signM <= 70f) { nearSum += s.signM; nearCount++; }
+                        }
+                        if (s.driving)
+                        {
+                            drivingSteps++;
+                            if (s.sign == CueKind.Brake) drivingBrake++;
+                            if (s.sign == CueKind.Brake || (s.sign == CueKind.Approach && s.signM <= 20f)) drivingNear++;
+                        }
+                    }
+                    int start = -1;
+                    for (int k = 0; k <= steps.Count; k++)
+                    {
+                        bool inRun = k < steps.Count && steps[k].braking;
+                        if (inRun && start < 0) start = k;
+                        if (!inRun && start >= 0)
+                        {
+                            if (k - start >= 60)
+                            {
+                                runs++;
+                                if (steps[start + 10].sign != CueKind.None) runsSign++;
+                                var e = steps[k - 1];
+                                if (!(e.sign == CueKind.Brake || (e.sign == CueKind.Approach && e.signM <= 20f))) runsGone++;
+                            }
+                            start = -1;
+                        }
+                    }
+                }
+            }
+            Check("CUE_RIDDEN_BY_THE_COMPUTER_RIDER_THE_SIGN_COUNTS_DOWN_WHEN_IT_BRAKES_AND_IS_QUIET_WHEN_IT_ACCELERATES", brakingSteps > 500 && brakingSign >= 0.80 * brakingSteps && drivingSteps > 500 && drivingBrake <= 0.05 * drivingSteps && drivingNear <= 0.05 * drivingSteps && runs > 5 && runsSign >= 0.85 * runs && runsGone >= 0.70 * runs,
+                "second lap alone on 3 circuits with 2 bikes: while it brakes the sign has something to say in " + (100.0 * brakingSign / Math.Max(1, brakingSteps)).ToString("F0") + " % of " + brakingSteps + " steps (the order itself in " + (100.0 * brakingOnRed / Math.Max(1, brakingSteps)).ToString("F0") + " %: it brakes before the red reaches it, and counts down the last " + (nearCount == 0 ? 0 : (int)(nearSum / nearCount)) + " m on average), while it accelerates it says brake in " + (100.0 * drivingBrake / Math.Max(1, drivingSteps)).ToString("F1") + " % of " + drivingSteps + " and has the red within 20 m in " + (100.0 * drivingNear / Math.Max(1, drivingSteps)).ToString("F1") + " %; of " + runs + " braking runs of a second or more " + runsSign + " have a sign a sixth of a second in and " + runsGone + " end with nothing within 20 m",
+                "the sign and the ride agree");
         }
     }
 }

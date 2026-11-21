@@ -21,6 +21,7 @@ namespace PryingEyes.Pista
         bool ended, prepOk;
         float t0;
         bool hostHere;                    // this process is the host (set once, so that it still holds when the connection is gone)
+        int cueFrames, cueApproach, cueBrake, cueMismatch, cueWrong;          // the braking sign, at every frame of the race
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
@@ -69,7 +70,24 @@ namespace PryingEyes.Pista
         void Update()
         {
             if (Coop.IsHost) hostHere = true;
+            SampleCue();
             if (!ended && Time.realtimeSinceStartup - t0 > 420f) { Check("finita entro il tempo", false, "420 s"); Finish(); }
+        }
+
+        /// <summary>One frame of the race: the braking sign on the dashboard against the driving line it is made from.</summary>
+        void SampleCue()
+        {
+            var d = Dir;
+            if (d == null || !d.Ready || d.race == null || d.me == null || d.hud == null || d.guide == null || d.race.phase != RacePhase.Racing) return;
+            var g = d.guide;
+            cueFrames++;
+            bool silenced = d.me.finished || (d.me.bike != null && d.me.bike.crashed);
+            var shown = d.hud.CueNow;
+            if (shown != (silenced ? CueKind.None : g.cue.kind)) cueMismatch++;
+            bool fits = g.cue.kind == CueKind.None ? !(g.here == Advice.Brake && DrivingLine.Shows(PistaMode.Aids, Advice.Brake))
+                : g.cue.kind == CueKind.Brake ? g.here == Advice.Brake : g.here != Advice.Brake && g.redAhead > 0f;
+            if (!fits) cueWrong++;
+            if (shown == CueKind.Approach) cueApproach++; else if (shown == CueKind.Brake) cueBrake++;
         }
 
         void Finish()
@@ -239,6 +257,16 @@ namespace PryingEyes.Pista
             Check("i piloti veri, io e i compagni, hanno tutti finito", unfinished.Length == 0, unfinished);
             Check("la classifica e' valida", ValidStandings(d.race, false), "io " + d.me.position + "°");
             if (!host) Check("l'ordine e' quello che ha detto l'ospite", d.race.racers.TrueForAll(r => r.final >= 1) && InOrder(d.race), Order(d.race));
+            // ---- the driving line and the braking sign of this machine: each builds its own from the same racing line, with the aids of the HOST's game (the host chose them, the friend has its own choice and must not use it)
+            int expectAids = ArgInt("-pistacoopaids", -1);
+            if (expectAids >= 0)
+            {
+                var g = d.guide;
+                Check("gli aiuti di questa macchina sono quelli dell'ospite, non quelli scelti qui", PistaMode.Aids == expectAids, "aiuti " + PistaMode.Aids + " (dell'ospite " + expectAids + ")");
+                Check("la linea di corsa c'e' su questa macchina con gli aiuti dell'ospite (solo il rosso con Sportivi)", expectAids >= 2 ? g == null : g != null && g.frames > 500 && (expectAids != 1 || g.shown[0] + g.shown[1] == 0), g == null ? "nessuna linea" : g.frames + " fotogrammi, " + g.redFrames + " con il rosso");
+                Check("l'indicatore di frenata di questa macchina conta alla rovescia e dice quello che dice la sua linea, a ogni fotogramma", expectAids >= 2 ? cueApproach + cueBrake == 0 : cueMismatch == 0 && cueWrong == 0 && cueApproach > 200,
+                    cueFrames + " fotogrammi di gara: " + cueApproach + " con il conto alla rovescia, " + cueBrake + " con 'frena', " + cueMismatch + " diverso dalla linea, " + cueWrong + " incoerente");
+            }
             Debug.Log("[PryingEyes] pistacooptest classifica " + d.circuit.name + ": " + Order(d.race));
         }
 

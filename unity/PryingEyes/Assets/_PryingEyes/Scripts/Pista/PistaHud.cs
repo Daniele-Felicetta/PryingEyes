@@ -21,6 +21,12 @@ namespace PryingEyes.Pista
         // race
         Text posText, lapText, timeText, bestText, lastText, aheadText, behindText, kmhText, unitText, gearText, gearLabel, bannerText, bannerSub, warnText, hintText, aidAbs, aidTc, trackText, speedMeta, statusText;
         Image statusBack;
+        // the braking sign: a countdown to the red of the driving line, or the order to brake, with the speed the braking is for
+        Image cueBack, cueBarBack, cueBar;
+        Text cueTitle, cueSub;
+        CueKind shownCue;
+        int shownCueMetres = -1, shownCueKmh = -1;
+        const float CueX = -105f, CueW = 310f, CueBarW = 280f;
         Image[] rpmSegs, draftSegs;
         Text draftLabel, styleLabel, deltaText, recordText, licenceGoals;
         RectTransform weightDot;
@@ -52,6 +58,12 @@ namespace PryingEyes.Pista
         public bool ResultsShown { get; private set; }
         /// <summary>The canvas of the race interface (the tests move it onto a camera to photograph it).</summary>
         public Canvas CanvasRef => canvas;
+        /// <summary>For the checks: what the braking sign says now (None: it is not up), its two lines and how much of its bar is filled.</summary>
+        public CueKind CueNow => shownCue;
+        public bool CueVisible => cueBack != null && cueBack.gameObject.activeSelf;
+        public string CueTitleText => CueVisible ? cueTitle.text : "";
+        public string CueSubText => CueVisible ? cueSub.text : "";
+        public float CueFill => cueBar != null ? cueBar.rectTransform.sizeDelta.x / CueBarW : 0f;
 
         static Font Face()
         {
@@ -254,6 +266,14 @@ namespace PryingEyes.Pista
             statusBack = Box(rt, "StatoFondo", bc, bc, new Vector2(0f, 150f), new Vector2(760f, 46f), new Color(0.02f, 0.03f, 0.04f, 0.5f));
             statusText = Label(rt, "Stato", bc, bc, new Vector2(0f, 156f), new Vector2(740f, 34f), 24, TextAnchor.MiddleCenter, Amber, "", FontStyle.Bold);
             statusBack.gameObject.SetActive(false);
+
+            // the bottom, a little left of the middle (the weight dot of the rider is to the right of it): the braking sign, up only while a braking zone is coming or on
+            cueBack = Box(rt, "FrenataFondo", bc, bc, new Vector2(CueX, 18f), new Vector2(CueW, 80f), new Color(0.02f, 0.03f, 0.04f, 0.5f));
+            cueBarBack = Box(rt, "FrenataBarraFondo", bc, bc, new Vector2(CueX, 24f), new Vector2(CueBarW, 7f), new Color(1f, 1f, 1f, 0.14f));
+            cueBar = Box(rt, "FrenataBarra", bc, new Vector2(0f, 0f), new Vector2(CueX - CueBarW * 0.5f, 24f), new Vector2(0f, 7f), Red);
+            cueSub = Label(rt, "FrenataSotto", bc, bc, new Vector2(CueX, 34f), new Vector2(CueW - 10f, 22f), 17, TextAnchor.LowerCenter, Dim, "", FontStyle.Normal);
+            cueTitle = Label(rt, "FrenataTitolo", bc, bc, new Vector2(CueX, 56f), new Vector2(CueW - 10f, 38f), 32, TextAnchor.LowerCenter, Red, "", FontStyle.Bold);
+            SetCueVisible(false);
         }
 
         /// <summary>A line at the bottom of the screen for what the race is waiting for; empty hides it.</summary>
@@ -263,6 +283,39 @@ namespace PryingEyes.Pista
             bool on = !string.IsNullOrEmpty(text);
             statusText.text = on ? text : "";
             statusBack.gameObject.SetActive(on);
+        }
+
+        void SetCueVisible(bool on)
+        {
+            cueBack.gameObject.SetActive(on); cueBarBack.gameObject.SetActive(on); cueBar.gameObject.SetActive(on); cueSub.gameObject.SetActive(on); cueTitle.gameObject.SetActive(on);
+            hintText.rectTransform.anchoredPosition = new Vector2(30f, on ? 108f : 66f);          // the hints of the start (bottom left, 640 wide) make room for the sign
+        }
+
+        /// <summary>The braking sign at the bottom of the screen, the red of the line on the road said another way (from any camera): up while a braking zone is coming (a countdown in metres, the speed the braking is for, a bar
+        /// that fills as the red comes) or on (FRENA, the speed, a bar of what is left of the red), gone when there is nothing to say or the table of the results is up. The words are written again only when a number changes.</summary>
+        public void SetCue(in BrakeCue cue)
+        {
+            if (cueTitle == null) return;
+            var kind = ResultsShown ? CueKind.None : cue.kind;
+            if (kind == CueKind.None)
+            {
+                if (shownCue != CueKind.None) { shownCue = CueKind.None; shownCueMetres = -1; shownCueKmh = -1; SetCueVisible(false); }
+                return;
+            }
+            if (shownCue == CueKind.None) SetCueVisible(true);
+            int metres = kind == CueKind.Approach ? BrakeCues.RoundMetres(cue.metres) : 0;
+            int kmh = cue.target > 0f ? BrakeCues.TargetKmh(cue.target) : 0;
+            if (kind != shownCue || metres != shownCueMetres || kmh != shownCueKmh)
+            {
+                shownCue = kind; shownCueMetres = metres; shownCueKmh = kmh;
+                cueTitle.text = BrakeCues.Title(cue);
+                cueSub.text = BrakeCues.Sub(cue);
+            }
+            float fill = PM.Clamp01(cue.fill);
+            cueBar.rectTransform.sizeDelta = new Vector2(CueBarW * fill, 7f);
+            Color col = kind == CueKind.Brake ? Red : Color.Lerp(Amber, Red, fill * fill);
+            if (kind == CueKind.Brake) col.a = 0.78f + 0.22f * Mathf.Abs(Mathf.Sin(flash * 9f));
+            cueTitle.color = col; cueBar.color = col;
         }
 
         void BuildResults()
