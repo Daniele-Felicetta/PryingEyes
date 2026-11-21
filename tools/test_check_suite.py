@@ -120,4 +120,15 @@ class Documentation(unittest.TestCase):
                          {"a-title", "35-still-in-the-code-not-in-the-readme", "weaponcs-notes", "same", "same-1"})
 
 
+class Wiki(unittest.TestCase):
+    def test_a_tree_without_a_wiki_has_nothing_to_check(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(check_suite.check_wiki(Path(folder)), [])
+
+    def test_a_wiki_without_its_home_page_is_a_finding(self):
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / "wiki").mkdir()
+            self.assertIn("WIKI_HOME", {item["code"] for item in check(folder)})
+
+
 if __name__ == "__main__": unittest.main()
