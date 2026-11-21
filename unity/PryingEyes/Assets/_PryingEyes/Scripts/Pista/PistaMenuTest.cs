@@ -166,6 +166,7 @@ namespace PryingEyes.Pista
             Check("e si torna a 3 avversari", PistaMode.Rivals == 3);
             while (PistaMode.Bike != 1) Row("Moto").Step(1);
             Check("'Moto' passa all'Argo 600 e la scheda lo dice", Value("Moto") == "Argo 600" && Text("Scheda moto").Contains("Supersport") && Text("Scheda moto").Contains("CV"), Text("Scheda moto"));
+            Check("gli aiuti cominciano da 'Completi' (con la tastiera l'aiuto in piega tiene in sella)", PistaMode.Aids == 0 && Value("Aiuti alla guida") == "Completi", Value("Aiuti alla guida") + " (" + PistaMode.Aids + ")");
             Row("Aiuti alla guida").Step(1);
             Row("Ora del giorno").Step(1);
             Check("'Aiuti' e 'Ora del giorno' girano e rigirano", Value("Aiuti alla guida") == PistaMode.AidNames[PistaMode.Aids] && Value("Ora del giorno") == PistaMode.HourNames[PistaMode.HourChoice]);

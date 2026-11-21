@@ -5,10 +5,11 @@ namespace PryingEyes.Pista
     /// <summary>The controls of the bike. Keyboard: W or Up gas, S or Down front brake, Space rear brake, A D or Left Right lean in and out of the corners, Shift tuck behind the screen, J and L shift the
     /// body left and right and I and K forward and back (the right hand's twin of the controller's right stick), E and Q gear up and down (only without the automatic gearbox), C camera, R back on the track after a
     /// fall that has not been cleared. Controller: right trigger gas, left trigger front brake, X rear brake, left stick steer, right stick body shift (sideways and forward or back), A tuck, RB and LB gears, Y camera. The keys and the triggers ramp the way a hand does: the gas opens in a third of a second, the front brake builds up, and the steering
-    /// grows the longer the key is held, slower the faster the bike goes (a tap is a small correction, not a fall).</summary>
+    /// grows the longer the key is held, slower the faster the bike goes (a tap is a small correction, not a fall), and above 36 km/h the keys reach only part of the lean (KeyShaper: the lab rides with it).</summary>
     public sealed class PistaInput
     {
-        float thr, bf, br, steer, bodyX, bodyY;
+        readonly KeyShaper keys = new KeyShaper();
+        float bodyX, bodyY;
 
         /// <summary>For the automated runs: when set, the bike takes these inputs instead of the keyboard.</summary>
         public static bool BotOn;
@@ -20,7 +21,7 @@ namespace PryingEyes.Pista
         /// <summary>Enter (A on the controller) this frame: the host of a cooperative race gives the go with it.</summary>
         public bool startPressed;
 
-        public void Reset() { thr = bf = br = steer = bodyX = bodyY = 0f; }
+        public void Reset() { keys.Reset(); bodyX = bodyY = 0f; }
 
         static float Dead(float v, float dead) { float a = Mathf.Abs(v); return a < dead ? 0f : Mathf.Sign(v) * Mathf.Min(1f, (a - dead) / (1f - dead)); }
 
@@ -29,7 +30,7 @@ namespace PryingEyes.Pista
             cameraPressed = false; resetPressed = false; startPressed = false; ghostPressed = false;
             if (BotOn) return Bot;
             var inp = new BikeInputs();
-            if (blocked) { thr = bf = br = steer = bodyX = bodyY = 0f; return inp; }
+            if (blocked) { Reset(); return inp; }
             startPressed = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
 
             // ---- keyboard
@@ -45,15 +46,7 @@ namespace PryingEyes.Pista
             resetPressed = Input.GetKeyDown(KeyCode.R);
             lookBackHeld = Input.GetKey(KeyCode.V);
 
-            thr = Mathf.MoveTowards(thr, up ? 1f : 0f, (up ? 3.2f : 7f) * dt);
-            bf = Mathf.MoveTowards(bf, down ? 1f : 0f, (down ? 2.4f : 9f) * dt);
-            br = Mathf.MoveTowards(br, rear ? 1f : 0f, (rear ? 4f : 9f) * dt);
-            float target = (right ? 1f : 0f) - (left ? 1f : 0f);
-            float k = Mathf.Clamp01(speed / 70f);
-            float rate = Mathf.Lerp(4.6f, 1.7f, k);
-            if (target != 0f && Mathf.Sign(target) != Mathf.Sign(steer) && steer != 0f) rate *= 2.2f;       // reversing is quicker than building up
-            if (target == 0f) rate = Mathf.Lerp(7.5f, 4.5f, k);
-            steer = Mathf.MoveTowards(steer, target, rate * dt);
+            keys.Step(up, down, rear, left, right, speed, dt);
             // the weight of the body, with the right hand: it moves the way a body does, not like a switch
             float kx = (Input.GetKey(KeyCode.L) ? 1f : 0f) - (Input.GetKey(KeyCode.J) ? 1f : 0f);
             float ky = (Input.GetKey(KeyCode.I) ? 1f : 0f) - (Input.GetKey(KeyCode.K) ? 1f : 0f);
@@ -94,10 +87,10 @@ namespace PryingEyes.Pista
             }
             if (any) pad = false;
 
-            inp.throttle = Mathf.Max(thr, tPad);
-            inp.brakeFront = Mathf.Max(bf, bPad);
-            inp.brakeRear = Mathf.Max(br, rPad);
-            inp.steer = Mathf.Abs(sPad) > Mathf.Abs(steer) ? sPad : steer;
+            inp.throttle = Mathf.Max(keys.thr, tPad);
+            inp.brakeFront = Mathf.Max(keys.bf, bPad);
+            inp.brakeRear = Mathf.Max(keys.br, rPad);
+            inp.steer = Mathf.Abs(sPad) > Mathf.Abs(keys.steer) ? sPad : keys.steer;
             inp.riderLean = lean;
             inp.riderFwd = Mathf.Abs(fwdPad) > Mathf.Abs(bodyY) ? fwdPad : bodyY;
             inp.tuck = tuck;

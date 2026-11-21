@@ -50,8 +50,8 @@ namespace PryingEyes.Pista
         public static int Laps { get => oLaps ?? ArgOr("-pistalaps", "Laps", 3, 1, 20); set => Save("Laps", Mathf.Clamp(value, 1, 20)); }
         public static int Rivals { get => oRivals ?? ArgOr("-pistarivals", "Rivals", 11, 0, 15); set => Save("Rivals", Mathf.Clamp(value, 0, 15)); }
         public static int Bike { get => oBike ?? ArgOr("-pistabike", "Bike", 0, 0, Bikes.Count - 1); set => Save("Bike", Mathf.Clamp(value, 0, Bikes.Count - 1)); }
-        /// <summary>0 all the aids, 1 sporty (no lean assist), 2 none (only ABS, manual gears).</summary>
-        public static int Aids { get => oAids ?? ArgOr("-pistaaids", "Aids", 1, 0, 2); set => Save("Aids", Mathf.Clamp(value, 0, 2)); }
+        /// <summary>0 all the aids (the default: the lean assist keeps the lean at the grip limit, and a key is all or nothing), 1 sporty (no lean assist), 2 none (only ABS, manual gears).</summary>
+        public static int Aids { get => oAids ?? ArgOr("-pistaaids", "Aids", 0, 0, 2); set => Save("Aids", Mathf.Clamp(value, 0, 2)); }
         /// <summary>How good the computer riders are: 0 beginner, 1 expert, 2 champion.</summary>
         public static int Rank { get => ArgOr("-pistarank", "Rank", 1, 0, 2); set => Save("Rank", Mathf.Clamp(value, 0, 2)); }
         /// <summary>0 lean body, 1 neutral, 2 lean bike (RiderStyle). It is the rider's own way, not a rule of the race: in a cooperative game everybody keeps theirs.</summary>
