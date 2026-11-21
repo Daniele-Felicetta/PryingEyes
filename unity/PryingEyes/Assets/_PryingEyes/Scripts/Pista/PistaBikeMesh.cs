@@ -31,6 +31,13 @@ namespace PryingEyes.Pista
 
         public static int Count => all.Length;
         public static Livery For(int skin) { return all[((skin % all.Length) + all.Length) % all.Length]; }
+
+        /// <summary>The paint of a bike with the leathers and the helmet of another livery (the rider's own outfit, chosen in the garage).</summary>
+        public static Livery WithRider(Livery bike, int outfit)
+        {
+            var o = For(outfit);
+            return new Livery { name = bike.name, main = bike.main, accent = bike.accent, suit = o.suit, suit2 = o.suit2, helmet = o.helmet };
+        }
     }
 
     /// <summary>Everything the picture and the sound of one bike need, whether the bike is simulated on this machine (copied from the model) or arrives from the network (a friend's bike).</summary>

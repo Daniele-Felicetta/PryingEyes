@@ -212,7 +212,7 @@ namespace PryingEyes.Pista
         /// <summary>A bike in the scene for a rider: the one simulated here is pushed every step, the others wait for the poses that arrive.</summary>
         PistaBikeView AddView(Racer r)
         {
-            var v = PistaBikeView.Create(transform, r, r == me, Bikes.Get(r.bikeIndex).meshStyle, Livery.For(r.skin));
+            var v = PistaBikeView.Create(transform, r, r == me, Bikes.Get(r.bikeIndex).meshStyle, r == me ? PistaMode.RiderLivery(r.skin) : Livery.For(r.skin));           // the player's own rider wears the outfit of the garage
             views.Add(v);
             if (r == me) myView = v;
             if (r.bike != null) v.Push(MakeView(r));

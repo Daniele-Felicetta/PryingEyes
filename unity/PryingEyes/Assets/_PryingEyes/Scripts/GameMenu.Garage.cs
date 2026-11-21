@@ -7,16 +7,16 @@ using UnityEngine.UI;
 namespace PryingEyes
 {
     /// <summary>Il garage (Scripts/Pista/BikeSheet.cs, GarageStage.cs): si apre dal pulsante "Garage" della preparazione della gara. Una vetrina con la moto e il suo pilota che girano su un piatto, la scelta della moto e
-    /// dei colori e sette barre con le cifre che la moto fa davvero sul modello di guida (potenza, coppia, velocita' massima, ripresa, frenata, peso, maneggevolezza). Quello che si sceglie qui e' quello che si corre: e' la stessa
+    /// dei colori, della tuta e del casco del pilota e sette barre con le cifre che la moto fa davvero sul modello di guida (potenza, coppia, velocita' massima, ripresa, frenata, peso, maneggevolezza). Quello che si sceglie qui e' quello che si corre: e' la stessa
     /// scelta della riga "Moto" della preparazione.</summary>
     public partial class GameMenu
     {
         RectTransform garagePanel;
         Button garageOpenButton, garageBackButton;
-        MenuChoice garageBikeRow, garageColourRow;
+        MenuChoice garageBikeRow, garageColourRow, garageOutfitRow;
         RawImage garagePicture;
         Text garageName, garageBlurb;
-        Image garageSwatchMain, garageSwatchAccent;
+        Image garageSwatchMain, garageSwatchAccent, garageSwatchSuit, garageSwatchSuit2, garageSwatchHelmet;
         readonly Text[] garageBarValue = new Text[BikeSheet.BarCount];
         readonly Image[] garageBarFill = new Image[BikeSheet.BarCount];
         GarageStage garageStage;
@@ -43,12 +43,16 @@ namespace PryingEyes
             garageColourRow = GarageRow("Colori", 128f, GarageColourName, d => PistaMode.Skin = Wrap(PistaMode.Skin + 1 + d, Livery.Count + 1) - 1);
             garageSwatchMain = Swatch("Colore principale", new Vector2(198f, 128f));
             garageSwatchAccent = Swatch("Colore secondario", new Vector2(226f, 128f));
+            garageOutfitRow = GarageRow("Pilota", 86f, GarageOutfitName, d => PistaMode.Outfit = Wrap(PistaMode.Outfit + 1 + d, Livery.Count + 1) - 1);
+            garageSwatchSuit = Swatch("Colore tuta", new Vector2(170f, 86f));
+            garageSwatchSuit2 = Swatch("Colore tuta secondario", new Vector2(198f, 86f));
+            garageSwatchHelmet = Swatch("Colore casco", new Vector2(226f, 86f));
 
-            garageName = Label(garagePanel, "Nome moto", new Vector2(300, 80), new Vector2(620, 36), 26, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
-            garageBlurb = Label(garagePanel, "Descrizione moto", new Vector2(300, 28), new Vector2(620, 66), 16, TextAnchor.UpperCenter, "", Dim, FontStyle.Italic);
+            garageName = Label(garagePanel, "Nome moto", new Vector2(300, 40), new Vector2(620, 36), 26, TextAnchor.MiddleCenter, "", Ink, FontStyle.Normal);
+            garageBlurb = Label(garagePanel, "Descrizione moto", new Vector2(300, -15), new Vector2(620, 66), 16, TextAnchor.UpperCenter, "", Dim, FontStyle.Italic);
             for (int i = 0; i < BikeSheet.BarCount; i++)
             {
-                float y = -20f - i * 27f;
+                float y = -62f - i * 25f;
                 Label(garagePanel, "Barra " + BikeSheet.BikeBarNames[i], new Vector2(105f, y), new Vector2(170, 24), 17, TextAnchor.MiddleLeft, BikeSheet.BikeBarNames[i], Dim, FontStyle.Normal);
                 var track = Rect(garagePanel, "Binario " + BikeSheet.BikeBarNames[i], new Vector2(GarageBarW, GarageBarH), new Vector2(GarageBarX, y)).gameObject.AddComponent<Image>();
                 track.color = new Color(0f, 0f, 0f, 0.55f); track.raycastTarget = false;
@@ -61,8 +65,9 @@ namespace PryingEyes
             garageBackButton = MakeButton(garagePanel, "Fatto", new Vector2(0, -262), GarageBack);
             AddFeedback(garageBackButton, null);
             garageBikeRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnDown = garageColourRow };
-            garageColourRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageBikeRow, selectOnDown = garageBackButton };
-            garageBackButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageColourRow };
+            garageColourRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageBikeRow, selectOnDown = garageOutfitRow };
+            garageOutfitRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageColourRow, selectOnDown = garageBackButton };
+            garageBackButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageOutfitRow };
             garagePanel.gameObject.AddComponent<MenuPanelFade>();
             garagePanel.gameObject.AddComponent<GarageTick>().menu = this;
         }
@@ -104,16 +109,26 @@ namespace PryingEyes
             return skin < 0 ? "Di serie" : Livery.For(skin).name;
         }
 
+        /// <summary>La tuta e il casco del pilota: quelli della moto, o quelli di una delle dodici livree.</summary>
+        static string GarageOutfitName()
+        {
+            int outfit = PistaMode.Outfit;
+            return outfit < 0 ? "Come la moto" : Livery.For(outfit).name;
+        }
+
         /// <summary>I valori delle righe, il nome e la frase della moto, le barre con le loro cifre e la moto sul piatto.</summary>
         void RefreshGarage()
         {
             if (garagePanel == null) return;
-            int index = PistaMode.Bike, skin = PistaMode.Skin;
+            int index = PistaMode.Bike, skin = PistaMode.Skin, outfit = PistaMode.Outfit;
             var spec = Bikes.Get(index);
             garageBikeRow.Value = spec.name;
             garageColourRow.Value = GarageColourName();
+            garageOutfitRow.Value = GarageOutfitName();
             var liv = Livery.For(skin >= 0 ? skin : spec.skin);
             garageSwatchMain.color = liv.main; garageSwatchAccent.color = liv.accent;
+            var rider = outfit >= 0 ? Livery.For(outfit) : liv;
+            garageSwatchSuit.color = rider.suit; garageSwatchSuit2.color = rider.suit2; garageSwatchHelmet.color = rider.helmet;
             garageName.text = spec.name + "  -  " + spec.klass;
             garageBlurb.text = BikeSheet.Blurb(index);
 
@@ -132,7 +147,7 @@ namespace PryingEyes
             garageBarValue[(int)BikeBar.Brakes].text = f.brake100.ToString("0.0", PistaIt) + " m  100-0";
             garageBarValue[(int)BikeBar.Lightness].text = Mathf.RoundToInt(f.kg) + " kg";
             garageBarValue[(int)BikeBar.Handling].text = BikeSheet.HandlingWord(f);
-            if (garageStage != null) garageStage.Show(index, skin);
+            if (garageStage != null) garageStage.Show(index, skin, outfit);
         }
 
         /// <summary>"Garage" dalla preparazione: la vetrina si accende sulla moto scelta e la riga della moto e' gia' scelta.</summary>

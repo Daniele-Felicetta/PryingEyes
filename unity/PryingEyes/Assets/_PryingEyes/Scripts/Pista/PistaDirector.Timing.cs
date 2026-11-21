@@ -94,7 +94,7 @@ namespace PryingEyes.Pista
                 float t = race.time - me.lapStart;
                 if (ghostOn && t <= reference.lapTime + 1f)
                 {
-                    if (ghostView == null) ghostView = PistaBikeView.CreateGhost(transform, Bikes.Get(me.bikeIndex).meshStyle, Livery.For(me.skin));
+                    if (ghostView == null) ghostView = PistaBikeView.CreateGhost(transform, Bikes.Get(me.bikeIndex).meshStyle, PistaMode.RiderLivery(me.skin));
                     if (!ghostView.gameObject.activeSelf) ghostView.gameObject.SetActive(true);
                     ghostView.SetScripted(ToView(reference.tape.At(t)));
                     ghostView.Render(alpha, dt, true);

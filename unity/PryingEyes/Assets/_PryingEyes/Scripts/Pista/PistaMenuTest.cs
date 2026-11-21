@@ -317,10 +317,17 @@ namespace PryingEyes.Pista
         }
 
 
-        /// <summary>The garage from the setup: the showroom and the bars, the choice of bike and of colours, back to the setup, and the colours worn in the race.</summary>
+        /// <summary>The rig wears this rider (the leathers, their second tone and the helmet) on a bike with this paint.</summary>
+        static bool RigWears(PistaBikeRig rig, Livery rider, Color paint)
+        {
+            return rig != null && rig.suit != null && rig.suit2 != null && rig.helmet != null && rig.paint != null
+                && rig.suit.GetColor("_BaseColor") == rider.suit && rig.suit2.GetColor("_BaseColor") == rider.suit2 && rig.helmet.GetColor("_BaseColor") == rider.helmet && rig.paint.GetColor("_BaseColor") == paint;
+        }
+
+        /// <summary>The garage from the setup: the showroom and the bars, the choice of bike, colours and rider, back to the setup, and the colours and the outfit worn in the race.</summary>
         IEnumerator GarageFlow()
         {
-            PistaMode.Bike = 0; PistaMode.Skin = -1; PistaMode.Aids = 1; PistaMode.Rivals = 3; PistaMode.Laps = 1;
+            PistaMode.Bike = 0; PistaMode.Skin = -1; PistaMode.Outfit = -1; PistaMode.Aids = 1; PistaMode.Rivals = 3; PistaMode.Laps = 1;
             var open = Find("Pulsante Garage");
             var licences = Find("Pulsante Patenti");
             var up = Row("Circuito").navigation.selectOnUp;
@@ -370,13 +377,33 @@ namespace PryingEyes.Pista
             PistaMode.Skin = 4; Call("RefreshGarage");
             yield return null;
             Check("la livrea scelta resta scelta anche cambiando moto", Value("Colori") == Livery.For(4).name && stage.Skin == 4, Value("Colori"));
+
+            // the rider: 'Come la moto' first, then the leathers and the helmet of the twelve liveries; the paint of the bike stays as it was chosen
+            var own = Livery.For(4);
+            Check("'Pilota' parte da 'Come la moto': la tuta e il casco sono quelli della livrea della moto, sul piatto e nei tre campioni",
+                Value("Pilota") == "Come la moto" && PistaMode.Outfit == -1 && stage.Outfit == -1 && RigWears(stage.Rig, own, own.main)
+                && Find("Colore tuta").GetComponent<Image>().color == own.suit && Find("Colore tuta secondario").GetComponent<Image>().color == own.suit2 && Find("Colore casco").GetComponent<Image>().color == own.helmet, Value("Pilota"));
+            Row("Pilota").Step(1);
+            yield return null;
+            var first = Livery.For(0);
+            Check("avanti: il pilota indossa la tuta e il casco della prima livrea, e la vernice della moto resta quella scelta",
+                PistaMode.Outfit == 0 && Value("Pilota") == first.name && stage.Outfit == 0 && RigWears(stage.Rig, first, own.main) && Value("Colori") == own.name
+                && Find("Colore tuta").GetComponent<Image>().color == first.suit && Find("Colore tuta secondario").GetComponent<Image>().color == first.suit2 && Find("Colore casco").GetComponent<Image>().color == first.helmet, Value("Pilota"));
+            Row("Pilota").Step(-1); Row("Pilota").Step(-1);
+            Check("all'indietro da 'Come la moto' si arriva all'ultima livrea", PistaMode.Outfit == Livery.Count - 1 && Value("Pilota") == Livery.For(Livery.Count - 1).name, Value("Pilota"));
+            PistaMode.Outfit = 7; PistaMode.Bike = 0; Call("RefreshGarage");
+            yield return null;
+            Check("l'abbigliamento scelto resta scelto anche cambiando moto", Value("Pilota") == Livery.For(7).name && stage.Outfit == 7 && stage.Bike == 0 && Value("Colori") == own.name, Value("Pilota"));
+            PistaMode.Bike = 3; Call("RefreshGarage");
+            yield return null;
             stage.SetSpin(300f);
             for (int i = 0; i < 4; i++) yield return null;
             if (shots) yield return Shot("menu_9_garage_125");
 
-            var bikeNav = Row("Moto").navigation; var colourNav = Row("Colori").navigation; var doneNav = Find("Pulsante Fatto").GetComponent<Selectable>().navigation;
-            Check("la croce: da 'Moto' si scende a 'Colori', poi a 'Fatto', e da 'Fatto' si risale a 'Colori'", bikeNav.selectOnDown != null && bikeNav.selectOnDown.name == "Scelta Colori" && colourNav.selectOnUp != null && colourNav.selectOnUp.name == "Scelta Moto"
-                && colourNav.selectOnDown != null && colourNav.selectOnDown.name == "Pulsante Fatto" && doneNav.selectOnUp != null && doneNav.selectOnUp.name == "Scelta Colori");
+            var bikeNav = Row("Moto").navigation; var colourNav = Row("Colori").navigation; var outfitNav = Row("Pilota").navigation; var doneNav = Find("Pulsante Fatto").GetComponent<Selectable>().navigation;
+            Check("la croce: da 'Moto' si scende a 'Colori', a 'Pilota' e a 'Fatto', e da 'Fatto' si risale a 'Pilota'", bikeNav.selectOnDown != null && bikeNav.selectOnDown.name == "Scelta Colori" && colourNav.selectOnUp != null && colourNav.selectOnUp.name == "Scelta Moto"
+                && colourNav.selectOnDown != null && colourNav.selectOnDown.name == "Scelta Pilota" && outfitNav.selectOnUp != null && outfitNav.selectOnUp.name == "Scelta Colori"
+                && outfitNav.selectOnDown != null && outfitNav.selectOnDown.name == "Pulsante Fatto" && doneNav.selectOnUp != null && doneNav.selectOnUp.name == "Scelta Pilota");
 
             // back to the setup: the button that opened the garage is the chosen one, the setup says the bike, the showroom is off
             Call("GarageBack");
@@ -393,6 +420,8 @@ namespace PryingEyes.Pista
             bool borrowed = false;
             foreach (var r in d.race.racers) if (r != d.me && r.skin == 4) borrowed = true;
             Check("si corre con la moto e i colori del garage, e nessun avversario ha quei colori", d.me.bikeIndex == 3 && d.me.skin == 4 && !borrowed, "moto " + d.me.bikeIndex + ", livrea " + d.me.skin);
+            var myRig = d.views[d.race.racers.IndexOf(d.me)].rig;
+            Check("il pilota in gara indossa la tuta e il casco scelti nel garage, su una moto con la vernice scelta", RigWears(myRig, Livery.For(7), Livery.For(4).main), "abbigliamento " + PistaMode.Outfit);
         }
 
         /// <summary>The championship from the setup: the three cups with their calendar and field, a season and a trophy written in the book, the standings, the two-step restart, back to the setup, the cup in progress

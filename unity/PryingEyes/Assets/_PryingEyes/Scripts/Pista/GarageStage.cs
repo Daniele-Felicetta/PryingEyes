@@ -19,6 +19,8 @@ namespace PryingEyes.Pista
         /// <summary>The bike and the livery on the plate (-1 when empty).</summary>
         public int Bike { get; private set; } = -1;
         public int Skin { get; private set; } = -1;
+        /// <summary>The outfit of the rider on the plate (-1 for the leathers and the helmet of the bike's livery).</summary>
+        public int Outfit { get; private set; } = -1;
         /// <summary>For the tests: the bike put together and how many parts it has.</summary>
         public PistaBikeRig Rig { get; private set; }
         public Camera Cam { get; private set; }
@@ -100,19 +102,22 @@ namespace PryingEyes.Pista
             if (fill != null) fill.enabled = on;
         }
 
-        /// <summary>Put this bike in this livery (a skin of Livery, or -1 for the livery the bike comes in) on the plate; nothing is rebuilt when it is already there.</summary>
-        public void Show(int bikeIndex, int skin)
+        /// <summary>Put this bike in this livery (a skin of Livery, or -1 for the livery the bike comes in) on the plate, its rider in the leathers and helmet of this outfit (a skin of Livery, or -1 for the bike's
+        /// own); nothing is rebuilt when it is already there.</summary>
+        public void Show(int bikeIndex, int skin, int outfit = -1)
         {
             bikeIndex = Mathf.Clamp(bikeIndex, 0, Bikes.Count - 1);
-            if (bike != null && bikeIndex == Bike && skin == Skin) return;
+            if (bike != null && bikeIndex == Bike && skin == Skin && outfit == Outfit) return;
             if (bike != null) Destroy(bike);
             var spec = Bikes.Get(bikeIndex);
             bike = new GameObject("Moto " + spec.name);
             bike.transform.SetParent(transform, false);
-            Rig = PistaBikeMesh.Build(bike.transform, spec.meshStyle, Livery.For(skin >= 0 ? skin : spec.skin));
+            var livery = Livery.For(skin >= 0 ? skin : spec.skin);
+            if (outfit >= 0) livery = Livery.WithRider(livery, outfit);
+            Rig = PistaBikeMesh.Build(bike.transform, spec.meshStyle, livery);
             Rig.root.localScale = Vector3.one * spec.meshScale;
             foreach (var r in bike.GetComponentsInChildren<Renderer>()) { r.shadowCastingMode = ShadowCastingMode.Off; r.receiveShadows = false; }
-            Bike = bikeIndex; Skin = skin;
+            Bike = bikeIndex; Skin = skin; Outfit = outfit;
             Pose(0f);
         }
 

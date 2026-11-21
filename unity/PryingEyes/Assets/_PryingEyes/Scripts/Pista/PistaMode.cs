@@ -64,6 +64,11 @@ namespace PryingEyes.Pista
         public static int Skin { get => ArgOr("-pistaskin", "Skin", -1, -1, Livery.Count - 1); set => Save("Skin", Mathf.Clamp(value, -1, Livery.Count - 1)); }
         /// <summary>The skin the player's bike wears: the one chosen in the garage, or the bike's own.</summary>
         public static int SkinFor(int bike) { int s = Skin; return s >= 0 ? s : Bikes.Get(bike).skin; }
+        /// <summary>The leathers and the helmet of the player's own rider, chosen in the garage: -1 for the ones of the bike's livery, or those of one of the twelve liveries. Only the player's own rider wears it (a friend in a
+        /// cooperative game sees the colours of the bike).</summary>
+        public static int Outfit { get => ArgOr("-pistaoutfit", "Outfit", -1, -1, Livery.Count - 1); set => Save("Outfit", Mathf.Clamp(value, -1, Livery.Count - 1)); }
+        /// <summary>The livery the player's own bike and rider wear: the bike's, with the leathers and the helmet of the outfit chosen.</summary>
+        public static Livery RiderLivery(int skin) { var bike = Livery.For(skin); int o = Outfit; return o < 0 ? bike : Livery.WithRider(bike, o); }
 
         /// <summary>A friend's machine: the rules of the host's race (laps, bike, aids, hour) for as long as this game lasts.</summary>
         public static void Override(int laps, int bike, int aids, int hour)
