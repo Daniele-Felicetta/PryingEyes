@@ -57,6 +57,7 @@ namespace PryingEyes.Proc
             if (I != this) return;
             HotelNav.Clear();
             if (DesertMode.Active) StopDesert();
+            if (Pista.PistaMode.Active) StopPista();
             I = null;
         }
 
@@ -86,9 +87,18 @@ namespace PryingEyes.Proc
 
         /// <summary>Avvia la partita: primo piano. Lo chiama il GameManager su "Gioca". In cooperativa un ospitato la avvia con il seme e il
         /// piano dell'ospite.</summary>
-        public void StartRun(int seed = 0, int startFloor = 0, bool coopDesert = false)
+        public void StartRun(int seed = 0, int startFloor = 0, bool coopDesert = false, bool coopPista = false)
         {
             gm = GameManager.I;
+            // la modalita' su pista (FloorDirector.Pista.cs): niente stealth, niente piani; un ospitato ci entra se l'ospite gioca li'
+            if ((PistaWanted || coopPista) && startFloor <= 0 && ArgInt("-floor", 0) <= 0)
+            {
+                runSeed = seed != 0 ? seed : Pista.PistaMode.NewSeed();
+                floor = 0;
+                deaths = 0;
+                StartCoroutine(StartPistaCo(runSeed));
+                return;
+            }
             Seats.EachOrOnce(_ => StealthRig.Install());      // torcia, ping, freccia, cuore di ogni giocatore (Scripts/Stealth)
             if (HasArg("-oldplan")) PlanGen.UseGrid = false;      // le ali d'albergo e di chiesa di prima, al posto della pianta a griglia
             runSeed = seed != 0 ? seed : ArgInt("-seed", Random.Range(1, 1 << 28));

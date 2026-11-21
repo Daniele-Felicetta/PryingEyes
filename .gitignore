@@ -51,6 +51,9 @@ tools/desertlab/bin/
 tools/desertlab/obj/
 tools/saveslab/bin/
 tools/saveslab/obj/
+!tools/tracklab/TrackLab.csproj
+tools/tracklab/bin/
+tools/tracklab/obj/
 modelli/chiesa/export/*.fbx
 modelli/hotel/arredi2/*.fbx
 modelli/hotel/arredi3/*.fbx

@@ -102,6 +102,7 @@ namespace PryingEyes
             if (splitPanel.gameObject.activeSelf) { MenuSound.Back(); Show(mainPanel); return; }
             if (CharactersBack()) return;
             if (RunBack()) return;
+            if (PistaBack()) return;
             if (ModeBack()) return;
             if (coopPanel.gameObject.activeSelf) { MenuSound.Back(); CoopBack(); return; }
             if (InMenu) return;
@@ -139,6 +140,7 @@ namespace PryingEyes
             string saveLine = canSave ? "\nSe la salvi, la riprendi da questo livello con zaino, punti e armi."
                 : expedition && fd.SuspendProblem != null ? "\n" + fd.SuspendProblem : "";
             leaveNote.text = (expedition ? "Abbandoni la spedizione: perdi lo zaino come se fossi morto (le spoglie restano nel ramo). La cattedrale e il magazzino restano."
+                : Pista.PistaMode.Active ? "La gara in corso va persa. I tuoi personaggi, la cattedrale e il magazzino non cambiano."
                 : Deserto.DesertMode.Active ? "La cattedrale, il magazzino e le opere restano salvati. Il deserto si rigenera a ogni partita: punti, armi e perk di questa andranno persi."
                 : fd != null && fd.InHub ? "La cattedrale, il magazzino e le opere restano salvati." : "La partita attuale verrà chiusa. Progressi, armi e punti di questa discesa andranno persi.") + saveLine +
                 (Coop.IsHost ? "\nI compagni verranno scollegati e potranno proseguire da soli." : "");
@@ -152,7 +154,7 @@ namespace PryingEyes
         {
             if (NeedCharacter(mainPanel)) return;
             if (RunWaiting()) return;       // una spedizione sospesa: riprenderla o ricominciare (GameMenu.Run.cs)
-            ShowModes();                    // standard o deserto (GameMenu.Mode.cs)
+            ShowModes();                    // standard, deserto o su pista (GameMenu.Mode.cs)
         }
 
         void Play()
@@ -227,6 +229,7 @@ namespace PryingEyes
         {
             var gm = GameManager.I;
             if (gm == null) return "";
+            if (Pista.PistaMode.Active && Pista.PistaDirector.I != null) return Pista.PistaDirector.I.PauseText();
             int round = Proc.RoundDirector.Round, floor = Proc.FloorDirector.I != null ? Proc.FloorDirector.I.floor : 0;
             int secs = Mathf.FloorToInt(Time.timeSinceLevelLoad);
             var it = System.Globalization.CultureInfo.GetCultureInfo("it-IT");
@@ -299,6 +302,7 @@ namespace PryingEyes
             CharactersShow(p);
             RunShow(p);
             ModeShow(p);
+            PistaShow(p);
             if (system != null)
             {
                 system.SetSelectedGameObject(null);
@@ -319,7 +323,7 @@ namespace PryingEyes
             else
             {
                 var hud = GameManager.I != null && GameManager.I.hud != null ? GameManager.I.hud.GetComponent<Canvas>() : null;
-                if (hud != null) hud.enabled = !menuUp;
+                if (hud != null) hud.enabled = !menuUp && !Pista.PistaMode.Active;         // su pista l'HUD e' quello della gara (PistaHud)
             }
             bool alive = GameManager.I == null || GameManager.I.player == null || GameManager.I.player.alive;
             if (!Blocked && alive) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
@@ -403,6 +407,7 @@ namespace PryingEyes
             BuildCharacters();
             BuildRun();
             BuildMode();
+            BuildPista();
             BuildSettings();
             BuildHelp();
             BuildPadUi();

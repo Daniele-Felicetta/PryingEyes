@@ -6,6 +6,7 @@
 #                                             j il deserto in cooperativa (0.9.1: nemici per vicinanza, luoghi attorno al compagno, ora e boss),
 #                                             k il deserto e il compagno lontano esce, l processo ucciso (l'ospite prosegue da solo),
 #                                             m la moto del deserto (pe-coop-32): chi guida si vede in sella, con la sua moto, dall'altro processo, nei due versi
+#                                             n la gara su pista con un compagno (pe-coop-35), o la seconda gara con il compagno che se ne va, p l'ospite che esce a gara in corso
 # Esce con 0 solo se tutte sono superate.
 param([string[]]$Only = @(), [int]$Seed = 2961, [int]$TimeoutSec = 420, [string]$LogDir = (Join-Path $env:TEMP 'pryingeyes-coop'))
 $run = Join-Path $PSScriptRoot 'run_coop.ps1'
@@ -27,6 +28,11 @@ $tests = [ordered]@{
     l_deserto_ucciso = @{ Clients = 1; H = @('-cooptest', '-coopdeserto', '-coopcrash', '-deserto', '-catacombe', '-seed', $S); C = @('-cooptest', '-coopdeserto', '-coopcrash', '-catacombe') }
     # la moto del deserto: prima l'ospitato guida e l'ospite lo guarda, poi il contrario
     m_moto = @{ Clients = 1; H = @('-cooptest', '-coopdeserto', '-coopmoto', '-deserto', '-catacombe', '-seed', $S); C = @('-cooptest', '-coopdeserto', '-coopmoto', '-catacombe') }
+    # la moto su pista (pe-coop-35): il circuito e' quello del seme 4242 (Autodromo di Montesole, 83 s a giro con il pilota automatico); l'ospite sceglie la modalita' con -pista e da' il via da solo
+    # quando l'ospitato ha costruito il circuito (-pistacoopwait 1); n la gara intera, o_pista_ancora un'altra gara e l'ospitato che se ne va, p_pista_ospite l'ospite che esce a gara in corso
+    n_pista        = @{ Clients = 1; H = @('-pistacooptest', '-pista', '-pistabot', '-pistalaps', '1', '-pistarivals', '3', '-pistacoopwait', '1', '-seed', '4242', '-pistacoopseed', '4242', '-pistacooplaps', '1'); C = @('-pistacooptest', '-pistabot', '-pistarivals', '3', '-pistacoopseed', '4242', '-pistacooplaps', '1') }
+    o_pista_ancora = @{ Clients = 1; H = @('-pistacooptest', '-pista', '-pistabot', '-pistalaps', '1', '-pistarivals', '3', '-pistacoopwait', '1', '-seed', '4242', '-pistacoopseed', '4242', '-pistacooplaps', '1', '-pistacoopscenario', 'again'); C = @('-pistacooptest', '-pistabot', '-pistarivals', '3', '-pistacoopseed', '4242', '-pistacooplaps', '1', '-pistacoopscenario', 'again') }
+    p_pista_ospite = @{ Clients = 1; H = @('-pistacooptest', '-pista', '-pistabot', '-pistalaps', '1', '-pistarivals', '3', '-pistacoopwait', '1', '-seed', '4242', '-pistacoopseed', '4242', '-pistacooplaps', '1', '-pistacoopscenario', 'hostquits'); C = @('-pistacooptest', '-pistabot', '-pistarivals', '3', '-pistacoopseed', '4242', '-pistacooplaps', '1', '-pistacoopscenario', 'hostquits') }
 }
 # con 'powershell -File' l'elenco -Only a,c arriva come una stringa sola: la si spezza sulle virgole
 $Only = @($Only | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })

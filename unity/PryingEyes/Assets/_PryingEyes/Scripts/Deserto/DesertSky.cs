@@ -30,6 +30,8 @@ namespace PryingEyes.Deserto
         /// <summary>Il look delle stanze del gioco (FloorDirector.ApplyLook per l'albergo), a cui si torna al chiuso.</summary>
         /// <summary>Solo per le prove: la copertura delle nuvole (0..1) al posto di quella del giorno; -1 = quella normale (fase nuvole).</summary>
         public static float CloudOverride = -1f;
+        /// <summary>Quanto e' fitta la nebbia rispetto a quella dell'orologio (1 = quella del deserto): la pista la vuole piu' rada, per vedere il circuito lontano.</summary>
+        public static float FogScale = 1f;
         static readonly Color InFog = new Color(0.095f, 0.08f, 0.085f);
         static readonly Color InSky = new Color(0.065f, 0.075f, 0.105f), InEquator = new Color(0.047f, 0.047f, 0.055f), InGround = new Color(0.025f, 0.023f, 0.025f);
         const float InFogDensity = 0.030f, InExposure = -0.1f;
@@ -303,7 +305,7 @@ namespace PryingEyes.Deserto
             fogBase = fog; fogS = s; fogSand = wx.sand; fogK = k;
             if (cam != null) fog = TintFog(fogBase, cam.transform.forward);
             RenderSettings.fogColor = fog;
-            RenderSettings.fogDensity = Mathf.Lerp(s.fogDensity * wx.fogMul, InFogDensity, k);
+            RenderSettings.fogDensity = Mathf.Lerp(s.fogDensity * wx.fogMul * FogScale, InFogDensity, k);
             RenderSettings.ambientSkyColor = Color.Lerp(ToColor(s.ambientSky) * dayLight, InSky, k);
             RenderSettings.ambientEquatorColor = Color.Lerp(ToColor(s.ambientEquator) * dayLight, InEquator, k);
             RenderSettings.ambientGroundColor = Color.Lerp(ToColor(s.ambientGround) * dayLight, InGround, k);
