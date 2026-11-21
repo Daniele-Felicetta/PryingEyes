@@ -22,7 +22,7 @@ namespace PryingEyes.Pista
         Text posText, lapText, timeText, bestText, lastText, aheadText, behindText, kmhText, unitText, gearText, gearLabel, bannerText, bannerSub, warnText, hintText, aidAbs, aidTc, trackText, speedMeta, statusText;
         Image statusBack;
         Image[] rpmSegs, draftSegs;
-        Text draftLabel, styleLabel, deltaText, recordText;
+        Text draftLabel, styleLabel, deltaText, recordText, licenceGoals;
         RectTransform weightDot;
         Image[] lamps;
         RectTransform lampRow;
@@ -36,7 +36,8 @@ namespace PryingEyes.Pista
         Texture2D mapTexture;
         // results
         RectTransform results;
-        Text resultsTitle, resultsSub, resultsHint;
+        Text resultsTitle, resultsSub, resultsHint, licenceTitle;
+        Text[] licenceLines;
         Text[][] rows;
         const int MaxRows = 16;
         // state
@@ -187,6 +188,7 @@ namespace PryingEyes.Pista
             bestText = Label(rt, "Migliore", tl, tl, new Vector2(30f, -192f), new Vector2(360f, 26f), 20, TextAnchor.UpperLeft, Dim, "", FontStyle.Normal);
             lastText = Label(rt, "Ultimo", tl, tl, new Vector2(30f, -216f), new Vector2(360f, 26f), 20, TextAnchor.UpperLeft, Dim, "", FontStyle.Normal);
             recordText = Label(rt, "Record", tl, tl, new Vector2(30f, -240f), new Vector2(360f, 26f), 20, TextAnchor.UpperLeft, new Color(0.78f, 0.52f, 1f), "", FontStyle.Normal);
+            licenceGoals = Label(rt, "Medaglie", tl, tl, new Vector2(30f, -264f), new Vector2(360f, 26f), 20, TextAnchor.UpperLeft, Dim, "", FontStyle.Bold, true, true);
             deltaText = Label(rt, "Scarto", tl, tl, new Vector2(232f, -146f), new Vector2(110f, 40f), 32, TextAnchor.UpperLeft, Ink, "", FontStyle.Bold);
 
             // top centre: the lights of the start and the gaps
@@ -287,7 +289,43 @@ namespace PryingEyes.Pista
                 rows[i][3] = Label(results, "Giro" + i, tl, tl, new Vector2(xs[3], y), new Vector2(150f, 26f), 21, TextAnchor.UpperLeft, Dim, "", FontStyle.Normal, false);
             }
             resultsHint = Label(results, "Comandi", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(820f, 30f), 19, TextAnchor.LowerCenter, Amber, "", FontStyle.Bold, false);
+            // the verdict of a licence test, under the table: the medal in big letters and four lines (hidden in an ordinary race)
+            licenceTitle = Label(results, "PatenteMedaglia", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -226f), new Vector2(800f, 70f), 56, TextAnchor.UpperCenter, Amber, "", FontStyle.Bold);
+            licenceLines = new Text[4];
+            for (int i = 0; i < licenceLines.Length; i++)
+            {
+                licenceLines[i] = Label(results, "PatenteRiga" + i, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -304f - i * 34f), new Vector2(820f, 30f), i == 0 ? 24 : 20, TextAnchor.UpperCenter,
+                    i == 0 ? Ink : i == 3 ? Amber : Dim, "", i == 0 ? FontStyle.Bold : FontStyle.Normal, false);
+                licenceLines[i].gameObject.SetActive(false);
+            }
+            licenceTitle.gameObject.SetActive(false);
             results.gameObject.SetActive(false);
+        }
+
+        /// <summary>The verdict of a licence test under the table of results: the medal (an empty title hides all of it) and up to four lines.</summary>
+        public void SetLicence(string title, Color color, params string[] lines)
+        {
+            if (licenceTitle == null) return;
+            bool on = !string.IsNullOrEmpty(title);
+            licenceTitle.gameObject.SetActive(on);
+            licenceTitle.text = on ? title : ""; licenceTitle.color = color;
+            for (int i = 0; i < licenceLines.Length; i++)
+            {
+                bool has = on && lines != null && i < lines.Length && !string.IsNullOrEmpty(lines[i]);
+                licenceLines[i].gameObject.SetActive(has);
+                licenceLines[i].text = has ? lines[i] : "";
+            }
+        }
+
+        /// <summary>For the tests: what the medal of the verdict and the title of the table of results say (the medal is empty when the verdict is hidden).</summary>
+        public string LicenceTitleText { get { return licenceTitle != null && licenceTitle.gameObject.activeSelf ? licenceTitle.text : ""; } }
+        public string ResultsTitleText { get { return resultsTitle != null ? resultsTitle.text : ""; } }
+
+        /// <summary>The big line of the table of results ("HAI VINTO", "ARRIVO 3°"), replaced when the race is not a race (a licence test).</summary>
+        public void SetResultsTitle(string text)
+        {
+            if (resultsTitle == null) return;
+            resultsTitle.text = text; resultsTitle.color = Ink;
         }
 
         // ------------------------------------------------------------------ the loading screen
@@ -388,6 +426,10 @@ namespace PryingEyes.Pista
 
         /// <summary>The line under the times about the record the ghost is the picture of; empty hides it.</summary>
         public void SetRecord(string text) { if (recordText != null) recordText.text = text ?? ""; }
+
+        /// <summary>A licence test: the three times to beat under the record, each in the colour of its medal (rich text; empty hides the line).</summary>
+        public void SetLicenceGoals(string richText) { if (licenceGoals != null) licenceGoals.text = richText ?? ""; }
+        public string LicenceGoalsText { get { return licenceGoals != null ? licenceGoals.text : ""; } }
 
         public static string Clock(float s)
         {
@@ -547,6 +589,7 @@ namespace PryingEyes.Pista
         public void HideResults()
         {
             ResultsShown = false;
+            SetLicence(null, Color.white);
             if (results != null) results.gameObject.SetActive(false);
             if (mapRect != null) mapRect.gameObject.SetActive(true);
             if (trackText != null) trackText.gameObject.SetActive(true);

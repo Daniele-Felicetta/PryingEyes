@@ -254,9 +254,15 @@ namespace PryingEyes.Pista
                     if (d.sqrMagnitude < 1e-4f) d = Vector3.forward;
                     var want = Quaternion.LookRotation(d.normalized, Vector3.up);
                     bool smooth = s.kind == ShotKind.Pan || s.kind == ShotKind.Grid || s.kind == ShotKind.Finish;
-                    // a long lens follows the rider with a human's lag; a fixed camera, a helicopter and a paused picture are exact
+                    // a long lens follows the rider with a human's lag, but an operator does not lose him: the lag goes when the lens is nearly off him (the pass of a narrow picture; the test of the cameras
+                    // measured a fifth of the frames of the pan cameras without the rider with the plain lag); a fixed camera, a helicopter and a paused picture are exact
                     if (!camRotInit || !smooth || replayPaused) { camRot = want; camRotInit = true; }
-                    else camRot = Quaternion.Slerp(camRot, want, 1f - Mathf.Exp(-18f * dt));
+                    else
+                    {
+                        float err = Quaternion.Angle(camRot, want), limit = Mathf.Max(0.6f, 0.15f * p.fov);
+                        float rate = 18f * (1f + 6f * Mathf.Max(0f, err / limit - 1f));
+                        camRot = Quaternion.Slerp(camRot, want, 1f - Mathf.Exp(-rate * dt));
+                    }
                     cam.cam.transform.SetPositionAndRotation(pos, camRot);
                     cam.cam.fieldOfView = p.fov;
                 }

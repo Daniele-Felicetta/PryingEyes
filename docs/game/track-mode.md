@@ -3,11 +3,11 @@
 The third way to play, chosen in the menu next to the standard game and the desert: a motorcycle race on a circuit that the game draws from a
 seed, against computer riders or with up to three friends, on a physics model that behaves like a real bike (it leans, slides, wheelies, runs wide
 and falls), with a garage of nine bikes in six classes, three riding styles, a body that shifts on the seat, a slipstream, the best lap kept as a ghost, twelve
-named circuits, a map that shows every rider as a dot, and a television replay of the race with a camera for the photographs. The goal that started it was "the
+named circuits, a map that shows every rider as a dot, a television replay of the race with a camera for the photographs, and nine licence tests with bronze, silver and gold medals. The goal that started it was "the
 closest thing to Tourist Trophy": a simulation to be learned, not the arcade riding of the desert's motorbike, which is left as it is ([the-desert.md](the-desert.md#the-motorbike)).
 
-Written on 21 November 2026 on the branch `claude/moto-pista-mode-1435d9`, in two rounds the same day (the mode, then everything that came after it with the
-aim of being as close to Tourist Trophy as it can get). Nobody has ridden it by hand yet: every statement below comes from the code, from the rules lab and from the
+Written on 21 November 2026 on the branch `claude/moto-pista-mode-1435d9`, in three rounds the same day (the mode, then everything that came after it with the
+aim of being as close to Tourist Trophy as it can get, then the licence tests). Nobody has ridden it by hand yet: every statement below comes from the code, from the rules lab and from the
 headless runs listed under "How it is checked", and what no run covers says "(not verified)".
 
 ## How to play
@@ -26,7 +26,7 @@ circuit that will be raced; `Altra pista` draws another one. The rows are rememb
 | `Aiuti alla guida` | `Completi` (ABS, traction control, anti-wheelie, anti-stoppie, automatic gears, lean assist), `Sportivi` (default: ABS, traction control, anti-wheelie, anti-stoppie, automatic gears; the lean is yours), `Nessuno` (only ABS; manual gears `E` / `Q`) |
 | `Ora del giorno` | `Mattino`, `Mezzogiorno` (default), `Pomeriggio`: the sky of the desert, frozen at that hour |
 
-`Via!` starts. From the hosting path (`Ospita una partita`) the same panel opens and `Via!` opens the door for friends instead (see "Co-op").
+`Patenti` at the top right opens the licence tests (see below). `Via!` starts. From the hosting path (`Ospita una partita`) the same panel opens and `Via!` opens the door for friends instead (see "Co-op").
 Split screen on one PC does not offer this mode: its button is disabled there.
 
 A race is: the grid and a flight of the camera, five red lights one second apart, then dark after a random hold; laps counted by timing loops every
@@ -143,6 +143,33 @@ Every lap of the player is timed against itself: a trace (the clock against the 
 folder (`pista/fantasma-<seed>-<bike>-<kind>.bin`), so it is still there tomorrow; a circuit of one kind remembers nothing. A damaged, truncated or foreign file is ignored (the lab feeds 213 truncated copies of a real one and none is accepted), and **the automated runs never read or write the
 player's files**. A lap that ends in a fall is not kept.
 
+## The licence tests
+
+`Patenti`, the button at the top right of the setup panel, opens nine tests in three licences, named like the categories of a real motorcycle licence: **A1** (the small bikes: a 125, all the aids, at noon), **A2** (the middle ones, 600 to 750,
+the sporty aids, in the morning) and **A** (the big ones, 1000 to 1300, the sporty aids, in the afternoon). Each test fixes the bike, the circuit (a named one), the aids, the hour of the day, three laps and nobody else on the track, and
+they are not locked: any can be taken at any time. A click or `INVIO` starts it, and what the setup panel had chosen is put aside until the game is over. It is for one player: the button is not there when hosting a co-op game.
+
+The lap that counts is the fastest **flying lap with no fall in it**. The first lap starts from the grid and never counts, and a lap with a fall is left out; with three laps there are two chances, so one mistake can be made up for. The three times to beat stay on the screen under the record line, each in the
+colour of its medal; the banner at the end of a lap says the medal it earned (or why it did not count), and the table of results says `PROVA FINITA` with the medal in big letters, the three times, how many seconds would earn the next medal, the best time of the book and, when the third test of a licence has just got a medal, the licence (`PATENTE A1 OTTENUTA`).
+On the results `INVIO` / `A` is the same test again (there is no new circuit to ask for). The best time of every test is kept in the preferences of the player, as one line of text, and the medal is worked out from it, so it follows the targets; the automated runs keep their book in memory only.
+A licence is obtained when its three tests have a medal.
+
+| Licence | Test | Bike | Circuit | Aids, hour | Gold | Silver | Bronze |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A1 | `a1-1` Il primo giro | Scintilla 125 | Autodromo di Montesole (2.7 km) | Completi, Mezzogiorno | 1:25.5 | 1:31.0 | 1:40.5 |
+| A1 | `a1-2` Tornanti | Scintilla 125 | Anello dei Cipressi (2.9 km) | Completi, Mezzogiorno | 1:48.0 | 1:55.0 | 2:07.5 |
+| A1 | `a1-3` Saliscendi | Scintilla 125 | Pista di Valle Alta (2.8 km) | Completi, Mezzogiorno | 1:35.5 | 1:41.5 | 1:52.5 |
+| A2 | `a2-1` Il rettilineo | Argo 600 | Circuito dei Tre Ponti (2.9 km) | Sportivi, Mattino | 1:30.0 | 1:35.5 | 1:45.5 |
+| A2 | `a2-2` In salita | Tigre 675 | Circuito del Vento (2.9 km) | Sportivi, Mattino | 1:45.5 | 1:52.5 | 2:04.5 |
+| A2 | `a2-3` Corta e veloce | Vigile 750 | Autodromo del Faro (2.5 km) | Sportivi, Mattino | 1:14.5 | 1:19.0 | 1:27.5 |
+| A | `a-1` Oltre 850 metri | Argo 1000 | Autodromo della Rocca (3.2 km) | Sportivi, Pomeriggio | 1:37.5 | 1:44.0 | 1:54.5 |
+| A | `a-2` Quindici tornanti | Duca 1200 | Pista della Gola (3.1 km) | Sportivi, Pomeriggio | 1:54.5 | 2:01.5 | 2:14.5 |
+| A | `a-3` La pista di punta | Gigante 1300 | Pista di San Gaudenzio (4.1 km) | Sportivi, Pomeriggio | 2:09.5 | 2:18.0 | 2:32.5 |
+
+Gold, silver and bronze ask for 1.08, 1.15 and 1.27 times the lap that the racing line of the computer riders plans for that bike on that circuit, rounded to the half second. The lab checks that a computer rider at full pace earns gold on every test, one at 0.97 of it silver or better and
+a beginner (0.90) bronze and never gold, without a fall (full pace is 1.02 to 1.05 times the plan, 0.97 is 1.05 to 1.08, 0.90 is 1.13 to 1.16), so a medal is always within reach of a rider who knows the circuit, and that a change of the physics or of the generator that
+moves the plan is noticed. Whether a *person* can reach them, and how hard the gold is, is not verified: nobody has ridden them by hand.
+
 ## Replay and photographs
 
 When a race is over the results offer `T` (`Y`): the race is played back from a tape recorded while it was ridden (20 poses a second for every rider and the distance along the race as the rules saw it, at most 18,000 frames: fifteen minutes), and every bike stands where the tape says, at every frame, whatever the camera.
@@ -195,28 +222,29 @@ The map shows a dot for every rider; a friend has the colour of their bike and a
 
 | What | Where (`unity/PryingEyes/Assets/_PryingEyes/Scripts/`) |
 | --- | --- |
-| The pure core, with no `UnityEngine` (compiled by the lab from the same paths) | `Pista/PistaMath.cs`, `BikeSpec.cs`, `BikeModel.cs`, `Circuit.cs`, `CircuitGen.cs`, `Catalogue.cs`, `RacingLine.cs`, `BikeDriver.cs`, `RaceRules.cs`, `PoseTape.cs` (the tapes and the ghost files), `EngineSynth.cs` (the voices), `RaceReplay.cs` (the recording, the edit and the cameras) |
-| The shell in the game | `Pista/PistaDirector*.cs` (the race, its setup, the co-op, the timing, the replay), `PistaWorld*.cs`, `PistaBikeMesh.cs`, `PistaBikeView.cs`, `PistaCamera.cs`, `PistaHud.cs`, `PistaReplayUi.cs`, `PistaMap.cs`, `PistaInput.cs`, `PistaSound.cs`, `PistaRecords.cs`, `PistaMode.cs`, `PistaNet.cs` |
-| The way in | `GameMenu.Mode.cs` (the three modes), `GameMenu.Pista.cs` (the setup panel), `Proc/FloorDirector.Pista.cs` (the start from the game's director), `Coop/CoopGame.Pista.cs` (the host's side) |
+| The pure core, with no `UnityEngine` (compiled by the lab from the same paths) | `Pista/PistaMath.cs`, `BikeSpec.cs`, `BikeModel.cs`, `Circuit.cs`, `CircuitGen.cs`, `Catalogue.cs`, `RacingLine.cs`, `BikeDriver.cs`, `RaceRules.cs`, `PoseTape.cs` (the tapes and the ghost files), `EngineSynth.cs` (the voices), `RaceReplay.cs` (the recording, the edit and the cameras), `Licences.cs` (the nine tests, the medals, the book of times) |
+| The shell in the game | `Pista/PistaDirector*.cs` (the race, its setup, the co-op, the timing, the replay), `PistaWorld*.cs`, `PistaBikeMesh.cs`, `PistaBikeView.cs`, `PistaCamera.cs`, `PistaHud.cs`, `PistaReplayUi.cs`, `PistaMap.cs`, `PistaInput.cs`, `PistaSound.cs`, `PistaRecords.cs`, `PistaLicences.cs` (the book in the preferences), `PistaMode.cs`, `PistaNet.cs`; the licence tests in the race are `PistaDirector.Licence.cs` |
+| The way in | `GameMenu.Mode.cs` (the three modes), `GameMenu.Pista.cs` (the setup panel), `GameMenu.Licence.cs` (the licence panel), `Proc/FloorDirector.Pista.cs` (the start from the game's director), `Coop/CoopGame.Pista.cs` (the host's side) |
 | The checks | `tools/tracklab` (the rules lab: `Program.cs` and one file of checks per group), `Pista/PistaTest.cs`, `PistaMenuTest.cs`, `PistaCoopTest.cs` |
 
 ## How it is checked
 
 Run on 21 November 2026 on this PC, headless (`-batchmode`, and `-nographics` in the co-op runs), no exception in any log.
 
-- **The rules lab**, `python tools/studio.py test track` (also `dotnet run -c Release --project tools/tracklab`, and part of the CI gate): 119 of 119 checks in nine groups (`--only` takes the name of one): `bike` (25: power, gearing,
+- **The rules lab**, `python tools/studio.py test track` (also `dotnet run -c Release --project tools/tracklab`, and part of the CI gate): 129 of 129 checks in ten groups (`--only` takes the name of one): `bike` (25: power, gearing,
   acceleration, braking, ABS, wheelies and stoppies, steady turns, the grip limit, crests, surfaces, determinism), `circuit` (13: forty seeds, closure, grade, run-off, the twenty grid places), `race` (11: the racing line, the
   riders, a full grid, the lights, falls, gaps, wrong way), `coop` (10: a friend as a pose is ranked and awaited, the host's word ends the race and its order wins, a leaver does not block the end and is last, a newcomer
   takes the next place, a lost connection ends the race), `rider` (10: the three riding styles, the body shift and the slipstream), `timing` (12: the trace and the delta, the tapes, the ghost files and the twelve circuits), `roster` (14: the nine
-  bikes, their classes, their numbers, their brakes, a clean lap each), `sound` (8: the voices are finite, loud, balanced, rich in harmonics, close without a click and different) and `replay` (16: the recording, the falls found, the
-  edit that covers the race without a gap, starts on the grid and ends at the line, cuts to every fall, never shows the same camera on the same rider twice in a row, is the same twice and different for another seed, and the cameras: beside the road and not on it, the rider at a good size, the low camera near and seeing the rider come, no NaN).
-- **In the game, alone**: `-autotest -pistatest -pistabot -pistalaps 1 -pistarivals 5 -seed 777` (add `-nographics` to run it without a window): 63 of 63 in about 80 s. It starts a race by the same path as the menu and checks the scene (the player on foot
+  bikes, their classes, their numbers, their brakes, a clean lap each), `sound` (8: the voices are finite, loud, balanced, rich in harmonics, close without a click and different), `replay` (16: the recording, the falls found, the
+  edit that covers the race without a gap, starts on the grid and ends at the line, cuts to every fall, never shows the same camera on the same rider twice in a row, is the same twice and different for another seed, and the cameras: beside the road and not on it, the rider at a good size, the low camera near and seeing the rider come, no NaN)
+  and `licence` (10: nine well-formed tests with the targets in order and 1.08 / 1.15 / 1.27 times the planned lap, a computer rider earning gold, silver and bronze without a fall, the edges of a medal, only a clean flying lap counting, the book keeping the best, coming back from the preferences on a machine with decimal commas and surviving damaged text).
+- **In the game, alone**: `-autotest -pistatest -pistabot -pistalaps 1 -pistarivals 5 -seed 777` (add `-nographics` to run it without a window): 73 of 73 in about 145 s. It starts a race by the same path as the menu and checks the scene (the player on foot
   and the usual HUD are off, the race camera and the sky are up, the road is not under the plain), the grid, the five lights, the start, a whole race ridden by the computer on the player's bike, the slipstream, the finish, the table of results, the ghost
   of the lap just ridden in the race after, a new race on the same circuit and one on a new circuit, the replay (recorded, started, edited, cameras by hand, rider by rider, pause, jump, speed, the end, back to the results with every bike free again), the five engines and the nine bikes,
-  and the messages of the co-op (a pose, the roster and the results go through the wire unchanged, a short or hostile message is refused). With `-pistashots` (it needs a graphics device, 64 of 64) it also photographs the grid, the start, the
-  three views, the results, the nine bikes in the paddock, every camera of the replay and a lap of the television in eight places, with the circuit from above, into `hotel_build/prove/pista`, and saves one replay photograph in the cache.
+  the messages of the co-op (a pose, the roster and the results go through the wire unchanged, a short or hostile message is refused), and last a licence test by the real path (its circuit, bike, three laps and nobody else, the three times on the screen, the medal of the best clean flying lap, the book, the verdict on the table, the same test again). With `-pistashots` (it needs a graphics device, 74 of 74) it also photographs the grid, the start, the
+  three views, the results, the nine bikes in the paddock, every camera of the replay and a lap of the television in eight places, with the circuit from above, and a licence test under way and its verdict, into `hotel_build/prove/pista`, and saves one replay photograph in the cache.
 - **From the menu**: `-pistamenutest` (without `-autotest`, which has no menu): 38 of 38 in 6 s: `Gioca`, the three modes, the setup panel with the circuit, the rows stepping (the nine bikes, the styles, the named circuits), `Altra pista`, back and forward without losing the choices, `Via!` on
-  that very circuit with the chosen laps, rivals and bike. It touches no preferences.
+  that very circuit with the chosen laps, rivals and bike. It touches no preferences. With `-pistamenulicence` the same way in goes to the licence panel (28 of 28 in 6 s): the `Patenti` button and the cross that reaches it, the nine tests with their bikes, the line under the one chosen, the cross, the medals of a book made on purpose (a licence obtained), back with the button still chosen, and a click that starts a test with the rules of the test over the choices of the setup.
 - **Two processes, over loopback**, `tools/coop/run_coop.ps1` (host `-coophost`, friend `-coopjoin`; the host's arguments `-pistacooptest -pista -pistabot -pistalaps 1 -pistarivals 3 -pistacoopwait 1 -seed 4242 -pistacoopseed 4242 -pistacooplaps 1`, the friend's
   `-pistacooptest -pistabot -pistarivals 3 -pistacoopseed 4242 -pistacooplaps 1`, plus `-pistacoopscenario` and the name of a scenario on both):
   - `race` (default): the friend has the host's circuit, laps and roster (itself, the host, three computer riders), the go comes from the host, everybody moves, and the race ends with the host's results, in the same order on both sides.
@@ -233,4 +261,5 @@ Run on 21 November 2026 on this PC, headless (`-batchmode`, and `-nographics` in
 - The way into a co-op race through the menu (`Ospita una partita`, `Su pista`, `Via!`) is read from the code but no test walks it: the co-op runs choose the mode with `-pista`.
 - Split screen on one PC does not offer this mode.
 - The desert's motorbike was not changed: the new bike model, mesh and sound belong to this mode alone. Whether the desert should use them is a decision for the developer.
-- What the mode keeps: the ghosts of the best laps on the named circuits, in files of their own. It has no saves of characters, no points and no unlocks; a licence test, a career or a tuning shop (Tourist Trophy has them) is not made.
+- The medal times of the licence tests are tied to the racing line of the computer riders and checked against computer riders only; whether a person can reach silver and gold, and whether three laps are the right number, is not known.
+- What the mode keeps: the ghosts of the best laps on the named circuits, in files of their own, and the book of licence times, one line of text in the preferences. It has no saves of characters, no points and no unlocks, and nothing is locked behind a licence; a career or a tuning shop (Tourist Trophy has them) is not made.

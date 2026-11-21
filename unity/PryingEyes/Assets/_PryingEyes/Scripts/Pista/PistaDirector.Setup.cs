@@ -100,6 +100,7 @@ namespace PryingEyes.Pista
             hud.BuildMap(circuit, race.racers.Count, circuit.name + "  -  " + km);
             hud.HideResults();
             TimingBegin();
+            LicenceBegin();
             if (PistaMode.HasArg("-pistabot"))
             {
                 autopilot = new BikeDriver(me.bike, circuit, race.LineFor(me.bikeIndex), seed ^ 0x3131) { pace = 0.97f, mistakes = 0.02f };
@@ -115,6 +116,7 @@ namespace PryingEyes.Pista
             if (!again) hud.SetHints(HintText(), 16f);
             hud.HideLoading();
             hud.Banner(circuit.name, race.laps + (race.laps == 1 ? " giro" : " giri") + "   -   " + race.racers.Count + " piloti   -   " + Bikes.Get(me.bikeIndex).name, 3.4f);
+            if (licence != null) hud.Banner(Licences.Names[licence.test.licence] + "  -  " + licence.test.name, circuit.name + "   -   " + Bikes.Get(me.bikeIndex).name + "   -   per l'oro " + PistaHud.Clock(licence.test.gold), 4.2f, LicenceColor(Medal.Gold));
             RaceCount++;
             Ready = true;
             Debug.Log($"[PryingEyes] pista: seme {seed}, {circuit.name}, {circuit.length:F0} m, {race.racers.Count} piloti, {race.laps} giri" + (coopRace ? (Coop.IsHost ? ", ospite" : ", ospitato") : ""));

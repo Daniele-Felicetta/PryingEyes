@@ -12,7 +12,8 @@ namespace PryingEyes.Pista
     /// <summary>-pistamenutest [-pistashots] (WITHOUT -autotest, which has no menu; in -batchmode the characters are the test ones and the preferences are not touched): the way into a race from the menu.
     /// "Gioca" asks how to play with three modes, "Su pista" opens the setup panel (the "Via!" button selected, a picture of the circuit that will be raced), the rows step and the values show, the
     /// circuit picture follows "Altra pista", up and down walk the whole screen, Esc / B go back to the modes with "Su pista" still selected, the circuit and the choices are still there when the panel
-    /// is opened again, and "Via!" starts the race on that very circuit with the laps, the rivals and the bike that were chosen.</summary>
+    /// is opened again, and "Via!" starts the race on that very circuit with the laps, the rivals and the bike that were chosen. With -pistamenulicence the same way in goes to the licence panel instead:
+    /// the "Patenti" button, the nine tests with their bikes and medals, the line under the one chosen, the cross, the book of times, back, and the click that starts a test with the rules of that test.</summary>
     public sealed class PistaMenuTest : MonoBehaviour
     {
         int checks, failed, errors;
@@ -98,6 +99,7 @@ namespace PryingEyes.Pista
         {
             yield return WaitFor(() => GameMenu.I != null && GameMenu.InMenu, 60f);
             menu = GameMenu.I;
+            bool licenceFlow = PistaMode.HasArg("-pistamenulicence");
             if (!Check2("il menu principale e' aperto", menu != null && GameMenu.InMenu && Open("mainPanel"))) yield break;
             yield return null;
 
@@ -128,6 +130,7 @@ namespace PryingEyes.Pista
             Check("le righe dicono i valori ricordati", Value("Giri") == (PistaMode.Laps == 1 ? "1 giro" : PistaMode.Laps + " giri") && Value("Livello") == PistaMode.RankNames[PistaMode.Rank] && Value("Moto") == Bikes.Get(PistaMode.Bike).name,
                 Value("Giri") + ", " + Value("Livello") + ", " + Value("Moto"));
             if (shots) yield return Shot("menu_2_preparazione");
+            if (licenceFlow) { yield return LicenceFlow(); yield break; }
 
             // ---- the rows step
             int laps0 = PistaMode.Laps;
@@ -183,7 +186,7 @@ namespace PryingEyes.Pista
             Check("la croce in alto dal 'Via!' porta a 'Altra pista', e da li' all'ultima scelta", goNav.selectOnUp != null && goNav.selectOnUp.name == "Pulsante Altra pista" && otherNav.selectOnUp != null && otherNav.selectOnUp.name == "Scelta Ora del giorno",
                 (goNav.selectOnUp != null ? goNav.selectOnUp.name : "-") + ", " + (otherNav.selectOnUp != null ? otherNav.selectOnUp.name : "-"));
             var firstNav = Row("Circuito").navigation;
-            Check("e dalla prima scelta si scende alla seconda", firstNav.selectOnDown != null && firstNav.selectOnDown.name == "Scelta Giri" && firstNav.selectOnUp == null);
+            Check("e dalla prima scelta si scende alla seconda e si sale a 'Patenti'", firstNav.selectOnDown != null && firstNav.selectOnDown.name == "Scelta Giri" && firstNav.selectOnUp != null && firstNav.selectOnUp.name == "Pulsante Patenti");
 
             // ---- back to the modes
             Call("PistaBack");
@@ -207,6 +210,95 @@ namespace PryingEyes.Pista
             Check("il menu non blocca i comandi della gara", !GameMenu.Blocked);
             if (shots) yield return Shot("menu_4_gara");
         }
+
+        /// <summary>The licence panel from the setup, and a test started from it.</summary>
+        IEnumerator LicenceFlow()
+        {
+            PistaLicences.ForgetAll();
+            // the player's own choices, all different from what the test will ask for: the test must win
+            PistaMode.Bike = 1; PistaMode.Aids = 0; PistaMode.Laps = 5; PistaMode.Rivals = 7; PistaMode.HourChoice = 1;
+            var open = Find("Pulsante Patenti");
+            var up = Row("Circuito").navigation.selectOnUp;
+            Check("la preparazione ha il pulsante 'Patenti' e la croce ci sale dalla prima scelta", open != null && up != null && up.gameObject == open, up != null ? up.name : "-");
+            if (open == null) yield break;
+            EventSystem.current.SetSelectedGameObject(open);           // a click or a press leaves the button selected, as here
+            open.GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            Check("'Patenti' apre le patenti e chiude la preparazione", Open("licencePanel") && !Open("pistaPanel"));
+            string bad = "";
+            for (int i = 0; i < Licences.Count; i++)
+            {
+                var t = Licences.All[i];
+                var cell = Find("Prova " + (i + 1));
+                if (cell == null) { bad += " manca" + (i + 1); continue; }
+                string name = CellText(cell, "Nome"), bike = CellText(cell, "Moto"), medal = CellText(cell, "Medaglia"), time = CellText(cell, "Tempo");
+                if (!name.EndsWith(t.name) || bike != Bikes.Get(t.bike).name || medal != "" || time != "da fare") bad += " " + (i + 1) + "[" + name + "|" + bike + "|" + medal + "|" + time + "]";
+            }
+            Check("ci sono nove prove, ognuna con il suo nome e la sua moto, e nessuna medaglia ancora", bad.Length == 0, bad);
+            bool heads = true;
+            for (int l = 0; l < Licences.Names.Length; l++) heads &= Text("Intestazione " + (l + 1)) == Licences.Names[l] && Text("Stato " + (l + 1)) == "0 su 3";
+            Check("le tre patenti hanno il loro nome e '0 su 3'", heads, Text("Intestazione 1") + " " + Text("Stato 1"));
+            var first = Licences.All[0];
+            Check("la prima prova senza medaglia e' gia' scelta e sotto si legge cosa chiede", Sel == "Prova 1" && Text("Dettaglio") == first.brief && Text("Dettaglio tempi").Contains(CircuitGen.Generate(first.Seed).name)
+                && Text("Dettaglio tempi").Contains("Oro " + PistaHud.Clock(first.gold)), Sel + " / " + Text("Dettaglio tempi"));
+            if (shots) yield return Shot("menu_5_patenti");
+
+            var n1 = Find("Prova 1").GetComponent<Selectable>().navigation;
+            var n9 = Find("Prova 9").GetComponent<Selectable>().navigation;
+            var back = Find("Pulsante Indietro").GetComponent<Selectable>().navigation;
+            Check("la croce: destra passa alla prova dopo, giu' alla patente dopo, dall'ultima all''Indietro' e da li' si risale",
+                n1.selectOnRight != null && n1.selectOnRight.name == "Prova 2" && n1.selectOnDown != null && n1.selectOnDown.name == "Prova 4" && n1.selectOnUp == null && n1.selectOnLeft == null
+                && n9.selectOnDown != null && n9.selectOnDown.name == "Pulsante Indietro" && n9.selectOnRight == null && back.selectOnUp != null && back.selectOnUp.name == "Prova 8");
+            EventSystem.current.SetSelectedGameObject(Find("Prova 5"));
+            yield return null;
+            var fifth = Licences.All[4];
+            Check("scegliere un'altra prova cambia la riga sotto", Text("Dettaglio") == fifth.brief && Text("Dettaglio tempi").Contains("aiuti " + PistaMode.AidNames[fifth.aids].ToLowerInvariant()), Text("Dettaglio"));
+
+            // the book: a gold, a silver and a bronze in the first licence (so it is obtained), and a time too slow for a medal in the second
+            PistaLicences.Submit(0, Licences.All[0].gold - 0.5f);
+            PistaLicences.Submit(1, Licences.All[1].silver - 0.5f);
+            PistaLicences.Submit(2, Licences.All[2].bronze - 0.5f);
+            PistaLicences.Submit(3, Licences.All[3].bronze + 8f);
+            Call("RefreshLicences");
+            yield return null;
+            var c1 = Find("Prova 1").transform.Find("Medaglia").GetComponent<Text>();
+            Check("le medaglie del libro sono sulle prove, ognuna del suo colore, e un tempo senza medaglia si legge lo stesso",
+                CellText(Find("Prova 1"), "Medaglia") == "ORO" && CellText(Find("Prova 2"), "Medaglia") == "ARGENTO" && CellText(Find("Prova 3"), "Medaglia") == "BRONZO" && CellText(Find("Prova 4"), "Medaglia") == ""
+                && c1.color == PistaDirector.LicenceColor(Medal.Gold).Value && CellText(Find("Prova 4"), "Tempo") == PistaHud.Clock(Licences.All[3].bronze + 8f) && CellText(Find("Prova 1"), "Tempo") == PistaHud.Clock(Licences.All[0].gold - 0.5f),
+                CellText(Find("Prova 1"), "Medaglia") + " " + CellText(Find("Prova 2"), "Medaglia") + " " + CellText(Find("Prova 3"), "Medaglia") + " " + CellText(Find("Prova 4"), "Tempo"));
+            Check("la prima patente e' ottenuta, la seconda no, e il riepilogo conta le medaglie", Text("Stato 1") == "OTTENUTA" && Text("Stato 2") == "0 su 3" && Text("Riepilogo") == "Patenti 1/3   -   Oro 1   Argento 1   Bronzo 1", Text("Stato 1") + " / " + Text("Stato 2") + " / " + Text("Riepilogo"));
+            if (shots) yield return Shot("menu_6_patenti_medaglie");
+
+            // back to the setup (the button that opened the licences is still the chosen one), and open them again: the first test without a medal is chosen
+            Call("LicenceBack");
+            yield return null; yield return null;
+            Check("indietro porta alla preparazione con il pulsante 'Patenti' ancora scelto", Open("pistaPanel") && !Open("licencePanel") && Sel == "Pulsante Patenti", Sel);
+            EventSystem.current.SetSelectedGameObject(Find("Pulsante Patenti"));
+            Find("Pulsante Patenti").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            Check("riaprendole e' scelta la prima prova senza medaglia", Open("licencePanel") && Sel == "Prova 4", Sel);
+
+            // a click starts the test: its circuit, bike, aids, hour and three laps win over the choices of the setup, and nobody else is on the grid
+            const int index = 4;
+            var test = Licences.All[index];
+            EventSystem.current.SetSelectedGameObject(Find("Prova " + (index + 1)));
+            Find("Prova " + (index + 1)).GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            Check("un clic su una prova toglie il menu e la partita e' su pista", !GameMenu.InMenu && PistaMode.Requested && PistaMode.Licence == index, "prova " + PistaMode.Licence);
+            yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
+            var d = PistaDirector.I;
+            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            yield return null;
+            Check("si corre sul circuito della prova, con la sua moto, tre giri e nessun avversario (le scelte della preparazione non contano)",
+                d.seed == test.Seed && d.me.bikeIndex == test.bike && d.race.laps == Licences.Laps && d.race.racers.Count == 1,
+                "seme " + d.seed + " (prova " + test.Seed + "), moto " + d.me.bikeIndex + " (" + test.bike + "), " + d.race.laps + " giri, " + d.race.racers.Count + " piloti");
+            Check("gli aiuti e l'ora sono quelli della prova", d.me.bike.tcs == (test.aids < 2) && d.me.bike.leanAssist == (test.aids == 0) && PistaMode.Aids == test.aids && PistaMode.HourChoice == test.hour,
+                "aiuti " + PistaMode.Aids + " (prova " + test.aids + "), ora " + PistaMode.HourChoice + " (prova " + test.hour + ")");
+            Check("il regista sa che e' la prova e il registro e' ancora quello della preparazione", d.Licence != null && d.Licence.test.id == test.id && PistaLicences.Book.MedalOf(0) == Medal.Gold, d.Licence != null ? d.Licence.test.id : "nessuna prova");
+            if (shots) yield return Shot("menu_7_patente_gara");
+        }
+
+        static string CellText(GameObject cell, string child) { var t = cell.transform.Find(child); return t != null && t.GetComponent<Text>() != null ? t.GetComponent<Text>().text : "?"; }
 
         /// <summary>How many pixels of a picture are nearly opaque (the picture of the circuit is not readable from the CPU: it is copied through a render texture).</summary>
         static int Painted(Texture2D tex)

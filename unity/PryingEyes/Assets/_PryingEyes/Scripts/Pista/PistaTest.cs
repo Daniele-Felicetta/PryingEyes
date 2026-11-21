@@ -227,6 +227,56 @@ namespace PryingEyes.Pista
             yield return new WaitForSeconds(3f);
             Check("anche la seconda gara parte e la moto avanza", Dir.race.phase == RacePhase.Racing && Dir.me.progress > progress1 + 25f, $"{Dir.me.progress - progress1:F0} m in 3 s");
             if (shots) yield return RosterGallery();
+            yield return LicenceRace();
+        }
+
+        /// <summary>A licence test by the real path, last because it leaves the game on a test: the rules of the test replace the choices (circuit, bike, three laps, nobody else, aids, hour), the computer rides
+        /// the bike through the three laps, and the medal, the book and the verdict on the screen follow the lap times; "again" is the same test from the start, and "new circuit" is still its circuit.</summary>
+        IEnumerator LicenceRace()
+        {
+            phase = "patente";
+            PistaLicences.ForgetAll();
+            const int index = 5;           // a2-3: Vigile 750 on the shortest circuit of the list
+            var t = Licences.All[index];
+            int count = Dir.RaceCount;
+            PistaMode.BeginLicence(index);
+            Dir.RestartRace(true);
+            yield return null;
+            yield return WaitFor(() => Dir.Ready && Dir.RaceCount == count + 1, 120f);
+            var d = Dir;
+            Check("la prova parte con le sue regole: circuito, moto, tre giri e nessun avversario", d.Ready && d.seed == t.Seed && d.me.bikeIndex == t.bike && d.race.laps == Licences.Laps && d.race.racers.Count == 1 && d.Licence != null && d.Licence.test.id == t.id,
+                "seme " + d.seed + " (prova " + t.Seed + "), moto " + d.me.bikeIndex + " (" + t.bike + "), " + d.race.laps + " giri, " + d.race.racers.Count + " piloti");
+            // (the computer that rides the player's bike in this test switches every aid on, so the flags of the bike say nothing here: the menu test looks at them without the computer)
+            Check("gli aiuti e l'ora sono quelli della prova", PistaMode.Aids == t.aids && PistaMode.HourChoice == t.hour && Mathf.Abs(DesertMode.Clock.hour - PistaMode.Hour) < 0.05f,
+                "aiuti " + PistaMode.Aids + ", ora " + PistaMode.HourChoice + " (" + DesertMode.Clock.hour.ToString("F2") + ")");
+            Check("'nuova pista' resta sul circuito della prova", PistaMode.NewSeed(false) == t.Seed, PistaMode.Licence + "");
+            Check("durante la prova lo schermo mostra i tre tempi da battere", d.hud.LicenceGoalsText.Contains("ORO " + PistaDirector.TargetClock(t.gold)) && d.hud.LicenceGoalsText.Contains("ARG " + PistaDirector.TargetClock(t.silver)) && d.hud.LicenceGoalsText.Contains("BRO " + PistaDirector.TargetClock(t.bronze)), d.hud.LicenceGoalsText);
+            yield return WaitFor(() => d.race.phase == RacePhase.Racing, 40f);
+            if (shots) { yield return new WaitForSeconds(3.5f); yield return Shot("10_patente_gara"); }
+            Time.timeScale = 4f;
+            float t0 = Time.realtimeSinceStartup;
+            while (d.race.phase == RacePhase.Racing && Time.realtimeSinceStartup - t0 < 240f) yield return null;
+            Time.timeScale = 1f;
+            var run = d.Licence;
+            Check("la prova finisce da sola dopo tre giri", d.race.phase == RacePhase.Over && d.me.finished && d.me.lap >= Licences.Laps, $"fase {d.race.phase}, giro {d.me.lap}, arrivato {d.me.finished}");
+            if (run.counted > 0)
+            {
+                Check("la medaglia e' quella del miglior giro lanciato pulito, e non c'e' un giro piu' veloce di quelli contati", run.medal == t.Judge(run.bestLap) && run.bestLap >= d.me.bestLap - 0.001f, $"{run.counted} giri contati, il migliore {run.bestLap:F2} s = {Licences.MedalName(run.medal)} (miglior giro della gara {d.me.bestLap:F2})");
+                Check("il registro ha tenuto il giro: stesso tempo, stessa medaglia", Mathf.Abs(PistaLicences.Book.BestOf(index) - run.bestLap) < 0.001f && PistaLicences.Book.MedalOf(index) == run.medal, $"registro {PistaLicences.Book.BestOf(index):F2} s, {PistaLicences.Book.MedalOf(index)}");
+            }
+            else Check("nessun giro lanciato pulito, perche' il pilota e' caduto in tutti e due", d.me.crashes > 0 && PistaLicences.Book.BestOf(index) == 0f, $"cadute {d.me.crashes}");
+            Check("la tabella dice 'PROVA FINITA' e sotto c'e' il verdetto: la medaglia (o il perche' non c'e'), la patente e i tre tempi",
+                d.hud.ResultsTitleText == "PROVA FINITA" && d.hud.LicenceTitleText.Length >= 3 && (run.medal == Medal.None || d.hud.LicenceTitleText == Licences.MedalName(run.medal)) && d.LicenceVerdict.Contains(Licences.Names[t.licence]) && d.LicenceVerdict.Contains("Oro " + PistaHud.Clock(t.gold)),
+                d.hud.ResultsTitleText + " / " + d.LicenceVerdict);
+            Check("a prova finita i tre tempi lasciano lo schermo alla tabella", d.hud.LicenceGoalsText.Length == 0, "'" + d.hud.LicenceGoalsText + "'");
+            if (shots) { yield return new WaitForSeconds(1.0f); yield return Shot("10_patente_risultati"); }
+            int again = d.RaceCount;
+            d.RestartRace(false);
+            yield return null;
+            yield return WaitFor(() => Dir.Ready && Dir.RaceCount == again + 1, 120f);
+            Check("'riprova' e' la stessa prova da capo: stesse regole, un tentativo nuovo, e il tempo migliore resta nel registro",
+                Dir.seed == t.Seed && Dir.race.laps == Licences.Laps && Dir.race.racers.Count == 1 && Dir.Licence != null && Dir.Licence != run && Dir.Licence.counted == 0 && Dir.Licence.bestLap == 0f && !Dir.hud.ResultsShown && Dir.hud.LicenceGoalsText.Length > 0
+                && (run.counted == 0 || PistaLicences.Book.BestOf(index) > 0f), $"tentativo nuovo {Dir.Licence != null && Dir.Licence != run}, registro {PistaLicences.Book.BestOf(index):F2} s");
         }
 
         /// <summary>Every bike of the roster on the grid, from the side and from the front three-quarters, each at its own size with its rider: to look at the nine machines (only with -pistashots).</summary>
@@ -282,7 +332,7 @@ namespace PryingEyes.Pista
 
             // ---- the first half minute at four times the speed, watched frame by frame
             d.ReplaySetSpeed(4f);
-            float tEnd = Mathf.Min(rec.Duration - 2f, 30f), dev = 0f; int frames = 0, below = 0, inView = 0, finite = 0; var seen = new HashSet<ShotKind>();
+            float tEnd = Mathf.Min(rec.Duration - 2f, 30f), dev = 0f; int frames = 0, below = 0, inView = 0, finite = 0, smooth = 0, smoothIn = 0; var seen = new HashSet<ShotKind>(); var perKind = new Dictionary<ShotKind, int[]>();
             float start = Time.realtimeSinceStartup;
             while (d.ReplayTime < tEnd && Time.realtimeSinceStartup - start < 90f)
             {
@@ -301,11 +351,19 @@ namespace PryingEyes.Pista
                 if (ct.position.y < d.world.GroundY(ct.position.x, ct.position.z) + 0.3f) below++;
                 var sv = d.views[s.subject].shown;
                 var vp = d.cam.cam.WorldToViewportPoint(new Vector3(sv.x, sv.y + 0.9f, sv.z));
-                if (vp.z > 0f && vp.x > -0.05f && vp.x < 1.05f && vp.y > -0.05f && vp.y < 1.05f) inView++;
+                bool visible = vp.z > 0f && vp.x > -0.05f && vp.x < 1.05f && vp.y > -0.05f && vp.y < 1.05f;
+                if (visible) inView++;
+                int[] pk; if (!perKind.TryGetValue(s.kind, out pk)) perKind[s.kind] = pk = new int[2];
+                pk[0]++; if (visible) pk[1]++;
+                // a frame that took longer than 50 ms (the machine was busy) makes the replay jump up to 0.4 s at this speed and the camera is behind by design: it is not what the check is about
+                // (the camera on board is the eyes of the rider: the rider is not in that picture and is not meant to be)
+                if (s.kind != ShotKind.Onboard && Time.unscaledDeltaTime < 0.05f) { smooth++; if (visible) smoothIn++; }
             }
             Check("al replay le moto stanno dove dice il nastro, a ogni fotogramma", frames > 20 && dev < 0.06f, $"{frames} fotogrammi, scarto massimo {dev * 100f:F1} cm");
             Check("la camera non e' mai sotto il suolo e le sue pose sono valide", frames > 20 && below == 0 && finite == frames, $"{below} sotto il suolo, {finite}/{frames} valide");
-            Check("la camera tiene il pilota in quadro (la regia lo inquadra, come i passaggi veloci permettono)", frames > 20 && inView >= frames * 0.85f, $"{inView} di {frames} fotogrammi");
+            var kinds = new System.Text.StringBuilder();
+            foreach (var kv in perKind) kinds.Append(kinds.Length > 0 ? ", " : "").Append(kv.Key).Append(' ').Append(kv.Value[1] * 100 / Mathf.Max(1, kv.Value[0])).Append('%');
+            Check("la camera tiene il pilota in quadro (la regia lo inquadra, come i passaggi veloci permettono; la camera di bordo e' i suoi occhi e non conta)", smooth > 20 && smoothIn >= smooth * 0.93f, $"{smoothIn} di {smooth} fotogrammi regolari senza la camera di bordo ({inView} di {frames} in tutto); per camera: {kinds}");
             Check("nei primi trenta secondi la regia cambia camera piu' volte", seen.Count >= 3, $"{seen.Count} camere: {string.Join(", ", seen)}");
 
             // ---- pause, jump, speed

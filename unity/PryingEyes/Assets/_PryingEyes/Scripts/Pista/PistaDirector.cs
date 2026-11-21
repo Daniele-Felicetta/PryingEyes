@@ -213,12 +213,14 @@ namespace PryingEyes.Pista
                 TimingLapDone(r, out record);
                 if (r.finished) return;
                 bool best = r.lastLap > 0f && Mathf.Approximately(r.lastLap, r.bestLap) && r.lap > 1;
+                if (licence != null) { hud.Banner("GIRO " + r.lap + " / " + race.laps, PistaHud.Clock(r.lastLap) + LicenceLapText(record), 2.8f, LicenceColor(LastLapMedal)); return; }
                 hud.Banner("GIRO " + r.lap + " / " + race.laps, PistaHud.Clock(r.lastLap) + (record ? "   -   NUOVO RECORD" : best ? "   -   il migliore" : ""), 2.6f, record || best ? new Color(0.78f, 0.52f, 1f) : (Color?)null);
             };
             race.OnFinish = r =>
             {
                 if (r != me) return;
-                hud.Banner("TRAGUARDO", me.position + "°  -  " + PistaHud.Clock(r.finishTime) + (LastLapWasRecord ? "   -   NUOVO RECORD DEL GIRO" : ""), 4f, new Color(1f, 0.74f, 0.18f));
+                if (licence != null) hud.Banner("TRAGUARDO", PistaHud.Clock(r.lastLap) + LicenceLapText(LastLapWasRecord), 4f, LicenceColor(LastLapMedal) ?? new Color(1f, 0.74f, 0.18f));
+                else hud.Banner("TRAGUARDO", me.position + "°  -  " + PistaHud.Clock(r.finishTime) + (LastLapWasRecord ? "   -   NUOVO RECORD DEL GIRO" : ""), 4f, new Color(1f, 0.74f, 0.18f));
                 Beep(true);
                 if (autopilot == null && me.bike != null)
                 {
@@ -244,9 +246,11 @@ namespace PryingEyes.Pista
             resultsShown = true;
             ReplayFinish();
             bool host = CanRestart();
-            string hint = Coop.Active && !host ? (input.pad ? "L'ospite decide la prossima   -   Y  replay   -   START  menu" : "L'ospite decide la prossima   -   T  replay   -   ESC  menu")
+            string hint = licence != null ? (input.pad ? "A  riprova   -   Y  replay   -   START  menu" : "INVIO  riprova   -   T  replay   -   ESC  menu")
+                : Coop.Active && !host ? (input.pad ? "L'ospite decide la prossima   -   Y  replay   -   START  menu" : "L'ospite decide la prossima   -   T  replay   -   ESC  menu")
                 : (input.pad ? "A  ancora   -   X  nuova pista   -   Y  replay   -   START  menu" : "INVIO  ancora   -   N  nuova pista   -   T  replay   -   ESC  menu");
             hud.ShowResults(race, me, circuit.name, hint);
+            LicenceResults();
         }
 
         void ResultsKeys()
@@ -254,7 +258,7 @@ namespace PryingEyes.Pista
             if (input.menuReplay && StartReplay()) return;
             if (!CanRestart()) return;
             if (input.menuAgain) RestartRace(false);
-            else if (input.menuNew) RestartRace(true);
+            else if (input.menuNew && licence == null) RestartRace(true);
         }
 
         /// <summary>Alone, or as the host of a cooperative game: the others wait for the host to start.</summary>
@@ -280,9 +284,10 @@ namespace PryingEyes.Pista
         /// <summary>The line under "In pausa": the circuit, the lap, the place and the time of the race.</summary>
         public string PauseText()
         {
-            if (race == null || me == null || circuit == null) return "GARA SU PISTA";
+            string head = licence != null ? "PATENTE  ·  " + licence.test.name.ToUpperInvariant() : "GARA SU PISTA";
+            if (race == null || me == null || circuit == null) return head;
             string t = race.phase == RacePhase.Racing || race.phase == RacePhase.Over ? PistaHud.Clock(race.time) : "in griglia";
-            return "GARA SU PISTA  ·  " + circuit.name + "   ·   GIRO " + me.CurrentLap(race.laps) + "/" + race.laps + "   ·   " + me.position + "° SU " + race.racers.Count + "   ·   " + t;
+            return head + "  ·  " + circuit.name + "   ·   GIRO " + me.CurrentLap(race.laps) + "/" + race.laps + "   ·   " + me.position + "° SU " + race.racers.Count + "   ·   " + t;
         }
 
         // ------------------------------------------------------------------ for the tests and the other scripts

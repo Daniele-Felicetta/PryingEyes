@@ -60,9 +60,13 @@ namespace PryingEyes
             pistaOtherButton = MakeButton(pistaPanel, "Altra pista", new Vector2(300, -208), PistaOther);
             pistaGoButton = MakeButton(pistaPanel, "Via!", new Vector2(-190, -262), PistaGo);
             pistaBackButton = MakeButton(pistaPanel, "Indietro", new Vector2(190, -262), () => Show(modePanel));
+            licenceOpenButton = MakeButton(pistaPanel, "Patenti", new Vector2(458, 262), LicenceOpen);
+            ResizeButton(licenceOpenButton, new Vector2(240, 48), 22);
 
             // su e giu' scorrono tutta la schermata, dalle scelte al "Via!" (sinistra e destra cambiano il valore di una scelta)
-            var chain = new List<Selectable>(pistaRows) { pistaOtherButton, pistaGoButton, pistaBackButton };
+            var chain = new List<Selectable> { licenceOpenButton };
+            chain.AddRange(pistaRows);
+            chain.Add(pistaOtherButton); chain.Add(pistaGoButton); chain.Add(pistaBackButton);
             for (int i = 0; i < chain.Count; i++)
             {
                 var nav = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = i > 0 ? chain[i - 1] : null, selectOnDown = i < chain.Count - 1 ? chain[i + 1] : null };
@@ -110,6 +114,7 @@ namespace PryingEyes
             pistaSeed = PistaMode.Chosen;
             pistaSubtitle.text = modeForCoop ? "Gli altri entrano nella tua gara, fino a quattro: la minimappa mostra tutti."
                 : "Un circuito nuovo a ogni gara: quello che vedi qui e' quello che corri.";
+            licenceOpenButton.gameObject.SetActive(!modeForCoop);          // le patenti si fanno da soli
             RefreshPista(true);
             Show(pistaPanel);
             var system = UnityEngine.EventSystems.EventSystem.current;

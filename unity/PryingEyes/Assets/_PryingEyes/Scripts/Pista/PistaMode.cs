@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace PryingEyes.Pista
 {
-    /// <summary>The state of the "moto su pista" mode (Scripts/Pista): whether the current game is a race, the seed of its circuit, and what the player chose in the setup panel (laps, rivals, how good they are,
+    /// <summary>The state of the "moto su pista" mode (Scripts/Pista): whether the current game is a race (or a licence test, Licences.cs), the seed of its circuit, and what the player chose in the setup panel (laps, rivals, how good they are,
     /// which bike, how many rider aids, the hour of the day). The choices are remembered in the preferences between sessions; automated runs never touch the preferences and take their values from the
     /// command line (-pistalaps N, -pistarivals N, -pistabike N, -pistaaids N, -pistastyle N, -pistarank N, -pistahour N, -seed N).</summary>
     public static class PistaMode
@@ -45,10 +45,10 @@ namespace PryingEyes.Pista
         static readonly float[] Hours = { 9.2f, 12.8f, 17.2f };
 
         // In a cooperative game the host decides laps, bike, aids and hour for everybody: a friend's machine takes them from the roster (Override) instead of from its own choices.
-        static int? oLaps, oBike, oAids, oHour;
+        static int? oLaps, oBike, oAids, oHour, oRivals;
 
         public static int Laps { get => oLaps ?? ArgOr("-pistalaps", "Laps", 3, 1, 20); set => Save("Laps", Mathf.Clamp(value, 1, 20)); }
-        public static int Rivals { get => ArgOr("-pistarivals", "Rivals", 11, 0, 15); set => Save("Rivals", Mathf.Clamp(value, 0, 15)); }
+        public static int Rivals { get => oRivals ?? ArgOr("-pistarivals", "Rivals", 11, 0, 15); set => Save("Rivals", Mathf.Clamp(value, 0, 15)); }
         public static int Bike { get => oBike ?? ArgOr("-pistabike", "Bike", 0, 0, Bikes.Count - 1); set => Save("Bike", Mathf.Clamp(value, 0, Bikes.Count - 1)); }
         /// <summary>0 all the aids, 1 sporty (no lean assist), 2 none (only ABS, manual gears).</summary>
         public static int Aids { get => oAids ?? ArgOr("-pistaaids", "Aids", 1, 0, 2); set => Save("Aids", Mathf.Clamp(value, 0, 2)); }
@@ -67,6 +67,20 @@ namespace PryingEyes.Pista
             oLaps = Mathf.Clamp(laps, 1, 20); oBike = Mathf.Clamp(bike, 0, Bikes.Count - 1); oAids = Mathf.Clamp(aids, 0, 2); oHour = Mathf.Clamp(hour, 0, 2);
         }
 
+        /// <summary>The licence test being taken (an index into Licences.All), or -1 for an ordinary race. Chosen in the licence panel of the menu for one game; a cooperative game has none.</summary>
+        public static int Licence { get; private set; } = -1;
+
+        /// <summary>A licence test is about to start: its bike, aids, hour, laps and (no) rivals take the place of the player's choices until the game is over (End), and its circuit is the one raced.</summary>
+        public static void BeginLicence(int index)
+        {
+            index = Mathf.Clamp(index, 0, Licences.Count - 1);
+            var t = Licences.All[index];
+            Licence = index;
+            Override(Licences.Laps, t.bike, t.aids, t.hour);
+            oRivals = Licences.Rivals;
+            Chosen = t.Seed;
+        }
+
         /// <summary>A cooperative game on the host's race is on its way (the host's welcome has said so, the race is not built yet): there are no walking friends to draw.</summary>
         public static bool Incoming { get; set; }
 
@@ -82,7 +96,7 @@ namespace PryingEyes.Pista
         public static void Begin(int seed) { Active = true; Seed = seed; }
 
         /// <summary>The race is over (menu, new scene).</summary>
-        public static void End() { Active = false; Incoming = false; oLaps = oBike = oAids = oHour = null; }
+        public static void End() { Active = false; Incoming = false; oLaps = oBike = oAids = oHour = oRivals = null; Licence = -1; }
 
         /// <summary>The circuit picked in the setup panel for the next race (0 = none: a random one).</summary>
         public static int Chosen;
@@ -90,6 +104,7 @@ namespace PryingEyes.Pista
         /// <summary>The seed of a new circuit: -seed in the automated runs (only for the first one of the game: 'first'), the one picked in the menu, random otherwise.</summary>
         public static int NewSeed(bool first = true)
         {
+            if (Licence >= 0) return Licences.All[Licence].Seed;          // a licence test is always on its own circuit, again and again
             if (first)
             {
                 var a = System.Environment.GetCommandLineArgs();

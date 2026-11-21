@@ -41,7 +41,7 @@ namespace PryingEyes.Pista
         {
             if (ghostView != null) Destroy(ghostView.gameObject);
             ghostView = null; reference = null; trace = null; lapTape = null; deltaValid = false;
-            if (hud != null) { hud.SetDelta(false, 0f); hud.SetRecord(""); }
+            if (hud != null) { hud.SetDelta(false, 0f); hud.SetRecord(""); hud.SetLicenceGoals(null); }
         }
 
         void SelectReference(int kind)
@@ -70,6 +70,7 @@ namespace PryingEyes.Pista
             if (trace == null) return;
             bool clean = r.crashes == lapCrashes0 && traceStarted;
             int kind = lapKind;
+            LicenceLap(r, kind, clean);
             var before = clean ? PistaRecords.Best(circuit, BikeId, kind) : null;
             trace.Seal(r.lastLap);
             if (clean && PistaRecords.Submit(circuit, BikeId, kind, r.lastLap, trace, lapTape))
