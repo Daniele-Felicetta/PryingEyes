@@ -49,6 +49,20 @@ namespace PryingEyes.Pista
             return f;
         }
 
+        static readonly BikeFigures?[] tunedCache = new BikeFigures?[Bikes.Count * (Tuning.MaxLevel + 1)];
+
+        /// <summary>The figures of a bike of the roster at a level of tuning (ridden once, then remembered); level 0 is the bike as it comes.</summary>
+        public static BikeFigures Of(int bikeIndex, int level)
+        {
+            int i = PM.Clamp(bikeIndex, 0, Bikes.Count - 1), l = PM.Clamp(level, 0, Tuning.MaxLevel);
+            if (l == 0) return Of(i);
+            int key = i * (Tuning.MaxLevel + 1) + l;
+            if (tunedCache[key].HasValue) return tunedCache[key].Value;
+            var f = Ride(Tuning.Of(i, l));
+            tunedCache[key] = f;
+            return f;
+        }
+
         /// <summary>Ride a spec on a flat road: top speed, 0-100 and 100-0.</summary>
         public static BikeFigures Ride(BikeSpec spec)
         {

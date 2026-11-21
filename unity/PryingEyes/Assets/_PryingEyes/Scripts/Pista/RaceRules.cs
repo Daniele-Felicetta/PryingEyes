@@ -80,7 +80,7 @@ namespace PryingEyes.Pista
         public float overtime = 45f;
         public const float CheckpointSpacing = 50f;
 
-        readonly Dictionary<int, RacingLine> lines = new Dictionary<int, RacingLine>();
+        readonly Dictionary<string, RacingLine> lines = new Dictionary<string, RacingLine>();          // by the key of the bike: a tuned one has its own line
         float countT, hold, firstFinish = -1f;
         int finishCounter, nextId;
         Rng rng;
@@ -98,10 +98,13 @@ namespace PryingEyes.Pista
             rng = new Rng(seed ^ 0x2545F491);
         }
 
-        public RacingLine LineFor(int bikeIndex)
+        public RacingLine LineFor(int bikeIndex) { return LineFor(Bikes.Get(bikeIndex)); }
+
+        /// <summary>The line of a bike as it is in the race (the roster's, or a tuned one), kept by the key of its spec.</summary>
+        public RacingLine LineFor(BikeSpec spec)
         {
             RacingLine l;
-            if (!lines.TryGetValue(bikeIndex, out l)) { l = new RacingLine(circuit, Bikes.Get(bikeIndex)); lines[bikeIndex] = l; }
+            if (!lines.TryGetValue(spec.id, out l)) { l = new RacingLine(circuit, spec); lines[spec.id] = l; }
             return l;
         }
 
@@ -115,22 +118,22 @@ namespace PryingEyes.Pista
             return r;
         }
 
-        /// <summary>A rider with a bike on this machine; the game fills 'input' every frame.</summary>
-        public Racer AddHuman(string name, int bikeIndex, int skin, int seed)
+        /// <summary>A rider with a bike on this machine; the game fills 'input' every frame. 'spec' is the bike as the garage made it (a tuned one); the roster's own when it is null.</summary>
+        public Racer AddHuman(string name, int bikeIndex, int skin, int seed, BikeSpec spec = null)
         {
             var r = NewRacer(name, bikeIndex, skin);
             r.human = true;
-            r.bike = new BikeModel(Bikes.Get(bikeIndex), seed);
+            r.bike = new BikeModel(spec ?? Bikes.Get(bikeIndex), seed);
             return r;
         }
 
-        /// <summary>A computer rider. 'pace' is the fraction of the planned speed (0.9 .. 0.99).</summary>
-        public Racer AddAi(string name, int bikeIndex, int skin, int seed, float pace, float mistakes)
+        /// <summary>A computer rider. 'pace' is the fraction of the planned speed (0.9 .. 0.99); 'spec' is a bike that is not the roster's as it comes (a tuned one), which then gets a line of its own.</summary>
+        public Racer AddAi(string name, int bikeIndex, int skin, int seed, float pace, float mistakes, BikeSpec spec = null)
         {
             var r = NewRacer(name, bikeIndex, skin);
             r.cpu = true;
-            r.bike = new BikeModel(Bikes.Get(bikeIndex), seed);
-            var line = LineFor(bikeIndex);
+            r.bike = new BikeModel(spec ?? Bikes.Get(bikeIndex), seed);
+            var line = spec != null ? LineFor(spec) : LineFor(bikeIndex);
             r.driver = new BikeDriver(r.bike, circuit, line, seed * 31 + 7) { pace = pace, mistakes = mistakes };
             var rr = new Rng(seed);
             r.driver.bias = rr.Range(-1.3f, 1.3f);
@@ -413,12 +416,15 @@ namespace PryingEyes.Pista
             return PM.Clamp(0.03f * closing * (pushX * rz - pushZ * rx), -0.06f, 0.06f);
         }
 
+        /// <summary>The bike of a rider as it is in the race (a tuned one weighs less); the roster's own for somebody on another machine, of whom only the pose is known.</summary>
+        static BikeSpec SpecOf(Racer r) { return r.bike != null ? r.bike.spec : Bikes.Get(r.bikeIndex); }
+
         void Touch(Racer a, Racer b)
         {
             float ax, az, ah, avx, avz, bx, bz, bh, bvx, bvz;
             Motion(a, out ax, out az, out ah, out avx, out avz);
             Motion(b, out bx, out bz, out bh, out bvx, out bvz);
-            var sa = Bikes.Get(a.bikeIndex); var sb = Bikes.Get(b.bikeIndex);
+            var sa = SpecOf(a); var sb = SpecOf(b);
             float reach = (sa.wheelbase + sb.wheelbase) * 0.5f + 2f * ContactRadius;
             if ((ax - bx) * (ax - bx) + (az - bz) * (az - bz) > reach * reach) return;
             float sinA = (float)Math.Sin(ah), cosA = (float)Math.Cos(ah), sinB = (float)Math.Sin(bh), cosB = (float)Math.Cos(bh);

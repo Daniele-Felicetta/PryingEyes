@@ -40,7 +40,7 @@ namespace PryingEyes.Pista
             race.waitForField = true;                    // the points go to the whole field: the race does not end when the player crosses the line
             string myName = CupPlayerName();
             int bikeMe = PistaMode.Bike;
-            me = race.AddHuman(myName, bikeMe, PistaMode.SkinFor(bikeMe), seed + 5);
+            me = race.AddHuman(myName, bikeMe, PistaMode.SkinFor(bikeMe), seed + 5, PistaMode.SpecFor(bikeMe));
             me.netSlot = -1;
             PistaMode.ApplyAids(me.bike, PistaMode.Aids);
             cupRider[me] = 0;
@@ -91,7 +91,7 @@ namespace PryingEyes.Pista
         {
             var cup = Cups.All[cupIndex];
             hud.Banner(cup.name.ToUpperInvariant(),
-                "GARA " + (cupSeason.round + 1) + " DI " + cup.Rounds + "   -   " + circuit.name + "   -   " + race.laps + (race.laps == 1 ? " giro" : " giri") + "   -   " + Bikes.Get(me.bikeIndex).name, 4.2f, new Color(1f, 0.74f, 0.18f));
+                "GARA " + (cupSeason.round + 1) + " DI " + cup.Rounds + "   -   " + circuit.name + "   -   " + race.laps + (race.laps == 1 ? " giro" : " giri") + "   -   " + MyBikeName(), 4.2f, new Color(1f, 0.74f, 0.18f));
         }
 
         string CupRiderName(int rider) { return rider == 0 ? me.name : cupField[rider - 1].name; }

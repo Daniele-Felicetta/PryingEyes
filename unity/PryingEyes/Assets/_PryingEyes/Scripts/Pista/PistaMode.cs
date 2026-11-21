@@ -110,6 +110,12 @@ namespace PryingEyes.Pista
         /// <summary>A cup can be ridden: always, except in a career without a bike of its class.</summary>
         public static bool CupAvailable(Cup cup) { return CupBike(cup) >= 0; }
 
+        /// <summary>The level of tuning a bike has in a race now: the one the book gives it while the career applies, and never in a licence test (a licence lends a bike as it comes) or a cooperative game.</summary>
+        public static int TuneOf(int bike) { return CareerApplies && Licence < 0 ? PistaCareer.Book.Level(bike) : 0; }
+
+        /// <summary>The bike as the race takes it: the roster's at the level of TuneOf (a copy with a key of its own when it is tuned, so that its records are its own).</summary>
+        public static BikeSpec SpecFor(int bike) { return Tuning.Of(bike, TuneOf(bike)); }
+
         /// <summary>A friend's machine: the rules of the host's race (laps, bike, aids, hour) for as long as this game lasts.</summary>
         public static void Override(int laps, int bike, int aids, int hour)
         {

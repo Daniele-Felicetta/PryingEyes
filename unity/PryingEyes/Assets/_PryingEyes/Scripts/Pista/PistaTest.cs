@@ -139,6 +139,7 @@ namespace PryingEyes.Pista
                 Check("la pianura all'orizzonte sta fuori dal terreno: nessun punto della strada ci sta sotto", pm != null && pieces >= 8 && hidden == 0, $"{pieces} triangoli, {hidden} punti coperti");
             }
             Check("lo stile di guida scelto arriva alla moto del giocatore", d.me.bike.style == (RiderStyle)PistaMode.Style, d.me.bike.style + " (scelto " + PistaMode.Style + ")");
+            Check("senza la carriera la moto del giocatore e' quella di serie, senza livello e con la chiave della moto", !PistaMode.CareerApplies && d.me.bike.spec.id == Bikes.Get(d.me.bikeIndex).id && d.me.bike.spec.tune == 0 && d.BikeId == Bikes.Get(d.me.bikeIndex).id, d.me.bike.spec.id + ", livello " + d.me.bike.spec.tune);
             CodecChecks(d);
             EngineChecks();
             float gx, gz, gy, gh;
@@ -320,6 +321,8 @@ namespace PryingEyes.Pista
             phase = "campionato";
             PistaCups.ForgetAll();
             PistaCareer.ForgetAll(); PistaMode.CareerOn = true;          // the career is on for the cup: the rounds pay, and the trophy
+            PistaCareer.Pay(20000); PistaCareer.Buy(1); PistaCareer.Tune(1); PistaCareer.Tune(1);          // the Argo 600 of the Supersport cup, owned and tuned twice: the player rides it as the garage made it
+            int baseMoney = PistaCareer.Book.Money;
             const int index = 1;           // the Supersport cup
             var cup = Cups.All[index];
             int count = Dir.RaceCount;
@@ -333,6 +336,9 @@ namespace PryingEyes.Pista
                 d.Ready && d.CupActive && season != null && d.CupSeason == season && season.round == 0 && d.seed == cup.CircuitSeed(0) && Cups.Allows(cup, d.me.bikeIndex) && d.race.racers.Count == Cups.Riders && d.race.laps == 1 && d.Licence == null,
                 "seme " + d.seed + " (calendario " + cup.CircuitSeed(0) + "), moto " + d.me.bikeIndex + ", " + d.race.racers.Count + " piloti, " + d.race.laps + " giri");
             if (season == null) yield break;
+            Check("in carriera si corre la moto come l'ha preparata il garage: la chiave dice il livello (e con essa i record), pesa meno, e il banner la nomina con il livello",
+                d.me.bikeIndex == 1 && d.me.bike.spec.id == Bikes.Get(1).id + "+2" && d.me.bike.spec.tune == 2 && d.me.bike.spec.bikeMass < Bikes.Get(1).bikeMass - 3f && d.BikeId == Bikes.Get(1).id + "+2" && d.hud.BannerSubText.Contains(Bikes.Get(1).name + " liv. 2"),
+                d.me.bike.spec.id + ", " + d.me.bike.spec.bikeMass.ToString("F1") + " kg (di serie " + Bikes.Get(1).bikeMass.ToString("F1") + "), banner '" + d.hud.BannerSubText + "'");
             if (shots) { yield return new WaitForSeconds(0.6f); yield return Shot("11_campionato_griglia"); }          // the banner of the start (the cup and the round) is still up
 
             var field = CupField.Make(cup, season.rank, season.freeSkin, PistaDirector.Names, Livery.Count);
@@ -374,7 +380,7 @@ namespace PryingEyes.Pista
             Check("il turno non finisce quando il giocatore taglia il traguardo: arrivano quasi tutti, e i punti vanno a tutto il campo", d.race.waitForField && finishers >= Cups.Riders - 2, finishers + " arrivati su " + Cups.Riders);
             int rounds1 = Economy.Winnings(place, d.me.finished, d.race.laps, d.race.racers.Count - 1, d.me.bikeIndex, season.rank);
             Check("la carriera paga il turno: il premio e' quello del posto, sta sul conto e la tabella lo dice",
-                d.CareerPrize == rounds1 && PistaCareer.Book.Money == Economy.StartMoney + rounds1 && (rounds1 == 0 ? !d.hud.ResultsSubText.Contains("premio") : d.hud.ResultsSubText.EndsWith("premio " + Economy.Format(rounds1) + " cr")),
+                d.CareerPrize == rounds1 && PistaCareer.Book.Money == baseMoney + rounds1 && (rounds1 == 0 ? !d.hud.ResultsSubText.Contains("premio") : d.hud.ResultsSubText.EndsWith("premio " + Economy.Format(rounds1) + " cr")),
                 "posto " + place + ", premio " + d.CareerPrize + " (atteso " + rounds1 + "), conto " + PistaCareer.Book.Money + ", '" + d.hud.ResultsSubText + "'");
             string[] lines = d.hud.CupLinesText.Split((char)10);
             Check("sotto la tabella ci sono le quattro righe: la coppa e la gara, cosa ha dato, i primi tre e la prossima gara",
@@ -390,7 +396,7 @@ namespace PryingEyes.Pista
             int total2 = 0;
             foreach (int pt in season.points) total2 += pt;
             Check("il replay e il ritorno alla tabella non contano il turno due volte, e le quattro righe tornano", replayed && season.round == 1 && total2 == total && d.hud.ResultsShown && d.hud.CupLinesText.Split((char)10).Length == 4, "replay " + replayed + ", gare " + season.round + ", punti " + total2);
-            Check("e non pagano due volte: il conto e la riga del premio sono quelli di prima", PistaCareer.Book.Money == Economy.StartMoney + rounds1 && d.CareerPrize == rounds1 && (rounds1 == 0 || d.hud.ResultsSubText.EndsWith("premio " + Economy.Format(rounds1) + " cr")), "conto " + PistaCareer.Book.Money + ", '" + d.hud.ResultsSubText + "'");
+            Check("e non pagano due volte: il conto e la riga del premio sono quelli di prima", PistaCareer.Book.Money == baseMoney + rounds1 && d.CareerPrize == rounds1 && (rounds1 == 0 || d.hud.ResultsSubText.EndsWith("premio " + Economy.Format(rounds1) + " cr")), "conto " + PistaCareer.Book.Money + ", '" + d.hud.ResultsSubText + "'");
 
             // the next round: the second circuit of the calendar, the same riders, the grid as the standings
             var names1 = new System.Text.StringBuilder();
@@ -434,8 +440,8 @@ namespace PryingEyes.Pista
                 "posto " + standing + ", coppa " + trophy + ", " + d.CupVerdict);
             int placeLast = d.race.standings.IndexOf(d.me) + 1;
             int lastPay = Economy.Winnings(placeLast, d.me.finished, d.race.laps, d.race.racers.Count - 1, d.me.bikeIndex, season.rank) + Economy.CupBounty(trophy);
-            Check("l'ultimo turno paga il posto e la coppa della stagione, e il conto li ha tutti e due i turni", d.CareerPrize == lastPay && PistaCareer.Book.Money == Economy.StartMoney + rounds1 + lastPay,
-                "coppa " + trophy + " (" + Economy.CupBounty(trophy) + "), premio " + d.CareerPrize + " (atteso " + lastPay + "), conto " + PistaCareer.Book.Money + " (atteso " + (Economy.StartMoney + rounds1 + lastPay) + ")");
+            Check("l'ultimo turno paga il posto e la coppa della stagione, e il conto li ha tutti e due i turni", d.CareerPrize == lastPay && PistaCareer.Book.Money == baseMoney + rounds1 + lastPay,
+                "coppa " + trophy + " (" + Economy.CupBounty(trophy) + "), premio " + d.CareerPrize + " (atteso " + lastPay + "), conto " + PistaCareer.Book.Money + " (atteso " + (baseMoney + rounds1 + lastPay) + ")");
             Check("il libro tiene la stagione fatta e il miglior posto, e dopo l'ultimo turno 'prossima gara' non porta da nessuna parte",
                 PistaCups.Book.SeasonsDone(index) == 1 && PistaCups.Book.BestPlace(index) == standing && PistaCups.Book.BestTrophy(index) == trophy && !d.CupNext(),
                 "stagioni " + PistaCups.Book.SeasonsDone(index) + ", miglior posto " + PistaCups.Book.BestPlace(index));

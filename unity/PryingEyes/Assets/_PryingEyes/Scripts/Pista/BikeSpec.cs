@@ -11,6 +11,8 @@ namespace PryingEyes.Pista
     public sealed class BikeSpec
     {
         public string id = "argo1000", name = "Argo 1000", klass = "Superbike";
+        /// <summary>The level of tuning (Tuning.Apply sets it, and adds it to the key): 0 for the bike as it comes.</summary>
+        public int tune;
         /// <summary>Which of the bikes drawn by code stands for it in the scene: 0 superbike, 1 supersport, 2 naked roadster (PistaBikeMesh).</summary>
         public int meshStyle;
         /// <summary>How big its picture is against the shared bikes (a 125 is a small bike, a hypersport a big one) and what its engine sounds like.</summary>

@@ -21,8 +21,8 @@ namespace PryingEyes
         readonly Image[] garageBarFill = new Image[BikeSheet.BarCount];
         GarageStage garageStage;
         // the career: the button that turns it on and shows the money, the button that buys the bike on the plate and the line that says how it went
-        Button garageCareerButton, garageBuyButton;
-        Text garageCareerLabel, garageBuyLabel, garageNote;
+        Button garageCareerButton, garageBuyButton, garageTuneButton;
+        Text garageCareerLabel, garageBuyLabel, garageTuneLabel, garageNote;
         /// <summary>The bike on the plate. Without the career it is the bike chosen (PistaMode.Bike); in a career the plate shows every bike of the roster, owned or not, and PistaMode.Bike follows it only while it is owned.</summary>
         int garageView;
 
@@ -78,6 +78,11 @@ namespace PryingEyes
             ResizeButton(garageBuyButton, new Vector2(260, 40), 19);
             garageBuyLabel = garageBuyButton.GetComponentInChildren<Text>();
             AddFeedback(garageBuyButton, null);
+            // "Potenzia" takes the place of "Compra" for a bike that is owned: one level of tuning at a time (Tuning.cs), for the price of the workshop
+            garageTuneButton = MakeButton(garagePanel, "Potenzia", new Vector2(-325, -262), GarageTune);
+            ResizeButton(garageTuneButton, new Vector2(260, 40), 19);
+            garageTuneLabel = garageTuneButton.GetComponentInChildren<Text>();
+            AddFeedback(garageTuneButton, null);
             garageNote = Label(garagePanel, "Nota carriera", new Vector2(-318, -214), new Vector2(560, 24), 16, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
             GarageWire();
             garagePanel.gameObject.AddComponent<MenuPanelFade>();
@@ -137,6 +142,7 @@ namespace PryingEyes
             bool career = PistaMode.CareerApplies;
             var book = PistaCareer.Book;
             bool owned = !career || book.Owns(index);
+            int level = career && owned ? book.Level(index) : 0;          // the tuning of a bike that is owned (a bike that is not has none to show)
             var spec = Bikes.Get(index);
             garageBikeRow.Value = spec.name;
             garageColourRow.Value = GarageColourName();
@@ -145,10 +151,10 @@ namespace PryingEyes
             garageSwatchMain.color = liv.main; garageSwatchAccent.color = liv.accent;
             var rider = outfit >= 0 ? Livery.For(outfit) : liv;
             garageSwatchSuit.color = rider.suit; garageSwatchSuit2.color = rider.suit2; garageSwatchHelmet.color = rider.helmet;
-            garageName.text = spec.name + "  -  " + spec.klass + (!career ? "" : owned ? "  -  tua" : "  -  " + Economy.Format(Economy.Price(index)) + " cr");
-            garageBlurb.text = BikeSheet.Blurb(index);
+            garageName.text = spec.name + "  -  " + spec.klass + (!career ? "" : owned ? "  -  tua" + (level > 0 ? "  -  " + Tuning.Label(level) : "") : "  -  " + Economy.Format(Economy.Price(index)) + " cr");
+            garageBlurb.text = BikeSheet.Blurb(index) + (level > 0 ? "\nMessa a punto " + level + " di " + Tuning.MaxLevel + ":   " + Tuning.Describe(level) : "");
 
-            var f = BikeSheet.Of(index);
+            var f = BikeSheet.Of(index, level);                          // the bars and the figures are those of the bike as it is tuned
             for (int i = 0; i < BikeSheet.BarCount; i++)
             {
                 float v = BikeSheet.Value(f, (BikeBar)i);
@@ -171,6 +177,15 @@ namespace PryingEyes
             {
                 garageBuyLabel.text = "Compra  -  " + Economy.Format(Economy.Price(index)) + " cr";
                 garageBuyLabel.color = book.Missing(index) > 0 ? Dim : Ink;
+            }
+            // the workshop: "Potenzia" for a bike that is owned and not yet at the top, with the price of the next level; when nothing else is said the line above it says what that level gives
+            bool tunable = career && owned && level < Tuning.MaxLevel;
+            garageTuneButton.gameObject.SetActive(tunable);
+            if (tunable)
+            {
+                garageTuneLabel.text = "Potenzia  -  " + Economy.Format(Economy.TunePrice(index, level + 1)) + " cr";
+                garageTuneLabel.color = book.TuneMissing(index) > 0 ? Dim : Ink;
+                if (string.IsNullOrEmpty(garageNote.text)) garageNote.text = "Livello " + (level + 1) + ":   " + Tuning.Describe(level + 1);
             }
             GarageWire();
             if (garageStage != null) garageStage.Show(index, skin, outfit);
@@ -217,17 +232,45 @@ namespace PryingEyes
             }
         }
 
-        /// <summary>The cross of the garage: from the career button down through the three rows to "Compra" (only while there is a bike to buy) and "Fatto".</summary>
+        /// <summary>"Potenzia": the bike on the plate goes up one level of tuning, if there is the money. The answer is on the line above the button; at the top level the button is gone and the cross goes back to the row of the bike.</summary>
+        void GarageTune()
+        {
+            int bike = garageView;
+            var book = PistaCareer.Book;
+            if (!PistaMode.CareerApplies || !book.Owns(bike) || book.Level(bike) >= Tuning.MaxLevel) return;
+            string name = Bikes.Get(bike).name;
+            int next = book.Level(bike) + 1;
+            if (PistaCareer.Tune(bike))
+            {
+                MenuSound.Confirm();
+                garageNote.text = "Potenziata: " + name + ", " + Tuning.Label(next) + "  -  conto " + Economy.Format(book.Money) + " cr";
+                RefreshGarage();
+                var system = EventSystem.current;
+                if (system != null && !garageTuneButton.gameObject.activeSelf) system.SetSelectedGameObject(garageBikeRow.gameObject);
+            }
+            else
+            {
+                MenuSound.Back();
+                garageNote.text = "Ti mancano " + Economy.Format(book.TuneMissing(bike)) + " cr per il " + Tuning.Label(next) + " della " + name;
+            }
+        }
+
+        /// <summary>The level of tuning a bike has in a race now, as a tag for a line of text (" liv. 2"), or nothing.</summary>
+        static string TuneTag(int bike) { int l = PistaMode.TuneOf(bike); return l > 0 ? " liv. " + l : ""; }
+
+        /// <summary>The cross of the garage: from the career button down through the three rows to the button of the career under the plate ("Compra" or "Potenzia", only while there is something to buy or tune) and "Fatto".</summary>
         void GarageWire()
         {
             if (garageBuyButton == null) return;
-            bool buy = garageBuyButton.gameObject.activeSelf;
+            Button deal = garageBuyButton.gameObject.activeSelf ? garageBuyButton : garageTuneButton.gameObject.activeSelf ? garageTuneButton : null;
+            bool buy = deal != null;
             garageCareerButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnDown = garageBikeRow };
             garageBikeRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageCareerButton.gameObject.activeSelf ? (Selectable)garageCareerButton : null, selectOnDown = garageColourRow };
             garageColourRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageBikeRow, selectOnDown = garageOutfitRow };
-            garageOutfitRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageColourRow, selectOnDown = buy ? (Selectable)garageBuyButton : garageBackButton };
+            garageOutfitRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageColourRow, selectOnDown = buy ? (Selectable)deal : garageBackButton };
             garageBuyButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageOutfitRow, selectOnDown = garageBackButton, selectOnRight = garageBackButton };
-            garageBackButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = buy ? (Selectable)garageBuyButton : garageOutfitRow, selectOnLeft = buy ? garageBuyButton : null };
+            garageTuneButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageOutfitRow, selectOnDown = garageBackButton, selectOnRight = garageBackButton };
+            garageBackButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = buy ? (Selectable)deal : garageOutfitRow, selectOnLeft = buy ? deal : null };
         }
 
         /// <summary>"Garage" dalla preparazione: la vetrina si accende sulla moto scelta e la riga della moto e' gia' scelta.</summary>

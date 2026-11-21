@@ -25,7 +25,8 @@ namespace PryingEyes.Pista
         public bool DeltaShown => deltaValid;
         public float DeltaNow => lastDelta;
 
-        string BikeId { get { return Bikes.Get(me.bikeIndex).id; } }
+        /// <summary>The key of the bike the player rides: the roster's, or with the level of tuning in it (a record set on a tuned bike is not one set on the bike as it comes).</summary>
+        public string BikeId { get { return me.bike != null ? me.bike.spec.id : Bikes.Get(me.bikeIndex).id; } }
 
         /// <summary>A race is set up: a fresh trace and tape for the first lap, and the reference for it (the best standing-start lap of this bike here).</summary>
         void TimingBegin()

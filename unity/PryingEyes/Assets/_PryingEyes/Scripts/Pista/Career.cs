@@ -67,6 +67,12 @@ namespace PryingEyes.Pista
         /// <summary>The trophy of a finished season of a cup, on top of what its rounds paid.</summary>
         public static int CupBounty(Medal trophy) { return trophy == Medal.Gold ? 6000 : trophy == Medal.Silver ? 3500 : trophy == Medal.Bronze ? 2000 : 0; }
 
+        /// <summary>The share of the price of a bike that the workshop asks to take it up to each level of Tuning (1, 2, 3): a full tune costs 41 % of the bike.</summary>
+        public static readonly double[] TuneShares = { 0.08, 0.13, 0.20 };
+
+        /// <summary>What the workshop asks to take a bike from the level before to this one (1 to 3): a share of its price, in whole tens. Zero for a level that does not exist.</summary>
+        public static int TunePrice(int bike, int toLevel) { return toLevel < 1 || toLevel > TuneShares.Length ? 0 : Tens(Price(bike) * TuneShares[toLevel - 1]); }
+
         static int Tens(double v) { return (int)(Math.Round(v / 10.0, MidpointRounding.AwayFromZero) * 10.0); }
 
         /// <summary>An amount of money as the game writes it, with a point between the thousands (3.000, 1.234.567).</summary>
@@ -83,7 +89,7 @@ namespace PryingEyes.Pista
         }
     }
 
-    /// <summary>What a player has in the career: the money and the bikes he owns, to and from a short text the preferences keep ("m=3000;o=8": the money, and the bikes as a number with one bit for each). A new book has the starting money
+    /// <summary>What a player has in the career: the money and the bikes he owns, to and from a short text the preferences keep ("m=3000;o=8;u=000100000": the money, the bikes as a number with one bit for each, and a digit of tuning for each bike). A new book has the starting money
     /// and the starter bike. Reading is forgiving: nothing throws, a mistake leaves the value of a new book, and the starter bike is always owned. Pure code.</summary>
     public sealed class CareerBook
     {
@@ -92,6 +98,7 @@ namespace PryingEyes.Pista
 
         public int Money { get; private set; } = Economy.StartMoney;
         int owned = 1 << Economy.StarterBike;
+        readonly int[] levels = new int[Bikes.Count];
 
         public bool Owns(int bike) { return bike >= 0 && bike < Bikes.Count && (owned & (1 << bike)) != 0; }
 
@@ -139,6 +146,31 @@ namespace PryingEyes.Pista
             if (price <= 0 || price > Money) return false;
             Money -= price;
             owned |= 1 << bike;
+            levels[bike] = 0;
+            return true;
+        }
+
+        /// <summary>The level of tuning of a bike (see Tuning): 0 for the bike as it came, and for a bike that is not owned.</summary>
+        public int Level(int bike) { return Owns(bike) ? levels[bike] : 0; }
+
+        /// <summary>What is still missing to take an owned bike up one level (0 when the money is there, and for a bike that is not owned or is at the top).</summary>
+        public int TuneMissing(int bike)
+        {
+            int next = Level(bike) + 1;
+            if (!Owns(bike) || next > Tuning.MaxLevel) return 0;
+            return Math.Max(0, Economy.TunePrice(bike, next) - Money);
+        }
+
+        /// <summary>Take an owned bike up one level: false (and nothing changes) if it is not owned, is at the top or costs more than there is.</summary>
+        public bool Tune(int bike)
+        {
+            if (!Owns(bike)) return false;
+            int next = levels[bike] + 1;
+            if (next > Tuning.MaxLevel) return false;
+            int price = Economy.TunePrice(bike, next);
+            if (price <= 0 || price > Money) return false;
+            Money -= price;
+            levels[bike] = next;
             return true;
         }
 
@@ -151,7 +183,9 @@ namespace PryingEyes.Pista
 
         public string Serialize()
         {
-            return "m=" + Money.ToString(CultureInfo.InvariantCulture) + ";o=" + owned.ToString(CultureInfo.InvariantCulture);
+            var tuning = new StringBuilder();
+            for (int i = 0; i < levels.Length; i++) tuning.Append((char)('0' + levels[i]));
+            return "m=" + Money.ToString(CultureInfo.InvariantCulture) + ";o=" + owned.ToString(CultureInfo.InvariantCulture) + ";u=" + tuning;
         }
 
         public static CareerBook Parse(string text)
@@ -164,11 +198,18 @@ namespace PryingEyes.Pista
                 int eq = part.IndexOf('=');
                 if (eq <= 0) continue;
                 string key = part.Substring(0, eq).Trim();
+                string raw = part.Substring(eq + 1).Trim();
+                if (key == "u")          // a digit of tuning for each bike; anything else is a bike as it came
+                {
+                    for (int i = 0; i < book.levels.Length && i < raw.Length; i++) book.levels[i] = raw[i] >= '0' && raw[i] <= '0' + Tuning.MaxLevel ? raw[i] - '0' : 0;
+                    continue;
+                }
                 int v;
-                if (!int.TryParse(part.Substring(eq + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out v)) continue;
+                if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out v)) continue;
                 if (key == "m" && v >= 0 && v <= MaxMoney) book.Money = v;
                 else if (key == "o" && v > 0) book.owned = (v & valid) | (1 << Economy.StarterBike);
             }
+            for (int i = 0; i < book.levels.Length; i++) if (!book.Owns(i)) book.levels[i] = 0;      // a bike that is not owned has no tuning to bring along when it is bought
             return book;
         }
     }

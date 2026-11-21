@@ -428,7 +428,7 @@ namespace PryingEyes.Pista
         }
 
         /// <summary>The career from the garage: off, then on (the bike chosen becomes one that is owned and the button says the money), the plate going to bikes that are not owned with their price and "Compra", a purchase that
-        /// the money does not cover and one that it does, the setup panel that only steps through the bikes owned, the panel of a cooperative game that ignores the career, and the cups (one without a bike of its class cannot start).</summary>
+        /// the money does not cover and one that it does, the workshop (a level of tuning for its price, the top level, a licence that lends the bike as it comes), the setup panel that only steps through the bikes owned, the panel of a cooperative game that ignores the career, and the cups (one without a bike of its class cannot start).</summary>
         IEnumerator CareerFlow()
         {
             PistaCareer.ForgetAll(); PistaCups.ForgetAll();
@@ -493,11 +493,85 @@ namespace PryingEyes.Pista
             yield return null;
             Check("e tornando indietro 'Compra' non c'e' piu'", stage.Bike == tigre && PistaMode.Bike == tigre && Find("Pulsante Compra") == null);
 
+            // the workshop: a bike that is owned has "Potenzia" with the price of its next level, and the line above it says what that level gives
+            int tigreTune1 = Economy.TunePrice(tigre, 1), tigreTune2 = Economy.TunePrice(tigre, 2), tigreTune3 = Economy.TunePrice(tigre, 3);
+            string lightBefore = Text("Cifra Leggerezza");
+            var tune = Find("Pulsante Potenzia");
+            Check("una moto che si ha ha 'Potenzia' con il prezzo del primo livello, la nota dice cosa dara' e la croce lo mette tra 'Pilota' e 'Fatto', come 'Compra'",
+                tune != null && tune.GetComponentInChildren<Text>().text == "Potenzia  -  " + Economy.Format(tigreTune1) + " cr" && Find("Pulsante Compra") == null && Text("Nota carriera") == "Livello 1:   " + Tuning.Describe(1)
+                && Row("Pilota").navigation.selectOnDown != null && Row("Pilota").navigation.selectOnDown.name == "Pulsante Potenzia"
+                && tune.GetComponent<Selectable>().navigation.selectOnDown != null && tune.GetComponent<Selectable>().navigation.selectOnDown.name == "Pulsante Fatto"
+                && Find("Pulsante Fatto").GetComponent<Selectable>().navigation.selectOnUp != null && Find("Pulsante Fatto").GetComponent<Selectable>().navigation.selectOnUp.name == "Pulsante Potenzia",
+                tune != null ? tune.GetComponentInChildren<Text>().text + " / " + Text("Nota carriera") : "senza pulsante");
+            if (shots) yield return Shot("menu_18_garage_potenzia");
+
+            // not enough money: it says what is missing and nothing changes
+            tune.GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Check("senza i soldi la moto non si potenzia: la nota dice quanto manca, il conto e il livello sono quelli di prima e 'Potenzia' c'e' ancora",
+                PistaCareer.Book.Level(tigre) == 0 && PistaCareer.Book.Money == rest && Text("Nota carriera") == "Ti mancano " + Economy.Format(tigreTune1 - rest) + " cr per il livello 1 della " + Bikes.Get(tigre).name && Find("Pulsante Potenzia") != null && Text("Nome moto").EndsWith("tua"),
+                Text("Nota carriera"));
+
+            // the money arrives and one level is bought: the figures, the name and the sentence are those of the bike as it is now
+            PistaCareer.Pay(5000);
+            Call("RefreshGarage");
+            yield return null;
+            int money1 = rest + 5000;
+            Find("Pulsante Potenzia").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            var figure1 = BikeSheet.Of(tigre, 1);
+            Check("potenziata: il livello sale e il conto scende del prezzo, la nota lo dice, il nome dice il livello, la frase aggiunge la messa a punto e il peso e' quello della moto potenziata; 'Potenzia' chiede il secondo livello",
+                PistaCareer.Book.Level(tigre) == 1 && PistaCareer.Book.Money == money1 - tigreTune1
+                && Text("Nota carriera") == "Potenziata: " + Bikes.Get(tigre).name + ", livello 1  -  conto " + Economy.Format(money1 - tigreTune1) + " cr"
+                && Text("Nome moto") == Bikes.Get(tigre).name + "  -  " + Bikes.Get(tigre).klass + "  -  tua  -  livello 1"
+                && Text("Descrizione moto").Contains("Messa a punto 1 di 3:   " + Tuning.Describe(1))
+                && Text("Cifra Leggerezza") == Mathf.RoundToInt(figure1.kg) + " kg" && Text("Cifra Leggerezza") != lightBefore
+                && Find("Pulsante Potenzia") != null && Find("Pulsante Potenzia").GetComponentInChildren<Text>().text == "Potenzia  -  " + Economy.Format(tigreTune2) + " cr" && CareerLabel() == "Carriera: " + Economy.Format(money1 - tigreTune1) + " cr",
+                Text("Nota carriera") + " / " + Text("Nome moto") + " / " + Text("Cifra Leggerezza") + " (prima " + lightBefore + ")");
+
+            // up to the top level: the button is gone, the cross is back on the row of the bike, the account has paid the three levels
+            PistaCareer.Pay(10000);
+            Call("RefreshGarage");
+            yield return null;
+            Find("Pulsante Potenzia").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Find("Pulsante Potenzia").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            int money3 = money1 - tigreTune1 + 10000 - tigreTune2 - tigreTune3;
+            Check("al terzo livello e' al massimo: 'Potenzia' sparisce, la croce torna alla riga della moto e il conto e' sceso dei tre prezzi",
+                PistaCareer.Book.Level(tigre) == Tuning.MaxLevel && PistaCareer.Book.Money == money3 && Find("Pulsante Potenzia") == null && Sel == "Scelta Moto"
+                && Text("Nome moto").EndsWith("tua  -  livello 3") && Text("Nota carriera") == "Potenziata: " + Bikes.Get(tigre).name + ", livello 3  -  conto " + Economy.Format(money3) + " cr",
+                Text("Nota carriera") + " / " + Sel + " / " + Text("Nome moto"));
+            if (shots) yield return Shot("menu_19_garage_livello3");
+
+            // every bike has its own level: the one before is as it came
+            Row("Moto").Step(-1);
+            yield return null;
+            Check("la Scintilla 125 e' ancora come e' venuta: niente livello, e 'Potenzia' chiede il prezzo del suo primo livello",
+                stage.Bike == Economy.StarterBike && Text("Nome moto") == "Scintilla 125  -  125 GP  -  tua" && Find("Pulsante Potenzia") != null
+                && Find("Pulsante Potenzia").GetComponentInChildren<Text>().text == "Potenzia  -  " + Economy.Format(Economy.TunePrice(Economy.StarterBike, 1)) + " cr", Text("Nome moto"));
+            Row("Moto").Step(1);
+            yield return null;
+
+            // what the race takes: the tuned copy with its own key and a lighter bike; a licence lends the bike as it comes, even one that is owned and tuned
+            var raced = PistaMode.SpecFor(tigre);
+            Check("la moto che la gara prende e' quella potenziata: la chiave dice il livello, pesa meno, e le altre moto e quelle di serie non sono toccate",
+                raced.id == Bikes.Get(tigre).id + "+3" && raced.tune == Tuning.MaxLevel && raced.bikeMass < Bikes.Get(tigre).bikeMass && PistaMode.TuneOf(Economy.StarterBike) == 0
+                && PistaMode.SpecFor(Economy.StarterBike).id == Bikes.Get(Economy.StarterBike).id && Bikes.Get(tigre).bikeMass == 181f, raced.id + ", " + raced.bikeMass.ToString("F1") + " kg");
+            int chosenSeed = PistaMode.Chosen;
+            PistaMode.BeginLicence(0);
+            bool lent = PistaMode.TuneOf(tigre) == 0 && PistaMode.SpecFor(tigre).id == Bikes.Get(tigre).id && PistaMode.SpecFor(tigre).tune == 0;
+            PistaMode.End();
+            PistaMode.Chosen = chosenSeed;
+            Check("una patente presta la moto com'e': anche una moto che si ha e si e' potenziata e' di serie in prova, e a prova finita il livello torna", lent && PistaMode.TuneOf(tigre) == Tuning.MaxLevel, "in prova " + lent + ", dopo livello " + PistaMode.TuneOf(tigre));
+
             // the setup panel: the subtitle says the money, and the row only goes through the bikes owned
             Call("GarageBack");
             yield return null; yield return null;
-            Check("la preparazione dice il conto sotto il titolo e la riga 'Moto' mostra la moto scelta", Open("pistaPanel") && Text("Sottotitolo").EndsWith("Carriera: conto " + Economy.Format(rest) + " cr") && Value("Moto") == Bikes.Get(tigre).name, Text("Sottotitolo") + " / " + Value("Moto"));
+            Check("la preparazione dice il conto sotto il titolo e la riga 'Moto' mostra la moto scelta", Open("pistaPanel") && Text("Sottotitolo").EndsWith("Carriera: conto " + Economy.Format(PistaCareer.Book.Money) + " cr") && Value("Moto") == Bikes.Get(tigre).name, Text("Sottotitolo") + " / " + Value("Moto"));
             if (shots) { yield return new WaitForSecondsRealtime(0.5f); yield return Shot("menu_16_preparazione_carriera"); }          // after the panel has faded in
+            Check("la scheda della moto, alla preparazione, e' quella della moto potenziata: dice il livello e il peso sceso",
+                Text("Scheda moto").StartsWith(Bikes.Get(tigre).name + " liv. 3  -  " + Bikes.Get(tigre).klass) && Text("Scheda moto").Contains(Mathf.RoundToInt(PistaMode.SpecFor(tigre).Mass) + " kg con il pilota"), Text("Scheda moto"));
             Row("Moto").Step(1);
             Check("la riga 'Moto' salta le moto che non si hanno: dalla Tigre 675 si torna alla Scintilla 125", PistaMode.Bike == Economy.StarterBike && Value("Moto") == Bikes.Get(Economy.StarterBike).name, Value("Moto"));
             Row("Moto").Step(1);
@@ -514,6 +588,7 @@ namespace PryingEyes.Pista
             yield return null;
             Check("per la cooperativa la carriera non limita la scelta: la moto scelta e' quella scelta anche se non si ha, e la riga passa a tutte", PistaMode.Bike == 2 && !PistaMode.CareerApplies && PistaMode.StepBike(2, 1) == 3 && PistaMode.StepBike(2, -1) == 1, "moto " + PistaMode.Bike);
             Check("e la preparazione per la cooperativa non dice il conto", !Text("Sottotitolo").Contains("Carriera"), Text("Sottotitolo"));
+            Check("e la moto della cooperativa e' di serie: nessun livello, anche su una moto che si e' potenziata, e la scheda non lo dice", PistaMode.TuneOf(tigre) == 0 && PistaMode.SpecFor(tigre).id == Bikes.Get(tigre).id && !Text("Scheda moto").Contains("liv."), PistaMode.SpecFor(tigre).id + " / " + Text("Scheda moto"));
             PistaMode.ForCoop = false;
             Call("RefreshPista", false);
             yield return null;
@@ -526,7 +601,7 @@ namespace PryingEyes.Pista
             yield return null; yield return null;
             EventSystem.current.SetSelectedGameObject(Find("Coppa 2"));
             yield return null;
-            Check("la Coppa Supersport si puo' correre: si sale in sella alla Tigre 675, la moto di quella classe che si ha", Text("Nota").StartsWith("In sella: " + Bikes.Get(tigre).name) && Text("Invio").StartsWith("Invio: gara 1"), Text("Nota").Replace((char)10, '/') + " | " + Text("Invio"));
+            Check("la Coppa Supersport si puo' correre: si sale in sella alla Tigre 675 potenziata, la moto di quella classe che si ha", Text("Nota").StartsWith("In sella: " + Bikes.Get(tigre).name + " liv. 3") && Text("Invio").StartsWith("Invio: gara 1"), Text("Nota").Replace((char)10, '/') + " | " + Text("Invio"));
             EventSystem.current.SetSelectedGameObject(Find("Coppa 3"));
             yield return null;
             Check("la Coppa Superbike no: la nota dice che serve una moto di quella classe e Invio dice che non si parte", Text("Nota").StartsWith("Serve una moto della classe Superbike") && Text("Invio").StartsWith("Non si parte"), Text("Nota").Replace((char)10, '/') + " | " + Text("Invio"));

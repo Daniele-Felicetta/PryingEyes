@@ -137,10 +137,10 @@ namespace PryingEyes
             foreach (var refresh in pistaRefresh) refresh();
             // with the career the line says the money and is shorter than the usual one, so that it stays clear of the Garage button that crosses it (the career never applies to a cooperative game: the base is the single player's)
             pistaSubtitle.text = PistaMode.CareerApplies ? "Il circuito che vedi e' quello che corri   -   Carriera: conto " + Economy.Format(PistaCareer.Book.Money) + " cr" : pistaSubtitleBase;
-            var spec = Bikes.Get(PistaMode.Bike);
+            var spec = PistaMode.SpecFor(PistaMode.Bike);          // the bike as it will be raced: with the level of tuning in a career
             float rpm;
             float hp = spec.PeakPowerKw(out rpm) * 1.36f;
-            pistaBike.text = spec.name + "  -  " + spec.klass + "  -  " + Mathf.RoundToInt(hp / 5f) * 5 + " CV  -  " + Mathf.RoundToInt(spec.Mass) + " kg con il pilota";
+            pistaBike.text = spec.name + (spec.tune > 0 ? " liv. " + spec.tune : "") + "  -  " + spec.klass + "  -  " + Mathf.RoundToInt(hp / 5f) * 5 + " CV  -  " + Mathf.RoundToInt(spec.Mass) + " kg con il pilota";
             if (newMap) RefreshPistaMap();
             RefreshPistaRecord();
         }
@@ -164,11 +164,12 @@ namespace PryingEyes
         void RefreshPistaRecord()
         {
             if (pistaRecord == null || pistaCircuit == null) return;
-            var spec = Bikes.Get(PistaMode.Bike);
+            var spec = PistaMode.SpecFor(PistaMode.Bike);
+            string called = spec.name + (spec.tune > 0 ? " liv. " + spec.tune : "");
             bool named = Catalogue.Named(pistaCircuit.seed);
             Ghost record = null;
             if (named) record = PistaRecords.Best(pistaCircuit, spec.id, 1) ?? PistaRecords.Best(pistaCircuit, spec.id, 0);
-            pistaRecord.text = !named ? "" : record != null ? "Record con " + spec.name + ":  " + PistaHud.Clock(record.lapTime) : "Nessun record con " + spec.name;
+            pistaRecord.text = !named ? "" : record != null ? "Record con " + called + ":  " + PistaHud.Clock(record.lapTime) : "Nessun record con " + called;
         }
 
         /// <summary>The name of a named circuit (the generator makes it from the seed; the names are worked out once).</summary>

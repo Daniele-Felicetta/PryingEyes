@@ -172,7 +172,7 @@ namespace PryingEyes
                 {
                     bool mine = i == Cups.Riders - 1;
                     cupRowName[i].text = mine ? you : field[i].name;
-                    cupRowValue[i].text = Bikes.Get(mine ? bike : field[i].bike).name;
+                    cupRowValue[i].text = Bikes.Get(mine ? bike : field[i].bike).name + (mine ? TuneTag(bike) : "");
                     cupRowName[i].color = mine ? CupAmber : Ink;
                     cupRowValue[i].color = mine ? CupAmber : Dim;
                 }
@@ -180,7 +180,7 @@ namespace PryingEyes
 
             bool frozen = started && !finished;
             bool available = PistaMode.CupAvailable(cup);
-            cupNote.text = (available ? "In sella: " + Bikes.Get(bike).name + (Cups.Allows(cup, PistaMode.Bike) ? "" : "  -  la tua moto non e' di questa classe")
+            cupNote.text = (available ? "In sella: " + Bikes.Get(bike).name + TuneTag(bike) + (Cups.Allows(cup, PistaMode.Bike) ? "" : "  -  la tua moto non e' di questa classe")
                 : "Serve una moto della classe " + cup.klass + ": comprane una nel garage (Carriera)") + "\n"
                 + "Avversari: livello " + PistaMode.RankNames[season != null && !finished ? season.rank : PistaMode.Rank].ToLowerInvariant()
                 + (frozen ? ", fissato all'inizio della stagione" : ", come nella preparazione");

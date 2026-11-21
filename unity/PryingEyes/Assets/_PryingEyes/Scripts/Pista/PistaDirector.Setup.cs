@@ -105,7 +105,7 @@ namespace PryingEyes.Pista
             CareerBegin();
             if (PistaMode.HasArg("-pistabot"))
             {
-                autopilot = new BikeDriver(me.bike, circuit, race.LineFor(me.bikeIndex), seed ^ 0x3131) { pace = 0.97f, mistakes = 0.02f };
+                autopilot = new BikeDriver(me.bike, circuit, race.LineFor(me.bike.spec), seed ^ 0x3131) { pace = 0.97f, mistakes = 0.02f };
                 autopilot.Reset(); autopilotIsBot = true;
             }
             // the first flight of the camera: from high in front of the grid back to the player's bike
@@ -117,7 +117,7 @@ namespace PryingEyes.Pista
             startWait = again ? 3.2f : 4.6f;
             if (!again) hud.SetHints(HintText(), 16f);
             hud.HideLoading();
-            hud.Banner(circuit.name, race.laps + (race.laps == 1 ? " giro" : " giri") + "   -   " + race.racers.Count + " piloti   -   " + Bikes.Get(me.bikeIndex).name, 3.4f);
+            hud.Banner(circuit.name, race.laps + (race.laps == 1 ? " giro" : " giri") + "   -   " + race.racers.Count + " piloti   -   " + MyBikeName(), 3.4f);
             if (CupActive) CupBanner();
             else if (licence != null) hud.Banner(Licences.Names[licence.test.licence] + "  -  " + licence.test.name, circuit.name + "   -   " + Bikes.Get(me.bikeIndex).name + "   -   per l'oro " + PistaHud.Clock(licence.test.gold), 4.2f, LicenceColor(Medal.Gold));
             RaceCount++;
@@ -158,7 +158,7 @@ namespace PryingEyes.Pista
             string myName = mine != null && !string.IsNullOrEmpty(mine.name) ? mine.name : "Tu";
             if (Coop.Active && Coop.Game != null) myName = Coop.Game.NameOf(Coop.Slot);
             int bikeMe = PistaMode.Bike;
-            me = race.AddHuman(myName, bikeMe, PistaMode.SkinFor(bikeMe), seed + 5);
+            me = race.AddHuman(myName, bikeMe, PistaMode.SkinFor(bikeMe), seed + 5, PistaMode.SpecFor(bikeMe));
             me.netSlot = Coop.Active ? Coop.Slot : -1;
             PistaMode.ApplyAids(me.bike, PistaMode.Aids);
 
@@ -203,6 +203,13 @@ namespace PryingEyes.Pista
         }
 
         static int SkinForBike(int bike) { return Bikes.Get(bike).skin; }
+
+        /// <summary>The name of the player's bike for the banners: the bike, and the level of tuning it has in this race.</summary>
+        string MyBikeName()
+        {
+            var s = me.bike != null ? me.bike.spec : Bikes.Get(me.bikeIndex);
+            return s.name + (s.tune > 0 ? " liv. " + s.tune : "");
+        }
 
         void BuildViews()
         {

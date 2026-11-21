@@ -38,6 +38,14 @@ namespace PryingEyes.Pista
             return bought;
         }
 
+        /// <summary>Take an owned bike up one level of tuning (see Tuning): written down at once when it is done.</summary>
+        public static bool Tune(int bike)
+        {
+            bool done = Book.Tune(bike);
+            if (done) Save(Book.Serialize());
+            return done;
+        }
+
         /// <summary>For the tests: a new career in memory (the preferences are never touched).</summary>
         public static void ForgetAll()
         {

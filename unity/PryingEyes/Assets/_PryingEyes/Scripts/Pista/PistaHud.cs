@@ -449,6 +449,9 @@ namespace PryingEyes.Pista
             bannerT = bannerLen = Mathf.Max(0.2f, seconds);
         }
 
+        /// <summary>For the tests: the second line of the banner (the bike, the laps...).</summary>
+        public string BannerSubText { get { return bannerSub != null ? bannerSub.text : ""; } }
+
         public void SetHints(string text, float seconds) { hintText.text = text; hintT = seconds; }
 
         /// <summary>How far ahead (green, minus) or behind (red, plus) the lap of reference the rider is, in seconds; nothing when there is no reference.</summary>

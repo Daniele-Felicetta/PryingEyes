@@ -225,7 +225,7 @@ namespace PryingEyes.Pista
                 if (CupActive) CupFinished();
                 if (autopilot == null && me.bike != null)
                 {
-                    autopilot = new BikeDriver(me.bike, circuit, race.LineFor(me.bikeIndex), seed ^ 0x5151) { pace = 0.62f, mistakes = 0f };
+                    autopilot = new BikeDriver(me.bike, circuit, race.LineFor(me.bike.spec), seed ^ 0x5151) { pace = 0.62f, mistakes = 0f };
                     autopilot.Reset(); autopilotIsBot = false;
                 }
             };
