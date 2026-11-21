@@ -133,12 +133,14 @@ namespace PryingEyes
             states.Remove(slot); readyEpoch.Remove(slot);
             net.SendToAll(CoopKind.PlayerLeft, w.Reset().U8(slot).ToArray());
             HostPlayerGone(slot);
+            Pista.PistaDirector.I?.CoopPeerLeft(slot);          // su pista: il pilota si ritira
             names.Remove(slot); looks.Remove(slot); levels.Remove(slot);
         }
 
         RemotePlayer GetPlayer(int slot)
         {
             if (slot == Coop.Slot || slot < 0 || slot >= CoopProtocol.MaxPlayers) return null;
+            if (Pista.PistaMode.Active || Pista.PistaMode.Incoming) return null;          // su pista nessuno cammina: i compagni sono moto (PistaDirector.Coop.cs)
             if (Players.TryGetValue(slot, out var rp) && rp != null) return rp;
             rp = RemotePlayer.Create(slot, NameOf(slot), LookOf(slot), LevelOf(slot));
             Players[slot] = rp;
@@ -191,6 +193,9 @@ namespace PryingEyes
                     if (ep == (Epoch & 0xFFFF)) HostWorldReady(from);       // gli racconto il piano: nemici, candele, uscita, round, gocce
                     break;
                 }
+                case CoopKind.PistaPose:
+                    Pista.PistaDirector.I?.CoopOnPose(from, ref r);         // la posa della moto di un compagno: la gara la mostra e la rimanda agli altri
+                    break;
                 default:
                     HostWorldMessage(from, kind, ref r);
                     break;
@@ -218,10 +223,12 @@ namespace PryingEyes
                     string myLook = r.Str();          // l'aspetto che l'ospite mi ha dato (il mio, se nessuno lo aveva gia')
                     if (r.Ok) Coop.MyLook = myLook;
                     bool desert = r.Ok && r.Left > 0 && r.Bool();          // il modo di gioco dell'ospite: il deserto (0.9.1) o i piani
+                    bool race = r.Ok && r.Left > 0 && r.Bool();            // ... o una gara su pista
+                    if (race) Pista.PistaMode.Incoming = true;             // prima di creare i compagni: su pista non hanno un corpo a piedi
                     foreach (int s in others) GetPlayer(s);
                     Started = true;
-                    Debug.Log($"[PryingEyes] coop: ammesso come slot {slot} ({MyName}), {(desert ? "deserto" : "piano " + floor)} seme {seed} epoca {ep}, {n} giocatori");
-                    GameManager.I?.BeginCoopRun(seed, floor, desert);
+                    Debug.Log($"[PryingEyes] coop: ammesso come slot {slot} ({MyName}), {(race ? "pista" : desert ? "deserto" : "piano " + floor)} seme {seed} epoca {ep}, {n} giocatori");
+                    GameManager.I?.BeginCoopRun(seed, floor, desert, race);
                     break;
                 }
                 case CoopKind.PlayerJoined:
@@ -254,12 +261,21 @@ namespace PryingEyes
                     }
                     break;
                 }
+                case CoopKind.PistaRoster: case CoopKind.PistaStart: case CoopKind.PistaPoses: case CoopKind.PistaOver:
+                    Pista.PistaDirector.I?.CoopOnMessage(kind, ref r);      // la gara su pista: chi corre, il via, le pose degli altri, la classifica
+                    break;
                 case CoopKind.FloorChange:
                 {
                     int seed = r.I32(), floor = r.I32(), ep = r.U16();
                     if (!r.Ok) return;
                     Epoch = ep; epochFloor = floor;
                     readySent = false;
+                    if (Pista.PistaMode.Active || Pista.PistaMode.Incoming)
+                    {
+                        builtLocal = false;
+                        Pista.PistaDirector.I?.CoopNewRace(seed);       // l'ospite ha cominciato un'altra gara (altro seme o lo stesso): la si ricostruisce e si dice all'ospite quando e' pronta
+                        break;
+                    }
                     var fd = FloorDirector.I;
                     if (fd != null) fd.CoopFollow(seed, floor);
                     TrySendReady();
@@ -277,7 +293,8 @@ namespace PryingEyes
         {
             var fd = FloorDirector.I;
             bool desert = Deserto.DesertMode.Active;          // il deserto sta tutto nel piano 0 (la cattedrale): e' la partita dell'ospite, che deve essere partita (epoca)
-            if (fd == null || (fd.floor == 0 && !desert) || Epoch == 0)
+            bool race = Pista.PistaMode.Active;               // la pista idem: una gara in griglia (non gia' partita) accetta nuovi piloti, una in corso li fa aspettare la prossima
+            if (fd == null || (fd.floor == 0 && !desert && !race) || Epoch == 0 || (race && !Pista.PistaDirector.CanWelcome))
             {
                 if (!pendingWelcome.Contains(slot)) pendingWelcome.Add(slot);      // la partita dell'ospite non e' ancora partita
                 return;
@@ -289,6 +306,7 @@ namespace PryingEyes
             foreach (int s in list) w.U8(s).Str(NameOf(s)).Str(LookOf(s)).U16(LevelOf(s));
             w.Str(LookOf(slot));                      // l'aspetto del nuovo arrivato, tolti i doppioni
             w.Bool(desert);                           // il modo di gioco (0.9.1): chi entra parte nel deserto o nel piano
+            w.Bool(race);                             // ... o nella gara su pista
             net.SendToSlot(slot, CoopKind.Welcome, w.ToArray());
             net.SendToAll(CoopKind.PlayerJoined, w.Reset().U8(slot).Str(NameOf(slot)).Str(LookOf(slot)).U16(LevelOf(slot)).ToArray(), true, slot);
             GetPlayer(slot);
@@ -417,6 +435,7 @@ namespace PryingEyes
             if (!host && !Started) return;
             if (GameManager.autoTest && !CoopTest.Wanted) DebugTick();
             WorldUpdate();
+            if (Pista.PistaMode.Active) return;       // su pista le pose le manda il regista della gara (nessuno cammina)
             sendT -= Time.unscaledDeltaTime;
             if (sendT > 0f) return;
             sendT = 1f / 15f;

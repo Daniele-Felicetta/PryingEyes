@@ -130,6 +130,20 @@ def saves_state(job):
     if result is None or not result["ok"]: raise RuntimeError("SAVES_STATE_FAILED_OR_REPORT_MISSING")
 
 
+def track_state(job):
+    """The track rules lab: the motorcycle physics, the circuit generator, the rider AI and the race rules (the cooperative race included) of the track mode, compiled from the game's own files."""
+    report = job.folder / "track-state.json"
+    job.report["artifacts"].append(str(report)); job.save()
+    result = None
+    try:
+        job.run("track-state", ["dotnet", "run", "-c", "Release", "--project", ROOT / "tools/tracklab", "--", report], timeout=300)
+    finally:
+        if report.is_file():
+            result = json.loads(report.read_text(encoding="utf-8"))
+            job.report["findings"].extend({**finding, "evidence": str(report)} for finding in result["findings"]); job.save()
+    if result is None or not result["ok"]: raise RuntimeError("TRACK_STATE_FAILED_OR_REPORT_MISSING")
+
+
 def unity_build(ctx, method, asset_args):
     """The editor step both content types share: build the player for one entry into ctx.build_dir."""
     ctx.job.run("unity", [ctx.tools["unity"], "-batchmode", "-projectPath", UNITY, "-executeMethod", method, *asset_args,
@@ -244,7 +258,8 @@ class PryingEyes(Project):
               "weapon-state": Suite(lambda ctx, runtime: weapon_state(ctx.job)),
               "survival": Suite(lambda ctx, runtime: survival_state(ctx.job)),
               "economy": Suite(lambda ctx, runtime: economy_state(ctx.job)),
-              "saves": Suite(lambda ctx, runtime: saves_state(ctx.job))}
+              "saves": Suite(lambda ctx, runtime: saves_state(ctx.job)),
+              "track": Suite(lambda ctx, runtime: track_state(ctx.job))}
     runtime = EXE
     publish_dir = EXE.parent
     published_artifact = EXE
@@ -265,7 +280,7 @@ class PryingEyes(Project):
         files.update(UNITY / "Packages" / name for name in ("manifest.json", "packages-lock.json"))
         for package in (UNITY / "Packages").glob("com.pryingeyes.*"):
             files.update(package.rglob("*.cs")); files.update(package.rglob("*.asmdef")); files.add(package / "package.json")
-        for folder in (ROOT / "tools/planlab", ROOT / "tools/weaponslab", ROOT / "tools/survivallab", ROOT / "tools/economylab", ROOT / "tools/saveslab"):
+        for folder in (ROOT / "tools/planlab", ROOT / "tools/weaponslab", ROOT / "tools/survivallab", ROOT / "tools/economylab", ROOT / "tools/saveslab", ROOT / "tools/tracklab"):
             files.update(folder.glob("*.cs*"))
         if command in ("catalog", "gallery"): files.add(ROOT / "tools/asset_graph.py")
         if command == "gallery":
@@ -280,7 +295,7 @@ class PryingEyes(Project):
 
     def before_build(self, ctx):
         super().before_build(ctx)
-        weapon_state(ctx.job); survival_state(ctx.job); economy_state(ctx.job); saves_state(ctx.job)
+        weapon_state(ctx.job); survival_state(ctx.job); economy_state(ctx.job); saves_state(ctx.job); track_state(ctx.job)
 
     def after_build(self, ctx, built):
         native_gunplay(ctx.job, built); native_city(ctx.job, built)

@@ -130,6 +130,7 @@ namespace PryingEyes
         void HostWorldClientReady(int slot)
         {
             if (Desert) { HostDesertClientReady(slot); return; }
+            if (Pista.PistaMode.Active) { Pista.PistaDirector.I?.CoopClientReady(slot); return; }       // la gara su pista: chi ha costruito la pista riceve chi corre
             var fd = FloorDirector.I;
             int n = 0;
             foreach (var e in enemies.Values)
