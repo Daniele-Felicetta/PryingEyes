@@ -139,6 +139,17 @@ namespace PryingEyes.Pista
                 Check("la pianura all'orizzonte sta fuori dal terreno: nessun punto della strada ci sta sotto", pm != null && pieces >= 8 && hidden == 0, $"{pieces} triangoli, {hidden} punti coperti");
             }
             Check("lo stile di guida scelto arriva alla moto del giocatore", d.me.bike.style == (RiderStyle)PistaMode.Style, d.me.bike.style + " (scelto " + PistaMode.Style + ")");
+            {
+                int aidsNow = PistaMode.Aids;
+                var gd = d.guide;
+                int window = Mathf.RoundToInt(DrivingLine.BehindMetres / d.circuit.spacing) + Mathf.RoundToInt(DrivingLine.AheadMetres / d.circuit.spacing);
+                if (gd != null) gd.Follow(d.me.s, 0f);          // the bike stands still on the grid: nothing to brake for
+                bool guideOk = aidsNow >= 2 ? gd == null
+                    : gd != null && gd.Visible && gd.root != null
+                      && (aidsNow == 1 ? gd.ShownTotal == 0 : gd.shown[0] == window && gd.shown[1] == 0 && gd.shown[2] == 0);
+                Check("sulla griglia la moto e' ferma: la linea di corsa e' tutta verde davanti (Completi), non ha rosso da mostrare (Sportivi) o non c'e' (Nessuno)",
+                    guideOk, "aiuti " + aidsNow + ", " + (gd == null ? "nessuna linea" : gd.shown[0] + " verdi, " + gd.shown[1] + " gialli, " + gd.shown[2] + " rossi sui " + window + " campioni davanti"));
+            }
             Check("senza la carriera la moto del giocatore e' quella di serie, senza livello e con la chiave della moto", !PistaMode.CareerApplies && d.me.bike.spec.id == Bikes.Get(d.me.bikeIndex).id && d.me.bike.spec.tune == 0 && d.BikeId == Bikes.Get(d.me.bikeIndex).id, d.me.bike.spec.id + ", livello " + d.me.bike.spec.tune);
             CodecChecks(d);
             EngineChecks();
@@ -192,12 +203,19 @@ namespace PryingEyes.Pista
             phase = "gara";
             Time.timeScale = 4f;
             float maxSpeed = 0f, maxDraft = 0f, t1 = Time.realtimeSinceStartup;
-            bool shotsRace = false;
+            bool shotsRace = false, shotRedNear = false, shotRedUnder = false, shotYellow = false;
             while (d.race.phase == RacePhase.Racing && Time.realtimeSinceStartup - t1 < 360f)
             {
                 maxSpeed = Mathf.Max(maxSpeed, d.me.speed);
                 for (int i = 0; i < d.race.racers.Count; i++) maxDraft = Mathf.Max(maxDraft, d.race.racers[i].draft);
                 if (shots && !shotsRace && d.me.speed > 45f) { shotsRace = true; Time.timeScale = 1f; yield return Shot("5_gara_inseguimento"); d.cam.mode = CamMode.Far; yield return null; yield return Shot("6_gara_lontana"); d.cam.mode = CamMode.Cockpit; yield return null; yield return Shot("7_gara_casco"); d.cam.mode = CamMode.Chase; Time.timeScale = 4f; }
+                var gdShots = d.guide;
+                if (shots && gdShots != null && shotsRace && d.me.speed > 25f)
+                {
+                    if (!shotRedNear && gdShots.redAhead >= 25f && gdShots.redAhead < 80f) { shotRedNear = true; Time.timeScale = 1f; Debug.Log("[PryingEyes] pistatest foto della linea di corsa 12, il rosso sta per arrivare: " + GuideNote(d)); yield return Shot("12_linea_rosso_davanti"); Time.timeScale = 4f; }
+                    else if (!shotRedUnder && gdShots.here == Advice.Brake) { shotRedUnder = true; Time.timeScale = 1f; Debug.Log("[PryingEyes] pistatest foto della linea di corsa 13, rosso sotto la moto: " + GuideNote(d)); yield return Shot("13_linea_rosso_sotto"); Time.timeScale = 4f; }
+                    else if (!shotYellow && gdShots.here == Advice.Lift && gdShots.redAhead < 0f && d.me.speed < 50f) { shotYellow = true; Time.timeScale = 1f; Debug.Log("[PryingEyes] pistatest foto della linea di corsa 14, giallo sotto la moto: " + GuideNote(d)); yield return Shot("14_linea_gialla_in_curva"); Time.timeScale = 4f; }
+                }
                 yield return null;
             }
             Time.timeScale = 1f;
@@ -509,6 +527,13 @@ namespace PryingEyes.Pista
             Check("la gara e' stata registrata: un nastro per pilota, lungo quanto la gara", taped, rec == null ? "nessun nastro" : $"{rec.count} nastri, {rec.Frames} fotogrammi, {rec.Duration:F1} s su {d.race.time:F1} s");
             if (!taped) yield break;
             Check("in classifica si puo' avviare il replay (T)", d.CanReplay, "");
+            {
+                var gr = d.guide;
+                Check("durante la gara la linea di corsa ha detto di frenare e poi no: il rosso e' comparso, e non per tutto il tempo",
+                    gr == null || (gr.redFrames > 30 && gr.redFrames < gr.frames * 0.75f),
+                    gr == null ? "nessuna linea (aiuti " + PistaMode.Aids + ")" : gr.redFrames + " fotogrammi con il rosso su " + gr.frames);
+            }
+            Check("a fine gara la linea di corsa si spegne (niente consigli sulla classifica ne' nel replay)", d.Resulting && (d.guide == null || !d.guide.Visible), d.guide == null ? "nessuna linea" : "visibile " + d.guide.Visible);
             bool started = d.StartReplay();
             yield return null; yield return null;
             Check("il replay parte dall'inizio e nasconde la classifica", started && d.Replaying && !d.hud.ResultsShown && d.ReplayTime < 0.2f && d.ReplayUiShown, $"tempo {d.ReplayTime:F2} s");
@@ -891,6 +916,13 @@ namespace PryingEyes.Pista
             string line = $"  {label}: {frame.Count} fotogrammi, media {avg:F1} ms ({1000f / avg:F0} FPS), p50 {P(0.5f):F1}, p95 {P(0.95f):F1}, p99 {P(0.99f):F1}, peggiore {sorted[sorted.Count - 1]:F1} ms; disegno {sumDraw / draw.Count:F1} ms; {visible} oggetti visibili, {tris / 1000} mila triangoli";
             report.AppendLine(line);
             Debug.Log("[PryingEyes] pistaperf" + line);
+        }
+
+        /// <summary>What the driving line says now, for the log next to a photograph: where the bike is, how fast, the advice under it, how far the first red is and the pieces of the stretch ahead.</summary>
+        static string GuideNote(PistaDirector d)
+        {
+            var g = d.guide;
+            return g == null ? "nessuna linea" : "a " + d.me.s.ToString("F0") + " m, " + (d.me.speed * 3.6f).ToString("F0") + " km/h, sotto la moto " + g.here + ", primo rosso " + (g.redAhead < 0f ? "-" : "a " + g.redAhead.ToString("F0") + " m") + ": " + g.Describe();
         }
 
         IEnumerator Shot(string name)

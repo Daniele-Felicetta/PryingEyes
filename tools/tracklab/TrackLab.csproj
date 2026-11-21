@@ -25,6 +25,7 @@
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/KeyShaper.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Career.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/Tuning.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/DrivingLine.cs" />
     <Compile Include="RaceSimChecks.cs" />
     <Compile Include="CoopChecks.cs" />
     <Compile Include="RiderChecks.cs" />
@@ -39,6 +40,7 @@
     <Compile Include="ContactChecks.cs" />
     <Compile Include="CareerChecks.cs" />
     <Compile Include="TuningChecks.cs" />
+    <Compile Include="GuideChecks.cs" />
     <Compile Include="CatalogueScan.cs" />
   </ItemGroup>
 </Project>

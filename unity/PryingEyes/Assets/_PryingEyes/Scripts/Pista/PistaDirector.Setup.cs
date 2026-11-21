@@ -96,6 +96,8 @@ namespace PryingEyes.Pista
             started = false; acc = 0f; pendingShift = 0; lastLights = 0; goFlash = 0f; held = default(BikeInputs); resultsShown = false;
             input.Reset();
             BuildViews();
+            if (guide != null) guide.Destroy();
+            guide = PistaGuide.Build(world.transform, race.LineFor(me.bike.spec), PistaMode.Aids);          // the driving line of the bike the player rides, as the aids level shows it
             world.SetLamps(0);
             hud.BuildMap(circuit, race.racers.Count, circuit.name + "  -  " + km);
             hud.HideResults();
@@ -241,6 +243,7 @@ namespace PryingEyes.Pista
             for (int i = 0; i < views.Count; i++) if (views[i] != null) Destroy(views[i].gameObject);
             views.Clear();
             myView = null;
+            if (guide != null) { guide.Destroy(); guide = null; }
             if (world != null) Destroy(world.gameObject);
             world = null; race = null; me = null; circuit = null; autopilot = null; autopilotIsBot = false;
             resultsShown = false;

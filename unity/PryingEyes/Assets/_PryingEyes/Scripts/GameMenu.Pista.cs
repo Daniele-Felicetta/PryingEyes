@@ -45,9 +45,9 @@ namespace PryingEyes
             // four lines broken by hand, in a box that ends before the "Altra pista" button (the box was 660 wide and ended 20 units under the button: the last word of a line was cut)
             Label(pistaPanel, "Nota aiuti", new Vector2(PistaChoiceX + 50f, -197f), new Vector2(640, 70), 16, TextAnchor.UpperCenter,
                 "Aiuti. Completi: ABS, trazione, antimpennata, marce e aiuto in piega." + "\n"
-                + "Sportivi: tutti tranne l'aiuto in piega. Nessuno: solo l'ABS, marce a mano (E / Q)." + "\n"
-                + "Stile. Peso fuori: la moto entra in curva in fretta e resta piu' dritta." + "\n"
-                + "Moto in piega: lenta e stabile. Il peso si sposta anche a mano (I J K L).", Dim, FontStyle.Normal);
+                + "Sportivi: tutti tranne l'aiuto in piega. Nessuno: solo l'ABS, marce a mano." + "\n"
+                + "Linea di corsa: Completi verde, giallo, rosso; Sportivi i segni di frenata." + "\n"
+                + "Stile. Peso fuori: entra in fretta, piu' dritta. Moto in piega: lenta e stabile.", Dim, FontStyle.Normal);
 
             // l'anteprima del circuito
             var frame = Rect(pistaPanel, "CorniceMappa", new Vector2(292, 292), new Vector2(300, 40));

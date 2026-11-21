@@ -149,6 +149,8 @@ namespace PryingEyes.Pista
                 where = "la nota arriva a x " + a[2].x.ToString("F0") + ", 'Altra pista' parte da x " + b[0].x.ToString("F0") + ", " + lines + " righe";
             }
             Check("la nota sugli aiuti sta in quattro righe e non finisce sotto 'Altra pista'", clear, where);
+            string noteText = note != null ? note.GetComponent<Text>().text : "";
+            Check("la nota dice cosa fa la linea di corsa a ogni livello di aiuti, e che il peso si sposta con I J K L lo dice la barra dei tasti in gara", noteText.Contains("Linea di corsa") && noteText.Contains("Completi verde, giallo, rosso") && noteText.Contains("Sportivi i segni di frenata") && !noteText.Contains("(E / Q)"), noteText.Replace("\n", " / "));
 
             // ---- the rows step
             int laps0 = PistaMode.Laps;

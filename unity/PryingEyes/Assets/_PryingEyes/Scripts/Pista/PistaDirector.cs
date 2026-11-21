@@ -24,6 +24,8 @@ namespace PryingEyes.Pista
         [System.NonSerialized] public DesertSky sky;
         [System.NonSerialized] public Racer me;
         [System.NonSerialized] public PistaBikeView myView;
+        /// <summary>The driving line on the road, as far as the aids level of the rider shows it (null when it shows none of it).</summary>
+        [System.NonSerialized] public PistaGuide guide;
         public readonly List<PistaBikeView> views = new List<PistaBikeView>();
         /// <summary>The race is built and running (the loading screen is gone).</summary>
         public bool Ready { get; private set; }
@@ -125,6 +127,7 @@ namespace PryingEyes.Pista
             bool mute = blocked && !Coop.Active;
             for (int i = 0; i < views.Count; i++) views[i].Render(alpha, dt, mute);
             TimingRender(alpha, dt);
+            if (guide != null) guide.Follow(me.s, speed);          // the colours of the road ahead depend on how fast the bike goes
             if (!freeCamera) cam.Update(dt, myView.shown, myView.rig, world);
             myView.SetCockpit(cam.mode == CamMode.Cockpit);
             bool lampsShown = race.phase == RacePhase.Countdown || (race.phase == RacePhase.Racing && race.sinceGo < 1.6f);
@@ -252,6 +255,7 @@ namespace PryingEyes.Pista
         void ShowResults()
         {
             resultsShown = true;
+            if (guide != null) guide.SetVisible(false);          // the race is over: no more advice, and the replay is seen without it
             ReplayFinish();
             bool host = CanRestart();
             CupResults();                  // the round counts for the season as soon as the table is up, and the foot of the table depends on whether there is a next round
