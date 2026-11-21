@@ -134,6 +134,7 @@ namespace PryingEyes.Pista
             if (licenceFlow) { yield return LicenceFlow(); yield break; }
             if (PistaMode.HasArg("-pistamenugarage")) { yield return GarageFlow(); yield break; }
             if (PistaMode.HasArg("-pistamenucup")) { yield return CupFlow(); yield break; }
+            if (PistaMode.HasArg("-pistamenucareer")) { yield return CareerFlow(); yield break; }
 
             // ---- the note about the aids and the style is read whole: four lines, and its box ends before the "Altra pista" button (it used to run 20 units under it and cut the last words of a line)
             var note = Find("Nota aiuti"); var other = Find("Pulsante Altra pista");
@@ -425,6 +426,136 @@ namespace PryingEyes.Pista
             var myRig = d.views[d.race.racers.IndexOf(d.me)].rig;
             Check("il pilota in gara indossa la tuta e il casco scelti nel garage, su una moto con la vernice scelta", RigWears(myRig, Livery.For(7), Livery.For(4).main), "abbigliamento " + PistaMode.Outfit);
         }
+
+        /// <summary>The career from the garage: off, then on (the bike chosen becomes one that is owned and the button says the money), the plate going to bikes that are not owned with their price and "Compra", a purchase that
+        /// the money does not cover and one that it does, the setup panel that only steps through the bikes owned, the panel of a cooperative game that ignores the career, and the cups (one without a bike of its class cannot start).</summary>
+        IEnumerator CareerFlow()
+        {
+            PistaCareer.ForgetAll(); PistaCups.ForgetAll();
+            PistaMode.CareerOn = false;
+            PistaMode.Bike = 0; PistaMode.Skin = -1; PistaMode.Outfit = -1; PistaMode.Aids = 1; PistaMode.Rivals = 3; PistaMode.Laps = 1; PistaMode.Rank = 1;
+            var open = Find("Pulsante Garage");
+            if (open == null) { Check("la preparazione ha il pulsante Garage", false); yield break; }
+            EventSystem.current.SetSelectedGameObject(open);
+            open.GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null; yield return null;
+            var stage = menu.GarageStageForTest;
+            Check("il garage ha il pulsante della carriera, spenta: dice cosi', non c'e' 'Compra' e il nome non ha prezzo",
+                Open("garagePanel") && Find("Pulsante Carriera") != null && CareerLabel() == "Carriera: spenta" && Find("Pulsante Compra") == null && Text("Nome moto") == Bikes.Get(0).name + "  -  " + Bikes.Get(0).klass && !PistaMode.CareerOn, CareerLabel() + " / " + Text("Nome moto"));
+            Row("Moto").Step(1);
+            yield return null;
+            Check("senza carriera tutte le moto sono tue: la riga passa all'Argo 600 e la scelta la segue", PistaMode.Bike == 1 && stage.Bike == 1 && Find("Pulsante Compra") == null, "moto " + PistaMode.Bike);
+            if (shots) yield return Shot("menu_14_garage_libero");
+
+            // the career on: the bike chosen is read again, and only a bike owned can be
+            Find("Pulsante Carriera").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            Check("accesa la carriera: il pulsante dice il conto, la moto scelta diventa quella che si ha (la Scintilla 125) e sul piatto c'e' lei, 'tua'",
+                PistaMode.CareerOn && CareerLabel() == "Carriera: " + Economy.Format(Economy.StartMoney) + " cr" && PistaMode.Bike == Economy.StarterBike && stage.Bike == Economy.StarterBike && Text("Nome moto") == "Scintilla 125  -  125 GP  -  tua" && Find("Pulsante Compra") == null,
+                CareerLabel() + " / " + Text("Nome moto") + " / moto " + PistaMode.Bike);
+            Check("la nota dice cosa e' cambiato", Text("Nota carriera").StartsWith("Carriera accesa"), Text("Nota carriera"));
+
+            // window shopping: the plate goes to a bike that is not owned, the bike chosen does not
+            Row("Moto").Step(1);
+            yield return null;
+            int tigre = 4, tigrePrice = Economy.Price(tigre);
+            Check("sfogliando, il piatto va alla moto dopo e ne dice il prezzo, ma la moto scelta resta quella che si ha", stage.Bike == tigre && PistaMode.Bike == Economy.StarterBike && Value("Moto") == Bikes.Get(tigre).name
+                && Text("Nome moto") == Bikes.Get(tigre).name + "  -  " + Bikes.Get(tigre).klass + "  -  " + Economy.Format(tigrePrice) + " cr", Text("Nome moto") + " / scelta " + PistaMode.Bike);
+            var bikeNav = Row("Moto").navigation; var outfitNav = Row("Pilota").navigation; var doneNav = Find("Pulsante Fatto").GetComponent<Selectable>().navigation;
+            var buy = Find("Pulsante Compra");
+            Check("compare 'Compra' con il prezzo, e la croce lo mette tra 'Pilota' e 'Fatto'", buy != null && buy.GetComponentInChildren<Text>().text == "Compra  -  " + Economy.Format(tigrePrice) + " cr" && outfitNav.selectOnDown != null && outfitNav.selectOnDown.name == "Pulsante Compra"
+                && buy.GetComponent<Selectable>().navigation.selectOnDown != null && buy.GetComponent<Selectable>().navigation.selectOnDown.name == "Pulsante Fatto" && doneNav.selectOnUp != null && doneNav.selectOnUp.name == "Pulsante Compra"
+                && bikeNav.selectOnUp != null && bikeNav.selectOnUp.name == "Pulsante Carriera", buy != null ? buy.GetComponentInChildren<Text>().text : "senza pulsante");
+            if (shots) yield return Shot("menu_15_garage_compra");
+
+            // not enough money: it says what is missing and nothing changes
+            buy.GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Check("senza i soldi la moto non si compra: la nota dice quanto manca, il conto e le moto sono quelli di prima e 'Compra' c'e' ancora",
+                !PistaCareer.Book.Owns(tigre) && PistaCareer.Book.Money == Economy.StartMoney && Text("Nota carriera") == "Ti mancano " + Economy.Format(tigrePrice - Economy.StartMoney) + " cr per la " + Bikes.Get(tigre).name && Find("Pulsante Compra") != null && PistaMode.Bike == Economy.StarterBike,
+                Text("Nota carriera"));
+
+            // the money arrives and it is bought
+            PistaCareer.Pay(7000);
+            Call("RefreshGarage");
+            yield return null;
+            int rest = Economy.StartMoney + 7000 - tigrePrice;
+            Check("arrivati i soldi il pulsante della carriera dice il conto nuovo", CareerLabel() == "Carriera: " + Economy.Format(Economy.StartMoney + 7000) + " cr", CareerLabel());
+            Find("Pulsante Compra").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            Check("comprata: e' tua (il conto scende del prezzo), e' la moto scelta, 'Compra' sparisce, la nota lo dice e la croce torna alla riga della moto",
+                PistaCareer.Book.Owns(tigre) && PistaCareer.Book.Money == rest && PistaMode.Bike == tigre && Find("Pulsante Compra") == null && Text("Nota carriera") == "Comprata: " + Bikes.Get(tigre).name + "  -  conto " + Economy.Format(rest) + " cr"
+                && CareerLabel() == "Carriera: " + Economy.Format(rest) + " cr" && Text("Nome moto").EndsWith("tua") && Sel == "Scelta Moto", Text("Nota carriera") + " / " + CareerLabel() + " / " + Sel);
+            Row("Moto").Step(1);
+            yield return null;
+            Check("la moto dopo non e' tua: la scelta resta quella appena comprata e 'Compra' torna", stage.Bike == tigre + 1 && PistaMode.Bike == tigre && Find("Pulsante Compra") != null, "piatto " + stage.Bike + ", scelta " + PistaMode.Bike);
+            Row("Moto").Step(-1);
+            yield return null;
+            Check("e tornando indietro 'Compra' non c'e' piu'", stage.Bike == tigre && PistaMode.Bike == tigre && Find("Pulsante Compra") == null);
+
+            // the setup panel: the subtitle says the money, and the row only goes through the bikes owned
+            Call("GarageBack");
+            yield return null; yield return null;
+            Check("la preparazione dice il conto sotto il titolo e la riga 'Moto' mostra la moto scelta", Open("pistaPanel") && Text("Sottotitolo").EndsWith("Carriera: conto " + Economy.Format(rest) + " cr") && Value("Moto") == Bikes.Get(tigre).name, Text("Sottotitolo") + " / " + Value("Moto"));
+            if (shots) { yield return new WaitForSecondsRealtime(0.5f); yield return Shot("menu_16_preparazione_carriera"); }          // after the panel has faded in
+            Row("Moto").Step(1);
+            Check("la riga 'Moto' salta le moto che non si hanno: dalla Tigre 675 si torna alla Scintilla 125", PistaMode.Bike == Economy.StarterBike && Value("Moto") == Bikes.Get(Economy.StarterBike).name, Value("Moto"));
+            Row("Moto").Step(1);
+            Check("e da li' alla Tigre 675", PistaMode.Bike == tigre, Value("Moto"));
+            Row("Moto").Step(-1);
+            Check("all'indietro lo stesso", PistaMode.Bike == Economy.StarterBike, Value("Moto"));
+            PistaMode.Bike = 0;          // a bike that is not owned, left by an earlier choice: read as the first one that is
+            Check("una scelta di prima su una moto che non si ha vale la prima che si ha", PistaMode.Bike == Economy.StarterBike && PistaMode.StepBike(PistaMode.Bike, 1) == tigre, "moto " + PistaMode.Bike);
+
+            // the panel of a cooperative game: the host picks the bike of the whole table, so the career does not limit it and says nothing of money
+            PistaMode.ForCoop = true;
+            PistaMode.Bike = 2;          // the Vigile 750: not owned
+            Call("RefreshPista", false);
+            yield return null;
+            Check("per la cooperativa la carriera non limita la scelta: la moto scelta e' quella scelta anche se non si ha, e la riga passa a tutte", PistaMode.Bike == 2 && !PistaMode.CareerApplies && PistaMode.StepBike(2, 1) == 3 && PistaMode.StepBike(2, -1) == 1, "moto " + PistaMode.Bike);
+            Check("e la preparazione per la cooperativa non dice il conto", !Text("Sottotitolo").Contains("Carriera"), Text("Sottotitolo"));
+            PistaMode.ForCoop = false;
+            Call("RefreshPista", false);
+            yield return null;
+            Check("finita la cooperativa la carriera torna: la moto che non si ha vale di nuovo la prima che si ha, e il conto e' sotto il titolo", PistaMode.CareerApplies && PistaMode.Bike == Economy.StarterBike && Text("Sottotitolo").Contains("Carriera: conto"), "moto " + PistaMode.Bike + " / " + Text("Sottotitolo"));
+
+            // the cups: the Supersport one can be ridden (the Tigre 675 is of its class), the Superbike one cannot (no Superbike)
+            var cupOpen = Find("Pulsante Campionato");
+            EventSystem.current.SetSelectedGameObject(cupOpen);
+            cupOpen.GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            EventSystem.current.SetSelectedGameObject(Find("Coppa 2"));
+            yield return null;
+            Check("la Coppa Supersport si puo' correre: si sale in sella alla Tigre 675, la moto di quella classe che si ha", Text("Nota").StartsWith("In sella: " + Bikes.Get(tigre).name) && Text("Invio").StartsWith("Invio: gara 1"), Text("Nota").Replace((char)10, '/') + " | " + Text("Invio"));
+            EventSystem.current.SetSelectedGameObject(Find("Coppa 3"));
+            yield return null;
+            Check("la Coppa Superbike no: la nota dice che serve una moto di quella classe e Invio dice che non si parte", Text("Nota").StartsWith("Serve una moto della classe Superbike") && Text("Invio").StartsWith("Non si parte"), Text("Nota").Replace((char)10, '/') + " | " + Text("Invio"));
+            if (shots) yield return Shot("menu_17_coppa_senza_moto");
+            Find("Coppa 3").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+            Check("un clic su quella coppa non la fa partire: il menu resta aperto e nessuna stagione comincia", Open("cupPanel") && GameMenu.InMenu && !PistaMode.Active && PistaCups.Book.Season(2) == null, "campionato aperto " + Open("cupPanel"));
+            PistaCareer.Pay(20000); PistaCareer.Buy(0);          // an Argo 1000: the Superbike cup is open now
+            Call("RefreshCup");
+            yield return null;
+            Check("comprata una Superbike la coppa si puo' correre, in sella all'Argo 1000", Text("Nota").StartsWith("In sella: " + Bikes.Get(0).name) && Text("Invio").StartsWith("Invio: gara 1") && PistaMode.CupAvailable(Cups.All[2]) && PistaMode.CupBike(Cups.All[2]) == 0, Text("Nota").Replace((char)10, '/'));
+            Find("Pulsante Indietro").GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null;
+
+            // off again: every bike is there, and the setup panel says nothing of money
+            open = Find("Pulsante Garage");
+            EventSystem.current.SetSelectedGameObject(open);
+            open.GetComponent<Button>().onClick.Invoke();
+            yield return null; yield return null; yield return null;
+            Find("Pulsante Carriera").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Row("Moto").Step(1);
+            Check("spenta la carriera tutte le moto tornano tue: nessun prezzo, nessun 'Compra', e la riga le attraversa tutte", !PistaMode.CareerOn && CareerLabel() == "Carriera: spenta" && Find("Pulsante Compra") == null && !Text("Nome moto").Contains(" cr") && PistaMode.Bike == stage.Bike, CareerLabel() + " / " + Text("Nome moto"));
+            Call("GarageBack");
+            yield return null; yield return null;
+            Check("e la preparazione non dice piu' il conto", !Text("Sottotitolo").Contains("Carriera"), Text("Sottotitolo"));
+        }
+
+        string CareerLabel() { var g = Find("Pulsante Carriera"); return g != null && g.GetComponentInChildren<Text>() != null ? g.GetComponentInChildren<Text>().text : "?"; }
 
         /// <summary>The championship from the setup: the three cups with their calendar and field, a season and a trophy written in the book, the standings, the two-step restart, back to the setup, the cup in progress
         /// chosen again, and a click on a finished cup that starts a new season and its first round.</summary>

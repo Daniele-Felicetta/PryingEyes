@@ -102,6 +102,7 @@ namespace PryingEyes.Pista
             TimingBegin();
             LicenceBegin();
             CupBegin();
+            CareerBegin();
             if (PistaMode.HasArg("-pistabot"))
             {
                 autopilot = new BikeDriver(me.bike, circuit, race.LineFor(me.bikeIndex), seed ^ 0x3131) { pace = 0.97f, mistakes = 0.02f };

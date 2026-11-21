@@ -20,6 +20,11 @@ namespace PryingEyes
         readonly Text[] garageBarValue = new Text[BikeSheet.BarCount];
         readonly Image[] garageBarFill = new Image[BikeSheet.BarCount];
         GarageStage garageStage;
+        // the career: the button that turns it on and shows the money, the button that buys the bike on the plate and the line that says how it went
+        Button garageCareerButton, garageBuyButton;
+        Text garageCareerLabel, garageBuyLabel, garageNote;
+        /// <summary>The bike on the plate. Without the career it is the bike chosen (PistaMode.Bike); in a career the plate shows every bike of the roster, owned or not, and PistaMode.Bike follows it only while it is owned.</summary>
+        int garageView;
 
         const float GarageBarW = 250f, GarageBarH = 12f, GarageBarX = 330f;
 
@@ -39,7 +44,7 @@ namespace PryingEyes
             garagePicture = Rect(frame, "Vetrina", new Vector2(546, 364), Vector2.zero).gameObject.AddComponent<RawImage>();
             garagePicture.raycastTarget = false;
 
-            garageBikeRow = GarageRow("Moto", 170f, () => Bikes.Get(PistaMode.Bike).name, d => PistaMode.Bike = Wrap(PistaMode.Bike + d, Bikes.Count));
+            garageBikeRow = GarageRow("Moto", 170f, () => Bikes.Get(garageView).name, GarageBikeStep);
             garageColourRow = GarageRow("Colori", 128f, GarageColourName, d => PistaMode.Skin = Wrap(PistaMode.Skin + 1 + d, Livery.Count + 1) - 1);
             garageSwatchMain = Swatch("Colore principale", new Vector2(198f, 128f));
             garageSwatchAccent = Swatch("Colore secondario", new Vector2(226f, 128f));
@@ -64,10 +69,17 @@ namespace PryingEyes
 
             garageBackButton = MakeButton(garagePanel, "Fatto", new Vector2(0, -262), GarageBack);
             AddFeedback(garageBackButton, null);
-            garageBikeRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnDown = garageColourRow };
-            garageColourRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageBikeRow, selectOnDown = garageOutfitRow };
-            garageOutfitRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageColourRow, selectOnDown = garageBackButton };
-            garageBackButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageOutfitRow };
+            // the career: "Carriera" turns it on and off (and says the money), "Compra" buys the bike on the plate when it is not owned, the line above it says how it went
+            garageCareerButton = MakeButton(garagePanel, "Carriera", new Vector2(468, 262), GarageCareerToggle);
+            ResizeButton(garageCareerButton, new Vector2(270, 42), 20);
+            garageCareerLabel = garageCareerButton.GetComponentInChildren<Text>();
+            AddFeedback(garageCareerButton, null);
+            garageBuyButton = MakeButton(garagePanel, "Compra", new Vector2(-325, -262), GarageBuy);
+            ResizeButton(garageBuyButton, new Vector2(260, 40), 19);
+            garageBuyLabel = garageBuyButton.GetComponentInChildren<Text>();
+            AddFeedback(garageBuyButton, null);
+            garageNote = Label(garagePanel, "Nota carriera", new Vector2(-318, -214), new Vector2(560, 24), 16, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
+            GarageWire();
             garagePanel.gameObject.AddComponent<MenuPanelFade>();
             garagePanel.gameObject.AddComponent<GarageTick>().menu = this;
         }
@@ -120,7 +132,11 @@ namespace PryingEyes
         void RefreshGarage()
         {
             if (garagePanel == null) return;
-            int index = PistaMode.Bike, skin = PistaMode.Skin, outfit = PistaMode.Outfit;
+            if (!PistaMode.CareerApplies) garageView = PistaMode.Bike;     // without the career the plate shows the bike chosen, whoever changed it
+            int index = garageView, skin = PistaMode.Skin, outfit = PistaMode.Outfit;
+            bool career = PistaMode.CareerApplies;
+            var book = PistaCareer.Book;
+            bool owned = !career || book.Owns(index);
             var spec = Bikes.Get(index);
             garageBikeRow.Value = spec.name;
             garageColourRow.Value = GarageColourName();
@@ -129,7 +145,7 @@ namespace PryingEyes
             garageSwatchMain.color = liv.main; garageSwatchAccent.color = liv.accent;
             var rider = outfit >= 0 ? Livery.For(outfit) : liv;
             garageSwatchSuit.color = rider.suit; garageSwatchSuit2.color = rider.suit2; garageSwatchHelmet.color = rider.helmet;
-            garageName.text = spec.name + "  -  " + spec.klass;
+            garageName.text = spec.name + "  -  " + spec.klass + (!career ? "" : owned ? "  -  tua" : "  -  " + Economy.Format(Economy.Price(index)) + " cr");
             garageBlurb.text = BikeSheet.Blurb(index);
 
             var f = BikeSheet.Of(index);
@@ -147,7 +163,71 @@ namespace PryingEyes
             garageBarValue[(int)BikeBar.Brakes].text = f.brake100.ToString("0.0", PistaIt) + " m  100-0";
             garageBarValue[(int)BikeBar.Lightness].text = Mathf.RoundToInt(f.kg) + " kg";
             garageBarValue[(int)BikeBar.Handling].text = BikeSheet.HandlingWord(f);
+            // the career: the money on its button, and "Compra" only for a bike that is not owned (grey when there is not enough money: it still answers, with what is missing)
+            garageCareerLabel.text = career ? "Carriera: " + Economy.Format(book.Money) + " cr" : "Carriera: spenta";
+            garageCareerButton.gameObject.SetActive(!PistaMode.ForCoop);          // a cooperative game has no career: the host picks any bike for the table
+            garageBuyButton.gameObject.SetActive(career && !owned);
+            if (career && !owned)
+            {
+                garageBuyLabel.text = "Compra  -  " + Economy.Format(Economy.Price(index)) + " cr";
+                garageBuyLabel.color = book.Missing(index) > 0 ? Dim : Ink;
+            }
+            GarageWire();
             if (garageStage != null) garageStage.Show(index, skin, outfit);
+        }
+
+        /// <summary>The row "Moto": the plate goes to the next bike of the roster; the bike chosen follows it if it is owned (always, without the career).</summary>
+        void GarageBikeStep(int d)
+        {
+            garageNote.text = "";
+            garageView = Wrap(garageView + d, Bikes.Count);
+            if (!PistaMode.CareerApplies || PistaCareer.Book.Owns(garageView)) PistaMode.Bike = garageView;
+        }
+
+        /// <summary>"Carriera": on or off. The bike chosen is read again (in a career it is one that is owned).</summary>
+        void GarageCareerToggle()
+        {
+            MenuSound.Confirm();
+            PistaMode.CareerOn = !PistaMode.CareerOn;
+            garageView = PistaMode.Bike;
+            garageNote.text = PistaMode.CareerOn ? "Carriera accesa: premi sul conto, moto da comprare" : "Carriera spenta: tutte le moto sono tue";
+            RefreshGarage();
+        }
+
+        /// <summary>"Compra": the bike on the plate, if there is the money. The answer is on the line above the button; after a purchase the cross goes back to the row of the bike (the button is gone).</summary>
+        void GarageBuy()
+        {
+            int bike = garageView;
+            var book = PistaCareer.Book;
+            if (!PistaMode.CareerApplies || book.Owns(bike)) return;
+            string name = Bikes.Get(bike).name;
+            if (PistaCareer.Buy(bike))
+            {
+                MenuSound.Confirm();
+                PistaMode.Bike = bike;
+                garageNote.text = "Comprata: " + name + "  -  conto " + Economy.Format(book.Money) + " cr";
+                RefreshGarage();
+                var system = EventSystem.current;
+                if (system != null) system.SetSelectedGameObject(garageBikeRow.gameObject);
+            }
+            else
+            {
+                MenuSound.Back();
+                garageNote.text = "Ti mancano " + Economy.Format(book.Missing(bike)) + " cr per la " + name;
+            }
+        }
+
+        /// <summary>The cross of the garage: from the career button down through the three rows to "Compra" (only while there is a bike to buy) and "Fatto".</summary>
+        void GarageWire()
+        {
+            if (garageBuyButton == null) return;
+            bool buy = garageBuyButton.gameObject.activeSelf;
+            garageCareerButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnDown = garageBikeRow };
+            garageBikeRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageCareerButton.gameObject.activeSelf ? (Selectable)garageCareerButton : null, selectOnDown = garageColourRow };
+            garageColourRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageBikeRow, selectOnDown = garageOutfitRow };
+            garageOutfitRow.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageColourRow, selectOnDown = buy ? (Selectable)garageBuyButton : garageBackButton };
+            garageBuyButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = garageOutfitRow, selectOnDown = garageBackButton, selectOnRight = garageBackButton };
+            garageBackButton.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = buy ? (Selectable)garageBuyButton : garageOutfitRow, selectOnLeft = buy ? garageBuyButton : null };
         }
 
         /// <summary>"Garage" dalla preparazione: la vetrina si accende sulla moto scelta e la riga della moto e' gia' scelta.</summary>
@@ -158,6 +238,8 @@ namespace PryingEyes
                 garageStage = GarageStage.Create();
                 garagePicture.texture = garageStage.Picture;
             }
+            garageView = PistaMode.Bike;
+            garageNote.text = "";
             RefreshGarage();
             Show(garagePanel);
             var system = EventSystem.current;

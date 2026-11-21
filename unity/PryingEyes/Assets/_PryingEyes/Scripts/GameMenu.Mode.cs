@@ -15,7 +15,7 @@ namespace PryingEyes
         Text modeTitle, modeSubtitle;
         Button modePistaButton;
         /// <summary>La scelta e' per la partita cooperativa che sto per ospitare (CoopHost): scelta la modalita' si apre la porta (HostNow).</summary>
-        bool modeForCoop;
+        bool modeForCoop { get => PistaMode.ForCoop; set => PistaMode.ForCoop = value; }          // the career reads it too (PistaMode.CareerApplies): a co-op host picks any bike
         /// <summary>La scelta e' per lo schermo condiviso (0.9.1): scelta la modalita' si avvia (SplitBegin) con i posti e i personaggi gia' decisi in "Chi gioca?".</summary>
         bool modeForSplit;
         int modeSplitCount;

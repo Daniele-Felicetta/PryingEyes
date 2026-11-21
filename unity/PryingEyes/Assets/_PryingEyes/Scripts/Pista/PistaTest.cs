@@ -210,6 +210,7 @@ namespace PryingEyes.Pista
             string fell = ""; foreach (var r in d.race.racers) if (r.crashes > 0) fell += (fell.Length > 0 ? ", " : "") + (r.human ? "GIOCATORE" : r.name + " #" + r.id) + " x" + r.crashes;
             Debug.Log($"[PryingEyes] pistatest cadute: {Crashes(d.race)} in tutto ({(fell.Length > 0 ? fell : "nessuno")}), la peggiore {worstCrashes:F0}; posizione del giocatore {d.me.position}, miglior giro {d.me.bestLap:F2}; contatti del giocatore {d.me.bumps}, visti dal regista {d.ContactsSeen}");
             Check("la tabella dei risultati e' sullo schermo", d.Resulting && d.hud.ResultsShown);
+            Check("senza la carriera la gara non paga niente: nessun premio, il conto e' quello di partenza e la tabella e' quella di sempre", !PistaMode.CareerOn && d.CareerPrize == 0 && d.CareerNote.Length == 0 && !d.hud.ResultsSubText.Contains("premio") && PistaCareer.Book.Money == Economy.StartMoney, "premio " + d.CareerPrize + ", conto " + PistaCareer.Book.Money + ", '" + d.hud.ResultsSubText + "'");
             Check("nessuna moto e' sparita nel nulla (quota e posizione finite)", AllFinite(d.race), "");
             if (shots) { yield return new WaitForSeconds(1.5f); yield return Shot("8_risultati"); }
 
@@ -259,6 +260,7 @@ namespace PryingEyes.Pista
         {
             phase = "patente";
             PistaLicences.ForgetAll();
+            PistaCareer.ForgetAll(); PistaMode.CareerOn = true;          // the career is on for this test: a medal pays
             const int index = 5;           // a2-3: Vigile 750 on the shortest circuit of the list
             var t = Licences.All[index];
             int count = Dir.RaceCount;
@@ -288,6 +290,12 @@ namespace PryingEyes.Pista
                 Check("il registro ha tenuto il giro: stesso tempo, stessa medaglia", Mathf.Abs(PistaLicences.Book.BestOf(index) - run.bestLap) < 0.001f && PistaLicences.Book.MedalOf(index) == run.medal, $"registro {PistaLicences.Book.BestOf(index):F2} s, {PistaLicences.Book.MedalOf(index)}");
             }
             else Check("nessun giro lanciato pulito, perche' il pilota e' caduto in tutti e due", d.me.crashes > 0 && PistaLicences.Book.BestOf(index) == 0f, $"cadute {d.me.crashes}");
+            {
+                int want = Economy.LicencePay(Medal.None, run.medal);          // a new book: the test had no medal before, and one test of three is not a licence
+                Check("la carriera paga la medaglia: il premio e' quello della medaglia, sta sul conto e la tabella lo dice (niente se non c'e' medaglia)",
+                    d.CareerPrize == want && PistaCareer.Book.Money == Economy.StartMoney + want && (want == 0 ? !d.hud.ResultsSubText.Contains("premio") : d.hud.ResultsSubText.EndsWith("premio " + Economy.Format(want) + " cr")),
+                    "medaglia " + run.medal + ", premio " + d.CareerPrize + " (atteso " + want + "), conto " + PistaCareer.Book.Money + ", '" + d.hud.ResultsSubText + "'");
+            }
             Check("la tabella dice 'PROVA FINITA' e sotto c'e' il verdetto: la medaglia (o il perche' non c'e'), la patente e i tre tempi",
                 d.hud.ResultsTitleText == "PROVA FINITA" && d.hud.LicenceTitleText.Length >= 3 && (run.medal == Medal.None || d.hud.LicenceTitleText == Licences.MedalName(run.medal)) && d.LicenceVerdict.Contains(Licences.Names[t.licence]) && d.LicenceVerdict.Contains("Oro " + PistaHud.Clock(t.gold)),
                 d.hud.ResultsTitleText + " / " + d.LicenceVerdict);
@@ -300,6 +308,7 @@ namespace PryingEyes.Pista
             Check("'riprova' e' la stessa prova da capo: stesse regole, un tentativo nuovo, e il tempo migliore resta nel registro",
                 Dir.seed == t.Seed && Dir.race.laps == Licences.Laps && Dir.race.racers.Count == 1 && Dir.Licence != null && Dir.Licence != run && Dir.Licence.counted == 0 && Dir.Licence.bestLap == 0f && !Dir.hud.ResultsShown && Dir.hud.LicenceGoalsText.Length > 0
                 && (run.counted == 0 || PistaLicences.Book.BestOf(index) > 0f), $"tentativo nuovo {Dir.Licence != null && Dir.Licence != run}, registro {PistaLicences.Book.BestOf(index):F2} s");
+            PistaMode.CareerOn = false;
         }
 
         /// <summary>A cup by the real path, after the licence test (which leaves the game on its own rules too). Round one: the first circuit of the calendar, a bike of the class, twelve riders (the player and the eleven of the cup,
@@ -310,6 +319,7 @@ namespace PryingEyes.Pista
         {
             phase = "campionato";
             PistaCups.ForgetAll();
+            PistaCareer.ForgetAll(); PistaMode.CareerOn = true;          // the career is on for the cup: the rounds pay, and the trophy
             const int index = 1;           // the Supersport cup
             var cup = Cups.All[index];
             int count = Dir.RaceCount;
@@ -362,6 +372,10 @@ namespace PryingEyes.Pista
                 d.race.phase == RacePhase.Over && season.round == 1 && total == expected && season.points[0] == Cups.PointsFor(place, d.me.finished) && d.CupGained == season.points[0],
                 "fase " + d.race.phase + ", gare " + season.round + ", punti " + total + " (attesi " + expected + " per " + finishers + " arrivati), " + place + "° con " + season.points[0]);
             Check("il turno non finisce quando il giocatore taglia il traguardo: arrivano quasi tutti, e i punti vanno a tutto il campo", d.race.waitForField && finishers >= Cups.Riders - 2, finishers + " arrivati su " + Cups.Riders);
+            int rounds1 = Economy.Winnings(place, d.me.finished, d.race.laps, d.race.racers.Count - 1, d.me.bikeIndex, season.rank);
+            Check("la carriera paga il turno: il premio e' quello del posto, sta sul conto e la tabella lo dice",
+                d.CareerPrize == rounds1 && PistaCareer.Book.Money == Economy.StartMoney + rounds1 && (rounds1 == 0 ? !d.hud.ResultsSubText.Contains("premio") : d.hud.ResultsSubText.EndsWith("premio " + Economy.Format(rounds1) + " cr")),
+                "posto " + place + ", premio " + d.CareerPrize + " (atteso " + rounds1 + "), conto " + PistaCareer.Book.Money + ", '" + d.hud.ResultsSubText + "'");
             string[] lines = d.hud.CupLinesText.Split((char)10);
             Check("sotto la tabella ci sono le quattro righe: la coppa e la gara, cosa ha dato, i primi tre e la prossima gara",
                 lines.Length == 4 && lines[0].Contains(cup.name.ToUpperInvariant()) && lines[0].Contains("GARA 1 DI " + cup.Rounds) && lines[1].Contains(" punt") && lines[2].StartsWith("Classifica:") && lines[3].StartsWith("Prossima gara")
@@ -376,6 +390,7 @@ namespace PryingEyes.Pista
             int total2 = 0;
             foreach (int pt in season.points) total2 += pt;
             Check("il replay e il ritorno alla tabella non contano il turno due volte, e le quattro righe tornano", replayed && season.round == 1 && total2 == total && d.hud.ResultsShown && d.hud.CupLinesText.Split((char)10).Length == 4, "replay " + replayed + ", gare " + season.round + ", punti " + total2);
+            Check("e non pagano due volte: il conto e la riga del premio sono quelli di prima", PistaCareer.Book.Money == Economy.StartMoney + rounds1 && d.CareerPrize == rounds1 && (rounds1 == 0 || d.hud.ResultsSubText.EndsWith("premio " + Economy.Format(rounds1) + " cr")), "conto " + PistaCareer.Book.Money + ", '" + d.hud.ResultsSubText + "'");
 
             // the next round: the second circuit of the calendar, the same riders, the grid as the standings
             var names1 = new System.Text.StringBuilder();
@@ -417,6 +432,10 @@ namespace PryingEyes.Pista
                 d.CupSeasonOver && season.Finished && lines.Length == 4 && lines[3].StartsWith("STAGIONE FINITA") && lines[3].Contains(standing + "° in classifica")
                 && (trophy == Medal.None ? !lines[3].Contains("COPPA") : lines[3].Contains(PistaDirector.TrophyName(trophy))) && !d.hud.ResultsHintText.Contains("prossima gara"),
                 "posto " + standing + ", coppa " + trophy + ", " + d.CupVerdict);
+            int placeLast = d.race.standings.IndexOf(d.me) + 1;
+            int lastPay = Economy.Winnings(placeLast, d.me.finished, d.race.laps, d.race.racers.Count - 1, d.me.bikeIndex, season.rank) + Economy.CupBounty(trophy);
+            Check("l'ultimo turno paga il posto e la coppa della stagione, e il conto li ha tutti e due i turni", d.CareerPrize == lastPay && PistaCareer.Book.Money == Economy.StartMoney + rounds1 + lastPay,
+                "coppa " + trophy + " (" + Economy.CupBounty(trophy) + "), premio " + d.CareerPrize + " (atteso " + lastPay + "), conto " + PistaCareer.Book.Money + " (atteso " + (Economy.StartMoney + rounds1 + lastPay) + ")");
             Check("il libro tiene la stagione fatta e il miglior posto, e dopo l'ultimo turno 'prossima gara' non porta da nessuna parte",
                 PistaCups.Book.SeasonsDone(index) == 1 && PistaCups.Book.BestPlace(index) == standing && PistaCups.Book.BestTrophy(index) == trophy && !d.CupNext(),
                 "stagioni " + PistaCups.Book.SeasonsDone(index) + ", miglior posto " + PistaCups.Book.BestPlace(index));
@@ -436,6 +455,7 @@ namespace PryingEyes.Pista
                 "stagione nuova " + (fresh != null && fresh != season) + ", gara " + (fresh != null ? fresh.round + 1 : 0) + ", seme " + Dir.seed);
 
             // leaving the mode clears the cup and the circuit that were chosen for the game: the next game started from the menu must not begin on them (it did, for a licence test)
+            PistaMode.CareerOn = false;
             PistaMode.End();
             Check("uscire dalla modalita' libera la coppa e il circuito scelti, cosi' la partita dopo non parte su quelli", PistaMode.Cup == -1 && PistaMode.Licence == -1 && PistaMode.Chosen == 0 && PistaMode.NewSeed(false) != cup.CircuitSeed(0),
                 "coppa " + PistaMode.Cup + ", patente " + PistaMode.Licence + ", circuito scelto " + PistaMode.Chosen);

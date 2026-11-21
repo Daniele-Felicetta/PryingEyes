@@ -49,7 +49,18 @@ namespace PryingEyes.Pista
 
         public static int Laps { get => oLaps ?? ArgOr("-pistalaps", "Laps", 3, 1, 20); set => Save("Laps", Mathf.Clamp(value, 1, 20)); }
         public static int Rivals { get => oRivals ?? ArgOr("-pistarivals", "Rivals", 11, 0, 15); set => Save("Rivals", Mathf.Clamp(value, 0, 15)); }
-        public static int Bike { get => oBike ?? ArgOr("-pistabike", "Bike", 0, 0, Bikes.Count - 1); set => Save("Bike", Mathf.Clamp(value, 0, Bikes.Count - 1)); }
+        /// <summary>The bike of the player. In a career (CareerApplies) it is always one that is owned: a choice made before, or of a bike that is not owned, is read as the first one that is. A licence test, a cooperative game and the like
+        /// decide the bike themselves (Override) and ownership does not count there; the host of a cooperative game picks any of the nine for the whole table.</summary>
+        public static int Bike
+        {
+            get
+            {
+                if (oBike != null) return oBike.Value;
+                int b = ArgOr("-pistabike", "Bike", 0, 0, Bikes.Count - 1);
+                return CareerApplies ? PistaCareer.Book.OwnedOrFirst(b) : b;
+            }
+            set => Save("Bike", Mathf.Clamp(value, 0, Bikes.Count - 1));
+        }
         /// <summary>0 all the aids (the default: the lean assist keeps the lean at the grip limit, and a key is all or nothing), 1 sporty (no lean assist), 2 none (only ABS, manual gears).</summary>
         public static int Aids { get => oAids ?? ArgOr("-pistaaids", "Aids", 0, 0, 2); set => Save("Aids", Mathf.Clamp(value, 0, 2)); }
         /// <summary>How good the computer riders are: 0 beginner, 1 expert, 2 champion.</summary>
@@ -69,6 +80,35 @@ namespace PryingEyes.Pista
         public static int Outfit { get => ArgOr("-pistaoutfit", "Outfit", -1, -1, Livery.Count - 1); set => Save("Outfit", Mathf.Clamp(value, -1, Livery.Count - 1)); }
         /// <summary>The livery the player's own bike and rider wear: the bike's, with the leathers and the helmet of the outfit chosen.</summary>
         public static Livery RiderLivery(int skin) { var bike = Livery.For(skin); int o = Outfit; return o < 0 ? bike : Livery.WithRider(bike, o); }
+
+        // ---- the career (Career.cs): an option of the garage, off by default, with its money and bikes in PistaCareer
+        /// <summary>The career is on: a free race and a cup are ridden on a bike the player owns, races, licence medals and cups pay, and the garage sells the other bikes. Off, every bike is there for the taking and nothing is paid.
+        /// -pistacareer N in the automated runs.</summary>
+        public static bool CareerOn { get => ArgOr("-pistacareer", "Career", 0, 0, 1) == 1; set => Save("Career", value ? 1 : 0); }
+
+        /// <summary>The setup panel is the one of a cooperative game about to be hosted (the menu sets it together with modeForCoop). There the host picks the bike of the whole table, so the career does not limit the choice.</summary>
+        public static bool ForCoop { get; set; }
+
+        /// <summary>The rules of the career hold now: it is on, and this is neither a cooperative game nor the panel that sets one up (a co-op race pays nothing and the host's bike is for the whole table, owned or not).</summary>
+        public static bool CareerApplies => CareerOn && !ForCoop && !Coop.Active;
+
+        /// <summary>The bike a step (+1, -1) of the "Moto" row leads to: the next one of the roster, or in a career the next one that is owned.</summary>
+        public static int StepBike(int from, int direction)
+        {
+            if (CareerApplies) return PistaCareer.Book.NextOwned(from, direction);
+            return ((from + (direction < 0 ? -1 : 1)) % Bikes.Count + Bikes.Count) % Bikes.Count;
+        }
+
+        /// <summary>The bike a cup is ridden on: the one of the setup panel if it is of the class, else the first of the class (in a career the first of the class that is owned, or -1 when the player owns none: the cup cannot start).</summary>
+        public static int CupBike(Cup cup)
+        {
+            int mine = Bike;
+            if (Cups.Allows(cup, mine)) return mine;
+            return CareerApplies ? PistaCareer.Book.FirstOwnedOf(cup.klass) : Cups.BikesOf(cup)[0];
+        }
+
+        /// <summary>A cup can be ridden: always, except in a career without a bike of its class.</summary>
+        public static bool CupAvailable(Cup cup) { return CupBike(cup) >= 0; }
 
         /// <summary>A friend's machine: the rules of the host's race (laps, bike, aids, hour) for as long as this game lasts.</summary>
         public static void Override(int laps, int bike, int aids, int hour)
@@ -101,7 +141,8 @@ namespace PryingEyes.Pista
             cup = Mathf.Clamp(cup, 0, Cups.Count - 1);
             var c = Cups.All[cup];
             Cup = cup; Licence = -1;
-            int bike = Cups.Allows(c, Bike) ? Bike : Cups.BikesOf(c)[0];
+            int bike = CupBike(c);
+            if (bike < 0) bike = Cups.BikesOf(c)[0];                       // the menu does not start a cup the career has no bike for
             var season = PistaCups.Book.Season(cup);
             if (season == null || season.Finished) PistaCups.Begin(cup, Rank, SkinFor(bike));
             int l = laps > 0 ? laps : TryArg("-pistacuplaps", out int v) ? Mathf.Clamp(v, 1, 20) : c.laps;

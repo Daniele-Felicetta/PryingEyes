@@ -20,6 +20,7 @@ namespace PryingEyes
         readonly List<System.Action> pistaRefresh = new List<System.Action>();
         readonly List<MenuChoice> pistaRows = new List<MenuChoice>();
         int pistaSeed;
+        string pistaSubtitleBase = "Un circuito nuovo a ogni gara: quello che vedi qui e' quello che corri.";
         static readonly System.Globalization.CultureInfo PistaIt = System.Globalization.CultureInfo.GetCultureInfo("it-IT");
 
         const float PistaLabelX = -478f, PistaChoiceX = -250f, PistaChoiceW = 300f;
@@ -36,7 +37,7 @@ namespace PryingEyes
             PistaRow("Giri", y, () => PistaMode.Laps == 1 ? "1 giro" : PistaMode.Laps + " giri", d => PistaMode.Laps = StepIn(PistaMode.LapChoices, PistaMode.Laps, d)); y -= 38f;
             PistaRow("Avversari", y, () => PistaMode.Rivals == 0 ? "Nessuno: giro a tempo" : PistaMode.Rivals + " avversari", d => PistaMode.Rivals = StepIn(PistaMode.RivalChoices, PistaMode.Rivals, d)); y -= 38f;
             PistaRow("Livello", y, () => PistaMode.RankNames[PistaMode.Rank], d => PistaMode.Rank = Wrap(PistaMode.Rank + d, PistaMode.RankNames.Length)); y -= 38f;
-            PistaRow("Moto", y, () => Bikes.Get(PistaMode.Bike).name, d => PistaMode.Bike = Wrap(PistaMode.Bike + d, Bikes.Count)); y -= 38f;
+            PistaRow("Moto", y, () => Bikes.Get(PistaMode.Bike).name, d => PistaMode.Bike = PistaMode.StepBike(PistaMode.Bike, d)); y -= 38f;          // in a career only the bikes that are owned
             PistaRow("Stile di guida", y, () => PistaMode.StyleNames[PistaMode.Style], d => PistaMode.Style = Wrap(PistaMode.Style + d, PistaMode.StyleNames.Length)); y -= 38f;
             PistaRow("Aiuti alla guida", y, () => PistaMode.AidNames[PistaMode.Aids], d => PistaMode.Aids = Wrap(PistaMode.Aids + d, PistaMode.AidNames.Length)); y -= 38f;
             PistaRow("Ora del giorno", y, () => PistaMode.HourNames[PistaMode.HourChoice], d => PistaMode.HourChoice = Wrap(PistaMode.HourChoice + d, PistaMode.HourNames.Length));
@@ -120,7 +121,7 @@ namespace PryingEyes
             PistaMode.Requested = true;
             if (PistaMode.Chosen == 0) PistaMode.Chosen = PistaMode.CircuitIndex >= 0 ? Catalogue.All[PistaMode.CircuitIndex].seed : Random.Range(1, 1 << 28);
             pistaSeed = PistaMode.Chosen;
-            pistaSubtitle.text = modeForCoop ? "Gli altri entrano nella tua gara, fino a quattro: la minimappa mostra tutti."
+            pistaSubtitleBase = modeForCoop ? "Gli altri entrano nella tua gara, fino a quattro: la minimappa mostra tutti."
                 : "Un circuito nuovo a ogni gara: quello che vedi qui e' quello che corri.";
             cupOpenButton.gameObject.SetActive(!modeForCoop);              // il campionato, come le patenti, si corre da soli
             licenceOpenButton.gameObject.SetActive(!modeForCoop);          // le patenti si fanno da soli
@@ -134,6 +135,8 @@ namespace PryingEyes
         void RefreshPista(bool newMap)
         {
             foreach (var refresh in pistaRefresh) refresh();
+            // with the career the line says the money and is shorter than the usual one, so that it stays clear of the Garage button that crosses it (the career never applies to a cooperative game: the base is the single player's)
+            pistaSubtitle.text = PistaMode.CareerApplies ? "Il circuito che vedi e' quello che corri   -   Carriera: conto " + Economy.Format(PistaCareer.Book.Money) + " cr" : pistaSubtitleBase;
             var spec = Bikes.Get(PistaMode.Bike);
             float rpm;
             float hp = spec.PeakPowerKw(out rpm) * 1.36f;

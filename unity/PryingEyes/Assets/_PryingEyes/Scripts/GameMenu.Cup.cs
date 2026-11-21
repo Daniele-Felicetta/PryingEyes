@@ -72,7 +72,7 @@ namespace PryingEyes
             var button = rt.gameObject.AddComponent<Button>();
             button.targetGraphic = plate;
             button.colors = ButtonColors();
-            button.onClick.AddListener(() => { MenuSound.Confirm(); CupStart(index); });
+            button.onClick.AddListener(() => { if (!PistaMode.CupAvailable(Cups.All[index])) { MenuSound.Back(); return; } MenuSound.Confirm(); CupStart(index); });          // a career without a bike of the class cannot start it
             cupName[index] = Label(rt, "Nome", new Vector2(0f, 40f), new Vector2(344, 28), 23, TextAnchor.MiddleLeft, "", Ink, FontStyle.Normal);
             cupClass[index] = Label(rt, "Classe", new Vector2(0f, 12f), new Vector2(344, 24), 15, TextAnchor.MiddleLeft, "", Dim, FontStyle.Normal);
             cupState[index] = Label(rt, "Stagione", new Vector2(0f, -14f), new Vector2(344, 24), 17, TextAnchor.MiddleLeft, "", Ink, FontStyle.Normal);
@@ -86,7 +86,8 @@ namespace PryingEyes
         static int CupBikeOf(int index)
         {
             var cup = Cups.All[index];
-            return Cups.Allows(cup, PistaMode.Bike) ? PistaMode.Bike : Cups.BikesOf(cup)[0];
+            int bike = PistaMode.CupBike(cup);
+            return bike >= 0 ? bike : Cups.BikesOf(cup)[0];
         }
 
         /// <summary>The cup to have chosen when the panel opens: the season in progress, else the first cup never finished, else the first.</summary>
@@ -178,11 +179,14 @@ namespace PryingEyes
             }
 
             bool frozen = started && !finished;
-            cupNote.text = "In sella: " + Bikes.Get(bike).name + (Cups.Allows(cup, PistaMode.Bike) ? "" : "  -  la tua moto non e' di questa classe") + "\n"
+            bool available = PistaMode.CupAvailable(cup);
+            cupNote.text = (available ? "In sella: " + Bikes.Get(bike).name + (Cups.Allows(cup, PistaMode.Bike) ? "" : "  -  la tua moto non e' di questa classe")
+                : "Serve una moto della classe " + cup.klass + ": comprane una nel garage (Carriera)") + "\n"
                 + "Avversari: livello " + PistaMode.RankNames[season != null && !finished ? season.rank : PistaMode.Rank].ToLowerInvariant()
                 + (frozen ? ", fissato all'inizio della stagione" : ", come nella preparazione");
             int round = season != null && !finished ? season.round : 0;
-            cupEnter.text = (finished ? "Invio: nuova stagione, " : "Invio: ") + "gara " + (round + 1) + " di " + cup.Rounds + " a " + PistaCircuitName(cup.circuits[round]) + "  -  " + cup.laps + " giri";
+            cupEnter.text = !available ? "Non si parte: nella carriera ti serve una moto di questa classe"
+                : (finished ? "Invio: nuova stagione, " : "Invio: ") + "gara " + (round + 1) + " di " + cup.Rounds + " a " + PistaCircuitName(cup.circuits[round]) + "  -  " + cup.laps + " giri";
 
             cupResetButton.gameObject.SetActive(frozen);
             CupWire();

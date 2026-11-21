@@ -260,6 +260,7 @@ namespace PryingEyes.Pista
                 : (input.pad ? "A  ancora   -   X  nuova pista   -   Y  replay   -   START  menu" : "INVIO  ancora   -   N  nuova pista   -   T  replay   -   ESC  menu");
             hud.ShowResults(race, me, circuit.name, hint);
             LicenceResults();
+            CareerResults();               // after the cup and the licence: they say what the race gave (the season is over, the medal is in the book)
         }
 
         void ResultsKeys()

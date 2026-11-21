@@ -37,6 +37,7 @@ namespace PryingEyes.Pista
         // results
         RectTransform results;
         Text resultsTitle, resultsSub, resultsHint, licenceTitle;
+        string resultsSubBase = "";
         Text[] cupLines;
         Text[] licenceLines;
         Text[][] rows;
@@ -594,7 +595,8 @@ namespace PryingEyes.Pista
             bool won = me.finished && me.position == 1;
             resultsTitle.text = !me.finished ? "GARA FINITA" : won ? "HAI VINTO" : "ARRIVO  " + Ordinal(me.position);
             resultsTitle.color = won ? Amber : Ink;
-            resultsSub.text = trackName + "   -   " + race.laps + (race.laps == 1 ? " giro" : " giri");
+            resultsSubBase = trackName + "   -   " + race.laps + (race.laps == 1 ? " giro" : " giri");
+            resultsSub.text = resultsSubBase;
             resultsHint.text = hint;
             RefreshResults(race, me);
         }
@@ -620,6 +622,16 @@ namespace PryingEyes.Pista
                 rows[i][3].text = r.bestLap >= 0f ? Clock(r.bestLap) : "";
             }
         }
+
+        /// <summary>What the race paid (the career), at the end of the line under the title of the table: "premio 660 cr". Empty takes it away.</summary>
+        public void SetResultsNote(string note)
+        {
+            if (resultsSub == null) return;
+            resultsSub.text = resultsSubBase + (string.IsNullOrEmpty(note) ? "" : "   -   " + note);
+        }
+
+        /// <summary>For the tests: the line under the title of the table of results, with the prize if there is one.</summary>
+        public string ResultsSubText { get { return resultsSub != null ? resultsSub.text : ""; } }
 
         public void HideResults()
         {

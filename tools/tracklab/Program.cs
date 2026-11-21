@@ -4,7 +4,7 @@ using System.IO;
 
 // The track mode's rules outside Unity: the motorcycle physics, the circuit generator, the rider AI and the race rules, compiled from the same files the game uses
 // (Assets/_PryingEyes/Scripts/Pista). Every check prints PASS or FAIL with what it saw.
-// Usage: dotnet run -c Release -- [report.json] [--pictures folder] [--only bike|circuit|race|coop|rider|timing|roster|sound|replay|licence|garage|cup|keyboard|contact] [--scan FROM TO] [--seed N] [--dump-engines DIR]
+// Usage: dotnet run -c Release -- [report.json] [--pictures folder] [--only bike|circuit|race|coop|rider|timing|roster|sound|replay|licence|garage|cup|keyboard|contact|career] [--scan FROM TO] [--seed N] [--dump-engines DIR]
 static partial class Program
 {
     static readonly List<object> findings = new List<object>();
@@ -48,6 +48,7 @@ static partial class Program
         if (only == null || only == "cup") { subject = "cup"; CupChecks(); }
         if (only == null || only == "keyboard") { subject = "keyboard"; KeyboardChecks(); }
         if (only == null || only == "contact") { subject = "contact"; ContactChecks(); }
+        if (only == null || only == "career") { subject = "career"; CareerChecks(); }
         var doc = new { schemaVersion = 1, operation = "track.rules", ok, findings };
         if (report != null) File.WriteAllText(report, System.Text.Json.JsonSerializer.Serialize(doc, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         Console.WriteLine(ok ? "TRACK_RULES_PASS" : "TRACK_RULES_FAIL");
