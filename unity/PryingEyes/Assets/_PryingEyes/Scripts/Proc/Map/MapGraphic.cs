@@ -85,7 +85,7 @@ namespace PryingEyes.Proc
         public static void Warm()
         {
             if (built || pending != null) return;
-            pending = System.Threading.Tasks.Task.Run(() =>
+            pending = BackgroundWork.Run(() =>
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 var px = new[] { MapTextures.LineTex(), MapTextures.WashTex(), MapTextures.StainAtlas(), MapTextures.PaperTex(3, MapTextures.PaperW, MapTextures.PaperH) };

@@ -46,12 +46,15 @@ namespace PryingEyes
         {
             I = this;
             Paused = false;
+            StartupTrace.Mark("menu: inizio");
             Build();
+            StartupTrace.Mark("menu: costruito");
             InMenu = true;
             SyncSliders();
             MenuMusic.Create();             // il tema del menu: si calcola in un thread e parte appena e' pronto
             Show(mainPanel);
             Refresh();
+            StartupTrace.Mark("menu: Awake finito");
         }
 
         void Start()

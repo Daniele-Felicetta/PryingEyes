@@ -103,6 +103,8 @@ namespace PryingEyes
 
         void Awake()
         {
+            StartupTrace.Mark("scena caricata (GameManager.Awake)");
+            SoundBank.PrefetchAll();      // i suoni si calcolano in thread a priorita' bassa: il menu compare senza aspettarli (SoundPrefetch.cs)
             I = this;
             shotsFired = shotsHit = damageTaken = 0;
             // i valori serializzati nella scena costruita dall'editor hanno la precedenza sui default:
@@ -130,6 +132,7 @@ namespace PryingEyes
             if (!autoTest && !camShots) GameMenu.Create();   // menu principale: la prima ondata parte da "Gioca"
             // controller: lo cerca il gioco e adotta il primo su cui si preme un tasto (nello schermo condiviso gli slot li assegna Seats.Begin; nelle prove no, salvo -padauto)
             if (!VideoSettings.Automated || HasArg("-padauto")) PadControls.EnableAuto();
+            StartupTrace.Mark("GameManager.Awake finito");
         }
 
         /// <summary>Avvia la partita: prima ondata. Lo chiama il menu su "Gioca".</summary>

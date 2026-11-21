@@ -173,6 +173,7 @@ Use `-nographics` for logic only. Drop it for the tests that take photos (the on
 | `-magtest [-magshots]` (9) | Empty magazine falls and bounces; the hand brings the new one. | `unity_logs/caricatori/` |
 | `-medaltest` (11) | Chain kills and feats (Doppietta, Tripletta, Quaterna, Strage, Mira divina, Intoccabile, Ultimo respiro, Fuoco purificatore, Lama santa). | Unity log |
 | `-musictest [-musicwav]` (34) | Adaptive wave music: layers follow alive enemies and the Cardinale; organ chord on wave clear; `-nomusic` turns it off. `-musicwav` writes WAV files. | `unity_logs/music/` |
+| `-prefetchtest` (9) | The sounds computed ahead by worker threads at the start of the scene (`SoundPrefetch.cs`, [startup-time.md](startup-time.md)): queued, frames keep coming, every sample equal bit by bit to the main thread's recomputation, the six ambience sources, clips built from ready samples, no failed worker. | Unity log |
 | `-lamptest [-lampshots]` (10) | Lamps break with one hit and the room darkens. | `unity_logs/lampade/` |
 | `-lampadaritest [-lampadarishots]` (15) | Hanging chandeliers fall when shot (60 damage), chain breaks, crush whoever is below. | `unity_logs/lampadari/` |
 | `-feeltest [-feelshots]` (11) | Room reflections, scoreboard (Tab), weapon inspection (I), explosion shake, sinking bodies. `-noprobes` compares without reflections. | `unity_logs/rifiniture/` |

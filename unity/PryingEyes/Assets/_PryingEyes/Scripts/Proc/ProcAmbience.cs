@@ -38,21 +38,27 @@ namespace PryingEyes.Proc
             return s;
         }
 
-        void Start()
+        bool sourcesUp;
+
+        void Start() => tgtRev = curRev;
+
+        /// <summary>Le sei sorgenti in loop (organo, ronzio, vento, toni dei temi) si creano quando i loro campioni sono pronti: li calcola un thread
+        /// all'avvio (SoundBank.PrefetchAll) e il menu non aspetta. Fino ad allora Blend non trova sorgenti e non fa niente.</summary>
+        void StartSources()
         {
-            SoundBank.Warm();
-            SoundBank.WarmThemes();
             organ = Mk(SoundBank.Organ);
             room = Mk(SoundBank.RoomTone);
             wind = Mk(SoundBank.Wind);
             pad = Mk(SoundBank.TheatreTone);
             murmur = Mk(SoundBank.Murmur);
             buzz = Mk(SoundBank.ClinicBuzz);
-            tgtRev = curRev;
+            sourcesUp = true;
+            StartupTrace.Mark("suoni: ambiente avviato");
         }
 
         void Update()
         {
+            if (!sourcesUp && SoundBank.AmbienceReady) StartSources();
             float dt = Time.unscaledDeltaTime;
             var fd = FloorDirector.I;
             Room r = fd != null ? fd.PlayerRoom : null;

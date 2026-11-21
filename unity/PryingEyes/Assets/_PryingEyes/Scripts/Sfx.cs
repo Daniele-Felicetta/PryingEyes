@@ -102,14 +102,21 @@ namespace PryingEyes
             return c;
         }
 
-        static AudioClip One(ref AudioClip c, string name, System.Func<float[]> gen) => c != null ? c : (c = Clip(name, gen()));
+        // I getter che seguono, mentre si prepara in anticipo (SoundPrefetch.cs), accodano il calcolo e restituiscono null; altrimenti creano
+        // la clip dai campioni gia' calcolati da un thread, o li calcolano qui.
+        static AudioClip One(ref AudioClip c, string name, System.Func<float[]> gen)
+        {
+            if (c != null) return c;
+            if (prefetching) { Prefetch(name, gen); return null; }
+            return c = Clip(name, Computed(name, gen));
+        }
 
         static AudioClip Pick(ref AudioClip[] set, int count, string name, System.Func<int, float[]> gen)
         {
             if (set == null)
             {
-                set = new AudioClip[count];
-                for (int i = 0; i < count; i++) set[i] = Clip(name + i, gen(i));
+                if (prefetching) { PrefetchSet(name, count, gen); return null; }
+                set = MakeSet(name, count, gen);
             }
             return set[Random.Range(0, count)];
         }
@@ -130,9 +137,8 @@ namespace PryingEyes
         {
             if (!gunSets.TryGetValue(set, out var arr))
             {
-                arr = new AudioClip[3];
-                for (int i = 0; i < 3; i++) arr[i] = Clip("sparo_" + set + i, GunSamples(set, 200 + i));
-                gunSets[set] = arr;
+                if (prefetching) { PrefetchSet("sparo_" + set, 3, i => GunSamples(set, 200 + i)); return null; }
+                gunSets[set] = arr = MakeSet("sparo_" + set, 3, i => GunSamples(set, 200 + i));
             }
             return arr[Random.Range(0, arr.Length)];
         }
@@ -141,9 +147,8 @@ namespace PryingEyes
         {
             if (!mechSets.TryGetValue(name, out var arr))
             {
-                arr = new AudioClip[2];
-                for (int i = 0; i < 2; i++) arr[i] = Clip("mecc_" + name + i, SoundGen.Mech(name, 300 + i));
-                mechSets[name] = arr;
+                if (prefetching) { PrefetchSet("mecc_" + name, 2, i => SoundGen.Mech(name, 300 + i)); return null; }
+                mechSets[name] = arr = MakeSet("mecc_" + name, 2, i => SoundGen.Mech(name, 300 + i));
             }
             return arr[Random.Range(0, arr.Length)];
         }
@@ -153,9 +158,8 @@ namespace PryingEyes
         {
             if (!casingSets.TryGetValue(kind, out var arr))
             {
-                arr = new AudioClip[3];
-                for (int i = 0; i < 3; i++) arr[i] = Clip("bossolo_" + kind + i, SoundGen.CasingDrop(kind, 400 + i));
-                casingSets[kind] = arr;
+                if (prefetching) { PrefetchSet("bossolo_" + kind, 3, i => SoundGen.CasingDrop(kind, 400 + i)); return null; }
+                casingSets[kind] = arr = MakeSet("bossolo_" + kind, 3, i => SoundGen.CasingDrop(kind, 400 + i));
             }
             return arr[Random.Range(0, arr.Length)];
         }
@@ -185,7 +189,18 @@ namespace PryingEyes
         public static AudioClip Ignite => One(ref ignite, "accendiCandela", SoundGen.Ignite);
         public static AudioClip Toll => One(ref toll, "rintocco", SoundGen.BellToll);
         public static AudioClip LiftRide => One(ref liftRide, "discesaAscensore", SoundGen.LiftRide);
-        public static AudioClip Organ => organ != null ? organ : (organ = Clip("organo", SoundGen.OrganDrone(out int rt), rt));
+        static int organRate;
+        public static AudioClip Organ
+        {
+            get
+            {
+                if (organ != null) return organ;
+                System.Func<float[]> gen = () => { var s = SoundGen.OrganDrone(out int rt); organRate = rt; return s; };     // la frequenza la scrive chi calcola
+                if (prefetching) { Prefetch("organo", gen); return null; }
+                var samples = Computed("organo", gen);
+                return organ = Clip("organo", samples, organRate);
+            }
+        }
 
         static Task<float[]>[] chantTasks;
         static int chantRate;
@@ -230,10 +245,10 @@ namespace PryingEyes
             if (chantTasks == null)
                 chantTasks = new[]
                 {
-                    Task.Run(() => SoundGen.MonkChant(600, out chantRate)),
-                    Task.Run(() => SoundGen.MonkChant(601, out int _)),
+                    BackgroundWork.Run(() => SoundGen.MonkChant(600, out chantRate), afterFirstFrame: true),
+                    BackgroundWork.Run(() => SoundGen.MonkChant(601, out int _), afterFirstFrame: true),
                 };
-            if (waltzTask == null) waltzTask = Task.Run(() => SoundGen.Waltz(out waltzRate));
+            if (waltzTask == null) waltzTask = BackgroundWork.Run(() => SoundGen.Waltz(out waltzRate), afterFirstFrame: true);
 #endif
         }
 

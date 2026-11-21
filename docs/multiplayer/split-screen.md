@@ -46,9 +46,13 @@ angle never passes 125 degrees (`SplitScreen.FovFor`). The window can be resized
 
 ## Several monitors
 
-With more than one monitor connected the panel shows **Monitor: uno solo / due / ...** next to the player-1 switch. It cycles from one
-monitor up to the number connected (at most four), the choice is remembered between runs, and the first time it uses all the connected ones. With
-one monitor the button is not there and nothing changes. The players are divided over the chosen monitors as evenly as possible, the first
+The panel always says how many monitors the game counts (*Monitor collegati: N*, with *Windows ne vede M* when Windows has more) and shows
+**Monitor: uno solo / due / ...** next to the player-1 switch. With more than one monitor connected the button cycles from one monitor up to
+the number connected (at most four), the choice is remembered between runs, the first time it uses all the connected ones, and the line under
+the title says how the players are divided (*Su 2 monitor: 2 giocatori 1+1 · 3 giocatori 2+1 · 4 giocatori 2+2*). With one monitor there is
+nothing to choose and play is unchanged: the button says how to get two (extend the desktop with Win+P, then restart the game, because Unity
+counts the monitors when the game starts) or, when Windows already has more monitors than the game counted, to close and reopen the game
+(`SplitScreen.SystemMonitors`, `MonitorsAddedAfterStart`). The players are divided over the chosen monitors as evenly as possible, the first
 monitors taking the extra ones, and each monitor shows its players with the same layout as a whole screen (`SplitScreen.PlayersOn`,
 `DisplayOf`, `ViewOn`):
 

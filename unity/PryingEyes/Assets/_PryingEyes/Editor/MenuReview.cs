@@ -91,7 +91,12 @@ namespace PryingEyes.EditorTools
                 Click("Indietro"); Click("Cooperativa"); Render("coop", size, camera, menu, output); Click("Indietro");
                 GameManager.proc = true;        // ai piani dell'hotel i bottoni dello schermo condiviso sono accesi e il pannello dice quanti controller servono
                 Click("Schermo condiviso"); Render("split", size, camera, menu, output);
-                Check("one monitor: no monitor button on the split-screen panel", !HasMonitorButton(menu));
+                // con un monitor solo il bottone c'e' lo stesso: lo dice e, premuto, spiega come averne due (il gioco li conta all'avvio)
+                Check("one monitor: the monitor button says there is only one", HasMonitorButton(menu) && HasText(menu, "Monitor: uno solo"));
+                Check("one monitor: the line counts the monitors", HasTextContaining(menu, "Monitor collegati: 1"));
+                menu.SendMessage("SplitCycleMonitors");
+                Check("one monitor: the button explains what to do", HasText(menu, "Il gioco vede un solo monitor"));
+                Render("split-1-monitor-hint", size, camera, menu, output);
                 Click("Indietro");
                 // con piu' monitor collegati la riga ha due bottoni e il pannello dice come si dividono i giocatori (due monitor, poi il massimo: quattro)
                 SplitScreen.TestConnected = 2; SplitScreen.TestWanted = 2;
@@ -331,6 +336,12 @@ namespace PryingEyes.EditorTools
         static bool HasText(GameMenu menu, string start)
         {
             foreach (var t in menu.GetComponentsInChildren<Text>()) if (t.text.StartsWith(start, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        static bool HasTextContaining(GameMenu menu, string part)
+        {
+            foreach (var t in menu.GetComponentsInChildren<Text>()) if (t.text.Contains(part)) return true;
             return false;
         }
 
