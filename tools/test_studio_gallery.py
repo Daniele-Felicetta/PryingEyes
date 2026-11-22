@@ -18,7 +18,7 @@ class GalleryContracts(unittest.TestCase):
         return bundle(assets, graph, [job / "report.json"], root / "gallery", root=root, expected_sources=sources)
 
     def test_portable_images_reports_source_state_and_no_script_injection(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory); (root / "recipe.py").write_text("value=1")
             evil = '</script><img src=x onerror="window.injection=true"> __SCRIPT__ __DATA__ __STYLE__'
             report = {"schemaVersion": 1, "operation": "asset.preview", "subject": "example", "state": "failed", "ok": False,
@@ -40,7 +40,7 @@ class GalleryContracts(unittest.TestCase):
             self.assertEqual(copied.read_bytes(), original)
 
     def test_empty_sources_do_not_become_a_current_verification(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory)
             data = self.build(root, {"schemaVersion": 1, "operation": "asset.preview", "subject": "example", "ok": True,
                                     "state": "complete", "sources": {}}, {"recipe.py": "hash"})
@@ -48,7 +48,7 @@ class GalleryContracts(unittest.TestCase):
             self.assertIsNone(safe_file(root.parent / "external.txt", root))
 
     def test_direct_and_queued_report_dates_sort_by_utc_job_identity(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory)
             self.build(root, {"schemaVersion": 1, "operation": "asset.preview", "subject": "example", "ok": True,
                               "createdAt": "20260101T120000Z"}, {})

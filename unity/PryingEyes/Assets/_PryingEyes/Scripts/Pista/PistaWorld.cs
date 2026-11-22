@@ -19,8 +19,8 @@ namespace PryingEyes.Pista
         float baseY;
         float tx0, tx1, tz0, tz1;
         // the materials
-        Material mAsphalt, mKerbRed, mKerbWhite, mApron, mGravel, mGrass, mLine, mArmco, mPost, mConcrete, mRoof, mGlass, mSteel, mSeatRed, mSeatBlue, mSeatYellow, mSeatWhite, mBlack, mHill;
-        Material mTrunk, mLeafA, mLeafB, mLeafC, mPine, mTyre, mSignRed, mSignWhite;
+        Material mAsphalt, mKerbRed, mKerbWhite, mApron, mGravel, mGrass, mLine, mArmco, mPost, mConcrete, mRoof, mGlass, mSteel, mSeatRed, mSeatBlue, mSeatYellow, mSeatWhite, mBlack;
+        Material mTrunk, mLeaf, mNeedle, mTyre, mSignRed, mSignWhite;
         readonly List<Material> lampMats = new List<Material>();
         readonly List<Object> made = new List<Object>();
         /// <summary>How much of the work is done (0..1), for the loading screen.</summary>
@@ -97,14 +97,56 @@ namespace PryingEyes.Pista
             return m;
         }
 
+        /// <summary>A ground material of the PistaSurface shader: 'kind' picks what the shader draws (0 asphalt, 1 paved run-off, 2 gravel, 3 grass, 4 kerb), the three colours and the four frequencies
+        /// (fine grain, mid grain, macro, stones: per metre) tune it. The two detail textures are shared by every material and by every race, so they are not ours to destroy.</summary>
+        Material Surface(Shader sh, string name, int kind, Color a, Color b, Color c, float smooth, Vector4 scales)
+        {
+            var m = new Material(sh) { name = "Pista_" + name };
+            m.SetFloat("_Kind", kind);
+            m.SetColor("_ColorA", a); m.SetColor("_ColorB", b); m.SetColor("_ColorC", c);
+            m.SetVector("_Scales", scales);
+            m.SetFloat("_Smooth", smooth);
+            m.SetTexture("_Grain", PistaDetail.Grain);
+            m.SetTexture("_Stones", PistaDetail.Stones);
+            made.Add(m);
+            return m;
+        }
+
+        /// <summary>A leaf material of the PistaFoliage shader: the card texture is shared by every race (not ours to destroy), 'tint' scales its colour, 'sway' is the reach of the wind in metres.</summary>
+        Material Foliage(Shader sh, string name, Texture2D card, Color tint, float smooth, float sway)
+        {
+            var m = new Material(sh) { name = "Pista_" + name };
+            m.SetTexture("_LeafMap", card);
+            m.SetColor("_Tint", tint);
+            m.SetFloat("_Smooth", smooth);
+            m.SetFloat("_Sway", sway);
+            made.Add(m);
+            return m;
+        }
+
         void MakeMaterials()
         {
-            mAsphalt = Track("Asfalto", PistaTex.Make("asfalto", 256, new Color(0.13f, 0.13f, 0.14f), new Color(0.27f, 0.27f, 0.28f), 6, 4, 0.9f, 0.9f, seed + 1), Color.white, 0.22f);
-            mApron = Track("Via di fuga", PistaTex.Make("viafuga", 256, new Color(0.30f, 0.31f, 0.31f), new Color(0.42f, 0.43f, 0.42f), 6, 3, 0.9f, 0.7f, seed + 2), Color.white, 0.2f);
-            mGravel = Track("Ghiaia", PistaTex.Make("ghiaia", 256, new Color(0.50f, 0.44f, 0.34f), new Color(0.74f, 0.68f, 0.54f), 20, 3, 0.7f, 1.3f, seed + 3), Color.white, 0.08f);
-            mGrass = Track("Erba", PistaTex.Make("erba", 256, new Color(0.15f, 0.28f, 0.07f), new Color(0.30f, 0.45f, 0.13f), 10, 4, 1.1f, 0.8f, seed + 4), Color.white, 0.06f);
-            mKerbRed = Flat("Cordolo rosso", new Color(0.62f, 0.06f, 0.06f), 0.35f);
-            mKerbWhite = Flat("Cordolo bianco", new Color(0.80f, 0.80f, 0.78f), 0.35f);
+            var surf = Shader.Find("PryingEyes/PistaSurface");
+            bool custom = PistaDetail.Ready && surf != null && surf.isSupported;
+            if (custom)
+            {
+                var asphalt = new Vector4(0.7f, 0.11f, 0.013f, 0.85f);
+                mAsphalt = Surface(surf, "Asfalto", 0, new Color(0.23f, 0.23f, 0.24f), new Color(0.36f, 0.36f, 0.37f), Color.black, 0.18f, asphalt);
+                mApron = Surface(surf, "Via di fuga", 1, new Color(0.36f, 0.36f, 0.35f), new Color(0.50f, 0.50f, 0.48f), Color.black, 0.16f, asphalt);
+                mGravel = Surface(surf, "Ghiaia", 2, Color.white, Color.white, Color.black, 0.10f, new Vector4(0.7f, 0.11f, 0.013f, 1.2f));
+                mGrass = Surface(surf, "Erba", 3, new Color(0.16f, 0.25f, 0.07f), new Color(0.27f, 0.37f, 0.11f), new Color(0.42f, 0.37f, 0.18f), 0.08f, new Vector4(1.1f, 0.19f, 0.021f, 0.85f));
+                mKerbRed = Surface(surf, "Cordolo rosso", 4, new Color(0.62f, 0.06f, 0.06f), Color.black, Color.black, 0.30f, asphalt);
+                mKerbWhite = Surface(surf, "Cordolo bianco", 4, new Color(0.80f, 0.80f, 0.78f), Color.black, Color.black, 0.30f, asphalt);
+            }
+            else
+            {
+                mAsphalt = Track("Asfalto", PistaTex.Make("asfalto", 256, new Color(0.13f, 0.13f, 0.14f), new Color(0.27f, 0.27f, 0.28f), 6, 4, 0.9f, 0.9f, seed + 1), Color.white, 0.22f);
+                mApron = Track("Via di fuga", PistaTex.Make("viafuga", 256, new Color(0.30f, 0.31f, 0.31f), new Color(0.42f, 0.43f, 0.42f), 6, 3, 0.9f, 0.7f, seed + 2), Color.white, 0.2f);
+                mGravel = Track("Ghiaia", PistaTex.Make("ghiaia", 256, new Color(0.50f, 0.44f, 0.34f), new Color(0.74f, 0.68f, 0.54f), 20, 3, 0.7f, 1.3f, seed + 3), Color.white, 0.08f);
+                mGrass = Track("Erba", PistaTex.Make("erba", 256, new Color(0.15f, 0.28f, 0.07f), new Color(0.30f, 0.45f, 0.13f), 10, 4, 1.1f, 0.8f, seed + 4), Color.white, 0.06f);
+                mKerbRed = Flat("Cordolo rosso", new Color(0.62f, 0.06f, 0.06f), 0.35f);
+                mKerbWhite = Flat("Cordolo bianco", new Color(0.80f, 0.80f, 0.78f), 0.35f);
+            }
             mLine = Flat("Linee", new Color(0.88f, 0.88f, 0.86f), 0.25f);
             mArmco = Flat("Guardrail", new Color(0.62f, 0.64f, 0.66f), 0.6f, 0.5f);
             mPost = Flat("Paletti", new Color(0.30f, 0.31f, 0.33f), 0.4f, 0.4f);
@@ -121,11 +163,29 @@ namespace PryingEyes.Pista
             mSignWhite = Flat("Insegna bianca", new Color(0.85f, 0.85f, 0.83f), 0.3f);
             mTyre = Flat("Gomme", new Color(0.03f, 0.03f, 0.035f), 0.2f);
             mTrunk = Flat("Tronchi", new Color(0.20f, 0.13f, 0.08f), 0.08f);
-            mLeafA = Flat("Foglie A", new Color(0.10f, 0.25f, 0.06f), 0.1f);
-            mLeafB = Flat("Foglie B", new Color(0.16f, 0.33f, 0.08f), 0.1f);
-            mLeafC = Flat("Foglie C", new Color(0.24f, 0.38f, 0.10f), 0.1f);
-            mPine = Flat("Pini", new Color(0.05f, 0.16f, 0.08f), 0.1f);
-            mHill = Flat("Colline", new Color(0.30f, 0.37f, 0.30f), 0.05f);
+            var fol = Shader.Find("PryingEyes/PistaFoliage");
+            if (PistaFoliage.Ready && fol != null && fol.isSupported)
+            {
+                mLeaf = Foliage(fol, "Foglie", PistaFoliage.Leaf, Color.white, 0.10f, 0.10f);
+                mNeedle = Foliage(fol, "Aghi", PistaFoliage.Needle, Color.white, 0.08f, 0.06f);
+                if (PistaSigns.Ready)
+                {
+                    mCrowd = Foliage(fol, "Folla", PistaSigns.Crowd, Color.white, 0.04f, 0.04f);
+                    mCrowd.SetFloat("_Trans", 0f);                 // a crowd is not a leaf: no sun through it
+                }
+            }
+            else
+            {
+                // the cards could not be made (or the shader is not there): flat colours, as before
+                mLeaf = Flat("Foglie", new Color(0.16f, 0.33f, 0.08f), 0.1f);
+                mNeedle = Flat("Aghi", new Color(0.05f, 0.16f, 0.08f), 0.1f);
+            }
+            // the advertising boards are an ordinary lit surface with a picture: they need no shader of their own, so they are there with or without the cards (the crowd needs the cut-out shader)
+            if (PistaSigns.Ready)
+            {
+                mBoards = PistaTex.Lit("Cartelloni", Color.white, 0.25f, 0f, PistaSigns.Boards);
+                made.Add(mBoards);
+            }
             for (int i = 0; i < 5; i++)
             {
                 var lamp = PistaTex.Glow("Luce " + i, new Color(0.10f, 0.02f, 0.02f), Color.black, 0.5f);
@@ -137,6 +197,15 @@ namespace PryingEyes.Pista
         public IEnumerator Build()
         {
             Stage = "Materiali"; Progress = 0.02f;
+            PistaDetail.Begin();                                    // the worker thread usually finished long ago (the director starts it when the mode starts)
+            while (!PistaDetail.Done) yield return null;
+            PistaDetail.Finish();
+            PistaFoliage.Begin();
+            while (!PistaFoliage.Done) yield return null;
+            PistaFoliage.Finish();
+            PistaSigns.Begin();
+            while (!PistaSigns.Done) yield return null;
+            PistaSigns.Finish();
             MakeMaterials();
             // the ground rectangle: the track with a margin of 900 m
             tx0 = c.minX - 900f; tx1 = c.maxX + 900f; tz0 = c.minZ - 900f; tz1 = c.maxZ + 900f;
@@ -243,44 +312,58 @@ namespace PryingEyes.Pista
         }
 
         // ------------------------------------------------------------------ the hills on the horizon
+        // Three ranges of ridges round the countryside, near to far, each a height field on a ring so that the sun shades its slopes and the ranges overlap into depth; the haze does the rest, and the
+        // farthest are almost the colour of the sky. A texture of fields and woods wraps round each ring. The crests stay inside the far plane of the race camera (6,000 m).
         void BuildHills()
         {
             float cxm = (tx0 + tx1) * 0.5f, czm = (tz0 + tz1) * 0.5f;
             float rad = Mathf.Max(Mathf.Sqrt((tx1 - tx0) * (tx1 - tx0) + (tz1 - tz0) * (tz1 - tz0)) * 0.5f + 600f, 2400f);
-            const int seg = 180;
+            var tex = PistaTex.Make("colline", 256, new Color(0.13f, 0.22f, 0.10f), new Color(0.36f, 0.42f, 0.24f), 12, 5, 1.2f, 0.9f, seed + 6);
+            var mat = Track("Colline", tex, Color.white, 0.04f);
+            BuildRange(cxm, czm, rad, 900f, 260f, seed + 77, mat, "Colline vicine");
+            BuildRange(cxm, czm, rad + 900f, 1300f, 520f, seed + 78, mat, "Colline medie");
+            BuildRange(cxm, czm, rad + 1900f, 1500f, 800f, seed + 79, mat, "Colline lontane");
+        }
+
+        /// <summary>One range: a ring from radius r0 to r0 + width, as high as 'top' where the noise is highest and falling back below the plain at both edges; the normals come from the grid, so the slopes are shaded.</summary>
+        void BuildRange(float cxm, float czm, float r0, float width, float top, int sd, Material mat, string name)
+        {
+            const int seg = 360, rings = 8;
+            int row = seg + 1;
+            var pos = new Vector3[(rings + 1) * row];
+            for (int j = 0; j <= rings; j++)
+            {
+                float rho = j / (float)rings;
+                float env = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(rho * Mathf.PI)), 0.8f);                   // 0 at both edges, 1 in the middle (sin(pi) is a hair under zero: a power of that is NaN)
+                for (int i = 0; i <= seg; i++)
+                {
+                    float u = i / (float)seg, a = (i % seg) * Mathf.PI * 2f / seg;
+                    float n = PistaTex.Fbm(Mathf.Repeat(u, 1f), Mathf.Repeat(0.13f + rho * 0.45f, 1f), 14, 5, sd);
+                    float ridge = Mathf.Pow(Mathf.Clamp01(n * 1.35f - 0.12f), 1.5f);
+                    float r = r0 + rho * width + 160f * Mathf.Sin(a * 5f + sd);
+                    pos[j * row + i] = new Vector3(cxm + Mathf.Sin(a) * r, baseY - 8f + top * ridge * env, czm + Mathf.Cos(a) * r);
+                }
+            }
             var b = new MB(1);
-            for (int i = 0; i <= seg; i++)
-            {
-                float a = i * Mathf.PI * 2f / seg;
-                float u = i / (float)seg;
-                float n = PistaTex.Fbm(Mathf.Repeat(u * 1f, 1f), 0.37f, 18, 4, seed + 77);
-                float r = rad * (1f + 0.04f * Mathf.Sin(a * 5f));
-                float top = baseY + 40f + 190f * Mathf.Pow(n, 1.6f) * 2.2f;
-                Vector3 p0 = new Vector3(cxm + Mathf.Sin(a) * r, baseY - 6f, czm + Mathf.Cos(a) * r);
-                Vector3 p1 = new Vector3(cxm + Mathf.Sin(a) * (r - 120f), top, czm + Mathf.Cos(a) * (r - 120f));
-                Vector3 nrm = new Vector3(-Mathf.Sin(a), 0.4f, -Mathf.Cos(a)).normalized;
-                b.Vert(p0, nrm, new Vector2(u * 40f, 0f)); b.Vert(p1, nrm, new Vector2(u * 40f, 1f));
-            }
-            for (int i = 0; i < seg; i++)
-            {
-                int a0 = i * 2, a1 = a0 + 1, b0 = a0 + 2, b1 = a0 + 3;
-                b.Tri(0, a0, a1, b1); b.Tri(0, a0, b1, b0);
-            }
-            var mesh = b.ToMesh("Colline");
+            for (int j = 0; j <= rings; j++)
+                for (int i = 0; i <= seg; i++)
+                {
+                    int ia = (i + seg - 1) % seg, ib = (i + 1) % seg;                                     // the neighbours round the ring (the seam wraps)
+                    Vector3 dAng = pos[j * row + ib] - pos[j * row + ia];
+                    Vector3 dRad = pos[Mathf.Min(j + 1, rings) * row + i] - pos[Mathf.Max(j - 1, 0) * row + i];
+                    Vector3 nrm = Vector3.Cross(dRad, dAng).normalized;
+                    if (nrm.y < 0f) nrm = -nrm;
+                    b.Vert(pos[j * row + i], nrm, new Vector2(i / (float)seg * 14f, j / (float)rings * 3f));
+                }
+            for (int j = 0; j < rings; j++)
+                for (int i = 0; i < seg; i++)
+                {
+                    int p00 = j * row + i, p10 = p00 + 1, p01 = p00 + row, p11 = p01 + 1;
+                    b.Tri(0, p00, p01, p11); b.Tri(0, p00, p11, p10);
+                }
+            var mesh = b.ToMesh(name);
             made.Add(mesh);
-            var g = MB.Spawn("Colline", root, mesh, new[] { mHill }, false, false);
-            // double sided: the same ring seen from inside (the winding above faces outward)
-            var b2 = new MB(1);
-            for (int k = 0; k < b.v.Count; k++) b2.Vert(b.v[k], -b.n[k], b.uv[k]);
-            for (int i = 0; i < seg; i++)
-            {
-                int a0 = i * 2, a1 = a0 + 1, b0 = a0 + 2, b1 = a0 + 3;
-                b2.Tri(0, a0, b1, a1); b2.Tri(0, a0, b0, b1);
-            }
-            var mesh2 = b2.ToMesh("Colline dentro");
-            made.Add(mesh2);
-            MB.Spawn("Colline dentro", root, mesh2, new[] { mHill }, false, false);
-            g.name = "Colline fuori";
+            MB.Spawn(name, root, mesh, new[] { mat }, false, false);
         }
     }
 }

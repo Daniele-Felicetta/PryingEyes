@@ -176,6 +176,12 @@ namespace PryingEyes.Pista
             for (int i = 0; i < PistaMode.HourNames.Length; i++) Row("Ora del giorno").Step(1);
             for (int i = 0; i < PistaMode.AidNames.Length; i++) Row("Aiuti alla guida").Step(1);
             Check("dopo un giro intero i valori sono quelli di prima", Value("Ora del giorno") == PistaMode.HourNames[PistaMode.HourChoice]);
+            Check("la riga 'Tempo' c'e', parte dal sereno e lo dice", Row("Tempo") != null && PistaMode.WeatherChoice == 0 && !PistaMode.Rain && Value("Tempo") == "Sereno", Value("Tempo"));
+            Row("Tempo").Step(1);
+            Check("'Tempo' passa alla pioggia e la ricorda", PistaMode.WeatherChoice == 1 && PistaMode.Rain && Value("Tempo") == "Pioggia", Value("Tempo"));
+            Row("Tempo").Step(-1);
+            Check("un passo indietro e' di nuovo il sereno", PistaMode.WeatherChoice == 0 && !PistaMode.Rain && Value("Tempo") == "Sereno", Value("Tempo"));
+            Row("Tempo").Step(1);          // and it stays on rain: the race of the picture below is wet
             Row("Stile di guida").Step(1);
             Check("'Stile di guida' passa a 'Moto in piega' e lo ricorda", PistaMode.Style == 2 && Value("Stile di guida") == "Moto in piega", Value("Stile di guida"));
             for (int i = 0; i < PistaMode.StyleNames.Length; i++) Row("Stile di guida").Step(1);
@@ -204,7 +210,7 @@ namespace PryingEyes.Pista
             // ---- up and down walk the whole screen
             var goNav = Find("Pulsante Via!").GetComponent<Selectable>().navigation;
             var otherNav = Find("Pulsante Altra pista").GetComponent<Selectable>().navigation;
-            Check("la croce in alto dal 'Via!' porta a 'Altra pista', e da li' all'ultima scelta", goNav.selectOnUp != null && goNav.selectOnUp.name == "Pulsante Altra pista" && otherNav.selectOnUp != null && otherNav.selectOnUp.name == "Scelta Ora del giorno",
+            Check("la croce in alto dal 'Via!' porta a 'Altra pista', e da li' all'ultima scelta", goNav.selectOnUp != null && goNav.selectOnUp.name == "Pulsante Altra pista" && otherNav.selectOnUp != null && otherNav.selectOnUp.name == "Scelta Tempo",
                 (goNav.selectOnUp != null ? goNav.selectOnUp.name : "-") + ", " + (otherNav.selectOnUp != null ? otherNav.selectOnUp.name : "-"));
             var firstNav = Row("Circuito").navigation;
             Check("e dalla prima scelta si scende alla seconda e si sale a 'Garage'", firstNav.selectOnDown != null && firstNav.selectOnDown.name == "Scelta Giri" && firstNav.selectOnUp != null && firstNav.selectOnUp.name == "Pulsante Garage");
@@ -216,7 +222,7 @@ namespace PryingEyes.Pista
             EventSystem.current.SetSelectedGameObject(Find("Pulsante Su pista"));
             Find("Pulsante Su pista").GetComponent<Button>().onClick.Invoke();
             yield return null; yield return null;
-            Check("riaprendola il circuito e le scelte ci sono ancora", Open("pistaPanel") && PistaMode.Chosen == seed2 && Text("Nome del circuito") == name2 && PistaMode.Laps == 2 && PistaMode.Rivals == 3 && Value("Giri") == "2 giri", Text("Nome del circuito"));
+            Check("riaprendola il circuito e le scelte ci sono ancora", Open("pistaPanel") && PistaMode.Chosen == seed2 && Text("Nome del circuito") == name2 && PistaMode.Laps == 2 && PistaMode.Rivals == 3 && Value("Giri") == "2 giri" && PistaMode.WeatherChoice == 1 && Value("Tempo") == "Pioggia", Text("Nome del circuito"));
 
             // ---- "Via!": the race of the picture
             Find("Pulsante Via!").GetComponent<Button>().onClick.Invoke();
@@ -228,6 +234,7 @@ namespace PryingEyes.Pista
             yield return null;
             Check("si corre sul circuito dell'anteprima", d.seed == seed2 && d.circuit.name == name2, d.seed + " " + d.circuit.name);
             Check("con i giri, i piloti e la moto scelti", d.race.laps == 2 && d.race.racers.Count == 4 && d.me.bikeIndex == 1, d.race.laps + " giri, " + d.race.racers.Count + " piloti, moto " + d.me.bikeIndex);
+            Check("e il tempo scelto: piove (il circuito e' bagnato, la scena ha la pioggia e il terreno e' bagnato)", d.circuit.wet == 1f && d.RainOn && Shader.GetGlobalFloat("_PistaWet") == 1f, "acqua " + d.circuit.wet + ", pioggia " + d.RainOn);
             Check("il menu non blocca i comandi della gara", !GameMenu.Blocked);
             if (shots) yield return Shot("menu_4_gara");
         }
@@ -237,7 +244,7 @@ namespace PryingEyes.Pista
         {
             PistaLicences.ForgetAll();
             // the player's own choices, all different from what the test will ask for: the test must win
-            PistaMode.Bike = 1; PistaMode.Aids = 0; PistaMode.Laps = 5; PistaMode.Rivals = 7; PistaMode.HourChoice = 1;
+            PistaMode.Bike = 1; PistaMode.Aids = 0; PistaMode.Laps = 5; PistaMode.Rivals = 7; PistaMode.HourChoice = 1; PistaMode.WeatherChoice = 1;
             var open = Find("Pulsante Patenti");
             var garage = Find("Pulsante Garage");
             Check("la preparazione ha il pulsante 'Patenti' (sopra 'Garage': la croce ci sale due volte dalla prima scelta)", open != null && garage != null && Row("Circuito").navigation.selectOnUp == garage.GetComponent<Selectable>()
@@ -316,6 +323,8 @@ namespace PryingEyes.Pista
                 "seme " + d.seed + " (prova " + test.Seed + "), moto " + d.me.bikeIndex + " (" + test.bike + "), " + d.race.laps + " giri, " + d.race.racers.Count + " piloti");
             Check("gli aiuti e l'ora sono quelli della prova", d.me.bike.tcs == (test.aids < 2) && d.me.bike.leanAssist == (test.aids == 0) && PistaMode.Aids == test.aids && PistaMode.HourChoice == test.hour,
                 "aiuti " + PistaMode.Aids + " (prova " + test.aids + "), ora " + PistaMode.HourChoice + " (prova " + test.hour + ")");
+            Check("la prova e' sempre sull'asciutto, anche se la preparazione dice pioggia: i tempi delle medaglie sono fatti sull'asciutto", PistaMode.WeatherChoice == 0 && !PistaMode.Rain && d.circuit.wet == 0f && !d.RainOn && Shader.GetGlobalFloat("_PistaWet") == 0f,
+                "tempo " + PistaMode.WeatherChoice + ", acqua " + d.circuit.wet + ", pioggia " + d.RainOn);
             Check("il regista sa che e' la prova e il registro e' ancora quello della preparazione", d.Licence != null && d.Licence.test.id == test.id && PistaLicences.Book.MedalOf(0) == Medal.Gold, d.Licence != null ? d.Licence.test.id : "nessuna prova");
             if (shots) yield return Shot("menu_7_patente_gara");
         }

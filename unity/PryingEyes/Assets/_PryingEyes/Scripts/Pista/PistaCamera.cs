@@ -11,17 +11,32 @@ namespace PryingEyes.Pista
     public sealed class PistaCamera
     {
         public Camera cam;
-        public CamMode mode = CamMode.Chase;
-        public bool lookBack;
+        CamMode viewMode = CamMode.Chase;
+        bool viewBack;
         float yaw, fov = 62f, shake, orbit, introT = -1f, roll;
         Vector3 smoothPos;
         bool init;
+        PistaFx fx;
         Camera original;
         bool originalEnabled;
         AudioListener originalListener;
         bool listenerEnabled;
         Vector3 introFrom;
         float introLen = 3.2f;
+
+        /// <summary>The view: another one is a cut (the picture jumps), so the effects of speed start again from nothing instead of smearing the one frame across it.</summary>
+        public CamMode mode
+        {
+            get { return viewMode; }
+            set { if (viewMode == value) return; viewMode = value; if (fx != null) fx.Reset(); }
+        }
+
+        /// <summary>Looking back (held): turning the view round is a cut as well.</summary>
+        public bool lookBack
+        {
+            get { return viewBack; }
+            set { if (viewBack == value) return; viewBack = value; if (fx != null) fx.Reset(); }
+        }
 
         public static PistaCamera Create()
         {
@@ -54,6 +69,7 @@ namespace PryingEyes.Pista
         {
             if (original != null) { original.enabled = originalEnabled; original.tag = "MainCamera"; }
             if (originalListener != null) originalListener.enabled = listenerEnabled;
+            if (fx != null) { fx.Destroy(); fx = null; }
             if (cam != null) Object.Destroy(cam.gameObject);
             cam = null;
         }
@@ -65,8 +81,17 @@ namespace PryingEyes.Pista
 
         public void Shake(float amount) { shake = Mathf.Max(shake, amount); }
 
+        /// <summary>The effects of speed (motion blur, a fringe of colour) for this frame, from the speed in m/s of the bike the camera follows; the volume is made the first time.</summary>
+        public void TickFx(float dt, float speed)
+        {
+            if (fx == null) fx = PistaFx.Create();
+            fx.Update(dt, speed);
+        }
+
+        public PistaFx Fx => fx;
+
         /// <summary>The bike was put somewhere else (back on the track after a fall): the camera does not swing round to follow, it is there at once.</summary>
-        public void Snap() { init = false; }
+        public void Snap() { init = false; if (fx != null) fx.Reset(); }
 
         /// <summary>A short flight from the front of the grid to the place behind the bike: the first seconds of a race.</summary>
         public void StartIntro(Vector3 from, float seconds = 3.2f) { introFrom = from; introT = 0f; introLen = Mathf.Max(0.5f, seconds); }
@@ -135,8 +160,9 @@ namespace PryingEyes.Pista
             shake = Mathf.MoveTowards(shake, 0f, dt * 2.5f);
             float tremor = shake + (v.surface == SurfaceKind.Kerb ? 0.012f : v.surface == SurfaceKind.Gravel || v.surface == SurfaceKind.Grass ? 0.02f : 0f) * Mathf.Clamp01(speed / 25f)
                 + 0.0016f * Mathf.Clamp01((speed - 40f) / 50f);
-            if (tremor > 0f) pos += new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), Random.Range(-1f, 1f)) * tremor;
+            if (tremor > 0f) pos += new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), Random.Range(-1f, 1f)) * (tremor * GameSettings.Motion);
 
+            TickFx(dt, speed);
             fov = Mathf.Lerp(fov, tFov, 1f - Mathf.Exp(-3f * dt));
             cam.fieldOfView = fov;
             cam.transform.SetPositionAndRotation(pos, rot);

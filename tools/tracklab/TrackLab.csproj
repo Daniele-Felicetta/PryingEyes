@@ -42,6 +42,7 @@
     <Compile Include="CareerChecks.cs" />
     <Compile Include="TuningChecks.cs" />
     <Compile Include="GuideChecks.cs" />
+    <Compile Include="WetChecks.cs" />
     <Compile Include="CatalogueScan.cs" />
   </ItemGroup>
 </Project>

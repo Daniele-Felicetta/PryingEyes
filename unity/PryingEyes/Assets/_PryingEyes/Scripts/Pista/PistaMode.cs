@@ -3,8 +3,8 @@ using UnityEngine;
 namespace PryingEyes.Pista
 {
     /// <summary>The state of the "moto su pista" mode (Scripts/Pista): whether the current game is a race (or a licence test, Licences.cs), the seed of its circuit, and what the player chose in the setup panel (laps, rivals, how good they are,
-    /// which bike, how many rider aids, the hour of the day). The choices are remembered in the preferences between sessions; automated runs never touch the preferences and take their values from the
-    /// command line (-pistalaps N, -pistarivals N, -pistabike N, -pistaaids N, -pistastyle N, -pistarank N, -pistahour N, -seed N).</summary>
+    /// which bike, how many rider aids, the hour of the day, the weather). The choices are remembered in the preferences between sessions; automated runs never touch the preferences and take their values from the
+    /// command line (-pistalaps N, -pistarivals N, -pistabike N, -pistaaids N, -pistastyle N, -pistarank N, -pistahour N, -pistarain N, -seed N).</summary>
     public static class PistaMode
     {
         const string K = "PryingEyes.Pista.";
@@ -40,12 +40,13 @@ namespace PryingEyes.Pista
         public static readonly string[] RankNames = { "Principiante", "Esperto", "Campione" };
         public static readonly string[] AidNames = { "Completi", "Sportivi", "Nessuno" };
         public static readonly string[] HourNames = { "Mattino", "Mezzogiorno", "Pomeriggio" };
+        public static readonly string[] WeatherNames = { "Sereno", "Pioggia" };
         /// <summary>How the rider sits in the corners (RiderStyle): hanging off the inside, balanced, or in line with the bike.</summary>
         public static readonly string[] StyleNames = { "Peso fuori", "Neutro", "Moto in piega" };
         static readonly float[] Hours = { 9.2f, 12.8f, 17.2f };
 
-        // In a cooperative game the host decides laps, bike, aids and hour for everybody: a friend's machine takes them from the roster (Override) instead of from its own choices.
-        static int? oLaps, oBike, oAids, oHour, oRivals;
+        // In a cooperative game the host decides laps, bike, aids, hour and weather for everybody: a friend's machine takes them from the roster (Override) instead of from its own choices.
+        static int? oLaps, oBike, oAids, oHour, oRivals, oWeather;
 
         public static int Laps { get => oLaps ?? ArgOr("-pistalaps", "Laps", 3, 1, 20); set => Save("Laps", Mathf.Clamp(value, 1, 20)); }
         public static int Rivals { get => oRivals ?? ArgOr("-pistarivals", "Rivals", 11, 0, 15); set => Save("Rivals", Mathf.Clamp(value, 0, 15)); }
@@ -71,6 +72,13 @@ namespace PryingEyes.Pista
         public static int CircuitIndex { get => ArgOr("-pistacircuit", "Circuit", -1, -1, Catalogue.Count - 1); set => Save("Circuit", Mathf.Clamp(value, -1, Catalogue.Count - 1)); }
         public static int HourChoice { get => oHour ?? ArgOr("-pistahour", "Hour", 1, 0, 2); set => Save("Hour", Mathf.Clamp(value, 0, 2)); }
         public static float Hour => Hours[HourChoice];
+        /// <summary>The hour the sky is set to: the chosen one, or in the rain one pulled into the middle of the day (11:00 to 14:30): under a thick cloud the low sun of the morning and of the evening does not colour the haze and the
+        /// hills orange (it did, and it was a sunset behind a grey sky), so the hour only says how bright the grey is.</summary>
+        public static float SkyHour(float hour) { return Rain ? Mathf.Clamp(hour, 11f, 14.5f) : hour; }
+        /// <summary>0 clear, 1 rain (the water takes about a third of the grip of the asphalt, see Circuit.wet). A licence test is always clear (its medals are times set on the dry); a cup takes the player's choice.</summary>
+        public static int WeatherChoice { get => oWeather ?? ArgOr("-pistarain", "Weather", 0, 0, 1); set => Save("Weather", Mathf.Clamp(value, 0, 1)); }
+        /// <summary>It rains in the race that is being set up or run.</summary>
+        public static bool Rain => WeatherChoice == 1;
         /// <summary>The colours of the player's own bike, chosen in the garage: -1 for the livery the bike comes in, or a skin of Livery (the twelve of the game). The computer riders never take it.</summary>
         public static int Skin { get => ArgOr("-pistaskin", "Skin", -1, -1, Livery.Count - 1); set => Save("Skin", Mathf.Clamp(value, -1, Livery.Count - 1)); }
         /// <summary>The skin the player's bike wears: the one chosen in the garage, or the bike's own.</summary>
@@ -116,11 +124,14 @@ namespace PryingEyes.Pista
         /// <summary>The bike as the race takes it: the roster's at the level of TuneOf (a copy with a key of its own when it is tuned, so that its records are its own).</summary>
         public static BikeSpec SpecFor(int bike) { return Tuning.Of(bike, TuneOf(bike)); }
 
-        /// <summary>A friend's machine: the rules of the host's race (laps, bike, aids, hour) for as long as this game lasts.</summary>
-        public static void Override(int laps, int bike, int aids, int hour)
+        /// <summary>A friend's machine: the rules of the host's race (laps, bike, aids, hour, weather) for as long as this game lasts. Without a weather the race is clear.</summary>
+        public static void Override(int laps, int bike, int aids, int hour, int weather = 0)
         {
-            oLaps = Mathf.Clamp(laps, 1, 20); oBike = Mathf.Clamp(bike, 0, Bikes.Count - 1); oAids = Mathf.Clamp(aids, 0, 2); oHour = Mathf.Clamp(hour, 0, 2);
+            oLaps = Mathf.Clamp(laps, 1, 20); oBike = Mathf.Clamp(bike, 0, Bikes.Count - 1); oAids = Mathf.Clamp(aids, 0, 2); oHour = Mathf.Clamp(hour, 0, 2); oWeather = Mathf.Clamp(weather, 0, 1);
         }
+
+        /// <summary>For the tests: how many rivals the races that follow have, whatever the command line says (null puts the choices back); End() clears it too.</summary>
+        public static void TestRivals(int? rivals) { oRivals = rivals.HasValue ? Mathf.Clamp(rivals.Value, 0, 15) : (int?)null; }
 
         /// <summary>The licence test being taken (an index into Licences.All), or -1 for an ordinary race. Chosen in the licence panel of the menu for one game; a cooperative game has none.</summary>
         public static int Licence { get; private set; } = -1;
@@ -152,7 +163,7 @@ namespace PryingEyes.Pista
             var season = PistaCups.Book.Season(cup);
             if (season == null || season.Finished) PistaCups.Begin(cup, Rank, SkinFor(bike));
             int l = laps > 0 ? laps : TryArg("-pistacuplaps", out int v) ? Mathf.Clamp(v, 1, 20) : c.laps;
-            Override(l, bike, Aids, HourChoice);
+            Override(l, bike, Aids, HourChoice, WeatherChoice);
             oRivals = Cups.Rivals;
             Chosen = CupSeed();
         }
@@ -180,7 +191,7 @@ namespace PryingEyes.Pista
         public static void Begin(int seed) { Active = true; Seed = seed; }
 
         /// <summary>The race is over (menu, new scene).</summary>
-        public static void End() { Active = false; Incoming = false; oLaps = oBike = oAids = oHour = oRivals = null; Licence = -1; Cup = -1; Chosen = 0; }
+        public static void End() { Active = false; Incoming = false; oLaps = oBike = oAids = oHour = oRivals = oWeather = null; Licence = -1; Cup = -1; Chosen = 0; }
 
         /// <summary>The circuit picked in the setup panel for the next race (0 = none: a random one).</summary>
         public static int Chosen;

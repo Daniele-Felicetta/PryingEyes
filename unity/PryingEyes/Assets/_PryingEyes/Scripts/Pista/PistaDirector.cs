@@ -58,6 +58,8 @@ namespace PryingEyes.Pista
             if (I == this)
             {
                 CleanupRace();
+                WeatherDestroy();
+                PistaLook.Restore();
                 DesertSky.FogScale = 1f;
                 if (sky != null) Destroy(sky.gameObject);
                 if (cam != null) cam.Destroy();

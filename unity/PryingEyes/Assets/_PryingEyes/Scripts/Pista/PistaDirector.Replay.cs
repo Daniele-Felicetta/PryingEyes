@@ -265,6 +265,7 @@ namespace PryingEyes.Pista
                     }
                     cam.cam.transform.SetPositionAndRotation(pos, camRot);
                     cam.cam.fieldOfView = p.fov;
+                    cam.TickFx(dt, sv.shown.speed);
                 }
             }
             if (replayUi != null) replayUi.Tick(dt, recording, replayT, replayPaused, replaySpeed, ReplayModeLabel(s), s.subject, replayAtEnd);

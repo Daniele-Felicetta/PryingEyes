@@ -254,6 +254,7 @@ namespace PryingEyes.Pista
             // the materials made for this rider (the shared ones belong to the kit)
             if (rig.paint != null) Destroy(rig.paint);
             if (rig.paint2 != null) Destroy(rig.paint2);
+            if (rig.plate != null) Destroy(rig.plate);
             if (rig.suit != null) Destroy(rig.suit);
             if (rig.suit2 != null) Destroy(rig.suit2);
             if (rig.helmet != null) Destroy(rig.helmet);

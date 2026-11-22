@@ -31,6 +31,13 @@ namespace PryingEyes.Pista
         public float[][] kerb = new float[2][], apron = new float[2][], trap = new float[2][], run = new float[2][];
         public bool clockwise;
         public string name;
+        /// <summary>How wet the track is: 0 dry, 1 raining (set before the race is made: the riders plan with it and the bikes feel it).</summary>
+        public float wet;
+        /// <summary>What the water takes from the grip of each kind of ground at wet = 1 (indexed by SurfaceKind: asphalt, kerb, apron, grass, gravel): painted kerbs and the paved run-off go slippery
+        /// first, grass turns to mud, a gravel trap hardly changes.</summary>
+        static readonly float[] WetLoss = { 0.30f, 0.42f, 0.34f, 0.45f, 0.10f };
+        /// <summary>The share of the dry grip that clean asphalt has now (1 dry, 0.7 in the rain): the number the riders' plan and the measured curves of the bikes use.</summary>
+        public float GripScale { get { return 1f - WetLoss[0] * wet; } }
         /// <summary>How many rows of the grid fit behind the line and the index of the longest straight's middle (for the picture).</summary>
         public float minX, maxX, minZ, maxZ;
 
@@ -225,6 +232,12 @@ namespace PryingEyes.Pista
             else if (a <= hw + kw + aw) { g.surface = SurfaceKind.Apron; g.grip = 0.95f; g.rolling = 0.02f; g.rough = 0.05f; }
             else if (a <= hw + kw + aw + tw) { g.surface = SurfaceKind.Gravel; g.grip = 0.36f; g.rolling = 0.22f; g.rough = 0.6f; }
             else { g.surface = SurfaceKind.Grass; g.grip = 0.42f; g.rolling = 0.07f; g.rough = 0.25f; }
+            if (wet > 0f)
+            {
+                g.grip *= 1f - WetLoss[(int)g.surface] * wet;
+                if (g.surface == SurfaceKind.Grass) g.rolling += 0.03f * wet;           // mud
+                else if (g.surface == SurfaceKind.Asphalt) g.rolling += 0.003f * wet;   // water on the road
+            }
         }
 
         /// <summary>The height of the surface at a signed lateral offset d (positive right) from the point t of the way from sample i to the next. One function for the physics and for the picture of the road:

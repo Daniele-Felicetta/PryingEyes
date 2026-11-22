@@ -25,6 +25,9 @@ namespace PryingEyes.Pista
         {
             hud = new PistaHud();
             hud.SetLoading(0f, "Preparo la pista");
+            PistaDetail.Begin();                // the textures of the ground are made on a worker thread while the rest loads
+            PistaFoliage.Begin();               // so are the cards of the leaves and the fir fronds
+            PistaSigns.Begin();                 // and the boards and the crowd of the trackside
             yield return null;
             cam = PistaCamera.Create();
             sky = DesertSky.Create(cam.cam);
@@ -36,11 +39,12 @@ namespace PryingEyes.Pista
         void ApplySky()
         {
             if (sky == null) return;
-            DesertSky.FogScale = 0.42f;                 // a circuit is seen from far: the haze of the desert hides the next corner
+            PistaLook.Apply(PistaMode.Rain);                          // a circuit is seen from far: the haze of the desert hides the next corner, and its white sky does not suit green country (PistaLook)
             sky.Frozen = true;
-            sky.SetHour(PistaMode.Hour, true);
+            sky.SetHour(PistaMode.SkyHour(PistaMode.Hour), true);
             sky.ForceStorm(0f);
             if (cam != null && cam.cam != null) cam.cam.farClipPlane = 6000f;
+            WeatherSet(PistaMode.Rain);                 // the rain, the wet look of the ground (PistaDirector.Weather.cs)
         }
 
         IEnumerator SetupRace(int raceSeed, bool again)
@@ -53,6 +57,7 @@ namespace PryingEyes.Pista
             yield return null;
             ApplySky();
             circuit = CircuitGen.Generate(seed);
+            circuit.wet = PistaMode.Rain ? 1f : 0f;                // the water on the road: the riders plan with it and the bikes feel it
             string km = (circuit.length / 1000f).ToString("0.0", It) + " km";
             hud.SetLoadingTrack(circuit.name + "   -   " + km);
             hud.SetLoading(0.08f, "Preparo la gara");

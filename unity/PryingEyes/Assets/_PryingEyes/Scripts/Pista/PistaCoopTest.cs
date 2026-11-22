@@ -190,6 +190,10 @@ namespace PryingEyes.Pista
             if (!Check2("la gara " + n + " e' costruita e pronta", d != null && d.Ready && PistaMode.Active && d.race != null && d.me != null, d == null ? "nessun regista" : "pronto " + d.Ready)) yield break;
             Check("la partita e' in rete e su pista", Coop.Active && (host ? Coop.IsHost : Coop.IsClient), host ? "ospite" : "ospitato");
             if (expectSeed != 0) Check("il circuito e' quello del seme dell'ospite", d.seed == expectSeed, d.seed + " (atteso " + expectSeed + ")");
+            int expectRain = ArgInt("-pistacooprain", -1);
+            if (expectRain >= 0)
+                Check("il tempo e' quello dell'ospite (" + (expectRain == 1 ? "piove" : "sereno") + "), su questa macchina come sull'altra: il circuito, la scena e il terreno", PistaMode.WeatherChoice == expectRain && d.circuit.wet == (float)expectRain && d.RainOn == (expectRain == 1) && Shader.GetGlobalFloat("_PistaWet") == (float)expectRain,
+                    "tempo " + PistaMode.WeatherChoice + ", acqua " + d.circuit.wet + ", pioggia " + d.RainOn + " (dell'ospite " + expectRain + ")");
             if (n == 1)
             {
                 var pl = GameManager.I != null ? GameManager.I.player : null;

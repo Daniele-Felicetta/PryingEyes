@@ -13,12 +13,14 @@ namespace PryingEyes.Pista
 
         static readonly Dictionary<string, BikeCurves> cache = new Dictionary<string, BikeCurves>();
 
-        public static BikeCurves For(BikeSpec spec)
+        /// <summary>The curves of a bike on clean asphalt that has this share of the dry grip (1 = dry): the same bike brakes and pulls away worse on a wet road, and the plan must know it.</summary>
+        public static BikeCurves For(BikeSpec spec, float grip = 1f)
         {
             BikeCurves c;
-            if (cache.TryGetValue(spec.id, out c)) return c;
-            c = Measure(spec);
-            cache[spec.id] = c;
+            string key = grip >= 0.999f ? spec.id : spec.id + "|" + grip.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture);
+            if (cache.TryGetValue(key, out c)) return c;
+            c = Measure(spec, grip);
+            cache[key] = c;
             return c;
         }
 
@@ -34,13 +36,13 @@ namespace PryingEyes.Pista
             return t[i] + (t[i + 1] - t[i]) * (f - i);
         }
 
-        static BikeCurves Measure(BikeSpec spec)
+        static BikeCurves Measure(BikeSpec spec, float grip)
         {
             var c = new BikeCurves();
             const int bins = 22;
             var accSum = new float[bins]; var accCnt = new int[bins]; var brkSum = new float[bins]; var brkCnt = new int[bins];
             var b = new BikeModel(spec, 1);
-            var g = new FlatGround();
+            var g = new FlatGround { grip = grip };
             float dt = 0.01f, t = 0f, prev = 0f, peak = 0f, still = 0f;
             var inp = new BikeInputs { throttle = 1f };
             while (t < 70f)
@@ -103,8 +105,8 @@ namespace PryingEyes.Pista
 
         public RacingLine(Circuit circuit, BikeSpec bike, float muGrip = 1.05f, float margin = 1.4f, float smoothness = 0.08f, bool centreOnly = false)
         {
-            c = circuit; spec = bike; mu = muGrip;
-            curves = BikeCurves.For(bike);
+            c = circuit; spec = bike; mu = muGrip * circuit.GripScale;           // on a wet track the riders plan for the grip there is
+            curves = BikeCurves.For(bike, circuit.GripScale);
             int n = c.n;
             off = new float[n]; x = new float[n]; z = new float[n]; heading = new float[n]; kappa = new float[n]; vlim = new float[n]; vplan = new float[n];
             if (!centreOnly) SolveOffsets(margin, smoothness);

@@ -33,14 +33,15 @@ namespace PryingEyes
                 "Un circuito nuovo a ogni gara: quello che vedi qui e' quello che corri.", Dim, FontStyle.Italic);
 
             float y = 170f;
-            PistaRow("Circuito", y, () => PistaMode.CircuitIndex < 0 ? "Casuale" : PistaCircuitName(PistaMode.CircuitIndex), PistaCircuitStep); y -= 38f;
-            PistaRow("Giri", y, () => PistaMode.Laps == 1 ? "1 giro" : PistaMode.Laps + " giri", d => PistaMode.Laps = StepIn(PistaMode.LapChoices, PistaMode.Laps, d)); y -= 38f;
-            PistaRow("Avversari", y, () => PistaMode.Rivals == 0 ? "Nessuno: giro a tempo" : PistaMode.Rivals + " avversari", d => PistaMode.Rivals = StepIn(PistaMode.RivalChoices, PistaMode.Rivals, d)); y -= 38f;
-            PistaRow("Livello", y, () => PistaMode.RankNames[PistaMode.Rank], d => PistaMode.Rank = Wrap(PistaMode.Rank + d, PistaMode.RankNames.Length)); y -= 38f;
-            PistaRow("Moto", y, () => Bikes.Get(PistaMode.Bike).name, d => PistaMode.Bike = PistaMode.StepBike(PistaMode.Bike, d)); y -= 38f;          // in a career only the bikes that are owned
-            PistaRow("Stile di guida", y, () => PistaMode.StyleNames[PistaMode.Style], d => PistaMode.Style = Wrap(PistaMode.Style + d, PistaMode.StyleNames.Length)); y -= 38f;
-            PistaRow("Aiuti alla guida", y, () => PistaMode.AidNames[PistaMode.Aids], d => PistaMode.Aids = Wrap(PistaMode.Aids + d, PistaMode.AidNames.Length)); y -= 38f;
-            PistaRow("Ora del giorno", y, () => PistaMode.HourNames[PistaMode.HourChoice], d => PistaMode.HourChoice = Wrap(PistaMode.HourChoice + d, PistaMode.HourNames.Length));
+            PistaRow("Circuito", y, () => PistaMode.CircuitIndex < 0 ? "Casuale" : PistaCircuitName(PistaMode.CircuitIndex), PistaCircuitStep); y -= 34f;
+            PistaRow("Giri", y, () => PistaMode.Laps == 1 ? "1 giro" : PistaMode.Laps + " giri", d => PistaMode.Laps = StepIn(PistaMode.LapChoices, PistaMode.Laps, d)); y -= 34f;
+            PistaRow("Avversari", y, () => PistaMode.Rivals == 0 ? "Nessuno: giro a tempo" : PistaMode.Rivals + " avversari", d => PistaMode.Rivals = StepIn(PistaMode.RivalChoices, PistaMode.Rivals, d)); y -= 34f;
+            PistaRow("Livello", y, () => PistaMode.RankNames[PistaMode.Rank], d => PistaMode.Rank = Wrap(PistaMode.Rank + d, PistaMode.RankNames.Length)); y -= 34f;
+            PistaRow("Moto", y, () => Bikes.Get(PistaMode.Bike).name, d => PistaMode.Bike = PistaMode.StepBike(PistaMode.Bike, d)); y -= 34f;          // in a career only the bikes that are owned
+            PistaRow("Stile di guida", y, () => PistaMode.StyleNames[PistaMode.Style], d => PistaMode.Style = Wrap(PistaMode.Style + d, PistaMode.StyleNames.Length)); y -= 34f;
+            PistaRow("Aiuti alla guida", y, () => PistaMode.AidNames[PistaMode.Aids], d => PistaMode.Aids = Wrap(PistaMode.Aids + d, PistaMode.AidNames.Length)); y -= 34f;
+            PistaRow("Ora del giorno", y, () => PistaMode.HourNames[PistaMode.HourChoice], d => PistaMode.HourChoice = Wrap(PistaMode.HourChoice + d, PistaMode.HourNames.Length)); y -= 34f;
+            PistaRow("Tempo", y, () => PistaMode.WeatherNames[PistaMode.WeatherChoice], d => PistaMode.WeatherChoice = Wrap(PistaMode.WeatherChoice + d, PistaMode.WeatherNames.Length));          // the rain: less grip, a grey sky, spray
             pistaBike = Label(pistaPanel, "Scheda moto", new Vector2(PistaChoiceX + 70f, -134f), new Vector2(660, 28), 18, TextAnchor.MiddleCenter, "", Dim, FontStyle.Italic);
             // four lines broken by hand, in a box that ends before the "Altra pista" button (the box was 660 wide and ended 20 units under the button: the last word of a line was cut)
             Label(pistaPanel, "Nota aiuti", new Vector2(PistaChoiceX + 50f, -197f), new Vector2(640, 70), 16, TextAnchor.UpperCenter,
@@ -89,7 +90,7 @@ namespace PryingEyes
         void PistaRow(string title, float y, System.Func<string> text, System.Action<int> step)
         {
             var rowLabel = Label(pistaPanel, title, new Vector2(PistaLabelX, y), new Vector2(220, 30), 20, TextAnchor.MiddleLeft, title, Ink, FontStyle.Normal);
-            var rt = Rect(pistaPanel, "Scelta " + title, new Vector2(PistaChoiceW, 36), new Vector2(PistaChoiceX, y));
+            var rt = Rect(pistaPanel, "Scelta " + title, new Vector2(PistaChoiceW, 32), new Vector2(PistaChoiceX, y));
             var plate = rt.gameObject.AddComponent<Image>();
             plate.color = BtnColor;
             var edge = rt.gameObject.AddComponent<Outline>();
