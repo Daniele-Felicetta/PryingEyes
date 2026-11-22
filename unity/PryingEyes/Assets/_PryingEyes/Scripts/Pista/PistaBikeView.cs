@@ -260,6 +260,7 @@ namespace PryingEyes.Pista
             if (rig.helmet != null) Destroy(rig.helmet);
             if (rig.tailMat != null) Destroy(rig.tailMat);
             if (rig.lensMat != null) Destroy(rig.lensMat);
+            foreach (var m in rig.extraMats) if (m != null) Destroy(m);
         }
     }
 }

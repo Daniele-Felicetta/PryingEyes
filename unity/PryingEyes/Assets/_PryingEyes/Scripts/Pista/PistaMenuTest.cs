@@ -348,11 +348,26 @@ namespace PryingEyes.Pista
                     bad.Append(" materiale " + (m == null ? "mancante" : m.name + " con " + (m.shader != null ? m.shader.name : "-")));
             var want = new System.Collections.Generic.Dictionary<string, int> { { "Vernice", 0 }, { "Vernice2", 1 }, { "Parafango", 1 }, { "Tuta", 2 }, { "Gobba e spalle", 3 }, { "Coscia e stinco", 4 }, { "Ginocchio", 5 }, { "Casco", 8 }, { "Gomma", 9 } };
             int painted = 0;
-            foreach (var r in rig.root.GetComponentsInChildren<MeshRenderer>(true))
+            foreach (var r in rig.root.GetComponentsInChildren<Renderer>(true))
             {
-                var mat = r.sharedMaterial;
-                if (mat == null || mat.shader == null || mat.shader.name != "PryingEyes/PistaPaint") continue;
+                if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;
+                // the rider drawn in Blender (PistaRiderModel) names its parts by material: PistaPaint's _Part (8 the helmet, 20-27 the suit and its pieces)
+                bool paintMat = false, byMaterial = false;
+                foreach (var pm in r.sharedMaterials)
+                {
+                    if (pm == null || pm.shader == null || pm.shader.name != "PryingEyes/PistaPaint") continue;
+                    paintMat = true;
+                    if (pm.HasProperty("_Part") && pm.GetFloat("_Part") >= 0f)
+                    {
+                        byMaterial = true;
+                        int part = Mathf.RoundToInt(pm.GetFloat("_Part"));
+                        if (part != 0 && part != 1 && part != 8 && part != 9 && (part < 20 || part > 27)) bad.Append(" " + r.name + " ha una parte " + part + " che la vernice non conosce");
+                    }
+                }
+                if (!paintMat) continue;
                 painted++;
+                if (byMaterial) continue;
+                var mat = r.sharedMaterial;
                 int expect;
                 if (r.name.StartsWith("Braccio")) expect = 6;
                 else if (r.name.StartsWith("Avambraccio")) expect = 7;

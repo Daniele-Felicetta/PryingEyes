@@ -10,6 +10,9 @@ Shader "PryingEyes/PistaPaint"
     //   _Pattern, for the bike: 0 two stripes along the top, 1 a two-tone split, 2 a diagonal flash on the sides, 3 a roundel, 4 a nose and a tail cap, 5 plain.
     //   For the suit: 0 plain with seams, 1 stripes down the back and the legs, 2 bands over the shoulders and the arms, 3 stripes across the chest and the thighs, then the same again.
     //   For the helmet: 0 a stripe on the crown, 1 two thin stripes and a chin bar, 2 a band along the side, 3 a ring round the crown, then plain.
+    // The models drawn in Blender (modelli/moto: Resources/Moto/*.fbx) have no vertex tags: the part is the material's own (_Part, from the name of the material in the FBX), and the baked occlusion of every
+    // vertex is in the red of its colour (_AO = 1). The new rider: 20 the torso (the frame of the hips), 21 the hump, 22 a thigh, 23 a shin, 24 an upper arm, 25 a forearm (their uv.x runs round them, uv.y along
+    // each part), 26 a knee slider, 27 the leather of a glove or a boot. The helmet keeps 8 (the frame of the head).
     // The shadow, depth and depth-normal passes are the Lit's (UsePass), so the bike casts, receives and feeds the ambient occlusion like everything else.
     Properties
     {
@@ -19,6 +22,8 @@ Shader "PryingEyes/PistaPaint"
         _Coat ("Clear coat: 0 matt .. 1 gloss", Float) = 1
         _Flake ("Metallic flake: 0 solid .. 1 full", Float) = 0
         _Smooth ("Smoothness of the base layer", Float) = 0.5
+        _Part ("Part of the livery when the mesh has no tag (-1: read the vertex colour)", Float) = -1
+        _AO ("1: the red of the vertex colour is baked occlusion", Float) = 0
     }
     SubShader
     {
@@ -62,6 +67,8 @@ Shader "PryingEyes/PistaPaint"
                 float _Coat;
                 float _Flake;
                 float _Smooth;
+                float _Part;
+                float _AO;
             CBUFFER_END
 
             struct Attributes
@@ -185,7 +192,9 @@ Shader "PryingEyes/PistaPaint"
                 float3 NO = normalize(input.nrmOS);
                 float2 tuv = input.tagUV.zw;
                 int part = (int)(input.tagUV.x * 255.0 + 0.5);
-                if (part > 9) part = 1;                                                         // a mesh nobody tagged (no vertex colour reads 255): plain paint
+                float ao = 1.0;
+                if (_Part >= 0.0) { part = (int)(_Part + 0.5); ao = lerp(1.0, input.tagUV.x, saturate(_AO)); }      // an imported model: the part is the material's, the red of the colour is occlusion
+                else if (part > 9) part = 1;                                                    // a mesh nobody tagged (no vertex colour reads 255): plain paint
                 int pat = (int)(_Pattern + 0.5);
                 // how far the position on the part moves for one pixel: the width of the soft edge of a line (derivatives are taken here, outside every branch)
                 float3 fw3 = fwidth(O);
@@ -193,7 +202,7 @@ Shader "PryingEyes/PistaPaint"
                 float aau = fwidth(tuv.x) + 1e-4, aav = fwidth(tuv.y) + 1e-4;
 
                 bool isPaint = part <= 1;
-                bool isLeather = part >= 2 && part <= 7 && part != 5;
+                bool isLeather = (part >= 2 && part <= 7 && part != 5) || (part >= 20 && part <= 25) || part == 27;
                 bool isRubber = part == 9;
 
                 // ---- the fine relief: the orange peel of the lacquer, the grain of the leather, the pores of the rubber. It fades out when its wavelength gets down to a pixel (far away, or a small picture), where it would only shimmer
@@ -240,10 +249,13 @@ Shader "PryingEyes/PistaPaint"
                             acc = max(Side(O.z - 0.62, aa), Side(-0.80 - O.z, aa));
                             acc = max(acc, max(Band(O.z - 0.55, 0.008, aa), Band(O.z + 0.74, 0.008, aa)));
                         }
-                        // the joints between the panels: the nose cone, the lower edge of the fairing, the tail
-                        dark = Band(O.z - 0.60, 0.0035, aa) * smoothstep(0.30, 0.55, O.y);
-                        dark = max(dark, Band(O.y - 0.70, 0.0035, aa) * smoothstep(0.02, 0.12, O.z) * (1.0 - smoothstep(0.52, 0.60, O.z)));
-                        dark = max(dark, Band(O.z + 0.62, 0.003, aa) * step(O.z, -0.30));
+                        // the joints between the panels of the bike drawn by code: the nose cone, the lower edge of the fairing, the tail (the bike of the model has its own shapes)
+                        if (_Part < 0.0)
+                        {
+                            dark = Band(O.z - 0.60, 0.0035, aa) * smoothstep(0.30, 0.55, O.y);
+                            dark = max(dark, Band(O.y - 0.70, 0.0035, aa) * smoothstep(0.02, 0.12, O.z) * (1.0 - smoothstep(0.52, 0.60, O.z)));
+                            dark = max(dark, Band(O.z + 0.62, 0.003, aa) * step(O.z, -0.30));
+                        }
                         // metallic flake: a few cells of a fine lattice catch the sun at their own angle
                         float3 fr = H33(floor(O * 380.0));
                         flake = step(0.88, fr.x) * _Flake * saturate(1.0 - aa * 380.0 * 0.9);
@@ -324,6 +336,65 @@ Shader "PryingEyes/PistaPaint"
                     if (pat == 2) acc = max(acc, Band(tuv.y - 0.35, 0.06, aav));
                     else if (pat == 1) acc = max(acc, Band(tuv.x - 0.25, 0.045, aau));
                 }
+                else if (part >= 20 && part <= 27)
+                {
+                    // ---- the rider of modelli/moto (hips frame: x right, y up, z forward; the back leans 28 degrees above the horizontal)
+                    const float3 BACK = float3(0.0, 0.469, 0.883);                  // along the back, toward the head
+                    const float3 OUT = float3(0.0, 0.883, -0.469);                  // out of the back
+                    float shin = part == 23 ? 1.0 : 0.0;
+                    if (part == 20)
+                    {
+                        float t = dot(O, BACK);
+                        float back = smoothstep(0.15, 0.70, dot(NO, OUT));
+                        float ax = abs(O.x);
+                        if (pat == 1) acc = Band(ax - 0.050, 0.018, aa) * back;
+                        else if (pat == 2) acc = Band(t - 0.43, 0.026, aa);
+                        else if (pat == 3) acc = saturate(Band(t - 0.30, 0.016, aa) + Band(t - 0.352, 0.016, aa)) * (1.0 - back * 0.4);
+                        else if (pat == 4) acc = Band(ax - 0.12, 0.014, aa) * back;
+                        dark = Band(t - 0.17, 0.0035, aa);
+                        dark = max(dark, Band(ax - 0.13, 0.0035, aa) * back);
+                    }
+                    else if (part == 21)
+                    {
+                        float top = smoothstep(0.0, 0.5, dot(NO, OUT));
+                        if (pat == 1) acc = Band(abs(O.x) - 0.03, 0.010, aa) * top;
+                        dark = Band(abs(O.x) - 0.075, 0.003, aa) * top;
+                    }
+                    else if (part == 22 || part == 23)
+                    {
+                        dark = Band(tuv.x - 0.5, 0.012, aau);
+                        if (pat == 1) acc = Band(tuv.x - 0.25, 0.045, aau);
+                        else if (pat == 2) acc = Band(tuv.y - 0.55, 0.06, aav) * shin;
+                        else if (pat == 3) acc = Band(tuv.y - 0.40, 0.05, aav) * (1.0 - shin);
+                        else if (pat == 4) acc = Band(tuv.x - 0.75, 0.03, aau);
+                    }
+                    else if (part == 24)
+                    {
+                        dark = Band(tuv.x - 0.5, 0.012, aau);
+                        if (pat == 2) acc = Band(tuv.y - 0.72, 0.07, aav);
+                        else if (pat == 1) acc = Band(tuv.x - 0.25, 0.045, aau);
+                        else if (pat == 3) acc = Band(tuv.y - 0.50, 0.05, aav);
+                    }
+                    else if (part == 25)
+                    {
+                        dark = Band(tuv.x - 0.5, 0.012, aau);
+                        acc = Side(tuv.y - 0.88, aav) * (pat == 0 ? 0.0 : 1.0);
+                        if (pat == 2) acc = max(acc, Band(tuv.y - 0.35, 0.06, aav));
+                        else if (pat == 1) acc = max(acc, Band(tuv.x - 0.25, 0.045, aau));
+                    }
+                    else if (part == 26)
+                    {
+                        float sl = VNoise3(O * 140.0) * 0.6 + VNoise3(O * 330.0) * 0.4;
+                        baseC = lerp(float3(0.50, 0.50, 0.52), accC, 0.12) * (0.62 + 0.55 * sl);
+                        smo = 0.28;
+                        coat = 0.0;
+                    }
+                    else
+                    {
+                        // a glove or a boot: black leather, a little lacquer
+                        smo = _Smooth;
+                    }
+                }
                 else
                 {
                     // ---- the helmet: a lacquered shell, in the frame of the head (z to the front, y up)
@@ -352,7 +423,7 @@ Shader "PryingEyes/PistaPaint"
                 surfaceData.metallic = saturate(metal + flake * 0.3);
                 surfaceData.specular = 0;
                 surfaceData.smoothness = smo;
-                surfaceData.occlusion = 1;
+                surfaceData.occlusion = ao;
                 surfaceData.normalTS = half3(0, 0, 1);
                 surfaceData.emission = 0;
                 surfaceData.clearCoatMask = saturate(coat);

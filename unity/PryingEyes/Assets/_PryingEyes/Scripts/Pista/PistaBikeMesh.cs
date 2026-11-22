@@ -121,6 +121,12 @@ namespace PryingEyes.Pista
         public readonly List<Renderer> riderParts = new List<Renderer>(), screenParts = new List<Renderer>();
         public float spinF, spinR;
         bool cockpit;
+        /// <summary>The rider of the Blender model (PistaRiderModel): its bones and rest joints. Null when the rider is the one drawn by code.</summary>
+        public PistaRiderRig riderRig;
+        /// <summary>The materials this rig made on top of the main ones (the roles of the model): destroyed with the bike.</summary>
+        public readonly List<Material> extraMats = new List<Material>();
+        /// <summary>How far the torso folds forward at full tuck, degrees (the rider of the model is a full-size man: less than the small rider drawn by code).</summary>
+        public float tuckPitch = 24f;
 
         /// <summary>The first-person view hides the rider's body and the windscreen (the camera is inside the helmet); the arms and the gloves stay.</summary>
         public void SetCockpit(bool on)
@@ -155,8 +161,9 @@ namespace PryingEyes.Pista
             float fwd = Mathf.Clamp(v.body, -1f, 1f);
             hips.localPosition = hipBase + new Vector3(hang * 0.13f, -v.tuck * 0.04f - Mathf.Max(0f, fwd) * 0.015f, fwd * 0.08f);
             hips.localRotation = Quaternion.Euler(0f, 0f, -hang * 10f);
-            torso.localRotation = Quaternion.Euler(v.tuck * 24f + fwd * 7f, hang * 6f, 0f);
+            torso.localRotation = Quaternion.Euler(v.tuck * tuckPitch + fwd * 7f, hang * 6f, 0f);
             head.localRotation = Quaternion.Euler(-v.tuck * 14f, hang * 14f, hang * 8f);
+            if (riderRig != null) { riderRig.Pose(this, v, hang); return; }
             legs[1].localRotation = Quaternion.Euler(0f, 0f, Mathf.Max(0f, hang) * 24f);
             legs[0].localRotation = Quaternion.Euler(0f, 0f, -Mathf.Max(0f, -hang) * 24f);
             for (int i = 0; i < 2; i++)
@@ -555,8 +562,8 @@ namespace PryingEyes.Pista
             };
             k.disc = Join("dischi", disc);
 
-            // ---- the rider (leathers), everything in the frame of the hip joint (torso, head, legs)
-            BuildRider(k, inv);
+            // ---- the rider (leathers), everything in the frame of the hip joint (torso, head, legs); the model of Blender takes its place when it is there
+            if (!PistaRiderModel.Available) BuildRider(k, inv);
 
             // ---- shared materials
             k.mFrame = PistaTex.Lit("Telaio", new Color(0.12f, 0.12f, 0.13f), 0.55f, 0.45f);
@@ -701,50 +708,87 @@ namespace PryingEyes.Pista
             rig.tailMat = PistaTex.Glow("Fanale", new Color(0.05f, 0.01f, 0.01f), new Color(1f, 0.05f, 0.03f) * 0.5f);
             rig.lensMat = PistaTex.Glow("Faro", new Color(0.12f, 0.12f, 0.12f), new Color(1f, 0.95f, 0.8f) * 0.8f);
 
+            // the bike of the model drawn in Blender, when the build has it (PistaBikeModel), takes the place of every part drawn by code except the plates and their backs
+            bool model = PistaBikeModel.Available(style);
             rig.body = new GameObject("Corpo").transform;
             rig.body.SetParent(parent, false);
-            Part(rig.body, "Telaio", k.frame, k.mFrame);
-            Part(rig.body, "Motore", k.engine, k.mMetal);
-            Part(rig.body, "Scarico", k.exhaust, k.mTitan);
-            Part(rig.body, "Vernice", k.paint, rig.paint);
+            if (!model)
+            {
+                Part(rig.body, "Telaio", k.frame, k.mFrame);
+                Part(rig.body, "Motore", k.engine, k.mMetal);
+                Part(rig.body, "Scarico", k.exhaust, k.mTitan);
+                Part(rig.body, "Vernice", k.paint, rig.paint);
+            }
             Part(rig.body, "Vernice2", k.paint2, rig.paint2);
             Part(rig.body, "Targhe", k.plates, rig.plate);
-            Part(rig.body, "Sella", k.seat, k.mSeat);
-            rig.screenParts.Add(Part(rig.body, "Cupolino", k.screen, k.mGlass).GetComponent<Renderer>());
-            Part(rig.body, "Specchi", k.mirrors, k.mGlass);
-            if (style < 2) Part(rig.body, "Prese", k.nose, k.mFrame);
-            var tl = Part(rig.body, "Fanale", k.tail, rig.tailMat);
-            tl.localPosition = new Vector3(0f, 0.945f, -0.965f); tl.localRotation = Quaternion.Euler(-10f, 0f, 0f);
+            if (!model)
+            {
+                Part(rig.body, "Sella", k.seat, k.mSeat);
+                rig.screenParts.Add(Part(rig.body, "Cupolino", k.screen, k.mGlass).GetComponent<Renderer>());
+                Part(rig.body, "Specchi", k.mirrors, k.mGlass);
+                if (style < 2) Part(rig.body, "Prese", k.nose, k.mFrame);
+                var tl = Part(rig.body, "Fanale", k.tail, rig.tailMat);
+                tl.localPosition = new Vector3(0f, 0.945f, -0.965f); tl.localRotation = Quaternion.Euler(-10f, 0f, 0f);
+            }
             rig.swing = new GameObject("Forcellone").transform;
             rig.swing.SetParent(rig.body, false);
             rig.swing.localPosition = new Vector3(0f, 0.45f, -0.30f);
-            var swMesh = Part(rig.swing, "Forcellone", k.swing, k.mFrame);
-            swMesh.localPosition = new Vector3(0f, -0.45f, 0.30f);
+            if (!model)
+            {
+                var swMesh = Part(rig.swing, "Forcellone", k.swing, k.mFrame);
+                swMesh.localPosition = new Vector3(0f, -0.45f, 0.30f);
+            }
             rig.rearPivot = new GameObject("Ruota dietro").transform;
             rig.rearPivot.SetParent(rig.swing, false);
             rig.rearPivot.localPosition = AxleR - rig.swing.localPosition;
-            Part(rig.rearPivot, "Gomma", k.tyreR, k.mRubber);
-            Part(rig.rearPivot, "Cerchio", k.rimR, k.mMetal);
-            Part(rig.rearPivot, "Disco", k.disc, k.mSteel).localScale = new Vector3(1f, 0.8f, 0.8f);
+            if (!model)
+            {
+                Part(rig.rearPivot, "Gomma", k.tyreR, k.mRubber);
+                Part(rig.rearPivot, "Cerchio", k.rimR, k.mMetal);
+                Part(rig.rearPivot, "Disco", k.disc, k.mSteel).localScale = new Vector3(1f, 0.8f, 0.8f);
+            }
 
             rig.steer = new GameObject("Sterzo").transform;
             rig.steer.SetParent(rig.body, false);
             rig.steer.localPosition = Head;
             rig.steer.localRotation = rig.steerRest = k.steerRot;
-            Part(rig.steer, "Forcella", k.fork, k.mGold);
-            Part(rig.steer, "Steli", k.forkLow, k.mMetal);
-            Part(rig.steer, "Manubrio", k.bars, k.mFrame);
-            Part(rig.steer, "Parafango", k.fender, rig.paint2);
-            if (style < 2) Part(rig.body, "Fari", k.lensBody, rig.lensMat); else Part(rig.steer, "Fari", k.lens, rig.lensMat);
+            if (!model)
+            {
+                Part(rig.steer, "Forcella", k.fork, k.mGold);
+                Part(rig.steer, "Steli", k.forkLow, k.mMetal);
+                Part(rig.steer, "Manubrio", k.bars, k.mFrame);
+                Part(rig.steer, "Parafango", k.fender, rig.paint2);
+                if (style < 2) Part(rig.body, "Fari", k.lensBody, rig.lensMat); else Part(rig.steer, "Fari", k.lens, rig.lensMat);
+            }
             rig.frontPivot = new GameObject("Ruota davanti").transform;
             rig.frontPivot.SetParent(rig.steer, false);
             rig.frontBase = k.steerM.inverse.MultiplyPoint3x4(AxleF);
             rig.frontPivot.localPosition = rig.frontBase;
-            Part(rig.frontPivot, "Gomma", k.tyreF, k.mRubber);
-            Part(rig.frontPivot, "Cerchio", k.rimF, k.mMetal);
-            Part(rig.frontPivot, "Dischi", k.disc, k.mSteel);
+            if (!model)
+            {
+                Part(rig.frontPivot, "Gomma", k.tyreF, k.mRubber);
+                Part(rig.frontPivot, "Cerchio", k.rimF, k.mMetal);
+                Part(rig.frontPivot, "Dischi", k.disc, k.mSteel);
+            }
+            if (model)
+                PistaBikeModel.TryAttach(rig, style, role =>
+                {
+                    switch (role)
+                    {
+                        case "frame": return k.mFrame;
+                        case "metal": return k.mMetal;
+                        case "steel": return k.mSteel;
+                        case "titan": return k.mTitan;
+                        case "seat": return k.mSeat;
+                        case "glass": return k.mGlass;
+                        case "gold": return k.mGold;
+                        case "tyre": return k.mRubber;
+                        default: return null;
+                    }
+                });
 
-            // ---- the rider
+            // ---- the rider: the model of Blender if the build has it, else the one drawn by code
+            if (PistaRiderModel.TryAttach(rig, style)) { rig.tuckPitch = 14f; return rig; }
             rig.hips = new GameObject("Bacino").transform;
             rig.hips.SetParent(rig.body, false);
             rig.hipBase = Hip;
