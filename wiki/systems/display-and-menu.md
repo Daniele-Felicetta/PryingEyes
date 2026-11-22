@@ -14,6 +14,8 @@ sources: docs/game/display-and-menu.md, docs/game/menu-music.md
 
 The main menu is a brass-and-patina hotel register with a procedural engraving of a cathedral and an eye. The iris follows the mouse pointer or the selected entry and blinks every few seconds, dust drifts in the room, and every panel fades in. Everything that moves stands still when **Oscillazione visuale** is at zero.
 
+The entry **Wiki**, after **Come si gioca**, opens this wiki in the browser. Each build carries a copy of it; where the copy is missing the entry is greyed out.
+
 ## Settings
 
 Settings have five tabs. Each tab is a list of rows, sliders or choices. Every row is saved at once in the player's preferences, and **Indietro** asks nothing. **Ripristina scheda** puts the open tab back to its defaults. The Schermo tab has no such button: it is confirmed with **Applica schermo**.

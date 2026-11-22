@@ -23,7 +23,7 @@
 <section id="commands">
 <h2 id="commands">Commands</h2>
 <ul><li><code>python tools/wiki_site.py</code> regenerates the generated files and the site. It writes nothing while a finding is open.</li><li><code>python tools/wiki_site.py --check</code> checks everything and exits <code>1</code> on any finding, including a generated file that is out of date.</li><li><code>python tools/wiki_images.py</code> renders the cards and thumbnails of the pages from <code>tools/wiki_images.json</code>, with Pillow. Its <code>--only</code> option renders a part.</li></ul>
-<p><code>tools/wiki_site.py</code> uses only the standard library, so the <a href="check-suite.html">check suite</a> and the CI gate run its check without Pillow; only the cards need Pillow.</p>
+<p><code>tools/wiki_site.py</code> uses only the standard library, so the <a href="check-suite.html">check suite</a> and the <a href="ci-gate.html">CI gate</a> run its check without Pillow; only the cards need Pillow.</p>
 </section>
 <section id="what-it-checks">
 <h2 id="what-it-checks">What it checks</h2>

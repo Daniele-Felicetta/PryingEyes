@@ -25,7 +25,7 @@ You start a run with **500 points**. Points buy doors, perks, weapons and power-
 | A lit candle (candle cycle) | 60 |
 | A round (candle cycle) | 100 plus 20 per round |
 | A wave cleared (wave cycle) | 100 plus 20 per wave, for everyone |
-| Campana power-up | 400, with no points for the kills it causes |
+| [Campana](../power-ups/campana.md) power-up | 400, with no points for the kills it causes |
 | Ghost bonus (candle cycle) | 200 |
 
 - **Doors.** The first area costs 500 points. Each further area costs 250 more per step of distance from the start beyond the first, up to 1,500.

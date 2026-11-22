@@ -125,6 +125,7 @@
    "linked_from": [
     "blessings/porte-d-oro",
     "catalog",
+    "glossary",
     "standard-vs-desert",
     "systems/blessings",
     "trials/furia",
@@ -255,10 +256,12 @@
    "tests": "",
    "links": [
     "branches/sanatorio",
+    "enemies/cardinale",
     "enemies/conte",
     "modes/desert",
     "works/il-cancello-del-conte",
     "works/la-vetrata-del-conte",
+    "zones/abyss",
     "zones/catacombs"
    ],
    "linked_from": [
@@ -296,6 +299,7 @@
     "resources/reliquie",
     "stacks/tower",
     "works/lossario",
+    "zones/abyss",
     "zones/catacombs"
    ],
    "linked_from": [
@@ -339,6 +343,7 @@
     "modes/desert",
     "resources/cristalli-di-fede",
     "works/il-cancello-del-sanatorio",
+    "zones/abyss",
     "zones/catacombs"
    ],
    "linked_from": [
@@ -380,6 +385,7 @@
     "modes/desert",
     "resources/cristalli-d-oscurita",
     "works/il-cancello-del-teatro",
+    "zones/abyss",
     "zones/catacombs"
    ],
    "linked_from": [
@@ -1021,6 +1027,7 @@
     "cycles/candle-cycle",
     "cycles/day-night",
     "cycles/sandstorm",
+    "enemies/cardinale",
     "systems/floor-power",
     "systems/perks",
     "systems/points-and-oboli",
@@ -1186,12 +1193,15 @@
     "cycles/wave-cycle",
     "enemies/abbot",
     "enemies/conte",
-    "enemies/signore-del-luogo"
+    "enemies/signore-del-luogo",
+    "resources/reliquie"
    ],
    "linked_from": [
     "README",
+    "branches/guardaroba",
     "branches/ossario",
     "catalog",
+    "cycles/wave-cycle",
     "enemies/abbot",
     "enemies/conte",
     "enemies/signore-del-luogo",
@@ -1199,9 +1209,13 @@
     "grades/grade-5",
     "levels/boss-level",
     "modes/standard",
+    "resources/gemme",
     "resources/reliquie",
     "standard-vs-desert",
-    "weapons/cardinale-357"
+    "weapons/cardinale-357",
+    "works/il-cancello-del-teatro",
+    "works/la-vetrata-del-cardinale",
+    "zones/catacombs"
    ]
   },
   {
@@ -1235,8 +1249,12 @@
     "enemies/signore-del-luogo",
     "glossary",
     "levels/boss-level",
+    "modes/standard",
     "resources/gemme",
-    "standard-vs-desert"
+    "standard-vs-desert",
+    "works/il-cancello-del-conte",
+    "works/la-vetrata-del-conte",
+    "zones/catacombs"
    ]
   },
   {
@@ -1260,7 +1278,8 @@
     "branches/teatro-sepolto",
     "enemies/abbot",
     "enemies/maschera",
-    "enemies/signore-del-luogo"
+    "enemies/signore-del-luogo",
+    "zones/abyss"
    ],
    "linked_from": [
     "README",
@@ -1271,9 +1290,15 @@
     "enemies/signore-del-luogo",
     "glossary",
     "levels/boss-level",
+    "modes/standard",
+    "places/theatre",
     "resources/cristalli-d-oscurita",
     "rooms/boss-room",
-    "standard-vs-desert"
+    "standard-vs-desert",
+    "works/il-cancello-del-sanatorio",
+    "works/il-cancello-del-teatro",
+    "works/la-vetrata-del-direttore",
+    "zones/catacombs"
    ]
   },
   {
@@ -1367,6 +1392,7 @@
     "catalog",
     "enemies/monk",
     "enemies/primario",
+    "enemies/signore-del-luogo",
     "glossary",
     "modes/desert",
     "places/sanatorium",
@@ -1552,10 +1578,15 @@
     "enemies/signore-del-luogo",
     "glossary",
     "levels/boss-level",
+    "modes/standard",
+    "places/sanatorium",
     "resources/cristalli-di-fede",
     "resources/cuori",
     "rooms/boss-room",
-    "standard-vs-desert"
+    "standard-vs-desert",
+    "works/il-cancello-del-conte",
+    "works/la-vetrata-del-primario",
+    "zones/catacombs"
    ]
   },
   {
@@ -1578,6 +1609,7 @@
     "enemies/cardinale",
     "enemies/conte",
     "enemies/direttore",
+    "enemies/infermiere",
     "enemies/primario",
     "modes/desert",
     "stacks/catacomb",
@@ -1660,6 +1692,7 @@
     "enemies/medusa",
     "enemies/portachiavi",
     "modes/desert",
+    "power-ups/reliquiario",
     "zones/catacombs"
    ],
    "linked_from": [
@@ -1777,6 +1810,7 @@
    "sources": [],
    "tests": "",
    "links": [
+    "blessings/furia",
     "branches/ossario",
     "camps/campfire",
     "concept-map",
@@ -1818,6 +1852,7 @@
     "pipeline/studio-engine",
     "pipeline/wiki-generator",
     "places/hotel",
+    "power-ups/campana",
     "power-ups/reliquiario",
     "props/arr-tavolo",
     "regions/dunes",
@@ -2081,7 +2116,13 @@
     "grades/grade-1",
     "grimoires/witchcraft",
     "pickups/essence",
-    "seals/danni-critici"
+    "seals/arma-maledetta",
+    "seals/corrosivo",
+    "seals/danni-critici",
+    "seals/elettrificato",
+    "seals/gelido",
+    "seals/incendiario",
+    "seals/sanguinamento"
    ],
    "linked_from": [
     "catalog",
@@ -2117,7 +2158,13 @@
    "links": [
     "grimoires/arsenal",
     "pickups/essence",
+    "spells/catena-del-fulmine",
+    "spells/essenza-maledetta",
     "spells/fiamma-sacrilega",
+    "spells/morsa-di-gelo",
+    "spells/onda-del-dodecaedro",
+    "spells/passo-d-ombra",
+    "spells/sigillo-di-sangue",
     "systems/perks"
    ],
    "linked_from": [
@@ -2697,9 +2744,12 @@
     "cycles/wave-cycle",
     "enemies/appestato",
     "enemies/cardinale",
+    "enemies/conte",
+    "enemies/direttore",
     "enemies/flagellante",
     "enemies/medusa",
     "enemies/monk",
+    "enemies/primario",
     "enemies/statua",
     "enemies/veglia",
     "gates/portcullis",
@@ -2973,6 +3023,7 @@
    ],
    "linked_from": [
     "catalog",
+    "rooms/library-room",
     "standard-vs-desert",
     "systems/perks"
    ]
@@ -3059,6 +3110,7 @@
     "spells/sigillo-di-sangue",
     "standard-vs-desert",
     "systems/knife",
+    "systems/medals",
     "systems/perks",
     "trials/coltello"
    ]
@@ -3335,7 +3387,8 @@
     "pipeline/check-suite",
     "pipeline/labs",
     "pipeline/release",
-    "pipeline/ship"
+    "pipeline/ship",
+    "pipeline/wiki-generator"
    ]
   },
   {
@@ -3490,6 +3543,7 @@
    "links": [
     "catalog",
     "pipeline/check-suite",
+    "pipeline/ci-gate",
     "standard-vs-desert"
    ],
    "linked_from": [
@@ -3695,6 +3749,7 @@
    "links": [
     "branches/sanatorio",
     "enemies/infermiere",
+    "enemies/primario",
     "modes/desert",
     "places/theatre",
     "regions/dead-town"
@@ -3727,6 +3782,7 @@
    "tests": "",
    "links": [
     "branches/teatro-sepolto",
+    "enemies/direttore",
     "enemies/maschera",
     "modes/desert",
     "places/sanatorium",
@@ -3769,10 +3825,12 @@
    ],
    "linked_from": [
     "catalog",
+    "glossary",
     "power-ups/offerta",
     "power-ups/reliquiario",
     "power-ups/sguardo",
     "standard-vs-desert",
+    "systems/points-and-oboli",
     "weapons/campana-249"
    ]
   },
@@ -3837,6 +3895,7 @@
    "linked_from": [
     "blessings/provvidenza",
     "catalog",
+    "enemies/veglia",
     "glossary",
     "pickups/ammunition-crate",
     "power-ups/campana",
@@ -4914,6 +4973,7 @@
    "tests": "",
    "links": [
     "branches/guardaroba",
+    "enemies/cardinale",
     "enemies/conte",
     "enemies/signore-del-luogo",
     "resources/cristalli-di-fede",
@@ -5027,6 +5087,7 @@
     "README",
     "branches/ossario",
     "catalog",
+    "enemies/cardinale",
     "glossary",
     "resources/cristalli-d-oscurita",
     "resources/cristalli-di-fede",
@@ -5143,7 +5204,8 @@
     "cycles/candle-cycle",
     "enemies/monk",
     "modes/desert",
-    "rooms/start-room"
+    "rooms/start-room",
+    "systems/stealth"
    ],
    "linked_from": [
     "catalog",
@@ -5168,6 +5230,7 @@
    "links": [
     "cycles/wave-cycle",
     "modes/desert",
+    "perks/passi-di-cenere",
     "perks/pelle-di-pietra",
     "perks/velo",
     "rooms/shop-room",
@@ -5291,6 +5354,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/arsenal",
     "pickups/essence",
     "seals/danni-critici",
     "standard-vs-desert"
@@ -5316,6 +5380,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/arsenal",
     "standard-vs-desert"
    ]
   },
@@ -5365,6 +5430,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/arsenal",
     "standard-vs-desert"
    ]
   },
@@ -5388,6 +5454,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/arsenal",
     "seals/corrosivo",
     "seals/elettrificato",
     "standard-vs-desert"
@@ -5414,6 +5481,7 @@
    "linked_from": [
     "catalog",
     "glossary",
+    "grimoires/arsenal",
     "seals/sanguinamento",
     "standard-vs-desert"
    ]
@@ -5438,6 +5506,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/arsenal",
     "seals/incendiario",
     "standard-vs-desert"
    ]
@@ -5462,6 +5531,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/witchcraft",
     "spells/fiamma-sacrilega",
     "standard-vs-desert"
    ]
@@ -5486,6 +5556,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/witchcraft",
     "pickups/essence",
     "seals/arma-maledetta",
     "spells/onda-del-dodecaedro",
@@ -5541,6 +5612,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/witchcraft",
     "seals/gelido",
     "spells/onda-del-dodecaedro",
     "standard-vs-desert"
@@ -5566,6 +5638,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/witchcraft",
     "spells/morsa-di-gelo",
     "spells/passo-d-ombra",
     "standard-vs-desert"
@@ -5591,6 +5664,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/witchcraft",
     "standard-vs-desert"
    ]
   },
@@ -5614,6 +5688,7 @@
    ],
    "linked_from": [
     "catalog",
+    "grimoires/witchcraft",
     "pickups/essence",
     "standard-vs-desert"
    ]
@@ -6490,6 +6565,7 @@
    "tests": "",
    "links": [
     "cycles/wave-cycle",
+    "perks/sete-di-sangue",
     "systems/knife",
     "systems/perks",
     "systems/points-and-oboli"
@@ -6630,6 +6706,7 @@
    ],
    "tests": "",
    "links": [
+    "power-ups/campana",
     "systems/downed-and-revive",
     "systems/perks",
     "systems/satchel",
@@ -6797,6 +6874,7 @@
     "perks/passi-di-cenere",
     "perks/velo",
     "projects/zombies-redesign",
+    "rooms/guard-room",
     "standard-vs-desert",
     "systems/knife"
    ]
@@ -8046,6 +8124,8 @@
    "tests": "",
    "links": [
     "branches/guardaroba",
+    "enemies/conte",
+    "enemies/primario",
     "modes/desert",
     "resources/cristalli-di-fede",
     "works/il-cancello-del-sanatorio",
@@ -8077,6 +8157,7 @@
    "tests": "",
    "links": [
     "branches/sanatorio",
+    "enemies/direttore",
     "modes/desert",
     "resources/cristalli-d-oscurita",
     "works/il-cancello-del-conte",
@@ -8108,6 +8189,8 @@
    "tests": "",
    "links": [
     "branches/teatro-sepolto",
+    "enemies/cardinale",
+    "enemies/direttore",
     "modes/desert",
     "resources/reliquie",
     "works/il-cancello-del-sanatorio",
@@ -8396,6 +8479,7 @@
    "tests": "",
    "links": [
     "branches/ossario",
+    "enemies/cardinale",
     "modes/desert",
     "resources/reliquie",
     "works/il-rosone",
@@ -8425,6 +8509,7 @@
    "tests": "",
    "links": [
     "branches/guardaroba",
+    "enemies/conte",
     "modes/desert",
     "perks/velo",
     "resources/gemme",
@@ -8459,6 +8544,7 @@
    "links": [
     "branches/teatro-sepolto",
     "doors/area-door",
+    "enemies/direttore",
     "modes/desert",
     "resources/cristalli-d-oscurita",
     "works/il-cancello-del-sanatorio",
@@ -8489,6 +8575,7 @@
    "links": [
     "blessings/grazia",
     "branches/sanatorio",
+    "enemies/primario",
     "modes/desert",
     "resources/cristalli-di-fede",
     "works/le-volte-della-navata"
@@ -8653,7 +8740,12 @@
    ],
    "linked_from": [
     "README",
+    "branches/guardaroba",
+    "branches/ossario",
+    "branches/sanatorio",
+    "branches/teatro-sepolto",
     "catalog",
+    "enemies/direttore",
     "glossary",
     "levels/boss-level",
     "modes/standard",
@@ -8682,6 +8774,10 @@
     "branches/ossario",
     "branches/sanatorio",
     "branches/teatro-sepolto",
+    "enemies/cardinale",
+    "enemies/conte",
+    "enemies/direttore",
+    "enemies/primario",
     "gates/portcullis",
     "levels/boss-level",
     "levels/first-level",

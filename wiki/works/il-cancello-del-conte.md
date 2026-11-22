@@ -19,7 +19,7 @@ The last branch gate. It opens [Il Guardaroba del Conte](../branches/guardaroba.
 - **Place:** the crypt.
 - **Cost:** 60 steel, 5 blood and 1 faith crystal.
 - **Needs:** [Il Cancello del Sanatorio](il-cancello-del-sanatorio.md).
-- **Effect:** opens branch IV, Il Guardaroba del Conte, whose boss, the Conte, gives the gems.
+- **Effect:** opens branch IV, Il Guardaroba del Conte, whose boss, the [Conte](../enemies/conte.md), gives the gems.
 
 ## Standard and desert
 
@@ -27,6 +27,6 @@ The same work in both modes. The desert does not build the descent gates, and it
 
 ## Related
 
-- [Cristalli di fede](../resources/cristalli-di-fede.md): the faith crystal it costs, which only the Primario drops.
+- [Cristalli di fede](../resources/cristalli-di-fede.md): the faith crystal it costs, which only the [Primario](../enemies/primario.md) drops.
 - [La Vetrata del Conte](la-vetrata-del-conte.md): the window the Count's gems go to.
 - [The catacombs](../zones/catacombs.md): the four branches.

@@ -19,7 +19,7 @@ its perk's colour.
 - **Three perk books.** You buy one with `F`; the other two close again. Each book is one perk, and there are eight in all.
 - **Four slots and four prices.** A book costs more with each perk you already hold: 2000, 2500, 3000 and 4000 points. With all four slots
   full the library offers nothing.
-- **Only what matters in the mode.** In the wave cycle the library does not offer Velo or Passi di cenere, since they only matter for
+- **Only what matters in the mode.** In the wave cycle the library does not offer Velo or [Passi di cenere](../perks/passi-di-cenere.md), since they only matter for
   stealth.
 
 The eight perks are described on their own pages, starting with [Pelle di pietra](../perks/pelle-di-pietra.md).

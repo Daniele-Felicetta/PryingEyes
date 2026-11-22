@@ -24,7 +24,7 @@ It is the enemy of the processions of lights, when a whole group of them comes o
 ## Standard and desert
 
 - **Standard.** Veglie live on the procedural floors of the catacombs and in the wave cycle. Every fifth wave is the **Processione dei Lumi**:
-  only Veglie spawn, 60% more than usual, up to four more alive at once. A Reliquiario always drops where the last one dies.
+  only Veglie spawn, 60% more than usual, up to four more alive at once. A [Reliquiario](../power-ups/reliquiario.md) always drops where the last one dies.
 - **Desert.** None. The open world does not draw Veglie: its walkers are the ones listed in [the desert](../modes/desert.md).
 
 ## Related

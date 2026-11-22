@@ -18,7 +18,7 @@ The words of the game and of the project, in alphabetical order inside each grou
 - **Sandstorm**: the desert's weather, about one day in two, between 08:00 and 22:00. See [the sandstorm](cycles/sandstorm.md).
 - **Standard mode**: the game of the cathedral, the catacombs, the waves and the trials. See [standard mode](modes/standard.md).
 - **Stealth**: the rules by which enemies notice you, active only in the candle cycle. See [stealth](systems/stealth.md).
-- **Trial** (prova): an optional goal on an even wave of the wave cycle: Testa, Coltello, Esplosivi, Intatto or Furia. See [Trial: Testa](trials/testa.md).
+- **Trial** (prova): an optional goal on an even wave of the wave cycle: Testa, Coltello, Esplosivi, Intatto or [Furia](blessings/furia.md). See [Trial: Testa](trials/testa.md).
 - **Wave cycle**: the default cycle of the standard mode, with waves of enemies. See [the wave cycle](cycles/wave-cycle.md).
 
 ## Places and structures
@@ -77,7 +77,7 @@ The words of the game and of the project, in alphabetical order inside each grou
 - **Perk**: one of eight effects from the magic books of the libraries; you hold up to four. See [perks](systems/perks.md).
 - **Pickup**: an object on the sand or the floors that you walk over to take, such as a medikit. See [the medikit](pickups/medikit.md).
 - **Points** (punti): the score that buys doors, perks, weapons and power-ups. See [points and oboli](systems/points-and-oboli.md).
-- **Power-up**: an object that gives an effect for a while, such as the Reliquiario or the Campana. See [the Reliquiario](power-ups/reliquiario.md).
+- **Power-up**: an object that gives an effect for a while, such as the Reliquiario or the [Campana](power-ups/campana.md). See [the Reliquiario](power-ups/reliquiario.md).
 - **Prop** (arredo): a piece of furniture or a fitting that dresses a room. See [the dining table](props/arr-tavolo.md).
 - **Relic** (reliquia): the Ossario's rare resource, the Cardinale's trophy. The Teatro gate costs one. See [relics](resources/reliquie.md).
 - **Resource** (risorsa): steel, wood, bones, blood, hearts, relics and the rare crystals, spent on the works. See [steel](resources/acciaio.md).

@@ -29,7 +29,7 @@ the screen while it lives.
 ## Standard and desert
 
 - **Standard.** It opens every eighth wave (not the processions), and it is the boss of branch I, the Ossario. Its gate, the first one, opens
-  when the wave is cleared; the trophy is three Reliquie the first time and two after, with 12 to 18 common and 3 rare resources.
+  when the wave is cleared; the trophy is three [Reliquie](../resources/reliquie.md) the first time and two after, with 12 to 18 common and 3 rare resources.
 - **Desert.** The Cardinale is one of the four bosses the stacks draw by place: the one of the Ossario, and the Conte's body in the
   Guardaroba. Its trophy goes to the store. See [the lord of the place](signore-del-luogo.md).
 

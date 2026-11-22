@@ -41,8 +41,8 @@ hexagon, and the supreme node in the centre.
 
 ## The spells
 
-The six inner nodes are the spells: [Fiamma Sacrilega](../spells/fiamma-sacrilega.md), Catena del Fulmine, Morsa di Gelo, Sigillo di Sangue,
-Passo d'Ombra and Onda del Dodecaedro, with the supreme node Essenza Maledetta at the centre.
+The six inner nodes are the spells: [Fiamma Sacrilega](../spells/fiamma-sacrilega.md), [Catena del Fulmine](../spells/catena-del-fulmine.md), [Morsa di Gelo](../spells/morsa-di-gelo.md), [Sigillo di Sangue](../spells/sigillo-di-sangue.md),
+[Passo d'Ombra](../spells/passo-d-ombra.md) and [Onda del Dodecaedro](../spells/onda-del-dodecaedro.md), with the supreme node [Essenza Maledetta](../spells/essenza-maledetta.md) at the centre.
 
 ## Standard and desert
 
