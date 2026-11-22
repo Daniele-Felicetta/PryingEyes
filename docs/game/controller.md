@@ -45,8 +45,13 @@ crouched).
 | D-pad down | Music box (`4`); held: reliquary mine (`5`) |
 | D-pad left | Next seal (`7`); held: veil (`H`) |
 | D-pad right | Next spell (`6`); held: ping the doors (`V`) |
-| Back | Map (`M`); held: scoreboard, while held (`Tab`) |
+| Back | Map (`M`); in the desert it opens (and closes) the Select menu instead, see below; held: scoreboard, while held (`Tab`) |
 | Start | Pause |
+
+**The Select menu of the desert** (since 0.10.3, [the-desert.md](the-desert.md#the-select-menu)): a tap of Back opens the panel with its five pages (Map, Books, Spells, Bozzo Moto Store, Camera) over the game. Inside it the
+D-pad or the left stick moves (held, it repeats), A confirms (buys, picks, presses), **LB / RB** turn to the previous and next page, **B or Back closes it** (Start still pauses). The mapper gives it three more edges for that,
+`Mapper.Prev`, `Next` and `Back` (the rising edges of LB, RB and Back), which `SuppressGameplay` leaves alone as it does `Confirm` and `Cancel`: while the panel is open the gameplay actions are cleared, so LB does not cast a spell
+and RB does not throw holy water. The tap of Back that closes the panel ends with a release, and a release is a tap: for 0.55 s after closing the panel does not open again. Not tried with a real controller.
 
 On 17 November 2026 the seal and the doors changed places. The seal (the enhancement of the weapon in hand) was *D-pad right held*, which
 nobody found, while the D-pad left seemed to do nothing (the ping needs doors still to buy, the veil needs its perk). The seal is now a plain

@@ -61,6 +61,8 @@ namespace PryingEyes
             public int NavX, NavY;
             /// <summary>Menu: fronte di salita di A (conferma) e di B (indietro).</summary>
             public bool Confirm, Cancel;
+            /// <summary>Menu a schede (il menu di Select nel deserto): fronte di salita di LB (scheda prima), di RB (scheda dopo) e di Select (chiude). Come A e B non li cancella SuppressGameplay.</summary>
+            public bool Prev, Next, Back;
             public bool Sprinting => sprint;
             public bool Crouching => crouch;
             ushort prev, holdDone;
@@ -74,7 +76,7 @@ namespace PryingEyes
             {
                 Array.Clear(Held, 0, Held.Length); Array.Clear(Down, 0, Down.Length);
                 Move = LookRate = Vector2.zero;
-                NavX = NavY = 0; Confirm = Cancel = false;
+                NavX = NavY = 0; Confirm = Cancel = Prev = Next = Back = false;
                 prev = holdDone = 0; rtOn = ltOn = sprint = crouch = leanL = leanR = false; stickX = stickY = 0;
                 clock = 0f; Array.Clear(pressAt, 0, pressAt.Length);
             }
@@ -95,7 +97,7 @@ namespace PryingEyes
             public void Silence()
             {
                 Array.Clear(Held, 0, Held.Length); Array.Clear(Down, 0, Down.Length);
-                Move = LookRate = Vector2.zero; NavX = NavY = 0; Confirm = Cancel = false;
+                Move = LookRate = Vector2.zero; NavX = NavY = 0; Confirm = Cancel = Prev = Next = Back = false;
             }
 
             static Vector2 Stick(short x, short y, float dead)
@@ -152,7 +154,7 @@ namespace PryingEyes
                 sprint0 = sprint; crouch0 = crouch; leanL0 = leanL; leanR0 = leanR;
                 Array.Clear(Down, 0, Down.Length);
                 Array.Clear(Held, 0, Held.Length);
-                NavX = NavY = 0; Confirm = Cancel = false;
+                NavX = NavY = 0; Confirm = Cancel = Prev = Next = Back = false;
                 if (!s.connected) { Move = LookRate = Vector2.zero; prev = holdDone = 0; rtOn = ltOn = sprint = crouch = leanL = leanR = false; stickX = stickY = 0; return; }
 
                 ushort b = s.buttons;
@@ -185,6 +187,7 @@ namespace PryingEyes
                 }
                 NavX = nx; NavY = ny;
                 Confirm = Pressed(A); Cancel = Pressed(B);
+                Prev = Pressed(LeftShoulder); Next = Pressed(RightShoulder); Back = Pressed(BackBtn);
 
                 // un tasto, una cosa (e dove serve, tenuto, la seconda): niente combinazioni di due tasti in combattimento
                 Set(TouchControls.Action.Pause, false, Pressed(StartBtn));

@@ -134,7 +134,7 @@ namespace PryingEyes
             var inp = body.input;
             var bk = p.Riding ? p.Bike : null;
             inp.seated = bk != null;                                           // in sella: seduto, i piedi sulle pedane e le mani sulle manopole (SurvivorBody)
-            if (bk != null) { inp.gripLeft = bk.GripWorld(0); inp.gripRight = bk.GripWorld(1); }
+            if (bk != null) { inp.gripLeft = bk.GripWorld(0); inp.gripRight = bk.GripWorld(1); bk.FillSeat(ref inp); }
             inp.velocity = p.Riding ? Vector3.zero : vel;                      // in sella le gambe non camminano
             inp.pitch = p.pitch; inp.lean = p.lean;
             inp.crouch = p.IsCrouching && !p.Riding; inp.sprint = p.IsSprinting && !p.Riding;

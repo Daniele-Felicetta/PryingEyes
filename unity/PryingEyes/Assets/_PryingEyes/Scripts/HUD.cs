@@ -232,6 +232,9 @@ namespace PryingEyes
             foreach (var t in GetComponentsInChildren<Text>(true))
             {
                 var o = t.GetComponent<Outline>();
+                // il menu di Select ha le sue pagine, alcune su carta chiara (il negozio, la carta del deserto): un contorno nero attorno a una scritta piccola e scura su fondo chiaro la impasta (lo si vide
+                // nelle foto del negozio), e quelle su fondo scuro non ne hanno bisogno. Il menu resta fuori dal giro
+                if (hubRoot != null && t.transform.IsChildOf(hubRoot)) { if (o != null) o.enabled = false; continue; }
                 if (on && o == null)
                 {
                     o = t.gameObject.AddComponent<Outline>();

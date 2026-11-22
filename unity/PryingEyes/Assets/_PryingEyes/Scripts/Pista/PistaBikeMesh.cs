@@ -160,6 +160,7 @@ namespace PryingEyes.Pista
             frontPivot.localRotation = Quaternion.Euler(spinF, 0f, 0f);
             rearPivot.localRotation = Quaternion.Euler(spinR, 0f, 0f);
             swing.localRotation = Quaternion.Euler(Mathf.Clamp(v.shockC * 28f, -4f, 7f), 0f, 0f);
+            if (hips == null) return;           // the bike alone (Build with withRider false: the desert's store window shows it so): there is no rider to pose
 
             // the rider: shifts to the inside of the corner, folds behind the screen, the inside knee goes out
             float hang = Mathf.Clamp(v.hang, -1f, 1f);
@@ -698,8 +699,9 @@ namespace PryingEyes.Pista
             return g.transform;
         }
 
-        /// <summary>A bike with its rider under 'parent': style 0 superbike, 1 supersport, 2 naked roadster; the paint and the leathers of the livery.</summary>
-        public static PistaBikeRig Build(Transform parent, int style, Livery liv)
+        /// <summary>A bike with its rider under 'parent': style 0 superbike, 1 supersport, 2 naked roadster; the paint and the leathers of the livery. 'withRider' false: the bike alone (the desert puts its own
+        /// survivor on it, DesertBikeMesh.BuildPista); the right grip, in the frame of the steering, is in rig.grip for both sides.</summary>
+        public static PistaBikeRig Build(Transform parent, int style, Livery liv, bool withRider = true)
         {
             var k = Ensure(style);
             var rig = new PistaBikeRig { root = parent };
@@ -807,6 +809,11 @@ namespace PryingEyes.Pista
             }
 
             // ---- the rider: the model of Blender if the build has it, else the one drawn by code
+            if (!withRider)
+            {
+                for (int i = 0; i < 2; i++) rig.grip[i] = k.steerM.inverse.MultiplyPoint3x4(new Vector3(i == 0 ? -0.30f : 0.30f, style < 2 ? 0.905f : 1.00f, style < 2 ? 0.40f : 0.34f));
+                return rig;
+            }
             if (PistaRiderModel.TryAttach(rig, style)) { rig.tuckPitch = 14f; return rig; }
             rig.hips = new GameObject("Bacino").transform;
             rig.hips.SetParent(rig.body, false);

@@ -93,8 +93,8 @@ namespace PryingEyes
                 int step = Input.GetKeyDown(KeyCode.PageDown) ? 1 : Input.GetKeyDown(KeyCode.PageUp) ? -1 : 0;
                 if (step != 0) CyclePage(step);
             }
-            // Esc e Start (di qualunque controller) aprono e chiudono la pausa; l'Esc che ha appena chiuso il grimorio no
-            bool toggle = (Input.GetKeyDown(KeyCode.Escape) && !GrimoireUI.ClosedThisFrame) || TouchControls.Down(TouchControls.Action.Pause) || PadControls.PausePressed;
+            // Esc e Start (di qualunque controller) aprono e chiudono la pausa; l'Esc che ha appena chiuso il grimorio o il menu di Select no
+            bool toggle = (Input.GetKeyDown(KeyCode.Escape) && !GrimoireUI.ClosedThisFrame && !HUD.HubClosedThisFrame) || TouchControls.Down(TouchControls.Action.Pause) || PadControls.PausePressed;
             if (!toggle && !padBack) return;                                                                         // B torna solo indietro: in gioco e' "abbassati"
             if (settingsPanel.gameObject.activeSelf) { MenuSound.Back(); Back(); return; }
             if (leavePanel.gameObject.activeSelf) { MenuSound.Back(); Show(pausePanel); return; }
