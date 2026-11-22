@@ -48,7 +48,7 @@ are in [modular-tasks.md](modular-tasks.md).
 
 | Task | Title | Phase | Depends on | Needs | State |
 | --- | --- | --- | --- | --- | --- |
-| T01 | The desert lab in the gate | 0 | | .NET | todo |
+| T01 | The desert lab in the gate | 0 | | .NET | done (#39) |
 | T02 | A fingerprint of the floor generator | 0 | | .NET | todo |
 | T03 | One registry of suites, and the gate asks it | 0 | | .NET | todo |
 | T04 | The guard learns the rules about tests | 0 | | | todo |
