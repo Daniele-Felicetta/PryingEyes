@@ -67,6 +67,8 @@ Shader "PryingEyes/PistaSurface"
 
             float4 _DSCloudShadow;      // z: how much the shadow of a cloud darkens the ground in the sun (0 at night and in a storm), w: the cover of the sky; written by DesertSky
             float _PistaWet;            // 0 dry .. 1 soaked: darker, smoother ground (written by the track director)
+            float4 _PistaWetLook;       // x: how much the water darkens the ground, y: how much smoother it makes it, z: the sheen of the sky on it at a grazing angle (all zero: the first two as they were, 0.38 and 0.55, and no sheen)
+            float4 _PistaWetSheen;      // rgb: the colour of that sheen, the grey of the sky (written by the track director every frame)
 
             struct Attributes
             {
@@ -181,6 +183,7 @@ Shader "PryingEyes/PistaSurface"
                 float2 bump;
                 float occl = 1.0;
                 float wetK = 1.0;                                                            // how much the water of the rain takes on this kind of ground
+                float sheenK = 1.0;                                                          // and how much of the sky it mirrors (the paved ground, a lot; the grass and the gravel, not at all)
 
                 if (kind == 0)
                 {
@@ -233,6 +236,7 @@ Shader "PryingEyes/PistaSurface"
                     occl = lerp(0.55, 1.0, gap);
                     bump = (s0.gb * 2.0 - 1.0) * 1.1 * saturate(1.0 - dist / 30.0) + nMid * 0.20 * midFade;
                     wetK = 0.5;
+                    sheenK = 0.1;
                 }
                 else if (kind == 3)
                 {
@@ -246,6 +250,7 @@ Shader "PryingEyes/PistaSurface"
                     smoo = _Smooth + 0.05 * fine;
                     bump = nFine * 0.80 * fineFade + nMid * 0.50 * midFade;
                     wetK = 0.3;
+                    sheenK = 0.0;
                 }
                 else
                 {
@@ -257,11 +262,13 @@ Shader "PryingEyes/PistaSurface"
                     col *= 1.0 - 0.22 * smoothstep(0.55, 0.90, g2.a);
                     smoo = _Smooth + 0.10 * fine;
                     bump = nFine * 0.35 * fineFade;
+                    sheenK = 0.5;
                 }
 
                 float wet = _PistaWet * wetK;
-                col *= 1.0 - 0.38 * wet;
-                smoo = saturate(smoo + 0.55 * wet);
+                float3 wl = (_PistaWetLook.x + _PistaWetLook.y) > 0.0 ? _PistaWetLook.xyz : float3(0.38, 0.55, 0.0);
+                col *= 1.0 - wl.x * wet;
+                smoo = saturate(smoo + wl.y * wet);
                 float3 Np = N;
                 Np.xz += bump * (flatK * (1.0 - 0.7 * wet));
                 Np = normalize(Np);
@@ -274,7 +281,8 @@ Shader "PryingEyes/PistaSurface"
                 surfaceData.smoothness = smoo;
                 surfaceData.occlusion = occl;
                 surfaceData.normalTS = half3(0, 0, 1);
-                surfaceData.emission = col * ((1.0 - flatK) * 0.45);                 // the banks of the skirts under the road are never in the sun on their outer side: some fill, so they are earth and not black
+                float grazing = pow(1.0 - saturate(dot(N, GetWorldSpaceNormalizeViewDir(P))), 4.0);
+                surfaceData.emission = col * ((1.0 - flatK) * 0.45) + _PistaWetSheen.rgb * (grazing * wl.z * _PistaWet * sheenK);                 // the banks of the skirts under the road are never in the sun on their outer side: some fill, so they are earth and not black
 
                 InputData inputData = (InputData)0;
                 inputData.positionWS = P;

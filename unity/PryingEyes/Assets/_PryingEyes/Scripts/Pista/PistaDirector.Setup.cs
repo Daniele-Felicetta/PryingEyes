@@ -39,11 +39,12 @@ namespace PryingEyes.Pista
         void ApplySky()
         {
             if (sky == null) return;
-            PistaLook.Apply();                          // a circuit is seen from far: the haze of the desert hides the next corner, and its white sky does not suit green country (PistaLook)
+            PistaLook.Apply(PistaMode.Rain);                          // a circuit is seen from far: the haze of the desert hides the next corner, and its white sky does not suit green country (PistaLook)
             sky.Frozen = true;
-            sky.SetHour(PistaMode.Hour, true);
+            sky.SetHour(PistaMode.SkyHour(PistaMode.Hour), true);
             sky.ForceStorm(0f);
             if (cam != null && cam.cam != null) cam.cam.farClipPlane = 6000f;
+            WeatherSet(PistaMode.Rain);                 // the rain, the wet look of the ground (PistaDirector.Weather.cs)
         }
 
         IEnumerator SetupRace(int raceSeed, bool again)
@@ -56,6 +57,7 @@ namespace PryingEyes.Pista
             yield return null;
             ApplySky();
             circuit = CircuitGen.Generate(seed);
+            circuit.wet = PistaMode.Rain ? 1f : 0f;                // the water on the road: the riders plan with it and the bikes feel it
             string km = (circuit.length / 1000f).ToString("0.0", It) + " km";
             hud.SetLoadingTrack(circuit.name + "   -   " + km);
             hud.SetLoading(0.08f, "Preparo la gara");

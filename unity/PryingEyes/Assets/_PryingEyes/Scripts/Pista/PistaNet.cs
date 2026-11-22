@@ -61,10 +61,10 @@ namespace PryingEyes.Pista
             public bool Dnf => (flags & 1) != 0;
         }
 
-        /// <summary>The rules of the race and who rides it. 'kind' 0 is a person (netSlot says which), 1 a computer rider; 'flags' bit 0 is a friend who has left.</summary>
-        public static void WriteRoster(NetWriter w, int epoch, int seed, int laps, int bike, int aids, int hour, List<Racer> racers)
+        /// <summary>The rules of the race (laps, bike, aids, hour of the day, weather) and who rides it. 'kind' 0 is a person (netSlot says which), 1 a computer rider; 'flags' bit 0 is a friend who has left.</summary>
+        public static void WriteRoster(NetWriter w, int epoch, int seed, int laps, int bike, int aids, int hour, int weather, List<Racer> racers)
         {
-            w.U16(epoch).I32(seed).U8(laps).U8(bike).U8(aids).U8(hour).U8(racers.Count);
+            w.U16(epoch).I32(seed).U8(laps).U8(bike).U8(aids).U8(hour).U8(weather).U8(racers.Count);
             for (int i = 0; i < racers.Count; i++)
             {
                 var r = racers[i];
@@ -72,10 +72,10 @@ namespace PryingEyes.Pista
             }
         }
 
-        public static bool ReadRoster(ref NetReader r, out int epoch, out int seed, out int laps, out int bike, out int aids, out int hour, List<Entry> into)
+        public static bool ReadRoster(ref NetReader r, out int epoch, out int seed, out int laps, out int bike, out int aids, out int hour, out int weather, List<Entry> into)
         {
             into.Clear();
-            epoch = r.U16(); seed = r.I32(); laps = r.U8(); bike = r.U8(); aids = r.U8(); hour = r.U8();
+            epoch = r.U16(); seed = r.I32(); laps = r.U8(); bike = r.U8(); aids = r.U8(); hour = r.U8(); weather = r.U8();
             int n = r.U8();
             if (n > 32) return false;
             for (int i = 0; i < n; i++)

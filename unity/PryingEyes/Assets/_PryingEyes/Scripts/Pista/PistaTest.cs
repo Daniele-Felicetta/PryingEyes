@@ -103,6 +103,7 @@ namespace PryingEyes.Pista
             if (PistaMode.HasArg("-pistaworldshots")) { yield return WorldShots(); yield break; }             // only photographs of the scenery (needs graphics)
             if (PistaMode.HasArg("-pistacuponly")) { yield return CupRace(); yield break; }          // only the championship part (to look at the table of a round and iterate on it)
             if (PistaMode.HasArg("-pistarosteronly")) { yield return RosterGallery(); yield break; }   // only the photographs of the bikes on the grid (needs graphics)
+            if (PistaMode.HasArg("-pistarainonly")) { yield return RainShotsOnly(d); yield break; }       // only the photographs of the rain (with -pistarain 1; needs graphics)
 
             // ---- the scene
             phase = "scena";
@@ -130,7 +131,7 @@ namespace PryingEyes.Pista
             var hudCanvas = GameManager.I != null && GameManager.I.hud != null ? GameManager.I.hud.GetComponent<Canvas>() : null;
             Check("l'HUD di sempre e' spento", hudCanvas == null || !hudCanvas.enabled);
             Check("la camera della gara e' la principale, con il piano lontano e lo sfondo del cielo", Camera.main == d.cam.cam && d.cam.cam.farClipPlane >= 5000f && d.cam.cam.clearFlags == CameraClearFlags.SolidColor, $"far {d.cam.cam.farClipPlane:F0}, {d.cam.cam.clearFlags}");
-            Check("il cielo c'e' ed e' fermo all'ora scelta", DesertSky.I != null && DesertSky.I.Frozen && Mathf.Abs(DesertMode.Clock.hour - PistaMode.Hour) < 0.05f, $"ora {DesertMode.Clock.hour:F2} (scelta {PistaMode.Hour:F2})");
+            Check("il cielo c'e' ed e' fermo all'ora scelta", DesertSky.I != null && DesertSky.I.Frozen && Mathf.Abs(DesertMode.Clock.hour - PistaMode.SkyHour(PistaMode.Hour)) < 0.05f, $"ora {DesertMode.Clock.hour:F2} (scelta {PistaMode.Hour:F2})");
             Check("il mondo e' costruito", d.world != null && d.world.Ready);
             {
                 // the plain to the horizon is a frame around the countryside: no part of the road (the middle, both edges) may lie under one of its pieces, whatever the height of the lap
@@ -377,8 +378,123 @@ namespace PryingEyes.Pista
             yield return new WaitForSeconds(3f);
             Check("anche la seconda gara parte e la moto avanza", Dir.race.phase == RacePhase.Racing && Dir.me.progress > progress1 + 25f, $"{Dir.me.progress - progress1:F0} m in 3 s");
             if (shots) yield return RosterGallery();
+            yield return RainRace();
             yield return LicenceRace();
             yield return CupRace();
+        }
+
+        /// <summary>The rain by the real path, on the circuit of the second race. First the dry lap of the computer rider on it, alone (with rivals a touch can bring the rider down and the comparison would have nothing to
+        /// compare: it did in two runs out of three), then the same circuit with the rain chosen: the road, the plan of the riders and the bike all know about the water, rain and spray are drawn, the sky is grey and the
+        /// records of the wet are not those of the dry; the same rider over the same lap, alone again, is slower and does not fall; and a clear choice puts everything back, for the tests that follow.</summary>
+        IEnumerator RainRace()
+        {
+            phase = "pioggia";
+            var d = Dir;
+            float fog0 = DesertSky.FogScale, sun0 = DesertSky.SunMax;
+            Check("prima della pioggia la gara e' asciutta: il circuito senza acqua, nessuna pioggia nella scena, il terreno asciutto", d.circuit.wet == 0f && !PistaMode.Rain && !d.RainOn && Shader.GetGlobalFloat("_PistaWet") == 0f,
+                "acqua " + d.circuit.wet + ", pioggia " + d.RainOn);
+            // the reference: the same circuit, dry, ridden alone by the computer (the race that is on is left)
+            PistaMode.TestRivals(0);
+            int count0 = d.RaceCount;
+            d.RestartRace(false);
+            yield return null;
+            yield return WaitFor(() => Dir.Ready && Dir.RaceCount == count0 + 1, 120f);
+            d = Dir;
+            int seed0 = d.seed, countDry = d.RaceCount;
+            yield return WaitFor(() => d.race.phase == RacePhase.Racing, 40f);
+            Time.timeScale = 4f;
+            float t0 = Time.realtimeSinceStartup;
+            while (d.race.phase == RacePhase.Racing && Time.realtimeSinceStartup - t0 < 240f) yield return null;
+            Time.timeScale = 1f;
+            bool dryOk = d.race.phase == RacePhase.Over && d.me.finished && d.me.crashes == 0;
+            float dryTime = d.me.finishTime;
+            bool dryRecord = d.LapsKept > 0;
+            var dryLine = d.race.LineFor(d.me.bike.spec);
+            float dryPlan = Mean(dryLine.vplan);
+            Check("il giro di riferimento, asciutto e da solo, e' pulito e ha il suo record: il pilota automatico arriva senza cadere", dryOk && dryRecord,
+                "fase " + d.race.phase + ", arrivato " + d.me.finished + ", cadute " + d.me.crashes + ", " + dryTime.ToString("F1") + " s, giri tenuti " + d.LapsKept + ", " + d.circuit.name);
+
+            // ---- the same circuit, in the rain
+            PistaMode.WeatherChoice = 1;
+            d.RestartRace(false);
+            yield return null;
+            yield return WaitFor(() => Dir.Ready && Dir.RaceCount == countDry + 1, 120f);
+            d = Dir;
+            var c = d.circuit;
+            Check("scelta la pioggia la stessa pista e' bagnata: il circuito, la scena e il terreno lo sanno", d.Ready && d.seed == seed0 && c.wet == 1f && PistaMode.Rain && d.RainOn && Shader.GetGlobalFloat("_PistaWet") == 1f,
+                "seme " + d.seed + " (prima " + seed0 + "), acqua " + c.wet + ", pioggia " + d.RainOn);
+            // what the bike feels: the grip of the asphalt under the wheels is about 70 % of the dry one and it rolls a little harder
+            int h1 = 0, h2 = 0; GroundSample gw, gd;
+            int k = c.n / 3;
+            c.Sample(c.px[k], c.pz[k], ref h1, out gw);
+            c.wet = 0f; c.Sample(c.px[k], c.pz[k], ref h2, out gd); c.wet = 1f;
+            Check("il fondo bagnato tiene meno: sull'asfalto circa il 70% dell'asciutto, e rotola un poco di piu'",
+                gd.surface == SurfaceKind.Asphalt && gw.surface == SurfaceKind.Asphalt && gw.grip > gd.grip * 0.66f && gw.grip < gd.grip * 0.74f && gw.rolling > gd.rolling && Mathf.Abs(c.GripScale - 0.70f) < 0.01f,
+                "aderenza " + gw.grip.ToString("F2") + " contro " + gd.grip.ToString("F2") + ", resistenza " + gw.rolling.ToString("F4") + " contro " + gd.rolling.ToString("F4") + ", scala " + c.GripScale.ToString("F2"));
+            // what the riders plan: the speed along the lap is lower than on the dry (the same circuit, the same bike)
+            float wetPlan = Mean(d.race.LineFor(d.me.bike.spec).vplan);
+            Check("i piloti pianificano per il bagnato: la velocita' prevista lungo il giro e' piu' bassa che sull'asciutto, ma non di troppo", wetPlan < dryPlan * 0.97f && wetPlan > dryPlan * 0.70f,
+                "media " + wetPlan.ToString("F1") + " m/s contro " + dryPlan.ToString("F1") + " sull'asciutto (" + (wetPlan / dryPlan * 100f).ToString("F0") + "%)");
+            // what is seen: the grey sky and the thicker haze (the flags of the photographs aside)
+            bool look = PistaMode.HasArg("-pistafog") || PistaMode.HasArg("-pistasun");
+            Check("il cielo e' quello della pioggia: piu' nebbia, meno sole, copertura quasi piena", look || (DesertSky.FogScale > fog0 * 1.5f && DesertSky.SunMax < sun0 * 0.7f && DesertSky.CloudOverride >= 0.85f),
+                "nebbia " + DesertSky.FogScale.ToString("F2") + " (asciutto " + fog0.ToString("F2") + "), sole " + DesertSky.SunMax.ToString("F2") + " (asciutto " + sun0.ToString("F2") + "), nuvole " + DesertSky.CloudOverride.ToString("F2"));
+            Check("i record della pioggia sono un'altra cosa: la chiave della moto lo dice e il fantasma dell'asciutto non c'e'", d.BikeId.EndsWith("~pioggia") && d.Reference == null,
+                "chiave " + d.BikeId + ", fantasma " + (d.Reference == null ? "nessuno" : d.Reference.lapTime.ToString("F2") + " s") + (dryRecord ? " (il giro asciutto ha il suo record)" : " (il giro asciutto non ha un record)"));
+            if (shots) { yield return new WaitForSeconds(2.6f); yield return Shot("20_pioggia_griglia"); }
+            yield return WaitFor(() => d.race.phase == RacePhase.Racing, 40f);
+            yield return WaitFor(() => d.me.speed > 35f, 30f);
+            yield return new WaitForSeconds(1.0f);
+            int rainAlive = d.RainAlive, sprayAlive = d.SprayAlive;
+            Check("con la pioggia l'aria attorno alla camera e' piena di strisce e dietro le moto veloci ci sono gli spruzzi (anche senza scheda grafica le particelle si calcolano)", d.RainOn && rainAlive > 150 && sprayAlive > 5,
+                "strisce " + rainAlive + ", spruzzi " + sprayAlive);
+            if (shots) yield return RaceShots(d, "pioggia_");
+            Time.timeScale = 4f;
+            t0 = Time.realtimeSinceStartup;
+            while (d.race.phase == RacePhase.Racing && Time.realtimeSinceStartup - t0 < 300f) yield return null;
+            Time.timeScale = 1f;
+            bool wetOk = d.race.phase == RacePhase.Over && d.me.finished && d.me.crashes == 0;
+            float wetTime = d.me.finishTime;
+            Check("sotto la pioggia il pilota automatico finisce il giro senza cadere", wetOk, "fase " + d.race.phase + ", arrivato " + d.me.finished + ", cadute " + d.me.crashes);
+            Check("e ci mette di piu' che sull'asciutto, ma poco di piu' (stessa pista, stessa moto, stesso pilota, tutti e due i giri da soli)", dryOk && wetOk && wetTime > dryTime * 1.03f && wetTime < dryTime * 1.6f,
+                wetTime.ToString("F1") + " s contro " + dryTime.ToString("F1") + " s (" + ((wetTime / dryTime - 1f) * 100f).ToString("F0") + "% in piu')");
+            if (shots) { yield return new WaitForSeconds(1.0f); yield return Shot("20_pioggia_risultati"); }
+
+            // ---- a clear choice puts everything back (and the rivals of the choices come back with it)
+            PistaMode.TestRivals(null);
+            PistaMode.WeatherChoice = 0;
+            int count1 = d.RaceCount;
+            d.RestartRace(false);
+            yield return null;
+            yield return WaitFor(() => Dir.Ready && Dir.RaceCount == count1 + 1, 120f);
+            yield return null;
+            d = Dir;
+            Check("scelto il sereno la pioggia e' tolta: il circuito senza acqua, nessun sistema di pioggia nella scena, il terreno asciutto, il cielo e le chiavi dei record come prima",
+                d.Ready && d.circuit.wet == 0f && !PistaMode.Rain && !d.RainOn && GameObject.Find("Pioggia") == null && Shader.GetGlobalFloat("_PistaWet") == 0f && Mathf.Abs(DesertSky.FogScale - fog0) < 0.001f && !d.BikeId.EndsWith("~pioggia"),
+                "acqua " + d.circuit.wet + ", pioggia " + d.RainOn + ", nebbia " + DesertSky.FogScale.ToString("F2") + " (prima " + fog0.ToString("F2") + "), chiave " + d.BikeId);
+            Check("e il fantasma dell'asciutto e' tornato", d.Reference != null, d.Reference == null ? "nessun fantasma" : d.Reference.lapTime.ToString("F2") + " s");
+        }
+
+        /// <summary>The photographs of the rain alone (-pistarain 1 -pistashots, needs graphics): the grid, then the race at speed with the same views as the dry ones, to look at the water and iterate on it.</summary>
+        IEnumerator RainShotsOnly(PistaDirector d)
+        {
+            phase = "pioggia";
+            Check("la gara e' sotto la pioggia (-pistarain 1)", d.RainOn && d.circuit.wet == 1f && PistaMode.Rain, "acqua " + d.circuit.wet + ", pioggia " + d.RainOn);
+            yield return new WaitForSeconds(2.6f);
+            yield return Shot("20_pioggia_griglia");
+            yield return WaitFor(() => d.race.phase == RacePhase.Racing, 40f);
+            yield return WaitFor(() => d.me.speed > 35f, 30f);
+            yield return new WaitForSeconds(1.0f);
+            Check("in corsa si vedono le strisce di pioggia e gli spruzzi", d.RainAlive > 150 && d.SprayAlive > 5, "strisce " + d.RainAlive + ", spruzzi " + d.SprayAlive);
+            yield return RaceShots(d, "pioggia_");
+        }
+
+        static float Mean(float[] a)
+        {
+            if (a == null || a.Length == 0) return 0f;
+            float t = 0f;
+            for (int i = 0; i < a.Length; i++) t += a[i];
+            return t / a.Length;
         }
 
         /// <summary>A licence test by the real path, last because it leaves the game on a test: the rules of the test replace the choices (circuit, bike, three laps, nobody else, aids, hour), the computer rides
@@ -399,7 +515,7 @@ namespace PryingEyes.Pista
             Check("la prova parte con le sue regole: circuito, moto, tre giri e nessun avversario", d.Ready && d.seed == t.Seed && d.me.bikeIndex == t.bike && d.race.laps == Licences.Laps && d.race.racers.Count == 1 && d.Licence != null && d.Licence.test.id == t.id,
                 "seme " + d.seed + " (prova " + t.Seed + "), moto " + d.me.bikeIndex + " (" + t.bike + "), " + d.race.laps + " giri, " + d.race.racers.Count + " piloti");
             // (the computer that rides the player's bike in this test switches every aid on, so the flags of the bike say nothing here: the menu test looks at them without the computer)
-            Check("gli aiuti e l'ora sono quelli della prova", PistaMode.Aids == t.aids && PistaMode.HourChoice == t.hour && Mathf.Abs(DesertMode.Clock.hour - PistaMode.Hour) < 0.05f,
+            Check("gli aiuti e l'ora sono quelli della prova", PistaMode.Aids == t.aids && PistaMode.HourChoice == t.hour && Mathf.Abs(DesertMode.Clock.hour - PistaMode.SkyHour(PistaMode.Hour)) < 0.05f,
                 "aiuti " + PistaMode.Aids + ", ora " + PistaMode.HourChoice + " (" + DesertMode.Clock.hour.ToString("F2") + ")");
             Check("'nuova pista' resta sul circuito della prova", PistaMode.NewSeed(false) == t.Seed, PistaMode.Licence + "");
             Check("durante la prova lo schermo mostra i tre tempi da battere", d.hud.LicenceGoalsText.Contains("ORO " + PistaDirector.TargetClock(t.gold)) && d.hud.LicenceGoalsText.Contains("ARG " + PistaDirector.TargetClock(t.silver)) && d.hud.LicenceGoalsText.Contains("BRO " + PistaDirector.TargetClock(t.bronze)), d.hud.LicenceGoalsText);
@@ -906,21 +1022,21 @@ namespace PryingEyes.Pista
             var friend = race.AddRemote("Bob", 2, 4, true); friend.netSlot = 1;
             race.PlaceAll(new List<Racer> { cpu, human, friend });
             var wr = new NetWriter();
-            PistaNet.WriteRoster(wr, 513, 4242, 2, 1, 2, 3, race.racers);
+            PistaNet.WriteRoster(wr, 513, 4242, 2, 1, 2, 3, 1, race.racers);
             var entries = new List<PistaNet.Entry>();
             var rr = new NetReader(wr.ToArray());
-            int epoch, seedBack, laps, bike, aids, hour;
-            bool rosterOk = PistaNet.ReadRoster(ref rr, out epoch, out seedBack, out laps, out bike, out aids, out hour, entries);
-            bool rosterSame = rosterOk && epoch == 513 && seedBack == 4242 && laps == 2 && bike == 1 && aids == 2 && hour == 3 && entries.Count == 3;
+            int epoch, seedBack, laps, bike, aids, hour, weather;
+            bool rosterOk = PistaNet.ReadRoster(ref rr, out epoch, out seedBack, out laps, out bike, out aids, out hour, out weather, entries);
+            bool rosterSame = rosterOk && epoch == 513 && seedBack == 4242 && laps == 2 && bike == 1 && aids == 2 && hour == 3 && weather == 1 && entries.Count == 3;
             for (int i = 0; rosterSame && i < 3; i++)
             {
                 var r = race.racers[i]; var e = entries[i];
                 rosterSame = e.id == i && e.name == r.name && e.bike == r.bikeIndex && e.skin == r.skin && e.grid == r.slot && e.netSlot == r.netSlot && (e.kind == 1) == r.cpu && !e.Dnf;
             }
-            Check("la griglia (chi corre, con quale moto e colori, da quale posto) fa il viaggio in rete", rosterSame, entries.Count + " piloti");
-            PistaNet.WriteRoster(wr.Reset(), 1, 4242, 0, 1, 2, 3, race.racers);
+            Check("la griglia (chi corre, con quale moto e colori, da quale posto, e il tempo della gara) fa il viaggio in rete", rosterSame, entries.Count + " piloti");
+            PistaNet.WriteRoster(wr.Reset(), 1, 4242, 0, 1, 2, 3, 0, race.racers);
             var rz = new NetReader(wr.ToArray());
-            Check("una griglia senza giri si rifiuta", !PistaNet.ReadRoster(ref rz, out epoch, out seedBack, out laps, out bike, out aids, out hour, entries));
+            Check("una griglia senza giri si rifiuta", !PistaNet.ReadRoster(ref rz, out epoch, out seedBack, out laps, out bike, out aids, out hour, out weather, entries));
 
             // the results
             race.Retire(friend);
@@ -1056,7 +1172,7 @@ namespace PryingEyes.Pista
             for (int h = 0; h < hours.Length; h++)
             {
                 phase = "foto del mondo: " + hourName[h];
-                if (d.sky != null) d.sky.SetHour(hours[h], true);
+                if (d.sky != null) d.sky.SetHour(PistaMode.SkyHour(hours[h]), true);
                 yield return null; yield return null; yield return null;
                 int nPlaces = h == 0 ? places.Length : 2;
                 for (int a = 0; a < nPlaces; a++)
@@ -1086,7 +1202,7 @@ namespace PryingEyes.Pista
                     }
                 }
             }
-            if (d.sky != null) d.sky.SetHour(PistaMode.Hour, true);
+            if (d.sky != null) d.sky.SetHour(PistaMode.SkyHour(PistaMode.Hour), true);
             d.freeCamera = false;
         }
 
@@ -1096,6 +1212,7 @@ namespace PryingEyes.Pista
             cm.transform.position = pos;
             cm.transform.rotation = Quaternion.LookRotation((look - pos).normalized, Vector3.up);
             cm.fieldOfView = fov;
+            if (Dir.RainOn) yield return new WaitForSeconds(1.2f);          // the streaks round the camera fill the air again at the new place (one lives about a second)
             yield return null;
             yield return new WaitForEndOfFrame();
             try
@@ -1131,13 +1248,13 @@ namespace PryingEyes.Pista
         /// <summary>The photographs at speed, as the player sees them: real time, 60 pictures a second (the blur of a frame is the distance the picture moves in it, so the photographs are taken at the rate
         /// of a screen and not at the one this machine could make), a dozen frames after every change of view so that no cut is in the picture, and the same view without the effects of speed, with
         /// half of them and with all of them (those three without the HUD: the HUD is drawn into the photograph through the camera and would be blurred, in the game it is not).</summary>
-        IEnumerator RaceShots(PistaDirector d)
+        IEnumerator RaceShots(PistaDirector d, string tag = "")
         {
             int tf = Application.targetFrameRate, vs = QualitySettings.vSyncCount;
             Time.timeScale = 1f; QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60;
             for (int i = 0; i < 12; i++) { CamDelta(Dir); if (i == 8) yield return Warm(d); else yield return null; }          // the first drawing into a texture after seconds of drawing only to the screen shows a blur of its own (heavier than the game's: the same frame drawn twice is the same, the next drawings are right): one throwaway drawing first
             FxNote(d, "5_gara_inseguimento");
-            yield return Shot("5_gara_inseguimento");
+            yield return Shot(tag + "5_gara_inseguimento");
             var fx = d.cam.Fx;
             if (fx != null)
             {
@@ -1148,18 +1265,18 @@ namespace PryingEyes.Pista
                     fx.Force(shares[k]);
                     for (int i = 0; i < 4; i++) { CamDelta(Dir); yield return null; }
                     FxNote(d, names[k]);
-                    yield return Shot(names[k], false);
+                    yield return Shot(tag + names[k], false);
                 }
                 fx.Force(-1f);
             }
             d.cam.mode = CamMode.Far;
             for (int i = 0; i < 12; i++) { CamDelta(Dir); yield return null; }
             FxNote(d, "6_gara_lontana");
-            yield return Shot("6_gara_lontana");
+            yield return Shot(tag + "6_gara_lontana");
             d.cam.mode = CamMode.Cockpit;
             for (int i = 0; i < 12; i++) { CamDelta(Dir); yield return null; }
             FxNote(d, "7_gara_casco");
-            yield return Shot("7_gara_casco");
+            yield return Shot(tag + "7_gara_casco");
             d.cam.mode = CamMode.Chase;
             Application.targetFrameRate = tf; QualitySettings.vSyncCount = vs;
             Time.timeScale = 4f;

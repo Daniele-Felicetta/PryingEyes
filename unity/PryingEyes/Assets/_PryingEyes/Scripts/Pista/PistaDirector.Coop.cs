@@ -74,7 +74,7 @@ namespace PryingEyes.Pista
         {
             var cg = Coop.Game;
             if (cg == null || race == null) return;
-            PistaNet.WriteRoster(nw.Reset(), cg.PistaEpoch, seed, race.laps, PistaMode.Bike, PistaMode.Aids, PistaMode.HourChoice, race.racers);
+            PistaNet.WriteRoster(nw.Reset(), cg.PistaEpoch, seed, race.laps, PistaMode.Bike, PistaMode.Aids, PistaMode.HourChoice, PistaMode.WeatherChoice, race.racers);
             cg.PistaSendSlot(slot, CoopKind.PistaRoster, nw.ToArray(), true);
         }
 
@@ -243,14 +243,15 @@ namespace PryingEyes.Pista
         void OnRoster(ref NetReader r)
         {
             var cg = Coop.Game;
-            int epoch, rseed, laps, bike, aids, hour;
-            if (!PistaNet.ReadRoster(ref r, out epoch, out rseed, out laps, out bike, out aids, out hour, rosterTmp)) return;
+            int epoch, rseed, laps, bike, aids, hour, weather;
+            if (!PistaNet.ReadRoster(ref r, out epoch, out rseed, out laps, out bike, out aids, out hour, out weather, rosterTmp)) return;
             if (cg == null || epoch != cg.PistaEpoch || circuit == null) return;
             if (rseed != seed) { CoopNewRace(rseed); return; }                       // not the circuit that was built: build the one of the host
             if (race == null)
             {
                 if (world == null || !world.Ready) return;
-                PistaMode.Override(laps, bike, aids, hour);
+                PistaMode.Override(laps, bike, aids, hour, weather);
+                circuit.wet = PistaMode.Rain ? 1f : 0f;                      // the host's weather: before the race is made, so that the plan and the bikes know the road
                 ApplySky();
                 race = new Race(circuit, laps, seed) { externalEnd = true };
                 for (int i = 0; i < rosterTmp.Count; i++) FriendRacer(rosterTmp[i]);

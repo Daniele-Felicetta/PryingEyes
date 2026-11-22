@@ -16,8 +16,13 @@ namespace PryingEyes.Pista
         /// <summary>The blue of the haze and of the horizon by day (multipliers of the desert's sand-coloured palette; -pistahorizon r,g,b and -pistahazetint r,g,b). They fade toward dawn and dusk.</summary>
         public static Rgb HorizonTint = new Rgb(0.93f, 1.07f, 1.30f), HazeTint = new Rgb(0.93f, 1.08f, 1.32f);
 
+        /// <summary>The same numbers for the rain: a thick grey haze, a low dull sky under heavy cloud (the cover is the share of the sky the clouds take), the sun mostly gone and no glow round it. Every
+        /// flag above (-pistafog and the rest) changes both looks, -pistacover the cloud cover of the rain.</summary>
+        public static float RainFog = 0.62f, RainSkyGain = 0.78f, RainZenithGain = 0.62f, RainCloudGain = 0.55f, RainExposure = 0.55f, RainSun = 0.5f, RainDaylight = 0.5f, RainGlow = 0f, RainCover = 0.93f;
+        public static Rgb RainHorizonTint = new Rgb(0.86f, 0.94f, 1.04f), RainHazeTint = new Rgb(0.86f, 0.94f, 1.06f);
+
         static bool saved;
-        static float sFog, sSky, sZen, sCloud, sExp, sSun, sDay, sGlow;
+        static float sFog, sSky, sZen, sCloud, sExp, sSun, sDay, sGlow, sCover;
         static Rgb sHorizonTint, sFogTint;
 
         /// <summary>The value after a command-line flag, or null.</summary>
@@ -28,7 +33,8 @@ namespace PryingEyes.Pista
             return null;
         }
 
-        static float Arg(string name, float fallback)
+        /// <summary>The number after a flag of the command line (the photographs try values with them), or the fallback.</summary>
+        public static float Arg(string name, float fallback)
         {
             string v = StrArg(name);
             float f;
@@ -47,26 +53,27 @@ namespace PryingEyes.Pista
             return fallback;
         }
 
-        /// <summary>Set the circuit's look (the desert's values are kept the first time, to give back).</summary>
-        public static void Apply()
+        /// <summary>Set the circuit's look, clear or in the rain (the desert's values are kept the first time, to give back).</summary>
+        public static void Apply(bool rain = false)
         {
             if (!saved)
             {
                 saved = true;
                 sFog = DesertSky.FogScale; sSky = DesertSky.DaySkyGain; sZen = DesertSky.DayZenithGain; sCloud = DesertSky.DayCloudGain;
                 sExp = DesertSky.ExposureOffset; sSun = DesertSky.SunMax; sDay = DesertSky.DayLight; sGlow = DesertSky.SunGlow;
-                sHorizonTint = DesertSky.HorizonTint; sFogTint = DesertSky.FogTint;
+                sHorizonTint = DesertSky.HorizonTint; sFogTint = DesertSky.FogTint; sCover = DesertSky.CloudOverride;
             }
-            DesertSky.FogScale = Arg("-pistafog", Fog);
-            DesertSky.DaySkyGain = Arg("-pistaskygain", SkyGain);
-            DesertSky.DayZenithGain = Arg("-pistazenith", ZenithGain);
-            DesertSky.DayCloudGain = Arg("-pistacloud", CloudGain);
-            DesertSky.ExposureOffset = Arg("-pistaexposure", Exposure);
-            DesertSky.SunMax = Arg("-pistasun", Sun);
-            DesertSky.DayLight = Arg("-pistadaylight", Daylight);
-            DesertSky.SunGlow = Arg("-pistaglow", Glow);
-            DesertSky.HorizonTint = Arg3("-pistahorizon", HorizonTint);
-            DesertSky.FogTint = Arg3("-pistahazetint", HazeTint);
+            DesertSky.FogScale = Arg("-pistafog", rain ? RainFog : Fog);
+            DesertSky.DaySkyGain = Arg("-pistaskygain", rain ? RainSkyGain : SkyGain);
+            DesertSky.DayZenithGain = Arg("-pistazenith", rain ? RainZenithGain : ZenithGain);
+            DesertSky.DayCloudGain = Arg("-pistacloud", rain ? RainCloudGain : CloudGain);
+            DesertSky.ExposureOffset = Arg("-pistaexposure", rain ? RainExposure : Exposure);
+            DesertSky.SunMax = Arg("-pistasun", rain ? RainSun : Sun);
+            DesertSky.DayLight = Arg("-pistadaylight", rain ? RainDaylight : Daylight);
+            DesertSky.SunGlow = Arg("-pistaglow", rain ? RainGlow : Glow);
+            DesertSky.HorizonTint = Arg3("-pistahorizon", rain ? RainHorizonTint : HorizonTint);
+            DesertSky.FogTint = Arg3("-pistahazetint", rain ? RainHazeTint : HazeTint);
+            DesertSky.CloudOverride = rain ? Arg("-pistacover", RainCover) : sCover;
         }
 
         /// <summary>Give the desert its values back (the mode is over).</summary>
@@ -76,7 +83,7 @@ namespace PryingEyes.Pista
             saved = false;
             DesertSky.FogScale = sFog; DesertSky.DaySkyGain = sSky; DesertSky.DayZenithGain = sZen; DesertSky.DayCloudGain = sCloud;
             DesertSky.ExposureOffset = sExp; DesertSky.SunMax = sSun; DesertSky.DayLight = sDay; DesertSky.SunGlow = sGlow;
-            DesertSky.HorizonTint = sHorizonTint; DesertSky.FogTint = sFogTint;
+            DesertSky.HorizonTint = sHorizonTint; DesertSky.FogTint = sFogTint; DesertSky.CloudOverride = sCover;
         }
     }
 }
