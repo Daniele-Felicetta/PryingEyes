@@ -368,8 +368,9 @@ namespace PryingEyes.Pista
         // ------------------------------------------------------------------ bikes touching
         /// <summary>A bike is three discs of this radius (the two tires and the middle) that cannot overlap. What a touch does depends on how fast the two come together (m/s along the line between the discs, 'closing'):
         /// up to <see cref="ScrapeSpeed"/> it is a nudge, from there to <see cref="StrikeSpeed"/> a bump that costs speed and shakes the frame, above <see cref="StrikeSpeed"/> the bike that rode into the other falls and
-        /// above <see cref="HardSpeed"/> both do. A rider who has just got up (<see cref="RespawnGrace"/> seconds) is not touched.</summary>
-        public const float ContactRadius = 0.40f, ContactRestitution = 0.15f, ScrapeSpeed = 1.2f, StrikeSpeed = 6f, HardSpeed = 9.5f, RespawnGrace = 3f;
+        /// above <see cref="HardSpeed"/> both do. A rider who has just got up (<see cref="RespawnGrace"/> seconds) is not touched. The two speeds are 36 and 61 km/h of closing: a fall is a real hit, not a wheel touched in the slipstream
+        /// (they were 22 and 34 km/h, and a rider who was run into too easily was down).</summary>
+        public const float ContactRadius = 0.40f, ContactRestitution = 0.15f, ScrapeSpeed = 1.2f, StrikeSpeed = 10f, HardSpeed = 17f, RespawnGrace = 3f;
 
         /// <summary>Whether bikes touch at all. A bike is touched only by another bike when one of the two is a person's (the player's, or a friend's on another machine), and only the bikes simulated on this machine are moved by it
         /// (each machine moves its own, with the share that the masses give it): two computer riders still go through each other (they steer around each other) and so do the poses of two friends.</summary>
