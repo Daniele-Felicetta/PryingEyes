@@ -74,7 +74,7 @@ namespace PryingEyes
             ProvaMagia(s);
             bool still = player.SpeedH < 0.3f || player.IsCrouching;
             s.Tick(dt, still);
-            if (!player.alive || player.Downed || player.Riding) { if (castHand != null) castHand.Cancel(); return; }       // a terra o in sella niente magie
+            if (!player.alive || player.Downed || player.Riding || player.ParkourHandsBusy) { if (castHand != null) castHand.Cancel(); return; }
             EssenzaTick(dt, s);
             UpdateAura();
             if (GameMenu.Blocked || GrimoireUI.Open) { holdT = -1f; return; }

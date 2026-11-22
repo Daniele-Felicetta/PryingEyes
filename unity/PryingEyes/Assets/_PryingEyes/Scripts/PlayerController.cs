@@ -296,7 +296,12 @@ namespace PryingEyes
             bool sprintInput = inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint) || (GameManager.autoTest && botSprint)) && f > 0;
             bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
-            if (inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump))) jumpBuf = 0.15f; else jumpBuf -= dt;
+            bool jumpPressed = inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump));
+#if !PE_DISTRIBUTION_BUILD
+            jumpPressed |= inputEnabled && GameManager.autoTest && parkourTestJump;
+            parkourTestJump = false;
+#endif
+            if (jumpPressed) jumpBuf = 0.15f; else jumpBuf -= dt;
             if (Downed) { wantCrouch = true; sprintInput = false; wantSprint = false; jumpBuf = 0f; }      // a terra: niente corsa ne' salto
 
             float hSpeed = new Vector2(vel.x, vel.z).magnitude;
@@ -392,30 +397,37 @@ namespace PryingEyes
             // scavalcare (PlayerController.Mantle.cs): Salto davanti a un ostacolo basso lo supera; dopo un salto normale, contro il
             // bordo di uno appena piu' alto andando avanti, ci si aggrappa
             Vector3 facing = new Vector3(sin, 0f, cos);
-            if (!Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
-            else if (!Mantling && inputEnabled && jumpBuf > 0f && (cc.isGrounded || coyote > 0f))
+            bool dropPressed = OnParkourPipe && (SeatInput.GetKeyDown(KeyCode.C) || SeatInput.GetKeyDown(KeyCode.LeftControl) || TouchControls.Down(TouchControls.Action.Crouch));
+            bool pipeMovement = ParkourStep(dt, inputEnabled, jumpPressed, dropPressed, f, wish, facing);
+            if (!pipeMovement)
             {
-                vel.y = jumpVel * (crouch ? 0.92f : 1f);
-                coyote = 0f; jumpBuf = 0f; slide = false;
-                mantleWindow = 0.4f;
-            }
-            else if (!Mantling && mantleWindow > 0f && !Downed)
-            {
-                mantleWindow -= dt;
-                if (!cc.isGrounded && f > 0.1f) TryMantle(facing);
-            }
+                if (!Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
+                else if (!Mantling && inputEnabled && jumpBuf > 0f && (cc.isGrounded || coyote > 0f))
+                {
+                    vel.y = jumpVel * (crouch ? 0.92f : 1f);
+                    coyote = 0f; jumpBuf = 0f; slide = false;
+                    mantleWindow = 0.4f;
+                }
+                else if (!Mantling && inputEnabled && jumpBuf > 0f && TryAirJump(wish)) { }
+                else if (!Mantling && mantleWindow > 0f && !Downed)
+                {
+                    mantleWindow -= dt;
+                    if (!cc.isGrounded && f > 0.1f) TryMantle(facing);
+                }
 
-            if (Mantling) MantleTick(dt);
-            else
-            {
-                cc.height = Mathf.Lerp(cc.height, crouch || slide ? heightCrouch : heightStand, 11f * dt);
-                cc.center = new Vector3(0, cc.height / 2f, 0);
-                cc.Move(vel * dt);
+                if (Mantling) MantleTick(dt);
+                else
+                {
+                    cc.height = Mathf.Lerp(cc.height, crouch || slide ? heightCrouch : heightStand, 11f * dt);
+                    cc.center = new Vector3(0, cc.height / 2f, 0);
+                    var hit = cc.Move(vel * dt);
+                    if (Deserto.DesertMode.Active && vel.y > 0f && (hit & CollisionFlags.Above) != 0) vel.y = 0f;
+                }
             }
 
             // --- lean: Q a sinistra, E a destra; non in corsa ne' in scivolata, non nei muri ---
             float leanWant = 0f;
-            if (inputEnabled && !slide && !wantSprint && !Downed) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
+            if (inputEnabled && !slide && !wantSprint && !Downed && !OnParkourPipe) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
             float room = leanWant != 0f ? LeanRoom(leanWant) : 1f;
             float leanTarget = leanWant * room;
             // se la testa e' gia' contro un muro rientra piu' in fretta
@@ -499,7 +511,8 @@ namespace PryingEyes
                 Sfx.UI(SoundBank.PerkVelo, 0.65f);
             }
 
-            weapon.Tick(dt, (f > 0 && wantSprint) || Mantling, hs, cc.isGrounded || Mantling, crouch, lookDelta);
+            DrawParkourHands(dt);
+            weapon.Tick(dt, (f > 0 && wantSprint && !OnParkourPipe) || Mantling, hs, cc.isGrounded || Mantling || OnParkourPipe, crouch, lookDelta);
             hud?.SetBars(hp, shield);
 
             // --- armi sui muri: prompt + acquisto con F ---
@@ -508,13 +521,14 @@ namespace PryingEyes
                 bool onWall = WallBuy.Tick(cam);
                 bool onThing = !onWall && Proc.Interact.Tick(cam);
                 // con un compagno a terra qui vicino Usa serve a rialzarlo: niente acquisti per sbaglio
-                if ((SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use)) && FindDownedMate(out _, out _) == null)
+                bool parkourPrompt = ParkourPrompt();
+                if (!OnParkourPipe && (SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use)) && FindDownedMate(out _, out _) == null)
                 { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
                 // dopo gli altri prompt (che cancellano la riga a ogni fotogramma): la presa alle spalle
-                if (!onWall && !onThing) Knife.I?.PromptTick();
+                if (!onWall && !onThing && !parkourPrompt) Knife.I?.PromptTick();
             }
             // un compagno a terra qui vicino: tenendo Usa lo si rialza (la sua riga vince sugli altri prompt)
-            if (!Downed && inputEnabled && (!GameManager.autoTest || testHoldUse))
+            if (!Downed && !OnParkourPipe && inputEnabled && (!GameManager.autoTest || testHoldUse))
                 ReviveOthersTick(dt, testHoldUse || SeatInput.GetKey(KeyCode.F) || TouchControls.Held(TouchControls.Action.Use));
         }
 

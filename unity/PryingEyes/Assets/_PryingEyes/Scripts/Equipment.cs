@@ -66,7 +66,7 @@ namespace PryingEyes
                 seenRound = round;
                 GameManager.I?.hud?.SetEquipment(grenades, lures, mines);
             }
-            if (GameMenu.Blocked || player == null || player.hp <= 0f || player.Riding || throwCd > 0f) return;           // in sella non si lancia niente
+            if (GameMenu.Blocked || player == null || player.hp <= 0f || player.Riding || player.ParkourHandsBusy || throwCd > 0f) return;
             if ((SeatInput.GetKeyDown(KeyCode.Z) || TouchControls.Down(TouchControls.Action.Grenade)) && grenades > 0) ThrowWithHand(0);
             else if ((SeatInput.GetKeyDown(KeyCode.Alpha4) || TouchControls.Down(TouchControls.Action.Lure)) && lures > 0) ThrowWithHand(1);
             else if ((SeatInput.GetKeyDown(KeyCode.Alpha5) || TouchControls.Down(TouchControls.Action.Mine)) && mines > 0) PlaceMine();

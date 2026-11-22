@@ -233,7 +233,7 @@ namespace PryingEyes
         {
             if (!ready) { Init(cam); if (!ready) return; }          // l'arma puo' non essere ancora legata alla visuale quando parte il rig
             float dt = Time.deltaTime;
-            bool alive = player.alive && !player.Downed && !player.Riding;             // a terra e in sella niente coltello
+            bool alive = player.alive && !player.Downed && !player.Riding && !player.ParkourHandsBusy;
             if (cool > 0f) cool -= dt;
             if (playing)
             {

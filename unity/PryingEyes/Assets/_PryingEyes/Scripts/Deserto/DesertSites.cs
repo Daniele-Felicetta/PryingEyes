@@ -163,6 +163,7 @@ namespace PryingEyes.Deserto
             fis[u] = fi;
             if (site.IsStack) DesertStairs.Build(fi.root.transform, plan, u, Units, site.church);
             fi.root.transform.position = new Vector3(0f, YOf(u), 0f);
+            if (site.IsTower && ShellComplete) DesertTowerPipes.Build(root, site);
             Physics.SyncTransforms();
         }
 

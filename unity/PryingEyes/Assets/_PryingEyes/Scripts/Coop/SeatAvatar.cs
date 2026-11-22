@@ -139,15 +139,15 @@ namespace PryingEyes
             inp.pitch = p.pitch; inp.lean = p.lean;
             inp.crouch = p.IsCrouching && !p.Riding; inp.sprint = p.IsSprinting && !p.Riding;
             inp.alive = p.alive; inp.downed = p.Downed;
-            inp.grounded = cc == null || cc.isGrounded || p.Mantling || Mathf.Abs(vel.y) < 1f;
-            inp.climb = p.Mantling ? 1f : 0f;
+            inp.grounded = cc == null || cc.isGrounded || p.Mantling || p.OnParkourPipe || Mathf.Abs(vel.y) < 1f;
+            inp.climb = p.Mantling || p.OnParkourPipe ? 1f : 0f;
             int idx = w != null ? w.CurrentIndex : -1;
             if (w != null && w.KnifeBusy)
             {
                 if (knifeIndex == -2) knifeIndex = WeaponDefs.IndexOf("kn_coltello");
                 if (knifeIndex >= 0) idx = knifeIndex;
             }
-            inp.weapon = idx;
+            inp.weapon = p.OnParkourPipe ? -1 : idx;
             inp.ads = w != null && !w.KnifeBusy ? w.ads : 0f;
             inp.reloading = w != null && w.reloading;
             inp.shotAge = Mathf.Max(0f, Time.time - seat.stealth.lastShotTime);

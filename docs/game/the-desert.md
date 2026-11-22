@@ -65,6 +65,12 @@ rooms are those of the floors ([tower.md](tower.md)).
    of a tower, the bottom of the catacombs). Which branch's boss it is, and so which trophy it leaves, depends on the place. When it falls its
    **trophy goes straight into the cathedral's store** (three of its resource and the usual common and rare ones) and the place never puts it
    back in this game.
+
+   **Tower parkour.** On foot in the desert, press jump again in the air for a second lift and a small steering impulse. Landing restores it.
+   The east face of each tower has staggered iron pipes with brass collars. Jump towards the lowest pipe while holding forward to catch it.
+   While hanging, hold forward and press jump to move up one pipe. The last pipe leads over the battlements and onto the roof. Jump without
+   forward to push away, use sideways input to steer off, or crouch to drop. A secure grip also restores the second jump. The articulated
+   gloves and sleeve rig from the gunplay reach for each pipe, close around it and release as the weapon comes back up.
 6. **What you find.** In rooms and in the open: **points** (gold coins), **ammunition** (a crate: half a magazine reserve), **medikits** (50
    health) and **essence** (a crystal: 30 of the left hand's essence). Walk within 1.5 m to take them; what you took stays taken. **Weapons**
    are free panels on a wall (*DA PRENDERE*) or on a wooden stand in the open, and only the poorest (grade I; grade II in a boss's hall).
@@ -540,6 +546,7 @@ dotnet run --project tools/desertlab -c Release            # the pure code, no U
 & $exe -batchmode -nographics -autotest -desertotest -seed 1000        # the real game, from the cathedral
 & $exe -batchmode -autotest -desertotest -desertshots -seed 1000       # the same with a window and the photos of hotel_build/deserto
 & $exe -batchmode -autotest -desertotest -desertonly varieta -desertshots -seed 1000   # one of the long phases (below): soak, varieta or prestazioni
+& $exe -batchmode -autotest -desertotest -desertonly parkour -desertshots -seed 1000  # two jumps, pipe transfers, roof landing and first-person grip photos
 .\tools\coop\run_all.ps1 -Only j                                       # the desert in co-op: a host and a guest, two processes, no graphics card (about three minutes)
 .\tools\coop\run_all.ps1 -Only m                                       # the motorbike in co-op: one rides and the other watches, then the other way round (two processes, no graphics card)
 & $exe -batchmode -autotest -desertotest -desertonly moto -desertshots -seed 1000   # the motorbike alone, with the ten photos (graphics card: not while another game runs)
@@ -562,7 +569,7 @@ a hall looks wrong: ambient light, fog, the six nearest lights, the nearest wall
 photos (towards the wall, at the floor). With a window the test also measures the contrast of what the camera sees in the chapel, in every level of the
 catacomb and in the two boss halls (`FrameSpread`: a fog or a black room gives almost none).
 
-Thirty-six phases are long (or are only photographs) and run only when asked by name (`-desertonly soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `rovine`, `muri`, `portale`, `orizzonte`,
+Several phases are long (or are only photographs) and run only when asked by name (`-desertonly parkour`, `soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `rovine`, `muri`, `portale`, `orizzonte`,
 `paesaggio`, `nuvole`, `cose`, `galleria`, `rilievi`, `look`, `suolo`, `orme`, `creste`, `salina`, `cammino`, `percorso`, `vita`, `moto`, `motosuono`, `motourto`, `motocattedrale`, `motofuoco`, `motodettagli`, `tracce`, `motonemici`, `motoinvesti`, `motopiano`, `scale`, `ombre`, `pelle` or `luci`, one or more per run, separated by commas), since the default run would double in time. Most are the ones of the livelier desert,
 to be run with `-desertshots` and looked at: **`nuvole`** (photos only) shoots the sky from the churchyard with three covers (`DesertSky.CloudOverride`: 0.12, 0.27 and 0.45) at noon, 16:24 and
 17:54, once away from the sun and once into it: it is how the shape and the light of the clouds and the rays were judged; **`paesaggio`** (photos only) takes the first look from the churchyard at dawn, noon, dusk, night and in a storm and, from a

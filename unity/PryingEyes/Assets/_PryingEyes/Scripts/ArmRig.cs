@@ -151,14 +151,17 @@ namespace PryingEyes
         /// vere (omero 30 cm, gomito a 140 gradi) e specchiata per la destra: con le braccia vere (Body) si piega poco e resta una manica;
         /// la manica di ogni arma, modellata sul braccio virtuale (omero fino a 75 cm), col braccio vero veniva stirata e girata molto.
         /// I giunti dell'arma (polso, gomito, spalla) restano: il polso e' dove la mano tiene l'arma.</summary>
-        public static ArmRig Build(Transform root, Transform hand, string side, bool neutral = false)
+        public static ArmRig Build(Transform root, Transform hand, string side, bool neutral = false, Transform freeSleeve = null)
         {
             if (root == null || hand == null) return null;
-            Transform wj = Child(hand, "polso_" + side), ej = Child(hand, "gomito_" + side), sj = Child(hand, "spalla_" + side);
+            Transform source = freeSleeve != null ? freeSleeve : hand;
+            string joints = freeSleeve != null ? "s" : side;
+            Transform wj = Child(source, "polso_" + joints), ej = Child(source, "gomito_" + joints), sj = Child(source, "spalla_" + joints);
             if (wj == null || ej == null || sj == null) return null;
-            MeshFilter sleeve = null;
-            foreach (var mf in hand.GetComponentsInChildren<MeshFilter>(true))
-                if (mf.name.EndsWith("_manica")) { sleeve = mf; break; }
+            MeshFilter sleeve = freeSleeve != null ? freeSleeve.GetComponentInChildren<MeshFilter>() : null;
+            if (freeSleeve == null)
+                foreach (var mf in hand.GetComponentsInChildren<MeshFilter>(true))
+                    if (mf.name.EndsWith("_manica")) { sleeve = mf; break; }
             if (sleeve == null || sleeve.sharedMesh == null) return null;
 
             Vector3 W0 = root.InverseTransformPoint(wj.position), E0 = root.InverseTransformPoint(ej.position), S0 = root.InverseTransformPoint(sj.position);
@@ -176,7 +179,7 @@ namespace PryingEyes
             MeshFilter skinMf = sleeve;
             GameObject neutralInst = null;
             Vector3 Ws = W0, Es = E0, Ss = S0;
-            if (neutral)
+            if (neutral && freeSleeve == null)
             {
                 if (!neutralTried) { neutralTried = true; neutralPrefab = Resources.Load<GameObject>("ManicaLibera"); }
                 if (neutralPrefab != null)
@@ -198,7 +201,7 @@ namespace PryingEyes
                     else { Object.Destroy(neutralInst); neutralInst = null; }
                 }
             }
-            bool isNeutral = neutralInst != null;
+            bool isNeutral = neutralInst != null || freeSleeve != null;
             var src = skinMf.sharedMesh;
             if (!src.isReadable) { Debug.LogWarning("[PryingEyes] braccio: manica non leggibile, resta rigida: " + src.name); return null; }
             float lfs = (Es - Ws).magnitude, lus = (Ss - Es).magnitude;
@@ -296,10 +299,10 @@ namespace PryingEyes
                 Matrix4x4 rel = hand.worldToLocalMatrix * hb.localToWorldMatrix;
                 hb.SetParent(hand, false);
                 PlaceLocal(hb, rel);
-                hb.localPosition = hand.InverseTransformPoint(wj.position);
-                Object.Destroy(neutralInst);
+                hb.localPosition = freeSleeve != null ? Vector3.zero : hand.InverseTransformPoint(wj.position);
+                if (neutralInst != null) Object.Destroy(neutralInst);
             }
-            Vector3 wih = hand.InverseTransformPoint(wj.position);
+            Vector3 wih = freeSleeve != null ? Vector3.zero : hand.InverseTransformPoint(wj.position);
             // riferimento del rollio: il 'su' dell'avambraccio di legame visto dalla mano (rollio 0 nella posa modellata)
             Vector3 refLocal = hand.InverseTransformDirection(root.TransformDirection(n0));
             var rig = new ArmRig(root, hand, hb, fb, ub, tb, S0, wih, pole, n0, refLocal, lu, lf, smr, side == "s" ? -1f : 1f);

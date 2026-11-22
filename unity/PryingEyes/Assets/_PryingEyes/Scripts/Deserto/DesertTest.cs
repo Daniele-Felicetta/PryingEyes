@@ -317,6 +317,7 @@ namespace PryingEyes.Deserto
             if (Wants("suono")) yield return Phase("suono e strada di casa", SoundAndCompass());
             if (Wants("minimappa")) yield return Phase("minimappa", MiniMap());
             if (Wants("torre")) yield return Phase("torre", Tower());
+            if (Explicit("parkour")) yield return Phase("parkour", Parkour());
             if (Wants("boss")) yield return Phase("boss", Boss());
             if (Wants("catacomba")) yield return Phase("catacomba", Catacomb());
             if (Wants("notte")) yield return Phase("notte", Night());
