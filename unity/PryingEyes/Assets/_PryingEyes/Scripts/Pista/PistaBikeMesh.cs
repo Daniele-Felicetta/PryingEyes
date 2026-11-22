@@ -9,6 +9,8 @@ namespace PryingEyes.Pista
     public sealed class Livery
     {
         public string name;
+        /// <summary>The race number of the livery: the bike that wears it carries it on its plates.</summary>
+        public int number;
         public Color main, accent, suit, suit2, helmet;
 
         static Color C(int hex) { return new Color(((hex >> 16) & 255) / 255f, ((hex >> 8) & 255) / 255f, (hex & 255) / 255f); }
@@ -29,6 +31,13 @@ namespace PryingEyes.Pista
             new Livery { name = "Lime", main = C(0x8BC924), accent = C(0x151515), suit = C(0x151515), suit2 = C(0x8BC924), helmet = C(0x8BC924) },
         };
 
+        static readonly int[] numbers = { 46, 93, 7, 21, 99, 12, 69, 34, 27, 4, 88, 52 };
+
+        static Livery()
+        {
+            for (int i = 0; i < all.Length; i++) all[i].number = numbers[i % numbers.Length];
+        }
+
         public static int Count => all.Length;
         public static Livery For(int skin) { return all[((skin % all.Length) + all.Length) % all.Length]; }
 
@@ -36,7 +45,7 @@ namespace PryingEyes.Pista
         public static Livery WithRider(Livery bike, int outfit)
         {
             var o = For(outfit);
-            return new Livery { name = bike.name, main = bike.main, accent = bike.accent, suit = o.suit, suit2 = o.suit2, helmet = o.helmet };
+            return new Livery { name = bike.name, number = bike.number, main = bike.main, accent = bike.accent, suit = o.suit, suit2 = o.suit2, helmet = o.helmet };
         }
     }
 
@@ -82,7 +91,9 @@ namespace PryingEyes.Pista
         public Transform root, body, steer, frontPivot, rearPivot, swing, hips, torso, head, eye;
         public readonly Transform[] legs = new Transform[2], upper = new Transform[2], fore = new Transform[2], gloves = new Transform[2];
         public readonly Vector3[] shoulder = new Vector3[2], grip = new Vector3[2];
-        public Material tailMat, lensMat, paint, paint2, suit, suit2, helmet;
+        public Material tailMat, lensMat, paint, paint2, suit, suit2, helmet, plate;
+        /// <summary>The picture of the number plates (shared with every bike that wears the same number and colour).</summary>
+        public Texture2D plateTex;
         public Quaternion steerRest;
         public Vector3 frontBase;
         public Vector3 hipBase;
@@ -182,7 +193,7 @@ namespace PryingEyes.Pista
 
         sealed class Kit
         {
-            public Mesh frame, engine, exhaust, paint, paint2, seat, screen, fork, bars, swing, tyreF, tyreR, rimF, rimR, disc, mirrors, lens, lensBody, nose, tail, forkLow, fender;
+            public Mesh plates, frame, engine, exhaust, paint, paint2, seat, screen, fork, bars, swing, tyreF, tyreR, rimF, rimR, disc, mirrors, lens, lensBody, nose, tail, forkLow, fender;
             public Mesh torso, torsoTrim, kneeTrim, helmet, visor, leg, boot, glove, upperUnit, foreUnit;
             public Material mFrame, mMetal, mSteel, mTitan, mRubber, mSeat, mGlass, mGold, mGlove, mBoot, mVisor;
             public Matrix4x4 steerM;
@@ -222,6 +233,20 @@ namespace PryingEyes.Pista
                     if (Vector3.Dot(Vector3.Cross(v[b] - v[a], v[c] - v[a]), outward) >= 0f) { t.Add(a); t.Add(b); t.Add(c); t.Add(a); t.Add(c); t.Add(d); }
                     else { t.Add(a); t.Add(c); t.Add(b); t.Add(a); t.Add(d); t.Add(c); }
                 }
+            // close both ends with a fan: the first and the last section are small but not nothing, and the tail of the helmet is looked at from behind all the time (it was a hole through which
+            // the back of the other side of the shell could be seen)
+            for (int e = 0; e < 2 && rings.Length >= 2; e++)
+            {
+                int ri = e == 0 ? 0 : rings.Length - 1, rj = e == 0 ? 1 : rings.Length - 2;
+                float dir = rings[ri].z >= rings[rj].z ? 1f : -1f;                                  // the way the cap faces along z: away from the body
+                int c0 = v.Count;
+                v.Add(new Vector3(0f, (rings[ri].y0 + rings[ri].y1) * 0.5f, rings[ri].z));
+                for (int j = 0; j < sides; j++)
+                {
+                    int a = ri * sides + j, b = ri * sides + (j + 1) % sides;
+                    if (Vector3.Cross(v[a] - v[c0], v[b] - v[c0]).z * dir >= 0f) { t.Add(c0); t.Add(a); t.Add(b); } else { t.Add(c0); t.Add(b); t.Add(a); }
+                }
+            }
             var m = new Mesh { name = name };
             m.SetVertices(v); m.SetTriangles(t, 0);
             m.RecalculateNormals();
@@ -268,6 +293,21 @@ namespace PryingEyes.Pista
         }
 
         static Mesh Join(string name, List<(Mesh mesh, Matrix4x4 at)> parts) => DesertLathe.Join(name, parts);
+
+        /// <summary>A quad carrying the picture of a number plate, added to the lists: it lies over the face of a part placed at 'at' with 'rot' (the face whose normal is 'face' in the part's own frame), 'lift'
+        /// metres out of it so that it does not fight with the part, 'w' wide and 'h' high, the picture reading from left to right when seen from the front.</summary>
+        static void PlateQuad(List<Vector3> v, List<Vector2> uv, List<int> t, Vector3 at, Quaternion rot, Vector3 face, float w, float h, float lift)
+        {
+            Vector3 n = rot * face, up = rot * Vector3.up;
+            Vector3 right = Vector3.Cross(n, up).normalized;                    // what is on the right of a person looking at the plate
+            Vector3 c = at + n * lift;
+            int b = v.Count;
+            v.Add(c - right * (w * 0.5f) - up * (h * 0.5f)); uv.Add(new Vector2(0f, 0f));
+            v.Add(c - right * (w * 0.5f) + up * (h * 0.5f)); uv.Add(new Vector2(0f, 1f));
+            v.Add(c + right * (w * 0.5f) + up * (h * 0.5f)); uv.Add(new Vector2(1f, 1f));
+            v.Add(c + right * (w * 0.5f) - up * (h * 0.5f)); uv.Add(new Vector2(1f, 0f));
+            t.Add(b); t.Add(b + 1); t.Add(b + 2); t.Add(b); t.Add(b + 2); t.Add(b + 3);
+        }
 
         /// <summary>A round tire of a given section width, lying with its axis along x, centre at the origin.</summary>
         static Mesh Tyre(float width, float radius)
@@ -378,11 +418,27 @@ namespace PryingEyes.Pista
             var paint2 = new List<(Mesh mesh, Matrix4x4 at)>();
             if (fairing)
                 paint.Add((Loft("pancia", new[] { new Ring(0.56f, 0.05f, 0.23f, 0.37f, 3f), new Ring(0.40f, 0.13f * s, 0.21f, 0.42f, 3f), new Ring(0.15f, 0.185f * s, 0.21f, 0.44f, 3f), new Ring(-0.10f, 0.175f * s, 0.23f, 0.42f, 3f), new Ring(-0.26f, 0.11f, 0.26f, 0.40f, 3f), new Ring(-0.34f, 0.04f, 0.29f, 0.37f, 3f) }, 20), I));
-            paint2.Add((Cube(new Vector3(0.20f, 0.17f, 0.012f)), At(new Vector3(0f, fairing ? 0.80f : 0.99f, fairing ? 0.80f : 0.68f), Quaternion.Euler(-30f, 0f, 0f))));        // number plate
-            // the side number plates of the tail: flush with the cowl (it is about 0.10 wide there) and raked like it
-            paint2.Add((Cube(new Vector3(0.008f, 0.10f, 0.16f)), At(new Vector3(0.1135f, 0.89f, -0.64f), Quaternion.Euler(0f, 0f, -5f))));
-            paint2.Add((Cube(new Vector3(0.008f, 0.10f, 0.16f)), At(new Vector3(-0.1135f, 0.89f, -0.64f), Quaternion.Euler(0f, 0f, 5f))));
+            // the number plates: a thin back in the accent colour, and over its face the picture of the plate (a quad with the number on it; one material for the bike, see PistaPlates)
+            var plV = new List<Vector3>(); var plU = new List<Vector2>(); var plT = new List<int>();
+            Vector3 frontAt = new Vector3(0f, fairing ? 0.80f : 0.99f, fairing ? 0.80f : 0.68f); Quaternion frontQ = Quaternion.Euler(-30f, 0f, 0f);
+            paint2.Add((Cube(new Vector3(0.212f, 0.140f, 0.012f)), At(frontAt, frontQ)));
+            PlateQuad(plV, plU, plT, frontAt, frontQ, Vector3.forward, 0.200f, 0.125f, 0.0066f);
+            // the side plates of the tail: flush with the cowl (it is about 0.10 wide there) and raked like it
+            Vector3 rightAt = new Vector3(0.1135f, 0.89f, -0.64f), leftAt = new Vector3(-0.1135f, 0.89f, -0.64f);
+            Quaternion rightQ = Quaternion.Euler(0f, 0f, -5f), leftQ = Quaternion.Euler(0f, 0f, 5f);
+            paint2.Add((Cube(new Vector3(0.008f, 0.10f, 0.16f)), At(rightAt, rightQ)));
+            paint2.Add((Cube(new Vector3(0.008f, 0.10f, 0.16f)), At(leftAt, leftQ)));
+            PlateQuad(plV, plU, plT, rightAt, rightQ, Vector3.right, 0.150f, 0.094f, 0.0046f);
+            PlateQuad(plV, plU, plT, leftAt, leftQ, Vector3.left, 0.150f, 0.094f, 0.0046f);
+            // and one under the tail light, looking back: it is what the camera behind the bike sees
+            Vector3 rearAt = new Vector3(0f, 0.865f, -0.99f);
+            paint2.Add((Cube(new Vector3(0.200f, 0.128f, 0.008f)), At(rearAt, Quaternion.identity)));
+            PlateQuad(plV, plU, plT, rearAt, Quaternion.identity, Vector3.back, 0.190f, 0.119f, 0.0046f);
             k.paint2 = Join("vernice2", paint2);
+            var plateMesh = new Mesh { name = "targhe" };
+            plateMesh.SetVertices(plV); plateMesh.SetUVs(0, plU); plateMesh.SetTriangles(plT, 0);
+            plateMesh.RecalculateNormals(); plateMesh.RecalculateBounds();
+            k.plates = plateMesh;
 
             // ---- seat
             k.seat = Join("sella", new List<(Mesh mesh, Matrix4x4 at)> { (Loft("sella", new[] { new Ring(-0.05f, 0.06f, 0.865f, 0.88f), new Ring(-0.20f, 0.13f, 0.85f, 0.905f), new Ring(-0.45f, 0.12f, 0.85f, 0.915f), new Ring(-0.62f, 0.09f, 0.86f, 0.90f) }, 16), I) });
@@ -596,6 +652,8 @@ namespace PryingEyes.Pista
             var rig = new PistaBikeRig { root = parent };
             rig.paint = PistaTex.Lit("Vernice", liv.main, 0.78f, 0.1f);
             rig.paint2 = PistaTex.Lit("Vernice2", liv.accent, 0.72f, 0.1f);
+            rig.plateTex = PistaPlates.Picture(liv.number, liv.main);
+            rig.plate = PistaTex.Lit("Targa", Color.white, 0.30f, 0f, rig.plateTex);
             rig.suit = PistaTex.Lit("Tuta", liv.suit, 0.40f, 0f);
             rig.suit2 = PistaTex.Lit("Tuta2", liv.suit2, 0.40f, 0f);
             rig.helmet = PistaTex.Lit("Casco", liv.helmet, 0.85f, 0.05f);
@@ -609,6 +667,7 @@ namespace PryingEyes.Pista
             Part(rig.body, "Scarico", k.exhaust, k.mTitan);
             Part(rig.body, "Vernice", k.paint, rig.paint);
             Part(rig.body, "Vernice2", k.paint2, rig.paint2);
+            Part(rig.body, "Targhe", k.plates, rig.plate);
             Part(rig.body, "Sella", k.seat, k.mSeat);
             rig.screenParts.Add(Part(rig.body, "Cupolino", k.screen, k.mGlass).GetComponent<Renderer>());
             Part(rig.body, "Specchi", k.mirrors, k.mGlass);

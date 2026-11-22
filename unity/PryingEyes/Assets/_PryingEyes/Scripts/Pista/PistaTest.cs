@@ -102,12 +102,29 @@ namespace PryingEyes.Pista
             if (PistaMode.HasArg("-pistaperf")) { yield return PerfRun(); yield break; }                      // only the cost of a frame (needs graphics)
             if (PistaMode.HasArg("-pistaworldshots")) { yield return WorldShots(); yield break; }             // only photographs of the scenery (needs graphics)
             if (PistaMode.HasArg("-pistacuponly")) { yield return CupRace(); yield break; }          // only the championship part (to look at the table of a round and iterate on it)
+            if (PistaMode.HasArg("-pistarosteronly")) { yield return RosterGallery(); yield break; }   // only the photographs of the bikes on the grid (needs graphics)
 
             // ---- the scene
             phase = "scena";
             var c = d.circuit;
             Check("il circuito e' chiuso e ha una lunghezza da pista", c.n > 800 && Mathf.Sqrt((c.px[0] - c.px[c.n - 1]) * (c.px[0] - c.px[c.n - 1]) + (c.pz[0] - c.pz[c.n - 1]) * (c.pz[0] - c.pz[c.n - 1])) < 3.2f && c.length > 2000f && c.length < 7000f, $"{c.length:F0} m, {c.n} campioni");
             Check("i piloti sono quelli scelti, ognuno con la sua moto nella scena", d.race.racers.Count == PistaMode.Rivals + 1 && d.views.Count == d.race.racers.Count && d.views.TrueForAll(v => v != null && v.rig != null && v.rig.root != null), $"{d.race.racers.Count} piloti, {d.views.Count} moto");
+            int plateOk = 0; string plateBad = "";
+            foreach (var pv in d.views)
+            {
+                var plateT = pv != null && pv.rig != null && pv.rig.body != null ? pv.rig.body.Find("Targhe") : null;
+                var plateF = plateT != null ? plateT.GetComponent<MeshFilter>() : null;
+                bool four = plateF != null && plateF.sharedMesh != null && plateF.sharedMesh.vertexCount == 16;                 // four plates of four corners
+                bool picture = pv != null && pv.livery != null && pv.livery.number > 0 && pv.rig != null && pv.rig.plateTex != null && ReferenceEquals(pv.rig.plateTex, PistaPlates.Picture(pv.livery.number, pv.livery.main))
+                    && pv.rig.plateTex.name == "PistaTarga" + pv.livery.number;
+                if (four && picture) plateOk++;
+                else plateBad += (pv != null && pv.racer != null ? "livrea " + pv.racer.skin : "?") + (four ? "" : " (senza le quattro targhe)") + (picture ? "" : " (senza la sua immagine)") + "; ";
+            }
+            Check("ogni moto in scena porta le quattro targhe con l'immagine del numero della sua livrea", plateOk == d.views.Count && plateOk > 0, plateOk + " moto su " + d.views.Count + (plateBad.Length > 0 ? ", senza: " + plateBad : ""));
+            var plA = PistaPlates.Picture(46, Color.red); var plB = PistaPlates.Picture(46, Color.red); var plC = PistaPlates.Picture(93, Color.red);
+            int ink46 = PistaPlates.InkTexels(46), ink93 = PistaPlates.InkTexels(93), ink0 = PistaPlates.InkTexels(0), ink7 = PistaPlates.InkTexels(7);
+            Check("le targhe: ogni numero ha la sua immagine (la stessa per lo stesso numero) con le cifre, e la targa senza numero e' vuota", ReferenceEquals(plA, plB) && !ReferenceEquals(plA, plC) && ink46 > 500 && ink93 > 500 && ink7 > 100 && ink7 < ink46 && ink0 == 0 && plA.width == PistaPlates.W && plA.height == PistaPlates.H,
+                $"46: {ink46} texel di inchiostro, 93: {ink93}, 7: {ink7}, senza numero: {ink0}");
             var pl = GameManager.I != null ? GameManager.I.player : null;
             Check("il giocatore a piedi e' spento", pl == null || !pl.gameObject.activeSelf);
             var hudCanvas = GameManager.I != null && GameManager.I.hud != null ? GameManager.I.hud.GetComponent<Canvas>() : null;
@@ -594,13 +611,15 @@ namespace PryingEyes.Pista
                 {
                     ("lato", p + r * 2.6f + Vector3.up * 0.7f, p + Vector3.up * 0.62f),
                     ("davanti", p + f * 2.4f - r * 1.7f + Vector3.up * 1.0f, p + Vector3.up * 0.66f),
+                    ("dietro", p - f * 3.2f + r * 1.0f + Vector3.up * 1.45f, p + Vector3.up * 0.85f),
+                    ("targa", p - f * 1.9f - r * 0.35f + Vector3.up * 1.05f, p - f * 0.99f + Vector3.up * 0.88f),
                 };
                 foreach (var v in views)
                 {
                     camT.position = v.Item2;
                     camT.rotation = Quaternion.LookRotation((v.Item3 - v.Item2).normalized, Vector3.up);
                     d.cam.cam.fieldOfView = 46f;
-                    yield return Shot("paddock_" + i + "_" + v.Item1);
+                    yield return Shot("paddock_" + i + "_" + v.Item1, false);
                 }
                 d.freeCamera = false;
             }
