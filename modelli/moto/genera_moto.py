@@ -213,6 +213,10 @@ def stage_export_moto():
         ob.parent = None
         ob.matrix_world = mw
     print('[info] triangles:', {ob.name: tri_count(ob) for ob in objs}, 'total', sum(tri_count(ob) for ob in objs))
+    # the light that reaches every vertex of the bike at rest (the game multiplies its ambient light and its reflections with it, PistaPaint's _AO): the creases between the tank and the
+    # fairing, under the tail, round the engine. The windscreen neither occludes nor wears it: it is glass.
+    solid = [ob for ob in objs if ob.name != 'screen']
+    bake_ao(solid, samples=64, dist=0.14, strength=0.9, floor=0.10)
     save_blend(os.path.join(WORK_DIR, 'moto%d.blend' % style))
     export_fbx(os.path.join(OUT_DIR, 'moto%d.fbx' % style), objs, smooth='EDGE')
 

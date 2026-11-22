@@ -285,6 +285,7 @@ def bake_ao(objects, targets=None, samples=48, dist=0.16, bias=0.003, strength=0
     dirs = hemisphere(samples)
     t0 = time.time()
     count = 0
+    seen = []
     for ob in (targets or objects):
         me = ob.data
         mw = ob.matrix_world
@@ -309,17 +310,22 @@ def bake_ao(objects, targets=None, samples=48, dist=0.16, bias=0.003, strength=0
             count += 1
         for i, a in enumerate(vals):
             ca.data[i].color = (a, a, a, 1.0)
-    print('[ao] %d vertices in %.1fs' % (count, time.time() - t0))
+        seen.extend(vals)
+    seen.sort()
+    if seen:
+        print('[ao] %d vertices in %.1fs: lightest %.2f, median %.2f, darkest 10%% below %.2f, darkest %.2f' % (count, time.time() - t0, seen[-1], seen[len(seen) // 2], seen[len(seen) // 10], seen[0]))
 
 
 # ----------------------------------------------------------------------------- materials for the previews (the game has its own)
-def preview_material(name, color, rough=0.5, metal=0.0, coat=0.0, emit=None):
+def preview_material(name, color, rough=0.5, metal=0.0, coat=0.0, emit=None, alpha=1.0):
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     b = m.node_tree.nodes['Principled BSDF']
     b.inputs['Base Color'].default_value = (*color, 1.0)
     b.inputs['Roughness'].default_value = rough
     b.inputs['Metallic'].default_value = metal
+    if alpha < 1.0:
+        b.inputs['Alpha'].default_value = alpha
     if coat > 0:
         b.inputs['Coat Weight'].default_value = coat
         b.inputs['Coat Roughness'].default_value = 0.05

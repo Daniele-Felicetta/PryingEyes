@@ -12,6 +12,8 @@ namespace PryingEyes.Pista
         /// <summary>The race number of the livery: the bike that wears it carries it on its plates.</summary>
         public int number;
         public Color main, accent, suit, suit2, helmet;
+        /// <summary>The finish of the rims, the spokes and the hubs of the bike (silver, black, gold, bronze or white: the role 'rim' of the model).</summary>
+        public Color rim;
         /// <summary>How the livery is drawn (PistaPaint.shader): the pattern of the paint, of the suit and of the helmet, the share of metallic flake in the paint, and whether the paint is matt.</summary>
         public int pattern, suitPattern, helmetPattern;
         public float flake;
@@ -41,11 +43,14 @@ namespace PryingEyes.Pista
         static readonly int[] suitPatterns = { 1, 2, 0, 3, 2, 1, 3, 0, 2, 1, 3, 0 };
         static readonly int[] helmetPatterns = { 0, 1, 3, 2, 1, 0, 2, 3, 0, 1, 2, 3 };
         static readonly float[] flakes = { 0.20f, 0.55f, 0.35f, 0.30f, 0.50f, 0.15f, 0f, 0.65f, 0.60f, 0.85f, 0.45f, 0.35f };
+        // the finish of the rims: silver, gold (the blue, the violet and the bordeaux), black, bronze (the matt black bike) and white (the light blue one)
+        static readonly int[] rims = { 0xB9BBC0, 0xC8A02A, 0x17181A, 0x17181A, 0x17181A, 0x17181A, 0x8A6A3A, 0xE6E8EA, 0xC8A02A, 0x17181A, 0xC8A02A, 0x17181A };
 
         static Livery()
         {
             for (int i = 0; i < all.Length; i++)
             {
+                all[i].rim = C(rims[i % rims.Length]);
                 all[i].number = numbers[i % numbers.Length];
                 all[i].pattern = patterns[i % patterns.Length];
                 all[i].suitPattern = suitPatterns[i % suitPatterns.Length];
@@ -64,7 +69,7 @@ namespace PryingEyes.Pista
             var o = For(outfit);
             return new Livery
             {
-                name = bike.name, number = bike.number, main = bike.main, accent = bike.accent, suit = o.suit, suit2 = o.suit2, helmet = o.helmet,
+                name = bike.name, number = bike.number, main = bike.main, accent = bike.accent, rim = bike.rim, suit = o.suit, suit2 = o.suit2, helmet = o.helmet,
                 pattern = bike.pattern, flake = bike.flake, matt = bike.matt, suitPattern = o.suitPattern, helmetPattern = o.helmetPattern,
             };
         }
@@ -223,7 +228,7 @@ namespace PryingEyes.Pista
         {
             public Mesh plates, frame, engine, exhaust, paint, paint2, seat, screen, fork, bars, swing, tyreF, tyreR, rimF, rimR, disc, mirrors, lens, lensBody, nose, tail, forkLow, fender;
             public Mesh torso, torsoTrim, kneeTrim, helmet, visor, leg, boot, glove, upperUnit, foreUnit;
-            public Material mFrame, mMetal, mSteel, mTitan, mRubber, mSeat, mGlass, mGold, mGlove, mBoot, mVisor;
+            public Material mFrame, mMetal, mSteel, mTitan, mRubber, mSeat, mGlass, mSmoke, mGold, mGlove, mBoot, mVisor;
             public Matrix4x4 steerM;
             public Quaternion steerRot;
         }
@@ -323,12 +328,13 @@ namespace PryingEyes.Pista
         static Mesh Join(string name, List<(Mesh mesh, Matrix4x4 at)> parts) => DesertLathe.Join(name, parts);
 
         /// <summary>Tell PistaPaint.shader which part of the bike or of the rider a mesh is: the red channel of its vertex colour (0 the paint, 1 the accent paint, 2 the torso of the suit, 3 the hump and the
-        /// shoulders, 4 a leg, 5 a knee slider, 6 an upper arm, 7 a forearm, 8 the helmet, 9 a tyre). The other materials ignore the vertex colour.</summary>
+        /// shoulders, 4 a leg, 5 a knee slider, 6 an upper arm, 7 a forearm, 8 the helmet, 9 a tyre). The green stays at 255: that is the channel of the occlusion baked in the models of Blender, and a mesh drawn by
+        /// code has none (a tagged mesh on a material that reads it, as the plate backs on the paint of a bike that wears a model, stays lit). The other materials ignore the vertex colour.</summary>
         static Mesh Tag(Mesh m, byte part)
         {
             if (m == null) return null;
             var c = new Color32[m.vertexCount];
-            for (int i = 0; i < c.Length; i++) c[i] = new Color32(part, 0, 0, 255);
+            for (int i = 0; i < c.Length; i++) c[i] = new Color32(part, 255, 255, 255);
             m.colors32 = c;
             return m;
         }
@@ -566,14 +572,16 @@ namespace PryingEyes.Pista
             if (!PistaRiderModel.Available) BuildRider(k, inv);
 
             // ---- shared materials
-            k.mFrame = PistaTex.Lit("Telaio", new Color(0.12f, 0.12f, 0.13f), 0.55f, 0.45f);
-            k.mMetal = PistaTex.Lit("Alluminio", new Color(0.46f, 0.47f, 0.49f), 0.55f, 0.6f);
-            k.mSteel = PistaTex.Lit("Acciaio", new Color(0.55f, 0.52f, 0.48f), 0.55f, 0.6f);
-            k.mTitan = PistaTex.Lit("Titanio", new Color(0.55f, 0.55f, 0.58f), 0.72f, 0.9f);
+            // the plain parts are drawn by PistaPaint.shader (part 30) so that the occlusion baked in the model of Blender reaches them; see PistaTex.Plain and the _AO switch in Build
+            k.mFrame = PistaTex.Plain("Telaio", new Color(0.12f, 0.12f, 0.13f), 0.55f, 0.45f);
+            k.mMetal = PistaTex.Plain("Alluminio", new Color(0.46f, 0.47f, 0.49f), 0.55f, 0.6f);
+            k.mSteel = PistaTex.Plain("Acciaio", new Color(0.55f, 0.52f, 0.48f), 0.55f, 0.6f);
+            k.mTitan = PistaTex.Plain("Titanio", new Color(0.55f, 0.55f, 0.58f), 0.72f, 0.9f);
             k.mRubber = PistaTex.Paint("Gomma", new Color(0.035f, 0.035f, 0.038f), new Color(0.62f, 0.62f, 0.64f), 0, 0f, 0f, 0.20f);
-            k.mSeat = PistaTex.Lit("Sella", new Color(0.06f, 0.06f, 0.065f), 0.18f, 0f);
+            k.mSeat = PistaTex.Plain("Sella", new Color(0.06f, 0.06f, 0.065f), 0.18f, 0f);
             k.mGlass = PistaTex.Lit("Vetro", new Color(0.10f, 0.12f, 0.15f), 0.92f, 0.1f);
-            k.mGold = PistaTex.Lit("Oro", new Color(0.78f, 0.60f, 0.16f), 0.65f, 0.7f);
+            k.mSmoke = PistaTex.Smoke("Parabrezza", 0.45f);
+            k.mGold = PistaTex.Plain("Oro", new Color(0.78f, 0.60f, 0.16f), 0.65f, 0.7f);
             k.mGlove = PistaTex.Lit("Guanto", new Color(0.07f, 0.07f, 0.08f), 0.25f, 0f);
             k.mBoot = PistaTex.Lit("Stivale", new Color(0.06f, 0.06f, 0.065f), 0.30f, 0f);
             k.mVisor = PistaTex.Lit("Visiera", new Color(0.05f, 0.06f, 0.08f), 0.95f, 0.2f);
@@ -710,6 +718,9 @@ namespace PryingEyes.Pista
 
             // the bike of the model drawn in Blender, when the build has it (PistaBikeModel), takes the place of every part drawn by code except the plates and their backs
             bool model = PistaBikeModel.Available(style);
+            // the model of Blender carries the light that reaches each vertex in the green of its colour (_AO = 1); the meshes drawn by code keep the green at 1 when they are tagged (Tag) but the ones that carry
+            // colours of their own (a builder's) must not darken anything, so the plain materials of the kit read it only when the bike wears the model
+            foreach (var plain in new[] { k.mFrame, k.mMetal, k.mSteel, k.mTitan, k.mRubber, k.mSeat, k.mGold }) plain.SetFloat("_AO", model ? 1f : 0f);
             rig.body = new GameObject("Corpo").transform;
             rig.body.SetParent(parent, false);
             if (!model)
@@ -771,21 +782,29 @@ namespace PryingEyes.Pista
                 Part(rig.frontPivot, "Dischi", k.disc, k.mSteel);
             }
             if (model)
+            {
+                // the rims, the spokes and the hubs wear the finish of the livery (this bike's own material, destroyed with it)
+                var rimMat = PistaTex.Plain("Cerchio", liv.rim, 0.42f, 0.85f);
+                rimMat.SetFloat("_AO", 1f);
+                rig.extraMats.Add(rimMat);
                 PistaBikeModel.TryAttach(rig, style, role =>
                 {
                     switch (role)
                     {
+                        case "rim": return rimMat;
                         case "frame": return k.mFrame;
                         case "metal": return k.mMetal;
                         case "steel": return k.mSteel;
                         case "titan": return k.mTitan;
                         case "seat": return k.mSeat;
                         case "glass": return k.mGlass;
+                        case "smoke": return k.mSmoke;
                         case "gold": return k.mGold;
                         case "tyre": return k.mRubber;
                         default: return null;
                     }
                 });
+            }
 
             // ---- the rider: the model of Blender if the build has it, else the one drawn by code
             if (PistaRiderModel.TryAttach(rig, style)) { rig.tuckPitch = 14f; return rig; }

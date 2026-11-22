@@ -29,7 +29,7 @@ blender -b -P genera_moto.py -- export_moto 0     # the FBX of that style into R
 After an export the game has to import the file again: a full build (`BuildPlayer.Windows`, not `-scriptsOnly`) or the editor does it; a change of the generator that is not followed by an import is not seen.
 
 `geom.py` holds what every model shares: the axes, the constants of the bike, the tube (`tube`), the loft (`loft3d`), smoothing, decimation, the FBX export (which also rewrites the absolute path of the
-`.blend` that the exporter writes into the file: the repository is public, `modelli/personaggi/scrub_fbx.py`) and the occlusion baker (`bake_ao`, not used yet). The weapons' hard-surface kit
+`.blend` that the exporter writes into the file: the repository is public, `modelli/personaggi/scrub_fbx.py`) and the occlusion baker (`bake_ao`: the bikes use it, the rider does not yet). The weapons' hard-surface kit
 (`modelli/armi/kit.py`: box, prism, lathe, loft, sweep, rod, boolean cuts) is loaded by `geom.load_armikit()` with its weapon offset switched off, for the models that need hard edges.
 
 **Axes.** The author's axes are x right, y forward, z up, in metres, the bike standing on z = 0 with the middle of its wheelbase at y = 0. The FBX goes out with forward -Z and up Y. Unity's importer then
@@ -66,10 +66,30 @@ leave the file flat (no parent, no empty): `stage_export_moto` unparents them be
 | `steer` | the steering head | the fork, the bars, the front mudguard (they turn); on the naked bike also the headlamp | the legs, the yokes, the bars, the calipers, the mudguard |
 | `front` | the front axle | the front wheel (it spins, rises and falls with the fork) | tyre, rim and spokes, hub, two discs |
 
-Roles: `paint` and `paint2` (the livery; `PistaBikeModel` sets their `_Part` to 0 and 1), `frame`, `metal`, `steel`, `titan`, `engine`, `black`, `carbon`, `seat`, `glass`, `gold`, `caliper`, `grip`, `chain`,
-`radiator`, `tyre` (`_Part` 9), `lens`, `taillight`. `PistaBikeModel.Role` maps `paint`, `paint2`, `lens` and `taillight` to the livery's own materials, the rest to the ones `PistaBikeMesh` already makes for the
-code bike (frame, metal, steel, titan, seat, glass, gold, tyre) and, for the few that are new, to materials made in `PistaBikeModel.Shared`; a role nobody knows is magenta. The plates and their backs stay built by code
-(they carry the picture of the number of the livery), and the rider is the other model.
+Roles: `paint` and `paint2` (the livery; `PistaBikeModel` sets their `_Part` to 0 and 1), `frame`, `metal`, `steel`, `titan`, `engine`, `black`, `carbon`, `seat`, `glass` (the mirrors), `smoke` (the windscreen), `gold`,
+`caliper`, `grip`, `chain`, `radiator`, `tyre` (`_Part` 9), `rim` (the rim, the spokes and the hubs), `discF` and `discR` (the brake discs), `lens`, `taillight`. `PistaBikeModel.Role` maps `paint`, `paint2`, `lens` and
+`taillight` to the livery's own materials, `rim` to the finish of the livery (`Livery.rim`: silver, black, gold, bronze or white, one material per bike, made in `PistaBikeMesh.Build`), the rest to the ones
+`PistaBikeMesh` already makes for the code bike (frame, metal, steel, titan, seat, glass, smoke, gold, tyre) and, for the few that are new, to materials made in `PistaBikeModel.Shared`; a role nobody knows is magenta.
+The plates and their backs stay built by code (they carry the picture of the number of the livery), and the rider is the other model.
+
+**Drilled discs.** `discF` and `discR` are plain parts with `_Part` 31: `PistaPaint.shader` cuts two staggered rows of 22 holes out of the band between `_R0` and `_R1` metres from the axle (0.112 to 0.165 in front,
+0.082 to 0.130 behind: the radii of the lathes in `wheel()`, which must say the same as `PistaBikeModel.Shared`) with `clip`, so the holes show the rim and the caliper behind them; the track the pads sweep is a little
+duller. The shadow and the depth passes keep the whole disc, which cannot be told at that size.
+
+**Plain parts and the baked occlusion.** Every role that is not the livery is a *plain part*: `PistaTex.Plain` draws it with `PistaPaint.shader` as part 30 (its colour, `_Smooth`, `_Metal`; no livery, no relief, no
+clear coat), so that the occlusion baked into the file reaches it. `bake_ao` (called by `stage_export_moto`, 64 rays of 0.14 m per vertex against every part of the bike except the windscreen, written in the colour
+attribute `Col` with the same value in the three channels, never below 0.10) says how much of the sky a vertex sees: the creases between the tank and the fairing, under the tail, round the engine and the swing arm are
+darker. The shader multiplies the **ambient light and the reflections** with it (URP's `surfaceData.occlusion` leaves the sun alone) and reads it in the **green** channel of the vertex colour when the material's `_AO` is 1:
+the meshes drawn by code tag their part in the *red* channel and keep the green at 255 (`PistaBikeMesh.Tag`), so a tagged mesh on a material that reads the occlusion (the backs of the number plates wear the paint of the
+bike) stays lit. `PistaBikeMesh.Build` switches `_AO` on for the plain materials of the kit only when the bike wears a model.
+
+**The windscreen** is the role `smoke`: `PistaGlass.shader`, smoked glass you see the rider and the road through. It blends premultiplied (what is behind is cut by `_Opacity`, 0.45, square on, and up to `_Rim`, 0.92,
+at a grazing view, a Fresnel rise; the reflection is added whole), writes no depth and casts no shadow. The mirrors keep the opaque `glass`. Without the shader (or a machine that does not support it) it is an
+opaque dark glass.
+
+**Panel joints.** The fairing is one shell, so its joints are drawn on it: `seam` lays a thin dark pipe (radius 2.6 mm, half of it proud) along a line of `(y, z)` points on both flanks, sampled every 2 cm so that it keeps
+to the surface; `ring_seam` closes one round a section (the nose cone, `NOSE_SEAM_Y`); `fasteners` puts the low steel domes of a race fairing along a line. `LOWER_SEAM` is the joint between the upper and the lower
+fairing: it climbs toward the nose and runs level under the knee, below the vent and the gills.
 
 **The bodywork.** The fairing and the belly pan are **one shell**, a loft of sections from a table of rows `(y, hwb, hwm, hwt, zb, zm, zt, rb, rm, rt)`: a bottom edge (half width `hwb`, height `zb`), a **shoulder**
 (`hwm` at `zm`, the widest place, where the side has its crease) and a top edge (`hwt` at `zt`), the corners rounded with `rb`, `rm` and `rt` (`rpoly`: a quadratic arc of three points on every corner, so every section has
@@ -78,7 +98,7 @@ on a flank (the side vent, the gills) are placed by `flank(rows, y, z, side)`, w
 changes. The constraints that the tables carry: ahead of y = 0.40 the lower edge of the fairing stays above the front wheel and its mudguard (they rise with the fork and turn), behind the wheel it drops to the
 belly, whose bottom is above the collector of the exhaust (z 0.28), and the rear end of the shell tapers to a point in height as well as in width, because it ends under the tank and the seat.
 
-About 47 thousand triangles for a bike (body 22 thousand, front wheel 8.8, rear wheel 8.0, steering 5.6, swing arm 2.5, screen 0.2), the naked bike a little fewer; the twelve riders of a grid are twelve bikes and twelve
+About 51 thousand triangles for a bike (body 26.0 thousand, front wheel 9.0, rear wheel 8.3, steering 5.6, swing arm 2.5, screen 0.2), the naked bike 45.7 thousand; the twelve riders of a grid are twelve bikes and twelve
 riders of these parts, one mesh per part shared by every bike of the same style.
 
 ## The rider
@@ -103,21 +123,26 @@ Roles that are distinct materials (a thigh, a shin and a slider are three) keep 
 **The livery.** `PistaPaint.shader` draws it from the position of the pixel in the part's own frame, so a part must have its node at the origin the shader expects (the torso and the hump at the hips, the helmet at the middle
 of the head, the others at the origin of the bike). The mesh has no vertex tag: the part is the material's `_Part` (set from the role by `PistaRiderModel.Part`): 20 the torso, 21 the hump, 22 a thigh, 23 a shin, 24 an
 upper arm, 25 a forearm, 26 a knee slider, 27 the leather of a glove or a boot, 8 the helmet. The limbs also carry texture coordinates (u round the limb, v along each part, restarting at the elbow and the knee), which the
-patterns of the suit read. `_AO` (1) makes the red channel of a vertex colour the baked occlusion; nothing bakes it yet.
+patterns of the suit read. `_AO` (1) makes the green channel of a vertex colour the baked occlusion (see the bikes); the rider's file has no colours, which read 1, so nothing darkens it yet.
 
 **Skinning and the pose.** Each limb has two bones (shoulder to elbow, elbow to wrist; hip to knee, knee to ankle). The weights are worked out in the game from the side of a plane at the joint that a vertex is on, blended
 over 4.5 cm for an arm and 6 cm for a leg; the skinned meshes are made once and shared, because the rest pose is the same for every rider. Every frame `PistaRiderRig.Pose` puts the bones: the shoulder follows the torso, the
-wrist the steering, the hip the pelvis, the ankle the peg, and a two-bone solution bends the elbow out and down and the knee forward (the knee of the inside leg goes out when the rider hangs off the bike), stretching a bone
-when the target is out of reach. The bones are children of the body of the bike, so a bike that leans takes its rider along.
+wrist the steering, the hip the pelvis, the ankle the peg, and a two-bone solution bends the elbow down and a little out and the knee forward (the knee of the inside leg goes out when the rider hangs off the bike),
+stretching a bone when the target is out of reach. The elbow bends toward a pole 0.20 to the side, 0.05 forward and 0.55 down (`ELBOW_OUT` in `rider.py` and `PistaRiderRig.Pose` must say the same, or the arm of the file
+is not the arm of the first frame): the first version had 0.42, which puts the elbows 0.36 m from the middle of the bike (worked out from the rest joints), wider than the grips, and the front photograph shows the
+wings of a puppet; with 0.20 the elbows are at 0.269 m, which `-pistariderlog` writes both for the rest joints of the file and for the first frame of the game (the same 0.269, so the file and the game agree). The bones are
+children of the body of the bike, so a bike that leans takes its rider along.
 
 ## How it is checked
 
-- `-pistamenutest -pistamenugarage` (menu tests): every painted material of a rig wears the shader, every part has the number the shader expects (by vertex tag for what is drawn by code, by `_Part` for the models), and the
+- `-pistamenutest -pistamenugarage` (menu tests): every painted material of a rig wears the shader, every part has the number the shader expects (by vertex tag for what is drawn by code, by `_Part` for the models), the
+  body mesh of a model carries its baked occlusion (at least one vertex in a hundred with a green channel under 235: a file that lost its colours on the way in would pass every other check), and the
   picture of the showroom has no magenta pixel. `-pistabikeshots -pistabikes 0,2,3` takes the photographs of the bikes (`hotel_build/prove/pista/bici_N_{lato,davanti,dietro,motore,pilota}.png`): it is the way to
   see whether a piece is where it should be, because the checks only count.
 - `-pistariderlog` writes the nodes of the model (position, rotation, bounds in the frame of the body), the rest joints and the first pose in the log: what to read first when a limb is not where it should be.
 - `-autotest -pistatest -pistaperf -pistabot -pistalaps 1 -pistarivals 11 -seed 777` (a graphics device, no `-nographics`; without `-autotest` the mode does not start and the test fails with "no director") measures
-  a frame of a full race; see the cost in [Track racing](../game/track-mode.md).
+  a frame of a full race; see the cost in [Track racing](../game/track-mode.md). The race tests need `-pistabot` too: without it nobody drives the bike of the player, it never leaves the grid and about
+  eight checks fail for that reason alone.
 - The shape of the models is judged **only by photographs**: nobody has ridden a race with them, and nobody has compared them with a photograph of a real bike.
 
 ## Traps found
@@ -133,3 +158,7 @@ when the target is out of reach. The bones are children of the body of the bike,
 - A ring of metal behind a wheel (a carrier for the brake disc) hides the spokes from the side: the wheels looked like solid plates. Discs are rings with a hole, and nothing but the hub is round behind a spoke.
 - A bodywork made of superellipse sections looked like an egg. Rounded-trapezoid and shoulder sections, with 45 degree facets that the smoothing angle (40 degrees) turns into hard edges, look like panels.
 - The number of triangles of a part moves by a few from export to export (the boolean cuts), so two exports of the same script are not byte-identical files: do not compare them, look at the photographs.
+- The baked occlusion is read from the **green** channel of the vertex colour, not the red: the meshes drawn by code tag their part in the red (the paint of a bike that wears a model also covers the backs of the number
+  plates, which are code meshes tagged 1), and a first design that read the red would have drawn those backs black. A tagged mesh keeps its green at 255.
+- A joint drawn as a pipe along a curved surface would sink into it between two samples (the sag of a straight piece over eight centimetres on a 30 cm curve is about its radius): `seam` samples the line every 2 cm and lifts
+  the pipe by a third of its radius. A precaution taken from the start, not a fault that was met: the photographs show the joints whole.

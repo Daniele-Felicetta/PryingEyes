@@ -12,7 +12,8 @@ origin at the pivot of the node of the game's rig that moves it, a role is a mat
   steer  the steering head    the fork, the bars, the front mudguard (they turn); the headlamp of the naked bike
   front  the front axle       the front wheel (it spins, and rises and falls with the fork): tyre, rim, discs
 
-Roles: paint and paint2 (the livery), frame, metal, steel, titan, engine, black, carbon, seat, glass, gold, caliper, grip, chain, radiator, tyre, lens, taillight.
+Roles: paint and paint2 (the livery), frame, metal, steel, titan, engine, black, carbon, seat, glass (the mirrors), smoke (the windscreen), gold, caliper, grip, chain, radiator, tyre, lens, taillight,
+rim (the rim, the spokes and the hub: the livery's own finish), discF and discR (the brake discs, drilled by the shader between their radii).
 Axes and constants are those of geom.py (x right, y forward, z up, metres); docs/engineering/track-models.md explains the pipeline.
 """
 import os, sys
@@ -108,12 +109,17 @@ def hex_rings(rows, per=3, seg=2):
     return out
 
 
-def flank_x(rows, y, z):
-    """The x of the right flank of a flank loft at the distance y and the height z (the vents, the mirrors' stalks and the gills sit on it)."""
+def outline_at(rows, y):
+    """The section [(x, z)] of a flank loft at the distance y (the one of the nearest sample of the blended rows)."""
     n = len(rows)
     steps = (n - 1) * 24
     best = min((abs(hex_values(rows, (n - 1) * k / steps)[0] - y), (n - 1) * k / steps) for k in range(steps + 1))[1]
-    pts = hex_outline(hex_values(rows, best))
+    return hex_outline(hex_values(rows, best))
+
+
+def flank_x(rows, y, z):
+    """The x of the right flank of a flank loft at the distance y and the height z (the vents, the mirrors' stalks and the gills sit on it)."""
+    pts = outline_at(rows, y)
     xs = []
     for i in range(len(pts)):
         (x0, z0), (x1, z1) = pts[i], pts[(i + 1) % len(pts)]
@@ -128,6 +134,48 @@ def flank(rows, y, z, sd):
     dxdy = (flank_x(rows, y + 0.03, z) - flank_x(rows, y - 0.03, z)) / 0.06
     dxdz = (flank_x(rows, y, z + 0.03) - flank_x(rows, y, z - 0.03)) / 0.06
     return V(sd * x, y, z), (0, sd * degrees(math.atan(dxdz)), sd * -degrees(math.atan(dxdy)))
+
+
+def seam(g, rows, path, r=0.0026, lift=0.0009):
+    """A panel joint on both flanks of a flank loft: a thin dark pipe along 'path' (control points (y, z)). It is sampled every 2 cm so that it keeps to the surface (the sag of a straight
+    piece between two samples is a fraction of its radius) and lifted by 'lift' so that half of it stands proud: seen from a few metres a groove is a dark line a pixel or two wide."""
+    dense = []
+    for (y0, z0), (y1, z1) in zip(path[:-1], path[1:]):
+        n = max(1, int(math.hypot(y1 - y0, z1 - z0) / 0.02))
+        dense += [(y0 + (y1 - y0) * k / n, z0 + (z1 - z0) * k / n) for k in range(n)]
+    dense.append(tuple(path[-1]))
+    xs = [flank_x(rows, y, z) + lift for y, z in dense]
+    for sd in (-1, 1):
+        pipe(g, 'black', [V(sd * x, y, z) for x, (y, z) in zip(xs, dense)], r, n=6, seg=1)
+
+
+def ring_seam(g, rows, y, r=0.0026, lift=0.0009):
+    """A joint all the way round a section of a flank loft at the distance y (a nose cone, a cover): a closed pipe on the outline, pushed out by 'lift' from the middle of the section."""
+    pts = outline_at(rows, y)
+    cx = sum(p[0] for p in pts) / len(pts)
+    cz = sum(p[1] for p in pts) / len(pts)
+    ring = []
+    for x, z in pts:
+        d = math.hypot(x - cx, z - cz) or 1.0
+        ring.append(V(x + (x - cx) / d * lift, y, z + (z - cz) / d * lift))
+    pipe(g, 'black', ring + [ring[0]], r, n=6, seg=1, cap=False)
+
+
+def fasteners(g, rows, path, step=0.085, r=0.0052):
+    """The quarter-turn fasteners of a race fairing: low domes of steel along 'path' (control points (y, z)) on both flanks, one every 'step' metres of the line, laid on the surface."""
+    pts = [path[0]]
+    run = 0.0
+    for (y0, z0), (y1, z1) in zip(path[:-1], path[1:]):
+        L = math.hypot(y1 - y0, z1 - z0)
+        t = step - run
+        while t <= L:
+            pts.append((y0 + (y1 - y0) * t / L, z0 + (z1 - z0) * t / L))
+            t += step
+        run = (run + L) % step
+    for y, z in pts:
+        for sd in (-1, 1):
+            c, rot = flank(rows, y, z, sd)
+            blob(g, 'metal', c, (0.0016, r, r), rot=rot, segs=10)
 
 
 def arch(hw, zc, th, rise, m=9):
@@ -201,21 +249,21 @@ def wheel(g, c, rear):
     w = 0.0675 if rear else 0.046
     rim = [(-w, 0.2255), (-w + 0.005, 0.2255), (-w + 0.009, 0.2175), (-w + 0.017, 0.2045), (-w + 0.033, 0.1995), (w - 0.033, 0.1995), (w - 0.017, 0.2045), (w - 0.009, 0.2175), (w - 0.005, 0.2255), (w, 0.2255),
            (w, 0.180), (-w, 0.180)]
-    g.lathe('metal', c, rim, segs=72, axis='x', loop=True)
+    g.lathe('rim', c, rim, segs=72, axis='x', loop=True)                         # the rim, the spokes and the hub are the role 'rim': the game gives each livery its own finish (silver, black, gold)
     # five spokes: a star that narrows toward the middle and widens where it meets the rim
     spoke = [(-0.024, 0.030), (-0.017, 0.065), (-0.013, 0.105), (-0.016, 0.150), (-0.027, 0.196), (0.027, 0.196), (0.016, 0.150), (0.013, 0.105), (0.017, 0.065), (0.024, 0.030)]
     for k in range(5):
         a = radians(72 * k + 18)
         ca, sa = cos(a), sin(a)
         pts = [(c.y + u * ca - v * sa, c.z + u * sa + v * ca) for u, v in spoke]
-        g.prism('metal', pts, c.x - 0.011, c.x + 0.011, r=0.0016)
-    g.lathe('metal', c, [(-0.052 if not rear else -0.064, 0.0), (-0.052 if not rear else -0.064, 0.030), (0.052 if not rear else 0.064, 0.030), (0.052 if not rear else 0.064, 0.0)], segs=28, axis='x')
+        g.prism('rim', pts, c.x - 0.011, c.x + 0.011, r=0.0016)
+    g.lathe('rim', c, [(-0.052 if not rear else -0.064, 0.0), (-0.052 if not rear else -0.064, 0.030), (0.052 if not rear else 0.064, 0.030), (0.052 if not rear else 0.064, 0.0)], segs=28, axis='x')
     g.lathe('metal', c, [(-0.066 if not rear else -0.078, 0.0), (-0.066 if not rear else -0.078, 0.017), (0.066 if not rear else 0.078, 0.017), (0.066 if not rear else 0.078, 0.0)], segs=18, axis='x')
     if not rear:
-        for sd in (-1, 1):                                                       # two discs and their carriers
-            g.lathe('steel', c + V(sd * 0.057, 0, 0), [(-0.0028, 0.112), (-0.0028, 0.165), (0.0028, 0.165), (0.0028, 0.112)], segs=72, axis='x', loop=True)
+        for sd in (-1, 1):                                                       # two discs and their carriers: drilled (the role 'discF': PistaPaint part 31 cuts the holes, between the radii 0.112 and 0.165)
+            g.lathe('discF', c + V(sd * 0.057, 0, 0), [(-0.0028, 0.112), (-0.0028, 0.165), (0.0028, 0.165), (0.0028, 0.112)], segs=72, axis='x', loop=True)
     else:
-        g.lathe('steel', c + V(0.060, 0, 0), [(-0.0028, 0.082), (-0.0028, 0.130), (0.0028, 0.130), (0.0028, 0.082)], segs=64, axis='x', loop=True)
+        g.lathe('discR', c + V(0.060, 0, 0), [(-0.0028, 0.082), (-0.0028, 0.130), (0.0028, 0.130), (0.0028, 0.082)], segs=64, axis='x', loop=True)      # (radii 0.082 and 0.130)
         g.lathe('metal', c + V(-0.106, 0, 0), [(-0.032, 0.0), (-0.032, 0.026), (0.030, 0.026), (0.030, 0.0)], segs=20, axis='x')                         # the spacer through the swing arm
         g.lathe('steel', c + V(-0.136, 0, 0), [(-0.0025, 0.046), (-0.0025, 0.087), (0.0025, 0.087), (0.0025, 0.046)], segs=44, axis='x', loop=True)      # the sprocket
 
@@ -395,6 +443,10 @@ TAIL = [
     (-0.985, 0.018, 0.024, 0.014, 0.905, 0.984, 1.002, 0.010, 0.010, 0.010),
 ]
 SCREEN = [(0.470, 0.150, 0.985, 0.012), (0.390, 0.156, 1.046, 0.022), (0.310, 0.146, 1.106, 0.030), (0.230, 0.120, 1.166, 0.034), (0.190, 0.084, 1.196, 0.030)]
+# The joints of the fairing: the line where the upper fairing (the vent, the gills) meets the lower one (it climbs toward the nose and runs level under the knee), as (y, z) on the flank, and the
+# distance of the section where the nose cone meets the rest. The quarter-turn fasteners sit a finger above the first line.
+LOWER_SEAM = [(0.60, 0.690), (0.52, 0.662), (0.42, 0.600), (0.30, 0.535), (0.16, 0.495), (0.00, 0.470), (-0.08, 0.470)]
+NOSE_SEAM_Y = 0.60
 
 
 def bodywork(g, style):
@@ -412,8 +464,11 @@ def bodywork(g, style):
     if fair:
         g.loft('paint', hex_rings(fr), cap=True)
         g.part('screen', pivot=(0, 0, 0))                                                                         # the windscreen is a part of its own: the game hides it in the first-person view
-        g.loft('glass', [(y, arch(hw * s, zc, 0.005, rise)) for y, hw, zc, rise in SCREEN], cap=True)
+        g.loft('smoke', [(y, arch(hw * s, zc, 0.005, rise)) for y, hw, zc, rise in SCREEN], cap=True)
         g.part('body')
+        seam(g, fr, LOWER_SEAM)                                                                                   # the joint between the upper fairing and the lower one, and the one of the nose cone
+        ring_seam(g, fr, NOSE_SEAM_Y)
+        fasteners(g, fr, [(y, z + 0.020) for y, z in LOWER_SEAM[1:]])
         g.box('black', V(0, 0.335, 1.030), (0.14, 0.075, 0.034), r=0.012)                                        # the dash
         blob(g, 'black', V(0, 0.866, 0.737), (0.036, 0.024, 0.017), segs=18)                                     # the air intake in the nose
         for sd in (-1, 1):
@@ -432,7 +487,7 @@ def bodywork(g, style):
     else:
         g.loft('paint', rr_rings(scaled(TANK_NAKED)), cap=True)
         g.part('screen', pivot=(0, 0, 0))
-        g.loft('glass', [(y, arch(hw, zc, 0.005, rise)) for y, hw, zc, rise in ((0.560, 0.110, 1.100, 0.010), (0.500, 0.115, 1.150, 0.014), (0.450, 0.095, 1.190, 0.012))], cap=True)   # a flyscreen
+        g.loft('smoke', [(y, arch(hw, zc, 0.005, rise)) for y, hw, zc, rise in ((0.560, 0.110, 1.100, 0.010), (0.500, 0.115, 1.150, 0.014), (0.450, 0.095, 1.190, 0.012))], cap=True)   # a flyscreen
         g.part('body')
         for sd in (-1, 1):
             g.rod('black', V(sd * 0.150, 0.40, 1.010), V(sd * 0.290, 0.350, 1.080), 0.008, segs=8)
@@ -460,19 +515,23 @@ def bike_materials():
     """The materials of the photographs: one per role (the game makes its own from the names)."""
     M = {}
 
-    def mk(role, color, rough, metal=0.0, coat=0.0, emit=None):
-        M[role] = preview_material(role, color, rough, metal, coat, emit)
+    def mk(role, color, rough, metal=0.0, coat=0.0, emit=None, alpha=1.0):
+        M[role] = preview_material(role, color, rough, metal, coat, emit, alpha)
     mk('paint', (0.60, 0.035, 0.040), 0.28, 0.0, 1.0)
     mk('paint2', (0.90, 0.90, 0.88), 0.30, 0.0, 1.0)
     mk('frame', (0.07, 0.07, 0.075), 0.45, 0.8)
     mk('metal', (0.62, 0.63, 0.66), 0.32, 1.0)
     mk('steel', (0.55, 0.55, 0.57), 0.30, 1.0)
+    mk('rim', (0.62, 0.63, 0.66), 0.32, 1.0)
+    mk('discF', (0.55, 0.55, 0.57), 0.30, 1.0)
+    mk('discR', (0.55, 0.55, 0.57), 0.30, 1.0)
     mk('titan', (0.58, 0.55, 0.50), 0.28, 1.0)
     mk('engine', (0.16, 0.16, 0.17), 0.45, 0.9)
     mk('black', (0.012, 0.012, 0.014), 0.45)
     mk('carbon', (0.02, 0.02, 0.022), 0.30, 0.3, 0.6)
     mk('seat', (0.025, 0.025, 0.027), 0.55)
     mk('glass', (0.03, 0.04, 0.05), 0.06)
+    mk('smoke', (0.02, 0.022, 0.026), 0.04, 0.0, 0.0, None, 0.42)                                                 # the windscreen: smoked, seen through
     mk('gold', (0.80, 0.58, 0.14), 0.30, 1.0)
     mk('caliper', (0.65, 0.05, 0.04), 0.30, 0.6)
     mk('grip', (0.015, 0.015, 0.016), 0.70)
@@ -489,7 +548,7 @@ def build_bike(style, preview=False):
     """The bike of this style in the scene: (the Gun, its root). 'preview' adds the boards where the plates go."""
     mats = bike_materials()
     g = K.Gun('moto%d' % style)
-    for role in ('paint', 'paint2', 'glass', 'seat', 'tyre', 'black'):
+    for role in ('paint', 'paint2', 'glass', 'smoke', 'seat', 'tyre', 'black'):
         g.bevel[role] = 0.0
     fork(g, style)
     swing(g)

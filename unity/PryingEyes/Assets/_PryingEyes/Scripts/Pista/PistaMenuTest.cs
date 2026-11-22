@@ -361,8 +361,17 @@ namespace PryingEyes.Pista
                     {
                         byMaterial = true;
                         int part = Mathf.RoundToInt(pm.GetFloat("_Part"));
-                        if (part != 0 && part != 1 && part != 8 && part != 9 && (part < 20 || part > 27)) bad.Append(" " + r.name + " ha una parte " + part + " che la vernice non conosce");
+                        if (part != 0 && part != 1 && part != 8 && part != 9 && part != 30 && part != 31 && (part < 20 || part > 27)) bad.Append(" " + r.name + " ha una parte " + part + " che la vernice non conosce");
                     }
+                }
+                // the body of the bike drawn in Blender carries the light that reaches each vertex in its colour (the green channel): a file that lost it on the way in (no colours at all) would draw the bike without occlusion
+                if (r.name == "body" && r.GetComponent<MeshFilter>() != null && r.GetComponent<MeshFilter>().sharedMesh != null)
+                {
+                    var bodyMesh = r.GetComponent<MeshFilter>().sharedMesh;
+                    var bodyColours = bodyMesh.colors32;
+                    int shaded = 0;
+                    if (bodyColours != null && bodyColours.Length == bodyMesh.vertexCount) foreach (var bc in bodyColours) if (bc.g < 235) shaded++;
+                    if (shaded < bodyMesh.vertexCount / 100) bad.Append(" il corpo del modello non porta l'occlusione cotta (" + shaded + " vertici in ombra su " + bodyMesh.vertexCount + ")");
                 }
                 if (!paintMat) continue;
                 painted++;

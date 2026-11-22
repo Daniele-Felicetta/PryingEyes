@@ -50,10 +50,11 @@ namespace PryingEyes.Pista
             for (int i = 0; i < 2; i++)
             {
                 float sd = i == 0 ? -1f : 1f;
-                // the arm: from the shoulder to the grip, the elbow out and down
+                // the arm: from the shoulder to the grip, the elbow down and a little out (modelli/moto/rider.py ELBOW_OUT: the same 0.20, so that the bent arm of the file is the arm of the first frame;
+                // 0.42 put the elbows wider than the grips)
                 Vector3 s = rig.torso.TransformPoint(shoulderLocal[i]);
                 Vector3 h = rig.steer.TransformPoint(wristLocal[i]);
-                Vector3 pole = body.right * (sd * 0.42f) + body.forward * 0.05f - up * 0.55f;
+                Vector3 pole = body.right * (sd * 0.20f) + body.forward * 0.05f - up * 0.55f;
                 Vector3 e = MidJoint(s, h, armL1 * ps, armL2 * ps, pole);
                 Place(upper[i], s, e, armL1, up);
                 Place(fore[i], e, h, armL2, up);

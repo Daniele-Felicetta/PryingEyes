@@ -47,8 +47,9 @@ namespace PryingEyes.Pista
             var plate = Disc("Piatto", 3.0f, 0.035f, -0.035f, PistaTex.Lit("Piatto", new Color(0.04f, 0.045f, 0.052f), 0.55f, 0.2f));
             var ring = Disc("Anello", 3.12f, 0.03f, -0.045f, PistaTex.Lit("Anello d'ottone", new Color(0.55f, 0.42f, 0.2f), 0.6f, 0.8f));
             plate.transform.SetParent(transform, false); ring.transform.SetParent(transform, false);
+            plate.GetComponent<MeshRenderer>().receiveShadows = true;                          // the bike casts its shadow on the plate
 
-            key = MakeLight("Luce principale", LightType.Spot, new Vector3(-3.4f, 3.6f, 3.2f), 42f, new Color(1f, 0.95f, 0.86f), 18f, 62f);
+            key = MakeLight("Luce principale", LightType.Spot, new Vector3(-3.4f, 3.6f, 3.2f), 42f, new Color(1f, 0.95f, 0.86f), 18f, 62f, true);
             rim = MakeLight("Controluce", LightType.Spot, new Vector3(3.6f, 2.8f, -3.4f), 36f, new Color(0.72f, 0.82f, 1f), 18f, 60f);
             fill = MakeLight("Luce di riempimento", LightType.Point, new Vector3(3.0f, 1.0f, 3.4f), 7f, new Color(1f, 0.82f, 0.62f), 14f, 0f);
 
@@ -63,7 +64,7 @@ namespace PryingEyes.Pista
             Cam.allowHDR = false; Cam.depth = -50f; Cam.enabled = false;
             Cam.targetTexture = Picture;
             var extra = Cam.GetUniversalAdditionalCameraData();
-            extra.renderPostProcessing = false; extra.renderShadows = false;
+            extra.renderPostProcessing = false; extra.renderShadows = true;                    // the key light's shadow only (the other two cast none; the sun of the world is a world away)
             var listener = cgo.GetComponent<AudioListener>();
             if (listener != null) Destroy(listener);
         }
@@ -81,15 +82,20 @@ namespace PryingEyes.Pista
             return d;
         }
 
-        Light MakeLight(string name, LightType type, Vector3 at, float intensity, Color colour, float range, float angle)
+        Light MakeLight(string name, LightType type, Vector3 at, float intensity, Color colour, float range, float angle, bool shadows = false)
         {
             var go = new GameObject(name);
             go.transform.SetParent(transform, false);
             go.transform.localPosition = at;
             go.transform.LookAt(transform.position + new Vector3(0f, 0.6f, 0f));
             var l = go.AddComponent<Light>();
-            l.type = type; l.color = colour; l.intensity = intensity; l.range = range; l.shadows = LightShadows.None;
+            l.type = type; l.color = colour; l.intensity = intensity; l.range = range; l.shadows = shadows ? LightShadows.Soft : LightShadows.None;
             if (type == LightType.Spot) l.spotAngle = angle;
+            if (shadows)
+            {
+                l.shadowStrength = 0.9f; l.shadowBias = 0.015f; l.shadowNormalBias = 0.5f;
+                l.GetUniversalAdditionalLightData().additionalLightsShadowResolutionTier = UniversalAdditionalLightData.AdditionalLightsShadowResolutionTierHigh;
+            }
             return l;
         }
 
@@ -116,7 +122,9 @@ namespace PryingEyes.Pista
             if (outfit >= 0) livery = Livery.WithRider(livery, outfit);
             Rig = PistaBikeMesh.Build(bike.transform, spec.meshStyle, livery);
             Rig.root.localScale = Vector3.one * spec.meshScale;
-            foreach (var r in bike.GetComponentsInChildren<Renderer>()) { r.shadowCastingMode = ShadowCastingMode.Off; r.receiveShadows = false; }
+            // the bike casts and receives the shadow of the key light (the helmet on the shoulder, the fairing on the engine, the wheels on the plate); the windscreen is glass and casts none
+            foreach (var r in bike.GetComponentsInChildren<Renderer>()) { r.shadowCastingMode = ShadowCastingMode.On; r.receiveShadows = true; }
+            foreach (var r in Rig.screenParts) if (r != null) r.shadowCastingMode = ShadowCastingMode.Off;
             Bike = bikeIndex; Skin = skin; Outfit = outfit;
             Pose(0f);
         }

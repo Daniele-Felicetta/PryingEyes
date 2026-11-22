@@ -6,7 +6,7 @@ namespace PryingEyes.Pista
 {
     /// <summary>The bikes drawn in Blender (modelli/moto/bike.py, Resources/Moto/moto0.fbx, moto1.fbx and moto2.fbx for the superbike, the supersport and the naked roadster): the chassis (wheels, fork, swing arm, frame, engine,
     /// exhaust) and the bodywork. Every part of the file is one object whose name says the node of the rig that moves it (body, swing, rear, steer, front, and screen: the windscreen is hidden in the first-person view), and the
-    /// name of each material is its role (paint, paint2, frame, metal, steel, titan, engine, black, carbon, seat, glass, gold, caliper, grip, chain, radiator, tyre, lens, taillight): this class turns each role into a material
+    /// name of each material is its role (paint, paint2, frame, metal, steel, titan, engine, black, carbon, seat, glass, smoke, gold, caliper, grip, chain, radiator, tyre, rim, discF, discR, lens, taillight): this class turns each role into a material
     /// of the game and puts the part under its node, where it is.  The number plates, their backs and the rider are not in the file (PistaBikeMesh and PistaRiderModel make them). Without the file (a build that lacks it)
     /// the bike is the one PistaBikeMesh draws by code.</summary>
     public static class PistaBikeModel
@@ -41,18 +41,39 @@ namespace PryingEyes.Pista
 
         public static bool Available(int style) { return !Disabled && Prefab(style) != null; }
 
+        /// <summary>A plain part of the model: PistaTex.Plain with the occlusion of the file switched on (only the model of Blender wears these materials, and its vertices carry the occlusion in the red of their colour).</summary>
+        static Material Plain(string name, Color c, float smooth, float metal)
+        {
+            var m = PistaTex.Plain(name, c, smooth, metal);
+            if (m.HasProperty("_AO")) m.SetFloat("_AO", 1f);
+            return m;
+        }
+
+        /// <summary>A brake disc: steel, drilled by the shader (PistaPaint part 31) between the two radii, in metres from the axle.</summary>
+        static Material Disc(string name, float r0, float r1)
+        {
+            var m = Plain(name, new Color(0.60f, 0.60f, 0.62f), 0.60f, 0.90f);
+            m.SetFloat("_Part", 31f);
+            m.SetFloat("_R0", r0);
+            m.SetFloat("_R1", r1);
+            return m;
+        }
+
         static Material Shared(string role)
         {
             if (shared.TryGetValue(role, out var m) && m != null) return m;
             switch (role)
             {
-                case "engine": m = PistaTex.Lit("Blocco", new Color(0.17f, 0.17f, 0.18f), 0.45f, 0.8f); break;
-                case "black": m = PistaTex.Lit("Plastica", new Color(0.02f, 0.02f, 0.022f), 0.30f, 0f); break;
-                case "carbon": m = PistaTex.Lit("Carbonio", new Color(0.03f, 0.03f, 0.033f), 0.60f, 0.2f); break;
-                case "caliper": m = PistaTex.Lit("Pinza", new Color(0.62f, 0.05f, 0.04f), 0.65f, 0.5f); break;
-                case "grip": m = PistaTex.Lit("Manopola", new Color(0.02f, 0.02f, 0.022f), 0.20f, 0f); break;
-                case "chain": m = PistaTex.Lit("Catena", new Color(0.30f, 0.27f, 0.14f), 0.45f, 0.8f); break;
-                case "radiator": m = PistaTex.Lit("Radiatore", new Color(0.03f, 0.03f, 0.035f), 0.35f, 0.5f); break;
+                case "engine": m = Plain("Blocco", new Color(0.17f, 0.17f, 0.18f), 0.45f, 0.8f); break;
+                case "black": m = Plain("Plastica", new Color(0.02f, 0.02f, 0.022f), 0.30f, 0f); break;
+                case "carbon": m = Plain("Carbonio", new Color(0.03f, 0.03f, 0.033f), 0.60f, 0.2f); break;
+                case "caliper": m = Plain("Pinza", new Color(0.62f, 0.05f, 0.04f), 0.65f, 0.5f); break;
+                case "grip": m = Plain("Manopola", new Color(0.02f, 0.02f, 0.022f), 0.20f, 0f); break;
+                case "chain": m = Plain("Catena", new Color(0.30f, 0.27f, 0.14f), 0.45f, 0.8f); break;
+                case "radiator": m = Plain("Radiatore", new Color(0.03f, 0.03f, 0.035f), 0.35f, 0.5f); break;
+                case "rim": m = Plain("Cerchio", new Color(0.62f, 0.63f, 0.66f), 0.42f, 0.85f); break;                       // when the bike gives none of its own
+                case "discF": m = Disc("Disco davanti", 0.112f, 0.165f); break;
+                case "discR": m = Disc("Disco dietro", 0.082f, 0.130f); break;
                 default: m = PistaTex.Lit("Ruolo_" + role, new Color(0.8f, 0.1f, 0.8f), 0.3f); break;          // a role nobody knows: magenta, to be seen
             }
             shared[role] = m;
@@ -79,10 +100,13 @@ namespace PryingEyes.Pista
             var pf = Disabled ? null : Prefab(style);
             if (pf == null) return false;
             // the paint materials read the part of the livery from their own _Part (the model has no vertex tags): the paint is part 0, the accent paint 1, the tyres 9
+            // and read the occlusion baked in the vertices (_AO = 1): the paint of the bike, its accent paint and the tyres; the plain materials of the kit are switched on by PistaBikeMesh.Build, the ones below by Plain
             rig.paint.SetFloat("_Part", 0f);
             rig.paint2.SetFloat("_Part", 1f);
+            rig.paint.SetFloat("_AO", 1f);
+            rig.paint2.SetFloat("_AO", 1f);
             var tyre = kit("tyre");
-            if (tyre != null) tyre.SetFloat("_Part", 9f);
+            if (tyre != null) { tyre.SetFloat("_Part", 9f); tyre.SetFloat("_AO", 1f); }
             var inst = Object.Instantiate(pf, rig.body);
             inst.name = "Modello";
             inst.transform.localPosition = Vector3.zero; inst.transform.localRotation = Quaternion.identity; inst.transform.localScale = Vector3.one;

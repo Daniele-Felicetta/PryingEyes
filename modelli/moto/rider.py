@@ -24,6 +24,8 @@ TORSO_LEN = 0.50                    # from the hips to the shoulder line, along 
 SHOULDER_X = 0.175
 THIGH, SHIN = 0.43, 0.42
 UPPER, FORE = 0.30, 0.27            # shoulder to elbow, elbow to wrist
+ELBOW_OUT = 0.20                    # how far to the side the elbow bends (the pole of the arm, with 0.05 forward and 0.55 down: PistaRiderModel.cs has the same numbers). 0.42 put the elbows 0.36 m from the middle,
+                                    # wider than the grips: the wings of a puppet; 0.20 tucks them (0.27 m), where a rider keeps them against the tank
 
 
 def joints(naked=False):
@@ -41,7 +43,7 @@ def joints(naked=False):
         g = V(sd * grip.x, grip.y, grip.z)
         J['grip_' + s] = g
         J['wrist_' + s] = g + V(-sd * 0.012, -0.068, 0.046)
-        J['elbow_' + s], _ = two_bone(J['shoulder_' + s], J['wrist_' + s], UPPER, FORE, V(sd * 0.42, 0.05, -0.55))
+        J['elbow_' + s], _ = two_bone(J['shoulder_' + s], J['wrist_' + s], UPPER, FORE, V(sd * ELBOW_OUT, 0.05, -0.55))
         peg = V(sd * PEG.x, PEG.y, PEG.z)
         J['peg_' + s] = peg
         J['ankle_' + s] = peg + V(0, -0.13, 0.095)
@@ -108,7 +110,7 @@ def build_torso(J):
         for sd in (-1, 1):
             bm_ellipsoid(bm, V(sd * 0.092, hc.y - 0.030, hc.z - 0.040), (0.098, 0.112, 0.092), None, 22)       # the buttocks and the tops of the thighs
             s = J['shoulder_' + ('R' if sd > 0 else 'L')]
-            bm_ellipsoid(bm, s + V(sd * 0.010, 0.0, 0.004), (0.066, 0.078, 0.072), None, 20)                     # the caps of the shoulders
+            bm_ellipsoid(bm, s + V(sd * 0.004, 0.0, 0.002), (0.058, 0.066, 0.062), None, 20)                     # the caps of the shoulders (as wide as the top of the arm: a bigger ball is a toy's joint)
         bm_capsule(bm, J['shoulder_c'] + n * 0.02, J['neck'] + V(0, 0.03, 0.045), 0.062, 0.057, 16)              # the neck, up to under the helmet
     ob = organic('torso', fill, 0.008, sm_iter=10, sm_fac=0.5)
     bm = bmesh.new()
@@ -141,7 +143,7 @@ def build_arm(J, sd):
     s = 'R' if sd > 0 else 'L'
     S, E, W = J['shoulder_' + s], J['elbow_' + s], J['wrist_' + s]
     pts = [S, S.lerp(E, 0.5), E, E.lerp(W, 0.5), W]
-    radii = [0.064, 0.056, 0.049, 0.044, 0.035]
+    radii = [0.060, 0.054, 0.048, 0.043, 0.034]
     ratio = [1.0, 1.0, 1.05, 1.0, 0.92]
     bm = tube(pts, radii, sides=20, ratio=ratio, ref=V(sd, 0, 0), seg=8, split=2)
     return new_object(bm, 'arm_' + s)

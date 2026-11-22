@@ -11,8 +11,11 @@ Shader "PryingEyes/PistaPaint"
     //   For the suit: 0 plain with seams, 1 stripes down the back and the legs, 2 bands over the shoulders and the arms, 3 stripes across the chest and the thighs, then the same again.
     //   For the helmet: 0 a stripe on the crown, 1 two thin stripes and a chin bar, 2 a band along the side, 3 a ring round the crown, then plain.
     // The models drawn in Blender (modelli/moto: Resources/Moto/*.fbx) have no vertex tags: the part is the material's own (_Part, from the name of the material in the FBX), and the baked occlusion of every
-    // vertex is in the red of its colour (_AO = 1). The new rider: 20 the torso (the frame of the hips), 21 the hump, 22 a thigh, 23 a shin, 24 an upper arm, 25 a forearm (their uv.x runs round them, uv.y along
+    // vertex is in the green of its colour (_AO = 1; the file writes the same value in the three channels, and the meshes drawn by code, which tag the red, keep the green at 1). The new rider: 20 the torso (the frame of the hips), 21 the hump, 22 a thigh, 23 a shin, 24 an upper arm, 25 a forearm (their uv.x runs round them, uv.y along
     // each part), 26 a knee slider, 27 the leather of a glove or a boot. The helmet keeps 8 (the frame of the head).
+    // Part 30 is a PLAIN part of a bike (the frame, the engine, the exhaust, the plastics, the seat): its own colour, its smoothness (_Smooth) and its metal (_Metal), no livery, no relief, no clear coat
+    // (PistaTex.Plain); it is here, and not in the Lit shader, so that the baked occlusion of the model (_AO = 1) darkens the ambient light and the reflections in every crease of the bike.
+    // Part 31 is a plain part that is also a DRILLED BRAKE DISC: two staggered rows of holes cut out (clip) in the band between _R0 and _R1 metres from the axle.
     // The shadow, depth and depth-normal passes are the Lit's (UsePass), so the bike casts, receives and feeds the ambient occlusion like everything else.
     Properties
     {
@@ -22,6 +25,9 @@ Shader "PryingEyes/PistaPaint"
         _Coat ("Clear coat: 0 matt .. 1 gloss", Float) = 1
         _Flake ("Metallic flake: 0 solid .. 1 full", Float) = 0
         _Smooth ("Smoothness of the base layer", Float) = 0.5
+        _Metal ("Metallic of a plain part (30) or a disc (31)", Float) = 0
+        _R0 ("Inner radius of a drilled disc (31)", Float) = 0.1
+        _R1 ("Outer radius of a drilled disc (31)", Float) = 0.16
         _Part ("Part of the livery when the mesh has no tag (-1: read the vertex colour)", Float) = -1
         _AO ("1: the red of the vertex colour is baked occlusion", Float) = 0
     }
@@ -67,6 +73,9 @@ Shader "PryingEyes/PistaPaint"
                 float _Coat;
                 float _Flake;
                 float _Smooth;
+                float _Metal;
+                float _R0;
+                float _R1;
                 float _Part;
                 float _AO;
             CBUFFER_END
@@ -93,7 +102,7 @@ Shader "PryingEyes/PistaPaint"
             #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
                 float4 shadowCoord : TEXCOORD6;
             #endif
-                float4 tagUV      : TEXCOORD7;      // x: the part (vertex colour red), y: unused, zw: the coordinates of a tube
+                float4 tagUV      : TEXCOORD7;      // x: the part (vertex colour red), y: the baked occlusion (vertex colour green), zw: the coordinates of a tube
                 DECLARE_LIGHTMAP_OR_SH(staticLightmapUV, vertexSH, 8);
             #ifdef USE_APV_PROBE_OCCLUSION
                 float4 probeOcclusion : TEXCOORD10;
@@ -114,7 +123,7 @@ Shader "PryingEyes/PistaPaint"
                 output.normalWS = normalInput.normalWS;
                 output.posOS = input.positionOS.xyz;
                 output.nrmOS = input.normalOS;
-                output.tagUV = float4(input.color.r, 0.0, input.uv);
+                output.tagUV = float4(input.color.r, input.color.g, input.uv);
                 OUTPUT_SH4(vertexInput.positionWS, output.normalWS.xyz, GetWorldSpaceNormalizeViewDir(vertexInput.positionWS), output.vertexSH, output.probeOcclusion);
             #ifdef _ADDITIONAL_LIGHTS_VERTEX
                 output.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
@@ -193,7 +202,7 @@ Shader "PryingEyes/PistaPaint"
                 float2 tuv = input.tagUV.zw;
                 int part = (int)(input.tagUV.x * 255.0 + 0.5);
                 float ao = 1.0;
-                if (_Part >= 0.0) { part = (int)(_Part + 0.5); ao = lerp(1.0, input.tagUV.x, saturate(_AO)); }      // an imported model: the part is the material's, the red of the colour is occlusion
+                if (_Part >= 0.0) { part = (int)(_Part + 0.5); ao = lerp(1.0, input.tagUV.y, saturate(_AO)); }      // an imported model: the part is the material's, the green of the colour is occlusion (the meshes drawn by code tag the red and keep the green at 1)
                 else if (part > 9) part = 1;                                                    // a mesh nobody tagged (no vertex colour reads 255): plain paint
                 int pat = (int)(_Pattern + 0.5);
                 // how far the position on the part moves for one pixel: the width of the soft edge of a line (derivatives are taken here, outside every branch)
@@ -209,7 +218,7 @@ Shader "PryingEyes/PistaPaint"
                 float freq = isLeather ? 230.0 : (isPaint ? 85.0 : (isRubber ? 150.0 : 60.0));
                 float relief = saturate(1.0 - aa * freq);
                 float hh = VNoise3(O * freq) * 0.65 + VNoise3(O * freq * 2.3 + 7.1) * 0.35;
-                float amp = (isLeather ? 0.0008 : (isPaint ? 0.00024 : (isRubber ? 0.0004 : 0.00018))) * relief;
+                float amp = (part >= 30 ? 0.0 : (isLeather ? 0.0008 : (isPaint ? 0.00024 : (isRubber ? 0.0004 : 0.00018)))) * relief;
                 float3 Nb = BumpNormal(N, P, hh * amp);
 
                 float3 baseC = _BaseColor.rgb;
@@ -310,6 +319,36 @@ Shader "PryingEyes/PistaPaint"
                     baseC = baseC * (0.80 + 0.55 * hh);
                     smo = 0.22;
                     coat = 0.0;
+                }
+                else if (part == 30 || part == 31)
+                {
+                    // ---- a plain part of a model: the colour, the smoothness and the metal of the material, with the occlusion baked in its vertices (above)
+                    metal = _Metal;
+                    smo = _Smooth;
+                    coat = 0.0;
+                    if (part == 31)
+                    {
+                        // a brake disc (the axle along x, the disc in the plane y-z of the wheel's own frame): two staggered rows of 22 holes in the band between _R0 and _R1, cut out of the surface
+                        // (the holes show the rim and the caliper behind them; the shadow and the depth keep the whole disc, which nobody can tell at that size)
+                        float band = max(_R1 - _R0, 1e-4);
+                        float rr = length(O.yz);
+                        float t = (rr - _R0) / band;
+                        float turn = atan2(O.z, O.y) * 0.15915494;                    // one turn is 1
+                        float hole = 1.0;
+                        for (int row = 0; row < 2; row++)
+                        {
+                            float cells = 22.0;
+                            float a = frac(turn * cells + (row == 0 ? 0.0 : 0.5)) - 0.5;
+                            float dx = a * (6.2831853 * rr / cells);                  // metres along the arc
+                            float dy = (t - (row == 0 ? 0.28 : 0.72)) * band;         // metres along the radius
+                            hole = min(hole, length(float2(dx, dy)) - 0.075 * band);
+                        }
+                        clip(hole);
+                        // the track the pads sweep is a little duller and darker than the edges
+                        float track = smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.88, 1.0, t));
+                        smo = lerp(smo, smo * 0.65, track);
+                        baseC *= lerp(1.0, 0.82, track);
+                    }
                 }
                 else if (part == 5)
                 {
