@@ -373,6 +373,15 @@ namespace PryingEyes.Pista
                     if (bodyColours != null && bodyColours.Length == bodyMesh.vertexCount) foreach (var bc in bodyColours) if (bc.g < 235) shaded++;
                     if (shaded < bodyMesh.vertexCount / 100) bad.Append(" il corpo del modello non porta l'occlusione cotta (" + shaded + " vertici in ombra su " + bodyMesh.vertexCount + ")");
                 }
+                // the rider drawn in Blender carries his own occlusion too (the arms against the trunk, the thighs against the pelvis): the torso is the part that has the most of it
+                if (r.name == "torso" && r.GetComponent<MeshFilter>() != null && r.GetComponent<MeshFilter>().sharedMesh != null)
+                {
+                    var torsoMesh = r.GetComponent<MeshFilter>().sharedMesh;
+                    var torsoColours = torsoMesh.colors32;
+                    int shaded = 0;
+                    if (torsoColours != null && torsoColours.Length == torsoMesh.vertexCount) foreach (var tc in torsoColours) if (tc.g < 235) shaded++;
+                    if (shaded < torsoMesh.vertexCount / 100) bad.Append(" il busto del pilota non porta l'occlusione cotta (" + shaded + " vertici in ombra su " + torsoMesh.vertexCount + ")");
+                }
                 if (!paintMat) continue;
                 painted++;
                 if (byMaterial) continue;

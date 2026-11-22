@@ -34,7 +34,7 @@ def rider_materials():
 
 
 ROLES = {'torso': ['suit'], 'hump': ['hump'], 'arm': ['arm_upper', 'arm_fore'], 'leg': ['leg_thigh', 'leg_shin'], 'slider': ['slider'],
-         'glove': ['glove'], 'boot': ['boot'], 'shell': ['helmet'], 'spoiler': ['helmet'], 'seal': ['seal'], 'visor': ['visor'], 'black': ['seal']}
+         'glove': ['glove'], 'boot': ['boot'], 'shell': ['helmet'], 'seal': ['seal'], 'visor': ['visor'], 'black': ['seal']}
 BUDGET = {'torso': 9000, 'glove': 1600, 'boot': 2400}
 
 
@@ -162,9 +162,9 @@ def stage_export_pilota():
     reset()
     parts, J = rd.build_rider()
     dress(parts, rider_materials())
-    for s in 'RL':
-        leg, slider = parts['leg_' + s]
-        parts['leg_' + s] = [join_objects('leg_' + s, [leg, slider])]
+    for s in 'RL':                                    # one node for each limb and each boot: the sleeve with its protectors, the leg with the knee cup and the slider, the boot with its sole and shell
+        for nm in ('arm_', 'leg_', 'boot_'):
+            parts[nm + s] = [join_objects(nm + s, parts[nm + s])]
     for nm in ('torso', 'hump'):
         set_origin(parts[nm][0], J['hip_c'])
     objs = [o for v in parts.values() for o in v]
@@ -172,6 +172,9 @@ def stage_export_pilota():
         if not o.name.startswith('helmet_') and o.name not in ('torso', 'hump'):
             bake_transform(o)
     print('[info] triangles:', {k: sum(tri_count(o) for o in v) for k, v in parts.items()})
+    # the light that reaches every vertex of the rider at rest, from the rider himself (the arms against the trunk, the thighs against the pelvis, the chin under the helmet, the fingers
+    # round the grips: the game multiplies its ambient light and its reflections with it, PistaPaint's _AO). The bike is not in it: the styles share this rider and the pose moves him.
+    bake_ao([o for o in objs if o.type == 'MESH'], samples=48, dist=0.10, strength=0.85, floor=0.30)
     save_blend(os.path.join(WORK_DIR, 'pilota.blend'))
     export_fbx(os.path.join(OUT_DIR, 'pilota.fbx'), objs + joint_empties(J))
 

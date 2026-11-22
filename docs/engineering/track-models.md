@@ -9,7 +9,7 @@ and is not measured.
 
 | Model | Generator | File | Read by |
 |---|---|---|---|
-| the rider (torso, hump, helmet in five parts, two arms, two legs with a knee slider, two gloves, two boots) | `modelli/moto/rider.py` (shapes), `modelli/moto/genera_moto.py` (materials, previews, export) | `Resources/Moto/pilota.fbx` | `Scripts/Pista/PistaRiderModel.cs` |
+| the rider (torso, hump, helmet in five parts, two arms with an elbow and a shoulder protector, two legs with a knee cup and a knee slider, two gloves, two boots with a sole, straps and an ankle shell) | `modelli/moto/rider.py` (shapes), `modelli/moto/genera_moto.py` (materials, previews, export) | `Resources/Moto/pilota.fbx` | `Scripts/Pista/PistaRiderModel.cs` |
 | the bikes: superbike, supersport (the shell of the superbike 3% narrower) and naked roadster | `modelli/moto/bike.py` (chassis and bodywork), `modelli/moto/genera_moto.py` (previews, export) | `Resources/Moto/moto0.fbx`, `moto1.fbx`, `moto2.fbx` | `Scripts/Pista/PistaBikeModel.cs` |
 
 Without a file (a build that lacks it) `PistaBikeMesh` keeps drawing that bike or that rider by code, so nothing depends on the models being there (`PistaRiderModel.Disabled` and `PistaBikeModel.Disabled` force the old
@@ -29,7 +29,7 @@ blender -b -P genera_moto.py -- export_moto 0     # the FBX of that style into R
 After an export the game has to import the file again: a full build (`BuildPlayer.Windows`, not `-scriptsOnly`) or the editor does it; a change of the generator that is not followed by an import is not seen.
 
 `geom.py` holds what every model shares: the axes, the constants of the bike, the tube (`tube`), the loft (`loft3d`), smoothing, decimation, the FBX export (which also rewrites the absolute path of the
-`.blend` that the exporter writes into the file: the repository is public, `modelli/personaggi/scrub_fbx.py`) and the occlusion baker (`bake_ao`: the bikes use it, the rider does not yet). The weapons' hard-surface kit
+`.blend` that the exporter writes into the file: the repository is public, `modelli/personaggi/scrub_fbx.py`) and the occlusion baker (`bake_ao`: the bikes and the rider use it). The weapons' hard-surface kit
 (`modelli/armi/kit.py`: box, prism, lathe, loft, sweep, rod, boolean cuts) is loaded by `geom.load_armikit()` with its weapon offset switched off, for the models that need hard edges.
 
 **Axes.** The author's axes are x right, y forward, z up, in metres, the bike standing on z = 0 with the middle of its wheelbase at y = 0. The FBX goes out with forward -Z and up Y. Unity's importer then
@@ -104,26 +104,26 @@ riders of these parts, one mesh per part shared by every bike of the same style.
 ## The rider
 
 The rider is built for a bike with clip-ons (the naked bike moves the gloves and the hands of the arms by the difference of the grips, `PistaRiderModel.GripDelta`) in a deep tuck: the torso 28 degrees above the horizontal,
-a hump on the back, the head low behind the screen. It is 30 thousand triangles (torso 9000, boots 2400 each, gloves 1600 each, helmet 6700, the rest in the arms and the legs), shared by the twelve riders of a grid.
+a hump on the back, the head low behind the screen. It is 32 thousand triangles (torso 9000, boots 2300 each, gloves 1600 each, helmet 6200, arms 1700 each, legs 2400 each), shared by the twelve riders of a grid.
 
 **Parts and roles.** Every piece is a mesh node, and the name of its material is its **role**: the game maps `sharedMaterials[i].name` to its own material, so the materials of the file only carry names.
 
 | Node | Roles (materials) | In the game |
 |---|---|---|
 | `torso`, `hump` | `suit`, `hump` | children of `Busto` (the torso of the rig), hidden in the first-person view |
-| `helmet_shell`, `helmet_spoiler`, `helmet_seal`, `helmet_visor`, `helmet_black` | `helmet`, `seal`, `visor` | children of `Testa`, hidden in the first-person view; the livery stripes are `PistaPaint` part 8 |
+| `helmet_shell`, `helmet_seal`, `helmet_visor`, `helmet_black` | `helmet`, `seal`, `visor` | children of `Testa`, hidden in the first-person view; the livery stripes are `PistaPaint` part 8 |
 | `glove_L`, `glove_R` | `glove` | children of the steering (they turn with it) |
-| `boot_L`, `boot_R` | `boot` | children of the body of the bike |
-| `arm_L`, `arm_R` | `arm_upper`, `arm_fore` | skinned over two bones each; hidden in the first-person view (the camera is between the shoulders and, at full tuck, an arm fills a fifth of the picture: the gloves stay) |
-| `leg_L`, `leg_R` | `leg_thigh`, `leg_shin`, `slider` | skinned over two bones each (the knee slider is joined to the leg) |
+| `boot_L`, `boot_R` | `boot`, `seal` (the sole), `slider` (the shell on the ankle) | children of the body of the bike |
+| `arm_L`, `arm_R` | `arm_upper`, `arm_fore` (the elbow and the shoulder protector are in the second) | skinned over two bones each; hidden in the first-person view (the camera is between the shoulders and, at full tuck, an arm fills a fifth of the picture: the gloves stay) |
+| `leg_L`, `leg_R` | `leg_thigh`, `leg_shin` (the knee cup is in the second), `slider` | skinned over two bones each (the knee cup and the slider are joined to the leg) |
 | `J_*` (empties) | | the rest joints: `hip_c`, `head`, `neck`, `shoulder_c`, `shoulder/elbow/wrist/grip/hip/knee/ankle/peg` on both sides |
 
-Roles that are distinct materials (a thigh, a shin and a slider are three) keep their material slots apart when the objects are joined; two equal materials would be merged by Blender and the slot lost.
+Roles that are distinct materials (a thigh, a shin and a slider are three; a boot, a sole and a shell are three) keep their material slots apart when the objects are joined; two equal materials would be merged by Blender and the slot lost.
 
 **The livery.** `PistaPaint.shader` draws it from the position of the pixel in the part's own frame, so a part must have its node at the origin the shader expects (the torso and the hump at the hips, the helmet at the middle
 of the head, the others at the origin of the bike). The mesh has no vertex tag: the part is the material's `_Part` (set from the role by `PistaRiderModel.Part`): 20 the torso, 21 the hump, 22 a thigh, 23 a shin, 24 an
 upper arm, 25 a forearm, 26 a knee slider, 27 the leather of a glove or a boot, 8 the helmet. The limbs also carry texture coordinates (u round the limb, v along each part, restarting at the elbow and the knee), which the
-patterns of the suit read. `_AO` (1) makes the green channel of a vertex colour the baked occlusion (see the bikes); the rider's file has no colours, which read 1, so nothing darkens it yet.
+patterns of the suit read. `_AO` (1) makes the green channel of a vertex colour the baked occlusion (see the bikes): the rider's file carries it too (below).
 
 **Skinning and the pose.** Each limb has two bones (shoulder to elbow, elbow to wrist; hip to knee, knee to ankle). The weights are worked out in the game from the side of a plane at the joint that a vertex is on, blended
 over 4.5 cm for an arm and 6 cm for a leg; the skinned meshes are made once and shared, because the rest pose is the same for every rider. Every frame `PistaRiderRig.Pose` puts the bones: the shoulder follows the torso, the
@@ -133,10 +133,29 @@ is not the arm of the first frame): the first version had 0.42, which puts the e
 wings of a puppet; with 0.20 the elbows are at 0.269 m, which `-pistariderlog` writes both for the rest joints of the file and for the first frame of the game (the same 0.269, so the file and the game agree). The bones are
 children of the body of the bike, so a bike that leans takes its rider along.
 
+**Protectors, boots and the occlusion.** The first rider was tubes with a ball on the knee; the second one has the parts that make a racing suit read as one. Every addition reuses a role that already exists, so
+the game needs no code for it (a new material name would fall back to the plain suit, `PistaRiderModel.Role`) and every piece is one more object joined into the node of its limb:
+
+- `hug_pad` (`rider.py`) builds a **plate wrapped on a sphere round a joint**: an oval outline (a superellipse), a list of layers `(height above the surface, scale of the outline)`, the lowest ones buried in the
+  limb. A sphere of the radius of the limb round the joint lies inside a tube that bends there, so the plate never hangs in the air where the limb falls away (a flat plate did, on the knee, which is bent by
+  114 degrees). `DOME` (a soft shoulder, a rounded top: the knee cup and the elbow cup, in the material of the shin and of the forearm) and `PUCK` (a flat top with a chamfer: the knee slider, the plastic of part 26)
+  are the two profiles. The cup is in front of the knee and a little to the outside, the slider on the outside, 66 degrees apart and 6 mm higher, so that the two never cut each other (when they did, the edge of the
+  slider was a torn line).
+- The **legs** have a calf and a narrower knee (seven control points), the **sleeves** a forearm that tapers to the wrist under the cuff of the glove (a forearm as thick as the upper arm was a sausage), and both
+  start **inside** the torso and the pelvis: a tube that starts at the joint leaves a flat disc outside the body (the thigh showed a cut under the hump, the shoulder a ball where a cap of the torso stuck out).
+  A shoulder protector in the same way made a ball joint of the shoulder and was dropped.
+- The **boot** is no longer a union of blobs: a loft of sections for the foot (`FOOT`, from the heel to a round toe, read with a Catmull-Rom like the helmet's table), a slab for the sole (`seal`, dark rubber, a
+  heel block 34 mm high, 4 mm wider than the foot), a shaft with a band at the top and a strap, and a plastic shell (`slider`) on the outside of the ankle. 2300 triangles, as many as before.
+- The **helmet** has a visor that is a wedge (its lower edge rises and its upper edge falls toward the sides, the lowest row is shorter), no spoiler and no vents on the chin bar: the small fin read as an ear
+  from the side and as a pig's tail from behind, three round vents in a row as nostrils and one slot as a mouth.
+- **Occlusion.** `stage_export_pilota` bakes it (`bake_ao`, 48 rays of 0.10 m, never below 0.30) against the rider alone: arms against the trunk, thighs against the pelvis, the chin under the helmet, the fingers
+  round the grip. The bike is not in it (the styles share this rider and the pose moves him), so the thighs do not darken where they touch the tank; the shader multiplies only the ambient light and the reflections.
+- The knee slider is a plain grey with fine streaks in the shader (part 26, and part 5 for the one drawn by code): a coarse noise made it look like a ball of felt.
+
 ## How it is checked
 
 - `-pistamenutest -pistamenugarage` (menu tests): every painted material of a rig wears the shader, every part has the number the shader expects (by vertex tag for what is drawn by code, by `_Part` for the models), the
-  body mesh of a model carries its baked occlusion (at least one vertex in a hundred with a green channel under 235: a file that lost its colours on the way in would pass every other check), and the
+  body mesh of a model, and the torso of the rider, carry their baked occlusion (at least one vertex in a hundred with a green channel under 235: a file that lost its colours on the way in would pass every other check; the torso of the rider has 292 of its 4,502 vertices under it, read by making the threshold impossible once), and the
   picture of the showroom has no magenta pixel. `-pistabikeshots -pistabikes 0,2,3` takes the photographs of the bikes (`hotel_build/prove/pista/bici_N_{lato,davanti,dietro,motore,pilota}.png`): it is the way to
   see whether a piece is where it should be, because the checks only count.
 - `-pistariderlog` writes the nodes of the model (position, rotation, bounds in the frame of the body), the rest joints and the first pose in the log: what to read first when a limb is not where it should be.
