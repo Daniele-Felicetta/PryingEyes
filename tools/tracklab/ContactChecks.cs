@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using PryingEyes.Pista;
 
-/// <summary>Bikes touching (Race.Contacts and BikeModel.Shove): bikes cannot share a place, a nudge is not a fall, a bike that rides into the back of another falls (and both do in a head-on hit), momentum is kept, a bike
+/// <summary>Bikes touching (Race.Contacts and BikeModel.Shove): bikes cannot share a place, a nudge and a bump are not a fall, a bike that rides hard into the back of another falls (and both do in a head-on or a very hard hit), momentum is kept, a bike
 /// that is not simulated here is never moved, a rider who has just got up is left alone, computer riders alone ride exactly as before, and a person in a full race is touched a few times and finishes about as quickly.</summary>
 static partial class Program
 {
@@ -96,10 +96,21 @@ static partial class Program
                 "a touch at about 1.8 m/s, nobody down, under 0.6 m/s lost");
         }
 
-        // ---- riding into the back of another bike
+        // ---- a bump is not a fall: a bike catching another one at 7 m/s (25 km/h) touches it and both stay up
         {
             var s = ContactPair(0, 0);
             PlaceAt(s, s.a, -60f, 0f, 27f); PlaceAt(s, s.b, -57f, 0f, 20f);
+            for (int i = 0; i < 120 && s.touches == 0; i++) s.race.Step(RaceDt);
+            for (int i = 0; i < 90; i++) s.race.Step(RaceDt);
+            Check("CONTACT_A_BUMP_IS_NOT_A_FALL", s.touches >= 1 && s.closing > 5.5f && s.closing < 8.5f && !s.a.bike.crashed && !s.b.bike.crashed && s.a.bumps >= 1,
+                "a bike at 27 m/s catches one at 20 m/s: they meet at " + F(s.closing) + " m/s, touch " + s.touches + " time(s) and both are up a second and a half later (" + (!s.a.bike.crashed && !s.b.bike.crashed) + ")",
+                "closing about 7 m/s, nobody down");
+        }
+
+        // ---- riding hard into the back of another bike
+        {
+            var s = ContactPair(0, 0);
+            PlaceAt(s, s.a, -60f, 0f, 32f); PlaceAt(s, s.b, -57f, 0f, 20f);
             float pa = 0f, pb = 0f, ua = 0f, ub = 0f;
             for (int i = 0; i < 120 && s.touches == 0; i++)
             {
@@ -107,10 +118,20 @@ static partial class Program
                 s.race.Step(RaceDt);
             }
             float after = Momentum(s.a) + Momentum(s.b), was = pa + pb;
-            Check("CONTACT_THE_BIKE_THAT_RIDES_INTO_ANOTHER_FALLS", s.touches == 1 && s.closing > 5.5f && s.closing < 8.5f && s.a.bike.crashed && !s.b.bike.crashed && s.b.bike.u > ub + 2f && s.a.bike.u < ua - 2f && Math.Abs(after - was) < 0.03f * was,
-                "a bike at 27 m/s catches one at 20 m/s: they meet at " + F(s.closing) + " m/s, the one behind falls (" + s.a.bike.crashed + ") and the one ahead does not (" + !s.b.bike.crashed + "), it is pushed from " + F(ub, "F1") + " to " + F(s.b.bike.u, "F1")
+            Check("CONTACT_THE_BIKE_THAT_RIDES_HARD_INTO_ANOTHER_FALLS", s.touches == 1 && s.closing > 10.5f && s.closing < 14.5f && s.a.bike.crashed && !s.b.bike.crashed && s.b.bike.u > ub + 2f && s.a.bike.u < ua - 2f && Math.Abs(after - was) < 0.03f * was,
+                "a bike at 32 m/s catches one at 20 m/s: they meet at " + F(s.closing) + " m/s, the one behind falls (" + s.a.bike.crashed + ") and the one ahead does not (" + !s.b.bike.crashed + "), it is pushed from " + F(ub, "F1") + " to " + F(s.b.bike.u, "F1")
                 + " m/s and the other slowed from " + F(ua, "F1") + " to " + F(s.a.bike.u, "F1") + "; momentum " + F(was, "F0") + " -> " + F(after, "F0"),
-                "closing about 7 m/s, only the striker falls, speeds exchanged, momentum kept within 3%");
+                "closing about 12 m/s, only the striker falls, speeds exchanged, momentum kept within 3%");
+        }
+
+        // ---- a very hard hit from behind brings both down
+        {
+            var s = ContactPair(0, 0);
+            PlaceAt(s, s.a, -60f, 0f, 42f); PlaceAt(s, s.b, -57f, 0f, 22f);
+            for (int i = 0; i < 120 && s.touches == 0; i++) s.race.Step(RaceDt);
+            Check("CONTACT_A_VERY_HARD_HIT_BRINGS_BOTH_DOWN", s.touches == 1 && s.closing > 17f && s.a.bike.crashed && s.b.bike.crashed,
+                "a bike at 42 m/s catches one at 22 m/s: they meet at " + F(s.closing) + " m/s and both fall (" + s.a.bike.crashed + ", " + s.b.bike.crashed + ")",
+                "closing about 20 m/s, both down");
         }
 
         // ---- a head-on hit

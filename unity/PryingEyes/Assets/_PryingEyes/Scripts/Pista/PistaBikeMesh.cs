@@ -12,6 +12,12 @@ namespace PryingEyes.Pista
         /// <summary>The race number of the livery: the bike that wears it carries it on its plates.</summary>
         public int number;
         public Color main, accent, suit, suit2, helmet;
+        /// <summary>The finish of the rims, the spokes and the hubs of the bike (silver, black, gold, bronze or white: the role 'rim' of the model).</summary>
+        public Color rim;
+        /// <summary>How the livery is drawn (PistaPaint.shader): the pattern of the paint, of the suit and of the helmet, the share of metallic flake in the paint, and whether the paint is matt.</summary>
+        public int pattern, suitPattern, helmetPattern;
+        public float flake;
+        public bool matt;
 
         static Color C(int hex) { return new Color(((hex >> 16) & 255) / 255f, ((hex >> 8) & 255) / 255f, (hex & 255) / 255f); }
 
@@ -32,10 +38,26 @@ namespace PryingEyes.Pista
         };
 
         static readonly int[] numbers = { 46, 93, 7, 21, 99, 12, 69, 34, 27, 4, 88, 52 };
+        // how each livery is drawn: the bike (0 stripes, 1 split, 2 flash, 3 roundel, 4 caps, 5 plain), the suit and the helmet, and the metallic flake of the paint (the black one is matt)
+        static readonly int[] patterns = { 0, 1, 2, 3, 4, 5, 3, 0, 2, 4, 1, 5 };
+        static readonly int[] suitPatterns = { 1, 2, 0, 3, 2, 1, 3, 0, 2, 1, 3, 0 };
+        static readonly int[] helmetPatterns = { 0, 1, 3, 2, 1, 0, 2, 3, 0, 1, 2, 3 };
+        static readonly float[] flakes = { 0.20f, 0.55f, 0.35f, 0.30f, 0.50f, 0.15f, 0f, 0.65f, 0.60f, 0.85f, 0.45f, 0.35f };
+        // the finish of the rims: silver, gold (the blue, the violet and the bordeaux), black, bronze (the matt black bike) and white (the light blue one)
+        static readonly int[] rims = { 0xB9BBC0, 0xC8A02A, 0x17181A, 0x17181A, 0x17181A, 0x17181A, 0x8A6A3A, 0xE6E8EA, 0xC8A02A, 0x17181A, 0xC8A02A, 0x17181A };
 
         static Livery()
         {
-            for (int i = 0; i < all.Length; i++) all[i].number = numbers[i % numbers.Length];
+            for (int i = 0; i < all.Length; i++)
+            {
+                all[i].rim = C(rims[i % rims.Length]);
+                all[i].number = numbers[i % numbers.Length];
+                all[i].pattern = patterns[i % patterns.Length];
+                all[i].suitPattern = suitPatterns[i % suitPatterns.Length];
+                all[i].helmetPattern = helmetPatterns[i % helmetPatterns.Length];
+                all[i].flake = flakes[i % flakes.Length];
+                all[i].matt = i == 6;
+            }
         }
 
         public static int Count => all.Length;
@@ -45,7 +67,11 @@ namespace PryingEyes.Pista
         public static Livery WithRider(Livery bike, int outfit)
         {
             var o = For(outfit);
-            return new Livery { name = bike.name, number = bike.number, main = bike.main, accent = bike.accent, suit = o.suit, suit2 = o.suit2, helmet = o.helmet };
+            return new Livery
+            {
+                name = bike.name, number = bike.number, main = bike.main, accent = bike.accent, rim = bike.rim, suit = o.suit, suit2 = o.suit2, helmet = o.helmet,
+                pattern = bike.pattern, flake = bike.flake, matt = bike.matt, suitPattern = o.suitPattern, helmetPattern = o.helmetPattern,
+            };
         }
     }
 
@@ -100,6 +126,12 @@ namespace PryingEyes.Pista
         public readonly List<Renderer> riderParts = new List<Renderer>(), screenParts = new List<Renderer>();
         public float spinF, spinR;
         bool cockpit;
+        /// <summary>The rider of the Blender model (PistaRiderModel): its bones and rest joints. Null when the rider is the one drawn by code.</summary>
+        public PistaRiderRig riderRig;
+        /// <summary>The materials this rig made on top of the main ones (the roles of the model): destroyed with the bike.</summary>
+        public readonly List<Material> extraMats = new List<Material>();
+        /// <summary>How far the torso folds forward at full tuck, degrees (the rider of the model is a full-size man: less than the small rider drawn by code).</summary>
+        public float tuckPitch = 24f;
 
         /// <summary>The first-person view hides the rider's body and the windscreen (the camera is inside the helmet); the arms and the gloves stay.</summary>
         public void SetCockpit(bool on)
@@ -134,8 +166,9 @@ namespace PryingEyes.Pista
             float fwd = Mathf.Clamp(v.body, -1f, 1f);
             hips.localPosition = hipBase + new Vector3(hang * 0.13f, -v.tuck * 0.04f - Mathf.Max(0f, fwd) * 0.015f, fwd * 0.08f);
             hips.localRotation = Quaternion.Euler(0f, 0f, -hang * 10f);
-            torso.localRotation = Quaternion.Euler(v.tuck * 24f + fwd * 7f, hang * 6f, 0f);
+            torso.localRotation = Quaternion.Euler(v.tuck * tuckPitch + fwd * 7f, hang * 6f, 0f);
             head.localRotation = Quaternion.Euler(-v.tuck * 14f, hang * 14f, hang * 8f);
+            if (riderRig != null) { riderRig.Pose(this, v, hang); return; }
             legs[1].localRotation = Quaternion.Euler(0f, 0f, Mathf.Max(0f, hang) * 24f);
             legs[0].localRotation = Quaternion.Euler(0f, 0f, -Mathf.Max(0f, -hang) * 24f);
             for (int i = 0; i < 2; i++)
@@ -195,7 +228,7 @@ namespace PryingEyes.Pista
         {
             public Mesh plates, frame, engine, exhaust, paint, paint2, seat, screen, fork, bars, swing, tyreF, tyreR, rimF, rimR, disc, mirrors, lens, lensBody, nose, tail, forkLow, fender;
             public Mesh torso, torsoTrim, kneeTrim, helmet, visor, leg, boot, glove, upperUnit, foreUnit;
-            public Material mFrame, mMetal, mSteel, mTitan, mRubber, mSeat, mGlass, mGold, mGlove, mBoot, mVisor;
+            public Material mFrame, mMetal, mSteel, mTitan, mRubber, mSeat, mGlass, mSmoke, mGold, mGlove, mBoot, mVisor;
             public Matrix4x4 steerM;
             public Quaternion steerRot;
         }
@@ -293,6 +326,18 @@ namespace PryingEyes.Pista
         }
 
         static Mesh Join(string name, List<(Mesh mesh, Matrix4x4 at)> parts) => DesertLathe.Join(name, parts);
+
+        /// <summary>Tell PistaPaint.shader which part of the bike or of the rider a mesh is: the red channel of its vertex colour (0 the paint, 1 the accent paint, 2 the torso of the suit, 3 the hump and the
+        /// shoulders, 4 a leg, 5 a knee slider, 6 an upper arm, 7 a forearm, 8 the helmet, 9 a tyre). The green stays at 255: that is the channel of the occlusion baked in the models of Blender, and a mesh drawn by
+        /// code has none (a tagged mesh on a material that reads it, as the plate backs on the paint of a bike that wears a model, stays lit). The other materials ignore the vertex colour.</summary>
+        static Mesh Tag(Mesh m, byte part)
+        {
+            if (m == null) return null;
+            var c = new Color32[m.vertexCount];
+            for (int i = 0; i < c.Length; i++) c[i] = new Color32(part, 255, 255, 255);
+            m.colors32 = c;
+            return m;
+        }
 
         /// <summary>A quad carrying the picture of a number plate, added to the lists: it lies over the face of a part placed at 'at' with 'rot' (the face whose normal is 'face' in the part's own frame), 'lift'
         /// metres out of it so that it does not fight with the part, 'w' wide and 'h' high, the picture reading from left to right when seen from the front.</summary>
@@ -414,7 +459,7 @@ namespace PryingEyes.Pista
                 paint.Add(Turn(new[] { new Vector2(0f, -0.10f), new Vector2(0.085f, -0.10f), new Vector2(0.13f, -0.05f), new Vector2(0.145f, 0.02f), new Vector2(0.12f, 0.09f), new Vector2(0.05f, 0.12f), new Vector2(0f, 0.12f) }, 16,
                     At(new Vector3(0f, 0.97f, 0.58f), Quaternion.Euler(90f, 0f, 0f), new Vector3(1.05f, 1f, 1f))));
             }
-            k.paint = Join("vernice", paint);
+            k.paint = Tag(Join("vernice", paint), 0);
             var paint2 = new List<(Mesh mesh, Matrix4x4 at)>();
             if (fairing)
                 paint.Add((Loft("pancia", new[] { new Ring(0.56f, 0.05f, 0.23f, 0.37f, 3f), new Ring(0.40f, 0.13f * s, 0.21f, 0.42f, 3f), new Ring(0.15f, 0.185f * s, 0.21f, 0.44f, 3f), new Ring(-0.10f, 0.175f * s, 0.23f, 0.42f, 3f), new Ring(-0.26f, 0.11f, 0.26f, 0.40f, 3f), new Ring(-0.34f, 0.04f, 0.29f, 0.37f, 3f) }, 20), I));
@@ -434,7 +479,7 @@ namespace PryingEyes.Pista
             Vector3 rearAt = new Vector3(0f, 0.865f, -0.99f);
             paint2.Add((Cube(new Vector3(0.200f, 0.128f, 0.008f)), At(rearAt, Quaternion.identity)));
             PlateQuad(plV, plU, plT, rearAt, Quaternion.identity, Vector3.back, 0.190f, 0.119f, 0.0046f);
-            k.paint2 = Join("vernice2", paint2);
+            k.paint2 = Tag(Join("vernice2", paint2), 1);
             var plateMesh = new Mesh { name = "targhe" };
             plateMesh.SetVertices(plV); plateMesh.SetUVs(0, plU); plateMesh.SetTriangles(plT, 0);
             plateMesh.RecalculateNormals(); plateMesh.RecalculateBounds();
@@ -493,6 +538,7 @@ namespace PryingEyes.Pista
             }
             var fenderArc = Smooth(arc, 3);
             k.fender = Join("parafango", new List<(Mesh mesh, Matrix4x4 at)> { (DesertLathe.Tube("parafango", fenderArc, Fill(fenderArc.Length, 0.028f), 6), inv * At(AxleF, Quaternion.identity, new Vector3(2.3f, 1f, 1f))) });
+            Tag(k.fender, 1);
             k.fork = Join("forcella", fork); k.forkLow = Join("steli", forkLow); k.bars = Join("manubrio", bars);
             k.lens = Join("fari", new List<(Mesh mesh, Matrix4x4 at)>
             {
@@ -513,7 +559,7 @@ namespace PryingEyes.Pista
             k.swing = Join("forcellone", sw);
 
             // ---- wheels
-            k.tyreF = Tyre(0.125f, R); k.tyreR = Tyre(0.19f, R);
+            k.tyreF = Tag(Tyre(0.125f, R), 9); k.tyreR = Tag(Tyre(0.19f, R), 9);
             k.rimF = Rim(0.09f, R, true); k.rimR = Rim(0.13f, R, true);
             var disc = new List<(Mesh mesh, Matrix4x4 at)>
             {
@@ -522,18 +568,20 @@ namespace PryingEyes.Pista
             };
             k.disc = Join("dischi", disc);
 
-            // ---- the rider (leathers), everything in the frame of the hip joint (torso, head, legs)
-            BuildRider(k, inv);
+            // ---- the rider (leathers), everything in the frame of the hip joint (torso, head, legs); the model of Blender takes its place when it is there
+            if (!PistaRiderModel.Available) BuildRider(k, inv);
 
             // ---- shared materials
-            k.mFrame = PistaTex.Lit("Telaio", new Color(0.12f, 0.12f, 0.13f), 0.55f, 0.45f);
-            k.mMetal = PistaTex.Lit("Alluminio", new Color(0.46f, 0.47f, 0.49f), 0.55f, 0.6f);
-            k.mSteel = PistaTex.Lit("Acciaio", new Color(0.55f, 0.52f, 0.48f), 0.55f, 0.6f);
-            k.mTitan = PistaTex.Lit("Titanio", new Color(0.55f, 0.55f, 0.58f), 0.72f, 0.9f);
-            k.mRubber = PistaTex.Lit("Gomma", new Color(0.035f, 0.035f, 0.038f), 0.12f, 0f);
-            k.mSeat = PistaTex.Lit("Sella", new Color(0.06f, 0.06f, 0.065f), 0.18f, 0f);
+            // the plain parts are drawn by PistaPaint.shader (part 30) so that the occlusion baked in the model of Blender reaches them; see PistaTex.Plain and the _AO switch in Build
+            k.mFrame = PistaTex.Plain("Telaio", new Color(0.12f, 0.12f, 0.13f), 0.55f, 0.45f);
+            k.mMetal = PistaTex.Plain("Alluminio", new Color(0.46f, 0.47f, 0.49f), 0.55f, 0.6f);
+            k.mSteel = PistaTex.Plain("Acciaio", new Color(0.55f, 0.52f, 0.48f), 0.55f, 0.6f);
+            k.mTitan = PistaTex.Plain("Titanio", new Color(0.55f, 0.55f, 0.58f), 0.72f, 0.9f);
+            k.mRubber = PistaTex.Paint("Gomma", new Color(0.035f, 0.035f, 0.038f), new Color(0.62f, 0.62f, 0.64f), 0, 0f, 0f, 0.20f);
+            k.mSeat = PistaTex.Plain("Sella", new Color(0.06f, 0.06f, 0.065f), 0.18f, 0f);
             k.mGlass = PistaTex.Lit("Vetro", new Color(0.10f, 0.12f, 0.15f), 0.92f, 0.1f);
-            k.mGold = PistaTex.Lit("Oro", new Color(0.78f, 0.60f, 0.16f), 0.65f, 0.7f);
+            k.mSmoke = PistaTex.Smoke("Parabrezza", 0.45f);
+            k.mGold = PistaTex.Plain("Oro", new Color(0.78f, 0.60f, 0.16f), 0.65f, 0.7f);
             k.mGlove = PistaTex.Lit("Guanto", new Color(0.07f, 0.07f, 0.08f), 0.25f, 0f);
             k.mBoot = PistaTex.Lit("Stivale", new Color(0.06f, 0.06f, 0.065f), 0.30f, 0f);
             k.mVisor = PistaTex.Lit("Visiera", new Color(0.05f, 0.06f, 0.08f), 0.95f, 0.2f);
@@ -584,13 +632,13 @@ namespace PryingEyes.Pista
                     new Ring(0.455f, 0.03f, -0.03f, 0.03f, 2.0f),
                 }, 20), At(Vector3.zero, lean)),
             };
-            k.torso = Join("busto", torso);
+            k.torso = Tag(Join("busto", torso), 2);
             var trim = new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (Loft("gobba", new[] { new Ring(0.02f, 0.05f, 0.08f, 0.11f), new Ring(0.13f, 0.10f, 0.10f, 0.19f), new Ring(0.27f, 0.095f, 0.12f, 0.20f), new Ring(0.37f, 0.05f, 0.11f, 0.16f) }, 16), At(Vector3.zero, lean)),
             };
             foreach (float sd in new[] { -1f, 1f }) trim.Add(Ball(0.068f, lean * new Vector3(sd * 0.20f, 0.0f, 0.31f), Vector3.one, Quaternion.identity));
-            k.torsoTrim = Join("gobba e spalle", trim);
+            k.torsoTrim = Tag(Join("gobba e spalle", trim), 3);
 
             // helmet and visor (their own transform, the head turns into the corner): a shell that is longer than wide, a chin bar and a low spoiler
             k.helmet = Join("casco", new List<(Mesh mesh, Matrix4x4 at)>
@@ -602,6 +650,7 @@ namespace PryingEyes.Pista
                 }, 22), I),
                 (Loft("spoiler", new[] { new Ring(-0.11f, 0.03f, 0.125f, 0.138f), new Ring(-0.17f, 0.065f, 0.108f, 0.125f), new Ring(-0.205f, 0.05f, 0.09f, 0.108f) }, 12), I),
             });
+            Tag(k.helmet, 8);
             k.visor = Join("visiera", new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (Loft("visiera", new[] { new Ring(0.148f, 0.056f, -0.012f, 0.05f), new Ring(0.128f, 0.108f, -0.015f, 0.066f), new Ring(0.08f, 0.129f, -0.018f, 0.072f), new Ring(0.02f, 0.133f, -0.02f, 0.068f) }, 16), At(new Vector3(0f, 0.012f, 0f), Quaternion.identity)),
@@ -613,7 +662,8 @@ namespace PryingEyes.Pista
                 Limb(P(0.02f, 0f, 0f, 0.06f, -0.09f, 0.14f, 0.10f, -0.17f, 0.28f), new[] { 0.094f, 0.082f, 0.066f }, 14),
                 Limb(P(0.10f, -0.17f, 0.28f, 0.10f, -0.30f, 0.15f, 0.09f, -0.43f, 0.02f), new[] { 0.064f, 0.057f, 0.045f }, 12),
             });
-            k.kneeTrim = Join("ginocchio", new List<(Mesh mesh, Matrix4x4 at)> { Ball(0.064f, new Vector3(0.138f, -0.17f, 0.28f), new Vector3(0.65f, 0.95f, 1.05f), Quaternion.identity) });
+            Tag(k.leg, 4);
+            k.kneeTrim = Tag(Join("ginocchio", new List<(Mesh mesh, Matrix4x4 at)> { Ball(0.064f, new Vector3(0.138f, -0.17f, 0.28f), new Vector3(0.65f, 0.95f, 1.05f), Quaternion.identity) }), 5);
             k.boot = Join("stivale", new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (Loft("stivale", new[]
@@ -627,11 +677,14 @@ namespace PryingEyes.Pista
             {
                 (Loft("guanto", new[] { new Ring(-0.07f, 0.034f, -0.032f, 0.032f), new Ring(-0.035f, 0.052f, -0.042f, 0.042f), new Ring(0.015f, 0.058f, -0.048f, 0.048f), new Ring(0.06f, 0.048f, -0.042f, 0.036f), new Ring(0.082f, 0.022f, -0.024f, 0.022f) }, 12), At(Vector3.zero, Quaternion.identity)),
             });
-            k.upperUnit = Unit("braccio", 0.056f, 0.052f, 0.047f, 0.043f);
-            k.foreUnit = Unit("avambraccio", 0.046f, 0.042f, 0.037f, 0.032f);
+            k.upperUnit = Tag(Unit("braccio", 0.056f, 0.052f, 0.047f, 0.043f), 6);
+            k.foreUnit = Tag(Unit("avambraccio", 0.046f, 0.042f, 0.037f, 0.032f), 7);
         }
 
         static Material Copy(Material src, Color c) { var m = new Material(src); m.SetColor("_BaseColor", c); return m; }
+
+        /// <summary>How different two colours are: the sum of the differences of red, green and blue (0 the same, 3 black against white).</summary>
+        static float ColourGap(Color a, Color b) { return Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b); }
 
         static Transform Part(Transform parent, string name, Mesh mesh, Material mat, List<Renderer> track = null)
         {
@@ -650,60 +703,111 @@ namespace PryingEyes.Pista
         {
             var k = Ensure(style);
             var rig = new PistaBikeRig { root = parent };
-            rig.paint = PistaTex.Lit("Vernice", liv.main, 0.78f, 0.1f);
-            rig.paint2 = PistaTex.Lit("Vernice2", liv.accent, 0.72f, 0.1f);
+            // the paint, the suit and the helmet are drawn by PistaPaint.shader: a base layer with a clear coat over it, and the livery as a pattern of the accent colour (see the shader for the patterns)
+            float coat = liv.matt ? 0f : 1f;
+            rig.paint = PistaTex.Paint("Vernice", liv.main, liv.accent, liv.pattern, coat, liv.flake, liv.matt ? 0.30f : 0.50f);
+            rig.paint2 = PistaTex.Paint("Vernice2", liv.accent, liv.main, 5, coat, 0f, liv.matt ? 0.30f : 0.50f);
             rig.plateTex = PistaPlates.Picture(liv.number, liv.main);
             rig.plate = PistaTex.Lit("Targa", Color.white, 0.30f, 0f, rig.plateTex);
-            rig.suit = PistaTex.Lit("Tuta", liv.suit, 0.40f, 0f);
-            rig.suit2 = PistaTex.Lit("Tuta2", liv.suit2, 0.40f, 0f);
-            rig.helmet = PistaTex.Lit("Casco", liv.helmet, 0.85f, 0.05f);
+            rig.suit = PistaTex.Paint("Tuta", liv.suit, liv.suit2, liv.suitPattern, 0.45f, 0f, 0.34f);
+            rig.suit2 = PistaTex.Paint("Tuta2", liv.suit2, liv.suit, liv.suitPattern, 0.45f, 0f, 0.34f);
+            // the stripes of the helmet are in the second colour of the suit, or in the accent of the bike when the helmet already has the colour of the suit
+            rig.helmet = PistaTex.Paint("Casco", liv.helmet, ColourGap(liv.helmet, liv.suit2) > 0.45f ? liv.suit2 : liv.accent, liv.helmetPattern, 1f, 0.35f, 0.55f);
             rig.tailMat = PistaTex.Glow("Fanale", new Color(0.05f, 0.01f, 0.01f), new Color(1f, 0.05f, 0.03f) * 0.5f);
             rig.lensMat = PistaTex.Glow("Faro", new Color(0.12f, 0.12f, 0.12f), new Color(1f, 0.95f, 0.8f) * 0.8f);
 
+            // the bike of the model drawn in Blender, when the build has it (PistaBikeModel), takes the place of every part drawn by code except the plates and their backs
+            bool model = PistaBikeModel.Available(style);
+            // the model of Blender carries the light that reaches each vertex in the green of its colour (_AO = 1); the meshes drawn by code keep the green at 1 when they are tagged (Tag) but the ones that carry
+            // colours of their own (a builder's) must not darken anything, so the plain materials of the kit read it only when the bike wears the model
+            foreach (var plain in new[] { k.mFrame, k.mMetal, k.mSteel, k.mTitan, k.mRubber, k.mSeat, k.mGold }) plain.SetFloat("_AO", model ? 1f : 0f);
             rig.body = new GameObject("Corpo").transform;
             rig.body.SetParent(parent, false);
-            Part(rig.body, "Telaio", k.frame, k.mFrame);
-            Part(rig.body, "Motore", k.engine, k.mMetal);
-            Part(rig.body, "Scarico", k.exhaust, k.mTitan);
-            Part(rig.body, "Vernice", k.paint, rig.paint);
+            if (!model)
+            {
+                Part(rig.body, "Telaio", k.frame, k.mFrame);
+                Part(rig.body, "Motore", k.engine, k.mMetal);
+                Part(rig.body, "Scarico", k.exhaust, k.mTitan);
+                Part(rig.body, "Vernice", k.paint, rig.paint);
+            }
             Part(rig.body, "Vernice2", k.paint2, rig.paint2);
             Part(rig.body, "Targhe", k.plates, rig.plate);
-            Part(rig.body, "Sella", k.seat, k.mSeat);
-            rig.screenParts.Add(Part(rig.body, "Cupolino", k.screen, k.mGlass).GetComponent<Renderer>());
-            Part(rig.body, "Specchi", k.mirrors, k.mGlass);
-            if (style < 2) Part(rig.body, "Prese", k.nose, k.mFrame);
-            var tl = Part(rig.body, "Fanale", k.tail, rig.tailMat);
-            tl.localPosition = new Vector3(0f, 0.945f, -0.965f); tl.localRotation = Quaternion.Euler(-10f, 0f, 0f);
+            if (!model)
+            {
+                Part(rig.body, "Sella", k.seat, k.mSeat);
+                rig.screenParts.Add(Part(rig.body, "Cupolino", k.screen, k.mGlass).GetComponent<Renderer>());
+                Part(rig.body, "Specchi", k.mirrors, k.mGlass);
+                if (style < 2) Part(rig.body, "Prese", k.nose, k.mFrame);
+                var tl = Part(rig.body, "Fanale", k.tail, rig.tailMat);
+                tl.localPosition = new Vector3(0f, 0.945f, -0.965f); tl.localRotation = Quaternion.Euler(-10f, 0f, 0f);
+            }
             rig.swing = new GameObject("Forcellone").transform;
             rig.swing.SetParent(rig.body, false);
             rig.swing.localPosition = new Vector3(0f, 0.45f, -0.30f);
-            var swMesh = Part(rig.swing, "Forcellone", k.swing, k.mFrame);
-            swMesh.localPosition = new Vector3(0f, -0.45f, 0.30f);
+            if (!model)
+            {
+                var swMesh = Part(rig.swing, "Forcellone", k.swing, k.mFrame);
+                swMesh.localPosition = new Vector3(0f, -0.45f, 0.30f);
+            }
             rig.rearPivot = new GameObject("Ruota dietro").transform;
             rig.rearPivot.SetParent(rig.swing, false);
             rig.rearPivot.localPosition = AxleR - rig.swing.localPosition;
-            Part(rig.rearPivot, "Gomma", k.tyreR, k.mRubber);
-            Part(rig.rearPivot, "Cerchio", k.rimR, k.mMetal);
-            Part(rig.rearPivot, "Disco", k.disc, k.mSteel).localScale = new Vector3(1f, 0.8f, 0.8f);
+            if (!model)
+            {
+                Part(rig.rearPivot, "Gomma", k.tyreR, k.mRubber);
+                Part(rig.rearPivot, "Cerchio", k.rimR, k.mMetal);
+                Part(rig.rearPivot, "Disco", k.disc, k.mSteel).localScale = new Vector3(1f, 0.8f, 0.8f);
+            }
 
             rig.steer = new GameObject("Sterzo").transform;
             rig.steer.SetParent(rig.body, false);
             rig.steer.localPosition = Head;
             rig.steer.localRotation = rig.steerRest = k.steerRot;
-            Part(rig.steer, "Forcella", k.fork, k.mGold);
-            Part(rig.steer, "Steli", k.forkLow, k.mMetal);
-            Part(rig.steer, "Manubrio", k.bars, k.mFrame);
-            Part(rig.steer, "Parafango", k.fender, rig.paint2);
-            if (style < 2) Part(rig.body, "Fari", k.lensBody, rig.lensMat); else Part(rig.steer, "Fari", k.lens, rig.lensMat);
+            if (!model)
+            {
+                Part(rig.steer, "Forcella", k.fork, k.mGold);
+                Part(rig.steer, "Steli", k.forkLow, k.mMetal);
+                Part(rig.steer, "Manubrio", k.bars, k.mFrame);
+                Part(rig.steer, "Parafango", k.fender, rig.paint2);
+                if (style < 2) Part(rig.body, "Fari", k.lensBody, rig.lensMat); else Part(rig.steer, "Fari", k.lens, rig.lensMat);
+            }
             rig.frontPivot = new GameObject("Ruota davanti").transform;
             rig.frontPivot.SetParent(rig.steer, false);
             rig.frontBase = k.steerM.inverse.MultiplyPoint3x4(AxleF);
             rig.frontPivot.localPosition = rig.frontBase;
-            Part(rig.frontPivot, "Gomma", k.tyreF, k.mRubber);
-            Part(rig.frontPivot, "Cerchio", k.rimF, k.mMetal);
-            Part(rig.frontPivot, "Dischi", k.disc, k.mSteel);
+            if (!model)
+            {
+                Part(rig.frontPivot, "Gomma", k.tyreF, k.mRubber);
+                Part(rig.frontPivot, "Cerchio", k.rimF, k.mMetal);
+                Part(rig.frontPivot, "Dischi", k.disc, k.mSteel);
+            }
+            if (model)
+            {
+                // the rims, the spokes and the hubs wear the finish of the livery (this bike's own material, destroyed with it)
+                var rimMat = PistaTex.Plain("Cerchio", liv.rim, 0.42f, 0.85f);
+                rimMat.SetFloat("_AO", 1f);
+                rig.extraMats.Add(rimMat);
+                PistaBikeModel.TryAttach(rig, style, role =>
+                {
+                    switch (role)
+                    {
+                        case "rim": return rimMat;
+                        case "frame": return k.mFrame;
+                        case "metal": return k.mMetal;
+                        case "steel": return k.mSteel;
+                        case "titan": return k.mTitan;
+                        case "seat": return k.mSeat;
+                        case "glass": return k.mGlass;
+                        case "smoke": return k.mSmoke;
+                        case "gold": return k.mGold;
+                        case "tyre": return k.mRubber;
+                        default: return null;
+                    }
+                });
+            }
 
-            // ---- the rider
+            // ---- the rider: the model of Blender if the build has it, else the one drawn by code
+            if (PistaRiderModel.TryAttach(rig, style)) { rig.tuckPitch = 14f; return rig; }
             rig.hips = new GameObject("Bacino").transform;
             rig.hips.SetParent(rig.body, false);
             rig.hipBase = Hip;

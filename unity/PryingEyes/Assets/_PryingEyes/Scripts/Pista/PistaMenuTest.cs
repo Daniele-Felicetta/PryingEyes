@@ -337,6 +337,73 @@ namespace PryingEyes.Pista
                 && rig.suit.GetColor("_BaseColor") == rider.suit && rig.suit2.GetColor("_BaseColor") == rider.suit2 && rig.helmet.GetColor("_BaseColor") == rider.helmet && rig.paint.GetColor("_BaseColor") == paint;
         }
 
+        /// <summary>What is wrong with the paint of a rig, as a sentence (empty when nothing): every painted material wears the PistaPaint shader (and the machine supports it), and every part drawn with it has a mesh
+        /// tagged with the number the shader expects for that part (a wrong tag would draw a leg with the pattern of a helmet).</summary>
+        static string PaintProblems(PistaBikeRig rig)
+        {
+            if (rig == null) return "nessuna moto";
+            var bad = new System.Text.StringBuilder();
+            foreach (var m in new[] { rig.paint, rig.paint2, rig.suit, rig.suit2, rig.helmet })
+                if (m == null || m.shader == null || m.shader.name != "PryingEyes/PistaPaint" || !m.shader.isSupported)
+                    bad.Append(" materiale " + (m == null ? "mancante" : m.name + " con " + (m.shader != null ? m.shader.name : "-")));
+            var want = new System.Collections.Generic.Dictionary<string, int> { { "Vernice", 0 }, { "Vernice2", 1 }, { "Parafango", 1 }, { "Tuta", 2 }, { "Gobba e spalle", 3 }, { "Coscia e stinco", 4 }, { "Ginocchio", 5 }, { "Casco", 8 }, { "Gomma", 9 } };
+            int painted = 0;
+            foreach (var r in rig.root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;
+                // the rider drawn in Blender (PistaRiderModel) names its parts by material: PistaPaint's _Part (8 the helmet, 20-27 the suit and its pieces)
+                bool paintMat = false, byMaterial = false;
+                foreach (var pm in r.sharedMaterials)
+                {
+                    if (pm == null || pm.shader == null || pm.shader.name != "PryingEyes/PistaPaint") continue;
+                    paintMat = true;
+                    if (pm.HasProperty("_Part") && pm.GetFloat("_Part") >= 0f)
+                    {
+                        byMaterial = true;
+                        int part = Mathf.RoundToInt(pm.GetFloat("_Part"));
+                        if (part != 0 && part != 1 && part != 8 && part != 9 && part != 30 && part != 31 && (part < 20 || part > 27)) bad.Append(" " + r.name + " ha una parte " + part + " che la vernice non conosce");
+                    }
+                }
+                // the body of the bike drawn in Blender carries the light that reaches each vertex in its colour (the green channel): a file that lost it on the way in (no colours at all) would draw the bike without occlusion
+                if (r.name == "body" && r.GetComponent<MeshFilter>() != null && r.GetComponent<MeshFilter>().sharedMesh != null)
+                {
+                    var bodyMesh = r.GetComponent<MeshFilter>().sharedMesh;
+                    var bodyColours = bodyMesh.colors32;
+                    int shaded = 0;
+                    if (bodyColours != null && bodyColours.Length == bodyMesh.vertexCount) foreach (var bc in bodyColours) if (bc.g < 235) shaded++;
+                    if (shaded < bodyMesh.vertexCount / 100) bad.Append(" il corpo del modello non porta l'occlusione cotta (" + shaded + " vertici in ombra su " + bodyMesh.vertexCount + ")");
+                }
+                if (!paintMat) continue;
+                painted++;
+                if (byMaterial) continue;
+                var mat = r.sharedMaterial;
+                int expect;
+                if (r.name.StartsWith("Braccio")) expect = 6;
+                else if (r.name.StartsWith("Avambraccio")) expect = 7;
+                else if (!want.TryGetValue(r.name, out expect)) { bad.Append(" parte senza numero: " + r.name); continue; }
+                var mesh = r.GetComponent<MeshFilter>() != null ? r.GetComponent<MeshFilter>().sharedMesh : null;
+                var c = mesh != null ? mesh.colors32 : null;
+                if (c == null || c.Length == 0 || c.Length != mesh.vertexCount || c[0].r != expect || c[c.Length - 1].r != expect) bad.Append(" " + r.name + " non e' marcata " + expect);
+            }
+            if (painted < 16) bad.Append(" solo " + painted + " parti dipinte (ne servono 16: vernice, vernice2, parafango, tuta, gobba, due gambe, due ginocchia, due braccia, due avambracci, casco, due gomme)");
+            return bad.ToString();
+        }
+
+        /// <summary>How many pixels of a render texture are the magenta of the error shader (a shader that did not compile draws everything with it).</summary>
+        static int MagentaPixels(RenderTexture rt)
+        {
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var copy = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
+            copy.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+            copy.Apply();
+            RenderTexture.active = prev;
+            int n = 0;
+            foreach (var p in copy.GetPixels32()) if (p.r > 170 && p.b > 170 && p.g < 90) n++;
+            Destroy(copy);
+            return n;
+        }
+
         /// <summary>The garage from the setup: the showroom and the bars, the choice of bike, colours and rider, back to the setup, and the colours and the outfit worn in the race.</summary>
         IEnumerator GarageFlow()
         {
@@ -371,6 +438,19 @@ namespace PryingEyes.Pista
             string stats;
             float lit = LitShare(stage.Picture, shots ? "garage_vetrina_" + PistaMode.Bike : null, out stats);
             Check("la vetrina disegna la moto (non e' un riquadro vuoto)", lit > 0.03f && lit < 0.80f, "pixel accesi " + (lit * 100f).ToString("F1") + " %, " + stats);
+            string paintBad = PaintProblems(stage.Rig);
+            int pink = MagentaPixels(stage.Picture);
+            Check("la vernice, la tuta e il casco usano lo shader della vernice, ogni parte e' marcata col suo numero e la vetrina non ha pixel rosa (lo shader che non compila)", paintBad.Length == 0 && pink == 0,
+                (paintBad.Length == 0 ? "tutto a posto" : paintBad) + ", pixel rosa " + pink);
+            var seenPattern = new bool[6]; bool liveriesOk = true; int matts = 0;
+            for (int i = 0; i < Livery.Count; i++)
+            {
+                var l = Livery.For(i);
+                if (l.matt) matts++;
+                if (l.pattern < 0 || l.pattern > 5 || l.suitPattern < 0 || l.suitPattern > 4 || l.helmetPattern < 0 || l.helmetPattern > 3 || l.flake < 0f || l.flake > 1f) liveriesOk = false; else seenPattern[l.pattern] = true;
+            }
+            Check("le dodici livree hanno disegni validi, tutti e sei i disegni della moto si vedono almeno una volta e solo la nera e' opaca",
+                liveriesOk && Array.TrueForAll(seenPattern, x => x) && matts == 1 && Livery.For(6).matt, liveriesOk ? "disegni della moto " + string.Join("", Array.ConvertAll(seenPattern, x => x ? "1" : "0")) : "un disegno fuori misura");
             if (shots) yield return Shot("menu_8_garage");
 
             // the bike: the row steps, the showroom follows, the figures change

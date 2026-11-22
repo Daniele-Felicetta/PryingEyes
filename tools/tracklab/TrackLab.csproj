@@ -39,6 +39,7 @@
     <Compile Include="CupChecks.cs" />
     <Compile Include="KeyboardChecks.cs" />
     <Compile Include="ContactChecks.cs" />
+    <Compile Include="ForgiveChecks.cs" />
     <Compile Include="CareerChecks.cs" />
     <Compile Include="TuningChecks.cs" />
     <Compile Include="GuideChecks.cs" />

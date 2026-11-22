@@ -197,6 +197,49 @@ namespace PryingEyes.Pista
             return m;
         }
 
+        /// <summary>The paint of the bikes and the riders (PistaPaint.shader): a base colour and an accent, the pattern of the livery, the clear coat (0 matt .. 1 gloss), the share of metallic flake and the
+        /// smoothness of the base layer. The shader is a resource, so it is always in the build; if it were not, a plain Lit of the same colour takes its place.</summary>
+        public static Material Paint(string name, Color c, Color accent, int pattern, float coat, float flake, float smooth)
+        {
+            var sh = Shader.Find("PryingEyes/PistaPaint");
+            if (sh == null || !sh.isSupported) return Lit(name, c, smooth, 0.1f);
+            var m = new Material(sh) { name = "Pista_" + name };
+            m.SetColor("_BaseColor", c);
+            m.SetColor("_AccentColor", accent);
+            m.SetFloat("_Pattern", pattern);
+            m.SetFloat("_Coat", coat);
+            m.SetFloat("_Flake", flake);
+            m.SetFloat("_Smooth", smooth);
+            return m;
+        }
+
+        /// <summary>A plain part of a bike (the frame, the engine, the exhaust, the plastics, the seat): the colour, the smoothness and the metal of a flat Lit material, drawn by PistaPaint.shader as part 30 so that the
+        /// occlusion baked in the vertices of a model (_AO = 1, which the bike turns on only when it wears the model: the meshes drawn by code carry their part number there) darkens its ambient light and its reflections.
+        /// Without the shader the Lit material takes its place.</summary>
+        public static Material Plain(string name, Color c, float smooth, float metal = 0f)
+        {
+            var sh = Shader.Find("PryingEyes/PistaPaint");
+            if (sh == null || !sh.isSupported) return Lit(name, c, smooth, metal);
+            var m = new Material(sh) { name = "Pista_" + name };
+            m.SetColor("_BaseColor", c);
+            m.SetFloat("_Smooth", smooth);
+            m.SetFloat("_Metal", metal);
+            m.SetFloat("_Coat", 0f);
+            m.SetFloat("_Part", 30f);
+            return m;
+        }
+
+        /// <summary>The smoked glass of a windscreen (PistaGlass.shader): 'opacity' of the picture behind it is cut when seen square on, more at a grazing view. Without the shader (or on a machine that does not
+        /// support it) an opaque dark glass of the Lit shader.</summary>
+        public static Material Smoke(string name, float opacity)
+        {
+            var sh = Shader.Find("PryingEyes/PistaGlass");
+            if (sh == null || !sh.isSupported) return Lit(name, new Color(0.04f, 0.05f, 0.06f), 0.92f, 0.1f);
+            var m = new Material(sh) { name = "Pista_" + name };
+            m.SetFloat("_Opacity", opacity);
+            return m;
+        }
+
         public static Material Glow(string name, Color baseColor, Color emission, float smooth = 0.6f)
         {
             var m = Lit(name, baseColor, smooth);

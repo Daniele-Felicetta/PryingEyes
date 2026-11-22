@@ -123,6 +123,10 @@ namespace PryingEyes.Pista
         int hintF, hintR, hintC, hintB1, hintB2, hintB3;
         float axSm, fxF, fxR, fyFrontPrev, fyRearPrev, capSm = 9000f;
         float tuckT, frontLockT, slideT, slipPeak, shiftT, shiftBlipT;
+        /// <summary>Seconds left in which a hit by another bike is still shaking the bike (a sideways speed that the grip is about to take away is not a slide), and whether the rear slid on loose ground (coming back onto the
+        /// asphalt after that is not a highside).</summary>
+        float shoveT;
+        bool slideLoose;
         int pendingGear;
         float tcsFactor = 1f, absFactor = 1f;
         float freeRate, crashSpin, crashLeanTarget, simTime;
@@ -148,7 +152,7 @@ namespace PryingEyes.Pista
             latG = longG = rough = throttleOut = 0f;
             crashed = false; crashKind = CrashKind.None; crashTime = 0f; crashSpeed = 0f;
             axSm = fxF = fxR = fyFrontPrev = fyRearPrev = 0f; capSm = 9000f;
-            tuckT = frontLockT = slideT = slipPeak = 0f;
+            tuckT = frontLockT = slideT = slipPeak = 0f; shoveT = 0f; slideLoose = false;
             tcsFactor = absFactor = 1f;
             hintF = hintR = hintC = hintB1 = hintB2 = hintB3 = 0;
         }
@@ -169,6 +173,9 @@ namespace PryingEyes.Pista
                 inp.shift = 0;
             }
         }
+
+        /// <summary>Gravel and grass: the grounds where the grip is low and the rider is given time before the bike goes down.</summary>
+        static bool Loose(SurfaceKind k) { return k == SurfaceKind.Gravel || k == SurfaceKind.Grass; }
 
         static float Ellipse(float cap, float used)
         {
@@ -220,6 +227,10 @@ namespace PryingEyes.Pista
             float styleMu = 1f + (style == RiderStyle.LeanBody ? 0.025f : style == RiderStyle.LeanBike ? -0.04f : 0f) * leanEdge;
             float muF = sp.muFront * gF.grip * styleMu, muR = sp.muRear * gR.grip * styleMu;
             rough = PM.Max(gF.rough, gR.rough);
+            // loose ground (gravel, grass) is a place to lose time, not to fall: a rider who has gone wide is given time to stand the bike up (see 'falling off'). The lean assist gives it all, no assist most of it.
+            bool loose = Loose(gF.surface) || Loose(gR.surface);
+            float forgive = loose ? (leanAssist ? 1f : 0.8f) : 0f;
+            if (shoveT > 0f) shoveT -= h;
 
             float uu = PM.Max(u, 0f);
 
@@ -396,7 +407,8 @@ namespace PryingEyes.Pista
             float hangMaxEff = sp.hangMax * (style == RiderStyle.LeanBody ? 1.55f : style == RiderStyle.LeanBike ? 0.25f : 1f);
             float phiLimit = sp.frameLeanMax + PM.Abs(hang) * hangMaxEff;
             float phiGrip = PM.Atan(0.96f * capSm / (nTot + 1f));
-            float phiMax = leanAssist ? PM.Min(phiLimit, phiGrip) : phiLimit;
+            // on loose ground nobody can lean the bike further than the ground carries: the front pushes wide instead (with the assist this holds on every ground)
+            float phiMax = leanAssist || loose ? PM.Min(phiLimit, phiGrip) : phiLimit;
             float kappaMax = PM.Min(1f / sp.minTurnRadius, gEff * PM.Tan(phiMax) / uEff2);
             float kappaCmd = inp.useCurvature ? PM.Clamp(inp.curvature, -kappaMax, kappaMax) : PM.Clamp(inp.steer, -1f, 1f) * kappaMax;
             float phiCgCmd = PM.Atan(uEff2 * kappaCmd / gEff);
@@ -409,6 +421,8 @@ namespace PryingEyes.Pista
             // the body that goes over first makes the bike fall into the turn faster; the body that stays put makes it slow and steady
             float wn = PM.Lerp(sp.rollOmegaLow, sp.rollOmegaHigh, vk) * (style == RiderStyle.LeanBody ? 1.10f : style == RiderStyle.LeanBike ? 0.90f : 1f);
             float rateMax = PM.Lerp(sp.rollRateLow, sp.rollRateHigh, vk) * (style == RiderStyle.LeanBody ? 1.12f : style == RiderStyle.LeanBike ? 0.88f : 1f);
+            // the moment the front lets go on loose ground the bike stands up, much faster than a rider leans it into a corner: a front that pushes wide on gravel takes the lean out of the bike by itself, and the assist helps it
+            if (loose && frontSliding) rateMax *= leanAssist ? 3f : 2f;
             leanRate += (wn * wn * (phiCmd - lean) - 2f * 0.85f * wn * leanRate) * h;
             leanRate = PM.Clamp(leanRate, -rateMax, rateMax);
             lean += leanRate * h;
@@ -460,15 +474,23 @@ namespace PryingEyes.Pista
 
             // ---- falling off
             float beta = PM.Atan2(vl, PM.Max(uu, 1f));
-            if (slideRear) { slideT += h; slipPeak = PM.Max(slipPeak, PM.Abs(beta)); }
+            if (slideRear) { slideT += h; slipPeak = PM.Max(slipPeak, PM.Abs(beta)); if (loose) slideLoose = true; }
             else
             {
-                if (slideT > 0.12f && slipPeak > 0.16f && sat < 0.92f && PM.Abs(lean) > 0.18f && uu > 8f) { BeginCrash(CrashKind.Highside, h); return; }
+                // coming back onto the asphalt after a slide on the gravel or the grass is a wobble, not the highside of a slide that began on the road
+                if (slideT > 0.12f && slipPeak > 0.16f && sat < 0.92f && PM.Abs(lean) > 0.18f && uu > 8f)
+                {
+                    if (slideLoose) leanRate += (rng.Value() - 0.5f) * 1.2f;
+                    else { BeginCrash(CrashKind.Highside, h); return; }
+                }
                 slideT = PM.Max(0f, slideT - h * 2f); slipPeak *= PM.Exp(-h * 3f);
+                if (slideT <= 0f) slideLoose = false;
             }
-            if (slideFront) tuckT += (rhoF - 1f) * h * (0.9f + 4.5f * PM.Abs(lean)); else tuckT = PM.Max(0f, tuckT - 1.5f * h);
-            if (tuckT > 0.085f && uu > 5f) { BeginCrash(CrashKind.FrontTuck, h); return; }
-            if (PM.Abs(beta) > 0.32f && uu > 6f) { BeginCrash(CrashKind.Lowside, h); return; }
+            // the front pushing wide on loose ground tucks slowly (and the bike is already standing up): a good deal longer than on the road, longest with the assist
+            if (slideFront) tuckT += (rhoF - 1f) * h * (0.9f + 4.5f * PM.Abs(lean)) * (1f - 0.7f * forgive); else tuckT = PM.Max(0f, tuckT - 1.5f * h);
+            if (tuckT > 0.085f * (1f + 3f * forgive) && uu > 5f) { BeginCrash(CrashKind.FrontTuck, h); return; }
+            // a hit by another bike leaves a sideways speed that the tires are about to take away: it is not yet a slide
+            if (PM.Abs(beta) > 0.32f + 0.20f * forgive + (shoveT > 0f ? 0.22f : 0f) && uu > 6f) { BeginCrash(CrashKind.Lowside, h); return; }
             // a locked front wheel in a turn, or held for long, folds
             if (slipFront < -0.55f * 1f && uu > 6f)
             {
@@ -548,6 +570,7 @@ namespace PryingEyes.Pista
             if (u < 0f) u = 0f;
             heading += twist;
             leanRate += (rng.Value() - 0.5f) * wobble;
+            shoveT = 0.45f;
         }
 
         /// <summary>A hard hit by another bike: the rider is down, sliding on with the speed the hit left him.</summary>
