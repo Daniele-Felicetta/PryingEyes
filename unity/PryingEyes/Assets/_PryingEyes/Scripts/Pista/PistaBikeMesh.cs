@@ -12,6 +12,10 @@ namespace PryingEyes.Pista
         /// <summary>The race number of the livery: the bike that wears it carries it on its plates.</summary>
         public int number;
         public Color main, accent, suit, suit2, helmet;
+        /// <summary>How the livery is drawn (PistaPaint.shader): the pattern of the paint, of the suit and of the helmet, the share of metallic flake in the paint, and whether the paint is matt.</summary>
+        public int pattern, suitPattern, helmetPattern;
+        public float flake;
+        public bool matt;
 
         static Color C(int hex) { return new Color(((hex >> 16) & 255) / 255f, ((hex >> 8) & 255) / 255f, (hex & 255) / 255f); }
 
@@ -32,10 +36,23 @@ namespace PryingEyes.Pista
         };
 
         static readonly int[] numbers = { 46, 93, 7, 21, 99, 12, 69, 34, 27, 4, 88, 52 };
+        // how each livery is drawn: the bike (0 stripes, 1 split, 2 flash, 3 roundel, 4 caps, 5 plain), the suit and the helmet, and the metallic flake of the paint (the black one is matt)
+        static readonly int[] patterns = { 0, 1, 2, 3, 4, 5, 3, 0, 2, 4, 1, 5 };
+        static readonly int[] suitPatterns = { 1, 2, 0, 3, 2, 1, 3, 0, 2, 1, 3, 0 };
+        static readonly int[] helmetPatterns = { 0, 1, 3, 2, 1, 0, 2, 3, 0, 1, 2, 3 };
+        static readonly float[] flakes = { 0.20f, 0.55f, 0.35f, 0.30f, 0.50f, 0.15f, 0f, 0.65f, 0.60f, 0.85f, 0.45f, 0.35f };
 
         static Livery()
         {
-            for (int i = 0; i < all.Length; i++) all[i].number = numbers[i % numbers.Length];
+            for (int i = 0; i < all.Length; i++)
+            {
+                all[i].number = numbers[i % numbers.Length];
+                all[i].pattern = patterns[i % patterns.Length];
+                all[i].suitPattern = suitPatterns[i % suitPatterns.Length];
+                all[i].helmetPattern = helmetPatterns[i % helmetPatterns.Length];
+                all[i].flake = flakes[i % flakes.Length];
+                all[i].matt = i == 6;
+            }
         }
 
         public static int Count => all.Length;
@@ -45,7 +62,11 @@ namespace PryingEyes.Pista
         public static Livery WithRider(Livery bike, int outfit)
         {
             var o = For(outfit);
-            return new Livery { name = bike.name, number = bike.number, main = bike.main, accent = bike.accent, suit = o.suit, suit2 = o.suit2, helmet = o.helmet };
+            return new Livery
+            {
+                name = bike.name, number = bike.number, main = bike.main, accent = bike.accent, suit = o.suit, suit2 = o.suit2, helmet = o.helmet,
+                pattern = bike.pattern, flake = bike.flake, matt = bike.matt, suitPattern = o.suitPattern, helmetPattern = o.helmetPattern,
+            };
         }
     }
 
@@ -294,6 +315,17 @@ namespace PryingEyes.Pista
 
         static Mesh Join(string name, List<(Mesh mesh, Matrix4x4 at)> parts) => DesertLathe.Join(name, parts);
 
+        /// <summary>Tell PistaPaint.shader which part of the bike or of the rider a mesh is: the red channel of its vertex colour (0 the paint, 1 the accent paint, 2 the torso of the suit, 3 the hump and the
+        /// shoulders, 4 a leg, 5 a knee slider, 6 an upper arm, 7 a forearm, 8 the helmet, 9 a tyre). The other materials ignore the vertex colour.</summary>
+        static Mesh Tag(Mesh m, byte part)
+        {
+            if (m == null) return null;
+            var c = new Color32[m.vertexCount];
+            for (int i = 0; i < c.Length; i++) c[i] = new Color32(part, 0, 0, 255);
+            m.colors32 = c;
+            return m;
+        }
+
         /// <summary>A quad carrying the picture of a number plate, added to the lists: it lies over the face of a part placed at 'at' with 'rot' (the face whose normal is 'face' in the part's own frame), 'lift'
         /// metres out of it so that it does not fight with the part, 'w' wide and 'h' high, the picture reading from left to right when seen from the front.</summary>
         static void PlateQuad(List<Vector3> v, List<Vector2> uv, List<int> t, Vector3 at, Quaternion rot, Vector3 face, float w, float h, float lift)
@@ -414,7 +446,7 @@ namespace PryingEyes.Pista
                 paint.Add(Turn(new[] { new Vector2(0f, -0.10f), new Vector2(0.085f, -0.10f), new Vector2(0.13f, -0.05f), new Vector2(0.145f, 0.02f), new Vector2(0.12f, 0.09f), new Vector2(0.05f, 0.12f), new Vector2(0f, 0.12f) }, 16,
                     At(new Vector3(0f, 0.97f, 0.58f), Quaternion.Euler(90f, 0f, 0f), new Vector3(1.05f, 1f, 1f))));
             }
-            k.paint = Join("vernice", paint);
+            k.paint = Tag(Join("vernice", paint), 0);
             var paint2 = new List<(Mesh mesh, Matrix4x4 at)>();
             if (fairing)
                 paint.Add((Loft("pancia", new[] { new Ring(0.56f, 0.05f, 0.23f, 0.37f, 3f), new Ring(0.40f, 0.13f * s, 0.21f, 0.42f, 3f), new Ring(0.15f, 0.185f * s, 0.21f, 0.44f, 3f), new Ring(-0.10f, 0.175f * s, 0.23f, 0.42f, 3f), new Ring(-0.26f, 0.11f, 0.26f, 0.40f, 3f), new Ring(-0.34f, 0.04f, 0.29f, 0.37f, 3f) }, 20), I));
@@ -434,7 +466,7 @@ namespace PryingEyes.Pista
             Vector3 rearAt = new Vector3(0f, 0.865f, -0.99f);
             paint2.Add((Cube(new Vector3(0.200f, 0.128f, 0.008f)), At(rearAt, Quaternion.identity)));
             PlateQuad(plV, plU, plT, rearAt, Quaternion.identity, Vector3.back, 0.190f, 0.119f, 0.0046f);
-            k.paint2 = Join("vernice2", paint2);
+            k.paint2 = Tag(Join("vernice2", paint2), 1);
             var plateMesh = new Mesh { name = "targhe" };
             plateMesh.SetVertices(plV); plateMesh.SetUVs(0, plU); plateMesh.SetTriangles(plT, 0);
             plateMesh.RecalculateNormals(); plateMesh.RecalculateBounds();
@@ -493,6 +525,7 @@ namespace PryingEyes.Pista
             }
             var fenderArc = Smooth(arc, 3);
             k.fender = Join("parafango", new List<(Mesh mesh, Matrix4x4 at)> { (DesertLathe.Tube("parafango", fenderArc, Fill(fenderArc.Length, 0.028f), 6), inv * At(AxleF, Quaternion.identity, new Vector3(2.3f, 1f, 1f))) });
+            Tag(k.fender, 1);
             k.fork = Join("forcella", fork); k.forkLow = Join("steli", forkLow); k.bars = Join("manubrio", bars);
             k.lens = Join("fari", new List<(Mesh mesh, Matrix4x4 at)>
             {
@@ -513,7 +546,7 @@ namespace PryingEyes.Pista
             k.swing = Join("forcellone", sw);
 
             // ---- wheels
-            k.tyreF = Tyre(0.125f, R); k.tyreR = Tyre(0.19f, R);
+            k.tyreF = Tag(Tyre(0.125f, R), 9); k.tyreR = Tag(Tyre(0.19f, R), 9);
             k.rimF = Rim(0.09f, R, true); k.rimR = Rim(0.13f, R, true);
             var disc = new List<(Mesh mesh, Matrix4x4 at)>
             {
@@ -530,7 +563,7 @@ namespace PryingEyes.Pista
             k.mMetal = PistaTex.Lit("Alluminio", new Color(0.46f, 0.47f, 0.49f), 0.55f, 0.6f);
             k.mSteel = PistaTex.Lit("Acciaio", new Color(0.55f, 0.52f, 0.48f), 0.55f, 0.6f);
             k.mTitan = PistaTex.Lit("Titanio", new Color(0.55f, 0.55f, 0.58f), 0.72f, 0.9f);
-            k.mRubber = PistaTex.Lit("Gomma", new Color(0.035f, 0.035f, 0.038f), 0.12f, 0f);
+            k.mRubber = PistaTex.Paint("Gomma", new Color(0.035f, 0.035f, 0.038f), new Color(0.62f, 0.62f, 0.64f), 0, 0f, 0f, 0.20f);
             k.mSeat = PistaTex.Lit("Sella", new Color(0.06f, 0.06f, 0.065f), 0.18f, 0f);
             k.mGlass = PistaTex.Lit("Vetro", new Color(0.10f, 0.12f, 0.15f), 0.92f, 0.1f);
             k.mGold = PistaTex.Lit("Oro", new Color(0.78f, 0.60f, 0.16f), 0.65f, 0.7f);
@@ -584,13 +617,13 @@ namespace PryingEyes.Pista
                     new Ring(0.455f, 0.03f, -0.03f, 0.03f, 2.0f),
                 }, 20), At(Vector3.zero, lean)),
             };
-            k.torso = Join("busto", torso);
+            k.torso = Tag(Join("busto", torso), 2);
             var trim = new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (Loft("gobba", new[] { new Ring(0.02f, 0.05f, 0.08f, 0.11f), new Ring(0.13f, 0.10f, 0.10f, 0.19f), new Ring(0.27f, 0.095f, 0.12f, 0.20f), new Ring(0.37f, 0.05f, 0.11f, 0.16f) }, 16), At(Vector3.zero, lean)),
             };
             foreach (float sd in new[] { -1f, 1f }) trim.Add(Ball(0.068f, lean * new Vector3(sd * 0.20f, 0.0f, 0.31f), Vector3.one, Quaternion.identity));
-            k.torsoTrim = Join("gobba e spalle", trim);
+            k.torsoTrim = Tag(Join("gobba e spalle", trim), 3);
 
             // helmet and visor (their own transform, the head turns into the corner): a shell that is longer than wide, a chin bar and a low spoiler
             k.helmet = Join("casco", new List<(Mesh mesh, Matrix4x4 at)>
@@ -602,6 +635,7 @@ namespace PryingEyes.Pista
                 }, 22), I),
                 (Loft("spoiler", new[] { new Ring(-0.11f, 0.03f, 0.125f, 0.138f), new Ring(-0.17f, 0.065f, 0.108f, 0.125f), new Ring(-0.205f, 0.05f, 0.09f, 0.108f) }, 12), I),
             });
+            Tag(k.helmet, 8);
             k.visor = Join("visiera", new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (Loft("visiera", new[] { new Ring(0.148f, 0.056f, -0.012f, 0.05f), new Ring(0.128f, 0.108f, -0.015f, 0.066f), new Ring(0.08f, 0.129f, -0.018f, 0.072f), new Ring(0.02f, 0.133f, -0.02f, 0.068f) }, 16), At(new Vector3(0f, 0.012f, 0f), Quaternion.identity)),
@@ -613,7 +647,8 @@ namespace PryingEyes.Pista
                 Limb(P(0.02f, 0f, 0f, 0.06f, -0.09f, 0.14f, 0.10f, -0.17f, 0.28f), new[] { 0.094f, 0.082f, 0.066f }, 14),
                 Limb(P(0.10f, -0.17f, 0.28f, 0.10f, -0.30f, 0.15f, 0.09f, -0.43f, 0.02f), new[] { 0.064f, 0.057f, 0.045f }, 12),
             });
-            k.kneeTrim = Join("ginocchio", new List<(Mesh mesh, Matrix4x4 at)> { Ball(0.064f, new Vector3(0.138f, -0.17f, 0.28f), new Vector3(0.65f, 0.95f, 1.05f), Quaternion.identity) });
+            Tag(k.leg, 4);
+            k.kneeTrim = Tag(Join("ginocchio", new List<(Mesh mesh, Matrix4x4 at)> { Ball(0.064f, new Vector3(0.138f, -0.17f, 0.28f), new Vector3(0.65f, 0.95f, 1.05f), Quaternion.identity) }), 5);
             k.boot = Join("stivale", new List<(Mesh mesh, Matrix4x4 at)>
             {
                 (Loft("stivale", new[]
@@ -627,11 +662,14 @@ namespace PryingEyes.Pista
             {
                 (Loft("guanto", new[] { new Ring(-0.07f, 0.034f, -0.032f, 0.032f), new Ring(-0.035f, 0.052f, -0.042f, 0.042f), new Ring(0.015f, 0.058f, -0.048f, 0.048f), new Ring(0.06f, 0.048f, -0.042f, 0.036f), new Ring(0.082f, 0.022f, -0.024f, 0.022f) }, 12), At(Vector3.zero, Quaternion.identity)),
             });
-            k.upperUnit = Unit("braccio", 0.056f, 0.052f, 0.047f, 0.043f);
-            k.foreUnit = Unit("avambraccio", 0.046f, 0.042f, 0.037f, 0.032f);
+            k.upperUnit = Tag(Unit("braccio", 0.056f, 0.052f, 0.047f, 0.043f), 6);
+            k.foreUnit = Tag(Unit("avambraccio", 0.046f, 0.042f, 0.037f, 0.032f), 7);
         }
 
         static Material Copy(Material src, Color c) { var m = new Material(src); m.SetColor("_BaseColor", c); return m; }
+
+        /// <summary>How different two colours are: the sum of the differences of red, green and blue (0 the same, 3 black against white).</summary>
+        static float ColourGap(Color a, Color b) { return Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b); }
 
         static Transform Part(Transform parent, string name, Mesh mesh, Material mat, List<Renderer> track = null)
         {
@@ -650,13 +688,16 @@ namespace PryingEyes.Pista
         {
             var k = Ensure(style);
             var rig = new PistaBikeRig { root = parent };
-            rig.paint = PistaTex.Lit("Vernice", liv.main, 0.78f, 0.1f);
-            rig.paint2 = PistaTex.Lit("Vernice2", liv.accent, 0.72f, 0.1f);
+            // the paint, the suit and the helmet are drawn by PistaPaint.shader: a base layer with a clear coat over it, and the livery as a pattern of the accent colour (see the shader for the patterns)
+            float coat = liv.matt ? 0f : 1f;
+            rig.paint = PistaTex.Paint("Vernice", liv.main, liv.accent, liv.pattern, coat, liv.flake, liv.matt ? 0.30f : 0.50f);
+            rig.paint2 = PistaTex.Paint("Vernice2", liv.accent, liv.main, 5, coat, 0f, liv.matt ? 0.30f : 0.50f);
             rig.plateTex = PistaPlates.Picture(liv.number, liv.main);
             rig.plate = PistaTex.Lit("Targa", Color.white, 0.30f, 0f, rig.plateTex);
-            rig.suit = PistaTex.Lit("Tuta", liv.suit, 0.40f, 0f);
-            rig.suit2 = PistaTex.Lit("Tuta2", liv.suit2, 0.40f, 0f);
-            rig.helmet = PistaTex.Lit("Casco", liv.helmet, 0.85f, 0.05f);
+            rig.suit = PistaTex.Paint("Tuta", liv.suit, liv.suit2, liv.suitPattern, 0.45f, 0f, 0.34f);
+            rig.suit2 = PistaTex.Paint("Tuta2", liv.suit2, liv.suit, liv.suitPattern, 0.45f, 0f, 0.34f);
+            // the stripes of the helmet are in the second colour of the suit, or in the accent of the bike when the helmet already has the colour of the suit
+            rig.helmet = PistaTex.Paint("Casco", liv.helmet, ColourGap(liv.helmet, liv.suit2) > 0.45f ? liv.suit2 : liv.accent, liv.helmetPattern, 1f, 0.35f, 0.55f);
             rig.tailMat = PistaTex.Glow("Fanale", new Color(0.05f, 0.01f, 0.01f), new Color(1f, 0.05f, 0.03f) * 0.5f);
             rig.lensMat = PistaTex.Glow("Faro", new Color(0.12f, 0.12f, 0.12f), new Color(1f, 0.95f, 0.8f) * 0.8f);
 

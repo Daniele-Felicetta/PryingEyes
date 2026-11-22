@@ -197,6 +197,22 @@ namespace PryingEyes.Pista
             return m;
         }
 
+        /// <summary>The paint of the bikes and the riders (PistaPaint.shader): a base colour and an accent, the pattern of the livery, the clear coat (0 matt .. 1 gloss), the share of metallic flake and the
+        /// smoothness of the base layer. The shader is a resource, so it is always in the build; if it were not, a plain Lit of the same colour takes its place.</summary>
+        public static Material Paint(string name, Color c, Color accent, int pattern, float coat, float flake, float smooth)
+        {
+            var sh = Shader.Find("PryingEyes/PistaPaint");
+            if (sh == null || !sh.isSupported) return Lit(name, c, smooth, 0.1f);
+            var m = new Material(sh) { name = "Pista_" + name };
+            m.SetColor("_BaseColor", c);
+            m.SetColor("_AccentColor", accent);
+            m.SetFloat("_Pattern", pattern);
+            m.SetFloat("_Coat", coat);
+            m.SetFloat("_Flake", flake);
+            m.SetFloat("_Smooth", smooth);
+            return m;
+        }
+
         public static Material Glow(string name, Color baseColor, Color emission, float smooth = 0.6f)
         {
             var m = Lit(name, baseColor, smooth);
