@@ -150,7 +150,7 @@ namespace PryingEyes
                 () => GameSettings.ThirdPerson, GameSettings.SetThirdPerson, "Prima persona", "Terza persona");
             AddChoice(p, "Mirino", "Il segno al centro dello schermo.",
                 () => CrosshairNames[GameSettings.Crosshair], d => GameSettings.SetCrosshair(Wrap(GameSettings.Crosshair + d, CrosshairNames.Length)));
-            sMotion = AddSlider(p, "Oscillazione visuale", "Il dondolio dell'immagine quando cammini e il movimento del menu. A zero tutto resta fermo.",
+            sMotion = AddSlider(p, "Oscillazione visuale", "Il dondolio dell'immagine quando cammini, il movimento del menu e, su pista, la sfocatura di movimento e il tremito della camera. A zero tutto resta fermo.",
                 GameSettings.Motion, 0f, 1f, GameSettings.SetMotion, Pct, out vMotion);
             // 0.7.2: il pannello dei compagni (cooperativa e schermo condiviso) si ingrandisce o si rimpicciolisce; si vede subito
             sCoopHud = AddSlider(p, "HUD dei compagni", "La dimensione del pannello dei compagni, in cooperativa e nello schermo condiviso.",

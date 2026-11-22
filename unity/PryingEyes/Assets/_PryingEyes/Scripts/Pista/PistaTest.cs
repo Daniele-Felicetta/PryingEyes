@@ -218,6 +218,7 @@ namespace PryingEyes.Pista
             float gx, gz, gy, gh;
             c.GridSlot(d.me.slot, out gx, out gz, out gy, out gh);
             Check("la griglia: la moto del giocatore sta sull'asfalto, alla quota giusta", Mathf.Abs(d.world.GroundY(gx, gz) - gy) < 0.08f && Mathf.Abs(d.me.bike.y - gy) < 0.08f, $"suolo {d.world.GroundY(gx, gz):F2}, moto {d.me.bike.y:F2}");
+            Check("sulla griglia gli effetti di velocita' ci sono ma spenti: la moto e' ferma", d.cam.Fx != null && d.cam.Fx.Alive && d.cam.Fx.Level < 0.001f && !d.cam.Fx.BlurActive, d.cam.Fx == null ? "nessun volume" : $"livello {d.cam.Fx.Level:F3}");
             Check("tutti sono in griglia, fermi, e la gara non e' partita", d.race.phase == RacePhase.Grid && d.race.racers.TrueForAll(r => r.speed < 0.1f && Mathf.Abs(r.lateral) < c.HalfWidth(r.s)), $"fase {d.race.phase}");
             int bikesInScene = BikesInScene();
             Check("nella scena ci sono tante moto quanti piloti", bikesInScene == d.race.racers.Count, bikesInScene + " moto");
@@ -267,11 +268,19 @@ namespace PryingEyes.Pista
             float maxSpeed = 0f, maxDraft = 0f, t1 = Time.realtimeSinceStartup;
             bool shotsRace = false, shotRedNear = false, shotRedUnder = false, shotYellow = false;
             int cueFrame = 0, cueA = 0, cueB = 0, cueFirstA = -1, cueFirstB = -1, cueMismatch = 0, cueWrong = 0;          // the braking sign, at every frame of the race
+            int fxFast = 0, fxOn = 0, fxSlowOn = 0; float fxBlurMax = 0f, fxFringeMax = 0f;                                   // the effects of speed: on when the bike is fast, off when it is slow
             while (d.race.phase == RacePhase.Racing && Time.realtimeSinceStartup - t1 < 360f)
             {
                 maxSpeed = Mathf.Max(maxSpeed, d.me.speed);
+                var fxn = d.cam.Fx;
+                if (fxn != null && fxn.Alive && !d.cam.InIntro)
+                {
+                    if (d.me.speed > 50f && fxn.Level > 0.2f) { fxFast++; if (fxn.BlurActive && fxn.BlurNow > 0.02f && fxn.FringeNow > 0.01f) fxOn++; }
+                    if (d.me.speed < 15f && fxn.BlurActive && fxn.Level > 0.05f) fxSlowOn++;
+                    fxBlurMax = Mathf.Max(fxBlurMax, fxn.BlurNow); fxFringeMax = Mathf.Max(fxFringeMax, fxn.FringeNow);
+                }
                 for (int i = 0; i < d.race.racers.Count; i++) maxDraft = Mathf.Max(maxDraft, d.race.racers[i].draft);
-                if (shots && !shotsRace && d.me.speed > 45f) { shotsRace = true; Time.timeScale = 1f; yield return Shot("5_gara_inseguimento"); d.cam.mode = CamMode.Far; yield return null; yield return Shot("6_gara_lontana"); d.cam.mode = CamMode.Cockpit; yield return null; yield return Shot("7_gara_casco"); d.cam.mode = CamMode.Chase; Time.timeScale = 4f; }
+                if (shots && !shotsRace && d.me.speed > 45f) { shotsRace = true; yield return RaceShots(d); }
                 var gdShots = d.guide;
                 if (shots && gdShots != null && shotsRace && d.me.speed > 25f)
                 {
@@ -299,6 +308,8 @@ namespace PryingEyes.Pista
             else Check("durante la gara l'indicatore di frenata conta alla rovescia verso il rosso della linea e a ogni fotogramma dice quello che dice la linea",
                 cueMismatch == 0 && cueWrong == 0 && cueA > 500 && cueFirstA > 0 && (cueFirstB < 0 || cueFirstA < cueFirstB),
                 $"{cueFrame} fotogrammi: {cueA} con il conto alla rovescia, {cueB} con 'frena'; {cueMismatch} volte diverso dalla linea, {cueWrong} incoerente; il conto alla rovescia {(cueFirstB < 0 ? "non e' mai finito in 'frena'" : cueFirstA < cueFirstB ? "viene prima di 'frena'" : "NON viene prima di 'frena'")}");
+            Check("a velocita' la camera ha la sfocatura di movimento e la frangia di colore, a bassa velocita' no (se la regolazione del giocatore non e' quasi a zero)", (GameSettings.Motion < 0.3f || (fxFast > 100 && fxOn >= fxFast * 9 / 10)) && fxSlowOn == 0 && fxBlurMax <= PistaFx.BlurCap + 0.001f && fxFringeMax <= PistaFx.FringeMax + 0.001f,
+                $"{fxFast} fotogrammi veloci con gli effetti accesi in {fxOn}, {fxSlowOn} fotogrammi lenti con gli effetti accesi, massimo sfocatura {fxBlurMax:F2} e frangia {fxFringeMax:F2}");
             Check("la moto arriva oltre i 200 km/h sul rettilineo", maxSpeed * 3.6f > 200f, $"massima {maxSpeed * 3.6f:F0} km/h");
             Check("la gara finisce da sola", d.race.phase == RacePhase.Over && d.me.finished, $"fase {d.race.phase}, arrivato {d.me.finished}");
             Check("in gara si forma la scia (qualcuno e' stato riparato dal vento)", d.race.racers.Count < 4 || maxDraft > 0.3f, $"scia massima {maxDraft:F2} con {d.race.racers.Count} piloti");
@@ -1098,7 +1109,75 @@ namespace PryingEyes.Pista
             return g == null ? "nessuna linea" : "a " + d.me.s.ToString("F0") + " m, " + (d.me.speed * 3.6f).ToString("F0") + " km/h, sotto la moto " + g.here + ", primo rosso " + (g.redAhead < 0f ? "-" : "a " + g.redAhead.ToString("F0") + " m") + ": " + g.Describe() + " | segno '" + d.hud.CueTitleText + "' '" + d.hud.CueSubText + "'";
         }
 
-        IEnumerator Shot(string name)
+        /// <summary>The photographs at speed, as the player sees them: real time, 60 pictures a second (the blur of a frame is the distance the picture moves in it, so the photographs are taken at the rate
+        /// of a screen and not at the one this machine could make), a dozen frames after every change of view so that no cut is in the picture, and the same view without the effects of speed, with
+        /// half of them and with all of them (those three without the HUD: the HUD is drawn into the photograph through the camera and would be blurred, in the game it is not).</summary>
+        IEnumerator RaceShots(PistaDirector d)
+        {
+            int tf = Application.targetFrameRate, vs = QualitySettings.vSyncCount;
+            Time.timeScale = 1f; QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60;
+            for (int i = 0; i < 12; i++) { CamDelta(Dir); if (i == 8) yield return Warm(d); else yield return null; }          // the first drawing into a texture after seconds of drawing only to the screen shows a blur of its own (heavier than the game's: the same frame drawn twice is the same, the next drawings are right): one throwaway drawing first
+            FxNote(d, "5_gara_inseguimento");
+            yield return Shot("5_gara_inseguimento");
+            var fx = d.cam.Fx;
+            if (fx != null)
+            {
+                float[] shares = { 0f, 0.5f, 1f };
+                string[] names = { "5a_effetti_spenti", "5b_effetti_meta", "5c_effetti_pieni" };
+                for (int k = 0; k < shares.Length; k++)
+                {
+                    fx.Force(shares[k]);
+                    for (int i = 0; i < 4; i++) { CamDelta(Dir); yield return null; }
+                    FxNote(d, names[k]);
+                    yield return Shot(names[k], false);
+                }
+                fx.Force(-1f);
+            }
+            d.cam.mode = CamMode.Far;
+            for (int i = 0; i < 12; i++) { CamDelta(Dir); yield return null; }
+            FxNote(d, "6_gara_lontana");
+            yield return Shot("6_gara_lontana");
+            d.cam.mode = CamMode.Cockpit;
+            for (int i = 0; i < 12; i++) { CamDelta(Dir); yield return null; }
+            FxNote(d, "7_gara_casco");
+            yield return Shot("7_gara_casco");
+            d.cam.mode = CamMode.Chase;
+            Application.targetFrameRate = tf; QualitySettings.vSyncCount = vs;
+            Time.timeScale = 4f;
+        }
+
+        /// <summary>One throwaway drawing of the race camera into a texture at the end of a frame (the first drawing after a long time of the camera drawing only to the screen showed a worse blur than every later one).</summary>
+        IEnumerator Warm(PistaDirector d)
+        {
+            yield return new WaitForEndOfFrame();
+            var cam = d.cam.cam;
+            var rt = RenderTexture.GetTemporary(1600, 900, 24);
+            var prev = cam.targetTexture;
+            cam.targetTexture = rt;
+            cam.Render();
+            cam.targetTexture = prev;
+            RenderTexture.ReleaseTemporary(rt);
+        }
+
+        /// <summary>What the effects of speed were doing when a photograph was taken, for the log: the speed, the share of full speed, the intensity of the blur and the game time of the frame it was measured against.</summary>
+        static Vector3 lastCamPos; static Quaternion lastCamRot = Quaternion.identity;
+
+        /// <summary>How far the camera moved and turned since the last time this was asked (once a frame while waiting for a photograph), for the log.</summary>
+        static string CamDelta(PistaDirector d)
+        {
+            var t = d.cam.cam.transform;
+            string s = "camera: " + Vector3.Distance(t.position, lastCamPos).ToString("F3") + " m e " + Quaternion.Angle(t.rotation, lastCamRot).ToString("F2") + " gradi dall'ultimo fotogramma, campo visivo " + d.cam.cam.fieldOfView.ToString("F1");
+            lastCamPos = t.position; lastCamRot = t.rotation;
+            return s;
+        }
+
+        static void FxNote(PistaDirector d, string what)
+        {
+            var f = d.cam.Fx;
+            Debug.Log("[PryingEyes] pistatest effetti alla foto " + what + ": " + (d.me.speed * 3.6f).ToString("F0") + " km/h, " + (f == null ? "nessun volume" : "livello " + f.Level.ToString("F2") + ", sfocatura " + f.BlurNow.ToString("F3") + ", fotogramma " + (f.FrameTime * 1000f).ToString("F1") + " ms (reale " + (Time.unscaledDeltaTime * 1000f).ToString("F1") + " ms), scala del tempo " + Time.timeScale.ToString("F1") + ", " + CamDelta(d)));
+        }
+
+        IEnumerator Shot(string name, bool withHud = true)
         {
             yield return new WaitForEndOfFrame();
             try
@@ -1113,14 +1192,20 @@ namespace PryingEyes.Pista
                 cam.targetTexture = rt;
                 var canvas = d.hud.CanvasRef;
                 var prevMode = canvas.renderMode;
-                canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = cam; canvas.planeDistance = 0.2f;
-                var rcanvas = d.ReplayCanvas;
+                var rcanvas = withHud ? d.ReplayCanvas : null;
                 RenderMode rprev = RenderMode.ScreenSpaceOverlay;
-                if (rcanvas != null) { rprev = rcanvas.renderMode; rcanvas.renderMode = RenderMode.ScreenSpaceCamera; rcanvas.worldCamera = cam; rcanvas.planeDistance = 0.25f; }
-                Canvas.ForceUpdateCanvases();
+                if (withHud)
+                {
+                    canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = cam; canvas.planeDistance = 0.2f;
+                    if (rcanvas != null) { rprev = rcanvas.renderMode; rcanvas.renderMode = RenderMode.ScreenSpaceCamera; rcanvas.worldCamera = cam; rcanvas.planeDistance = 0.25f; }
+                    Canvas.ForceUpdateCanvases();
+                }
                 cam.Render();
-                if (rcanvas != null) { rcanvas.renderMode = rprev; rcanvas.worldCamera = null; }
-                canvas.renderMode = prevMode; canvas.worldCamera = null;
+                if (withHud)
+                {
+                    if (rcanvas != null) { rcanvas.renderMode = rprev; rcanvas.worldCamera = null; }
+                    canvas.renderMode = prevMode; canvas.worldCamera = null;
+                }
                 cam.targetTexture = prev;
                 var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
                 var old = RenderTexture.active;

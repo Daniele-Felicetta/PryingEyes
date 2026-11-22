@@ -376,7 +376,10 @@ namespace PryingEyes.Deserto
         bool FindGradeVolume()
         {
             if (gradeVol != null && gradeCa != null && gradeSt != null) return true;
-            gradeVol = FindFirstObjectByType<Volume>();
+            gradeVol = null;
+            foreach (var cand in FindObjectsByType<Volume>(FindObjectsSortMode.None))                 // another mode may add a volume of its own (the track mode's effects): the grade is in the one with the colour adjustments
+                if (cand.sharedProfile != null && cand.sharedProfile.Has<ColorAdjustments>()) { gradeVol = cand; break; }
+            if (gradeVol == null) gradeVol = FindFirstObjectByType<Volume>();
             gradeCa = null; gradeSt = null; gradeBl = null; gradeTm = null;
             if (gradeVol == null || gradeVol.profile == null) return false;
             gradeVol.profile.TryGet(out gradeBl);
