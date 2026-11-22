@@ -54,7 +54,7 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
   3. In `test_studio_pryingeyes.py` cover the new suite as the others are covered (the command it issues; a missing or failed report fails it).
   4. In `gate.yml` add `desertlab` to the labs that are compiled, a step that runs `python tools/studio.py test desert` with its own
      `STUDIO_OUTPUT`, and the lab to the summary.
-  5. Correct the pages and rule 8: five labs, by name.
+  5. Correct the pages and rule 8: six labs, by name (the brief said five; `track` joined the gate after it was written).
 - **Done when**
   - `python tools/studio.py test desert` exits 0 and its `report.json` holds one passed finding per check (107 at the audit; state the number).
   - Negative control: with one check broken on purpose in a local copy, the suite exits 1 and the report names that check. Revert it.

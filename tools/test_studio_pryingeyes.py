@@ -18,7 +18,7 @@ TOOLS = {"blender": Path("blender.exe"), "unity": Path("Unity.exe")}
 LEFT_BEHIND = {"gunplay": ("gunplay-player.log", "gunplaytest RISULTATO SUPERATA"), "room-materials": ("room-materials-unity.log", "MATERIAL_IMPORT_PASS"),
                "weapon-state": ("weapon-state.json", '{"ok": true, "findings": []}'), "survival-state": ("survival-state.json", '{"ok": true, "findings": []}'),
                "economy-state": ("economy-state.json", '{"ok": true, "findings": []}'), "saves-state": ("saves-state.json", '{"ok": true, "findings": []}'),
-               "track-state": ("track-state.json", '{"ok": true, "findings": []}')}
+               "track-state": ("track-state.json", '{"ok": true, "findings": []}'), "desert-state": ("desert-state.json", '{"ok": true, "findings": []}')}
 
 
 class RecordingJob:
@@ -78,6 +78,31 @@ class PryingEyesProfile(unittest.TestCase):
         check.assert_called_once()
         self.assertEqual([label for label, _ in self.job.steps], ["weapon-state", "survival-state", "economy-state", "saves-state", "track-state"])
 
+    def desert_suite(self, left=None, job=None):
+        """Runs the `desert` suite on a job that leaves the lab's report `left` (a dict), or no report at all."""
+        job = job or self.job
+        with patch.dict(LEFT_BEHIND):
+            if left is None: del LEFT_BEHIND["desert-state"]
+            else: LEFT_BEHIND["desert-state"] = ("desert-state.json", json.dumps(left))
+            pe.PRYING_EYES.suites["desert"].run(engine.Context(job, pe.PRYING_EYES, TOOLS), None)
+
+    def test_desert_suite_runs_the_lab_with_a_report_and_keeps_its_findings(self):
+        finding = {"code": "NOISE_RANGE", "subject": "noise", "passed": True, "observed": "inside", "expected": ""}
+        self.desert_suite({"ok": True, "findings": [finding]})
+        report = Path(self.folder.name) / "desert-state.json"
+        self.assertEqual(self.job.steps, [("desert-state", ["dotnet", "run", "-c", "Release", "--project", str(ROOT / "tools/desertlab"), "--", "--report", str(report)])])
+        self.assertEqual(self.job.report["artifacts"], [str(report)])
+        self.assertEqual(self.job.report["findings"], [{**finding, "evidence": str(report)}])
+
+    def test_desert_suite_fails_on_a_failed_check_and_the_report_still_names_it(self):
+        failed = {"code": "NOISE_RANGE", "subject": "noise", "passed": False, "observed": "1.2", "expected": ""}
+        with self.assertRaisesRegex(RuntimeError, "DESERT_STATE_FAILED_OR_REPORT_MISSING"): self.desert_suite({"ok": False, "findings": [failed]})
+        self.assertEqual([f["code"] for f in self.job.report["findings"] if not f["passed"]], ["NOISE_RANGE"])
+
+    def test_desert_suite_fails_when_the_lab_leaves_no_report(self):
+        with self.assertRaisesRegex(RuntimeError, "DESERT_STATE_FAILED_OR_REPORT_MISSING"): self.desert_suite(None)
+        self.assertEqual(self.job.report["findings"], [])
+
     def test_after_build_runs_gunplay_then_city_acceptance_with_assets_required(self):
         kind, entry, ctx = self.context("p45_argine")
         built = self.build / "PryingEyes.exe"
@@ -89,7 +114,7 @@ class PryingEyesProfile(unittest.TestCase):
     def test_registry_matches_the_command_line_the_docs_describe(self):
         self.assertEqual(list(pe.PRYING_EYES.kinds), ["weapon", "room"])
         self.assertEqual({name: suite.runtime for name, suite in pe.PRYING_EYES.suites.items()},
-                         {"gunplay": True, "weapon-state": False, "survival": False, "economy": False, "saves": False, "track": False})
+                         {"gunplay": True, "weapon-state": False, "survival": False, "economy": False, "saves": False, "track": False, "desert": False})
         self.assertEqual(pe.PRYING_EYES.publish_dir, pe.EXE.parent)
 
     def test_lock_file_is_the_one_the_tool_used_before_it_was_split(self):
@@ -103,7 +128,8 @@ class PryingEyesProfile(unittest.TestCase):
         listing = {Path(p).relative_to(ROOT).as_posix() for p in pe.PRYING_EYES.tool_sources("gallery")}
         self.assertTrue({"tools/asset_graph.py", "tools/studio_gallery.py", "tools/studio_web/index.html", "tools/citylab.py",
                          "unity/PryingEyes/Assets/_PryingEyes/City/citta.json", "unity/PryingEyes/Packages/manifest.json",
-                         "unity/PryingEyes/Packages/com.pryingeyes.weapons/Runtime/WeaponState.cs"} <= listing)
+                         "unity/PryingEyes/Packages/com.pryingeyes.weapons/Runtime/WeaponState.cs",
+                         "tools/desertlab/Program.cs", "tools/desertlab/DesertLab.csproj"} <= listing)
         plain = {Path(p).relative_to(ROOT).as_posix() for p in pe.PRYING_EYES.tool_sources("test")}
         self.assertNotIn("tools/asset_graph.py", plain); self.assertNotIn("tools/studio_gallery.py", plain)
 
