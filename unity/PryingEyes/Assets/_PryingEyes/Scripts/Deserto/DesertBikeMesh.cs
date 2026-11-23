@@ -29,6 +29,17 @@ namespace PryingEyes.Deserto
             /// <summary>Gli avambracci (figli del corpo) e i due estremi di ognuno: il pugno sulla manopola (nel sistema dello sterzo, che gira) e il gomito (fermo, nel sistema del corpo).</summary>
             public readonly Transform[] sleeve = new Transform[2];
             public readonly Vector3[] handPt = new Vector3[2], elbowPt = new Vector3[2];
+            /// <summary>L'occhio del pilota nel sistema del corpo (le moto della pista hanno il loro: DesertBikeDef.eye).</summary>
+            public Vector3 eye = Eye;
+            /// <summary>Il cupolino delle moto della pista: chi guida in prima persona ci guarda attraverso, e non si vede (<see cref="SetScreens"/>).</summary>
+            public readonly List<Renderer> screens = new List<Renderer>();
+            /// <summary>I materiali fatti apposta per questa moto (la vernice, la targa, i fari): se ne vanno con lei.</summary>
+            public readonly List<Material> ownedMats = new List<Material>();
+
+            public void SetScreens(bool visible)
+            {
+                foreach (var r in screens) if (r != null && r.enabled != visible) r.enabled = visible;
+            }
 
             public bool ArmsShown => arms != null && arms.gameObject.activeSelf;
 

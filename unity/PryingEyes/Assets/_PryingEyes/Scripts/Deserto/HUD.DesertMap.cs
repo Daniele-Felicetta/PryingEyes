@@ -51,6 +51,13 @@ namespace PryingEyes
         public string DesertObjectiveShown => objectiveText != null ? objectiveText.text : "";
         public Color DesertMapTint => dmImage != null ? dmImage.color : Color.white;
 
+        /// <summary>La carta del deserto (le tessere intorno a chi gioca): nasce alla prima domanda, di chi sia (la minimappa o la pagina Mappa del menu di Select, HUD.DesertHub.cs), ed e' una sola per HUD.</summary>
+        DesertMapTiles DesertPaper()
+        {
+            if (dmTiles == null) dmTiles = new DesertMapTiles();
+            return dmTiles;
+        }
+
         void UpdateDesertMapUI()
         {
             if (dmDead) return;
@@ -78,7 +85,8 @@ namespace PryingEyes
             if (dmRoot == null) BuildDesertMap();
             if (!dmRoot.gameObject.activeSelf) dmRoot.gameObject.SetActive(true);
             Vector3 p = pl.transform.position;
-            if (dmTiles == null) { dmTiles = new DesertMapTiles(); dmImage.texture = dmTiles.Texture; }
+            DesertPaper();
+            if (dmImage.texture != dmTiles.Texture) dmImage.texture = dmTiles.Texture;
             dmTiles.Update(p.x, p.z);
             dmImage.uvRect = DesertMapTiles.UvRect(p.x, p.z);
 

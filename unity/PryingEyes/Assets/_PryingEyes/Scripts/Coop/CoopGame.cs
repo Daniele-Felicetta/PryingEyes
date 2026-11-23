@@ -375,6 +375,7 @@ namespace PryingEyes
             s.pos = pl.transform.position; s.yaw = pl.yaw; s.pitch = pl.pitch;
             s.alive = pl.alive; s.crouch = pl.IsCrouching || pl.Riding; s.sprint = pl.IsSprinting;
             s.riding = pl.Riding; s.heading = pl.Riding ? pl.RideHeading : pl.yaw;          // in sella: verso dove punta la moto (lo sguardo e' un altro angolo)
+            s.bike = pl.Riding && pl.Bike != null ? Deserto.DesertBikeDefs.NetCode(pl.Bike.Def) : 0;          // e quale moto e' (pe-coop-37)
             s.torch = Torch.I != null && Torch.I.Lit;
             s.speedH = pl.SpeedH;
             s.lum = Mathf.Clamp01(Stealth.PlayerLum);

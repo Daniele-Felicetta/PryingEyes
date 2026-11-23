@@ -1,17 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
 using PryingEyes.Deserto;
 using PryingEyes.Proc;
 
 /// <summary>Checks of the desert's pure code (ground, sites, clock) and of the building and stack generators, with no Unity: tools/desertlab.
-/// Usage: dotnet run --project tools/desertlab [-- --quick]</summary>
+/// Usage: dotnet run --project tools/desertlab [-- --quick] [--report FILE]. --report writes every check as JSON (the studio's `test desert` reads it).</summary>
 static class Program
 {
     static bool ok = true;
-    static void Check(string code, bool passed, string observed)
+    // Every check, kept for --report in the shape of the other labs: code, subject (the group that ran it), passed, observed, expected.
+    static readonly List<object> findings = new List<object>();
+    static string subject = "desert";
+    static void Check(string code, bool passed, string observed, string expected = "")
     {
         ok &= passed;
+        findings.Add(new { code, subject, passed, observed, expected });
         Console.WriteLine($"{(passed ? "PASS" : "FAIL")} {code}: {observed}");
     }
 
@@ -24,23 +30,27 @@ static class Program
         int probe = Array.IndexOf(args, "--probe");
         if (probe >= 0) return Probe(args, probe);
         bool quick = Array.IndexOf(args, "--quick") >= 0;
-        Noise();
-        Clock();
-        Ground();
-        Terrain();
-        Buildings(quick ? 120 : 600);
-        Stacks(quick ? 40 : 200);
-        World(quick ? 9 : 20);
-        MapPaint();
-        Regions();
-        Buttes();
-        Scatter(quick ? 14 : 30);
-        Yards(quick ? 10 : 20);
-        Hub();
-        Weather();
-        Grading();
-        Compass();
+        int report = Array.IndexOf(args, "--report");
+        if (report >= 0 && report + 1 >= args.Length) { Console.Error.WriteLine("--report needs a file name"); return 2; }
+        subject = "noise"; Noise();
+        subject = "clock"; Clock();
+        subject = "ground"; Ground();
+        subject = "terrain"; Terrain();
+        subject = "buildings"; Buildings(quick ? 120 : 600);
+        subject = "stacks"; Stacks(quick ? 40 : 200);
+        subject = "world"; World(quick ? 9 : 20);
+        subject = "map"; MapPaint();
+        subject = "regions"; Regions();
+        subject = "buttes"; Buttes();
+        subject = "scatter"; Scatter(quick ? 14 : 30);
+        subject = "yards"; Yards(quick ? 10 : 20);
+        subject = "hub"; Hub();
+        subject = "weather"; Weather();
+        subject = "grading"; Grading();
+        subject = "compass"; Compass();
         Console.WriteLine(ok ? "ALL PASS" : "FAILED");
+        if (report >= 0)
+            File.WriteAllText(args[report + 1], JsonSerializer.Serialize(new { schemaVersion = 1, operation = "desert.rules", ok, findings }, new JsonSerializerOptions { WriteIndented = true }));
         return ok ? 0 : 1;
     }
 

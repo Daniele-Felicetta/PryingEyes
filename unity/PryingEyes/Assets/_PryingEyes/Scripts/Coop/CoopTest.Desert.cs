@@ -372,6 +372,23 @@ namespace PryingEyes
         // 9 e 10 -------------------------------------------------------------- (-coopmoto, 0.9.1+: la moto) chi guida si vede in sella, con la sua moto, dall'altro processo: prima l'ospitato, poi l'ospite
         static readonly bool MotoRun = HasArg("-coopmoto");
 
+        /// <summary>-coopbike gigante1300 (pe-coop-37): la prova della moto con una moto comprata al negozio. Chi guida la compra (nel suo personaggio di prova), ci sale e l'altro processo deve vederla col suo
+        /// modello e non con quello della moto di casa. Senza il flag, la moto di casa.</summary>
+        static readonly string MotoBike = ArgAfter("-coopbike");
+
+        static string ArgAfter(string name)
+        {
+            var a = System.Environment.GetCommandLineArgs();
+            int i = System.Array.IndexOf(a, name);
+            return i >= 0 && i + 1 < a.Length ? a[i + 1] : "";
+        }
+
+        static DesertBike BikeOf(DesertBikeDef d)
+        {
+            foreach (var b in DesertBike.All) if (b != null && !b.puppet && b.Def == d) return b;
+            return null;
+        }
+
         IEnumerator D9() => MotoStep(!Coop.IsHost);
 
         IEnumerator D10() => MotoStep(Coop.IsHost);
@@ -387,13 +404,28 @@ namespace PryingEyes
             if (iDrive)
             {
                 yield return new WaitForSeconds(2f);                               // l'altro ha il tempo di mettersi a guardare
-                var bike = DesertBikes.Nearest(pl.transform.position, 80f);
-                Check("la moto del mio posto e' parcheggiata ai piedi della scalinata", bike != null, bike != null ? $"a {FlatTo(bike.transform.position, pl.transform.position):F1} m" : "nessuna");
+                var wanted = DesertBikeDefs.ById(MotoBike);
+                if (wanted != null && wanted.Starter) wanted = null;
+                if (wanted != null)
+                {
+                    // il personaggio di prova e' su disco e lo usano anche le altre prove (lo schermo condiviso conta le moto di ogni posto): si parte da un garage vuoto e si lascia vuoto
+                    DesertGarage.Clear(0);
+                    DesertBikes.Rebuild();                                          // le moto di prima (se il personaggio ne aveva) non ci sono piu'
+                    yield return new WaitForSeconds(0.5f);
+                    DesertGarage.Grant(0, wanted);                                  // la moto comprata nasce nella sua piazzola
+                    yield return Until(() => BikeOf(wanted) != null, 5f);
+                    yield return new WaitForSeconds(1f);
+                }
+                var bike = wanted != null ? BikeOf(wanted) : DesertBikes.Nearest(pl.transform.position, 80f);
+                Check("la moto del mio posto e' parcheggiata nel garage accanto alla scalinata", bike != null, bike != null ? $"a {FlatTo(bike.transform.position, pl.transform.position):F1} m" : "nessuna");
                 if (bike == null) { aborted = true; yield break; }
                 Vector3 start = bike.transform.position;
                 pl.Mount(bike);
                 Check("salgo in sella", pl.Riding && bike.rider == pl);
-                DesertBike.botThrottle = 1f; DesertBike.botSteer = 0.6f;
+                // la piazzola e' sul sagrato tra i pali del tetto: si esce dritti (con lo sterzo a destra dal primo istante la moto prende il palo accanto e la corsa si ferma), poi si curva
+                DesertBike.botThrottle = 1f; DesertBike.botSteer = 0f;
+                yield return new WaitForSeconds(1.5f);
+                DesertBike.botSteer = 0.6f;
                 yield return new WaitForSeconds(4f);
                 DesertBike.botSteer = -0.6f;
                 yield return new WaitForSeconds(3f);
@@ -411,6 +443,7 @@ namespace PryingEyes
                 pl.RideRequestDismount();
                 yield return Until(() => !pl.Riding, 6f);
                 Check("scendo e la moto resta parcheggiata", !pl.Riding && bike.rider == null && bike.ColliderOn);
+                if (wanted != null) DesertGarage.Clear(0);                          // la moto comprata per la prova non resta nel personaggio di prova
                 yield return new WaitForSeconds(3f);                               // l'altro vede che sono sceso
                 yield break;
             }
@@ -422,6 +455,10 @@ namespace PryingEyes
             var pb = rp.Bike;
             Check("la sua moto compare sotto il pupazzo", pb != null && pb.puppet && FlatTo(pb.transform.position, rp.transform.position) < 0.6f, pb != null ? $"scarto {FlatTo(pb.transform.position, rp.transform.position):F2} m" : "nessuna moto");
             if (pb == null) { aborted = true; yield break; }
+            // con -coopbike la moto del compagno e' quella comprata, col suo disegno: lo dice il numero di rete (pe-coop-37), non il caso
+            var wantedV = DesertBikeDefs.ById(MotoBike);
+            if (wantedV != null && !wantedV.Starter)
+                Check("la moto del compagno ha il modello della sua: " + wantedV.name, pb.Def == wantedV, pb.Def != null ? "vedo la " + pb.Def.name : "nessun disegno");
             // il corpo vero del compagno (se ci sono i modelli) sta seduto sulla moto con le mani sulle manopole
             if (rp.Body != null)
             {
@@ -458,9 +495,10 @@ namespace PryingEyes
             Check("in curva la sua moto si inclina", maxRoll > 3f, $"{maxRoll:F1} gradi");
             int laid = trk != null ? trk.Stamped - laid0 : -1;
             Check("la sua moto lascia le tracce delle gomme sulla sabbia (i pezzi aumentano mentre la guardo, almeno venti in sei secondi)", laid >= 20, $"{laid} pezzi in sei secondi");
-            float s0 = pb.WheelSpin;
-            yield return new WaitForSeconds(0.03f);
-            Check("le sue ruote girano", Mathf.Abs(Mathf.DeltaAngle(s0, pb.WheelSpin)) > 1f, $"{Mathf.DeltaAngle(s0, pb.WheelSpin):F0} gradi in 30 ms");
+            // lo stato di chi guida arriva quindici volte al secondo: in 30 ms puo' non arrivare nulla e le ruote del pupazzo restano ferme (e' successo una volta, con la moto in corsa), quindi si guarda un quarto di secondo, fotogramma per fotogramma
+            float spinPrev = pb.WheelSpin, spinSum = 0f, spinEnd = Time.time + 0.25f;
+            while (Time.time < spinEnd) { yield return null; float spinNow = pb.WheelSpin; spinSum += Mathf.Abs(Mathf.DeltaAngle(spinPrev, spinNow)); spinPrev = spinNow; }
+            Check("le sue ruote girano", spinSum > 10f, $"{spinSum:F0} gradi in un quarto di secondo");
             yield return Until(() => { if (rp.Body != null && rp.Body.input.seated && rp.Body.HasWeapon && rp.last.shotAge < 1.4f) sawGun = true; return !rp.last.riding; }, 25f);
             if (rp.Body != null) Check("lo vedo sparare dalla sella: l'arma e' nella sua destra mentre guida", sawGun, $"arma vista {sawGun}");
             yield return new WaitForSeconds(0.6f);

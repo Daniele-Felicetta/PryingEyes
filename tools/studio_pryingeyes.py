@@ -144,6 +144,20 @@ def track_state(job):
     if result is None or not result["ok"]: raise RuntimeError("TRACK_STATE_FAILED_OR_REPORT_MISSING")
 
 
+def desert_state(job):
+    """The desert rules lab: the ground, the regions and the sites, the clock and the weather of the desert mode, and the building and stack generators, compiled from the game's own files."""
+    report = job.folder / "desert-state.json"
+    job.report["artifacts"].append(str(report)); job.save()
+    result = None
+    try:
+        job.run("desert-state", ["dotnet", "run", "-c", "Release", "--project", ROOT / "tools/desertlab", "--", "--report", report], timeout=180)
+    finally:
+        if report.is_file():
+            result = json.loads(report.read_text(encoding="utf-8"))
+            job.report["findings"].extend({**finding, "evidence": str(report)} for finding in result["findings"]); job.save()
+    if result is None or not result["ok"]: raise RuntimeError("DESERT_STATE_FAILED_OR_REPORT_MISSING")
+
+
 def unity_build(ctx, method, asset_args):
     """The editor step both content types share: build the player for one entry into ctx.build_dir."""
     ctx.job.run("unity", [ctx.tools["unity"], "-batchmode", "-projectPath", UNITY, "-executeMethod", method, *asset_args,
@@ -259,7 +273,8 @@ class PryingEyes(Project):
               "survival": Suite(lambda ctx, runtime: survival_state(ctx.job)),
               "economy": Suite(lambda ctx, runtime: economy_state(ctx.job)),
               "saves": Suite(lambda ctx, runtime: saves_state(ctx.job)),
-              "track": Suite(lambda ctx, runtime: track_state(ctx.job))}
+              "track": Suite(lambda ctx, runtime: track_state(ctx.job)),
+              "desert": Suite(lambda ctx, runtime: desert_state(ctx.job))}
     runtime = EXE
     publish_dir = EXE.parent
     published_artifact = EXE
@@ -280,7 +295,7 @@ class PryingEyes(Project):
         files.update(UNITY / "Packages" / name for name in ("manifest.json", "packages-lock.json"))
         for package in (UNITY / "Packages").glob("com.pryingeyes.*"):
             files.update(package.rglob("*.cs")); files.update(package.rglob("*.asmdef")); files.add(package / "package.json")
-        for folder in (ROOT / "tools/planlab", ROOT / "tools/weaponslab", ROOT / "tools/survivallab", ROOT / "tools/economylab", ROOT / "tools/saveslab", ROOT / "tools/tracklab"):
+        for folder in (ROOT / "tools/planlab", ROOT / "tools/weaponslab", ROOT / "tools/survivallab", ROOT / "tools/economylab", ROOT / "tools/saveslab", ROOT / "tools/tracklab", ROOT / "tools/desertlab"):
             files.update(folder.glob("*.cs*"))
         if command in ("catalog", "gallery"): files.add(ROOT / "tools/asset_graph.py")
         if command == "gallery":

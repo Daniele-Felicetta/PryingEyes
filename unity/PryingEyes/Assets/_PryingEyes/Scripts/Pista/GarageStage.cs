@@ -21,6 +21,8 @@ namespace PryingEyes.Pista
         public int Skin { get; private set; } = -1;
         /// <summary>The outfit of the rider on the plate (-1 for the leathers and the helmet of the bike's livery).</summary>
         public int Outfit { get; private set; } = -1;
+        /// <summary>The bike on the plate has its rider (false: the bike alone, as the desert's store shows it).</summary>
+        public bool Rider { get; private set; } = true;
         /// <summary>For the tests: the bike put together and how many parts it has.</summary>
         public PistaBikeRig Rig { get; private set; }
         public Camera Cam { get; private set; }
@@ -29,11 +31,13 @@ namespace PryingEyes.Pista
 
         GameObject bike;
         Light key, rim, fill;
+        Material wallMat;
 
-        public static GarageStage Create()
+        /// <summary>'xOffset' puts a second stage beside the first (the lights reach 18 m: the desert's store has one for every seat of a shared screen, 60 m apart).</summary>
+        public static GarageStage Create(float xOffset = 0f)
         {
             var go = new GameObject("Garage - vetrina");
-            go.transform.position = Far;
+            go.transform.position = Far + new Vector3(xOffset, 0f, 0f);
             var stage = go.AddComponent<GarageStage>();
             stage.Build();
             stage.SetActive(false);
@@ -48,6 +52,21 @@ namespace PryingEyes.Pista
             var ring = Disc("Anello", 3.12f, 0.03f, -0.045f, PistaTex.Lit("Anello d'ottone", new Color(0.55f, 0.42f, 0.2f), 0.6f, 0.8f));
             plate.transform.SetParent(transform, false); ring.transform.SetParent(transform, false);
             plate.GetComponent<MeshRenderer>().receiveShadows = true;                          // the bike casts its shadow on the plate
+
+            // The backdrop. The desert's sky dome has enormous bounds and is drawn for every camera, so without a wall behind the plate the desert's sky (and its hour of the day) would stand behind the
+            // bike in the store of the desert. An opaque wall in the colour of the studio hides it; in the track mode nothing is there to hide and the wall is the colour the camera clears to anyway.
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            wall.name = "Fondale";
+            var wallCollider = wall.GetComponent<Collider>();
+            if (wallCollider != null) Destroy(wallCollider);
+            wall.transform.SetParent(transform, false);
+            wall.transform.localPosition = new Vector3(0f, 0f, -9f);
+            wall.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);                       // a Quad faces -z: turned to face the camera, which stands on the +z side
+            wall.transform.localScale = new Vector3(70f, 50f, 1f);
+            wallMat = new Material(Shader.Find("Universal Render Pipeline/Unlit")) { name = "Pista_Fondale" };
+            wallMat.SetColor("_BaseColor", new Color(0.022f, 0.03f, 0.034f, 1f));
+            var wallRenderer = wall.GetComponent<MeshRenderer>();
+            wallRenderer.sharedMaterial = wallMat; wallRenderer.shadowCastingMode = ShadowCastingMode.Off; wallRenderer.receiveShadows = false;
 
             key = MakeLight("Luce principale", LightType.Spot, new Vector3(-3.4f, 3.6f, 3.2f), 42f, new Color(1f, 0.95f, 0.86f), 18f, 62f, true);
             rim = MakeLight("Controluce", LightType.Spot, new Vector3(3.6f, 2.8f, -3.4f), 36f, new Color(0.72f, 0.82f, 1f), 18f, 60f);
@@ -110,22 +129,22 @@ namespace PryingEyes.Pista
 
         /// <summary>Put this bike in this livery (a skin of Livery, or -1 for the livery the bike comes in) on the plate, its rider in the leathers and helmet of this outfit (a skin of Livery, or -1 for the bike's
         /// own); nothing is rebuilt when it is already there.</summary>
-        public void Show(int bikeIndex, int skin, int outfit = -1)
+        public void Show(int bikeIndex, int skin, int outfit = -1, bool rider = true)
         {
             bikeIndex = Mathf.Clamp(bikeIndex, 0, Bikes.Count - 1);
-            if (bike != null && bikeIndex == Bike && skin == Skin && outfit == Outfit) return;
+            if (bike != null && bikeIndex == Bike && skin == Skin && outfit == Outfit && rider == Rider) return;
             if (bike != null) Destroy(bike);
             var spec = Bikes.Get(bikeIndex);
             bike = new GameObject("Moto " + spec.name);
             bike.transform.SetParent(transform, false);
             var livery = Livery.For(skin >= 0 ? skin : spec.skin);
             if (outfit >= 0) livery = Livery.WithRider(livery, outfit);
-            Rig = PistaBikeMesh.Build(bike.transform, spec.meshStyle, livery);
+            Rig = PistaBikeMesh.Build(bike.transform, spec.meshStyle, livery, rider);
             Rig.root.localScale = Vector3.one * spec.meshScale;
             // the bike casts and receives the shadow of the key light (the helmet on the shoulder, the fairing on the engine, the wheels on the plate); the windscreen is glass and casts none
             foreach (var r in bike.GetComponentsInChildren<Renderer>()) { r.shadowCastingMode = ShadowCastingMode.On; r.receiveShadows = true; }
             foreach (var r in Rig.screenParts) if (r != null) r.shadowCastingMode = ShadowCastingMode.Off;
-            Bike = bikeIndex; Skin = skin; Outfit = outfit;
+            Bike = bikeIndex; Skin = skin; Outfit = outfit; Rider = rider;
             Pose(0f);
         }
 
@@ -175,6 +194,7 @@ namespace PryingEyes.Pista
         void OnDestroy()
         {
             if (Picture != null) { Picture.Release(); Destroy(Picture); }
+            if (wallMat != null) Destroy(wallMat);
         }
     }
 }

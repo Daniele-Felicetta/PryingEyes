@@ -19,6 +19,9 @@ namespace PryingEyes
         public float climb;                 // 0..1 mentre si arrampica
         public bool seated;                 // in sella a una moto: bacino sulla sella, piedi sulle pedane, mani sulle manopole (la radice del corpo sta sulla moto, girata come il suo telaio)
         public Vector3 gripLeft, gripRight; // nel mondo: le manopole, a sinistra e a destra di chi guarda avanti (valgono se seated)
+        // la sella della moto (valgono se seated; a zero quella di sempre, la moto arrangiata): dove sta il bacino e dove poggiano i piedi (nel sistema della moto, x e' il lato) e quanto si china il busto (gradi)
+        public Vector3 seatHips, seatPegs;
+        public float seatLean;
 
         public static SurvivorInput Idle => new SurvivorInput { alive = true, grounded = true, weapon = -1, shotAge = 99f };
     }
@@ -371,12 +374,12 @@ namespace PryingEyes
         {
             float cyc = phase * 2f * Mathf.PI;
             float pitch = Mathf.Clamp(pitchSmooth * Mathf.Rad2Deg, -75f, 70f);
-            float fwdLean = Mathf.Lerp(Mathf.Lerp(4f * sprintAmt + 14f * crouchAmt + 2f * gait, -34f, downAmt), SeatLean, seatAmt);
+            float fwdLean = Mathf.Lerp(Mathf.Lerp(4f * sprintAmt + 14f * crouchAmt + 2f * gait, -34f, downAmt), inp.seatLean > 0f ? inp.seatLean : SeatLean, seatAmt);
             float drop = 0.012f + 0.42f * crouchAmt + 0.05f * airAmt;
             hipDrop = Mathf.Lerp(hipDrop, drop, 0.5f);
             Vector3 stand = rest[hips].prs + new Vector3(Mathf.Sin(cyc) * 0.012f * gait, -hipDrop, -0.09f * crouchAmt);
             Vector3 sit = new Vector3(0f, 0.15f, -0.20f);
-            hips.position = transform.TransformPoint(Vector3.Lerp(Vector3.Lerp(stand, sit, downAmt), SeatHips, seatAmt));
+            hips.position = transform.TransformPoint(Vector3.Lerp(Vector3.Lerp(stand, sit, downAmt), inp.seatHips.y > 0f ? inp.seatHips : SeatHips, seatAmt));
             Vector3 r = Right, fw = transform.forward;
             Bend(hips, Mathf.Sin(cyc) * 5f * gait, Vector3.up);
             Bend(hips, Mathf.Cos(cyc) * 2.5f * gait, fw);
@@ -424,7 +427,8 @@ namespace PryingEyes
                 Vector3 sit = new Vector3(rest[ft].prs.x * 1.25f, 0.09f, 0.52f + (left ? 0f : 0.07f));
                 target = Vector3.Lerp(target, sit, downAmt);
                 // in sella: la caviglia sulla pedana della moto (nel riferimento della radice, che sta sulla moto)
-                target = Vector3.Lerp(target, new Vector3(Mathf.Sign(rest[ft].prs.x) * PegX, PegY, PegZ), seatAmt);
+                Vector3 peg = inp.seatPegs.y > 0f ? inp.seatPegs : new Vector3(PegX, PegY, PegZ);
+                target = Vector3.Lerp(target, new Vector3(Mathf.Sign(rest[ft].prs.x) * peg.x, peg.y, peg.z), seatAmt);
                 // terreno sotto il piede: scale e dislivelli
                 float gy = 0f; Vector3 n = Vector3.up;
                 if (inp.grounded && seatAmt < 0.5f && Physics.Raycast(transform.TransformPoint(target) + Vector3.up * 0.6f, Vector3.down, out var hit, 1.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
