@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="MapLab.cs" />
+    <Compile Include="Fingerprint.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapMath.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapPen.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapTextures.cs" />

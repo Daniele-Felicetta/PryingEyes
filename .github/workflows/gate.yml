@@ -155,10 +155,17 @@ jobs:
           STUDIO_OUTPUT: unity_logs/lab-reports/desert
         run: python tools/studio.py test desert
 
+      # The fingerprint of the floor generator: in co-op every player builds the floor from the seed, so a change that moves a plan must
+      # raise CoopProtocol.Revision. Runs in the planlab compiled above; the fixture is tools/fixtures/plan-fingerprint.json.
+      - name: Floor plan fingerprint
+        env:
+          STUDIO_OUTPUT: unity_logs/lab-reports/plan
+        run: python tools/studio.py test plan
+
       - name: Lab results in the run summary
         if: ${{ !cancelled() }}
         run: |
-          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy', 'saves', 'track', 'desert') {
+          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy', 'saves', 'track', 'desert', 'plan') {
             $found = Get-ChildItem "unity_logs/lab-reports/$lab" -Recurse -Filter report.json -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $found) { "| $lab | no report | | |"; continue }
             $r = Get-Content $found.FullName -Raw | ConvertFrom-Json

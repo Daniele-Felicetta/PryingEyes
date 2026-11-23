@@ -19,6 +19,8 @@ from studio_engine import ContentType, Project, Suite
 UNITY = ROOT / "unity/PryingEyes"
 CITY = UNITY / "Assets/_PryingEyes/City/citta.json"
 EXE = UNITY / "Builds/CityPreview/PryingEyes.exe"
+PLAN_FIXTURE = ROOT / "tools/fixtures/plan-fingerprint.json"
+PLAN_UPDATE = "dotnet run --project tools/planlab -c Release -- fingerprint --update tools/fixtures/plan-fingerprint.json"
 
 
 def executables():
@@ -158,6 +160,43 @@ def desert_state(job):
     if result is None or not result["ok"]: raise RuntimeError("DESERT_STATE_FAILED_OR_REPORT_MISSING")
 
 
+def plan_findings(computed, fixture):
+    """The findings of the floor generator's fingerprint: one per plan, the hash computed now (observed) against the one in the fixture (expected), and one for
+    CoopProtocol.Revision, the one read from CoopWire.cs now (observed) against the one the fixture was made at (expected)."""
+    wanted = {(p["layout"], p["seed"], p["floor"]): p["sha256"] for p in fixture["plans"]}
+    name = lambda key: f"{key[0]} seed {key[1]} floor {key[2]}"
+    findings = [{"code": "PLAN_FINGERPRINT", "subject": name(key), "passed": plan["sha256"] == wanted.get(key), "observed": plan["sha256"], "expected": wanted.get(key, "")}
+                for plan in computed["plans"] for key in [(plan["layout"], plan["seed"], plan["floor"])]]
+    made = {(p["layout"], p["seed"], p["floor"]) for p in computed["plans"]}
+    findings.extend({"code": "PLAN_FINGERPRINT", "subject": name(key), "passed": False, "observed": "", "expected": digest} for key, digest in wanted.items() if key not in made)
+    findings.append({"code": "PLAN_REVISION", "subject": "CoopProtocol.Revision", "passed": computed["revision"] == fixture["revision"],
+                     "observed": computed["revision"], "expected": fixture["revision"]})
+    return findings
+
+
+def plan_state(job, fixture=PLAN_FIXTURE):
+    """The fingerprint of the floor generator: the plan lab hashes what `dump` writes for 48 plans (the game's layout and the lab's default) and the hashes are
+    compared with the committed fixture. In co-op every player builds the floor from the seed, so a change that moves a hash must raise CoopProtocol.Revision."""
+    if not fixture.is_file(): raise RuntimeError(f"PLAN_FIXTURE_MISSING: {fixture}; make it with `{PLAN_UPDATE}`")
+    report = job.folder / "plan-state.json"
+    job.report["artifacts"].append(str(report)); job.save()
+    findings = []
+    try:
+        job.run("plan-state", ["dotnet", "run", "-c", "Release", "--project", ROOT / "tools/planlab", "--", "fingerprint", "--report", report], timeout=180)
+    finally:
+        if report.is_file():
+            findings = plan_findings(json.loads(report.read_text(encoding="utf-8")), json.loads(fixture.read_text(encoding="utf-8")))
+            job.report["findings"].extend({**finding, "evidence": str(report)} for finding in findings); job.save()
+    if not findings: raise RuntimeError("PLAN_STATE_FAILED_OR_REPORT_MISSING")
+    plans = [f for f in findings if f["code"] == "PLAN_FINGERPRINT"]
+    changed = [f["subject"] for f in plans if not f["passed"]]
+    if changed:
+        raise RuntimeError(f"PLAN_FINGERPRINT_CHANGED: {len(changed)} of {len(plans)} plans differ from {fixture.name} ({'; '.join(changed[:6])}{'; ...' if len(changed) > 6 else ''}). "
+                           f"If the generator is meant to change, raise CoopProtocol.Revision in CoopWire.cs and run `{PLAN_UPDATE}` (docs/engineering/testing.md)")
+    if not findings[-1]["passed"]:
+        raise RuntimeError(f"PLAN_REVISION_STALE: CoopWire.cs says {findings[-1]['observed']} and {fixture.name} was made at {findings[-1]['expected']}; the plans are the same: run `{PLAN_UPDATE}`")
+
+
 def unity_build(ctx, method, asset_args):
     """The editor step both content types share: build the player for one entry into ctx.build_dir."""
     ctx.job.run("unity", [ctx.tools["unity"], "-batchmode", "-projectPath", UNITY, "-executeMethod", method, *asset_args,
@@ -274,7 +313,8 @@ class PryingEyes(Project):
               "economy": Suite(lambda ctx, runtime: economy_state(ctx.job)),
               "saves": Suite(lambda ctx, runtime: saves_state(ctx.job)),
               "track": Suite(lambda ctx, runtime: track_state(ctx.job)),
-              "desert": Suite(lambda ctx, runtime: desert_state(ctx.job))}
+              "desert": Suite(lambda ctx, runtime: desert_state(ctx.job)),
+              "plan": Suite(lambda ctx, runtime: plan_state(ctx.job))}
     runtime = EXE
     publish_dir = EXE.parent
     published_artifact = EXE
@@ -288,7 +328,7 @@ class PryingEyes(Project):
     def ensure_free(self): check_editor_closed()
 
     def tool_sources(self, command):
-        files = {CITY, ROOT / "tools/studio.py", ROOT / "tools/studio_pryingeyes.py", ROOT / "tools/citylab.py"}
+        files = {CITY, PLAN_FIXTURE, ROOT / "tools/studio.py", ROOT / "tools/studio_pryingeyes.py", ROOT / "tools/citylab.py"}
         assets = UNITY / "Assets/_PryingEyes"
         files.update(assets.rglob("*.cs"))
         for extension in ("*.shader", "*.hlsl"): files.update(assets.rglob(extension))

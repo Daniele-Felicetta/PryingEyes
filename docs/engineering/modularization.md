@@ -197,7 +197,7 @@ four rows differ from the values the plan started from (34, 47, 51 and 39) becau
 
 | Number (section of the census) | Today | Target | Task |
 | --- | --- | --- | --- |
-| Hermetic suites in the gate (workflow) | 6 | 7 | T01, T02 |
+| Hermetic suites in the gate (workflow) | 7 | 7 | T01, T02 |
 | Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 54 | 0 | T15 |
 | Production files that name a test type (`tests`) | 2 | 0 | T08, T17 |
 | Test files not kept out of a release (`tests`) | 14 | 0 | T17 |
