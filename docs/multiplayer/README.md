@@ -108,7 +108,7 @@ cattedrale, magazzino, bottino sulla sabbia e trofei restano di ognuno. Come fun
 | `Deserto/DesertAnchors.cs` | I punti dei compagni attorno a cui l'ospite costruisce il deserto (sabbia, navmesh, luoghi, sassi); vuoto da soli e sugli ospitati |
 
 L'ammissione (revisione del protocollo, capienza, tempo massimo) la fa `FishNetSeatAuthenticator`, scritto da ChatGPT nella
-sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti toccati sono: `Enemy` (+`Stealth`, `Knife`,
+sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`, con tre file di `Multiplayer/Core/`: vedi l'ultima sezione). Fuori da `Coop/` i punti toccati sono: `Enemy` (+`Stealth`, `Knife`,
 `Rounds`, `EnemyTemi`: id, pupazzo, danno e rumore passano da `Coop`), `FloorDirector` (epoca, candele e uscita in rete),
 `RoundDirector` (serrande e premi per giocatore), `Drops`/`DropPickup`, `Candelabro` (`litBy`), `Stealth`, `Magic`,
 `PlayerController`, `LightPool` (le luci dei compagni non entrano nella firma del piano), `GameManager` (`CreditKill`) e
@@ -273,7 +273,11 @@ La cooperativa e' partita da una bozza di ChatGPT (ramo `feature/multiplayer` in
 nel commit `36e0a3a`): sessione e movimento a posti (fino a 4 posti locali per connessione) in una scena a parte
 (`MultiplayerProbe.unity`), senza il gioco vero. Il lavoro rimasto in `Assets/_PryingEyes/Multiplayer/` (avatar a capsule,
 posti locali, `NetworkFloorPlan`, obiettivi di prova) e `tools/multiplayer-check/` (controlli .NET e di codegen FishNet) e'
-**il prototipo originale**, non usato dal gioco tranne l'autenticatore. Anche la scelta del framework e' sua:
+**il prototipo originale, congelato**: la cartella ha un [README](../../unity/PryingEyes/Assets/_PryingEyes/Multiplayer/README.md) che dice
+che cosa il gioco ne usa e che cosa no. Il gioco usa solo l'ammissione: quattro file, `FishNetSeatAuthenticator` e i tre di
+`Multiplayer/Core/` che gli servono (`AdmissionGate`, `SessionAdmission`, `SessionRoster`); il resto serve alla sola scena di prova.
+`tools/multiplayer-check/` non compila piu' dal 15 novembre 2026 (manca `PlanAnnex.cs` nei due progetti che lo compilano) e non e' nel
+cancello. Anche la scelta del framework e' sua:
 
 | Framework | Punti pertinenti | Impatto sul progetto |
 | --- | --- | --- |

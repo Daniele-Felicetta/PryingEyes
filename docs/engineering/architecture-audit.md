@@ -57,7 +57,7 @@ Assemblies (what Unity compiles together):
 | --- | --- | --- | --- |
 | `Assembly-CSharp` (predefined) | 401 | 100,703 | everything under `Scripts/` and `Multiplayer/` except `Multiplayer/Core`: the whole game and its in-player tests |
 | `Assembly-CSharp-Editor` (predefined) | 41 | 10,184 | `Editor/` and `Multiplayer/FishNet/Editor/`: builders, importers, photo tools |
-| `PryingEyes.Multiplayer.Core` | 5 | 233 | an engine-free draft (F12) |
+| `PryingEyes.Multiplayer.Core` | 5 | 233 | an engine-free assembly: three of its files are the admission of the co-op, two are draft (F12) |
 | `Production.Layout`, `.Weapons`, `.Survival`, `.Economy`, `.Saves` | 14 | 2,030 | the five rule packages |
 
 Folders of the game:
@@ -210,7 +210,7 @@ Nothing but the labs keeps these files pure, and not every lab is run (F9). In U
   by comparing outputs by hand (the procedure at the end of section 2.4 of [testing.md](testing.md)). Co-op needs every player to build
   the same floor from the same seed, and the comment on `CoopProtocol.Revision` asks to raise it at every change to the rules of the
   floor: a rule kept by memory.
-- `tools/multiplayer-check` compiles `PlayerPerks.cs` and `Punti.cs`; it is not in the gate.
+- `tools/multiplayer-check` compiles `PlayerPerks.cs` and `Punti.cs`; it is not in the gate, and it has not compiled since 15 November (F12).
 - Of the 59 in-player test files only `gunplaytest` is a suite of the studio (`suites` in `tools/studio_pryingeyes.py`); the others are
   started by a hand-typed command line or by `tools/coop/run_all.ps1`.
 - A new lab has to be added by hand to `.gitignore`, to three lists in `gate.yml`, to `suites` and `tool_sources` in the profile, to rule
@@ -245,10 +245,12 @@ suites use it.
 
 ### F12. Two multiplayer stacks and other parallel code
 
-`Assets/_PryingEyes/Multiplayer/` (21 files, 1,970 lines: an engine-free `Core` assembly, a FishNet adapter, editor tools) is the first
+`Assets/_PryingEyes/Multiplayer/` (21 C# files, 1,970 lines: an engine-free `Core` assembly, a FishNet adapter, editor tools) is the first
 draft of the co-op; the game uses `Scripts/Coop` (29 files, 7,172 lines). Of the 28 types the draft declares, `Scripts/` names one
-(`FishNetSeatAuthenticator`); the probe scene and prefabs under `Multiplayer/GeneratedProbe 1/` and `tools/multiplayer-check` use the
-others. The page of the co-op explains its origin
+(`FishNetSeatAuthenticator`), and that one needs three files of `Core` (`AdmissionGate`, `SessionAdmission`, `SessionRoster`): four files,
+275 lines, are the admission of the real co-op. The probe scene and prefabs under `Multiplayer/GeneratedProbe 1/` and `tools/multiplayer-check`
+use the rest, and `tools/multiplayer-check` has not compiled since 15 November
+([modular-tasks.md](modular-tasks.md#t20-decide-the-fate-of-the-multiplayer-draft)). The page of the co-op explains its origin
 ([../multiplayer/README.md](../multiplayer/README.md), last section). The city prototype (`City*.cs`, `CityTest*.cs`, two editor builders)
 and the classic hall (`HotelBuilder.cs`) are in the same position: alive, compiled, outside the game a player starts. None of this is
 wrong, but an agent reading the code cannot tell which stack is the real one.
