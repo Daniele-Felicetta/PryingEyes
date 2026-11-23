@@ -12,6 +12,7 @@ It does not need the conversation that produced it. Everything it relies on is i
 | [package-extraction.md](package-extraction.md) | what can become a reusable package, and when |
 | [agent-tooling.md](agent-tooling.md) | the commands and data formats for agents |
 | [modular-tasks.md](modular-tasks.md) | the brief of each task: steps, acceptance criteria, verification |
+| [plan-method.md](plan-method.md) | how the plan is run when tasks go side by side: roles, the cycle, checking a report, the order of merges |
 
 Written on 20 November 2026 at commit `4042709` (version 0.9.4). At that date nothing in the plan had been carried out except the
 census tool (`tools/code_census.py`) that the audit needed; the [status](#status) table is the live part.
