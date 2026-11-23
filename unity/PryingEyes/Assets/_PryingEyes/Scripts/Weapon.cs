@@ -220,14 +220,17 @@ namespace PryingEyes
         /// <summary>Ispezione dell'arma (I): pubblico per le prove.</summary>
         public void Inspect() { inspectT = InspectTime; Synth.Mech("draw", 0.35f, 0.9f); }
         public bool KnifeBusy => knifeOut;
-        public bool CanKnife => swapT <= 0f && !GestureBusy;
+        internal float ParkourStow { get; set; }
+        internal bool ParkourHolding { get; set; }
+        bool ParkourBlocked => ParkourHolding || ParkourStow > 0.3f;
+        public bool CanKnife => swapT <= 0f && !GestureBusy && !ParkourBlocked;
 
         /// <summary>La mano sinistra puo' lasciare l'arma per un gesto? Niente durante la ricarica, il cambio, l'estrazione, il coltello,
         /// la corsa o un altro gesto. 'why' vuoto = no in silenzio (non serve dirlo).</summary>
         public bool CanUseOffHand(out string why)
         {
             why = "";
-            if (cam == null || viewRoot == null || OffBusy) return false;
+            if (cam == null || viewRoot == null || OffBusy || ParkourBlocked) return false;
             if (knifeOut || knifeBlend > 0.01f || swapT > 0f || pendingSlot >= 0) return false;
             if (equipT > Def.drawTime * 0.5f) return false;
             if (sprintBlend > 0.3f) return false;
@@ -257,7 +260,16 @@ namespace PryingEyes
         public void RenderScopeNow() { LateUpdate(); }
         public float LastShotTime => lastShot;
         public bool CanFireNow => State.Ready && swapT <= 0f &&
-            !knifeOut && sprintBlend <= 0.35f && equipT <= Def.drawTime * 0.6f;
+            !knifeOut && !ParkourBlocked && sprintBlend <= 0.35f && equipT <= Def.drawTime * 0.6f;
+
+        internal void BeginParkour()
+        {
+            if (reloading) CancelReload();
+            offHand?.Cancel();
+            inspectT = adsRaw = ads = 0f;
+            burstLeft = 0;
+            adsToggled = false;
+        }
 
         // ------------------------------------------------------------------ avvio
         public void Bind(Transform camera, HUD h)
@@ -616,18 +628,24 @@ namespace PryingEyes
             flashLight.shadows = LightShadows.None;
             Stealth.SetLightLayers(flashLight, 3u);      // il lampo di bocca illumina mondo e arma
             // luce di riempimento dedicata all'arma (la hall e' buia e il metallo sparirebbe)
-            fill = new GameObject("ViewmodelFill").AddComponent<Light>();
-            fill.transform.SetParent(root.transform, false);
+            fill = CreateViewmodelFill(root.transform);
+        }
+
+        internal static Light CreateViewmodelFill(Transform parent)
+        {
+            var light = new GameObject("ViewmodelFill").AddComponent<Light>();
+            light.transform.SetParent(parent, false);
             // lontana dall'arma (dietro e sopra la spalla sinistra): a 30 cm l'intensita' sale col quadrato e il polimero nero esce bianco
-            fill.transform.localPosition = new Vector3(-0.32f, 0.55f, -0.35f);
-            fill.type = LightType.Point;
-            fill.color = new Color(1f, 0.95f, 0.88f);
+            light.transform.localPosition = new Vector3(-0.32f, 0.55f, -0.35f);
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.95f, 0.88f);
             // in Unity il diffuso e' albedo x illuminamento (senza 1/pi): E = intensita' / distanza^2, a 65 cm ~1.3 -> polimero nero a ~70/255
-            fill.intensity = 0.75f;
-            fill.range = 2.6f;
-            fill.shadows = LightShadows.None;
+            light.intensity = 0.75f;
+            light.range = 2.6f;
+            light.shadows = LightShadows.None;
             // solo l'arma e le mani: se illuminasse anche i muri vicini, al buio si vedrebbe un alone fantasma intorno al giocatore
-            Stealth.SetLightLayers(fill, ViewLayer);
+            Stealth.SetLightLayers(light, ViewLayer);
+            return light;
         }
 
         static GameObject MakeQuad(string name, Transform parent, Vector3 pos, Material m)
@@ -865,16 +883,13 @@ namespace PryingEyes
         public void Tick(float dt, bool sprinting, float speed = 0f, bool grounded = true, bool crouched = false, Vector2 lookDelta = default)
         {
             if (cam == null || viewRoot == null) return;
-            bool inputEnabled = !GameMenu.Blocked;
+            bool inputEnabled = !GameMenu.Blocked && !ParkourBlocked;
             var d = Def;
             sprintHeld = sprinting;
             sprintBlend = Mathf.MoveTowards(sprintBlend, sprinting ? 1f : 0f, dt / (sprinting ? 0.20f : 0.18f));
             // coltello: l'arma scende in 80 ms e sparisce; rientrando risale in 140 ms
             knifeBlend = Mathf.MoveTowards(knifeBlend, knifeOut ? 1f : 0f, dt / (knifeOut ? 0.08f : 0.14f));
             RideStowTick(dt);                // in sella (Weapon.Ride.cs) l'arma sta riposta finche' non serve
-            bool shown = knifeBlend < 0.999f && (!rideMode || rideStow < 0.999f);
-            if (viewRoot.gameObject.activeSelf != shown) viewRoot.gameObject.SetActive(shown);
-
             // ----- cambio arma
             if (swapT > 0f)
             {
@@ -899,6 +914,8 @@ namespace PryingEyes
                 if (Mathf.Abs(wheel) > 0.01f) SwitchSlot(1 - cur);
             }
             d = Def; // il cambio può essersi concluso in questo stesso fotogramma
+            bool shown = knifeBlend < 0.999f && (!rideMode || rideStow < 0.999f) && ParkourStow < 0.94f;
+            if (viewRoot.gameObject.activeSelf != shown) viewRoot.gameObject.SetActive(shown);
             // ispezione dell'arma: I a riposo; sparare, mirare, ricaricare, cambiare o il coltello la interrompono
             if (inputEnabled && SeatInput.GetKeyDown(KeyCode.I) && inspectT <= 0f && !reloading && ads < 0.1f && swapT <= 0f && !knifeOut && !OffBusy && !rideMode) Inspect();
             if (OffBusy) inspectT = 0f;
@@ -938,7 +955,7 @@ namespace PryingEyes
             bool held = inputEnabled && (SeatInput.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot);
             if (rideMode) press = RidePendingPress(press, dt);
             if (!held) { triggerHeld = false; dryPlayed = false; }
-            bool blocked = knifeOut || OffBusy || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube) || (rideMode && rideStow > 0.35f);
+            bool blocked = knifeOut || OffBusy || swapT > 0f || sprintBlend > 0.35f || equipT > d.drawTime * 0.6f || (reloading && d.style != ReloadStyle.Tube) || (rideMode && rideStow > 0.35f) || ParkourBlocked;
             if (reloading && d.style == ReloadStyle.Tube && held && mag > 0 && (press || State.RoundsLoaded > 0))
             {
                 // sparare interrompe la ricarica a canna
@@ -1010,7 +1027,7 @@ namespace PryingEyes
                 float spread = CurrentSpread(speed, grounded, crouched);
                 float fov = cam.GetComponent<Camera>().fieldOfView;
                 float px = Mathf.Tan(spread * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad) * 360f;
-                hud.SetCrosshair(px, Mathf.Max(ads, RideStow), d.cls, d.pellets > 1);          // il mirino sparisce con l'arma in mira o, in sella, riposta
+                hud.SetCrosshair(px, Mathf.Max(ads, Mathf.Max(RideStow, ParkourStow)), d.cls, d.pellets > 1);
                 hud.SetAdsVignette(ads * (d.zoom > 1.4f ? 0.80f : 0.42f));
             }
 
@@ -1405,6 +1422,12 @@ namespace PryingEyes
                 rot *= Quaternion.Euler(orr);
             }
             RidePose(ref pos, ref rot);
+            if (ParkourStow > 0f)
+            {
+                float lower = Ease(ParkourStow);
+                pos += new Vector3(0.04f, -0.32f, -0.07f) * lower;
+                rot *= Quaternion.Euler(42f * lower, 0f, 9f * lower);
+            }
             viewRoot.localPosition = pos;
             viewRoot.localRotation = rot;
             AnimateParts(rp, d);

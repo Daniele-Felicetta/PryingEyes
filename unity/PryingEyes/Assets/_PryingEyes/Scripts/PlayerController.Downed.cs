@@ -63,6 +63,7 @@ namespace PryingEyes
         {
             if (!AnyoneCanHelp()) { Die(); return; }        // da solo e gia' rialzato su questo piano: nessuno verrebbe
             Downed = true;
+            ResetParkour();
             downFloor = CurrentFloor; aloneT = 0f;
             hp = 0f;
             BleedLeft = bleedOutOverride > 0f ? bleedOutOverride : BleedOutTime;
@@ -139,6 +140,7 @@ namespace PryingEyes
         /// <summary>Morte vera: dissanguato o colpito senza scampo. Come prima: punti e perk persi, si rinasce all'ingresso.</summary>
         void Die()
         {
+            ResetParkour();
             Downed = false;
             hp = 0f; alive = false; respawnT = 2.5f;
             RisingProgress = 0f;

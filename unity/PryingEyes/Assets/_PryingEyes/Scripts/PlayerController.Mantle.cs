@@ -78,6 +78,7 @@ namespace PryingEyes
         /// <summary>Teletrasporto, rinascita: lo scavalco in corso si interrompe (il chiamante rimette a posto il controller).</summary>
         void CancelMantle()
         {
+            ResetParkour();
             mantleT = -1f;
             mantleWindow = 0f;
             mantlePitch = mantleRoll = mantleDrop = 0f;
