@@ -12,6 +12,7 @@ It does not need the conversation that produced it. Everything it relies on is i
 | [package-extraction.md](package-extraction.md) | what can become a reusable package, and when |
 | [agent-tooling.md](agent-tooling.md) | the commands and data formats for agents |
 | [modular-tasks.md](modular-tasks.md) | the brief of each task: steps, acceptance criteria, verification |
+| [plan-method.md](plan-method.md) | how the plan is run when tasks go side by side: roles, the cycle, checking a report, the order of merges |
 
 Written on 20 November 2026 at commit `4042709` (version 0.9.4). At that date nothing in the plan had been carried out except the
 census tool (`tools/code_census.py`) that the audit needed; the [status](#status) table is the live part.
@@ -57,7 +58,7 @@ are in [modular-tasks.md](modular-tasks.md).
 | T07 | The in-player harness, proven on three suites | 1 | | editor, build | todo |
 | T08 | The other suites on the harness | 1 | T07 | editor, build | todo |
 | T09 | Compile check, doctor and ship status as data | 1 | T03 | editor | todo |
-| T10 | A worktree ready for Unity | 2 | | editor to measure | todo |
+| T10 | A worktree ready for Unity | 2 | | editor to measure | done (#43) |
 | T11 | A port and a log folder per run | 2 | | a verification build | todo |
 | T12 | Automated runs leave tracked files alone | 2 | | editor, build | todo |
 | T13 | What a build rewrites: measure, then decide | 2 | | editor | todo |
