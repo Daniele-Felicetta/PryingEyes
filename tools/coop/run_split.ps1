@@ -20,10 +20,11 @@
 # Il gioco e' la build di verifica (Builds\Audit), mai Builds\PryingEyes.exe (e' quello dell'utente). I controller sono finti (uno stato XInput
 # iniettato per ogni giocatore): la lettura vera di un controller fisico non si prova qui. Con -Graphics la finestra riscrive i valori
 # "Screenmanager" del registro di Unity (HKCU\Software\DefaultCompany\PryingEyes): lo script li salva con reg export e li rimette a posto alla fine.
-# Log in -LogDir: seatsN.log.
+# Log in -LogDir: seatsN.log. By default that is unity_logs\split of the checkout this script is in (T11: a folder per checkout, not one
+# shared through %TEMP%, so that two checkouts do not overwrite each other's log and registry backup); this check opens no network port.
 param(
     [string]$Exe = (Join-Path $PSScriptRoot '..\..\unity\PryingEyes\Builds\Audit\PryingEyes.exe'),
-    [string]$LogDir = (Join-Path $env:TEMP 'pryingeyes-split'),
+    [string]$LogDir = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'unity_logs\split'),
     [ValidateRange(2, 4)][int]$Players = 3,
     [ValidateRange(1, 4)][int]$Monitors = 1,
     [switch]$Graphics,

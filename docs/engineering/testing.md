@@ -304,19 +304,20 @@ python tools/check_navigation.py [--seeds 1000 2961 3046 777 114 4242] [--floor 
 - Exit `0` = `ESITO: ok`, `1` = failed (`FloorDirector.Bot.cs`).
 - The bot buys the doors one by one, nearest first, on the enemies' navmesh (without the closed shutters), with 20 000 points and a 2.4 s pause after each purchase. Without enemies, waves do not run, so the bot opens the lift itself once the areas are done.
 
-## 5. Co-op (FishNet, UDP port 7807)
+## 5. Co-op (FishNet)
 
-Several Unity processes on one machine, with no graphics: one host and up to three guests. Each process has its own log. The scripts use the verification build by default.
+Several Unity processes on one machine, with no graphics: one host and up to three guests. Each process has its own log. The scripts use the verification build by default. Every run takes a free UDP port of its own (7807 is only the default of a player who hosts) and writes its logs under `unity_logs/` of its own checkout, so two agents in two worktrees can run co-op checks at the same time.
 
 ```powershell
 .\tools\coop\run_coop.ps1 -Clients 1 -HostArgs '-cooptest','-seed','2961' -ClientArgs '-cooptest'
 .\tools\coop\run_all.ps1 [-Only a,c]
 ```
 
-- **`run_coop.ps1`**: one host (`-coophost -cooplocal`) and `-Clients` guests (`-coopjoin 127.0.0.1`). Exit `0` = every check passed, `1` = a process hung or exited with an unexpected code (the process started with `-coopcrash` may exit non-zero), `3` = a copy of the same exe is already running.
-  - Parameters: `-Exe` (default `unity\PryingEyes\Builds\Audit\PryingEyes.exe`), `-LogDir` (default `$env:TEMP\pryingeyes-coop`), `-Name`, `-TimeoutSec` (180), `-JoinDelaySec` (8), `-ClientDelays`, `-Pattern`, `-HostGraphics` (uses the GPU for photos with `-cooppics`).
-  - Logs: `coop_<Name>_host.txt`, `coop_<Name>_c1.txt`, ... in `-LogDir`. The script defaults to `Builds\Audit`, never to the game the maintainer plays.
-- **`run_all.ps1`**: all sixteen co-op scenarios in sequence (the first eight took 623 seconds on 17 November 2026). Exit `0` = all pass, `1` = some failed, `2` = no check selected.
+- **`run_coop.ps1`**: one host (`-coophost -cooplocal`) and `-Clients` guests (`-coopjoin 127.0.0.1`). Exit `0` = every check passed, `1` = a process hung or exited with an unexpected code (the process started with `-coopcrash` may exit non-zero), `3` = a copy of the same exe is already running, or the port asked with `-Port` is taken (nothing is started).
+  - Parameters: `-Exe` (default `unity\PryingEyes\Builds\Audit\PryingEyes.exe`), `-LogDir` (default `unity_logs\coop` of the checkout the script is in), `-Port` (default `0`, below), `-Name`, `-TimeoutSec` (180), `-JoinDelaySec` (8), `-ClientDelays`, `-Pattern`, `-HostGraphics` (uses the GPU for photos with `-cooppics`).
+  - The port: `-Port 0` takes a free UDP port for this run, one that can be bound on `127.0.0.1` and on `::1` (where the host listens). Windows hands out its unused ports one after the other, so two scripts that start together do not pick the same one (measured: 25 picks each, no port in common). The first line of the output says which: `UDP port 53374 (free, chosen for this run), logs in <LogDir>`. `-Port N` uses N, and exits `3` before starting anything if N cannot be bound on both addresses (for example because another co-op run holds it). The host and the guests get it as `-coopport N` (`Coop.BootFromArgs`).
+  - Logs: `coop_<Name>_host.txt`, `coop_<Name>_c1.txt`, ... in `-LogDir`, which is `unity_logs/coop` of the checkout (git ignores it), so a run never overwrites the logs of another checkout. The script defaults to `Builds\Audit`, never to the game the maintainer plays.
+- **`run_all.ps1`**: all seventeen co-op scenarios in sequence (the first eight took 623 seconds on 17 November 2026). Parameters: `-Only`, `-Seed`, `-TimeoutSec` (420), `-LogDir` (as above), `-Port` (default `0`: each scenario takes a free port; with `N` they all use `N`, one after the other). Each result line carries the port: `[a_griglia] ok [UDP 53374]: ...`. Exit `0` = all pass, `1` = some failed, `2` = no check selected.
 
 | Name | Host args | Guest args | Checks |
 |---|---|---|---|
@@ -365,7 +366,7 @@ The split screen on one PC is not a co-op any more: it is one process, with one 
   an extra monitor to see that the cover is noticed and that the window is raised again with the game still running, and at every photo
   moment it asks for the photos below and waits for them.
 - **`tools/coop/run_split.ps1`** runs it from the verification build and reads the result. Parameters: `-Exe` (default `Builds\Audit`),
-  `-LogDir` (default `$env:TEMP\pryingeyes-split`), `-Players` (2 to 4, default 3), `-Graphics` (a 1280x720 window and the photos), `-Candles`,
+  `-LogDir` (default `unity_logs\split` of the checkout the script is in; the check opens no network port), `-Players` (2 to 4, default 3), `-Graphics` (a 1280x720 window and the photos), `-Candles`,
   `-NoMenu`, `-Desert` (runs `-splitdesertotest` instead, the desert in split screen, below), `-Monitors` (1 to 4, default 1: passes `-splitmonitors`), `-TimeoutSec` (240), `-Extra` (more arguments for the game, for example `-legacydress` to see the furnishing of the towers as it was before the correction of 20 November). Exit `0` only if the result is `SUPERATA`, `1` if a check fails or time runs out, `3` if a copy of the same
   exe is open (with `-Graphics`, if any game is open). With `-Graphics` the window rewrites the `Screenmanager` values of the game's registry
   key: the script saves them with `reg export` and restores them at the end. It uses the GPU and occupies the screen for about 40 seconds: do
