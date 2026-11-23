@@ -71,13 +71,14 @@ def add_library(checkout, files=None):
     for name, content in (LIBRARY if files is None else files).items(): write(checkout, f"{PROJECT}/Library/{name}", content)
 
 
-def make_main(root, env, name):
-    """A checkout shaped like the real one, committed and pushed to a local bare origin, with the script in it; no Library yet."""
+def make_main(root, env, name, autocrlf="false"):
+    """A checkout shaped like the real one, committed and pushed to a local bare origin, with the script in it; no Library yet.
+    The maintainer's git has core.autocrlf=true, which changes what `git status` and `git diff` say about a file that Unity rewrote."""
     repo = root / name
     for relative, content in COMMITTED.items(): write(repo, relative, content)
     shutil.copyfile(SCRIPT, write(repo, "tools/worktree.ps1", b""))
     git(repo, env, "init", "-q", "-b", "preview")
-    git(repo, env, "config", "core.autocrlf", "false")
+    git(repo, env, "config", "core.autocrlf", autocrlf)
     write(repo, ".git/info/exclude", b".claude/worktrees/\n")           # as in the real repository: the worktrees are not changes of the main checkout
     commit(repo, env, "fixture")
     origin = root / f"{name}-origin.git"
@@ -184,7 +185,8 @@ class WorktreeScriptOnThrowawayRepositories(unittest.TestCase):
         inherited = {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
         cls.env = {**inherited, "GIT_CONFIG_GLOBAL": str(empty), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0"}
         names = ("new", "pick", "lock", "version", "none", "dry", "exists", "fresh", "busy", "remove_clean", "remove_dirty", "remove_unpushed",
-                 "remove_pushed", "remove_squash", "remove_pull_head", "remove_noise", "remove_refused", "untouched")
+                 "remove_pushed", "remove_squash", "remove_pull_head", "remove_noise", "remove_noise_crlf", "remove_refused", "remove_long", "remove_held", "stuck",
+                 "untouched")
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
             cases = {name: pool.submit(getattr(cls, "case_" + name)) for name in names}
             cls.runs = {}
@@ -198,8 +200,8 @@ class WorktreeScriptOnThrowawayRepositories(unittest.TestCase):
         return found
 
     @classmethod
-    def main(cls, name, library=True):
-        main = make_main(cls.root, cls.env, name)
+    def main(cls, name, library=True, autocrlf="false"):
+        main = make_main(cls.root, cls.env, name, autocrlf)
         if library: add_library(main)
         return main
 
@@ -304,6 +306,21 @@ class WorktreeScriptOnThrowawayRepositories(unittest.TestCase):
             time.sleep(3)
         return {"main": main, "wt": wt, "new": new, "remove": remove, "state": state, "after": after}
 
+    @classmethod
+    def case_stuck(cls):
+        """On the real project Windows refused, once, to rename the finished copy (a scanner held a file in it). A tracked file named Library makes the
+        rename fail every time: the donor is a plain folder, given with -From, so that it can have a Library of its own."""
+        main = make_main(cls.root, cls.env, "stuck")
+        donor = cls.root / "stuck-donor"
+        write(donor, VERSION_FILE, EDITOR)
+        add_library(donor)
+        write(main, f"{PROJECT}/Library", b"a file where the folder should go")
+        commit(main, cls.env, "a file named Library")
+        git(main, cls.env, "push", "-q", "origin", "preview")
+        run = worktree(main, cls.env, "-New", "x", "-From", str(donor), "-RenameTries", "2", "-RenameWait", "1")
+        stage = main / ".claude/worktrees/x" / PROJECT / "Temp/Library.copy"
+        return {"main": main, "run": run, "stage": contents(stage) if stage.is_dir() else None}
+
     # -- removing a worktree ----------------------------------------------------------------------------------------------------
     @classmethod
     def case_remove_clean(cls):
@@ -371,15 +388,25 @@ class WorktreeScriptOnThrowawayRepositories(unittest.TestCase):
         return {"main": main, "wt": wt, "tip": tip, "run": worktree(main, cls.env, "-Remove", "x"), "state": cls.listing(main)}
 
     @classmethod
-    def case_remove_noise(cls):
-        main = cls.main("remove-noise", library=False)
+    def noise(cls, name, autocrlf):
+        """Unity rewrites some assets with other line endings and the same text. With core.autocrlf=true (the maintainer's setting) `git status`
+        lists such a file and `git diff HEAD` does not, and git worktree remove goes by `git status`."""
+        main = cls.main(name, library=False, autocrlf=autocrlf)
         quiet = plain_worktree(main, cls.env, "quiet")
         write(quiet, f"{ASSETS}/Settings.asset", b"a: 1\nb: 2\n")                                # Unity rewrote it: the same text, other line endings
         busy = plain_worktree(main, cls.env, "busy")
         write(busy, f"{ASSETS}/Settings.asset", b"a: 1\nb: 2\n")
         write(busy, f"{ASSETS}/Game.cs", b"class Game { int y; }\n")                            # and a real change next to it
-        return {"main": main, "quiet": quiet, "busy": busy, "run_quiet": worktree(main, cls.env, "-Remove", "quiet"),
-                "run_busy": worktree(main, cls.env, "-Remove", "busy"), "state": cls.listing(main)}
+        return {"main": main, "quiet": quiet, "busy": busy, "status_quiet": git(quiet, cls.env, "status", "--porcelain"),
+                "run_quiet": worktree(main, cls.env, "-Remove", "quiet"), "run_busy": worktree(main, cls.env, "-Remove", "busy"), "state": cls.listing(main)}
+
+    @classmethod
+    def case_remove_noise(cls):
+        return cls.noise("remove-noise", "false")
+
+    @classmethod
+    def case_remove_noise_crlf(cls):
+        return cls.noise("remove-noise-crlf", "true")
 
     @classmethod
     def case_remove_refused(cls):
@@ -393,6 +420,28 @@ class WorktreeScriptOnThrowawayRepositories(unittest.TestCase):
                 "locked_run": worktree(main, cls.env, "-Remove", "locked"),
                 "inside_cwd": worktree(main, cls.env, "-Remove", "x", cwd=wt),
                 "inside_script": worktree(wt, cls.env, "-Remove", "x"), "state": cls.listing(main)}
+
+    @classmethod
+    def case_remove_long(cls):
+        """The deepest file of the real Library is 245 characters long and a worktree adds its own folder to that: git stops at 260 unless told otherwise."""
+        main = cls.main("remove-long", library=False)
+        wt = plain_worktree(main, cls.env, "x")
+        deep = str(wt / PROJECT / "Library")
+        for level in range(12): deep += "\\" + "d" * 24 + str(level)
+        os.makedirs("\\\\?\\" + deep)                                                            # \\?\ lifts the limit for the test itself
+        with open("\\\\?\\" + deep + "\\file.bin", "wb") as handle: handle.write(b"deep")
+        return {"main": main, "wt": wt, "length": len(deep) + len("\\file.bin"), "run": worktree(main, cls.env, "-Remove", "x"), "state": cls.listing(main)}
+
+    @classmethod
+    def case_remove_held(cls):
+        """A file that something holds open cannot be deleted on Windows: git fails half way, and the script has to say what is left."""
+        main = cls.main("remove-held", library=False)
+        wt = plain_worktree(main, cls.env, "x")
+        held = write(wt, f"{PROJECT}/Library/held.bin", b"in use")
+        with open(held, "rb"):
+            run = worktree(main, cls.env, "-Remove", "x")
+            left = {"folder": wt.is_dir(), "held": held.is_file()}
+        return {"main": main, "wt": wt, "run": run, "state": cls.listing(main), **left}
 
     # -- no other worktree is touched -------------------------------------------------------------------------------------------
     @classmethod
@@ -540,6 +589,17 @@ class WorktreeScriptOnThrowawayRepositories(unittest.TestCase):
         self.assertEqual(found["after"].code, 0, found["after"].stdout + found["after"].stderr)
         self.assertFalse(found["wt"].exists(), "once the player is closed the worktree goes, with the build it ran from")
 
+    def test_a_copy_that_arrived_whole_but_cannot_be_renamed_is_asked_again_and_then_kept_not_thrown_away(self):
+        found = self.case("stuck")
+        run = found["run"]
+        self.assertEqual(run.code, 1, run.stdout + run.stderr)
+        library = run.data["library"]
+        self.assertEqual((library["copied"], library["renameTries"]), (False, 2))
+        self.assertIn("arrived whole but cannot be renamed", " ".join(run.data["problems"]))
+        self.assertIn("Temp\\Library.copy", " ".join(run.data["warnings"]))
+        self.assertEqual(found["stage"], COPIED, "the copy is where it was made, whole")
+        self.assertIn("try 1 of 2", run.stderr)
+
     # -- tests: removing a worktree ----------------------------------------------------------------------------------------------
     def test_a_clean_published_worktree_is_removed_with_its_library_and_its_merged_branch(self):
         found = self.case("remove_clean")
@@ -603,15 +663,18 @@ class WorktreeScriptOnThrowawayRepositories(unittest.TestCase):
         self.assertIn("claude/x", found["state"]["branches"], "not merged: the branch stays")
 
     def test_a_change_of_line_endings_only_is_not_work_but_a_real_change_next_to_it_is(self):
-        found = self.case("remove_noise")
-        quiet, busy = found["run_quiet"], found["run_busy"]
-        self.assertEqual(quiet.code, 0, quiet.stdout + quiet.stderr)
-        self.assertEqual(quiet.data["lineEndingsRestored"], 1)
-        self.assertFalse(found["quiet"].exists())
-        self.assertEqual(busy.code, 1, busy.stdout + busy.stderr)
-        self.assertEqual(busy.data["uncommitted"], [f"M {ASSETS}/Game.cs"], "the file that only changed line endings is not listed")
-        self.assertEqual((found["busy"] / ASSETS / "Settings.asset").read_bytes(), b"a: 1\nb: 2\n", "a refusal changes nothing in the worktree")
-        self.assertEqual((found["busy"] / ASSETS / "Game.cs").read_bytes(), b"class Game { int y; }\n")
+        for setting, name in (("autocrlf=false", "remove_noise"), ("autocrlf=true", "remove_noise_crlf")):
+            with self.subTest(setting):
+                found = self.case(name)
+                quiet, busy = found["run_quiet"], found["run_busy"]
+                self.assertEqual(found["status_quiet"], f"M {ASSETS}/Settings.asset", "git itself calls the file modified (git() strips the leading space)")
+                self.assertEqual(quiet.code, 0, quiet.stdout + quiet.stderr)
+                self.assertEqual(quiet.data["lineEndingsRestored"], 1)
+                self.assertFalse(found["quiet"].exists())
+                self.assertEqual(busy.code, 1, busy.stdout + busy.stderr)
+                self.assertEqual(busy.data["uncommitted"], [f"M {ASSETS}/Game.cs"], "the file that only changed line endings is not listed")
+                self.assertEqual((found["busy"] / ASSETS / "Settings.asset").read_bytes(), b"a: 1\nb: 2\n", "a refusal changes nothing in the worktree")
+                self.assertEqual((found["busy"] / ASSETS / "Game.cs").read_bytes(), b"class Game { int y; }\n")
 
     def test_the_main_checkout_a_locked_worktree_an_unknown_name_and_the_folder_the_script_runs_from_are_refused(self):
         found = self.case("remove_refused")
@@ -625,6 +688,30 @@ class WorktreeScriptOnThrowawayRepositories(unittest.TestCase):
         self.assertIn("inside the worktree", text(found["inside_script"]))
         self.assertTrue(found["main"].is_dir() and found["wt"].is_dir() and found["locked"].is_dir())
         self.assertEqual(found["state"]["worktrees"].count("worktree "), 3)
+
+    def test_a_worktree_with_a_path_over_260_characters_is_removed_whole(self):
+        found = self.case("remove_long")
+        run = found["run"]
+        self.assertGreater(found["length"], 400, "the fixture is far past the 260 characters that git stops at by default")
+        self.assertEqual(run.code, 0, run.stdout + run.stderr)
+        self.assertEqual((run.data["removed"], run.data["problems"]), (True, []))
+        self.assertFalse(found["wt"].exists(), "nothing is left behind")
+        self.assertEqual(found["state"]["worktrees"].count("worktree "), 1)
+        self.assertEqual(found["state"]["branches"], "preview")
+
+    def test_a_folder_that_git_cannot_delete_is_reported_with_what_is_left_and_the_branch_stays(self):
+        found = self.case("remove_held")
+        run = found["run"]
+        self.assertEqual(run.code, 1, run.stdout + run.stderr)
+        self.assertFalse(run.data["removed"])
+        self.assertTrue(found["folder"] and found["held"], "the file that is held open is still there")
+        self.assertIn("claude/x", found["state"]["branches"], "a branch is deleted only after its worktree is gone")
+        problem = " ".join(run.data["problems"])
+        if "leftover" in run.data:                                                               # git drops its record first and its folder second
+            self.assertTrue(same_path(run.data["leftover"], found["wt"]), run.data["leftover"])
+            self.assertIn("record of the worktree", problem)
+        else:                                                                                    # (a git that keeps the record until the folder is gone)
+            self.assertIn("git worktree remove failed", problem)
 
     # -- tests: no other worktree is touched ----------------------------------------------------------------------------------------
     def test_creating_and_removing_a_worktree_touches_no_other_worktree_and_no_donor(self):

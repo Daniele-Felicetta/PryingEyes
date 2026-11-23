@@ -33,7 +33,9 @@ Exit code 0 = done (or, with -DryRun, possible), 1 = refused or failed; the JSON
 -DryRun       Checks everything and changes nothing (no fetch either: refs are as of the last fetch).
 
 -From, -Branch, -WorktreesDir (default <main checkout>\.claude\worktrees), -Repo (the checkout whose worktrees are managed, default the
-one this script is in), -MinFreeGB (free space that must remain after the copy, default 10) serve people with another layout and the tests.
+one this script is in), -MinFreeGB (free space that must remain after the copy, default 10), -RenameTries and -RenameWait (how many times,
+and how many seconds apart, to ask Windows to rename the finished copy while a scanner may hold a file in it: 12 and 5) serve people with
+another layout and the tests. A copy that arrived whole is never thrown away because of the rename: it stays in Temp\Library.copy.
 No other worktree is ever touched; a donor is only read. The file is ASCII on purpose: Windows PowerShell 5.1 misreads accents in a file
 without a BOM.
 #>
@@ -45,6 +47,8 @@ param(
     [string]$Repo = '',
     [string]$WorktreesDir = '',
     [int]$MinFreeGB = 10,
+    [int]$RenameTries = 12,
+    [int]$RenameWait = 5,
     [switch]$NoLibrary,
     [switch]$FullSpeed,
     [switch]$DryRun
@@ -88,13 +92,15 @@ function Finish([bool]$ok) {
 # ---------------------------------------------------------------- git and paths
 $script:gitCode = 0
 function Lines($o) { $r = @(); foreach ($x in @($o)) { if ($null -ne $x) { $r += [string]$x } }; return $r }
+# core.longpaths: a Unity Library has files 186 characters below its folder and a worktree puts its own folder in front of them, so without it
+# `git worktree remove` stops at 260 characters with "Filename too long" and leaves the folder behind
 function GitQ([string]$dir, [string[]]$a) {      # stdout lines only; the exit code stays in $script:gitCode
-    $o = & git -C $dir -c core.quotepath=false @a 2>$null
+    $o = & git -C $dir -c core.quotepath=false -c core.longpaths=true @a 2>$null
     $script:gitCode = $LASTEXITCODE
     return (Lines $o)
 }
 function GitR([string]$dir, [string[]]$a) {      # stdout and stderr, for the text of an error
-    $o = & git -C $dir -c core.quotepath=false @a 2>&1
+    $o = & git -C $dir -c core.quotepath=false -c core.longpaths=true @a 2>&1
     $script:gitCode = $LASTEXITCODE
     return (Lines $o)
 }
@@ -191,7 +197,11 @@ function Invoke-Robocopy([string]$src, [string]$dst, [bool]$listOnly) {
     $p = [Diagnostics.Process]::Start($psi)
     try {
         if (-not $FullSpeed) { $p.PriorityClass = 'BelowNormal' }
-        if ($native) { [void][WorktreeNative]::Set($p.Id, 33, 1); [void][WorktreeNative]::Set($p.Id, 39, 2) }
+        if ($native) {
+            $io = [WorktreeNative]::Set($p.Id, 33, 1)
+            $mem = [WorktreeNative]::Set($p.Id, 39, 2)
+            if ($io -ne 0 -or $mem -ne 0) { $warnings.Add("the disk or memory priority of the copy was not set (NT status $io and $mem)") }
+        }
     } catch { }
     $text = $p.StandardOutput.ReadToEnd()
     $p.WaitForExit()
@@ -356,20 +366,46 @@ if ($action -eq 'new') {
         $t = Read-Totals $r.text
         $seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1)
         $whole = ($r.code -lt 8) -and ($null -ne $t) -and ($t.files[1] -eq $measure.files) -and ($t.bytes[1] -eq $measure.bytes) -and ($t.files[4] -eq 0) -and ($t.files[3] -eq 0)
+        $keepStage = $false
         if (-not $whole) {
             Fail ('the copy of the Library is incomplete (robocopy exit ' + $r.code + '): ' + $(if ($t) { "copied $($t.files[1]) of $($measure.files) files, failed $($t.files[4])" } else { 'no summary' }))
         } elseif (Test-Path -LiteralPath $donorLock) {
             $whole = $false
             Fail 'an editor opened the donor while its Library was being copied: the copy may be inconsistent and was dropped'
         } else {
-            try { [IO.Directory]::Move($stage, $final) } catch { $whole = $false; Fail ('cannot rename the copy to Library: ' + $_.Exception.Message) }
+            # Windows refuses to rename a folder while something holds a file inside it (a scanner looking at the 30 thousand files just written):
+            # ask again for a while. A copy that arrived whole is never thrown away for this: it stays where it is, and the answer says so.
+            $tries = 0
+            $moveError = ''
+            $renamed = $false
+            while (-not $renamed -and $tries -lt $RenameTries) {
+                $tries++
+                try { [IO.Directory]::Move($stage, $final); $renamed = $true }
+                catch {
+                    $moveError = $_.Exception.Message
+                    if ($tries -lt $RenameTries) { Say "the copy cannot be renamed yet ($moveError): try $tries of $RenameTries, again in $RenameWait s"; Start-Sleep -Seconds $RenameWait }
+                }
+            }
+            $result['library']['renameTries'] = $tries
+            if (-not $renamed) {
+                $whole = $false
+                $keepStage = $true
+                Fail ("the copy arrived whole but cannot be renamed to Library after $tries tries ($moveError): it is left at $(Slash $stage), rename it once nothing holds a file in it")
+            }
         }
-        if (-not $whole -and (Inside $stage $wtPath) -and (Test-Path -LiteralPath $stage)) { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }
+        if (-not $whole -and -not $keepStage -and (Inside $stage $wtPath) -and (Test-Path -LiteralPath $stage)) {
+            # \\?\ lifts the 260 character limit that Remove-Item has in Windows PowerShell 5.1 (a Library goes past it inside a worktree)
+            try { [IO.Directory]::Delete('\\?\' + $stage, $true) } catch { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }
+        }
         $tempDir = Join-Path $proj 'Temp'
         if ((Test-Path -LiteralPath $tempDir) -and -not (Get-ChildItem -LiteralPath $tempDir -Force)) { Remove-Item -LiteralPath $tempDir -Force -ErrorAction SilentlyContinue }
         $result['library']['copied'] = $whole
         $result['library']['seconds'] = $seconds
-        if (-not $whole) { $warnings.Add('the worktree exists without a Library: remove it (-Remove) and try again, or open it in Unity and wait for the import'); Finish $false }
+        $result['library']['priority'] = $(if ($FullSpeed) { 'normal' } else { 'low' })
+        if (-not $whole) {
+            $warnings.Add($(if ($keepStage) { 'the worktree has its Library only as Temp\Library.copy: rename it, or remove the worktree (-Remove) and try again' } else { 'the worktree exists without a Library: remove it (-Remove) and try again, or open it in Unity and wait for the import' }))
+            Finish $false
+        }
     }
     Finish $true
 }
@@ -402,21 +438,33 @@ if ($problems.Count -gt 0) { Finish $false }
 
 $null = Update-Base
 
-# uncommitted work: what differs from HEAD, plus untracked files that are not ignored; a file that differs only in its line endings is not work
-$status = @{}
-foreach ($l in @(GitQ $target.path @('diff', '--name-status', '--no-renames', 'HEAD', '--'))) { if ($l -match '^([A-Z])\t(.+)$') { $status[$Matches[2]] = $Matches[1] } }
+# uncommitted work is what `git status` lists: it is the test that git worktree remove makes itself, and with core.autocrlf=true it lists a file that
+# Unity rewrote with other line endings although `git diff HEAD` shows nothing (the first version of this script asked `git diff` and was refused by git)
+function Get-Dirty([string]$dir) {            # path -> the two-letter code of `git status --porcelain`; the exit code of git stays in $script:gitCode
+    $d = @{}
+    foreach ($l in @(GitQ $dir @('status', '--porcelain', '--no-renames', '--untracked-files=all'))) {
+        if ($l -match '^(..) (.+)$') {
+            $p = $Matches[2]
+            if ($p.Length -ge 2 -and $p.StartsWith('"') -and $p.EndsWith('"')) { $p = ($p.Substring(1, $p.Length - 2) -replace '\\t', "`t") -replace '\\(["\\])', '$1' }      # a name with a space is quoted
+            $d[$p] = $Matches[1]
+        }
+    }
+    return $d
+}
+$dirty = Get-Dirty $target.path
+if ($script:gitCode -ne 0) { Fail 'cannot read the status of the worktree'; Finish $false }
+# a file that differs from HEAD only in its line endings is not work: git diff ignoring them lists nothing for it, and it is put back from HEAD below
 $real = @{}
 $numstat = @(GitQ $target.path @('diff', '--numstat', '--no-renames', '--ignore-cr-at-eol', 'HEAD', '--'))
 $numstatOk = ($script:gitCode -eq 0)
 foreach ($l in $numstat) { if ($l -match '^(\d+|-)\t(\d+|-)\t(.+)$') { $real[$Matches[3]] = $true } }
-foreach ($l in @(GitQ $target.path @('ls-files', '--others', '--exclude-standard', '--'))) { if ($l -and -not $status.ContainsKey($l)) { $status[$l] = '??' } }
-$names = [string[]]@($status.Keys)
+$names = [string[]]@($dirty.Keys)
 [Array]::Sort($names, [StringComparer]::Ordinal)
 $work = @()
 $eolOnly = @()
 foreach ($p in $names) {
-    if ($numstatOk -and $status[$p] -eq 'M' -and -not $real.ContainsKey($p)) { $eolOnly += $p; continue }
-    $work += ($status[$p] + ' ' + $p)
+    if ($numstatOk -and $dirty[$p] -eq ' M' -and -not $real.ContainsKey($p)) { $eolOnly += $p; continue }
+    $work += (([string]$dirty[$p]).Trim() + ' ' + $p)
 }
 if ($work.Count -gt 0) {
     $result['uncommitted'] = @($work | Select-Object -First 50)
@@ -462,12 +510,33 @@ for ($i = 0; $i -lt $eolOnly.Count; $i += 100) {
     $o = @(GitR $target.path (@('checkout', 'HEAD', '--') + $batch))
     if ($script:gitCode -ne 0) { Fail ('cannot restore the files that differ only in line endings: ' + ($o -join ' | ')); Finish $false }
 }
-if ($eolOnly.Count -gt 0) { $result['lineEndingsRestored'] = $eolOnly.Count }
+if ($eolOnly.Count -gt 0) {
+    $result['lineEndingsRestored'] = $eolOnly.Count
+    # git must agree that the worktree is clean now: it checks the same thing before it deletes, and a refusal there is better said here
+    $left = Get-Dirty $target.path
+    if ($left.Count -gt 0) {
+        $result['uncommitted'] = @($left.Keys | Sort-Object | Select-Object -First 50 | ForEach-Object { ([string]$left[$_]).Trim() + ' ' + $_ })
+        Fail "git still lists $($left.Count) change(s) after the files that differ only in line endings were put back from HEAD"
+        Finish $false
+    }
+}
 
 Say "removing $(Slash $target.path)"
 $sw = [Diagnostics.Stopwatch]::StartNew()
 $o = @(GitR $Repo @('worktree', 'remove', $target.path))
-if ($script:gitCode -ne 0 -or (Test-Path -LiteralPath $target.path)) { Fail ('git worktree remove failed: ' + ($o -join ' | ')); $result['removed'] = $false; Finish $false }
+if ($script:gitCode -ne 0 -or (Test-Path -LiteralPath $target.path)) {
+    $why = ($o -join ' | ')
+    $registered = (@(Get-Worktrees | Where-Object { Same $_.path $target.path })).Count -gt 0
+    if (-not $registered -and (Test-Path -LiteralPath $target.path)) {
+        # git drops its record of the worktree first and deletes the folder second: what it could not delete (a file held open) stays, unregistered
+        $result['leftover'] = Slash $target.path
+        Fail ("git removed the record of the worktree but could not delete its folder, which is left at $(Slash $target.path): delete it by hand once what stops git is gone" + $(if ($target.branch) { ", then git branch -D $($target.branch) if it is merged" } else { '' }) + " ($why)")
+    } else {
+        Fail ('git worktree remove failed: ' + $why)
+    }
+    $result['removed'] = $false
+    Finish $false
+}
 $result['removed'] = $true
 $result['removeSeconds'] = [math]::Round($sw.Elapsed.TotalSeconds, 1)
 
