@@ -20,6 +20,7 @@ namespace PryingEyes
         public bool ads, reloading;             // in mira, in ricarica (idem)
         public bool riding;                     // in sella a una moto del deserto (pe-coop-32): bit 4 del secondo byte dei flag
         public float heading;                   // verso dove punta la moto (radianti, come yaw); lo sguardo del pilota puo' essere altrove
+        public int bike;                        // quale moto guida (pe-coop-37): bit 3-6 del secondo byte dei flag, 0 la moto arrangiata e 1..9 le moto della pista (DesertBikeDefs.NetCode)
 
         public void Write(NetWriter w)
         {
@@ -28,7 +29,7 @@ namespace PryingEyes
              .U8(Mathf.Clamp(Mathf.RoundToInt(speedH * 20f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(lum * 255f), 0, 255))
              .U8(Mathf.Clamp(Mathf.RoundToInt(shotAge * 100f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(hp * 255f), 0, 255)).U8(weapon)
              .U8(Mathf.Clamp(Mathf.RoundToInt((Mathf.Clamp(lean, -1f, 1f) + 1f) * 127.5f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(sight * 100f), 0, 255))
-             .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0) | (riding ? 4 : 0))
+             .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0) | (riding ? 4 : 0) | ((bike & 15) << 3))
              .U8(CoopProtocol.QuantYaw(heading));
         }
 
@@ -52,7 +53,7 @@ namespace PryingEyes
             s.bleed = r.U8() / 8f;
             s.gun = r.U8();
             int f2 = r.U8();
-            s.ads = (f2 & 1) != 0; s.reloading = (f2 & 2) != 0; s.riding = (f2 & 4) != 0;
+            s.ads = (f2 & 1) != 0; s.reloading = (f2 & 2) != 0; s.riding = (f2 & 4) != 0; s.bike = (f2 >> 3) & 15;
             s.heading = CoopProtocol.DequantYaw((byte)r.U8());
             return s;
         }
@@ -345,7 +346,10 @@ namespace PryingEyes
             if (!bikeHeadingInit) { bikeHeadingDeg = target; bikeHeadingInit = true; }
             float prev = bikeHeadingDeg;
             bikeHeadingDeg = Mathf.LerpAngle(bikeHeadingDeg, target, 1f - Mathf.Exp(-12f * dt));
-            if (bike == null) bike = Deserto.DesertBike.Create(transform, transform.position, bikeHeadingDeg * Mathf.Deg2Rad, "Moto di " + playerName);
+            // la moto che guida adesso (cambia quando scende e sale su un'altra del suo garage): quella costruita sotto il pupazzo deve essere la sua
+            var def = Deserto.DesertBikeDefs.FromNet(last.bike);
+            if (bike != null && bike.Def != def) { Destroy(bike.gameObject); bike = null; }
+            if (bike == null) bike = Deserto.DesertBike.Create(transform, transform.position, bikeHeadingDeg * Mathf.Deg2Rad, "Moto di " + playerName, def);
             if (!bike.puppet) bike.SetPuppet(true);
             Vector3 vel = dt > 0f ? (transform.position - before) / dt : Vector3.zero;
             if (vel.sqrMagnitude > 900f) vel = Vector3.zero;          // un teletrasporto non e' una corsa
@@ -364,7 +368,7 @@ namespace PryingEyes
             inp.pitch = netPitch; inp.lean = last.lean;
             var pb = last.riding && bike != null && bike.puppet ? bike : null;
             inp.seated = pb != null;                                          // in sella: seduto, i piedi sulle pedane e le mani sulle manopole (SurvivorBody)
-            if (pb != null) { inp.gripLeft = pb.GripWorld(0); inp.gripRight = pb.GripWorld(1); }
+            if (pb != null) { inp.gripLeft = pb.GripWorld(0); inp.gripRight = pb.GripWorld(1); pb.FillSeat(ref inp); }
             inp.crouch = last.crouch && !last.riding; inp.sprint = last.sprint && !last.riding;
             inp.alive = last.alive; inp.downed = last.downed;
             inp.grounded = Mathf.Abs(vel.y) < 2.5f;

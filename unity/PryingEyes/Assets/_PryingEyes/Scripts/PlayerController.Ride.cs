@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using PryingEyes.Deserto;
 
@@ -70,6 +71,7 @@ namespace PryingEyes
             rideBlend = 0f;
             Teleport(b.transform.position);
             ridePlowed.Clear(); RidePlowCount = 0;              // il Teleport ha spento e riacceso il controller: le coppie da ignorare sono sparite con lui
+            rideGhosts.Clear(); rideGhostT = 0f;
             if (cc != null)
             {
                 rideStepOffset = cc.stepOffset;
@@ -77,7 +79,7 @@ namespace PryingEyes
                 cc.height = heightStand; cc.center = new Vector3(0f, heightStand * 0.5f, 0f);
             }
             slide = false; crouch = false; lean = 0f; recP = recY = recTargetP = recTargetY = 0f;
-            rideSteer = 0f; rideTop = DesertBike.TopSpeed; rideSpeedShown = 0f; rideCrashCool = 0f; rideDip = 0f; rideLandCool = 0f; rideHistN = 0;
+            rideSteer = 0f; rideTop = b.Def.top; rideSpeedShown = 0f; rideCrashCool = 0f; rideDip = 0f; rideLandCool = 0f; rideHistN = 0;
             rideGrounded = true; rideDismount = false; rideNoiseT = 0f; rideVyPrev = 0f; rideBoosting = false;
             rideLook = Mathf.Clamp(Mathf.DeltaAngle(rideHeading * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg) * Mathf.Deg2Rad, -1.75f, 1.75f);
             rideLookPrev = rideLook; rideLookIdle = 0f;
@@ -124,9 +126,47 @@ namespace PryingEyes
             EndRide();
         }
 
+        // ---- le moto parcheggiate degli altri posti (schermo condiviso): chi esce dal garage non le trova davanti
+        readonly List<DesertBike> rideGhosts = new List<DesertBike>();
+        float rideGhostT;
+
+        /// <summary>Ogni 0,2 s: le moto parcheggiate di un altro posto entro otto metri diventano attraversabili per questo pilota, e tornano solide quando e' a piu' di dodici (o quando qualcuno ci sale).
+        /// Da soli e in cooperativa le moto sono tutte dello stesso posto e non cambia niente.</summary>
+        void RideGhostBikes(float dt)
+        {
+            if (cc == null || bike == null) return;
+            rideGhostT -= dt;
+            if (rideGhostT > 0f) return;
+            rideGhostT = 0.2f;
+            Vector3 p = transform.position;
+            var all = DesertBike.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var o = all[i];
+                if (o == null || o == bike || o.puppet || o.slot == bike.slot || o.rider != null || rideGhosts.Contains(o)) continue;
+                Vector3 d = o.transform.position - p; d.y = 0f;
+                if (d.sqrMagnitude > 64f) continue;
+                if (o.GhostFor(cc, true)) rideGhosts.Add(o);
+            }
+            for (int i = rideGhosts.Count - 1; i >= 0; i--)
+            {
+                var o = rideGhosts[i];
+                if (o == null) { rideGhosts.RemoveAt(i); continue; }
+                Vector3 d = o.transform.position - p; d.y = 0f;
+                if (d.sqrMagnitude > 144f || o.rider != null) { o.GhostFor(cc, false); rideGhosts.RemoveAt(i); }
+            }
+        }
+
+        void RideGhostEnd()
+        {
+            for (int i = 0; i < rideGhosts.Count; i++) if (rideGhosts[i] != null) rideGhosts[i].GhostFor(cc, false);
+            rideGhosts.Clear();
+        }
+
         void EndRide()
         {
             RidePlowEnd();
+            RideGhostEnd();
             bike = null;
             rideDismount = false; rideBoosting = false;
             vel = Vector3.zero;
@@ -142,7 +182,9 @@ namespace PryingEyes
         void RideTick(float dt, float f, float s, bool inputEnabled, Vector2 lookDelta)
         {
             var b = bike;
+            var def = b.Def;                  // i numeri di questa moto (velocita', ripresa, frenata, sterzo)
             dt = Mathf.Min(dt, 0.05f);
+            RideGhostBikes(dt);
             bool bot = GameManager.autoTest && DesertBike.BotActive;          // i comandi forzati: solo le prove (anche quella a due processi, che ha -autotest)
 
             // ---- sguardo: il mouse ha gia' girato 'yaw'; quello che eccede la rotta e' la testa girata di lato
@@ -171,23 +213,23 @@ namespace PryingEyes
             bool grounded = rideGrounded;
 
             // ---- gas, freno, retromarcia, resistenza
-            float topGoal = boostKey && throttle > 0.1f ? DesertBike.BoostSpeed : DesertBike.TopSpeed;
+            float topGoal = boostKey && throttle > 0.1f ? def.boost : def.top;
             rideTop = Mathf.MoveTowards(rideTop, topGoal, (topGoal > rideTop ? 5f : 9f) * dt);
             bool braking = false;
             if (grounded)
             {
                 if (throttle > 0.05f)
                 {
-                    if (along < -0.3f) { along = Mathf.MoveTowards(along, 0f, 16f * dt); braking = true; }
-                    else along += 12f * throttle * Mathf.Clamp01(1f - along / rideTop) * dt;
+                    if (along < -0.3f) { along = Mathf.MoveTowards(along, 0f, 16f * def.brake * dt); braking = true; }
+                    else along += 12f * def.accel * throttle * Mathf.Clamp01(1f - along / rideTop) * dt;
                 }
                 else if (throttle < -0.05f)
                 {
-                    if (along > 0.6f) { along = Mathf.MoveTowards(along, 0f, 17f * -throttle * dt); braking = true; }
-                    else along = Mathf.MoveTowards(along, -DesertBike.ReverseSpeed, 4.5f * -throttle * dt);
+                    if (along > 0.6f) { along = Mathf.MoveTowards(along, 0f, 17f * def.brake * -throttle * dt); braking = true; }
+                    else along = Mathf.MoveTowards(along, -def.reverse, 4.5f * -throttle * dt);
                 }
                 else along = Mathf.MoveTowards(along, 0f, (1.4f + 0.006f * along * along) * dt);
-                if (handbrake) { along = Mathf.MoveTowards(along, 0f, 20f * dt); braking = braking || along > 1f; }
+                if (handbrake) { along = Mathf.MoveTowards(along, 0f, 20f * def.brake * dt); braking = braking || along > 1f; }
                 if (along > rideTop) along = Mathf.MoveTowards(along, rideTop, 6f * dt);          // finito il turbo, la velocita' rientra piano
             }
 
@@ -203,7 +245,7 @@ namespace PryingEyes
             float rate = Mathf.Abs(steerIn) > Mathf.Abs(rideSteer) ? 4.2f : 7f;
             rideSteer = Mathf.MoveTowards(rideSteer, steerIn, rate * dt);
             float sp = Mathf.Abs(along);
-            float turn = Mathf.Lerp(2.3f, 0.55f, Mathf.Pow(Mathf.Clamp01(sp / DesertBike.TopSpeed), 0.8f));
+            float turn = Mathf.Lerp(2.3f, 0.55f, Mathf.Pow(Mathf.Clamp01(sp / def.top), 0.8f)) * def.turn;
             float omega = rideSteer * turn * Mathf.Clamp01(sp / 1.8f) * (along < 0f ? -1f : 1f) * (grounded ? 1f : 0.15f);
             if (handbrake && grounded && sp > 4f) omega *= 1.4f;
             hv = fwd * along + right * lat;
@@ -293,7 +335,7 @@ namespace PryingEyes
             yaw = rideHeading + look;
 
             // ---- la moto prende la posa, il corpo la segue
-            bool boosting = boostKey && throttle > 0.1f && rideTop > DesertBike.TopSpeed + 1f;
+            bool boosting = boostKey && throttle > 0.1f && rideTop > def.top + 1f;
             rideBoosting = boosting;
             b.Pose(transform.position, rideHeading, rideGrounded, vel, rideSteer, Mathf.Clamp01(throttle), boosting, braking, handbrake, dt);
             SpeedH = hs;
@@ -316,7 +358,7 @@ namespace PryingEyes
             Camera c = cam.GetComponent<Camera>();
             float motion = GameSettings.Motion;
             float baseFov = SplitScreen.Active ? SplitScreen.FovFor(GameSettings.Fov, Seats.ViewAspect(Seats.Current, c.aspect)) : GameSettings.Fov;
-            float targetFov = baseFov + (17f * Mathf.Clamp01(hs / DesertBike.BoostSpeed) + fovKick) * motion;
+            float targetFov = baseFov + (17f * Mathf.Clamp01(hs / def.boost) + fovKick) * motion;
             fovKick *= Mathf.Max(0f, 1f - 6f * dt);
             c.fieldOfView += (targetFov - c.fieldOfView) * Mathf.Min(1f, 8f * dt);
             rideBlend = Mathf.MoveTowards(rideBlend, 1f, dt / 0.4f);
@@ -358,7 +400,7 @@ namespace PryingEyes
                 || Mathf.Abs(SeatInput.GetAxis("Mouse ScrollWheel")) > 0.01f || TouchControls.Held(TouchControls.Action.Aim) || TouchControls.Down(TouchControls.Action.Reload) || TouchControls.Down(TouchControls.Action.Swap));
             if (Weapon.rideBotFire) fire = true;          // la prova che spara da sola (anche con la moto ferma: DesertBike.BotActive non c'entra; la alzano solo le prove)
             if (fire || other || w.reloading) rideGunIdle = 0f; else rideGunIdle += dt;
-            w.RideUp(rideGunIdle < 1.5f, speed / DesertBike.BoostSpeed);
+            w.RideUp(rideGunIdle < 1.5f, speed / (bike != null ? bike.Def.boost : DesertBike.BoostSpeed));
             w.Tick(dt, false, 0f, rideGrounded, false, lookDelta);
             if (bike != null) bike.ShowRightArm(!w.RideGunUp);          // la destra e' sull'arma: il suo braccio sulla moto non si vede (nel suo posto c'e' quello dell'arma)
         }

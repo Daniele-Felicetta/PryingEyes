@@ -27,6 +27,9 @@ namespace PryingEyes.Deserto
         [System.NonSerialized] public float homeHeading;
         /// <summary>Di chi e' (il posto dello schermo condiviso, lo slot della cooperativa, 0 da soli): alla rinascita torna a casa quella del giocatore (DesertBikes.ReturnHome).</summary>
         [System.NonSerialized] public int slot;
+        /// <summary>Quale moto e' (DesertBikeDefs): il modello, la livrea, il motore e i numeri della guida. La moto arrangiata di sempre se nessuno dice altro.</summary>
+        public DesertBikeDef Def { get => def ?? (def = DesertBikeDefs.Starter); private set => def = value; }
+        DesertBikeDef def;
 
         DesertBikeMesh.Rig rig;
         BoxCollider box;
@@ -47,13 +50,28 @@ namespace PryingEyes.Deserto
         public Quaternion BodyRotation => Body.rotation;
         /// <summary>Il pugno di un lato sulla manopola, nel mondo (0 la sinistra, 1 la destra di chi guarda avanti; gira con lo sterzo): dove il corpo visto da fuori mette la mano.</summary>
         public Vector3 GripWorld(int side) => rig != null ? rig.steer.TransformPoint(rig.handPt[Mathf.Clamp(side, 0, 1)]) : transform.position + Vector3.up;
-        public Vector3 EyeWorld => rig != null ? rig.body.TransformPoint(DesertBikeMesh.Eye) : transform.position + Vector3.up * 1.4f;
+        public Vector3 EyeWorld => rig != null ? rig.body.TransformPoint(rig.eye) : transform.position + Vector3.up * 1.4f;
+        /// <summary>La sella di questa moto per il corpo di chi la guida visto da fuori (SurvivorBody): dove sta il bacino, dove poggiano i piedi, quanto si china il busto. La moto arrangiata lascia i valori di sempre.</summary>
+        public void FillSeat(ref SurvivorInput inp)
+        {
+            var d = Def;
+            if (d.IsPista) { inp.seatHips = d.seatHips; inp.seatPegs = d.pegs; inp.seatLean = d.seatLean; }
+            else { inp.seatHips = Vector3.zero; inp.seatPegs = Vector3.zero; inp.seatLean = 0f; }
+        }
         public float WheelSpin => spin;
         public float SteerVisual => steerVis;
         public bool HeadlightOn => rig != null && rig.headlight != null && rig.headlight.enabled;
         /// <summary>Per le prove: posata sul terreno vero, e il collider da parcheggiata acceso.</summary>
         public bool Settled => settled;
         public bool ColliderOn => box != null && box.enabled;
+        /// <summary>Il corpo di chi guida un'altra moto attraversa (on) o urta di nuovo (off) questa moto parcheggiata. Serve allo schermo condiviso: i garage dei posti stanno uno dietro l'altro (stessa x, una
+        /// fila ogni 3,4 m verso sud) e la moto del posto davanti sbarrerebbe l'uscita a quello dietro. Dice se ha potuto (il collider c'e' e il controller e' acceso).</summary>
+        public bool GhostFor(CharacterController other, bool on)
+        {
+            if (box == null || other == null || !other.enabled) return false;
+            Physics.IgnoreCollision(box, other, on);
+            return true;
+        }
         /// <summary>Per le prove: si vedono le braccia del pilota sul manubrio (non in uno schermo condiviso).</summary>
         public bool ArmsShown => rig != null && rig.ArmsShown;
         /// <summary>Per le prove: si vede il braccio destro sul manubrio (non quando la destra impugna l'arma, ne' in uno schermo condiviso).</summary>
@@ -64,13 +82,14 @@ namespace PryingEyes.Deserto
         public float EnginePitch => engine != null ? engine.pitch : 0f;
 
         // ------------------------------------------------------------------ creazione
-        /// <summary>Una moto parcheggiata a terra in 'feet', rivolta verso 'heading' (radianti, come il giocatore: 0 = +z).</summary>
-        public static DesertBike Create(Transform parent, Vector3 feet, float heading, string name = "Moto")
+        /// <summary>Una moto parcheggiata a terra in 'feet', rivolta verso 'heading' (radianti, come il giocatore: 0 = +z). 'def': quale moto (null: quella arrangiata di sempre).</summary>
+        public static DesertBike Create(Transform parent, Vector3 feet, float heading, string name = "Moto", DesertBikeDef def = null)
         {
             var go = new GameObject(name);
             if (parent != null) go.transform.SetParent(parent, false);
             go.transform.position = feet;
             var b = go.AddComponent<DesertBike>();
+            b.Def = def ?? DesertBikeDefs.Starter;
             b.home = feet; b.homeHeading = heading;
             b.Build();
             b.Park(feet, heading);
@@ -79,14 +98,18 @@ namespace PryingEyes.Deserto
 
         void Build()
         {
-            rig = DesertBikeMesh.Build(transform, false);
+            if (Def == null) Def = DesertBikeDefs.Starter;
+            rig = Def.IsPista ? DesertBikeMesh.BuildPista(transform, Def) : DesertBikeMesh.Build(transform, false);
             box = gameObject.AddComponent<BoxCollider>();
             box.center = new Vector3(0f, 0.55f, 0f);
             box.size = new Vector3(0.62f, 1.1f, 1.95f);
-            engine = Voice(SoundBank.Engine, 3f, 90f, 1f);
+            engine = Voice(Def.IsPista ? SoundBank.ForEngine(Def.engine) : SoundBank.Engine, 3f, 90f, 1f);
             wind = Voice(SoundBank.SandHiss, 2f, 45f, 0.35f);
-            engine.pitch = 0.62f;
+            engine.pitch = Def.IsPista ? PistaPitch(0f) : 0.62f;
         }
+
+        /// <summary>Il suono di un motore della pista a quel regime (0 minimo, 1 linea rossa): il ciclo e' registrato a 4800 giri (la pista suona a rpm/4800).</summary>
+        float PistaPitch(float revs01) => Mathf.Clamp(Mathf.Lerp(Def.idleRpm, Def.redlineRpm * 0.95f, revs01) / 4800f, 0.3f, 3.3f);
 
         AudioSource Voice(AudioClip clip, float minDist, float maxDist, float spatial)
         {
@@ -106,12 +129,14 @@ namespace PryingEyes.Deserto
         {
             All.Remove(this);
             Interact.Remove(this);
+            // i materiali fatti per questa moto (vernice, targa, fari delle moto della pista) non se ne vanno con l'oggetto
+            if (rig != null) foreach (var m in rig.ownedMats) if (m != null) Destroy(m);
         }
 
         // ------------------------------------------------------------------ IInteract: salire
         public Vector3 Point => transform.position + Vector3.up * 0.8f;
         public float Radius => 3.1f;
-        public string Prompt => rider == null && !puppet ? "Sali in moto" : null;
+        public string Prompt => rider == null && !puppet ? (Def == null || Def.Starter ? "Sali in moto" : "Sali sulla " + Def.name) : null;
 
         public void Use()
         {
@@ -135,19 +160,24 @@ namespace PryingEyes.Deserto
                 rig.body.localRotation = Quaternion.Euler(0f, 0f, RollVisual);
                 rig.steer.localRotation = rig.steerRest * Quaternion.Euler(0f, steerVis, 0f);
                 rig.ShowArms(false);
+                rig.SetScreens(true);
             }
             if (box != null) box.enabled = true;
             settled = false; settleT = 0f;
             lastSpeed = lastThrottle = lastHs = 0f; lastBoost = lastBrake = false; lastVel = Vector3.zero;
         }
 
+        /// <summary>La piazzola di questa moto: dove torna alla rinascita del suo giocatore (DesertBikes.ReturnHome) e se si perde nel vuoto.</summary>
+        public void SetHome(Vector3 at, float heading) { home = at; homeHeading = heading; }
+
         /// <summary>Un pilota sale in sella: il collider si spegne (il suo corpo deve starci sopra) e si vedono le braccia, se la camera e' la sua.</summary>
         public void Take(PlayerController p)
         {
             rider = p;
+            DesertBikes.NoteRide(this);
             penRear?.Lift(); penFront?.Lift();
             if (box != null) box.enabled = false;
-            if (rig != null) { rig.ShowRightArm(true); rig.ShowArms(!Seats.Split); }          // in uno schermo condiviso le braccia sulla moto le vedrebbero anche gli altri posti: li' il pilota e' il suo corpo (SeatAvatar)
+            if (rig != null) { rig.ShowRightArm(true); rig.ShowArms(!Seats.Split); rig.SetScreens(false); }          // in uno schermo condiviso le braccia sulla moto le vedrebbero anche gli altri posti: li' il pilota e' il suo corpo (SeatAvatar). Il cupolino non c'e' per chi ci guarda attraverso
             lastGrounded = true;
         }
 
@@ -156,7 +186,7 @@ namespace PryingEyes.Deserto
         {
             puppet = on;
             if (box != null) box.enabled = false;
-            if (rig != null) rig.ShowArms(false);
+            if (rig != null) { rig.ShowArms(false); rig.SetScreens(true); }
             if (gameObject.activeSelf != on) gameObject.SetActive(on);
         }
 
@@ -206,7 +236,7 @@ namespace PryingEyes.Deserto
             // le tracce delle ruote sulla sabbia (DesertTracks): un nastro per ruota; si interrompe quando la moto e' in aria o ferma. Chi lo allunga decide da solo se sotto la ruota c'e' sabbia.
             if (grounded && hs > 1.2f)
             {
-                float kTrack = Mathf.Clamp01(hs / TopSpeed);
+                float kTrack = Mathf.Clamp01(hs / Def.top);
                 float deepTrack = Mathf.Clamp01(0.35f + 0.35f * kTrack + (handbrake ? 0.35f : 0f) + (boost ? 0.15f : 0f));
                 Vector3 halfBase = fwd * (DesertBikeMesh.WheelBase * 0.5f);
                 DesertTracks.Lay(penRear ?? (penRear = new DesertTracks.Pen(0.15f)), feet - halfBase, deepTrack);
@@ -289,7 +319,7 @@ namespace PryingEyes.Deserto
         void UpdateAudio(float dt, bool use)
         {
             if (GameMenu.Blocked && !Coop.Active) use = false;            // il menu di pausa zittisce il motore
-            float v = Mathf.Abs(lastSpeed);
+            float v = Mathf.Abs(lastSpeed) * (TopSpeed / Def.top);          // le marce si contano sulla velocita' massima della moto: una piu' veloce sale piu' in alto prima del cambio
             float revsT;
             if (!use) revsT = 0f;
             else
@@ -307,7 +337,7 @@ namespace PryingEyes.Deserto
             float volT = use ? Mathf.Lerp(0.20f, 0.85f, Mathf.Clamp01(revs * 0.65f + lastThrottle * 0.35f)) : 0f;
             if (engine != null)
             {
-                engine.pitch = Mathf.Lerp(0.62f, 2.3f, revs);
+                engine.pitch = Def.IsPista ? PistaPitch(revs) : Mathf.Lerp(0.62f, 2.3f, revs);
                 engine.volume = Mathf.Lerp(engine.volume, volT * GameSettings.Effects, 1f - Mathf.Exp(-(use ? 10f : 5f) * dt));
             }
             if (wind != null)

@@ -358,6 +358,10 @@ namespace PryingEyes.Deserto
             if (Explicit("ombre")) yield return Phase("ombre", ShadowRangeAudit());
             if (Explicit("pelle")) yield return Phase("pelle", SkinHandoverAudit());
             if (Explicit("luci")) yield return Phase("luci", LightShadowAudit());
+            if (Explicit("garage")) yield return Phase("garage", GarageTest());
+            if (Explicit("menu")) yield return Phase("menu di Select", HubTest());
+            if (Explicit("negozio")) yield return Phase("Bozzo Moto Store", StoreTest());
+            if (Explicit("cabina")) yield return Phase("cabina delle moto", CockpitTest());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
             if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
         }

@@ -15,10 +15,13 @@ namespace PryingEyes
 
         RectTransform spRoot, spNeedle;
         Text spNumber, spUnit, spTurbo;
-        float spKmh = -1f, spNeedleDeg;
+        float spKmh = -1f, spNeedleDeg, spFullNow = SpFull;
         int spFaults, spShownKmh = -1;
         bool spDead, spReverse;
-        static Sprite spDial, spNeedleSprite;
+        /// <summary>La moto di cui e' fatto il quadrante: la fascia gialla e il fondo scala sono i suoi (le moto della pista vanno oltre i 120).</summary>
+        DesertBikeDef spDef;
+        static Sprite spNeedleSprite;
+        static readonly System.Collections.Generic.Dictionary<int, Sprite> spDials = new System.Collections.Generic.Dictionary<int, Sprite>();
 
         /// <summary>Per le prove: il tachimetro e' acceso, il numero che mostra (km/h), dove punta la lancetta (gradi in senso orario dall'alto: -135 a 0 km/h, +135 a 120) e se la spia del turbo e' accesa.</summary>
         public bool SpeedoShown => spRoot != null && spRoot.gameObject.activeSelf;
@@ -51,19 +54,21 @@ namespace PryingEyes
                 spKmh = -1f; spShownKmh = -1;
                 return;
             }
-            if (spRoot == null) BuildDesertSpeed();
+            var def = pl.Bike != null ? pl.Bike.Def : DesertBikeDefs.Starter;
+            if (spRoot != null && def != spDef) { Destroy(spRoot.gameObject); spRoot = null; }          // un'altra moto: un altro quadrante
+            if (spRoot == null) BuildDesertSpeed(def);
             float target = Mathf.Abs(pl.RideSpeed) * 3.6f;
             if (!spRoot.gameObject.activeSelf) spRoot.gameObject.SetActive(true);
             // la lancetta e' un po' meccanica (si assesta in un decimo di secondo), il numero e' quello vero
             spKmh = spKmh < 0f ? target : Mathf.Lerp(spKmh, target, 1f - Mathf.Exp(-16f * Time.unscaledDeltaTime));
-            spNeedleDeg = SpeedoDegFor(spKmh);
+            spNeedleDeg = -SpStart + SpSweep * Mathf.Clamp01(spKmh / spFullNow);
             spNeedle.localRotation = Quaternion.Euler(0f, 0f, -spNeedleDeg);
             int k = Mathf.RoundToInt(target);
             if (k != spShownKmh)
             {
                 spShownKmh = k;
                 spNumber.text = k.ToString();
-                spNumber.color = target > DesertBike.TopSpeed * 3.6f + 1f ? SpAmber : SpInk;
+                spNumber.color = target > def.top * 3.6f + 1f ? SpAmber : SpInk;
             }
             bool rev = pl.RideSpeed < -0.3f;
             if (rev != spReverse) { spReverse = rev; spUnit.text = rev ? "km/h  R" : "km/h"; }
@@ -80,8 +85,12 @@ namespace PryingEyes
             return t;
         }
 
-        void BuildDesertSpeed()
+        void BuildDesertSpeed(DesertBikeDef def)
         {
+            spDef = def;
+            // il fondo scala: 120 km/h per la moto di casa, 160 per le moto della pista (la piu' veloce arriva a 137 col turbo)
+            float full = def.boost * 3.6f > SpFull - 2f ? 160f : SpFull;
+            spFullNow = full;
             var go = new GameObject("TachimetroMoto", typeof(RectTransform));
             go.transform.SetParent(transform, false);
             spRoot = (RectTransform)go.transform;
@@ -91,13 +100,13 @@ namespace PryingEyes
             spRoot.anchoredPosition = new Vector2(-292f, 22f);
             spRoot.sizeDelta = new Vector2(SpSize, SpSize);
             DmImg("Fondo", spRoot, SpSize - 8f, new Color(0.06f, 0.05f, 0.045f, 0.66f), CircleSprite());
-            DmImg("Quadrante", spRoot, SpSize, Color.white, SpeedDialSprite());
+            DmImg("Quadrante", spRoot, SpSize, Color.white, SpeedDialSprite(def.top * 3.6f, def.boost * 3.6f, full));
             // i numeri sulle tacche grandi (ogni 20 km/h)
             float r = 61f;
-            for (int v = 0; v <= (int)SpFull; v += 20)
+            for (int v = 0; v <= (int)full; v += 20)
             {
-                float phi = SpeedoDegFor(v) * Mathf.Deg2Rad;
-                var t = SpText(spRoot, "Num" + v, new Vector2(Mathf.Sin(phi), Mathf.Cos(phi)) * r, new Vector2(30f, 16f), 12, v > DesertBike.TopSpeed * 3.6f ? SpAmber : SpInk, FontStyle.Bold);
+                float phi = (-SpStart + SpSweep * Mathf.Clamp01(v / full)) * Mathf.Deg2Rad;
+                var t = SpText(spRoot, "Num" + v, new Vector2(Mathf.Sin(phi), Mathf.Cos(phi)) * r, new Vector2(30f, 16f), 12, v > def.top * 3.6f ? SpAmber : SpInk, FontStyle.Bold);
                 t.text = v.ToString();
             }
             spTurbo = SpText(spRoot, "Turbo", new Vector2(0f, 34f), new Vector2(60f, 14f), 11, SpAmber, FontStyle.Bold);
@@ -128,12 +137,13 @@ namespace PryingEyes
 
         // ------------------------------------------------------------------ texture dipinte a codice
         /// <summary>Il quadrante: bordo d'ottone, fascia di 270 gradi (chiara fino alla velocita' massima, gialla nella zona del turbo, rossa oltre), tacche ogni 10 km/h e piu' lunghe ogni 20. Una volta sola.</summary>
-        static Sprite SpeedDialSprite()
+        static Sprite SpeedDialSprite(float top, float boost, float full)
         {
-            if (spDial != null) return spDial;
+            int key = Mathf.RoundToInt(top * 4f) * 1000000 + Mathf.RoundToInt(boost * 4f) * 1000 + Mathf.RoundToInt(full);
+            if (spDials.TryGetValue(key, out var cached) && cached != null) return cached;
             const int N = 256;
             var px = new Color32[N * N];
-            float c = N * 0.5f, top = DesertBike.TopSpeed * 3.6f, boost = DesertBike.BoostSpeed * 3.6f;
+            float c = N * 0.5f;
             var brass = new Color(0.76f, 0.60f, 0.30f);
             for (int y = 0; y < N; y++)
                 for (int x = 0; x < N; x++)
@@ -147,13 +157,13 @@ namespace PryingEyes
                     if (ring > 0f) { col = brass; a = ring * 0.95f; }
                     if (Mathf.Abs(phi) <= SpStart + 0.5f)
                     {
-                        float kmh = (phi + SpStart) / SpSweep * SpFull;
+                        float kmh = (phi + SpStart) / SpSweep * full;
                         Color zone = kmh <= top ? new Color(0.84f, 0.85f, 0.82f) : kmh <= boost ? SpAmber : new Color(0.95f, 0.20f, 0.12f);
                         // la fascia
                         float band = Mathf.Clamp01(Mathf.Min(r - 111f, 116f - r) + 0.5f) * Mathf.Clamp01((SpStart - Mathf.Abs(phi)) * r * 0.01745f + 0.5f);
                         if (band > a) { col = zone; a = band * 0.95f; }
                         // le tacche: la piu' vicina, a multipli di 10 km/h (22,5 gradi)
-                        float step = SpSweep / (SpFull / 10f);
+                        float step = SpSweep / (full / 10f);
                         float nearest = Mathf.Round((phi + SpStart) / step) * step - SpStart;
                         float lateral = Mathf.Abs(Mathf.Sin((phi - nearest) * Mathf.Deg2Rad)) * r;
                         int idx = Mathf.RoundToInt((phi + SpStart) / step);
@@ -162,14 +172,14 @@ namespace PryingEyes
                         float tick = Mathf.Clamp01(half + 0.5f - lateral) * Mathf.Clamp01(Mathf.Min(r - r0, 109f - r) + 0.5f);
                         if (tick > 0f && Mathf.Abs(nearest) <= SpStart + 0.1f)
                         {
-                            float tk = (nearest + SpStart) / SpSweep * SpFull;
+                            float tk = (nearest + SpStart) / SpSweep * full;
                             Color tcol = tk <= top + 1f ? new Color(0.93f, 0.89f, 0.80f) : SpAmber;
                             if (tick > a) { col = tcol; a = tick * 0.95f; }
                         }
                     }
                     px[y * N + x] = new Color32((byte)(col.r * 255f), (byte)(col.g * 255f), (byte)(col.b * 255f), (byte)(Mathf.Clamp01(a) * 255f));
                 }
-            return spDial = MateSprite(px, N, "TachimetroQuadrante");
+            return spDials[key] = MateSprite(px, N, "TachimetroQuadrante");
         }
 
         /// <summary>La lancetta: un triangolo lungo e sottile che parte dal fulcro (un quinto dalla base), con una coda corta, bianco: il colore lo da' l'immagine.</summary>
