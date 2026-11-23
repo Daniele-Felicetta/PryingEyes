@@ -273,11 +273,11 @@ La cooperativa e' partita da una bozza di ChatGPT (ramo `feature/multiplayer` in
 nel commit `36e0a3a`): sessione e movimento a posti (fino a 4 posti locali per connessione) in una scena a parte
 (`MultiplayerProbe.unity`), senza il gioco vero. Il lavoro rimasto in `Assets/_PryingEyes/Multiplayer/` (avatar a capsule,
 posti locali, `NetworkFloorPlan`, obiettivi di prova) e `tools/multiplayer-check/` (controlli .NET e di codegen FishNet) e'
-**il prototipo originale, congelato**: la cartella ha un [README](../../unity/PryingEyes/Assets/_PryingEyes/Multiplayer/README.md) che dice
-che cosa il gioco ne usa e che cosa no. Il gioco usa solo l'ammissione: quattro file, `FishNetSeatAuthenticator` e i tre di
-`Multiplayer/Core/` che gli servono (`AdmissionGate`, `SessionAdmission`, `SessionRoster`); il resto serve alla sola scena di prova.
-`tools/multiplayer-check/` non compila piu' dal 15 novembre 2026 (manca `PlanAnnex.cs` nei due progetti che lo compilano) e non e' nel
-cancello. Anche la scelta del framework e' sua:
+**il prototipo originale, congelato**: la cartella ha un suo `README.md` (`unity/PryingEyes/Assets/_PryingEyes/Multiplayer/README.md`; senza
+link, perche' il cancello non scarica gli asset) che dice che cosa il gioco ne usa e che cosa no. Il gioco usa solo l'ammissione: quattro
+file, `FishNetSeatAuthenticator` e i tre di `Multiplayer/Core/` che gli servono (`AdmissionGate`, `SessionAdmission`, `SessionRoster`); il
+resto serve alla sola scena di prova. `tools/multiplayer-check/` non compila piu' dal 15 novembre 2026 (manca `PlanAnnex.cs` nei due
+progetti che lo compilano) e non e' nel cancello. Anche la scelta del framework e' sua:
 
 | Framework | Punti pertinenti | Impatto sul progetto |
 | --- | --- | --- |
