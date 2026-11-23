@@ -43,7 +43,8 @@ about durations on this page were not measured for it and are marked.
 | `studio.py doctor [--json]` | exists; `--json` and the extra facts are new (T09) | the tools are installed; new: is the editor or a player open on this checkout, is there a `Library`, which commit is the verification build, how the last gate on `preview` ended | text, or JSON |
 | `studio.py suites [--json]` | new (T03) | every suite with what it needs, its hazards and its usual duration | one line each, or JSON |
 | `studio.py test <suite> [--runtime EXE] [--allow HAZARD]` | exists; `--allow` new (T03) | runs one suite as a job under the project lock | `unity_logs/studio/<job>/report.json` |
-| `studio.py test desert`, `test plan` | new (T01, T02) | the desert lab; the fingerprint of the floor generator | `report.json` |
+| `studio.py test desert` | exists (T01) | the desert lab: 107 checks, one finding each | `report.json` |
+| `studio.py test plan` | new (T02) | the fingerprint of the floor generator | `report.json` |
 | `studio.py test compile` | new (T09) | the editor compiles the scripts and exits | compiler errors as findings |
 | `studio.py test <in-player suite>` | new (T05, T06) | starts the verification build with the flags of the manifest | `report.json` with one finding per check |
 | `studio.py catalog`, `asset`, `gallery`, `queue`, `job`, `report latest` | exist | content pipeline, evidence, queue ([production-studio.md](production-studio.md)) | as today |

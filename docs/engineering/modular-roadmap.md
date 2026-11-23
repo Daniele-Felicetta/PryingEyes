@@ -13,8 +13,8 @@ It does not need the conversation that produced it. Everything it relies on is i
 | [agent-tooling.md](agent-tooling.md) | the commands and data formats for agents |
 | [modular-tasks.md](modular-tasks.md) | the brief of each task: steps, acceptance criteria, verification |
 
-Written on 20 November 2026 at commit `4042709` (version 0.9.4). Nothing in the plan has been carried out except the census tool
-(`tools/code_census.py`) that the audit needed.
+Written on 20 November 2026 at commit `4042709` (version 0.9.4). At that date nothing in the plan had been carried out except the
+census tool (`tools/code_census.py`) that the audit needed; the [status](#status) table is the live part.
 
 ## What the plan is, in five sentences
 
@@ -48,7 +48,7 @@ are in [modular-tasks.md](modular-tasks.md).
 
 | Task | Title | Phase | Depends on | Needs | State |
 | --- | --- | --- | --- | --- | --- |
-| T01 | The desert lab in the gate | 0 | | .NET | todo |
+| T01 | The desert lab in the gate | 0 | | .NET | done (#39) |
 | T02 | A fingerprint of the floor generator | 0 | | .NET | todo |
 | T03 | One registry of suites, and the gate asks it | 0 | | .NET | todo |
 | T04 | The guard learns the rules about tests | 0 | | | todo |
@@ -93,7 +93,7 @@ A phase is over when its numbers have moved and stay moved. The numbers are prin
 
 | Phase | It is over when |
 | --- | --- |
-| 0 | the gate runs six hermetic suites and none is named in the workflow; the guard fails on a new production reference to a test and on a new unwrapped test; a change to `PlanGrid.cs` turns the gate red until the fingerprint and the protocol revision are updated |
+| 0 | the gate runs seven hermetic suites and none is named in the workflow; the guard fails on a new production reference to a test and on a new unwrapped test; a change to `PlanGrid.cs` turns the gate red until the fingerprint and the protocol revision are updated |
 | 1 | `studio.py suites` lists every in-player suite; at least the suites that need no graphics card produce a `report.json` with one finding per check; no test defines its own `Check` (census: 47 to 0); `GameManager.cs` names no test flag |
 | 2 | two agents in two worktrees run a co-op scenario at the same time and both pass; after a smoke walk and a suite `git status --porcelain hotel_build` is empty; a new worktree compiles without importing the assets; the maintainer has decided about rule 6 on the evidence of T14 |
 | 3 | no engine-free file compiled by a lab is left in the game assembly (census: 34 to 0); a distribution build contains no test type (census: 14 to 0), or T16 has recorded why not |
