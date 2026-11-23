@@ -129,7 +129,8 @@ why not; `page` exists. The tables of [testing.md](testing.md) can then be gener
 
 ### Results as data
 
-**From the player.** The harness (below) writes `result.json` into the folder given by `-testout DIR`:
+**From the player.** The harness (below) writes `result.json` into the folder given by `-testout DIR`, or into `unity_logs/<folder>/` of the
+checkout when the flag is absent (the second check below is an invented failure, to show a `detail`):
 
 ```json
 {
@@ -141,19 +142,24 @@ why not; `page` exists. The tables of [testing.md](testing.md) can then be gener
     {"name": "la leva accesa costa 1000 punti", "ok": false, "detail": "punti 1500 -> 1500"}
   ],
   "exceptions": 0,
-  "seconds": 41.2,
-  "version": "0.9.4",
-  "args": ["-batchmode", "-nographics", "-autotest", "-traptest", "-seed", "1000", "-floor", "1"],
-  "artifacts": ["01_trappola_accesa.png"]
+  "seconds": 9.6,
+  "version": "0.10.2",
+  "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-traptest", "-seed", "1000", "-floor", "1", "-logFile", "<path>"],
+  "artifacts": ["accesa_fulmine.png"]
 }
 ```
+
+The file is plain ASCII: every character outside printable ASCII is a `\uXXXX` escape, so that any parser in any encoding reads the same
+text (a check name of `TrapTest` holds an em dash). `detail` is there only when the test gave one. `args` is the command line without the
+executable, and a word that is a path is written `<path>`, so that the file names no machine. A failure to write it is a warning in the
+log: it changes neither the verdict nor the exit code.
 
 **In the report.** The runner copies each check into the job's `report.json` as a finding (`code`: the suite's name and the index of the
 check, `observed` and `expected` from `detail`, `passed`), as the labs do. A suite passes when all of these hold: the process ended with
 0 within its time; `result.json` exists and says `ok`; the number of checks is not below `checks`; the log holds no exception other than
 the ones the renderer always prints without a graphics card (the filter of `tools/check_navigation.py`).
 
-**Until a suite uses the harness** there is no `result.json`: the runner falls back to the line the tests print today
+**Until a suite uses the harness** (today only `traptest`, `barreltest` and `minetest` do) there is no `result.json`: the runner falls back to the line the tests print today
 (`<name> RISULTATO SUPERATA: 18/18`) and says so in the report (`"verdictSource": "log-line"`). Suites can therefore be registered
 before they are ported, and ported one at a time.
 
@@ -201,7 +207,10 @@ script does both ends:
 
 ## The in-player harness
 
-One base class replaces the 47 private copies of the same code (F6). Sketch of the interface; T07 fixes it against three real suites:
+State: built (T07), on three suites: `TrapTest`, `BarrelTest` and `MineTest`; T08 ports the 48 others that still carry their own copy of
+the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
+`Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
+against the three suites; the differences are listed below it):
 
 ```csharp
 namespace PryingEyes.Testing
@@ -209,26 +218,69 @@ namespace PryingEyes.Testing
     /// What the game may ask about the run. No test type and no test flag is named outside the tests.
     public static class TestRun
     {
-        public static bool Dedicated;       // a test owns this process: the automatic run must not report, photograph or quit by itself
-        public static bool HoldFire;        // the bot must not shoot by itself
-        public static string OutDir(string suite);      // -testout DIR, or unity_logs/<suite> of the checkout
+        public static bool Dedicated;                   // a test owns this process: the automatic run must not quit by itself
+        public static string OutDir(string folder);     // -testout DIR, or unity_logs/<folder> of the checkout; created
     }
 
     public abstract class PlayerTest : MonoBehaviour
     {
         protected abstract string Suite { get; }        // "traptest": the name on the result line and in result.json
         protected abstract IEnumerator Run();           // the checks
+        protected virtual string PhotoFlag { get; }     // "-trapshots", or null for a test that takes no photographs
+        protected virtual string OutFolder { get; }     // under unity_logs/ without -testout: the suite's name, or the folder its page names ("trappole")
+        protected virtual void Finish();                // after the sequence, however it ended, before the last check
+        protected int Checks { get; }                   // made so far
+        protected int Failed { get; }                   // failed so far
+        protected bool Photos { get; }                  // the photo flag is on
         protected bool Check(string name, bool ok, string detail = "");
-        protected void Photo(string name);              // into OutDir, listed under artifacts
+        protected void Photo(string name);              // into the output folder, listed under artifacts; nothing unless the photo flag is on
         protected static void InstallWhen<T>(string flag) where T : PlayerTest;      // one line in the test's own load hook
-        // Start(): waits for the level, counts exceptions, runs Run(), writes result.json, prints the result line, quits with 0 or 1
     }
 }
 ```
 
-What it removes: the `Check`, the log hook, the loop and the exit of each test; the list of 32 flags in `GameManager.cs`
-(`TestRun.Dedicated`); the literals that start with `unity_logs` and depend on the working directory. What it keeps: the result line,
-so every existing script and habit still works; the exit codes (0, 1, and 2 for "this floor cannot host the test").
+A test is then its checks and four lines of declaration (`Scripts/MineTest.cs` is the shortest):
+
+```csharp
+public sealed class MineTest : PlayerTest
+{
+    protected override string Suite { get { return "minetest"; } }
+    protected override string PhotoFlag { get { return "-mineshots"; } }
+    protected override string OutFolder { get { return "mine"; } }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void Install() { InstallWhen<MineTest>("-minetest"); }
+
+    protected override IEnumerator Run() { /* ... Check("a un metro la fa scoppiare", ok); ... */ }
+}
+```
+
+What the base class does, in the order of the old private copies: it counts the exceptions the game logs (`LogType.Exception`), runs
+`Run()` (an exception in it ends the sequence, is logged and fails the check `sequenza completa`), calls `Finish()`, adds the check
+`nessuna eccezione runtime`, writes `result.json`, prints the result line and quits with 0 when every check passed and 1 otherwise. Each
+check is still the log line `[PryingEyes] <suite> ok <name>` or `... FALLITO <name>`, in the order of the calls. `InstallWhen` sets
+`TestRun.Dedicated` when the flag is on the command line, in the load hook, before the first `GameManager.Update`; `GameManager` reads
+`TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags)`, the legacy array being the 31 flags of the suites that are not on the
+harness yet, one per line, which T08 empties and deletes.
+
+What it removed: the `Check`, the log hook, the loop and the exit of each test that is on it; the three flags of those tests in
+`GameManager.cs`; the three literals that started with `unity_logs` and depended on the working directory. What it keeps: the result
+line, so every existing script and habit still works, and the exit codes 0 and 1.
+
+Where the first sketch was wrong or short:
+
+- `OutDir` takes the name of a folder, not of a suite: the three suites keep the folders their pages name (`trappole`, `botti`, `mine`),
+  and a new suite defaults to its own name. It resolves `unity_logs/` against the checkout (as `TestPaths` does for `hotel_build/`), not
+  against the working directory, so a run started from another folder still writes where the page says.
+- `HoldFire` is not there: the three suites are started with `-nofire` and none of their flags is in the list that stops the bot from
+  firing. The first suite that needs it adds it (T08).
+- `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
+  replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
+  break;` and `PlayerController.botDir = Vector3.zero` after the sequence).
+- The exit code 2 ("this floor cannot host the test") is not in the base class: none of the three needs it. The stealth suites call
+  `Application.Quit(2)` themselves; T08 adds a call to the base class when it ports the first of them.
+- What `Dedicated` stops is the automatic quit of `-autotest` and nothing else, as the chain it replaced did; the sketch said the run
+  "must not report, photograph or quit", which was more than the code ever did.
 
 ## Hazards and isolation
 
@@ -262,7 +314,7 @@ The path the tools should make the easy one, for a change to the game:
 | `unity_logs/studio/<job>/report.json` | the engine | agents, the gallery, the gate's summary | `schemaVersion` 1, exists |
 | `studio.py suites --json`, `doctor --json` | the engine and the profile | agents, the gate | 1, new |
 | `tools/player_tests.json` | people and agents, checked by its test | the profile | 1, new |
-| `result.json` of a player run | the harness in the game | the profile's runner | 1, new |
+| `result.json` of a player run | the harness in the game | the profile's runner | 1, exists (T07: three suites) |
 | `python tools/code_census.py --json` | the census | the audit, the gate's summary | 1, exists |
 | `unity_logs/ship_last.json` | `tools/ship.ps1` | agents | 1, new |
 

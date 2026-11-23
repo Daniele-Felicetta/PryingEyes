@@ -77,5 +77,5 @@ Added on 15 November 2026 (`Scripts/Mine.cs`), the third piece of equipment (key
 Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -minetest [-mineshots] -seed 1000 -floor 1`
 (`Scripts/MineTest.cs`, 12 checks: one at the start, placed one metre ahead on the floor, the count goes down and an empty pocket
 places nothing, not armed at 0.3 s and armed after 1.2 s, a monk at 4 m does not trigger it, one at 1 m does within 0.8 s and
-dies, the player next to it is unharmed). Photos in `unity_logs/mine`.
+dies, the player next to it is unharmed). `result.json` and the photos in `unity_logs/mine`.
 

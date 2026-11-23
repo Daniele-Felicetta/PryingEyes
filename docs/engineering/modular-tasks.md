@@ -189,17 +189,22 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 
 ### T07. The in-player harness, proven on three suites
 
-- **Why**: F5, F6. 47 copies of one harness, and a list of 32 flags in `GameManager.cs` that half the changes to that file edit.
+- **Why**: F5, F6. 51 copies of one harness (47 when the brief was written), and a list of 34 flags in `GameManager.cs` (it was 32) that
+  half the changes to that file edit.
 - **Needs**: **editor**, **build**.
 - **Touches**: new `Scripts/Testing/TestRun.cs` and `Scripts/Testing/PlayerTest.cs`; `Scripts/TrapTest.cs`, `BarrelTest.cs`,
-  `MineTest.cs`; `Scripts/GameManager.cs`; [testing.md](testing.md); [agent-tooling.md](agent-tooling.md).
+  `MineTest.cs`; `Scripts/GameManager.cs`; [testing.md](testing.md); [agent-tooling.md](agent-tooling.md); and, which the brief did not
+  foresee, `tools/code_census.py` with its test: the census, and the guard that reads it, call every file with `Test` in its name a
+  test, so `TestRun.cs` (which every build compiles and `GameManager.cs` names) would have been an unwrapped test named by production
+  code, and the `Check` of the base class a private copy of it.
 - **Steps**
   1. Before anything: run the three suites on the current build and keep their logs (the list of checks, in order, with results).
   2. Write `TestRun` (compiled always) and `PlayerTest` (compiled out of distribution builds), following
-     [agent-tooling.md](agent-tooling.md#the-in-player-harness). `result.json` must escape text correctly.
+     [agent-tooling.md](agent-tooling.md#the-in-player-harness). `result.json` must escape text correctly. The interface as built
+     is on that page; it differs from the sketch where the three suites asked for it.
   3. Port the three suites: delete their private `Check`, log hook, loop and exit; keep every check's name and order.
   4. In `GameManager.cs` replace the `||` chain with `TestRun.Dedicated` or a legacy array of the flags not yet ported, **one flag per
-     line**. Remove the three ported flags from it.
+     line**. Remove the three ported flags from it (31 are left in `LegacyDedicatedFlags`).
   5. Write `-testout` and `result.json` into the conventions of [testing.md](testing.md); mark the harness as existing in
      [agent-tooling.md](agent-tooling.md).
 - **Done when**
@@ -207,7 +212,8 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
   - Each `result.json` is valid JSON (parse it with Python) with as many checks as the log.
   - A suite that was not ported still passes (`-survivaltest`), and the smoke walk passes.
   - No file outside the tests names `PlayerTest`: a distribution build would still compile.
-  - Census: tests with their own `Check` 47 to 44; flags read by `GameManager.cs` down by three.
+  - Census: tests with their own `Check` 51 to 48 (it was 47 to 44 when the brief was written); flags read by `GameManager.cs` down by
+    three (53 to 50).
 - **Verify**: the three suites and `-survivaltest` on the new build; the smoke walk; `python tools/code_census.py --section tests --section flags`.
 - **Not in scope**: other suites; moving tests to another folder or assembly; changing what a check checks.
 
