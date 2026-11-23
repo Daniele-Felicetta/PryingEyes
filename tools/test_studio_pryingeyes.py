@@ -114,7 +114,8 @@ class PryingEyesProfile(unittest.TestCase):
     def test_registry_matches_the_command_line_the_docs_describe(self):
         self.assertEqual(list(pe.PRYING_EYES.kinds), ["weapon", "room"])
         self.assertEqual({name: suite.runtime for name, suite in pe.PRYING_EYES.suites.items()},
-                         {"gunplay": True, "weapon-state": False, "survival": False, "economy": False, "saves": False, "track": False, "desert": False})
+                         {"gunplay": True, "weapon-state": False, "survival": False, "economy": False,
+                          "saves": False, "track": False, "desert": False, "shadow-audit": True})
         self.assertEqual(pe.PRYING_EYES.publish_dir, pe.EXE.parent)
 
     def test_lock_file_is_the_one_the_tool_used_before_it_was_split(self):

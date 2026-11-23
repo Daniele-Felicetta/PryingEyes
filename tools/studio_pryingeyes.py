@@ -158,6 +158,22 @@ def desert_state(job):
     if result is None or not result["ok"]: raise RuntimeError("DESERT_STATE_FAILED_OR_REPORT_MISSING")
 
 
+def desert_shadow_audit(job, executable):
+    if executable == EXE:
+        executable = UNITY / "Builds/Audit/PryingEyes.exe"
+    if not executable.is_file():
+        raise RuntimeError("SHADOW_AUDIT_BUILD_MISSING: use an Audit build with --runtime")
+    report = job.folder / "shadow-audit.csv"
+    log = job.folder / "shadow-audit-player.log"
+    job.report["artifacts"].extend([str(report), str(log)])
+    job.save()
+    job.run("shadow-audit", [executable, "-batchmode", "-autotest", "-profilo", "shadow-audit", "-desertotest",
+                             "-seed", "1000", "-desertonly", "shadow-audit", "-shadow-report", report,
+                             "-logFile", log], timeout=240)
+    if not report.is_file():
+        raise RuntimeError("SHADOW_AUDIT_REPORT_MISSING: rebuild Audit from the current sources")
+
+
 def unity_build(ctx, method, asset_args):
     """The editor step both content types share: build the player for one entry into ctx.build_dir."""
     ctx.job.run("unity", [ctx.tools["unity"], "-batchmode", "-projectPath", UNITY, "-executeMethod", method, *asset_args,
@@ -274,7 +290,8 @@ class PryingEyes(Project):
               "economy": Suite(lambda ctx, runtime: economy_state(ctx.job)),
               "saves": Suite(lambda ctx, runtime: saves_state(ctx.job)),
               "track": Suite(lambda ctx, runtime: track_state(ctx.job)),
-              "desert": Suite(lambda ctx, runtime: desert_state(ctx.job))}
+              "desert": Suite(lambda ctx, runtime: desert_state(ctx.job)),
+              "shadow-audit": Suite(lambda ctx, runtime: desert_shadow_audit(ctx.job, runtime), runtime=True)}
     runtime = EXE
     publish_dir = EXE.parent
     published_artifact = EXE

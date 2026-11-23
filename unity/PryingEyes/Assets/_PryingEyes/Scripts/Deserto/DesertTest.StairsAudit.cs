@@ -79,14 +79,23 @@ namespace PryingEyes.Deserto
             Check("scale: il disegno della pietra e' una mesh leggibile", mf != null && mf.sharedMesh != null && mf.sharedMesh.isReadable);
             if (mf == null || mf.sharedMesh == null || !mf.sharedMesh.isReadable) yield break;
 
+            float xa = HubPlan.StairX0, xb = HubPlan.StairX1, zEnd = -1f - 0.4f * DesertCathedral.Steps;
+            float cxm = (xa + xb) * 0.5f, groundY = DesertWorld.GroundY;
+            // Stream the sand under the stairs before comparing its surface with the stone.
+            pl.Teleport(new Vector3(cxm, 0.06f, 1.4f));
+            var terr0 = DesertTerrain.I;
+            yield return WaitFor(() => terr0 == null || terr0.Ready(new Vector3(cxm, groundY, zEnd - 4f), 12f), 30f);
+            yield return new WaitForSeconds(0.5f);
+
             // ---- 1. la fisica contro il disegno: un collider di prova sulla stessa mesh, raggi dall'alto
             var vgo = new GameObject("PietraProva");
             vgo.transform.SetParent(root.transform, false);
             var vis = vgo.AddComponent<MeshCollider>();
             vis.sharedMesh = mf.sharedMesh;
             Physics.SyncTransforms();
-            float xa = HubPlan.StairX0, xb = HubPlan.StairX1, zEnd = -1f - 0.4f * DesertCathedral.Steps;
             int treads = 0, treadBad = 0, cheeks = 0, cheekAbove = 0, missing = 0, capSkipped = 0;
+            int footSamples = 0;
+            float minSandClearance = float.PositiveInfinity;
             float treadWorst = 0f, cheekAboveWorst = 0f, cheekBelowWorst = 0f;
             var sb = new StringBuilder();
             for (float x = xa - 0.45f; x <= xb + 0.45f; x += 0.35f)
@@ -95,10 +104,19 @@ namespace PryingEyes.Deserto
                     // il cappello di ogni pilastro al piede (62 cm di lato, 12 cm piu' largo della scatola di fisica, un metro e venti sopra l'ultimo gradino) sporge di qualche centimetro da tutti i lati: non e' un gradino
                     if (z < zEnd + 0.2f && z > zEnd - 0.55f && (x < xa + 0.2f || x > xb - 0.2f)) { capSkipped++; continue; }
                     var from = new Vector3(x, 3f, z);
-                    float yv = float.NaN, yp = float.NaN;
+                    float yv = float.NaN, yp = float.NaN, sandY = float.NegativeInfinity;
                     if (vis.Raycast(new Ray(from, Vector3.down), out var hv, 8f)) yv = hv.point.y;
                     foreach (var h in Physics.RaycastAll(from, Vector3.down, 8f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                    {
                         if (h.collider != vis && h.collider.transform.parent == root.transform && (float.IsNaN(yp) || h.point.y > yp)) yp = h.point.y;
+                        if (DesertTerrain.IsSand(h.collider)) sandY = Mathf.Max(sandY, h.point.y);
+                    }
+                    if (x > xa + 0.5f && x < xb - 0.5f && z > zEnd + 0.05f && z < zEnd + 0.35f
+                        && !float.IsNaN(yv) && !float.IsNegativeInfinity(sandY))
+                    {
+                        footSamples++;
+                        minSandClearance = Mathf.Min(minSandClearance, yv - sandY);
+                    }
                     if (float.IsNaN(yv) || float.IsNaN(yp))
                     {
                         // fuori dalla larghezza dei gradini il cornicione di pietra sporge di 12 cm dal basamento (disegno senza fisica): non conta
@@ -127,16 +145,10 @@ namespace PryingEyes.Deserto
             Check("scale: sui gradini la fisica e il disegno stanno alla stessa quota (6 cm)", treads > 500 && treadBad == 0, $"{treads} punti, {treadBad} oltre 6 cm, scarto massimo {treadWorst * 100f:F1} cm");
             Check("scale: sulle guance la fisica non sta mai sopra il disegno (6 cm)", cheeks > 100 && cheekAbove == 0, $"{cheeks} punti, {cheekAbove} oltre 6 cm, al massimo {cheekAboveWorst * 100f:F1} cm");
             Check("scale: dove c'e' il disegno c'e' la fisica (e viceversa)", missing == 0, $"{missing} punti con uno solo dei due");
+            Check("scale: the bottom tread is at least 1 cm above the sand", footSamples >= 50 && minSandClearance >= 0.01f,
+                $"{footSamples} points, minimum clearance {minSandClearance * 100f:F2} cm");
 
             // ---- 2. il suolo vero (tutti i collider dell'ambiente, la sabbia compresa) lungo l'asse della scalinata e ai suoi piedi: dove la quota non e' quella dei gradini c'e' un gradino che non si vede
-            float cxm = (xa + xb) * 0.5f, groundY = DesertWorld.GroundY;
-            // la sabbia ha il collider solo vicino a chi gioca: in catena dopo una fase che l'ha lasciato lontano (motopiano, a un chilometro) ai piedi della scalinata non ce n'e' ancora e il suolo
-            // sembrerebbe un buco (332 punti 'senza collider' al primo giro della batteria): ci si porta in cima e si aspetta, come fanno le camminate e le foto
-            pl.Teleport(new Vector3(cxm, 0.06f, 1.4f));
-            var terr0 = DesertTerrain.I;
-            yield return WaitFor(() => terr0 == null || terr0.Ready(new Vector3(cxm, groundY, zEnd - 4f), 12f), 30f);
-            yield return new WaitForSeconds(0.5f);
-            Physics.SyncTransforms();
             int axisN = 0, axisBad = 0; float axisWorst = 0f;
             var sb3 = new StringBuilder();
             for (float z = -0.02f; z > zEnd + 0.01f; z -= 0.05f)
@@ -150,7 +162,7 @@ namespace PryingEyes.Deserto
                 axisWorst = Mathf.Max(axisWorst, d);
                 if (d > 0.03f) { axisBad++; if (sb3.Length < 400) sb3.Append($" [in {z:F2}: {y:F2} invece di {expect:F2}]"); }
             }
-            float footLip = TopY(cxm, zEnd - 0.1f) - (-0.2f * DesertCathedral.Steps);
+            float footLip = TopY(cxm, zEnd + 0.1f) - TopY(cxm, zEnd - 0.1f);
             int footN = 0, footHoles = 0; float footMin = float.MaxValue, footMax = float.MinValue;
             for (float x = xa - 3f; x <= xb + 3f; x += 1f)
                 for (float z = zEnd - 0.1f; z >= zEnd - 8f; z -= 0.5f)
