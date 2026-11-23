@@ -55,6 +55,7 @@ jobs:
             /wiki/
             /unity/PryingEyes/Packages/
             /unity/PryingEyes/Assets/_PryingEyes/**/*.cs
+            /unity/PryingEyes/Assets/_PryingEyes/**/*.asmdef
             /unity/PryingEyes/Assets/_PryingEyes/Resources/Production/*.json
             /unity/PryingEyes/Assets/_PryingEyes/City/citta.json
             /unity/PryingEyes/ProjectSettings/ProjectVersion.txt
@@ -99,6 +100,18 @@ jobs:
       # The cheapest check first: package and engine boundaries, and the documentation (links, index, no machine-specific paths).
       - name: Suite boundaries and documentation
         run: python tools/check_suite.py
+
+      # The shape of the game's code, next to the guard: sizes, cycles between folders, the tests and the flags. It reports and never fails
+      # the run (the guard above is what fails); the whole result is kept as code-census.json with the lab reports.
+      - name: Code census in the run summary
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force unity_logs/lab-reports | Out-Null
+          $census = python tools/code_census.py --section sizes --section cycles --section tests --section flags --json unity_logs/lab-reports/code-census.json
+          $census
+          $fence = '```'
+          "### Code census`n$fence`n$($census -join "`n")`n$fence" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
 
       # Compiled here, once, so the Python tests that run `dotnet run` (90-120 s limits) do not spend them restoring and compiling.
       # Several native commands in one PowerShell step: only the last exit code would count, so each one is checked.

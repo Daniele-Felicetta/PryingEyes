@@ -122,15 +122,23 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
   1. Add `check_game(root)` to the guard, built on `census()` of the census (absent game folder: no findings):
      `GAME_PRODUCTION_NAMES_TEST` (a file that is not a test names a test type), `GAME_TEST_NOT_EXCLUDED` (a test file without
      `PE_DISTRIBUTION_BUILD`), `GAME_PURE_FILE_NAMES_ENGINE` (a game file that a lab compiles names `UnityEngine` or `UnityEditor`),
-     `GAME_BASELINE_STALE` (an entry of the baseline that no longer applies).
-  2. The baseline is the fixture: today's two files and 14 files, each with a reason. An entry can be removed, never added without a
+     `GAME_BASELINE_STALE` (an entry of the baseline that no longer applies). Found when the rule was first run: a *lab* is a project
+     that reaches no Unity assembly. The projects of `tools/multiplayer-check` that do (`unity-compile`, `fishnet-compile`) compile engine
+     code against the editor's own libraries, and 14 of the files they compile name `UnityEngine` or `UnityEditor` on purpose; counted as labs they would
+     be 14 violations that are not one, so the rule leaves them out. A fifth code, `GAME_BASELINE_INVALID`, reports a baseline that is
+     not valid or has an entry without its reason.
+  2. The baseline is the fixture: today's two files and 14 files, each with a reason (none for the engine rule). An entry can be removed, never added without a
      reason a reviewer accepts.
   3. In the gate, after the guard, print `python tools/code_census.py --section sizes --section cycles --section tests --section flags`
-     into the run summary and upload its JSON with the lab reports. It reports; it does not fail.
+     into the run summary and upload its JSON with the lab reports. It reports; it does not fail. The census reads the `.asmdef` files of
+     the game, which the sparse checkout of the gate did not have (without `Multiplayer/Core`'s, five of its files count as `Assembly-CSharp`
+     there): the pattern is added.
 - **Done when**
   - The guard passes on the repository; each new code is produced by a fixture violation in the unit tests; removing a baseline entry
     whose violation still exists fails; fixing a violation and leaving its entry fails with `GAME_BASELINE_STALE`.
-  - `python tools/check_suite.py` takes less than five seconds (state before and after).
+  - `python tools/check_suite.py` takes less than five seconds (state before and after). *The brief said so; it did not hold when T04
+    started: the wiki check, added after the brief was written, takes about five seconds on its own, and the census adds about three
+    more. The pull request states the measured times.*
 - **Verify**: the unit tests; `python tools/check_suite.py`; the summary of the gate.
 - **Not in scope**: failing on the number of references between folders; changing any game file.
 
