@@ -271,7 +271,7 @@ The path the tools should make the easy one, for a change to the game:
 | --- | --- | --- | --- |
 | `unity_logs/studio/<job>/report.json` | the engine | agents, the gallery, the gate's summary | `schemaVersion` 1, exists |
 | `studio.py suites --json`, `doctor --json` | the engine and the profile | agents, the gate | 1, new |
-| `tools/player_tests.json` | people and agents, checked by its test | the profile | 1, new |
+| `tools/player_tests.json` | people and agents, checked by its test | the profile | `schemaVersion` 1, exists (T05) |
 | `result.json` of a player run | the harness in the game | the profile's runner | 1, new |
 | `python tools/code_census.py --json` | the census | the audit, the gate's summary | 1, exists |
 | `unity_logs/ship_last.json` | `tools/ship.ps1` | agents | 1, new |
