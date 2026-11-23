@@ -242,7 +242,8 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 
 - **Why**: F11. Rules 9 and 12 ask for worktrees; a new one cannot compile until every asset is imported.
 - **Needs**: PowerShell, Python for the test; **editor** only to measure.
-- **Touches**: new `tools/worktree.ps1`, `tools/test_worktree.py`, [building-and-shipping.md](building-and-shipping.md), rule 12 of `AGENTS.md`.
+- **Touches**: new `tools/worktree.ps1`, `tools/test_worktree.py`, [building-and-shipping.md](building-and-shipping.md), rule 12 of `AGENTS.md`;
+  and, because they described the script as a design, [agent-tooling.md](agent-tooling.md) and the list of unit tests in [testing.md](testing.md).
 - **Steps**: write the script described in [agent-tooling.md](agent-tooling.md#toolsworktreeps1-a-place-to-work), ASCII, with `-DryRun`,
   and a test in the style of `tools/test_release.py` (throwaway repositories, an invented `Library`).
 - **Done when**

@@ -109,8 +109,56 @@ latest run before starting work (`gh run list --branch preview --limit 1`) and f
 
 `preview` is the only long-lived branch. Anything else goes through a pull request and is deleted as soon as it merges (a squash merge makes
 git call the branch unmerged: delete it anyway, its commits stay on the pull request). One agent writes at a time in the checkout the
-editor opens; anyone who does not need the editor works in a separate worktree on its own branch (`git worktree add`), and removes it with
-`git worktree remove` when the task ends.
+editor opens; anyone who does not need the editor works in a separate worktree on its own branch. `tools/worktree.ps1` makes one and
+removes it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\worktree.ps1 -New t07-harness
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\worktree.ps1 -Remove t07-harness
+```
+
+It prints what it did as one JSON document on stdout (`schemaVersion` 1: `ok`, `problems`, `warnings`, then the fields below; progress goes
+to stderr) and exits 0 when it did it (or, with `-DryRun`, could), 1 when it refused or failed. It reads the other worktrees and never
+changes one. The file is ASCII on purpose, like the other scripts. `tools/test_worktree.py` runs the real script on throwaway repositories
+with an invented `Library`; the numbers below are the acceptance check on the real project.
+
+### A worktree ready for Unity: `-New <name>`
+
+A new worktree has no `unity/PryingEyes/Library`, so the editor imports every asset before it can compile. `-New` makes the worktree and
+gives it a `Library` that is already imported:
+
+| Part | What it does |
+| --- | --- |
+| worktree | `<main checkout>\.claude\worktrees\<name>` (`-WorktreesDir`) on the new branch `claude/<name>` (`-Branch`), cut from `origin/preview` after `git fetch origin preview`, with no upstream: the first push names the branch. Refuses a name that exists, as a folder or as a branch (local or on `origin`). |
+| donor | The checkout whose `Library` is copied: `-From` (a folder, or the name of a worktree) or, without it, the first that qualifies, the main checkout first and then the other worktrees, the most recently written `Library` first. A donor qualifies when it has a `Library`, its `ProjectSettings/ProjectVersion.txt` names the same `m_EditorVersion` as `origin/preview`, it has no `Temp/UnityLockfile` and no `Unity.exe` runs on it. When none qualifies the command refuses before creating anything, and says what each donor lacked (`library.skippedDonors`). |
+| copy | `robocopy /E /MT:4` of the `Library`, folders named `Temp` left out, at below-normal CPU priority and low disk and memory priority (`-FullSpeed`: normal priority), into `unity/PryingEyes/Temp/Library.copy` of the new worktree. It is renamed to `Library` only when every file and byte arrived (counts checked against a list-only pass made first) and the donor still has no lockfile, so a `Library` that exists is a whole one. The volume must keep `-MinFreeGB` (10) free after the copy. |
+| `-NoLibrary` | A plain worktree, for work that never opens Unity (most tasks of [the modular plan](modular-roadmap.md)): no donor is looked at and nothing is copied. |
+| `-DryRun` | Does every check and measures the copy, and changes nothing: no fetch either, so `base` is as of the last fetch. |
+
+The answer has `path`, `branch`, `base` (`ref`, `commit`, `fetched`), `unityVersion`, `library` (`donor`, `files`, `bytes`, `seconds`,
+`copied`, `skippedDonors`), `worktreeSeconds` and `seconds`. Nothing but the new folder and its branch is created; a refusal creates
+nothing. If the copy itself fails after the worktree exists, the worktree stays without a `Library` and `ok` is false.
+
+### Removing one: `-Remove <name>`
+
+`<name>` is the folder under the worktrees directory, or the name or path of any registered worktree. The script runs `git worktree
+remove` without `--force`, and only when nothing would be lost; it reports everything that stops it in one answer:
+
+| It refuses when | What the answer lists |
+| --- | --- |
+| the worktree is the main checkout, is locked, or holds this shell or this script; a `Unity.exe` or `PryingEyes.exe` runs from it | `problems` |
+| something is uncommitted: a change against `HEAD`, or an untracked file that git does not ignore (a file that differs only in its line endings is not one: it is put back first, `lineEndingsRestored`) | `uncommitted`: `M path` or `?? path`, the first 50. A file that is only build noise (rule 4 of `AGENTS.md`) is restored with `git -C <worktree> checkout -- <file>`; what is real is committed |
+| a commit is not published: it is on no branch of `origin` and is not the head of a pull request there | `unpushed`: `<hash> <subject>`, the first 20 |
+
+A pull request head counts as published because GitHub keeps `refs/pull/<n>/head` after a pull request is merged and its branch deleted,
+which is what the squash merges of this repository leave: a local branch whose commits are on no branch of `origin`. The script asks
+`git ls-remote origin 'refs/pull/*/head'` (a public repository: no credentials). Afterwards the local branch is deleted with
+`git branch -D` (the commit it pointed at is printed as `branchDeleted.was`, so it can be brought back) only when it is merged: an
+ancestor of `origin/preview`, or the head of pull request N while `origin/preview` has a commit whose subject ends in `(#N)`. Any other
+branch is kept and `branchKept` says so. It never pushes and never deletes a branch of `origin`.
+
+A worktree that something else made (`.codex/worktrees/*`, `prying-eyes-*`) can be removed the same way, by name or path, or with plain
+`git worktree remove`.
 
 ## Other platforms
 

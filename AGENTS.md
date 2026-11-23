@@ -34,9 +34,11 @@ documentation is `docs/README.md`; building, shipping and CI are in `docs/engine
     the city prototype and `Releases/` holds the released zips. Anything else (`*Candidate`, `Web`, per-release folders) is disposable:
     delete it when the task ends, and the per-job `unity_logs/studio/*/build` folders once the job is over.
 12. **Branches and worktrees**: `preview` is the only long-lived branch. Any other branch goes through a pull request and is deleted as soon
-    as it merges (a squash merge makes git call it unmerged: delete it anyway, its commits stay on the pull request). A worktree
-    (`.codex/worktrees/*`, `prying-eyes-*`) is removed with `git worktree remove` when its task ends. Nothing is lost: every commit of a
-    merged branch stays reachable from `preview`.
+    as it merges (a squash merge makes git call it unmerged: delete it anyway, its commits stay on the pull request). Make a worktree with
+    `tools/worktree.ps1 -New <name>` (a new branch from `origin/preview` and a copy of a `Library`, so that Unity compiles without importing
+    the assets; `-NoLibrary` when the work never opens Unity) and remove it with `-Remove <name>` when its task ends: it refuses while
+    anything is uncommitted or unpushed, and deletes the branch once it is merged. A worktree made another way (`.codex/worktrees/*`,
+    `prying-eyes-*`) is removed with `git worktree remove`. Nothing is lost: every commit of a merged branch stays reachable from `preview`.
 13. **Documentation** (`README.md`, `docs/`): one topic per page, written in English, every page listed in `docs/README.md`, paths
     relative to the repository root (never this machine's). `python tools/check_suite.py` fails on a broken link, a page missing from
     the index and a machine-specific path. When a change alters what a page says, update the page in the same commit.
