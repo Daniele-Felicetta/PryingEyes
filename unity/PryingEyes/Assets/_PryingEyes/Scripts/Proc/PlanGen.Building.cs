@@ -442,6 +442,7 @@ namespace PryingEyes.Proc
         /// <summary>The rooms a level of a stack is made of: the stair room, a big hall east of it and five rooms around the hall, about 37 x 40 m.</summary>
         public const int StackRooms = 7;
         public const int TowerBalconyWidth = 18, TowerBalconyOffset = 48;
+        public const float TowerEntrySill = 0.82f;
 
         public static int TowerBalconyCenter(Room room) => (room.z0 + room.z1) / 2 + TowerBalconyOffset;
 
@@ -514,6 +515,12 @@ namespace PryingEyes.Proc
                 o.top = Math.Min(o.top, p.rooms[o.a].wallH - 0.22f);
             }
             p.openings.RemoveAll(o => o.b < 0 && o.sill > 0.01f && o.top < o.sill + 0.20f);
+            if (tower)
+            {
+                AddTowerWindow(p, rooms[4], Side.E, (rooms[4].z0 + rooms[4].z1) / 2 - TowerBalconyOffset);
+                AddTowerWindow(p, rooms[0], Side.N, (rooms[0].x0 + rooms[0].x1) / 2);
+                AddTowerWindow(p, rooms[2], Side.S, (rooms[2].x0 + rooms[2].x1) / 2);
+            }
             if (tower && !isEntrance)
             {
                 var wing = rooms[4];
@@ -534,6 +541,18 @@ namespace PryingEyes.Proc
             if (isBoss) hall.type = RoomType.Boss;
             p.ComputeBounds();
             return p;
+        }
+
+        static void AddTowerWindow(Plan plan, Room room, Side side, int center)
+        {
+            var opening = new Opening
+            {
+                a = room.id, b = -1, alongX = Plan.AlongX(side), line = Plan.Line(room, side),
+                center = center, width = 18, style = OpenStyle.Finestra, sill = TowerEntrySill, top = 2.52f, noGlass = true
+            };
+            plan.openings.RemoveAll(o => o.b < 0 && o.a == room.id && o.line == opening.line && o.alongX == opening.alongX &&
+                opening.Lo - 3 < o.Hi && opening.Hi + 3 > o.Lo);
+            plan.openings.Add(opening);
         }
 
         /// <summary>The stair room of a stack level (the first room).</summary>

@@ -52,6 +52,29 @@ namespace PryingEyes.Deserto
             yield return new WaitForSeconds(0.18f);
             Check("parkour: a neutral jump releases and pushes out", !pl.OnClimbWall && pl.transform.position.x > gripAt.x + 0.5f);
             yield return ApproachClimb(blockEdge, block.transform.position.z, deckY);
+            Vector3 sideStart = pl.transform.position;
+            Pl.parkourTestDirection = Vector3.forward;
+            pl.parkourTestJump = true;
+            yield return new WaitForSeconds(0.09f);
+            Check("parkour: a sideways jump leaves the wall", !pl.OnClimbWall);
+            yield return WaitFor(() => pl.OnClimbWall, 1.0f);
+            Check("parkour: the sideways leap catches a grip farther along", pl.OnClimbWall && pl.transform.position.z > sideStart.z + 0.82f,
+                pl.transform.position.ToString("F2"));
+            yield return ApproachClimb(blockEdge, block.transform.position.z, deckY);
+            var opposite = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            opposite.transform.position = new Vector3(blockEdge + 4.9f, deckY + 2.4f, block.transform.position.z);
+            opposite.transform.localScale = new Vector3(1.6f, 4.8f, 3.6f);
+            Physics.SyncTransforms();
+            pl.yaw = Mathf.PI * 0.5f;
+            pl.parkourTestDirection = Vector3.right;
+            pl.parkourTestJump = true;
+            yield return new WaitForSeconds(0.10f);
+            yield return WaitFor(() => pl.OnClimbWall, 1.1f);
+            yield return new WaitForSeconds(0.18f);
+            Check("parkour: a forward leap reaches a different wall across the gap", pl.OnClimbWall &&
+                pl.transform.position.x > blockEdge + 3.2f, pl.transform.position.ToString("F2"));
+            Destroy(opposite);
+            yield return ApproachClimb(blockEdge, block.transform.position.z, deckY);
             Pl.parkourTestDirection = Vector3.forward;
             float outerCorner = block.transform.position.z + 1.8f;
             yield return WaitFor(() => pl.OnClimbWall && pl.transform.position.z > outerCorner + 0.48f && pl.transform.position.x < blockEdge - 0.16f, 3f);
@@ -96,6 +119,19 @@ namespace PryingEyes.Deserto
             Check("parkour: the balcony doorway leads into the tower", pl.transform.position.x < wall - 1f &&
                 Mathf.Abs(pl.transform.position.y - firstBalcony) < 0.20f, pl.transform.position.ToString("F2"));
 
+            float windowZ = room.CenterZ - PlanGen.TowerBalconyOffset * 0.1f;
+            float windowApproachY = firstBalcony - 1.47f;
+            var windowApproach = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            windowApproach.transform.position = new Vector3(wall + 0.85f, windowApproachY - 0.15f, windowZ);
+            windowApproach.transform.localScale = new Vector3(1.25f, 0.30f, 2.4f);
+            Physics.SyncTransforms();
+            yield return ApproachClimb(wall, windowZ, windowApproachY);
+            yield return WaitFor(() => !pl.OnClimbWall && pl.transform.position.x < wall - 0.65f, 3.5f);
+            StopClimbBot();
+            Check("parkour: climbing through a glassless window lands inside the floor", pl.transform.position.x < wall - 0.65f &&
+                Mathf.Abs(pl.transform.position.y - firstBalcony) < 0.22f, pl.transform.position.ToString("F2"));
+            Destroy(windowApproach);
+
             int top = site.LevelCount - 1;
             var stair = PlanGen.StairRoom(site.levels[top]);
             float topY = site.LevelY(top);
@@ -130,7 +166,93 @@ namespace PryingEyes.Deserto
                 $"feet {pl.transform.position:F2}, roof {roofY:F2}");
             Destroy(scaffold);
             StopClimbBot();
+            yield return Wingsuit();
             pl.parkourTestDirection = null;
+        }
+
+        IEnumerator Wingsuit()
+        {
+            var pl = Pl;
+            var sand = OpenSand();
+            yield return GoTo(sand.x, sand.y);
+            Vector3 ground = pl.transform.position;
+            pl.Teleport(ground + Vector3.up * 17f);
+            pl.yaw = Mathf.PI * 0.5f;
+            pl.pitch = 0.04f;
+            pl.parkourTestGlide = true;
+            yield return WaitFor(() => pl.Gliding, 1.6f);
+            Vector3 from = pl.transform.position;
+            yield return new WaitForSeconds(1.05f);
+            Vector3 travel = pl.transform.position - from;
+            int panels = 0;
+            foreach (var renderer in pl.cam.GetComponentsInChildren<MeshRenderer>())
+                if (renderer.name == "Wingsuit fabric") panels++;
+            Check("parkour: holding jump during a fall opens the wingsuit and covers ground", pl.Gliding && travel.x > 6.4f &&
+                travel.y < -1.8f && travel.y > -6.0f && panels == 2 && !pl.weapon.CanFireNow, $"flight {travel:F2}, {panels} panels");
+            if (shots && pl.Gliding)
+            {
+                pl.pitch = 0.57f;
+                yield return null;
+                Shot("parkour_wingsuit");
+                pl.pitch = 0.04f;
+            }
+            pl.yaw = 0f;
+            yield return new WaitForSeconds(0.70f);
+            Check("parkour: steering banks the wingsuit and changes the flight path", pl.Gliding &&
+                pl.GetComponent<CharacterController>().velocity.z > 4f);
+            pl.parkourTestGlide = false;
+            yield return new WaitForSeconds(0.34f);
+            Check("parkour: releasing jump folds the suit and brings back the weapon", !pl.Gliding && pl.weapon.ViewRootT.gameObject.activeSelf);
+
+            pl.Teleport(ground + Vector3.up * 12f);
+            pl.yaw = Mathf.PI * 0.5f;
+            pl.pitch = 0.34f;
+            pl.parkourTestGlide = true;
+            yield return WaitFor(() => pl.Gliding, 1.6f);
+            bool opened = pl.Gliding;
+            var cc = pl.GetComponent<CharacterController>();
+            yield return WaitFor(() => cc.isGrounded, 5f);
+            Check("parkour: landing folds the wingsuit even with jump held", opened && cc.isGrounded && !pl.Gliding);
+
+            var target = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            target.transform.position = ground + Vector3.right * 12.5f + Vector3.up * 8f;
+            target.transform.localScale = new Vector3(1.8f, 16f, 4.5f);
+            Physics.SyncTransforms();
+            pl.Teleport(ground + Vector3.up * 13f);
+            pl.yaw = Mathf.PI * 0.5f;
+            pl.pitch = 0.04f;
+            pl.parkourTestDirection = Vector3.right;
+            yield return WaitFor(() => pl.Gliding, 1.6f);
+            opened = pl.Gliding;
+            yield return WaitFor(() => pl.OnClimbWall, 2.9f);
+            Check("parkour: a flight can chain directly into a wall grip", opened && pl.OnClimbWall && !pl.Gliding &&
+                pl.transform.position.x > ground.x + 9f, pl.transform.position.ToString("F2"));
+            Destroy(target);
+            pl.parkourTestGlide = false;
+            StopClimbBot();
+
+            var writer = new NetWriter();
+            new PlayerNet { gliding = true, heading = 0.65f, gun = 255 }.Write(writer);
+            var reader = new NetReader(writer.ToArray());
+            var snapshot = PlayerNet.Read(ref reader);
+            Check("parkour: the flight state round-trips through the co-op snapshot", snapshot.gliding && !snapshot.climbing &&
+                snapshot.gun == 255 && reader.Ok && reader.Left == 0);
+
+            var dummy = new GameObject("Wingsuit pose test");
+            dummy.transform.position = ground + Vector3.up * 20f;
+            var body = SurvivorBody.Create(dummy.transform, 0, 0);
+            int bodyPanels = 0;
+            if (body != null)
+            {
+                var input = SurvivorInput.Idle;
+                input.gliding = true;
+                body.input = input;
+                body.Step(0.25f);
+                foreach (var renderer in dummy.GetComponentsInChildren<MeshRenderer>())
+                    if (renderer.name == "Wingsuit fabric") bodyPanels++;
+            }
+            Check("parkour: the external avatar wears two deployed fabric panels", bodyPanels == 2);
+            Destroy(dummy);
         }
 
         IEnumerator ApproachClimb(float faceX, float z, float y)

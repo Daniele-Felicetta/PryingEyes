@@ -21,7 +21,7 @@ namespace PryingEyes
         public bool riding;                     // in sella a una moto del deserto (pe-coop-32): bit 4 del secondo byte dei flag
         public float heading;                   // verso dove punta la moto (radianti, come yaw); lo sguardo del pilota puo' essere altrove
         public int bike;                        // quale moto guida (pe-coop-37): bit 3-6 del secondo byte dei flag, 0 la moto arrangiata e 1..9 le moto della pista (DesertBikeDefs.NetCode)
-        public bool climbing;
+        public bool climbing, gliding;
 
         public void Write(NetWriter w)
         {
@@ -31,7 +31,7 @@ namespace PryingEyes
              .U8(Mathf.Clamp(Mathf.RoundToInt(shotAge * 100f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(hp * 255f), 0, 255)).U8(weapon)
              .U8(Mathf.Clamp(Mathf.RoundToInt((Mathf.Clamp(lean, -1f, 1f) + 1f) * 127.5f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(sight * 100f), 0, 255))
              .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0) | (riding ? 4 : 0) | ((bike & 15) << 3) | (climbing ? 128 : 0))
-             .U8(CoopProtocol.QuantYaw(heading));
+             .U8(CoopProtocol.QuantYaw(heading)).Bool(gliding);
         }
 
         public static PlayerNet Read(ref NetReader r)
@@ -57,6 +57,7 @@ namespace PryingEyes
             s.ads = (f2 & 1) != 0; s.reloading = (f2 & 2) != 0; s.riding = (f2 & 4) != 0; s.bike = (f2 >> 3) & 15;
             s.climbing = (f2 & 128) != 0;
             s.heading = CoopProtocol.DequantYaw((byte)r.U8());
+            s.gliding = r.Bool();
             return s;
         }
     }
@@ -376,6 +377,7 @@ namespace PryingEyes
             inp.alive = last.alive; inp.downed = last.downed;
             inp.grounded = last.climbing || Mathf.Abs(vel.y) < 2.5f;
             inp.climb = last.climbing ? 1f : 0f;
+            inp.gliding = last.gliding;
             inp.weapon = last.gun < WeaponDefs.All.Length ? last.gun : -1;
             inp.shotAge = last.shotAge + (Time.unscaledTime - lastStateTime);
             inp.ads = last.ads ? 1f : 0f;

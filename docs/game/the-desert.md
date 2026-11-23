@@ -71,13 +71,18 @@ rooms are those of the floors ([tower.md](tower.md)).
 
    **Wall climbing.** Jump towards a solid face while holding forward. Hold forward or back to climb up or down and move sideways to
    traverse around faces and outside corners. The controller tests the shape of the wall and the clearance of each move, so ordinary structures can be climbed. Exterior
-   masonry has shallow grooves between stone courses. The articulated gunplay gloves reach for the stone one hand at a time, and the
-   weapon returns when the player releases. Jump without holding forward to push away, or crouch to drop. The second jump in the air is
-   restored by landing or securing a grip.
+   masonry has shallow grooves between stone courses. Jump while moving sideways to leap along the wall, or hold forward and jump to
+   reach higher. Look across a gap and jump forward to launch towards the far wall. During these leaps, a reachable surface catches
+   automatically. The articulated gunplay gloves push off and reach for the next grip. A neutral jump pushes away and crouch drops.
+   Landing or securing a grip restores the second jump in the air.
 
-   On a tower, sidestep onto an east-facing balcony and walk through its doorway to leave the climb on any upper floor. Continue upward
-   over the battlements to reach the roof from outside, or take the internal stairs from the top floor. The roof landing connects the stairs
-   to the adjoining roof in both directions. Roofs, battlements and turret walls have physical surfaces.
+   On a tower, hold forward at one of the three low, glassless windows on each floor to pull through. Each upper floor also has an
+   east-facing balcony and a doorway. Outside, climb over the battlements to reach the roof. Inside, the staircase links the top floor
+   to the roof in both directions. Roofs, battlements and turret walls have physical surfaces.
+
+   **Wingsuit.** Hold jump during a fall with room below to open the fabric between the arms and the body. Look to steer. Looking down
+   trades altitude for speed, while looking up gives a shallower glide. Release jump, crouch or land to fold the suit, or aim at a wall
+   and hold forward to catch it during the glide. The weapon is stowed while the suit is open.
 6. **What you find.** In rooms and in the open: **points** (gold coins), **ammunition** (a crate: half a magazine reserve), **medikits** (50
    health) and **essence** (a crystal: 30 of the left hand's essence). Walk within 1.5 m to take them; what you took stays taken. **Weapons**
    are free panels on a wall (*DA PRENDERE*) or on a wooden stand in the open, and only the poorest (grade I; grade II in a boss's hall).
@@ -678,7 +683,7 @@ dotnet run --project tools/desertlab -c Release            # the pure code, no U
 & $exe -batchmode -nographics -autotest -desertotest -seed 1000        # the real game, from the cathedral
 & $exe -batchmode -autotest -desertotest -desertshots -seed 1000       # the same with a window and the photos of hotel_build/deserto
 & $exe -batchmode -autotest -desertotest -desertonly varieta -desertshots -seed 1000   # one of the long phases (below): soak, varieta or prestazioni
-& $exe -batchmode -autotest -desertotest -desertonly parkour -desertshots -seed 1000  # double jump, wall grips, balconies and roof stairs
+& $exe -batchmode -autotest -desertotest -desertonly parkour -desertshots -seed 1000  # wall leaps, window entry, roof stairs and wingsuit
 .\tools\coop\run_all.ps1 -Only j                                       # the desert in co-op: a host and a guest, two processes, no graphics card (about three minutes)
 .\tools\coop\run_all.ps1 -Only m                                       # the motorbike in co-op: one rides and the other watches, then the other way round (two processes, no graphics card)
 .\tools\coop\run_all.ps1 -Only q                                       # the same with a bike bought at the store (the Gigante 1300): the other process must see that model under the rider

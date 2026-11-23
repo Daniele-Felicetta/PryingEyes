@@ -12,6 +12,7 @@ namespace PryingEyes
         readonly Transform[] wrists = new Transform[2];
         readonly HandRig[] gloves = new HandRig[2];
         readonly ArmRig[] arms = new ArmRig[2];
+        readonly WingsuitFabric[] wings = new WingsuitFabric[2];
 
         ParkourHands(Transform root)
         {
@@ -66,6 +67,52 @@ namespace PryingEyes
 
         public void Hide() => root.gameObject.SetActive(false);
 
+        public void Glide(float amount, float bank, float dt)
+        {
+            root.gameObject.SetActive(true);
+            fill.intensity = 0.82f;
+            for (int i = 0; i < 2; i++)
+            {
+                float side = i == 0 ? -1f : 1f;
+                var wrist = wrists[i];
+                Vector3 folded = new Vector3(side * 0.24f, -0.42f, 0.38f);
+                Vector3 open = new Vector3(side * 0.60f, -0.23f - side * bank * 0.003f, 0.56f);
+                wrist.localPosition = Vector3.Lerp(folded, open, amount);
+                wrist.localRotation = Quaternion.LookRotation(new Vector3(side * 0.82f, -0.16f, 0.52f), Vector3.up);
+                PoseArm(i, HandPose.Lerp(HandPoses.Relaxed, HandPoses.Open, amount * 0.65f), dt);
+                wings[i] ??= WingsuitFabric.Build(root, wrist.gameObject.layer, Weapon.ViewLayer, false);
+                Vector3 seam = Vector3.Lerp(new Vector3(side * 0.21f, -0.43f, 0.35f), new Vector3(side * 0.24f, -0.44f, 0.61f), amount);
+                wings[i].Pose(root.TransformPoint(new Vector3(side * 0.18f, -0.29f, 0.35f)), wrist.position - wrist.forward * 0.035f,
+                    root.TransformPoint(seam), root.up, i * 1.4f);
+            }
+        }
+
+        public void Leap(bool rightLeads, float t, float dt)
+        {
+            root.gameObject.SetActive(true);
+            fill.intensity = 0.9f;
+            for (int i = 0; i < 2; i++)
+            {
+                wings[i]?.Hide();
+                float side = i == 0 ? -1f : 1f;
+                bool lead = (i == 1) == rightLeads;
+                float push = Mathf.Sin(Mathf.PI * Mathf.InverseLerp(0f, 0.36f, t));
+                float reach = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(lead ? 0.12f : 0.30f, lead ? 0.55f : 0.85f, t));
+                Vector3 start = new Vector3(side * (0.23f + push * 0.07f), -0.32f - push * 0.10f, 0.43f - push * 0.05f);
+                Vector3 end = new Vector3(side * (lead ? 0.26f : 0.32f), lead ? 0.06f : -0.13f, 0.63f);
+                wrists[i].localPosition = Vector3.Lerp(start, end, reach);
+                wrists[i].localRotation = Quaternion.Euler(Mathf.Lerp(-37f, -65f, reach), -side * 8f, side * 10f);
+                PoseArm(i, HandPose.Lerp(HandPoses.Thrust, HandPoses.Open, reach), dt);
+            }
+        }
+
+        void PoseArm(int index, HandPose pose, float dt)
+        {
+            gloves[index].Apply(pose, dt);
+            arms[index]?.Solve(0f, dt);
+            gloves[index].UpdateCuff(arms[index] != null ? arms[index].LastForearmDirW : wrists[index].forward);
+        }
+
         public void Tick(Vector3 previous, Vector3 hold, Vector3 previousNormal, Vector3 wallNormal,
                          bool rightLeads, bool transfer, float progress, bool attached, float weight, float dt)
         {
@@ -74,6 +121,7 @@ namespace PryingEyes
             fill.intensity = 0.95f * weight;
             for (int i = 0; i < 2; i++)
             {
+                wings[i]?.Hide();
                 float side = i == 0 ? -1f : 1f;
                 bool lead = (i == 1) == rightLeads;
                 float start = lead ? 0f : 0.20f;
@@ -97,9 +145,7 @@ namespace PryingEyes
                 float approach = weight * (transfer || !attached ? 1f : reach);
                 wrists[i].SetPositionAndRotation(Vector3.Lerp(rest, target, approach),
                     Quaternion.Slerp(root.rotation * Quaternion.Euler(-37f, side * -12f, side * 13f), rotation, approach));
-                hand.Apply(HandPose.Lerp(HandPoses.Open, StoneGrip, curl), dt);
-                arms[i]?.Solve(0f, dt);
-                hand.UpdateCuff(arms[i] != null ? arms[i].LastForearmDirW : wrists[i].forward);
+                PoseArm(i, HandPose.Lerp(HandPoses.Open, StoneGrip, curl), dt);
             }
         }
     }

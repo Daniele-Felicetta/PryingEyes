@@ -18,8 +18,9 @@ namespace PryingEyes
         ClimbMove climbMove;
         Grip grip, lastGrip;
         Vector3 climbFrom, climbTo, climbLift, climbOver;
-        float climbTime, climbDuration, climbLockout, parkourStow;
-        bool airJumpUsed, rightHandLeads;
+        float climbTime, climbDuration, climbLockout, parkourStow, transferTime;
+        Vector3 transferFrom;
+        bool airJumpUsed, rightHandLeads, lowClimb;
         ParkourHands climbHands;
 #if !PE_DISTRIBUTION_BUILD
         internal bool parkourTestJump;
@@ -28,15 +29,16 @@ namespace PryingEyes
 
         public bool OnClimbWall => climbMove != ClimbMove.Free;
         public float ClimbWallYaw => Mathf.Atan2(-grip.normal.x, -grip.normal.z);
-        public bool ParkourHandsBusy => OnClimbWall || parkourStow > 0.3f;
-        Vector3 ClimbEyeOffset => (-grip.normal * 0.075f - Vector3.up * 0.035f) * (parkourStow * GameSettings.Motion);
+        public bool ParkourHandsBusy => OnClimbWall || Gliding || transferTime > 0f || parkourStow > 0.3f;
+        Vector3 ClimbEyeOffset => (-grip.normal * 0.075f - Vector3.up * 0.035f) * (parkourStow * (1f - WingAmount) * GameSettings.Motion);
 
         void ResetParkour()
         {
             climbMove = ClimbMove.Free;
             grip = lastGrip = default;
             airJumpUsed = false;
-            climbLockout = parkourStow = 0f;
+            climbLockout = parkourStow = transferTime = 0f;
+            ResetWingsuit();
             climbHands?.Hide();
             if (weapon != null) { weapon.ParkourStow = 0f; weapon.ParkourHolding = false; }
         }
@@ -81,6 +83,7 @@ namespace PryingEyes
         bool ParkourStep(float dt, bool input, bool dropPressed, float forward, float sideways, Vector3 wish, Vector3 facing)
         {
             climbLockout = Mathf.Max(0f, climbLockout - dt);
+            transferTime = Mathf.Max(0f, transferTime - dt);
             if (!DesertMode.Active || Downed || !cc.enabled)
             {
                 climbMove = ClimbMove.Free;
@@ -89,10 +92,15 @@ namespace PryingEyes
 
             if (!OnClimbWall)
             {
-                if (cc.isGrounded) airJumpUsed = false;
-                if (!input || Mantling || cc.isGrounded || climbLockout > 0f || forward < 0.15f || (jumpBuf <= 0f && mantleWindow <= 0f)) return false;
+                if (cc.isGrounded) { airJumpUsed = false; transferTime = 0f; }
+                bool transferring = transferTime > 0f;
+                if (!input || Mantling || cc.isGrounded || climbLockout > 0f ||
+                    (!transferring && (forward < 0.15f || (!Gliding && jumpBuf <= 0f && mantleWindow <= 0f)))) return false;
+                if (transferring && (transform.position - transferFrom).sqrMagnitude < 0.91f) return false;
                 Vector3 reach = transform.position + Vector3.up * GripHeight;
-                if (!FindGrip(reach, facing, 0.96f, out var contact) || !ClimbClear(transform.position, contact.Feet)) return false;
+                if (!TryReachWall(reach, facing, transferring || Gliding || jumpBuf > 0f, out var contact)) return false;
+                transferTime = 0f;
+                StopWingsuit();
                 lastGrip = grip = contact;
                 StartClimbMove(ClimbMove.Catch, grip.Feet, 0.15f);
                 weapon.BeginParkour();
@@ -105,11 +113,9 @@ namespace PryingEyes
             }
             else if (input && climbMove == ClimbMove.Hold)
             {
-                if (jumpBuf > 0f && forward <= 0.15f)
+                if (jumpBuf > 0f)
                 {
-                    Vector3 exit = Vector3.ProjectOnPlane(wish, grip.normal) + grip.normal * Mathf.Max(0.5f, Vector3.Dot(wish, grip.normal));
-                    LeaveWall(exit.normalized * 4.6f + Vector3.up * jumpVel);
-                    mantleWindow = 0.4f;
+                    JumpFromWall(forward, sideways, wish, facing);
                     return false;
                 }
                 AdvanceClimb(forward, sideways);
@@ -118,11 +124,13 @@ namespace PryingEyes
 
             vel = Vector3.zero;
             coyote = 0f;
-            crouch = slide = false;
-            if (Mathf.Abs(cc.height - heightStand) > 0.001f)
+            crouch = lowClimb;
+            slide = false;
+            float bodyHeight = lowClimb ? heightCrouch : heightStand;
+            if (Mathf.Abs(cc.height - bodyHeight) > 0.001f)
             {
-                cc.height = heightStand;
-                cc.center = Vector3.up * (heightStand * 0.5f);
+                cc.height = bodyHeight;
+                cc.center = Vector3.up * (bodyHeight * 0.5f);
             }
             if (climbMove == ClimbMove.Hold) return true;
             climbTime += dt;
@@ -157,6 +165,36 @@ namespace PryingEyes
             return true;
         }
 
+        bool TryReachWall(Vector3 reach, Vector3 facing, bool longReach, out Grip contact)
+        {
+            float distance = longReach ? 1.38f : 0.96f;
+            if (FindGrip(reach, facing, distance, out contact) && ClimbClear(transform.position, contact.Feet)) return true;
+            if (!longReach) return false;
+            if (FindGrip(reach + Vector3.up * 0.29f, facing, distance, out contact) && ClimbClear(transform.position, contact.Feet)) return true;
+            return transferTime > 0f && FindGrip(reach, -grip.normal, distance, out contact) && ClimbClear(transform.position, contact.Feet);
+        }
+
+        void JumpFromWall(float forward, float sideways, Vector3 wish, Vector3 facing)
+        {
+            float tangent = Mathf.Abs(sideways) > 0.15f ? sideways : 0f;
+            bool rising = forward > 0.15f;
+            bool directed = rising || Mathf.Abs(tangent) > 0.15f;
+            Vector3 along = Vector3.Cross(grip.normal, Vector3.up);
+            bool across = rising && Vector3.Dot(facing, grip.normal) > 0.32f;
+            Vector3 launch = across ? facing * 7.4f + along * tangent * 2f : directed
+                ? grip.normal * (rising ? 0.9f : 1.6f) + along * tangent * 6.4f
+                : (grip.normal + Vector3.ProjectOnPlane(wish, grip.normal) * 0.42f).normalized * 4.6f;
+            transferFrom = transform.position;
+            LeaveWall(launch + Vector3.up * jumpVel * (rising ? 1.46f : directed ? 1.08f : 1f));
+            if (directed)
+            {
+                climbLockout = 0.17f;
+                transferTime = 0.82f;
+                rightHandLeads = Mathf.Abs(tangent) > 0.15f ? tangent > 0f : !rightHandLeads;
+                FovPunch(rising ? 4f : 2.8f);
+            }
+        }
+
         void AdvanceClimb(float forward, float sideways)
         {
             Vector3 along = Vector3.Cross(grip.normal, Vector3.up);
@@ -178,7 +216,7 @@ namespace PryingEyes
                 return;
             }
             if (movingSide && vertical == 0f && WrapClimbCorner(lateral, sideways > 0f)) return;
-            if (vertical > 0f) TryClimbExit(-grip.normal, lateral: false);
+            if (vertical > 0f && !TryWindowEntry()) TryClimbExit(-grip.normal, lateral: false);
         }
 
         bool WrapClimbCorner(Vector3 side, bool right)
@@ -195,22 +233,48 @@ namespace PryingEyes
             return true;
         }
 
-        bool ClimbClear(Vector3 from, Vector3 to)
+        bool ClimbClear(Vector3 from, Vector3 to, float bodyHeight = 0f)
         {
+            if (bodyHeight <= 0f) bodyHeight = heightStand;
             float radius = Mathf.Max(0.05f, cc.radius - cc.skinWidth * 0.5f);
             Vector3 travel = to - from;
-            return StandFree(to, heightStand, radius) && (travel.sqrMagnitude < 1e-6f ||
-                !Physics.CapsuleCast(from + Vector3.up * (radius + 0.045f), from + Vector3.up * (heightStand - radius),
+            return StandFree(to, bodyHeight, radius) && (travel.sqrMagnitude < 1e-6f ||
+                !Physics.CapsuleCast(from + Vector3.up * (radius + 0.045f), from + Vector3.up * (bodyHeight - radius),
                     radius, travel.normalized, travel.magnitude, HotelNav.EnvMask, QueryTriggerInteraction.Ignore));
         }
 
-        void StartClimbMove(ClimbMove move, Vector3 to, float duration)
+        void StartClimbMove(ClimbMove move, Vector3 to, float duration, bool low = false)
         {
             climbMove = move;
+            lowClimb = low;
             climbFrom = transform.position;
             climbTo = to;
             climbDuration = duration;
             climbTime = jumpBuf = mantleWindow = 0f;
+        }
+
+        bool TryWindowEntry()
+        {
+            const QueryTriggerInteraction ignore = QueryTriggerInteraction.Ignore;
+            Vector3 inward = -grip.normal;
+            Vector3 from = transform.position;
+            Vector3 opening = grip.point + Vector3.up * 0.65f;
+            if (Physics.Raycast(opening - inward * 0.18f, inward, 1.05f, HotelNav.EnvMask, ignore) ||
+                !Physics.Raycast(opening + inward * 0.14f, Vector3.down, out var sill, 1.2f, HotelNav.EnvMask, ignore) ||
+                sill.collider != grip.wall || sill.normal.y < 0.68f) return false;
+            Vector3 inside = sill.point + inward * 0.96f;
+            if (!Physics.Raycast(inside + Vector3.up * 0.25f, Vector3.down, out var floor, 1.95f, HotelNav.EnvMask, ignore) ||
+                floor.normal.y < 0.7f || DesertTerrain.IsSand(floor.collider) || floor.point.y > sill.point.y - 0.18f) return false;
+
+            float y = sill.point.y + 0.07f;
+            Vector3 lift = new Vector3(from.x, y, from.z);
+            Vector3 over = new Vector3(inside.x, y, inside.z);
+            Vector3 land = floor.point + Vector3.up * 0.045f;
+            if (!ClimbClear(from, lift, heightCrouch) || !ClimbClear(lift, over, heightCrouch) || !ClimbClear(over, land, heightCrouch)) return false;
+            climbLift = lift;
+            climbOver = over;
+            StartClimbMove(ClimbMove.Exit, land, 0.68f, low: true);
+            return true;
         }
 
         bool TryClimbExit(Vector3 direction, bool lateral)
@@ -255,11 +319,15 @@ namespace PryingEyes
         void DrawParkourHands(float dt)
         {
             bool attached = OnClimbWall;
-            parkourStow = Mathf.MoveTowards(parkourStow, attached ? 1f : 0f, dt / (attached ? 0.12f : 0.20f));
+            bool busy = attached || Gliding || transferTime > 0f;
+            parkourStow = Mathf.MoveTowards(parkourStow, busy ? 1f : 0f, dt / (busy ? 0.12f : 0.20f));
             weapon.ParkourStow = parkourStow;
-            weapon.ParkourHolding = attached;
+            weapon.ParkourHolding = busy;
             if (parkourStow <= 0f) { climbHands?.Hide(); return; }
             climbHands ??= ParkourHands.Build(cam, Seats.ViewLayer);
+            if (!attached && WingAmount > 0.02f) { climbHands?.Glide(WingAmount, WingsuitRoll, dt); return; }
+            if (!attached && transferTime > 0f) { climbHands?.Leap(rightHandLeads, 1f - transferTime / 0.82f, dt); return; }
+            if (grip.normal.sqrMagnitude < 0.1f) { climbHands?.Hide(); return; }
             float progress = Mathf.Clamp01(climbTime / climbDuration);
             float release = climbMove == ClimbMove.Exit ? Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(0.12f, 0.56f, progress)) : 1f;
             climbHands?.Tick(lastGrip.point, grip.point, lastGrip.normal, grip.normal, rightHandLeads, climbMove == ClimbMove.Step || climbMove == ClimbMove.Corner,
@@ -271,7 +339,12 @@ namespace PryingEyes
             if (!DesertMode.Active) return false;
             if (OnClimbWall)
             {
-                hud?.SetPrompt(PadControls.Preferred ? "STICK  ARRAMPICATI   /   A  STACCATI" : "WASD  ARRAMPICATI   /   SPAZIO  STACCATI");
+                hud?.SetPrompt(PadControls.Preferred ? "STICK  ARRAMPICATI   /   STICK + A  SALTO" : "WASD  ARRAMPICATI   /   DIREZIONE + SPAZIO  BALZO");
+                return true;
+            }
+            if (Gliding || CanOpenWingsuit())
+            {
+                hud?.SetPrompt(PadControls.Preferred ? "TIENI A  TUTA ALARE" : "TIENI SPAZIO  TUTA ALARE");
                 return true;
             }
             var facing = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));

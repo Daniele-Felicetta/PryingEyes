@@ -304,8 +304,10 @@ namespace PryingEyes
             bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
             bool jumpPressed = inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump));
+            bool jumpHeld = inputEnabled && (SeatInput.GetKey(KeyCode.Space) || TouchControls.Held(TouchControls.Action.Jump));
 #if !PE_DISTRIBUTION_BUILD
             jumpPressed |= inputEnabled && GameManager.autoTest && parkourTestJump;
+            jumpHeld |= inputEnabled && GameManager.autoTest && parkourTestGlide;
             parkourTestJump = false;
 #endif
             if (jumpPressed) jumpBuf = 0.15f; else jumpBuf -= dt;
@@ -406,17 +408,18 @@ namespace PryingEyes
             Vector3 facing = new Vector3(sin, 0f, cos);
             bool dropPressed = OnClimbWall && (SeatInput.GetKeyDown(KeyCode.C) || SeatInput.GetKeyDown(KeyCode.LeftControl) || TouchControls.Down(TouchControls.Action.Crouch));
             bool climbMovement = ParkourStep(dt, inputEnabled, dropPressed, f, s, wish, facing);
+            UpdateWingsuit(dt, jumpHeld, wantCrouch, facing);
             if (!climbMovement)
             {
-                if (!Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
-                else if (!Mantling && inputEnabled && jumpBuf > 0f && (cc.isGrounded || coyote > 0f))
+                if (!Gliding && !Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
+                else if (!Gliding && !Mantling && inputEnabled && jumpBuf > 0f && (cc.isGrounded || coyote > 0f))
                 {
                     vel.y = jumpVel * (crouch ? 0.92f : 1f);
                     coyote = 0f; jumpBuf = 0f; slide = false;
                     mantleWindow = 0.4f;
                 }
-                else if (!Mantling && inputEnabled && jumpBuf > 0f && TryAirJump(wish)) { }
-                else if (!Mantling && mantleWindow > 0f && !Downed)
+                else if (!Gliding && !Mantling && inputEnabled && jumpBuf > 0f && TryAirJump(wish)) { }
+                else if (!Gliding && !Mantling && mantleWindow > 0f && !Downed)
                 {
                     mantleWindow -= dt;
                     if (!cc.isGrounded && f > 0.1f) TryMantle(facing);
@@ -428,6 +431,7 @@ namespace PryingEyes
                     cc.height = Mathf.Lerp(cc.height, crouch || slide ? heightCrouch : heightStand, 11f * dt);
                     cc.center = new Vector3(0, cc.height / 2f, 0);
                     var hit = cc.Move(vel * dt);
+                    WingsuitContact(hit);
                     if (Deserto.DesertMode.Active && vel.y > 0f && (hit & CollisionFlags.Above) != 0) vel.y = 0f;
                 }
             }
@@ -490,7 +494,7 @@ namespace PryingEyes
 
             Camera c = cam.GetComponent<Camera>();
             float baseFov = SplitScreen.Active ? SplitScreen.FovFor(GameSettings.Fov, Seats.ViewAspect(Seats.Current, c.aspect)) : GameSettings.Fov;     // nelle finestre larghe dello split screen il campo orizzontale non esagera (su piu' monitor: l'aspetto della porzione sul SUO monitor)
-            float targetFov = baseFov + ((wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + fovKick) * motion
+            float targetFov = baseFov + ((wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + 5f * WingAmount + fovKick) * motion
                 - weapon.ads * (baseFov - wd.adsFov);
             fovKick *= Mathf.Max(0f, 1f - 6f * dt);
             c.fieldOfView += (targetFov - c.fieldOfView) * Mathf.Min(1f, 10f * dt);
@@ -506,7 +510,7 @@ namespace PryingEyes
                 transform.position.x + bobX * cos + right.x * latOff,
                 transform.position.y + eyeH + bobY - drop - mantleDrop,
                 transform.position.z - bobX * sin + right.z * latOff) + ClimbEyeOffset;
-            float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll + (Downed ? 9f : 0f);
+            float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll + (Downed ? 9f : 0f) + WingsuitRoll;
             cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP + mantlePitch, yaw * Mathf.Rad2Deg + recY, roll + mantleRoll);
             // terza persona (impostazione del menu): la camera si sposta dietro la spalla solo mentre disegna; qui l'occhio si gira verso il mirino
             if (GameSettings.ThirdPerson || ThirdPersonView.Count > 0) ThirdPersonView.AfterEyePose(this);
@@ -529,13 +533,13 @@ namespace PryingEyes
                 bool onThing = !onWall && Proc.Interact.Tick(cam);
                 // con un compagno a terra qui vicino Usa serve a rialzarlo: niente acquisti per sbaglio
                 bool parkourPrompt = ParkourPrompt();
-                if (!OnClimbWall && (SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use)) && FindDownedMate(out _, out _) == null)
+                if (!ParkourHandsBusy && (SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use)) && FindDownedMate(out _, out _) == null)
                 { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
                 // dopo gli altri prompt (che cancellano la riga a ogni fotogramma): la presa alle spalle
                 if (!onWall && !onThing && !parkourPrompt) Knife.I?.PromptTick();
             }
             // un compagno a terra qui vicino: tenendo Usa lo si rialza (la sua riga vince sugli altri prompt)
-            if (!Downed && !OnClimbWall && inputEnabled && (!GameManager.autoTest || testHoldUse))
+            if (!Downed && !ParkourHandsBusy && inputEnabled && (!GameManager.autoTest || testHoldUse))
                 ReviveOthersTick(dt, testHoldUse || SeatInput.GetKey(KeyCode.F) || TouchControls.Held(TouchControls.Action.Use));
         }
 
