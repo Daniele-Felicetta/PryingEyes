@@ -3337,6 +3337,8 @@
     "tools/check_suite.py",
     "tools/test_check_suite.py",
     "tools/wiki_site.py",
+    "tools/code_census.py",
+    "tools/fixtures/game-boundaries.json",
     "docs/engineering/suite-architecture.md"
    ],
    "tests": "tools/test_check_suite.py",

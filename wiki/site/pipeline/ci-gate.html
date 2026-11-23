@@ -22,7 +22,7 @@
 <p>The gate is the workflow <code>.github/workflows/gate.yml</code>. It runs on every push to <code>preview</code>, on every pull request against it and on demand. It repeats on GitHub the checks that <a href="ship.html">ship</a> runs on the maintainer's PC, and it adds the .NET labs, which need the project lock and so are not part of ship.</p>
 <section id="what-it-runs">
 <h2 id="what-it-runs">What it runs</h2>
-<ul><li>The <a href="check-suite.html">check suite</a>, with the wiki's checks, and the Python unit tests.</li><li>The four rule labs: <code>studio.py test weapon-state</code>, <code>survival</code>, <code>economy</code> and <code>saves</code>. See <a href="labs.html">labs</a>.</li><li>The lab reports are kept as the artifact <code>lab-reports</code>.</li></ul>
+<ul><li>The <a href="check-suite.html">check suite</a>, with the wiki's checks, and the Python unit tests.</li><li>The code census, after the check suite: the sizes, cycles, tests and flags of the game's code, printed in the run summary, with its whole result kept in the artifact. It reports and never fails.</li><li>The four rule labs: <code>studio.py test weapon-state</code>, <code>survival</code>, <code>economy</code> and <code>saves</code>. See <a href="labs.html">labs</a>.</li><li>The lab reports are kept as the artifact <code>lab-reports</code>.</li></ul>
 </section>
 <section id="how-it-is-built">
 <h2 id="how-it-is-built">How it is built</h2>
