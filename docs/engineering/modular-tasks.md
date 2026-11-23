@@ -413,11 +413,18 @@ each one will say more than can be written now.
 
 ### T20. Decide the fate of the multiplayer draft
 
-- **Why**: F12. 21 files and a check project that the game does not use, next to the stack it does use.
+- **Why**: F12. 21 C# files (1,970 lines; with the probe's assets 27 files, 59 with their `.meta`) and a check project of 11 projects
+  (`tools/multiplayer-check`), next to the stack the game uses. The game uses four of those files, not none: the admission of the co-op
+  (`FishNetSeatAuthenticator` and the three files of `Core` that it needs, with the assembly definition of `Core`). The rest serves a probe scene.
 - **Steps**: write for the maintainer, in the pull request, what the draft contains, what uses it (the probe scene and prefabs under
-  `Multiplayer/GeneratedProbe 1/`, `tools/multiplayer-check`, one type used by `Scripts/Coop`), and the three options: keep as the base
-  of a future rewrite, freeze with a README that says so, retire. Carry out the chosen one. Nothing is removed without the choice, and
-  everything removed stays in git history.
+  `Multiplayer/GeneratedProbe 1/`, `tools/multiplayer-check`, and the four live files: `Scripts/Coop` names one type, which needs the
+  other three), and the three options: keep as the base of a future rewrite, freeze with a README that says so, retire. Carry out the
+  chosen one. Nothing is removed without the choice, and everything removed stays in git history.
+- **Found when it was prepared** (24 November 2026): `tools/multiplayer-check` has not compiled since 15 November. `PlanAnnex.cs` is missing from the
+  include lists of `MultiplayerCheck.csproj` and `unity-compile/UnityModules.csproj`, and nothing runs either project. With that one file
+  added, on a copy outside the repository, `MultiplayerCheck` passes 287 assertions, 64 of them on code the game runs (the admission gate
+  and token, `PlayerPerks`) and 19 on the roster. It is also the only lab that compiles `PlayerPerks.cs` and `Punti.cs`; T15 edits its three
+  projects and ends with "every lab builds".
 - **Done when**: the folder has a README that states its status, or is gone by decision, and
   [../multiplayer/README.md](../multiplayer/README.md) says the same.
 
