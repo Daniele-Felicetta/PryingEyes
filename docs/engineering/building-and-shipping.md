@@ -137,7 +137,8 @@ gives it a `Library` that is already imported:
 
 The answer has `path`, `branch`, `base` (`ref`, `commit`, `fetched`), `unityVersion`, `library` (`donor`, `files`, `bytes`, `seconds`,
 `copied`, `renameTries`, `priority`, `skippedDonors`), `worktreeSeconds` and `seconds`. Nothing but the new folder and its branch is created; a refusal creates
-nothing. If the copy itself fails after the worktree exists, the worktree stays without a `Library` and `ok` is false.
+nothing. If the copy itself fails after the worktree exists, the worktree stays without a `Library` (with the whole copy in `Temp\Library.copy`
+when only the rename failed) and `ok` is false.
 
 ### Removing one: `-Remove <name>`
 
@@ -180,11 +181,11 @@ but another agent was running its gate (Python and .NET) during the compile. Uni
 | `-Remove` of that worktree, `Library` included | 8.2 s (9.3 s as a whole) |
 
 The first compile is not a full import. Unity's own log shows the initial refresh at 93.3 s: 55.8 s compiling the scripts (Bee, with 30 s in
-its IL post-processing configuration) and 33.8 s importing 795 of the 3,669 assets, the ones whose files differ from the donor's (1,073
-files seen as changed, since a new checkout has new timestamps and the main checkout carries uncommitted edits). It is slower than the 24 s of
-the hand-made run in November (3.5 GB `Library` of a worktree at the same commit, normal priority, nothing else running), and the two are not
-the same experiment. A worktree without a `Library` has to import all of them; that was not measured here, because it would write gigabytes on
-a shared PC. After the run Unity had rewritten `DefaultPrefabObjects.asset` and `ProjectAuditorSettings.asset` with other line endings and the
+its IL post-processing configuration) and 33.8 s importing 795 of the 3,669 assets: Unity found 1,073 files changed and 5 deleted against the
+records in the donor's `Library` (a new checkout has new timestamps, and the main checkout's working tree is not identical to
+`origin/preview`). It is slower than the 24 s of the hand-made run in November (a 3.5 GB `Library` of a worktree at the same code version,
+normal priority), and the two are not the same experiment. A worktree without a `Library` has to import all of them; that was not measured
+here, because it would write gigabytes on a shared PC. After the run Unity had rewritten `DefaultPrefabObjects.asset` and `ProjectAuditorSettings.asset` with other line endings and the
 same text: `-Remove` reported `lineEndingsRestored: 2` and removed the worktree.
 
 The real run found three things that the throwaway repositories of `tools/test_worktree.py` did not, and each has a test now:

@@ -1,10 +1,11 @@
 <#
 worktree.ps1 - a git worktree that is ready for Unity, and a safe way to remove it (task T10 of docs/engineering/modular-roadmap.md).
 
-A new worktree has no unity/PryingEyes/Library, so the editor imports every asset (tens of minutes, gigabytes written) before it can
-compile. Copying the Library of a checkout that has the same Unity version and no editor open takes about a minute, and Unity then only
-recompiles the scripts. Rules 9 and 12 of AGENTS.md send every agent that does not own the editor to a worktree and ask that it be removed
-afterwards: this script does both ends. It prints what it did as ONE JSON document on stdout (schemaVersion 1); progress goes to stderr.
+A new worktree has no unity/PryingEyes/Library, so the editor imports every asset (a long wait, gigabytes written) before it can compile.
+Copying the Library of a checkout that has the same Unity version and no editor open takes about a minute (40 s for 5.85 GiB, measured in
+docs/engineering/building-and-shipping.md), and Unity then only recompiles the scripts and imports what changed. Rules 9 and 12 of
+AGENTS.md send every agent that does not own the editor to a worktree and ask that it be removed afterwards: this script does both ends.
+It prints what it did as ONE JSON document on stdout (schemaVersion 1); progress goes to stderr.
 Exit code 0 = done (or, with -DryRun, possible), 1 = refused or failed; the JSON says why in "problems".
 
   powershell -NoProfile -ExecutionPolicy Bypass -File tools\worktree.ps1 -New t07-harness
