@@ -136,9 +136,10 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 - **Done when**
   - The guard passes on the repository; each new code is produced by a fixture violation in the unit tests; removing a baseline entry
     whose violation still exists fails; fixing a violation and leaving its entry fails with `GAME_BASELINE_STALE`.
-  - `python tools/check_suite.py` takes less than five seconds (state before and after). *The brief said so; it did not hold when T04
-    started: the wiki check, added after the brief was written, takes about five seconds on its own, and the census adds about three
-    more. The pull request states the measured times.*
+  - The new rules add at most about three seconds to `python tools/check_suite.py`. Time it before and after the change on an idle PC,
+    alternating the two runs so that the load of the machine hits both alike, and state both times (at T04: 5.18 s and 7.84 s, +2.66 s).
+    There is no ceiling on the total: an earlier version of this brief asked for less than five seconds, and that number fell when the
+    wiki check, added after the brief was written, came to about 4.5 s by itself; making that check faster is a task of its own, not T04's.
 - **Verify**: the unit tests; `python tools/check_suite.py`; the summary of the gate.
 - **Not in scope**: failing on the number of references between folders; changing any game file.
 
