@@ -17,6 +17,7 @@ The gate is the workflow `.github/workflows/gate.yml`. It runs on every push to 
 ## What it runs
 
 - The [check suite](check-suite.md), with the wiki's checks, and the Python unit tests.
+- The code census, after the check suite: the sizes, cycles, tests and flags of the game's code, printed in the run summary, with its whole result kept in the artifact. It reports and never fails.
 - The four rule labs: `studio.py test weapon-state`, `survival`, `economy` and `saves`. See [labs](labs.md).
 - The lab reports are kept as the artifact `lab-reports`.
 

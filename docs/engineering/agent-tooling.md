@@ -45,11 +45,11 @@ about durations on this page were not measured for it and are marked.
 | `studio.py suites [--json]` | new (T03) | every suite with what it needs, its hazards and its usual duration | one line each, or JSON |
 | `studio.py test <suite> [--runtime EXE] [--allow HAZARD]` | exists; `--allow` new (T03) | runs one suite as a job under the project lock | `unity_logs/studio/<job>/report.json` |
 | `studio.py test desert` | exists (T01) | the desert lab: 107 checks, one finding each | `report.json` |
-| `studio.py test plan` | new (T02) | the fingerprint of the floor generator | `report.json` |
+| `studio.py test plan` | exists (T02) | the fingerprint of the floor generator: 48 plans and the protocol revision, one finding each | `report.json` |
 | `studio.py test compile` | new (T09) | the editor compiles the scripts and exits | compiler errors as findings |
 | `studio.py test <in-player suite>` | new (T05, T06) | starts the verification build with the flags of the manifest | `report.json` with one finding per check |
 | `studio.py catalog`, `asset`, `gallery`, `queue`, `job`, `report latest` | exist | content pipeline, evidence, queue ([production-studio.md](production-studio.md)) | as today |
-| `python tools/check_suite.py` | exists; game rules new (T04) | boundaries and documentation | findings as text, exit code |
+| `python tools/check_suite.py` | exists; has the game rules since T04 | boundaries, the game's rules about tests, documentation | findings as text, exit code |
 | `python tools/code_census.py [--json FILE]` | exists | sizes, references, flags, tests, global state | text and JSON |
 | `tools/ship.ps1` | exists; `ship_last.json` new (T09) | gate, commit, build, smoke, push, the maintainer's game | text status; new: the same as data |
 | `tools/worktree.ps1` | exists (T10) | a worktree ready for Unity; removing one safely | JSON summary |

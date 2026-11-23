@@ -55,6 +55,7 @@ jobs:
             /wiki/
             /unity/PryingEyes/Packages/
             /unity/PryingEyes/Assets/_PryingEyes/**/*.cs
+            /unity/PryingEyes/Assets/_PryingEyes/**/*.asmdef
             /unity/PryingEyes/Assets/_PryingEyes/Resources/Production/*.json
             /unity/PryingEyes/Assets/_PryingEyes/City/citta.json
             /unity/PryingEyes/ProjectSettings/ProjectVersion.txt
@@ -100,6 +101,18 @@ jobs:
       - name: Suite boundaries and documentation
         run: python tools/check_suite.py
 
+      # The shape of the game's code, next to the guard: sizes, cycles between folders, the tests and the flags. It reports and never fails
+      # the run (the guard above is what fails); the whole result is kept as code-census.json with the lab reports.
+      - name: Code census in the run summary
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force unity_logs/lab-reports | Out-Null
+          $census = python tools/code_census.py --section sizes --section cycles --section tests --section flags --json unity_logs/lab-reports/code-census.json
+          $census
+          $fence = '```'
+          "### Code census`n$fence`n$($census -join "`n")`n$fence" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+
       # Compiled here, once, so the Python tests that run `dotnet run` (90-120 s limits) do not spend them restoring and compiling.
       # Several native commands in one PowerShell step: only the last exit code would count, so each one is checked.
       - name: Compile the seven .NET labs
@@ -142,10 +155,17 @@ jobs:
           STUDIO_OUTPUT: unity_logs/lab-reports/desert
         run: python tools/studio.py test desert
 
+      # The fingerprint of the floor generator: in co-op every player builds the floor from the seed, so a change that moves a plan must
+      # raise CoopProtocol.Revision. Runs in the planlab compiled above; the fixture is tools/fixtures/plan-fingerprint.json.
+      - name: Floor plan fingerprint
+        env:
+          STUDIO_OUTPUT: unity_logs/lab-reports/plan
+        run: python tools/studio.py test plan
+
       - name: Lab results in the run summary
         if: ${{ !cancelled() }}
         run: |
-          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy', 'saves', 'track', 'desert') {
+          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy', 'saves', 'track', 'desert', 'plan') {
             $found = Get-ChildItem "unity_logs/lab-reports/$lab" -Recurse -Filter report.json -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $found) { "| $lab | no report | | |"; continue }
             $r = Get-Content $found.FullName -Raw | ConvertFrom-Json

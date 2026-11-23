@@ -126,7 +126,7 @@ process; 14 test files ship in releases; 47 tests carry a private copy of the ha
 
 1. *Without touching assemblies* (T04, T05, T07, T08): a shared harness (`PlayerTest`) that owns `Check`, the exception count, the
    result and the exit; a flag-free signal (`TestRun.Dedicated`) that replaces the list in `GameManager`; a manifest that lists every
-   suite ([agent-tooling.md](agent-tooling.md#the-manifest-of-the-in-player-suites)); a ratchet in the guard: the two production files
+   suite ([agent-tooling.md](agent-tooling.md#the-manifest-of-the-in-player-suites)); a ratchet in the guard (done in T04): the two production files
    that name tests and the 14 unwrapped test files are the only ones allowed, and the list can only shrink.
 2. *With an assembly* (T17, after T16): the tests move to `PryingEyes.Tests`, compiled only when `PE_DISTRIBUTION_BUILD` is not defined.
    One definition replaces the 45 per-file `#if` wrappers and takes the 14 unwrapped files out of the released game; the compiler then
@@ -170,7 +170,7 @@ These hold from now, before any task is done:
 1. Logic that needs no engine type goes in an engine-free file compiled by a lab, with its checks in that lab (under `Rules/` once B2
    exists; next to its feature and added to a lab project until then).
 2. A new in-player test is its own `*Test.cs` file, wrapped in `#if !PE_DISTRIBUTION_BUILD`, installing itself; production code never
-   names it. Once the harness exists it derives from `PlayerTest` and is listed in the manifest.
+   names it; the guard fails otherwise. Once the harness exists it derives from `PlayerTest` and is listed in the manifest.
 3. A flag is read in one place. Test flags are read only by tests.
 4. A feature of a floor lives in its own files and touches a central file only to add its line to a list, one item per line.
 5. A change to the wire format or to the rules of a floor raises `CoopProtocol.Revision`, and only one such change is open at a time.
@@ -192,17 +192,22 @@ These hold from now, before any task is done:
 
 ## How progress is read
 
-`python tools/code_census.py` at each step. The numbers that the plan moves:
+`python tools/code_census.py` at each step. The numbers that the plan moves (today: the census of 23 November 2026 at `1fea9dc`;
+four rows differ from the values the plan started from (34, 47, 51 and 39) because code arrived after it was written, the track mode first of all):
 
 | Number (section of the census) | Today | Target | Task |
 | --- | --- | --- | --- |
-| Hermetic suites in the gate (workflow) | 6 | 7 | T01, T02 |
-| Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 34 | 0 | T15 |
+| Hermetic suites in the gate (workflow) | 7 | 7 | T01, T02 |
+| Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 54 | 0 | T15 |
 | Production files that name a test type (`tests`) | 2 | 0 | T08, T17 |
 | Test files not kept out of a release (`tests`) | 14 | 0 | T17 |
-| Tests with a private `Check` (`tests`) | 47 | 0 | T07, T08 |
-| Flags read by `GameManager.cs` (`flags`) | 51 | under 20 | T07, T08 |
-| Private command-line helpers (`flags`) | 39 | 2 | T08, T19 |
+| Tests with a private `Check` (`tests`) | 51 | 0 | T07, T08 |
+| Flags read by `GameManager.cs` (`flags`) | 53 | under 20 | T07, T08 |
+| Private command-line helpers (`flags`) | 43 | 2 | T08, T19 |
 | Literals of test output relative to the working directory (`tests`) | 36 | 0 | T08, T12 |
 
-The number of mutual pairs between folders (33) is printed and watched, with no target: lowering it is not a goal in itself.
+The two rows about tests (2 and 14) cannot grow: the guard holds them as a baseline, `tools/fixtures/game-boundaries.json`, and fails on a new
+violation and on an entry that no longer applies ([suite-architecture.md](suite-architecture.md#the-games-rules-about-tests)).
+
+The number of mutual pairs between folders (39 in `python tools/code_census.py --by-folder --section cycles`; 33 when the plan was written) is
+printed and watched, with no target: lowering it is not a goal in itself.
