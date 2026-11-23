@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The in-player suites of Prying Eyes",
+  "description": "One entry for each check that runs inside the built player. It is written by hand and kept true by tools/test_player_tests.py; it runs nothing and replaces nothing in the game. See docs/engineering/agent-tooling.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "suites", "unlisted"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "suites": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/suite"}
+    },
+    "unlisted": {
+      "description": "Test files that install themselves at load and are the source of no suite, each with the reason why.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/unlisted"}
+    }
+  },
+  "$defs": {
+    "suite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "source", "mode", "timeout", "needs", "hazards", "page"],
+      "properties": {
+        "name": {
+          "description": "What a runner will call it: the flag without its dash (traptest), or coop-<scenario> for the scenarios of tools/coop/run_all.ps1.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+        },
+        "source": {
+          "description": "The C# file of the game that implements the check or reads its flag, from the repository root.",
+          "type": "string",
+          "pattern": "^unity/PryingEyes/Assets/_PryingEyes/.+\\.cs$"
+        },
+        "args": {
+          "description": "The whole command line after the executable, as a runner should issue it. Absent when a runner script owns the arguments.",
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "mode": {
+          "description": "Which game the flags select: tower (the default of an automated run), catacombs (-catacombe), cathedral (-cattedrale, -cattedraletest), desert (-deserto, -desertotest), city (-citytest), track (-pista, -pistatest), or menu (no -autotest: the menus).",
+          "enum": ["tower", "catacombs", "cathedral", "desert", "city", "track", "menu"]
+        },
+        "timeout": {
+          "description": "Seconds after which a runner gives up: an upper bound taken from the prose and the scripts, not a measurement.",
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 3600
+        },
+        "checks": {
+          "description": "How many checks the suite ran when it was last confirmed by a run. Leave it out until a run has confirmed it.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "needs": {
+          "description": "runtime: a built player. gpu: the run draws (no -nographics), so it needs a graphics card and nobody playing.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["runtime", "gpu"]},
+          "contains": {"const": "runtime"}
+        },
+        "hazards": {
+          "description": "registry: writes the settings key that the maintainer's game reads. screen: opens a window or takes a monitor.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["registry", "screen"]}
+        },
+        "photos": {
+          "description": "The optional run that takes pictures: the flags to add (the run draws, so -nographics goes), what it needs and where the pictures land.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["args", "needs", "folder"],
+          "properties": {
+            "args": {"type": "array", "items": {"type": "string", "minLength": 1}},
+            "needs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["gpu"]}},
+            "folder": {"type": "string", "pattern": "^(unity_logs|hotel_build)(/[^/]+)*$"}
+          }
+        },
+        "runner": {
+          "description": "For suites made of several processes: the script that starts them, and the parameters it is given.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["script", "parameters"],
+          "properties": {
+            "script": {"type": "string", "pattern": "^tools/.+\\.(ps1|py)$"},
+            "parameters": {
+              "type": "object",
+              "additionalProperties": {"type": ["string", "integer", "boolean"]}
+            }
+          }
+        },
+        "page": {
+          "description": "The page that says what the suite proves.",
+          "type": "string",
+          "pattern": "^docs/.+\\.md$"
+        }
+      },
+      "oneOf": [
+        {"required": ["args"], "not": {"required": ["runner"]}},
+        {"required": ["runner"], "not": {"required": ["args"]}}
+      ]
+    },
+    "unlisted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "reason"],
+      "properties": {
+        "file": {"type": "string", "pattern": "^unity/PryingEyes/Assets/_PryingEyes/.+\\.cs$"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
