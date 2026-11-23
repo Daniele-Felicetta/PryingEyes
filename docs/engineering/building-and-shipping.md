@@ -96,7 +96,7 @@ The gate is the set of checks that must pass before a change counts as done:
 1. `python tools/check_suite.py`: the boundaries of the reusable packages and engine, and the documentation (links, index, no
    machine-specific paths).
 2. `python -m unittest discover -s tools -p "test_*.py"`: the hermetic unit suite.
-3. `python tools/studio.py test weapon-state`, `python tools/studio.py test survival`, `python tools/studio.py test economy`, `python tools/studio.py test saves`, `python tools/studio.py test track` and `python tools/studio.py test desert`: the six .NET rule labs.
+3. `python tools/studio.py test weapon-state`, `python tools/studio.py test survival`, `python tools/studio.py test economy`, `python tools/studio.py test saves`, `python tools/studio.py test track` and `python tools/studio.py test desert`: the six .NET rule labs; and `python tools/studio.py test plan`: the fingerprint of the floor generator, which fails when a plan changes without a new `CoopProtocol.Revision` ([testing.md](testing.md), end of section 2.4).
 
 `ship.ps1` runs the first two before every commit. The third needs the project lock, which fails with `PROJECT_BUSY` while another
 agent has a production running, so it only runs on GitHub: `.github/workflows/gate.yml` runs all three on every push to `preview` and every
