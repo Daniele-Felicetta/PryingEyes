@@ -9,7 +9,7 @@ Added on 15 November 2026.
   box projection and the probe atlas were already enabled in `HotelURP`. 128 px, 256 px for rooms over 400 m². Cost measured
   with the frame probe at 1080p on seed 2995 floor 3: 4.8 ms with and without probes; baking 9 probes takes about 120 ms
   during the arrival. `-noprobes` disables them for comparisons.
-- **Scoreboard** (`Scripts/HUD.Score.cs`): hold Tab for wave and floor, points, kills and headshot share, accuracy, trials
+- **Scoreboard** (`Scripts/HUD.Score.cs`): hold Tab (F8 on the desert surface) for wave and floor, points, kills and headshot share, accuracy, trials
   completed, medals, deaths, time, equipment (holy water, carillons, mines), glass eyes found and, in co-op, the number of players. New counters `GameManager.headshots` and
   `GameManager.deaths`.
 - **Weapon inspection** (`Weapon.Inspect`, key I): 2.6 s, the weapon rises and turns to show its left side with a slow
@@ -133,7 +133,7 @@ Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -magtest [
 Added on 15 November 2026 (`Scripts/Medals.cs`, `Scripts/HUD.Medals.cs`).
 
 Instant feats, rewarded with a gold medal at the top centre (name between two growing rules, points below, a scale pop, 1.9 s), a
-two-note chime (`SoundGen.Medal`) and a few points, counted on the Tab scoreboard ("Medaglie"). They complement the wave Trials
+two-note chime (`SoundGen.Medal`) and a few points, counted on the scoreboard ("Medaglie"). They complement the wave Trials
 and are computed on the kills credited to this player (`GameManager.CreditKill`; in co-op each player has their own):
 
 - chained kills less than 0.75 s apart: Doppietta +20, Tripletta +50, Quaterna +80, Strage (five or more) +120;

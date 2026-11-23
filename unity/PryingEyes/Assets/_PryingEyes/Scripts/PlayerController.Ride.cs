@@ -63,6 +63,7 @@ namespace PryingEyes
         public void Mount(DesertBike b)
         {
             if (b == null || Riding || !alive || Downed || b.rider != null || b.puppet) return;
+            SetCheatFlight(false);
             CancelMantle();
             bike = b;
             b.Take(this);

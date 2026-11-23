@@ -361,6 +361,7 @@ namespace PryingEyes.Deserto
             if (Explicit("luci")) yield return Phase("luci", LightShadowAudit());
             if (Explicit("garage")) yield return Phase("garage", GarageTest());
             if (Explicit("menu")) yield return Phase("menu di Select", HubTest());
+            if (Explicit("cheats")) yield return Phase("cheat di Select", CheatsTest());
             if (Explicit("negozio")) yield return Phase("Bozzo Moto Store", StoreTest());
             if (Explicit("cabina")) yield return Phase("cabina delle moto", CockpitTest());
             if (Wants("caduta")) yield return Phase("caduta", Fall());

@@ -349,7 +349,7 @@ rebuilt identical every time you come back.
 The player asked for all three the day after 0.9.0 ("co-op, the minimap and the arrow to go back to the cathedral"). They share a rule with the rest of the desert: nothing about the world
 is sent over the wire but the seed, because the world is a pure function of it.
 
-**The minimap** (`Deserto/DesertMapGen.cs`, `DesertMapTiles.cs`, `HUD.DesertMap.cs`; `N` shows and hides it, as in the floors; since 0.10.3 `M` opens the Select menu, whose first page is a bigger map: [The Select menu](#the-select-menu)). It sits at the top
+**The minimap** (`Deserto/DesertMapGen.cs`, `DesertMapTiles.cs`, `HUD.DesertMap.cs`; `N` shows and hides it, as in the floors; since 0.10.3 `M` or `Tab` opens the Select menu, whose first page is a bigger map: [The Select menu](#the-select-menu)). It sits at the top
 right, a window of 512 m of sand centred on you, north up, and it is a cartographer's chart: parchment-coloured sand shaded as if lit from the north-west, contour lines every 3 m (stronger
 every 15), hatched cliffs, the pale pans of the salt flats, the footprints of the rooms of every place with their walls in ink (filled if they have a roof, hatched if they are open to the sky),
 a cross on the chapels and churches, a diamond on the towers, an arc on the catacombs, and the cathedral with its golden stair and the circle (42 m) where no enemy is born. Over it the HUD
@@ -533,16 +533,17 @@ Request of 22 November 2026, in the same message: *with Select a menu opens, tid
 
 **How it plays.**
 
-- **Open it** with **Select** (the Back button of the pad, a tap: held, it still shows the scoreboard) or **M**, on the sand and in the cathedral (in the catacombs `M` and a tap of Back are still the map of the floor).
-  **Close it** with Esc, M, Backspace, right click, **B** or Select again.
-- **Five pages in a navigation bar**, in this order: **1 Mappa**, **2 Libri**, **3 Magie**, **4 Bozzo Moto Store**, **5 Telecamera**. LB and RB (written `Q LB` and `E RB` at the two ends of the bar), Q and E, PgUp and
-  PgDn, the square brackets, the keys 1 to 5 or a click on the bar change page. The pages are a list of classes in code (`HUD.MakeHubPages`): a sixth page is one class and one line.
+- **Open it** with **M**, **Tab** or a tap of **Select** (Back on the controller) on the sand and in the cathedral. Hold **F8** or Back for the scoreboard.
+  In the catacombs, M and a tap of Back open the floor map, and holding Tab shows the scoreboard.
+  **Close it** with Esc, M, Tab, Backspace, right click, **B** or Select again.
+- **Six pages in a navigation bar**, in this order: **1 Mappa**, **2 Libri**, **3 Magie**, **4 Bozzo Moto Store**, **5 Telecamera**, **6 Cheat**. LB and RB (written `Q LB` and `E RB` at the two ends of the bar), Q and E, PgUp and
+  PgDn, the square brackets, the keys 1 to 6 or a click on the bar change page.
 - **Inside a page** the arrows, WASD, the D-pad or the left stick move; Enter, Space or **A** confirm; the mouse works as on a web page (it points, clicks, drags the sliders, turns the wheel). The line at the foot of
   the panel says which keys do what on the page in front, and carries the short notices (red for a refusal, gold for something done).
 - **It does not stop the game.** Behind the panel the sand goes on, and a monk does not wait for whoever is buying a bike: so the menu **closes by itself if the player is hurt**, goes down or dies, or the pause menu
   opens. It blocks only the commands of the seat that opened it (`Seats.SetOverlay`, as the grimoire does): in a split screen every seat has its own panel on its own part of the screen and the others play on.
 
-**The five pages.**
+**The six pages.**
 
 1. **Mappa.** The map of the desert on the paper of the minimap (the same painted tiles, 512 m of sand, north at the top, with a scale bar) and its markers (you as the red arrow, the cathedral a gold square, the
    garage and your parked bikes turquoise discs, your mates in their colours); in a column beside it the day and the hour, where you are (`x`, `z`), how far the cathedral and the garage are and on which side, your
@@ -565,7 +566,12 @@ Request of 22 November 2026, in the same message: *with Select a menu opens, tid
    **mouse sensitivity** (0.25 to 3), **pad sensitivity**, **mouse Y inverted**, **pad Y inverted** and **Valori di partenza** (everything back to 75 degrees, first person, 100 %, 1.00 and normal axes). Left and right
    change a value (held, they run), Enter flips a switch, the mouse drags the sliders; a fan of rays at the right draws the field of view that is chosen.
 
-**How it works** (`Deserto/HUD.DesertHub.cs` and the four files `HUD.DesertHub.Map/Books/Store/Camera.cs`).
+6. **Cheat.** In a local game, add 10,000 points or deposit 100 of each material, including boss trophies, in the character's cathedral bank.
+   You can also replenish health, shield and ammunition, or toggle invulnerability and flight. Fly on foot with WASD or the left stick,
+   ascend with Space or A, and descend with Ctrl or B. Walls, ceilings and the ground still block movement. Flight ends when you mount a bike.
+   Both toggles reset at respawn or when you leave the surface. Materials are saved with the character.
+
+**How it works** (`Deserto/HUD.DesertHub.cs` and the page files `HUD.DesertHub.*.cs`).
 
 - **One input for everything.** Keyboard, mouse and pad become one `HubInput` per frame (steps with repeat, confirm, back, previous and next page, the pointer in the panel's own coordinates), and the pages only read
   that: the tests give them a `HubInput` by hand, which is the path the three devices take. The pad needed three new edges in `PadControls.Mapper` (`Prev`, `Next`, `Back`: LB, RB and Back as they go down), which
@@ -609,7 +615,7 @@ Request of 22 November 2026, in the same message: *with Select a menu opens, tid
 | `Deserto/DesertBike.cs`, `DesertBikeMesh.cs`, `DesertBikeMesh.Details.cs`, `DesertBikes.cs`, `SoundMoto.cs`, `PlayerController.Ride.cs`, `PlayerController.Ride.Plow.cs`, `Enemy.Plow.cs` | The motorbike: the bike (mount, pose, engine, lights, the tracks of its wheels, parking), its model made by code and its mechanical details, one bike for each seat, the engine and crash sounds (`SoundGen`, `SoundBank`), the ride itself inside the player's body (the dynamics, the camera, getting off, the weapon in the saddle: `RideGunTick`) and the running over of enemies on foot (the outline of the bike, the hit and the speed it costs in `RidePlow`; who can be hit, how wide and how heavy in `Enemy.Plow.cs`). |
 | `Deserto/HUD.DesertSpeed.cs`, `Weapon.Ride.cs` | The speedometer (the dial, painted by code, one for each seat) and the riding mode of the weapon (stowed, raised by fire, the free hand hidden, the spread by speed). |
 | `Deserto/DesertBikeDef.cs`, `DesertBikeMesh.Pista.cs`, `DesertGarage.cs`, `DesertGarageSite.cs` | The bikes you can have (the catalogue: the improvised one and the nine of the track mode, with their ride figures, price and pose in the saddle), the models of the track put into the rig of the desert bike, the garage of each character (what it owns, buying, the bays; the list lives in `CharacterRecord.extras`) and the open-air garage (the roof, the bays, the name boards, the lamps, the delivery). |
-| `Deserto/HUD.DesertHub.cs`, `HUD.DesertHub.Map.cs`, `HUD.DesertHub.Books.cs`, `HUD.DesertHub.Store.cs`, `HUD.DesertHub.Camera.cs` | The Select menu: the panel, its navigation bar and the one input of keyboard, mouse and pad; the five pages (map, books, spells, Bozzo Moto Store, camera). |
+| `Deserto/HUD.DesertHub.cs` and `HUD.DesertHub.*.cs` | The Select menu and its six pages, with shared keyboard, mouse and controller navigation. |
 | `Deserto/DesertCathedral.cs`, `Proc/RoomKits.HubDeserto.cs`, `Proc/HubPlan.cs` | The cathedral in the desert: plinth and stair (one stone mesh, physics in hidden boxes), the two braziers (a bowl, three legs and a ring in one mesh, `BrazierMesh`, built with `DesertLathe`) with their fire (`BrazierFire`), the two banners of the stair and those of the towers (`DesertBanner`), the lamp posts (`DesertLamps`) and the awnings, drapes and counters of the stalls (`DesertAwning`), the armoury and its prices, the places of the two works. |
 | `Proc/FloorDirector.Desert.cs`, `FloorDirector.Catacombe.cs` | Starting the game, the wait for the ground, the HUD and the objective, the fall guard, what a rebuilt cathedral must not wipe. |
 | `GameMenu.Mode.cs` | The choice *Standard* / *Il deserto*. |
@@ -642,7 +648,7 @@ Said here so they can be changed.
   another work rebuilds the cathedral and so also draws three new books.
 - **Sand quiets the steps** (0.8 of what marble sounds like to the monks), so that sneaking over dunes is a little easier than over tiles.
 - **Death** uses the penalty of the floors and a respawn at the stair.
-- **No sheet of the places seen, but a minimap** (0.9.1): the cathedral has never had a map (until 0.10.2 `M` did nothing there or in the desert; since 0.10.3 it opens the Select menu, whose first page is a map of the desert); the objective names the nearest place and the way home, and
+- **No sheet of the places seen, but a minimap** (0.9.1): the cathedral has never had a map (since 0.10.3 `M` and `Tab` open the Select menu there and in the desert, whose first page is a map of the desert); the objective names the nearest place and the way home, and
   since 0.9.1 the minimap (`N`) and the golden arrow do the same job better. A map of the places already seen is still the obvious next step if they are not enough.
 - **Co-op shares the enemies, the hour and the fall of a boss, not the loot** (0.9.1): what lies on the sand and the trophies are each player's own, like the points and the store; the
   alternative (one list of what was taken for everybody) would have meant every pick-up crossing the wire and a player who walks ahead emptying the sand for the others.
@@ -690,7 +696,8 @@ dotnet run --project tools/desertlab -c Release            # the pure code, no U
 & $exe -batchmode -nographics -autotest -desertotest -desertonly pelle -seed 1000           # the bike away from open sand and back, then a teleport that leaves a tower behind: no place may stop being seen when its shell and its far skin hand over (add -pellequick 1 for the teleport alone)
 & $exe -batchmode -nographics -autotest -desertotest -desertonly luci -seed 1000            # the pool of lamps with a row of twelve fake ones: the shadows must not blink under a lamp (seconds)
 & $exe -batchmode -autotest -desertotest -desertonly garage -desertshots -seed 1000         # the garage and the ten bikes: the catalogue, buying, the saddle, riding out, the cost of a frame and sixteen photographs (graphics card: not while another game runs; with -nographics the cost and the photographs are left out)
-& $exe -batchmode -nographics -autotest -desertotest -desertonly menu -seed 1000            # the Select menu: its five pages, the pad's edges, the map, the books, the spells and the camera settings (no graphics card)
+& $exe -batchmode -nographics -autotest -desertotest -desertonly menu -seed 1000            # Select navigation, map, books, spells and camera settings
+& $exe -batchmode -nographics -autotest -desertotest -desertonly cheats -seed 1000         # local cheat actions and flight
 & $exe -batchmode -autotest -desertotest -desertonly negozio -desertshots -seed 1000        # Bozzo Moto Store: the catalogue, the order in two steps, the receipt, the showroom and its photographs (without a card the page has no showroom and the check says so)
 & $exe -batchmode -autotest -desertotest -desertonly cabina -desertshots -seed 1000         # the ten bikes seen from the saddle: what covers the view of each, and a photograph of each cockpit
 ```
@@ -774,7 +781,7 @@ no and for nothing; the bike is born at once in the first bay after Ruggine, on 
 says them again); all ten together (each in its bay and on the ground, **467,918 triangles** for the ten and under 520,000, a pose in the saddle in a person's measures); with the card, the cost of a frame at 1920x1080 from the churchyard (the full garage 8.4 ms, Ruggine alone 7.5: **the nine bikes cost 0.9 ms**; the check allows 4); and the ride: the use prompt names the bike, F puts the player in the saddle with the eye of
 that bike's pose, the fastest bike reaches 115 km/h in 13.7 s (its sheet says 119) without passing it and beats Ruggine's 83, the engine has its own voice, getting off leaves the bike where it is, and at the rebirth the bikes left out go back to their bays. The photographs are the ten bikes in their bays, the name boards from
 close, the totem, the garage from the stair at 17:18, at 20:00 and at 22:30, and the saddle.
-**`menu`** (35 checks, 45 with the arrival, the frame times and the log; about 11 s, no graphics card) tests the Select menu: the five pages in the order Mappa, Libri, Magie, Bozzo Moto Store, Telecamera; that with the menu shut the game runs (nothing above it, the commands free); the pad's three new edges (LB,
+**`menu`** tests the Select menu: the six pages in the order Mappa, Libri, Magie, Bozzo Moto Store, Telecamera, Cheat; that with the menu shut the game runs (nothing above it, the commands free); the pad's three new edges (LB,
 RB and Back last one frame; `SuppressGameplay` takes the spell away but not the tab; a short tap of Back is still the game's *map* when it is let go); that it opens, takes the commands of the seat that opened it and frees the mouse, without stopping time; that the frame is as large as it needs and fits the window; the map (where you are,
 how far the cathedral and the garage are, the painted tiles, the parked bikes as turquoise discs); the books (no points no purchase and it says so, with points an outer node costs 1,250, a closed inner node says what it asks for, with an outer one beside it the inner one opens for 3,000 and becomes the ready spell); the spells (Enter prepares the one you
 have, and on a sigil you do not have it leads to the page where it is bought); the camera (left and right move the field of view a degree at a time, the intensity in steps of 5 %, the two sensitivities in steps of 0.05, Enter flips the mouse's Y axis, *Valori di partenza* brings everything to 75 degrees, 100 %, 1.00 and normal axes, and **at the end the settings of whoever plays are those of before**:
