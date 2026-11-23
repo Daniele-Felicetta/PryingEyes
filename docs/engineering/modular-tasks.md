@@ -72,11 +72,13 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 - **Touches**: `tools/planlab/Program.cs`, a new `tools/fixtures/plan-fingerprint.json`, the profile and its test, `gate.yml`,
   [testing.md](testing.md), the protocol section of [../multiplayer/README.md](../multiplayer/README.md).
 - **Steps**
-  1. Add to `planlab` the command `fingerprint`: for seeds 1000, 2961, 3046, 777, 114 and 4242, floors 1, 3, 5 and 8, in the lab's
-     default layout and with `waves` (the layout the game uses), compute the SHA-256 of the text that `dump` writes; print one line per plan and write them with
-     `--report FILE`.
+  1. Add to `planlab` the command `fingerprint` (a new file, `Fingerprint.cs`; `Program.cs` routes to it): for seeds 1000, 2961, 3046,
+     777, 114 and 4242, floors 1, 3, 5 and 8, in the lab's default layout and with `waves` (the layout the game uses), compute the SHA-256
+     of the text that `dump` writes, in the invariant culture (`dump` prints its numbers in the culture of the machine: a decimal comma on
+     the maintainer's PC, a point on the runner; the brief did not say); print one line per plan and write them with `--report FILE`.
   2. `fingerprint --update tools/fixtures/plan-fingerprint.json` rewrites the fixture, which also records the revision read from
-     `CoopWire.cs`. It refuses (`PLAN_CHANGED_WITHOUT_REVISION`) when a hash changed and the revision did not.
+     `CoopWire.cs` (a string such as `pe-coop-37`, not a number). It refuses (`PLAN_CHANGED_WITHOUT_REVISION`) when a hash changed and the
+     revision did not.
   3. Add the suite `plan`: one finding per plan (`PLAN_FINGERPRINT`: observed and expected hash) and one that the fixture's revision is
      the one in `CoopWire.cs` (`PLAN_REVISION`).
   4. Add it to the gate, and say in the two pages what to do when it fails.
@@ -257,7 +259,8 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 
 - **Why**: F11. Rules 9 and 12 ask for worktrees; a new one cannot compile until every asset is imported.
 - **Needs**: PowerShell, Python for the test; **editor** only to measure.
-- **Touches**: new `tools/worktree.ps1`, `tools/test_worktree.py`, [building-and-shipping.md](building-and-shipping.md), rule 12 of `AGENTS.md`.
+- **Touches**: new `tools/worktree.ps1`, `tools/test_worktree.py`, [building-and-shipping.md](building-and-shipping.md), rule 12 of `AGENTS.md`;
+  and, because they described the script as a design, [agent-tooling.md](agent-tooling.md) and the list of unit tests in [testing.md](testing.md).
 - **Steps**: write the script described in [agent-tooling.md](agent-tooling.md#toolsworktreeps1-a-place-to-work), ASCII, with `-DryRun`,
   and a test in the style of `tools/test_release.py` (throwaway repositories, an invented `Library`).
 - **Done when**
