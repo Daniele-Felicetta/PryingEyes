@@ -1,13 +1,12 @@
-using PryingEyes.Deserto;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace PryingEyes
 {
-    /// <summary>The gunplay's first-person gloves and sleeve IK, driven by world-space pipe contacts.</summary>
+    /// <summary>The gunplay gloves and sleeve IK, with alternating contacts on the surface in world space.</summary>
     sealed class ParkourHands
     {
-        static readonly HandPose PipeGrip = HandPose.Fingers(43f, 76f, 0.18f, 0.60f).Thumb(19f, 36f, 26f, 24f);
+        static readonly HandPose StoneGrip = HandPose.Fingers(12f, 42f, 0.58f, 0.51f).Thumb(7f, 18f, 14f, 12f);
         readonly Transform root;
         readonly Light fill;
         readonly Transform[] wrists = new Transform[2];
@@ -67,7 +66,8 @@ namespace PryingEyes
 
         public void Hide() => root.gameObject.SetActive(false);
 
-        public void Tick(Vector3 previous, Vector3 bar, bool rightLeads, bool transfer, float progress, bool attached, float weight, float dt)
+        public void Tick(Vector3 previous, Vector3 hold, Vector3 previousNormal, Vector3 wallNormal,
+                         bool rightLeads, bool transfer, float progress, bool attached, float weight, float dt)
         {
             root.gameObject.SetActive(weight > 0.02f);
             if (!root.gameObject.activeSelf) return;
@@ -80,19 +80,24 @@ namespace PryingEyes
                 float reach = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(start, lead ? 0.70f : 0.96f, progress));
                 float curl = transfer ? 1f - Mathf.Sin(reach * Mathf.PI) : Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.28f, 0.92f, reach));
                 if (!attached) curl *= weight;
-                var contact = (transfer ? Vector3.Lerp(previous, bar, reach) : bar) + DesertTowerPipes.Across * (side * 0.23f);
-                contact += DesertTowerPipes.Outward * (DesertTowerPipes.Radius + 0.01f) - Vector3.up * 0.045f;
-                if (transfer) contact += DesertTowerPipes.Outward * (0.15f * Mathf.Sin(reach * Mathf.PI));
+                Vector3 normal = transfer ? Vector3.Slerp(previousNormal, wallNormal, reach) : wallNormal;
+                Vector3 course = transfer ? Vector3.Lerp(previous, hold, reach) : hold;
+                Vector3 contact = course + Vector3.Cross(normal, Vector3.up) * (side * 0.21f);
+                if (Physics.Raycast(contact + normal * 0.16f, -normal, out var stone, 0.27f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore) &&
+                    Vector3.Dot(stone.normal, normal) > 0.6f && Surfaces.Of(stone) != Surface.Glass) contact = stone.point;
+                else contact = course + Vector3.Cross(normal, Vector3.up) * (side * 0.095f);
+                contact += normal * 0.044f - Vector3.up * 0.056f;
+                if (transfer) contact += normal * (0.12f * Mathf.Sin(reach * Mathf.PI));
 
-                var rotation = Quaternion.LookRotation(Vector3.up - DesertTowerPipes.Outward * 0.74f, DesertTowerPipes.Outward);
+                var rotation = Quaternion.LookRotation(Vector3.up - normal * 0.42f, normal);
                 var hand = gloves[i];
-                // Locate the palm on the cylinder, then solve the sleeve back to the shoulder.
+                // Set the palm just outside the stone, letting the fingertips curl into the course.
                 Vector3 target = contact - rotation * (hand.PalmCenter - Vector3.up * 0.012f);
                 Vector3 rest = root.TransformPoint(new Vector3(side * 0.29f, -0.42f, 0.32f));
                 float approach = weight * (transfer || !attached ? 1f : reach);
                 wrists[i].SetPositionAndRotation(Vector3.Lerp(rest, target, approach),
                     Quaternion.Slerp(root.rotation * Quaternion.Euler(-37f, side * -12f, side * 13f), rotation, approach));
-                hand.Apply(HandPose.Lerp(HandPoses.Open, PipeGrip, curl), dt);
+                hand.Apply(HandPose.Lerp(HandPoses.Open, StoneGrip, curl), dt);
                 arms[i]?.Solve(0f, dt);
                 hand.UpdateCuff(arms[i] != null ? arms[i].LastForearmDirW : wrists[i].forward);
             }

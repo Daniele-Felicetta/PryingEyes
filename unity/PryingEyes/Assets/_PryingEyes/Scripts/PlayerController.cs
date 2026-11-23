@@ -287,6 +287,13 @@ namespace PryingEyes
                     s = Vector3.Dot(botDir, new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)));
                 }
             }
+#if !PE_DISTRIBUTION_BUILD
+            if (inputEnabled && GameManager.autoTest && parkourTestDirection is Vector3 testDirection)
+            {
+                f = Vector3.Dot(testDirection, new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw)));
+                s = Vector3.Dot(testDirection, Right());
+            }
+#endif
             // in sella (moto del deserto) il corpo non cammina: la guida, la camera e le collisioni stanno in PlayerController.Ride.cs
             if (Riding) { RideTick(dt, f, s, inputEnabled, lookDelta); return; }
             bool crouchKey = SeatInput.GetKey(KeyCode.C) || SeatInput.GetKey(KeyCode.LeftControl);
@@ -397,9 +404,9 @@ namespace PryingEyes
             // scavalcare (PlayerController.Mantle.cs): Salto davanti a un ostacolo basso lo supera; dopo un salto normale, contro il
             // bordo di uno appena piu' alto andando avanti, ci si aggrappa
             Vector3 facing = new Vector3(sin, 0f, cos);
-            bool dropPressed = OnParkourPipe && (SeatInput.GetKeyDown(KeyCode.C) || SeatInput.GetKeyDown(KeyCode.LeftControl) || TouchControls.Down(TouchControls.Action.Crouch));
-            bool pipeMovement = ParkourStep(dt, inputEnabled, jumpPressed, dropPressed, f, wish, facing);
-            if (!pipeMovement)
+            bool dropPressed = OnClimbWall && (SeatInput.GetKeyDown(KeyCode.C) || SeatInput.GetKeyDown(KeyCode.LeftControl) || TouchControls.Down(TouchControls.Action.Crouch));
+            bool climbMovement = ParkourStep(dt, inputEnabled, dropPressed, f, s, wish, facing);
+            if (!climbMovement)
             {
                 if (!Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
                 else if (!Mantling && inputEnabled && jumpBuf > 0f && (cc.isGrounded || coyote > 0f))
@@ -427,7 +434,7 @@ namespace PryingEyes
 
             // --- lean: Q a sinistra, E a destra; non in corsa ne' in scivolata, non nei muri ---
             float leanWant = 0f;
-            if (inputEnabled && !slide && !wantSprint && !Downed && !OnParkourPipe) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
+            if (inputEnabled && !slide && !wantSprint && !Downed && !OnClimbWall) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
             float room = leanWant != 0f ? LeanRoom(leanWant) : 1f;
             float leanTarget = leanWant * room;
             // se la testa e' gia' contro un muro rientra piu' in fretta
@@ -498,7 +505,7 @@ namespace PryingEyes
             cam.position = new Vector3(
                 transform.position.x + bobX * cos + right.x * latOff,
                 transform.position.y + eyeH + bobY - drop - mantleDrop,
-                transform.position.z - bobX * sin + right.z * latOff);
+                transform.position.z - bobX * sin + right.z * latOff) + ClimbEyeOffset;
             float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll + (Downed ? 9f : 0f);
             cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP + mantlePitch, yaw * Mathf.Rad2Deg + recY, roll + mantleRoll);
             // terza persona (impostazione del menu): la camera si sposta dietro la spalla solo mentre disegna; qui l'occhio si gira verso il mirino
@@ -512,7 +519,7 @@ namespace PryingEyes
             }
 
             DrawParkourHands(dt);
-            weapon.Tick(dt, (f > 0 && wantSprint && !OnParkourPipe) || Mantling, hs, cc.isGrounded || Mantling || OnParkourPipe, crouch, lookDelta);
+            weapon.Tick(dt, (f > 0 && wantSprint && !OnClimbWall) || Mantling, hs, cc.isGrounded || Mantling || OnClimbWall, crouch, lookDelta);
             hud?.SetBars(hp, shield);
 
             // --- armi sui muri: prompt + acquisto con F ---
@@ -522,13 +529,13 @@ namespace PryingEyes
                 bool onThing = !onWall && Proc.Interact.Tick(cam);
                 // con un compagno a terra qui vicino Usa serve a rialzarlo: niente acquisti per sbaglio
                 bool parkourPrompt = ParkourPrompt();
-                if (!OnParkourPipe && (SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use)) && FindDownedMate(out _, out _) == null)
+                if (!OnClimbWall && (SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use)) && FindDownedMate(out _, out _) == null)
                 { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
                 // dopo gli altri prompt (che cancellano la riga a ogni fotogramma): la presa alle spalle
                 if (!onWall && !onThing && !parkourPrompt) Knife.I?.PromptTick();
             }
             // un compagno a terra qui vicino: tenendo Usa lo si rialza (la sua riga vince sugli altri prompt)
-            if (!Downed && !OnParkourPipe && inputEnabled && (!GameManager.autoTest || testHoldUse))
+            if (!Downed && !OnClimbWall && inputEnabled && (!GameManager.autoTest || testHoldUse))
                 ReviveOthersTick(dt, testHoldUse || SeatInput.GetKey(KeyCode.F) || TouchControls.Held(TouchControls.Action.Use));
         }
 

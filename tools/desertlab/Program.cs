@@ -589,7 +589,7 @@ static class Program
     // ------------------------------------------------------------------ the stacks
     static void Stacks(int count)
     {
-        int bad = 0, flags = 0, align = 0, unreachable = 0, noEntrance = 0, noBoss = 0;
+        int bad = 0, flags = 0, align = 0, unreachable = 0, noEntrance = 0, noBoss = 0, balconies = 0, tallWindows = 0;
         string first = "";
         var rng = new Random(5);
         for (int i = 0; i < count; i++)
@@ -608,7 +608,12 @@ static class Program
                 string why = PlanGen.BuildingFault(p);
                 if (why != null) { bad++; if (first.Length == 0) first = why; }
                 var stair = PlanGen.StairRoom(p);
-                if (stair.noFloor != (l > 0) || stair.noCeil != (l < levels - 1)) flags++;
+                if (stair.noFloor != (l > 0) || stair.noCeil != (tower || l < levels - 1)) flags++;
+                var wing = p.rooms[PlanGen.StackRooms - 1];
+                int doors = p.openings.FindAll(o => o.a == wing.id && o.b < 0 && !o.alongX && o.sill < 0.01f &&
+                    o.line == wing.x1 && o.center == PlanGen.TowerBalconyCenter(wing) && o.noGlass).Count;
+                if (doors != (tower && l > 0 ? 1 : 0)) balconies++;
+                if (p.openings.Exists(o => o.b < 0 && o.sill > 0.01f && o.top >= p.rooms[o.a].wallH)) tallWindows++;
                 if (stair.x0 != 0 || stair.z0 != 0 || stair.W != PlanGen.StairW || stair.D != PlanGen.StairD) align++;
                 if (stairAt != null && (stairAt.rooms[0].x0 != stair.x0 || stairAt.rooms[0].z0 != stair.z0)) align++;
                 stairAt = p;
@@ -621,7 +626,9 @@ static class Program
             }
         }
         Check("STACK_LEVELS_VALID", bad == 0, bad == 0 ? "every level passes BuildingFault" : bad + " faults, first: " + first);
-        Check("STACK_STAIR_ROOM_FLAGS", flags == 0, "no floor above the first level, no ceiling below the last");
+        Check("STACK_STAIR_ROOM_FLAGS", flags == 0, "stair wells are open between levels and through the tower roof");
+        Check("TOWER_BALCONY_DOORS", balconies == 0, "one exterior doorway per upper tower floor");
+        Check("STACK_WINDOWS_BELOW_ROOF", tallWindows == 0, "every window stays below the top of its level");
         Check("STACK_STAIR_ROOM_ALIGNED", align == 0, "the stair room is at the same place and size on every level");
         Check("STACK_EVERY_ROOM_REACHABLE", unreachable == 0, "all seven rooms of a level are reachable from the stair room");
         Check("STACK_ENTRANCE_DOOR", noEntrance == 0, "the entrance level has a door to the sand");

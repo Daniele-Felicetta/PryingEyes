@@ -191,7 +191,7 @@ namespace PryingEyes.Proc
         // ------------------------------------------------------------------ l'esterno di una pianta
         /// <summary>Disegna l'esterno di una pianta. 'y0' e' la quota del suo pavimento; 'roofs' mette i tetti (l'ultimo livello di una torre, tutti i piani di un edificio basso);
         /// 'crown' mette i merli sul parapetto; 'farSkin' disegna anche la pelle dei muri in 'skin'; 'detail' = false salta le rifiniture piccole (la facciata di chi e' lontano).</summary>
-        internal static void FacadeBuild(Plan plan, float y0, int palette, bool roofs, bool crown, bool farSkin, bool detail, MeshBuilder dress, MeshBuilder skin, int from = 0, int to = int.MaxValue, bool turrets = false)
+        internal static void FacadeBuild(Plan plan, float y0, int palette, bool roofs, bool crown, bool farSkin, bool detail, MeshBuilder dress, MeshBuilder skin, int from = 0, int to = int.MaxValue, bool turrets = false, MeshBuilder roofPhysics = null)
         {
             for (int ri = from; ri < plan.rooms.Count && ri < to; ri++)
             {
@@ -205,11 +205,20 @@ namespace PryingEyes.Proc
                     foreach (var seg in plan.Segments(r, s))
                     {
                         if (!MakeRun(r, s, seg, y0, out var w)) continue;
-                        if (seg.other < 0) ExteriorRun(plan, r, s, seg, w, st, roofed, crown, crumble, farSkin, detail, dress, skin, palette);
+                        if (seg.other < 0)
+                        {
+                            ExteriorRun(plan, r, s, seg, w, st, roofed, crown, crumble, farSkin, detail, dress, skin, palette);
+                            if (roofPhysics != null && roofed && !crumble && w.breaks == null && Mathf.Abs(w.top(0f) - w.top(w.len)) < 0.01f)
+                                FlatEdge(roofPhysics, st, w, w.top(0f), crown, true);
+                        }
                         else StepRun(plan, r, s, seg, w, st, plan.rooms[seg.other], dress, detail);
                     }
                 }
-                if (roofed) AddRoof(plan, r, y0, st, crown, detail, dress, turrets);
+                if (roofed)
+                {
+                    AddRoof(plan, r, y0, st, crown, detail, dress, turrets);
+                    if (roofPhysics != null) AddRoof(plan, r, y0, st, crown, false, roofPhysics, turrets);
+                }
             }
         }
 

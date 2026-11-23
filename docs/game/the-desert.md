@@ -69,11 +69,15 @@ rooms are those of the floors ([tower.md](tower.md)).
    **trophy goes straight into the cathedral's store** (three of its resource and the usual common and rare ones) and the place never puts it
    back in this game.
 
-   **Tower parkour.** On foot in the desert, press jump again in the air for a second lift and a small steering impulse. Landing restores it.
-   The east face of each tower has staggered iron pipes with brass collars. Jump towards the lowest pipe while holding forward to catch it.
-   While hanging, hold forward and press jump to move up one pipe. The last pipe leads over the battlements and onto the roof. Jump without
-   forward to push away, use sideways input to steer off, or crouch to drop. A secure grip also restores the second jump. The articulated
-   gloves and sleeve rig from the gunplay reach for each pipe, close around it and release as the weapon comes back up.
+   **Wall climbing.** Jump towards a solid face while holding forward. Hold forward or back to climb up or down and move sideways to
+   traverse around faces and outside corners. The controller tests the shape of the wall and the clearance of each move, so ordinary structures can be climbed. Exterior
+   masonry has shallow grooves between stone courses. The articulated gunplay gloves reach for the stone one hand at a time, and the
+   weapon returns when the player releases. Jump without holding forward to push away, or crouch to drop. The second jump in the air is
+   restored by landing or securing a grip.
+
+   On a tower, sidestep onto an east-facing balcony and walk through its doorway to leave the climb on any upper floor. Continue upward
+   over the battlements to reach the roof from outside, or take the internal stairs from the top floor. The roof landing connects the stairs
+   to the adjoining roof in both directions. Roofs, battlements and turret walls have physical surfaces.
 6. **What you find.** In rooms and in the open: **points** (gold coins), **ammunition** (a crate: half a magazine reserve), **medikits** (50
    health) and **essence** (a crystal: 30 of the left hand's essence). Walk within 1.5 m to take them; what you took stays taken. **Weapons**
    are free panels on a wall (*DA PRENDERE*) or on a wooden stand in the open, and only the poorest (grade I; grade II in a boss's hall).
@@ -674,7 +678,7 @@ dotnet run --project tools/desertlab -c Release            # the pure code, no U
 & $exe -batchmode -nographics -autotest -desertotest -seed 1000        # the real game, from the cathedral
 & $exe -batchmode -autotest -desertotest -desertshots -seed 1000       # the same with a window and the photos of hotel_build/deserto
 & $exe -batchmode -autotest -desertotest -desertonly varieta -desertshots -seed 1000   # one of the long phases (below): soak, varieta or prestazioni
-& $exe -batchmode -autotest -desertotest -desertonly parkour -desertshots -seed 1000  # two jumps, pipe transfers, roof landing and first-person grip photos
+& $exe -batchmode -autotest -desertotest -desertonly parkour -desertshots -seed 1000  # double jump, wall grips, balconies and roof stairs
 .\tools\coop\run_all.ps1 -Only j                                       # the desert in co-op: a host and a guest, two processes, no graphics card (about three minutes)
 .\tools\coop\run_all.ps1 -Only m                                       # the motorbike in co-op: one rides and the other watches, then the other way round (two processes, no graphics card)
 .\tools\coop\run_all.ps1 -Only q                                       # the same with a bike bought at the store (the Gigante 1300): the other process must see that model under the rider

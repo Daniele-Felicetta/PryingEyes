@@ -21,6 +21,7 @@ namespace PryingEyes
         public bool riding;                     // in sella a una moto del deserto (pe-coop-32): bit 4 del secondo byte dei flag
         public float heading;                   // verso dove punta la moto (radianti, come yaw); lo sguardo del pilota puo' essere altrove
         public int bike;                        // quale moto guida (pe-coop-37): bit 3-6 del secondo byte dei flag, 0 la moto arrangiata e 1..9 le moto della pista (DesertBikeDefs.NetCode)
+        public bool climbing;
 
         public void Write(NetWriter w)
         {
@@ -29,7 +30,7 @@ namespace PryingEyes
              .U8(Mathf.Clamp(Mathf.RoundToInt(speedH * 20f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(lum * 255f), 0, 255))
              .U8(Mathf.Clamp(Mathf.RoundToInt(shotAge * 100f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(hp * 255f), 0, 255)).U8(weapon)
              .U8(Mathf.Clamp(Mathf.RoundToInt((Mathf.Clamp(lean, -1f, 1f) + 1f) * 127.5f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(sight * 100f), 0, 255))
-             .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0) | (riding ? 4 : 0) | ((bike & 15) << 3))
+             .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0) | (riding ? 4 : 0) | ((bike & 15) << 3) | (climbing ? 128 : 0))
              .U8(CoopProtocol.QuantYaw(heading));
         }
 
@@ -54,6 +55,7 @@ namespace PryingEyes
             s.gun = r.U8();
             int f2 = r.U8();
             s.ads = (f2 & 1) != 0; s.reloading = (f2 & 2) != 0; s.riding = (f2 & 4) != 0; s.bike = (f2 >> 3) & 15;
+            s.climbing = (f2 & 128) != 0;
             s.heading = CoopProtocol.DequantYaw((byte)r.U8());
             return s;
         }
@@ -295,7 +297,8 @@ namespace PryingEyes
             float v = dt > 0f ? new Vector2(transform.position.x - before.x, transform.position.z - before.z).magnitude / dt : 0f;
             TickBike(dt, before);
             // in sella il corpo guarda dove punta la moto (lo sguardo, e con lui il fascio della torcia, puo' essere altrove)
-            transform.rotation = Quaternion.Euler(0f, last.riding && bikeHeadingInit ? bikeHeadingDeg : yawDeg, 0f);
+            transform.rotation = Quaternion.Euler(0f, last.riding && bikeHeadingInit ? bikeHeadingDeg :
+                last.climbing ? last.heading * Mathf.Rad2Deg : yawDeg, 0f);
             if (body != null)
             {
                 // in sella la radice dello scheletro segue il telaio della sua moto (rollio e beccheggio compresi): bacino, piedi e mani sono relativi alla moto
@@ -371,7 +374,8 @@ namespace PryingEyes
             if (pb != null) { inp.gripLeft = pb.GripWorld(0); inp.gripRight = pb.GripWorld(1); pb.FillSeat(ref inp); }
             inp.crouch = last.crouch && !last.riding; inp.sprint = last.sprint && !last.riding;
             inp.alive = last.alive; inp.downed = last.downed;
-            inp.grounded = Mathf.Abs(vel.y) < 2.5f;
+            inp.grounded = last.climbing || Mathf.Abs(vel.y) < 2.5f;
+            inp.climb = last.climbing ? 1f : 0f;
             inp.weapon = last.gun < WeaponDefs.All.Length ? last.gun : -1;
             inp.shotAge = last.shotAge + (Time.unscaledTime - lastStateTime);
             inp.ads = last.ads ? 1f : 0f;
