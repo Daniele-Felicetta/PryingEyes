@@ -307,14 +307,24 @@ class PryingEyes(Project):
     default_output = ROOT / "unity_logs/studio"
     default_subject = "weapons"
     content_types = (Weapons(), Rooms())
-    suites = {"gunplay": Suite(lambda ctx, runtime: native_gunplay(ctx.job, runtime), runtime=True),
-              "weapon-state": Suite(lambda ctx, runtime: weapon_state(ctx.job)),
-              "survival": Suite(lambda ctx, runtime: survival_state(ctx.job)),
-              "economy": Suite(lambda ctx, runtime: economy_state(ctx.job)),
-              "saves": Suite(lambda ctx, runtime: saves_state(ctx.job)),
-              "track": Suite(lambda ctx, runtime: track_state(ctx.job)),
-              "desert": Suite(lambda ctx, runtime: desert_state(ctx.job)),
-              "plan": Suite(lambda ctx, runtime: plan_state(ctx.job))}
+    # The registry of what can be run: `python tools/studio.py suites` prints it. A suite that needs nothing (no editor, no built player) is a
+    # check of the CI gate, which runs every one of them by asking the studio: a new lab is one entry here and its project under tools/.
+    suites = {"gunplay": Suite(lambda ctx, runtime: native_gunplay(ctx.job, runtime), runtime=True, kind="player", needs=("runtime",),
+                               about="Weapons and movement in the verified native build (-gunplaytest)"),
+              "weapon-state": Suite(lambda ctx, runtime: weapon_state(ctx.job), kind="lab", seconds=3,
+                                    about="The rules of a weapon (ammunition, reload, cadence) against the frozen reload algorithm, for every weapon"),
+              "survival": Suite(lambda ctx, runtime: survival_state(ctx.job), kind="lab", seconds=3,
+                                about="The waves of the wave cycle: budget of enemies, pace of the spawns, limit of the living"),
+              "economy": Suite(lambda ctx, runtime: economy_state(ctx.job), kind="lab", seconds=3,
+                               about="The cathedral's money: ledger, constructions, market exchanges, loot and what you keep"),
+              "saves": Suite(lambda ctx, runtime: saves_state(ctx.job), kind="lab", seconds=3,
+                             about="Save documents, their migrations, and the character and run files"),
+              "track": Suite(lambda ctx, runtime: track_state(ctx.job), kind="lab", seconds=70,
+                             about="The track mode: bikes, circuits, races, replays, licences, championships and career"),
+              "desert": Suite(lambda ctx, runtime: desert_state(ctx.job), kind="lab", seconds=20,
+                              about="The desert's pure code: noise, clock, terrain, buildings, world, map, weather and grading"),
+              "plan": Suite(lambda ctx, runtime: plan_state(ctx.job), kind="lab", seconds=3,
+                            about="The floor generator: its plans against the committed hashes, and the protocol revision")}
     runtime = EXE
     publish_dir = EXE.parent
     published_artifact = EXE
@@ -335,8 +345,8 @@ class PryingEyes(Project):
         files.update(UNITY / "Packages" / name for name in ("manifest.json", "packages-lock.json"))
         for package in (UNITY / "Packages").glob("com.pryingeyes.*"):
             files.update(package.rglob("*.cs")); files.update(package.rglob("*.asmdef")); files.add(package / "package.json")
-        for folder in (ROOT / "tools/planlab", ROOT / "tools/weaponslab", ROOT / "tools/survivallab", ROOT / "tools/economylab", ROOT / "tools/saveslab", ROOT / "tools/tracklab", ROOT / "tools/desertlab"):
-            files.update(folder.glob("*.cs*"))
+        for folder in (ROOT / "tools").glob("*lab"):            # every .NET lab: a new one needs no line here
+            if folder.is_dir(): files.update(folder.glob("*.cs*"))
         if command in ("catalog", "gallery"): files.add(ROOT / "tools/asset_graph.py")
         if command == "gallery":
             files.add(ROOT / "tools/studio_gallery.py"); files.update(p for p in (ROOT / "tools/studio_web").glob("*") if p.is_file())

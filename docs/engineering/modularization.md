@@ -153,7 +153,7 @@ per list:
 | Flags of dedicated tests | `GameManager.cs:238` | edited by 28 of 56 changes to the file | **remove**: the harness sets `TestRun.Dedicated` (T07, T08) |
 | Flags that stop the bot firing | `GameManager.cs:113` | edited by 6 of 56 | **remove**, same mechanism: the test declares it |
 | Catalogue of checks | [testing.md](testing.md) | 32 commits; rows merged by hand | **generate** the tables from the manifest (T05, T21) |
-| Labs | `.gitignore`, `gate.yml`, the profile, `AGENTS.md`, three pages | `desertlab` was left out (F9) | **one registry**: the suites of the profile (T03) |
+| Labs | `.gitignore`, `gate.yml`, the profile, `AGENTS.md`, three pages | `desertlab` was left out (F9) | **one registry**: the suites of the profile (done in T03) |
 | Wire format | `CoopKind`, `CoopProtocol.Revision` in `CoopWire.cs` | 31 commits | **keep** one place, it is the point of the file. Move the history of the revisions out of the 857-character line, so that two changes collide only on the constant. Changes to the protocol merge one at a time |
 | Reset of a run | `GameManager.ReturnToMenu`, `FloorDirector.GoTo` | edited by 3 of 56 | **keep**: the order matters and it rarely changes |
 | Parts of the HUD | `HUD.EnsureBuilt` | 12 calls, one per line, in drawing order | **keep** |
@@ -197,7 +197,7 @@ four rows differ from the values the plan started from (34, 47, 51 and 39) becau
 
 | Number (section of the census) | Today | Target | Task |
 | --- | --- | --- | --- |
-| Hermetic suites in the gate (workflow) | 7 | 7 | T01, T02 |
+| Hermetic suites in the gate (`python tools/studio.py suites --json`: the ones with an empty `needs`; before T03, the steps of the workflow) | 7 | 7 | T01, T02, T03 |
 | Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 54 | 0 | T15 |
 | Production files that name a test type (`tests`) | 2 | 0 | T08, T17 |
 | Test files not kept out of a release (`tests`) | 14 | 0 | T17 |
