@@ -5,7 +5,8 @@ designs the command line and the data formats that make that work faster and saf
 the result and stays out of the way of the others. It starts from what exists and from the findings of
 [architecture-audit.md](architecture-audit.md) (F5 to F11), and adds as little as possible.
 
-State: a design. Of everything below only `tools/code_census.py` exists (it was written with the audit). Each addition has a task in
+State: a design, with two parts built: `tools/code_census.py` (it was written with the audit) and `tools/worktree.ps1` (T10; how it is
+used is in [building-and-shipping.md](building-and-shipping.md#branches-and-worktrees)). Each addition has a task in
 [modular-tasks.md](modular-tasks.md) with the checks that prove it; the order is in [modular-roadmap.md](modular-roadmap.md). Claims
 about durations on this page were not measured for it and are marked.
 
@@ -18,7 +19,7 @@ about durations on this page were not measured for it and are marked.
 | Read a result as data | a sentence in a log, found by a regular expression | F6 | `result.json` from the player, findings in `report.json` |
 | Know in seconds that the code compiles | a trick that is written nowhere | F10 | `studio.py test compile` |
 | Not start a check that is forbidden or that disturbs someone | rule 6 of `AGENTS.md`, warnings in prose | F11 | hazards declared in data and refused by the tool |
-| Work beside other agents | one port, one temporary folder, tracked files rewritten, no tool for worktrees | F11 | per-run ports and folders, outputs outside git, `tools/worktree.ps1` |
+| Work beside other agents | one port, one temporary folder, tracked files rewritten; `tools/worktree.ps1` (T10) makes and removes the worktree | F11 | per-run ports and folders, outputs outside git |
 | Add a check without editing shared lines | a flag added by hand to `GameManager.cs`, a row to `testing.md` | F5 | a harness that registers the test, a manifest that generates the table |
 
 ## Rules of the design
@@ -51,7 +52,7 @@ about durations on this page were not measured for it and are marked.
 | `python tools/check_suite.py` | exists; has the game rules since T04 | boundaries, the game's rules about tests, documentation | findings as text, exit code |
 | `python tools/code_census.py [--json FILE]` | exists | sizes, references, flags, tests, global state | text and JSON |
 | `tools/ship.ps1` | exists; `ship_last.json` new (T09) | gate, commit, build, smoke, push, the maintainer's game | text status; new: the same as data |
-| `tools/worktree.ps1` | new (T10) | a worktree ready for Unity; removing one safely | JSON summary |
+| `tools/worktree.ps1` | exists (T10) | a worktree ready for Unity; removing one safely | JSON summary |
 
 The pages that list commands for people ([testing.md](testing.md), [building-and-shipping.md](building-and-shipping.md)) keep doing so.
 
@@ -189,15 +190,17 @@ already writes.
 ### `tools/worktree.ps1`: a place to work
 
 Rules 9 and 12 of `AGENTS.md` send every agent that does not own the editor to a worktree and ask that it be removed afterwards. The
-script does both ends:
+script does both ends; its use, its options and the numbers measured on the real project are in
+[building-and-shipping.md](building-and-shipping.md#branches-and-worktrees). What it decides, and why:
 
-- `-New <name> [-From <checkout>]`: `git worktree add` on a new branch from `origin/preview`, then copies `unity/PryingEyes/Library`
-  from the donor checkout when its `ProjectVersion.txt` is the same and no editor has it open (no `Temp/UnityLockfile`), at low
-  priority. Copying an imported `Library` instead of importing was observed to take about a minute for 3.5 GB (not verified for this
-  page). It prints what it did as JSON, with the sizes: disk space is the scarce resource
-  ([building-and-shipping.md](building-and-shipping.md#where-builds-live)).
-- `-Remove <name>`: lists uncommitted and unpushed work and refuses if there is any; otherwise `git worktree remove` and, when the
-  branch is merged, deletes it. It never forces.
+- `-New <name>`: a new branch from `origin/preview` and, unless `-NoLibrary`, a copy of the `Library` of a checkout that has the same Unity
+  version and no editor open (no `Temp/UnityLockfile`), so that the first compile does not import every asset. It refuses, creating
+  nothing, rather than copy a `Library` that may be inconsistent, and it keeps the copy out of sight until it is whole. It prints what it
+  did as JSON, with the sizes: disk space is the scarce resource ([building-and-shipping.md](building-and-shipping.md#where-builds-live)).
+- `-Remove <name>`: refuses while anything is uncommitted or unpushed, and never forces: `git worktree remove` without `--force`, and
+  `git branch -D` only for a branch that is merged. The pull requests here are squash-merged and their branches deleted on `origin`,
+  which leaves a local branch whose commits are on no branch of `origin`; `refs/pull/<n>/head` outlives the branch, so the script asks
+  `origin` whether the commits are the head of a pull request.
 
 ## The in-player harness
 
@@ -239,7 +242,7 @@ so every existing script and habit still works; the exit codes (0, 1, and 2 for 
 | UDP port 7807 and `$env:TEMP\pryingeyes-coop` for every checkout | two agents cannot run co-op checks at once | a port and a log folder per run, under the job folder | T11 |
 | Tracked files rewritten by runs (`hotel_build/autotest.txt`, `auto_shot*.png`) | restored by hand after each run | automated runs write under `unity_logs/`; `hotel_build/` only when evidence is asked for | T12 |
 | Tracked files rewritten by builds (materials, `Torre.unity`, settings assets) | rules 4 and 10: stage exact paths | measure what a build rewrites and why, then decide | T13 |
-| One editor per checkout | rule 9; the project lock | `tools/worktree.ps1`; `doctor` | T09, T10 |
+| One editor per checkout | rule 9; the project lock | `tools/worktree.ps1` (exists); `doctor` | T09, T10 |
 | Two changes to the wire format at once | found at merge | one at a time, said in [modularization.md](modularization.md#rules-for-new-code) | none |
 
 ## A session with these tools
