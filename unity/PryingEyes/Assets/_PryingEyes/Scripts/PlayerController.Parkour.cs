@@ -252,9 +252,16 @@ namespace PryingEyes
             if (bodyHeight <= 0f) bodyHeight = heightStand;
             float radius = Mathf.Max(0.05f, cc.radius - cc.skinWidth * 0.5f);
             Vector3 travel = to - from;
-            return StandFree(to, bodyHeight, radius) && (travel.sqrMagnitude < 1e-6f ||
-                !Physics.CapsuleCast(from + Vector3.up * (radius + 0.045f), from + Vector3.up * (bodyHeight - radius),
-                    radius, travel.normalized, travel.magnitude, HotelNav.EnvMask, QueryTriggerInteraction.Ignore));
+            if (!StandFree(to, bodyHeight, radius)) return false;
+            float distance = travel.magnitude;
+            if (distance < 0.001f) return true;
+            Vector3 direction = travel / distance;
+            Vector3 bottom = Vector3.up * (radius + 0.045f);
+            Vector3 top = Vector3.up * (bodyHeight - radius);
+            // Procedural walls are triangle surfaces. A sweep from the destination also sees faces
+            // whose back is towards the takeoff point or which the starting capsule already touches.
+            return !Physics.CapsuleCast(from + bottom, from + top, radius, direction, distance, HotelNav.EnvMask, QueryTriggerInteraction.Ignore) &&
+                !Physics.CapsuleCast(to + bottom, to + top, radius, -direction, distance, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
         }
 
         void StartClimbMove(ClimbMove move, Vector3 to, float duration, bool low = false)

@@ -685,6 +685,7 @@ dotnet run --project tools/desertlab -c Release            # the pure code, no U
 & $exe -batchmode -autotest -desertotest -desertshots -seed 1000       # the same with a window and the photos of hotel_build/deserto
 & $exe -batchmode -autotest -desertotest -desertonly varieta -desertshots -seed 1000   # one of the long phases (below): soak, varieta or prestazioni
 & $exe -batchmode -autotest -desertotest -desertonly parkour -desertshots -seed 1000  # wall leaps, window entry, roof stairs and wingsuit
+& $exe -batchmode -nographics -autotest -desertotest -desertonly parkourwalls -seed 1000  # audit wall crossings
 .\tools\coop\run_all.ps1 -Only j                                       # the desert in co-op: a host and a guest, two processes, no graphics card (about three minutes)
 .\tools\coop\run_all.ps1 -Only m                                       # the motorbike in co-op: one rides and the other watches, then the other way round (two processes, no graphics card)
 .\tools\coop\run_all.ps1 -Only q                                       # the same with a bike bought at the store (the Gigante 1300): the other process must see that model under the rider
@@ -712,7 +713,20 @@ a hall looks wrong: ambient light, fog, the six nearest lights, the nearest wall
 photos (towards the wall, at the floor). With a window the test also measures the contrast of what the camera sees in the chapel, in every level of the
 catacomb and in the two boss halls (`FrameSpread`: a fog or a black room gives almost none).
 
-Several phases are long (or are only photographs) and run only when asked by name (`-desertonly parkour`, `soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `rovine`, `muri`, `portale`, `orizzonte`,
+`parkourwalls` audits the exterior shells with the real player capsule, mantle and climbing update, at several heights along each exposed wall.
+It compares the capsule's path with the rendered wall triangles, so an open window or a missing section of a ruin is a valid route.
+The default scan includes the welcome chapel, the landmark tower and generated sites within three cells of the origin. Use
+`-wallradius 5` for a wider scan or `-wallcell 0,-3` to rerun one site. A crossing fails the phase and is written to
+`hotel_build/deserto/parkour-walls-<seed>.csv` (with the cell appended for a single-site scan). Each row gives the site, level,
+room, side, movement, starting position, contact and exit position in world metres. Rows marked `initial_overlap=True` show
+depenetration after a forced overlapping start and do not fail the audit. The audit also tries falling from a clear point above
+those starts. A separate control checks that a wall with missing collision is detected.
+
+For a focused regression on seed 1000, run the audit with `-wallcell -1,3` (collapsed sanatorium, ground floor, room 13 east)
+and `-wallcell 3,-3` (split complex, ground floor, room 18 south). The original crossings occurred while
+reattaching after a leftward leap. These routes should now report zero crossings from a clear start.
+
+Several phases are long (or are only photographs) and run only when asked by name (`-desertonly parkour`, `parkourwalls`, `soak`, `varieta`, `prestazioni`, `costi`, `esterni`, `rovine`, `muri`, `portale`, `orizzonte`,
 `paesaggio`, `nuvole`, `cose`, `galleria`, `rilievi`, `look`, `suolo`, `orme`, `creste`, `salina`, `cammino`, `percorso`, `vita`, `moto`, `motosuono`, `motourto`, `motocattedrale`, `motofuoco`, `motodettagli`, `tracce`, `motonemici`, `motoinvesti`, `motopiano`, `scale`, `ombre`, `pelle`, `luci`, `garage`, `menu`, `negozio` or `cabina`, one or more per run, separated by commas), since the default run would double in time. Most are the ones of the livelier desert,
 to be run with `-desertshots` and looked at: **`nuvole`** (photos only) shoots the sky from the churchyard with three covers (`DesertSky.CloudOverride`: 0.12, 0.27 and 0.45) at noon, 16:24 and
 17:54, once away from the sun and once into it: it is how the shape and the light of the clouds and the rays were judged; **`paesaggio`** (photos only) takes the first look from the churchyard at dawn, noon, dusk, night and in a storm and, from a
