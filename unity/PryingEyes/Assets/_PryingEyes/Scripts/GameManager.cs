@@ -174,13 +174,8 @@ namespace PryingEyes
         static readonly string[] LegacyDedicatedFlags =
         {
             "-architecturetest",
-            "-flyingmeleetest",
-            "-relictest",
-            "-combatfeedbacktest",
             "-torchreview",
-            "-survivaltest",
             "-citytest",
-            "-annextest",
             "-magiatest",
             "-cattedraletest",
             "-desertotest",
