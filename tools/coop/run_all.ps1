@@ -9,7 +9,10 @@
 #                                             n la gara su pista con un compagno, sotto la pioggia dell'ospite (pe-coop-36), o la seconda gara con il compagno che se ne va, p l'ospite che esce a gara in corso,
 #                                             q la moto del deserto comprata al negozio (pe-coop-37): chi guida ha la Gigante 1300 e l'altro processo la deve vedere col suo modello, nei due versi
 # Esce con 0 solo se tutte sono superate.
-param([string[]]$Only = @(), [int]$Seed = 2961, [int]$TimeoutSec = 420, [string]$LogDir = (Join-Path $env:TEMP 'pryingeyes-coop'))
+# A port and a log folder per run (T11): every scenario takes a free UDP port of its own (run_coop.ps1 prints it, and so does the line of the
+# scenario below) and the logs go to unity_logs\coop of the checkout this script is in, so two checkouts can run this at the same time.
+#   .\tools\coop\run_all.ps1 -Port 7810       every scenario on that one port instead (they run one after the other); -LogDir changes the folder
+param([string[]]$Only = @(), [int]$Seed = 2961, [int]$TimeoutSec = 420, [string]$LogDir = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'unity_logs\coop'), [ValidateRange(0, 65535)][int]$Port = 0)
 $run = Join-Path $PSScriptRoot 'run_coop.ps1'
 $S = "$Seed"
 $tests = [ordered]@{
@@ -45,11 +48,13 @@ foreach ($k in $tests.Keys) {
     if ($Only.Count -and -not ($Only -contains $k.Substring(0, 1))) { continue }
     $t = $tests[$k]
     $ran++
-    $out = & $run -LogDir $LogDir -Name $k -Clients $t.Clients -HostArgs $t.H -ClientArgs $t.C -TimeoutSec $TimeoutSec -Pattern 'RISULTATO|FALLITO|Exception|error CS'
+    $out = & $run -LogDir $LogDir -Port $Port -Name $k -Clients $t.Clients -HostArgs $t.H -ClientArgs $t.C -TimeoutSec $TimeoutSec -Pattern 'RISULTATO|FALLITO|Exception|error CS'
     $code = $LASTEXITCODE
     if ($code -ne 0) { $bad++ }
-    $res = @($out | Where-Object { $_ -match 'RISULTATO|FALLITO|tempo scaduto|uscite|Exception|error CS' })
-    "[$k] $(if ($code -eq 0) { 'ok' } else { 'FALLITA' }): " + ($res -join ' | ')
+    $res = @($out | Where-Object { $_ -match 'RISULTATO|FALLITO|tempo scaduto|uscite|Exception|error CS|not starting' })
+    $pm = [regex]::Match((@($out) -join "`n"), '(?m)^UDP port (\d+)')
+    $on = if ($pm.Success) { " [UDP $($pm.Groups[1].Value)]" } else { '' }
+    "[$k] $(if ($code -eq 0) { 'ok' } else { 'FALLITA' })${on}: " + ($res -join ' | ')
 }
 if ($ran -eq 0) { 'nessuna prova selezionata (controllare -Only)'; exit 2 }
 if ($bad) { "$bad prove fallite"; exit 1 }
