@@ -19,6 +19,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -146,6 +147,17 @@ class ShipScriptSource(unittest.TestCase):
         data = SCRIPT.read_bytes()
         bad = [i for i, byte in enumerate(data) if byte > 127]
         self.assertEqual(bad, [], f"non-ASCII byte at offset {bad[:1]} of tools/ship.ps1")
+
+    def test_a_script_that_ship_starts_isolated_gets_through_its_imports(self):
+        """The smoke walk starts with `python -I`, which leaves the script's own folder off sys.path: a sibling module that the script imports is
+        not found unless the script puts its folder there itself (check_navigation.py failed that way once T06 gave it player_log, and every ship
+        stopped at the walk). `--help` runs the imports and stops before the script needs a build."""
+        scripts = re.findall(r"'-I',\s*\(Join-Path \$repo '(tools\\[\w.]+\.py)'\)", SCRIPT.read_text(encoding="utf-8"))
+        self.assertTrue(scripts, "ship.ps1 starts no script with -I any more: update this test")
+        for relative in scripts:
+            with self.subTest(script=relative):
+                done = subprocess.run([sys.executable, "-I", str(SCRIPT.parent.parent / relative.replace("\\", "/")), "--help"], capture_output=True, text=True)
+                self.assertEqual(0, done.returncode, done.stderr[-400:])
 
 
 @unittest.skipUnless(os.name == "nt" and shutil.which("powershell") and shutil.which("git"), "ship.ps1 needs Windows PowerShell 5.1 and git")
