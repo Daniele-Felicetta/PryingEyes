@@ -47,6 +47,13 @@ namespace PryingEyes
             yield return new WaitForSecondsRealtime(0.16f);
         }
 
+        /// <summary>Presses the D-pad toward <paramref name="direction"/> until the selection is on the button called <paramref name="label"/> (twelve presses at most).
+        /// The steps name the entry they want instead of counting how many entries lie between: a new button in the list does not move them.</summary>
+        static IEnumerator Reach(string label, ushort direction)
+        {
+            for (int i = 0; i < 12 && SelName != "Pulsante " + label; i++) yield return Tap(direction);
+        }
+
         // ------------------------------------------------------------------ parte pura
 
         void NavMapping()
@@ -190,7 +197,7 @@ namespace PryingEyes
             yield return Shot(dir, "01-menu-tastiera");
             yield return Tap(ly: -30000);
             yield return Shot(dir, "02-menu-controller");
-            yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
+            yield return Reach("Impostazioni", PadControls.DpadDown);
             yield return Tap(PadControls.A);
             yield return Shot(dir, "03-impostazioni-schermo");
             yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
@@ -199,7 +206,7 @@ namespace PryingEyes
             yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
             yield return Shot(dir, "05-impostazioni-cursore");
             yield return Tap(PadControls.B);
-            yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.A);
+            yield return Reach("Come si gioca", PadControls.DpadUp); yield return Tap(PadControls.A);
             yield return Shot(dir, "06-guida");
             yield return Tap(PadControls.B);
             yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.A);
@@ -244,12 +251,12 @@ namespace PryingEyes
             Check("dopo un comando col controller: modo navigazione, cursore nascosto, suggerimenti del controller", PadMenuInput.NavMode && !Cursor.visible && PadControls.Preferred
                 && Get<Text>("footer").text.Contains("CROCE"));
             Check("la cornice sta sulla voce scelta", RingOnSelection());
-            // voci del principale: Gioca, Cooperativa, Schermo condiviso, Personaggi, Come si gioca, Impostazioni, Esci
-            yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
-            Check($"croce in basso quattro volte: 'Impostazioni' ({SelName})", SelName == "Pulsante Impostazioni");
-            yield return Tap(PadControls.DpadUp);
-            Check($"croce in alto: 'Come si gioca' ({SelName})", SelName == "Pulsante Come si gioca");
-            yield return Tap(PadControls.DpadDown);
+            // voci del principale: Gioca, Cooperativa, Schermo condiviso, Personaggi, Come si gioca, Wiki, Impostazioni, Esci (cercate per nome)
+            yield return Reach("Impostazioni", PadControls.DpadDown);
+            Check($"croce in basso fino a 'Impostazioni' ({SelName})", SelName == "Pulsante Impostazioni");
+            yield return Reach("Come si gioca", PadControls.DpadUp);
+            Check($"croce in alto fino a 'Come si gioca' ({SelName})", SelName == "Pulsante Come si gioca");
+            yield return Reach("Impostazioni", PadControls.DpadDown);
             Check("la cornice segue anche dopo i passi", RingOnSelection());
 
             // ---- impostazioni: cinque schede, cursori e scelte
@@ -293,7 +300,7 @@ namespace PryingEyes
             Check("B nel menu principale: non fa niente", PanelOpen("mainPanel") && GameMenu.InMenu);
 
             // ---- guida: tre pagine
-            yield return Tap(PadControls.DpadUp);
+            yield return Reach("Come si gioca", PadControls.DpadUp);
             yield return Tap(PadControls.A);
             Check($"A su 'Come si gioca': si apre, scelta la pagina 'Obiettivo' ({SelName})", PanelOpen("helpPanel") && SelName == "Pulsante Obiettivo");
             Check("la guida nomina i tasti del controller", Get<Text>("helpRound").text.Contains("X tenuto"));

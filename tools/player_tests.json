@@ -535,10 +535,10 @@
     {
       "name": "padtest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/PadMenuTest.cs",
-      "args": ["-batchmode", "-padtest", "-nowaves"],
+      "args": ["-batchmode", "-nographics", "-padtest", "-nowaves"],
       "mode": "menu",
       "timeout": 120,
-      "needs": ["runtime", "gpu"],
+      "needs": ["runtime"],
       "hazards": [],
       "page": "docs/game/controller.md"
     },
