@@ -6,8 +6,9 @@ the result and stays out of the way of the others. It starts from what exists an
 [architecture-audit.md](architecture-audit.md) (F5 to F11), and adds as little as possible.
 
 State: partly built. `tools/code_census.py` (written with the audit), `studio.py test desert` and `test plan` (T01, T02), the game's rules in
-`check_suite.py` (T04), `tools/worktree.ps1` (T10; how it is used is in [building-and-shipping.md](building-and-shipping.md#branches-and-worktrees))
-and, since T03, `studio.py suites` and the hazards (`--allow`) exist; the rest below is a design. Each addition has a task in
+`check_suite.py` (T04), `tools/worktree.ps1` (T10; how it is used is in [building-and-shipping.md](building-and-shipping.md#branches-and-worktrees)),
+`tools/player_tests.json` (T05) and, since T03, `studio.py suites` and the hazards (`--allow`) exist, and since T06 the suites of the
+manifest run through `studio.py test`; the rest below is a design. Each addition has a task in
 [modular-tasks.md](modular-tasks.md) with the checks that prove it; the order is in [modular-roadmap.md](modular-roadmap.md). Claims
 about durations on this page were not measured for it and are marked.
 
@@ -48,7 +49,7 @@ about durations on this page were not measured for it and are marked.
 | `studio.py test desert` | exists (T01) | the desert lab: 107 checks, one finding each | `report.json` |
 | `studio.py test plan` | exists (T02) | the fingerprint of the floor generator: 48 plans and the protocol revision, one finding each | `report.json` |
 | `studio.py test compile` | new (T09) | the editor compiles the scripts and exits | compiler errors as findings |
-| `studio.py test <in-player suite>` | new (T06; the manifest it reads exists since T05) | starts the verification build with the flags of the manifest | `report.json` with one finding per check |
+| `studio.py test <in-player suite>` | exists (T06) | starts the verification build with the flags of the manifest (87 suites, [below](#running-the-suites-of-the-manifest)) | `report.json` with one finding per check, and `player`: the verdict, where it came from, how many checks |
 | `studio.py catalog`, `asset`, `gallery`, `queue`, `job`, `report latest` | exist | content pipeline, evidence, queue ([production-studio.md](production-studio.md)) | as today |
 | `python tools/check_suite.py` | exists; has the game rules since T04 | boundaries, the game's rules about tests, documentation | findings as text, exit code |
 | `python tools/code_census.py [--json FILE]` | exists | sizes, references, flags, tests, global state | text and JSON |
@@ -63,8 +64,8 @@ The engine's `Suite` has optional, free-text fields that the profile fills: `kin
 so a suite written without them works as before). The engine interprets only `hazards`; `needs` is for whoever reads the list, the gate
 first. `studio.py suites` prints a table, one line per suite in the order of the profile, and `--json` prints the same as data; neither
 starts a job, takes the lock or writes a report. `seconds` is the usual duration on the gate's runner, `0` while nobody has measured it.
-The shape below is the real one, the entries are an example (the durations are invented, and `compile`, `traptest` and `uitest` are the
-kind of suite that T05, T06 and T09 add: they do not exist yet):
+The shape below is the real one, the entries are an example (the durations are invented, `compile` is the kind of suite that T09 adds and
+does not exist yet, and the suites of the player, which exist since T06, have `seconds: 0`: nobody has measured them):
 
 ```json
 {
@@ -90,7 +91,8 @@ A suite with hazards runs only with `--allow registry --allow screen`; otherwise
 and names them. An agent passes `--allow` only when the maintainer asked for that check: the rule of `AGENTS.md` is unchanged, the tool
 now enforces it (a queued request is refused when it is added, and keeps its `--allow` words; an `--allow` that names a hazard the suite
 does not declare changes nothing). `needs: gpu` makes the runner refuse (`PLAYER_GPU_BUSY`) while another `PryingEyes.exe` is running, as
-`tools/coop/run_split.ps1` already does.
+`tools/coop/run_split.ps1` does; any run is refused (`PLAYER_IN_USE`) while a copy of the very build it would start is running. Other
+programs are not looked for: before a run that draws, look at what else uses the machine (a game of the maintainer's, for one).
 
 The suites that need nothing (`needs` empty) are the ones the gate runs. The workflow asks `suites --json` for them and compiles every
 `tools/*lab` folder, instead of naming each lab, so a new lab is added in one place, its entry in the profile and its folder (F9).
@@ -99,8 +101,9 @@ The suites that need nothing (`needs` empty) are the ones the gate runs. The wor
 
 `tools/player_tests.json` (since T05): one entry for each check that runs inside the player, 87 of them. It runs nothing and replaces
 nothing in the game; it writes down what today only [testing.md](testing.md) says. Its schema is `tools/player_tests.schema.json` and its
-test is `tools/test_player_tests.py`. No run has confirmed it yet: the arguments come from the prose, from the comments of the test files
-and from the scripts that start them, and the timeouts are upper bounds, not measurements.
+test is `tools/test_player_tests.py`. Few runs have confirmed it: the arguments come from the prose, from the comments of the test files
+and from the scripts that start them, and the timeouts are upper bounds, not measurements. `checks` is there only for a suite that a run
+has confirmed.
 
 ```json
 {
@@ -165,14 +168,57 @@ takes the parameters it is given; `page` exists. A new in-player test is therefo
 }
 ```
 
-**In the report.** The runner copies each check into the job's `report.json` as a finding (`code`: the suite's name and the index of the
-check, `observed` and `expected` from `detail`, `passed`), as the labs do. A suite passes when all of these hold: the process ended with
-0 within its time; `result.json` exists and says `ok`; the number of checks is not below `checks`; the log holds no exception other than
-the ones the renderer always prints without a graphics card (the filter of `tools/check_navigation.py`).
+**In the report.** The runner copies each check into the job's `report.json` as a finding (`code`: the suite's name and the number of the
+check, `subject`: the name of the check, `observed`: its detail, `passed`), as the labs do, and adds `player`:
+`{suite, verdictSource, checks, passed, declared, exceptions, logs}`. A suite passes when all of these hold: the process ended with 0
+within its time; the run says it passed (`result.json` when it exists, the result line of the log otherwise); the number of checks is not
+below `checks`; the log holds no exception other than the ones the renderer always prints without a graphics card (that filter is in
+`tools/player_log.py`, which `tools/check_navigation.py` uses too).
 
-**Until a suite uses the harness** there is no `result.json`: the runner falls back to the line the tests print today
-(`<name> RISULTATO SUPERATA: 18/18`) and says so in the report (`"verdictSource": "log-line"`). Suites can therefore be registered
-before they are ported, and ported one at a time.
+**Until a suite uses the harness** there is no `result.json`: the runner falls back to the result line that the tests print today
+(`[PryingEyes] <name> RISULTATO SUPERATA: 18/18`; the lines `ok <name> (<detail>)` and `FALLITO <name> (<detail>)` before it are the
+findings) and says so in the report (`player.verdictSource` is `log-line`, and `result.json` when that file was read). Suites can therefore
+be registered before they are ported, and ported one at a time. A `result.json` that exists but cannot be trusted (not JSON, the result of
+another suite, another version) fails the suite (`PLAYER_RESULT_INVALID`): the lines are no way around a bug of the harness. A test that
+prints only its failures (`gunplaytest`) has fewer findings than checks: `player.checks` is the number on its result line.
+
+### Running the suites of the manifest
+
+The profile turns each entry of `tools/player_tests.json` into a suite of kind `player`, so `studio.py suites` lists all 87 next to the
+labs (`needs` as the entry says; they are not in the gate, which runs only what needs nothing). `studio.py test <name>` runs one as a job,
+under the project lock: one in-player suite at a time in a checkout, and two checkouts can run at the same time. Without `--runtime` it
+starts the verification build, `unity/PryingEyes/Builds/Audit/PryingEyes.exe` of the checkout it is run from, never the studio's
+`Builds/CityPreview` and never the maintainer's game; `--runtime` names another build, which is how `asset build` runs `gunplaytest` on the
+build it has just made. (`gunplaytest` is the manifest's name for what the studio used to call `gunplay`: there is one suite, with the
+manifest's command line, which is the one of `tools/check_gunplay.py`.) The runner, in order:
+
+1. refuses to start, launching nothing, when the build is not there (`PLAYER_RUNTIME_MISSING`), when a copy of that very build is running
+   (`PLAYER_IN_USE`) or when the suite needs the graphics card and any other `PryingEyes.exe` is running (`PLAYER_GPU_BUSY`). Before it, the
+   engine refused a suite with hazards that no `--allow` names (`SUITE_HAZARD_NOT_ALLOWED`);
+2. for `hazards: registry`, exports the settings key (the one that `run_split.ps1` saves) and imports it again after the run, whatever
+   happened: the finding `SETTINGS_RESTORED`, or `SETTINGS_KEY_ABSENT` when there was no key yet, which is then left as the run makes it,
+   as that script does;
+3. starts the player with the `args` of the entry and then `-logFile <job>/<name>-player.log`, `-report <job>/<name>-telemetry.txt` and
+   `-testout <job>/testout`, within the entry's `timeout`. An entry with a `runner` is started through its script
+   (`powershell -File <script> -<Parameter> <value> ... -LogDir <job folder>`), which runs the verification build of its checkout: `--runtime`
+   is refused for it (`PLAYER_RUNTIME_FIXED`);
+4. reads what the run left, and fails with the first code of this table that applies:
+
+| Code | When |
+| --- | --- |
+| `PLAYER_TIMEOUT` | no result within `timeout`; the process tree has been stopped |
+| `PLAYER_RESULT_INVALID` | `result.json` exists and cannot be trusted |
+| `PLAYER_RESULT_MISSING` | the run left neither `result.json` nor a result line: it never started, crashed or stopped early. The message says how the process ended |
+| `PLAYER_CHECK_FAILED` | the run says it failed; the message names the checks that did |
+| `PLAYER_EXCEPTION` | the log holds an exception that is not the renderer's |
+| `PLAYER_CHECKS_FEWER` | fewer checks than the entry's `checks`: part of the test did not run, or the manifest is out of date |
+| `STEP_FAILED` | everything above is fine, but the process quit with a code other than 0 |
+| `PLAYER_SETTINGS_NOT_RESTORED` | it passed, but the settings key could not be imported again |
+
+For an entry with a `runner` the verdict is made of the logs that the script left in the job folder (every `.log` and `.txt` but the
+script's own output). Of several processes (a co-op scenario) those that left a result must all say they passed, their checks add up and
+`checks` is compared with the sum; a process that left nothing is not an error (a scenario kills one on purpose: the script owns that, and
+its exit code is checked like any other), but at least one must have left a result.
 
 ### `test compile`: does it compile
 
@@ -253,8 +299,8 @@ so every existing script and habit still works; the exit codes (0, 1, and 2 for 
 
 | Hazard (F11) | Today | Proposed | Task |
 | --- | --- | --- | --- |
-| Settings in the registry, shared with the maintainer's game | rule 6; `run_split.ps1` saves and restores the key around a windowed run | declared as `hazards: registry`; the runner saves and restores the key for every such suite; later, settings kept in memory during automated runs so that the hazard disappears | T06, T14 |
-| Graphics card and screen | "do not run while someone plays", in prose | `needs: gpu`, `hazards: screen`; refusal while another player is running | T06 |
+| Settings in the registry, shared with the maintainer's game | rule 6; `run_split.ps1` saves and restores the key around a windowed run | declared as `hazards: registry`; the runner saves and restores the key for every such suite (T06, done); later, settings kept in memory during automated runs so that the hazard disappears | T14 |
+| Graphics card and screen | "do not run while someone plays", in prose | `needs: gpu`, `hazards: screen`; refusal while another player is running (T06, done) | |
 | UDP port 7807 and `$env:TEMP\pryingeyes-coop` for every checkout | two agents cannot run co-op checks at once | a port and a log folder per run, under the job folder | T11 |
 | Tracked files rewritten by runs (`hotel_build/autotest.txt`, `auto_shot*.png`) | restored by hand after each run | automated runs write under `unity_logs/`; `hotel_build/` only when evidence is asked for | T12 |
 | Tracked files rewritten by builds (materials, `Torre.unity`, settings assets) | rules 4 and 10: stage exact paths | measure what a build rewrites and why, then decide | T13 |
@@ -278,7 +324,7 @@ The path the tools should make the easy one, for a change to the game:
 
 | File | Written by | Read by | Version |
 | --- | --- | --- | --- |
-| `unity_logs/studio/<job>/report.json` | the engine | agents, the gallery, the gate's summary | `schemaVersion` 1, exists |
+| `unity_logs/studio/<job>/report.json` | the engine; for an in-player suite the profile adds `player` (T06) | agents, the gallery, the gate's summary | `schemaVersion` 1, exists |
 | `studio.py suites --json`, `doctor --json` | the engine and the profile | agents, the gate | 1, new |
 | `tools/player_tests.json` | people and agents, checked by its test | the profile | `schemaVersion` 1, exists (T05) |
 | `result.json` of a player run | the harness in the game | the profile's runner | 1, new |
