@@ -60,7 +60,7 @@ are in [modular-tasks.md](modular-tasks.md).
 | T09 | Compile check, doctor and ship status as data | 1 | T03 | editor | todo |
 | T10 | A worktree ready for Unity | 2 | | editor to measure | done (#43) |
 | T11 | A port and a log folder per run | 2 | | a verification build | done (#52) |
-| T12 | Automated runs leave tracked files alone | 2 | | editor, build | todo |
+| T12 | Automated runs leave tracked files alone | 2 | | editor, build | done (#54) |
 | T13 | What a build rewrites: measure, then decide | 2 | | editor | todo |
 | T14 | Settings that automated runs cannot touch | 2 | T06 | editor, build, the maintainer's go-ahead | todo |
 | T15 | The game-rules assembly | 3 | T01 | editor, full build | todo |
