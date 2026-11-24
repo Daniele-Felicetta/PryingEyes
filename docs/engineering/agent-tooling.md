@@ -205,7 +205,7 @@ which print the co-op forms. The other 19 print theirs in another form or not at
 `walltest`, `magictest`, `procbot`, `perftest` and the eleven of the stealth family (`stealthtest`, `roundtest`, `knifetest`, `droptest`,
 `booktest`, `gridtest`, `pushtest`, `holescan`, `alientest`, `temitest`, `refshot`). The studio starts them and fails them with
 `PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list): the
-runner does not guess a verdict from an exit code, and `padtest`, run without a window, quit with 0 and printed no result at all.
+runner does not guess a verdict from an exit code (`padtest` quit with 0 and printed no result at all until its steps were repaired).
 
 ### Running the suites of the manifest
 
@@ -243,7 +243,7 @@ manifest's command line, which is the one of `tools/check_gunplay.py`.) The runn
 Which suites need a graphics card was not known when the manifest was written: the prose omitted `-nographics` for some commands without
 saying why. T06 ran them without a window, on a machine where nobody played. `pistamenutest`, `pistamenulicence` and `pistamenucup` pass
 (46, 30 and 39 checks), so their entries carry `-nographics` and no `gpu`. `pistamenugarage` and `pistamenucareer` fail on
-`RenderTexture.Create` (the showroom is drawn into a texture), and `padtest` fails twelve checks and quits with no result, so they keep `gpu`. T08 found why `padtest` fails, and it is not the card: the main menu has a `Wiki` button between `Come si gioca` and `Impostazioni` (`GameMenu.Design.cs`), the steps do not count it, and they end by pressing A on `Esci`, which quits the player; with `-nographics` and with the card the 53 lines of checks are the same (41 ok, 12 failed), so the `gpu` of its entry is unproven until the steps are repaired. T08 found two more while it ported them: `meleetest` renders a camera into a texture on every frame (without a window the render graph throws once per frame and 11 of its 120 checks fail) and `relictest` fails one of its 63 checks and throws in the render; both entries now run with the card and say `gpu`.
+`RenderTexture.Create` (the showroom is drawn into a texture), so they keep `gpu`. `padtest` failed twelve checks and quit with no result, and T06 kept `gpu` for it; T08 found that the card had nothing to do with it: the main menu has a `Wiki` button between `Come si gioca` and `Impostazioni` (`GameMenu.Design.cs`), the steps did not count it, and they ended by pressing A on `Esci`, which quits the player (with `-nographics` and with the card the 53 lines of checks were the same, 41 ok and 12 failed). The steps now name the button they want instead of counting presses, and `padtest` passes 89 of 89 with `-nographics` and with the card, the same 89 checks in the same order: its entry carries `-nographics` and no `gpu`. T08 found two more while it ported them: `meleetest` renders a camera into a texture on every frame (without a window the render graph throws once per frame and 11 of its 120 checks fail) and `relictest` fails one of its 63 checks and throws in the render; both entries now run with the card and say `gpu`.
 `displaytest` was not run: it declares `hazards: registry`, and it asserts the size of the real screen after changing it, which
 `-nographics` cannot give.
 
