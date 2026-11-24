@@ -398,7 +398,9 @@ The path the tools should make the easy one, for a change to the game:
 2. `tools/worktree.ps1 -New <name>` unless this session owns the editor's checkout.
 3. Make the change. Logic that needs no engine goes under `Rules/` with its checks in a lab.
 4. `python tools/studio.py test compile`, then the labs of what was touched (`test saves`, `test desert`...).
-5. A scripts-only verification build: `tools/ship.ps1 -NoPush -NoExe -Mode scripts` builds into `Builds/Audit` without publishing.
+5. A scripts-only verification build: `tools/ship.ps1 -NoPush -NoExe -Mode scripts` builds into `Builds/Audit` without publishing. In a new
+   worktree there is no complete build there yet, so the script falls back to `BuildPlayer.Windows`, which packs the committed `Torre.unity`:
+   make the first build the full `BuildPlayer.Torre` ([the scene of a new worktree](building-and-shipping.md#the-scene-of-a-new-worktree)).
 6. `python tools/studio.py suites --json`, then `test <suite>` for the in-player suites of the area. Read `report.json`, not the log.
 7. `python tools/check_suite.py` and the unit tests; `tools/ship.ps1` with the exact paths; a pull request against `preview`.
 8. After the merge: `tools/worktree.ps1 -Remove <name>`.
