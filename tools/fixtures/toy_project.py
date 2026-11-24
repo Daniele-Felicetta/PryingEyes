@@ -56,6 +56,12 @@ class ToyProject(Project):
 
     def doctor(self, catalogs): return f"{len(catalogs['sprite']['sprites'])} sprites"
 
+    def doctor_facts(self):
+        """What `doctor --json` reports: facts of any shape, and `problems`, the one key the engine reads (the command exits 1 when it is not empty)."""
+        try: count = len(json.loads(self.content_types[0].catalog.read_text(encoding="utf-8"))["sprites"])
+        except (OSError, ValueError, KeyError): return {"sprites": None, "problems": ["SPRITES_UNREADABLE: sprites.json is missing or is not a catalog"]}
+        return {"sprites": count, "problems": [] if count else ["SPRITES_EMPTY: sprites.json lists no sprite"]}
+
 
 if __name__ == "__main__":
     # python toy_project.py ROOT <studio arguments>: the same command line the real project has

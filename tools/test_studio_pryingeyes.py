@@ -183,9 +183,9 @@ class PryingEyesProfile(unittest.TestCase):
         self.assertEqual(list(pe.PRYING_EYES.kinds), ["weapon", "room"])
         labs = ["weapon-state", "survival", "economy", "saves", "track", "desert", "plan"]
         suites = pe.PRYING_EYES.suites
-        self.assertEqual(list(suites)[:len(labs)], labs)
+        self.assertEqual(list(suites)[:len(labs) + 1], labs + ["compile"])                                       # the labs, then the check that needs the editor
         self.assertEqual({name: suites[name].runtime for name in labs}, {name: False for name in labs})
-        self.assertTrue(all(suite.runtime for name, suite in suites.items() if name not in labs))                # every other suite runs a player
+        self.assertTrue(all(suite.runtime for suite in list(suites.values())[len(labs) + 1:]))                    # every other suite runs a player
         self.assertEqual(pe.PRYING_EYES.publish_dir, pe.EXE.parent)
 
     def test_every_suite_says_what_it_is_and_what_needs_nothing_is_what_the_gate_runs(self):
@@ -193,6 +193,8 @@ class PryingEyesProfile(unittest.TestCase):
         self.assertTrue(all(suite.kind and suite.about for suite in suites.values()))
         self.assertEqual({name for name, suite in suites.items() if suite.runtime}, {name for name, suite in suites.items() if "runtime" in suite.needs})   # the flag and the word agree
         self.assertEqual({name: suite.hazards for name, suite in suites.items() if suite.hazards}, {"uitest": ("registry", "screen"), "displaytest": ("registry",)})
+        compile_ = suites["compile"]
+        self.assertEqual((compile_.kind, compile_.needs, compile_.hazards, compile_.runtime), ("editor", ("editor",), (), False))       # the editor, no player: the gate cannot run it
         gate = [name for name, suite in suites.items() if not suite.needs]
         self.assertEqual(gate, ["weapon-state", "survival", "economy", "saves", "track", "desert", "plan"])       # the rule labs, in the order of the run summary
         self.assertEqual({suites[name].kind for name in gate}, {"lab"})
@@ -201,6 +203,7 @@ class PryingEyesProfile(unittest.TestCase):
         listing = json.loads(out.getvalue())
         self.assertEqual((code, listing["schemaVersion"], [item["name"] for item in listing["suites"]]), (0, 1, list(suites)))
         self.assertEqual({item["name"]: item["needs"] for item in listing["suites"]}["gunplaytest"], ["runtime"])
+        self.assertEqual({item["name"]: (item["kind"], item["needs"]) for item in listing["suites"]}["compile"], ("editor", ["editor"]))
         self.assertEqual([item["name"] for item in listing["suites"] if not item["needs"]], gate)
 
     def test_the_gate_workflow_asks_the_studio_and_names_no_lab_and_no_suite(self):
@@ -548,6 +551,280 @@ class PlayerSuites(unittest.TestCase):
     def test_a_script_runs_the_verification_build_of_its_checkout_so_runtime_cannot_change_it(self):
         job, message = self.fails(plays(), "PLAYER_RUNTIME_FIXED", pe.PLAYER_ENTRIES["seatstest"])               # self.exe is not the verification build
         self.assertIn("run_split.ps1", message); self.assertEqual(job.steps, [])
+
+
+# ---- the suite `compile`: an editor that compiles the scripts, an invented log in the shape of a real one -----------------------------------------
+
+SYNTAX = r"Assets\_PryingEyes\Scripts\ZzCompileProbe.cs(7,21): error CS1002: ; expected"                   # what a real run printed for a missing semicolon (6000.6.7f1)
+UNKNOWN = r"Packages\com.pryingeyes.saves\Runtime\SaveStore.cs(120,9): error CS0103: The name 'slot' does not exist in the current context"
+NO_FILE = "error CS0006: Metadata file 'Library/ScriptAssemblies/Missing.dll' could not be found"
+
+
+def editor_log(errors=(), warnings=2, timing=True):
+    """What the editor prints when it is started on a project with no method and quits, in the lines that matter and in the order of a real log: the compiler's
+    output (its warnings, and its errors when it failed), then for a failed compilation the report of the failure, which repeats each error, and the errors
+    once more alone; the last line says the code the editor quits with."""
+    lines = ["Initialize engine version: 6000.6.7f1", "[Licensing::Module] Error: Access token is unavailable; failed to update",
+             "[ScriptCompilation] Requested script compilation because: AssetDatabase observed changes in script compilation related files",
+             "[814/822    2s] Csc Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.dll (+2 others)"]
+    lines += [f"Assets\\_PryingEyes\\Scripts\\Old.cs({10 + number},31): warning CS0618: 'FindObjectsSortMode' is obsolete" for number in range(warnings)]
+    if errors:
+        lines += ["##### ExitCode", "1", "##### Output", *errors, "*** Tundra build failed (0.89 seconds), 3 items updated, 822 evaluated",
+                  "## Script Compilation Error for: Csc Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.dll (+2 others)", "## Output:", *errors, "", *errors,
+                  "AssetDatabase: script compilation time: 2.142252s", "Scripts have compiler errors.",
+                  "[ExitDontLaunchBugReporter] Exiting without the bug reporter. Application will exit with return code 1"]
+    else:
+        lines += ["*** Tundra build success (0.45 seconds), 1 items updated, 822 evaluated"]
+        if timing: lines += ["AssetDatabase: script compilation time: 0.828446s"]
+        lines += ["Batchmode quit successfully invoked - shutting down!", "Exiting batchmode successfully now!",
+                  "[ExitDontLaunchBugReporter] Exiting without the bug reporter. Application will exit with return code 0"]
+    return "\n".join(lines) + "\n"
+
+
+class CompileSuite(unittest.TestCase):
+    """`test compile`: the editor started in batch mode with no method, and what each way for it to end means. No editor runs here: a job that plays what the process would do."""
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory(); self.addCleanup(self.folder.cleanup)
+        self.job_folder = Path(self.folder.name) / "job"; self.job_folder.mkdir()
+        self.unity = Path(self.folder.name) / "Unity.exe"; self.unity.write_bytes(b"")
+        self.running = []                                             # the Unity.exe processes of the machine
+        patcher = patch.object(pe, "processes_named", side_effect=lambda *names: list(self.running)); patcher.start(); self.addCleanup(patcher.stop)
+
+    def fresh(self, play):
+        shutil.rmtree(self.job_folder); self.job_folder.mkdir()        # every real job starts in an empty folder: an old log is never read
+        return PlayerJob(self.job_folder, play)
+
+    def go(self, play):
+        job = self.fresh(play); pe.compile_scripts(job, self.unity)
+        return job
+
+    def fails(self, play, code):
+        job = self.fresh(play)
+        with self.assertRaises(RuntimeError) as raised: pe.compile_scripts(job, self.unity)
+        self.assertRegex(str(raised.exception), f"^{code}")
+        return job, str(raised.exception)
+
+    def test_the_command_is_the_editor_in_batch_mode_with_no_method_on_this_project(self):
+        job = self.go(plays(editor_log()))
+        (label, command), = job.steps
+        self.assertEqual(label, "compile")
+        self.assertEqual(command, [str(self.unity), "-batchmode", "-nographics", "-projectPath", str(pe.UNITY), "-quit", "-logFile", str(self.job_folder / "compile-unity.log")])
+        self.assertNotIn("-executeMethod", command)                                                          # no method: the editor compiles what changed and quits
+        self.assertEqual(job.timeouts, {"compile": 1200})
+
+    def test_a_log_without_errors_passes_whatever_warnings_it_holds_and_says_how_long_the_editor_took(self):
+        job = self.go(plays(editor_log(warnings=3)))
+        log = str(self.job_folder / "compile-unity.log")
+        self.assertEqual(job.report["findings"], [{"code": "SCRIPTS_COMPILE", "subject": "scripts", "expected": "no compiler error", "passed": True, "evidence": log,
+                                                   "observed": "no compiler error; the editor compiled the scripts in 0.83 s"}])
+        self.assertEqual(job.report["artifacts"], [log])
+        self.assertEqual(self.go(plays(editor_log(timing=False))).report["findings"][0]["observed"], "no compiler error")      # a log without the timing line passes too
+
+    def test_each_compiler_error_is_a_finding_with_its_file_and_line_and_the_suite_names_the_first(self):
+        job, message = self.fails(plays(editor_log([SYNTAX, UNKNOWN]), fail="STEP_FAILED: compile; exit 1; log"), "COMPILE_ERRORS")
+        self.assertRegex(message, r"^COMPILE_ERRORS: 2 compiler errors; the first: Assets/_PryingEyes/Scripts/ZzCompileProbe\.cs:7: CS1002 ; expected ")
+        log = str(self.job_folder / "compile-unity.log")
+        self.assertEqual(job.report["findings"], [
+            {"code": "COMPILER_ERROR", "subject": "Assets/_PryingEyes/Scripts/ZzCompileProbe.cs:7", "observed": "CS1002: ; expected", "expected": "no compiler error", "passed": False,
+             "evidence": log, "file": "Assets/_PryingEyes/Scripts/ZzCompileProbe.cs", "line": 7, "column": 21},
+            {"code": "COMPILER_ERROR", "subject": "Packages/com.pryingeyes.saves/Runtime/SaveStore.cs:120", "observed": "CS0103: The name 'slot' does not exist in the current context",
+             "expected": "no compiler error", "passed": False, "evidence": log, "file": "Packages/com.pryingeyes.saves/Runtime/SaveStore.cs", "line": 120, "column": 9}])   # three prints each, one finding
+        self.assertEqual(job.report["artifacts"], [log])
+        _, one = self.fails(plays(editor_log([SYNTAX]), fail="STEP_FAILED: compile; exit 1; log"), "COMPILE_ERRORS")
+        self.assertIn(": 1 compiler error; the first:", one)
+
+    def test_the_errors_win_over_the_exit_code_and_a_log_that_says_failed_with_a_zero_exit_still_fails(self):
+        self.fails(plays(editor_log([SYNTAX])), "COMPILE_ERRORS")                                            # quit with 0 and printed an error: the log is what counts
+        job, _ = self.fails(plays(editor_log([SYNTAX]), fail="STEP_TIMEOUT: compile"), "COMPILE_ERRORS")      # killed after it had said why
+        self.assertEqual(len(job.report["findings"]), 1)
+
+    def test_an_error_that_names_no_file_has_no_position_and_is_still_a_finding(self):
+        job, message = self.fails(plays(editor_log([NO_FILE]), fail="STEP_FAILED: compile; exit 1; log"), "COMPILE_ERRORS")
+        self.assertIn("the first: (no file): CS0006 Metadata file", message)
+        self.assertEqual([(f["subject"], f["file"], f["line"], f["column"]) for f in job.report["findings"]], [("(no file)", "", 0, 0)])
+
+    def test_the_parser_reads_error_lines_and_nothing_that_looks_like_one(self):
+        text = "\n".join(["Assets\\A.cs(1,2): warning CS0168: The variable 'x' is declared but never used", "[Licensing::Module] Error: Access token is unavailable",
+                          "NullReferenceException: error CS1002 in the middle of a sentence", "Assets/B.cs(3,4): error CS1002: ; expected", "  Assets/B.cs(3,4): error CS1002: ; expected",
+                          "Assets/B.cs(3,5): error CS1002: ; expected", "Assets/C.cs(3,4): error CS1002: ; expected", "Scripts have compiler errors."])
+        self.assertEqual([(e["file"], e["line"], e["column"]) for e in pe.compiler_errors(text)], [("Assets/B.cs", 3, 4), ("Assets/B.cs", 3, 5), ("Assets/C.cs", 3, 4)])      # the same error twice is one
+        self.assertEqual(pe.compiler_errors(editor_log()), [])
+        self.assertEqual(pe.compiler_errors(""), [])
+
+    def test_an_editor_that_quits_with_an_error_and_prints_none_is_named_and_not_taken_for_a_pass(self):
+        log = "Initialize engine version: 6000.6.7f1\nAborting batchmode due to failure:\nProject has already been opened in another instance of Unity.\n"
+        _, message = self.fails(plays(log, fail="STEP_FAILED: compile; exit 1; step.log"), "COMPILE_FAILED")
+        self.assertIn("exit 1", message); self.assertIn("did not get as far as compiling", message); self.assertIn("Project has already been opened in another instance", message)
+        _, silent = self.fails(plays(fail="STEP_FAILED: compile; exit -1073741819; step.log"), "COMPILE_FAILED")      # it crashed before it wrote anything
+        self.assertIn("its last line: nothing", silent)
+
+    def test_a_timeout_is_the_engines_and_a_clean_exit_with_no_log_fails(self):
+        self.fails(plays(editor_log(), fail="STEP_TIMEOUT: compile"), "STEP_TIMEOUT")                        # the log looks fine, but the editor was stopped before it quit
+        self.fails(plays(), "COMPILE_LOG_MISSING")
+        self.fails(plays(" \n"), "COMPILE_LOG_MISSING")
+
+    def test_an_editor_with_this_project_open_stops_it_before_anything_starts_and_another_project_does_not(self):
+        editor = r"C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe"
+        self.running = [{"ProcessId": 4242, "Name": "Unity.exe", "ExecutablePath": editor, "CommandLine": f'"{editor}" -projectPath "{pe.UNITY}" -batchmode'}]
+        job, message = self.fails(plays(editor_log()), "PROJECT_IN_USE")
+        self.assertIn("4242", message); self.assertEqual(job.steps, [])
+        self.running = [{"ProcessId": 4243, "Name": "Unity.exe", "ExecutablePath": editor, "CommandLine": f'"{editor}" -projectPath "C:\\other\\checkout\\unity\\PryingEyes"'}]
+        self.assertEqual(len(self.go(plays(editor_log())).steps), 1)                                         # one editor per project, not per machine
+
+    def test_a_missing_editor_is_named_and_nothing_starts(self):
+        job = self.fresh(plays(editor_log()))
+        with self.assertRaisesRegex(RuntimeError, "^TOOL_MISSING: the Unity editor is not at .*nowhere"): pe.compile_scripts(job, Path(self.folder.name) / "nowhere/Unity.exe")
+        self.assertEqual(job.steps, [])
+
+
+# ---- `doctor --json`: facts about a checkout made of temporary files, and commands that answer what each test says ---------------------------------
+
+BUILT_AT = 1_700_000_000                                              # the time of Assembly-CSharp.dll in the fake build: a source is newer than the build when it is later
+
+
+class CheckoutFacts(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory(ignore_cleanup_errors=True); self.addCleanup(self.folder.cleanup)
+        self.root = Path(self.folder.name).resolve()
+        self.project = self.root / "unity/PryingEyes"
+        for name in pe.SOURCE_ROOTS: (self.project / name).mkdir(parents=True)
+        self.exe = self.project / "Builds/Audit/PryingEyes.exe"
+        self.dll = self.project / "Builds/Audit/PryingEyes_Data/Managed/Assembly-CSharp.dll"
+        self.marker = self.root / "unity_logs/ship_built.json"
+
+    def build(self, marker=True, **changes):
+        """The verification build as ship.ps1 leaves it: the exe, the code made at BUILT_AT, and the marker (the one that ship.ps1 writes, with its BOM)."""
+        self.dll.parent.mkdir(parents=True); self.exe.write_bytes(b""); self.dll.write_bytes(b""); os.utime(self.dll, (BUILT_AT, BUILT_AT))
+        if marker:
+            self.marker.parent.mkdir(parents=True)
+            self.marker.write_text(json.dumps({"out": str(self.exe.parent), "commit": "a" * 40, "resTicks": "1", "mode": "scripts", "when": "2026-11-24T15:31:54", "branch": "preview",
+                                               "uncommittedCount": 0, **changes}), encoding="utf-8-sig")
+
+    def source(self, name, later=0):
+        path = self.project / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b"")
+        os.utime(path, (BUILT_AT + later, BUILT_AT + later))
+
+    def facts(self): return pe.verification_build(self.marker, self.exe, self.project)
+
+    # ---- the verification build
+
+    def test_a_build_that_ship_made_is_described_by_its_marker_and_has_no_newer_source(self):
+        self.build(); self.source("Assets/Old.cs", later=-5)
+        self.assertEqual(self.facts(), {"present": True, "commit": "aaaaaaa", "mode": "scripts", "sourcesNewerThanBuild": 0})
+
+    def test_the_sources_changed_after_the_code_was_made_are_counted_and_the_derived_files_are_not(self):
+        self.build()
+        for name in ("Assets/New.cs", "Assets/Textures/new.png.meta", "Packages/com.pryingeyes.saves/Runtime/Newer.asmdef", "ProjectSettings/QualitySettings.asset"): self.source(name, later=1)
+        for name in ("Assets/Materials/Wall.mat", "Assets/Materials/Wall.mat.meta", "Assets/_PryingEyes/Scenes/Torre.unity", "Assets/_PryingEyes/Scenes/Citta.unity.meta",
+                     "Assets/_PryingEyes/Scenes/Labs/Lab1.unity", "Assets/_PryingEyes/Scenes/Labs.meta"): self.source(name, later=60)       # the builds rewrite these
+        self.source("Assets/_PryingEyes/Scenes/Other.unity", later=60)                                       # a scene of the game is a source
+        (self.project / "Library").mkdir(); (self.project / "Library/Cache.cs").write_bytes(b"")             # outside the folders the player is made from
+        os.utime(self.project / "Library/Cache.cs", (BUILT_AT + 99, BUILT_AT + 99))
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 5)
+
+    def test_a_marker_about_another_folder_or_a_broken_one_says_nothing_of_the_commit_but_the_count_stays(self):
+        self.build(out=str(self.root / "elsewhere/Audit")); self.source("Assets/New.cs", later=1)
+        self.assertEqual(self.facts(), {"present": True, "commit": None, "mode": None, "sourcesNewerThanBuild": 1})      # ship.ps1 built somewhere else (-OutDir) last
+        self.marker.write_text("{not json", encoding="utf-8"); self.assertEqual(self.facts()["commit"], None)
+        self.marker.unlink(); self.assertEqual(self.facts(), {"present": True, "commit": None, "mode": None, "sourcesNewerThanBuild": 1})
+
+    def test_no_build_is_not_a_zero_it_is_not_known(self):
+        self.assertEqual(self.facts(), {"present": False, "commit": None, "mode": None, "sourcesNewerThanBuild": None})
+        self.assertEqual(pe.sources_newer_than(BUILT_AT, self.root / "no/project"), 0)                      # a folder that is not there has no sources to count
+
+    # ---- the commands it asks, and what they answer
+
+    def test_a_command_that_is_missing_fails_or_hangs_answers_none(self):
+        self.assertEqual(pe.command_output([sys.executable, "-c", "print('  10.0.403  ')"]), "10.0.403")
+        self.assertIsNone(pe.command_output([sys.executable, "-c", "raise SystemExit(3)"]))
+        self.assertIsNone(pe.command_output([str(Path(self.folder.name) / "not-installed")]))
+        self.assertIsNone(pe.command_output([sys.executable, "-c", "import time; time.sleep(30)"], timeout=.3))
+
+    def test_the_gate_is_what_gh_says_and_null_when_it_says_nothing_usable(self):
+        run = {"status": "completed", "conclusion": "success", "headSha": "58b22f0d4f86ec4d9813094518efc04e130e63b1", "url": "https://example.test/runs/1"}
+        asks = []
+        def gh(answer):
+            def command_output(command, timeout=20): asks.append(list(command)); return answer
+            return patch.object(pe, "command_output", command_output)
+        with gh(json.dumps([run])): self.assertEqual(pe.last_gate(), {"branch": "preview", "status": "completed", "conclusion": "success", "commit": "58b22f0", "url": run["url"]})
+        self.assertEqual(asks, [["gh", "run", "list", "--branch", "preview", "--limit", "1", "--json", "status,conclusion,headSha,url"]])       # the command of rule 8
+        with gh(json.dumps([{**run, "status": "in_progress", "conclusion": ""}])): self.assertEqual((pe.last_gate()["status"], pe.last_gate()["conclusion"]), ("in_progress", None))
+        for nothing in (None, "", "[]", "{not json", "[{}]", "[3]"):
+            with gh(nothing): self.assertIsNone(pe.last_gate(), repr(nothing))
+
+    def test_a_worktree_is_linked_when_its_git_directory_is_not_the_common_one(self):
+        def git(answers):
+            return patch.object(pe, "command_output", lambda command, timeout=20: answers.get(" ".join(command)))
+        common = (self.root / ".git").as_posix()
+        with git({"git rev-parse --git-dir": common + "/worktrees/t09", "git rev-parse --git-common-dir": common, "git branch --show-current": "claude/t09"}):
+            self.assertEqual(pe.checkout_worktree(), {"linked": True, "branch": "claude/t09"})
+        with git({"git rev-parse --git-dir": ".git", "git rev-parse --git-common-dir": ".git", "git branch --show-current": ""}):
+            self.assertEqual(pe.checkout_worktree(), {"linked": False, "branch": None})                      # the main checkout, HEAD detached
+        with git({}): self.assertEqual(pe.checkout_worktree(), {"linked": None, "branch": None})            # no git: not known
+
+    # ---- the facts together
+
+    def facts_with(self, running=(), gate=None, tools=("blender", "Unity"), dotnet="10.0.403", lookup_fails=False, library=True, **build):
+        """checkout_facts() on this checkout: the processes, the gate and the tools are what the test says; nothing on this machine is asked."""
+        blender, unity = self.root / "blender.exe", self.root / "Unity.exe"
+        for name in tools: (blender if name == "blender" else unity).write_bytes(b"")
+        if library: (self.project / "Library").mkdir(exist_ok=True)
+        answers = {"dotnet --version": dotnet, "git rev-parse --git-dir": ".git", "git rev-parse --git-common-dir": ".git", "git branch --show-current": "claude/t09"}
+        def processes(*names):
+            if lookup_fails: raise subprocess.CalledProcessError(1, "powershell")
+            return list(running)
+        patches = [patch.object(pe, "executables", return_value=(blender, unity)), patch.object(pe, "processes_named", processes), patch.object(pe, "UNITY", self.project),
+                   patch.object(pe, "AUDIT", self.exe), patch.object(pe, "SHIP_MARKER", self.marker), patch.object(pe, "last_gate", return_value=gate),
+                   patch.object(pe, "command_output", lambda command, timeout=20: answers.get(" ".join(command)))]
+        for each in patches: each.start(); self.addCleanup(each.stop)
+        return pe.checkout_facts()
+
+    def test_a_quiet_checkout_has_no_problem_and_every_fact_the_page_lists(self):
+        self.build()
+        gate = {"branch": "preview", "status": "completed", "conclusion": "success", "commit": "58b22f0", "url": "https://example.test/runs/1"}
+        facts = self.facts_with(gate=gate)
+        self.assertEqual(facts, {"tools": {"unity": "found", "blender": "found", "dotnet": "10.0.403"}, "editorOnProject": None, "playersRunning": [], "library": True,
+                                 "verificationBuild": {"present": True, "commit": "aaaaaaa", "mode": "scripts", "sourcesNewerThanBuild": 0}, "gate": gate,
+                                 "worktree": {"linked": False, "branch": "claude/t09"}, "problems": []})
+        json.dumps(facts)                                                                                    # all of it is data
+
+    def test_the_editor_of_this_project_is_a_problem_and_the_editor_of_another_is_not(self):
+        editor = r"C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe"
+        mine = {"ProcessId": 11, "Name": "Unity.exe", "ExecutablePath": editor, "CommandLine": f'"{editor}" -projectPath "{self.project}"'}
+        other = {"ProcessId": 12, "Name": "Unity.exe", "ExecutablePath": editor, "CommandLine": f'"{editor}" -projectPath "{self.root / "elsewhere/unity/PryingEyes"}"'}
+        facts = self.facts_with(running=[other, mine])
+        self.assertEqual(facts["editorOnProject"], {"pid": 11}); self.assertEqual(facts["problems"], ["PROJECT_IN_USE: process 11 has the editor open on this project"])
+        self.assertEqual(facts["playersRunning"], [])                                                        # an editor is not a player
+        self.assertIsNone(self.facts_with(running=[other])["editorOnProject"])
+
+    def test_the_players_that_run_say_whose_build_they_are_without_being_a_problem(self):
+        game = self.root / "unity/PryingEyes/Builds/PryingEyes.exe"
+        theirs = self.root / "another/unity/PryingEyes/Builds/Audit/PryingEyes.exe"
+        running = [{"ProcessId": 21, "Name": "PryingEyes.exe", "ExecutablePath": str(game), "CommandLine": ""},
+                   {"ProcessId": 22, "Name": "PryingEyes.exe", "ExecutablePath": str(theirs), "CommandLine": ""},
+                   {"ProcessId": 23, "Name": "PryingEyes.exe", "ExecutablePath": None, "CommandLine": ""}]
+        facts = self.facts_with(running=running)
+        self.assertEqual(facts["playersRunning"], [{"pid": 21, "path": str(game), "thisCheckout": True}, {"pid": 22, "path": str(theirs), "thisCheckout": False},
+                                                   {"pid": 23, "path": None, "thisCheckout": False}])
+        self.assertEqual(facts["problems"], [])
+
+    def test_a_missing_tool_a_failed_lookup_and_a_gate_that_is_not_green_are_problems_and_a_gate_still_running_is_not(self):
+        facts = self.facts_with(tools=("Unity",), dotnet=None, lookup_fails=True, library=False)
+        self.assertEqual(facts["tools"], {"unity": "found", "blender": "missing", "dotnet": "missing"})
+        self.assertEqual((facts["editorOnProject"], facts["playersRunning"], facts["library"]), (None, None, False))           # null: not known, which is not "none"
+        self.assertEqual([problem.split(":")[0] for problem in facts["problems"]], ["TOOL_MISSING", "TOOL_MISSING", "PROCESS_LOOKUP_FAILED"])
+        red = {"branch": "preview", "status": "completed", "conclusion": "failure", "commit": "58b22f0", "url": "https://example.test/runs/2"}
+        self.assertEqual(self.facts_with(gate=red)["problems"], ["GATE_NOT_GREEN: the last run of the gate on preview ended failure at 58b22f0: https://example.test/runs/2"])
+        self.assertEqual(self.facts_with(gate={**red, "status": "in_progress", "conclusion": None})["problems"], [])
+
+    def test_the_command_prints_the_facts_and_exits_one_while_there_is_a_problem(self):
+        def doctor(facts):
+            out = io.StringIO()
+            with patch.object(pe, "checkout_facts", return_value=facts), contextlib.redirect_stdout(out): code = engine.main(pe.PRYING_EYES, ["doctor", "--json"])
+            return code, json.loads(out.getvalue())
+        self.assertEqual(doctor({"library": True, "problems": []}), (0, {"schemaVersion": 1, "ok": True, "library": True, "problems": []}))
+        code, said = doctor({"library": False, "problems": ["PROJECT_IN_USE: process 11 has the editor open on this project"]})
+        self.assertEqual((code, said["ok"], said["problems"]), (1, False, ["PROJECT_IN_USE: process 11 has the editor open on this project"]))
 
 
 if __name__ == "__main__": unittest.main()

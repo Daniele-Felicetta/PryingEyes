@@ -6,6 +6,8 @@ Run from the repository root with the system Python. The verified environment us
 
 ```powershell
 python tools/studio.py doctor
+python tools/studio.py doctor --json
+python tools/studio.py test compile
 python tools/studio.py catalog list --type weapon
 python tools/studio.py asset inspect p45_argine
 python tools/studio.py asset preview p45_argine
@@ -19,6 +21,10 @@ python tools/studio.py suites
 can disturb and the seconds it usually takes. A suite that declares hazards runs only when each one is named with `--allow HAZARD`;
 otherwise the job fails at once with `SUITE_HAZARD_NOT_ALLOWED`. The CI gate runs the suites that need nothing by asking this list
 ([agent-tooling.md](agent-tooling.md#suites-what-can-be-run)).
+
+`doctor --json` prints the state of the checkout as data (tools, an editor or a player open on it, the `Library`, the verification build, the
+last gate on `preview`) and starts no job; `test compile` starts the editor with no method and turns each compiler error into a finding with
+its file and line ([agent-tooling.md](agent-tooling.md#test-compile-does-it-compile)).
 
 `asset build` bakes and packs the model, renders previews, imports it, compiles a
 separate City build, runs gunplay and the city acceptance loop. `--publish` copies

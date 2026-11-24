@@ -260,10 +260,20 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
   [building-and-shipping.md](building-and-shipping.md), [testing.md](testing.md).
 - **Steps**
   1. Suite `compile` ([agent-tooling.md](agent-tooling.md#test-compile-does-it-compile)): the editor in batch mode with no method, under the
-     project lock; each `error CS` line becomes a finding with file and line.
+     project lock; each `error CS` line becomes a finding with file and line. (The editor prints each error three times, and the suite
+     keeps each once. The lock does not look at processes, so the suite itself refuses to start while an editor has the project open
+     (`PROJECT_IN_USE`). Unity quits with 1 when the scripts do not compile; the findings come from the log whatever the code is. Its
+     `seconds` in the registry, 15, is measured on the maintainer's PC: the gate's runner, which the other suites' `seconds` come from,
+     has no editor.)
   2. `doctor --json` with the fields of [agent-tooling.md](agent-tooling.md#doctor-the-state-of-this-checkout). The text form stays.
+     (The engine gets one hook, `doctor_facts()`, and prints what it returns; no job, no lock, no catalogs, so it works when one is broken.
+     Added to the fields of the page: `ok` and `problems`, so that the exit code says something (1 while an editor has the project open,
+     a tool is missing or the last gate is not green), `status`, `commit` and `url` in `gate`, and `pid`, `path` and `thisCheckout` for
+     each player. `sourcesNewerThanBuild` is a count by modification time against the build's `Assembly-CSharp.dll`.)
   3. `ship.ps1` writes `unity_logs/ship_last.json` when it finishes, whatever the outcome: the step reached, the commit, the build mode,
-     what was pushed, the uncommitted sources, the warnings. The script stays ASCII.
+     what was pushed, the uncommitted sources, the warnings. The script stays ASCII. (It is written from `Finish`, so also after a
+     refusal, an exception and a dry run. The hidden refresh writes `ship_refresh.json` instead, so that it does not replace the record of
+     the ship that started it. It also says what became of the maintainer's game (`exe`) and keeps the lines of the text summary.)
 - **Done when**
   - Unit tests cover the command and the parsing of an invented log, and the JSON of a `ship.ps1 -DryRun` on a throwaway repository.
   - On a worktree with a `Library`: `test compile` passes, and the time is written in the pull request; with a syntax error in a

@@ -106,6 +106,7 @@ class Project:
         pass
     def tool_sources(self, command): return ()            # the project's own tooling files, hashed into jobs of `command`
     def doctor(self, catalogs): raise NotImplementedError   # check the environment; return the summary line
+    def doctor_facts(self): return {}                     # `doctor --json`: the state of this checkout as JSON-ready facts; `problems` (a list of "CODE: message") makes it exit 1
     def before_build(self, ctx): self.ensure_free()       # runs under the lock, before any entry is produced
     def after_build(self, ctx, built): pass               # checks against the produced build, before it can be published
     def graph(self, catalogs): raise RuntimeError("GRAPH_NOT_SUPPORTED: " + self.name)
@@ -272,7 +273,7 @@ def arguments(project):
     kinds = list(project.kinds)
     parser = argparse.ArgumentParser(description=project.description)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("doctor")
+    doctor = commands.add_parser("doctor"); doctor.add_argument("--json", action="store_true", help="Machine-readable: schemaVersion, ok, problems and the facts of the project; exit 1 when there are problems")
     listing = commands.add_parser("suites"); listing.add_argument("--json", action="store_true", help="Machine-readable: schemaVersion and one object per suite")
     catalog = commands.add_parser("catalog"); catalog.add_argument("action", choices=["list", "affected"]); catalog.add_argument("--type", default=kinds[0], choices=kinds)
     catalog.add_argument("path", nargs="?"); catalog.add_argument("--pointer", help="Optional JSON pointer within the changed file")
@@ -386,6 +387,9 @@ def main(project, argv=None):
         print(Path(json.loads((project.output / "latest.json").read_text())["report"]).read_text()); return 0
     if args.command == "suites":                          # reads the registry only: no job, no catalogs, nothing written
         print(json.dumps(suite_listing(project), indent=2) if args.json else suite_table(project)); return 0
+    if args.command == "doctor" and args.json:           # the state of the checkout, read now: no job, no catalogs, nothing written
+        facts = project.doctor_facts(); problems = facts.get("problems", [])
+        print(json.dumps({"schemaVersion": 1, "ok": not problems, **facts}, indent=2)); return 1 if problems else 0
     if args.command not in ("queue", "job"): return execute(project, args)
     try:
         exit_code = 0
