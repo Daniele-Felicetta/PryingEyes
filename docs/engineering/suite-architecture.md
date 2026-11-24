@@ -34,10 +34,16 @@ a test is where it should not be. A tree without the game folder has nothing to 
 | Code | Fails when | What to do |
 | --- | --- | --- |
 | `GAME_PRODUCTION_NAMES_TEST` | a file that is not a test names a test type | Remove the reference. A test installs itself when its flag is on the command line and nothing else starts it, so a distribution build can leave it out |
-| `GAME_TEST_NOT_EXCLUDED` | a test file (`Test` in its file name, `TestPaths` and the `Editor/` folders apart) has no `PE_DISTRIBUTION_BUILD` in it | Wrap the whole file in `#if !PE_DISTRIBUTION_BUILD`, every file of a partial class alike |
+| `GAME_TEST_NOT_EXCLUDED` | a test file (`Test` in its file name, `TestPaths`, `TestRun` and the `Editor/` folders apart) has no `PE_DISTRIBUTION_BUILD` in it | Wrap the whole file in `#if !PE_DISTRIBUTION_BUILD`, every file of a partial class alike |
 | `GAME_PURE_FILE_NAMES_ENGINE` | a game file that an engine-free lab compiles names `UnityEngine` or `UnityEditor` | Take the engine out of the file, or stop compiling it in the lab: the lab is what proves that the rules run without the editor |
 | `GAME_BASELINE_STALE` | an entry of the baseline no longer applies | Delete the entry: the violation it tolerated is gone |
 | `GAME_BASELINE_INVALID` | the baseline is not JSON, names a rule that does not exist, or has an entry without its file or its reason | Correct the fixture |
+
+Two files have `Test` in their name and are compiled into every build on purpose, so the census does not count them as tests:
+`TestPaths` (where the hooks of a test write) and `TestRun` (what the game may ask about a run: `TestRun.Dedicated`, which is how
+`GameManager` knows that a test owns the process without naming one). `PlayerTest`, the base class of the tests that are on the harness
+([agent-tooling.md](agent-tooling.md#the-in-player-harness)), is a test like the others (wrapped, and named by no production file); it
+is the one place that defines `Check`, so the file that declares it is not counted among the tests with their own copy of it.
 
 An *engine-free lab* is a .NET project under `tools/` that reaches no Unity assembly: it has no `Reference` to one, neither in the
 project nor in a props file it imports nor in a project it references. The projects of `tools/multiplayer-check` that do
