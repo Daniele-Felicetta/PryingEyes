@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))      # tools/ship.ps1 starts this with `python -I`, which leaves the script's own folder off the path
 from player_log import exceptions as player_exceptions        # the filter of the renderer's noise is shared with the studio's in-player suites
 
 root = Path(__file__).resolve().parents[1]
