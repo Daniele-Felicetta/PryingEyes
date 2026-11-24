@@ -61,6 +61,189 @@ The methods that build a player (`Torre`, `Windows`, `Web`, `City`) exit with 2 
 A full build rewrites about 700 MB. Prefer `-scriptsOnly`, and do not rebuild just to look: disk space and write bandwidth are the scarce
 resources on the maintainer's machine.
 
+## What a build rewrites
+
+After a build `git status` lists tracked files as modified. Task T13 ([brief](modular-tasks.md#t13-what-a-build-rewrites-measure-then-decide))
+measured which files each kind of build rewrites, and why, in a new worktree; no game or editor code was changed to do it. The result:
+
+- Almost everything listed is not a difference. Unity writes its text assets with LF, the repository stores them with LF and a Windows
+  checkout wrote them with CRLF, so a file the editor saves again has the bytes of the commit and `git status` lists it all the same.
+- What really differs is a few files, and only the full build writes them (`BuildPlayer.Torre` without `-scriptsOnly`).
+- A `.gitattributes` of eight patterns removes the first group, and writing the few generated files again once, on purpose, removes most of the
+  second. Both are proposed in [What to do about it](#what-to-do-about-it), not applied.
+- Three files would still differ after every full build, because the code that writes them makes them new every time.
+
+### Reading `git status`
+
+`git status` lists a file whose size is no longer the one the index recorded at the checkout, without reading what is inside; `git diff`
+compares the content. The files that differ for real are therefore `git diff --name-only`, not `git status`, and `git ls-files --eol -- <path>`
+shows why a listed file does not: `i/lf w/lf` is LF on disk, as committed, where the checkout had written `w/crlf`. A new write time alone does
+not make git list a file; a size that changed does. Without Unity, in an empty folder:
+
+```powershell
+git init demo -q; Set-Location demo
+$lf = [Text.UTF8Encoding]::new($false)
+[IO.File]::WriteAllText("$PWD\a.mat", "m_Name: a`n", $lf)               # LF, as Unity writes it
+git -c core.autocrlf=true add a.mat; git -c core.autocrlf=true -c user.name=x -c user.email=x@example.invalid commit -qm base
+Remove-Item a.mat; git -c core.autocrlf=true checkout -- a.mat          # the checkout writes CRLF: i/lf w/crlf
+[IO.File]::WriteAllText("$PWD\a.mat", "m_Name: a`n", $lf)               # Unity saves it again: the bytes of the commit
+git -c core.autocrlf=true status --porcelain                            #  M a.mat
+git -c core.autocrlf=true diff --name-only                              # nothing
+```
+
+`git update-index --refresh` does not clear such an entry (it prints `needs update`); `git add` does.
+
+Each listed file goes in one class, the deepest it fits:
+
+| Class | The file on disk | How to tell |
+| --- | --- | --- |
+| 1. Line endings only | the bytes of the commit | listed by `git status`, absent from `git diff --name-only` |
+| 2. Order or identifiers | the same content with other ids, in the order the ids give | `git diff` shows only the `&id` of `--- !u!` headers and `fileID:` values |
+| 3a. Colours in the last digits | the same colours, `0.07` written as `0.06999998` | `git diff -U0` shows `_Color` lines and nothing else |
+| 3b. Real content | something the commit does not have | any other line |
+
+### What each kind of build leaves
+
+Measured on 2026-11-24 on `preview` at `9f658fd`, with the editor of that commit (6000.6.7f1), in a new worktree made by `tools/worktree.ps1 -New`,
+one windowless run (`-batchmode -nographics`) at a time. Every run started from a tree with nothing listed, `core.autocrlf` was `true` (the
+system setting of Git for Windows) and each build went to a folder that did not exist yet. These are the numbers of that commit;
+[Measure it again](#measure-it-again) gives today's. Columns 1 to 3b count the listed files by class; the last counts what `git diff --name-only`
+prints.
+
+| Run | Listed | 1 | 2 | 3a | 3b | Differ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| The editor opens, compiles and quits (no build) | 2 | 2 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Torre` with `-scriptsOnly` over the folder of the full build (`ship.ps1 -Mode scripts`) | 5 | 5 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Windows` (`ship.ps1 -Mode full`) | 5 | 5 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Torre`, the full build | 136 | 117 | 0 | 18 | 1 | 19 |
+
+In the last row the scene and the two weapon materials are also renumbered (class 2) in every full build; they count in 3a and 3b, the deeper
+classes. What each run wrote:
+
+- The editor opening saves `Assets/DefaultPrefabObjects.asset` and `ProjectSettings/ProjectAuditorSettings.asset`.
+- Any player build saves three more: `Assets/UniversalRenderPipelineGlobalSettings.asset`, `Assets/_PryingEyes/Settings/HotelURP.asset` and
+  `ProjectSettings/GraphicsSettings.asset`. The scripts-only and the `Windows` build write nothing else in the tree: `TorreBuilder` does not
+  run in them.
+- The full build adds what `TorreBuilder.Build()` saves: `Settings/HotelRenderer.asset`; every material of `Materials/Kit` and one prefab of
+  `Prefabs/Props` per model (`FillKit`, `MakePropPrefab`); the weapon materials and the flash texture with their `.meta` files
+  (`HotelBuilder.PlayerAndGame`); and `Scenes/Torre.unity`.
+- A second full build over the first, with nothing restored in between, rewrote 7 of those 136 files and changed the bytes of 3: Unity does not
+  write a file whose new bytes are the ones on disk. The seven are the two weapon materials and the flash texture, which
+  `PlayerAndGame` deletes and creates again, with their `.meta` files, and the scene.
+
+The same four runs with the `.gitattributes` proposed below in place and the files checked out with LF (a throwaway branch, never pushed):
+
+| Run | Listed | 1 | 2 | 3a | 3b | Differ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| The editor opens, compiles and quits | 0 | 0 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Torre` with `-scriptsOnly` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Windows` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Torre`, the full build | 19 | 0 | 0 | 18 | 1 | 19 |
+| the full build again, after those 19 were written once and committed | 3 | 0 | 3 | 0 | 0 | 3 |
+
+### Why each class happens
+
+**1. Line endings only.** Git for Windows sets `core.autocrlf=true` in its system configuration, so a checkout writes CRLF. The repository
+stores LF: `git ls-files --eol` reports `i/lf` for every Unity text asset and every `.meta`, and no tracked file has CRLF in the index. Unity
+writes LF. A file the editor saves is the committed file again, smaller than the one the checkout wrote, and git lists it. Column 1 is the files
+whose CRLF the editor replaced; a file that is LF on disk already is not written again.
+
+**2. Order or identifiers.** `TorreBuilder.Build()` builds the scene again from an empty one and `EditorSceneManager.SaveScene` gives every
+object a new random id and writes the documents in the order of their ids: three full builds wrote three scenes that differ in bytes and hold
+the same documents. (The diff of the scene is hundreds of lines whatever changed, as
+[guardaroba.md](../game/guardaroba.md#how-the-props-reach-the-game) already says.) `Materials/GunBody.mat` and `GunGrip.mat` get the same
+through `HotelBuilder.SaveMat`, which deletes the asset and creates it again: a material that is created receives a URP `AssetVersion` sub-asset
+with a new id.
+
+**3a. Colours in the last digits.** The kit materials set `Material.color`. In the files the full build wrote, `_BaseColor`, the colour the URP
+Lit shader reads, keeps its short decimals and `_Color`, its legacy copy, holds the neighbouring float (`0.06999998` for `0.07`); the commit has
+`0.07` in both. The weapon materials differ in `_SpecColor` too (`0.19999996` for the shader's `0.2`). It happens once: written, the files are
+stable, and the second full build did not write them again.
+
+**3b. Real content.** The kit is saved inside `Torre.unity` and only the full build regenerates it. The committed scene lacks two kit
+materials that `FillKit` registers, `pav_marmo_venato` and `colonna_pietra`: the commit that added them to the builder (`c7f48e3`, 2026-11-17)
+refreshed the kit assets and not the scene. A player built by `BuildPlayer.Windows` or with `-scriptsOnly` packs the scene it finds, so its kit
+lacks them.
+
+### The scene of a new worktree
+
+A new worktree holds the committed `Torre.unity`, and `ship.ps1` in a worktree with no complete build in `Builds/Audit` takes its full mode,
+which is `BuildPlayer.Windows`: it packs that scene as it is. So the first build of a new worktree is the full `BuildPlayer.Torre` into
+`Builds/Audit`, which does not exist yet (the command in [Build methods](#build-methods)); `ship.ps1 -Mode scripts` is for the builds after it.
+T06 reported a corrupt `level0` from a `BuildPlayer.Torre` built over a folder that `Windows` had filled; T13 did not repeat it.
+
+### What to do about it
+
+T13 applies none of this: it is the proposal, and the decision is the maintainer's.
+
+**1. A `.gitattributes` for the Unity text assets.**
+
+```
+# Unity writes its text assets with LF; a checkout under core.autocrlf=true writes CRLF and git then lists every file the editor saves.
+# text=auto leaves the few binary .asset files alone.
+*.mat        text=auto eol=lf
+*.prefab     text=auto eol=lf
+*.asset      text=auto eol=lf
+*.unity      text=auto eol=lf
+*.meta       text=auto eol=lf
+*.controller text=auto eol=lf
+*.anim       text=auto eol=lf
+*.lighting   text=auto eol=lf
+```
+
+- A checkout then writes these files with LF, as they are stored and as the editor writes them: class 1 disappears (the second table).
+- Nothing stored changes. On a throwaway branch `git add --renormalize` over those patterns staged the new file and nothing else. The `auto`
+  is what makes it so: with `text eol=lf` the same command also changes two binary `.asset` files (`Resources/BodyLods.asset` and
+  `Scenes/Hotel/LightingData.asset`, which hold CRLF byte pairs that a text conversion removes).
+- A new worktree needs nothing: it checks the files out with LF. A checkout that exists keeps its CRLF files until they are written again, and
+  the editor's first save of each is listed as before. Once, from the repository root, with the editor closed and none of those files modified
+  (restore by path what class 1 listed: it equals the commit):
+
+  ```powershell
+  $p = '*.mat', '*.prefab', '*.asset', '*.unity', '*.meta', '*.controller', '*.anim', '*.lighting'
+  git ls-files -- $p | ForEach-Object { Remove-Item -LiteralPath $_ }
+  git checkout -- $p
+  ```
+
+  The editor reimports those files the next time it opens.
+
+**2. Write the generated files again, once, on purpose.** After a full build `git diff --name-only` lists them: the kit materials of class 3a,
+the two weapon materials and the scene. Commit them in a pull request that says why (the rule of
+[guardaroba.md](../game/guardaroba.md#how-the-props-reach-the-game)); the two kit entries are what the builder already says. After that the
+same full build lists three files, `GunBody.mat`, `GunGrip.mat` and `Torre.unity`, all of class 2 (the last row of the second table).
+
+**3. Write only on a real change.** The three that remain are written by code, so only code stops them; it is a task of its own.
+
+- `HotelBuilder.PlayerAndGame`: create `GunBody`, `GunGrip` and `GunFlashStar` only when the asset is missing and set a value only when it
+  differs, instead of `SaveMat` and `DeleteAsset` followed by `CreateAsset`.
+- `TorreBuilder.Build`: save the scene first as a copy outside `Assets` (`EditorSceneManager.SaveScene(scene, path, true)`), compare it with
+  `Torre.unity` document by document with the ids masked (a few dozen lines of script), and replace the file only when they differ. Then a
+  full build with nothing new to say leaves the scene alone.
+- A check in the gate that every name `FillKit` registers is in the committed scene needs no editor, only the two files; it would have
+  failed on the two entries that are missing now.
+
+**4. Until then,** decide whether a build changed anything with `git diff --name-only`, restore by path what you did not mean to change
+(`git checkout -- <path>`), and stage exact paths (rules 4 and 10 of `AGENTS.md`).
+
+### Measure it again
+
+In a new worktree, one editor at a time, from the repository root of that worktree (the editor version is in
+`unity/PryingEyes/ProjectSettings/ProjectVersion.txt`):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\worktree.ps1 -New measure-build    # remove it with -Remove when done
+Unity.exe -batchmode -nographics -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.BuildPlayer.Torre `
+    -buildOut unity\PryingEyes\Builds\Measure -quit -logFile measure.log    # or ...BuildPlayer.Windows, or add -scriptsOnly
+git status --porcelain -uall                # Listed
+git diff --name-only                        # Differ; Listed minus Differ is class 1
+git diff -U0 -- <a file that differs>       # class 2, 3a or 3b
+git checkout HEAD -- <each listed path>     # before the next run, in this throwaway worktree only
+```
+
+Not measured: what a scripts-only build writes in the build folder after a script really changed (the run found nothing to rebuild and left
+the executable alone); a checkout whose `core.autocrlf` is `false` or `input` (only `true` was); and the digits of class 3a on another editor
+version.
+
 ## Shipping a change: `tools/ship.ps1`
 
 One script does commit, build, smoke test, push and the refresh of the maintainer's game, with the checks and the traps already solved.
