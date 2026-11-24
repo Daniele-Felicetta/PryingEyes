@@ -207,7 +207,7 @@ mode first of all, and T07 has since moved two of them):
 | Tests with a private `Check` (`tests`) | 48 | 0 | T08 (T07 took it from 51) |
 | Flags read by `GameManager.cs` (`flags`) | 50 | under 20 | T08 (T07 took it from 53) |
 | Private command-line helpers (`flags`) | 43 | 2 | T08, T19 |
-| Literals of test output relative to the working directory (`tests`) | 33 | 0 | T08, T12 (T07 took it from 36) |
+| Literals of test output relative to the working directory (`tests`) | 33 | 0 | T08 (T07 took it from 36) |
 
 The two rows about tests (2 and 14) cannot grow: the guard holds them as a baseline, `tools/fixtures/game-boundaries.json`, and fails on a new
 violation and on an entry that no longer applies ([suite-architecture.md](suite-architecture.md#the-games-rules-about-tests)).

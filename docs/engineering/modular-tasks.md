@@ -308,10 +308,15 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 - **Why**: F11. Every `-autotest` run rewrites tracked files (`hotel_build/autotest.txt`, `auto_shot1.png`, `auto_shot2.png`, and
   `proctest.txt` when the bot runs without `-botlog`).
 - **Needs**: **editor**, **build**.
-- **Touches**: `Scripts/TestPaths.cs`, `Scripts/GameManager.cs`, `Scripts/Proc/FloorDirector.cs`; [testing.md](testing.md).
+- **Touches**: `Scripts/TestPaths.cs`, `Scripts/GameManager.cs`, `Scripts/Proc/FloorDirector.cs`; [testing.md](testing.md); and, which
+  the brief did not foresee, `Scripts/Testing/TestRun.cs` (its `OutDir` worked out where `unity_logs/` is with an expression of its own, so
+  it asks `TestPaths.LogFolder` now, which `Scratch` uses too: no second way to find the checkout), `tools/code_census.py` with its test
+  (the census counts every `"unity_logs` literal outside the tests and exempted the one file that held it, `TestRun.cs`; the finder moved
+  to `TestPaths.cs`, which is the file it exempts now, so the count stays 33) and [agent-tooling.md](agent-tooling.md).
 - **Steps**: add `TestPaths.Scratch(name)` (the `unity_logs/player/` of the checkout, found as `TestPaths` finds `hotel_build`). Send
   there what the automatic run writes by itself: the report when `-report` is absent, the two timed screenshots, the bot's default log.
-  Leave every output that a flag exists to ask for (`-camshots`, the photos of each suite).
+  Leave every output that a flag exists to ask for (`-camshots`, the photos of each suite). As built: `TestPaths.LogFolder(folder)` finds
+  `unity_logs/<folder>/` and `Scratch(name)` is `LogFolder("player")` and the name; [testing.md](testing.md#conventions) says what goes where.
 - **Done when**: after the smoke walk and after one suite, `git status --porcelain hotel_build` prints nothing; the files appear under
   `unity_logs/player/`; the pages say the new paths.
 - **Not in scope**: the 485 tracked files themselves and the other outputs under `hotel_build/` (a decision for the maintainer,

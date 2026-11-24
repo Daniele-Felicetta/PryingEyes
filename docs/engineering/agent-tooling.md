@@ -357,7 +357,7 @@ line, so every existing script and habit still works, and the exit codes 0 and 1
 Where the first sketch was wrong or short:
 
 - `OutDir` takes the name of a folder, not of a suite: the three suites keep the folders their pages name (`trappole`, `botti`, `mine`),
-  and a new suite defaults to its own name. It resolves `unity_logs/` against the checkout (as `TestPaths` does for `hotel_build/`), not
+  and a new suite defaults to its own name. It resolves `unity_logs/` against the checkout (through `TestPaths.LogFolder`, which `TestPaths.Scratch` uses too, as `TestPaths.Out` does for `hotel_build/`), not
   against the working directory, so a run started from another folder still writes where the page says.
 - `HoldFire` is not there: the three suites are started with `-nofire` and none of their flags is in the list that stops the bot from
   firing. The first suite that needs it adds it (T08).
@@ -376,7 +376,7 @@ Where the first sketch was wrong or short:
 | Settings in the registry, shared with the maintainer's game | rule 6; `run_split.ps1` saves and restores the key around a windowed run | declared as `hazards: registry`; the runner saves and restores the key for every such suite (T06, done); later, settings kept in memory during automated runs so that the hazard disappears | T14 |
 | Graphics card and screen | "do not run while someone plays", in prose | `needs: gpu`, `hazards: screen`; refusal while another player is running (T06, done) | |
 | UDP port 7807 and `$env:TEMP\pryingeyes-coop` for every checkout | `run_coop.ps1` takes a free UDP port for each run (`-Port`) and logs to `unity_logs/coop` of its checkout (`run_split.ps1`: `unity_logs/split`); two agents in two worktrees can run co-op checks at once | the log folder is the job folder when the studio runs the check | T11 (done), T06 (done) |
-| Tracked files rewritten by runs (`hotel_build/autotest.txt`, `auto_shot*.png`) | restored by hand after each run | automated runs write under `unity_logs/`; `hotel_build/` only when evidence is asked for | T12 |
+| Tracked files rewritten by runs (`hotel_build/autotest.txt`, `auto_shot*.png`) | the automatic run writes its report, its two timed screenshots and the bot's default log to `unity_logs/player/` (`TestPaths.Scratch`); `hotel_build/` is rewritten only by what a flag or an editor tool asks for | the tracked files and those outputs stay as they are until the maintainer decides ([modular-roadmap.md](modular-roadmap.md#decisions-that-are-the-maintainers)) | T12 (done) |
 | Tracked files rewritten by builds (materials, `Torre.unity`, settings assets) | rules 4 and 10: stage exact paths | measure what a build rewrites and why, then decide | T13 |
 | One editor per checkout | rule 9; the project lock | `tools/worktree.ps1` (exists); `doctor` | T09, T10 |
 | Two changes to the wire format at once | found at merge | one at a time, said in [modularization.md](modularization.md#rules-for-new-code) | none |

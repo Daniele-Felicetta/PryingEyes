@@ -18,9 +18,7 @@ namespace PryingEyes.Testing
         public static string OutDir(string folder)
         {
             string given = Value("-testout");
-            string dir = string.IsNullOrEmpty(given)
-                ? Path.Combine(Path.GetDirectoryName(TestPaths.Root) ?? ".", "unity_logs", folder)
-                : Path.GetFullPath(given);
+            string dir = string.IsNullOrEmpty(given) ? TestPaths.LogFolder(folder) : Path.GetFullPath(given);
             Directory.CreateDirectory(dir);
             return dir;
         }

@@ -314,13 +314,13 @@ def tests(game, home):
     found = sorted(rel for rel in game if is_test(rel) and not is_editor(rel))
     types = {name for name, rel in home.items() if rel in found}
     named_by = {rel: sorted(info["uses"] & types) for rel, info in game.items() if rel not in found and not is_editor(rel) and info["uses"] & types}
-    harness, run = home.get(HARNESS), home.get("TestRun")      # the one place that resolves unity_logs/ against the checkout is not a literal that depends on the working directory
+    harness, paths = home.get(HARNESS), home.get("TestPaths")      # the one place that resolves unity_logs/ against the checkout (TestPaths.LogFolder) is not a literal that depends on the working directory
     return {"files": len(found), "lines": sum(game[rel]["lines"] for rel in found),
             "selfInstalling": sum(1 for rel in found if "RuntimeInitializeOnLoadMethod" in game[rel]["code"]),
             "ownCheckHelper": sum(1 for rel in found if rel != harness and re.search(r"\b(?:void|bool)\s+Check\s*\(", game[rel]["code"])),
             "notExcludedFromDistribution": [rel for rel in found if "PE_DISTRIBUTION_BUILD" not in game[rel]["text"]],
             "namedByProductionCode": named_by,
-            "testOutputLiterals": sum(info["text"].count('"unity_logs') for rel, info in game.items() if not is_editor(rel) and rel != run),
+            "testOutputLiterals": sum(info["text"].count('"unity_logs') for rel, info in game.items() if not is_editor(rel) and rel != paths),
             "testPathsCalls": sum(info["code"].count("TestPaths.Out") for info in game.values())}
 
 
