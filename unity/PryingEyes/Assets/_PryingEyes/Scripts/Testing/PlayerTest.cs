@@ -28,7 +28,7 @@ namespace PryingEyes.Testing
         readonly List<Outcome> results = new List<Outcome>();
         readonly List<string> artifacts = new List<string>();
         int failed, exceptions;
-        bool photos;
+        bool photos, ended;
         float started;
         string outDir;
 
@@ -47,6 +47,15 @@ namespace PryingEyes.Testing
 
         /// <summary>Called when the sequence has ended, however it ended and before the last check. For what a test must put back.</summary>
         protected virtual void Finish() { }
+
+        /// <summary>The seconds, counted from the start of the player, within which the whole run must end; 0 (the default) for no limit. Past it
+        /// the base fails the check "finita entro il tempo" and ends the run as it ends any other, whatever the sequence is still waiting for.</summary>
+        protected virtual float TimeLimit { get { return 0f; } }
+
+        /// <summary>For a test that two processes run together (the host and the friend of a co-op race): who speaks in this one. It follows the
+        /// name of the suite in the log, in every check and in the result line ("pistacooptest ospite ok ..."), and nowhere else: the test names
+        /// its <see cref="OutFolder"/> so that the processes do not write each other's files. Null for the others.</summary>
+        protected virtual string Role { get { return null; } }
 
         /// <summary>The name of the check that closes the sequence ("nessuna eccezione runtime"); null for a suite that has never made one,
         /// which then keeps the checks it always had. The exceptions are counted either way and <c>result.json</c> carries the number.</summary>
@@ -69,7 +78,7 @@ namespace PryingEyes.Testing
         {
             results.Add(new Outcome { Name = name, Ok = ok, Detail = detail ?? "" });
             if (!ok) failed++;
-            Debug.Log("[PryingEyes] " + Suite + " " + (ok ? "ok " : "FALLITO ") + name + (string.IsNullOrEmpty(detail) ? "" : " (" + detail + ")"));
+            Debug.Log("[PryingEyes] " + Label + " " + (ok ? "ok " : "FALLITO ") + name + (string.IsNullOrEmpty(detail) ? "" : " (" + detail + ")"));
             return ok;
         }
 
@@ -102,6 +111,8 @@ namespace PryingEyes.Testing
 
         string OutPath { get { return outDir ?? (outDir = TestRun.OutDir(OutFolder)); } }
 
+        string Label { get { return Role == null ? Suite : Suite + " " + Role; } }
+
         void OnLog(string message, string stack, LogType type) { if (IsError(message, type)) exceptions++; }
 
         /// <summary>Stops counting exceptions. A test that owns something to release overrides it and calls <c>base.OnDestroy()</c>: Unity calls
@@ -113,17 +124,41 @@ namespace PryingEyes.Testing
             Application.logMessageReceived += OnLog;
             started = Time.realtimeSinceStartup;
             photos = PhotoFlag != null && TestRun.Has(PhotoFlag);
+            if (TimeLimit > 0f) StartCoroutine(Watch());
             var sequence = Run();
             while (true)
             {
                 bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
                 if (!more) break; yield return sequence.Current;
             }
+            End();
+        }
+
+        /// <summary>The end of the run, once however it comes: the test's own clean-up, the closing check, the result and the exit.</summary>
+        void End()
+        {
+            if (ended) return;
+            ended = true;
             Finish();
             if (ExceptionCheck != null) Check(ExceptionCheck, exceptions == 0);
             WriteResult();
-            Debug.Log("[PryingEyes] " + Suite + " RISULTATO " + (failed == 0 ? "SUPERATA" : "FALLITA") + ": " + (results.Count - failed) + "/" + results.Count);
+            Debug.Log("[PryingEyes] " + Label + " RISULTATO " + (failed == 0 ? "SUPERATA" : "FALLITA") + ": " + (results.Count - failed) + "/" + results.Count);
             Application.Quit(failed == 0 ? 0 : 1);
+        }
+
+        /// <summary>Watches <see cref="TimeLimit"/> every frame in a coroutine of its own, so that a sequence stuck inside a wait still ends.</summary>
+        IEnumerator Watch()
+        {
+            while (!ended)
+            {
+                if (Time.realtimeSinceStartup > TimeLimit)
+                {
+                    Check("finita entro il tempo", false, TimeLimit.ToString("F0", CultureInfo.InvariantCulture) + " s");
+                    End();
+                    yield break;
+                }
+                yield return null;
+            }
         }
 
         /// <summary>The result as data, for the tools that start a suite and need no regular expression: docs/engineering/agent-tooling.md,

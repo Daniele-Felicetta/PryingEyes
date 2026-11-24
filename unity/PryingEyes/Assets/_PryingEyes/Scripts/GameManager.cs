@@ -176,10 +176,8 @@ namespace PryingEyes
             "-architecturetest",
             "-citytest",
             "-magiatest",
-            "-cattedraletest",
             "-desertotest",
             "-pistatest",
-            "-pistacooptest",
         };
 
         static bool HasAnyArg(string[] flags)
