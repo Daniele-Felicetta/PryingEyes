@@ -2,11 +2,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
 using PryingEyes.Proc.MapArt;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -15,40 +15,19 @@ namespace PryingEyes
     /// girando per le stanze si colorano una a una, quelle ignote spariscono e la segreta compare solo entrandoci; le armi viste compaiono
     /// con il loro segno; i morti lasciano sangue; le porte sigillate hanno un sigillo con il prezzo; le scritte delle stanze ci sono; ogni
     /// fotogramma costa poco e non lascia spazzatura. Con -mapshots fotografa l'HUD (unity_logs/mappa).</summary>
-    public sealed class MapTest : MonoBehaviour
+    public sealed class MapTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "maptest"; } }
+        protected override string PhotoFlag { get { return "-mapshots"; } }
+        protected override string OutFolder { get { return "mappa"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-maptest") >= 0) new GameObject("MapTest").AddComponent<MapTest>();
-        }
+        static void Install() { InstallWhen<MapTest>("-maptest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] maptest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
+        void Shot(string name)
         {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-mapshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] maptest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void Photo(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/mappa"); Directory.CreateDirectory(folder);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
+            if (!Photos) return;
+            GameManager.CamShot(PhotoPath(name), null, true);
         }
 
         /// <summary>Teletrasporta il giocatore al centro di una stanza (sulla navmesh) e aspetta due fotogrammi.</summary>
@@ -60,7 +39,7 @@ namespace PryingEyes
             yield return null; yield return null;
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -80,7 +59,7 @@ namespace PryingEyes
             Check("la mappa del piano esiste ed e' quella corrente", map != null && FloorMap.I == map && map.plan == plan);
             var view = gm.hud != null ? gm.hud.Map : null;
             Check("l'HUD ha la sua vista della mappa", view != null);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
 
             // ----- 1) la partenza
             fd.DebugShowMap(false, true);
@@ -97,7 +76,7 @@ namespace PryingEyes
             Check("la minimappa e' accesa e piccola", view.Visible && view.Bigness < 0.01f);
             Check($"le texture della carta costano {MapAssets.BuildMs:F0} ms al filo principale ({MapAssets.GenerateMs:F0} ms nell'altro)", MapAssets.BuildMs < 250f);
             Check($"ci sono le scritte delle stanze viste ({view.ActiveLabels})", view.ActiveLabels >= map.SeenCount);
-            Photo("01_minimappa_partenza");
+            Shot("01_minimappa_partenza");
 
             // ----- 2) il foglio grande
             fd.DebugShowMap(true, false);
@@ -105,7 +84,7 @@ namespace PryingEyes
             Check("M apre il foglio grande", view.Visible && view.Bigness > 0.99f);
             string undrawn = view.UndrawnParts();
             Check("il foglio grande e' tutto disegnato (legenda, bussola, scritte: ognuno ha il suo materiale)" + (undrawn.Length > 0 ? ": mancano " + undrawn : ""), undrawn.Length == 0);
-            Photo("02_foglio_partenza");
+            Shot("02_foglio_partenza");
             fd.DebugShowMap(false, true);
             yield return new WaitForSeconds(0.6f);
             Check("...e lo richiude", view.Bigness < 0.01f);
@@ -162,7 +141,7 @@ namespace PryingEyes
             }
             fd.DebugShowMap(true, false);
             yield return new WaitForSeconds(2.0f);
-            Photo("03_foglio_esplorato");
+            Shot("03_foglio_esplorato");
             fd.DebugShowMap(false, true);
 
             // ----- 5) le armi viste, e il sangue
@@ -200,7 +179,7 @@ namespace PryingEyes
             else Debug.Log("[PryingEyes] maptest: ciclo senza porte a pagamento, niente sigilli da controllare");
 
             // ----- 7) un nemico che ti ha visto compare come un occhio (foto)
-            if (shots)
+            if (Photos)
             {
                 Vector3 p0 = player.transform.position;
                 Vector3 side = player.transform.right * 6f;
@@ -212,10 +191,10 @@ namespace PryingEyes
                 yield return new WaitForSeconds(0.4f);
                 fd.DebugShowMap(false, true);
                 yield return new WaitForSeconds(0.4f);
-                Photo("04_minimappa_nemico");
+                Shot("04_minimappa_nemico");
                 fd.DebugShowMap(true, false);
                 yield return new WaitForSeconds(2.0f);
-                Photo("05_foglio_nemico");
+                Shot("05_foglio_nemico");
                 Enemy.ClearAll(); Enemy.debugFreeze = false;
                 fd.DebugShowMap(false, true);
             }

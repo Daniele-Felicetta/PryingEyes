@@ -69,10 +69,17 @@ namespace PryingEyes.Testing
         protected void Photo(string name)
         {
             if (!photos) return;
-            string file = name + ".png";
             LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(OutPath, file), null, true);
+            GameManager.CamShot(PhotoPath(name), null, true);
+        }
+
+        /// <summary>The file of a photograph that the test frames itself (a weapon hidden, a review camera, no HUD): in the output folder,
+        /// and listed in <c>result.json</c> as an artifact. <see cref="Photo"/> is the plain case and uses it. Ask only when <see cref="Photos"/> is on.</summary>
+        protected string PhotoPath(string name)
+        {
+            string file = name + ".png";
             artifacts.Add(file);
+            return Path.Combine(OutPath, file);
         }
 
         /// <summary>The line of a test's load hook: when <paramref name="flag"/> is on the command line, say that a test owns the process
@@ -88,7 +95,9 @@ namespace PryingEyes.Testing
 
         void OnLog(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
 
-        void OnDestroy() { Application.logMessageReceived -= OnLog; }
+        /// <summary>Stops counting exceptions. A test that owns something to release overrides it and calls <c>base.OnDestroy()</c>: Unity calls
+        /// only the most derived <c>OnDestroy</c>, so a second one that does not override this one would silence it.</summary>
+        protected virtual void OnDestroy() { Application.logMessageReceived -= OnLog; }
 
         IEnumerator Start()
         {
