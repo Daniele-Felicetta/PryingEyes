@@ -93,24 +93,115 @@ recompile, and the game keeps the data of the last full build.
 
 The gate is the set of checks that must pass before a change counts as done:
 
-1. `python tools/check_suite.py`: the boundaries of the reusable packages and engine, and the documentation (links, index, no
-   machine-specific paths).
+1. `python tools/check_suite.py`: the boundaries of the reusable packages and engine, the game's rules about tests (none named by
+   production code, all wrapped in `PE_DISTRIBUTION_BUILD`, see [suite-architecture.md](suite-architecture.md#the-games-rules-about-tests)),
+   and the documentation (links, index, no machine-specific paths).
 2. `python -m unittest discover -s tools -p "test_*.py"`: the hermetic unit suite.
-3. `python tools/studio.py test weapon-state`, `python tools/studio.py test survival`, `python tools/studio.py test economy`, `python tools/studio.py test saves`, `python tools/studio.py test track` and `python tools/studio.py test desert`: the six .NET rule labs.
+3. `python tools/studio.py test weapon-state`, `python tools/studio.py test survival`, `python tools/studio.py test economy`, `python tools/studio.py test saves`, `python tools/studio.py test track` and `python tools/studio.py test desert`: the six .NET rule labs; and `python tools/studio.py test plan`: the fingerprint of the floor generator, which fails when a plan changes without a new `CoopProtocol.Revision` ([testing.md](testing.md), end of section 2.4).
 
 `ship.ps1` runs the first two before every commit. The third needs the project lock, which fails with `PROJECT_BUSY` while another
 agent has a production running, so it only runs on GitHub: `.github/workflows/gate.yml` runs all three on every push to `preview` and every
 pull request against it, on a Windows runner, from a sparse checkout of about 20 MiB (the `sparse-checkout` block of the workflow lists the
 only paths the gate reads: add a path there when a check starts reading a new one, and when a wiki page cites a new source). The lab reports are kept as the `lab-reports`
-artifact. There is no branch protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: look at the
+artifact, and so is `code-census.json`: after the guard the gate prints the code census (sizes, cycles, tests, flags) in the run summary, and that
+step reports without failing. There is no branch protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: look at the
 latest run before starting work (`gh run list --branch preview --limit 1`) and fix a red one first.
 
 ## Branches and worktrees
 
 `preview` is the only long-lived branch. Anything else goes through a pull request and is deleted as soon as it merges (a squash merge makes
 git call the branch unmerged: delete it anyway, its commits stay on the pull request). One agent writes at a time in the checkout the
-editor opens; anyone who does not need the editor works in a separate worktree on its own branch (`git worktree add`), and removes it with
-`git worktree remove` when the task ends.
+editor opens; anyone who does not need the editor works in a separate worktree on its own branch. `tools/worktree.ps1` makes one and
+removes it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\worktree.ps1 -New t07-harness
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\worktree.ps1 -Remove t07-harness
+```
+
+It prints what it did as one JSON document on stdout (`schemaVersion` 1: `ok`, `problems`, `warnings`, then the fields below; progress goes
+to stderr) and exits 0 when it did it (or, with `-DryRun`, could), 1 when it refused or failed. It reads the other worktrees and never
+changes one. The file is ASCII on purpose, like the other scripts. `tools/test_worktree.py` runs the real script on throwaway repositories
+with an invented `Library`; the numbers below are the acceptance check on the real project.
+
+### A worktree ready for Unity: `-New <name>`
+
+A new worktree has no `unity/PryingEyes/Library`, so the editor imports every asset before it can compile. `-New` makes the worktree and
+gives it a `Library` that is already imported:
+
+| Part | What it does |
+| --- | --- |
+| worktree | `<main checkout>\.claude\worktrees\<name>` (`-WorktreesDir`) on the new branch `claude/<name>` (`-Branch`), cut from `origin/preview` after `git fetch origin preview`, with no upstream: the first push names the branch. Refuses a name that exists, as a folder or as a branch (local or on `origin`). |
+| donor | The checkout whose `Library` is copied: `-From` (a folder, or the name of a worktree) or, without it, the first that qualifies, the main checkout first and then the other worktrees, the most recently written `Library` first. A donor qualifies when it has a `Library`, its `ProjectSettings/ProjectVersion.txt` names the same `m_EditorVersion` as `origin/preview`, it has no `Temp/UnityLockfile` and no `Unity.exe` runs on it. When none qualifies the command refuses before creating anything, and says what each donor lacked (`library.skippedDonors`). |
+| copy | `robocopy /E /MT:4` of the `Library`, folders named `Temp` left out, at below-normal CPU priority and low disk and memory priority (`-FullSpeed`: normal priority), into `unity/PryingEyes/Temp/Library.copy` of the new worktree. It is renamed to `Library` only when every file and byte arrived (counts checked against a list-only pass made first) and the donor still has no lockfile, so a `Library` that exists is a whole one. Windows can refuse the rename for a while (something holds a file among the thousands just written), so it is asked again `-RenameTries` times (12), `-RenameWait` seconds (5) apart; a copy that arrived whole is never thrown away for that: it stays in `Temp\Library.copy` and the answer says so. The volume must keep `-MinFreeGB` (10) free after the copy. |
+| `-NoLibrary` | A plain worktree, for work that never opens Unity (most tasks of [the modular plan](modular-roadmap.md)): no donor is looked at and nothing is copied. |
+| `-DryRun` | Does every check and measures the copy, and changes nothing: no fetch either, so `base` is as of the last fetch. |
+
+The answer has `path`, `branch`, `base` (`ref`, `commit`, `fetched`), `unityVersion`, `library` (`donor`, `files`, `bytes`, `seconds`,
+`copied`, `renameTries`, `priority`, `skippedDonors`), `worktreeSeconds` and `seconds`. Nothing but the new folder and its branch is created; a refusal creates
+nothing. If the copy itself fails after the worktree exists, the worktree stays without a `Library` (with the whole copy in `Temp\Library.copy`
+when only the rename failed) and `ok` is false.
+
+### Removing one: `-Remove <name>`
+
+`<name>` is the folder under the worktrees directory, or the name or path of any registered worktree. The script runs `git worktree
+remove` without `--force`, and only when nothing would be lost; it reports everything that stops it in one answer:
+
+| It refuses when | What the answer lists |
+| --- | --- |
+| the worktree is the main checkout, is locked, or holds this shell or this script; a `Unity.exe` or `PryingEyes.exe` runs from it | `problems` |
+| something is uncommitted: `git status` lists a change or an untracked file (a file that differs only in its line endings is not one: it is put back from `HEAD` first, `lineEndingsRestored`) | `uncommitted`: `M path` or `?? path`, the first 50. A file that is only build noise (rule 4 of `AGENTS.md`) is restored with `git -C <worktree> checkout -- <file>`; what is real is committed |
+| a commit is not published: it is on no branch of `origin` and is not the head of a pull request there | `unpushed`: `<hash> <subject>`, the first 20 |
+
+A pull request head counts as published because GitHub keeps `refs/pull/<n>/head` after a pull request is merged and its branch deleted,
+which is what the squash merges of this repository leave: a local branch whose commits are on no branch of `origin`. The script asks
+`git ls-remote origin 'refs/pull/*/head'` (a public repository: no credentials). Afterwards the local branch is deleted with
+`git branch -D` (the commit it pointed at is printed as `branchDeleted.was`, so it can be brought back) only when it is merged: an
+ancestor of `origin/preview`, or the head of pull request N while `origin/preview` has a commit whose subject ends in `(#N)`. Any other
+branch is kept and `branchKept` says so. It never pushes and never deletes a branch of `origin`.
+
+Git runs with `core.longpaths=true` here: files of the real `Library` are 186 characters below it and a worktree puts its own folder in front
+of that, so without it `git worktree remove` stops at 260 characters with `Filename too long` and leaves the folder behind (see the
+measurements below; `tools/test_worktree.py` has the case). When git still cannot delete the folder, for instance because a file in it is held open, it has
+already dropped its record of the worktree: the answer is `ok: false`, `leftover` is the folder that remains (no longer registered) and the
+branch is kept. Delete the folder by hand, then the branch if it is merged.
+
+A worktree that something else made (`.codex/worktrees/*`, `prying-eyes-*`) can be removed the same way, by name or path, or with plain
+`git worktree remove`.
+
+### Measured on the real project
+
+Made on 2026-11-23 on the maintainer's PC, which was shared: no Unity and no `PryingEyes.exe` ran and the donor had no `Temp/UnityLockfile`,
+but another agent was running its gate (Python and .NET) during the compile. Unity 6000.6.7f1, donor = the main checkout, a new worktree
+`t10-measure` removed afterwards, nothing else touched (the 41 registered worktrees were the same before and after).
+
+| What | Result |
+| --- | --- |
+| `git worktree add` on a new branch from `origin/preview` | 8.3 s |
+| the `Library` copy (`-New`, below-normal CPU, low disk priority, `/MT:4`) | 34,357 files, 6,281,389,547 bytes (5.85 GiB), **39.6 s** (about 150 MiB/s); `-New` as a whole 49.1 s |
+| the first compile in the new worktree (`Unity.exe -batchmode -nographics -quit` at below-normal CPU and low disk priority, no GPU) | **97.8 s**, exit 0 |
+| `-Remove` of that worktree, `Library` included | 8.2 s (9.3 s as a whole) |
+
+The first compile is not a full import. Unity's own log shows the initial refresh at 93.3 s: 55.8 s compiling the scripts (Bee, with 30 s in
+its IL post-processing configuration) and 33.8 s importing 795 of the 3,669 assets: Unity found 1,073 files changed and 5 deleted against the
+records in the donor's `Library` (a new checkout has new timestamps, and the main checkout's working tree is not identical to
+`origin/preview`). It is slower than the 24 s of the hand-made run in November (a 3.5 GB `Library` of a worktree at the same code version,
+normal priority), and the two are not the same experiment. A worktree without a `Library` has to import all of them; that was not measured
+here, because it would write gigabytes on a shared PC. After the run Unity had rewritten `DefaultPrefabObjects.asset` and `ProjectAuditorSettings.asset` with other line endings and the
+same text: `-Remove` reported `lineEndingsRestored: 2` and removed the worktree.
+
+The real run found three things that the throwaway repositories of `tools/test_worktree.py` did not, and each has a test now:
+
+- **The rename was refused once.** Right after the copy, Windows answered "access denied" to renaming `Temp\Library.copy` to `Library`
+  (something held a file among the 34 thousand just written), and the first version threw the whole copy away. It now asks again and keeps a
+  copy that arrived whole (`renameTries` in the answer: 1 on the second run).
+- **`git status` and `git diff` disagree under `core.autocrlf=true`.** For a file that Unity rewrote with other line endings, `git status`
+  says modified and `git diff HEAD` says nothing, and `git worktree remove` goes by `git status`. The script now asks `git status`, as git
+  does, and checks it again after putting such files back.
+- **A new worktree has paths over 260 characters.** The deepest file of the `Library` (in `APIUpdater/ConfigurationCache`) is 186 characters
+  below the `Library` folder, so its full path in a worktree is the length of the main checkout's path, plus the name, plus 230: 275 here for
+  `t10-measure`, with 37 files beyond 260. Git stops at 260 with `Filename too long` unless `core.longpaths` is on, and leaves the folder
+  behind; the script turns it on for its git calls.
 
 ## Other platforms
 

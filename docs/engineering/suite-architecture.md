@@ -3,7 +3,7 @@
 The goal of the engineering work is a suite that outlives Prying Eyes. This page is the map: which parts are already
 independent of the game, what enforces that, and what is still game-specific. It is written to be checked, not admired:
 `python tools/check_suite.py` fails when a boundary below is crossed; `tools/ship.ps1` runs it, with the Python unit tests, before every
-commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the six .NET rule labs, on every push to `preview` and every
+commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the six .NET rule labs and the fingerprint of the floor generator, on every push to `preview` and every
 pull request against it. How a change is built, shipped and gated is in [building-and-shipping.md](building-and-shipping.md).
 
 ## Layers
@@ -13,7 +13,7 @@ pull request against it. How a change is built, shipped and gated is in [buildin
 | Rule packages (C#) | `unity/PryingEyes/Packages/com.pryingeyes.{layout,weapons,survival,economy,saves}` | nothing: `noEngineReferences`, no assembly references, no `UnityEngine`/`PryingEyes` in code | the same `.cs` files are compiled by the .NET labs `tools/{planlab,weaponslab,survivallab,economylab,saveslab}` (no editor) and consumed by `unity/LayoutDemo` through `file:` references |
 | Production engine (Python) | `tools/studio_engine.py`, `studio_process.py`, `studio_queue.py`, `asset_graph.py` | the standard library | `test_studio_engine.py` runs it on a toy project; a test imports it with `python -I` and asserts no game module, `jsonschema` or Pillow is loaded |
 | Project profile | `tools/studio_pryingeyes.py` + the catalogs under `Resources/Production` | the engine, the game | this is the *only* place that knows weapons, rooms, Blender, Unity, the city recipe |
-| Guard | `tools/check_suite.py`, `tools/test_check_suite.py` | the repository layout, and the wiki generator `tools/wiki_site.py` for the wiki | the guard is itself tested against a fixture repository with every kind of violation |
+| Guard | `tools/check_suite.py`, `tools/test_check_suite.py` | the repository layout, the census `tools/code_census.py` for the game's sources, and the wiki generator `tools/wiki_site.py` for the wiki | the guard is itself tested against a fixture repository with every kind of violation |
 
 The C# packages already use neutral assembly and namespace names (`Production.*`); only the package ids carry the game name.
 
@@ -25,17 +25,46 @@ The guard also builds the wiki in `wiki/` with `tools/wiki_site.py` and fails on
 on any generated file that is out of date. A tree with no `wiki/` folder has nothing to check; `docs/README.md` links to the wiki, so
 removing it breaks a link there instead.
 
+## The game's rules about tests
+
+The guard reads the game's C# sources (`unity/PryingEyes/Assets/_PryingEyes`) through the census (`tools/code_census.py`) and fails when
+a test is where it should not be. A tree without the game folder has nothing to check.
+
+| Code | Fails when | What to do |
+| --- | --- | --- |
+| `GAME_PRODUCTION_NAMES_TEST` | a file that is not a test names a test type | Remove the reference. A test installs itself when its flag is on the command line and nothing else starts it, so a distribution build can leave it out |
+| `GAME_TEST_NOT_EXCLUDED` | a test file (`Test` in its file name, `TestPaths` and the `Editor/` folders apart) has no `PE_DISTRIBUTION_BUILD` in it | Wrap the whole file in `#if !PE_DISTRIBUTION_BUILD`, every file of a partial class alike |
+| `GAME_PURE_FILE_NAMES_ENGINE` | a game file that an engine-free lab compiles names `UnityEngine` or `UnityEditor` | Take the engine out of the file, or stop compiling it in the lab: the lab is what proves that the rules run without the editor |
+| `GAME_BASELINE_STALE` | an entry of the baseline no longer applies | Delete the entry: the violation it tolerated is gone |
+| `GAME_BASELINE_INVALID` | the baseline is not JSON, names a rule that does not exist, or has an entry without its file or its reason | Correct the fixture |
+
+An *engine-free lab* is a .NET project under `tools/` that reaches no Unity assembly: it has no `Reference` to one, neither in the
+project nor in a props file it imports nor in a project it references. The projects of `tools/multiplayer-check` that do
+(`unity-compile`, `fishnet-compile`) compile engine code against the editor's own libraries; they are compile checks, and the rule leaves them out.
+What a lab compiles is read from its `Compile` items, patterns with `*` and `**` included, so the files of `Scripts/Pista` that `tracklab` compiles are covered
+like any other.
+
+What is wrong today is listed, not hidden, in `tools/fixtures/game-boundaries.json`: each violation with the reason it is tolerated (today two
+production files that name a test type, `Coop/CoopGame.cs` and `Stealth/StealthRig.cs`, and the 14 test files that are not wrapped:
+`ArchitectureTest*`, `CityTest*`, `CoopTest*` and `StealthTest*`; none for the engine rule). The list can only shrink. A violation that is
+not in it fails the guard, and so does an entry whose violation is gone, so an entry is deleted in the commit that fixes it. Adding one
+needs a reason that a reviewer accepts, and the entry carries it. The numbers are in
+[modularization.md](modularization.md#how-progress-is-read).
+
 ## Where the gate runs
 
 | Where | What | Needs |
 | --- | --- | --- |
 | `tools/ship.ps1`, before every commit | `check_suite.py` and the Python unit tests | Python, no Unity |
-| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival`, `studio.py test economy`, `studio.py test saves`, `studio.py test track` and `studio.py test desert`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of about 20 MiB |
+| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival`, `studio.py test economy`, `studio.py test saves`, `studio.py test track`, `studio.py test desert` and `studio.py test plan`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of about 20 MiB |
 
 The labs are not part of `ship.ps1`: they take the project lock and would fail with `PROJECT_BUSY` whenever another agent has a
 production running on the same checkout. The runner is Windows because the engine owns process trees with Job Objects and its POSIX
-variant has never been verified. The checkout lists the only paths the gate reads (the `sparse-checkout` block of the workflow). It includes `wiki/`, which the wiki
-check reads, the `.py` scripts of `modelli/`, which the wiki's pages name, and `.github/workflows/gate.yml`, which the CI page cites.
+variant has never been verified. After the guard the gate prints the census of the game's code in the run summary (`code_census.py`: sizes,
+cycles between folders, tests, flags) and keeps its whole result as `code-census.json` in the `lab-reports` artifact; that step reports and never fails.
+The checkout lists the only paths the gate reads (the `sparse-checkout` block of the workflow). It includes `wiki/`, which the wiki
+check reads, the `.py` scripts of `modelli/`, which the wiki's pages name, `.github/workflows/gate.yml`, which the CI page cites, and the `.asmdef`
+files of the game, which the census reads to know the assembly of each file.
 Every source a wiki page cites must be in that list, or the gate fails with `WIKI_SOURCE_MISSING`. To check the list after a change,
 make a throwaway sparse copy with exactly those patterns and run the gate's commands there. There is no branch
 protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: a red run on `preview` is fixed before

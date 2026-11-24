@@ -173,6 +173,8 @@ nell'ammissione; 17 le regole di movimento (tolto il secondo aumento di velocita
 (`UsePower`, `PowerState`); 24 lampadari che crollano (`ChandelierHit`, `ChandelierDrop`); 25 lampade che si rompono (`LampHit`, `LampBroken`).
 Ogni cambio di revisione richiede la stessa build su tutte le macchine.
 
+**The gate checks the floor.** Every player builds the floor from the seed, so a change that moves a plan of the generator (`PlanGen`) is a change of the protocol and must raise `CoopProtocol.Revision`. `python tools/studio.py test plan`, part of the CI gate, fails when it was not raised: it hashes 48 plans (six seeds, floors 1, 3, 5 and 8, the lab's default layout and the game's `waves`) and compares them with `tools/fixtures/plan-fingerprint.json`, which also records the revision the hashes were made at. After raising the revision, for any reason (a message, a weapon, a rule), run `dotnet run --project tools/planlab -c Release -- fingerprint --update tools/fixtures/plan-fingerprint.json` and commit the fixture: it refuses (`PLAN_CHANGED_WITHOUT_REVISION`) while a plan has changed and the revision has not. What it covers, and what it leaves to the co-op scenarios: [testing.md](../engineering/testing.md#24-plan-labs-net-no-unity).
+
 | Direzione | Messaggi |
 | --- | --- |
 | giocatore -> ospite | `PlayerState` (~15 Hz, non affidabile), `Hello`, `FloorReady`, `UseCandle`, `BuyRoom`, `UseExit`, `HitClaim`, `NoiseEvt`, `DropClaim`, `PlayerEvent`, `UseTrap`, `BarrelHit`, `UsePower`, `ChandelierHit`, `LampHit`, `SpellCast`, `StatusClaim`, `AnnexUse`, `ReviveClaim` |

@@ -72,11 +72,13 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 - **Touches**: `tools/planlab/Program.cs`, a new `tools/fixtures/plan-fingerprint.json`, the profile and its test, `gate.yml`,
   [testing.md](testing.md), the protocol section of [../multiplayer/README.md](../multiplayer/README.md).
 - **Steps**
-  1. Add to `planlab` the command `fingerprint`: for seeds 1000, 2961, 3046, 777, 114 and 4242, floors 1, 3, 5 and 8, in the lab's
-     default layout and with `waves` (the layout the game uses), compute the SHA-256 of the text that `dump` writes; print one line per plan and write them with
-     `--report FILE`.
+  1. Add to `planlab` the command `fingerprint` (a new file, `Fingerprint.cs`; `Program.cs` routes to it): for seeds 1000, 2961, 3046,
+     777, 114 and 4242, floors 1, 3, 5 and 8, in the lab's default layout and with `waves` (the layout the game uses), compute the SHA-256
+     of the text that `dump` writes, in the invariant culture (`dump` prints its numbers in the culture of the machine: a decimal comma on
+     the maintainer's PC, a point on the runner; the brief did not say); print one line per plan and write them with `--report FILE`.
   2. `fingerprint --update tools/fixtures/plan-fingerprint.json` rewrites the fixture, which also records the revision read from
-     `CoopWire.cs`. It refuses (`PLAN_CHANGED_WITHOUT_REVISION`) when a hash changed and the revision did not.
+     `CoopWire.cs` (a string such as `pe-coop-37`, not a number). It refuses (`PLAN_CHANGED_WITHOUT_REVISION`) when a hash changed and the
+     revision did not.
   3. Add the suite `plan`: one finding per plan (`PLAN_FINGERPRINT`: observed and expected hash) and one that the fixture's revision is
      the one in `CoopWire.cs` (`PLAN_REVISION`).
   4. Add it to the gate, and say in the two pages what to do when it fails.
@@ -122,15 +124,24 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
   1. Add `check_game(root)` to the guard, built on `census()` of the census (absent game folder: no findings):
      `GAME_PRODUCTION_NAMES_TEST` (a file that is not a test names a test type), `GAME_TEST_NOT_EXCLUDED` (a test file without
      `PE_DISTRIBUTION_BUILD`), `GAME_PURE_FILE_NAMES_ENGINE` (a game file that a lab compiles names `UnityEngine` or `UnityEditor`),
-     `GAME_BASELINE_STALE` (an entry of the baseline that no longer applies).
-  2. The baseline is the fixture: today's two files and 14 files, each with a reason. An entry can be removed, never added without a
+     `GAME_BASELINE_STALE` (an entry of the baseline that no longer applies). Found when the rule was first run: a *lab* is a project
+     that reaches no Unity assembly. The projects of `tools/multiplayer-check` that do (`unity-compile`, `fishnet-compile`) compile engine
+     code against the editor's own libraries, and 14 of the files they compile name `UnityEngine` or `UnityEditor` on purpose; counted as labs they would
+     be 14 violations that are not one, so the rule leaves them out. A fifth code, `GAME_BASELINE_INVALID`, reports a baseline that is
+     not valid or has an entry without its reason.
+  2. The baseline is the fixture: today's two files and 14 files, each with a reason (none for the engine rule). An entry can be removed, never added without a
      reason a reviewer accepts.
   3. In the gate, after the guard, print `python tools/code_census.py --section sizes --section cycles --section tests --section flags`
-     into the run summary and upload its JSON with the lab reports. It reports; it does not fail.
+     into the run summary and upload its JSON with the lab reports. It reports; it does not fail. The census reads the `.asmdef` files of
+     the game, which the sparse checkout of the gate did not have (without `Multiplayer/Core`'s, five of its files count as `Assembly-CSharp`
+     there): the pattern is added.
 - **Done when**
   - The guard passes on the repository; each new code is produced by a fixture violation in the unit tests; removing a baseline entry
     whose violation still exists fails; fixing a violation and leaving its entry fails with `GAME_BASELINE_STALE`.
-  - `python tools/check_suite.py` takes less than five seconds (state before and after).
+  - The new rules add at most about three seconds to `python tools/check_suite.py`. Time it before and after the change on an idle PC,
+    alternating the two runs so that the load of the machine hits both alike, and state both times (at T04: 5.18 s and 7.84 s, +2.66 s).
+    There is no ceiling on the total: an earlier version of this brief asked for less than five seconds, and that number fell when the
+    wiki check, added after the brief was written, came to about 4.5 s by itself; making that check faster is a task of its own, not T04's.
 - **Verify**: the unit tests; `python tools/check_suite.py`; the summary of the gate.
 - **Not in scope**: failing on the number of references between folders; changing any game file.
 
@@ -242,7 +253,8 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 
 - **Why**: F11. Rules 9 and 12 ask for worktrees; a new one cannot compile until every asset is imported.
 - **Needs**: PowerShell, Python for the test; **editor** only to measure.
-- **Touches**: new `tools/worktree.ps1`, `tools/test_worktree.py`, [building-and-shipping.md](building-and-shipping.md), rule 12 of `AGENTS.md`.
+- **Touches**: new `tools/worktree.ps1`, `tools/test_worktree.py`, [building-and-shipping.md](building-and-shipping.md), rule 12 of `AGENTS.md`;
+  and, because they described the script as a design, [agent-tooling.md](agent-tooling.md) and the list of unit tests in [testing.md](testing.md).
 - **Steps**: write the script described in [agent-tooling.md](agent-tooling.md#toolsworktreeps1-a-place-to-work), ASCII, with `-DryRun`,
   and a test in the style of `tools/test_release.py` (throwaway repositories, an invented `Library`).
 - **Done when**

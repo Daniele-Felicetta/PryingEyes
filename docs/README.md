@@ -68,6 +68,7 @@ Pages are grouped by who needs them: what the game is (`game/`), how it is built
 | [package-extraction.md](engineering/package-extraction.md) | Which code can become a reusable Unity package and when: the ladder from gameplay to package, the packages the game does not use yet, the inventory of candidates with the event that triggers each, the recipes. |
 | [agent-tooling.md](engineering/agent-tooling.md) | The command line and the data formats for AI agents: one entry point, the list of suites, the manifest of the in-player tests, results as data, the compile check, the state of a checkout, worktrees, hazards declared and enforced. A design, with what exists marked. |
 | [modular-tasks.md](engineering/modular-tasks.md) | The 21 tasks of the plan, each with its reason, steps, acceptance criteria and verification, written to be carried out by an agent alone, and the rules for carrying one out. |
+| [plan-method.md](engineering/plan-method.md) | How the plan is run when tasks go side by side: the roles (maintainer, lead, task session), the cycle, what a brief holds and how a report is checked, the order of merges, when to stop and ask, and what the first wave showed. |
 | [unreal-prototype.md](engineering/unreal-prototype.md) | The Unreal Engine 5.8 feasibility prototype: one generated room exported from Unity and rebuilt in Unreal from the command line (no Blueprints), how the Unity look is matched, how frames are timed, results and traps. |
 
 The reusable C# packages have their own READMEs:

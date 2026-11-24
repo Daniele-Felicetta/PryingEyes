@@ -12,6 +12,13 @@ Reusable code stays reusable only while something fails when it stops being so. 
   engine     the Python production engine (tools/studio_engine.py, its process and queue modules and the dependency
              graph) names no game, no content type and no tool of this project: a project plugs in through its profile
              (tools/studio_pryingeyes.py for this game)
+  game       the game's own C# sources (unity/PryingEyes/Assets/_PryingEyes), read through the census (tools/code_census.py)
+             - no production file names a test type, and every test file is wrapped in PE_DISTRIBUTION_BUILD, so a
+               distribution build can leave the tests out
+             - a game file that an engine-free lab compiles names neither UnityEngine nor UnityEditor
+             - what is wrong today is listed, each with its reason, in tools/fixtures/game-boundaries.json: the list can only
+               shrink, an entry whose violation is gone fails (GAME_BASELINE_STALE) until it is deleted, and so does a file
+               that is not valid (GAME_BASELINE_INVALID)
   docs       README.md, AGENTS.md, docs/**/*.md and the package READMEs
              - every relative link resolves, anchors included, and every `docs/....md` path named in code spans exists
              - every page under docs/ is listed in docs/README.md, the index
@@ -29,11 +36,20 @@ import re
 import sys
 from urllib.parse import unquote
 from xml.etree import ElementTree
+import code_census  # the census of the game's sources (tools/code_census.py), standard library only
 import wiki_site  # the wiki: its generator and its checks (tools/wiki_site.py), standard library only
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = "unity/PryingEyes/Packages"
 DOCS = "docs"
+GAME = code_census.GAME
+BASELINE = "tools/fixtures/game-boundaries.json"
+# The rules about the game's sources: the code of each finding and what the rule expects. The baseline can tolerate a violation of any of them.
+GAME_RULES = {
+    "GAME_PRODUCTION_NAMES_TEST": "production code never names a test type: a test installs itself, so a distribution build can leave it out",
+    "GAME_TEST_NOT_EXCLUDED": "a test file is wrapped in #if !PE_DISTRIBUTION_BUILD, so a release does not ship it",
+    "GAME_PURE_FILE_NAMES_ENGINE": "a file that an engine-free lab compiles names neither UnityEngine nor UnityEditor, so its rules run without the editor",
+}
 MD_FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,}).*?^[ \t]*\1[ \t]*$", re.M | re.S)
 MD_INLINE_CODE = re.compile(r"`[^`\n]*`")
 MD_LINK = re.compile(r"\[[^\]\n]*\]\(<?([^)\s>]+)>?(?:\s+\"[^\"\n]*\")?\)")
@@ -126,6 +142,94 @@ def check_engine(root):
     return findings
 
 
+def reaches_unity(project, seen=()):
+    """Whether a .NET project refers to a Unity assembly: a Reference to one, in the project, in a props file it imports or in a project it references."""
+    try: tree = ElementTree.parse(project)
+    except (ElementTree.ParseError, OSError): return False
+    for item in tree.iter():
+        if item.tag == "Reference":
+            if "Unity" in (item.get("Include") or "") + "".join(hint.text or "" for hint in item.iter("HintPath")): return True
+        elif item.tag in ("Import", "ProjectReference"):
+            other = (project.parent / (item.get("Project") or item.get("Include") or "").replace("\\", "/")).resolve()
+            if other.is_file() and other not in seen and reaches_unity(other, seen + (project,)): return True
+    return False
+
+
+def lab_sources(root):
+    """{source file: lab folders}: what the engine-free labs compile (a name with * or ** takes every file it matches).
+
+    A lab compiles sources and reaches no Unity assembly. The projects of tools/multiplayer-check that do are compile checks against the
+    editor's own libraries: they exist to compile engine code, so they prove nothing about what runs without one and are left out."""
+    result = {}
+    for project in sorted((root / "tools").rglob("*.csproj")):
+        if any(part in ("bin", "obj") for part in project.relative_to(root).parts) or reaches_unity(project): continue
+        try: tree = ElementTree.parse(project)
+        except ElementTree.ParseError: continue
+        lab = project.relative_to(root / "tools").parts[0]
+        for item in tree.iter("Compile"):
+            include = (item.get("Include") or "").replace("\\", "/")
+            if not include or "$(" in include: continue
+            parts = include.split("/")
+            fixed = next((number for number, part in enumerate(parts) if "*" in part or "?" in part), len(parts))
+            base = (project.parent / "/".join(parts[:fixed])).resolve()
+            for path in [base] if fixed == len(parts) else sorted(base.glob("/".join(parts[fixed:]))) if base.is_dir() else []:
+                result.setdefault(path.resolve(), set()).add(lab)
+    return result
+
+
+def read_baseline(root):
+    """The exceptions the guard tolerates, {code: {(file, name): reason}}, and the findings about the fixture itself.
+
+    Files are relative to the game folder. An entry of GAME_PRODUCTION_NAMES_TEST also says which test type the file names."""
+    tolerated, findings = {code: {} for code in GAME_RULES}, []
+    path = root / BASELINE
+    if not path.is_file(): return tolerated, findings
+
+    def invalid(observed):
+        findings.append(finding("GAME_BASELINE_INVALID", BASELINE, observed, "a JSON object whose entries each name a file and say why it is tolerated"))
+
+    try: data = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as error: invalid(f"not valid JSON: {error}"); return tolerated, findings
+    if not isinstance(data, dict): invalid("not a JSON object"); return tolerated, findings
+    for key in sorted(set(data) - set(GAME_RULES) - {"schemaVersion", "about"}): invalid(f"unknown key {key!r}: the rules are " + ", ".join(GAME_RULES))
+    for code in GAME_RULES:
+        fields = ("file", "reason") + (("names",) if code == "GAME_PRODUCTION_NAMES_TEST" else ())
+        entries = data.get(code, [])
+        if not isinstance(entries, list): invalid(f"{code} is not a list"); continue
+        for number, entry in enumerate(entries, 1):
+            if isinstance(entry, dict) and all(isinstance(entry.get(field), str) and entry[field].strip() for field in fields):
+                tolerated[code][(entry["file"], entry.get("names", ""))] = entry["reason"]
+            else: invalid(f"entry {number} of {code} lacks one of: " + ", ".join(fields))
+    return tolerated, findings
+
+
+def check_game(root):
+    """Rules about the game's own sources, from the census: tests stay out of production code and out of releases, and what an
+    engine-free lab compiles stays engine-free. A tree without the game has nothing to check."""
+    root = Path(root).resolve()
+    game = root / GAME
+    if not game.is_dir(): return []
+    data, (tolerated, findings) = code_census.census(root), read_baseline(root)
+    pure = {(game / row["file"]).resolve() for row in data["pure"]}
+    engine_naming = {}      # game files that a lab compiles and the census does not call engine-free: what compiles them, and the engine names they use
+    for path, labs in lab_sources(root).items():
+        if game in path.parents and path.is_file() and path not in pure:
+            used = sorted({match[0] for match in code_census.ENGINE.finditer(code_census.blank(path.read_text(encoding="utf-8-sig", errors="replace")))})
+            engine_naming[path.relative_to(game).as_posix()] = f"compiled by {', '.join(sorted(labs))} and names {' and '.join(used)}"
+    observed = {
+        "GAME_PRODUCTION_NAMES_TEST": {(rel, name): f"names the test type {name}" for rel, names in data["tests"]["namedByProductionCode"].items() for name in names},
+        "GAME_TEST_NOT_EXCLUDED": {(rel, ""): "a test file with no PE_DISTRIBUTION_BUILD in it" for rel in data["tests"]["notExcludedFromDistribution"]},
+        "GAME_PURE_FILE_NAMES_ENGINE": {(rel, ""): what for rel, what in engine_naming.items()},
+    }
+    for code, expected in GAME_RULES.items():
+        for (rel, name), what in sorted(observed[code].items()):
+            if (rel, name) not in tolerated[code]: findings.append(finding(code, f"{GAME}/{rel}", what, expected))
+        for rel, name in sorted(set(tolerated[code]) - set(observed[code])):
+            findings.append(finding("GAME_BASELINE_STALE", BASELINE, f"{code} still lists {rel}{f' ({name})' if name else ''}, which no longer breaks the rule",
+                                    "delete the entry in the commit that fixes the violation"))
+    return findings
+
+
 def heading_slugs(text):
     """The anchors GitHub gives the headings of a page (fenced code excluded, repeats numbered)."""
     slugs, seen = set(), {}
@@ -200,7 +304,7 @@ def check_wiki(root):
 
 def check(root=ROOT):
     root = Path(root).resolve()
-    return check_packages(root) + check_engine(root) + check_docs(root) + check_wiki(root)
+    return check_packages(root) + check_engine(root) + check_game(root) + check_docs(root) + check_wiki(root)
 
 
 def main(argv=None):
