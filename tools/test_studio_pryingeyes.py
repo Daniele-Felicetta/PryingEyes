@@ -25,7 +25,8 @@ TOOLS = {"blender": Path("blender.exe"), "unity": Path("Unity.exe")}
 LEFT_BEHIND = {"gunplaytest": ("gunplaytest-player.log", "[PryingEyes] gunplaytest RISULTATO SUPERATA: 18/18"), "room-materials": ("room-materials-unity.log", "MATERIAL_IMPORT_PASS"),
                "weapon-state": ("weapon-state.json", '{"ok": true, "findings": []}'), "survival-state": ("survival-state.json", '{"ok": true, "findings": []}'),
                "economy-state": ("economy-state.json", '{"ok": true, "findings": []}'), "saves-state": ("saves-state.json", '{"ok": true, "findings": []}'),
-               "track-state": ("track-state.json", '{"ok": true, "findings": []}'), "desert-state": ("desert-state.json", '{"ok": true, "findings": []}')}
+               "track-state": ("track-state.json", '{"ok": true, "findings": []}'), "desert-state": ("desert-state.json", '{"ok": true, "findings": []}'),
+               "admission-state": ("admission-state.json", '{"ok": true, "findings": []}')}
 
 
 class RecordingJob:
@@ -111,6 +112,30 @@ class PryingEyesProfile(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "DESERT_STATE_FAILED_OR_REPORT_MISSING"): self.desert_suite(None)
         self.assertEqual(self.job.report["findings"], [])
 
+    def admission_suite(self, left=None):
+        """Runs the `admission` suite on a job that leaves the lab's report `left` (a dict), or no report at all."""
+        with patch.dict(LEFT_BEHIND):
+            if left is None: del LEFT_BEHIND["admission-state"]
+            else: LEFT_BEHIND["admission-state"] = ("admission-state.json", json.dumps(left))
+            pe.PRYING_EYES.suites["admission"].run(engine.Context(self.job, pe.PRYING_EYES, TOOLS), None)
+
+    def test_admission_suite_runs_the_lab_with_a_report_and_keeps_its_findings(self):
+        finding = {"code": "REPEATED_CHALLENGE_CANNOT_EXTEND_ITS_DEADLINE", "subject": "admission gate", "passed": True, "observed": "holds", "expected": "Repeated challenge cannot extend its deadline"}
+        self.admission_suite({"ok": True, "findings": [finding]})
+        report = Path(self.folder.name) / "admission-state.json"
+        self.assertEqual(self.job.steps, [("admission-state", ["dotnet", "run", "-c", "Release", "--project", str(ROOT / "tools/admissionlab"), "--", str(report)])])
+        self.assertEqual(self.job.report["artifacts"], [str(report)])
+        self.assertEqual(self.job.report["findings"], [{**finding, "evidence": str(report)}])
+
+    def test_admission_suite_fails_on_a_failed_check_and_the_report_still_names_it(self):
+        failed = {"code": "EMPTY_SESSION_CANNOT_START", "subject": "roster", "passed": False, "observed": "violated", "expected": "Empty session cannot start"}
+        with self.assertRaisesRegex(RuntimeError, "ADMISSION_STATE_FAILED_OR_REPORT_MISSING"): self.admission_suite({"ok": False, "findings": [failed]})
+        self.assertEqual([f["code"] for f in self.job.report["findings"] if not f["passed"]], ["EMPTY_SESSION_CANNOT_START"])
+
+    def test_admission_suite_fails_when_the_lab_leaves_no_report(self):
+        with self.assertRaisesRegex(RuntimeError, "ADMISSION_STATE_FAILED_OR_REPORT_MISSING"): self.admission_suite(None)
+        self.assertEqual(self.job.report["findings"], [])
+
     def plan_lab_report(self, **changes):
         """What the plan lab writes when it computes exactly the plans and the revision of the committed fixture, with `changes` applied."""
         fixture = json.loads(pe.PLAN_FIXTURE.read_text(encoding="utf-8"))
@@ -181,7 +206,7 @@ class PryingEyesProfile(unittest.TestCase):
 
     def test_registry_matches_the_command_line_the_docs_describe(self):
         self.assertEqual(list(pe.PRYING_EYES.kinds), ["weapon", "room"])
-        labs = ["weapon-state", "survival", "economy", "saves", "track", "desert", "plan"]
+        labs = ["weapon-state", "survival", "economy", "saves", "track", "desert", "plan", "admission"]
         suites = pe.PRYING_EYES.suites
         self.assertEqual(list(suites)[:len(labs) + 1], labs + ["compile"])                                       # the labs, then the check that needs the editor
         self.assertEqual({name: suites[name].runtime for name in labs}, {name: False for name in labs})
@@ -196,7 +221,7 @@ class PryingEyesProfile(unittest.TestCase):
         compile_ = suites["compile"]
         self.assertEqual((compile_.kind, compile_.needs, compile_.hazards, compile_.runtime), ("editor", ("editor",), (), False))       # the editor, no player: the gate cannot run it
         gate = [name for name, suite in suites.items() if not suite.needs]
-        self.assertEqual(gate, ["weapon-state", "survival", "economy", "saves", "track", "desert", "plan"])       # the rule labs, in the order of the run summary
+        self.assertEqual(gate, ["weapon-state", "survival", "economy", "saves", "track", "desert", "plan", "admission"])       # the rule labs, in the order of the run summary
         self.assertEqual({suites[name].kind for name in gate}, {"lab"})
         out = io.StringIO()
         with contextlib.redirect_stdout(out): code = engine.main(pe.PRYING_EYES, ["suites", "--json"])

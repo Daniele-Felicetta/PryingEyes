@@ -406,6 +406,20 @@ def desert_state(job):
     if result is None or not result["ok"]: raise RuntimeError("DESERT_STATE_FAILED_OR_REPORT_MISSING")
 
 
+def admission_state(job):
+    """The admission rules lab: who may join a co-op session (the host's gate, the token a guest sends, the roster of seats) and the perks a player carries, compiled from the game's own files."""
+    report = job.folder / "admission-state.json"
+    job.report["artifacts"].append(str(report)); job.save()
+    result = None
+    try:
+        job.run("admission-state", ["dotnet", "run", "-c", "Release", "--project", ROOT / "tools/admissionlab", "--", report], timeout=180)
+    finally:
+        if report.is_file():
+            result = json.loads(report.read_text(encoding="utf-8"))
+            job.report["findings"].extend({**finding, "evidence": str(report)} for finding in result["findings"]); job.save()
+    if result is None or not result["ok"]: raise RuntimeError("ADMISSION_STATE_FAILED_OR_REPORT_MISSING")
+
+
 def plan_findings(computed, fixture):
     """The findings of the floor generator's fingerprint: one per plan, the hash computed now (observed) against the one in the fixture (expected), and one for
     CoopProtocol.Revision, the one read from CoopWire.cs now (observed) against the one the fixture was made at (expected)."""
@@ -627,6 +641,8 @@ class PryingEyes(Project):
                               about="The desert's pure code: noise, clock, terrain, buildings, world, map, weather and grading"),
               "plan": Suite(lambda ctx, runtime: plan_state(ctx.job), kind="lab", seconds=3,
                             about="The floor generator: its plans against the committed hashes, and the protocol revision"),
+              "admission": Suite(lambda ctx, runtime: admission_state(ctx.job), kind="lab", seconds=3,
+                                 about="Getting into a co-op session: the host's gate, the token a guest sends and the roster of seats; and the perks a player carries"),
               "compile": Suite(lambda ctx, runtime: compile_scripts(ctx.job, ctx.tools["unity"]), kind="editor", needs=("editor",), seconds=15,
                                about="The scripts compile: the editor, started with no method, compiles them and quits; each compiler error is a finding with its file and line"),
               **{name: player_suite(entry) for name, entry in PLAYER_ENTRIES.items()}}

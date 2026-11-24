@@ -8,17 +8,23 @@ using PryingEyes.Multiplayer.FishNetBackend.EditorTools;
 
 static class Program
 {
-    static int checks;
+    static int checks, reported;
     static void Check(bool condition, string message)
     {
         checks++;
         if (!condition) throw new Exception(message);
     }
+    // T20: one line per block with the assertions it ran, so that the numbers can be carried to another lab and compared.
+    static void Block(string name)
+    {
+        Console.WriteLine("  " + name.PadRight(18) + (checks - reported).ToString().PadLeft(4));
+        reported = checks;
+    }
     static void Main()
     {
-        CheckWorkspaceGuard();
-        CheckAdmissionGate();
-        CheckPlayerPerks();
+        CheckWorkspaceGuard(); Block("guard");
+        CheckAdmissionGate(); Block("admission gate");
+        CheckPlayerPerks(); Block("PlayerPerks");
         var diagonal = new SeatCommand { MoveX = 1, MoveZ = 1, Turn = 100, Fire = true, Use = true, Sequence = 4, Epoch = 2 }.Sanitized();
         Check(Math.Abs(diagonal.MoveX * diagonal.MoveX + diagonal.MoveZ * diagonal.MoveZ - 1) < .00001f &&
             diagonal.Turn == 1 && diagonal.Fire && diagonal.Use && diagonal.Sequence == 4 && diagonal.Epoch == 2, "Normalize diagonal without changing command identity");
@@ -32,6 +38,7 @@ static class Program
         }
         Check(SeatCommand.IsNewer(0, uint.MaxValue), "Accept sequence rollover");
         Check(!SeatCommand.IsNewer(uint.MaxValue, 0) && !SeatCommand.IsNewer(2, 2) && !SeatCommand.IsNewer(1, 2), "Reject stale and duplicate input");
+        Block("seat command");
         const string revision = "build-a_1.0";
         for (int seats = 1; seats <= 4; seats++)
         {
@@ -47,6 +54,7 @@ static class Program
         bool invalidRevision = false;
         try { SessionAdmission.Create(1, "bad|revision"); } catch (ArgumentException) { invalidRevision = true; }
         Check(invalidRevision, "Reject noncanonical revision");
+        Block("admission token");
         var roster = new SessionRoster(6);
         Check(!roster.AllReady, "Empty session cannot start");
         Check(!roster.TryJoin(1, 0) && !roster.TryJoin(1, 5) && !roster.TryJoin(-1, 1), "Reject invalid seats/peer");
@@ -73,6 +81,7 @@ static class Program
         Check(roster.AllReady && roster.Seats[1].Equals(new PlayerSeat(10, 1)), "Late join preserves local identities");
         roster.Leave(30); roster.Leave(10);
         Check(!roster.AllReady && !roster.Owns(10, new PlayerSeat(10, 0)), "Empty / disconnected session");
+        Block("roster");
 
         for (int count = 1; count <= 4; count++)
         {
@@ -94,6 +103,7 @@ static class Program
         bool rejected = false;
         try { SplitLayout.ForSeat(2, 2); } catch (ArgumentOutOfRangeException) { rejected = true; }
         Check(rejected, "Invalid seat rejected");
+        Block("split layout");
 
         // Exercise the actual production generator, including compound and themed floors.
         foreach (bool grid in new[] { true, false })
@@ -132,6 +142,7 @@ static class Program
         Check(spawnPoints.Length == 18 && spawnPoints.All(p => p.x < 20), "Disconnected room excluded from spawn search");
         Check(spawnPoints.Take(9).All(p => p.x >= 1 && p.x <= 4 && p.z >= 1 && p.z <= 4), "Entrance first with wall margin");
         Check(spawnPoints.Skip(9).All(p => p.x >= 11), "Reachable room follows entrance");
+        Block("floor plan");
         Console.WriteLine("PASS: " + checks + " assertions; roster, mixed seats, floor barrier, viewports, real generator.");
     }
 
