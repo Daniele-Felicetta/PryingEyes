@@ -272,7 +272,7 @@ class PlayerManifest(unittest.TestCase):
     def test_the_parameters_of_a_param_block(self):
         script = "# comment (with parentheses\nparam(\n  [string]$Exe = (Join-Path $PSScriptRoot 'x'),\n  [ValidateRange(2, 4)][int]$Players = 3,   # (aside)\n  [switch]$Desert\n)\n$later = [int]$Other"
         self.assertEqual({"exe", "players", "desert"}, parameters(script))
-        self.assertEqual({"only", "seed", "timeoutsec", "logdir"}, parameters((ROOT / COOP_ALL).read_text(encoding="utf-8-sig")))
+        self.assertEqual({"only", "seed", "timeoutsec", "logdir", "port"}, parameters((ROOT / COOP_ALL).read_text(encoding="utf-8-sig")))
         self.assertEqual(set(), parameters("Write-Output 1"))
 
     def test_every_scenario_of_the_coop_script_has_exactly_one_entry(self):

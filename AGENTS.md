@@ -10,7 +10,7 @@ documentation is `docs/README.md`; building, shipping and CI are in `docs/engine
 2. **Engine** (`tools/studio_engine.py`, `studio_process.py`, `studio_queue.py`, `asset_graph.py`): standard library only; names no
    game, content type or tool. New content kinds and checks go in the profile, `tools/studio_pryingeyes.py`, as `ContentType`/`Suite`.
    A second project is a `Project` subclass; `tools/fixtures/toy_project.py` is the smallest example.
-3. **Before committing** run `python tools/check_suite.py` and `python -m unittest discover -s tools -p "test_*.py"` (about 30 s, no
+3. **Before committing** run `python tools/check_suite.py` and `python -m unittest discover -s tools -p "test_*.py"` (about two minutes, no
    Unity). `tools/ship.ps1` runs both and refuses to commit when they fail. `check_suite.py` also checks the documentation (rule 13).
 4. **Derived files stay out of git**: `Citta.unity`, `Labs/*`, regenerated `.mat`, `Torre.unity` churn, `hotel_build`, builds. Do not
    `git add -A` / `git add .`: stage the exact paths you changed.

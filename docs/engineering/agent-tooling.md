@@ -20,7 +20,7 @@ about durations on this page were not measured for it and are marked.
 | Read a result as data | a sentence in a log, found by a regular expression | F6 | `result.json` from the player, findings in `report.json` |
 | Know in seconds that the code compiles | a trick that is written nowhere | F10 | `studio.py test compile` |
 | Not start a check that is forbidden or that disturbs someone | rule 6 of `AGENTS.md`, warnings in prose | F11 | hazards declared in data and refused by the tool |
-| Work beside other agents | one port, one temporary folder, tracked files rewritten; `tools/worktree.ps1` (T10) makes and removes the worktree | F11 | per-run ports and folders, outputs outside git |
+| Work beside other agents | tracked files rewritten; `tools/worktree.ps1` (T10) makes and removes the worktree; the co-op scripts take a port and a log folder per run (T11) | F11 | outputs outside git |
 | Add a check without editing shared lines | a flag added by hand to `GameManager.cs`, a row to `testing.md` | F5 | a harness that registers the test, a manifest that generates the table |
 
 ## Rules of the design
@@ -307,8 +307,8 @@ Where the first sketch was wrong or short:
 | --- | --- | --- | --- |
 | Settings in the registry, shared with the maintainer's game | rule 6; `run_split.ps1` saves and restores the key around a windowed run | declared as `hazards: registry`; the runner saves and restores the key for every such suite; later, settings kept in memory during automated runs so that the hazard disappears | T06, T14 |
 | Graphics card and screen | "do not run while someone plays", in prose | `needs: gpu`, `hazards: screen`; refusal while another player is running | T06 |
-| UDP port 7807 and `$env:TEMP\pryingeyes-coop` for every checkout | two agents cannot run co-op checks at once | a port and a log folder per run, under the job folder | T11 |
-| Tracked files rewritten by runs (`hotel_build/autotest.txt`, `auto_shot*.png`) | restored by hand after each run (before T12) | automated runs write under `unity_logs/player/` (`TestPaths.Scratch`, exists); `hotel_build/` only when evidence is asked for | T12 |
+| UDP port 7807 and `$env:TEMP\pryingeyes-coop` for every checkout | `run_coop.ps1` takes a free UDP port for each run (`-Port`) and logs to `unity_logs/coop` of its checkout (`run_split.ps1`: `unity_logs/split`); two agents in two worktrees can run co-op checks at once | the log folder is the job folder when the studio runs the check | T11 (done), T06 |
+| Tracked files rewritten by runs (`hotel_build/autotest.txt`, `auto_shot*.png`) | the automatic run writes its report, its two timed screenshots and the bot's default log to `unity_logs/player/` (`TestPaths.Scratch`); `hotel_build/` is rewritten only by what a flag or an editor tool asks for | the tracked files and those outputs stay as they are until the maintainer decides ([modular-roadmap.md](modular-roadmap.md#decisions-that-are-the-maintainers)) | T12 (done) |
 | Tracked files rewritten by builds (materials, `Torre.unity`, settings assets) | rules 4 and 10: stage exact paths | measure what a build rewrites and why, then decide | T13 |
 | One editor per checkout | rule 9; the project lock | `tools/worktree.ps1` (exists); `doctor` | T09, T10 |
 | Two changes to the wire format at once | found at merge | one at a time, said in [modularization.md](modularization.md#rules-for-new-code) | none |
