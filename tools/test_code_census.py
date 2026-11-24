@@ -162,7 +162,9 @@ class Harness(unittest.TestCase):
         # production code asks TestRun and is allowed to; Leak names the harness itself and must be found
         "Scripts/Manager.cs": "using UnityEngine; namespace Game { public class Manager : MonoBehaviour { bool Quiet() { return TestRun.Dedicated; } } }",
         "Scripts/Leak.cs": "using UnityEngine; namespace Game { public class Leak : MonoBehaviour { PlayerTest owner; } }",
-        "Scripts/Testing/TestRun.cs": "namespace Game { public static class TestRun { public static bool Dedicated; static string Logs = \"unity_logs\"; } }",
+        "Scripts/Testing/TestRun.cs": "namespace Game { public static class TestRun { public static bool Dedicated; static string Out() { return TestPaths.LogFolder(\"x\"); } } }",
+        # the one place that resolves unity_logs/ against the checkout: TestPaths, compiled in every build like TestRun
+        "Scripts/TestPaths.cs": "namespace Game { public static class TestPaths { public static string LogFolder(string folder) { return \"unity_logs/\" + folder; } } }",
         "Scripts/Testing/PlayerTest.cs": "#if !PE_DISTRIBUTION_BUILD\nusing UnityEngine;\nnamespace Game { public abstract class PlayerTest : MonoBehaviour { protected bool Check(string name, bool ok) { return ok; } } }\n#endif\n",
         # a test on the harness has no Check of its own; an old one still has
         "Scripts/BetaTest.cs": "#if !PE_DISTRIBUTION_BUILD\nnamespace Game { public sealed class BetaTest : PlayerTest { [UnityEngine.RuntimeInitializeOnLoadMethod] static void Install() { } } }\n#endif\n",
@@ -177,10 +179,10 @@ class Harness(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(text, encoding="utf-8")
             tests = census(root)["tests"]
-        self.assertEqual(tests["files"], 3)                                     # PlayerTest, BetaTest and OldTest; TestRun is none of them
+        self.assertEqual(tests["files"], 3)                                     # PlayerTest, BetaTest and OldTest; TestRun and TestPaths are none of them
         self.assertEqual((tests["selfInstalling"], tests["ownCheckHelper"]), (1, 1))      # OldTest alone: the harness defines Check for everybody
         self.assertEqual(tests["notExcludedFromDistribution"], [])              # TestRun has no wrapper and needs none
-        self.assertEqual(tests["testOutputLiterals"], 1)                        # OldTest's; TestRun is where unity_logs/ is resolved against the checkout
+        self.assertEqual(tests["testOutputLiterals"], 1)                        # OldTest's; TestPaths is where unity_logs/ is resolved against the checkout
         self.assertEqual(tests["namedByProductionCode"], {"Scripts/Leak.cs": ["PlayerTest"]})     # Manager naming TestRun is not reported
 
 

@@ -32,7 +32,7 @@ namespace PryingEyes.Proc
         readonly float[] mapScanA = new float[Seats.MaxSeats];
         float mapRefreshT;
         GameManager gm;
-        static string BotLog => TestPaths.Out("proctest.txt");
+        static string BotLog => TestPaths.Scratch("proctest.txt");
 
         static readonly string[] FloorLines =
         {
