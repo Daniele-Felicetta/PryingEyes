@@ -19,7 +19,7 @@ about durations on this page were not measured for it and are marked.
 | Read a result as data | a sentence in a log, found by a regular expression | F6 | `result.json` from the player, findings in `report.json` |
 | Know in seconds that the code compiles | a trick that is written nowhere | F10 | `studio.py test compile` |
 | Not start a check that is forbidden or that disturbs someone | rule 6 of `AGENTS.md`, warnings in prose | F11 | hazards declared in data and refused by the tool |
-| Work beside other agents | one port, one temporary folder, tracked files rewritten; `tools/worktree.ps1` (T10) makes and removes the worktree | F11 | per-run ports and folders, outputs outside git |
+| Work beside other agents | tracked files rewritten; `tools/worktree.ps1` (T10) makes and removes the worktree; the co-op scripts take a port and a log folder per run (T11) | F11 | outputs outside git |
 | Add a check without editing shared lines | a flag added by hand to `GameManager.cs`, a row to `testing.md` | F5 | a harness that registers the test, a manifest that generates the table |
 
 ## Rules of the design
