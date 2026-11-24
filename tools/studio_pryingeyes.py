@@ -77,8 +77,8 @@ def reg(*arguments):
 def refuse_busy_player(entry, runtime):
     """Two copies of one build fight over their log and their files, and a run that draws is wrong while somebody plays: refuse before starting."""
     running = processes_named("PryingEyes.exe")
-    path = lambda process: (process.get("ExecutablePath") or "").replace("\\", "/").casefold()
-    same = [process for process in running if path(process) == Path(runtime).resolve().as_posix().casefold()]
+    spelled = lambda path: Path(path).resolve().as_posix().casefold()                         # case, slashes and 8.3 names (C:\Users\RUNNER~1) are not two builds
+    same = [process for process in running if process.get("ExecutablePath") and spelled(process["ExecutablePath"]) == spelled(runtime)]
     if same:
         raise RuntimeError(f"PLAYER_IN_USE: {runtime} is already running (process {same[0]['ProcessId']}); wait for it to close, or test another build")
     if "gpu" in entry["needs"] and running:

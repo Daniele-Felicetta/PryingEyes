@@ -462,6 +462,19 @@ class PlayerSuites(unittest.TestCase):
         job, message = self.fails(plays(), "PLAYER_IN_USE")
         self.assertIn("7", message); self.assertEqual(job.steps, [])
 
+    @unittest.skipUnless(os.name == "nt", "8.3 names are Windows'")
+    def test_a_build_that_is_running_under_its_short_name_is_the_same_build(self):
+        """The CI runner's temporary folder is C:\\Users\\RUNNER~1\\...: the same file has two spellings, and Windows may report either."""
+        import ctypes
+        buffer = ctypes.create_unicode_buffer(1024)
+        size = ctypes.windll.kernel32.GetShortPathNameW(str(self.exe), buffer, len(buffer))
+        short = buffer.value if 0 < size < len(buffer) else str(self.exe)
+        if short.casefold() == str(self.exe.resolve()).casefold(): self.skipTest("this volume gives no 8.3 names")
+        self.running = [{"ProcessId": 8, "ExecutablePath": short, "CommandLine": ""}]
+        self.fails(plays(), "PLAYER_IN_USE")                                                    # named by its long path
+        self.running = [{"ProcessId": 9, "ExecutablePath": str(self.exe.resolve()), "CommandLine": ""}]
+        self.fails(plays(), "PLAYER_IN_USE", runtime=Path(short))                               # the other way round
+
     def test_a_suite_with_hazards_is_refused_until_every_one_is_allowed(self):
         for name, hazards in (("uitest", ["registry", "screen"]), ("displaytest", ["registry"])):
             refuse = lambda allow: engine.refuse_unallowed_hazards(pe.PRYING_EYES, argparse.Namespace(suite=name, allow=allow))
