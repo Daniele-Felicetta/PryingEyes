@@ -4,44 +4,27 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -noenemies -torchreview: stessa esposizione, modelli e misure dei pixel illuminati.</summary>
-    public sealed class TorchReviewTest : MonoBehaviour
+    public sealed class TorchReviewTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        string output;
         Camera camera;
         Material maskMaterial;
+
+        protected override string Suite { get { return "torchreview"; } }
+        protected override string OutFolder { get { return "torch-review"; } }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-torchreview") >= 0) new GameObject("TorchReviewTest").AddComponent<TorchReviewTest>();
-        }
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] torchreview " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            output = Path.GetFullPath("unity_logs/torch-review");
-            var args = Environment.GetCommandLineArgs();
-            for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-torchout") output = Path.GetFullPath(args[i + 1]);
-            Directory.CreateDirectory(output);
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] torchreview RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
+        static void Install() { InstallWhen<TorchReviewTest>("-torchreview"); }
+
         Color32[] Capture(string file)
         {
-            GameManager.CamShot(Path.Combine(output, file + ".png"), camera, false, 640, 360);
-            var image = new Texture2D(2, 2); image.LoadImage(File.ReadAllBytes(Path.Combine(output, file + ".png")));
+            string path = PhotoPath(file);
+            GameManager.CamShot(path, camera, false, 640, 360);
+            var image = new Texture2D(2, 2); image.LoadImage(File.ReadAllBytes(path));
             var pixels = image.GetPixels32(); Destroy(image); return pixels;
         }
         Color32[] Mask(GameObject subject, string label)
@@ -79,7 +62,7 @@ namespace PryingEyes
             Check(label + " dettagli conservati (bianchi saturi sotto 4%)", white < 0.04f);
             Check(label + " soggetto ancora leggibile", mean > 0.04f);
         }
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;

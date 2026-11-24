@@ -131,6 +131,10 @@ Code (`Assets/_PryingEyes/Scripts/`): `PadControls.cs`, `PadMenuInput.cs`, `Game
   left between **Il deserto** and **Standard**, the frame following, B back to *Gioca*, and A on **Standard** starting the usual game without a jump
   (the test puts the remembered mode back). And the main menu has **Personaggi** since 0.9, which the steps had not counted: before the update the
   run failed 49 of 89, from the first step that counted the buttons down to *Impostazioni* (four presses from *Cooperativa*, not three) onwards.
+- On 24 November 2026, on the player built from `preview`, `-padtest -nowaves` no longer passes: 12 of the 53 checks it reaches fail and it quits before it
+  prints a result. The main menu has a **Wiki** button since the wiki joined the game, between *Come si gioca* and *Impostazioni*
+  (`GameMenu.Design.cs`); four presses from *Cooperativa* now land on *Wiki*, the steps go on pressing, and an A on *Esci* closes the player. The same 53 lines
+  with and without a graphics card. The steps have to count the new button; nobody has done it yet (T08 moved the test onto `PlayerTest` without changing a step).
 - **Not verified**: a physical controller (none was available; the real XInput read answers without errors and the rest runs on fake
   states), the feel of the new mapping in a real game, PlayStation and Switch controllers through a wrapper, several controllers in the normal game (the first one pressed wins),
   Steam Input, controller hot-plug during a real game, and the look of the menus at resolutions other than 1024x720.
