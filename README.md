@@ -48,7 +48,7 @@ Everything is described, with the numbers checked against the code, in [The cath
 | `unity/PryingEyes` | The game: the Unity project. Code in `Assets/_PryingEyes/Scripts` (`Proc/` floors and waves, `Coop/` co-op, `Armi/` weapons), editor tools in `Assets/_PryingEyes/Editor`. |
 | `unity/PryingEyes/Packages` | Engine-independent C# packages: `layout`, `weapons`, `survival`, `economy`, `saves`. No Unity, no game names. |
 | `unity/LayoutDemo` | An independent Unity project that consumes the packages: the proof they are reusable. |
-| `tools/` | The production suite and the checks: the Python engine and its project profile, the .NET rule labs (`planlab`, `weaponslab`, `survivallab`, `economylab`, `saveslab`, `tracklab`, `desertlab`), `check_suite.py`, `ship.ps1`, the co-op and trailer scripts, the unit tests. |
+| `tools/` | The production suite and the checks: the Python engine and its project profile, the .NET rule labs (the `tools/*lab` folders; `python tools/studio.py suites` lists what can be run), `check_suite.py`, `ship.ps1`, the co-op and trailer scripts, the unit tests. |
 | `modelli/` | The Blender scripts that generate the weapons, furniture, church, themed props, hands and enemies. |
 | `hotel_build/` | Screenshots and result files written by the editor tools and the in-game tests, older committed evidence, and the scripts of the Unreal prototype. |
 | `index.html`, `js/`, `style.css` | The first prototype, a Three.js page. |

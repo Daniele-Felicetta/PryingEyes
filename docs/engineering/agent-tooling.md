@@ -5,8 +5,9 @@ designs the command line and the data formats that make that work faster and saf
 the result and stays out of the way of the others. It starts from what exists and from the findings of
 [architecture-audit.md](architecture-audit.md) (F5 to F11), and adds as little as possible.
 
-State: a design, with two parts built: `tools/code_census.py` (it was written with the audit) and `tools/worktree.ps1` (T10; how it is
-used is in [building-and-shipping.md](building-and-shipping.md#branches-and-worktrees)). Each addition has a task in
+State: partly built. `tools/code_census.py` (written with the audit), `studio.py test desert` and `test plan` (T01, T02), the game's rules in
+`check_suite.py` (T04), `tools/worktree.ps1` (T10; how it is used is in [building-and-shipping.md](building-and-shipping.md#branches-and-worktrees))
+and, since T03, `studio.py suites` and the hazards (`--allow`) exist; the rest below is a design. Each addition has a task in
 [modular-tasks.md](modular-tasks.md) with the checks that prove it; the order is in [modular-roadmap.md](modular-roadmap.md). Claims
 about durations on this page were not measured for it and are marked.
 
@@ -42,8 +43,8 @@ about durations on this page were not measured for it and are marked.
 | Command | State | What it does | Result |
 | --- | --- | --- | --- |
 | `studio.py doctor [--json]` | exists; `--json` and the extra facts are new (T09) | the tools are installed; new: is the editor or a player open on this checkout, is there a `Library`, which commit is the verification build, how the last gate on `preview` ended | text, or JSON |
-| `studio.py suites [--json]` | new (T03) | every suite with what it needs, its hazards and its usual duration | one line each, or JSON |
-| `studio.py test <suite> [--runtime EXE] [--allow HAZARD]` | exists; `--allow` new (T03) | runs one suite as a job under the project lock | `unity_logs/studio/<job>/report.json` |
+| `studio.py suites [--json]` | exists (T03) | every suite with what it needs, its hazards and its usual duration | one line each, or JSON |
+| `studio.py test <suite> [--runtime EXE] [--allow HAZARD]` | exists; `--allow` since T03 | runs one suite as a job under the project lock | `unity_logs/studio/<job>/report.json` |
 | `studio.py test desert` | exists (T01) | the desert lab: 107 checks, one finding each | `report.json` |
 | `studio.py test plan` | exists (T02) | the fingerprint of the floor generator: 48 plans and the protocol revision, one finding each | `report.json` |
 | `studio.py test compile` | new (T09) | the editor compiles the scripts and exits | compiler errors as findings |
@@ -58,8 +59,12 @@ The pages that list commands for people ([testing.md](testing.md), [building-and
 
 ### `suites`: what can be run
 
-The engine's `Suite` gains optional, free-text fields that the profile fills: `kind`, `needs`, `hazards`, `seconds`, `about`. The engine
-interprets only `hazards`. Example of `studio.py suites --json` (the durations are invented):
+The engine's `Suite` has optional, free-text fields that the profile fills: `kind`, `needs`, `hazards`, `seconds`, `about` (empty by default,
+so a suite written without them works as before). The engine interprets only `hazards`; `needs` is for whoever reads the list, the gate
+first. `studio.py suites` prints a table, one line per suite in the order of the profile, and `--json` prints the same as data; neither
+starts a job, takes the lock or writes a report. `seconds` is the usual duration on the gate's runner, `0` while nobody has measured it.
+The shape below is the real one, the entries are an example (the durations are invented, and `compile`, `traptest` and `uitest` are the
+kind of suite that T05, T06 and T09 add: they do not exist yet):
 
 ```json
 {
@@ -83,11 +88,12 @@ interprets only `hazards`. Example of `studio.py suites --json` (the durations a
 
 A suite with hazards runs only with `--allow registry --allow screen`; otherwise the job fails at once with `SUITE_HAZARD_NOT_ALLOWED`
 and names them. An agent passes `--allow` only when the maintainer asked for that check: the rule of `AGENTS.md` is unchanged, the tool
-now enforces it. `needs: gpu` makes the runner refuse (`PLAYER_GPU_BUSY`) while another `PryingEyes.exe` is running, as
+now enforces it (a queued request is refused when it is added, and keeps its `--allow` words; an `--allow` that names a hazard the suite
+does not declare changes nothing). `needs: gpu` makes the runner refuse (`PLAYER_GPU_BUSY`) while another `PryingEyes.exe` is running, as
 `tools/coop/run_split.ps1` already does.
 
-The suites that need nothing (`needs` empty) are the ones the gate runs. The workflow asks `suites --json` for them instead of naming
-each lab, so a new lab is added in one place (F9).
+The suites that need nothing (`needs` empty) are the ones the gate runs. The workflow asks `suites --json` for them and compiles every
+`tools/*lab` folder, instead of naming each lab, so a new lab is added in one place, its entry in the profile and its folder (F9).
 
 ### The manifest of the in-player suites
 

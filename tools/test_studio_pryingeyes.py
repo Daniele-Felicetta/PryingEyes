@@ -1,9 +1,13 @@
 """The Prying Eyes profile: the commands it issues to Blender, Unity and the labs, checked without running any of them."""
+import contextlib
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -174,6 +178,45 @@ class PryingEyesProfile(unittest.TestCase):
         self.assertEqual({name: suite.runtime for name, suite in pe.PRYING_EYES.suites.items()},
                          {"gunplay": True, "weapon-state": False, "survival": False, "economy": False, "saves": False, "track": False, "desert": False, "plan": False})
         self.assertEqual(pe.PRYING_EYES.publish_dir, pe.EXE.parent)
+
+    def test_every_suite_says_what_it_is_and_what_needs_nothing_is_what_the_gate_runs(self):
+        suites = pe.PRYING_EYES.suites
+        self.assertTrue(all(suite.kind and suite.about for suite in suites.values()))
+        self.assertEqual({name for name, suite in suites.items() if suite.runtime}, {name for name, suite in suites.items() if "runtime" in suite.needs})   # the flag and the word agree
+        self.assertEqual([name for name, suite in suites.items() if suite.hazards], [])
+        gate = [name for name, suite in suites.items() if not suite.needs]
+        self.assertEqual(gate, ["weapon-state", "survival", "economy", "saves", "track", "desert", "plan"])       # the rule labs, in the order of the run summary
+        self.assertEqual({suites[name].kind for name in gate}, {"lab"})
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out): code = engine.main(pe.PRYING_EYES, ["suites", "--json"])
+        listing = json.loads(out.getvalue())
+        self.assertEqual((code, listing["schemaVersion"], [item["name"] for item in listing["suites"]]), (0, 1, list(suites)))
+        self.assertEqual({item["name"]: item["needs"] for item in listing["suites"]}["gunplay"], ["runtime"])
+        self.assertEqual([item["name"] for item in listing["suites"] if not item["needs"]], gate)
+
+    def test_the_gate_workflow_asks_the_studio_and_names_no_lab_and_no_suite(self):
+        workflow = (ROOT / ".github/workflows/gate.yml").read_text(encoding="utf-8")
+        self.assertIn("studio.py suites --json", workflow)
+        self.assertEqual([name for name in re.findall(r"studio\.py test (\S+)", workflow) if not name.startswith("$")], [])      # each suite is run by the name it is listed with
+        labs = sorted(path.name for path in (ROOT / "tools").glob("*lab") if path.is_dir())
+        self.assertTrue(labs)
+        self.assertEqual([lab for lab in labs if lab in workflow], [])
+
+    @unittest.skipUnless(shutil.which("git"), "git is what says which paths .gitignore ignores")
+    def test_a_lab_nobody_has_written_yet_needs_no_line_in_gitignore(self):
+        """The patterns for the labs cover every tools/*lab folder: its project stays tracked in spite of the global *.csproj, its build folders do not."""
+        with tempfile.TemporaryDirectory() as folder:
+            repo = Path(folder)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            shutil.copyfile(ROOT / ".gitignore", repo / ".gitignore")
+            def ignored(path):          # exit 0: ignored, 1: not; a pattern that re-includes a path counts as not ignored
+                return subprocess.run(["git", "check-ignore", "-q", "--", path], cwd=repo).returncode == 0
+            real = sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / "tools").glob("*lab/*.csproj"))
+            self.assertTrue(real)
+            for project in real + ["tools/newlab/NewLab.csproj", "tools/newlab/Program.cs"]: self.assertFalse(ignored(project), project)
+            for derived in ("tools/newlab/bin/Release/net8.0/NewLab.dll", "tools/newlab/obj/project.assets.json", "tools/planlab/bin/Release/net8.0/PlanLab.dll"):
+                self.assertTrue(ignored(derived), derived)
+            self.assertTrue(ignored("tools/scratch/Scratch.csproj"))                        # a project that is not a lab stays out of git
 
     def test_lock_file_is_the_one_the_tool_used_before_it_was_split(self):
         # Two tool versions must exclude each other while both exist: same lock file as the original studio.py computed.

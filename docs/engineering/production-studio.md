@@ -12,7 +12,13 @@ python tools/studio.py asset preview p45_argine
 python tools/studio.py asset build p45_argine --publish
 python tools/studio.py test gunplay
 python tools/studio.py report latest
+python tools/studio.py suites
 ```
+
+`suites` lists what `test` can run (`--json` for a program): the kind of each suite, what it needs (a built player, the editor), what it
+can disturb and the seconds it usually takes. A suite that declares hazards runs only when each one is named with `--allow HAZARD`;
+otherwise the job fails at once with `SUITE_HAZARD_NOT_ALLOWED`. The CI gate runs the suites that need nothing by asking this list
+([agent-tooling.md](agent-tooling.md#suites-what-can-be-run)).
 
 `asset build` bakes and packs the model, renders previews, imports it, compiles a
 separate City build, runs gunplay and the city acceptance loop. `--publish` copies
@@ -275,7 +281,7 @@ extra contracts prevent cancelled or externally refilled reloads from adding amm
 
 Every asset build now runs the state lab before producing assets. Its findings
 join the common report. Source capture also includes both local packages, assembly
-definitions/manifests and the PlanLab/WeaponsLab programs and project files.
+definitions/manifests and the programs and project files of every lab (`tools/*lab`).
 
 The independent `unity/LayoutDemo` now includes an interactive `WeaponDemo` in
 the generated `RoomDemo` scene: Fire, Reload and Reset buttons. It references the

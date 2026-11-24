@@ -1,7 +1,8 @@
-"""The smallest project the production studio engine can run: one catalog of sprites, one check.
+"""The smallest project the production studio engine can run: one catalog of sprites, two checks.
 
 It exists to prove the engine is reusable (nothing here is shared with the game profile except the engine) and to give the
-engine's tests, and any new project, a working example of the Project / ContentType / Suite contract.
+engine's tests, and any new project, a working example of the Project / ContentType / Suite contract. The two suites show what a suite
+can say about itself: `smoke` needs nothing, `careful` needs something and declares hazards, so it runs only when each is allowed.
 """
 import json
 from pathlib import Path
@@ -45,7 +46,11 @@ class ToyProject(Project):
         self.default_output = self.root / "studio"
         self.entry_script = Path(__file__).resolve()
         self.content_types = (Sprites(self.root),)
-        self.suites = {"smoke": Suite(lambda ctx, runtime: ctx.job.run("smoke", [sys.executable, "-c", "print('ok')"]))}
+        self.suites = {"smoke": Suite(lambda ctx, runtime: ctx.job.run("smoke", [sys.executable, "-c", "print('ok')"]),
+                                      kind="check", seconds=1, about="Starts the interpreter once"),
+                       "careful": Suite(lambda ctx, runtime: ctx.job.run("careful", [sys.executable, "-c", "print('ok')"]),
+                                        kind="demo", needs=("easel",), hazards=("noise", "paint"), seconds=2,
+                                        about="Declares what it can disturb: it runs only when every hazard is allowed")}
         self.publish_dir = self.root / "published"
         super().__init__(output)
 
