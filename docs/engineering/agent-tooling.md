@@ -295,8 +295,9 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 13 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07) and the ten of the first pull request of T08 (`MedalTest`,
-`FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`); T08 ports the 38 others that
+State: built (T07) and on 22 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+`FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`) and the nine of the second
+(`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`); T08 ports the 29 others that
 still carry their own copy of the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -323,6 +324,8 @@ namespace PryingEyes.Testing
         protected bool Photos { get; }                  // the photo flag is on
         protected bool Check(string name, bool ok, string detail = "");
         protected void Photo(string name);              // into the output folder, listed under artifacts; nothing unless the photo flag is on
+        protected string PhotoPath(string name);        // the file for a photograph the test frames itself (a hidden weapon, a camera of its own); listed under artifacts
+        protected virtual void OnDestroy();             // stops counting exceptions; a test that owns something to release overrides it and calls base.OnDestroy()
         protected static void InstallWhen<T>(string flag) where T : PlayerTest;      // one line in the test's own load hook
     }
 }
@@ -366,6 +369,10 @@ Where the first sketch was wrong or short:
 - `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
   replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
   break;` and `PlayerController.botDir = Vector3.zero` after the sequence).
+- `PhotoPath` and the virtual `OnDestroy` came with the second pull request of T08. Four of its suites frame their photographs themselves
+  (`ImpactTest` hides the weapon and leaves the HUD out, `MapTest` shoots without the tick of the light pool, `MeleeTest` and `VariantiTest` add a
+  camera of their own), so they ask the base class for the file and keep their `CamShot`; and `MeleeTest` owns a render texture to release, which a
+  second `OnDestroy` would have hidden from the base class (Unity calls only the most derived one).
 - The exit code 2 ("this floor cannot host the test") is not in the base class: none of the three needs it. The stealth suites call
   `Application.Quit(2)` themselves; T08 adds a call to the base class when it ports the first of them.
 - What `Dedicated` stops is the automatic quit of `-autotest` and nothing else, as the chain it replaced did; the sketch said the run
