@@ -5,8 +5,9 @@ designs the command line and the data formats that make that work faster and saf
 the result and stays out of the way of the others. It starts from what exists and from the findings of
 [architecture-audit.md](architecture-audit.md) (F5 to F11), and adds as little as possible.
 
-State: a design, with two parts built: `tools/code_census.py` (it was written with the audit) and `tools/worktree.ps1` (T10; how it is
-used is in [building-and-shipping.md](building-and-shipping.md#branches-and-worktrees)). Each addition has a task in
+State: partly built. `tools/code_census.py` (written with the audit), `studio.py test desert` and `test plan` (T01, T02), the game's rules in
+`check_suite.py` (T04), `tools/worktree.ps1` (T10; how it is used is in [building-and-shipping.md](building-and-shipping.md#branches-and-worktrees))
+and, since T03, `studio.py suites` and the hazards (`--allow`) exist; the rest below is a design. Each addition has a task in
 [modular-tasks.md](modular-tasks.md) with the checks that prove it; the order is in [modular-roadmap.md](modular-roadmap.md). Claims
 about durations on this page were not measured for it and are marked.
 
@@ -42,12 +43,12 @@ about durations on this page were not measured for it and are marked.
 | Command | State | What it does | Result |
 | --- | --- | --- | --- |
 | `studio.py doctor [--json]` | exists; `--json` and the extra facts are new (T09) | the tools are installed; new: is the editor or a player open on this checkout, is there a `Library`, which commit is the verification build, how the last gate on `preview` ended | text, or JSON |
-| `studio.py suites [--json]` | new (T03) | every suite with what it needs, its hazards and its usual duration | one line each, or JSON |
-| `studio.py test <suite> [--runtime EXE] [--allow HAZARD]` | exists; `--allow` new (T03) | runs one suite as a job under the project lock | `unity_logs/studio/<job>/report.json` |
+| `studio.py suites [--json]` | exists (T03) | every suite with what it needs, its hazards and its usual duration | one line each, or JSON |
+| `studio.py test <suite> [--runtime EXE] [--allow HAZARD]` | exists; `--allow` since T03 | runs one suite as a job under the project lock | `unity_logs/studio/<job>/report.json` |
 | `studio.py test desert` | exists (T01) | the desert lab: 107 checks, one finding each | `report.json` |
 | `studio.py test plan` | exists (T02) | the fingerprint of the floor generator: 48 plans and the protocol revision, one finding each | `report.json` |
 | `studio.py test compile` | new (T09) | the editor compiles the scripts and exits | compiler errors as findings |
-| `studio.py test <in-player suite>` | new (T05, T06) | starts the verification build with the flags of the manifest | `report.json` with one finding per check |
+| `studio.py test <in-player suite>` | new (T06; the manifest it reads exists since T05) | starts the verification build with the flags of the manifest | `report.json` with one finding per check |
 | `studio.py catalog`, `asset`, `gallery`, `queue`, `job`, `report latest` | exist | content pipeline, evidence, queue ([production-studio.md](production-studio.md)) | as today |
 | `python tools/check_suite.py` | exists; has the game rules since T04 | boundaries, the game's rules about tests, documentation | findings as text, exit code |
 | `python tools/code_census.py [--json FILE]` | exists | sizes, references, flags, tests, global state | text and JSON |
@@ -58,8 +59,12 @@ The pages that list commands for people ([testing.md](testing.md), [building-and
 
 ### `suites`: what can be run
 
-The engine's `Suite` gains optional, free-text fields that the profile fills: `kind`, `needs`, `hazards`, `seconds`, `about`. The engine
-interprets only `hazards`. Example of `studio.py suites --json` (the durations are invented):
+The engine's `Suite` has optional, free-text fields that the profile fills: `kind`, `needs`, `hazards`, `seconds`, `about` (empty by default,
+so a suite written without them works as before). The engine interprets only `hazards`; `needs` is for whoever reads the list, the gate
+first. `studio.py suites` prints a table, one line per suite in the order of the profile, and `--json` prints the same as data; neither
+starts a job, takes the lock or writes a report. `seconds` is the usual duration on the gate's runner, `0` while nobody has measured it.
+The shape below is the real one, the entries are an example (the durations are invented, and `compile`, `traptest` and `uitest` are the
+kind of suite that T05, T06 and T09 add: they do not exist yet):
 
 ```json
 {
@@ -83,16 +88,19 @@ interprets only `hazards`. Example of `studio.py suites --json` (the durations a
 
 A suite with hazards runs only with `--allow registry --allow screen`; otherwise the job fails at once with `SUITE_HAZARD_NOT_ALLOWED`
 and names them. An agent passes `--allow` only when the maintainer asked for that check: the rule of `AGENTS.md` is unchanged, the tool
-now enforces it. `needs: gpu` makes the runner refuse (`PLAYER_GPU_BUSY`) while another `PryingEyes.exe` is running, as
+now enforces it (a queued request is refused when it is added, and keeps its `--allow` words; an `--allow` that names a hazard the suite
+does not declare changes nothing). `needs: gpu` makes the runner refuse (`PLAYER_GPU_BUSY`) while another `PryingEyes.exe` is running, as
 `tools/coop/run_split.ps1` already does.
 
-The suites that need nothing (`needs` empty) are the ones the gate runs. The workflow asks `suites --json` for them instead of naming
-each lab, so a new lab is added in one place (F9).
+The suites that need nothing (`needs` empty) are the ones the gate runs. The workflow asks `suites --json` for them and compiles every
+`tools/*lab` folder, instead of naming each lab, so a new lab is added in one place, its entry in the profile and its folder (F9).
 
 ### The manifest of the in-player suites
 
-`tools/player_tests.json`: one entry for each check that runs inside the player. It replaces nothing in the game; it writes down what
-today only [testing.md](testing.md) says.
+`tools/player_tests.json` (since T05): one entry for each check that runs inside the player, 87 of them. It runs nothing and replaces
+nothing in the game; it writes down what today only [testing.md](testing.md) says. Its schema is `tools/player_tests.schema.json` and its
+test is `tools/test_player_tests.py`. No run has confirmed it yet: the arguments come from the prose, from the comments of the test files
+and from the scripts that start them, and the timeouts are upper bounds, not measurements.
 
 ```json
 {
@@ -104,29 +112,37 @@ today only [testing.md](testing.md) says.
       "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-traptest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 120,
-      "checks": 18,
       "needs": ["runtime"],
       "hazards": [],
       "photos": {"args": ["-trapshots"], "needs": ["gpu"], "folder": "unity_logs/trappole"},
       "page": "docs/game/door-traps.md"
     }
-  ]
+  ],
+  "unlisted": []
 }
 ```
 
 | Field | Why it is there |
 | --- | --- |
+| `name` | what `studio.py test` will call it: the flag without its dash (`traptest`), or `coop-<scenario>` for a scenario of `tools/coop/run_all.ps1` |
+| `source` | the C# file that implements the check or reads its flag |
 | `args` | the whole command line, so that nobody has to assemble it from prose |
-| `mode` | which game the flags select: `tower`, `catacombs`, `cathedral`, `desert`, `city`. Under `-autotest` the catacombs are off unless a flag asks for them (F7): the manifest has to say it, and its test checks that the flags of the mode are in `args` |
-| `checks` | how many checks the suite ran when it was last verified. Optional. When present, fewer checks is a failure: a test that skips half of itself passes today |
-| `needs`, `hazards` | as above |
-| `photos` | the optional run that takes pictures, with what it needs |
-| `runner` | for the suites made of several processes (co-op, split screen): the PowerShell script that starts them, with its parameters |
+| `mode` | which game the flags select: `tower`, `catacombs`, `cathedral`, `desert`, `city`, `track` or `menu` (no `-autotest`). Under `-autotest` the catacombs are off unless a flag asks for them (F7): the manifest has to say it, and its test works out the game that `args` start and fails if it is not the declared one |
+| `timeout` | seconds after which a runner gives up: an upper bound taken from the prose or from the script that runs the suite |
+| `checks` | how many checks the suite ran when it was last confirmed by a run. Optional, and left out until a run has confirmed it. When present, fewer checks is a failure: a test that skips half of itself passes today |
+| `needs`, `hazards` | as above; `gpu` is there exactly when `-nographics` is not in `args` |
+| `photos` | the optional run that takes pictures: the flags to add (`-nographics` goes), what it needs and the folder where the pictures land |
+| `runner` | for the suites made of several processes (co-op, split screen): the script that starts them and the parameters it is given. Such an entry has no `args`: the script owns them |
 | `page` | the page that says what the suite proves |
 
-Its unit test is hermetic and is what keeps it true: names are unique; `source` exists; every flag in `args` that is not Unity's own
-is a literal somewhere in the game code; every test file that installs itself is the `source` of an entry, or is listed with the reason
-why not; `page` exists. The tables of [testing.md](testing.md) can then be generated from it (T21).
+`unlisted` holds the test files that install themselves and are the source of no entry, each with the reason why. It is empty today.
+
+Its unit test is hermetic and is what keeps it true: the schema; names are unique; `source` exists; every flag in `args` and `photos` that is
+not Unity's own is a literal in the code of the player; the game that the flags start is the declared `mode`; `gpu` is in `needs` when the run
+draws; every test file that installs itself is the `source` of an entry, or is `unlisted` with the reason why (the census counts these files
+and the test derives the list, checking its count against the census's); every scenario of `run_all.ps1` has exactly one entry; a runner script exists and
+takes the parameters it is given; `page` exists. A new in-player test is therefore listed here or the unit tests fail. The tables of
+[testing.md](testing.md) can then be generated from it (T21).
 
 ### Results as data
 
@@ -264,7 +280,7 @@ The path the tools should make the easy one, for a change to the game:
 | --- | --- | --- | --- |
 | `unity_logs/studio/<job>/report.json` | the engine | agents, the gallery, the gate's summary | `schemaVersion` 1, exists |
 | `studio.py suites --json`, `doctor --json` | the engine and the profile | agents, the gate | 1, new |
-| `tools/player_tests.json` | people and agents, checked by its test | the profile | 1, new |
+| `tools/player_tests.json` | people and agents, checked by its test | the profile | `schemaVersion` 1, exists (T05) |
 | `result.json` of a player run | the harness in the game | the profile's runner | 1, new |
 | `python tools/code_census.py --json` | the census | the audit, the gate's summary | 1, exists |
 | `unity_logs/ship_last.json` | `tools/ship.ps1` | agents | 1, new |
