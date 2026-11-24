@@ -4,21 +4,21 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -opticstest: il reticolo renderizzato deve coincidere con l'asse hitscan, anche con sway.</summary>
-    public sealed class OpticsTest : MonoBehaviour
+    public sealed class OpticsTest : PlayerTest
     {
-        int checks, failures, exceptions;
         string output;
 
+        protected override string Suite { get { return "opticstest"; } }
+        protected override string OutFolder { get { return "optics"; } }
+        protected override string ExceptionCheck { get { return "nessuna eccezione"; } }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-opticstest") >= 0)
-                new GameObject("OpticsTest").AddComponent<OpticsTest>();
-        }
+        static void Install() { InstallWhen<OpticsTest>("-opticstest"); }
 
         void Awake()
         {
@@ -26,30 +26,6 @@ namespace PryingEyes
             var args = Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-opticout") output = Path.GetFullPath(args[i + 1]);
             Directory.CreateDirectory(output);
-            Application.logMessageReceived += OnLog;
-        }
-        void OnDestroy() => Application.logMessageReceived -= OnLog;
-        void OnLog(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-        void Check(string name, bool ok, string detail = "")
-        {
-            checks++; if (!ok) failures++;
-            Debug.Log($"[PryingEyes] opticstest {(ok ? "ok" : "FALLITO")} {name} {detail}");
-        }
-
-        IEnumerator Start()
-        {
-            var run = Run();
-            while (true)
-            {
-                bool more;
-                try { more = run.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("copione completo", false); break; }
-                if (!more) break;
-                yield return run.Current;
-            }
-            Check("nessuna eccezione", exceptions == 0);
-            Debug.Log($"[PryingEyes] opticstest RISULTATO {(failures == 0 ? "SUPERATA" : "FALLITA")}: {checks - failures}/{checks}");
-            Application.Quit(failures == 0 ? 0 : 1);
         }
 
         bool Capture(Camera camera, string name)
@@ -79,7 +55,7 @@ namespace PryingEyes
             }
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60f;
             while ((GameManager.I == null || !GameManager.I.LevelReady) && Time.realtimeSinceStartup < deadline) yield return null;

@@ -240,7 +240,7 @@ manifest's command line, which is the one of `tools/check_gunplay.py`.) The runn
 Which suites need a graphics card was not known when the manifest was written: the prose omitted `-nographics` for some commands without
 saying why. T06 ran them without a window, on a machine where nobody played. `pistamenutest`, `pistamenulicence` and `pistamenucup` pass
 (46, 30 and 39 checks), so their entries carry `-nographics` and no `gpu`. `pistamenugarage` and `pistamenucareer` fail on
-`RenderTexture.Create` (the showroom is drawn into a texture), and `padtest` fails twelve checks and quits with no result, so they keep `gpu`.
+`RenderTexture.Create` (the showroom is drawn into a texture), and `padtest` fails twelve checks and quits with no result, so they keep `gpu`. T08 found two more while it ported them: `meleetest` renders a camera into a texture on every frame (without a window the render graph throws once per frame and 11 of its 120 checks fail) and `relictest` fails one of its 63 checks and throws in the render; both entries now run with the card and say `gpu`.
 `displaytest` was not run: it declares `hazards: registry`, and it asserts the size of the real screen after changing it, which
 `-nographics` cannot give.
 
@@ -295,9 +295,9 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 22 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
-`FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`) and the nine of the second
-(`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`); T08 ports the 29 others that
+State: built (T07) and on 31 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+`FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
+(`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`) and the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`); T08 ports the 20 others that
 still carry their own copy of the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -319,6 +319,8 @@ namespace PryingEyes.Testing
         protected virtual string PhotoFlag { get; }     // "-trapshots", or null for a test that takes no photographs
         protected virtual string OutFolder { get; }     // under unity_logs/ without -testout: the suite's name, or the folder its page names ("trappole")
         protected virtual void Finish();                // after the sequence, however it ended, before the last check
+        protected virtual string ExceptionCheck { get; } // the last check: "nessuna eccezione runtime", the name a suite has always given it, or null for a suite that never made one
+        protected virtual bool IsError(string message, LogType type);   // what the last check counts as an error: an exception, plus what a suite adds to it
         protected int Checks { get; }                   // made so far
         protected int Failed { get; }                   // failed so far
         protected bool Photos { get; }                  // the photo flag is on
@@ -349,7 +351,7 @@ public sealed class MineTest : PlayerTest
 
 What the base class does, in the order of the old private copies: it counts the exceptions the game logs (`LogType.Exception`), runs
 `Run()` (an exception in it ends the sequence, is logged and fails the check `sequenza completa`), calls `Finish()`, adds the check
-`nessuna eccezione runtime`, writes `result.json`, prints the result line and quits with 0 when every check passed and 1 otherwise. Each
+`nessuna eccezione runtime` (or the name that `ExceptionCheck` gives, or none at all), writes `result.json`, prints the result line and quits with 0 when every check passed and 1 otherwise. Each
 check is still the log line `[PryingEyes] <suite> ok <name>` or `... FALLITO <name>`, in the order of the calls. `InstallWhen` sets
 `TestRun.Dedicated` when the flag is on the command line, in the load hook, before the first `GameManager.Update`; `GameManager` reads
 `TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags)`, the legacy array being the flags of the suites that are not on the
@@ -373,6 +375,14 @@ Where the first sketch was wrong or short:
   (`ImpactTest` hides the weapon and leaves the HUD out, `MapTest` shoots without the tick of the light pool, `MeleeTest` and `VariantiTest` add a
   camera of their own), so they ask the base class for the file and keep their `CamShot`; and `MeleeTest` owns a render texture to release, which a
   second `OnDestroy` would have hidden from the base class (Unity calls only the most derived one).
+- `ExceptionCheck` and `IsError` came with the third. Four of its suites never counted exceptions (`RelicReviewTest`, `CharacterTest`, `AnnexTest` and
+  `SurvivalTest`): they answer null, so that their checks stay the ones they always had (a port changes how a suite is written, not what it checks);
+  `OpticsTest` called its last check `nessuna eccezione`; `PrefetchTest` calls it `nessuna eccezione e nessun thread fallito` and counts as an error also
+  the warning that the sound threads print when a sample cannot be computed off the main thread. The exceptions are counted for all of them and
+  `result.json` carries the number.
+- Three small differences are accepted, all in what a log says and none in what it checks: when a sequence throws, the check that fails is
+  `sequenza completa` for every suite (`GunplayTest` and `OpticsTest` called it `copione completo`); `GunplayTest` logged only its failures and now logs
+  every check; `OpticsTest` printed `ok <name> <detail>` and now prints `ok <name> (<detail>)`, like the others.
 - The exit code 2 ("this floor cannot host the test") is not in the base class: none of the three needs it. The stealth suites call
   `Application.Quit(2)` themselves; T08 adds a call to the base class when it ports the first of them.
 - What `Dedicated` stops is the automatic quit of `-autotest` and nothing else, as the chain it replaced did; the sketch said the run

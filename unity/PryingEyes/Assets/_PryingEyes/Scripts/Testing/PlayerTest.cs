@@ -48,6 +48,14 @@ namespace PryingEyes.Testing
         /// <summary>Called when the sequence has ended, however it ended and before the last check. For what a test must put back.</summary>
         protected virtual void Finish() { }
 
+        /// <summary>The name of the check that closes the sequence ("nessuna eccezione runtime"); null for a suite that has never made one,
+        /// which then keeps the checks it always had. The exceptions are counted either way and <c>result.json</c> carries the number.</summary>
+        protected virtual string ExceptionCheck { get { return "nessuna eccezione runtime"; } }
+
+        /// <summary>Whether a line of the game's log is an error that fails the closing check: an exception, unless a suite widens it
+        /// to something its subject logs as a warning.</summary>
+        protected virtual bool IsError(string message, LogType type) { return type == LogType.Exception; }
+
         /// <summary>The checks made so far, and how many of them failed.</summary>
         protected int Checks { get { return results.Count; } }
         protected int Failed { get { return failed; } }
@@ -74,7 +82,8 @@ namespace PryingEyes.Testing
         }
 
         /// <summary>The file of a photograph that the test frames itself (a weapon hidden, a review camera, no HUD): in the output folder,
-        /// and listed in <c>result.json</c> as an artifact. <see cref="Photo"/> is the plain case and uses it. Ask only when <see cref="Photos"/> is on.</summary>
+        /// and listed in <c>result.json</c> as an artifact. <see cref="Photo"/> is the plain case and uses it. A test whose photographs are optional
+        /// asks only when <see cref="Photos"/> is on; one that always takes them asks every time.</summary>
         protected string PhotoPath(string name)
         {
             string file = name + ".png";
@@ -93,7 +102,7 @@ namespace PryingEyes.Testing
 
         string OutPath { get { return outDir ?? (outDir = TestRun.OutDir(OutFolder)); } }
 
-        void OnLog(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
+        void OnLog(string message, string stack, LogType type) { if (IsError(message, type)) exceptions++; }
 
         /// <summary>Stops counting exceptions. A test that owns something to release overrides it and calls <c>base.OnDestroy()</c>: Unity calls
         /// only the most derived <c>OnDestroy</c>, so a second one that does not override this one would silence it.</summary>
@@ -111,7 +120,7 @@ namespace PryingEyes.Testing
                 if (!more) break; yield return sequence.Current;
             }
             Finish();
-            Check("nessuna eccezione runtime", exceptions == 0);
+            if (ExceptionCheck != null) Check(ExceptionCheck, exceptions == 0);
             WriteResult();
             Debug.Log("[PryingEyes] " + Suite + " RISULTATO " + (failed == 0 ? "SUPERATA" : "FALLITA") + ": " + (results.Count - failed) + "/" + results.Count);
             Application.Quit(failed == 0 ? 0 : 1);
