@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -167,6 +168,51 @@ namespace PryingEyes
             return false;
         }
 
+        /// <summary>The dedicated tests that are not on the harness yet: while one of these flags is on the command line the automatic run
+        /// does not close the game by itself. A test on the harness (<c>PlayerTest</c>) says so through <c>TestRun.Dedicated</c> and is not named
+        /// here; porting the rest (T08, docs/engineering/modular-tasks.md) empties this list. One flag per line, so that two changes to it merge.</summary>
+        static readonly string[] LegacyDedicatedFlags =
+        {
+            "-architecturetest",
+            "-flyingmeleetest",
+            "-jellytest",
+            "-meleetest",
+            "-relictest",
+            "-combatfeedbacktest",
+            "-torchreview",
+            "-survivaltest",
+            "-citytest",
+            "-annextest",
+            "-variantitest",
+            "-equiptest",
+            "-feeltest",
+            "-eyetest",
+            "-ragdolltest",
+            "-powertest",
+            "-lampadaritest",
+            "-mantletest",
+            "-flinchtest",
+            "-shafttest",
+            "-magtest",
+            "-lamptest",
+            "-medaltest",
+            "-musictest",
+            "-impacttest",
+            "-splittest",
+            "-magiatest",
+            "-cattedraletest",
+            "-desertotest",
+            "-pistatest",
+            "-pistacooptest",
+        };
+
+        static bool HasAnyArg(string[] flags)
+        {
+            foreach (var flag in flags)
+                if (HasArg(flag)) return true;
+            return false;
+        }
+
         void Start()
         {
             if (autoTest && HasArg("-botmezz") && player != null) player.SetSpawn(MezzSpot);
@@ -238,8 +284,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; HarnessShotFrame = Time.frameCount; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam1.png")); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam2.png")); }
-                bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-jellytest") || HasArg("-meleetest") ||
-                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || HasArg("-cattedraletest") || HasArg("-desertotest") || HasArg("-pistatest") || HasArg("-pistacooptest") || trailer;
+                bool dedicated = TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags);
                 if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
                     Report($"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");

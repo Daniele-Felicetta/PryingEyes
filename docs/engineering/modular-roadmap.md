@@ -55,7 +55,7 @@ are in [modular-tasks.md](modular-tasks.md).
 | T04 | The guard learns the rules about tests | 0 | | | done (#41) |
 | T05 | The manifest of the in-player suites | 1 | | | done (#49) |
 | T06 | In-player suites through the studio | 1 | T03, T05 | a verification build | todo |
-| T07 | The in-player harness, proven on three suites | 1 | | editor, build | todo |
+| T07 | The in-player harness, proven on three suites | 1 | | editor, build | done (#50) |
 | T08 | The other suites on the harness | 1 | T07 | editor, build | todo |
 | T09 | Compile check, doctor and ship status as data | 1 | T03 | editor | todo |
 | T10 | A worktree ready for Unity | 2 | | editor to measure | done (#43) |

@@ -156,6 +156,34 @@ class Census(unittest.TestCase):
         self.assertEqual((written["schemaVersion"], written["flags"]["distinct"]), (1, 2))
 
 
+class Harness(unittest.TestCase):
+    """TestRun is what the game may name in every build, so it is not a test; PlayerTest is the one definition of Check."""
+    SOURCES = {
+        # production code asks TestRun and is allowed to; Leak names the harness itself and must be found
+        "Scripts/Manager.cs": "using UnityEngine; namespace Game { public class Manager : MonoBehaviour { bool Quiet() { return TestRun.Dedicated; } } }",
+        "Scripts/Leak.cs": "using UnityEngine; namespace Game { public class Leak : MonoBehaviour { PlayerTest owner; } }",
+        "Scripts/Testing/TestRun.cs": "namespace Game { public static class TestRun { public static bool Dedicated; static string Logs = \"unity_logs\"; } }",
+        "Scripts/Testing/PlayerTest.cs": "#if !PE_DISTRIBUTION_BUILD\nusing UnityEngine;\nnamespace Game { public abstract class PlayerTest : MonoBehaviour { protected bool Check(string name, bool ok) { return ok; } } }\n#endif\n",
+        # a test on the harness has no Check of its own; an old one still has
+        "Scripts/BetaTest.cs": "#if !PE_DISTRIBUTION_BUILD\nnamespace Game { public sealed class BetaTest : PlayerTest { [UnityEngine.RuntimeInitializeOnLoadMethod] static void Install() { } } }\n#endif\n",
+        "Scripts/OldTest.cs": "#if !PE_DISTRIBUTION_BUILD\nusing UnityEngine;\nnamespace Game { public sealed class OldTest : MonoBehaviour { void Check(string name, bool ok) { } string folder = \"unity_logs/old\"; } }\n#endif\n",
+    }
+
+    def test_the_harness_counts_once_and_testrun_is_not_a_test(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name, text in self.SOURCES.items():
+                path = root / GAME / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
+            tests = census(root)["tests"]
+        self.assertEqual(tests["files"], 3)                                     # PlayerTest, BetaTest and OldTest; TestRun is none of them
+        self.assertEqual((tests["selfInstalling"], tests["ownCheckHelper"]), (1, 1))      # OldTest alone: the harness defines Check for everybody
+        self.assertEqual(tests["notExcludedFromDistribution"], [])              # TestRun has no wrapper and needs none
+        self.assertEqual(tests["testOutputLiterals"], 1)                        # OldTest's; TestRun is where unity_logs/ is resolved against the checkout
+        self.assertEqual(tests["namedByProductionCode"], {"Scripts/Leak.cs": ["PlayerTest"]})     # Manager naming TestRun is not reported
+
+
 class Components(unittest.TestCase):
     def test_groups_that_reach_each_other_form_one_component(self):
         graph = {"a": {"b"}, "b": {"c"}, "c": {"a"}, "d": {"a"}, "e": set()}
