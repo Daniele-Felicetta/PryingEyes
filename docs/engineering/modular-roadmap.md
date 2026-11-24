@@ -51,9 +51,9 @@ are in [modular-tasks.md](modular-tasks.md).
 | --- | --- | --- | --- | --- | --- |
 | T01 | The desert lab in the gate | 0 | | .NET | done (#39) |
 | T02 | A fingerprint of the floor generator | 0 | | .NET | done (#44) |
-| T03 | One registry of suites, and the gate asks it | 0 | | .NET | todo |
+| T03 | One registry of suites, and the gate asks it | 0 | | .NET | done (#51) |
 | T04 | The guard learns the rules about tests | 0 | | | done (#41) |
-| T05 | The manifest of the in-player suites | 1 | | | todo |
+| T05 | The manifest of the in-player suites | 1 | | | done (#49) |
 | T06 | In-player suites through the studio | 1 | T03, T05 | a verification build | todo |
 | T07 | The in-player harness, proven on three suites | 1 | | editor, build | done (#50) |
 | T08 | The other suites on the harness | 1 | T07 | editor, build | todo |

@@ -18,8 +18,10 @@ documentation is `docs/README.md`; building, shipping and CI are in `docs/engine
    explicit flag (for example `citylab.py --require-assets`).
 6. Do not run `tools/check_presentation.py` or the player's `-uitest` unprompted: they change the game's registry settings.
 7. The maintainer writes in Italian; reply to them in Italian. Keep code, identifiers and docs in English.
-8. **CI** (`.github/workflows/gate.yml`): every push to `preview` and every pull request against it runs the rule-3 gate plus the
-   .NET rule labs (`python tools/studio.py test weapon-state`, `... test survival`, `... test economy`, `... test saves`, `... test track` and `... test desert`) and the fingerprint of the floor generator (`... test plan`) on a sparse checkout. Before starting work look at
+8. **CI** (`.github/workflows/gate.yml`): every push to `preview` and every pull request against it runs the rule-3 gate plus every suite
+   that needs nothing (the .NET rule labs and the fingerprint of the floor generator) on a sparse checkout. `python tools/studio.py suites`
+   lists them with what each needs; the workflow asks that list, so a new lab is one entry in the profile and a folder `tools/<name>lab`,
+   with nothing to add to the workflow or to `.gitignore`. Before starting work look at
    the latest run on `preview` (`gh run list --branch preview --limit 1`); if it is red, fix that before anything else.
 9. **One writer per Unity checkout**: in the checkout the editor opens, one agent writes at a time. Anyone who does not need the editor
    works in a separate git worktree on its own branch and reaches `preview` through a pull request.

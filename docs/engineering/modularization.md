@@ -154,7 +154,7 @@ per list:
 | Flags of dedicated tests | `GameManager.cs`, `LegacyDedicatedFlags` (31 left; one per line) | edited by 28 of 56 changes to the file | **remove**: the harness sets `TestRun.Dedicated` (T07 did it for three suites, T08 for the rest) |
 | Flags that stop the bot firing | `GameManager.cs:113` | edited by 6 of 56 | **remove**, same mechanism: the test declares it |
 | Catalogue of checks | [testing.md](testing.md) | 32 commits; rows merged by hand | **generate** the tables from the manifest (T05, T21) |
-| Labs | `.gitignore`, `gate.yml`, the profile, `AGENTS.md`, three pages | `desertlab` was left out (F9) | **one registry**: the suites of the profile (T03) |
+| Labs | `.gitignore`, `gate.yml`, the profile, `AGENTS.md`, three pages | `desertlab` was left out (F9) | **one registry**: the suites of the profile (done in T03) |
 | Wire format | `CoopKind`, `CoopProtocol.Revision` in `CoopWire.cs` | 31 commits | **keep** one place, it is the point of the file. Move the history of the revisions out of the 857-character line, so that two changes collide only on the constant. Changes to the protocol merge one at a time |
 | Reset of a run | `GameManager.ReturnToMenu`, `FloorDirector.GoTo` | edited by 3 of 56 | **keep**: the order matters and it rarely changes |
 | Parts of the HUD | `HUD.EnsureBuilt` | 12 calls, one per line, in drawing order | **keep** |
@@ -171,8 +171,8 @@ These hold from now, before any task is done:
 1. Logic that needs no engine type goes in an engine-free file compiled by a lab, with its checks in that lab (under `Rules/` once B2
    exists; next to its feature and added to a lab project until then).
 2. A new in-player test is its own `*Test.cs` file, wrapped in `#if !PE_DISTRIBUTION_BUILD`, installing itself; production code never
-   names it; the guard fails otherwise. It derives from `PlayerTest` (T07: its load hook is one line, `InstallWhen<T>("-flag")`) and, once
-   the manifest exists, is listed in it.
+   names it; the guard fails otherwise. It derives from `PlayerTest` (T07: its load hook is one line, `InstallWhen<T>("-flag")`) and is
+   also listed in the manifest of the in-player suites (`tools/player_tests.json`: its unit test fails otherwise).
 3. A flag is read in one place. Test flags are read only by tests.
 4. A feature of a floor lives in its own files and touches a central file only to add its line to a list, one item per line.
 5. A change to the wire format or to the rules of a floor raises `CoopProtocol.Revision`, and only one such change is open at a time.
@@ -200,7 +200,7 @@ mode first of all, and T07 has since moved two of them):
 
 | Number (section of the census) | Today | Target | Task |
 | --- | --- | --- | --- |
-| Hermetic suites in the gate (workflow) | 7 | 7 | T01, T02 |
+| Hermetic suites in the gate (`python tools/studio.py suites --json`: the ones with an empty `needs`; before T03, the steps of the workflow) | 7 | 7 | T01, T02, T03 |
 | Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 54 | 0 | T15 |
 | Production files that name a test type (`tests`) | 2 | 0 | T08, T17 |
 | Test files not kept out of a release (`tests`) | 14 | 0 | T17 |

@@ -93,7 +93,10 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 
 ### T03. One registry of suites, and the gate asks it
 
-- **Why**: F9, F10. A lab has to be added in ten places; `desertlab` was left out of most.
+- **Why**: F9, F10. A lab has to be added in ten places; `desertlab` was left out of most. (Counted again before the change, seven labs
+  were named in: the profile, twice besides each lab's own suite (the registry and the list of hashed sources); the workflow, three times
+  (the compile step, one step per suite, the summary); `.gitignore`, a block of three lines each; rule 8, the README row, the comment of
+  `tools/ship.ps1`, three pages of `docs/` and two of the wiki.)
 - **Needs**: Python, .NET. No Unity.
 - **Touches**: the engine and `tools/test_studio_engine.py`, `tools/fixtures/toy_project.py`, the profile, `gate.yml`, `.gitignore`,
   rule 8 of `AGENTS.md`, the pages that list the labs.
@@ -101,11 +104,19 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
   1. Engine: `Suite` gains `kind`, `needs`, `hazards`, `seconds`, `about` (defaults empty). New command `suites [--json]`
      ([agent-tooling.md](agent-tooling.md#suites-what-can-be-run)). `test` gains `--allow HAZARD` (repeatable) and fails a suite whose
      hazards are not all allowed with `SUITE_HAZARD_NOT_ALLOWED`. The engine names no game, tool or content: the guard checks it.
-  2. Profile: fill the fields for the existing suites (the labs need nothing; `gunplay` needs `runtime`).
+     (`queue add test` takes `--allow` too and refuses at submission, so a queued run cannot do what a direct one may not.)
+  2. Profile: fill the fields for the existing suites (the labs need nothing; `gunplay` needs `runtime`). (`seconds` are what the
+     gate's runner measured: 3 for the small labs, 20 for `desert`, 70 for `track`; `gunplay` has none yet. The list of hashed sources
+     takes every `tools/*lab` folder instead of seven.)
   3. `gate.yml`: compile every `tools/*lab` project and run every suite whose `needs` is empty by reading `suites --json`; check each
-     exit code; build the summary from the same list. No lab is named in the workflow.
-  4. `.gitignore`: one pattern for the lab projects and their `bin` and `obj` folders instead of a block per lab.
-  5. Rule 8 and the pages point to `python tools/studio.py suites` instead of listing names.
+     exit code; build the summary from the same list. No lab is named in the workflow. (One step runs the suites, each in its own log
+     group; a failed one does not stop the others, and the step fails at the end naming them. The per-lab steps of the run page are
+     gone: the summary has a row for each suite, with its seconds. A test of the profile reads the workflow to prove it names none.)
+  4. `.gitignore`: one pattern for the lab projects and their `bin` and `obj` folders instead of a block per lab. (The folder of a lab
+     must end in `lab`; any other project stays ignored by `*.csproj`. A test builds a repository in a temporary folder with the real
+     `.gitignore` and asks `git check-ignore` about a lab nobody has written yet; the gate's sparse checkout lists `/.gitignore` for it.)
+  5. Rule 8 and the pages point to `python tools/studio.py suites` instead of listing names. (`before_build` of the profile still runs
+     five labs by name, without `desert` and `plan`: what runs before a build is a decision that was not part of this task.)
 - **Done when**
   - `suites --json` lists every suite with its fields; the toy project's test covers the listing, a refused hazard and an allowed one.
   - On a throwaway branch, a check broken in one lab turns the workflow red and the summary shows which lab; revert.
@@ -161,6 +172,12 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
   2. The test checks: the schema; unique names; `source` exists; each flag in `args` that is not Unity's own (`-batchmode`,
      `-nographics`, `-logFile`...) is a literal in the game code; the flags of the declared `mode` are present; every test file that
      installs itself (the census gives the list) is the `source` of an entry or appears under `unlisted` with a reason; `page` exists.
+     Found when it was done: the census gives the *number* of such files (`selfInstalling`), not the list, so the test derives the list
+     with the census's own `read_sources`, `is_test` and `is_editor` and checks that its count is the census's. The track mode and the
+     menus came after the brief: `mode` also takes `track` (`-pista`, `-pistatest`) and `menu` (no `-autotest`), and the test works out the
+     one game that a command line starts (F7) instead of looking only for the flags of the declared mode. A suite that a script starts (the
+     co-op scenarios, the split screen) has a `runner` and no `args`: the test reads the script's scenarios and parameters. 87 suites are
+     listed and none is `unlisted`; the 25 test files that do not install themselves are parts of a suite or are installed by production code.
   3. Leave `checks` empty unless the number was confirmed by a run in this task.
 - **Done when**: the test passes; the pull request states how many suites are listed and how many are `unlisted` and why.
 - **Verify**: `python -m unittest discover -s tools -p "test_player_tests.py"`.

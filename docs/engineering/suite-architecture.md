@@ -3,7 +3,8 @@
 The goal of the engineering work is a suite that outlives Prying Eyes. This page is the map: which parts are already
 independent of the game, what enforces that, and what is still game-specific. It is written to be checked, not admired:
 `python tools/check_suite.py` fails when a boundary below is crossed; `tools/ship.ps1` runs it, with the Python unit tests, before every
-commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus the six .NET rule labs and the fingerprint of the floor generator, on every push to `preview` and every
+commit, and the `gate` workflow (`.github/workflows/gate.yml`) runs both, plus every suite that needs nothing (the .NET rule labs and the fingerprint of the floor generator:
+`python tools/studio.py suites` lists them), on every push to `preview` and every
 pull request against it. How a change is built, shipped and gated is in [building-and-shipping.md](building-and-shipping.md).
 
 ## Layers
@@ -62,7 +63,7 @@ needs a reason that a reviewer accepts, and the entry carries it. The numbers ar
 | Where | What | Needs |
 | --- | --- | --- |
 | `tools/ship.ps1`, before every commit | `check_suite.py` and the Python unit tests | Python, no Unity |
-| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then `studio.py test weapon-state`, `studio.py test survival`, `studio.py test economy`, `studio.py test saves`, `studio.py test track`, `studio.py test desert` and `studio.py test plan`; the labs' job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of about 20 MiB |
+| the `gate` workflow: every push to `preview`, every pull request against it, or by hand | the same two, then every suite that `studio.py suites --json` lists with an empty `needs` (the .NET rule labs and the fingerprint of the floor generator), each run with `studio.py test <suite>`; their job folders (`report.json` included) are kept as the `lab-reports` artifact | a Windows runner, a sparse checkout of about 20 MiB |
 
 The labs are not part of `ship.ps1`: they take the project lock and would fail with `PROJECT_BUSY` whenever another agent has a
 production running on the same checkout. The runner is Windows because the engine owns process trees with Job Objects and its POSIX
@@ -111,7 +112,9 @@ class Sprites(ContentType):                 # one kind of content = one catalog
 class MyProject(Project):
     root, default_output, entry_script = ...
     content_types = (Sprites(...),)
-    suites = {"smoke": Suite(lambda ctx, runtime: ctx.job.run("smoke", [...]))}
+    suites = {"smoke": Suite(lambda ctx, runtime: ctx.job.run("smoke", [...]), kind="check", seconds=5, about="what it proves")}
+    #   `studio.py suites` prints what each suite says about itself: `needs` (empty = a CI gate can run it), `hazards` (what it can
+    #   disturb: `test` refuses it without `--allow`), `kind`, `seconds`, `about`
     # optional hooks: tools(), lock_resource(), ensure_free(), tool_sources(command), doctor(), before_build(),
     #                 after_build(), graph(), gallery(), publish_dir
 ```
