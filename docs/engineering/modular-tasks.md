@@ -326,13 +326,16 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 
 - **Why**: F11. After a build the tree is never clean; nobody has written down which files change and why.
 - **Needs**: **editor**, one full build.
-- **Touches**: [building-and-shipping.md](building-and-shipping.md) only, unless the last step applies.
+- **Touches**: [building-and-shipping.md](building-and-shipping.md) (the section
+  [What a build rewrites](building-and-shipping.md#what-a-build-rewrites)) and, which the brief did not foresee, one row of the hazards table
+  of [agent-tooling.md](agent-tooling.md), which said this task was still to do, and the row of T13 in [modular-roadmap.md](modular-roadmap.md).
+  The last step did not apply: the `.gitattributes` is proposed in the page, not added to the repository.
 - **Steps**
   1. On a clean worktree: a full build (`BuildPlayer.Torre`), then a scripts-only one. After each, `git status --porcelain`, and each
      changed tracked file put in one class: only line endings (`git diff --ignore-cr-at-eol` is empty); order or identifiers but the same
      content; real content.
   2. For the first class, try a `.gitattributes` on a throwaway branch and measure again. Propose it only if renormalizing changes no
-     content.
+     content. As built: `text eol=lf` changed two binary `.asset` blobs and `text=auto eol=lf` none, so the second is the one proposed.
   3. For the others, find the writer (`Editor/TorreBuilder.cs` creates and updates the kit materials and saves the scene) and say what
      would make it write only on a real change.
 - **Done when**: the page has a section with the table (files per class, per kind of build), the cause of each class and a

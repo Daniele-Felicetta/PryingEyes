@@ -119,9 +119,9 @@ its code in its own folder and touches `FloorDirector` only where the choice is 
 
 **The rule.** Tests depend on the game. The game names no test type and reads no test flag.
 
-**Today (F6, F7).** Two production files name a test type; `GameManager.cs` reads 21 test flags to know that a dedicated test owns the
-process (34 before T07 put three suites on the harness, 31 when T08 started); 14 test files ship in releases; 38 tests carry a private copy of the harness
-(51 before T07, 48 when T08 started).
+**Today (F6, F7).** Two production files name a test type; `GameManager.cs` still reads the flags of the tests that are not on the harness yet to know that a dedicated test owns the
+process (34 flags before T07 put three suites on the harness, 31 when T08 started); 14 test files ship in releases; tests carried a private copy of the harness
+51 times before T07 and 48 when T08 started (`python tools/code_census.py --section tests --section flags` prints today's numbers).
 
 **In two steps.**
 
@@ -151,7 +151,7 @@ per list:
 
 | List | Where | Evidence | Decision |
 | --- | --- | --- | --- |
-| Flags of dedicated tests | `GameManager.cs`, `LegacyDedicatedFlags` (21 left; one per line) | edited by 28 of 56 changes to the file | **remove**: the harness sets `TestRun.Dedicated` (T07 did it for three suites, T08 for the rest) |
+| Flags of dedicated tests | `GameManager.cs`, `LegacyDedicatedFlags` (31 when T08 started; one per line) | edited by 28 of 56 changes to the file | **remove**: the harness sets `TestRun.Dedicated` (T07 did it for three suites, T08 for the rest) |
 | Flags that stop the bot firing | `GameManager.cs:113` | edited by 6 of 56 | **remove**, same mechanism: the test declares it |
 | Catalogue of checks | [testing.md](testing.md) | 32 commits; rows merged by hand | **generate** the tables from the manifest (T05, T21) |
 | Labs | `.gitignore`, `gate.yml`, the profile, `AGENTS.md`, three pages | `desertlab` was left out (F9) | **one registry**: the suites of the profile (done in T03) |

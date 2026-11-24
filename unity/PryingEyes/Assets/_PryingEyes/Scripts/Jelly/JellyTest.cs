@@ -2,10 +2,10 @@
 using System;
 using System.Collections;
 using System.Diagnostics;
-using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
 using Debug = UnityEngine.Debug;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -13,50 +13,22 @@ namespace PryingEyes
     /// campana, funi che ondeggiano e non attraversano il pavimento, raccolta/affondo/recupero (organi che si accendono, bocca e funi che vanno
     /// in avanti), effetti del contatto (particelle, anello, luce), colpo ricevuto, morte (funi flosce, organi spenti), replica di rete,
     /// costo per fotogramma. Con -jellyshots salva le foto in unity_logs/jelly/.</summary>
-    public sealed class JellyTest : MonoBehaviour
+    public sealed class JellyTest : PlayerTest
     {
-        int checks, failed, exceptions;
         Vector3 arena, forward;
+        float maxDelta;
+
+        protected override string Suite { get { return "jellytest"; } }
+        protected override string PhotoFlag { get { return "-jellyshots"; } }
+        protected override string OutFolder { get { return "jelly"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-jellytest") >= 0)
-                new GameObject("JellyTest").AddComponent<JellyTest>();
-        }
+        static void Install() { InstallWhen<JellyTest>("-jellytest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] jellytest " + (ok ? "ok " : "FALLITO ") + name); }
-        void LogHandler(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
+        protected override void Finish()
         {
-            Application.logMessageReceived += LogHandler;
-            // una foto allunga il fotogramma: senza questo tetto la fase dell'attacco (0,71 s) salterebbe dentro un solo passo
-            float maxDelta = Time.maximumDeltaTime;
-            Time.maximumDeltaTime = 0.05f;
-            var run = Run();
-            while (true)
-            {
-                bool more;
-                try { more = run.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break;
-                yield return run.Current;
-            }
             Time.maximumDeltaTime = maxDelta;
             PlayerController.botDir = Vector3.zero;
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] jellytest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void Photo(string name)
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-jellyshots") < 0) return;
-            string output = Path.GetFullPath("unity_logs/jelly");
-            Directory.CreateDirectory(output);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(output, name + ".png"), null, true);
         }
 
         Enemy Spawn(Vector3? at = null)
@@ -111,12 +83,15 @@ namespace PryingEyes
             return count;
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            // una foto allunga il fotogramma: senza questo tetto la fase dell'attacco (0,71 s) salterebbe dentro un solo passo
+            maxDelta = Time.maximumDeltaTime;
+            Time.maximumDeltaTime = 0.05f;
             float end = Time.realtimeSinceStartup + 60f;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < end) yield return null;
             Check("arena fisica libera", MeleeTest.FindArena(out arena, out forward));
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             Enemy.ClearAll(); Enemy.debugFreeze = Enemy.debugNoSense = false;
             Torch.I.on = true; GameManager.I.hud.Banner("", ""); GameManager.I.hud.Toast("");
             var player = GameManager.I.player;
