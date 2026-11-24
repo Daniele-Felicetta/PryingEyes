@@ -184,7 +184,7 @@ within its time; the run says it passed (`result.json` when it exists, the resul
 below `checks`; the log holds no exception other than the ones the renderer always prints without a graphics card (that filter is in
 `tools/player_log.py`, which `tools/check_navigation.py` uses too).
 
-**Until a suite uses the harness** (today only `traptest`, `barreltest` and `minetest` do) there is no `result.json`: the runner falls
+**For a suite that does not derive from `PlayerTest` yet** (T08 ports them a pull request at a time) there is no `result.json`: the runner falls
 back to the result line that the tests print today (`[PryingEyes] <label> RISULTATO SUPERATA: 18/18`, `<label>` being the `name` of the
 entry or its `label`; the lines `ok <name> (<detail>)` and `FALLITO <name> (<detail>)` before it are the findings) and says so in the
 report (`player.verdictSource` is `log-line`, and `result.json` when that file was read). Suites can therefore be registered before they
@@ -195,13 +195,14 @@ version) fails the suite (`PLAYER_RESULT_INVALID`): the lines are no way around 
 The runner reads three forms of that line, and `tools/player_log.py` is the only place that knows them: the standard one above;
 `CoopTest`'s (`[PryingEyes] cooptest ospite: RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`, the
 process that speaks after the label); and `PistaCoopTest`'s (`[PryingEyes] pistacooptest ospite RISULTATO ...`, no colon, the detail in
-parentheses). Counted from the sources, not from runs, 68 of the 87 entries say their result in a form the runner reads: 3 write
-`result.json`, 46 print the standard line, 2 runners (`seatstest`, `splitdesertotest`) print it too and the 17 co-op scenarios print the
-co-op forms. The other 19 print theirs in another form or not at all: `citytest`, `displaytest`, `guntest`, `leantest`, `walltest`,
-`magictest`, `procbot`, `perftest` and the eleven of the stealth family (`stealthtest`, `roundtest`, `knifetest`, `droptest`, `booktest`,
-`gridtest`, `pushtest`, `holescan`, `alientest`, `temitest`, `refshot`). The studio starts them and fails them with
-`PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08): the runner does not guess a verdict from
-an exit code, and `padtest`, run without a window, quit with 0 and printed no result at all.
+parentheses). A test that derives from `PlayerTest` writes `result.json` and prints the standard line too. Counted from the sources on 24
+November 2026, with the first pull request of T08 merged, 68 of the 87 entries say their result in a form the runner reads: the ones on
+`PlayerTest`, the others that print the standard line (two of them runners: `seatstest`, `splitdesertotest`) and the 17 co-op scenarios,
+which print the co-op forms. The other 19 print theirs in another form or not at all: `citytest`, `displaytest`, `guntest`, `leantest`,
+`walltest`, `magictest`, `procbot`, `perftest` and the eleven of the stealth family (`stealthtest`, `roundtest`, `knifetest`, `droptest`,
+`booktest`, `gridtest`, `pushtest`, `holescan`, `alientest`, `temitest`, `refshot`). The studio starts them and fails them with
+`PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list): the
+runner does not guess a verdict from an exit code, and `padtest`, run without a window, quit with 0 and printed no result at all.
 
 ### Running the suites of the manifest
 
@@ -402,7 +403,7 @@ The path the tools should make the easy one, for a change to the game:
 | `unity_logs/studio/<job>/report.json` | the engine; for an in-player suite the profile adds `player` (T06) | agents, the gallery, the gate's summary | `schemaVersion` 1, exists |
 | `studio.py suites --json`, `doctor --json` | the engine and the profile | agents, the gate | 1, new |
 | `tools/player_tests.json` | people and agents, checked by its test | the profile | `schemaVersion` 1, exists (T05) |
-| `result.json` of a player run | the harness in the game | the profile's runner | `schemaVersion` 1, exists (T07: three suites) |
+| `result.json` of a player run | the harness in the game | the profile's runner | `schemaVersion` 1, exists (T07, T08) |
 | `python tools/code_census.py --json` | the census | the audit, the gate's summary | 1, exists |
 | `unity_logs/ship_last.json` | `tools/ship.ps1` | agents | 1, new |
 
