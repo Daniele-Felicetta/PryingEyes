@@ -20,6 +20,8 @@ namespace PryingEyes
         int checks, failed, exceptions;
         bool shots;
         Camera watched;
+        Transform feet;
+        Vector3 feetInFrame;
         Vector3 seenPos; Quaternion seenRot; int seenMask, seenFrame = -1;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -36,11 +38,13 @@ namespace PryingEyes
         {
             if (c != watched) return;
             seenPos = c.transform.position; seenRot = c.transform.rotation; seenMask = c.cullingMask; seenFrame = Time.frameCount;
+            feetInFrame = c.WorldToViewportPoint(feet.position);
         }
 
         IEnumerator Start()
         {
             Application.logMessageReceived += Log;
+            GameSettings.thirdPersonFramingOverride = GameSettings.DefaultThirdPersonFraming;
             shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-tpshots") >= 0;
             var sequence = Run();
             while (true)
@@ -50,6 +54,7 @@ namespace PryingEyes
             }
             RenderPipelineManager.beginCameraRendering -= OnBegin;
             GameSettings.thirdPersonOverride = -1;
+            GameSettings.thirdPersonFramingOverride = null;
             Weapon.debugAds = false;
             PlayerController.botDir = Vector3.zero;
             Check("nessuna eccezione runtime", exceptions == 0);
@@ -160,6 +165,7 @@ namespace PryingEyes
             player.Teleport(arena + Vector3.up * 0.05f);
             player.yaw = yawF; player.pitch = 0.05f;
             watched = player.cam.GetComponent<Camera>();
+            feet = player.transform;
             GameSettings.thirdPersonOverride = 0;
             yield return Frames(3);
             RenderPipelineManager.beginCameraRendering += OnBegin;
@@ -245,6 +251,9 @@ namespace PryingEyes
             yield return new WaitForSeconds(0.9f);
             float speed = avatar != null && avatar.Body != null ? avatar.Body.input.velocity.magnitude : 0f;
             Check($"in cammino il corpo riceve la velocita' ({speed:F1} m/s)", speed > 1.2f);
+            RenderNow();
+            Check($"in cammino l'inquadratura include i piedi ({feetInFrame.y:P0})",
+                  feetInFrame.z > 0f && feetInFrame.y > 0.015f && feetInFrame.y < 1f);
             View("cammino");
             PlayerController.botDir = Vector3.zero; PlayerController.holdLook = true;
             yield return new WaitForSeconds(0.4f);
@@ -257,7 +266,43 @@ namespace PryingEyes
             float awayWall = (seenPos - player.cam.position).magnitude;
             Check($"con un muro a 90 cm dietro la camera si ferma prima ({awayWall:F2} m)", awayWall < 1.05f);
             View("muro-dietro");
+            Check("in uno spazio stretto il corpo lascia posto alle mani",
+                  avatar != null && (seenMask & (1 << avatar.Layer)) == 0 && (seenMask & (1 << Seats.ViewLayer)) != 0);
             DestroyImmediate(behind); Physics.SyncTransforms();
+            yield return new WaitForSeconds(0.10f);
+            RenderNow();
+            float opening = Vector3.Distance(seenPos, player.cam.position);
+            yield return new WaitForSeconds(0.65f);
+            RenderNow();
+            float recovered = Vector3.Distance(seenPos, player.cam.position);
+            Check($"la camera si riallontana gradualmente ({awayWall:F2}, {opening:F2}, {recovered:F2} m)",
+                  opening < recovered - 0.4f && Mathf.Abs(recovered - away) < 0.25f);
+
+            if (avatar != null && avatar.Body != null)
+            {
+                var body = avatar.Body;
+                float standing = body.Hips.position.y - avatar.transform.position.y;
+                float lowest = standing;
+                bool airborne = false;
+                float until = Time.time + 1.25f;
+                player.Teleport(player.transform.position + Vector3.up * 1.35f);
+                while (Time.time < until)
+                {
+                    yield return null;
+                    airborne |= !body.input.grounded;
+                    if (airborne && body.input.grounded)
+                        lowest = Mathf.Min(lowest, body.Hips.position.y - avatar.transform.position.y);
+                }
+                Check("una caduta porta il corpo nella posa in aria e poi a terra", airborne && body.input.grounded);
+                float settled = body.Hips.position.y - avatar.transform.position.y;
+                Check($"il bacino ammortizza l'atterraggio e risale ({(settled - lowest) * 100f:F1} cm)",
+                      settled - lowest > 0.035f && Mathf.Abs(settled - standing) < 0.03f);
+            }
+            else
+            {
+                Check("una caduta porta il corpo nella posa in aria e poi a terra", false);
+                Check("il bacino ammortizza l'atterraggio e risale", false);
+            }
 
             // 7) spenta: la camera torna all'occhio, il corpo e il componente spariscono
             GameSettings.thirdPersonOverride = 0;

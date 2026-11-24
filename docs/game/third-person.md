@@ -6,24 +6,34 @@ weapon in hand. It is a setting, **Prospettiva** in *Impostazioni*, tab *Gioco*,
 in the player's preferences and applies at once, also in the middle of a game, in single player, in online co-op and, seat by seat, in the
 split screen.
 
+The three controls below **Prospettiva** set **Distanza 3ª persona** (1.8 to 4.5 m), **Altezza 3ª persona** (35 cm below to 90 cm above
+the eye) and **Spalla 3ª persona** (90 cm left to 90 cm right, with a centred position). The Desert also exposes them under **Select →
+Telecamera**. The menus share the same saved values. **Ripristina scheda** or **Valori di partenza** restores the default framing.
+
 ## How it plays
 
-- The camera is 2.1 m behind the eye, 55 cm to the right and 14 cm up. While aiming it comes in to 1.15 m behind and 32 cm to the right,
-  so the sights and the target stay readable. A wall behind the player stops it (a sphere of 20 cm swept from the eye, never closer than
-  12 cm), so in a corridor the view comes in instead of going through the wall.
-- The player's own body is drawn: the legs walk, run, crouch, lean and climb as the player does, the torso follows the aim, and the weapon is in
-  the hands with the grip, the finger on the trigger, the recoil and the reload hand path of that weapon. Going down sits the survivor on the
-  ground; dying lays them down. The arms and the weapon of the first person are not drawn.
-- **The crosshair is the truth.** Shots, prompts and the torch start at the eye, not at the camera. Each frame, right after the eye is placed,
-  it is turned (by at most 25 degrees) towards the point the camera's own centre ray hits, so a bullet lands where the crosshair is at every
-  distance. Without this the crosshair would be a hand's breadth off. The tracers start at the muzzle of the weapon the survivor holds
+- With the default framing on foot and looking straight ahead, the camera sits 2.55 m behind the eye, 60 cm to the right and 8 cm below it. Aiming brings it to 1.18 m behind and
+  40 cm to the right. It filters vertical movement on steps and uses an anchor free of the first-person head bob. The mouse and controller
+  still turn the view directly. A 20 cm sphere swept from the eye pulls the camera in as soon as an obstacle gets in the way. Once the
+  obstacle clears, the camera moves back out at up to 4 m/s. In tight corners it draws the first-person hands to keep the survivor out
+  of the camera.
+- The survivor's boots hold their ground during the weight-bearing part of each step. A sprint lifts the feet higher and leans the body
+  forward. A slide drops the hips and leads with one leg. In the air the legs change from an uneven takeoff pose to a wider falling pose,
+  and the hips absorb the landing. The torso follows the aim and the weapon keeps its own grip, trigger, recoil and reload poses.
+  A downed survivor sits on the ground.
+- Shots, prompts and the torch start at the eye. Each frame, right after the eye is placed, it turns up to 25 degrees towards the point
+  under the camera's crosshair. This lines up the shot with the target when the eye has a clear path and the correction fits within that angle.
+  The tracers start at the muzzle of the weapon the survivor holds
   (`ThirdPersonView.MuzzleOf`, used by `Weapon.FireRays`), not at the hidden weapon of the first person. Since 0.8.0 so do the flash of a
   seal on the weapon (`Weapon.SigilShot`, see [arms-and-magic.md](arms-and-magic.md)) and the flame of a flamethrower: the two pieces of work
   were made apart and met at this point, where both still used the hidden weapon, which in the third person sits at a hand's breadth from the
   eye, behind the survivor's shoulder.
 - **Scoped optics return to the first person.** While aiming with a weapon that zooms (`WeaponDef.zoom` of 1.4 or more) the view goes back to the
-  eye, because the magnified sight is a second camera of the weapon; the view returns when the aim is released. A dead player also looks
-  from the eye. The change takes about a fifth of a second (5 per second).
+  eye because the magnified sight is a second camera of the weapon. The view returns when the aim is released and the transition takes
+  about a fifth of a second. Death returns to the eye immediately.
+- **Desert motorcycles** use the selected perspective when mounting and dismounting, with a render transition of about 0.4 seconds.
+  In third person the boom is 70 cm farther back and 52 cm higher than on foot. With less than 1.25 m of clearance the local camera hides
+  the rider and switches towards the eye. Pista uses its own race camera.
 - The body is lit by the lamps of the hotel and by the torches of the other players, never by the player's own torch (a beam at a few
   centimetres from the weapon would burn it), see *Light layers* in [characters.md](characters.md). Where the lamps are missing or at 40%
   (every floor starts on the emergency lights) the back of the survivor would be a black stain, so in the third person a **fill light**
@@ -38,22 +48,26 @@ split screen.
 setting is off and the blend is back to zero. The game does not know it exists: `PlayerController.cam` stays at the eye all the time.
 
 1. `PlayerController` places the eye and calls `ThirdPersonView.AfterEyePose` (only when the setting is on or a component exists), before the
-   weapon, the prompts and the torch read it. That call computes the camera pose behind the shoulder, finds the point it looks at and turns
-   the eye towards it.
+   weapon, the prompts and the torch read it. That call computes the camera pose behind the shoulder. The eye turns towards the centre ray
+   of the pose that will actually be rendered, including while the camera retracts or moves between perspectives.
 2. The real camera is moved only while it draws: on `RenderPipelineManager.beginCameraRendering` its transform and culling mask are replaced,
    on `endCameraRendering` they are put back. Nothing else ever sees the camera away from the eye.
-3. The culling mask gains the player's own avatar layer (`Seats.FirstAvatarLayer` + the seat) and loses the weapon layer of the
-   first person (`Seat.viewLayer`, 2 in single player) once the blend passes 0.3.
+3. With enough room to draw the body, the mask gains the player's own avatar layer (`Seats.FirstAvatarLayer` + the seat) and loses the
+   first-person weapon layer (`Seat.viewLayer`, 2 in single player). The muzzle effects and fill light follow the visibility of the body.
+   In the saddle this also switches between the bike's first-person arms and the seated survivor.
 4. The body is a `SeatAvatar` (`Coop/SeatAvatar.cs`): in the split screen the seat's own, otherwise one made for the occasion
    (`SeatAvatar.CreateOwn`, no name label). It is driven from the player each frame (velocity, pitch, lean, crouch, sprint, weapon, aiming,
-   reload, downed, alive, climbing, time since the last shot).
-5. `UpdateFill` keeps the fill light (a child of the player, created the first time the blend passes 0.3, faded in with the blend, switched
+   reload, downed, alive, climbing, ground contact, slide, time since the last shot).
+5. `UpdateFill` keeps the fill light (a child of the player, created the first time the body is visible, faded in with the blend, switched
    off with the view and destroyed with the component). `ThirdPersonView.fillScale` exists only for the tests (0 switches it off: the dark
    photos with and without).
 
-`GameSettings.thirdPersonOverride` replaces the saved setting in the tests, so a test never touches the player's preferences.
+`GameSettings.thirdPersonOverride` and `thirdPersonFramingOverride` let the camera tests replace the settings in memory.
 
 ## Verification
+
+The Desert phase `-autotest -desertotest -desertonly motocamera` checks the mounted view, its clearance near a wall, the three framing
+controls and the transitions onto and off the bike.
 
 `-autotest -nofire -noenemies -tptest [-tpshots]` (`ThirdPersonTest.cs`, not in distribution builds) checks, from what the camera really has in
 front of it while it draws: the first person is untouched (camera at the eye, no avatar, weapon layer drawn); the third person
@@ -61,8 +75,10 @@ front of it while it draws: the first person is untouched (camera at the eye, no
 feet and facing the same way); the eye ray and the camera ray hit the same point of a wall (less than 12 cm apart); with a seal on the
 weapon, the flash at the muzzle (`SigilFx.LastMuzzle`, a field that exists for the tests) falls within 2 cm of the muzzle of the body's weapon
 and not at the hidden weapon of the first person; aiming brings the camera
-closer by more than 30 cm; walking sends the velocity to the body; a wall 90 cm behind keeps the camera within 1.05 m; switching off restores
-the camera, removes the avatar and the fill light, and draws the weapon again; the fill light exists and lights only the body's layers.
+closer by more than 30 cm. Walking sends the velocity to the body and keeps the feet in frame. A wall 90 cm behind keeps the camera within 1.05 m and shows the
+first-person hands. Removing the wall lets the camera extend gradually. A short fall exercises the airborne state and checks that the hips
+dip on landing before returning to standing height. Switching off restores the camera, removes the avatar and the fill light, and draws
+the weapon again. The fill light exists and lights only the body's layers.
 A game started with `-batchmode` and no window does not draw its main camera by itself, so the test makes the camera draw (`RenderNow`, onto
 a small `RenderTexture`) before every group of checks; it also needs `holdLook` off for the walk, because `botDir` only moves the player while the
 autotest's automatic turning is on. With `-tpshots` the photos go to `unity_logs/terza-persona/`: `ferma`, `muro`, `mira`, `cammino`,

@@ -14,6 +14,13 @@ namespace PryingEyes
         const string KeyBrightness = "video_brightness";
         const string KeySensitivity = "input_sensitivity", KeyFov = "video_fov", KeyMotion = "video_motion";
         const string KeyCoopHud = "hud_coop_scale", KeyThirdPerson = "video_thirdperson";
+        const string KeyThirdDistance = "video_third_distance", KeyThirdHeight = "video_third_height", KeyThirdShoulder = "video_third_shoulder";
+        public const float ThirdDistanceMin = 1.8f, ThirdDistanceMax = 4.5f, ThirdDistanceDefault = 2.55f;
+        public const float ThirdHeightMin = -0.35f, ThirdHeightMax = 0.9f, ThirdHeightDefault = -0.08f;
+        public const float ThirdShoulderMin = -0.9f, ThirdShoulderMax = 0.9f, ThirdShoulderDefault = 0.6f;
+        public static readonly Vector3 DefaultThirdPersonFraming = new Vector3(ThirdShoulderDefault, ThirdHeightDefault, ThirdDistanceDefault);
+        static Vector3 thirdPersonFraming;
+        internal static Vector3? thirdPersonFramingOverride;
         static bool thirdPerson;
         static float master = 1f, effects = 1f, music = 1f;
         static float sensitivity = 1f, fov = 75f, motion = 1f, coopHud = 1f;
@@ -44,6 +51,7 @@ namespace PryingEyes
         public static float CoopHudScale { get { Load(); return coopHud; } }
         /// <summary>Visuale in terza persona (0.8.0): la camera sta dietro la spalla del proprio personaggio. Predefinita: prima persona.</summary>
         public static bool ThirdPerson { get { if (thirdPersonOverride >= 0) return thirdPersonOverride == 1; Load(); return thirdPerson; } }
+        public static Vector3 ThirdPersonFraming { get { Load(); return thirdPersonFramingOverride ?? thirdPersonFraming; } }
         /// <summary>Solo per le prove: se non e' negativo vale al posto dell'impostazione salvata (una prova non tocca le preferenze del giocatore).</summary>
         internal static int thirdPersonOverride = -1;
 
@@ -63,6 +71,10 @@ namespace PryingEyes
             motion = Clamp01(PlayerPrefs.GetFloat(KeyMotion, 1f));
             coopHud = Valid(PlayerPrefs.GetFloat(KeyCoopHud, 1f), CoopHudMin, CoopHudMax, 1f);
             thirdPerson = PlayerPrefs.GetInt(KeyThirdPerson, 0) == 1;
+            thirdPersonFraming = new Vector3(
+                Valid(PlayerPrefs.GetFloat(KeyThirdShoulder, ThirdShoulderDefault), ThirdShoulderMin, ThirdShoulderMax, ThirdShoulderDefault),
+                Valid(PlayerPrefs.GetFloat(KeyThirdHeight, ThirdHeightDefault), ThirdHeightMin, ThirdHeightMax, ThirdHeightDefault),
+                Valid(PlayerPrefs.GetFloat(KeyThirdDistance, ThirdDistanceDefault), ThirdDistanceMin, ThirdDistanceMax, ThirdDistanceDefault));
             LoadMore();            // le altre impostazioni: GameSettings.More.cs
             Apply();
         }
@@ -74,6 +86,26 @@ namespace PryingEyes
         public static void SetFov(float v) { Load(); fov = Valid(v, 60f, 105f, 75f); PlayerPrefs.SetFloat(KeyFov, fov); }
         public static void SetMotion(float v) { Load(); motion = Clamp01(v); PlayerPrefs.SetFloat(KeyMotion, motion); }
         public static void SetThirdPerson(bool on) { Load(); thirdPerson = on; PlayerPrefs.SetInt(KeyThirdPerson, on ? 1 : 0); }
+        public static void SetThirdDistance(float value)
+        {
+            Load();
+            thirdPersonFraming.z = Valid(value, ThirdDistanceMin, ThirdDistanceMax, ThirdDistanceDefault);
+            PlayerPrefs.SetFloat(KeyThirdDistance, thirdPersonFraming.z);
+        }
+
+        public static void SetThirdHeight(float value)
+        {
+            Load();
+            thirdPersonFraming.y = Valid(value, ThirdHeightMin, ThirdHeightMax, ThirdHeightDefault);
+            PlayerPrefs.SetFloat(KeyThirdHeight, thirdPersonFraming.y);
+        }
+
+        public static void SetThirdShoulder(float value)
+        {
+            Load();
+            thirdPersonFraming.x = Valid(value, ThirdShoulderMin, ThirdShoulderMax, ThirdShoulderDefault);
+            PlayerPrefs.SetFloat(KeyThirdShoulder, thirdPersonFraming.x);
+        }
         public static void SetCoopHudScale(float v) { Load(); coopHud = Valid(v, CoopHudMin, CoopHudMax, 1f); PlayerPrefs.SetFloat(KeyCoopHud, coopHud); }
 
         /// <summary>EV in piu' sul profilo nella partita a piani. Era +0,60 in spazio colore Gamma; in Linear (HDR + ACES) la stessa

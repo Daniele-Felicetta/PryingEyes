@@ -244,6 +244,7 @@ namespace PryingEyes.Deserto
         {
             if (!shots) return;
             Directory.CreateDirectory(TestPaths.Out("deserto"));
+            renderFrame = Time.frameCount;
             GameManager.CamShot(TestPaths.Out("deserto/" + name + ".png"), null, true, 1600, 900);
         }
 
@@ -346,6 +347,7 @@ namespace PryingEyes.Deserto
             if (Explicit("cammino")) yield return Phase("cammino", WalkProbe());
             if (Explicit("percorso")) yield return Phase("percorso", RouteProbe());
             if (Explicit("moto")) yield return Phase("moto", Moto());
+            if (Explicit("motocamera")) yield return Phase("motocamera", MotoCamera());
             if (Explicit("motosuono")) yield return Phase("motosuono", MotoSound());
             if (Explicit("motourto")) yield return Phase("motourto", MotoCrashes());
             if (Explicit("motocattedrale")) yield return Phase("motocattedrale", MotoCathedral());
