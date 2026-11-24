@@ -1,10 +1,9 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -13,42 +12,14 @@ namespace PryingEyes
     /// restano attaccati (niente arti che volano via), non passano il pavimento, si fermano entro pochi secondi e il cadavere sprofonda
     /// e sparisce come prima. I proiettili attraversano i corpi e colpiscono chi sta dietro; il giocatore non ci inciampa. Oltre
     /// MaxActive corpi fisici insieme, gli altri cadono con la vecchia animazione, senza errori.</summary>
-    public sealed class RagdollTest : MonoBehaviour
+    public sealed class RagdollTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "ragdolltest"; } }
+        protected override string PhotoFlag { get { return "-ragdollshots"; } }
+        protected override string OutFolder { get { return "ragdoll"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-ragdolltest") >= 0) new GameObject("RagdollTest").AddComponent<RagdollTest>();
-        }
-
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] ragdolltest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-ragdollshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] ragdolltest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/ragdoll"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
-        }
+        static void Install() { InstallWhen<RagdollTest>("-ragdolltest"); }
 
         static void Face(PlayerController player, Vector3 target)
         {
@@ -64,7 +35,7 @@ namespace PryingEyes
             return null;
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -73,7 +44,7 @@ namespace PryingEyes
             var gm = GameManager.I; var player = gm.player;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward));
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             Vector3 side = Vector3.Cross(Vector3.up, forward).normalized;
             player.Teleport(arena - forward * 2.5f + Vector3.up * 0.05f); player.hp = 100; player.invulnerable = true;
             yield return null;
@@ -88,7 +59,7 @@ namespace PryingEyes
             yield return new WaitForSeconds(0.4f);
             Face(player, arena + forward * 2.0f + Vector3.up * 1.0f);
             yield return new WaitForSeconds(0.2f);
-            View("prima");
+            Photo("prima");
 
             // l'osso del bastone corre lungo il bastone piantato (la capsula del ragdoll si appoggia a quell'asse)
             var staffBone = Bone(a, "bastone");
@@ -96,7 +67,7 @@ namespace PryingEyes
             Check($"l'osso del bastone corre lungo il bastone ({staffUp:F2})", staffUp > 0.9f);
             var aPelvis = Bone(a, "bacino"); var bHead = Bone(b, "testa"); var bPelvis = Bone(b, "bacino"); var cPelvis = Bone(c, "bacino");
             Check("i monaci hanno le ossa del ragdoll", aPelvis != null && bHead != null && cPelvis != null);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             Vector3 a0 = aPelvis.position, bh0 = bHead.position, bp0 = bPelvis.position, c0 = cPelvis.position;
             Vector3 eye = player.cam.position;
             // colpo al petto, colpo in fronte, esplosione ai piedi del terzo
@@ -110,11 +81,11 @@ namespace PryingEyes
             var rb = b != null ? b.GetComponent<EnemyRagdoll>() : null;
             var rc = c != null ? c.GetComponent<EnemyRagdoll>() : null;
             Check("i tre caduti sono corpi fisici", ra != null && rb != null && rc != null);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             yield return new WaitForSeconds(0.12f);
-            View("colpo");
+            Photo("colpo");
             yield return new WaitForSeconds(0.5f);
-            View("caduta");
+            Photo("caduta");
             Vector3 away = (a0 - eye); away.y = 0f; away.Normalize();
             float pushA = Vector3.Dot(aPelvis.position - a0, away);
             Check($"il colpo al petto lo spinge all'indietro ({pushA:F2} m)", pushA > 0.15f);
@@ -149,7 +120,7 @@ namespace PryingEyes
             Check("i proiettili attraversano i corpi e colpiscono chi sta dietro", hitBehind);
 
             yield return new WaitForSeconds(EnemyRagdoll.SettleTime + 0.4f);
-            View("fermi");
+            Photo("fermi");
             Check("si fermano entro pochi secondi", ra.Frozen && rb.Frozen && rc.Frozen && EnemyRagdoll.Active == 0);
             yield return new WaitForSeconds(2.2f);
             Check("poi il cadavere sparisce", a == null && b == null && c == null);
@@ -197,7 +168,7 @@ namespace PryingEyes
             foreach (var m in many) if (m != null && m.GetComponent<EnemyRagdoll>() != null) phys++;
             Check($"al piu' {EnemyRagdoll.MaxActive} corpi fisici insieme ({phys} su {many.Count})", phys == EnemyRagdoll.MaxActive);
             yield return new WaitForSeconds(0.8f);
-            View("tanti");
+            Photo("tanti");
             Enemy.debugFreeze = false;
             player.invulnerable = false;
         }

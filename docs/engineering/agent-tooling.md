@@ -226,8 +226,9 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07), on three suites: `TrapTest`, `BarrelTest` and `MineTest`; T08 ports the 48 others that still carry their own copy of
-the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
+State: built (T07) and on 13 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07) and the ten of the first pull request of T08 (`MedalTest`,
+`FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`); T08 ports the 38 others that
+still carry their own copy of the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
 
@@ -279,7 +280,7 @@ What the base class does, in the order of the old private copies: it counts the 
 `nessuna eccezione runtime`, writes `result.json`, prints the result line and quits with 0 when every check passed and 1 otherwise. Each
 check is still the log line `[PryingEyes] <suite> ok <name>` or `... FALLITO <name>`, in the order of the calls. `InstallWhen` sets
 `TestRun.Dedicated` when the flag is on the command line, in the load hook, before the first `GameManager.Update`; `GameManager` reads
-`TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags)`, the legacy array being the 31 flags of the suites that are not on the
+`TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags)`, the legacy array being the flags of the suites that are not on the
 harness yet, one per line, which T08 empties and deletes.
 
 What it removed: the `Check`, the log hook, the loop and the exit of each test that is on it; the three flags of those tests in
