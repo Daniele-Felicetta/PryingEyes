@@ -45,7 +45,7 @@ contrast, would complete itself and pay.
 (`Scripts/EquipTest.cs`, 19 checks): the throw spends a flask and sends it forward; a flask among three monks kills them,
 pays, and leaves the thrower 6 m away unharmed; a carillon pulls three monks away from the player and kills them; three waves
 refill the stock; three headshot kills complete a trial and pay; the Intatto trial counts seconds and resets on a hit.
-Photos in `unity_logs/equipaggiamento` (launch from the repository root).
+Photos in `unity_logs/equipaggiamento` of the checkout, whatever the working directory.
 
 ## Glass eyes (hidden hunt)
 
