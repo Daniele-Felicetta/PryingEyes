@@ -172,6 +172,12 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
   2. The test checks: the schema; unique names; `source` exists; each flag in `args` that is not Unity's own (`-batchmode`,
      `-nographics`, `-logFile`...) is a literal in the game code; the flags of the declared `mode` are present; every test file that
      installs itself (the census gives the list) is the `source` of an entry or appears under `unlisted` with a reason; `page` exists.
+     Found when it was done: the census gives the *number* of such files (`selfInstalling`), not the list, so the test derives the list
+     with the census's own `read_sources`, `is_test` and `is_editor` and checks that its count is the census's. The track mode and the
+     menus came after the brief: `mode` also takes `track` (`-pista`, `-pistatest`) and `menu` (no `-autotest`), and the test works out the
+     one game that a command line starts (F7) instead of looking only for the flags of the declared mode. A suite that a script starts (the
+     co-op scenarios, the split screen) has a `runner` and no `args`: the test reads the script's scenarios and parameters. 87 suites are
+     listed and none is `unlisted`; the 25 test files that do not install themselves are parts of a suite or are installed by production code.
   3. Leave `checks` empty unless the number was confirmed by a run in this task.
 - **Done when**: the test passes; the pull request states how many suites are listed and how many are `unlisted` and why.
 - **Verify**: `python -m unittest discover -s tools -p "test_player_tests.py"`.

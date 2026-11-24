@@ -170,7 +170,8 @@ These hold from now, before any task is done:
 1. Logic that needs no engine type goes in an engine-free file compiled by a lab, with its checks in that lab (under `Rules/` once B2
    exists; next to its feature and added to a lab project until then).
 2. A new in-player test is its own `*Test.cs` file, wrapped in `#if !PE_DISTRIBUTION_BUILD`, installing itself; production code never
-   names it; the guard fails otherwise. Once the harness exists it derives from `PlayerTest` and is listed in the manifest.
+   names it; the guard fails otherwise. It is also listed in the manifest of the in-player suites (`tools/player_tests.json`: its unit test
+   fails otherwise). Once the harness exists it derives from `PlayerTest`.
 3. A flag is read in one place. Test flags are read only by tests.
 4. A feature of a floor lives in its own files and touches a central file only to add its line to a list, one item per line.
 5. A change to the wire format or to the rules of a floor raises `CoopProtocol.Revision`, and only one such change is open at a time.
