@@ -30,4 +30,5 @@ kills. Protocol `pe-coop-20`.
 18 checks on the real floor): traps exist on real doors with levers; unusable while the door is closed; with the door open
 the lever offers the trap for 1000 points and lights it; three monks walking through the threshold die and the kills pay;
 a player inside burns; at the end of the duration it recharges, the lever refuses without charging, then it is ready again;
-the second trap lights too. Photos with `-trapshots` in `unity_logs/trappole` (launch from the repository root).
+the second trap lights too. The test writes `result.json` and, with `-trapshots`, its photos into `unity_logs/trappole`, whatever the folder
+the player is launched from (`-testout DIR` writes them into `DIR`; see [testing.md](../engineering/testing.md)).

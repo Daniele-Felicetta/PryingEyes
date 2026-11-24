@@ -1,10 +1,9 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -12,42 +11,14 @@ namespace PryingEyes
     /// Le botti ci sono, nelle sale grandi e sulla navmesh; un colpo da 50 ne fa scoppiare una: i monaci attorno muoiono, chi gioca a
     /// 9 m resta illeso, la botte sparisce (niente collider); l'esplosione accende la vicina entro 4,5 m. Un monaco che nasce sale
     /// dal pavimento: parte sotto, in poco piu' di un secondo e' in piedi sulla navmesh e cammina.</summary>
-    public sealed class BarrelTest : MonoBehaviour
+    public sealed class BarrelTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "barreltest"; } }
+        protected override string PhotoFlag { get { return "-barrelshots"; } }
+        protected override string OutFolder { get { return "botti"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-barreltest") >= 0) new GameObject("BarrelTest").AddComponent<BarrelTest>();
-        }
-
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] barreltest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-barrelshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] barreltest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/botti"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
-        }
+        static void Install() { InstallWhen<BarrelTest>("-barreltest"); }
 
         static void Face(PlayerController player, Vector3 target)
         {
@@ -56,7 +27,7 @@ namespace PryingEyes
             player.pitch = -Mathf.Atan2(d.y, new Vector2(d.x, d.z).magnitude);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -66,7 +37,7 @@ namespace PryingEyes
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             var bs = Barrels.I;
             Check($"le botti d'olio santo ci sono ({(bs != null ? bs.List.Count : 0)})", bs != null && bs.List.Count > 0);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             foreach (var b in bs.List)
             {
                 var room = FloorDirector.I.cur.RoomAt(b.transform.position);
@@ -85,7 +56,7 @@ namespace PryingEyes
             player.Teleport(gs + Vector3.up * 0.05f); player.hp = 100; player.shield = 50; player.invulnerable = false;
             yield return null;
             Face(player, bp + Vector3.up * 0.6f);
-            if (shots) { yield return new WaitForSeconds(0.3f); View("botte"); }
+            if (Photos) { yield return new WaitForSeconds(0.3f); Photo("botte"); }
             Enemy.debugFreeze = true;
             // tre monaci attorno alla botte, allo stesso livello e in vista (vicino alle balconate un punto a caso finiva di sopra)
             var monks = new List<Enemy>();
@@ -107,7 +78,7 @@ namespace PryingEyes
             target.Shot(50f, bp + Vector3.up * 0.5f, (bp - player.cam.position).normalized);
             yield return null;
             Check("un colpo da 50 la fa scoppiare", target.Gone);
-            if (shots) { yield return new WaitForSeconds(0.08f); View("botte_scoppio"); }
+            if (Photos) { yield return new WaitForSeconds(0.08f); Photo("botte_scoppio"); }
             yield return new WaitForSeconds(0.5f);
             int dead = monks.FindAll(m => m == null || m.IsDead).Count;
             Check($"i monaci attorno muoiono ({dead}/3)", dead == 3);
@@ -131,7 +102,7 @@ namespace PryingEyes
             Check("nato, il monaco parte sotto il pavimento", riser.transform.position.y < top.y - 1.0f && riser.Rising);
             Face(player, top + Vector3.up * 0.8f);
             yield return new WaitForSeconds(0.6f);
-            if (shots) View("salita");
+            Photo("salita");
             yield return new WaitForSeconds(1.0f);
             Check("in poco piu' di un secondo e' in piedi", !riser.Rising && Mathf.Abs(riser.transform.position.y - top.y) < 0.15f);
             var agent = riser.GetComponent<UnityEngine.AI.NavMeshAgent>();

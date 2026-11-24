@@ -1,10 +1,9 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -12,43 +11,15 @@ namespace PryingEyes
     /// Ci sono e stanno su porte vere; chiuse finche' la porta e' chiusa; con la porta aperta la leva costa 1000 punti e accende;
     /// i monaci che attraversano la soglia muoiono e le uccisioni pagano; chi gioca e ci entra si scotta; finita la durata va in
     /// ricarica (la leva rifiuta e non prende punti), poi torna pronta. Foto della trappola accesa e della leva con -trapshots.</summary>
-    public sealed class TrapTest : MonoBehaviour
+    public sealed class TrapTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "traptest"; } }
+        protected override string PhotoFlag { get { return "-trapshots"; } }
+        protected override string OutFolder { get { return "trappole"; } }
+        protected override void Finish() { PlayerController.botDir = Vector3.zero; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-traptest") >= 0) new GameObject("TrapTest").AddComponent<TrapTest>();
-        }
-
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] traptest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-trapshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            PlayerController.botDir = Vector3.zero;
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] traptest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/trappole"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
-        }
+        static void Install() { InstallWhen<TrapTest>("-traptest"); }
 
         static void Face(PlayerController player, Vector3 target)
         {
@@ -57,7 +28,7 @@ namespace PryingEyes
             player.pitch = -Mathf.Atan2(d.y, new Vector2(d.x, d.z).magnitude);       // radianti, positivo = in basso
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -68,7 +39,7 @@ namespace PryingEyes
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             var traps = DoorTraps.I;
             Check("le trappole delle soglie ci sono", traps != null && traps.Traps.Count > 0);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             foreach (var t in traps.Traps)
                 Check($"trappola {t.index} ({t.Name}) su una porta vera con almeno una leva", t.door != null && t.Levers.Count > 0);
             var trap = traps.Traps[0];
@@ -88,7 +59,7 @@ namespace PryingEyes
             Face(player, lever.Point);
             yield return null;
             Check($"la leva propone l'accensione ({lever.Prompt})", lever.Prompt != null && lever.Prompt.Contains("1000"));
-            if (shots) { yield return new WaitForSeconds(0.2f); View("leva_" + trap.Name.ToLower()); }
+            if (Photos) { yield return new WaitForSeconds(0.2f); Photo("leva_" + trap.Name.ToLower()); }
             gm.score = 3000;
             lever.Use();
             yield return null;
@@ -110,7 +81,7 @@ namespace PryingEyes
                 e.MakeRelentless(); monks.Add(e);
             }
             int score0 = gm.score;
-            if (shots) { yield return new WaitForSeconds(0.6f); View("accesa_" + trap.Name.ToLower()); }
+            if (Photos) { yield return new WaitForSeconds(0.6f); Photo("accesa_" + trap.Name.ToLower()); }
             deadline = Time.time + 12f;
             while (Time.time < deadline && monks.Exists(m => m != null && !m.IsDead)) yield return null;
             int dead = monks.FindAll(m => m == null || m.IsDead).Count;
@@ -146,7 +117,7 @@ namespace PryingEyes
                 l2.Use();
                 yield return null;
                 Check($"anche la trappola {t2.index} ({t2.Name}) si accende", t2.state == 1);
-                if (shots) { yield return new WaitForSeconds(0.5f); View("accesa_" + t2.Name.ToLower()); }
+                if (Photos) { yield return new WaitForSeconds(0.5f); Photo("accesa_" + t2.Name.ToLower()); }
             }
             Enemy.ClearAll();
         }
