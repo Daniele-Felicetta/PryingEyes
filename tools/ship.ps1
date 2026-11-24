@@ -37,8 +37,9 @@ Passi, nell'ordine:
              marcatore e' integro (anche se HEAD e' avanzato dopo quella build): serve a rilanciarlo a mano e al processo differito
 
 Non annulla mai nulla: le modifiche che build e prova lasciano nell'albero vengono solo elencate come AVVISO.
-File: unity_logs\ship_last.log (log), ship_last.status (stato), ship_build.log (Unity), ship_built.json (marcatore),
-ship_refresh.log e ship_refresh.status (l'aggiornamento differito dell'exe) e accanto all'exe dell'utente Builds\build_info.json
+File: unity_logs\ship_last.log (log), ship_last.status (stato), ship_last.json (l'esito come dati, schemaVersion 1: lo scrive sempre, anche
+quando un passo fallisce), ship_build.log (Unity), ship_built.json (marcatore), ship_refresh.log, ship_refresh.status e ship_refresh.json
+(l'aggiornamento differito dell'exe) e accanto all'exe dell'utente Builds\build_info.json
 (commit, data, modo di build e sorgenti non committati dell'exe che c'e' li').
 Uscita 0 solo con "SHIP: OK". Tutto ASCII di proposito: PowerShell 5.1 legge male gli accenti senza BOM.
 #>
@@ -78,6 +79,7 @@ if ($RefreshOnly) { $runTag = 'ship_refresh'; $NoBuild = $true; $NoGate = $true;
 $logFile = Join-Path $logDir ($runTag + '.log')
 $statusFile = Join-Path $logDir ($runTag + '.status')
 $markerFile = Join-Path $logDir 'ship_built.json'
+$jsonFile = Join-Path $logDir ($runTag + '.json')     # come e' finita l'esecuzione, come dati (Write-ShipJson)
 $buildLog = Join-Path $logDir 'ship_build.log'
 $attribution = 'Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>'
 if (-not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
@@ -185,6 +187,7 @@ $null = [ShipPrio]::Set($PID, 33, 1)
 $summary = [ordered]@{}
 $warns = New-Object System.Collections.Generic.List[string]
 $swAll = [Diagnostics.Stopwatch]::StartNew()
+$startedAt = Get-Date
 $script:step = 'avvio'
 $script:gitExit = 0
 $script:builtNow = $false
@@ -193,6 +196,12 @@ $script:dirtyNote = ''       # 'HEAD abc1234 + N sorgenti non committati', per l
 $script:commitPaths = @()    # i percorsi di -Paths: la prova a secco non committa, quindi non li conta come sporchi
 $srcRoots = @('unity/PryingEyes/Assets', 'unity/PryingEyes/Packages', 'unity/PryingEyes/ProjectSettings')
 $maxListed = 300             # quanti sorgenti si scrivono nel marcatore e in build_info.json (il conteggio e' sempre intero)
+# quello che i passi hanno fatto, per il file json dell'esito (Write-ShipJson); i valori di partenza dicono "non ci sono arrivato"
+$script:dirtyKnown = $false  # Do-Sources e' arrivato a contare i sorgenti non committati
+$script:buildMode = $null    # il modo di build che Do-Build ha scelto ('scripts' o 'full') e il perche'
+$script:buildWhy = ''
+$script:commitFiles = 0      # i file che Do-Commit ha messo nel commit
+$script:push = [ordered]@{ done = $false; skipped = $null; 'from' = $null; 'to' = $null; commits = $null }     # che cosa ha fatto Do-Push
 Set-Content -LiteralPath $logFile -Value ('ship ' + (Get-Date -Format 's') + '  pid=' + $PID + $(if ($DryRun) { '  PROVA A SECCO' } else { '' })) -Encoding UTF8
 
 function Log([string]$m) {
@@ -206,13 +215,52 @@ function Step([string]$name) {
     Log ''
     Log ("--- $name (" + (Get-Date -Format 'HH:mm:ss') + ')')
 }
+# unity_logs\<runTag>.json: come e' finita questa esecuzione, per chi la legge da programma (schemaVersion 1); il testo del log resta per le persone.
+# Lo scrive Finish, quindi anche quando un passo e' fallito o e' scattato il trap, con quello che i passi hanno fatto fino a li'. Un errore qui
+# non fa fallire lo ship: resta un AVVISO. Si scrive in un file temporaneo e si rinomina, per non far leggere a nessuno un file a meta'.
+function Write-ShipJson([bool]$ok, [string]$why, [string]$final) {
+    try {
+        $headNow = @(GitLocal @('rev-parse', 'HEAD'))[0]
+        if ($script:gitExit -ne 0) { $headNow = $null }
+        $made = [bool]((-not $DryRun) -and $headStart -and $headNow -and ($headNow -ne $headStart))
+        $subject = $null
+        if ($made) { $subject = @(GitLocal @('log', '-1', '--format=%s'))[0] }
+        $exeNote = [string]$summary['exe']
+        $doc = [ordered]@{
+            schemaVersion = 1
+            ok = $ok
+            result = $final
+            why = $why
+            step = $script:step
+            dryRun = [bool]$DryRun
+            refreshOnly = [bool]$RefreshOnly
+            startedAt = $startedAt.ToString('s')
+            finishedAt = (Get-Date -Format 's')
+            seconds = [int]$swAll.Elapsed.TotalSeconds
+            branch = $branch
+            headStart = $headStart
+            headEnd = $headNow
+            commit = [ordered]@{ made = $made; sha = $(if ($made) { $headNow } else { $null }); subject = $subject; files = $(if ($made) { $script:commitFiles } else { 0 }) }
+            build = [ordered]@{ skipped = [bool]$NoBuild; built = [bool]$script:builtNow; mode = $script:buildMode; why = $script:buildWhy; out = $buildOut }
+            push = [ordered]@{ done = $script:push['done']; skipped = $script:push['skipped']; remote = 'origin'; branch = $branch; 'from' = $script:push['from']; 'to' = $script:push['to']; commits = $script:push['commits'] }
+            uncommitted = [ordered]@{ known = $script:dirtyKnown; count = $script:dirty.Count; truncated = ($script:dirty.Count -gt $maxListed); sources = @($script:dirty | Select-Object -First $maxListed) }
+            exe = [ordered]@{ updated = [bool]($exeNote -like 'aggiornato*'); deferred = [bool]($exeNote -like '*aggiornamento differito avviato*'); note = $exeNote }
+            warnings = @($warns)
+            summary = $summary
+        }
+        $tmp = $jsonFile + '.tmp'
+        [IO.File]::WriteAllText($tmp, (($doc | ConvertTo-Json -Depth 6) + "`r`n"), (New-Object Text.UTF8Encoding($false)))
+        Move-Item -LiteralPath $tmp -Destination $jsonFile -Force -ErrorAction Stop
+    } catch { $warns.Add($runTag + '.json non scritto: ' + $_.Exception.Message) }
+}
 function Finish([bool]$ok, [string]$why) {
+    if ($ok) { $final = 'SHIP: OK' } else { $final = 'SHIP: FALLITO - ' + $why }
+    Write-ShipJson $ok $why $final
     Log ''
     Log '=== RIEPILOGO SHIP ==='
     foreach ($k in $summary.Keys) { Log (('{0,-8}' -f ($k + ':')) + ' ' + $summary[$k]) }
     foreach ($w in $warns) { Log ('AVVISO   ' + $w) }
     Log ('durata   ' + [int]$swAll.Elapsed.TotalSeconds + ' s' + $(if ($DryRun) { '  (PROVA A SECCO: non e'' stato cambiato nulla)' } else { '' }))
-    if ($ok) { $final = 'SHIP: OK' } else { $final = 'SHIP: FALLITO - ' + $why }
     Log $final
     Set-Status ('FINITO: ' + $final)
     exit ([int](-not $ok))
@@ -367,6 +415,7 @@ function Do-Commit {
         return
     }
     Log ("in stage: $($st.Count) file")
+    $script:commitFiles = $st.Count
     $st | Select-Object -First 40 | ForEach-Object { Log ('  ' + $_) }
     if ($st.Count -gt 40) { Log '  ...' }
     $o = @(GitLocal @('commit', '-F', $msgTmp))
@@ -431,6 +480,7 @@ function Do-Sources {
     Step 'sorgenti'
     $list = @(Get-UncommittedSources)
     $script:dirty = $list
+    $script:dirtyKnown = $true
     $head = Short (@(GitLocal @('rev-parse', 'HEAD'))[0])
     if ($list.Count -eq 0) {
         $script:dirtyNote = "HEAD $head, nessun sorgente non committato"
@@ -520,6 +570,8 @@ function Do-Build {
     }
     $d = Get-BuildMode
     $mode2 = [string]$d[0]
+    $script:buildMode = $mode2
+    $script:buildWhy = [string]$d[1]
     Log ("modo: $mode2 - " + $d[1])
     if ($mode2 -eq 'scripts') { $method = 'PryingEyes.EditorTools.BuildPlayer.Torre' } else { $method = 'PryingEyes.EditorTools.BuildPlayer.Windows' }
     $a = @('-batchmode', '-projectPath', ('"' + $proj + '"'), '-executeMethod', $method, '-buildOut', ('"' + $buildOut + '"'), '-quit', '-logFile', ('"' + $buildLog + '"'))
@@ -603,14 +655,14 @@ function Do-Smoke {
 
 # ---------------------------------------------------------------- push
 function Do-Push {
-    if ($NoPush) { $summary['push'] = 'saltato (-NoPush)'; return }
+    if ($NoPush) { $summary['push'] = 'saltato (-NoPush)'; $script:push['skipped'] = '-NoPush'; return }
     Step 'push'
     $local = @(GitLocal @('rev-parse', 'HEAD'))[0]
     $rem = @(GitNet @('ls-remote', 'origin', "refs/heads/$branch") 60)
     if ($script:gitExit -ne 0) { Finish $false ('push: non riesco a leggere il remoto: ' + ($rem | Select-Object -Last 1)) }
     $rb = ''
     if ($rem.Count -gt 0 -and $rem[0] -match '^[0-9a-f]{40}') { $rb = ($rem[0] -split '\s+')[0] }
-    if ($rb -eq $local) { $summary['push'] = "niente da pushare: origin/$branch e' gia' a " + (Short $local); return }
+    if ($rb -eq $local) { $summary['push'] = "niente da pushare: origin/$branch e' gia' a " + (Short $local); $script:push['skipped'] = 'up-to-date'; $script:push['to'] = $local; return }
     if ($rb -eq '') {
         $ahead = 'ramo nuovo'
     } else {
@@ -618,6 +670,9 @@ function Do-Push {
         if ($script:gitExit -ne 0) { $ahead = '?' }
     }
     Log ('remoto ' + $(if ($rb) { Short $rb } else { '(ramo assente)' }) + ', locale ' + (Short $local) + ", commit da pushare: $ahead")
+    if ($rb) { $script:push['from'] = $rb }
+    $script:push['to'] = $local
+    if ("$ahead" -match '^\d+$') { $script:push['commits'] = [int]$ahead }
     $flags = @('-c', 'http.postBuffer=524288000', '-c', 'http.lowSpeedLimit=0', '-c', 'http.lowSpeedTime=999999', '-c', 'pack.threads=0', '-c', 'core.compression=1')
     $cmd = $flags + @('push') + $(if ($DryRun) { @('--dry-run') } else { @() }) + @('origin', $branch)
     $o = @(GitNet $cmd 1200)
@@ -628,6 +683,7 @@ function Do-Push {
     $ra = ''
     if ($rem2.Count -gt 0 -and $rem2[0] -match '^[0-9a-f]{40}') { $ra = ($rem2[0] -split '\s+')[0] }
     if ($ra -ne $local) { Finish $false "push: dopo il push il remoto e' a '$ra' invece di $local" }
+    $script:push['done'] = $true
     $summary['push'] = "origin/$branch " + $(if ($rb) { Short $rb } else { '(nuovo)' }) + '..' + (Short $local) + " ($ahead commit), il remoto ha lo stesso HEAD"
 }
 

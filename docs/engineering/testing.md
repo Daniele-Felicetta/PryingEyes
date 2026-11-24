@@ -81,6 +81,8 @@ Unity -batchmode -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorT
 
 Add `-scriptsOnly` after a change that touches scripts only (a full build has to be in that folder already). Always pass `-buildOut`: without it the build overwrites the game the maintainer plays.
 
+To know only whether the scripts compile, build nothing: `python tools/studio.py test compile` starts the editor in batch mode with no method, which compiles and quits. Each compiler error is a finding of `report.json` with its file and line, and the exit code is 1; it refuses to start while an editor has the project open, and `python tools/studio.py suites` gives its usual duration ([agent-tooling.md](agent-tooling.md#test-compile-does-it-compile)). `python tools/studio.py doctor --json` is the other question to ask before working on a checkout: whether an editor or a player is open on it, whether it has a `Library` and a verification build, and how the last gate on `preview` ended ([agent-tooling.md](agent-tooling.md#doctor-the-state-of-this-checkout)).
+
 ### 2.3 Gunplay, presentation and city (need a built player)
 
 ```powershell

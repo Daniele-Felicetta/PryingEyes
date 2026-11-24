@@ -627,7 +627,7 @@ class PryingEyes(Project):
                               about="The desert's pure code: noise, clock, terrain, buildings, world, map, weather and grading"),
               "plan": Suite(lambda ctx, runtime: plan_state(ctx.job), kind="lab", seconds=3,
                             about="The floor generator: its plans against the committed hashes, and the protocol revision"),
-              "compile": Suite(lambda ctx, runtime: compile_scripts(ctx.job, ctx.tools["unity"]), kind="editor", needs=("editor",),
+              "compile": Suite(lambda ctx, runtime: compile_scripts(ctx.job, ctx.tools["unity"]), kind="editor", needs=("editor",), seconds=15,
                                about="The scripts compile: the editor, started with no method, compiles them and quits; each compiler error is a finding with its file and line"),
               **{name: player_suite(entry) for name, entry in PLAYER_ENTRIES.items()}}
     runtime = AUDIT                 # what `test --runtime` defaults to: the verification build, not what the studio publishes (publish_dir)
