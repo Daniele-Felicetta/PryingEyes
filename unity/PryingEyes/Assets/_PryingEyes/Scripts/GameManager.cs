@@ -70,7 +70,7 @@ namespace PryingEyes
         {
             var a = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-report") return a[i + 1];
-            return TestPaths.Out("autotest.txt");
+            return TestPaths.Scratch("autotest.txt");
         }
         bool returningToMenu;
 
@@ -279,8 +279,8 @@ namespace PryingEyes
                         $"{autoT:F0} {wave} {kills} {score} {player.hp:F0} {player.shield:F0} {player.weapon.mag} {player.weapon.reserve} {list.Count} {shotsFired} {shotsHit} {damageTaken} {walkerMaxY:F1}" +
                         $" p({player.transform.position.x:F0},{player.transform.position.y:F0},{player.transform.position.z:F0}){epos}\n");
                 }
-                if (autoT >= 15f && !shot1done && !trailer) { shot1done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot1.png")); }
-                if (autoT >= 75f && !shot2done && !trailer) { shot2done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot2.png")); }
+                if (autoT >= 15f && !shot1done && !trailer) { shot1done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Scratch("auto_shot1.png")); }
+                if (autoT >= 75f && !shot2done && !trailer) { shot2done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Scratch("auto_shot2.png")); }
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; HarnessShotFrame = Time.frameCount; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam1.png")); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam2.png")); }
