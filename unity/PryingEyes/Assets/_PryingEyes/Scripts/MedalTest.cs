@@ -1,8 +1,8 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -10,34 +10,14 @@ namespace PryingEyes
     /// loro punti e il riquadro in alto; dopo una pausa la catena riparte; cinque di fila alla testa danno Mira divina; tre nello stesso
     /// scoppio Fuoco purificatore; venticinque senza ferite Intoccabile (una ferita azzera la serie); con la vita al 10% Ultimo respiro;
     /// tre di coltello Lama santa.</summary>
-    public sealed class MedalTest : MonoBehaviour
+    public sealed class MedalTest : PlayerTest
     {
-        int checks, failed, exceptions;
+        protected override string Suite { get { return "medaltest"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-medaltest") >= 0) new GameObject("MedalTest").AddComponent<MedalTest>();
-        }
+        static void Install() { InstallWhen<MedalTest>("-medaltest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] medaltest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] medaltest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
