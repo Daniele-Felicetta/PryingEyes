@@ -29,6 +29,11 @@
           "type": "string",
           "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
         },
+        "label": {
+          "description": "What the test prints between [PryingEyes] and ok, FALLITO or RISULTATO, when that is not the name: a family of suites shares one test class and one label (pistamenulicence prints pistamenutest). Leave it out when it is the name.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*$"
+        },
         "source": {
           "description": "The C# file of the game that implements the check or reads its flag, from the repository root.",
           "type": "string",

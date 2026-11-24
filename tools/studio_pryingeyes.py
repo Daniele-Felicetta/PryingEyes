@@ -126,13 +126,15 @@ def player_state(job, entry, runtime):
     result.json of the harness (-testout), all in the job's folder; an entry with a `runner` is started through its script, with the job's folder
     as the log folder (the script runs the build of this checkout, so --runtime cannot change it). Each check that the run reports is a
     finding, and report["player"] holds the verdict, where it came from (`result.json`, or `log-line` for a suite that does not write one
-    yet) and how many checks ran.
+    yet) and how many checks ran. The lines of the log that count are those of the entry's `label` (its name, unless a family of suites
+    shares one test class); a script's logs are read whatever label they carry, in the forms of tools/player_log.py.
 
     The suite passes when the process quit with 0 within the entry's timeout, the run says it passed, it ran at least the entry's `checks`
     and its log holds no exception but the renderer's noise. Each way to fail has its own code: PLAYER_RUNTIME_MISSING, PLAYER_RUNTIME_FIXED,
     PLAYER_IN_USE, PLAYER_GPU_BUSY, PLAYER_TIMEOUT, PLAYER_RESULT_INVALID, PLAYER_RESULT_MISSING, PLAYER_CHECK_FAILED, PLAYER_EXCEPTION,
     PLAYER_CHECKS_FEWER, and STEP_FAILED for a process that failed after saying that it passed."""
     name, runner, runtime = entry["name"], entry.get("runner"), Path(runtime)
+    label = entry.get("label", name)                    # what the test prints before `ok`, `FALLITO` and `RISULTATO`: a family of suites can share one
     if not runtime.is_file():
         raise RuntimeError(f"PLAYER_RUNTIME_MISSING: {runtime}; build it (tools/ship.ps1 builds {shown(AUDIT)}) or name another build with --runtime")
     if runner and runtime.resolve() != AUDIT.resolve():
@@ -156,7 +158,7 @@ def player_state(job, entry, runtime):
     result = testout / "result.json"
     job.report["artifacts"].extend(str(path) for path in [*logs, result] if path.is_file())
     try:
-        parts = [(path, player_log.verdict(None if runner else name, player_log.read_text(path), None if runner else result)) for path in logs]
+        parts = [(path, player_log.verdict(None if runner else label, player_log.read_text(path), None if runner else result)) for path in logs]
     except ValueError as invalid:
         raise RuntimeError(f"PLAYER_RESULT_INVALID: {name}: {invalid}") from invalid
     said = player_log.combine(part for _, part in parts)
@@ -170,7 +172,8 @@ def player_state(job, entry, runtime):
     if error is not None and str(error).startswith("STEP_TIMEOUT"):
         raise RuntimeError(f"PLAYER_TIMEOUT: {name} gave no result within {entry['timeout']} s ({where})") from error
     if said["source"] == "none":
-        raise RuntimeError(f"PLAYER_RESULT_MISSING: {name} wrote no result.json and no result line ({where}); {error or 'the process quit with 0'}")
+        looked = "" if runner else f"; the line it looks for is `[PryingEyes] {label} RISULTATO ...`: a test that prints its result in another form has to be ported to the harness first"
+        raise RuntimeError(f"PLAYER_RESULT_MISSING: {name} wrote no result.json and no result line ({where}); {error or 'the process quit with 0'}{looked}")
     if not said["ok"]:
         failed = [check["name"] for check in said["checks"] if not check["ok"]]
         raise RuntimeError(f"PLAYER_CHECK_FAILED: {name}: {said['total'] - said['passed']} of {said['total']} checks failed"

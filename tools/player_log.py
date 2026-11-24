@@ -9,6 +9,16 @@ A test of the game prints one line for each check and one result line, and quits
     [PryingEyes] survivaltest FALLITO la leva costa 1000 (punti 1500)
     [PryingEyes] survivaltest RISULTATO FALLITA: 17/18
 
+The co-op tests say which of the two processes speaks. CoopTest gives the detail in square brackets and a tail to the result:
+
+    [PryingEyes] cooptest ospite: ok       i due giocatori si vedono   [2 pupazzi]
+    [PryingEyes] cooptest ospitato: RISULTATO SUPERATA: 12/12 verifiche ok
+
+and PistaCoopTest has no colon:
+
+    [PryingEyes] pistacooptest ospite ok la gara parte (3 giri)
+    [PryingEyes] pistacooptest ospite RISULTATO SUPERATA: 9/9
+
 A test that uses the harness (docs/engineering/agent-tooling.md, "Results as data") also writes result.json into the folder given by
 -testout, and that file is what a tool reads first; the lines are what it falls back on, so that a suite can be run before it is ported.
 """
@@ -19,9 +29,11 @@ import re
 # The render-graph errors that -nographics always prints are not the test's exceptions.
 NOISE = re.compile(r"UnityEngine\.Rendering\.(Universal|RenderGraph)")
 EXCEPTION = re.compile(r"^\w*Exception: ")
-CHECK = re.compile(r"^\[PryingEyes\] (?P<suite>\S+) (?P<state>ok|FALLITO) (?P<text>.*)$")
-RESULT = re.compile(r"^\[PryingEyes\] (?P<suite>\S+) RISULTATO (?P<word>SUPERATA|FALLITA): (?P<passed>\d+)/(?P<total>\d+)\s*$")
+ROLE = r"(?: (?P<role>ospite|ospitato):?)?"                       # the co-op tests: `cooptest ospite: ...`, `pistacooptest ospitato ...`
+CHECK = re.compile(rf"^\[PryingEyes\] (?P<suite>\w+){ROLE} (?P<state>ok|FALLITO)\s+(?P<text>.*?)\s*$")
+RESULT = re.compile(rf"^\[PryingEyes\] (?P<suite>\w+){ROLE} RISULTATO (?P<word>SUPERATA|FALLITA): (?P<passed>\d+)/(?P<total>\d+)(?: verifiche ok(?: \(interrotta\))?)?\s*$")
 DETAIL = re.compile(r"(?P<name>.*) \((?P<detail>[^()]*)\)")
+DETAIL_OF_COOP = re.compile(r"(?P<name>.*?)\s+\[(?P<detail>[^\[\]]*)\]")
 
 
 def read_text(path):
@@ -41,12 +53,13 @@ def exceptions(text):
 
 def check_lines(text, suite=None):
     """The check lines of the log, in order, as {suite, name, ok, detail}; those of `suite` only when it is given. The game prints
-    `name (detail)`: the detail is what is in the last parentheses, when they hold no other, otherwise the whole text is the name."""
+    `name (detail)`, and CoopTest `name   [detail]`: the detail is what is in the last pair, when it holds no other, otherwise
+    the whole text is the name."""
     found = []
     for line in text.splitlines():
         match = CHECK.match(line)
         if match and suite in (None, match["suite"]):
-            split = DETAIL.fullmatch(match["text"])
+            split = DETAIL.fullmatch(match["text"]) or (DETAIL_OF_COOP.fullmatch(match["text"]) if match["role"] else None)
             found.append({"suite": match["suite"], "name": split["name"] if split else match["text"],
                           "ok": match["state"] == "ok", "detail": split["detail"] if split else ""})
     return found

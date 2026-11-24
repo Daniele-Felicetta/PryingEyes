@@ -61,6 +61,25 @@ class PlayerLog(unittest.TestCase):
         self.assertEqual([line["ok"] for line in player_log.result_lines(two, "a")], [False, True])
         self.assertEqual(player_log.result_lines("[PryingEyes] a RISULTATO SUPERATA 2/2\n[PryingEyes] a RISULTATO SUPERATA: due\n"), [])    # not the format
 
+    def test_the_coop_tests_say_who_speaks_and_the_two_of_them_do_it_differently(self):
+        host = ("[PryingEyes] cooptest ospite: ok       i due giocatori si vedono   [2 pupazzi]\n"      # CoopTest: a colon, the detail in square brackets
+                "[PryingEyes] cooptest ospite: FALLITO  la moto della guida   [atteso 1, trovato 0]\n"
+                "[PryingEyes] cooptest ospite: ok       senza dettaglio\n"
+                "[PryingEyes] cooptest ospite: RISULTATO FALLITA: 2/3 verifiche ok\n")
+        self.assertEqual([(c["name"], c["ok"], c["detail"]) for c in player_log.check_lines(host, "cooptest")], [
+            ("i due giocatori si vedono", True, "2 pupazzi"), ("la moto della guida", False, "atteso 1, trovato 0"), ("senza dettaglio", True, "")])
+        self.assertEqual(player_log.result_lines(host, "cooptest"), [{"suite": "cooptest", "ok": False, "passed": 2, "total": 3}])
+        aborted = "[PryingEyes] cooptest ospitato: RISULTATO FALLITA: 4/4 verifiche ok (interrotta)\n"
+        self.assertEqual(player_log.result_lines(aborted), [{"suite": "cooptest", "ok": False, "passed": 4, "total": 4}])          # aborted is failed
+        pista = ("[PryingEyes] pistacooptest ospitato ok il giro e' contato (3 giri)\n"                          # PistaCoopTest: no colon, the detail in parentheses
+                 "[PryingEyes] pistacooptest ospitato FALLITO la classifica\n"
+                 "[PryingEyes] pistacooptest classifica Circuito: 1 2 3\n"
+                 "[PryingEyes] pistacooptest ospitato RISULTATO FALLITA: 1/2\n")
+        self.assertEqual([(c["name"], c["ok"], c["detail"]) for c in player_log.check_lines(pista)], [("il giro e' contato", True, "3 giri"), ("la classifica", False, "")])
+        self.assertEqual(player_log.result_lines(pista), [{"suite": "pistacooptest", "ok": False, "passed": 1, "total": 2}])
+        self.assertEqual(player_log.check_lines("[PryingEyes] avvio: ok niente\n[PryingEyes] foo bar ok x\n[PryingEyes] a ospiti ok y\n"), [])      # a word that is no role is none
+        self.assertEqual(player_log.result_lines("[PryingEyes] a ospite: RISULTATO SUPERATA: 1/1 verifiche ko\n"), [])
+
     # ---- result.json
 
     def test_a_result_json_is_read_as_the_checks_it_holds(self):
@@ -106,14 +125,15 @@ class PlayerLog(unittest.TestCase):
         self.assertEqual((passed["ok"], passed["total"], passed["checks"]), (True, 18, []))
 
     def test_the_verdict_of_a_run_made_of_several_processes_adds_them_up(self):
-        host = player_log.verdict(None, "[PryingEyes] cooptest ok a (1)\n[PryingEyes] cooptest RISULTATO SUPERATA: 1/1\n")
-        guest = player_log.verdict(None, "[PryingEyes] cooptest ok b (1)\n[PryingEyes] cooptest ok c (1)\n[PryingEyes] cooptest RISULTATO SUPERATA: 2/2\n")
+        host = player_log.verdict(None, "[PryingEyes] cooptest ospite: ok       a   [1]\n[PryingEyes] cooptest ospite: RISULTATO SUPERATA: 1/1 verifiche ok\n")
+        guest = player_log.verdict(None, "[PryingEyes] cooptest ospitato: ok       b   [1]\n[PryingEyes] cooptest ospitato: ok       c\n"
+                                         "[PryingEyes] cooptest ospitato: RISULTATO SUPERATA: 2/2 verifiche ok\n")
         killed = player_log.verdict(None, "[PryingEyes] killed on purpose\nArgumentException: boom\n")
         self.assertIs(player_log.combine([host]), host)                                              # one process alone is itself
         together = player_log.combine([host, guest, killed])
         self.assertEqual((together["source"], together["ok"], together["total"], together["passed"]), ("log-line", True, 3, 3))
         self.assertEqual([c["name"] for c in together["checks"]], ["a", "b", "c"]); self.assertEqual(together["exceptions"], ["ArgumentException: boom"])
-        bad = player_log.verdict(None, "[PryingEyes] cooptest FALLITO x (1)\n[PryingEyes] cooptest RISULTATO FALLITA: 0/1\n")
+        bad = player_log.verdict(None, "[PryingEyes] cooptest ospitato: FALLITO  x   [1]\n[PryingEyes] cooptest ospitato: RISULTATO FALLITA: 0/1 verifiche ok\n")
         self.assertFalse(player_log.combine([host, bad])["ok"])
         self.assertEqual(player_log.combine([killed, killed])["source"], "none")                      # nobody said anything
         self.assertEqual(player_log.combine([])["source"], "none")

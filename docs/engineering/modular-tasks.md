@@ -189,7 +189,9 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 - **Needs**: **build**. No graphics card for the acceptance runs.
 - **Depends on**: T03, T05.
 - **Touches**: the profile and its test, a new small module shared with `tools/check_navigation.py` for reading a player's log, the
-  engine if a suite cannot yet name its own default runtime.
+  engine if a suite cannot yet name its own default runtime (none was needed) and, which the brief did not foresee, the manifest, its
+  schema and its test: an entry may name the label its test prints (the five `pistamenu*` suites share `pistamenutest`), the manifest
+  holds the counts that the runs confirmed, and `needs: gpu` is off the three suites that pass without a card.
 - **Steps**
   1. The profile turns each entry of the manifest into a `Suite` of kind `player`. The runner starts the runtime (default: the
      verification build) with the entry's `args` plus `-logFile`, `-report` and `-testout` pointing into the job folder, within `timeout`.

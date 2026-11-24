@@ -103,7 +103,8 @@ The suites that need nothing (`needs` empty) are the ones the gate runs. The wor
 nothing in the game; it writes down what today only [testing.md](testing.md) says. Its schema is `tools/player_tests.schema.json` and its
 test is `tools/test_player_tests.py`. Few runs have confirmed it: the arguments come from the prose, from the comments of the test files
 and from the scripts that start them, and the timeouts are upper bounds, not measurements. `checks` is there only for a suite that a run
-has confirmed.
+has confirmed: the 9 that T06 ran on a verification build (`traptest` 18, `barreltest` 19, `minetest` 12, `chartest` 23,
+`survivaltest` 91, `cattedraletest` 72, `pistamenutest` 46, `pistamenulicence` 30, `pistamenucup` 39).
 
 ```json
 {
@@ -115,6 +116,7 @@ has confirmed.
       "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-traptest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 120,
+      "checks": 18,
       "needs": ["runtime"],
       "hazards": [],
       "photos": {"args": ["-trapshots"], "needs": ["gpu"], "folder": "unity_logs/trappole"},
@@ -128,6 +130,7 @@ has confirmed.
 | Field | Why it is there |
 | --- | --- |
 | `name` | what `studio.py test` will call it: the flag without its dash (`traptest`), or `coop-<scenario>` for a scenario of `tools/coop/run_all.ps1` |
+| `label` | what the test prints between `[PryingEyes]` and `ok`, `FALLITO` or `RISULTATO`, when that is not the name: a family of suites shares one test class and one label (`pistamenulicence` prints `pistamenutest`). Optional. The runner reads the lines of that label, and the test of the manifest checks it against the C# in both directions: a `label` that the source does not print, one that repeats the name, and a source that prints another label with no `label` to say so |
 | `source` | the C# file that implements the check or reads its flag |
 | `args` | the whole command line, so that nobody has to assemble it from prose |
 | `mode` | which game the flags select: `tower`, `catacombs`, `cathedral`, `desert`, `city`, `track` or `menu` (no `-autotest`). Under `-autotest` the catacombs are off unless a flag asks for them (F7): the manifest has to say it, and its test works out the game that `args` start and fails if it is not the declared one |
@@ -181,12 +184,24 @@ within its time; the run says it passed (`result.json` when it exists, the resul
 below `checks`; the log holds no exception other than the ones the renderer always prints without a graphics card (that filter is in
 `tools/player_log.py`, which `tools/check_navigation.py` uses too).
 
-**Until a suite uses the harness** (today only `traptest`, `barreltest` and `minetest` do) there is no `result.json`: the runner falls back to the result line that the tests print today
-(`[PryingEyes] <name> RISULTATO SUPERATA: 18/18`; the lines `ok <name> (<detail>)` and `FALLITO <name> (<detail>)` before it are the
-findings) and says so in the report (`player.verdictSource` is `log-line`, and `result.json` when that file was read). Suites can therefore
-be registered before they are ported, and ported one at a time. A `result.json` that exists but cannot be trusted (not JSON, the result of
-another suite, another version) fails the suite (`PLAYER_RESULT_INVALID`): the lines are no way around a bug of the harness. A test that
-prints only its failures (`gunplaytest`) has fewer findings than checks: `player.checks` is the number on its result line.
+**Until a suite uses the harness** (today only `traptest`, `barreltest` and `minetest` do) there is no `result.json`: the runner falls
+back to the result line that the tests print today (`[PryingEyes] <label> RISULTATO SUPERATA: 18/18`, `<label>` being the `name` of the
+entry or its `label`; the lines `ok <name> (<detail>)` and `FALLITO <name> (<detail>)` before it are the findings) and says so in the
+report (`player.verdictSource` is `log-line`, and `result.json` when that file was read). Suites can therefore be registered before they
+are ported, and ported one at a time. A `result.json` that exists but cannot be trusted (not JSON, the result of another suite, another
+version) fails the suite (`PLAYER_RESULT_INVALID`): the lines are no way around a bug of the harness. A test that prints only its failures
+(`gunplaytest`) has fewer findings than checks: `player.checks` is the number on its result line.
+
+The runner reads three forms of that line, and `tools/player_log.py` is the only place that knows them: the standard one above;
+`CoopTest`'s (`[PryingEyes] cooptest ospite: RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`, the
+process that speaks after the label); and `PistaCoopTest`'s (`[PryingEyes] pistacooptest ospite RISULTATO ...`, no colon, the detail in
+parentheses). Counted from the sources, not from runs, 68 of the 87 entries say their result in a form the runner reads: 3 write
+`result.json`, 46 print the standard line, 2 runners (`seatstest`, `splitdesertotest`) print it too and the 17 co-op scenarios print the
+co-op forms. The other 19 print theirs in another form or not at all: `citytest`, `displaytest`, `guntest`, `leantest`, `walltest`,
+`magictest`, `procbot`, `perftest` and the eleven of the stealth family (`stealthtest`, `roundtest`, `knifetest`, `droptest`, `booktest`,
+`gridtest`, `pushtest`, `holescan`, `alientest`, `temitest`, `refshot`). The studio starts them and fails them with
+`PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08): the runner does not guess a verdict from
+an exit code, and `padtest`, run without a window, quit with 0 and printed no result at all.
 
 ### Running the suites of the manifest
 
@@ -220,6 +235,13 @@ manifest's command line, which is the one of `tools/check_gunplay.py`.) The runn
 | `PLAYER_CHECKS_FEWER` | fewer checks than the entry's `checks`: part of the test did not run, or the manifest is out of date |
 | `STEP_FAILED` | everything above is fine, but the process quit with a code other than 0 |
 | `PLAYER_SETTINGS_NOT_RESTORED` | it passed, but the settings key could not be imported again |
+
+Which suites need a graphics card was not known when the manifest was written: the prose omitted `-nographics` for some commands without
+saying why. T06 ran them without a window, on a machine where nobody played. `pistamenutest`, `pistamenulicence` and `pistamenucup` pass
+(46, 30 and 39 checks), so their entries carry `-nographics` and no `gpu`. `pistamenugarage` and `pistamenucareer` fail on
+`RenderTexture.Create` (the showroom is drawn into a texture), and `padtest` fails twelve checks and quits with no result, so they keep `gpu`.
+`displaytest` was not run: it declares `hazards: registry`, and it asserts the size of the real screen after changing it, which
+`-nographics` cannot give.
 
 For an entry with a `runner` the verdict is made of the logs that the script left in the job folder (every `.log` and `.txt` but the
 script's own output). Of several processes (a co-op scenario) those that left a result must all say they passed, their checks add up and

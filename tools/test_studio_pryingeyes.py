@@ -248,13 +248,19 @@ class PryingEyesProfile(unittest.TestCase):
 
 # ---- the suites that run inside the player: invented logs and a job that runs nothing -----------------------------------------------------
 
-def log_of(suite, ok=(), failed=(), result=True):
-    """What a test of the game prints: a line for each check, then the result line (left out when `result` is false)."""
+def log_of(suite, ok=(), failed=(), result=True, coop=None):
+    """What a test of the game prints: a line for each check, then the result line (left out when `result` is false). `coop` is the process
+    that speaks ("ospite" or "ospitato"): the lines are then CoopTest's, with the colon, the detail in square brackets and the tail."""
     lines = ["Initialize engine version: 6000.6.7f1", "[PryingEyes] avvio"]
-    lines += [f"[PryingEyes] {suite} ok {name} (rilevato {index})" for index, name in enumerate(ok)]
-    lines += [f"[PryingEyes] {suite} FALLITO {name} (atteso 1000, trovato 1500)" for name in failed]
+    who = f"{suite} {coop}:" if coop else suite
+    if coop:
+        lines += [f"[PryingEyes] {who} ok       {name}   [rilevato {index}]" for index, name in enumerate(ok)]
+        lines += [f"[PryingEyes] {who} FALLITO  {name}   [atteso 1000, trovato 1500]" for name in failed]
+    else:
+        lines += [f"[PryingEyes] {who} ok {name} (rilevato {index})" for index, name in enumerate(ok)]
+        lines += [f"[PryingEyes] {who} FALLITO {name} (atteso 1000, trovato 1500)" for name in failed]
     if result:
-        lines.append(f"[PryingEyes] {suite} RISULTATO {'FALLITA' if failed else 'SUPERATA'}: {len(ok)}/{len(ok) + len(failed)}")
+        lines.append(f"[PryingEyes] {who} RISULTATO {'FALLITA' if failed else 'SUPERATA'}: {len(ok)}/{len(ok) + len(failed)}{' verifiche ok' if coop else ''}")
     return "\n".join(lines) + "\n"
 
 
@@ -376,10 +382,23 @@ class PlayerSuites(unittest.TestCase):
     def test_a_run_that_leaves_no_result_fails_whatever_else_it_left(self):
         _, message = self.fails(plays(log_of("survivaltest", ok=["a"], result=False)), "PLAYER_RESULT_MISSING")      # it stopped before the result line
         self.assertIn("survivaltest-player.log", message)
+        self.assertIn("[PryingEyes] survivaltest RISULTATO", message); self.assertIn("ported to the harness", message)      # what it looked for, and what to do about it
         self.fails(plays(), "PLAYER_RESULT_MISSING")                                                            # it never started: no log at all
         _, crash = self.fails(plays("Crash!\n", fail="STEP_FAILED: survivaltest; exit -1073741819; log"), "PLAYER_RESULT_MISSING")
         self.assertIn("exit -1073741819", crash)                                                                # and says how the process ended
         self.fails(plays(log_of("chartest", ok=["a"])), "PLAYER_RESULT_MISSING")                                # the result of another suite is no answer
+
+    def test_a_suite_of_a_family_reads_the_lines_of_the_label_its_entry_gives(self):
+        family = self.entry("pistamenulicence")                                                  # prints `pistamenutest`, like its brothers
+        self.assertEqual(family["label"], "pistamenutest")
+        job = self.go(plays(log_of("pistamenutest", ok=["a", "b"])), family)
+        self.assertEqual((job.report["player"]["suite"], job.report["player"]["checks"]), ("pistamenulicence", 2))
+        self.assertEqual([f["code"] for f in job.report["findings"]], ["pistamenulicence:1", "pistamenulicence:2"])      # the findings carry the suite's name
+        _, message = self.fails(plays(log_of("pistamenulicence", ok=["a"])), "PLAYER_RESULT_MISSING", family)           # its own name is not what it prints
+        self.assertIn("[PryingEyes] pistamenutest RISULTATO", message)
+        self.fails(plays(log_of("pistatest", ok=["a"])), "PLAYER_RESULT_MISSING", family)                                # nor is another family's
+        harness = {"schemaVersion": 1, "suite": "pistamenutest", "ok": True, "checks": [{"name": "a", "ok": True}]}
+        self.assertEqual(self.go(plays(log_of("x", ok=["a"]), harness), family).report["player"]["verdictSource"], "result.json")   # the label is the identity of a result.json too
 
     def test_fewer_checks_than_the_manifest_declares_fail_and_as_many_or_more_do_not(self):
         entry = self.entry(checks=4)
@@ -485,7 +504,7 @@ class PlayerSuites(unittest.TestCase):
     def test_an_entry_with_a_runner_calls_its_script_with_the_job_folder_as_log_folder(self):
         powershell = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
         coop = pe.PLAYER_ENTRIES["coop-a-griglia"]
-        files = {"coop_a_griglia_host.txt": log_of("cooptest", ok=["x", "y"]), "coop_a_griglia_c1.txt": log_of("cooptest", ok=["z"])}
+        files = {"coop_a_griglia_host.txt": log_of("cooptest", ok=["x", "y"], coop="ospite"), "coop_a_griglia_c1.txt": log_of("cooptest", ok=["z"], coop="ospitato")}
         with patch.object(pe, "AUDIT", self.exe):
             job = self.go(plays(files=files), coop)
             (label, command), = job.steps
@@ -501,13 +520,17 @@ class PlayerSuites(unittest.TestCase):
 
     def test_a_script_that_fails_or_whose_processes_say_they_failed_or_raised_does_not_pass(self):
         coop = pe.PLAYER_ENTRIES["coop-a-griglia"]
+        host = lambda *ok, **more: log_of("cooptest", ok=ok, coop="ospite", **more)
         with patch.object(pe, "AUDIT", self.exe):
-            self.fails(plays(files={"a_host.txt": log_of("cooptest", ok=["x"], failed=["y"]), "a_c1.txt": log_of("cooptest", ok=["z"])}), "PLAYER_CHECK_FAILED", coop)
-            self.fails(plays(files={"a_host.txt": log_of("cooptest", ok=["x"]) + "ArgumentException: no\n"}), "PLAYER_EXCEPTION", coop)
-            self.fails(plays(files={"a_host.txt": log_of("cooptest", ok=["x"])}, fail="STEP_FAILED: coop-a-griglia; exit 1; log"), "STEP_FAILED", coop)
+            self.fails(plays(files={"a_host.txt": host("x", failed=["y"]), "a_c1.txt": log_of("cooptest", ok=["z"], coop="ospitato")}), "PLAYER_CHECK_FAILED", coop)
+            self.fails(plays(files={"a_host.txt": host("x") + "ArgumentException: no\n"}), "PLAYER_EXCEPTION", coop)
+            self.fails(plays(files={"a_host.txt": host("x")}, fail="STEP_FAILED: coop-a-griglia; exit 1; log"), "STEP_FAILED", coop)
             self.fails(plays(), "PLAYER_RESULT_MISSING", coop)                                                  # a script that exits 0 with no log at all
-            self.go(plays(files={"a_host.txt": log_of("cooptest", ok=["x"]), "a_c1.txt": "[PryingEyes] killed on purpose\n"}), coop)   # a process killed on purpose says nothing
-            self.fails(plays(files={"a_host.txt": log_of("cooptest", ok=["x"])}), "PLAYER_CHECKS_FEWER", {**coop, "checks": 2})
+            self.go(plays(files={"a_host.txt": host("x"), "a_c1.txt": "[PryingEyes] killed on purpose\n"}), coop)   # a process killed on purpose says nothing
+            self.fails(plays(files={"a_host.txt": host("x")}), "PLAYER_CHECKS_FEWER", {**coop, "checks": 2})
+            pista = pe.PLAYER_ENTRIES["coop-n-pista"]                                                           # PistaCoopTest: no colon, the detail in parentheses
+            log = "[PryingEyes] pistacooptest ospite ok la gara parte (3 giri)\n[PryingEyes] pistacooptest ospite RISULTATO SUPERATA: 1/1\n"
+            self.assertEqual(self.go(plays(files={"n_host.txt": log}), pista).report["player"]["checks"], 1)
 
     def test_a_script_runs_the_verification_build_of_its_checkout_so_runtime_cannot_change_it(self):
         job, message = self.fails(plays(), "PLAYER_RUNTIME_FIXED", pe.PLAYER_ENTRIES["seatstest"])               # self.exe is not the verification build
