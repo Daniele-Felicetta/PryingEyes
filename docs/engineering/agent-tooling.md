@@ -386,7 +386,7 @@ Where the first sketch was wrong or short:
 | Graphics card and screen | "do not run while someone plays", in prose | `needs: gpu`, `hazards: screen`; refusal while another player is running (T06, done) | |
 | UDP port 7807 and `$env:TEMP\pryingeyes-coop` for every checkout | `run_coop.ps1` takes a free UDP port for each run (`-Port`) and logs to `unity_logs/coop` of its checkout (`run_split.ps1`: `unity_logs/split`); two agents in two worktrees can run co-op checks at once | the log folder is the job folder when the studio runs the check | T11 (done), T06 (done) |
 | Tracked files rewritten by runs (`hotel_build/autotest.txt`, `auto_shot*.png`) | the automatic run writes its report, its two timed screenshots and the bot's default log to `unity_logs/player/` (`TestPaths.Scratch`); `hotel_build/` is rewritten only by what a flag or an editor tool asks for | the tracked files and those outputs stay as they are until the maintainer decides ([modular-roadmap.md](modular-roadmap.md#decisions-that-are-the-maintainers)) | T12 (done) |
-| Tracked files rewritten by builds (materials, `Torre.unity`, settings assets) | rules 4 and 10: stage exact paths | measure what a build rewrites and why, then decide | T13 |
+| Tracked files rewritten by builds (materials, `Torre.unity`, settings assets) | measured ([building-and-shipping.md](building-and-shipping.md#what-a-build-rewrites)): most of what `git status` lists after a build is a file Unity saved with LF over a CRLF checkout, with the bytes of the commit, and `git diff --name-only` lists what differs; rules 4 and 10: stage exact paths | the `.gitattributes` and the code changes proposed there, when the maintainer decides | T13 (done) |
 | One editor per checkout | rule 9; the project lock | `tools/worktree.ps1` (exists); `doctor` | T09, T10 |
 | Two changes to the wire format at once | found at merge | one at a time, said in [modularization.md](modularization.md#rules-for-new-code) | none |
 
@@ -398,7 +398,9 @@ The path the tools should make the easy one, for a change to the game:
 2. `tools/worktree.ps1 -New <name>` unless this session owns the editor's checkout.
 3. Make the change. Logic that needs no engine goes under `Rules/` with its checks in a lab.
 4. `python tools/studio.py test compile`, then the labs of what was touched (`test saves`, `test desert`...).
-5. A scripts-only verification build: `tools/ship.ps1 -NoPush -NoExe -Mode scripts` builds into `Builds/Audit` without publishing.
+5. A scripts-only verification build: `tools/ship.ps1 -NoPush -NoExe -Mode scripts` builds into `Builds/Audit` without publishing. In a new
+   worktree there is no complete build there yet, so the script falls back to `BuildPlayer.Windows`, which packs the committed `Torre.unity`:
+   make the first build the full `BuildPlayer.Torre` ([the scene of a new worktree](building-and-shipping.md#the-scene-of-a-new-worktree)).
 6. `python tools/studio.py suites --json`, then `test <suite>` for the in-player suites of the area. Read `report.json`, not the log.
 7. `python tools/check_suite.py` and the unit tests; `tools/ship.ps1` with the exact paths; a pull request against `preview`.
 8. After the merge: `tools/worktree.ps1 -Remove <name>`.
