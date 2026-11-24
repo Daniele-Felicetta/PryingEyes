@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -18,34 +19,16 @@ namespace PryingEyes
     /// sta sulla voce scelta, A su "Gioca" apre "Come vuoi giocare?" (croce a destra e a sinistra tra "Standard" e "Il deserto", B torna a "Gioca").
     /// Infine in partita: A su "Standard" fa partire senza far saltare, Start apre e chiude la pausa, B in pausa riprende e in gioco
     /// non apre niente. Un controller fisico non c'e': la lettura vera di XInput la prova -splittest ("risponde senza errori").</summary>
-    public sealed class PadMenuTest : MonoBehaviour
+    public sealed class PadMenuTest : PlayerTest
     {
-        int checks, failed, exceptions;
         GameMenu menu;
 
+        protected override string Suite { get { return "padtest"; } }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-padtest") >= 0) new GameObject("PadMenuTest").AddComponent<PadMenuTest>();
-        }
+        static void Install() { InstallWhen<PadMenuTest>("-padtest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] padtest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            PadControls.Inject(null); PadControls.TestPoll = null; PadControls.Disable();
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] padtest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
+        protected override void Finish() { PadControls.Inject(null); PadControls.TestPoll = null; PadControls.Disable(); }
 
         static PadControls.Raw Pad(ushort buttons = 0, int lx = 0, int ly = 0, int rt = 0) =>
             new PadControls.Raw { connected = true, buttons = buttons, lx = (short)lx, ly = (short)ly, rightTrigger = (byte)rt };
@@ -239,7 +222,7 @@ namespace PryingEyes
             Check("foto fatte", true);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             string shots = ArgAfter("-padshots");
             if (shots != null) { yield return Shots(shots); yield break; }

@@ -243,7 +243,7 @@ manifest's command line, which is the one of `tools/check_gunplay.py`.) The runn
 Which suites need a graphics card was not known when the manifest was written: the prose omitted `-nographics` for some commands without
 saying why. T06 ran them without a window, on a machine where nobody played. `pistamenutest`, `pistamenulicence` and `pistamenucup` pass
 (46, 30 and 39 checks), so their entries carry `-nographics` and no `gpu`. `pistamenugarage` and `pistamenucareer` fail on
-`RenderTexture.Create` (the showroom is drawn into a texture), and `padtest` fails twelve checks and quits with no result, so they keep `gpu`. T08 found two more while it ported them: `meleetest` renders a camera into a texture on every frame (without a window the render graph throws once per frame and 11 of its 120 checks fail) and `relictest` fails one of its 63 checks and throws in the render; both entries now run with the card and say `gpu`.
+`RenderTexture.Create` (the showroom is drawn into a texture), and `padtest` fails twelve checks and quits with no result, so they keep `gpu`. T08 found why `padtest` fails, and it is not the card: the main menu has a `Wiki` button between `Come si gioca` and `Impostazioni` (`GameMenu.Design.cs`), the steps do not count it, and they end by pressing A on `Esci`, which quits the player; with `-nographics` and with the card the 53 lines of checks are the same (41 ok, 12 failed), so the `gpu` of its entry is unproven until the steps are repaired. T08 found two more while it ported them: `meleetest` renders a camera into a texture on every frame (without a window the render graph throws once per frame and 11 of its 120 checks fail) and `relictest` fails one of its 63 checks and throws in the render; both entries now run with the card and say `gpu`.
 `displaytest` was not run: it declares `hazards: registry`, and it asserts the size of the real screen after changing it, which
 `-nographics` cannot give.
 
@@ -349,9 +349,9 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 31 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+State: built (T07) and on 34 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
 `FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
-(`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`) and the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`); T08 ports the 20 others that
+(`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`) and the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`); T08 ports the 17 others that
 still carry their own copy of the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -437,6 +437,13 @@ Where the first sketch was wrong or short:
 - Three small differences are accepted, all in what a log says and none in what it checks: when a sequence throws, the check that fails is
   `sequenza completa` for every suite (`GunplayTest` and `OpticsTest` called it `copione completo`); `GunplayTest` logged only its failures and now logs
   every check; `OpticsTest` printed `ok <name> <detail>` and now prints `ok <name> (<detail>)`, like the others.
+- The fourth took three more suites with no new member. Two things stay as they were: `PadMenuTest` keeps its own `-padshots FOLDER` (a real window and
+  `ScreenCapture`, outside the harness's folder and `artifacts`), and `TorchReviewTest` lost `-torchout`, a flag for the folder of its pictures that
+  nothing used: they follow `-testout`, or `unity_logs/torch-review/` of the checkout, and are all listed under `artifacts`. Two suites of the plan are
+  left out on purpose, because they cannot be run without the maintainer's word (`hazards: registry`) and a port by reading could not be shown equal:
+  `DisplayTest` prints its own `DISPLAYTEST` lines, which `tools/check_display.py` reads, and puts the screen back and waits half a second after its
+  sequence, which `Finish()` cannot do; `PresentationTest` (`-uitest`) puts the player's preferences back when the process quits and writes `result.txt`
+  after the verdict, which the base class has no place for yet.
 - The exit code 2 ("this floor cannot host the test") is not in the base class: none of the three needs it. The stealth suites call
   `Application.Quit(2)` themselves; T08 adds a call to the base class when it ports the first of them.
 - What `Dedicated` stops is the automatic quit of `-autotest` and nothing else, as the chain it replaced did; the sketch said the run
