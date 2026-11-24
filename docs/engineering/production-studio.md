@@ -10,7 +10,7 @@ python tools/studio.py catalog list --type weapon
 python tools/studio.py asset inspect p45_argine
 python tools/studio.py asset preview p45_argine
 python tools/studio.py asset build p45_argine --publish
-python tools/studio.py test gunplay
+python tools/studio.py test gunplaytest
 python tools/studio.py report latest
 python tools/studio.py suites
 ```
@@ -269,7 +269,7 @@ part of the package. Its README documents the caller's ordering and restoration 
 
 ```powershell
 python tools/studio.py test weapon-state
-python tools/studio.py test gunplay --runtime path/to/PryingEyes.exe
+python tools/studio.py test gunplaytest --runtime path/to/PryingEyes.exe   # without --runtime: the verification build, Builds/Audit
 ```
 
 The managed lab has 1,454 comparisons/contracts and 89,076 per-frame samples.

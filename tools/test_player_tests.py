@@ -9,6 +9,8 @@ Each finding starts with a code; the negative controls at the bottom break a cop
   MANIFEST_FLAG           a flag of `args` or of `photos` is neither Unity's own nor a literal in the code of the player
   MANIFEST_MODE           the game that the flags start is not the declared `mode` (Catacombe.Attive and the mode requests: F7 of the audit)
   MANIFEST_NEEDS          `needs` says gpu for a run that does not draw, or leaves it out for one that does (no -nographics)
+  MANIFEST_LABEL          the label a test prints is not the one the entry gives it: `label` names a line the source does not print, repeats the
+                          name, or is missing where the source prints another label (studio.py reads the lines of that label)
   MANIFEST_PAGE           `page` is not a page of the repository
   MANIFEST_TEST_UNLISTED  a test file that installs itself at load is neither the source of an entry nor excused under `unlisted`
   MANIFEST_UNLISTED       an `unlisted` entry that is not such a file, or that is also the source of an entry
@@ -38,6 +40,8 @@ FLAG_LITERAL = re.compile(r'"(-[A-Za-z][A-Za-z0-9]*)"')
 FLAG_TOKEN = re.compile(r"-[A-Za-z][A-Za-z0-9-]*")
 SCENARIO = re.compile(r"^\s{4}([a-z]_[a-z_]+)\s*=\s*@\{ Clients = \d+; H = @\(([^)]*)\); C = @\(([^)]*)\)", re.M)
 SCRIPT_FLAG = re.compile(r"'(-[A-Za-z][A-Za-z0-9]*)'")
+# the labels of the result lines that a source prints: in one literal, or as `"[PryingEyes] <label> " + res` with `res` holding "RISULTATO ..."
+RESULT_LABEL = re.compile(r'\[PryingEyes\] (\w+) RISULTATO|"\[PryingEyes\] (\w+) " \+ (?:res|result)\b')
 
 
 class Game:
@@ -82,6 +86,11 @@ def parameters(script):
     return {name.lower() for name in re.findall(r"\]\s*\$([A-Za-z]\w*)", script[start.end():end])}
 
 
+def result_labels(text):
+    """The labels that a C# source prints before `RISULTATO` (the harness's PlayerTest prints the name of its Suite: no literal, so none here)."""
+    return {first or second for first, second in RESULT_LABEL.findall(text)}
+
+
 def scenarios(root=ROOT):
     """The scenarios of tools/coop/run_all.ps1: key -> the flags of the host and of the guests (the script owns the arguments)."""
     text = (Path(root) / COOP_ALL).read_text(encoding="utf-8-sig")
@@ -120,6 +129,14 @@ def check(manifest, game, root=ROOT):
                 found("MANIFEST_MODE", name, f"these flags start the {mode_of(argv)}, the entry says {suite['mode']}")
             if ("-nographics" not in argv) != ("gpu" in suite["needs"]):
                 found("MANIFEST_NEEDS", name, "gpu if and only if the run draws, that is, if -nographics is not in args")
+        if argv is not None and (root / suite["source"]).is_file():
+            printed, label = result_labels((root / suite["source"]).read_text(encoding="utf-8-sig")), suite.get("label")
+            if label == name:
+                found("MANIFEST_LABEL", name, "label is the name: leave it out")
+            elif label is not None and label not in printed:
+                found("MANIFEST_LABEL", name, f"{suite['source']} does not print `[PryingEyes] {label} RISULTATO`")
+            elif label is None and len(printed) == 1 and name not in printed:
+                found("MANIFEST_LABEL", name, f"{suite['source']} prints `[PryingEyes] {next(iter(printed))} RISULTATO`: say so in `label`")
         runner = suite.get("runner")
         if runner is not None:
             script = root / runner["script"]
@@ -246,6 +263,17 @@ class PlayerManifest(unittest.TestCase):
             args.remove("-nographics")
         self.assertFound("MANIFEST_NEEDS", self.broken(draws), "traptest")
         self.assertFound("MANIFEST_NEEDS", self.broken(lambda m: self.entry(m, "traptest")["needs"].append("gpu")), "traptest")
+
+    def test_the_label_that_a_test_prints_is_the_one_the_entry_gives(self):
+        self.assertFound("MANIFEST_LABEL", self.broken(lambda m: self.entry(m, "pistamenulicence").pop("label")), "pistamenutest")   # the source prints another label
+        self.assertFound("MANIFEST_LABEL", self.broken(lambda m: self.entry(m, "pistamenulicence").update(label="pistatest")), "does not print")
+        self.assertFound("MANIFEST_LABEL", self.broken(lambda m: self.entry(m, "chartest").update(label="chartest")), "leave it out")
+        self.assertFound("MANIFEST_SCHEMA", self.broken(lambda m: self.entry(m, "chartest").update(label="Char Test")))
+        self.assertEqual({"architecturetest", "pistatest", "pistamenutest"},
+                         {suite["label"] for suite in self.manifest["suites"] if "label" in suite})
+        self.assertEqual({"pistamenutest"}, result_labels('Debug.Log($"[PryingEyes] pistamenutest RISULTATO {x}"); Debug.Log("[PryingEyes] other " + res);') - {"other"})
+        self.assertEqual({"magiatest"}, result_labels('Debug.Log("[PryingEyes] magiatest " + res);'))
+        self.assertEqual(set(), result_labels("class TrapTest : PlayerTest { protected override string Suite => \"traptest\"; }"))
 
     def test_a_page_that_does_not_exist_is_found(self):
         self.assertFound("MANIFEST_PAGE", self.broken(lambda m: self.entry(m, "traptest").update(page="docs/game/no-such-page.md")), "traptest")

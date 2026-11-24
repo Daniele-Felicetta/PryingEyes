@@ -113,6 +113,11 @@ artifact, and so is `code-census.json`: after the guard the gate prints the code
 step reports without failing. There is no branch protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: look at the
 latest run before starting work (`gh run list --branch preview --limit 1`) and fix a red one first.
 
+A test that passes here and fails in the gate is usually a path. The runner's user folder has an 8.3 name (`RUNNER~1`), so the temporary folder
+of a test is spelled one way and `Path.resolve()` spells it another: a guard or a test that compares paths resolves both sides. The run of the
+tests inside `ship.ps1` cannot show it; to see it on this PC, run the test with `TEMP` and `TMP` set to the short form of a folder
+(`(New-Object -ComObject Scripting.FileSystemObject).GetFolder($dir).ShortPath`).
+
 ## Branches and worktrees
 
 `preview` is the only long-lived branch. Anything else goes through a pull request and is deleted as soon as it merges (a squash merge makes
