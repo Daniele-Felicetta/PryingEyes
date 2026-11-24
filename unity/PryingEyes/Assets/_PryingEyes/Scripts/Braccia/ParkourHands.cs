@@ -76,12 +76,13 @@ namespace PryingEyes
                 float side = i == 0 ? -1f : 1f;
                 var wrist = wrists[i];
                 Vector3 folded = new Vector3(side * 0.24f, -0.42f, 0.38f);
-                Vector3 open = new Vector3(side * 0.60f, -0.23f - side * bank * 0.003f, 0.56f);
+                Vector3 open = new Vector3(side * 0.55f, -0.21f - side * bank * 0.003f, 0.64f);
                 wrist.localPosition = Vector3.Lerp(folded, open, amount);
                 wrist.localRotation = Quaternion.LookRotation(new Vector3(side * 0.82f, -0.16f, 0.52f), Vector3.up);
                 PoseArm(i, HandPose.Lerp(HandPoses.Relaxed, HandPoses.Open, amount * 0.65f), dt);
                 wings[i] ??= WingsuitFabric.Build(root, wrist.gameObject.layer, Weapon.ViewLayer, false);
-                Vector3 seam = Vector3.Lerp(new Vector3(side * 0.21f, -0.43f, 0.35f), new Vector3(side * 0.24f, -0.44f, 0.61f), amount);
+                // Keep the inner seam near the lower edge of the viewmodel, so the panel reads as fabric in flight.
+                Vector3 seam = Vector3.Lerp(new Vector3(side * 0.21f, -0.43f, 0.35f), new Vector3(side * 0.13f, -0.60f, 0.79f), amount);
                 wings[i].Pose(root.TransformPoint(new Vector3(side * 0.18f, -0.29f, 0.35f)), wrist.position - wrist.forward * 0.035f,
                     root.TransformPoint(seam), root.up, i * 1.4f);
             }

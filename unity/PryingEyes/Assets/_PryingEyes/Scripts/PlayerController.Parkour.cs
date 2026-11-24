@@ -6,7 +6,7 @@ namespace PryingEyes
 {
     public partial class PlayerController
     {
-        const float GripHeight = 1.70f, WallDistance = 0.58f;
+        const float GripHeight = 1.70f, WallDistance = 0.58f, TransferWindow = 0.90f;
         enum ClimbMove { Free, Catch, Step, Corner, Exit, Hold }
         struct Grip
         {
@@ -20,7 +20,7 @@ namespace PryingEyes
         Vector3 climbFrom, climbTo, climbLift, climbOver;
         float climbTime, climbDuration, climbLockout, parkourStow, transferTime;
         Vector3 transferFrom;
-        bool airJumpUsed, rightHandLeads, lowClimb;
+        bool airJumpUsed, rightHandLeads, lowClimb, transferAcross;
         ParkourHands climbHands;
 #if !PE_DISTRIBUTION_BUILD
         internal bool parkourTestJump;
@@ -167,12 +167,23 @@ namespace PryingEyes
 
         bool TryReachWall(Vector3 reach, Vector3 facing, bool longReach, out Grip contact)
         {
-            float distance = longReach ? 1.38f : 0.96f;
-            if (FindGrip(reach, facing, distance, out contact) && ClimbClear(transform.position, contact.Feet)) return true;
+            float distance = transferTime > 0f ? 1.62f : longReach ? 1.38f : 0.96f;
+            if (ReachGrip(reach, facing, distance, out contact)) return true;
             if (!longReach) return false;
-            if (FindGrip(reach + Vector3.up * 0.29f, facing, distance, out contact) && ClimbClear(transform.position, contact.Feet)) return true;
-            return transferTime > 0f && FindGrip(reach, -grip.normal, distance, out contact) && ClimbClear(transform.position, contact.Feet);
+            if (ReachGrip(reach + Vector3.up * 0.29f, facing, distance, out contact) ||
+                ReachGrip(reach - Vector3.up * 0.28f, facing, distance, out contact)) return true;
+            if (transferTime <= 0f && !Gliding) return false;
+            if (ReachGrip(reach, Quaternion.AngleAxis(-21f, Vector3.up) * facing, distance, out contact) ||
+                ReachGrip(reach, Quaternion.AngleAxis(21f, Vector3.up) * facing, distance, out contact)) return true;
+            return transferTime > 0f && !transferAcross && ReachGrip(reach, -grip.normal, distance, out contact);
         }
+
+        bool ReachGrip(Vector3 origin, Vector3 facing, float distance, out Grip contact) =>
+            FindGrip(origin, facing, distance, out contact) &&
+            !(transferTime > 0f && contact.wall == grip.wall &&
+              ((transferAcross && Vector3.Dot(contact.normal, grip.normal) > 0.9f) ||
+               (contact.point - grip.point).sqrMagnitude < 0.60f * 0.60f)) &&
+            ClimbClear(transform.position, contact.Feet);
 
         void JumpFromWall(float forward, float sideways, Vector3 wish, Vector3 facing)
         {
@@ -189,7 +200,8 @@ namespace PryingEyes
             if (directed)
             {
                 climbLockout = 0.17f;
-                transferTime = 0.82f;
+                transferTime = TransferWindow;
+                transferAcross = across;
                 rightHandLeads = Mathf.Abs(tangent) > 0.15f ? tangent > 0f : !rightHandLeads;
                 FovPunch(rising ? 4f : 2.8f);
             }
@@ -205,6 +217,8 @@ namespace PryingEyes
 
             // A side opening can be reached from the wall even when there is another grip beside it.
             if (movingSide && vertical == 0f && TryClimbExit(lateral, lateral: true)) return;
+            // With a sill in front of the player, enter before stepping to the masonry over the opening.
+            if (vertical > 0f && !movingSide && TryWindowEntry()) return;
             Vector3 offset = (Vector3.up * vertical + (movingSide ? lateral : Vector3.zero)) * MeshBuilder.ClimbCourse;
             Vector3 probe = grip.point + offset + grip.normal * (WallDistance + 0.12f);
             if (FindGrip(probe, -grip.normal, 0.95f, out var next) && ClimbClear(transform.position, next.Feet))
@@ -216,7 +230,7 @@ namespace PryingEyes
                 return;
             }
             if (movingSide && vertical == 0f && WrapClimbCorner(lateral, sideways > 0f)) return;
-            if (vertical > 0f && !TryWindowEntry()) TryClimbExit(-grip.normal, lateral: false);
+            if (vertical > 0f) TryClimbExit(-grip.normal, lateral: false);
         }
 
         bool WrapClimbCorner(Vector3 side, bool right)
@@ -326,7 +340,7 @@ namespace PryingEyes
             if (parkourStow <= 0f) { climbHands?.Hide(); return; }
             climbHands ??= ParkourHands.Build(cam, Seats.ViewLayer);
             if (!attached && WingAmount > 0.02f) { climbHands?.Glide(WingAmount, WingsuitRoll, dt); return; }
-            if (!attached && transferTime > 0f) { climbHands?.Leap(rightHandLeads, 1f - transferTime / 0.82f, dt); return; }
+            if (!attached && transferTime > 0f) { climbHands?.Leap(rightHandLeads, 1f - transferTime / TransferWindow, dt); return; }
             if (grip.normal.sqrMagnitude < 0.1f) { climbHands?.Hide(); return; }
             float progress = Mathf.Clamp01(climbTime / climbDuration);
             float release = climbMove == ClimbMove.Exit ? Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(0.12f, 0.56f, progress)) : 1f;
@@ -344,7 +358,9 @@ namespace PryingEyes
             }
             if (Gliding || CanOpenWingsuit())
             {
-                hud?.SetPrompt(PadControls.Preferred ? "TIENI A  TUTA ALARE" : "TIENI SPAZIO  TUTA ALARE");
+                hud?.SetPrompt(Gliding
+                    ? (PadControls.Preferred ? "MIRA PER VIRARE  /  RILASCIA A PER CHIUDERE" : "MIRA PER VIRARE  /  RILASCIA SPAZIO PER CHIUDERE")
+                    : (PadControls.Preferred ? "TIENI A  TUTA ALARE" : "TIENI SPAZIO  TUTA ALARE"));
                 return true;
             }
             var facing = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));

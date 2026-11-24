@@ -46,10 +46,14 @@ namespace PryingEyes
             float headingError = Vector3.SignedAngle(wingHeading, facing, Vector3.up);
             wingHeading = Vector3.RotateTowards(wingHeading, facing, 105f * Mathf.Deg2Rad * dt, 0f);
             wingBank = Mathf.Lerp(wingBank, Mathf.Clamp(-headingError * 0.45f, -15f, 15f), 1f - Mathf.Exp(-6f * dt));
-            float dive = Mathf.InverseLerp(-0.30f, 0.80f, pitch);
-            float speed = Mathf.Lerp(8.1f, 16.5f, dive);
-            float descent = Mathf.Lerp(2.8f, 9.2f, dive);
-            var horizontal = Vector3.MoveTowards(Vector3.ProjectOnPlane(vel, Vector3.up), wingHeading * speed, 18f * dt);
+            Vector3 horizontal = Vector3.ProjectOnPlane(vel, Vector3.up);
+            float dive = Mathf.InverseLerp(0f, 0.80f, pitch);
+            float flare = Mathf.InverseLerp(0f, -0.55f, pitch);
+            float speed = Mathf.Lerp(9.2f, 17.4f, dive) - 3.5f * flare;
+            // Pulling up briefly converts existing speed into lift. Holding the pose bleeds that speed off.
+            float lift = flare * Mathf.InverseLerp(5.7f, 12f, horizontal.magnitude);
+            float descent = Mathf.Lerp(3.7f, 9.2f, dive) - 2.8f * lift + Mathf.Abs(wingBank) * 0.040f;
+            horizontal = Vector3.MoveTowards(horizontal, wingHeading * speed, (flare > 0f ? 10f : 16f) * dt);
             // The walking update has already integrated gravity for this frame.
             float vertical = Mathf.Lerp(vel.y + gravity * dt, -descent, 1f - Mathf.Exp(-7f * dt));
             vel = horizontal + Vector3.up * vertical;

@@ -73,7 +73,8 @@ rooms are those of the floors ([tower.md](tower.md)).
    traverse around faces and outside corners. The controller tests the shape of the wall and the clearance of each move, so ordinary structures can be climbed. Exterior
    masonry has shallow grooves between stone courses. Jump while moving sideways to leap along the wall, or hold forward and jump to
    reach higher. Look across a gap and jump forward to launch towards the far wall. During these leaps, a reachable surface catches
-   automatically. The articulated gunplay gloves push off and reach for the next grip. A neutral jump pushes away and crouch drops.
+   automatically, including holds slightly above, below or to the side of the reticle. The articulated gunplay gloves push off and
+   reach for the next grip. A neutral jump pushes away and crouch drops.
    Landing or securing a grip restores the second jump in the air.
 
    On a tower, hold forward at one of the three low, glassless windows on each floor to pull through. Each upper floor also has an
@@ -81,7 +82,7 @@ rooms are those of the floors ([tower.md](tower.md)).
    to the roof in both directions. Roofs, battlements and turret walls have physical surfaces.
 
    **Wingsuit.** Hold jump during a fall with room below to open the fabric between the arms and the body. Look to steer. Looking down
-   trades altitude for speed, while looking up gives a shallower glide. Release jump, crouch or land to fold the suit, or aim at a wall
+   trades altitude for speed. Pull up after a dive to turn that speed into a brief, shallower glide. Release jump, crouch or land to fold the suit, or aim at a wall
    and hold forward to catch it during the glide. The weapon is stowed while the suit is open.
 6. **What you find.** In rooms and in the open: **points** (gold coins), **ammunition** (a crate: half a magazine reserve), **medikits** (50
    health) and **essence** (a crystal: 30 of the left hand's essence). Walk within 1.5 m to take them; what you took stays taken. **Weapons**

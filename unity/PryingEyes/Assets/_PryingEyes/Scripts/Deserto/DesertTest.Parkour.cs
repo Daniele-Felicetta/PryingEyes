@@ -63,15 +63,16 @@ namespace PryingEyes.Deserto
             yield return ApproachClimb(blockEdge, block.transform.position.z, deckY);
             var opposite = GameObject.CreatePrimitive(PrimitiveType.Cube);
             opposite.transform.position = new Vector3(blockEdge + 4.9f, deckY + 2.4f, block.transform.position.z);
-            opposite.transform.localScale = new Vector3(1.6f, 4.8f, 3.6f);
+            opposite.transform.localScale = new Vector3(1.6f, 4.8f, 1.2f);
             Physics.SyncTransforms();
             pl.yaw = Mathf.PI * 0.5f;
             pl.parkourTestDirection = Vector3.right;
             pl.parkourTestJump = true;
             yield return new WaitForSeconds(0.10f);
+            pl.yaw += 0.53f;
             yield return WaitFor(() => pl.OnClimbWall, 1.1f);
             yield return new WaitForSeconds(0.18f);
-            Check("parkour: a forward leap reaches a different wall across the gap", pl.OnClimbWall &&
+            Check("parkour: a forward leap catches a narrow wall across the gap with the aim off center", pl.OnClimbWall &&
                 pl.transform.position.x > blockEdge + 3.2f, pl.transform.position.ToString("F2"));
             Destroy(opposite);
             yield return ApproachClimb(blockEdge, block.transform.position.z, deckY);
@@ -204,13 +205,27 @@ namespace PryingEyes.Deserto
             yield return new WaitForSeconds(0.34f);
             Check("parkour: releasing jump folds the suit and brings back the weapon", !pl.Gliding && pl.weapon.ViewRootT.gameObject.activeSelf);
 
+            var cc = pl.GetComponent<CharacterController>();
+            pl.Teleport(ground + Vector3.up * 24f);
+            pl.yaw = Mathf.PI * 0.5f;
+            pl.pitch = 0.72f;
+            pl.parkourTestGlide = true;
+            yield return WaitFor(() => pl.Gliding, 1.6f);
+            yield return new WaitForSeconds(0.85f);
+            Vector3 dive = cc.velocity;
+            pl.pitch = -0.49f;
+            yield return new WaitForSeconds(0.31f);
+            Vector3 flare = cc.velocity;
+            Check("parkour: diving builds speed and pulling up trades it for lift", pl.Gliding && dive.x > travel.x + 3f &&
+                flare.x < dive.x - 1f && flare.y > dive.y + 3f,
+                $"dive {dive:F2}, flare {flare:F2}");
+
             pl.Teleport(ground + Vector3.up * 12f);
             pl.yaw = Mathf.PI * 0.5f;
             pl.pitch = 0.34f;
             pl.parkourTestGlide = true;
             yield return WaitFor(() => pl.Gliding, 1.6f);
             bool opened = pl.Gliding;
-            var cc = pl.GetComponent<CharacterController>();
             yield return WaitFor(() => cc.isGrounded, 5f);
             Check("parkour: landing folds the wingsuit even with jump held", opened && cc.isGrounded && !pl.Gliding);
 

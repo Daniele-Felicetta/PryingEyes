@@ -310,7 +310,7 @@ namespace PryingEyes
             jumpHeld |= inputEnabled && GameManager.autoTest && parkourTestGlide;
             parkourTestJump = false;
 #endif
-            if (jumpPressed) jumpBuf = 0.15f; else jumpBuf -= dt;
+            if (jumpPressed) jumpBuf = OnClimbWall ? 0.26f : 0.15f; else jumpBuf -= dt;
             if (Downed) { wantCrouch = true; sprintInput = false; wantSprint = false; jumpBuf = 0f; }      // a terra: niente corsa ne' salto
 
             float hSpeed = new Vector2(vel.x, vel.z).magnitude;
@@ -438,7 +438,7 @@ namespace PryingEyes
 
             // --- lean: Q a sinistra, E a destra; non in corsa ne' in scivolata, non nei muri ---
             float leanWant = 0f;
-            if (inputEnabled && !slide && !wantSprint && !Downed && !OnClimbWall) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
+            if (inputEnabled && !slide && !wantSprint && !Downed && !OnClimbWall && !Gliding) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
             float room = leanWant != 0f ? LeanRoom(leanWant) : 1f;
             float leanTarget = leanWant * room;
             // se la testa e' gia' contro un muro rientra piu' in fretta
