@@ -198,7 +198,7 @@ version) fails the suite (`PLAYER_RESULT_INVALID`): the lines are no way around 
 The runner reads three forms of that line, and `tools/player_log.py` is the only place that knows them: the standard one above;
 `CoopTest`'s (`[PryingEyes] cooptest ospite: RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`, the
 process that speaks after the label); and `PistaCoopTest`'s (`[PryingEyes] pistacooptest ospite RISULTATO ...`, no colon, the detail in
-parentheses). A test that derives from `PlayerTest` writes `result.json` and prints the standard line too. Counted from the sources on 24
+parentheses: the standard line of the harness, with `Role` after the suite). A test that derives from `PlayerTest` writes `result.json` and prints the standard line too. Counted from the sources on 24
 November 2026, with the first pull request of T08 merged, 68 of the 87 entries say their result in a form the runner reads: the ones on
 `PlayerTest`, the others that print the standard line (two of them runners: `seatstest`, `splitdesertotest`) and the 17 co-op scenarios,
 which print the co-op forms. The other 19 print theirs in another form or not at all: `citytest`, `displaytest`, `guntest`, `leantest`,
@@ -349,9 +349,10 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 34 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+State: built (T07) and on 37 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
 `FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
-(`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`) and the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`); T08 ports the 17 others that
+(`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`), the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`) and the three of the fifth (`CattedraleTest`,
+`SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest); T08 ports the 14 others that
 still carry their own copy of the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -373,6 +374,8 @@ namespace PryingEyes.Testing
         protected virtual string PhotoFlag { get; }     // "-trapshots", or null for a test that takes no photographs
         protected virtual string OutFolder { get; }     // under unity_logs/ without -testout: the suite's name, or the folder its page names ("trappole")
         protected virtual void Finish();                // after the sequence, however it ended, before the last check
+        protected virtual float TimeLimit { get; }      // seconds from the start of the player within which the run must end, 0 for no limit: past it the check "finita entro il tempo" fails and the run ends
+        protected virtual string Role { get; }          // for a test that two processes run (the host and the friend of a co-op race): who speaks, after the suite name in every log line; null for the others
         protected virtual string ExceptionCheck { get; } // the last check: "nessuna eccezione runtime", the name a suite has always given it, or null for a suite that never made one
         protected virtual bool IsError(string message, LogType type);   // what the last check counts as an error: an exception, plus what a suite adds to it
         protected int Checks { get; }                   // made so far
@@ -409,7 +412,8 @@ What the base class does, in the order of the old private copies: it counts the 
 check is still the log line `[PryingEyes] <suite> ok <name>` or `... FALLITO <name>`, in the order of the calls. `InstallWhen` sets
 `TestRun.Dedicated` when the flag is on the command line, in the load hook, before the first `GameManager.Update`; `GameManager` reads
 `TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags)`, the legacy array being the flags of the suites that are not on the
-harness yet, one per line, which T08 empties and deletes.
+harness yet, one per line, which T08 empties and deletes. A suite that says a `TimeLimit` is also watched by the clock, in a coroutine of the base class's own
+(a suite's `Update` would hide one in the base class): past the limit the check `finita entro il tempo` fails and the run ends as above, whatever the sequence is still waiting for.
 
 What it removed: the `Check`, the log hook, the loop and the exit of each test that is on it; the three flags of those tests in
 `GameManager.cs`; the three literals that started with `unity_logs` and depended on the working directory. What it keeps: the result
@@ -444,6 +448,18 @@ Where the first sketch was wrong or short:
   `DisplayTest` prints its own `DISPLAYTEST` lines, which `tools/check_display.py` reads, and puts the screen back and waits half a second after its
   sequence, which `Finish()` cannot do; `PresentationTest` (`-uitest`) puts the player's preferences back when the process quits and writes `result.txt`
   after the verdict, which the base class has no place for yet.
+- The fifth took three suites and two members. `TimeLimit`: five suites (`DesertTest`, `SplitDesertTest`, `PistaCoopTest`, `PistaMenuTest`, `PistaTest`) fail the check
+  `finita entro il tempo` and end the run when a number of seconds have passed since the player started, whatever their sequence is waiting for; the base class
+  watches the clock in a coroutine of its own. Two are on the harness now. `PistaCoopTest` counted its 420 s from the start of its own sequence and now counts
+  them from the start of the player, the few seconds the player takes to start less, and only a stuck run can reach either. `Role`: `PistaCoopTest` runs in two
+  processes, the host and the friend, and prints who speaks after the suite name (`pistacooptest ospite ok ...`, the form that `tools/player_log.py` reads):
+  `Role` puts it in every check line and in the result line, and the test gives each process its own `OutFolder` (`pistacooptest-ospite`,
+  `pistacooptest-ospitato`), so that the two `result.json` do not overwrite each other. The closing check of `SplitDesertTest` and `PistaCoopTest` counts errors as well
+  as exceptions (`IsError`; `SplitDesertTest` still lets through the harmless `Failed to capture screen shot` of a run without a window); when it failed it carried
+  the count and the first message and now it fails bare, because the log holds the errors. `CattedraleTest` never counted exceptions: null. The photographs stay as
+  they were: those of `CattedraleTest` (`-cattedraleshots`, 1600x900, `hotel_build/cattedrale`) and of `SplitDesertTest` (`hotel_build/deserto`, and the monitors'
+  through `run_split.ps1`) are not on `PhotoPath`, only the flag of the first moved to `PhotoFlag`; the `Photo` of `SplitDesertTest` is now `MonitorPhoto`, so as
+  not to hide the base class's.
 - The exit code 2 ("this floor cannot host the test") is not in the base class: none of the three needs it. The stealth suites call
   `Application.Quit(2)` themselves; T08 adds a call to the base class when it ports the first of them.
 - What `Dedicated` stops is the automatic quit of `-autotest` and nothing else, as the chain it replaced did; the sketch said the run

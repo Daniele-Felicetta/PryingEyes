@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using PryingEyes.Testing;
 using UnityEngine;
 
 namespace PryingEyes.Pista
@@ -14,64 +15,29 @@ namespace PryingEyes.Pista
     /// <c>-pistacoopscenario</c> picks what happens after the first race: <c>race</c> (default) stops there; <c>again</c> has the host start another race, built by both, and the friend leave while it is on
     /// (the host checks that the friend retires and the race goes on); <c>hostquits</c> has the host leave in the middle of the race (the friend checks that the race ends where it is, "Connessione persa",
     /// and that it can start a race of its own).</summary>
-    public sealed class PistaCoopTest : MonoBehaviour
+    public sealed class PistaCoopTest : PlayerTest
     {
-        int checks, failed, errors;
-        string firstError = "";
-        bool ended, prepOk;
-        float t0;
+        bool prepOk;
         bool hostHere;                    // this process is the host (set once, so that it still holds when the connection is gone)
         int cueFrames, cueApproach, cueBrake, cueMismatch, cueWrong;          // the braking sign, at every frame of the race
 
+        protected override string Suite { get { return "pistacooptest"; } }
+        protected override string Role { get { return hostHere ? "ospite" : "ospitato"; } }
+        protected override string OutFolder { get { return "pistacooptest-" + Role; } }          // the two processes do not write each other's result
+        protected override float TimeLimit { get { return 420f; } }
+        protected override string ExceptionCheck { get { return "nessun errore o eccezione nel registro durante la prova"; } }
+        protected override bool IsError(string message, LogType type) { return type == LogType.Exception || type == LogType.Error; }
+        protected override void Finish() { Time.timeScale = 1f; }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-pistacooptest") < 0) return;
-            new GameObject("PistaCoopTest").AddComponent<PistaCoopTest>();
-        }
-
-        string Who => hostHere ? "ospite " : "ospitato ";
-
-        void Check(string name, bool ok, string detail = "")
-        {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] pistacooptest " + Who + (ok ? "ok " : "FALLITO ") + name + (detail.Length > 0 ? " (" + detail + ")" : ""));
-        }
-
-        bool Check2(string name, bool ok, string detail = "") { Check(name, ok, detail); return ok; }
-
-        void OnLog(string text, string stack, LogType type)
-        {
-            if (type != LogType.Exception && type != LogType.Error) return;
-            errors++;
-            if (firstError.Length == 0) firstError = text.Length > 160 ? text.Substring(0, 160) : text;
-        }
-
-        void OnEnable() { Application.logMessageReceived += OnLog; }
-        void OnDisable() { Application.logMessageReceived -= OnLog; }
+        static void Install() { InstallWhen<PistaCoopTest>("-pistacooptest"); }
 
         static PistaDirector Dir => PistaDirector.I;
-
-        IEnumerator Start()
-        {
-            t0 = Time.realtimeSinceStartup;
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false, e.Message); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Finish();
-        }
 
         void Update()
         {
             if (Coop.IsHost) hostHere = true;
             SampleCue();
-            if (!ended && Time.realtimeSinceStartup - t0 > 420f) { Check("finita entro il tempo", false, "420 s"); Finish(); }
         }
 
         /// <summary>One frame of the race: the braking sign on the dashboard against the driving line it is made from.</summary>
@@ -90,16 +56,6 @@ namespace PryingEyes.Pista
             if (shown == CueKind.Approach) cueApproach++; else if (shown == CueKind.Brake) cueBrake++;
         }
 
-        void Finish()
-        {
-            if (ended) return;
-            ended = true;
-            Time.timeScale = 1f;
-            Check("nessun errore o eccezione nel registro durante la prova", errors == 0, errors == 0 ? "" : errors + ", la prima: " + firstError);
-            Debug.Log($"[PryingEyes] pistacooptest {(hostHere ? "ospite" : "ospitato")} RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
         IEnumerator WaitFor(Func<bool> cond, float seconds)
         {
             float t = Time.realtimeSinceStartup;
@@ -116,7 +72,7 @@ namespace PryingEyes.Pista
         }
 
         // ------------------------------------------------------------------ the scenarios
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             string scenario = ArgStr("-pistacoopscenario", "race");
             foreach (var y in Prepare(1)) yield return y;
@@ -142,7 +98,7 @@ namespace PryingEyes.Pista
                 int count = d.RaceCount;
                 d.RestartRace(false);
                 yield return WaitFor(() => d.RaceCount > count && d.Ready, 90f);
-                if (!Check2("una nuova gara da solo e' costruita", d.RaceCount > count && d.Ready && d.race != null && d.me != null, "gare " + d.RaceCount)) yield break;
+                if (!Check("una nuova gara da solo e' costruita", d.RaceCount > count && d.Ready && d.race != null && d.me != null, "gare " + d.RaceCount)) yield break;
                 yield return WaitFor(() => d.race.phase == RacePhase.Racing, 40f);
                 Check("parte da sola, senza aspettare nessuno", d.race.phase == RacePhase.Racing, d.race.phase.ToString());
                 yield return WaitFor(() => d.me.progress > 120f, 40f);
@@ -160,7 +116,7 @@ namespace PryingEyes.Pista
                     d.RestartRace(false);                                   // "ancora": the same circuit, a new race for everybody
                 }
                 yield return WaitFor(() => d.RaceCount > count && d.Ready, 120f);
-                if (!Check2("la seconda gara e' costruita da tutti e due", d.RaceCount == count + 1 && d.Ready && d.race != null, "gare " + d.RaceCount)) yield break;
+                if (!Check("la seconda gara e' costruita da tutti e due", d.RaceCount == count + 1 && d.Ready && d.race != null, "gare " + d.RaceCount)) yield break;
                 Check("la seconda gara e' una gara nuova: nessuno ha gia' finito", d.race.racers.TrueForAll(r => !r.finished) && !d.Resulting);
                 foreach (var y in Prepare(2)) yield return y;
                 if (!prepOk) yield break;
@@ -187,7 +143,7 @@ namespace PryingEyes.Pista
             if (Coop.IsHost) hostHere = true;
             bool host = hostHere;
             var d = Dir;
-            if (!Check2("la gara " + n + " e' costruita e pronta", d != null && d.Ready && PistaMode.Active && d.race != null && d.me != null, d == null ? "nessun regista" : "pronto " + d.Ready)) yield break;
+            if (!Check("la gara " + n + " e' costruita e pronta", d != null && d.Ready && PistaMode.Active && d.race != null && d.me != null, d == null ? "nessun regista" : "pronto " + d.Ready)) yield break;
             Check("la partita e' in rete e su pista", Coop.Active && (host ? Coop.IsHost : Coop.IsClient), host ? "ospite" : "ospitato");
             if (expectSeed != 0) Check("il circuito e' quello del seme dell'ospite", d.seed == expectSeed, d.seed + " (atteso " + expectSeed + ")");
             int expectRain = ArgInt("-pistacooprain", -1);
@@ -206,7 +162,7 @@ namespace PryingEyes.Pista
             {
                 yield return WaitFor(() => d.race.racers.Exists(r => r.friend && !r.dnf), 150f);
                 var friend = d.race.racers.Find(r => r.friend);
-                if (!Check2("l'ospitato e' entrato in griglia", friend != null, friend != null ? friend.name + ", posto " + friend.slot : "nessuno")) yield break;
+                if (!Check("l'ospitato e' entrato in griglia", friend != null, friend != null ? friend.name + ", posto " + friend.slot : "nessuno")) yield break;
                 Check("e' l'ospitato (slot di rete 1), senza una moto simulata qui", friend.netSlot == 1 && friend.remote && friend.bike == null && !friend.cpu, "slot " + friend.netSlot);
                 Check("tutti i piloti: io, gli avversari e il compagno", d.race.racers.Count == rivals + 2, d.race.racers.Count + " su " + (rivals + 2));
                 Check("le moto nella scena sono una per pilota", d.views.Count == d.race.racers.Count && d.views.TrueForAll(v => v != null && v.rig != null), d.views.Count + " moto");
@@ -229,7 +185,7 @@ namespace PryingEyes.Pista
             yield return WaitFor(() => d.race.phase != RacePhase.Grid, 120f);
             Check("la gara parte (il via lo da' l'ospite)", d.race.phase == RacePhase.Countdown || d.race.phase == RacePhase.Racing, d.race.phase.ToString());
             yield return WaitFor(() => d.race.phase == RacePhase.Racing, 40f);
-            if (!Check2("i semafori si spengono e si corre", d.race.phase == RacePhase.Racing)) yield break;
+            if (!Check("i semafori si spengono e si corre", d.race.phase == RacePhase.Racing)) yield break;
 
             // ---- everybody moves
             yield return WaitFor(() => d.race.racers.TrueForAll(r => r.dnf || r.progress > 120f), 70f);
@@ -247,7 +203,7 @@ namespace PryingEyes.Pista
             bool host = hostHere;
             float t = Time.realtimeSinceStartup;
             yield return WaitFor(() => d.race.phase == RacePhase.Over, 220f);
-            if (!Check2("la gara finisce", d.race.phase == RacePhase.Over, d.race.phase + " dopo " + (Time.realtimeSinceStartup - t).ToString("F0") + " s")) yield break;
+            if (!Check("la gara finisce", d.race.phase == RacePhase.Over, d.race.phase + " dopo " + (Time.realtimeSinceStartup - t).ToString("F0") + " s")) yield break;
             yield return WaitFor(() => d.Resulting, 10f);
             Check("la classifica e' sullo schermo di tutti e due", d.Resulting);
             if (!host)
