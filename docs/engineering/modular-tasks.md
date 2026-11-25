@@ -473,8 +473,11 @@ each one will say more than can be written now.
   with the same sentences) are the lab `tools/admissionlab`, a suite of the gate (`python tools/studio.py test admission`); the checks of the old
   project that proved code that is gone (the floor plan of the draft, its seat command, its screen layout, its workspace guard) were not
   carried over. `Assets/DefaultPrefabObjects.asset`, which listed the two probe prefabs, is now empty.
-  Found on the way and not done: `SessionRoster.cs` still holds the floor barrier of the draft (`BeginFloor`, `Acknowledge`, `AllReady`...) that
-  nothing in the game calls, and its checks are in the lab because the file moved as it was. Removing the barrier is a change of code, not a move.
+  Found on the way, and done afterwards by [T15](#t15-the-game-rules-assembly) in a commit of its own: `SessionRoster.cs` held the floor barrier of the draft
+  (`Epoch`, `FloorDigest`, `AllReady`, `WaitingPeers`, `BeginFloor`, `Acknowledge` and the set of peers that had acknowledged) that nothing in the
+  game called, and its checks were in the lab because the file had moved as it was. Removing the barrier is a change of code, not a move, so it was
+  not part of #66. The code is gone with the 12 assertions of the lab that proved it (the roster block went from 19 to 7, the lab from 83 to 71;
+  the other 71 are the same sentences, word for word).
 
 ### T21. The tables of testing.md from the manifest
 
