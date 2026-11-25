@@ -80,6 +80,15 @@ class PlayerLog(unittest.TestCase):
         self.assertEqual(player_log.check_lines("[PryingEyes] avvio: ok niente\n[PryingEyes] foo bar ok x\n[PryingEyes] a ospiti ok y\n"), [])      # a word that is no role is none
         self.assertEqual(player_log.result_lines("[PryingEyes] a ospite: RISULTATO SUPERATA: 1/1 verifiche ko\n"), [])
 
+    def test_cooptest_on_the_harness_prints_the_standard_form_with_the_process_that_speaks(self):
+        harness = ("[PryingEyes] cooptest ospite ok i due giocatori si vedono (2 pupazzi)\n"
+                   "[PryingEyes] cooptest ospite: --- passo 3\n"                                      # the lines that tell the story keep their colon: they are no check
+                   "[PryingEyes] cooptest ospite FALLITO sincronia con gli altri processi (3a) (scaduta: qualcuno non risponde)\n"
+                   "[PryingEyes] cooptest ospite RISULTATO FALLITA: 1/2\n")
+        self.assertEqual([(c["name"], c["ok"], c["detail"]) for c in player_log.check_lines(harness, "cooptest")], [
+            ("i due giocatori si vedono", True, "2 pupazzi"), ("sincronia con gli altri processi (3a)", False, "scaduta: qualcuno non risponde")])
+        self.assertEqual(player_log.result_lines(harness, "cooptest"), [{"suite": "cooptest", "ok": False, "passed": 1, "total": 2}])
+
     # ---- result.json
 
     def test_a_result_json_is_read_as_the_checks_it_holds(self):

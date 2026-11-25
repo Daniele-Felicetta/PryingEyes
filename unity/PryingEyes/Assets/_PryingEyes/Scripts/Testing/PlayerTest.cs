@@ -98,6 +98,11 @@ namespace PryingEyes.Testing
             Check("il piano ospita la prova", false, inapplicable);
         }
 
+        /// <summary>Ends the run here and now, from inside the sequence, as the end of the sequence does (the clean-up, the closing check, the result and the exit
+        /// request), and returns: the sequence must return right after. For a test whose process has to leave the game before the others do (the co-op friend that
+        /// goes away, or is killed by itself once its result is written). A second end, by the sequence or by the clock, is refused.</summary>
+        protected void EndNow() { End(); }
+
         /// <summary>A photograph of what the player sees, HUD included, into the output folder. Nothing happens unless the photo flag is on.</summary>
         protected void Photo(string name)
         {

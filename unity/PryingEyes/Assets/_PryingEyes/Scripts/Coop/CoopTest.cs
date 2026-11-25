@@ -1,14 +1,17 @@
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>Prova della cooperativa a due processi: un ospite e un ospitato (senza grafica) fanno lo stesso copione, passo per passo, con una
     /// sincronia a ogni passo (CoopKind.Test), e ognuno verifica la sua parte. Parte solo con -autotest -cooptest (che spegne anche lo sparo
-    /// automatico) e finisce da sola: uscita 0 se tutto e' andato bene, 1 altrimenti. Si lancia con run_coop.ps1:
+    /// automatico) e finisce da sola: uscita 0 se tutto e' andato bene, 1 altrimenti. Deriva da PlayerTest (l'harness): si installa da sola con -cooptest e aspetta la sessione,
+    /// ogni riga dice quale dei due processi parla (cooptest ospite ok ...), e ognuno scrive il suo result.json (unity_logs/cooptest-ospite, cooptest-ospitato). Si lancia con run_coop.ps1:
     ///   PryingEyes.exe -batchmode -nographics -autotest -cooptest -coophost -cooplocal -seed N -floor 1
     ///   PryingEyes.exe -batchmode -nographics -autotest -cooptest -coopjoin 127.0.0.1
     /// Passi: 0 piano e compagno in vista; 1 nemici del piano = pupazzi; 2 un nemico nato sull'ospite compare e si muove; 3 colpi e uccisione
@@ -17,21 +20,31 @@ namespace PryingEyes
     /// Altri copioni: -cooplate (entrata a round in corso), -coopleave / -coopcrash (un ospitato se ne va, pulito o ucciso), -coophostleave (se ne va
     /// l'ospite), -cooppics (foto del compagno, solo con la grafica), -coopplayers N (N giocatori in tutto), -cooplook ID -cooplevel N (il personaggio
     /// che ogni processo dichiara: la prova "aspetti", vedi CheckCharacters).</summary>
-    public sealed partial class CoopTest : MonoBehaviour
+    public sealed partial class CoopTest : PlayerTest
     {
         public static CoopTest I;
-        static readonly bool Flag = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-cooptest") >= 0;
-        public static bool Wanted => Flag && GameManager.autoTest;
 
-        /// <summary>Su un oggetto a parte: se la connessione cade, CoopGame sparisce, ma la prova deve poterlo verificare e finire.</summary>
-        public static void Ensure(CoopGame g)
-        {
-            if (I != null || g == null) return;
-            new GameObject("CoopTest").AddComponent<CoopTest>();
-        }
+        /// <summary>Su un oggetto a parte, come ogni prova dell'harness: se la connessione cade, CoopGame sparisce, ma la prova deve poterlo verificare e finire.</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Install() { InstallWhen<CoopTest>("-cooptest"); }
 
-        /// <summary>Un messaggio di prova dell'altro processo (sempre dal canale di rete; senza -cooptest nessuno lo ascolta).</summary>
-        public static void OnNet(int from, byte[] data) { if (I != null) I.Receive(from, data); }
+        protected override string Suite { get { return "cooptest"; } }
+
+        /// <summary>Chi parla in questo processo, dopo il nome della suite in ogni riga e nella riga di risultato. Visto una volta, l'ospite resta tale anche a connessione caduta, e lo
+        /// slot piu' alto visto resta quello del processo (un ospitato lo sa solo quando l'ospite glielo manda, e a sessione chiusa torna a 0): da lui dipende la cartella del risultato.</summary>
+        protected override string Role { get { if (Coop.IsHost) hostHere = true; if (Coop.Slot > slot) slot = Coop.Slot; return hostHere ? "ospite" : "ospitato"; } }
+
+        /// <summary>Ogni processo scrive il suo result.json: l'ospite in cooptest-ospite, gli ospitati in cooptest-ospitato (dal secondo con il loro slot).</summary>
+        protected override string OutFolder { get { return "cooptest-" + Role + (Role == "ospitato" && slot > 1 ? "-" + slot : ""); } }
+
+        /// <summary>Il tempo massimo della prova (480 s dal via del processo): prima lo contava la prova stessa dal suo primo fotogramma.</summary>
+        protected override float TimeLimit { get { return 480f; } }
+
+        /// <summary>Il bot di -autotest non spara da solo: era -cooptest nella lista di GameManager.</summary>
+        protected override bool HoldFire { get { return true; } }
+
+        /// <summary>La prova ha il suo controllo di chiusura (Finish): conta solo le eccezioni che nascono nel codice del gioco, non quelle di Unity/URP in -nographics.</summary>
+        protected override string ExceptionCheck { get { return null; } }
 
         // ------------------------------------------------------------------ stato
         readonly NetWriter w = new NetWriter();
@@ -39,10 +52,9 @@ namespace PryingEyes
         readonly List<(int id, Vector3 pos)> report = new List<(int, Vector3)>();
         int reportSeq, expectSeq;
         int sigValue, sigFloor, sigContent, sigSeq;
-        int checks, failed, exceptions;
-        float startT;
-        bool aborted, finished;
-        string Tag => Coop.IsHost ? "ospite" : "ospitato";
+        int exceptions, slot;
+        bool aborted, hostHere;
+        string Tag => Role;
         CoopGame G => Coop.Game;
 
         // dati passati da un passo all'altro
@@ -55,21 +67,15 @@ namespace PryingEyes
         void Awake()
         {
             I = this;
-            startT = Time.time;
-            Application.logMessageReceived += OnLog;
+            CoopGame.TestMessage += Receive;        // i messaggi di prova dell'altro processo (CoopKind.Test): senza nessuno iscritto CoopGame li butta
         }
 
-        void OnDestroy()
+        protected override void OnDestroy()
         {
             Application.logMessageReceived -= OnLog;
+            CoopGame.TestMessage -= Receive;
             if (I == this) I = null;
-        }
-
-        void Start() { StartCoroutine(Run()); }
-
-        void Update()
-        {
-            if (!finished && Time.time - startT > 480f) { Check("tempo massimo della prova", false, "480 s"); aborted = true; Finish(); }
+            base.OnDestroy();
         }
 
         /// <summary>Un'eccezione che nasce nel nostro codice fa fallire la prova (quelle di Unity/URP in -nographics no).</summary>
@@ -83,20 +89,12 @@ namespace PryingEyes
 
         void Log(string s) => Debug.Log($"[PryingEyes] cooptest {Tag}: {s}");
 
-        void Check(string what, bool ok, string detail = "")
+        /// <summary>La chiusura, prima del risultato: una prova interrotta (una sincronia scaduta, un piano che non ospita il copione) non passa mai, anche se nessun controllo
+        /// e' fallito; poi il controllo che chiude, che conta solo le eccezioni che nascono nel codice del gioco.</summary>
+        protected override void Finish()
         {
-            checks++;
-            if (!ok) failed++;
-            Log($"{(ok ? "ok      " : "FALLITO ")} {what}{(detail.Length > 0 ? "   [" + detail + "]" : "")}");
-        }
-
-        void Finish()
-        {
-            if (finished) return;
-            finished = true;
+            if (aborted && Failed == 0) Check("prova interrotta", false, "vedi il registro");
             Check("nessuna eccezione nel codice del gioco", exceptions == 0, exceptions + " eccezioni");
-            Log($"RISULTATO {(failed == 0 && !aborted ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks} verifiche ok{(aborted ? " (interrotta)" : "")}");
-            Application.Quit(failed == 0 && !aborted ? 0 : 1);
         }
 
         // ------------------------------------------------------------------ messaggi tra i due processi
@@ -394,8 +392,13 @@ namespace PryingEyes
         static readonly bool Late = HasArg("-cooplate"), Leave = HasArg("-coopleave"), Crash = HasArg("-coopcrash"), HostLeave = HasArg("-coophostleave"), Pics = HasArg("-cooppics");
 
         // ------------------------------------------------------------------ il copione
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            // la prova parte con la sessione (prima la creava CoopGame al suo primo fotogramma): senza -coophost o -coopjoin non c'e' niente da provare
+            float tSession = Time.time;
+            while (Coop.Game == null && Time.time - tSession < 30f) yield return null;
+            if (Coop.Game == null) { Check("la sessione cooperativa e' avviata", false, "30 s senza -coophost ne' -coopjoin"); yield break; }
+            Application.logMessageReceived += OnLog;
             // col ciclo a ondate (predefinito) le candele non ci sono: al posto di candela e round (S5, S6) si compra un'area e si giocano tre ondate
             bool survival = SurvivalMode.Enabled;
             System.Func<IEnumerator>[] steps =
@@ -411,12 +414,11 @@ namespace PryingEyes
             {
                 object cur;
                 try { if (!it.MoveNext()) break; cur = it.Current; }
-                catch (System.Exception ex) { Debug.LogError("[PryingEyes] cooptest: eccezione nella prova: " + ex); failed++; aborted = true; break; }
+                catch (System.Exception ex) { Debug.LogError("[PryingEyes] cooptest: eccezione nella prova: " + ex); Check("sequenza completa", false, ex.GetType().Name); aborted = true; break; }
                 yield return cur;
             }
             // un attimo prima di chiudere, perche' l'ultimo messaggio di sincronia parta davvero; l'ospite chiude per ultimo
             yield return new WaitForSeconds(Coop.IsClient ? 1.5f : 3f);
-            Finish();
         }
 
         IEnumerator Scenario(System.Func<IEnumerator>[] steps)
@@ -1114,7 +1116,7 @@ namespace PryingEyes
             {
                 yield return new WaitForSeconds(1.5f);                 // l'ultima sincronia deve partire davvero prima che io sparisca
                 Log(Crash ? "me ne vado di colpo (processo ucciso)" : "me ne vado (chiusura normale)");
-                Finish();
+                EndNow();                                                // il risultato esce e si chiude adesso, prima di sparire
                 if (Crash) { System.Threading.Thread.Sleep(400); System.Diagnostics.Process.GetCurrentProcess().Kill(); }
                 yield break;
             }
@@ -1155,7 +1157,7 @@ namespace PryingEyes
             {
                 yield return new WaitForSeconds(1.5f);                 // l'ultima sincronia deve partire davvero prima che io chiuda
                 Log("chiudo la partita");
-                Finish();
+                EndNow();
                 yield break;
             }
             yield return Until(() => !Coop.Active, 40f);
@@ -1167,7 +1169,7 @@ namespace PryingEyes
             float f0 = Time.frameCount;
             yield return new WaitForSeconds(3f);
             Check("il gioco continua a girare e il giocatore e' vivo", Time.frameCount > f0 + 10 && gm.player.alive);
-            Finish();
+            EndNow();
         }
 
         // 8 ------------------------------------------------------------------ uscita e discesa insieme
@@ -1205,3 +1207,4 @@ namespace PryingEyes
         }
     }
 }
+#endif

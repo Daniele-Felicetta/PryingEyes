@@ -9,15 +9,17 @@ A test of the game prints one line for each check and one result line, and quits
     [PryingEyes] survivaltest FALLITO la leva costa 1000 (punti 1500)
     [PryingEyes] survivaltest RISULTATO FALLITA: 17/18
 
-The co-op tests say which of the two processes speaks. CoopTest gives the detail in square brackets and a tail to the result:
+The co-op tests say which of the two processes speaks, after the suite and with no colon (the standard form, with `Role`: CoopTest and PistaCoopTest):
+
+    [PryingEyes] cooptest ospite ok i due giocatori si vedono (2 pupazzi)
+    [PryingEyes] pistacooptest ospite ok la gara parte (3 giri)
+    [PryingEyes] pistacooptest ospite RISULTATO SUPERATA: 9/9
+
+CoopTest printed another form until it came to the harness (T08): a colon after the process, the detail in square brackets and a tail to the result. It is still
+read, so that the log of an older build keeps its verdict:
 
     [PryingEyes] cooptest ospite: ok       i due giocatori si vedono   [2 pupazzi]
     [PryingEyes] cooptest ospitato: RISULTATO SUPERATA: 12/12 verifiche ok
-
-and PistaCoopTest has no colon:
-
-    [PryingEyes] pistacooptest ospite ok la gara parte (3 giri)
-    [PryingEyes] pistacooptest ospite RISULTATO SUPERATA: 9/9
 
 A test that uses the harness (docs/engineering/agent-tooling.md, "Results as data") also writes result.json into the folder given by
 -testout, and that file is what a tool reads first; the lines are what it falls back on, so that a suite can be run before it is ported.

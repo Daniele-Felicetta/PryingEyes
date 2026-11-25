@@ -1,26 +1,7 @@
 {
   "schemaVersion": 1,
   "about": "What is wrong today in the game's own sources, and tolerated by the guard (check_game in tools/check_suite.py). A file is named relative to unity/PryingEyes/Assets/_PryingEyes. An entry is deleted in the commit that fixes its violation (the guard fails with GAME_BASELINE_STALE until then) and is never added without a reason a reviewer accepts: a new violation fails the guard. docs/engineering/suite-architecture.md says what each rule is for.",
-  "GAME_PRODUCTION_NAMES_TEST": [
-    {
-      "file": "Scripts/Coop/CoopGame.cs",
-      "names": "CoopTest",
-      "reason": "CoopGame hands the CoopKind.Test messages to CoopTest.OnNet and starts the two-process scenarios through CoopTest.Wanted and CoopTest.Ensure. CoopTest is not wrapped, so the reference compiles in every build. It goes when the co-op scenarios move to the harness (T08) or the tests to an assembly of their own (T17)."
-    }
-  ],
-  "GAME_TEST_NOT_EXCLUDED": [
-    {
-      "file": "Scripts/Coop/CoopTest.Desert.cs",
-      "reason": "Never wrapped, and CoopGame.cs names CoopTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The three files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Coop/CoopTest.Survival.cs",
-      "reason": "Never wrapped, and CoopGame.cs names CoopTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The three files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Coop/CoopTest.cs",
-      "reason": "Never wrapped, and CoopGame.cs names CoopTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The three files of the partial class are wrapped together, after it."
-    }
-  ],
+  "GAME_PRODUCTION_NAMES_TEST": [],
+  "GAME_TEST_NOT_EXCLUDED": [],
   "GAME_LAB_FILE_OUTSIDE_RULES": []
 }
