@@ -181,6 +181,10 @@ prose of [testing.md](testing.md).
 
 ### F8. Engine-free code is already there, kept pure by convention
 
+> **Done (T15, 25 November 2026).** The files of the table below, and the 20 of the track mode that came after the audit, are in
+> `unity/PryingEyes/Assets/_PryingEyes/Rules/`, an assembly that cannot name the engine ([modularization.md](modularization.md#b2-game-rules-an-engine-free-assembly-inside-the-game)).
+> The text that follows is the audit as it was written, with the old paths.
+
 48 game files (9,474 lines) name neither `UnityEngine` nor `UnityEditor`. 42 of them (9,197 lines) are in `Assembly-CSharp`, and 34 of
 those (8,307 lines) are compiled without the engine by a lab, from the same path:
 

@@ -31,7 +31,7 @@ Code climbs one rung at a time, and only when the rung's condition is met:
 | Rung | Where the code is | Condition to get there | What it gains |
 | --- | --- | --- | --- |
 | 0 | gameplay (`Assembly-CSharp`) | none | |
-| 1 | game rules, B2 (`Rules/`, `PryingEyes.Rules`) | it compiles without the engine, and a lab compiles it and checks it | checks in seconds without a build; the compiler keeps the engine out |
+| 1 | game rules, B2 (`Rules/`, `PryingEyes.Rules`; exists since T15) | it compiles without the engine, and a lab compiles it and checks it | checks in seconds without a build; the compiler keeps the engine out |
 | 2 | a `Production.*` package, B1 | **two consumers** that are not wrappers of each other (two modes, or the game and a tool or another project), **and** a public API that can be written without a noun of the game | the four proofs; usable by another project |
 | 3 | its own repository or registry | a second project exists that needs it | a history and a version of its own |
 
@@ -73,11 +73,11 @@ Lines are those of the census at commit `4042709`.
 
 | Candidate | Files, lines | Engine-free today | Consumers | What is the game's in it | Rung now | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
-| Floor plans (`Proc/Plan*.cs`, `HubPlan.cs`, `RoundRegions.cs`, `RoomAccessState.cs`) | 9, 3,703 | yes, three labs | Tower, catacombs, desert buildings, co-op peers, Unreal export | themes, room roles, the cathedral | 0 | **rung 1** (T15). Not a package: its nouns are the game's |
+| Floor plans (`Rules/Plan/Plan*.cs`, `HubPlan.cs`, `RoundRegions.cs`, `RoomAccessState.cs`) | 9, 3,703 | yes, three labs | Tower, catacombs, desert buildings, co-op peers, Unreal export | themes, room roles, the cathedral | 0 | **rung 1** (T15). Not a package: its nouns are the game's |
 | Ink pen (`Rules/Map/MapMath.cs`, `MapPen.cs`, `MapTextures.cs`) | 3, 788 | yes; compiles alone | the floor map | nothing in its dependencies | 0 | **rung 1** (T15); first in line for rung 2 when a second map uses it |
 | Map painter (`MapScene.cs`, `MapPainter*.cs`) | 5, 1,102 | yes, `planlab` | the floor map, `planlab mapart` | rooms, props, glyphs of the game | 0 | **rung 1** (T15) |
 | Desert generators (`Deserto/Desert{Noise,Clock,World,TerrainGen,MapGen,ScatterGen,Weather,Grade}.cs`) | 8, 1,625 | yes, `desertlab` | the desert | regions, places, the cathedral | 0 | **rung 1** (T15) |
-| Character and run records (`Characters/*Record.cs`, `Leveling.cs`, `CharacterLooks.cs`, `CathedralJson.cs`) | 5, 465 | yes, `saveslab` | saves | the schema of this game | 0 | **rung 1** (T15); the generic part is already `Production.Saves` |
+| Character and run records (`Rules/Characters/*Record.cs`, `Leveling.cs`, `CharacterLooks.cs`, `CathedralJson.cs`) | 5, 465 | yes, `saveslab` | saves | the schema of this game | 0 | **rung 1** (T15); the generic part is already `Production.Saves` |
 | Cathedral catalog, points, perks (`Catalogo.cs`, `Punti.cs`, `PlayerPerks.cs`) | 3, 545 | yes | cathedral, score | all of it | 0 | **rung 1** (T15) |
 | Magic rules (`Magia/Grimoire.cs`, `MagicState.cs`) | 2, 389 | yes, but no lab | the grimoires | all of it | 0 | rung 1 once a lab compiles them; their only check today is `-magiatest` in the player |
 | Procedural audio (`SoundGen*.cs`) | 18, 3,987 | almost: `Mathf` 405 times, two other calls | every sound | the sounds themselves; the filters and envelopes are generic | 0 | rung 1 when audio next needs a check that does not need the editor (T18) |
@@ -89,11 +89,13 @@ Lines are those of the census at commit `4042709`.
 
 ## The step that makes extraction cheap
 
-Moving the engine-free files that a lab compiles to `Rules/` (B2, task T15) is the only extraction work proposed now. After it:
+Moving the engine-free files that a lab compiles to `Rules/` (B2, task T15) was the only extraction work proposed, and it is done: the 56
+files are there, in the assembly `PryingEyes.Rules`. So now:
 
 - the candidates for rung 2 are a folder, not a search;
 - promoting one is a move between two engine-free assemblies that the compiler already keeps clean, plus the README and the demo;
-- the guard's package rules apply to `Rules/` with one difference (game names allowed), so the checking code is shared.
+- the guard's package rules apply to `Rules/` with two differences (game names allowed, the `Production.*` packages may be referenced), and
+  the checking code is shared (`check_engine_free` in `tools/check_suite.py`).
 
 ## Recipes
 

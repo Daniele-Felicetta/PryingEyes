@@ -27,7 +27,7 @@ editor say so.
 | # | Boundary | Contains | May depend on | A violation fails in | State |
 | --- | --- | --- | --- | --- | --- |
 | B1 | Reusable rules: `Production.*` packages | rules that name neither the game nor the engine | nothing | the compiler, a lab, the guard, `unity/LayoutDemo` | exists |
-| B2 | Game rules: `PryingEyes.Rules` | game logic that needs no engine: plans, map painter, desert generators, records, tables | B1 | the compiler, a lab, the guard | proposed (T15) |
+| B2 | Game rules: `PryingEyes.Rules` | game logic that needs no engine: plans, map painter, desert generators, records, tables | B1 | the compiler, a lab, the guard | exists (T15) |
 | B3 | Gameplay: one assembly | everything that needs Unity or FishNet | B1, B2 | the compiler, towards B4 only once it is a named assembly | exists as `Assembly-CSharp` |
 | B4 | In-player tests | the 59 test files and their harness | B1, B2, B3 | first the guard, then the compiler | proposed (T04, T07, T17) |
 | B5 | Editor tools | builders, importers, photo tools | B1, B2, B3 | the compiler (Unity keeps editor folders apart) | exists |
@@ -47,11 +47,12 @@ What may be added to them, and when, is in [package-extraction.md](package-extra
 ## B2. Game rules: an engine-free assembly inside the game
 
 **What.** A folder `unity/PryingEyes/Assets/_PryingEyes/Rules/` with one assembly definition, `PryingEyes.Rules`
-(`noEngineReferences: true`, references only `Production.*`), holding the 34 files that F8 lists, changed by T20 (the draft's
-`NetworkFloorPlan.cs` is gone; the three admission files of the co-op are engine-free, a lab compiles them, and they now sit in
-`Scripts/Coop`), 36 in all, grouped as they are today:
+(`noEngineReferences: true`, references only `Production.Economy` and `Production.Saves`, the two packages its files use), holding the 56 files that a
+lab compiled without the engine when T15 moved them (25 November 2026). The card counted 36: the 34 files that F8 lists, changed by T20 (the draft's
+`NetworkFloorPlan.cs` went; the three admission files of the co-op came in). The other 20 are the rules of the track mode, which `tracklab` compiles and
+which the audit, written before that lab, does not list. They are grouped like this, each file with the folder it came from:
 
-| Subfolder | Files that move there | Compiled by |
+| Subfolder | Files | Compiled by |
 | --- | --- | --- |
 | `Rules/Plan` | `Proc/PlanTypes.cs`, `PlanGen.cs`, `PlanGen.Building.cs`, `PlanGrid.cs`, `PlanThemes.cs`, `PlanAnnex.cs`, `HubPlan.cs`, `RoundRegions.cs`, `RoomAccessState.cs` | `planlab`, `desertlab` |
 | `Rules/Map` | `Proc/Map/MapMath.cs`, `MapPen.cs`, `MapTextures.cs`, `MapScene.cs`, `MapPainter.cs`, `MapPainter.Glyphs.cs`, `MapPainter.Props.cs`, `MapPainter.Shade.cs` | `planlab` |
@@ -59,22 +60,27 @@ What may be added to them, and when, is in [package-extraction.md](package-extra
 | `Rules/Characters` | `Characters/CharacterLooks.cs`, `Leveling.cs`, `CharacterRecord.cs`, `CathedralJson.cs`, `RunRecord.cs` | `saveslab` |
 | `Rules/Cathedral` | `Cattedrale/Catalogo.cs` | `economylab` |
 | `Rules/Admission` | `Coop/AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs` | `admissionlab` |
-| `Rules/Score` | `PlayerPerks.cs`, `Punti.cs` | `admissionlab` |
+| `Rules/Score` | `PlayerPerks.cs`, `Punti.cs` (both in `Scripts/`) | `admissionlab` |
+| `Rules/Track` | `Pista/PistaMath.cs`, `BikeSpec.cs`, `BikeModel.cs`, `Circuit.cs`, `CircuitGen.cs`, `Catalogue.cs`, `RacingLine.cs`, `BikeDriver.cs`, `RaceRules.cs`, `PoseTape.cs`, `EngineSynth.cs`, `RaceReplay.cs`, `Licences.cs`, `BikeSheet.cs`, `Championship.cs`, `KeyShaper.cs`, `Career.cs`, `Tuning.cs`, `DrivingLine.cs`, `BrakeCue.cs` | `tracklab` |
 
-Namespaces stay as they are (`PryingEyes.Proc`, `PryingEyes.Deserto`...), so no other file changes: the move is a `git mv` of each file
-with its `.meta`, plus the paths in the lab projects and in the pages that name them.
+Namespaces did not change (`PryingEyes.Proc`, `PryingEyes.Deserto`...), so no other file changed: the move was a `git mv` of each file with its
+`.meta` (the same GUIDs), plus the paths in six lab projects and in the pages that name them. Nothing outside `Rules/` needed an `internal` member to
+become public: the 56 files declare one non-public type, a helper of `Championship.cs` that nothing else uses, and seven `internal` members that are used only
+inside their own file. What no lab compiles stays where it is (`Magia/Grimoire.cs` and `MagicState.cs` need a lab first).
 
 **Why an assembly, when the labs already compile these files.** Three reasons, in order of weight:
 
 1. Unity itself refuses an engine reference in these files, in the editor and in every build, without waiting for a lab that may not be
-   run (F9). Today `using UnityEngine` in `DesertWorld.cs` compiles and ships.
+   run (F9). Before T15 `using UnityEngine` in `DesertWorld.cs` compiled and shipped; now the editor refuses it.
 2. The place tells the reader what the file is: code under `Rules/` is checked by a lab in seconds, without a build. That is the cheapest
    feedback an agent can get, and today it has to be discovered file by file from the lab projects.
 3. It is the first boundary inside the game that the compiler checks, at almost no risk: the labs prove that the set compiles alone, the
-   files import only `System`, `Production.*` and each other, and every top-level type in them is public (F8).
+   files import only `System`, `Production.*` and each other, and every top-level type in them is public (F8) but one helper that nothing else uses.
 
-**Rules of B2.** No `UnityEngine`, `UnityEditor`, `FishNet` or `TMPro`. Game names are allowed (this is what separates B2 from B1). Every
-file is compiled by at least one lab from its path. The guard checks all three, with the code it already has for packages.
+**Rules of B2.** The assembly references only `Production.*`. No file names `UnityEngine`, `UnityEditor`, `FishNet` or `TMPro`. Game names are
+allowed (this is what separates B2 from B1). Every file is compiled by at least one lab from its path, and a game file that a lab compiles lives in
+`Rules/`. The compiler keeps the first two, and the guard all of them, with the code it already has for packages
+([suite-architecture.md](suite-architecture.md#the-games-engine-free-rules)).
 
 **What it is not.** Not a package: its vocabulary is the game's (room roles, themes, the cathedral's works). Not a place for helpers
 that happen to be pure: a file goes there because a lab checks it.
@@ -85,7 +91,7 @@ for game-specific logic too.
 
 ## B3. Gameplay: one assembly, and why it stays one
 
-The other 367 files of the game stay in a single assembly. Splitting them by folder is not proposed:
+The rest of the game (`Assembly-CSharp` holds 433 files, tests included, in the census after T15) stays in a single assembly. Splitting them by folder is not proposed:
 
 - every folder of `Scripts/` is in one dependency cycle, with 33 mutual pairs (F1);
 - `HUD`, `Enemy`, `SoundGen` and `SoundBank` are partial classes spread over up to seven folders, and a partial class cannot cross an
@@ -171,8 +177,8 @@ requests that each add an item then merge without a conflict; the 725-character 
 
 These hold from now, before any task is done:
 
-1. Logic that needs no engine type goes in an engine-free file compiled by a lab, with its checks in that lab (under `Rules/` once B2
-   exists; next to its feature and added to a lab project until then).
+1. Logic that needs no engine type goes in an engine-free file under `Rules/`, compiled by a lab from that path, with its checks in that lab
+   (the guard fails on a lab that compiles a game file outside `Rules/`).
 2. A new in-player test is its own `*Test.cs` file, wrapped in `#if !PE_DISTRIBUTION_BUILD`, installing itself; production code never
    names it; the guard fails otherwise. It derives from `PlayerTest` (T07: its load hook is one line, `InstallWhen<T>("-flag")`) and is
    also listed in the manifest of the in-player suites (`tools/player_tests.json`: its unit test fails otherwise).
@@ -199,13 +205,13 @@ These hold from now, before any task is done:
 
 `python tools/code_census.py` at each step. The numbers that the plan moves (today: the census of 24 November 2026 at `4aaafa8` with T07
 applied; four rows differ from the values the plan started from (34, 47, 51 and 39) because code arrived after it was written, the track
-mode first of all, and T07 has since moved two of them). T20 (25 November 2026) moved the first two rows and nothing else; the rest are
+mode first of all, and T07 has since moved two of them). T20 (25 November 2026) moved the first two rows and nothing else, and T15 (the same day) the second to 0; the rest are
 the values of that census:
 
 | Number (section of the census) | Today | Target | Task |
 | --- | --- | --- | --- |
 | Hermetic suites in the gate (`python tools/studio.py suites --json`: the ones with an empty `needs`; before T03, the steps of the workflow) | 8 | every one | T01, T02, T03, T20 |
-| Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 56 | 0 | T15 |
+| Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 0 (56 before T15) | 0 | T15, done |
 | Production files that name a test type (`tests`) | 2 | 0 | T08, T17 |
 | Test files not kept out of a release (`tests`) | 14 | 0 | T17 |
 | Tests with a private `Check` (`tests`) | 48 | 0 | T08 (T07 took it from 51) |

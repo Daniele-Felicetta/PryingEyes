@@ -150,6 +150,8 @@ Then `tools/<yourproject>.py` is three lines: build the project and call `studio
    every commit and were swept into unrelated ones by `git add -A`. List the paths you changed instead of adding everything.
 4. A test that needs a machine's Blender outputs or a built player is an *acceptance* check behind an explicit flag
    (`citylab.py --require-assets`), never part of the hermetic unit suite.
+5. Logic of the game that needs no engine lives in `unity/PryingEyes/Assets/_PryingEyes/Rules`, with its checks in a lab that compiles it from
+   that path; a lab never compiles a game file from anywhere else (`GAME_LAB_FILE_OUTSIDE_RULES`).
 
 ## Still game-specific, deliberately not hidden
 
