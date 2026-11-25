@@ -199,9 +199,9 @@ The runner reads three forms of that line, and `tools/player_log.py` is the only
 `CoopTest`'s (`[PryingEyes] cooptest ospite: RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`, the
 process that speaks after the label); and `PistaCoopTest`'s (`[PryingEyes] pistacooptest ospite RISULTATO ...`, no colon, the detail in
 parentheses: the standard line of the harness, with `Role` after the suite). A test that derives from `PlayerTest` writes `result.json` and prints the standard line too. Counted from the sources on 25
-November 2026, with the seventh pull request of T08, 83 of the 87 entries say their result in a form the runner reads: the ones on
+November 2026, with the ninth pull request of T08, 84 of the 87 entries say their result in a form the runner reads: the ones on
 `PlayerTest`, the others that print the standard line (two of them runners: `seatstest`, `splitdesertotest`) and the 17 co-op scenarios,
-which print the co-op forms. The other 4 print theirs in another form or not at all: `citytest` and `displaytest` (suites that are not on the harness yet) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
+which print the co-op forms. The other 3 print theirs in another form or not at all: `displaytest` (a suite that is not on the harness, which cannot be run without the maintainer's word) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
 `PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list; the two probes are not ported and stay on it): the
 runner does not guess a verdict from an exit code (`padtest` quit with 0 and printed no result at all until its steps were repaired).
 
@@ -347,12 +347,13 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 42 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+State: built (T07) and on 44 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
 `FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
 (`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`), the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`), the three of the fifth (`CattedraleTest`,
-`SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest), the one of the sixth (`StealthTest`, which stands for eleven) and the four of the seventh (`GunTest`,
-`LeanTest`, `WallTest` and `MagicTest`, which were procedures of `GameManager`); T08 ports the 12 others that
-still carry their own copy of the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
+`SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest), the one of the sixth (`StealthTest`, which stands for eleven), the four of the seventh (`GunTest`,
+`LeanTest`, `WallTest` and `MagicTest`, which were procedures of `GameManager`) and the two of the ninth (`ArchitectureTest`, which stands for three entries of the
+manifest, and `CityTest`); T08 ports the 6 others that still carry their own copy of the same code (F6). `DisplayTest` and `PresentationTest` are left out for now, because
+they cannot be run without the maintainer's word, and the two probes stay as they are. The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
 
@@ -429,12 +430,25 @@ Where the first sketch was wrong or short:
   against the working directory, so a run started from another folder still writes where the page says.
 - `HoldFire` came with the seventh pull request, for the two that needed it: the stealth family and `GunTest` want the bot of the automatic run not to shoot
   (`Weapon` asks `GameManager.noFire`, which had a list of test flags). A test overrides the member, `InstallWhen` copies it into `TestRun.HoldFire` before the first frame, and
-  the flag of the test leaves the list of `GameManager.Awake`: it still holds `-cooptest`, `-citytest` and `-desertotest` (not on the harness yet) and `-survivaltest` and
+  the flag of the test leaves the list of `GameManager.Awake`: it still holds `-cooptest` and `-desertotest` (not on the harness yet) and `-survivaltest` and
   `-cattedraletest` (on it, not moved yet).
 - The two probes do not derive from `PlayerTest` (eighth pull request of T08). `procbot` (the bot of `FloorDirector.Bot.cs`) and `perftest` (`PerfProbe`) report an `ESITO` line and a table of numbers,
   not checks, and they live inside production classes on purpose: a verdict made of invented checks would say less than their numbers. Each says `TestRun.Dedicated = true` from the place in
   `FloorDirector.cs` that already reads its flag (the bot the first time it ticks, and with it the 60 fixed frames per second that `GameManager.Awake` used to give it; the frame probe when it starts), so
   `GameManager` names neither and the automatic quit of `-autotest` does not close them. There is no adapter: `TestRun.cs` is compiled into every build for exactly this.
+- The ninth took two classes and no new member of the base class. `ArchitectureTest` (four files) and `CityTest` (three) were never wrapped for distribution builds, and
+  now they are: the seven entries that the baseline of the guard (`tools/fixtures/game-boundaries.json`) tolerated for them are gone, and so are `-architecturetest` and
+  `-citytest` from `GameManager.cs` (the list of legacy flags, the list that stops the bot firing, and the automatic quit outside the floors, which asks
+  `TestRun.Dedicated` now). `ArchitectureTest` is one class with four sequences chosen by flag, as `StealthTest` is, and its suite takes the name of the entry that the
+  flag selects: `architecturetest` (the galleries and the rotunda), `architectureaccess`, `architecturesupply` and `architecturepursuit` (which the manifest does not
+  list). Each has its own result line and its own `result.json`, so the two entries that carried a `label` (`architecturetest`, the line that the three used to share)
+  lose it. Its photographs of the supply go to `unity_logs/supply` and the others to `unity_logs/architecture`, as the pages say (`OutFolder` reads the suite), and
+  `ExceptionCheck` is null: it never counted exceptions. `CityTest` keeps what its runner reads: `report.json`, with the findings in the form they always had (code,
+  what was looked at, what was observed, what was expected), is written by `Finish()` next to `result.json`, and each finding is also a check named `CODE: subject` with
+  the rest as its detail, so a line of the log reads `[PryingEyes] citytest ok CODE: subject (observed; expected ...)` where it read `[CityTest] PASS CODE: subject;
+  observed; expected ...`, and the list of checks is the same. The flag `-cityout`, which only `tools/citylab.py` passed, is `-testout` now, and `HoldFire` is true (the
+  bot of `-autotest` does not shoot in the city, as `-citytest` in the list of `GameManager.Awake` said). The manifest entry `architecturesupply` did not carry
+  `-architecturetest`, the flag that installs the class: it started a floor and quit by itself after 70 seconds without a single check, and it carries the flag now.
 - `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
   replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
   break;` and `PlayerController.botDir = Vector3.zero` after the sequence).
