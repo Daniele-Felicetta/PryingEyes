@@ -199,7 +199,7 @@ The runner reads two forms of that line, and `tools/player_log.py` is the only p
 processes run (`CoopTest` and `PistaCoopTest`: `[PryingEyes] cooptest ospite RISULTATO SUPERATA: 12/12`, no colon, the detail in parentheses: the standard line of the harness,
 with `Role`, the process that speaks, after the suite). It still reads a third, the one that `CoopTest` printed until the tenth pull request of T08 (`[PryingEyes] cooptest ospite:
 RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`), so that the log of an older build keeps its verdict. A test that derives from `PlayerTest` writes
-`result.json` and prints the standard line too. Counted from the sources on 25 November 2026, with the tenth pull request of T08, 84 of the 87 entries say their result in a form the
+`result.json` and prints the standard line too. Counted from the sources on 25 November 2026, with the eleventh pull request of T08, 84 of the 87 entries say their result in a form the
 runner reads: the ones on `PlayerTest` (the 17 co-op scenarios among them, two processes each) and the others that print the standard line (two of them runners: `seatstest`,
 `splitdesertotest`). The other 3 print theirs in another form or not at all: `displaytest` (a suite that is not on the harness, which cannot be run without the maintainer's word) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
 `PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list; the two probes are not ported and stay on it): the
@@ -347,12 +347,12 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 45 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+State: built (T07) and on 46 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
 `FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
 (`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`), the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`), the three of the fifth (`CattedraleTest`,
 `SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest), the one of the sixth (`StealthTest`, which stands for eleven), the four of the seventh (`GunTest`,
 `LeanTest`, `WallTest` and `MagicTest`, which were procedures of `GameManager`), the two of the ninth (`ArchitectureTest`, which stands for three entries of the
-manifest, and `CityTest`) and the one of the tenth (`CoopTest`, which stands for fourteen); T08 ports the 5 others that still carry their own copy of the same code (F6). `DisplayTest` and `PresentationTest` are left out for now, because
+manifest, and `CityTest`), the one of the tenth (`CoopTest`, which stands for fourteen) and the one of the eleventh (`DesertTest`); T08 ports the 4 others that still carry their own copy of the same code (F6). `DisplayTest` and `PresentationTest` are left out for now, because
 they cannot be run without the maintainer's word, and the two probes stay as they are. The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -431,8 +431,8 @@ Where the first sketch was wrong or short:
   against the working directory, so a run started from another folder still writes where the page says.
 - `HoldFire` came with the seventh pull request, for the two that needed it: the stealth family and `GunTest` want the bot of the automatic run not to shoot
   (`Weapon` asks `GameManager.noFire`, which had a list of test flags). A test overrides the member, `InstallWhen` copies it into `TestRun.HoldFire` before the first frame, and
-  the flag of the test leaves the list of `GameManager.Awake`: it still holds `-desertotest` (not on the harness yet) and `-survivaltest` and
-  `-cattedraletest` (on it, not moved yet).
+  the flag of the test leaves the list of `GameManager.Awake`: it still holds `-survivaltest` and
+  `-cattedraletest` (both on the harness, not moved yet).
 - The two probes do not derive from `PlayerTest` (eighth pull request of T08). `procbot` (the bot of `FloorDirector.Bot.cs`) and `perftest` (`PerfProbe`) report an `ESITO` line and a table of numbers,
   not checks, and they live inside production classes on purpose: a verdict made of invented checks would say less than their numbers. Each says `TestRun.Dedicated = true` from the place in
   `FloorDirector.cs` that already reads its flag (the bot the first time it ticks, and with it the 60 fixed frames per second that `GameManager.Awake` used to give it; the frame probe when it starts), so
@@ -467,6 +467,15 @@ Where the first sketch was wrong or short:
   them from its own first frame). The lines of the log are the standard ones with `Role`, `[PryingEyes] cooptest ospite ok <name> (<detail>)` and `[PryingEyes] cooptest ospite RISULTATO
   SUPERATA: 49/49`, where they were `[PryingEyes] cooptest ospite: ok       <name>   [<detail>]` and `... RISULTATO SUPERATA: 49/49 verifiche ok`; the lines that tell the story (`--- passo 3`,
   `info: ...`) keep their colon, and the checks, their names and their order are the same.
+- The eleventh took one class (`DesertTest`, fourteen files, the entry `desertotest`, whose phases `-desertonly` chooses by name) and no new member. It derives from `PlayerTest`
+  (the files were wrapped already) and installs itself with `-desertotest`, after the `Fabbrica.Azzera()` that its load hook has always done first (the test profile: a cathedral in ruins
+  and an empty warehouse). `TimeLimit` is 1100 seconds from the start of the player, the number that the test's own `Budget` had, `HoldFire` is true and `ExceptionCheck` is null: the test keeps
+  its closing check, `nessun errore o eccezione nel registro durante la prova`, which counts errors as well as exceptions (not the harmless `Failed to capture screen shot` of a run with no window)
+  and says the first one, and `Finish()` makes it after the frame statistics, as it always did. `-desertotest` is out of the no-fire list and of the legacy list of `GameManager.cs`: the census
+  of `tools/code_census.py` reads 13 flags in that file where it read 14, and the legacy list holds `-magiatest` and `-pistatest`. The phase that takes the photographs, `Photos()`, is
+  `TakePhotos()` now, because the base class has a member of that name. The lines of the log, the checks, their names and their order are what they were
+  (`[PryingEyes] desertotest ok <name> (<detail>)`, `[PryingEyes] desertotest RISULTATO SUPERATA: 150/150`); what is new is `result.json` (in `unity_logs/desertotest/`, or in the folder of
+  `-testout`), and that an exception that the sequence throws outside a phase fails `sequenza completa` without its message as the detail (the log has the exception).
 - `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
   replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
   break;` and `PlayerController.botDir = Vector3.zero` after the sequence).
@@ -491,7 +500,7 @@ Where the first sketch was wrong or short:
   after the verdict, which the base class has no place for yet.
 - The fifth took three suites and two members. `TimeLimit`: five suites (`DesertTest`, `SplitDesertTest`, `PistaCoopTest`, `PistaMenuTest`, `PistaTest`) fail the check
   `finita entro il tempo` and end the run when a number of seconds have passed since the player started, whatever their sequence is waiting for; the base class
-  watches the clock in a coroutine of its own. Two are on the harness now. `PistaCoopTest` counted its 420 s from the start of its own sequence and now counts
+  watches the clock in a coroutine of its own. Two are on the harness now (`DesertTest` came with the eleventh pull request, below). `PistaCoopTest` counted its 420 s from the start of its own sequence and now counts
   them from the start of the player, the few seconds the player takes to start less, and only a stuck run can reach either. `Role`: `PistaCoopTest` runs in two
   processes, the host and the friend, and prints who speaks after the suite name (`pistacooptest ospite ok ...`, the form that `tools/player_log.py` reads):
   `Role` puts it in every check line and in the result line, and the test gives each process its own `OutFolder` (`pistacooptest-ospite`,
