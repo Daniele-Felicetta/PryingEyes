@@ -42,6 +42,8 @@ SCENARIO = re.compile(r"^\s{4}([a-z]_[a-z_]+)\s*=\s*@\{ Clients = \d+; H = @\(([
 SCRIPT_FLAG = re.compile(r"'(-[A-Za-z][A-Za-z0-9]*)'")
 # the labels of the result lines that a source prints: in one literal, or as `"[PryingEyes] <label> " + res` with `res` holding "RISULTATO ..."
 RESULT_LABEL = re.compile(r'\[PryingEyes\] (\w+) RISULTATO|"\[PryingEyes\] (\w+) " \+ (?:res|result)\b')
+# a test on the harness prints its Suite: `protected override string Suite { get { return "traptest"; } }`, or `=> "traptest"`
+SUITE_LABEL = re.compile(r'override\s+string\s+Suite\s*(?:=>\s*|\{\s*get\s*\{\s*return\s*)"(\w+)"')
 
 
 class Game:
@@ -87,8 +89,8 @@ def parameters(script):
 
 
 def result_labels(text):
-    """The labels that a C# source prints before `RISULTATO` (the harness's PlayerTest prints the name of its Suite: no literal, so none here)."""
-    return {first or second for first, second in RESULT_LABEL.findall(text)}
+    """The labels that a C# source prints before `RISULTATO`: one that it writes itself, or the name that a PlayerTest gives as its Suite (the base prints it)."""
+    return {first or second for first, second in RESULT_LABEL.findall(text)} | set(SUITE_LABEL.findall(text))
 
 
 def scenarios(root=ROOT):
@@ -273,7 +275,8 @@ class PlayerManifest(unittest.TestCase):
                          {suite["label"] for suite in self.manifest["suites"] if "label" in suite})
         self.assertEqual({"pistamenutest"}, result_labels('Debug.Log($"[PryingEyes] pistamenutest RISULTATO {x}"); Debug.Log("[PryingEyes] other " + res);') - {"other"})
         self.assertEqual({"magiatest"}, result_labels('Debug.Log("[PryingEyes] magiatest " + res);'))
-        self.assertEqual(set(), result_labels("class TrapTest : PlayerTest { protected override string Suite => \"traptest\"; }"))
+        self.assertEqual({"traptest"}, result_labels("class TrapTest : PlayerTest { protected override string Suite => \"traptest\"; }"))
+        self.assertEqual({"pistamenutest"}, result_labels("class PistaMenuTest : PlayerTest { protected override string Suite { get { return \"pistamenutest\"; } } }"))
 
     def test_a_page_that_does_not_exist_is_found(self):
         self.assertFound("MANIFEST_PAGE", self.broken(lambda m: self.entry(m, "traptest").update(page="docs/game/no-such-page.md")), "traptest")
