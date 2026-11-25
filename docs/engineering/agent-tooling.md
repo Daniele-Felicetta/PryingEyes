@@ -471,7 +471,8 @@ Where the first sketch was wrong or short:
   (`stealthtest`, `alientest`, `temitest`) log the renderer's exceptions in every run, which the runner filters as noise, so the default closing check would
   fail runs in which nothing is wrong. That check is also what catches a nested sequence that throws (Unity runs a nested sequence by itself and only logs
   what it throws, so the base class sees the exceptions of its own `Run` only), and this family has none: each suite runs inside `RunSuite`, which fails
-  the check `sequenza completa` when the suite throws. Two things are not as they were: `-roundshots` used to quit with 0 whatever the checks said and now ends like any run, and a
+  the check `sequenza completa` when the suite's own sequence throws. A helper sequence that the suite yields (`Hit`, `Light`, `DriveRound`, `Face`, `HeadShot`) is
+  still run by Unity itself: what it throws is logged and ends the sequence, and nothing quits the process before the runner's timeout, as before the port. Two things are not as they were: `-roundshots` used to quit with 0 whatever the checks said and now ends like any run, and a
   sequence that throws fails the check `sequenza completa` and exits with 1, where it used to leave the process waiting for the runner's timeout.
 - `NotApplicable(why)` is the exit code 2 ("this floor cannot host the test"): the check `il piano ospita la prova` fails with the reason, the sequence
   returns, and the process quits with 2 unless another check failed too, which outranks it (exit 1). Six suites use it (`roundtest`: no sealable zone;
