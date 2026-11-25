@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -12,41 +13,18 @@ namespace PryingEyes
     /// con il CharacterController vero. Chiuso: non ci si entra a piedi (nessuna via laterale). Aperto: scale comprese si arriva all'interno,
     /// al tesoro e alla chiave. I tre modi di aprirlo (leve, tributo, chiave) fanno quello che dicono, e le cose da usare si raggiungono con
     /// F (primo ostacolo del raggio = l'oggetto stesso). I nemici non nascono dentro gli annessi.</summary>
-    public sealed class AnnexTest : MonoBehaviour
+    public sealed class AnnexTest : PlayerTest
     {
-        int checks, failed;
         bool walkReached;
         Vector3 walkStopped;
         float walkTime;
 
+        protected override string Suite { get { return "annextest"; } }
+        protected override string ExceptionCheck { get { return null; } }       // la prova non ne ha mai avuto uno
+        protected override void Finish() { PlayerController.botDir = Vector3.zero; }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-annextest") >= 0)
-                new GameObject("AnnexTest").AddComponent<AnnexTest>();
-        }
-
-        void Check(string name, bool ok)
-        {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] annextest " + (ok ? "ok " : "FALLITO ") + name);
-        }
-
-        IEnumerator Start()
-        {
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            PlayerController.botDir = Vector3.zero;
-            Debug.Log($"[PryingEyes] annextest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
+        static void Install() { InstallWhen<AnnexTest>("-annextest"); }
 
         /// <summary>Cammina dalla posizione attuale fino a 'target' seguendo la navmesh, come un giocatore. Si ferma se non avanza da tre secondi.</summary>
         IEnumerator Walk(Vector3 target, float timeout)
@@ -99,7 +77,7 @@ namespace PryingEyes
             return false;
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             Check("automatic tests mute audio", AudioListener.volume == 0f);
             float deadline = Time.realtimeSinceStartup + 90f;

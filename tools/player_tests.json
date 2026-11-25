@@ -223,10 +223,10 @@
     {
       "name": "meleetest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/MeleeTest.cs",
-      "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-meleetest", "-seed", "1000", "-floor", "1"],
+      "args": ["-batchmode", "-autotest", "-nofire", "-noenemies", "-meleetest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 180,
-      "needs": ["runtime"],
+      "needs": ["runtime", "gpu"],
       "hazards": [],
       "photos": {"args": ["-meleeshots"], "needs": ["gpu"], "folder": "unity_logs/melee"},
       "page": "docs/engineering/testing.md"
@@ -332,10 +332,10 @@
     {
       "name": "relictest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/RelicReviewTest.cs",
-      "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-relictest", "-seed", "1000", "-floor", "1"],
+      "args": ["-batchmode", "-autotest", "-nofire", "-relictest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 180,
-      "needs": ["runtime"],
+      "needs": ["runtime", "gpu"],
       "hazards": [],
       "page": "docs/engineering/testing.md"
     },
@@ -535,10 +535,10 @@
     {
       "name": "padtest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/PadMenuTest.cs",
-      "args": ["-batchmode", "-padtest", "-nowaves"],
+      "args": ["-batchmode", "-nographics", "-padtest", "-nowaves"],
       "mode": "menu",
       "timeout": 120,
-      "needs": ["runtime", "gpu"],
+      "needs": ["runtime"],
       "hazards": [],
       "page": "docs/game/controller.md"
     },

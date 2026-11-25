@@ -11,7 +11,8 @@ using PryingEyes.Proc;
 namespace PryingEyes.Testing
 {
     /// <summary>The base of an in-player test: a component that installs itself when its flag is on the command line, runs a sequence of
-    /// checks against the real game and ends the process with 0 (every check passed) or 1. It owns what each test used to copy: counting
+    /// checks against the real game and ends the process with 0 (every check passed), 1, or 2 for a plan that cannot host it (<see cref="NotApplicable"/>).
+    /// It owns what each test used to copy: counting
     /// the checks and the failures, counting the exceptions, driving the sequence, the result line, <c>result.json</c> and the exit.
     /// A test says its name, writes its checks in <see cref="Run"/> and installs itself with one line in its own load hook:
     /// <code>
@@ -28,9 +29,10 @@ namespace PryingEyes.Testing
         readonly List<Outcome> results = new List<Outcome>();
         readonly List<string> artifacts = new List<string>();
         int failed, exceptions;
-        bool photos;
+        bool photos, ended;
         float started;
         string outDir;
+        string inapplicable;
 
         /// <summary>The name on the result line and in <c>result.json</c>, and the prefix of every check in the log ("traptest").</summary>
         protected abstract string Suite { get; }
@@ -48,6 +50,23 @@ namespace PryingEyes.Testing
         /// <summary>Called when the sequence has ended, however it ended and before the last check. For what a test must put back.</summary>
         protected virtual void Finish() { }
 
+        /// <summary>The seconds, counted from the start of the player, within which the whole run must end; 0 (the default) for no limit. Past it
+        /// the base fails the check "finita entro il tempo" and ends the run as it ends any other, whatever the sequence is still waiting for.</summary>
+        protected virtual float TimeLimit { get { return 0f; } }
+
+        /// <summary>For a test that two processes run together (the host and the friend of a co-op race): who speaks in this one. It follows the
+        /// name of the suite in the log, in every check and in the result line ("pistacooptest ospite ok ..."), and nowhere else: the test names
+        /// its <see cref="OutFolder"/> so that the processes do not write each other's files. Null for the others.</summary>
+        protected virtual string Role { get { return null; } }
+
+        /// <summary>The name of the check that closes the sequence ("nessuna eccezione runtime"); null for a suite that has never made one,
+        /// which then keeps the checks it always had. The exceptions are counted either way and <c>result.json</c> carries the number.</summary>
+        protected virtual string ExceptionCheck { get { return "nessuna eccezione runtime"; } }
+
+        /// <summary>Whether a line of the game's log is an error that fails the closing check: an exception, unless a suite widens it
+        /// to something its subject logs as a warning.</summary>
+        protected virtual bool IsError(string message, LogType type) { return type == LogType.Exception; }
+
         /// <summary>The checks made so far, and how many of them failed.</summary>
         protected int Checks { get { return results.Count; } }
         protected int Failed { get { return failed; } }
@@ -61,8 +80,18 @@ namespace PryingEyes.Testing
         {
             results.Add(new Outcome { Name = name, Ok = ok, Detail = detail ?? "" });
             if (!ok) failed++;
-            Debug.Log("[PryingEyes] " + Suite + " " + (ok ? "ok " : "FALLITO ") + name + (string.IsNullOrEmpty(detail) ? "" : " (" + detail + ")"));
+            Debug.Log("[PryingEyes] " + Label + " " + (ok ? "ok " : "FALLITO ") + name + (string.IsNullOrEmpty(detail) ? "" : " (" + detail + ")"));
             return ok;
+        }
+
+        /// <summary>The floor or the seed that this run was given cannot host the test (no zone to seal, no free spot, no sanctuary): say why and return
+        /// from <see cref="Run"/>. The check "il piano ospita la prova" fails with the reason, so every reader sees a run that proved nothing, and the
+        /// process quits with 2 instead of 1: a script reads 2 as "change the seed" and 1 as "the game broke". A check that failed for another reason
+        /// outranks it (exit 1): the plan is only the explanation when nothing else went wrong.</summary>
+        protected void NotApplicable(string why)
+        {
+            inapplicable = why ?? "";
+            Check("il piano ospita la prova", false, inapplicable);
         }
 
         /// <summary>A photograph of what the player sees, HUD included, into the output folder. Nothing happens unless the photo flag is on.</summary>
@@ -74,7 +103,8 @@ namespace PryingEyes.Testing
         }
 
         /// <summary>The file of a photograph that the test frames itself (a weapon hidden, a review camera, no HUD): in the output folder,
-        /// and listed in <c>result.json</c> as an artifact. <see cref="Photo"/> is the plain case and uses it. Ask only when <see cref="Photos"/> is on.</summary>
+        /// and listed in <c>result.json</c> as an artifact. <see cref="Photo"/> is the plain case and uses it. A test whose photographs are optional
+        /// asks only when <see cref="Photos"/> is on; one that always takes them asks every time.</summary>
         protected string PhotoPath(string name)
         {
             string file = name + ".png";
@@ -93,7 +123,9 @@ namespace PryingEyes.Testing
 
         string OutPath { get { return outDir ?? (outDir = TestRun.OutDir(OutFolder)); } }
 
-        void OnLog(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
+        string Label { get { return Role == null ? Suite : Suite + " " + Role; } }
+
+        void OnLog(string message, string stack, LogType type) { if (IsError(message, type)) exceptions++; }
 
         /// <summary>Stops counting exceptions. A test that owns something to release overrides it and calls <c>base.OnDestroy()</c>: Unity calls
         /// only the most derived <c>OnDestroy</c>, so a second one that does not override this one would silence it.</summary>
@@ -104,17 +136,41 @@ namespace PryingEyes.Testing
             Application.logMessageReceived += OnLog;
             started = Time.realtimeSinceStartup;
             photos = PhotoFlag != null && TestRun.Has(PhotoFlag);
+            if (TimeLimit > 0f) StartCoroutine(Watch());
             var sequence = Run();
             while (true)
             {
                 bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
                 if (!more) break; yield return sequence.Current;
             }
+            End();
+        }
+
+        /// <summary>The end of the run, once however it comes: the test's own clean-up, the closing check, the result and the exit.</summary>
+        void End()
+        {
+            if (ended) return;
+            ended = true;
             Finish();
-            Check("nessuna eccezione runtime", exceptions == 0);
+            if (ExceptionCheck != null) Check(ExceptionCheck, exceptions == 0);
             WriteResult();
-            Debug.Log("[PryingEyes] " + Suite + " RISULTATO " + (failed == 0 ? "SUPERATA" : "FALLITA") + ": " + (results.Count - failed) + "/" + results.Count);
-            Application.Quit(failed == 0 ? 0 : 1);
+            Debug.Log("[PryingEyes] " + Label + " RISULTATO " + (failed == 0 ? "SUPERATA" : "FALLITA") + ": " + (results.Count - failed) + "/" + results.Count);
+            Application.Quit(failed == 0 ? 0 : inapplicable != null && failed == 1 ? 2 : 1);
+        }
+
+        /// <summary>Watches <see cref="TimeLimit"/> every frame in a coroutine of its own, so that a sequence stuck inside a wait still ends.</summary>
+        IEnumerator Watch()
+        {
+            while (!ended)
+            {
+                if (Time.realtimeSinceStartup > TimeLimit)
+                {
+                    Check("finita entro il tempo", false, TimeLimit.ToString("F0", CultureInfo.InvariantCulture) + " s");
+                    End();
+                    yield break;
+                }
+                yield return null;
+            }
         }
 
         /// <summary>The result as data, for the tools that start a suite and need no regular expression: docs/engineering/agent-tooling.md,

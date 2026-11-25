@@ -36,10 +36,10 @@ Flags:
 
 - `-buildOut <folder>` writes `<folder>/PryingEyes.exe`. **Without it the build overwrites `Builds/PryingEyes.exe`, the game the
   maintainer plays.** Always pass it for verification builds (`ship.ps1` and the studio do).
-- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out the files wrapped in `#if !PE_DISTRIBUTION_BUILD`: 29 of the 42
-  `*Test*.cs` files in `Scripts/` and the trailer recorder (`TrailerCapture.cs`, `TrailerJob.cs`, `FloorDirector.Trailer.cs`, and a part of
-  `FloorDirector.cs`). Not wrapped, so still in the player: the `ArchitectureTest*`, `CityTest*`, `CoopTest*` and `StealthTest*` files
-  (counted by grep on 2026-11-15). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.
+- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out the files wrapped in `#if !PE_DISTRIBUTION_BUILD`: 62 of the 72
+  test files of the player (`tools/code_census.py`, 25 November 2026) and the trailer recorder (`TrailerCapture.cs`, `TrailerJob.cs`, `FloorDirector.Trailer.cs`, and a part of
+  `FloorDirector.cs`). Not wrapped, so still in the player: the ten files of `ArchitectureTest*`, `CityTest*` and `CoopTest*`
+  (`tools/code_census.py`, 25 November 2026). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.
   A distribution build also runs `BuildScrub` (`Editor/BuildScrub.cs`). The compiler writes the path of the `.pdb` it produced into every
   assembly, which names the folders of the build machine, so that entry is overwritten with the bare file name; then every managed assembly
   of the build is searched for the path of the checkout and each hit is logged as a warning (`[PryingEyes] distribution: ...`).
@@ -265,9 +265,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\ship.ps1 -Wait 540    
 | push | `origin <current branch>`, never forced, with the settings for large files; then checks that the remote has the same `HEAD`. |
 | game | Copies the build into `Builds/`, only when the maintainer's game is closed. When it is open the script starts a hidden process that waits for it to close and copies then (`-DeferExeMin`, 720 minutes by default, 0 turns it off). `-RefreshOnly` does just this step. |
 
-Logs and markers are in `unity_logs/`: `ship_last.log` and `ship_last.status`, `ship_build.log`, `ship_built.json`, `ship_refresh.log` and
-`ship_refresh.status`. The exit code is 0 only with `SHIP: OK`. `-DryRun` rehearses without changing anything. The script is ASCII on
-purpose: PowerShell 5.1 misreads accents in a file without a BOM.
+Logs and markers are in `unity_logs/`: `ship_last.log` and `ship_last.status`, `ship_last.json`, `ship_build.log`, `ship_built.json`,
+`ship_refresh.log`, `ship_refresh.status` and `ship_refresh.json`. The exit code is 0 only with `SHIP: OK`. `-DryRun` rehearses without
+changing anything. The script is ASCII on purpose: PowerShell 5.1 misreads accents in a file without a BOM.
+
+`ship_last.json` says how the run ended, as data, for whoever reads it from a program (`schemaVersion` 1; the formats are in
+[agent-tooling.md](agent-tooling.md#formats-and-who-owns-them)). The script writes it when it finishes, whatever the outcome: after a
+refusal, a failed step, an exception, and for a dry run. It holds `ok`, `result` (the last line of the log) and `why`; `step`, the one the
+script was in when it finished (the one that failed, when one did); `dryRun`, `refreshOnly`, `startedAt`, `finishedAt` and `seconds`;
+`branch`, `headStart` and `headEnd`; `commit` (`made`, `sha`, `subject`, `files`); `build` (`skipped`, `built`, the `mode` it chose and
+`why`, `out`); `push` (`done`, `skipped` with the reason, `remote`, `branch`, `from`, `to`, `commits`); `uncommitted` (`known`, `count`,
+`truncated` and the first 300 `sources`, each with `status` and `path`: what the build contains and `HEAD` does not); `exe` (`updated`,
+`deferred`, that is, the game is open and a hidden copy waits for it to close, and the `note`); `warnings`; and `summary`, the lines of the
+text summary by step. What the script did not reach keeps its starting value (`null`, `false`, `0`, `known: false`): "not counted" is not
+"clean". The hidden refresh writes `ship_refresh.json`, so that it does not replace the record of the ship that started it. The file is
+written under a temporary name and renamed, and a write that fails is a warning of the summary, not a failed ship.
+
+To ask only whether the scripts compile, with no build and no commit, there is `python tools/studio.py test compile`
+([agent-tooling.md](agent-tooling.md#test-compile-does-it-compile)).
 
 A change that touches no game source (documentation, tools) can be shipped with `-Mode scripts`: the build is then a two-megabyte
 recompile, and the game keeps the data of the last full build.

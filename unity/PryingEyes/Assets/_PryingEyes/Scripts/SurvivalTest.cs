@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -16,38 +17,14 @@ namespace PryingEyes
     /// Furia si completa da sola con le uccisioni a raffica e paga +520/+640 piu' un potenziamento) e il conto del premio somma i punti dei
     /// colpi che non uccidono (Punti.paidForHits: lo scoppio di un Appestato ferisce chi gli sta accanto e lo lascia vivo, +10 l'uno).
     /// Quel caso, che nelle ondate capita solo a volte, qui e' forzato a ogni giro (BurstPays).</summary>
-    public sealed class SurvivalTest : MonoBehaviour
+    public sealed class SurvivalTest : PlayerTest
     {
-        int checks, failed;
+        protected override string Suite { get { return "survivaltest"; } }
+        protected override string ExceptionCheck { get { return null; } }       // la prova non ne ha mai avuto uno
+        protected override void Finish() { Time.timeScale = 1f; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-survivaltest") >= 0)
-                new GameObject("SurvivalTest").AddComponent<SurvivalTest>();
-        }
-
-        void Check(string name, bool ok, string detail = "")
-        {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] survivaltest " + (ok ? "ok " : "FALLITO ") + name + (detail.Length > 0 ? " (" + detail + ")" : ""));
-        }
-
-        IEnumerator Start()
-        {
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Time.timeScale = 1f;
-            Debug.Log($"[PryingEyes] survivaltest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
+        static void Install() { InstallWhen<SurvivalTest>("-survivaltest"); }
 
         static int Alive()
         {
@@ -152,7 +129,7 @@ namespace PryingEyes
             yield return null;
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 90f;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;

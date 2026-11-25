@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using PryingEyes.Cattedrale;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 using UnityEngine;
 
 namespace PryingEyes.Deserto
@@ -17,74 +18,36 @@ namespace PryingEyes.Deserto
     /// moto e il posto 2 sale in sella mentre gli altri restano a piedi. Con la grafica (anche senza finestra: -batchmode senza -nographics) fotografa il posto 2 in sella visto dal posto 1
     /// (hotel_build/deserto/split_moto_posto2_in_sella.png) e il cielo di ogni camera (hotel_build/deserto/split_postoN.png: non deve essere lo sfondo vuoto) e, con -seatsshots su piu' monitor veri, chiede allo script
     /// (tools/coop/run_split.ps1 -Desert -Graphics -Monitors N) le foto di sistema di ogni monitor. Lo lancia run_split.ps1 -Desert; documentazione in docs/multiplayer/split-screen.md.</summary>
-    public sealed class SplitDesertTest : MonoBehaviour
+    public sealed class SplitDesertTest : PlayerTest
     {
-        int checks, failed, errors;
-        string firstError = "";
-        bool shots, ended, systemPhotos = true;
-        const float Budget = 420f;
+        bool shots, systemPhotos = true;
+
+        protected override string Suite { get { return "splitdesertotest"; } }
+        protected override float TimeLimit { get { return 420f; } }
+        protected override string ExceptionCheck { get { return "nessun errore o eccezione nel registro durante la prova"; } }
+        protected override bool IsError(string message, LogType type)
+        {
+            if (type != LogType.Exception && type != LogType.Error) return false;
+            return !(Application.isBatchMode && message != null && message.StartsWith("Failed to capture screen shot"));      // messaggio noto di Unity senza finestra, innocuo (come in SeatsTest)
+        }
+        protected override void Finish() { Time.timeScale = 1f; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
         {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-splitdesertotest") < 0) return;
+            if (!TestRun.Has("-splitdesertotest")) return;
             Application.runInBackground = true;         // a finestra aperta ma senza il fuoco il gioco (runInBackground e' spento nel progetto) si fermerebbe: la prova no
             Fabbrica.Azzera();                          // profilo di prova: una cattedrale in rovina e un magazzino vuoto (come DesertTest)
-            new GameObject("SplitDesertTest").AddComponent<SplitDesertTest>();
-        }
-
-        bool Check(string name, bool ok, string detail = "")
-        {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] splitdesertotest " + (ok ? "ok " : "FALLITO ") + name + (detail.Length > 0 ? " (" + detail + ")" : ""));
-            return ok;
-        }
-
-        void OnLog(string text, string stack, LogType type)
-        {
-            if (type != LogType.Exception && type != LogType.Error) return;
-            if (Application.isBatchMode && text != null && text.StartsWith("Failed to capture screen shot")) return;      // messaggio noto di Unity senza finestra, innocuo (come in SeatsTest)
-            errors++;
-            if (firstError.Length == 0) firstError = text.Length > 160 ? text.Substring(0, 160) : text;
+            InstallWhen<SplitDesertTest>("-splitdesertotest");
         }
 
         static FloorDirector Fd => FloorDirector.I;
         static DesertDirector Dd => DesertDirector.I;
 
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += OnLog;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-seatsshots") >= 0 && !Application.isBatchMode;
-            Application.targetFrameRate = 60;           // a 10000 fotogrammi al secondo il CharacterController non cammina come dovrebbe
-            QualitySettings.vSyncCount = 0;
-            yield return null;                          // GameManager.Start avvia lo schermo condiviso nello stesso fotogramma
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false, e.Message); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Finish();
-        }
-
         void Update()
         {
-            if (!ended && Time.realtimeSinceStartup > Budget) { Check("finita entro il tempo", false, $"{Budget:F0} s"); Finish(); return; }
             // il codice del gioco toglie l'invulnerabilita' in piu' punti (a fine dell'arrivo): chi prova a camminare lontano non deve finire a terra
             foreach (var s in Seats.All) if (s.player != null && s.player.alive && !s.player.invulnerable) s.player.invulnerable = true;
-        }
-
-        void Finish()
-        {
-            if (ended) return;
-            ended = true;
-            Time.timeScale = 1f;
-            Check("nessun errore o eccezione nel registro durante la prova", errors == 0, errors == 0 ? "" : errors + ", la prima: " + firstError);
-            Debug.Log($"[PryingEyes] splitdesertotest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         // ------------------------------------------------------------------ strumenti
@@ -167,7 +130,7 @@ namespace PryingEyes.Deserto
         }
 
         /// <summary>Con piu' monitor veri si chiede allo script di fotografare ogni monitor dal sistema (NOME-monitorN.png in unity_logs/seats) e si aspetta il suo "fatto"; senza, e' ScreenCapture.</summary>
-        IEnumerator Photo(string name)
+        IEnumerator MonitorPhoto(string name)
         {
             if (!shots) yield break;
             string folder = Path.GetFullPath("unity_logs/seats");
@@ -190,8 +153,12 @@ namespace PryingEyes.Deserto
         }
 
         // ------------------------------------------------------------------ la prova
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-seatsshots") >= 0 && !Application.isBatchMode;
+            Application.targetFrameRate = 60;           // a 10000 fotogrammi al secondo il CharacterController non cammina come dovrebbe
+            QualitySettings.vSyncCount = 0;
+            yield return null;                          // GameManager.Start avvia lo schermo condiviso nello stesso fotogramma
             int n = SplitScreen.AutoStartCount;
             Check($"-splitscreen {n}: un solo processo con {n} posti", n >= SplitScreen.MinPlayers && Seats.Split && Seats.Count == n);
             if (!Seats.Split) yield break;
@@ -480,7 +447,7 @@ namespace PryingEyes.Deserto
                 Check($"il posto {i + 1} vede il cielo (in alto {top.r:F2} {top.g:F2} {top.b:F2}: azzurro, non la nebbia)", top.b >= top.r * 0.97f && top.b > 0.12f);
                 Destroy(tex);
             }
-            yield return Photo("deserto-lontano");
+            yield return MonitorPhoto("deserto-lontano");
             sky.Frozen = false;
         }
 
@@ -558,7 +525,7 @@ namespace PryingEyes.Deserto
             var sky = DesertSky.I;
             sky.SetHour(9f, true);
             yield return new WaitForSeconds(1.2f);
-            yield return Photo("deserto-insieme");
+            yield return MonitorPhoto("deserto-insieme");
             sky.Frozen = false;
         }
     }

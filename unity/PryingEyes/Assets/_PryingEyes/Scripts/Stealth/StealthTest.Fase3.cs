@@ -1,3 +1,4 @@
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -80,12 +81,6 @@ namespace PryingEyes
             var fd = FloorDirector.I;
             var pl = gm.player;
             var wp = pl.weapon;
-            bool passed = true;
-            void Check(string what, bool ok, string detail = "")
-            {
-                Log((ok ? "ok       " : "FALLITO  ") + what + (detail.Length > 0 ? "   [" + detail + "]" : ""));
-                if (!ok) passed = false;
-            }
             bool shots = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
             yield return new WaitForSeconds(2.0f);
             Drops.disabled = true;
@@ -102,10 +97,15 @@ namespace PryingEyes
             Log("--- posizionamento");
             var lib = Biblioteca.Current; var chest = Scrigno.Current; var altar = Altare.Current;
             Log($"piano {fd.floor} seme {fd.runSeed}: stanze {fd.cur.plan.rooms.Count}, Biblioteca {(fd.libraryRoom != null ? fd.libraryRoom.ToString() : "-")}, Scrigno {(fd.chestRoom != null ? fd.chestRoom.ToString() : "-")}, Altare {(fd.altarRoom != null ? fd.altarRoom.ToString() : "-")}");
+            if (lib == null || chest == null || altar == null)
+            {
+                Log("manca un santuario: prova non applicabile su questo piano");
+                NotApplicable($"manca un santuario (Biblioteca {lib != null}, Scrigno {chest != null}, Altare {altar != null}): cambia seme");
+                yield break;
+            }
             Check("la Biblioteca c'e' con tre leggii", lib != null && lib.stands.Count == 3, lib != null ? lib.stands.Count + " leggii" : "assente");
             Check("lo Scrigno c'e'", chest != null);
             Check("l'altare della Consacrazione c'e'", altar != null);
-            if (lib == null || chest == null || altar == null) { Log("manca un santuario: prova non applicabile su questo piano"); Application.Quit(2); yield break; }
             var ids = new HashSet<int> { fd.libraryRoom.id, fd.chestRoom.id, fd.altarRoom.id };
             Check("tre stanze diverse", ids.Count == 3);
             bool noCandle = true;
@@ -223,8 +223,8 @@ namespace PryingEyes
 
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-shrineprompttest") >= 0)
             {
-                Log("prompt santuari: " + (passed ? "SUPERATA" : "FALLITA"));
-                Application.Quit(passed ? 0 : 1); yield break;
+                Log("prompt santuari: " + (Failed == 0 ? "SUPERATA" : "FALLITA"));
+                yield break;
             }
 
             // ----- 3) la Biblioteca: punti che mancano, acquisto, gli altri libri si chiudono
@@ -637,8 +637,8 @@ namespace PryingEyes
             Weapon.debugAds = false;
             PlayerController.botDir = Vector3.zero;
 
-            Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
-            Application.Quit(passed ? 0 : 1);
+            Log(Failed == 0 ? "ESITO: ok" : "ESITO: FALLITO");
         }
     }
 }
+#endif

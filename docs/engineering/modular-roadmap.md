@@ -57,7 +57,7 @@ are in [modular-tasks.md](modular-tasks.md).
 | T06 | In-player suites through the studio | 1 | T03, T05 | a verification build | done (#55) |
 | T07 | The in-player harness, proven on three suites | 1 | | editor, build | done (#50) |
 | T08 | The other suites on the harness | 1 | T07 | editor, build | todo |
-| T09 | Compile check, doctor and ship status as data | 1 | T03 | editor | todo |
+| T09 | Compile check, doctor and ship status as data | 1 | T03 | editor | done (#60) |
 | T10 | A worktree ready for Unity | 2 | | editor to measure | done (#43) |
 | T11 | A port and a log folder per run | 2 | | a verification build | done (#52) |
 | T12 | Automated runs leave tracked files alone | 2 | | editor, build | done (#54) |

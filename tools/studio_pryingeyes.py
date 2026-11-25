@@ -8,6 +8,7 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -36,21 +37,115 @@ def executables():
 
 
 def processes_named(*names):
-    """The running processes with these names, as Windows describes them: ProcessId, CommandLine, ExecutablePath. None elsewhere, where no Windows player runs."""
+    """The running processes with these names, as Windows describes them: ProcessId, Name, CommandLine, ExecutablePath. None elsewhere, where no Windows player runs."""
     if os.name != "nt": return []
     wanted = " OR ".join(f"name = '{name}'" for name in names)
-    script = f"Get-CimInstance Win32_Process -Filter \"{wanted}\" | Select-Object ProcessId,CommandLine,ExecutablePath | ConvertTo-Json -Compress"
+    script = f"Get-CimInstance Win32_Process -Filter \"{wanted}\" | Select-Object ProcessId,Name,CommandLine,ExecutablePath | ConvertTo-Json -Compress"
     result = subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True, check=True)
     processes = json.loads(result.stdout or "[]")
     return processes if isinstance(processes, list) else [processes]
 
 
+def editor_on_project(process):
+    """Is this process (as `processes_named` describes it) the editor with this Unity project open? Another checkout's editor names another project."""
+    command = (process.get("CommandLine") or "").replace("\\", "/").lower()
+    path = (process.get("ExecutablePath") or "").replace("\\", "/").lower()
+    return "unity.exe" in path and str(UNITY).replace("\\", "/").lower() in command
+
+
 def check_editor_closed():
     for process in processes_named("Unity.exe", "PryingEyes.exe"):
-        command = (process.get("CommandLine") or "").replace("\\", "/").lower()
         path = (process.get("ExecutablePath") or "").replace("\\", "/").lower()
-        if ("unity.exe" in path and str(UNITY).replace("\\", "/").lower() in command) or path == EXE.as_posix().lower():
+        if editor_on_project(process) or path == EXE.as_posix().lower():
             raise RuntimeError(f"PROJECT_IN_USE: process {process['ProcessId']}; close it before building")
+
+
+# ---- the state of this checkout, as `doctor --json` reports it (docs/engineering/agent-tooling.md#doctor-the-state-of-this-checkout) -----------
+
+SHIP_MARKER = ROOT / "unity_logs/ship_built.json"                   # what tools/ship.ps1 records about the build it made last
+SOURCE_ROOTS = ("Assets", "Packages", "ProjectSettings")            # what the player is made from, under the Unity project: the folders tools/ship.ps1 counts
+DERIVED = re.compile(r"\.mat(\.meta)?$|/Scenes/(Citta|Torre)\.unity(\.meta)?$|/Scenes/Labs(/|\.meta$)")        # what the builds regenerate (rule 4 of AGENTS.md): nobody's change
+
+
+def command_output(command, timeout=20):
+    """What a command prints, or None when it is not installed, fails or takes longer than `timeout` seconds: a fact of `doctor` is never an exception."""
+    try: done = subprocess.run([str(part) for part in command], cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout)
+    except (OSError, subprocess.SubprocessError): return None
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def real(path):
+    """A path as the file system names it, for comparing: case, slashes and 8.3 names (the CI runner's C:\\Users\\RUNNER~1) are not two places."""
+    return os.path.normcase(os.path.realpath(path))
+
+
+def inside(path, folder): return Path(real(path)).is_relative_to(real(folder))
+
+
+def sources_newer_than(since, project=None):
+    """How many source files of the Unity project changed after `since` (a time stamp): a build made then does not contain them. Derived files do not count."""
+    count, pending = 0, [(project or UNITY) / name for name in SOURCE_ROOTS]
+    while pending:
+        try:
+            with os.scandir(pending.pop()) as entries:
+                for entry in entries:
+                    if entry.is_dir(follow_symlinks=False): pending.append(Path(entry.path))
+                    elif entry.stat().st_mtime > since and not DERIVED.search(entry.path.replace("\\", "/")): count += 1
+        except OSError: continue                                      # a folder that is not there, or goes away while it is read, has no sources to count
+    return count
+
+
+def verification_build(marker=None, build=None, project=None):
+    """The build that agents run their checks on (rule 11 of AGENTS.md): is it there, which commit and mode tools/ship.ps1 recorded for it, and how many sources
+    changed after its code was made (the time of Assembly-CSharp.dll: the exe is only a stub, and its date says nothing). null where the answer is not known."""
+    marker, build = marker or SHIP_MARKER, build or AUDIT
+    facts = {"present": build.is_file(), "commit": None, "mode": None, "sourcesNewerThanBuild": None}
+    try:
+        made = json.loads(marker.read_text(encoding="utf-8-sig"))
+        if real(made["out"]) == real(build.parent):                   # the marker is about the last build of ship.ps1, which may have gone to another folder (-OutDir)
+            facts.update(commit=str(made["commit"])[:7], mode=str(made["mode"]))
+    except (OSError, ValueError, KeyError, TypeError): pass
+    code = build.parent / "PryingEyes_Data/Managed/Assembly-CSharp.dll"
+    if facts["present"] and code.is_file(): facts["sourcesNewerThanBuild"] = sources_newer_than(code.stat().st_mtime, project)
+    return facts
+
+
+def last_gate(branch="preview"):
+    """How the last run of the gate on `branch` stands (rule 8 of AGENTS.md asks every session to look), or None without the `gh` command or without a network."""
+    text = command_output(["gh", "run", "list", "--branch", branch, "--limit", "1", "--json", "status,conclusion,headSha,url"], timeout=30)
+    try: run = json.loads(text)[0]
+    except (TypeError, ValueError, IndexError): return None
+    try: return {"branch": branch, "status": run["status"], "conclusion": run["conclusion"] or None, "commit": run["headSha"][:7], "url": run["url"]}
+    except (KeyError, TypeError): return None
+
+
+def checkout_worktree():
+    """Is this checkout a linked worktree (rules 9 and 12 of AGENTS.md), and on which branch (null when HEAD is detached)."""
+    git_dir, common = command_output(["git", "rev-parse", "--git-dir"]), command_output(["git", "rev-parse", "--git-common-dir"])
+    linked = None if git_dir is None or common is None else real(ROOT / git_dir) != real(ROOT / common)
+    return {"linked": linked, "branch": command_output(["git", "branch", "--show-current"]) or None}
+
+
+def checkout_facts():
+    """The state of this checkout as data: what `doctor --json` prints besides its `ok`. Every fact is read now. What cannot be learned is null, never
+    an invented answer; `problems` names what a session has to act on before it starts, and the command exits 1 while there is one."""
+    blender, unity = executables()
+    dotnet = command_output(["dotnet", "--version"])
+    tools = {"unity": "found" if unity.is_file() else "missing", "blender": "found" if blender.is_file() else "missing", "dotnet": dotnet or "missing"}
+    problems = [f"TOOL_MISSING: {name} is not installed or not configured" for name, state in tools.items() if state == "missing"]
+    try: running = processes_named("Unity.exe", "PryingEyes.exe")
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        running = None
+        problems.append(f"PROCESS_LOOKUP_FAILED: the running editors and players are not known ({type(error).__name__})")
+    editor = next((process for process in running or [] if editor_on_project(process)), None)
+    if editor: problems.append(f"PROJECT_IN_USE: process {editor['ProcessId']} has the editor open on this project")
+    players = [{"pid": process["ProcessId"], "path": process.get("ExecutablePath"), "thisCheckout": bool(process.get("ExecutablePath")) and inside(process["ExecutablePath"], UNITY / "Builds")}
+               for process in running or [] if (process.get("Name") or Path(process.get("ExecutablePath") or "").name).lower() == "pryingeyes.exe"]
+    gate = last_gate()
+    if gate and gate["status"] == "completed" and gate["conclusion"] != "success":
+        problems.append(f"GATE_NOT_GREEN: the last run of the gate on {gate['branch']} ended {gate['conclusion']} at {gate['commit']}: {gate['url']}")
+    return {"tools": tools, "editorOnProject": {"pid": editor["ProcessId"]} if editor else None, "playersRunning": None if running is None else players,
+            "library": (UNITY / "Library").is_dir(), "verificationBuild": verification_build(), "gate": gate, "worktree": checkout_worktree(), "problems": problems}
 
 
 # ---- the suites that run inside the built player: one for each entry of tools/player_tests.json ----------------------------------------
@@ -348,6 +443,63 @@ def plan_state(job, fixture=PLAN_FIXTURE):
         raise RuntimeError(f"PLAN_REVISION_STALE: CoopWire.cs says {findings[-1]['observed']} and {fixture.name} was made at {findings[-1]['expected']}; the plans are the same: run `{PLAN_UPDATE}`")
 
 
+# ---- does it compile: the editor started with no method imports what changed, compiles the scripts and quits ----------------------------------
+
+# How the editor prints a compiler error: `Assets\_PryingEyes\Scripts\Foo.cs(7,21): error CS1002: ; expected`, the path relative to the project and with
+# backslashes. An error that names no file (`error CS0006: Metadata file ... could not be found`) has no position and starts at `error`.
+COMPILER_ERROR = re.compile(r"^\s*(?:(?P<file>\S.*?)\((?P<line>\d+),(?P<column>\d+)\): )?error (?P<code>CS\d+): (?P<message>.*\S)\s*$")
+COMPILE_SECONDS = re.compile(r"^AssetDatabase: script compilation time: (?P<seconds>[0-9.]+)s\s*$", re.MULTILINE)
+
+
+def compiler_errors(text):
+    """The compiler errors that an editor log holds, in the order it gives them and once each: it prints every error three times (in the compiler's output,
+    in the report of the failed compilation and alone). Each is {file, line, column, code, message}; the file has "/" for separators, and is "" (line 0)
+    for an error that names none."""
+    found = {}
+    for line in text.splitlines():
+        match = COMPILER_ERROR.match(line)
+        if match:
+            error = {"file": (match["file"] or "").replace("\\", "/"), "line": int(match["line"] or 0), "column": int(match["column"] or 0), "code": match["code"], "message": match["message"]}
+            found.setdefault(tuple(error.values()), error)
+    return list(found.values())
+
+
+def compile_scripts(job, unity):
+    """The scripts compile. The editor started in batch mode with no method imports what changed, compiles the scripts and quits (1 when they do not
+    compile); each compiler error of its log is a finding with its file and line, and the suite fails on the first of them. Without a Library the
+    same command imports every asset first (docs/engineering/agent-tooling.md): `doctor --json` says whether there is one.
+
+    Fails with PROJECT_IN_USE (an editor already has this project open), TOOL_MISSING, COMPILE_ERRORS, COMPILE_FAILED (the editor quit with a code other
+    than 0 and printed no compiler error: it did not get as far as compiling), COMPILE_LOG_MISSING (it quit with 0 and left no log) or STEP_TIMEOUT."""
+    if not Path(unity).is_file(): raise RuntimeError(f"TOOL_MISSING: the Unity editor is not at {unity}; set UNITY_EDITOR_EXE")
+    editors = [process for process in processes_named("Unity.exe") if editor_on_project(process)]
+    if editors: raise RuntimeError(f"PROJECT_IN_USE: process {editors[0]['ProcessId']} has the editor open on this project; close it, or compile in a worktree of your own")
+    log = job.folder / "compile-unity.log"
+    error = None
+    try: job.run("compile", [unity, "-batchmode", "-nographics", "-projectPath", UNITY, "-quit", "-logFile", log], timeout=1200)
+    except RuntimeError as failure:
+        if not str(failure).startswith(("STEP_FAILED", "STEP_TIMEOUT")): raise
+        error = failure                         # what the editor printed is read first: a compilation that fails quits with 1, and the log says why
+    text = log.read_text(encoding="utf-8-sig", errors="replace") if log.is_file() else ""
+    if text: job.report["artifacts"].append(str(log))
+    errors = compiler_errors(text)
+    job.report["findings"].extend({"code": "COMPILER_ERROR", "subject": f"{e['file']}:{e['line']}" if e["file"] else "(no file)", "observed": f"{e['code']}: {e['message']}",
+                                   "expected": "no compiler error", "passed": False, "evidence": str(log), "file": e["file"], "line": e["line"], "column": e["column"]} for e in errors)
+    job.save()
+    if errors:
+        first = errors[0]
+        raise RuntimeError(f"COMPILE_ERRORS: {len(errors)} compiler error{'s' if len(errors) > 1 else ''}; the first: "
+                           f"{first['file'] + ':' + str(first['line']) if first['file'] else '(no file)'}: {first['code']} {first['message']} (all of them in {shown(log)})")
+    if error is not None:
+        if str(error).startswith("STEP_TIMEOUT"): raise error                    # the engine stopped the editor: it says so by itself
+        last = next((line.strip() for line in reversed(text.splitlines()) if line.strip()), "nothing")
+        raise RuntimeError(f"COMPILE_FAILED: {error}; {shown(log)} holds no compiler error, so the editor did not get as far as compiling (a licence, a broken project); its last line: {last[:200]}") from error
+    if not text.strip(): raise RuntimeError(f"COMPILE_LOG_MISSING: the editor quit with 0 and left no log at {shown(log)}")
+    seconds = COMPILE_SECONDS.search(text)
+    job.report["findings"].append({"code": "SCRIPTS_COMPILE", "subject": "scripts", "expected": "no compiler error", "passed": True, "evidence": str(log),
+                                   "observed": "no compiler error" + (f"; the editor compiled the scripts in {float(seconds['seconds']):.2f} s" if seconds else "")})
+
+
 def unity_build(ctx, method, asset_args):
     """The editor step both content types share: build the player for one entry into ctx.build_dir."""
     ctx.job.run("unity", [ctx.tools["unity"], "-batchmode", "-projectPath", UNITY, "-executeMethod", method, *asset_args,
@@ -475,6 +627,8 @@ class PryingEyes(Project):
                               about="The desert's pure code: noise, clock, terrain, buildings, world, map, weather and grading"),
               "plan": Suite(lambda ctx, runtime: plan_state(ctx.job), kind="lab", seconds=3,
                             about="The floor generator: its plans against the committed hashes, and the protocol revision"),
+              "compile": Suite(lambda ctx, runtime: compile_scripts(ctx.job, ctx.tools["unity"]), kind="editor", needs=("editor",), seconds=15,
+                               about="The scripts compile: the editor, started with no method, compiles them and quits; each compiler error is a finding with its file and line"),
               **{name: player_suite(entry) for name, entry in PLAYER_ENTRIES.items()}}
     runtime = AUDIT                 # what `test --runtime` defaults to: the verification build, not what the studio publishes (publish_dir)
     publish_dir = EXE.parent
@@ -509,6 +663,8 @@ class PryingEyes(Project):
         if not tools["blender"].is_file() or not tools["unity"].is_file() or not shutil.which("dotnet"):
             raise RuntimeError("TOOL_MISSING: configure Blender, Unity and dotnet")
         return f"{len(catalogs['weapon']['weapons'])} valid weapon entries; Blender, Unity and dotnet available"
+
+    def doctor_facts(self): return checkout_facts()
 
     def before_build(self, ctx):
         super().before_build(ctx)

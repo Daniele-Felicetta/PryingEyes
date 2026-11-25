@@ -51,9 +51,9 @@ project nor in a props file it imports nor in a project it references. The proje
 What a lab compiles is read from its `Compile` items, patterns with `*` and `**` included, so the files of `Scripts/Pista` that `tracklab` compiles are covered
 like any other.
 
-What is wrong today is listed, not hidden, in `tools/fixtures/game-boundaries.json`: each violation with the reason it is tolerated (today two
-production files that name a test type, `Coop/CoopGame.cs` and `Stealth/StealthRig.cs`, and the 14 test files that are not wrapped:
-`ArchitectureTest*`, `CityTest*`, `CoopTest*` and `StealthTest*`; none for the engine rule). The list can only shrink. A violation that is
+What is wrong today is listed, not hidden, in `tools/fixtures/game-boundaries.json`: each violation with the reason it is tolerated (today one
+production file that names a test type, `Coop/CoopGame.cs`, and the 10 test files that are not wrapped:
+`ArchitectureTest*`, `CityTest*` and `CoopTest*`; none for the engine rule). The list can only shrink. A violation that is
 not in it fails the guard, and so does an entry whose violation is gone, so an entry is deleted in the commit that fixes it. Adding one
 needs a reason that a reviewer accepts, and the entry carries it. The numbers are in
 [modularization.md](modularization.md#how-progress-is-read).
@@ -88,7 +88,7 @@ jobs the engine adds:
 - a source guard: if any hashed file changes while a job waits or runs, it fails with `SOURCE_CHANGED_DURING_JOB` and names the files;
 - owned process trees: a step that times out or is cancelled stops the tool it started and every child of it;
 - a persistent FIFO queue (SQLite) whose requests carry the source snapshot they were submitted against;
-- the command line: `doctor`, `catalog list|affected`, `asset inspect|preview|build [--publish]`, `test <suite> [--runtime]`,
+- the command line: `doctor [--json]`, `catalog list|affected`, `asset inspect|preview|build [--publish]`, `test <suite> [--runtime]`,
   `report latest`, `gallery build`, `queue add|run|status|cancel`, `job list|status|cancel`.
 
 Behaviour was preserved by construction when the engine was split from the game: the output (stdout, exit code, reports'
@@ -115,8 +115,10 @@ class MyProject(Project):
     suites = {"smoke": Suite(lambda ctx, runtime: ctx.job.run("smoke", [...]), kind="check", seconds=5, about="what it proves")}
     #   `studio.py suites` prints what each suite says about itself: `needs` (empty = a CI gate can run it), `hazards` (what it can
     #   disturb: `test` refuses it without `--allow`), `kind`, `seconds`, `about`
-    # optional hooks: tools(), lock_resource(), ensure_free(), tool_sources(command), doctor(), before_build(),
+    # optional hooks: tools(), lock_resource(), ensure_free(), tool_sources(command), doctor(), doctor_facts(), before_build(),
     #                 after_build(), graph(), gallery(), publish_dir
+    #   `doctor_facts()` is what `doctor --json` prints: a dict of facts of any shape, whose key `problems` (a list of "CODE: message")
+    #   the engine reads: the command exits 1 while it is not empty. No job, no lock, nothing written.
 ```
 
 Then `tools/<yourproject>.py` is three lines: build the project and call `studio_engine.main(project)`.
