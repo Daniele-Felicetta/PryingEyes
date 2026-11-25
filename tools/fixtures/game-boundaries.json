@@ -50,5 +50,5 @@
       "reason": "Never wrapped, and CoopGame.cs names CoopTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The three files of the partial class are wrapped together, after it."
     }
   ],
-  "GAME_PURE_FILE_NAMES_ENGINE": []
+  "GAME_LAB_FILE_OUTSIDE_RULES": []
 }

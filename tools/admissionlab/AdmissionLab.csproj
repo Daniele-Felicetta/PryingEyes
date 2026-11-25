@@ -4,10 +4,10 @@
     <Compile Include="Program.cs" />
     <Compile Include="Admission.cs" />
     <Compile Include="Perks.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Coop/AdmissionGate.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Coop/SessionAdmission.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Coop/SessionRoster.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/PlayerPerks.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Punti.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Admission/AdmissionGate.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Admission/SessionAdmission.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Admission/SessionRoster.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Score/PlayerPerks.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs" />
   </ItemGroup>
 </Project>

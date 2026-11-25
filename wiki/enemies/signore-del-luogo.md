@@ -4,7 +4,7 @@ kind: enemy
 mode: desert
 summary: The lord of the place is the boss of a desert tower or catacomb: one of the four branch bosses, chosen by the place, waiting in the hall at the top of a tower or at the bottom of a catacomb.
 image: img/enemies/desert-boss-catacomb.webp
-sources: docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Deserto/DesertSites.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Deserto/DesertMode.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Deserto/DesertSites.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Deserto/DesertMode.cs, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # The lord of the place

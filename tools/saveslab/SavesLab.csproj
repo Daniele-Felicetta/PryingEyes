@@ -12,10 +12,10 @@
     <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.saves/Runtime/Json.cs" />
     <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.saves/Runtime/SaveFormat.cs" />
     <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.saves/Runtime/SaveStore.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/CharacterLooks.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/Leveling.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/CharacterRecord.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/CathedralJson.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/RunRecord.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Characters/CharacterLooks.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Characters/Leveling.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Characters/CharacterRecord.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Characters/CathedralJson.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Characters/RunRecord.cs" />
   </ItemGroup>
 </Project>

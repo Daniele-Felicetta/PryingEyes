@@ -11,22 +11,22 @@
     <Compile Include="Program.cs" />
     <Compile Include="MapLab.cs" />
     <Compile Include="Fingerprint.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapMath.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapPen.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapTextures.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapScene.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapPainter.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapPainter.Props.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapPainter.Glyphs.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\Map\MapPainter.Shade.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Map\MapMath.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Map\MapPen.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Map\MapTextures.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Map\MapScene.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Map\MapPainter.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Map\MapPainter.Props.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Map\MapPainter.Glyphs.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Map\MapPainter.Shade.cs" />
     <Compile Include="..\..\unity\PryingEyes\Packages\com.pryingeyes.layout\Runtime\RoomPlan.cs" />
     <Compile Include="..\..\unity\PryingEyes\Packages\com.pryingeyes.layout\Runtime\DistrictPlan.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanTypes.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanGen.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanThemes.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanGrid.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanAnnex.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\RoundRegions.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\RoomAccessState.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanTypes.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanGen.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanThemes.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanGrid.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanAnnex.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\RoundRegions.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\RoomAccessState.cs" />
   </ItemGroup>
 </Project>

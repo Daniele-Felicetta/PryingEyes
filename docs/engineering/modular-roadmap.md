@@ -25,7 +25,7 @@ census tool (`tools/code_census.py`) that the audit needed; the [status](#status
 4. Draw the first boundaries the compiler checks: the engine-free rules of the game, then the tests (phase 3).
 5. Extract or converge the rest only when an event asks for it (phase 4).
 
-No phase rewrites gameplay. The largest move of code is 34 files that change folder without changing a line.
+No phase rewrites gameplay. The largest move of code is 56 files (34 when the plan was written) that change folder without changing a line.
 
 ## Why this order
 
@@ -63,7 +63,7 @@ are in [modular-tasks.md](modular-tasks.md).
 | T12 | Automated runs leave tracked files alone | 2 | | editor, build | done (#54) |
 | T13 | What a build rewrites: measure, then decide | 2 | | editor | done (#58) |
 | T14 | Settings that automated runs cannot touch | 2 | T06 | editor, build, the maintainer's go-ahead | todo |
-| T15 | The game-rules assembly | 3 | T01 | editor, full build | todo |
+| T15 | The game-rules assembly | 3 | T01 | editor, full build | done (#68) |
 | T16 | Spike: can the game be a named assembly? | 3 | T15 | editor, full build | todo |
 | T17 | The tests in their own assembly | 3 | T08, T16 says go | editor, full build | todo |
 | T18 | An engine-free audio core and its lab | 4 | T15 | editor, build | todo, on its trigger |
@@ -97,7 +97,7 @@ A phase is over when its numbers have moved and stay moved. The numbers are prin
 | 0 | the gate runs every hermetic suite that the registry lists (seven when the phase ended, eight with T20's) and none is named in the workflow; the guard fails on a new production reference to a test and on a new unwrapped test; a change to `PlanGrid.cs` turns the gate red until the fingerprint and the protocol revision are updated |
 | 1 | `studio.py suites` lists every in-player suite; at least the suites that need no graphics card produce a `report.json` with one finding per check; no test defines its own `Check` (census: 47 to 0); `GameManager.cs` names no test flag |
 | 2 | two agents in two worktrees run a co-op scenario at the same time and both pass; after a smoke walk and a suite `git status --porcelain hotel_build` is empty; a new worktree compiles without importing the assets; the maintainer has decided about rule 6 on the evidence of T14 |
-| 3 | no engine-free file compiled by a lab is left in the game assembly (census: 34 to 0); a distribution build contains no test type (census: 14 to 0), or T16 has recorded why not |
+| 3 | no engine-free file compiled by a lab is left in the game assembly (census: 56 to 0, done by T15); a distribution build contains no test type (census: 14 to 0), or T16 has recorded why not |
 | 4 | never "over": each task waits for its trigger |
 
 The table of numbers with today's values is in [modularization.md](modularization.md#how-progress-is-read). Update it there when a task
@@ -123,7 +123,7 @@ The plan stops at these; an agent does not take them:
 2. **The evidence under `hotel_build/`** (485 tracked files): T12 only stops automated runs from rewriting the most common ones. Whether
    the folder stays tracked, is pruned or moves out of git is not decided here, and nothing is deleted.
 3. **The multiplayer draft** (`Assets/_PryingEyes/Multiplayer/`): decided on 25 November 2026, retire it, and T20 did (the four files the game used moved
-   to `Scripts/Coop/`; the rest stays in git at `36e0a3a`).
+   to `Scripts/Coop/`, three of them to `Rules/Admission/` with T15; the rest stays in git at `36e0a3a`).
 4. **A named game assembly**: T16 ends with a recommendation; going ahead (T17) is a choice.
 5. **`Production.Survival` and `Production.Layout`**: converge the game onto them at the next change, or say plainly that they serve
    the city prototype ([package-extraction.md](package-extraction.md#packages-the-game-does-not-use)).

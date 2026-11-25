@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Cuori (hearts) is a rare resource: hearts that still beat, which the altars want; abbots and chief physicians drop them.
 image: img/resources/cuori.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Cuori

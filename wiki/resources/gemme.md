@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Gemme (gems) is the boss resource of the fourth branch, the treasure of the Conte at the bottom of the Guardaroba; they build the Vetrata del Conte.
 image: img/resources/gemme.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Gemme

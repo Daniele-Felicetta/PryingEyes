@@ -5,7 +5,7 @@ mode: desert
 summary: Desert-only altar in the presbytery: 40 steel, 5 embers, 3 hearts and 1 relic; it consecrates the weapon in your hand for 3000 points, once per weapon.
 image: img/works/altare-della-consacrazione.webp
 caption: A picture from the game; the altar is built in the presbytery.
-sources: docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # L'Altare della Consacrazione

@@ -747,6 +747,20 @@ class CheckoutFacts(unittest.TestCase):
         os.utime(self.project / "Library/Cache.cs", (BUILT_AT + 99, BUILT_AT + 99))
         self.assertEqual(self.facts()["sourcesNewerThanBuild"], 5)
 
+    def test_a_change_to_a_rule_is_in_the_build_when_the_rules_assembly_is_newer_than_the_game_one(self):
+        # T15: a one-line change in Rules/ and a scripts-only build rebuild PryingEyes.Rules.dll and leave Assembly-CSharp.dll as it was (measured: 15:33:35 and 15:48:07)
+        self.build(); rules = self.dll.with_name("PryingEyes.Rules.dll"); rules.write_bytes(b""); os.utime(rules, (BUILT_AT + 900, BUILT_AT + 900))
+        self.source("Assets/_PryingEyes/Rules/Score/Punti.cs", later=600)                                  # changed after Assembly-CSharp.dll, before the rules were built
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 0)
+        self.source("Assets/_PryingEyes/Rules/Score/PlayerPerks.cs", later=1200)                           # changed after both: not in the build
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 1)
+        os.utime(self.dll, (BUILT_AT + 1500, BUILT_AT + 1500))                                             # and a build that made the game assembly later dates the build
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 0)
+
+    def test_a_build_without_the_rules_assembly_is_dated_by_the_game_one(self):
+        self.build(); self.source("Assets/Old.cs", later=-5); self.source("Assets/New.cs", later=5)       # a build of before T15 has no PryingEyes.Rules.dll
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 1)
+
     def test_a_marker_about_another_folder_or_a_broken_one_says_nothing_of_the_commit_but_the_count_stays(self):
         self.build(out=str(self.root / "elsewhere/Audit")); self.source("Assets/New.cs", later=1)
         self.assertEqual(self.facts(), {"present": True, "commit": None, "mode": None, "sourcesNewerThanBuild": 1})      # ship.ps1 built somewhere else (-OutDir) last

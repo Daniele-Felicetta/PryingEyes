@@ -45,7 +45,7 @@ Everything is described, with the numbers checked against the code, in [The cath
 
 | Path | What it holds |
 | --- | --- |
-| `unity/PryingEyes` | The game: the Unity project. Code in `Assets/_PryingEyes/Scripts` (`Proc/` floors and waves, `Coop/` co-op, `Armi/` weapons), editor tools in `Assets/_PryingEyes/Editor`. |
+| `unity/PryingEyes` | The game: the Unity project. Code in `Assets/_PryingEyes/Scripts` (`Proc/` floors and waves, `Coop/` co-op, `Armi/` weapons), the engine-free rules that labs check in `Assets/_PryingEyes/Rules`, editor tools in `Assets/_PryingEyes/Editor`. |
 | `unity/PryingEyes/Packages` | Engine-independent C# packages: `layout`, `weapons`, `survival`, `economy`, `saves`. No Unity, no game names. |
 | `unity/LayoutDemo` | An independent Unity project that consumes the packages: the proof they are reusable. |
 | `tools/` | The production suite and the checks: the Python engine and its project profile, the .NET rule labs (the `tools/*lab` folders; `python tools/studio.py suites` lists what can be run), `check_suite.py`, `ship.ps1`, the co-op and trailer scripts, the unit tests. |

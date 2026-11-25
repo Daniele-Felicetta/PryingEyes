@@ -6,7 +6,10 @@ documentation is `docs/README.md`; building, shipping and CI are in `docs/engine
 
 1. **Packages** (`unity/PryingEyes/Packages/*`): no `UnityEngine`, `UnityEditor` or game names; `noEngineReferences: true`; no assembly
    references. Every `.cs` is compiled by a lab under `tools/` from the *same file path* (never a copy) and the package is consumed
-   by `unity/LayoutDemo`.
+   by `unity/LayoutDemo`. The game's own engine-free rules are the same kind of code with the game's names allowed: they live in
+   `unity/PryingEyes/Assets/_PryingEyes/Rules` (assembly `PryingEyes.Rules`, which references only `Production.*`; no `UnityEngine`,
+   `UnityEditor`, `FishNet` or `TMPro`), and each file is compiled by a lab from its real path. New logic that needs no engine goes there,
+   with its checks in a lab (`docs/engineering/modularization.md`, B2).
 2. **Engine** (`tools/studio_engine.py`, `studio_process.py`, `studio_queue.py`, `asset_graph.py`): standard library only; names no
    game, content type or tool. New content kinds and checks go in the profile, `tools/studio_pryingeyes.py`, as `ContentType`/`Suite`.
    A second project is a `Project` subclass; `tools/fixtures/toy_project.py` is the smallest example.
@@ -44,7 +47,7 @@ documentation is `docs/README.md`; building, shipping and CI are in `docs/engine
 13. **Documentation** (`README.md`, `docs/`): one topic per page, written in English, every page listed in `docs/README.md`, paths
     relative to the repository root (never this machine's). `python tools/check_suite.py` fails on a broken link, a page missing from
     the index and a machine-specific path. When a change alters what a page says, update the page in the same commit.
-14. **Saves** (`unity/PryingEyes/Packages/com.pryingeyes.saves`, `unity/PryingEyes/Assets/_PryingEyes/Scripts/Characters/`): the characters and the
+14. **Saves** (`unity/PryingEyes/Packages/com.pryingeyes.saves`, `unity/PryingEyes/Assets/_PryingEyes/{Rules,Scripts}/Characters/`): the characters and the
     suspended expedition of a player must survive every version. A change to the shape or the meaning of what a save holds bumps its `Version` and
     adds one tested migration (never edit a released step); new data usually needs none. The recipe, the files and the version history are in
     `docs/engineering/save-system.md`; `python tools/studio.py test saves` is part of the CI gate. Automated runs never touch the player's characters
