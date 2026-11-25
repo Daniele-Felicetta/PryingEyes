@@ -399,7 +399,7 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 - **Verify**: the editor's compile; `tools/ship.ps1 -Mode full`; the suites above; `python tools/check_suite.py`; the census.
 - **Not in scope**: renaming a namespace or a type; moving a file that no lab compiles (`Magia/Grimoire.cs`, `MagicState.cs`: they need a lab first).
 - **Announce it**: every open branch that edits a moved file will conflict. Merge those first.
-- **Outcome** (25 November 2026, #NN): `Assets/_PryingEyes/Rules/` exists, with the assembly `PryingEyes.Rules` (`noEngineReferences: true`; it references `Production.Economy`
+- **Outcome** (25 November 2026, #68): `Assets/_PryingEyes/Rules/` exists, with the assembly `PryingEyes.Rules` (`noEngineReferences: true`; it references `Production.Economy`
   and `Production.Saves`, the two packages its files use). The census of the day, not the card, set the size of the move: **56** files went, each with its `.meta` (same
   GUIDs; no line of code and no namespace changed), not 36. The card counted the 34 files of the audit as T20 left them; the other 20 are the rules of the track mode, which
   `tracklab` compiles and the audit, written before that lab, does not list ([B2](modularization.md#b2-game-rules-an-engine-free-assembly-inside-the-game) has the table).

@@ -63,7 +63,7 @@ are in [modular-tasks.md](modular-tasks.md).
 | T12 | Automated runs leave tracked files alone | 2 | | editor, build | done (#54) |
 | T13 | What a build rewrites: measure, then decide | 2 | | editor | done (#58) |
 | T14 | Settings that automated runs cannot touch | 2 | T06 | editor, build, the maintainer's go-ahead | todo |
-| T15 | The game-rules assembly | 3 | T01 | editor, full build | done (#NN) |
+| T15 | The game-rules assembly | 3 | T01 | editor, full build | done (#68) |
 | T16 | Spike: can the game be a named assembly? | 3 | T15 | editor, full build | todo |
 | T17 | The tests in their own assembly | 3 | T08, T16 says go | editor, full build | todo |
 | T18 | An engine-free audio core and its lab | 4 | T15 | editor, build | todo, on its trigger |
