@@ -131,7 +131,7 @@ namespace PryingEyes
             }
             catch (Exception ex) { Debug.Log("[PryingEyes] seatstest: foto dei corpi non scritta: " + ex.Message); }
             Destroy(with); Destroy(without);
-            Check($"il giocatore 1 vede il giocatore 2 davanti a se' (il suo corpo cambia il {frac * 100f:F1}% dei pixel)", frac > 0.01f);
+            Check("il giocatore 1 vede il giocatore 2 davanti a se'", frac > 0.01f, $"il suo corpo cambia il {frac * 100f:F1}% dei pixel");
         }
 
         static Texture2D RenderOnce(Camera cam, int mask, int w, int h)
@@ -246,8 +246,7 @@ namespace PryingEyes
         IEnumerator ScreenPhoto(string name)
         {
             if (!shots) yield break;
-            string folder = Path.GetFullPath("unity_logs/seats");
-            Directory.CreateDirectory(folder);
+            string folder = TestRun.OutDir("seats");
             if (Seats.Monitors > 1 && SplitScreen.RealMonitors >= Seats.Monitors)
             {
                 if (!systemPhotos) yield break;
@@ -700,7 +699,7 @@ namespace PryingEyes
                 yield return new WaitForSeconds(1.0f);
                 PadControls.Inject(null);
                 float along = Vector3.Dot(player0.transform.position - p0, forward);
-                Check($"dopo la fine il giocatore singolo cammina col controller ({along:F1} m in 1 s)", along > 2f);
+                Check("dopo la fine il giocatore singolo cammina col controller", along > 2f, $"{along:F1} m in 1 s");
             }
         }
 

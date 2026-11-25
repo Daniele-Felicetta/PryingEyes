@@ -56,7 +56,7 @@ are in [modular-tasks.md](modular-tasks.md).
 | T05 | The manifest of the in-player suites | 1 | | | done (#49) |
 | T06 | In-player suites through the studio | 1 | T03, T05 | a verification build | done (#55) |
 | T07 | The in-player harness, proven on three suites | 1 | | editor, build | done (#50) |
-| T08 | The other suites on the harness | 1 | T07 | editor, build | todo |
+| T08 | The other suites on the harness | 1 | T07 | editor, build | done (#77), with two suites left out (below) |
 | T09 | Compile check, doctor and ship status as data | 1 | T03 | editor | done (#60) |
 | T10 | A worktree ready for Unity | 2 | | editor to measure | done (#43) |
 | T11 | A port and a log folder per run | 2 | | a verification build | done (#52) |
@@ -70,6 +70,10 @@ are in [modular-tasks.md](modular-tasks.md).
 | T19 | One reader of the command line | 4 | T08 | editor, build | todo, on its trigger |
 | T20 | Decide the fate of the multiplayer draft | 4 | | the maintainer | done (#66) |
 | T21 | The tables of testing.md from the manifest | 4 | T05, T06 | | todo, on its trigger |
+
+T08 is done except for two suites. `DisplayTest` and `PresentationTest` still define their own `Check` ("no test defines `Check`" holds for every other test): they change the registry of the game's
+settings, so they cannot be proved before and after without touching it (rule 6 of `AGENTS.md`), and they wait for T14 or for the maintainer's word. `GameManager.cs` names one test flag, `-guntest`,
+an alias of `-autotest` that the pages document ([modularization.md](modularization.md#b4-in-player-tests-the-game-never-names-a-test)); it stays for that reason.
 
 ## What can run at the same time
 

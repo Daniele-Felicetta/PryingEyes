@@ -40,7 +40,7 @@ namespace PryingEyes
         // -botmezz: il bot gioca dal soppalco (y 4.2), dove i nemici colpivano attraverso il pavimento
         static readonly Vector3 MezzSpot = new Vector3(-20f, 4.3f, -17f);
         bool shot1done = false, shot2done = false;
-        /// <summary>Il fotogramma in cui la prova automatica ha scattato una foto da se' (auto_shot*, auto_cam*, WallShot): una foto costa 150-650 ms da sola, e le prove che misurano i fotogrammi (DesertTest) non devono contarla come un blocco del gioco.</summary>
+        /// <summary>Il fotogramma in cui la prova automatica ha scattato una foto da se' (auto_shot*, auto_cam*, WallShot): una foto costa 150-650 ms da sola, e le prove che misurano i fotogrammi non devono contarla come un blocco del gioco.</summary>
         public static int HarnessShotFrame = -100;
         // -camshots: foto dalla camera del giocatore su RenderTexture, funziona anche con -batchmode senza finestra
         // (ScreenCapture li' non ha uno schermo da copiare). Niente HUD: serve a controllare luce e materiali.
@@ -110,8 +110,10 @@ namespace PryingEyes
             // i valori serializzati nella scena costruita dall'editor hanno la precedenza sui default:
             // qui riallineo la valuta di partenza al ritmo COD Zombies
             score = 500;
+            // -guntest is a documented way to start the automatic run (weapons.md) and the one test flag this file still names: a test on the harness
+            // cannot say it through TestRun, because its load hook runs after this Awake
             autoTest = HasArg("-autotest") || HasArg("-guntest");
-            noFireFlags = HasArg("-nofire") || HasArg("-survivaltest") || HasArg("-cattedraletest");
+            noFireFlags = HasArg("-nofire");
             camShots = HasArg("-camshots");
             if (autoTest)
                 Report("t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n", false);
@@ -162,20 +164,6 @@ namespace PryingEyes
         {
             foreach (var s in System.Environment.GetCommandLineArgs())
                 if (s == a) return true;
-            return false;
-        }
-
-        /// <summary>The dedicated tests that are not on the harness yet: while one of these flags is on the command line the automatic run
-        /// does not close the game by itself. A test on the harness (<c>PlayerTest</c>) says so through <c>TestRun.Dedicated</c> and is not named
-        /// here; porting the rest (T08, docs/engineering/modular-tasks.md) empties this list. One flag per line, so that two changes to it merge.</summary>
-        static readonly string[] LegacyDedicatedFlags =
-        {
-        };
-
-        static bool HasAnyArg(string[] flags)
-        {
-            foreach (var flag in flags)
-                if (HasArg(flag)) return true;
             return false;
         }
 
@@ -236,7 +224,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; HarnessShotFrame = Time.frameCount; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam1.png")); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam2.png")); }
-                bool dedicated = TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags);
+                bool dedicated = TestRun.Dedicated || trailer;
                 if (autoT >= (proc ? (dedicated ? 1e9f : 70f) : (TestRun.Dedicated ? 1e9f : 100f)))
                 {
                     Report($"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");

@@ -187,7 +187,7 @@ within its time; the run says it passed (`result.json` when it exists, the resul
 below `checks`; the log holds no exception other than the ones the renderer always prints without a graphics card (that filter is in
 `tools/player_log.py`, which `tools/check_navigation.py` uses too).
 
-**For a suite that does not derive from `PlayerTest` yet** (T08 ports them a pull request at a time) there is no `result.json`: the runner falls
+**For a suite that does not derive from `PlayerTest`** (T08 ported every one it could: what is left is `displaytest`, `uitest` and the two probes, below) there is no `result.json`: the runner falls
 back to the result line that the tests print today (`[PryingEyes] <label> RISULTATO SUPERATA: 18/18`, `<label>` being the `name` of the
 entry or its `label`; the lines `ok <name> (<detail>)` and `FALLITO <name> (<detail>)` before it are the findings) and says so in the
 report (`player.verdictSource` is `log-line`, and `result.json` when that file was read). Suites can therefore be registered before they
@@ -199,10 +199,10 @@ The runner reads two forms of that line, and `tools/player_log.py` is the only p
 processes run (`CoopTest` and `PistaCoopTest`: `[PryingEyes] cooptest ospite RISULTATO SUPERATA: 12/12`, no colon, the detail in parentheses: the standard line of the harness,
 with `Role`, the process that speaks, after the suite). It still reads a third, the one that `CoopTest` printed until the tenth pull request of T08 (`[PryingEyes] cooptest ospite:
 RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`), so that the log of an older build keeps its verdict. A test that derives from `PlayerTest` writes
-`result.json` and prints the standard line too. Counted from the sources on 25 November 2026, with the thirteenth pull request of T08, 84 of the 87 entries say their result in a form the
+`result.json` and prints the standard line too. Counted from the sources on 25 November 2026, with the fourteenth pull request of T08 (the last), 84 of the 87 entries say their result in a form the
 runner reads: the 83 on `PlayerTest` (the 17 co-op scenarios among them, two processes each; two of them, `seatstest` and `splitdesertotest`, are started by a runner script) and the
 other one that prints the standard line (`uitest`). The other 3 print theirs in another form or not at all: `displaytest` (a suite that is not on the harness, which cannot be run without the maintainer's word) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
-`PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list; the two probes are not ported and stay on it): the
+`PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (`displaytest` waits for T14 or the maintainer's word; the two probes are not ported and stay on this list): the
 runner does not guess a verdict from an exit code (`padtest` quit with 0 and printed no result at all until its steps were repaired).
 
 ### Running the suites of the manifest
@@ -415,9 +415,9 @@ What the base class does, in the order of the old private copies: it counts the 
 `nessuna eccezione runtime` (or the name that `ExceptionCheck` gives, or none at all), writes `result.json`, prints the result line and quits with 0 when every check passed, with 2 when the test said `NotApplicable` and nothing else failed, and with 1 otherwise. Each
 check is still the log line `[PryingEyes] <suite> ok <name>` or `... FALLITO <name>`, in the order of the calls. `InstallWhen` sets
 `TestRun.Dedicated` when the flag is on the command line, in the load hook, before the first `GameManager.Update` (and `TestRun.HoldFire` when the test says
-`HoldFire`: `GameManager.noFire` is `-nofire`, the flags of the suites that are not on the harness yet, or `TestRun.HoldFire`, asked every time); `GameManager` reads
-`TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags)`, the legacy array being the flags of the suites that are not on the
-harness yet, one per line, which T08 empties and deletes. A suite that says a `TimeLimit` is also watched by the clock, in a coroutine of the base class's own
+`HoldFire`: `GameManager.noFire` is `-nofire` or `TestRun.HoldFire`, asked every time); `GameManager` reads
+`TestRun.Dedicated || trailer`: the array of the flags of the suites that were not on the harness yet, which that line used to read too, is gone (the fourteenth pull request of T08).
+A suite that says a `TimeLimit` is also watched by the clock, in a coroutine of the base class's own
 (a suite's `Update` would hide one in the base class): past the limit the check `finita entro il tempo` fails and the run ends as above, whatever the sequence is still waiting for.
 
 What it removed: the `Check`, the log hook, the loop and the exit of each test that is on it; the three flags of those tests in
@@ -431,8 +431,8 @@ Where the first sketch was wrong or short:
   against the working directory, so a run started from another folder still writes where the page says.
 - `HoldFire` came with the seventh pull request, for the two that needed it: the stealth family and `GunTest` want the bot of the automatic run not to shoot
   (`Weapon` asks `GameManager.noFire`, which had a list of test flags). A test overrides the member, `InstallWhen` copies it into `TestRun.HoldFire` before the first frame, and
-  the flag of the test leaves the list of `GameManager.Awake`: it still holds `-survivaltest` and
-  `-cattedraletest` (both on the harness, not moved yet).
+  the flag of the test leaves the no-fire flags of `GameManager.Awake`; the fourteenth pull request moved the last two, `-survivaltest` and
+  `-cattedraletest`, and `-nofire` is the only one left.
 - The two probes do not derive from `PlayerTest` (eighth pull request of T08). `procbot` (the bot of `FloorDirector.Bot.cs`) and `perftest` (`PerfProbe`) report an `ESITO` line and a table of numbers,
   not checks, and they live inside production classes on purpose: a verdict made of invented checks would say less than their numbers. Each says `TestRun.Dedicated = true` from the place in
   `FloorDirector.cs` that already reads its flag (the bot the first time it ticks, and with it the 60 fixed frames per second that `GameManager.Awake` used to give it; the frame probe when it starts), so
@@ -503,6 +503,17 @@ Where the first sketch was wrong or short:
   the folder of `-testout`), and that an exception that the sequence throws outside a check fails `sequenza completa` without its message as the detail (the log has the exception). The
   two error counters start with the base class's `Start` (the first frame of the component), where they started with its `OnEnable` (when it is made). The photographs keep their own
   `Shot` and their folder, `hotel_build/prove/pista/`.
+- The fourteenth, the last of T08, took no class and no new member. It deletes `LegacyDedicatedFlags` and `HasAnyArg` from `GameManager.cs` (the list had been empty since the thirteenth) and moves the last two
+  flags of the game's no-fire flags into their suites: `SurvivalTest` and `CattedraleTest` say `HoldFire`, as `DesertTest` and the others do. `GameManager.cs` reads nine flags now
+  (`tools/code_census.py`), and eight of them are not tests: the switches of the automatic run (`-autotest`, `-nofire`, `-report`, `-camshots`, `-botmezz`, `-enemyshot`, `-padauto`) and the
+  trailer recorder (`-trailer`). The ninth, `-guntest`, stays: it is a documented way to start the automatic run (`PryingEyes.exe -batchmode -guntest`, in [weapons.md](../game/weapons.md)), and the line that
+  reads it is in `GameManager.Awake`, which runs before the load hook of any suite (`AfterSceneLoad`) can say anything through `TestRun`. Three checks that carried a measured number in their name now
+  carry it in their detail: `un fotogramma di minimappa a carta pronta costa meno di 500 microsecondi` (`DesertTest`), `dopo la fine il giocatore singolo cammina col controller` and
+  `il giocatore 1 vede il giocatore 2 davanti a se'` (`SeatsTest`; the log lines of these two are what they were, only `result.json` shows the split). The folders that the sources of a suite on the
+  harness named relative to the working directory (`unity_logs/moto`, where `-desertonly motosuono` writes its WAV files, and `unity_logs/seats`, in `SeatsTest` and `SplitDesertTest`) are
+  `TestRun.OutDir("moto")` and `TestRun.OutDir("seats")`: the same folders of the checkout when the run starts there, the folder of `-testout` when it is given. One literal is left, the default of
+  `-hordeout` in `PerfProbe.Horde.cs`, which is a probe. `DisplayTest` and `PresentationTest` keep their own `Check`: they change the registry of the game's settings, so no agent runs them
+  (rule 6 of `AGENTS.md`), and they wait for T14 or the maintainer's word.
 - `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
   replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
   break;` and `PlayerController.botDir = Vector3.zero` after the sequence).

@@ -21,6 +21,7 @@ namespace PryingEyes.Cattedrale
         protected override string Suite { get { return "cattedraletest"; } }
         protected override string PhotoFlag { get { return "-cattedraleshots"; } }
         protected override string ExceptionCheck { get { return null; } }          // this suite has never had a closing check on the exceptions
+        protected override bool HoldFire { get { return true; } }                  // the bot of the automatic run does not shoot by itself (-cattedraletest was in the no-fire flags of GameManager)
         protected override void Finish() { Time.timeScale = 1f; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]

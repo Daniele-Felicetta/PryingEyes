@@ -250,6 +250,10 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 - **Done when**: per pull request, every ported suite that can run without a graphics card is identical before and after; the others are
   listed with the reason. At the end: no test defines `Check`; `GameManager.cs` names no test flag; census `tests` and `flags` updated.
 - **Not in scope**: an assembly for the tests (T17).
+- **Result** (25 November 2026, fourteen pull requests): every suite that can be run without touching the registry is on the harness ([agent-tooling.md](agent-tooling.md#the-in-player-harness)); the legacy array, its
+  reader and the no-fire flags of the suites are gone; `GameManager.cs` reads nine flags, eight of them the automatic run's and the trailer recorder's, and `-guntest`, the documented alias of `-autotest`; the
+  `unity_logs` literals of the suites on the harness are `TestRun.OutDir` (one is left, in a probe). Left out on purpose: `DisplayTest` and `PresentationTest`, which keep their own `Check` because
+  proving them touches the registry (rule 6 of `AGENTS.md`; they wait for T14 or the maintainer's word), and the two probes. The census is in [modularization.md](modularization.md#how-progress-is-read).
 
 ### T09. Compile check, doctor and ship status as data
 
