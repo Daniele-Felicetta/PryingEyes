@@ -105,7 +105,7 @@ cattedrale, magazzino, bottino sulla sabbia e trofei restano di ognuno. Come fun
 | `CoopGame.Revive.cs` | Rianimazione in rete (0.7.2): `ReviveRemote`, `ReviveClaim` all'ospite (controlla che chi rialza sia pronto e a meno di 4 m), `Revived` a chi era a terra |
 | `Enemy.Net.cs` | Pupazzi dei nemici e stato di rete |
 | `Targets.cs`, `RemotePlayer.cs` | Bersagli multipli e compagni (un `SurvivorBody` con torcia, nome e posa interpolata; il pupazzo di capsule resta solo se manca il modello) |
-| `CoopTest.cs`, `CoopTest.Survival.cs`, `CoopTest.Desert.cs` | Prova automatica a piu' processi (solo con `-cooptest`); la seconda ha i passi del ciclo a ondate, la terza quelli del deserto (`-coopdeserto`) |
+| `CoopTest.cs`, `CoopTest.Survival.cs`, `CoopTest.Desert.cs` | Prova automatica a piu' processi (solo con `-cooptest`; deriva da `PlayerTest` e si installa da sola, fuori dalle build di distribuzione); la seconda ha i passi del ciclo a ondate, la terza quelli del deserto (`-coopdeserto`). `CoopGame` non la nomina: le consegna i messaggi `Test` con l'evento `CoopGame.TestMessage` |
 | `Deserto/DesertAnchors.cs` | I punti dei compagni attorno a cui l'ospite costruisce il deserto (sabbia, navmesh, luoghi, sassi); vuoto da soli e sugli ospitati |
 
 L'ammissione (revisione del protocollo, capienza, tempo massimo) la fa `FishNetSeatAuthenticator` con `AdmissionGate`, `SessionAdmission`
@@ -188,7 +188,8 @@ Da riga di comando (lo usano le prove): `-coophost [-cooplocal]` oppure `-coopjo
 le preferenze (sono condivise con la copia del gioco dell'utente).
 
 `-cooptest` esegue uno scenario scritto a passi, con barriere tra i processi e verifiche dentro il gioco; stampa
-`[PryingEyes] cooptest <ospite|ospitato>: ok/FALLITO ...` e alla fine `RISULTATO SUPERATA/FALLITA` (codice d'uscita 0/1):
+`[PryingEyes] cooptest <ospite|ospitato> ok/FALLITO ...` e alla fine `RISULTATO SUPERATA/FALLITA` (codice d'uscita 0/1; ogni processo scrive anche il suo
+`result.json`, in `unity_logs/cooptest-ospite` o `unity_logs/cooptest-ospitato`):
 
 | Flag | Cosa prova |
 | --- | --- |

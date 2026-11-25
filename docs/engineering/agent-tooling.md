@@ -195,13 +195,13 @@ are ported, and ported one at a time. A `result.json` that exists but cannot be 
 version) fails the suite (`PLAYER_RESULT_INVALID`): the lines are no way around a bug of the harness. A test that prints only its failures
 (`gunplaytest`) has fewer findings than checks: `player.checks` is the number on its result line.
 
-The runner reads three forms of that line, and `tools/player_log.py` is the only place that knows them: the standard one above;
-`CoopTest`'s (`[PryingEyes] cooptest ospite: RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`, the
-process that speaks after the label); and `PistaCoopTest`'s (`[PryingEyes] pistacooptest ospite RISULTATO ...`, no colon, the detail in
-parentheses: the standard line of the harness, with `Role` after the suite). A test that derives from `PlayerTest` writes `result.json` and prints the standard line too. Counted from the sources on 25
-November 2026, with the ninth pull request of T08, 84 of the 87 entries say their result in a form the runner reads: the ones on
-`PlayerTest`, the others that print the standard line (two of them runners: `seatstest`, `splitdesertotest`) and the 17 co-op scenarios,
-which print the co-op forms. The other 3 print theirs in another form or not at all: `displaytest` (a suite that is not on the harness, which cannot be run without the maintainer's word) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
+The runner reads two forms of that line, and `tools/player_log.py` is the only place that knows them: the standard one above, and the one of the tests that two
+processes run (`CoopTest` and `PistaCoopTest`: `[PryingEyes] cooptest ospite RISULTATO SUPERATA: 12/12`, no colon, the detail in parentheses: the standard line of the harness,
+with `Role`, the process that speaks, after the suite). It still reads a third, the one that `CoopTest` printed until the tenth pull request of T08 (`[PryingEyes] cooptest ospite:
+RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`), so that the log of an older build keeps its verdict. A test that derives from `PlayerTest` writes
+`result.json` and prints the standard line too. Counted from the sources on 25 November 2026, with the tenth pull request of T08, 84 of the 87 entries say their result in a form the
+runner reads: the ones on `PlayerTest` (the 17 co-op scenarios among them, two processes each) and the others that print the standard line (two of them runners: `seatstest`,
+`splitdesertotest`). The other 3 print theirs in another form or not at all: `displaytest` (a suite that is not on the harness, which cannot be run without the maintainer's word) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
 `PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list; the two probes are not ported and stay on it): the
 runner does not guess a verdict from an exit code (`padtest` quit with 0 and printed no result at all until its steps were repaired).
 
@@ -347,12 +347,12 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 44 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+State: built (T07) and on 45 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
 `FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
 (`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`), the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`), the three of the fifth (`CattedraleTest`,
 `SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest), the one of the sixth (`StealthTest`, which stands for eleven), the four of the seventh (`GunTest`,
-`LeanTest`, `WallTest` and `MagicTest`, which were procedures of `GameManager`) and the two of the ninth (`ArchitectureTest`, which stands for three entries of the
-manifest, and `CityTest`); T08 ports the 6 others that still carry their own copy of the same code (F6). `DisplayTest` and `PresentationTest` are left out for now, because
+`LeanTest`, `WallTest` and `MagicTest`, which were procedures of `GameManager`), the two of the ninth (`ArchitectureTest`, which stands for three entries of the
+manifest, and `CityTest`) and the one of the tenth (`CoopTest`, which stands for fourteen); T08 ports the 5 others that still carry their own copy of the same code (F6). `DisplayTest` and `PresentationTest` are left out for now, because
 they cannot be run without the maintainer's word, and the two probes stay as they are. The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -385,6 +385,7 @@ namespace PryingEyes.Testing
         protected bool Photos { get; }                  // the photo flag is on
         protected bool Check(string name, bool ok, string detail = "");
         protected void NotApplicable(string why);       // the floor cannot host this test: the check "il piano ospita la prova" fails with the reason and the exit code is 2 (1 if anything else failed); return from Run after it
+        protected void EndNow();                        // end the run here, from inside the sequence (clean-up, closing check, result, exit request) and return from Run after it: for a process that must leave before the others
         protected void Photo(string name);              // into the output folder, listed under artifacts; nothing unless the photo flag is on
         protected string PhotoPath(string name);        // the file for a photograph the test frames itself (a hidden weapon, a camera of its own); listed under artifacts
         protected virtual void OnDestroy();             // stops counting exceptions; a test that owns something to release overrides it and calls base.OnDestroy()
@@ -430,7 +431,7 @@ Where the first sketch was wrong or short:
   against the working directory, so a run started from another folder still writes where the page says.
 - `HoldFire` came with the seventh pull request, for the two that needed it: the stealth family and `GunTest` want the bot of the automatic run not to shoot
   (`Weapon` asks `GameManager.noFire`, which had a list of test flags). A test overrides the member, `InstallWhen` copies it into `TestRun.HoldFire` before the first frame, and
-  the flag of the test leaves the list of `GameManager.Awake`: it still holds `-cooptest` and `-desertotest` (not on the harness yet) and `-survivaltest` and
+  the flag of the test leaves the list of `GameManager.Awake`: it still holds `-desertotest` (not on the harness yet) and `-survivaltest` and
   `-cattedraletest` (on it, not moved yet).
 - The two probes do not derive from `PlayerTest` (eighth pull request of T08). `procbot` (the bot of `FloorDirector.Bot.cs`) and `perftest` (`PerfProbe`) report an `ESITO` line and a table of numbers,
   not checks, and they live inside production classes on purpose: a verdict made of invented checks would say less than their numbers. Each says `TestRun.Dedicated = true` from the place in
@@ -449,6 +450,23 @@ Where the first sketch was wrong or short:
   observed; expected ...`, and the list of checks is the same. The flag `-cityout`, which only `tools/citylab.py` passed, is `-testout` now, and `HoldFire` is true (the
   bot of `-autotest` does not shoot in the city, as `-citytest` in the list of `GameManager.Awake` said). The manifest entry `architecturesupply` did not carry
   `-architecturetest`, the flag that installs the class: it started a floor and quit by itself after 70 seconds without a single check, and it carries the flag now.
+- The tenth took one class (`CoopTest`, three files, which stands for fourteen entries of the manifest, each one run by `tools/coop/run_all.ps1` in two or more processes) and one
+  member. It derives from `PlayerTest`, is wrapped in `#if !PE_DISTRIBUTION_BUILD` and installs itself with `-cooptest`, like `PistaCoopTest` (which is its model for `Role` and
+  `OutFolder`: `cooptest-ospite`, `cooptest-ospitato`, and the slot from the second guest on, so that the processes of a scenario do not write each other's `result.json`; a guest learns its slot from the host after it has started, and `Coop.Slot` is 0 again when the session ends, so `Role` keeps the highest slot it has seen). `CoopGame.cs` named
+  it in three places and names it no more, which was what kept it from being wrapped, so the four entries of the baseline of the guard that waited for this are gone and the baseline is empty:
+  `CoopGame` raised the messages of the test by calling `CoopTest.OnNet` and made the test from its own `Update` (`CoopTest.Wanted`, `CoopTest.Ensure`), and it has an event now,
+  `CoopGame.TestMessage`, that the test subscribes to (a `CoopKind.Test` message that nobody listens to is dropped, as it was); the test, which exists from the load, waits for `Coop.Game`
+  and starts when the session does (30 seconds at most), where `Ensure` made it at the first frame of the session. `-cooptest` is out of the no-fire list and of the automatic quit
+  of `GameManager.cs` (`HoldFire` is true, and `TestRun.Dedicated` does the rest). The status line that `CoopGame.DebugTick` writes every four seconds (and the circle of
+  `-coopwalk`) is off while any test of the harness runs, where it was off only for `-cooptest`: the three scenarios of `pistacooptest` do not print it now. The new member
+  is `EndNow()`: the friend that goes away (`-coopleave`, `-coopcrash`) and the host that closes (`-coophostleave`) used to print their result and quit from the middle of their
+  sequence, and the process of `-coopcrash` killed itself 400 ms later, with the result already written; `EndNow()` ends the run there and then, as the end of the sequence does, and
+  the second end (the sequence, the clock) is refused. The closing check keeps its name (`nessuna eccezione nel codice del gioco`) and its way of counting, only the exceptions
+  whose message or stack names the game and not those of Unity and URP, so `ExceptionCheck` is null and `Finish()` makes it; a run that was interrupted (a barrier that expired, a plan that
+  cannot host the script) with no check failed gets the check `prova interrotta`, which fails, so that it still cannot pass. `TimeLimit` is 480 seconds from the start of the player (the test counted
+  them from its own first frame). The lines of the log are the standard ones with `Role`, `[PryingEyes] cooptest ospite ok <name> (<detail>)` and `[PryingEyes] cooptest ospite RISULTATO
+  SUPERATA: 49/49`, where they were `[PryingEyes] cooptest ospite: ok       <name>   [<detail>]` and `... RISULTATO SUPERATA: 49/49 verifiche ok`; the lines that tell the story (`--- passo 3`,
+  `info: ...`) keep their colon, and the checks, their names and their order are the same.
 - `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
   replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
   break;` and `PlayerController.botDir = Vector3.zero` after the sequence).
