@@ -170,7 +170,6 @@ namespace PryingEyes
         /// here; porting the rest (T08, docs/engineering/modular-tasks.md) empties this list. One flag per line, so that two changes to it merge.</summary>
         static readonly string[] LegacyDedicatedFlags =
         {
-            "-magiatest",
             "-pistatest",
         };
 

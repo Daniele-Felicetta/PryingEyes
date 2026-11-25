@@ -199,9 +199,9 @@ The runner reads two forms of that line, and `tools/player_log.py` is the only p
 processes run (`CoopTest` and `PistaCoopTest`: `[PryingEyes] cooptest ospite RISULTATO SUPERATA: 12/12`, no colon, the detail in parentheses: the standard line of the harness,
 with `Role`, the process that speaks, after the suite). It still reads a third, the one that `CoopTest` printed until the tenth pull request of T08 (`[PryingEyes] cooptest ospite:
 RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`), so that the log of an older build keeps its verdict. A test that derives from `PlayerTest` writes
-`result.json` and prints the standard line too. Counted from the sources on 25 November 2026, with the eleventh pull request of T08, 84 of the 87 entries say their result in a form the
-runner reads: the ones on `PlayerTest` (the 17 co-op scenarios among them, two processes each) and the others that print the standard line (two of them runners: `seatstest`,
-`splitdesertotest`). The other 3 print theirs in another form or not at all: `displaytest` (a suite that is not on the harness, which cannot be run without the maintainer's word) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
+`result.json` and prints the standard line too. Counted from the sources on 25 November 2026, with the twelfth pull request of T08, 84 of the 87 entries say their result in a form the
+runner reads: the 75 on `PlayerTest` (the 17 co-op scenarios among them, two processes each; two of them, `seatstest` and `splitdesertotest`, are started by a runner script) and the
+9 others that print the standard line (the eight entries of `PistaTest` and `PistaMenuTest`, and `uitest`). The other 3 print theirs in another form or not at all: `displaytest` (a suite that is not on the harness, which cannot be run without the maintainer's word) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
 `PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list; the two probes are not ported and stay on it): the
 runner does not guess a verdict from an exit code (`padtest` quit with 0 and printed no result at all until its steps were repaired).
 
@@ -347,12 +347,12 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 46 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+State: built (T07) and on 48 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
 `FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
 (`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`), the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`), the three of the fifth (`CattedraleTest`,
 `SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest), the one of the sixth (`StealthTest`, which stands for eleven), the four of the seventh (`GunTest`,
 `LeanTest`, `WallTest` and `MagicTest`, which were procedures of `GameManager`), the two of the ninth (`ArchitectureTest`, which stands for three entries of the
-manifest, and `CityTest`), the one of the tenth (`CoopTest`, which stands for fourteen) and the one of the eleventh (`DesertTest`); T08 ports the 4 others that still carry their own copy of the same code (F6). `DisplayTest` and `PresentationTest` are left out for now, because
+manifest, and `CityTest`), the one of the tenth (`CoopTest`, which stands for fourteen), the one of the eleventh (`DesertTest`) and the two of the twelfth (`MagiaTest` and `SeatsTest`); T08 ports the 2 others that still carry their own copy of the same code (F6: `PistaTest` and `PistaMenuTest`). `DisplayTest` and `PresentationTest` are left out for now, because
 they cannot be run without the maintainer's word, and the two probes stay as they are. The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -476,6 +476,20 @@ Where the first sketch was wrong or short:
   `TakePhotos()` now, because the base class has a member of that name. The lines of the log, the checks, their names and their order are what they were
   (`[PryingEyes] desertotest ok <name> (<detail>)`, `[PryingEyes] desertotest RISULTATO SUPERATA: 150/150`); what is new is `result.json` (in `unity_logs/desertotest/`, or in the folder of
   `-testout`), and that an exception that the sequence throws outside a phase fails `sequenza completa` without its message as the detail (the log has the exception).
+- The twelfth took two classes and no new member. `MagiaTest` (the secret book room, the two grimoires, the arms and the second hand: the entry `magiatest`) and `SeatsTest` (the
+  split screen in one process: the entry `seatstest`, which `tools/coop/run_split.ps1` starts) derive from `PlayerTest` and install themselves with `-magiatest` and `-seatstest`;
+  `SeatsTest` keeps the `Application.runInBackground = true` that its load hook has always set (a window without the focus would stop the game, and the test with it). Their
+  closing checks stay as they were, so `ExceptionCheck` is null for both: `MagiaTest` never had one, and `SeatsTest` makes its two in `Finish()` (`nessuna eccezione runtime` and
+  `nessun errore nel registro`, the second counting errors and asserts, not the harmless `Failed to capture screen shot` of a run with no window, and keeping the first eight messages
+  for the log). It counts them in `IsError`, which the base asks for every line of the log from the first frame, and answers yes for the exceptions only, which the base counts too.
+  `-magiatest` is out of the legacy list of `GameManager.cs` (`TestRun.Dedicated` says it), which holds `-pistatest` only: the census of `tools/code_census.py` reads 12 flags in that
+  file where it read 13. The helper of `SeatsTest` that photographed the whole screen, or asked the runner for the monitors, was called `Photo` and is `ScreenPhoto`, because the base
+  has a member of that name. The lines of `SeatsTest` are what they were (`[PryingEyes] seatstest ok <name>`, `RISULTATO SUPERATA: 94/94`); a line of `MagiaTest` that had a detail
+  carried it after a dash (`ok <name> — <detail>`) and carries it in parentheses now (`ok <name> (<detail>)`), the form of the harness, and an exception outside a check fails
+  `sequenza completa` where it failed `sequenza completa senza eccezioni` with the message as its detail (the log has the exception). `result.json` is new for both
+  (`unity_logs/magiatest/` and `unity_logs/seatstest/`, or the folder of `-testout`). `MagiaTest` no longer writes `hotel_build/magia/magia.txt`, a copy of its checks that the log
+  and `result.json` hold: the two measurement lines of the modes that photograph the arms (`-reloadview` and the gestures) that only the file had are in the log now, and its
+  photographs stay where they were, in `hotel_build/magia/`.
 - `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
   replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
   break;` and `PlayerController.botDir = Vector3.zero` after the sequence).

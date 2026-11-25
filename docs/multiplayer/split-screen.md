@@ -187,7 +187,7 @@ exists only in the Windows player (XInput) and only on the hotel floors; elsewhe
 ## Verification
 
 `-seatstest` runs inside the game, with a fake XInput state injected per player (`PadControls.Inject(channel, state)`), and exits `0` only when
-every check passes. It never reads a physical controller: a process started with `-batchmode` skips XInput (`PadControls.PollReal`), so a pad in use at
+every check passes (it derives from `PlayerTest`, so it writes a `result.json` into `unity_logs/seatstest/` too). It never reads a physical controller: a process started with `-batchmode` skips XInput (`PadControls.PollReal`), so a pad in use at
 the same moment cannot move the seats (it did, 19 November 2026: the 3 and 4 player runs failed with an Xbox controller in someone's hands). It has two ways to start the game: from the menu (no `-autotest`, with `-menureview -nowaves`: the menu presses the
 button, so the real path *Schermo condiviso*, **Gioca** and the pause are covered) or with `-autotest -nofire -noenemies` (no menu, no pause test).
 It checks:
