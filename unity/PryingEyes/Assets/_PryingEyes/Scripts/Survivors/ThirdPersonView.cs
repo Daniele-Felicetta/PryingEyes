@@ -17,8 +17,7 @@ namespace PryingEyes
         /// <summary>Quanti componenti vivono: PlayerController chiama AfterEyePose solo se serve (impostazione accesa o uno da spegnere).</summary>
         public static int Count { get; private set; }
 
-        // posa della camera: spalla destra, un po' in alto, dietro (in mira piu' vicina e piu' sulla spalla)
-        const float Side = 0.55f, SideAds = 0.32f, Up = 0.14f, Back = 2.1f, BackAds = 1.15f, Radius = 0.2f, MaxTurn = 25f;
+        const float Radius = 0.20f, MaxTurn = 25f, BodyClearance = 0.66f, RiderClearance = 1.25f;
 
         PlayerController player;
         Camera cam;
@@ -28,6 +27,10 @@ namespace PryingEyes
         int computedFrame = -10;
         Vector3 renderPos;
         Quaternion renderRot;
+        Pose rideFrom;
+        float rideTransition = 1f;
+        float boomDistance, followHeight;
+        bool showBody;
         // la camera mentre si disegna
         bool swapped;
         Vector3 savedPos; Quaternion savedRot; int savedMask;
@@ -54,13 +57,13 @@ namespace PryingEyes
         {
             pos = default;
             var v = Of(p);
-            if (v == null || v.blend < 0.5f || v.avatar == null || v.avatar.Body == null || !v.avatar.Body.HasWeapon) return false;
+            if (v == null || !v.showBody || v.avatar == null || v.avatar.Body == null || !v.avatar.Body.HasWeapon) return false;
             pos = v.avatar.Body.Muzzle.position;
             return true;
         }
 
         /// <summary>Chiamata da PlayerController appena ha messo in posa l'occhio, prima che l'arma spari o un prompt guardi.</summary>
-        public static void AfterEyePose(PlayerController p)
+        public static void AfterEyePose(PlayerController p, Vector3 stableEye, Vector3 lookAngles)
         {
             if (p == null || p.cam == null) return;
             if (!p.TryGetComponent(out ThirdPersonView v))
@@ -68,7 +71,29 @@ namespace PryingEyes
                 if (!GameSettings.ThirdPerson) return;
                 v = p.gameObject.AddComponent<ThirdPersonView>();
             }
-            v.Compute(p);
+            v.Compute(p, stableEye, lookAngles);
+        }
+
+        public static void Suspend(PlayerController p)
+        {
+            if (p.TryGetComponent(out ThirdPersonView view)) view.ClearView();
+        }
+
+        public static void BeginRideTransition(PlayerController p)
+        {
+            if (p.cam == null || !p.cam.TryGetComponent(out Camera camera)) return;
+            var view = Of(p);
+            if (view == null) view = p.gameObject.AddComponent<ThirdPersonView>();
+            view.player = p;
+            view.cam = camera;
+            if (Time.frameCount - view.computedFrame > 1)
+            {
+                view.renderPos = p.cam.position;
+                view.renderRot = p.cam.rotation;
+            }
+            view.rideFrom = new Pose(view.renderPos, view.renderRot);
+            view.rideTransition = 0f;
+            view.computedFrame = Time.frameCount;
         }
 
         void OnEnable()
@@ -124,20 +149,32 @@ namespace PryingEyes
             ownAvatar = true;
         }
 
-        /// <summary>Posa della camera dietro la spalla e orientamento dell'occhio verso il punto inquadrato.</summary>
-        void Compute(PlayerController p)
+        void ClearView()
+        {
+            blend = 0f;
+            showBody = false;
+            rideTransition = 1f;
+            computedFrame = -10;
+            if (fill != null) fill.enabled = false;
+            if (player.Bike != null) player.Bike.SetRiderCamera(false);
+            if (!GameSettings.ThirdPerson || !player.alive) DropAvatar();
+            else if (ownAvatar && avatar != null && avatar.gameObject.activeSelf) avatar.gameObject.SetActive(false);
+            if (!GameSettings.ThirdPerson) Destroy(this);
+        }
+
+        void Compute(PlayerController p, Vector3 stableEye, Vector3 lookAngles)
         {
             player = p;
             cam = p.cam != null ? p.cam.GetComponent<Camera>() : null;
             if (cam == null) return;
             float dt = Time.deltaTime;
-            bool want = GameSettings.ThirdPerson && p.alive && !ScopedAim();
-            blend = Mathf.MoveTowards(blend, want ? 1f : 0f, dt * 5f);
+            bool riding = p.Riding;
+            bool continuing = blend > 0f && rideTransition > 0f && computedFrame == Time.frameCount - 1;
+            blend = Mathf.MoveTowards(blend, GameSettings.ThirdPerson && (riding || !ScopedAim()) ? 1f : 0f, dt * 5f);
             if (blend <= 0.001f)
             {
-                if (fill != null) fill.enabled = false;
-                if (!GameSettings.ThirdPerson || !p.alive) { DropAvatar(); if (!GameSettings.ThirdPerson) { Destroy(this); } }
-                else if (ownAvatar && avatar != null) avatar.gameObject.SetActive(false);
+                if (rideTransition < 1f) SetRenderPose(p.cam.position, p.cam.rotation);
+                else ClearView();
                 return;
             }
             EnsureAvatar();
@@ -145,35 +182,78 @@ namespace PryingEyes
 
             Transform eyeT = p.cam;
             Vector3 eye = eyeT.position;
-            Quaternion look = eyeT.rotation;
-            float ads = p.weapon != null ? p.weapon.ads : 0f;
-            Vector3 offset = new Vector3(Mathf.Lerp(Side, SideAds, ads), Up, -Mathf.Lerp(Back, BackAds, ads));
-            if (p.IsCrouching) offset.z *= 0.9f;
-            Vector3 desired = eye + look * offset;
+            float ads = !riding && p.weapon != null ? p.weapon.ads : 0f;
+            Vector3 framing = GameSettings.ThirdPersonFraming;
+            Vector3 offset = new Vector3(framing.x * Mathf.Lerp(1f, 2f / 3f, ads), framing.y + 0.24f * ads,
+                -framing.z * Mathf.Lerp(1f, 1.18f / GameSettings.ThirdDistanceDefault, ads));
+            if (riding) { offset.y += 0.52f; offset.z -= 0.7f; }
+            else if (p.IsCrouching) offset.z *= 0.9f;
+            followHeight = continuing && Mathf.Abs(followHeight - stableEye.y) < 0.6f
+                ? Mathf.Lerp(followHeight, stableEye.y, 1f - Mathf.Exp(-14f * dt))
+                : stableEye.y;
+            stableEye.y = Mathf.Clamp(followHeight, stableEye.y - 0.20f, stableEye.y + 0.20f);
+            float boomPitch = Mathf.Clamp(lookAngles.x, -10f, 25f);
+            Vector3 desired = stableEye + Quaternion.Euler(boomPitch, lookAngles.y, 0f) * offset;
             Vector3 dir = desired - eye;
             float len = dir.magnitude;
-            dir = len > 1e-4f ? dir / len : -(look * Vector3.forward);
-            float dist = len;
-            if (Physics.SphereCast(eye, Radius, dir, out var hit, len, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
-                dist = Mathf.Max(0.12f, hit.distance - 0.05f);
-            Vector3 pos = eye + dir * dist;
+            dir /= len;
+            float dist = UnobstructedDistance(eye, dir, len);
+            boomDistance = continuing ? Mathf.Min(dist, boomDistance + 4f * dt) : dist;
+            float bodyClearance = riding ? RiderClearance : BodyClearance;
+            float clearance = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(bodyClearance - 0.11f, bodyClearance + 0.29f, boomDistance));
+            float viewBlend = blend * clearance;
+            SetRenderPose(eye + dir * (boomDistance * viewBlend),
+                Quaternion.Slerp(eyeT.rotation, Quaternion.Euler(lookAngles), viewBlend));
+            showBody = boomDistance * viewBlend > bodyClearance && (renderPos - eye).sqrMagnitude > bodyClearance * bodyClearance;
+            if (riding) p.Bike.SetRiderCamera(showBody);
 
-            // il punto che il mirino inquadra: da li' in poi l'occhio guarda li' (i colpi partono dall'occhio)
-            Vector3 fwd = look * Vector3.forward;
+            // Use the rendered ray even while the boom is moving or retracting.
+            Vector3 fwd = renderRot * Vector3.forward;
             int mask = HotelNav.EnvMask | (1 << HotelNav.EnemyLayer);
-            Vector3 target = Physics.Raycast(pos, fwd, out var th, 150f, mask, QueryTriggerInteraction.Ignore) ? th.point : pos + fwd * 150f;
+            Vector3 target = Physics.Raycast(renderPos, fwd, out var th, 150f, mask, QueryTriggerInteraction.Ignore) ? th.point : renderPos + fwd * 150f;
             Vector3 toTarget = target - eye;
             if (toTarget.sqrMagnitude > 0.04f)
             {
                 Quaternion conv = Quaternion.FromToRotation(fwd, toTarget.normalized);
                 conv.ToAngleAxis(out float ang, out Vector3 ax);
                 if (ang > MaxTurn) conv = Quaternion.AngleAxis(MaxTurn, ax);
-                eyeT.rotation = Quaternion.Slerp(look, conv * look, blend);
+                eyeT.rotation = conv * renderRot;
             }
-            renderPos = Vector3.Lerp(eye, pos, blend);
-            renderRot = look;
-            computedFrame = Time.frameCount;
             UpdateFill(eye);
+        }
+
+        static float UnobstructedDistance(Vector3 eye, Vector3 dir, float len)
+        {
+            float dist = len;
+            if (Physics.SphereCast(eye, Radius, dir, out var hit, len, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                dist = Mathf.Max(0f, hit.distance - 0.05f);
+            // A sphere cast can miss a wall already touching the sphere at its origin.
+            if (Physics.CheckSphere(eye, Radius, HotelNav.EnvMask, QueryTriggerInteraction.Ignore) &&
+                Physics.Raycast(eye, dir, out var edge, len, HotelNav.EnvMask, QueryTriggerInteraction.Ignore))
+                dist = Mathf.Min(dist, Mathf.Max(0f, edge.distance - Radius));
+            return dist;
+        }
+
+        void SetRenderPose(Vector3 pos, Quaternion rot)
+        {
+            if (rideTransition < 1f)
+            {
+                rideTransition = Mathf.MoveTowards(rideTransition, 1f, Mathf.Min(Time.deltaTime, 0.05f) / 0.4f);
+                float t = Mathf.SmoothStep(0f, 1f, rideTransition);
+                Vector3 eye = cam.transform.position;
+                pos = Vector3.Lerp(rideFrom.position, pos, t);
+                Vector3 offset = pos - eye;
+                float len = offset.magnitude;
+                if (len > 0.001f)
+                {
+                    Vector3 dir = offset / len;
+                    pos = eye + dir * UnobstructedDistance(eye, dir, len);
+                }
+                rot = Quaternion.Slerp(rideFrom.rotation, rot, t);
+            }
+            renderPos = pos;
+            renderRot = rot;
+            computedFrame = Time.frameCount;
         }
 
         /// <summary>La torcia non illumina il proprio corpo (SurvivorLight.TorchMask: dalla testa brucerebbe l'arma), quindi dove le lampade
@@ -183,7 +263,7 @@ namespace PryingEyes
         /// brilla piu' dell'ambiente; passando dalla luce al buio cambia piano piano, come la misura.</summary>
         void UpdateFill(Vector3 eye)
         {
-            bool on = fillScale > 0f && blend > 0.3f && avatar != null && avatar.Body != null;
+            bool on = fillScale > 0f && showBody && avatar != null && avatar.Body != null;
             if (!on) { if (fill != null) fill.enabled = false; return; }
             if (fill == null)
             {
@@ -206,14 +286,19 @@ namespace PryingEyes
 
         void BeginCamera(ScriptableRenderContext ctx, Camera c)
         {
-            if (c == null || c != cam || swapped || Time.frameCount - computedFrame > 1 || blend <= 0.001f) return;
+            // The controller can pause while the same camera keeps rendering behind a menu.
+            if (c == null || c != cam || swapped || computedFrame < 0) return;
             var t = c.transform;
             savedPos = t.position; savedRot = t.rotation; savedMask = c.cullingMask;
             swapped = true;
             t.SetPositionAndRotation(renderPos, renderRot);
             int mask = savedMask;
-            if (avatar != null) mask |= 1 << avatar.Layer;
-            if (blend > 0.3f) mask &= ~(1 << ViewLayer());           // arma e mani della prima persona
+            if (showBody && avatar != null)
+            {
+                mask |= 1 << avatar.Layer;
+                mask &= ~(1 << ViewLayer());
+            }
+            else if (avatar != null) mask &= ~(1 << avatar.Layer);
             c.cullingMask = mask;
         }
 
