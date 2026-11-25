@@ -1,3 +1,4 @@
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -6,14 +7,48 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Rendering.Universal;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>Prova automatica della componente furtiva: PryingEyes.exe -batchmode -autotest -stealthtest -seed N (senza -nographics
     /// per le foto). Misura dopo quanto tempo un monaco fermo ti nota a varie distanze, al buio e con la torcia; prova l'udito, la pila
     /// che si scarica e si cambia, la raccolta di una pila, il ping e la freccia; fotografa l'HUD. Esito in hotel_build/furtivo/.</summary>
-    public partial class StealthTest : MonoBehaviour
+    public sealed partial class StealthTest : PlayerTest
     {
+        /// <summary>One class, eleven suites: the flag that follows -stealthtest names the suite (roundtest, knifetest... and refshot), and the
+        /// bare -stealthtest is the first one. The name is what the result line and result.json say, and what the manifest calls the entry.</summary>
+        protected override string Suite { get { return suite; } }
+        /// <summary>The family never counted exceptions: its checks stay the ones it always had.</summary>
+        protected override string ExceptionCheck { get { return null; } }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Install() { InstallWhen<StealthTest>("-stealthtest"); }
+
+        readonly string suite = Kind();
+
+        /// <summary>The suite that the command line asks for, in the order in which Run dispatches them.</summary>
+        static string Kind()
+        {
+            foreach (string flag in new[] { "-refshot", "-pushtest", "-gridtest", "-roundtest", "-knifetest", "-droptest", "-booktest", "-holescan", "-alientest", "-temitest" })
+                if (TestRun.Has(flag)) return flag.Substring(1);
+            return "stealthtest";
+        }
+
+        /// <summary>Runs one suite of the family inside the sequence of the base class. Unity runs a nested sequence by itself and only logs what it throws, so the
+        /// base class cannot see it: here the exception fails the check "sequenza completa", as it does in the sequence of any other test.</summary>
+        IEnumerator RunSuite(IEnumerator suite)
+        {
+            while (true)
+            {
+                bool more;
+                try { more = suite.MoveNext(); }
+                catch (System.Exception e) { Debug.LogException(e); Check("sequenza completa", false); yield break; }
+                if (!more) yield break;
+                yield return suite.Current;
+            }
+        }
+
         static string Dir => TestPaths.Out("furtivo");
         string log;
 
@@ -31,12 +66,7 @@ namespace PryingEyes
             var entrance = plan.Find(RoomKind.Nartece);
             var nave = plan.Find(RoomKind.Navata);
             var portal = plan.openings.Find(o => (o.a == entrance.id && o.b == nave.id) || (o.a == nave.id && o.b == entrance.id));
-            if (portal == null)
-            {
-                Debug.LogError("Arco tra nartece e navata mancante");
-                Application.Quit(1);
-                yield break;
-            }
+            if (!Check("l'arco tra nartece e navata c'e'", portal != null)) yield break;
 
             string output = System.IO.Path.GetFullPath(Dir + "/../fotorealismo");
             Directory.CreateDirectory(output);
@@ -110,7 +140,10 @@ namespace PryingEyes
             Debug.Log($"[PryingEyes] pala scolpita: {retableMeshes} mesh");
             if (entranceKey != null)
                 Debug.Log($"[PryingEyes] chiarore del nartece: {entranceKey.transform.position}, intensità {entranceKey.intensity:F1}, ombre {entranceKey.shadows}");
-            Application.Quit(CheckMonkFibers(monk) && windows > 0 && bounces > 0 && (sanctuary == null || retableMeshes >= 3) ? 0 : 1);
+            Check("il monaco ha le fibre e l'animatore con le cinque animazioni", CheckMonkFibers(monk));
+            Check("le vetrate proiettano la luce", windows > 0, windows + " vetrate");
+            Check("le vetrate rimbalzano la luce", bounces > 0, bounces + " rimbalzi");
+            Check("la pala scolpita del presbiterio ha le sue mesh", sanctuary == null || retableMeshes >= 3, retableMeshes + " mesh");
         }
 
         static bool CheckMonkFibers(Enemy monk)
@@ -146,7 +179,7 @@ namespace PryingEyes
             if (volume == null || !volume.profile.TryGet(out ColorAdjustments grading))
             {
                 Log("alieni: profilo di luminosità mancante");
-                Application.Quit(1);
+                Check("alieni: il profilo di luminosita' c'e'", false);
                 yield break;
             }
             float previous = GameSettings.Brightness;
@@ -163,7 +196,8 @@ namespace PryingEyes
             if (!hadSetting) PlayerPrefs.DeleteKey("video_brightness");
             yield return null;
             GameManager.CamShot(Dir + "/luce_normale.png", null, false);
-            bool passed = high > low + 2f && RenderSettings.fog && RenderSettings.fogMode == FogMode.Exponential;
+            Check("luminosita': l'esposizione sale con il cursore e la nebbia e' esponenziale", high > low + 2f && RenderSettings.fog && RenderSettings.fogMode == FogMode.Exponential,
+                  $"esposizione {low:F2} -> {high:F2}, nebbia {RenderSettings.fogMode}");
             Log($"luminosità: esposizione {low:F2} → {high:F2}, nebbia={RenderSettings.fogMode}");
 
             Enemy.debugNoSense = true;
@@ -181,11 +215,11 @@ namespace PryingEyes
                 GameManager.CamShot(Dir + "/alieno_" + type + ".png", null, false);
                 alien.Damage(alien.hp + 1f, alien.AimPoint, false, false);
                 Log($"{type}: modello={visible}, punto debole={weakSpot}, navigazione={navigation}, eliminato={alien.IsDead}");
-                passed &= visible && weakSpot && navigation && alien.IsDead;
+                Check($"{type}: modello, punto debole, navigazione ed eliminazione", visible && weakSpot && navigation && alien.IsDead,
+                      $"modello={visible}, punto debole={weakSpot}, navigazione={navigation}, eliminato={alien.IsDead}");
                 Destroy(alien.gameObject);
             }
-            Log(passed ? "alieni: OK" : "alieni: ERRORE");
-            Application.Quit(passed ? 0 : 1);
+            Log(Failed == 0 ? "alieni: OK" : "alieni: ERRORE");
         }
 
         /// <summary>-temitest: i quattro nemici di tema nel piano vero (foto con la torcia a 3-4 m), poi i loro colpi di scena:
@@ -193,7 +227,6 @@ namespace PryingEyes
         IEnumerator CheckThemed(Vector3 start, Vector3 dir)
         {
             var pl = GameManager.I.player;
-            bool passed = true;
             Enemy.debugNoSense = true;
             if (!Torch.I.on) Torch.I.Toggle();
             var types = new[] { Enemy.EnemyType.Maschera, Enemy.EnemyType.Direttore, Enemy.EnemyType.Infermiere, Enemy.EnemyType.Primario };
@@ -219,7 +252,8 @@ namespace PryingEyes
                 GameManager.CamShot(Dir + "/tema_" + type + "_3q.png", null, false);
                 e.Damage(e.hp + 1f, e.AimPoint, false, false);
                 Log($"{type}: modello={visible} ({rends} renderer, {lights} luci), punto debole={weakSpot}, navigazione={navigation}, hp={e.maxHp}, eliminato={e.IsDead}");
-                passed &= visible && weakSpot && navigation && e.IsDead;
+                Check($"{type}: modello, punto debole, navigazione ed eliminazione", visible && weakSpot && navigation && e.IsDead,
+                      $"modello={visible}, punto debole={weakSpot}, navigazione={navigation}, eliminato={e.IsDead}");
                 Destroy(e.gameObject);                  // il cadavere resterebbe sul posto (fuori da Enemy.All) e il prossimo ci nascerebbe sopra
                 yield return null;
             }
@@ -243,7 +277,7 @@ namespace PryingEyes
             while (Time.time - t0 < 9f && Enemy.statWhistles == w0) yield return null;
             bool whistled = Enemy.statWhistles > w0;
             Log($"Maschera: fischietto={whistled} dopo {Time.time - t0:F1} s");
-            passed &= whistled;
+            Check("Maschera: soffia il fischietto", whistled, $"dopo {Time.time - t0:F1} s");
 
             // l'Infermiere ti raggiunge e la puntura ti addormenta le gambe (Sedate non fa nulla a un giocatore invulnerabile:
             // qui il giocatore e' vulnerabile per il tempo della prova, ma le punture sono 10 pf l'una)
@@ -257,7 +291,7 @@ namespace PryingEyes
             bool sedated = pl.sedT > 0f;
             Log($"Infermiere: sedativo={sedated} dopo {Time.time - t0:F1} s (sedT={pl.sedT:F1})");
             pl.invulnerable = true;
-            passed &= sedated;
+            Check("Infermiere: il sedativo addormenta le gambe", sedated, $"sedT {pl.sedT:F1}");
 
             // il Primario ti vede e chiama due infermieri (arrivano dopo qualche secondo)
             Enemy.ClearAll();
@@ -271,7 +305,7 @@ namespace PryingEyes
             yield return new WaitForSeconds(6f);
             int after = Enemy.All.Count;
             Log($"Primario: richiamo={called}, nemici {before} -> {after}");
-            passed &= called && after > before;
+            Check("Primario: chiama i rinforzi", called && after > before, $"nemici {before} -> {after}");
 
             // il Direttore carica e lancia un ventaglio di tre dardi
             Enemy.ClearAll();
@@ -282,10 +316,9 @@ namespace PryingEyes
             while (Time.time - t0 < 12f && Enemy.statBolts - b0 < 3) yield return null;
             int bolts = Enemy.statBolts - b0;
             Log($"Direttore: dardi={bolts} dopo {Time.time - t0:F1} s");
-            passed &= bolts >= 3;
+            Check("Direttore: lancia tre dardi", bolts >= 3, $"{bolts} dardi");
 
-            Log(passed ? "temi: OK" : "temi: ERRORE");
-            Application.Quit(passed ? 0 : 1);
+            Log(Failed == 0 ? "temi: OK" : "temi: ERRORE");
         }
 
         // ------------------------------------------------------------------ round (-roundtest)
@@ -361,20 +394,14 @@ namespace PryingEyes
             var fd = FloorDirector.I;
             var rd = RoundDirector.I;
             var pl = gm.player;
-            bool passed = true;
-            void Check(string what, bool ok, string detail = "")
-            {
-                Log((ok ? "ok       " : "FALLITO  ") + what + (detail.Length > 0 ? "   [" + detail + "]" : ""));
-                if (!ok) passed = false;
-            }
             bool shots = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
             yield return new WaitForSeconds(2.0f);
             Log($"piano {fd.floor} seme {fd.runSeed}: stanze={fd.cur.plan.rooms.Count} candele={fd.cur.candles.Count} zone={(rd != null ? rd.ZoneCount : -1)}");
             Check("RoundDirector presente e attivo", rd != null && RoundDirector.Enabled);
-            if (rd == null) { Application.Quit(1); yield break; }
+            if (rd == null) yield break;
             Drops.disabled = true;           // le uccisioni di questa prova non devono far cadere potenziamenti a caso
             var cands = fd.cur.candles.FindAll(c => c != null && rd.HasZone(c));
-            if (cands.Count == 0) { Log("nessuna zona sigillabile su questo piano: prova non applicabile (cambia seme)"); Application.Quit(2); yield break; }
+            if (cands.Count == 0) { Log("nessuna zona sigillabile su questo piano: prova non applicabile (cambia seme)"); NotApplicable("nessuna zona sigillabile su questo piano (cambia seme)"); yield break; }
 
             Enemy.ClearAll();
             PlayerController.holdLook = true;
@@ -472,7 +499,7 @@ namespace PryingEyes
                 yield return new WaitForSeconds(0.12f);
                 GameManager.CamShot(Dir + "/round_lampo_b.png", null, false);
                 Shot("round_nascita");
-                if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-roundshots") >= 0) { Log("-roundshots: foto fatte, esco"); Application.Quit(0); yield break; }
+                if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-roundshots") >= 0) { Log("-roundshots: foto fatte, esco"); yield break; }
             }
             pl.invulnerable = false;
             pl.Hurt(10000f);
@@ -584,8 +611,7 @@ namespace PryingEyes
             }
             else Log("meno di tre zone su questo piano: round scaduto non provato");
 
-            Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
-            Application.Quit(passed ? 0 : 1);
+            Log(Failed == 0 ? "ESITO: ok" : "ESITO: FALLITO");
         }
 
         bool CheckExposure()
@@ -717,12 +743,12 @@ namespace PryingEyes
                 guardOk = plr.transform.position.y > -1f && back < 3f;
                 Log($"caduta: dopo il tuffo a -60 m il giocatore e' a y={plr.transform.position.y:F1}, a {back:F1} m dall'appoggio -> {(guardOk ? "ok" : "FALLITO")}");
             }
-            bool allOk = holes == 0 && guardOk;
-            Log(allOk ? "ESITO: ok" : "ESITO: FALLITO");
-            Application.Quit(allOk ? 0 : 1);
+            Check("nessun punto del piano senza pavimento", holes == 0, $"{holes} su {samples}");
+            Check("la rete di sicurezza riporta sul pavimento chi cade nel vuoto", guardOk, fd.cur.arrival != null ? "" : "non provata: nessun ascensore di arrivo");
+            Log(Failed == 0 ? "ESITO: ok" : "ESITO: FALLITO");
         }
 
-        IEnumerator Start()
+        protected override IEnumerator Run()
         {
             Directory.CreateDirectory(Dir);
             bool holeScan = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-holescan") >= 0;
@@ -735,22 +761,23 @@ namespace PryingEyes
             bool bookTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-booktest") >= 0;
             bool gridTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-gridtest") >= 0;
             bool pushTest = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pushtest") >= 0;
+            // the floor director installs the stealth rig with the floor; the test installs itself at load, so it waits for both
+            while (FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning || StealthRig.I == null) yield return null;
             var gm = GameManager.I;
-            while (FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) yield return null;
             if (reference)
             {
-                yield return ReferenceShots(FloorDirector.I);
+                yield return RunSuite(ReferenceShots(FloorDirector.I));
                 yield break;
             }
             log = Dir + (alienTest ? "/alieni.txt" : themeTest ? "/temi.txt" : roundTest ? "/round.txt" : knifeTest ? "/coltello.txt" : dropTest ? "/drop.txt" : bookTest ? "/libri.txt" : gridTest ? "/griglia.txt" : pushTest ? "/spinta.txt" : holeScan ? "/buchi.txt" : "/furtivo.txt");
             File.WriteAllText(log, "");
-            if (pushTest) { yield return CheckPush(); yield break; }
-            if (gridTest) { yield return CheckGrid(); yield break; }
-            if (roundTest) { yield return CheckRounds(); yield break; }
-            if (knifeTest) { yield return CheckKnife(); yield break; }
-            if (dropTest) { yield return CheckDrops(); yield break; }
-            if (bookTest) { yield return CheckBooks(); yield break; }
-            if (holeScan) { yield return CheckHoles(); yield break; }
+            if (pushTest) { yield return RunSuite(CheckPush()); yield break; }
+            if (gridTest) { yield return RunSuite(CheckGrid()); yield break; }
+            if (roundTest) { yield return RunSuite(CheckRounds()); yield break; }
+            if (knifeTest) { yield return RunSuite(CheckKnife()); yield break; }
+            if (dropTest) { yield return RunSuite(CheckDrops()); yield break; }
+            if (bookTest) { yield return RunSuite(CheckBooks()); yield break; }
+            if (holeScan) { yield return RunSuite(CheckHoles()); yield break; }
             yield return new WaitForSeconds(2.0f);
             var fd = FloorDirector.I;
             var pl = gm.player;
@@ -758,7 +785,8 @@ namespace PryingEyes
             Log($"piano {fd.floor}: stanze={fd.cur.plan.rooms.Count} candele={fd.cur.candles.Count} luci={LightPool.Count} preti={Enemy.All.Count}");
             int piles = fd.cur.root.GetComponentsInChildren<Pila>().Length;
             Log($"pile sul piano: {piles}");
-            bool passed = piles > 0 && CheckExposure();
+            Check("ci sono pile sul piano", piles > 0, piles + " pile");
+            Check("faretto: la luce misurata vale nel cono, non fuori ne' dietro un muro", CheckExposure());
 
             // ----- scena di prova: il corridoio o la sala piu' lunga, il giocatore a un'estremita' che guarda lungo l'asse
             Enemy.ClearAll();
@@ -780,7 +808,7 @@ namespace PryingEyes
                 bestLen = len; start = s; dir = d;
             }
             Log($"scena di prova: lunghezza {bestLen:F1} m, da ({start.x:F1},{start.z:F1}) verso ({dir.x:F0},{dir.z:F0})");
-            if (bestLen < 14f) { Log("nessuna stanza abbastanza lunga: prova interrotta"); Application.Quit(1); yield break; }
+            if (!Check("una stanza lunga almeno 14 m per la scena di prova", bestLen >= 14f, $"{bestLen:F1} m")) { Log("nessuna stanza abbastanza lunga: prova interrotta"); yield break; }
             pl.Teleport(start);
             pl.yaw = Mathf.Atan2(dir.x, dir.z);
             pl.pitch = 0f;
@@ -788,12 +816,12 @@ namespace PryingEyes
             yield return new WaitForSeconds(0.6f);
             if (alienTest)
             {
-                yield return CheckAliens(start, dir);
+                yield return RunSuite(CheckAliens(start, dir));
                 yield break;
             }
             if (themeTest)
             {
-                yield return CheckThemed(start, dir);
+                yield return RunSuite(CheckThemed(start, dir));
                 yield break;
             }
 
@@ -830,8 +858,8 @@ namespace PryingEyes
                         yield return null;
                     }
                     Log($"vista {D:F0} {cond.name} lum={Stealth.PlayerLum:F2} (esposizione {Stealth.lastExposure:F2}) portata={rangeSeen:F1} t_sospetto={(tS < 0 ? "mai" : tS.ToString("F1"))} t_caccia={(tH < 0 ? "mai" : tH.ToString("F1"))} finale={e.alert} aw={e.awareness:F2}");
-                    if (D0 == 8f && cond.name == "buio") passed &= tS < 0f;
-                    if (D0 == 8f && torchOn) passed &= tH >= 0f;
+                    if (D0 == 8f && cond.name == "buio") Check("al buio a 8 m il monaco non ti nota", tS < 0f, tS < 0f ? "mai" : $"dopo {tS:F1} s");
+                    if (D0 == 8f && torchOn) Check("con la torcia a 8 m il monaco ti caccia", tH >= 0f, tH < 0f ? "mai" : $"dopo {tH:F1} s");
                 }
             Stealth.lumOverride = float.NaN;
             if (torch.on) torch.Toggle();
@@ -888,7 +916,8 @@ namespace PryingEyes
                 yield return null;
             }
             Log($"torcia: pila a 2% -> cambio visto={swapSeen} carica={torch.charge:F2} scorte={torch.spares} accesa={torch.on}");
-            passed &= swapSeen && torch.on && torch.charge > 0.95f && torch.spares == 1;
+            Check("torcia: a pila scarica la cambia da sola", swapSeen && torch.on && torch.charge > 0.95f && torch.spares == 1,
+                  $"cambio visto={swapSeen}, carica {torch.charge:F2}, scorte {torch.spares}, accesa={torch.on}");
             torch.charge = 0.12f;
             yield return new WaitForSeconds(0.5f);
             Shot("torcia_pila_bassa");
@@ -905,7 +934,7 @@ namespace PryingEyes
                 pila.Use();
                 yield return null;
                 Log($"pila: raccolta -> scorte {before} -> {torch.spares}");
-                passed &= torch.spares == before + 1;
+                Check("una pila a terra si raccoglie", torch.spares == before + 1, $"scorte {before} -> {torch.spares}");
                 pl.pitch = 0f;
             }
             torch.spares = 1;
@@ -987,17 +1016,20 @@ namespace PryingEyes
             Shot("ping_segnali");
             var arrowLabel = System.Array.Find(gm.hud.GetComponentsInChildren<UnityEngine.UI.Text>(), label => label.name == "TestoAscensore");
             bool sealedArrow = arrowLabel != null && arrowLabel.text.Contains("sigillato");
-            passed &= ok && cooldown && shown == fd.cur.candles.Count + 1 && !fd.ExitOpen && sealedArrow;
+            Check("il ping parte e il secondo e' respinto dall'attesa", ok && cooldown, $"lanciato={ok}, secondo respinto={cooldown}");
+            Check("il ping mostra le candele e l'uscita", shown == fd.cur.candles.Count + 1, $"{shown} segnali su {fd.cur.candles.Count + 1}");
+            Check("la freccia dice che l'ascensore e' sigillato", !fd.ExitOpen && sealedArrow);
             foreach (var candle in fd.cur.candles) candle.Use();
             yield return new WaitForSeconds(0.35f);
             bool updated = guide.marks.Count == 1 && guide.marks[0].kind == 2;
             bool openArrow = arrowLabel != null && arrowLabel.text.StartsWith("ascensore") && !arrowLabel.text.Contains("sigillato");
             Log($"obiettivo completato: ascensore aperto={fd.ExitOpen}, ping aggiornato={updated}, freccia aggiornata={openArrow}");
             Shot("uscita_aperta");
-            passed &= fd.ExitOpen && fd.cur.exit.unlocked && updated && openArrow;
+            Check("accese le candele l'ascensore si apre", fd.ExitOpen && fd.cur.exit.unlocked);
+            Check("il ping e la freccia si aggiornano", updated && openArrow, $"ping aggiornato={updated}, freccia aggiornata={openArrow}");
 
-            Log(passed ? "fine: OK" : "fine: ERRORE");
-            Application.Quit(passed ? 0 : 1);
+            Log(Failed == 0 ? "fine: OK" : "fine: ERRORE");
         }
     }
 }
+#endif

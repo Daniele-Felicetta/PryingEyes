@@ -42,7 +42,6 @@ namespace PryingEyes
                 I.beat.playOnAwake = false;
                 I.beat.Play();
             }
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-stealthtest") >= 0) go.AddComponent<StealthTest>();
         }
 
         /// <summary>Il rig del primo giocatore (o del giocatore singolo): fa girare i potenziamenti del mondo e il cuore, che sono di tutti.</summary>
