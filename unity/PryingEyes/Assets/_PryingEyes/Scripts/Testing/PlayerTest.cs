@@ -54,6 +54,10 @@ namespace PryingEyes.Testing
         /// the base fails the check "finita entro il tempo" and ends the run as it ends any other, whatever the sequence is still waiting for.</summary>
         protected virtual float TimeLimit { get { return 0f; } }
 
+        /// <summary>Whether the bot of the automatic run must not shoot by itself while this test runs: a shot wakes the whole floor, and a test that
+        /// measures what a weapon does wants the weapon to itself. The game reads it through <see cref="TestRun.HoldFire"/>, set before the first frame.</summary>
+        protected virtual bool HoldFire { get { return false; } }
+
         /// <summary>For a test that two processes run together (the host and the friend of a co-op race): who speaks in this one. It follows the
         /// name of the suite in the log, in every check and in the result line ("pistacooptest ospite ok ..."), and nowhere else: the test names
         /// its <see cref="OutFolder"/> so that the processes do not write each other's files. Null for the others.</summary>
@@ -113,12 +117,13 @@ namespace PryingEyes.Testing
         }
 
         /// <summary>The line of a test's load hook: when <paramref name="flag"/> is on the command line, say that a test owns the process
-        /// (<see cref="TestRun.Dedicated"/>) and start the test.</summary>
+        /// (<see cref="TestRun.Dedicated"/>, and <see cref="TestRun.HoldFire"/> when the test asks for it) and start the test.</summary>
         protected static void InstallWhen<T>(string flag) where T : PlayerTest
         {
             if (!TestRun.Has(flag)) return;
             TestRun.Dedicated = true;
-            new GameObject(typeof(T).Name).AddComponent<T>();
+            var test = new GameObject(typeof(T).Name).AddComponent<T>();
+            if (test.HoldFire) TestRun.HoldFire = true;
         }
 
         string OutPath { get { return outDir ?? (outDir = TestRun.OutDir(OutFolder)); } }

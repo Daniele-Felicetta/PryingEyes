@@ -199,10 +199,9 @@ The runner reads three forms of that line, and `tools/player_log.py` is the only
 `CoopTest`'s (`[PryingEyes] cooptest ospite: RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`, the
 process that speaks after the label); and `PistaCoopTest`'s (`[PryingEyes] pistacooptest ospite RISULTATO ...`, no colon, the detail in
 parentheses: the standard line of the harness, with `Role` after the suite). A test that derives from `PlayerTest` writes `result.json` and prints the standard line too. Counted from the sources on 25
-November 2026, with the sixth pull request of T08, 79 of the 87 entries say their result in a form the runner reads: the ones on
+November 2026, with the seventh pull request of T08, 83 of the 87 entries say their result in a form the runner reads: the ones on
 `PlayerTest`, the others that print the standard line (two of them runners: `seatstest`, `splitdesertotest`) and the 17 co-op scenarios,
-which print the co-op forms. The other 8 print theirs in another form or not at all: `citytest`, `displaytest`, `guntest`, `leantest`,
-`walltest`, `magictest`, `procbot` and `perftest`. The studio starts them and fails them with
+which print the co-op forms. The other 4 print theirs in another form or not at all: `citytest`, `displaytest`, `procbot` and `perftest`. The studio starts them and fails them with
 `PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list): the
 runner does not guess a verdict from an exit code (`padtest` quit with 0 and printed no result at all until its steps were repaired).
 
@@ -348,10 +347,11 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 38 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+State: built (T07) and on 42 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
 `FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
-(`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`), the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`) and the three of the fifth (`CattedraleTest`,
-`SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest) and the one of the sixth (`StealthTest`, which stands for eleven); T08 ports the 13 others that
+(`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`), the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`), the three of the fifth (`CattedraleTest`,
+`SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest), the one of the sixth (`StealthTest`, which stands for eleven) and the four of the seventh (`GunTest`,
+`LeanTest`, `WallTest` and `MagicTest`, which were procedures of `GameManager`); T08 ports the 12 others that
 still carry their own copy of the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -363,6 +363,7 @@ namespace PryingEyes.Testing
     public static class TestRun
     {
         public static bool Dedicated;                   // a test owns this process: the automatic run must not quit by itself
+        public static bool HoldFire;                    // a test asks the bot of the automatic run not to shoot by itself (GameManager.noFire reads it)
         public static string OutDir(string folder);     // -testout DIR, or unity_logs/<folder> of the checkout; created
     }
 
@@ -374,6 +375,7 @@ namespace PryingEyes.Testing
         protected virtual string OutFolder { get; }     // under unity_logs/ without -testout: the suite's name, or the folder its page names ("trappole")
         protected virtual void Finish();                // after the sequence, however it ended, before the last check
         protected virtual float TimeLimit { get; }      // seconds from the start of the player within which the run must end, 0 for no limit: past it the check "finita entro il tempo" fails and the run ends
+        protected virtual bool HoldFire { get; }        // the bot of the automatic run must not shoot while this test runs (false by default); InstallWhen copies it into TestRun.HoldFire
         protected virtual string Role { get; }          // for a test that two processes run (the host and the friend of a co-op race): who speaks, after the suite name in every log line; null for the others
         protected virtual string ExceptionCheck { get; } // the last check: "nessuna eccezione runtime", the name a suite has always given it, or null for a suite that never made one
         protected virtual bool IsError(string message, LogType type);   // what the last check counts as an error: an exception, plus what a suite adds to it
@@ -410,7 +412,8 @@ What the base class does, in the order of the old private copies: it counts the 
 `Run()` (an exception in it ends the sequence, is logged and fails the check `sequenza completa`), calls `Finish()`, adds the check
 `nessuna eccezione runtime` (or the name that `ExceptionCheck` gives, or none at all), writes `result.json`, prints the result line and quits with 0 when every check passed, with 2 when the test said `NotApplicable` and nothing else failed, and with 1 otherwise. Each
 check is still the log line `[PryingEyes] <suite> ok <name>` or `... FALLITO <name>`, in the order of the calls. `InstallWhen` sets
-`TestRun.Dedicated` when the flag is on the command line, in the load hook, before the first `GameManager.Update`; `GameManager` reads
+`TestRun.Dedicated` when the flag is on the command line, in the load hook, before the first `GameManager.Update` (and `TestRun.HoldFire` when the test says
+`HoldFire`: `GameManager.noFire` is `-nofire`, the flags of the suites that are not on the harness yet, or `TestRun.HoldFire`, asked every time); `GameManager` reads
 `TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags)`, the legacy array being the flags of the suites that are not on the
 harness yet, one per line, which T08 empties and deletes. A suite that says a `TimeLimit` is also watched by the clock, in a coroutine of the base class's own
 (a suite's `Update` would hide one in the base class): past the limit the check `finita entro il tempo` fails and the run ends as above, whatever the sequence is still waiting for.
@@ -424,8 +427,10 @@ Where the first sketch was wrong or short:
 - `OutDir` takes the name of a folder, not of a suite: the three suites keep the folders their pages name (`trappole`, `botti`, `mine`),
   and a new suite defaults to its own name. It resolves `unity_logs/` against the checkout (through `TestPaths.LogFolder`, which `TestPaths.Scratch` uses too, as `TestPaths.Out` does for `hotel_build/`), not
   against the working directory, so a run started from another folder still writes where the page says.
-- `HoldFire` is not there: the three suites are started with `-nofire` and none of their flags is in the list that stops the bot from
-  firing. The first suite that needs it adds it (T08).
+- `HoldFire` came with the seventh pull request, for the two that needed it: the stealth family and `GunTest` want the bot of the automatic run not to shoot
+  (`Weapon` asks `GameManager.noFire`, which had a list of test flags). A test overrides the member, `InstallWhen` copies it into `TestRun.HoldFire` before the first frame, and
+  the flag of the test leaves the list of `GameManager.Awake`: it still holds `-cooptest`, `-citytest` and `-desertotest` (not on the harness yet) and `-survivaltest` and
+  `-cattedraletest` (on it, not moved yet).
 - `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
   replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
   break;` and `PlayerController.botDir = Vector3.zero` after the sequence).

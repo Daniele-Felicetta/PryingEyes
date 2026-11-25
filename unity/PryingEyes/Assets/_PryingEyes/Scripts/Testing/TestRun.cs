@@ -12,6 +12,11 @@ namespace PryingEyes.Testing
         /// <c>PlayerTest.InstallWhen</c> sets it when the flag of the test is on the command line; nothing else does.</summary>
         public static bool Dedicated;
 
+        /// <summary>A test on the harness asks the bot of the automatic run not to shoot by itself while it runs: every shot wakes the whole floor.
+        /// <c>PlayerTest.InstallWhen</c> sets it from the test's <c>HoldFire</c> before the first frame, and <c>GameManager.noFire</c> reads it every time it is
+        /// asked, so the game keeps no list of test flags for it.</summary>
+        public static bool HoldFire;
+
         /// <summary>The folder a test writes into, created when it is missing: its <c>result.json</c> and its photographs. It is the folder
         /// that <c>-testout DIR</c> names (how a runner collects them) or, without that flag, <c>unity_logs/&lt;folder&gt;</c> of the checkout
         /// the game runs in, found like <c>hotel_build/</c> (see <see cref="TestPaths"/>) and not relative to the working directory.</summary>

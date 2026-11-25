@@ -150,8 +150,8 @@ process (34 flags before T07 put three suites on the harness, 31 when T08 starte
    refuses any reference from the game to a test.
 
 Hooks that tests need inside production code (`Enemy.debugFreeze`, `PlayerController.botDir`, `Prove.pinned`, `Drops.disabled`) are
-part of the game's testability and stay. Test *procedures* that live inside production classes (the gun, lean and wall-buy tests in
-`GameManager`, the bot in `FloorDirector.Bot.cs`) move out when their suite is ported to the harness, not before.
+part of the game's testability and stay. Test *procedures* that live inside production classes move out when their suite is ported to the harness, not before:
+the gun, lean, wall-buy and magic tests of `GameManager` did with the seventh pull request of T08, the bot in `FloorDirector.Bot.cs` has not yet.
 
 ## B5. Editor tools
 
