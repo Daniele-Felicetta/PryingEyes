@@ -47,16 +47,19 @@ What may be added to them, and when, is in [package-extraction.md](package-extra
 ## B2. Game rules: an engine-free assembly inside the game
 
 **What.** A folder `unity/PryingEyes/Assets/_PryingEyes/Rules/` with one assembly definition, `PryingEyes.Rules`
-(`noEngineReferences: true`, references only `Production.*`), holding the 34 files that F8 lists, grouped as they are today:
+(`noEngineReferences: true`, references only `Production.*`), holding the 34 files that F8 lists, changed by T20 (the draft's
+`NetworkFloorPlan.cs` is gone; the three admission files of the co-op are engine-free, a lab compiles them, and they now sit in
+`Scripts/Coop`), 36 in all, grouped as they are today:
 
 | Subfolder | Files that move there | Compiled by |
 | --- | --- | --- |
-| `Rules/Plan` | `Proc/PlanTypes.cs`, `PlanGen.cs`, `PlanGen.Building.cs`, `PlanGrid.cs`, `PlanThemes.cs`, `PlanAnnex.cs`, `HubPlan.cs`, `RoundRegions.cs`, `RoomAccessState.cs`; `Multiplayer/Procedural/NetworkFloorPlan.cs` | `planlab`, `desertlab`, `multiplayer-check` |
+| `Rules/Plan` | `Proc/PlanTypes.cs`, `PlanGen.cs`, `PlanGen.Building.cs`, `PlanGrid.cs`, `PlanThemes.cs`, `PlanAnnex.cs`, `HubPlan.cs`, `RoundRegions.cs`, `RoomAccessState.cs` | `planlab`, `desertlab` |
 | `Rules/Map` | `Proc/Map/MapMath.cs`, `MapPen.cs`, `MapTextures.cs`, `MapScene.cs`, `MapPainter.cs`, `MapPainter.Glyphs.cs`, `MapPainter.Props.cs`, `MapPainter.Shade.cs` | `planlab` |
 | `Rules/Desert` | `Deserto/DesertNoise.cs`, `DesertClock.cs`, `DesertWorld.cs`, `DesertTerrainGen.cs`, `DesertMapGen.cs`, `DesertScatterGen.cs`, `DesertWeather.cs`, `DesertGrade.cs` | `desertlab` |
 | `Rules/Characters` | `Characters/CharacterLooks.cs`, `Leveling.cs`, `CharacterRecord.cs`, `CathedralJson.cs`, `RunRecord.cs` | `saveslab` |
 | `Rules/Cathedral` | `Cattedrale/Catalogo.cs` | `economylab` |
-| `Rules/Score` | `PlayerPerks.cs`, `Punti.cs` | `multiplayer-check` |
+| `Rules/Admission` | `Coop/AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs` | `admissionlab` |
+| `Rules/Score` | `PlayerPerks.cs`, `Punti.cs` | `admissionlab` |
 
 Namespaces stay as they are (`PryingEyes.Proc`, `PryingEyes.Deserto`...), so no other file changes: the move is a `git mv` of each file
 with its `.meta`, plus the paths in the lab projects and in the pages that name them.
@@ -196,12 +199,13 @@ These hold from now, before any task is done:
 
 `python tools/code_census.py` at each step. The numbers that the plan moves (today: the census of 24 November 2026 at `4aaafa8` with T07
 applied; four rows differ from the values the plan started from (34, 47, 51 and 39) because code arrived after it was written, the track
-mode first of all, and T07 has since moved two of them):
+mode first of all, and T07 has since moved two of them). T20 (25 November 2026) moved the first two rows and nothing else; the rest are
+the values of that census:
 
 | Number (section of the census) | Today | Target | Task |
 | --- | --- | --- | --- |
-| Hermetic suites in the gate (`python tools/studio.py suites --json`: the ones with an empty `needs`; before T03, the steps of the workflow) | 7 | 7 | T01, T02, T03 |
-| Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 54 | 0 | T15 |
+| Hermetic suites in the gate (`python tools/studio.py suites --json`: the ones with an empty `needs`; before T03, the steps of the workflow) | 8 | every one | T01, T02, T03, T20 |
+| Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 56 | 0 | T15 |
 | Production files that name a test type (`tests`) | 2 | 0 | T08, T17 |
 | Test files not kept out of a release (`tests`) | 14 | 0 | T17 |
 | Tests with a private `Check` (`tests`) | 48 | 0 | T08 (T07 took it from 51) |

@@ -253,6 +253,10 @@ others. The page of the co-op explains its origin
 and the classic hall (`HotelBuilder.cs`) are in the same position: alive, compiled, outside the game a player starts. None of this is
 wrong, but an agent reading the code cannot tell which stack is the real one.
 
+**Closed for the draft on 25 November 2026 (T20, #66).** The maintainer chose to retire it: `Multiplayer/` is gone, the four files the
+game used live in `Scripts/Coop/`, and `tools/multiplayer-check` is replaced by `tools/admissionlab`. The tables of this page that name the
+draft or that project are those of the snapshot. The city prototype and the classic hall are as described.
+
 ### F13. Documentation and identifiers
 
 - The documentation is unusually complete and is checked (links, index, machine paths). It is also where registries live: the list of

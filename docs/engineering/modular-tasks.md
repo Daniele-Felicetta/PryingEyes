@@ -136,16 +136,16 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
      `GAME_PRODUCTION_NAMES_TEST` (a file that is not a test names a test type), `GAME_TEST_NOT_EXCLUDED` (a test file without
      `PE_DISTRIBUTION_BUILD`), `GAME_PURE_FILE_NAMES_ENGINE` (a game file that a lab compiles names `UnityEngine` or `UnityEditor`),
      `GAME_BASELINE_STALE` (an entry of the baseline that no longer applies). Found when the rule was first run: a *lab* is a project
-     that reaches no Unity assembly. The projects of `tools/multiplayer-check` that do (`unity-compile`, `fishnet-compile`) compile engine
-     code against the editor's own libraries, and 14 of the files they compile name `UnityEngine` or `UnityEditor` on purpose; counted as labs they would
-     be 14 violations that are not one, so the rule leaves them out. A fifth code, `GAME_BASELINE_INVALID`, reports a baseline that is
+     that reaches no Unity assembly. The projects of `tools/multiplayer-check` that did (`unity-compile`, `fishnet-compile`; T20 retired the folder) compiled
+     engine code against the editor's own libraries, and 14 of the files they compiled named `UnityEngine` or `UnityEditor` on purpose; counted as labs they would
+     have been 14 violations that are not one, so the rule leaves them out. A fifth code, `GAME_BASELINE_INVALID`, reports a baseline that is
      not valid or has an entry without its reason.
   2. The baseline is the fixture: today's two files and 14 files, each with a reason (none for the engine rule). An entry can be removed, never added without a
      reason a reviewer accepts.
   3. In the gate, after the guard, print `python tools/code_census.py --section sizes --section cycles --section tests --section flags`
      into the run summary and upload its JSON with the lab reports. It reports; it does not fail. The census reads the `.asmdef` files of
-     the game, which the sparse checkout of the gate did not have (without `Multiplayer/Core`'s, five of its files count as `Assembly-CSharp`
-     there): the pattern is added.
+     the game, which the sparse checkout of the gate did not have (without `Multiplayer/Core`'s, five of its files counted as `Assembly-CSharp`
+     there; the assembly went with T20, the pattern stays for the ones to come): the pattern is added.
 - **Done when**
   - The guard passes on the repository; each new code is produced by a fixture violation in the unit tests; removing a baseline entry
     whose violation still exists fails; fixing a violation and leaving its entry fails with `GAME_BASELINE_STALE`.
@@ -373,11 +373,12 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 
 ### T15. The game-rules assembly
 
-- **Why**: F8, B2. 34 engine-free files are kept pure by labs alone.
+- **Why**: F8, B2. 34 engine-free files are kept pure by labs alone (the number of the audit: T20 took `NetworkFloorPlan.cs` out and
+  brought the three admission files of `Scripts/Coop` in, 36 in the table of B2; the census says how many there are the day this starts).
 - **Needs**: **editor**, one **full build**.
 - **Depends on**: T01 (so that the desert files are under a lab in the gate).
-- **Touches**: the 34 files and their `.meta` (moved, not edited), a new `Rules/PryingEyes.Rules.asmdef`, the lab projects that name
-  the old paths (`planlab`, `desertlab`, `saveslab`, `economylab`, the three projects of `tools/multiplayer-check`), the guard and its
+- **Touches**: the files of the B2 table and their `.meta` (moved, not edited), a new `Rules/PryingEyes.Rules.asmdef`, the lab projects that name
+  the old paths (`planlab`, `desertlab`, `saveslab`, `economylab`, `admissionlab`), the guard and its
   test, every page that names a moved path.
 - **Steps**
   1. Before: build the labs and keep the output of `planlab grid 200`, of `desertlab` and of the four lab suites.
@@ -405,9 +406,9 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 - **Needs**: **editor**, **full build**. A throwaway branch.
 - **Depends on**: T15.
 - **Steps**
-  1. On a branch that is not meant to merge: one assembly definition for the game at `Assets/_PryingEyes/` (it must cover `Scripts/`
-     and `Multiplayer/`, which name each other), with the references the code needs (the render pipeline, the UI, FishNet, `Production.*`,
-     `PryingEyes.Rules`, `PryingEyes.Multiplayer.Core`); one for the editor folders, editor only.
+  1. On a branch that is not meant to merge: one assembly definition for the game at `Assets/_PryingEyes/` (it must cover `Scripts/`;
+     the `Multiplayer/` folder that once named it back is gone, T20), with the references the code needs (the render pipeline, the UI,
+     FishNet, `Production.*`, `PryingEyes.Rules`); one for the editor folders, editor only.
   2. Find out and write down: does it compile; does FishNet's code generation still run on it (the co-op scenario `a_griglia` passes);
      do the `-executeMethod` entry points still resolve; does a full build work and the smoke walk pass; do scenes and prefabs keep
      their scripts.
@@ -464,6 +465,16 @@ each one will say more than can be written now.
   everything removed stays in git history.
 - **Done when**: the folder has a README that states its status, or is gone by decision, and
   [../multiplayer/README.md](../multiplayer/README.md) says the same.
+- **Outcome** (25 November 2026, #66): the maintainer chose to retire it. The brief of the options was #48, closed in favour of #66.
+  `Assets/_PryingEyes/Multiplayer/` no longer exists. The four files the game used, `FishNetSeatAuthenticator.cs`, `AdmissionGate.cs`,
+  `SessionAdmission.cs` and `SessionRoster.cs`, moved to `Scripts/Coop/` with their `.meta` files (same GUIDs; no line of code and no namespace
+  changed). The other 17 C# files, the probe scene and its prefabs, `tools/multiplayer-check` and the lines of `.gitignore` for it were removed;
+  the draft as it was imported stays in git, at `36e0a3a`. Its live checks (the admission gate, the token, the roster and `PlayerPerks`,
+  with the same sentences) are the lab `tools/admissionlab`, a suite of the gate (`python tools/studio.py test admission`); the checks of the old
+  project that proved code that is gone (the floor plan of the draft, its seat command, its screen layout, its workspace guard) were not
+  carried over. `Assets/DefaultPrefabObjects.asset`, which listed the two probe prefabs, is now empty.
+  Found on the way and not done: `SessionRoster.cs` still holds the floor barrier of the draft (`BeginFloor`, `Acknowledge`, `AllReady`...) that
+  nothing in the game calls, and its checks are in the lab because the file moved as it was. Removing the barrier is a change of code, not a move.
 
 ### T21. The tables of testing.md from the manifest
 

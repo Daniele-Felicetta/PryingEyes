@@ -65,20 +65,9 @@ hotel_build/cattedrale/
 hotel_build/deserto/
 hotel_build/seats/
 
-# Isolated multiplayer checks; never use the main worktree build output.
-!tools/multiplayer-check/MultiplayerCheck.csproj
-!tools/multiplayer-check/unity-compile/UnityModules.csproj
-tools/multiplayer-check/unity-compile/bin/
-tools/multiplayer-check/unity-compile/obj/
-tools/multiplayer-check/bin/
-tools/multiplayer-check/obj/
-tools/multiplayer-check/.dotnet/
-tools/multiplayer-check/.dependencies/
+# What the retired multiplayer draft's isolated validation left on a disk (a player build and a package cache): kept ignored, nothing writes there now.
 tools/unity-validation/
 .unity-cache/
-!tools/multiplayer-check/fishnet-compile/**/*.csproj
-tools/multiplayer-check/fishnet-compile/**/bin/
-tools/multiplayer-check/fishnet-compile/**/obj/
 
 # Independent layout consumer: keep its source and package configuration, regenerate scene and settings.
 unity/LayoutDemo/Library/
