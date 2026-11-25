@@ -37,6 +37,7 @@ namespace PryingEyes.Deserto
         float heading, spin, steerVis, revs, dustT, interactT, settleT, outT;
         float lastSpeed, lastThrottle, lastHs;
         bool lastBoost, lastBrake, lastGrounded = true, settled, lit;
+        bool exteriorCamera;
         Vector3 lastVel;
         DesertTracks.Pen penRear, penFront;                 // i nastri di traccia delle due ruote (DesertTracks): si spezzano quando la moto si ferma, si stacca o si parcheggia
 
@@ -78,6 +79,14 @@ namespace PryingEyes.Deserto
         public bool RightArmShown => rig != null && rig.glove[1] != null && rig.glove[1].gameObject.activeSelf;
         /// <summary>La destra lascia il manubrio per l'arma (o ci torna): il braccio destro della moto sparisce (o riappare).</summary>
         public void ShowRightArm(bool on) { if (rig != null) rig.ShowRightArm(on); }
+        public void SetRiderCamera(bool exterior)
+        {
+            if (exteriorCamera == exterior) return;
+            exteriorCamera = exterior;
+            if (rig == null) return;
+            rig.ShowArms(!exterior && !Seats.Split);
+            rig.SetScreens(exterior);
+        }
         public float EngineVolume => engine != null ? engine.volume : 0f;
         public float EnginePitch => engine != null ? engine.pitch : 0f;
 
@@ -174,6 +183,7 @@ namespace PryingEyes.Deserto
         public void Take(PlayerController p)
         {
             rider = p;
+            exteriorCamera = false;
             DesertBikes.NoteRide(this);
             penRear?.Lift(); penFront?.Lift();
             if (box != null) box.enabled = false;

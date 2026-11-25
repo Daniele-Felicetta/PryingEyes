@@ -6891,7 +6891,7 @@
    "kind": "system",
    "class": "system",
    "mode": "both",
-   "summary": "The Prospettiva setting puts the camera behind your survivor's shoulder, 2.1 m behind your eye and 55 cm to the right, and brings it in when you aim.",
+   "summary": "The Prospettiva setting puts the camera behind your survivor's shoulder and brings it closer while aiming or passing an obstacle.",
    "image": "wiki/img/systems/third-person.webp",
    "sources": [
     "docs/game/third-person.md",
