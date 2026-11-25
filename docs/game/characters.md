@@ -33,15 +33,16 @@ falls back to the old mannequin (`RemotePlayer.BuildBody`).
 ## The body at runtime (`SurvivorBody`)
 
 The owner (`RemotePlayer` from the network, `SeatAvatar` from the player of a seat) places the root at the feet, turned like the body, and fills
-a `SurvivorInput` every frame: velocity in the world, pitch (positive looks down), lean, crouch, sprint, alive, downed, grounded, climb, the
+a `SurvivorInput` every frame: velocity in the world, pitch (positive looks down), lean, crouch, sprint, alive, downed, grounded, climb, slide, the
 index of the weapon in `WeaponDefs.All` (-1 for none), seconds since the last shot, aiming 0..1 and reloading. The body does the rest in
 `LateUpdate` (execution order 1000, after everything that moves the owner); the tests call `Step(dt)` themselves.
 
 - **Pose without the FBX axes.** Every pose is a rotation relative to the rest pose, computed in the frame of the root, so it does not depend on
   how Blender oriented the bones. The Animator of the FBX is switched off; the pose is reset every frame before it is built.
-- **Legs.** Two-bone analytic IK with a pole at the knee. The gait is procedural (stance and swing, stride `0.60 + 0.16 x speed` m, shorter
-  crouched, the feet raycast on the environment layers and follow stairs and slopes). The hips lower so a leg never has to lock.
-  Sprinting, crouching, jumping and landing change the stride and the pelvis.
+- **Legs.** Two-bone analytic IK with a pole at the knee. The procedural gait holds each boot near its point of contact through the stance
+  phase, then lifts it for the next step. Step length follows speed and shortens when crouching. The feet raycast on the environment
+  layers to follow stairs and slopes, and the hips lower to keep the knees bent. Sprinting lifts the feet higher. Jumping and falling use
+  different poses, landing lowers the hips according to the downward speed, and local players have a low, one-leg-forward slide pose.
 - **Torso and head** follow the pitch and the lean; the head looks where the player looks.
 - **Arms and weapon.** The weapon is the same prefab as the first-person one (`Resources/Armi/<id>`). It sits in the hands with the grips that
   `GripPoses` models for the first-person hand (wrist point, palm frame, the joints of every finger, the thumb, the trigger finger): the

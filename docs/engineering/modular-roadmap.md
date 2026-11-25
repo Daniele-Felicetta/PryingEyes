@@ -68,7 +68,7 @@ are in [modular-tasks.md](modular-tasks.md).
 | T17 | The tests in their own assembly | 3 | T08, T16 says go | editor, full build | todo |
 | T18 | An engine-free audio core and its lab | 4 | T15 | editor, build | todo, on its trigger |
 | T19 | One reader of the command line | 4 | T08 | editor, build | todo, on its trigger |
-| T20 | Decide the fate of the multiplayer draft | 4 | | the maintainer | todo, on its trigger |
+| T20 | Decide the fate of the multiplayer draft | 4 | | the maintainer | done (#66) |
 | T21 | The tables of testing.md from the manifest | 4 | T05, T06 | | todo, on its trigger |
 
 ## What can run at the same time
@@ -94,7 +94,7 @@ A phase is over when its numbers have moved and stay moved. The numbers are prin
 
 | Phase | It is over when |
 | --- | --- |
-| 0 | the gate runs seven hermetic suites and none is named in the workflow; the guard fails on a new production reference to a test and on a new unwrapped test; a change to `PlanGrid.cs` turns the gate red until the fingerprint and the protocol revision are updated |
+| 0 | the gate runs every hermetic suite that the registry lists (seven when the phase ended, eight with T20's) and none is named in the workflow; the guard fails on a new production reference to a test and on a new unwrapped test; a change to `PlanGrid.cs` turns the gate red until the fingerprint and the protocol revision are updated |
 | 1 | `studio.py suites` lists every in-player suite; at least the suites that need no graphics card produce a `report.json` with one finding per check; no test defines its own `Check` (census: 47 to 0); `GameManager.cs` names no test flag |
 | 2 | two agents in two worktrees run a co-op scenario at the same time and both pass; after a smoke walk and a suite `git status --porcelain hotel_build` is empty; a new worktree compiles without importing the assets; the maintainer has decided about rule 6 on the evidence of T14 |
 | 3 | no engine-free file compiled by a lab is left in the game assembly (census: 34 to 0); a distribution build contains no test type (census: 14 to 0), or T16 has recorded why not |
@@ -109,7 +109,6 @@ moves one.
 | --- | --- |
 | T18, audio | the next audio feature, or the first audio defect that a check without the editor would have caught |
 | T19, command line | after T08, when no pull request that touches many game files is open |
-| T20, multiplayer draft | the maintainer has ten minutes to decide: it is a question, not work |
 | T21, generated tables | the manifest has been used by T06 and its fields have stayed true through a few merges |
 | Paid areas or wave pacing on the package ([package-extraction.md](package-extraction.md#packages-the-game-does-not-use)) | the next change to either rule |
 | A first new package (the ink pen is first in line) | a second consumer appears |
@@ -123,7 +122,8 @@ The plan stops at these; an agent does not take them:
    decision to take on its result.
 2. **The evidence under `hotel_build/`** (485 tracked files): T12 only stops automated runs from rewriting the most common ones. Whether
    the folder stays tracked, is pruned or moves out of git is not decided here, and nothing is deleted.
-3. **The multiplayer draft** (`Assets/_PryingEyes/Multiplayer/`): keep it as the base of a future rewrite, freeze it, or retire it (T20).
+3. **The multiplayer draft** (`Assets/_PryingEyes/Multiplayer/`): decided on 25 November 2026, retire it, and T20 did (the four files the game used moved
+   to `Scripts/Coop/`; the rest stays in git at `36e0a3a`).
 4. **A named game assembly**: T16 ends with a recommendation; going ahead (T17) is a choice.
 5. **`Production.Survival` and `Production.Layout`**: converge the game onto them at the next change, or say plainly that they serve
    the city prototype ([package-extraction.md](package-extraction.md#packages-the-game-does-not-use)).

@@ -46,8 +46,8 @@ Two files have `Test` in their name and are compiled into every build on purpose
 is the one place that defines `Check`, so the file that declares it is not counted among the tests with their own copy of it.
 
 An *engine-free lab* is a .NET project under `tools/` that reaches no Unity assembly: it has no `Reference` to one, neither in the
-project nor in a props file it imports nor in a project it references. The projects of `tools/multiplayer-check` that do
-(`unity-compile`, `fishnet-compile`) compile engine code against the editor's own libraries; they are compile checks, and the rule leaves them out.
+project nor in a props file it imports nor in a project it references. A project that does is a compile check against the editor's
+own libraries, and the rule leaves it out (`tools/multiplayer-check` held such projects, `unity-compile` and `fishnet-compile`, until T20 retired it).
 What a lab compiles is read from its `Compile` items, patterns with `*` and `**` included, so the files of `Scripts/Pista` that `tracklab` compiles are covered
 like any other.
 

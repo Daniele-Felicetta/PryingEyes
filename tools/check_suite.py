@@ -158,8 +158,8 @@ def reaches_unity(project, seen=()):
 def lab_sources(root):
     """{source file: lab folders}: what the engine-free labs compile (a name with * or ** takes every file it matches).
 
-    A lab compiles sources and reaches no Unity assembly. The projects of tools/multiplayer-check that do are compile checks against the
-    editor's own libraries: they exist to compile engine code, so they prove nothing about what runs without one and are left out."""
+    A lab compiles sources and reaches no Unity assembly. A project that does is a compile check against the editor's own libraries: it
+    exists to compile engine code, so it proves nothing about what runs without one and is left out."""
     result = {}
     for project in sorted((root / "tools").rglob("*.csproj")):
         if any(part in ("bin", "obj") for part in project.relative_to(root).parts) or reaches_unity(project): continue

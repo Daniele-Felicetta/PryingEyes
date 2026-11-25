@@ -4,6 +4,7 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using UnityEngine.Rendering;
 
 namespace PryingEyes.Deserto
 {
@@ -20,6 +21,127 @@ namespace PryingEyes.Deserto
         {
             foreach (var b in DesertBike.All) if (b != null && !b.puppet) return b;
             return null;
+        }
+
+        IEnumerator MotoCamera()
+        {
+            var player = Pl;
+            var bike = FirstBike();
+            var camera = player.cam.GetComponent<Camera>();
+            Check("motocamera: bike and rendering camera are available",
+                bike != null && camera != null && SystemInfo.graphicsDeviceType != GraphicsDeviceType.Null);
+            if (bike == null || camera == null || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) yield break;
+
+            PlayerController.holdLook = true;
+            PlayerController.botDir = Vector3.zero;
+            DesertBike.BotReset();
+            Vector2 sand = OpenSand(80f);
+            yield return GoTo(sand.x, sand.y, 2f);
+            Vector3 start = player.transform.position;
+            GroundAt(start.x, start.z + 1.8f, out float ground);
+            bike.Park(new Vector3(start.x, ground, start.z + 1.8f), 0f);
+            player.yaw = 0f;
+            player.pitch = 0.12f;
+
+            int perspective = GameSettings.thirdPersonOverride;
+            Vector3? framing = GameSettings.thirdPersonFramingOverride;
+            bool playerEnabled = player.enabled;
+            float captureStep = Time.captureDeltaTime;
+            var target = RenderTexture.GetTemporary(320, 180, 24);
+            var previousTarget = camera.targetTexture;
+            Vector3 rendered = default;
+            int mask = 0;
+            GameObject wall = null;
+            void Capture(ScriptableRenderContext _, Camera current)
+            {
+                if (current != camera) return;
+                rendered = current.transform.position;
+                mask = current.cullingMask;
+            }
+            Vector3 Sample()
+            {
+                renderFrame = Time.frameCount;
+                RenderPipelineManager.beginCameraRendering += Capture;
+                try { camera.Render(); }
+                finally { RenderPipelineManager.beginCameraRendering -= Capture; }
+                return rendered;
+            }
+
+            try
+            {
+                GameSettings.thirdPersonOverride = 1;
+                GameSettings.thirdPersonFramingOverride = GameSettings.DefaultThirdPersonFraming;
+                yield return new WaitForSeconds(0.65f);
+                Time.captureDeltaTime = 1f / 60f;
+                camera.targetTexture = target;
+                Vector3 footView = Sample();
+                Check("motocamera: starts in third person", Vector3.Distance(footView, player.cam.position) > 1.2f);
+
+                bike.Use();
+                yield return null;
+                float mountCut = Vector3.Distance(footView, Sample());
+                Check("motocamera: mounting continues from the visible shoulder camera",
+                    player.Riding && mountCut < 0.40f, $"{mountCut:F2} m on the first frame");
+                yield return new WaitForSeconds(0.55f);
+                Vector3 rideView = Sample();
+                Vector3 normalOffset = rideView - bike.EyeWorld;
+                var rider = FindFirstObjectByType<SeatAvatar>();
+                Check("motocamera: third person frames the seated rider from outside",
+                    normalOffset.z < -2f && rider != null && rider.Body != null && rider.Body.SeatAmount > 0.9f
+                    && (mask & (1 << rider.Layer)) != 0 && !bike.ArmsShown, $"camera offset {normalOffset:F2}");
+                player.enabled = false;
+                yield return Frames(3);
+                Check("motocamera: a paused controller keeps rendering from outside the seated rider",
+                    Vector3.Distance(Sample(), rideView) < 0.05f);
+                player.enabled = playerEnabled;
+
+                GameSettings.thirdPersonFramingOverride = new Vector3(-0.8f, 0.5f, 4.0f);
+                yield return new WaitForSeconds(0.8f);
+                Vector3 adjusted = Sample() - bike.EyeWorld;
+                Check("motocamera: distance, height and shoulder change the mounted view",
+                    adjusted.z < normalOffset.z - 1f && adjusted.y > normalOffset.y + 0.35f
+                    && adjusted.x < -0.6f, $"camera offset {adjusted:F2}");
+                Shot("motocamera_terza_persona");
+
+                wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wall.transform.position = bike.EyeWorld + Vector3.back * 0.7f;
+                wall.transform.localScale = new Vector3(4f, 4f, 0.12f);
+                Physics.SyncTransforms();
+                yield return null;
+                Check("motocamera: a close wall switches to the eye and hides the rider",
+                    Vector3.Distance(Sample(), bike.EyeWorld) < 0.08f && rider != null
+                    && (mask & (1 << rider.Layer)) == 0 && bike.ArmsShown);
+                DestroyImmediate(wall);
+                Physics.SyncTransforms();
+                GameSettings.thirdPersonFramingOverride = GameSettings.DefaultThirdPersonFraming;
+                yield return new WaitForSeconds(0.85f);
+                rideView = Sample();
+
+                player.RideRequestDismount();
+                float largestStep = 0f;
+                Vector3 previous = rideView;
+                for (int i = 0; i < 36; i++)
+                {
+                    yield return null;
+                    Vector3 current = Sample();
+                    largestStep = Mathf.Max(largestStep, Vector3.Distance(previous, current));
+                    previous = current;
+                }
+                Check("motocamera: dismounting returns to third person without a cut",
+                    !player.Riding && largestStep < 0.55f && Vector3.Distance(previous, player.cam.position) > 1.2f
+                        && (mask & (1 << Seats.ViewLayer)) == 0, $"largest step {largestStep:F2} m");
+            }
+            finally
+            {
+                camera.targetTexture = previousTarget;
+                RenderTexture.ReleaseTemporary(target);
+                Time.captureDeltaTime = captureStep;
+                player.enabled = playerEnabled;
+                GameSettings.thirdPersonOverride = perspective;
+                GameSettings.thirdPersonFramingOverride = framing;
+                if (wall != null) DestroyImmediate(wall);
+                if (player.Riding) player.AbortRide();
+            }
         }
 
         static bool GroundAt(float x, float z, out float y)
