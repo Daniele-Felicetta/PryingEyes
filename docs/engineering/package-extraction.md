@@ -83,13 +83,13 @@ Lines are those of the census at commit `4042709`.
 | Procedural audio (`SoundGen*.cs`) | 18, 3,987 | almost: `Mathf` 405 times, two other calls | every sound | the sounds themselves; the filters and envelopes are generic | 0 | rung 1 when audio next needs a check that does not need the editor (T18) |
 | Paid areas, wave pacing | see above | yes | the game and, separately, the package | prices, lifts | 0 and 2 | converge at the next change, or relabel the package |
 | In-player test harness (`Testing/PlayerTest.cs`, `Testing/TestRun.cs`; T07) | 2, 217 | no (it is a `MonoBehaviour`) | this game | nothing by design | 0 | stays; its result file is documented so that it could be lifted later |
-| `Multiplayer/Core` | 5, 233 | yes, own assembly | a draft (F12) | | | decide with T20 |
+| Admission of a co-op session (`Coop/AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs`; T20) | 3, 178 | yes, `admissionlab` | the co-op | the content revision, the four seats of a connection | 0 | **rung 1** (T15) |
 | Mesh and texture builders (`MeshBuilder.cs`, `ProcTextures.cs`, `PropMeshes*.cs`, `FacadeKit.cs`) | | no | one each | | 0 | stay. An engine-bound package would need a second kind of rule in the guard; not before a second consumer |
 | Platform glue (`Coop/WinWindows.cs`, `PadControls.cs`) | | partly | one each | | 0 | stay |
 
 ## The step that makes extraction cheap
 
-Moving the 34 engine-free files to `Rules/` (B2, task T15) is the only extraction work proposed now. After it:
+Moving the engine-free files that a lab compiles to `Rules/` (B2, task T15) is the only extraction work proposed now. After it:
 
 - the candidates for rung 2 are a folder, not a search;
 - promoting one is a move between two engine-free assemblies that the compiler already keeps clean, plus the README and the demo;

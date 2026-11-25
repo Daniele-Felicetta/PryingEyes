@@ -100,7 +100,7 @@ Before anything that uses the graphics card or the screen, the session checks th
 - **A criterion written before measuring can be false.** T04's five seconds were. Sessions measure before they promise and put the
   numbers in the pull request.
 - **A word in a brief is a decision.** "A lab" in T04, as written, would have flagged 14 files that are not violations: nine projects of
-  `tools/multiplayer-check` compile engine code against Unity's own libraries on purpose. The session found it by running the rule on the
+  `tools/multiplayer-check` (retired later by T20) compiled engine code against Unity's own libraries on purpose. The session found it by running the rule on the
   real tree, before writing a test, and defined a lab as a project that reaches no Unity assembly.
 - **A check reads what its environment has.** The sparse checkout of the gate lacked the `.asmdef` files that the census reads, so the same
   census gave other numbers there. It showed on a sparse copy made with the gate's own patterns.
