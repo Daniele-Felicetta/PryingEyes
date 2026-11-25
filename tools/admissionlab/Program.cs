@@ -6,7 +6,7 @@ using System.Text.Json;
 
 // The rules of getting into a co-op session, and of the perks a player carries, outside Unity: the host's admission gate, the token a guest
 // sends, the roster of connections and seats, and PlayerPerks. They are compiled from the files the game compiles (the admission files of
-// Scripts/Coop, Scripts/PlayerPerks.cs and Punti.cs), never from copies. The assertions are those of the first lab that held them
+// Rules/Admission, Rules/Score/PlayerPerks.cs and Punti.cs), never from copies. The assertions are those of the first lab that held them
 // (tools/multiplayer-check, retired by T20), kept word for word and in the same blocks, so that the counts can be compared, but for the 12
 // of the roster that proved the floor barrier of the draft: the game never called it and T15 removed it, with them (83 assertions became 71).
 // Usage: dotnet run -c Release -- [report.json]

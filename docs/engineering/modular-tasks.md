@@ -84,7 +84,7 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
   4. Add it to the gate, and say in the two pages what to do when it fails.
 - **Done when**
   - The command printed twice is identical, and the gate's result equals the committed fixture.
-  - Negative control, all local and reverted: a constant changed in `Scripts/Proc/PlanGrid.cs` makes `test plan` fail and name the
+  - Negative control, all local and reverted: a constant changed in `Rules/Plan/PlanGrid.cs` makes `test plan` fail and name the
     plans; `--update` refuses; after raising the revision it accepts.
   - The suite takes under 30 seconds on the gate's runner.
 - **Verify**: `dotnet run --project tools/planlab -c Release -- fingerprint`; `python tools/studio.py test plan`; the gate.

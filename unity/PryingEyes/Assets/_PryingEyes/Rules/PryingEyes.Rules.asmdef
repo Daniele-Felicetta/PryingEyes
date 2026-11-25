@@ -1,0 +1,10 @@
+{
+  "name": "PryingEyes.Rules",
+  "rootNamespace": "PryingEyes",
+  "references": [
+    "Production.Economy",
+    "Production.Saves"
+  ],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

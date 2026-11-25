@@ -54,7 +54,7 @@ Which code consumes each package (searched on 20 November 2026):
 | `Production.Survival` | | `CityWaves.cs` (`WaveSchedule`), `CityAccess.cs` (`AreaAccess`) |
 | `Production.Layout` | | `CityRoom.cs`, `CityAccess.cs`, `Editor/CityBuilder.cs`, `Editor/CityRoomBuilder.cs` |
 
-The game has its own version of both rules of `Production.Survival`: paid areas are `Proc/RoomAccessState.cs` (prices by distance from
+The game has its own version of both rules of `Production.Survival`: paid areas are `Rules/Plan/RoomAccessState.cs` (prices by distance from
 the start, lifts that open with their room, a snapshot for the co-op) and the pace of a wave is in `Proc/RoundDirector.Survival.cs`. The
 package and the game can therefore drift apart, and the package is proven by a demo, not by play.
 
@@ -74,7 +74,7 @@ Lines are those of the census at commit `4042709`.
 | Candidate | Files, lines | Engine-free today | Consumers | What is the game's in it | Rung now | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
 | Floor plans (`Proc/Plan*.cs`, `HubPlan.cs`, `RoundRegions.cs`, `RoomAccessState.cs`) | 9, 3,703 | yes, three labs | Tower, catacombs, desert buildings, co-op peers, Unreal export | themes, room roles, the cathedral | 0 | **rung 1** (T15). Not a package: its nouns are the game's |
-| Ink pen (`Proc/Map/MapMath.cs`, `MapPen.cs`, `MapTextures.cs`) | 3, 788 | yes; compiles alone | the floor map | nothing in its dependencies | 0 | **rung 1** (T15); first in line for rung 2 when a second map uses it |
+| Ink pen (`Rules/Map/MapMath.cs`, `MapPen.cs`, `MapTextures.cs`) | 3, 788 | yes; compiles alone | the floor map | nothing in its dependencies | 0 | **rung 1** (T15); first in line for rung 2 when a second map uses it |
 | Map painter (`MapScene.cs`, `MapPainter*.cs`) | 5, 1,102 | yes, `planlab` | the floor map, `planlab mapart` | rooms, props, glyphs of the game | 0 | **rung 1** (T15) |
 | Desert generators (`Deserto/Desert{Noise,Clock,World,TerrainGen,MapGen,ScatterGen,Weather,Grade}.cs`) | 8, 1,625 | yes, `desertlab` | the desert | regions, places, the cathedral | 0 | **rung 1** (T15) |
 | Character and run records (`Characters/*Record.cs`, `Leveling.cs`, `CharacterLooks.cs`, `CathedralJson.cs`) | 5, 465 | yes, `saveslab` | saves | the schema of this game | 0 | **rung 1** (T15); the generic part is already `Production.Saves` |
@@ -83,7 +83,7 @@ Lines are those of the census at commit `4042709`.
 | Procedural audio (`SoundGen*.cs`) | 18, 3,987 | almost: `Mathf` 405 times, two other calls | every sound | the sounds themselves; the filters and envelopes are generic | 0 | rung 1 when audio next needs a check that does not need the editor (T18) |
 | Paid areas, wave pacing | see above | yes | the game and, separately, the package | prices, lifts | 0 and 2 | converge at the next change, or relabel the package |
 | In-player test harness (`Testing/PlayerTest.cs`, `Testing/TestRun.cs`; T07) | 2, 217 | no (it is a `MonoBehaviour`) | this game | nothing by design | 0 | stays; its result file is documented so that it could be lifted later |
-| Admission of a co-op session (`Coop/AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs`; T20) | 3, 154 | yes, `admissionlab` | the co-op | the content revision, the four seats of a connection | 0 | **rung 1** (T15) |
+| Admission of a co-op session (`Rules/Admission/AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs`; T20) | 3, 154 | yes, `admissionlab` | the co-op | the content revision, the four seats of a connection | 0 | **rung 1** (T15) |
 | Mesh and texture builders (`MeshBuilder.cs`, `ProcTextures.cs`, `PropMeshes*.cs`, `FacadeKit.cs`) | | no | one each | | 0 | stay. An engine-bound package would need a second kind of rule in the guard; not before a second consumer |
 | Platform glue (`Coop/WinWindows.cs`, `PadControls.cs`) | | partly | one each | | 0 | stay |
 

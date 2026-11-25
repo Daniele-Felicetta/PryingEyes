@@ -89,7 +89,7 @@
    "image": "wiki/img/blessings/decima.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -114,7 +114,7 @@
    "image": "wiki/img/blessings/furia.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -143,7 +143,7 @@
    "image": "wiki/img/blessings/grazia.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -170,7 +170,7 @@
    "image": "wiki/img/blessings/porte-d-oro.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -197,7 +197,7 @@
    "image": "wiki/img/blessings/provvidenza.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -225,7 +225,7 @@
    "image": "wiki/img/blessings/raccolto.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -1232,7 +1232,7 @@
     "docs/game/guardaroba.md",
     "docs/game/horde-variants.md",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Enemy.Varianti.cs",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -1271,7 +1271,7 @@
     "docs/game/cathedral-and-catacombs.md",
     "docs/game/the-desert.md",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/EnemyTemi.cs",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -1602,7 +1602,7 @@
     "docs/game/the-desert.md",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Deserto/DesertSites.cs",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Deserto/DesertMode.cs",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -3818,7 +3818,7 @@
    "sources": [
     "docs/game/tower.md",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Drops.cs",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Punti.cs",
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Enemy.cs"
    ],
    "tests": "",
@@ -4804,7 +4804,7 @@
    "image": "wiki/img/resources/acciaio.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -4839,7 +4839,7 @@
    "image": "wiki/img/resources/brace.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -4871,7 +4871,7 @@
    "image": "wiki/img/resources/cristalli-d-oscurita.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -4906,7 +4906,7 @@
    "image": "wiki/img/resources/cristalli-di-fede.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -4941,7 +4941,7 @@
    "image": "wiki/img/resources/cuori.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -4973,7 +4973,7 @@
    "image": "wiki/img/resources/gemme.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -5005,7 +5005,7 @@
    "image": "wiki/img/resources/legno.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -5038,7 +5038,7 @@
    "image": "wiki/img/resources/ossa.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -5074,7 +5074,7 @@
    "image": "wiki/img/resources/reliquie.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -5116,7 +5116,7 @@
    "image": "wiki/img/resources/sangue.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -5789,7 +5789,7 @@
    "image": "wiki/img/stalls/banco-armaiolo.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -5819,7 +5819,7 @@
    "image": "wiki/img/stalls/carro-ossaio.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -5850,7 +5850,7 @@
    "image": "wiki/img/stalls/speziale.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -5884,7 +5884,7 @@
    "image": "wiki/img/stalls/tenda-cerusico.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -6299,7 +6299,7 @@
    "image": "wiki/img/systems/annexes.webp",
    "sources": [
     "docs/game/cathedrals-and-annexes.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanAnnex.cs",
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Plan/PlanAnnex.cs",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/FloorBuilder.Annex.cs",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/FloorBuilder.Garden.cs",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/FloorBuilder.Sacrario.cs",
@@ -6330,7 +6330,7 @@
    "image": "wiki/img/systems/blessings.webp",
    "sources": [
     "docs/game/cathedral-and-catacombs.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs",
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Drops.cs"
    ],
    "tests": "",
@@ -6532,7 +6532,7 @@
     "docs/game/the-desert.md",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Knife.cs",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Drops.cs",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Punti.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs"
    ],
    "tests": "",
    "links": [
@@ -6654,7 +6654,7 @@
     "docs/game/tower.md",
     "docs/game/the-desert.md",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Perks.cs",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/PlayerPerks.cs",
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Score/PlayerPerks.cs",
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Biblioteca.cs"
    ],
    "tests": "",
@@ -6707,7 +6707,7 @@
     "docs/game/tower.md",
     "docs/game/cathedral-and-catacombs.md",
     "docs/game/the-desert.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Punti.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs"
    ],
    "tests": "",
    "links": [
@@ -7109,7 +7109,7 @@
    "image": "wiki/img/trials/esplosivi.webp",
    "sources": [
     "unity/PryingEyes/Assets/_PryingEyes/Scripts/Prove.cs",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Punti.cs",
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs",
     "docs/game/equipment-and-trials.md"
    ],
    "tests": "-equiptest",
@@ -8029,7 +8029,7 @@
    "image": "wiki/img/works/altare-della-consacrazione.webp",
    "sources": [
     "docs/game/the-desert.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [
@@ -8063,7 +8063,7 @@
    "image": "wiki/img/works/biblioteca-dei-voti.webp",
    "sources": [
     "docs/game/the-desert.md",
-    "unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs"
+    "unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs"
    ],
    "tests": "",
    "links": [

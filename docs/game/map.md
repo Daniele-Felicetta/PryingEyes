@@ -54,9 +54,9 @@ A room comes up from the paper over 1.2 s after you enter it. Names and prices k
 
 | File (`unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Map/` unless noted) | What it does |
 | --- | --- |
-| `MapMath.cs`, `MapPen.cs`, `MapTextures.cs` | Vectors, colours, meshes and noise; the pen (wobbling ribbons, fills, stamps, hatching); the textures, all generated in code (ink ribbon, wash, stains, a 1024x512 paper). |
-| `MapScene.cs` | What to show: the state of each room, the doors, the props, the marks, the blood. |
-| `MapPainter.cs`, `.Shade.cs`, `.Props.cs`, `.Glyphs.cs` | Paint a room (seen or rumor), the inner shadow and the soot, the furniture, the eye, the seal, the marks and the notes. |
+| `Rules/Map/MapMath.cs`, `MapPen.cs`, `MapTextures.cs` | Vectors, colours, meshes and noise; the pen (wobbling ribbons, fills, stamps, hatching); the textures, all generated in code (ink ribbon, wash, stains, a 1024x512 paper). |
+| `Rules/Map/MapScene.cs` | What to show: the state of each room, the doors, the props, the marks, the blood. |
+| `Rules/Map/MapPainter.cs`, `.Shade.cs`, `.Props.cs`, `.Glyphs.cs` | Paint a room (seen or rumor), the inner shadow and the soot, the furniture, the eye, the seal, the marks and the notes. |
 | `MapGraphic.cs` | The uGUI graphic that draws one of these meshes; `MapAssets` holds the textures. Their pixels are painted on a worker thread from the start of the process (about 0.7 s in the Mono player), so the first HUD only uploads them (4 ms). |
 | `FloorMap.cs` | One per floor: what has been discovered, the scene, and a version for each room, for the doors, for the marks and for the blood, so only what changed is painted again. |
 | `MapView.cs`, `.Labels.cs`, `.Live.cs`, `.Chrome.cs` | The view of one player: layout and morph, the text labels, the layer that moves every frame (you, companions, eyes, ping), the frame, legend and sentinel. |

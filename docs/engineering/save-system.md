@@ -117,7 +117,7 @@ character `prova` (`prova-<name>` for the processes of a co-op test). `Fabbrica.
 ## How it is checked
 
 `python tools/studio.py test saves` (the same as `dotnet run -c Release --project tools/saveslab`, also in the CI gate) compiles the
-library files and the pure files of the game (`Scripts/Characters/CharacterLooks.cs`, `Leveling.cs`, `CharacterRecord.cs`, `CathedralJson.cs`,
+library files and the pure files of the game (`Rules/Characters/CharacterLooks.cs`, `Leveling.cs`, `CharacterRecord.cs`, `CathedralJson.cs`,
 `RunRecord.cs`) **from the same paths** that Unity compiles, under .NET, and runs 115 checks:
 
 | Group | Checks | What they prove |

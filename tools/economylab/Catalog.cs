@@ -4,7 +4,7 @@ using System.Linq;
 using Production.Economy;
 using PryingEyes.Cattedrale;
 
-// The game's catalog of the cathedral, checked from the same source file the game compiles (Scripts/Cattedrale/Catalogo.cs).
+// The game's catalog of the cathedral, checked from the same source file the game compiles (Rules/Cathedral/Catalogo.cs).
 static partial class Program
 {
     // The enemy mix of a wave per branch, roughly what RoundDirector.PickSurvivalType draws (themed walkers replace monks and abbots).

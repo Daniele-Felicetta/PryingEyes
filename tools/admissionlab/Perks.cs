@@ -1,7 +1,7 @@
 using System;
 using PryingEyes;
 
-// The perks of one player (Scripts/PlayerPerks.cs, priced by Scripts/Punti.cs): every local actor owns its own, none is shared.
+// The perks of one player (Rules/Score/PlayerPerks.cs, priced by Rules/Score/Punti.cs): every local actor owns its own, none is shared.
 static partial class Program
 {
     static void PlayerPerksChecks()

@@ -4,7 +4,7 @@ kind: blessing
 mode: standard
 summary: Grazia (grace) is a blessing of the altar: +30 maximum health for the next expedition.
 image: img/blessings/grazia.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Grazia

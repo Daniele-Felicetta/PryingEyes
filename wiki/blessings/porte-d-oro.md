@@ -4,7 +4,7 @@ kind: blessing
 mode: standard
 summary: Porte d'oro (golden doors) is a blessing of the altar: the paid doors cost 30% less for the next expedition.
 image: img/blessings/porte-d-oro.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Porte d'oro
