@@ -172,8 +172,10 @@ def run_native(exe, output, timeout, recipe, layout=None, rooms=None):
               "command": command, "requestedRecipeSha256": hashlib.sha256(recipe.read_bytes()).hexdigest()}
     try:
         result["exeSha256"] = hashlib.sha256(exe.read_bytes()).hexdigest()
-        assembly = exe.parent / "PryingEyes_Data/Managed/Assembly-CSharp.dll"
-        result["assemblySha256"] = hashlib.sha256(assembly.read_bytes()).hexdigest()
+        managed = exe.parent / "PryingEyes_Data/Managed"
+        result["assemblySha256"] = hashlib.sha256((managed / "Assembly-CSharp.dll").read_bytes()).hexdigest()
+        if (managed / "PryingEyes.Rules.dll").is_file():       # the game's rules are an assembly of their own since T15: the identity of the code is the two
+            result["rulesAssemblySha256"] = hashlib.sha256((managed / "PryingEyes.Rules.dll").read_bytes()).hexdigest()
         child = subprocess.run(command, cwd=ROOT, timeout=timeout, creationflags=0x08000000 if os.name == "nt" else 0)
         result["exitCode"] = child.returncode
         if report_path.is_file():

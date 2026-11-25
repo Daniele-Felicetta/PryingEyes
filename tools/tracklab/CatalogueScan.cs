@@ -4,7 +4,7 @@ using System.Text;
 using PryingEyes.Pista;
 
 /// <summary>A development aid, not a check: `dotnet run -c Release -- --scan FROM TO` prints what every seed in the range looks like (length, hills, tight corners, longest straight, name), so the
-/// circuits of the catalogue (Scripts/Pista/Catalogue.cs) can be picked by their character instead of by luck.</summary>
+/// circuits of the catalogue (Rules/Track/Catalogue.cs) can be picked by their character instead of by luck.</summary>
 static partial class Program
 {
     /// <summary>The numbers that describe the character of a circuit.</summary>

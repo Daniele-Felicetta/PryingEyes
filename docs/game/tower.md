@@ -296,9 +296,9 @@ Controls and performance have not been tried or tuned on real devices. Building 
 
 ## 13. Code map
 
-The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namespace `PryingEyes.Proc`). Files outside that folder are noted.
+The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namespace `PryingEyes.Proc`). Files outside that folder are noted; the plan generators and the map painter, which need no engine, are in `Rules/Plan/` and `Rules/Map/` ([modularization.md](../engineering/modularization.md#b2-game-rules-an-engine-free-assembly-inside-the-game)), with the same namespaces.
 
-**Plan generation**
+**Plan generation** (`Rules/Plan/`)
 
 - `PlanTypes.cs`, `PlanGen.cs`: the plan is integer geometry in decimetres, with no `UnityEngine` (it can be generated and tested outside Unity). `PlanGen.Compound` builds a floor from wings, `Attach` joins them on one side at random with one of the 8 transforms (rotations and mirror), and opens a door in a shared wall. Two small lift rooms (arrival and exit) attach to the outer walls. Windows and candle rooms are decided at the end. The original text says 3,000 plans in about 3 seconds, none failed (not verified).
 - `PlanThemes.cs`: theatre and sanatorium, their wings, portals and room functions.
@@ -316,7 +316,7 @@ The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namesp
 **Floor and cycle logic**
 
 - `FloorDirector.cs`: floor direction (hordes, weapons, bots), shrine validation (`ValidateShrines`), death penalty, the map hooks (`MapOpen`, `MiniOn`, what each player discovers). Also `FloorDirector.Bot.cs`, `Look.cs`, `Trailer.cs`.
-- `Map/` (`FloorMap.cs`, `MapView*.cs`, `MapPainter*.cs`, `MapPen.cs`, `MapScene.cs`, ...) and `HUD.Map.cs`: the floor map ([map.md](map.md)).
+- `Map/` (`FloorMap.cs`, `MapView*.cs`, ...; the pen, the painter and the scene, `MapPen.cs`, `MapPainter*.cs` and `MapScene.cs`, are in `Rules/Map/`) and `HUD.Map.cs`: the floor map ([map.md](map.md)).
 - `SurvivalMode.cs`: the cycle selection (section 1) and the speed multiplier.
 - `RoundDirector.cs`: the round rules in `RoundRules`, the `Shutter`, and the round director (shutters, spawns, reward, cancellation).
 - `RoundDirector.Survival.cs`: the wave cycle.
@@ -332,7 +332,7 @@ The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namesp
 - `LightPool.cs`: pool of lights (only nearby ones on, only the four nearest cast shadows, with a 1.5 m advantage for the ones that already do; see above).
 - `ProcAmbience.cs`: ambience (organ and long reverb in the church, hum and short echo in the hotel, distant tolls, gramophone waltz).
 - `Power.cs`: power. Books, altars and some other things work only with power.
-- `RoomAccessState.cs`, `RoomAccessDoors.cs`: the paid doors of the wave cycle.
+- `Rules/Plan/RoomAccessState.cs`, `RoomAccessDoors.cs`: the paid doors of the wave cycle.
 - `ShrineKit.cs`: materials and free spots in common, with `RoomGrid` (tells whether a new obstacle keeps the doors reachable on foot).
 
 **Shrines and perks**
@@ -347,7 +347,7 @@ The floor code is in `unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/` (namesp
 
 **Outside `Proc/`** (the Tower uses them, but they are not in the folder):
 
-- `Scripts/Punti.cs` (the points table and `DamageSource`), `Scripts/Knife.cs`, `Scripts/SoundKnife.cs` (procedural sounds of the knife and power-ups).
+- `Rules/Score/Punti.cs` (the points table and `DamageSource`), `Scripts/Knife.cs`, `Scripts/SoundKnife.cs` (procedural sounds of the knife and power-ups).
 - `Scripts/Stealth/Enemy.Knife.cs` (reach, back, `CanTakedown`, `Provoke`), `Scripts/Stealth/Torch.cs`, `Scripts/Stealth/Guide.cs` (ping).
 - `Scripts/Perks.cs` (perk state and effects), `Scripts/Medals.cs`, `Scripts/Equipment.cs`.
 - `Scripts/EnemyTemi.cs` (themed enemies).

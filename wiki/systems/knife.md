@@ -5,7 +5,7 @@ mode: both
 summary: The knife, called Misericordia, is the G key; its stab is loud, while in the candle cycle a takedown from behind is silent and pays 130 points.
 image: img/systems/knife.webp
 caption: The knife, on a card.
-sources: docs/game/tower.md, docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Knife.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Drops.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Punti.cs
+sources: docs/game/tower.md, docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Knife.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Drops.cs, unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs
 ---
 
 # The knife

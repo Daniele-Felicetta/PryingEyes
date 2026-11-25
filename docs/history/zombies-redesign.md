@@ -221,7 +221,7 @@ firma del piano.
 
 ## Diciassettesima passata: ciclo a ondate
 
-> Stato (2026-11-15): confermato nel codice. Ondate in `Scripts/Proc/RoundDirector.Survival.cs` (`SurvivalTarget`, `SurvivalCap`, `FirstWaveDelay`, `WaveBreak`, `StallLimit`); moltiplicatore in `SurvivalMode.SpeedMultiplier`; prezzo delle aree in `Scripts/Proc/RoomAccessState.cs` (`Price`). Il protocollo cooperativo ora è `pe-coop-25`, non `pe-coop-15`.
+> Stato (2026-11-15): confermato nel codice. Ondate in `Scripts/Proc/RoundDirector.Survival.cs` (`SurvivalTarget`, `SurvivalCap`, `FirstWaveDelay`, `WaveBreak`, `StallLimit`); moltiplicatore in `SurvivalMode.SpeedMultiplier`; prezzo delle aree in `Rules/Plan/RoomAccessState.cs` (`Price`). Il protocollo cooperativo ora è `pe-coop-25`, non `pe-coop-15`.
 
 Conversione chiusa. `SurvivalMode` (`Proc/SurvivalMode.cs`) è il ciclo predefinito; il ciclo a candele e lo stealth restano con
 `-candles` (o `-legacycycle`, `-oldplan`) e con i flag delle prove che li verificano (`-stealthtest`, `-roundtest`, `-roundshots`,

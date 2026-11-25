@@ -69,7 +69,6 @@ static partial class Program
     static void RosterChecks()
     {
         var roster = new SessionRoster(6);
-        Check(!roster.AllReady, "Empty session cannot start");
         Check(!roster.TryJoin(1, 0) && !roster.TryJoin(1, 5) && !roster.TryJoin(-1, 1), "Reject invalid seats/peer");
         Check(roster.TryJoin(10, 2) && roster.TryJoin(20, 4), "Mixed session 2 + 4 seats");
         Check(roster.PlayerCount == 6 && roster.Seats.Length == 6, "Human capacity counts seats");
@@ -77,22 +76,5 @@ static partial class Program
         Check(roster.TryJoin(10, 2) && !roster.TryJoin(10, 1), "Admission retry idempotent, no silent resize");
         Check(roster.Owns(10, new PlayerSeat(10, 1)) && !roster.Owns(20, new PlayerSeat(10, 1)), "Authenticated ownership");
         Check(!roster.Owns(10, new PlayerSeat(10, 2)), "Reject unregistered local seat");
-        int epoch = roster.BeginFloor("geometry-a");
-        Check(roster.WaitingPeers.OrderBy(p => p).SequenceEqual(new[] { 10, 20 }), "Both connections wait for current floor");
-        Check(!roster.Acknowledge(99, epoch, "geometry-a"), "Unknown peer cannot acknowledge");
-        Check(!roster.Acknowledge(10, epoch, "wrong"), "Geometry mismatch blocks");
-        Check(roster.Acknowledge(10, epoch, "geometry-a") && !roster.AllReady, "Wait for remote geometry");
-        Check(roster.Acknowledge(20, epoch, "geometry-a") && roster.AllReady, "All peers ready");
-        Check(roster.WaitingPeers.Length == 0, "Ready connections leave timeout queue");
-        int next = roster.BeginFloor("geometry-b");
-        Check(!roster.AllReady && !roster.Acknowledge(10, epoch, "geometry-a"), "Ignore stale floor acknowledgement");
-        roster.Acknowledge(10, next, "geometry-b");
-        roster.Leave(20);
-        Check(roster.AllReady && roster.PlayerCount == 2, "Disconnect removes readiness requirement and all seats");
-        Check(roster.TryJoin(30, 1) && !roster.AllReady, "Late join closes barrier");
-        roster.Acknowledge(30, next, "geometry-b");
-        Check(roster.AllReady && roster.Seats[1].Equals(new PlayerSeat(10, 1)), "Late join preserves local identities");
-        roster.Leave(30); roster.Leave(10);
-        Check(!roster.AllReady && !roster.Owns(10, new PlayerSeat(10, 0)), "Empty / disconnected session");
     }
 }

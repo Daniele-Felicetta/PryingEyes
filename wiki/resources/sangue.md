@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Sangue (blood) is a rare resource in phials: the water of the font and the ink of the vows, dropped by flying things and nurses, and needed by the baptismal font and the window of the Conte.
 image: img/resources/sangue.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Sangue

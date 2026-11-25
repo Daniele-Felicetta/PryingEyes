@@ -5,7 +5,7 @@ mode: both
 summary: Perks are eight magic books that change how you play while you hold them; you hold up to four, bought at a library for 2,000 to 4,000 points, and dying takes the last one.
 image: img/systems/perks.webp
 caption: The perk system: eight magic books, four slots.
-sources: docs/game/tower.md, docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Perks.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/PlayerPerks.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Biblioteca.cs
+sources: docs/game/tower.md, docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Perks.cs, unity/PryingEyes/Assets/_PryingEyes/Rules/Score/PlayerPerks.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Biblioteca.cs
 ---
 
 # Perks

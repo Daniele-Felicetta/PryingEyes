@@ -5,7 +5,7 @@ mode: both
 summary: The armourer's counter: a mine, a carillon and a letter of credit, two of each per return; the letter gives 500 points at the start.
 image: img/stalls/banco-armaiolo.webp
 caption: A card drawn from the catalogue, not a screenshot of the game.
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Il banco dell'armaiolo

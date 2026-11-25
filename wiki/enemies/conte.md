@@ -4,7 +4,7 @@ kind: enemy
 mode: both
 summary: The Conte is the Cardinale's body in the Guardaroba: the boss of the fourth branch, tinted toward crimson, with the Cardinale's hit points and attacks, and a trophy of gems.
 image: img/enemies/conte.webp
-sources: docs/game/cathedral-and-catacombs.md, docs/game/guardaroba.md, docs/game/horde-variants.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Enemy.Varianti.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, docs/game/guardaroba.md, docs/game/horde-variants.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Enemy.Varianti.cs, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # The Conte

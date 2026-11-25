@@ -127,7 +127,7 @@ rooms are those of the floors ([tower.md](tower.md)).
 
 ## The world
 
-A pure function of one seed (`Scripts/Deserto/DesertWorld.cs`, checked without Unity by `tools/desertlab`): nothing is stored, a place is
+A pure function of one seed (`Rules/Desert/DesertWorld.cs`, checked without Unity by `tools/desertlab`): nothing is stored, a place is
 rebuilt identical every time you come back.
 
 - **The ground.** `DesertWorld.Height(x, z)` (`Raw` is the same without the pads of the places): broad swells of noise, taller with the distance (5.5 m near,
@@ -186,7 +186,7 @@ rebuilt identical every time you come back.
 - **The places.** The plane is split in cells of 140 m; each cell has a place with the probability of its region, with a kind, a state, a footprint
   (kept 12.5 m inside the cell) and a seed, all from the cell and the world seed. The cell (0, -1) is always a ruined chapel (the welcome chapel, at
   100 m) and (0, -3) a tower of at least seven floors (the landmark, at 350 m).
-- **The generator.** `PlanGen.Building` (`Scripts/Proc/PlanGen.Building.cs`) joins rooms of the floors in a building of a given state;
+- **The generator.** `PlanGen.Building` (`Rules/Plan/PlanGen.Building.cs`) joins rooms of the floors in a building of a given state;
   `PlanGen.StackLevel` makes one level of a tower or a catacomb (a stair room that is identical on every level, a hall, five other rooms).
   Both are checked on hundreds of plans (`BuildingFault`).
 - **The sand** (`DesertTerrain`, `DesertTerrainGen`). Square blocks of 64 m around the player with three levels of detail (a vertex every 2 m
@@ -349,7 +349,7 @@ rebuilt identical every time you come back.
 The player asked for all three the day after 0.9.0 ("co-op, the minimap and the arrow to go back to the cathedral"). They share a rule with the rest of the desert: nothing about the world
 is sent over the wire but the seed, because the world is a pure function of it.
 
-**The minimap** (`Deserto/DesertMapGen.cs`, `DesertMapTiles.cs`, `HUD.DesertMap.cs`; `N` shows and hides it, as in the floors; since 0.10.3 `M` opens the Select menu, whose first page is a bigger map: [The Select menu](#the-select-menu)). It sits at the top
+**The minimap** (`Rules/Desert/DesertMapGen.cs`, `Deserto/DesertMapTiles.cs`, `Deserto/HUD.DesertMap.cs`; `N` shows and hides it, as in the floors; since 0.10.3 `M` opens the Select menu, whose first page is a bigger map: [The Select menu](#the-select-menu)). It sits at the top
 right, a window of 512 m of sand centred on you, north up, and it is a cartographer's chart: parchment-coloured sand shaded as if lit from the north-west, contour lines every 3 m (stronger
 every 15), hatched cliffs, the pale pans of the salt flats, the footprints of the rooms of every place with their walls in ink (filled if they have a roof, hatched if they are open to the sky),
 a cross on the chapels and churches, a diamond on the towers, an arc on the catacombs, and the cathedral with its golden stair and the circle (42 m) where no enemy is born. Over it the HUD
@@ -593,9 +593,9 @@ Request of 22 November 2026, in the same message: *with Select a menu opens, tid
 | File (`unity/PryingEyes/Assets/_PryingEyes/Scripts/`) | What it does |
 | --- | --- |
 | `Deserto/DesertMode.cs` | The state of the mode: active, seed, clock, what was taken and which bosses fell, the choice of the menu, danger by distance, the branch of a place. |
-| `Deserto/DesertWorld.cs`, `DesertNoise.cs`, `DesertClock.cs`, `DesertWeather.cs` | The pure world (ground, regions, sites), the noise, the clock and the sky at an hour, the weather. Compiled by `tools/desertlab` too. |
-| `Deserto/DesertTerrainGen.cs`, `DesertTerrain.cs` | The sand mesh as plain arrays (also in the lab, with the tint of the region in its vertex colours) and its streaming. |
-| `Deserto/DesertScatterGen.cs`, `DesertScatter.cs`, `PropMeshes.cs`, `PropMeshes.Landmarks.cs`, `PropMeshes.Life.cs`, `Resources/Shaders/DesertProp.shader`, `Resources/Deserto/*.mat` | The things on the sand: where they are (pure, also in the lab), the instanced drawing and the colliders, the meshes made by code, the shader with wind and flames, the two instanced materials. |
+| `Rules/Desert/DesertWorld.cs`, `DesertNoise.cs`, `DesertClock.cs`, `DesertWeather.cs` | The pure world (ground, regions, sites), the noise, the clock and the sky at an hour, the weather. Compiled by `tools/desertlab` too. |
+| `Rules/Desert/DesertTerrainGen.cs`, `Deserto/DesertTerrain.cs` | The sand mesh as plain arrays (also in the lab, with the tint of the region in its vertex colours) and its streaming. |
+| `Rules/Desert/DesertScatterGen.cs`, `Deserto/DesertScatter.cs`, `PropMeshes.cs`, `PropMeshes.Landmarks.cs`, `PropMeshes.Life.cs`, `Resources/Shaders/DesertProp.shader`, `Resources/Deserto/*.mat` | The things on the sand: where they are (pure, also in the lab), the instanced drawing and the colliders, the meshes made by code, the shader with wind and flames, the two instanced materials. |
 | `Deserto/DesertLife.cs`, `DesertDust.cs`, `DesertSpindrift.cs`, `DesertFires.cs`, `DesertDevils.cs` | Tumbleweeds, animals and flocks; the sand that flies; the veils of sand off the dune crests; the lights, smoke and sparks of the camps; the dust devils. |
 | `Deserto/DesertPrints.cs`, `Resources/Shaders/DesertPrint.shader` | The footprints on the sand: one mesh, the boot and its light made by the shader. |
 | `Deserto/DesertTracks.cs`, `Resources/Shaders/DesertTrack.shader` | The tyre tracks of the bikes: a ribbon of quads for each wheel in one mesh, the groove, the tread and their light made by the shader. |
@@ -603,9 +603,9 @@ Request of 22 November 2026, in the same message: *with Select a menu opens, tid
 | `Deserto/SiteFacade.cs`, `Proc/FloorBuilder.Facade.cs`, `Proc/FacadeKit.cs` | The outside of the places (roofs, cornices, windows, ruins, the corner turrets of the towers) and their far skins. |
 | `Deserto/Enemy.Desert.cs` | The enemy of the desert: rests, wakes, gives up. |
 | `Deserto/DesertSky.cs`, `Resources/Shaders/DesertSand.shader`, `DesertSky.shader` | The sun and moon light, fog, exposure and the sky dome (stars, clouds, the sun's disc); the sand with its grain and ripples. |
-| `Deserto/DesertGrade.cs` | The colour grade of the open desert by sky and weather (pure, also in the lab); `DesertSky` applies it and gives the room's look back indoors. |
+| `Rules/Desert/DesertGrade.cs` | The colour grade of the open desert by sky and weather (pure, also in the lab); `DesertSky` applies it and gives the room's look back indoors. |
 | `Deserto/DesertNav.cs` | The sliding navmesh (0.9.1: in co-op the host also builds the tiles round every companion). |
-| `Deserto/DesertMapGen.cs`, `DesertMapTiles.cs`, `HUD.DesertMap.cs`, `DesertHome.cs` | The minimap (the pure painter, also in the lab; the wrapping texture and its painting jobs; the HUD with the markers) and the way home (the golden arrow). |
+| `Rules/Desert/DesertMapGen.cs`, `Deserto/DesertMapTiles.cs`, `HUD.DesertMap.cs`, `DesertHome.cs` | The minimap (the pure painter, also in the lab; the wrapping texture and its painting jobs; the HUD with the markers) and the way home (the golden arrow). |
 | `Deserto/DesertAnchors.cs`, `Coop/CoopGame.World.cs`, `Coop/CoopTest.Desert.cs` | Co-op: the companions' points that the host builds the desert round (and, in a split screen, the other seats, which are also looked at); what each guest is sent (enemies near it, the clock, the boss); the two-process test. |
 | `Deserto/DesertDirector.cs`, `DesertSites.cs`, `DesertStairs.cs` | The director (places, walkers in the open, loot in the open, bosses, the edge of the world, the renewal of the Library, the sweep of unused assets, the compass words), a loaded place and the stairs of a stack. |
 | `Deserto/DesertPickup.cs` | Points, ammunition, medikit and essence. |
@@ -613,7 +613,7 @@ Request of 22 November 2026, in the same message: *with Select a menu opens, tid
 | `Deserto/HUD.DesertSpeed.cs`, `Weapon.Ride.cs` | The speedometer (the dial, painted by code, one for each seat) and the riding mode of the weapon (stowed, raised by fire, the free hand hidden, the spread by speed). |
 | `Deserto/DesertBikeDef.cs`, `DesertBikeMesh.Pista.cs`, `DesertGarage.cs`, `DesertGarageSite.cs` | The bikes you can have (the catalogue: the improvised one and the nine of the track mode, with their ride figures, price and pose in the saddle), the models of the track put into the rig of the desert bike, the garage of each character (what it owns, buying, the bays; the list lives in `CharacterRecord.extras`) and the open-air garage (the roof, the bays, the name boards, the lamps, the delivery). |
 | `Deserto/HUD.DesertHub.cs`, `HUD.DesertHub.Map.cs`, `HUD.DesertHub.Books.cs`, `HUD.DesertHub.Store.cs`, `HUD.DesertHub.Camera.cs` | The Select menu: the panel, its navigation bar and the one input of keyboard, mouse and pad; the five pages (map, books, spells, Bozzo Moto Store, camera). |
-| `Deserto/DesertCathedral.cs`, `Proc/RoomKits.HubDeserto.cs`, `Proc/HubPlan.cs` | The cathedral in the desert: plinth and stair (one stone mesh, physics in hidden boxes), the two braziers (a bowl, three legs and a ring in one mesh, `BrazierMesh`, built with `DesertLathe`) with their fire (`BrazierFire`), the two banners of the stair and those of the towers (`DesertBanner`), the lamp posts (`DesertLamps`) and the awnings, drapes and counters of the stalls (`DesertAwning`), the armoury and its prices, the places of the two works. |
+| `Deserto/DesertCathedral.cs`, `Proc/RoomKits.HubDeserto.cs`, `Rules/Plan/HubPlan.cs` | The cathedral in the desert: plinth and stair (one stone mesh, physics in hidden boxes), the two braziers (a bowl, three legs and a ring in one mesh, `BrazierMesh`, built with `DesertLathe`) with their fire (`BrazierFire`), the two banners of the stair and those of the towers (`DesertBanner`), the lamp posts (`DesertLamps`) and the awnings, drapes and counters of the stalls (`DesertAwning`), the armoury and its prices, the places of the two works. |
 | `Proc/FloorDirector.Desert.cs`, `FloorDirector.Catacombe.cs` | Starting the game, the wait for the ground, the HUD and the objective, the fall guard, what a rebuilt cathedral must not wipe. |
 | `GameMenu.Mode.cs` | The choice *Standard* / *Il deserto*. |
 | `DesertTest.cs`, `DesertTest.Moto.cs`, `DesertTest.MotoFire.cs`, `DesertTest.MotoDetails.cs`, `DesertTest.Tracks.cs`, `DesertTest.MotoEnemies.cs`, `DesertTest.MotoRoadkill.cs`, `DesertTest.MotoFlat.cs`, `DesertTest.StairsAudit.cs`, `DesertTest.Shadows.cs`, `DesertTest.Sites.cs`, `DesertTest.Lights.cs`, `DesertTest.Garage.cs`, `SplitDesertTest.cs` | The in-game check (below), its `moto`, `motofuoco`, `motodettagli`, `tracce`, `motonemici`, `motoinvesti`, `motopiano`, `scale`, `ombre`, `pelle`, `luci`, `garage`, `menu`, `negozio` and `cabina` phases and the one of the split screen. |

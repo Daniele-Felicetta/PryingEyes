@@ -5,7 +5,7 @@ mode: both
 summary: The bone cart: lots of ten bones, wood or steel, bought for 25, 30 or 40 oboli and sold back for 8, 10 or 12; three lots of each per return.
 image: img/stalls/carro-ossaio.webp
 caption: A card drawn from the catalogue, not a screenshot of the game.
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Il carro dell'ossaio

@@ -5,7 +5,7 @@ mode: both
 summary: Points are the score you spend on doors, perks, weapons and power-ups; in the catacombs the points you keep climb back alive as oboli, the coin of the market.
 image: img/systems/points-and-oboli.webp
 caption: Points, and the oboli they become in the catacombs.
-sources: docs/game/tower.md, docs/game/cathedral-and-catacombs.md, docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Punti.cs
+sources: docs/game/tower.md, docs/game/cathedral-and-catacombs.md, docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs
 ---
 
 # Points and oboli

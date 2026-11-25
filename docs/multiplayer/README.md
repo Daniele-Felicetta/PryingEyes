@@ -93,7 +93,7 @@ cattedrale, magazzino, bottino sulla sabbia e trofei restano di ognuno. Come fun
 | --- | --- |
 | `Coop.cs` | Facciata statica: `Role` (Off/Host/Client), `Sim`, `Slot`, `Game`, avvio da menu o da riga di comando, `KeepRunning` |
 | `CoopNet.cs`, `FishNetCoopNet.cs` | Trasporto astratto e realizzazione FishNet: ammissione, slot, un solo `CoopPacket` (tipo + byte) con `Broadcast` |
-| `FishNetSeatAuthenticator.cs`, `AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs` | L'ammissione sull'ospite: il gettone che manda ogni ospite (revisione dei contenuti e posti), la capienza, il tempo massimo di 15 s per rispondere e l'elenco dei posti. Scritti da ChatGPT nella sua bozza; le tre classi senza FishNet le prova il laboratorio `tools/admissionlab` (`python tools/studio.py test admission`, anche nel cancello di CI) |
+| `FishNetSeatAuthenticator.cs` e, in `Rules/Admission/`, `AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs` | L'ammissione sull'ospite: il gettone che manda ogni ospite (revisione dei contenuti e posti), la capienza, il tempo massimo di 15 s per rispondere e l'elenco dei posti. Scritti da ChatGPT nella sua bozza; le tre classi senza FishNet le prova il laboratorio `tools/admissionlab` (`python tools/studio.py test admission`, anche nel cancello di CI) |
 | `CoopWire.cs` | Tipi di messaggio (`CoopKind`), `CoopProtocol` (revisione, porta, tempi), `NetWriter`/`NetReader` (il lettore non lancia mai) |
 | `CoopGame.cs` | Giocatori, piano ed epoca, saluto, stato di ciascuno, nomi |
 | `CoopGame.World.cs` | Il mondo condiviso: nemici, colpi, rumore, candele, uscita, round, gocce, annunci; dalla 0.9.1 anche il deserto (nemici per vicinanza, ora, boss caduti) |

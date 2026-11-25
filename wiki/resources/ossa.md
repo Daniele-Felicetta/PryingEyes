@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Ossa (bones) is the commonest resource: the bones of friars and pilgrims, the lime of the vaults, dropped by monks and Veglie and used by the largest works.
 image: img/resources/ossa.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Ossa

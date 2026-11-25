@@ -9,22 +9,22 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanTypes.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\HubPlan.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanGen.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanGen.Building.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanThemes.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanGrid.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\PlanAnnex.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\RoundRegions.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Proc\RoomAccessState.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertNoise.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertClock.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertWorld.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertTerrainGen.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertMapGen.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertScatterGen.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertWeather.cs" />
-    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Scripts\Deserto\DesertGrade.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanTypes.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\HubPlan.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanGen.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanGen.Building.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanThemes.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanGrid.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\PlanAnnex.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\RoundRegions.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\RoomAccessState.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertNoise.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertClock.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertWorld.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertTerrainGen.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertMapGen.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertScatterGen.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertWeather.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertGrade.cs" />
   </ItemGroup>
 </Project>

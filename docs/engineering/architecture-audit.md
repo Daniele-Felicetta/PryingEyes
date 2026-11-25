@@ -28,7 +28,8 @@ own and splits the root `Scripts` folder, a third of the files, into seven group
 `Scripts:player`, `Scripts:ui`, `Scripts:audio`, `Scripts:city`, `Scripts:core`): that grouping is the tool's reading aid, not a structure
 that exists in the project.
 
-Not measured: compile times, build times, memory, frame cost. Nothing in this audit needed Unity, Blender or a built player.
+Not measured: compile times, build times, memory, frame cost. Nothing in this audit needed Unity, Blender or a built player. (T15 measured the editor's compile time
+after a one-line change, before and after the move of the rules: [modularization.md](modularization.md#b3-gameplay-one-assembly-and-why-it-stays-one). The rest is still not measured.)
 
 ## The repository in one table
 
@@ -180,6 +181,10 @@ by default. The only place that says which flags a check needs is the
 prose of [testing.md](testing.md).
 
 ### F8. Engine-free code is already there, kept pure by convention
+
+> **Done (T15, 25 November 2026).** The files of the table below, and the 20 of the track mode that came after the audit, are in
+> `unity/PryingEyes/Assets/_PryingEyes/Rules/`, an assembly that cannot name the engine ([modularization.md](modularization.md#b2-game-rules-an-engine-free-assembly-inside-the-game)).
+> The text that follows is the audit as it was written, with the old paths.
 
 48 game files (9,474 lines) name neither `UnityEngine` nor `UnityEditor`. 42 of them (9,197 lines) are in `Assembly-CSharp`, and 34 of
 those (8,307 lines) are compiled without the engine by a lab, from the same path:
