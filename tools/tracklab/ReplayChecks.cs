@@ -53,7 +53,7 @@ static partial class Program
         int[] circuits = { 4242, 22, 205 };
         foreach (int cs in circuits)
         {
-            var c = CircuitGen.Generate(cs);
+            var c = Circuits.Generate(cs);
             Race race; var rec = RecordRace(c, 2, 12, cs, true, out race);
             float T = rec.Duration; int me = rec.me;
             // ---- the recording

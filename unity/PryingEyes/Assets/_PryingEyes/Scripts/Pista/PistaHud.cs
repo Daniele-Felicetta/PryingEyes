@@ -308,8 +308,8 @@ namespace PryingEyes.Pista
             if (kind != shownCue || metres != shownCueMetres || kmh != shownCueKmh)
             {
                 shownCue = kind; shownCueMetres = metres; shownCueKmh = kmh;
-                cueTitle.text = BrakeCues.Title(cue);
-                cueSub.text = BrakeCues.Sub(cue);
+                cueTitle.text = BrakeCueWords.Title(cue);
+                cueSub.text = BrakeCueWords.Sub(cue);
             }
             float fill = PM.Clamp01(cue.fill);
             cueBar.rectTransform.sizeDelta = new Vector2(CueBarW * fill, 7f);

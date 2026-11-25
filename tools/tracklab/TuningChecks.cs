@@ -32,7 +32,7 @@ static partial class Program
     static void TuningChecks()
     {
         int n = Bikes.Count, top = Tuning.MaxLevel, starter = Economy.StarterBike;
-        var circuits = new[] { CircuitGen.Generate(4242), CircuitGen.Generate(22) };
+        var circuits = new[] { Circuits.Generate(4242), Circuits.Generate(22) };
 
         // ---- level 0 is the bike as it comes, a copy never shares its torque curve with the roster, a level out of range is the nearest real one
         {

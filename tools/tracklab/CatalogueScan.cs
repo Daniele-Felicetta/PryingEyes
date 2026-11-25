@@ -48,7 +48,7 @@ static partial class Program
         sb.AppendLine("seed      length   hills  straight  tight  hairpins  name");
         for (int seed = from; seed <= to; seed++)
         {
-            var c = CircuitGen.Generate(seed);
+            var c = Circuits.Generate(seed);
             var d = Describe(c);
             sb.AppendLine(seed.ToString().PadRight(9) + d.length.ToString("F0").PadLeft(6) + " m" + d.hills.ToString("F0").PadLeft(6) + " m" + d.longestStraight.ToString("F0").PadLeft(7) + " m" + d.tightCorners.ToString().PadLeft(6) + d.hairpins.ToString().PadLeft(9) + "    " + d.name);
         }

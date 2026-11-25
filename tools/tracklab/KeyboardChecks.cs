@@ -122,7 +122,7 @@ static partial class Program
         var tally = new KeyTally();
         foreach (int bike in bikes) foreach (int ci in circuits)
         {
-            var r = RideKeys(CircuitGen.Generate(Catalogue.All[ci].seed), bike, aids, pace, analog, 11, style, capFloor);
+            var r = RideKeys(Circuits.Generate(Catalogue.All[ci].seed), bike, aids, pace, analog, 11, style, capFloor);
             tally.falls += r.falls;
             if (!r.finished) tally.unfinished++;
             tally.times.Add(r.time);

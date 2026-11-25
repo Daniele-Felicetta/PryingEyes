@@ -11,7 +11,7 @@ static partial class Program
     {
         int n = Bikes.Count;
         var figures = new BikeFigures[n];
-        for (int i = 0; i < n; i++) figures[i] = BikeSheet.Ride(Bikes.Get(i));
+        for (int i = 0; i < n; i++) figures[i] = BikeFigures.Ride(Bikes.Get(i));
 
         // ---- the figures of each bike are those of a bike of its kind
         var bad = new StringBuilder();
@@ -28,7 +28,7 @@ static partial class Program
         bool same = true;
         for (int i = 0; i < n && same; i++)
         {
-            var again = BikeSheet.Ride(Bikes.Get(i));
+            var again = BikeFigures.Ride(Bikes.Get(i));
             var a = figures[i];
             same = a.hp == again.hp && a.torque == again.torque && a.kg == again.kg && a.topKmh == again.topKmh && a.t100 == again.t100 && a.brake100 == again.brake100 && a.agility == again.agility && a.grip == again.grip;
         }

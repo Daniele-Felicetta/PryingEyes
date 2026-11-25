@@ -14,7 +14,7 @@ static partial class Program
     {
         if (labCircuits != null) return labCircuits;
         labCircuits = new Circuit[CircuitSeeds];
-        for (int i = 0; i < CircuitSeeds; i++) labCircuits[i] = CircuitGen.Generate(1 + i * 7919 + seedArg);
+        for (int i = 0; i < CircuitSeeds; i++) labCircuits[i] = Circuits.Generate(1 + i * 7919 + seedArg);
         return labCircuits;
     }
 
@@ -28,7 +28,7 @@ static partial class Program
         for (int i = 0; i < CircuitSeeds; i++)
         {
             int att;
-            circuits[i] = CircuitGen.Generate(1 + i * 7919 + seedArg, out att);
+            circuits[i] = Circuits.Generate(1 + i * 7919 + seedArg, out att);
             if (att > CircuitGen.MaxAttempts) fallbacks++;
             maxAttempts = Math.Max(maxAttempts, att); sumAttempts += att;
         }
@@ -113,7 +113,7 @@ static partial class Program
         Check("CIRCUIT_HAS_CHARACTER", minRadius < 40 && maxStraight > 300, "tightest corner radius " + minRadius.ToString("0") + " m, longest straight " + maxStraight.ToString("0") + " m", "a slow corner and a long straight somewhere");
 
         // determinism and variety
-        var again = CircuitGen.Generate(1 + 3 * 7919 + seedArg);
+        var again = Circuits.Generate(1 + 3 * 7919 + seedArg);
         var first = circuits[3];
         bool same = again.n == first.n && again.length == first.length;
         for (int i = 0; same && i < first.n; i++) same = again.px[i] == first.px[i] && again.pz[i] == first.pz[i] && again.py[i] == first.py[i] && again.run[0][i] == first.run[0][i];

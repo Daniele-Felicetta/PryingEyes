@@ -8,6 +8,7 @@ namespace PryingEyes.Pista
     /// <summary>One rider in the race: a human on this machine, a computer rider, or a friend on another machine (a remote rider has no bike here, only the pose that arrives).</summary>
     public sealed class Racer
     {
+        /// <summary>The id of the rider, the grid slot, the caller's own number for the bike (a place in its roster: the race keeps it for the views and never looks a bike up by it) and the livery.</summary>
         public int id, slot, bikeIndex, skin;
         public string name;
         public bool human, remote;
@@ -21,6 +22,8 @@ namespace PryingEyes.Pista
         public int netSlot = -1;
         /// <summary>The host's word on the place at the end of the race (-1: not given, the standings are worked out here).</summary>
         public int final = -1;
+        /// <summary>The bike of this rider as it is in the race (a tuned one included): what the model rides and, for somebody on another machine, whose weight and wheelbase the contacts use.</summary>
+        public BikeSpec spec;
         public BikeModel bike;
         public BikeDriver driver;
         /// <summary>The human's input for the next step (set by the game).</summary>
@@ -98,8 +101,6 @@ namespace PryingEyes.Pista
             rng = new Rng(seed ^ 0x2545F491);
         }
 
-        public RacingLine LineFor(int bikeIndex) { return LineFor(Bikes.Get(bikeIndex)); }
-
         /// <summary>The line of a bike as it is in the race (the roster's, or a tuned one), kept by the key of its spec.</summary>
         public RacingLine LineFor(BikeSpec spec)
         {
@@ -109,31 +110,31 @@ namespace PryingEyes.Pista
         }
 
         // ------------------------------------------------------------------ riders
-        Racer NewRacer(string name, int bikeIndex, int skin)
+        Racer NewRacer(string name, BikeSpec spec, int skin, int bikeIndex)
         {
-            var r = new Racer { id = nextId++, name = name, bikeIndex = bikeIndex, skin = skin, slot = racers.Count };
+            var r = new Racer { id = nextId++, name = name, spec = spec, bikeIndex = bikeIndex, skin = skin, slot = racers.Count };
             r.cp = new float[(int)(laps * circuit.length / CheckpointSpacing) + 4];
             for (int i = 0; i < r.cp.Length; i++) r.cp[i] = -1f;
             racers.Add(r);
             return r;
         }
 
-        /// <summary>A rider with a bike on this machine; the game fills 'input' every frame. 'spec' is the bike as the garage made it (a tuned one); the roster's own when it is null.</summary>
-        public Racer AddHuman(string name, int bikeIndex, int skin, int seed, BikeSpec spec = null)
+        /// <summary>A rider with a bike on this machine; the game fills 'input' every frame. 'spec' is the bike as the garage made it (a tuned one); 'bikeIndex' is the caller's own number for it.</summary>
+        public Racer AddHuman(string name, BikeSpec spec, int skin, int seed, int bikeIndex = 0)
         {
-            var r = NewRacer(name, bikeIndex, skin);
+            var r = NewRacer(name, spec, skin, bikeIndex);
             r.human = true;
-            r.bike = new BikeModel(spec ?? Bikes.Get(bikeIndex), seed);
+            r.bike = new BikeModel(spec, seed);
             return r;
         }
 
-        /// <summary>A computer rider. 'pace' is the fraction of the planned speed (0.9 .. 0.99); 'spec' is a bike that is not the roster's as it comes (a tuned one), which then gets a line of its own.</summary>
-        public Racer AddAi(string name, int bikeIndex, int skin, int seed, float pace, float mistakes, BikeSpec spec = null)
+        /// <summary>A computer rider. 'pace' is the fraction of the planned speed (0.9 .. 0.99); 'spec' is the bike (a tuned one gets a line of its own, kept by its id); 'bikeIndex' is the caller's own number for it.</summary>
+        public Racer AddAi(string name, BikeSpec spec, int skin, int seed, float pace, float mistakes, int bikeIndex = 0)
         {
-            var r = NewRacer(name, bikeIndex, skin);
+            var r = NewRacer(name, spec, skin, bikeIndex);
             r.cpu = true;
-            r.bike = new BikeModel(spec ?? Bikes.Get(bikeIndex), seed);
-            var line = spec != null ? LineFor(spec) : LineFor(bikeIndex);
+            r.bike = new BikeModel(spec, seed);
+            var line = LineFor(spec);
             r.driver = new BikeDriver(r.bike, circuit, line, seed * 31 + 7) { pace = pace, mistakes = mistakes };
             var rr = new Rng(seed);
             r.driver.bias = rr.Range(-1.3f, 1.3f);
@@ -142,9 +143,9 @@ namespace PryingEyes.Pista
         }
 
         /// <summary>Somebody on another machine: only poses arrive. A friend (a person) by default; a computer rider ridden by the host, as seen on a friend's machine, with friend = false.</summary>
-        public Racer AddRemote(string name, int bikeIndex, int skin, bool friend = true)
+        public Racer AddRemote(string name, BikeSpec spec, int skin, bool friend = true, int bikeIndex = 0)
         {
-            var r = NewRacer(name, bikeIndex, skin);
+            var r = NewRacer(name, spec, skin, bikeIndex);
             r.remote = true; r.friend = friend; r.cpu = !friend;
             return r;
         }
@@ -417,8 +418,8 @@ namespace PryingEyes.Pista
             return PM.Clamp(0.03f * closing * (pushX * rz - pushZ * rx), -0.06f, 0.06f);
         }
 
-        /// <summary>The bike of a rider as it is in the race (a tuned one weighs less); the roster's own for somebody on another machine, of whom only the pose is known.</summary>
-        static BikeSpec SpecOf(Racer r) { return r.bike != null ? r.bike.spec : Bikes.Get(r.bikeIndex); }
+        /// <summary>The bike of a rider as it is in the race (a tuned one weighs less); the one the race was given for somebody on another machine, of whom only the pose is known.</summary>
+        static BikeSpec SpecOf(Racer r) { return r.bike != null ? r.bike.spec : r.spec; }
 
         void Touch(Racer a, Racer b)
         {

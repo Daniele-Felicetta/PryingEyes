@@ -155,7 +155,7 @@ namespace PryingEyes.Pista
                 var trophy = cupSeason.Trophy();
                 lines[3] = "STAGIONE FINITA  -  " + place + "° in classifica" + (trophy != Medal.None ? "  -  " + TrophyName(trophy) : "");
             }
-            else lines[3] = "Prossima gara:  " + CircuitGen.Generate(cup.CircuitSeed(cupSeason.round)).name;           // the key is in the hint at the foot of the table
+            else lines[3] = "Prossima gara:  " + Circuits.Generate(cup.CircuitSeed(cupSeason.round)).name;           // the key is in the hint at the foot of the table
             return lines;
         }
 

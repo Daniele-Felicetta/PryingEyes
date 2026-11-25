@@ -73,7 +73,7 @@ static partial class Program
         // ---- the computer rider rides each bike round a lap, close to its plan, on two circuits
         {
             string detail = ""; bool all = true;
-            var circuits = new[] { CircuitGen.Generate(4242), CircuitGen.Generate(22) };
+            var circuits = new[] { Circuits.Generate(4242), Circuits.Generate(22) };
             for (int i = 0; i < Bikes.Count; i++)
             {
                 foreach (var c in circuits)

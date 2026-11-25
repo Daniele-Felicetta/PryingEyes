@@ -92,7 +92,7 @@ static partial class Program
 
         // ---- the clock against the distance: a slower lap is behind everywhere, by the right amount at the end, and a lap is level with itself
         {
-            var c = CircuitGen.Generate(4242);
+            var c = Circuits.Generate(4242);
             var fast = new List<LapTrace>(); var slow = new List<LapTrace>(); var tf = new List<PoseTape>(); var ts = new List<PoseTape>();
             RecordLaps(c, 0.97f, 3, fast, tf); RecordLaps(c, 0.90f, 3, slow, ts);
             var a = fast[2]; var b = slow[2];
@@ -121,7 +121,7 @@ static partial class Program
 
         // ---- a ghost fits only its own circuit and bike
         {
-            var c = CircuitGen.Generate(4242);
+            var c = Circuits.Generate(4242);
             var tr = new LapTrace(c.length); tr.Seal(80f);
             var tape = new PoseTape(); for (int i = 0; i < 20; i++) tape.Add(SampleFrame(i));
             var g = new Ghost { seed = 4242, bikeId = "argo1000", kind = 1, lapTime = 80f, circuitLength = c.length, trace = tr, tape = tape };
@@ -137,7 +137,7 @@ static partial class Program
             for (int i = 0; i < Catalogue.Count; i++)
             {
                 var e = Catalogue.All[i];
-                var c = CircuitGen.Generate(e.seed);
+                var c = Circuits.Generate(e.seed);
                 var ch = Describe(c);
                 unique &= seen.Add(e.seed) && names.Add(c.name);
                 if (Math.Abs(c.length - e.length) > 1.0f) { pinned = false; off += " [" + e.seed + ": " + c.length.ToString("F0") + " m, listed " + e.length + "]"; }

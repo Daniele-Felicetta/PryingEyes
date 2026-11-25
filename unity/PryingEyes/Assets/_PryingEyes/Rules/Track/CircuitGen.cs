@@ -26,17 +26,14 @@ namespace PryingEyes.Pista
             public float minLen;
         }
 
-        static readonly string[] Kind = { "Circuito", "Autodromo", "Pista", "Anello" };
-        static readonly string[] Place =
-        {
-            "di Monte Corvo", "della Rocca", "del Lago Nero", "di Valle Alta", "dei Cipressi", "di San Gaudenzio", "delle Fornaci", "del Faro",
-            "di Poggio Aspro", "della Torre", "del Pozzo", "di Costa Rossa", "dei Tre Ponti", "della Gola", "di Montesole", "del Vento"
-        };
-
         public static Circuit Generate(int seed) { int a; return Generate(seed, out a); }
 
-        /// <summary>The circuit for a seed. 'attempts' tells how many plans were drawn (one more than the limit means the plain fallback was used).</summary>
-        public static Circuit Generate(int seed, out int attempts)
+        /// <summary>The circuit for a seed, named by 'namer' (see the next overload).</summary>
+        public static Circuit Generate(int seed, Func<Rng, string> namer) { int a; return Generate(seed, out a, namer); }
+
+        /// <summary>The circuit for a seed. 'attempts' tells how many plans were drawn (one more than the limit means the plain fallback was used). 'namer' gives the circuit its name from the state of the
+        /// generator after the last draw of the circuit, so the same seed gives the same name; without one the circuit is named after its seed.</summary>
+        public static Circuit Generate(int seed, out int attempts, Func<Rng, string> namer = null)
         {
             var master = new Rng(seed);
             for (attempts = 1; attempts <= MaxAttempts; attempts++)
@@ -44,12 +41,12 @@ namespace PryingEyes.Pista
                 var rng = new Rng((int)master.Next());
                 List<Seg> plan = Plan(ref rng);
                 if (plan == null || !Close(plan)) continue;
-                Circuit c = Build(plan, ref rng, seed, false);
+                Circuit c = Build(plan, ref rng, seed, false, namer);
                 if (c != null) return c;
             }
             attempts = MaxAttempts + 1;
             var fr = new Rng(seed);
-            return Build(Fallback(), ref fr, seed, true);
+            return Build(Fallback(), ref fr, seed, true, namer);
         }
 
         // ================================================================== the plan
@@ -189,7 +186,7 @@ namespace PryingEyes.Pista
         }
 
         // ================================================================== the finished circuit
-        static Circuit Build(List<Seg> plan, ref Rng r, int seed, bool relaxed)
+        static Circuit Build(List<Seg> plan, ref Rng r, int seed, bool relaxed, Func<Rng, string> namer)
         {
             double total = 0;
             for (int i = 0; i < plan.Count; i++) total += plan[i].len;
@@ -253,7 +250,7 @@ namespace PryingEyes.Pista
 
             Elevation(c, ref r);
             Dress(c, ref r);
-            c.name = Kind[r.Int(Kind.Length)] + " " + Place[r.Int(Place.Length)];
+            c.name = namer != null ? namer(r) : "Circuit " + seed.ToString(System.Globalization.CultureInfo.InvariantCulture);
             c.Finish();
             return c;
         }

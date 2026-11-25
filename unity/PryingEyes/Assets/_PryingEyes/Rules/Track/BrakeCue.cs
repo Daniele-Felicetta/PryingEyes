@@ -63,20 +63,5 @@ namespace PryingEyes.Pista
         {
             return (int)Math.Round(metresPerSecond * 3.6f / 5f, MidpointRounding.AwayFromZero) * 5;
         }
-
-        /// <summary>The big line of the sign: the countdown, or the order to brake (empty when the sign has nothing to say).</summary>
-        public static string Title(BrakeCue c)
-        {
-            if (c.kind == CueKind.Brake) return "FRENA";
-            if (c.kind == CueKind.Approach) return "FRENA TRA " + RoundMetres(c.metres) + " m";
-            return "";
-        }
-
-        /// <summary>The small line under it: the speed the braking is for (empty when the sign has nothing to say, or the bottom of the zone is not seen yet).</summary>
-        public static string Sub(BrakeCue c)
-        {
-            if (c.kind == CueKind.None || c.target <= 0f) return "";
-            return "fino a " + TargetKmh(c.target) + " km/h";
-        }
     }
 }

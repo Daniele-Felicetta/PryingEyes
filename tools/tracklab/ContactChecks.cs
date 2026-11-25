@@ -18,7 +18,7 @@ static partial class Program
     /// <summary>Two riders on the straight before the line: two people (both simulated here, with no hands on the controls) or a person and the pose of a friend.</summary>
     static ContactScene ContactPair(int bikeA, int bikeB, bool bIsPose = false)
     {
-        var circuit = CircuitGen.Generate(Catalogue.All[0].seed);
+        var circuit = Circuits.Generate(Catalogue.All[0].seed);
         var race = new Race(circuit, 3, 5);
         var scene = new ContactScene { race = race, circuit = circuit };
         scene.a = race.AddHuman("a", bikeA, 0, 1);
@@ -177,7 +177,7 @@ static partial class Program
 
         // ---- computer riders alone ride exactly as before
         {
-            var circuit = CircuitGen.Generate(Catalogue.All[2].seed);
+            var circuit = Circuits.Generate(Catalogue.All[2].seed);
             var times = new List<string>();
             foreach (bool on in new[] { true, false })
             {
@@ -204,7 +204,7 @@ static partial class Program
                 var results = new List<float>(); var falls = new List<int>(); int bumps = 0;
                 foreach (bool on in new[] { true, false })
                 {
-                    var circuit = CircuitGen.Generate(Catalogue.All[ci].seed);
+                    var circuit = Circuits.Generate(Catalogue.All[ci].seed);
                     var race = new Race(circuit, 2, 31 + ci) { contacts = on };
                     var me = race.AddHuman("person", 0, 0, 7001);
                     var riders = new List<Racer>();

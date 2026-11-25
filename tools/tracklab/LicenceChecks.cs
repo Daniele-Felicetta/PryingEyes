@@ -13,7 +13,7 @@ static partial class Program
     /// <summary>Ride a licence test alone with a computer rider at a pace, the way the game's race scores it (the first lap is the standing-start one, a lap with a fall does not count).</summary>
     static LicenceRun RideLicence(LicenceTest t, float pace, out int falls, out double plan)
     {
-        var c = CircuitGen.Generate(t.Seed);
+        var c = Circuits.Generate(t.Seed);
         var race = new Race(c, Licences.Laps, t.Seed);
         var r = race.AddAi("solo", t.bike, 0, 1, pace, 0f);
         race.PlaceAll(new List<Racer> { r });
@@ -61,7 +61,7 @@ static partial class Program
             foreach (var t in all)
             {
                 if (!(t.gold > 30f && t.gold + 2f <= t.silver && t.silver + 2f <= t.bronze)) order += " " + t.id;
-                double plan = new Race(CircuitGen.Generate(t.Seed), 1, t.Seed).LineFor(t.bike).lapTime;
+                double plan = new Race(Circuits.Generate(t.Seed), 1, t.Seed).LineFor(t.bike).lapTime;
                 double[] r = { t.gold / plan, t.silver / plan, t.bronze / plan };
                 double[] want = { 1.08, 1.15, 1.27 };
                 for (int k = 0; k < 3; k++)

@@ -25,6 +25,11 @@
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/KeyShaper.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/Career.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/Tuning.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/Bikes.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/BikeFigures.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/BrakeCueWords.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/Circuits.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/RaceRoster.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/DrivingLine.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/BrakeCue.cs" />
     <Compile Include="RaceSimChecks.cs" />
