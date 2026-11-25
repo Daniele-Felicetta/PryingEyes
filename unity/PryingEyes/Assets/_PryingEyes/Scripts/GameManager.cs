@@ -112,7 +112,6 @@ namespace PryingEyes
             score = 500;
             autoTest = HasArg("-autotest") || HasArg("-guntest");
             noFireFlags = HasArg("-nofire") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-cattedraletest") || HasArg("-desertotest");
-            if (autoTest && HasArg("-procbot")) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
             camShots = HasArg("-camshots");
             if (autoTest)
                 Report("t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n", false);
@@ -243,7 +242,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam1.png")); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam2.png")); }
                 bool dedicated = TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags);
-                if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-perftest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
+                if (autoT >= (proc ? (dedicated || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
                 {
                     Report($"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
                     Application.Quit();

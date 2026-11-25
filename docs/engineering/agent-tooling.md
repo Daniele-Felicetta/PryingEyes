@@ -201,8 +201,8 @@ process that speaks after the label); and `PistaCoopTest`'s (`[PryingEyes] pista
 parentheses: the standard line of the harness, with `Role` after the suite). A test that derives from `PlayerTest` writes `result.json` and prints the standard line too. Counted from the sources on 25
 November 2026, with the seventh pull request of T08, 83 of the 87 entries say their result in a form the runner reads: the ones on
 `PlayerTest`, the others that print the standard line (two of them runners: `seatstest`, `splitdesertotest`) and the 17 co-op scenarios,
-which print the co-op forms. The other 4 print theirs in another form or not at all: `citytest`, `displaytest`, `procbot` and `perftest`. The studio starts them and fails them with
-`PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list): the
+which print the co-op forms. The other 4 print theirs in another form or not at all: `citytest` and `displaytest` (suites that are not on the harness yet) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
+`PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list; the two probes are not ported and stay on it): the
 runner does not guess a verdict from an exit code (`padtest` quit with 0 and printed no result at all until its steps were repaired).
 
 ### Running the suites of the manifest
@@ -362,7 +362,7 @@ namespace PryingEyes.Testing
     /// What the game may ask about the run. No test type and no test flag is named outside the tests.
     public static class TestRun
     {
-        public static bool Dedicated;                   // a test owns this process: the automatic run must not quit by itself
+        public static bool Dedicated;                   // a test (or one of the two probes) owns this process: the automatic run must not quit by itself
         public static bool HoldFire;                    // a test asks the bot of the automatic run not to shoot by itself (GameManager.noFire reads it)
         public static string OutDir(string folder);     // -testout DIR, or unity_logs/<folder> of the checkout; created
     }
@@ -431,6 +431,10 @@ Where the first sketch was wrong or short:
   (`Weapon` asks `GameManager.noFire`, which had a list of test flags). A test overrides the member, `InstallWhen` copies it into `TestRun.HoldFire` before the first frame, and
   the flag of the test leaves the list of `GameManager.Awake`: it still holds `-cooptest`, `-citytest` and `-desertotest` (not on the harness yet) and `-survivaltest` and
   `-cattedraletest` (on it, not moved yet).
+- The two probes do not derive from `PlayerTest` (eighth pull request of T08). `procbot` (the bot of `FloorDirector.Bot.cs`) and `perftest` (`PerfProbe`) report an `ESITO` line and a table of numbers,
+  not checks, and they live inside production classes on purpose: a verdict made of invented checks would say less than their numbers. Each says `TestRun.Dedicated = true` from the place in
+  `FloorDirector.cs` that already reads its flag (the bot the first time it ticks, and with it the 60 fixed frames per second that `GameManager.Awake` used to give it; the frame probe when it starts), so
+  `GameManager` names neither and the automatic quit of `-autotest` does not close them. There is no adapter: `TestRun.cs` is compiled into every build for exactly this.
 - `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
   replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
   break;` and `PlayerController.botDir = Vector3.zero` after the sequence).
