@@ -21,6 +21,7 @@ namespace PryingEyes
     {
         protected override string Suite { get { return "survivaltest"; } }
         protected override string ExceptionCheck { get { return null; } }       // la prova non ne ha mai avuto uno
+        protected override bool HoldFire { get { return true; } }               // the bot of the automatic run does not shoot by itself (-survivaltest was in the no-fire flags of GameManager)
         protected override void Finish() { Time.timeScale = 1f; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]

@@ -4,6 +4,7 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 using UnityEngine.Rendering;
 
 namespace PryingEyes.Deserto
@@ -682,7 +683,8 @@ namespace PryingEyes.Deserto
         {
             yield return null;
             var eng = SoundGen.Engine(31); var crash = SoundGen.BikeCrash(32); var wind = SoundGen.SandHiss(21);
-            WriteWav("unity_logs/moto/motore.wav", eng); WriteWav("unity_logs/moto/urto.wav", crash); WriteWav("unity_logs/moto/vento.wav", wind);
+            string wavDir = TestRun.OutDir("moto");
+            WriteWav(Path.Combine(wavDir, "motore.wav"), eng); WriteWav(Path.Combine(wavDir, "urto.wav"), crash); WriteWav(Path.Combine(wavDir, "vento.wav"), wind);
             Check("moto: i tre suoni a codice (motore, urto, vento) hanno i campioni", eng.Length > 40000 && crash.Length > 20000 && wind.Length > 40000, $"{eng.Length} / {crash.Length} / {wind.Length}");
             // misure sui campioni (non ho ascoltato niente: queste sono le cose che un orecchio noterebbe subito e un numero vede)
             float peak = 0f; double sum = 0;

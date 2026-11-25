@@ -135,18 +135,21 @@ its code in its own folder and touches `FloorDirector` only where the choice is 
 
 **The rule.** Tests depend on the game. The game names no test type and reads no test flag.
 
-**Today (F6, F7).** Two production files name a test type; `GameManager.cs` still reads the flags of the tests that are not on the harness yet to know that a dedicated test owns the
-process (34 flags before T07 put three suites on the harness, 31 when T08 started); 14 test files ship in releases; tests carried a private copy of the harness
-51 times before T07 and 48 when T08 started (`python tools/code_census.py --section tests --section flags` prints today's numbers).
+**Today (F6, F7), after T08.** No production file names a test type (two did), and `GameManager.cs` keeps no list of the flags of dedicated tests (34 before T07 put three suites on the
+harness, 31 when T08 started): it reads nine flags, eight of them the switches of the automatic run and the trailer recorder's, and `-guntest`, an alias of `-autotest` that the pages document; no test file
+ships in a release (14 did); two tests carry a private copy of the harness, `DisplayTest` and `PresentationTest` (51 copies before T07, 48 when T08 started): they change the registry of the
+game's settings, so no agent runs them (rule 6 of `AGENTS.md`), and they wait for T14 or the maintainer's word (`python tools/code_census.py --section tests --section flags` prints today's numbers).
+The game still reads test flags in a few other places (`Catacombe.cs`, `DesertMode.cs`, `FloorDirector.Desert.cs`, `PistaMode.cs`, `SurvivalMode.cs`, `Roster.cs`, `GameSettings.cs`, `VideoSettings.cs`): they
+choose how the game runs under a test (a mode, the saved settings), not whether a test owns the process, and they belong to T19 (one reader of the command line) and T14 (settings that automated runs cannot touch).
 
 **In two steps.**
 
-1. *Without touching assemblies* (T04 and T07 are done; T05 and T08 are not): a shared harness (`PlayerTest`) that owns `Check`, the exception count, the
-   result and the exit; a flag-free signal (`TestRun.Dedicated`) that replaces the list in `GameManager`; a manifest that lists every
+1. *Without touching assemblies* (T04, T05, T07 and T08 are done): a shared harness (`PlayerTest`) that owns `Check`, the exception count, the
+   result and the exit; a flag-free signal (`TestRun.Dedicated`) that replaced the list in `GameManager`; a manifest that lists every
    suite ([agent-tooling.md](agent-tooling.md#the-manifest-of-the-in-player-suites)); a ratchet in the guard (done in T04): the two production files
-   that name tests and the 14 unwrapped test files are the only ones allowed, and the list can only shrink.
+   that name tests and the 14 unwrapped test files were the only ones allowed and the list could only shrink; it is empty now.
 2. *With an assembly* (T17, after T16): the tests move to `PryingEyes.Tests`, compiled only when `PE_DISTRIBUTION_BUILD` is not defined.
-   One definition replaces the 45 per-file `#if` wrappers and takes the 14 unwrapped files out of the released game; the compiler then
+   One definition replaces the 76 per-file `#if` wrappers (45 when the plan was written); the compiler then
    refuses any reference from the game to a test.
 
 Hooks that tests need inside production code (`Enemy.debugFreeze`, `PlayerController.botDir`, `Prove.pinned`, `Drops.disabled`) are
@@ -167,8 +170,8 @@ per list:
 
 | List | Where | Evidence | Decision |
 | --- | --- | --- | --- |
-| Flags of dedicated tests | `GameManager.cs`, `LegacyDedicatedFlags` (31 when T08 started; one per line) | edited by 28 of 56 changes to the file | **remove**: the harness sets `TestRun.Dedicated` (T07 did it for three suites, T08 for the rest) |
-| Flags that stop the bot firing | `GameManager.cs:113` | edited by 6 of 56 | **remove**, same mechanism: the test declares it |
+| Flags of dedicated tests | `GameManager.cs`, `LegacyDedicatedFlags` (31 when T08 started; one per line) | edited by 28 of 56 changes to the file | **removed**: the harness sets `TestRun.Dedicated` (T07 did it for three suites, T08 for the rest) and the list is deleted |
+| Flags that stop the bot firing | `GameManager.cs` (`noFireFlags`) | edited by 6 of 56 | **removed**, same mechanism: the test says `HoldFire` (`-nofire` stays: it is the bot's own switch) |
 | Catalogue of checks | [testing.md](testing.md) | 32 commits; rows merged by hand | **generate** the tables from the manifest (T05, T21) |
 | Labs | `.gitignore`, `gate.yml`, the profile, `AGENTS.md`, three pages | `desertlab` was left out (F9) | **one registry**: the suites of the profile (done in T03) |
 | Wire format | `CoopKind`, `CoopProtocol.Revision` in `CoopWire.cs` | 31 commits | **keep** one place, it is the point of the file. Move the history of the revisions out of the 857-character line, so that two changes collide only on the constant. Changes to the protocol merge one at a time |
@@ -210,24 +213,23 @@ These hold from now, before any task is done:
 
 ## How progress is read
 
-`python tools/code_census.py` at each step. The numbers that the plan moves (today: the census of 24 November 2026 at `4aaafa8` with T07
-applied; four rows differ from the values the plan started from (34, 47, 51 and 39) because code arrived after it was written, the track
-mode first of all, and T07 has since moved two of them). T20 (25 November 2026) moved the first two rows and nothing else, and T15 (the same day) the second to 0; the rest are
-the values of that census:
+`python tools/code_census.py` at each step. The numbers that the plan moves (today: the census of 25 November 2026 at `839571c` with the last pull request of T08 applied; the plan started
+from the census of 24 November 2026 at `4aaafa8` with T07 applied, whose values (the third column) differ from the ones it was written with (34, 47, 51 and 39) because code arrived after it, the
+track mode first of all, and T07 had moved two of them). T20 (25 November 2026) moved the first row and T15 (the same day) the second, to 0; T08 moved the next six:
 
-| Number (section of the census) | Today | Target | Task |
-| --- | --- | --- | --- |
-| Hermetic suites in the gate (`python tools/studio.py suites --json`: the ones with an empty `needs`; before T03, the steps of the workflow) | 8 | every one | T01, T02, T03, T20 |
-| Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 0 (56 before T15) | 0 | T15, done |
-| Production files that name a test type (`tests`) | 2 | 0 | T08, T17 |
-| Test files not kept out of a release (`tests`) | 14 | 0 | T17 |
-| Tests with a private `Check` (`tests`) | 48 | 0 | T08 (T07 took it from 51) |
-| Flags read by `GameManager.cs` (`flags`) | 50 | under 20 | T08 (T07 took it from 53) |
-| Private command-line helpers (`flags`) | 43 | 2 | T08, T19 |
-| Literals of test output relative to the working directory (`tests`) | 33 | 0 | T08 (T07 took it from 36) |
+| Number (section of the census) | Today | When T08 started | Target | Task |
+| --- | --- | --- | --- | --- |
+| Hermetic suites in the gate (`python tools/studio.py suites --json`: the ones with an empty `needs`; before T03, the steps of the workflow) | 8 | | every one | T01, T02, T03, T20 |
+| Engine-free game files left in `Assembly-CSharp` and compiled by a lab (`pure`) | 0 (56 before T15) | | 0 | T15, done |
+| Production files that name a test type (`tests`) | 0 | 2 | 0 | T08, done |
+| Test files not kept out of a release (`tests`) | 0 | 14 | 0 | T08, done (T17 makes it a rule of the compiler) |
+| Tests with a private `Check` (`tests`) | 2 | 48 | 0 | T08 (T07 took it from 51): `DisplayTest` and `PresentationTest` are left, see above |
+| Flags read by `GameManager.cs` (`flags`) | 9 | 50 | under 20 | T08, done (T07 took it from 53) |
+| Private command-line helpers (`flags`) | 42 | 43 | 2 | T19 |
+| Literals of test output relative to the working directory (`tests`) | 1 | 33 | 0 | T08 (T07 took it from 36): the one left is the default of `-hordeout` in the probe `PerfProbe.Horde.cs` |
 
-The two rows about tests (2 and 14) cannot grow: the guard holds them as a baseline, `tools/fixtures/game-boundaries.json`, and fails on a new
-violation and on an entry that no longer applies ([suite-architecture.md](suite-architecture.md#the-games-rules-about-tests)).
+The two rows about tests that are 0 now (production files that name a test, test files that ship) cannot grow: the guard holds them as a baseline, `tools/fixtures/game-boundaries.json`, which is
+empty, and fails on a new violation ([suite-architecture.md](suite-architecture.md#the-games-rules-about-tests)).
 
 The number of mutual pairs between folders (39 in `python tools/code_census.py --by-folder --section cycles`; 33 when the plan was written) is
 printed and watched, with no target: lowering it is not a goal in itself.

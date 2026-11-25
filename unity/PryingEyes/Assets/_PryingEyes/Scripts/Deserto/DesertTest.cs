@@ -891,7 +891,7 @@ namespace PryingEyes.Deserto
             var sw = System.Diagnostics.Stopwatch.StartNew();
             for (int i = 0; i < 300; i++) hud.DesertMapPaper.Update(far.x, far.z);
             double us = sw.Elapsed.TotalMilliseconds / 300.0 * 1000.0;
-            Check($"un fotogramma di minimappa a carta pronta costa {us:F0} microsecondi", us < 500.0, "");
+            Check("un fotogramma di minimappa a carta pronta costa meno di 500 microsecondi", us < 500.0, $"{us:F0} microsecondi");
             pl.Teleport(new Vector3(HubPlan.SpawnX, 0.12f, HubPlan.SpawnZ));
             yield return null;
         }

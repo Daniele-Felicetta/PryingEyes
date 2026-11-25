@@ -133,8 +133,7 @@ namespace PryingEyes.Deserto
         IEnumerator MonitorPhoto(string name)
         {
             if (!shots) yield break;
-            string folder = Path.GetFullPath("unity_logs/seats");
-            Directory.CreateDirectory(folder);
+            string folder = TestRun.OutDir("seats");
             if (Seats.Monitors > 1 && SplitScreen.RealMonitors >= Seats.Monitors)
             {
                 if (!systemPhotos) yield break;
