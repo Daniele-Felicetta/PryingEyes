@@ -133,7 +133,7 @@ has confirmed: the 9 that T06 ran on a verification build (`traptest` 18, `barre
 | Field | Why it is there |
 | --- | --- |
 | `name` | what `studio.py test` will call it: the flag without its dash (`traptest`), or `coop-<scenario>` for a scenario of `tools/coop/run_all.ps1` |
-| `label` | what the test prints between `[PryingEyes]` and `ok`, `FALLITO` or `RISULTATO`, when that is not the name: a family of suites shares one test class and one label (`pistamenulicence` prints `pistamenutest`). Optional. The runner reads the lines of that label, and the test of the manifest checks it against the C# in both directions: a `label` that the source does not print, one that repeats the name, and a source that prints another label with no `label` to say so |
+| `label` | what the test prints between `[PryingEyes]` and `ok`, `FALLITO` or `RISULTATO`, when that is not the name: a family of suites shares one test class and one label (`pistamenulicence` prints `pistamenutest`, the `Suite` of `PistaMenuTest`). Optional. The runner reads the lines of that label, and the test of the manifest checks it against the C# in both directions (what a test prints is the literal before `RISULTATO`, or the `Suite` of a test on the harness): a `label` that the source does not print, one that repeats the name, and a source that prints another label with no `label` to say so |
 | `source` | the C# file that implements the check or reads its flag |
 | `args` | the whole command line, so that nobody has to assemble it from prose |
 | `mode` | which game the flags select: `tower`, `catacombs`, `cathedral`, `desert`, `city`, `track` or `menu` (no `-autotest`). Under `-autotest` the catacombs are off unless a flag asks for them (F7): the manifest has to say it, and its test works out the game that `args` start and fails if it is not the declared one |
@@ -199,9 +199,9 @@ The runner reads two forms of that line, and `tools/player_log.py` is the only p
 processes run (`CoopTest` and `PistaCoopTest`: `[PryingEyes] cooptest ospite RISULTATO SUPERATA: 12/12`, no colon, the detail in parentheses: the standard line of the harness,
 with `Role`, the process that speaks, after the suite). It still reads a third, the one that `CoopTest` printed until the tenth pull request of T08 (`[PryingEyes] cooptest ospite:
 RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`), so that the log of an older build keeps its verdict. A test that derives from `PlayerTest` writes
-`result.json` and prints the standard line too. Counted from the sources on 25 November 2026, with the twelfth pull request of T08, 84 of the 87 entries say their result in a form the
-runner reads: the 75 on `PlayerTest` (the 17 co-op scenarios among them, two processes each; two of them, `seatstest` and `splitdesertotest`, are started by a runner script) and the
-9 others that print the standard line (the eight entries of `PistaTest` and `PistaMenuTest`, and `uitest`). The other 3 print theirs in another form or not at all: `displaytest` (a suite that is not on the harness, which cannot be run without the maintainer's word) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
+`result.json` and prints the standard line too. Counted from the sources on 25 November 2026, with the thirteenth pull request of T08, 84 of the 87 entries say their result in a form the
+runner reads: the 83 on `PlayerTest` (the 17 co-op scenarios among them, two processes each; two of them, `seatstest` and `splitdesertotest`, are started by a runner script) and the
+other one that prints the standard line (`uitest`). The other 3 print theirs in another form or not at all: `displaytest` (a suite that is not on the harness, which cannot be run without the maintainer's word) and `procbot` and `perftest` (probes: the bot prints an `ESITO` line and the frame probe a table of numbers, and T08 leaves them as they are, see "Where the first sketch was wrong or short" below). The studio starts them and fails them with
 `PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list; the two probes are not ported and stay on it): the
 runner does not guess a verdict from an exit code (`padtest` quit with 0 and printed no result at all until its steps were repaired).
 
@@ -347,12 +347,12 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 48 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+State: built (T07) and on 50 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
 `FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
 (`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`), the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`), the three of the fifth (`CattedraleTest`,
 `SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest), the one of the sixth (`StealthTest`, which stands for eleven), the four of the seventh (`GunTest`,
 `LeanTest`, `WallTest` and `MagicTest`, which were procedures of `GameManager`), the two of the ninth (`ArchitectureTest`, which stands for three entries of the
-manifest, and `CityTest`), the one of the tenth (`CoopTest`, which stands for fourteen), the one of the eleventh (`DesertTest`) and the two of the twelfth (`MagiaTest` and `SeatsTest`); T08 ports the 2 others that still carry their own copy of the same code (F6: `PistaTest` and `PistaMenuTest`). `DisplayTest` and `PresentationTest` are left out for now, because
+manifest, and `CityTest`), the one of the tenth (`CoopTest`, which stands for fourteen), the one of the eleventh (`DesertTest`), the two of the twelfth (`MagiaTest` and `SeatsTest`) and the two of the thirteenth (`PistaTest` and `PistaMenuTest`, which stand for eight entries of the manifest). `DisplayTest` and `PresentationTest` are left out for now, because
 they cannot be run without the maintainer's word, and the two probes stay as they are. The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -490,6 +490,19 @@ Where the first sketch was wrong or short:
   (`unity_logs/magiatest/` and `unity_logs/seatstest/`, or the folder of `-testout`). `MagiaTest` no longer writes `hotel_build/magia/magia.txt`, a copy of its checks that the log
   and `result.json` hold: the two measurement lines of the modes that photograph the arms (`-reloadview` and the gestures) that only the file had are in the log now, and its
   photographs stay where they were, in `hotel_build/magia/`.
+- The thirteenth took two classes and no new member. `PistaTest` (the track mode in the real game: the entries `pistatest`, `pistacuponly` and `pistaperf`) and `PistaMenuTest` (the way
+  into a race from the menu: `pistamenutest`, `pistamenulicence`, `pistamenugarage`, `pistamenucup` and `pistamenucareer`) derive from `PlayerTest` and install themselves with `-pistatest`
+  and `-pistamenutest`. `TimeLimit` is the 900 and 400 seconds that their own `Update` had, counted from the start of the player as they were, and `ExceptionCheck` is null: each keeps its
+  closing check, `nessun errore o eccezione nel registro durante la prova`, which counts errors as well as exceptions (not the harmless `Failed to capture screen shot` of a run with no
+  window) and says the first one, and `Finish()` makes it (after `nessun fotogramma oltre 1,2 secondi (un blocco visibile)` in `PistaTest`) and puts the time scale back, as the
+  old `Finish` did. `IsError` counts them and answers yes, so `result.json` carries the number. The helper `Check2` is the base class's `Check`, which returns whether the check passed.
+  `-pistatest` is out of the legacy list of `GameManager.cs` (`TestRun.Dedicated` says it), which is empty now and stays until the last pull request of T08: the census of
+  `tools/code_census.py` reads 11 flags in that file where it read 12. The test of the manifest (`tools/test_player_tests.py`) learned that a test on the harness prints its `Suite`:
+  the `label` of `pistacuponly` and `pistaperf` (`pistatest`) and of the four other menu entries (`pistamenutest`) is checked against it, as it was against the literal of the result
+  line. The lines of the log, the checks, their names and their order are what they were; what is new is `result.json` (in `unity_logs/pistatest/` and `unity_logs/pistamenutest/`, or in
+  the folder of `-testout`), and that an exception that the sequence throws outside a check fails `sequenza completa` without its message as the detail (the log has the exception). The
+  two error counters start with the base class's `Start` (the first frame of the component), where they started with its `OnEnable` (when it is made). The photographs keep their own
+  `Shot` and their folder, `hotel_build/prove/pista/`.
 - `Photo` is what the three suites' private `View` did (the tick of the light pool, the shot with the HUD); `PhotoFlag` and `Photos`
   replace their `shots` field; `Failed`, `Checks` and `Finish` are what they did with their private counters (`if (failed > 0) yield
   break;` and `PlayerController.botDir = Vector3.zero` after the sequence).
@@ -514,7 +527,7 @@ Where the first sketch was wrong or short:
   after the verdict, which the base class has no place for yet.
 - The fifth took three suites and two members. `TimeLimit`: five suites (`DesertTest`, `SplitDesertTest`, `PistaCoopTest`, `PistaMenuTest`, `PistaTest`) fail the check
   `finita entro il tempo` and end the run when a number of seconds have passed since the player started, whatever their sequence is waiting for; the base class
-  watches the clock in a coroutine of its own. Two are on the harness now (`DesertTest` came with the eleventh pull request, below). `PistaCoopTest` counted its 420 s from the start of its own sequence and now counts
+  watches the clock in a coroutine of its own. Two are on the harness with this pull request (`SplitDesertTest` and `PistaCoopTest`); `DesertTest` came with the eleventh, and `PistaMenuTest` and `PistaTest` with the thirteenth (below). `PistaCoopTest` counted its 420 s from the start of its own sequence and now counts
   them from the start of the player, the few seconds the player takes to start less, and only a stuck run can reach either. `Role`: `PistaCoopTest` runs in two
   processes, the host and the friend, and prints who speaks after the suite name (`pistacooptest ospite ok ...`, the form that `tools/player_log.py` reads):
   `Role` puts it in every check line and in the result line, and the test gives each process its own `OutFolder` (`pistacooptest-ospite`,

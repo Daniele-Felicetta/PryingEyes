@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.IO;
 using System.Reflection;
+using PryingEyes.Testing;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -13,68 +14,37 @@ namespace PryingEyes.Pista
     /// "Gioca" asks how to play with three modes, "Su pista" opens the setup panel (the "Via!" button selected, a picture of the circuit that will be raced), the rows step and the values show, the
     /// circuit picture follows "Altra pista", up and down walk the whole screen, Esc / B go back to the modes with "Su pista" still selected, the circuit and the choices are still there when the panel
     /// is opened again, and "Via!" starts the race on that very circuit with the laps, the rivals and the bike that were chosen. With -pistamenulicence the same way in goes to the licence panel instead:
-    /// the "Patenti" button, the nine tests with their bikes and medals, the line under the one chosen, the cross, the book of times, back, and the click that starts a test with the rules of that test.</summary>
-    public sealed class PistaMenuTest : MonoBehaviour
+    /// the "Patenti" button, the nine tests with their bikes and medals, the line under the one chosen, the cross, the book of times, back, and the click that starts a test with the rules of that test.
+    /// It derives from PlayerTest (Scripts/Testing): the checks, the result line, result.json (in unity_logs/pistamenutest/, or in the folder of -testout) and the exit are the harness's.</summary>
+    public sealed class PistaMenuTest : PlayerTest
     {
-        int checks, failed, errors;
+        int errors;
         string firstError = "";
-        bool shots, ended;
+        bool shots;
         GameMenu menu;
 
+        protected override string Suite { get { return "pistamenutest"; } }
+        protected override float TimeLimit { get { return 400f; } }
+        protected override string ExceptionCheck { get { return null; } }            // the test keeps its own closing check (in Finish): it counts errors as well as exceptions, and says the first one
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-pistamenutest") < 0) return;
-            new GameObject("PistaMenuTest").AddComponent<PistaMenuTest>();
-        }
+        static void Install() { InstallWhen<PistaMenuTest>("-pistamenutest"); }
 
-        void Check(string name, bool ok, string detail = "")
+        /// <summary>An error counts as well as an exception, except the harmless failure to photograph the screen of a run with no window; the first one is kept to say it.</summary>
+        protected override bool IsError(string text, LogType type)
         {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] pistamenutest " + (ok ? "ok " : "FALLITO ") + name + (detail.Length > 0 ? " (" + detail + ")" : ""));
-        }
-
-        bool Check2(string name, bool ok, string detail = "") { Check(name, ok, detail); return ok; }
-
-        void OnLog(string text, string stack, LogType type)
-        {
-            if (type != LogType.Exception && type != LogType.Error) return;
-            if (Application.isBatchMode && text != null && text.StartsWith("Failed to capture screen shot")) return;
+            if (type != LogType.Exception && type != LogType.Error) return false;
+            if (Application.isBatchMode && text != null && text.StartsWith("Failed to capture screen shot")) return false;
             errors++;
             if (firstError.Length == 0) firstError = text.Length > 160 ? text.Substring(0, 160) : text;
+            return true;
         }
 
-        void OnEnable() { Application.logMessageReceived += OnLog; }
-        void OnDisable() { Application.logMessageReceived -= OnLog; }
-
-        IEnumerator Start()
+        /// <summary>What the test puts back and its closing check; the base calls it when the sequence has ended (or the clock has run out) and then prints the result.</summary>
+        protected override void Finish()
         {
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-pistashots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false, e.Message); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Finish();
-        }
-
-        void Update()
-        {
-            if (!ended && Time.realtimeSinceStartup > 400f) { Check("finita entro il tempo", false, "400 s"); Finish(); }
-        }
-
-        void Finish()
-        {
-            if (ended) return;
-            ended = true;
             Time.timeScale = 1f;
             Check("nessun errore o eccezione nel registro durante la prova", errors == 0, errors == 0 ? "" : errors + ", la prima: " + firstError);
-            Debug.Log($"[PryingEyes] pistamenutest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         IEnumerator WaitFor(Func<bool> cond, float seconds)
@@ -95,12 +65,13 @@ namespace PryingEyes.Pista
         string Value(string row) { return Row(row) != null ? Row(row).Value : "?"; }
 
         // ------------------------------------------------------------------ the sequence
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            shots = TestRun.Has("-pistashots");
             yield return WaitFor(() => GameMenu.I != null && GameMenu.InMenu, 60f);
             menu = GameMenu.I;
             bool licenceFlow = PistaMode.HasArg("-pistamenulicence");
-            if (!Check2("il menu principale e' aperto", menu != null && GameMenu.InMenu && Open("mainPanel"))) yield break;
+            if (!Check("il menu principale e' aperto", menu != null && GameMenu.InMenu && Open("mainPanel"))) yield break;
             yield return null;
 
             // ---- "Gioca" asks how to play
@@ -230,7 +201,7 @@ namespace PryingEyes.Pista
             Check("'Via!' toglie il menu e la partita e' su pista", !GameMenu.InMenu && PistaMode.Requested);
             yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
             var d = PistaDirector.I;
-            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            if (!Check("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
             yield return null;
             Check("si corre sul circuito dell'anteprima", d.seed == seed2 && d.circuit.name == name2, d.seed + " " + d.circuit.name);
             Check("con i giri, i piloti e la moto scelti", d.race.laps == 2 && d.race.racers.Count == 4 && d.me.bikeIndex == 1, d.race.laps + " giri, " + d.race.racers.Count + " piloti, moto " + d.me.bikeIndex);
@@ -316,7 +287,7 @@ namespace PryingEyes.Pista
             Check("un clic su una prova toglie il menu e la partita e' su pista", !GameMenu.InMenu && PistaMode.Requested && PistaMode.Licence == index, "prova " + PistaMode.Licence);
             yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
             var d = PistaDirector.I;
-            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            if (!Check("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
             yield return null;
             Check("si corre sul circuito della prova, con la sua moto, tre giri e nessun avversario (le scelte della preparazione non contano)",
                 d.seed == test.Seed && d.me.bikeIndex == test.bike && d.race.laps == Licences.Laps && d.race.racers.Count == 1,
@@ -509,7 +480,7 @@ namespace PryingEyes.Pista
             yield return null; yield return null;
             yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
             var d = PistaDirector.I;
-            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            if (!Check("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
             yield return null;
             bool borrowed = false;
             foreach (var r in d.race.racers) if (r != d.me && r.skin == 4) borrowed = true;
@@ -858,7 +829,7 @@ namespace PryingEyes.Pista
             Check("un clic su una coppa toglie il menu e la partita e' su pista, in quella coppa", !GameMenu.InMenu && PistaMode.Requested && PistaMode.Cup == 2, "coppa " + PistaMode.Cup);
             yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
             var d = PistaDirector.I;
-            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            if (!Check("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
             yield return null;
             var fresh = PistaCups.Book.Season(2);
             Check("la stagione e' nuova (al livello della preparazione), la coppa d'oro resta nel libro e si corre la prima gara del calendario",
