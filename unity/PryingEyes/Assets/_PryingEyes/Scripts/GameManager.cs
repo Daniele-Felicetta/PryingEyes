@@ -111,7 +111,7 @@ namespace PryingEyes
             // qui riallineo la valuta di partenza al ritmo COD Zombies
             score = 500;
             autoTest = HasArg("-autotest") || HasArg("-guntest");
-            noFireFlags = HasArg("-nofire") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-cattedraletest") || HasArg("-desertotest");
+            noFireFlags = HasArg("-nofire") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-cattedraletest") || HasArg("-desertotest");
             camShots = HasArg("-camshots");
             if (autoTest)
                 Report("t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n", false);
@@ -170,8 +170,6 @@ namespace PryingEyes
         /// here; porting the rest (T08, docs/engineering/modular-tasks.md) empties this list. One flag per line, so that two changes to it merge.</summary>
         static readonly string[] LegacyDedicatedFlags =
         {
-            "-architecturetest",
-            "-citytest",
             "-magiatest",
             "-desertotest",
             "-pistatest",
@@ -242,7 +240,7 @@ namespace PryingEyes
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam1.png")); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam2.png")); }
                 bool dedicated = TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags);
-                if (autoT >= (proc ? (dedicated || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
+                if (autoT >= (proc ? (dedicated || HasArg("-cooptest") ? 1e9f : 70f) : (TestRun.Dedicated ? 1e9f : 100f)))
                 {
                     Report($"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
                     Application.Quit();

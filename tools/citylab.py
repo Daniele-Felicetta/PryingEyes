@@ -163,7 +163,7 @@ def run_native(exe, output, timeout, recipe, layout=None, rooms=None):
     """Keep binary identity and process outcome beside the native findings and screenshots."""
     output = output.resolve(); output.mkdir(parents=True, exist_ok=True)
     command = [str(exe), "-batchmode", "-autotest", "-nofire", "-citytest", "-cityshots",
-               "-screen-width", "1280", "-screen-height", "720", "-cityout", str(output),
+               "-screen-width", "1280", "-screen-height", "720", "-testout", str(output),
                "-report", str(output / "telemetry.txt"), "-logFile", str(output / "player.log")]
     report_path = output / "report.json"
     if report_path.exists():

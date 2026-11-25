@@ -10,34 +10,6 @@
   ],
   "GAME_TEST_NOT_EXCLUDED": [
     {
-      "file": "Scripts/ArchitectureTest.Access.cs",
-      "reason": "Never wrapped: ArchitectureTest was written on 2026-11-13, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its four files names it, so wrapping the four (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/ArchitectureTest.Pursuit.cs",
-      "reason": "Never wrapped: ArchitectureTest was written on 2026-11-13, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its four files names it, so wrapping the four (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/ArchitectureTest.Supply.cs",
-      "reason": "Never wrapped: ArchitectureTest was written on 2026-11-13, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its four files names it, so wrapping the four (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/ArchitectureTest.cs",
-      "reason": "Never wrapped: ArchitectureTest was written on 2026-11-13, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its four files names it, so wrapping the four (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/CityTest.Access.cs",
-      "reason": "Never wrapped: CityTest was written on 2026-11-14, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its three files names it, so wrapping the three (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/CityTest.Rooms.cs",
-      "reason": "Never wrapped: CityTest was written on 2026-11-14, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its three files names it, so wrapping the three (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/CityTest.cs",
-      "reason": "Never wrapped: CityTest was written on 2026-11-14, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its three files names it, so wrapping the three (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
       "file": "Scripts/Coop/CoopTest.Desert.cs",
       "reason": "Never wrapped, and CoopGame.cs names CoopTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The three files of the partial class are wrapped together, after it."
     },

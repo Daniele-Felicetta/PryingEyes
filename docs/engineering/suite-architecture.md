@@ -71,8 +71,8 @@ What a lab compiles is read from its `Compile` items, patterns with `*` and `**`
 like any other.
 
 What is wrong today is listed, not hidden, in `tools/fixtures/game-boundaries.json`: each violation with the reason it is tolerated (today one
-production file that names a test type, `Coop/CoopGame.cs`, and the 10 test files that are not wrapped:
-`ArchitectureTest*`, `CityTest*` and `CoopTest*`; none for the rule of the labs). The list can only shrink. A violation that is
+production file that names a test type, `Coop/CoopGame.cs`, and the 3 test files that are not wrapped:
+`CoopTest*`; none for the rule of the labs). The list can only shrink. A violation that is
 not in it fails the guard, and so does an entry whose violation is gone, so an entry is deleted in the commit that fixes it. Adding one
 needs a reason that a reviewer accepts, and the entry carries it. The numbers are in
 [modularization.md](modularization.md#how-progress-is-read).

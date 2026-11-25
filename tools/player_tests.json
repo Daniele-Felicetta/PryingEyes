@@ -24,7 +24,6 @@
     },
     {
       "name": "architectureaccess",
-      "label": "architecturetest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/ArchitectureTest.cs",
       "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-architecturetest", "-architectureaccess", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
@@ -35,9 +34,8 @@
     },
     {
       "name": "architecturesupply",
-      "label": "architecturetest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/ArchitectureTest.cs",
-      "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-architecturesupply", "-seed", "1000", "-floor", "1"],
+      "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-architecturetest", "-architecturesupply", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 180,
       "needs": ["runtime"],
