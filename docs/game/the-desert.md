@@ -698,6 +698,10 @@ dotnet run --project tools/desertlab -c Release            # the pure code, no U
 & $exe -batchmode -autotest -desertotest -desertonly cabina -desertshots -seed 1000         # the ten bikes seen from the saddle: what covers the view of each, and a photograph of each cockpit
 ```
 
+`DesertTest` derives from `PlayerTest` (T08, [agent-tooling.md](../engineering/agent-tooling.md#the-in-player-harness)): besides the log it writes `result.json` (in
+`unity_logs/desertotest/`, or in the folder that `-testout` names), the lines of the log are the harness's (`[PryingEyes] desertotest ok <check> (<detail>)` and
+`[PryingEyes] desertotest RISULTATO SUPERATA: 150/150`), it ends the run by itself after 1,100 seconds at the latest, and the bot of the automatic run does not shoot while it runs.
+
 Three more flags help when something fails: `-desertonly scalinata,cappella` runs only those phases (the arrival always runs; the others are
 `cielo`, `cattedrale`, `opere`, `oggetti`, `suono`, `minimappa`, `torre`, `boss`, `catacomba`, `notte`, `morte`, `lontano`, `caduta`, `foto`), `-desertnavlog` writes, for
 every navmesh tile, how many sources it collected and how many triangles the navmesh has when it is done, and `-desertdiag` (with `-desertshots`) says why

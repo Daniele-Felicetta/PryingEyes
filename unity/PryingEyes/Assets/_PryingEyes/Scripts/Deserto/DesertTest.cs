@@ -6,6 +6,7 @@ using System.IO;
 using Production.Economy;
 using PryingEyes.Cattedrale;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -16,26 +17,25 @@ namespace PryingEyes.Deserto
     /// consacrazione (che poi costruisce davvero con le risorse, compra un libro, vede rinnovarsi la Biblioteca e consacra un'arma), poi va alla cappella di benvenuto (si costruisce, si arreda, si entra a piedi, ci sono oggetti da prendere), prende un oggetto e
     /// un'arma libera, sale a piedi al primo piano della torre di riferimento (sette piani), si porta all'ultimo e ammazza il boss (il trofeo va nel
     /// magazzino), passa la notte su sabbia aperta (nemici che girano), e cade nel vuoto (la rete di sicurezza lo riporta su). Con -desertshots fa anche
-    /// le fotografie di unity_logs/prove/deserto (alba, mezzogiorno, tramonto, notte, interni). Non tocca il salvataggio di chi gioca.</summary>
-    public sealed partial class DesertTest : MonoBehaviour
+    /// le fotografie di unity_logs/prove/deserto (alba, mezzogiorno, tramonto, notte, interni). Non tocca il salvataggio di chi gioca.
+    /// Deriva da PlayerTest (l'harness): si installa da sola con -desertotest, conta i controlli, scrive result.json (unity_logs/desertotest o la cartella di -testout) e finisce entro 1100 s.</summary>
+    public sealed partial class DesertTest : PlayerTest
     {
-        int checks, failed, errors;
+        int errors;
         string firstError = "";
-        bool shots, ended, ready;
-        const float Budget = 1100f;        // la prova finisce comunque entro questo tempo (s)
+        bool shots, ready;
+
+        protected override string Suite { get { return "desertotest"; } }
+        protected override float TimeLimit { get { return 1100f; } }        // la prova finisce comunque entro questo tempo (s)
+        protected override bool HoldFire { get { return true; } }           // il bot dell'esecuzione automatica non spara da solo (era GameManager.noFireFlags)
+        protected override string ExceptionCheck { get { return null; } }   // chiude con il suo controllo (in Finish), che dice anche il primo errore
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
         {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-desertotest") < 0) return;
+            if (!TestRun.Has("-desertotest")) return;
             Fabbrica.Azzera();               // profilo di prova: una cattedrale in rovina e un magazzino vuoto
-            new GameObject("DesertTest").AddComponent<DesertTest>();
-        }
-
-        void Check(string name, bool ok, string detail = "")
-        {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] desertotest " + (ok ? "ok " : "FALLITO ") + name + (detail.Length > 0 ? " (" + detail + ")" : ""));
+            InstallWhen<DesertTest>("-desertotest");
         }
 
         void OnLog(string text, string stack, LogType type)
@@ -49,27 +49,11 @@ namespace PryingEyes.Deserto
         void OnEnable() { Application.logMessageReceived += OnLog; }
         void OnDisable() { Application.logMessageReceived -= OnLog; }
 
-        IEnumerator Start()
-        {
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-desertshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false, e.Message); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Finish();
-        }
-
         string phaseName = "";
         readonly Dictionary<string, float[]> frames = new Dictionary<string, float[]>();      // fase -> { fotogrammi, somma, massimo, sopra 100 ms }
 
         void Update()
         {
-            if (!ended && Time.realtimeSinceStartup > Budget) { Check("finita entro il tempo", false, $"{Budget:F0} s"); Finish(); }
             if (phaseName.Length == 0 || !ready) return;          // il caricamento (dietro la dissolvenza) non conta: si misura il gioco
             // il codice del gioco toglie l'invulnerabilita' in piu' punti (a fine di una ricostruzione della cattedrale, dopo la rinascita): chi prova a camminare non deve finire a terra
             if (godMode && Pl != null && Pl.alive && !Pl.Downed && !Pl.invulnerable) Pl.invulnerable = true;
@@ -90,10 +74,8 @@ namespace PryingEyes.Deserto
         int renderFrame = -100;
         bool godMode = true;                // false solo mentre si prova la morte
 
-        void Finish()
+        protected override void Finish()
         {
-            if (ended) return;
-            ended = true;
             PlayerController.botDir = Vector3.zero;
             Time.timeScale = 1f;
             float worst = 0f;
@@ -106,8 +88,6 @@ namespace PryingEyes.Deserto
             Check("nessun fotogramma oltre 1,2 secondi (un blocco visibile)", worst < 1.2f, $"il peggiore {worst * 1000f:F0} ms");
             Debug.Log($"[PryingEyes] desertotest stato finale: {Dd?.LoadedSites} luoghi caricati, {DesertNav.BuiltTiles} tasselli di navmesh, {DesertTerrain.I?.ChunkCount} blocchi di sabbia, {Enemy.All.Count} nemici, {DesertPickup.Live.Count} oggetti, {Time.realtimeSinceStartup:F0} s");
             Check("nessun errore o eccezione nel registro durante la prova", errors == 0, errors == 0 ? "" : errors + ", la prima: " + firstError);
-            Debug.Log($"[PryingEyes] desertotest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         static FloorDirector Fd => FloorDirector.I;
@@ -305,8 +285,9 @@ namespace PryingEyes.Deserto
             return false;
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            shots = TestRun.Has("-desertshots");
             yield return Phase("arrivo", Arrival());
             if (!ready) yield break;
             if (Wants("scalinata")) yield return Phase("scalinata", Stairs());
@@ -366,7 +347,7 @@ namespace PryingEyes.Deserto
             if (Explicit("negozio")) yield return Phase("Bozzo Moto Store", StoreTest());
             if (Explicit("cabina")) yield return Phase("cabina delle moto", CockpitTest());
             if (Wants("caduta")) yield return Phase("caduta", Fall());
-            if (shots && Wants("foto")) yield return Phase("fotografie", Photos());
+            if (shots && Wants("foto")) yield return Phase("fotografie", TakePhotos());
         }
 
         IEnumerator Arrival()
@@ -3110,7 +3091,7 @@ namespace PryingEyes.Deserto
             Check("camminando per tutta la strada nessun fotogramma e' un blocco visibile (oltre mezzo secondo)", r.n > 1000 && r.max < 500f, $"{r.n} fotogrammi, il piu' lungo {r.max:F0} ms, oltre 100 ms {r.over100}");
         }
 
-        IEnumerator Photos()
+        IEnumerator TakePhotos()
         {
             var pl = Pl;
             if (DesertSky.I != null) DesertSky.I.SetHour(7.2f, false);

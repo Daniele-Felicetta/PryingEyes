@@ -111,7 +111,7 @@ namespace PryingEyes
             // qui riallineo la valuta di partenza al ritmo COD Zombies
             score = 500;
             autoTest = HasArg("-autotest") || HasArg("-guntest");
-            noFireFlags = HasArg("-nofire") || HasArg("-survivaltest") || HasArg("-cattedraletest") || HasArg("-desertotest");
+            noFireFlags = HasArg("-nofire") || HasArg("-survivaltest") || HasArg("-cattedraletest");
             camShots = HasArg("-camshots");
             if (autoTest)
                 Report("t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n", false);
@@ -171,7 +171,6 @@ namespace PryingEyes
         static readonly string[] LegacyDedicatedFlags =
         {
             "-magiatest",
-            "-desertotest",
             "-pistatest",
         };
 
