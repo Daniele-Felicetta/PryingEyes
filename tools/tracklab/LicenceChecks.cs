@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The licence tests: the list must be well formed, the medal times must follow the racing line (so a computer rider at full pace earns gold, a slower one silver and a beginner bronze: a medal
 /// is always within reach), a lap must be judged the same way at the edges, only a clean flying lap may count, and the player's book of times must keep the best, come back from the preferences whatever

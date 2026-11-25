@@ -1,10 +1,10 @@
 using System;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
-    /// <summary>Small math helpers for the pure track code (bike physics, circuit, rider AI, race rules). Nothing here may use UnityEngine: these files are compiled by
-    /// tools/tracklab from the same paths, so the rules are checked without Unity. Angles are radians; heading 0 looks along +z and grows toward +x, like the player's yaw.</summary>
-    public static class PM
+    /// <summary>Small math helpers for the racing code (bike physics, circuit, rider AI, race rules). Pure code: nothing here may use an engine, so every rule can be checked without one. Angles are radians;
+    /// heading 0 looks along +z and grows toward +x, like the yaw of a first-person player.</summary>
+    public static class RacingMath
     {
         public const float Pi = 3.14159265f, TwoPi = 6.28318531f, HalfPi = 1.57079633f, Deg2Rad = 0.01745329f, Rad2Deg = 57.2957795f, G = 9.81f;
 

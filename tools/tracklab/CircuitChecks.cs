@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using PryingEyes.Pista;
+using Production.Racing;
 
 static partial class Program
 {
@@ -51,7 +52,7 @@ static partial class Program
             double ex = c.px[n - 1] + c.tx[n - 1] * c.spacing - c.px[0], ez = c.pz[n - 1] + c.tz[n - 1] * c.spacing - c.pz[0];
             worstClose = Math.Max(worstClose, Math.Sqrt(ex * ex + ez * ez));
             double h0 = Math.Atan2(c.tx[0], c.tz[0]), h1 = Math.Atan2(c.tx[n - 1], c.tz[n - 1]);
-            worstHead = Math.Max(worstHead, Math.Abs(PM.WrapPi((float)(h0 - h1))) / c.spacing * 100);
+            worstHead = Math.Max(worstHead, Math.Abs(RacingMath.WrapPi((float)(h0 - h1))) / c.spacing * 100);
             // slope, run-off, tightest corner, longest straight
             double run = 0;
             for (int i = 0; i < n; i++)

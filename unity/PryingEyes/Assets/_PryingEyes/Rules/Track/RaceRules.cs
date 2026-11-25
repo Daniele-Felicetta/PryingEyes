@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
     public enum RacePhase : byte { Grid = 0, Countdown = 1, Racing = 2, Over = 3 }
 
@@ -119,7 +119,7 @@ namespace PryingEyes.Pista
             return r;
         }
 
-        /// <summary>A rider with a bike on this machine; the game fills 'input' every frame. 'spec' is the bike as the garage made it (a tuned one); 'bikeIndex' is the caller's own number for it.</summary>
+        /// <summary>A rider with a bike on this machine; the game fills 'input' every frame. 'spec' is the bike as a workshop made it (a tuned one); 'bikeIndex' is the caller's own number for it.</summary>
         public Racer AddHuman(string name, BikeSpec spec, int skin, int seed, int bikeIndex = 0)
         {
             var r = NewRacer(name, spec, skin, bikeIndex);
@@ -260,7 +260,7 @@ namespace PryingEyes.Pista
                         if (v > target) target = v;
                     }
                 }
-                r.draft += (target - r.draft) * PM.Ease(3.5f, dt);
+                r.draft += (target - r.draft) * RacingMath.Ease(3.5f, dt);
                 if (r.draft < 0.002f) r.draft = 0f;
                 if (r.bike != null) r.bike.draft = r.draft;
             }
@@ -273,7 +273,7 @@ namespace PryingEyes.Pista
                 var r = racers[i];
                 if (r.bike == null) continue;
                 var b = r.bike;
-                r.x = b.x; r.y = b.y; r.z = b.z; r.heading = b.heading; r.speed = PM.Max(b.u, 0f); r.lean = b.lean;
+                r.x = b.x; r.y = b.y; r.z = b.z; r.heading = b.heading; r.speed = RacingMath.Max(b.u, 0f); r.lean = b.lean;
                 r.crashed = b.crashed; r.crashKind = b.crashKind;
             }
         }
@@ -354,7 +354,7 @@ namespace PryingEyes.Pista
             int h = -1;
             circuit.Project(r.bike.x, r.bike.z, ref h, out p);
             float hw = circuit.HalfWidthAt(p);
-            float lat = PM.Clamp(p.d, -(hw - 2.4f), hw - 2.4f);
+            float lat = RacingMath.Clamp(p.d, -(hw - 2.4f), hw - 2.4f);
             float cx = circuit.Lerp(circuit.px, p.i, p.t), cz = circuit.Lerp(circuit.pz, p.i, p.t), cy = circuit.Lerp(circuit.py, p.i, p.t);
             float x = cx + p.nx * lat, z = cz + p.nz * lat;
             float head = (float)Math.Atan2(p.tx, p.tz);
@@ -415,7 +415,7 @@ namespace PryingEyes.Pista
         static float Twist(float x, float z, float cx, float cz, float pushX, float pushZ, float closing)
         {
             float rx = cx - x, rz = cz - z;
-            return PM.Clamp(0.03f * closing * (pushX * rz - pushZ * rx), -0.06f, 0.06f);
+            return RacingMath.Clamp(0.03f * closing * (pushX * rz - pushZ * rx), -0.06f, 0.06f);
         }
 
         /// <summary>The bike of a rider as it is in the race (a tuned one weighs less); the one the race was given for somebody on another machine, of whom only the pose is known.</summary>
@@ -510,8 +510,8 @@ namespace PryingEyes.Pista
                     if (Math.Abs(who.lateral + side * 2.4f) > hw - 1.0f) side = -side;      // no room that way
                     d.commitId = who.id; d.commitSide = side;
                 }
-                float tgt = PM.Clamp(who.lateral + d.commitSide * 2.4f, -(hw - 1.0f), hw - 1.0f);
-                d.laneShift = PM.Clamp(tgt - lineOff, -5f, 5f);
+                float tgt = RacingMath.Clamp(who.lateral + d.commitSide * 2.4f, -(hw - 1.0f), hw - 1.0f);
+                d.laneShift = RacingMath.Clamp(tgt - lineOff, -5f, 5f);
             }
             else
             {

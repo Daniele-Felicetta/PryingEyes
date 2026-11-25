@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {
@@ -311,7 +312,7 @@ namespace PryingEyes.Pista
                 cueTitle.text = BrakeCueWords.Title(cue);
                 cueSub.text = BrakeCueWords.Sub(cue);
             }
-            float fill = PM.Clamp01(cue.fill);
+            float fill = RacingMath.Clamp01(cue.fill);
             cueBar.rectTransform.sizeDelta = new Vector2(CueBarW * fill, 7f);
             Color col = kind == CueKind.Brake ? Red : Color.Lerp(Amber, Red, fill * fill);
             if (kind == CueKind.Brake) col.a = 0.78f + 0.22f * Mathf.Abs(Mathf.Sin(flash * 9f));

@@ -1,3 +1,5 @@
+using Production.Racing;
+
 namespace PryingEyes.Pista
 {
     /// <summary>What the braking sign of the dashboard says, in the words of this game. BrakeCues works out the state of the sign (what it says, the metres, the speed the braking is for); the words are the game's.</summary>

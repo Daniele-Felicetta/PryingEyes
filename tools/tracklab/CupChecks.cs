@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The championship (Championship.cs): the calendars, the table of points, a field of rivals that is the same all season, a season that adds up, the book that keeps the seasons and the trophies and survives damaged
 /// text, and a season ridden by the computer on the real circuits (a quicker rider scores more).</summary>

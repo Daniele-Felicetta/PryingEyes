@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
-    /// <summary>One moment of one bike, everything the picture and the sound need (the same things the game's BikeView holds, without Unity): where it is, how it leans, how fast its engine turns, which
+    /// <summary>One moment of one bike, everything the picture and the sound need (the same things the view of a bike holds, without an engine): where it is, how it leans, how fast its engine turns, which
     /// of its lights and effects are on.</summary>
     public struct PoseFrame
     {
@@ -24,7 +24,7 @@ namespace PryingEyes.Pista
         {
             var o = t < 0.5f ? a : b;
             o.x = a.x + (b.x - a.x) * t; o.y = a.y + (b.y - a.y) * t; o.z = a.z + (b.z - a.z) * t;
-            o.heading = a.heading + PM.WrapPi(b.heading - a.heading) * t;
+            o.heading = a.heading + RacingMath.WrapPi(b.heading - a.heading) * t;
             o.lean = a.lean + (b.lean - a.lean) * t; o.pitch = a.pitch + (b.pitch - a.pitch) * t; o.steer = a.steer + (b.steer - a.steer) * t;
             o.hang = a.hang + (b.hang - a.hang) * t; o.tuck = a.tuck + (b.tuck - a.tuck) * t; o.body = a.body + (b.body - a.body) * t;
             o.speed = a.speed + (b.speed - a.speed) * t; o.rpm = a.rpm + (b.rpm - a.rpm) * t;
@@ -231,7 +231,7 @@ namespace PryingEyes.Pista
             using (var ms = new MemoryStream())
             using (var w = new BinaryWriter(ms, Encoding.UTF8))
             {
-                w.Write(0x48474550);              // "PEGH"
+                w.Write(0x48474550);              // the signature of a ghost file: it must not change, or the ghosts that earlier versions saved would not load
                 w.Write(Version);
                 w.Write(seed); w.Write(bikeId ?? ""); w.Write((byte)kind); w.Write(lapTime); w.Write(circuitLength);
                 trace.Write(w); tape.Write(w);

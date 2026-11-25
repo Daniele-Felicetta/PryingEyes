@@ -1,6 +1,6 @@
 using System;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
     /// <summary>What the braking sign on the dashboard says: nothing, the brakes are coming (a countdown in metres to the red of the line on the road) or the brakes are due now (the bike is on the red).</summary>
     public enum CueKind : byte { None = 0, Approach = 1, Brake = 2 }
@@ -28,7 +28,7 @@ namespace PryingEyes.Pista
     /// strip, and from behind the bike the rider hides it where it runs straight under him). It is made from the same advice as the ribbon (DrivingLine.FirstBraking on the stretch the rider sees), so it never says what the road does
     /// not: where the red is still ahead it counts the metres down from five seconds away (never under 60 m: a slow bike still needs the room), when the bike is on the red it says brake and shows how much red is left, and both
     /// say the speed the braking is for, the lowest the plan reaches in that zone, in steps of five km/h. Green and yellow have no sign: the sign is about the brakes. The aids level decides whether there is one, like the red of
-    /// the ribbon (DrivingLine.Shows: Completi and Sportivi have it, Nessuno has none). Pure code and no random numbers.</summary>
+    /// the ribbon (DrivingLine.Shows: the two levels with aids have it, the level with none has not). Pure code and no random numbers.</summary>
     public static class BrakeCues
     {
         /// <summary>The countdown starts this many seconds before the red (at the speed of the bike), and never closer than this many metres.</summary>
@@ -37,7 +37,7 @@ namespace PryingEyes.Pista
         /// <summary>How far ahead (m) a red is counted down for a bike at this speed (m/s): five seconds of road, between 60 m and the 300 m of the ribbon.</summary>
         public static float ApproachWindow(float speed)
         {
-            return PM.Clamp(speed * LeadSeconds, MinLeadMetres, DrivingLine.AheadMetres);
+            return RacingMath.Clamp(speed * LeadSeconds, MinLeadMetres, DrivingLine.AheadMetres);
         }
 
         /// <summary>The sign for an aids level, the first red of the stretch the rider sees (DrivingLine.FirstBraking) and the speed of the bike (m/s).</summary>
@@ -46,8 +46,8 @@ namespace PryingEyes.Pista
             if (!DrivingLine.Shows(aids, Advice.Brake) || b.ahead < 0f || speed < 1f) return BrakeCue.None;
             float window = ApproachWindow(speed);
             float target = b.bottom ? b.lowest : 0f;
-            if (b.ahead <= 0f) return new BrakeCue(CueKind.Brake, b.length, PM.Clamp01(b.length / window), target);
-            if (b.ahead <= window) return new BrakeCue(CueKind.Approach, b.ahead, 1f - PM.Clamp01(b.ahead / window), target);
+            if (b.ahead <= 0f) return new BrakeCue(CueKind.Brake, b.length, RacingMath.Clamp01(b.length / window), target);
+            if (b.ahead <= window) return new BrakeCue(CueKind.Approach, b.ahead, 1f - RacingMath.Clamp01(b.ahead / window), target);
             return BrakeCue.None;
         }
 

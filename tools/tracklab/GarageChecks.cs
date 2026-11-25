@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The figures of the garage (BikeSheet.cs): every bike ridden on a flat road gives numbers a bike of its kind would give, the numbers are the same every time, the bars tell the bikes apart and put them
 /// in the order a person expects (the 125 is the lightest and the slowest, the 1300 the fastest and the hardest to turn).</summary>

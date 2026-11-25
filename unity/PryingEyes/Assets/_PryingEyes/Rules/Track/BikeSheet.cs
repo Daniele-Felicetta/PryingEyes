@@ -1,4 +1,5 @@
 using System;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {
@@ -25,7 +26,7 @@ namespace PryingEyes.Pista
         };
 
         /// <summary>The sentence of a bike of the roster.</summary>
-        public static string Blurb(int bikeIndex) { return Blurbs[PM.Clamp(bikeIndex, 0, Blurbs.Length - 1)]; }
+        public static string Blurb(int bikeIndex) { return Blurbs[RacingMath.Clamp(bikeIndex, 0, Blurbs.Length - 1)]; }
         public static int BlurbCount { get { return Blurbs.Length; } }
 
         static readonly BikeFigures?[] cache = new BikeFigures?[Bikes.Count];
@@ -33,7 +34,7 @@ namespace PryingEyes.Pista
         /// <summary>The figures of a bike of the roster (ridden once, then remembered).</summary>
         public static BikeFigures Of(int bikeIndex)
         {
-            int i = PM.Clamp(bikeIndex, 0, Bikes.Count - 1);
+            int i = RacingMath.Clamp(bikeIndex, 0, Bikes.Count - 1);
             if (cache[i].HasValue) return cache[i].Value;
             var f = BikeFigures.Ride(Bikes.Get(i));
             cache[i] = f;
@@ -45,7 +46,7 @@ namespace PryingEyes.Pista
         /// <summary>The figures of a bike of the roster at a level of tuning (ridden once, then remembered); level 0 is the bike as it comes.</summary>
         public static BikeFigures Of(int bikeIndex, int level)
         {
-            int i = PM.Clamp(bikeIndex, 0, Bikes.Count - 1), l = PM.Clamp(level, 0, Tuning.MaxLevel);
+            int i = RacingMath.Clamp(bikeIndex, 0, Bikes.Count - 1), l = RacingMath.Clamp(level, 0, Tuning.MaxLevel);
             if (l == 0) return Of(i);
             int key = i * (Tuning.MaxLevel + 1) + l;
             if (tunedCache[key].HasValue) return tunedCache[key].Value;
@@ -66,13 +67,13 @@ namespace PryingEyes.Pista
         {
             switch (bar)
             {
-                case BikeBar.Power: return PM.Clamp01(f.hp / 210f);
-                case BikeBar.Torque: return PM.Clamp01(f.torque / 170f);
-                case BikeBar.Speed: return PM.Clamp01((f.topKmh - 150f) / 170f);
-                case BikeBar.Pickup: return PM.Clamp01((4.6f - f.t100) / 1.7f);
-                case BikeBar.Brakes: return PM.Clamp01((46f - f.brake100) / 14f);
-                case BikeBar.Lightness: return PM.Clamp01((330f - f.kg) / 210f);
-                default: return PM.Clamp01(0.7f * f.agility + 0.3f * f.grip);
+                case BikeBar.Power: return RacingMath.Clamp01(f.hp / 210f);
+                case BikeBar.Torque: return RacingMath.Clamp01(f.torque / 170f);
+                case BikeBar.Speed: return RacingMath.Clamp01((f.topKmh - 150f) / 170f);
+                case BikeBar.Pickup: return RacingMath.Clamp01((4.6f - f.t100) / 1.7f);
+                case BikeBar.Brakes: return RacingMath.Clamp01((46f - f.brake100) / 14f);
+                case BikeBar.Lightness: return RacingMath.Clamp01((330f - f.kg) / 210f);
+                default: return RacingMath.Clamp01(0.7f * f.agility + 0.3f * f.grip);
             }
         }
     }

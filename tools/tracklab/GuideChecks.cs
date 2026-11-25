@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The driving line (DrivingLine.cs): green, yellow and red along the racing line the computer riders follow. A lap has braking zones before its slow corners, they start where the plan starts to slow (a little
 /// earlier) and end where it stops, no stretch of advice is too short to read, a faster bike brakes longer, the computer rider really brakes where the line says, and what the aids level of the player lets him see follows

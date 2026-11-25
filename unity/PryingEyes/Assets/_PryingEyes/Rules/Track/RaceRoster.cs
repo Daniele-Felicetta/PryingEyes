@@ -1,3 +1,5 @@
+using Production.Racing;
+
 namespace PryingEyes.Pista
 {
     /// <summary>The riders of a race by the number of their bike in the roster of this game (Bikes). The package's Race takes the bike itself (a BikeSpec); the game says "the third bike of the roster", and these calls

@@ -1,24 +1,24 @@
 using System;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
     /// <summary>The kind of engine, which is what a bike sounds like (the loop the game plays at the engine speed): the four-cylinder scream, the throb of a V-twin, the howl of a triple, the ring of a
     /// two-stroke single and the buzz of a two-stroke V4.</summary>
     public enum EngineKind : byte { Inline4 = 0, V2 = 1, Triple = 2, TwoStroke125 = 3, TwoStroke500 = 4 }
 
     /// <summary>Everything that makes one motorcycle different from another, in SI units: mass and geometry, engine torque curve and gearbox, brakes, aerodynamics, tires and how far it can lean.
-    /// BikeModel reads it; the three presets (Bikes) are real-feeling machines of three classes: a 1000 cc superbike, a 600 cc supersport and a 750 cc roadster. Pure code, no Unity.</summary>
+    /// BikeModel reads it. Pure code, no engine: a game keeps the bikes it has (their ids, names and classes are its own) and hands each one to the model, the race and the circuit.</summary>
     public sealed class BikeSpec
     {
         public string id = "bike", name = "Bike", klass = "";
-        /// <summary>The level of tuning (Tuning.Apply sets it, and adds it to the key): 0 for the bike as it comes.</summary>
+        /// <summary>The level of tuning (a workshop sets it, and adds it to the key): 0 for the bike as it comes.</summary>
         public int tune;
-        /// <summary>Which of the bikes drawn by code stands for it in the scene: 0 superbike, 1 supersport, 2 naked roadster (PistaBikeMesh).</summary>
+        /// <summary>Which of the bikes drawn by code stands for it in the scene: 0 superbike, 1 supersport, 2 naked roadster (a hint for the view of the game that draws it: the physics never reads it).</summary>
         public int meshStyle;
         /// <summary>How big its picture is against the shared bikes (a 125 is a small bike, a hypersport a big one) and what its engine sounds like.</summary>
         public float meshScale = 1f;
         public EngineKind engine = EngineKind.Inline4;
-        /// <summary>The colours it wears when it is the player's: an index into the liveries of the game (twelve of them), a different one for every bike, so that the roster is told apart at a glance.</summary>
+        /// <summary>The colours it wears when it is the player's: an index into the liveries of the game that draws it, a different one for every bike, so that the roster is told apart at a glance (a hint for the view: the physics never reads it).</summary>
         public int skin;
 
         // ---- mass and geometry (the rider is part of the total, seated and leaning with the bike)
@@ -58,7 +58,7 @@ namespace PryingEyes.Pista
 
         // ---- lean and steering
         /// <summary>The frame lean at which pegs and exhaust touch the road (rad), how much further the rider's body shift lets the centre of gravity go (rad), tightest turn at a crawl (m).</summary>
-        public float frameLeanMax = 52f * PM.Deg2Rad, hangMax = 6.5f * PM.Deg2Rad, minTurnRadius = 4.8f;
+        public float frameLeanMax = 52f * RacingMath.Deg2Rad, hangMax = 6.5f * RacingMath.Deg2Rad, minTurnRadius = 4.8f;
         /// <summary>How fast the bike rolls into a turn: natural frequency (rad/s) at a crawl and at 80 m/s, and the top roll rate (rad/s) at a crawl and at 80 m/s.</summary>
         public float rollOmegaLow = 13f, rollOmegaHigh = 8.2f, rollRateLow = 1.9f, rollRateHigh = 1.25f;
 
@@ -72,10 +72,10 @@ namespace PryingEyes.Pista
         public int GearCount { get { return gears.Length; } }
 
         /// <summary>The crankshaft torque at full throttle (Nm).</summary>
-        public float TorqueAt(float rpm) { return PM.Table(rpmCurve, torqueCurve, rpm); }
+        public float TorqueAt(float rpm) { return RacingMath.Table(rpmCurve, torqueCurve, rpm); }
 
         /// <summary>The crankshaft power at full throttle (kW).</summary>
-        public float PowerKw(float rpm) { return TorqueAt(rpm) * rpm * PM.TwoPi / 60f / 1000f; }
+        public float PowerKw(float rpm) { return TorqueAt(rpm) * rpm * RacingMath.TwoPi / 60f / 1000f; }
 
         /// <summary>The highest crankshaft power over the rev range (kW) and the engine speed where it happens.</summary>
         public float PeakPowerKw(out float atRpm)

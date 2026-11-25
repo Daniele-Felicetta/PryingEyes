@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The keyboard (KeyShaper.cs, the shaper PistaInput puts between the keys and the bike): the ramps of the keys, the cap of the steering at speed, and what a person on a keyboard can do with them. The person is an
 /// instrument, not a person: a rider that looks at the road the way people do (a point of the racing line 10 m plus one second ahead) and presses the keys at the rate of a hand (a decision every 60 to 150 ms, a reaction

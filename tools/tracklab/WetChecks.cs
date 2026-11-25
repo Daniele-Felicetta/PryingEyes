@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using PryingEyes.Pista;
+using Production.Racing;
 
 // The rain: what the water takes from the grip of each kind of ground, the curves of the bikes measured at the grip of the day, the riders' plan that follows from them, and the computer riders
 // riding that plan on that ground. Fresh circuits (the shared ones of LabCircuits stay dry for every other check).

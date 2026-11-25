@@ -7,7 +7,7 @@
     <Compile Include="CircuitChecks.cs" />
     <Compile Include="RaceChecks.cs" />
     <Compile Include="Picture.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/PistaMath.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/RacingMath.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/BikeSpec.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/BikeModel.cs" />
     <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Track/Circuit.cs" />

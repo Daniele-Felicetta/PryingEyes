@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
     /// <summary>What the driving line tells the rider at one place of the lap: Go (the plan is accelerating or already at the top speed of the bike: full throttle), Lift (the plan holds a speed the grip allows: ease off or
     /// stay neutral through the corner) and Brake (the plan is slowing the bike hard). It is the speed plan of the racing line the computer riders follow (RacingLine.vplan), read the way Gran Turismo reads it for a
@@ -38,7 +38,7 @@ namespace PryingEyes.Pista
             int n = line.c.n;
             float top = 0f;
             for (int i = 0; i < n; i++) if (line.vplan[i] > top) top = line.vplan[i];
-            float ds = PM.Max(0.5f, line.c.spacing);
+            float ds = RacingMath.Max(0.5f, line.c.spacing);
             var a = new Advice[n];
             for (int i = 0; i < n; i++)
             {

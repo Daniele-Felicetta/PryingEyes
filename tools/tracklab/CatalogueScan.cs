@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>A development aid, not a check: `dotnet run -c Release -- --scan FROM TO` prints what every seed in the range looks like (length, hills, tight corners, longest straight, name), so the
 /// circuits of the catalogue (Rules/Track/Catalogue.cs) can be picked by their character instead of by luck.</summary>

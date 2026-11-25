@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
     /// <summary>The cameras of a replay. Chase, Far and Onboard are the three views of the race camera, on any rider; the others are the cameras of a television director: Pan (a long lens beside the track that
     /// follows the rider past), Fixed (a low wide camera on the verge that looks up the road while the rider thunders by), Heli (a helicopter that trails the rider), Grid (the start seen from past the line)
@@ -33,7 +33,7 @@ namespace PryingEyes.Pista
     public struct CamPose { public float x, y, z, lx, ly, lz, fov; }
 
     /// <summary>A race, recorded: for every rider a tape of poses (20 a second, from the lights going out) and the distance along the race at every frame, as the rules of the race saw it. From it the replay shows
-    /// any rider from any camera, and the director finds what is worth showing: the falls, the overtakes, the battles, the finish. Pure code: the lab records races and measures the edits.</summary>
+    /// any rider from any camera, and the director finds what is worth showing: the falls, the overtakes, the battles, the finish. Pure code: a test can record races and measure the edits.</summary>
     public sealed class RaceRecording
     {
         public readonly int count, laps;
@@ -211,7 +211,7 @@ namespace PryingEyes.Pista
             var cut = new Cutter { rng = new Rng(seed * 7919 + 17), prevSubject = rec.me };
             float T = rec.Duration;
             if (rec.count == 0 || T <= 0.5f) return cut.shots;
-            int me = PM.Clamp(rec.me, 0, rec.count - 1);
+            int me = RacingMath.Clamp(rec.me, 0, rec.count - 1);
             if (T < 2f * MinShot + 1f) { cut.shots.Add(Build(rec, c, ref cut.rng, ShotKind.Chase, ShotWhy.Ambient, me, 0f, T, 0f)); return cut.shots; }
 
             // ---- the start, seen from past the line
@@ -375,7 +375,7 @@ namespace PryingEyes.Pista
         static Shot Build(RaceRecording rec, Circuit c, ref Rng rng, ShotKind kind, ShotWhy why, int subject, float t0, float t1, float pass)
         {
             var s = new Shot { t0 = t0, t1 = t1, subject = subject, kind = kind, why = why, pass = pass };
-            if (kind == ShotKind.Heli) { s.param = rng.Range(0f, PM.TwoPi); return s; }
+            if (kind == ShotKind.Heli) { s.param = rng.Range(0f, RacingMath.TwoPi); return s; }
             if (!s.Anchored) return s;
             float sT = c.WrapS(rec.ProgressAt(subject, pass));
             switch (kind)
@@ -431,7 +431,7 @@ namespace PryingEyes.Pista
             float cx, cz, cy, h0, h1;
             c.At(s - 30f, out cx, out cz, out cy, out h0);
             c.At(s + 30f, out cx, out cz, out cy, out h1);
-            float turn = PM.WrapPi(h1 - h0);
+            float turn = RacingMath.WrapPi(h1 - h0);
             if (turn > 0.10f) return -1;
             if (turn < -0.10f) return 1;
             return rng.Chance(0.5f) ? 1 : -1;
@@ -451,7 +451,7 @@ namespace PryingEyes.Pista
             int sd = side > 0 ? 1 : 0;
             float off = c.Lerp(c.halfW, i, t) + c.Lerp(c.run[sd], i, t) + beyond;
             float nx = c.Lerp(c.nx, i, t), nz = c.Lerp(c.nz, i, t);
-            float nl = PM.Sqrt(nx * nx + nz * nz);
+            float nl = RacingMath.Sqrt(nx * nx + nz * nz);
             if (nl > 1e-6f) { nx /= nl; nz /= nl; }
             float d = (side > 0 ? 1f : -1f) * off;
             x = c.Lerp(c.px, i, t) + nx * d; z = c.Lerp(c.pz, i, t) + nz * d;
@@ -476,8 +476,8 @@ namespace PryingEyes.Pista
                         p.x = s.ax; p.y = s.ay; p.z = s.az;
                         p.lx = f.x; p.ly = f.y + 0.9f; p.lz = f.z;
                         float dx = p.lx - p.x, dy = p.ly - p.y, dz = p.lz - p.z;
-                        float dist = PM.Sqrt(dx * dx + dy * dy + dz * dz);
-                        p.fov = PM.Clamp(2f * PM.Atan(0.5f * s.param / Math.Max(dist, 4f)) * PM.Rad2Deg, 9f, 46f);
+                        float dist = RacingMath.Sqrt(dx * dx + dy * dy + dz * dz);
+                        p.fov = RacingMath.Clamp(2f * RacingMath.Atan(0.5f * s.param / Math.Max(dist, 4f)) * RacingMath.Rad2Deg, 9f, 46f);
                         return true;
                     }
                 case ShotKind.Fixed:
@@ -487,7 +487,7 @@ namespace PryingEyes.Pista
                     {
                         var behind = rec.PoseAt(s.subject, t - 0.8f);
                         float ang = s.param + 0.12f * (t - s.t0);
-                        p.x = behind.x + 30f * PM.Sin(ang); p.z = behind.z + 30f * PM.Cos(ang); p.y = Math.Max(behind.y, f.y) + 21f;
+                        p.x = behind.x + 30f * RacingMath.Sin(ang); p.z = behind.z + 30f * RacingMath.Cos(ang); p.y = Math.Max(behind.y, f.y) + 21f;
                         p.lx = f.x; p.ly = f.y + 0.8f; p.lz = f.z; p.fov = 40f;
                         return true;
                     }

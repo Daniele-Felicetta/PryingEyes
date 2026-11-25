@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>Leaving the road. A rider who runs wide in a corner, cuts across the grass or comes back onto the asphalt at an angle must not fall just because the ground under him is loose: with the aids the front slides, the bike
 /// stands up and slows down, and the gravel and the grass are a place to lose time and not a place to fall; without the aids it stays harsher; and what is not the ground's fault (a wall, a locked front, a head-on hit) is as
@@ -41,7 +42,7 @@ static partial class Program
     {
         var ground = new StripGround();
         var bike = new BikeModel(spec, 11);
-        bike.Reset(x0, 0f, headDeg * PM.Deg2Rad, 0f);
+        bike.Reset(x0, 0f, headDeg * RacingMath.Deg2Rad, 0f);
         bike.u = speed; bike.omegaF = bike.omegaR = speed / spec.wheelRadius; bike.gear = GearAt(speed);
         bike.abs = true; bike.tcs = level < 2; bike.leanAssist = level == 0;          // the three levels of the game: Completi, Sportivi, Nessuno (ABS never goes)
         var r = new Excursion();
@@ -83,7 +84,7 @@ static partial class Program
             bike.Step(Dt, ground, holding ? new BikeInputs { steer = steer, throttle = ThrottleToHold(bike, v) } : new BikeInputs { brakeFront = 0.2f });
             if (t >= next || bike.crashed)
             {
-                Console.WriteLine("  t " + F(t, "F2") + " x " + F(bike.x, "F1") + " " + bike.surfaceF + "/" + bike.surfaceR + " u " + F(bike.u, "F1") + " lean " + F(bike.lean * PM.Rad2Deg, "F0") + " deg latG " + F(bike.latG) + " frontSliding " + bike.frontSliding + " rearSliding " + bike.rearSliding + (bike.crashed ? " CRASH " + bike.crashKind : ""));
+                Console.WriteLine("  t " + F(t, "F2") + " x " + F(bike.x, "F1") + " " + bike.surfaceF + "/" + bike.surfaceR + " u " + F(bike.u, "F1") + " lean " + F(bike.lean * RacingMath.Rad2Deg, "F0") + " deg latG " + F(bike.latG) + " frontSliding " + bike.frontSliding + " rearSliding " + bike.rearSliding + (bike.crashed ? " CRASH " + bike.crashKind : ""));
                 next += 0.2f;
                 if (bike.crashed) break;
             }

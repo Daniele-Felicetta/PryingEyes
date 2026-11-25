@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using PryingEyes.Pista;
+using Production.Racing;
 
 static partial class Program
 {
@@ -34,8 +35,8 @@ static partial class Program
                 float dx = line.x[nx] - line.x[k], dz = line.z[nx] - line.z[k];
                 float ds = (float)Math.Sqrt(dx * dx + dz * dz);
                 float a = (line.vplan[nx] * line.vplan[nx] - line.vplan[k] * line.vplan[k]) / (2f * ds);
-                if (a > 0) worstAccel = Math.Max(worstAccel, a - (curves.AccelAt(line.vplan[k]) + PM.G * 0.1f));
-                else worstBrake = Math.Max(worstBrake, -a - (curves.BrakeAt(line.vplan[nx]) + PM.G * 0.1f));
+                if (a > 0) worstAccel = Math.Max(worstAccel, a - (curves.AccelAt(line.vplan[k]) + RacingMath.G * 0.1f));
+                else worstBrake = Math.Max(worstBrake, -a - (curves.BrakeAt(line.vplan[nx]) + RacingMath.G * 0.1f));
             }
             for (int k = 0; k < c.n; k++) worstKappa = Math.Max(worstKappa, Math.Abs(line.kappa[k]) - Math.Abs(c.curv[k]) - 0.01);
         }

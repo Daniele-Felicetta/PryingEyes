@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>Bikes touching (Race.Contacts and BikeModel.Shove): bikes cannot share a place, a nudge and a bump are not a fall, a bike that rides hard into the back of another falls (and both do in a head-on or a very hard hit), momentum is kept, a bike
 /// that is not simulated here is never moved, a rider who has just got up is left alone, computer riders alone ride exactly as before, and a person in a full race is touched a few times and finishes about as quickly.</summary>

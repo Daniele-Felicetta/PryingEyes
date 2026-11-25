@@ -1,8 +1,8 @@
 using System;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
-    /// <summary>The numbers of one bike as the garage shows them, worked out by riding the real model, not by a formula: the engine on paper (power, weight) and, on a flat clean road with every aid on, the top
+    /// <summary>The numbers of one bike as a workshop shows them, worked out by riding the real model, not by a formula: the engine on paper (power, weight) and, on a flat clean road with every aid on, the top
     /// speed after a minute at full throttle, the time from a standing start to 100 km/h and the distance to stop from 100 km/h with both brakes. Pure code, deterministic (same bike, same numbers).</summary>
     public struct BikeFigures
     {
@@ -37,8 +37,8 @@ namespace PryingEyes.Pista
                 if (stop.u < 0.2f) break;
             }
             foreach (float nm in spec.torqueCurve) f.torque = Math.Max(f.torque, nm);
-            f.agility = PM.Clamp01((spec.rollRateLow - 1.4f) / 1.2f);
-            f.grip = PM.Clamp01((0.5f * (spec.muFront + spec.muRear) - 1.15f) / 0.40f);
+            f.agility = RacingMath.Clamp01((spec.rollRateLow - 1.4f) / 1.2f);
+            f.grip = RacingMath.Clamp01((0.5f * (spec.muFront + spec.muRear) - 1.15f) / 0.40f);
             return f;
         }
     }

@@ -7,6 +7,7 @@ using PryingEyes.Deserto;
 using PryingEyes.Proc;
 using PryingEyes.Testing;
 using UnityEngine;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {

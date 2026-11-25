@@ -1,4 +1,5 @@
 using System;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {
@@ -10,7 +11,7 @@ namespace PryingEyes.Pista
 
         public static BikeSpec Get(int index)
         {
-            switch (PM.Clamp(index, 0, Count - 1))
+            switch (RacingMath.Clamp(index, 0, Count - 1))
             {
                 case 1: return Supersport();
                 case 2: return Roadster();
@@ -60,7 +61,7 @@ namespace PryingEyes.Pista
                 idleRpm = 1400f, launchRpm = 9000f, redlineRpm = 15500f, limiterRpm = 16000f, engineInertia = 0.085f, engineBrake = 17f, slipperTorque = 40f,
                 gears = new[] { 2.58f, 1.95f, 1.60f, 1.36f, 1.20f, 1.08f }, primaryRatio = 1.70f, finalRatio = 2.93f, upshiftRpm = 14400f, downshiftRpm = 7400f,
                 brakeFront = 1350f, brakeRear = 430f, cdA = 0.47f, cdATuck = 0.34f,
-                muFront = 1.29f, muRear = 1.33f, frameLeanMax = 54f * PM.Deg2Rad, rollOmegaLow = 14f, rollOmegaHigh = 9.3f, rollRateLow = 2.1f, rollRateHigh = 1.45f,
+                muFront = 1.29f, muRear = 1.33f, frameLeanMax = 54f * RacingMath.Deg2Rad, rollOmegaLow = 14f, rollOmegaHigh = 9.3f, rollRateLow = 2.1f, rollRateHigh = 1.45f,
                 forkRate = 10500f, shockRate = 19000f,
             };
         }
@@ -77,7 +78,7 @@ namespace PryingEyes.Pista
                 idleRpm = 1200f, launchRpm = 6000f, redlineRpm = 11500f, limiterRpm = 12000f, engineInertia = 0.13f, engineBrake = 26f, slipperTorque = 50f,
                 gears = new[] { 2.50f, 1.82f, 1.46f, 1.24f, 1.10f, 0.98f }, primaryRatio = 1.62f, finalRatio = 2.75f, upshiftRpm = 10800f, downshiftRpm = 5200f,
                 brakeFront = 1300f, brakeRear = 460f, cdA = 0.62f, cdATuck = 0.55f,
-                muFront = 1.25f, muRear = 1.30f, frameLeanMax = 50f * PM.Deg2Rad, hangMax = 6f * PM.Deg2Rad, rollOmegaLow = 12.5f, rollOmegaHigh = 8.6f, rollRateLow = 1.8f, rollRateHigh = 1.2f,
+                muFront = 1.25f, muRear = 1.30f, frameLeanMax = 50f * RacingMath.Deg2Rad, hangMax = 6f * RacingMath.Deg2Rad, rollOmegaLow = 12.5f, rollOmegaHigh = 8.6f, rollRateLow = 1.8f, rollRateHigh = 1.2f,
                 forkRate = 11500f, shockRate = 21000f,
             };
         }
@@ -94,7 +95,7 @@ namespace PryingEyes.Pista
                 idleRpm = 3200f, launchRpm = 9500f, redlineRpm = 12500f, limiterRpm = 13000f, engineInertia = 0.025f, engineBrake = 6f, slipperTorque = 12f,
                 gears = new[] { 3.07f, 2.23f, 1.77f, 1.46f, 1.26f, 1.11f }, primaryRatio = 2.10f, finalRatio = 2.60f, driveEfficiency = 0.93f, shiftTime = 0.10f, upshiftRpm = 12200f, downshiftRpm = 8200f,
                 brakeFront = 800f, brakeRear = 250f, cdA = 0.34f, cdATuck = 0.24f,
-                muFront = 1.28f, muRear = 1.30f, frameLeanMax = 58f * PM.Deg2Rad, hangMax = 7f * PM.Deg2Rad, minTurnRadius = 4.0f,
+                muFront = 1.28f, muRear = 1.30f, frameLeanMax = 58f * RacingMath.Deg2Rad, hangMax = 7f * RacingMath.Deg2Rad, minTurnRadius = 4.0f,
                 rollOmegaLow = 16f, rollOmegaHigh = 10.5f, rollRateLow = 2.5f, rollRateHigh = 1.75f, forkRate = 7000f, shockRate = 12000f,
             };
         }
@@ -111,7 +112,7 @@ namespace PryingEyes.Pista
                 idleRpm = 1400f, launchRpm = 8500f, redlineRpm = 14000f, limiterRpm = 14500f, engineInertia = 0.08f, engineBrake = 16f, slipperTorque = 38f,
                 gears = new[] { 2.68f, 2.08f, 1.74f, 1.49f, 1.33f, 1.20f }, primaryRatio = 1.70f, finalRatio = 2.90f, upshiftRpm = 13500f, downshiftRpm = 7200f,
                 brakeFront = 1300f, brakeRear = 430f, cdA = 0.47f, cdATuck = 0.34f,
-                muFront = 1.30f, muRear = 1.34f, frameLeanMax = 54f * PM.Deg2Rad, minTurnRadius = 4.6f,
+                muFront = 1.30f, muRear = 1.34f, frameLeanMax = 54f * RacingMath.Deg2Rad, minTurnRadius = 4.6f,
                 rollOmegaLow = 14.5f, rollOmegaHigh = 9.6f, rollRateLow = 2.2f, rollRateHigh = 1.5f, forkRate = 10500f, shockRate = 19000f,
             };
         }
@@ -128,7 +129,7 @@ namespace PryingEyes.Pista
                 idleRpm = 1200f, launchRpm = 6000f, redlineRpm = 10300f, limiterRpm = 10800f, engineInertia = 0.16f, engineBrake = 34f, slipperTorque = 70f,
                 gears = new[] { 2.29f, 1.70f, 1.37f, 1.14f, 1.00f, 0.89f }, primaryRatio = 1.60f, finalRatio = 2.80f, upshiftRpm = 9800f, downshiftRpm = 5200f,
                 brakeFront = 1500f, brakeRear = 480f, cdA = 0.52f, cdATuck = 0.38f,
-                muFront = 1.30f, muRear = 1.36f, frameLeanMax = 52f * PM.Deg2Rad, minTurnRadius = 4.9f,
+                muFront = 1.30f, muRear = 1.36f, frameLeanMax = 52f * RacingMath.Deg2Rad, minTurnRadius = 4.9f,
                 rollOmegaLow = 12.5f, rollOmegaHigh = 8.0f, rollRateLow = 1.85f, rollRateHigh = 1.2f, forkRate = 11500f, shockRate = 21000f,
             };
         }
@@ -145,7 +146,7 @@ namespace PryingEyes.Pista
                 idleRpm = 1200f, launchRpm = 6500f, redlineRpm = 10800f, limiterRpm = 11300f, engineInertia = 0.15f, engineBrake = 30f, slipperTorque = 70f,
                 gears = new[] { 2.35f, 1.71f, 1.36f, 1.12f, 0.97f, 0.85f }, primaryRatio = 1.60f, finalRatio = 2.80f, upshiftRpm = 10300f, downshiftRpm = 5500f,
                 brakeFront = 1550f, brakeRear = 520f, cdA = 0.49f, cdATuck = 0.335f,
-                muFront = 1.28f, muRear = 1.36f, frameLeanMax = 50f * PM.Deg2Rad, hangMax = 6f * PM.Deg2Rad, minTurnRadius = 5.4f,
+                muFront = 1.28f, muRear = 1.36f, frameLeanMax = 50f * RacingMath.Deg2Rad, hangMax = 6f * RacingMath.Deg2Rad, minTurnRadius = 5.4f,
                 rollOmegaLow = 11f, rollOmegaHigh = 7.4f, rollRateLow = 1.55f, rollRateHigh = 1.05f, forkRate = 12500f, shockRate = 23000f,
             };
         }
@@ -162,7 +163,7 @@ namespace PryingEyes.Pista
                 idleRpm = 3500f, launchRpm = 10000f, redlineRpm = 13500f, limiterRpm = 14000f, engineInertia = 0.05f, engineBrake = 8f, slipperTorque = 25f,
                 gears = new[] { 2.29f, 1.70f, 1.37f, 1.14f, 1.00f, 0.89f }, primaryRatio = 1.80f, finalRatio = 2.90f, upshiftRpm = 13000f, downshiftRpm = 9000f,
                 brakeFront = 1800f, brakeRear = 520f, cdA = 0.42f, cdATuck = 0.30f,
-                muFront = 1.46f, muRear = 1.50f, slipPeakRatio = 0.13f, frameLeanMax = 56f * PM.Deg2Rad, hangMax = 7.5f * PM.Deg2Rad, minTurnRadius = 4.5f,
+                muFront = 1.46f, muRear = 1.50f, slipPeakRatio = 0.13f, frameLeanMax = 56f * RacingMath.Deg2Rad, hangMax = 7.5f * RacingMath.Deg2Rad, minTurnRadius = 4.5f,
                 rollOmegaLow = 15f, rollOmegaHigh = 10f, rollRateLow = 2.3f, rollRateHigh = 1.6f, forkRate = 9500f, shockRate = 17000f,
             };
         }
@@ -179,7 +180,7 @@ namespace PryingEyes.Pista
                 idleRpm = 1300f, launchRpm = 7000f, redlineRpm = 12500f, limiterRpm = 13000f, engineInertia = 0.12f, engineBrake = 24f, slipperTorque = 52f,
                 gears = new[] { 2.49f, 1.96f, 1.64f, 1.42f, 1.27f, 1.16f }, primaryRatio = 1.60f, finalRatio = 2.87f, upshiftRpm = 12000f, downshiftRpm = 6200f,
                 brakeFront = 1400f, brakeRear = 470f, cdA = 0.62f, cdATuck = 0.55f,
-                muFront = 1.28f, muRear = 1.33f, frameLeanMax = 52f * PM.Deg2Rad, minTurnRadius = 4.8f,
+                muFront = 1.28f, muRear = 1.33f, frameLeanMax = 52f * RacingMath.Deg2Rad, minTurnRadius = 4.8f,
                 rollOmegaLow = 13f, rollOmegaHigh = 8.4f, rollRateLow = 1.95f, rollRateHigh = 1.28f, forkRate = 11200f, shockRate = 20500f,
             };
         }
