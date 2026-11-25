@@ -198,12 +198,11 @@ version) fails the suite (`PLAYER_RESULT_INVALID`): the lines are no way around 
 The runner reads three forms of that line, and `tools/player_log.py` is the only place that knows them: the standard one above;
 `CoopTest`'s (`[PryingEyes] cooptest ospite: RISULTATO SUPERATA: 12/12 verifiche ok`, each check as `ok       <what>   [<detail>]`, the
 process that speaks after the label); and `PistaCoopTest`'s (`[PryingEyes] pistacooptest ospite RISULTATO ...`, no colon, the detail in
-parentheses: the standard line of the harness, with `Role` after the suite). A test that derives from `PlayerTest` writes `result.json` and prints the standard line too. Counted from the sources on 24
-November 2026, with the first pull request of T08 merged, 68 of the 87 entries say their result in a form the runner reads: the ones on
+parentheses: the standard line of the harness, with `Role` after the suite). A test that derives from `PlayerTest` writes `result.json` and prints the standard line too. Counted from the sources on 25
+November 2026, with the sixth pull request of T08, 79 of the 87 entries say their result in a form the runner reads: the ones on
 `PlayerTest`, the others that print the standard line (two of them runners: `seatstest`, `splitdesertotest`) and the 17 co-op scenarios,
-which print the co-op forms. The other 19 print theirs in another form or not at all: `citytest`, `displaytest`, `guntest`, `leantest`,
-`walltest`, `magictest`, `procbot`, `perftest` and the eleven of the stealth family (`stealthtest`, `roundtest`, `knifetest`, `droptest`,
-`booktest`, `gridtest`, `pushtest`, `holescan`, `alientest`, `temitest`, `refshot`). The studio starts them and fails them with
+which print the co-op forms. The other 8 print theirs in another form or not at all: `citytest`, `displaytest`, `guntest`, `leantest`,
+`walltest`, `magictest`, `procbot` and `perftest`. The studio starts them and fails them with
 `PLAYER_RESULT_MISSING`, whatever the process did, until they are ported to the harness (T08, whose pull requests shorten this list): the
 runner does not guess a verdict from an exit code (`padtest` quit with 0 and printed no result at all until its steps were repaired).
 
@@ -349,10 +348,10 @@ script does both ends; its use, its options and the numbers measured on the real
 
 ## The in-player harness
 
-State: built (T07) and on 37 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
+State: built (T07) and on 38 suites: `TrapTest`, `BarrelTest` and `MineTest` (T07), the ten of the first pull request of T08 (`MedalTest`,
 `FeelTest`, `EyesTest`, `FlinchTest`, `MantleTest`, `MagTest`, `LampTest`, `ShaftTest`, `RagdollTest`, `EquipTest`), the nine of the second
 (`LampadariTest`, `PowerTest`, `VariantiTest`, `ImpactTest`, `MapTest`, `MeleeTest`, `JellyTest`, `SplitScreenTest`, `MusicTest`), the nine of the third (`RelicReviewTest`, `CombatFeedbackTest`, `FlyingMeleeTest`, `PrefetchTest`, `CharacterTest`, `AnnexTest`, `SurvivalTest`, `GunplayTest`, `OpticsTest`), the three of the fourth (`PadMenuTest`, `ThirdPersonTest`, `TorchReviewTest`) and the three of the fifth (`CattedraleTest`,
-`SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest); T08 ports the 14 others that
+`SplitDesertTest` and `PistaCoopTest`, which stands for three entries of the manifest) and the one of the sixth (`StealthTest`, which stands for eleven); T08 ports the 13 others that
 still carry their own copy of the same code (F6). The files are `Scripts/Testing/TestRun.cs`, compiled into every build because the game asks it a question, and
 `Scripts/Testing/PlayerTest.cs`, which a distribution build leaves out. The interface as built (T07 fixed the first sketch of this page
 against the three suites; the differences are listed below it):
@@ -382,6 +381,7 @@ namespace PryingEyes.Testing
         protected int Failed { get; }                   // failed so far
         protected bool Photos { get; }                  // the photo flag is on
         protected bool Check(string name, bool ok, string detail = "");
+        protected void NotApplicable(string why);       // the floor cannot host this test: the check "il piano ospita la prova" fails with the reason and the exit code is 2 (1 if anything else failed); return from Run after it
         protected void Photo(string name);              // into the output folder, listed under artifacts; nothing unless the photo flag is on
         protected string PhotoPath(string name);        // the file for a photograph the test frames itself (a hidden weapon, a camera of its own); listed under artifacts
         protected virtual void OnDestroy();             // stops counting exceptions; a test that owns something to release overrides it and calls base.OnDestroy()
@@ -408,7 +408,7 @@ public sealed class MineTest : PlayerTest
 
 What the base class does, in the order of the old private copies: it counts the exceptions the game logs (`LogType.Exception`), runs
 `Run()` (an exception in it ends the sequence, is logged and fails the check `sequenza completa`), calls `Finish()`, adds the check
-`nessuna eccezione runtime` (or the name that `ExceptionCheck` gives, or none at all), writes `result.json`, prints the result line and quits with 0 when every check passed and 1 otherwise. Each
+`nessuna eccezione runtime` (or the name that `ExceptionCheck` gives, or none at all), writes `result.json`, prints the result line and quits with 0 when every check passed, with 2 when the test said `NotApplicable` and nothing else failed, and with 1 otherwise. Each
 check is still the log line `[PryingEyes] <suite> ok <name>` or `... FALLITO <name>`, in the order of the calls. `InstallWhen` sets
 `TestRun.Dedicated` when the flag is on the command line, in the load hook, before the first `GameManager.Update`; `GameManager` reads
 `TestRun.Dedicated || trailer || HasAnyArg(LegacyDedicatedFlags)`, the legacy array being the flags of the suites that are not on the
@@ -417,7 +417,7 @@ harness yet, one per line, which T08 empties and deletes. A suite that says a `T
 
 What it removed: the `Check`, the log hook, the loop and the exit of each test that is on it; the three flags of those tests in
 `GameManager.cs`; the three literals that started with `unity_logs` and depended on the working directory. What it keeps: the result
-line, so every existing script and habit still works, and the exit codes 0 and 1.
+line, so every existing script and habit still works, and the exit codes 0 and 1 (2 came with the sixth pull request of T08).
 
 Where the first sketch was wrong or short:
 
@@ -460,8 +460,26 @@ Where the first sketch was wrong or short:
   they were: those of `CattedraleTest` (`-cattedraleshots`, 1600x900, `hotel_build/cattedrale`) and of `SplitDesertTest` (`hotel_build/deserto`, and the monitors'
   through `run_split.ps1`) are not on `PhotoPath`, only the flag of the first moved to `PhotoFlag`; the `Photo` of `SplitDesertTest` is now `MonitorPhoto`, so as
   not to hide the base class's.
-- The exit code 2 ("this floor cannot host the test") is not in the base class: none of the three needs it. The stealth suites call
-  `Application.Quit(2)` themselves; T08 adds a call to the base class when it ports the first of them.
+- The sixth took one class, eleven suites and one member. `StealthTest` is one class over four files that runs eleven suites of the manifest: the flag after
+  `-stealthtest` (`-roundtest`, `-knifetest`, `-droptest`, `-booktest`, `-gridtest`, `-pushtest`, `-holescan`, `-alientest`, `-temitest`, `-refshot`, or none) names
+  the suite, so each has its own result line, its own `result.json` and the name that the manifest gives it. The four files are wrapped in
+  `#if !PE_DISTRIBUTION_BUILD` (they were part of every release) and `StealthRig.cs` no longer adds the component: the test installs itself at load
+  and waits for the floor and for the rig, as the others do. What was a `passed &=` is a named check, so each suite says what it checked (the main
+  suite had no check at all: the twelve conditions that decided its exit are twelve checks); the private `Check` of six of its methods is the base
+  class's now, and the lines that it wrote into `hotel_build/furtivo/*.txt` are in the log and in `result.json`, the files keeping the narrative and
+  the closing verdict line. `ExceptionCheck` is null: the family never counted exceptions, and the three suites that take photographs without a graphics card
+  (`stealthtest`, `alientest`, `temitest`) log the renderer's exceptions in every run, which the runner filters as noise, so the default closing check would
+  fail runs in which nothing is wrong. That check is also what catches a nested sequence that throws (Unity runs a nested sequence by itself and only logs
+  what it throws, so the base class sees the exceptions of its own `Run` only), and this family has none: each suite runs inside `RunSuite`, which fails
+  the check `sequenza completa` when the suite throws. Two things are not as they were: `-roundshots` used to quit with 0 whatever the checks said and now ends like any run, and a
+  sequence that throws fails the check `sequenza completa` and exits with 1, where it used to leave the process waiting for the runner's timeout.
+- `NotApplicable(why)` is the exit code 2 ("this floor cannot host the test"): the check `il piano ospita la prova` fails with the reason, the sequence
+  returns, and the process quits with 2 unless another check failed too, which outranks it (exit 1). Six suites use it (`roundtest`: no sealable zone;
+  `knifetest`, `droptest` and `pushtest`: no open spot; `booktest`: a sanctuary is missing; `gridtest`: not a grid plan) and `PerfProbe` exits 2 in the same
+  way for `-hordeperf` without a real graphics card. A suite cannot keep it to itself: `Application.Quit(2)` from inside the sequence is overwritten by the
+  base class's own `Application.Quit(0)` when the sequence returns (the same frame), and the run prints `SUPERATA` with nothing checked; the check and
+  `result.json` are the base class's too. `booktest` now tests that its sanctuaries exist before it checks them, so that a floor without one is the
+  plan's answer and not three failed lines (it used to exit 2 after them).
 - What `Dedicated` stops is the automatic quit of `-autotest` and nothing else, as the chain it replaced did; the sketch said the run
   "must not report, photograph or quit", which was more than the code ever did.
 

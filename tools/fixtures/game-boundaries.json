@@ -6,11 +6,6 @@
       "file": "Scripts/Coop/CoopGame.cs",
       "names": "CoopTest",
       "reason": "CoopGame hands the CoopKind.Test messages to CoopTest.OnNet and starts the two-process scenarios through CoopTest.Wanted and CoopTest.Ensure. CoopTest is not wrapped, so the reference compiles in every build. It goes when the co-op scenarios move to the harness (T08) or the tests to an assembly of their own (T17)."
-    },
-    {
-      "file": "Scripts/Stealth/StealthRig.cs",
-      "names": "StealthTest",
-      "reason": "StealthRig adds the StealthTest component when -stealthtest is on the command line. StealthTest is not wrapped, so the reference compiles in every build. It goes when StealthTest installs itself like the other tests (T08) or the tests move to an assembly of their own (T17)."
     }
   ],
   "GAME_TEST_NOT_EXCLUDED": [
@@ -53,22 +48,6 @@
     {
       "file": "Scripts/Coop/CoopTest.cs",
       "reason": "Never wrapped, and CoopGame.cs names CoopTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The three files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Stealth/StealthTest.Fase2.cs",
-      "reason": "Never wrapped, and StealthRig.cs names StealthTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The four files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Stealth/StealthTest.Fase3.cs",
-      "reason": "Never wrapped, and StealthRig.cs names StealthTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The four files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Stealth/StealthTest.Fase4.cs",
-      "reason": "Never wrapped, and StealthRig.cs names StealthTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The four files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Stealth/StealthTest.cs",
-      "reason": "Never wrapped, and StealthRig.cs names StealthTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The four files of the partial class are wrapped together, after it."
     }
   ],
   "GAME_PURE_FILE_NAMES_ENGINE": []

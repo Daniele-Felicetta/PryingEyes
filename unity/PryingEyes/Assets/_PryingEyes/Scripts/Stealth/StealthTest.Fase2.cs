@@ -1,3 +1,4 @@
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -80,17 +81,11 @@ namespace PryingEyes
             var gm = GameManager.I;
             var fd = FloorDirector.I;
             var pl = gm.player;
-            bool passed = true;
-            void Check(string what, bool ok, string detail = "")
-            {
-                Log((ok ? "ok       " : "FALLITO  ") + what + (detail.Length > 0 ? "   [" + detail + "]" : ""));
-                if (!ok) passed = false;
-            }
             bool shots = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
             yield return new WaitForSeconds(2.0f);
             var kn = Knife.I;
             Check("il coltello c'e' (StealthRig)", kn != null);
-            if (kn == null) { Application.Quit(1); yield break; }
+            if (kn == null) yield break;
             var wp = pl.weapon;
             Drops.disabled = true;
             Enemy.ClearAll();
@@ -98,7 +93,7 @@ namespace PryingEyes
             pl.invulnerable = true;
             Enemy.debugFreeze = true;
             Enemy.debugNoSense = false;
-            if (!FindOpenSpot(fd.cur, out Vector3 spot, out Vector3 dir)) { Log("nessuno spiazzo libero su questo piano: prova non applicabile (cambia seme)"); Application.Quit(2); yield break; }
+            if (!FindOpenSpot(fd.cur, out Vector3 spot, out Vector3 dir)) { Log("nessuno spiazzo libero su questo piano: prova non applicabile (cambia seme)"); NotApplicable("nessuno spiazzo libero su questo piano (cambia seme)"); yield break; }
             Vector3 side = Vector3.Cross(Vector3.up, dir);
             Log($"piano {fd.floor} seme {fd.runSeed}: spiazzo in ({spot.x:F1},{spot.z:F1}), il bersaglio guarda ({dir.x:F0},{dir.z:F0})");
 
@@ -263,8 +258,7 @@ namespace PryingEyes
                 if (torch != null && torch.on) torch.Toggle();
             }
 
-            Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
-            Application.Quit(passed ? 0 : 1);
+            Log(Failed == 0 ? "ESITO: ok" : "ESITO: FALLITO");
         }
 
         // ------------------------------------------------------------------ potenziamenti, falene, Fantasma (-droptest)
@@ -279,12 +273,6 @@ namespace PryingEyes
             var rd = RoundDirector.I;
             var pl = gm.player;
             var wp = pl.weapon;
-            bool passed = true;
-            void Check(string what, bool ok, string detail = "")
-            {
-                Log((ok ? "ok       " : "FALLITO  ") + what + (detail.Length > 0 ? "   [" + detail + "]" : ""));
-                if (!ok) passed = false;
-            }
             bool shots = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
             yield return new WaitForSeconds(2.0f);
             Log($"piano {fd.floor} seme {fd.runSeed}: stanze={fd.cur.plan.rooms.Count} candele={fd.cur.candles.Count} zone={(rd != null ? rd.ZoneCount : -1)}");
@@ -294,7 +282,7 @@ namespace PryingEyes
             pl.invulnerable = true;
             Enemy.debugFreeze = true;
             Enemy.debugNoSense = false;
-            if (!FindOpenSpot(fd.cur, out Vector3 spot, out Vector3 dir)) { Log("nessuno spiazzo libero su questo piano: prova non applicabile (cambia seme)"); Application.Quit(2); yield break; }
+            if (!FindOpenSpot(fd.cur, out Vector3 spot, out Vector3 dir)) { Log("nessuno spiazzo libero su questo piano: prova non applicabile (cambia seme)"); NotApplicable("nessuno spiazzo libero su questo piano (cambia seme)"); yield break; }
             Vector3 side = Vector3.Cross(Vector3.up, dir);
             Vector3 home = NavPoint(spot - dir * 1.9f);                // dove sta il giocatore a riposo
             void Home() { pl.Teleport(home); pl.yaw = Mathf.Atan2(dir.x, dir.z); pl.pitch = 0f; }
@@ -545,8 +533,7 @@ namespace PryingEyes
                 }
             }
 
-            Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
-            Application.Quit(passed ? 0 : 1);
+            Log(Failed == 0 ? "ESITO: ok" : "ESITO: FALLITO");
         }
 
         // ------------------------------------------------------------------ i volanti non spingono il giocatore (-pushtest)
@@ -559,12 +546,6 @@ namespace PryingEyes
             var gm = GameManager.I;
             var fd = FloorDirector.I;
             var pl = gm.player;
-            bool passed = true;
-            void Check(string what, bool ok, string detail = "")
-            {
-                Log((ok ? "ok       " : "FALLITO  ") + what + (detail.Length > 0 ? "   [" + detail + "]" : ""));
-                if (!ok) passed = false;
-            }
             yield return new WaitForSeconds(2.0f);
             Log($"piano {fd.floor} seme {fd.runSeed}: stanze={fd.cur.plan.rooms.Count}; vecchio comportamento (-bodiesclash): {System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-bodiesclash") >= 0}");
             Drops.disabled = true;
@@ -572,7 +553,7 @@ namespace PryingEyes
             PlayerController.holdLook = true;
             pl.invulnerable = true;
             Enemy.debugFreeze = false;
-            if (!FindOpenSpot(fd.cur, out Vector3 spot, out Vector3 dir)) { Log("nessuno spiazzo libero su questo piano: prova non applicabile (cambia seme)"); Application.Quit(2); yield break; }
+            if (!FindOpenSpot(fd.cur, out Vector3 spot, out Vector3 dir)) { Log("nessuno spiazzo libero su questo piano: prova non applicabile (cambia seme)"); NotApplicable("nessuno spiazzo libero su questo piano (cambia seme)"); yield break; }
             Vector3 home = NavPoint(spot - dir * 1.9f);
             pl.Teleport(home);
             pl.yaw = Mathf.Atan2(dir.x, dir.z);
@@ -607,8 +588,8 @@ namespace PryingEyes
             Check("le falene non spostano un giocatore fermo", maxMove < 0.1f, $"{maxMove:F2} m in 14 s");
             Check("e non lo fanno uscire dal pavimento", minY > -0.5f && FloorDirector.statFalls == falls0, $"quota minima {minY:F2}, cadute {FloorDirector.statFalls - falls0}");
             Enemy.ClearAll();
-            Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
-            Application.Quit(passed ? 0 : 1);
+            Log(Failed == 0 ? "ESITO: ok" : "ESITO: FALLITO");
         }
     }
 }
+#endif
