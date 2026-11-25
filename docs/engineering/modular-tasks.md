@@ -1,6 +1,6 @@
 # Modular architecture: task briefs
 
-Twenty-one tasks, each written so that an agent can carry it out alone: what to do, why, what must be true at the end and how to
+Twenty-three tasks, each written so that an agent can carry it out alone: what to do, why, what must be true at the end and how to
 prove it. Their order, their state and what can run in parallel are in [modular-roadmap.md](modular-roadmap.md). The reasons are in
 [architecture-audit.md](architecture-audit.md) (findings F1 to F14), [modularization.md](modularization.md) (boundaries B1 to B5),
 [package-extraction.md](package-extraction.md) and [agent-tooling.md](agent-tooling.md).
@@ -462,7 +462,8 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 ## Phase 4: on a trigger
 
 The triggers are in [modular-roadmap.md](modular-roadmap.md#triggers-of-phase-4). The briefs are shorter on purpose: the event that starts
-each one will say more than can be written now.
+each one will say more than can be written now. The last two, T22 and T23, are longer: the maintainer decided them on 25 November 2026,
+and what was checked that day is worth keeping.
 
 ### T18. An engine-free audio core and its lab
 
@@ -512,3 +513,85 @@ each one will say more than can be written now.
   fails when the tables in the page are not the ones the command prints.
 - **Done when**: no sentence of the old tables is lost (each is in the manifest or in a linked page: state where); adding a suite means
   one manifest entry and one generated table.
+
+### T22. The track rules as a package
+
+- **Why**: the maintainer decided on 25 November 2026 that the bikes become a package that another game can take, before a second game
+  asks for it ([the two exceptions](package-extraction.md#the-two-exceptions) say what that accepts). The 20 files of `Rules/Track` are
+  already engine-free and checked by `tracklab` (rung 1 of the ladder); rung 2 adds neutral names, a cut between mechanism and content,
+  a project outside the game that consumes it, and the four proofs of the guard.
+- **Needs**: **editor**, one **full build** (a new assembly is not proven by a scripts-only build), the .NET 8 SDK.
+- **Depends on**: T08 (its last pull request is the last to edit the tests of the track mode: `Scripts/Pista/` should be quiet) and T15 (done).
+- **Touches**: the files of `Rules/Track/` and their `.meta`; a new `unity/PryingEyes/Packages/com.pryingeyes.racing/` (the name is a
+  proposal: the guard's list of forbidden names is its test); `tools/tracklab/TrackLab.csproj` (the paths); `unity/LayoutDemo` (a
+  `RacingDemo.cs` and a line of `Packages/manifest.json`); `PryingEyes.Rules.asmdef` (a reference to the package); the `using` lines of the
+  gameplay files that name a moved type (`Scripts/Pista/`, and in `Scripts/Deserto/` `DesertBikeDef.cs`, `DesertTest.Garage.cs` and `SplitDesertTest.cs`);
+  [package-extraction.md](package-extraction.md), [../game/track-mode.md](../game/track-mode.md), [modularization.md](modularization.md)
+  (B1 and the census), [suite-architecture.md](suite-architecture.md).
+- **What goes and what stays** (from a search of the type names of each file in the others, at commit `839571c`; the compiler is the proof, in step 1):
+  - the mechanism, which uses only itself: `PistaMath` (as `RacingMath`), `BikeModel`, the shape of a bike in `BikeSpec.cs`, `Tuning`,
+    `Circuit`, `CircuitGen`, `RacingLine`, `DrivingLine`, `BrakeCue`, `BikeDriver`, `RaceRules`, `PoseTape`, `RaceReplay`, `KeyShaper`;
+  - the game's content, which uses the mechanism and which nothing of the mechanism uses: the nine bikes (the class `Bikes`, in the same
+    file as the shape of a bike, so the file is split), `Catalogue`, `Licences`, `Championship`, `Career`. They stay in `Rules/Track`
+    and consume the package;
+  - to decide in step 1, with the reason in the pull request: `BikeSheet` (the bars of the garage, computed from the model; the desert garage
+    shows it too, which argues for the package) and `EngineSynth` (the sound of the engines).
+- **Steps**
+  1. Prove the cut. A throwaway project, as `tracklab` is, compiles the mechanism files alone; the compiler lists what it still needs from a
+     content file. What it needs is moved, or passed in as a parameter or an interface. Nothing else changes: the same expressions, the same numbers.
+  2. Names. The namespace becomes `Production.Racing`, `PistaMath` becomes `RacingMath`, and no game, engine or netcode word stays in the code.
+     The texts that the mechanism writes for people (if `CircuitGen` names circuits, for one) come in as a parameter or stay in the game.
+  3. Move with `git mv` and the `.meta`. The assembly definition has `noEngineReferences: true` and no references; add `package.json` and a
+     `README.md` that says what the package is for, how to consume it, and that one game has used it so far. `tracklab` compiles the package
+     files from their new path.
+  4. The gameplay files get the `using` of the new namespace and the new name of what was renamed, and `PryingEyes.Rules` references the
+     package. No behaviour changes.
+  5. `RacingDemo.cs` in `unity/LayoutDemo` rides a bike on a generated circuit with the package alone and prints the lap time.
+  6. Correct the pages (rule 13): the inventory row of [package-extraction.md](package-extraction.md#inventory-of-candidates), which says
+     honestly what in the interface still looks like this game; `modularization.md`; the census tables.
+- **Done when**
+  - Unity compiles with no error and a **full** build succeeds; the guard passes with the new package and its four proofs.
+  - `tracklab` passes with the same checks, and what it saves (the race simulations, the pictures by SHA-256) is the same before and after:
+    record both before step 1.
+  - In the player, with the method of T08, the suites of the track and of the desert bikes pass with the same checks in the same order as
+    before: `pistatest`, `pistacuponly`, the five `pistamenu*` and the bike phases of `desertotest`.
+  - `RacingDemo` runs in `unity/LayoutDemo`, which the guard checks consumes the package.
+  - Census: no engine-free file that a lab compiles is left in `Assembly-CSharp`, and `Rules/Track` holds only the game's content.
+- **Not in scope**: the Unity side of the track mode (`Scripts/Pista/`: meshes, views, menus, garage, the replay on screen): a package with
+  the engine inside needs a second kind of rule in the guard, and a second game to shape it. The desert bike (`DesertBike*.cs`): it rides on
+  its own arcade code and shares only the data of the nine bikes and their sheet; making it ride on `BikeModel` is a design choice of the
+  maintainer, not a refactor. Any rule, number or word that a player sees.
+- **Announce it**: every open branch that edits a file of `Rules/Track/` or of `Scripts/Pista/` conflicts. Merge those first.
+
+### T23. The weapon rules in the weapons package
+
+- **Why**: the maintainer decided on 25 November 2026 that the gunplay becomes reusable ([the two exceptions](package-extraction.md#the-two-exceptions)).
+  `Production.Weapons` holds one file today (`WeaponState`: the reload and the cadence, with `weaponslab`). The rest is `Weapon.cs`, one class of about
+  1,500 lines that talks to the camera, the hands, the effects, the enemies, the shared screen and the player, and the files around it (`Armi/`,
+  `Braccia/`), which use Unity. This task moves what is only numbers, and nothing else.
+- **Needs**: **editor**, **build**; a free graphics card for the suites that cannot run without one; the .NET 8 SDK.
+- **Depends on**: T08 (the gun suites on the harness) and T22: it starts when T22 has merged and its page says that the method worked. If T22
+  stopped, this stops with it and the maintainer decides.
+- **Touches**: `Scripts/Armi/WeaponDefs.cs`, `Scripts/Armi/WeaponCatalog.cs`, `Scripts/Weapon.cs` and its parts; `Packages/com.pryingeyes.weapons`;
+  `tools/weaponslab`; `unity/LayoutDemo/Assets/WeaponDemo.cs`; the pages. `Resources/Production/weapons.json` does not change.
+- **Steps**: one pull request each, in this order. None changes a number that a player feels.
+  1. The data. `WeaponDef` (about sixty fields: damage and its fall with range, pellets, cone, pierce, rate, magazine, reload, bloom, recoil,
+     handling) and the validation of the catalogue move to the package. Today they use `UnityEngine.Color` for the tracer, the flash, the reticle and
+     the grade colours, and `Mathf.Clamp` twice, and the reader uses Newtonsoft.Json, which a package may not reference. The colours become a small
+     engine-free type that the game converts at its edge. The reader either stays in the game and hands the package a plain list, or the package carries
+     its own: decide with the guard and write why. The file, the append-only indices and `WeaponDefs.ContentHash` are the same before and after.
+  2. The arithmetic. In `Weapon.cs` find what takes numbers and returns numbers: the damage at a distance and through enemies, the cone of the
+     pellets, the bloom and its recovery, the recoil of the view and its recovery, the spread with movement and aim. Move each as a function or a
+     small state machine like `WeaponState`, with the same expressions. `weaponslab` keeps a copy of the old code, as `LegacyReload.cs` does for the
+     reload, and compares the two over a table of inputs. `Weapon.cs` calls the package; its behaviour is unchanged.
+  3. The demo. `WeaponDemo.cs` in `unity/LayoutDemo` fires a weapon of the catalogue at a target with the package alone and prints what each shot did.
+- **Done when**
+  - Every moved computation equals the old one in the lab over a table of inputs (state its size), bit for bit or within a stated tolerance.
+  - The guard passes; `weaponslab` passes; Unity compiles; a scripts-only build and the smoke walk pass.
+  - In the player, with the method of T08, the gun suites (`guntest`, `gunplaytest`, `opticstest`, `leantest`, `meleetest`; `python tools/studio.py suites`
+    lists them with what each needs) pass with the same checks in the same order as before, and what they measure (spread, recoil, damage) is the same.
+  - The hash of the catalogue is the same.
+- **Not in scope**, written down so that nobody does it by accident: the Unity layer of the gun. The viewmodel and its sway, the hands and the arms
+  (`Braccia/`), the impact effects (`Fx.cs`, `Surfaces.cs`), the sounds and the magic seals need sockets (who takes the damage, where the camera is, who
+  plays the effects, where the command comes from), and sockets are drawn well only with a second game that has guns. When that game exists it is a
+  new task with its own page. Also not here: a new weapon, a rebalanced number, a change to the JSON schema.

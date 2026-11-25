@@ -23,7 +23,7 @@ census tool (`tools/code_census.py`) that the audit needed; the [status](#status
 2. Give every in-player check one shape: listed in a manifest, started by one command, answered with data (phase 1).
 3. Let agents work at the same time without stepping on each other: worktrees, ports, files (phase 2).
 4. Draw the first boundaries the compiler checks: the engine-free rules of the game, then the tests (phase 3).
-5. Extract or converge the rest only when an event asks for it (phase 4).
+5. Extract or converge the rest only when an event asks for it (phase 4); so far the event is the maintainer's decision to make the bikes and the guns packages.
 
 No phase rewrites gameplay. The largest move of code is 56 files (34 when the plan was written) that change folder without changing a line.
 
@@ -70,6 +70,8 @@ are in [modular-tasks.md](modular-tasks.md).
 | T19 | One reader of the command line | 4 | T08 | editor, build | todo, on its trigger |
 | T20 | Decide the fate of the multiplayer draft | 4 | | the maintainer | done (#66) |
 | T21 | The tables of testing.md from the manifest | 4 | T05, T06 | | todo, on its trigger |
+| T22 | The track rules as a package | 4 | T08 | editor, full build | todo, after T08 |
+| T23 | The weapon rules in the weapons package | 4 | T08, T22 | editor, build | todo, after T22 |
 
 T08 is done except for two suites. `DisplayTest` and `PresentationTest` still define their own `Check` ("no test defines `Check`" holds for every other test): they change the registry of the game's
 settings, so they cannot be proved before and after without touching it (rule 6 of `AGENTS.md`), and they wait for T14 or for the maintainer's word. `GameManager.cs` names one test flag, `-guntest`,
@@ -86,7 +88,9 @@ Rule 9 of `AGENTS.md` allows one writer per Unity checkout; each task that needs
 | The guard | T04, then T15 | `tools/check_suite.py` |
 | `GameManager.cs` | T07, T08, T12, T19 | the same lines of the automatic run |
 | The engine | T03, then T06 and T09 | `tools/studio_engine.py` |
-| Moving files | T15, T17 | every open branch that touches the moved files conflicts: merge them first, or announce the move |
+| Moving files | T15, T17, T22 | every open branch that touches the moved files conflicts: merge them first, or announce the move |
+| The track mode | T08, then T22 | the tests of `Scripts/Pista/` (the last pull request of T08) and the files that T22 moves and renames |
+| The rules packages | T22, then T23 | the fixtures of the guard, `unity/LayoutDemo` and [package-extraction.md](package-extraction.md); T23 applies the method that T22 proves |
 
 Free to run beside anything: T05, T10, T11, T13, T20.
 
@@ -115,7 +119,9 @@ moves one.
 | T19, command line | after T08, when no pull request that touches many game files is open |
 | T21, generated tables | the manifest has been used by T06 and its fields have stayed true through a few merges |
 | Paid areas or wave pacing on the package ([package-extraction.md](package-extraction.md#packages-the-game-does-not-use)) | the next change to either rule |
-| A first new package (the ink pen is first in line) | a second consumer appears |
+| T22, the track rules as a package | T08 is done: the maintainer decided it on 25 November 2026, no other event is needed |
+| T23, the weapon rules in the weapons package | T22 is merged and its page says that the method worked |
+| Any other new package (the ink pen is first in line) | a second consumer appears |
 | An interface for game modes ([modularization.md](modularization.md#b3-gameplay-one-assembly-and-why-it-stays-one)) | the next mode is added |
 
 ## Decisions that are the maintainer's
@@ -131,6 +137,9 @@ The plan stops at these; an agent does not take them:
 4. **A named game assembly**: T16 ends with a recommendation; going ahead (T17) is a choice.
 5. **`Production.Survival` and `Production.Layout`**: converge the game onto them at the next change, or say plainly that they serve
    the city prototype ([package-extraction.md](package-extraction.md#packages-the-game-does-not-use)).
+6. **Two packages before a second consumer**: decided on 25 November 2026, the track rules (T22) and the weapon rules (T23) become packages,
+   as an exception to rung 2 of the ladder; what that accepts, and what keeps its cost low, is in
+   [package-extraction.md](package-extraction.md#the-two-exceptions). Stopping either one after its first step is also the maintainer's call.
 
 ## Risks, and what stops the plan
 
@@ -149,4 +158,5 @@ reason that is not the task's; the gate on `preview` is red (rule 8); a step wou
 
 Listed with the reasons in [modularization.md](modularization.md#what-is-deliberately-not-done) and
 [agent-tooling.md](agent-tooling.md#not-proposed): no dependency injection, no event bus, no assembly per folder, no renaming of
-identifiers, no service for agents, no second test framework, no package without two consumers.
+identifiers, no service for agents, no second test framework, no package without two consumers (but for the two that the maintainer decided,
+T22 and T23).
