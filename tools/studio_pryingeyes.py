@@ -64,6 +64,7 @@ def check_editor_closed():
 
 SHIP_MARKER = ROOT / "unity_logs/ship_built.json"                   # what tools/ship.ps1 records about the build it made last
 SOURCE_ROOTS = ("Assets", "Packages", "ProjectSettings")            # what the player is made from, under the Unity project: the folders tools/ship.ps1 counts
+GAME_ASSEMBLIES = ("Assembly-CSharp.dll", "PryingEyes.Rules.dll")   # the game's code in a build (the second since T15): a change to a rule rebuilds the second one alone
 DERIVED = re.compile(r"\.mat(\.meta)?$|/Scenes/(Citta|Torre)\.unity(\.meta)?$|/Scenes/Labs(/|\.meta$)")        # what the builds regenerate (rule 4 of AGENTS.md): nobody's change
 
 
@@ -97,7 +98,8 @@ def sources_newer_than(since, project=None):
 
 def verification_build(marker=None, build=None, project=None):
     """The build that agents run their checks on (rule 11 of AGENTS.md): is it there, which commit and mode tools/ship.ps1 recorded for it, and how many sources
-    changed after its code was made (the time of Assembly-CSharp.dll: the exe is only a stub, and its date says nothing). null where the answer is not known."""
+    changed after its code was made (the newest of the game's assemblies, GAME_ASSEMBLIES: the exe is only a stub, and its date says nothing; a change to a rule
+    rebuilds PryingEyes.Rules.dll and leaves Assembly-CSharp.dll as it was, so the older one alone would call a build that has the change stale). null where the answer is not known."""
     marker, build = marker or SHIP_MARKER, build or AUDIT
     facts = {"present": build.is_file(), "commit": None, "mode": None, "sourcesNewerThanBuild": None}
     try:
@@ -105,8 +107,10 @@ def verification_build(marker=None, build=None, project=None):
         if real(made["out"]) == real(build.parent):                   # the marker is about the last build of ship.ps1, which may have gone to another folder (-OutDir)
             facts.update(commit=str(made["commit"])[:7], mode=str(made["mode"]))
     except (OSError, ValueError, KeyError, TypeError): pass
-    code = build.parent / "PryingEyes_Data/Managed/Assembly-CSharp.dll"
-    if facts["present"] and code.is_file(): facts["sourcesNewerThanBuild"] = sources_newer_than(code.stat().st_mtime, project)
+    managed = build.parent / "PryingEyes_Data/Managed"
+    if facts["present"] and (managed / GAME_ASSEMBLIES[0]).is_file():
+        made_at = max((managed / name).stat().st_mtime for name in GAME_ASSEMBLIES if (managed / name).is_file())
+        facts["sourcesNewerThanBuild"] = sources_newer_than(made_at, project)
     return facts
 
 
