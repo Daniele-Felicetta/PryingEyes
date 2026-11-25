@@ -67,11 +67,21 @@ class SuiteBoundaries(unittest.TestCase):
 
 
 GAME = check_suite.GAME
-RULES = "namespace Game { public class Rules { public int Twice(int x) { return x * 2; } } }"
+RULE_SOURCE = "namespace Game { public class Rules { public int Twice(int x) { return x * 2; } } }"
 PLAYER = "using UnityEngine; namespace Game { public class Player : MonoBehaviour { void Start() { START } } }"
 TEST = "#if !PE_DISTRIBUTION_BUILD\nusing UnityEngine;\nnamespace Game { public class PlayerTest : MonoBehaviour { public static void Begin() { } } }\n#endif\n"
-GAME_LAB = '<Project><ItemGroup><Compile Include="..\\..\\' + GAME.replace("/", "\\") + '\\Scripts\\Rules.cs" /></ItemGroup></Project>'
+RULES_ASMDEF = {"name": "Game.Rules", "references": ["Production.Economy"], "noEngineReferences": True}
 UNITY_REFERENCE = '<Reference Include="UnityEngine.CoreModule"><HintPath>C:/Unity/Managed/UnityEngine.CoreModule.dll</HintPath></Reference>'
+
+
+def lab(*includes):
+    """The text of a lab project that compiles these files of the game (paths relative to the game's folder, * and ** are patterns)."""
+    prefix = "..\\..\\" + GAME.replace("/", "\\") + "\\"
+    return "<Project><ItemGroup>" + "".join('<Compile Include="' + prefix + path.replace("/", "\\") + '" />' for path in includes) + "</ItemGroup></Project>"
+
+
+GAME_LAB = lab("Rules/Rules.cs")
+OUTSIDE_LAB = lab("Scripts/Outside.cs")      # a lab that compiles a file that is not in Rules/
 
 
 def write(path, text):
@@ -80,13 +90,21 @@ def write(path, text):
 
 
 def build_game(root):
-    """A minimal valid game: a rules file that a lab compiles, a production class, a wrapped test that nothing names, and no exceptions."""
+    """A minimal valid game: a rules file in Rules/ with its assembly definition and the lab that compiles it, a production class, a wrapped test
+    that nothing names, and no exceptions."""
+    write(root / GAME / "Rules/Rules.cs", RULE_SOURCE)
+    write(root / GAME / "Rules/Game.Rules.asmdef", json.dumps(RULES_ASMDEF))
     scripts = root / GAME / "Scripts"
-    write(scripts / "Rules.cs", RULES)
     write(scripts / "Player.cs", PLAYER.replace("START", ""))
     write(scripts / "PlayerTest.cs", TEST)
     write(root / "tools/gamelab/GameLab.csproj", GAME_LAB)
     return scripts
+
+
+def compile_outside_rules(root, source):
+    """A file of Scripts/ (not of Rules/) that a lab compiles."""
+    write(root / GAME / "Scripts/Outside.cs", source)
+    write(root / "tools/gamelab/Outside.csproj", OUTSIDE_LAB)
 
 
 def tolerate(root, **rules):
@@ -120,7 +138,7 @@ class GameRules(unittest.TestCase):
         flaws = {
             "GAME_PRODUCTION_NAMES_TEST": lambda r, s: write(s / "Player.cs", PLAYER.replace("START", "PlayerTest.Begin();")),
             "GAME_TEST_NOT_EXCLUDED": lambda r, s: write(s / "PlayerTest.cs", TEST.replace("#if !PE_DISTRIBUTION_BUILD", "").replace("#endif", "")),
-            "GAME_PURE_FILE_NAMES_ENGINE": lambda r, s: write(s / "Rules.cs", "using UnityEngine; " + RULES),
+            "GAME_LAB_FILE_OUTSIDE_RULES": lambda r, s: compile_outside_rules(r, RULE_SOURCE),
             "GAME_BASELINE_STALE": lambda r, s: tolerate(r, GAME_TEST_NOT_EXCLUDED=[{"file": "Scripts/PlayerTest.cs", "reason": "fixed since"}]),
             "GAME_BASELINE_INVALID": lambda r, s: write(r / check_suite.BASELINE, "{not json"),
         }
@@ -133,8 +151,10 @@ class GameRules(unittest.TestCase):
     def test_a_finding_names_the_file_and_what_it_does(self):
         found = self.run_in_a_game(lambda r, s: write(s / "Player.cs", PLAYER.replace("START", "PlayerTest.Begin();")))
         self.assertEqual((found[0]["path"], found[0]["observed"]), (GAME + "/Scripts/Player.cs", "names the test type PlayerTest"))
-        found = self.run_in_a_game(lambda r, s: write(s / "Rules.cs", "using UnityEngine; using UnityEditor; " + RULES))
-        self.assertEqual(found[0]["observed"], "compiled by gamelab and names UnityEditor and UnityEngine")
+        found = self.run_in_a_game(lambda r, s: compile_outside_rules(r, "using UnityEngine; using UnityEditor; " + RULE_SOURCE))
+        self.assertEqual((found[0]["path"], found[0]["observed"]), (GAME + "/Scripts/Outside.cs", "compiled by gamelab and names UnityEditor and UnityEngine"))
+        found = self.run_in_a_game(lambda r, s: compile_outside_rules(r, RULE_SOURCE))
+        self.assertEqual(found[0]["observed"], "compiled by gamelab")
 
     def test_the_baseline_tolerates_a_violation_until_it_is_fixed(self):
         entry = {"file": "Scripts/Player.cs", "names": "PlayerTest", "reason": "Player starts the test that the harness will start"}
@@ -190,7 +210,7 @@ class GameRules(unittest.TestCase):
 
     def test_a_project_that_reaches_unity_is_a_compile_check_and_not_a_lab(self):
         variants = {
-            "a lab": ("", ["GAME_PURE_FILE_NAMES_ENGINE"]),
+            "a lab": ("", ["GAME_LAB_FILE_OUTSIDE_RULES"]),
             "a reference to a Unity assembly": (f"<ItemGroup>{UNITY_REFERENCE}</ItemGroup>", []),
             "an import of a file that holds one": ('<Import Project="Unity.props" />', []),
             "a reference to a project that holds one": ('<ItemGroup><ProjectReference Include="Unity.csproj" /></ItemGroup>', []),
@@ -198,8 +218,8 @@ class GameRules(unittest.TestCase):
         for name, (extra, expected) in variants.items():
             with self.subTest(name), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder); scripts = build_game(root)
-                write(scripts / "Rules.cs", "using UnityEngine; " + RULES)
-                write(root / "tools/gamelab/GameLab.csproj", GAME_LAB.replace("<ItemGroup>", extra + "<ItemGroup>", 1))
+                write(scripts / "Outside.cs", "using UnityEngine; " + RULE_SOURCE)
+                write(root / "tools/gamelab/GameLab.csproj", OUTSIDE_LAB.replace("<ItemGroup>", extra + "<ItemGroup>", 1))
                 write(root / "tools/gamelab/Unity.props", f"<Project><ItemGroup>{UNITY_REFERENCE}</ItemGroup></Project>")
                 write(root / "tools/gamelab/Unity.csproj", f"<Project><ItemGroup>{UNITY_REFERENCE}</ItemGroup></Project>")
                 self.assertEqual(codes(check_suite.check_game(root)), expected)
@@ -214,22 +234,98 @@ class GameRules(unittest.TestCase):
             self.assertTrue(check_suite.reaches_unity(root / "a.csproj"))
 
     def test_a_lab_that_takes_files_by_pattern_or_from_a_build_folder(self):
-        folder_of_the_game = "..\\..\\" + GAME.replace("/", "\\") + "\\Scripts\\"
-        patterns = {"a name with *": folder_of_the_game + "R*.cs", "a name with **": "..\\..\\" + GAME.replace("/", "\\") + "\\**\\R*.cs"}
+        patterns = {"a name with *": "Scripts/R*.cs", "a name with **": "**/R*.cs"}      # the second one also takes Rules/Rules.cs, which is where it belongs
         for name, pattern in patterns.items():
             with self.subTest(name), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder); scripts = build_game(root)
-                write(scripts / "Rules.cs", "using UnityEngine; " + RULES)
-                write(root / "tools/gamelab/GameLab.csproj", GAME_LAB.replace(folder_of_the_game + "Rules.cs", pattern))
+                write(scripts / "Rules.cs", "using UnityEngine; " + RULE_SOURCE)
+                write(root / "tools/gamelab/GameLab.csproj", lab(pattern))
                 self.assertEqual([item["path"] for item in check_suite.check_game(root)], [GAME + "/Scripts/Rules.cs"])
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); scripts = build_game(root)
-            write(scripts / "Rules.cs", "using UnityEngine; " + RULES)
+            write(scripts / "Outside.cs", RULE_SOURCE)
             write(root / "tools/gamelab/GameLab.csproj", "<Project />")
-            write(root / "tools/gamelab/obj/Copy.csproj", GAME_LAB.replace('"..\\..\\', '"..\\..\\..\\'))      # what a build leaves behind is no project of the repository
+            write(root / "tools/gamelab/obj/Copy.csproj", OUTSIDE_LAB.replace('"..\\..\\', '"..\\..\\..\\'))      # what a build leaves behind is no project of the repository
             self.assertEqual(check_suite.check_game(root), [])
-            write(root / "tools/gamelab/Copy.csproj", GAME_LAB)      # the same project, outside bin and obj, is one
-            self.assertEqual(codes(check_suite.check_game(root)), ["GAME_PURE_FILE_NAMES_ENGINE"])
+            write(root / "tools/gamelab/Copy.csproj", OUTSIDE_LAB)      # the same project, outside bin and obj, is one
+            self.assertEqual(codes(check_suite.check_game(root)), ["GAME_LAB_FILE_OUTSIDE_RULES"])
+
+
+class RulesAssembly(unittest.TestCase):
+    """B2: the game's engine-free rules live in Rules/, in one assembly that the compiler keeps free of the engine, and a lab compiles each file."""
+    def run_in_a_game(self, damage):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); damage(root, build_game(root))
+            return check_suite.check_rules(root)
+
+    def test_a_tree_without_the_folder_has_nothing_to_check(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(check_suite.check_rules(Path(folder)), [])
+
+    def test_a_valid_minimal_game_passes_and_is_part_of_the_guard(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); build(root); build_game(root)
+            self.assertEqual(check_suite.check_rules(root), [])
+            self.assertEqual(check(root), [])
+            write(root / GAME / "Rules/Rules.cs", "using UnityEngine; " + RULE_SOURCE)
+            self.assertEqual(codes(check(root)), ["GAME_RULES_FORBIDDEN_NAME"])
+
+    def test_every_violation_is_reported_with_its_code(self):
+        def definition(root): return root / GAME / "Rules/Game.Rules.asmdef"
+        flaws = {
+            "GAME_RULES_FORBIDDEN_NAME": lambda r, s: write(r / GAME / "Rules/Rules.cs", "using UnityEngine; " + RULE_SOURCE),
+            "GAME_RULES_ENGINE_REFERENCES": lambda r, s: write(definition(r), json.dumps({**RULES_ASMDEF, "noEngineReferences": False})),
+            "GAME_RULES_ASSEMBLY_REFERENCES": lambda r, s: write(definition(r), json.dumps({**RULES_ASMDEF, "references": ["Assembly-CSharp"]})),
+            "GAME_RULES_ASMDEF_MISSING": lambda r, s: definition(r).unlink(),
+            "GAME_RULES_NOT_COMPILED_OUTSIDE_UNITY": lambda r, s: write(r / "tools/gamelab/GameLab.csproj", "<Project />"),
+        }
+        for code, damage in flaws.items():
+            with self.subTest(code=code):
+                found = self.run_in_a_game(damage)
+                self.assertEqual(codes(found), [code])
+                self.assertTrue(found[0]["path"].startswith(check_suite.RULES), found[0]["path"])
+
+    def test_the_engine_is_refused_by_name_and_the_game_is_not(self):
+        for name in ("UnityEngine", "UnityEditor", "FishNet", "TMPro"):
+            with self.subTest(name):
+                found = self.run_in_a_game(lambda r, s: write(r / GAME / "Rules/Rules.cs", f"using {name}.Thing; " + RULE_SOURCE))
+                self.assertEqual([(item["code"], item["observed"]) for item in found], [("GAME_RULES_FORBIDDEN_NAME", f"uses {name}")])
+        # the game's own names, and the engine's in a comment or a string, are not code that needs the engine
+        allowed = 'using System; namespace PryingEyes.Proc { /* UnityEngine */ public class Plan { string note = "FishNet"; } } // TMPro'
+        self.assertEqual(self.run_in_a_game(lambda r, s: write(r / GAME / "Rules/Rules.cs", allowed)), [])
+
+    def test_only_the_production_packages_may_be_referenced(self):
+        cases = {
+            "the packages": (["Production.Saves", "Production.Economy"], None),
+            "no reference": ([], None),
+            "the game": (["Assembly-CSharp"], ["Assembly-CSharp"]),
+            "an assembly of the game by its GUID": (["GUID:0123456789abcdef0123456789abcdef"], ["GUID:0123456789abcdef0123456789abcdef"]),
+            "a package and the netcode": (["Production.Saves", "FishNet.Runtime"], ["FishNet.Runtime"]),
+        }
+        for name, (given, stray) in cases.items():
+            with self.subTest(name):
+                found = self.run_in_a_game(lambda r, s: write(r / GAME / "Rules/Game.Rules.asmdef", json.dumps({**RULES_ASMDEF, "references": given})))
+                self.assertEqual([(item["code"], item["observed"]) for item in found], [] if stray is None else [("GAME_RULES_ASSEMBLY_REFERENCES", f"references {stray}")])
+
+    def test_a_second_assembly_inside_the_folder_is_held_to_the_same_rules(self):
+        found = self.run_in_a_game(lambda r, s: write(r / GAME / "Rules/Sub/Sub.asmdef", json.dumps({"name": "Sub", "noEngineReferences": False})))
+        self.assertEqual([(item["code"], item["path"]) for item in found], [("GAME_RULES_ENGINE_REFERENCES", check_suite.RULES + "/Sub/Sub.asmdef")])
+
+    def test_a_lab_must_compile_the_real_file_and_not_reach_unity(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); build_game(root)
+            write(root / "tools/gamelab/Rules.cs", RULE_SOURCE)      # a lab that compiles a copy proves nothing about the file of the game
+            write(root / "tools/gamelab/GameLab.csproj", '<Project><ItemGroup><Compile Include="Rules.cs" /></ItemGroup></Project>')
+            found = check_suite.check_rules(root)
+            self.assertEqual([(item["code"], item["path"]) for item in found], [("GAME_RULES_NOT_COMPILED_OUTSIDE_UNITY", check_suite.RULES + "/Rules.cs")])
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); build_game(root)
+            write(root / "tools/gamelab/GameLab.csproj", GAME_LAB.replace("<ItemGroup>", f"<ItemGroup>{UNITY_REFERENCE}", 1))      # a compile check against the editor's libraries
+            self.assertEqual(codes(check_suite.check_rules(root)), ["GAME_RULES_NOT_COMPILED_OUTSIDE_UNITY"])
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); build_game(root)
+            write(root / "tools/gamelab/GameLab.csproj", lab("Rules/*.cs"))      # a pattern names the file as well as its path does
+            self.assertEqual(check_suite.check_rules(root), [])
 
 
 def build_docs(root):
