@@ -51,9 +51,9 @@ project nor in a props file it imports nor in a project it references. The proje
 What a lab compiles is read from its `Compile` items, patterns with `*` and `**` included, so the files of `Scripts/Pista` that `tracklab` compiles are covered
 like any other.
 
-What is wrong today is listed, not hidden, in `tools/fixtures/game-boundaries.json`: each violation with the reason it is tolerated (today two
-production files that name a test type, `Coop/CoopGame.cs` and `Stealth/StealthRig.cs`, and the 14 test files that are not wrapped:
-`ArchitectureTest*`, `CityTest*`, `CoopTest*` and `StealthTest*`; none for the engine rule). The list can only shrink. A violation that is
+What is wrong today is listed, not hidden, in `tools/fixtures/game-boundaries.json`: each violation with the reason it is tolerated (today one
+production file that names a test type, `Coop/CoopGame.cs`, and the 10 test files that are not wrapped:
+`ArchitectureTest*`, `CityTest*` and `CoopTest*`; none for the engine rule). The list can only shrink. A violation that is
 not in it fails the guard, and so does an entry whose violation is gone, so an entry is deleted in the commit that fixes it. Adding one
 needs a reason that a reviewer accepts, and the entry carries it. The numbers are in
 [modularization.md](modularization.md#how-progress-is-read).

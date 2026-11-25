@@ -36,10 +36,10 @@ Flags:
 
 - `-buildOut <folder>` writes `<folder>/PryingEyes.exe`. **Without it the build overwrites `Builds/PryingEyes.exe`, the game the
   maintainer plays.** Always pass it for verification builds (`ship.ps1` and the studio do).
-- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out the files wrapped in `#if !PE_DISTRIBUTION_BUILD`: 29 of the 42
-  `*Test*.cs` files in `Scripts/` and the trailer recorder (`TrailerCapture.cs`, `TrailerJob.cs`, `FloorDirector.Trailer.cs`, and a part of
-  `FloorDirector.cs`). Not wrapped, so still in the player: the `ArchitectureTest*`, `CityTest*`, `CoopTest*` and `StealthTest*` files
-  (counted by grep on 2026-11-15). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.
+- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out the files wrapped in `#if !PE_DISTRIBUTION_BUILD`: 62 of the 72
+  test files of the player (`tools/code_census.py`, 25 November 2026) and the trailer recorder (`TrailerCapture.cs`, `TrailerJob.cs`, `FloorDirector.Trailer.cs`, and a part of
+  `FloorDirector.cs`). Not wrapped, so still in the player: the ten files of `ArchitectureTest*`, `CityTest*` and `CoopTest*`
+  (`tools/code_census.py`, 25 November 2026). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.
   A distribution build also runs `BuildScrub` (`Editor/BuildScrub.cs`). The compiler writes the path of the `.pdb` it produced into every
   assembly, which names the folders of the build machine, so that entry is overwritten with the bare file name; then every managed assembly
   of the build is searched for the path of the checkout and each hit is logged as a warning (`[PryingEyes] distribution: ...`).
