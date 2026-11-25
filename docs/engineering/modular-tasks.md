@@ -269,7 +269,8 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
      (The engine gets one hook, `doctor_facts()`, and prints what it returns; no job, no lock, no catalogs, so it works when one is broken.
      Added to the fields of the page: `ok` and `problems`, so that the exit code says something (1 while an editor has the project open,
      a tool is missing or the last gate is not green), `status`, `commit` and `url` in `gate`, and `pid`, `path` and `thisCheckout` for
-     each player. `sourcesNewerThanBuild` is a count by modification time against the build's `Assembly-CSharp.dll`.)
+     each player. `sourcesNewerThanBuild` is a count by modification time against the build's `Assembly-CSharp.dll`; since T15, against the newest of that and
+     `PryingEyes.Rules.dll`.)
   3. `ship.ps1` writes `unity_logs/ship_last.json` when it finishes, whatever the outcome: the step reached, the commit, the build mode,
      what was pushed, the uncommitted sources, the warnings. The script stays ASCII. (It is written from `Finish`, so also after a
      refusal, an exception and a dry run. The hidden refresh writes `ship_refresh.json` instead, so that it does not replace the record of
@@ -398,6 +399,25 @@ Words used in the briefs: *lab* = a .NET project under `tools/` that compiles ga
 - **Verify**: the editor's compile; `tools/ship.ps1 -Mode full`; the suites above; `python tools/check_suite.py`; the census.
 - **Not in scope**: renaming a namespace or a type; moving a file that no lab compiles (`Magia/Grimoire.cs`, `MagicState.cs`: they need a lab first).
 - **Announce it**: every open branch that edits a moved file will conflict. Merge those first.
+- **Outcome** (25 November 2026, #NN): `Assets/_PryingEyes/Rules/` exists, with the assembly `PryingEyes.Rules` (`noEngineReferences: true`; it references `Production.Economy`
+  and `Production.Saves`, the two packages its files use). The census of the day, not the card, set the size of the move: **56** files went, each with its `.meta` (same
+  GUIDs; no line of code and no namespace changed), not 36. The card counted the 34 files of the audit as T20 left them; the other 20 are the rules of the track mode, which
+  `tracklab` compiles and the audit, written before that lab, does not list ([B2](modularization.md#b2-game-rules-an-engine-free-assembly-inside-the-game) has the table).
+  The move is a commit of its own, and the floor barrier left `SessionRoster.cs` in another one before it (see T20 above). No member had to change from `internal` to `public`
+  (a search of the 56 files for every non-public declaration found one helper type of `Championship.cs` that nothing else uses and seven `internal` members used only inside
+  their own file), so there is no visibility commit. The guard checks `Rules/` with the code it already had for packages, so the card's three codes are five
+  (`GAME_RULES_ASMDEF_MISSING`, `GAME_RULES_ENGINE_REFERENCES`, `GAME_RULES_ASSEMBLY_REFERENCES`, `GAME_RULES_FORBIDDEN_NAME`, `GAME_RULES_NOT_COMPILED_OUTSIDE_UNITY`), and the rule
+  of T04 that "can then go", `GAME_PURE_FILE_NAMES_ENGINE`, did not go: it became `GAME_LAB_FILE_OUTSIDE_RULES` (a game file that an engine-free lab compiles lives in `Rules/`),
+  which is the census criterion of the card held by the gate.
+  Proofs, measured on `8c20b8d` and on the head in the same checkout, one after the other, on a free machine and inside the lock of the sessions: the editor compiles with no error at
+  each commit (at the move it builds `PryingEyes.Rules.dll` first); a full build succeeds (`PryingEyes.Rules.dll` 340,992 bytes, `Assembly-CSharp.dll` 4,028,416 to 3,705,344); the
+  saved outputs of the eight labs are the same (timings and the random ids of `saveslab` apart; the PNG files by SHA-256) but for the 12 assertions of the barrier; the smoke walk walks the same two floors, and
+  `-survivaltest` (91 checks), `-cattedraletest -nowaves` (72) and `-desertotest` (150) pass with the same checks in the same order; `a_griglia` passes before and after (63/63 and 49/49);
+  with `using UnityEngine;` added to `Rules/Desert/DesertClock.cs` the editor's compile fails (`error CS0246`) and so does the guard (`GAME_RULES_FORBIDDEN_NAME`), and after
+  `git checkout` of the file the tree is as it was; census `pure`: 56 to 0. The table of every measure is in the description of the pull request.
+  Found on the way: `doctor` dated a build by `Assembly-CSharp.dll` alone, which a change to a rule leaves as it was (a scripts-only build that had the change was reported with
+  `sourcesNewerThanBuild: 2`). It now takes the newest of the game's two assemblies, with a test that fails on the old rule, and `tools/citylab.py` records the hash of the second
+  assembly beside the first.
 
 ### T16. Spike: can the game be a named assembly?
 

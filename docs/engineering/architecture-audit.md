@@ -28,7 +28,8 @@ own and splits the root `Scripts` folder, a third of the files, into seven group
 `Scripts:player`, `Scripts:ui`, `Scripts:audio`, `Scripts:city`, `Scripts:core`): that grouping is the tool's reading aid, not a structure
 that exists in the project.
 
-Not measured: compile times, build times, memory, frame cost. Nothing in this audit needed Unity, Blender or a built player.
+Not measured: compile times, build times, memory, frame cost. Nothing in this audit needed Unity, Blender or a built player. (T15 measured the editor's compile time
+after a one-line change, before and after the move of the rules: [modularization.md](modularization.md#b3-gameplay-one-assembly-and-why-it-stays-one). The rest is still not measured.)
 
 ## The repository in one table
 

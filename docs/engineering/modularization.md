@@ -71,7 +71,9 @@ inside their own file. What no lab compiles stays where it is (`Magia/Grimoire.c
 **Why an assembly, when the labs already compile these files.** Three reasons, in order of weight:
 
 1. Unity itself refuses an engine reference in these files, in the editor and in every build, without waiting for a lab that may not be
-   run (F9). Before T15 `using UnityEngine` in `DesertWorld.cs` compiled and shipped; now the editor refuses it.
+   run (F9). Before T15 `using UnityEngine` in `DesertWorld.cs` compiled and shipped; now the editor refuses it. T15 checked it on a file of the folder, locally and then restored with
+   git: with `using UnityEngine;` added to `Rules/Desert/DesertClock.cs` the editor's compile fails with `error CS0246: The type or namespace name 'UnityEngine' could not be found`, and the
+   guard with `GAME_RULES_FORBIDDEN_NAME`.
 2. The place tells the reader what the file is: code under `Rules/` is checked by a lab in seconds, without a build. That is the cheapest
    feedback an agent can get, and today it has to be discovered file by file from the lab projects.
 3. It is the first boundary inside the game that the compiler checks, at almost no risk: the labs prove that the set compiles alone, the
@@ -97,9 +99,14 @@ The rest of the game (`Assembly-CSharp` holds 433 files, tests included, in the 
 - `HUD`, `Enemy`, `SoundGen` and `SoundBank` are partial classes spread over up to seven folders, and a partial class cannot cross an
   assembly (F3);
 - the global state that makes the split screen work is shared by all of it (F4);
-- no cost of the single assembly has been measured (compile time was not part of the audit), so the gain is unknown.
+- the cost of the single assembly is now measured (T15, on the maintainer's PC, `python tools/studio.py test compile` after a one-line change, three rounds each) and
+  it is small: a change in a game file costs the editor **7.3 s** of script compilation (7.3, 7.3, 7.5 s before T15; 7.4, 7.4, 7.2 s after), of which the C# compiler
+  takes 3 to 4 s. A change in a rule that does not alter what the game sees of it costs **3.7 s** (7.0, 3.7, 3.7 s after; 7.4, 7.2, 7.1 s before, when it was the same assembly): only
+  `PryingEyes.Rules` is compiled again, and the first round is slower because it also compiles the game assembly, which the restore of the previous series had changed.
+  So the most that cutting the other 433 files into assemblies could save is those 3.6 s, and only for a change that stays inside a small one: about half of a cycle that already
+  takes seven seconds.
 
-What would reopen the question: a measured compile time that slows the work, or a second game that wants a gameplay part.
+What would reopen the question: a measured compile time that slows the work (seven seconds does not), or a second game that wants a gameplay part.
 
 **One change is proposed: give the assembly a name.** In Unity an assembly definition cannot reference `Assembly-CSharp`, so the tests
 cannot have an assembly of their own (B4) until the game has a named one. Whether this works with the project as it is (the FishNet
