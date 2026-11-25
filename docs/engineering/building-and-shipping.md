@@ -36,7 +36,7 @@ Flags:
 
 - `-buildOut <folder>` writes `<folder>/PryingEyes.exe`. **Without it the build overwrites `Builds/PryingEyes.exe`, the game the
   maintainer plays.** Always pass it for verification builds (`ship.ps1` and the studio do).
-- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out the files wrapped in `#if !PE_DISTRIBUTION_BUILD`: 62 of the 72
+- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out the files wrapped in `#if !PE_DISTRIBUTION_BUILD`: 66 of the 76
   test files of the player (`tools/code_census.py`, 25 November 2026) and the trailer recorder (`TrailerCapture.cs`, `TrailerJob.cs`, `FloorDirector.Trailer.cs`, and a part of
   `FloorDirector.cs`). Not wrapped, so still in the player: the ten files of `ArchitectureTest*`, `CityTest*` and `CoopTest*`
   (`tools/code_census.py`, 25 November 2026). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.

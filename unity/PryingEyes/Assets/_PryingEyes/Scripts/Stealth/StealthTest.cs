@@ -21,6 +21,11 @@ namespace PryingEyes
         protected override string Suite { get { return suite; } }
         /// <summary>The family never counted exceptions: its checks stay the ones it always had.</summary>
         protected override string ExceptionCheck { get { return null; } }
+        /// <summary>The bot of the automatic run does not shoot: every shot would wake the whole floor (it used to be a flag in a list of <c>GameManager</c>).</summary>
+        protected override bool HoldFire { get { return true; } }
+
+        /// <summary>The suites time what a monk notices by frames: no vsync and 60 per second, as <c>GameManager.Awake</c> used to set for this flag.</summary>
+        void Awake() { if (GameManager.autoTest) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install() { InstallWhen<StealthTest>("-stealthtest"); }

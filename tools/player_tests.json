@@ -585,10 +585,10 @@
     },
     {
       "name": "guntest",
-      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/GameManager.cs",
+      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/GunTest.cs",
       "args": ["-batchmode", "-nographics", "-autotest", "-guntest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
-      "timeout": 180,
+      "timeout": 900,
       "needs": ["runtime"],
       "hazards": [],
       "photos": {"args": ["-fxtest", "-espositori"], "needs": ["gpu"], "folder": "hotel_build/armi_gioco"},
@@ -596,7 +596,7 @@
     },
     {
       "name": "leantest",
-      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/GameManager.cs",
+      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/LeanTest.cs",
       "args": ["-batchmode", "-autotest", "-leantest", "-camshots", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 180,
@@ -606,7 +606,7 @@
     },
     {
       "name": "walltest",
-      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/GameManager.cs",
+      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/WallTest.cs",
       "args": ["-batchmode", "-nographics", "-autotest", "-walltest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 180,
@@ -617,7 +617,7 @@
     },
     {
       "name": "magictest",
-      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/GameManager.cs",
+      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/MagicTest.cs",
       "args": ["-batchmode", "-nographics", "-autotest", "-magictest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 180,
