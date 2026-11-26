@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The championship (Championship.cs): the calendars, the table of points, a field of rivals that is the same all season, a season that adds up, the book that keeps the seasons and the trophies and survives damaged
 /// text, and a season ridden by the computer on the real circuits (a quicker rider scores more).</summary>
@@ -263,7 +264,7 @@ static partial class Program
     /// <summary>A round of a cup with a person in it (a computer driver stands for the person and gives the inputs, as the game does with -pistabot): how many riders had crossed the line when the race was over, and whether the person had.</summary>
     static int RideCupRoundWithPerson(Cup cup, int round, CupRival[] field, bool waitForField, out bool personFinished)
     {
-        var circuit = CircuitGen.Generate(cup.CircuitSeed(round));
+        var circuit = Circuits.Generate(cup.CircuitSeed(round));
         var race = new Race(circuit, 1, cup.seed + round) { waitForField = waitForField };
         int bike = Cups.BikesOf(cup)[0];
         var me = race.AddHuman("person", bike, 0, 7001 + round);
@@ -290,7 +291,7 @@ static partial class Program
     /// <summary>One round of a cup by the computer: the field of the cup and one more rider (the player's place, number 0) at a given pace, on the circuit of the round.</summary>
     static void RideCupRound(Cup cup, int round, CupRival[] field, float playerPace, int laps, out int[] order, out int finishers)
     {
-        var circuit = CircuitGen.Generate(cup.CircuitSeed(round));
+        var circuit = Circuits.Generate(cup.CircuitSeed(round));
         var race = new Race(circuit, laps, cup.seed + round);
         var riders = new List<Racer>();
         riders.Add(race.AddAi("player", Cups.BikesOf(cup)[0], 0, 7001 + round, playerPace, 0.04f));

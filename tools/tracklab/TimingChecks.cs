@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>Timing, ghosts and the named circuits: a recording must come back from a file exactly as it went in (and a damaged file must be refused, not crash the game), the clock of a lap against the
 /// distance must tell how far ahead or behind another lap a bike is, a ghost must fit only the circuit and bike it was made on, and the catalogue must keep giving the same circuits.</summary>
@@ -81,7 +82,7 @@ static partial class Program
             var tape = new PoseTape();
             tape.Add(new PoseFrame { heading = 3.0f, x = 0f, gear = 2 }); tape.Add(new PoseFrame { heading = -3.0f, x = 10f, gear = 3 }); tape.Add(new PoseFrame { heading = -3.0f, x = 20f, gear = 3 });
             var mid = tape.At(PoseTape.FrameTime * 0.5f);
-            float seam = PM.WrapPi(mid.heading - (float)Math.PI);
+            float seam = RacingMath.WrapPi(mid.heading - (float)Math.PI);
             bool ends = tape.At(-1f).x == 0f && tape.At(99f).x == 20f && new PoseTape().At(1f).x == 0f && tape.At(PoseTape.FrameTime).x == 10f;
             Check("TIMING_TAPE_INTERPOLATES", Math.Abs(mid.x - 5f) < 1e-4f && Math.Abs(seam) < 0.2f && ends && tape.Duration == 2 * PoseTape.FrameTime,
                 "half way between 3.0 and -3.0 rad is " + mid.heading.ToString("F2") + " (the short way is through pi), x " + mid.x.ToString("F1") + ", ends safe " + ends, "short way round, clamped at both ends");
@@ -92,7 +93,7 @@ static partial class Program
 
         // ---- the clock against the distance: a slower lap is behind everywhere, by the right amount at the end, and a lap is level with itself
         {
-            var c = CircuitGen.Generate(4242);
+            var c = Circuits.Generate(4242);
             var fast = new List<LapTrace>(); var slow = new List<LapTrace>(); var tf = new List<PoseTape>(); var ts = new List<PoseTape>();
             RecordLaps(c, 0.97f, 3, fast, tf); RecordLaps(c, 0.90f, 3, slow, ts);
             var a = fast[2]; var b = slow[2];
@@ -121,7 +122,7 @@ static partial class Program
 
         // ---- a ghost fits only its own circuit and bike
         {
-            var c = CircuitGen.Generate(4242);
+            var c = Circuits.Generate(4242);
             var tr = new LapTrace(c.length); tr.Seal(80f);
             var tape = new PoseTape(); for (int i = 0; i < 20; i++) tape.Add(SampleFrame(i));
             var g = new Ghost { seed = 4242, bikeId = "argo1000", kind = 1, lapTime = 80f, circuitLength = c.length, trace = tr, tape = tape };
@@ -137,7 +138,7 @@ static partial class Program
             for (int i = 0; i < Catalogue.Count; i++)
             {
                 var e = Catalogue.All[i];
-                var c = CircuitGen.Generate(e.seed);
+                var c = Circuits.Generate(e.seed);
                 var ch = Describe(c);
                 unique &= seen.Add(e.seed) && names.Add(c.name);
                 if (Math.Abs(c.length - e.length) > 1.0f) { pinned = false; off += " [" + e.seed + ": " + c.length.ToString("F0") + " m, listed " + e.length + "]"; }

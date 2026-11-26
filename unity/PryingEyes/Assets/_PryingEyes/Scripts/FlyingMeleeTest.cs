@@ -1,51 +1,27 @@
 #if !PE_DISTRIBUTION_BUILD
 using System;
 using System.Collections;
-using System.IO;
 using System.Reflection;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -noenemies -flyingmeleetest: affondi reali e schivate del controller.</summary>
-    public sealed class FlyingMeleeTest : MonoBehaviour
+    public sealed class FlyingMeleeTest : PlayerTest
     {
-        int checks, failed, exceptions;
         Vector3 arena, forward;
         static readonly FieldInfo strike = typeof(Enemy).GetField("strikeAt", BindingFlags.Instance | BindingFlags.NonPublic);
         static readonly FieldInfo attackLock = typeof(Enemy).GetField("atkLock", BindingFlags.Instance | BindingFlags.NonPublic);
         static bool Preparing(Enemy e) => (float)strike.GetValue(e) >= 0;
         static bool Recovering(Enemy e) => !Preparing(e) && (float)attackLock.GetValue(e) > 0;
+        protected override string Suite { get { return "flyingmeleetest"; } }
+        protected override string PhotoFlag { get { return "-flyingshots"; } }
+        protected override string OutFolder { get { return "flying-melee"; } }
+        protected override void Finish() { PlayerController.botDir=Vector3.zero; }
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(),"-flyingmeleetest")>=0)
-                new GameObject("FlyingMeleeTest").AddComponent<FlyingMeleeTest>();
-        }
-        void Check(string name,bool ok){checks++;if(!ok)failed++;Debug.Log("[PryingEyes] flyingmeleetest "+(ok?"ok ":"FALLITO ")+name);}
-        void Log(string message,string stack,LogType type){if(type==LogType.Exception)exceptions++;}
-        IEnumerator Start()
-        {
-            Application.logMessageReceived+=Log;
-            var run=Run();
-            while(true)
-            {
-                bool more;try{more=run.MoveNext();}catch(Exception e){Debug.LogException(e);Check("sequenza completa",false);break;}
-                if(!more)break;yield return run.Current;
-            }
-            PlayerController.botDir=Vector3.zero;
-            Check("nessuna eccezione runtime",exceptions==0);
-            Debug.Log($"[PryingEyes] flyingmeleetest RISULTATO {(failed==0?"SUPERATA":"FALLITA")}: {checks-failed}/{checks}");
-            Application.Quit(failed==0?0:1);
-        }
-        void Photo(Enemy enemy,string phase)
-        {
-            if(Array.IndexOf(Environment.GetCommandLineArgs(),"-flyingshots")<0)return;
-            string output=Path.GetFullPath("unity_logs/flying-melee");Directory.CreateDirectory(output);
-            LightPool.Tick(false,Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(output,enemy.type+"_"+phase+".png"),null,true);
-        }
+        static void Install() { InstallWhen<FlyingMeleeTest>("-flyingmeleetest"); }
         Enemy Spawn(Enemy.EnemyType type)
         {
             Fx.Clear();
@@ -80,11 +56,11 @@ namespace PryingEyes
             }
             return count;
         }
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float end=Time.realtimeSinceStartup+60;
             while((FloorDirector.I==null||FloorDirector.I.cur==null||FloorDirector.I.transitioning)&&Time.realtimeSinceStartup<end)yield return null;
-            Check("arena fisica libera",MeleeTest.FindArena(out arena,out forward));if(failed>0)yield break;
+            Check("arena fisica libera",MeleeTest.FindArena(out arena,out forward));if(Failed>0)yield break;
             Enemy.ClearAll();Enemy.debugFreeze=Enemy.debugNoSense=false;
             Torch.I.on=true;GameManager.I.hud.Banner("","");GameManager.I.hud.Toast("");
             var player=GameManager.I.player;
@@ -95,7 +71,7 @@ namespace PryingEyes
                 yield return new WaitForSeconds(0.25f);
                 Check(type+" nessun danno anticipato",Mathf.Abs(player.hp+player.shield-health)<0.01f);
                 Check(type+" prepara senza inseguire",Vector3.Distance(start,enemy.transform.position)<0.06f);
-                Photo(enemy,"preparazione");
+                Photo(enemy.type+"_preparazione");
                 yield return WaitContact(enemy);
                 yield return null;
                 Check(type+" contatto sul bersaglio fermo",player.hp+player.shield<health-0.1f);
@@ -103,7 +79,7 @@ namespace PryingEyes
                 Check(type+" affondo fisico visibile",Vector3.Distance(start,enemy.transform.position)>0.55f);
                 Check(type+" provenienza del danno visibile",GameManager.I.hud.DamageDirectionCount>0);
                 Check(type+" particelle del contatto nel campo visivo",ImpactParticles(true)>0);
-                Photo(enemy,"contatto");
+                Photo(enemy.type+"_contatto");
                 health=player.hp+player.shield;Vector3 contact=enemy.transform.position;
                 yield return new WaitForSeconds(0.25f);
                 Check(type+" recupero senza danni ripetuti",Mathf.Abs(player.hp+player.shield-health)<0.01f);

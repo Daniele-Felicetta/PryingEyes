@@ -67,7 +67,7 @@ HUD, camera and the book of a grimoire they open are on their own monitor. In th
 **IN PAUSA** veil (the menu is on monitor 1, and its line that says who uses what also says how many monitors: *Split screen a 2 giocatori su 2
 monitor ...*). Every monitor is used at its own size and the HUD scales to the part it fills, as in one window. The map (M) and the minimap
 (N) of a player on another monitor are drawn with uGUI under their HUD, because Unity shows IMGUI, which the map of the first monitor uses,
-only on the first monitor. In the desert `M` (or Select on the pad) opens the Select menu of that seat instead, drawn the same way and on the part of the screen of the seat that opened it
+only on the first monitor. On the desert surface, `M`, `Tab` or Select on the controller opens the Select menu on the seat's own screen area
 ([the-desert.md](../game/the-desert.md#the-select-menu)).
 
 How the windows behave (seen on Windows 11, D3D12, Unity 6000.6): turning a monitor on makes Unity open a borderless window on it at its
@@ -187,7 +187,7 @@ exists only in the Windows player (XInput) and only on the hotel floors; elsewhe
 ## Verification
 
 `-seatstest` runs inside the game, with a fake XInput state injected per player (`PadControls.Inject(channel, state)`), and exits `0` only when
-every check passes. It never reads a physical controller: a process started with `-batchmode` skips XInput (`PadControls.PollReal`), so a pad in use at
+every check passes (it derives from `PlayerTest`, so it writes a `result.json` into `unity_logs/seatstest/` too). It never reads a physical controller: a process started with `-batchmode` skips XInput (`PadControls.PollReal`), so a pad in use at
 the same moment cannot move the seats (it did, 19 November 2026: the 3 and 4 player runs failed with an Xbox controller in someone's hands). It has two ways to start the game: from the menu (no `-autotest`, with `-menureview -nowaves`: the menu presses the
 button, so the real path *Schermo condiviso*, **Gioca** and the pause are covered) or with `-autotest -nofire -noenemies` (no menu, no pause test).
 It checks:

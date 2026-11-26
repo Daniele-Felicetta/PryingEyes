@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -29,10 +30,9 @@ namespace PryingEyes
 
         // --- autotest bot (built with -autotest flag; off for players) ---
         public static bool autoTest = false;
-        /// <summary>-guntest: niente bot e niente nemici, il test passa in rassegna tutte le armi (foto e numeri).</summary>
-        public static bool gunTest = false;
-        /// <summary>-nofire (o -stealthtest): il bot di prova non spara da solo; senza, ogni sparo sveglia tutto il piano.</summary>
-        public static bool noFire = false;
+        /// <summary>-nofire, o un test che lo chiede (<c>TestRun.HoldFire</c>): il bot di prova non spara da solo; senza, ogni sparo sveglia tutto il piano.</summary>
+        public static bool noFire => noFireFlags || TestRun.HoldFire;
+        static bool noFireFlags;
         public static int shotsFired = 0, shotsHit = 0, damageTaken = 0;
         /// <summary>Per il tabellone (HUD.Score.cs): uccisioni alla testa di questo giocatore e volte che e' morto.</summary>
         public static int headshots = 0, deaths = 0;
@@ -40,12 +40,12 @@ namespace PryingEyes
         // -botmezz: il bot gioca dal soppalco (y 4.2), dove i nemici colpivano attraverso il pavimento
         static readonly Vector3 MezzSpot = new Vector3(-20f, 4.3f, -17f);
         bool shot1done = false, shot2done = false;
-        /// <summary>Il fotogramma in cui la prova automatica ha scattato una foto da se' (auto_shot*, auto_cam*, WallShot): una foto costa 150-650 ms da sola, e le prove che misurano i fotogrammi (DesertTest) non devono contarla come un blocco del gioco.</summary>
+        /// <summary>Il fotogramma in cui la prova automatica ha scattato una foto da se' (auto_shot*, auto_cam*, WallShot): una foto costa 150-650 ms da sola, e le prove che misurano i fotogrammi non devono contarla come un blocco del gioco.</summary>
         public static int HarnessShotFrame = -100;
         // -camshots: foto dalla camera del giocatore su RenderTexture, funziona anche con -batchmode senza finestra
         // (ScreenCapture li' non ha uno schermo da copiare). Niente HUD: serve a controllare luce e materiali.
         bool camShots, cam1done, cam2done, wallShotDone;
-        bool wallTestDone, magicTestDone, enemyShotDone, gunTestStarted, leanTestStarted;
+        bool enemyShotDone;
         /// <summary>Rapporto delle prove (-autotest). Con -report FILE ogni processo scrive il suo: piu' prove in parallelo non si pestano i piedi.</summary>
         static string REPORT => ReportPath();
 
@@ -69,7 +69,7 @@ namespace PryingEyes
         {
             var a = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < a.Length - 1; i++) if (a[i] == "-report") return a[i + 1];
-            return TestPaths.Out("autotest.txt");
+            return TestPaths.Scratch("autotest.txt");
         }
         bool returningToMenu;
 
@@ -110,10 +110,10 @@ namespace PryingEyes
             // i valori serializzati nella scena costruita dall'editor hanno la precedenza sui default:
             // qui riallineo la valuta di partenza al ritmo COD Zombies
             score = 500;
+            // -guntest is a documented way to start the automatic run (weapons.md) and the one test flag this file still names: a test on the harness
+            // cannot say it through TestRun, because its load hook runs after this Awake
             autoTest = HasArg("-autotest") || HasArg("-guntest");
-            gunTest = HasArg("-guntest");
-            noFire = HasArg("-nofire") || HasArg("-stealthtest") || HasArg("-cooptest") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-cattedraletest") || HasArg("-desertotest");
-            if (autoTest && (HasArg("-procbot") || HasArg("-stealthtest"))) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
+            noFireFlags = HasArg("-nofire");
             camShots = HasArg("-camshots");
             if (autoTest)
                 Report("t wave kills score hp shield mag reserve enemies shots hits colpiSubiti yMaxCamminatori\n", false);
@@ -194,20 +194,6 @@ namespace PryingEyes
             }
             if (autoTest)
             {
-                if (HasArg("-leantest") && !leanTestStarted && autoT > 2f) { leanTestStarted = true; StartCoroutine(LeanTest()); }
-                if (gunTest && !gunTestStarted && autoT > 2f) { gunTestStarted = true; StartCoroutine(GunTest()); }
-                if (!wallTestDone && HasArg("-walltest") && autoT > 3f)
-                {
-                    wallTestDone = true;
-                    StartCoroutine(WallTest());
-                }
-                if (!magicTestDone && HasArg("-magictest") && autoT > 1f)
-                {
-                    magicTestDone = true;
-                    var monaco = Enemy.Spawn(Enemy.EnemyType.Monaco, new Vector3(0f, 0.05f, 6f));
-                    if (monaco != null) monaco.hp = monaco.maxHp = 3000f;   // non muore prima di lanciare
-                    Debug.Log("[PryingEyes] magictest: monaco piazzato a 13 m");
-                }
                 if (!enemyShotDone && HasArg("-enemyshot") && autoT > 1f)
                 {
                     enemyShotDone = true;
@@ -233,14 +219,13 @@ namespace PryingEyes
                         $"{autoT:F0} {wave} {kills} {score} {player.hp:F0} {player.shield:F0} {player.weapon.mag} {player.weapon.reserve} {list.Count} {shotsFired} {shotsHit} {damageTaken} {walkerMaxY:F1}" +
                         $" p({player.transform.position.x:F0},{player.transform.position.y:F0},{player.transform.position.z:F0}){epos}\n");
                 }
-                if (autoT >= 15f && !shot1done && !trailer) { shot1done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot1.png")); }
-                if (autoT >= 75f && !shot2done && !trailer) { shot2done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Out("auto_shot2.png")); }
+                if (autoT >= 15f && !shot1done && !trailer) { shot1done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Scratch("auto_shot1.png")); }
+                if (autoT >= 75f && !shot2done && !trailer) { shot2done = true; HarnessShotFrame = Time.frameCount; ScreenCapture.CaptureScreenshot(TestPaths.Scratch("auto_shot2.png")); }
                 if (camShots && autoT >= 8f && !wallShotDone) { wallShotDone = true; HarnessShotFrame = Time.frameCount; WallShot(); }
                 if (camShots && autoT >= 20f && !cam1done) { cam1done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam1.png")); }
                 if (camShots && autoT >= 60f && !cam2done) { cam2done = true; HarnessShotFrame = Time.frameCount; CamShot(TestPaths.Out("auto_cam2.png")); }
-                bool dedicated = HasArg("-architecturetest") || HasArg("-flyingmeleetest") || HasArg("-jellytest") || HasArg("-meleetest") ||
-                    HasArg("-relictest") || HasArg("-combatfeedbacktest") || HasArg("-torchreview") || HasArg("-survivaltest") || HasArg("-citytest") || HasArg("-annextest") || HasArg("-variantitest") || HasArg("-traptest") || HasArg("-equiptest") || HasArg("-feeltest") || HasArg("-barreltest") || HasArg("-eyetest") || HasArg("-ragdolltest") || HasArg("-powertest") || HasArg("-lampadaritest") || HasArg("-mantletest") || HasArg("-flinchtest") || HasArg("-minetest") || HasArg("-shafttest") || HasArg("-magtest") || HasArg("-lamptest") || HasArg("-medaltest") || HasArg("-musictest") || HasArg("-impacttest") || HasArg("-splittest") || HasArg("-magiatest") || HasArg("-cattedraletest") || HasArg("-desertotest") || HasArg("-pistatest") || HasArg("-pistacooptest") || trailer;
-                if (autoT >= (proc ? (dedicated || HasArg("-procbot") || HasArg("-stealthtest") || HasArg("-perftest") || gunTest || HasArg("-leantest") || HasArg("-cooptest") ? 1e9f : 70f) : (HasArg("-citytest") ? 1e9f : 100f)))
+                bool dedicated = TestRun.Dedicated || trailer;
+                if (autoT >= (proc ? (dedicated ? 1e9f : 70f) : (TestRun.Dedicated ? 1e9f : 100f)))
                 {
                     Report($"flicker spegnimenti={Flicker.dropouts} occhi chiusi={WatchingEyes.closings}\n");
                     Application.Quit();
@@ -320,226 +305,6 @@ namespace PryingEyes
             cam.transform.rotation = Quaternion.LookRotation(new Vector3(0f, 1.25f, 8f) - cam.transform.position);
             CamShot(TestPaths.Out("enemies.png"), cam, false);
             Destroy(go);
-        }
-
-        float lookOpenDist;
-
-        /// <summary>Per le prove: ferma la rotazione automatica dell'autotest e guarda dove c'e' piu' spazio (foto con profondita',
-        /// niente muro a 30 cm, e il muro di prova del lean resta dove l'ho messo).</summary>
-        void LookOpenest()
-        {
-            PlayerController.holdLook = true;
-            var c = player.cam;
-            float bestD = 0f, bestA = 0f;
-            for (int a = 0; a < 24; a++)
-            {
-                float ang = a * Mathf.PI * 2f / 24f;
-                var dv = new Vector3(Mathf.Sin(ang), 0f, Mathf.Cos(ang));
-                float dd = 8f;
-                if (Physics.Raycast(c.position, dv, out RaycastHit rh, 8f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore)) dd = rh.distance;
-                if (dd > bestD) { bestD = dd; bestA = ang; }
-            }
-            player.yaw = bestA; player.pitch = 0f;
-            lookOpenDist = bestD;
-        }
-
-        /// <summary>Prova del lean (-leantest): nel piccolo ascensore di arrivo, lean a destra e a sinistra con foto e numeri:
-        /// spostamento della testa, inclinazione, punto del corpo visto dai nemici e spazio concesso dai muri.</summary>
-        System.Collections.IEnumerator LeanTest()
-        {
-            string dir = TestPaths.Out("armi_gioco");
-            System.IO.Directory.CreateDirectory(dir);
-            Enemy.ClearAll();
-            player.invulnerable = true;
-            player.weapon.Equip(WeaponDefs.IndexOf("ar9_malleus"));
-            var cam = player.cam;
-            LookOpenest();
-            yield return new WaitForSeconds(1.2f);
-            foreach (float l in new[] { 0f, 1f, -1f, 1f })
-            {
-                PlayerController.debugLean = l;
-                yield return new WaitForSeconds(1.0f);
-                Vector3 off = cam.position - (player.transform.position + Vector3.up * 1.62f);
-                float lateral = Vector3.Dot(off, new Vector3(Mathf.Cos(player.yaw), 0f, -Mathf.Sin(player.yaw)));
-                float roll = cam.eulerAngles.z; if (roll > 180f) roll -= 360f;
-                Vector3 head = player.LeanedPoint(1.58f), hip = player.LeanedPoint(0.9f);
-                string msg = $"lean={l:F0} reale={player.lean:F2} testa laterale={lateral:F2} m quota={off.y:F3} m roll={roll:F1} gradi spazio_dx={player.LeanRoomPublic(1f):F2} spazio_sx={player.LeanRoomPublic(-1f):F2} " +
-                             $"testa_per_i_nemici={(head - player.transform.position - Vector3.up * 1.58f).magnitude:F2} m bacino_per_i_nemici={(hip - player.transform.position - Vector3.up * 0.9f).magnitude:F2} m";
-                Debug.Log("[PryingEyes] leantest " + msg);
-                System.IO.File.AppendAllText(dir + "/leantest.txt", msg + "\n");
-                CamShot(dir + "/lean_" + (l == 0f ? "centro" : l > 0f ? "destra" : "sinistra") + ".png", null, true);
-            }
-            // con un muro a 33 cm sulla destra la testa non puo' sporgere piu' di tanto
-            var right = new Vector3(Mathf.Cos(player.yaw), 0f, -Mathf.Sin(player.yaw));
-            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            wall.name = "MuroProvaLean";
-            wall.transform.position = player.transform.position + right * 0.38f + Vector3.up * 1.5f;
-            wall.transform.rotation = Quaternion.LookRotation(new Vector3(Mathf.Sin(player.yaw), 0f, Mathf.Cos(player.yaw)));
-            wall.transform.localScale = new Vector3(0.10f, 3f, 3f);
-            wall.transform.rotation = Quaternion.LookRotation(right) * Quaternion.Euler(0f, 90f, 0f);
-            PlayerController.debugLean = 1f;
-            yield return new WaitForSeconds(1.2f);
-            string m2 = $"muro a destra: lean reale={player.lean:F2} spazio_dx={player.LeanRoomPublic(1f):F2}";
-            Debug.Log("[PryingEyes] leantest " + m2);
-            System.IO.File.AppendAllText(dir + "/leantest.txt", m2 + "\n");
-            CamShot(dir + "/lean_muro.png", null, true);
-            Destroy(wall);
-            PlayerController.debugLean = float.NaN;
-            Application.Quit();
-        }
-
-        /// <summary>Prova delle armi (-guntest [-armi id1,id2]): per ognuna foto in mano, in mira, allo sparo e a meta' ricarica,
-        /// piu' i numeri misurati (dispersione, rinculo, cadenza). Foto in hotel_build/armi_gioco/, numeri in guntest.txt.</summary>
-        System.Collections.IEnumerator GunTest()
-        {
-            string dir = TestPaths.Out("armi_gioco");
-            System.IO.Directory.CreateDirectory(dir);
-            string log = dir + "/guntest.txt";
-            System.IO.File.WriteAllText(log, "id grado classe colpi_in_4s rpm_misurata kick_max_gradi dispersione_mano dispersione_mira\n");
-            string only = null;
-            var args = System.Environment.GetCommandLineArgs();
-            for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-armi") only = args[i + 1];
-            Enemy.ClearAll();
-            var w = player.weapon;
-            var cam = player.cam;
-            Cursor.lockState = CursorLockMode.None;
-            LookOpenest();   // tutte le foto guardano lungo la linea piu' libera: tracce, fiamme e raggi hanno spazio per vedersi
-            for (int idx = 0; idx < WeaponDefs.All.Length; idx++)
-            {
-                var d = WeaponDefs.All[idx];
-                if (only != null && System.Array.IndexOf(only.Split(','), d.id) < 0) continue;
-                Weapon.debugAds = false;
-                w.Equip(idx);
-                player.invulnerable = true;
-                // il goccia a goccia dei nemici riempie la scena mentre si prova: fuori tutti prima di ogni arma (le foto devono vedere l'arma)
-                Enemy.ClearAll();
-                yield return new WaitForSeconds(0.9f);
-                CamShot(dir + "/" + d.id + "_mano.png", null, true);
-                // in mira
-                Weapon.debugAds = true;
-                yield return new WaitForSeconds(Mathf.Max(0.8f, d.adsTime * 4f));
-                w.RenderScopeNow();
-                CamShot(dir + "/" + d.id + "_mira.png", null, true);
-                // allo sparo: fiammata, bossolo, traccia
-                Weapon.debugAds = false;
-                Enemy.ClearAll();
-                yield return new WaitForSeconds(0.5f);
-                w.mag = d.mag;
-                w.DebugFire();
-                yield return null;   // un fotogramma: tracce e raggi nascono orientati solo al primo aggiornamento di Fx
-                if (d.fx == "flame")
-                {
-                    // il getto di fiamme si allunga solo dopo qualche colpo: grilletto tenuto per un terzo di secondo prima della foto
-                    float tf = Time.time;
-                    while (Time.time - tf < 0.35f) { if (w.CanFireNow) w.DebugFire(); yield return null; }
-                }
-                if (d.fx == "flame" || d.beam) Debug.Log("[PryingEyes] fxdump " + d.id + " " + Fx.Dump());
-                CamShot(dir + "/" + d.id + "_sparo.png", null, true);
-                yield return new WaitForSeconds(0.4f);
-                // ricarica a meta'
-                w.mag = Mathf.Max(0, d.mag / 3);
-                w.Reload();
-                yield return new WaitForSeconds(Mathf.Max(0.3f, d.style == ReloadStyle.Tube ? 0.7f : d.reload * 0.4f));
-                CamShot(dir + "/" + d.id + "_ricarica.png", null, true);
-                yield return new WaitForSeconds(d.reloadEmpty + d.shellTime * 8f + 1f);
-                // misura: grilletto tenuto per 4 s con caricatore senza fondo; cadenza = colpi tra il primo e l'ultimo
-                w.mag = 999; w.reserve = 999;
-                int shots0 = shotsFired;
-                float t0 = Time.time, tFirst = -1f, tLast = -1f;
-                int lastCount = shots0;
-                float maxKick = 0f;
-                while (Time.time - t0 < 4f)
-                {
-                    if (w.CanFireNow) w.DebugFire();
-                    if (shotsFired != lastCount) { lastCount = shotsFired; if (tFirst < 0f) tFirst = Time.time; tLast = Time.time; }
-                    maxKick = Mathf.Max(maxKick, player.ViewKickPitch);
-                    yield return null;
-                }
-                int fired = shotsFired - shots0;
-                float rpmMeasured = fired > 1 && tLast > tFirst ? (fired - 1) / (tLast - tFirst) * 60f : 0f;
-                System.IO.File.AppendAllText(log, $"{d.id} {d.grade} {d.cls.Replace(' ', '_')} {fired} {rpmMeasured:F0} {maxKick:F1} {d.hip:F2} {d.ads:F2}\n");
-                Debug.Log($"[PryingEyes] guntest {d.id}: {fired} colpi in 4 s ({rpmMeasured:F0} al minuto, scheda {d.rpm:F0}), kick massimo {maxKick:F1} gradi");
-                yield return new WaitForSeconds(0.6f);
-            }
-            Weapon.debugAds = false;
-            if (HasArg("-fxtest"))
-            {
-                // prova degli effetti a quad (fiamma, raggio, traccia) senza arma: foto subito dopo la nascita
-                Enemy.ClearAll();
-                Vector3 o = cam.position + cam.forward * 0.9f + Vector3.down * 0.25f + cam.right * 0.15f;
-                for (int pass = 0; pass < 3; pass++)
-                {
-                    Fx.Clear();
-                    if (pass == 0) for (int i = 0; i < 8; i++) Fx.Flame(o + cam.forward * (i * 0.15f), cam.forward);
-                    if (pass == 1) Fx.Beam(o, o + cam.forward * 8f, 0.04f, new Color(1f, 0.6f, 0.1f));
-                    if (pass == 2) Fx.Tracer(o + cam.right * 0.3f, o + cam.right * 0.3f + cam.forward * 20f, 30f, 0.03f, new Color(1f, 0.9f, 0.4f));
-                    yield return null; yield return null;
-                    CamShot(dir + "/fxtest" + pass + ".png", null, true);
-                    Debug.Log("[PryingEyes] fxtest" + pass + " " + Fx.Dump());
-                }
-            }
-            // espositori: tre armi sul muro davanti al giocatore (come i muri dei piani); con -armi solo se c'e' anche -espositori
-            if (only == null || HasArg("-espositori"))
-            {
-                // i pannelli non devono finire dentro un muro: si guarda dove c'e' piu' spazio
-                Enemy.ClearAll();
-                LookOpenest();
-                yield return null; yield return null;
-                var fwd = new Vector3(cam.forward.x, 0f, cam.forward.z).normalized;
-                float place = Mathf.Clamp(lookOpenDist - 0.5f, 1.3f, 2.4f);
-                float spread = place < 2f ? 1.25f : 1.55f;
-                string[] ids3 = { "p9_pieta", "ar9_malleus", "pu_pupilla" };
-                for (int k = 0; k < 3; k++)
-                {
-                    int wi = WeaponDefs.IndexOf(ids3[k]);
-                    Vector3 pos = cam.position + fwd * place + cam.right * ((k - 1) * spread);
-                    pos.y = cam.position.y - 0.05f;
-                    WallBuy.Place(wi, WeaponDefs.All[wi].price, pos, Quaternion.LookRotation(-fwd), WeaponDefs.All[wi].GradeColor);
-                }
-                yield return new WaitForSeconds(0.6f);
-                CamShot(dir + "/espositori.png", null, true);
-            }
-            Debug.Log("[PryingEyes] guntest finito");
-            Application.Quit();
-        }
-
-        /// <summary>Test automatico (-walltest): si mette davanti alla VESPER-9 e verifica prompt,
-        /// acquisto con F, spesa dei punti e ricarica della riserva.</summary>
-        System.Collections.IEnumerator WallTest()
-        {
-            if (player == null || player.weapon == null) yield break;
-            // in autotest la camera del giocatore punta ai nemici: uso una sonda fissa davanti alla VESPER
-            var probe = new GameObject("WallTestProbe");
-            probe.transform.position = new Vector3(-10f, 1.55f, 20.2f);
-            probe.transform.rotation = Quaternion.LookRotation(new Vector3(-10f, 1.55f, 22.42f) - probe.transform.position);
-            yield return null;
-            WallBuy.Tick(probe.transform);
-            Debug.Log("[PryingEyes] walltest prompt=\"" + (hud != null ? hud.CurrentPrompt : "") + "\" score=" + score);
-            WallBuy.TryBuy();
-            Debug.Log("[PryingEyes] walltest dopo acquisto: score=" + score + " arma=" + player.weapon.Def.name
-                + " mag=" + player.weapon.mag + " riserva=" + player.weapon.reserve
-                + " hud=" + (hud != null ? hud.CurrentAmmo + " " + hud.CurrentReserve : ""));
-            yield return null;
-            AddPoints(300);
-            player.weapon.reserve = 5;
-            WallBuy.Tick(probe.transform);
-            Debug.Log("[PryingEyes] walltest prompt munizioni=\"" + (hud != null ? hud.CurrentPrompt : "") + "\"");
-            WallBuy.TryBuy();
-            Debug.Log("[PryingEyes] walltest dopo munizioni: score=" + score
-                + " riserva=" + player.weapon.reserve + "/" + player.weapon.reserveMax
-                + " hud=" + (hud != null ? hud.CurrentAmmo + " " + hud.CurrentReserve : ""));
-
-            // animazione di ricarica: foto a metà e controllo che il contatore si aggiorni
-            yield return new WaitForSeconds(0.25f);
-            player.weapon.mag = 3;
-            player.weapon.Reload();
-            yield return new WaitForSeconds(0.70f);
-            CamShot(TestPaths.Out("reload.png"), Camera.main, true);
-            Debug.Log("[PryingEyes] walltest hud durante ricarica=" + hud.CurrentAmmo + " " + hud.CurrentReserve);
-            yield return new WaitForSeconds(1.20f);
-            Debug.Log("[PryingEyes] walltest hud dopo ricarica=" + hud.CurrentAmmo + " " + hud.CurrentReserve);
-            Destroy(probe);
-            Application.Quit();
         }
 
         bool liftShotDone;

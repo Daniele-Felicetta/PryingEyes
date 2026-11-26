@@ -38,7 +38,7 @@ store, the market, the works) as the base of an open desert, with an armoury and
 ## The branches
 
 Each branch is three levels; the third holds its boss. The global floor number that scales difficulty is `branch × 3 + level`, so the
-first branch has the difficulty of floors 1-3 of the old Tower, the second of floors 4-6, and so on (`Cattedrale/Catalogo.cs`, `Rami`).
+first branch has the difficulty of floors 1-3 of the old Tower, the second of floors 4-6, and so on (`Rules/Cathedral/Catalogo.cs`, `Rami`).
 
 | Branch | Theme | Boss (third level) | Its resource | Opened by |
 | --- | --- | --- | --- | --- |
@@ -106,7 +106,7 @@ Supplies are spent automatically at the start of the next expedition.
 
 ## The works
 
-Twenty works, each with a place in the cathedral (`Opere` in `Catalogo.cs`; the cathedral is `Proc/HubPlan.cs` and its furnishing
+Twenty works, each with a place in the cathedral (`Opere` in `Catalogo.cs`; the cathedral is `Rules/Plan/HubPlan.cs` and its furnishing
 `Proc/RoomKits.Hub.cs`). The first four need only common resources (plus a little blood for the font); the rest need rare resources and
 the trophies of the bosses, so the cathedral grows as you go deeper.
 
@@ -161,12 +161,12 @@ clients for the Cardinale; resources are drawn per machine, so no new network me
 | Piece | Where |
 | --- | --- |
 | Engine-independent rules (ledger, constructions, market, loot, expedition) | `unity/PryingEyes/Packages/com.pryingeyes.economy` ([README](../../unity/PryingEyes/Packages/com.pryingeyes.economy/README.md)) |
-| The catalog: resources, branches, works, blessings, supplies, market, drop tables | `Scripts/Cattedrale/Catalogo.cs` (no `UnityEngine`: the lab compiles it) |
+| The catalog: resources, branches, works, blessings, supplies, market, drop tables | `Rules/Cathedral/Catalogo.cs` (no `UnityEngine`: the lab compiles it) |
 | State, one per character, saved in the character's file (`persistentDataPath/characters/<id>.json`; the old `cattedrale.json` is imported once as the first character; `-profilo NAME` for another folder; automated runs use a test profile); suspending and resuming an expedition (`Riprendi`, `Sospendi`) | `Scripts/Cattedrale/Fabbrica.cs`, `Scripts/Characters/` |
 | Modes: catacombs (default in the game; tests keep the Tower unless `-catacombe`/`-cattedrale`; `-torre` forces the Tower) and cathedral (alone) | `Scripts/Cattedrale/Catacombe.cs` |
 | Drops on the floor, the satchel HUD | `Scripts/Cattedrale/RisorsaPickup.cs`, `HUD.Risorse.cs` |
 | Construction sites, market objects, candles, gates, register | `Scripts/Cattedrale/HubInteract.cs` |
-| The cathedral plan and furnishing | `Scripts/Proc/HubPlan.cs`, `Scripts/Proc/RoomKits.Hub.cs` |
+| The cathedral plan and furnishing | `Rules/Plan/HubPlan.cs`, `Scripts/Proc/RoomKits.Hub.cs` |
 | Hub, expeditions, return, death, remains, poor box | `Scripts/Proc/FloorDirector.Catacombe.cs` |
 | Gates instead of lifts | `Scripts/Proc/ProcLift.cs` (`BuildGate`) |
 | The boss of a branch | `Scripts/Proc/RoundDirector.Survival.cs`, `Enemy.MakeBranchBoss` |

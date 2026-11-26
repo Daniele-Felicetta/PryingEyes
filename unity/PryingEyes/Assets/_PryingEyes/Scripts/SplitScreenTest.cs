@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -12,32 +13,16 @@ namespace PryingEyes
     /// LB, corsa a scatti). Poi il giocatore vero: con uno stato XInput finto (PadControls.Inject) cammina, gira, spara, salta, si abbassa e corre.
     /// La lettura vera di XInput si prova solo come "risponde senza errori": un controller fisico non c'e'.
     /// La partita a piu' giocatori la prova -seatstest (SeatsTest.cs, lanciato da tools/coop/run_split.ps1).</summary>
-    public sealed class SplitScreenTest : MonoBehaviour
+    public sealed class SplitScreenTest : PlayerTest
     {
-        int checks, failed, exceptions;
+        protected override string Suite { get { return "splittest"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-splittest") >= 0) new GameObject("SplitScreenTest").AddComponent<SplitScreenTest>();
-        }
+        static void Install() { InstallWhen<SplitScreenTest>("-splittest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] splittest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
+        protected override void Finish()
         {
-            Application.logMessageReceived += Log;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
             PadControls.Inject(null); PadControls.Disable();
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] splittest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         static PadControls.Raw Pad(ushort buttons = 0, int lt = 0, int rt = 0, int lx = 0, int ly = 0, int rx = 0, int ry = 0) =>
@@ -268,7 +253,7 @@ namespace PryingEyes
 
         // ------------------------------------------------------------------ il giocatore vero
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             Layouts(); Monitors(); Pads(); Fov(); Mapping(); Api();
 
@@ -279,7 +264,7 @@ namespace PryingEyes
             var gm = GameManager.I; var player = gm.player;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward));
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             player.invulnerable = true;
             float yaw = Mathf.Atan2(forward.x, forward.z);
             Vector3 right = Vector3.Cross(Vector3.up, forward);
@@ -315,12 +300,12 @@ namespace PryingEyes
             player.yaw = yaw; player.pitch = 0f;
 
             // grilletto destro: spara
-            int shots = GameManager.shotsFired;
+            int shotsBefore = GameManager.shotsFired;
             Check("l'arma ha colpi", player.weapon.mag > 0);
             PadControls.Inject(Pad(rt: 255));
             yield return new WaitForSeconds(0.6f);
             PadControls.Inject(Pad());
-            Check($"grilletto destro: il giocatore spara ({GameManager.shotsFired - shots} colpi)", GameManager.shotsFired > shots);
+            Check($"grilletto destro: il giocatore spara ({GameManager.shotsFired - shotsBefore} colpi)", GameManager.shotsFired > shotsBefore);
 
             // A: salta
             Back();

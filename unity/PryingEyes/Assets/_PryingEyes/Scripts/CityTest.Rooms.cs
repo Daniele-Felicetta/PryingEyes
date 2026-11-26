@@ -1,9 +1,9 @@
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 using Production.Layout;
 using Newtonsoft.Json.Linq;
-using System.IO;
 
 namespace PryingEyes
 {
@@ -46,10 +46,10 @@ namespace PryingEyes
                             }
                     }
                 }
-                Check("ROOM_PARTS_MATCH", marker.recipeId, geometry, plan.parts.Length + " parts", "baked placements and sizes equal recipe");
-                Check("ROOM_COLLIDERS_MATCH", marker.recipeId, collision, collision.ToString(), "planned solids have correct collision bounds");
-                Check("ROOM_PALETTE_MATCH", marker.recipeId, palette, palette.ToString(), "materials retain recipe colors");
-                Check("ROOM_EMISSION_MATCH", marker.recipeId, emission, emission.ToString(), "emissive keyword and color retain recipe intensity");
+                Record("ROOM_PARTS_MATCH", marker.recipeId, geometry, plan.parts.Length + " parts", "baked placements and sizes equal recipe");
+                Record("ROOM_COLLIDERS_MATCH", marker.recipeId, collision, collision.ToString(), "planned solids have correct collision bounds");
+                Record("ROOM_PALETTE_MATCH", marker.recipeId, palette, palette.ToString(), "materials retain recipe colors");
+                Record("ROOM_EMISSION_MATCH", marker.recipeId, emission, emission.ToString(), "emissive keyword and color retain recipe intensity");
                 // A place to stand: the plan's x/z, and y is the height of the surface under the feet (the room floor is 0).
                 Vector3 Stand(RoomPlan.Waypoint spot) => marker.transform.TransformPoint(new Vector3(spot.x, .35f + spot.y, spot.z));
                 float Surface(float height) => marker.transform.TransformPoint(new Vector3(0, .24f + height, 0)).y;
@@ -62,7 +62,7 @@ namespace PryingEyes
                     bool target = NavMesh.SamplePosition(goal, out var to, .8f, HotelNav.EnemyMask);
                     bool source = NavMesh.SamplePosition(player.transform.position, out var from, .8f, HotelNav.EnemyMask);
                     bool connected = target && source && NavMesh.CalculatePath(from.position, to.position, HotelNav.EnemyMask, path) && path.status == NavMeshPathStatus.PathComplete;
-                    Check("ROOM_ROUTE_NAV", marker.recipeId + " leg " + leg, connected, path.status.ToString(), "complete path around furniture, up stairs and through exits");
+                    Record("ROOM_ROUTE_NAV", marker.recipeId + " leg " + leg, connected, path.status.ToString(), "complete path around furniture, up stairs and through exits");
                     if (!connected) break;
                     PlayerController.holdLook = false;
                     float deadline = Time.time + 25;
@@ -80,10 +80,10 @@ namespace PryingEyes
                         yield return null;
                     }
                     PlayerController.botDir = Vector3.zero; PlayerController.holdLook = true;
-                    Check("ROOM_ROUTE_CONTROLLER", marker.recipeId + " leg " + leg, Vector3.Distance(player.transform.position, to.position) <= .6f,
+                    Record("ROOM_ROUTE_CONTROLLER", marker.recipeId + " leg " + leg, Vector3.Distance(player.transform.position, to.position) <= .6f,
                         player.transform.position.ToString(), to.position.ToString());
                     if (point.y > .5f)
-                        Check("ROOM_ROUTE_ELEVATED", marker.recipeId + " leg " + leg, Mathf.Abs(player.transform.position.y - Surface(point.y)) < .3f,
+                        Record("ROOM_ROUTE_ELEVATED", marker.recipeId + " leg " + leg, Mathf.Abs(player.transform.position.y - Surface(point.y)) < .3f,
                             $"feet at {player.transform.position.y:F2} m", $"standing on the surface at {Surface(point.y):F2} m");
                 }
                 // Whoever stands on the highest surface of the route is reached by a walker that starts on the floor: the stairs work for enemies too.
@@ -92,7 +92,7 @@ namespace PryingEyes
                 {
                     bool deckNav = NavMesh.SamplePosition(Stand(perch), out var deck, 1, HotelNav.EnemyMask);
                     bool groundNav = NavMesh.SamplePosition(Stand(first), out var ground, 1, HotelNav.EnemyMask);
-                    Check("ROOM_PERCH_NAV", marker.recipeId, deckNav && groundNav, $"deck={deckNav}, floor={groundNav}", "navigation under the highest route point and under the first one");
+                    Record("ROOM_PERCH_NAV", marker.recipeId, deckNav && groundNav, $"deck={deckNav}, floor={groundNav}", "navigation under the highest route point and under the first one");
                     if (deckNav && groundNav)
                     {
                         player.Teleport(deck.position);
@@ -100,12 +100,12 @@ namespace PryingEyes
                         int hits = GameManager.damageTaken; float highest = ground.position.y, until = Time.time + 40;
                         while (climber != null && Time.time < until && GameManager.damageTaken == hits)
                         { highest = Mathf.Max(highest, climber.transform.position.y); yield return null; }
-                        Check("ROOM_ENEMY_CLIMB", marker.recipeId, GameManager.damageTaken > hits && highest > deck.position.y - .6f,
+                        Record("ROOM_ENEMY_CLIMB", marker.recipeId, GameManager.damageTaken > hits && highest > deck.position.y - .6f,
                             $"contacts={GameManager.damageTaken - hits}, highest={highest:F2} m", $"enemy climbs to the player standing at {deck.position.y:F2} m");
                         if (climber != null) Enemy.Remove(climber);
                     }
                 }
-                if (shots)
+                if (Photos)
                 {
                     var frontSign = System.Array.Find(plan.parts, p => p.kind == "label" && p.position.z > plan.depth / 2);
                     foreach (var view in plan.views)
@@ -114,16 +114,16 @@ namespace PryingEyes
                         Aim(marker.transform.TransformPoint(new Vector3(view.target.x, .24f + view.target.y, view.target.z)));
                         yield return new WaitForSeconds(.3f);
                         bool inside = Mathf.Abs(view.position.x) < plan.width / 2 && Mathf.Abs(view.position.z) < plan.depth / 2;
-                        if (frontSign != null && inside) Check("ROOM_SIGN_HIDDEN_INSIDE", marker.recipeId + " view " + view.name, !marker.transform.Find(frontSign.id).GetComponent<Renderer>().enabled,
+                        if (frontSign != null && inside) Record("ROOM_SIGN_HIDDEN_INSIDE", marker.recipeId + " view " + view.name, !marker.transform.Find(frontSign.id).GetComponent<Renderer>().enabled,
                             "outside sign viewed from inside", "no mirrored lettering through the wall");
-                        GameManager.CamShot(Path.Combine(output, marker.recipeId + "_" + view.name + ".png"), null, true);
+                        GameManager.CamShot(PhotoPath(marker.recipeId + "_" + view.name), null, true);
                     }
                     player.Teleport(marker.transform.TransformPoint(new Vector3(0, .2f, plan.depth / 2 + 5)));
                     Aim(marker.transform.TransformPoint(new Vector3(0, 3.9f, plan.depth / 2)));
                     yield return new WaitForSeconds(.3f);
-                    if (frontSign != null) Check("ROOM_SIGN_VISIBLE_OUTSIDE", marker.recipeId, marker.transform.Find(frontSign.id).GetComponent<Renderer>().enabled,
+                    if (frontSign != null) Record("ROOM_SIGN_VISIBLE_OUTSIDE", marker.recipeId, marker.transform.Find(frontSign.id).GetComponent<Renderer>().enabled,
                         "outside sign viewed from the street", "readable lettering on the front");
-                    GameManager.CamShot(Path.Combine(output, marker.recipeId + "_exterior.png"), null, true);
+                    GameManager.CamShot(PhotoPath(marker.recipeId + "_exterior"), null, true);
                 }
                 // A second way out: a walker crosses the other door of the room to reach someone standing outside it.
                 var side = System.Array.Find(plan.doors, d => d.side != "front");
@@ -143,7 +143,7 @@ namespace PryingEyes
                         crossed |= outward > half + .2f && Mathf.Abs(lateral - side.center) < side.width / 2 + .5f;
                         yield return null;
                     }
-                    Check("ROOM_ENEMY_ESCAPE_PURSUIT", marker.recipeId, crossed && GameManager.damageTaken > contacts,
+                    Record("ROOM_ENEMY_ESCAPE_PURSUIT", marker.recipeId, crossed && GameManager.damageTaken > contacts,
                         $"crossed={crossed}, contacts={GameManager.damageTaken - contacts}", $"enemy crosses the {side.side} exit and reaches the player");
                     if (enemy != null) Enemy.Remove(enemy);
                 }
@@ -157,3 +157,4 @@ namespace PryingEyes
         }
     }
 }
+#endif

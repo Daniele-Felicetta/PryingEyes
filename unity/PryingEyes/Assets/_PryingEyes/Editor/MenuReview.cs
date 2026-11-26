@@ -74,7 +74,7 @@ namespace PryingEyes.EditorTools
                 Click("Immagine"); CheckPage(menu, "Immagine", 5, 3, 8); Render("image", size, camera, menu, output);
                 Click("Audio"); CheckPage(menu, "Audio", 5, 1, 6); Render("audio", size, camera, menu, output);
                 Click("Comandi"); CheckPage(menu, "Comandi", 2, 5, 8); Render("controls", size, camera, menu, output);
-                Click("Gioco"); CheckPage(menu, "Gioco", 2, 4, 6); Render("game", size, camera, menu, output);
+                Click("Gioco"); CheckPage(menu, "Gioco", 5, 4, 9); Render("game", size, camera, menu, output);
                 Click("Schermo");
                 Choice("Formato").Step(1); Choice("Formato").Step(1);
                 Check("ultrawide choice", GameObject.Find("Formato valore").GetComponent<Text>().text.Contains("21:9"));
@@ -227,7 +227,7 @@ namespace PryingEyes.EditorTools
                 && !GameSettings.SprintToggle && GameSettings.PadSensitivity == 1f && Choice("Mira").Value == "Tieni premuto");
 
             // dalla 0.9.1 il contatore dei fotogrammi e' acceso di base: la scheda parte dai valori di base anche se questo PC ne ricorda altri (un Ripristina scheda di una versione prima scriveva 'spento')
-            GameSettings.SetShowFps(true); GameSettings.SetPauseOnFocusLoss(true);
+            GameSettings.SetShowFps(true); GameSettings.SetPauseOnFocusLoss(true); GameSettings.SetThirdPerson(false);
             Click("Gioco");
             var perspective = Choice("Prospettiva");
             Check("the perspective starts in first person (" + perspective.Value + ")", !GameSettings.ThirdPerson && perspective.Value == "Prima persona");
@@ -239,11 +239,16 @@ namespace PryingEyes.EditorTools
             Check("crosshair wraps back to classic", GameSettings.Crosshair == GameSettings.CrosshairClassic);
             Choice("Contatore fotogrammi").Step(1); Choice("Pausa a finestra inattiva").Step(1);
             Check("fps counter off (it starts on since 0.9.1), pause on focus loss off", !GameSettings.ShowFps && !GameSettings.PauseOnFocusLoss);
-            menu.GetComponentsInChildren<Slider>()[0].value = 0.5f;
+            sliders = menu.GetComponentsInChildren<Slider>();
+            sliders[0].value = 3.5f; sliders[1].value = 0.3f; sliders[2].value = -0.6f;
+            Check("third-person camera sliders write distance, height and shoulder",
+                GameSettings.ThirdPersonFraming == new Vector3(-0.6f, 0.3f, 3.5f) && Text("Spalla 3ª persona valore") == "Sx 60 cm");
+            sliders[3].value = 0.5f;
             Check("visual motion writes the setting", Mathf.Abs(GameSettings.Motion - 0.5f) < 0.001f);
             Click("Ripristina scheda");
             Check("game reset restores the defaults", GameSettings.ShowFps && GameSettings.PauseOnFocusLoss && GameSettings.Motion == 1f && GameSettings.CoopHudScale == 1f
-                && !GameSettings.ThirdPerson && Choice("Prospettiva").Value == "Prima persona");
+                && !GameSettings.ThirdPerson && Choice("Prospettiva").Value == "Prima persona"
+                && GameSettings.ThirdPersonFraming == GameSettings.DefaultThirdPersonFraming && Text("Spalla 3ª persona valore") == "Dx 60 cm");
 
             Click("Schermo");
             Check("the display tab has no reset button", GameObject.Find("Pulsante Ripristina scheda") == null);
@@ -374,6 +379,10 @@ namespace PryingEyes.EditorTools
             float master = GameSettings.Master, effects = GameSettings.Effects, music = GameSettings.Music, ambience = GameSettings.Ambience, menuMusic = GameSettings.MenuMusic;
             float brightness = GameSettings.Brightness, fov = GameSettings.Fov, grain = GameSettings.GrainAmount, vignette = GameSettings.VignetteAmount, bloom = GameSettings.BloomAmount;
             float sensitivity = GameSettings.Sensitivity, padSensitivity = GameSettings.PadSensitivity, motion = GameSettings.Motion, coopHud = GameSettings.CoopHudScale;
+            Vector3 framing = GameSettings.ThirdPersonFraming;
+            bool thirdPerson = GameSettings.ThirdPerson;
+            var cameraKeys = new[] { "video_thirdperson", "video_third_distance", "video_third_height", "video_third_shoulder" };
+            var cameraKeysPresent = Array.ConvertAll(cameraKeys, PlayerPrefs.HasKey);
             int scale = GameSettings.RenderScalePercent, msaa = GameSettings.Msaa, shadows = GameSettings.ShadowQuality, aim = GameSettings.AimMode, crouch = GameSettings.CrouchMode,
                 sprint = GameSettings.SprintMode, crosshair = GameSettings.Crosshair;
             bool ui = GameSettings.UiSounds, invertY = GameSettings.InvertMouseY, invertPad = GameSettings.InvertPadY, fps = GameSettings.ShowFps, pause = GameSettings.PauseOnFocusLoss;
@@ -385,6 +394,8 @@ namespace PryingEyes.EditorTools
                 GameSettings.SetRenderScale(scale); GameSettings.SetMsaa(msaa); GameSettings.SetShadowQuality(shadows);
                 GameSettings.SetAimMode(aim); GameSettings.SetCrouchMode(crouch); GameSettings.SetSprintMode(sprint); GameSettings.SetCrosshair(crosshair);
                 GameSettings.SetUiSounds(ui); GameSettings.SetInvertMouseY(invertY); GameSettings.SetInvertPadY(invertPad); GameSettings.SetShowFps(fps); GameSettings.SetPauseOnFocusLoss(pause);
+                GameSettings.SetThirdPerson(thirdPerson); GameSettings.SetThirdDistance(framing.z); GameSettings.SetThirdHeight(framing.y); GameSettings.SetThirdShoulder(framing.x);
+                for (int i = 0; i < cameraKeys.Length; i++) if (!cameraKeysPresent[i]) PlayerPrefs.DeleteKey(cameraKeys[i]);
                 PlayerPrefs.Save();
             };
         }

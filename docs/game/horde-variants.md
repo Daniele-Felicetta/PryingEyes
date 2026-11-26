@@ -28,5 +28,4 @@ die. Decals reuse the bullet-hole material with their own texture through a prop
 (`Scripts/VariantiTest.cs`, 24 checks, about 25 s): burst near the player, damage to player and neighbour, cloud; burst on
 a distant kill with the player unharmed and the kill paid; the statue holds still while watched, closes in when the player
 turns, stops again, takes 40% damage; the flagellant leaps; the cardinal is the boss, lights the bar, enrages, pays 1000 and
-drops ammo, and the bar fades. Photos go to `unity_logs/varianti` (launch the player from the repository root: the tests
-write relative paths).
+drops ammo, and the bar fades. Photos go to `unity_logs/varianti` of the checkout, whatever the working directory.

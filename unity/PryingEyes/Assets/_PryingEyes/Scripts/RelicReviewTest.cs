@@ -1,43 +1,23 @@
 #if !PE_DISTRIBUTION_BUILD
 using System;
 using System.Collections;
-using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -relictest: viste del modello vero, animazione, collider e rilascio risorse.</summary>
-    public sealed class RelicReviewTest : MonoBehaviour
+    public sealed class RelicReviewTest : PlayerTest
     {
-        int checks, failed;
+        protected override string Suite { get { return "relictest"; } }
+        protected override string OutFolder { get { return "relics"; } }
+        protected override string ExceptionCheck { get { return null; } }       // la prova non ne ha mai avuto uno
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-relictest") >= 0)
-                new GameObject("RelicReviewTest").AddComponent<RelicReviewTest>();
-        }
-        void Check(string name, bool ok)
-        {
-            checks++;
-            if (!ok) failed++;
-            Debug.Log("[PryingEyes] relictest " + (ok ? "ok " : "FALLITO ") + name);
-        }
-        IEnumerator Start()
-        {
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Debug.Log($"[PryingEyes] relictest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-        IEnumerator Run()
+        static void Install() { InstallWhen<RelicReviewTest>("-relictest"); }
+
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60f;
             while ((Proc.FloorDirector.I == null || Proc.FloorDirector.I.cur == null || Proc.FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -45,7 +25,6 @@ namespace PryingEyes
             Check("piano pronto", Proc.FloorDirector.I != null && Proc.FloorDirector.I.cur != null);
             gm.player.enabled = false; gm.player.invulnerable = true;
             Enemy.ClearAll(); Enemy.debugFreeze = Enemy.debugNoSense = true;
-            string output = Path.GetFullPath("unity_logs/relics"); Directory.CreateDirectory(output);
             bool worldView=false;
             foreach(var point in Proc.FloorDirector.I.cur.groundSpawns)
             {
@@ -61,10 +40,10 @@ namespace PryingEyes
                 Torch.I.on=true;
                 yield return new WaitForSeconds(0.8f);
                 Proc.LightPool.Tick(false,gm.player.cam.position);
-                GameManager.CamShot(Path.Combine(output,"Veglia_ambiente.png"),null,true);
+                GameManager.CamShot(PhotoPath("Veglia_ambiente"),null,true);
                 float end=Time.time+0.4f;
                 while(Time.time<end){actor.GetComponent<AlienRig>().Animate(0,1,true,true);yield return null;}
-                GameManager.CamShot(Path.Combine(output,"Veglia_ambiente_preparazione.png"),null,true);
+                GameManager.CamShot(PhotoPath("Veglia_ambiente_preparazione"),null,true);
                 Enemy.Remove(actor);yield return null;worldView=true;break;
             }
             Check("Veglia vista con luce e ambiente reali",worldView);
@@ -110,7 +89,7 @@ namespace PryingEyes
                     enemy.transform.rotation = Quaternion.Euler(0, angle, 0);
                     cam.transform.SetPositionAndRotation(center + new Vector3(0, 0.20f, 2.8f), Quaternion.LookRotation(new Vector3(0, -0.20f, -2.8f)));
                     yield return null;
-                    GameManager.CamShot(Path.Combine(output, kind + "_" + angle + ".png"), cam, false, 960, 960);
+                    GameManager.CamShot(PhotoPath(kind + "_" + angle), cam, false, 960, 960);
                 }
                 var meshes = enemy.GetComponentsInChildren<MeshFilter>();
                 Mesh owned = Array.Find(meshes, mf => mf.sharedMesh.name == (kind == Enemy.EnemyType.Veglia ? "Maschera votiva di cera" : "Casellario e campanello")).sharedMesh;
@@ -129,7 +108,7 @@ namespace PryingEyes
                     while(Time.time<end){rig.Animate(0,1,true,true);yield return null;}
                     Check("Veglia prepara il contatto con iride e corpo",iris.localScale.x>1.25f && Quaternion.Angle(Quaternion.identity,iris.parent.localRotation)>8);
                     Check("Veglia punto debole segue la maschera animata",Vector3.Distance(head.position,iris.position)<0.001f);
-                    GameManager.CamShot(Path.Combine(output,"Veglia_preparazione.png"),cam,false,960,960);
+                    GameManager.CamShot(PhotoPath("Veglia_preparazione"),cam,false,960,960);
                     end=Time.time+0.4f;
                     while(Time.time<end){rig.Animate(0,1,true,false);yield return null;}
                     Check("Veglia recupera dopo la preparazione",iris.localScale.x<1.05f);

@@ -14,7 +14,10 @@ namespace PryingEyes
     {
         DesertBike bike;
         float rideHeading, rideSteer, rideLook, rideLookPrev, rideLookIdle, rideTop = DesertBike.TopSpeed;
-        float rideSpeedShown, rideCrashCool, rideNoiseT, rideBlend = 1f, rideDip, rideVyPrev, rideStepOffset, rideLandCool;
+        float rideSpeedShown, rideCrashCool, rideNoiseT, rideDip, rideVyPrev, rideStepOffset, rideLandCool;
+#if !PE_DISTRIBUTION_BUILD
+        float rideMountedAt;
+#endif
         float rideGunIdle = 99f;                           // i secondi dall'ultima volta che l'arma e' servita (fuoco, mira, ricarica, cambio): oltre un secondo e mezzo torna giu'
         // la velocita' fatta lungo la rotta negli ultimi istanti (tempo di guida, velocita'), in un anello: serve a riconoscere una frenata da urto
         const int RideHistLen = 256;
@@ -24,7 +27,6 @@ namespace PryingEyes
         float rideSimT;
         bool rideGrounded = true, rideDismount, rideHintDismount, rideBoosting;
         string rideHint;
-        Vector3 rideCamFrom;
 
         public bool Riding => bike != null;
         /// <summary>Il turbo e' inserito (Maiusc col gas, e la velocita' oltre il massimo normale): lo legge il tachimetro.</summary>
@@ -63,12 +65,15 @@ namespace PryingEyes
         public void Mount(DesertBike b)
         {
             if (b == null || Riding || !alive || Downed || b.rider != null || b.puppet) return;
+            SetCheatFlight(false);
             CancelMantle();
+            ThirdPersonView.BeginRideTransition(this);
             bike = b;
             b.Take(this);
             rideHeading = b.Heading;
-            rideCamFrom = cam != null ? cam.position : transform.position;
-            rideBlend = 0f;
+#if !PE_DISTRIBUTION_BUILD
+            rideMountedAt = Time.time;
+#endif
             Teleport(b.transform.position);
             ridePlowed.Clear(); RidePlowCount = 0;              // il Teleport ha spento e riacceso il controller: le coppie da ignorare sono sparite con lui
             rideGhosts.Clear(); rideGhostT = 0f;
@@ -111,6 +116,7 @@ namespace PryingEyes
                 spot = p; found = true; break;
             }
             if (!found) { hud?.Toast("Non c'e' spazio per scendere qui."); rideDismount = false; return; }
+            ThirdPersonView.BeginRideTransition(this);
             b.Park(root, h);
             EndRide();
             Teleport(spot);
@@ -361,9 +367,8 @@ namespace PryingEyes
             float targetFov = baseFov + (17f * Mathf.Clamp01(hs / def.boost) + fovKick) * motion;
             fovKick *= Mathf.Max(0f, 1f - 6f * dt);
             c.fieldOfView += (targetFov - c.fieldOfView) * Mathf.Min(1f, 8f * dt);
-            rideBlend = Mathf.MoveTowards(rideBlend, 1f, dt / 0.4f);
             rideDip = Mathf.MoveTowards(rideDip, 0f, 0.7f * dt);
-            Vector3 eye = Vector3.Lerp(rideCamFrom, b.EyeWorld, Mathf.SmoothStep(0f, 1f, rideBlend));
+            Vector3 eye = b.EyeWorld;
             // vibrazione del motore e del terreno: poca, e solo in marcia
             float shake = Mathf.Clamp01(hs / 20f) * 0.006f * motion;
             float t = Time.time;
@@ -372,7 +377,11 @@ namespace PryingEyes
             cam.position = eye;
             // la testa segue una parte dell'inclinazione della moto (beccheggio e rollio), non tutta
             Quaternion bodyPart = Quaternion.Euler(0f, rideHeading * Mathf.Rad2Deg, 0f) * Quaternion.Euler(b.PitchVisual * 0.5f, 0f, b.RollVisual * 0.5f * motion);
-            cam.rotation = bodyPart * Quaternion.Euler(pitch * Mathf.Rad2Deg - recP, look * Mathf.Rad2Deg + recY, 0f);
+            float headPitch = pitch * Mathf.Rad2Deg - recP;
+            cam.rotation = bodyPart * Quaternion.Euler(headPitch, look * Mathf.Rad2Deg + recY, 0f);
+            if (GameSettings.ThirdPerson || ThirdPersonView.Count > 0)
+                ThirdPersonView.AfterEyePose(this, b.EyeWorld,
+                    new Vector3(headPitch + b.PitchVisual * 0.5f, yaw * Mathf.Rad2Deg + recY, 0f));
 
             // il rinculo della visuale (urti, atterraggi) rientra come a piedi
             if (recDelay > 0f) recDelay -= dt;

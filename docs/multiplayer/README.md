@@ -83,7 +83,7 @@ cattedrale, magazzino, bottino sulla sabbia e trofei restano di ognuno. Come fun
   (i pupazzi spariscono e il piano si ripopola).
 - **In rete anche in secondo piano.** `Application.runInBackground` e' spento nel progetto; la cooperativa lo accende per tutta
   la partita (un Alt-Tab non deve bloccare gli altri).
-- **Senza FishNet.** Il codice che nomina FishNet sta in `FishNetCoopNet.cs` (e nell'autenticatore in `Multiplayer/FishNet/`)
+- **Senza FishNet.** Il codice che nomina FishNet sta in `FishNetCoopNet.cs` (e nell'autenticatore, `FishNetSeatAuthenticator.cs`)
   dietro `PRYINGEYES_FISHNET` (solo Standalone): nella build web, o nella citta' (`CityDirector` presente), `Coop.Available` e' falso
   e ogni chiamata della facciata non fa niente.
 
@@ -93,6 +93,7 @@ cattedrale, magazzino, bottino sulla sabbia e trofei restano di ognuno. Come fun
 | --- | --- |
 | `Coop.cs` | Facciata statica: `Role` (Off/Host/Client), `Sim`, `Slot`, `Game`, avvio da menu o da riga di comando, `KeepRunning` |
 | `CoopNet.cs`, `FishNetCoopNet.cs` | Trasporto astratto e realizzazione FishNet: ammissione, slot, un solo `CoopPacket` (tipo + byte) con `Broadcast` |
+| `FishNetSeatAuthenticator.cs` e, in `Rules/Admission/`, `AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs` | L'ammissione sull'ospite: il gettone che manda ogni ospite (revisione dei contenuti e posti), la capienza, il tempo massimo di 15 s per rispondere e l'elenco dei posti. Scritti da ChatGPT nella sua bozza; le tre classi senza FishNet le prova il laboratorio `tools/admissionlab` (`python tools/studio.py test admission`, anche nel cancello di CI) |
 | `CoopWire.cs` | Tipi di messaggio (`CoopKind`), `CoopProtocol` (revisione, porta, tempi), `NetWriter`/`NetReader` (il lettore non lancia mai) |
 | `CoopGame.cs` | Giocatori, piano ed epoca, saluto, stato di ciascuno, nomi |
 | `CoopGame.World.cs` | Il mondo condiviso: nemici, colpi, rumore, candele, uscita, round, gocce, annunci; dalla 0.9.1 anche il deserto (nemici per vicinanza, ora, boss caduti) |
@@ -104,11 +105,12 @@ cattedrale, magazzino, bottino sulla sabbia e trofei restano di ognuno. Come fun
 | `CoopGame.Revive.cs` | Rianimazione in rete (0.7.2): `ReviveRemote`, `ReviveClaim` all'ospite (controlla che chi rialza sia pronto e a meno di 4 m), `Revived` a chi era a terra |
 | `Enemy.Net.cs` | Pupazzi dei nemici e stato di rete |
 | `Targets.cs`, `RemotePlayer.cs` | Bersagli multipli e compagni (un `SurvivorBody` con torcia, nome e posa interpolata; il pupazzo di capsule resta solo se manca il modello) |
-| `CoopTest.cs`, `CoopTest.Survival.cs`, `CoopTest.Desert.cs` | Prova automatica a piu' processi (solo con `-cooptest`); la seconda ha i passi del ciclo a ondate, la terza quelli del deserto (`-coopdeserto`) |
+| `CoopTest.cs`, `CoopTest.Survival.cs`, `CoopTest.Desert.cs` | Prova automatica a piu' processi (solo con `-cooptest`; deriva da `PlayerTest` e si installa da sola, fuori dalle build di distribuzione); la seconda ha i passi del ciclo a ondate, la terza quelli del deserto (`-coopdeserto`). `CoopGame` non la nomina: le consegna i messaggi `Test` con l'evento `CoopGame.TestMessage` |
 | `Deserto/DesertAnchors.cs` | I punti dei compagni attorno a cui l'ospite costruisce il deserto (sabbia, navmesh, luoghi, sassi); vuoto da soli e sugli ospitati |
 
-L'ammissione (revisione del protocollo, capienza, tempo massimo) la fa `FishNetSeatAuthenticator`, scritto da ChatGPT nella
-sua bozza (`Assets/_PryingEyes/Multiplayer/FishNet/`). Fuori da `Coop/` i punti toccati sono: `Enemy` (+`Stealth`, `Knife`,
+L'ammissione (revisione del protocollo, capienza, tempo massimo) la fa `FishNetSeatAuthenticator` con `AdmissionGate`, `SessionAdmission`
+e `SessionRoster`: li scrisse ChatGPT nella sua bozza e sono passati qui, senza cambiare una riga, quando la bozza e' stata ritirata
+(25 novembre 2026). Fuori da `Coop/` i punti toccati sono: `Enemy` (+`Stealth`, `Knife`,
 `Rounds`, `EnemyTemi`: id, pupazzo, danno e rumore passano da `Coop`), `FloorDirector` (epoca, candele e uscita in rete),
 `RoundDirector` (serrande e premi per giocatore), `Drops`/`DropPickup`, `Candelabro` (`litBy`), `Stealth`, `Magic`,
 `PlayerController`, `LightPool` (le luci dei compagni non entrano nella firma del piano), `GameManager` (`CreditKill`) e
@@ -188,7 +190,8 @@ Da riga di comando (lo usano le prove): `-coophost [-cooplocal]` oppure `-coopjo
 le preferenze (sono condivise con la copia del gioco dell'utente).
 
 `-cooptest` esegue uno scenario scritto a passi, con barriere tra i processi e verifiche dentro il gioco; stampa
-`[PryingEyes] cooptest <ospite|ospitato>: ok/FALLITO ...` e alla fine `RISULTATO SUPERATA/FALLITA` (codice d'uscita 0/1):
+`[PryingEyes] cooptest <ospite|ospitato> ok/FALLITO ...` e alla fine `RISULTATO SUPERATA/FALLITA` (codice d'uscita 0/1; ogni processo scrive anche il suo
+`result.json`, in `unity_logs/cooptest-ospite` o `unity_logs/cooptest-ospitato`):
 
 | Flag | Cosa prova |
 | --- | --- |
@@ -199,13 +202,13 @@ le preferenze (sono condivise con la copia del gioco dell'utente).
 | `-coopplayers N` | numero di giocatori attesi (con 3 processi) |
 | `-coopdeserto` | il copione del deserto (`run_all.ps1 -Only j`, scenario `j_deserto`: l'ospite con `-deserto -catacombe`, l'ospitato senza `-deserto`, che segue l'ospite): il deserto e' costruito su tutti e due e i compagni si vedono; stesso seme e stessa ora; l'ospitato va a mezzo chilometro, accanto a un luogo, e l'ospite costruisce li' luogo, sabbia con collider e navmesh; un nemico nato vicino all'ospitato gli arriva, uno nato vicino all'ospite no (190 m); l'ospitato torna e i due si scambiano (quello di prima sparisce dalla sua vista ma resta vivo sull'ospite); un colpo mortale a un pupazzo uccide il nemico vero e paga chi ha sparato; l'ora messa dall'ospite arriva; un boss caduto sull'ospite cade anche per l'ospitato, con il trofeo nel suo magazzino; con `-coopleave` o `-coopcrash` (scenari `k_deserto_esce` e `l_deserto_ucciso`) i passi sono solo i primi tre e un ottavo, in cui l'ospitato lontano se ne va (chiusura o processo ucciso) e l'ospite prosegue da solo: nessun punto attorno a lui, un solo bersaglio per i nemici, l'elenco di quello che vedeva buttato, il luogo lontano scaricato, l'orologio che va e un nemico che gli da' la caccia; con `-cooppics` e la grafica sull'ospite, due foto del compagno sulla sabbia |
 | `-cooplook ID` / `-cooplevel N` | il personaggio che il processo dichiara nel saluto (senza, le prove mandano un aspetto vuoto e livello 1): con l'ospite `custode` di livello 7 e l'ospitato `custode` di livello 3 (`run_all.ps1 -Only i`, scenario `i_aspetti`) si controlla che l'ospite tenga l'aspetto, che il secondo riceva la dottoressa, che tutti vedano gli stessi livelli e che il pupazzo di ogni compagno sia costruito con l'aspetto e il livello dichiarati |
-| `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`; senza, `persistentDataPath/coop`; con `run_coop.ps1 -HostGraphics` e' `%TEMP%\pryingeyes-coop\foto`); dalla 0.7.2 anche il pannello dei compagni nell'HUD dell'ospite: col compagno in piedi (`coop_hud.png`), a terra (`coop_hud_a_terra.png`) e ingrandito al 160% (`coop_hud_160.png`), poi lo rialza |
+| `-cooppics` | l'ospitato accende la torcia e guarda in basso; l'ospite controlla che il fascio scenda e, se ha la grafica (`run_coop.ps1 -HostGraphics`), fotografa il compagno di lato, da vicino e da dietro (cartella `-coopout`; senza, `persistentDataPath/coop`; con `run_coop.ps1 -HostGraphics` e' `foto` dentro la cartella dei log, cioe' `unity_logs/coop/foto` del checkout); dalla 0.7.2 anche il pannello dei compagni nell'HUD dell'ospite: col compagno in piedi (`coop_hud.png`), a terra (`coop_hud_a_terra.png`) e ingrandito al 160% (`coop_hud_160.png`), poi lo rialza |
 
 Con `-cooptest` le ondate partono ferme (`SurvivalMode.HoldWaves`; il copione le libera con `SurvivalMode.Hold`): le avvia il copione, perche' i passi che contano punti e nemici uno per uno non devono
 trovarsele in mezzo. Il ciclo a candele si prova con `-candles` su tutti i processi (la pianta ad ali, `-oldplan`, lo implica).
 
-Lo script `tools/coop/run_coop.ps1` avvia l'ospite e gli ospitati dalla build di verifica (`Builds/Audit`, non quella da cui gioca l'utente; senza grafica, un log per processo in
-`%TEMP%\pryingeyes-coop`), li aspetta, stampa le righe che contano ed esce con 0 solo se tutti hanno superato:
+Lo script `tools/coop/run_coop.ps1` avvia l'ospite e gli ospitati dalla build di verifica (`Builds/Audit`, non quella da cui gioca l'utente; senza grafica; una porta UDP libera per ogni prova, stampata sulla prima riga, che `-Port N` fissa; un log per processo in
+`unity_logs/coop` del checkout, quindi due checkout possono provare insieme), li aspetta, stampa le righe che contano ed esce con 0 solo se tutti hanno superato:
 
 ```powershell
 .\tools\coop\run_coop.ps1 -Clients 1 -HostArgs '-cooptest','-seed','2961' -ClientArgs '-cooptest' -TimeoutSec 420
@@ -273,9 +276,11 @@ a meta' partita (entra 8 s dopo l'ospite) o che muore nel deserto.
 
 La cooperativa e' partita da una bozza di ChatGPT (ramo `feature/multiplayer` in un altro worktree, importata cosi' com'era
 nel commit `36e0a3a`): sessione e movimento a posti (fino a 4 posti locali per connessione) in una scena a parte
-(`MultiplayerProbe.unity`), senza il gioco vero. Il lavoro rimasto in `Assets/_PryingEyes/Multiplayer/` (avatar a capsule,
-posti locali, `NetworkFloorPlan`, obiettivi di prova) e `tools/multiplayer-check/` (controlli .NET e di codegen FishNet) e'
-**il prototipo originale**, non usato dal gioco tranne l'autenticatore. Anche la scelta del framework e' sua:
+(`MultiplayerProbe.unity`), senza il gioco vero. **La bozza e' stata ritirata il 25 novembre 2026** (T20, per scelta del manutentore): le
+uniche parti che il gioco usava, l'autenticatore e le tre classi dell'ammissione (cancello, gettone, elenco dei posti), sono in
+`Scripts/Coop/` (vedi sopra); il resto (gli avatar a capsule, i posti locali, il piano di rete `NetworkFloorPlan`, gli obiettivi di prova,
+la scena e i prefab della sonda, i controlli .NET e di codegen FishNet di `tools/multiplayer-check/`) e' stato tolto e si legge in git: la
+bozza com'era sta al commit `36e0a3a`. Anche la scelta del framework e' sua:
 
 | Framework | Punti pertinenti | Impatto sul progetto |
 | --- | --- | --- |

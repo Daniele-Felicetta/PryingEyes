@@ -1,6 +1,6 @@
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
@@ -15,7 +15,7 @@ namespace PryingEyes
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
             Check("piano pronto per i rifornimenti", FloorDirector.I != null && FloorDirector.I.cur != null);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             var fi = FloorDirector.I.cur; var gm = GameManager.I; var player = gm.player;
             Enemy.ClearAll(); player.invulnerable = true;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
@@ -63,12 +63,11 @@ namespace PryingEyes
                     Check(label + " F acquista l'arma al prezzo esposto", player.weapon.CurrentIndex == wall.weaponIndex && gm.score == 500 - wall.price);
                     player.weapon.reserve = 0; gm.AddPoints(wall.AmmoPrice - gm.score);
                     WallBuy.Tick(player.cam);
-                    if (shots)
+                    if (Photos)
                     {
                         yield return new WaitForSeconds(1.2f); // lascia esaurire il feedback dei punti assegnati dalla prova.
                         WallBuy.Tick(player.cam);
-                        string folder = Path.GetFullPath("unity_logs/supply"); Directory.CreateDirectory(folder);
-                        GameManager.CamShot(Path.Combine(folder, fi.plan.theme + "_arena_" + region.candleRoom + ".png"), null, true);
+                        GameManager.CamShot(PhotoPath(fi.plan.theme + "_arena_" + region.candleRoom), null, true);
                     }
                     int before = gm.score, cost = wall.AmmoPrice;
                     WallBuy.TryBuy();
@@ -107,3 +106,4 @@ namespace PryingEyes
         }
     }
 }
+#endif

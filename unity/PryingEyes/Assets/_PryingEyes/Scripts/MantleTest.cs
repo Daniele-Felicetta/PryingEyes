@@ -1,9 +1,9 @@
 #if !PE_DISTRIBUTION_BUILD
 using System;
 using System.Collections;
-using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -11,42 +11,14 @@ namespace PryingEyes
     /// Nell'arena si mettono ostacoli veri: su un tavolo da 90 cm (profondo 1,4 m) si sale e si resta in piedi sopra; un muretto da
     /// 1 m spesso 25 cm si scavalca e si atterra dall'altra parte; un muro da 2,2 m e un gradino da 25 cm non chiedono lo scavalco.
     /// Ogni superamento dura meno di 0,7 s, la visuale si china e torna dritta, poi si cammina di nuovo.</summary>
-    public sealed class MantleTest : MonoBehaviour
+    public sealed class MantleTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "mantletest"; } }
+        protected override string PhotoFlag { get { return "-mantleshots"; } }
+        protected override string OutFolder { get { return "scavalco"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-mantletest") >= 0) new GameObject("MantleTest").AddComponent<MantleTest>();
-        }
-
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] mantletest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-mantleshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] mantletest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/scavalco"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
-        }
+        static void Install() { InstallWhen<MantleTest>("-mantletest"); }
 
         static GameObject Box(string name, Vector3 baseCenter, Vector3 size, Vector3 forward)
         {
@@ -66,7 +38,7 @@ namespace PryingEyes
             done(Time.time - t0);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -75,7 +47,7 @@ namespace PryingEyes
             var gm = GameManager.I; var player = gm.player;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward));
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             player.invulnerable = true;
             float yawF = Mathf.Atan2(forward.x, forward.z);
 
@@ -87,7 +59,7 @@ namespace PryingEyes
             bool ok = player.TryMantle(forward);
             Check("davanti al tavolo da 90 cm si sale sopra", ok && !player.LastMantleVault);
             yield return new WaitForSeconds(0.12f);
-            View("tavolo");
+            Photo("tavolo");
             float took = 9f;
             yield return Over(player, t => took = t + 0.12f);
             Vector3 p = player.transform.position;
@@ -107,7 +79,7 @@ namespace PryingEyes
             ok = player.TryMantle(forward);
             Check("davanti al muretto da 1 m (25 cm) si scavalca", ok && player.LastMantleVault);
             yield return new WaitForSeconds(0.14f);
-            View("muretto");
+            Photo("muretto");
             took = 9f;
             yield return Over(player, t => took = t + 0.14f);
             p = player.transform.position;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The nine bikes: every one must be a believable machine of its kind (power, top speed, 0-100, braking), must not do anything silly with its aids on (loop at a launch, run over its own limiter),
 /// and must be ridden round a lap by the computer rider without a fall, close to the lap its plan promises. The expectations are those of real bikes of each class.</summary>
@@ -49,7 +50,7 @@ static partial class Program
             });
             Check("ROSTER_" + sp.id.ToUpperInvariant() + "_IS_BELIEVABLE",
                 hp >= e.hpLo && hp <= e.hpHi && vmax >= e.topLo && vmax <= e.topHi && t100 >= e.t100Lo && t100 <= e.t100Hi && !crashed && maxPitch < 0.30f && maxRpm < sp.limiterRpm + 700f && topGear >= sp.GearCount - 2,
-                sp.name + ": " + hp.ToString("F0") + " hp at " + rpmAt.ToString("F0") + " rpm, " + (sp.Mass).ToString("F0") + " kg, top " + vmax.ToString("F0") + " km/h, 0-100 in " + t100.ToString("F2") + " s, front up to " + (maxPitch * PM.Rad2Deg).ToString("F1")
+                sp.name + ": " + hp.ToString("F0") + " hp at " + rpmAt.ToString("F0") + " rpm, " + (sp.Mass).ToString("F0") + " kg, top " + vmax.ToString("F0") + " km/h, 0-100 in " + t100.ToString("F2") + " s, front up to " + (maxPitch * RacingMath.Rad2Deg).ToString("F1")
                     + " deg, " + topGear + "th gear, " + maxRpm.ToString("F0") + " rpm, fell " + crashed,
                 "hp " + e.hpLo + "-" + e.hpHi + ", top " + e.topLo + "-" + e.topHi + ", 0-100 " + e.t100Lo + "-" + e.t100Hi + ", no loop, in the limiter, the top gears (a naked bike runs out of breath in fourth)");
         }
@@ -73,7 +74,7 @@ static partial class Program
         // ---- the computer rider rides each bike round a lap, close to its plan, on two circuits
         {
             string detail = ""; bool all = true;
-            var circuits = new[] { CircuitGen.Generate(4242), CircuitGen.Generate(22) };
+            var circuits = new[] { Circuits.Generate(4242), Circuits.Generate(22) };
             for (int i = 0; i < Bikes.Count; i++)
             {
                 foreach (var c in circuits)

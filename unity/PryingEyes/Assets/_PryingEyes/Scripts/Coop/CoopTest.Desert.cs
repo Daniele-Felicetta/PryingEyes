@@ -1,3 +1,4 @@
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -328,7 +329,7 @@ namespace PryingEyes
             {
                 yield return new WaitForSeconds(1.5f);                 // l'ultima sincronia deve partire davvero prima che io sparisca
                 Log(Crash ? "me ne vado di colpo (processo ucciso)" : "me ne vado (chiusura normale)");
-                Finish();
+                EndNow();                                                // il risultato esce e si chiude adesso, prima di sparire
                 if (Crash) { System.Threading.Thread.Sleep(400); System.Diagnostics.Process.GetCurrentProcess().Kill(); }
                 yield break;
             }
@@ -506,3 +507,4 @@ namespace PryingEyes
         }
     }
 }
+#endif

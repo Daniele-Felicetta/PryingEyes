@@ -6,13 +6,25 @@ Run from the repository root with the system Python. The verified environment us
 
 ```powershell
 python tools/studio.py doctor
+python tools/studio.py doctor --json
+python tools/studio.py test compile
 python tools/studio.py catalog list --type weapon
 python tools/studio.py asset inspect p45_argine
 python tools/studio.py asset preview p45_argine
 python tools/studio.py asset build p45_argine --publish
-python tools/studio.py test gunplay
+python tools/studio.py test gunplaytest
 python tools/studio.py report latest
+python tools/studio.py suites
 ```
+
+`suites` lists what `test` can run (`--json` for a program): the kind of each suite, what it needs (a built player, the editor), what it
+can disturb and the seconds it usually takes. A suite that declares hazards runs only when each one is named with `--allow HAZARD`;
+otherwise the job fails at once with `SUITE_HAZARD_NOT_ALLOWED`. The CI gate runs the suites that need nothing by asking this list
+([agent-tooling.md](agent-tooling.md#suites-what-can-be-run)).
+
+`doctor --json` prints the state of the checkout as data (tools, an editor or a player open on it, the `Library`, the verification build, the
+last gate on `preview`) and starts no job; `test compile` starts the editor with no method and turns each compiler error into a finding with
+its file and line ([agent-tooling.md](agent-tooling.md#test-compile-does-it-compile)).
 
 `asset build` bakes and packs the model, renders previews, imports it, compiles a
 separate City build, runs gunplay and the city acceptance loop. `--publish` copies
@@ -263,7 +275,7 @@ part of the package. Its README documents the caller's ordering and restoration 
 
 ```powershell
 python tools/studio.py test weapon-state
-python tools/studio.py test gunplay --runtime path/to/PryingEyes.exe
+python tools/studio.py test gunplaytest --runtime path/to/PryingEyes.exe   # without --runtime: the verification build, Builds/Audit
 ```
 
 The managed lab has 1,454 comparisons/contracts and 89,076 per-frame samples.
@@ -275,7 +287,7 @@ extra contracts prevent cancelled or externally refilled reloads from adding amm
 
 Every asset build now runs the state lab before producing assets. Its findings
 join the common report. Source capture also includes both local packages, assembly
-definitions/manifests and the PlanLab/WeaponsLab programs and project files.
+definitions/manifests and the programs and project files of every lab (`tools/*lab`).
 
 The independent `unity/LayoutDemo` now includes an interactive `WeaponDemo` in
 the generated `RoomDemo` scene: Fire, Reload and Reset buttons. It references the

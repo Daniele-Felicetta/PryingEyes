@@ -6,6 +6,7 @@ using System.IO;
 using Production.Economy;
 using PryingEyes.Characters;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 using UnityEngine;
 
 namespace PryingEyes.Cattedrale
@@ -15,40 +16,20 @@ namespace PryingEyes.Cattedrale
     /// tetto), scende nell'Ossario, raccoglie il bottino di un nemico, versa nella cassetta delle elemosine, risale dalla scala (zaino nel
     /// magazzino, punti in oboli), muore in una seconda discesa (meta' delle comuni salve, il resto nelle spoglie), riprende le spoglie nella
     /// terza, poi gioca il terzo livello: tre ondate, il Cardinale come boss del ramo, il trofeo e la risalita. Non tocca il salvataggio di chi gioca.</summary>
-    public sealed class CattedraleTest : MonoBehaviour
+    public sealed class CattedraleTest : PlayerTest
     {
-        int checks, failed;
-        bool shots;
+        protected override string Suite { get { return "cattedraletest"; } }
+        protected override string PhotoFlag { get { return "-cattedraleshots"; } }
+        protected override string ExceptionCheck { get { return null; } }          // this suite has never had a closing check on the exceptions
+        protected override bool HoldFire { get { return true; } }                  // the bot of the automatic run does not shoot by itself (-cattedraletest was in the no-fire flags of GameManager)
+        protected override void Finish() { Time.timeScale = 1f; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
         {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-cattedraletest") < 0) return;
+            if (!TestRun.Has("-cattedraletest")) return;
             Fabbrica.Azzera();               // profilo di prova: si parte da una cattedrale in rovina e da un magazzino vuoto
-            new GameObject("CattedraleTest").AddComponent<CattedraleTest>();
-        }
-
-        void Check(string name, bool ok, string detail = "")
-        {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] cattedraletest " + (ok ? "ok " : "FALLITO ") + name + (detail.Length > 0 ? " (" + detail + ")" : ""));
-        }
-
-        IEnumerator Start()
-        {
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-cattedraleshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false, e.Message); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Time.timeScale = 1f;
-            Debug.Log($"[PryingEyes] cattedraletest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
+            InstallWhen<CattedraleTest>("-cattedraletest");
         }
 
         static FloorDirector Fd => FloorDirector.I;
@@ -107,12 +88,12 @@ namespace PryingEyes.Cattedrale
 
         void Shot(string name)
         {
-            if (!shots) return;
+            if (!Photos) return;
             System.IO.Directory.CreateDirectory(TestPaths.Out("cattedrale"));
             GameManager.CamShot(TestPaths.Out("cattedrale/" + name + ".png"), null, true, 1600, 900);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             yield return WaitHub(40f);
             var fd = Fd; var gm = Gm;
@@ -176,7 +157,7 @@ namespace PryingEyes.Cattedrale
             var alms = Find<CassettaElemosine>(_ => true);
             Check("ci sono la scala per risalire e la cassetta delle elemosine", stair != null && alms != null);
             Shot("03_livello1");
-            if (shots && fd.cur.arrival != null && fd.cur.exit != null)
+            if (Photos && fd.cur.arrival != null && fd.cur.exit != null)
             {
                 // i cancelli visti dalla stanza: quello da cui si arriva (aperto) e quello d'uscita (ancora chiuso)
                 yield return ShotFrom(fd.cur.arrival.frontPoint + fd.cur.arrival.lookOut * 2.6f, fd.cur.arrival.doorPoint + Vector3.up * 1.3f, "03b_cancello_arrivo");

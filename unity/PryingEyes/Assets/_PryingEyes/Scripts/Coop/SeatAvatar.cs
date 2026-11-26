@@ -18,7 +18,7 @@ namespace PryingEyes
         SurvivorBody body;
         CharacterController cc;
         TextMesh label;
-        float walkPhase;
+        float walkPhase, groundLost;
         Vector3 lastPos;
         bool placed;
         static int knifeIndex = -2;
@@ -74,7 +74,7 @@ namespace PryingEyes
             if (!hooked) { hooked = true; RenderPipelineManager.beginCameraRendering += FaceCamera; }
         }
 
-        void OnDisable() { all.Remove(this); }
+        void OnDisable() { all.Remove(this); placed = false; groundLost = 0f; }
 
         /// <summary>Prima che ogni camera disegni, i nomi guardano lei (una camera per posto: un nome solo non puo' guardarle tutte).</summary>
         static void FaceCamera(ScriptableRenderContext ctx, Camera cam)
@@ -116,7 +116,7 @@ namespace PryingEyes
                 if (bk != null) visual.SetPositionAndRotation(bk.Body.position, bk.BodyRotation);
                 else { visual.localPosition = Vector3.zero; visual.localRotation = Quaternion.identity; }
             }
-            if (body != null) DriveBody(p, vel);
+            if (body != null) DriveBody(p, vel, dt);
             else AnimateMannequin(p, dt, p.Riding ? 0f : Mathf.Min(6f, new Vector2(vel.x, vel.z).magnitude));
             if (label != null)
             {
@@ -128,7 +128,7 @@ namespace PryingEyes
         }
 
         /// <summary>Il corpo vero: velocita', sguardo, assetto e arma del giocatore; passo, braccia e dita le fa SurvivorBody.</summary>
-        void DriveBody(PlayerController p, Vector3 vel)
+        void DriveBody(PlayerController p, Vector3 vel, float dt)
         {
             var w = p.weapon;
             var inp = body.input;
@@ -138,8 +138,12 @@ namespace PryingEyes
             inp.velocity = p.Riding ? Vector3.zero : vel;                      // in sella le gambe non camminano
             inp.pitch = p.pitch; inp.lean = p.lean;
             inp.crouch = p.IsCrouching && !p.Riding; inp.sprint = p.IsSprinting && !p.Riding;
+            inp.sliding = p.IsSliding && !p.Riding;
             inp.alive = p.alive; inp.downed = p.Downed;
-            inp.grounded = cc == null || cc.isGrounded || p.Mantling || p.OnClimbWall || Mathf.Abs(vel.y) < 1f;
+            bool supported = cc == null || cc.isGrounded || p.Mantling || p.OnClimbWall || p.Riding;
+            groundLost = supported ? 0f : groundLost + dt;
+            // Briefly keep the feet planted over a step down. An ascending jump and the apex stay airborne.
+            inp.grounded = supported || (groundLost < 0.07f && vel.y <= 0f && vel.y > -2.2f);
             inp.climb = p.Mantling || p.OnClimbWall ? 1f : 0f;
             inp.gliding = p.Gliding;
             int idx = w != null ? w.CurrentIndex : -1;

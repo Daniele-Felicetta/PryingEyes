@@ -1,11 +1,10 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -13,42 +12,14 @@ namespace PryingEyes
     /// Il piano ha lampadari abbattibili; un colpo da 30 non basta, il secondo lo fa cadere: si spegne, la catena si spezza, tocca
     /// terra in poco piu' di mezzo secondo e schiaccia i tre monaci che ci stavano sotto (le uccisioni pagano), non quello appena
     /// fuori dal raggio ne' chi gioca lontano; a terra fa da ostacolo (scava la navmesh) e non si colpisce piu'.</summary>
-    public sealed class LampadariTest : MonoBehaviour
+    public sealed class LampadariTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "lampadaritest"; } }
+        protected override string PhotoFlag { get { return "-lampadarishots"; } }
+        protected override string OutFolder { get { return "lampadari"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-lampadaritest") >= 0) new GameObject("LampadariTest").AddComponent<LampadariTest>();
-        }
-
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] lampadaritest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-lampadarishots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] lampadaritest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/lampadari"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
-        }
+        static void Install() { InstallWhen<LampadariTest>("-lampadaritest"); }
 
         static void Face(PlayerController player, Vector3 target)
         {
@@ -65,7 +36,7 @@ namespace PryingEyes
             return true;
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -75,7 +46,7 @@ namespace PryingEyes
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             var cs = Chandeliers.I;
             Check($"ci sono lampadari da abbattere ({(cs != null ? cs.List.Count : 0)})", cs != null && cs.List.Count > 0);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
 
             // il lampadario con piu' pavimento libero sotto, e da dove guardarlo
             Chandelier ch = null; int bestFree = -1; Vector3 stand = Vector3.zero; float floorY = 0f;
@@ -107,7 +78,7 @@ namespace PryingEyes
                 if (shown++ < 8) Debug.Log($"[PryingEyes] lampadaritest lampadario {c.index}: impatto {ip:F1}, pavimento {fy:F2}, raggio {c.Radius:F1}, liberi {free}/8, visto {seen}");
             }
             Check("uno si vede da lontano, con pavimento sotto", ch != null && bestFree >= 3);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             Vector3 impact = ch.ImpactPoint;
             Vector3 target = ch.GetComponent<SphereCollider>().bounds.center;
             float chain0 = ch.Chain != null ? ch.Chain.lossyScale.y : 0f;
@@ -129,7 +100,7 @@ namespace PryingEyes
             }
             Check($"tre monaci sotto e uno appena fuori ({under.Count}, {(safe != null ? 1 : 0)})", under.Count == 3 && safe != null);
             yield return new WaitForSeconds(0.4f);
-            View("prima");
+            Photo("prima");
             int score0 = gm.score;
             float health0 = player.hp + player.shield;
             Vector3 dir = (target - player.cam.position).normalized;
@@ -143,9 +114,9 @@ namespace PryingEyes
             Check($"si spegne ({ch.Lights.Count} luci)", dark);
             if (ch.Chain != null) Check("la catena si spezza", ch.Chain.lossyScale.y < chain0 * 0.5f);
             yield return new WaitForSeconds(0.1f);
-            View("caduta");
+            Photo("caduta");
             yield return new WaitForSeconds(1.3f);
-            View("dopo");
+            Photo("dopo");
             float bottom = float.MaxValue;
             foreach (var r in ch.GetComponentsInChildren<Renderer>()) bottom = Mathf.Min(bottom, r.bounds.min.y);
             Check($"e' a terra (fondo a {bottom - impact.y:F2} m dal punto d'impatto)", ch.Fallen && Mathf.Abs(bottom - impact.y) < 0.35f);

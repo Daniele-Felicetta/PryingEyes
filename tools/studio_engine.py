@@ -55,9 +55,19 @@ class ContentType:
 
 @dataclass(frozen=True)
 class Suite:
-    """A named check a project can run on its own (`test NAME`). run(ctx, runtime); `runtime` suites accept --runtime PATH."""
+    """A named check a project can run on its own (`test NAME`). run(ctx, runtime); `runtime` suites accept --runtime PATH.
+
+    The other fields describe the suite to whoever has to choose one (`suites`), all empty by default. `kind` is free text (what sort of
+    check), `needs` is free text (what has to exist for it to run: the suites that need nothing are the ones a gate can run on its own),
+    `seconds` is its usual duration (0 = not measured) and `about` one line. `hazards` is the one the engine interprets: what the suite
+    can disturb. `test` refuses it, SUITE_HAZARD_NOT_ALLOWED, unless every hazard is named by an --allow."""
     run: object
     runtime: bool = False
+    kind: str = ""
+    needs: tuple = ()
+    hazards: tuple = ()
+    seconds: int = 0
+    about: str = ""
 
 
 @dataclass
@@ -96,6 +106,7 @@ class Project:
         pass
     def tool_sources(self, command): return ()            # the project's own tooling files, hashed into jobs of `command`
     def doctor(self, catalogs): raise NotImplementedError   # check the environment; return the summary line
+    def doctor_facts(self): return {}                     # `doctor --json`: the state of this checkout as JSON-ready facts; `problems` (a list of "CODE: message") makes it exit 1
     def before_build(self, ctx): self.ensure_free()       # runs under the lock, before any entry is produced
     def after_build(self, ctx, built): pass               # checks against the produced build, before it can be published
     def graph(self, catalogs): raise RuntimeError("GRAPH_NOT_SUPPORTED: " + self.name)
@@ -234,16 +245,42 @@ def publish(project, job, build):
     job.report["published"] = {"path": str(project.published_artifact or project.publish_dir), "filesVerified": len(files)}
 
 
+def suite_listing(project):
+    """`suites --json`: every suite of the project with its fields, as data. A tool that reads it learns what can be run and what it needs."""
+    return {"schemaVersion": 1, "suites": [
+        {"name": name, "kind": suite.kind, "needs": list(suite.needs), "hazards": list(suite.hazards), "seconds": suite.seconds, "about": suite.about}
+        for name, suite in project.suites.items()]}
+
+
+def suite_table(project):
+    """`suites`: the same, one line each, for people."""
+    rows = [("suite", "kind", "seconds", "needs", "hazards", "about")]
+    rows += [(name, suite.kind or "-", str(suite.seconds) if suite.seconds else "-", ", ".join(suite.needs) or "-", ", ".join(suite.hazards) or "-", suite.about)
+             for name, suite in project.suites.items()]
+    widths = [max(len(row[column]) for row in rows) for column in range(5)]
+    return "\n".join("  ".join(cell.ljust(width) for cell, width in zip(row, widths)) + "  " + row[5] for row in rows)
+
+
+def refuse_unallowed_hazards(project, args):
+    """A suite that declares hazards runs only when each one is named by an --allow: the job (or the queue request) fails at once and names them."""
+    refused = [hazard for hazard in project.suites[args.suite].hazards if hazard not in args.allow]
+    if refused:
+        raise RuntimeError(f"SUITE_HAZARD_NOT_ALLOWED: {args.suite} declares {', '.join(refused)}; "
+                           f"run it only when that check is wanted, with {' '.join('--allow ' + hazard for hazard in refused)}")
+
+
 def arguments(project):
     kinds = list(project.kinds)
     parser = argparse.ArgumentParser(description=project.description)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("doctor")
+    doctor = commands.add_parser("doctor"); doctor.add_argument("--json", action="store_true", help="Machine-readable: schemaVersion, ok, problems and the facts of the project; exit 1 when there are problems")
+    listing = commands.add_parser("suites"); listing.add_argument("--json", action="store_true", help="Machine-readable: schemaVersion and one object per suite")
     catalog = commands.add_parser("catalog"); catalog.add_argument("action", choices=["list", "affected"]); catalog.add_argument("--type", default=kinds[0], choices=kinds)
     catalog.add_argument("path", nargs="?"); catalog.add_argument("--pointer", help="Optional JSON pointer within the changed file")
     asset = commands.add_parser("asset"); asset.add_argument("--publish", action="store_true", help="Copy a verified build to the project's publish folder after all checks"); asset.add_argument("action", choices=["inspect", "preview", "build"]); asset.add_argument("id")
     test = commands.add_parser("test"); test.add_argument("suite", choices=list(project.suites))
     test.add_argument("--runtime", type=Path, default=project.runtime, help="Verified native build to test (suites that need one)")
+    test.add_argument("--allow", action="append", default=[], metavar="HAZARD", help="Let a suite run although it declares this hazard (repeatable; see `suites`)")
     report = commands.add_parser("report"); report.add_argument("action", choices=["latest"])
     gallery = commands.add_parser("gallery"); gallery.add_argument("action", choices=["build"])
     gallery.add_argument("--out", type=Path); gallery.add_argument("--store", type=Path, action="append", default=[])
@@ -262,6 +299,7 @@ def execute(project, args, queued=None):
     interrupted = cancelled = False
     try:
         job.check_cancel()
+        if args.command == "test": refuse_unallowed_hazards(project, args)
         strict = not (args.command == "catalog" and args.action == "affected")
         catalogs = load_catalogs(project, strict)
         tools = project.tools()
@@ -347,6 +385,11 @@ def main(project, argv=None):
     parser = arguments(project); args = parser.parse_args(argv)
     if args.command == "report":
         print(Path(json.loads((project.output / "latest.json").read_text())["report"]).read_text()); return 0
+    if args.command == "suites":                          # reads the registry only: no job, no catalogs, nothing written
+        print(json.dumps(suite_listing(project), indent=2) if args.json else suite_table(project)); return 0
+    if args.command == "doctor" and args.json:           # the state of the checkout, read now: no job, no catalogs, nothing written
+        facts = project.doctor_facts(); problems = facts.get("problems", [])
+        print(json.dumps({"schemaVersion": 1, "ok": not problems, **facts}, indent=2)); return 1 if problems else 0
     if args.command not in ("queue", "job"): return execute(project, args)
     try:
         exit_code = 0
@@ -356,9 +399,11 @@ def main(project, argv=None):
             if args.action == "add":
                 request = parser.parse_args(args.arguments)
                 if request.command not in ("asset", "test"): raise ValueError("QUEUE_OPERATION_NOT_SUPPORTED")
+                if request.command == "test": refuse_unallowed_hazards(project, request)
                 sources = source_snapshot(project, request, load_catalogs(project, True))[0]
                 command = ["asset", request.action, request.id] + (["--publish"] if request.publish else []) if request.command == "asset" else \
-                    ["test", request.suite] + (["--runtime", str(request.runtime.resolve())] if project.suites[request.suite].runtime and request.runtime else [])
+                    ["test", request.suite] + (["--runtime", str(request.runtime.resolve())] if project.suites[request.suite].runtime and request.runtime else []) + \
+                    [part for hazard in request.allow for part in ("--allow", hazard)]
                 result = {"id": queue.submit(command, sources)}
             elif args.action == "status": result = queue.status(args.id)
             elif args.action == "cancel":

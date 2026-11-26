@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using PryingEyes.Cattedrale;
 using PryingEyes.Characters;
 using PryingEyes.Pista;
 using PryingEyes.Proc;
@@ -11,9 +12,9 @@ using UnityEngine;
 namespace PryingEyes.Deserto
 {
     /// <summary>Le fasi del garage (0.10.3): <c>garage</c> (il catalogo delle dieci moto, il luogo, comprare e vedere nascere la moto nella sua piazzola, la proprieta' che resta nel personaggio, guidare una moto
-    /// comprata), <c>menu</c> (il menu di Select: le cinque pagine, aprirlo e chiuderlo, la mappa, comprare un nodo del libro, scegliere una magia, le impostazioni della camera, che alla fine tornano come erano) e
+    /// comprata), <c>menu</c> (il menu di Select: navigazione, mappa, libri, magie e telecamera), <c>cheats</c> (materiali, punti e volo) e
     /// <c>negozio</c> (Bozzo Moto Store: la vetrina, il "sei sicuro?", l'ordine, la ricevuta, i rifiuti). Si danno i comandi alle pagine con <see cref="HUD.HubInput"/> costruiti a mano: e' lo stesso percorso
-    /// che fanno tastiera, mouse e controller. Con -desertshots le foto: le dieci moto nel garage, il garage dall'alto della scalinata, di sera, e le cinque pagine del menu.</summary>
+    /// che fanno tastiera, mouse e controller. Con -desertshots le foto: le dieci moto nel garage, il garage dall'alto della scalinata, di sera, e le pagine del menu.</summary>
     public sealed partial class DesertTest
     {
         /// <summary>Il garage di prova: nessuna moto comprata, il deserto da rifare, i punti a zero. Cosi' ogni fase parte dallo stesso punto.</summary>
@@ -293,10 +294,10 @@ namespace PryingEyes.Deserto
             Check("menu: l'HUD c'e'", hud != null);
             if (hud == null) yield break;
             var pages = hud.HubPages;
-            string[] want = { "Mappa", "Libri", "Magie", "Bozzo Moto Store", "Telecamera" };
+            string[] want = { "Mappa", "Libri", "Magie", "Bozzo Moto Store", "Telecamera", "Cheat" };
             bool order = pages.Count == want.Length;
             for (int i = 0; order && i < want.Length; i++) if (pages[i].label != want[i]) order = false;
-            Check("menu: cinque pagine, nell'ordine Mappa, Libri, Magie, Bozzo Moto Store, Telecamera", order, pages.Count + " pagine");
+            Check("menu: six pages in navigation order", order, pages.Count + " pages");
             Check("menu: da chiuso il gioco gira (nessuna interfaccia sopra, i comandi liberi)", !hud.HubIsOpen && !GameMenu.Overlay && !GameMenu.Blocked);
 
             // il controller: i tre fronti nuovi del mapper (LB, RB, Back), che SuppressGameplay non cancella
@@ -387,8 +388,9 @@ namespace PryingEyes.Deserto
             var camPage = (HUD.HubCameraPage)pages[4];
             float fov0 = GameSettings.Fov, motion0 = GameSettings.Motion, sens0 = GameSettings.Sensitivity, pad0 = GameSettings.PadSensitivity;
             bool invM0 = GameSettings.InvertMouseY, invP0 = GameSettings.InvertPadY, tp0 = GameSettings.ThirdPerson;
-            // i sette valori stanno in PlayerPrefs (nel registro di Windows, lo stesso del gioco di chi gioca): chi non li aveva mai toccati non li ha, e alla fine non li deve avere (come fa PresentationTest)
-            string[] camKeys = { "video_fov", "video_motion", "input_sensitivity", "input_pad_sensitivity", "input_invert_y", "input_invert_pad_y", "video_thirdperson" };
+            Vector3 framing0 = GameSettings.ThirdPersonFraming;
+            string[] camKeys = { "video_fov", "video_motion", "input_sensitivity", "input_pad_sensitivity", "input_invert_y", "input_invert_pad_y",
+                "video_thirdperson", "video_third_distance", "video_third_height", "video_third_shoulder" };
             var camKeyWasThere = new bool[camKeys.Length];
             for (int ck = 0; ck < camKeys.Length; ck++) camKeyWasThere[ck] = PlayerPrefs.HasKey(camKeys[ck]);
             Debug.Log($"[PryingEyes] desertotest menu: le impostazioni di chi gioca, da rimettere alla fine: campo visivo {fov0}, movimenti {motion0}, mouse {sens0}, controller {pad0}, asse Y mouse {invM0}, asse Y controller {invP0}, terza persona {tp0}");
@@ -398,6 +400,12 @@ namespace PryingEyes.Deserto
                 camPage.Tick(hud, new HUD.HubInput { nx = d }, 0.016f);
                 Check("camera: sinistra e destra cambiano il campo visivo di un grado", Mathf.Abs(GameSettings.Fov - (fov0 + d)) < 0.01f, $"{fov0} -> {GameSettings.Fov}");
                 camPage.Tick(hud, new HUD.HubInput { ny = -1 }, 0.016f);      // giu': la prospettiva
+                camPage.Tick(hud, new HUD.HubInput { ny = -1, nx = framing0.z > 3f ? -1 : 1 }, 0.016f);
+                camPage.Tick(hud, new HUD.HubInput { ny = -1, nx = framing0.y > 0.3f ? -1 : 1 }, 0.016f);
+                camPage.Tick(hud, new HUD.HubInput { ny = -1, nx = framing0.x > 0f ? -1 : 1 }, 0.016f);
+                Vector3 adjusted = GameSettings.ThirdPersonFraming;
+                Check("camera: distanza, altezza e spalla si regolano dalla pagina Telecamera",
+                    Mathf.Abs(adjusted.x - framing0.x) > 0.02f && Mathf.Abs(adjusted.y - framing0.y) > 0.02f && Mathf.Abs(adjusted.z - framing0.z) > 0.02f);
                 camPage.Tick(hud, new HUD.HubInput { ny = -1 }, 0.016f);      // giu': l'intensita' dei movimenti
                 camPage.Tick(hud, new HUD.HubInput { nx = motion0 > 0.5f ? -1 : 1 }, 0.016f);
                 Check("camera: l'intensita' dei movimenti si regola a passi del cinque per cento", Mathf.Abs(Mathf.Abs(GameSettings.Motion - motion0) - 0.05f) < 0.001f, $"{motion0} -> {GameSettings.Motion}");
@@ -415,13 +423,15 @@ namespace PryingEyes.Deserto
                 for (int k = 0; k < 7; k++) camPage.Tick(hud, new HUD.HubInput { ny = -1 }, 0.016f);          // fino in fondo
                 camPage.Tick(hud, new HUD.HubInput { confirm = true }, 0.016f);
                 Check("camera: 'Valori di partenza' riporta tutto a 75 gradi, movimenti al 100%, sensibilita' a 1 e assi normali", Mathf.Abs(GameSettings.Fov - 75f) < 0.01f && Mathf.Abs(GameSettings.Motion - 1f) < 0.001f && Mathf.Abs(GameSettings.Sensitivity - 1f) < 0.001f
-                    && Mathf.Abs(GameSettings.PadSensitivity - 1f) < 0.001f && !GameSettings.InvertMouseY && !GameSettings.InvertPadY && !GameSettings.ThirdPerson,
+                    && Mathf.Abs(GameSettings.PadSensitivity - 1f) < 0.001f && !GameSettings.InvertMouseY && !GameSettings.InvertPadY && !GameSettings.ThirdPerson
+                    && GameSettings.ThirdPersonFraming == GameSettings.DefaultThirdPersonFraming,
                     $"fov {GameSettings.Fov}, movimenti {GameSettings.Motion}, mouse {GameSettings.Sensitivity}, pad {GameSettings.PadSensitivity}");
             }
             finally
             {
                 GameSettings.SetFov(fov0); GameSettings.SetMotion(motion0); GameSettings.SetSensitivity(sens0); GameSettings.SetPadSensitivity(pad0);
                 GameSettings.SetInvertMouseY(invM0); GameSettings.SetInvertPadY(invP0); GameSettings.SetThirdPerson(tp0);
+                GameSettings.SetThirdShoulder(framing0.x); GameSettings.SetThirdHeight(framing0.y); GameSettings.SetThirdDistance(framing0.z);
                 for (int ck = 0; ck < camKeys.Length; ck++) if (!camKeyWasThere[ck]) PlayerPrefs.DeleteKey(camKeys[ck]);
                 PlayerPrefs.Save();
             }
@@ -441,6 +451,85 @@ namespace PryingEyes.Deserto
             Check("menu: non e' inciampato (nessuna eccezione nel registro, il menu e' vivo)", !hud.HubIsDead);
             SetPoints(0);
             ResetGarage();
+        }
+
+        IEnumerator CheatsTest()
+        {
+            var pl = Pl;
+            var gm = Gm;
+            var hud = gm.hud;
+            PlayerController.holdLook = true;
+            PlayerController.botDir = Vector3.zero;
+            yield return GoTo(26f, -12f, 2f);
+            SetPoints(0);
+            Check("cheats: opens on page six", hud.OpenHub(5) && hud.HubCurrentPage.label == "Cheat");
+            if (!hud.HubIsOpen || hud.HubCurrentPage.label != "Cheat") yield break;
+
+            var page = hud.HubCurrentPage;
+            var confirm = new HUD.HubInput { confirm = true };
+            var downAndConfirm = new HUD.HubInput { ny = -1, confirm = true };
+            page.Tick(hud, confirm, 0f);
+            Check("cheats: grants 10,000 points", gm.score == 10000);
+            var before = Fabbrica.Banca.Snapshot();
+            page.Tick(hud, downAndConfirm, 0f);
+            bool materials = true;
+            foreach (var resource in Risorse.Tutte)
+                materials &= Fabbrica.Banca.Get(resource.id) == before[resource.id] + (Risorse.IsMaterial(resource.id) ? 100 : 0);
+            Check("cheats: deposits each material in the cathedral bank", materials);
+            page.Tick(hud, downAndConfirm, 0f);
+            Check("cheats: enables flight from the page", pl.CheatFlight);
+            page.Tick(hud, downAndConfirm, 0f);
+            Check("cheats: enables invulnerability from the page", pl.CheatInvulnerability);
+            pl.hp = pl.MaxHp * 0.5f;
+            pl.shield = 0f;
+            page.Tick(hud, downAndConfirm, 0f);
+            Check("cheats: restores health and shield", pl.hp == pl.MaxHp && pl.shield >= 50f);
+            pl.weapon.mag = pl.weapon.reserve = 0;
+            page.Tick(hud, downAndConfirm, 0f);
+            Check("cheats: fills magazine and ammo reserve", pl.weapon.mag > 0 && pl.weapon.reserve > 0);
+            if (shots) { yield return new WaitForSeconds(0.3f); Shot("menu_f_cheat"); }
+            hud.CloseHub();
+
+            float hp = pl.hp;
+            float shield = pl.shield;
+            pl.invulnerable = false;
+            pl.Hurt(30f);
+            pl.Sedate(3f);
+            Check("cheats: blocks damage and sedation in gameplay", pl.hp == hp && pl.shield == shield && pl.sedT == 0f);
+
+            var raw = new PadControls.Raw { connected = true, buttons = PadControls.A };
+            float ground = pl.transform.position.y;
+            try
+            {
+                PadControls.Inject(raw);
+                yield return new WaitForSeconds(0.4f);
+                float air = pl.transform.position.y;
+                Check("cheats: holding A ascends after closing Select", air > ground + 2f, $"{ground:F2} to {air:F2}");
+                raw.buttons = 0;
+                PadControls.Inject(raw);
+                yield return new WaitForSeconds(0.3f);
+                Check("cheats: releasing A holds altitude", Mathf.Abs(pl.transform.position.y - air) < 0.5f);
+                raw.buttons = PadControls.B;
+                PadControls.Inject(raw);
+                yield return new WaitForSeconds(0.2f);
+                Check("cheats: holding B descends", pl.transform.position.y < air - 1f);
+            }
+            finally { PadControls.Inject(null); }
+
+            hud.OpenHub(5);
+            page.Tick(hud, new HUD.HubInput { ny = -2, confirm = true }, 0f);
+            Check("cheats: disables flight from the page", !pl.CheatFlight);
+            hud.CloseHub();
+            float release = pl.transform.position.y;
+            yield return new WaitForSeconds(0.35f);
+            Check("cheats: disabling flight restores gravity", pl.transform.position.y < release - 0.4f);
+            pl.SetCheatFlight(true);
+            pl.SetSpawn(pl.transform.position);
+            Check("cheats: resetting the spawn clears flight and invulnerability", !pl.CheatFlight && !pl.CheatInvulnerability);
+
+            SetPoints(0);
+            Fabbrica.Banca.Restore(before);
+            Fabbrica.Salva(true);
         }
 
         // ================================================================== negozio

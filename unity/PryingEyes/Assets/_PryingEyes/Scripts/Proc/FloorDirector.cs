@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Cattedrale;
 using PryingEyes.Deserto;
+using PryingEyes.Testing;
 
 namespace PryingEyes.Proc
 {
@@ -24,6 +25,7 @@ namespace PryingEyes.Proc
         public bool ExitOpen => exitOpen;
         float trickleT, floorTime, hudT, probeT;
         bool perfStarted;                    // -perftest: la sonda dei fotogrammi gira una volta sola per partita
+        bool botOwnsProcess;                 // -procbot: la sonda si e' segnata come processo dedicato (una volta)
         Room playerRoom;
         /// <summary>La mappa del piano (Proc/Map/FloorMap.cs): cosa si e' scoperto e come si dipinge. E' di tutti; ogni giocatore la guarda dal suo HUD (MapView).</summary>
         public FloorMap map;
@@ -32,7 +34,7 @@ namespace PryingEyes.Proc
         readonly float[] mapScanA = new float[Seats.MaxSeats];
         float mapRefreshT;
         GameManager gm;
-        static string BotLog => TestPaths.Out("proctest.txt");
+        static string BotLog => TestPaths.Scratch("proctest.txt");
 
         static readonly string[] FloorLines =
         {
@@ -1218,8 +1220,7 @@ namespace PryingEyes.Proc
             var pl = gm.player;
             if (!GameMenu.Blocked && !transitioning && pl.alive)
             {
-                // nel deserto, sulla sabbia e nella cattedrale, M e Select aprono il menu a schede (HUD.DesertHub.cs): il foglio dei piani e' solo sotto
-                if (!(InHub && DesertMode.Active) && (SeatInput.GetKeyDown(KeyCode.M) || TouchControls.Down(TouchControls.Action.Map))) mapOpenA[si] = !mapOpenA[si];
+                if (!DesertMode.OnSurface && (SeatInput.GetKeyDown(KeyCode.M) || TouchControls.Down(TouchControls.Action.Map))) mapOpenA[si] = !mapOpenA[si];
                 if (SeatInput.GetKeyDown(KeyCode.N)) miniMapOff[si] = !miniMapOff[si];
                 var room = cur.RoomAt(pl.transform.position);
                 if (room != null && map != null && map.Explore(room.id)) map.Refresh();       // una stanza nuova: la carta la inchiostra subito
@@ -1278,11 +1279,17 @@ namespace PryingEyes.Proc
                 map.Refresh();
             }
             // col nuovo ciclo (niente candele) il vecchio bot non avrebbe bersagli: ci pensa quello rigoroso, che compra le porte
-            if (GameManager.autoTest && HasArg("-procbot")) { if (HasArg("-botstrict") || SurvivalMode.Enabled) BotStrictTick(dt); else BotTick(dt); }
+            if (GameManager.autoTest && HasArg("-procbot"))
+            {
+                // la sonda possiede il processo: l'uscita automatica a 70 s non deve chiuderlo (TestRun.Dedicated) e il bot cammina a 60 fotogrammi fissi
+                if (!botOwnsProcess) { botOwnsProcess = true; TestRun.Dedicated = true; QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60; }
+                if (HasArg("-botstrict") || SurvivalMode.Enabled) BotStrictTick(dt); else BotTick(dt);
+            }
             if (GameManager.autoTest && HasArg("-procshots")) ShotTick();
             if (GameManager.autoTest && !perfStarted && !transitioning && floorTime > 2f && HasArg("-perftest"))
             {
                 perfStarted = true;
+                TestRun.Dedicated = true;      // la sonda possiede il processo: l'uscita automatica a 70 s non deve chiuderlo
                 StartCoroutine(PerfProbe.Run(this));
             }
 #if !PE_DISTRIBUTION_BUILD

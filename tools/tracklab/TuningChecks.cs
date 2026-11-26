@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The workshop of the career (Tuning.cs, and the prices and levels in Career.cs): level 0 is the bike as it comes and the roster is never touched, every level is better than the last in the four ways it promises and by
 /// what it promises, the prices follow the bike, the book tunes an owned bike once per level and only with the money there is and writes the levels down, a tuned bike is really quicker round a lap (its figures, its plan and a
@@ -32,7 +33,7 @@ static partial class Program
     static void TuningChecks()
     {
         int n = Bikes.Count, top = Tuning.MaxLevel, starter = Economy.StarterBike;
-        var circuits = new[] { CircuitGen.Generate(4242), CircuitGen.Generate(22) };
+        var circuits = new[] { Circuits.Generate(4242), Circuits.Generate(22) };
 
         // ---- level 0 is the bike as it comes, a copy never shares its torque curve with the roster, a level out of range is the nearest real one
         {
@@ -240,7 +241,7 @@ static partial class Program
                 });
                 bool ok = !crashed && maxPitch < 0.30f && maxRpm < sp.limiterRpm + 700f && topGear >= sp.GearCount - 2;
                 all &= ok;
-                detail += " " + Bikes.Get(i).name + " " + vmax.ToString("F0") + " km/h, front up " + (maxPitch * PM.Rad2Deg).ToString("F1") + " deg" + (ok ? ";" : " BAD (fell " + crashed + ", " + maxRpm.ToString("F0") + " rpm, gear " + topGear + ");");
+                detail += " " + Bikes.Get(i).name + " " + vmax.ToString("F0") + " km/h, front up " + (maxPitch * RacingMath.Rad2Deg).ToString("F1") + " deg" + (ok ? ";" : " BAD (fell " + crashed + ", " + maxRpm.ToString("F0") + " rpm, gear " + topGear + ");");
             }
             Check("TUNING_A_FULL_TUNE_STILL_LAUNCHES_WITHOUT_A_LOOP_OR_A_FALL", all, "full throttle for 70 s at level " + top + ":" + detail, "no fall, the front wheel stays under 0.30 rad, the engine stays within 700 rpm of its limiter, the top gears are reached, on every bike");
         }

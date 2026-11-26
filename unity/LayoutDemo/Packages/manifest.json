@@ -5,6 +5,7 @@
     "com.pryingeyes.weapons": "file:../../PryingEyes/Packages/com.pryingeyes.weapons",
     "com.pryingeyes.economy": "file:../../PryingEyes/Packages/com.pryingeyes.economy",
     "com.pryingeyes.saves": "file:../../PryingEyes/Packages/com.pryingeyes.saves",
+    "com.pryingeyes.racing": "file:../../PryingEyes/Packages/com.pryingeyes.racing",
     "com.unity.modules.imgui": "1.0.0",
     "com.unity.modules.physics": "1.0.0",
     "com.unity.modules.jsonserialize": "1.0.0",

@@ -27,7 +27,7 @@ catacombs, and the photos it takes were looked at. Not tried: a real second play
 - Each player has their own map in their own part of the screen (split screen); what is discovered belongs to everyone.
 - **Cathedral and catacombs.** The cathedral (the hub) has no map. In the catacombs it is the same map: the subtitle names the level ("L'Ossario ·
   livello III"), the legend calls the exit a gate (`Cancello`), and the Cartographer's Map (`revealMaps`) shows every room of the level from the start.
-- **The desert** has no sheet (since 0.10.3 `M`, like a tap of Select on the pad, opens the Select menu, whose first page is a map of the desert: [the-desert.md](the-desert.md#the-select-menu)) but, since 0.9.1, a minimap of its own in the same corner, which `N` shows and hides: a cartographer's chart of 512 m of sand
+- **The desert** has no sheet (since 0.10.3 `M`, `Tab` or a tap of Select on the pad opens the Select menu, whose first page is a map of the desert: [the-desert.md](the-desert.md#the-select-menu)) but, since 0.9.1, a minimap of its own in the same corner, which `N` shows and hides: a cartographer's chart of 512 m of sand
   round you, painted by the code (not this map's code): see "Co-op, the minimap and the way home (0.9.1)" in [the-desert.md](the-desert.md).
 
 ## What is revealed
@@ -54,9 +54,9 @@ A room comes up from the paper over 1.2 s after you enter it. Names and prices k
 
 | File (`unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Map/` unless noted) | What it does |
 | --- | --- |
-| `MapMath.cs`, `MapPen.cs`, `MapTextures.cs` | Vectors, colours, meshes and noise; the pen (wobbling ribbons, fills, stamps, hatching); the textures, all generated in code (ink ribbon, wash, stains, a 1024x512 paper). |
-| `MapScene.cs` | What to show: the state of each room, the doors, the props, the marks, the blood. |
-| `MapPainter.cs`, `.Shade.cs`, `.Props.cs`, `.Glyphs.cs` | Paint a room (seen or rumor), the inner shadow and the soot, the furniture, the eye, the seal, the marks and the notes. |
+| `Rules/Map/MapMath.cs`, `MapPen.cs`, `MapTextures.cs` | Vectors, colours, meshes and noise; the pen (wobbling ribbons, fills, stamps, hatching); the textures, all generated in code (ink ribbon, wash, stains, a 1024x512 paper). |
+| `Rules/Map/MapScene.cs` | What to show: the state of each room, the doors, the props, the marks, the blood. |
+| `Rules/Map/MapPainter.cs`, `.Shade.cs`, `.Props.cs`, `.Glyphs.cs` | Paint a room (seen or rumor), the inner shadow and the soot, the furniture, the eye, the seal, the marks and the notes. |
 | `MapGraphic.cs` | The uGUI graphic that draws one of these meshes; `MapAssets` holds the textures. Their pixels are painted on a worker thread from the start of the process (about 0.7 s in the Mono player), so the first HUD only uploads them (4 ms). |
 | `FloorMap.cs` | One per floor: what has been discovered, the scene, and a version for each room, for the doors, for the marks and for the blood, so only what changed is painted again. |
 | `MapView.cs`, `.Labels.cs`, `.Live.cs`, `.Chrome.cs` | The view of one player: layout and morph, the text labels, the layer that moves every frame (you, companions, eyes, ping), the frame, legend and sentinel. |

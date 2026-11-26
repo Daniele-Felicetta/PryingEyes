@@ -1,75 +1,7 @@
 {
   "schemaVersion": 1,
   "about": "What is wrong today in the game's own sources, and tolerated by the guard (check_game in tools/check_suite.py). A file is named relative to unity/PryingEyes/Assets/_PryingEyes. An entry is deleted in the commit that fixes its violation (the guard fails with GAME_BASELINE_STALE until then) and is never added without a reason a reviewer accepts: a new violation fails the guard. docs/engineering/suite-architecture.md says what each rule is for.",
-  "GAME_PRODUCTION_NAMES_TEST": [
-    {
-      "file": "Scripts/Coop/CoopGame.cs",
-      "names": "CoopTest",
-      "reason": "CoopGame hands the CoopKind.Test messages to CoopTest.OnNet and starts the two-process scenarios through CoopTest.Wanted and CoopTest.Ensure. CoopTest is not wrapped, so the reference compiles in every build. It goes when the co-op scenarios move to the harness (T08) or the tests to an assembly of their own (T17)."
-    },
-    {
-      "file": "Scripts/Stealth/StealthRig.cs",
-      "names": "StealthTest",
-      "reason": "StealthRig adds the StealthTest component when -stealthtest is on the command line. StealthTest is not wrapped, so the reference compiles in every build. It goes when StealthTest installs itself like the other tests (T08) or the tests move to an assembly of their own (T17)."
-    }
-  ],
-  "GAME_TEST_NOT_EXCLUDED": [
-    {
-      "file": "Scripts/ArchitectureTest.Access.cs",
-      "reason": "Never wrapped: ArchitectureTest was written on 2026-11-13, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its four files names it, so wrapping the four (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/ArchitectureTest.Pursuit.cs",
-      "reason": "Never wrapped: ArchitectureTest was written on 2026-11-13, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its four files names it, so wrapping the four (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/ArchitectureTest.Supply.cs",
-      "reason": "Never wrapped: ArchitectureTest was written on 2026-11-13, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its four files names it, so wrapping the four (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/ArchitectureTest.cs",
-      "reason": "Never wrapped: ArchitectureTest was written on 2026-11-13, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its four files names it, so wrapping the four (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/CityTest.Access.cs",
-      "reason": "Never wrapped: CityTest was written on 2026-11-14, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its three files names it, so wrapping the three (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/CityTest.Rooms.cs",
-      "reason": "Never wrapped: CityTest was written on 2026-11-14, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its three files names it, so wrapping the three (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/CityTest.cs",
-      "reason": "Never wrapped: CityTest was written on 2026-11-14, before the tests were wrapped for distribution builds (2026-11-15). Nothing outside its three files names it, so wrapping the three (a partial class is wrapped whole) removes the entry; that is a change of game source. Otherwise T17 takes the tests out of a release."
-    },
-    {
-      "file": "Scripts/Coop/CoopTest.Desert.cs",
-      "reason": "Never wrapped, and CoopGame.cs names CoopTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The three files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Coop/CoopTest.Survival.cs",
-      "reason": "Never wrapped, and CoopGame.cs names CoopTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The three files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Coop/CoopTest.cs",
-      "reason": "Never wrapped, and CoopGame.cs names CoopTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The three files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Stealth/StealthTest.Fase2.cs",
-      "reason": "Never wrapped, and StealthRig.cs names StealthTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The four files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Stealth/StealthTest.Fase3.cs",
-      "reason": "Never wrapped, and StealthRig.cs names StealthTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The four files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Stealth/StealthTest.Fase4.cs",
-      "reason": "Never wrapped, and StealthRig.cs names StealthTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The four files of the partial class are wrapped together, after it."
-    },
-    {
-      "file": "Scripts/Stealth/StealthTest.cs",
-      "reason": "Never wrapped, and StealthRig.cs names StealthTest (see GAME_PRODUCTION_NAMES_TEST), so wrapping the class would break a distribution build until that reference goes. The four files of the partial class are wrapped together, after it."
-    }
-  ],
-  "GAME_PURE_FILE_NAMES_ENGINE": []
+  "GAME_PRODUCTION_NAMES_TEST": [],
+  "GAME_TEST_NOT_EXCLUDED": [],
+  "GAME_LAB_FILE_OUTSIDE_RULES": []
 }

@@ -4,7 +4,7 @@ kind: blessing
 mode: standard
 summary: Provvidenza (providence) is a blessing of the altar: the power-ups drop twice as often for the next expedition.
 image: img/blessings/provvidenza.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Provvidenza

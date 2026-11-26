@@ -11,10 +11,12 @@ import argparse
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-import re
 import subprocess
 import sys
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))      # tools/ship.ps1 starts this with `python -I`, which leaves the script's own folder off the path
+from player_log import exceptions as player_exceptions        # the filter of the renderer's noise is shared with the studio's in-player suites
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -37,17 +39,6 @@ args = parser.parse_args()
 if not args.exe.is_file():
     parser.error(f"Build missing: {args.exe}")
 args.out.mkdir(parents=True, exist_ok=True)
-NOISE = re.compile(r"UnityEngine\.Rendering\.(Universal|RenderGraph)")
-
-
-def player_exceptions(text):
-    """Exceptions in the Unity log, minus the URP render-graph errors that -nographics always prints."""
-    lines = text.splitlines()
-    found = []
-    for i, line in enumerate(lines):
-        if re.match(r"^\w*Exception: ", line) and not NOISE.search("\n".join(lines[i:i + 4])):
-            found.append(line)
-    return found
 
 
 def run(seed):

@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 using UnityEngine;
 
 namespace PryingEyes
@@ -78,7 +79,7 @@ namespace PryingEyes.Deserto
             var pl = Pl;
             var controller = pl.GetComponent<CharacterController>();
             Vector3 saved = pl.transform.position;
-            var report = TestPaths.Out($"deserto/parkour-walls-{DesertWorld.Seed}{(sites.Count == 1 ? $"-{sites[0].cx}_{sites[0].cz}" : "")}.csv");
+            var report = Path.Combine(TestRun.OutDir("deserto"), $"parkour-walls-{DesertWorld.Seed}{(sites.Count == 1 ? $"-{sites[0].cx}_{sites[0].cz}" : "")}.csv");
             Directory.CreateDirectory(Path.GetDirectoryName(report));
             using var csv = new StreamWriter(report);
             csv.WriteLine("seed,kind,state,cell_x,cell_z,level,room,side,action,transition,initial_overlap,start_x,start_y,start_z,previous_x,previous_y,previous_z,hit_x,hit_y,hit_z,end_x,end_y,end_z");

@@ -11,7 +11,7 @@ namespace PryingEyes
         public Vector3 velocity;            // m/s nel mondo
         public float pitch;                 // radianti, positivo = guarda in basso (come PlayerController)
         public float lean;                  // -1 sinistra .. +1 destra
-        public bool crouch, sprint, alive, downed, grounded;
+        public bool crouch, sprint, alive, downed, grounded, sliding;
         public int weapon;                  // indice in WeaponDefs.All, -1 = niente in mano
         public float shotAge;               // secondi dall'ultimo sparo
         public float ads;                   // 0..1 in mira
@@ -94,7 +94,7 @@ namespace PryingEyes
 
         // stato liscio
         Vector3 velLocal;
-        float phase, gait, crouchAmt, sprintAmt, adsAmt, leanAmt, airAmt, hipDrop, pitchSmooth, reloadT;
+        float phase, gait, crouchAmt, sprintAmt, adsAmt, leanAmt, airAmt, fallAmt, slideAmt, landing, fallSpeed, pitchSmooth, reloadT;
         float lieAmt, downAmt;               // 0..1: disteso (morto), seduto a terra (ferito)
         float seatAmt;                       // 0..1: in sella a una moto
         float glideAmt;
@@ -107,6 +107,8 @@ namespace PryingEyes
         readonly Vector3[] footN = { Vector3.up, Vector3.up };
         readonly Vector3[] legTarget = new Vector3[2];
         readonly float[] legOff = new float[2], legLift = new float[2];
+        readonly Vector3[] footContact = new Vector3[2];
+        readonly bool[] planted = new bool[2];
 
         // arma
         GameObject weaponGo;
@@ -350,15 +352,22 @@ namespace PryingEyes
             adsAmt = Mathf.Lerp(adsAmt, Mathf.Clamp01(inp.ads), K(12f, dt));
             leanAmt = Mathf.Lerp(leanAmt, Mathf.Clamp(inp.lean, -1f, 1f), K(9f, dt));
             airAmt = Mathf.Lerp(airAmt, inp.grounded ? 0f : 1f, K(10f, dt));
+            fallAmt = Mathf.Lerp(fallAmt, Mathf.InverseLerp(0.8f, -3f, inp.velocity.y), K(12f, dt));
+            slideAmt = Mathf.Lerp(slideAmt, inp.sliding && inp.grounded ? 1f : 0f, K(12f, dt));
+            landing *= 1f - K(12f, dt);
+            if (inp.grounded && fallSpeed > 2.5f)
+                landing = Mathf.Max(landing, Mathf.InverseLerp(2.5f, 11f, fallSpeed));
+            fallSpeed = inp.grounded ? 0f : Mathf.Max(0f, -inp.velocity.y);
             lieAmt = Mathf.Lerp(lieAmt, !inp.alive ? 1f : 0f, K(7f, dt));
             downAmt = Mathf.Lerp(downAmt, inp.alive && inp.downed ? 1f : 0f, K(7f, dt));
             seatAmt = Mathf.Lerp(seatAmt, inp.seated && inp.alive && !inp.downed ? 1f : 0f, K(12f, dt));
             glideAmt = Mathf.MoveTowards(glideAmt, inp.gliding && inp.alive && !inp.downed ? 1f : 0f, dt * 5f);
             pitchSmooth = Mathf.Lerp(pitchSmooth, inp.pitch, K(18f, dt));
-            float gaitGoal = inp.grounded && inp.alive && !inp.downed ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.15f, 0.7f, spd)) : 0f;
+            bool walking = inp.grounded && inp.alive && !inp.downed && !inp.seated && !inp.sliding && inp.climb <= 0f;
+            float gaitGoal = walking ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.15f, 0.7f, spd)) : 0f;
             gait = Mathf.Lerp(gait, gaitGoal, K(10f, dt));
             float stepLen = (0.60f + 0.16f * Mathf.Min(spd, 6f)) * Mathf.Lerp(1f, 0.62f, crouchAmt);
-            phase = Frac(phase + dt * spd / Mathf.Max(0.25f, 2f * stepLen));
+            if (walking && spd > 0.15f) phase = Frac(phase + dt * spd / (2f * stepLen));
             if (debugPhase >= 0f) phase = debugPhase;
             ResetPose();
             // morto: il corpo cade all'indietro intero (rotazione del modello attorno ai piedi)
@@ -376,7 +385,7 @@ namespace PryingEyes
             }
             wings[0]?.Hide();
             wings[1]?.Hide();
-            PoseLegs(inp, spd, stepLen, dt);
+            PoseLegs(inp, spd, stepLen, dt, walking);
             PoseArms(inp, dt);
         }
 
@@ -411,10 +420,11 @@ namespace PryingEyes
         {
             float cyc = phase * 2f * Mathf.PI;
             float pitch = Mathf.Clamp(pitchSmooth * Mathf.Rad2Deg, -75f, 70f);
-            float fwdLean = Mathf.Lerp(Mathf.Lerp(4f * sprintAmt + 14f * crouchAmt + 2f * gait, -34f, downAmt), inp.seatLean > 0f ? inp.seatLean : SeatLean, seatAmt);
-            float drop = 0.012f + 0.42f * crouchAmt + 0.05f * airAmt;
-            hipDrop = Mathf.Lerp(hipDrop, drop, 0.5f);
-            Vector3 stand = rest[hips].prs + new Vector3(Mathf.Sin(cyc) * 0.012f * gait, -hipDrop, -0.09f * crouchAmt);
+            float strideBob = -Mathf.Cos(2f * cyc) * Mathf.Lerp(0.012f, 0.025f, sprintAmt) * gait;
+            float movingLean = 10f * sprintAmt + 14f * crouchAmt + 2f * gait + 9f * landing;
+            float fwdLean = Mathf.Lerp(Mathf.Lerp(Mathf.Lerp(movingLean, -17f, slideAmt), -34f, downAmt), inp.seatLean > 0f ? inp.seatLean : SeatLean, seatAmt);
+            float drop = 0.024f + 0.40f * crouchAmt + 0.06f * airAmt + 0.12f * landing + 0.14f * slideAmt;
+            Vector3 stand = rest[hips].prs + new Vector3(Mathf.Sin(cyc) * 0.020f * gait, strideBob - drop, -0.09f * crouchAmt - 0.15f * slideAmt);
             Vector3 sit = new Vector3(0f, 0.15f, -0.20f);
             hips.position = transform.TransformPoint(Vector3.Lerp(Vector3.Lerp(stand, sit, downAmt), inp.seatHips.y > 0f ? inp.seatHips : SeatHips, seatAmt));
             Vector3 r = Right, fw = transform.forward;
@@ -424,7 +434,7 @@ namespace PryingEyes
             float breath = Mathf.Sin(Time.time * 1.7f + Slot) * 0.6f;
             Bend(spine, fwdLean * 0.4f + pitch * 0.18f, r);
             Bend(spine, twist * 0.5f, Vector3.up);
-            Bend(spine, -leanAmt * 6f, fw);
+            Bend(spine, -leanAmt * 6f - Mathf.Clamp(velLocal.x * 1.2f, -5f, 5f) * gait, fw);
             Bend(chest, fwdLean * 0.3f + pitch * 0.28f + breath, r);
             Bend(chest, twist * 0.5f, Vector3.up);
             Bend(chest, -leanAmt * 5f, fw);
@@ -437,11 +447,12 @@ namespace PryingEyes
         }
 
         // ------------------------------------------------------------------ gambe
-        void PoseLegs(SurvivorInput inp, float spd, float stepLen, float dt)
+        void PoseLegs(SurvivorInput inp, float spd, float stepLen, float dt, bool walking)
         {
             Vector3 md = spd > 0.05f ? velLocal / spd : Vector3.forward;
-            float amp = Mathf.Min(0.6f * stepLen, 0.46f) * gait;
             float stance = Mathf.Lerp(0.6f, 0.46f, sprintAmt);                  // frazione del ciclo con il piede a terra
+            // During stance the foot travels backwards at the body's speed.
+            float amp = stepLen * stance * gait;
             float L = (legL1 + legL2) * 0.985f;                                  // la gamba non si distende mai del tutto
             float lowerBy = 0f;
             for (int side = 0; side < 2; side++)
@@ -458,8 +469,12 @@ namespace PryingEyes
                 }
                 Transform th = left ? thighL : thighR, ft = left ? footL : footR;
                 Vector3 target = rest[ft].prs + md * (off * amp);
-                target.y += lifted * (0.06f + 0.05f * Mathf.Clamp01(spd / 4f)) * gait;
-                target.y += (off < 0f ? -off * 0.02f * gait : 0f) + 0.15f * airAmt * (left ? 0.5f : 1f);
+                target.y += lifted * Mathf.Lerp(0.085f, 0.18f, sprintAmt) * gait;
+                Vector3 air = rest[ft].prs + new Vector3(Mathf.Sign(rest[ft].prs.x) * 0.07f * fallAmt,
+                    Mathf.Lerp(left ? 0.16f : 0.26f, 0.12f, fallAmt), Mathf.Lerp(left ? 0.22f : -0.21f, 0.12f, fallAmt));
+                target = Vector3.Lerp(target, air, airAmt);
+                target = Vector3.Lerp(target, rest[ft].prs + new Vector3(0f, left ? 0f : 0.13f, left ? 0.48f : 0.10f), slideAmt);
+                PlantFoot(ref target, side, ph, stance, walking && spd > 0.2f);
                 // seduto: gambe distese in avanti sul pavimento, un po' aperte
                 Vector3 sit = new Vector3(rest[ft].prs.x * 1.25f, 0.09f, 0.52f + (left ? 0f : 0.07f));
                 target = Vector3.Lerp(target, sit, downAmt);
@@ -487,6 +502,24 @@ namespace PryingEyes
             if (lowerBy > 0f && seatAmt < 0.5f) hips.position -= Vector3.up * lowerBy;
             SolveLeg(thighL, shinL, footL, 0, true);
             SolveLeg(thighR, shinR, footR, 1, false);
+        }
+
+        void PlantFoot(ref Vector3 target, int side, float ph, float stance, bool walking)
+        {
+            if (!walking || ph >= stance)
+            {
+                planted[side] = false;
+                return;
+            }
+
+            Vector3 proposed = transform.TransformPoint(target);
+            proposed.y = 0f;
+            if (!planted[side] || (footContact[side] - proposed).sqrMagnitude > 0.65f * 0.65f)
+                footContact[side] = proposed;
+            planted[side] = true;
+            Vector3 correction = Vector3.ClampMagnitude(footContact[side] - proposed, 0.18f);
+            float release = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(stance, stance * 0.78f, ph));
+            target += transform.InverseTransformDirection(correction) * (release * gait);
         }
 
         void SolveLeg(Transform th, Transform sh, Transform ft, int side, bool left)

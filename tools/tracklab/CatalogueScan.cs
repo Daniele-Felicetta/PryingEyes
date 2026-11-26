@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>A development aid, not a check: `dotnet run -c Release -- --scan FROM TO` prints what every seed in the range looks like (length, hills, tight corners, longest straight, name), so the
-/// circuits of the catalogue (Scripts/Pista/Catalogue.cs) can be picked by their character instead of by luck.</summary>
+/// circuits of the catalogue (Rules/Track/Catalogue.cs) can be picked by their character instead of by luck.</summary>
 static partial class Program
 {
     /// <summary>The numbers that describe the character of a circuit.</summary>
@@ -48,7 +49,7 @@ static partial class Program
         sb.AppendLine("seed      length   hills  straight  tight  hairpins  name");
         for (int seed = from; seed <= to; seed++)
         {
-            var c = CircuitGen.Generate(seed);
+            var c = Circuits.Generate(seed);
             var d = Describe(c);
             sb.AppendLine(seed.ToString().PadRight(9) + d.length.ToString("F0").PadLeft(6) + " m" + d.hills.ToString("F0").PadLeft(6) + " m" + d.longestStraight.ToString("F0").PadLeft(7) + " m" + d.tightCorners.ToString().PadLeft(6) + d.hairpins.ToString().PadLeft(9) + "    " + d.name);
         }

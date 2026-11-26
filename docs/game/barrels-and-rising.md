@@ -33,4 +33,4 @@ host's position updates.
 (`Scripts/BarrelTest.cs`, 19 checks on seed 1000 floor 1, 16 on seed 2961 floor 3 where no pair exists): barrels exist in
 large rooms; a 50-damage shot explodes one; three monks around it die and the kills pay; a player 9 m away is unharmed; the
 exploded barrel stops blocking; the neighbour goes off in a chain; a newly spawned monk starts under the floor, stands up on
-the navmesh in a little more than a second and walks toward the player. Photos in `unity_logs/botti`.
+the navmesh in a little more than a second and walks toward the player. `result.json` and the photos in `unity_logs/botti`.

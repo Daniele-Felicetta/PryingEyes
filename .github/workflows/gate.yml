@@ -1,7 +1,7 @@
 # The gate on GitHub: the checks that used to run only inside tools/ship.ps1 on one PC (suite boundaries, Python unit tests)
-# plus the .NET rule labs, whose reports are kept as an artifact. No Unity, no Blender, no secrets: the paths below are
-# everything the gate reads, so the checkout is about 20 MiB of files, not the roughly 1.1 GiB the repository tracks.
-# The step "What the checkout downloaded" prints the exact figure of each run.
+# plus every suite of the studio that needs nothing (the .NET rule labs: `python tools/studio.py suites` lists them), whose reports
+# are kept as an artifact. No Unity, no Blender, no secrets: the paths below are everything the gate reads, so the checkout is about
+# 20 MiB of files, not the roughly 1.1 GiB the repository tracks. The step "What the checkout downloaded" prints the exact figure of each run.
 name: gate
 
 on:
@@ -45,11 +45,12 @@ jobs:
           persist-credentials: false
           sparse-checkout-cone-mode: false
           # Every source a wiki page cites must be in this list, or check_suite fails with WIKI_SOURCE_MISSING: the CI page
-          # cites this workflow file, so it is listed here.
+          # cites this workflow file, so it is listed here. So is .gitignore: a unit test reads the patterns of the labs' folders.
           sparse-checkout: |
             /tools/
             /README.md
             /AGENTS.md
+            /.gitignore
             /.github/workflows/gate.yml
             /docs/
             /wiki/
@@ -113,66 +114,55 @@ jobs:
           $fence = '```'
           "### Code census`n$fence`n$($census -join "`n")`n$fence" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
 
-      # Compiled here, once, so the Python tests that run `dotnet run` (90-120 s limits) do not spend them restoring and compiling.
-      # Several native commands in one PowerShell step: only the last exit code would count, so each one is checked.
-      - name: Compile the seven .NET labs
+      # Every tools/*lab folder is a lab project, compiled here once, so the Python tests that run `dotnet run` (90-120 s limits) do not spend
+      # their time restoring and compiling: a new lab needs no line in this workflow. Several native commands in one PowerShell step: only the
+      # last exit code would count, so each one is checked.
+      - name: Compile the .NET labs
         run: |
-          foreach ($lab in 'planlab', 'weaponslab', 'survivallab', 'economylab', 'saveslab', 'tracklab', 'desertlab') {
-            dotnet build "tools/$lab" -c Release --nologo
+          $labs = @(Get-ChildItem tools -Directory -Filter '*lab')
+          if ($labs.Count -eq 0) { throw 'There is no tools/*lab folder: the gate would compile nothing.' }
+          foreach ($lab in $labs) {
+            dotnet build $lab.FullName -c Release --nologo
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+          "$($labs.Count) labs compiled: $(($labs | ForEach-Object Name) -join ', ')"
 
       - name: Python unit tests
         run: python -m unittest discover -s tools -p "test_*.py"
 
-      - name: Weapon rules lab
-        env:
-          STUDIO_OUTPUT: unity_logs/lab-reports/weapon-state
-        run: python tools/studio.py test weapon-state
-
-      - name: Survival rules lab
-        env:
-          STUDIO_OUTPUT: unity_logs/lab-reports/survival
-        run: python tools/studio.py test survival
-
-      - name: Economy rules lab
-        env:
-          STUDIO_OUTPUT: unity_logs/lab-reports/economy
-        run: python tools/studio.py test economy
-
-      - name: Save rules lab
-        env:
-          STUDIO_OUTPUT: unity_logs/lab-reports/saves
-        run: python tools/studio.py test saves
-
-      - name: Track rules lab
-        env:
-          STUDIO_OUTPUT: unity_logs/lab-reports/track
-        run: python tools/studio.py test track
-
-      - name: Desert rules lab
-        env:
-          STUDIO_OUTPUT: unity_logs/lab-reports/desert
-        run: python tools/studio.py test desert
-
-      # The fingerprint of the floor generator: in co-op every player builds the floor from the seed, so a change that moves a plan must
-      # raise CoopProtocol.Revision. Runs in the planlab compiled above; the fixture is tools/fixtures/plan-fingerprint.json.
-      - name: Floor plan fingerprint
-        env:
-          STUDIO_OUTPUT: unity_logs/lab-reports/plan
-        run: python tools/studio.py test plan
+      # What the gate runs is whatever the studio lists that needs nothing (no editor, no built player): `suites --json` is the list, in the
+      # order of the run and of the summary. A new lab is one entry in the profile and its project under tools/; nothing is named here. Every
+      # suite runs even when one fails, so that the summary shows all of them and which failed; the step fails at the end.
+      - name: Rule suites (the ones that need nothing)
+        run: |
+          $listing = python tools/studio.py suites --json | Out-String | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $suites = @($listing.suites | Where-Object { @($_.needs).Count -eq 0 })
+          if ($suites.Count -eq 0) { throw 'The studio lists no suite that needs nothing: the gate would run nothing.' }
+          $failed = @()
+          foreach ($suite in $suites) {
+            Write-Host "::group::$($suite.name): $($suite.about)"
+            $env:STUDIO_OUTPUT = "unity_logs/lab-reports/$($suite.name)"
+            python tools/studio.py test $suite.name
+            $code = $LASTEXITCODE
+            Write-Host '::endgroup::'
+            if ($code -ne 0) { $failed += $suite.name; Write-Host "::error title=Suite failed::$($suite.name) exited with $code" }
+          }
+          if ($failed.Count -gt 0) { Write-Host "Failed suites: $($failed -join ', ')"; exit 1 }
 
       - name: Lab results in the run summary
         if: ${{ !cancelled() }}
         run: |
-          $rows = foreach ($lab in 'weapon-state', 'survival', 'economy', 'saves', 'track', 'desert', 'plan') {
-            $found = Get-ChildItem "unity_logs/lab-reports/$lab" -Recurse -Filter report.json -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $found) { "| $lab | no report | | |"; continue }
+          $listing = python tools/studio.py suites --json | Out-String | ConvertFrom-Json
+          $rows = foreach ($suite in @($listing.suites | Where-Object { @($_.needs).Count -eq 0 })) {
+            $found = Get-ChildItem "unity_logs/lab-reports/$($suite.name)" -Recurse -Filter report.json -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $found) { "| $($suite.name) | no report | | | |"; continue }
             $r = Get-Content $found.FullName -Raw | ConvertFrom-Json
             $passed = @($r.findings | Where-Object { $_.passed }).Count
-            "| $lab | $($r.state) | $passed / $(@($r.findings).Count) | $(@($r.sources.PSObject.Properties).Count) |"
+            $seconds = [int]((@($r.steps | Where-Object { $null -ne $_.seconds } | ForEach-Object { $_.seconds }) | Measure-Object -Sum).Sum)
+            "| $($suite.name) | $($r.state) | $passed / $(@($r.findings).Count) | $seconds | $(@($r.sources.PSObject.Properties).Count) |"
           }
-          $table = "### Rule labs`n| lab | job state | checks passed | sources hashed |`n| --- | --- | --- | --- |`n" + ($rows -join "`n")
+          $table = "### Rule labs`n| suite | job state | checks passed | seconds | sources hashed |`n| --- | --- | --- | --- | --- |`n" + ($rows -join "`n")
           $table
           $table | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
 

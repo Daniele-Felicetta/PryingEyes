@@ -1,3 +1,4 @@
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
 using System.IO;
 using System.Collections.Generic;
@@ -21,19 +22,13 @@ namespace PryingEyes
             var gm = GameManager.I;
             var fd = FloorDirector.I;
             var pl = gm.player;
-            bool passed = true;
-            void Check(string what, bool ok, string detail = "")
-            {
-                Log((ok ? "ok       " : "FALLITO  ") + what + (detail.Length > 0 ? "   [" + detail + "]" : ""));
-                if (!ok) passed = false;
-            }
             yield return new WaitForSeconds(1.5f);
             Drops.disabled = true;
             PlayerController.holdLook = true;
             pl.invulnerable = true;
             var plan = fd.cur.plan;
             Log($"piano {fd.floor} seme {fd.runSeed}: {plan.rooms.Count} stanze, tema {plan.theme}, pianta {(plan.grid ? "a griglia" : "ad ali")}, {plan.maxX / 10 - plan.minX / 10} x {plan.maxZ / 10 - plan.minZ / 10} m");
-            if (!plan.grid) { Log("piano non a griglia: prova non applicabile"); Application.Quit(2); yield break; }
+            if (!plan.grid) { Log("piano non a griglia: prova non applicabile"); NotApplicable("piano non a griglia (cambia seme o piano)"); yield break; }
             int Count(RoomType t) => plan.OfType(t).Count;
 
             // ----- 1) ruoli e porte
@@ -261,8 +256,7 @@ namespace PryingEyes
             }
             fd.DebugShowMap(false, false);
 
-            Log(passed ? "ESITO: ok" : "ESITO: FALLITO");
-            Application.Quit(passed ? 0 : 1);
+            Log(Failed == 0 ? "ESITO: ok" : "ESITO: FALLITO");
         }
 
         /// <summary>Quando una stanza non si raggiunge: per ogni porta tra una stanza raggiunta e una no, quali punti della corsia (da -2,5 a +2,5 m
@@ -450,3 +444,4 @@ namespace PryingEyes
         }
     }
 }
+#endif

@@ -5,7 +5,7 @@ mode: standard
 summary: After every return from the catacombs the altar offers three of six blessings, and the one you light before a descent lasts for the whole descent.
 image: img/systems/blessings.webp
 caption: The altar's blessings, on a card.
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Drops.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Drops.cs
 ---
 
 # Blessings

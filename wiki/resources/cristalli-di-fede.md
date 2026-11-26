@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Cristalli di fede (faith crystals) is the boss resource of the third branch: the prayers of the sick, crystallised, kept by the Primario; they open the Cancello del Conte.
 image: img/resources/cristalli-di-fede.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Cristalli di fede

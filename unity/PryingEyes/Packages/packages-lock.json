@@ -28,6 +28,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.pryingeyes.racing": {
+      "version": "file:com.pryingeyes.racing",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.pryingeyes.saves": {
       "version": "file:com.pryingeyes.saves",
       "depth": 0,

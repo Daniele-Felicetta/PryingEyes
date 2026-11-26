@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -156,7 +157,7 @@ namespace PryingEyes
         // ------------------------------------------------------------------ messaggi
         void OnMessage(int from, CoopKind kind, byte[] data)
         {
-            if (kind == CoopKind.Test) { CoopTest.OnNet(from, data); return; }       // solo la prova a due processi lo usa
+            if (kind == CoopKind.Test) { TestMessage?.Invoke(from, data); return; }       // solo la prova a due processi lo usa
             if (Defer(kind, data)) return;                 // ospitato: messaggio del mondo per un piano che non c'e' (ancora): da parte o buttato
             var r = new NetReader(data);
             if (host) HostMessage(from, kind, ref r); else ClientMessage(kind, ref r);
@@ -397,6 +398,10 @@ namespace PryingEyes
         /// <summary>Lo stato dell'ospite (slot 0) come lo vedono gli altri.</summary>
         public PlayerNet HostState => MyState();
 
+        /// <summary>I messaggi di prova (CoopKind.Test) dell'altro processo: la prova a due processi (CoopTest) si iscrive e li riceve; senza nessuno iscritto si buttano, come fa ogni
+        /// processo che non la esegue. CoopGame non nomina la prova.</summary>
+        internal static event System.Action<int, byte[]> TestMessage;
+
         /// <summary>Solo per la prova a due processi (CoopTest): un messaggio libero all'altro lato (l'ospite a tutti, l'ospitato all'ospite).</summary>
         internal void SendTest(byte[] data)
         {
@@ -435,9 +440,8 @@ namespace PryingEyes
         void Update()
         {
             if (net == null) return;
-            if (CoopTest.Wanted) CoopTest.Ensure(this);
             if (!host && !Started) return;
-            if (GameManager.autoTest && !CoopTest.Wanted) DebugTick();
+            if (GameManager.autoTest && !TestRun.Dedicated) DebugTick();
             WorldUpdate();
             if (Pista.PistaMode.Active) return;       // su pista le pose le manda il regista della gara (nessuno cammina)
             sendT -= Time.unscaledDeltaTime;

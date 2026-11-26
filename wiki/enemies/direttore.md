@@ -4,7 +4,7 @@ kind: enemy
 mode: both
 summary: The Direttore is the theatre's conductor and the boss of the second branch: 2.4 m tall with a top hat and a tuning fork, 330 hit points, a charge telegraphed for 1.2 seconds and a fan of darts.
 image: img/enemies/direttore.webp
-sources: docs/game/tower.md, docs/game/cathedral-and-catacombs.md, docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/EnemyTemi.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/tower.md, docs/game/cathedral-and-catacombs.md, docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/EnemyTemi.cs, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # The Direttore

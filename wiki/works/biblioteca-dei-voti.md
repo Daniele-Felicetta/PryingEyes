@@ -4,7 +4,7 @@ kind: work
 mode: desert
 summary: Desert-only work in the nave: 30 wood, 30 bones and 2 blood; its lecterns offer three perk books at a time, bought with points.
 image: img/works/biblioteca-dei-voti.webp
-sources: docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/the-desert.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # La Biblioteca dei Voti

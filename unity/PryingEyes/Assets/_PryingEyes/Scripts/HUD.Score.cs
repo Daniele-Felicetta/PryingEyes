@@ -52,7 +52,8 @@ namespace PryingEyes
         void UpdateScoreUI(float dt)
         {
             if (scoreBack == null) return;
-            bool want = forceScoreboard || (!GameMenu.Blocked && (SeatInput.GetKey(KeyCode.Tab) || TouchControls.Held(TouchControls.Action.Scoreboard)));
+            KeyCode scoreKey = Deserto.DesertMode.OnSurface ? KeyCode.F8 : KeyCode.Tab;
+            bool want = forceScoreboard || (!GameMenu.Blocked && (SeatInput.GetKey(scoreKey) || TouchControls.Held(TouchControls.Action.Scoreboard)));
             scoreA = Mathf.MoveTowards(scoreA, want ? 1f : 0f, Time.unscaledDeltaTime * 8f);
             SetScoreAlpha(scoreA);
             if (scoreA <= 0f) return;

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><LangVersion>9.0</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Admission.cs" />
+    <Compile Include="Perks.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Admission/AdmissionGate.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Admission/SessionAdmission.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Admission/SessionRoster.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Score/PlayerPerks.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs" />
+  </ItemGroup>
+</Project>

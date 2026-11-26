@@ -25,7 +25,7 @@ namespace PryingEyes
                 public Rect rect, trackRect;
             }
 
-            const float ListW = 640f, RowH = 52f, RowGap = 5f, TrackX = 350f, TrackW = 190f;
+            const float ListW = 640f, RowH = 42f, RowGap = 3f, TrackX = 350f, TrackW = 180f;
             const float FanX = 668f, FanW = HubContentW - FanX, FanH = 300f, FanSlivers = 40;
             readonly List<Setting> settings = new List<Setting>();
             readonly List<Image> slivers = new List<Image>();
@@ -53,12 +53,30 @@ namespace PryingEyes
                 });
                 Add(new Setting
                 {
-                    title = "Prospettiva", note = "A piedi, la camera sta dietro la spalla del tuo personaggio invece che nei suoi occhi.",
+                    title = "Prospettiva", note = "Camera dagli occhi o dietro il personaggio, anche in moto.",
                     toggle = true, def = 0f, get = () => GameSettings.ThirdPerson ? 1f : 0f, set = v => GameSettings.SetThirdPerson(v > 0.5f), fmt = v => v > 0.5f ? "Terza persona" : "Prima persona",
                 });
                 Add(new Setting
                 {
-                    title = "Intensità dei movimenti", note = "Vibrazione del motore, inclinazione in curva, rinculo e scossoni. A zero la camera sta ferma.",
+                    title = "Distanza 3ª persona", note = "Distanza dal personaggio, a piedi e in sella.",
+                    min = GameSettings.ThirdDistanceMin, max = GameSettings.ThirdDistanceMax, step = 0.05f, def = GameSettings.ThirdDistanceDefault,
+                    get = () => GameSettings.ThirdPersonFraming.z, set = GameSettings.SetThirdDistance, fmt = GameMenu.CameraMeters,
+                });
+                Add(new Setting
+                {
+                    title = "Altezza 3ª persona", note = "Posizione verticale della camera.",
+                    min = GameSettings.ThirdHeightMin, max = GameSettings.ThirdHeightMax, step = 0.05f, def = GameSettings.ThirdHeightDefault,
+                    get = () => GameSettings.ThirdPersonFraming.y, set = GameSettings.SetThirdHeight, fmt = GameMenu.CameraHeight,
+                });
+                Add(new Setting
+                {
+                    title = "Spalla 3ª persona", note = "Spostamento a sinistra, al centro o a destra.",
+                    min = GameSettings.ThirdShoulderMin, max = GameSettings.ThirdShoulderMax, step = 0.05f, def = GameSettings.ThirdShoulderDefault,
+                    get = () => GameSettings.ThirdPersonFraming.x, set = GameSettings.SetThirdShoulder, fmt = GameMenu.CameraShoulder,
+                });
+                Add(new Setting
+                {
+                    title = "Intensità dei movimenti", note = "Vibrazioni, inclinazione in curva, rinculo e scossoni.",
                     min = 0f, max = 1f, step = 0.05f, def = 1f, get = () => GameSettings.Motion, set = GameSettings.SetMotion, fmt = Pct,
                 });
                 Add(new Setting
@@ -92,9 +110,9 @@ namespace PryingEyes
                     s.root = Box(parent, "Impostazione" + i, new Vector2(0f, -y), new Vector2(ListW, RowH));
                     s.ring = Img(s.root, "Anello", new Vector2(-3f, 3f), new Vector2(ListW + 6f, RowH + 6f), HubGoldRing, null);
                     s.back = Img(s.root, "Fondo", Vector2.zero, new Vector2(ListW, RowH), HubCard, null);
-                    var t = HubText(s.root, "Titolo", 14f, 5f, 330f, 24f, 16, TextAnchor.MiddleLeft, HubInkC, FontStyle.Bold);
+                    var t = HubText(s.root, "Titolo", 14f, 2f, 330f, 20f, 16, TextAnchor.MiddleLeft, HubInkC, FontStyle.Bold);
                     t.text = s.title; t.supportRichText = false;
-                    var n = HubText(s.root, "Nota", 14f, 28f, 330f, 22f, 10, TextAnchor.UpperLeft, HubDimC, FontStyle.Normal);
+                    var n = HubText(s.root, "Nota", 14f, 22f, 330f, 20f, 10, TextAnchor.UpperLeft, HubDimC, FontStyle.Normal);
                     n.text = s.note; n.supportRichText = false;
                     if (s.action)
                     {
@@ -104,8 +122,8 @@ namespace PryingEyes
                     }
                     else if (s.toggle)
                     {
-                        s.pill = Img(s.root, "Interruttore", new Vector2(TrackX, -14f), new Vector2(46f, 24f), HubLockedBack, circle);
-                        s.knob = Img(s.root, "Pomello", new Vector2(TrackX + 3f, -17f), new Vector2(18f, 18f), HubInkC, circle);
+                        s.pill = Img(s.root, "Interruttore", new Vector2(TrackX, -(RowH * 0.5f - 12f)), new Vector2(46f, 24f), HubLockedBack, circle);
+                        s.knob = Img(s.root, "Pomello", new Vector2(TrackX + 3f, -(RowH * 0.5f - 9f)), new Vector2(18f, 18f), HubInkC, circle);
                         s.valueText = HubText(s.root, "Valore", TrackX + 58f, 0f, ListW - TrackX - 70f, RowH, 15, TextAnchor.MiddleLeft, HubInkC, FontStyle.Bold);
                         s.trackRect = new Rect(s.rect.x + TrackX - 4f, s.rect.y + 8f, 190f, RowH - 16f);
                     }
@@ -142,7 +160,7 @@ namespace PryingEyes
                 Img(fan, "Occhio", new Vector2(ax - 9f, -(ay - 6f)), new Vector2(18f, 18f), HubInkC, circle);
                 Img(fan, "Pupilla", new Vector2(ax - 4f, -(ay - 1f)), new Vector2(8f, 8f), new Color(0.07f, 0.05f, 0.04f), circle);
                 fanNote = HubText(parent, "VentaglioNota", FanX, FanH + 8f, FanW, 90f, 12, TextAnchor.UpperLeft, HubDimC, FontStyle.Normal);
-                fanNote.text = "Le impostazioni valgono per ogni modo di gioco e si salvano da sole: sono le stesse del menu di pausa.";
+                fanNote.text = "Le impostazioni si salvano da sole e sono condivise con il menu di pausa.";
             }
 
             static Image FanEdge(RectTransform fan, float ax, float ay)
@@ -246,7 +264,7 @@ namespace PryingEyes
                     {
                         bool on = v > 0.5f;
                         s.pill.color = on ? new Color(0.50f, 0.16f, 0.10f, 1f) : HubLockedBack;
-                        s.knob.rectTransform.anchoredPosition = new Vector2(TrackX + (on ? 25f : 3f), -(14f + 3f));
+                        s.knob.rectTransform.anchoredPosition = new Vector2(TrackX + (on ? 25f : 3f), -(RowH * 0.5f - 9f));
                         s.knob.color = on ? HubInkC : HubDimC;
                     }
                     else

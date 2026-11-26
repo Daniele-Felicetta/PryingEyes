@@ -8,7 +8,7 @@ namespace PryingEyes
     {
         // dopo Map: azioni che il touch non disegna (nessun bottone) ma che il controller (PadControls) puo' dare
         public enum Action { Fire, Aim, Jump, Crouch, Sprint, Use, Reload, Swap, Mode, Torch, Battery, Ping, Left, Right, Pause, Knife, Velo, Map, Grenade, Lure, Mine, Scoreboard,
-            Spell, SpellNext, InfusionNext }
+            Spell, SpellNext, InfusionNext, Descend }
         public const int Slots = 26;
         static readonly bool[] held = new bool[Slots], down = new bool[Slots];
         static readonly string[] labels = { "FUOCO", "MIRA", "SALTA", "GIU", "CORRI", "USA", "RICARICA", "ARMA", "MODO", "TORCIA", "PILA", "PING", "<", ">", "II", "COLTELLO", "VELO", "MAPPA" };
@@ -28,6 +28,7 @@ namespace PryingEyes
         public static Vector2 Look { get; private set; }
         public static bool Held(Action a) => held[(int)a] || PadControls.Held(a);
         public static bool Down(Action a) => down[(int)a] || PadControls.Down(a);
+        internal static bool DescendHeld => held[(int)Action.Crouch] || PadControls.Held(Action.Descend);
         static Rect safe;
         static Vector2 joystick;
         static int moveFinger = -1;
