@@ -65,7 +65,7 @@ namespace PryingEyes
         int lastStep;
 
         // rinculo della visuale (gradi): il bersaglio sale a ogni colpo e rientra; la visuale lo segue
-        float recTargetP, recTargetY, recP, recY, recRecover = 8f, recDelay;
+        readonly ViewRecoil viewRecoil = new ViewRecoil();
         float simYaw, simPitch;
 
         /// <summary>Superficie sotto i piedi per il suono dei passi: 0 marmo, 1 moquette, 2 legno del soppalco.
@@ -189,16 +189,10 @@ namespace PryingEyes
 
         public void Kick(float v, float h, float recover)
         {
-            recTargetP += v;
-            recTargetY += h;
-            recRecover = recover;
-            recDelay = 0.05f;
-            // tetto della salita senza compensare: oltre ~20 gradi si guarda il soffitto e il rinculo diventa solo fastidio
-            recTargetP = Mathf.Min(recTargetP, 20f);
-            recTargetY = Mathf.Clamp(recTargetY, -14f, 14f);
+            viewRecoil.Kick(v, h, recover);      // il tetto della salita (~20 gradi) e il limite laterale sono del pacchetto delle armi
         }
 
-        public float ViewKickPitch => recP;
+        public float ViewKickPitch => viewRecoil.Pitch;
         /// <summary>Solo per le prove: ferma la rotazione automatica dell'autotest (le foto devono guardare dove le voglio io).</summary>
         public static bool holdLook;
         public float LeanRoomPublic(float sign) => LeanRoom(sign);
@@ -439,16 +433,7 @@ namespace PryingEyes
             if (Mathf.Abs(lean) < 0.0005f) lean = 0f;
 
             // --- rinculo della visuale ---
-            if (recDelay > 0f) recDelay -= dt;
-            else
-            {
-                float rate = recRecover * (1f + Mathf.Abs(recTargetP) * 0.12f);
-                recTargetP = Mathf.MoveTowards(recTargetP, 0f, rate * dt);
-                recTargetY = Mathf.MoveTowards(recTargetY, 0f, rate * 0.6f * dt);
-            }
-            float fol = 1f - Mathf.Exp(-34f * dt);
-            recP += (recTargetP - recP) * fol;
-            recY += (recTargetY - recY) * fol;
+            viewRecoil.Advance(dt);
 
             // --- camera ---
             float hs = new Vector2(vel.x, vel.z).magnitude;
@@ -501,8 +486,8 @@ namespace PryingEyes
             Vector3 stableEye = transform.position + right * latOff + Vector3.up * (eyeH - drop - mantleDrop);
             cam.position = stableEye + right * bobX + Vector3.up * bobY;
             float tilt = -lean * leanRoll + (Downed ? 9f : 0f) + mantleRoll;
-            float lookPitch = pitch * Mathf.Rad2Deg - recP + mantlePitch;
-            float lookYaw = yaw * Mathf.Rad2Deg + recY;
+            float lookPitch = pitch * Mathf.Rad2Deg - viewRecoil.Pitch + mantlePitch;
+            float lookYaw = yaw * Mathf.Rad2Deg + viewRecoil.Yaw;
             float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion + tilt;
             cam.rotation = Quaternion.Euler(lookPitch, lookYaw, roll);
             if (GameSettings.ThirdPerson || ThirdPersonView.Count > 0)
@@ -607,7 +592,7 @@ namespace PryingEyes
             SetSpawn(spawnPos);
             if (GameManager.proc) Proc.FloorDirector.I?.OnRespawn(); else yaw = Mathf.PI;
             pitch = 0f;
-            lean = 0f; recP = recY = recTargetP = recTargetY = 0f;
+            lean = 0f; viewRecoil.Clear();
             // mantieni le armi comprate, con caricatore pieno e riserva almeno quella di partenza
             weapon.RespawnAmmo();
             Torch.I?.OnRespawn();
