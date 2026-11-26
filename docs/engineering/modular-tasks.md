@@ -562,6 +562,34 @@ and what was checked that day is worth keeping.
   its own arcade code and shares only the data of the nine bikes and their sheet; making it ride on `BikeModel` is a design choice of the
   maintainer, not a refactor. Any rule, number or word that a player sees.
 - **Announce it**: every open branch that edits a file of `Rules/Track/` or of `Scripts/Pista/` conflicts. Merge those first.
+- **Outcome** (26 November 2026, #78): `Packages/com.pryingeyes.racing/` exists, with the assembly `Production.Racing` (`noEngineReferences: true`, no references); `PryingEyes.Rules`
+  references it and `unity/LayoutDemo` consumes it (`RacingDemo` rides a bike on a generated circuit with the package alone). **14** files (3,850 lines) are the package and **11** (1,379 lines) stay in
+  `Rules/Track` as the game's content: the card's 20 files (5,158 lines) became 25 (5,229), because five are new (`BikeFigures` in the package; `Bikes`, `BrakeCueWords`, `Circuits` and `RaceRoster` in the game).
+  One commit per step, the move itself a commit of renames only. **The cut was one name.** With `Bikes` taken out of `BikeSpec.cs`, the card's mechanism files compiled alone ask the content for nothing
+  else (10 errors, all `Bikes`: `BikeSheet` 5, `RaceRules` 4, `Tuning` 1). So `Race` became spec-first (`AddHuman`, `AddAi` and `AddRemote` take the `BikeSpec`; the game's calls by roster number are extension
+  methods in `RaceRoster`), and the two texts the mechanism wrote for people left by parameter: `CircuitGen` takes the function that names a circuit (it draws from the state of the generator after the circuit, so
+  seed, shape and name are as before) and the Italian words of the braking sign are `BrakeCueWords`. No member went from `internal` to `public`. Nine of the 13 files that existed changed no line of code;
+  the other four changed 221, 158 of them the class `Bikes` leaving `BikeSpec.cs`; the 27 game files that changed are `using Production.Racing;` and renames, nothing else (checked file by file).
+  The three decisions the card left open, with their reasons in the pull request: `BikeSheet` is split (what rides the model, `BikeFigures.Ride`, is the package's; the bars, the words and the blurbs of the nine bikes
+  stay), `EngineSynth` stays (the shape of the four voices is the sound of this game; the package keeps the label `EngineKind`), and `Tuning`, which the card listed as mechanism, stays too (it is the workshop of
+  the nine bikes, by roster number, and the one thing the compiler asked of it). **Where the card and the code disagree:** the card says the desert garage shows the sheet, which argued for the package;
+  `Scripts/Deserto` names `BikeSheet` once, in a comment (the desert takes `Bikes`, `BikeSpec` and `EngineKind`), and of the three desert files the card names only `DesertBikeDef.cs` needed a line. The guard needed
+  no change: it finds a package by its `package.json`, so its four proofs applied to the new package as they were.
+  Proofs, measured on `7a07cc9` and on the head: the track lab prints the same 207 checks in the same order and saves the same 10 pictures and 4 sounds (same SHA-256) after every code commit; 2,000 circuits (name,
+  attempts, length, a hash of every array) and 120 races (the poses every half second, the finishing orders and times, the best laps, the falls) were run through the code of `7a07cc9` and through the package: 2,120
+  lines of output, identical byte for byte; no string literal changed in any of the 66 files of the names commit; the guard passes with no finding on every commit, the rename-only one included, and the 296 Python tests pass at the cut, the names, the package and the head. One machine
+  window of 47 minutes of the lock of the sessions, in three runs of the same script (the first two stopped at faults of the script, not of the branch): the editor compiles (66 s, no error); a full build succeeds (`Production.Racing.dll` 76,288 bytes, `PryingEyes.Rules.dll` 340,992 to 272,896,
+  `Assembly-CSharp.dll` 3,719,680 both) and the smoke walk walks the same two floors; the eight suites (`pistatest` 121, `pistacuponly` 23, the five `pistamenu*` 46, 30, 39, 35 and 47, `desertotest` 150) pass on the
+  build of `7a07cc9` and on this one with the same checks, in the same order, with the same verdicts (what differs are the circuits that the menus and the second race draw at random, in both builds);
+  with `using UnityEngine;` added to `Runtime/KeyShaper.cs` the editor's compile fails (`error CS0246`) and so does the guard (`PACKAGE_FORBIDDEN_NAME`), and after the file is written back byte for byte no file of
+  the branch is modified; `RacingDemo.Verify` runs in `unity/LayoutDemo` (Unity exits 0 and prints `RACING_DEMO_OK Circuit 7: 2817 m, best lap 79.46 s, 0 falls`, where the same run on .NET prints 79.44 s: single-precision arithmetic is not bit for bit the same on the two runtimes); census: `PryingEyes.Rules` 56 files to 47, `Rules/Track` 20 to 11, a package of 14 files, and no engine-free file that a lab compiles in `Assembly-CSharp`.
+  What was not proved is in the description of the pull request (nobody rode a bike on this build; the cooperative race over the network was not run; no distribution build).
+  Found on the way: the editor rewrites `ProjectSettings/ProjectAuditorSettings.asset` (line endings only) every time it starts, so `git status` is never empty after a compile, and a "the tree is clean" check
+  has to name that file; `studio.py test compile` prints only the path of its report when the compile fails, and the compiler's words (`error CS0246 ...`) are in `compile-unity.log` of the job and in the findings of
+  its `report.json`. **For T23:** the order of the steps, the proofs and the window script (a list of suites, the lock, the stages; it is in the notes of the sessions, not in the repository) carry over as they are, and so does the way of proving
+  that nothing changed (the code of the old commit and the new code, run side by side over thousands of inputs, and the diff of the code with the comments and the renames left out). What does not carry over is
+  the premise: here two engine-free halves lived in one folder and the compiler found the one name that joined them, whereas `Weapon.cs` is one class that talks to the engine, so each step of T23 is an extraction
+  (the colours become a type of the package, the arithmetic leaves a class that calls `Mathf`), where the call sites change and the lab's table of inputs has to carry the proof. Expect more than one name to settle.
 
 ### T23. The weapon rules in the weapons package
 
