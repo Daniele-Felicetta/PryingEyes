@@ -147,8 +147,9 @@ and the native presentation lab still uses its legacy output directory. Studio's
 common report wraps the checks that are integrated today.
 
 Weapon input, inventory, fire-mode selection and presentation remain in `Weapon.cs`.
-A first mechanical-state module now owns ammunition, reload transitions and cadence;
-the rest of the weapon runtime is not yet extracted. The reusable district
+A first mechanical-state module now owns ammunition, reload transitions and cadence, and since T23 the package also holds the
+data of a weapon and the arithmetic of damage, spread, bloom and recoil; the rest of the weapon runtime (rays, the camera,
+effects, the hands) is not yet extracted. The reusable district
 package and independent Unity demo are documented separately in `city-prototype.md`.
 The city's visual identity, paid-area progression, enemy art/animation, actual combat
 balance, performance and urban co-op remain part of the active objective.
@@ -280,16 +281,19 @@ clock, shell counters, transfer algorithm or cadence timers inside `Weapon.cs`.
 Game-specific rules calculate capacities, timings and bonuses, while the adapter
 maps state events to audio, animation and HUD. No weapon ID or upgrade concept is
 part of the package. Its README documents the caller's ordering and restoration rules.
-Since T23 the same package also holds the data of a weapon (see "One source for weapon data").
+Since T23 the same package also holds the data of a weapon (see "One source for weapon data") and the arithmetic of the gunplay: what a bullet does
+(`WeaponBallistics`, `Pierce`), the cone it falls in (`AimStance`, `WeaponSpread`, `WeaponBloom`) and the kick of the view (`WeaponRecoil`, `ViewRecoil`).
+The game draws the random numbers, works out the direction of a bullet in the engine's own vector type and puts its own factors (perks, upgrades, magic) on the result.
 
 ```powershell
 python tools/studio.py test weapon-state
 python tools/studio.py test gunplaytest --runtime path/to/PryingEyes.exe   # without --runtime: the verification build, Builds/Audit
 ```
 
-The managed lab has 1,468 findings and 89,076 per-frame samples: 1,454 comparisons/contracts
+The managed lab has 1,480 findings and 89,076 per-frame samples: 1,454 comparisons/contracts
 of the state and, since T23, 14 about the data, which it runs over 4,563 catalogue inputs
-(`tools/weaponslab/DataChecks.cs`).
+(`tools/weaponslab/DataChecks.cs`), and 12 about the arithmetic, which it runs over 6,502,871 inputs
+(`tools/weaponslab/GunplayChecks.cs`).
 It compiles the package source directly and compares against the frozen old reload
 algorithm from `6fcbecf`, including all 30 weapon definitions, upgraded capacities,
 scarce reserve, several time steps and reload bonuses. It intentionally preserves
@@ -299,6 +303,11 @@ For the data it compares the record and the rules of a catalogue with a frozen c
 the code that the game had before they moved (`LegacyDefs.cs`, from `e25e832`): the same
 fields, defaults, grades, labels and colours, and the same answer to each of the faulty
 catalogues made from the 30 weapons.
+For the arithmetic it compares every function with the expressions that `Weapon.cs`, `PlayerController.cs` and
+`PlayerController.Ride.cs` had (`LegacyGunplay.cs`, from `e25e832`, with a stand-in of the few `Mathf` calls in them), and
+the two give the same float to the last bit over grids that include each value where a test of an expression flips and
+the float just either side of it. When the package was written the lab was also tried against 19 deliberate mutations of it
+(a changed constant, a product in another order, `>` for `>=`, a flipped sign) and each one made it fail.
 
 Every asset build now runs the state lab before producing assets. Its findings
 join the common report. Source capture also includes both local packages, assembly
