@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Production.Weapons;
 using UnityEngine;
 
 namespace PryingEyes
@@ -34,9 +35,9 @@ namespace PryingEyes
             if (all.Count > 0) return;
             // sud: a sinistra dell'ingresso, ovest: accanto al salotto, est: sotto le vetrate
             int v = WeaponDefs.IndexOf("smg_vesper9"), br = WeaponDefs.IndexOf("sg_breacher12"), la = WeaponDefs.IndexOf("dmr_lance7");
-            Create(v, WeaponDefs.All[v].price, new Vector3(-10f, 1.55f, 22.42f), Quaternion.Euler(0f, 180f, 0f), WeaponDefs.All[v].GradeColor);
-            Create(br, WeaponDefs.All[br].price, new Vector3(-34.42f, 1.55f, 12f), Quaternion.Euler(0f, 90f, 0f), WeaponDefs.All[br].GradeColor);
-            Create(la, WeaponDefs.All[la].price, new Vector3(34.42f, 1.55f, 14f), Quaternion.Euler(0f, -90f, 0f), WeaponDefs.All[la].GradeColor);
+            Create(v, WeaponDefs.All[v].price, new Vector3(-10f, 1.55f, 22.42f), Quaternion.Euler(0f, 180f, 0f), WeaponDefs.All[v].GradeColor.ToColor());
+            Create(br, WeaponDefs.All[br].price, new Vector3(-34.42f, 1.55f, 12f), Quaternion.Euler(0f, 90f, 0f), WeaponDefs.All[br].GradeColor.ToColor());
+            Create(la, WeaponDefs.All[la].price, new Vector3(34.42f, 1.55f, 14f), Quaternion.Euler(0f, -90f, 0f), WeaponDefs.All[la].GradeColor.ToColor());
         }
 
         /// <summary>Piazza un espositore (usato dai piani procedurali): indice dell'arma, prezzo, posizione e rotazione (il davanti guarda la stanza).</summary>
@@ -126,8 +127,8 @@ namespace PryingEyes
             light.shadows = LightShadows.None;
 
             // nome e prezzo incisi sul pannello
-            var t1 = MakeText(go.transform, def.name, Color.Lerp(new Color(0.93f, 0.89f, 0.80f), def.GradeColor, 0.55f), -0.300f, 0.055f, 0.0135f);
-            var t2 = MakeText(go.transform, (cost > 0 ? cost + " PUNTI" : free ? "DA PRENDERE" : "MUNIZIONI") + "  ·  GRADO " + HUD.Roman(def.grade), def.GradeColor, -0.385f, 0.055f, 0.0105f);
+            var t1 = MakeText(go.transform, def.name, Color.Lerp(new Color(0.93f, 0.89f, 0.80f), def.GradeColor.ToColor(), 0.55f), -0.300f, 0.055f, 0.0135f);
+            var t2 = MakeText(go.transform, (cost > 0 ? cost + " PUNTI" : free ? "DA PRENDERE" : "MUNIZIONI") + "  ·  GRADO " + HUD.Roman(def.grade), def.GradeColor.ToColor(), -0.385f, 0.055f, 0.0105f);
 
             var wb = go.AddComponent<WallBuy>();
             wb.texts = new[] { t1, t2 };

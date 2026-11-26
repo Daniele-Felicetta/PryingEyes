@@ -734,7 +734,7 @@ namespace PryingEyes.Deserto
             Beam("Zoccolo", new Vector3(0f, 0.12f, 0.1f), new Vector3(1.9f, 0.24f, 0.7f), ShrineKit.StoneDark);
             var def = WeaponDefs.All[weaponIndex];
             Vector3 face = root.transform.TransformDirection(Vector3.forward);
-            var wb = WallBuy.Place(weaponIndex, 0, root.transform.TransformPoint(new Vector3(0f, 1.55f, 0.0f)), Quaternion.LookRotation(face), def.GradeColor, true);
+            var wb = WallBuy.Place(weaponIndex, 0, root.transform.TransformPoint(new Vector3(0f, 1.55f, 0.0f)), Quaternion.LookRotation(face), def.GradeColor.ToColor(), true);
             wb.transform.SetParent(root.transform, true);
             return root;
         }

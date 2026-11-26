@@ -1,3 +1,4 @@
+using Production.Weapons;
 using UnityEngine;
 
 namespace PryingEyes
@@ -87,12 +88,12 @@ namespace PryingEyes
             int sig = SigilElement();
             if (sig < 0 && !flashTinted) return;
             if (flashA == null || flashB == null || flashLight == null) return;
-            Color fc = sig >= 0 ? Color.Lerp(MagicFx.OfInfusion(sig), Color.white, 0.2f) : Color.Lerp(Color.white, d.flashColor, 0.7f);
+            Color fc = sig >= 0 ? Color.Lerp(MagicFx.OfInfusion(sig), Color.white, 0.2f) : Color.Lerp(Color.white, d.flashColor.ToColor(), 0.7f);
             if (flashMpb == null) flashMpb = new MaterialPropertyBlock();
             flashMpb.SetColor("_BaseColor", fc);
             flashA.GetComponent<MeshRenderer>().SetPropertyBlock(flashMpb);
             flashB.GetComponent<MeshRenderer>().SetPropertyBlock(flashMpb);
-            flashLight.color = sig >= 0 ? MagicFx.OfInfusion(sig) : d.flashColor;
+            flashLight.color = sig >= 0 ? MagicFx.OfInfusion(sig) : d.flashColor.ToColor();
             flashTinted = sig >= 0;
             if (sig < 0) return;
             Vector3 mz = rig != null && rig.muzzle != null ? rig.muzzle.position : cam.position + cam.forward * 0.6f;

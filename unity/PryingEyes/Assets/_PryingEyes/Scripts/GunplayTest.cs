@@ -1,6 +1,7 @@
 #if !PE_DISTRIBUTION_BUILD
 using System;
 using System.Collections;
+using Production.Weapons;
 using UnityEngine;
 using PryingEyes.Proc;
 using PryingEyes.Testing;

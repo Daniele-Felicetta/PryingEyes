@@ -68,7 +68,7 @@ namespace PryingEyes.Proc
             for (int i = 0; i < n; i++)
             {
                 var def = WeaponDefs.All[picks[i]];
-                WallBuy.Place(picks[i], def.price * ArmoryPriceMul, slots[i].pos, Quaternion.LookRotation(slots[i].face), def.GradeColor);
+                WallBuy.Place(picks[i], def.price * ArmoryPriceMul, slots[i].pos, Quaternion.LookRotation(slots[i].face), def.GradeColor.ToColor());
             }
             foreach (float lx in new[] { 0.25f, 0.75f })
                 foreach (float lz in new[] { 0.28f, 0.72f })

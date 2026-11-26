@@ -612,7 +612,7 @@ namespace PryingEyes
             flashA = MakeQuad("Flash", root.transform, muzzle, mat);
             flashB = MakeQuad("FlashLato", root.transform, muzzle, mat);
             var fb = new MaterialPropertyBlock();
-            fb.SetColor("_BaseColor", Color.Lerp(Color.white, d.flashColor, 0.7f));
+            fb.SetColor("_BaseColor", Color.Lerp(Color.white, d.flashColor.ToColor(), 0.7f));
             flashA.GetComponent<MeshRenderer>().SetPropertyBlock(fb);
             flashB.GetComponent<MeshRenderer>().SetPropertyBlock(fb);
             flashA.SetActive(false); flashB.SetActive(false);
@@ -622,7 +622,7 @@ namespace PryingEyes
             fgo.transform.localPosition = muzzle + new Vector3(0f, 0f, 0.4f);
             flashLight = fgo.AddComponent<Light>();
             flashLight.type = LightType.Point;
-            flashLight.color = d.flashColor;
+            flashLight.color = d.flashColor.ToColor();
             flashLight.intensity = 0f;
             flashLight.range = 6f;
             flashLight.shadows = LightShadows.None;
@@ -1280,8 +1280,8 @@ namespace PryingEyes
             if (tracer)
             {
                 if (sig >= 0 && !d.beam) SigilFx.Tracer(sig, muzzlePos, end, d.tracerWidth, d.pellets > 1);
-                else if (d.beam) Fx.Beam(muzzlePos, end, d.tracerWidth, sig >= 0 ? SigilFx.TracerColor(sig) : d.tracerColor);
-                else Fx.Tracer(muzzlePos, end, 300f + d.damage * 0.5f, d.tracerWidth, d.tracerColor);
+                else if (d.beam) Fx.Beam(muzzlePos, end, d.tracerWidth, sig >= 0 ? SigilFx.TracerColor(sig) : d.tracerColor.ToColor());
+                else Fx.Tracer(muzzlePos, end, 300f + d.damage * 0.5f, d.tracerWidth, d.tracerColor.ToColor());
             }
         }
 

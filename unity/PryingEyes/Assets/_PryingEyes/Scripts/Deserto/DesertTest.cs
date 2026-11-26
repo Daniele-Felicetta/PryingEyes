@@ -711,7 +711,7 @@ namespace PryingEyes.Deserto
             if (idx < 0) yield break;
             Vector3 flat = pl.cam.forward; flat.y = 0f; flat.Normalize();
             Vector3 at = pl.cam.position + flat * 1.3f;
-            var wb = WallBuy.Place(idx, 0, at, Quaternion.LookRotation(-flat), WeaponDefs.All[idx].GradeColor, true);
+            var wb = WallBuy.Place(idx, 0, at, Quaternion.LookRotation(-flat), WeaponDefs.All[idx].GradeColor.ToColor(), true);
             Face(at);
             yield return new WaitForSeconds(0.25f);
             int score1 = gm.score;
