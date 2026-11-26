@@ -11,7 +11,7 @@ pull request against it. How a change is built, shipped and gated is in [buildin
 
 | Layer | Where | Depends on | Proof it is independent |
 | --- | --- | --- | --- |
-| Rule packages (C#) | `unity/PryingEyes/Packages/com.pryingeyes.{layout,weapons,survival,economy,saves}` | nothing: `noEngineReferences`, no assembly references, no `UnityEngine`/`PryingEyes` in code | the same `.cs` files are compiled by the .NET labs `tools/{planlab,weaponslab,survivallab,economylab,saveslab}` (no editor) and consumed by `unity/LayoutDemo` through `file:` references |
+| Rule packages (C#) | `unity/PryingEyes/Packages/com.pryingeyes.{layout,weapons,survival,economy,saves,racing}` | nothing: `noEngineReferences`, no assembly references, no `UnityEngine`/`PryingEyes` in code | the same `.cs` files are compiled by the .NET labs `tools/{planlab,weaponslab,survivallab,economylab,saveslab,tracklab}` (no editor) and consumed by `unity/LayoutDemo` through `file:` references |
 | Game rules (C#) | `unity/PryingEyes/Assets/_PryingEyes/Rules`, the assembly `PryingEyes.Rules` | the `Production.*` packages: `noEngineReferences`, no `UnityEngine`/`UnityEditor`/`FishNet`/`TMPro` in code, the game's own names allowed | the same `.cs` files are compiled by the .NET labs `tools/{planlab,desertlab,saveslab,economylab,admissionlab,tracklab}` (no editor), and Unity itself refuses an engine type in them |
 | Production engine (Python) | `tools/studio_engine.py`, `studio_process.py`, `studio_queue.py`, `asset_graph.py` | the standard library | `test_studio_engine.py` runs it on a toy project; a test imports it with `python -I` and asserts no game module, `jsonschema` or Pillow is loaded |
 | Project profile | `tools/studio_pryingeyes.py` + the catalogs under `Resources/Production` | the engine, the game | this is the *only* place that knows weapons, rooms, Blender, Unity, the city recipe |
@@ -67,7 +67,7 @@ is the one place that defines `Check`, so the file that declares it is not count
 An *engine-free lab* is a .NET project under `tools/` that reaches no Unity assembly: it has no `Reference` to one, neither in the
 project nor in a props file it imports nor in a project it references. A project that does is a compile check against the editor's
 own libraries, and the rule leaves it out (`tools/multiplayer-check` held such projects, `unity-compile` and `fishnet-compile`, until T20 retired it).
-What a lab compiles is read from its `Compile` items, patterns with `*` and `**` included, so the files of `Rules/Track` that `tracklab` compiles are covered
+What a lab compiles is read from its `Compile` items, patterns with `*` and `**` included, so the files of the racing package and of `Rules/Track` that `tracklab` compiles are covered
 like any other.
 
 What is wrong today is listed, not hidden, in `tools/fixtures/game-boundaries.json`: each violation with the reason it is tolerated (today none: the list is

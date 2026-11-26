@@ -1,12 +1,12 @@
 # Extracting reusable Unity packages: strategy
 
 Which code of the game can become a package that another project could use, in what order, and what has to be true before each move.
-It builds on the five packages that exist ([suite-architecture.md](suite-architecture.md)) and on the findings of
+It builds on the six packages that exist ([suite-architecture.md](suite-architecture.md)) and on the findings of
 [architecture-audit.md](architecture-audit.md) (F8, F14). The boundaries it refers to (B1, B2) are defined in
 [modularization.md](modularization.md); the tasks are in [modular-tasks.md](modular-tasks.md).
 
 The short version: by the rule below no code should be made a package today, and on 25 November 2026 the maintainer decided on two
-exceptions, the track rules and the weapon rules ([the two exceptions](#the-two-exceptions)). There is a clear way to get there (the ladder below), one
+exceptions, the track rules and the weapon rules ([the two exceptions](#the-two-exceptions)); the first is done (T22, the package `Production.Racing`). There is a clear way to get there (the ladder below), one
 structural step that makes every later extraction cheap (the game-rules assembly, B2), and a list of candidates with the event that
 should trigger each one.
 
@@ -16,7 +16,7 @@ the moves proposed. The two rows added on 25 November 2026 (the track rules and 
 reading the source, not with a compiler: the 20 track files hold no engine reference (the two that name `UnityEngine` do it in a comment, and
 `PryingEyes.Rules` forbids the engine), the mechanism files use only each other and the career files use the mechanism, the desert code names four
 types of the track rules (`BikeSpec`, `EngineKind`, `Bikes` and `BikeSheet`: the nine bikes and their sheet) and none of the riding model, and
-what `WeaponDef` takes from Unity is three colour fields, the grade colours and two calls of `Mathf.Clamp`. T22 and T23 prove each of these with the compiler in their first step.
+what `WeaponDef` takes from Unity is three colour fields, the grade colours and two calls of `Mathf.Clamp`. T22 did it for the track rules (its outcome in [modular-tasks.md](modular-tasks.md#t22-the-track-rules-as-a-package) says what the compiler found) and T23 proves the weapon rows in its first step.
 
 ## What a package is here
 
@@ -59,11 +59,11 @@ On 25 November 2026 the maintainer decided that the bikes and the gunplay become
   the replay and the circuit generator; for the guns the numbers of a weapon and the arithmetic of its damage, spread and recoil. The nine bikes,
   the licences, the career, and the look, the feel and the sound of a gun stay in the game and consume the package. What is closest to the engine
   does not move: the Unity side of the track mode, the viewmodel, the hands, the effects.
-- **The second consumer that exists.** For the bikes, the desert garage consumes the data of the nine bikes (`BikeSpec`, `Bikes`, `EngineKind`) and
-  their sheet (`BikeSheet`) as the track mode does, though not the riding model, which the desert has of its own. For the guns there is none: every mode shares one `Weapon` class, and a second
+- **The second consumer that exists.** For the bikes, the desert garage takes the nine bikes (`Bikes`, which stays in the game) and with them `BikeSpec` and `EngineKind`, the package's own types,
+  though not the riding model, which the desert has of its own. The card of T22 said that the desert shows the sheet of the garage (`BikeSheet`) too; the code does not (one comment names it), so that reason to put the sheet in the package fell. For the guns there is none: every mode shares one `Weapon` class, and a second
   mode is not a second consumer of the package.
 - **The order.** T22 first, because it is the cheaper test of the method: its files are already engine-free and have a lab. T23 starts when T22
-  has merged and its page says that the method worked.
+  has merged and its page says that the method worked. T22 is done: its outcome in [modular-tasks.md](modular-tasks.md#t22-the-track-rules-as-a-package) says what it cost and whether T23 can use the same steps.
 
 ## Packages the game does not use
 
@@ -92,8 +92,7 @@ presenting it as the rule of the game.
 
 ## Inventory of candidates
 
-Lines are those of the census at commit `4042709`, but for the rows of the track rules and of the weapons, added on 25 November 2026 with the
-census at commit `839571c`.
+Lines are those of the census at commit `4042709`, but for the row of the weapons (added on 25 November 2026 with the census at commit `839571c`) and the two rows of the track rules (T22, 26 November 2026, with the census at the head of its pull request).
 
 | Candidate | Files, lines | Engine-free today | Consumers | What is the game's in it | Rung now | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -105,7 +104,8 @@ census at commit `839571c`.
 | Cathedral catalog, points, perks (`Catalogo.cs`, `Punti.cs`, `PlayerPerks.cs`) | 3, 545 | yes | cathedral, score | all of it | 0 | **rung 1** (T15) |
 | Magic rules (`Magia/Grimoire.cs`, `MagicState.cs`) | 2, 389 | yes, but no lab | the grimoires | all of it | 0 | rung 1 once a lab compiles them; their only check today is `-magiatest` in the player |
 | Procedural audio (`SoundGen*.cs`) | 18, 3,987 | almost: `Mathf` 405 times, two other calls | every sound | the sounds themselves; the filters and envelopes are generic | 0 | rung 1 when audio next needs a check that does not need the editor (T18) |
-| Track rules (`Rules/Track/*.cs`) | 20, 5,158 | yes: the compiler keeps the engine out, and `tracklab` compiles them | the track mode, all of it; the desert garage, for the data of the nine bikes and their sheet | the nine bikes, the licences, the career, the cups, the namespace `PryingEyes.Pista` | 1 | **rung 2 by the maintainer's decision (T22)**: the mechanism only, see [the two exceptions](#the-two-exceptions) |
+| Track mechanism (`Packages/com.pryingeyes.racing/Runtime/*.cs`; T22) | 14, 3,850 | yes: `noEngineReferences`, and `tracklab` compiles them | the track mode; the desert garage (`BikeSpec`, `EngineKind`); `unity/LayoutDemo` (`RacingDemo`) | the vocabulary of its cooperative race (`netSlot`, `friend`, `final`, `AddRemote`, `ApplyResults`), the view hints of `BikeSpec` (`meshStyle`, `meshScale`, `skin`), the five engine voices of `EngineKind`, the signature and the two kinds of its ghost files, the aid levels of `DrivingLine.Shows` | 2 | **done (T22)**. One game has used it: a revision is expected when a second one does, and the README of the package says so |
+| Track content (`Rules/Track/*.cs`) | 11, 1,379 | yes, `tracklab` compiles them | the track mode, all of it; the desert garage, for the nine bikes (`Bikes`) | everything: the nine bikes, the catalogue of circuits and their names, the licences, the championship, the career, the workshop (`Tuning`), the sheet of the garage, the sound of the engines, the words of the braking sign, the roster of a race | 1 | stays at **rung 1**: it is the content of the package's only game |
 | Weapon data and arithmetic (`Armi/WeaponDefs.cs`, `Armi/WeaponCatalog.cs`, the number-only parts of `Weapon.cs`) | 2 files of about 220 lines, and part of `Weapon.cs` (about 1,500 lines) | partly: the data uses `UnityEngine.Color` and `Mathf`, the reader uses Newtonsoft.Json; `WeaponState` is a package already | every mode, through one `Weapon` class | the 30 weapons, their look and their sound | 0 (`WeaponState`: 2) | **rung 2 for the numbers by the maintainer's decision (T23)**; the Unity layer (hands, viewmodel, effects) stays at rung 0 |
 | Paid areas, wave pacing | see above | yes | the game and, separately, the package | prices, lifts | 0 and 2 | converge at the next change, or relabel the package |
 | In-player test harness (`Testing/PlayerTest.cs`, `Testing/TestRun.cs`; T07) | 2, 217 | no (it is a `MonoBehaviour`) | this game | nothing by design | 0 | stays; its result file is documented so that it could be lifted later |
@@ -158,9 +158,9 @@ Only when the two conditions of the ladder hold, or when the maintainer has deci
 
 Observed, with the position taken:
 
-- All five are at version `0.1.0` and have no changelog. With `file:` references nobody reads the version: keep it, and start a
+- All six are at version `0.1.0` and have no changelog. With `file:` references nobody reads the version: keep it, and start a
   changelog on the day a package is consumed from outside this repository.
 - The ids carry the game's name and the assemblies do not (`Production.*`). Deliberate and documented; unchanged.
-- `unity/LayoutDemo` checks all five packages and is still named after the first. Cosmetic; rename it only together with a change that
+- `unity/LayoutDemo` checks all six packages and is still named after the first. Cosmetic; rename it only together with a change that
   already touches it.
 - No package has tests inside it: the labs are the tests, and the guard requires them. Unchanged.
