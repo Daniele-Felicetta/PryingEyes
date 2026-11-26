@@ -1,0 +1,7 @@
+{
+  "name": "Production.Racing",
+  "rootNamespace": "Production.Racing",
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

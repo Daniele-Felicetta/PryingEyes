@@ -41,7 +41,7 @@ The Python side already has this shape (engine, profile, guard) and is left as i
 
 ## B1. Reusable rule packages
 
-Nothing changes. The five packages and the four proofs each one needs are described in [suite-architecture.md](suite-architecture.md).
+Nothing changes. The six packages (`Production.Racing` came on 26 November 2026, with T22) and the four proofs each one needs are described in [suite-architecture.md](suite-architecture.md).
 What may be added to them, and when, is in [package-extraction.md](package-extraction.md).
 
 ## B2. Game rules: an engine-free assembly inside the game
@@ -61,12 +61,14 @@ which the audit, written before that lab, does not list. They are grouped like t
 | `Rules/Cathedral` | `Cattedrale/Catalogo.cs` | `economylab` |
 | `Rules/Admission` | `Coop/AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs` | `admissionlab` |
 | `Rules/Score` | `PlayerPerks.cs`, `Punti.cs` (both in `Scripts/`) | `admissionlab` |
-| `Rules/Track` | `Pista/PistaMath.cs`, `BikeSpec.cs`, `BikeModel.cs`, `Circuit.cs`, `CircuitGen.cs`, `Catalogue.cs`, `RacingLine.cs`, `BikeDriver.cs`, `RaceRules.cs`, `PoseTape.cs`, `EngineSynth.cs`, `RaceReplay.cs`, `Licences.cs`, `BikeSheet.cs`, `Championship.cs`, `KeyShaper.cs`, `Career.cs`, `Tuning.cs`, `DrivingLine.cs`, `BrakeCue.cs` | `tracklab` |
+| `Rules/Track` | `Catalogue.cs`, `Licences.cs`, `Championship.cs`, `Career.cs`, `Tuning.cs`, `BikeSheet.cs`, `EngineSynth.cs`, `Bikes.cs`, `BrakeCueWords.cs`, `Circuits.cs`, `RaceRoster.cs` (after T22; the 20 files that T15 moved were `Pista/PistaMath.cs`, `BikeSpec.cs`, `BikeModel.cs`, `Circuit.cs`, `CircuitGen.cs`, `RacingLine.cs`, `BikeDriver.cs`, `RaceRules.cs`, `PoseTape.cs`, `RaceReplay.cs`, `KeyShaper.cs`, `DrivingLine.cs`, `BrakeCue.cs` and the seven above) | `tracklab` |
 
 Namespaces did not change (`PryingEyes.Proc`, `PryingEyes.Deserto`...), so no other file changed: the move was a `git mv` of each file with its
 `.meta` (the same GUIDs), plus the paths in six lab projects and in the pages that name them. Nothing outside `Rules/` needed an `internal` member to
 become public: the 56 files declare one non-public type, a helper of `Championship.cs` that nothing else uses, and seven `internal` members that are used only
 inside their own file. What no lab compiles stays where it is (`Magia/Grimoire.cs` and `MagicState.cs` need a lab first).
+
+**After T22.** On 26 November 2026 the mechanism of the track mode left `Rules/Track`: 13 of its 20 files, and `BikeFigures.cs`, split off from `BikeSheet.cs`, are the package `Production.Racing` (`Packages/com.pryingeyes.racing/Runtime/`, 14 files and 3,850 lines; B1). The folder holds the game's own content of the track mode, 11 files and 1,379 lines, and the assembly `PryingEyes.Rules` references the package: the folders of `Rules/` hold 47 files and 9,763 lines today (the census at the head of the pull request of T22).
 
 **Why an assembly, when the labs already compile these files.** Three reasons, in order of weight:
 
@@ -215,7 +217,7 @@ These hold from now, before any task is done:
 
 `python tools/code_census.py` at each step. The numbers that the plan moves (today: the census of 25 November 2026 at `839571c` with the last pull request of T08 applied; the plan started
 from the census of 24 November 2026 at `4aaafa8` with T07 applied, whose values (the third column) differ from the ones it was written with (34, 47, 51 and 39) because code arrived after it, the
-track mode first of all, and T07 had moved two of them). T20 (25 November 2026) moved the first row and T15 (the same day) the second, to 0; T08 moved the next six:
+track mode first of all, and T07 had moved two of them). T20 (25 November 2026) moved the first row and T15 (the same day) the second, to 0; T08 moved the next six; T22 (26 November 2026) added the last row, which is a measure and has no target:
 
 | Number (section of the census) | Today | When T08 started | Target | Task |
 | --- | --- | --- | --- | --- |
@@ -227,6 +229,7 @@ track mode first of all, and T07 had moved two of them). T20 (25 November 2026) 
 | Flags read by `GameManager.cs` (`flags`) | 9 | 50 | under 20 | T08, done (T07 took it from 53) |
 | Private command-line helpers (`flags`) | 42 | 43 | 2 | T19 |
 | Literals of test output relative to the working directory (`tests`) | 1 | 33 | 0 | T08 (T07 took it from 36): the one left is the default of `-hordeout` in the probe `PerfProbe.Horde.cs` |
+| Files that a package holds for the track mode (`sizes`: `Production.Racing`) | 14 (3,850 lines) | 0 | the mechanism only | T22, done |
 
 The two rows about tests that are 0 now (production files that name a test, test files that ship) cannot grow: the guard holds them as a baseline, `tools/fixtures/game-boundaries.json`, which is
 empty, and fails on a new violation ([suite-architecture.md](suite-architecture.md#the-games-rules-about-tests)).

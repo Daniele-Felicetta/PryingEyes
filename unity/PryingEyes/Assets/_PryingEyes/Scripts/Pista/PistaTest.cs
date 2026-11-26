@@ -7,6 +7,7 @@ using PryingEyes.Deserto;
 using PryingEyes.Proc;
 using PryingEyes.Testing;
 using UnityEngine;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {
@@ -604,7 +605,7 @@ namespace PryingEyes.Pista
             string[] lines = d.hud.CupLinesText.Split((char)10);
             Check("sotto la tabella ci sono le quattro righe: la coppa e la gara, cosa ha dato, i primi tre e la prossima gara",
                 lines.Length == 4 && lines[0].Contains(cup.name.ToUpperInvariant()) && lines[0].Contains("GARA 1 DI " + cup.Rounds) && lines[1].Contains(" punt") && lines[2].StartsWith("Classifica:") && lines[3].StartsWith("Prossima gara")
-                && lines[3].Contains(CircuitGen.Generate(cup.CircuitSeed(1)).name) && !d.CupSeasonOver, d.CupVerdict);
+                && lines[3].Contains(Circuits.Generate(cup.CircuitSeed(1)).name) && !d.CupSeasonOver, d.CupVerdict);
             Check("in fondo alla tabella si legge 'prossima gara', non 'ancora' ne' 'nuova pista'", d.hud.ResultsHintText.Contains("prossima gara") && !d.hud.ResultsHintText.Contains("nuova pista") && !d.hud.ResultsHintText.Contains("ancora"), d.hud.ResultsHintText);
             if (shots) { yield return new WaitForSeconds(1.0f); yield return Shot("11_campionato_risultati"); }
 

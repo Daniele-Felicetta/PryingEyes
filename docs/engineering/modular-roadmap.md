@@ -70,7 +70,7 @@ are in [modular-tasks.md](modular-tasks.md).
 | T19 | One reader of the command line | 4 | T08 | editor, build | todo, on its trigger |
 | T20 | Decide the fate of the multiplayer draft | 4 | | the maintainer | done (#66) |
 | T21 | The tables of testing.md from the manifest | 4 | T05, T06 | | todo, on its trigger |
-| T22 | The track rules as a package | 4 | T08 | editor, full build | todo, after T08 |
+| T22 | The track rules as a package | 4 | T08 | editor, full build | done (#78) |
 | T23 | The weapon rules in the weapons package | 4 | T08, T22 | editor, build | todo, after T22 |
 
 T08 is done except for two suites. `DisplayTest` and `PresentationTest` still define their own `Check` ("no test defines `Check`" holds for every other test): they change the registry of the game's

@@ -1,4 +1,5 @@
 using System;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {
@@ -18,7 +19,7 @@ namespace PryingEyes.Pista
         /// <summary>The bike of the roster at a level of tuning (the bike itself at level 0, a copy above that).</summary>
         public static BikeSpec Apply(BikeSpec stock, int level)
         {
-            level = PM.Clamp(level, 0, MaxLevel);
+            level = RacingMath.Clamp(level, 0, MaxLevel);
             if (level == 0) return stock;
             var s = stock.Clone();
             var torque = new float[stock.torqueCurve.Length];
@@ -46,7 +47,7 @@ namespace PryingEyes.Pista
         /// <summary>What a level adds up to, for the garage: "+8 % potenza   +4 % aderenza   -4 % peso   -6 % aria" (nothing for the bike as it comes).</summary>
         public static string Describe(int level)
         {
-            level = PM.Clamp(level, 0, MaxLevel);
+            level = RacingMath.Clamp(level, 0, MaxLevel);
             if (level == 0) return "";
             return "+" + Percent(TorqueGain, level) + " % potenza   +" + Percent(GripGain, level) + " % aderenza   -" + Percent(MassCut, level) + " % peso   -" + Percent(DragCut, level) + " % aria";
         }

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using PryingEyes.Pista;
 using UnityEngine;
 using UnityEngine.UI;
+using Production.Racing;
 
 namespace PryingEyes
 {
@@ -148,7 +149,7 @@ namespace PryingEyes
 
         void RefreshPistaMap()
         {
-            var circuit = CircuitGen.Generate(pistaSeed);
+            var circuit = Circuits.Generate(pistaSeed);
             pistaCircuit = circuit;
             var fit = PistaMap.FitFor(circuit, 256, 14f);
             var tex = PistaMap.Paint(circuit, fit, 4.5f, "Anteprima della pista");
@@ -179,7 +180,7 @@ namespace PryingEyes
             if (pistaNames == null)
             {
                 pistaNames = new string[Catalogue.Count];
-                for (int i = 0; i < pistaNames.Length; i++) pistaNames[i] = CircuitGen.Generate(Catalogue.All[i].seed).name;
+                for (int i = 0; i < pistaNames.Length; i++) pistaNames[i] = Circuits.Generate(Catalogue.All[i].seed).name;
             }
             return pistaNames[Mathf.Clamp(index, 0, pistaNames.Length - 1)];
         }

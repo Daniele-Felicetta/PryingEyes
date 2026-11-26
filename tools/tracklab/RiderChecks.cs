@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>How the rider sits and moves on the bike (the three styles of cornering, the weight along the bike) and the slipstream: what each must change, and what it must leave alone.</summary>
 static partial class Program
@@ -18,7 +19,7 @@ static partial class Program
         {
             float t25 = -1f; int k = i;
             Ride(sb, flat, 4f, (t, b) => new BikeInputs { steer = 0.8f, throttle = ThrottleToHold(b, 30f) },
-                (t, b) => { if (t25 < 0f && Math.Abs(b.lean) > 25f * PM.Deg2Rad) t25 = t; },
+                (t, b) => { if (t25 < 0f && Math.Abs(b.lean) > 25f * RacingMath.Deg2Rad) t25 = t; },
                 b => { b.style = styles[k]; b.u = 30f; b.omegaF = b.omegaR = 30f / sb.wheelRadius; b.gear = 4; });
             turnIn[i] = t25;
         }
@@ -33,7 +34,7 @@ static partial class Program
             int k = i;
             var bike = Ride(sb, flat, 6f, (t, b) => new BikeInputs { useCurvature = true, curvature = 1f / 70f, throttle = ThrottleToHold(b, 25f) }, null,
                 b => { b.style = styles[k]; b.u = 25f; b.omegaF = b.omegaR = 25f / sb.wheelRadius; b.gear = 3; });
-            frame[i] = Math.Abs(bike.lean) * PM.Rad2Deg; crashedAny |= bike.crashed;
+            frame[i] = Math.Abs(bike.lean) * RacingMath.Rad2Deg; crashedAny |= bike.crashed;
         }
         Check("STYLE_BODY_POSITION_CHANGES_THE_FRAME_LEAN", !crashedAny && frame[0] + 2f < frame[1] && frame[1] + 2f < frame[2],
             "frame lean in a 70 m corner at 90 km/h: " + frame[0].ToString("F1") + " (" + names[0] + "), " + frame[1].ToString("F1") + " (" + names[1] + "), " + frame[2].ToString("F1") + " degrees (" + names[2] + ")",

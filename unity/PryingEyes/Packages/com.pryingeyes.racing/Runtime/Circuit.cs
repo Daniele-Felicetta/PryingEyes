@@ -1,6 +1,6 @@
 using System;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
     /// <summary>Where a point lies relative to the centreline of the circuit: the segment, how far along it, how far to the right (negative = left) and the distance along the lap.</summary>
     public struct Proj
@@ -17,7 +17,7 @@ namespace PryingEyes.Pista
 
     /// <summary>A closed race circuit: a centreline sampled every two metres with width, elevation, banking, kerbs and run-off, and every question the bike physics, the rider AI and the picture of the track
     /// need to ask (where am I, what is under the tire, where is the wall, how high is the ground). It is also the ground the bike physics runs on (IGround). Pure code: the same circuit comes out of the same
-    /// seed on every machine, and tools/tracklab checks it without Unity.
+    /// seed on every machine.
     ///
     /// Across the road, from the middle outward: asphalt (half width), kerb (only on corners), paved run-off, gravel trap (only on some corners), grass, then the barrier. Sample 0 is the start line.</summary>
     public sealed class Circuit : IGround

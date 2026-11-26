@@ -1,6 +1,6 @@
 using System;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
     /// <summary>The rider the computer plays: follows the racing line by pure pursuit (it asks the bike for an exact path curvature, and the bike leans as the physics says it must), holds the planned
     /// speed with throttle and brakes, shifts its line to go around slower bikes, and now and then overcooks a corner. Everything it uses is the same physics the player rides.</summary>
@@ -51,25 +51,25 @@ namespace PryingEyes.Pista
             s = proj.s; lateral = proj.d;
             if (b.crashed) return inp;
             launchT += dt;
-            float u = PM.Max(b.u, 0f);
+            float u = RacingMath.Max(b.u, 0f);
 
             // ---- a rider that is slow to react at the start
             if (launchT < reaction) return inp;
 
             // ---- steering: aim at a point of the line a little way ahead
-            shiftNow += PM.Clamp(laneShift - shiftNow, -2.4f * dt, 2.4f * dt);
-            float look = PM.Clamp(5f + 0.40f * u, 7f, 40f);
+            shiftNow += RacingMath.Clamp(laneShift - shiftNow, -2.4f * dt, 2.4f * dt);
+            float look = RacingMath.Clamp(5f + 0.40f * u, 7f, 40f);
             float tx, tz;
             line.PointAt(s + look, bias + shiftNow, out tx, out tz);
             float dx = tx - b.x, dz = tz - b.z;
-            float sinH = PM.Sin(b.heading), cosH = PM.Cos(b.heading);
+            float sinH = RacingMath.Sin(b.heading), cosH = RacingMath.Cos(b.heading);
             float xr = dx * cosH - dz * sinH, zf = dx * sinH + dz * cosH;
             float chord2 = xr * xr + zf * zf + 0.01f;
             float kappa = zf > 0.5f ? 2f * xr / chord2 : (xr >= 0f ? 1f : -1f) / b.spec.minTurnRadius;
             inp.useCurvature = true; inp.curvature = kappa;
 
             // ---- speed: the plan ahead, scaled by this rider's pace
-            float ahead = PM.Max(6f, u * 0.45f + 6f);
+            float ahead = RacingMath.Max(6f, u * 0.45f + 6f);
             float vPlan = line.MinPlanAhead(s, ahead);
             // a braking zone is coming: a rider that is not careful may go in too hot
             cooldown -= dt;
@@ -83,17 +83,17 @@ namespace PryingEyes.Pista
             float vt = vPlan * pace * (mistakeT > 0f ? 1.13f : 1f);
             // off the asphalt: come back gently
             float hw = circuit.HalfWidthAt(proj);
-            if (PM.Abs(lateral) > hw + 0.3f) vt = PM.Min(vt, 17f);
-            if (speedLimit > 0f) vt = PM.Min(vt, speedLimit);
+            if (RacingMath.Abs(lateral) > hw + 0.3f) vt = RacingMath.Min(vt, 17f);
+            if (speedLimit > 0f) vt = RacingMath.Min(vt, speedLimit);
             targetSpeed = vt;
             float err = vt - u;
             if (err > -0.4f)
             {
-                inp.throttle = PM.Clamp01(0.18f + 0.82f * (err + 0.4f) / 2.2f);
+                inp.throttle = RacingMath.Clamp01(0.18f + 0.82f * (err + 0.4f) / 2.2f);
             }
             else
             {
-                float brake = PM.Clamp01((-err - 0.4f) / 6f);
+                float brake = RacingMath.Clamp01((-err - 0.4f) / 6f);
                 inp.brakeFront = brake * 0.92f;
                 inp.brakeRear = brake * 0.25f;
             }

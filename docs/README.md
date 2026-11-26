@@ -76,7 +76,8 @@ The reusable C# packages have their own READMEs:
 [weapons](../unity/PryingEyes/Packages/com.pryingeyes.weapons/README.md),
 [survival](../unity/PryingEyes/Packages/com.pryingeyes.survival/README.md),
 [economy](../unity/PryingEyes/Packages/com.pryingeyes.economy/README.md),
-[saves](../unity/PryingEyes/Packages/com.pryingeyes.saves/README.md).
+[saves](../unity/PryingEyes/Packages/com.pryingeyes.saves/README.md),
+[racing](../unity/PryingEyes/Packages/com.pryingeyes.racing/README.md).
 
 ## History (`history/`)
 

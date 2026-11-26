@@ -1,6 +1,6 @@
 using System;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
     public enum SurfaceKind : byte { Asphalt = 0, Kerb = 1, Apron = 2, Grass = 3, Gravel = 4 }
 
@@ -34,7 +34,7 @@ namespace PryingEyes.Pista
         bool Barrier(float x, float z, float radius, ref int hint, out float nx, out float nz, out float depth);
     }
 
-    /// <summary>A level, endless, clean asphalt: for the lab's straight-line and corner tests.</summary>
+    /// <summary>A level, endless, clean asphalt: for straight-line and corner tests.</summary>
     public sealed class FlatGround : IGround
     {
         public float grip = 1f;
@@ -180,21 +180,21 @@ namespace PryingEyes.Pista
         static float Ellipse(float cap, float used)
         {
             float v = cap * cap - used * used;
-            return v > 0f ? PM.Sqrt(v) : 0f;
+            return v > 0f ? RacingMath.Sqrt(v) : 0f;
         }
 
         /// <summary>One wheel for one small step, implicit in the wheel speed so a light wheel with a stiff tire stays stable. Returns the tire force on the bike.</summary>
         static float WheelStep(ref float omega, float inertia, float torque, float brake, float radius, float speed, float cap, float peak, float h, out float slip)
         {
-            float vref = PM.Max(PM.Abs(speed), 3f);
+            float vref = RacingMath.Max(RacingMath.Abs(speed), 3f);
             float s0 = (omega * radius - speed) / vref / peak;
-            float a = PM.Abs(s0);
-            float curve = PM.TireCurve(a);
+            float a = RacingMath.Abs(s0);
+            float curve = RacingMath.TireCurve(a);
             float f0 = cap * (s0 < 0f ? -curve : curve);
             // slope of the tire force against the wheel speed, kept positive (past the peak the secant is nearly flat) so the implicit step stays a contraction
             float dcurve = 1.5f * 1.7320508f / (1f + 3f * a * a) * (float)Math.Cos(1.5 * Math.Atan(1.7320508 * a));
-            float c = PM.Max(dcurve, 0.08f) * cap / peak / vref * radius;
-            float sg = PM.Clamp(omega / 1.5f, -1f, 1f);
+            float c = RacingMath.Max(dcurve, 0.08f) * cap / peak / vref * radius;
+            float sg = RacingMath.Clamp(omega / 1.5f, -1f, 1f);
             float tq = torque - brake * sg;
             float w = (inertia * omega + h * (tq - radius * f0 + radius * c * omega)) / (inertia + h * radius * c);
             if (w < 0f) w = 0f;
@@ -202,7 +202,7 @@ namespace PryingEyes.Pista
             // the force that goes to the bike is the one at the slip the wheel ends up with
             float s = (omega * radius - speed) / vref / peak;
             slip = s;
-            float curveEnd = PM.TireCurve(PM.Abs(s));
+            float curveEnd = RacingMath.TireCurve(RacingMath.Abs(s));
             return cap * (s < 0f ? -curveEnd : curveEnd);
         }
 
@@ -211,7 +211,7 @@ namespace PryingEyes.Pista
             var sp = spec;
             float L = sp.wheelbase, m = sp.Mass;
             float lr = sp.cgFromRear + body * (sp.riderMass / m) * BodyTravel, lf = L - lr, R = sp.wheelRadius;
-            float sinH = PM.Sin(heading), cosH = PM.Cos(heading), half = L * 0.5f;
+            float sinH = RacingMath.Sin(heading), cosH = RacingMath.Cos(heading), half = L * 0.5f;
 
             // ---- the ground under the two tires and the middle
             GroundSample gF, gR, gC;
@@ -220,29 +220,29 @@ namespace PryingEyes.Pista
             ground.Sample(x, z, ref hintC, out gC);
             y = gC.y;
             surfaceF = gF.surface; surfaceR = gR.surface;
-            float groundPitch = PM.Atan2(gF.y - gR.y, L);
-            float cosP = PM.Cos(groundPitch);
+            float groundPitch = RacingMath.Atan2(gF.y - gR.y, L);
+            float cosP = RacingMath.Cos(groundPitch);
             // hanging off keeps the tires nearer the middle of their profile, sitting in line with the bike pushes them to the shoulder: a few per cent of grip, only at deep lean
-            float leanEdge = PM.Clamp01((PM.Abs(lean) / sp.frameLeanMax - 0.6f) / 0.4f);
+            float leanEdge = RacingMath.Clamp01((RacingMath.Abs(lean) / sp.frameLeanMax - 0.6f) / 0.4f);
             float styleMu = 1f + (style == RiderStyle.LeanBody ? 0.025f : style == RiderStyle.LeanBike ? -0.04f : 0f) * leanEdge;
             float muF = sp.muFront * gF.grip * styleMu, muR = sp.muRear * gR.grip * styleMu;
-            rough = PM.Max(gF.rough, gR.rough);
+            rough = RacingMath.Max(gF.rough, gR.rough);
             // loose ground (gravel, grass) is a place to lose time, not to fall: a rider who has gone wide is given time to stand the bike up (see 'falling off'). The lean assist gives it all, no assist most of it.
             bool loose = Loose(gF.surface) || Loose(gR.surface);
             float forgive = loose ? (leanAssist ? 1f : 0.8f) : 0f;
             if (shoveT > 0f) shoveT -= h;
 
-            float uu = PM.Max(u, 0f);
+            float uu = RacingMath.Max(u, 0f);
 
             // ---- the rider's body: tuck and shift
-            bool wantTuck = inp.tuck || (autoTuck && uu > 48f && PM.Abs(lean) < 0.14f && inp.throttle > 0.7f && inp.brakeFront < 0.05f);
-            tuckAmt += ((wantTuck ? 1f : 0f) - tuckAmt) * PM.Ease(4f, h);
-            float hcg = PM.Lerp(sp.cgHeight, sp.cgHeightTuck, tuckAmt);
-            body += (PM.Clamp(inp.riderFwd, -1f, 1f) - body) * PM.Ease(4.5f, h);
+            bool wantTuck = inp.tuck || (autoTuck && uu > 48f && RacingMath.Abs(lean) < 0.14f && inp.throttle > 0.7f && inp.brakeFront < 0.05f);
+            tuckAmt += ((wantTuck ? 1f : 0f) - tuckAmt) * RacingMath.Ease(4f, h);
+            float hcg = RacingMath.Lerp(sp.cgHeight, sp.cgHeightTuck, tuckAmt);
+            body += (RacingMath.Clamp(inp.riderFwd, -1f, 1f) - body) * RacingMath.Ease(4.5f, h);
 
             // ---- loads on the tires: the weight, a crest or a dip, and the transfer that the acceleration causes
-            float loadF = PM.Clamp(1f + uu * uu * gC.vertCurv / PM.G, 0.06f, 2.2f);
-            float nTot = m * PM.G * cosP * loadF;
+            float loadF = RacingMath.Clamp(1f + uu * uu * gC.vertCurv / RacingMath.G, 0.06f, 2.2f);
+            float nTot = m * RacingMath.G * cosP * loadF;
             float transfer = m * axSm * hcg / L;
             float nfRaw = nTot * lr / L - transfer, nrRaw = nTot * lf / L + transfer;
             float nf, nr;
@@ -254,27 +254,27 @@ namespace PryingEyes.Pista
             }
             if (freePitch != 0f)
             {
-                float th = PM.Abs(freePitch);
+                float th = RacingMath.Abs(freePitch);
                 float pivot = freePitch > 0f ? lr : lf;           // distance from the CG to the tire the bike turns about
-                float xx = pivot * PM.Cos(th) - hcg * PM.Sin(th);
-                float zz = pivot * PM.Sin(th) + hcg * PM.Cos(th);
+                float xx = pivot * RacingMath.Cos(th) - hcg * RacingMath.Sin(th);
+                float zz = pivot * RacingMath.Sin(th) + hcg * RacingMath.Cos(th);
                 float inertiaAbout = m * (pivot * pivot + hcg * hcg) + 14f;
                 float accelAlong = freePitch > 0f ? axSm : -axSm;
-                float torque = m * accelAlong * zz - m * PM.G * xx;       // positive = further up
+                float torque = m * accelAlong * zz - m * RacingMath.G * xx;       // positive = further up
                 freeRate += torque / inertiaAbout * h * (freePitch > 0f ? 1f : -1f);
                 freePitch += freeRate * h;
                 bool up = freePitch > 0f;
                 if ((up && freePitch <= 0f) || (!up && freePitch >= 0f) || (freeRate * (up ? 1f : -1f) < 0f && th < 0.006f))
                 {
                     // back on both wheels: the fork or the shock takes the landing
-                    float land = PM.Abs(freeRate);
-                    if (up) forkCompress += PM.Clamp(land * 0.05f, 0f, 0.06f); else shockCompress += PM.Clamp(land * 0.05f, 0f, 0.05f);
+                    float land = RacingMath.Abs(freeRate);
+                    if (up) forkCompress += RacingMath.Clamp(land * 0.05f, 0f, 0.06f); else shockCompress += RacingMath.Clamp(land * 0.05f, 0f, 0.05f);
                     freePitch = 0f; freeRate = 0f;
                     nf = nfRaw < 0f ? 0f : nfRaw; nr = nTot - nf;
                 }
                 else
                 {
-                    if (PM.Abs(freePitch) > 1.25f && !crashed) { BeginCrash(freePitch > 0f ? CrashKind.Loop : CrashKind.Endo, h); return; }
+                    if (RacingMath.Abs(freePitch) > 1.25f && !crashed) { BeginCrash(freePitch > 0f ? CrashKind.Loop : CrashKind.Endo, h); return; }
                     if (freePitch > 0f) { nf = 0f; nr = nTot; } else { nr = 0f; nf = nTot; }
                 }
             }
@@ -287,7 +287,7 @@ namespace PryingEyes.Pista
                 shiftT -= h;
                 if (shiftT <= 0f) { gear = pendingGear; shifting = false; }
             }
-            float wheelRpm = omegaR * sp.TotalRatio(gear) * 30f / PM.Pi;
+            float wheelRpm = omegaR * sp.TotalRatio(gear) * 30f / RacingMath.Pi;
             if (shiftT <= 0f)
             {
                 if (!autoGears)
@@ -297,7 +297,7 @@ namespace PryingEyes.Pista
                 }
                 else
                 {
-                    float up = sp.upshiftRpm * PM.Lerp(0.80f, 1f, PM.Clamp01(inp.throttle * 1.4f));
+                    float up = sp.upshiftRpm * RacingMath.Lerp(0.80f, 1f, RacingMath.Clamp01(inp.throttle * 1.4f));
                     if (wheelRpm > up && gear < sp.GearCount) StartShift(gear + 1);
                     else if (gear > 1)
                     {
@@ -310,15 +310,15 @@ namespace PryingEyes.Pista
             shifting = shiftT > 0f;
 
             // ---- throttle after the aids
-            float thr = PM.Clamp01(inp.throttle);
+            float thr = RacingMath.Clamp01(inp.throttle);
             float aw = 1f;
             wheelieAssist = false;
             if (antiWheelie)
             {
                 float staticFront = nTot * lr / L;
                 float frontShare = staticFront > 1f ? nfRaw / staticFront : 1f;
-                aw = PM.Clamp01((frontShare - 0.03f) / 0.25f);
-                if (freePitch > 0.09f) aw = PM.Min(aw, PM.Clamp01(1f - (freePitch - 0.09f) / 0.10f));
+                aw = RacingMath.Clamp01((frontShare - 0.03f) / 0.25f);
+                if (freePitch > 0.09f) aw = RacingMath.Min(aw, RacingMath.Clamp01(1f - (freePitch - 0.09f) / 0.10f));
                 wheelieAssist = aw < 0.97f && thr > 0.05f;
             }
             float thrEff = thr * aw * (tcs ? tcsFactor : 1f);
@@ -326,17 +326,17 @@ namespace PryingEyes.Pista
 
             // ---- engine speed and torque
             float gRatio = sp.TotalRatio(gear);
-            float floorRpm = gear <= 2 ? PM.Lerp(sp.idleRpm, sp.launchRpm, thr) : sp.idleRpm * 1.1f;
+            float floorRpm = gear <= 2 ? RacingMath.Lerp(sp.idleRpm, sp.launchRpm, thr) : sp.idleRpm * 1.1f;
             bool coupled = !shifting && gear >= 1 && wheelRpm >= floorRpm - 20f;
             if (shifting)
             {
-                float target = PM.Max(sp.idleRpm, omegaR * sp.TotalRatio(pendingGear) * 30f / PM.Pi);
-                if (shiftBlipT > 0f) { shiftBlipT -= h; target = PM.Max(target, omegaR * sp.TotalRatio(pendingGear) * 30f / PM.Pi); }
-                rpm += (target - rpm) * PM.Ease(28f, h);
+                float target = RacingMath.Max(sp.idleRpm, omegaR * sp.TotalRatio(pendingGear) * 30f / RacingMath.Pi);
+                if (shiftBlipT > 0f) { shiftBlipT -= h; target = RacingMath.Max(target, omegaR * sp.TotalRatio(pendingGear) * 30f / RacingMath.Pi); }
+                rpm += (target - rpm) * RacingMath.Ease(28f, h);
             }
             else if (coupled) rpm = wheelRpm;
-            else rpm += (PM.Max(floorRpm, wheelRpm) - rpm) * PM.Ease(14f, h);
-            rpm = PM.Clamp(rpm, sp.idleRpm * 0.9f, sp.limiterRpm + 600f);
+            else rpm += (RacingMath.Max(floorRpm, wheelRpm) - rpm) * RacingMath.Ease(14f, h);
+            rpm = RacingMath.Clamp(rpm, sp.idleRpm * 0.9f, sp.limiterRpm + 600f);
             float te = sp.TorqueAt(rpm) * thrEff - sp.engineBrake * (rpm / 10000f) * (1f - thrEff);
             limiter = rpm >= sp.limiterRpm;
             if (limiter && te > 0f) te = 0f;
@@ -348,13 +348,13 @@ namespace PryingEyes.Pista
             // ---- brakes, with ABS: back off when the front wheel is near its slip peak
             float peak = sp.slipPeakRatio;
             absActive = false;
-            float brakeF = PM.Clamp01(inp.brakeFront), brakeR = PM.Clamp01(inp.brakeRear);
+            float brakeF = RacingMath.Clamp01(inp.brakeFront), brakeR = RacingMath.Clamp01(inp.brakeRear);
             float sF = slipFront / peak;
             if (abs && brakeF > 0.02f)
             {
-                float over = PM.Clamp01((PM.Abs(sF) - 0.85f) / 0.35f);
+                float over = RacingMath.Clamp01((RacingMath.Abs(sF) - 0.85f) / 0.35f);
                 float target = 1f - over;
-                absFactor += (target - absFactor) * PM.Ease(60f, h);
+                absFactor += (target - absFactor) * RacingMath.Ease(60f, h);
                 absActive = over > 0.05f;
             }
             else absFactor = 1f;
@@ -364,11 +364,11 @@ namespace PryingEyes.Pista
             {
                 float staticRear = nTot * lf / L;
                 float rearShare = staticRear > 1f ? nrRaw / staticRear : 1f;
-                liftFactor = PM.Clamp01((rearShare - 0.03f) / 0.20f);
-                if (freePitch < -0.04f) liftFactor = PM.Min(liftFactor, PM.Clamp01(1f + (freePitch + 0.04f) / 0.08f));
+                liftFactor = RacingMath.Clamp01((rearShare - 0.03f) / 0.20f);
+                if (freePitch < -0.04f) liftFactor = RacingMath.Min(liftFactor, RacingMath.Clamp01(1f + (freePitch + 0.04f) / 0.08f));
             }
             float brakeTorqueF = brakeF * sp.brakeFront * (abs ? absFactor : 1f) * liftFactor;
-            float brakeTorqueR = brakeR * sp.brakeRear * (abs ? PM.Clamp01(1f - PM.Max(0f, (slipRear < 0f ? -slipRear : 0f) / peak - 0.9f)) : 1f);
+            float brakeTorqueR = brakeR * sp.brakeRear * (abs ? RacingMath.Clamp01(1f - RacingMath.Max(0f, (slipRear < 0f ? -slipRear : 0f) / peak - 0.9f)) : 1f);
 
             // ---- the tires along the bike, with what is left of their grip after the side force of the last step
             float capXf = Ellipse(muF * nf, fyFrontPrev);
@@ -379,72 +379,72 @@ namespace PryingEyes.Pista
             slipRear = sRear * peak; slipFront = sFront * peak;
             fxR = newFxR; fxF = newFxF;
             // traction control: ease the throttle when the rear spins past its peak (it moves slowly: a hint, not a rule)
-            float spinRatio = PM.Max(0f, sRear);
-            float tcsTarget = PM.Clamp01(1f - (spinRatio - 0.9f) / 0.4f);
-            tcsFactor += (tcsTarget - tcsFactor) * PM.Ease(30f, h);
+            float spinRatio = RacingMath.Max(0f, sRear);
+            float tcsTarget = RacingMath.Clamp01(1f - (spinRatio - 0.9f) / 0.4f);
+            tcsFactor += (tcsTarget - tcsFactor) * RacingMath.Ease(30f, h);
             tcsActive = tcs && tcsFactor < 0.95f && thr > 0.05f;
 
             // ---- along the bike: drag, rolling, slope
-            float cda = PM.Lerp(sp.cdA, sp.cdATuck, tuckAmt) * (1f - DraftDrag * PM.Clamp01(draft));
+            float cda = RacingMath.Lerp(sp.cdA, sp.cdATuck, tuckAmt) * (1f - DraftDrag * RacingMath.Clamp01(draft));
             float drag = 0.5f * 1.2f * cda * uu * uu;
             float rollF = uu > 0.05f ? gC.rolling * nTot : 0f;
-            float slopeF = -m * PM.G * PM.Sin(groundPitch);
+            float slopeF = -m * RacingMath.G * RacingMath.Sin(groundPitch);
             float uDot = (fxR + fxF - drag - rollF + slopeF) / m + vl * yawRate;
             u += uDot * h;
             if (u < 0f) u = 0f;
-            axSm += (uDot - axSm) * PM.Ease(14f, h);
-            longG = axSm / PM.G;
+            axSm += (uDot - axSm) * RacingMath.Ease(14f, h);
+            longG = axSm / RacingMath.G;
 
             // ---- grip left over for cornering (friction ellipse at each tire)
             float capF = Ellipse(muF * nf, fxF), capR = Ellipse(muR * nr, fxR);
-            capSm += (capF + capR - capSm) * PM.Ease(18f, h);
+            capSm += (capF + capR - capSm) * RacingMath.Ease(18f, h);
             float shareF = nTot > 1f ? nf / nTot : 0.5f;
 
             // ---- the lean the rider asks for
             // the weight that tips the bike over (and that the tires feel) is the real one scaled by the slope and by crests and dips: gEff
-            float gEff = PM.G * cosP * loadF;
+            float gEff = RacingMath.G * cosP * loadF;
             float uEff2 = uu * uu + U0 * U0;
             float hangMaxEff = sp.hangMax * (style == RiderStyle.LeanBody ? 1.55f : style == RiderStyle.LeanBike ? 0.25f : 1f);
-            float phiLimit = sp.frameLeanMax + PM.Abs(hang) * hangMaxEff;
-            float phiGrip = PM.Atan(0.96f * capSm / (nTot + 1f));
+            float phiLimit = sp.frameLeanMax + RacingMath.Abs(hang) * hangMaxEff;
+            float phiGrip = RacingMath.Atan(0.96f * capSm / (nTot + 1f));
             // on loose ground nobody can lean the bike further than the ground carries: the front pushes wide instead (with the assist this holds on every ground)
-            float phiMax = leanAssist || loose ? PM.Min(phiLimit, phiGrip) : phiLimit;
-            float kappaMax = PM.Min(1f / sp.minTurnRadius, gEff * PM.Tan(phiMax) / uEff2);
-            float kappaCmd = inp.useCurvature ? PM.Clamp(inp.curvature, -kappaMax, kappaMax) : PM.Clamp(inp.steer, -1f, 1f) * kappaMax;
-            float phiCgCmd = PM.Atan(uEff2 * kappaCmd / gEff);
+            float phiMax = leanAssist || loose ? RacingMath.Min(phiLimit, phiGrip) : phiLimit;
+            float kappaMax = RacingMath.Min(1f / sp.minTurnRadius, gEff * RacingMath.Tan(phiMax) / uEff2);
+            float kappaCmd = inp.useCurvature ? RacingMath.Clamp(inp.curvature, -kappaMax, kappaMax) : RacingMath.Clamp(inp.steer, -1f, 1f) * kappaMax;
+            float phiCgCmd = RacingMath.Atan(uEff2 * kappaCmd / gEff);
             float autoGain = style == RiderStyle.LeanBody ? 1.05f : style == RiderStyle.LeanBike ? 0.15f : 0.9f;
-            float hangT = PM.Clamp(inp.riderLean + (autoHang && uu > 9f ? PM.Clamp(phiCgCmd / 0.70f, -1f, 1f) * autoGain : 0f), -1f, 1f);
-            hang += (hangT - hang) * PM.Ease(5.5f, h);
+            float hangT = RacingMath.Clamp(inp.riderLean + (autoHang && uu > 9f ? RacingMath.Clamp(phiCgCmd / 0.70f, -1f, 1f) * autoGain : 0f), -1f, 1f);
+            hang += (hangT - hang) * RacingMath.Ease(5.5f, h);
             float dHang = hang * hangMaxEff;
             float phiCmd = phiCgCmd - dHang;
-            float vk = PM.Clamp01(uu / 80f);
+            float vk = RacingMath.Clamp01(uu / 80f);
             // the body that goes over first makes the bike fall into the turn faster; the body that stays put makes it slow and steady
-            float wn = PM.Lerp(sp.rollOmegaLow, sp.rollOmegaHigh, vk) * (style == RiderStyle.LeanBody ? 1.10f : style == RiderStyle.LeanBike ? 0.90f : 1f);
-            float rateMax = PM.Lerp(sp.rollRateLow, sp.rollRateHigh, vk) * (style == RiderStyle.LeanBody ? 1.12f : style == RiderStyle.LeanBike ? 0.88f : 1f);
+            float wn = RacingMath.Lerp(sp.rollOmegaLow, sp.rollOmegaHigh, vk) * (style == RiderStyle.LeanBody ? 1.10f : style == RiderStyle.LeanBike ? 0.90f : 1f);
+            float rateMax = RacingMath.Lerp(sp.rollRateLow, sp.rollRateHigh, vk) * (style == RiderStyle.LeanBody ? 1.12f : style == RiderStyle.LeanBike ? 0.88f : 1f);
             // the moment the front lets go on loose ground the bike stands up, much faster than a rider leans it into a corner: a front that pushes wide on gravel takes the lean out of the bike by itself, and the assist helps it
             if (loose && frontSliding) rateMax *= leanAssist ? 3f : 2f;
             leanRate += (wn * wn * (phiCmd - lean) - 2f * 0.85f * wn * leanRate) * h;
-            leanRate = PM.Clamp(leanRate, -rateMax, rateMax);
+            leanRate = RacingMath.Clamp(leanRate, -rateMax, rateMax);
             lean += leanRate * h;
             float leanCap = sp.frameLeanMax + 0.03f;
             if (lean > leanCap) { lean = leanCap; if (leanRate > 0f) leanRate = 0f; }
             else if (lean < -leanCap) { lean = -leanCap; if (leanRate < 0f) leanRate = 0f; }
-            scraping = PM.Abs(lean) > sp.frameLeanMax * 0.92f && uu > 8f;
+            scraping = RacingMath.Abs(lean) > sp.frameLeanMax * 0.92f && uu > 8f;
             // kerbs and gravel make the bike shake a little
             if (rough > 0.25f && uu > 8f) leanRate += (rng.Value() - 0.5f) * 0.9f * rough * h * 60f * 0.25f;
 
             // ---- yaw rate from the lean
             float phiCg = lean + dHang;
-            float rk = gEff * PM.Tan(phiCg) * uu / uEff2;
+            float rk = gEff * RacingMath.Tan(phiCg) * uu / uEff2;
             float rMax = uu / sp.minTurnRadius;
-            rk = PM.Clamp(rk, -rMax, rMax);
+            rk = RacingMath.Clamp(rk, -rMax, rMax);
 
             // ---- does the grip hold the turn?
             float fyReq = m * uu * rk;
             float fyCap = capF + capR;
-            float sat = PM.Abs(fyReq) / PM.Max(fyCap, 60f);
-            float rhoF = PM.Abs(fyReq) * shareF / PM.Max(capF, 25f);
-            float rhoR = PM.Abs(fyReq) * (1f - shareF) / PM.Max(capR, 25f);
+            float sat = RacingMath.Abs(fyReq) / RacingMath.Max(fyCap, 60f);
+            float rhoF = RacingMath.Abs(fyReq) * shareF / RacingMath.Max(capF, 25f);
+            float rhoR = RacingMath.Abs(fyReq) * (1f - shareF) / RacingMath.Max(capR, 25f);
             if (nf <= 1f) rhoF = 0f;
             if (nr <= 1f) rhoR = 0f;
             float fyNet = sat <= 1f ? fyReq : (fyReq < 0f ? -1f : 1f) * fyCap * 0.92f;
@@ -455,53 +455,53 @@ namespace PryingEyes.Pista
             if (sat <= 1f)
             {
                 r = rk;
-                vl *= PM.Exp(-h / 0.07f);
+                vl *= RacingMath.Exp(-h / 0.07f);
             }
             else if (slideFront)
             {
-                r = fyNet / (m * PM.Max(uu, 1f));
-                vl *= PM.Exp(-h / 0.2f);
+                r = fyNet / (m * RacingMath.Max(uu, 1f));
+                vl *= RacingMath.Exp(-h / 0.2f);
             }
             else
             {
                 r = rk;
                 vl += (fyNet - m * uu * r) / m * h;
-                vl *= PM.Exp(-h * 0.35f);
+                vl *= RacingMath.Exp(-h * 0.35f);
             }
-            fyFrontPrev = PM.Abs(fyNet) * shareF;
-            fyRearPrev = PM.Abs(fyNet) * (1f - shareF);
-            latG = uu * r / PM.G;
+            fyFrontPrev = RacingMath.Abs(fyNet) * shareF;
+            fyRearPrev = RacingMath.Abs(fyNet) * (1f - shareF);
+            latG = uu * r / RacingMath.G;
 
             // ---- falling off
-            float beta = PM.Atan2(vl, PM.Max(uu, 1f));
-            if (slideRear) { slideT += h; slipPeak = PM.Max(slipPeak, PM.Abs(beta)); if (loose) slideLoose = true; }
+            float beta = RacingMath.Atan2(vl, RacingMath.Max(uu, 1f));
+            if (slideRear) { slideT += h; slipPeak = RacingMath.Max(slipPeak, RacingMath.Abs(beta)); if (loose) slideLoose = true; }
             else
             {
                 // coming back onto the asphalt after a slide on the gravel or the grass is a wobble, not the highside of a slide that began on the road
-                if (slideT > 0.12f && slipPeak > 0.16f && sat < 0.92f && PM.Abs(lean) > 0.18f && uu > 8f)
+                if (slideT > 0.12f && slipPeak > 0.16f && sat < 0.92f && RacingMath.Abs(lean) > 0.18f && uu > 8f)
                 {
                     if (slideLoose) leanRate += (rng.Value() - 0.5f) * 1.2f;
                     else { BeginCrash(CrashKind.Highside, h); return; }
                 }
-                slideT = PM.Max(0f, slideT - h * 2f); slipPeak *= PM.Exp(-h * 3f);
+                slideT = RacingMath.Max(0f, slideT - h * 2f); slipPeak *= RacingMath.Exp(-h * 3f);
                 if (slideT <= 0f) slideLoose = false;
             }
             // the front pushing wide on loose ground tucks slowly (and the bike is already standing up): a good deal longer than on the road, longest with the assist
-            if (slideFront) tuckT += (rhoF - 1f) * h * (0.9f + 4.5f * PM.Abs(lean)) * (1f - 0.7f * forgive); else tuckT = PM.Max(0f, tuckT - 1.5f * h);
+            if (slideFront) tuckT += (rhoF - 1f) * h * (0.9f + 4.5f * RacingMath.Abs(lean)) * (1f - 0.7f * forgive); else tuckT = RacingMath.Max(0f, tuckT - 1.5f * h);
             if (tuckT > 0.085f * (1f + 3f * forgive) && uu > 5f) { BeginCrash(CrashKind.FrontTuck, h); return; }
             // a hit by another bike leaves a sideways speed that the tires are about to take away: it is not yet a slide
-            if (PM.Abs(beta) > 0.32f + 0.20f * forgive + (shoveT > 0f ? 0.22f : 0f) && uu > 6f) { BeginCrash(CrashKind.Lowside, h); return; }
+            if (RacingMath.Abs(beta) > 0.32f + 0.20f * forgive + (shoveT > 0f ? 0.22f : 0f) && uu > 6f) { BeginCrash(CrashKind.Lowside, h); return; }
             // a locked front wheel in a turn, or held for long, folds
             if (slipFront < -0.55f * 1f && uu > 6f)
             {
-                frontLockT += h * (PM.Abs(lean) > 0.10f ? 4f : 1f);
+                frontLockT += h * (RacingMath.Abs(lean) > 0.10f ? 4f : 1f);
                 if (frontLockT > 0.9f) { BeginCrash(CrashKind.FrontLock, h); return; }
             }
-            else frontLockT = PM.Max(0f, frontLockT - h * 2f);
+            else frontLockT = RacingMath.Max(0f, frontLockT - h * 2f);
 
             // ---- move
             float hm = heading + 0.5f * r * h;
-            float sm = PM.Sin(hm), cm = PM.Cos(hm);
+            float sm = RacingMath.Sin(hm), cm = RacingMath.Cos(hm);
             vxWorld = uu * sm + vl * cm; vzWorld = uu * cm - vl * sm;
             x += vxWorld * h; z += vzWorld * h;
             heading += r * h;
@@ -511,12 +511,12 @@ namespace PryingEyes.Pista
             if (Barriers(ground, h)) { BeginCrash(CrashKind.Wall, h); return; }
 
             // ---- the springs: dive, squat, and the pitch and steering the picture needs
-            float nf0 = m * PM.G * lr / L, nr0 = m * PM.G * lf / L;
-            float fkT = PM.Clamp((nf - nf0) / sp.forkRate, -0.03f, 0.16f), shT = PM.Clamp((nr - nr0) / sp.shockRate, -0.03f, 0.10f);
-            forkCompress += (fkT - forkCompress) * PM.Ease(13f, h);
-            shockCompress += (shT - shockCompress) * PM.Ease(13f, h);
-            pitch = groundPitch + PM.Atan((shockCompress - forkCompress) / L) + freePitch;
-            steerAngle = PM.Atan(L * r / PM.Max(uu, 1.5f)) - 0.08f * leanRate / (1f + uu / 15f);
+            float nf0 = m * RacingMath.G * lr / L, nr0 = m * RacingMath.G * lf / L;
+            float fkT = RacingMath.Clamp((nf - nf0) / sp.forkRate, -0.03f, 0.16f), shT = RacingMath.Clamp((nr - nr0) / sp.shockRate, -0.03f, 0.10f);
+            forkCompress += (fkT - forkCompress) * RacingMath.Ease(13f, h);
+            shockCompress += (shT - shockCompress) * RacingMath.Ease(13f, h);
+            pitch = groundPitch + RacingMath.Atan((shockCompress - forkCompress) / L) + freePitch;
+            steerAngle = RacingMath.Atan(L * r / RacingMath.Max(uu, 1.5f)) - 0.08f * leanRate / (1f + uu / 15f);
         }
 
         void StartShift(int toGear)
@@ -530,7 +530,7 @@ namespace PryingEyes.Pista
         // ================================================================== barriers and crashes
         bool Barriers(IGround ground, float h)
         {
-            float sinH = PM.Sin(heading), cosH = PM.Cos(heading), half = spec.wheelbase * 0.5f;
+            float sinH = RacingMath.Sin(heading), cosH = RacingMath.Cos(heading), half = spec.wheelbase * 0.5f;
             for (int k = 0; k < 3; k++)
             {
                 float off = k == 0 ? half : k == 1 ? -half : 0f;
@@ -549,11 +549,11 @@ namespace PryingEyes.Pista
                 if (impact > CrashWallSpeed) return true;
                 // a scrape: lose the part of the speed into the wall and a little along it, and swing away from it
                 float tx = vx - vn * nx, tz = vz - vn * nz;
-                float keep = PM.Clamp(1f - 0.045f * impact, 0.5f, 1f);
+                float keep = RacingMath.Clamp(1f - 0.045f * impact, 0.5f, 1f);
                 vx = tx * keep; vz = tz * keep;
                 u = vx * sinH + vz * cosH; vl = vx * cosH - vz * sinH;
                 if (u < 0f) u = 0f;
-                heading += PM.Clamp(impact * 0.012f, 0f, 0.05f) * (nx * cosH - nz * sinH < 0f ? 1f : -1f);
+                heading += RacingMath.Clamp(impact * 0.012f, 0f, 0.05f) * (nx * cosH - nz * sinH < 0f ? 1f : -1f);
                 leanRate += (rng.Value() - 0.5f) * 0.6f;
             }
             return false;
@@ -565,7 +565,7 @@ namespace PryingEyes.Pista
         {
             if (crashed) return;
             x += dx; z += dz;
-            float sinH = PM.Sin(heading), cosH = PM.Cos(heading);
+            float sinH = RacingMath.Sin(heading), cosH = RacingMath.Cos(heading);
             u += dvx * sinH + dvz * cosH; vl += dvx * cosH - dvz * sinH;
             if (u < 0f) u = 0f;
             heading += twist;
@@ -580,8 +580,8 @@ namespace PryingEyes.Pista
         {
             if (crashed) return;
             crashed = true; crashKind = kind; crashTime = 0f;
-            float sinH = PM.Sin(heading), cosH = PM.Cos(heading);
-            vxWorld = PM.Max(u, 0f) * sinH + vl * cosH; vzWorld = PM.Max(u, 0f) * cosH - vl * sinH;
+            float sinH = RacingMath.Sin(heading), cosH = RacingMath.Cos(heading);
+            vxWorld = RacingMath.Max(u, 0f) * sinH + vl * cosH; vzWorld = RacingMath.Max(u, 0f) * cosH - vl * sinH;
             if (kind == CrashKind.Wall)
             {
                 vxWorld *= 0.45f; vzWorld *= 0.45f;
@@ -601,20 +601,20 @@ namespace PryingEyes.Pista
             GroundSample g;
             ground.Sample(x, z, ref hintC, out g);
             y = g.y;
-            float speed = PM.Sqrt(vxWorld * vxWorld + vzWorld * vzWorld);
+            float speed = RacingMath.Sqrt(vxWorld * vxWorld + vzWorld * vzWorld);
             float mu = g.surface == SurfaceKind.Gravel ? 1.05f : g.surface == SurfaceKind.Grass ? 0.55f : g.surface == SurfaceKind.Kerb ? 0.75f : 0.62f;
-            float dec = mu * PM.G * h;
-            float ns = PM.Max(0f, speed - dec);
+            float dec = mu * RacingMath.G * h;
+            float ns = RacingMath.Max(0f, speed - dec);
             if (speed > 1e-3f) { float k = ns / speed; vxWorld *= k; vzWorld *= k; }
             x += vxWorld * h; z += vzWorld * h;
             heading += crashSpin * h;
-            crashSpin *= PM.Exp(-h * 0.9f);
-            lean += (crashLeanTarget - lean) * PM.Ease(9f, h);
+            crashSpin *= RacingMath.Exp(-h * 0.9f);
+            lean += (crashLeanTarget - lean) * RacingMath.Ease(9f, h);
             leanRate = 0f;
-            float sinH = PM.Sin(heading), cosH = PM.Cos(heading);
+            float sinH = RacingMath.Sin(heading), cosH = RacingMath.Cos(heading);
             u = vxWorld * sinH + vzWorld * cosH; vl = vxWorld * cosH - vzWorld * sinH;
-            omegaR *= PM.Exp(-h * 2.5f); omegaF *= PM.Exp(-h * 2.5f);
-            rpm += (spec.idleRpm - rpm) * PM.Ease(5f, h);
+            omegaR *= RacingMath.Exp(-h * 2.5f); omegaF *= RacingMath.Exp(-h * 2.5f);
+            rpm += (spec.idleRpm - rpm) * RacingMath.Ease(5f, h);
             yawRate = crashSpin; latG = 0f; longG = -mu;
             throttleOut = 0f; tcsActive = absActive = false; limiter = false;
             // sliding into a barrier stops the bike
@@ -625,10 +625,10 @@ namespace PryingEyes.Pista
                 float vn = vxWorld * nx + vzWorld * nz;
                 if (vn < 0f) { vxWorld -= vn * nx * 1.2f; vzWorld -= vn * nz * 1.2f; vxWorld *= 0.8f; vzWorld *= 0.8f; }
             }
-            pitch += (0f - pitch) * PM.Ease(6f, h);
+            pitch += (0f - pitch) * RacingMath.Ease(6f, h);
         }
 
         /// <summary>The slide is over: the bike has stopped (or it has been long enough) and the game may put the rider back on the track.</summary>
-        public bool CrashOver { get { return crashed && ((crashTime > 0.8f && PM.Sqrt(vxWorld * vxWorld + vzWorld * vzWorld) < 0.6f) || crashTime > 5f); } }
+        public bool CrashOver { get { return crashed && ((crashTime > 0.8f && RacingMath.Sqrt(vxWorld * vxWorld + vzWorld * vzWorld) < 0.6f) || crashTime > 5f); } }
     }
 }

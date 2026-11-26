@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace PryingEyes.Pista
+namespace Production.Racing
 {
     /// <summary>What a bike can do at full throttle and at full brake, speed by speed: measured by riding the physics model itself on flat clean asphalt (aids on), so the rider AI plans with
     /// numbers the bike really delivers. Cached per bike.</summary>
@@ -196,7 +196,7 @@ namespace PryingEyes.Pista
                 double p0 = o[(k + m - 1) % m], p1 = o[k], p2 = o[next], p3 = o[(k + 2) % m];
                 double v = 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t);
                 float lim = Math.Max(0.5f, c.halfW[i] - margin);
-                off[i] = PM.Clamp((float)v, -lim, lim);
+                off[i] = RacingMath.Clamp((float)v, -lim, lim);
             }
         }
 
@@ -258,7 +258,7 @@ namespace PryingEyes.Pista
             for (int i = 0; i < n; i++)
             {
                 int a = (i + n - w) % n, b = (i + w) % n;
-                float dh = PM.WrapPi(heading[b] - heading[a]);
+                float dh = RacingMath.WrapPi(heading[b] - heading[a]);
                 float dx = x[b] - x[a], dz = z[b] - z[a];
                 float len = (float)Math.Sqrt(dx * dx + dz * dz) + 0.01f;
                 kappa[i] = dh / len;
@@ -269,13 +269,13 @@ namespace PryingEyes.Pista
         void Profile()
         {
             int n = c.n;
-            float g = PM.G, top = curves.topSpeed * 0.985f;
+            float g = RacingMath.G, top = curves.topSpeed * 0.985f;
             for (int i = 0; i < n; i++)
             {
-                float k = PM.Abs(kappa[i]), vc = c.vcurv[i];
+                float k = RacingMath.Abs(kappa[i]), vc = c.vcurv[i];
                 float den = k - mu * vc;
-                float v = den > 1e-6f ? PM.Sqrt(mu * g / den) : top;
-                vlim[i] = PM.Min(v, top);
+                float v = den > 1e-6f ? RacingMath.Sqrt(mu * g / den) : top;
+                vlim[i] = RacingMath.Min(v, top);
             }
             for (int i = 0; i < n; i++) vplan[i] = vlim[i];
             // the braking and the acceleration, twice around so the lap closes
@@ -286,14 +286,14 @@ namespace PryingEyes.Pista
                     int i = s % n, nx = (i + 1) % n;
                     float ds = Dist(i, nx);
                     float vn = vplan[nx];
-                    float k = PM.Abs(kappa[i]);
+                    float k = RacingMath.Abs(kappa[i]);
                     float slope = (c.py[nx] - c.py[i]) / ds;
                     float vi = vplan[i];
                     float aLat = k * vi * vi;
-                    float circle = PM.Sqrt(PM.Max(0f, 1f - PM.Sqr(PM.Min(1f, aLat / (mu * g)))));
+                    float circle = RacingMath.Sqrt(RacingMath.Max(0f, 1f - RacingMath.Sqr(RacingMath.Min(1f, aLat / (mu * g)))));
                     float dec = curves.BrakeAt(vn) * circle + g * slope * 0.9f;
-                    dec = PM.Max(dec, 1f);
-                    float vmax = PM.Sqrt(vn * vn + 2f * dec * ds);
+                    dec = RacingMath.Max(dec, 1f);
+                    float vmax = RacingMath.Sqrt(vn * vn + 2f * dec * ds);
                     if (vmax < vplan[i]) vplan[i] = vmax;
                 }
                 for (int s = 0; s < 2 * n; s++)
@@ -301,13 +301,13 @@ namespace PryingEyes.Pista
                     int i = s % n, nx = (i + 1) % n;
                     float ds = Dist(i, nx);
                     float vi = vplan[i];
-                    float k = PM.Abs(kappa[nx]);
+                    float k = RacingMath.Abs(kappa[nx]);
                     float slope = (c.py[nx] - c.py[i]) / ds;
                     float aLat = k * vi * vi;
-                    float circle = PM.Sqrt(PM.Max(0f, 1f - PM.Sqr(PM.Min(1f, aLat / (mu * g)))));
+                    float circle = RacingMath.Sqrt(RacingMath.Max(0f, 1f - RacingMath.Sqr(RacingMath.Min(1f, aLat / (mu * g)))));
                     float acc = curves.AccelAt(vi) * circle - g * slope * 0.9f;
-                    acc = PM.Max(acc, 0.3f);
-                    float vmax = PM.Sqrt(vi * vi + 2f * acc * ds);
+                    acc = RacingMath.Max(acc, 0.3f);
+                    float vmax = RacingMath.Sqrt(vi * vi + 2f * acc * ds);
                     if (vmax < vplan[nx]) vplan[nx] = vmax;
                 }
             }
@@ -323,7 +323,7 @@ namespace PryingEyes.Pista
         float Dist(int i, int j)
         {
             float dx = x[j] - x[i], dz = z[j] - z[i];
-            return PM.Sqrt(dx * dx + dz * dz) + 1e-4f;
+            return RacingMath.Sqrt(dx * dx + dz * dz) + 1e-4f;
         }
 
         // ------------------------------------------------------------------ queries by distance along the lap
@@ -344,7 +344,7 @@ namespace PryingEyes.Pista
         public float MinPlanAhead(float s, float ahead)
         {
             float m = float.MaxValue;
-            for (float d = 0f; d <= ahead; d += c.spacing * 2f) m = PM.Min(m, PlanSpeedAt(s + d));
+            for (float d = 0f; d <= ahead; d += c.spacing * 2f) m = RacingMath.Min(m, PlanSpeedAt(s + d));
             return m;
         }
 
@@ -356,11 +356,11 @@ namespace PryingEyes.Pista
             i = c.Wrap(i);
             float cx = c.Lerp(c.px, i, t), cz = c.Lerp(c.pz, i, t);
             float nx = c.Lerp(c.nx, i, t), nz = c.Lerp(c.nz, i, t);
-            float l = PM.Sqrt(nx * nx + nz * nz);
+            float l = RacingMath.Sqrt(nx * nx + nz * nz);
             nx /= l; nz /= l;
             float o = c.Lerp(off, i, t) + extraOffset;
             float lim = c.Lerp(c.halfW, i, t) - 0.9f;
-            o = PM.Clamp(o, -lim, lim);
+            o = RacingMath.Clamp(o, -lim, lim);
             px = cx + nx * o; pz = cz + nz * o;
         }
     }

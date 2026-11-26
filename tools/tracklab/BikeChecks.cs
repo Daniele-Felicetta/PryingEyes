@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The motorcycle physics on a flat road: what a 1000 cc superbike is known to do (top speed, 0-100, braking, wheelies, lean) and the limits the model must respect.</summary>
 static partial class Program
@@ -34,8 +35,8 @@ static partial class Program
         float kw = sb.PeakPowerKw(out peakRpm);
         float hp = kw * 1.341f;
         Check("BIKE_SUPERBIKE_POWER", hp > 175f && hp < 205f, "peak " + hp.ToString("F0") + " hp at " + peakRpm.ToString("F0") + " rpm", "175-205 hp");
-        float firstTop = sb.redlineRpm / sb.TotalRatio(1) * PryingEyes.Pista.PM.TwoPi / 60f * sb.wheelRadius * 3.6f;
-        float lastTop = sb.redlineRpm / sb.TotalRatio(6) * PryingEyes.Pista.PM.TwoPi / 60f * sb.wheelRadius * 3.6f;
+        float firstTop = sb.redlineRpm / sb.TotalRatio(1) * RacingMath.TwoPi / 60f * sb.wheelRadius * 3.6f;
+        float lastTop = sb.redlineRpm / sb.TotalRatio(6) * RacingMath.TwoPi / 60f * sb.wheelRadius * 3.6f;
         Check("BIKE_GEARING", firstTop > 105f && firstTop < 150f && lastTop > 300f, "first gear to " + firstTop.ToString("F0") + " km/h, sixth to " + lastTop.ToString("F0") + " km/h at the redline", "first 105-150, sixth above 300");
 
         // ---- standing start: 0-100 and 0-200 km/h, and the top speed
@@ -50,13 +51,13 @@ static partial class Program
         Check("BIKE_0_100", t100 > 2.4f && t100 < 3.6f, "0-100 km/h in " + t100.ToString("F2") + " s", "2.4-3.6 s");
         Check("BIKE_0_200", t200 > 5.5f && t200 < 9.5f, "0-200 km/h in " + t200.ToString("F2") + " s", "5.5-9.5 s");
         Check("BIKE_TOP_SPEED", vmax > 285f && vmax < 320f, "top speed " + vmax.ToString("F0") + " km/h in 40 s", "285-320 km/h");
-        Check("BIKE_ANTI_WHEELIE_KEEPS_FRONT_LOW", maxPitch < 0.20f, "front lifted to " + (maxPitch * PM.Rad2Deg).ToString("F1") + " degrees with the aids on", "under 11.5 degrees");
+        Check("BIKE_ANTI_WHEELIE_KEEPS_FRONT_LOW", maxPitch < 0.20f, "front lifted to " + (maxPitch * RacingMath.Rad2Deg).ToString("F1") + " degrees with the aids on", "under 11.5 degrees");
 
         // ---- without the aids a full-throttle launch in first and second gear wheelies; held, it loops
         float maxPitchRaw = 0f; bool looped = false;
         Ride(sb, flat, 8f, (t, b) => Full(), (t, b) => { maxPitchRaw = Math.Max(maxPitchRaw, b.freePitch); if (b.crashed && b.crashKind == CrashKind.Loop) looped = true; },
             b => { b.antiWheelie = false; b.tcs = false; });
-        Check("BIKE_WHEELIE_WITHOUT_AIDS", maxPitchRaw > 0.45f, "front up to " + (maxPitchRaw * PM.Rad2Deg).ToString("F0") + " degrees at full throttle with no aids", "above 26 degrees");
+        Check("BIKE_WHEELIE_WITHOUT_AIDS", maxPitchRaw > 0.45f, "front up to " + (maxPitchRaw * RacingMath.Rad2Deg).ToString("F0") + " degrees at full throttle with no aids", "above 26 degrees");
         Check("BIKE_LOOPS_IF_HELD", looped, looped ? "flipped over backwards" : "never flipped", "flips");
 
         // ---- braking from 100 and from 200 km/h with the front and rear brake and ABS
@@ -72,7 +73,7 @@ static partial class Program
             {
                 bike.Step(Dt, flat, new BikeInputs { brakeFront = 1f, brakeRear = 0.35f });
                 dist = bike.z; tStop = t;
-                peakDec = Math.Max(peakDec, (prevU - bike.u) / Dt / PM.G);
+                peakDec = Math.Max(peakDec, (prevU - bike.u) / Dt / RacingMath.G);
                 prevU = bike.u;
                 stoppie = Math.Max(stoppie, -bike.freePitch);
                 absSeen |= bike.absActive; crashedB |= bike.crashed;
@@ -83,7 +84,7 @@ static partial class Program
                 Check("BIKE_BRAKE_100", dist > 26f && dist < 50f && !crashedB, "100 km/h to a stop in " + dist.ToString("F1") + " m, " + tStop.ToString("F2") + " s, peak " + peakDec.ToString("F2") + " g", "26-50 m");
                 Check("BIKE_ABS_WORKS", absSeen, absSeen ? "ABS stepped in" : "ABS never needed", "ABS steps in at full brake");
             }
-            else Check("BIKE_BRAKE_200", dist > 100f && dist < 175f && !crashedB, "200 km/h to a stop in " + dist.ToString("F0") + " m, " + tStop.ToString("F2") + " s, rear wheel up " + (stoppie * PM.Rad2Deg).ToString("F0") + " degrees", "100-175 m");
+            else Check("BIKE_BRAKE_200", dist > 100f && dist < 175f && !crashedB, "200 km/h to a stop in " + dist.ToString("F0") + " m, " + tStop.ToString("F2") + " s, rear wheel up " + (stoppie * RacingMath.Rad2Deg).ToString("F0") + " degrees", "100-175 m");
         }
 
         // ---- without the rear-lift control, full front brake at speed lifts the rear wheel
@@ -98,7 +99,7 @@ static partial class Program
                 up = Math.Max(up, -bike.freePitch);
                 if (bike.crashed) break;
             }
-            Check("BIKE_STOPPIE_WITHOUT_AIDS", up > 0.25f, "rear wheel up to " + (up * PM.Rad2Deg).ToString("F0") + " degrees at full front brake from 200 km/h", "above 14 degrees");
+            Check("BIKE_STOPPIE_WITHOUT_AIDS", up > 0.25f, "rear wheel up to " + (up * RacingMath.Rad2Deg).ToString("F0") + " degrees at full front brake from 200 km/h", "above 14 degrees");
         }
 
         // ---- the same without ABS at full front brake locks the front wheel
@@ -122,11 +123,11 @@ static partial class Program
             float kappa = v < 30f ? 1f / 70f : 1f / 220f;
             var bike = Ride(sb, flat, 6f, (t, b) => new BikeInputs { useCurvature = true, curvature = kappa, throttle = ThrottleToHold(b, v) },
                 null, b => { b.u = v; b.omegaF = b.omegaR = v / sb.wheelRadius; b.gear = v < 20f ? 3 : v < 33f ? 4 : 5; });
-            float wanted = (float)Math.Atan(v * v * kappa / PM.G);
+            float wanted = (float)Math.Atan(v * v * kappa / RacingMath.G);
             float cg = bike.lean + bike.hang * sb.hangMax;
             float radius = bike.u / Math.Max(1e-3f, Math.Abs(bike.yawRate));
             Check("BIKE_STEADY_TURN_" + (int)(v * 3.6f), Math.Abs(cg - wanted) < 0.03f && Math.Abs(radius - 1f / kappa) < 8f && !bike.crashed,
-                "at " + (v * 3.6f).ToString("F0") + " km/h on a " + (1f / kappa).ToString("F0") + " m radius: lean " + (bike.lean * PM.Rad2Deg).ToString("F1") + " + body " + (bike.hang * sb.hangMax * PM.Rad2Deg).ToString("F1") + " deg (needs " + (wanted * PM.Rad2Deg).ToString("F1") + "), radius " + radius.ToString("F0") + " m",
+                "at " + (v * 3.6f).ToString("F0") + " km/h on a " + (1f / kappa).ToString("F0") + " m radius: lean " + (bike.lean * RacingMath.Rad2Deg).ToString("F1") + " + body " + (bike.hang * sb.hangMax * RacingMath.Rad2Deg).ToString("F1") + " deg (needs " + (wanted * RacingMath.Rad2Deg).ToString("F1") + "), radius " + radius.ToString("F0") + " m",
                 "lean within 1.7 degrees, the radius asked for");
         }
 
@@ -199,7 +200,7 @@ static partial class Program
     /// <summary>A throttle that holds a speed: the lab's stand-in for a rider who keeps a steady pace in a corner.</summary>
     static float ThrottleToHold(BikeModel b, float v)
     {
-        return PryingEyes.Pista.PM.Clamp01(0.25f + (v - b.u) * 0.6f);
+        return RacingMath.Clamp01(0.25f + (v - b.u) * 0.6f);
     }
 
     /// <summary>A hump in the road everywhere: a constant negative vertical curvature (a long crest).</summary>
