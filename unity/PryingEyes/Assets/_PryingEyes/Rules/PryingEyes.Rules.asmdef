@@ -3,6 +3,7 @@
   "rootNamespace": "PryingEyes",
   "references": [
     "Production.Economy",
+    "Production.Racing",
     "Production.Saves"
   ],
   "autoReferenced": true,
