@@ -8,7 +8,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="DataChecks.cs" />
     <Compile Include="LegacyReload.cs" />
+    <Compile Include="LegacyDefs.cs" />
     <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.weapons/Runtime/WeaponState.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.weapons/Runtime/Rgba.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.weapons/Runtime/WeaponMath.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.weapons/Runtime/WeaponDef.cs" />
+    <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.weapons/Runtime/WeaponCatalogRules.cs" />
   </ItemGroup>
 </Project>

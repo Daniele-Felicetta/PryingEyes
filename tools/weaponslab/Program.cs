@@ -8,7 +8,7 @@ static class Program
 {
     static readonly List<object> findings = new List<object>();
     static int failures, samples;
-    static void Check(string code, string subject, bool passed, string observed, string expected)
+    internal static void Check(string code, string subject, bool passed, string observed, string expected)
     {
         if (!passed) { failures++; Console.WriteLine("FAIL " + subject + ": " + observed); }
         findings.Add(new { code, subject, passed, observed, expected });
@@ -29,16 +29,17 @@ static class Program
                     Compare(def, upgrade, empty, lowReserve, dt, timeScale);
             }
             Contracts(); Cadence();
+            DataChecks.Run(catalog.RootElement.GetProperty("weapons"));
         }
         catch (Exception e) { Check("STATE_LAB_EXCEPTION", "suite", false, e.ToString(), "completed verification"); }
-        var report = new { schemaVersion = 1, operation = "weapon.state", ok = failures == 0, samples,
-            referenceCommit = "6fcbecf", findings };
+        var report = new { schemaVersion = 1, operation = "weapon.state", ok = failures == 0, samples, inputs = DataChecks.inputs,
+            referenceCommit = "6fcbecf", dataReferenceCommit = "e25e832", findings };
         if (args.Length > 1)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[1])));
             File.WriteAllText(args[1], JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
         }
-        Console.WriteLine($"WEAPON STATE {(failures == 0 ? "PASS" : "FAIL")}: {findings.Count - failures}/{findings.Count}, {samples} trace samples");
+        Console.WriteLine($"WEAPON STATE {(failures == 0 ? "PASS" : "FAIL")}: {findings.Count - failures}/{findings.Count}, {samples} trace samples, {DataChecks.inputs} catalogue inputs");
         return failures == 0 ? 0 : 1;
     }
 
