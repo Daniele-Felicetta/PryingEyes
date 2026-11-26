@@ -27,6 +27,7 @@ static class DataChecks
         RealCatalogue(indices, added, old);
         Table(json, indices, added, old);
         Contract(indices, added);
+        GunplayChecks.Run(added, old);
     }
 
     // ---- the shape of the record: the columns of the catalogue, in the order its content hash is taken over

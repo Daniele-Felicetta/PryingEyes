@@ -32,14 +32,14 @@ static class Program
             DataChecks.Run(catalog.RootElement.GetProperty("weapons"));
         }
         catch (Exception e) { Check("STATE_LAB_EXCEPTION", "suite", false, e.ToString(), "completed verification"); }
-        var report = new { schemaVersion = 1, operation = "weapon.state", ok = failures == 0, samples, inputs = DataChecks.inputs,
-            referenceCommit = "6fcbecf", dataReferenceCommit = "e25e832", findings };
+        var report = new { schemaVersion = 1, operation = "weapon.state", ok = failures == 0, samples, inputs = DataChecks.inputs, gunplayInputs = GunplayChecks.inputs,
+            referenceCommit = "6fcbecf", dataReferenceCommit = "e25e832", gunplayReferenceCommit = "e25e832", findings };
         if (args.Length > 1)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(args[1])));
             File.WriteAllText(args[1], JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
         }
-        Console.WriteLine($"WEAPON STATE {(failures == 0 ? "PASS" : "FAIL")}: {findings.Count - failures}/{findings.Count}, {samples} trace samples, {DataChecks.inputs} catalogue inputs");
+        Console.WriteLine($"WEAPON STATE {(failures == 0 ? "PASS" : "FAIL")}: {findings.Count - failures}/{findings.Count}, {samples} trace samples, {DataChecks.inputs} catalogue inputs, {GunplayChecks.inputs} gunplay inputs");
         return failures == 0 ? 0 : 1;
     }
 
