@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Legno (wood) is a common resource: staves, rosaries and pew splinters, used for the beams, the organ and the confessionals.
 image: img/resources/legno.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Legno

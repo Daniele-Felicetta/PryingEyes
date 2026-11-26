@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "about": "What is wrong today in the game's own sources, and tolerated by the guard (check_game in tools/check_suite.py). A file is named relative to unity/PryingEyes/Assets/_PryingEyes. An entry is deleted in the commit that fixes its violation (the guard fails with GAME_BASELINE_STALE until then) and is never added without a reason a reviewer accepts: a new violation fails the guard. docs/engineering/suite-architecture.md says what each rule is for.",
+  "GAME_PRODUCTION_NAMES_TEST": [],
+  "GAME_TEST_NOT_EXCLUDED": [],
+  "GAME_LAB_FILE_OUTSIDE_RULES": []
+}

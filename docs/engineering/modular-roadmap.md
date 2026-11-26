@@ -12,6 +12,7 @@ It does not need the conversation that produced it. Everything it relies on is i
 | [package-extraction.md](package-extraction.md) | what can become a reusable package, and when |
 | [agent-tooling.md](agent-tooling.md) | the commands and data formats for agents |
 | [modular-tasks.md](modular-tasks.md) | the brief of each task: steps, acceptance criteria, verification |
+| [plan-method.md](plan-method.md) | how the plan is run when tasks go side by side: roles, the cycle, checking a report, the order of merges |
 
 Written on 20 November 2026 at commit `4042709` (version 0.9.4). At that date nothing in the plan had been carried out except the
 census tool (`tools/code_census.py`) that the audit needed; the [status](#status) table is the live part.
@@ -22,9 +23,9 @@ census tool (`tools/code_census.py`) that the audit needed; the [status](#status
 2. Give every in-player check one shape: listed in a manifest, started by one command, answered with data (phase 1).
 3. Let agents work at the same time without stepping on each other: worktrees, ports, files (phase 2).
 4. Draw the first boundaries the compiler checks: the engine-free rules of the game, then the tests (phase 3).
-5. Extract or converge the rest only when an event asks for it (phase 4).
+5. Extract or converge the rest only when an event asks for it (phase 4); so far the event is the maintainer's decision to make the bikes and the guns packages.
 
-No phase rewrites gameplay. The largest move of code is 34 files that change folder without changing a line.
+No phase rewrites gameplay. The largest move of code is 56 files (34 when the plan was written) that change folder without changing a line.
 
 ## Why this order
 
@@ -49,26 +50,32 @@ are in [modular-tasks.md](modular-tasks.md).
 | Task | Title | Phase | Depends on | Needs | State |
 | --- | --- | --- | --- | --- | --- |
 | T01 | The desert lab in the gate | 0 | | .NET | done (#39) |
-| T02 | A fingerprint of the floor generator | 0 | | .NET | todo |
-| T03 | One registry of suites, and the gate asks it | 0 | | .NET | todo |
-| T04 | The guard learns the rules about tests | 0 | | | todo |
-| T05 | The manifest of the in-player suites | 1 | | | todo |
-| T06 | In-player suites through the studio | 1 | T03, T05 | a verification build | todo |
-| T07 | The in-player harness, proven on three suites | 1 | | editor, build | todo |
-| T08 | The other suites on the harness | 1 | T07 | editor, build | todo |
-| T09 | Compile check, doctor and ship status as data | 1 | T03 | editor | todo |
-| T10 | A worktree ready for Unity | 2 | | editor to measure | todo |
-| T11 | A port and a log folder per run | 2 | | a verification build | todo |
-| T12 | Automated runs leave tracked files alone | 2 | | editor, build | todo |
-| T13 | What a build rewrites: measure, then decide | 2 | | editor | todo |
+| T02 | A fingerprint of the floor generator | 0 | | .NET | done (#44) |
+| T03 | One registry of suites, and the gate asks it | 0 | | .NET | done (#51) |
+| T04 | The guard learns the rules about tests | 0 | | | done (#41) |
+| T05 | The manifest of the in-player suites | 1 | | | done (#49) |
+| T06 | In-player suites through the studio | 1 | T03, T05 | a verification build | done (#55) |
+| T07 | The in-player harness, proven on three suites | 1 | | editor, build | done (#50) |
+| T08 | The other suites on the harness | 1 | T07 | editor, build | done (#77), with two suites left out (below) |
+| T09 | Compile check, doctor and ship status as data | 1 | T03 | editor | done (#60) |
+| T10 | A worktree ready for Unity | 2 | | editor to measure | done (#43) |
+| T11 | A port and a log folder per run | 2 | | a verification build | done (#52) |
+| T12 | Automated runs leave tracked files alone | 2 | | editor, build | done (#54) |
+| T13 | What a build rewrites: measure, then decide | 2 | | editor | done (#58) |
 | T14 | Settings that automated runs cannot touch | 2 | T06 | editor, build, the maintainer's go-ahead | todo |
-| T15 | The game-rules assembly | 3 | T01 | editor, full build | todo |
+| T15 | The game-rules assembly | 3 | T01 | editor, full build | done (#68) |
 | T16 | Spike: can the game be a named assembly? | 3 | T15 | editor, full build | todo |
 | T17 | The tests in their own assembly | 3 | T08, T16 says go | editor, full build | todo |
 | T18 | An engine-free audio core and its lab | 4 | T15 | editor, build | todo, on its trigger |
 | T19 | One reader of the command line | 4 | T08 | editor, build | todo, on its trigger |
-| T20 | Decide the fate of the multiplayer draft | 4 | | the maintainer | todo, on its trigger |
+| T20 | Decide the fate of the multiplayer draft | 4 | | the maintainer | done (#66) |
 | T21 | The tables of testing.md from the manifest | 4 | T05, T06 | | todo, on its trigger |
+| T22 | The track rules as a package | 4 | T08 | editor, full build | done (#78) |
+| T23 | The weapon rules in the weapons package | 4 | T08, T22 | editor, build | todo, after T22 |
+
+T08 is done except for two suites. `DisplayTest` and `PresentationTest` still define their own `Check` ("no test defines `Check`" holds for every other test): they change the registry of the game's
+settings, so they cannot be proved before and after without touching it (rule 6 of `AGENTS.md`), and they wait for T14 or for the maintainer's word. `GameManager.cs` names one test flag, `-guntest`,
+an alias of `-autotest` that the pages document ([modularization.md](modularization.md#b4-in-player-tests-the-game-never-names-a-test)); it stays for that reason.
 
 ## What can run at the same time
 
@@ -81,7 +88,9 @@ Rule 9 of `AGENTS.md` allows one writer per Unity checkout; each task that needs
 | The guard | T04, then T15 | `tools/check_suite.py` |
 | `GameManager.cs` | T07, T08, T12, T19 | the same lines of the automatic run |
 | The engine | T03, then T06 and T09 | `tools/studio_engine.py` |
-| Moving files | T15, T17 | every open branch that touches the moved files conflicts: merge them first, or announce the move |
+| Moving files | T15, T17, T22 | every open branch that touches the moved files conflicts: merge them first, or announce the move |
+| The track mode | T08, then T22 | the tests of `Scripts/Pista/` (the last pull request of T08) and the files that T22 moves and renames |
+| The rules packages | T22, then T23 | the fixtures of the guard, `unity/LayoutDemo` and [package-extraction.md](package-extraction.md); T23 applies the method that T22 proves |
 
 Free to run beside anything: T05, T10, T11, T13, T20.
 
@@ -93,10 +102,10 @@ A phase is over when its numbers have moved and stay moved. The numbers are prin
 
 | Phase | It is over when |
 | --- | --- |
-| 0 | the gate runs seven hermetic suites and none is named in the workflow; the guard fails on a new production reference to a test and on a new unwrapped test; a change to `PlanGrid.cs` turns the gate red until the fingerprint and the protocol revision are updated |
+| 0 | the gate runs every hermetic suite that the registry lists (seven when the phase ended, eight with T20's) and none is named in the workflow; the guard fails on a new production reference to a test and on a new unwrapped test; a change to `PlanGrid.cs` turns the gate red until the fingerprint and the protocol revision are updated |
 | 1 | `studio.py suites` lists every in-player suite; at least the suites that need no graphics card produce a `report.json` with one finding per check; no test defines its own `Check` (census: 47 to 0); `GameManager.cs` names no test flag |
 | 2 | two agents in two worktrees run a co-op scenario at the same time and both pass; after a smoke walk and a suite `git status --porcelain hotel_build` is empty; a new worktree compiles without importing the assets; the maintainer has decided about rule 6 on the evidence of T14 |
-| 3 | no engine-free file compiled by a lab is left in the game assembly (census: 34 to 0); a distribution build contains no test type (census: 14 to 0), or T16 has recorded why not |
+| 3 | no engine-free file compiled by a lab is left in the game assembly (census: 56 to 0, done by T15); a distribution build contains no test type (census: 14 to 0), or T16 has recorded why not |
 | 4 | never "over": each task waits for its trigger |
 
 The table of numbers with today's values is in [modularization.md](modularization.md#how-progress-is-read). Update it there when a task
@@ -108,10 +117,11 @@ moves one.
 | --- | --- |
 | T18, audio | the next audio feature, or the first audio defect that a check without the editor would have caught |
 | T19, command line | after T08, when no pull request that touches many game files is open |
-| T20, multiplayer draft | the maintainer has ten minutes to decide: it is a question, not work |
 | T21, generated tables | the manifest has been used by T06 and its fields have stayed true through a few merges |
 | Paid areas or wave pacing on the package ([package-extraction.md](package-extraction.md#packages-the-game-does-not-use)) | the next change to either rule |
-| A first new package (the ink pen is first in line) | a second consumer appears |
+| T22, the track rules as a package | T08 is done: the maintainer decided it on 25 November 2026, no other event is needed |
+| T23, the weapon rules in the weapons package | T22 is merged and its page says that the method worked |
+| Any other new package (the ink pen is first in line) | a second consumer appears |
 | An interface for game modes ([modularization.md](modularization.md#b3-gameplay-one-assembly-and-why-it-stays-one)) | the next mode is added |
 
 ## Decisions that are the maintainer's
@@ -122,10 +132,14 @@ The plan stops at these; an agent does not take them:
    decision to take on its result.
 2. **The evidence under `hotel_build/`** (485 tracked files): T12 only stops automated runs from rewriting the most common ones. Whether
    the folder stays tracked, is pruned or moves out of git is not decided here, and nothing is deleted.
-3. **The multiplayer draft** (`Assets/_PryingEyes/Multiplayer/`): keep it as the base of a future rewrite, freeze it, or retire it (T20).
+3. **The multiplayer draft** (`Assets/_PryingEyes/Multiplayer/`): decided on 25 November 2026, retire it, and T20 did (the four files the game used moved
+   to `Scripts/Coop/`, three of them to `Rules/Admission/` with T15; the rest stays in git at `36e0a3a`).
 4. **A named game assembly**: T16 ends with a recommendation; going ahead (T17) is a choice.
 5. **`Production.Survival` and `Production.Layout`**: converge the game onto them at the next change, or say plainly that they serve
    the city prototype ([package-extraction.md](package-extraction.md#packages-the-game-does-not-use)).
+6. **Two packages before a second consumer**: decided on 25 November 2026, the track rules (T22) and the weapon rules (T23) become packages,
+   as an exception to rung 2 of the ladder; what that accepts, and what keeps its cost low, is in
+   [package-extraction.md](package-extraction.md#the-two-exceptions). Stopping either one after its first step is also the maintainer's call.
 
 ## Risks, and what stops the plan
 
@@ -144,4 +158,5 @@ reason that is not the task's; the gate on `preview` is red (rule 8); a step wou
 
 Listed with the reasons in [modularization.md](modularization.md#what-is-deliberately-not-done) and
 [agent-tooling.md](agent-tooling.md#not-proposed): no dependency injection, no event bus, no assembly per folder, no renaming of
-identifiers, no service for agents, no second test framework, no package without two consumers.
+identifiers, no service for agents, no second test framework, no package without two consumers (but for the two that the maintainer decided,
+T22 and T23).

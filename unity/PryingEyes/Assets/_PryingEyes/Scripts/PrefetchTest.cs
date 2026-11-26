@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -9,36 +10,21 @@ namespace PryingEyes
     /// mettono in coda piu' di cento calcoli e il thread principale non li aspetta (i fotogrammi continuano); quando i thread finiscono, ogni
     /// campione e' uguale, bit per bit, a quello che il thread principale ricalcola da solo (nessun generatore dipende da dove gira); le clip
     /// nascono dai campioni pronti e l'ambiente dei piani ha le sue sei sorgenti in loop.</summary>
-    public sealed class PrefetchTest : MonoBehaviour
+    public sealed class PrefetchTest : PlayerTest
     {
-        int checks, failed, exceptions;
+        protected override string Suite { get { return "prefetchtest"; } }
+        protected override string ExceptionCheck { get { return "nessuna eccezione e nessun thread fallito"; } }
+        protected override bool IsError(string message, LogType type) { return type == LogType.Exception || (type == LogType.Warning && message.Contains("non calcolabile in un thread")); }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
         {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-prefetchtest") < 0) return;
+            if (!TestRun.Has("-prefetchtest")) return;
             SoundBank.KeepConsumedForTest();         // prima del primo fotogramma: le sorgenti dell'ambiente consumano i loro campioni li'
-            new GameObject("PrefetchTest").AddComponent<PrefetchTest>();
+            InstallWhen<PrefetchTest>("-prefetchtest");
         }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] prefetchtest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception || (type == LogType.Warning && message.Contains("non calcolabile in un thread"))) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione e nessun thread fallito", exceptions == 0);
-            Debug.Log($"[PryingEyes] prefetchtest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             int queued = SoundBank.PrefetchPending;
             Check($"all'avvio della scena i calcoli sono in coda ({queued})", queued >= 100);

@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Acciaio (steel) is a common resource: keys, needles and chains, used for the gates, the forge and the bells, and dropped by abbots, statues and the Portachiavi.
 image: img/resources/acciaio.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Acciaio

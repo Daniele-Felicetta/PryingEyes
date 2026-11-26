@@ -38,6 +38,24 @@ class CityLabCheck(unittest.TestCase):
                         native.clear(); native.update(good); native[field] = value
                         self.assertEqual(run_native(exe, folder, 1, RECIPE, expected, []), 1)
 
+    def test_the_run_records_the_identity_of_both_game_assemblies(self):
+        # T15: the rules are an assembly of their own, and a change to a rule leaves Assembly-CSharp.dll as it was, so the identity of the code is the two
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            exe = folder / "PryingEyes.exe"; exe.write_bytes(b"test binary")
+            managed = folder / "PryingEyes_Data/Managed"; managed.mkdir(parents=True)
+            (managed / "Assembly-CSharp.dll").write_bytes(b"test assembly")
+            with patch("citylab.subprocess.run", return_value=SimpleNamespace(returncode=1)):
+                run_native(exe, folder, 1, RECIPE)
+                before = json.loads((folder / "run.json").read_text(encoding="utf-8"))
+                (managed / "PryingEyes.Rules.dll").write_bytes(b"test rules")
+                run_native(exe, folder, 1, RECIPE)
+                after = json.loads((folder / "run.json").read_text(encoding="utf-8"))
+            self.assertEqual(before["assemblySha256"], hashlib.sha256(b"test assembly").hexdigest())
+            self.assertNotIn("rulesAssemblySha256", before)                                   # a build made before T15 has no such assembly
+            self.assertEqual(after["assemblySha256"], before["assemblySha256"])
+            self.assertEqual(after["rulesAssemblySha256"], hashlib.sha256(b"test rules").hexdigest())
+
     def test_asset_readiness_is_separate_from_recipe_validity(self):
         families = {"p9_ronda", "p45_argine"}
         with tempfile.TemporaryDirectory() as folder:

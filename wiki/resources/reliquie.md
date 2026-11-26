@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Reliquie (relics) is the boss resource of the first branch: the relics of the Cardinale, lord of the Ossario, which open the Cancello del Teatro and build two windows.
 image: img/resources/reliquie.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Reliquie

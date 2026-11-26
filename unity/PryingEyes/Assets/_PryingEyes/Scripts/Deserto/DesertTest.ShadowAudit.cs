@@ -4,8 +4,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using Production.Rendering;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -50,7 +50,7 @@ namespace PryingEyes.Deserto
             float hour = FlatArg("-shadow-hour", -1f);
             var hours = hour < 0f ? new[] { 8f, 16.5f } : new[] { Mathf.Repeat(hour, 24f) };
             int reportArg = Array.IndexOf(args, "-shadow-report");
-            string report = reportArg >= 0 && reportArg + 1 < args.Length ? args[reportArg + 1] : TestPaths.Out("deserto/shadow-audit.csv");
+            string report = reportArg >= 0 && reportArg + 1 < args.Length ? args[reportArg + 1] : Path.Combine(TestRun.OutDir("deserto"), "shadow-audit.csv");
             string reportDir = Path.GetDirectoryName(Path.GetFullPath(report));
             Directory.CreateDirectory(reportDir);
             var rows = new StringBuilder("seed,site,hour,previous_pose,pose,x,y,z,camera_x,camera_y,camera_z,yaw,pitch,previous_shadow,shadow\n");

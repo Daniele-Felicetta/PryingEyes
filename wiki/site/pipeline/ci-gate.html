@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CI gate · Prying Eyes wiki</title>
-<meta name="description" content="The workflow on GitHub that runs the boundary check, the Python tests and the four .NET labs on every push to preview and every pull request against it.">
+<meta name="description" content="The workflow on GitHub that runs the boundary check, the Python tests and every .NET lab the studio lists on every push to preview and every pull request against it.">
 <link rel="stylesheet" href="../assets/wiki.css">
 <script src="../assets/search-index.js" defer></script>
 <script src="../assets/wiki.js" defer></script>
@@ -22,7 +22,7 @@
 <p>The gate is the workflow <code>.github/workflows/gate.yml</code>. It runs on every push to <code>preview</code>, on every pull request against it and on demand. It repeats on GitHub the checks that <a href="ship.html">ship</a> runs on the maintainer's PC, and it adds the .NET labs, which need the project lock and so are not part of ship.</p>
 <section id="what-it-runs">
 <h2 id="what-it-runs">What it runs</h2>
-<ul><li>The <a href="check-suite.html">check suite</a>, with the wiki's checks, and the Python unit tests.</li><li>The four rule labs: <code>studio.py test weapon-state</code>, <code>survival</code>, <code>economy</code> and <code>saves</code>. See <a href="labs.html">labs</a>.</li><li>The lab reports are kept as the artifact <code>lab-reports</code>.</li></ul>
+<ul><li>The <a href="check-suite.html">check suite</a>, with the wiki's checks, and the Python unit tests.</li><li>The code census, after the check suite: the sizes, cycles, tests and flags of the game's code, printed in the run summary, with its whole result kept in the artifact. It reports and never fails.</li><li>Every suite that needs nothing, which means the rule labs and the fingerprint of the floor generator. The workflow names none of them: it asks <code>python tools/studio.py suites --json</code>, runs each one with an empty <code>needs</code> even when another fails, and gives the run summary a row per suite with its seconds. <code>python tools/studio.py suites</code> prints the same list. See <a href="labs.html">labs</a>.</li><li>The lab reports are kept as the artifact <code>lab-reports</code>.</li></ul>
 </section>
 <section id="how-it-is-built">
 <h2 id="how-it-is-built">How it is built</h2>

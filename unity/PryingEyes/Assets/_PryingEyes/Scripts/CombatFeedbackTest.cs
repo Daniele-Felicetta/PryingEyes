@@ -4,42 +4,21 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -noenemies -combatfeedbacktest [-combatshots]: danno, direzione e collisioni reali dei dardi.</summary>
-    public sealed class CombatFeedbackTest : MonoBehaviour
+    public sealed class CombatFeedbackTest : PlayerTest
     {
-        int checks, failed, exceptions;
+        protected override string Suite { get { return "combatfeedbacktest"; } }
+        protected override string PhotoFlag { get { return "-combatshots"; } }
+        protected override string OutFolder { get { return "combat-feedback"; } }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-combatfeedbacktest") >= 0)
-                new GameObject("CombatFeedbackTest").AddComponent<CombatFeedbackTest>();
-        }
-        void Check(string name, bool ok)
-        {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] combatfeedbacktest " + (ok ? "ok " : "FALLITO ") + name);
-        }
-        void Log(string text, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception ex) { Debug.LogException(ex); Check("sequenza completa", false); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] combatfeedbacktest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-        IEnumerator Run()
+        static void Install() { InstallWhen<CombatFeedbackTest>("-combatfeedbacktest"); }
+
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -114,7 +93,7 @@ namespace PryingEyes
             yield return null;
             Check("nessun dardo rimasto dopo gli impatti", FindObjectsByType<MagicBolt>(FindObjectsSortMode.None).Length == 0);
 
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-combatshots") >= 0)
+            if (Photos)
             {
                 var room = FloorDirector.I.cur.plan.rooms.Find(r => r.kind == RoomKind.Rotonda);
                 Vector3 photo = room != null ? new Vector3(room.CenterX, 0.08f, room.CenterZ - Mathf.Min(room.W, room.D) * 0.025f) : original;
@@ -129,8 +108,7 @@ namespace PryingEyes
                 yield return new WaitForSeconds(0.03f);
                 Debug.Log("[PryingEyes] combatfeedbacktest effetti " + Fx.Dump());
                 LightPool.Tick(false, eye);
-                string output = Path.GetFullPath("unity_logs/combat-feedback"); Directory.CreateDirectory(output);
-                GameManager.CamShot(Path.Combine(output, "dardo-impatto.png"), player.cam.GetComponent<Camera>(), true);
+                GameManager.CamShot(PhotoPath("dardo-impatto"), player.cam.GetComponent<Camera>(), true);
                 // Passaggio isolato: prova che le particelle producano pixel, non solo oggetti attivi nel pool.
                 var effects = GameObject.Find("Fx").GetComponentsInChildren<Renderer>();
                 var layers = Array.ConvertAll(effects, r => r.gameObject.layer);
@@ -140,7 +118,7 @@ namespace PryingEyes
                 review.transform.SetPositionAndRotation(impact + new Vector3(0, 0.55f, -0.9f), Quaternion.LookRotation(new Vector3(0, -0.45f, 0.9f)));
                 review.cullingMask = 1 << 31; review.clearFlags = CameraClearFlags.SolidColor;
                 review.backgroundColor = Color.black; review.fieldOfView = 50; review.nearClipPlane = 0.01f;
-                string pixelsFile = Path.Combine(output, "particelle.png");
+                string pixelsFile = PhotoPath("particelle");
                 try
                 {
                     GameManager.CamShot(pixelsFile, review, false, 512, 288);

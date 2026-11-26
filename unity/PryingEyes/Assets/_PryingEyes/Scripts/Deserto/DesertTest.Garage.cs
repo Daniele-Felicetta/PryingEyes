@@ -387,8 +387,9 @@ namespace PryingEyes.Deserto
             var camPage = (HUD.HubCameraPage)pages[4];
             float fov0 = GameSettings.Fov, motion0 = GameSettings.Motion, sens0 = GameSettings.Sensitivity, pad0 = GameSettings.PadSensitivity;
             bool invM0 = GameSettings.InvertMouseY, invP0 = GameSettings.InvertPadY, tp0 = GameSettings.ThirdPerson;
-            // i sette valori stanno in PlayerPrefs (nel registro di Windows, lo stesso del gioco di chi gioca): chi non li aveva mai toccati non li ha, e alla fine non li deve avere (come fa PresentationTest)
-            string[] camKeys = { "video_fov", "video_motion", "input_sensitivity", "input_pad_sensitivity", "input_invert_y", "input_invert_pad_y", "video_thirdperson" };
+            Vector3 framing0 = GameSettings.ThirdPersonFraming;
+            string[] camKeys = { "video_fov", "video_motion", "input_sensitivity", "input_pad_sensitivity", "input_invert_y", "input_invert_pad_y",
+                "video_thirdperson", "video_third_distance", "video_third_height", "video_third_shoulder" };
             var camKeyWasThere = new bool[camKeys.Length];
             for (int ck = 0; ck < camKeys.Length; ck++) camKeyWasThere[ck] = PlayerPrefs.HasKey(camKeys[ck]);
             Debug.Log($"[PryingEyes] desertotest menu: le impostazioni di chi gioca, da rimettere alla fine: campo visivo {fov0}, movimenti {motion0}, mouse {sens0}, controller {pad0}, asse Y mouse {invM0}, asse Y controller {invP0}, terza persona {tp0}");
@@ -398,6 +399,12 @@ namespace PryingEyes.Deserto
                 camPage.Tick(hud, new HUD.HubInput { nx = d }, 0.016f);
                 Check("camera: sinistra e destra cambiano il campo visivo di un grado", Mathf.Abs(GameSettings.Fov - (fov0 + d)) < 0.01f, $"{fov0} -> {GameSettings.Fov}");
                 camPage.Tick(hud, new HUD.HubInput { ny = -1 }, 0.016f);      // giu': la prospettiva
+                camPage.Tick(hud, new HUD.HubInput { ny = -1, nx = framing0.z > 3f ? -1 : 1 }, 0.016f);
+                camPage.Tick(hud, new HUD.HubInput { ny = -1, nx = framing0.y > 0.3f ? -1 : 1 }, 0.016f);
+                camPage.Tick(hud, new HUD.HubInput { ny = -1, nx = framing0.x > 0f ? -1 : 1 }, 0.016f);
+                Vector3 adjusted = GameSettings.ThirdPersonFraming;
+                Check("camera: distanza, altezza e spalla si regolano dalla pagina Telecamera",
+                    Mathf.Abs(adjusted.x - framing0.x) > 0.02f && Mathf.Abs(adjusted.y - framing0.y) > 0.02f && Mathf.Abs(adjusted.z - framing0.z) > 0.02f);
                 camPage.Tick(hud, new HUD.HubInput { ny = -1 }, 0.016f);      // giu': l'intensita' dei movimenti
                 camPage.Tick(hud, new HUD.HubInput { nx = motion0 > 0.5f ? -1 : 1 }, 0.016f);
                 Check("camera: l'intensita' dei movimenti si regola a passi del cinque per cento", Mathf.Abs(Mathf.Abs(GameSettings.Motion - motion0) - 0.05f) < 0.001f, $"{motion0} -> {GameSettings.Motion}");
@@ -415,13 +422,15 @@ namespace PryingEyes.Deserto
                 for (int k = 0; k < 7; k++) camPage.Tick(hud, new HUD.HubInput { ny = -1 }, 0.016f);          // fino in fondo
                 camPage.Tick(hud, new HUD.HubInput { confirm = true }, 0.016f);
                 Check("camera: 'Valori di partenza' riporta tutto a 75 gradi, movimenti al 100%, sensibilita' a 1 e assi normali", Mathf.Abs(GameSettings.Fov - 75f) < 0.01f && Mathf.Abs(GameSettings.Motion - 1f) < 0.001f && Mathf.Abs(GameSettings.Sensitivity - 1f) < 0.001f
-                    && Mathf.Abs(GameSettings.PadSensitivity - 1f) < 0.001f && !GameSettings.InvertMouseY && !GameSettings.InvertPadY && !GameSettings.ThirdPerson,
+                    && Mathf.Abs(GameSettings.PadSensitivity - 1f) < 0.001f && !GameSettings.InvertMouseY && !GameSettings.InvertPadY && !GameSettings.ThirdPerson
+                    && GameSettings.ThirdPersonFraming == GameSettings.DefaultThirdPersonFraming,
                     $"fov {GameSettings.Fov}, movimenti {GameSettings.Motion}, mouse {GameSettings.Sensitivity}, pad {GameSettings.PadSensitivity}");
             }
             finally
             {
                 GameSettings.SetFov(fov0); GameSettings.SetMotion(motion0); GameSettings.SetSensitivity(sens0); GameSettings.SetPadSensitivity(pad0);
                 GameSettings.SetInvertMouseY(invM0); GameSettings.SetInvertPadY(invP0); GameSettings.SetThirdPerson(tp0);
+                GameSettings.SetThirdShoulder(framing0.x); GameSettings.SetThirdHeight(framing0.y); GameSettings.SetThirdDistance(framing0.z);
                 for (int ck = 0; ck < camKeys.Length; ck++) if (!camKeyWasThere[ck]) PlayerPrefs.DeleteKey(camKeys[ck]);
                 PlayerPrefs.Save();
             }

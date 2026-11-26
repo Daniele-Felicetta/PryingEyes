@@ -2,7 +2,7 @@
 title: Third-person view
 kind: system
 mode: both
-summary: The Prospettiva setting puts the camera behind your survivor's shoulder, 2.1 m behind your eye and 55 cm to the right, and brings it in when you aim.
+summary: The Prospettiva setting puts the camera behind your survivor's shoulder and brings it closer while aiming or passing an obstacle.
 image: img/systems/third-person.webp
 caption: The third-person view, on a card.
 sources: docs/game/third-person.md, docs/game/display-and-menu.md
@@ -16,13 +16,13 @@ Since 0.8.0 the camera can sit behind the player's shoulder and show the player'
 
 ## What it does
 
-- **Camera.** It sits 2.1 m behind the eye, 55 cm to the right and 14 cm up. While aiming it comes in to 1.15 m behind and 32 cm to the right.
-- **Body.** The player's own survivor is drawn. The camera pose is computed behind the shoulder, and the weapon, the prompts and the torch read it.
-- **Switching.** The setting takes effect at once, in a game too.
+- **Camera** sits 2.55 m behind the eye, 60 cm to the right and 8 cm below it. Aiming brings it to 1.18 m behind and 40 cm to the right. It moves back out gradually after an obstacle clears.
+- **Body** follows your movement. Your boots stay in place during each step's contact phase, your survivor tucks their legs in the air, and their knees bend on landing.
+- **Framing** can be adjusted with **Distanza 3ª persona**, **Altezza 3ª persona** and **Spalla 3ª persona** below **Prospettiva**. The values are saved.
 
 ## Standard and desert
 
-Both modes. The setting lives in the game's menu and applies to both.
+The setting works on foot in Standard and the Desert. In the Desert the bike also supports third person, with a wider view and a return to the eye when a wall is too close. The Desert's **Select → Telecamera** page offers the same sliders.
 
 ## Related
 

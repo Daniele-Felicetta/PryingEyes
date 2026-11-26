@@ -2,11 +2,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Rendering.Universal;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -20,11 +20,10 @@ namespace PryingEyes
     ///  3. seconda mano su un fucile e su una pistola: le sette magie e i sette sigilli partono, la mano libera prende il posto del guanto
     ///     avvolto e lo restituisce, gli effetti arrivano (danno al bersaglio, blink, cura, stati del sigillo sui colpi), il gomito resta
     ///     tra 28 e 176 gradi; con -magiashots le foto dei gesti (hotel_build/magia/).
-    /// Esito in hotel_build/magia/magia.txt; uscita 0 se tutto passa.</summary>
-    public sealed class MagiaTest : MonoBehaviour
+    /// Esito: le righe del registro e result.json (unity_logs/magiatest o la cartella di -testout); uscita 0 se tutto passa. Le foto restano in hotel_build/magia/.
+    /// Deriva da PlayerTest (l'harness): si installa da sola con -magiatest, conta i controlli, scrive result.json e finisce da sola.</summary>
+    public sealed class MagiaTest : PlayerTest
     {
-        int checks, failed;
-        readonly StringBuilder report = new StringBuilder();
         bool shots;
         // -magiaside: con ogni foto anche la vista di lato e dall'alto delle braccia; -armview: solo la posa di riposo di tutte le armi,
         // con le misure di spalla, gomito e polso (diagnosi della biomeccanica)
@@ -34,51 +33,24 @@ namespace PryingEyes
         bool zoom;
         string outDir;
 
+        protected override string Suite { get { return "magiatest"; } }
+        protected override string ExceptionCheck { get { return null; } }      // non ha mai avuto un controllo delle eccezioni: i suoi controlli restano quelli che erano
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-magiatest") >= 0)
-                new GameObject("MagiaTest").AddComponent<MagiaTest>();
-        }
+        static void Install() { InstallWhen<MagiaTest>("-magiatest"); }
 
         static bool HasArg(string a) => Array.IndexOf(Environment.GetCommandLineArgs(), a) >= 0;
 
-        void Check(string name, bool ok, string detail = "")
+        protected override void Finish()
         {
-            checks++; if (!ok) failed++;
-            string line = (ok ? "ok " : "FALLITO ") + name + (string.IsNullOrEmpty(detail) ? "" : " — " + detail);
-            report.AppendLine(line);
-            Debug.Log("[PryingEyes] magiatest " + line);
+            PlayerController.botDir = Vector3.zero; PlayerController.botCrouch = false;
         }
 
-        IEnumerator Start()
+        /// <summary>-vfxdump: le trame degli effetti in hotel_build/magia/.</summary>
+        void DumpVfx()
         {
-            shots = HasArg("-magiashots");
-            armView = HasArg("-armview");
-            side = HasArg("-magiaside") || armView;
-            zoom = HasArg("-magiazoom");
-            if (armView || zoom) shots = true;
-            if (HasArg("-reloadview")) shots = side = true;
-            outDir = TestPaths.Out("magia");
-            System.IO.Directory.CreateDirectory(outDir);
-            if (HasArg("-vfxdump") && MagicVfx.On)
-                foreach (VfxTextures.Id id in Enum.GetValues(typeof(VfxTextures.Id)))
-                    if (id != VfxTextures.Id.Count) DumpTex(VfxTextures.Get(id), "vfx_" + id);
-            var seq = Run();
-            while (true)
-            {
-                bool more;
-                try { more = seq.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa senza eccezioni", false, e.Message); break; }
-                if (!more) break;
-                yield return seq.Current;
-            }
-            PlayerController.botDir = Vector3.zero; PlayerController.botCrouch = false;
-            string res = $"RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}";
-            report.AppendLine(res);
-            System.IO.File.WriteAllText(System.IO.Path.Combine(outDir, "magia.txt"), report.ToString());
-            Debug.Log("[PryingEyes] magiatest " + res);
-            Application.Quit(failed == 0 ? 0 : 1);
+            foreach (VfxTextures.Id id in Enum.GetValues(typeof(VfxTextures.Id)))
+                if (id != VfxTextures.Id.Count) DumpTex(VfxTextures.Get(id), "vfx_" + id);
         }
 
         // ------------------------------------------------------------------ foto (con il canvas del grimorio quando e' aperto)
@@ -307,7 +279,6 @@ namespace PryingEyes
                 string line = $"{id} {when} braccio {tag}: spalla {V3(S)} gomito {V3(E)} polso {V3(Wr)}; omero {(E - S).magnitude:F2} m, " +
                               $"avambraccio {(Wr - E).magnitude:F2} m, polso-spalla {(Wr - S).magnitude:F2} m, gomito {arm.LastElbowDeg:F0}, polso {arm.LastWristDeg:F0}, torsione {arm.LastRollDeg:F0}" +
                               (arm.HasHandFrame ? $", prono-sup {arm.LastProSupDeg:F0}, flessione {arm.LastFlexDeg:F0}, deviazione {arm.LastDevDeg:F0}" : "");
-                report.AppendLine("   " + line);
                 Debug.Log("[PryingEyes] braccia " + line);
             }
         }
@@ -325,7 +296,6 @@ namespace PryingEyes
                 if (r == null || !r.enabled) continue;
                 var b = r.bounds;
                 string l = $"{id} renderer {r.GetType().Name} '{r.name}' (genitore '{(r.transform.parent != null ? r.transform.parent.name : "-")}') ingombro {V3(b.size)} centro {V3(Camera.main != null ? Camera.main.transform.InverseTransformPoint(b.center) : b.center)}";
-                report.AppendLine("   " + l);
                 Debug.Log("[PryingEyes] " + l);
             }
         }
@@ -368,7 +338,6 @@ namespace PryingEyes
             lines.Sort((x, y) => x.Key.CompareTo(y.Key));
             for (int k = 0; k < 3 && k < lines.Count; k++)
             {
-                report.AppendLine($"   {id} sonda mira: {lines[k].Value}");
                 Debug.Log($"[PryingEyes] sonda mira {id}: {lines[k].Value}");
             }
         }
@@ -399,7 +368,7 @@ namespace PryingEyes
                 float fl = Mathf.Abs(arm.LastFlexDeg), dv = Mathf.Abs(arm.LastDevDeg);
                 string angles = $"prono-sup {arm.LastProSupDeg:F0}, flessione {arm.LastFlexDeg:F0}, deviazione {arm.LastDevDeg:F0}, gomito {arm.LastElbowDeg:F0}";
                 // la destra sulle armi a calcio dritto e' il limite noto (presa da rifare): la si scrive e basta
-                if (tag == "destro" && straightStock) { report.AppendLine($"   {id} mira: polso destro (limite noto del calcio dritto): {angles}"); Debug.Log($"[PryingEyes] {id} mira: polso destro (limite noto): {angles}"); }
+                if (tag == "destro" && straightStock) { Debug.Log($"[PryingEyes] {id} mira: polso destro (limite noto): {angles}"); }
                 else Check($"{id} mira: polso {tag} non piegato oltre i campi articolari", fl <= 85f && dv <= 52f, angles);
                 if (cam == null) continue;
                 float occ = ArmRig.ArmOcclusion(cam.InverseTransformPoint(arm.LastShoulderW), cam.InverseTransformPoint(arm.LastElbowW), cam.InverseTransformPoint(arm.LastWristW));
@@ -408,8 +377,17 @@ namespace PryingEyes
         }
 
         // ------------------------------------------------------------------ percorso
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            shots = HasArg("-magiashots");
+            armView = HasArg("-armview");
+            side = HasArg("-magiaside") || armView;
+            zoom = HasArg("-magiazoom");
+            if (armView || zoom) shots = true;
+            if (HasArg("-reloadview")) shots = side = true;
+            outDir = TestPaths.Out("magia");
+            System.IO.Directory.CreateDirectory(outDir);
+            if (HasArg("-vfxdump") && MagicVfx.On) DumpVfx();
             float deadline = Time.realtimeSinceStartup + 90f;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning || GameManager.I == null || GameManager.I.player == null) && Time.realtimeSinceStartup < deadline) yield return null;
             var fi = FloorDirector.I.cur; var gm = GameManager.I; var player = gm.player;
@@ -454,7 +432,7 @@ namespace PryingEyes
                                 Shot(nm);
                                 if (empty) SideShot(nm, w);
                                 DumpArms(id, w, $"ricarica {(empty ? "a vuoto" : "tattica")} {rp:F2}");
-                                if (w.OffHand != null) report.AppendLine($"   {id} {rp:F2} mano: {w.OffHand.DebugKey()}");
+                                if (w.OffHand != null) Debug.Log($"[PryingEyes] mano {id} {rp:F2}: {w.OffHand.DebugKey()}");
                                 m++;
                                 continue;
                             }
@@ -541,7 +519,6 @@ namespace PryingEyes
                         shown[group] = n + 1;
                         if (n >= 4) continue;
                         string l = $"sonda mira, somma di tutte le armi: {rank[k].Key}: fuori {rank[k].Value.x:F0} gradi, braccia dentro {rank[k].Value.y:F0}";
-                        report.AppendLine("   " + l);
                         Debug.Log("[PryingEyes] " + l);
                     }
                 }
@@ -1039,8 +1016,8 @@ namespace PryingEyes
                 }
                 Check($"{name}: gomito mai chiuso sotto 32 gradi", minElbow >= 32f, $"minimo {minElbow:F0}");
             }
-            report.AppendLine($"   {name}: gomito {minElbow:F0}..{maxElbow:F0} gradi, polso fino a {maxWrist:F0}, torsione fino a {maxRoll:F0}" +
-                              (anat ? $"; anatomia: prono-supinazione {maxPS:F0}, flessione {maxFlex:F0}, deviazione {maxDev:F0}" : ""));
+            Debug.Log($"[PryingEyes] gesto {name}: gomito {minElbow:F0}..{maxElbow:F0} gradi, polso fino a {maxWrist:F0}, torsione fino a {maxRoll:F0}" +
+                      (anat ? $"; anatomia: prono-supinazione {maxPS:F0}, flessione {maxFlex:F0}, deviazione {maxDev:F0}" : ""));
         }
 
         static ArmRig ArmOf(Weapon w, string field = "armL")

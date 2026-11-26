@@ -1,0 +1,7 @@
+{
+  "name": "com.pryingeyes.racing",
+  "version": "0.1.0",
+  "displayName": "Production Racing",
+  "description": "Engine-independent bike racing: the physics of a motorcycle, circuits made out of a seed, the racing line and the driving line, a computer rider, the rules of a race and the recording of one for replays and ghosts.",
+  "unity": "6000.0"
+}

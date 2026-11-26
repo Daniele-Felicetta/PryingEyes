@@ -4,7 +4,7 @@ kind: blessing
 mode: standard
 summary: Decima (tithe) is a blessing of the altar: the points you earn from kills are 25% higher for the next expedition.
 image: img/blessings/decima.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Decima

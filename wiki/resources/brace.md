@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Brace (embers) is a rare resource: the fire left in the Veglie, which lights the forge and the organ pipes and is needed by the Cappella delle Mani.
 image: img/resources/brace.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Brace

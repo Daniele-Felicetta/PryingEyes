@@ -133,8 +133,8 @@ Written before the assets, summarised from the sources (it is not the subject of
   signal). A second draw, independent of the first, makes a floor from the third up a Guardaroba with probability
   `PlanGen.GuardarobaPercent` per hundred (`PlanThemes.cs`); **the default is 0**, and with 0 the plans of every seed are the ones of
   before (checked, see below). Launch flags (`ThemeFlag.cs`, read by the player and by the editor tools): `-guardaroba N` sets the
-  percentage (in co-op give the same N on every machine: each one builds the floor from the seed, and a client whose plan digest differs from the
-  host's refuses the floor with "Procedural plan mismatch", `FishNetWorldState.cs`), `-theme guardaroba` forces the theme of every grid floor. Room roles and their candidate kinds are in `PlanGrid.cs`, which also forces one or two terraces per floor.
+  percentage (in co-op give the same N on every machine: each one builds the floor from the seed, so a different N builds a different floor and nothing refuses it
+  at run time; the co-op scenarios compare the signature of the floor on the two machines, `FloorDirector.FloorSignature`, which the log prints as `coop: firma del piano`), `-theme guardaroba` forces the theme of every grid floor. Room roles and their candidate kinds are in `PlanGrid.cs`, which also forces one or two terraces per floor.
 - Open-air rooms (`CeilKind.Open`): no ceiling, a parapet 1.55 m high with merlons over the void (`FloorBuilder.Open.cs`).
 - Outside: a night sky with a red moon (`NightSky.shader`, `GuardarobaKit.cs`) and, 17 m below the floor, a lake of lava
   (`FloorBuilder.Guardaroba.cs`); whoever falls into the void reaches the lava and is brought back up by the existing `FallGuard` at -20 m.

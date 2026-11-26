@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Production.Rendering
+namespace PryingEyes.Proc
 {
     /// <summary>Measures the contribution of one light's shadows at fixed world points over a sequence of camera poses.</summary>
     internal sealed class RenderedShadowProbe : IDisposable

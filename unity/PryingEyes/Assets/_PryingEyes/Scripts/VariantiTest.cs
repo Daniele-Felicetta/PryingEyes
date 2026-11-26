@@ -1,12 +1,11 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
-using System.IO;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Rendering.Universal;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -15,42 +14,26 @@ namespace PryingEyes
     /// e il giocatore lontano non si fa niente. Statua: guardata resta ferma, girati e si avvicina; i colpi la scheggiano al 40%.
     /// Flagellante: da cinque metri balza. Cardinale: e' il capo (barra della vita accesa), a meta' vita si infuria, abbattuto paga 1000
     /// punti e lascia le munizioni, la barra si spegne. Con -variantishots le foto da vicino in unity_logs/varianti.</summary>
-    public sealed class VariantiTest : MonoBehaviour
+    public sealed class VariantiTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
         Vector3 arena, forward;
         Camera review;
 
+        protected override string Suite { get { return "variantitest"; } }
+        protected override string PhotoFlag { get { return "-variantishots"; } }
+        protected override string OutFolder { get { return "varianti"; } }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-variantitest") >= 0) new GameObject("VariantiTest").AddComponent<VariantiTest>();
-        }
+        static void Install() { InstallWhen<VariantiTest>("-variantitest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] variantitest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
+        protected override void Finish()
         {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-variantishots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
             PlayerController.botDir = Vector3.zero;
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] variantitest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         void Photo(Enemy enemy, string name, float side = 2.4f, float front = 2.6f, float height = 1.5f)
         {
-            if (!shots || enemy == null) return;
-            string folder = Path.GetFullPath("unity_logs/varianti"); Directory.CreateDirectory(folder);
+            if (!Photos || enemy == null) return;
             LightPool.Tick(false, Camera.main.transform.position);
             if (review == null)
             {
@@ -73,20 +56,12 @@ namespace PryingEyes
             }
             review.transform.SetPositionAndRotation(eye, Quaternion.LookRotation(target - eye));
             review.fieldOfView = 50;
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), review, false);
-        }
-
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/varianti"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
+            GameManager.CamShot(PhotoPath(name), review, false);
         }
 
         static float Flat(Vector3 a, Vector3 b) => new Vector2(a.x - b.x, a.z - b.z).magnitude;
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -94,7 +69,7 @@ namespace PryingEyes
             var player = GameManager.I.player; var hud = GameManager.I.hud;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             Check("spazio di prova libero sulla navmesh reale", MeleeTest.FindArena(out arena, out forward));
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             if (!Torch.I.on) Torch.I.Toggle();
             hud.Banner("", ""); hud.Toast("");
             Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
@@ -124,7 +99,7 @@ namespace PryingEyes
             Check("lo scoppio ferisce il monaco accanto", monk == null || monk.IsDead || monk.hp < monkHp - 1f);
             Check("resta la nube tossica", FindObjectsByType<ToxicCloud>(FindObjectsSortMode.None).Length > 0);
             yield return new WaitForSeconds(0.35f);
-            View("appestato_scoppio");
+            Photo("appestato_scoppio");
             Debug.Log($"[PryingEyes] variantitest appestato: giocatore {health:F0} -> {player.hp + player.shield:F0}, monaco {monkHp:F0} -> {(monk != null ? monk.hp : 0f):F0}");
 
             // ---------------- Appestato ucciso da lontano: scoppia lo stesso, il giocatore lontano resta illeso
@@ -151,7 +126,7 @@ namespace PryingEyes
             statue.MakeRelentless();
             yield return new WaitForSeconds(0.3f);
             Photo(statue, "statua");
-            View("statua_guardata");
+            Photo("statua_guardata");
             Vector3 s0 = statue.transform.position;
             yield return new WaitForSeconds(2.5f);
             float still = Flat(statue.transform.position, s0);
@@ -166,7 +141,7 @@ namespace PryingEyes
             Vector3 s2 = statue.transform.position;
             yield return new WaitForSeconds(1.0f);
             Check("riguardata, la statua si ferma di nuovo", Flat(statue.transform.position, s2) < 0.3f);
-            View("statua_vicina");
+            Photo("statua_vicina");
             float shp = statue.hp;
             statue.Damage(100f, statue.AimPoint, false, false);
             Check($"i colpi scheggiano la statua al 40% ({shp - statue.hp:F0} su 100)", Mathf.Abs(shp - statue.hp - 40f) < 1f);
@@ -199,7 +174,7 @@ namespace PryingEyes
             var fill = hud.transform.Find("BossFill")?.GetComponent<Image>();
             Check("la barra del capo e' accesa", fill != null && fill.color.a > 0.5f);
             Photo(card, "cardinale", 3.2f, 3.6f, 1.9f);
-            View("cardinale_barra");
+            Photo("cardinale_barra");
             float spd = card.speed;
             card.Damage(card.maxHp * 0.55f, card.AimPoint, false, false);
             yield return null; yield return null;

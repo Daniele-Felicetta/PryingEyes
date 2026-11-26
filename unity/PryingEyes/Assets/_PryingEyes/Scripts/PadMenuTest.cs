@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -18,34 +19,16 @@ namespace PryingEyes
     /// sta sulla voce scelta, A su "Gioca" apre "Come vuoi giocare?" (croce a destra e a sinistra tra "Standard" e "Il deserto", B torna a "Gioca").
     /// Infine in partita: A su "Standard" fa partire senza far saltare, Start apre e chiude la pausa, B in pausa riprende e in gioco
     /// non apre niente. Un controller fisico non c'e': la lettura vera di XInput la prova -splittest ("risponde senza errori").</summary>
-    public sealed class PadMenuTest : MonoBehaviour
+    public sealed class PadMenuTest : PlayerTest
     {
-        int checks, failed, exceptions;
         GameMenu menu;
 
+        protected override string Suite { get { return "padtest"; } }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-padtest") >= 0) new GameObject("PadMenuTest").AddComponent<PadMenuTest>();
-        }
+        static void Install() { InstallWhen<PadMenuTest>("-padtest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] padtest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            PadControls.Inject(null); PadControls.TestPoll = null; PadControls.Disable();
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] padtest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
+        protected override void Finish() { PadControls.Inject(null); PadControls.TestPoll = null; PadControls.Disable(); }
 
         static PadControls.Raw Pad(ushort buttons = 0, int lx = 0, int ly = 0, int rt = 0) =>
             new PadControls.Raw { connected = true, buttons = buttons, lx = (short)lx, ly = (short)ly, rightTrigger = (byte)rt };
@@ -62,6 +45,13 @@ namespace PryingEyes
             PadControls.Inject(Pad(buttons, lx, ly)); yield return null; yield return null;
             PadControls.Inject(Pad()); yield return null; yield return null;
             yield return new WaitForSecondsRealtime(0.16f);
+        }
+
+        /// <summary>Presses the D-pad toward <paramref name="direction"/> until the selection is on the button called <paramref name="label"/> (twelve presses at most).
+        /// The steps name the entry they want instead of counting how many entries lie between: a new button in the list does not move them.</summary>
+        static IEnumerator Reach(string label, ushort direction)
+        {
+            for (int i = 0; i < 12 && SelName != "Pulsante " + label; i++) yield return Tap(direction);
         }
 
         // ------------------------------------------------------------------ parte pura
@@ -207,7 +197,7 @@ namespace PryingEyes
             yield return Shot(dir, "01-menu-tastiera");
             yield return Tap(ly: -30000);
             yield return Shot(dir, "02-menu-controller");
-            yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
+            yield return Reach("Impostazioni", PadControls.DpadDown);
             yield return Tap(PadControls.A);
             yield return Shot(dir, "03-impostazioni-schermo");
             yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
@@ -216,7 +206,7 @@ namespace PryingEyes
             yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
             yield return Shot(dir, "05-impostazioni-cursore");
             yield return Tap(PadControls.B);
-            yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.A);
+            yield return Reach("Come si gioca", PadControls.DpadUp); yield return Tap(PadControls.A);
             yield return Shot(dir, "06-guida");
             yield return Tap(PadControls.B);
             yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.DpadUp); yield return Tap(PadControls.A);
@@ -239,7 +229,7 @@ namespace PryingEyes
             Check("foto fatte", true);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             string shots = ArgAfter("-padshots");
             if (shots != null) { yield return Shots(shots); yield break; }
@@ -261,12 +251,12 @@ namespace PryingEyes
             Check("dopo un comando col controller: modo navigazione, cursore nascosto, suggerimenti del controller", PadMenuInput.NavMode && !Cursor.visible && PadControls.Preferred
                 && Get<Text>("footer").text.Contains("CROCE"));
             Check("la cornice sta sulla voce scelta", RingOnSelection());
-            // voci del principale: Gioca, Cooperativa, Schermo condiviso, Personaggi, Come si gioca, Impostazioni, Esci
-            yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown); yield return Tap(PadControls.DpadDown);
-            Check($"croce in basso quattro volte: 'Impostazioni' ({SelName})", SelName == "Pulsante Impostazioni");
-            yield return Tap(PadControls.DpadUp);
-            Check($"croce in alto: 'Come si gioca' ({SelName})", SelName == "Pulsante Come si gioca");
-            yield return Tap(PadControls.DpadDown);
+            // voci del principale: Gioca, Cooperativa, Schermo condiviso, Personaggi, Come si gioca, Wiki, Impostazioni, Esci (cercate per nome)
+            yield return Reach("Impostazioni", PadControls.DpadDown);
+            Check($"croce in basso fino a 'Impostazioni' ({SelName})", SelName == "Pulsante Impostazioni");
+            yield return Reach("Come si gioca", PadControls.DpadUp);
+            Check($"croce in alto fino a 'Come si gioca' ({SelName})", SelName == "Pulsante Come si gioca");
+            yield return Reach("Impostazioni", PadControls.DpadDown);
             Check("la cornice segue anche dopo i passi", RingOnSelection());
 
             // ---- impostazioni: cinque schede, cursori e scelte
@@ -310,7 +300,7 @@ namespace PryingEyes
             Check("B nel menu principale: non fa niente", PanelOpen("mainPanel") && GameMenu.InMenu);
 
             // ---- guida: tre pagine
-            yield return Tap(PadControls.DpadUp);
+            yield return Reach("Come si gioca", PadControls.DpadUp);
             yield return Tap(PadControls.A);
             Check($"A su 'Come si gioca': si apre, scelta la pagina 'Obiettivo' ({SelName})", PanelOpen("helpPanel") && SelName == "Pulsante Obiettivo");
             Check("la guida nomina i tasti del controller", Get<Text>("helpRound").text.Contains("X tenuto"));

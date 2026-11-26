@@ -14,7 +14,8 @@ namespace PryingEyes
     {
         // l'elenco di una scheda, in unita' del canvas di riferimento (1280x720): etichetta, comando, una riga ogni 42
         const float RowTop = 112f, RowStep = 42f, LabelX = -275f, LabelWidth = 330f, ControlX = 170f, ControlWidth = 520f, SliderWidth = 380f;
-        static float RowY(int row) => RowTop - row * RowStep;
+        static float RowY(int row, float step = RowStep) => RowTop - row * step;
+        static float RowY(SettingsPage page) => RowY(page.next++, page.rowStep);
 
         sealed class SettingsPage
         {
@@ -26,6 +27,7 @@ namespace PryingEyes
             public readonly List<Action> refresh = new List<Action>();
             public Action reset;           // null: la scheda non ha valori da ripristinare (lo schermo si conferma a parte)
             public int next;               // la prossima riga libera
+            public float rowStep = RowStep;
         }
 
         static readonly string[] PageNames = { "Schermo", "Immagine", "Audio", "Comandi", "Gioco" };
@@ -145,9 +147,15 @@ namespace PryingEyes
 
         void BuildGamePage(SettingsPage p)
         {
-            // 0.8.0: prima o terza persona; la visuale cambia subito, anche in partita (docs/game/third-person.md)
-            AddToggle(p, "Prospettiva", "Prima persona: dagli occhi del personaggio. Terza persona: camera dietro la spalla, lo vedi per intero.",
+            p.rowStep = 36f;
+            AddToggle(p, "Prospettiva", "Terza persona: camera esterna dietro il personaggio, anche in moto nel Deserto.",
                 () => GameSettings.ThirdPerson, GameSettings.SetThirdPerson, "Prima persona", "Terza persona");
+            AddCameraSlider(p, "Distanza 3ª persona", "Allontana la camera dal personaggio a piedi e in sella.",
+                () => GameSettings.ThirdPersonFraming.z, GameSettings.ThirdDistanceMin, GameSettings.ThirdDistanceMax, GameSettings.SetThirdDistance, CameraMeters);
+            AddCameraSlider(p, "Altezza 3ª persona", "Alza o abbassa la camera in terza persona.",
+                () => GameSettings.ThirdPersonFraming.y, GameSettings.ThirdHeightMin, GameSettings.ThirdHeightMax, GameSettings.SetThirdHeight, CameraHeight);
+            AddCameraSlider(p, "Spalla 3ª persona", "Sposta la camera a sinistra, al centro o a destra.",
+                () => GameSettings.ThirdPersonFraming.x, GameSettings.ThirdShoulderMin, GameSettings.ThirdShoulderMax, GameSettings.SetThirdShoulder, CameraShoulder);
             AddChoice(p, "Mirino", "Il segno al centro dello schermo.",
                 () => CrosshairNames[GameSettings.Crosshair], d => GameSettings.SetCrosshair(Wrap(GameSettings.Crosshair + d, CrosshairNames.Length)));
             sMotion = AddSlider(p, "Oscillazione visuale", "Il dondolio dell'immagine quando cammini, il movimento del menu e, su pista, la sfocatura di movimento e il tremito della camera. A zero tutto resta fermo.",
@@ -160,6 +168,23 @@ namespace PryingEyes
             AddToggle(p, "Pausa a finestra inattiva", "Il gioco si ferma da solo quando passi a un'altra finestra. In cooperativa la pausa blocca solo i tuoi comandi.",
                 () => GameSettings.PauseOnFocusLoss, GameSettings.SetPauseOnFocusLoss, "Disattivata", "Attiva");
             p.reset = GameSettings.ResetGame;
+        }
+
+        void AddCameraSlider(SettingsPage p, string title, string hint, Func<float> get, float min, float max, Action<float> set, Func<float, string> format)
+        {
+            var slider = AddSlider(p, title, hint, get(), min, max, set, format, out Text value);
+            p.refresh.Add(() => SetSlider(slider, value, get(), format));
+        }
+
+        internal static string CameraMeters(float value) =>
+            value.ToString("0.00", System.Globalization.CultureInfo.GetCultureInfo("it-IT")) + " m";
+
+        internal static string CameraHeight(float value) => Mathf.RoundToInt(value * 100f).ToString("+0;-0;0") + " cm";
+
+        internal static string CameraShoulder(float value)
+        {
+            int cm = Mathf.RoundToInt(value * 100f);
+            return cm == 0 ? "Centro" : (cm < 0 ? "Sx " : "Dx ") + Mathf.Abs(cm) + " cm";
         }
 
         // ---------- le righe ----------
@@ -187,7 +212,7 @@ namespace PryingEyes
         Slider AddSlider(SettingsPage p, string title, string hint, float init, float min, float max, Action<float> set, Func<float, string> format,
             out Text value, MenuSound.Preview? preview = null)
         {
-            float y = RowY(p.next++);
+            float y = RowY(p);
             Label(p.root, title, new Vector2(LabelX, y), new Vector2(LabelWidth, 30), 20, TextAnchor.MiddleLeft, title, Ink, FontStyle.Normal);
             var slider = MakeSlider(p.root, new Vector2(ControlX - ControlWidth * 0.5f + SliderWidth * 0.5f, y), init, min, max, SliderWidth);
             var text = Label(p.root, title + " valore", new Vector2(ControlX + ControlWidth * 0.5f - 65f, y), new Vector2(120, 30), 20,
@@ -208,7 +233,7 @@ namespace PryingEyes
         /// dopo ogni passo e quando la scheda si ripristina.</summary>
         MenuChoice AddChoice(SettingsPage p, string title, string hint, Func<string> text, Action<int> step)
         {
-            float y = RowY(p.next++);
+            float y = RowY(p);
             var rowLabel = Label(p.root, title, new Vector2(LabelX, y), new Vector2(LabelWidth, 30), 20, TextAnchor.MiddleLeft, title, Ink, FontStyle.Normal);
             var rt = Rect(p.root, "Scelta " + title, new Vector2(ControlWidth, 36), new Vector2(ControlX, y));
             var plate = rt.gameObject.AddComponent<Image>();
@@ -239,7 +264,7 @@ namespace PryingEyes
         /// <summary>Una riga che e' un pulsante a tutta larghezza del comando (apre un'altra schermata).</summary>
         Button AddButtonRow(SettingsPage p, string title, string hint, UnityEngine.Events.UnityAction click)
         {
-            float y = RowY(p.next++);
+            float y = RowY(p);
             Label(p.root, title + " etichetta", new Vector2(LabelX, y), new Vector2(LabelWidth, 30), 20, TextAnchor.MiddleLeft, title, Ink, FontStyle.Normal);
             var button = MakeButton(p.root, title, new Vector2(ControlX, y), click);
             ResizeButton(button, new Vector2(ControlWidth, 36), 20);

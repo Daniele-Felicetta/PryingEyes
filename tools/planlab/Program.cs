@@ -14,6 +14,7 @@ static class Program
 {
     static int Main(string[] a)
     {
+        var defaults = (PlanGen.UseGrid, PlanGen.ForceTheme, PlanGen.GuardarobaPercent, PlanGen.GuardarobaSalt);     // fingerprint refuses the modifiers below
         // "old" in qualunque posizione: le ali d'albergo e di chiesa di prima, al posto della griglia
         if (Array.IndexOf(a, "old") >= 0) { PlanGen.UseGrid = false; a = Array.FindAll(a, x => x != "old"); }
         // "theme=guardaroba" (o albergo, teatro, sanatorio): tutti i piani di quel tema; "guardaroba=N": percentuale dei piani dal terzo in su
@@ -34,6 +35,7 @@ static class Program
         if (cmd == "annex") return AnnexStats(a.Length > 1 ? int.Parse(a[1]) : 1000, Array.IndexOf(a, "list") >= 0);
         if (cmd == "grid") return GridStats(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "dump") return Dump(int.Parse(a[1]), int.Parse(a[2]));
+        if (cmd == "fingerprint") return Fingerprint.Run(a, defaults != (PlanGen.UseGrid, PlanGen.ForceTheme, PlanGen.GuardarobaPercent, PlanGen.GuardarobaSalt));
         if (cmd == "passages") return Passages();
         if (cmd == "regions") return Regions(a.Length > 1 ? int.Parse(a[1]) : 1000);
         if (cmd == "stats") return Stats(a.Length > 1 ? int.Parse(a[1]) : 1000);
@@ -267,15 +269,25 @@ static class Program
     {
         var p = PlanGen.Generate(seed, floor);
         if (p == null) { Console.WriteLine("piano non generato: " + PlanGen.LastFailure); return 1; }
-        Console.WriteLine($"piano {floor} seme {p.seed}: tema {p.theme}, {p.rooms.Count} stanze, arrivo = stanza {p.start}, uscita = stanza {p.exit}, griglia {p.grid}");
+        foreach (var line in DumpLines(p, floor)) Console.WriteLine(line);
+        return 0;
+    }
+
+    /// <summary>The text of `dump`, line by line, in the culture of the thread (`fingerprint` hashes it in the invariant one).</summary>
+    internal static List<string> DumpLines(Plan p, int floor)
+    {
+        var lines = new List<string>
+        {
+            $"piano {floor} seme {p.seed}: tema {p.theme}, {p.rooms.Count} stanze, arrivo = stanza {p.start}, uscita = stanza {p.exit}, griglia {p.grid}"
+        };
         foreach (var r in p.rooms)
-            Console.WriteLine($"  stanza {r.id,2} {r.type,-10} {r.kind,-12} x {r.x0}..{r.x1} z {r.z0}..{r.z1}  ({r.W / 10f:F1} x {r.D / 10f:F1} m)");
+            lines.Add($"  stanza {r.id,2} {r.type,-10} {r.kind,-12} x {r.x0}..{r.x1} z {r.z0}..{r.z1}  ({r.W / 10f:F1} x {r.D / 10f:F1} m)");
         foreach (var o in p.openings)
         {
             if (o.b < 0) continue;
-            Console.WriteLine($"  apertura {o.a,2}-{o.b,-2} {o.style,-10} {(o.alongX ? "lungo x" : "lungo z")} linea {o.line} centro {o.center} larga {o.width / 10f:F1} m");
+            lines.Add($"  apertura {o.a,2}-{o.b,-2} {o.style,-10} {(o.alongX ? "lungo x" : "lungo z")} linea {o.line} centro {o.center} larga {o.width / 10f:F1} m");
         }
-        return 0;
+        return lines;
     }
 
     static int Passages()

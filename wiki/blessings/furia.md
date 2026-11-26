@@ -4,7 +4,7 @@ kind: blessing
 mode: standard
 summary: Furia (fury) is a blessing of the altar: +20% damage for the next expedition.
 image: img/blessings/furia.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Furia

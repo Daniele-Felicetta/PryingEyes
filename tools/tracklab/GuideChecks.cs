@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The driving line (DrivingLine.cs): green, yellow and red along the racing line the computer riders follow. A lap has braking zones before its slow corners, they start where the plan starts to slow (a little
 /// earlier) and end where it stops, no stretch of advice is too short to read, a faster bike brakes longer, the computer rider really brakes where the line says, and what the aids level of the player lets him see follows
@@ -156,7 +157,7 @@ static partial class Program
             string bad = "";
             foreach (int seed in seeds)
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 foreach (int b in bikes)
                 {
                     var a = DrivingLine.Classify(new RacingLine(c, Bikes.Get(b)));
@@ -187,7 +188,7 @@ static partial class Program
             int leadMax = (int)Math.Round(DrivingLine.LeadMetres / 2f) + (int)Math.Round(DrivingLine.MinZoneMetres / 2f) + 1;          // the lead, and a short piece folded into the zone
             foreach (int seed in seeds)
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 var line = new RacingLine(c, Bikes.Get(3));
                 var a = DrivingLine.Classify(line);
                 var raw = PlanBrakes(line);
@@ -216,7 +217,7 @@ static partial class Program
             int good = 0, total = 0; double worst = 0;
             foreach (int seed in seeds)
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 foreach (int bk in bikes)
                 {
                     var line = new RacingLine(c, Bikes.Get(bk));
@@ -240,7 +241,7 @@ static partial class Program
             int moreOn = 0, total = 0; double redFast = 0, redSlow = 0;
             foreach (int seed in seeds)
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 double f = DrivingLine.Share(DrivingLine.Classify(new RacingLine(c, Bikes.Get(6))), Advice.Brake) * c.length;
                 double s = DrivingLine.Share(DrivingLine.Classify(new RacingLine(c, Bikes.Get(3))), Advice.Brake) * c.length;
                 redFast += f; redSlow += s; total++; if (f > s) moreOn++;
@@ -255,7 +256,7 @@ static partial class Program
             double worstCovered = 9, worstPlaced = 9; bool good = true; int steps = 0; string bad = "";
             foreach (int seed in new[] { 4242, 22, 53 })
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 foreach (int b in new[] { 0, 3 })
                 {
                     double cov, pla; int core, brk;
@@ -272,7 +273,7 @@ static partial class Program
 
         // ---- the same line gives the same advice, and the aids level of the rider decides what he sees
         {
-            var c = CircuitGen.Generate(4242);
+            var c = Circuits.Generate(4242);
             var a1 = DrivingLine.Classify(new RacingLine(c, Bikes.Get(4)));
             var a2 = DrivingLine.Classify(new RacingLine(c, Bikes.Get(4)));
             bool same = a1.Length == a2.Length; for (int i = 0; same && i < a1.Length; i++) same &= a1[i] == a2[i];
@@ -299,7 +300,7 @@ static partial class Program
             foreach (int bk in new[] { 3, 0, 6 })
             foreach (int seed in seeds)
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 var line = new RacingLine(c, Bikes.Get(bk));
                 var plan = DrivingLine.Classify(line);
                 var raw = PlanBrakes(line);
@@ -350,7 +351,7 @@ static partial class Program
             double worstBraking = 9, worstDriving = 0;
             foreach (int seed in new[] { 4242, 22, 53 })
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 foreach (int b in new[] { 0, 3 })
                 {
                     var steps = RideTheLine(c, b, 11);
@@ -416,7 +417,7 @@ static partial class Program
             var seeds2 = new List<int>(seeds); seeds2.Add(777); seeds2.Add(1234);
             foreach (int seed in seeds2)
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 foreach (int bk in new[] { 0, 6 })
                 {
                     var line = new RacingLine(c, Bikes.Get(bk));
@@ -459,7 +460,7 @@ static partial class Program
             bool same = true, none = true, still = true; int samples = 0, shown = 0;
             foreach (int seed in new[] { 4242, 22, 53 })
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 foreach (int bk in new[] { 0, 3 })
                 {
                     var line = new RacingLine(c, Bikes.Get(bk));
@@ -491,7 +492,7 @@ static partial class Program
             foreach (int bk in new[] { 3, 0, 6 })
                 foreach (int seed in seeds)
                 {
-                    var c = CircuitGen.Generate(seed);
+                    var c = Circuits.Generate(seed);
                     var line = new RacingLine(c, Bikes.Get(bk)); var plan = DrivingLine.Classify(line);
                     int n = c.n, behind = 4, count = (int)Math.Round(DrivingLine.AheadMetres / c.spacing);
                     var win = new Advice[behind + count];
@@ -561,8 +562,8 @@ static partial class Program
             {
                 var k = cases[t];
                 var cue = BrakeCues.Make(k.aids, k.b, k.v);
-                bool good = cue.kind == k.kind && Math.Abs(cue.metres - k.metres) < 0.01f && Math.Abs(cue.fill - k.fill) < 0.001f && Math.Abs(cue.target - k.target) < 0.01f && BrakeCues.Title(cue) == k.title && BrakeCues.Sub(cue) == k.sub;
-                if (!good) { ok = false; if (bad.Length < 300) bad += " [case " + t + ": " + cue.kind + " " + cue.metres.ToString("F1") + " m, fill " + cue.fill.ToString("F3") + ", target " + cue.target.ToString("F1") + ", '" + BrakeCues.Title(cue) + "' / '" + BrakeCues.Sub(cue) + "']"; }
+                bool good = cue.kind == k.kind && Math.Abs(cue.metres - k.metres) < 0.01f && Math.Abs(cue.fill - k.fill) < 0.001f && Math.Abs(cue.target - k.target) < 0.01f && BrakeCueWords.Title(cue) == k.title && BrakeCueWords.Sub(cue) == k.sub;
+                if (!good) { ok = false; if (bad.Length < 300) bad += " [case " + t + ": " + cue.kind + " " + cue.metres.ToString("F1") + " m, fill " + cue.fill.ToString("F3") + ", target " + cue.target.ToString("F1") + ", '" + BrakeCueWords.Title(cue) + "' / '" + BrakeCueWords.Sub(cue) + "']"; }
             }
             bool window = BrakeCues.ApproachWindow(0f) == 60f && BrakeCues.ApproachWindow(10f) == 60f && Math.Abs(BrakeCues.ApproachWindow(30f) - 150f) < 0.01f && BrakeCues.ApproachWindow(80f) == DrivingLine.AheadMetres;
             Check("CUE_THE_NUMBERS_AND_THE_WORDS_OF_THE_SIGN_FOLLOW_THE_RULES", ok && window,
@@ -575,7 +576,7 @@ static partial class Program
             int brakingSteps = 0, brakingSign = 0, brakingOnRed = 0, drivingSteps = 0, drivingBrake = 0, drivingNear = 0, runs = 0, runsSign = 0, runsGone = 0; double nearSum = 0; int nearCount = 0;
             foreach (int seed in new[] { 4242, 22, 53 })
             {
-                var c = CircuitGen.Generate(seed);
+                var c = Circuits.Generate(seed);
                 foreach (int b in new[] { 0, 3 })
                 {
                     var steps = RideTheLine(c, b, 11);

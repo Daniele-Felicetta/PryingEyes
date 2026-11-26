@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using PryingEyes.Deserto;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {
@@ -101,7 +102,7 @@ namespace PryingEyes.Pista
         {
             var v = b;
             v.x = a.x + (b.x - a.x) * t; v.y = a.y + (b.y - a.y) * t; v.z = a.z + (b.z - a.z) * t;
-            v.heading = a.heading + PM.WrapPi(b.heading - a.heading) * t;
+            v.heading = a.heading + RacingMath.WrapPi(b.heading - a.heading) * t;
             v.lean = a.lean + (b.lean - a.lean) * t; v.pitch = a.pitch + (b.pitch - a.pitch) * t; v.steer = a.steer + (b.steer - a.steer) * t;
             v.hang = a.hang + (b.hang - a.hang) * t; v.tuck = a.tuck + (b.tuck - a.tuck) * t; v.body = a.body + (b.body - a.body) * t; v.speed = a.speed + (b.speed - a.speed) * t; v.rpm = a.rpm + (b.rpm - a.rpm) * t;
             v.spinR = a.spinR + (b.spinR - a.spinR) * t; v.spinF = a.spinF + (b.spinF - a.spinF) * t; v.forkC = a.forkC + (b.forkC - a.forkC) * t; v.shockC = a.shockC + (b.shockC - a.shockC) * t;

@@ -5,7 +5,7 @@ mode: both
 summary: The apothecary stall of the square: holy water, a votive candle, and a map of the catacomb level; its stock refills on every return.
 image: img/stalls/speziale.webp
 caption: A card drawn from the catalogue, not a screenshot of the game.
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # La bottega della speziale

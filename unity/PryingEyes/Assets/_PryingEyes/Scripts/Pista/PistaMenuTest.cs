@@ -3,9 +3,11 @@ using System;
 using System.Collections;
 using System.IO;
 using System.Reflection;
+using PryingEyes.Testing;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {
@@ -13,68 +15,37 @@ namespace PryingEyes.Pista
     /// "Gioca" asks how to play with three modes, "Su pista" opens the setup panel (the "Via!" button selected, a picture of the circuit that will be raced), the rows step and the values show, the
     /// circuit picture follows "Altra pista", up and down walk the whole screen, Esc / B go back to the modes with "Su pista" still selected, the circuit and the choices are still there when the panel
     /// is opened again, and "Via!" starts the race on that very circuit with the laps, the rivals and the bike that were chosen. With -pistamenulicence the same way in goes to the licence panel instead:
-    /// the "Patenti" button, the nine tests with their bikes and medals, the line under the one chosen, the cross, the book of times, back, and the click that starts a test with the rules of that test.</summary>
-    public sealed class PistaMenuTest : MonoBehaviour
+    /// the "Patenti" button, the nine tests with their bikes and medals, the line under the one chosen, the cross, the book of times, back, and the click that starts a test with the rules of that test.
+    /// It derives from PlayerTest (Scripts/Testing): the checks, the result line, result.json (in unity_logs/pistamenutest/, or in the folder of -testout) and the exit are the harness's.</summary>
+    public sealed class PistaMenuTest : PlayerTest
     {
-        int checks, failed, errors;
+        int errors;
         string firstError = "";
-        bool shots, ended;
+        bool shots;
         GameMenu menu;
 
+        protected override string Suite { get { return "pistamenutest"; } }
+        protected override float TimeLimit { get { return 400f; } }
+        protected override string ExceptionCheck { get { return null; } }            // the test keeps its own closing check (in Finish): it counts errors as well as exceptions, and says the first one
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-pistamenutest") < 0) return;
-            new GameObject("PistaMenuTest").AddComponent<PistaMenuTest>();
-        }
+        static void Install() { InstallWhen<PistaMenuTest>("-pistamenutest"); }
 
-        void Check(string name, bool ok, string detail = "")
+        /// <summary>An error counts as well as an exception, except the harmless failure to photograph the screen of a run with no window; the first one is kept to say it.</summary>
+        protected override bool IsError(string text, LogType type)
         {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] pistamenutest " + (ok ? "ok " : "FALLITO ") + name + (detail.Length > 0 ? " (" + detail + ")" : ""));
-        }
-
-        bool Check2(string name, bool ok, string detail = "") { Check(name, ok, detail); return ok; }
-
-        void OnLog(string text, string stack, LogType type)
-        {
-            if (type != LogType.Exception && type != LogType.Error) return;
-            if (Application.isBatchMode && text != null && text.StartsWith("Failed to capture screen shot")) return;
+            if (type != LogType.Exception && type != LogType.Error) return false;
+            if (Application.isBatchMode && text != null && text.StartsWith("Failed to capture screen shot")) return false;
             errors++;
             if (firstError.Length == 0) firstError = text.Length > 160 ? text.Substring(0, 160) : text;
+            return true;
         }
 
-        void OnEnable() { Application.logMessageReceived += OnLog; }
-        void OnDisable() { Application.logMessageReceived -= OnLog; }
-
-        IEnumerator Start()
+        /// <summary>What the test puts back and its closing check; the base calls it when the sequence has ended (or the clock has run out) and then prints the result.</summary>
+        protected override void Finish()
         {
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-pistashots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false, e.Message); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Finish();
-        }
-
-        void Update()
-        {
-            if (!ended && Time.realtimeSinceStartup > 400f) { Check("finita entro il tempo", false, "400 s"); Finish(); }
-        }
-
-        void Finish()
-        {
-            if (ended) return;
-            ended = true;
             Time.timeScale = 1f;
             Check("nessun errore o eccezione nel registro durante la prova", errors == 0, errors == 0 ? "" : errors + ", la prima: " + firstError);
-            Debug.Log($"[PryingEyes] pistamenutest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         IEnumerator WaitFor(Func<bool> cond, float seconds)
@@ -95,12 +66,13 @@ namespace PryingEyes.Pista
         string Value(string row) { return Row(row) != null ? Row(row).Value : "?"; }
 
         // ------------------------------------------------------------------ the sequence
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            shots = TestRun.Has("-pistashots");
             yield return WaitFor(() => GameMenu.I != null && GameMenu.InMenu, 60f);
             menu = GameMenu.I;
             bool licenceFlow = PistaMode.HasArg("-pistamenulicence");
-            if (!Check2("il menu principale e' aperto", menu != null && GameMenu.InMenu && Open("mainPanel"))) yield break;
+            if (!Check("il menu principale e' aperto", menu != null && GameMenu.InMenu && Open("mainPanel"))) yield break;
             yield return null;
 
             // ---- "Gioca" asks how to play
@@ -127,7 +99,7 @@ namespace PryingEyes.Pista
             Check("la mappa del circuito e' disegnata nell'anteprima", tex != null && tex.width == 256 && painted > 600, tex == null ? "senza immagine" : painted + " punti");
             string name1 = Text("Nome del circuito");
             Check("il nome e la lunghezza sono scritti", name1.Length > 3 && Text("Dati del circuito").Contains(" km"), name1 + " / " + Text("Dati del circuito"));
-            Check("il circuito dell'anteprima e' quello del seme che si correra'", CircuitGen.Generate(seed1).name == name1, name1);
+            Check("il circuito dell'anteprima e' quello del seme che si correra'", Circuits.Generate(seed1).name == name1, name1);
             Check("le righe dicono i valori ricordati", Value("Giri") == (PistaMode.Laps == 1 ? "1 giro" : PistaMode.Laps + " giri") && Value("Livello") == PistaMode.RankNames[PistaMode.Rank] && Value("Moto") == Bikes.Get(PistaMode.Bike).name,
                 Value("Giri") + ", " + Value("Livello") + ", " + Value("Moto"));
             if (shots) yield return Shot("menu_2_preparazione");
@@ -189,7 +161,7 @@ namespace PryingEyes.Pista
             while (PistaMode.Style != 1) Row("Stile di guida").Step(1);
             Check("'Circuito' parte da 'Casuale' e dice che e' un circuito unico", PistaMode.CircuitIndex == -1 && Value("Circuito") == "Casuale" && Text("Dati del circuito").Contains("circuito unico") && Text("Record del circuito") == "", Value("Circuito") + " / " + Text("Dati del circuito"));
             Row("Circuito").Step(1);
-            string first = CircuitGen.Generate(Catalogue.All[0].seed).name;
+            string first = Circuits.Generate(Catalogue.All[0].seed).name;
             Check("'Circuito' passa al primo circuito con nome, lo disegna e ne dice il carattere", PistaMode.CircuitIndex == 0 && PistaMode.Chosen == Catalogue.All[0].seed && Value("Circuito") == first && Text("Nome del circuito") == first
                 && Text("Dati del circuito").Contains(Catalogue.All[0].tag) && Text("Record del circuito").StartsWith("Nessun record"), Value("Circuito") + " / " + Text("Dati del circuito") + " / " + Text("Record del circuito"));
             Row("Circuito").Step(-1);
@@ -204,7 +176,7 @@ namespace PryingEyes.Pista
             yield return null;
             int seed2 = PistaMode.Chosen;
             string name2 = Text("Nome del circuito");
-            Check("'Altra pista' sceglie un altro circuito e lo disegna", seed2 != 0 && seed2 != seed1 && CircuitGen.Generate(seed2).name == name2 && Field<RawImage>("pistaMap").texture != null, seed1 + " -> " + seed2);
+            Check("'Altra pista' sceglie un altro circuito e lo disegna", seed2 != 0 && seed2 != seed1 && Circuits.Generate(seed2).name == name2 && Field<RawImage>("pistaMap").texture != null, seed1 + " -> " + seed2);
             if (shots) yield return Shot("menu_3_altra_pista");
 
             // ---- up and down walk the whole screen
@@ -230,7 +202,7 @@ namespace PryingEyes.Pista
             Check("'Via!' toglie il menu e la partita e' su pista", !GameMenu.InMenu && PistaMode.Requested);
             yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
             var d = PistaDirector.I;
-            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            if (!Check("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
             yield return null;
             Check("si corre sul circuito dell'anteprima", d.seed == seed2 && d.circuit.name == name2, d.seed + " " + d.circuit.name);
             Check("con i giri, i piloti e la moto scelti", d.race.laps == 2 && d.race.racers.Count == 4 && d.me.bikeIndex == 1, d.race.laps + " giri, " + d.race.racers.Count + " piloti, moto " + d.me.bikeIndex);
@@ -268,7 +240,7 @@ namespace PryingEyes.Pista
             for (int l = 0; l < Licences.Names.Length; l++) heads &= Text("Intestazione " + (l + 1)) == Licences.Names[l] && Text("Stato " + (l + 1)) == "0 su 3";
             Check("le tre patenti hanno il loro nome e '0 su 3'", heads, Text("Intestazione 1") + " " + Text("Stato 1"));
             var first = Licences.All[0];
-            Check("la prima prova senza medaglia e' gia' scelta e sotto si legge cosa chiede", Sel == "Prova 1" && Text("Dettaglio") == first.brief && Text("Dettaglio tempi").Contains(CircuitGen.Generate(first.Seed).name)
+            Check("la prima prova senza medaglia e' gia' scelta e sotto si legge cosa chiede", Sel == "Prova 1" && Text("Dettaglio") == first.brief && Text("Dettaglio tempi").Contains(Circuits.Generate(first.Seed).name)
                 && Text("Dettaglio tempi").Contains("Oro " + PistaHud.Clock(first.gold)), Sel + " / " + Text("Dettaglio tempi"));
             if (shots) yield return Shot("menu_5_patenti");
 
@@ -316,7 +288,7 @@ namespace PryingEyes.Pista
             Check("un clic su una prova toglie il menu e la partita e' su pista", !GameMenu.InMenu && PistaMode.Requested && PistaMode.Licence == index, "prova " + PistaMode.Licence);
             yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
             var d = PistaDirector.I;
-            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            if (!Check("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
             yield return null;
             Check("si corre sul circuito della prova, con la sua moto, tre giri e nessun avversario (le scelte della preparazione non contano)",
                 d.seed == test.Seed && d.me.bikeIndex == test.bike && d.race.laps == Licences.Laps && d.race.racers.Count == 1,
@@ -509,7 +481,7 @@ namespace PryingEyes.Pista
             yield return null; yield return null;
             yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
             var d = PistaDirector.I;
-            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            if (!Check("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
             yield return null;
             bool borrowed = false;
             foreach (var r in d.race.racers) if (r != d.me && r.skin == 4) borrowed = true;
@@ -754,9 +726,9 @@ namespace PryingEyes.Pista
             // under the cup chosen: its line, the calendar, the field, the bike and the level, and what Invio does
             var c0 = Cups.All[0];
             int bike0 = Cups.BikesOf(c0)[0];
-            string circuit0 = CircuitGen.Generate(c0.CircuitSeed(0)).name;
+            string circuit0 = Circuits.Generate(c0.CircuitSeed(0)).name;
             string calendar = "";
-            for (int r = 0; r < c0.Rounds; r++) if (!Text("Gara " + (r + 1)).StartsWith((r + 1) + "  " + CircuitGen.Generate(c0.CircuitSeed(r)).name + "  -  ")) calendar += " " + (r + 1);
+            for (int r = 0; r < c0.Rounds; r++) if (!Text("Gara " + (r + 1)).StartsWith((r + 1) + "  " + Circuits.Generate(c0.CircuitSeed(r)).name + "  -  ")) calendar += " " + (r + 1);
             Check("sotto la coppa scelta si leggono la sua frase, il calendario (la prima gara e' la prossima) e cosa fa Invio",
                 Text("Sottotitolo") == c0.tagline && calendar.Length == 0 && Text("Gara 1 stato") == "prossima" && Text("Gara 2 stato") == "" && Text("Invio") == "Invio: gara 1 di " + c0.Rounds + " a " + circuit0 + "  -  " + c0.laps + " giri",
                 Text("Sottotitolo") + " / " + Text("Gara 1") + " / " + Text("Invio") + calendar);
@@ -779,7 +751,7 @@ namespace PryingEyes.Pista
             EventSystem.current.SetSelectedGameObject(Find("Coppa 2"));
             yield return null;
             var c1 = Cups.All[1];
-            Check("scegliere un'altra coppa cambia la frase, il calendario e la riga di Invio", Text("Sottotitolo") == c1.tagline && Text("Gara 1").Contains(CircuitGen.Generate(c1.CircuitSeed(0)).name) && Text("Invio").Contains(CircuitGen.Generate(c1.CircuitSeed(0)).name)
+            Check("scegliere un'altra coppa cambia la frase, il calendario e la riga di Invio", Text("Sottotitolo") == c1.tagline && Text("Gara 1").Contains(Circuits.Generate(c1.CircuitSeed(0)).name) && Text("Invio").Contains(Circuits.Generate(c1.CircuitSeed(0)).name)
                 && Text("Intestazione calendario").EndsWith(c1.klass), Text("Sottotitolo") + " / " + Text("Invio"));
 
             // the book: two rounds of the Supersport cup (the player third, then first) and a finished Superbike season with the player winning every round
@@ -798,7 +770,7 @@ namespace PryingEyes.Pista
                 && Text("Pilota 3") == "3  " + f1[5].name && Text("Pilota 3 valore") == "36 pt" && Text("Pilota 12 valore") == "8 pt" && Text("Gara 1 stato") == "fatta" && Text("Gara 2 stato") == "fatta" && Text("Gara 3 stato") == "prossima" && Text("Gara 4 stato") == "",
                 Text("Intestazione classifica") + " / " + Text("Pilota 1") + " " + Text("Pilota 1 valore") + " / " + Text("Pilota 2") + " " + Text("Pilota 2 valore") + " / " + Text("Gara 3 stato"));
             Check("il giocatore e' in color ambra, la riga di Invio corre la terza gara e la nota dice che il livello e' fissato",
-                Find("Pilota 2").GetComponent<Text>().color == new Color(1f, 0.74f, 0.18f) && Text("Invio").StartsWith("Invio: gara 3 di 4 a " + CircuitGen.Generate(c1.CircuitSeed(2)).name) && Text("Nota").Contains("fissato all'inizio della stagione"),
+                Find("Pilota 2").GetComponent<Text>().color == new Color(1f, 0.74f, 0.18f) && Text("Invio").StartsWith("Invio: gara 3 di 4 a " + Circuits.Generate(c1.CircuitSeed(2)).name) && Text("Nota").Contains("fissato all'inizio della stagione"),
                 Text("Invio") + " / " + Text("Nota").Replace((char)10, '/'));
             var reset = Find("Pulsante Ricomincia");
             Check("con una stagione in corso c'e' 'Ricomincia': la croce ci scende dalla coppa e da li' risale alla coppa o va a 'Indietro'",
@@ -814,7 +786,7 @@ namespace PryingEyes.Pista
                 CellText(Find("Coppa 3"), "Stagione") == "Finita  -  1° con 100 punti" && CellText(Find("Coppa 3"), "Premio") == "Migliore: COPPA D'ORO" && Find("Coppa 3").transform.Find("Premio").GetComponent<Text>().color == PistaDirector.LicenceColor(Medal.Gold).Value
                 && Text("Riepilogo") == "Punti " + string.Join(" ", Cups.PointsTable) + "   -   Coppe: oro 1  argento 0  bronzo 0", CellText(Find("Coppa 3"), "Premio") + " / " + Text("Riepilogo"));
             Check("sotto una stagione finita la tabella dice che e' finita, Invio comincia una stagione nuova e non c'e' 'Ricomincia'",
-                Text("Intestazione classifica") == "Classifica dopo 4 gare  -  stagione finita" && Text("Pilota 1") == "1  " + you && Text("Pilota 1 valore") == "100 pt" && Text("Invio") == "Invio: nuova stagione, gara 1 di 4 a " + CircuitGen.Generate(c2.CircuitSeed(0)).name + "  -  " + c2.laps + " giri" && Find("Pulsante Ricomincia") == null,
+                Text("Intestazione classifica") == "Classifica dopo 4 gare  -  stagione finita" && Text("Pilota 1") == "1  " + you && Text("Pilota 1 valore") == "100 pt" && Text("Invio") == "Invio: nuova stagione, gara 1 di 4 a " + Circuits.Generate(c2.CircuitSeed(0)).name + "  -  " + c2.laps + " giri" && Find("Pulsante Ricomincia") == null,
                 Text("Intestazione classifica") + " / " + Text("Invio"));
             if (shots) yield return Shot("menu_12_campionato_coppa");
 
@@ -849,7 +821,7 @@ namespace PryingEyes.Pista
             EventSystem.current.SetSelectedGameObject(Find("Pulsante Campionato"));
             Find("Pulsante Campionato").GetComponent<Button>().onClick.Invoke();
             yield return null; yield return null;
-            Check("riaprendolo e' scelta la coppa con la stagione in corso", Open("cupPanel") && Sel == "Coppa 2" && Text("Invio").StartsWith("Invio: gara 2 di 4 a " + CircuitGen.Generate(c1.CircuitSeed(1)).name), Sel + " / " + Text("Invio"));
+            Check("riaprendolo e' scelta la coppa con la stagione in corso", Open("cupPanel") && Sel == "Coppa 2" && Text("Invio").StartsWith("Invio: gara 2 di 4 a " + Circuits.Generate(c1.CircuitSeed(1)).name), Sel + " / " + Text("Invio"));
 
             // a click on the finished cup: a new season (the level of the setup now, the bike of the setup because it is of the class) and the first round of the calendar, with the cup's laps and the eleven riders
             EventSystem.current.SetSelectedGameObject(Find("Coppa 3"));
@@ -858,7 +830,7 @@ namespace PryingEyes.Pista
             Check("un clic su una coppa toglie il menu e la partita e' su pista, in quella coppa", !GameMenu.InMenu && PistaMode.Requested && PistaMode.Cup == 2, "coppa " + PistaMode.Cup);
             yield return WaitFor(() => PistaDirector.I != null && PistaDirector.I.Ready, 150f);
             var d = PistaDirector.I;
-            if (!Check2("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
+            if (!Check("la gara e' pronta", d != null && d.Ready && PistaMode.Active)) yield break;
             yield return null;
             var fresh = PistaCups.Book.Season(2);
             Check("la stagione e' nuova (al livello della preparazione), la coppa d'oro resta nel libro e si corre la prima gara del calendario",

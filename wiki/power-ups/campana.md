@@ -5,7 +5,7 @@ mode: both
 summary: Campana (bell) is a power-up that kills everyone in the round and within 22 metres and pays 400 points, but its toll is heard across the whole floor and the survivors come looking for you.
 image: img/power-ups/campana.webp
 caption: The campana drop, a bell on the floor.
-sources: docs/game/tower.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Drops.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Punti.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Enemy.cs
+sources: docs/game/tower.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/Drops.cs, unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Enemy.cs
 ---
 
 # Campana

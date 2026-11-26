@@ -1,11 +1,10 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -14,42 +13,14 @@ namespace PryingEyes
     /// lampade elettriche sono al 40% e le altre luci (candele, luna, finestre, insegne) restano come sono; trappole e altare
     /// rifiutano. F davanti al quadro (lo sceglie Interact) tira la leva: la luce torna a ondata dal quadro (le lampade lontane
     /// aspettano il loro turno), poi tutte piene; la leva e' giu' e le trappole si accendono.</summary>
-    public sealed class PowerTest : MonoBehaviour
+    public sealed class PowerTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "powertest"; } }
+        protected override string PhotoFlag { get { return "-powershots"; } }
+        protected override string OutFolder { get { return "corrente"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-powertest") >= 0) new GameObject("PowerTest").AddComponent<PowerTest>();
-        }
-
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] powertest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-powershots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] powertest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/corrente"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
-        }
+        static void Install() { InstallWhen<PowerTest>("-powertest"); }
 
         static void Face(PlayerController player, Vector3 target)
         {
@@ -72,7 +43,7 @@ namespace PryingEyes
             return (n, ok);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -83,7 +54,7 @@ namespace PryingEyes
             var panel = Power.Panel;
             Check("il piano ha il quadro elettrico", panel != null);
             Check("si parte senza corrente", !Power.On);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
 
             // dove sta
             var access = RoomAccessDoors.I.Access;
@@ -97,7 +68,7 @@ namespace PryingEyes
             Vector3 front = pt.position + pt.forward * 0.95f;
             bool ground = HotelNav.Ground(front + Vector3.up * 0.3f, out Vector3 fg) && NavMesh.SamplePosition(fg, out _, 0.5f, NavMesh.AllAreas);
             Check("appeso a un muro, con pavimento e navmesh davanti", wall && ground);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
 
             // davanti al quadro: luci d'emergenza
             player.Teleport(fg + Vector3.up * 0.05f); player.hp = 100; player.invulnerable = true;
@@ -118,17 +89,17 @@ namespace PryingEyes
             Debug.Log($"[PryingEyes] powertest lampade: {elecTotal} elettriche, {LightPool.All.Count - elecTotal} altre");
             Check($"senza corrente le lampade elettriche sono al 40% ({ok0}/{n0} accese)", n0 > 0 && ok0 == n0);
             Check($"le altre luci restano come sono ({otherOk}/{other})", otherOk == other);
-            View("prima");
+            Photo("prima");
             Vector3 far = pt.position + pt.forward * 4.5f;
             Vector3 farG = far;
-            bool roomView = shots && HotelNav.Ground(far + Vector3.up * 0.3f, out farG) && HotelNav.ClearLine(farG + Vector3.up * 1.6f, panel.Point);
+            bool roomView = Photos && HotelNav.Ground(far + Vector3.up * 0.3f, out farG) && HotelNav.ClearLine(farG + Vector3.up * 1.6f, panel.Point);
             if (roomView)
             {
                 player.Teleport(farG + Vector3.up * 0.05f);
                 yield return null;
                 Face(player, panel.Point + Vector3.up * 0.4f);
                 yield return new WaitForSeconds(0.2f);
-                View("prima_sala");
+                Photo("prima_sala");
                 player.Teleport(fg + Vector3.up * 0.05f);
                 yield return null;
             }
@@ -176,14 +147,14 @@ namespace PryingEyes
             var (n1, ok1) = Electric(1f);
             Check($"poi tutte le lampade elettriche sono piene ({ok1}/{n1})", n1 > 0 && ok1 == n1);
             Check("il quadro non propone piu' niente", panel.Prompt == null);
-            View("dopo");
+            Photo("dopo");
             if (roomView)
             {
                 player.Teleport(farG + Vector3.up * 0.05f);
                 yield return null;
                 Face(player, panel.Point + Vector3.up * 0.4f);
                 yield return new WaitForSeconds(0.2f);
-                View("dopo_sala");
+                Photo("dopo_sala");
                 player.Teleport(fg + Vector3.up * 0.05f);
                 yield return null;
             }

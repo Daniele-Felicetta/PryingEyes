@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Labs · Prying Eyes wiki</title>
-<meta name="description" content="The engine-free .NET labs that run the rules of the packages (layout, weapons, survival, economy, saves) without the editor, through the studio&#x27;s test command.">
+<meta name="description" content="The engine-free .NET labs that run the rules of the packages and of the game&#x27;s pure code without the editor, listed by the studio&#x27;s suites command and run by its test command.">
 <link rel="stylesheet" href="../assets/wiki.css">
 <script src="../assets/search-index.js" defer></script>
 <script src="../assets/wiki.js" defer></script>
@@ -19,12 +19,13 @@
 <article class="prose">
 <h1 id="labs">Labs</h1>
 <figure><img src="../../img/pipeline/labs.webp" alt="Card: the labs, one rule package each, compiled from the same source" loading="lazy"><figcaption>The labs, on a card.</figcaption></figure>
-<p>A lab is a small .NET program that compiles the source of one package from its own path and runs its rules, with no Unity and no editor. There is one lab per package: <code>tools/planlab</code> for the layout, <code>tools/weaponslab</code> for the weapons, <code>tools/survivallab</code> for the survival budget, <code>tools/economylab</code> for the economy and <code>tools/saveslab</code> for the saves.</p>
+<p>A lab is a small .NET program that compiles the source of a package, or of the game's engine-free files, from its own path and runs its rules, with no Unity and no editor. A lab is a folder <code>tools/&lt;name&gt;lab</code>: <code>planlab</code> for the layout and the floor generator, <code>weaponslab</code> for the weapons, <code>survivallab</code> for the survival budget, <code>economylab</code> for the economy, <code>saveslab</code> for the saves, <code>tracklab</code> for the track mode and <code>desertlab</code> for the desert.</p>
 <section id="how-to-run-them">
 <h2 id="how-to-run-them">How to run them</h2>
-<p>The gate runs four of them through the studio:</p>
-<ul><li><code>python tools/studio.py test weapon-state</code></li><li><code>python tools/studio.py test survival</code></li><li><code>python tools/studio.py test economy</code></li><li><code>python tools/studio.py test saves</code>: the save library and the character and run files, 115 checks.</li></ul>
+<p><code>python tools/studio.py suites</code> lists what the studio can run, with what each suite needs, what it can disturb and the seconds it usually takes. A lab needs nothing, and the gate runs every suite that needs nothing:</p>
+<ul><li><code>python tools/studio.py test &lt;suite&gt;</code> runs one, by the name the list gives it, for example <code>weapon-state</code>, <code>survival</code>, <code>economy</code>, <code>saves</code>, <code>track</code>, <code>desert</code> or <code>plan</code>.</li><li><code>python tools/studio.py test saves</code> is the save library and the character and run files, 115 checks.</li></ul>
 <p>They take the project lock, so <a href="ship.html">ship</a> does not run them. The <a href="ci-gate.html">CI gate</a> does, on GitHub. Their jobs leave a <code>report.json</code> under <code>unity_logs/studio/</code>, as described in <a href="studio-engine.html">the studio engine</a>.</p>
+<p>A new lab is one entry in the profile, <code>tools/studio_pryingeyes.py</code>, and its folder. The workflow and <code>.gitignore</code> need no line for it.</p>
 </section>
 <section id="why-they-are-separate-from-the-game">
 <h2 id="why-they-are-separate-from-the-game">Why they are separate from the game</h2>
@@ -35,7 +36,7 @@
 <ul><li><a href="studio-engine.html">Studio engine</a>: the engine that runs the labs as jobs.</li><li><a href="../packages/saves.html">Production saves</a>: the package the saves lab checks.</li><li><a href="https://github.com/Daniele-Felicetta/PryingEyes/blob/preview/docs/engineering/testing.md">Testing and verification</a>: the whole list of checks.</li></ul>
 </section>
 </article>
-<dl class="facts"><dt>Sources</dt><dd><a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/planlab">tools/planlab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/weaponslab">tools/weaponslab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/survivallab">tools/survivallab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/economylab">tools/economylab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/saveslab">tools/saveslab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/blob/preview/tools/studio.py">tools/studio.py</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/blob/preview/docs/engineering/testing.md">docs/engineering/testing.md</a></dd></dl>
+<dl class="facts"><dt>Sources</dt><dd><a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/planlab">tools/planlab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/weaponslab">tools/weaponslab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/survivallab">tools/survivallab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/economylab">tools/economylab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/saveslab">tools/saveslab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/tracklab">tools/tracklab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/tree/preview/tools/desertlab">tools/desertlab</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/blob/preview/tools/studio.py">tools/studio.py</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/blob/preview/tools/studio_pryingeyes.py">tools/studio_pryingeyes.py</a> · <a href="https://github.com/Daniele-Felicetta/PryingEyes/blob/preview/docs/engineering/testing.md">docs/engineering/testing.md</a></dd></dl>
 <section class="backlinks"><h2>Linked from</h2><ul><li><a href="../catalog.html">Catalogue</a></li><li><a href="ci-gate.html">CI gate</a></li><li><a href="../projects/city-prototype.html">City prototype</a></li><li><a href="../glossary.html">Glossary</a></li><li><a href="../packages/economy.html">Production Economy</a></li><li><a href="../packages/layout.html">Production Layout</a></li><li><a href="../packages/saves.html">Production Saves</a></li><li><a href="../packages/survival.html">Production Survival</a></li><li><a href="../packages/weapons.html">Production Weapons</a></li><li><a href="../index.html">Prying Eyes wiki</a></li><li><a href="studio-engine.html">Studio engine</a></li></ul></section>
 </main>
 </div>
