@@ -757,7 +757,7 @@ window.WIKI_SEARCH = [
 },
 {
 "t": "CI gate",
-"s": "The workflow on GitHub that runs the boundary check, the Python tests and the four .NET labs on every push to preview and every pull request against it.",
+"s": "The workflow on GitHub that runs the boundary check, the Python tests and every .NET lab the studio lists on every push to preview and every pull request against it.",
 "u": "pipeline/ci-gate.html",
 "c": "pipeline",
 "k": "Pipeline",
@@ -766,7 +766,7 @@ window.WIKI_SEARCH = [
 },
 {
 "t": "Labs",
-"s": "The engine-free .NET labs that run the rules of the packages (layout, weapons, survival, economy, saves) without the editor, through the studio's test command.",
+"s": "The engine-free .NET labs that run the rules of the packages and of the game's pure code without the editor, listed by the studio's suites command and run by its test command.",
 "u": "pipeline/labs.html",
 "c": "pipeline",
 "k": "Pipeline",
@@ -1711,7 +1711,7 @@ window.WIKI_SEARCH = [
 },
 {
 "t": "Third-person view",
-"s": "The Prospettiva setting puts the camera behind your survivor's shoulder, 2.1 m behind your eye and 55 cm to the right, and brings it in when you aim.",
+"s": "The Prospettiva setting puts the camera behind your survivor's shoulder and brings it closer while aiming or passing an obstacle.",
 "u": "systems/third-person.html",
 "c": "system",
 "k": "Systems",

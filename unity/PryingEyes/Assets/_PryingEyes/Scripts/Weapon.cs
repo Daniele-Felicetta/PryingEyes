@@ -949,7 +949,7 @@ namespace PryingEyes
             // ----- fuoco
             // Conserva il ritardo del fotogramma quando parte il colpo, senza accumulare credito durante l'attesa.
             State.AdvanceCadence(dt);
-            bool autoBot = inputEnabled && GameManager.autoTest && !GameManager.gunTest && !GameManager.noFire && !rideMode;          // in sella il bot di -autotest sta zitto...
+            bool autoBot = inputEnabled && GameManager.autoTest && !GameManager.noFire && !rideMode;          // in sella il bot di -autotest sta zitto...
             autoBot |= inputEnabled && rideMode && rideBotFire;                                                                      // ...tranne la prova che spara dalla sella (Weapon.rideBotFire, solo delle prove; -desertotest e -cooptest hanno noFire)
             bool press = inputEnabled && (SeatInput.GetMouseButtonDown(0) || TouchControls.Down(TouchControls.Action.Fire) || (autoBot && Time.time - lastShot > 0.2f));
             bool held = inputEnabled && (SeatInput.GetMouseButton(0) || TouchControls.Held(TouchControls.Action.Fire) || autoBot);

@@ -1,21 +1,19 @@
 #if !PE_DISTRIBUTION_BUILD
 using System;
 using System.Collections;
-using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Rendering.Universal;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -noenemies -meleetest [-meleeshots]: clip, preparazione, contatto, recupero e schivate reali.
     /// Con -hitflashtest verifica invece i materiali colpiti, anche con fotogrammi lunghi e sulle repliche.</summary>
-    public sealed class MeleeTest : MonoBehaviour
+    public sealed class MeleeTest : PlayerTest
     {
-        int checks, failed, exceptions;
         Vector3 arena, forward;
-        bool shots;
         Camera review;
         RenderTexture poseTarget;
         // Il player batch non presenta fotogrammi: renderizziamo comunque le pose per non misurare ossa sospese dal culling.
@@ -28,28 +26,18 @@ namespace PryingEyes
             camera.Render();
             camera.targetTexture = previous;
         }
-        void OnDestroy() { if (poseTarget != null) RenderTexture.ReleaseTemporary(poseTarget); }
+        protected override void OnDestroy() { base.OnDestroy(); if (poseTarget != null) RenderTexture.ReleaseTemporary(poseTarget); }
+
+        protected override string Suite { get { return "meleetest"; } }
+        protected override string PhotoFlag { get { return "-meleeshots"; } }
+        protected override string OutFolder { get { return "melee"; } }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
+        static void Install() { InstallWhen<MeleeTest>("-meleetest"); }
+
+        protected override void Finish()
         {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-meleetest") >= 0) new GameObject("MeleeTest").AddComponent<MeleeTest>();
-        }
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] meleetest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-meleeshots") >= 0;
-            var sequence = Array.IndexOf(Environment.GetCommandLineArgs(), "-hitflashtest") >= 0 ? RunFlashes() : Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
             PlayerController.botDir = Vector3.zero;
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] meleetest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
         internal static bool FindArena(out Vector3 arena, out Vector3 forward)
         {
@@ -75,10 +63,9 @@ namespace PryingEyes
         }
         void Photo(Enemy enemy, string phase)
         {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/melee"); Directory.CreateDirectory(folder);
+            if (!Photos) return;
             LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, enemy.type + "_" + phase + ".png"), null, true);
+            GameManager.CamShot(PhotoPath(enemy.type + "_" + phase), null, true);
             if (review == null)
             {
                 review = new GameObject("Revisione mischia").AddComponent<Camera>();
@@ -89,7 +76,7 @@ namespace PryingEyes
             Vector3 eye = enemy.transform.position + enemy.transform.right * 2.5f + enemy.transform.forward * 2.7f + Vector3.up * 1.5f;
             review.transform.SetPositionAndRotation(eye, Quaternion.LookRotation(enemy.transform.position + Vector3.up * 1.1f - eye));
             review.fieldOfView = 50;
-            GameManager.CamShot(Path.Combine(folder, enemy.type + "_" + phase + "_lato.png"), review, false);
+            GameManager.CamShot(PhotoPath(enemy.type + "_" + phase + "_lato"), review, false);
         }
         (int dust, int glow, int visible) ContactParticles()
         {
@@ -137,7 +124,7 @@ namespace PryingEyes
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
             Enemy.ClearAll(); Enemy.debugFreeze = true;
             Check("spazio della prova lampi sulla navmesh reale", FindArena(out arena, out forward));
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             var types = new[] { Enemy.EnemyType.Monaco, Enemy.EnemyType.Abate, Enemy.EnemyType.Maschera, Enemy.EnemyType.Direttore,
                 Enemy.EnemyType.Infermiere, Enemy.EnemyType.Primario, Enemy.EnemyType.Occhio, Enemy.EnemyType.Veglia, Enemy.EnemyType.Medusa, Enemy.EnemyType.Portachiavi };
             int id = 20000;
@@ -181,7 +168,9 @@ namespace PryingEyes
                 }
             Enemy.debugFreeze = false;
         }
-        IEnumerator Run()
+        protected override IEnumerator Run() { return TestRun.Has("-hitflashtest") ? RunFlashes() : RunMelee(); }
+
+        IEnumerator RunMelee()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -190,7 +179,7 @@ namespace PryingEyes
             var player = GameManager.I.player; var hud = GameManager.I.hud;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             Check("spazio di prova libero sulla navmesh reale", FindArena(out arena, out forward));
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             if (!Torch.I.on) Torch.I.Toggle();
             hud.Banner("", ""); hud.Toast("");
             Enemy Spawn(Enemy.EnemyType type)

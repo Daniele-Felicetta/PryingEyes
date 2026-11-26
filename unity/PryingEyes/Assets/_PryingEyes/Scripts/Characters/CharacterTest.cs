@@ -6,6 +6,7 @@ using Production.Economy;
 using Production.Saves;
 using PryingEyes.Cattedrale;
 using UnityEngine;
+using PryingEyes.Testing;
 
 namespace PryingEyes.Characters
 {
@@ -14,35 +15,23 @@ namespace PryingEyes.Characters
     /// tocca l'altro), che l'esperienza faccia salire di livello una volta sola, che tutto torni uguale dopo aver riletto i file, che un campo
     /// e un'opera che questa versione non conosce sopravvivano a un salvataggio, e che eliminare un personaggio lo metta in "deleted" senza
     /// perderlo. Le regole dei formati sono provate fuori da Unity (tools/saveslab); qui c'e' il collegamento col gioco.</summary>
-    public sealed class CharacterTest : MonoBehaviour
+    public sealed class CharacterTest : PlayerTest
     {
-        int checks, failed;
+        protected override string Suite { get { return "chartest"; } }
+        protected override string ExceptionCheck { get { return null; } }       // la prova non ne ha mai avuto uno
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-chartest") < 0) return;
-            new GameObject("CharacterTest").AddComponent<CharacterTest>();
-        }
+        static void Install() { InstallWhen<CharacterTest>("-chartest"); }
 
-        void Check(string name, bool ok, string detail = "")
-        {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] chartest " + (ok ? "ok " : "FALLITO ") + name + (detail.Length > 0 ? " (" + detail + ")" : ""));
-        }
-
-        IEnumerator Start()
+        protected override IEnumerator Run()
         {
             yield return null;                  // il primo fotogramma: il menu c'e', l'elenco e' stato letto
-            try { Run(); }
-            catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false, e.Message); }
-            Debug.Log($"[PryingEyes] chartest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
+            Sequence();
         }
 
         static string PathOf(CharacterRecord r) => Path.Combine(Roster.Folder, r.id + ".json");
 
-        void Run()
+        void Sequence()
         {
             string folder = Roster.Folder;
             if (!Roster.IsTest || !folder.Contains("characters-")) throw new InvalidOperationException("la prova gira solo sul profilo di prova: " + folder);

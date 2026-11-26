@@ -115,7 +115,7 @@ namespace PryingEyes
             if (cc == null) cc = GetComponent<CharacterController>();
 #if !PE_DISTRIBUTION_BUILD
             // diagnostica delle prove: un pilota gia' in sella da piu' di mezzo secondo non dovrebbe essere spostato di decine di metri; se succede, il registro dice da dove e chi l'ha chiamato
-            if (Riding && rideBlend >= 1f && (p - transform.position).sqrMagnitude > 225f)
+            if (Riding && Time.time - rideMountedAt > 0.5f && (p - transform.position).sqrMagnitude > 225f)
                 Debug.Log($"[PryingEyes] teleporto in sella: da {transform.position:F1} a {p:F1}, chiamato da:\n{new System.Diagnostics.StackTrace(1, false)}");
 #endif
             CancelMantle();
@@ -144,6 +144,7 @@ namespace PryingEyes
         public float SpeedH { get; private set; }
         public bool IsSprinting { get; private set; }
         public bool IsCrouching { get; private set; }
+        public bool IsSliding => slide;
 
         public float yaw = Mathf.PI, pitch, lean, bobPhase;
         float coyote, jumpBuf, slideT, eyeH, fovKick;
@@ -263,6 +264,7 @@ namespace PryingEyes
             if (Riding && (!alive || Downed)) AbortRide();          // a terra o morti si lascia la moto dov'e' (PlayerController.Ride.cs)
             if (!alive)
             {
+                if (ThirdPersonView.Count > 0) ThirdPersonView.Suspend(this);
                 respawnT -= dt;
                 if (respawnT <= 0f) Respawn();
                 return;
@@ -521,14 +523,15 @@ namespace PryingEyes
             float arm = Mathf.Max(0.1f, eyeH - leanPivot);
             float latOff = arm * Mathf.Sin(th) + lean * leanSlide;
             float drop = arm * (1f - Mathf.Cos(th));
-            cam.position = new Vector3(
-                transform.position.x + bobX * cos + right.x * latOff,
-                transform.position.y + eyeH + bobY - drop - mantleDrop,
-                transform.position.z - bobX * sin + right.z * latOff);
-            float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion - lean * leanRoll + (Downed ? 9f : 0f);
-            cam.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg - recP + mantlePitch, yaw * Mathf.Rad2Deg + recY, roll + mantleRoll);
-            // terza persona (impostazione del menu): la camera si sposta dietro la spalla solo mentre disegna; qui l'occhio si gira verso il mirino
-            if (GameSettings.ThirdPerson || ThirdPersonView.Count > 0) ThirdPersonView.AfterEyePose(this);
+            Vector3 stableEye = transform.position + right * latOff + Vector3.up * (eyeH - drop - mantleDrop);
+            cam.position = stableEye + right * bobX + Vector3.up * bobY;
+            float tilt = -lean * leanRoll + (Downed ? 9f : 0f) + mantleRoll;
+            float lookPitch = pitch * Mathf.Rad2Deg - recP + mantlePitch;
+            float lookYaw = yaw * Mathf.Rad2Deg + recY;
+            float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion + tilt;
+            cam.rotation = Quaternion.Euler(lookPitch, lookYaw, roll);
+            if (GameSettings.ThirdPerson || ThirdPersonView.Count > 0)
+                ThirdPersonView.AfterEyePose(this, stableEye, new Vector3(lookPitch, lookYaw, tilt));
 
             // perk attivabile: il tempo degli effetti scorre in TickSurvival, anche nel menu cooperativo
             if (alive && !Downed && !GameMenu.Blocked && PerkState.Has(PerkId.Velo) && (SeatInput.GetKeyDown(KeyCode.H) || TouchControls.Down(TouchControls.Action.Velo)) && PerkState.TryVelo())

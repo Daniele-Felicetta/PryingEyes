@@ -2,11 +2,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -15,61 +15,49 @@ namespace PryingEyes
     /// spalla, non disegna arma e mani della prima persona e disegna il corpo con l'arma in mano; il raggio dell'occhio e quello della
     /// camera cadono sullo stesso punto del muro; con un sigillo sull'arma il lampo alla bocca esce dall'arma del corpo; in mira la camera
     /// si avvicina; un muro dietro le spalle la ferma; spenta, tutto torna com'era. Con -tpshots foto in unity_logs/terza-persona. Non tocca le preferenze del giocatore (GameSettings.thirdPersonOverride).</summary>
-    public sealed class ThirdPersonTest : MonoBehaviour
+    public sealed class ThirdPersonTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
         Camera watched;
+        Transform feet;
+        Vector3 feetInFrame;
         Vector3 seenPos; Quaternion seenRot; int seenMask, seenFrame = -1;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-tptest") >= 0) new GameObject("ThirdPersonTest").AddComponent<ThirdPersonTest>();
-        }
+        protected override string Suite { get { return "tptest"; } }
+        protected override string PhotoFlag { get { return "-tpshots"; } }
+        protected override string OutFolder { get { return "terza-persona"; } }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] tptest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Install() { InstallWhen<ThirdPersonTest>("-tptest"); }
 
         // quello che la camera ha davanti mentre disegna: ThirdPersonView si e' iscritto prima, quindi qui la posa e' gia' quella di disegno
         void OnBegin(ScriptableRenderContext ctx, Camera c)
         {
             if (c != watched) return;
             seenPos = c.transform.position; seenRot = c.transform.rotation; seenMask = c.cullingMask; seenFrame = Time.frameCount;
+            feetInFrame = c.WorldToViewportPoint(feet.position);
         }
 
-        IEnumerator Start()
+        protected override void Finish()
         {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-tpshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
             RenderPipelineManager.beginCameraRendering -= OnBegin;
             GameSettings.thirdPersonOverride = -1;
+            GameSettings.thirdPersonFramingOverride = null;
             Weapon.debugAds = false;
             PlayerController.botDir = Vector3.zero;
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] tptest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         void View(string name, bool tick = true)
         {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/terza-persona"); Directory.CreateDirectory(folder);
+            if (!Photos) return;
             if (tick) LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
+            GameManager.CamShot(PhotoPath(name), null, true);
         }
 
         /// <summary>Foto al buio (solo con -tpshots): tutte le lampade spente e la torcia accesa, il corpo con e senza la luce di riempimento.
         /// Niente controlli: serve a vedere se la schiena del personaggio e' leggibile o e' una macchia nera, e se il corpo fa ombra alla torcia.</summary>
         IEnumerator DarkShots()
         {
-            if (!shots) yield break;
+            if (!Photos) yield break;
             var lamps = new List<Light>();
             foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None))
             {
@@ -139,8 +127,9 @@ namespace PryingEyes
             RenderTexture.ReleaseTemporary(rt);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            GameSettings.thirdPersonFramingOverride = GameSettings.DefaultThirdPersonFraming;
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
             yield return null;
@@ -148,7 +137,7 @@ namespace PryingEyes
             var gm = GameManager.I; var player = gm.player;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward));
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             // URP azzera nella maschera di una luce i livelli che il progetto non definisce (TagManager.asset, RenderingLayerUtils.ToValidRenderingLayers):
             // tutti i bit che SurvivorLight usa devono avere un nome, altrimenti le luci per posto non illuminano niente
             uint used = 0u;
@@ -160,6 +149,7 @@ namespace PryingEyes
             player.Teleport(arena + Vector3.up * 0.05f);
             player.yaw = yawF; player.pitch = 0.05f;
             watched = player.cam.GetComponent<Camera>();
+            feet = player.transform;
             GameSettings.thirdPersonOverride = 0;
             yield return Frames(3);
             RenderPipelineManager.beginCameraRendering += OnBegin;
@@ -245,6 +235,9 @@ namespace PryingEyes
             yield return new WaitForSeconds(0.9f);
             float speed = avatar != null && avatar.Body != null ? avatar.Body.input.velocity.magnitude : 0f;
             Check($"in cammino il corpo riceve la velocita' ({speed:F1} m/s)", speed > 1.2f);
+            RenderNow();
+            Check($"in cammino l'inquadratura include i piedi ({feetInFrame.y:P0})",
+                  feetInFrame.z > 0f && feetInFrame.y > 0.015f && feetInFrame.y < 1f);
             View("cammino");
             PlayerController.botDir = Vector3.zero; PlayerController.holdLook = true;
             yield return new WaitForSeconds(0.4f);
@@ -257,7 +250,43 @@ namespace PryingEyes
             float awayWall = (seenPos - player.cam.position).magnitude;
             Check($"con un muro a 90 cm dietro la camera si ferma prima ({awayWall:F2} m)", awayWall < 1.05f);
             View("muro-dietro");
+            Check("in uno spazio stretto il corpo lascia posto alle mani",
+                  avatar != null && (seenMask & (1 << avatar.Layer)) == 0 && (seenMask & (1 << Seats.ViewLayer)) != 0);
             DestroyImmediate(behind); Physics.SyncTransforms();
+            yield return new WaitForSeconds(0.10f);
+            RenderNow();
+            float opening = Vector3.Distance(seenPos, player.cam.position);
+            yield return new WaitForSeconds(0.65f);
+            RenderNow();
+            float recovered = Vector3.Distance(seenPos, player.cam.position);
+            Check($"la camera si riallontana gradualmente ({awayWall:F2}, {opening:F2}, {recovered:F2} m)",
+                  opening < recovered - 0.4f && Mathf.Abs(recovered - away) < 0.25f);
+
+            if (avatar != null && avatar.Body != null)
+            {
+                var body = avatar.Body;
+                float standing = body.Hips.position.y - avatar.transform.position.y;
+                float lowest = standing;
+                bool airborne = false;
+                float until = Time.time + 1.25f;
+                player.Teleport(player.transform.position + Vector3.up * 1.35f);
+                while (Time.time < until)
+                {
+                    yield return null;
+                    airborne |= !body.input.grounded;
+                    if (airborne && body.input.grounded)
+                        lowest = Mathf.Min(lowest, body.Hips.position.y - avatar.transform.position.y);
+                }
+                Check("una caduta porta il corpo nella posa in aria e poi a terra", airborne && body.input.grounded);
+                float settled = body.Hips.position.y - avatar.transform.position.y;
+                Check($"il bacino ammortizza l'atterraggio e risale ({(settled - lowest) * 100f:F1} cm)",
+                      settled - lowest > 0.035f && Mathf.Abs(settled - standing) < 0.03f);
+            }
+            else
+            {
+                Check("una caduta porta il corpo nella posa in aria e poi a terra", false);
+                Check("il bacino ammortizza l'atterraggio e risale", false);
+            }
 
             // 7) spenta: la camera torna all'occhio, il corpo e il componente spariscono
             GameSettings.thirdPersonOverride = 0;

@@ -45,7 +45,7 @@ contrast, would complete itself and pay.
 (`Scripts/EquipTest.cs`, 19 checks): the throw spends a flask and sends it forward; a flask among three monks kills them,
 pays, and leaves the thrower 6 m away unharmed; a carillon pulls three monks away from the player and kills them; three waves
 refill the stock; three headshot kills complete a trial and pay; the Intatto trial counts seconds and resets on a hit.
-Photos in `unity_logs/equipaggiamento` (launch from the repository root).
+Photos in `unity_logs/equipaggiamento` of the checkout, whatever the working directory.
 
 ## Glass eyes (hidden hunt)
 
@@ -77,5 +77,5 @@ Added on 15 November 2026 (`Scripts/Mine.cs`), the third piece of equipment (key
 Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -minetest [-mineshots] -seed 1000 -floor 1`
 (`Scripts/MineTest.cs`, 12 checks: one at the start, placed one metre ahead on the floor, the count goes down and an empty pocket
 places nothing, not armed at 0.3 s and armed after 1.2 s, a monk at 4 m does not trigger it, one at 1 m does within 0.8 s and
-dies, the player next to it is unharmed). Photos in `unity_logs/mine`.
+dies, the player next to it is unharmed). `result.json` and the photos in `unity_logs/mine`.
 

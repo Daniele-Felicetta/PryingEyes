@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -79,6 +80,88 @@ class EngineOnAToyProject(unittest.TestCase):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
             code, _, report = run(toy(folder), "test", "smoke")
             self.assertEqual(code, 0); self.assertEqual([s["name"] for s in report["steps"]], ["smoke"])
+
+    def test_a_suite_says_what_it_is_and_the_defaults_are_empty(self):
+        bare = engine.Suite(lambda ctx, runtime: None)
+        self.assertEqual((bare.runtime, bare.kind, bare.needs, bare.hazards, bare.seconds, bare.about), (False, "", (), (), 0, ""))
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+            suites = toy(folder).suites
+            self.assertEqual((suites["careful"].kind, suites["careful"].needs, suites["careful"].hazards), ("demo", ("easel",), ("noise", "paint")))
+
+    def test_suites_lists_every_suite_with_its_fields_and_writes_nothing(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+            project = toy(folder)
+            code, out, report = run(project, "suites", "--json")
+            self.assertEqual(code, 0); self.assertIsNone(report)                                  # no job, no report: it reads the registry only
+            self.assertFalse(project.output.exists())
+            listing = json.loads(out)                                                             # stdout is the JSON and nothing else
+            self.assertEqual(listing["schemaVersion"], 1)
+            self.assertEqual(listing["suites"], [
+                {"name": "smoke", "kind": "check", "needs": [], "hazards": [], "seconds": 1, "about": "Starts the interpreter once"},
+                {"name": "careful", "kind": "demo", "needs": ["easel"], "hazards": ["noise", "paint"], "seconds": 2,
+                 "about": "Declares what it can disturb: it runs only when every hazard is allowed"}])
+            code, text, _ = run(project, "suites")
+            lines = text.splitlines()
+            self.assertEqual(code, 0); self.assertEqual(len(lines), 3)                            # a header and one line per suite
+            self.assertTrue(lines[0].startswith("suite") and lines[1].startswith("smoke") and lines[2].startswith("careful"))
+            self.assertIn("noise, paint", lines[2]); self.assertIn("easel", lines[2]); self.assertIn("-", lines[1])
+
+    def test_doctor_json_prints_the_facts_and_exits_one_on_a_problem_without_running_a_job(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+            project = toy(folder)
+            code, text, _ = run(project, "doctor")                                                # the text form is a job, as it always was
+            self.assertEqual((code, text.splitlines()[1]), (0, "STUDIO: 2 sprites"))
+            shutil.rmtree(project.output)
+            code, out, report = run(project, "doctor", "--json")
+            self.assertEqual((code, report), (0, None))                                           # no job, no report
+            self.assertFalse(project.output.exists())
+            self.assertEqual(json.loads(out), {"schemaVersion": 1, "ok": True, "sprites": 2, "problems": []})      # stdout is the JSON and nothing else
+            catalog = Path(folder) / "sprites.json"
+            catalog.write_text('{"sprites": []}', encoding="utf-8")
+            code, out, _ = run(project, "doctor", "--json")
+            self.assertEqual(code, 1)
+            self.assertEqual(json.loads(out), {"schemaVersion": 1, "ok": False, "sprites": 0, "problems": ["SPRITES_EMPTY: sprites.json lists no sprite"]})
+            catalog.unlink()                                                                      # the facts are read now, whatever state the files are in
+            code, out, _ = run(project, "doctor", "--json")
+            self.assertEqual((code, json.loads(out)["problems"][0].split(":")[0]), (1, "SPRITES_UNREADABLE"))
+            self.assertFalse(project.output.exists())
+
+    def test_a_project_that_reports_no_facts_has_nothing_wrong(self):
+        class Silent(ToyProject):
+            doctor_facts = engine.Project.doctor_facts                                            # the engine's own default
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+            code, out, _ = run(toy(folder, Silent), "doctor", "--json")
+            self.assertEqual((code, json.loads(out)), (0, {"schemaVersion": 1, "ok": True}))
+
+    def test_a_suite_with_hazards_is_refused_until_each_one_is_allowed(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+            project = toy(folder)
+            code, _, report = run(project, "test", "careful")
+            self.assertEqual((code, report["state"], report["steps"]), (1, "failed", []))         # refused at once: nothing ran
+            self.assertEqual(report["findings"][0]["code"], "SUITE_HAZARD_NOT_ALLOWED")
+            self.assertIn("noise, paint", report["findings"][0]["observed"]); self.assertIn("--allow noise --allow paint", report["findings"][0]["observed"])
+            code, _, report = run(project, "test", "careful", "--allow", "noise")                 # one of two is not enough, and the message names the rest
+            self.assertEqual((code, report["steps"], report["findings"][0]["code"]), (1, [], "SUITE_HAZARD_NOT_ALLOWED"))
+            self.assertIn("careful declares paint;", report["findings"][0]["observed"])
+            code, _, report = run(project, "test", "careful", "--allow", "noise", "--allow", "paint")
+            self.assertEqual((code, report["state"], [step["name"] for step in report["steps"]]), (0, "complete", ["careful"]))
+
+    def test_allow_means_nothing_to_a_suite_without_hazards(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+            code, _, report = run(toy(folder), "test", "smoke", "--allow", "anything")
+            self.assertEqual((code, report["state"]), (0, "complete"))
+
+    def test_queue_refuses_a_hazardous_suite_at_submission_and_keeps_the_allowances(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+            project = toy(folder)
+            code, out, _ = run(project, "queue", "add", "test", "careful")
+            refused = json.loads(out)
+            self.assertEqual((code, refused["ok"], refused["findings"][0]["code"]), (1, False, "SUITE_HAZARD_NOT_ALLOWED"))
+            self.assertEqual(run(project, "queue", "status")[1].count('"state"'), 0)               # nothing was queued
+            queued = json.loads(run(project, "queue", "add", "test", "careful", "--allow", "noise", "--allow", "paint")[1])["result"]["id"]
+            self.assertEqual(engine.Queue(project.output).get(queued)["request"], ["test", "careful", "--allow", "noise", "--allow", "paint"])
+            self.assertEqual(run(project, "queue", "run")[0], 0)
+            self.assertEqual(engine.Queue(project.output).get(queued)["state"], "complete")
 
     def test_queue_runs_requests_and_rejects_stale_sources_before_any_step(self):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:

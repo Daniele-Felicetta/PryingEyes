@@ -9,6 +9,6 @@
     <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.economy/Runtime/Market.cs" />
     <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.economy/Runtime/LootTable.cs" />
     <Compile Include="../../unity/PryingEyes/Packages/com.pryingeyes.economy/Runtime/Expedition.cs" />
-    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs" />
+    <Compile Include="../../unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PryingEyes.Pista;
+using Production.Racing;
 
 /// <summary>The replay, measured: a race is recorded the way the game records it (a frame of every rider every third step of the physics, from the lights going out), the falls and the overtakes are found in it,
 /// and the television director cuts it: the edit must cover the whole race without a gap, start on the grid and end at the line, cut to every fall, show the player often but not always, change camera and rider
@@ -53,7 +54,7 @@ static partial class Program
         int[] circuits = { 4242, 22, 205 };
         foreach (int cs in circuits)
         {
-            var c = CircuitGen.Generate(cs);
+            var c = Circuits.Generate(cs);
             Race race; var rec = RecordRace(c, 2, 12, cs, true, out race);
             float T = rec.Duration; int me = rec.me;
             // ---- the recording
@@ -163,7 +164,7 @@ static partial class Program
                         var f = rec.PoseAt(s.subject, s.pass - back);
                         float ax = p.lx - p.x, ay = p.ly - p.y, az = p.lz - p.z, sx = f.x - p.x, sy = f.y + 0.9f - p.y, sz = f.z - p.z;
                         // inside the picture of a 16:10 window: the turn left or right against half the width of the lens, the tilt against half its height
-                        double yaw = Math.Abs(PM.WrapPi((float)(Math.Atan2(ax, az) - Math.Atan2(sx, sz)))) * 180.0 / Math.PI;
+                        double yaw = Math.Abs(RacingMath.WrapPi((float)(Math.Atan2(ax, az) - Math.Atan2(sx, sz)))) * 180.0 / Math.PI;
                         double tilt = Math.Abs(Math.Atan2(ay, Math.Sqrt(ax * ax + az * az)) - Math.Atan2(sy, Math.Sqrt(sx * sx + sz * sz))) * 180.0 / Math.PI;
                         double halfWide = Math.Atan(Math.Tan(p.fov * 0.5 * Math.PI / 180.0) * 1.6) * 180.0 / Math.PI;
                         all &= yaw < halfWide - 3.0 && tilt < p.fov * 0.5 - 2.0;

@@ -1,47 +1,52 @@
-using System;
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
-using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
-    /// <summary>-autotest -nofire -noenemies -architecturetest: percorre le balconate senza recuperi o teletrasporti fra le tappe.</summary>
-    public sealed partial class ArchitectureTest : MonoBehaviour
+    /// <summary>-autotest -nofire -noenemies -architecturetest: percorre le balconate senza recuperi o teletrasporti fra le tappe. Quattro sequenze nella stessa classe
+    /// (i file ArchitectureTest.*.cs): le balconate e la rotonda (la predefinita), -architectureaccess (la prima porta a pagamento), -architecturesupply (il rifornimento
+    /// a serrande chiuse) e -architecturepursuit (otto agenti in gruppo sulle scale).</summary>
+    public sealed partial class ArchitectureTest : PlayerTest
     {
-        int checks, failed;
-        bool shots;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
+        static void Install() { InstallWhen<ArchitectureTest>("-architecturetest"); }
+
+        /// <summary>Il nome della suite e' quello della voce del manifest che il flag sceglie (architecturetest, architectureaccess, architecturesupply, architecturepursuit):
+        /// ognuna ha la sua riga di risultato e il suo result.json.</summary>
+        protected override string Suite
         {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-architecturetest") >= 0)
-                new GameObject("ArchitectureTest").AddComponent<ArchitectureTest>();
-        }
-        void Check(string name, bool ok)
-        {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] architecturetest " + (ok ? "ok " : "FALLITO ") + name);
-        }
-        IEnumerator Start()
-        {
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-architectureshots") >= 0;
-            var sequence = Array.IndexOf(Environment.GetCommandLineArgs(), "-architectureaccess") >= 0 ? RunAccess() :
-                Array.IndexOf(Environment.GetCommandLineArgs(), "-architecturesupply") >= 0 ? RunSupply() :
-                Array.IndexOf(Environment.GetCommandLineArgs(), "-architecturepursuit") >= 0 ? RunPursuit() : Run();
-            while (true)
+            get
             {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break;
-                yield return sequence.Current;
+                if (suite == null)
+                    suite = TestRun.Has("-architectureaccess") ? "architectureaccess" : TestRun.Has("-architecturesupply") ? "architecturesupply" :
+                        TestRun.Has("-architecturepursuit") ? "architecturepursuit" : "architecturetest";
+                return suite;
             }
-            PlayerController.botDir = Vector3.zero;
-            Debug.Log($"[PryingEyes] architecturetest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
-        IEnumerator Run()
+        string suite;
+        protected override string PhotoFlag { get { return "-architectureshots"; } }
+        /// <summary>Le foto del rifornimento stanno in unity_logs/supply, quelle delle balconate in unity_logs/architecture: le cartelle che le pagine nominano.</summary>
+        protected override string OutFolder { get { return Suite == "architecturesupply" ? "supply" : "architecture"; } }
+        /// <summary>La prova non ha mai contato le eccezioni: i controlli restano quelli che ha sempre avuto.</summary>
+        protected override string ExceptionCheck { get { return null; } }
+        protected override void Finish() { PlayerController.botDir = Vector3.zero; }
+
+        protected override IEnumerator Run()
+        {
+            switch (Suite)
+            {
+                case "architectureaccess": return RunAccess();
+                case "architecturesupply": return RunSupply();
+                case "architecturepursuit": return RunPursuit();
+                default: return RunGalleries();
+            }
+        }
+
+        IEnumerator RunGalleries()
         {
             float deadline = Time.realtimeSinceStartup + 60f;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -51,7 +56,6 @@ namespace PryingEyes
             player.invulnerable = true; PlayerController.holdLook = false;
             var path = new NavMeshPath();
             Time.timeScale = 2f;
-            string output = Path.GetFullPath("unity_logs/architecture"); Directory.CreateDirectory(output);
             var routes = new System.Collections.Generic.List<GalleryRoute>(fi.galleries);
             float Highest(GalleryRoute route) { float height=0; foreach(var point in route.points)height=Mathf.Max(height,point.y);return height; }
             routes.Sort((a,b)=>Highest(b).CompareTo(Highest(a)));
@@ -97,16 +101,16 @@ namespace PryingEyes
                         break;
                     }
                 }
-                if (shots)
+                if (Photos)
                 {
                     player.enabled = false;
                     var cam = player.cam.GetComponent<Camera>(); cam.fieldOfView = 70f;
                     Vector3 center = new Vector3(route.room.CenterX, 2.8f, route.room.CenterZ);
                     cam.transform.SetPositionAndRotation(points[0] + new Vector3(-0.2f, 1.62f, 0.2f), Quaternion.LookRotation(center - points[0] - Vector3.up * 1.62f));
-                    GameManager.CamShot(Path.Combine(output, "sala_" + route.room.id + "_terra.png"), cam, true);
+                    GameManager.CamShot(PhotoPath("sala_" + route.room.id + "_terra"), cam, true);
                     Vector3 highest=points[2];foreach(var point in points)if(point.y>highest.y)highest=point;
                     cam.transform.SetPositionAndRotation(highest + Vector3.up * 1.62f, Quaternion.LookRotation(new Vector3(route.room.CenterX, 1f, route.room.CenterZ) - highest - Vector3.up * 1.62f));
-                    GameManager.CamShot(Path.Combine(output, "sala_" + route.room.id + "_balconata_" + Mathf.RoundToInt(Highest(route)*10) + ".png"), cam, true);
+                    GameManager.CamShot(PhotoPath("sala_" + route.room.id + "_balconata_" + Mathf.RoundToInt(Highest(route)*10)), cam, true);
                     player.enabled = true;
                 }
             }
@@ -145,16 +149,17 @@ namespace PryingEyes
                     if (!reached) break;
                 }
                 PlayerController.botDir = Vector3.zero;
-                if (shots)
+                if (Photos)
                 {
                     player.enabled = false;
                     var cam = player.cam.GetComponent<Camera>(); cam.fieldOfView = 70f;
                     Vector3 eye = center - Vector3.forward * orbit + Vector3.up * 1.62f;
                     cam.transform.SetPositionAndRotation(eye, Quaternion.LookRotation(center + Vector3.up * 2.2f - eye));
                     LightPool.Tick(false, eye);
-                    GameManager.CamShot(Path.Combine(output, "rotonda.png"), cam, false);
+                    GameManager.CamShot(PhotoPath("rotonda"), cam, false);
                 }
             }
         }
     }
 }
+#endif

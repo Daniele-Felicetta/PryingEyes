@@ -2,7 +2,7 @@
 title: CI gate
 kind: pipeline
 mode: none
-summary: The workflow on GitHub that runs the boundary check, the Python tests and the four .NET labs on every push to preview and every pull request against it.
+summary: The workflow on GitHub that runs the boundary check, the Python tests and every .NET lab the studio lists on every push to preview and every pull request against it.
 image: img/pipeline/ci-gate.webp
 caption: The CI gate, on a card.
 sources: .github/workflows/gate.yml, docs/engineering/building-and-shipping.md, docs/engineering/testing.md
@@ -17,7 +17,8 @@ The gate is the workflow `.github/workflows/gate.yml`. It runs on every push to 
 ## What it runs
 
 - The [check suite](check-suite.md), with the wiki's checks, and the Python unit tests.
-- The four rule labs: `studio.py test weapon-state`, `survival`, `economy` and `saves`. See [labs](labs.md).
+- The code census, after the check suite: the sizes, cycles, tests and flags of the game's code, printed in the run summary, with its whole result kept in the artifact. It reports and never fails.
+- Every suite that needs nothing, which means the rule labs and the fingerprint of the floor generator. The workflow names none of them: it asks `python tools/studio.py suites --json`, runs each one with an empty `needs` even when another fails, and gives the run summary a row per suite with its seconds. `python tools/studio.py suites` prints the same list. See [labs](labs.md).
 - The lab reports are kept as the artifact `lab-reports`.
 
 ## How it is built

@@ -1,10 +1,17 @@
-"""The Prying Eyes profile: the commands it issues to Blender, Unity and the labs, checked without running any of them."""
+"""The Prying Eyes profile: the commands it issues to Blender, Unity, the labs and the player, checked without running any of them."""
+import argparse
+import contextlib
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
+import re
+import shutil
+import subprocess
 import sys
 import tempfile
+import types
 import unittest
 from unittest.mock import patch
 
@@ -15,10 +22,11 @@ from room_catalog import validate_rooms
 
 TOOLS = {"blender": Path("blender.exe"), "unity": Path("Unity.exe")}
 # What the real tools leave behind and the profile then verifies.
-LEFT_BEHIND = {"gunplay": ("gunplay-player.log", "gunplaytest RISULTATO SUPERATA"), "room-materials": ("room-materials-unity.log", "MATERIAL_IMPORT_PASS"),
+LEFT_BEHIND = {"gunplaytest": ("gunplaytest-player.log", "[PryingEyes] gunplaytest RISULTATO SUPERATA: 18/18"), "room-materials": ("room-materials-unity.log", "MATERIAL_IMPORT_PASS"),
                "weapon-state": ("weapon-state.json", '{"ok": true, "findings": []}'), "survival-state": ("survival-state.json", '{"ok": true, "findings": []}'),
                "economy-state": ("economy-state.json", '{"ok": true, "findings": []}'), "saves-state": ("saves-state.json", '{"ok": true, "findings": []}'),
-               "track-state": ("track-state.json", '{"ok": true, "findings": []}'), "desert-state": ("desert-state.json", '{"ok": true, "findings": []}')}
+               "track-state": ("track-state.json", '{"ok": true, "findings": []}'), "desert-state": ("desert-state.json", '{"ok": true, "findings": []}'),
+               "admission-state": ("admission-state.json", '{"ok": true, "findings": []}')}
 
 
 class RecordingJob:
@@ -36,6 +44,7 @@ class PryingEyesProfile(unittest.TestCase):
         self.folder = tempfile.TemporaryDirectory(); self.addCleanup(self.folder.cleanup)
         self.catalogs = {"weapon": read_catalog(), "room": validate_rooms()}
         self.job = RecordingJob(self.folder.name); self.build = Path(self.folder.name) / "build"
+        patcher = patch.object(pe, "processes_named", return_value=[]); patcher.start(); self.addCleanup(patcher.stop)       # what runs on this machine is not the test's business
 
     def context(self, identity):
         kind, entry = engine.resolve(pe.PRYING_EYES, self.catalogs, identity)
@@ -103,19 +112,148 @@ class PryingEyesProfile(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "DESERT_STATE_FAILED_OR_REPORT_MISSING"): self.desert_suite(None)
         self.assertEqual(self.job.report["findings"], [])
 
-    def test_after_build_runs_gunplay_then_city_acceptance_with_assets_required(self):
+    def admission_suite(self, left=None):
+        """Runs the `admission` suite on a job that leaves the lab's report `left` (a dict), or no report at all."""
+        with patch.dict(LEFT_BEHIND):
+            if left is None: del LEFT_BEHIND["admission-state"]
+            else: LEFT_BEHIND["admission-state"] = ("admission-state.json", json.dumps(left))
+            pe.PRYING_EYES.suites["admission"].run(engine.Context(self.job, pe.PRYING_EYES, TOOLS), None)
+
+    def test_admission_suite_runs_the_lab_with_a_report_and_keeps_its_findings(self):
+        finding = {"code": "REPEATED_CHALLENGE_CANNOT_EXTEND_ITS_DEADLINE", "subject": "admission gate", "passed": True, "observed": "holds", "expected": "Repeated challenge cannot extend its deadline"}
+        self.admission_suite({"ok": True, "findings": [finding]})
+        report = Path(self.folder.name) / "admission-state.json"
+        self.assertEqual(self.job.steps, [("admission-state", ["dotnet", "run", "-c", "Release", "--project", str(ROOT / "tools/admissionlab"), "--", str(report)])])
+        self.assertEqual(self.job.report["artifacts"], [str(report)])
+        self.assertEqual(self.job.report["findings"], [{**finding, "evidence": str(report)}])
+
+    def test_admission_suite_fails_on_a_failed_check_and_the_report_still_names_it(self):
+        failed = {"code": "EMPTY_SESSION_CANNOT_START", "subject": "roster", "passed": False, "observed": "violated", "expected": "Empty session cannot start"}
+        with self.assertRaisesRegex(RuntimeError, "ADMISSION_STATE_FAILED_OR_REPORT_MISSING"): self.admission_suite({"ok": False, "findings": [failed]})
+        self.assertEqual([f["code"] for f in self.job.report["findings"] if not f["passed"]], ["EMPTY_SESSION_CANNOT_START"])
+
+    def test_admission_suite_fails_when_the_lab_leaves_no_report(self):
+        with self.assertRaisesRegex(RuntimeError, "ADMISSION_STATE_FAILED_OR_REPORT_MISSING"): self.admission_suite(None)
+        self.assertEqual(self.job.report["findings"], [])
+
+    def plan_lab_report(self, **changes):
+        """What the plan lab writes when it computes exactly the plans and the revision of the committed fixture, with `changes` applied."""
+        fixture = json.loads(pe.PLAN_FIXTURE.read_text(encoding="utf-8"))
+        return {"schemaVersion": 1, "operation": "plan.fingerprint", "ok": True, "revision": fixture["revision"], "plans": fixture["plans"], **changes}
+
+    def plan_suite(self, report):
+        """Runs the `plan` suite on a job whose lab leaves `report` (a dict), or no report at all (None)."""
+        with patch.dict(LEFT_BEHIND):
+            if report is not None: LEFT_BEHIND["plan-state"] = ("plan-state.json", json.dumps(report))
+            pe.PRYING_EYES.suites["plan"].run(engine.Context(self.job, pe.PRYING_EYES, TOOLS), None)
+
+    def test_plan_suite_runs_the_fingerprint_and_finds_the_fixture_unchanged(self):
+        self.plan_suite(self.plan_lab_report())
+        report = Path(self.folder.name) / "plan-state.json"
+        self.assertEqual(self.job.steps, [("plan-state", ["dotnet", "run", "-c", "Release", "--project", str(ROOT / "tools/planlab"), "--", "fingerprint", "--report", str(report)])])
+        self.assertEqual(self.job.report["artifacts"], [str(report)])
+        findings = self.job.report["findings"]
+        self.assertEqual([f["code"] for f in findings].count("PLAN_FINGERPRINT"), len(findings) - 1)       # one per plan, then the revision
+        self.assertEqual(findings[-1]["code"], "PLAN_REVISION")
+        self.assertTrue(all(f["passed"] and f["evidence"] == str(report) for f in findings))
+
+    def test_plan_suite_names_the_plan_that_changed_and_what_to_do(self):
+        report = self.plan_lab_report(); first = report["plans"][0]
+        report["plans"] = [{**first, "sha256": "0" * 64}, *report["plans"][1:]]
+        with self.assertRaises(RuntimeError) as raised: self.plan_suite(report)
+        name = f"{first['layout']} seed {first['seed']} floor {first['floor']}"
+        self.assertRegex(str(raised.exception), "^PLAN_FINGERPRINT_CHANGED: 1 of %d plans differ" % len(report["plans"]))
+        self.assertIn(f"({name})", str(raised.exception)); self.assertIn("raise CoopProtocol.Revision", str(raised.exception)); self.assertIn("fingerprint --update", str(raised.exception))
+        failed = [f for f in self.job.report["findings"] if not f["passed"]]
+        self.assertEqual([(f["code"], f["subject"], f["observed"]) for f in failed], [("PLAN_FINGERPRINT", name, "0" * 64)])
+        self.assertEqual(failed[0]["expected"], first["sha256"])
+
+    def test_plan_suite_asks_for_the_fixture_when_only_the_revision_moved(self):
+        with self.assertRaisesRegex(RuntimeError, "^PLAN_REVISION_STALE: CoopWire.cs says pe-coop-0 and plan-fingerprint.json was made at pe-coop-"):
+            self.plan_suite(self.plan_lab_report(revision="pe-coop-0"))
+        self.assertEqual([(f["code"], f["observed"]) for f in self.job.report["findings"] if not f["passed"]], [("PLAN_REVISION", "pe-coop-0")])
+
+    def test_plan_suite_fails_without_a_report_and_without_a_fixture(self):
+        with self.assertRaisesRegex(RuntimeError, "^PLAN_STATE_FAILED_OR_REPORT_MISSING"): self.plan_suite(None)
+        self.assertEqual(self.job.report["findings"], [])
+        with self.assertRaisesRegex(RuntimeError, "^PLAN_FIXTURE_MISSING"): pe.plan_state(self.job, Path(self.folder.name) / "absent.json")
+        self.assertEqual(len(self.job.steps), 1)                                  # the lab ran for the first and was not started for the second
+
+    def test_plan_findings_cover_a_plan_the_fixture_lacks_and_one_the_lab_lost(self):
+        plan = lambda seed, sha: {"layout": "waves", "seed": seed, "floor": 1, "sha256": sha}
+        findings = pe.plan_findings({"revision": "r", "plans": [plan(1, "a"), plan(2, "b")]}, {"revision": "r", "plans": [plan(1, "a"), plan(3, "c")]})
+        self.assertEqual([(f["subject"], f["passed"], f["observed"], f["expected"]) for f in findings if f["code"] == "PLAN_FINGERPRINT"],
+                         [("waves seed 1 floor 1", True, "a", "a"), ("waves seed 2 floor 1", False, "b", ""), ("waves seed 3 floor 1", False, "", "c")])
+        self.assertTrue(findings[-1]["passed"])
+
+    def test_the_committed_plan_fixture_is_well_formed(self):
+        fixture = json.loads(pe.PLAN_FIXTURE.read_text(encoding="utf-8"))
+        keys = [(p["layout"], p["seed"], p["floor"]) for p in fixture["plans"]]
+        self.assertEqual(len(keys), len(set(keys)))
+        self.assertTrue(fixture["revision"]); self.assertLessEqual({layout for layout, _, _ in keys}, {"default", "waves"})
+        self.assertTrue(all(re.fullmatch("[0-9a-f]{64}", p["sha256"]) for p in fixture["plans"]))
+
+    def test_after_build_runs_gunplaytest_on_the_new_build_then_city_acceptance_with_assets_required(self):
         kind, entry, ctx = self.context("p45_argine")
         built = self.build / "PryingEyes.exe"
+        built.parent.mkdir(parents=True); built.write_bytes(b"")
         pe.PRYING_EYES.after_build(ctx, built)
-        self.assertEqual([label for label, _ in self.job.steps], ["gunplay", "city"])
+        self.assertEqual([label for label, _ in self.job.steps], ["gunplaytest", "city"])
+        gunplay = dict(self.job.steps)["gunplaytest"]
+        self.assertEqual(gunplay[:1 + len(pe.PLAYER_ENTRIES["gunplaytest"]["args"])], [str(built), *pe.PLAYER_ENTRIES["gunplaytest"]["args"]])    # the build just made, the manifest's arguments
         city = dict(self.job.steps)["city"]
         self.assertIn("--require-assets", city); self.assertEqual(city[city.index("--runtime") + 1], str(built))
 
     def test_registry_matches_the_command_line_the_docs_describe(self):
         self.assertEqual(list(pe.PRYING_EYES.kinds), ["weapon", "room"])
-        self.assertEqual({name: suite.runtime for name, suite in pe.PRYING_EYES.suites.items()},
-                         {"gunplay": True, "weapon-state": False, "survival": False, "economy": False, "saves": False, "track": False, "desert": False})
+        labs = ["weapon-state", "survival", "economy", "saves", "track", "desert", "plan", "admission"]
+        suites = pe.PRYING_EYES.suites
+        self.assertEqual(list(suites)[:len(labs) + 1], labs + ["compile"])                                       # the labs, then the check that needs the editor
+        self.assertEqual({name: suites[name].runtime for name in labs}, {name: False for name in labs})
+        self.assertTrue(all(suite.runtime for suite in list(suites.values())[len(labs) + 1:]))                    # every other suite runs a player
         self.assertEqual(pe.PRYING_EYES.publish_dir, pe.EXE.parent)
+
+    def test_every_suite_says_what_it_is_and_what_needs_nothing_is_what_the_gate_runs(self):
+        suites = pe.PRYING_EYES.suites
+        self.assertTrue(all(suite.kind and suite.about for suite in suites.values()))
+        self.assertEqual({name for name, suite in suites.items() if suite.runtime}, {name for name, suite in suites.items() if "runtime" in suite.needs})   # the flag and the word agree
+        self.assertEqual({name: suite.hazards for name, suite in suites.items() if suite.hazards}, {"uitest": ("registry", "screen"), "displaytest": ("registry",)})
+        compile_ = suites["compile"]
+        self.assertEqual((compile_.kind, compile_.needs, compile_.hazards, compile_.runtime), ("editor", ("editor",), (), False))       # the editor, no player: the gate cannot run it
+        gate = [name for name, suite in suites.items() if not suite.needs]
+        self.assertEqual(gate, ["weapon-state", "survival", "economy", "saves", "track", "desert", "plan", "admission"])       # the rule labs, in the order of the run summary
+        self.assertEqual({suites[name].kind for name in gate}, {"lab"})
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out): code = engine.main(pe.PRYING_EYES, ["suites", "--json"])
+        listing = json.loads(out.getvalue())
+        self.assertEqual((code, listing["schemaVersion"], [item["name"] for item in listing["suites"]]), (0, 1, list(suites)))
+        self.assertEqual({item["name"]: item["needs"] for item in listing["suites"]}["gunplaytest"], ["runtime"])
+        self.assertEqual({item["name"]: (item["kind"], item["needs"]) for item in listing["suites"]}["compile"], ("editor", ["editor"]))
+        self.assertEqual([item["name"] for item in listing["suites"] if not item["needs"]], gate)
+
+    def test_the_gate_workflow_asks_the_studio_and_names_no_lab_and_no_suite(self):
+        workflow = (ROOT / ".github/workflows/gate.yml").read_text(encoding="utf-8")
+        self.assertIn("studio.py suites --json", workflow)
+        self.assertEqual([name for name in re.findall(r"studio\.py test (\S+)", workflow) if not name.startswith("$")], [])      # each suite is run by the name it is listed with
+        labs = sorted(path.name for path in (ROOT / "tools").glob("*lab") if path.is_dir())
+        self.assertTrue(labs)
+        self.assertEqual([lab for lab in labs if lab in workflow], [])
+
+    @unittest.skipUnless(shutil.which("git"), "git is what says which paths .gitignore ignores")
+    def test_a_lab_nobody_has_written_yet_needs_no_line_in_gitignore(self):
+        """The patterns for the labs cover every tools/*lab folder: its project stays tracked in spite of the global *.csproj, its build folders do not."""
+        with tempfile.TemporaryDirectory() as folder:
+            repo = Path(folder)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            shutil.copyfile(ROOT / ".gitignore", repo / ".gitignore")
+            def ignored(path):          # exit 0: ignored, 1: not; a pattern that re-includes a path counts as not ignored
+                return subprocess.run(["git", "check-ignore", "-q", "--", path], cwd=repo).returncode == 0
+            real = sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / "tools").glob("*lab/*.csproj"))
+            self.assertTrue(real)
+            for project in real + ["tools/newlab/NewLab.csproj", "tools/newlab/Program.cs"]: self.assertFalse(ignored(project), project)
+            for derived in ("tools/newlab/bin/Release/net8.0/NewLab.dll", "tools/newlab/obj/project.assets.json", "tools/planlab/bin/Release/net8.0/PlanLab.dll"):
+                self.assertTrue(ignored(derived), derived)
+            self.assertTrue(ignored("tools/scratch/Scratch.csproj"))                        # a project that is not a lab stays out of git
 
     def test_lock_file_is_the_one_the_tool_used_before_it_was_split(self):
         # Two tool versions must exclude each other while both exist: same lock file as the original studio.py computed.
@@ -129,9 +267,603 @@ class PryingEyesProfile(unittest.TestCase):
         self.assertTrue({"tools/asset_graph.py", "tools/studio_gallery.py", "tools/studio_web/index.html", "tools/citylab.py",
                          "unity/PryingEyes/Assets/_PryingEyes/City/citta.json", "unity/PryingEyes/Packages/manifest.json",
                          "unity/PryingEyes/Packages/com.pryingeyes.weapons/Runtime/WeaponState.cs",
-                         "tools/desertlab/Program.cs", "tools/desertlab/DesertLab.csproj"} <= listing)
+                         "tools/desertlab/Program.cs", "tools/desertlab/DesertLab.csproj", "tools/fixtures/plan-fingerprint.json",
+                         "tools/planlab/Fingerprint.cs", "unity/PryingEyes/Assets/_PryingEyes/Scripts/Coop/CoopWire.cs",
+                         "tools/player_tests.json", "tools/player_log.py", "tools/coop/run_all.ps1", "tools/coop/run_split.ps1"} <= listing)       # a job on a suite of the player is bound to these
         plain = {Path(p).relative_to(ROOT).as_posix() for p in pe.PRYING_EYES.tool_sources("test")}
         self.assertNotIn("tools/asset_graph.py", plain); self.assertNotIn("tools/studio_gallery.py", plain)
+
+
+# ---- the suites that run inside the player: invented logs and a job that runs nothing -----------------------------------------------------
+
+def log_of(suite, ok=(), failed=(), result=True, coop=None):
+    """What a test of the game prints: a line for each check, then the result line (left out when `result` is false). `coop` is the process
+    that speaks ("ospite" or "ospitato"): the lines are then CoopTest's, with the colon, the detail in square brackets and the tail."""
+    lines = ["Initialize engine version: 6000.6.7f1", "[PryingEyes] avvio"]
+    who = f"{suite} {coop}:" if coop else suite
+    if coop:
+        lines += [f"[PryingEyes] {who} ok       {name}   [rilevato {index}]" for index, name in enumerate(ok)]
+        lines += [f"[PryingEyes] {who} FALLITO  {name}   [atteso 1000, trovato 1500]" for name in failed]
+    else:
+        lines += [f"[PryingEyes] {who} ok {name} (rilevato {index})" for index, name in enumerate(ok)]
+        lines += [f"[PryingEyes] {who} FALLITO {name} (atteso 1000, trovato 1500)" for name in failed]
+    if result:
+        lines.append(f"[PryingEyes] {who} RISULTATO {'FALLITA' if failed else 'SUPERATA'}: {len(ok)}/{len(ok) + len(failed)}{' verifiche ok' if coop else ''}")
+    return "\n".join(lines) + "\n"
+
+
+def plays(log=None, result=None, files=None, fail=None):
+    """What the process does when the job runs it: leaves its log where -logFile says, a result.json (a dict, or the text of a broken one) in
+    -testout, `files` (name -> text) in the log folder of a script (-LogDir), and then fails like Job.run does (`fail` is an error or its text)."""
+    def play(argv):
+        if log is not None: Path(argv[argv.index("-logFile") + 1]).write_text(log, encoding="utf-8")
+        if result is not None:
+            (Path(argv[argv.index("-testout") + 1]) / "result.json").write_text(result if isinstance(result, str) else json.dumps(result), encoding="utf-8")
+        for name, text in (files or {}).items(): (Path(argv[argv.index("-LogDir") + 1]) / name).write_text(text, encoding="utf-8")
+        if fail: raise fail if isinstance(fail, BaseException) else RuntimeError(fail)
+    return play
+
+
+class PlayerJob(RecordingJob):
+    """A job that runs nothing: `play(argv)` is what the process would do, `timeouts` what each step was given, `events` the order of things."""
+    def __init__(self, folder, play=None, events=None):
+        super().__init__(folder); self.play, self.timeouts, self.events = play, {}, [] if events is None else events
+    def run(self, label, command, cwd=None, timeout=900):
+        argv = [str(part) for part in command]
+        self.events.append("run"); self.steps.append((label, argv)); self.timeouts[label] = timeout
+        if self.play: self.play(argv)
+        return self.folder / (label + ".log")
+
+
+class PlayerSuites(unittest.TestCase):
+    """The profile's suites of the player: each entry of tools/player_tests.json run as the card of T06 says."""
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory(); self.addCleanup(self.folder.cleanup)
+        self.job_folder = Path(self.folder.name) / "job"; self.job_folder.mkdir()
+        self.exe = Path(self.folder.name) / "build/PryingEyes.exe"; self.exe.parent.mkdir(); self.exe.write_bytes(b"")
+        self.running, self.events = [], []                            # the PryingEyes.exe processes of the machine, and the order of things
+        patcher = patch.object(pe, "processes_named", side_effect=lambda *names: list(self.running)); patcher.start(); self.addCleanup(patcher.stop)
+
+    def entry(self, name="survivaltest", **changes):
+        """An entry of the manifest as it is, but for the number of checks that a run has confirmed (the tests give their own)."""
+        return {**{key: value for key, value in pe.PLAYER_ENTRIES[name].items() if key != "checks"}, **changes}
+
+    def fresh(self, play):
+        """A job in an empty folder, as every real job has: what an earlier run of the test left is gone."""
+        shutil.rmtree(self.job_folder); self.job_folder.mkdir()
+        return PlayerJob(self.job_folder, play, self.events)
+
+    def go(self, play, entry=None, runtime=None):
+        job = self.fresh(play)
+        pe.player_state(job, entry or self.entry(), runtime or self.exe)
+        return job
+
+    def fails(self, play, code, entry=None, runtime=None):
+        """Runs a suite that must fail with `code`; returns the job and the message."""
+        job = self.fresh(play)
+        with self.assertRaises(RuntimeError) as raised: pe.player_state(job, entry or self.entry(), runtime or self.exe)
+        self.assertRegex(str(raised.exception), f"^{code}: ")
+        return job, str(raised.exception)
+
+    # ---- what the registry is made of
+
+    def test_every_entry_of_the_manifest_is_a_suite_that_needs_what_the_entry_says(self):
+        manifest = json.loads(pe.PLAYER_TESTS.read_text(encoding="utf-8-sig"))["suites"]
+        suites = pe.PRYING_EYES.suites
+        self.assertEqual([entry["name"] for entry in manifest], [name for name, suite in suites.items() if suite.kind == "player"])
+        for entry in manifest:
+            suite = suites[entry["name"]]
+            self.assertEqual((suite.runtime, suite.needs, suite.hazards), (True, tuple(entry["needs"]), tuple(entry["hazards"])), entry["name"])
+            self.assertIn(entry["page"], suite.about)
+        self.assertFalse({"-logFile", "-report", "-testout"} & {flag for entry in manifest for flag in entry.get("args", [])})     # the runner adds these three
+
+    def test_the_default_build_is_the_verification_build_not_the_one_the_studio_publishes(self):
+        self.assertEqual(pe.PRYING_EYES.runtime, pe.AUDIT)
+        self.assertEqual(pe.AUDIT, pe.UNITY / "Builds/Audit/PryingEyes.exe")
+        self.assertNotEqual(pe.AUDIT.parent, pe.PRYING_EYES.publish_dir)
+        self.assertEqual(engine.arguments(pe.PRYING_EYES).parse_args(["test", "gunplaytest"]).runtime, pe.AUDIT)
+
+    def test_gunplay_and_gunplaytest_are_one_suite(self):
+        self.assertNotIn("gunplay", pe.PRYING_EYES.suites)                                            # there is no second name for the same check
+        suite, entry = pe.PRYING_EYES.suites["gunplaytest"], pe.PLAYER_ENTRIES["gunplaytest"]
+        self.assertEqual((suite.kind, suite.needs, suite.hazards, suite.runtime), ("player", ("runtime",), (), True))
+        self.assertEqual(entry["args"], ["-batchmode", "-autotest", "-nofire", "-gunplaytest", "-seed", "1000", "-nographics"])     # tools/check_gunplay.py's own line
+        with patch.dict(LEFT_BEHIND, {"gunplaytest": ("gunplaytest-player.log", log_of("gunplaytest", ok=["a"]))}):
+            job = RecordingJob(self.job_folder); pe.native_gunplay(job, self.exe)                     # what asset build does, with the build that it made
+        self.assertEqual(job.steps[0][1][:len(entry["args"]) + 1], [str(self.exe), *entry["args"]])
+
+    def test_the_settings_key_is_the_one_the_split_screen_script_saves(self):
+        self.assertIn("'" + pe.SETTINGS_KEY + "'", (ROOT / "tools/coop/run_split.ps1").read_text(encoding="utf-8-sig"))
+
+    # ---- the command, and what each way to end means
+
+    def test_the_command_is_the_manifests_arguments_then_where_the_run_leaves_its_files(self):
+        entry = self.entry()
+        job = self.go(plays(log_of("survivaltest", ok=["a"])), entry)
+        (label, command), = job.steps
+        self.assertEqual(label, "survivaltest")
+        self.assertEqual(command, [str(self.exe), *entry["args"], "-logFile", str(self.job_folder / "survivaltest-player.log"),
+                                   "-report", str(self.job_folder / "survivaltest-telemetry.txt"), "-testout", str(self.job_folder / "testout")])
+        self.assertEqual(job.timeouts, {"survivaltest": entry["timeout"]})
+        self.assertTrue((self.job_folder / "testout").is_dir())
+
+    def test_a_log_that_says_it_passed_passes_and_every_check_is_a_finding(self):
+        job = self.go(plays(log_of("survivaltest", ok=["la candela", "il budget", "la fine"])))
+        findings = job.report["findings"]
+        self.assertEqual([(f["code"], f["subject"], f["observed"], f["passed"]) for f in findings],
+                         [("survivaltest:1", "la candela", "rilevato 0", True), ("survivaltest:2", "il budget", "rilevato 1", True), ("survivaltest:3", "la fine", "rilevato 2", True)])
+        log = str(self.job_folder / "survivaltest-player.log")
+        self.assertTrue(all(f["evidence"] == log for f in findings))
+        self.assertEqual(job.report["player"], {"suite": "survivaltest", "verdictSource": "log-line", "checks": 3, "passed": 3, "declared": None, "exceptions": 0, "logs": [log]})
+        self.assertEqual(job.report["artifacts"], [log])
+
+    def test_a_failed_line_fails_names_the_check_and_the_report_keeps_every_check(self):
+        job, message = self.fails(plays(log_of("survivaltest", ok=["a", "b"], failed=["la leva costa 1000"]), fail="STEP_FAILED: survivaltest; exit 1; log"), "PLAYER_CHECK_FAILED")
+        self.assertIn("1 of 3 checks failed", message); self.assertIn("la leva costa 1000", message)
+        self.assertEqual([f["passed"] for f in job.report["findings"]], [True, True, False])
+        self.assertEqual(job.report["findings"][2]["observed"], "atteso 1000, trovato 1500")
+
+    def test_a_result_line_that_says_passed_over_a_failed_line_does_not_pass(self):
+        text = log_of("survivaltest", ok=["a"], failed=["b"]).replace("FALLITA: 1/2", "SUPERATA: 2/2")      # a lie the lines give away
+        self.fails(plays(text), "PLAYER_CHECK_FAILED")
+
+    def test_a_run_that_leaves_no_result_fails_whatever_else_it_left(self):
+        _, message = self.fails(plays(log_of("survivaltest", ok=["a"], result=False)), "PLAYER_RESULT_MISSING")      # it stopped before the result line
+        self.assertIn("survivaltest-player.log", message)
+        self.assertIn("[PryingEyes] survivaltest RISULTATO", message); self.assertIn("ported to the harness", message)      # what it looked for, and what to do about it
+        self.fails(plays(), "PLAYER_RESULT_MISSING")                                                            # it never started: no log at all
+        _, crash = self.fails(plays("Crash!\n", fail="STEP_FAILED: survivaltest; exit -1073741819; log"), "PLAYER_RESULT_MISSING")
+        self.assertIn("exit -1073741819", crash)                                                                # and says how the process ended
+        self.fails(plays(log_of("chartest", ok=["a"])), "PLAYER_RESULT_MISSING")                                # the result of another suite is no answer
+
+    def test_a_suite_of_a_family_reads_the_lines_of_the_label_its_entry_gives(self):
+        family = self.entry("pistamenulicence")                                                  # prints `pistamenutest`, like its brothers
+        self.assertEqual(family["label"], "pistamenutest")
+        job = self.go(plays(log_of("pistamenutest", ok=["a", "b"])), family)
+        self.assertEqual((job.report["player"]["suite"], job.report["player"]["checks"]), ("pistamenulicence", 2))
+        self.assertEqual([f["code"] for f in job.report["findings"]], ["pistamenulicence:1", "pistamenulicence:2"])      # the findings carry the suite's name
+        _, message = self.fails(plays(log_of("pistamenulicence", ok=["a"])), "PLAYER_RESULT_MISSING", family)           # its own name is not what it prints
+        self.assertIn("[PryingEyes] pistamenutest RISULTATO", message)
+        self.fails(plays(log_of("pistatest", ok=["a"])), "PLAYER_RESULT_MISSING", family)                                # nor is another family's
+        harness = {"schemaVersion": 1, "suite": "pistamenutest", "ok": True, "checks": [{"name": "a", "ok": True}]}
+        self.assertEqual(self.go(plays(log_of("x", ok=["a"]), harness), family).report["player"]["verdictSource"], "result.json")   # the label is the identity of a result.json too
+
+    def test_fewer_checks_than_the_manifest_declares_fail_and_as_many_or_more_do_not(self):
+        entry = self.entry(checks=4)
+        job, message = self.fails(plays(log_of("survivaltest", ok=["a", "b", "c"])), "PLAYER_CHECKS_FEWER", entry)
+        self.assertIn("ran 3 checks", message); self.assertIn("says 4", message)
+        self.assertEqual(job.report["player"]["declared"], 4)
+        self.go(plays(log_of("survivaltest", ok=list("abcd"))), entry)
+        self.go(plays(log_of("survivaltest", ok=list("abcde"))), entry)
+
+    def test_an_exception_in_the_log_fails_but_the_renderers_noise_does_not(self):
+        noise = "NullReferenceException: Object reference not set\n  at UnityEngine.Rendering.Universal.UniversalRenderPipeline.Render ()\n"
+        self.go(plays(log_of("survivaltest", ok=["a"]) + noise))
+        real = "InvalidOperationException: la scena non c'e'\n  at PryingEyes.Foo.Bar ()\n"
+        job, message = self.fails(plays(log_of("survivaltest", ok=["a"]) + noise + real), "PLAYER_EXCEPTION")
+        self.assertIn("InvalidOperationException", message); self.assertNotIn("NullReference", message)
+        self.assertEqual(job.report["player"]["exceptions"], 1)
+
+    def test_result_json_is_read_first_and_the_log_line_is_only_the_fallback(self):
+        result = {"schemaVersion": 1, "suite": "survivaltest", "ok": True, "exceptions": 0, "seconds": 3.5,
+                  "checks": [{"name": "a", "ok": True, "detail": "1"}, {"name": "b", "ok": True}]}
+        job = self.go(plays(log_of("survivaltest", failed=["x"]), result))                    # the log says failed, the file says passed: the file wins
+        self.assertEqual((job.report["player"]["verdictSource"], job.report["player"]["checks"]), ("result.json", 2))
+        self.assertEqual([(f["code"], f["subject"], f["observed"]) for f in job.report["findings"]], [("survivaltest:1", "a", "1"), ("survivaltest:2", "b", "")])
+        written = str(self.job_folder / "testout/result.json")
+        self.assertIn(written, job.report["artifacts"]); self.assertTrue(all(f["evidence"] == written for f in job.report["findings"]))
+        bad = {**result, "ok": False, "checks": [{"name": "a", "ok": True}, {"name": "b", "ok": False, "detail": "punti 1500 -> 1500"}]}
+        job, message = self.fails(plays(log_of("survivaltest", ok=["a", "b"]), bad), "PLAYER_CHECK_FAILED")     # the log says passed, the file says failed
+        self.assertIn("(b)", message); self.assertEqual(job.report["findings"][1]["observed"], "punti 1500 -> 1500")
+
+    def test_a_result_json_that_cannot_be_trusted_is_not_replaced_by_the_log(self):
+        good = {"schemaVersion": 1, "suite": "survivaltest", "ok": True, "checks": [{"name": "a", "ok": True}]}
+        for broken in ({**good, "suite": "traptest"}, {**good, "schemaVersion": 2}, {**good, "ok": "yes"}, {**good, "checks": [{"name": "a"}]}, "{not json", "[]"):
+            _, message = self.fails(plays(log_of("survivaltest", ok=["a"]), broken), "PLAYER_RESULT_INVALID")
+            self.assertIn("survivaltest:", message)
+
+    def test_a_timeout_and_an_exit_code_are_not_taken_for_a_failed_check(self):
+        entry = self.entry()
+        _, message = self.fails(plays(log_of("survivaltest", ok=["a"], result=False), fail="STEP_TIMEOUT: survivaltest"), "PLAYER_TIMEOUT")
+        self.assertIn(f"within {entry['timeout']} s", message)
+        self.fails(plays(log_of("survivaltest", ok=["a"]), fail="STEP_FAILED: survivaltest; exit 1; log"), "STEP_FAILED")     # passed, yet it quit with 1
+        with self.assertRaises(engine.JobCancelled): self.go(plays(fail=engine.JobCancelled("JOB_CANCELLED: test")))        # not the process's own: untouched
+
+    # ---- what a suite refuses to start
+
+    def test_a_build_that_is_not_there_is_named_and_nothing_starts(self):
+        job, message = self.fails(plays(), "PLAYER_RUNTIME_MISSING", runtime=Path(self.folder.name) / "nowhere/PryingEyes.exe")
+        self.assertIn("nowhere", message); self.assertEqual(job.steps, [])
+
+    def test_a_run_that_draws_is_refused_while_another_player_runs_and_one_that_does_not_is_not(self):
+        self.running = [{"ProcessId": 4242, "ExecutablePath": r"C:\games\other\PryingEyes.exe", "CommandLine": ""}]
+        args = [flag for flag in self.entry()["args"] if flag != "-nographics"]
+        draws = self.entry(needs=["runtime", "gpu"], args=args)
+        job, message = self.fails(plays(log_of("survivaltest", ok=["a"])), "PLAYER_GPU_BUSY", draws)
+        self.assertIn("4242", message); self.assertEqual(job.steps, [])                              # nothing was started
+        self.go(plays(log_of("survivaltest", ok=["a"])))                                               # windowless: another player is no obstacle
+        self.running = []
+        self.go(plays(log_of("survivaltest", ok=["a"])), draws)                                        # nobody else: it runs
+
+    def test_two_copies_of_one_build_are_refused(self):
+        self.running = [{"ProcessId": 7, "ExecutablePath": str(self.exe).upper(), "CommandLine": ""}]
+        job, message = self.fails(plays(), "PLAYER_IN_USE")
+        self.assertIn("7", message); self.assertEqual(job.steps, [])
+
+    @unittest.skipUnless(os.name == "nt", "8.3 names are Windows'")
+    def test_a_build_that_is_running_under_its_short_name_is_the_same_build(self):
+        """The CI runner's temporary folder is C:\\Users\\RUNNER~1\\...: the same file has two spellings, and Windows may report either."""
+        import ctypes
+        buffer = ctypes.create_unicode_buffer(1024)
+        size = ctypes.windll.kernel32.GetShortPathNameW(str(self.exe), buffer, len(buffer))
+        short = buffer.value if 0 < size < len(buffer) else str(self.exe)
+        if short.casefold() == str(self.exe.resolve()).casefold(): self.skipTest("this volume gives no 8.3 names")
+        self.running = [{"ProcessId": 8, "ExecutablePath": short, "CommandLine": ""}]
+        self.fails(plays(), "PLAYER_IN_USE")                                                    # named by its long path
+        self.running = [{"ProcessId": 9, "ExecutablePath": str(self.exe.resolve()), "CommandLine": ""}]
+        self.fails(plays(), "PLAYER_IN_USE", runtime=Path(short))                               # the other way round
+
+    def test_a_suite_with_hazards_is_refused_until_every_one_is_allowed(self):
+        for name, hazards in (("uitest", ["registry", "screen"]), ("displaytest", ["registry"])):
+            refuse = lambda allow: engine.refuse_unallowed_hazards(pe.PRYING_EYES, argparse.Namespace(suite=name, allow=allow))
+            with self.assertRaisesRegex(RuntimeError, f"^SUITE_HAZARD_NOT_ALLOWED: {name} declares {', '.join(hazards)}"): refuse([])
+            if len(hazards) > 1:
+                with self.assertRaisesRegex(RuntimeError, "^SUITE_HAZARD_NOT_ALLOWED"): refuse(hazards[:1])
+            refuse(hazards)
+
+    def test_the_settings_key_is_exported_before_the_run_and_imported_after_it_whatever_happens(self):
+        calls, answers = [], {"export": 0, "import": 0}
+        def reg(*arguments):
+            calls.append([str(argument) for argument in arguments]); self.events.append("reg " + str(arguments[0]))
+            return types.SimpleNamespace(returncode=answers[str(arguments[0])])
+        settings = lambda job: [(f["code"], f["passed"]) for f in job.report["findings"] if f["code"].startswith("SETTINGS")]
+        entry, backup = self.entry(hazards=["registry"]), str(self.job_folder / "settings-before.reg")
+        with patch.object(pe, "reg", reg):
+            job = self.go(plays(log_of("survivaltest", ok=["a"])), entry)
+            self.assertEqual(self.events, ["reg export", "run", "reg import"])
+            self.assertEqual(calls, [["export", pe.SETTINGS_KEY, backup, "/y"], ["import", backup]])
+            self.assertEqual(settings(job), [("SETTINGS_RESTORED", True)])
+            self.events.clear()
+            self.fails(plays(log_of("survivaltest", failed=["a"]), fail="STEP_FAILED: survivaltest; exit 1; log"), "PLAYER_CHECK_FAILED", entry)      # a failed run
+            self.assertEqual(self.events, ["reg export", "run", "reg import"])
+            self.events.clear()
+            with self.assertRaises(engine.JobCancelled): self.go(plays(fail=engine.JobCancelled("JOB_CANCELLED: test")), entry)                    # a cancelled one
+            self.assertEqual(self.events, ["reg export", "run", "reg import"])
+            self.events.clear(); answers["export"] = 1                                                    # no key yet: nothing to put back
+            job = self.go(plays(log_of("survivaltest", ok=["a"])), entry)
+            self.assertEqual(self.events, ["reg export", "run"]); self.assertEqual(settings(job), [("SETTINGS_KEY_ABSENT", True)])
+            self.events.clear(); answers["export"] = 0; answers["import"] = 1                             # the key cannot be put back: the report and the error say it
+            job, message = self.fails(plays(log_of("survivaltest", ok=["a"])), "PLAYER_SETTINGS_NOT_RESTORED", entry)
+            self.assertEqual(settings(job), [("SETTINGS_RESTORED", False)])
+        self.events.clear()
+        with patch.object(pe, "reg", side_effect=AssertionError("a suite without the hazard does not touch the key")):
+            self.go(plays(log_of("survivaltest", ok=["a"])))
+        self.assertEqual(self.events, ["run"])
+
+    # ---- the suites made of several processes
+
+    def test_an_entry_with_a_runner_calls_its_script_with_the_job_folder_as_log_folder(self):
+        powershell = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
+        coop = pe.PLAYER_ENTRIES["coop-a-griglia"]
+        files = {"coop_a_griglia_host.txt": log_of("cooptest", ok=["x", "y"], coop="ospite"), "coop_a_griglia_c1.txt": log_of("cooptest", ok=["z"], coop="ospitato")}
+        with patch.object(pe, "AUDIT", self.exe):
+            job = self.go(plays(files=files), coop)
+            (label, command), = job.steps
+            self.assertEqual((label, command), ("coop-a-griglia", [*powershell, str(ROOT / "tools/coop/run_all.ps1"), "-Only", "a", "-LogDir", str(self.job_folder)]))
+            self.assertEqual(job.timeouts, {"coop-a-griglia": coop["timeout"]})
+            self.assertEqual(job.report["player"]["checks"], 3)                                               # the checks of all the processes
+            self.assertEqual([f["subject"] for f in job.report["findings"]], ["z", "x", "y"])                 # in the order of the names of the logs: c1, host
+            self.assertEqual({Path(f["evidence"]).name for f in job.report["findings"]}, set(files))
+            split = pe.PLAYER_ENTRIES["splitdesertotest"]                                                      # a switch is `-Name` alone
+            job = self.go(plays(files={"splitdesert3.log": log_of("splitdesertotest", ok=["a"])}), split)
+            self.assertEqual(job.steps[0][1][5:], [str(ROOT / "tools/coop/run_split.ps1"), "-Desert", "-LogDir", str(self.job_folder)])
+            self.assertEqual(pe.runner_arguments({"Players": 3, "Graphics": False, "Only": "a,c"}), ["-Players", "3", "-Only", "a,c"])
+
+    def test_a_script_that_fails_or_whose_processes_say_they_failed_or_raised_does_not_pass(self):
+        coop = pe.PLAYER_ENTRIES["coop-a-griglia"]
+        host = lambda *ok, **more: log_of("cooptest", ok=ok, coop="ospite", **more)
+        with patch.object(pe, "AUDIT", self.exe):
+            self.fails(plays(files={"a_host.txt": host("x", failed=["y"]), "a_c1.txt": log_of("cooptest", ok=["z"], coop="ospitato")}), "PLAYER_CHECK_FAILED", coop)
+            self.fails(plays(files={"a_host.txt": host("x") + "ArgumentException: no\n"}), "PLAYER_EXCEPTION", coop)
+            self.fails(plays(files={"a_host.txt": host("x")}, fail="STEP_FAILED: coop-a-griglia; exit 1; log"), "STEP_FAILED", coop)
+            self.fails(plays(), "PLAYER_RESULT_MISSING", coop)                                                  # a script that exits 0 with no log at all
+            self.go(plays(files={"a_host.txt": host("x"), "a_c1.txt": "[PryingEyes] killed on purpose\n"}), coop)   # a process killed on purpose says nothing
+            self.fails(plays(files={"a_host.txt": host("x")}), "PLAYER_CHECKS_FEWER", {**coop, "checks": 2})
+            pista = pe.PLAYER_ENTRIES["coop-n-pista"]                                                           # PistaCoopTest: no colon, the detail in parentheses
+            log = "[PryingEyes] pistacooptest ospite ok la gara parte (3 giri)\n[PryingEyes] pistacooptest ospite RISULTATO SUPERATA: 1/1\n"
+            self.assertEqual(self.go(plays(files={"n_host.txt": log}), pista).report["player"]["checks"], 1)
+
+    def test_a_script_runs_the_verification_build_of_its_checkout_so_runtime_cannot_change_it(self):
+        job, message = self.fails(plays(), "PLAYER_RUNTIME_FIXED", pe.PLAYER_ENTRIES["seatstest"])               # self.exe is not the verification build
+        self.assertIn("run_split.ps1", message); self.assertEqual(job.steps, [])
+
+
+# ---- the suite `compile`: an editor that compiles the scripts, an invented log in the shape of a real one -----------------------------------------
+
+SYNTAX = r"Assets\_PryingEyes\Scripts\ZzCompileProbe.cs(7,21): error CS1002: ; expected"                   # what a real run printed for a missing semicolon (6000.6.7f1)
+UNKNOWN = r"Packages\com.pryingeyes.saves\Runtime\SaveStore.cs(120,9): error CS0103: The name 'slot' does not exist in the current context"
+NO_FILE = "error CS0006: Metadata file 'Library/ScriptAssemblies/Missing.dll' could not be found"
+
+
+def editor_log(errors=(), warnings=2, timing=True):
+    """What the editor prints when it is started on a project with no method and quits, in the lines that matter and in the order of a real log: the compiler's
+    output (its warnings, and its errors when it failed), then for a failed compilation the report of the failure, which repeats each error, and the errors
+    once more alone; the last line says the code the editor quits with."""
+    lines = ["Initialize engine version: 6000.6.7f1", "[Licensing::Module] Error: Access token is unavailable; failed to update",
+             "[ScriptCompilation] Requested script compilation because: AssetDatabase observed changes in script compilation related files",
+             "[814/822    2s] Csc Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.dll (+2 others)"]
+    lines += [f"Assets\\_PryingEyes\\Scripts\\Old.cs({10 + number},31): warning CS0618: 'FindObjectsSortMode' is obsolete" for number in range(warnings)]
+    if errors:
+        lines += ["##### ExitCode", "1", "##### Output", *errors, "*** Tundra build failed (0.89 seconds), 3 items updated, 822 evaluated",
+                  "## Script Compilation Error for: Csc Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.dll (+2 others)", "## Output:", *errors, "", *errors,
+                  "AssetDatabase: script compilation time: 2.142252s", "Scripts have compiler errors.",
+                  "[ExitDontLaunchBugReporter] Exiting without the bug reporter. Application will exit with return code 1"]
+    else:
+        lines += ["*** Tundra build success (0.45 seconds), 1 items updated, 822 evaluated"]
+        if timing: lines += ["AssetDatabase: script compilation time: 0.828446s"]
+        lines += ["Batchmode quit successfully invoked - shutting down!", "Exiting batchmode successfully now!",
+                  "[ExitDontLaunchBugReporter] Exiting without the bug reporter. Application will exit with return code 0"]
+    return "\n".join(lines) + "\n"
+
+
+class CompileSuite(unittest.TestCase):
+    """`test compile`: the editor started in batch mode with no method, and what each way for it to end means. No editor runs here: a job that plays what the process would do."""
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory(); self.addCleanup(self.folder.cleanup)
+        self.job_folder = Path(self.folder.name) / "job"; self.job_folder.mkdir()
+        self.unity = Path(self.folder.name) / "Unity.exe"; self.unity.write_bytes(b"")
+        self.running = []                                             # the Unity.exe processes of the machine
+        patcher = patch.object(pe, "processes_named", side_effect=lambda *names: list(self.running)); patcher.start(); self.addCleanup(patcher.stop)
+
+    def fresh(self, play):
+        shutil.rmtree(self.job_folder); self.job_folder.mkdir()        # every real job starts in an empty folder: an old log is never read
+        return PlayerJob(self.job_folder, play)
+
+    def go(self, play):
+        job = self.fresh(play); pe.compile_scripts(job, self.unity)
+        return job
+
+    def fails(self, play, code):
+        job = self.fresh(play)
+        with self.assertRaises(RuntimeError) as raised: pe.compile_scripts(job, self.unity)
+        self.assertRegex(str(raised.exception), f"^{code}")
+        return job, str(raised.exception)
+
+    def test_the_command_is_the_editor_in_batch_mode_with_no_method_on_this_project(self):
+        job = self.go(plays(editor_log()))
+        (label, command), = job.steps
+        self.assertEqual(label, "compile")
+        self.assertEqual(command, [str(self.unity), "-batchmode", "-nographics", "-projectPath", str(pe.UNITY), "-quit", "-logFile", str(self.job_folder / "compile-unity.log")])
+        self.assertNotIn("-executeMethod", command)                                                          # no method: the editor compiles what changed and quits
+        self.assertEqual(job.timeouts, {"compile": 1200})
+
+    def test_a_log_without_errors_passes_whatever_warnings_it_holds_and_says_how_long_the_editor_took(self):
+        job = self.go(plays(editor_log(warnings=3)))
+        log = str(self.job_folder / "compile-unity.log")
+        self.assertEqual(job.report["findings"], [{"code": "SCRIPTS_COMPILE", "subject": "scripts", "expected": "no compiler error", "passed": True, "evidence": log,
+                                                   "observed": "no compiler error; the editor compiled the scripts in 0.83 s"}])
+        self.assertEqual(job.report["artifacts"], [log])
+        self.assertEqual(self.go(plays(editor_log(timing=False))).report["findings"][0]["observed"], "no compiler error")      # a log without the timing line passes too
+
+    def test_each_compiler_error_is_a_finding_with_its_file_and_line_and_the_suite_names_the_first(self):
+        job, message = self.fails(plays(editor_log([SYNTAX, UNKNOWN]), fail="STEP_FAILED: compile; exit 1; log"), "COMPILE_ERRORS")
+        self.assertRegex(message, r"^COMPILE_ERRORS: 2 compiler errors; the first: Assets/_PryingEyes/Scripts/ZzCompileProbe\.cs:7: CS1002 ; expected ")
+        log = str(self.job_folder / "compile-unity.log")
+        self.assertEqual(job.report["findings"], [
+            {"code": "COMPILER_ERROR", "subject": "Assets/_PryingEyes/Scripts/ZzCompileProbe.cs:7", "observed": "CS1002: ; expected", "expected": "no compiler error", "passed": False,
+             "evidence": log, "file": "Assets/_PryingEyes/Scripts/ZzCompileProbe.cs", "line": 7, "column": 21},
+            {"code": "COMPILER_ERROR", "subject": "Packages/com.pryingeyes.saves/Runtime/SaveStore.cs:120", "observed": "CS0103: The name 'slot' does not exist in the current context",
+             "expected": "no compiler error", "passed": False, "evidence": log, "file": "Packages/com.pryingeyes.saves/Runtime/SaveStore.cs", "line": 120, "column": 9}])   # three prints each, one finding
+        self.assertEqual(job.report["artifacts"], [log])
+        _, one = self.fails(plays(editor_log([SYNTAX]), fail="STEP_FAILED: compile; exit 1; log"), "COMPILE_ERRORS")
+        self.assertIn(": 1 compiler error; the first:", one)
+
+    def test_the_errors_win_over_the_exit_code_and_a_log_that_says_failed_with_a_zero_exit_still_fails(self):
+        self.fails(plays(editor_log([SYNTAX])), "COMPILE_ERRORS")                                            # quit with 0 and printed an error: the log is what counts
+        job, _ = self.fails(plays(editor_log([SYNTAX]), fail="STEP_TIMEOUT: compile"), "COMPILE_ERRORS")      # killed after it had said why
+        self.assertEqual(len(job.report["findings"]), 1)
+
+    def test_an_error_that_names_no_file_has_no_position_and_is_still_a_finding(self):
+        job, message = self.fails(plays(editor_log([NO_FILE]), fail="STEP_FAILED: compile; exit 1; log"), "COMPILE_ERRORS")
+        self.assertIn("the first: (no file): CS0006 Metadata file", message)
+        self.assertEqual([(f["subject"], f["file"], f["line"], f["column"]) for f in job.report["findings"]], [("(no file)", "", 0, 0)])
+
+    def test_the_parser_reads_error_lines_and_nothing_that_looks_like_one(self):
+        text = "\n".join(["Assets\\A.cs(1,2): warning CS0168: The variable 'x' is declared but never used", "[Licensing::Module] Error: Access token is unavailable",
+                          "NullReferenceException: error CS1002 in the middle of a sentence", "Assets/B.cs(3,4): error CS1002: ; expected", "  Assets/B.cs(3,4): error CS1002: ; expected",
+                          "Assets/B.cs(3,5): error CS1002: ; expected", "Assets/C.cs(3,4): error CS1002: ; expected", "Scripts have compiler errors."])
+        self.assertEqual([(e["file"], e["line"], e["column"]) for e in pe.compiler_errors(text)], [("Assets/B.cs", 3, 4), ("Assets/B.cs", 3, 5), ("Assets/C.cs", 3, 4)])      # the same error twice is one
+        self.assertEqual(pe.compiler_errors(editor_log()), [])
+        self.assertEqual(pe.compiler_errors(""), [])
+
+    def test_an_editor_that_quits_with_an_error_and_prints_none_is_named_and_not_taken_for_a_pass(self):
+        log = "Initialize engine version: 6000.6.7f1\nAborting batchmode due to failure:\nProject has already been opened in another instance of Unity.\n"
+        _, message = self.fails(plays(log, fail="STEP_FAILED: compile; exit 1; step.log"), "COMPILE_FAILED")
+        self.assertIn("exit 1", message); self.assertIn("did not get as far as compiling", message); self.assertIn("Project has already been opened in another instance", message)
+        _, silent = self.fails(plays(fail="STEP_FAILED: compile; exit -1073741819; step.log"), "COMPILE_FAILED")      # it crashed before it wrote anything
+        self.assertIn("its last line: nothing", silent)
+
+    def test_a_timeout_is_the_engines_and_a_clean_exit_with_no_log_fails(self):
+        self.fails(plays(editor_log(), fail="STEP_TIMEOUT: compile"), "STEP_TIMEOUT")                        # the log looks fine, but the editor was stopped before it quit
+        self.fails(plays(), "COMPILE_LOG_MISSING")
+        self.fails(plays(" \n"), "COMPILE_LOG_MISSING")
+
+    def test_an_editor_with_this_project_open_stops_it_before_anything_starts_and_another_project_does_not(self):
+        editor = r"C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe"
+        self.running = [{"ProcessId": 4242, "Name": "Unity.exe", "ExecutablePath": editor, "CommandLine": f'"{editor}" -projectPath "{pe.UNITY}" -batchmode'}]
+        job, message = self.fails(plays(editor_log()), "PROJECT_IN_USE")
+        self.assertIn("4242", message); self.assertEqual(job.steps, [])
+        self.running = [{"ProcessId": 4243, "Name": "Unity.exe", "ExecutablePath": editor, "CommandLine": f'"{editor}" -projectPath "C:\\other\\checkout\\unity\\PryingEyes"'}]
+        self.assertEqual(len(self.go(plays(editor_log())).steps), 1)                                         # one editor per project, not per machine
+
+    def test_a_missing_editor_is_named_and_nothing_starts(self):
+        job = self.fresh(plays(editor_log()))
+        with self.assertRaisesRegex(RuntimeError, "^TOOL_MISSING: the Unity editor is not at .*nowhere"): pe.compile_scripts(job, Path(self.folder.name) / "nowhere/Unity.exe")
+        self.assertEqual(job.steps, [])
+
+
+# ---- `doctor --json`: facts about a checkout made of temporary files, and commands that answer what each test says ---------------------------------
+
+BUILT_AT = 1_700_000_000                                              # the time of Assembly-CSharp.dll in the fake build: a source is newer than the build when it is later
+
+
+class CheckoutFacts(unittest.TestCase):
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory(ignore_cleanup_errors=True); self.addCleanup(self.folder.cleanup)
+        self.root = Path(self.folder.name).resolve()
+        self.project = self.root / "unity/PryingEyes"
+        for name in pe.SOURCE_ROOTS: (self.project / name).mkdir(parents=True)
+        self.exe = self.project / "Builds/Audit/PryingEyes.exe"
+        self.dll = self.project / "Builds/Audit/PryingEyes_Data/Managed/Assembly-CSharp.dll"
+        self.marker = self.root / "unity_logs/ship_built.json"
+
+    def build(self, marker=True, **changes):
+        """The verification build as ship.ps1 leaves it: the exe, the code made at BUILT_AT, and the marker (the one that ship.ps1 writes, with its BOM)."""
+        self.dll.parent.mkdir(parents=True); self.exe.write_bytes(b""); self.dll.write_bytes(b""); os.utime(self.dll, (BUILT_AT, BUILT_AT))
+        if marker:
+            self.marker.parent.mkdir(parents=True)
+            self.marker.write_text(json.dumps({"out": str(self.exe.parent), "commit": "a" * 40, "resTicks": "1", "mode": "scripts", "when": "2026-11-24T15:31:54", "branch": "preview",
+                                               "uncommittedCount": 0, **changes}), encoding="utf-8-sig")
+
+    def source(self, name, later=0):
+        path = self.project / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b"")
+        os.utime(path, (BUILT_AT + later, BUILT_AT + later))
+
+    def facts(self): return pe.verification_build(self.marker, self.exe, self.project)
+
+    # ---- the verification build
+
+    def test_a_build_that_ship_made_is_described_by_its_marker_and_has_no_newer_source(self):
+        self.build(); self.source("Assets/Old.cs", later=-5)
+        self.assertEqual(self.facts(), {"present": True, "commit": "aaaaaaa", "mode": "scripts", "sourcesNewerThanBuild": 0})
+
+    def test_the_sources_changed_after_the_code_was_made_are_counted_and_the_derived_files_are_not(self):
+        self.build()
+        for name in ("Assets/New.cs", "Assets/Textures/new.png.meta", "Packages/com.pryingeyes.saves/Runtime/Newer.asmdef", "ProjectSettings/QualitySettings.asset"): self.source(name, later=1)
+        for name in ("Assets/Materials/Wall.mat", "Assets/Materials/Wall.mat.meta", "Assets/_PryingEyes/Scenes/Torre.unity", "Assets/_PryingEyes/Scenes/Citta.unity.meta",
+                     "Assets/_PryingEyes/Scenes/Labs/Lab1.unity", "Assets/_PryingEyes/Scenes/Labs.meta"): self.source(name, later=60)       # the builds rewrite these
+        self.source("Assets/_PryingEyes/Scenes/Other.unity", later=60)                                       # a scene of the game is a source
+        (self.project / "Library").mkdir(); (self.project / "Library/Cache.cs").write_bytes(b"")             # outside the folders the player is made from
+        os.utime(self.project / "Library/Cache.cs", (BUILT_AT + 99, BUILT_AT + 99))
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 5)
+
+    def test_a_change_to_a_rule_is_in_the_build_when_the_rules_assembly_is_newer_than_the_game_one(self):
+        # T15: a one-line change in Rules/ and a scripts-only build rebuild PryingEyes.Rules.dll and leave Assembly-CSharp.dll as it was (measured: 15:33:35 and 15:48:07)
+        self.build(); rules = self.dll.with_name("PryingEyes.Rules.dll"); rules.write_bytes(b""); os.utime(rules, (BUILT_AT + 900, BUILT_AT + 900))
+        self.source("Assets/_PryingEyes/Rules/Score/Punti.cs", later=600)                                  # changed after Assembly-CSharp.dll, before the rules were built
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 0)
+        self.source("Assets/_PryingEyes/Rules/Score/PlayerPerks.cs", later=1200)                           # changed after both: not in the build
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 1)
+        os.utime(self.dll, (BUILT_AT + 1500, BUILT_AT + 1500))                                             # and a build that made the game assembly later dates the build
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 0)
+
+    def test_a_build_without_the_rules_assembly_is_dated_by_the_game_one(self):
+        self.build(); self.source("Assets/Old.cs", later=-5); self.source("Assets/New.cs", later=5)       # a build of before T15 has no PryingEyes.Rules.dll
+        self.assertEqual(self.facts()["sourcesNewerThanBuild"], 1)
+
+    def test_a_marker_about_another_folder_or_a_broken_one_says_nothing_of_the_commit_but_the_count_stays(self):
+        self.build(out=str(self.root / "elsewhere/Audit")); self.source("Assets/New.cs", later=1)
+        self.assertEqual(self.facts(), {"present": True, "commit": None, "mode": None, "sourcesNewerThanBuild": 1})      # ship.ps1 built somewhere else (-OutDir) last
+        self.marker.write_text("{not json", encoding="utf-8"); self.assertEqual(self.facts()["commit"], None)
+        self.marker.unlink(); self.assertEqual(self.facts(), {"present": True, "commit": None, "mode": None, "sourcesNewerThanBuild": 1})
+
+    def test_no_build_is_not_a_zero_it_is_not_known(self):
+        self.assertEqual(self.facts(), {"present": False, "commit": None, "mode": None, "sourcesNewerThanBuild": None})
+        self.assertEqual(pe.sources_newer_than(BUILT_AT, self.root / "no/project"), 0)                      # a folder that is not there has no sources to count
+
+    # ---- the commands it asks, and what they answer
+
+    def test_a_command_that_is_missing_fails_or_hangs_answers_none(self):
+        self.assertEqual(pe.command_output([sys.executable, "-c", "print('  10.0.403  ')"]), "10.0.403")
+        self.assertIsNone(pe.command_output([sys.executable, "-c", "raise SystemExit(3)"]))
+        self.assertIsNone(pe.command_output([str(Path(self.folder.name) / "not-installed")]))
+        self.assertIsNone(pe.command_output([sys.executable, "-c", "import time; time.sleep(30)"], timeout=.3))
+
+    def test_the_gate_is_what_gh_says_and_null_when_it_says_nothing_usable(self):
+        run = {"status": "completed", "conclusion": "success", "headSha": "58b22f0d4f86ec4d9813094518efc04e130e63b1", "url": "https://example.test/runs/1"}
+        asks = []
+        def gh(answer):
+            def command_output(command, timeout=20): asks.append(list(command)); return answer
+            return patch.object(pe, "command_output", command_output)
+        with gh(json.dumps([run])): self.assertEqual(pe.last_gate(), {"branch": "preview", "status": "completed", "conclusion": "success", "commit": "58b22f0", "url": run["url"]})
+        self.assertEqual(asks, [["gh", "run", "list", "--branch", "preview", "--limit", "1", "--json", "status,conclusion,headSha,url"]])       # the command of rule 8
+        with gh(json.dumps([{**run, "status": "in_progress", "conclusion": ""}])): self.assertEqual((pe.last_gate()["status"], pe.last_gate()["conclusion"]), ("in_progress", None))
+        for nothing in (None, "", "[]", "{not json", "[{}]", "[3]"):
+            with gh(nothing): self.assertIsNone(pe.last_gate(), repr(nothing))
+
+    def test_a_worktree_is_linked_when_its_git_directory_is_not_the_common_one(self):
+        def git(answers):
+            return patch.object(pe, "command_output", lambda command, timeout=20: answers.get(" ".join(command)))
+        common = (self.root / ".git").as_posix()
+        with git({"git rev-parse --git-dir": common + "/worktrees/t09", "git rev-parse --git-common-dir": common, "git branch --show-current": "claude/t09"}):
+            self.assertEqual(pe.checkout_worktree(), {"linked": True, "branch": "claude/t09"})
+        with git({"git rev-parse --git-dir": ".git", "git rev-parse --git-common-dir": ".git", "git branch --show-current": ""}):
+            self.assertEqual(pe.checkout_worktree(), {"linked": False, "branch": None})                      # the main checkout, HEAD detached
+        with git({}): self.assertEqual(pe.checkout_worktree(), {"linked": None, "branch": None})            # no git: not known
+
+    # ---- the facts together
+
+    def facts_with(self, running=(), gate=None, tools=("blender", "Unity"), dotnet="10.0.403", lookup_fails=False, library=True, **build):
+        """checkout_facts() on this checkout: the processes, the gate and the tools are what the test says; nothing on this machine is asked."""
+        blender, unity = self.root / "blender.exe", self.root / "Unity.exe"
+        for name in tools: (blender if name == "blender" else unity).write_bytes(b"")
+        if library: (self.project / "Library").mkdir(exist_ok=True)
+        answers = {"dotnet --version": dotnet, "git rev-parse --git-dir": ".git", "git rev-parse --git-common-dir": ".git", "git branch --show-current": "claude/t09"}
+        def processes(*names):
+            if lookup_fails: raise subprocess.CalledProcessError(1, "powershell")
+            return list(running)
+        patches = [patch.object(pe, "executables", return_value=(blender, unity)), patch.object(pe, "processes_named", processes), patch.object(pe, "UNITY", self.project),
+                   patch.object(pe, "AUDIT", self.exe), patch.object(pe, "SHIP_MARKER", self.marker), patch.object(pe, "last_gate", return_value=gate),
+                   patch.object(pe, "command_output", lambda command, timeout=20: answers.get(" ".join(command)))]
+        for each in patches: each.start(); self.addCleanup(each.stop)
+        return pe.checkout_facts()
+
+    def test_a_quiet_checkout_has_no_problem_and_every_fact_the_page_lists(self):
+        self.build()
+        gate = {"branch": "preview", "status": "completed", "conclusion": "success", "commit": "58b22f0", "url": "https://example.test/runs/1"}
+        facts = self.facts_with(gate=gate)
+        self.assertEqual(facts, {"tools": {"unity": "found", "blender": "found", "dotnet": "10.0.403"}, "editorOnProject": None, "playersRunning": [], "library": True,
+                                 "verificationBuild": {"present": True, "commit": "aaaaaaa", "mode": "scripts", "sourcesNewerThanBuild": 0}, "gate": gate,
+                                 "worktree": {"linked": False, "branch": "claude/t09"}, "problems": []})
+        json.dumps(facts)                                                                                    # all of it is data
+
+    def test_the_editor_of_this_project_is_a_problem_and_the_editor_of_another_is_not(self):
+        editor = r"C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe"
+        mine = {"ProcessId": 11, "Name": "Unity.exe", "ExecutablePath": editor, "CommandLine": f'"{editor}" -projectPath "{self.project}"'}
+        other = {"ProcessId": 12, "Name": "Unity.exe", "ExecutablePath": editor, "CommandLine": f'"{editor}" -projectPath "{self.root / "elsewhere/unity/PryingEyes"}"'}
+        facts = self.facts_with(running=[other, mine])
+        self.assertEqual(facts["editorOnProject"], {"pid": 11}); self.assertEqual(facts["problems"], ["PROJECT_IN_USE: process 11 has the editor open on this project"])
+        self.assertEqual(facts["playersRunning"], [])                                                        # an editor is not a player
+        self.assertIsNone(self.facts_with(running=[other])["editorOnProject"])
+
+    def test_the_players_that_run_say_whose_build_they_are_without_being_a_problem(self):
+        game = self.root / "unity/PryingEyes/Builds/PryingEyes.exe"
+        theirs = self.root / "another/unity/PryingEyes/Builds/Audit/PryingEyes.exe"
+        running = [{"ProcessId": 21, "Name": "PryingEyes.exe", "ExecutablePath": str(game), "CommandLine": ""},
+                   {"ProcessId": 22, "Name": "PryingEyes.exe", "ExecutablePath": str(theirs), "CommandLine": ""},
+                   {"ProcessId": 23, "Name": "PryingEyes.exe", "ExecutablePath": None, "CommandLine": ""}]
+        facts = self.facts_with(running=running)
+        self.assertEqual(facts["playersRunning"], [{"pid": 21, "path": str(game), "thisCheckout": True}, {"pid": 22, "path": str(theirs), "thisCheckout": False},
+                                                   {"pid": 23, "path": None, "thisCheckout": False}])
+        self.assertEqual(facts["problems"], [])
+
+    def test_a_missing_tool_a_failed_lookup_and_a_gate_that_is_not_green_are_problems_and_a_gate_still_running_is_not(self):
+        facts = self.facts_with(tools=("Unity",), dotnet=None, lookup_fails=True, library=False)
+        self.assertEqual(facts["tools"], {"unity": "found", "blender": "missing", "dotnet": "missing"})
+        self.assertEqual((facts["editorOnProject"], facts["playersRunning"], facts["library"]), (None, None, False))           # null: not known, which is not "none"
+        self.assertEqual([problem.split(":")[0] for problem in facts["problems"]], ["TOOL_MISSING", "TOOL_MISSING", "PROCESS_LOOKUP_FAILED"])
+        red = {"branch": "preview", "status": "completed", "conclusion": "failure", "commit": "58b22f0", "url": "https://example.test/runs/2"}
+        self.assertEqual(self.facts_with(gate=red)["problems"], ["GATE_NOT_GREEN: the last run of the gate on preview ended failure at 58b22f0: https://example.test/runs/2"])
+        self.assertEqual(self.facts_with(gate={**red, "status": "in_progress", "conclusion": None})["problems"], [])
+
+    def test_the_command_prints_the_facts_and_exits_one_while_there_is_a_problem(self):
+        def doctor(facts):
+            out = io.StringIO()
+            with patch.object(pe, "checkout_facts", return_value=facts), contextlib.redirect_stdout(out): code = engine.main(pe.PRYING_EYES, ["doctor", "--json"])
+            return code, json.loads(out.getvalue())
+        self.assertEqual(doctor({"library": True, "problems": []}), (0, {"schemaVersion": 1, "ok": True, "library": True, "problems": []}))
+        code, said = doctor({"library": False, "problems": ["PROJECT_IN_USE: process 11 has the editor open on this project"]})
+        self.assertEqual((code, said["ok"], said["problems"]), (1, False, ["PROJECT_IN_USE: process 11 has the editor open on this project"]))
 
 
 if __name__ == "__main__": unittest.main()

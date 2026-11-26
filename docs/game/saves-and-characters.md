@@ -29,7 +29,7 @@ page is the game side: what the player sees and what is kept.
 ## Levels
 
 The character saves only its **total experience**; the level is always computed from it (`Leveling`), so a new version that changes the curve
-fixes the old characters by itself. All numbers are one table in `Scripts/Characters/Leveling.cs`.
+fixes the old characters by itself. All numbers are one table in `Rules/Characters/Leveling.cs`.
 
 | Source | Experience |
 | --- | --- |
@@ -126,7 +126,7 @@ of the older tests do not move. `-chartest` deletes the test folder first and re
 | Piece | Where |
 | --- | --- |
 | The save library: JSON, formats and migrations, the store (atomic writes, backups, quarantine) | `unity/PryingEyes/Packages/com.pryingeyes.saves` ([README](../../unity/PryingEyes/Packages/com.pryingeyes.saves/README.md)) |
-| The pure parts of the game side: looks, names, level curve, the character and the run records, the old file's import | `Scripts/Characters/CharacterLooks.cs`, `CharacterRecord.cs`, `Leveling.cs`, `CathedralJson.cs`, `RunRecord.cs` (compiled by `tools/saveslab` too) |
+| The pure parts of the game side: looks, names, level curve, the character and the run records, the old file's import | `Rules/Characters/CharacterLooks.cs`, `CharacterRecord.cs`, `Leveling.cs`, `CathedralJson.cs`, `RunRecord.cs` (compiled by `tools/saveslab` too) |
 | The list, creation, choice, deletion, writing, the suspended run's files, the test profile | `Scripts/Characters/Roster.cs` |
 | Experience and play time; the autosave | `Scripts/Characters/Progress.cs`, `CharacterAutosave.cs` |
 | What a run keeps and puts back (weapons, perks, magic, equipment) | `Scripts/Characters/RunSave.cs`, `Scripts/Weapon.Run.cs`, `Scripts/Magia/MagicState.cs` (`Capture`, `RestoreFrom`) |

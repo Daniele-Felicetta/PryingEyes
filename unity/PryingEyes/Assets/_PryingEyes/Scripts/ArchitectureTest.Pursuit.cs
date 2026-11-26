@@ -1,3 +1,4 @@
+#if !PE_DISTRIBUTION_BUILD
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -14,7 +15,7 @@ namespace PryingEyes
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
             Check("piano disponibile per l'inseguimento", FloorDirector.I != null && FloorDirector.I.cur != null);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             var fi = FloorDirector.I.cur;
             GalleryRoute route = null;
             foreach (var candidate in fi.galleries)
@@ -121,3 +122,4 @@ namespace PryingEyes
     }
 
 }
+#endif

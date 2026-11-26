@@ -1,52 +1,23 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
-using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -noenemies -shafttest [-shaftshots]: i fasci di luce dalle finestre (LightShafts). Il piano ne ha; da
     /// un punto di lato il fascio e' acceso, guarda la camera e si vede; il pulviscolo ci galleggia dentro; stando sull'asse sfuma;
     /// nascosti non si vedono. Foto con e senza dallo stesso punto.</summary>
-    public sealed class ShaftTest : MonoBehaviour
+    public sealed class ShaftTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "shafttest"; } }
+        protected override string PhotoFlag { get { return "-shaftshots"; } }
+        protected override string OutFolder { get { return "fasci"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-shafttest") >= 0) new GameObject("ShaftTest").AddComponent<ShaftTest>();
-        }
-
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] shafttest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-shaftshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] shafttest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/fasci"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
-        }
+        static void Install() { InstallWhen<ShaftTest>("-shafttest"); }
 
         static void Face(PlayerController player, Vector3 target)
         {
@@ -55,7 +26,7 @@ namespace PryingEyes
             player.pitch = -Mathf.Atan2(d.y, new Vector2(d.x, d.z).magnitude);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -66,7 +37,7 @@ namespace PryingEyes
             player.invulnerable = true;
             var ls = LightShafts.I;
             Check($"il piano ha i fasci di luce ({(ls != null ? ls.Shafts.Count : 0)})", ls != null && ls.Shafts.Count > 0);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
 
             // un fascio da guardare di lato, da un punto del pavimento con la vista libera sul suo centro
             LightShafts.Shaft pick = null; Vector3 stand = Vector3.zero, mid = Vector3.zero;
@@ -87,7 +58,7 @@ namespace PryingEyes
                 if (pick != null) break;
             }
             Check("uno si vede di lato", pick != null);
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             player.Teleport(stand + Vector3.up * 0.05f);
             yield return null;
             Face(player, mid);
@@ -98,11 +69,11 @@ namespace PryingEyes
             Vector3 n = (toCam - pick.axis * Vector3.Dot(toCam, pick.axis)).normalized;
             Check($"guarda la camera ({Vector3.Dot(pick.beam.up, n):F2})", Vector3.Dot(pick.beam.up, n) > 0.95f);
             Check($"si vede (alfa {pick.shown:F3} su {pick.alpha:F3})", pick.shown > pick.alpha * 0.5f);
-            View("con");
+            Photo("con");
             LightShafts.Hidden = true;
             yield return null; yield return null;
             Check("nascosti non si vedono", !pick.beam.gameObject.activeSelf);
-            View("senza");
+            Photo("senza");
             LightShafts.Hidden = false;
             yield return new WaitForSeconds(2.5f);
             Check($"il pulviscolo ci galleggia dentro ({pick.motes.particleCount} granelli)", pick.motes.particleCount > 3);

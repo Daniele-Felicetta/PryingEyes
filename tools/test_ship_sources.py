@@ -19,6 +19,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -135,6 +136,11 @@ def summary(output, key):
     return next((line for line in output.splitlines() if line.startswith(key + ":")), "")
 
 
+def result_of(repo, name="ship_last.json"):
+    """The file a ship leaves under unity_logs/ about how it ended, as data."""
+    return json.loads((repo / "unity_logs" / name).read_text(encoding="utf-8-sig"))
+
+
 def force_remove(function, path, _):
     os.chmod(path, stat.S_IWRITE)
     function(path)
@@ -146,6 +152,17 @@ class ShipScriptSource(unittest.TestCase):
         data = SCRIPT.read_bytes()
         bad = [i for i, byte in enumerate(data) if byte > 127]
         self.assertEqual(bad, [], f"non-ASCII byte at offset {bad[:1]} of tools/ship.ps1")
+
+    def test_a_script_that_ship_starts_isolated_gets_through_its_imports(self):
+        """The smoke walk starts with `python -I`, which leaves the script's own folder off sys.path: a sibling module that the script imports is
+        not found unless the script puts its folder there itself (check_navigation.py failed that way once T06 gave it player_log, and every ship
+        stopped at the walk). `--help` runs the imports and stops before the script needs a build."""
+        scripts = re.findall(r"'-I',\s*\(Join-Path \$repo '(tools\\[\w.]+\.py)'\)", SCRIPT.read_text(encoding="utf-8"))
+        self.assertTrue(scripts, "ship.ps1 starts no script with -I any more: update this test")
+        for relative in scripts:
+            with self.subTest(script=relative):
+                done = subprocess.run([sys.executable, "-I", str(SCRIPT.parent.parent / relative.replace("\\", "/")), "--help"], capture_output=True, text=True)
+                self.assertEqual(0, done.returncode, done.stderr[-400:])
 
 
 @unittest.skipUnless(os.name == "nt" and shutil.which("powershell") and shutil.which("git"), "ship.ps1 needs Windows PowerShell 5.1 and git")
@@ -161,9 +178,10 @@ class ShipDeclaresWhatTheBuildContains(unittest.TestCase):
         # PowerShell 5.1 loses Get-FileHash, which the exe step uses; without the variable it builds its own default.
         inherited = {key: value for key, value in os.environ.items() if key.upper() != "PSMODULEPATH"}
         cls.env = {**inherited, "GIT_CONFIG_GLOBAL": str(empty), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0"}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:      # four PowerShell starts in parallel: a few seconds in all
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:      # six PowerShell starts in parallel: a few seconds in all
             cases = {"default": pool.submit(cls.dirty_run), "refused": pool.submit(cls.dirty_run, "-RequireClean"),
-                     "clean": pool.submit(cls.clean_run), "dry": pool.submit(cls.dry_run)}
+                     "clean": pool.submit(cls.clean_run), "dry": pool.submit(cls.dry_run),
+                     "detached": pool.submit(cls.detached_run), "blocked": pool.submit(cls.blocked_run)}
             cls.runs = {name: case.result() for name, case in cases.items()}
 
     @classmethod
@@ -186,6 +204,18 @@ class ShipDeclaresWhatTheBuildContains(unittest.TestCase):
         message = write(cls.root, "message.txt", b"test\n")
         paths = f"{ASSETS}/Scripts/Game.cs,unity/PryingEyes/Packages"       # a file and a folder, both would be committed
         return repo, git(repo, cls.env, "rev-parse", "HEAD"), *ship(repo, cls.env, "-NoBuild", "-NoExe", "-DryRun", "-Paths", paths, "-MessageFile", str(message))
+
+    @classmethod
+    def detached_run(cls):
+        repo = make_repo(cls.root, cls.env, "detached")
+        git(repo, cls.env, "checkout", "-q", "--detach")                    # the first check refuses a HEAD that is on no branch: the earliest way for a ship to fail
+        return repo, git(repo, cls.env, "rev-parse", "HEAD"), *ship(repo, cls.env, "-NoBuild", "-NoExe")
+
+    @classmethod
+    def blocked_run(cls):
+        repo = make_repo(cls.root, cls.env, "blocked")
+        (repo / "unity_logs/ship_last.json.tmp").mkdir(parents=True)        # the file that the result is written to first is a folder: it cannot be written
+        return repo, git(repo, cls.env, "rev-parse", "HEAD"), *ship(repo, cls.env, "-NoBuild", "-NoExe")
 
     def test_a_dirty_tree_does_not_block_and_is_declared(self):
         _, head, code, output = self.runs["default"]
@@ -237,6 +267,61 @@ class ShipDeclaresWhatTheBuildContains(unittest.TestCase):
         self.assertEqual(listed(output), expected, output)
         self.assertEqual(git(repo, self.env, "rev-parse", "HEAD"), head)
         self.assertEqual(git(repo, self.env, "diff", "--cached", "--name-only"), "")
+
+    # ---- the result as data: unity_logs/ship_last.json
+
+    def test_a_dry_run_writes_what_each_step_did_as_data(self):
+        repo, head, code, output = self.runs["dry"]
+        doc = result_of(repo)
+        self.assertEqual((doc["schemaVersion"], doc["ok"], doc["result"], doc["why"], doc["step"]), (1, True, "SHIP: OK", "", "chiusura"))
+        self.assertEqual((doc["dryRun"], doc["refreshOnly"], doc["branch"], doc["headStart"], doc["headEnd"]), (True, False, "main", head, head))
+        self.assertEqual(doc["commit"], {"made": False, "sha": None, "subject": None, "files": 0})                      # a dry run commits nothing
+        self.assertEqual({**doc["build"], "out": None}, {"skipped": True, "built": False, "mode": None, "why": "", "out": None})
+        self.assertTrue(doc["build"]["out"].endswith("Audit"), doc["build"])
+        self.assertEqual(doc["push"], {"done": False, "skipped": "-NoPush", "remote": "origin", "branch": "main", "from": None, "to": None, "commits": None})
+        uncommitted = doc["uncommitted"]                                                                                # the same sources as the log lists, with their status
+        self.assertEqual((uncommitted["known"], uncommitted["truncated"], uncommitted["count"]), (True, False, len(listed(output))))
+        self.assertEqual({(e["status"], e["path"]) for e in uncommitted["sources"]}, listed(output))
+        self.assertEqual(doc["exe"], {"updated": False, "deferred": False, "note": "saltato (-NoExe)"})
+        said = [warning for warning in doc["warnings"] if "sorgenti non committati" in warning]
+        self.assertEqual(len(said), 1); self.assertIn(f"{len(listed(output))} sorgenti non committati", said[0])           # what the AVVISO line says
+        self.assertEqual(len(doc["warnings"]), 2); self.assertTrue(any("voci non committate" in warning for warning in doc["warnings"]))   # and the one about the tree
+        self.assertEqual(doc["summary"]["ramo"], f"main @ {head[:7]}"); self.assertIn("prova a secco", doc["summary"]["commit"])
+        self.assertRegex(doc["startedAt"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$"); self.assertRegex(doc["finishedAt"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$")
+        self.assertIsInstance(doc["seconds"], int)
+        self.assertFalse((repo / "unity_logs/ship_last.json.tmp").exists(), "the temporary file must be renamed away")
+
+    def test_a_run_that_is_refused_before_the_build_writes_its_result_too(self):
+        repo, head, code, output = self.runs["refused"]
+        doc = result_of(repo)
+        why = f"sorgenti: {len(COUNTED)} sorgenti non committati e c'e' -RequireClean (nessuna build)"
+        self.assertEqual((code, doc["ok"], doc["why"], doc["result"], doc["step"]), (1, False, why, "SHIP: FALLITO - " + why, "sorgenti"))      # the step that refused
+        self.assertEqual((doc["uncommitted"]["known"], doc["uncommitted"]["count"]), (True, len(COUNTED)))
+        self.assertEqual((doc["commit"]["made"], doc["build"]["mode"], doc["build"]["built"]), (False, None, False))             # nothing after that step ran
+        self.assertEqual((doc["headStart"], doc["headEnd"], doc["branch"]), (head, head, "main"))
+
+    def test_the_earliest_failure_leaves_a_result_with_what_is_not_known_yet_as_null(self):
+        repo, head, code, output = self.runs["detached"]
+        doc = result_of(repo)
+        self.assertEqual((code, doc["ok"], doc["step"], doc["why"]), (1, False, "controlli", "controlli: ramo non valido (HEAD staccato?)"))
+        self.assertEqual((doc["headStart"], doc["headEnd"], doc["branch"]), (None, head, "HEAD"))                          # the script had not read HEAD when it stopped
+        self.assertEqual(doc["uncommitted"], {"known": False, "count": 0, "truncated": False, "sources": []})            # "not counted" is not "clean"
+        self.assertEqual(doc["warnings"], [])
+
+    def test_a_clean_ship_says_what_the_exe_step_did(self):
+        repo, head, code, output = self.runs["clean"]
+        doc = result_of(repo)
+        self.assertEqual((doc["ok"], doc["dryRun"], doc["uncommitted"]["known"], doc["uncommitted"]["count"]), (True, False, True, 0))
+        self.assertEqual((doc["exe"]["updated"], doc["exe"]["deferred"]), (True, False)); self.assertTrue(doc["exe"]["note"].startswith("aggiornato in "), doc["exe"])
+        self.assertEqual((doc["build"]["skipped"], doc["commit"]["made"]), (True, False))
+        self.assertEqual((doc["push"]["done"], doc["push"]["skipped"]), (False, "-NoPush"))
+
+    def test_a_result_that_cannot_be_written_never_fails_the_ship(self):
+        repo, _, code, output = self.runs["blocked"]
+        self.assertEqual(code, 0, output)
+        self.assertIn("SHIP: OK", output)
+        self.assertTrue(any(line.startswith("AVVISO") and "ship_last.json non scritto" in line for line in output.splitlines()), output)
+        self.assertFalse((repo / "unity_logs/ship_last.json").exists())
 
 
 def kill_tree(pid):
@@ -304,6 +389,13 @@ class ShipKeepsTheGameCurrentEvenWhenItIsOpen(unittest.TestCase):
         info = json.loads((self.builds / "build_info.json").read_text(encoding="utf-8"))
         self.assertEqual((info["commit"], info["mode"]), (self.head, "scripts"))
         self.assertEqual((self.builds / "Audit/keep.txt").read_bytes(), b"workspace")
+
+    def test_each_process_writes_its_own_result_and_the_refresh_does_not_take_the_place_of_the_ship(self):
+        ship_doc, refresh = result_of(self.repo), result_of(self.repo, "ship_refresh.json")
+        self.assertEqual((ship_doc["refreshOnly"], ship_doc["ok"]), (False, True))
+        self.assertEqual((ship_doc["exe"]["updated"], ship_doc["exe"]["deferred"]), (False, True))                       # the ship said the copy is waiting for the game to close
+        self.assertEqual((refresh["refreshOnly"], refresh["ok"], refresh["step"]), (True, True, "chiusura"))
+        self.assertEqual((refresh["exe"]["updated"], refresh["exe"]["deferred"]), (True, False))                         # and the refresh did it, in a file of its own
 
 
 if __name__ == "__main__":

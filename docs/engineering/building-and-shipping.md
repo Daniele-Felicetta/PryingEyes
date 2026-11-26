@@ -36,10 +36,9 @@ Flags:
 
 - `-buildOut <folder>` writes `<folder>/PryingEyes.exe`. **Without it the build overwrites `Builds/PryingEyes.exe`, the game the
   maintainer plays.** Always pass it for verification builds (`ship.ps1` and the studio do).
-- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out the files wrapped in `#if !PE_DISTRIBUTION_BUILD`: 29 of the 42
-  `*Test*.cs` files in `Scripts/` and the trailer recorder (`TrailerCapture.cs`, `TrailerJob.cs`, `FloorDirector.Trailer.cs`, and a part of
-  `FloorDirector.cs`). Not wrapped, so still in the player: the `ArchitectureTest*`, `CityTest*`, `CoopTest*` and `StealthTest*` files
-  (counted by grep on 2026-11-15). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.
+- `-distribution` defines `PE_DISTRIBUTION_BUILD`, which compiles out the files wrapped in `#if !PE_DISTRIBUTION_BUILD`: all 76
+  test files of the player (`tools/code_census.py`, 25 November 2026) and the trailer recorder (`TrailerCapture.cs`, `TrailerJob.cs`, `FloorDirector.Trailer.cs`, and a part of
+  `FloorDirector.cs`). No test file is left in the player (the last three, `CoopTest*`, were wrapped by the tenth pull request of T08). It needs a full build: with `-scriptsOnly` the method logs an error and exits with 2.
   A distribution build also runs `BuildScrub` (`Editor/BuildScrub.cs`). The compiler writes the path of the `.pdb` it produced into every
   assembly, which names the folders of the build machine, so that entry is overwritten with the bare file name; then every managed assembly
   of the build is searched for the path of the checkout and each hit is logged as a warning (`[PryingEyes] distribution: ...`).
@@ -60,6 +59,189 @@ The methods that build a player (`Torre`, `Windows`, `Web`, `City`) exit with 2 
 
 A full build rewrites about 700 MB. Prefer `-scriptsOnly`, and do not rebuild just to look: disk space and write bandwidth are the scarce
 resources on the maintainer's machine.
+
+## What a build rewrites
+
+After a build `git status` lists tracked files as modified. Task T13 ([brief](modular-tasks.md#t13-what-a-build-rewrites-measure-then-decide))
+measured which files each kind of build rewrites, and why, in a new worktree; no game or editor code was changed to do it. The result:
+
+- Almost everything listed is not a difference. Unity writes its text assets with LF, the repository stores them with LF and a Windows
+  checkout wrote them with CRLF, so a file the editor saves again has the bytes of the commit and `git status` lists it all the same.
+- What really differs is a few files, and only the full build writes them (`BuildPlayer.Torre` without `-scriptsOnly`).
+- A `.gitattributes` of eight patterns removes the first group, and writing the few generated files again once, on purpose, removes most of the
+  second. Both are proposed in [What to do about it](#what-to-do-about-it), not applied.
+- Three files would still differ after every full build, because the code that writes them makes them new every time.
+
+### Reading `git status`
+
+`git status` lists a file whose size is no longer the one the index recorded at the checkout, without reading what is inside; `git diff`
+compares the content. The files that differ for real are therefore `git diff --name-only`, not `git status`, and `git ls-files --eol -- <path>`
+shows why a listed file does not: `i/lf w/lf` is LF on disk, as committed, where the checkout had written `w/crlf`. A new write time alone does
+not make git list a file; a size that changed does. Without Unity, in an empty folder:
+
+```powershell
+git init demo -q; Set-Location demo
+$lf = [Text.UTF8Encoding]::new($false)
+[IO.File]::WriteAllText("$PWD\a.mat", "m_Name: a`n", $lf)               # LF, as Unity writes it
+git -c core.autocrlf=true add a.mat; git -c core.autocrlf=true -c user.name=x -c user.email=x@example.invalid commit -qm base
+Remove-Item a.mat; git -c core.autocrlf=true checkout -- a.mat          # the checkout writes CRLF: i/lf w/crlf
+[IO.File]::WriteAllText("$PWD\a.mat", "m_Name: a`n", $lf)               # Unity saves it again: the bytes of the commit
+git -c core.autocrlf=true status --porcelain                            #  M a.mat
+git -c core.autocrlf=true diff --name-only                              # nothing
+```
+
+`git update-index --refresh` does not clear such an entry (it prints `needs update`); `git add` does.
+
+Each listed file goes in one class, the deepest it fits:
+
+| Class | The file on disk | How to tell |
+| --- | --- | --- |
+| 1. Line endings only | the bytes of the commit | listed by `git status`, absent from `git diff --name-only` |
+| 2. Order or identifiers | the same content with other ids, in the order the ids give | `git diff` shows only the `&id` of `--- !u!` headers and `fileID:` values |
+| 3a. Colours in the last digits | the same colours, `0.07` written as `0.06999998` | `git diff -U0` shows `_Color` lines and nothing else |
+| 3b. Real content | something the commit does not have | any other line |
+
+### What each kind of build leaves
+
+Measured on 2026-11-24 on `preview` at `9f658fd`, with the editor of that commit (6000.6.7f1), in a new worktree made by `tools/worktree.ps1 -New`,
+one windowless run (`-batchmode -nographics`) at a time. Every run started from a tree with nothing listed, `core.autocrlf` was `true` (the
+system setting of Git for Windows) and each build went to a folder that did not exist yet. These are the numbers of that commit;
+[Measure it again](#measure-it-again) gives today's. Columns 1 to 3b count the listed files by class; the last counts what `git diff --name-only`
+prints.
+
+| Run | Listed | 1 | 2 | 3a | 3b | Differ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| The editor opens, compiles and quits (no build) | 2 | 2 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Torre` with `-scriptsOnly` over the folder of the full build (`ship.ps1 -Mode scripts`) | 5 | 5 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Windows` (`ship.ps1 -Mode full`) | 5 | 5 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Torre`, the full build | 136 | 117 | 0 | 18 | 1 | 19 |
+
+In the last row the scene and the two weapon materials are also renumbered (class 2) in every full build; they count in 3a and 3b, the deeper
+classes. What each run wrote:
+
+- The editor opening saves `Assets/DefaultPrefabObjects.asset` and `ProjectSettings/ProjectAuditorSettings.asset`.
+- Any player build saves three more: `Assets/UniversalRenderPipelineGlobalSettings.asset`, `Assets/_PryingEyes/Settings/HotelURP.asset` and
+  `ProjectSettings/GraphicsSettings.asset`. The scripts-only and the `Windows` build write nothing else in the tree: `TorreBuilder` does not
+  run in them.
+- The full build adds what `TorreBuilder.Build()` saves: `Settings/HotelRenderer.asset`; every material of `Materials/Kit` and one prefab of
+  `Prefabs/Props` per model (`FillKit`, `MakePropPrefab`); the weapon materials and the flash texture with their `.meta` files
+  (`HotelBuilder.PlayerAndGame`); and `Scenes/Torre.unity`.
+- A second full build over the first, with nothing restored in between, rewrote 7 of those 136 files and changed the bytes of 3: Unity does not
+  write a file whose new bytes are the ones on disk. The seven are the two weapon materials and the flash texture, which
+  `PlayerAndGame` deletes and creates again, with their `.meta` files, and the scene.
+
+The same four runs with the `.gitattributes` proposed below in place and the files checked out with LF (a throwaway branch, never pushed):
+
+| Run | Listed | 1 | 2 | 3a | 3b | Differ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| The editor opens, compiles and quits | 0 | 0 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Torre` with `-scriptsOnly` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Windows` | 0 | 0 | 0 | 0 | 0 | 0 |
+| `BuildPlayer.Torre`, the full build | 19 | 0 | 0 | 18 | 1 | 19 |
+| the full build again, after those 19 were written once and committed | 3 | 0 | 3 | 0 | 0 | 3 |
+
+### Why each class happens
+
+**1. Line endings only.** Git for Windows sets `core.autocrlf=true` in its system configuration, so a checkout writes CRLF. The repository
+stores LF: `git ls-files --eol` reports `i/lf` for every Unity text asset and every `.meta`, and no tracked file has CRLF in the index. Unity
+writes LF. A file the editor saves is the committed file again, smaller than the one the checkout wrote, and git lists it. Column 1 is the files
+whose CRLF the editor replaced; a file that is LF on disk already is not written again.
+
+**2. Order or identifiers.** `TorreBuilder.Build()` builds the scene again from an empty one and `EditorSceneManager.SaveScene` gives every
+object a new random id and writes the documents in the order of their ids: three full builds wrote three scenes that differ in bytes and hold
+the same documents. (The diff of the scene is hundreds of lines whatever changed, as
+[guardaroba.md](../game/guardaroba.md#how-the-props-reach-the-game) already says.) `Materials/GunBody.mat` and `GunGrip.mat` get the same
+through `HotelBuilder.SaveMat`, which deletes the asset and creates it again: a material that is created receives a URP `AssetVersion` sub-asset
+with a new id.
+
+**3a. Colours in the last digits.** The kit materials set `Material.color`. In the files the full build wrote, `_BaseColor`, the colour the URP
+Lit shader reads, keeps its short decimals and `_Color`, its legacy copy, holds the neighbouring float (`0.06999998` for `0.07`); the commit has
+`0.07` in both. The weapon materials differ in `_SpecColor` too (`0.19999996` for the shader's `0.2`). It happens once: written, the files are
+stable, and the second full build did not write them again.
+
+**3b. Real content.** The kit is saved inside `Torre.unity` and only the full build regenerates it. The committed scene lacks two kit
+materials that `FillKit` registers, `pav_marmo_venato` and `colonna_pietra`: the commit that added them to the builder (`c7f48e3`, 2026-11-17)
+refreshed the kit assets and not the scene. A player built by `BuildPlayer.Windows` or with `-scriptsOnly` packs the scene it finds, so its kit
+lacks them.
+
+### The scene of a new worktree
+
+A new worktree holds the committed `Torre.unity`, and `ship.ps1` in a worktree with no complete build in `Builds/Audit` takes its full mode,
+which is `BuildPlayer.Windows`: it packs that scene as it is. So the first build of a new worktree is the full `BuildPlayer.Torre` into
+`Builds/Audit`, which does not exist yet (the command in [Build methods](#build-methods)); `ship.ps1 -Mode scripts` is for the builds after it.
+T06 reported a corrupt `level0` from a `BuildPlayer.Torre` built over a folder that `Windows` had filled; T13 did not repeat it.
+
+### What to do about it
+
+T13 applies none of this: it is the proposal, and the decision is the maintainer's.
+
+**1. A `.gitattributes` for the Unity text assets.**
+
+```
+# Unity writes its text assets with LF; a checkout under core.autocrlf=true writes CRLF and git then lists every file the editor saves.
+# text=auto leaves the few binary .asset files alone.
+*.mat        text=auto eol=lf
+*.prefab     text=auto eol=lf
+*.asset      text=auto eol=lf
+*.unity      text=auto eol=lf
+*.meta       text=auto eol=lf
+*.controller text=auto eol=lf
+*.anim       text=auto eol=lf
+*.lighting   text=auto eol=lf
+```
+
+- A checkout then writes these files with LF, as they are stored and as the editor writes them: class 1 disappears (the second table).
+- Nothing stored changes. On a throwaway branch `git add --renormalize` over those patterns staged the new file and nothing else. The `auto`
+  is what makes it so: with `text eol=lf` the same command also changes two binary `.asset` files (`Resources/BodyLods.asset` and
+  `Scenes/Hotel/LightingData.asset`, which hold CRLF byte pairs that a text conversion removes).
+- A new worktree needs nothing: it checks the files out with LF. A checkout that exists keeps its CRLF files until they are written again, and
+  the editor's first save of each is listed as before. Once, from the repository root, with the editor closed and none of those files modified
+  (restore by path what class 1 listed: it equals the commit):
+
+  ```powershell
+  $p = '*.mat', '*.prefab', '*.asset', '*.unity', '*.meta', '*.controller', '*.anim', '*.lighting'
+  git ls-files -- $p | ForEach-Object { Remove-Item -LiteralPath $_ }
+  git checkout -- $p
+  ```
+
+  The editor reimports those files the next time it opens.
+
+**2. Write the generated files again, once, on purpose.** After a full build `git diff --name-only` lists them: the kit materials of class 3a,
+the two weapon materials and the scene. Commit them in a pull request that says why (the rule of
+[guardaroba.md](../game/guardaroba.md#how-the-props-reach-the-game)); the two kit entries are what the builder already says. After that the
+same full build lists three files, `GunBody.mat`, `GunGrip.mat` and `Torre.unity`, all of class 2 (the last row of the second table).
+
+**3. Write only on a real change.** The three that remain are written by code, so only code stops them; it is a task of its own.
+
+- `HotelBuilder.PlayerAndGame`: create `GunBody`, `GunGrip` and `GunFlashStar` only when the asset is missing and set a value only when it
+  differs, instead of `SaveMat` and `DeleteAsset` followed by `CreateAsset`.
+- `TorreBuilder.Build`: save the scene first as a copy outside `Assets` (`EditorSceneManager.SaveScene(scene, path, true)`), compare it with
+  `Torre.unity` document by document with the ids masked (a few dozen lines of script), and replace the file only when they differ. Then a
+  full build with nothing new to say leaves the scene alone.
+- A check in the gate that every name `FillKit` registers is in the committed scene needs no editor, only the two files; it would have
+  failed on the two entries that are missing now.
+
+**4. Until then,** decide whether a build changed anything with `git diff --name-only`, restore by path what you did not mean to change
+(`git checkout -- <path>`), and stage exact paths (rules 4 and 10 of `AGENTS.md`).
+
+### Measure it again
+
+In a new worktree, one editor at a time, from the repository root of that worktree (the editor version is in
+`unity/PryingEyes/ProjectSettings/ProjectVersion.txt`):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\worktree.ps1 -New measure-build    # remove it with -Remove when done
+Unity.exe -batchmode -nographics -projectPath unity\PryingEyes -executeMethod PryingEyes.EditorTools.BuildPlayer.Torre `
+    -buildOut unity\PryingEyes\Builds\Measure -quit -logFile measure.log    # or ...BuildPlayer.Windows, or add -scriptsOnly
+git status --porcelain -uall                # Listed
+git diff --name-only                        # Differ; Listed minus Differ is class 1
+git diff -U0 -- <a file that differs>       # class 2, 3a or 3b
+git checkout HEAD -- <each listed path>     # before the next run, in this throwaway worktree only
+```
+
+Not measured: what a scripts-only build writes in the build folder after a script really changed (the run found nothing to rebuild and left
+the executable alone); a checkout whose `core.autocrlf` is `false` or `input` (only `true` was); and the digits of class 3a on another editor
+version.
 
 ## Shipping a change: `tools/ship.ps1`
 
@@ -82,9 +264,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\ship.ps1 -Wait 540    
 | push | `origin <current branch>`, never forced, with the settings for large files; then checks that the remote has the same `HEAD`. |
 | game | Copies the build into `Builds/`, only when the maintainer's game is closed. When it is open the script starts a hidden process that waits for it to close and copies then (`-DeferExeMin`, 720 minutes by default, 0 turns it off). `-RefreshOnly` does just this step. |
 
-Logs and markers are in `unity_logs/`: `ship_last.log` and `ship_last.status`, `ship_build.log`, `ship_built.json`, `ship_refresh.log` and
-`ship_refresh.status`. The exit code is 0 only with `SHIP: OK`. `-DryRun` rehearses without changing anything. The script is ASCII on
-purpose: PowerShell 5.1 misreads accents in a file without a BOM.
+Logs and markers are in `unity_logs/`: `ship_last.log` and `ship_last.status`, `ship_last.json`, `ship_build.log`, `ship_built.json`,
+`ship_refresh.log`, `ship_refresh.status` and `ship_refresh.json`. The exit code is 0 only with `SHIP: OK`. `-DryRun` rehearses without
+changing anything. The script is ASCII on purpose: PowerShell 5.1 misreads accents in a file without a BOM.
+
+`ship_last.json` says how the run ended, as data, for whoever reads it from a program (`schemaVersion` 1; the formats are in
+[agent-tooling.md](agent-tooling.md#formats-and-who-owns-them)). The script writes it when it finishes, whatever the outcome: after a
+refusal, a failed step, an exception, and for a dry run. It holds `ok`, `result` (the last line of the log) and `why`; `step`, the one the
+script was in when it finished (the one that failed, when one did); `dryRun`, `refreshOnly`, `startedAt`, `finishedAt` and `seconds`;
+`branch`, `headStart` and `headEnd`; `commit` (`made`, `sha`, `subject`, `files`); `build` (`skipped`, `built`, the `mode` it chose and
+`why`, `out`); `push` (`done`, `skipped` with the reason, `remote`, `branch`, `from`, `to`, `commits`); `uncommitted` (`known`, `count`,
+`truncated` and the first 300 `sources`, each with `status` and `path`: what the build contains and `HEAD` does not); `exe` (`updated`,
+`deferred`, that is, the game is open and a hidden copy waits for it to close, and the `note`); `warnings`; and `summary`, the lines of the
+text summary by step. What the script did not reach keeps its starting value (`null`, `false`, `0`, `known: false`): "not counted" is not
+"clean". The hidden refresh writes `ship_refresh.json`, so that it does not replace the record of the ship that started it. The file is
+written under a temporary name and renamed, and a write that fails is a warning of the summary, not a failed ship.
+
+To ask only whether the scripts compile, with no build and no commit, there is `python tools/studio.py test compile`
+([agent-tooling.md](agent-tooling.md#test-compile-does-it-compile)).
 
 A change that touches no game source (documentation, tools) can be shipped with `-Mode scripts`: the build is then a two-megabyte
 recompile, and the game keeps the data of the last full build.
@@ -93,24 +290,126 @@ recompile, and the game keeps the data of the last full build.
 
 The gate is the set of checks that must pass before a change counts as done:
 
-1. `python tools/check_suite.py`: the boundaries of the reusable packages and engine, and the documentation (links, index, no
-   machine-specific paths).
+1. `python tools/check_suite.py`: the boundaries of the reusable packages and engine, the game's rules about tests (none named by
+   production code, all wrapped in `PE_DISTRIBUTION_BUILD`, see [suite-architecture.md](suite-architecture.md#the-games-rules-about-tests)),
+   and the documentation (links, index, no machine-specific paths).
 2. `python -m unittest discover -s tools -p "test_*.py"`: the hermetic unit suite.
-3. `python tools/studio.py test weapon-state`, `python tools/studio.py test survival`, `python tools/studio.py test economy`, `python tools/studio.py test saves`, `python tools/studio.py test track` and `python tools/studio.py test desert`: the six .NET rule labs.
+3. Every suite that needs nothing, one `python tools/studio.py test <suite>` each: the .NET rule labs, and the fingerprint of the floor
+   generator, which fails when a plan changes without a new `CoopProtocol.Revision` ([testing.md](testing.md), end of section 2.4).
+   `python tools/studio.py suites` lists them, with what each suite needs, what it can disturb and how long it usually takes.
 
 `ship.ps1` runs the first two before every commit. The third needs the project lock, which fails with `PROJECT_BUSY` while another
 agent has a production running, so it only runs on GitHub: `.github/workflows/gate.yml` runs all three on every push to `preview` and every
 pull request against it, on a Windows runner, from a sparse checkout of about 20 MiB (the `sparse-checkout` block of the workflow lists the
-only paths the gate reads: add a path there when a check starts reading a new one, and when a wiki page cites a new source). The lab reports are kept as the `lab-reports`
-artifact. There is no branch protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: look at the
+only paths the gate reads: add a path there when a check starts reading a new one, and when a wiki page cites a new source). The workflow
+names no lab and no suite: it compiles every `tools/*lab` folder and runs every suite that `suites --json` lists with an empty `needs`, all of
+them even when one fails, and its run summary has one row per suite with the seconds it took. So a new lab is one entry in the profile
+(`tools/studio_pryingeyes.py`) and its folder `tools/<name>lab`; the workflow and `.gitignore` (one pattern for the projects and the `bin`
+and `obj` folders of every lab) need no line. The lab reports are kept as the `lab-reports`
+artifact, and so is `code-census.json`: after the guard the gate prints the code census (sizes, cycles, tests, flags) in the run summary, and that
+step reports without failing. There is no branch protection (`ship.ps1` pushes straight to `preview`), so the gate reports rather than blocks: look at the
 latest run before starting work (`gh run list --branch preview --limit 1`) and fix a red one first.
+
+A test that passes here and fails in the gate is usually a path. The runner's user folder has an 8.3 name (`RUNNER~1`), so the temporary folder
+of a test is spelled one way and `Path.resolve()` spells it another: a guard or a test that compares paths resolves both sides. The run of the
+tests inside `ship.ps1` cannot show it; to see it on this PC, run the test with `TEMP` and `TMP` set to the short form of a folder
+(`(New-Object -ComObject Scripting.FileSystemObject).GetFolder($dir).ShortPath`).
 
 ## Branches and worktrees
 
 `preview` is the only long-lived branch. Anything else goes through a pull request and is deleted as soon as it merges (a squash merge makes
 git call the branch unmerged: delete it anyway, its commits stay on the pull request). One agent writes at a time in the checkout the
-editor opens; anyone who does not need the editor works in a separate worktree on its own branch (`git worktree add`), and removes it with
-`git worktree remove` when the task ends.
+editor opens; anyone who does not need the editor works in a separate worktree on its own branch. `tools/worktree.ps1` makes one and
+removes it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\worktree.ps1 -New t07-harness
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\worktree.ps1 -Remove t07-harness
+```
+
+It prints what it did as one JSON document on stdout (`schemaVersion` 1: `ok`, `problems`, `warnings`, then the fields below; progress goes
+to stderr) and exits 0 when it did it (or, with `-DryRun`, could), 1 when it refused or failed. It reads the other worktrees and never
+changes one. The file is ASCII on purpose, like the other scripts. `tools/test_worktree.py` runs the real script on throwaway repositories
+with an invented `Library`; the numbers below are the acceptance check on the real project.
+
+### A worktree ready for Unity: `-New <name>`
+
+A new worktree has no `unity/PryingEyes/Library`, so the editor imports every asset before it can compile. `-New` makes the worktree and
+gives it a `Library` that is already imported:
+
+| Part | What it does |
+| --- | --- |
+| worktree | `<main checkout>\.claude\worktrees\<name>` (`-WorktreesDir`) on the new branch `claude/<name>` (`-Branch`), cut from `origin/preview` after `git fetch origin preview`, with no upstream: the first push names the branch. Refuses a name that exists, as a folder or as a branch (local or on `origin`). |
+| donor | The checkout whose `Library` is copied: `-From` (a folder, or the name of a worktree) or, without it, the first that qualifies, the main checkout first and then the other worktrees, the most recently written `Library` first. A donor qualifies when it has a `Library`, its `ProjectSettings/ProjectVersion.txt` names the same `m_EditorVersion` as `origin/preview`, it has no `Temp/UnityLockfile` and no `Unity.exe` runs on it. When none qualifies the command refuses before creating anything, and says what each donor lacked (`library.skippedDonors`). |
+| copy | `robocopy /E /MT:4` of the `Library`, folders named `Temp` left out, at below-normal CPU priority and low disk and memory priority (`-FullSpeed`: normal priority), into `unity/PryingEyes/Temp/Library.copy` of the new worktree. It is renamed to `Library` only when every file and byte arrived (counts checked against a list-only pass made first) and the donor still has no lockfile, so a `Library` that exists is a whole one. Windows can refuse the rename for a while (something holds a file among the thousands just written), so it is asked again `-RenameTries` times (12), `-RenameWait` seconds (5) apart; a copy that arrived whole is never thrown away for that: it stays in `Temp\Library.copy` and the answer says so. The volume must keep `-MinFreeGB` (10) free after the copy. |
+| `-NoLibrary` | A plain worktree, for work that never opens Unity (most tasks of [the modular plan](modular-roadmap.md)): no donor is looked at and nothing is copied. |
+| `-DryRun` | Does every check and measures the copy, and changes nothing: no fetch either, so `base` is as of the last fetch. |
+
+The answer has `path`, `branch`, `base` (`ref`, `commit`, `fetched`), `unityVersion`, `library` (`donor`, `files`, `bytes`, `seconds`,
+`copied`, `renameTries`, `priority`, `skippedDonors`), `worktreeSeconds` and `seconds`. Nothing but the new folder and its branch is created; a refusal creates
+nothing. If the copy itself fails after the worktree exists, the worktree stays without a `Library` (with the whole copy in `Temp\Library.copy`
+when only the rename failed) and `ok` is false.
+
+### Removing one: `-Remove <name>`
+
+`<name>` is the folder under the worktrees directory, or the name or path of any registered worktree. The script runs `git worktree
+remove` without `--force`, and only when nothing would be lost; it reports everything that stops it in one answer:
+
+| It refuses when | What the answer lists |
+| --- | --- |
+| the worktree is the main checkout, is locked, or holds this shell or this script; a `Unity.exe` or `PryingEyes.exe` runs from it | `problems` |
+| something is uncommitted: `git status` lists a change or an untracked file (a file that differs only in its line endings is not one: it is put back from `HEAD` first, `lineEndingsRestored`) | `uncommitted`: `M path` or `?? path`, the first 50. A file that is only build noise (rule 4 of `AGENTS.md`) is restored with `git -C <worktree> checkout -- <file>`; what is real is committed |
+| a commit is not published: it is on no branch of `origin` and is not the head of a pull request there | `unpushed`: `<hash> <subject>`, the first 20 |
+
+A pull request head counts as published because GitHub keeps `refs/pull/<n>/head` after a pull request is merged and its branch deleted,
+which is what the squash merges of this repository leave: a local branch whose commits are on no branch of `origin`. The script asks
+`git ls-remote origin 'refs/pull/*/head'` (a public repository: no credentials). Afterwards the local branch is deleted with
+`git branch -D` (the commit it pointed at is printed as `branchDeleted.was`, so it can be brought back) only when it is merged: an
+ancestor of `origin/preview`, or the head of pull request N while `origin/preview` has a commit whose subject ends in `(#N)`. Any other
+branch is kept and `branchKept` says so. It never pushes and never deletes a branch of `origin`.
+
+Git runs with `core.longpaths=true` here: files of the real `Library` are 186 characters below it and a worktree puts its own folder in front
+of that, so without it `git worktree remove` stops at 260 characters with `Filename too long` and leaves the folder behind (see the
+measurements below; `tools/test_worktree.py` has the case). When git still cannot delete the folder, for instance because a file in it is held open, it has
+already dropped its record of the worktree: the answer is `ok: false`, `leftover` is the folder that remains (no longer registered) and the
+branch is kept. Delete the folder by hand, then the branch if it is merged.
+
+A worktree that something else made (`.codex/worktrees/*`, `prying-eyes-*`) can be removed the same way, by name or path, or with plain
+`git worktree remove`.
+
+### Measured on the real project
+
+Made on 2026-11-23 on the maintainer's PC, which was shared: no Unity and no `PryingEyes.exe` ran and the donor had no `Temp/UnityLockfile`,
+but another agent was running its gate (Python and .NET) during the compile. Unity 6000.6.7f1, donor = the main checkout, a new worktree
+`t10-measure` removed afterwards, nothing else touched (the 41 registered worktrees were the same before and after).
+
+| What | Result |
+| --- | --- |
+| `git worktree add` on a new branch from `origin/preview` | 8.3 s |
+| the `Library` copy (`-New`, below-normal CPU, low disk priority, `/MT:4`) | 34,357 files, 6,281,389,547 bytes (5.85 GiB), **39.6 s** (about 150 MiB/s); `-New` as a whole 49.1 s |
+| the first compile in the new worktree (`Unity.exe -batchmode -nographics -quit` at below-normal CPU and low disk priority, no GPU) | **97.8 s**, exit 0 |
+| `-Remove` of that worktree, `Library` included | 8.2 s (9.3 s as a whole) |
+
+The first compile is not a full import. Unity's own log shows the initial refresh at 93.3 s: 55.8 s compiling the scripts (Bee, with 30 s in
+its IL post-processing configuration) and 33.8 s importing 795 of the 3,669 assets: Unity found 1,073 files changed and 5 deleted against the
+records in the donor's `Library` (a new checkout has new timestamps, and the main checkout's working tree is not identical to
+`origin/preview`). It is slower than the 24 s of the hand-made run in November (a 3.5 GB `Library` of a worktree at the same code version,
+normal priority), and the two are not the same experiment. A worktree without a `Library` has to import all of them; that was not measured
+here, because it would write gigabytes on a shared PC. After the run Unity had rewritten `DefaultPrefabObjects.asset` and `ProjectAuditorSettings.asset` with other line endings and the
+same text: `-Remove` reported `lineEndingsRestored: 2` and removed the worktree.
+
+The real run found three things that the throwaway repositories of `tools/test_worktree.py` did not, and each has a test now:
+
+- **The rename was refused once.** Right after the copy, Windows answered "access denied" to renaming `Temp\Library.copy` to `Library`
+  (something held a file among the 34 thousand just written), and the first version threw the whole copy away. It now asks again and keeps a
+  copy that arrived whole (`renameTries` in the answer: 1 on the second run).
+- **`git status` and `git diff` disagree under `core.autocrlf=true`.** For a file that Unity rewrote with other line endings, `git status`
+  says modified and `git diff HEAD` says nothing, and `git worktree remove` goes by `git status`. The script now asks `git status`, as git
+  does, and checks it again after putting such files back.
+- **A new worktree has paths over 260 characters.** The deepest file of the `Library` (in `APIUpdater/ConfigurationCache`) is 186 characters
+  below the `Library` folder, so its full path in a worktree is the length of the main checkout's path, plus the name, plus 230: 275 here for
+  `t10-measure`, with 37 files beyond 260. Git stops at 260 with `Filename too long` unless `core.longpaths` is on, and leaves the folder
+  behind; the script turns it on for its git calls.
 
 ## Other platforms
 

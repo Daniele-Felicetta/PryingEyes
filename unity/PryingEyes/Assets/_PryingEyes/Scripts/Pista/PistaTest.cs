@@ -5,66 +5,46 @@ using System.Collections.Generic;
 using System.IO;
 using PryingEyes.Deserto;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 using UnityEngine;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {
     /// <summary>-autotest -pistatest [-pistashots] [-seed N] [-pistalaps N] [-pistarivals N] [-pistabot]: the track mode in the real game. A race starts from the "Gioca" path (the standard player and HUD are switched
     /// off, the race camera and sky are up), the grid and the five lights are checked, the computer rides the player's bike (-pistabot) through a whole race at a higher time scale while the finish, the lap
     /// times and the results table are checked, then the race is started again on the same circuit and on a new one. With -pistashots (needs a graphics device) it also photographs the grid, the start, the
-    /// three camera views and the results into hotel_build/prove/pista. It does not touch the player's saves or preferences.</summary>
-    public sealed class PistaTest : MonoBehaviour
+    /// three camera views and the results into hotel_build/prove/pista. It does not touch the player's saves or preferences. It derives from PlayerTest (Scripts/Testing): the checks, the result line,
+    /// result.json (in unity_logs/pistatest/, or in the folder of -testout) and the exit are the harness's.</summary>
+    public sealed class PistaTest : PlayerTest
     {
-        int checks, failed, errors;
+        int errors;
         string firstError = "";
-        bool shots, ended;
+        bool shots;
         const float Budget = 900f;
 
+        protected override string Suite { get { return "pistatest"; } }
+        protected override float TimeLimit { get { return Budget; } }
+        protected override string ExceptionCheck { get { return null; } }            // the test keeps its own closing check (in Finish): it counts errors as well as exceptions, and says the first one
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-pistatest") < 0) return;
-            new GameObject("PistaTest").AddComponent<PistaTest>();
-        }
+        static void Install() { InstallWhen<PistaTest>("-pistatest"); }
 
-        void Check(string name, bool ok, string detail = "")
+        /// <summary>An error counts as well as an exception, except the harmless failure to photograph the screen of a run with no window; the first one is kept to say it.</summary>
+        protected override bool IsError(string text, LogType type)
         {
-            checks++; if (!ok) failed++;
-            Debug.Log("[PryingEyes] pistatest " + (ok ? "ok " : "FALLITO ") + name + (detail.Length > 0 ? " (" + detail + ")" : ""));
-        }
-
-        void OnLog(string text, string stack, LogType type)
-        {
-            if (type != LogType.Exception && type != LogType.Error) return;
-            if (Application.isBatchMode && text != null && text.StartsWith("Failed to capture screen shot")) return;
+            if (type != LogType.Exception && type != LogType.Error) return false;
+            if (Application.isBatchMode && text != null && text.StartsWith("Failed to capture screen shot")) return false;
             errors++;
             if (firstError.Length == 0) firstError = text.Length > 160 ? text.Substring(0, 160) : text;
+            return true;
         }
-
-        void OnEnable() { Application.logMessageReceived += OnLog; }
-        void OnDisable() { Application.logMessageReceived -= OnLog; }
 
         static PistaDirector Dir => PistaDirector.I;
-
-        IEnumerator Start()
-        {
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-pistashots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more;
-                try { more = sequence.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false, e.Message); break; }
-                if (!more) break;
-                yield return sequence.Current;
-            }
-            Finish();
-        }
 
         float worstFrame; int frameCount; string phase = "";
         void Update()
         {
-            if (!ended && Time.realtimeSinceStartup > Budget) { Check("finita entro il tempo", false, Budget.ToString("F0") + " s"); Finish(); }
             if (Dir == null || !Dir.Ready) return;
             float dt = Time.unscaledDeltaTime;
             if (Time.frameCount - GameManager.HarnessShotFrame <= 2) return;
@@ -73,15 +53,12 @@ namespace PryingEyes.Pista
             if (dt > 0.25f) Debug.Log($"[PryingEyes] pistatest fotogramma lungo: {dt * 1000f:F0} ms in '{phase}'");
         }
 
-        void Finish()
+        /// <summary>What the test puts back and its two closing checks, in the order it has always made them; the base calls it when the sequence has ended (or the clock has run out) and then prints the result.</summary>
+        protected override void Finish()
         {
-            if (ended) return;
-            ended = true;
             Time.timeScale = 1f;
             Check("nessun fotogramma oltre 1,2 secondi (un blocco visibile)", worstFrame < 1.2f, $"il peggiore {worstFrame * 1000f:F0} ms su {frameCount} fotogrammi");
             Check("nessun errore o eccezione nel registro durante la prova", errors == 0, errors == 0 ? "" : errors + ", la prima: " + firstError);
-            Debug.Log($"[PryingEyes] pistatest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         IEnumerator WaitFor(Func<bool> cond, float seconds)
@@ -91,12 +68,13 @@ namespace PryingEyes.Pista
         }
 
         // ------------------------------------------------------------------ the sequence
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            shots = TestRun.Has("-pistashots");
             phase = "avvio";
             yield return WaitFor(() => Dir != null && Dir.Ready, 150f);
             var d = Dir;
-            if (!Check2("la partita su pista parte e la gara e' pronta", d != null && d.Ready && PistaMode.Active, d == null ? "nessun regista" : "pronto " + d.Ready)) yield break;
+            if (!Check("la partita su pista parte e la gara e' pronta", d != null && d.Ready && PistaMode.Active, d == null ? "nessun regista" : "pronto " + d.Ready)) yield break;
             yield return null;
             Debug.Log($"[PryingEyes] pistatest circuito '{d.circuit.name}', {d.circuit.length:F0} m, {d.circuit.n} campioni, seme {d.seed}, {d.race.racers.Count} piloti, {d.race.laps} giri");
             if (PistaMode.HasArg("-pistaperf")) { yield return PerfRun(); yield break; }                      // only the cost of a frame (needs graphics)
@@ -627,7 +605,7 @@ namespace PryingEyes.Pista
             string[] lines = d.hud.CupLinesText.Split((char)10);
             Check("sotto la tabella ci sono le quattro righe: la coppa e la gara, cosa ha dato, i primi tre e la prossima gara",
                 lines.Length == 4 && lines[0].Contains(cup.name.ToUpperInvariant()) && lines[0].Contains("GARA 1 DI " + cup.Rounds) && lines[1].Contains(" punt") && lines[2].StartsWith("Classifica:") && lines[3].StartsWith("Prossima gara")
-                && lines[3].Contains(CircuitGen.Generate(cup.CircuitSeed(1)).name) && !d.CupSeasonOver, d.CupVerdict);
+                && lines[3].Contains(Circuits.Generate(cup.CircuitSeed(1)).name) && !d.CupSeasonOver, d.CupVerdict);
             Check("in fondo alla tabella si legge 'prossima gara', non 'ancora' ne' 'nuova pista'", d.hud.ResultsHintText.Contains("prossima gara") && !d.hud.ResultsHintText.Contains("nuova pista") && !d.hud.ResultsHintText.Contains("ancora"), d.hud.ResultsHintText);
             if (shots) { yield return new WaitForSeconds(1.0f); yield return Shot("11_campionato_risultati"); }
 
@@ -945,8 +923,6 @@ namespace PryingEyes.Pista
             d.cam.mode = CamMode.Chase;
             yield return null;
         }
-
-        bool Check2(string name, bool ok, string detail = "") { Check(name, ok, detail); return ok; }
 
         /// <summary>The engine loops of the five kinds of engine, alone: finite, loud but not clipped, closing on themselves, each with a voice of its own (a different brightness), and the bank hands out one clip per kind.</summary>
         void EngineChecks()

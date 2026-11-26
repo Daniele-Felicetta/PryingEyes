@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using PryingEyes.Deserto;
 using UnityEngine;
+using Production.Racing;
 
 namespace PryingEyes.Pista
 {
@@ -56,7 +57,7 @@ namespace PryingEyes.Pista
             hud.SetLoading(0.02f, "Disegno il tracciato");
             yield return null;
             ApplySky();
-            circuit = CircuitGen.Generate(seed);
+            circuit = Circuits.Generate(seed);
             circuit.wet = PistaMode.Rain ? 1f : 0f;                // the water on the road: the riders plan with it and the bikes feel it
             string km = (circuit.length / 1000f).ToString("0.0", It) + " km";
             hud.SetLoadingTrack(circuit.name + "   -   " + km);

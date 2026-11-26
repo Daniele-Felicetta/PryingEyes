@@ -5,7 +5,7 @@ mode: both
 summary: The surgeon's tent: one rare resource at a time, Brace, Cuori or Sangue, bought for 30 to 40 oboli and sold back for 9 to 12; two per return.
 image: img/stalls/tenda-cerusico.webp
 caption: A card drawn from the catalogue, not a screenshot of the game.
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # La tenda del cerusico

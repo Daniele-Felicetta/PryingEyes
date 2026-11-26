@@ -1,54 +1,29 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
-using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -noenemies -feeltest [-feelshots]: rifiniture di grafica e di comandi sul piano vero. Le sonde dei riflessi
     /// sono fotografate (una per stanza); il tabellone si apre e mostra i numeri; l'ispezione dell'arma parte, gira l'arma e torna;
     /// sparare la interrompe; il corpo di un monaco ucciso sprofonda e sparisce. Foto (tabellone, ispezione) con -feelshots.</summary>
-    public sealed class FeelTest : MonoBehaviour
+    public sealed class FeelTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "feeltest"; } }
+        protected override string PhotoFlag { get { return "-feelshots"; } }
+        protected override string OutFolder { get { return "rifiniture"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-feeltest") >= 0) new GameObject("FeelTest").AddComponent<FeelTest>();
-        }
+        static void Install() { InstallWhen<FeelTest>("-feeltest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] feeltest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
+        protected override void Finish()
         {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-feelshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
             HUD.forceScoreboard = false;
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] feeltest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/rifiniture"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
-        }
-
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -69,7 +44,7 @@ namespace PryingEyes
             Check("il tabellone si apre", hud.ScoreboardOpen);
             var right = hud.transform.Find("TabelloneDestra")?.GetComponent<UnityEngine.UI.Text>();
             Check("il tabellone mostra punti e uccisioni", right != null && right.text.Contains("1.234") && right.text.Contains("3 (42%)"));
-            View("tabellone");
+            Photo("tabellone");
             HUD.forceScoreboard = false;
             yield return new WaitForSeconds(0.4f);
             Check("lasciato Tab il tabellone si chiude", !hud.ScoreboardOpen);
@@ -79,7 +54,7 @@ namespace PryingEyes
             w.Inspect();
             yield return new WaitForSeconds(1.1f);
             Check("l'ispezione e' in corso", w.Inspecting);
-            View("ispezione");
+            Photo("ispezione");
             yield return new WaitForSeconds(1.8f);
             Check("l'ispezione finisce da sola", !w.Inspecting);
 

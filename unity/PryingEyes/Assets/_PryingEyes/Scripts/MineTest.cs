@@ -1,54 +1,25 @@
 #if !PE_DISTRIBUTION_BUILD
-using System;
 using System.Collections;
-using System.IO;
 using UnityEngine;
 using UnityEngine.AI;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -noenemies -minetest [-mineshots]: la mina del reliquiario (Mine.cs). Si parte con una; posata, finisce
     /// un metro davanti sul pavimento e se ne ha una in meno; si arma in 1,2 s; un monaco a 4 m non la fa scattare, uno a un metro si';
     /// lo scoppio lo uccide, chi gioca accanto resta illeso, la mina sparisce; senza mine il tasto non fa niente; l'HUD le conta.</summary>
-    public sealed class MineTest : MonoBehaviour
+    public sealed class MineTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "minetest"; } }
+        protected override string PhotoFlag { get { return "-mineshots"; } }
+        protected override string OutFolder { get { return "mine"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-minetest") >= 0) new GameObject("MineTest").AddComponent<MineTest>();
-        }
+        static void Install() { InstallWhen<MineTest>("-minetest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] minetest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
-        {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-mineshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] minetest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
-        }
-
-        void View(string name)
-        {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/mine"); Directory.CreateDirectory(folder);
-            LightPool.Tick(false, Camera.main.transform.position);
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, true);
-        }
-
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -57,7 +28,7 @@ namespace PryingEyes
             var gm = GameManager.I; var player = gm.player;
             PlayerController.holdLook = true; PlayerController.botDir = Vector3.zero;
             Check("c'e' spazio per la prova", MeleeTest.FindArena(out Vector3 arena, out Vector3 forward));
-            if (failed > 0) yield break;
+            if (Failed > 0) yield break;
             var eq = Equipment.Ensure(player);
             Check($"si parte con una mina ({eq.mines})", eq.mines == 1);
             player.Teleport(arena - forward * 1.0f + Vector3.up * 0.05f); player.hp = 100; player.shield = 50; player.invulnerable = false;
@@ -72,7 +43,7 @@ namespace PryingEyes
             Check("senza mine il tasto non ne posa altre", eq.PlaceMine() == null && Mine.Placed.Count == 1);
             yield return new WaitForSeconds(0.3f);
             Check("non e' ancora armata", mine != null && !mine.Armed);
-            View("posata");
+            Photo("posata");
             yield return new WaitForSeconds(Mine.ArmTime);
             Check("dopo 1,2 s e' armata", mine != null && mine.Armed && !mine.Triggered);
             // un monaco lontano non la fa scattare, uno vicino si'
@@ -90,7 +61,7 @@ namespace PryingEyes
             while (mine != null && Time.time - t0 < 1.5f) yield return null;
             Check($"uno a un metro la fa scoppiare ({Time.time - t0:F2} s)", mine == null && Time.time - t0 < 0.8f);
             yield return new WaitForSeconds(0.1f);
-            View("scoppio");
+            Photo("scoppio");
             Check("lo scoppio lo uccide", near == null || near.IsDead);
             Check("chi gioca accanto resta illeso", Mathf.Abs(player.hp + player.shield - health) < 0.01f);
             Enemy.debugFreeze = false;

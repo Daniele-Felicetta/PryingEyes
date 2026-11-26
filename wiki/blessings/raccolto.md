@@ -4,7 +4,7 @@ kind: blessing
 mode: standard
 summary: Raccolto (harvest) is a blessing of the altar: the resources you gather are multiplied by 1.5 for the next expedition.
 image: img/blessings/raccolto.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Raccolto

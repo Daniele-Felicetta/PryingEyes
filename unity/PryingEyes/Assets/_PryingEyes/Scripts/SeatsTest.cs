@@ -6,6 +6,7 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -18,55 +19,46 @@ namespace PryingEyes
     /// un solo giocatore, controller indipendenti (stato XInput finto per canale: cammina, spara e salta solo il posto giusto, anche il primo),
     /// pausa con Start di qualunque controller (ferma tutti, riprende per tutti), fine dello schermo condiviso (si torna a un giocatore solo, e
     /// funziona). Con -seatsshots, a finestra aperta (senza -nographics), salva una foto di tutto lo schermo (porzioni, HUD e righe) in unity_logs/seats.
-    /// Lo lancia tools/coop/run_split.ps1; documentazione in docs/multiplayer/split-screen.md.</summary>
-    public sealed class SeatsTest : MonoBehaviour
+    /// Lo lancia tools/coop/run_split.ps1; documentazione in docs/multiplayer/split-screen.md.
+    /// Deriva da PlayerTest (l'harness): si installa da sola con -seatstest, conta i controlli, scrive result.json (unity_logs/seatstest o la cartella di -testout) e finisce da sola.</summary>
+    public sealed class SeatsTest : PlayerTest
     {
-        int checks, failed, exceptions, errors;
+        int exceptions, errors;
         readonly List<string> samples = new List<string>();
         bool shots;
         bool systemPhotos = true;      // con piu' monitor veri: finche' il copione run_split.ps1 risponde alle richieste di foto
         static readonly FieldInfo TgtField = typeof(Enemy).GetField("tgt", BindingFlags.Instance | BindingFlags.NonPublic);
 
+        protected override string Suite { get { return "seatstest"; } }
+        protected override string ExceptionCheck { get { return null; } }      // Finish() fa i due controlli di chiusura che ha sempre fatto: le eccezioni, poi gli errori
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install()
         {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-seatstest") < 0) return;
+            if (!TestRun.Has("-seatstest")) return;
             Application.runInBackground = true;         // a finestra aperta ma senza il fuoco il gioco (runInBackground e' spento nel progetto) si fermerebbe: la prova no
-            new GameObject("SeatsTest").AddComponent<SeatsTest>();
+            InstallWhen<SeatsTest>("-seatstest");
         }
 
-        bool Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] seatstest " + (ok ? "ok " : "FALLITO ") + name); return ok; }
-
-        void Log(string message, string stack, LogType type)
+        /// <summary>Il gioco lo chiede per ogni riga del suo registro, dal primo fotogramma: qui si tengono i due contatori dei controlli di chiusura (le eccezioni le conta anche la base).</summary>
+        protected override bool IsError(string message, LogType type)
         {
             // senza finestra (batchmode con la GPU, per le foto dei corpi) la foto automatica del gioco non puo' riuscire: non e' un errore del gioco
-            if (type == LogType.Error && Application.isBatchMode && message != null && message.StartsWith("Failed to capture screen shot")) return;
+            if (type == LogType.Error && Application.isBatchMode && message != null && message.StartsWith("Failed to capture screen shot")) return false;
             if (type == LogType.Exception) exceptions++;
             else if (type == LogType.Error || type == LogType.Assert) errors++;
-            else return;
+            else return false;
             if (samples.Count < 8) samples.Add(type + ": " + message);
+            return type == LogType.Exception;
         }
 
-        IEnumerator Start()
+        protected override void Finish()
         {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-seatsshots") >= 0 && !Application.isBatchMode;
-            Application.targetFrameRate = 60;           // a 10000 fotogrammi al secondo il CharacterController non cammina come dovrebbe
-            QualitySettings.vSyncCount = 0;
-            yield return null;                          // GameManager.Start avvia lo schermo condiviso nello stesso fotogramma
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
             foreach (var s in Seats.All) PadControls.Inject(s.pad, null);
             PadControls.Inject(null); PadControls.Disable();
             Check("nessuna eccezione runtime", exceptions == 0);
             Check("nessun errore nel registro", errors == 0);
             foreach (var s in samples) Debug.Log("[PryingEyes] seatstest registro: " + s);
-            Debug.Log($"[PryingEyes] seatstest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         // ------------------------------------------------------------------ utilita'
@@ -139,7 +131,7 @@ namespace PryingEyes
             }
             catch (Exception ex) { Debug.Log("[PryingEyes] seatstest: foto dei corpi non scritta: " + ex.Message); }
             Destroy(with); Destroy(without);
-            Check($"il giocatore 1 vede il giocatore 2 davanti a se' (il suo corpo cambia il {frac * 100f:F1}% dei pixel)", frac > 0.01f);
+            Check("il giocatore 1 vede il giocatore 2 davanti a se'", frac > 0.01f, $"il suo corpo cambia il {frac * 100f:F1}% dei pixel");
         }
 
         static Texture2D RenderOnce(Camera cam, int mask, int w, int h)
@@ -236,7 +228,7 @@ namespace PryingEyes
                 fd.DebugShowMapFor(s.index, true, true);
                 yield return new WaitForSecondsRealtime(0.8f);                 // il foglio si apre in 0,36 s
                 Check($"il giocatore {s.index + 1} (monitor {s.display + 1}) vede la mappa grande ({visited} stanze visitate)", map.Visible && map.Bigness > 0.95f);
-                yield return Photo($"1b-mappa-del-giocatore-{s.index + 1}");
+                yield return ScreenPhoto($"1b-mappa-del-giocatore-{s.index + 1}");
                 fd.DebugShowMapFor(s.index, false, true);
                 yield return new WaitForSecondsRealtime(0.8f);
                 Check($"il giocatore {s.index + 1}: chiusa la mappa grande resta la minimappa", map.Visible && map.Bigness < 0.05f);
@@ -251,11 +243,10 @@ namespace PryingEyes
         /// monitor disegnato (e alla misura della finestra principale): si chiede a run_split.ps1 -Graphics -Monitors N di fotografare ogni monitor
         /// dal sistema (tools/coop/capture_monitors.ps1: &lt;nome&gt;-monitor1.png, &lt;nome&gt;-monitor2.png ...) e si aspetta il suo "fatto" (&lt;nome&gt;.done,
         /// al massimo 20 s); se nessuno risponde, le foto di questa prova si saltano.</summary>
-        IEnumerator Photo(string name)
+        IEnumerator ScreenPhoto(string name)
         {
             if (!shots) yield break;
-            string folder = Path.GetFullPath("unity_logs/seats");
-            Directory.CreateDirectory(folder);
+            string folder = TestRun.OutDir("seats");
             if (Seats.Monitors > 1 && SplitScreen.RealMonitors >= Seats.Monitors)
             {
                 if (!systemPhotos) yield break;
@@ -274,8 +265,12 @@ namespace PryingEyes
         }
 
         // ------------------------------------------------------------------ la prova
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
+            shots = TestRun.Has("-seatsshots") && !Application.isBatchMode;
+            Application.targetFrameRate = 60;           // a 10000 fotogrammi al secondo il CharacterController non cammina come dovrebbe
+            QualitySettings.vSyncCount = 0;
+            yield return null;                          // GameManager.Start avvia lo schermo condiviso nello stesso fotogramma
             int n = SplitScreen.AutoStartCount;
             Check($"-splitscreen {n}: un solo processo con {n} giocatori", n >= SplitScreen.MinPlayers && Seats.Split && Seats.Count == n);
             if (!Seats.Split) yield break;
@@ -294,7 +289,7 @@ namespace PryingEyes
             ContextSwap(seats);
             CharacterChecks(seats);
             yield return MonitorWindows();
-            yield return Photo("1-arrivo");
+            yield return ScreenPhoto("1-arrivo");
             yield return SeatMaps(seats);
             yield return SeeEachOther(seats);
 
@@ -307,7 +302,7 @@ namespace PryingEyes
             void ParkAllBut(int keep) { for (int i = 0; i < n; i++) if (i != keep) Place(seats[i], far[i], 0f); }
             for (int i = 0; i < n; i++) Place(seats[i], far[i], 0f);
             yield return new WaitForSeconds(0.3f);
-            yield return Photo("2-ognuno-in-una-stanza-diversa");
+            yield return ScreenPhoto("2-ognuno-in-una-stanza-diversa");
 
             // ---- cambio di posizione: ognuno al suo posto, gli occhi sono quelli giusti
             {
@@ -423,7 +418,7 @@ namespace PryingEyes
                 yield return new WaitForSeconds(2.0f);
                 Check("nemico onnisciente: lontano dal primo e a due passi dal secondo, passa al secondo", TgtOf(e) == Targets.At(1));
                 e.relentless = false;
-                yield return Photo("3-nemico-davanti-al-giocatore-2");
+                yield return ScreenPhoto("3-nemico-davanti-al-giocatore-2");
 
                 if (Stealth.Enabled)
                 {
@@ -495,7 +490,7 @@ namespace PryingEyes
                 Place(seats[1], start, yaw);
                 Place(seats[0], start + forward * 1.1f, yaw + Mathf.PI);
                 yield return new WaitForSeconds(0.2f);
-                if (shots) yield return Photo("4-giocatore-2-a-terra");
+                if (shots) yield return ScreenPhoto("4-giocatore-2-a-terra");
                 float mid = -1f;
                 seats[0].player.testHoldUse = true;                 // come se tenesse premuto Usa: lo legge il suo Update
                 for (float t = 0f; t < PlayerController.ReviveTime + 0.8f && p1.Downed; t += Time.deltaTime)
@@ -543,7 +538,7 @@ namespace PryingEyes
                     Debug.Log("[PryingEyes] seatstest diagnosi: " + string.Join("; ", why));
                 }
                 Check("con un giocatore morto c'e' ancora chi e' vivo per i nemici", Targets.AnyAlive);
-                if (shots) { yield return new WaitForSeconds(0.7f); yield return Photo("4b-giocatore-2-morto"); }
+                if (shots) { yield return new WaitForSeconds(0.7f); yield return ScreenPhoto("4b-giocatore-2-morto"); }
                 yield return new WaitForSeconds(3.0f);
                 ok = seats[1].player.alive && Targets.At(1).Alive && seats[1].player.hp > 50f;
                 for (int i = 0; i < n; i++) if (i != 1) ok &= seats[i].player.alive;
@@ -551,7 +546,7 @@ namespace PryingEyes
                 foreach (var s in seats) s.player.invulnerable = true;
             }
 
-            yield return Photo("5-dopo-la-rinascita");
+            yield return ScreenPhoto("5-dopo-la-rinascita");
 
             // ---- il grimorio di un giocatore: sta nella sua porzione di schermo, blocca solo lui e gli altri giocano (2026-11-17)
             {
@@ -575,7 +570,7 @@ namespace PryingEyes
                     Check($"il libro sta dentro la porzione di chi legge (libro {book.width:F0}x{book.height:F0} in {part.width:F0}x{part.height:F0})",
                         book.xMin >= part.xMin - 1f && book.xMax <= part.xMax + 1f && book.yMin >= part.yMin - 1f && book.yMax <= part.yMax + 1f);
                 }
-                yield return Photo("5b-grimorio-giocatore-2");
+                yield return ScreenPhoto("5b-grimorio-giocatore-2");
 
                 // il giocatore 1 cammina col suo controller mentre chi legge, anche con lo stick spinto, resta dov'e'
                 Place(seats[0], start, yaw);
@@ -645,7 +640,7 @@ namespace PryingEyes
                     for (int d = 1; d < Seats.Monitors; d++) covers &= Seats.PauseCoverShown(d);
                     Check($"in pausa i monitor oltre il primo mostrano il velo (IN PAUSA): {Seats.Monitors - 1}", covers);
                 }
-                yield return Photo("6-pausa");
+                yield return ScreenPhoto("6-pausa");
 
                 // in pausa i controller non danno comandi di gioco: nessuno cammina, nessuno spara
                 PadControls.Inject(seats[0].pad, Pad(ly: 32767));
@@ -704,7 +699,7 @@ namespace PryingEyes
                 yield return new WaitForSeconds(1.0f);
                 PadControls.Inject(null);
                 float along = Vector3.Dot(player0.transform.position - p0, forward);
-                Check($"dopo la fine il giocatore singolo cammina col controller ({along:F1} m in 1 s)", along > 2f);
+                Check("dopo la fine il giocatore singolo cammina col controller", along > 2f, $"{along:F1} m in 1 s");
             }
         }
 

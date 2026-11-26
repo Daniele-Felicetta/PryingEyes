@@ -5,7 +5,7 @@ mode: standard
 summary: Annexes are hidden rooms of the tower floors in the wave cycle, a tower, a crypt, a garden and a secret book room, each behind its own gate; the desert has none.
 image: img/systems/annexes.webp
 caption: The annexes, on a card.
-sources: docs/game/cathedrals-and-annexes.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/PlanAnnex.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/FloorBuilder.Annex.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/FloorBuilder.Garden.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/FloorBuilder.Sacrario.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/AnnexRuntime.cs
+sources: docs/game/cathedrals-and-annexes.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Plan/PlanAnnex.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/FloorBuilder.Annex.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/FloorBuilder.Garden.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/FloorBuilder.Sacrario.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Proc/AnnexRuntime.cs
 ---
 
 # Annexes

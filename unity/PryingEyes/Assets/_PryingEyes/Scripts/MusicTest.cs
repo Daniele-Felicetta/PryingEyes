@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -13,33 +14,19 @@ namespace PryingEyes
     /// nemici e piu' forti col Cardinale, tamburi che si ritirano con gli ultimi, tutto giu' in fretta da morti, l'accordo d'organo a ondata
     /// superata e non a ondata saltata, l'organo d'ambiente che si abbassa sotto la musica, il volume Musica rispettato e i tre strati
     /// allineati. Infine un'ondata vera accende la musica da sola.</summary>
-    public sealed class MusicTest : MonoBehaviour
+    public sealed class MusicTest : PlayerTest
     {
-        int checks, failed, exceptions;
         readonly Dictionary<string, float> rms = new Dictionary<string, float>();
 
+        protected override string Suite { get { return "musictest"; } }
+        protected override string OutFolder { get { return "music"; } }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-musictest") >= 0) new GameObject("MusicTest").AddComponent<MusicTest>();
-        }
+        static void Install() { InstallWhen<MusicTest>("-musictest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] musictest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
+        protected override void Finish()
         {
-            Application.logMessageReceived += Log;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
             MusicDirector.debugOverride = false;
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] musictest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         static bool Near(float a, float b, float tol = 0.02f) => Mathf.Abs(a - b) <= tol;
@@ -85,8 +72,8 @@ namespace PryingEyes
         {
             if (clip == null || Array.IndexOf(Environment.GetCommandLineArgs(), "-musicwav") < 0) return;
             var s = Samples(clip);
-            System.IO.Directory.CreateDirectory("unity_logs/music");
-            using (var f = new System.IO.BinaryWriter(System.IO.File.Create($"unity_logs/music/{name}.wav")))
+            string folder = TestRun.OutDir("music");
+            using (var f = new System.IO.BinaryWriter(System.IO.File.Create(System.IO.Path.Combine(folder, name + ".wav"))))
             {
                 var ascii = System.Text.Encoding.ASCII;
                 int bytes = s.Length * 2;
@@ -114,7 +101,7 @@ namespace PryingEyes
             return null;
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;

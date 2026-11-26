@@ -31,29 +31,12 @@ modelli/occhio/export/
 modelli/hotel/arredi/*.fbx
 modelli/hotel/mani/*.fbx
 modelli/hotel/mani2/*.fbx
-# Piani procedurali: il progetto del laboratorio dotnet resta tracciato nonostante *.csproj, non le sue cartelle di build;
-# degli FBX di Blender si tengono solo quelli in unity/.../Models (si rigenerano con gli script), le anteprime in render/ come per gli altri modelli
-!tools/planlab/PlanLab.csproj
-!tools/weaponslab/WeaponsLab.csproj
-tools/planlab/bin/
-tools/planlab/obj/
-tools/weaponslab/bin/
-tools/weaponslab/obj/
-!tools/survivallab/SurvivalLab.csproj
-tools/survivallab/bin/
-tools/survivallab/obj/
-!tools/economylab/EconomyLab.csproj
-tools/economylab/bin/
-tools/economylab/obj/
-!tools/saveslab/SavesLab.csproj
-!tools/desertlab/DesertLab.csproj
-tools/desertlab/bin/
-tools/desertlab/obj/
-tools/saveslab/bin/
-tools/saveslab/obj/
-!tools/tracklab/TrackLab.csproj
-tools/tracklab/bin/
-tools/tracklab/obj/
+# The .NET labs (every tools/*lab folder): the project of each one stays tracked in spite of *.csproj above, its build folders do not.
+# One pattern for all of them: a new lab needs no line here.
+!tools/*lab/*.csproj
+tools/*lab/bin/
+tools/*lab/obj/
+# Piani procedurali: degli FBX di Blender si tengono solo quelli in unity/.../Models (si rigenerano con gli script), le anteprime in render/ come per gli altri modelli
 modelli/chiesa/export/*.fbx
 modelli/hotel/arredi2/*.fbx
 modelli/hotel/arredi3/*.fbx
@@ -82,20 +65,9 @@ hotel_build/cattedrale/
 hotel_build/deserto/
 hotel_build/seats/
 
-# Isolated multiplayer checks; never use the main worktree build output.
-!tools/multiplayer-check/MultiplayerCheck.csproj
-!tools/multiplayer-check/unity-compile/UnityModules.csproj
-tools/multiplayer-check/unity-compile/bin/
-tools/multiplayer-check/unity-compile/obj/
-tools/multiplayer-check/bin/
-tools/multiplayer-check/obj/
-tools/multiplayer-check/.dotnet/
-tools/multiplayer-check/.dependencies/
+# What the retired multiplayer draft's isolated validation left on a disk (a player build and a package cache): kept ignored, nothing writes there now.
 tools/unity-validation/
 .unity-cache/
-!tools/multiplayer-check/fishnet-compile/**/*.csproj
-tools/multiplayer-check/fishnet-compile/**/bin/
-tools/multiplayer-check/fishnet-compile/**/obj/
 
 # Independent layout consumer: keep its source and package configuration, regenerate scene and settings.
 unity/LayoutDemo/Library/

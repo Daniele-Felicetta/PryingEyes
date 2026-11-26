@@ -4,7 +4,7 @@ kind: resource
 mode: both
 summary: Cristalli d'oscurità (darkness crystals) is the boss resource of the second branch, steeped in the dark of the buried theatre and carried by the Direttore; they open the Cancello del Sanatorio.
 image: img/resources/cristalli-d-oscurita.webp
-sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Scripts/Cattedrale/Catalogo.cs
+sources: docs/game/cathedral-and-catacombs.md, unity/PryingEyes/Assets/_PryingEyes/Rules/Cathedral/Catalogo.cs
 ---
 
 # Cristalli d'oscurità

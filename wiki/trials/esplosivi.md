@@ -5,7 +5,7 @@ mode: standard
 summary: The explosives trial of a wave: four plus a third of the wave number, at most 10, kills by explosions, flasks, traps and bursts before the wave ends.
 image: img/trials/esplosivi.webp
 caption: The explosives trial, on a card.
-sources: unity/PryingEyes/Assets/_PryingEyes/Scripts/Prove.cs, unity/PryingEyes/Assets/_PryingEyes/Scripts/Punti.cs, docs/game/equipment-and-trials.md
+sources: unity/PryingEyes/Assets/_PryingEyes/Scripts/Prove.cs, unity/PryingEyes/Assets/_PryingEyes/Rules/Score/Punti.cs, docs/game/equipment-and-trials.md
 tests: -equiptest
 ---
 

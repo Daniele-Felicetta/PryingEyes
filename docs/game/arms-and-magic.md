@@ -344,7 +344,7 @@ change them from the command line for tuning without a rebuild.
 (effects, `Fireball`, `EnemyStatus`), `WeaponAura.cs` (the weapon's skin and its particles), `SigilFx.cs` (muzzle, tracer and impact of
 a sealed shot), `Resources/Shaders/WeaponInfusion.shader`, `MagicVfx.cs` and `VfxTextures.cs` (particles, lightning, circles, textures),
 `Resources/Shaders/MagicParticle.shader`, `SoundMagia.cs`, `HUD.Magia.cs`, `GrimoireIcons.cs`, `GrimoirePage.cs`,
-`GrimoireUI.cs`, `GrimoireAltar.cs`, `MagiaTest.cs`. `Scripts/Weapon.Sigilli.cs` (seals on hits). `Scripts/Proc/PlanAnnex.cs`
+`GrimoireUI.cs`, `GrimoireAltar.cs`, `MagiaTest.cs`. `Scripts/Weapon.Sigilli.cs` (seals on hits). `Rules/Plan/PlanAnnex.cs`
 (placement), `Proc/FloorBuilder.Sacrario.cs` (geometry), `Proc/AnnexRuntime.cs` (the secret wall). The book art: `Resources/Grimori/`
 (`tavola_*.bytes`, `altare_*.bytes`, `luce_*.bytes`, `tavole.json`), made by `python -I modelli/grimori/prepara_tavole.py` (needs numpy,
 opencv-python and Pillow; the sources are in `modelli/grimori/sorgenti/`; run it again only if a plate changes). Assets:
@@ -378,7 +378,7 @@ stop the game and takes at most 88% of the window.
   floor, wall usable with F, closed and standing it cannot be crossed, crouched it can, no enemy path, the book of the floor), both
   books (rules, prices, all 38 nodes), the seven spells and seven seals on a rifle and a pistol (they start, the free hand takes the
   wrapped glove's place and gives it back, effects arrive, the elbow stays in range, the wrist and forearm stay within human
-  ranges) and the left-hand throw. Results in `hotel_build/magia/magia.txt`, photos with `-magiashots`. For every seal it also checks
+  ranges) and the left-hand throw. Results in the log and in `unity_logs/magiatest/result.json`, photos with `-magiashots` in `hotel_build/magia/`. For every seal it also checks
   that the weapon is lit (`WeaponAura`: the element, its skins, the heat above 0.75 once the gesture ends) and that the shots drew
   their muzzle flash, tracer and impact (`SigilFx.Shots`, `Tracers`, `Impacts`).
 - `-sigilliview [-sigilliweapons a,b] [-sigillinodes 14,17] [-sigillishots N] [-magiazoom]` with the same flags (`MagiaTest.SigilView`):

@@ -3,47 +3,21 @@ using System;
 using System.Collections;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
     /// <summary>-autotest -nofire -gunplaytest: regressioni sull'arsenale tramite Tick e interazioni reali.</summary>
-    public sealed class GunplayTest : MonoBehaviour
+    public sealed class GunplayTest : PlayerTest
     {
-        int checks, failures, exceptions;
         Weapon weapon;
         GameManager gm;
 
+        protected override string Suite { get { return "gunplaytest"; } }
+        protected override string OutFolder { get { return "gunplay"; } }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-gunplaytest") >= 0)
-                new GameObject("GunplayTest").AddComponent<GunplayTest>();
-        }
-
-        void Awake() => Application.logMessageReceived += OnLog;
-        void OnDestroy() => Application.logMessageReceived -= OnLog;
-        void OnLog(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-        void Check(string name, bool ok)
-        {
-            checks++;
-            if (!ok) { failures++; Debug.Log("[PryingEyes] gunplaytest FALLITO " + name); }
-        }
-
-        IEnumerator Start()
-        {
-            var run = Run();
-            while (true)
-            {
-                bool more;
-                try { more = run.MoveNext(); }
-                catch (Exception e) { Debug.LogException(e); Check("copione completo", false); break; }
-                if (!more) break;
-                yield return run.Current;
-            }
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] gunplaytest RISULTATO {(failures == 0 ? "SUPERATA" : "FALLITA")}: {checks - failures}/{checks}");
-            Application.Quit(failures == 0 ? 0 : 1);
-        }
+        static void Install() { InstallWhen<GunplayTest>("-gunplaytest"); }
 
         static void FireTouch(TouchPhase phase)
         {
@@ -57,7 +31,7 @@ namespace PryingEyes
             for (float t = 0; t < seconds; t += 0.02f) weapon.Tick(0.02f, false);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60f;
             while ((GameManager.I == null || !GameManager.I.LevelReady) && Time.realtimeSinceStartup < deadline) yield return null;

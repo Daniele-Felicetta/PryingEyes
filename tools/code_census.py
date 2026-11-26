@@ -41,6 +41,11 @@ ARGUMENT_HELPER = re.compile(r"\bstatic\s+(?:bool|string|int|float)\s+(?:HasArg|
 STATIC_FIELD = re.compile(r"^\s*(?:(?:public|private|internal|protected)\s+)?static\s+(?!readonly\b|void\b|class\b|partial\b|event\b|extern\b)"
                           r"[A-Za-z_][\w<>,\[\]\.? ]*?\s+[A-Za-z_]\w*\s*(?:=(?!=|>)|;|,)")
 TEST_GROUP = "(tests)"
+# Files with "Test" in their name that every build compiles on purpose, so that production code may name them: they are not tests.
+# TestPaths is where the hooks of a test write; TestRun is what the game may ask about a run (the harness's side that it can see).
+ALWAYS_COMPILED = frozenset(("TestPaths", "TestRun"))
+# The base class of the in-player tests: the one definition of Check, so it is not counted as a test's private copy of it.
+HARNESS = "PlayerTest"
 # A reading aid for the root Scripts folder, which holds a third of the files: a file goes to the group that lists the first
 # part of its name. It is this tool's own grouping, not a structure of the project; edit it when files move.
 ROOT_GROUPS = (
@@ -97,7 +102,7 @@ def blank(code):
 
 def is_test(rel):
     name = Path(rel).stem
-    return "Test" in name and not name.startswith("TestPaths")
+    return "Test" in name and name.split(".")[0] not in ALWAYS_COMPILED
 
 
 def is_editor(rel):
@@ -309,12 +314,13 @@ def tests(game, home):
     found = sorted(rel for rel in game if is_test(rel) and not is_editor(rel))
     types = {name for name, rel in home.items() if rel in found}
     named_by = {rel: sorted(info["uses"] & types) for rel, info in game.items() if rel not in found and not is_editor(rel) and info["uses"] & types}
+    harness, paths = home.get(HARNESS), home.get("TestPaths")      # the one place that resolves unity_logs/ against the checkout (TestPaths.LogFolder) is not a literal that depends on the working directory
     return {"files": len(found), "lines": sum(game[rel]["lines"] for rel in found),
             "selfInstalling": sum(1 for rel in found if "RuntimeInitializeOnLoadMethod" in game[rel]["code"]),
-            "ownCheckHelper": sum(1 for rel in found if re.search(r"\b(?:void|bool)\s+Check\s*\(", game[rel]["code"])),
+            "ownCheckHelper": sum(1 for rel in found if rel != harness and re.search(r"\b(?:void|bool)\s+Check\s*\(", game[rel]["code"])),
             "notExcludedFromDistribution": [rel for rel in found if "PE_DISTRIBUTION_BUILD" not in game[rel]["text"]],
             "namedByProductionCode": named_by,
-            "testOutputLiterals": sum(info["text"].count('"unity_logs') for rel, info in game.items() if not is_editor(rel)),
+            "testOutputLiterals": sum(info["text"].count('"unity_logs') for rel, info in game.items() if not is_editor(rel) and rel != paths),
             "testPathsCalls": sum(info["code"].count("TestPaths.Out") for info in game.values())}
 
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using PryingEyes.Pista;
+using Production.Racing;
 
 // The rain: what the water takes from the grip of each kind of ground, the curves of the bikes measured at the grip of the day, the riders' plan that follows from them, and the computer riders
 // riding that plan on that ground. Fresh circuits (the shared ones of LabCircuits stay dry for every other check).
@@ -11,10 +12,10 @@ static partial class Program
     {
         // ---- the ground: every kind of surface, dry and wet, found by walking across a circuit
         {
-            var dry = CircuitGen.Generate(1 + 3 * 7919);
-            var wet = CircuitGen.Generate(1 + 3 * 7919);
+            var dry = Circuits.Generate(1 + 3 * 7919);
+            var wet = Circuits.Generate(1 + 3 * 7919);
             wet.wet = 1f;
-            var half = CircuitGen.Generate(1 + 3 * 7919);
+            var half = Circuits.Generate(1 + 3 * 7919);
             half.wet = 0.5f;
             var dryGrip = new float[5]; var wetGrip = new float[5]; var halfGrip = new float[5]; var found = new bool[5];
             var dryRoll = new float[5]; var wetRoll = new float[5];
@@ -67,7 +68,7 @@ static partial class Program
             for (int ci = 0; ci < 6; ci++)
             {
                 int seed = 1 + ci * 7919;
-                var d = CircuitGen.Generate(seed); var w = CircuitGen.Generate(seed); w.wet = 1f;
+                var d = Circuits.Generate(seed); var w = Circuits.Generate(seed); w.wet = 1f;
                 var ld = new RacingLine(d, spec); var lw = new RacingLine(w, spec);
                 double ratio = lw.lapTime / ld.lapTime;
                 worstRatio = Math.Max(worstRatio, ratio); bestRatio = Math.Min(bestRatio, ratio);
@@ -91,7 +92,7 @@ static partial class Program
             for (int ci = 0; ci < 6; ci++)
             {
                 int seed = 1 + ci * 7919;
-                var c = CircuitGen.Generate(seed); c.wet = 1f;
+                var c = Circuits.Generate(seed); c.wet = 1f;
                 var race = new Race(c, 2, ci);
                 var r = race.AddAi("solo", 0, 0, ci + 1, 0.96f, 0f);
                 race.PlaceAll(new List<Racer> { r });
@@ -109,7 +110,7 @@ static partial class Program
                 double ratio = lap2 / plan;
                 worstRatio = Math.Max(worstRatio, ratio); bestRatio = Math.Min(bestRatio, ratio);
                 sumWet += lap2;
-                var cd = CircuitGen.Generate(seed);
+                var cd = Circuits.Generate(seed);
                 var raceD = new Race(cd, 2, ci);
                 var rd = raceD.AddAi("solo", 0, 0, ci + 1, 0.96f, 0f);
                 raceD.PlaceAll(new List<Racer> { rd });

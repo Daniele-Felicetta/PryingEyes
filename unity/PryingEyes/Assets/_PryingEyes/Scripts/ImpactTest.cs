@@ -2,9 +2,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 using PryingEyes.Proc;
+using PryingEyes.Testing;
 
 namespace PryingEyes
 {
@@ -13,35 +13,19 @@ namespace PryingEyes
     /// riconosce quasi tutto e trova piu' famiglie; per ognuna un impatto vero da' la famiglia, il suo foro e un suono; le schegge cadono e
     /// si fermano sul pavimento; la luce stimata e' piu' forte sotto una lampada che nel punto piu' buio; infine l'arma vera, sparando a un
     /// muro di ogni famiglia, passa dal nuovo impatto. Con -impactshots foto ravvicinate in unity_logs/impatti (in volo e dopo).</summary>
-    public sealed class ImpactTest : MonoBehaviour
+    public sealed class ImpactTest : PlayerTest
     {
-        int checks, failed, exceptions;
-        bool shots;
+        protected override string Suite { get { return "impacttest"; } }
+        protected override string PhotoFlag { get { return "-impactshots"; } }
+        protected override string OutFolder { get { return "impatti"; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Install()
-        {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-impacttest") >= 0) new GameObject("ImpactTest").AddComponent<ImpactTest>();
-        }
+        static void Install() { InstallWhen<ImpactTest>("-impacttest"); }
 
-        void Check(string name, bool ok) { checks++; if (!ok) failed++; Debug.Log("[PryingEyes] impacttest " + (ok ? "ok " : "FALLITO ") + name); }
-        void Log(string message, string stack, LogType type) { if (type == LogType.Exception) exceptions++; }
-
-        IEnumerator Start()
+        protected override void Finish()
         {
-            Application.logMessageReceived += Log;
-            shots = Array.IndexOf(Environment.GetCommandLineArgs(), "-impactshots") >= 0;
-            var sequence = Run();
-            while (true)
-            {
-                bool more; try { more = sequence.MoveNext(); } catch (Exception e) { Debug.LogException(e); Check("sequenza completa", false); break; }
-                if (!more) break; yield return sequence.Current;
-            }
             Weapon.debugAds = false;
             PlayerController.holdLook = false;
-            Check("nessuna eccezione runtime", exceptions == 0);
-            Debug.Log($"[PryingEyes] impacttest RISULTATO {(failed == 0 ? "SUPERATA" : "FALLITA")}: {checks - failed}/{checks}");
-            Application.Quit(failed == 0 ? 0 : 1);
         }
 
         static void Face(PlayerController player, Vector3 target)
@@ -51,18 +35,17 @@ namespace PryingEyes
             player.pitch = -Mathf.Atan2(d.y, new Vector2(d.x, d.z).magnitude);
         }
 
-        void Photo(string name)
+        void Shot(string name)
         {
-            if (!shots) return;
-            string folder = Path.GetFullPath("unity_logs/impatti"); Directory.CreateDirectory(folder);
+            if (!Photos) return;
             LightPool.Tick(false, Camera.main.transform.position);
             var weapon = GameManager.I.player.weapon;
             weapon.DebugHideView(true);                 // l'arma in primo piano coprirebbe proprio il punto colpito
-            GameManager.CamShot(Path.Combine(folder, name + ".png"), null, false);
+            GameManager.CamShot(PhotoPath(name), null, false);
             weapon.DebugHideView(false);
         }
 
-        IEnumerator Run()
+        protected override IEnumerator Run()
         {
             float deadline = Time.realtimeSinceStartup + 60;
             while ((FloorDirector.I == null || FloorDirector.I.cur == null || FloorDirector.I.transitioning) && Time.realtimeSinceStartup < deadline) yield return null;
@@ -170,7 +153,7 @@ namespace PryingEyes
             Check($"la luce stimata: {bright:F2} sotto la lampada piu' forte, {dark:F3} nel punto piu' buio", lamp != null && bright > dark * 3f && bright > 0.2f);
 
             // il catalogo: i sette fori affiancati sul muro piu' illuminato del censimento, visti da 80 cm (solo con le foto)
-            if (shots)
+            if (Photos)
             {
                 RaycastHit best = default; float bestLight = -1f; Vector3 bestStand = Vector3.zero;
                 foreach (var kv in sample)
@@ -204,9 +187,9 @@ namespace PryingEyes
                     }
                     Face(player, mid);
                     yield return null; yield return null;
-                    Photo("catalogo_volo");
+                    Shot("catalogo_volo");
                     yield return new WaitForSeconds(1.4f);
-                    Photo("catalogo");
+                    Shot("catalogo");
                     Debug.Log($"[PryingEyes] impacttest catalogo: da sinistra intonaco, pietra, piastrelle, legno, metallo, stoffa, vetro (luce {bestLight:F2})");
                 }
             }
@@ -257,9 +240,9 @@ namespace PryingEyes
                 if (ok) matched++;
                 string what = aimed ? Surfaces.Describe(aim, out string lab, out _) + " " + lab + " @" + aim.collider.name : "-";
                 shotLog.Add($"{kv.Key}->{Fx.LastSurface}{(ok ? "" : "!")} [{what}]");
-                Photo(kv.Key + "_volo");
+                Shot(kv.Key + "_volo");
                 yield return new WaitForSeconds(1.3f);
-                Photo(kv.Key + "_dopo");
+                Shot(kv.Key + "_dopo");
             }
             Check($"l'arma vera passa dall'impatto nuovo ({matched}/{fired}: {string.Join(", ", shotLog)})", fired >= 3 && matched == fired);
             player.invulnerable = false;

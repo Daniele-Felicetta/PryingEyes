@@ -5,7 +5,7 @@ using System.IO.Compression;
 using PryingEyes.Proc;
 using PryingEyes.Proc.MapArt;
 
-// Anteprima della mappa senza Unity: dipinge un piano con il pittore del gioco (Scripts/Proc/Map) e lo rasterizza in un PNG.
+// Anteprima della mappa senza Unity: dipinge un piano con il pittore del gioco (Rules/Map) e lo rasterizza in un PNG.
 //   dotnet run -c Release -- waves mapart <seme del piano> <piano> <file.png> [all|walk|start] [larghezza] [mini]
 // Il testo non si disegna (sono le etichette di Unity): al suo posto un segno per ogni etichetta. Gli arredi sono finti (in gioco sono i veri).
 static class MapLab
