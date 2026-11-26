@@ -16,7 +16,7 @@ the moves proposed. The two rows added on 25 November 2026 (the track rules and 
 reading the source, not with a compiler: the 20 track files hold no engine reference (the two that name `UnityEngine` do it in a comment, and
 `PryingEyes.Rules` forbids the engine), the mechanism files use only each other and the career files use the mechanism, the desert code names four
 types of the track rules (`BikeSpec`, `EngineKind`, `Bikes` and `BikeSheet`: the nine bikes and their sheet) and none of the riding model, and
-what `WeaponDef` takes from Unity is three colour fields, the grade colours and two calls of `Mathf.Clamp`. T22 did it for the track rules (its outcome in [modular-tasks.md](modular-tasks.md#t22-the-track-rules-as-a-package) says what the compiler found) and T23 proves the weapon rows in its first step.
+what `WeaponDef` takes from Unity is three colour fields, the grade colours and two calls of `Mathf.Clamp`. T22 did it for the track rules (its outcome in [modular-tasks.md](modular-tasks.md#t22-the-track-rules-as-a-package) says what the compiler found), and the first step of T23 (26 November 2026) did it for the weapon data: the colours became the package's `Rgba`, the clamp became its own `WeaponMath.Clamp`, and the file reader stayed in the game, because it needs Newtonsoft.Json, which a package may not reference.
 
 ## What a package is here
 
@@ -67,11 +67,11 @@ On 25 November 2026 the maintainer decided that the bikes and the gunplay become
 
 ## Packages the game does not use
 
-Which code consumes each package (searched on 20 November 2026):
+Which code consumes each package (searched on 20 November 2026; the row of the weapons again on 26 November 2026, after the first step of T23):
 
 | Package | Used by the game that ships | Used only by the city prototype and the demo |
 | --- | --- | --- |
-| `Production.Weapons` | `Weapon.cs`, `Weapon.ReloadHands.cs`, `Braccia/OffHand.cs`, `Braccia/ReloadAnims.cs` | |
+| `Production.Weapons` | 19 files with a `using` of it: `Weapon.cs` and its parts (`Weapon.*.cs`), the catalogue (`Armi/WeaponDefs.cs`, `WeaponCatalog.cs`, `WeaponColors.cs`), the arms (`Braccia/GripHand.cs`, `OffHand.cs`, `ReloadAnims.cs`), `HUD.cs`, `WallBuy.cs`, `PlayerController.cs`, `Survivors/SurvivorBody.cs`, the suites `GunTest.cs` and `GunplayTest.cs`, and the importers `Editor/ArmiImport.cs` and `Editor/ArmiShots.cs`; before T23, only `Weapon.cs` and `Weapon.ReloadHands.cs` | |
 | `Production.Economy` | the cathedral (`Cattedrale/`), the expedition, the desert director | |
 | `Production.Saves` | characters, runs, the cathedral's file, weapons and magic of a suspended run | |
 | `Production.Survival` | | `CityWaves.cs` (`WaveSchedule`), `CityAccess.cs` (`AreaAccess`) |
@@ -92,7 +92,7 @@ presenting it as the rule of the game.
 
 ## Inventory of candidates
 
-Lines are those of the census at commit `4042709`, but for the row of the weapons (added on 25 November 2026 with the census at commit `839571c`) and the two rows of the track rules (T22, 26 November 2026, with the census at the head of its pull request).
+Lines are those of the census at commit `4042709`, but for the rows of the weapons (added on 25 November 2026 with the census at commit `839571c`, and the data rows rewritten on 26 November 2026 with the files as they are in the first pull request of T23) and the two rows of the track rules (T22, 26 November 2026, with the census at the head of its pull request).
 
 | Candidate | Files, lines | Engine-free today | Consumers | What is the game's in it | Rung now | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -106,7 +106,9 @@ Lines are those of the census at commit `4042709`, but for the row of the weapon
 | Procedural audio (`SoundGen*.cs`) | 18, 3,987 | almost: `Mathf` 405 times, two other calls | every sound | the sounds themselves; the filters and envelopes are generic | 0 | rung 1 when audio next needs a check that does not need the editor (T18) |
 | Track mechanism (`Packages/com.pryingeyes.racing/Runtime/*.cs`; T22) | 14, 3,850 | yes: `noEngineReferences`, and `tracklab` compiles them | the track mode; the desert garage (`BikeSpec`, `EngineKind`); `unity/LayoutDemo` (`RacingDemo`) | the vocabulary of its cooperative race (`netSlot`, `friend`, `final`, `AddRemote`, `ApplyResults`), the view hints of `BikeSpec` (`meshStyle`, `meshScale`, `skin`), the five engine voices of `EngineKind`, the signature and the two kinds of its ghost files, the aid levels of `DrivingLine.Shows` | 2 | **done (T22)**. One game has used it: a revision is expected when a second one does, and the README of the package says so |
 | Track content (`Rules/Track/*.cs`) | 11, 1,379 | yes, `tracklab` compiles them | the track mode, all of it; the desert garage, for the nine bikes (`Bikes`) | everything: the nine bikes, the catalogue of circuits and their names, the licences, the championship, the career, the workshop (`Tuning`), the sheet of the garage, the sound of the engines, the words of the braking sign, the roster of a race | 1 | stays at **rung 1**: it is the content of the package's only game |
-| Weapon data and arithmetic (`Armi/WeaponDefs.cs`, `Armi/WeaponCatalog.cs`, the number-only parts of `Weapon.cs`) | 2 files of about 220 lines, and part of `Weapon.cs` (about 1,500 lines) | partly: the data uses `UnityEngine.Color` and `Mathf`, the reader uses Newtonsoft.Json; `WeaponState` is a package already | every mode, through one `Weapon` class | the 30 weapons, their look and their sound | 0 (`WeaponState`: 2) | **rung 2 for the numbers by the maintainer's decision (T23)**; the Unity layer (hands, viewmodel, effects) stays at rung 0 |
+| Weapon data (`Packages/com.pryingeyes.weapons/Runtime/{WeaponDef,Rgba,WeaponCatalogRules,WeaponMath}.cs`; T23, first step) | 4, 191 | yes: `noEngineReferences`, and `weaponslab` compiles them | every mode, through one `Weapon` class | the Italian words of `GradeName` and `ModeLabel`, the five grade colours, the columns `cityOnly`, `price`, `cls` and the hints `snd`, `sight`, `casing`, `fx` | 2 | **done for the data (T23, first step)**. One game has used it: a revision is expected when a second one does, and the README of the package says so |
+| Weapon catalogue reader (`Armi/WeaponDefs.cs`, `Armi/WeaponCatalog.cs`, `Armi/WeaponColors.cs`) | 3, 139 | no: Newtonsoft.Json, `Resources` and `UnityEngine.Color` | every mode | the file, the content hash that the co-op admission compares, the conversion of an `Rgba` to a colour | 0 | stays at rung 0: a package may not reference a library, and the checks that need only numbers are in the package already (`WeaponCatalogRules`) |
+| Weapon arithmetic (the number-only parts of `Weapon.cs`; `WeaponState` is a package already) | part of `Weapon.cs` (about 1,500 lines) | no: it calls `Mathf`, the camera and the enemies | every mode, through one `Weapon` class | the 30 weapons, their look and their sound | 0 (`WeaponState`: 2) | **rung 2 for the numbers by the maintainer's decision (T23, second step)**; the Unity layer (hands, viewmodel, effects) stays at rung 0 |
 | Paid areas, wave pacing | see above | yes | the game and, separately, the package | prices, lifts | 0 and 2 | converge at the next change, or relabel the package |
 | In-player test harness (`Testing/PlayerTest.cs`, `Testing/TestRun.cs`; T07) | 2, 217 | no (it is a `MonoBehaviour`) | this game | nothing by design | 0 | stays; its result file is documented so that it could be lifted later |
 | Admission of a co-op session (`Rules/Admission/AdmissionGate.cs`, `SessionAdmission.cs`, `SessionRoster.cs`; T20) | 3, 154 | yes, `admissionlab` | the co-op | the content revision, the four seats of a connection | 0 | **rung 1** (T15) |

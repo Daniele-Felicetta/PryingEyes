@@ -622,7 +622,7 @@ window.WIKI_SEARCH = [
 },
 {
 "t": "Production Weapons",
-"s": "Engine-independent rules of a weapon: ammunition, the transitions of a reload and the cadence of the shots, with no engine and no game dependency.",
+"s": "Engine-independent data and rules of a weapon: its record, the rules of a catalogue, ammunition, the transitions of a reload and the cadence of the shots, with no engine and no game dependency.",
 "u": "packages/weapons.html",
 "c": "pipeline",
 "k": "Packages",

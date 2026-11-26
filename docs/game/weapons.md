@@ -63,7 +63,7 @@ There are no cartridge casings. The flame, beam and spine sounds are synthetic (
 
 ## Per-weapon numbers
 
-Each weapon has its own numbers (`Scripts/Armi/WeaponDefs.cs`, one `WeaponDef` per weapon, stored in `weapons.json`): damage falloff with distance, headshot multiplier, enemies pierced, spread standing still and aiming, how much it grows with each shot, while running, and airborne, vertical and horizontal recoil and how fast the view recovers, time to aim and to draw, walking and aiming speed, reload time with a full or an empty magazine, and a reload type: magazine, pistol with the slide locked back, tube reloaded round by round (interruptible by firing: not verified; with the realistic hold the left hand does every reload, see [arms-and-magic.md](arms-and-magic.md), and aiming waits for it to finish), revolver with the cylinder opening, double barrel that breaks open, or belt.
+Each weapon has its own numbers (`WeaponDef`, one per weapon, stored in `weapons.json` and read by `Scripts/Armi/WeaponDefs.cs`; the record itself is in the package `Production.Weapons`, `Packages/com.pryingeyes.weapons/Runtime/WeaponDef.cs`): damage falloff with distance, headshot multiplier, enemies pierced, spread standing still and aiming, how much it grows with each shot, while running, and airborne, vertical and horizontal recoil and how fast the view recovers, time to aim and to draw, walking and aiming speed, reload time with a full or an empty magazine, and a reload type: magazine, pistol with the slide locked back, tube reloaded round by round (interruptible by firing: not verified; with the realistic hold the left hand does every reload, see [arms-and-magic.md](arms-and-magic.md), and aiming waits for it to finish), revolver with the cylinder opening, double barrel that breaks open, or belt.
 
 Crouch and airborne spread are not per weapon: `Weapon.cs` (`CurrentSpread`) applies the same factors to every weapon (x0.72 crouched, x2.6 airborne). Running is per weapon, through `moveSpread`.
 
@@ -129,7 +129,7 @@ Differences from the former Italian README, found by checking the code:
 - SPORA: the damage and pellets were written as "21 x 7". The code has 7 pellets of 21 damage, so it is now "7 x 21".
 - APOCALISSE-12: the class is an automatic drum shotgun (code class `FUCILE AUTOMATICO A TAMBURO`, 8 pellets, shell casings), not a generic drum rifle.
 - TARANTOLA: the code's `sight` field is `iron`, while the model has a peep rear sight (`armi_mitra.py`). The table keeps the former README's "peep aperture", which describes the model.
-- Crouch and airborne spread factors are shared constants in `Weapon.cs`, not per-weapon fields in `WeaponDefs.cs`.
+- Crouch and airborne spread factors are shared constants in `Weapon.cs`, not per-weapon fields in `WeaponDef.cs` (the package).
 - Rebuy price is half of the price with a minimum of 150 points, not simply half.
 - Shift breath hold applies to optics of 3.9x or more, so the ACOG 3x and the 1.5x optic do not have it.
 - The hands scripts are `genera_braccia.py` and `genera_mani2.py`, both in `modelli/hotel/`.

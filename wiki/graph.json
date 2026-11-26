@@ -2906,7 +2906,7 @@
    "kind": "package",
    "class": "pipeline",
    "mode": "none",
-   "summary": "Engine-independent rules of a weapon: ammunition, the transitions of a reload and the cadence of the shots, with no engine and no game dependency.",
+   "summary": "Engine-independent data and rules of a weapon: its record, the rules of a catalogue, ammunition, the transitions of a reload and the cadence of the shots, with no engine and no game dependency.",
    "image": "wiki/img/packages/weapons.webp",
    "sources": [
     "unity/PryingEyes/Packages/com.pryingeyes.weapons",

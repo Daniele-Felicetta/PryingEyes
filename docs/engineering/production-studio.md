@@ -76,6 +76,14 @@ IDs, nonfinite stats/colors, bad indices and invalid ammo budgets. The source re
 identify the generator, recipe, required sockets and declared production dependencies.
 The importer checks required sockets before saving the prefab.
 
+Since T23 (26 November 2026) the record itself, `WeaponDef` with its two enums, and the checks that need only its
+numbers (`WeaponCatalogRules`: identifiers and indices, finite numbers, statistics of a weapon that can be fired) are
+in the package `Production.Weapons`, which has a colour type of its own (`Rgba`). The reader,
+`Scripts/Armi/WeaponCatalog.cs`, stays in the game: it uses Newtonsoft.Json, which a package may not reference, so it
+checks the structure of the file (every column, its type, the names of the modes) and hands the records, in file
+order, to the package for the rest. The columns, their order, the file and the content hash are the same as before
+the move.
+
 The original 29 IDs retain their indices and exact field values. The migration was
 compared against values exported from the running old definitions. The compact
 reference `tools/fixtures/weapon-prefix-v1.json` preserves their hashes for
@@ -272,18 +280,25 @@ clock, shell counters, transfer algorithm or cadence timers inside `Weapon.cs`.
 Game-specific rules calculate capacities, timings and bonuses, while the adapter
 maps state events to audio, animation and HUD. No weapon ID or upgrade concept is
 part of the package. Its README documents the caller's ordering and restoration rules.
+Since T23 the same package also holds the data of a weapon (see "One source for weapon data").
 
 ```powershell
 python tools/studio.py test weapon-state
 python tools/studio.py test gunplaytest --runtime path/to/PryingEyes.exe   # without --runtime: the verification build, Builds/Audit
 ```
 
-The managed lab has 1,454 comparisons/contracts and 89,076 per-frame samples.
+The managed lab has 1,468 findings and 89,076 per-frame samples: 1,454 comparisons/contracts
+of the state and, since T23, 14 about the data, which it runs over 4,563 catalogue inputs
+(`tools/weaponslab/DataChecks.cs`).
 It compiles the package source directly and compares against the frozen old reload
 algorithm from `6fcbecf`, including all 30 weapon definitions, upgraded capacities,
 scarce reserve, several time steps and reload bonuses. It intentionally preserves
 the old event ordering, including one presentation stage per coarse tick. The
 extra contracts prevent cancelled or externally refilled reloads from adding ammo.
+For the data it compares the record and the rules of a catalogue with a frozen copy of
+the code that the game had before they moved (`LegacyDefs.cs`, from `e25e832`): the same
+fields, defaults, grades, labels and colours, and the same answer to each of the faulty
+catalogues made from the 30 weapons.
 
 Every asset build now runs the state lab before producing assets. Its findings
 join the common report. Source capture also includes both local packages, assembly
