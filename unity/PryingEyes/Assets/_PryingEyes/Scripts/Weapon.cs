@@ -938,7 +938,7 @@ namespace PryingEyes
             ads = adsRaw * adsRaw * (3f - 2f * adsRaw);
 
             // ----- dispersione: cala da sola; il pavimento dipende dal movimento
-            bloom = Mathf.Max(0f, bloom - d.bloomRecover * dt * (1f + ads));
+            bloom = WeaponBloom.Recovered(bloom, d, dt, ads);
             streakT -= dt;
             if (streakT <= 0f) streak = 0;
 
@@ -1037,18 +1037,14 @@ namespace PryingEyes
 
         float streakT;
         float lastSpread;
-        float moveNow, airNow, crouchNow;
+        AimStance stance;                      // come sta chi spara (moto, in aria, accovacciato): l'ultimo CurrentSpread
 
         /// <summary>Semiapertura corrente del cono di dispersione (gradi).</summary>
         float CurrentSpread(float speed, bool grounded, bool crouched)
         {
             var d = Def;
-            moveNow = Mathf.Clamp01(speed / 5.6f); airNow = grounded ? 0f : 1f; crouchNow = crouched ? 1f : 0f;
-            float baseDeg = Mathf.Lerp(d.hip, d.ads, ads);
-            float mv = 1f + d.moveSpread * moveNow * (1f - ads * 0.6f);
-            float c = crouched ? 0.72f : 1f;
-            float air = 1f + airNow * 1.6f;
-            return (baseDeg * mv * c * air + bloom * Mathf.Lerp(1f, 0.5f, ads)) * OwnerMagic.SpreadMult * RideSpreadMult;
+            stance = new AimStance(speed, grounded, crouched);
+            return WeaponSpread.Degrees(d, stance, ads, bloom, OwnerMagic.SpreadMult, RideSpreadMult);
         }
 
         // ------------------------------------------------------------------ ricarica
@@ -1123,15 +1119,15 @@ namespace PryingEyes
             if (d.cycle > 0f && m != FireMode.Double) StartCycle(d, true);
             streak++; streakT = 0.28f;
             // rinculo della visuale: cresce un poco con la raffica, in mira e accovacciati e' piu' dolce
-            float dampen = Mathf.Lerp(1f, 0.72f, ads) * (crouchNow > 0.5f ? 0.85f : 1f) * OwnerMagic.RecoilMult;     // Stabilita' Oscura: -30%
-            float rv = d.recV * (1f + 0.035f * Mathf.Min(streak, 10)) * dampen;
-            float rh = (Random.Range(-1f, 1f) * d.recH + Mathf.Sin(streak * 0.9f + d.id.Length) * d.recH * 0.45f) * dampen;
+            float dampen = WeaponRecoil.Damping(ads, stance.Crouch, OwnerMagic.RecoilMult);     // Stabilita' Oscura: -30%
+            float rv = WeaponRecoil.Vertical(d, streak, dampen);
+            float rh = WeaponRecoil.Horizontal(d, streak, Random.Range(-1f, 1f), dampen);
             if (player != null) player.Kick(rv, rh, d.recRecover);
             // contraccolpo del modello
             kickBack = Mathf.Min(1.2f, kickBack + 0.38f * d.kick * OwnerMagic.RecoilMult);
             kickPitch = Mathf.Min(14f, kickPitch + 1.6f * d.kick);
             kickRoll += Random.Range(-1f, 1f) * 1.2f * d.kick;
-            bloom = Mathf.Min(d.bloomMax, bloom + d.bloomShot);
+            bloom = WeaponBloom.Grown(bloom, d);
 
             // fiammata
             if (!d.suppressed)
@@ -1193,7 +1189,7 @@ namespace PryingEyes
         {
             float spread = lastSpread;
             // la prima pallottola dopo una pausa, in mira e fermi, e' precisa (fucili di precisione)
-            if (Time.time - lastShotPrev > 0.4f && ads > 0.8f && moveNow < 0.1f) spread *= 0.35f;
+            spread = WeaponSpread.FirstShot(spread, Time.time - lastShotPrev, ads, stance.Move);
             lastShotPrev = Time.time;
             // col sigillo ogni colpo ha la sua traccia (SigilFx): il proiettile dice qual e' l'elemento
             bool tracer = d.tracerEvery <= 1f || (streak % Mathf.Max(1, Mathf.RoundToInt(d.tracerEvery))) == 0 || SigilElement() >= 0;
@@ -1204,7 +1200,7 @@ namespace PryingEyes
             for (int p = 0; p < d.pellets; p++)
             {
                 Vector3 dir = Spread(cam.forward, spread);
-                if (d.pellets > 1) dir = Spread(dir, d.cone * Mathf.Lerp(1f, 0.7f, ads) * (p == 0 && d.pellets > 4 ? 0.2f : 1f));
+                if (d.pellets > 1) dir = Spread(dir, WeaponBallistics.PelletCone(d, ads, p));
                 ShootRay(d, origin, dir, hitSet, tracer && (d.pellets == 1 || p < d.tracerPellets), muzzlePos);
             }
         }
@@ -1213,7 +1209,7 @@ namespace PryingEyes
         static Vector3 Spread(Vector3 fwd, float deg)
         {
             if (deg <= 0.0001f) return fwd;
-            Vector2 c = Random.insideUnitCircle * Mathf.Tan(deg * Mathf.Deg2Rad);
+            Vector2 c = Random.insideUnitCircle * WeaponSpread.ConeRadius(deg);
             Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
             Vector3 up = Vector3.Cross(fwd, right);
             return (fwd + right * c.x + up * c.y).normalized;
@@ -1229,8 +1225,7 @@ namespace PryingEyes
                 while (j >= 0 && hitBuf[j].distance > h.distance) { hitBuf[j + 1] = hitBuf[j]; j--; }
                 hitBuf[j + 1] = h;
             }
-            float dmgMul = 1f;
-            int pierced = 0;
+            var pierce = Pierce.Begin();
             Vector3 end = origin + dir * Mathf.Min(d.rangeFar * 2f, 250f);
             Vector3 endN = -dir;                 // dove e come finisce il colpo (per l'impatto del sigillo)
             bool endEnemy = false, hitAny = false;
@@ -1243,7 +1238,7 @@ namespace PryingEyes
                 {
                     end = h.point; endN = h.normal; hitAny = true;
                     var shootable = h.collider.GetComponentInParent<IShootable>();     // botti d'olio santo
-                    if (shootable != null) shootable.Shot(d.damage * dmgMul, h.point, dir);
+                    if (shootable != null) shootable.Shot(d.damage * pierce.Multiplier, h.point, dir);
                     else Fx.Impact(h, d.pellets > 1 ? 0.6f : 1f, dir);         // polvere, schegge, foro e suono della superficie (Surfaces)
                     break;
                 }
@@ -1261,8 +1256,8 @@ namespace PryingEyes
                     }
                 }
                 float dist = h.distance;
-                float fall = dist <= d.rangeNear ? 1f : Mathf.Lerp(1f, d.farMult, Mathf.Clamp01((dist - d.rangeNear) / Mathf.Max(0.1f, d.rangeFar - d.rangeNear)));
-                float dmg = d.damage * fall * dmgMul * (head ? d.headMult * OwnerPerks.HeadMult : 1f) * (slots[cur].upg ? UpgDamage : 1f);
+                float fall = WeaponBallistics.Falloff(d, dist);
+                float dmg = WeaponBallistics.Damage(d, fall, pierce.Multiplier, head, OwnerPerks.HeadMult, slots[cur].upg ? UpgDamage : 1f);
                 if (Cattedrale.Catacombe.Attive) dmg *= Cattedrale.Fabbrica.DannoMul * (e == Enemy.Boss ? Cattedrale.Fabbrica.DannoBossMul : 1f);   // la Forgia, la Furia, la vetrata del Cardinale
                 dmg = SigilDamage(e, dmg, h.point);
                 bool first = hitSet.Add(e);
@@ -1270,9 +1265,7 @@ namespace PryingEyes
                 e.Damage(dmg, h.point, head, first);
                 SigilHit(e, dmg, h.point, d);
                 end = h.point; endN = -dir; endEnemy = true; hitAny = true;
-                if (pierced >= d.pierce + OwnerMagic.ExtraPierce) break;
-                pierced++;
-                dmgMul *= d.pierceMult;
+                if (!pierce.Continue(d, OwnerMagic.ExtraPierce)) break;
             }
             if (detonationShot && (end - origin).sqrMagnitude < 150f * 150f) { Detonate(end, d.damage); detonationShot = false; }
             int sig = SigilElement();

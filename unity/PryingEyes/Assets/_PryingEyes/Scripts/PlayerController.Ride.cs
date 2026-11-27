@@ -83,7 +83,7 @@ namespace PryingEyes
                 cc.stepOffset = 0.5f;               // le dune ruvide e i sassi bassi: la moto li scavalca
                 cc.height = heightStand; cc.center = new Vector3(0f, heightStand * 0.5f, 0f);
             }
-            slide = false; crouch = false; lean = 0f; recP = recY = recTargetP = recTargetY = 0f;
+            slide = false; crouch = false; lean = 0f; viewRecoil.Clear();
             rideSteer = 0f; rideTop = b.Def.top; rideSpeedShown = 0f; rideCrashCool = 0f; rideDip = 0f; rideLandCool = 0f; rideHistN = 0;
             rideGrounded = true; rideDismount = false; rideNoiseT = 0f; rideVyPrev = 0f; rideBoosting = false;
             rideLook = Mathf.Clamp(Mathf.DeltaAngle(rideHeading * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg) * Mathf.Deg2Rad, -1.75f, 1.75f);
@@ -377,23 +377,14 @@ namespace PryingEyes
             cam.position = eye;
             // la testa segue una parte dell'inclinazione della moto (beccheggio e rollio), non tutta
             Quaternion bodyPart = Quaternion.Euler(0f, rideHeading * Mathf.Rad2Deg, 0f) * Quaternion.Euler(b.PitchVisual * 0.5f, 0f, b.RollVisual * 0.5f * motion);
-            float headPitch = pitch * Mathf.Rad2Deg - recP;
-            cam.rotation = bodyPart * Quaternion.Euler(headPitch, look * Mathf.Rad2Deg + recY, 0f);
+            float headPitch = pitch * Mathf.Rad2Deg - viewRecoil.Pitch;
+            cam.rotation = bodyPart * Quaternion.Euler(headPitch, look * Mathf.Rad2Deg + viewRecoil.Yaw, 0f);
             if (GameSettings.ThirdPerson || ThirdPersonView.Count > 0)
                 ThirdPersonView.AfterEyePose(this, b.EyeWorld,
-                    new Vector3(headPitch + b.PitchVisual * 0.5f, yaw * Mathf.Rad2Deg + recY, 0f));
+                    new Vector3(headPitch + b.PitchVisual * 0.5f, yaw * Mathf.Rad2Deg + viewRecoil.Yaw, 0f));
 
             // il rinculo della visuale (urti, atterraggi) rientra come a piedi
-            if (recDelay > 0f) recDelay -= dt;
-            else
-            {
-                float rr = recRecover * (1f + Mathf.Abs(recTargetP) * 0.12f);
-                recTargetP = Mathf.MoveTowards(recTargetP, 0f, rr * dt);
-                recTargetY = Mathf.MoveTowards(recTargetY, 0f, rr * 0.6f * dt);
-            }
-            float fol = 1f - Mathf.Exp(-34f * dt);
-            recP += (recTargetP - recP) * fol;
-            recY += (recTargetY - recY) * fol;
+            viewRecoil.Advance(dt);
 
             RideGunTick(dt, hs, lookDelta, inputEnabled);
         }
