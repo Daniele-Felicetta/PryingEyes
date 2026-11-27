@@ -15,7 +15,7 @@ namespace PryingEyes.Deserto
         const float Thick = 0.30f;
         public const int Risers = 14;
 
-        public static void Build(Transform parent, Plan plan, int level, int levels, bool church)
+        public static void Build(Transform parent, Plan plan, int level, int levels, bool church, bool roofExit = false)
         {
             ShrineKit.Mats();
             var room = plan.rooms[0];
@@ -39,7 +39,7 @@ namespace PryingEyes.Deserto
             // fino alla linea di mezzo del muro, come i pavimenti delle altre stanze: sotto la soglia della porta non deve restare un varco (15 cm bastano
             // a staccare la navmesh del pianerottolo da quella della sala)
             if (room.noFloor) Box("Pianerottolo d'ingresso", uPlat, ix1 + FloorBuilder.TH, -Thick, 0f, iz0, iz1);
-            if (level >= levels - 1) return;                         // l'ultimo livello: solo l'arrivo
+            if (level >= levels - 1 && !roofExit) return;
 
             float uTop = uPlat - Tread * (Risers - 1);               // il bordo est del ripiano di mezzo
             for (int i = 1; i < Risers; i++)                          // rampa sud: dal pianerottolo al ripiano, verso ovest
@@ -52,6 +52,16 @@ namespace PryingEyes.Deserto
             {
                 float xa = uTop + Tread * (j - 1), xb = xa + Tread;
                 Box("Gradino", xa, xb, Rise * (Risers + j) - Thick, Rise * (Risers + j), iz1 - Width, iz1);
+            }
+            if (roofExit && level == levels - 1)
+            {
+                float roof = PlanGen.LevelHeight + 0.14f;
+                Box("Roof step", uPlat, uPlat + 0.28f, roof - 0.14f - Thick, roof - 0.14f, iz1 - Width, iz1);
+                Box("Roof landing", uPlat + 0.28f, ix1 + FloorBuilder.TH + 0.03f, roof - Thick, roof, iz0 - FloorBuilder.TH, iz1 + FloorBuilder.TH);
+                // The last steps exit east onto the adjoining roof. The other edges guard the open shaft.
+                Box("Stair well rail", uPlat + 0.28f, uPlat + 0.42f, roof, roof + 0.94f, iz0, iz1 - Width - 0.05f);
+                Box("South roof rail", uPlat + 0.28f, ix1 + FloorBuilder.TH, roof, roof + 0.94f, iz0 - 0.14f, iz0);
+                Box("North roof rail", uPlat + 0.28f, ix1 + FloorBuilder.TH, roof, roof + 0.94f, iz1, iz1 + 0.14f);
             }
             // il vano tra le due rampe e' largo 30 cm: nessuno ci cade, un parapetto non serve
             ShrineKit.PointLight(root, "Lanterna", new Vector3((ix0 + ix1) * 0.5f, 3.3f, (iz0 + iz1) * 0.5f), new Color(1f, 0.70f, 0.38f), 2.8f, 11f, 0.18f, 2.2f);

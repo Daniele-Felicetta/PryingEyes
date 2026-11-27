@@ -271,7 +271,7 @@ class PlayerManifest(unittest.TestCase):
         self.assertFound("MANIFEST_LABEL", self.broken(lambda m: self.entry(m, "pistamenulicence").update(label="pistatest")), "does not print")
         self.assertFound("MANIFEST_LABEL", self.broken(lambda m: self.entry(m, "chartest").update(label="chartest")), "leave it out")
         self.assertFound("MANIFEST_SCHEMA", self.broken(lambda m: self.entry(m, "chartest").update(label="Char Test")))
-        self.assertEqual({"pistatest", "pistamenutest"},
+        self.assertEqual({"pistatest", "pistamenutest", "desertotest"},
                          {suite["label"] for suite in self.manifest["suites"] if "label" in suite})
         self.assertEqual({"pistamenutest"}, result_labels('Debug.Log($"[PryingEyes] pistamenutest RISULTATO {x}"); Debug.Log("[PryingEyes] other " + res);') - {"other"})
         self.assertEqual({"magiatest"}, result_labels('Debug.Log("[PryingEyes] magiatest " + res);'))

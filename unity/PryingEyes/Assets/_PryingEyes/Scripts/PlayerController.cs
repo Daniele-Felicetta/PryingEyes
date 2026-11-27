@@ -52,6 +52,25 @@ namespace PryingEyes
         public float MaxHp => PerkState.MaxHp;
         float reviveInv;
         public bool Reviving => reviveInv > 0f;
+        internal static bool DesertCheatsAvailable => Deserto.DesertMode.OnSurface && !Coop.Active;
+        internal bool CheatFlight { get; private set; }
+        internal bool CheatInvulnerability { get; set; }
+
+        internal void SetCheatFlight(bool enabled)
+        {
+            if (CheatFlight == enabled) return;
+            CheatFlight = enabled;
+            CancelMantle();
+            vel = Vector3.zero;
+            slide = false;
+            coyote = jumpBuf = 0f;
+        }
+
+        void ResetCheats()
+        {
+            SetCheatFlight(false);
+            CheatInvulnerability = false;
+        }
 
         [Header("Refs")]
         public Weapon weapon;
@@ -111,6 +130,7 @@ namespace PryingEyes
         /// <summary>Sposta il punto di (ri)nascita e ci porta subito il giocatore (usato dal bot per il soppalco).</summary>
         public void SetSpawn(Vector3 p)
         {
+            ResetCheats();
             spawnPos = p;
             if (cc == null) cc = GetComponent<CharacterController>();
             CancelMantle();
@@ -238,6 +258,7 @@ namespace PryingEyes
 
         void UpdateBody()
         {
+            if ((CheatFlight || CheatInvulnerability) && (!DesertCheatsAvailable || !alive || Downed)) ResetCheats();
             if (cam == null || weapon == null || (GameMenu.Blocked && !Coop.Active)) return;
             float dt = Time.deltaTime;
             TickSurvival(dt);
@@ -290,21 +311,30 @@ namespace PryingEyes
                     s = Vector3.Dot(botDir, new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)));
                 }
             }
+#if !PE_DISTRIBUTION_BUILD
+            if (inputEnabled && GameManager.autoTest && parkourTestDirection is Vector3 testDirection)
+            {
+                f = Vector3.Dot(testDirection, new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw)));
+                s = Vector3.Dot(testDirection, Right());
+            }
+#endif
             // in sella (moto del deserto) il corpo non cammina: la guida, la camera e le collisioni stanno in PlayerController.Ride.cs
             if (Riding) { RideTick(dt, f, s, inputEnabled, lookDelta); return; }
             bool crouchKey = SeatInput.GetKey(KeyCode.C) || SeatInput.GetKey(KeyCode.LeftControl);
             bool sprintKey = SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift);
-            ToggleKeys(inputEnabled, f, ref crouchKey, ref sprintKey);        // Impostazioni > Comandi: tenendo premuto o a interruttore
-            bool wantCrouch = inputEnabled ? crouchKey || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch) : crouch;
-            bool sprintInput = inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint) || (GameManager.autoTest && botSprint)) && f > 0;
+            if (!CheatFlight) ToggleKeys(inputEnabled, f, ref crouchKey, ref sprintKey);
+            bool wantCrouch = !CheatFlight && (inputEnabled ? crouchKey || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch) : crouch);
+            bool sprintInput = !CheatFlight && inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint) || (GameManager.autoTest && botSprint)) && f > 0;
             bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
-            bool jumpPressed = inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump));
+            bool jumpPressed = !CheatFlight && inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump));
+            bool jumpHeld = !CheatFlight && inputEnabled && (SeatInput.GetKey(KeyCode.Space) || TouchControls.Held(TouchControls.Action.Jump));
 #if !PE_DISTRIBUTION_BUILD
             jumpPressed |= inputEnabled && GameManager.autoTest && parkourTestJump;
+            jumpHeld |= inputEnabled && GameManager.autoTest && parkourTestGlide;
             parkourTestJump = false;
 #endif
-            if (jumpPressed) jumpBuf = 0.15f; else jumpBuf -= dt;
+            if (jumpPressed) jumpBuf = OnClimbWall ? 0.26f : 0.15f; else jumpBuf -= dt;
             if (Downed) { wantCrouch = true; sprintInput = false; wantSprint = false; jumpBuf = 0f; }      // a terra: niente corsa ne' salto
 
             float hSpeed = new Vector2(vel.x, vel.z).magnitude;
@@ -346,7 +376,14 @@ namespace PryingEyes
             maxSpeed *= wishAmount; // lo stick regola la velocità, non la lunghezza della base usata dall'accelerazione
 
             Vector3 hv = new Vector3(vel.x, 0, vel.z);
-            if (slide)
+            if (CheatFlight)
+            {
+                bool up = inputEnabled && (SeatInput.GetKey(KeyCode.Space) || TouchControls.Held(TouchControls.Action.Jump));
+                bool down = inputEnabled && (SeatInput.GetKey(KeyCode.LeftControl) || SeatInput.GetKey(KeyCode.RightControl) || TouchControls.DescendHeld);
+                Vector3 flight = wish * wishAmount + Vector3.up * ((up ? 1f : 0f) - (down ? 1f : 0f));
+                vel = Vector3.ClampMagnitude(flight, 1f) * 12f;
+            }
+            else if (slide)
             {
                 float sp = Mathf.Max(0f, hv.magnitude - hv.magnitude * 1.6f * dt * 0.4f);
                 Vector3 dir = hv.magnitude > 0.01f ? hv.normalized : slideDir;
@@ -394,43 +431,42 @@ namespace PryingEyes
                 vel.x *= 1f - 0.08f * dt; vel.z *= 1f - 0.08f * dt;
             }
 
-            vel.y -= gravity * dt;
-            vel.y = Mathf.Max(vel.y, -22f);
-            if (cc.isGrounded) coyote = 0.13f; else coyote -= dt;
-            // scavalcare (PlayerController.Mantle.cs): Salto davanti a un ostacolo basso lo supera; dopo un salto normale, contro il
-            // bordo di uno appena piu' alto andando avanti, ci si aggrappa
-            Vector3 facing = new Vector3(sin, 0f, cos);
-            bool dropPressed = OnParkourPipe && (SeatInput.GetKeyDown(KeyCode.C) || SeatInput.GetKeyDown(KeyCode.LeftControl) || TouchControls.Down(TouchControls.Action.Crouch));
-            bool pipeMovement = ParkourStep(dt, inputEnabled, jumpPressed, dropPressed, f, wish, facing);
-            if (!pipeMovement)
+            if (CheatFlight) MoveBody(dt);
+            else
             {
-                if (!Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
-                else if (!Mantling && inputEnabled && jumpBuf > 0f && (cc.isGrounded || coyote > 0f))
+                vel.y -= gravity * dt;
+                vel.y = Mathf.Max(vel.y, -22f);
+                if (cc.isGrounded) coyote = 0.13f; else coyote -= dt;
+                // scavalcare (PlayerController.Mantle.cs): Salto davanti a un ostacolo basso lo supera; dopo un salto normale, contro il
+                // bordo di uno appena piu' alto andando avanti, ci si aggrappa
+                Vector3 facing = new Vector3(sin, 0f, cos);
+                bool dropPressed = OnClimbWall && (SeatInput.GetKeyDown(KeyCode.C) || SeatInput.GetKeyDown(KeyCode.LeftControl) || TouchControls.Down(TouchControls.Action.Crouch));
+                bool climbMovement = ParkourStep(dt, inputEnabled, dropPressed, f, s, wish, facing);
+                UpdateWingsuit(dt, jumpHeld, wantCrouch, facing);
+                if (!climbMovement)
                 {
-                    vel.y = jumpVel * (crouch ? 0.92f : 1f);
-                    coyote = 0f; jumpBuf = 0f; slide = false;
-                    mantleWindow = 0.4f;
-                }
-                else if (!Mantling && inputEnabled && jumpBuf > 0f && TryAirJump(wish)) { }
-                else if (!Mantling && mantleWindow > 0f && !Downed)
-                {
-                    mantleWindow -= dt;
-                    if (!cc.isGrounded && f > 0.1f) TryMantle(facing);
-                }
+                    if (!Gliding && !Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
+                    else if (!Gliding && !Mantling && inputEnabled && jumpBuf > 0f && (cc.isGrounded || coyote > 0f))
+                    {
+                        vel.y = jumpVel * (crouch ? 0.92f : 1f);
+                        coyote = 0f; jumpBuf = 0f; slide = false;
+                        mantleWindow = 0.4f;
+                    }
+                    else if (!Gliding && !Mantling && inputEnabled && jumpBuf > 0f && TryAirJump(wish)) { }
+                    else if (!Gliding && !Mantling && mantleWindow > 0f && !Downed)
+                    {
+                        mantleWindow -= dt;
+                        if (!cc.isGrounded && f > 0.1f) TryMantle(facing);
+                    }
 
-                if (Mantling) MantleTick(dt);
-                else
-                {
-                    cc.height = Mathf.Lerp(cc.height, crouch || slide ? heightCrouch : heightStand, 11f * dt);
-                    cc.center = new Vector3(0, cc.height / 2f, 0);
-                    var hit = cc.Move(vel * dt);
-                    if (Deserto.DesertMode.Active && vel.y > 0f && (hit & CollisionFlags.Above) != 0) vel.y = 0f;
+                    if (Mantling) MantleTick(dt);
+                    else MoveBody(dt);
                 }
             }
 
             // --- lean: Q a sinistra, E a destra; non in corsa ne' in scivolata, non nei muri ---
             float leanWant = 0f;
-            if (inputEnabled && !slide && !wantSprint && !Downed && !OnParkourPipe) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
+            if (inputEnabled && !slide && !wantSprint && !Downed && !OnClimbWall && !Gliding) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
             float room = leanWant != 0f ? LeanRoom(leanWant) : 1f;
             float leanTarget = leanWant * room;
             // se la testa e' gia' contro un muro rientra piu' in fretta
@@ -486,7 +522,7 @@ namespace PryingEyes
 
             Camera c = cam.GetComponent<Camera>();
             float baseFov = SplitScreen.Active ? SplitScreen.FovFor(GameSettings.Fov, Seats.ViewAspect(Seats.Current, c.aspect)) : GameSettings.Fov;     // nelle finestre larghe dello split screen il campo orizzontale non esagera (su piu' monitor: l'aspetto della porzione sul SUO monitor)
-            float targetFov = baseFov + ((wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + fovKick) * motion
+            float targetFov = baseFov + ((wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + 5f * WingAmount + fovKick) * motion
                 - weapon.ads * (baseFov - wd.adsFov);
             fovKick *= Mathf.Max(0f, 1f - 6f * dt);
             c.fieldOfView += (targetFov - c.fieldOfView) * Mathf.Min(1f, 10f * dt);
@@ -498,9 +534,9 @@ namespace PryingEyes
             float arm = Mathf.Max(0.1f, eyeH - leanPivot);
             float latOff = arm * Mathf.Sin(th) + lean * leanSlide;
             float drop = arm * (1f - Mathf.Cos(th));
-            Vector3 stableEye = transform.position + right * latOff + Vector3.up * (eyeH - drop - mantleDrop);
+            Vector3 stableEye = transform.position + right * latOff + Vector3.up * (eyeH - drop - mantleDrop) + ClimbEyeOffset;
             cam.position = stableEye + right * bobX + Vector3.up * bobY;
-            float tilt = -lean * leanRoll + (Downed ? 9f : 0f) + mantleRoll;
+            float tilt = -lean * leanRoll + (Downed ? 9f : 0f) + mantleRoll + WingsuitRoll;
             float lookPitch = pitch * Mathf.Rad2Deg - recP + mantlePitch;
             float lookYaw = yaw * Mathf.Rad2Deg + recY;
             float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion + tilt;
@@ -516,7 +552,7 @@ namespace PryingEyes
             }
 
             DrawParkourHands(dt);
-            weapon.Tick(dt, (f > 0 && wantSprint && !OnParkourPipe) || Mantling, hs, cc.isGrounded || Mantling || OnParkourPipe, crouch, lookDelta);
+            weapon.Tick(dt, (f > 0 && wantSprint && !OnClimbWall) || Mantling, hs, cc.isGrounded || Mantling || OnClimbWall, crouch, lookDelta);
             hud?.SetBars(hp, shield);
 
             // --- armi sui muri: prompt + acquisto con F ---
@@ -526,14 +562,23 @@ namespace PryingEyes
                 bool onThing = !onWall && Proc.Interact.Tick(cam);
                 // con un compagno a terra qui vicino Usa serve a rialzarlo: niente acquisti per sbaglio
                 bool parkourPrompt = ParkourPrompt();
-                if (!OnParkourPipe && (SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use)) && FindDownedMate(out _, out _) == null)
+                if (!ParkourHandsBusy && (SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use)) && FindDownedMate(out _, out _) == null)
                 { if (onWall) WallBuy.TryBuy(); else if (onThing) Proc.Interact.TryUse(); }
                 // dopo gli altri prompt (che cancellano la riga a ogni fotogramma): la presa alle spalle
                 if (!onWall && !onThing && !parkourPrompt) Knife.I?.PromptTick();
             }
             // un compagno a terra qui vicino: tenendo Usa lo si rialza (la sua riga vince sugli altri prompt)
-            if (!Downed && !OnParkourPipe && inputEnabled && (!GameManager.autoTest || testHoldUse))
+            if (!Downed && !ParkourHandsBusy && inputEnabled && (!GameManager.autoTest || testHoldUse))
                 ReviveOthersTick(dt, testHoldUse || SeatInput.GetKey(KeyCode.F) || TouchControls.Held(TouchControls.Action.Use));
+        }
+
+        void MoveBody(float dt)
+        {
+            cc.height = Mathf.Lerp(cc.height, crouch || slide ? heightCrouch : heightStand, 11f * dt);
+            cc.center = new Vector3(0, cc.height / 2f, 0);
+            var hit = cc.Move(vel * dt);
+            WingsuitContact(hit);
+            if (Deserto.DesertMode.Active && vel.y > 0f && (hit & CollisionFlags.Above) != 0) vel.y = 0f;
         }
 
         /// <summary>Secondi di sedativo rimasti: finché dura ti muovi al 55%. Lo dà la puntura dell'infermiere.</summary>
@@ -551,7 +596,7 @@ namespace PryingEyes
 
         public void Sedate(float seconds)
         {
-            if (!alive || invulnerable) return;
+            if (!alive || invulnerable || (CheatInvulnerability && DesertCheatsAvailable)) return;
             if (sedT <= 0f) hud?.Toast("Il sedativo ti appesantisce le gambe.");
             sedT = Mathf.Max(sedT, seconds);
         }
@@ -559,7 +604,7 @@ namespace PryingEyes
         public void Hurt(float dmg, Vector3? origin = null)
         {
             // in cooperativa la pausa non ferma il mondo, quindi non rende nemmeno immuni
-            if (!alive || Downed || (GameMenu.Blocked && !Coop.Active) || invulnerable || reviveInv > 0f) return;
+            if (!alive || Downed || (GameMenu.Blocked && !Coop.Active) || invulnerable || reviveInv > 0f || (CheatInvulnerability && DesertCheatsAvailable)) return;
             lastDamage = Time.time;
             dmg *= 1.5f * Arcana.DamageTakenMult;          // Pelle di Runa: -35% per 2,5 s dopo una magia
             float absorbed = Mathf.Min(shield, dmg * 0.6f);

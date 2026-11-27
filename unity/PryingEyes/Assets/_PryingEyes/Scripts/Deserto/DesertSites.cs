@@ -161,9 +161,9 @@ namespace PryingEyes.Deserto
             var plan = PlanOf(u);
             var fi = BuildShellOf(site, u, root);
             fis[u] = fi;
-            if (site.IsStack) DesertStairs.Build(fi.root.transform, plan, u, Units, site.church);
+            if (site.IsStack) DesertStairs.Build(fi.root.transform, plan, u, Units, site.church, site.IsTower);
+            if (site.IsTower && u != site.entrance) DesertTowerTraversal.Balcony(fi.root.transform, plan.rooms[PlanGen.StackRooms - 1]);
             fi.root.transform.position = new Vector3(0f, YOf(u), 0f);
-            if (site.IsTower && ShellComplete) DesertTowerPipes.Build(root, site);
             Physics.SyncTransforms();
         }
 

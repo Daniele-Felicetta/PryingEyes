@@ -222,6 +222,7 @@ namespace PryingEyes
                 if (Move.sqrMagnitude < 0.25f * 0.25f || (ltOn && !aimWas) || (rtOn && !fireWas)) sprint = false;
                 Set(TouchControls.Action.Sprint, sprint, false);
                 Set(TouchControls.Action.Crouch, crouch, Pressed(B));
+                Set(TouchControls.Action.Descend, Is(B), false);
 
                 prev = b;
             }

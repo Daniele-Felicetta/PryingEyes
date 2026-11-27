@@ -424,6 +424,17 @@
       "page": "docs/game/the-desert.md"
     },
     {
+      "name": "shadow-audit",
+      "label": "desertotest",
+      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/Deserto/DesertTest.cs",
+      "args": ["-batchmode", "-autotest", "-desertotest", "-seed", "1000", "-desertonly", "shadow-audit"],
+      "mode": "desert",
+      "timeout": 240,
+      "needs": ["runtime", "gpu"],
+      "hazards": [],
+      "page": "docs/game/the-desert.md"
+    },
+    {
       "name": "citytest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/CityTest.cs",
       "args": ["-batchmode", "-autotest", "-nofire", "-citytest"],

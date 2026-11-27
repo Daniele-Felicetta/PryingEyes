@@ -1220,8 +1220,7 @@ namespace PryingEyes.Proc
             var pl = gm.player;
             if (!GameMenu.Blocked && !transitioning && pl.alive)
             {
-                // nel deserto, sulla sabbia e nella cattedrale, M e Select aprono il menu a schede (HUD.DesertHub.cs): il foglio dei piani e' solo sotto
-                if (!(InHub && DesertMode.Active) && (SeatInput.GetKeyDown(KeyCode.M) || TouchControls.Down(TouchControls.Action.Map))) mapOpenA[si] = !mapOpenA[si];
+                if (!DesertMode.OnSurface && (SeatInput.GetKeyDown(KeyCode.M) || TouchControls.Down(TouchControls.Action.Map))) mapOpenA[si] = !mapOpenA[si];
                 if (SeatInput.GetKeyDown(KeyCode.N)) miniMapOff[si] = !miniMapOff[si];
                 var room = cur.RoomAt(pl.transform.position);
                 if (room != null && map != null && map.Explore(room.id)) map.Refresh();       // una stanza nuova: la carta la inchiostra subito
