@@ -13,6 +13,7 @@ namespace PryingEyes.Deserto
     {
         public const int Steps = 12;
         const float Run = 0.4f, Rise = 0.2f, Landing = 1.0f;
+        const float SandClearance = 0.02f;
 
         /// <summary>Basamento e scalinata, figli della cattedrale (spariscono e si rifanno con lei). Il disegno e' una mesh sola con la pietra della facciata della chiesa
         /// (FacadeKit: zoccolo scuro, cornicione e lastre dei gradini piu' chiari, UV in metri); la fisica e' di scatole nascoste, identiche a quelle di sempre.</summary>
@@ -59,7 +60,9 @@ namespace PryingEyes.Deserto
             for (int i = 1; i <= Steps; i++)
             {
                 float z1 = -Landing - Run * (i - 1), z0 = z1 - Run;
-                Block("Gradino", z0, z1, -Rise * i, true);
+                // Keep the lowest tread and its collider just above the flat sand to avoid z-fighting.
+                float topY = i == Steps ? DesertWorld.GroundY + SandClearance : -Rise * i;
+                Block("Gradino", z0, z1, topY, true);
             }
             // le guance: due muri a spiovente (la fisica resta a gradoni, tutta sotto il disegno) con il copertino di pietra
             float zEnd = -Landing - Run * Steps, slope = Rise / Run;

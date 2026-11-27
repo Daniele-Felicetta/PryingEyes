@@ -340,6 +340,7 @@ namespace PryingEyes.Deserto
             if (Explicit("motopiano")) yield return Phase("motopiano", MotoFlat());
             if (Explicit("scale")) yield return Phase("scale", CathedralStairsAudit());
             if (Explicit("ombre")) yield return Phase("ombre", ShadowRangeAudit());
+            if (Explicit("shadow-audit")) yield return Phase("shadow-audit", ScanDesertShadows());
             if (Explicit("pelle")) yield return Phase("pelle", SkinHandoverAudit());
             if (Explicit("luci")) yield return Phase("luci", LightShadowAudit());
             if (Explicit("garage")) yield return Phase("garage", GarageTest());
