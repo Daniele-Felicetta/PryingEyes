@@ -265,6 +265,8 @@ Game controls (translated from the original text, checked against the code where
 | Key | Action |
 |---|---|
 | `M` | Open or close the map of the explored floor (in the desert it opens the Select menu: [the-desert.md](the-desert.md#the-select-menu)). |
+| `Tab` | Open or close Select on the desert surface. Elsewhere, hold it for the scoreboard. |
+| `F8` (hold) | Scoreboard on the desert surface. |
 | `N` | Show or hide the minimap. |
 | `T` | Turn the torch on or off. A battery lasts about 3.5 minutes of light (`Stealth/Torch.cs`, 210 s). |
 | `Y` | Replace the battery when its charge is 80% or less (80% threshold not verified). At zero the torch uses a spare automatically, if you have one. |

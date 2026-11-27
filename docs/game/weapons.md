@@ -8,7 +8,7 @@ The gunplay was rebuilt from scratch (`Scripts/Weapon.cs`, `Scripts/Armi/`). The
 
 **LMB** fire, **RMB** aim (ADS), **R** reload, **B** change fire mode (auto/semi/burst where available), **1 / 2 / X / mouse wheel** change weapon (two slots), **Q / E** lean, **Shift** sprint (with a strong optic, zoom 3.9x or more, Shift holds your breath), **F** buys (at a wall) or uses an interactive object.
 
-Also in the code, not listed above: **I** inspects the weapon (only at rest), **G** melee knife, **C** or **Left Ctrl** crouch, **Tab** scoreboard.
+Also in the code, not listed above: **I** inspects the weapon (only at rest), **G** melee knife, **C** or **Left Ctrl** crouch, **Tab** scoreboard (**F8** on the desert surface).
 
 ## Grades
 

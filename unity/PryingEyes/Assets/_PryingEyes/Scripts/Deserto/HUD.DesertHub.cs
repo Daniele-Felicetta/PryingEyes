@@ -5,12 +5,8 @@ using UnityEngine.UI;
 
 namespace PryingEyes
 {
-    /// <summary>Il menu di Select nel deserto (0.10.3): un pannello sopra il gioco con una barra di navigazione in alto e cinque pagine, nell'ordine Mappa, Libri (i potenziamenti dei due grimori), Magie
-    /// (le magie della mano sinistra e i sigilli sull'arma), Bozzo Moto Store (la pagina web inventata dove si comprano le moto del garage) e Camera (le impostazioni della telecamera). Si apre con Select
-    /// (un tocco del tasto Back del controller) o con M, si cambia pagina con LB e RB, Q ed E, PagSu e PagGiu o i tasti da 1 a 5 (o con un clic sulla barra), si sceglie con la croce o le frecce o il
-    /// mouse, si conferma con A o Invio, si chiude con B, Select, M, Esc. Come il grimorio non ferma il tempo e blocca solo i comandi di chi lo apre (GameMenu.Overlay del posto): se chi lo apre e'
-    /// ferito o muore si chiude da solo. Ogni posto dello schermo condiviso ha il suo, sulla sua porzione di schermo. E' un di piu': se inciampa tre volte si spegne per sempre e il resto dell'HUD va avanti.
-    /// Le pagine sono una lista (<see cref="HubPage"/>): aggiungerne una e' scrivere una classe e metterla in <c>MakeHubPages</c>, la barra le dispone da sola.</summary>
+    /// <summary>Desert Select menu. Each seat opens its own overlay with M, Tab or a tap of Back.
+    /// Pages share keyboard, mouse and controller navigation. The world keeps running while the overlay is open.</summary>
     public partial class HUD
     {
         // ------------------------------------------------------------------ misure e colori (il pannello e' disegnato a 1060 x 610 e si rimpicciolisce per starci nel posto)
@@ -34,7 +30,7 @@ namespace PryingEyes
             public Vector2 pointer;
             public bool pointerIn, moved, click, held;
             public float wheel;
-            public int digit;                // 1..5 se si e' premuto quel numero, altrimenti 0
+            public int digit;                // Page number, or zero when no number was pressed.
             /// <summary>Il mouse nel sistema del contenuto di una pagina (l'angolo in alto a sinistra e' l'origine, y verso il basso).</summary>
             public Vector2 Local => pointer - new Vector2(HubPad, HubContentY);
         }
@@ -86,6 +82,8 @@ namespace PryingEyes
         /// <summary>Per le prove: il menu e' stato spento perche' ha inciampato tre volte.</summary>
         public bool HubIsDead => hubDead;
 
+        static bool HubKeyboardToggle => SeatInput.GetKeyDown(KeyCode.M) || SeatInput.GetKeyDown(KeyCode.Tab);
+
         void UpdateDesertHubUI()
         {
             if (hubDead) return;
@@ -107,7 +105,7 @@ namespace PryingEyes
             var gm = GameManager.I;
             var pl = gm != null ? gm.player : null;
             var fd = Proc.FloorDirector.I;
-            bool here = DesertMode.Active && fd != null && fd.InHub && pl != null;          // sulla sabbia o nella cattedrale: nelle catacombe M e' ancora la mappa del piano
+            bool here = DesertMode.OnSurface && pl != null;
             if (!here)
             {
                 if (hubOpen) CloseHub(false);
@@ -120,7 +118,7 @@ namespace PryingEyes
             {
                 if (Time.unscaledTime < hubReopenAt) return;
                 if (!pl.alive || pl.Downed || fd.transitioning || GameMenu.InMenu || GameMenu.Paused || GameMenu.Overlay) return;
-                if (SeatInput.GetKeyDown(KeyCode.M) || TouchControls.Down(TouchControls.Action.Map)) OpenHub(-1);
+                if (HubKeyboardToggle || TouchControls.Down(TouchControls.Action.Map)) OpenHub(-1);
                 return;
             }
             TickOpenHub(pl, fd, dt);
@@ -257,11 +255,11 @@ namespace PryingEyes
             inp.nx = HubStep(ref hubHeldX, ref hubRepX, hx, dt);
             inp.ny = HubStep(ref hubHeldY, ref hubRepY, hy, dt);
             inp.confirm = SeatInput.GetKeyDown(KeyCode.Return) || SeatInput.GetKeyDown(KeyCode.KeypadEnter) || SeatInput.GetKeyDown(KeyCode.Space) || pad.Confirm;
-            inp.back = SeatInput.GetKeyDown(KeyCode.Escape) || SeatInput.GetKeyDown(KeyCode.M) || SeatInput.GetKeyDown(KeyCode.Backspace) || SeatInput.GetMouseButtonDown(1)
+            inp.back = SeatInput.GetKeyDown(KeyCode.Escape) || HubKeyboardToggle || SeatInput.GetKeyDown(KeyCode.Backspace) || SeatInput.GetMouseButtonDown(1)
                 || pad.Cancel || pad.Back;
             inp.prev = SeatInput.GetKeyDown(KeyCode.Q) || SeatInput.GetKeyDown(KeyCode.PageUp) || SeatInput.GetKeyDown(KeyCode.LeftBracket) || pad.Prev;
             inp.next = SeatInput.GetKeyDown(KeyCode.E) || SeatInput.GetKeyDown(KeyCode.PageDown) || SeatInput.GetKeyDown(KeyCode.RightBracket) || pad.Next;
-            for (int i = 0; i < 5; i++) if (SeatInput.GetKeyDown(KeyCode.Alpha1 + i)) inp.digit = i + 1;
+            for (int i = 0; i < hubPages.Count; i++) if (SeatInput.GetKeyDown(KeyCode.Alpha1 + i)) inp.digit = i + 1;
             if (Seats.Keyboard)
             {
                 Vector3 mouse = Input.mousePosition;
@@ -319,7 +317,7 @@ namespace PryingEyes
             for (int i = 0; i < hubPages.Count; i++)
             {
                 var pgd = hubPages[i];
-                float w = Mathf.Max(96f, 30f + pgd.label.Length * 10.5f);
+                float w = Mathf.Max(84f, 28f + pgd.label.Length * 9f);
                 var back = Img(hubFrame, "Scheda" + i, new Vector2(x, -tabY), new Vector2(w, tabH), Color.clear, null);
                 var t = HubText(hubFrame, "Etichetta" + i, x, tabY, w, tabH, 17, TextAnchor.MiddleCenter, HubDimC, FontStyle.Bold);
                 t.text = (i + 1) + "  " + pgd.label;
@@ -401,6 +399,7 @@ namespace PryingEyes
             new HubSpellPage(),
             new HubStorePage(),
             new HubCameraPage(),
+            new HubCheatPage(),
         };
 
         /// <summary>Il deserto e' finito: le pagine lasciano quello che avevano (la vetrina del negozio).</summary>
