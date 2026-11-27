@@ -70,8 +70,9 @@ namespace PryingEyes
             var plan = floor.cur.plan;
             var entrance = plan.Find(RoomKind.Nartece);
             var nave = plan.Find(RoomKind.Navata);
-            var portal = plan.openings.Find(o => (o.a == entrance.id && o.b == nave.id) || (o.a == nave.id && o.b == entrance.id));
-            if (!Check("l'arco tra nartece e navata c'e'", portal != null)) yield break;
+            // only the wing plan has a church (-oldplan, which the manifest passes): on the grid plan the rooms are not there, and the check says so instead of an exception
+            var portal = entrance != null && nave != null ? plan.openings.Find(o => (o.a == entrance.id && o.b == nave.id) || (o.a == nave.id && o.b == entrance.id)) : null;
+            if (!Check("l'arco tra nartece e navata c'e'", portal != null, entrance == null || nave == null ? "la pianta non ha la chiesa (serve -oldplan)" : "")) yield break;
 
             string output = System.IO.Path.GetFullPath(Dir + "/../fotorealismo");
             Directory.CreateDirectory(output);
@@ -145,7 +146,7 @@ namespace PryingEyes
             Debug.Log($"[PryingEyes] pala scolpita: {retableMeshes} mesh");
             if (entranceKey != null)
                 Debug.Log($"[PryingEyes] chiarore del nartece: {entranceKey.transform.position}, intensità {entranceKey.intensity:F1}, ombre {entranceKey.shadows}");
-            Check("il monaco ha le fibre e l'animatore con le cinque animazioni", CheckMonkFibers(monk));
+            Check("il monaco ha le fibre e l'animatore con le sei animazioni", CheckMonkFibers(monk));
             Check("le vetrate proiettano la luce", windows > 0, windows + " vetrate");
             Check("le vetrate rimbalzano la luce", bounces > 0, bounces + " rimbalzi");
             Check("la pala scolpita del presbiterio ha le sue mesh", sanctuary == null || retableMeshes >= 3, retableMeshes + " mesh");
@@ -173,9 +174,10 @@ namespace PryingEyes
             Destroy(mesh);
             float displacement = 0f;
             for (int i = 0; i < idle.Length; i++) displacement = Mathf.Max(displacement, (walking[i] - idle[i]).sqrMagnitude);
+            // sei clip (Monaco.controller): Fermo, Cammina, Colpito e Morte, piu' Attacco (la preparazione della mischia, Mischia.anim) e Incanto (la carica della magia: la vecchia clip d'attacco), le ultime due dal 13 novembre 2026 (d1f381f)
             int clips = animator.runtimeAnimatorController.animationClips.Length;
             Debug.Log($"[PryingEyes] fibre: {idle.Length} vertici, {clips} clip, spostamento fra pose {Mathf.Sqrt(displacement):F3} m");
-            return clips == 5 && displacement > 0.000025f;
+            return clips == 6 && displacement > 0.000025f;
         }
 
         IEnumerator CheckAliens(Vector3 start, Vector3 dir)

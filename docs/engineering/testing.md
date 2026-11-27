@@ -242,7 +242,7 @@ reason and the seed is to be changed).
 | `-stealthtest -holescan` (`-holeat X,Z` describes one point) | Ray-casts a 40 cm grid for points with no floor, then drops the player to -60 m and checks that `FloorDirector.FallGuard` brings them back. | `hotel_build/furtivo/buchi.txt`. Exit 0 ok, 1 failed |
 | `-stealthtest -alientest` | Three aliens and the corridor at several exposures. | `hotel_build/furtivo/alieni.txt` and photos |
 | `-stealthtest -temitest` | Maschera, Direttore, Infermiere and Primario at the end of the longest hall; their surprises (whistle, sedative, reinforcements, three darts). The priests that must notice the player (Maschera, Primario, Direttore) are held still (`Enemy.debugFreeze` stops the legs and leaves the eyes working): left free they sweep their gaze around the world heading on patrol and walk off, so whether they had noticed the player in time was a matter of chance. Seeds: `2961 -floor 3` (theatre), `3046 -floor 3` (sanatorium). | `hotel_build/furtivo/temi.txt`, photos `tema_<Nome>.png` and `_3q.png` |
-| `-stealthtest -refshot` (with `-seed 1000`) | Visual comparison of the church: cloth fibres follow the pose, all five monk clips present. | `hotel_build/fotorealismo/` |
+| `-stealthtest -refshot -oldplan` (with `-seed 1000`; the church exists on the wing plan only, which `-oldplan` asks for) | Visual comparison of the church: cloth fibres follow the pose, all six monk clips present. | `hotel_build/fotorealismo/` |
 
 ### 3.3 Survival, architecture and modes
 
