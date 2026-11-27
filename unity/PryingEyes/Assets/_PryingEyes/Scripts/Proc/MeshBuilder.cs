@@ -167,8 +167,10 @@ namespace PryingEyes.Proc
         /// <summary>Faccia di muro tra yMin e top(x), con aperture. Parte da 'origin' lungo 'u' (orizzontale, unitario) per
         /// 'len' metri; guarda verso 'facing'. Le aperture sono fette verticali: sopra e sotto di ognuna resta il muro,
         /// la testa puo' essere un arco acuto. 'breaks' sono ascisse in cui 'top' cambia pendenza.</summary>
+        public const float ClimbCourse = 0.54f;
+
         public void WallFace(Material m, Vector3 origin, Vector3 u, Vector3 facing, float len, float yMin, Func<float, float> top,
-                             List<Hole> holes, float uOff = 0f, float[] breaks = null, Func<float, float> bottom = null, float[] bottomBreaks = null)
+                             List<Hole> holes, float uOff = 0f, float[] breaks = null, Func<float, float> bottom = null, float[] bottomBreaks = null, bool grooves = false)
         {
             var xs = new List<float> { 0f, len };
             if (breaks != null) foreach (var b in breaks) if (b > 0.001f && b < len - 0.001f) xs.Add(b);
@@ -196,22 +198,28 @@ namespace PryingEyes.Proc
                 Hole? hit = null;
                 if (holes != null)
                     foreach (var h in holes) if (mid > h.c - h.hw && mid < h.c + h.hw) { hit = h; break; }
-                if (hit == null) { Slab(m, origin, u, facing, xa, xb, lowA, lowB, ta, tb, uOff); continue; }
+                if (hit == null) { Slab(m, origin, u, facing, xa, xb, lowA, lowB, ta, tb, uOff, grooves); continue; }
                 var hl = hit.Value;
                 float sill = hl.o.sill;
                 float ha = hl.o.Head(xa - hl.c, hl.hw), hb = hl.o.Head(xb - hl.c, hl.hw);
                 // sotto la soglia
                 float la = Mathf.Min(sill, ta), lb = Mathf.Min(sill, tb);
-                if (la > lowA + 1e-4f || lb > lowB + 1e-4f) Slab(m, origin, u, facing, xa, xb, lowA, lowB, Mathf.Max(la, lowA), Mathf.Max(lb, lowB), uOff);
+                if (la > lowA + 1e-4f || lb > lowB + 1e-4f) Slab(m, origin, u, facing, xa, xb, lowA, lowB, Mathf.Max(la, lowA), Mathf.Max(lb, lowB), uOff, grooves);
                 // sopra la testa (un varco senza architrave, Opening.Gap, non ha il muro sopra)
                 float ua2 = Mathf.Max(ha, lowA), ub2 = Mathf.Max(hb, lowB);
-                if (!hl.o.Gap && (ta > ua2 + 1e-4f || tb > ub2 + 1e-4f)) Slab(m, origin, u, facing, xa, xb, ua2, ub2, ta, tb, uOff);
+                if (!hl.o.Gap && (ta > ua2 + 1e-4f || tb > ub2 + 1e-4f)) Slab(m, origin, u, facing, xa, xb, ua2, ub2, ta, tb, uOff, grooves);
             }
         }
 
         // fetta di muro tra xa e xb: bordo basso (ya0 in xa, yb0 in xb), bordo alto (ya1, yb1)
-        void Slab(Material m, Vector3 origin, Vector3 u, Vector3 facing, float xa, float xb, float ya0, float yb0, float ya1, float yb1, float uOff)
+        void Slab(Material m, Vector3 origin, Vector3 u, Vector3 facing, float xa, float xb, float ya0, float yb0, float ya1, float yb1, float uOff, bool grooves = false)
         {
+            if (grooves && xb - xa > 0.65f && Mathf.Abs(ya0 - yb0) < 0.001f && Mathf.Abs(ya1 - yb1) < 0.001f &&
+                Mathf.Ceil((ya0 + 0.13f) / ClimbCourse) * ClimbCourse < ya1 - 0.13f)
+            {
+                GroovedSlab(m, origin, u, facing, xa, xb, ya0, ya1, uOff);
+                return;
+            }
             float da = ya1 - ya0, db = yb1 - yb0;
             if (!FloorBuilder.LegacyWalls)
             {
@@ -233,6 +241,35 @@ namespace PryingEyes.Proc
             Vector3 A = origin + u * xa + Vector3.up * ya0, B = origin + u * xb + Vector3.up * yb0;
             Vector3 C = origin + u * xb + Vector3.up * yb1, D = origin + u * xa + Vector3.up * ya1;
             Quad(m, A, B, C, D, new Vector2(uOff + xa, ya0), new Vector2(uOff + xb, yb0), new Vector2(uOff + xb, yb1), new Vector2(uOff + xa, ya1), facing);
+        }
+
+        void GroovedSlab(Material material, Vector3 origin, Vector3 along, Vector3 normal, float lo, float hi, float bottom, float top, float uv)
+        {
+            const float half = 0.041f, inset = 0.038f;
+            float left = lo + 0.13f, right = hi - 0.13f;
+            float last = bottom;
+            Vector3 P(float x, float y, float d = 0f) => origin + along * x + Vector3.up * y + normal * d;
+            void Face(float x0, float x1, float y0, float y1, float depth = 0f) =>
+                Quad(material, P(x0, y0, depth), P(x1, y0, depth), P(x1, y1, depth), P(x0, y1, depth),
+                    new Vector2(x0 + uv, y0), new Vector2(x1 + uv, y0), new Vector2(x1 + uv, y1), new Vector2(x0 + uv, y1), normal);
+            void Reveal(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 facing) =>
+                Quad(material, a, b, c, d, Vector2.zero, new Vector2(Vector3.Distance(a, b), 0f),
+                    new Vector2(Vector3.Distance(a, b), inset), new Vector2(0f, inset), facing);
+
+            Face(lo, left, bottom, top);
+            Face(right, hi, bottom, top);
+            for (float y = Mathf.Ceil((bottom + 0.13f) / ClimbCourse) * ClimbCourse; y < top - 0.13f; y += ClimbCourse)
+            {
+                float a = y - half, b = y + half;
+                Face(left, right, last, a);
+                Face(left, right, a, b, -inset);
+                Reveal(P(left, a), P(right, a), P(right, a, -inset), P(left, a, -inset), Vector3.up);
+                Reveal(P(left, b), P(right, b), P(right, b, -inset), P(left, b, -inset), Vector3.down);
+                Reveal(P(left, a), P(left, b), P(left, b, -inset), P(left, a, -inset), along);
+                Reveal(P(right, a), P(right, b), P(right, b, -inset), P(right, a, -inset), -along);
+                last = b;
+            }
+            Face(left, right, last, top);
         }
 
         // ---------------------------------------------------------------- mesh finale

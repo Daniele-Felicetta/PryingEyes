@@ -107,7 +107,7 @@ namespace PryingEyes
             }
             placed = true;
             lastPos = pos;
-            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, (p.Riding ? p.RideHeading : p.yaw) * Mathf.Rad2Deg, 0f));          // in sella il corpo guarda dove punta la moto
+            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, (p.Riding ? p.RideHeading : p.OnClimbWall ? p.ClimbWallYaw : p.yaw) * Mathf.Rad2Deg, 0f));
             if (visual == null) return;
             if (body != null)
             {
@@ -140,18 +140,19 @@ namespace PryingEyes
             inp.crouch = p.IsCrouching && !p.Riding; inp.sprint = p.IsSprinting && !p.Riding;
             inp.sliding = p.IsSliding && !p.Riding;
             inp.alive = p.alive; inp.downed = p.Downed;
-            bool supported = cc == null || cc.isGrounded || p.Mantling || p.OnParkourPipe || p.Riding;
+            bool supported = cc == null || cc.isGrounded || p.Mantling || p.OnClimbWall || p.Riding;
             groundLost = supported ? 0f : groundLost + dt;
             // Briefly keep the feet planted over a step down. An ascending jump and the apex stay airborne.
             inp.grounded = supported || (groundLost < 0.07f && vel.y <= 0f && vel.y > -2.2f);
-            inp.climb = p.Mantling || p.OnParkourPipe ? 1f : 0f;
+            inp.climb = p.Mantling || p.OnClimbWall ? 1f : 0f;
+            inp.gliding = p.Gliding;
             int idx = w != null ? w.CurrentIndex : -1;
             if (w != null && w.KnifeBusy)
             {
                 if (knifeIndex == -2) knifeIndex = WeaponDefs.IndexOf("kn_coltello");
                 if (knifeIndex >= 0) idx = knifeIndex;
             }
-            inp.weapon = p.OnParkourPipe ? -1 : idx;
+            inp.weapon = p.OnClimbWall || p.Gliding ? -1 : idx;
             inp.ads = w != null && !w.KnifeBusy ? w.ads : 0f;
             inp.reloading = w != null && w.reloading;
             inp.shotAge = Mathf.Max(0f, Time.time - seat.stealth.lastShotTime);

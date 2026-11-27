@@ -300,6 +300,7 @@ namespace PryingEyes.Deserto
             if (Wants("minimappa")) yield return Phase("minimappa", MiniMap());
             if (Wants("torre")) yield return Phase("torre", Tower());
             if (Explicit("parkour")) yield return Phase("parkour", Parkour());
+            if (Explicit("parkourwalls")) yield return Phase("parkourwalls", ParkourWalls());
             if (Wants("boss")) yield return Phase("boss", Boss());
             if (Wants("catacomba")) yield return Phase("catacomba", Catacomb());
             if (Wants("notte")) yield return Phase("notte", Night());

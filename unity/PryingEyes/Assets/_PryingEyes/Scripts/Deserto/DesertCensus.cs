@@ -333,7 +333,7 @@ namespace PryingEyes.Deserto
         }
 
         /// <summary>Il primo triangolo che il raggio incontra. -1 se non ne incontra. Con 'frontOnly' conta solo quelli che l'occhio disegna (di fronte, o a due facce): e' quello che si vede.</summary>
-        int FirstHit(Vector3 o, Vector3 d, out float tHit, bool frontOnly = false)
+        int FirstHit(Vector3 o, Vector3 d, out float tHit, bool frontOnly = false, bool wallsOnly = false)
         {
             tHit = float.MaxValue;
             float tEnter = 0f, tLeave = float.MaxValue;
@@ -356,6 +356,7 @@ namespace PryingEyes.Deserto
                         int ti = list[k];
                         if (stamp[ti] == stampId) continue;
                         stamp[ti] = stampId;
+                        if (wallsOnly && (Mathf.Abs(n[ti].y) > 0.3f || Mathf.Abs(Vector3.Dot(d, n[ti])) < 0.30f)) continue;
                         if (frontOnly && !matTwo[mat[ti]] && Vector3.Dot(d, n[ti]) >= 0f) continue;
                         if (RayTri(ti, o, d, out float t) && t > 1e-3f && t < tHit) { tHit = t; best = ti; }
                     }
@@ -366,6 +367,20 @@ namespace PryingEyes.Deserto
                 else { cz += sz; if (cz < 0 || cz >= gh) break; tmz += tdz; }
             }
             return best;
+        }
+
+        // The rendered shell is the reference, independent of the physics collider and its backface settings.
+        public bool CrossesWall(Vector3 from, Vector3 to, out Vector3 point)
+        {
+            point = default;
+            Vector3 travel = to - from;
+            float distance = travel.magnitude;
+            if (Tris == 0 || distance < 0.007f) return false;
+            if (cells == null) BuildGrid();
+            Vector3 direction = travel / distance;
+            if (FirstHit(from, direction, out float hit, wallsOnly: true) < 0 || hit >= distance - 0.002f) return false;
+            point = from + direction * hit;
+            return true;
         }
 
         /// <summary>Lancia 'rays' raggi da fuori verso l'edificio: l'origine a un'altezza d'occhio (o piu' in alto, un decimo dei raggi: chi guarda da una duna o da una torre) sopra il suolo, a una distanza

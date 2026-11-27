@@ -17,6 +17,7 @@ namespace PryingEyes
         public float ads;                   // 0..1 in mira
         public bool reloading;
         public float climb;                 // 0..1 mentre si arrampica
+        public bool gliding;
         public bool seated;                 // in sella a una moto: bacino sulla sella, piedi sulle pedane, mani sulle manopole (la radice del corpo sta sulla moto, girata come il suo telaio)
         public Vector3 gripLeft, gripRight; // nel mondo: le manopole, a sinistra e a destra di chi guarda avanti (valgono se seated)
         // la sella della moto (valgono se seated; a zero quella di sempre, la moto arrangiata): dove sta il bacino e dove poggiano i piedi (nel sistema della moto, x e' il lato) e quanto si china il busto (gradi)
@@ -96,6 +97,8 @@ namespace PryingEyes
         float phase, gait, crouchAmt, sprintAmt, adsAmt, leanAmt, airAmt, fallAmt, slideAmt, landing, fallSpeed, pitchSmooth, reloadT;
         float lieAmt, downAmt;               // 0..1: disteso (morto), seduto a terra (ferito)
         float seatAmt;                       // 0..1: in sella a una moto
+        float glideAmt;
+        readonly WingsuitFabric[] wings = new WingsuitFabric[2];
         // in sella (sistema della radice = quello della moto: avanti +z, la sella a 0,885 m e z -0,28, le pedane a x 0,20, y 0,36): il bacino sopra la sella, il busto molto in avanti (le manopole
         // stanno a 0,45 m davanti: con meno busto il braccio non ci arriva), le caviglie sulle pedane
         static readonly Vector3 SeatHips = new Vector3(0f, 1.06f, -0.24f);
@@ -340,7 +343,7 @@ namespace PryingEyes
         {
             if (hips == null) return;
             var inp = input;
-            SetWeapon(inp.alive && !inp.downed && (!inp.seated || inp.shotAge < 1.4f) ? inp.weapon : -1);          // in sella le mani sono sul manubrio, finche' la destra non impugna l'arma (appena sparato)
+            SetWeapon(inp.alive && !inp.downed && !inp.gliding && (!inp.seated || inp.shotAge < 1.4f) ? inp.weapon : -1);
             Vector3 vLoc = Quaternion.Inverse(transform.rotation) * new Vector3(inp.velocity.x, 0f, inp.velocity.z);
             velLocal = Vector3.Lerp(velLocal, vLoc, K(14f, dt));
             float spd = velLocal.magnitude;
@@ -358,6 +361,7 @@ namespace PryingEyes
             lieAmt = Mathf.Lerp(lieAmt, !inp.alive ? 1f : 0f, K(7f, dt));
             downAmt = Mathf.Lerp(downAmt, inp.alive && inp.downed ? 1f : 0f, K(7f, dt));
             seatAmt = Mathf.Lerp(seatAmt, inp.seated && inp.alive && !inp.downed ? 1f : 0f, K(12f, dt));
+            glideAmt = Mathf.MoveTowards(glideAmt, inp.gliding && inp.alive && !inp.downed ? 1f : 0f, dt * 5f);
             pitchSmooth = Mathf.Lerp(pitchSmooth, inp.pitch, K(18f, dt));
             bool walking = inp.grounded && inp.alive && !inp.downed && !inp.seated && !inp.sliding && inp.climb <= 0f;
             float gaitGoal = walking ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.15f, 0.7f, spd)) : 0f;
@@ -372,10 +376,43 @@ namespace PryingEyes
                 model.localRotation = Quaternion.Euler(-88f * lieAmt, 0f, 0f) * modelRestRot;
                 model.localPosition = modelRestPos + new Vector3(0f, 0.12f * lieAmt, 0f);
             }
-            if (lieAmt > 0.02f) return;
+            if (lieAmt > 0.02f) { wings[0]?.Hide(); wings[1]?.Hide(); return; }
             PoseTorso(inp);
+            if (glideAmt > 0.02f && uarmL != null && uarmR != null && handL != null && handR != null)
+            {
+                PoseWingsuit();
+                return;
+            }
+            wings[0]?.Hide();
+            wings[1]?.Hide();
             PoseLegs(inp, spd, stepLen, dt, walking);
             PoseArms(inp, dt);
+        }
+
+        void PoseWingsuit()
+        {
+            float lean = Mathf.Lerp(64f, 85f, Mathf.InverseLerp(-0.25f, 0.7f, pitchSmooth)) * glideAmt;
+            if (model != transform)
+            {
+                Vector3 pivot = hips.position;
+                Bend(model, lean, Right);
+                model.position += pivot - hips.position;
+            }
+            else Bend(hips, lean, Right);
+            Bend(head, -36f * glideAmt, Right);
+            for (int i = 0; i < 2; i++)
+            {
+                bool left = i == 0;
+                var upper = left ? uarmL : uarmR;
+                var fore = left ? larmL : larmR;
+                var hand = left ? handL : handR;
+                Vector3 outward = Out(left);
+                Vector3 extended = upper.position + outward * 0.49f + transform.forward * 0.13f - Vector3.up * 0.09f;
+                SolveLimb(upper, fore, hand, Vector3.Lerp(hand.position, extended, glideAmt), -transform.forward - Vector3.up * 0.25f, armL1, armL2);
+                AimHand(hand, Quaternion.LookRotation(outward + transform.forward * 0.24f, Vector3.up), left ? frameRsL : frameRsR);
+                wings[i] ??= WingsuitFabric.Build(transform, gameObject.layer, SurvivorLight.BodyMask(Slot), true);
+                wings[i].Pose(upper.position, hand.position, hips.position + outward * 0.11f, Vector3.up, i * 1.4f);
+            }
         }
 
         // ------------------------------------------------------------------ busto, testa

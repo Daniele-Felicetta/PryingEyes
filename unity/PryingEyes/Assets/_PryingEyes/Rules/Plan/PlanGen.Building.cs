@@ -441,6 +441,10 @@ namespace PryingEyes.Proc
         // ------------------------------------------------------------------ the stacks: towers and catacombs
         /// <summary>The rooms a level of a stack is made of: the stair room, a big hall east of it and five rooms around the hall, about 37 x 40 m.</summary>
         public const int StackRooms = 7;
+        public const int TowerBalconyWidth = 18, TowerBalconyOffset = 48;
+        public const float TowerEntrySill = 0.82f;
+
+        public static int TowerBalconyCenter(Room room) => (room.z0 + room.z1) / 2 + TowerBalconyOffset;
 
         /// <summary>One level of a tower or of a catacomb. 'level' counts from the bottom (0 = lowest); the entrance is on the level 'entrance',
         /// the boss hall on 'boss'. Every level has the same footprint, with the stair room at the same place: that room has no floor from the
@@ -453,7 +457,8 @@ namespace PryingEyes.Proc
             bool isEntrance = level == entrance, isBoss = level == boss;
             var stair = w.Add(church ? RoomKind.Sacrestia : RoomKind.Servizio, 0, 0, StairW, StairD, r);
             stair.noFloor = level > 0;
-            stair.noCeil = level < levels - 1;
+            bool tower = entrance == 0 && levels > 1;
+            stair.noCeil = level < levels - 1 || tower;
             RoomKind hallKind, bigKind;
             RoomKind[] around;
             if (church)
@@ -502,7 +507,29 @@ namespace PryingEyes.Proc
             p.seed = seed; p.floor = 1; p.name = (church ? "Level " : "Floor ") + level;
             foreach (var room in p.rooms) { room.label = room.kind.ToString(); room.variant = r.Range(0, 1000); }
             if (!church || level >= entrance) { AddWindows(p, r); AddThemeWindows(p, r); }          // under the sand there are no windows
-            foreach (var o in p.openings) if (o.b < 0 && o.sill > 0.01f) o.noGlass = broken || r.Chance(0.35);
+            foreach (var o in p.openings)
+            {
+                if (o.b >= 0 || o.sill <= 0.01f) continue;
+                o.noGlass = broken || r.Chance(0.35);
+                // The church window recipes also serve halls taller than a stack level.
+                o.top = Math.Min(o.top, p.rooms[o.a].wallH - 0.22f);
+            }
+            p.openings.RemoveAll(o => o.b < 0 && o.sill > 0.01f && o.top < o.sill + 0.20f);
+            if (tower)
+            {
+                AddTowerWindow(p, rooms[4], Side.E, (rooms[4].z0 + rooms[4].z1) / 2 - TowerBalconyOffset);
+                AddTowerWindow(p, rooms[0], Side.N, (rooms[0].x0 + rooms[0].x1) / 2);
+                AddTowerWindow(p, rooms[2], Side.S, (rooms[2].x0 + rooms[2].x1) / 2);
+            }
+            if (tower && !isEntrance)
+            {
+                var wing = rooms[4];
+                var balcony = new Opening { a = wing.id, b = -1, line = wing.x1, center = TowerBalconyCenter(wing),
+                    width = TowerBalconyWidth, style = OpenStyle.PortaLarga, noGlass = true };
+                Opening.Defaults(balcony);
+                p.openings.RemoveAll(o => !o.alongX && o.line == wing.x1 && o.b < 0 && o.a == wing.id && balcony.Lo - 4 < o.Hi && balcony.Hi + 4 > o.Lo);
+                p.openings.Add(balcony);
+            }
             if (isEntrance)
             {
                 // the door to the sand: on the west wall of the hall, south of the stair room (the other three walls touch rooms)
@@ -514,6 +541,18 @@ namespace PryingEyes.Proc
             if (isBoss) hall.type = RoomType.Boss;
             p.ComputeBounds();
             return p;
+        }
+
+        static void AddTowerWindow(Plan plan, Room room, Side side, int center)
+        {
+            var opening = new Opening
+            {
+                a = room.id, b = -1, alongX = Plan.AlongX(side), line = Plan.Line(room, side),
+                center = center, width = 18, style = OpenStyle.Finestra, sill = TowerEntrySill, top = 2.52f, noGlass = true
+            };
+            plan.openings.RemoveAll(o => o.b < 0 && o.a == room.id && o.line == opening.line && o.alongX == opening.alongX &&
+                opening.Lo - 3 < o.Hi && opening.Hi + 3 > o.Lo);
+            plan.openings.Add(opening);
         }
 
         /// <summary>The stair room of a stack level (the first room).</summary>
