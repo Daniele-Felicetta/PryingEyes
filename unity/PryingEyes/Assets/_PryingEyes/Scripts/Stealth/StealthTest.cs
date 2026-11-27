@@ -265,7 +265,10 @@ namespace PryingEyes
 
             Enemy.ClearAll();
             Enemy.debugNoSense = false;
-            Enemy.debugFreeze = false;
+            // A priest that is free to move turns its gaze away on its own: on patrol it sweeps around the world heading 0 (Enemy.Stealth.cs, PlanMove/Sweep), which on a hall
+            // that runs along +Z is away from the player, so whether it noticed him (and so whistled, called, cast) was a race against that turn: the Mask in 0.6 s or never, the
+            // Primario one run in two, the Director never. Frozen, it keeps the heading the test gives it and still sees, alerts and attacks (debugFreeze holds the legs only).
+            Enemy.debugFreeze = true;
             pl.invulnerable = true;
             float t0;
             Enemy Face(Enemy.EnemyType type, float dist)
@@ -281,7 +284,7 @@ namespace PryingEyes
             t0 = Time.time;
             while (Time.time - t0 < 9f && Enemy.statWhistles == w0) yield return null;
             bool whistled = Enemy.statWhistles > w0;
-            Log($"Maschera: fischietto={whistled} dopo {Time.time - t0:F1} s");
+            Log($"Maschera: fischietto={whistled} dopo {Time.time - t0:F1} s, sguardo a {Vector3.Angle(m.transform.forward, -dir):F0} gradi dal giocatore, allerta {m.alert}");
             Check("Maschera: soffia il fischietto", whistled, $"dopo {Time.time - t0:F1} s");
 
             // l'Infermiere ti raggiunge e la puntura ti addormenta le gambe (Sedate non fa nulla a un giocatore invulnerabile:
@@ -290,12 +293,14 @@ namespace PryingEyes
             yield return null;
             pl.sedT = 0f;
             pl.invulnerable = false;
+            Enemy.debugFreeze = false;                  // the nurse is the one that walks: it is left as it always was
             var n = Face(Enemy.EnemyType.Infermiere, 2.0f);
             t0 = Time.time;
             while (Time.time - t0 < 9f && pl.sedT <= 0f) yield return null;
             bool sedated = pl.sedT > 0f;
             Log($"Infermiere: sedativo={sedated} dopo {Time.time - t0:F1} s (sedT={pl.sedT:F1})");
             pl.invulnerable = true;
+            Enemy.debugFreeze = true;
             Check("Infermiere: il sedativo addormenta le gambe", sedated, $"sedT {pl.sedT:F1}");
 
             // il Primario ti vede e chiama due infermieri (arrivano dopo qualche secondo)
@@ -309,7 +314,7 @@ namespace PryingEyes
             int before = Enemy.All.Count;
             yield return new WaitForSeconds(6f);
             int after = Enemy.All.Count;
-            Log($"Primario: richiamo={called}, nemici {before} -> {after}");
+            Log($"Primario: richiamo={called}, nemici {before} -> {after}, sguardo a {Vector3.Angle(p.transform.forward, -dir):F0} gradi dal giocatore, allerta {p.alert}");
             Check("Primario: chiama i rinforzi", called && after > before, $"nemici {before} -> {after}");
 
             // il Direttore carica e lancia un ventaglio di tre dardi
@@ -320,7 +325,7 @@ namespace PryingEyes
             t0 = Time.time;
             while (Time.time - t0 < 12f && Enemy.statBolts - b0 < 3) yield return null;
             int bolts = Enemy.statBolts - b0;
-            Log($"Direttore: dardi={bolts} dopo {Time.time - t0:F1} s");
+            Log($"Direttore: dardi={bolts} dopo {Time.time - t0:F1} s, sguardo a {Vector3.Angle(d.transform.forward, -dir):F0} gradi dal giocatore, allerta {d.alert}");
             Check("Direttore: lancia tre dardi", bolts >= 3, $"{bolts} dardi");
 
             Log(Failed == 0 ? "temi: OK" : "temi: ERRORE");
