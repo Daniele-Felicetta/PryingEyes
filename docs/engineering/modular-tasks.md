@@ -623,9 +623,9 @@ and what was checked that day is worth keeping.
   (`Braccia/`), the impact effects (`Fx.cs`, `Surfaces.cs`), the sounds and the magic seals need sockets (who takes the damage, where the camera is, who
   plays the effects, where the command comes from), and sockets are drawn well only with a second game that has guns. When that game exists it is a
   new task with its own page. Also not here: a new weapon, a rebalanced number, a change to the JSON schema.
-- **Outcome** (27 November 2026, #79, #80 and #N): `Production.Weapons` went from 1 file (137 lines) to 9 (563) in one pull request for each step, and `unity/LayoutDemo` fires weapons with it alone.
+- **Outcome** (27 November 2026, #79, #80 and #81): `Production.Weapons` went from 1 file (137 lines) to 9 (563) in one pull request for each step, and `unity/LayoutDemo` fires weapons with it alone.
   **The data** (#79): `WeaponDef`, `FireMode` and `ReloadStyle` (the 63 columns of `weapons.json`, in the order of the file), `Rgba` and `WeaponCatalogRules`: 3 files, 176 lines. **The arithmetic** (#80): `WeaponBallistics` and `Pierce`, `AimStance`,
-  `WeaponSpread` and `WeaponBloom`, `WeaponRecoil`, `ViewRecoil`, and `WeaponMath`, the 14 helpers that mean what `Mathf` means (internal): 5 files, 250 lines. **The demo** (#N): `WeaponRange` and `WeaponDemo.Verify` fire four weapons of a catalogue
+  `WeaponSpread` and `WeaponBloom`, `WeaponRecoil`, `ViewRecoil`, and `WeaponMath`, the 14 helpers that mean what `Mathf` means (internal): 5 files, 250 lines. **The demo** (#81): `WeaponRange` and `WeaponDemo.Verify` fire four weapons of a catalogue
   that belongs to no game (a rifle, a shotgun, a bolt action that goes through targets, a machine gun whose view climbs to its ceiling) at rows of targets with the package alone, and print what every shot did; it moves nothing. `Assembly-CSharp` went from 443 files (111,450 lines) to 444 (111,345),
   and no member went from `internal` to `public`.
   **What was settled.** The reader of the file stayed in the game: it is Newtonsoft.Json from its first line and a package may not reference a library, so the game checks the shape of the file and hands the package the records and their indices in file order
