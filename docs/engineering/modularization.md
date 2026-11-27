@@ -217,7 +217,7 @@ These hold from now, before any task is done:
 
 `python tools/code_census.py` at each step. The numbers that the plan moves (today: the census of 25 November 2026 at `839571c` with the last pull request of T08 applied; the plan started
 from the census of 24 November 2026 at `4aaafa8` with T07 applied, whose values (the third column) differ from the ones it was written with (34, 47, 51 and 39) because code arrived after it, the
-track mode first of all, and T07 had moved two of them). T20 (25 November 2026) moved the first row and T15 (the same day) the second, to 0; T08 moved the next six; T22 and T23 (26 November 2026) added the last two rows, which are measures and have no target (the last one is read at the second pull request of T23):
+track mode first of all, and T07 had moved two of them). T20 (25 November 2026) moved the first row and T15 (the same day) the second, to 0; T08 moved the next six; T22 and T23 (26 November 2026) added the last two rows, which are measures and have no target (the last one was read at each pull request of T23, and the third moves nothing):
 
 | Number (section of the census) | Today | When T08 started | Target | Task |
 | --- | --- | --- | --- | --- |
@@ -230,7 +230,7 @@ track mode first of all, and T07 had moved two of them). T20 (25 November 2026) 
 | Private command-line helpers (`flags`) | 42 | 43 | 2 | T19 |
 | Literals of test output relative to the working directory (`tests`) | 1 | 33 | 0 | T08 (T07 took it from 36): the one left is the default of `-hordeout` in the probe `PerfProbe.Horde.cs` |
 | Files that a package holds for the track mode (`sizes`: `Production.Racing`) | 14 (3,850 lines) | 0 | the mechanism only | T22, done |
-| Files that a package holds for the weapons (`sizes`: `Production.Weapons`) | 9 (563 lines) | 1 (137 lines) | the data first, then the arithmetic | T23: the data and the arithmetic are done, the demo is to come |
+| Files that a package holds for the weapons (`sizes`: `Production.Weapons`) | 9 (563 lines) | 1 (137 lines) | the data first, then the arithmetic | T23, done: the data, then the arithmetic; the demo moves nothing |
 
 The two rows about tests that are 0 now (production files that name a test, test files that ship) cannot grow: the guard holds them as a baseline, `tools/fixtures/game-boundaries.json`, which is
 empty, and fails on a new violation ([suite-architecture.md](suite-architecture.md#the-games-rules-about-tests)).

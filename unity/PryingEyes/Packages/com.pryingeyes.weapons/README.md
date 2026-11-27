@@ -36,7 +36,9 @@ serialisation of the first weapons against a fixture, and nine invalid catalogue
 
 The actual game composes one state per inventory slot inside `Weapon.cs`.
 `unity/LayoutDemo/Assets/WeaponDemo.cs` is a second caller with its own eight-round
-weapon, immediate-mode buttons and no Prying Eyes scripts or assets.
+weapon, immediate-mode buttons and no Prying Eyes scripts or assets. `WeaponRange.cs` there fires four weapons of a catalogue that belongs to no game at rows of targets: the cone,
+the bloom, the damage at a distance and through enemies, the kick of the view, the rounds and the cadence are the package's, the random draws and the hits are the caller's
+(`-executeMethod WeaponDemo.Verify` prints what each shot did and checks what the package promises of a shot).
 
 ```csharp
 var state = new WeaponState();
@@ -90,7 +92,7 @@ sign), and each one made it fail. The references are verification-only, never co
 
 The native gunplay suite verifies the Unity adapter. The independent demo consumes
 the package through its own manifest and checks fire, cooldown, reload lock and
-ammunition conservation. Fire-mode selection, burst input, inventory, the direction a
+ammunition conservation, and its shooting range fires a rifle, a machine gun, a shotgun and a bolt action with everything above. Fire-mode selection, burst input, inventory, the direction a
 bullet takes (a vector in the engine's own type), what it hits, the sway and kick of the
 model and the presentation are still outside the package.
 
