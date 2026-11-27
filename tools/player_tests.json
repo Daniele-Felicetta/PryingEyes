@@ -178,10 +178,10 @@
     {
       "name": "magiatest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/Magia/MagiaTest.cs",
-      "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-magiatest", "-seed", "1000", "-floor", "1"],
+      "args": ["-batchmode", "-autotest", "-nofire", "-noenemies", "-magiatest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 900,
-      "needs": ["runtime"],
+      "needs": ["runtime", "gpu"],
       "hazards": [],
       "photos": {"args": ["-magiashots"], "needs": ["gpu"], "folder": "hotel_build/magia"},
       "page": "docs/game/arms-and-magic.md"
