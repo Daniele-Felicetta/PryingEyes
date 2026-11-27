@@ -85,9 +85,16 @@ namespace PryingEyes.Proc
                 // la cattedrale (i luoghi hanno la loro facciata, SiteFacade): tetti, zoccolo, cornici, finestre
                 var dress = new MeshBuilder();
                 long t0 = swBuild.ElapsedMilliseconds;
-                FacadeBuild(plan, 0f, FacadePalette, FacadeRoofs, FacadeCrown, false, true, dress, null, 0, int.MaxValue, FacadeTurrets);
+                var roofPhysics = FacadeRoofs ? new MeshBuilder() : null;
+                FacadeBuild(plan, 0f, FacadePalette, FacadeRoofs, FacadeCrown, false, true, dress, null, 0, int.MaxValue, FacadeTurrets, roofPhysics);
                 long t1 = swBuild.ElapsedMilliseconds;
                 Flush(fi.root, "Facciata", dress, false, null);
+                if (roofPhysics != null && !roofPhysics.Empty)
+                {
+                    var roof = new GameObject("Walkable roof");
+                    roof.transform.SetParent(fi.root.transform, false);
+                    roof.AddComponent<MeshCollider>().sharedMesh = roofPhysics.ToMesh("Walkable roof", out _, false);
+                }
                 long t2 = swBuild.ElapsedMilliseconds;
                 if (t2 - t0 > 40 || msRooms > 400)
                     Debug.Log($"[PryingEyes] piano {plan.name}: {plan.rooms.Count} stanze in {msRooms} ms, giardini e santuari {msExtras} ms, facciata {t1 - t0} ms + mesh {t2 - t1} ms");
@@ -700,7 +707,8 @@ namespace PryingEyes.Proc
                     faceTop = x => top0(x + shiftX);
                     faceBr = ShiftBreaks(br0, shiftX, faceLen);
                 }
-                DrawFace(mb, st.outer, null, 0f, faceO, u, outward, faceLen, faceTop, faceBr, faceHoles, faceU);
+                mb.WallFace(st.outer, faceO, u, outward, faceLen, 0f, faceTop, faceHoles, faceU, faceBr,
+                    grooves: exteriorBuild && !LegacyWalls && !r.Open);
                 // un muro crollato non ha il tetto ne' il coronamento: tra la faccia dentro e la pelle fuori c'e' il vuoto di 30 cm, e da sopra (da una duna, da una torre, da chi e' piu' basso del muro) si vede dentro
                 if (exteriorBuild && !LegacyWalls && r.crumble && r.ruined && !r.Open) WallCap(mb, st.outer, faceO, u, outward, faceLen, faceTop, faceBr, faceHoles);
                 if (r.Open)
