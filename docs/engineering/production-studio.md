@@ -319,6 +319,14 @@ local package and built-in Unity modules, without the Prying Eyes runtime. Nativ
 verification passes 12 checks across layout, rooms and weapon state, recorded in
 `unity_logs/weapon-state-independent/report.json`.
 
+The same project holds a shooting range for the rest of the package (`WeaponRange.cs`, which `WeaponDemo` shows in a second panel). Four weapons of a catalogue that
+belongs to no game, accepted by `WeaponCatalogRules`, are fired at rows of targets: the cone, the bloom, the damage at a distance and through enemies, the kick of the view
+and the rounds are the package's, and the random numbers and the hits are the caller's. `-executeMethod WeaponDemo.Verify` runs it in batch mode: it prints what every shot did
+and a last line that begins `WEAPON_DEMO_OK`, and it throws, so that Unity exits with an error, when the package does not do what it promises of a shot (a hit inside the near range
+is the damage of the weapon, at the far range the far multiplier of it, on a head the head multiplier; a shotgun fires its pellets; a bolt action goes through exactly the targets it
+should and each takes the pierce multiplier less; the bloom has a ceiling and goes away; the view kicks, stays under its ceiling and comes back; the rounds are conserved; the same
+seed gives the same shots). Its numbers are compared with nothing outside the run: single-precision arithmetic is not bit for bit the same on Unity and on .NET.
+
 
 ## Weapon-state extraction: verified integration
 
