@@ -472,7 +472,7 @@
       "name": "pistaperf",
       "label": "pistatest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/PistaTest.cs",
-      "args": ["-batchmode", "-pistatest", "-pistaperf", "-pistabot", "-pistalaps", "1", "-pistarivals", "11", "-seed", "777"],
+      "args": ["-batchmode", "-autotest", "-pistatest", "-pistaperf", "-pistabot", "-pistalaps", "1", "-pistarivals", "11", "-seed", "777"],
       "mode": "track",
       "timeout": 180,
       "needs": ["runtime", "gpu"],
