@@ -627,7 +627,7 @@
     {
       "name": "magictest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/MagicTest.cs",
-      "args": ["-batchmode", "-nographics", "-autotest", "-magictest", "-seed", "1000", "-floor", "1"],
+      "args": ["-batchmode", "-nographics", "-autotest", "-noenemies", "-magictest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 180,
       "needs": ["runtime"],
