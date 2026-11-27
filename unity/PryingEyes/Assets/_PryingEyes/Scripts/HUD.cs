@@ -1,4 +1,5 @@
 using System.Globalization;
+using Production.Weapons;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -579,7 +580,7 @@ namespace PryingEyes
             weaponNameText.supportRichText = true;
             // arma consacrata (Consacrazione): nome in oro con la scritta accanto
             weaponNameText.text = upg ? d.name + "  <size=13><color=#F5C84C>CONSACRATA</color></size>" : d.name;
-            weaponNameText.color = upg ? Gold : d.GradeColor;
+            weaponNameText.color = upg ? Gold : d.GradeColor.ToColor();
             weaponSubText.text = $"{d.cls}  ·  {mode}  ·  {d.GradeName.ToUpperInvariant()}";
             string s1 = a != null ? (upgA ? a.name + " +" : a.name) : "—", s2 = b != null ? (upgB ? b.name + " +" : b.name) : "—";
             string c1 = slot == 0 ? "#EDE3CC" : "#929694", c2 = slot == 1 ? "#EDE3CC" : "#929694";

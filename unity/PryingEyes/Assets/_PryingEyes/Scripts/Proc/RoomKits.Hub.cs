@@ -395,7 +395,7 @@ namespace PryingEyes.Proc
                 for (int i = 0; i < picks.Count; i++)
                 {
                     var pos = new Vector3(c.ix0 + 2.2f + i * 2.0f, 1.55f, c.iz1 + 0.03f);
-                    WallBuy.Place(picks[i], 0, pos, Quaternion.LookRotation(Vector3.back), WeaponDefs.All[picks[i]].GradeColor);
+                    WallBuy.Place(picks[i], 0, pos, Quaternion.LookRotation(Vector3.back), WeaponDefs.All[picks[i]].GradeColor.ToColor());
                 }
             }
             else HubSite(c, "sacrestia", new Vector3(c.Center.x - 1f, 0f, c.iz1 - 1.6f), Vector3.back, 2.4f);

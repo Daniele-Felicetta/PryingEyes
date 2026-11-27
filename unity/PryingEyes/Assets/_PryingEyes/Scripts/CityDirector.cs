@@ -28,7 +28,7 @@ namespace PryingEyes
             int index = WeaponDefs.IndexOf(id);
             if (index < 0) { Debug.LogError("[City] weapon missing: " + id); return; }
             var def = WeaponDefs.All[index];
-            WallBuy.Place(index, def.price, p, rot, def.GradeColor);
+            WallBuy.Place(index, def.price, p, rot, def.GradeColor.ToColor());
         }
     }
 }

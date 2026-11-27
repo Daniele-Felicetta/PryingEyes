@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using Production.Weapons;
 using UnityEngine;
 using UnityEditor;
 
@@ -202,7 +203,7 @@ namespace PryingEyes.EditorTools
             }
             m.shader = Shader.Find("PryingEyes/Reticle");
             int pat = def != null && (def.sight == "holo" || def.sight == "ring") ? Mathf.Clamp(def.pattern, 0, 2) : 0;
-            m.SetColor("_Color", def != null && def.reticle.HasValue ? def.reticle.Value : def != null && def.sight == "holo" ? new Color(1f, 0.045f, 0.02f, 1f) : new Color(1f, 0.05f, 0.03f, 1f));   // intensita' 5,5: un verde > 0,1 satura e il rosso esce giallo
+            m.SetColor("_Color", def != null && def.reticle.HasValue ? def.reticle.Value.ToColor() : def != null && def.sight == "holo" ? new Color(1f, 0.045f, 0.02f, 1f) : new Color(1f, 0.05f, 0.03f, 1f));   // intensita' 5,5: un verde > 0,1 satura e il rosso esce giallo
             m.SetFloat("_Intensity", 5.5f);
             m.SetFloat("_Pattern", pat);
             m.SetFloat("_Dot", 0.17f * (def != null ? def.dotSize : 1f));

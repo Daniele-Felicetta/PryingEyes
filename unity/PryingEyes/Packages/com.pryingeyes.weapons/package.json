@@ -2,6 +2,6 @@
   "name": "com.pryingeyes.weapons",
   "version": "0.1.0",
   "displayName": "Production Weapons",
-  "description": "Weapon ammunition, reload transitions and cadence without engine or game dependencies.",
+  "description": "Weapon data and rules without engine or game dependencies: the record of a weapon, the rules of a catalogue of weapons, and ammunition, reload transitions and cadence.",
   "unity": "6000.0"
 }

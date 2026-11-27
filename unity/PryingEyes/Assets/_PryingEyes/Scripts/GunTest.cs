@@ -1,5 +1,6 @@
 #if !PE_DISTRIBUTION_BUILD
 using System.Collections;
+using Production.Weapons;
 using UnityEngine;
 using PryingEyes.Testing;
 
@@ -149,7 +150,7 @@ namespace PryingEyes
                     int wi = WeaponDefs.IndexOf(ids3[k]);
                     Vector3 pos = cam.position + fwd * place + cam.right * ((k - 1) * spread);
                     pos.y = cam.position.y - 0.05f;
-                    WallBuy.Place(wi, WeaponDefs.All[wi].price, pos, Quaternion.LookRotation(-fwd), WeaponDefs.All[wi].GradeColor);
+                    WallBuy.Place(wi, WeaponDefs.All[wi].price, pos, Quaternion.LookRotation(-fwd), WeaponDefs.All[wi].GradeColor.ToColor());
                 }
                 yield return new WaitForSeconds(0.6f);
                 GameManager.CamShot(dir + "/espositori.png", null, true);

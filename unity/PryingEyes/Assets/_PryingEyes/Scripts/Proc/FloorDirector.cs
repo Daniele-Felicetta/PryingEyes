@@ -1066,7 +1066,7 @@ namespace PryingEyes.Proc
                     foreach (var s in taken) if ((s - pos).sqrMagnitude < 16f) { near = true; break; }
                     if (near) continue;
                     taken.Add(pos);
-                    WallBuy.Place(index, WeaponDefs.All[index].price, pos, rot, WeaponDefs.All[index].GradeColor);
+                    WallBuy.Place(index, WeaponDefs.All[index].price, pos, rot, WeaponDefs.All[index].GradeColor.ToColor());
                     return true;
                 }
                 return false;
@@ -1108,7 +1108,7 @@ namespace PryingEyes.Proc
                 while (used.Contains(room) && guard++ < cand.Count) room = cand[(cand.IndexOf(room) + 1) % cand.Count];
                 used.Add(room);
                 if (TryWallSpot(plan, room, rng, out Vector3 pos, out Quaternion rot))
-                    WallBuy.Place(picks[k], WeaponDefs.All[picks[k]].price, pos, rot, WeaponDefs.All[picks[k]].GradeColor);
+                    WallBuy.Place(picks[k], WeaponDefs.All[picks[k]].price, pos, rot, WeaponDefs.All[picks[k]].GradeColor.ToColor());
             }
         }
 

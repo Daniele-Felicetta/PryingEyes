@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
-using UnityEngine;
+using Newtonsoft.Json.Serialization;
+using Production.Weapons;
 
 namespace PryingEyes
 {
@@ -24,7 +24,8 @@ namespace PryingEyes
         {
             MissingMemberHandling = MissingMemberHandling.Error,
             TypeNameHandling = TypeNameHandling.None,
-            Converters = new List<JsonConverter> { new StringEnumConverter { AllowIntegerValues = false }, new ColorConverter() }
+            Converters = new List<JsonConverter> { new StringEnumConverter { AllowIntegerValues = false }, new RgbaConverter() },
+            ContractResolver = new RecordContract()
         };
 
         public static WeaponCatalog Parse(string json)
@@ -49,40 +50,44 @@ namespace PryingEyes
                 }
             }
             var catalog = root.ToObject<WeaponCatalog>(JsonSerializer.Create(Settings));
-            var ids = new HashSet<string>();
-            for (int i = 0; i < catalog.weapons.Length; i++)
-            {
-                var entry = catalog.weapons[i]; var d = entry.definition;
-                if (entry.index != i || d == null || string.IsNullOrWhiteSpace(d.id) || !Regex.IsMatch(d.id, "^[a-z][a-z0-9_]+$") || !ids.Add(d.id))
-                    throw new JsonException("WEAPON_ID_OR_INDEX: append-only unique IDs and indices required");
-                foreach (var field in fields)
-                    if (field.FieldType == typeof(float) && (float.IsNaN((float)field.GetValue(d)) || float.IsInfinity((float)field.GetValue(d))))
-                        throw new JsonException("WEAPON_NONFINITE: " + d.id + "." + field.Name);
-                if (d.modes == null || d.modes.Length == 0 || d.mag <= 0 || d.reserve < 0 || d.reserveMax < d.reserve ||
-                    d.damage <= 0 || d.rpm <= 0 || d.reload <= 0 || d.reloadEmpty <= 0 || d.grade < 1 || d.grade > 5 || d.price < 0)
-                    throw new JsonException("WEAPON_STATS_INVALID: " + d.id);
-            }
+            var indices = new int[catalog.weapons.Length];
+            var definitions = new WeaponDef[catalog.weapons.Length];
+            for (int i = 0; i < indices.Length; i++) { indices[i] = catalog.weapons[i].index; definitions[i] = catalog.weapons[i].definition; }
+            string problem = WeaponCatalogRules.Check(indices, definitions);       // identifiers and indices, finite numbers, statistics: the rules of a catalogue are the package's
+            if (problem != null) throw new JsonException(problem);
             return catalog;
         }
 
         public string ToJson() => JsonConvert.SerializeObject(this, Formatting.Indented, Settings);
 
-        sealed class ColorConverter : JsonConverter
+        /// <summary>WeaponDef is a record of public fields: the columns of the catalogue are its fields, and its two computed properties (the name and the colour of the grade) are not data.
+        /// The record said so with an attribute of this library until it moved to a package that cannot name the library; now the reader says it.</summary>
+        sealed class RecordContract : DefaultContractResolver
         {
-            public override bool CanConvert(Type type) => type == typeof(Color) || type == typeof(Color?);
+            protected override List<MemberInfo> GetSerializableMembers(Type objectType)
+            {
+                var members = base.GetSerializableMembers(objectType);
+                if (objectType == typeof(WeaponDef)) members.RemoveAll(member => !(member is FieldInfo));
+                return members;
+            }
+        }
+
+        sealed class RgbaConverter : JsonConverter
+        {
+            public override bool CanConvert(Type type) => type == typeof(Rgba) || type == typeof(Rgba?);
             public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
             {
                 if (value == null) { writer.WriteNull(); return; }
-                var c = (Color)value;
+                var c = (Rgba)value;
                 writer.WriteStartArray(); writer.WriteValue(c.r); writer.WriteValue(c.g); writer.WriteValue(c.b); writer.WriteValue(c.a); writer.WriteEndArray();
             }
             public override object ReadJson(JsonReader reader, Type type, object existing, JsonSerializer serializer)
             {
-                if (reader.TokenType == JsonToken.Null && type == typeof(Color?)) return null;
+                if (reader.TokenType == JsonToken.Null && type == typeof(Rgba?)) return null;
                 var values = JArray.Load(reader);
                 if (values.Count != 4) throw new JsonException("COLOR_COMPONENTS: expected RGBA");
                 foreach (var value in values) if (value.Type != JTokenType.Float && value.Type != JTokenType.Integer) throw new JsonException("COLOR_COMPONENT_TYPE");
-                var c = new Color((float)values[0], (float)values[1], (float)values[2], (float)values[3]);
+                var c = new Rgba((float)values[0], (float)values[1], (float)values[2], (float)values[3]);
                 for (int i = 0; i < 4; i++) if (float.IsNaN(c[i]) || float.IsInfinity(c[i])) throw new JsonException("COLOR_NONFINITE");
                 return c;
             }

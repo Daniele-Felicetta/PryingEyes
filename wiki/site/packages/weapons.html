@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Production Weapons · Prying Eyes wiki</title>
-<meta name="description" content="Engine-independent rules of a weapon: ammunition, the transitions of a reload and the cadence of the shots, with no engine and no game dependency.">
+<meta name="description" content="Engine-independent data and rules of a weapon: its record, the rules of a catalogue, ammunition, the transitions of a reload and the cadence of the shots, with no engine and no game dependency.">
 <link rel="stylesheet" href="../assets/wiki.css">
 <script src="../assets/search-index.js" defer></script>
 <script src="../assets/wiki.js" defer></script>
@@ -19,7 +19,7 @@
 <article class="prose">
 <h1 id="production-weapons">Production Weapons</h1>
 <figure><img src="../../img/packages/weapons.webp" alt="Card: the weapons package, a magazine and a reload" loading="lazy"><figcaption>The weapons package, on a card.</figcaption></figure>
-<p><code>com.pryingeyes.weapons</code> (version 0.1.0, displayed as Production Weapons) is the mechanical state of a weapon: how many rounds are in the magazine and in the reserve, which step a reload is in, and how fast the shots follow each other. The game's <code>Weapon</code> class still mixes its input and its presentation with this state, which was extracted so that the state can be checked without the editor.</p>
+<p><code>com.pryingeyes.weapons</code> (version 0.1.0, displayed as Production Weapons) holds the numbers of a weapon and nothing else. It has the record of a weapon as the catalogue writes it (damage and its fall with range, rate of fire, magazine, recoil, accuracy, and the hints for sight and sound that the game reads) with the rules that a catalogue must satisfy, and the mechanical state of a weapon: how many rounds are in the magazine and in the reserve, which step a reload is in, and how fast the shots follow each other. The game reads <code>weapons.json</code> itself and keeps everything that looks, sounds or moves. Its <code>Weapon</code> class still mixes its input and its presentation with the state, which was extracted so that the state can be checked without the editor.</p>
 <section id="checks">
 <h2 id="checks">Checks</h2>
 <p><code>python tools/studio.py test weapon-state</code> runs in the <a href="../pipeline/ci-gate.html">CI gate</a>. It compiles the package through <code>tools/weaponslab</code>. Each of the game's weapons has a page of its own, starting with <a href="../weapons/pieta-p9.html">the Pieta P-9</a>.</p>

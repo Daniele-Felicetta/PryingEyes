@@ -295,7 +295,7 @@ namespace PryingEyes.Deserto
                         var room = rooms[rng.Range(0, rooms.Count)];
                         if (!TryWallSpot(plan, room, rng, y, out Vector3 pos, out Quaternion rot)) continue;
                         int wi = pool[rng.Range(0, pool.Count)];
-                        var wb = WallBuy.Place(wi, 0, pos, rot, WeaponDefs.All[wi].GradeColor, true);
+                        var wb = WallBuy.Place(wi, 0, pos, rot, WeaponDefs.All[wi].GradeColor.ToColor(), true);
                         wb.transform.SetParent(fi.root.transform, true);
                         loot[u].Add(wb.gameObject);
                         break;
