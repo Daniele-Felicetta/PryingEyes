@@ -70,8 +70,9 @@ namespace PryingEyes
             var plan = floor.cur.plan;
             var entrance = plan.Find(RoomKind.Nartece);
             var nave = plan.Find(RoomKind.Navata);
-            var portal = plan.openings.Find(o => (o.a == entrance.id && o.b == nave.id) || (o.a == nave.id && o.b == entrance.id));
-            if (!Check("l'arco tra nartece e navata c'e'", portal != null)) yield break;
+            // only the wing plan has a church (-oldplan, which the manifest passes): on the grid plan the rooms are not there, and the check says so instead of an exception
+            var portal = entrance != null && nave != null ? plan.openings.Find(o => (o.a == entrance.id && o.b == nave.id) || (o.a == nave.id && o.b == entrance.id)) : null;
+            if (!Check("l'arco tra nartece e navata c'e'", portal != null, entrance == null || nave == null ? "la pianta non ha la chiesa (serve -oldplan)" : "")) yield break;
 
             string output = System.IO.Path.GetFullPath(Dir + "/../fotorealismo");
             Directory.CreateDirectory(output);
@@ -145,7 +146,7 @@ namespace PryingEyes
             Debug.Log($"[PryingEyes] pala scolpita: {retableMeshes} mesh");
             if (entranceKey != null)
                 Debug.Log($"[PryingEyes] chiarore del nartece: {entranceKey.transform.position}, intensità {entranceKey.intensity:F1}, ombre {entranceKey.shadows}");
-            Check("il monaco ha le fibre e l'animatore con le cinque animazioni", CheckMonkFibers(monk));
+            Check("il monaco ha le fibre e l'animatore con le sei animazioni", CheckMonkFibers(monk));
             Check("le vetrate proiettano la luce", windows > 0, windows + " vetrate");
             Check("le vetrate rimbalzano la luce", bounces > 0, bounces + " rimbalzi");
             Check("la pala scolpita del presbiterio ha le sue mesh", sanctuary == null || retableMeshes >= 3, retableMeshes + " mesh");
@@ -173,9 +174,10 @@ namespace PryingEyes
             Destroy(mesh);
             float displacement = 0f;
             for (int i = 0; i < idle.Length; i++) displacement = Mathf.Max(displacement, (walking[i] - idle[i]).sqrMagnitude);
+            // sei clip (Monaco.controller): Fermo, Cammina, Colpito e Morte, piu' Attacco (la preparazione della mischia, Mischia.anim) e Incanto (la carica della magia: la vecchia clip d'attacco), le ultime due dal 13 novembre 2026 (d1f381f)
             int clips = animator.runtimeAnimatorController.animationClips.Length;
             Debug.Log($"[PryingEyes] fibre: {idle.Length} vertici, {clips} clip, spostamento fra pose {Mathf.Sqrt(displacement):F3} m");
-            return clips == 5 && displacement > 0.000025f;
+            return clips == 6 && displacement > 0.000025f;
         }
 
         IEnumerator CheckAliens(Vector3 start, Vector3 dir)
@@ -265,7 +267,10 @@ namespace PryingEyes
 
             Enemy.ClearAll();
             Enemy.debugNoSense = false;
-            Enemy.debugFreeze = false;
+            // A priest that is free to move turns its gaze away on its own: on patrol it sweeps around the world heading 0 (Enemy.Stealth.cs, PlanMove/Sweep), which on a hall
+            // that runs along +Z is away from the player, so whether it noticed him (and so whistled, called, cast) was a race against that turn: the Mask in 0.6 s or never, the
+            // Primario one run in two, the Director never. Frozen, it keeps the heading the test gives it and still sees, alerts and attacks (debugFreeze holds the legs only).
+            Enemy.debugFreeze = true;
             pl.invulnerable = true;
             float t0;
             Enemy Face(Enemy.EnemyType type, float dist)
@@ -281,7 +286,7 @@ namespace PryingEyes
             t0 = Time.time;
             while (Time.time - t0 < 9f && Enemy.statWhistles == w0) yield return null;
             bool whistled = Enemy.statWhistles > w0;
-            Log($"Maschera: fischietto={whistled} dopo {Time.time - t0:F1} s");
+            Log($"Maschera: fischietto={whistled} dopo {Time.time - t0:F1} s, sguardo a {Vector3.Angle(m.transform.forward, -dir):F0} gradi dal giocatore, allerta {m.alert}");
             Check("Maschera: soffia il fischietto", whistled, $"dopo {Time.time - t0:F1} s");
 
             // l'Infermiere ti raggiunge e la puntura ti addormenta le gambe (Sedate non fa nulla a un giocatore invulnerabile:
@@ -290,12 +295,14 @@ namespace PryingEyes
             yield return null;
             pl.sedT = 0f;
             pl.invulnerable = false;
+            Enemy.debugFreeze = false;                  // the nurse is the one that walks: it is left as it always was
             var n = Face(Enemy.EnemyType.Infermiere, 2.0f);
             t0 = Time.time;
             while (Time.time - t0 < 9f && pl.sedT <= 0f) yield return null;
             bool sedated = pl.sedT > 0f;
             Log($"Infermiere: sedativo={sedated} dopo {Time.time - t0:F1} s (sedT={pl.sedT:F1})");
             pl.invulnerable = true;
+            Enemy.debugFreeze = true;
             Check("Infermiere: il sedativo addormenta le gambe", sedated, $"sedT {pl.sedT:F1}");
 
             // il Primario ti vede e chiama due infermieri (arrivano dopo qualche secondo)
@@ -309,7 +316,7 @@ namespace PryingEyes
             int before = Enemy.All.Count;
             yield return new WaitForSeconds(6f);
             int after = Enemy.All.Count;
-            Log($"Primario: richiamo={called}, nemici {before} -> {after}");
+            Log($"Primario: richiamo={called}, nemici {before} -> {after}, sguardo a {Vector3.Angle(p.transform.forward, -dir):F0} gradi dal giocatore, allerta {p.alert}");
             Check("Primario: chiama i rinforzi", called && after > before, $"nemici {before} -> {after}");
 
             // il Direttore carica e lancia un ventaglio di tre dardi
@@ -320,7 +327,7 @@ namespace PryingEyes
             t0 = Time.time;
             while (Time.time - t0 < 12f && Enemy.statBolts - b0 < 3) yield return null;
             int bolts = Enemy.statBolts - b0;
-            Log($"Direttore: dardi={bolts} dopo {Time.time - t0:F1} s");
+            Log($"Direttore: dardi={bolts} dopo {Time.time - t0:F1} s, sguardo a {Vector3.Angle(d.transform.forward, -dir):F0} gradi dal giocatore, allerta {d.alert}");
             Check("Direttore: lancia tre dardi", bolts >= 3, $"{bolts} dardi");
 
             Log(Failed == 0 ? "temi: OK" : "temi: ERRORE");

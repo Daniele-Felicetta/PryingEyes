@@ -5,12 +5,11 @@ using PryingEyes.Testing;
 
 namespace PryingEyes
 {
-    /// <summary>-autotest -walltest: davanti all'espositore della VESPER-9 (sul muro sud della hall) verifica il prompt, l'acquisto con F, la spesa dei punti e
+    /// <summary>-autotest -walltest: davanti a un espositore di armi del piano (il piu' vicino al giocatore: FloorDirector.PlaceWallBuys) verifica il prompt, l'acquisto con F, la spesa dei punti e
     /// la ricarica della riserva a meta' prezzo, poi l'animazione di ricarica con la foto a meta' (hotel_build/reload.png) e i contatori dell'HUD.
-    /// Era una procedura di GameManager, portata cosi' com'e'.
-    /// STATO: la scena e' quella della hall classica (la sonda sta a x -10, z 20,2, davanti al muro sud), che i piani della torre non hanno: li' davanti alla sonda non c'e'
-    /// nessun espositore, il prompt resta vuoto, nessun acquisto avviene e i primi quattro controlli falliscono, come prima del porting (il vecchio log diceva prompt="").
-    /// Il controllo dei contatori dell'HUD non dipende dall'espositore e regge. Non riparata.</summary>
+    /// Era una procedura di GameManager, portata cosi' com'era: la sonda stava a x -10, z 20,2, davanti all'espositore della VESPER-9 sul muro sud della hall classica, che i piani della torre non
+    /// hanno (li' davanti alla sonda non c'e' niente, il prompt restava vuoto e i primi quattro controlli fallivano). Ora la sonda si mette a 2,2 m davanti all'espositore che il piano ha davvero (piu'
+    /// vicino se un arredo copre la visuale): l'arma cambia con il piano e col seme, e i punti si portano al prezzo se non bastano (il controllo e' sulla meccanica, non sul listino).</summary>
     public sealed class WallTest : PlayerTest
     {
         protected override string Suite { get { return "walltest"; } }
@@ -20,21 +19,45 @@ namespace PryingEyes
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install() { InstallWhen<WallTest>("-walltest"); }
 
+        /// <summary>L'espositore a pagamento piu' vicino a un punto, di un'arma che il giocatore non ha gia' in mano (null se il piano non ne ha: con un'arma che si ha gia' il prompt sarebbe quello
+        /// delle munizioni, con un pannello gratuito "PRENDI", e questa prova guarda l'acquisto).</summary>
+        static WallBuy NearestDisplay(Vector3 from, Weapon carried)
+        {
+            WallBuy best = null;
+            float bestSqr = float.MaxValue;
+            foreach (var w in FindObjectsByType<WallBuy>(FindObjectsSortMode.None))
+            {
+                if (w.Free || w.price <= 0 || carried.SlotOf(w.weaponIndex) >= 0) continue;
+                float sqr = (w.transform.position - from).sqrMagnitude;
+                if (sqr < bestSqr) { bestSqr = sqr; best = w; }
+            }
+            return best;
+        }
+
         protected override IEnumerator Run()
         {
             var gm = GameManager.I;
             while (!gm.LevelReady || Time.timeSinceLevelLoad < 3f) yield return null;      // GameManager la faceva partire dopo 3 s di prova automatica
             var player = gm.player; var hud = gm.hud;
             if (!Check("il giocatore ha un'arma", player != null && player.weapon != null)) yield break;
-            // in autotest la camera del giocatore punta ai nemici: uso una sonda fissa davanti alla VESPER
+            var display = NearestDisplay(player.transform.position, player.weapon);
+            if (display == null) { NotApplicable("il piano non ha nessun espositore a pagamento di un'arma che il giocatore non ha (cambia seme o piano)"); yield break; }
+            // in autotest la camera del giocatore punta ai nemici: uso una sonda fissa davanti all'espositore (il suo davanti guarda la stanza)
             var probe = new GameObject("WallTestProbe");
-            probe.transform.position = new Vector3(-10f, 1.55f, 20.2f);
-            probe.transform.rotation = Quaternion.LookRotation(new Vector3(-10f, 1.55f, 22.42f) - probe.transform.position);
-            yield return null;
-            WallBuy.Tick(probe.transform);
-            string prompt = hud != null ? hud.CurrentPrompt : "";
-            Debug.Log("[PryingEyes] walltest prompt=\"" + prompt + "\" score=" + gm.score);
+            string prompt = "";
+            foreach (float dist in new[] { 2.2f, 1.8f, 1.4f, 1.0f })
+            {
+                probe.transform.position = display.transform.position + display.transform.forward * dist;
+                probe.transform.rotation = Quaternion.LookRotation(display.transform.position - probe.transform.position);
+                yield return null;
+                WallBuy.Tick(probe.transform);
+                prompt = hud != null ? hud.CurrentPrompt : "";
+                if (prompt.Length > 0) break;
+            }
+            Debug.Log("[PryingEyes] walltest espositore " + display.displayName + " a " + display.price + " punti, prompt=\"" + prompt + "\" score=" + gm.score);
             Check("davanti all'espositore il prompt offre l'acquisto", prompt.StartsWith("ACQUISTA") && prompt.Contains("PUNTI"), "prompt \"" + prompt + "\"");
+            int topUp = 0;
+            if (gm.score < display.price) { topUp = display.price - gm.score; gm.AddPoints(topUp); }      // il listino cambia da un piano all'altro: qui si prova la meccanica
             int score0 = gm.score; string weapon0 = player.weapon.Def.name;
             WallBuy.TryBuy();
             Debug.Log("[PryingEyes] walltest dopo acquisto: score=" + gm.score + " arma=" + player.weapon.Def.name
@@ -42,9 +65,9 @@ namespace PryingEyes
                 + " hud=" + (hud != null ? hud.CurrentAmmo + " " + hud.CurrentReserve : ""));
             int price = score0 - gm.score;
             Check("l'acquisto con F spende i punti e cambia l'arma", price > 0 && player.weapon.Def.name != weapon0,
-                  "punti " + score0 + " -> " + gm.score + ", arma " + weapon0 + " -> " + player.weapon.Def.name);
+                  "punti " + score0 + " -> " + gm.score + ", arma " + weapon0 + " -> " + player.weapon.Def.name + (topUp > 0 ? " (portati al prezzo: +" + topUp + ")" : ""));
             yield return null;
-            gm.AddPoints(300);
+            gm.AddPoints(Mathf.Max(300, display.AmmoPrice));
             player.weapon.reserve = 5;
             WallBuy.Tick(probe.transform);
             string prompt2 = hud != null ? hud.CurrentPrompt : "";

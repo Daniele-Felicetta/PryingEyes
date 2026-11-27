@@ -427,11 +427,14 @@ namespace PryingEyes
             float dFar = far != null ? Vector3.Distance(far.transform.position, pl.transform.position) : 0f;
             Log($"bersagli: vicino {Vector3.Distance(near.transform.position, pl.transform.position):F1} m, medio {(mid != null ? dMid.ToString("F1") : "-")} m, lontano {(far != null ? dFar.ToString("F1") : "-")} m");
             s = gm.score; n0 = Drops.statSpawned; int nk0 = Drops.statNuked;
+            int medals0 = Medals.Points;                             // le medaglie (2026-11-15) pagano a parte: due morti insieme sono una Doppietta, +20
             Drops.Apply(DropKind.Nuke);
             yield return new WaitForSeconds(0.3f);
+            int medals = Medals.Points - medals0;
             Check("Campana: uccide chi e' vicino e chi e' entro 22 m", near.IsDead && (mid == null || mid.IsDead), $"vicino {near.IsDead}, medio {(mid != null ? mid.IsDead.ToString() : "-")}");
             if (far != null && dFar > Drops.NukeRadius + 0.5f) Check("Campana: chi e' oltre 22 m sopravvive", !far.IsDead, $"a {dFar:F0} m");
-            Check("Campana: +400 punti in tutto, nessun punto a testa", gm.score - s == Drops.NukePoints, $"+{gm.score - s}");
+            // i 400 della Campana, e nient'altro: niente punti a testa (Punti.PerUccisione dice 0 per DamageSource.Nuke); le medaglie a catena si tolgono dal conto
+            Check("Campana: +400 punti in tutto, nessun punto a testa", gm.score - s - medals == Drops.NukePoints, $"+{gm.score - s}" + (medals > 0 ? $" ({medals} di medaglie)" : ""));
             Check("Campana: conta le uccisioni", Drops.statNuked - nk0 == 1 + (mid != null ? 1 : 0), $"{Drops.statNuked - nk0}");
             Check("Campana: le sue uccisioni non fanno cadere altro", Drops.statSpawned == n0);
             if (far != null && !far.IsDead)

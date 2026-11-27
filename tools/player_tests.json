@@ -178,10 +178,10 @@
     {
       "name": "magiatest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/Magia/MagiaTest.cs",
-      "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-magiatest", "-seed", "1000", "-floor", "1"],
+      "args": ["-batchmode", "-autotest", "-nofire", "-noenemies", "-magiatest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 900,
-      "needs": ["runtime"],
+      "needs": ["runtime", "gpu"],
       "hazards": [],
       "photos": {"args": ["-magiashots"], "needs": ["gpu"], "folder": "hotel_build/magia"},
       "page": "docs/game/arms-and-magic.md"
@@ -472,7 +472,7 @@
       "name": "pistaperf",
       "label": "pistatest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/Pista/PistaTest.cs",
-      "args": ["-batchmode", "-pistatest", "-pistaperf", "-pistabot", "-pistalaps", "1", "-pistarivals", "11", "-seed", "777"],
+      "args": ["-batchmode", "-autotest", "-pistatest", "-pistaperf", "-pistabot", "-pistalaps", "1", "-pistarivals", "11", "-seed", "777"],
       "mode": "track",
       "timeout": 180,
       "needs": ["runtime", "gpu"],
@@ -627,7 +627,7 @@
     {
       "name": "magictest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/MagicTest.cs",
-      "args": ["-batchmode", "-nographics", "-autotest", "-magictest", "-seed", "1000", "-floor", "1"],
+      "args": ["-batchmode", "-nographics", "-autotest", "-noenemies", "-magictest", "-seed", "1000", "-floor", "1"],
       "mode": "tower",
       "timeout": 180,
       "needs": ["runtime"],
@@ -768,7 +768,7 @@
     {
       "name": "refshot",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/Stealth/StealthTest.cs",
-      "args": ["-batchmode", "-autotest", "-stealthtest", "-refshot", "-seed", "1000"],
+      "args": ["-batchmode", "-autotest", "-stealthtest", "-refshot", "-oldplan", "-seed", "1000"],
       "mode": "tower",
       "timeout": 180,
       "needs": ["runtime", "gpu"],
