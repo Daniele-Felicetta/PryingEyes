@@ -354,9 +354,10 @@ Shader "PryingEyes/PistaPaint"
                 {
                     // ---- a knee slider: a worn puck of plastic, scuffed where it has been dragged
                     // (grey whatever the colours of the suit: mixed with a red accent it came out a dull mauve)
-                    float s = VNoise3(O * 140.0) * 0.6 + VNoise3(O * 330.0) * 0.4;
-                    baseC = lerp(float3(0.50, 0.50, 0.52), accC, 0.12) * (0.62 + 0.55 * s);
-                    smo = 0.28;
+                    float s = VNoise3(O * 260.0) * 0.55 + VNoise3(O * 620.0) * 0.45;
+                    float streak = smoothstep(0.62, 0.80, VNoise3(float3(O.x * 90.0, O.y * 700.0, O.z * 90.0)));        // fine streaks where it has been dragged (a coarse noise looked like a ball of felt)
+                    baseC = lerp(float3(0.46, 0.46, 0.48), accC, 0.10) * (0.84 + 0.26 * s) * (1.0 - 0.25 * streak);
+                    smo = 0.40;
                     coat = 0.0;
                 }
                 else if (part == 6)
@@ -423,9 +424,10 @@ Shader "PryingEyes/PistaPaint"
                     }
                     else if (part == 26)
                     {
-                        float sl = VNoise3(O * 140.0) * 0.6 + VNoise3(O * 330.0) * 0.4;
-                        baseC = lerp(float3(0.50, 0.50, 0.52), accC, 0.12) * (0.62 + 0.55 * sl);
-                        smo = 0.28;
+                        float sl = VNoise3(O * 260.0) * 0.55 + VNoise3(O * 620.0) * 0.45;
+                        float streak = smoothstep(0.62, 0.80, VNoise3(float3(O.x * 90.0, O.y * 700.0, O.z * 90.0)));
+                        baseC = lerp(float3(0.46, 0.46, 0.48), accC, 0.10) * (0.84 + 0.26 * sl) * (1.0 - 0.25 * streak);
+                        smo = 0.40;
                         coat = 0.0;
                     }
                     else
