@@ -321,6 +321,7 @@ namespace PryingEyes.Proc
                 }
 
             Flush(go, "Guscio", shell, true, null);
+            if (plan.hub) CathedralDetails(go, r, st);
             Flush(go, "Soffitto", roof, true, fi.ceilings);
             Flush(go, "Cornici in pietra", archTrim, false, null);
             Flush(go, "Portale aperto", doors, true, null);

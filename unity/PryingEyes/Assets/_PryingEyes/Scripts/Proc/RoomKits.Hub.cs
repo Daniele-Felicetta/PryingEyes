@@ -109,23 +109,6 @@ namespace PryingEyes.Proc
             return site;
         }
 
-        /// <summary>Un lampione di ferro: base di pietra, palo, braccio e lanterna accesa.</summary>
-        static void HubLampPost(Ctx c, Vector3 at)
-        {
-            if (Deserto.DesertMode.Active) { HubLampPostDeserto(c, at); return; }       // nel deserto e' un lampione di ferro tornito (RoomKits.HubDeserto.cs)
-            var root = new GameObject("Lampione");
-            root.transform.SetParent(c.props, false);
-            root.transform.position = at;
-            var t = root.transform;
-            ShrineKit.Prim(t, PrimitiveType.Cube, "Base", ShrineKit.Stone, new Vector3(0f, 0.2f, 0f), new Vector3(0.42f, 0.4f, 0.42f), default, true);
-            ShrineKit.Prim(t, PrimitiveType.Cylinder, "Palo", ShrineKit.Iron, new Vector3(0f, 1.7f, 0f), new Vector3(0.09f, 1.4f, 0.09f), default, true);
-            ShrineKit.Prim(t, PrimitiveType.Cube, "Lanterna", ShrineKit.Iron, new Vector3(0f, 3.25f, 0f), new Vector3(0.3f, 0.36f, 0.3f));
-            var glass = ShrineKit.Prim(t, PrimitiveType.Cube, "Vetro", ShrineKit.EmitOwn(Lantern, 2.2f), new Vector3(0f, 3.25f, 0f), new Vector3(0.24f, 0.28f, 0.32f));
-            glass.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
-            ShrineKit.Prim(t, PrimitiveType.Cube, "Cappello", ShrineKit.Iron, new Vector3(0f, 3.48f, 0f), new Vector3(0.4f, 0.06f, 0.4f));
-            HubLight(c, at + Vector3.up * 3.2f, Lantern, 3.2f, 11f);
-        }
-
         /// <summary>Il pozzo in mezzo al sagrato: un anello di pietra, l'acqua nera, l'arco di ferro con la carrucola.</summary>
         static void HubWell(Ctx c, Vector3 at)
         {
@@ -179,10 +162,12 @@ namespace PryingEyes.Proc
         // ---------------------------------------------------------------- il sagrato e il mercato
         static void HubSagrato(Ctx c)
         {
-            // lampioni ai lati del viale che porta al portale, alberi secchi negli angoli
-            foreach (var x in new[] { c.ix0 + 11f, c.ix1 - 11f })
-                foreach (var z in new[] { c.iz0 + 5f, c.iz0 + 12f })
-                    HubLampPost(c, new Vector3(x, 0f, z));
+            // Keep the first pair by the market; bring the second pair closer to the portal.
+            foreach (int side in new[] { -1, 1 })
+            {
+                HubLampPost(c, new Vector3(c.Center.x + side * (c.ix1 - c.Center.x - 11f), 0f, c.iz0 + 5f));
+                HubLampPost(c, new Vector3(c.Center.x + side * 4.3f, 0f, c.iz1 - 2.9f));
+            }
             HubWell(c, new Vector3(c.Center.x, 0f, c.iz0 + 7.5f));
             // la luna dall'alto, come nel giardino segreto (un faro che copre tutto il sagrato), e il cielo stellato attorno a tutta la cattedrale
             // (nel deserto il cielo vero c'e' gia': la cupola finta nasconderebbe la sabbia e il faro della luna darebbe luce al giorno)
@@ -221,19 +206,21 @@ namespace PryingEyes.Proc
             var t = root.transform;
             float sideSign = Vector3.Dot(t.right, along) >= 0f ? 1f : -1f;
             Vector3 L(float a, float y, float d) => new Vector3(sideSign * a, y, d);
-            var cloth = ShrineKit.Lit("Tenda_" + banco.id, banco.id == "speziale" ? new Color(0.25f, 0.32f, 0.20f) : banco.id == "armaiolo" ? new Color(0.30f, 0.10f, 0.08f)
-                : banco.id == "ossaio" ? new Color(0.36f, 0.30f, 0.20f) : new Color(0.18f, 0.12f, 0.26f), 0f, 0.2f, true);
-            var counterWood = Deserto.DesertMode.Active ? Deserto.DesertAwning.Wood() : ShrineKit.Wood; ShrineKit.Prim(t, PrimitiveType.Cube, "Bancone", counterWood, L(len * 0.5f, 0.47f, 0f), new Vector3(len, 0.94f, 0.72f), default, true);
+            var cloth = banco.id switch
+            {
+                "speziale" => new Color(0.25f, 0.32f, 0.20f),
+                "armaiolo" => new Color(0.30f, 0.10f, 0.08f),
+                "ossaio" => new Color(0.36f, 0.30f, 0.20f),
+                _ => new Color(0.18f, 0.12f, 0.26f)
+            };
+            var counterWood = Deserto.DesertAwning.Wood();
+            ShrineKit.Prim(t, PrimitiveType.Cube, "Bancone", counterWood, L(len * 0.5f, 0.47f, 0f), new Vector3(len, 0.94f, 0.72f), default, true);
             ShrineKit.Prim(t, PrimitiveType.Cube, "Piano", counterWood, L(len * 0.5f, 0.96f, 0.02f), new Vector3(len + 0.06f, 0.05f, 0.8f), default, true);
             foreach (float a in new[] { 0.05f, len - 0.05f })
                 foreach (float d in new[] { -0.6f, 0.45f })
                     ShrineKit.Prim(t, PrimitiveType.Cube, "Palo", ShrineKit.Wood, L(a, 1.25f, d), new Vector3(0.07f, 2.5f, 0.07f), default, true);
-            if (Deserto.DesertMode.Active) { Deserto.DesertAwning.Build(t, len, sideSign, cloth.color); Deserto.DesertAwning.Drape(t, len, sideSign, cloth.color); }       // nel deserto: un telo a strisce con la balza a scalloppi (RoomKits.HubDeserto / DesertAwning)
-            else
-            {
-                var awning = ShrineKit.Prim(t, PrimitiveType.Cube, "Tenda", cloth, L(len * 0.5f, 2.45f, -0.05f), new Vector3(len + 0.3f, 0.03f, 1.5f), new Vector3(-12f, 0f, 0f));
-                awning.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.TwoSided;
-            }
+            Deserto.DesertAwning.Build(t, len, sideSign, cloth);
+            Deserto.DesertAwning.Drape(t, len, sideSign, cloth);
             HubLight(c, t.TransformPoint(L(len * 0.5f, 2.1f, 0.25f)), Lantern, 2.2f, 6.5f);
             ShrineKit.Prim(t, PrimitiveType.Cube, "Lanterna", ShrineKit.Iron, L(len * 0.5f, 2.2f, 0.3f), new Vector3(0.14f, 0.2f, 0.14f));
             for (int i = 0; i < n; i++)
