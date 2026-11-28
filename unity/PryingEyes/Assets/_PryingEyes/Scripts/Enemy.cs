@@ -13,7 +13,7 @@ namespace PryingEyes
     {
         public enum EnemyType { Occhio, Abate, Monaco, Veglia, Medusa, Portachiavi, Maschera, Direttore, Infermiere, Primario, Spazzino, Vigile,
             // varianti dell'orda (Enemy.Varianti.cs): sempre in fondo, il numero viaggia in rete
-            Appestato, Flagellante, Statua, Cardinale }
+            Appestato, Flagellante, Statua, Cardinale, Sentinella }
         public EnemyType type;
 
         public float hp, maxHp, speed;
@@ -111,7 +111,8 @@ namespace PryingEyes
             Material glow;
             List<Material> flashes;
             EnemyType archetype = BaseType(t);
-            GameObject go = IsVariant(t) ? BuildVariant(t, out glow, out flashes)
+            GameObject go = t == EnemyType.Sentinella ? BuildSentinel(out glow, out flashes)
+                : IsVariant(t) ? BuildVariant(t, out glow, out flashes)
                 : IsThemed(t) ? BuildThemed(t, out glow, out flashes)
                 : t == EnemyType.Medusa ? BuildMedusa(out glow, out flashes)
                 : IsAlien(t) ? BuildAlien(t, out glow, out flashes)
@@ -143,6 +144,7 @@ namespace PryingEyes
             foreach (var m in flashes) m.EnableKeyword("_EMISSION");
             e.eye = go.GetComponent<EyeRig>();
             e.jelly = go.GetComponent<JellyRig>();
+            e.sentinel = go.GetComponent<SentinelRig>();
             if (e.eye != null) e.eye.lookAt = Stealth.Enabled ? null : GameManager.I.player.cam;
             if (!puppet && archetype != EnemyType.Occhio && HotelNav.Ready) e.AddAgent();
             // suoni attaccati: il monaco lo senti prima di vederlo, l'occhio ha un ronzio umido (con effetto Doppler)
@@ -150,7 +152,8 @@ namespace PryingEyes
                 : t == EnemyType.Abate ? Random.Range(0.58f, 0.66f)       // la litania dell'abate e' un'ottava sotto
                 : Random.Range(0.9f, 1.1f);
             e.alienRig = go.GetComponent<AlienRig>();
-            if (IsAlien(t)) e.SetAlienStats();
+            if (t == EnemyType.Sentinella) (e.hp, e.maxHp, e.speed) = (185f, 185f, 2.45f);
+            else if (IsAlien(t)) e.SetAlienStats();
             else if (IsThemed(t)) e.SetThemedStats();
             else if (IsVariant(t)) e.SetVariantStats();
             if (IsBoss(t) && !puppet) { Boss = e; BossTitle = null; }     // il Cardinale delle ondate ottave; il boss di un ramo lo rinomina (MakeBranchBoss)
@@ -479,6 +482,8 @@ namespace PryingEyes
             bool hunting = alert == Alert.Hunting;
             if (atkLock > 0) { UpdateFlight(dt); return; }
             chest = FlightChest(tgt);
+            bool ranged = type == EnemyType.Sentinella;
+            if (ranged && UpdateSentinelAttack(dt, gp, chest, hunting && seeing && tgt.Alive && HotelNav.ClearLine(gp, chest))) return;
             if (eye != null) eye.lookAt = hunting ? tgt.LookAt : null;
             // a caccia insegue il giocatore (o l'ultimo punto in cui l'ha visto); altrimenti pattuglia a due metri da terra
             Vector3 aimAt = hunting && !seeing ? lastKnown + Vector3.up * 1.3f : chest;
@@ -493,7 +498,13 @@ namespace PryingEyes
                     Vector3 away = gp - aimAt; away.y = 0;
                     if (away.sqrMagnitude < 0.01f) { away = -transform.forward; away.y = 0; }
                     if (away.sqrMagnitude < 0.01f) away = Vector3.forward;
-                    target = aimAt + away.normalized * 1.55f + Vector3.up * ((height + bob) * 0.25f);
+                    if (ranged)
+                    {
+                        // Hold distance in open space, but if a wall blocks retreat, turn and fire from here.
+                        var position = aimAt + away.normalized * SentinelStandoff + Vector3.up * (0.45f + bob);
+                        target = HotelNav.ClearLine(gp, position) ? position : gp;
+                    }
+                    else target = aimAt + away.normalized * 1.55f + Vector3.up * ((height + bob) * 0.25f);
                 }
                 else
                 {
@@ -515,13 +526,13 @@ namespace PryingEyes
             MoveFlying(vel * dt, true);
             gp = transform.position;
             // la direzione dello sguardo e' l'asse Z: verso la testa del giocatore, in 3D, con un po' di ritardo
-            Vector3 look = tgt.Feet + Vector3.up * 1.6f - gp;
+            Vector3 look = (ranged ? chest : tgt.Feet + Vector3.up * 1.6f) - gp;
             if (hunting && look.sqrMagnitude > 0.01f)
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(look, Vector3.up), 1f - Mathf.Exp(-4.5f * dt));
             else if (!hunting) FaceCalm(dt, 2.6f);
             if (loop != null) loop.pitch = basePitch * (0.85f + vel.magnitude / 14f);   // accelera: il ronzio sale
 
-            if (hunting && HotelNav.ClearLine(gp, chest) && (chest - gp).sqrMagnitude < 4f && atkCd <= 0f && tgt.Alive)
+            if (!ranged && hunting && HotelNav.ClearLine(gp, chest) && (chest - gp).sqrMagnitude < 4f && atkCd <= 0f && tgt.Alive)
                 BeginFlight();
         }
 
@@ -603,6 +614,7 @@ namespace PryingEyes
             }
             if (Archetype == EnemyType.Occhio && eye != null) eye.Hit();
             if (jelly != null && hp > 0f) jelly.Hit(point);
+            if (hp > 0f) sentinel?.Hit();
             if (hp <= 0f) Die(headshot, src, claimer);
         }
 
@@ -660,6 +672,7 @@ namespace PryingEyes
                 dead = true;
                 if (eye != null) eye.Die();
                 if (jelly != null) jelly.Die();
+                sentinel?.Collapse();
                 Sfx.At(type == EnemyType.Veglia ? SoundBank.Whisper : SoundBank.EyeBurst, transform.position, 0.8f, basePitch, 2f, 30f);
                 foreach (var m in flashMats) m.SetColor("_EmissionColor", Color.black);
                 foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
@@ -786,6 +799,7 @@ namespace PryingEyes
         /// (la statua si scheggia), niente macchie.</summary>
         public Color BloodTint => type switch
         {
+            EnemyType.Sentinella => new Color(0.62f, 0.42f, 0.24f, 0f),
             EnemyType.Statua => new Color(0.62f, 0.60f, 0.56f, 0f),
             EnemyType.Veglia => new Color(0.55f, 0.48f, 0.34f, 0f),
             EnemyType.Medusa => new Color(0.30f, 0.52f, 0.05f, 1f),      // muco e bile verde acido

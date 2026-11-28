@@ -131,6 +131,7 @@ The procedural mode works like Call of Duty: Zombies. There are no candles to li
 
 - Flagellante from wave 3: 8% plus 1.2% per wave, up to 20%.
 - Appestato from wave 4: 5% plus 1% per wave, up to 14%.
+- Sentinella from wave 4: 13%, up to two alive. Its amber iris opens before a shot, giving players time to dodge or take cover. See [horde-variants.md](horde-variants.md).
 - Statua from wave 6: 5% chance, at most one alive at a time.
 - Otherwise the floor's usual types (section 12 for themed ones).
 
@@ -376,7 +377,7 @@ Corrections where the code differs from the original text (the section of the fo
 4. **Wave layout area count.** The original says about 8 main areas. The code gives 7 to 9 (7 on floors 1 to 4, 8 on floors 5 to 8, 9 from floor 9).
 5. **Segreta.** The original describes the Segreta in general. It exists only in the candle-cycle grid. The wave layout has none (`PlanGrid.cs`).
 6. **Cardinale.** The original does not mention it. The first enemy of every eighth wave is the Cardinale (`RoundDirector.BeginSurvivalWave`).
-7. **Enemy variants of the wave cycle** (Flagellante, Appestato, Statua) are not in the original text. They are added in section 5.
+7. **Enemy variants of the wave cycle** (Flagellante, Appestato, Sentinella, Statua) are covered in section 5.
 8. **Descent bonus** (100 plus 50 times the floor, and a quarter of the ammo) is not in the original text. It is added in section 7.
 9. **Code map.** Several files in `Proc/` were not listed, and some files attributed to it are in `Scripts/` (Punti, Knife, SoundKnife, Perks, Medals, Equipment, Enemy.Knife in `Scripts/Stealth/`, Torch in `Scripts/Stealth/`). Both are corrected in section 13.
 10. **Spazzino and Vigile** are not Tower enemies. They belong to the city mode (section 10).

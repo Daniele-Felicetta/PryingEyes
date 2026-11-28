@@ -11,22 +11,27 @@ namespace PryingEyes
         Vector3 dir, launchedFrom;
         Light glow;
         Transform halo;
-        bool visualOnly, ended;
+        bool visualOnly, ended, sentinel;
         static Material coreMat, trailMat, haloMat;
+        static Material sentinelCore, sentinelTrail, sentinelHalo;
         static Mesh shardMesh, haloMesh;
         static readonly Color Tint = new Color(0.48f, 0.82f, 1f);
+        static readonly Color SentinelTint = new Color(1f, 0.57f, 0.17f);
+        Color BoltTint => sentinel ? SentinelTint : Tint;
         const float Radius = 0.17f;
 
-        public static MagicBolt Launch(Vector3 origin, Vector3 target, float dmg, bool visualOnly = false)
+        public static MagicBolt Launch(Vector3 origin, Vector3 target, float dmg, bool visualOnly = false, bool sentinel = false)
         {
             var go = new GameObject("DardoMagico");
             var b = go.AddComponent<MagicBolt>();
             b.dir = (target - origin).normalized;
             if (b.dir.sqrMagnitude < 0.01f) b.dir = Vector3.forward;
-            b.launchedFrom = origin; b.damage = dmg; b.visualOnly = visualOnly;
+            b.launchedFrom = origin; b.damage = dmg; b.visualOnly = visualOnly; b.sentinel = sentinel;
+            if (sentinel) { b.speed = 14f; b.life = 1.6f; }
             go.transform.SetPositionAndRotation(origin, Quaternion.LookRotation(b.dir));
             b.Build();
-            if (!visualOnly) Coop.Game?.BoltLaunched(origin, target, dmg);
+            if (sentinel) b.SentinelMuzzle(origin);
+            if (!visualOnly) Coop.Game?.BoltLaunched(origin, target, dmg, sentinel);
             return b;
         }
 
@@ -51,6 +56,17 @@ namespace PryingEyes
             shardMesh.RecalculateNormals(); shardMesh.RecalculateBounds();
         }
 
+        static void EnsureSentinelMaterials()
+        {
+            if (sentinelCore != null) return;
+            sentinelCore = new Material(coreMat);
+            sentinelCore.SetColor("_EmissionColor", new Color(3.8f, 1.8f, 0.37f));
+            sentinelTrail = new Material(trailMat);
+            sentinelTrail.SetColor("_BaseColor", new Color(1f, 0.46f, 0.12f, 0.72f));
+            sentinelHalo = new Material(haloMat);
+            sentinelHalo.SetColor("_BaseColor", new Color(1f, 0.42f, 0.08f, 0.40f));
+        }
+
         public static GameObject ChargeVisual()
         {
             EnsureAssets();
@@ -65,18 +81,33 @@ namespace PryingEyes
         void Build()
         {
             var core = ChargeVisual(); core.transform.SetParent(transform, false);
-            core.transform.localScale = new Vector3(0.035f, 0.035f, 0.35f);
+            if (sentinel)
+            {
+                EnsureSentinelMaterials();
+                core.GetComponent<Renderer>().sharedMaterial = sentinelCore;
+            }
+            core.transform.localScale = new Vector3(0.035f, 0.035f, sentinel ? 0.46f : 0.35f);
             var haloGo = new GameObject("Alone", typeof(MeshFilter), typeof(MeshRenderer));
             halo = haloGo.transform; halo.SetParent(transform, false); halo.localScale = Vector3.one * 0.28f;
             haloGo.GetComponent<MeshFilter>().sharedMesh = haloMesh;
-            var haloRenderer = haloGo.GetComponent<MeshRenderer>(); haloRenderer.sharedMaterial = haloMat;
+            var haloRenderer = haloGo.GetComponent<MeshRenderer>(); haloRenderer.sharedMaterial = sentinel ? sentinelHalo : haloMat;
             haloRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; haloRenderer.receiveShadows = false;
             glow = gameObject.AddComponent<Light>(); glow.type = LightType.Point;
-            glow.color = Tint; glow.intensity = 1.6f; glow.range = 3f; glow.shadows = LightShadows.None;
+            glow.color = BoltTint; glow.intensity = 1.6f; glow.range = 3f; glow.shadows = LightShadows.None;
             var trail = gameObject.AddComponent<TrailRenderer>();
             trail.time = 0.18f; trail.startWidth = 0.15f; trail.endWidth = 0f;
-            trail.sharedMaterial = trailMat; trail.numCapVertices = 3; trail.minVertexDistance = 0.04f;
+            trail.sharedMaterial = sentinel ? sentinelTrail : trailMat; trail.numCapVertices = 3; trail.minVertexDistance = 0.04f;
             trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; trail.receiveShadows = false;
+        }
+
+        void SentinelMuzzle(Vector3 origin)
+        {
+            Sfx.At(SoundBank.Strike, origin, 0.8f, 0.83f, 3f, 32f);
+            for (int i = 0; i < 9; i++)
+            {
+                Vector3 spark = dir * Random.Range(1.5f, 4f) + Random.insideUnitSphere * 1.5f;
+                Fx.Particle(0, true, origin, spark, Vector3.down * 2f, 0.075f, 0f, 0.22f, SentinelTint, mat: sentinelHalo);
+            }
         }
 
         void Update() => Advance(Time.deltaTime);
@@ -158,7 +189,7 @@ namespace PryingEyes
         {
             if (ended) return;
             ended = true;
-            Fx.EnemyImpact(point, normal, Tint);
+            Fx.EnemyImpact(point, normal, BoltTint);
             Sfx.At(SoundBank.Strike, point, 0.45f, Random.Range(0.95f, 1.1f), 2f, 22f);
             Destroy(gameObject);
         }
