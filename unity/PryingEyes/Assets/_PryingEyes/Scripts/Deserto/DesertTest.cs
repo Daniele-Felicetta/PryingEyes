@@ -329,6 +329,7 @@ namespace PryingEyes.Deserto
             if (Explicit("cammino")) yield return Phase("cammino", WalkProbe());
             if (Explicit("percorso")) yield return Phase("percorso", RouteProbe());
             if (Explicit("moto")) yield return Phase("moto", Moto());
+            if (Explicit("motosalto")) yield return Phase("motosalto", MotoJump());
             if (Explicit("motocamera")) yield return Phase("motocamera", MotoCamera());
             if (Explicit("motosuono")) yield return Phase("motosuono", MotoSound());
             if (Explicit("motourto")) yield return Phase("motourto", MotoCrashes());

@@ -432,8 +432,7 @@ the first way for a player to cross the sand without the long walk. It exists on
   prompt says *Sali in moto*: **F**, the key of every use (doors, books, the revival of a mate), puts you in the saddle. The rest of this section is the improvised bike, Ruggine; the others ride on the same model with
   their own numbers.
 - **W** gas, **S** brake and, kept down, reverse; **A**/**D** steer; **Shift** turbo; **Space** handbrake (the rear slides: it is how a tight bend is taken); the mouse looks freely up to 100° each side, and after a second and a bit
-  without looking the view comes back to the front. **F** gets off: at once under 4 m/s (14 km/h), otherwise the bike brakes by itself and the rider steps off to its side as soon as it is under 3.5 m/s. On a pad the same actions as
-  walking are used (move, jump = handbrake, sprint = turbo, use); this was not tried with a real controller.
+  without looking the view comes back to the front. **F** (hold **X** on a pad) steps off below 4 m/s (about 14 km/h) and jumps off at higher speeds while the wheels are on the ground. The rider keeps the bike's horizontal momentum at takeoff and leaves it parked at the spot. On a pad the walking controls for movement, sprint and jump become steering and throttle, turbo and handbrake.
 - Top speed 23 m/s (83 km/h), turbo 31 m/s (112 km/h), reverse 5 m/s. The gas gives 50 km/h in 1.8 s (measured), the brake takes 17 m/s² (a stop from top speed in under two seconds and about 16 m); at speed the field of view opens by up to 17°, the view
   follows half of the pitch and roll of the bike in first person, bumps and landings shake it, and the sand rises behind the rear wheel.
   The camera blends into the selected perspective on mounting and dismounting. In third person it follows the bike from behind and above,
@@ -515,6 +514,8 @@ points and to keep for good. The menu that sells them is the next section.
 numbers in the desert. The top speed is the one a vehicle reaches on the flat from its power and its air drag, brought into 24.5 to 33 m/s (88 to 119 km/h: the slowest of the store is a little faster than Ruggine
 and the fastest is as fast as the sand that is made ahead of the bike can follow, `DesertTerrain.Ready`); the turbo is 30 % more, at most 38 m/s (137 km/h); acceleration comes from the power per kilo (x1.0 to x1.45),
 braking from the front brake (x0.95 to x1.25) and steering from the turning radius (x1.18 to x0.88). The price is **a quarter of the price in the track mode, rounded to 25 points** (points are made by killing, not by lapping).
+
+The target height when jumping off is **2.5 m** above the launch point on Ruggine. It doubles at each higher price in the catalogue, from 5 m on Scintilla 125 to 1,280 m on Gigante 1300. The rider uses the same gravity and collisions as on foot, so a roof can cut the ascent short.
 
 | Bike | Class | Price (points) | Top speed | Turbo | Acceleration | Braking | Steering | Power, weight | Engine |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
@@ -673,7 +674,7 @@ Said here so they can be changed.
   one indoors), and there is one audio listener, seat 1's, so a seat kilometres away from it hears nothing of what happens round it. A volume per camera would fix the first and a custom audio mix the second; neither was done.
 - **The motorbike is an arcade ride on the player's body, not a vehicle** (19 November): the rider stays the `CharacterController` and everything that knows "the player" keeps working. A real vehicle (wheel colliders, a rigid body, suspension) would
   have meant a second body to keep in step with the first in co-op, the split screen, the falls and the enemies' hits. The numbers (83 km/h, 112 with the turbo, a stop from top speed in about 16 m) are a guess at what feels like a bike on sand, since nobody has ridden it by hand; they are constants of `DesertBike` and `PlayerController.Ride.cs`.
-- **F both mounts and gets off** (it is the use key; the turbo is the sprint key and the handbrake the jump key, so a rider's hands never leave the keys they know). Getting off at speed is a brake first, not a jump.
+- **F mounts the bike, steps off or jumps off in motion.** Turbo uses the sprint key and the handbrake uses the jump key.
 - **One bike for each player, where it was born, not saved as a position** (at the foot of the stair until 0.10.2, in its bay of the garage since 0.10.3, with the bikes bought at the store: see "The garage and Bozzo Moto Store"):
   a bike left in the desert stays where it was left (it is let go where it stands when its rider goes down or dies), and the bike of the garage is the same bike, except that **a player who dies and is
   reborn at the stair finds every bike of the seat that nobody rides back in its bay** (otherwise whoever died far away would have to walk back to them). A bike left on purpose is not called back: a button for that is the obvious next step if walking back is a nuisance.
@@ -788,6 +789,8 @@ space, the collider and the weapon back, a walking body, the disc back), then **
 checks that the rider arrives, never goes below the sand and has no frame over half a second; and last a companion's bike (a puppet posed by hand: no prompt, no collider, wheels turning, leaning in a bend). The `-coopmoto` scenario (`run_all.ps1 -Only m`) tests the network half with two processes (below).
 **`motosuono`** (5 checks, 15 with the arrival, seconds) writes the three sounds of the bike (engine loop, crash, the sand's wind) as WAV files in `unity_logs/moto/` (or the folder of `-testout`), to be measured and listened to outside the game, and checks them on their samples: that they
 have some, that the engine neither clips nor carries a DC offset, that its loop closes without a jump at the seam, how much of its energy is above 80 and 150 Hz at its native pitch (what a small speaker or headphones can give back) and the same for the crash.
+**`motosalto`** checks the doubling across the catalogue and measures the jumps from Ruggine, Scintilla 125 and Gigante 1300 on a flat platform. It holds the simulated pad's use button while each bike is moving, checks that the bike parks and the rider carries forward speed, and waits for the Ruggine rider to land on foot.
+
 **`motocamera`** (8 checks, 18 with the arrival, requires graphics) renders the camera while mounting and dismounting. It checks
 that the bike is framed from the outside, that distance, height and shoulder alter the mounted view, and that a close wall returns the
 camera to the eye and hides the rider from its own camera. It also checks the view when the player controller pauses and measures camera

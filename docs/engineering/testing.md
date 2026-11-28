@@ -260,6 +260,7 @@ reason and the seed is to be changed).
 | `-batchmode -autotest -architecturetest [-architectureaccess]` | Paid doors through the real controller: colliders, enemy navmesh, selection with F, insufficient points, purchase once, passing through. | `unity_logs/architecture/` (`result.json`, and the photographs of `-architectureshots`) |
 | `-architecturetest -architecturesupply` | A candle-cycle test (it implies that cycle). Its checks are described in its test class header. | `unity_logs/supply/` (`result.json`, and the photographs of `-architectureshots`) |
 | `-batchmode -autotest -desertotest -desertonly motocamera -seed 1000` (graphics required) | The Desert bike's third-person view, its framing controls, the fallback at a close wall, and camera continuity through mounting and dismounting. | Unity log and, with `-desertshots`, `hotel_build/deserto/motocamera_terza_persona.png` |
+| `-batchmode -nographics -autotest -desertotest -desertonly motosalto -seed 1000` | Jumping off moving Desert bikes with simulated pad input, preserving horizontal momentum and parking the bike. Checks the height progression and measures three jumps on a flat platform. | Unity log and `result.json` in `unity_logs/desertotest/` or the folder set by `-testout` |
 
 Mode flags used by these tests and the bot:
 

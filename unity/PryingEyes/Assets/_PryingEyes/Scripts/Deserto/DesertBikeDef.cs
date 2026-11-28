@@ -21,6 +21,8 @@ namespace PryingEyes.Deserto
         public EngineKind engine = EngineKind.Inline4;
         /// <summary>Il prezzo in punti (0: gratis, la moto con cui si comincia).</summary>
         public int price;
+        /// <summary>Target height in metres above the launch point when the rider jumps off.</summary>
+        public float DismountJumpHeight { get; internal set; } = 2.5f;
         /// <summary>Velocita' massima, col turbo e in retromarcia (m/s); moltiplicatori di ripresa, frenata e sterzo (1 = la moto arrangiata).</summary>
         public float top = 23f, boost = 31f, reverse = 5f, accel = 1f, brake = 1f, turn = 1f;
         /// <summary>Giri al minimo e alla linea rossa del motore: il suono sale da uno all'altro (la pista suona a rpm/4800).</summary>
@@ -103,6 +105,11 @@ namespace PryingEyes.Deserto
             for (int i = 0; i < Bikes.Count; i++) sold.Add(FromPista(i));
             sold.Sort((a, b) => a.price != b.price ? a.price.CompareTo(b.price) : a.pista.CompareTo(b.pista));
             l.AddRange(sold);
+            for (int i = 1; i < l.Count; i++)
+            {
+                var cheaper = l[i - 1];
+                l[i].DismountJumpHeight = cheaper.DismountJumpHeight * (l[i].price > cheaper.price ? 2f : 1f);
+            }
             all = l;
         }
 
