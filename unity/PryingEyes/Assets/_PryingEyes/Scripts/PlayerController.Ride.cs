@@ -9,7 +9,7 @@ namespace PryingEyes
     /// (il freno a mano la toglie: si derapa), turbo, volo quando il terreno sparisce sotto le ruote e urto contro i muri (la velocita' persa in una frenata da urto, sommando i fotogrammi di un decimo di secondo, e' il danno).
     /// La camera e' sull'occhio del pilota (con lo sguardo libero fino a 100 gradi: il mouse gira solo la testa, la rotta la danno A e D). L'arma sta riposta (Weapon.Ride.cs) e si alza con fuoco,
     /// mira, ricarica o il cambio arma (RideGunTick): si spara con la destra, la sinistra resta sul manubrio.
-    /// Si scende con Usa (F), da fermi o frenando da soli.</summary>
+    /// Use (F) steps off at low speed or jumps from a moving bike.</summary>
     public partial class PlayerController
     {
         DesertBike bike;
@@ -21,11 +21,11 @@ namespace PryingEyes
         float rideGunIdle = 99f;                           // i secondi dall'ultima volta che l'arma e' servita (fuoco, mira, ricarica, cambio): oltre un secondo e mezzo torna giu'
         // la velocita' fatta lungo la rotta negli ultimi istanti (tempo di guida, velocita'), in un anello: serve a riconoscere una frenata da urto
         const int RideHistLen = 256;
-        const float RideHitWindow = 0.14f, RideHitDrop = 8f;
+        const float RideHitWindow = 0.14f, RideHitDrop = 8f, RideJumpSpeed = 4f;
         readonly float[] rideHistT = new float[RideHistLen], rideHistV = new float[RideHistLen];
         int rideHistN, rideHistHead;
         float rideSimT;
-        bool rideGrounded = true, rideDismount, rideHintDismount, rideBoosting;
+        bool rideGrounded = true, rideDismount, rideHintJump, rideBoosting;
         string rideHint;
 
         public bool Riding => bike != null;
@@ -40,7 +40,7 @@ namespace PryingEyes
         public float RideCrashCooldown => rideCrashCool;
         /// <summary>Le ruote toccano il suolo (falso in volo): per le prove.</summary>
         public bool RideGrounded => rideGrounded;
-        /// <summary>Per le prove: come premere Usa in corsa (la moto frena da sola e il pilota scende appena si ferma).</summary>
+        /// <summary>For tests: brake before stepping off normally.</summary>
         public void RideRequestDismount() { if (Riding) rideDismount = true; }
 
         /// <summary>L'ultimo contatto laterale del controller in sella (la superficie e' piu' ripida di 45 gradi: non il suolo): contro che cosa, dove, con quale normale e in quale fotogramma. Lo leggono le
@@ -93,14 +93,15 @@ namespace PryingEyes
             if (weapon != null) { weapon.SetRideMode(true); weapon.ads = 0f; if (weapon.ViewRootT != null) weapon.ViewRootT.gameObject.SetActive(false); }       // arma riposta: la si alza quando serve (in mira la sensibilita' del mouse sarebbe ridotta)
             rideHint = null;
             hud?.SetPrompt("");
-            hud?.Toast("In sella: W gas, S freno e retromarcia, A e D sterzo, Maiusc turbo, Spazio freno a mano, " + PadControls.UseKey + " scendi.");
+            hud?.Toast("In sella: W gas, S freno e retromarcia, A e D sterzo, Maiusc turbo, Spazio freno a mano, " + PadControls.UseKey + " scendi o salta in corsa.");
         }
 
         /// <summary>Scende di lato (a sinistra, poi a destra, dietro, davanti: dove la capsula sta libera) e lascia la moto parcheggiata dov'e'. Se non c'e' spazio resta in sella.</summary>
-        public void Dismount()
+        public void Dismount(bool jump = false)
         {
             var b = bike;
             if (b == null) return;
+            if (jump && !rideGrounded) { hud?.Toast("Tocca terra per saltare dalla moto."); return; }
             Vector3 root = b.transform.position;
             float h = rideHeading;
             Vector3 fwd = new Vector3(Mathf.Sin(h), 0f, Mathf.Cos(h)), right = new Vector3(fwd.z, 0f, -fwd.x);
@@ -116,11 +117,17 @@ namespace PryingEyes
                 spot = p; found = true; break;
             }
             if (!found) { hud?.Toast("Non c'e' spazio per scendere qui."); rideDismount = false; return; }
+            Vector3 launch = jump ? new Vector3(vel.x, Mathf.Sqrt(2f * gravity * b.Def.DismountJumpHeight), vel.z) : Vector3.zero;
             ThirdPersonView.BeginRideTransition(this);
             b.Park(root, h);
             EndRide();
             Teleport(spot);
-            pitch = 0f;
+            if (jump)
+            {
+                vel = launch;
+                coyote = jumpBuf = 0f;
+            }
+            else pitch = 0f;
         }
 
         /// <summary>Lascia la moto dove si trova (si e' andati a terra, e' morto, e' cambiato qualcosa): niente teletrasporto del corpo.</summary>
@@ -206,8 +213,8 @@ namespace PryingEyes
             bool usePressed = inputEnabled && (SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use));
             if (usePressed)
             {
-                if (Mathf.Abs(rideSpeedShown) < 4f) { Dismount(); if (bike == null) return; }
-                else { rideDismount = !rideDismount; hud?.Toast(rideDismount ? "Rallenti: scendi appena ti fermi." : "Resti in sella."); }
+                Dismount(jump: Mathf.Abs(rideSpeedShown) >= RideJumpSpeed);
+                if (bike == null) return;
             }
             if (rideDismount && Mathf.Abs(rideSpeedShown) < 3.5f) { Dismount(); if (bike == null) return; }
             if (rideDismount) { throttle = Mathf.Min(throttle, -0.6f); boostKey = false; handbrake = false; }          // frena da sola
@@ -349,10 +356,11 @@ namespace PryingEyes
             IsCrouching = false;
             hud?.SetBars(hp, shield);
             // la velocita' la dice il tachimetro (HUD.DesertSpeed.cs): il suggerimento dice solo come si scende
-            if (rideHint == null || rideDismount != rideHintDismount)
+            bool canJumpOff = Mathf.Abs(rideSpeedShown) >= RideJumpSpeed;
+            if (rideHint == null || canJumpOff != rideHintJump)
             {
-                rideHintDismount = rideDismount;
-                rideHint = rideDismount ? "frena per scendere" : "[" + PadControls.UseKey + "] scendi";
+                rideHintJump = canJumpOff;
+                rideHint = "[" + PadControls.UseKey + "] " + (canJumpOff ? "salta dalla moto" : "scendi");
             }
             hud?.SetPrompt(rideHint);
 
