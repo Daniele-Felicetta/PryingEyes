@@ -19,7 +19,7 @@ namespace PryingEyes.Deserto
         /// <summary>I pezzi mobili di una moto costruita: lo sterzo e le due ruote girano, il corpo si inclina, le luci si accendono.</summary>
         public sealed class Rig
         {
-            public Transform root, body, steer, frontPivot, rearPivot, arms;
+            public Transform root, body, steer, frontPivot, rearPivot, arms, propeller;
             /// <summary>I guanti (figli dello sterzo, uno per lato: 0 sinistra, 1 destra): quello destro si spegne da solo quando la destra impugna l'arma.</summary>
             public readonly Transform[] glove = new Transform[2];
             bool rightHidden;

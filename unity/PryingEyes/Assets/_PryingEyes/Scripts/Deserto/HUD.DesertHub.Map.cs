@@ -307,12 +307,12 @@ namespace PryingEyes
                     if (shown >= 6) continue;
                     shown++;
                     string state;
-                    if (b.rider != null) state = "in sella";
+                    if (b.rider != null) state = b.Def.IsPlane ? (b.rider.RideGrounded ? "in cabina" : "in volo") : "in sella";
                     else
                     {
                         Vector3 bd = b.transform.position - p; bd.y = 0f;
                         Vector3 hd = b.transform.position - b.home; hd.y = 0f;
-                        state = hd.sqrMagnitude < 4f ? "nel garage" : HubDistance(bd.magnitude) + " a " + HubCompass(bd.x, bd.z);
+                        state = hd.sqrMagnitude < 4f ? (b.Def.IsPlane ? "accanto al garage" : "nel garage") : HubDistance(bd.magnitude) + " a " + HubCompass(bd.x, bd.z);
                     }
                     sb.Append("<color=#4DCCD1>●</color> ").Append(b.Def != null ? b.Def.name : "Moto").Append("  <color=#9a8f78>").Append(state).Append("</color>\n");
                 }

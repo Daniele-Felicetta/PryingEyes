@@ -49,7 +49,7 @@ namespace PryingEyes.Deserto
             DesertBike bike = null;
             try
             {
-                foreach (var def in new[] { catalogue[0], catalogue[1], catalogue[catalogue.Count - 1] })
+                foreach (var def in new[] { catalogue[0], catalogue[1], System.Linq.Enumerable.Last(catalogue, candidate => !candidate.IsPlane) })
                 {
                     bike = DesertBike.Create(null, start + Vector3.up * 0.03f, 0f, "Jump test bike", def);
                     pl.Mount(bike);

@@ -20,6 +20,7 @@
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Plan\RoomAccessState.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertNoise.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertClock.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertFlight.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertWorld.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertBiomes.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertTerrainGen.cs" />

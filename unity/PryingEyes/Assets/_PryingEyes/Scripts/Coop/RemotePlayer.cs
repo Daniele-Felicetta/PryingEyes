@@ -20,7 +20,7 @@ namespace PryingEyes
         public bool ads, reloading;             // in mira, in ricarica (idem)
         public bool riding;                     // in sella a una moto del deserto (pe-coop-32): bit 4 del secondo byte dei flag
         public float heading;                   // verso dove punta la moto (radianti, come yaw); lo sguardo del pilota puo' essere altrove
-        public int bike;                        // quale moto guida (pe-coop-37): bit 3-6 del secondo byte dei flag, 0 la moto arrangiata e 1..9 le moto della pista (DesertBikeDefs.NetCode)
+        public int bike;                        // Vehicle code in bits 3–6: starter 0, track bikes 1–9, Libeccio 14 (ground) or 15 (air).
         public bool climbing, gliding, swimming;
         public float swimPhase, swimEffort;
 
@@ -363,13 +363,14 @@ namespace PryingEyes
             // la moto che guida adesso (cambia quando scende e sale su un'altra del suo garage): quella costruita sotto il pupazzo deve essere la sua
             var def = Deserto.DesertBikeDefs.FromNet(last.bike);
             if (bike != null && bike.Def != def) { Destroy(bike.gameObject); bike = null; }
-            if (bike == null) bike = Deserto.DesertBike.Create(transform, transform.position, bikeHeadingDeg * Mathf.Deg2Rad, "Moto di " + playerName, def);
+            if (bike == null) bike = Deserto.DesertBike.Create(transform, transform.position, bikeHeadingDeg * Mathf.Deg2Rad, def.IsPlane ? "Libeccio - " + playerName : "Moto di " + playerName, def);
             if (!bike.puppet) bike.SetPuppet(true);
             Vector3 vel = dt > 0f ? (transform.position - before) / dt : Vector3.zero;
-            if (vel.sqrMagnitude > 900f) vel = Vector3.zero;          // un teletrasporto non e' una corsa
+            if (vel.sqrMagnitude > (def.IsPlane ? 3600f : 900f)) vel = Vector3.zero;          // un teletrasporto non e' una corsa
             float turnRate = dt > 0f ? Mathf.DeltaAngle(prev, bikeHeadingDeg) * Mathf.Deg2Rad / dt : 0f;
             float hs = new Vector2(vel.x, vel.z).magnitude;
-            bike.Pose(transform.position, bikeHeadingDeg * Mathf.Deg2Rad, true, vel, Mathf.Clamp(turnRate * 0.8f, -1f, 1f), Mathf.Clamp01(hs / 8f), hs > 25f, false, false, dt);
+            bool grounded = last.bike != Deserto.DesertBikeDefs.PlaneAirNetCode;
+            bike.Pose(transform.position, bikeHeadingDeg * Mathf.Deg2Rad, grounded, vel, Mathf.Clamp(turnRate * 0.8f, -1f, 1f), Mathf.Clamp01(hs / 8f), !def.IsPlane && hs > 25f, false, false, dt);
         }
 
         /// <summary>Il corpo vero (SurvivorBody): gli si dice dove va, dove guarda e cosa fa; passo, braccia e arma li fa lui.</summary>

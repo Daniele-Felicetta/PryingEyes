@@ -50,10 +50,29 @@ static class Program
         subject = "weather"; Weather();
         subject = "grading"; Grading();
         subject = "compass"; Compass();
+        subject = "flight"; Flight();
         Console.WriteLine(ok ? "ALL PASS" : "FAILED");
         if (report >= 0)
             File.WriteAllText(args[report + 1], JsonSerializer.Serialize(new { schemaVersion = 1, operation = "desert.rules", ok, findings }, new JsonSerializerOptions { WriteIndented = true }));
         return ok ? 0 : 1;
+    }
+
+    static void Flight()
+    {
+        const float dt = 0.02f;
+        float speed = 0f;
+        for (int i = 0; i < 150; i++) speed = DesertFlight.ForwardSpeed(speed, 1f, true, dt);
+        Check("FLIGHT_TAKEOFF", speed >= DesertFlight.TakeoffSpeed && speed <= DesertFlight.TopSpeed
+            && DesertFlight.VerticalSpeed(0f, true, true, false, 100f) < 0f
+            && DesertFlight.VerticalSpeed(speed, true, true, false, 100f) > 0f
+            && DesertFlight.VerticalSpeed(speed, true, false, false, 100f) < 0f,
+            $"{speed:F1} m/s after three seconds");
+        Check("FLIGHT_CRUISE", DesertFlight.VerticalSpeed(speed, false, false, false, 100f) == 0f
+            && DesertFlight.VerticalSpeed(speed, false, true, false, 0f) == 0f
+            && DesertFlight.VerticalSpeed(10f, false, true, false, 100f) < 0f, "level flight, ceiling and stall");
+        bool descends = DesertFlight.VerticalSpeed(speed, false, true, true, 100f) < 0f;
+        for (int i = 0; i < 150; i++) speed = DesertFlight.ForwardSpeed(speed, -1f, true, dt);
+        Check("FLIGHT_LANDING", descends && speed == 0f, $"{speed:F1} m/s after landing and braking");
     }
 
     // ------------------------------------------------------------------ a picture of the ground

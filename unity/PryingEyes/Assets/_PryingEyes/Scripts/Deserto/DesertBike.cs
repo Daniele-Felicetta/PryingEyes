@@ -56,7 +56,7 @@ namespace PryingEyes.Deserto
         public void FillSeat(ref SurvivorInput inp)
         {
             var d = Def;
-            if (d.IsPista) { inp.seatHips = d.seatHips; inp.seatPegs = d.pegs; inp.seatLean = d.seatLean; }
+            if (!d.Starter) { inp.seatHips = d.seatHips; inp.seatPegs = d.pegs; inp.seatLean = d.seatLean; }
             else { inp.seatHips = Vector3.zero; inp.seatPegs = Vector3.zero; inp.seatLean = 0f; }
         }
         public float WheelSpin => spin;
@@ -108,13 +108,14 @@ namespace PryingEyes.Deserto
         void Build()
         {
             if (Def == null) Def = DesertBikeDefs.Starter;
-            rig = Def.IsPista ? DesertBikeMesh.BuildPista(transform, Def) : DesertBikeMesh.Build(transform, false);
+            rig = Def.IsPlane ? DesertBikeMesh.BuildPlane(transform, Def)
+                : Def.IsPista ? DesertBikeMesh.BuildPista(transform, Def) : DesertBikeMesh.Build(transform, false);
             box = gameObject.AddComponent<BoxCollider>();
-            box.center = new Vector3(0f, 0.55f, 0f);
-            box.size = new Vector3(0.62f, 1.1f, 1.95f);
-            engine = Voice(Def.IsPista ? SoundBank.ForEngine(Def.engine) : SoundBank.Engine, 3f, 90f, 1f);
+            box.center = new Vector3(0f, Def.IsPlane ? 0.85f : 0.55f, 0f);
+            box.size = Def.IsPlane ? new Vector3(1.05f, 1.6f, 3.7f) : new Vector3(0.62f, 1.1f, 1.95f);
+            engine = Voice(Def.Starter ? SoundBank.Engine : SoundBank.ForEngine(Def.engine), 3f, 90f, 1f);
             wind = Voice(SoundBank.SandHiss, 2f, 45f, 0.35f);
-            engine.pitch = Def.IsPista ? PistaPitch(0f) : 0.62f;
+            engine.pitch = Def.Starter ? 0.62f : PistaPitch(0f);
         }
 
         /// <summary>Il suono di un motore della pista a quel regime (0 minimo, 1 linea rossa): il ciclo e' registrato a 4800 giri (la pista suona a rpm/4800).</summary>
@@ -145,7 +146,7 @@ namespace PryingEyes.Deserto
         // ------------------------------------------------------------------ IInteract: salire
         public Vector3 Point => transform.position + Vector3.up * 0.8f;
         public float Radius => 3.1f;
-        public string Prompt => rider == null && !puppet ? (Def == null || Def.Starter ? "Sali in moto" : "Sali sulla " + Def.name) : null;
+        public string Prompt => rider == null && !puppet ? (Def.IsPlane ? "Sali sul Libeccio" : Def.Starter ? "Sali in moto" : "Sali sulla " + Def.name) : null;
 
         public void Use()
         {
@@ -164,6 +165,7 @@ namespace PryingEyes.Deserto
             this.heading = heading;
             transform.SetPositionAndRotation(feet, Quaternion.Euler(0f, heading * Mathf.Rad2Deg, 0f));
             PitchVisual = 0f; RollVisual = 7f; steerVis = -12f; spin = Mathf.Repeat(spin, 360f);
+            if (Def.IsPlane) RollVisual = steerVis = 0f;
             if (rig != null)
             {
                 rig.body.localRotation = Quaternion.Euler(0f, 0f, RollVisual);
@@ -223,28 +225,39 @@ namespace PryingEyes.Deserto
             float pitchT;
             if (grounded)
             {
-                bool f = Ground(feet + fwd * (DesertBikeMesh.WheelBase * 0.5f), out float yF, out sand);
-                bool r = Ground(feet - fwd * (DesertBikeMesh.WheelBase * 0.5f), out float yR, out bool sandR);
+                float front = Def.IsPlane ? 0.66f : DesertBikeMesh.WheelBase * 0.5f;
+                float rear = Def.IsPlane ? 2.55f : DesertBikeMesh.WheelBase * 0.5f;
+                bool f = Ground(feet + fwd * front, out float yF, out sand);
+                bool r = Ground(feet - fwd * rear, out float yR, out bool sandR);
                 sand |= sandR;
-                pitchT = f && r ? -Mathf.Atan2(yF - yR, DesertBikeMesh.WheelBase) * Mathf.Rad2Deg : 0f;
+                pitchT = f && r ? -Mathf.Atan2(yF - yR, front + rear) * Mathf.Rad2Deg : 0f;
             }
             else pitchT = Mathf.Clamp(-Mathf.Atan2(vel.y, Mathf.Max(hs, 2f)) * Mathf.Rad2Deg, -35f, 35f);
             PitchVisual += (pitchT - PitchVisual) * (1f - Mathf.Exp(-(grounded ? 14f : 3.5f) * dt));
-            float rollT = -steer * Mathf.Clamp01(Mathf.Abs(speed) / 11f) * (handbrake ? 30f : 22f) * (grounded ? 1f : 0.3f);
+            float leanLimit = Def.IsPlane ? (grounded ? 0f : 34f) : (handbrake ? 30f : 22f) * (grounded ? 1f : 0.3f);
+            float rollT = -steer * Mathf.Clamp01(Mathf.Abs(speed) / 11f) * leanLimit;
             RollVisual += (rollT - RollVisual) * (1f - Mathf.Exp(-7f * dt));
             if (rig != null)
             {
                 rig.body.localRotation = Quaternion.Euler(PitchVisual, 0f, RollVisual);
                 steerVis += (steer * 28f - steerVis) * (1f - Mathf.Exp(-14f * dt));
                 rig.steer.localRotation = rig.steerRest * Quaternion.Euler(0f, steerVis, 0f);
-                spin = Mathf.Repeat(spin + speed / DesertBikeMesh.WheelRadius * Mathf.Rad2Deg * dt, 360f);
-                var wheel = Quaternion.Euler(spin, 0f, 0f);
-                rig.rearPivot.localRotation = wheel;
-                rig.frontPivot.localRotation = wheel;
+                if (Def.IsPlane)
+                {
+                    spin = Mathf.Repeat(spin + Mathf.Lerp(210f, 1320f, throttle) * dt, 360f);
+                    rig.propeller.localRotation = Quaternion.Euler(0f, 0f, spin);
+                }
+                else
+                {
+                    spin = Mathf.Repeat(spin + speed / DesertBikeMesh.WheelRadius * Mathf.Rad2Deg * dt, 360f);
+                    var wheel = Quaternion.Euler(spin, 0f, 0f);
+                    rig.rearPivot.localRotation = wheel;
+                    rig.frontPivot.localRotation = wheel;
+                }
                 rig.PoseArms();
             }
             // le tracce delle ruote sulla sabbia (DesertTracks): un nastro per ruota; si interrompe quando la moto e' in aria o ferma. Chi lo allunga decide da solo se sotto la ruota c'e' sabbia.
-            if (grounded && hs > 1.2f)
+            if (!Def.IsPlane && grounded && hs > 1.2f)
             {
                 float kTrack = Mathf.Clamp01(hs / Def.top);
                 float deepTrack = Mathf.Clamp01(0.35f + 0.35f * kTrack + (handbrake ? 0.35f : 0f) + (boost ? 0.15f : 0f));
@@ -332,6 +345,7 @@ namespace PryingEyes.Deserto
             float v = Mathf.Abs(lastSpeed) * (TopSpeed / Def.top);          // le marce si contano sulla velocita' massima della moto: una piu' veloce sale piu' in alto prima del cambio
             float revsT;
             if (!use) revsT = 0f;
+            else if (Def.IsPlane) revsT = Mathf.Lerp(0.16f, 0.95f, lastThrottle);
             else
             {
                 // quattro marce: i giri salgono nella marcia e ricadono al cambio
@@ -347,7 +361,7 @@ namespace PryingEyes.Deserto
             float volT = use ? Mathf.Lerp(0.20f, 0.85f, Mathf.Clamp01(revs * 0.65f + lastThrottle * 0.35f)) : 0f;
             if (engine != null)
             {
-                engine.pitch = Def.IsPista ? PistaPitch(revs) : Mathf.Lerp(0.62f, 2.3f, revs);
+                engine.pitch = Def.Starter ? Mathf.Lerp(0.62f, 2.3f, revs) : PistaPitch(revs);
                 engine.volume = Mathf.Lerp(engine.volume, volT * GameSettings.Effects, 1f - Mathf.Exp(-(use ? 10f : 5f) * dt));
             }
             if (wind != null)
@@ -360,7 +374,7 @@ namespace PryingEyes.Deserto
 
         void UpdateLights(float dt, bool use)
         {
-            if (rig == null) return;
+            if (rig == null || rig.headlight == null) return;
             var sky = DesertSky.I;
             bool dark = sky != null && (sky.Night > 0.28f || sky.Indoor > 0.5f);
             bool on = use && dark;

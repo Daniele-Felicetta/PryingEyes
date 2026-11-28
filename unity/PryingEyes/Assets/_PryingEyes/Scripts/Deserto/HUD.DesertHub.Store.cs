@@ -42,7 +42,9 @@ namespace PryingEyes
             RawImage photo;
             Text urlText, pointsValue, nameText, klassText, priceText, specsText, blurbText, noteText, buyText, ownedCount;
             readonly Image[] barFill = new Image[4];
-            readonly Text[] barValue = new Text[4];
+            readonly Image[] barTrack = new Image[4];
+            readonly Text[] barValue = new Text[4], barLabel = new Text[4];
+            static readonly string[] PlaneLabels = { "VELOCITÀ", "DECOLLO DA", "SALITA", "QUOTA MASSIMA" };
             Image buyBack, shade, yesBack, noBack;
             Text dlgTitle, dlgBody, dlgHint, yesText, noText;
             GarageStage stage;
@@ -59,7 +61,7 @@ namespace PryingEyes
             public override bool CapturesBack => phase != 0;
 
             public override string Hint => phase == 0
-                ? "Su e giù: scegli la moto     Sinistra e destra: gira la moto     Invio  A  clic: compra     Q E  LB RB: pagina     Esc  B  Select: chiudi"
+                ? "Su e giù: scegli il veicolo     Sinistra e destra: gira la vetrina     Invio  A  clic: compra     Q E  LB RB: pagina     Esc  B  Select: chiudi"
                 : phase == 1 ? "Sinistra e destra: scegli     Invio  A: conferma     Esc  B: annulla" : "Invio  A  Esc  B: chiudi la ricevuta";
 
             /// <summary>Per le prove: la moto scelta nel catalogo, se c'e' una domanda aperta e se l'ordine e' stato fatto.</summary>
@@ -91,7 +93,7 @@ namespace PryingEyes
                 var brand = HubText(parent, "Marca", 62f, 38f, 360f, 32f, 26, TextAnchor.MiddleLeft, SiteCream, FontStyle.Bold, true);
                 brand.text = "<color=#F26E1A>BOZZO</color> MOTO STORE";
                 var tag = HubText(parent, "Slogan", 64f, 68f, 400f, 16f, 11, TextAnchor.MiddleLeft, new Color(0.72f, 0.69f, 0.62f), FontStyle.Normal);
-                tag.text = "Le moto del sagrato · consegna immediata al garage"; tag.supportRichText = false;
+                tag.text = "Moto e aerei · consegna sul sagrato"; tag.supportRichText = false;
                 var links = HubText(parent, "Menu", 520f, 50f, 330f, 20f, 13, TextAnchor.MiddleRight, new Color(0.85f, 0.82f, 0.74f), FontStyle.Normal);
                 links.text = "<b><color=#F26E1A>Catalogo</color></b>     Garage     Offerte     Assistenza";
                 HubRect(parent, "PuntiSfondo", 868f, 44f, 146f, 34f, SiteOrange);
@@ -118,10 +120,10 @@ namespace PryingEyes
                     if (d.Free) continue;
                     var it = new Item { def = d };
                     float y = items.Count * RowH;
-                    it.root = Box(listRoot, "Moto " + d.name, new Vector2(0f, -y), new Vector2(ListW, RowH - 4f));
+                    it.root = Box(listRoot, d.name, new Vector2(0f, -y), new Vector2(ListW, RowH - 4f));
                     it.back = Img(it.root, "Fondo", Vector2.zero, new Vector2(ListW, RowH - 4f), SitePaperDeep, null);
                     it.bar = Img(it.root, "Barra", Vector2.zero, new Vector2(4f, RowH - 4f), SiteOrange, null);
-                    it.dot = Img(it.root, "Livrea", new Vector2(14f, -(RowH - 4f - 16f) * 0.5f), new Vector2(16f, 16f), Livery.For(d.skin).main, circle);
+                    it.dot = Img(it.root, "Livrea", new Vector2(14f, -(RowH - 4f - 16f) * 0.5f), new Vector2(16f, 16f), d.IsPlane ? DesertBikeMesh.PlanePaint : Livery.For(d.skin).main, circle);
                     it.name = SiteText(it.root, "Nome", 40f, 6f, 160f, 24f, 16, TextAnchor.MiddleLeft, SiteInk, FontStyle.Bold);
                     it.klass = SiteText(it.root, "Classe", 40f, 30f, 160f, 18f, 11, TextAnchor.MiddleLeft, SiteDim, FontStyle.Normal);
                     it.price = SiteText(it.root, "Prezzo", 150f, 6f, ListW - 160f, 24f, 15, TextAnchor.MiddleRight, SiteOrangeDeep, FontStyle.Bold);
@@ -136,7 +138,7 @@ namespace PryingEyes
                 photo = Box(parent, "Foto", new Vector2(PhotoX, -PhotoY), new Vector2(PhotoW, PhotoH)).gameObject.AddComponent<RawImage>();
                 photo.color = new Color(1f, 1f, 1f, 1f); photo.raycastTarget = false;
                 var cap = SiteText(parent, "FotoDidascalia", PhotoX, PhotoY + PhotoH + 4f, PhotoW, 14f, 10, TextAnchor.MiddleLeft, SiteDim, FontStyle.Italic);
-                cap.text = "Foto dello studio Bozzo: la moto gira da sola. Sinistra e destra la fanno girare a mano."; cap.supportRichText = false;
+                cap.text = "Usa sinistra e destra per ruotare il veicolo."; cap.supportRichText = false;
                 blurbText = SiteText(parent, "Descrizione", PhotoX, PhotoY + PhotoH + 24f, PhotoW, 70f, 14, TextAnchor.UpperLeft, SiteInk, FontStyle.Normal);
 
                 // la scheda
@@ -148,11 +150,11 @@ namespace PryingEyes
                 for (int i = 0; i < 4; i++)
                 {
                     float y = PhotoY + 106f + i * 30f;
-                    var l = SiteText(parent, "BarraNome" + i, InfoX, y, 150f, 16f, 11, TextAnchor.MiddleLeft, SiteDim, FontStyle.Bold);
-                    l.text = DesertBikeDef.BarNames[i].ToUpperInvariant().Replace("A'", "À"); l.supportRichText = false;
+                    barLabel[i] = SiteText(parent, "BarraNome" + i, InfoX, y, 150f, 16f, 11, TextAnchor.MiddleLeft, SiteDim, FontStyle.Bold);
+                    barLabel[i].supportRichText = false;
                     barValue[i] = SiteText(parent, "BarraValore" + i, InfoX + 120f, y, InfoW - 120f, 16f, 11, TextAnchor.MiddleRight, SiteInk, FontStyle.Bold);
                     barValue[i].supportRichText = false;
-                    HubRect(parent, "BarraFondo" + i, InfoX, y + 17f, InfoW, 7f, SiteTrack);
+                    barTrack[i] = HubRect(parent, "BarraFondo" + i, InfoX, y + 17f, InfoW, 7f, SiteTrack);
                     barFill[i] = HubRect(parent, "BarraPiena" + i, InfoX, y + 17f, 10f, 7f, SiteOrange);
                 }
                 specsText = SiteText(parent, "Dati", InfoX, PhotoY + 232f, InfoW, 36f, 11, TextAnchor.UpperLeft, SiteDim, FontStyle.Normal);
@@ -218,9 +220,13 @@ namespace PryingEyes
                 int bay = DesertGarage.BayOf(seat, d);
                 if (bay >= 0) return bay + 1;
                 int di = DesertBikeDefs.IndexOf(d), n = 0;
-                foreach (var o in DesertGarage.Owned(seat)) if (DesertBikeDefs.IndexOf(o) < di) n++;
+                foreach (var o in DesertGarage.Owned(seat)) if (!o.IsPlane && DesertBikeDefs.IndexOf(o) < di) n++;
                 return n + 1;
             }
+
+            string DeliveryPlace(int seat, DesertBikeDef d) => d.IsPlane
+                ? "all’aperto a destra del garage del sagrato"
+                : "nel garage del sagrato, piazzola " + BayNumber(seat, d);
 
             public override void Tick(HUD h, in HubInput inp, float dt)
             {
@@ -230,7 +236,8 @@ namespace PryingEyes
                 var d = Current;
                 if (stage != null && d != null)
                 {
-                    stage.Show(d.pista, d.skin, -1, false);
+                    if (!d.IsPlane) stage.Show(d.pista, d.skin, -1, false);
+                    else if (stage.DisplayModel != d.id) stage.ShowModel(d.id, model => DesertBikeMesh.BuildPlane(model, d), 0.42f);
                     stage.Tick(dt);
                 }
                 if (phase == 0) TickCatalogue(h, inp, have, seat, dt);
@@ -268,11 +275,17 @@ namespace PryingEyes
             {
                 var d = Current;
                 if (d == null) return;
-                if (DesertGarage.Owns(seat, d)) { h.HubSay("La " + d.name + " è già nel tuo garage, piazzola " + BayNumber(seat, d) + ".", false); Sfx.UI(SoundBank.BookNo, 0.4f); return; }
-                if (have < d.price) { h.HubSay("Per la " + d.name + " servono ancora " + HubNum(d.price - have) + " punti.", true); Sfx.UI(SoundBank.BookNo, 0.5f); return; }
+                string article = d.IsPlane ? "Il " : "La ";
+                if (DesertGarage.Owns(seat, d))
+                {
+                    h.HubSay(article + d.name + (d.IsPlane ? " è già tuo." : " è già nel tuo garage, piazzola " + BayNumber(seat, d) + "."), false);
+                    Sfx.UI(SoundBank.BookNo, 0.4f);
+                    return;
+                }
+                if (have < d.price) { h.HubSay("Per " + article.ToLowerInvariant() + d.name + " servono ancora " + HubNum(d.price - have) + " punti.", true); Sfx.UI(SoundBank.BookNo, 0.5f); return; }
                 phase = 1; dialogT = 0f; yes = true;
                 dlgTitle.text = "Confermi l'ordine?";
-                dlgBody.text = "Bozzo Moto Store ti consegna la <b>" + d.name + "</b> nel garage del sagrato, piazzola " + BayNumber(seat, d) + ".\n\nCosto: <b>" + HubNum(d.price) + " punti</b>. Dopo l'acquisto te ne restano <b>" + HubNum(have - d.price) + "</b>.";
+                dlgBody.text = "Bozzo Moto Store ti consegna " + article.ToLowerInvariant() + "<b>" + d.name + "</b> " + DeliveryPlace(seat, d) + ".\n\nCosto: <b>" + HubNum(d.price) + " punti</b>. Dopo l'acquisto te ne restano <b>" + HubNum(have - d.price) + "</b>.";
                 yesText.text = "CONFERMA"; noText.text = "ANNULLA";
                 SetDialogVisible(true);
                 Sfx.UI(SoundBank.MagiaScelta, 0.35f, 1.1f);
@@ -313,11 +326,11 @@ namespace PryingEyes
                         orderNo = 2400 + (++orders) * 17 + DesertBikeDefs.IndexOf(d) * 31;
                         phase = 2; dialogT = 0f;
                         dlgTitle.text = "Ordine confermato!";
-                        dlgBody.text = "La tua <b>" + d.name + "</b> ti aspetta nel garage del sagrato, piazzola " + BayNumber(seat, d) + ", col muso verso il deserto. Avvicinati e premi <b>F</b> per salirci.\n\n<color=#6E6454>Ordine BM-" + orderNo + "  ·  pagato " + HubNum(d.price) + " punti</color>";
+                        dlgBody.text = (d.IsPlane ? "Il tuo " : "La tua ") + "<b>" + d.name + "</b> ti aspetta " + DeliveryPlace(seat, d) + ". Avvicinati e usa <b>" + PadControls.UseKey + "</b> per salirci.\n\n<color=#6E6454>Ordine BM-" + orderNo + "  ·  pagato " + HubNum(d.price) + " punti</color>";
                         yesText.text = "CONTINUA";
                         SetDialogVisible(true);
                         Sfx.UI(SoundBank.GrimorioNodo, 0.85f);
-                        h.HubSay("Comprata: " + d.name + ". È nel garage.", false);
+                        h.HubSay(d.name + " ti aspetta " + DeliveryPlace(seat, d) + ".", false);
                         h.Flash(new Color(0.95f, 0.43f, 0.10f), 0.4f, 0.3f);
                         break;
                     }
@@ -327,7 +340,7 @@ namespace PryingEyes
                         break;
                     case DesertGarage.Result.AlreadyOwned:
                         phase = 0; SetDialogVisible(false);
-                        h.HubSay("La " + d.name + " è già tua.", false);
+                        h.HubSay(d.IsPlane ? "Il " + d.name + " è già tuo." : "La " + d.name + " è già tua.", false);
                         break;
                     default:
                         phase = 0; SetDialogVisible(false);
@@ -344,25 +357,32 @@ namespace PryingEyes
                 if (dirty)
                 {
                     dirty = false;
-                    cachedBay = BayNumber(seat, d);
+                    if (!d.IsPlane) cachedBay = BayNumber(seat, d);
                     urlText.text = "https://www.bozzomoto.store/negozio/" + d.id;
                     nameText.text = d.name;
                     klassText.text = d.klass.ToUpperInvariant();
                     blurbText.text = d.tagline;
                     float kmh = d.top * 3.6f, boost = d.boost * 3.6f;
                     barValue[0].text = Mathf.RoundToInt(kmh) + " km/h";
-                    barValue[1].text = "x" + HubDecimal2(d.accel);
-                    barValue[2].text = "x" + HubDecimal2(d.turn);
-                    barValue[3].text = "x" + HubDecimal2(d.brake);
-                    for (int i = 0; i < 4; i++) HubSetMeter(barFill[i], InfoW, Mathf.Max(0.04f, d.Bar(i)));
-                    specsText.text = (d.hp > 0f ? Mathf.RoundToInt(d.hp) + " CV  ·  " + Mathf.RoundToInt(d.kg) + " kg  ·  " : "") + "turbo " + Mathf.RoundToInt(boost) + " km/h\nmotore: " + DesertBikeDefs.EngineWords(d.engine);
+                    barValue[1].text = d.IsPlane ? Mathf.RoundToInt(DesertFlight.TakeoffSpeed * 3.6f) + " km/h" : "x" + HubDecimal2(d.accel);
+                    barValue[2].text = d.IsPlane ? DesertFlight.ClimbSpeed + " m/s" : "x" + HubDecimal2(d.turn);
+                    barValue[3].text = d.IsPlane ? DesertFlight.Ceiling + " m" : "x" + HubDecimal2(d.brake);
+                    for (int i = 0; i < 4; i++)
+                    {
+                        barLabel[i].text = d.IsPlane ? PlaneLabels[i] : DesertBikeDef.BarNames[i].ToUpperInvariant().Replace("A'", "À");
+                        barTrack[i].enabled = barFill[i].enabled = !d.IsPlane;
+                        if (!d.IsPlane) HubSetMeter(barFill[i], InfoW, Mathf.Max(0.04f, d.Bar(i)));
+                    }
+                    specsText.text = d.IsPlane ? "Consegna a destra del garage"
+                        : (d.hp > 0f ? Mathf.RoundToInt(d.hp) + " CV  ·  " + Mathf.RoundToInt(d.kg) + " kg  ·  " : "") + "turbo " + Mathf.RoundToInt(boost) + " km/h\nmotore: " + DesertBikeDefs.EngineWords(d.engine);
                 }
                 bool owned = DesertGarage.Owns(seat, d);
                 bool can = have >= d.price;
                 priceText.text = HubNum(d.price) + "  <size=14>punti</size>";
-                buyText.text = owned ? "NEL TUO GARAGE" : can ? "COMPRA   " + HubNum(d.price) + " punti" : "SERVONO " + HubNum(d.price - have) + " PUNTI IN PIÙ";
+                buyText.text = owned ? (d.IsPlane ? "GIÀ TUO" : "NEL TUO GARAGE") : can ? "COMPRA   " + HubNum(d.price) + " punti" : "SERVONO " + HubNum(d.price - have) + " PUNTI IN PIÙ";
                 buyBack.color = owned ? SiteGreen : can ? SiteOrange : SiteGrey;
-                noteText.text = owned ? "Piazzola " + cachedBay + " del garage, accanto alla scalinata della cattedrale." : "Consegna immediata: la moto nasce nella piazzola " + cachedBay + " del garage.";
+                noteText.text = d.IsPlane ? "Piazzola all’aperto sul sagrato, a destra del garage."
+                    : owned ? "Piazzola " + cachedBay + " del garage, accanto alla scalinata della cattedrale." : "Consegna immediata: la moto nasce nella piazzola " + cachedBay + " del garage.";
                 int ownedN = DesertGarage.Owned(seat).Count - 1;
                 ownedCount.text = ownedN + " su " + items.Count + " nel garage";
 
@@ -379,7 +399,7 @@ namespace PryingEyes
                     it.bar.enabled = selected;
                     it.price.text = mine ? "" : HubNum(it.def.price);
                     it.price.color = have >= it.def.price ? SiteOrangeDeep : SiteGrey;
-                    it.tag.text = mine ? "NEL GARAGE" : "";
+                    it.tag.text = mine ? (it.def.IsPlane ? "GIÀ TUO" : "NEL GARAGE") : "";
                 }
             }
 

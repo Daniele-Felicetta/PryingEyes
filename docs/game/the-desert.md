@@ -501,8 +501,7 @@ are one for each seat. A bike that runs over enemies needed a damage source of i
 ## The garage and Bozzo Moto Store
 
 Request of 22 November 2026: *put the bikes in the desert, with an open-air garage where my bikes will appear when I buy them, and a menu on Select with five pages, one of them a made-up web page inside the game,
-"Bozzo Moto Store", where the bikes are bought.* Until then the desert had one bike, the improvised one of "The motorbike" above; now it has the nine bikes of the [track mode](track-mode.md) as well, to buy with
-points and to keep for good. The menu that sells them is the next section.
+"Bozzo Moto Store", where the bikes are bought.* The catalogue includes the nine bikes of the [track mode](track-mode.md) and the Libeccio light aircraft. Purchases belong to the character.
 
 **How it plays.**
 
@@ -555,6 +554,16 @@ lines, 3.4 m apart, so **a rider passes through the parked bikes of the other se
 undone beyond twelve): without it the seats of the rows behind could not leave their bays (the first four-seat run of `-splitdesertotest` read *2 m, 1 km/h* for seat 2). A walker is still stopped by them, and alone or in co-op,
 where all the bikes belong to one seat, nothing changes.
 
+### The Libeccio aircraft
+
+The **Libeccio** is a single-seat propeller plane at the bottom of the Bozzo Moto Store catalogue. It costs **6,000 points** and is delivered in the open to the right of the garage, facing the desert. Each split-screen seat has its own parking spot. Ownership uses the same character record as the bikes.
+
+Look at the aircraft from nearby and press **F** or hold **X** on a controller to board. Hold **W** and **Space** to take off once the plane reaches **65 km/h**. Use **A/D** to turn, release **Space** for level flight, and hold **S** to descend or brake on the ground. The controller uses the **left stick** for throttle, steering and descent, and **A** to climb. Speed and height above the sand appear on the flight gauge.
+
+Pick an open approach, then press **F** or hold **X** to descend, brake on contact and get out when the plane slows down. The pilot can still steer during the descent and cancel with the same control. The plane stays where it lands and returns to its parking spot on respawn.
+
+The store shows the rotating aircraft and its flight figures. In co-op, protocol `pe-coop-40` carries the Libeccio's ground and air states in the existing vehicle field of `PlayerNet`.
+
 ## The Select menu
 
 Request of 22 November 2026, in the same message: *with Select a menu opens, tidy like a navigation bar, with five categories for now: the map, the upgrades of the books, the spells, the menu to buy the bikes on
@@ -582,14 +591,11 @@ Request of 22 November 2026, in the same message: *with Select a menu opens, tid
    of the two outer nodes it touches, the supreme for four inner ones), the same points and the same effects. Enter on an inner node you own makes it the ready spell or sigil.
 3. **Magie.** What the left hand and the weapon can do: the seven spells (one column) and the seven sigils for the weapon (the other) with their cost in essence, their cooldown and a tag (*ATTIVA*, *PRONTA*,
    *IN VENDITA*, *BLOCCATA*), the essence bar with how fast it comes back; Enter prepares a spell or a sigil you have and, if you do not have it, takes you to its node in *Libri*.
-4. **Bozzo Moto Store** is a made-up web site: a browser bar (three dots and the address, `https://www.bozzomoto.store/negozio/<bike>`), the head of the shop (the logo, the menu *Catalogo / Garage / Offerte /
+4. **Bozzo Moto Store** is a made-up web site: a browser bar (three dots and the address, `https://www.bozzomoto.store/negozio/<vehicle>`), the head of the shop (the logo, the menu *Catalogo / Garage / Offerte /
    Assistenza*, the player's points on an orange tag, an orange strip with the slogan *consegna gratuita al garage del sagrato · si paga solo in punti · niente resi: la sabbia non perdona*), the **catalogue** of the
-   nine bikes on the left (name, class, price, a dot in the colour of the bike; the ones you own say *NEL GARAGE*) and **the bike** on the right: a photograph, the name, the class, the price, four bars (speed,
-   acceleration, handling, braking, on fixed scales so that a new bike does not move the old ones), power, weight, turbo and engine, a line from the shop and the button **COMPRA** (grey, *SERVONO N PUNTI IN PIÙ*, if
-   the points are not enough; green, *NEL TUO GARAGE*, if the bike is yours). The photograph is the showroom of the track mode (`GarageStage`: the plate that turns under three lights) without the rider, drawn into a
-   texture by a camera of its own far under the world, and **left and right turn the bike by hand**. Buying takes two steps: *Confermi l'ordine?* (the bay, the cost and the points left, with **CONFERMA** and
-   **ANNULLA**; an Enter within a third of a second of the first does not buy, so a stray Enter cannot spend the points, and Esc or B cancels without closing the menu) and then the receipt (*Ordine confermato!*, the
-   bay, the order number `BM-...` and the points paid). By then the bike is already in its bay.
+   nine bikes and the Libeccio on the left, with name, class, price and a dot in the colour of the vehicle. The right panel shows the selected vehicle's figures and price. The **COMPRA** button shows how many points are missing when the balance is too low, and turns green when the vehicle is yours.
+   The track mode's showroom (`GarageStage`) draws the vehicle on a rotating plate under three lights. **Left and right turn the vehicle**.
+   Buying opens *Confermi l'ordine?* with the delivery spot, cost, remaining points and **CONFERMA** and **ANNULLA** buttons. The confirmation accepts input after a third of a second. Esc or B cancels and returns to the catalogue. The receipt (*Ordine confermato!*) shows the delivery spot, the order number and the points paid. The vehicle is already there when the receipt opens.
 5. **Telecamera.** The camera settings in a column of eight rows, the ones of the pause menu (`GameSettings`, which saves them by itself) changed without leaving the game: **field of view** (60 to 105 degrees, in
    steps of 1; on a bike it widens by itself up to 17 degrees more), **perspective** (first or third person on foot and in the saddle),
    **third-person distance, height and shoulder**, **intensity of the movements** (0 to 100 %, steps of 5: engine shake, lean in bends, kick and bumps),
@@ -843,9 +849,10 @@ RB and Back last one frame; `SuppressGameplay` takes the spell away but not the 
 how far the cathedral and the garage are, the painted tiles, the parked bikes as turquoise discs); the books (no points no purchase and it says so, with points an outer node costs 1,250, a closed inner node says what it asks for, with an outer one beside it the inner one opens for 3,000 and becomes the ready spell); the spells (Enter prepares the one you
 have, and on a sigil you do not have it leads to the page where it is bought); the camera (left and right move the field of view a degree at a time, the intensity in steps of 5 %, the two sensitivities in steps of 0.05, Enter flips the mouse's Y axis, *Valori di partenza* brings everything to 75 degrees, 100 %, 1.00 and normal axes, and **at the end the settings of whoever plays are those of before**:
 the test changes `PlayerPrefs`, so it restores them in a `finally` and deletes again the keys that were not stored before it); and the close (the Esc that shut it does not open the pause, the page is kept for the next opening, no exception and the menu alive).
-**`negozio`** (22 checks, 32 with the arrival, the frame times and the log; about 20 s with the card) tests the page of the store: the fourth page is Bozzo Moto Store with the nine bikes and starts from the cheapest; **no letter of the panel has the black outline of the desert's HUD** (it smudged the small ones: the check waits 2 s, a sweep of the HUD, and counts the outlines that are on); the showroom is lit (a camera, three lights, the plate), shows the bike on sale alone, with no pilot, and a
+**`negozio`** tests the Bozzo Moto Store catalogue, showroom, confirmation, receipt and point balance. The catalogue starts from the cheapest bike and ends with the Libeccio. The test checks that **no letter of the panel has the black outline of the desert's HUD** after an outline update. The showroom is lit (a camera, three lights, the plate) and shows the vehicle on sale without a pilot. A
 photograph of it is not an empty picture; without points an Enter opens nothing and says how many are missing; with points it opens the question (and Back does not close the menu), a second Enter within a third of a second buys nothing, Back cancels with the points intact and the menu still open; the confirmation buys (the receipt, the points paid, the bike yours and in its bay at once); the receipt closes with an Enter; the same bike cannot be bought twice;
-Down chooses the next bike and the showroom shows it, the end of the catalogue stays on the last, and the dearest bike, without points, says how many are missing. Without a graphics card the page has no showroom (the stage cannot draw; one check says so and there is no `RenderTexture` error). With `-desertshots` it photographs the page for each bike, the question, the receipt and the page at night.
+Down chooses the next vehicle. The test also buys the Libeccio, reloads ownership from the character, boards at its delivery spot, takes off, banks and lands. Without a graphics card the test exercises the catalogue and flight with the showroom disabled. With `-desertshots` it photographs the catalogue entries, the question, the receipt, the page at night and the aircraft cockpit.
+
 **`cabina`** (10 checks, 20 with the arrival, the frame times and the log; about 40 s with the card) is the check of what the rider sees: for each of the ten bikes it brings it out of its bay, climbs on it, projects the box of every part of the bike that is switched on onto the field of view and writes the biggest ones (how much of the view, how far, at what height), and fails if one part covers more than 3 % of the picture above the lower
 40 % (where one looks: mirrors, uprights, windscreens). Ruggine, the old model whose handlebar and headlamp have always covered 7 to 10 % in that box, has a limit of 12 %: the check is there to see whether its drawing grows. It also writes the parts of the bike that straddle the near plane (their box is seen smaller than they are) and the others within 3 m of the eye, which is how the dark columns
 of the first photographs were found: they were not parts of the bikes but the posts of the garage's roof. One photograph for each bike, `cabina_<id>.png`.
