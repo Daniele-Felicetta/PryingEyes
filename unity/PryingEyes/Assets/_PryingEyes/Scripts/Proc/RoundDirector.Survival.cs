@@ -175,6 +175,8 @@ namespace PryingEyes.Proc
             float plague = Round >= 4 ? Mathf.Min(0.14f, 0.05f + 0.010f * Round) : 0f;
             if (r < flag) return Enemy.EnemyType.Flagellante;
             if (r < flag + plague) return Enemy.EnemyType.Appestato;
+            if (Round >= 4 && r < flag + plague + 0.13f && CountAlive(Enemy.EnemyType.Sentinella) < 2)
+                return Enemy.EnemyType.Sentinella;
             return FloorDirector.I.PickRoundType(room);
         }
 

@@ -277,10 +277,10 @@ namespace PryingEyes
         }
 
         /// <summary>Ospite: un dardo magico e' partito (agli altri solo grafica; nel deserto solo a chi e' li' vicino).</summary>
-        public void BoltLaunched(Vector3 origin, Vector3 target, float dmg)
+        public void BoltLaunched(Vector3 origin, Vector3 target, float dmg, bool sentinel)
         {
             if (!host || !AnyReady()) return;
-            var data = w.Reset().U8(EpochByte).V3(origin).V3(target).F32(dmg).ToArray();
+            var data = w.Reset().U8(EpochByte).V3(origin).V3(target).F32(dmg).Bool(sentinel).ToArray();
             if (!Desert) { SendToReady(CoopKind.Bolt, data); return; }
             foreach (int s in net.RemoteSlots)
                 if (IsReady(s) && TryPos(s, out var pp) && FlatDist(pp, origin) < InterestIn) net.SendToSlot(s, CoopKind.Bolt, data);
@@ -716,7 +716,8 @@ namespace PryingEyes
                     r.U8();
                     Vector3 a = r.V3(), b = r.V3();
                     float dmg = r.F32();
-                    if (r.Ok) MagicBolt.Launch(a, b, dmg, true);
+                    bool sentinel = r.Bool();
+                    if (r.Ok) MagicBolt.Launch(a, b, dmg, visualOnly: true, sentinel: sentinel);
                     break;
                 }
                 case CoopKind.DesertBossDown:

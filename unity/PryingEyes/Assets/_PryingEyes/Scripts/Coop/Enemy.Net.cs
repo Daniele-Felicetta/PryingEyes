@@ -3,7 +3,7 @@ using UnityEngine;
 namespace PryingEyes
 {
     /// <summary>Cose che l'ospite racconta degli attacchi di un nemico, perche' gli altri ne mostrino animazione e suono.</summary>
-    public enum EnemyEvt : byte { Attack = 1, Strike, Cast, Hit, Whistle, Help }
+    public enum EnemyEvt : byte { Attack = 1, Strike, Cast, Hit, Whistle, Help, SentinelCharge, SentinelShot }
 
     /// <summary>Lo stato di un nemico come viaggia in rete (non affidabile, ~10 Hz): 18 byte piu' l'id. 'status' sono gli stati di magie e
     /// sigilli (EnemyStatus.NetFlags: fuoco, sangue, acido, stordito, lento, congelato), perche' i pupazzi li mostrino.</summary>
@@ -187,7 +187,7 @@ namespace PryingEyes
             else gp += to * (1f - Mathf.Exp(-12f * dt));
             transform.position = gp;
             var want = Quaternion.Euler(Archetype == EnemyType.Occhio ? net.pitch * Mathf.Rad2Deg : 0f, net.yaw * Mathf.Rad2Deg, 0f);
-            if (!IsFlying(type) || atkLock <= 0)
+            if (!IsFlying(type) || (atkLock <= 0 && !sentinelCharging))
                 transform.rotation = Quaternion.Slerp(transform.rotation, want, 1f - Mathf.Exp(-10f * dt));
             speedSm = Mathf.Lerp(speedSm, net.speed, 1f - Mathf.Exp(-8f * dt));
             float v = speedSm;
@@ -240,6 +240,12 @@ namespace PryingEyes
             if (dead) return;
             switch (evt)
             {
+                case EnemyEvt.SentinelCharge:
+                    if (type == EnemyType.Sentinella && pos.sqrMagnitude > 0.01f) PlaySentinelCharge(pos);
+                    break;
+                case EnemyEvt.SentinelShot:
+                    if (type == EnemyType.Sentinella) PlaySentinelShot();
+                    break;
                 case EnemyEvt.Attack:
                     if (Archetype == EnemyType.Occhio)
                     {
@@ -275,6 +281,7 @@ namespace PryingEyes
                     if (Archetype == EnemyType.Abate && atkLock <= 0f && anim != null && flinchT <= 0f) { anim.SetTrigger("Colpito"); flinchT = 1.5f; }
                     if (Archetype == EnemyType.Occhio && eye != null) eye.Hit();
                     if (jelly != null) jelly.Hit(pos);
+                    sentinel?.Hit();
                     break;
                 case EnemyEvt.Whistle:
                     Sfx.At(SoundBank.Whistle, transform.position + Vector3.up * 1.6f, 1f, Random.Range(0.96f, 1.06f), 4f, 60f);

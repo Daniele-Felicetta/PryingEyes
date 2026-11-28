@@ -1,6 +1,5 @@
 #if !PE_DISTRIBUTION_BUILD
 using System.Collections;
-using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Rendering.Universal;
@@ -31,7 +30,7 @@ namespace PryingEyes
             PlayerController.botDir = Vector3.zero;
         }
 
-        void Photo(Enemy enemy, string name, float side = 2.4f, float front = 2.6f, float height = 1.5f)
+        void Photo(Enemy enemy, string name, float side = 2.4f, float front = 2.6f, float height = 1.5f, float focus = 1.2f)
         {
             if (!Photos || enemy == null) return;
             LightPool.Tick(false, Camera.main.transform.position);
@@ -44,8 +43,9 @@ namespace PryingEyes
                 var l = review.gameObject.AddComponent<Light>();
                 l.type = LightType.Point; l.range = 9f; l.intensity = 2.2f; l.color = new Color(1f, 0.93f, 0.85f);
             }
+            review.GetComponent<Light>().intensity = enemy.type == Enemy.EnemyType.Sentinella ? 0.65f : 2.2f;
             // un punto di vista con la linea libera fino al nemico (scaffali e colonne coprivano le prime foto)
-            Vector3 target = enemy.transform.position + Vector3.up * 1.2f;
+            Vector3 target = enemy.transform.position + Vector3.up * focus;
             float r = new Vector2(side, front).magnitude, a0 = Mathf.Atan2(side, front);
             Vector3 eye = enemy.transform.position + enemy.transform.right * side + enemy.transform.forward * front + Vector3.up * height;
             for (int k = 0; k < 12; k++)
@@ -189,7 +189,82 @@ namespace PryingEyes
             Check("la barra si spegne", Enemy.Boss == null);
             yield return new WaitForSeconds(1.5f);
             Check("barra sfumata", fill == null || fill.color.a < 0.3f);
+
+            yield return SentinelTrial(covered: false, dodge: false);
+            yield return SentinelTrial(covered: true, dodge: false);
+            yield return SentinelTrial(covered: false, dodge: true);
+            Place();
+            yield return null;
+            var position = arena + forward * 5f + Vector3.up * 1.95f;
+            var puppet = Enemy.SpawnPuppet(9878, Enemy.EnemyType.Sentinella,
+                new EnemyNet { pos = position, yaw = Mathf.Atan2(-forward.x, -forward.z), hp = 1f });
+            var puppetLight = puppet.GetComponentInChildren<Light>();
+            if (puppetLight != null)
+            {
+                puppet.PuppetEvent(EnemyEvt.SentinelCharge, -forward, 0f);
+                yield return new WaitForSeconds(.43f);
+                Check("a remote sentinel shows the charge", puppetLight.intensity > 0.25f);
+                puppet.PuppetEvent(EnemyEvt.SentinelShot, Vector3.zero, 0f);
+                yield return null;
+                Check("a remote sentinel shows the flash", puppetLight.intensity > 1.1f);
+                Check("a remote sentinel never creates a damaging bolt from an animation event",
+                    FindFirstObjectByType<MagicBolt>() == null);
+            }
+            else Check("a remote sentinel loads its animated light", false);
             Enemy.ClearAll();
+
+            IEnumerator SentinelTrial(bool covered, bool dodge)
+            {
+                Place();
+                foreach (var bolt in FindObjectsByType<MagicBolt>(FindObjectsSortMode.None)) Destroy(bolt.gameObject);
+                yield return null;
+                var sentinel = Enemy.Spawn(Enemy.EnemyType.Sentinella, arena + forward * 5f + Vector3.up * 1.95f);
+                sentinel.MakeRelentless();
+                sentinel.transform.rotation = Quaternion.LookRotation(-forward);
+                var rig = sentinel.GetComponent<SentinelRig>();
+                Check("sentinel's articulated model is loaded", rig != null && rig.GetComponentsInChildren<MeshRenderer>().Length >= 15);
+                if (rig == null) yield break;
+                var light = rig.GetComponentInChildren<Light>();
+                var parts = rig.GetComponentsInChildren<Transform>();
+                var aperture = System.Array.Find(parts, tr => tr.name == "Aperture");
+                var shutter = System.Array.Find(parts, tr => tr.name == "Shutter0");
+                Check("sentinel aperture faces the target", aperture != null && sentinel.transform.InverseTransformPoint(aperture.position).z > .22f);
+                bool clearShot = !covered && !dodge;
+                if (clearShot) Photo(sentinel, "sentinel_hover", 1.05f, 2.55f, .3f, -.05f);
+                float before = player.hp + player.shield;
+                float until = Time.time + 3f;
+                while (light.intensity < 0.27f && Time.time < until) yield return null;
+                Check("sentinel telegraphs before dealing damage", light.intensity >= 0.27f && Mathf.Abs(before - player.hp - player.shield) < .01f);
+                var cover = covered ? new GameObject("Sentinel test cover") : null;
+                if (cover != null)
+                {
+                    cover.transform.SetPositionAndRotation(arena + forward * 2.5f + Vector3.up * 1.4f, Quaternion.LookRotation(forward));
+                    cover.AddComponent<BoxCollider>().size = new Vector3(2f, 2.8f, 0.17f);
+                    Physics.SyncTransforms();
+                }
+                else if (dodge) player.Teleport(arena + right * 1.4f + Vector3.up * 0.05f);
+                else
+                {
+                    yield return new WaitForSeconds(.28f);
+                    Check("shutters remain beside the aperture as they open", Vector3.Distance(shutter.position, aperture.position) < .24f);
+                    Photo(sentinel, "sentinel_charge", 1.05f, 2.55f, .3f, -.05f);
+                }
+                until = Time.time + 1.3f;
+                while (FindFirstObjectByType<MagicBolt>() == null && Time.time < until) yield return null;
+                Check("sentinel fires a travelling bolt", FindFirstObjectByType<MagicBolt>() != null);
+                if (clearShot)
+                {
+                    yield return new WaitForSeconds(.055f);
+                    Photo(sentinel, "sentinel_fire", 1.4f, 2.55f, .35f, -.1f);
+                }
+                yield return new WaitForSeconds(.74f);
+                float damage = before - player.hp - player.shield;
+                string verdict = covered ? "cover stops an already committed shot"
+                    : dodge ? "a side-step evades the committed aim" : "a clear shot deals damage";
+                Check(verdict, clearShot ? damage > 1f : Mathf.Abs(damage) < .01f);
+                if (cover != null) Destroy(cover);
+                foreach (var bolt in FindObjectsByType<MagicBolt>(FindObjectsSortMode.None)) Destroy(bolt.gameObject);
+            }
         }
     }
 }

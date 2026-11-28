@@ -17,7 +17,7 @@ namespace PryingEyes
     /// In cooperativa l'ospite decide (scoppi, danni, chi guarda la statua) e gli altri vedono gli effetti (Die, VariantPuppetTick).</summary>
     public partial class Enemy
     {
-        public static bool IsVariant(EnemyType t) => t >= EnemyType.Appestato;
+        public static bool IsVariant(EnemyType t) => t >= EnemyType.Appestato && t <= EnemyType.Cardinale;
         public static bool IsBoss(EnemyType t) => t == EnemyType.Cardinale;
         /// <summary>Il capo vivo sul piano (uno alla volta), per la barra della vita dell'HUD.</summary>
         public static Enemy Boss { get; private set; }

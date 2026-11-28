@@ -9,7 +9,7 @@ namespace PryingEyes
 
         static EnemyType BaseType(EnemyType kind) => kind switch
         {
-            EnemyType.Veglia or EnemyType.Medusa => EnemyType.Occhio,
+            EnemyType.Veglia or EnemyType.Medusa or EnemyType.Sentinella => EnemyType.Occhio,
             EnemyType.Portachiavi => EnemyType.Abate,
             // i nemici dei piani a tema (EnemyTemi.cs) sono il monaco e l'abate con un altro costume
             EnemyType.Maschera or EnemyType.Direttore or EnemyType.Infermiere or EnemyType.Spazzino => EnemyType.Monaco,
