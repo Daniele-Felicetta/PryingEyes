@@ -73,6 +73,7 @@ namespace PryingEyes.Deserto
         sealed class Extra
         {
             public Camera cam; public float far; public CameraClearFlags flags; public Color back;
+            public UniversalAdditionalCameraData data; public CameraOverrideOption colorOption;
             public bool covered; public float indoor;
         }
         readonly List<Extra> extras = new List<Extra>();
@@ -82,7 +83,9 @@ namespace PryingEyes.Deserto
         {
             if (camera == null || camera == cam) return;
             foreach (var e in extras) if (e.cam == camera) return;
-            extras.Add(new Extra { cam = camera, far = camera.farClipPlane, flags = camera.clearFlags, back = camera.backgroundColor });
+            camera.TryGetComponent(out UniversalAdditionalCameraData data);
+            extras.Add(new Extra { cam = camera, far = camera.farClipPlane, flags = camera.clearFlags, back = camera.backgroundColor,
+                data = data, colorOption = data != null ? data.requiresColorOption : CameraOverrideOption.UsePipelineSettings });
             camera.farClipPlane = 1500f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = ToColor(State.fog);
@@ -100,7 +103,11 @@ namespace PryingEyes.Deserto
         /// <summary>La cupola e il colore della nebbia vanno alla camera che sta per disegnare (solo con piu' camere: da sola la cupola segue la sua in LateUpdate e la nebbia e' quella di Apply).</summary>
         void OnBeginCamera(ScriptableRenderContext ctx, Camera c)
         {
-            if (extras.Count == 0 || dome == null || c == null) return;
+            if (c == null) return;
+            bool refraction = c.TryGetComponent(out UniversalAdditionalCameraData data) && data.requiresColorTexture &&
+                DesertLakeSurface.Near(c.transform.position);
+            Shader.SetGlobalFloat(LakeRefraction, refraction ? 1f : 0f);
+            if (extras.Count == 0 || dome == null) return;
             bool mine = c == cam;
             if (!mine) foreach (var e in extras) if (e.cam == c) { mine = true; break; }
             if (!mine) return;
@@ -143,6 +150,9 @@ namespace PryingEyes.Deserto
         /// <summary>L'ultimo grading mandato al volume (all'aperto o sfumato col chiuso): le prove lo guardano.</summary>
         public Grade CurrentGrade { get; private set; }
         float savedFar; CameraClearFlags savedFlags; Color savedBack; bool camSaved;
+        static readonly int LakeRefraction = Shader.PropertyToID("_DesertLakeRefraction");
+        UniversalAdditionalCameraData primaryData;
+        CameraOverrideOption savedColorOption;
         bool savedFog; FogMode savedFogMode; float savedDensity; Color savedFogColor; AmbientMode savedAmbient;
 
         public static DesertSky Create(Camera camera)
@@ -161,6 +171,7 @@ namespace PryingEyes.Deserto
             cam = camera;
             if (cam == null) return;
             savedFar = cam.farClipPlane; savedFlags = cam.clearFlags; savedBack = cam.backgroundColor; camSaved = true;
+            if (cam.TryGetComponent(out primaryData)) savedColorOption = primaryData.requiresColorOption;
             cam.farClipPlane = 1500f;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = ToColor(State.fog);
@@ -204,7 +215,12 @@ namespace PryingEyes.Deserto
         {
             if (I == this) I = null;
             if (cam != null && camSaved) { cam.farClipPlane = savedFar; cam.clearFlags = savedFlags; cam.backgroundColor = savedBack; }
-            foreach (var e in extras) if (e.cam != null) { e.cam.farClipPlane = e.far; e.cam.clearFlags = e.flags; e.cam.backgroundColor = e.back; }
+            if (primaryData != null) primaryData.requiresColorOption = savedColorOption;
+            foreach (var e in extras)
+            {
+                if (e.cam != null) { e.cam.farClipPlane = e.far; e.cam.clearFlags = e.flags; e.cam.backgroundColor = e.back; }
+                if (e.data != null) e.data.requiresColorOption = e.colorOption;
+            }
             extras.Clear();
             RenderSettings.fog = savedFog; RenderSettings.fogMode = savedFogMode; RenderSettings.fogDensity = savedDensity; RenderSettings.fogColor = savedFogColor;
             RenderSettings.ambientMode = savedAmbient;
@@ -244,10 +260,19 @@ namespace PryingEyes.Deserto
 
         void LateUpdate()
         {
+            if (primaryData != null && cam != null) SetLakeRefraction(cam, primaryData, savedColorOption);
+            foreach (var extra in extras)
+                if (extra.data != null && extra.cam != null) SetLakeRefraction(extra.cam, extra.data, extra.colorOption);
             if (!Frozen) DesertMode.Clock.Advance(Time.deltaTime);
             UpdateCovered();
             Apply(Time.deltaTime, false);
             if (cam != null) dome.position = cam.transform.position;
+        }
+
+        static void SetLakeRefraction(Camera camera, UniversalAdditionalCameraData data, CameraOverrideOption original)
+        {
+            var option = DesertLakeSurface.Near(camera.transform.position) ? CameraOverrideOption.On : original;
+            if (data.requiresColorOption != option) data.requiresColorOption = option;
         }
 
         /// <summary>Si sta al chiuso se sopra la testa c'e' qualcosa entro 12 m (un tetto, la volta di una cripta, la sabbia sopra le catacombe).</summary>
@@ -256,23 +281,39 @@ namespace PryingEyes.Deserto
             coveredT -= Time.deltaTime;
             if (coveredT > 0f || cam == null) return;
             coveredT = 0.12f;
-            coveredPrimary = Physics.Raycast(cam.transform.position, Vector3.up, 12f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+            coveredPrimary = RoofOver(cam.transform.position);
             bool all = coveredPrimary;
             foreach (var e in extras)
             {
                 if (e.cam == null) continue;
-                e.covered = Physics.Raycast(e.cam.transform.position, Vector3.up, 12f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
+                e.covered = RoofOver(e.cam.transform.position);
                 all &= e.covered;
             }
             covered = all;          // il look e' uno solo: al chiuso solo se lo sono tutte le camere
         }
+
+        static bool RoofOver(Vector3 p) => !DesertLakeSurface.ContainsEye(p) &&
+            Physics.Raycast(p, Vector3.up, 12f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore);
 
         void Apply(float dt, bool immediate)
         {
             var s = DesertClock.Evaluate(DesertMode.Clock.hour);
             State = s;
             var wx = DesertWeather.Evaluate(DesertWorld.Seed, DesertMode.Clock.day, DesertMode.Clock.hour, s.daylight);
+            var position = cam != null ? cam.transform.position : Vector3.zero;
+            var biome = DesertBiomes.At(position.x, position.z, DesertWorld.Seed);
             if (stormOverride >= 0f) wx = DesertWeather.WithStorm(wx, stormOverride, s.daylight);
+            else if (wx.storm > 0f)
+            {
+                float desert = biome.Desert;
+                foreach (var e in extras)
+                    if (e.cam != null)
+                    {
+                        var p = e.cam.transform.position;
+                        desert = Mathf.Max(desert, DesertBiomes.At(p.x, p.z, DesertWorld.Seed).Desert);
+                    }
+                wx = DesertWeather.WithStorm(wx, wx.storm * desert, s.daylight);
+            }
             Weather = wx;
             Night = 1f - Stealth.Smooth(0.05f, 0.45f, s.daylight);
             indoor = immediate ? (covered ? 1f : 0f) : Mathf.MoveTowards(indoor, covered ? 1f : 0f, dt / 0.75f);
@@ -304,6 +345,14 @@ namespace PryingEyes.Deserto
             var horizon = Rgb.Lerp(Tinted(s.horizon, HorizonTint, tintK), dust, wx.sand * 0.8f);
             var fogRgb = Rgb.Lerp(Tinted(s.fog, FogTint, tintK), dust * 0.92f, wx.sand * 0.8f);
             var zenith = Rgb.Lerp(Tinted(s.zenith, ZenithTint, tintK), dust * 0.8f, wx.sand * 0.55f);
+            float iceLight = extras.Count == 0 ? biome.Ice : 0f;
+            if (extras.Count == 0)
+            {
+                var coldMist = new Rgb(0.43f, 0.57f, 0.74f) * (0.16f + s.daylight * 0.84f);
+                fogRgb = Rgb.Lerp(fogRgb, coldMist, iceLight * 0.56f);
+                horizon = Rgb.Lerp(horizon, coldMist, iceLight * 0.37f);
+                zenith = Rgb.Lerp(zenith, new Rgb(0.12f, 0.30f, 0.60f) * s.daylight, iceLight * tintK * 0.32f);
+            }
             var fog = Color.Lerp(Scaled(fogRgb, gain), InFog, k); fog.a = 1f;
             // la nebbia prende il colore del cielo nella direzione in cui si guarda (TintFog); con piu' camere (lo schermo condiviso) ognuna ha la sua, scelta quando sta per disegnare
             fogBase = fog; fogS = s; fogSand = wx.sand; fogK = k;
@@ -328,7 +377,7 @@ namespace PryingEyes.Deserto
             sunAdapt = immediate || Frozen ? facing : Mathf.MoveTowards(sunAdapt, facing, dt * (facing > sunAdapt ? 1.6f : 0.55f));
             // esposizione (SetThemeExposure riscrive il profilo del volume: a quattro scatti al secondo basta; mentre l'occhio si adatta, venticinque)
             exposureT -= dt;
-            float ev = Mathf.Lerp(s.exposure + ExposureOffset - SunAdaptEV * sunAdapt, InExposure, k);
+            float ev = Mathf.Lerp(s.exposure + ExposureOffset - SunAdaptEV * sunAdapt - 0.24f * iceLight * tintK, InExposure, k);
             if (immediate || (exposureT <= 0f && Mathf.Abs(ev - exposureSent) > 0.01f))
             {
                 exposureT = Mathf.Abs(sunAdapt - facing) > 0.002f ? 0.04f : 0.25f; exposureSent = ev;

@@ -26,6 +26,22 @@ rooms are those of the floors ([tower.md](tower.md)).
 
 ## How it plays
 
+The cathedral opens onto four connected outdoor biomes. Follow the compass east to the forest, west to the rolling meadows, or north to the frozen highlands. The desert surrounds the cathedral and its two lakes and stretches south. The map colours and the location line identify the biome as you travel. The borders curve and blend into each other, so the same world can be crossed on foot or by motorbike.
+
+- **Forest.** Branched broadleaf trees, conifers and fern beds rise out of leaf litter and moss. Trunks have physical collision, and buildings keep a clear approach.
+- **Frozen highlands.** A long ridge of crags rises beyond the snowfields, blue ice, glacial rocks and frosted spruce. Light flurries pass through the hills. Footsteps crunch in snow and exposed ice reduces grip when turning or stopping.
+- **Rolling meadows.** Wind moves the grasses and wildflowers across broad hills with sparse trees and patches of exposed soil.
+
+The terrain, scatter, map and surface movement query the same seeded climate field (`DesertBiomes`). Terrain shading blends a close-range texture atlas and relief normals into the same climate weights. The six desert regions still control the local desert palette and existing building generation.
+
+Two clear lakes appear west and north of the cathedral and are marked on both desert maps. Their placement and the curves of the coves and headlands follow the expedition seed, clear of generated buildings. Walk into deeper water to start swimming at the surface. Steer with the usual movement controls, stop to tread water, and swim up the sloping bank to walk again. The character puts away their weapon in deep water. In first person, the hands reach, catch, push and feather on the recovery. In third person, the elbows lead the same stroke, the torso rolls and banks through turns, and the legs flutter behind it. The push changes swimming speed within the stroke. Walking and landing in water kick up droplets, while each hand entry leaves a ring on the surface and plays a positional splash. The lake refracts the bed and submerged limbs, with reflections that strengthen at shallow viewing angles, small waves at the shore and a moving wake. The salt flats still have shallow brine.
+
+Hold **C** or **Ctrl** to dive and **Space** to surface. On a controller, hold **B** to dive and **A** to surface. On touch, use the crouch and jump buttons. Releasing the vertical control lets the swimmer stay at the chosen depth. The basins reach a little over eight metres. Underwater, the swimming animation turns into a submerged stroke and sound is filtered. There is a sunken arcade in the western lake and a drowned courtyard in the northern one. Both basins have pebble and silt beds, reeds near the waterline, eelgrass and pondweed growing down to the ruins, and four schools of fish at different depths. Surface ripples bend sunlight into beams and moving patterns across the bed. Ground enemies can approach the banks and stop at deep water.
+
+The terrain, map and swim controller use the same lake profile. A player-build check is available with `-autotest -desertotest -desertonly nuoto`. Add `-desertshots` to capture both views, and `-swimsequence` with screenshots enabled to capture frame sequences at 24 fps in the test output folder.
+
+Use `-autotest -desertotest -desertonly biomi` to walk across the three biome boundaries and check terrain and vegetation in each biome. Add `-desertshots` to capture each landscape in the test output folder. On a graphics-capable machine, `-outdoorperf` measures rendering time at 1920×1080 in each biome and, with `-desertonly nuoto`, at the shore and underwater.
+
 1. *Gioca* (and *Ricomincia dalla cattedrale*) opens **Come vuoi giocare?**: **Standard** or **Il deserto**. The choice is remembered for the
    next time (`PlayerPrefs` key `PryingEyes.GameMode`; the automated tests never write it). The command line `-deserto` forces the desert.
    Since 0.9.1 the desert can also be played **in co-op, up to four**: *Ospita una partita* opens the same choice (*Che partita ospiti?*), the host picks, and the guests start where
@@ -36,8 +52,8 @@ rooms are those of the floors ([tower.md](tower.md)).
    (a stone riser and a lighter slab with a nosing for each step, a sloping wall with a coping on each side and a pier at the foot). The lowest tread and its collider sit 2 cm above the flat sand so the two surfaces cannot flicker against each other. A brazier burns on
    each side at the top (a wide shallow bowl of cast iron on a tripod held by a ring, with the coals inside): flames, a hot core, smoke and embers. The wall that closes the churchyard has a turret at
    each of its four corners (a box of the same stone with a cornice, a pyramid roof of slate and a slit window on its outward faces; they are solid) and from the sand the cathedral has the outline of a castle. Two banners of crimson cloth with the
-   golden eye of the game hang from iron poles beside the stair and the wind moves them; the lamp posts (turned iron, a six-sided lantern with its glass) and the stalls of the market (a counter of warm brown wood, a striped
-   awning with a scalloped valance and a drape of the same cloth hanging from the edge of the counter) are made for the desert too. Nothing attacks in the cathedral: the walkers have no navmesh there (they stay at the foot of
+   golden eye of the game hang from iron poles beside the stair and the wind moves them. The square shares Standard's forked paving around the well, the eye relief above
+   the portal, the iron lanterns and the market's striped awnings and counter cloths. Nothing attacks in the cathedral: the walkers have no navmesh there (they stay at the foot of
    the stair) and whatever flies over the cathedral disappears.
 3. **A day lasts twenty minutes** (about twelve of daylight, eight of night; `DesertClock`). The sun, the moon, the stars, the fog and the
    exposure follow the clock; indoors (anything within 12 m above the head) the look goes back to that of the rooms. The top of the screen
@@ -432,8 +448,7 @@ the first way for a player to cross the sand without the long walk. It exists on
   prompt says *Sali in moto*: **F**, the key of every use (doors, books, the revival of a mate), puts you in the saddle. The rest of this section is the improvised bike, Ruggine; the others ride on the same model with
   their own numbers.
 - **W** gas, **S** brake and, kept down, reverse; **A**/**D** steer; **Shift** turbo; **Space** handbrake (the rear slides: it is how a tight bend is taken); the mouse looks freely up to 100° each side, and after a second and a bit
-  without looking the view comes back to the front. **F** gets off: at once under 4 m/s (14 km/h), otherwise the bike brakes by itself and the rider steps off to its side as soon as it is under 3.5 m/s. On a pad the same actions as
-  walking are used (move, jump = handbrake, sprint = turbo, use); this was not tried with a real controller.
+  without looking the view comes back to the front. **F** (hold **X** on a pad) steps off below 4 m/s (about 14 km/h) and jumps off at higher speeds while the wheels are on the ground. The rider keeps the bike's horizontal momentum at takeoff and leaves it parked at the spot. On a pad the walking controls for movement, sprint and jump become steering and throttle, turbo and handbrake.
 - Top speed 23 m/s (83 km/h), turbo 31 m/s (112 km/h), reverse 5 m/s. The gas gives 50 km/h in 1.8 s (measured), the brake takes 17 m/s² (a stop from top speed in under two seconds and about 16 m); at speed the field of view opens by up to 17°, the view
   follows half of the pitch and roll of the bike in first person, bumps and landings shake it, and the sand rises behind the rear wheel.
   The camera blends into the selected perspective on mounting and dismounting. In third person it follows the bike from behind and above,
@@ -486,8 +501,7 @@ are one for each seat. A bike that runs over enemies needed a damage source of i
 ## The garage and Bozzo Moto Store
 
 Request of 22 November 2026: *put the bikes in the desert, with an open-air garage where my bikes will appear when I buy them, and a menu on Select with five pages, one of them a made-up web page inside the game,
-"Bozzo Moto Store", where the bikes are bought.* Until then the desert had one bike, the improvised one of "The motorbike" above; now it has the nine bikes of the [track mode](track-mode.md) as well, to buy with
-points and to keep for good. The menu that sells them is the next section.
+"Bozzo Moto Store", where the bikes are bought.* The catalogue includes the nine bikes of the [track mode](track-mode.md) and the Libeccio light aircraft. Purchases belong to the character.
 
 **How it plays.**
 
@@ -516,6 +530,8 @@ numbers in the desert. The top speed is the one a vehicle reaches on the flat fr
 and the fastest is as fast as the sand that is made ahead of the bike can follow, `DesertTerrain.Ready`); the turbo is 30 % more, at most 38 m/s (137 km/h); acceleration comes from the power per kilo (x1.0 to x1.45),
 braking from the front brake (x0.95 to x1.25) and steering from the turning radius (x1.18 to x0.88). The price is **a quarter of the price in the track mode, rounded to 25 points** (points are made by killing, not by lapping).
 
+The target height when jumping off is **2.5 m** above the launch point on Ruggine. It doubles at each higher price in the catalogue, from 5 m on Scintilla 125 to 1,280 m on Gigante 1300. The rider uses the same gravity and collisions as on foot, so a roof can cut the ascent short.
+
 | Bike | Class | Price (points) | Top speed | Turbo | Acceleration | Braking | Steering | Power, weight | Engine |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
 | Ruggine | improvised | free | 83 km/h | 112 | x1.00 | x1.00 | x1.00 | n/a | n/a |
@@ -537,6 +553,16 @@ revision is refused at the entrance, as for every revision. Parked bikes are not
 lines, 3.4 m apart, so **a rider passes through the parked bikes of the other seats** (`DesertBike.GhostFor`, called every fifth of a second by `PlayerController.RideGhostBikes` for the ones within eight metres and
 undone beyond twelve): without it the seats of the rows behind could not leave their bays (the first four-seat run of `-splitdesertotest` read *2 m, 1 km/h* for seat 2). A walker is still stopped by them, and alone or in co-op,
 where all the bikes belong to one seat, nothing changes.
+
+### The Libeccio aircraft
+
+The **Libeccio** is a single-seat propeller plane at the bottom of the Bozzo Moto Store catalogue. It costs **6,000 points** and is delivered in the open to the right of the garage, facing the desert. Each split-screen seat has its own parking spot. Ownership uses the same character record as the bikes.
+
+Look at the aircraft from nearby and press **F** or hold **X** on a controller to board. Hold **W** and **Space** to take off once the plane reaches **65 km/h**. Use **A/D** to turn, release **Space** for level flight, and hold **S** to descend or brake on the ground. The controller uses the **left stick** for throttle, steering and descent, and **A** to climb. Speed and height above the sand appear on the flight gauge.
+
+Pick an open approach, then press **F** or hold **X** to descend, brake on contact and get out when the plane slows down. The pilot can still steer during the descent and cancel with the same control. The plane stays where it lands and returns to its parking spot on respawn.
+
+The store shows the rotating aircraft and its flight figures. In co-op, protocol `pe-coop-40` carries the Libeccio's ground and air states in the existing vehicle field of `PlayerNet`.
 
 ## The Select menu
 
@@ -565,14 +591,11 @@ Request of 22 November 2026, in the same message: *with Select a menu opens, tid
    of the two outer nodes it touches, the supreme for four inner ones), the same points and the same effects. Enter on an inner node you own makes it the ready spell or sigil.
 3. **Magie.** What the left hand and the weapon can do: the seven spells (one column) and the seven sigils for the weapon (the other) with their cost in essence, their cooldown and a tag (*ATTIVA*, *PRONTA*,
    *IN VENDITA*, *BLOCCATA*), the essence bar with how fast it comes back; Enter prepares a spell or a sigil you have and, if you do not have it, takes you to its node in *Libri*.
-4. **Bozzo Moto Store** is a made-up web site: a browser bar (three dots and the address, `https://www.bozzomoto.store/negozio/<bike>`), the head of the shop (the logo, the menu *Catalogo / Garage / Offerte /
+4. **Bozzo Moto Store** is a made-up web site: a browser bar (three dots and the address, `https://www.bozzomoto.store/negozio/<vehicle>`), the head of the shop (the logo, the menu *Catalogo / Garage / Offerte /
    Assistenza*, the player's points on an orange tag, an orange strip with the slogan *consegna gratuita al garage del sagrato · si paga solo in punti · niente resi: la sabbia non perdona*), the **catalogue** of the
-   nine bikes on the left (name, class, price, a dot in the colour of the bike; the ones you own say *NEL GARAGE*) and **the bike** on the right: a photograph, the name, the class, the price, four bars (speed,
-   acceleration, handling, braking, on fixed scales so that a new bike does not move the old ones), power, weight, turbo and engine, a line from the shop and the button **COMPRA** (grey, *SERVONO N PUNTI IN PIÙ*, if
-   the points are not enough; green, *NEL TUO GARAGE*, if the bike is yours). The photograph is the showroom of the track mode (`GarageStage`: the plate that turns under three lights) without the rider, drawn into a
-   texture by a camera of its own far under the world, and **left and right turn the bike by hand**. Buying takes two steps: *Confermi l'ordine?* (the bay, the cost and the points left, with **CONFERMA** and
-   **ANNULLA**; an Enter within a third of a second of the first does not buy, so a stray Enter cannot spend the points, and Esc or B cancels without closing the menu) and then the receipt (*Ordine confermato!*, the
-   bay, the order number `BM-...` and the points paid). By then the bike is already in its bay.
+   nine bikes and the Libeccio on the left, with name, class, price and a dot in the colour of the vehicle. The right panel shows the selected vehicle's figures and price. The **COMPRA** button shows how many points are missing when the balance is too low, and turns green when the vehicle is yours.
+   The track mode's showroom (`GarageStage`) draws the vehicle on a rotating plate under three lights. **Left and right turn the vehicle**.
+   Buying opens *Confermi l'ordine?* with the delivery spot, cost, remaining points and **CONFERMA** and **ANNULLA** buttons. The confirmation accepts input after a third of a second. Esc or B cancels and returns to the catalogue. The receipt (*Ordine confermato!*) shows the delivery spot, the order number and the points paid. The vehicle is already there when the receipt opens.
 5. **Telecamera.** The camera settings in a column of eight rows, the ones of the pause menu (`GameSettings`, which saves them by itself) changed without leaving the game: **field of view** (60 to 105 degrees, in
    steps of 1; on a bike it widens by itself up to 17 degrees more), **perspective** (first or third person on foot and in the saddle),
    **third-person distance, height and shoulder**, **intensity of the movements** (0 to 100 %, steps of 5: engine shake, lean in bends, kick and bumps),
@@ -673,7 +696,7 @@ Said here so they can be changed.
   one indoors), and there is one audio listener, seat 1's, so a seat kilometres away from it hears nothing of what happens round it. A volume per camera would fix the first and a custom audio mix the second; neither was done.
 - **The motorbike is an arcade ride on the player's body, not a vehicle** (19 November): the rider stays the `CharacterController` and everything that knows "the player" keeps working. A real vehicle (wheel colliders, a rigid body, suspension) would
   have meant a second body to keep in step with the first in co-op, the split screen, the falls and the enemies' hits. The numbers (83 km/h, 112 with the turbo, a stop from top speed in about 16 m) are a guess at what feels like a bike on sand, since nobody has ridden it by hand; they are constants of `DesertBike` and `PlayerController.Ride.cs`.
-- **F both mounts and gets off** (it is the use key; the turbo is the sprint key and the handbrake the jump key, so a rider's hands never leave the keys they know). Getting off at speed is a brake first, not a jump.
+- **F mounts the bike, steps off or jumps off in motion.** Turbo uses the sprint key and the handbrake uses the jump key.
 - **One bike for each player, where it was born, not saved as a position** (at the foot of the stair until 0.10.2, in its bay of the garage since 0.10.3, with the bikes bought at the store: see "The garage and Bozzo Moto Store"):
   a bike left in the desert stays where it was left (it is let go where it stands when its rider goes down or dies), and the bike of the garage is the same bike, except that **a player who dies and is
   reborn at the stair finds every bike of the seat that nobody rides back in its bay** (otherwise whoever died far away would have to walk back to them). A bike left on purpose is not called back: a button for that is the obvious next step if walking back is a nuisance.
@@ -788,6 +811,8 @@ space, the collider and the weapon back, a walking body, the disc back), then **
 checks that the rider arrives, never goes below the sand and has no frame over half a second; and last a companion's bike (a puppet posed by hand: no prompt, no collider, wheels turning, leaning in a bend). The `-coopmoto` scenario (`run_all.ps1 -Only m`) tests the network half with two processes (below).
 **`motosuono`** (5 checks, 15 with the arrival, seconds) writes the three sounds of the bike (engine loop, crash, the sand's wind) as WAV files in `unity_logs/moto/` (or the folder of `-testout`), to be measured and listened to outside the game, and checks them on their samples: that they
 have some, that the engine neither clips nor carries a DC offset, that its loop closes without a jump at the seam, how much of its energy is above 80 and 150 Hz at its native pitch (what a small speaker or headphones can give back) and the same for the crash.
+**`motosalto`** checks the doubling across the catalogue and measures the jumps from Ruggine, Scintilla 125 and Gigante 1300 on a flat platform. It holds the simulated pad's use button while each bike is moving, checks that the bike parks and the rider carries forward speed, and waits for the Ruggine rider to land on foot.
+
 **`motocamera`** (8 checks, 18 with the arrival, requires graphics) renders the camera while mounting and dismounting. It checks
 that the bike is framed from the outside, that distance, height and shoulder alter the mounted view, and that a close wall returns the
 camera to the eye and hides the rider from its own camera. It also checks the view when the player controller pauses and measures camera
@@ -824,9 +849,10 @@ RB and Back last one frame; `SuppressGameplay` takes the spell away but not the 
 how far the cathedral and the garage are, the painted tiles, the parked bikes as turquoise discs); the books (no points no purchase and it says so, with points an outer node costs 1,250, a closed inner node says what it asks for, with an outer one beside it the inner one opens for 3,000 and becomes the ready spell); the spells (Enter prepares the one you
 have, and on a sigil you do not have it leads to the page where it is bought); the camera (left and right move the field of view a degree at a time, the intensity in steps of 5 %, the two sensitivities in steps of 0.05, Enter flips the mouse's Y axis, *Valori di partenza* brings everything to 75 degrees, 100 %, 1.00 and normal axes, and **at the end the settings of whoever plays are those of before**:
 the test changes `PlayerPrefs`, so it restores them in a `finally` and deletes again the keys that were not stored before it); and the close (the Esc that shut it does not open the pause, the page is kept for the next opening, no exception and the menu alive).
-**`negozio`** (22 checks, 32 with the arrival, the frame times and the log; about 20 s with the card) tests the page of the store: the fourth page is Bozzo Moto Store with the nine bikes and starts from the cheapest; **no letter of the panel has the black outline of the desert's HUD** (it smudged the small ones: the check waits 2 s, a sweep of the HUD, and counts the outlines that are on); the showroom is lit (a camera, three lights, the plate), shows the bike on sale alone, with no pilot, and a
+**`negozio`** tests the Bozzo Moto Store catalogue, showroom, confirmation, receipt and point balance. The catalogue starts from the cheapest bike and ends with the Libeccio. The test checks that **no letter of the panel has the black outline of the desert's HUD** after an outline update. The showroom is lit (a camera, three lights, the plate) and shows the vehicle on sale without a pilot. A
 photograph of it is not an empty picture; without points an Enter opens nothing and says how many are missing; with points it opens the question (and Back does not close the menu), a second Enter within a third of a second buys nothing, Back cancels with the points intact and the menu still open; the confirmation buys (the receipt, the points paid, the bike yours and in its bay at once); the receipt closes with an Enter; the same bike cannot be bought twice;
-Down chooses the next bike and the showroom shows it, the end of the catalogue stays on the last, and the dearest bike, without points, says how many are missing. Without a graphics card the page has no showroom (the stage cannot draw; one check says so and there is no `RenderTexture` error). With `-desertshots` it photographs the page for each bike, the question, the receipt and the page at night.
+Down chooses the next vehicle. The test also buys the Libeccio, reloads ownership from the character, boards at its delivery spot, takes off, banks and lands. Without a graphics card the test exercises the catalogue and flight with the showroom disabled. With `-desertshots` it photographs the catalogue entries, the question, the receipt, the page at night and the aircraft cockpit.
+
 **`cabina`** (10 checks, 20 with the arrival, the frame times and the log; about 40 s with the card) is the check of what the rider sees: for each of the ten bikes it brings it out of its bay, climbs on it, projects the box of every part of the bike that is switched on onto the field of view and writes the biggest ones (how much of the view, how far, at what height), and fails if one part covers more than 3 % of the picture above the lower
 40 % (where one looks: mirrors, uprights, windscreens). Ruggine, the old model whose handlebar and headlamp have always covered 7 to 10 % in that box, has a limit of 12 %: the check is there to see whether its drawing grows. It also writes the parts of the bike that straddle the near plane (their box is seen smaller than they are) and the others within 3 m of the eye, which is how the dark columns
 of the first photographs were found: they were not parts of the bikes but the posts of the garage's roof. One photograph for each bike, `cabina_<id>.png`.

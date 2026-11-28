@@ -25,6 +25,7 @@ namespace PryingEyes.Pista
         public bool Rider { get; private set; } = true;
         /// <summary>For the tests: the bike put together and how many parts it has.</summary>
         public PistaBikeRig Rig { get; private set; }
+        public string DisplayModel { get; private set; }
         public Camera Cam { get; private set; }
         /// <summary>The garage is open: the lights are on and the picture is drawn every frame.</summary>
         public bool Active { get; private set; }
@@ -133,7 +134,8 @@ namespace PryingEyes.Pista
         {
             bikeIndex = Mathf.Clamp(bikeIndex, 0, Bikes.Count - 1);
             if (bike != null && bikeIndex == Bike && skin == Skin && outfit == Outfit && rider == Rider) return;
-            if (bike != null) Destroy(bike);
+            if (bike != null) { bike.SetActive(false); Destroy(bike); }
+            DisplayModel = null;
             var spec = Bikes.Get(bikeIndex);
             bike = new GameObject("Moto " + spec.name);
             bike.transform.SetParent(transform, false);
@@ -148,9 +150,28 @@ namespace PryingEyes.Pista
             Pose(0f);
         }
 
+        public void ShowModel(string id, System.Action<Transform> build, float scale)
+        {
+            if (DisplayModel == id) return;
+            if (bike != null) { bike.SetActive(false); Destroy(bike); }
+            bike = new GameObject(id);
+            bike.transform.SetParent(transform, false);
+            bike.transform.localScale = Vector3.one * scale;
+            build(bike.transform);
+            Bike = Skin = Outfit = -1;
+            Rig = null;
+            Rider = false;
+            DisplayModel = id;
+            Pose(0f);
+        }
+
         void Pose(float dt)
         {
-            if (Rig == null) return;
+            if (Rig == null)
+            {
+                if (bike != null) bike.transform.localRotation = Quaternion.Euler(0f, Spin, 0f);
+                return;
+            }
             var p = transform.position;
             Rig.Pose(new BikeView { x = p.x, y = p.y, z = p.z, heading = Spin * Mathf.Deg2Rad }, dt);
             Rig.Lights(false, false);

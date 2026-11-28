@@ -6,19 +6,20 @@ namespace PryingEyes
     [DefaultExecutionOrder(-10000)]
     public class TouchControls : MonoBehaviour
     {
-        // dopo Map: azioni che il touch non disegna (nessun bottone) ma che il controller (PadControls) puo' dare
-        public enum Action { Fire, Aim, Jump, Crouch, Sprint, Use, Reload, Swap, Mode, Torch, Battery, Ping, Left, Right, Pause, Knife, Velo, Map, Grenade, Lure, Mine, Scoreboard,
+        // The buttons follow the first actions in this enum. The remaining actions are gamepad-only.
+        public enum Action { Fire, Aim, Jump, Crouch, Sprint, Use, Reload, Swap, Mode, Torch, Battery, Ping, Left, Right, Pause, Knife, Velo, Map, Grapple, Grenade, Lure, Mine, Scoreboard,
             Spell, SpellNext, InfusionNext, Descend }
-        public const int Slots = 26;
+        public const int Slots = (int)Action.Descend + 1;
         static readonly bool[] held = new bool[Slots], down = new bool[Slots];
-        static readonly string[] labels = { "FUOCO", "MIRA", "SALTA", "GIU", "CORRI", "USA", "RICARICA", "ARMA", "MODO", "TORCIA", "PILA", "PING", "<", ">", "II", "COLTELLO", "VELO", "MAPPA" };
+        static readonly string[] labels = { "FUOCO", "MIRA", "SALTA", "GIU", "CORRI", "USA", "RICARICA", "ARMA", "MODO", "TORCIA", "PILA", "PING", "<", ">", "II", "COLTELLO", "VELO", "MAPPA", "RAMPINO" };
         static readonly Rect[] buttons = {
             new Rect(1135, 480, 130, 110), new Rect(995, 480, 130, 110), new Rect(1135, 600, 130, 100),
             new Rect(995, 600, 130, 100), new Rect(155, 465, 125, 65), new Rect(855, 600, 130, 100),
             new Rect(855, 480, 130, 110), new Rect(1135, 390, 130, 75), new Rect(995, 390, 130, 75),
             new Rect(710, 600, 135, 100), new Rect(710, 510, 135, 75), new Rect(710, 420, 135, 75),
             new Rect(295, 620, 90, 80), new Rect(395, 620, 90, 80), new Rect(1200, 10, 65, 60),
-            new Rect(855, 390, 130, 75), new Rect(855, 305, 130, 70), new Rect(1060, 10, 130, 60)
+            new Rect(855, 390, 130, 75), new Rect(855, 305, 130, 70), new Rect(1060, 10, 130, 60),
+            new Rect(1135, 305, 130, 70)
         };
         static readonly System.Collections.Generic.Dictionary<int, int> fingers = new System.Collections.Generic.Dictionary<int, int>();
         /// <summary>Solo il joystick virtuale del touch.</summary>

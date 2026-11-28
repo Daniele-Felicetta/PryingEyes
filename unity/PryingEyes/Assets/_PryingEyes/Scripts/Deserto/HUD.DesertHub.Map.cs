@@ -97,7 +97,7 @@ namespace PryingEyes
 
                 // la colonna di destra
                 var title = HubText(parent, "Titolo", Col, 0f, ColW, 34f, 28, TextAnchor.MiddleLeft, HubInkC, FontStyle.Bold, true);
-                title.text = "Il deserto";
+                title.text = "Le terre esterne";
                 clockText = HubText(parent, "Ora", Col, 36f, ColW, 20f, 14, TextAnchor.MiddleLeft, HubDimC, FontStyle.Normal);
                 Section(parent, "DOVE SEI", 70f);
                 whereText = HubText(parent, "Dove", Col, 90f, ColW, 74f, 15, TextAnchor.UpperLeft, HubInkC, FontStyle.Normal);
@@ -290,6 +290,7 @@ namespace PryingEyes
                 float homeDist = Mathf.Sqrt(dx * dx + dz * dz);
                 float garDist = Mathf.Sqrt((gc.x - p.x) * (gc.x - p.x) + (gc.z - p.z) * (gc.z - p.z));
                 sb.Length = 0;
+                sb.Append(DesertMode.BiomeName(DesertBiomes.At(p.x, p.z, DesertWorld.Seed).Dominant)).Append('\n');
                 sb.Append("x ").Append(Mathf.RoundToInt(p.x)).Append("   z ").Append(Mathf.RoundToInt(p.z));
                 if (p.y < groundY - 3f) sb.Append("   sottoterra");
                 sb.Append('\n');
@@ -306,12 +307,12 @@ namespace PryingEyes
                     if (shown >= 6) continue;
                     shown++;
                     string state;
-                    if (b.rider != null) state = "in sella";
+                    if (b.rider != null) state = b.Def.IsPlane ? (b.rider.RideGrounded ? "in cabina" : "in volo") : "in sella";
                     else
                     {
                         Vector3 bd = b.transform.position - p; bd.y = 0f;
                         Vector3 hd = b.transform.position - b.home; hd.y = 0f;
-                        state = hd.sqrMagnitude < 4f ? "nel garage" : HubDistance(bd.magnitude) + " a " + HubCompass(bd.x, bd.z);
+                        state = hd.sqrMagnitude < 4f ? (b.Def.IsPlane ? "accanto al garage" : "nel garage") : HubDistance(bd.magnitude) + " a " + HubCompass(bd.x, bd.z);
                     }
                     sb.Append("<color=#4DCCD1>●</color> ").Append(b.Def != null ? b.Def.name : "Moto").Append("  <color=#9a8f78>").Append(state).Append("</color>\n");
                 }

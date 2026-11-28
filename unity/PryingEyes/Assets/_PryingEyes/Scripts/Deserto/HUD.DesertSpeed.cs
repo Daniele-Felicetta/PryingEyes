@@ -16,7 +16,7 @@ namespace PryingEyes
         RectTransform spRoot, spNeedle;
         Text spNumber, spUnit, spTurbo;
         float spKmh = -1f, spNeedleDeg, spFullNow = SpFull;
-        int spFaults, spShownKmh = -1;
+        int spFaults, spShownKmh = -1, spShownAltitude = -1;
         bool spDead, spReverse;
         /// <summary>La moto di cui e' fatto il quadrante: la fascia gialla e il fondo scala sono i suoi (le moto della pista vanno oltre i 120).</summary>
         DesertBikeDef spDef;
@@ -27,7 +27,7 @@ namespace PryingEyes
         public bool SpeedoShown => spRoot != null && spRoot.gameObject.activeSelf;
         public int SpeedoKmh => spNumber != null && int.TryParse(spNumber.text, out var v) ? v : -1;
         public float SpeedoNeedleDeg => spNeedleDeg;
-        public bool SpeedoTurboLit => spTurbo != null && spTurbo.color.a > 0.5f;
+        public bool SpeedoTurboLit => spDef != null && !spDef.IsPlane && spTurbo != null && spTurbo.color.a > 0.5f;
         public bool SpeedoReverseShown => spReverse;
         /// <summary>L'angolo della lancetta (gradi in senso orario dall'alto) per una velocita' in km/h.</summary>
         public static float SpeedoDegFor(float kmh) => -SpStart + SpSweep * Mathf.Clamp01(kmh / SpFull);
@@ -72,7 +72,15 @@ namespace PryingEyes
             }
             bool rev = pl.RideSpeed < -0.3f;
             if (rev != spReverse) { spReverse = rev; spUnit.text = rev ? "km/h  R" : "km/h"; }
-            var tc = spTurbo.color; tc.a = pl.RideBoosting ? 1f : 0.16f; if (!Mathf.Approximately(tc.a, spTurbo.color.a)) spTurbo.color = tc;
+            if (def.IsPlane)
+            {
+                int altitude = Mathf.RoundToInt(pl.RideAltitude);
+                if (altitude != spShownAltitude) { spShownAltitude = altitude; spTurbo.text = "QUOTA " + altitude + " m"; }
+            }
+            else
+            {
+                var tc = spTurbo.color; tc.a = pl.RideBoosting ? 1f : 0.16f; if (!Mathf.Approximately(tc.a, spTurbo.color.a)) spTurbo.color = tc;
+            }
         }
 
         static Text SpText(Transform parent, string name, Vector2 pos, Vector2 size, int fs, Color col, FontStyle style)
@@ -110,7 +118,7 @@ namespace PryingEyes
                 t.text = v.ToString();
             }
             spTurbo = SpText(spRoot, "Turbo", new Vector2(0f, 34f), new Vector2(60f, 14f), 11, SpAmber, FontStyle.Bold);
-            spTurbo.text = "TURBO";
+            spTurbo.text = def.IsPlane ? "QUOTA 0 m" : "TURBO";
             spNumber = SpText(spRoot, "Numero", new Vector2(0f, -52f), new Vector2(90f, 38f), 34, SpInk, FontStyle.Bold);
             spNumber.text = "0";
             spUnit = SpText(spRoot, "Unita", new Vector2(0f, -76f), new Vector2(70f, 14f), 11, new Color(SpInk.r, SpInk.g, SpInk.b, 0.75f), FontStyle.Bold);
@@ -124,7 +132,7 @@ namespace PryingEyes
             DmImg("MozzoOrlo", spRoot, 15f, new Color(0.05f, 0.04f, 0.035f, 0.95f), CircleSprite());
             DmImg("Mozzo", spRoot, 9f, SpNeedleCol, CircleSprite());
             spRoot.gameObject.SetActive(false);
-            spReverse = false; spShownKmh = -1;
+            spReverse = false; spShownKmh = spShownAltitude = -1;
         }
 
         /// <summary>Un'immagine centrata sul padre (quadrata, di lato 'size').</summary>

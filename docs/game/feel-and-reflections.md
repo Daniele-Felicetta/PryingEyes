@@ -78,6 +78,18 @@ Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -mantletes
 vaulting a 1 m wall 25 cm thick in 0.41 s and landing beyond it, no vault for a 2.2 m wall or a 25 cm step). Photos in
 `unity_logs/scavalco`.
 
+## Grappling hook
+
+Aim at a solid surface within 72 metres and press **Left Alt**, hold **R3**, or tap **Rampino**
+on touch. Walls, ceilings, floors and moving geometry can all take the hook. The cable reels the player in with progressive
+acceleration and brakes near the surface. Steer with the movement controls while reeling. Press the grapple control again
+or jump to release and carry your momentum into the next move. A blocked cable retracts. The hook can be fired again
+immediately, with unlimited uses. The harness-mounted winch leaves both hands free to aim, fire, reload or switch weapons
+while the hook is in flight or the cable is pulling. On a controller, hold **R3** even while aiming with **LT**. A quick tap
+of **R3** still leans right while aiming and uses the knife from the hip. Teammates see the gun, winch, cable and hook.
+
+Verification: `PryingEyes.exe -batchmode -autotest -nofire -noenemies -grappletest [-grappleshots] -seed 1000 -floor 1`.
+
 ## Hit reactions
 
 Added on 15 November 2026 (`Scripts/EnemyFlinch.cs`).

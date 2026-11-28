@@ -186,14 +186,27 @@ namespace PryingEyes
             Vector3 framing = GameSettings.ThirdPersonFraming;
             Vector3 offset = new Vector3(framing.x * Mathf.Lerp(1f, 2f / 3f, ads), framing.y + 0.24f * ads,
                 -framing.z * Mathf.Lerp(1f, 1.18f / GameSettings.ThirdDistanceDefault, ads));
-            if (riding) { offset.y += 0.52f; offset.z -= 0.7f; }
+            if (riding)
+            {
+                offset.y += p.Bike.Def.IsPlane ? 1.35f : 0.52f;
+                offset.z -= p.Bike.Def.IsPlane ? 3.8f : 0.7f;
+            }
+            else if (p.Swimming)
+            {
+                offset.x *= 1.18f;
+                offset.y += Mathf.Lerp(0.52f, 0.28f, p.SwimSubmersion);
+                offset.z *= 0.82f;
+            }
             else if (p.IsCrouching) offset.z *= 0.9f;
             followHeight = continuing && Mathf.Abs(followHeight - stableEye.y) < 0.6f
                 ? Mathf.Lerp(followHeight, stableEye.y, 1f - Mathf.Exp(-14f * dt))
                 : stableEye.y;
             stableEye.y = Mathf.Clamp(followHeight, stableEye.y - 0.20f, stableEye.y + 0.20f);
-            float boomPitch = Mathf.Clamp(lookAngles.x, -10f, 25f);
+            float divePitch = p.Swimming ? p.SwimSubmersion : 0f;
+            float boomPitch = Mathf.Clamp(lookAngles.x, Mathf.Lerp(-10f, -36f, divePitch), Mathf.Lerp(25f, 42f, divePitch));
             Vector3 desired = stableEye + Quaternion.Euler(boomPitch, lookAngles.y, 0f) * offset;
+            if (p.Swimming && stableEye.y < p.SwimSurface)
+                desired.y = Mathf.Min(desired.y, p.SwimSurface - 0.08f);
             Vector3 dir = desired - eye;
             float len = dir.magnitude;
             dir /= len;

@@ -1,6 +1,6 @@
 Shader "PryingEyes/DesertSand"
 {
-    // La sabbia del deserto: tutta procedurale, nessuna texture. Il colore cambia piano piano con la posizione (zone piu' chiare, piu' rosse e piu'
+    // Il colore della sabbia procedurale cambia piano piano con la posizione (zone piu' chiare, piu' rosse e piu'
     // scure), sui pendii ripidi diventa roccia, e le dune hanno increspature del vento (ondine piccole, spostate dal rumore) che muovono
     // la normale: al sole radente di mattina e di sera ogni cresta ha la sua ombra. Da vicino si vede anche il grano. Il resto e' la luce di URP
     // (sole con le ombre, luci puntuali, ambiente, nebbia): UniversalFragmentPBR come il Lit.
@@ -12,6 +12,7 @@ Shader "PryingEyes/DesertSand"
         _SandRed ("Sabbia rossa", Color) = (0.67, 0.42, 0.26, 1)
         _Rock ("Roccia", Color) = (0.45, 0.33, 0.24, 1)
         _Wind ("Vento (xz)", Vector) = (0.82, 0.57, 0, 0)
+        _BiomeGround ("Outdoor ground atlas", 2D) = "gray" {}
     }
     SubShader
     {
@@ -26,7 +27,7 @@ Shader "PryingEyes/DesertSand"
             Cull Back
 
             HLSLPROGRAM
-            #pragma target 2.0
+            #pragma target 3.5
             #pragma vertex SandVertex
             #pragma fragment SandFragment
 
@@ -54,18 +55,44 @@ Shader "PryingEyes/DesertSand"
                 half4 _Rock;
                 float4 _Wind;
             CBUFFER_END
+            TEXTURE2D(_BiomeGround);
+            SAMPLER(sampler_BiomeGround);
 
             float4 _DSCloudShadow;      // z: quanto l'ombra di una nuvola scurisce il terreno al sole (0 di notte e nella tempesta), w: la copertura del cielo (come _DSCloud.a); lo scrive DesertSky
             float _DSPebbleBoost;       // 0 in gioco; la prova GroundShots lo porta a 1 per fotografare il pavimento di ciottoli anche dove il rumore non ne mette
             // il cielo, per lo specchio delle pozze sulle saline (li scrive DesertSky, come per la cupola del cielo)
             float4 _DSHorizon, _DSZenith, _DSFog, _DSSunDir, _DSSunColor, _DSMoonDir, _DSCloud, _DSParams;
+            #include "LakeLighting.hlsl"
             float _DSSunGlow;
+            float4 _DSLakes[2];
+            float4 _DSLakeLevels;
+            int _DSLakeCount;
+
+            half3 GroundTile(float2 uv, float2 dx, float2 dy, float2 quadrant)
+            {
+                // Mirrored repetition keeps the atlas continuous. Explicit derivatives keep mip selection stable across each fold.
+                float2 tile = frac(uv * 0.5) * 2.0;
+                float2 direction = 1.0 - step(1.0, tile) * 2.0;
+                float2 within = 1.0 - abs(tile - 1.0);
+                return SAMPLE_TEXTURE2D_GRAD(_BiomeGround, sampler_BiomeGround,
+                    quadrant + 0.016 + within * 0.468, dx * direction * 0.468, dy * direction * 0.468).rgb;
+            }
+
+            half3 GroundDetail(float2 p, float2 dx, float2 dy, float2 quadrant, float repeat, float blend)
+            {
+                float2x2 turn = float2x2(0.78, -0.625, 0.625, 0.78);
+                half3 fine = GroundTile(p * repeat, dx * repeat, dy * repeat, quadrant);
+                half3 coarse = GroundTile(mul(turn, p) * (repeat * 0.67) + 8.337,
+                    mul(turn, dx) * (repeat * 0.67), mul(turn, dy) * (repeat * 0.67), quadrant);
+                return lerp(fine, coarse, blend);
+            }
 
             struct Attributes
             {
                 float4 positionOS : POSITION;
                 float3 normalOS   : NORMAL;
                 half4 color       : COLOR;          // il colore della regione: rgb = moltiplicatore (0..2, in meta'), a = quanto colore perde
+                half4 biome       : TEXCOORD1;
             };
 
             struct Varyings
@@ -73,6 +100,7 @@ Shader "PryingEyes/DesertSand"
                 float3 positionWS : TEXCOORD1;
                 float3 normalWS   : TEXCOORD2;
                 half4 tint        : TEXCOORD3;
+                half4 biome       : TEXCOORD4;
             #ifdef _ADDITIONAL_LIGHTS_VERTEX
                 half4 fogFactorAndVertexLight : TEXCOORD5;
             #else
@@ -100,6 +128,7 @@ Shader "PryingEyes/DesertSand"
             #endif
                 output.normalWS = normalInput.normalWS;
                 output.tint = input.color;
+                output.biome = input.biome;
                 OUTPUT_SH4(vertexInput.positionWS, output.normalWS.xyz, GetWorldSpaceNormalizeViewDir(vertexInput.positionWS), output.vertexSH, output.probeOcclusion);
             #ifdef _ADDITIONAL_LIGHTS_VERTEX
                 output.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
@@ -436,18 +465,105 @@ Shader "PryingEyes/DesertSand"
                     albedo = lerp(sand, layer * lerp(half3(1, 1, 1), regionMul, 0.6), rock);
                 }
 
+                float temperate = saturate(input.biome.x + input.biome.z);
+                float snow = input.biome.y;
+                float biomeCover = saturate(temperate + snow);
+                float packIce = 0.0;
                 albedo *= 1.0 - 0.34 * damp;
                 albedo = lerp(albedo, albedo * half3(0.45, 0.52, 0.55), wet);                // il sale sotto l'acqua e' molto piu' scuro, e un po' verde-azzurro: il lago non e' una distesa bianca
+                float2 texDx = ddx(p), texDy = ddy(p);
+                float relief = 0.0;
+                float textureFade = 1.0 - smoothstep(42.0, 105.0, dist);
+                float mixTiles = smoothstep(0.28, 0.72, VNoise(p * 0.39 + 9.6));
+                if (biomeCover > 0.001)
+                {
+                    float meadowTexture = VNoise(p * 0.21 + float2(14.3, -8.6)) * 0.67 + VNoise(p * 1.47) * 0.33;
+                    float grit = VNoise(p * float2(28.0, 13.0)) - 0.5;
+                    float moss = smoothstep(0.29, 0.72, meadowTexture) * smoothstep(0.49, 0.91, N.y);
+                    half3 loam = lerp(half3(0.145, 0.108, 0.065), half3(0.126, 0.219, 0.077), moss);
+                    float meadowPatches = VNoise(p * 0.038 + float2(3.1, 12.7)) * 0.72 + meadowTexture * 0.28;
+                    half3 grass = lerp(half3(0.125, 0.188, 0.053), half3(0.35, 0.385, 0.116), smoothstep(0.25, 0.77, meadowPatches));
+                    loam *= 1.0 + grit * 0.38;
+                    grass *= 1.0 + grit * 0.26;
+                    if (textureFade > 0.001)
+                    {
+                        if (input.biome.x > 0.002)
+                        {
+                            half3 litter = GroundDetail(p, texDx, texDy, float2(0.0, 0.5), 0.85, mixTiles);
+                            loam = lerp(loam, litter * half3(1.98, 1.87, 1.65) * (0.74 + moss * 0.39), textureFade * 0.88);
+                            relief += dot(litter, half3(0.25, 0.61, 0.14)) * 0.061 * input.biome.x;
+                        }
+                        if (input.biome.z > 0.002)
+                        {
+                            half3 turf = GroundDetail(p, texDx, texDy, float2(0.5, 0.5), 0.77, mixTiles);
+                            grass = lerp(grass, turf * half3(1.14, 1.28, 1.15) * (0.78 + meadowPatches * 0.55), textureFade * 0.89);
+                            relief += dot(turf, half3(0.22, 0.72, 0.06)) * 0.033 * input.biome.z;
+                        }
+                    }
+                    packIce = smoothstep(0.35, 0.76, input.biome.w) * smoothstep(0.78, 0.99, N.y);
+                    float stone = (1.0 - smoothstep(0.62, 0.89, N.y + meadowTexture * 0.095)) * (1.0 - packIce * 0.45);
+                    half3 frost = lerp(half3(0.57, 0.65, 0.70), half3(0.79, 0.86, 0.89), meadowTexture);
+                    half3 frozen = lerp(half3(0.19, 0.36, 0.46), half3(0.46, 0.65, 0.72), meadowTexture);
+                    if (snow > 0.002 && textureFade > 0.001)
+                    {
+                        half3 crystal = GroundDetail(p, texDx, texDy, float2(0.0, 0.0), 0.62, mixTiles);
+                        frost = lerp(frost, crystal * half3(1.13, 1.19, 1.23), textureFade * 0.92);
+                        frozen *= lerp(half3(1, 1, 1), crystal * 1.31 + 0.24, textureFade);
+                        relief += dot(crystal, half3(0.21, 0.71, 0.08)) * lerp(0.024, 0.006, packIce) * snow;
+                    }
+                    float stratum = 0.82 + 0.18 * sin(P.y * 0.62 + VNoise(p * 0.074) * 3.8);
+                    half3 slate = lerp(half3(0.115, 0.151, 0.177), half3(0.25, 0.266, 0.261), meadowTexture) * stratum;
+                    half3 cold = lerp(lerp(frost, frozen, packIce), slate, stone * 0.92);
+                    albedo = albedo * (1.0 - biomeCover) + loam * input.biome.x + grass * input.biome.z + cold * snow;
+                    Np = normalize(lerp(Np, N, biomeCover * 0.92));
+                }
+                float bankWet = 0.0, underwater = 0.0;
+                for (int lake = 0; lake < _DSLakeCount; lake++)
+                {
+                    float2 offset = (p - _DSLakes[lake].xy) * _DSLakes[lake].zw;
+                    float squared = dot(offset, offset);
+                    if (squared > 1.84) continue;
+                    float radius = LakeRadius(offset, _DSLakeLevels[2 + lake]);
+                    if (radius < 1.0) underwater = max(underwater, _DSLakeLevels[lake] - P.y);
+                    float shore = 1.0 - smoothstep(1.008, 1.068 + VNoise(p * 0.82) * 0.016, radius);
+                    bankWet = max(bankWet, shore * smoothstep(0.90, 0.966, radius));
+                }
+                albedo *= lerp(half3(1.0, 1.0, 1.0), half3(0.71, 0.61, 0.53), bankWet);
+
+                float sediment = saturate(underwater * 3.2 + bankWet * 0.84);
+                if (sediment > 0.002 && textureFade > 0.001)
+                {
+                    half3 gravel = GroundDetail(p, texDx, texDy, float2(0.5, 0.0), 0.54, mixTiles);
+                    float stones = smoothstep(0.27, 0.72, VNoise(p * 0.24 + 11.3));
+                    half3 silt = lerp(half3(0.22, 0.17, 0.10), half3(0.10, 0.15, 0.10), VNoise(p * 0.13 + 2.7));
+                    half3 bed = lerp(silt, gravel * half3(1.75, 1.67, 1.58), 0.36 + stones * 0.62);
+                    albedo = lerp(albedo, bed, sediment * textureFade * 0.98);
+                    relief += dot(gravel, half3(0.23, 0.66, 0.11)) * 0.057 * sediment * (0.45 + stones * 0.55);
+                }
+
+                float3 dpX = ddx(P), dpY = ddy(P);
+                float3 axisX = cross(dpY, N), axisY = cross(N, dpX);
+                float volume = dot(dpX, axisX);
+                float3 bump = (ddx(relief) * axisX + ddy(relief) * axisY) * sign(volume) / max(abs(volume), 1e-8);
+                Np = normalize(Np - clamp(bump, -0.6, 0.6) * textureFade);
 
                 SurfaceData surfaceData = (SurfaceData)0;
                 surfaceData.albedo = albedo;
                 surfaceData.alpha = 1;
                 surfaceData.metallic = 0;
                 surfaceData.specular = 0;
-                surfaceData.smoothness = lerp(0.06 + 0.10 * saturate(grain * 2.0 + 0.5) * grainFade, 0.55, wet);
+                surfaceData.smoothness = lerp(0.06 + 0.10 * saturate(grain * 2.0 + 0.5) * grainFade, 0.55, max(wet, bankWet * 0.68));
+                surfaceData.smoothness = lerp(surfaceData.smoothness, 0.68, packIce);
                 surfaceData.occlusion = 1;
                 surfaceData.normalTS = half3(0, 0, 1);
                 surfaceData.emission = 0;
+                if (underwater > 0.01)
+                {
+                    float2 sunBed = p + _DSSunDir.xz * underwater * 0.55;
+                    float caustic = LakeCaustics(sunBed, _Time.y, underwater);
+                    surfaceData.albedo *= lerp(half3(1, 1, 1), half3(0.62, 0.77, 0.68), smoothstep(0.0, 5.8, underwater));
+                    surfaceData.emission = (half3(0.025, 0.064, 0.053) + surfaceData.albedo * 0.34) * caustic * _DSSunDir.w;
+                }
 
                 InputData inputData = (InputData)0;
                 inputData.positionWS = P;
@@ -481,7 +597,8 @@ Shader "PryingEyes/DesertSand"
                 half4 color = UniversalFragmentPBR(inputData, surfaceData);
                 // il luccichio dei grani di quarzo: pochi puntini che prendono il sole (ogni cella minuscola ha una faccetta a caso e brilla solo quando e' a specchio tra sole e occhio);
                 // si vede da vicino e dove la luce arriva (la sabbia in ombra non luccica)
-                float sparkFade = saturate(1.0 - dist / 13.0) * slopeFlat * (1.0 - rock) * (1.0 - wet);
+                float sparkFade = saturate(1.0 - dist / 13.0) * slopeFlat * (1.0 - rock) * (1.0 - wet) * (1.0 - biomeCover) *
+                    (1.0 - max(bankWet, smoothstep(0.0, 0.25, underwater)));
                 if (sparkFade > 0.01)
                 {
                     Light sun = GetMainLight(inputData.shadowCoord);

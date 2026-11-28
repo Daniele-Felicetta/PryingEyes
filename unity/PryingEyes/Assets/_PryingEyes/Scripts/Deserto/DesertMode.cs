@@ -15,6 +15,17 @@ namespace PryingEyes.Deserto
         /// <summary>La partita in corso e' nel deserto.</summary>
         public static bool Active { get; private set; }
         internal static bool OnSurface => Active && Proc.FloorDirector.I != null && Proc.FloorDirector.I.InHub;
+
+        internal static string BiomeName(Biome biome)
+        {
+            switch (biome)
+            {
+                case Biome.Forest: return "Foresta";
+                case Biome.Ice: return "Altopiano ghiacciato";
+                case Biome.Meadow: return "Praterie collinari";
+                default: return "Deserto";
+            }
+        }
         /// <summary>Il seme del mondo della partita in corso.</summary>
         public static int Seed { get; private set; }
         /// <summary>L'orologio del giorno: gira solo nel deserto.</summary>

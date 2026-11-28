@@ -106,6 +106,10 @@ namespace PryingEyes.Deserto
                     float r = Paper[0] * (1f + (tr - 1f) * 0.75f), g = Paper[1] * (1f + (tg - 1f) * 0.75f), b = Paper[2] * (1f + (tb - 1f) * 0.75f);
                     float luma = 0.3f * r + 0.59f * g + 0.11f * b, ds = Math.Min(0.55f, desat * 0.6f);
                     r += (luma - r) * ds; g += (luma - g) * ds; b += (luma - b) * ds;
+                    var biome = DesertBiomes.At(x, z, DesertWorld.Seed);
+                    r = r * biome.Desert + biome.Forest * 0.36f + biome.Ice * 0.77f + biome.Meadow * 0.57f;
+                    g = g * biome.Desert + biome.Forest * 0.53f + biome.Ice * 0.85f + biome.Meadow * 0.68f;
+                    b = b * biome.Desert + biome.Forest * 0.31f + biome.Ice * 0.93f + biome.Meadow * 0.35f;
                     float up = Smooth(0f, 40f, hc - DesertWorld.GroundY);                    // piu' in alto, piu' chiaro: le mesa e i rilievi si staccano
                     r += (1f - r) * 0.16f * up; g += (1f - g) * 0.14f * up; b += (1f - b) * 0.10f * up;
                     // la grana della carta
@@ -147,6 +151,13 @@ namespace PryingEyes.Deserto
                         float rim = 1f - Smooth(0.50f, 0.70f, brine);
                         float wr = Water[0] + (WaterEdge[0] - Water[0]) * rim, wg = Water[1] + (WaterEdge[1] - Water[1]) * rim, wb = Water[2] + (WaterEdge[2] - Water[2]) * rim;
                         r += (wr - r) * w * 0.92f; g += (wg - g) * w * 0.92f; b += (wb - b) * w * 0.92f;
+                    }
+                    if (DesertWorld.LakeAt(x, z, out _, out float lakeDepth))
+                    {
+                        float deep = Smooth(0f, DesertLake.Depth, lakeDepth);
+                        r = 0.38f - deep * 0.22f;
+                        g = 0.69f - deep * 0.19f;
+                        b = 0.72f - deep * 0.14f;
                     }
 
                     // il cerchio dove non nasce nessun nemico: tratteggio d'oro attorno alla cattedrale

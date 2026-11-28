@@ -82,7 +82,8 @@ namespace PryingEyes.Deserto
             // ---- il catalogo
             var all = DesertBikeDefs.All;
             var sale = ForSale();
-            Check("garage: il catalogo ha la moto di casa, gratis e per prima, e le nove della pista in vendita", all.Count == 1 + Bikes.Count && all[0].Starter && all[0].Free && sale.Count == Bikes.Count, $"{all.Count} moto, {sale.Count} in vendita");
+            Check("garage: the starter, nine track bikes and the Libeccio", all.Count == 2 + Bikes.Count && all[0].Starter && all[0].Free
+                && sale.FindAll(d => d.IsPista).Count == Bikes.Count && sale.FindAll(d => d.IsPlane).Count == 1, $"{all.Count} vehicles, {sale.Count} for sale");
             bool ascending = true, unique = true, netOk = true, capsOk = true;
             var ids = new HashSet<string>();
             for (int i = 0; i < sale.Count; i++)
@@ -91,6 +92,7 @@ namespace PryingEyes.Deserto
                 if (i > 0 && d.price < sale[i - 1].price) ascending = false;
                 if (!ids.Add(d.id)) unique = false;
                 if (DesertBikeDefs.FromNet(DesertBikeDefs.NetCode(d)) != d) netOk = false;
+                if (!d.IsPista) continue;
                 if (d.top < 24.4f || d.top > 33.1f || d.boost > 38.1f || d.boost < d.top || d.accel < 0.99f || d.accel > 1.46f || d.turn < 0.87f || d.turn > 1.19f || d.brake < 0.94f || d.brake > 1.26f) capsOk = false;
                 Debug.Log($"[PryingEyes] desertotest garage: {d.name} ({d.klass}) {d.price} punti, {d.top * 3.6f:F0} km/h, turbo {d.boost * 3.6f:F0}, ripresa x{d.accel:F2}, freno x{d.brake:F2}, sterzo x{d.turn:F2}, {d.hp:F0} CV, {d.kg:F0} kg, {DesertBikeDefs.EngineWords(d.engine)}");
             }
@@ -125,7 +127,7 @@ namespace PryingEyes.Deserto
                 $"{DesertBike.All.Count} moto, in {starter.transform.position:F1}");
 
             // ---- comprare
-            var cheap = sale[0]; var mid = sale[2]; var dear = sale[sale.Count - 1];
+            var cheap = sale[0]; var mid = sale[2]; var dear = sale.FindLast(d => d.IsPista);
             var poor = DesertGarage.TryBuy(0, cheap, out int missing);
             Check("garage: senza punti non si compra, e dice quanti ne mancano", poor == DesertGarage.Result.NotEnoughPoints && missing == cheap.price && !DesertGarage.Owns(0, cheap), $"{poor}, mancano {missing}");
             gm.AddPoints(cheap.price + mid.price + dear.price + 11);
@@ -177,18 +179,18 @@ namespace PryingEyes.Deserto
                 if (b == null) continue;
                 placed++;
                 int bay = DesertGarage.BayOf(0, d);
-                if (bay >= 0 && Flat(b.transform.position, DesertGarage.BayPos(0, bay)) < 0.3f) bays.Add(bay);
+                if (bay >= 0 && Flat(b.transform.position, DesertGarage.ParkingPos(0, bay, d)) < 0.3f) bays.Add(bay);
                 if (b.Settled) settled++;
                 int bt = 0;
                 foreach (var mf in b.GetComponentsInChildren<MeshFilter>()) if (mf.sharedMesh != null) bt += mf.sharedMesh.triangles.Length / 3;
                 tris += bt;
                 Debug.Log($"[PryingEyes] desertotest garage: {d.name} si disegna con {bt} triangoli");
             }
-            Check("garage: con tutte le moto sono dieci, ognuna nella sua piazzola e a terra", placed == all.Count && bays.Count == all.Count && settled == all.Count, $"{placed} moto, {bays.Count} piazzole, {settled} a terra");
-            Debug.Log($"[PryingEyes] desertotest garage: i dieci disegni insieme hanno {tris} triangoli");
-            Check("garage: i dieci modelli insieme restano sotto i 520 mila triangoli (il 22 novembre ne misurano 468 mila)", tris > 0 && tris < 520000, $"{tris}");
+            Check("garage: each vehicle is parked and settled in its own bay", placed == all.Count && bays.Count == all.Count && settled == all.Count, $"{placed} vehicles, {bays.Count} bays, {settled} settled");
+            Check("garage: the vehicle models use fewer than 520,000 triangles", tris > 0 && tris < 520000, $"{tris}");
             bool kitOk = true;
-            foreach (var d in sale) if (d.grip.y < 0.85f || d.grip.y > 1.1f || d.seatHips.y < 0.9f || d.seatHips.y > 1.1f || d.eye.y < 1.25f || d.eye.y > 1.55f || d.seatLean < 30f || d.seatLean > 70f) kitOk = false;
+            foreach (var d in sale)
+                if (d.IsPista && (d.grip.y < 0.85f || d.grip.y > 1.1f || d.seatHips.y < 0.9f || d.seatHips.y > 1.1f || d.eye.y < 1.25f || d.eye.y > 1.55f || d.seatLean < 30f || d.seatLean > 70f)) kitOk = false;
             Check("garage: la posa in sella di ogni moto (bacino, piedi, occhio, manopole) e' in misure da persona", kitOk);
 
             // ---- quanto costa vederle tutte: il sagrato dalla cima della scalinata col garage pieno e senza le nove moto comprate (serve la scheda grafica)
@@ -546,7 +548,8 @@ namespace PryingEyes.Deserto
             hud.OpenHub(3);
             yield return new WaitForSeconds(0.8f);
             var store = hud.HubCurrentPage as HUD.HubStorePage;
-            Check("negozio: la quarta pagina e' Bozzo Moto Store, col catalogo delle nove moto in vendita", store != null && store.Count == Bikes.Count && store.Current != null && !store.Current.Free, store == null ? "non e' la pagina" : $"{store.Count} moto");
+            Check("store: the fourth page offers nine motorcycles and one plane", store != null && store.Count == Bikes.Count + 1
+                && store.Current != null && !store.Current.Free, $"{store?.Count ?? 0} vehicles");
             if (store == null) { hud.CloseHub(); yield break; }
             var sale = ForSale();
             Check("negozio: parte dalla piu' economica", store.Current == sale[0], store.Current == null ? "" : store.Current.name);
@@ -616,13 +619,28 @@ namespace PryingEyes.Deserto
             yield return Frames(3);
             if (gfx) Check("negozio: la vetrina ha cambiato moto", store.Stage != null && store.Stage.Bike == sale[1].pista, store.Stage == null ? "" : $"{store.Stage.Bike} invece di {sale[1].pista}");
             for (int i = 0; i < 20; i++) store.Tick(hud, new HUD.HubInput { ny = -1 }, 0.016f);
-            Check("negozio: in fondo al catalogo resta sull'ultima", store.Current == sale[sale.Count - 1]);
+            var plane = DesertBikeDefs.ById(DesertBikeDefs.PlaneId);
+            Check("store: Libeccio is at the end of the catalogue", store.Current == plane);
             SetPoints(0);
             store.Tick(hud, new HUD.HubInput { confirm = true }, 0.016f);
             Check("negozio: la piu' cara, senza punti, dice quanti ne mancano", store.Phase == 0 && hud.HubToastText.Contains(HudNum(sale[sale.Count - 1].price)), hud.HubToastText);
+            if (gfx) Check("store: the showroom displays the plane on its own", store.Stage != null && store.Stage.DisplayModel == plane.id && !store.Stage.Rider);
+            SetPoints(plane.price);
+            store.Tick(hud, new HUD.HubInput { confirm = true }, 0.016f);
+            yield return new WaitForSeconds(0.5f);
+            store.Tick(hud, new HUD.HubInput { confirm = true }, 0.016f);
+            Check("store: confirming the Libeccio order charges its price and grants ownership", store.Phase == 2 && gm.score == 0 && DesertGarage.Owns(0, plane));
+            store.Tick(hud, new HUD.HubInput { confirm = true }, 0.016f);
+            store.Tick(hud, new HUD.HubInput { confirm = true }, 0.016f);
+            Check("store: the Libeccio can only be bought once", store.Phase == 0 && hud.HubToastText.Contains("già tuo") && gm.score == 0);
+            if (Roster.Local != null)
+            {
+                DesertGarage.Reload();
+                Check("store: ownership is reloaded from the character", DesertGarage.Owns(0, plane));
+            }
             if (shots)
             {
-                // tutte e nove, con punti da vendere, come le vede chi sceglie
+                // Each vehicle as it appears in the catalogue.
                 SetPoints(1000000);
                 for (int i = 0; i < sale.Count; i++)
                 {
@@ -646,7 +664,61 @@ namespace PryingEyes.Deserto
             yield return Frames(2);
             Check("negozio: il menu si chiude" + (gfx ? " e la vetrina si spegne" : ""), !hud.HubIsOpen && (!gfx || (store.Stage != null && !store.Stage.Active)));
             Check("negozio: nessun errore, il menu e' vivo", !hud.HubIsDead);
+            yield return FlyLibeccio(plane);
             ResetGarage();
+        }
+
+        IEnumerator FlyLibeccio(DesertBikeDef def)
+        {
+            var pl = Pl;
+            var plane = BikeOf(def);
+            var bay = DesertBikes.BayFor(0, def);
+            var site = DesertGarageSite.I;
+            Check("flight: the Libeccio is delivered in the open beside the garage", plane != null && bay.HasValue
+                && Flat(plane.transform.position, bay.Value) < 0.3f && site != null
+                && !site.Footprint.Contains(new Vector2(bay.Value.x, bay.Value.z)));
+            if (plane == null) yield break;
+
+            Vector3 home = plane.transform.position;
+            pl.Teleport(home + Vector3.right * 2.2f);
+            Face(plane.Point);
+            yield return Frames(2);
+            Interact.Tick(pl.cam);
+            Interact.TryUse();
+            Check("flight: normal interaction boards the aircraft", pl.Bike == plane && plane.rider == pl);
+            if (pl.Bike != plane) yield break;
+
+            DesertBike.botThrottle = 1f;
+            DesertBike.botHandbrake = true;     // The Jump input is climb for the Libeccio.
+            yield return WaitFor(() => pl.RideAltitude > 8f || !pl.Riding, 12f);
+            Check("flight: the Libeccio takes off and climbs under power", pl.Riding && !pl.RideGrounded && pl.RideAltitude > 8f
+                && pl.RideSpeed >= DesertFlight.TakeoffSpeed, $"{pl.RideAltitude:F1} m above sand at {pl.RideSpeed * 3.6f:F0} km/h");
+            Check("flight: the multiplayer vehicle code preserves ground and flight states",
+                DesertBikeDefs.FromNet(DesertBikeDefs.NetCode(def)) == def
+                && DesertBikeDefs.NetCode(def, false) == DesertBikeDefs.PlaneAirNetCode
+                && DesertBikeDefs.FromNet(DesertBikeDefs.PlaneAirNetCode) == def);
+            DesertBike.botHandbrake = false;
+            DesertBike.botSteer = 0.45f;
+            float heading = pl.RideHeading;
+            yield return new WaitForSeconds(1.2f);
+            Check("flight: steering banks and turns the aircraft in the air", pl.Riding && !pl.RideGrounded
+                && Mathf.Abs(pl.RideHeading - heading) > 0.12f && Mathf.Abs(plane.RollVisual) > 5f);
+            var sky = DesertSky.I;
+            if (shots && sky != null)
+            {
+                sky.SetHour(11f, true);
+                yield return Frames(2);
+                sky.Frozen = false;
+            }
+            Shot("libeccio_cabina");
+
+            DesertBike.BotReset();
+            pl.RideRequestDismount();
+            yield return WaitFor(() => !pl.Riding, 12f);
+            Check("flight: requesting an exit lands and parks before releasing the pilot",
+                !pl.Riding && plane.rider == null && plane.ColliderOn && Mathf.Abs(Gap(plane)) < 0.45f
+                && Flat(plane.transform.position, home) > 20f, $"{plane.transform.position:F1}");
+            if (pl.Riding) pl.AbortRide();
         }
 
         // ================================================================== cabina
@@ -659,7 +731,7 @@ namespace PryingEyes.Deserto
             ResetGarage();
             SetPoints(0);
             yield return Frames(3);
-            foreach (var d in ForSale()) DesertGarage.Grant(0, d);
+            foreach (var d in ForSale()) if (d.IsPista) DesertGarage.Grant(0, d);
             yield return new WaitForSeconds(1.5f);
             var cam = pl.cam.GetComponent<Camera>();
             foreach (var d in DesertBikeDefs.All)

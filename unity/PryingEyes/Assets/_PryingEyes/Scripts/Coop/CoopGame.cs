@@ -377,9 +377,15 @@ namespace PryingEyes
             s.alive = pl.alive; s.crouch = pl.IsCrouching || pl.Riding; s.sprint = pl.IsSprinting;
             s.climbing = pl.OnClimbWall;
             s.gliding = pl.Gliding;
+            s.swimming = pl.Swimming;
+            s.swimPhase = pl.SwimPhase;
+            s.swimEffort = pl.SwimEffort;
+            s.grappling = pl.GrappleVisible;
+            s.grappleAttached = pl.GrappleAttached;
+            s.grappleTip = pl.GrappleTip;
             s.riding = pl.Riding;
-            s.heading = pl.Riding ? pl.RideHeading : pl.OnClimbWall ? pl.ClimbWallYaw : pl.yaw;
-            s.bike = pl.Riding && pl.Bike != null ? Deserto.DesertBikeDefs.NetCode(pl.Bike.Def) : 0;          // e quale moto e' (pe-coop-37)
+            s.heading = pl.Riding ? pl.RideHeading : pl.OnClimbWall ? pl.ClimbWallYaw : pl.Swimming ? pl.SwimYaw : pl.yaw;
+            s.bike = pl.Riding && pl.Bike != null ? Deserto.DesertBikeDefs.NetCode(pl.Bike.Def, pl.RideGrounded) : 0;          // e quale moto e' (pe-coop-37)
             s.torch = Torch.I != null && Torch.I.Lit;
             s.speedH = pl.SpeedH;
             s.lum = Mathf.Clamp01(Stealth.PlayerLum);
@@ -390,7 +396,7 @@ namespace PryingEyes
             s.weapon = pl.weapon != null ? Mathf.Clamp(pl.weapon.SlotIndex, 0, 255) : 0;
             s.downed = pl.Downed; s.bleed = pl.Downed ? pl.BleedLeft : 0f;
             var gun = pl.weapon;
-            s.gun = gun != null && !pl.OnClimbWall && !pl.Gliding ? Mathf.Clamp(gun.CurrentIndex, 0, 254) : 255;
+            s.gun = gun != null && !pl.OnClimbWall && !pl.Gliding && !pl.Swimming ? Mathf.Clamp(gun.CurrentIndex, 0, 254) : 255;
             s.ads = gun != null && gun.ads > 0.5f; s.reloading = gun != null && gun.reloading;
             return s;
         }

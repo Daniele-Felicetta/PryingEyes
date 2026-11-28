@@ -19,8 +19,8 @@ namespace PryingEyes
         static readonly string PadSheet =
             "CONTROLLER  (tra parentesi: tenendo premuto)\n" +
             "Stick sinistro: muovi (premuto: corsa)\n" +
-            "Stick destro: guarda (premuto: coltello)\n" +
-            "RT spara · LT mira (con la mira L3 e R3 ti sporgi)\n" +
+            "Stick destro: guarda (tocco: coltello, tenuto: rampino)\n" +
+            "RT spara · LT mira (L3 / tocco R3 per sporgerti)\n" +
             "A salta · B abbassati · Y cambia arma (modo di fuoco)\n" +
             "X ricarica (usa e compra) · RB acquasanta\n" +
             "LB magia della mano sinistra (sigillo sull'arma)\n" +
