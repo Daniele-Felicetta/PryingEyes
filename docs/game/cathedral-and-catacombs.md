@@ -14,7 +14,10 @@ store, the market, the works) as the base of an open desert, with an armoury and
 
 ## How it plays (alone)
 
-1. *Gioca* starts in the **cathedral square** (*il sagrato*), at night, in front of the façade. Nothing attacks there: no waves, no enemies.
+1. *Gioca* starts in the **cathedral square** (*il sagrato*), at night, in front of the façade. Pale stone paving with bronze edges splits
+   around the well and leads to the carved eye above the portal. The inlaid aisle continues through the narthex and the nave towards the
+   altar. Iron lanterns mark the entrance and the market stalls have striped awnings and matching counter cloths. Nothing attacks there:
+   no waves, no enemies.
 2. Inside, each **work** (*opera*) of the cathedral has its place. Until it is built, the place is a **construction site**: scaffolding,
    stones and a sign. Looking at the sign shows the cost against what is in the store (`Legno 32/50 · Acciaio 30/30`) and the effect;
    `F` builds it when the store covers it and its prerequisites stand. The cathedral is rebuilt at once with the work in place (a

@@ -13,8 +13,8 @@ namespace PryingEyes.Deserto
         Transform player;
         /// <summary>La camera del giocatore attorno a cui nasce la sabbia (schermo condiviso: una per posto); senza, vale quella del posto 0.</summary>
         [System.NonSerialized] public Camera view;
-        ParticleSystem streaks, clouds;
-        Material streakMat, cloudMat;
+        ParticleSystem streaks, clouds, snow;
+        Material streakMat, cloudMat, snowMat;
 
         /// <summary>Granelli (strisce) emessi al secondo in questo momento, per le prove.</summary>
         public float StreakRate { get; private set; }
@@ -58,6 +58,7 @@ namespace PryingEyes.Deserto
             if (I == this) I = null;
             if (streakMat != null) Destroy(streakMat);
             if (cloudMat != null) Destroy(cloudMat);
+            if (snowMat != null) Destroy(snowMat);
         }
 
         ParticleSystem Make(string name, Material m, bool streak)
@@ -107,10 +108,11 @@ namespace PryingEyes.Deserto
             var wd = new Vector3(w.dirX, 0f, w.dirZ);
             float speed = 3f + 26f * w.wind;
             Vector3 p = player.position;
+            var climate = DesertBiomes.At(p.x, p.z, DesertWorld.Seed);
             streaks.transform.position = p + new Vector3(-wd.x * 16f, 1.6f, -wd.z * 16f);          // (si muovono i due sistemi, mai l'oggetto che li porta: e' quello del regista)
             streaks.transform.rotation = Quaternion.LookRotation(wd, Vector3.up);
-            StreakRate = (Mathf.Max(0f, w.wind - 0.35f) * 30f + w.storm * 320f) * outdoor;
-            CloudRate = (w.storm * 20f + Mathf.Max(0f, w.wind - 0.6f) * 4f) * outdoor;
+            StreakRate = (Mathf.Max(0f, w.wind - 0.35f) * 30f + w.storm * 320f) * outdoor * climate.Desert;
+            CloudRate = (w.storm * 20f + Mathf.Max(0f, w.wind - 0.6f) * 4f) * outdoor * climate.Desert;
             Drive(streaks, StreakRate, wd * speed);
             Drive(clouds, CloudRate, wd * (speed * 0.7f));
             // le particelle sono Unlit: senza questo il loro colore pieno, all'esposizione del tramonto o della notte, e' bianco (trattini bianchi a sole radente)
@@ -121,12 +123,32 @@ namespace PryingEyes.Deserto
             // le nuvole stanno basse, sul terreno; le strisce a tutte le quote davanti agli occhi
             clouds.transform.position = new Vector3(p.x - wd.x * 28f, p.y + 0.6f, p.z - wd.z * 28f);
             clouds.transform.rotation = Quaternion.LookRotation(wd, Vector3.up);
+            float snowRate = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.47f, 0.92f, climate.Ice)) * outdoor * (24f + w.gust * 31f);
+            if (snow == null && snowRate > 0.01f && DesertScatter.CanDraw)
+            {
+                snowMat = Fx.Unlit(Fx.PuffTex(), false);
+                snow = Make("Snow flurries", snowMat, false);
+                var main = snow.main;
+                main.maxParticles = 450;
+                main.startLifetime = new ParticleSystem.MinMaxCurve(3.2f, 4.8f);
+                main.startSpeed = 0f;
+                main.startSize = new ParticleSystem.MinMaxCurve(0.032f, 0.091f);
+                main.startColor = new Color(0.85f, 0.93f, 1f, 0.54f);
+                var shape = snow.shape;
+                shape.scale = new Vector3(17f, 11f, 15f);
+            }
+            if (snow != null)
+            {
+                snow.transform.position = p + Vector3.up * 5.6f - wd * 3f;
+                Drive(snow, snowRate, wd * (1.1f + w.wind * 2f) + Vector3.down * 1.22f);
+                snowMat.SetColor("_BaseColor", tint);
+            }
         }
 
         static void Drive(ParticleSystem ps, float rate, Vector3 v)
         {
             var em = ps.emission; em.rateOverTime = rate;
-            var vo = ps.velocityOverLifetime; vo.x = v.x; vo.y = 0f; vo.z = v.z;
+            var vo = ps.velocityOverLifetime; vo.x = v.x; vo.y = v.y; vo.z = v.z;
         }
     }
 }

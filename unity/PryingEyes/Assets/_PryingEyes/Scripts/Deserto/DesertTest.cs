@@ -141,13 +141,19 @@ namespace PryingEyes.Deserto
 
         static int Bank() { int n = 0; foreach (var r in Risorse.Tutte) n += Fabbrica.Banca.Get(r.id); return n; }
 
-        /// <summary>Porta il giocatore sulla sabbia in un punto (un po' in alto: la sabbia sotto nasce mentre cade) e aspetta che tocchi terra.</summary>
+        /// <summary>Stages a test above a point while its terrain streams in, then waits for the landing.</summary>
         IEnumerator GoTo(float x, float z, float lift = 8f)
         {
             var pl = Pl;
-            pl.Teleport(new Vector3(x, DesertWorld.Height(x, z) + lift, z));
+            var destination = new Vector3(x, DesertWorld.Height(x, z) + lift, z);
+            pl.Teleport(destination);
             yield return null;
-            yield return WaitFor(() => DesertTerrain.I != null && DesertTerrain.I.Ready(pl.transform.position, 14f), 25f);
+            yield return WaitFor(() =>
+            {
+                if (DesertTerrain.I != null && DesertTerrain.I.Ready(destination, 14f)) return true;
+                if (pl.transform.position.y < destination.y - Mathf.Min(lift * 0.5f, 2f)) pl.Teleport(destination);
+                return false;
+            }, 25f);
             yield return WaitFor(() => pl.GetComponent<CharacterController>().isGrounded, 12f);
         }
 
@@ -326,9 +332,12 @@ namespace PryingEyes.Deserto
             if (Explicit("suolo")) yield return Phase("suolo da vicino", GroundShots());
             if (Explicit("creste")) yield return Phase("sabbia dalle creste", SpindriftTest());
             if (Explicit("salina")) yield return Phase("pozze sulle saline", BrineTest());
+            if (Explicit("nuoto")) yield return Phase("nuoto nei laghi", SwimTest());
+            if (Explicit("biomi")) yield return Phase("biomi delle terre esterne", BiomeTest());
             if (Explicit("cammino")) yield return Phase("cammino", WalkProbe());
             if (Explicit("percorso")) yield return Phase("percorso", RouteProbe());
             if (Explicit("moto")) yield return Phase("moto", Moto());
+            if (Explicit("motosalto")) yield return Phase("motosalto", MotoJump());
             if (Explicit("motocamera")) yield return Phase("motocamera", MotoCamera());
             if (Explicit("motosuono")) yield return Phase("motosuono", MotoSound());
             if (Explicit("motourto")) yield return Phase("motourto", MotoCrashes());
@@ -2156,7 +2165,7 @@ namespace PryingEyes.Deserto
                 for (float dz = -900f; dz <= 900f; dz += 45f)
                 {
                     float x = c.x + dx, z = c.y + dz;
-                    if (DesertWorld.RegionWeight(reg, x, z) < 0.9f) continue;
+                    if (DesertWorld.RegionWeight(reg, x, z) < 0.9f || DesertBiomes.At(x, z, DesertWorld.Seed).Desert < 0.99f) continue;
                     DesertWorld.SitesNear(x, z, 70f, list);
                     if (list.Count > 0) continue;
                     float h0 = DesertWorld.Height(x, z);
@@ -2227,7 +2236,8 @@ namespace PryingEyes.Deserto
                     float a = k * Mathf.PI * 2f / Mathf.Max(1, (int)(r / 120f) * 6);
                     float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
                     var reg = DesertWorld.RegionAt(x, z);
-                    if (found.ContainsKey(reg) || DesertWorld.RegionWeight(reg, x, z) < 0.99f) continue;
+                    if (found.ContainsKey(reg) || DesertWorld.RegionWeight(reg, x, z) < 0.99f ||
+                        DesertBiomes.At(x, z, DesertWorld.Seed).Desert < 0.99f) continue;
                     DesertWorld.SitesNear(x, z, 60f, list);
                     if (list.Count == 0) found[reg] = new Vector2(x, z);
                 }
@@ -2441,6 +2451,7 @@ namespace PryingEyes.Deserto
             {
                 float a = (k * 61f + 15f) * Mathf.Deg2Rad, r = 420f + 130f * (k % 5);
                 float x = Mathf.Cos(a) * r, z = Mathf.Sin(a) * r;
+                if (DesertBiomes.At(x, z, DesertWorld.Seed).Desert < 0.99f) continue;
                 DesertWorld.SitesNear(x, z, 80f, list);
                 if (list.Count > 0) continue;
                 if (Mathf.Abs(DesertWorld.Height(x + 3f, z) - DesertWorld.Height(x - 3f, z)) > 0.8f || Mathf.Abs(DesertWorld.Height(x, z + 3f) - DesertWorld.Height(x, z - 3f)) > 0.8f) continue;
@@ -2487,7 +2498,8 @@ namespace PryingEyes.Deserto
                 for (float dz = -1500f; dz <= 1500f; dz += 50f)
                 {
                     float x = c.x + dx, z = c.y + dz;
-                    if (DesertWorld.RegionWeight(Region.Salt, x, z) < 0.99f) continue;
+                    if (DesertWorld.RegionWeight(Region.Salt, x, z) < 0.99f ||
+                        DesertBiomes.At(x, z, DesertWorld.Seed).Desert < 0.99f) continue;
                     float b0 = DesertWorld.Brine(x, z);
                     bool lakeCand = b0 > 0.95f, shoreCand = b0 <= 0f;
                     if (!lakeCand && !shoreCand) continue;

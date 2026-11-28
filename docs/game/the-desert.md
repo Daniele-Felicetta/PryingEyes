@@ -26,6 +26,22 @@ rooms are those of the floors ([tower.md](tower.md)).
 
 ## How it plays
 
+The cathedral opens onto four connected outdoor biomes. Follow the compass east to the forest, west to the rolling meadows, or north to the frozen highlands. The desert surrounds the cathedral and its two lakes and stretches south. The map colours and the location line identify the biome as you travel. The borders curve and blend into each other, so the same world can be crossed on foot or by motorbike.
+
+- **Forest.** Branched broadleaf trees, conifers and fern beds rise out of leaf litter and moss. Trunks have physical collision, and buildings keep a clear approach.
+- **Frozen highlands.** A long ridge of crags rises beyond the snowfields, blue ice, glacial rocks and frosted spruce. Light flurries pass through the hills. Footsteps crunch in snow and exposed ice reduces grip when turning or stopping.
+- **Rolling meadows.** Wind moves the grasses and wildflowers across broad hills with sparse trees and patches of exposed soil.
+
+The terrain, scatter, map and surface movement query the same seeded climate field (`DesertBiomes`). Terrain shading blends a close-range texture atlas and relief normals into the same climate weights. The six desert regions still control the local desert palette and existing building generation.
+
+Two clear lakes appear west and north of the cathedral and are marked on both desert maps. Their placement and the curves of the coves and headlands follow the expedition seed, clear of generated buildings. Walk into deeper water to start swimming at the surface. Steer with the usual movement controls, stop to tread water, and swim up the sloping bank to walk again. The character puts away their weapon in deep water. In first person, the hands reach, catch, push and feather on the recovery. In third person, the elbows lead the same stroke, the torso rolls and banks through turns, and the legs flutter behind it. The push changes swimming speed within the stroke. Walking and landing in water kick up droplets, while each hand entry leaves a ring on the surface and plays a positional splash. The lake refracts the bed and submerged limbs, with reflections that strengthen at shallow viewing angles, small waves at the shore and a moving wake. The salt flats still have shallow brine.
+
+Hold **C** or **Ctrl** to dive and **Space** to surface. On a controller, hold **B** to dive and **A** to surface. On touch, use the crouch and jump buttons. Releasing the vertical control lets the swimmer stay at the chosen depth. The basins reach a little over eight metres. Underwater, the swimming animation turns into a submerged stroke and sound is filtered. There is a sunken arcade in the western lake and a drowned courtyard in the northern one. Both basins have pebble and silt beds, reeds near the waterline, eelgrass and pondweed growing down to the ruins, and four schools of fish at different depths. Surface ripples bend sunlight into beams and moving patterns across the bed. Ground enemies can approach the banks and stop at deep water.
+
+The terrain, map and swim controller use the same lake profile. A player-build check is available with `-autotest -desertotest -desertonly nuoto`. Add `-desertshots` to capture both views, and `-swimsequence` with screenshots enabled to capture frame sequences at 24 fps in the test output folder.
+
+Use `-autotest -desertotest -desertonly biomi` to walk across the three biome boundaries and check terrain and vegetation in each biome. Add `-desertshots` to capture each landscape in the test output folder. On a graphics-capable machine, `-outdoorperf` measures rendering time at 1920×1080 in each biome and, with `-desertonly nuoto`, at the shore and underwater.
+
 1. *Gioca* (and *Ricomincia dalla cattedrale*) opens **Come vuoi giocare?**: **Standard** or **Il deserto**. The choice is remembered for the
    next time (`PlayerPrefs` key `PryingEyes.GameMode`; the automated tests never write it). The command line `-deserto` forces the desert.
    Since 0.9.1 the desert can also be played **in co-op, up to four**: *Ospita una partita* opens the same choice (*Che partita ospiti?*), the host picks, and the guests start where
@@ -36,8 +52,8 @@ rooms are those of the floors ([tower.md](tower.md)).
    (a stone riser and a lighter slab with a nosing for each step, a sloping wall with a coping on each side and a pier at the foot). The lowest tread and its collider sit 2 cm above the flat sand so the two surfaces cannot flicker against each other. A brazier burns on
    each side at the top (a wide shallow bowl of cast iron on a tripod held by a ring, with the coals inside): flames, a hot core, smoke and embers. The wall that closes the churchyard has a turret at
    each of its four corners (a box of the same stone with a cornice, a pyramid roof of slate and a slit window on its outward faces; they are solid) and from the sand the cathedral has the outline of a castle. Two banners of crimson cloth with the
-   golden eye of the game hang from iron poles beside the stair and the wind moves them; the lamp posts (turned iron, a six-sided lantern with its glass) and the stalls of the market (a counter of warm brown wood, a striped
-   awning with a scalloped valance and a drape of the same cloth hanging from the edge of the counter) are made for the desert too. Nothing attacks in the cathedral: the walkers have no navmesh there (they stay at the foot of
+   golden eye of the game hang from iron poles beside the stair and the wind moves them. The square shares Standard's forked paving around the well, the eye relief above
+   the portal, the iron lanterns and the market's striped awnings and counter cloths. Nothing attacks in the cathedral: the walkers have no navmesh there (they stay at the foot of
    the stair) and whatever flies over the cathedral disappears.
 3. **A day lasts twenty minutes** (about twelve of daylight, eight of night; `DesertClock`). The sun, the moon, the stars, the fog and the
    exposure follow the clock; indoors (anything within 12 m above the head) the look goes back to that of the rooms. The top of the screen
@@ -432,8 +448,7 @@ the first way for a player to cross the sand without the long walk. It exists on
   prompt says *Sali in moto*: **F**, the key of every use (doors, books, the revival of a mate), puts you in the saddle. The rest of this section is the improvised bike, Ruggine; the others ride on the same model with
   their own numbers.
 - **W** gas, **S** brake and, kept down, reverse; **A**/**D** steer; **Shift** turbo; **Space** handbrake (the rear slides: it is how a tight bend is taken); the mouse looks freely up to 100° each side, and after a second and a bit
-  without looking the view comes back to the front. **F** gets off: at once under 4 m/s (14 km/h), otherwise the bike brakes by itself and the rider steps off to its side as soon as it is under 3.5 m/s. On a pad the same actions as
-  walking are used (move, jump = handbrake, sprint = turbo, use); this was not tried with a real controller.
+  without looking the view comes back to the front. **F** (hold **X** on a pad) steps off below 4 m/s (about 14 km/h) and jumps off at higher speeds while the wheels are on the ground. The rider keeps the bike's horizontal momentum at takeoff and leaves it parked at the spot. On a pad the walking controls for movement, sprint and jump become steering and throttle, turbo and handbrake.
 - Top speed 23 m/s (83 km/h), turbo 31 m/s (112 km/h), reverse 5 m/s. The gas gives 50 km/h in 1.8 s (measured), the brake takes 17 m/s² (a stop from top speed in under two seconds and about 16 m); at speed the field of view opens by up to 17°, the view
   follows half of the pitch and roll of the bike in first person, bumps and landings shake it, and the sand rises behind the rear wheel.
   The camera blends into the selected perspective on mounting and dismounting. In third person it follows the bike from behind and above,
@@ -514,6 +529,8 @@ Request of 22 November 2026: *put the bikes in the desert, with an open-air gara
 numbers in the desert. The top speed is the one a vehicle reaches on the flat from its power and its air drag, brought into 24.5 to 33 m/s (88 to 119 km/h: the slowest of the store is a little faster than Ruggine
 and the fastest is as fast as the sand that is made ahead of the bike can follow, `DesertTerrain.Ready`); the turbo is 30 % more, at most 38 m/s (137 km/h); acceleration comes from the power per kilo (x1.0 to x1.45),
 braking from the front brake (x0.95 to x1.25) and steering from the turning radius (x1.18 to x0.88). The price is **a quarter of the price in the track mode, rounded to 25 points** (points are made by killing, not by lapping).
+
+The target height when jumping off is **2.5 m** above the launch point on Ruggine. It doubles at each higher price in the catalogue, from 5 m on Scintilla 125 to 1,280 m on Gigante 1300. The rider uses the same gravity and collisions as on foot, so a roof can cut the ascent short.
 
 | Bike | Class | Price (points) | Top speed | Turbo | Acceleration | Braking | Steering | Power, weight | Engine |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
@@ -679,7 +696,7 @@ Said here so they can be changed.
   one indoors), and there is one audio listener, seat 1's, so a seat kilometres away from it hears nothing of what happens round it. A volume per camera would fix the first and a custom audio mix the second; neither was done.
 - **The motorbike is an arcade ride on the player's body, not a vehicle** (19 November): the rider stays the `CharacterController` and everything that knows "the player" keeps working. A real vehicle (wheel colliders, a rigid body, suspension) would
   have meant a second body to keep in step with the first in co-op, the split screen, the falls and the enemies' hits. The numbers (83 km/h, 112 with the turbo, a stop from top speed in about 16 m) are a guess at what feels like a bike on sand, since nobody has ridden it by hand; they are constants of `DesertBike` and `PlayerController.Ride.cs`.
-- **F both mounts and gets off** (it is the use key; the turbo is the sprint key and the handbrake the jump key, so a rider's hands never leave the keys they know). Getting off at speed is a brake first, not a jump.
+- **F mounts the bike, steps off or jumps off in motion.** Turbo uses the sprint key and the handbrake uses the jump key.
 - **One bike for each player, where it was born, not saved as a position** (at the foot of the stair until 0.10.2, in its bay of the garage since 0.10.3, with the bikes bought at the store: see "The garage and Bozzo Moto Store"):
   a bike left in the desert stays where it was left (it is let go where it stands when its rider goes down or dies), and the bike of the garage is the same bike, except that **a player who dies and is
   reborn at the stair finds every bike of the seat that nobody rides back in its bay** (otherwise whoever died far away would have to walk back to them). A bike left on purpose is not called back: a button for that is the obvious next step if walking back is a nuisance.
@@ -794,6 +811,8 @@ space, the collider and the weapon back, a walking body, the disc back), then **
 checks that the rider arrives, never goes below the sand and has no frame over half a second; and last a companion's bike (a puppet posed by hand: no prompt, no collider, wheels turning, leaning in a bend). The `-coopmoto` scenario (`run_all.ps1 -Only m`) tests the network half with two processes (below).
 **`motosuono`** (5 checks, 15 with the arrival, seconds) writes the three sounds of the bike (engine loop, crash, the sand's wind) as WAV files in `unity_logs/moto/` (or the folder of `-testout`), to be measured and listened to outside the game, and checks them on their samples: that they
 have some, that the engine neither clips nor carries a DC offset, that its loop closes without a jump at the seam, how much of its energy is above 80 and 150 Hz at its native pitch (what a small speaker or headphones can give back) and the same for the crash.
+**`motosalto`** checks the doubling across the catalogue and measures the jumps from Ruggine, Scintilla 125 and Gigante 1300 on a flat platform. It holds the simulated pad's use button while each bike is moving, checks that the bike parks and the rider carries forward speed, and waits for the Ruggine rider to land on foot.
+
 **`motocamera`** (8 checks, 18 with the arrival, requires graphics) renders the camera while mounting and dismounting. It checks
 that the bike is framed from the outside, that distance, height and shoulder alter the mounted view, and that a close wall returns the
 camera to the eye and hides the rider from its own camera. It also checks the view when the player controller pauses and measures camera

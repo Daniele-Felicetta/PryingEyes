@@ -18,7 +18,8 @@ namespace PryingEyes
         public float ads;                   // 0..1 in mira
         public bool reloading;
         public float climb;                 // 0..1 mentre si arrampica
-        public bool gliding;
+        public bool gliding, swimming;
+        public float swimPhase, swimEffort, swimSurface, swimTurn, swimSubmersion, swimDivePitch;
         public bool seated;                 // in sella a una moto: bacino sulla sella, piedi sulle pedane, mani sulle manopole (la radice del corpo sta sulla moto, girata come il suo telaio)
         public Vector3 gripLeft, gripRight; // nel mondo: le manopole, a sinistra e a destra di chi guarda avanti (valgono se seated)
         // la sella della moto (valgono se seated; a zero quella di sempre, la moto arrangiata): dove sta il bacino e dove poggiano i piedi (nel sistema della moto, x e' il lato) e quanto si china il busto (gradi)
@@ -80,6 +81,7 @@ namespace PryingEyes
 
         Transform model, hips, spine, chest, uchest, neck, head, eyeT;
         Transform thighL, shinL, footL, thighR, shinR, footR;
+        float swimAmount;
         Transform uarmL, larmL, handL, uarmR, larmR, handR;
         readonly Transform[] fingL = new Transform[15], fingR = new Transform[15];      // pollice, indice, medio, anulare, mignolo x 3 falangi
         Vector3[] fingDirL, fingDirR;        // direzione di ogni falange a riposo, nel riferimento locale dell'osso
@@ -344,7 +346,7 @@ namespace PryingEyes
         {
             if (hips == null) return;
             var inp = input;
-            SetWeapon(inp.alive && !inp.downed && !inp.gliding && (!inp.seated || inp.shotAge < 1.4f) ? inp.weapon : -1);
+            SetWeapon(inp.alive && !inp.downed && !inp.gliding && !inp.swimming && (!inp.seated || inp.shotAge < 1.4f) ? inp.weapon : -1);
             Vector3 vLoc = Quaternion.Inverse(transform.rotation) * new Vector3(inp.velocity.x, 0f, inp.velocity.z);
             velLocal = Vector3.Lerp(velLocal, vLoc, K(14f, dt));
             float spd = velLocal.magnitude;
@@ -363,8 +365,9 @@ namespace PryingEyes
             downAmt = Mathf.Lerp(downAmt, inp.alive && inp.downed ? 1f : 0f, K(7f, dt));
             seatAmt = Mathf.Lerp(seatAmt, inp.seated && inp.alive && !inp.downed ? 1f : 0f, K(12f, dt));
             glideAmt = Mathf.MoveTowards(glideAmt, inp.gliding && inp.alive && !inp.downed ? 1f : 0f, dt * 5f);
-            pitchSmooth = Mathf.Lerp(pitchSmooth, inp.pitch, K(18f, dt));
-            bool walking = inp.grounded && inp.alive && !inp.downed && !inp.seated && !inp.sliding && inp.climb <= 0f;
+            swimAmount = Mathf.MoveTowards(swimAmount, inp.swimming && inp.alive ? 1f : 0f, dt * 5f);
+            pitchSmooth = Mathf.Lerp(pitchSmooth, inp.pitch * (1f - 0.75f * swimAmount), K(18f, dt));
+            bool walking = inp.grounded && inp.alive && !inp.downed && !inp.seated && !inp.sliding && !inp.swimming && inp.climb <= 0f;
             float gaitGoal = walking ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.15f, 0.7f, spd)) : 0f;
             gait = Mathf.Lerp(gait, gaitGoal, K(10f, dt));
             float stepLen = (0.60f + 0.16f * Mathf.Min(spd, 6f)) * Mathf.Lerp(1f, 0.62f, crouchAmt);
@@ -379,15 +382,83 @@ namespace PryingEyes
             }
             if (lieAmt > 0.02f) { wings[0]?.Hide(); wings[1]?.Hide(); return; }
             PoseTorso(inp);
-            if (glideAmt > 0.02f && uarmL != null && uarmR != null && handL != null && handR != null)
+            if (!inp.swimming && glideAmt > 0.02f && uarmL != null && uarmR != null && handL != null && handR != null)
             {
                 PoseWingsuit();
                 return;
             }
             wings[0]?.Hide();
             wings[1]?.Hide();
+            if (swimAmount > 0.02f && !inp.seated)
+            {
+                PoseSwim(inp);
+                return;
+            }
             PoseLegs(inp, spd, stepLen, dt, walking);
             PoseArms(inp, dt);
+        }
+
+        void PoseSwim(SurvivorInput inp)
+        {
+            float effort = inp.swimEffort;
+            float submerged = inp.swimSubmersion;
+            float cycle = inp.swimPhase * 2f * Mathf.PI;
+            Vector3 forward = transform.forward;
+            float tilt = Mathf.Lerp(Mathf.Lerp(21f, 81f, effort), Mathf.Lerp(65f, 83f, effort) + inp.swimDivePitch, submerged);
+            float roll = (Mathf.Sin(cycle - 0.6f) * 14f * effort * (1f - submerged * 0.74f) - inp.swimTurn * 14f) * swimAmount;
+            Vector3 afloat = transform.position;
+            afloat.y = Mathf.Lerp(inp.swimSurface + Mathf.Lerp(-0.40f, -0.065f, effort),
+                transform.position.y + 0.67f, submerged) + 0.022f * Mathf.Cos(cycle * 2f);
+            hips.position = Vector3.Lerp(hips.position, afloat, swimAmount);
+            Bend(hips, tilt * swimAmount, Right);
+            Bend(hips, roll * 0.42f, forward);
+            Bend(chest, roll * 0.70f, forward);
+            Bend(neck, -Mathf.Lerp(tilt, tilt - inp.swimDivePitch * 0.9f, submerged) * 0.19f * swimAmount, Right);
+            Bend(head, -Mathf.Lerp(tilt, tilt - inp.swimDivePitch * 0.9f, submerged) * 0.67f * swimAmount, Right);
+            Bend(head, -roll * 0.66f, forward);
+            Bend(head, Mathf.Sin(cycle - 0.8f) * 12f * effort * swimAmount, Vector3.up);
+
+            for (int i = 0; i < 2; i++)
+            {
+                bool left = i == 0;
+                float armPhase = SwimStroke.ArmPhase(inp.swimPhase, i);
+                Vector3 path = SwimStroke.Wrist(armPhase);
+                Vector3 palm = SwimStroke.Palm(armPhase);
+                float recovery = SwimStroke.Recovery(armPhase);
+                float treadCycle = cycle + i * Mathf.PI, kickCycle = cycle * 3f + i * Mathf.PI;
+                float kick = Mathf.Lerp(Mathf.Sin(treadCycle), Mathf.Sin(kickCycle), effort);
+                Bend(left ? thighL : thighR, kick * Mathf.Lerp(10f, 11f, effort) * swimAmount, Right);
+                float kneeWave = Mathf.Lerp(Mathf.Sin(treadCycle - 0.75f), Mathf.Sin(kickCycle - 0.75f), effort);
+                Bend(left ? shinL : shinR, (Mathf.Lerp(22f, 6f, effort) + 14f * Mathf.Max(0f, kneeWave)) * swimAmount, Right);
+                Bend(left ? footL : footR, (20f + Mathf.Sin(kickCycle - 1.4f) * 10f) * effort * swimAmount, Right);
+
+                var upper = left ? uarmL : uarmR;
+                var lower = left ? larmL : larmR;
+                var hand = left ? handL : handR;
+                if (upper == null || lower == null || hand == null) continue;
+                Vector3 outward = Out(left);
+                float side = Vector3.Dot(outward, Right);
+                float sweep = Mathf.Cos(armPhase * Mathf.PI * 2f);
+                Vector3 tread = outward * (0.26f + 0.14f * sweep) + forward * (0.17f - 0.09f * sweep);
+                Vector3 stroke = outward * path.x + forward * path.z;
+                Vector3 target = upper.position + Vector3.Lerp(tread, stroke, effort);
+                target.y = inp.swimSurface + Mathf.Lerp(-0.12f + 0.035f * sweep, path.y, effort);
+                float diveSweep = 0.5f - 0.5f * Mathf.Cos(cycle);
+                Vector3 diveForward = Quaternion.AngleAxis(inp.swimDivePitch, Right) * forward;
+                Vector3 diveTarget = upper.position + outward * (0.04f + 0.40f * diveSweep) +
+                    diveForward * (0.56f - 0.44f * diveSweep) - Vector3.up * (0.09f + 0.08f * diveSweep);
+                target = Vector3.Lerp(target, diveTarget, submerged);
+                Vector3 elbow = outward * (0.76f + recovery * 0.18f) +
+                    Vector3.up * Mathf.Lerp(0.18f, 1.10f, recovery * effort * (1f - submerged)) - forward * 0.39f;
+                Quaternion toPalm = transform.rotation * Quaternion.Euler(
+                    Mathf.Lerp(Mathf.Lerp(12f, palm.x, effort), 18f + inp.swimDivePitch + 25f * diveSweep, submerged),
+                    side * Mathf.Lerp(22f + 22f * sweep, palm.y, effort),
+                    side * Mathf.Lerp(13f, palm.z, effort));
+                SolveLimb(upper, lower, hand, Vector3.Lerp(hand.position, target, swimAmount), elbow, armL1, armL2);
+                AimHand(hand, toPalm, left ? frameRsL : frameRsR);
+                AimFingers(left ? fingL : fingR, left ? fingDirL : fingDirR, hand, left ? curlAxisL : curlAxisR,
+                    null, null, null, null);
+            }
         }
 
         void PoseWingsuit()

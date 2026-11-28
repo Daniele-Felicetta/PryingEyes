@@ -21,7 +21,8 @@ namespace PryingEyes
         public bool riding;                     // in sella a una moto del deserto (pe-coop-32): bit 4 del secondo byte dei flag
         public float heading;                   // verso dove punta la moto (radianti, come yaw); lo sguardo del pilota puo' essere altrove
         public int bike;                        // Vehicle code in bits 3–6: starter 0, track bikes 1–9, Libeccio 14 (ground) or 15 (air).
-        public bool climbing, gliding;
+        public bool climbing, gliding, swimming;
+        public float swimPhase, swimEffort;
 
         public void Write(NetWriter w)
         {
@@ -31,7 +32,9 @@ namespace PryingEyes
              .U8(Mathf.Clamp(Mathf.RoundToInt(shotAge * 100f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(hp * 255f), 0, 255)).U8(weapon)
              .U8(Mathf.Clamp(Mathf.RoundToInt((Mathf.Clamp(lean, -1f, 1f) + 1f) * 127.5f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(sight * 100f), 0, 255))
              .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0) | (riding ? 4 : 0) | ((bike & 15) << 3) | (climbing ? 128 : 0))
-             .U8(CoopProtocol.QuantYaw(heading)).Bool(gliding);
+             .U8(CoopProtocol.QuantYaw(heading)).U8((gliding ? 1 : 0) | (swimming ? 2 : 0));
+            if (swimming)
+                w.U8(Mathf.FloorToInt(Mathf.Repeat(swimPhase, 1f) * 256f)).U8(Mathf.RoundToInt(Mathf.Clamp01(swimEffort) * 255f));
         }
 
         public static PlayerNet Read(ref NetReader r)
@@ -57,7 +60,14 @@ namespace PryingEyes
             s.ads = (f2 & 1) != 0; s.reloading = (f2 & 2) != 0; s.riding = (f2 & 4) != 0; s.bike = (f2 >> 3) & 15;
             s.climbing = (f2 & 128) != 0;
             s.heading = CoopProtocol.DequantYaw((byte)r.U8());
-            s.gliding = r.Bool();
+            int traversal = r.U8();
+            s.gliding = (traversal & 1) != 0;
+            s.swimming = (traversal & 2) != 0;
+            if (s.swimming)
+            {
+                s.swimPhase = r.U8() / 256f;
+                s.swimEffort = r.U8() / 255f;
+            }
             return s;
         }
     }
@@ -299,7 +309,7 @@ namespace PryingEyes
             TickBike(dt, before);
             // in sella il corpo guarda dove punta la moto (lo sguardo, e con lui il fascio della torcia, puo' essere altrove)
             transform.rotation = Quaternion.Euler(0f, last.riding && bikeHeadingInit ? bikeHeadingDeg :
-                last.climbing ? last.heading * Mathf.Rad2Deg : yawDeg, 0f);
+                last.climbing || last.swimming ? last.heading * Mathf.Rad2Deg : yawDeg, 0f);
             if (body != null)
             {
                 // in sella la radice dello scheletro segue il telaio della sua moto (rollio e beccheggio compresi): bacino, piedi e mani sono relativi alla moto
@@ -379,6 +389,24 @@ namespace PryingEyes
             inp.grounded = last.climbing || Mathf.Abs(vel.y) < 2.5f;
             inp.climb = last.climbing ? 1f : 0f;
             inp.gliding = last.gliding;
+            bool wasSwimming = inp.swimming;
+            inp.swimming = last.swimming;
+            if (inp.swimming)
+            {
+                inp.swimEffort = Mathf.Lerp(inp.swimEffort, last.swimEffort, 1f - Mathf.Exp(-9f * dt));
+                float rate = SwimStroke.Rate(inp.swimEffort);
+                float goal = last.swimPhase + Mathf.Min(Time.unscaledTime - lastStateTime, 0.18f) * rate;
+                float beforePhase = inp.swimPhase, phase = beforePhase + rate * dt;
+                float correction = Mathf.DeltaAngle(phase * 360f, goal * 360f) / 360f;
+                inp.swimPhase = Mathf.Repeat(wasSwimming ? phase + correction * (1f - Mathf.Exp(-12f * dt)) : goal, 1f);
+                Vector3 p = transform.position;
+                inp.swimSurface = Deserto.DesertWorld.LakeAt(p.x, p.z, out var lake, out _) ? lake.Surface : p.y + 1.32f;
+                inp.swimSubmersion = Mathf.Lerp(inp.swimSubmersion, Mathf.InverseLerp(1.42f, 2.20f, inp.swimSurface - p.y), 1f - Mathf.Exp(-10f * dt));
+                float grade = Mathf.Atan2(-vel.y, Mathf.Max(0.65f, last.speedH)) * Mathf.Rad2Deg;
+                inp.swimDivePitch = Mathf.Lerp(inp.swimDivePitch, Mathf.Clamp(grade, -45f, 59f) * inp.swimSubmersion, 1f - Mathf.Exp(-7f * dt));
+                if (wasSwimming && last.alive && inp.swimSubmersion < 0.36f)
+                    Deserto.DesertLakeSurface.StrokeContacts(p, last.heading, inp.swimSurface, inp.swimEffort, beforePhase, inp.swimPhase);
+            }
             inp.weapon = last.gun < WeaponDefs.All.Length ? last.gun : -1;
             inp.shotAge = last.shotAge + (Time.unscaledTime - lastStateTime);
             inp.ads = last.ads ? 1f : 0f;

@@ -24,6 +24,80 @@ namespace PryingEyes.Deserto
             return null;
         }
 
+        IEnumerator MotoJump()
+        {
+            var pl = Pl;
+            var catalogue = DesertBikeDefs.All;
+            float expected = 2.5f;
+            bool heightsMatch = true;
+            for (int i = 0; i < catalogue.Count; i++)
+            {
+                if (i > 0 && catalogue[i].price > catalogue[i - 1].price) expected *= 2f;
+                heightsMatch &= catalogue[i].DismountJumpHeight == expected;
+            }
+            Check("motosalto: the height doubles at each higher price", heightsMatch);
+
+            Vector3 saved = pl.transform.position;
+            Vector2 sand = OpenSand(80f);
+            var start = new Vector3(sand.x, DesertWorld.Height(sand.x, sand.y) + 30f, sand.y);
+            var platform = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            platform.transform.position = start + new Vector3(0f, -0.5f, 20f);
+            platform.transform.localScale = new Vector3(16f, 1f, 80f);
+            bool savedHoldLook = PlayerController.holdLook;
+            PlayerController.holdLook = true;
+            PlayerController.botDir = Vector3.zero;
+            DesertBike bike = null;
+            try
+            {
+                foreach (var def in new[] { catalogue[0], catalogue[1], System.Linq.Enumerable.Last(catalogue, candidate => !candidate.IsPlane) })
+                {
+                    bike = DesertBike.Create(null, start + Vector3.up * 0.03f, 0f, "Jump test bike", def);
+                    pl.Mount(bike);
+                    DesertBike.botThrottle = 1f;
+                    yield return WaitFor(() => pl.RideSpeed >= 8f && pl.RideGrounded, 6f);
+                    bool moving = pl.RideSpeed >= 8f;
+                    PadControls.Inject(new PadControls.Raw { connected = true, buttons = PadControls.X });
+                    yield return WaitFor(() => !pl.Riding, 0.8f);
+                    PadControls.Inject(new PadControls.Raw { connected = true });
+                    Vector3 parked = bike.transform.position;
+                    Check($"motosalto: {def.name} jumps while moving and leaves the bike parked",
+                        moving && !pl.Riding && bike.rider == null && bike.ColliderOn);
+
+                    float peak = pl.transform.position.y;
+                    float deadline = Time.time + Mathf.Sqrt(2f * def.DismountJumpHeight / pl.gravity) + 0.5f;
+                    while (!pl.Riding && Time.time < deadline)
+                    {
+                        peak = Mathf.Max(peak, pl.transform.position.y);
+                        yield return null;
+                    }
+                    float rise = peak - (start.y + 0.03f);
+                    Check($"motosalto: {def.name} reaches its jump height and carries forward speed",
+                        Mathf.Abs(rise - def.DismountJumpHeight) < def.DismountJumpHeight * 0.1f
+                        && pl.transform.position.z > parked.z + 2f, $"{rise:F2} m, target {def.DismountJumpHeight:F2} m");
+
+                    if (def.Starter)
+                    {
+                        var controller = pl.GetComponent<CharacterController>();
+                        yield return WaitFor(() => controller.isGrounded, 2f);
+                        Check("motosalto: the rider lands on foot", !pl.Riding && controller.isGrounded);
+                    }
+                    pl.AbortRide();
+                    Destroy(bike.gameObject);
+                    bike = null;
+                }
+            }
+            finally
+            {
+                PadControls.Inject(null);
+                pl.AbortRide();
+                if (bike != null) Destroy(bike.gameObject);
+                DesertBike.BotReset();
+                PlayerController.holdLook = savedHoldLook;
+                pl.Teleport(saved);
+                Destroy(platform);
+            }
+        }
+
         IEnumerator MotoCamera()
         {
             var player = Pl;

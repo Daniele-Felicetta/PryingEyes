@@ -35,6 +35,8 @@ static class Program
         subject = "noise"; Noise();
         subject = "clock"; Clock();
         subject = "ground"; Ground();
+        subject = "lakes"; Lakes();
+        subject = "biomes"; Biomes();
         subject = "terrain"; Terrain();
         subject = "buildings"; Buildings(quick ? 120 : 600);
         subject = "stacks"; Stacks(quick ? 40 : 200);
@@ -294,6 +296,42 @@ static class Program
     }
 
     // ------------------------------------------------------------------ ground
+    static void Lakes()
+    {
+        int failures = 0;
+        float shallowestVariation = float.PositiveInfinity;
+        for (int seed = 960; seed < 1040; seed++)
+        {
+            DesertWorld.Reset(seed);
+            if (DesertWorld.Lakes.Count != 2) failures++;
+            foreach (var lake in DesertWorld.Lakes)
+            {
+                float shortest = float.PositiveInfinity, longest = 0f;
+                if (!DesertWorld.LakeAt(lake.X, lake.Z, out _, out float depth) || depth < 7.5f) failures++;
+                for (int i = 0; i < 12; i++)
+                {
+                    float angle = i * (float)(Math.PI / 6);
+                    var shore = lake.PointAt(angle, 1f);
+                    float dx = (shore.x - lake.X) / lake.RadiusX, dz = (shore.z - lake.Z) / lake.RadiusZ;
+                    float reach = (float)Math.Sqrt(dx * dx + dz * dz);
+                    shortest = Math.Min(shortest, reach);
+                    longest = Math.Max(longest, reach);
+                    var outside = lake.PointAt(angle, 1.08f);
+                    var inside = lake.PointAt(angle, 0.75f);
+                    if (Math.Abs(DesertWorld.Height(shore.x, shore.z) - lake.Surface) > 0.01f ||
+                        DesertWorld.Height(outside.x, outside.z) <= lake.Surface ||
+                        DesertWorld.LakeAt(outside.x, outside.z, out _, out _) ||
+                        !DesertWorld.LakeAt(inside.x, inside.z, out _, out depth) ||
+                        Math.Abs(DesertWorld.Height(inside.x, inside.z) + depth - lake.Surface) > 0.01f)
+                        failures++;
+                }
+                shallowestVariation = Math.Min(shallowestVariation, longest - shortest);
+            }
+        }
+        Check("LAKES_SHARE_A_WALKABLE_SHORE_WITH_TERRAIN", failures == 0, $"{failures} mismatches across 80 seeds");
+        Check("LAKES_HAVE_COVES_AND_HEADLANDS", shallowestVariation > 0.24f, $"minimum variation in normalized shore reach {shallowestVariation:F2}");
+    }
+
     static void Ground()
     {
         DesertWorld.Reset(12345);
@@ -318,16 +356,23 @@ static class Program
             {
                 float h0 = DesertWorld.Height(x, z), hx = DesertWorld.Height(x + 2f, z), hz = DesertWorld.Height(x, z + 2f);
                 float slope = Math.Max(Math.Abs(hx - h0), Math.Abs(hz - h0)) / 2f;
-                worst = Math.Max(worst, slope); tall = Math.Max(tall, h0); low = Math.Min(low, h0);
+                worst = Math.Max(worst, slope); tall = Math.Max(tall, h0);
+                if (!DesertWorld.LakeAt(x, z, out _, out _)) low = Math.Min(low, h0);
                 if (slope > 0.9f) steep++;
                 n++;
             }
-        Check("GROUND_NOT_BELOW_SEA", low >= DesertWorld.GroundY - 0.2f, $"lowest {low:F2} m (sea level {DesertWorld.GroundY} m)");
+        Check("DRY_GROUND_NOT_BELOW_SEA", low >= DesertWorld.GroundY - 0.2f, $"lowest dry point {low:F2} m (sea level {DesertWorld.GroundY} m)");
         Check("GROUND_MOSTLY_WALKABLE", steep < n * 0.02f, $"{steep} of {n} samples steeper than 42 degrees (worst {Math.Atan(worst) * 57.3f:F0} deg), highest {tall:F1} m");
-        // far away the dunes are taller than near the cathedral
+        // Compare exposed dunes near the cathedral with the dune fields in the southern desert.
         float nearMax = 0f, farMax = 0f;
-        for (float x = 100f; x < 700f; x += 9f) nearMax = Math.Max(nearMax, DesertWorld.Raw(x, 150f) - DesertWorld.Buttes(x, 150f) - DesertWorld.GroundY);      // the dunes, not the buttes
-        for (float x = 8000f; x < 8600f; x += 9f) farMax = Math.Max(farMax, DesertWorld.Raw(x, 150f) - DesertWorld.Buttes(x, 150f) - DesertWorld.GroundY);
+        for (float x = -410f; x <= 410f; x += 13f)
+            for (float z = -410f; z <= 410f; z += 13f)
+                if (DesertBiomes.At(x, z, DesertWorld.Seed).Desert >= 0.999f)
+                    nearMax = Math.Max(nearMax, DesertWorld.Raw(x, z) - DesertWorld.Buttes(x, z) - DesertWorld.GroundY);
+        for (float x = -2100f; x <= 2100f; x += 23f)
+            for (float z = -9000f; z <= -5000f; z += 27f)
+                if (DesertWorld.RegionWeight(Region.Dunes, x, z) >= 0.99f)
+                    farMax = Math.Max(farMax, DesertWorld.Raw(x, z) - DesertWorld.Buttes(x, z) - DesertWorld.GroundY);
         Check("GROUND_DUNES_GROW_WITH_DISTANCE", farMax > nearMax * 1.2f, $"{nearMax:F1} m near, {farMax:F1} m far");
         // the dunes have a long gentle windward face and a steep slip face: along the wind (u) the sand rises slowly and falls fast
         double up = 0, down = 0; int nu = 0, nd = 0, cliffs = 0, badSamples = 0;
@@ -335,6 +380,7 @@ static class Program
             for (float z = -7000f; z <= 7000f; z += 43.7f)
             {
                 if (DesertWorld.DistToCathedral(x, z) < 500f) continue;
+                if (DesertBiomes.At(x, z, DesertWorld.Seed).Desert < 0.99f) continue;
                 if (DesertWorld.RegionWeight(Region.Dunes, x, z) > 0.99f)
                 {
                     float s0 = (DesertWorld.Height(x + 2.2f, z + 1.25f) - DesertWorld.Height(x - 2.2f, z - 1.25f)) / 5.06f;       // along the wind (0.87, 0.5)
@@ -354,12 +400,12 @@ static class Program
         // the brine on the salt flats: a film of water in lakes, only in the middle of the flats, riding on the top fifth of the vertex alpha
         DesertWorld.Reset(12345);
         int flats = 0, flooded = 0, stray = 0, badAlpha = 0, badDecode = 0, brineSamples = 0;
-        for (float x = -9000f; x <= 9000f; x += 37.1f)
-            for (float z = -9000f; z <= 9000f; z += 41.3f)
+        for (float x = -9000f; x <= 9000f; x += 31.1f)
+            for (float z = -9000f; z <= 9000f; z += 36.3f)
             {
                 float bn = DesertWorld.Brine(x, z), sw = DesertWorld.RegionWeight(Region.Salt, x, z);
                 if (bn > 0f && sw < 0.9f) stray++;
-                if (sw > 0.99f) { flats++; if (bn > 0.5f) flooded++; }
+                if (sw > 0.99f && DesertBiomes.At(x, z, DesertWorld.Seed).Desert > 0.99f) { flats++; if (bn > 0.5f) flooded++; }
                 DesertWorld.TintAt(x, z, out _, out _, out _, out float td);
                 float al = DesertWorld.BrineAlpha(x, z, td);
                 if (bn <= 0f) { if (Math.Abs(al - td) > 1e-6f) badAlpha++; }
@@ -386,6 +432,83 @@ static class Program
         DesertWorld.Reset(12345);
         for (int k = wet.Count - 1; k >= 0; k--) if (DesertWorld.Brine(wet[k].x, wet[k].z) != wet[k].b) moved++;
         Check("BRINE_DETERMINISTIC", wet.Count >= 10 && moved == 0, $"{wet.Count} wet places asked again after another seed and a reset, in reverse order: {moved} changed");
+    }
+
+    static void Biomes()
+    {
+        bool reachable = true, smooth = true;
+        float smallestRidge = float.PositiveInfinity, smallestMeadow = float.PositiveInfinity;
+        foreach (int seed in new[] { 1, 84, 1000, 1017, 431792, -3 })
+        {
+            DesertWorld.Reset(seed);
+            foreach (Biome kind in Enum.GetValues(typeof(Biome)))
+            {
+                var (x, z) = DesertBiomes.Landmark(kind);
+                reachable &= DesertBiomes.At(x, z, seed).Dominant == kind;
+                if (kind == Biome.Desert) continue;
+                BiomeMix previous = default;
+                for (int i = 0; i <= 100; i++)
+                {
+                    float t = i / 100f;
+                    var now = DesertBiomes.At(x * t, z * t, seed);
+                    float sum = now.Desert + now.Forest + now.Meadow + now.Ice;
+                    smooth &= Math.Abs(1f - sum) < 0.0001f && Math.Abs(now.Desert - previous.Desert) < 0.12f &&
+                        Math.Abs(now.Forest - previous.Forest) < 0.12f && Math.Abs(now.Ice - previous.Ice) < 0.12f &&
+                        Math.Abs(now.Meadow - previous.Meadow) < 0.12f;
+                    previous = now;
+                }
+            }
+            foreach (var lake in DesertWorld.Lakes)
+                reachable &= DesertBiomes.At(lake.X, lake.Z, seed).Dominant == Biome.Desert;
+            var (iceX, iceZ) = DesertBiomes.Landmark(Biome.Ice);
+            float iceFloor = DesertWorld.Raw(iceX, iceZ), peak = iceFloor;
+            for (float z = 1080f; z <= 1400f; z += 22f)
+                for (float x = -155f; x <= 270f; x += 24f)
+                    peak = Math.Max(peak, DesertWorld.Raw(x, z));
+            smallestRidge = Math.Min(smallestRidge, peak - iceFloor);
+            float meadowLow = float.PositiveInfinity, meadowHigh = float.NegativeInfinity;
+            for (float x = -1000f; x < -620f; x += 23f)
+                for (float z = -130f; z <= 290f; z += 28f)
+                {
+                    float h = DesertWorld.Raw(x, z);
+                    meadowLow = Math.Min(meadowLow, h);
+                    meadowHigh = Math.Max(meadowHigh, h);
+                }
+            smallestMeadow = Math.Min(smallestMeadow, meadowHigh - meadowLow);
+        }
+        Check("BIOMES_REACHABLE_AND_CATHEDRAL_STAYS_DESERT", reachable, "all four landmark climates and both desert lakes on six seeds");
+        Check("BIOME_BOUNDARIES_BLEND", smooth, "weights stay normalized and continuous along three routes from the cathedral");
+        Check("BIOMES_HAVE_LANDMARK_RELIEF", smallestRidge > 20f && smallestMeadow > 10f,
+            $"at least {smallestRidge:F1} m from the icefield to the ridge and {smallestMeadow:F1} m from meadow valleys to hilltops on all six seeds");
+
+        DesertWorld.Reset(1000);
+        var groups = new Dictionary<Biome, int[]>();
+        var props = new List<PropItem>();
+        foreach (Biome kind in new[] { Biome.Forest, Biome.Ice, Biome.Meadow })
+        {
+            var (x, z) = DesertBiomes.Landmark(kind);
+            int cx = (int)Math.Floor(x / DesertScatterGen.Chunk), cz = (int)Math.Floor(z / DesertScatterGen.Chunk);
+            var tally = groups[kind] = new int[(int)Prop.Count];
+            for (int dz = -1; dz <= 1; dz++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    DesertScatterGen.Build(cx + dx, cz + dz, props);
+                    foreach (var prop in props) tally[prop.kind]++;
+                }
+        }
+        int trees = groups[Biome.Forest][(int)Prop.Broadleaf] + groups[Biome.Forest][(int)Prop.Fir];
+        int ferns = groups[Biome.Forest][(int)Prop.ForestFern];
+        int frosted = groups[Biome.Ice][(int)Prop.FrostFir], glaciers = groups[Biome.Ice][(int)Prop.GlacierShard];
+        int meadows = groups[Biome.Meadow][(int)Prop.MeadowGrass], flowers = groups[Biome.Meadow][(int)Prop.Wildflowers];
+        Check("BIOMES_HAVE_DISTINCT_SCENERY", trees >= 90 && ferns >= 45 && frosted >= 12 && glaciers >= 12 && meadows >= 220 && flowers >= 90,
+            $"{trees} woodland trees, {ferns} fern patches, {frosted} snowy trees, {glaciers} glacial rocks, {meadows} grass patches and {flowers} flower patches");
+        var forest = DesertTerrainGen.Build(11, 2, 4f, null);
+        var next = DesertTerrainGen.Build(12, 2, 4f, null);
+        bool seam = true;
+        for (int row = 0; row < 17; row++)
+            for (int channel = 0; channel < 4; channel++)
+                seam &= forest.biome[(row * 17 + 16) * 4 + channel] == next.biome[row * 17 * 4 + channel];
+        Check("BIOME_TERRAIN_BORDERS_MATCH", seam && forest.biome[0] > 180, "vertex climate channels meet without seams on adjacent chunks");
     }
 
     // ------------------------------------------------------------------ the sand mesh
@@ -989,8 +1112,10 @@ static class Program
         for (int cx = -span; cx <= span; cx += 7)
             for (int cz = -span; cz <= span; cz += 7)
             {
+                float x = cx * DesertScatterGen.Chunk + 32f, z = cz * DesertScatterGen.Chunk + 32f;
+                if (DesertBiomes.At(x, z, DesertWorld.Seed).Desert < 0.98f) continue;
                 DesertScatterGen.Build(cx, cz, items);
-                var reg = DesertWorld.RegionAt(cx * DesertScatterGen.Chunk + 32f, cz * DesertScatterGen.Chunk + 32f);
+                var reg = DesertWorld.RegionAt(x, z);
                 if (!byRegion.TryGetValue(reg, out var counts)) byRegion[reg] = counts = new int[(int)Prop.Count];
                 squares[reg] = (squares.TryGetValue(reg, out int sq) ? sq : 0) + 1;
                 foreach (var it in items) counts[it.kind]++;
@@ -1016,7 +1141,8 @@ static class Program
             DesertScatterGen.Solid((Prop)k, out float r, out float h);
             var p = (Prop)k;
             bool big = p == Prop.BoulderTan || p == Prop.BoulderDark || p == Prop.BoulderRed || p == Prop.Slab || p == Prop.Cactus || p == Prop.DeadTree || p == Prop.Column || p == Prop.Stele
-                       || p == Prop.Tent || p == Prop.FirePit || p == Prop.Crate || p == Prop.Well || p == Prop.Obelisk || p == Prop.Windmill || p == Prop.Wagon;
+                       || p == Prop.Tent || p == Prop.FirePit || p == Prop.Crate || p == Prop.Well || p == Prop.Obelisk || p == Prop.Windmill || p == Prop.Wagon
+                       || p == Prop.Broadleaf || p == Prop.Fir || p == Prop.FrostFir || p == Prop.GlacierShard;
             if (big != (r > 0f) || (r > 0f && h <= 0f)) solidOk = false;
         }
         Check("SCATTER_SOLID_SHAPES", solidOk, "boulders, slabs, cacti, dead trees, columns, steles, tents, fires, crates, wells, obelisks, windmills and wagons are solid (a capsule with a radius and a height), the rest are not");

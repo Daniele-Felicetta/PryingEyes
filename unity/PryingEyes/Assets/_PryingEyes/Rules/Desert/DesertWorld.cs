@@ -58,9 +58,52 @@ namespace PryingEyes.Deserto
         public override string ToString() => $"{kind}/{state} cell({cx},{cz}) at ({x:F0},{z:F0})" + (IsStack ? $" {LevelCount} levels" : plan != null ? $" {plan.rooms.Count} rooms" : "");
     }
 
-    /// <summary>The desert as a pure function of one seed: the ground, the sites on it, where the sand is flat. Nothing is stored: the terrain chunks, the
-    /// buildings and the navmesh window all ask this class. tools/desertlab checks it. The cathedral stands at the origin on a stone podium; the sand
-    /// around it is flat for the first 70 m and the dunes grow with the distance.</summary>
+    /// <summary>Lake shape shared by terrain, map, surface mesh and player movement.</summary>
+    public readonly struct DesertLake
+    {
+        public const float Depth = 8.2f;
+        const float ShelfDepth = 3.5f;
+        public const float BankRadius = 1.36f;
+        public const float OutlineExtent = 1.24f;
+        public readonly float X, Z, RadiusX, RadiusZ, Surface, ShoreTurn;
+
+        public DesertLake(float x, float z, float radiusX, float radiusZ, float surface, float shoreTurn = 0f)
+        {
+            X = x;
+            Z = z;
+            RadiusX = radiusX;
+            RadiusZ = radiusZ;
+            Surface = surface;
+            ShoreTurn = shoreTurn;
+        }
+
+        float Outline(float angle)
+        {
+            angle += ShoreTurn;
+            return 1f + 0.132f * (float)Math.Sin(3f * angle + 0.7f) + 0.065f * (float)Math.Cos(2f * angle + 0.2f) +
+                0.038f * (float)Math.Cos(5f * angle - 0.45f);
+        }
+
+        public float RadiusAt(float x, float z)
+        {
+            float dx = (x - X) / RadiusX, dz = (z - Z) / RadiusZ;
+            float squared = dx * dx + dz * dz;
+            const float outer = BankRadius * OutlineExtent;
+            if (squared > outer * outer || squared == 0f) return (float)Math.Sqrt(squared);
+            return (float)Math.Sqrt(squared) / Outline((float)Math.Atan2(dz, dx));
+        }
+
+        public (float x, float z) PointAt(float angle, float radius)
+        {
+            float edge = radius * Outline(angle);
+            return (X + RadiusX * edge * (float)Math.Cos(angle), Z + RadiusZ * edge * (float)Math.Sin(angle));
+        }
+
+        public static float BedDepth(float radius) =>
+            ShelfDepth * (1f - radius * radius) + (Depth - ShelfDepth) * (1f - DesertNoise.Smooth(0.13f, 0.80f, radius));
+    }
+
+    /// <summary>Seeded ground, sites and lakes shared by terrain chunks, buildings and the navmesh window.</summary>
     public static class DesertWorld
     {
         public static int Seed = 1;
@@ -87,6 +130,8 @@ namespace PryingEyes.Deserto
         /// <summary>The terrain is computed on worker threads and asks for the sites around each point: the cache is shared, so every access is locked.
         /// The director makes the sites of a chunk's cells on the main thread before the chunk is queued, so a worker normally only finds them ready.</summary>
         static readonly object gate = new object();
+        static IReadOnlyList<DesertLake> lakes = Array.Empty<DesertLake>();
+        public static IReadOnlyList<DesertLake> Lakes => lakes;
 
         public static void Reset(int seed)
         {
@@ -95,7 +140,62 @@ namespace PryingEyes.Deserto
                 Seed = seed;
                 cache.Clear();
                 originFor = int.MinValue;
+                lakes = FindLakes().AsReadOnly();
             }
+        }
+
+        static List<DesertLake> FindLakes()
+        {
+            var result = new List<DesertLake>(2);
+            // Search two separate sectors near the cathedral. Existing sites and their approaches keep their original ground.
+            for (int sector = 0; sector < 2; sector++)
+            {
+                bool found = false;
+                for (int row = 0; row < 9 && !found; row++)
+                    for (int col = 0; col < 9 && !found; col++)
+                    {
+                        float across = 22f * ((col + 1) / 2) * (col % 2 == 0 ? -1f : 1f);
+                        float x = sector == 0 ? -84f - row * 30f : 28f + across;
+                        float z = sector == 0 ? 32f + across : 150f + row * 30f;
+                        float rx = sector == 0 ? 25f : 20f, rz = sector == 0 ? 18f : 26f;
+                        float reachX = rx * DesertLake.OutlineExtent * DesertLake.BankRadius + 10f;
+                        float reachZ = rz * DesertLake.OutlineExtent * DesertLake.BankRadius + 10f;
+                        if ((sector == 1 && x < 0f) || !LakeSiteClear(x, z, reachX, reachZ)) continue;
+                        float surface = DryHeight(x, z) - 0.65f;
+                        float turn = sector * 1.12f + (DesertNoise.Hash01(sector, 0, Seed + 9250) - 0.5f) * 0.74f;
+                        result.Add(new DesertLake(x, z, rx, rz, surface, turn));
+                        found = true;
+                    }
+            }
+            return result;
+        }
+
+        static bool LakeSiteClear(float x, float z, float reachX, float reachZ)
+        {
+            for (int cx = CellOf(x - reachX); cx <= CellOf(x + reachX); cx++)
+                for (int cz = CellOf(z - reachZ); cz <= CellOf(z + reachZ); cz++)
+                {
+                    var site = SiteOf(cx, cz);
+                    if (site != null && site.fx0 < x + reachX && site.fx1 > x - reachX &&
+                        site.fz0 < z + reachZ && site.fz1 > z - reachZ) return false;
+                }
+            return true;
+        }
+
+        public static bool LakeAt(float x, float z, out DesertLake lake, out float depth)
+        {
+            var current = lakes;
+            for (int i = 0; i < current.Count; i++)
+            {
+                lake = current[i];
+                float radius = lake.RadiusAt(x, z);
+                if (radius >= 1f) continue;
+                depth = DesertLake.BedDepth(radius);
+                return true;
+            }
+            lake = default;
+            depth = 0f;
+            return false;
         }
 
         // ------------------------------------------------------------------ the regions
@@ -208,7 +308,7 @@ namespace PryingEyes.Deserto
             float salt = RegionWeight(Region.Salt, x, z);
             if (salt < 0.9f) return 0f;
             float lakes = DesertNoise.Smooth(0.54f, 0.62f, DesertNoise.Fbm(x / 230f + 31f, z / 160f - 17f, Seed + 301, 3));
-            return lakes <= 0f ? 0f : lakes * DesertNoise.Smooth(0.90f, 0.99f, salt);
+            return lakes <= 0f ? 0f : lakes * DesertNoise.Smooth(0.90f, 0.99f, salt) * DesertBiomes.At(x, z, Seed).Desert;
         }
 
         /// <summary>The alpha of the sand's vertex colour at a point: 'desat' (how much colour the region takes from the sand, 0..0.8) and, where there is brine, 0.8 + a fifth of how deep it is, so
@@ -340,6 +440,8 @@ namespace PryingEyes.Deserto
             float d = DistToCathedral(x, z);
             float mask = DesertNoise.Smooth(55f, 200f, d);
             if (mask <= 0f) return GroundY;
+            var biome = DesertBiomes.At(x, z, Seed);
+            if (biome.Desert <= 0f) return DesertBiomes.Relief(x, z, Seed, biome, GroundY);
             float u = x * 0.87f + z * 0.5f, v = -x * 0.5f + z * 0.87f;
             float swell = DesertNoise.Fbm(u / 420f, v / 300f, Seed + 11, 4);
             float ripple = DesertNoise.Value(u / 5f, v / 2.6f, Seed + 31);
@@ -359,7 +461,8 @@ namespace PryingEyes.Deserto
             float mesaH = 7f + 15f * DesertNoise.Fbm(x / 1500f - 3f, z / 1500f + 8f, Seed + 53, 2);
             float erode = (DesertNoise.Fbm(x / 24f + 5f, z / 24f - 3f, Seed + 59, 3) - 0.5f) * 9f * (4f * mesaOn * (1f - mesaOn) + 0.15f * mesaOn);
             float mesa = (mesaOn * mesaH + tier2 * 5f + erode) * (0.65f + 0.35f * far) * (1f + 0.5f * badlands);
-            return GroundY + mask * (h + mesa + Buttes(x, z));
+            float desert = GroundY + mask * (h + mesa + Buttes(x, z));
+            return DesertBiomes.Relief(x, z, Seed, biome, desert);
         }
 
         /// <summary>The height of the sand at a point (m): the dunes, calmed and then flattened under the sites.</summary>
@@ -367,6 +470,21 @@ namespace PryingEyes.Deserto
         [ThreadStatic] static float[] distBuf;
 
         public static float Height(float x, float z)
+        {
+            float dry = DryHeight(x, z);
+            var current = lakes;
+            for (int i = 0; i < current.Count; i++)
+            {
+                var lake = current[i];
+                float radius = lake.RadiusAt(x, z);
+                if (radius >= DesertLake.BankRadius) continue;
+                float bed = lake.Surface - DesertLake.BedDepth(radius);
+                return DesertNoise.Lerp(bed, dry, DesertNoise.Smooth(1.10f, DesertLake.BankRadius, radius));
+            }
+            return dry;
+        }
+
+        static float DryHeight(float x, float z)
         {
             float h = Raw(x, z);
             int cx = (int)Math.Floor(x / Cell), cz = (int)Math.Floor(z / Cell);
@@ -525,6 +643,8 @@ namespace PryingEyes.Deserto
                 if (!MakeBuilding(s, r)) return null;
             }
             if (!forced && ButteTouches(s.fx0, s.fz0, s.fx1, s.fz1, 45f)) return null;       // a butte there: the pad and the calm round the place would cut it
+            if (!forced && s.IsTower && DesertBiomes.At(s.x, s.z, Seed).Ice > 0.83f && DesertBiomes.IceSpur(s.x, s.z, Seed) > 0.12f)
+                return null;       // keep the high ridgeline clear; towers remain among the foothills
             s.padY = Math.Max(GroundY, Raw(s.x, s.z));
             return s;
         }

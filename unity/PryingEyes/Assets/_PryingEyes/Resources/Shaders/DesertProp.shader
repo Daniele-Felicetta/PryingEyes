@@ -259,6 +259,30 @@ Shader "PryingEyes/DesertProp"
                 float3 plainAlb = base * lerp(0.90, 1.10, fineV);
                 float3 albedo = lerp(lerp(plainAlb, orgAlb, orgW), stoneAlb, stoneW);
                 float3 Nd = normalize(lerp(lerp(N, NO, orgW), NS, stoneW));
+                float smoothness = _Smooth * (1.0 - 0.6 * dust * stoneW);
+                half3 translucency = 0;
+                if (s > 2.5 && s < 3.5)      // outdoor tree bark
+                {
+                    float3 grainScale = float3(21.0, 1.25, 21.0);
+                    float4 bark = FbmD(q * grainScale + off);
+                    float fissure = smoothstep(0.42, 0.65, bark.w / 0.875);
+                    albedo = base * lerp(0.56, 1.45, fissure) * (0.71 + bigV * 0.54);
+                    albedo = lerp(albedo, albedo * half3(0.65, 1.20, 0.68), smoothstep(0.52, 0.75, bigV) * (1.0 - saturate(q.y)));
+                    float3 gradient = bark.xyz * float3(1.0, 0.19, 1.0);
+                    Nd = normalize(N - 0.24 * (gradient - dot(gradient, N) * N) * fadeNear);
+                    smoothness = 0.15;
+                }
+                if (s > 3.5)                // layered glacial ice with snow on weathered ridges
+                {
+                    float layering = q.y * 19.0 + 3.2 * bigV + q.x * 1.8;
+                    float seam = pow(saturate(sin(layering)), 14.0) * fadeNear;
+                    float frost = smoothstep(0.30, 0.69, N.y + (fineV - 0.5) * 0.55);
+                    albedo = lerp(base * half3(0.48, 0.66, 0.85) + seam * half3(0.044, 0.083, 0.096),
+                        half3(0.63, 0.72, 0.77) * (0.68 + fineV * 0.45), frost);
+                    smoothness = lerp(0.79, 0.26, frost);
+                    Nd = normalize(N - 0.025 * (fine.xyz - dot(fine.xyz, N) * N) * fadeNear);
+                    translucency = albedo * half3(0.032, 0.078, 0.096) * (1.0 - _DSNight);
+                }
                 // l'ombra di contatto: scuro dove la cosa tocca terra (la sabbia vicina la nasconde alla luce del cielo)
                 float contact = lerp(0.55, 1.0, smoothstep(0.05, 0.40, q.y + (bigV - 0.5) * 0.25));
                 albedo *= lerp(1.0, contact, saturate(stoneW + orgW));
@@ -268,10 +292,10 @@ Shader "PryingEyes/DesertProp"
                 surfaceData.alpha = 1;
                 surfaceData.metallic = 0;
                 surfaceData.specular = 0;
-                surfaceData.smoothness = _Smooth * (1.0 - 0.6 * dust * stoneW);
+                surfaceData.smoothness = smoothness;
                 surfaceData.occlusion = lerp(1.0, contact, saturate(stoneW + orgW));
                 surfaceData.normalTS = half3(0, 0, 1);
-                surfaceData.emission = input.albedo * input.emit;
+                surfaceData.emission = input.albedo * input.emit + translucency;
 
                 InputData inputData = (InputData)0;
                 inputData.positionWS = P;
