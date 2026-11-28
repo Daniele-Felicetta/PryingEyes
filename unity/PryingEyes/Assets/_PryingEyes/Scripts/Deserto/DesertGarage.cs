@@ -27,6 +27,13 @@ namespace PryingEyes.Deserto
             return new Vector3(x, DesertWorld.Height(x, z), z);
         }
 
+        public static Vector3 ParkingPos(int row, int bay, DesertBikeDef vehicle)
+        {
+            if (!vehicle.IsPlane) return BayPos(row, bay);
+            float x = 56f + 9f * Mathf.Clamp(row, 0, Seats.MaxSeats - 1), z = -10f;
+            return new Vector3(x, DesertWorld.Height(x, z), z);
+        }
+
         sealed class Book { public readonly List<string> owned = new List<string>(); }
 
         static readonly Dictionary<int, Book> books = new Dictionary<int, Book>();
@@ -77,8 +84,14 @@ namespace PryingEyes.Deserto
         /// <summary>La piazzola di una moto nel garage di quel posto (0 e' la prima), -1 se non ce l'ha.</summary>
         public static int BayOf(int seat, DesertBikeDef d)
         {
+            if (d != null && d.IsPlane) return Owns(seat, d) ? Bays : -1;
             int i = 0;
-            foreach (var o in Owned(seat)) { if (o == d) return i; i++; }
+            foreach (var o in Owned(seat))
+            {
+                if (o.IsPlane) continue;
+                if (o == d) return i;
+                i++;
+            }
             return -1;
         }
 

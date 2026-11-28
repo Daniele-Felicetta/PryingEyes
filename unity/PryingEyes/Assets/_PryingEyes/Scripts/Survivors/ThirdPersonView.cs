@@ -186,7 +186,11 @@ namespace PryingEyes
             Vector3 framing = GameSettings.ThirdPersonFraming;
             Vector3 offset = new Vector3(framing.x * Mathf.Lerp(1f, 2f / 3f, ads), framing.y + 0.24f * ads,
                 -framing.z * Mathf.Lerp(1f, 1.18f / GameSettings.ThirdDistanceDefault, ads));
-            if (riding) { offset.y += 0.52f; offset.z -= 0.7f; }
+            if (riding)
+            {
+                offset.y += p.Bike.Def.IsPlane ? 1.35f : 0.52f;
+                offset.z -= p.Bike.Def.IsPlane ? 3.8f : 0.7f;
+            }
             else if (p.IsCrouching) offset.z *= 0.9f;
             followHeight = continuing && Mathf.Abs(followHeight - stableEye.y) < 0.6f
                 ? Mathf.Lerp(followHeight, stableEye.y, 1f - Mathf.Exp(-14f * dt))

@@ -234,6 +234,7 @@ namespace PryingEyes.Deserto
         public void RefreshNames()
         {
             var owned = DesertGarage.Owned(0);
+            owned.RemoveAll(d => d.IsPlane);
             for (int k = 0; k < names.Count; k++)
             {
                 bool has = k < owned.Count;

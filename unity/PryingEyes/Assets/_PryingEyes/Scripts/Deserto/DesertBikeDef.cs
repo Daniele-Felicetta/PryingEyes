@@ -37,7 +37,8 @@ namespace PryingEyes.Deserto
 
         public bool IsPista => pista >= 0;
         public bool Free => price <= 0;
-        public bool Starter => pista < 0;
+        public bool IsPlane => id == DesertBikeDefs.PlaneId;
+        public bool Starter => id == DesertBikeDefs.StarterId;
         public override string ToString() => name;
 
         /// <summary>Una barra della scheda del negozio, da 0 a 1 su una scala fissa (non contro le altre moto: una moto nuova non sposta le vecchie): velocita', ripresa, maneggevolezza, frenata.</summary>
@@ -61,6 +62,9 @@ namespace PryingEyes.Deserto
     {
         /// <summary>La moto arrangiata di sempre: la prima del garage di ognuno, gratis.</summary>
         public const string StarterId = "ruggine";
+        public const string PlaneId = "libeccio";
+        const int PlaneGroundNetCode = 14;
+        public const int PlaneAirNetCode = 15;
         /// <summary>I punti che costa una moto: un quarto di quello che costa nella pista (i punti si fanno ammazzando, non girando), arrotondato a 25.</summary>
         public const float PriceShare = 0.25f;
 
@@ -84,9 +88,17 @@ namespace PryingEyes.Deserto
         public static int IndexOf(DesertBikeDef d) { Ensure(); return d == null ? -1 : all.IndexOf(d); }
 
         /// <summary>Il numero col quale la moto va in rete (0 e' la moto arrangiata): e' l'indice della moto della pista piu' uno, cosi' resta uguale anche se il negozio cambia ordine.</summary>
-        public static int NetCode(DesertBikeDef d) => d == null || d.pista < 0 ? 0 : d.pista + 1;
+        public static int NetCode(DesertBikeDef d, bool grounded = true)
+        {
+            if (d != null && d.IsPlane) return grounded ? PlaneGroundNetCode : PlaneAirNetCode;
+            return d == null || d.pista < 0 ? 0 : d.pista + 1;
+        }
 
-        public static DesertBikeDef FromNet(int code) => code <= 0 ? Starter : ByPista(code - 1) ?? Starter;
+        public static DesertBikeDef FromNet(int code)
+        {
+            if (code == PlaneGroundNetCode || code == PlaneAirNetCode) return ById(PlaneId);
+            return code <= 0 ? Starter : ByPista(code - 1) ?? Starter;
+        }
 
         public static DesertBikeDef ByPista(int bike)
         {
@@ -101,6 +113,15 @@ namespace PryingEyes.Deserto
             var l = new List<DesertBikeDef> { Rust() };
             var sold = new List<DesertBikeDef>();
             for (int i = 0; i < Bikes.Count; i++) sold.Add(FromPista(i));
+            sold.Add(new DesertBikeDef
+            {
+                id = PlaneId, name = "Libeccio", klass = "Aereo leggero", price = 6000,
+                tagline = "Monoplano da ricognizione, riverniciato a Bozzo Moto. Prendi velocità sulla sabbia, poi tieni premuto Salto per decollare.",
+                top = DesertFlight.TopSpeed, boost = DesertFlight.TopSpeed, reverse = 0f,
+                eye = new Vector3(0f, 1.86f, -0.32f), seatHips = new Vector3(0f, 1.08f, -0.62f),
+                pegs = new Vector3(0.18f, 0.82f, -0.03f), seatLean = 10f, grip = new Vector3(0.20f, 1.32f, -0.10f),
+                engine = EngineKind.V2, idleRpm = 950f, redlineRpm = 4600f
+            });
             sold.Sort((a, b) => a.price != b.price ? a.price.CompareTo(b.price) : a.pista.CompareTo(b.pista));
             l.AddRange(sold);
             all = l;

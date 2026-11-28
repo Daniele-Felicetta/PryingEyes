@@ -53,6 +53,8 @@ D-pad or the left stick moves (held, it repeats), A confirms (buys, picks, press
 `Mapper.Prev`, `Next` and `Back` (the rising edges of LB, RB and Back), which `SuppressGameplay` leaves alone as it does `Confirm` and `Cancel`: while the panel is open the gameplay actions are cleared, so LB does not cast a spell
 and RB does not throw holy water. The tap of Back that closes the panel ends with a release, and a release is a tap: for 0.55 s after closing the panel does not open again. Not tried with a real controller.
 
+**The Libeccio aircraft** in the desert uses the left stick for throttle, steering and descent or ground braking. Hold **A** to take off or climb. Hold **X** near the plane to board, or while flying to descend and get out on the ground. [The Libeccio aircraft](the-desert.md#the-libeccio-aircraft)
+
 On 17 November 2026 the seal and the doors changed places. The seal (the enhancement of the weapon in hand) was *D-pad right held*, which
 nobody found, while the D-pad left seemed to do nothing (the ping needs doors still to buy, the veil needs its perk). The seal is now a plain
 tap on the D-pad left, in the same order as the two icons of the HUD (seal on the left, spell on the right: `CAMBIA: ← sigillo · magia →`),
