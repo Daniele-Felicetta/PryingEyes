@@ -20,7 +20,7 @@ namespace PryingEyes
         // tastiera e mouse, tre colonne: "tasto|che cosa fa", "#TITOLO" per un titolo, "" per una riga vuota
         static readonly string[] KeysMove =
         {
-            "#MOVIMENTO", "W A S D|Muoviti", "Maiusc|Corri", "C / Ctrl|Abbassati", "Spazio|Salta e scavalca", "Q / E|Sporgiti ai lati", "F|Usa, compra, rialza",
+            "#MOVIMENTO", "W A S D|Muoviti", "Maiusc|Corri", "C / Ctrl|Abbassati", "Spazio|Salta e scavalca", "Alt sinistro|Lancia / sgancia il rampino", "Q / E|Sporgiti ai lati", "F|Usa, compra, rialza",
             "", "#COMBATTIMENTO", "Mouse sx|Spara", "Mouse dx|Mira", "R|Ricarica", "1 / 2 / X|Cambia arma", "B|Modo di fuoco", "G|Coltello",
         };
         static readonly string[] KeysGear =
@@ -38,7 +38,7 @@ namespace PryingEyes
         static readonly string[] PadMove =
         {
             "#MOVIMENTO", "Stick sx|Muoviti", "(premuto)|Corri", "A|Salta", "B|Abbassati",
-            "", "#MIRA", "Stick dx|Guarda", "(premuto)|Coltello", "LT|Mira", "L3 / R3|Sporgiti, con la mira",
+            "", "#MIRA", "Stick dx|Guarda", "R3 (tocco)|Coltello / sporgiti in mira", "R3 (tenuto)|Rampino, anche in mira", "LT|Mira", "L3|Sporgiti a sinistra, in mira",
         };
         static readonly string[] PadFight =
         {

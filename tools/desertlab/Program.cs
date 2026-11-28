@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using PryingEyes;
 using PryingEyes.Deserto;
 using PryingEyes.Proc;
 
@@ -47,11 +48,29 @@ static class Program
         subject = "hub"; Hub();
         subject = "weather"; Weather();
         subject = "grading"; Grading();
+        subject = "traversal"; Grapple();
         subject = "compass"; Compass();
         Console.WriteLine(ok ? "ALL PASS" : "FAILED");
         if (report >= 0)
             File.WriteAllText(args[report + 1], JsonSerializer.Serialize(new { schemaVersion = 1, operation = "desert.rules", ok, findings }, new JsonSerializerOptions { WriteIndented = true }));
         return ok ? 0 : 1;
+    }
+
+    static void Grapple()
+    {
+        foreach (int fps in new[] { 30, 60, 144 })
+        {
+            float dt = 1f / fps, distance = 26f, speed = 0f, peak = 0f;
+            for (int i = 0; i < fps * 4 && distance > GrappleReel.StopDistance + 0.06f; i++)
+            {
+                speed = GrappleReel.Advance(speed, distance, dt);
+                distance -= speed * dt;
+                peak = Math.Max(peak, speed);
+            }
+            Check("GRAPPLE_REEL", peak >= 19.9f && peak <= 20f && speed <= 5f &&
+                  Math.Abs(distance - GrappleReel.StopDistance) < 0.2f,
+                  $"{fps} fps: peak {peak:F2} m/s, arrival {speed:F2} m/s and {distance:F2} m from the anchor");
+        }
     }
 
     // ------------------------------------------------------------------ a picture of the ground

@@ -160,7 +160,7 @@ namespace PryingEyes
             // un tasto, una cosa (mappa del 2026-11-16): al primo giro
             var press = new (ushort button, TouchControls.Action action, string name)[]
             {
-                (PadControls.RightShoulder, TouchControls.Action.Grenade, "RB acquasanta"), (PadControls.RightStick, TouchControls.Action.Knife, "R3 coltello"),
+                (PadControls.RightShoulder, TouchControls.Action.Grenade, "RB acquasanta"),
                 (PadControls.LeftShoulder, TouchControls.Action.Spell, "LB mano sinistra (magia)"), (PadControls.StartBtn, TouchControls.Action.Pause, "Start pausa"),
             };
             foreach (var c in press)
@@ -174,6 +174,7 @@ namespace PryingEyes
             // tocco (al rilascio) e tenuto (dopo HoldTime, una volta sola, e niente tocco al rilascio)
             var twoWay = new (ushort button, TouchControls.Action tap, TouchControls.Action hold, string name)[]
             {
+                (PadControls.RightStick, TouchControls.Action.Knife, TouchControls.Action.Grapple, "R3: tap for knife, hold for grapple"),
                 (PadControls.X, TouchControls.Action.Reload, TouchControls.Action.Use, "X: ricarica, tenuto usa e compra"),
                 (PadControls.Y, TouchControls.Action.Swap, TouchControls.Action.Mode, "Y: cambia arma, tenuto modo di fuoco"),
                 (PadControls.DpadUp, TouchControls.Action.Torch, TouchControls.Action.Battery, "croce su: torcia, tenuta pila"),
@@ -211,9 +212,22 @@ namespace PryingEyes
             m.Reset(); m.Step(Pad(lt: 255)); m.Step(Pad(PadControls.LeftStick, lt: 255));
             Check("con la mira L3: sporgersi a sinistra (e non correre)", IsHeld(m, TouchControls.Action.Left) && !IsHeld(m, TouchControls.Action.Sprint));
             m.Step(Pad(lt: 255)); m.Step(Pad(PadControls.RightStick, lt: 255));
+            m.Step(Pad(lt: 255));
             Check("con la mira R3: sporgersi a destra (e non il coltello)", IsHeld(m, TouchControls.Action.Right) && !IsHeld(m, TouchControls.Action.Left) && !IsDown(m, TouchControls.Action.Knife));
             m.Step(Pad());
             Check("lasciando la mira si torna dritti", !IsHeld(m, TouchControls.Action.Right) && !IsHeld(m, TouchControls.Action.Left));
+            m.Reset();
+            int grapplePresses = 0;
+            for (int k = 0; k < holdSteps + 3; k++)
+            {
+                m.Step(Pad(PadControls.RightStick, lt: 255, rt: 255));
+                if (IsDown(m, TouchControls.Action.Grapple)) grapplePresses++;
+            }
+            Check("Holding R3 while aiming and firing launches the grapple",
+                grapplePresses == 1 && IsHeld(m, TouchControls.Action.Aim) && IsHeld(m, TouchControls.Action.Fire));
+            m.Step(Pad(lt: 255));
+            Check("Releasing R3 after a grapple keeps the aim and lean steady",
+                IsHeld(m, TouchControls.Action.Aim) && !IsHeld(m, TouchControls.Action.Right) && !IsDown(m, TouchControls.Action.Knife));
 
             m.Reset();
             m.Step(Pad(rt: 100));

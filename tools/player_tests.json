@@ -187,6 +187,17 @@
       "page": "docs/game/arms-and-magic.md"
     },
     {
+      "name": "grappletest",
+      "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/Testing/GrappleTest.cs",
+      "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-grappletest", "-seed", "1000", "-floor", "1"],
+      "mode": "tower",
+      "timeout": 120,
+      "needs": ["runtime"],
+      "hazards": [],
+      "photos": {"args": ["-grappleshots"], "needs": ["gpu"], "folder": "unity_logs/grappletest"},
+      "page": "docs/game/feel-and-reflections.md"
+    },
+    {
       "name": "mantletest",
       "source": "unity/PryingEyes/Assets/_PryingEyes/Scripts/MantleTest.cs",
       "args": ["-batchmode", "-nographics", "-autotest", "-nofire", "-noenemies", "-mantletest", "-seed", "1000", "-floor", "1"],

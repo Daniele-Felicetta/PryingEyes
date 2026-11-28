@@ -56,7 +56,7 @@ namespace PryingEyes
             new[] { "Tieni premuto F per rialzare un compagno a terra.", "Tieni premuto X per rialzare un compagno a terra." },
             new[] { "Ogni cinque ondate arriva la Processione dei lumi." },
             new[] { "V mostra dove sono le porte quando non sai dove andare.", "La croce a sinistra mostra dove sono le porte quando non sai dove andare." },
-            new[] { "Sporgiti con Q ed E per guardare oltre gli angoli.", "Mira con LT e premi L3 o R3 per sporgerti oltre gli angoli." },
+            new[] { "Sporgiti con Q ed E per guardare oltre gli angoli.", "Mira con LT e tocca L3 o R3 per sporgerti oltre gli angoli." },
             new[] { "M apre la mappa, N accende e spegne la minimappa.", "Back apre la mappa; tenuto premuto, il tabellone." },
             new[] { "Z lancia l'acquasanta, 4 il carillon, 5 piazza una mina.", "RB lancia l'acquasanta, la croce giù il carillon (tenuta, una mina)." },
         };

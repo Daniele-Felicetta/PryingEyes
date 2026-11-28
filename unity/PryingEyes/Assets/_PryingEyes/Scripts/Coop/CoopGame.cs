@@ -377,6 +377,9 @@ namespace PryingEyes
             s.alive = pl.alive; s.crouch = pl.IsCrouching || pl.Riding; s.sprint = pl.IsSprinting;
             s.climbing = pl.OnClimbWall;
             s.gliding = pl.Gliding;
+            s.grappling = pl.GrappleVisible;
+            s.grappleAttached = pl.GrappleAttached;
+            s.grappleTip = pl.GrappleTip;
             s.riding = pl.Riding;
             s.heading = pl.Riding ? pl.RideHeading : pl.OnClimbWall ? pl.ClimbWallYaw : pl.yaw;
             s.bike = pl.Riding && pl.Bike != null ? Deserto.DesertBikeDefs.NetCode(pl.Bike.Def) : 0;          // e quale moto e' (pe-coop-37)
