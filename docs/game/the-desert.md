@@ -36,8 +36,8 @@ rooms are those of the floors ([tower.md](tower.md)).
    (a stone riser and a lighter slab with a nosing for each step, a sloping wall with a coping on each side and a pier at the foot). The lowest tread and its collider sit 2 cm above the flat sand so the two surfaces cannot flicker against each other. A brazier burns on
    each side at the top (a wide shallow bowl of cast iron on a tripod held by a ring, with the coals inside): flames, a hot core, smoke and embers. The wall that closes the churchyard has a turret at
    each of its four corners (a box of the same stone with a cornice, a pyramid roof of slate and a slit window on its outward faces; they are solid) and from the sand the cathedral has the outline of a castle. Two banners of crimson cloth with the
-   golden eye of the game hang from iron poles beside the stair and the wind moves them; the lamp posts (turned iron, a six-sided lantern with its glass) and the stalls of the market (a counter of warm brown wood, a striped
-   awning with a scalloped valance and a drape of the same cloth hanging from the edge of the counter) are made for the desert too. Nothing attacks in the cathedral: the walkers have no navmesh there (they stay at the foot of
+   golden eye of the game hang from iron poles beside the stair and the wind moves them. The square shares Standard's forked paving around the well, the eye relief above
+   the portal, the iron lanterns and the market's striped awnings and counter cloths. Nothing attacks in the cathedral: the walkers have no navmesh there (they stay at the foot of
    the stair) and whatever flies over the cathedral disappears.
 3. **A day lasts twenty minutes** (about twelve of daylight, eight of night; `DesertClock`). The sun, the moon, the stars, the fog and the
    exposure follow the clock; indoors (anything within 12 m above the head) the look goes back to that of the rooms. The top of the screen
