@@ -60,6 +60,7 @@ namespace PryingEyes
         {
             if (CheatFlight == enabled) return;
             CheatFlight = enabled;
+            ResetSwimming();
             CancelMantle();
             vel = Vector3.zero;
             slide = false;
@@ -97,8 +98,11 @@ namespace PryingEyes
                 var fd = Proc.FloorDirector.I;
                 var room = fd != null && fd.cur != null ? fd.cur.RoomAt(p) : null;
                 if (room != null) return Proc.FloorBuilder.Surface(room, fd.cur.plan.theme);
-                // nel deserto, fuori dalla cattedrale: sulla sabbia i passi sono quelli della sabbia (3), nei luoghi quelli della pietra
-                if (Deserto.DesertMode.Active && Physics.Raycast(p + Vector3.up * 0.4f, Vector3.down, out var under, 1.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore) && Deserto.DesertTerrain.IsSand(under.collider)) return 3;
+                if (OnOutdoorTerrain(p))
+                {
+                    var biome = Deserto.DesertBiomes.At(p.x, p.z, Deserto.DesertWorld.Seed).Dominant;
+                    return biome == Deserto.Biome.Desert ? 3 : biome == Deserto.Biome.Ice ? 5 : 4;
+                }
                 return 0;
             }
             if (p.y > 3.5f) return 2;
@@ -107,7 +111,22 @@ namespace PryingEyes
             return 0;
         }
 
-        /// <summary>Su che cosa cammina adesso: 0 marmo, 1 moquette, 2 legno, 3 sabbia (lo leggono le prove).</summary>
+        static bool OnOutdoorTerrain(Vector3 p) => Deserto.DesertMode.Active &&
+            Physics.Raycast(p + Vector3.up * 0.4f, Vector3.down, out var under, 1.2f, HotelNav.EnvMask, QueryTriggerInteraction.Ignore) &&
+            Deserto.DesertTerrain.IsSand(under.collider);
+
+        float GroundTraction()
+        {
+            if (!Deserto.DesertMode.Active) return 1f;
+            var p = transform.position;
+            int seed = Deserto.DesertWorld.Seed;
+            var biome = Deserto.DesertBiomes.At(p.x, p.z, seed);
+            if (biome.Ice < 0.42f) return 1f;
+            float slick = Deserto.DesertBiomes.IceSheet(p.x, p.z, seed, biome);
+            return slick > 0.38f && OnOutdoorTerrain(p) ? Mathf.Lerp(1f, 0.29f, Mathf.InverseLerp(0.38f, 0.90f, slick)) : 1f;
+        }
+
+        /// <summary>Footstep surface: stone, carpet, wood, sand, grass or snow.</summary>
         public int FootSurface => Surface();
 
         /// <summary>Sposta il giocatore senza cambiare il punto di rinascita.</summary>
@@ -119,6 +138,7 @@ namespace PryingEyes
             if (Riding && Time.time - rideMountedAt > 0.5f && (p - transform.position).sqrMagnitude > 225f)
                 Debug.Log($"[PryingEyes] teleporto in sella: da {transform.position:F1} a {p:F1}, chiamato da:\n{new System.Diagnostics.StackTrace(1, false)}");
 #endif
+            ResetSwimming();
             CancelMantle();
             cc.enabled = false;
             transform.position = p;
@@ -133,6 +153,7 @@ namespace PryingEyes
             ResetCheats();
             spawnPos = p;
             if (cc == null) cc = GetComponent<CharacterController>();
+            ResetSwimming();
             CancelMantle();
             cc.enabled = false;              // con il controller acceso la posizione impostata a mano non vale
             transform.position = p;
@@ -259,6 +280,7 @@ namespace PryingEyes
             if (Riding && (!alive || Downed)) AbortRide();          // a terra o morti si lascia la moto dov'e' (PlayerController.Ride.cs)
             if (!alive)
             {
+                if (Swimming || swimHandsBlend > 0f) { ResetSwimming(); CancelMantle(); }
                 if (ThirdPersonView.Count > 0) ThirdPersonView.Suspend(this);
                 respawnT -= dt;
                 if (respawnT <= 0f) Respawn();
@@ -314,11 +336,13 @@ namespace PryingEyes
 #endif
             // in sella (moto del deserto) il corpo non cammina: la guida, la camera e le collisioni stanno in PlayerController.Ride.cs
             if (Riding) { RideTick(dt, f, s, inputEnabled, lookDelta); return; }
+            bool wading = UpdateWater(out float waterSurface, out float lakeDepth);
             bool crouchKey = SeatInput.GetKey(KeyCode.C) || SeatInput.GetKey(KeyCode.LeftControl);
             bool sprintKey = SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift);
-            if (!CheatFlight) ToggleKeys(inputEnabled, f, ref crouchKey, ref sprintKey);
+            if (!CheatFlight && !Swimming) ToggleKeys(inputEnabled, f, ref crouchKey, ref sprintKey);
+            bool diveHeld = inputEnabled && (crouchKey || SeatInput.GetKey(KeyCode.RightControl) || TouchControls.DescendHeld);
             bool wantCrouch = !CheatFlight && (inputEnabled ? crouchKey || TouchControls.Held(TouchControls.Action.Crouch) || (GameManager.autoTest && botCrouch) : crouch);
-            bool sprintInput = !CheatFlight && inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint) || (GameManager.autoTest && botSprint)) && f > 0;
+            bool sprintInput = !CheatFlight && !wading && inputEnabled && (sprintKey || TouchControls.Held(TouchControls.Action.Sprint) || (GameManager.autoTest && botSprint)) && f > 0;
             bool wantSprint = sprintInput && !wantCrouch
                               && !(weapon.Def.zoom >= 3.9f && weapon.ads > 0.5f);   // con l'ottica forte in mira Shift tiene il fiato
             bool jumpPressed = !CheatFlight && inputEnabled && (SeatInput.GetKeyDown(KeyCode.Space) || TouchControls.Down(TouchControls.Action.Jump));
@@ -328,7 +352,7 @@ namespace PryingEyes
             jumpHeld |= inputEnabled && GameManager.autoTest && parkourTestGlide;
             parkourTestJump = false;
 #endif
-            if (jumpPressed) jumpBuf = OnClimbWall ? 0.26f : 0.15f; else jumpBuf -= dt;
+            if (jumpPressed && !Swimming) jumpBuf = OnClimbWall ? 0.26f : 0.15f; else jumpBuf -= dt;
             if (Downed) { wantCrouch = true; sprintInput = false; wantSprint = false; jumpBuf = 0f; }      // a terra: niente corsa ne' salto
 
             float hSpeed = new Vector2(vel.x, vel.z).magnitude;
@@ -344,7 +368,7 @@ namespace PryingEyes
                 if (!cc.isGrounded || slideT <= 0f || hSpeed < 2.5f || jumpBuf > 0f)
                 { slide = false; crouch = wantCrouch; }
             }
-            else crouch = wantCrouch;
+            else crouch = !Swimming && wantCrouch;
             // Non espandere la capsula se il soffitto impedisce di rialzarsi.
             if (!crouch && !slide && cc.height < heightStand - 0.01f)
             {
@@ -357,6 +381,7 @@ namespace PryingEyes
             var wd = weapon.Def;
             float maxSpeed = (crouch && !slide) ? crouchSpeed : (wantSprint && !slide ? sprint : walk);
             maxSpeed *= wd.moveMult;
+            if (wading) maxSpeed *= 0.72f;
             maxSpeed *= Mathf.Lerp(1f, wd.adsMoveMult, weapon.ads);
             if (weapon.reloading && wd.style != ReloadStyle.Tube) maxSpeed *= 0.92f;
             if (sedT > 0f) maxSpeed *= 0.55f;       // sedativo dell'infermiere
@@ -370,7 +395,12 @@ namespace PryingEyes
             maxSpeed *= wishAmount; // lo stick regola la velocità, non la lunghezza della base usata dall'accelerazione
 
             Vector3 hv = new Vector3(vel.x, 0, vel.z);
-            if (CheatFlight)
+            float dive = jumpHeld ? -1f : diveHeld ? 1f : 0f;
+#if !PE_DISTRIBUTION_BUILD
+            if (GameManager.autoTest && swimTestVertical != 0f) dive = swimTestVertical;
+#endif
+            if (Swimming) SwimMove(waterSurface, lakeDepth, wish, wishAmount, dive, dt);
+            else if (CheatFlight)
             {
                 bool up = inputEnabled && (SeatInput.GetKey(KeyCode.Space) || TouchControls.Held(TouchControls.Action.Jump));
                 bool down = inputEnabled && (SeatInput.GetKey(KeyCode.LeftControl) || SeatInput.GetKey(KeyCode.RightControl) || TouchControls.DescendHeld);
@@ -387,10 +417,11 @@ namespace PryingEyes
             }
             else if (cc.isGrounded)
             {
+                float grip = GroundTraction();
                 float speed = hv.magnitude;
                 if (wish.sqrMagnitude < 0.01f)
                 {
-                    float ns = Mathf.Max(0f, speed - speed * friction * dt);
+                    float ns = Mathf.Max(0f, speed - speed * friction * grip * dt);
                     if (speed > 0.01f) { vel.x *= ns / speed; vel.z *= ns / speed; }
                 }
                 else
@@ -399,17 +430,17 @@ namespace PryingEyes
                     float add = maxSpeed - cur;
                     if (add > 0f)
                     {
-                        float acc = Mathf.Min(accelGround * dt * maxSpeed, add);
+                        float acc = Mathf.Min(accelGround * grip * dt * maxSpeed, add);
                         vel.x += wish.x * acc; vel.z += wish.z * acc;
                     }
                     else if (add < 0f)
                     {
-                        float brake = Mathf.Min(-add, accelGround * dt * maxSpeed);
+                        float brake = Mathf.Min(-add, accelGround * grip * dt * maxSpeed);
                         vel.x -= wish.x * brake; vel.z -= wish.z * brake;
                     }
                     Vector3 lat = new Vector3(-wish.z, 0, wish.x);
                     float latV = vel.x * lat.x + vel.z * lat.z;
-                    float k = Mathf.Min(1f, 10f * dt);
+                    float k = Mathf.Min(1f, 10f * grip * dt);
                     vel.x -= lat.x * latV * k; vel.z -= lat.z * latV * k;
                 }
             }
@@ -426,7 +457,7 @@ namespace PryingEyes
             }
 
             if (CheatFlight) MoveBody(dt);
-            else
+            else if (!Swimming)
             {
                 vel.y -= gravity * dt;
                 vel.y = Mathf.Max(vel.y, -22f);
@@ -436,7 +467,7 @@ namespace PryingEyes
                 Vector3 facing = new Vector3(sin, 0f, cos);
                 bool dropPressed = OnClimbWall && (SeatInput.GetKeyDown(KeyCode.C) || SeatInput.GetKeyDown(KeyCode.LeftControl) || TouchControls.Down(TouchControls.Action.Crouch));
                 bool climbMovement = ParkourStep(dt, inputEnabled, dropPressed, f, s, wish, facing);
-                UpdateWingsuit(dt, jumpHeld, wantCrouch, facing);
+                UpdateWingsuit(dt, jumpHeld && !wading, wantCrouch, facing);
                 if (!climbMovement)
                 {
                     if (!Gliding && !Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
@@ -460,7 +491,7 @@ namespace PryingEyes
 
             // --- lean: Q a sinistra, E a destra; non in corsa ne' in scivolata, non nei muri ---
             float leanWant = 0f;
-            if (inputEnabled && !slide && !wantSprint && !Downed && !OnClimbWall && !Gliding) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
+            if (inputEnabled && !Swimming && !slide && !wantSprint && !Downed && !OnClimbWall && !Gliding) leanWant = float.IsNaN(debugLean) ? (SeatInput.GetKey(KeyCode.E) || TouchControls.Held(TouchControls.Action.Right) ? 1f : 0f) - (SeatInput.GetKey(KeyCode.Q) || TouchControls.Held(TouchControls.Action.Left) ? 1f : 0f) : debugLean;
             float room = leanWant != 0f ? LeanRoom(leanWant) : 1f;
             float leanTarget = leanWant * room;
             // se la testa e' gia' contro un muro rientra piu' in fretta
@@ -477,23 +508,24 @@ namespace PryingEyes
             IsSprinting = wantSprint && !slide && hs > 1f;
             IsCrouching = crouch || slide;
             float motion = GameSettings.Motion;
-            float bobAmp = (crouch ? 0.45f : 1f) * (1f - weapon.ads * 0.8f) * Mathf.Min(1f, hs / 6f) * motion;
+            float bobAmp = (Swimming ? 0f : crouch ? 0.45f : 1f) * (1f - weapon.ads * 0.8f) * Mathf.Min(1f, hs / 6f) * motion;
             bobPhase += dt * (4f + hs * 1.35f) * (cc.isGrounded ? 1f : 0.15f);
             // un passo per ogni ciclo del dondolio (bobY = sin(2*fase): un ciclo ogni pi greco di fase)
             int stepIdx = Mathf.FloorToInt(bobPhase / Mathf.PI);
             if (stepIdx != lastStep)
             {
                 lastStep = stepIdx;
-                if (cc.isGrounded && hs > 1.2f)
+                if (!Swimming && cc.isGrounded && hs > 1.2f)
                 {
                     int surf = Surface();
                     float stepVol = Mathf.Lerp(0.16f, 0.38f, Mathf.Clamp01(hs / 8f)) * (crouch ? 0.5f : 1f);
                     // nelle pozze delle saline (un velo d'acqua sul sale) il passo e' uno sciacquio: niente polvere e niente impronte
-                    bool wading = surf == 3 && Deserto.DesertWorld.Brine(transform.position.x, transform.position.z) > 0.5f;
-                    if (wading) Sfx.UI(SoundBank.Splash, stepVol * 1.6f, Random.Range(0.92f, 1.08f));
+                    bool wetStep = wading || (surf == 3 && Deserto.DesertWorld.Brine(transform.position.x, transform.position.z) > 0.5f);
+                    if (wading) Deserto.DesertLakeSurface.Contact(SurfacePoint(transform.position, waterSurface), -wish, stepVol, true);
+                    else if (wetStep) Sfx.UI(SoundBank.Splash, stepVol * 1.6f, Random.Range(0.92f, 1.08f));
                     else Synth.Step(surf, stepVol);
-                    if (surf == 3 && !crouch && !wading) Deserto.DesertDust.Footstep(transform.position, hs, wantSprint);       // sulla sabbia ogni passo alza un po' di polvere
-                    if (surf == 3 && !wading) Deserto.DesertPrints.Stamp(transform.position, new Vector3(vel.x, 0f, vel.z));      // e lascia la sua impronta, che il vento cancella in un minuto
+                    if (surf == 3 && !crouch && !wetStep) Deserto.DesertDust.Footstep(transform.position, hs, wantSprint);       // sulla sabbia ogni passo alza un po' di polvere
+                    if (surf == 3 && !wetStep) Deserto.DesertPrints.Stamp(transform.position, new Vector3(vel.x, 0f, vel.z));      // e lascia la sua impronta, che il vento cancella in un minuto
                     // i preti sentono i passi: piu' lontano di corsa, quasi niente accovacciati o sulla moquette
                     float surfK = surf == 1 ? 0.6f : surf == 2 ? 1.1f : surf == 3 ? 1.0f : 1.15f;
                     float loud = crouch || slide ? 0.4f : wantSprint ? 1.6f : 0.95f;
@@ -502,7 +534,7 @@ namespace PryingEyes
             }
             float bobY = Mathf.Sin(bobPhase * 2f) * 0.032f * bobAmp;
             float bobX = Mathf.Cos(bobPhase) * 0.026f * bobAmp;
-            float targetEye = Downed ? EyeDowned : (crouch || slide ? eyeCrouch : eyeStand) + (slide ? -0.12f : 0f);
+            float targetEye = Swimming ? Mathf.Lerp(eyeStand, 1.14f, SwimSubmersion) : Downed ? EyeDowned : (crouch || slide ? eyeCrouch : eyeStand) + (slide ? -0.12f : 0f);
             eyeH += (targetEye - eyeH) * Mathf.Min(1f, 11f * dt);
 
             Camera c = cam.GetComponent<Camera>();
@@ -520,11 +552,13 @@ namespace PryingEyes
             float latOff = arm * Mathf.Sin(th) + lean * leanSlide;
             float drop = arm * (1f - Mathf.Cos(th));
             Vector3 stableEye = transform.position + right * latOff + Vector3.up * (eyeH - drop - mantleDrop) + ClimbEyeOffset;
+            UpdateSwimAudio(stableEye.y);
             cam.position = stableEye + right * bobX + Vector3.up * bobY;
             float tilt = -lean * leanRoll + (Downed ? 9f : 0f) + mantleRoll + WingsuitRoll;
             float lookPitch = pitch * Mathf.Rad2Deg - viewRecoil.Pitch + mantlePitch;
             float lookYaw = yaw * Mathf.Rad2Deg + viewRecoil.Yaw;
-            float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f)) * motion + tilt;
+            float swimRoll = swimHandsBlend * (Mathf.Sin(SwimPhase * 2f * Mathf.PI) * SwimEffort * 1.65f - SwimTurn * 1.1f);
+            float roll = (strafeLean * Mathf.Rad2Deg + (slide ? 5f : 0f) + swimRoll) * motion + tilt;
             cam.rotation = Quaternion.Euler(lookPitch, lookYaw, roll);
             if (GameSettings.ThirdPerson || ThirdPersonView.Count > 0)
                 ThirdPersonView.AfterEyePose(this, stableEye, new Vector3(lookPitch, lookYaw, tilt));
@@ -559,7 +593,8 @@ namespace PryingEyes
 
         void MoveBody(float dt)
         {
-            cc.height = Mathf.Lerp(cc.height, crouch || slide ? heightCrouch : heightStand, 11f * dt);
+            float targetHeight = Swimming ? Mathf.Lerp(heightStand, heightCrouch, SwimSubmersion) : crouch || slide ? heightCrouch : heightStand;
+            cc.height = Mathf.Lerp(cc.height, targetHeight, 11f * dt);
             cc.center = new Vector3(0, cc.height / 2f, 0);
             var hit = cc.Move(vel * dt);
             WingsuitContact(hit);

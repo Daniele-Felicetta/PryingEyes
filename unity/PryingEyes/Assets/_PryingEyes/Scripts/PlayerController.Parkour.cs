@@ -29,8 +29,9 @@ namespace PryingEyes
 
         public bool OnClimbWall => climbMove != ClimbMove.Free;
         public float ClimbWallYaw => Mathf.Atan2(-grip.normal.x, -grip.normal.z);
-        public bool ParkourHandsBusy => OnClimbWall || Gliding || transferTime > 0f || parkourStow > 0.3f;
-        Vector3 ClimbEyeOffset => (-grip.normal * 0.075f - Vector3.up * 0.035f) * (parkourStow * (1f - WingAmount) * GameSettings.Motion);
+        public bool ParkourHandsBusy => Swimming || OnClimbWall || Gliding || transferTime > 0f || parkourStow > 0.3f;
+        Vector3 ClimbEyeOffset => Swimming ? Vector3.zero :
+            (-grip.normal * 0.075f - Vector3.up * 0.035f) * (parkourStow * (1f - WingAmount) * GameSettings.Motion);
 
         void ResetParkour()
         {
@@ -340,14 +341,16 @@ namespace PryingEyes
         void DrawParkourHands(float dt)
         {
             bool attached = OnClimbWall;
-            bool busy = attached || Gliding || transferTime > 0f;
+            bool busy = Swimming || attached || Gliding || transferTime > 0f;
             parkourStow = Mathf.MoveTowards(parkourStow, busy ? 1f : 0f, dt / (busy ? 0.12f : 0.20f));
+            swimHandsBlend = Mathf.MoveTowards(swimHandsBlend, Swimming ? 1f : 0f, dt * 5f);
             weapon.ParkourStow = parkourStow;
             weapon.ParkourHolding = busy;
             if (parkourStow <= 0f) { climbHands?.Hide(); return; }
             climbHands ??= ParkourHands.Build(cam, Seats.ViewLayer);
             if (!attached && WingAmount > 0.02f) { climbHands?.Glide(WingAmount, WingsuitRoll, dt); return; }
             if (!attached && transferTime > 0f) { climbHands?.Leap(rightHandLeads, 1f - transferTime / TransferWindow, dt); return; }
+            if (!attached && swimHandsBlend > 0f) { climbHands?.Swim(SwimPhase, SwimEffort, swimHandsBlend, SwimSurface, pitch, SwimSubmersion, dt); return; }
             if (grip.normal.sqrMagnitude < 0.1f) { climbHands?.Hide(); return; }
             float progress = Mathf.Clamp01(climbTime / climbDuration);
             float release = climbMove == ClimbMove.Exit ? Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(0.12f, 0.56f, progress)) : 1f;

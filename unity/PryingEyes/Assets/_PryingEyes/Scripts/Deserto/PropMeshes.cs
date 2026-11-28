@@ -23,7 +23,8 @@ namespace PryingEyes.Deserto
         {
             if (!HasLow(p)) return Get(p);
             lowMeshes ??= new Mesh[(int)Prop.Count];
-            return lowMeshes[(int)p] ??= p == Prop.Cactus ? Cactus(true) : p == Prop.Bush ? Bush(true) : Stone(p, true);
+            return lowMeshes[(int)p] ??= IsBiomeTree(p) ? BiomeTree(p, true) :
+                p == Prop.Cactus ? Cactus(true) : p == Prop.Bush ? Bush(true) : Stone(p, true);
         }
 
         /// <summary>Se il genere ha la versione per la distanza (GetLow): le sole cose che pesano (circa 1.670 triangoli la roccia, 3.580 il masso, 2.300 il cactus e 2.000 il cespuglio, contro i
@@ -34,7 +35,7 @@ namespace PryingEyes.Deserto
             {
                 case Prop.RockTan: case Prop.RockDark: case Prop.RockRed: case Prop.RockWhite:
                 case Prop.BoulderTan: case Prop.BoulderDark: case Prop.BoulderRed:
-                case Prop.Cactus: case Prop.Bush: return true;
+                case Prop.Cactus: case Prop.Bush: case Prop.Broadleaf: case Prop.Fir: case Prop.FrostFir: return true;
                 default: return false;
             }
         }
@@ -43,13 +44,15 @@ namespace PryingEyes.Deserto
         {
             if (meshes != null) foreach (var m in meshes) if (m != null) UnityEngine.Object.Destroy(m);
             if (lowMeshes != null) foreach (var m in lowMeshes) if (m != null) UnityEngine.Object.Destroy(m);
+            if (alternateTrees != null) foreach (var m in alternateTrees) if (m != null) UnityEngine.Object.Destroy(m);
             meshes = null; lowMeshes = null;
+            alternateTrees = null;
             ClearExtra();
         }
 
         /// <summary>Di che materia e' fatta una mesh (UV0.y): il fragment di DesertProp.shader ci mette la grana giusta (pietra: chiazze, strati, polvere sopra; organico: venature lungo l'altezza;
         /// liscio: appena un po' di rumore).</summary>
-        enum Surf { Stone = 0, Organic = 1, Plain = 2 }
+        enum Surf { Stone = 0, Organic = 1, Plain = 2, GlacialIce = 4 }
 
         // ------------------------------------------------------------------ il costruttore
         sealed class PM
@@ -282,6 +285,13 @@ namespace PryingEyes.Deserto
             meshes[(int)Prop.Obelisk] = Obelisk();
             meshes[(int)Prop.Windmill] = Windmill();
             meshes[(int)Prop.Wagon] = Wagon();
+            meshes[(int)Prop.Broadleaf] = BiomeTree(Prop.Broadleaf, false);
+            meshes[(int)Prop.Fir] = BiomeTree(Prop.Fir, false);
+            meshes[(int)Prop.FrostFir] = BiomeTree(Prop.FrostFir, false);
+            meshes[(int)Prop.MeadowGrass] = MeadowGrass(false);
+            meshes[(int)Prop.Wildflowers] = MeadowGrass(true);
+            meshes[(int)Prop.GlacierShard] = GlacierShard();
+            meshes[(int)Prop.ForestFern] = ForestFern();
         }
 
         static Mesh Tuft()

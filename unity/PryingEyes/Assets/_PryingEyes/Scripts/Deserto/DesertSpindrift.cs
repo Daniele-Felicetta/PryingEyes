@@ -106,7 +106,9 @@ namespace PryingEyes.Deserto
             Color sc = sunLight != null && sunLight.enabled ? sunLight.color : new Color(0.7f, 0.78f, 1f);
             mat.SetColor("_BaseColor", new Color(0.98f * sc.r * lit, 0.74f * sc.g * lit, 0.44f * sc.b * lit, 1f));
             // all'aperto, con un po' di vento e senza tempesta (che ha le sue strisce)
-            bool on = (1f - sky.IndoorFor(view)) > 0.9f && w.wind > 0.10f && w.storm < 0.5f;
+            var p = player.position;
+            bool on = (1f - sky.IndoorFor(view)) > 0.9f && w.wind > 0.10f && w.storm < 0.5f &&
+                DesertBiomes.At(p.x, p.z, DesertWorld.Seed).Desert > 0.55f;
             float dt = Time.deltaTime;
             for (int i = crests.Count - 1; i >= 0; i--)
             {

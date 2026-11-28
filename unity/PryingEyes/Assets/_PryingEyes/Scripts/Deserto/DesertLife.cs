@@ -192,7 +192,8 @@ namespace PryingEyes.Deserto
                     // nasce controvento, fuori dalla vista, dove non ci sono costruzioni
                     float up = R(70f, 130f), sd = R(-90f, 90f);
                     float x = p.x - wd.x * up + side.x * sd, z = p.z - wd.z * up + side.z * sd;
-                    if (OnSite(x, z, 3f) || DesertWorld.DistToCathedral(x, z) < 12f) continue;
+                    if (DesertBiomes.At(x, z, DesertWorld.Seed).Desert < 0.70f ||
+                        OnSite(x, z, 3f) || DesertWorld.DistToCathedral(x, z) < 12f) continue;
                     k.on = true; k.size = R(0.85f, 1.5f); k.phase = R(0f, 6.28f); k.speed = R(0.7f, 1.2f); k.pos = new Vector3(x, DesertWorld.Height(x, z), z); k.rot = Random.rotation; k.checkT = R(0f, 0.3f);
                 }
                 float v = (1.1f + 9.5f * w.wind) * k.speed;
@@ -210,7 +211,8 @@ namespace PryingEyes.Deserto
                 if (k.checkT <= 0f)
                 {
                     k.checkT = 0.3f;
-                    if ((k.pos - p).sqrMagnitude > 170f * 170f || OnSite(k.pos.x, k.pos.z, 1.5f)) k.on = false;
+                    if ((k.pos - p).sqrMagnitude > 170f * 170f || OnSite(k.pos.x, k.pos.z, 1.5f) ||
+                        DesertBiomes.At(k.pos.x, k.pos.z, DesertWorld.Seed).Dominant != Biome.Desert) k.on = false;
                 }
                 if (k.on) { mWeed[on] = Matrix4x4.TRS(k.pos + Vector3.up * (k.size * 0.45f), k.rot, Vector3.one * k.size); on++; }
             }
@@ -239,8 +241,10 @@ namespace PryingEyes.Deserto
                 var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
                 if (r < 36f && Vector3.Dot(dir, fwd) > 0.15f) continue;                   // vicino non nascono davanti agli occhi
                 float x = p.x + dir.x * r, z = p.z + dir.z * r;
-                if (OnSite(x, z, 3f) || DesertWorld.DistToCathedral(x, z) < 16f) continue;
-                var kind = PickKind(DesertWorld.RegionAt(x, z), R());
+                var biome = DesertBiomes.At(x, z, DesertWorld.Seed).Dominant;
+                if (biome == Biome.Ice || DesertWorld.LakeAt(x, z, out _, out _) ||
+                    OnSite(x, z, 3f) || DesertWorld.DistToCathedral(x, z) < 16f) continue;
+                var kind = biome == Biome.Desert ? PickKind(DesertWorld.RegionAt(x, z), R()) : Kind.Beetle;
                 if (kind == Kind.Lizard && day < 0.15f) kind = R() < 0.5f ? Kind.Scorpion : Kind.Beetle;      // le lucertole dormono di notte
                 crit[i] = new Critter
                 {
@@ -285,7 +289,10 @@ namespace PryingEyes.Deserto
                 {
                     float yr = c.yaw * Mathf.Deg2Rad;
                     var np = c.pos + new Vector3(Mathf.Sin(yr), 0f, Mathf.Cos(yr)) * (c.speed * dt);
-                    if (OnSite(np.x, np.z, 1.2f)) { c.yaw += 150f; np = c.pos; }       // non entra nelle case: torna indietro
+                    var biome = DesertBiomes.At(np.x, np.z, DesertWorld.Seed).Dominant;
+                    if (biome == Biome.Ice || (biome != Biome.Desert && c.kind != Kind.Beetle) ||
+                        DesertWorld.LakeAt(np.x, np.z, out _, out _) || OnSite(np.x, np.z, 1.2f))
+                    { c.yaw += 150f; np = c.pos; }
                     c.pos = new Vector3(np.x, c.pos.y, np.z);
                 }
                 float yy = DesertWorld.Height(c.pos.x, c.pos.z);

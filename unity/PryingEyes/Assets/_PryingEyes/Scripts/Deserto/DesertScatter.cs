@@ -18,6 +18,7 @@ namespace PryingEyes.Deserto
         const int MaxJobs = 6;
         /// <summary>Quanti sono i generi: i sassi e i massi lontani (PropMeshes.HasLow) stanno in una seconda serie di liste, dopo i generi, con la mesh ridotta.</summary>
         const int Kinds = (int)Prop.Count;
+        const int RenderKinds = Kinds + PropMeshes.BiomeTreeKinds;
         /// <summary>Entro questa distanza (m) un sasso o un masso ha tutti i suoi triangoli; piu' in la' ha la versione ridotta, con la stessa sagoma (da 70 m un sasso di un metro e' una quindicina di punti sullo schermo a 1080p).</summary>
         const float LodNear = 70f;
         /// <summary>Sotto la sabbia piu' di tanto (m) non si disegna nessuna delle cose che ci stanno sopra: da una catacomba non si vedono e le loro ombre cadono sul tetto.</summary>
@@ -36,12 +37,13 @@ namespace PryingEyes.Deserto
         readonly Dictionary<(long, int), CapsuleCollider> live = new Dictionary<(long, int), CapsuleCollider>();
         readonly List<CapsuleCollider> free = new List<CapsuleCollider>();
         readonly List<(long, int)> drop = new List<(long, int)>();
-        readonly List<Matrix4x4>[] gather = new List<Matrix4x4>[2 * Kinds];
-        readonly Matrix4x4[][] agg = new Matrix4x4[2 * Kinds][];
-        readonly int[] aggCount = new int[2 * Kinds];
+        readonly List<Matrix4x4>[] gather = new List<Matrix4x4>[2 * RenderKinds];
+        readonly Matrix4x4[][] agg = new Matrix4x4[2 * RenderKinds][];
+        readonly int[] aggCount = new int[2 * RenderKinds];
         readonly bool[] casts = new bool[Kinds];
         Transform player, colRoot;
         Material mat;
+        Material canopyMat, frostFirMat;
         Vector3 lastPlan = new Vector3(1e9f, 0f, 0f), lastAgg = new Vector3(1e9f, 0f, 0f);
         float planT, colT;
         bool dirty;
@@ -55,6 +57,29 @@ namespace PryingEyes.Deserto
         /// <summary>I fuochi dei campi entro 130 m dal giocatore (alla base delle fiamme).</summary>
         public IReadOnlyList<Vector3> Fires => fires;
         public int Windmills => windmills.Count;
+        internal bool BiomeCanopiesReady => canopyMat != null && canopyMat.GetTexture("_LeafMap") != null && frostFirMat != null;
+
+        internal int InstancesNear(Prop kind, Vector3 p, float radius, out Vector3 nearest)
+        {
+            int count = 0;
+            float r2 = radius * radius, closest = r2;
+            nearest = p;
+            foreach (var cell in cells.Values)
+            {
+                if (cell.items == null || DistTo(p, cell.cx, cell.cz) > radius + DesertScatterGen.Leak) continue;
+                foreach (var item in cell.items)
+                {
+                    if (item.kind != (byte)kind) continue;
+                    float dx = item.x - p.x, dz = item.z - p.z, distance = dx * dx + dz * dz;
+                    if (distance > r2) continue;
+                    count++;
+                    if (distance >= closest) continue;
+                    closest = distance;
+                    nearest = new Vector3(item.x, item.y, item.z);
+                }
+            }
+            return count;
+        }
 
         public int CellsReady { get { int n = 0; foreach (var c in cells.Values) if (c.items != null) n++; return n; } }
         public int CellsPending => pending.Count;
@@ -80,10 +105,17 @@ namespace PryingEyes.Deserto
         }
         public int Instances { get { int n = 0; foreach (var c in aggCount) n += c; return n; } }
         public int Colliders => live.Count;
-        public int CountOf(Prop p) => aggCount[(int)p] + aggCount[Kinds + (int)p];
+        static int AlternateSlot(Prop p) => Kinds + (int)p - (int)Prop.Broadleaf;
+        static Prop PropOf(int slot) => (Prop)(slot < Kinds ? slot : (int)Prop.Broadleaf + slot - Kinds);
+        public int CountOf(Prop p)
+        {
+            int count = aggCount[(int)p] + aggCount[RenderKinds + (int)p];
+            if (PropMeshes.IsBiomeTree(p)) count += aggCount[AlternateSlot(p)] + aggCount[RenderKinds + AlternateSlot(p)];
+            return count;
+        }
         /// <summary>Delle cose pesanti (sassi, massi, cactus e cespugli, PropMeshes.HasLow): quante hanno tutti i triangoli (entro 70 m) e quante la versione ridotta (oltre).</summary>
-        public int FullDetail { get { int n = 0; for (int k = 0; k < Kinds; k++) if (PropMeshes.HasLow((Prop)k)) n += aggCount[k]; return n; } }
-        public int ReducedDetail { get { int n = 0; for (int k = 0; k < Kinds; k++) if (PropMeshes.HasLow((Prop)k)) n += aggCount[Kinds + k]; return n; } }
+        public int FullDetail { get { int n = 0; for (int k = 0; k < RenderKinds; k++) if (PropMeshes.HasLow(PropOf(k))) n += aggCount[k]; return n; } }
+        public int ReducedDetail { get { int n = 0; for (int k = 0; k < RenderKinds; k++) if (PropMeshes.HasLow(PropOf(k))) n += aggCount[RenderKinds + k]; return n; } }
         /// <summary>Vero se l'ultimo fotogramma non ha mandato alla scheda niente perche' il giocatore e' sotto la sabbia (una catacomba): da li' le cose sopra non si vedono.</summary>
         public bool Underground { get; private set; }
 
@@ -102,7 +134,8 @@ namespace PryingEyes.Deserto
             for (int i = 0; i < casts.Length; i++)
             {
                 var p = (Prop)i;
-                casts[i] = !(p == Prop.Tuft || p == Prop.Pebbles || p == Prop.Bones || p == Prop.Cairn || p == Prop.Barrel || p == Prop.FirePit || p == Prop.Crate);
+                casts[i] = !(p == Prop.Tuft || p == Prop.Pebbles || p == Prop.Bones || p == Prop.Cairn || p == Prop.Barrel ||
+                    p == Prop.FirePit || p == Prop.Crate || p == Prop.MeadowGrass || p == Prop.Wildflowers || p == Prop.ForestFern);
             }
             colRoot = new GameObject("DesertPropColliders").transform;
         }
@@ -127,7 +160,17 @@ namespace PryingEyes.Deserto
             if (colRoot != null) Destroy(colRoot.gameObject);
             live.Clear(); free.Clear();
             if (mat != null) Destroy(mat);
+            if (frostFirMat != null) Destroy(frostFirMat);
             PropMeshes.Clear();
+        }
+
+        void FinishCanopies()
+        {
+            if (canopyMat != null) return;
+            canopyMat = Resources.Load<Material>("Deserto/BiomeFoliage");
+            if (canopyMat == null) return;
+            frostFirMat = new Material(canopyMat);
+            frostFirMat.SetFloat("_Frost", 0.97f);
         }
 
         static long Key(int cx, int cz) => ((long)cx << 32) ^ (uint)cz;
@@ -266,15 +309,17 @@ namespace PryingEyes.Deserto
             foreach (var c in cells.Values)
             {
                 if (c.task == null || c.items != null || !c.task.IsCompleted) continue;
-                if (c.task.IsFaulted) { Debug.LogError("[PryingEyes] deserto: cose sulla sabbia " + c.cx + "," + c.cz + ": " + c.task.Exception?.GetBaseException().Message); c.items = new List<PropItem>(); c.mats = new Matrix4x4[(int)Prop.Count][]; continue; }
+                if (c.task.IsFaulted) { Debug.LogError("[PryingEyes] deserto: cose sulla sabbia " + c.cx + "," + c.cz + ": " + c.task.Exception?.GetBaseException().Message); c.items = new List<PropItem>(); c.mats = new Matrix4x4[RenderKinds][]; continue; }
                 c.items = c.task.Result;
-                var per = new List<Matrix4x4>[(int)Prop.Count];
+                var per = new List<Matrix4x4>[RenderKinds];
                 foreach (var it in c.items)
                 {
-                    var l = per[it.kind] ??= new List<Matrix4x4>();
+                    var prop = (Prop)it.kind;
+                    int slot = PropMeshes.IsBiomeTree(prop) && ((int)(it.yaw * 10f) & 1) != 0 ? AlternateSlot(prop) : it.kind;
+                    var l = per[slot] ??= new List<Matrix4x4>();
                     l.Add(Matrix4x4.TRS(new Vector3(it.x, it.y, it.z), Quaternion.Euler(0f, it.yaw, 0f), Vector3.one * it.scale));
                 }
-                c.mats = new Matrix4x4[(int)Prop.Count][];
+                c.mats = new Matrix4x4[RenderKinds][];
                 for (int k = 0; k < per.Length; k++) if (per[k] != null) c.mats[k] = per[k].ToArray();
                 dirty = true;
                 if (++made >= 4) break;
@@ -291,13 +336,14 @@ namespace PryingEyes.Deserto
                 float d = DistToViews(p, views, c.cx, c.cz);
                 for (int k = 0; k < c.mats.Length; k++)
                 {
-                    if (c.mats[k] == null || d > DesertScatterGen.TierRadius[DesertScatterGen.Tier((Prop)k)]) continue;
-                    if (!PropMeshes.HasLow((Prop)k)) { gather[k].AddRange(c.mats[k]); continue; }
-                    if (d > LodNear) { gather[Kinds + k].AddRange(c.mats[k]); continue; }
+                    var prop = PropOf(k);
+                    if (c.mats[k] == null || d > DesertScatterGen.TierRadius[DesertScatterGen.Tier(prop)]) continue;
+                    if (!PropMeshes.HasLow(prop)) { gather[k].AddRange(c.mats[k]); continue; }
+                    if (d > LodNear) { gather[RenderKinds + k].AddRange(c.mats[k]); continue; }
                     // un quadrato che arriva dentro l'anello vicino: ogni copia sceglie dalla sua distanza
                     foreach (var m in c.mats[k])
                     {
-                        gather[NearestViewSqr(p, views, m.m03, m.m23) > LodNear * LodNear ? Kinds + k : k].Add(m);
+                        gather[NearestViewSqr(p, views, m.m03, m.m23) > LodNear * LodNear ? RenderKinds + k : k].Add(m);
                     }
                 }
             }
@@ -348,11 +394,18 @@ namespace PryingEyes.Deserto
             {
                 int n = aggCount[k];
                 if (n == 0) continue;
-                bool far = k >= Kinds;
-                int kind = far ? k - Kinds : k;
-                var mesh = far ? PropMeshes.GetLow((Prop)kind) : PropMeshes.Get((Prop)kind);
+                bool far = k >= RenderKinds;
+                int slot = far ? k - RenderKinds : k;
+                int kind = (int)PropOf(slot);
+                var mesh = slot >= Kinds ? PropMeshes.AlternateTree((Prop)kind, far) : far ? PropMeshes.GetLow((Prop)kind) : PropMeshes.Get((Prop)kind);
                 var rp = new RenderParams(mat) { shadowCastingMode = casts[kind] ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, worldBounds = bounds, layer = 0 };
                 for (int s = 0; s < n; s += 1000) Graphics.RenderMeshInstanced(rp, mesh, 0, agg[k], Mathf.Min(1000, n - s), s);
+                if (!PropMeshes.IsBiomeTree((Prop)kind)) continue;
+                FinishCanopies();
+                if (canopyMat == null) continue;
+                rp.material = kind == (int)Prop.FrostFir ? frostFirMat : canopyMat;
+                int leaves = kind == (int)Prop.Broadleaf ? 1 : 2;
+                for (int s = 0; s < n; s += 1000) Graphics.RenderMeshInstanced(rp, mesh, leaves, agg[k], Mathf.Min(1000, n - s), s);
             }
             // i rotori dei mulini: girano piu' in fretta col vento
             if (windmills.Count > 0)

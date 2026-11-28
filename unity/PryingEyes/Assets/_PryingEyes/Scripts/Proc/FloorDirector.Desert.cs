@@ -86,7 +86,13 @@ namespace PryingEyes.Proc
             int h = (int)c.hour, m = (int)((c.hour - h) * 60f);
             string phase = c.IsNight ? "notte" : DesertClock.Evaluate(c.hour).twilight > 0.45f ? (c.hour < 12f ? "alba" : "tramonto") : "giorno";
             string where = Desert != null ? Desert.WhereText() : "";
-            return $"{h:00}:{m:00}  ·  {phase}{where}\n<color=#b8ae9c>Torri e catacombe custodiscono i boss; i libri e le armi buone stanno nella cattedrale</color>";
+            Vector3 p = gm != null && gm.player != null ? gm.player.transform.position : Vector3.zero;
+            var biome = DesertBiomes.At(p.x, p.z, DesertWorld.Seed).Dominant;
+            string route = DesertWorld.DistToCathedral(p.x, p.z) < 125f ?
+                "A est la foresta, a nord i ghiacci, a ovest le praterie" :
+                "Torri e catacombe custodiscono i boss; i libri e le armi buone stanno nella cattedrale";
+            string land = biome == Biome.Desert ? "" : "  ·  " + DesertMode.BiomeName(biome);
+            return $"{h:00}:{m:00}  ·  {phase}{land}{where}\n<color=#b8ae9c>{route}</color>";
         }
 
         /// <summary>La rete di sicurezza del deserto: la sabbia e le catacombe arrivano molto sotto lo zero dei piani, quindi la quota limite dipende dal luogo.</summary>

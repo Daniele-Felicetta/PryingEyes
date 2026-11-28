@@ -26,6 +26,22 @@ rooms are those of the floors ([tower.md](tower.md)).
 
 ## How it plays
 
+The cathedral opens onto four connected outdoor biomes. Follow the compass east to the forest, west to the rolling meadows, or north to the frozen highlands. The desert surrounds the cathedral and its two lakes and stretches south. The map colours and the location line identify the biome as you travel. The borders curve and blend into each other, so the same world can be crossed on foot or by motorbike.
+
+- **Forest.** Branched broadleaf trees, conifers and fern beds rise out of leaf litter and moss. Trunks have physical collision, and buildings keep a clear approach.
+- **Frozen highlands.** A long ridge of crags rises beyond the snowfields, blue ice, glacial rocks and frosted spruce. Light flurries pass through the hills. Footsteps crunch in snow and exposed ice reduces grip when turning or stopping.
+- **Rolling meadows.** Wind moves the grasses and wildflowers across broad hills with sparse trees and patches of exposed soil.
+
+The terrain, scatter, map and surface movement query the same seeded climate field (`DesertBiomes`). Terrain shading blends a close-range texture atlas and relief normals into the same climate weights. The six desert regions still control the local desert palette and existing building generation.
+
+Two clear lakes appear west and north of the cathedral and are marked on both desert maps. Their placement and the curves of the coves and headlands follow the expedition seed, clear of generated buildings. Walk into deeper water to start swimming at the surface. Steer with the usual movement controls, stop to tread water, and swim up the sloping bank to walk again. The character puts away their weapon in deep water. In first person, the hands reach, catch, push and feather on the recovery. In third person, the elbows lead the same stroke, the torso rolls and banks through turns, and the legs flutter behind it. The push changes swimming speed within the stroke. Walking and landing in water kick up droplets, while each hand entry leaves a ring on the surface and plays a positional splash. The lake refracts the bed and submerged limbs, with reflections that strengthen at shallow viewing angles, small waves at the shore and a moving wake. The salt flats still have shallow brine.
+
+Hold **C** or **Ctrl** to dive and **Space** to surface. On a controller, hold **B** to dive and **A** to surface. On touch, use the crouch and jump buttons. Releasing the vertical control lets the swimmer stay at the chosen depth. The basins reach a little over eight metres. Underwater, the swimming animation turns into a submerged stroke and sound is filtered. There is a sunken arcade in the western lake and a drowned courtyard in the northern one. Both basins have pebble and silt beds, reeds near the waterline, eelgrass and pondweed growing down to the ruins, and four schools of fish at different depths. Surface ripples bend sunlight into beams and moving patterns across the bed. Ground enemies can approach the banks and stop at deep water.
+
+The terrain, map and swim controller use the same lake profile. A player-build check is available with `-autotest -desertotest -desertonly nuoto`. Add `-desertshots` to capture both views, and `-swimsequence` with screenshots enabled to capture frame sequences at 24 fps in the test output folder.
+
+Use `-autotest -desertotest -desertonly biomi` to walk across the three biome boundaries and check terrain and vegetation in each biome. Add `-desertshots` to capture each landscape in the test output folder. On a graphics-capable machine, `-outdoorperf` measures rendering time at 1920×1080 in each biome and, with `-desertonly nuoto`, at the shore and underwater.
+
 1. *Gioca* (and *Ricomincia dalla cattedrale*) opens **Come vuoi giocare?**: **Standard** or **Il deserto**. The choice is remembered for the
    next time (`PlayerPrefs` key `PryingEyes.GameMode`; the automated tests never write it). The command line `-deserto` forces the desert.
    Since 0.9.1 the desert can also be played **in co-op, up to four**: *Ospita una partita* opens the same choice (*Che partita ospiti?*), the host picks, and the guests start where

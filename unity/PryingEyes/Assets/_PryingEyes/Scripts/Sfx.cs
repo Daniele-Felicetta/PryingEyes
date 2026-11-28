@@ -90,7 +90,7 @@ namespace PryingEyes
     /// parte in un thread all'avvio e si usa quando e' pronto.</summary>
     public static partial class SoundBank
     {
-        static AudioClip[] shots, steps0, steps1, steps2, steps3, taps, creaks, chants, whispers;
+        static AudioClip[] shots, steps0, steps1, steps2, steps3, steps4, steps5, taps, creaks, chants, whispers;
         static AudioClip hit, kill, hurt, reload, bell, ding, doors, strike, monkDeath, eyeHum, eyeStare, eyeBurst, wind, room, waltz;
         static Task<float[]> waltzTask;
         static int waltzRate;
@@ -171,6 +171,8 @@ namespace PryingEyes
             surface == 1 ? Pick(ref steps1, 4, "passoMoquette", i => SoundGen.Step(1, i))
             : surface == 2 ? Pick(ref steps2, 4, "passoLegno", i => SoundGen.Step(2, i))
             : surface == 3 ? Pick(ref steps3, 4, "passoSabbia", i => SoundGen.Step(3, i))
+            : surface == 4 ? Pick(ref steps4, 4, "passoErba", i => SoundGen.Step(4, i))
+            : surface == 5 ? Pick(ref steps5, 4, "passoNeve", i => SoundGen.Step(5, i))
             : Pick(ref steps0, 4, "passoMarmo", i => SoundGen.Step(0, i));
         public static AudioClip Bell => One(ref bell, "campanello", SoundGen.ReceptionBell);
         public static AudioClip Ding => One(ref ding, "dingAscensore", SoundGen.ElevatorDing);

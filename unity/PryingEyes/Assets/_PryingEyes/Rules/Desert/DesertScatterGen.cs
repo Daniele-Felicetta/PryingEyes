@@ -10,7 +10,8 @@ namespace PryingEyes.Deserto
     {
         Tuft, Pebbles, RockTan, RockDark, RockRed, RockWhite, BoulderTan, BoulderDark, BoulderRed, Slab,
         Cactus, Barrel, Bush, DeadTree, Bones, Column, Stele, Cairn,
-        Tent, FirePit, Crate, Well, Obelisk, Windmill, Wagon, Count
+        Tent, FirePit, Crate, Well, Obelisk, Windmill, Wagon,
+        Broadleaf, Fir, FrostFir, MeadowGrass, Wildflowers, GlacierShard, ForestFern, Count
     }
 
     public struct PropItem
@@ -34,9 +35,11 @@ namespace PryingEyes.Deserto
         {
             switch (p)
             {
-                case Prop.Tuft: case Prop.Pebbles: case Prop.Bones: case Prop.Cairn: case Prop.Barrel: case Prop.Crate: return 0;
+                case Prop.Tuft: case Prop.Pebbles: case Prop.Bones: case Prop.Cairn: case Prop.Barrel: case Prop.Crate:
+                case Prop.MeadowGrass: case Prop.Wildflowers: case Prop.ForestFern: return 0;
                 case Prop.RockTan: case Prop.RockDark: case Prop.RockRed: case Prop.RockWhite: case Prop.Cactus: case Prop.Bush:
-                case Prop.Tent: case Prop.FirePit: case Prop.Well: case Prop.Wagon: return 1;
+                case Prop.Tent: case Prop.FirePit: case Prop.Well: case Prop.Wagon:
+                case Prop.Broadleaf: case Prop.Fir: case Prop.FrostFir: return 1;
                 default: return 2;
             }
         }
@@ -59,6 +62,9 @@ namespace PryingEyes.Deserto
                 case Prop.Obelisk: radius = 0.8f; height = 8.0f; return;
                 case Prop.Windmill: radius = 2.3f; height = 9.0f; return;
                 case Prop.Wagon: radius = 1.25f; height = 1.0f; return;
+                case Prop.Broadleaf: radius = 0.35f; height = 4.5f; return;
+                case Prop.Fir: case Prop.FrostFir: radius = 0.30f; height = 5.2f; return;
+                case Prop.GlacierShard: radius = 0.53f; height = 2.3f; return;
                 default: radius = 0f; height = 0f; return;
             }
         }
@@ -74,11 +80,11 @@ namespace PryingEyes.Deserto
             new[] { 1.5f, 6.0f, 2.0f, 2.0f, 6.0f, 0.0f, 0.4f, 0.5f, 2.4f, 1.6f, 0.7f, 0.6f, 0.4f, 0.20f, 0.4f, 0.05f, 0.05f, 0.45f,   0f, 0.012f, 0.020f, 0.000f, 0.006f, 0.000f, 0.020f },       // badlands
             new[] { 0.4f, 3.0f, 0.5f, 0.2f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f, 0.1f, 0.0f, 0.0f, 0.1f, 0.25f, 1.4f, 0.10f, 0.10f, 0.25f,   0f, 0.010f, 0.010f, 0.000f, 0.008f, 0.000f, 0.010f },       // salt flats
         };
-        static readonly float[] MaxSlope = { 0.6f, 0.7f, 1.2f, 1.2f, 1.2f, 1.2f, 1.4f, 1.4f, 1.4f, 1.2f, 0.5f, 0.6f, 0.6f, 0.5f, 0.45f, 0.35f, 0.35f, 0.6f,   0.35f, 0.3f, 0.5f, 0.3f, 0.3f, 0.3f, 0.3f };
-        static readonly float[] MinScale = { 0.8f, 0.8f, 0.6f, 0.6f, 0.6f, 0.6f, 0.9f, 0.9f, 0.9f, 0.8f, 0.7f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.7f,   0.95f, 0.95f, 0.85f, 0.95f, 0.9f, 0.95f, 0.9f };
-        static readonly float[] MaxScale = { 1.5f, 1.5f, 1.6f, 1.6f, 1.6f, 1.6f, 2.3f, 2.3f, 2.3f, 1.6f, 1.5f, 1.4f, 1.5f, 1.4f, 1.3f, 1.2f, 1.2f, 1.4f,   1.1f, 1.05f, 1.2f, 1.1f, 1.5f, 1.2f, 1.15f };
+        static readonly float[] MaxSlope = { 0.6f, 0.7f, 1.2f, 1.2f, 1.2f, 1.2f, 1.4f, 1.4f, 1.4f, 1.2f, 0.5f, 0.6f, 0.6f, 0.5f, 0.45f, 0.35f, 0.35f, 0.6f,   0.35f, 0.3f, 0.5f, 0.3f, 0.3f, 0.3f, 0.3f,   0.64f, 0.68f, 0.48f, 0.74f, 0.56f, 0.88f, 0.63f };
+        static readonly float[] MinScale = { 0.8f, 0.8f, 0.6f, 0.6f, 0.6f, 0.6f, 0.9f, 0.9f, 0.9f, 0.8f, 0.7f, 0.7f, 0.7f, 0.7f, 0.8f, 0.8f, 0.8f, 0.7f,   0.95f, 0.95f, 0.85f, 0.95f, 0.9f, 0.95f, 0.9f,   0.68f, 0.66f, 0.54f, 0.74f, 0.58f, 0.52f, 0.60f };
+        static readonly float[] MaxScale = { 1.5f, 1.5f, 1.6f, 1.6f, 1.6f, 1.6f, 2.3f, 2.3f, 2.3f, 1.6f, 1.5f, 1.4f, 1.5f, 1.4f, 1.3f, 1.2f, 1.2f, 1.4f,   1.1f, 1.05f, 1.2f, 1.1f, 1.5f, 1.2f, 1.15f,   1.24f, 1.20f, 0.98f, 1.6f, 1.44f, 1.55f, 1.55f };
         /// <summary>How deep into the sand each prop sits (m at scale 1): rocks are half buried, grass is not.</summary>
-        static readonly float[] Sink = { 0f, 0.02f, 0.18f, 0.18f, 0.18f, 0.18f, 0.35f, 0.35f, 0.35f, 0.3f, 0.05f, 0.05f, 0.03f, 0.1f, 0.02f, 0.12f, 0.1f, 0.04f,   0.02f, 0.02f, 0.08f, 0.15f, 0.3f, 0.5f, 0.1f };
+        static readonly float[] Sink = { 0f, 0.02f, 0.18f, 0.18f, 0.18f, 0.18f, 0.35f, 0.35f, 0.35f, 0.3f, 0.05f, 0.05f, 0.03f, 0.1f, 0.02f, 0.12f, 0.1f, 0.04f,   0.02f, 0.02f, 0.08f, 0.15f, 0.3f, 0.5f, 0.1f,   0.13f, 0.13f, 0.16f, 0.06f, 0.04f, 0.24f, 0.045f };
 
         sealed class Foot { public float x0, z0, x1, z1; }
 
@@ -102,14 +108,21 @@ namespace PryingEyes.Deserto
                     bare.Add(new Foot { x0 = s.fx0 - 0.9f, z0 = s.fz0 - 0.9f, x1 = s.fx1 + 0.9f, z1 = s.fz1 + 0.9f });
                     near.Add(s);
                 }
-            for (int k = 0; k < (int)Prop.Count; k++)
+            var centreClimate = DesertBiomes.At(ox + Chunk * 0.5f, oz + Chunk * 0.5f, DesertWorld.Seed);
+            for (int k = 0; k < (int)Prop.Broadleaf; k++)
             {
                 float lam = Density[(int)rb][k] + (Density[(int)ra][k] - Density[(int)rb][k]) * wa;
+                lam *= centreClimate.Desert;
                 if (lam <= 0f) continue;
                 int n = (int)lam;
                 if (rng.Value() < lam - n) n++;
                 for (int i = 0; i < n; i++) Place((Prop)k, ox, oz, rng, feet, into);
             }
+            if (centreClimate.Desert < 1f || DesertBiomes.At(ox, oz, DesertWorld.Seed).Desert < 1f ||
+                DesertBiomes.At(ox + Chunk, oz, DesertWorld.Seed).Desert < 1f ||
+                DesertBiomes.At(ox, oz + Chunk, DesertWorld.Seed).Desert < 1f ||
+                DesertBiomes.At(ox + Chunk, oz + Chunk, DesertWorld.Seed).Desert < 1f)
+                AddBiomeVegetation(ox, oz, rng, feet, into);
             // the yards of the buildings near this square: each square keeps the props that fall inside it
             var yard = new List<YardItem>();
             foreach (var s in near)
@@ -118,6 +131,48 @@ namespace PryingEyes.Deserto
                 for (int n = 0; n < yard.Count; n++)
                     if (yard[n].x >= ox && yard[n].x < ox + Chunk && yard[n].z >= oz && yard[n].z < oz + Chunk) AddYard(yard[n], s, n, bare, into);
             }
+        }
+
+        static void AddBiomeVegetation(float ox, float oz, Rng rng, List<Foot> feet, List<PropItem> into)
+        {
+            // Jittered cells keep forest trunks apart. A second, finer grid gives grass a different scale.
+            for (int z = 0; z < 8; z++)
+                for (int x = 0; x < 8; x++)
+                {
+                    float px = ox + (x + rng.Range(0.13f, 0.87f)) * 8f;
+                    float pz = oz + (z + rng.Range(0.13f, 0.87f)) * 8f;
+                    var biome = DesertBiomes.At(px, pz, DesertWorld.Seed);
+                    float glade = DesertNoise.Smooth(0.29f, 0.64f, DesertNoise.Value(px / 48f, pz / 52f, DesertWorld.Seed + 9234));
+                    float trees = biome.Forest * (0.37f + glade * 0.43f) + biome.Meadow * 0.028f;
+                    float roll = (float)rng.Value();
+                    if (roll < trees)
+                    {
+                        Add(rng.Value() < 0.29 ? Prop.Fir : Prop.Broadleaf, px, pz, rng, feet, into);
+                    }
+                    else if (roll < trees + biome.Ice * (0.09f + glade * 0.15f))
+                    {
+                        float pack = DesertBiomes.IceSheet(px, pz, DesertWorld.Seed, biome);
+                        Add(rng.Value() < 0.55 - pack * 0.44 ? Prop.FrostFir : Prop.GlacierShard, px, pz, rng, feet, into);
+                    }
+                }
+            for (int z = 0; z < 16; z++)
+                for (int x = 0; x < 16; x++)
+                {
+                    float px = ox + (x + rng.Range(0.02f, 0.98f)) * 4f;
+                    float pz = oz + (z + rng.Range(0.02f, 0.98f)) * 4f;
+                    var biome = DesertBiomes.At(px, pz, DesertWorld.Seed);
+                    float growth = biome.Meadow * 0.57f + biome.Forest * 0.21f;
+                    float undergrowth = biome.Forest * 0.32f * DesertNoise.Smooth(0.21f, 0.63f, DesertNoise.Value(px / 27f, pz / 22f, DesertWorld.Seed + 9254));
+                    float roll = (float)rng.Value();
+                    if (roll >= growth + undergrowth) continue;
+                    if (roll >= growth)
+                    {
+                        Add(Prop.ForestFern, px, pz, rng, feet, into);
+                        continue;
+                    }
+                    bool flowers = rng.Value() < 0.18f + biome.Meadow * 0.16f;
+                    Add(flowers ? Prop.Wildflowers : Prop.MeadowGrass, px, pz, rng, feet, into);
+                }
         }
 
         /// <summary>One prop of a yard: what and where. The rest (height, size, turn) is drawn by the square that holds it.</summary>
@@ -184,6 +239,12 @@ namespace PryingEyes.Deserto
 
         static void AddYard(YardItem y, Site s, int n, List<Foot> bare, List<PropItem> into)
         {
+            var biome = DesertBiomes.At(y.x, y.z, DesertWorld.Seed).Dominant;
+            if (y.kind == Prop.Tuft || y.kind == Prop.Bush)
+            {
+                if (biome == Biome.Ice) return;
+                if (biome != Biome.Desert) y.kind = Prop.MeadowGrass;
+            }
             int k = (int)y.kind;
             if (DesertWorld.DistToCathedral(y.x, y.z) < 14f) return;
             foreach (var f in bare) if (y.x > f.x0 && y.x < f.x1 && y.z > f.z0 && y.z < f.z1) return;            // never on another place
@@ -197,7 +258,7 @@ namespace PryingEyes.Deserto
 
         static bool Free(float x, float z, List<Foot> feet)
         {
-            if (DesertWorld.DistToCathedral(x, z) < 14f) return false;
+            if (DesertWorld.DistToCathedral(x, z) < 14f || DesertWorld.LakeAt(x, z, out _, out _)) return false;
             foreach (var f in feet) if (x > f.x0 && x < f.x1 && z > f.z0 && z < f.z1) return false;
             return true;
         }

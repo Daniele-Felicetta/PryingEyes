@@ -15,6 +15,7 @@ Shader "PryingEyes/PistaFoliage"
         _Trans ("Light through the leaf", Float) = 0.45
         _Smooth ("Smoothness", Float) = 0.10
         _Fill ("Fill in the shade (share of the colour)", Float) = 0.18
+        _Frost ("Snow on upper foliage", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -34,6 +35,7 @@ Shader "PryingEyes/PistaFoliage"
                 float _Trans;
                 float _Smooth;
                 float _Fill;
+                float _Frost;
             CBUFFER_END
 
             // the wind: a slow sway and a faster flutter, out of step from place to place; 'weight' (0..1) is how free the point is to move
@@ -57,6 +59,7 @@ Shader "PryingEyes/PistaFoliage"
             #pragma target 3.0
             #pragma vertex FoliageVertex
             #pragma fragment FoliageFragment
+            #pragma multi_compile_instancing
 
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
@@ -81,6 +84,7 @@ Shader "PryingEyes/PistaFoliage"
                 float3 normalOS   : NORMAL;
                 float2 uv         : TEXCOORD0;
                 half4 color       : COLOR;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
@@ -107,6 +111,7 @@ Shader "PryingEyes/PistaFoliage"
             Varyings FoliageVertex(Attributes input)
             {
                 Varyings output = (Varyings)0;
+                UNITY_SETUP_INSTANCE_ID(input);
                 VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
                 vertexInput.positionWS += WindOffset(vertexInput.positionWS, input.color.a);
                 vertexInput.positionCS = TransformWorldToHClip(vertexInput.positionWS);
@@ -173,6 +178,11 @@ Shader "PryingEyes/PistaFoliage"
 
                 SurfaceData surfaceData = (SurfaceData)0;
                 surfaceData.albedo = leaf.rgb * _Tint.rgb * input.color.rgb;
+                if (_Frost > 0.001)
+                {
+                    float cap = smoothstep(0.03, 0.62, N.y + (VNoise(P.xz * 1.55 + P.y * 0.28) - 0.5) * 0.58);
+                    surfaceData.albedo = lerp(surfaceData.albedo, half3(0.65, 0.74, 0.78) * (0.64 + leaf.g * 0.36), cap * _Frost);
+                }
                 surfaceData.alpha = 1;
                 surfaceData.metallic = 0;
                 surfaceData.specular = 0;
@@ -236,6 +246,7 @@ Shader "PryingEyes/PistaFoliage"
             #pragma target 3.0
             #pragma vertex ShadowVertex
             #pragma fragment ShadowFragment
+            #pragma multi_compile_instancing
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
@@ -248,6 +259,7 @@ Shader "PryingEyes/PistaFoliage"
                 float3 normalOS   : NORMAL;
                 float2 uv         : TEXCOORD0;
                 half4 color       : COLOR;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct ShadowVaryings
@@ -259,6 +271,7 @@ Shader "PryingEyes/PistaFoliage"
             ShadowVaryings ShadowVertex(ShadowAttributes input)
             {
                 ShadowVaryings output;
+                UNITY_SETUP_INSTANCE_ID(input);
                 float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
                 positionWS += WindOffset(positionWS, input.color.a);
                 float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
@@ -293,12 +306,14 @@ Shader "PryingEyes/PistaFoliage"
             #pragma target 3.0
             #pragma vertex DepthVertex
             #pragma fragment DepthFragment
+            #pragma multi_compile_instancing
 
             struct DepthAttributes
             {
                 float4 positionOS : POSITION;
                 float2 uv         : TEXCOORD0;
                 half4 color       : COLOR;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct DepthVaryings
@@ -310,6 +325,7 @@ Shader "PryingEyes/PistaFoliage"
             DepthVaryings DepthVertex(DepthAttributes input)
             {
                 DepthVaryings output;
+                UNITY_SETUP_INSTANCE_ID(input);
                 float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
                 positionWS += WindOffset(positionWS, input.color.a);
                 output.positionCS = TransformWorldToHClip(positionWS);
