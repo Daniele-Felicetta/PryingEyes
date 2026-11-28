@@ -456,6 +456,20 @@ namespace PryingEyes
                 int ramp = (int)(0.007f * Rate);
                 for (int i = 0; i < ramp && i < s.Length; i++) s[i] *= (float)i / ramp;
             }
+            else if (surface == 4)
+            {
+                Burst(s, 0f, U(r, 260f, 360f), 0.72f, 0.046f, 0.9f, r);
+                Burst(s, 0.017f, U(r, 970f, 1420f), 0.54f, 0.049f, 0.52f, r);
+                for (int i = 0; i < 7; i++)
+                    Burst(s, U(r, 0.01f, 0.14f), U(r, 2200f, 4250f), 1.8f, 0.012f, U(r, 0.09f, 0.23f), r);
+            }
+            else if (surface == 5)
+            {
+                Burst(s, 0f, U(r, 410f, 650f), 0.84f, 0.056f, 0.94f, r);
+                Burst(s, 0.005f, U(r, 920f, 1480f), 0.67f, 0.062f, 0.64f, r);
+                for (int i = 0; i < 11; i++)
+                    Burst(s, U(r, 0.002f, 0.092f), U(r, 1600f, 3800f), 2.6f, 0.0037f, U(r, 0.13f, 0.31f), r);
+            }
             else if (surface == 1)
             {
                 Burst(s, 0f, 300f, 0.7f, 0.045f, 1.4f, r);

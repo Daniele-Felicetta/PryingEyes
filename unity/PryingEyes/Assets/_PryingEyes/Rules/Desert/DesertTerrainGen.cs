@@ -22,6 +22,7 @@ namespace PryingEyes.Deserto
         public float[] pos;        // x, y, z per vertex
         public float[] nrm;        // x, y, z per vertex
         public byte[] tint;        // r, g, b, a per vertex: the colour of the region's sand as a multiplier of 0..2 (in 0..255), and how much colour it loses (0..255)
+        public byte[] biome;       // forest, ice, meadow, and exposed ice per vertex
         public int[] tris;
         public int vertexCount;
         public float minY, maxY;
@@ -97,6 +98,7 @@ namespace PryingEyes.Deserto
             int skirtVerts = 2 * (nx + nz);
             int vc = nx * nz + skirtVerts;
             d.pos = new float[vc * 3]; d.nrm = new float[vc * 3]; d.tint = new byte[vc * 4];
+            d.biome = new byte[vc * 4];
             d.vertexCount = vc;
             const float e = 0.6f;
             for (int j = 0; j < nz; j++)
@@ -110,6 +112,12 @@ namespace PryingEyes.Deserto
                     int tk = (j * nx + i) * 4;
                     d.tint[tk] = (byte)Math.Max(0, Math.Min(255, (int)(tr * 127.5f))); d.tint[tk + 1] = (byte)Math.Max(0, Math.Min(255, (int)(tg * 127.5f)));
                     d.tint[tk + 2] = (byte)Math.Max(0, Math.Min(255, (int)(tb * 127.5f))); d.tint[tk + 3] = (byte)Math.Max(0, Math.Min(255, (int)(td * 255f)));
+                    var climate = DesertBiomes.At(wx, wz, DesertWorld.Seed);
+                    d.biome[tk] = (byte)(climate.Forest * 255f);
+                    d.biome[tk + 1] = (byte)(climate.Ice * 255f);
+                    d.biome[tk + 2] = (byte)(climate.Meadow * 255f);
+                    if (climate.Ice > 0f)
+                        d.biome[tk + 3] = (byte)(DesertBiomes.IceSheet(wx, wz, DesertWorld.Seed, climate) * 255f);
                     float hx = DesertWorld.Height(wx + e, wz) - DesertWorld.Height(wx - e, wz);
                     float hz = DesertWorld.Height(wx, wz + e) - DesertWorld.Height(wx, wz - e);
                     float nxv = -hx / (2f * e), nzv = -hz / (2f * e);
@@ -140,6 +148,7 @@ namespace PryingEyes.Deserto
                     d.nrm[dst] = d.nrm[src]; d.nrm[dst + 1] = d.nrm[src + 1]; d.nrm[dst + 2] = d.nrm[src + 2];
                     int ts = edge[q] * 4, td = s * 4;
                     d.tint[td] = d.tint[ts]; d.tint[td + 1] = d.tint[ts + 1]; d.tint[td + 2] = d.tint[ts + 2]; d.tint[td + 3] = d.tint[ts + 3];
+                    Array.Copy(d.biome, ts, d.biome, td, 4);
                     s++;
                 }
                 for (int q = 0; q < edge.Length - 1; q++)

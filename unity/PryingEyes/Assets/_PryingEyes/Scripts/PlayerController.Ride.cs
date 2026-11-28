@@ -9,7 +9,7 @@ namespace PryingEyes
     /// (il freno a mano la toglie: si derapa), turbo, volo quando il terreno sparisce sotto le ruote e urto contro i muri (la velocita' persa in una frenata da urto, sommando i fotogrammi di un decimo di secondo, e' il danno).
     /// La camera e' sull'occhio del pilota (con lo sguardo libero fino a 100 gradi: il mouse gira solo la testa, la rotta la danno A e D). L'arma sta riposta (Weapon.Ride.cs) e si alza con fuoco,
     /// mira, ricarica o il cambio arma (RideGunTick): si spara con la destra, la sinistra resta sul manubrio.
-    /// Si scende con Usa (F), da fermi o frenando da soli.</summary>
+    /// Use (F) steps off at low speed or jumps from a moving bike.</summary>
     public partial class PlayerController
     {
         DesertBike bike;
@@ -21,11 +21,11 @@ namespace PryingEyes
         float rideGunIdle = 99f;                           // i secondi dall'ultima volta che l'arma e' servita (fuoco, mira, ricarica, cambio): oltre un secondo e mezzo torna giu'
         // la velocita' fatta lungo la rotta negli ultimi istanti (tempo di guida, velocita'), in un anello: serve a riconoscere una frenata da urto
         const int RideHistLen = 256;
-        const float RideHitWindow = 0.14f, RideHitDrop = 8f;
+        const float RideHitWindow = 0.14f, RideHitDrop = 8f, RideJumpSpeed = 4f;
         readonly float[] rideHistT = new float[RideHistLen], rideHistV = new float[RideHistLen];
         int rideHistN, rideHistHead;
         float rideSimT;
-        bool rideGrounded = true, rideDismount, rideHintDismount, rideBoosting;
+        bool rideGrounded = true, rideDismount, rideHintJump, rideBoosting;
         string rideHint;
 
         public bool Riding => bike != null;
@@ -34,13 +34,14 @@ namespace PryingEyes
         public DesertBike Bike => bike;
         /// <summary>Velocita' lungo la rotta in m/s (negativa in retromarcia).</summary>
         public float RideSpeed => rideSpeedShown;
+        public float RideAltitude { get; private set; }
         /// <summary>Verso dove punta la moto (radianti, come yaw): lo sguardo puo' essere altrove. Va ai compagni in cooperativa.</summary>
         public float RideHeading => rideHeading;
         /// <summary>I secondi in cui la moto non puo' ferire ancora (dopo un urto): per le prove.</summary>
         public float RideCrashCooldown => rideCrashCool;
         /// <summary>Le ruote toccano il suolo (falso in volo): per le prove.</summary>
         public bool RideGrounded => rideGrounded;
-        /// <summary>Per le prove: come premere Usa in corsa (la moto frena da sola e il pilota scende appena si ferma).</summary>
+        /// <summary>For tests: brake before stepping off normally.</summary>
         public void RideRequestDismount() { if (Riding) rideDismount = true; }
 
         /// <summary>L'ultimo contatto laterale del controller in sella (la superficie e' piu' ripida di 45 gradi: non il suolo): contro che cosa, dove, con quale normale e in quale fotogramma. Lo leggono le
@@ -80,31 +81,38 @@ namespace PryingEyes
             if (cc != null)
             {
                 rideStepOffset = cc.stepOffset;
-                cc.stepOffset = 0.5f;               // le dune ruvide e i sassi bassi: la moto li scavalca
+                cc.stepOffset = b.Def.IsPlane ? 0.3f : 0.5f;
                 cc.height = heightStand; cc.center = new Vector3(0f, heightStand * 0.5f, 0f);
             }
             slide = false; crouch = false; lean = 0f; viewRecoil.Clear();
             rideSteer = 0f; rideTop = b.Def.top; rideSpeedShown = 0f; rideCrashCool = 0f; rideDip = 0f; rideLandCool = 0f; rideHistN = 0;
             rideGrounded = true; rideDismount = false; rideNoiseT = 0f; rideVyPrev = 0f; rideBoosting = false;
+            RideAltitude = 0f;
             rideLook = Mathf.Clamp(Mathf.DeltaAngle(rideHeading * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg) * Mathf.Deg2Rad, -1.75f, 1.75f);
+            if (b.Def.IsPlane) { rideLook = 0f; pitch = 0f; }
             rideLookPrev = rideLook; rideLookIdle = 0f;
             yaw = rideHeading + rideLook;
             rideGunIdle = 99f;
             if (weapon != null) { weapon.SetRideMode(true); weapon.ads = 0f; if (weapon.ViewRootT != null) weapon.ViewRootT.gameObject.SetActive(false); }       // arma riposta: la si alza quando serve (in mira la sensibilita' del mouse sarebbe ridotta)
             rideHint = null;
             hud?.SetPrompt("");
-            hud?.Toast("In sella: W gas, S freno e retromarcia, A e D sterzo, Maiusc turbo, Spazio freno a mano, " + PadControls.UseKey + " scendi.");
+            hud?.Toast(b.Def.IsPlane
+                ? (PadControls.Preferred ? "Stick sinistro: gas, direzione e discesa. Tieni A per salire, tieni X per atterrare e scendere."
+                    : "W gas, A/D direzione, Spazio sali, S scendi o frena, F atterra e scendi.")
+                : "In sella: W gas, S freno e retromarcia, A e D sterzo, Maiusc turbo, Spazio freno a mano, " + PadControls.UseKey + " scendi o salta in corsa.");
         }
 
         /// <summary>Scende di lato (a sinistra, poi a destra, dietro, davanti: dove la capsula sta libera) e lascia la moto parcheggiata dov'e'. Se non c'e' spazio resta in sella.</summary>
-        public void Dismount()
+        public void Dismount(bool jump = false)
         {
             var b = bike;
-            if (b == null) return;
+            if (b == null || (b.Def.IsPlane && !rideGrounded)) return;
+            if (jump && !rideGrounded) { hud?.Toast("Tocca terra per saltare dalla moto."); return; }
             Vector3 root = b.transform.position;
             float h = rideHeading;
             Vector3 fwd = new Vector3(Mathf.Sin(h), 0f, Mathf.Cos(h)), right = new Vector3(fwd.z, 0f, -fwd.x);
-            Vector3[] tries = { -right * 1.05f, right * 1.05f, -fwd * 1.6f, fwd * 1.6f };
+            float side = b.Def.IsPlane ? 1.75f : 1.05f, end = b.Def.IsPlane ? 3.1f : 1.6f;
+            Vector3[] tries = { -right * side, right * side, -fwd * end, fwd * end };
             bool found = false;
             Vector3 spot = root;
             foreach (var d in tries)
@@ -116,11 +124,17 @@ namespace PryingEyes
                 spot = p; found = true; break;
             }
             if (!found) { hud?.Toast("Non c'e' spazio per scendere qui."); rideDismount = false; return; }
+            Vector3 launch = jump ? new Vector3(vel.x, Mathf.Sqrt(2f * gravity * b.Def.DismountJumpHeight), vel.z) : Vector3.zero;
             ThirdPersonView.BeginRideTransition(this);
             b.Park(root, h);
             EndRide();
             Teleport(spot);
-            pitch = 0f;
+            if (jump)
+            {
+                vel = launch;
+                coyote = jumpBuf = 0f;
+            }
+            else pitch = 0f;
         }
 
         /// <summary>Lascia la moto dove si trova (si e' andati a terra, e' morto, e' cambiato qualcosa): niente teletrasporto del corpo.</summary>
@@ -128,7 +142,8 @@ namespace PryingEyes
         {
             var b = bike;
             if (b == null) return;
-            b.Park(b.transform.position, rideHeading);
+            if (b.Def.IsPlane && !rideGrounded) b.Park(b.home, b.homeHeading);
+            else b.Park(b.transform.position, rideHeading);
             EndRide();
         }
 
@@ -189,6 +204,7 @@ namespace PryingEyes
         {
             var b = bike;
             var def = b.Def;                  // i numeri di questa moto (velocita', ripresa, frenata, sterzo)
+            bool plane = def.IsPlane;
             dt = Mathf.Min(dt, 0.05f);
             RideGhostBikes(dt);
             bool bot = GameManager.autoTest && DesertBike.BotActive;          // i comandi forzati: solo le prove (anche quella a due processi, che ha -autotest)
@@ -203,14 +219,33 @@ namespace PryingEyes
             bool boostKey = inputEnabled && (SeatInput.GetKey(KeyCode.LeftShift) || SeatInput.GetKey(KeyCode.RightShift) || TouchControls.Held(TouchControls.Action.Sprint));
             bool handbrake = inputEnabled && (SeatInput.GetKey(KeyCode.Space) || TouchControls.Held(TouchControls.Action.Jump));
             if (bot) { throttle = DesertBike.botThrottle; steerIn = DesertBike.botSteer; boostKey = DesertBike.botBoost; handbrake = DesertBike.botHandbrake; }
+            bool climb = plane && handbrake;
+            if (plane) { boostKey = false; handbrake = false; }
+            bool canExit = !plane || rideGrounded;
             bool usePressed = inputEnabled && (SeatInput.GetKeyDown(KeyCode.F) || TouchControls.Down(TouchControls.Action.Use));
             if (usePressed)
             {
-                if (Mathf.Abs(rideSpeedShown) < 4f) { Dismount(); if (bike == null) return; }
-                else { rideDismount = !rideDismount; hud?.Toast(rideDismount ? "Rallenti: scendi appena ti fermi." : "Resti in sella."); }
+                if (plane)
+                {
+                    if (canExit && Mathf.Abs(rideSpeedShown) < 4f) { Dismount(); if (bike == null) return; }
+                    else
+                    {
+                        rideDismount = !rideDismount;
+                        hud?.Toast(rideDismount ? (!canExit ? "Scegli dove atterrare e mantieni la rotta libera." : "Rallenti: scendi appena ti fermi.") : "Resti a bordo.");
+                    }
+                }
+                else
+                {
+                    Dismount(jump: Mathf.Abs(rideSpeedShown) >= RideJumpSpeed);
+                    if (bike == null) return;
+                }
             }
-            if (rideDismount && Mathf.Abs(rideSpeedShown) < 3.5f) { Dismount(); if (bike == null) return; }
-            if (rideDismount) { throttle = Mathf.Min(throttle, -0.6f); boostKey = false; handbrake = false; }          // frena da sola
+            if (rideDismount && canExit && Mathf.Abs(rideSpeedShown) < 3.5f) { Dismount(); if (bike == null) return; }
+            if (rideDismount)
+            {
+                throttle = plane && !canExit ? 0f : Mathf.Min(throttle, -0.6f);
+                boostKey = false; handbrake = false; climb = false;
+            }
 
             // ---- la velocita' attuale, scomposta lungo la rotta e di traverso
             Vector3 fwd = new Vector3(Mathf.Sin(rideHeading), 0f, Mathf.Cos(rideHeading)), right = new Vector3(fwd.z, 0f, -fwd.x);
@@ -222,7 +257,12 @@ namespace PryingEyes
             float topGoal = boostKey && throttle > 0.1f ? def.boost : def.top;
             rideTop = Mathf.MoveTowards(rideTop, topGoal, (topGoal > rideTop ? 5f : 9f) * dt);
             bool braking = false;
-            if (grounded)
+            if (plane)
+            {
+                along = DesertFlight.ForwardSpeed(along, throttle, grounded, dt);
+                braking = throttle < -0.05f;
+            }
+            else if (grounded)
             {
                 if (throttle > 0.05f)
                 {
@@ -241,7 +281,7 @@ namespace PryingEyes
 
             // ---- il terreno davanti deve esserci: i blocchi di sabbia si costruiscono man mano, e a 80 km/h si arriva prima di loro
             var terr = DesertTerrain.I;
-            if (terr != null && Mathf.Abs(along) > 7f)
+            if (terr != null && Mathf.Abs(along) > 7f && (!plane || RideAltitude < 10f))
             {
                 Vector3 ahead = transform.position + fwd * (Mathf.Sign(along) * (Mathf.Abs(along) * 0.9f + 8f));
                 if (!terr.Ready(ahead, 0f)) along = Mathf.MoveTowards(along, Mathf.Sign(along) * 7f, 14f * dt);
@@ -252,29 +292,39 @@ namespace PryingEyes
             rideSteer = Mathf.MoveTowards(rideSteer, steerIn, rate * dt);
             float sp = Mathf.Abs(along);
             float turn = Mathf.Lerp(2.3f, 0.55f, Mathf.Pow(Mathf.Clamp01(sp / def.top), 0.8f)) * def.turn;
-            float omega = rideSteer * turn * Mathf.Clamp01(sp / 1.8f) * (along < 0f ? -1f : 1f) * (grounded ? 1f : 0.15f);
+            float omega = rideSteer * turn * Mathf.Clamp01(sp / 1.8f) * (along < 0f ? -1f : 1f) * (plane ? (grounded ? 0.65f : 0.54f) : grounded ? 1f : 0.15f);
             if (handbrake && grounded && sp > 4f) omega *= 1.4f;
             hv = fwd * along + right * lat;
             rideHeading += omega * dt;
             fwd = new Vector3(Mathf.Sin(rideHeading), 0f, Mathf.Cos(rideHeading)); right = new Vector3(fwd.z, 0f, -fwd.x);
-            along = Vector3.Dot(hv, fwd); lat = Vector3.Dot(hv, right);
+            if (plane) lat = 0f;
+            else { along = Vector3.Dot(hv, fwd); lat = Vector3.Dot(hv, right); }
             lat *= Mathf.Exp(-(grounded ? (handbrake ? 1.2f : 9f) : 0.15f) * dt);              // l'aderenza: la velocita' di traverso svanisce, col freno a mano quasi no (si derapa)
             hv = fwd * along + right * lat;
             // ---- investire: oltre i 20 km/h chi cammina sulla strada non e' un muro (PlayerController.Ride.Plow.cs): il corpo lo attraversa, il nemico prende il colpo, la moto perde un po' di velocita'
-            if (RidePlow(dt, ref hv, along)) { along = Vector3.Dot(hv, fwd); lat = Vector3.Dot(hv, right); }
+            if (!plane && RidePlow(dt, ref hv, along)) { along = Vector3.Dot(hv, fwd); lat = Vector3.Dot(hv, right); }
 
             // ---- verticale e movimento (stessa capsula del giocatore a piedi)
             rideVyPrev = vel.y;
             vel.x = hv.x; vel.z = hv.z;
-            vel.y = grounded ? -4f : Mathf.Max(vel.y - gravity * dt, -30f);
+            float flightVy = 0f, sandY = 0f;
+            if (plane)
+            {
+                Vector3 here = transform.position;
+                sandY = DesertWorld.Height(here.x, here.z);
+                flightVy = DesertFlight.VerticalSpeed(along, grounded, climb, rideDismount || braking, DesertFlight.Ceiling + sandY - here.y);
+                vel.y = grounded && flightVy <= 0f ? -4f : Mathf.MoveTowards(grounded ? Mathf.Max(0f, vel.y) : vel.y, flightVy, 15f * dt);
+            }
+            else vel.y = grounded ? -4f : Mathf.Max(vel.y - gravity * dt, -30f);
             bool wasGrounded = grounded;
             Vector3 pBefore = transform.position;
-            cc.Move(vel * dt);
+            CollisionFlags contacts = cc.Move(vel * dt);
+            if (plane && (contacts & CollisionFlags.Above) != 0 && vel.y > 0f) vel.y = 0f;
             // quello che il corpo ha fatto davvero in questo spostamento (prima dell'aggancio al suolo). Non si legge cc.velocity: il controller divide lo spostamento per il tempo VERO del fotogramma, e 'dt' qui e' al piu'
             // 50 ms: in un fotogramma lungo (148 ms alla prima medaglia, alla nascita di un blocco di sabbia) a 59 km/h dava 19 km/h, una frenata da urto contro il niente e fino a 45 punti di danno al pilota
             Vector3 av = (transform.position - pBefore) / Mathf.Max(dt, 1e-4f); av.y = 0f;
             rideGrounded = cc.isGrounded;
-            if (!rideGrounded && wasGrounded)
+            if (!rideGrounded && wasGrounded && (!plane || flightVy <= 0f))
             {
                 // un piccolo salto del terreno (cresta, gradino in discesa) non stacca le ruote: si resta a terra se il suolo e' vicino
                 float snap = 0.30f + 0.012f * Mathf.Abs(along);
@@ -330,7 +380,8 @@ namespace PryingEyes
                 Kick(1.2f + 2.4f * hard, 0f, 8f);
                 if (rideVyPrev < -15f) { Hurt((-rideVyPrev - 15f) * 4f, transform.position + Vector3.up); if (bike == null) return; }
             }
-            if (rideGrounded) vel.y = -4f;
+            if (rideGrounded && (!plane || flightVy <= 0f)) vel.y = -4f;
+            if (plane) RideAltitude = Mathf.Max(0f, transform.position.y - sandY);
             Vector3 hvNow = new Vector3(vel.x, 0f, vel.z);
             float hs = hvNow.magnitude;
             rideSpeedShown = Vector3.Dot(hvNow, fwd);
@@ -349,10 +400,18 @@ namespace PryingEyes
             IsCrouching = false;
             hud?.SetBars(hp, shield);
             // la velocita' la dice il tachimetro (HUD.DesertSpeed.cs): il suggerimento dice solo come si scende
-            if (rideHint == null || rideDismount != rideHintDismount)
+            bool canJumpOff = !plane && Mathf.Abs(rideSpeedShown) >= RideJumpSpeed;
+            if (plane)
             {
-                rideHintDismount = rideDismount;
-                rideHint = rideDismount ? "frena per scendere" : "[" + PadControls.UseKey + "] scendi";
+                string use = "[" + PadControls.UseKey + "]";
+                rideHint = rideDismount ? (rideGrounded ? "Frenata per scendere" : "Atterraggio in corso   " + use + " annulla")
+                    : rideGrounded ? (PadControls.Preferred ? "Stick ↑ + A decolla" : "W + Spazio decolla") + "   ·   " + use + " scendi"
+                    : use + " atterra e scendi";
+            }
+            else if (rideHint == null || canJumpOff != rideHintJump)
+            {
+                rideHintJump = canJumpOff;
+                rideHint = "[" + PadControls.UseKey + "] " + (canJumpOff ? "salta dalla moto" : "scendi");
             }
             hud?.SetPrompt(rideHint);
 
@@ -386,7 +445,7 @@ namespace PryingEyes
             // il rinculo della visuale (urti, atterraggi) rientra come a piedi
             viewRecoil.Advance(dt);
 
-            RideGunTick(dt, hs, lookDelta, inputEnabled);
+            if (!plane) RideGunTick(dt, hs, lookDelta, inputEnabled);
         }
 
         /// <summary>L'arma in sella: sta riposta finche' non si preme fuoco, mira, ricarica o si cambia arma; un secondo e mezzo dopo l'ultimo uso torna giu'. Dopo la camera: l'arma e' figlia dell'occhio.

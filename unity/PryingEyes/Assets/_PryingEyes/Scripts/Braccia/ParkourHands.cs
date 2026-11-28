@@ -67,6 +67,51 @@ namespace PryingEyes
 
         public void Hide() => root.gameObject.SetActive(false);
 
+        public void Swim(float phase, float effort, float blend, float surface, float pitch, float submerged, float dt)
+        {
+            root.gameObject.SetActive(true);
+            fill.intensity = Mathf.Lerp(0.92f, 0.65f, submerged);
+            float waterline = Mathf.Clamp(surface - root.position.y, -0.38f, -0.17f);
+            var headSpace = Quaternion.Euler(-Mathf.Clamp(pitch * Mathf.Rad2Deg, -46f, 46f) * 0.56f, 0f, 0f);
+            for (int i = 0; i < 2; i++)
+            {
+                wings[i]?.Hide();
+                float side = i == 0 ? -1f : 1f;
+                float armPhase = SwimStroke.ArmPhase(phase, i);
+                Vector3 path = SwimStroke.Wrist(armPhase);
+                Vector3 palm = SwimStroke.Palm(armPhase);
+                float recovery = SwimStroke.Recovery(armPhase);
+                float scullWave = Mathf.Cos(armPhase * 2f * Mathf.PI);
+                var wrist = wrists[i];
+                Vector3 scull = new Vector3(side * (0.29f + 0.11f * scullWave), waterline + 0.025f + 0.04f * path.y, 0.52f);
+                Vector3 stroke = new Vector3(side * (0.21f + 0.64f * path.x), waterline + 0.74f * path.y, 0.43f + 0.29f * path.z);
+                float sweep = 0.5f - 0.5f * Mathf.Cos(phase * 2f * Mathf.PI);
+                Vector3 dive = new Vector3(side * (0.11f + 0.30f * sweep), -0.29f - 0.10f * sweep, 0.63f - 0.24f * sweep);
+                wrist.localPosition = Vector3.Lerp(new Vector3(side * 0.33f, -0.63f, 0.33f),
+                    headSpace * Vector3.Lerp(Vector3.Lerp(scull, stroke, effort), dive, submerged), blend);
+                var surfacePalm = Quaternion.Euler(
+                    Mathf.Lerp(17f, palm.x, effort),
+                    side * Mathf.Lerp(14f + 22f * scullWave, palm.y, effort),
+                    side * Mathf.Lerp(14f, palm.z, effort));
+                wrist.localRotation = headSpace * Quaternion.Slerp(surfacePalm,
+                    Quaternion.Euler(18f + 29f * sweep, side * (14f + 32f * sweep), side * 12f), submerged);
+                var arm = arms[i];
+                Vector3 defaultPole = default;
+                if (arm != null)
+                {
+                    defaultPole = arm.PoleHint;
+                    arm.PoleHint = new Vector3(side * 0.77f, Mathf.Lerp(-0.88f, 0.32f, recovery * effort * (1f - submerged)), -0.29f);
+                    arm.ShoulderOffset = new Vector3(side * 0.06f, -0.16f + 0.035f * recovery, -0.16f);
+                }
+                PoseArm(i, HandPose.Lerp(HandPoses.Flat, HandPoses.Relaxed, 0.12f + 0.58f * recovery), dt);
+                if (arm != null)
+                {
+                    arm.ShoulderOffset = Vector3.zero;
+                    arm.PoleHint = defaultPole;
+                }
+            }
+        }
+
         public void Glide(float amount, float bank, float dt)
         {
             root.gameObject.SetActive(true);

@@ -23,7 +23,7 @@ namespace PryingEyes.Deserto
         public static Vector3? BayFor(int seat, DesertBikeDef d)
         {
             int bay = DesertGarage.BayOf(seat, d);
-            return bay < 0 ? (Vector3?)null : DesertGarage.BayPos(RowOf(seat), bay);
+            return bay < 0 ? (Vector3?)null : DesertGarage.ParkingPos(RowOf(seat), bay, d);
         }
 
         public static void Create(Transform parent)
@@ -54,7 +54,7 @@ namespace PryingEyes.Deserto
         {
             int bay = DesertGarage.BayOf(seat, d);
             if (bay < 0) return null;
-            Vector3 at = DesertGarage.BayPos(RowOf(slot), bay);
+            Vector3 at = DesertGarage.ParkingPos(RowOf(slot), bay, d);
             var b = DesertBike.Create(parent, at, DesertGarage.BayHeading, d.Starter ? "Moto " + (slot + 1) : d.name + " " + (slot + 1), d);
             b.slot = slot;
             if (effect) DesertGarageSite.Delivered(at);

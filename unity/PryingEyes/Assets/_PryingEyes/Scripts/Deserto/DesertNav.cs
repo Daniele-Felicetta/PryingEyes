@@ -199,6 +199,7 @@ namespace PryingEyes.Deserto
                         if (t != null) markups.Add(new NavMeshBuildMarkup { root = t, area = 1, overrideArea = true, applyToChildren = true });
                 int mask = ~((1 << 2) | (1 << HotelNav.EnemyLayer) | (1 << HotelNav.DoorLayer));
                 NavMeshBuilder.CollectSources(collect, mask, NavMeshCollectGeometry.PhysicsColliders, 0, markups, sources);
+                DesertLakeSurface.AddNavBlockers(collect, sources);
                 opSources = sources.Count;
                 if (Verbose)
                 {
