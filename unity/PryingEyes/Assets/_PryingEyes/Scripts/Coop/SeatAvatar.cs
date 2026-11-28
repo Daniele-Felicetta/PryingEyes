@@ -107,7 +107,8 @@ namespace PryingEyes
             }
             placed = true;
             lastPos = pos;
-            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, (p.Riding ? p.RideHeading : p.OnClimbWall ? p.ClimbWallYaw : p.yaw) * Mathf.Rad2Deg, 0f));
+            float heading = p.Riding ? p.RideHeading : p.OnClimbWall ? p.ClimbWallYaw : p.Swimming ? p.SwimYaw : p.yaw;
+            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, heading * Mathf.Rad2Deg, 0f));
             if (visual == null) return;
             if (body != null)
             {
@@ -146,13 +147,20 @@ namespace PryingEyes
             inp.grounded = supported || (groundLost < 0.07f && vel.y <= 0f && vel.y > -2.2f);
             inp.climb = p.Mantling || p.OnClimbWall ? 1f : 0f;
             inp.gliding = p.Gliding;
+            inp.swimming = p.Swimming;
+            inp.swimPhase = p.SwimPhase;
+            inp.swimEffort = p.SwimEffort;
+            inp.swimSurface = p.SwimSurface;
+            inp.swimTurn = p.SwimTurn;
+            inp.swimSubmersion = p.SwimSubmersion;
+            inp.swimDivePitch = p.SwimDivePitch;
             int idx = w != null ? w.CurrentIndex : -1;
             if (w != null && w.KnifeBusy)
             {
                 if (knifeIndex == -2) knifeIndex = WeaponDefs.IndexOf("kn_coltello");
                 if (knifeIndex >= 0) idx = knifeIndex;
             }
-            inp.weapon = p.OnClimbWall || p.Gliding ? -1 : idx;
+            inp.weapon = p.OnClimbWall || p.Gliding || p.Swimming ? -1 : idx;
             inp.ads = w != null && !w.KnifeBusy ? w.ads : 0f;
             inp.reloading = w != null && w.reloading;
             inp.shotAge = Mathf.Max(0f, Time.time - seat.stealth.lastShotTime);

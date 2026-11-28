@@ -38,6 +38,8 @@ namespace PryingEyes.Deserto
         public int ChunkCount => chunks.Count;
         public int PendingJobs => jobs.Count;
         public int Applied { get; private set; }
+        internal bool GroundDetailReady => sand != null && sand.HasProperty("_BiomeGround") &&
+            sand.GetTexture("_BiomeGround") is Texture2D texture && texture.width >= 1024;
 
         static long Key(int cx, int cz) => ((long)cx << 32) ^ (uint)cz;
 
@@ -49,6 +51,7 @@ namespace PryingEyes.Deserto
             var go = new GameObject("DesertTerrain");
             var t = go.AddComponent<DesertTerrain>();
             t.player = followed;
+            DesertLakeSurface.BuildAll(go.transform);
             return t;
         }
 
@@ -56,7 +59,11 @@ namespace PryingEyes.Deserto
         {
             I = this;
             var shader = Shader.Find("PryingEyes/DesertSand");
-            if (shader != null) sand = new Material(shader) { name = "DesertSand" };
+            if (shader != null)
+            {
+                sand = new Material(shader) { name = "DesertSand" };
+                sand.SetTexture("_BiomeGround", Resources.Load<Texture2D>("Deserto/BiomeGround"));
+            }
             else
             {
                 Debug.LogWarning("[PryingEyes] deserto: lo shader della sabbia non c'e', uso il Lit");
@@ -275,16 +282,20 @@ namespace PryingEyes.Deserto
                 c.mr.sharedMaterial = sand;
                 chunks[k] = c;
             }
-            var mesh = new Mesh { name = "Sabbia" };
+            var mesh = new Mesh { name = "Outdoor terrain" };
             int n = data.vertexCount;
             var v = new Vector3[n]; var nm = new Vector3[n]; var col = new Color32[n];
+            var biome = new Vector4[n];
             for (int i = 0; i < n; i++)
             {
                 v[i] = new Vector3(data.pos[i * 3], data.pos[i * 3 + 1], data.pos[i * 3 + 2]);
                 nm[i] = new Vector3(data.nrm[i * 3], data.nrm[i * 3 + 1], data.nrm[i * 3 + 2]);
                 col[i] = new Color32(data.tint[i * 4], data.tint[i * 4 + 1], data.tint[i * 4 + 2], data.tint[i * 4 + 3]);
+                int k0 = i * 4;
+                biome[i] = new Vector4(data.biome[k0], data.biome[k0 + 1], data.biome[k0 + 2], data.biome[k0 + 3]) / 255f;
             }
             mesh.vertices = v; mesh.normals = nm; mesh.colors32 = col; mesh.triangles = data.tris;
+            mesh.SetUVs(1, biome);
             mesh.bounds = new Bounds(new Vector3(DesertTerrainGen.ChunkSize * 0.5f, (data.minY + data.maxY) * 0.5f, DesertTerrainGen.ChunkSize * 0.5f),
                                      new Vector3(DesertTerrainGen.ChunkSize, data.maxY - data.minY + 1f, DesertTerrainGen.ChunkSize));
             var old = c.mesh;

@@ -65,12 +65,14 @@ namespace PryingEyes.Deserto
             float amb = GameSettings.Ambience;
             float outdoor = Mathf.Clamp01(1f - sky.Indoor * 1.6f);
             float night = sky.Night;
+            var position = player.position;
+            var biome = DesertBiomes.At(position.x, position.z, DesertWorld.Seed);
 
             // sabbia nel vento: appena un filo quando soffia forte, molto nella tempesta
             float hiss = Mathf.Max(0.16f * Mathf.SmoothStep(0f, 1f, (w.calmWind - 0.4f) / 0.4f), 0.75f * w.storm) * (0.8f + 0.2f * w.gust);
-            Blend(sand, hiss * outdoor * amb, dt * 0.7f);
+            Blend(sand, hiss * outdoor * amb * biome.Desert, dt * 0.7f);
             // grilli: dal crepuscolo all'alba, meno col vento, nessuno nella tempesta
-            Blend(crickets, 0.22f * night * (1f - w.storm) * (1f - 0.6f * w.wind) * outdoor * amb, dt * 0.5f);
+            Blend(crickets, 0.22f * night * (1f - w.storm) * (1f - 0.6f * w.wind) * outdoor * amb * (1f - biome.Ice), dt * 0.5f);
 
             // crepitio del fuoco acceso piu' vicino
             float crackleT = 0f;

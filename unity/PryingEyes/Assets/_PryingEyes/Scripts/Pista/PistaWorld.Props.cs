@@ -296,7 +296,7 @@ namespace PryingEyes.Pista
         }
 
         /// <summary>A broadleaf: a leaning trunk, a few limbs into the crown, and a crown of 24 to 31 cards of leaves laid in a squashed ball, the inner ones darker.</summary>
-        void AddBroadleaf(MB b, Vector3 baseP, System.Random rng)
+        static void AddBroadleaf(MB b, Vector3 baseP, System.Random rng, bool distant = false)
         {
             float h = Rf(rng, 7.5f, 14.5f);
             float trunkH = h * Rf(rng, 0.36f, 0.48f);
@@ -310,13 +310,14 @@ namespace PryingEyes.Pista
             float hue = Rf(rng, 0f, 1f), tone = Rf(rng, 0.80f, 1.0f);
             float tr = Mathf.Lerp(0.70f, 1.0f, hue) * tone, tg = Mathf.Lerp(1.0f, 0.92f, hue) * tone, tb = Mathf.Lerp(0.95f, 0.60f, hue) * tone;
             int cards = 24 + rng.Next(8);
+            if (distant) cards = 12;
             for (int k = 0; k < cards; k++)
             {
                 float u = Rf(rng, -0.25f, 1f), phi = Rf(rng, 0f, 6.2832f), sr = Mathf.Sqrt(1f - u * u);
                 Vector3 dir = new Vector3(sr * Mathf.Cos(phi), u, sr * Mathf.Sin(phi));
                 float dist = Mathf.Pow(Rf(rng, 0.10f, 1f), 0.65f);                                    // 0 at the middle, 1 on the surface
                 Vector3 pc = centre + new Vector3(dir.x * crownR * dist, dir.y * ry * dist, dir.z * crownR * dist);
-                float size = crownR * Rf(rng, 0.50f, 0.78f);
+                float size = crownR * Rf(rng, 0.50f, 0.78f) * (distant ? 1.23f : 1f);
                 Vector3 fn = (dir + new Vector3(Rf(rng, -0.5f, 0.5f), Rf(rng, -0.4f, 0.6f), Rf(rng, -0.5f, 0.5f))).normalized;
                 Vector3 right = Vector3.Cross(fn, Vector3.up);
                 if (right.sqrMagnitude < 1e-4f) right = Vector3.right;
@@ -335,34 +336,34 @@ namespace PryingEyes.Pista
 
         /// <summary>A fir: a stem with nine tiers of fronds (ten cards around the bottom one, six around the top), each card a trough that droops from the stem to its tip so that it has a body seen from the side,
         /// and a leader of three upright cards that ends the tree in a point.</summary>
-        void AddFir(MB b, Vector3 baseP, System.Random rng)
+        static void AddFir(MB b, Vector3 baseP, System.Random rng, bool distant = false, bool woodland = false, bool slender = false)
         {
-            float h = Rf(rng, 9f, 17f);
-            float rBase = h * Rf(rng, 0.17f, 0.23f);
+            float h = Rf(rng, 9f, 17f) * (slender ? 1.13f : 1f);
+            float rBase = h * Rf(rng, 0.17f, 0.23f) * (slender ? 0.74f : 1f);
             Limb(b, 0, baseP - Vector3.up * 0.3f, baseP + Vector3.up * h * 0.90f, 0.17f + h * 0.010f, 0.05f, 6);
             float tone = Rf(rng, 0.80f, 1.0f), hue = Rf(rng, 0f, 1f);
             float tr = Mathf.Lerp(0.75f, 0.95f, hue) * tone, tg = Mathf.Lerp(0.95f, 1.0f, hue) * tone, tb = Mathf.Lerp(0.95f, 0.75f, hue) * tone;
-            const int tiers = 9;
+            int tiers = distant ? 6 : 9;
             float yaw0 = Rf(rng, 0f, 6.2832f);
             for (int t = 0; t < tiers; t++)
             {
                 float f = t / (float)(tiers - 1);                                                     // 0 low .. 1 at the top
-                float y = h * (0.10f + 0.72f * f);
+                float y = h * ((slender ? 0.19f : 0.10f) + (slender ? 0.63f : 0.72f) * f);
                 float reach = rBase * Mathf.Pow(1f - f, 0.9f) + 0.6f;                                 // how far the fronds of this tier go out
-                int n = 10 - t / 2;
+                int n = (distant ? 5 : 10) - t / (distant ? 3 : 2);
                 float ao = Mathf.Lerp(0.74f, 1.0f, f);
                 for (int k = 0; k < n; k++)
                 {
                     float yaw = yaw0 + t * 0.9f + k * 6.2832f / n + Rf(rng, -0.2f, 0.2f);
                     Vector3 dir = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw)), side = new Vector3(-dir.z, 0f, dir.x);
-                    float len = reach * Rf(rng, 1.05f, 1.3f), wid = Mathf.Max(0.5f, reach * 0.58f);
-                    Vector3 inner = baseP + Vector3.up * y + dir * 0.15f;
-                    Vector3 tip = inner + dir * len + Vector3.down * (len * Rf(rng, 0.45f, 0.75f));
+                    float len = reach * Rf(rng, 1.05f, 1.3f), wid = Mathf.Max(0.5f, reach * (distant ? 0.71f : 0.58f));
+                    Vector3 inner = baseP + Vector3.up * (y + (woodland ? Rf(rng, -0.36f, 0.36f) : 0f)) + dir * 0.15f;
+                    Vector3 tip = inner + dir * len + Vector3.down * (len * (woodland ? Rf(rng, 0.16f, 0.49f) : Rf(rng, 0.45f, 0.75f)));
                     Vector3 nrm = (dir + Vector3.up * 0.55f).normalized;
                     var cIn = new Color32(B8(tr * ao), B8(tg * ao), B8(tb * ao), B8(0.05f));
                     var cTip = new Color32(B8(tr * ao), B8(tg * ao), B8(tb * ao), B8(0.55f * (0.4f + 0.6f * f)));
                     // a trough: the middle line lower than the edges
-                    Vector3 sag = Vector3.down * (wid * 0.30f);
+                    Vector3 sag = Vector3.down * (wid * (woodland ? 0.54f : 0.30f));
                     int i = b.VertC(inner - side * wid, nrm, new Vector2(0f, 1f), cIn);
                     b.VertC(inner + sag, nrm, new Vector2(0.5f, 1f), cIn);
                     b.VertC(inner + side * wid, nrm, new Vector2(1f, 1f), cIn);
@@ -389,6 +390,90 @@ namespace PryingEyes.Pista
                 b.VertC(tip - side * wid * 0.25f, nrm, new Vector2(0f, 0f), cTip);
                 b.Quad(2, i, i + 1, i + 2, i + 3);
             }
+        }
+
+        internal static Mesh WorldTree(bool fir, bool frozen, bool distant, bool alternate)
+        {
+            var tree = new MB(3).UseColors();
+            var rng = new System.Random((frozen ? 6821 : fir ? 2207 : 4519) + (alternate ? 129 : 0));
+            if (fir) AddFir(tree, Vector3.zero, rng, distant, true, alternate);
+            else WoodlandBroadleaf(tree, rng, distant, alternate);
+
+            foreach (int i in tree.tris[0])
+            {
+                tree.colors[i] = frozen ? new Color32(119, 116, 105, 0) : new Color32(100, 72, 53, 0);
+                tree.uv[i] = new Vector2(0f, 3f);
+            }
+            int foliage = fir ? 2 : 1;
+            for (int i = 0; i < tree.uv.Count; i++)
+            {
+                Vector2 uv = tree.uv[i];
+                if (uv.y > 1f) continue;
+                tree.uv[i] = new Vector2((foliage == 2 ? 0.502f : 0.002f) + uv.x * 0.496f, uv.y);
+            }
+            return tree.ToMesh(frozen ? "Frosted spruce" : fir ? "Woodland spruce" : "Woodland broadleaf");
+        }
+
+        static void WoodlandBroadleaf(MB tree, System.Random rng, bool distant, bool spreading)
+        {
+            Vector3 knee = new Vector3(0.12f, spreading ? 2.25f : 3.0f, -0.11f);
+            Vector3 fork = spreading ? new Vector3(-0.48f, 4.25f, 0.13f) : new Vector3(0.45f, 5.3f, 0.02f);
+            BentLimb(tree, Vector3.down * 0.25f, knee, fork, 0.38f, 0.25f, 0.13f, 9);
+            for (int branch = 0; branch < 7; branch++)
+            {
+                float angle = branch * 2.399963f + Rf(rng, -0.35f, 0.35f);
+                Vector3 dir = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                float level = branch / 6f;
+                Vector3 root = Vector3.Lerp(knee, fork, 0.34f + 0.62f * level);
+                float width = spreading ? 1.37f : 1f;
+                Vector3 elbow = root + dir * ((1.4f - 0.6f * level) * width) + Vector3.up * 0.92f;
+                Vector3 tip = elbow + dir * Mathf.Lerp(2.2f, 0.76f, level) * width + Vector3.up * (1.0f + level * 1.1f);
+                BentLimb(tree, root, elbow, tip, 0.14f - level * 0.055f, 0.080f, 0.018f, 6);
+
+                for (int card = 0; card < 7; card++)
+                {
+                    float yaw = Rf(rng, 0f, 6.2832f);
+                    Vector3 wing = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+                    Vector3 side = Vector3.Cross(wing, Vector3.up);
+                    float radius = Mathf.Lerp(1.4f, 0.94f, level) * Rf(rng, 0.78f, 1.22f);
+                    Vector3 middle = Vector3.LerpUnclamped(elbow, tip, Rf(rng, 0.46f, 1.16f)) + wing * Rf(rng, 0.08f, 0.97f) + Vector3.up * Rf(rng, -0.37f, 1.15f);
+                    float light = Rf(rng, 0.82f, 1f);
+                    var color = new Color32(B8(light * Rf(rng, 0.88f, 1f)), B8(light * (spreading ? 0.92f : 1f)),
+                        B8(light * (spreading ? 0.80f : 0.91f)), B8(0.48f + level * 0.46f));
+                    Vector3 up = (Vector3.up * Rf(rng, 0.52f, 0.88f) + wing * 0.75f) * radius;
+                    if (!distant || card % 2 == 0)
+                        CrownCard(tree, 1, middle, side * radius * (distant ? 1.17f : 1f), up, tip, 0.9f, color);
+                }
+            }
+        }
+
+        static void BentLimb(MB tree, Vector3 start, Vector3 bend, Vector3 tip, float baseRadius, float bendRadius, float tipRadius, int sides)
+        {
+            Vector3 first = (bend - start).normalized, last = (tip - bend).normalized;
+            Vector3 seam = Vector3.Cross(first, last).normalized;
+            if (seam.sqrMagnitude < 0.5f)
+                seam = Vector3.Cross(first, Mathf.Abs(first.y) > 0.95f ? Vector3.right : Vector3.up).normalized;
+            int bottom = tree.Count;
+            var white = new Color32(255, 255, 255, 0);
+            void Ring(Vector3 centre, Vector3 axis, float radius)
+            {
+                Vector3 around = Vector3.Cross(axis, seam);
+                for (int side = 0; side < sides; side++)
+                {
+                    float a = side * (2f * Mathf.PI / sides);
+                    Vector3 normal = seam * Mathf.Cos(a) + around * Mathf.Sin(a);
+                    tree.VertC(centre + normal * radius, normal, Vector2.zero, white);
+                }
+            }
+            Ring(start, first, baseRadius);
+            Ring(bend, (first + last).normalized, bendRadius);
+            Ring(tip, last, tipRadius);
+            for (int ring = 0; ring < 2; ring++)
+                for (int side = 0; side < sides; side++)
+                {
+                    int row = bottom + ring * sides, next = (side + 1) % sides;
+                    tree.Quad(0, row + side, row + next, row + sides + next, row + sides + side);
+                }
         }
 
         /// <summary>A card of leaves centred at 'c' with half-axes 'r' and 'u'; each corner takes the normal of the crown there (away from its middle, the vertical axis stretched back by 'yScale', and a little

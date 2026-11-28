@@ -143,19 +143,19 @@ namespace PryingEyes
 
         /// <summary>Un passo nell'acqua bassa (le pozze delle saline): il tonfo del piede (rumore passato per un filtro basso), lo sciacquio (rumore a banda larga che sfuma piano) e qualche goccia
         /// che ricade (bolle: seni che salgono di tono). Poco piu' di un terzo di secondo.</summary>
-        public static float[] Splash(int seed)
+        public static float[] Splash(int seed, bool stroke = false)
         {
             var r = new System.Random(seed);
             var s = Buf(0.42f);
-            var thud = Biquad.LowPass(420f, 0.8f);
-            var wash = Biquad.BandPass(U(r, 1500f, 2300f), 0.7f);
+            var thud = Biquad.LowPass(stroke ? 620f : 420f, 0.8f);
+            var wash = Biquad.BandPass(stroke ? U(r, 1000f, 1800f) : U(r, 1500f, 2300f), 0.7f);
             var hiss = Biquad.HighPass(3000f, 0.6f);
             for (int i = 0; i < s.Length; i++)
             {
                 float t = (float)i / Rate, n = N(r);
                 float eThud = Mathf.Clamp01(t / 0.006f) * Mathf.Exp(-t * 28f);
-                float eWash = Mathf.Clamp01(t / 0.012f) * Mathf.Exp(-t * 11f);
-                s[i] = thud.Run(n) * eThud * 1.6f + wash.Run(n) * eWash * 0.9f + hiss.Run(n) * eWash * eWash * 0.25f;
+                float eWash = Mathf.Clamp01(t / 0.012f) * Mathf.Exp(-t * (stroke ? 8.2f : 11f));
+                s[i] = thud.Run(n) * eThud * (stroke ? 0.8f : 1.6f) + wash.Run(n) * eWash * 0.9f + hiss.Run(n) * eWash * eWash * 0.25f;
             }
             int drops = r.Next(5, 9);
             for (int k = 0; k < drops; k++)
@@ -178,7 +178,7 @@ namespace PryingEyes
     public static partial class SoundBank
     {
         static AudioClip sandHiss, crickets, fireCrackle;
-        static AudioClip[] caws, howls, splashes;
+        static AudioClip[] caws, howls, splashes, strokes;
 
         public static AudioClip SandHiss => One(ref sandHiss, "sabbiaSulVento", () => SoundGen.SandHiss(21));
         public static AudioClip Crickets => One(ref crickets, "grilli", () => SoundGen.Crickets(22));
@@ -186,8 +186,9 @@ namespace PryingEyes
         public static AudioClip Caw => Pick(ref caws, 3, "gracchio", i => SoundGen.Caw(500 + i));
         public static AudioClip Howl => Pick(ref howls, 2, "ululato", i => SoundGen.Howl(600 + i));
         public static AudioClip Splash => Pick(ref splashes, 4, "passoNellAcqua", i => SoundGen.Splash(700 + i));
+        public static AudioClip SwimSplash => Pick(ref strokes, 5, "bracciata", i => SoundGen.Splash(740 + i, true));
 
         /// <summary>Tutti i suoni del deserto, calcolati subito (qualche decina di millisecondi): nessuno scatto alla prima tempesta o al primo grillo.</summary>
-        public static void WarmDesert() { _ = SandHiss; _ = Crickets; _ = FireCrackle; _ = Caw; _ = Howl; _ = Splash; }
+        public static void WarmDesert() { _ = SandHiss; _ = Crickets; _ = FireCrackle; _ = Caw; _ = Howl; _ = Splash; _ = SwimSplash; }
     }
 }
