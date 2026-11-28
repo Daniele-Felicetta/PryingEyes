@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "about": "SHA-256 of the text that planlab dump prints (invariant culture, lines joined with LF) for the plans below, and the CoopProtocol.Revision it was made at. Written by `dotnet run --project tools/planlab -c Release -- fingerprint --update`, never by hand: see docs/engineering/testing.md.",
-  "revision": "pe-coop-44",
+  "revision": "pe-coop-45",
   "plans": [
     {"layout":"default","seed":1000,"floor":1,"sha256":"ec52ac8896827d121c13b376a8d366a6a09298810085978a0d1fb871959757de"},
     {"layout":"default","seed":1000,"floor":3,"sha256":"dd9aa8e2d009f270cbf65552421f2343c55d83da6bf5d08e1473e97f2af5bd68"},

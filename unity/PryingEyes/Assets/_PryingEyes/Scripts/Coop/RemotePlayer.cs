@@ -23,6 +23,8 @@ namespace PryingEyes
         public int bike;                        // Vehicle code in bits 3–6: starter 0, track bikes 1–9, Libeccio 14 (ground) or 15 (air).
         public bool climbing, gliding, swimming;
         public float swimPhase, swimEffort;
+        public bool grappling, grappleAttached;
+        public Vector3 grappleTip;
 
         public void Write(NetWriter w)
         {
@@ -32,9 +34,10 @@ namespace PryingEyes
              .U8(Mathf.Clamp(Mathf.RoundToInt(shotAge * 100f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(hp * 255f), 0, 255)).U8(weapon)
              .U8(Mathf.Clamp(Mathf.RoundToInt((Mathf.Clamp(lean, -1f, 1f) + 1f) * 127.5f), 0, 255)).U8(Mathf.Clamp(Mathf.RoundToInt(sight * 100f), 0, 255))
              .U8(Mathf.Clamp(Mathf.RoundToInt(bleed * 8f), 0, 255)).U8(Mathf.Clamp(gun, 0, 255)).U8((ads ? 1 : 0) | (reloading ? 2 : 0) | (riding ? 4 : 0) | ((bike & 15) << 3) | (climbing ? 128 : 0))
-             .U8(CoopProtocol.QuantYaw(heading)).U8((gliding ? 1 : 0) | (swimming ? 2 : 0));
+             .U8(CoopProtocol.QuantYaw(heading)).U8((gliding ? 1 : 0) | (swimming ? 2 : 0) | (grappling ? 4 : 0) | (grappleAttached ? 8 : 0));
             if (swimming)
                 w.U8(Mathf.FloorToInt(Mathf.Repeat(swimPhase, 1f) * 256f)).U8(Mathf.RoundToInt(Mathf.Clamp01(swimEffort) * 255f));
+            if (grappling) w.V3(grappleTip);
         }
 
         public static PlayerNet Read(ref NetReader r)
@@ -63,11 +66,14 @@ namespace PryingEyes
             int traversal = r.U8();
             s.gliding = (traversal & 1) != 0;
             s.swimming = (traversal & 2) != 0;
+            s.grappling = (traversal & 4) != 0;
+            s.grappleAttached = (traversal & 8) != 0;
             if (s.swimming)
             {
                 s.swimPhase = r.U8() / 256f;
                 s.swimEffort = r.U8() / 255f;
             }
+            if (s.grappling) s.grappleTip = r.V3();
             return s;
         }
     }
@@ -92,6 +98,8 @@ namespace PryingEyes
         /// <summary>Dove deve stare (ricevuto) e dove lo si disegna (liscio).</summary>
         Vector3 netPos;
         float netYaw, netPitch;
+        GrappleVisual grappleVisual;
+        Vector3 grappleTip;
         Transform visual, legL, legR, headT, torchT;
         SurvivorBody body;                      // il corpo vero (modelli/personaggi); null senza i modelli: resta il manichino
         new TextMesh tag;                      // il nome sopra la testa (nasconde Component.tag: qui non serve quello di Unity)
@@ -269,6 +277,7 @@ namespace PryingEyes
         void SetShown(bool on)
         {
             shown = on;
+            if (!on) grappleVisual?.Hide();
             if (!on && bike != null && bike.puppet) bike.SetPuppet(false);
             if (visual != null) visual.gameObject.SetActive(on);
             if (tag != null) tag.gameObject.SetActive(on);
@@ -280,6 +289,10 @@ namespace PryingEyes
         public void Apply(PlayerNet s)
         {
             bool first = !hasState;
+            float grappleLimit = PlayerController.GrappleRange + 5f;
+            s.grappling &= (s.grappleTip - s.pos).sqrMagnitude < grappleLimit * grappleLimit;
+            if (s.grappling && (!last.grappling || s.epoch != last.epoch || (grappleTip - s.grappleTip).sqrMagnitude > 18f * 18f))
+                grappleTip = s.grappleTip;
             last = s; hasState = true; lastStateTime = Time.unscaledTime;
             netPos = s.pos; netYaw = s.yaw; netPitch = s.pitch;
             bool visible = CoopGame.I != null && CoopGame.I.FloorBuilt && s.epoch == CoopGame.I.EpochByte;
@@ -310,6 +323,14 @@ namespace PryingEyes
             // in sella il corpo guarda dove punta la moto (lo sguardo, e con lui il fascio della torcia, puo' essere altrove)
             transform.rotation = Quaternion.Euler(0f, last.riding && bikeHeadingInit ? bikeHeadingDeg :
                 last.climbing || last.swimming ? last.heading * Mathf.Rad2Deg : yawDeg, 0f);
+            if (last.alive && !last.downed && !last.riding && last.grappling)
+            {
+                grappleTip = Vector3.Lerp(grappleTip, last.grappleTip, 1f - Mathf.Exp(-28f * dt));
+                grappleVisual ??= new GrappleVisual(transform);
+                Vector3 mount = GrappleVisual.HarnessMount(transform.position, transform.right, transform.forward, last.crouch ? 1.15f : 1.75f);
+                grappleVisual.Draw(mount, transform.forward, grappleTip, last.grappleAttached);
+            }
+            else grappleVisual?.Hide();
             if (body != null)
             {
                 // in sella la radice dello scheletro segue il telaio della sua moto (rollio e beccheggio compresi): bacino, piedi e mani sono relativi alla moto
@@ -377,7 +398,7 @@ namespace PryingEyes
         void DriveBody(float dt, Vector3 before)
         {
             Vector3 vel = dt > 0f ? (transform.position - before) / dt : Vector3.zero;
-            if (vel.sqrMagnitude > 64f || last.riding) vel = Vector3.zero;          // un salto di posizione (cambio piano, teletrasporto) non fa correre il corpo; in sella le gambe non camminano
+            if (vel.sqrMagnitude > (last.grappling ? 784f : 64f) || last.riding) vel = Vector3.zero;
             var inp = body.input;
             inp.velocity = vel;
             inp.pitch = netPitch; inp.lean = last.lean;
@@ -386,7 +407,7 @@ namespace PryingEyes
             if (pb != null) { inp.gripLeft = pb.GripWorld(0); inp.gripRight = pb.GripWorld(1); pb.FillSeat(ref inp); }
             inp.crouch = last.crouch && !last.riding; inp.sprint = last.sprint && !last.riding;
             inp.alive = last.alive; inp.downed = last.downed;
-            inp.grounded = last.climbing || Mathf.Abs(vel.y) < 2.5f;
+            inp.grounded = last.climbing || (!last.grappleAttached && Mathf.Abs(vel.y) < 2.5f);
             inp.climb = last.climbing ? 1f : 0f;
             inp.gliding = last.gliding;
             bool wasSwimming = inp.swimming;

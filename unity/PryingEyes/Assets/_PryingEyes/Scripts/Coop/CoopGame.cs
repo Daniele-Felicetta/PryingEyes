@@ -380,6 +380,9 @@ namespace PryingEyes
             s.swimming = pl.Swimming;
             s.swimPhase = pl.SwimPhase;
             s.swimEffort = pl.SwimEffort;
+            s.grappling = pl.GrappleVisible;
+            s.grappleAttached = pl.GrappleAttached;
+            s.grappleTip = pl.GrappleTip;
             s.riding = pl.Riding;
             s.heading = pl.Riding ? pl.RideHeading : pl.OnClimbWall ? pl.ClimbWallYaw : pl.Swimming ? pl.SwimYaw : pl.yaw;
             s.bike = pl.Riding && pl.Bike != null ? Deserto.DesertBikeDefs.NetCode(pl.Bike.Def, pl.RideGrounded) : 0;          // e quale moto e' (pe-coop-37)

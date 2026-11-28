@@ -17,8 +17,8 @@ namespace PryingEyes
     ///
     /// Mappa (rivista il 2026-11-16 per l'uso col controller, sullo schema dei giochi a ondate: niente combinazioni di due tasti; dove un
     /// tasto fa due cose il tocco parte al rilascio e il tenuto dopo Mapper.HoldTime):
-    ///   stick sinistro muove, L3 corsa (a scatti: si annulla fermandosi, mirando o sparando); stick destro guarda, R3 coltello (G)
-    ///   RT fuoco, LT mira; con la mira L3 e R3 sporgono a sinistra e a destra (Q, E: un tocco sporge, il secondo o lasciare la mira raddrizza)
+    ///   stick sinistro muove, L3 corsa (a scatti: si annulla fermandosi, mirando o sparando); stick destro guarda, R3 tocca per il coltello, tieni per il rampino anche con LT
+    ///   RT fuoco, LT mira; con la mira L3 e un tocco di R3 sporgono a sinistra e a destra (Q, E: un tocco sporge, il secondo o lasciare la mira raddrizza)
     ///   A salto; B abbassati (a interruttore, come C tenuto: il pollice destro resta sullo stick; saltare o correre rialzano)
     ///   X ricarica (R), tenuto usa e compra (F); Y cambia arma, tenuto modo di fuoco (B)
     ///   LB mano sinistra: tocco la magia, tenuto il sigillo sull'arma (3); RB acquasanta (Z)
@@ -66,7 +66,7 @@ namespace PryingEyes
             public bool Sprinting => sprint;
             public bool Crouching => crouch;
             ushort prev, holdDone;
-            bool rtOn, ltOn, sprint, crouch, leanL, leanR;
+            bool rtOn, ltOn, sprint, crouch, leanL, leanR, rightStickAim;
             bool sprint0, crouch0, leanL0, leanR0;          // gli interruttori all'inizio del giro (un menu aperto non li cambia)
             int stickX, stickY;
             float clock;
@@ -137,14 +137,16 @@ namespace PryingEyes
 
             /// <summary>Un tasto, due azioni: toccato (rilasciato prima di HoldTime) fa 'tap' al rilascio, tenuto fa 'hold' una volta appena
             /// passa HoldTime (e con holdHeld resta tenuto finche' lo si tiene: il tabellone).</summary>
-            void TapHold(ushort b, ushort mask, TouchControls.Action tap, TouchControls.Action hold, bool holdHeld = false)
+            bool TapHold(ushort b, ushort mask, TouchControls.Action? tap, TouchControls.Action hold, bool holdHeld = false)
             {
                 int i = Bit(mask);
                 bool now = (b & mask) != 0, was = (prev & mask) != 0;
                 if (now && !was) { pressAt[i] = clock; holdDone = (ushort)(holdDone & ~mask); }
                 if (now && (holdDone & mask) == 0 && clock - pressAt[i] >= HoldTime) { holdDone = (ushort)(holdDone | mask); Down[(int)hold] = true; }
                 if (now && holdHeld && (holdDone & mask) != 0) Held[(int)hold] = true;
-                if (!now && was && (holdDone & mask) == 0) Down[(int)tap] = true;
+                bool tapped = !now && was && (holdDone & mask) == 0;
+                if (tapped && tap.HasValue) Down[(int)tap.Value] = true;
+                return tapped;
             }
 
             /// <summary>dt: il tempo dal giro prima (s), per distinguere i tocchi dai tasti tenuti.</summary>
@@ -194,7 +196,9 @@ namespace PryingEyes
                 Set(TouchControls.Action.Jump, Is(A), Pressed(A));
                 Set(TouchControls.Action.Spell, Is(LeftShoulder), Pressed(LeftShoulder));          // la mano sinistra: MagicCaster distingue tocco e tenuto
                 Set(TouchControls.Action.Grenade, false, Pressed(RightShoulder));
-                Set(TouchControls.Action.Knife, false, !ltOn && Pressed(RightStick));
+                if (Pressed(RightStick)) rightStickAim = ltOn;
+                bool rightTap = TapHold(b, RightStick, null, TouchControls.Action.Grapple);
+                if (rightTap && !rightStickAim && !ltOn) Set(TouchControls.Action.Knife, false, true);
                 TapHold(b, X, TouchControls.Action.Reload, TouchControls.Action.Use, true);       // Usa resta tenuto: rialzare un compagno vuole 3 s
                 TapHold(b, Y, TouchControls.Action.Swap, TouchControls.Action.Mode);
                 TapHold(b, DpadUp, TouchControls.Action.Torch, TouchControls.Action.Battery);
@@ -210,7 +214,7 @@ namespace PryingEyes
                 if (ltOn)
                 {
                     if (Pressed(LeftStick)) { leanL = !leanL; leanR = false; }
-                    if (Pressed(RightStick)) { leanR = !leanR; leanL = false; }
+                    if (rightTap && rightStickAim) { leanR = !leanR; leanL = false; }
                 }
                 else leanL = leanR = false;
                 Set(TouchControls.Action.Left, leanL, false);

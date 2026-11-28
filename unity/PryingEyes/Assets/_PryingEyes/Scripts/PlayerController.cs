@@ -395,11 +395,14 @@ namespace PryingEyes
             maxSpeed *= wishAmount; // lo stick regola la velocità, non la lunghezza della base usata dall'accelerazione
 
             Vector3 hv = new Vector3(vel.x, 0, vel.z);
+            ReadGrapple(inputEnabled, jumpPressed, dt);
+            bool grappleMovement = GrappleAttached;
             float dive = jumpHeld ? -1f : diveHeld ? 1f : 0f;
 #if !PE_DISTRIBUTION_BUILD
             if (GameManager.autoTest && swimTestVertical != 0f) dive = swimTestVertical;
 #endif
-            if (Swimming) SwimMove(waterSurface, lakeDepth, wish, wishAmount, dive, dt);
+            if (grappleMovement) MoveGrapple(dt, wish * wishAmount);
+            else if (Swimming) SwimMove(waterSurface, lakeDepth, wish, wishAmount, dive, dt);
             else if (CheatFlight)
             {
                 bool up = inputEnabled && (SeatInput.GetKey(KeyCode.Space) || TouchControls.Held(TouchControls.Action.Jump));
@@ -457,7 +460,7 @@ namespace PryingEyes
             }
 
             if (CheatFlight) MoveBody(dt);
-            else if (!Swimming)
+            else if (!Swimming && !grappleMovement)
             {
                 vel.y -= gravity * dt;
                 vel.y = Mathf.Max(vel.y, -22f);
@@ -467,7 +470,7 @@ namespace PryingEyes
                 Vector3 facing = new Vector3(sin, 0f, cos);
                 bool dropPressed = OnClimbWall && (SeatInput.GetKeyDown(KeyCode.C) || SeatInput.GetKeyDown(KeyCode.LeftControl) || TouchControls.Down(TouchControls.Action.Crouch));
                 bool climbMovement = ParkourStep(dt, inputEnabled, dropPressed, f, s, wish, facing);
-                UpdateWingsuit(dt, jumpHeld && !wading, wantCrouch, facing);
+                UpdateWingsuit(dt, jumpHeld && !wading && !GrappleLive, wantCrouch, facing);
                 if (!climbMovement)
                 {
                     if (!Gliding && !Mantling && inputEnabled && jumpBuf > 0f && TryMantle(facing)) { }
@@ -505,7 +508,7 @@ namespace PryingEyes
             // --- camera ---
             float hs = new Vector2(vel.x, vel.z).magnitude;
             SpeedH = hs;
-            IsSprinting = wantSprint && !slide && hs > 1f;
+            IsSprinting = wantSprint && !slide && !grappleMovement && hs > 1f;
             IsCrouching = crouch || slide;
             float motion = GameSettings.Motion;
             float bobAmp = (Swimming ? 0f : crouch ? 0.45f : 1f) * (1f - weapon.ads * 0.8f) * Mathf.Min(1f, hs / 6f) * motion;
@@ -539,7 +542,8 @@ namespace PryingEyes
 
             Camera c = cam.GetComponent<Camera>();
             float baseFov = SplitScreen.Active ? SplitScreen.FovFor(GameSettings.Fov, Seats.ViewAspect(Seats.Current, c.aspect)) : GameSettings.Fov;     // nelle finestre larghe dello split screen il campo orizzontale non esagera (su piu' monitor: l'aspetto della porzione sul SUO monitor)
-            float targetFov = baseFov + ((wantSprint && !slide && hs > 1f ? 7f : 0f) + (slide ? 5f : 0f) + 5f * WingAmount + fovKick) * motion
+            float grappleFov = grappleMovement ? Mathf.InverseLerp(3f, 20f, vel.magnitude) * 5f : 0f;
+            float targetFov = baseFov + ((IsSprinting ? 7f : 0f) + (slide ? 5f : 0f) + 5f * WingAmount + grappleFov + fovKick) * motion
                 - weapon.ads * (baseFov - wd.adsFov);
             fovKick *= Mathf.Max(0f, 1f - 6f * dt);
             c.fieldOfView += (targetFov - c.fieldOfView) * Mathf.Min(1f, 10f * dt);
@@ -570,8 +574,10 @@ namespace PryingEyes
                 Sfx.UI(SoundBank.PerkVelo, 0.65f);
             }
 
+            if (launchGrapple) LaunchGrapple();
             DrawParkourHands(dt);
-            weapon.Tick(dt, (f > 0 && wantSprint && !OnClimbWall) || Mantling, hs, cc.isGrounded || Mantling || OnClimbWall, crouch, lookDelta);
+            DrawGrapple();
+            weapon.Tick(dt, (f > 0 && wantSprint && !OnClimbWall && !GrappleLive) || Mantling, hs, cc.isGrounded || Mantling || OnClimbWall, crouch, lookDelta);
             hud?.SetBars(hp, shield);
 
             // --- armi sui muri: prompt + acquisto con F ---
@@ -591,7 +597,7 @@ namespace PryingEyes
                 ReviveOthersTick(dt, testHoldUse || SeatInput.GetKey(KeyCode.F) || TouchControls.Held(TouchControls.Action.Use));
         }
 
-        void MoveBody(float dt)
+        CollisionFlags MoveBody(float dt)
         {
             float targetHeight = Swimming ? Mathf.Lerp(heightStand, heightCrouch, SwimSubmersion) : crouch || slide ? heightCrouch : heightStand;
             cc.height = Mathf.Lerp(cc.height, targetHeight, 11f * dt);
@@ -599,6 +605,7 @@ namespace PryingEyes
             var hit = cc.Move(vel * dt);
             WingsuitContact(hit);
             if (Deserto.DesertMode.Active && vel.y > 0f && (hit & CollisionFlags.Above) != 0) vel.y = 0f;
+            return hit;
         }
 
         /// <summary>Secondi di sedativo rimasti: finché dura ti muovi al 55%. Lo dà la puntura dell'infermiere.</summary>

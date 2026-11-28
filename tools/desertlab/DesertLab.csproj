@@ -28,5 +28,6 @@
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertScatterGen.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertWeather.cs" />
     <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\DesertGrade.cs" />
+    <Compile Include="..\..\unity\PryingEyes\Assets\_PryingEyes\Rules\Desert\GrappleReel.cs" />
   </ItemGroup>
 </Project>
